@@ -714,6 +714,14 @@ const CommunityWorkspacePage: React.FC = () => {
 
         <div style={{ display: activeSection === 'messaging' ? 'block' : 'none' }}>
           <MessagingTabContent 
+            // A new identity per community: every workspace-bound piece of
+            // messaging state (selected thread, messages, reply/edit targets,
+            // active view) resets synchronously when the community changes or
+            // becomes unavailable, and the outgoing tab's unmount cleanup aborts
+            // its pending @mention request. Without this the tab kept Community
+            // A's selected thread across A -> null -> B and could send with B's
+            // workspace id and A's thread id.
+            key={currentWorkspace?.community_id ?? 'no-community'}
             workspace={currentWorkspace} 
             workspaceAccess={workspaceAccess} 
             user={user} 

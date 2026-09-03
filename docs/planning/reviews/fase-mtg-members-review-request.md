@@ -2,11 +2,21 @@
 
 - **Branch:** `fix/mtg-members` (15 characters; created in the main checkout
   `/Users/brentcurtis/Documents/fne-lms-working` — no worktree was created).
-  PR: <https://github.com/brentcurtis76/fne-lms/pull/72>.
-- **Current status: READY FOR HUMAN MERGE CONSIDERATION.** Every automated
-  gate passed on the integration head and the authorized manual synthetic
-  scenarios passed in an isolated local environment (§9). The PR has **not**
-  been merged; merging is Brent's decision.
+  PR: <https://github.com/brentcurtis76/fne-lms/pull/72>. Follow-up branch:
+  `fix/mtg-members-thread-reset` (§10).
+- **Current status: PR #72 MERGED; ONE FOLLOW-UP CORRECTION OPEN (§10).**
+  Brent merged PR #72 into `main` as merge commit
+  `d58707923503e4afd6a983a759b67f85c7220a12` (parents `6de7c929`, the
+  `main` of that moment, and `dcf72e60`, the PR head). Before the merge every
+  automated gate had passed on the integration head and the authorized manual
+  synthetic scenarios had passed in an isolated local environment (§9). The
+  merged Stage B left one defect: the messaging tab keeps Community A's
+  selected thread across a community switch, so the composer can be rendered —
+  and a message sent — with Community B's workspace id and Community A's
+  thread id. That is corrected by the follow-up branch recorded in §10. The
+  status "READY FOR HUMAN MERGE CONSIDERATION" that stood here until the
+  merge is historical; the statements in §§5–9 that "the PR has not been
+  merged" or "remains open" are the pre-merge record and are labelled as such.
 - **Original implementation base:** `8218e597e148d8044fe7d330c118243aa3772485`
   — live `origin/main`, verified by `git ls-remote origin refs/heads/main` at
   task start on 2026-09-02 and re-verified immediately before the branch was
@@ -27,7 +37,9 @@
   3. `b667bf41` — integration: `merge: update fix/mtg-members with main`
      (parents `b899c48b` and `6de7c929`; normal non-fast-forward merge, no
      conflicts, no manual edits, pushed without force).
-  4. This documentation-only commit — modifies only this file.
+  4. `dcf72e60` — documentation-only (`docs(review): finalize PR 72
+     validation evidence`); modifies only this file. This was the PR head at
+     merge time.
   Neither feature commit was amended. The PR changes exactly 11 files against
   `main`.
 - **What this branch does not contain:** no database, migration, grant,
@@ -122,14 +134,14 @@ copied into the repository.
 | 4 | Typed fetcher with optional `AbortSignal` | `lib/community/fetchCommunityMembers.ts:63` | `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:349` asserts an `AbortSignal` was passed |
 | 5 | Reject non-2xx, JSON failure, `members` not an array | `lib/community/fetchCommunityMembers.ts:72`, `lib/community/fetchCommunityMembers.ts:81`, `lib/community/fetchCommunityMembers.ts:90` | `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:433` — 403, 403-with-members-array, 500, members-not-array, no-members-key, non-JSON body, network failure |
 | 6 | Fail closed: empty list, explicit state, one es-CL toast, no alternative query | state `components/meetings/MeetingDocumentationModal.tsx:80`; catch `components/meetings/MeetingDocumentationModal.tsx:257`–`261` | `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:433` asserts `toast.error` called exactly once with the message and id, zero candidates, error note, one request, no direct reads |
-| 7 | Old candidates cleared when a load begins | `components/meetings/MeetingDocumentationModal.tsx:247` | covered by the loading-state assertions in `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:537` |
+| 7 | Old candidates cleared when a load begins | `components/meetings/MeetingDocumentationModal.tsx:247` — the load effect calls `setAvailableUsers([])` and sets `loading` before every request | **Code inspection only, no direct test.** `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:537` asserts the `loading` state of an *initial* load in a freshly rendered modal; nothing had been loaded before it, so that test does not prove previously loaded candidates were cleared. No test in the suite loads candidates and then triggers a second load. (Row corrected in the follow-up round, §10.4; the earlier wording claimed test coverage this test does not give.) |
 | 8 | `AbortController` cleanup; late settlement neither updates state nor toasts | `components/meetings/MeetingDocumentationModal.tsx:242`–`268` (`active` flag + `controller.abort()` at `components/meetings/MeetingDocumentationModal.tsx:266`) | `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:468` (signal aborted on unmount, AbortError → no toast), `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:490` (late 500 after unmount → no toast, nothing logged), `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:515` (`isOpen` → false aborts) |
 | 9 | No A→B coordination; parent unmount handles community switch | comment at the effect, `components/meetings/MeetingDocumentationModal.tsx:242` | n/a (design) |
 | 10 | One `availableUsers` list for Asistentes / Compromisos / Tareas | `components/meetings/MeetingDocumentationModal.tsx:1191`, `components/meetings/MeetingDocumentationModal.tsx:1479`, `components/meetings/MeetingDocumentationModal.tsx:1565` | `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:314` — two members and only those in all three controls |
 | 11 | Real first precedence-ordered role; never fabricated `docente` | `components/meetings/MeetingDocumentationModal.tsx:93`–`100` | no UI test by design (the modal does not render `role_type`); reviewer inspects the mapper |
 | 12 | Historical assignee: neutral while loading / on failure, outsider label only after success, record-local, id preserved, reassignable | `components/meetings/MeetingDocumentationModal.tsx:986`, `components/meetings/MeetingDocumentationModal.tsx:993`, `components/meetings/MeetingDocumentationModal.tsx:1012`, used at `components/meetings/MeetingDocumentationModal.tsx:1483` and `components/meetings/MeetingDocumentationModal.tsx:1569` | `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:537`, `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:577`, `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:604` (task selector proves the option is record-local; update payload keeps the id), `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:658` (payload carries the new id) |
 | 13 | Historical attendees read-only after success, never selectable | `components/meetings/MeetingDocumentationModal.tsx:1006`, `components/meetings/MeetingDocumentationModal.tsx:1211` | `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx:604` (disabled checked row; only two selectable checkboxes) |
-| 14 | Mentions: no admin fallback; `{ members: [] }` → zero; failures clear; **Stage B:** both lists scoped to the workspace community, request tied to its community, late/old-scope results ignored | state + captured community id `pages/community/workspace.tsx:1744`–`1754`; clear-on-change/abort-on-leave effect `pages/community/workspace.tsx:1799`–`1811`; tagged request, `signal.aborted` guards, fail-closed via `fetchCommunityMembers` `pages/community/workspace.tsx:1881`–`1925`; `handleMentionRequest` `pages/community/workspace.tsx:1928`–`1950`; mapper `pages/community/workspace.tsx:1700` | `__tests__/pages/community/workspace.mention-scope.test.tsx:425` (A populated → B empty: cleared before B answers, `{ members: [] }` leaves both lists empty, no A request after the switch), `:454` (A settling after B is ignored, A's request aborted, no duplicate while loading), `:486` (workspace=null transition clears and cancels before B loads), `:524` (500 / malformed / network failure → empty; only `/api/community/members`; no profiles / user_roles / community_workspaces read), `:552` (unmount aborts, late settlement silent). Fail-on-old: 4 of 5 fail against the committed page (§5.2). Manual empty-community mentions scenario passed later in the isolated local QA (§9.2, scenario 4) |
+| 14 | Mentions: no admin fallback; `{ members: [] }` → zero; failures clear; **Stage B:** both lists scoped to the workspace community, request tied to its community, late/old-scope results ignored | state + captured community id `pages/community/workspace.tsx:1744`–`1754`; clear-on-change/abort-on-leave effect `pages/community/workspace.tsx:1799`–`1811`; tagged request, `signal.aborted` guards, fail-closed via `fetchCommunityMembers` `pages/community/workspace.tsx:1881`–`1925`; `handleMentionRequest` `pages/community/workspace.tsx:1928`–`1950`; mapper `pages/community/workspace.tsx:1700` | `__tests__/pages/community/workspace.mention-scope.test.tsx:425` (A populated → B empty: cleared before B answers, `{ members: [] }` leaves both lists empty, no A request after the switch), `:454` (A settling after B is ignored, A's request aborted, no duplicate while loading), `:486` (workspace=null transition clears and cancels before B loads), `:524` (500 / malformed / network failure → empty; only `/api/community/members`; no profiles / user_roles / community_workspaces read), `:552` (unmount aborts, late settlement silent). Fail-on-old: 4 of 5 fail against the committed page (§5.2). Manual empty-community mentions scenario passed later in the isolated local QA (§9.2, scenario 4). **Follow-up (§10):** the tab now receives a new identity per community; the suite additionally proves that no thread or composer of Community A survives the switch (including A → null → B) and that the composer mounted for Community B carries `ws-B` / `THREAD_B`. The five cases are at `:477`, `:510`, `:545`, `:587`, `:615` on the follow-up branch |
 | 15 | Dead helper and its mock entries removed | `utils/meetingUtils.ts` (36 lines removed, `AssignmentUser` import dropped); three fixtures | `grep getCommunityMembersForAssignment` → 0 hits outside the untracked external plan copy |
 | 16 | Endpoint suite: per-instance `.eq` capture, exact second-query filters | `__tests__/api/community/members.test.ts:58`, `__tests__/api/community/members.test.ts:96` | `__tests__/api/community/members.test.ts:153`, `__tests__/api/community/members.test.ts:173`, `__tests__/api/community/members.test.ts:215` (admin non-member); `__tests__/api/community/members.test.ts:198` also proves the member query is never built on 403 |
 
@@ -157,6 +169,13 @@ copied into the repository.
   suggestion mapper is a module-level function; the two lists are typed
   `MentionSuggestion[]` instead of `any[]`. `MeetingDocumentationModal` and its
   call site are untouched by Stage B.
+  **Follow-up (`fix/mtg-members-thread-reset`, §10, +8/−0):** the parent
+  renders `MessagingTabContent` with
+  `key={currentWorkspace?.community_id ?? 'no-community'}` (element at
+  `pages/community/workspace.tsx:716`, prop at `:724`), so the whole tab — not only its mention
+  lists — is remounted when the community changes or becomes unavailable.
+  Line references to this file elsewhere in §§3–8 are to the merged content;
+  on the follow-up branch every reference after `:716` is shifted by +8.
 
 **Medium risk (new module)**
 
@@ -180,6 +199,14 @@ copied into the repository.
   `fetch` stub keyed by `community_id` (deferred responses, per-community
   workspace gate) and a stub composer that renders the suggestions it receives
   and asks for mentions like a typed `@`.
+  **Follow-up (§10, +92/−29):** each community now owns exactly one thread
+  (`THREAD_A` in `ws-A`, `THREAD_B` in `ws-B`); `getWorkspaceThreads` answers
+  only for the workspace it is asked about and records every workspace it was
+  asked for; the composer stub exposes the `workspaceId` / `threadId` pair it
+  was given; `openComposer` (which tolerated a composer surviving the switch)
+  is replaced by `tabLoaded` + `openThread`, which require that the new tab
+  starts with nothing selected and that the opened thread's composer carries
+  exactly that community's workspace and thread. Still 5 tests.
 - `__tests__/api/community/members.test.ts` — hardened (8 tests; all 7
   original tests retained, one added).
 - `__tests__/components/meetings/MeetingDocumentationModal.{end-dedup,clear-rich-text,save-draft}.test.tsx`
@@ -198,6 +225,12 @@ which appeared during this session) were neither touched nor staged.
 
 ## 5. Validation
 
+**Label (added in the follow-up round):** §5.1–§5.2 are the PR #72 record —
+the runs made before and during Stage B, on the pre-merge checkout and its
+validation copies. They are historical and, as a record of those runs, still
+accurate. Nothing in them was run again for the follow-up; the follow-up
+round's own validation is in §10.5 only.
+
 ### 5.1 Where the gates ran, and why (deviation, disclosed)
 
 Node cannot load modules from this checkout's iCloud-served `node_modules`
@@ -205,7 +238,7 @@ Node cannot load modules from this checkout's iCloud-served `node_modules`
 `sample` showed the main thread blocked with `node_modules/@vitest/runner/dist/utils.js`
 as the last open file — the recurring condition already recorded for this
 machine). Every gate below was therefore run in a **validation copy** made by
-copying **only the 2,462 tracked files** (`git ls-files -z | rsync -0 -a --files-from=- ./ <scratchpad>/repo/`)
+copying **only the 2,464 tracked files** (`git ls-files -z | rsync -0 -a --files-from=- ./ <scratchpad>/repo/`; the count first written here, 2,462, was wrong — `git ls-tree -r --name-only 8218e597 | wc -l` is 2,464, verified in the follow-up round, §10.4)
 into the session scratchpad on local disk, followed by `npm ci --no-audit --no-fund`
 (1,375 packages, 11 s, exit 0). The copy has no `.git`, no `.env.local`, no
 `.claude/settings.local.json` and no other ignored file; it is not a branch or
@@ -366,10 +399,17 @@ first run is disclosed, not counted.
    signal) by the presence of an `AbortSignal`
    (`__tests__/pages/community/workspace.mention-scope.test.tsx:334`); only the
    cancellation and deduplication assertions depend on that, the behavioral
-   waits cover every request for the community (`:349`). The composer that
-   reappears for Community B does so because the tab keeps its selected thread
-   across the switch (pre-existing, out of scope); the helper re-selects the
-   thread if that ever changes (`:370`).
+   waits cover every request for the community (`:349`).
+   **Corrected in the follow-up (§10).** As merged, the composer reappeared
+   for Community B because the tab kept Community A's selected thread across
+   the switch; an earlier version of this paragraph called that pre-existing
+   and out of scope, and the suite's `openComposer` helper treated a composer
+   that survived the switch as fine. That was wrong. The composer is rendered
+   with `workspaceId={workspace.id}` and `threadId={selectedThread.id}`
+   (`pages/community/workspace.tsx:2498`–`:2500` as merged), so after
+   A → null → B it could send with Community B's workspace id and Community
+   A's thread id. The follow-up remounts the tab per community and the suite
+   now fails if anything selected in A survives into B.
 
 Additional honest notes: the modal did not need `role_type` for rendering, so
 the mapper's "first endpoint role, empty string when none" rule
@@ -459,8 +499,9 @@ this document was modified; every pre-existing untracked path, including
 ## 9. Post-implementation evidence (2026-09-02 → 2026-09-03)
 
 Recorded by the final documentation-only commit. Everything below happened
-after the implementation session; nothing in §§1–8 was rewritten except the
-header, the row-14 note, the §5.3 label and §7 item 1.
+after the implementation session; as of `dcf72e60` nothing in §§1–8 had
+been rewritten except the header, the row-14 note, the §5.3 label and §7
+item 1. The follow-up round's further corrections are itemized in §10.4.
 
 ### 9.1 Automated evidence — GitHub CI and Vercel
 
@@ -528,6 +569,152 @@ does not claim all seven matrix rows were manually executed.
 ### 9.5 Acceptance
 
 The combined manual and automated evidence was accepted by the independent PM
-reviewer as sufficient for merge consideration. The PR remains open; no
-merge, deployment, database or provider operation has been performed by the
-executor.
+reviewer as sufficient for merge consideration. *(Historical, written before
+the merge:)* the PR remained open at that point. Brent then merged PR #72 as
+`d5870792` (§10.1). No deployment, database or provider operation has been
+performed by the executor at any stage; the merge and whatever `main`'s
+normal path does after it are Brent's controlled path and are not claimed or
+verified here.
+
+## 10. Follow-up round (2026-09-03) — cross-community thread reset
+
+Branch `fix/mtg-members-thread-reset` (28 characters — over the 20-character
+guideline of the executor rules; the name was prescribed by the authorized
+task, and the branch is not intended to be previewed under a Vercel preview
+domain), created from live `origin/main`. This round was executed in a fresh
+disposable clone of `origin` made in the session scratchpad, not in the
+`fne-lms-working` checkout and not in a worktree attached to it; that
+checkout was read once — `git diff` of its two modified files — and was not
+staged, cleaned, switched, fetched into, or otherwise mutated. The clone
+contains no `.env*` file (verified) and no ignored input; nothing in this
+round touched a database, a Supabase stack, Vercel, or any provider.
+
+### 10.1 State lock
+
+| Ref | SHA | Note |
+| --- | --- | ---- |
+| PR #72 merge commit | `d58707923503e4afd6a983a759b67f85c7220a12` | `Merge pull request #72 from brentcurtis76/fix/mtg-members`; parents `6de7c929` (then `main`) and `dcf72e60` (PR head) |
+| `origin/fix/mtg-members` | `dcf72e60d63008e0af1cb7a3f006ca1a64089318` | unchanged since the merge |
+| `origin/main` at the start of this round | `c88ff1c8d8e36de321f2dddb572fbe6434fa440f` | `Merge pull request #76`; re-queried after cloning, identical; 4 commits after the merge, changing only `PROJECT_STATE.md` and one review document — neither source file of this round |
+| `origin/fix/mtg-members-thread-reset` before this round | absent | verified with `git ls-remote --heads` |
+| Source of the patch | `fne-lms-working` at local `b899c48b`, unstaged | `pages/community/workspace.tsx` (+8/−0) and `__tests__/pages/community/workspace.mention-scope.test.tsx` (+92/−29); applied with `git apply` to the clone and the resulting `git diff` is byte-identical to the exported patch |
+
+**Inventory evidence, verified with `git ls-tree -r --name-only <sha> | wc -l`
+in the clone:** base `8218e597` — **2,464** tracked paths; Stage A HEAD
+`95fb6425` — **2,467**; Stage B HEAD `b899c48b` — 2,468; PR head `dcf72e60`
+and the merge commit — 2,474; `c88ff1c8` — 2,475. §5.1 had recorded the base
+as 2,462; that figure is corrected above and in place.
+
+### 10.2 The finding — workspace/thread mismatch across communities
+
+`MessagingTabContent` keeps `selectedThread`, `messages`, `replyToMessage`,
+`editingMessage`, `activeView`, the delete/preview targets and the composer's
+props as component state. Stage B (§8) reset only the two mention lists when
+`workspace?.community_id` changed. Everything else survived a community
+switch, including the A → `null` → B sequence the page really performs: with
+`workspace = null` the tab rendered the "Selecciona una comunidad…" notice but
+still held Community A's `selectedThread`, and when Community B's workspace
+arrived the composer was mounted again from that surviving state with
+`workspaceId={workspace.id}` (B) and `threadId={selectedThread.id}` (A) —
+`pages/community/workspace.tsx:2498`–`:2500` as merged. A message sent from
+that composer would carry Community B's workspace id and Community A's thread
+id. The merged suite did not catch this because its single `THREAD` fixture
+(`thread-1` in `ws-A`) was returned for every workspace and its
+`openComposer` helper returned early whenever a composer was already on
+screen, so a composer that survived the switch counted as success; §6 item 6
+even described that survival as pre-existing and out of scope.
+
+### 10.3 The correction and what the suite now proves
+
+**Page (`pages/community/workspace.tsx:716`–`:724`, +8 lines, all comment
+except one prop):** `MessagingTabContent` is rendered with
+`key={currentWorkspace?.community_id ?? 'no-community'}`. A community change,
+including the transition through `null`, therefore unmounts the tab and
+mounts a fresh one: `selectedThread`, `messages`, `threads`, reply/edit
+targets, delete/preview targets, `activeView`, the filters and the composer
+state all start from their initial values synchronously, in the same commit
+in which the parent's workspace changes — there is no frame in which
+Community B's workspace is paired with Community A's thread. The outgoing
+tab's unmount runs the Stage B effect cleanup, which aborts its pending
+@mention request (`cancelMentionRequest`, effect at `:1810`–`:1819` on this
+branch). The Stage B logic itself is unchanged.
+
+**Suite (`__tests__/pages/community/workspace.mention-scope.test.tsx`, still
+5 tests):**
+
+- distinct fixtures `THREAD_A` (`thread-A` in `ws-A`) and `THREAD_B`
+  (`thread-B` in `ws-B`); `getWorkspaceThreads(workspaceId)` returns only
+  that workspace's thread and records every workspace it was asked for;
+- the composer stub exposes `data-workspace-id` / `data-thread-id`;
+  `composerScope()` reads them and every switch case ends by asserting
+  `{ workspaceId: 'ws-B', threadId: THREAD_B.id }`;
+- `tabLoaded(B)` waits until the tab asked for `ws-B`'s threads and then
+  requires: no composer mounted, no `Hilo A` on screen;
+- `openThread(B)` requires no composer before the click, clicks `Hilo B`, and
+  asserts the mounted composer carries exactly `ws-B` / `THREAD_B`;
+- in the `null`-transition case the assertions that Community A's composer
+  and thread are gone, and that A's request was aborted by the transition
+  itself, run while `workspace = null`, before B is opened;
+- the empty-B, A-settles-late, null-transition, fail-closed
+  (500 / malformed / network, `/api/community/members` only), deduplication,
+  late-response and unmount cases keep their previous assertions.
+
+**Fail-on-old proof (clone only; the page was restored afterwards and
+`cmp`-verified byte-identical, `git status` showed only the two source files
+modified):** with `pages/community/workspace.tsx` swapped back to the
+`origin/main` version, the new suite → **3 failed / 2 passed**. The three
+community-switch cases fail on `expected <div …> to be null` — Community A's
+composer still mounted after the switch. The fail-closed and unmount cases
+pass on both versions, as they should (their behavior was already merged).
+
+### 10.4 Corrections made to this document in this round
+
+1. Header: PR #72 recorded as merged at `d5870792`; "READY FOR HUMAN MERGE
+   CONSIDERATION" replaced by the merged / follow-up status; the fourth
+   commit named (`dcf72e60`); the follow-up branch added.
+2. §3 row 7: the claim that the initial-loading test at
+   `MeetingDocumentationModal.members.test.tsx:537` covers "old candidates
+   cleared when a load begins" is withdrawn; that row now says the evidence
+   is code inspection of `MeetingDocumentationModal.tsx:247` and that no test
+   loads candidates twice.
+3. §3 row 14, §4 (both entries): follow-up notes added; line-number shift of
+   +8 after `:716` disclosed.
+4. §5.1: base inventory corrected from 2,462 to 2,464 tracked paths; the Stage
+   A figure of 2,467 was already correct. §5 labelled historical.
+5. §6 item 6: the sentence calling the survival of Community A's selected
+   thread "pre-existing, out of scope" removed and replaced by the finding.
+6. §9 intro and §9.5: pre-merge statements labelled historical; merge
+   recorded.
+7. This section added. Nothing else in §§1–9 was reworded; where the earlier
+   text says "the PR has not been merged", "remains open" or "validation
+   copy", it is the pre-merge record.
+
+### 10.5 Validation — this round only, in the clone, after the final source change
+
+The only edit made after the runs in this table was to this Markdown file;
+`git diff --check`, the scope audit and the committed-secrets guard were run
+again after that edit, as listed. Environment: Node v22.22.0, npm 10.9.4,
+`npm ci --no-audit --no-fund` (exit 0) in the clone; the full Vitest run and
+the build were given a command-scoped synthetic environment that points at an
+unreachable port (`NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:9`, placeholder
+anon/service strings; the build additionally
+`NEXT_PUBLIC_BASE_URL=http://localhost:3000`) so that neither could reach a
+real Supabase stack.
+
+| # | Command (clone, branch `fix/mtg-members-thread-reset`) | Exit | Result |
+| - | ------------------------------------------------------ | ---- | ------ |
+| 1 | `git diff --check` (source patch applied) | 0 | clean |
+| 2 | `npx vitest run __tests__/pages/community/workspace.mention-scope.test.tsx` | 0 | 1 file / **5 passed** |
+| 3 | `npx vitest run` — mention-scope + `MeetingDocumentationModal.{members,clear-rich-text,end-dedup,save-draft}` + `__tests__/api/community/members.test.ts` | 0 | 6 files / **35 passed** |
+| 4 | `npm run type-check` | 0 | no diagnostics |
+| 5 | `npm run lint` | 0 | zero warnings (`--max-warnings=0`) |
+| 6 | full `npm test` (synthetic env above, real clone with its Git index) | 0 | **376 files passed (376)**; 8,656 tests — **8,645 passed / 11 skipped / 0 failed**; 230.8 s (the expected `console.error` noise of tests that exercise error paths is in the log; no test failed) |
+| 7 | `node scripts/ci/check-committed-secrets.mjs` (three files staged) | 0 | OK — 2,475 tracked paths, 0 findings |
+| 8 | `npm run build` (synthetic env above) | 0 | Next.js — compiled successfully, **149/149** static pages generated |
+| 9 | final `git diff --check` + `git status --porcelain` scope audit after the document edit | 0 | clean; exactly the three allowed paths modified, nothing untracked |
+
+Not run in this round, and not claimed: Playwright (`npm run e2e`) locally
+— it will run as Gate 4 on the pull request's CI; `npm run test:db` (no
+database or RLS change); any manual browser scenario; anything against
+Production or a Vercel Preview. No merge, deployment, database, provider or
+secret operation was performed.

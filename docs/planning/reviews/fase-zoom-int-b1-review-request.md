@@ -147,16 +147,16 @@ Before the fixture adaptation, the two existing creation suites failed 11 of 16 
 
 | Command | Result |
 |---|---|
-| focused Vitest (the five B1 suites) | A2_FOCUSED |
-| `npm run type-check` | A2_TSC |
-| `npm run lint` | A2_LINT |
-| `npm test` | A2_TEST |
-| `npm run build` (dummy public Supabase vars, as in §4) | A2_BUILD |
-| `npm run guard:browser` | A2_GB |
-| `npm run guard:secrets` | A2_GS |
-| `git diff --check` | A2_DC |
+| focused Vitest (the five B1 suites) | exit 0 — 5 files, **121 passed / 0 failed** (46 + 24 + 35 + 7 + 9) |
+| `npm run type-check` | exit 0 |
+| `npm run lint` | exit 0 (zero warnings) |
+| `npm test` | exit 0 — **378 files passed / 8,717 tests passed / 11 skipped / 0 failed** |
+| `npm run build` (dummy public Supabase vars, as in §4) | exit 0 — `✓ Compiled successfully`, `ƒ /api/sessions/capabilities` present in the route manifest |
+| `npm run guard:browser` | exit 0 — 1145 files scanned, no boundary finding |
+| `npm run guard:secrets` | exit 0 — 2,480 tracked paths, 0 findings |
+| `git diff --check` | exit 0, clean (run with this file already edited in the working tree) |
 
-After the documentation commit: worktree clean, `git diff --check` clean, `guard:secrets` re-run on the committed index (A2_GS2).
+After the attempt-2 documentation commits: worktree clean, `git diff --check` clean, `guard:secrets` re-run on the committed index (exit 0 — 2,480 tracked paths, 0 findings), `git diff --name-only 982f456d HEAD` still exactly the ten B1 paths, the three PR #78 blobs still byte-identical to `982f456d`, and `git diff 57d92e9c HEAD -- <the nine non-doc B1 paths>` empty. The first attempt-2 documentation commit (`2b1a0b3d`) was committed with this table's placeholders unfilled because the fill script aborted before writing; this follow-up commit fills them and changes nothing else.
 
 Not run, unchanged reasons from §4: `test:db`, `e2e`, `guard:migrations`, `guard:actions`.
 

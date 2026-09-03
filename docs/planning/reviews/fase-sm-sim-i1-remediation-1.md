@@ -87,9 +87,11 @@ Rereview at exact head `b8aefb17c8a42f042f2ff9400535a010fe8dd0c9` returned one b
 |---|---|
 | `npm run type-check` | exit 0 |
 | `npm run lint` | exit 0, zero warnings |
-| Focused Vitest (7 files: both simulation specs, transformation-assessments, expense notify, meeting finalize, QA reporting contract, outbound boundary) | exit 0 — **95 passed** |
-| `npm run test:simulation-db` | exit 0 — **2 passed** |
+| Focused Vitest, seven named files: `__tests__/scripts/production-qa-simulation.test.ts`, `__tests__/scripts/production-qa-simulation.postgres.test.ts`, `__tests__/api/admin/transformation-assessments.test.ts`, `__tests__/api/expense-reports/notify.test.ts`, `__tests__/api/meetings/finalize.test.ts`, `__tests__/api/reports/qa-tenant-exclusion-contract.test.ts`, `__tests__/lib/email/qa-outbound-boundary.test.ts` | exit 0 — **82 passed, 1 skipped** (83 total). The skip is the opt-in local-database round trip, which runs only when `SM_SIM_LOCAL_DATABASE_TEST=1`. |
+| `npm run test:simulation-db` (separate run; sets that variable) | exit 0 — **2 passed** |
 | Full `npm test` | exit 0 — **387 files / 8,801 passed / 12 skipped / 0 failed** (8,813 total; exactly the five new unit tests above the round-1 figure) |
+
+The focused run and `npm run test:simulation-db` overlap and must not be added: `production-qa-simulation.postgres.test.ts` appears in both, skipped in the focused run and executed in the dedicated one. The focused run's 82 passing tests and the dedicated run's 2 passing tests are therefore reported separately, not as a single total.
 
 **Refusal coverage.** Four parameterized fake-store cases prove `verify` **and** `reset` both reject, take no delete path, and leave the store byte-identical for: an extra nested JSON property, a missing JSON property, an altered nested value, and altered array contents. A direct comparison test proves undeclared keys now survive projection at both nesting levels while `Date` and numeric-string normalization still match.
 

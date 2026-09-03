@@ -59,7 +59,7 @@ Todo queda como cambios en el árbol de trabajo. **Cero commits.**
 | **Reclamaciones** accionables | 125 | **124** | misma fusión |
 | **Reclamaciones** P0 únicas | 37 | **36** | misma fusión |
 | **Reclamaciones** no accionables | 36 | 36 | sin cambio |
-| Work items | — | **109** | no existían; 107 al cerrar §14, +2 de simulación sintética en §15 (`W-SIM-01`, `W-SIM-02`) |
+| Work items | — | **109** | no existían; 107 al cerrar §14, +2 de simulación sintética en §15 (`W-SIM-01`, `W-SIM-02`); su topología vigente está en §16 |
 | Lotes de fusión distintos | — | **29** | 28 al cerrar §14, +`SIM1` en §15; el lote nuevo está bloqueado y sin autorizar |
 | **Enlaces** reclamación↔trabajo | — | **156** | 152 al cerrar §14, +4 enlaces de evidencia no cerrante en §15 |
 | **Enlaces** P0 reclamación↔trabajo | — | **63** | ≠ 36; nunca se intercambian; 59 al cerrar §14, +4 enlaces P0 no cerrantes en §15 |
@@ -838,3 +838,44 @@ La instantánea congelada `santa-marta-claims.csv` conserva SHA-256 `d598f29b39d
 ### 15.5 Lo que sigue bloqueado
 
 La secuencia completa es D0 mergeado → designación externa separada de proyecto staging, entorno Vercel, dominio protegido y sumidero → autorización/implementación/revisión/merge de W-SIM-01 → autorización separada de W-SIM-02 → inicialización verificada → siembra, aceptación y reset. B2c conserva sus dos prerrequisitos abiertos y prohíbe compartir la simulación de forma amplia o pública mientras no cierre. Ningún paso operacional se inició ni quedó autorizado por esta sección.
+
+---
+
+## 16. Enmienda de reutilización QA en Producción — SM-SIM-PROD-D1 (2026-09-03)
+
+**Decisión del dueño:** Brent rechazó expresamente la creación de un proyecto staging y eligió probar con datos sintéticos dentro de Producción. Después de una búsqueda de solo lectura solicitada por él, aprobó la dirección de reutilizar `QA Test School` (257) como base y `QA School B — Liceo de Prueba` (259) como control. Autorizó solamente esta reconciliación documental local y su validación; no autorizó código, commit, push, PR, merge, deploy, proveedor, clasificación, seed/reset ni otra escritura de Producción.
+
+La sección 15 permanece como registro histórico de la revisión 10. Esta sección 16 supersede únicamente su topología y su etiqueta operativa: no se crea Supabase staging, Vercel staging, dominio staging, credenciales staging ni sumidero externo. La etiqueta vigente pasa a `QA INTERNO — DATOS SINTÉTICOS EN PRODUCCIÓN — NO ES PILOTO REAL`.
+
+### 16.1 Evidencia de solo lectura
+
+Cuatro consultas correctas, acotadas a agregados/metadatos y envueltas en transacciones de solo lectura con timeout y `ROLLBACK`, observaron:
+
+- school 257: 13 perfiles aprobados/Auth-confirmados, 12 con permiso QA, 16 roles activos de siete tipos, una comunidad, 54 sesiones, 35 filas de estructura de cursos, un contexto transversal, un cliente/contrato, tres asignaciones de horas, seis entradas de ledger, tres matrículas de curso, tres instancias y ocho respuestas de evaluación, 49 facilitadores y dos notificaciones;
+- school 259: un cliente y un rol cross-school, sin perfiles directamente adscritos, comunidades, sesiones, contratos ni demás cobertura medida;
+- brechas directas: cero vínculos de red, generaciones, program enrollments, licitaciones, asignaciones/progreso de rutas, assessment submissions, transformation assessments y Zoom attendance;
+- ambos colegios: `tenant_kind='client'`, `internal_zoom_testing_enabled=false`.
+
+No se seleccionaron ni devolvieron nombres personales, identificadores de usuario, correos individuales, contraseñas, tokens, credenciales, texto libre, documentos o datos de menores. Una invocación SQL mal formada falló al parsear antes de ejecutar una sentencia y una invocación con flag CLI no admitido fue rechazada localmente; ninguna cambió estado.
+
+### 16.2 Forma actual de las unidades
+
+- **`W-SIM-01`** conserva `MERGE`, clase 0, lote `SIM1`, rama `feat/sm-sim`, `BLOCKED`/`UNAUTHORIZED`. Sustituye la allowlist de staging, `noindex` global y `ZOOM_MODE=mock` por una frontera de Producción por tenant: ref exacto + schools 257/259, requisito `tenant_kind=qa`, etiqueta solo QA, exclusión de reportes/selectores oficiales, correo `suppressed_qa` antes de proveedor, Zoom falso/rechazado antes de proveedor, crons bajo la misma política y tooling determinista de brechas/reset que no pueda tocar filas preexistentes o sin propiedad. No incluye migración ni escritura alojada.
+- **`W-SIM-02`** conserva `DATA`, clase 3, sin lote, `BLOCKED`/`UNAUTHORIZED`. Sólo después de W-SIM-01 aprobado/mergeado/desplegado/verificado y de otra autorización nominal de Brent puede clasificar únicamente 257/259 como `qa` con un escritor privilegiado y ejecutar el manifiesto de brechas. Mantener `qa` es el fallo seguro; volver a `client` requiere otra autorización y prueba de ausencia de residuos.
+
+Las cuatro filas del mapping ledger no cambian. Siguen siendo evidencia **NO CERRANTE**, no remediación, y no cierran B2c, onboarding, datos reales, Privacidad, preparación de Producción ni aceptación de Santa Marta. Los conteos de revisión 10 permanecen exactamente iguales.
+
+### 16.3 Restricciones nuevas o reforzadas
+
+- No crear plantillas globales de rutas en Producción; su vía se difiere mientras W-B2c esté abierta salvo autorización exacta posterior.
+- No tratar ninguna fila QA preexistente como propiedad del manifiesto o eliminable.
+- Prohibidos el seeder E2E local y los seeders demo/QA remotos existentes contra Producción.
+- Prohibido un modo Zoom global en Producción; la decisión debe ocurrir antes del proveedor y por tenant.
+- Un correo QA nunca contacta proveedor o destinatario real y nunca se reporta falsamente como entregado.
+- El reset elimina sólo filas versionadas del manifiesto, se detiene ante referencias ajenas y carece de `force` o wipe genérico.
+
+### 16.4 Validador y estado
+
+El check [23 simulación] se actualiza deliberadamente para fijar la revisión 11: mantiene la forma, autoridad separada, mappings y exclusión NO CERRANTE de W-SIM-01/02, y exige la nueva topología, IDs QA, etiqueta verdadera, fronteras por tenant, cuatro lecturas correctas y ausencia de staging como prerrequisito actual. La instantánea congelada de reclamaciones y el legacy archivado permanecen byte a byte intactos; el mapping ledger también queda sin cambios.
+
+La secuencia vigente es: enmienda documental revisada/mergeada → auditoría fresca y decisión de alcance W-SIM-01 → autorización local separada → implementación/revisión → decisión de merge/deploy de Brent → verificación de contención en el SHA exacto sin proveedor ni escritura → autorización nominal W-SIM-02 → ejecución clase 3 sobre únicamente 257/259. Ningún paso autoriza al siguiente.

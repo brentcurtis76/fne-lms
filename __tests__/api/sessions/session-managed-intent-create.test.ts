@@ -39,7 +39,7 @@ import handler from '../../../pages/api/sessions/index';
 /** Captures the rows the route tried to insert into `consultor_sessions`. */
 const inserted: Array<Record<string, any>> = [];
 
-function thenable(data: unknown[] | null, error: unknown = null) {
+function thenable(data: unknown, error: unknown = null) {
   const proxy: ProxyHandler<Record<string, unknown>> = {
     get(_t, prop) {
       if (prop === 'then') {
@@ -54,6 +54,11 @@ function thenable(data: unknown[] | null, error: unknown = null) {
 function mockClient() {
   return {
     from: vi.fn((table: string) => {
+      // Unit B1: the route reads the selected school's tenant controls first. A client
+      // tenant keeps the §8 managed-intent behaviour this file pins.
+      if (table === 'schools') {
+        return thenable({ id: SCHOOL_ID, tenant_kind: 'client', internal_zoom_testing_enabled: false });
+      }
       if (table === 'growth_communities') return thenable([{ id: GROWTH_COMMUNITY_ID }]);
       if (table === 'consultor_sessions') {
         const api: any = {

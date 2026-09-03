@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import { calculateAndSaveScores } from '@/lib/services/assessment-builder/scoringService';
+import { resolveCoberturaGate } from '@/lib/services/assessment-builder/coberturaGatePolicy';
 
 /**
  * POST /api/docente/assessments/[instanceId]/submit
@@ -146,18 +147,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const missingIndicators: string[] = [];
 
     modulesToValidate.forEach((module: any) => {
-      (module.indicators || []).forEach((indicator: any) => {
-        // R12: skip inactive indicators (if expectations data exists)
-        if (activeIndicatorIds !== null && !activeIndicatorIds.has(indicator.id)) {
-          return;
+      // Step 1: effective active indicators (year-aware, or legacy traspaso/detalle exclusion).
+      const activeIndicators = (module.indicators || []).filter((indicator: any) => {
+        if (activeIndicatorIds !== null) {
+          return activeIndicatorIds.has(indicator.id);
         }
+        return indicator.category !== 'traspaso' && indicator.category !== 'detalle';
+      });
 
-        // Legacy mode: when no year expectations data is available, skip traspaso/detalle
-        // (they are descriptive-only and were never required in the original validation).
-        if (activeIndicatorIds === null && (indicator.category === 'traspaso' || indicator.category === 'detalle')) {
-          return;
-        }
+      // Step 2: only genuinely applicable indicators (cobertura-gate-aware) are required.
+      const gate = resolveCoberturaGate({
+        indicators: activeIndicators,
+        getId: (ind: any) => ind.id,
+        getCategory: (ind: any) => ind.category,
+        getDisplayOrder: (ind: any) => ind.display_order,
+        getCoverageValue: (id: string) => responseMap.get(id)?.coverage_value,
+      });
 
+      gate.applicable.forEach((indicator: any) => {
         const response = responseMap.get(indicator.id);
 
         if (!response) {

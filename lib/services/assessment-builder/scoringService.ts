@@ -27,6 +27,7 @@ import type {
   YearWeightGroup,
 } from '@/types/assessment-builder';
 import { scoreToLevel, getExpectedLevelByYear } from '@/types/assessment-builder';
+import { resolveCoberturaGate } from '@/lib/services/assessment-builder/coberturaGatePolicy';
 
 // ============================================================
 // CORE SCORING FUNCTIONS
@@ -172,12 +173,26 @@ export function calculateModuleScore(
     weight: number;
     frequency_config?: FrequencyConfig;
     expectedLevel?: number;
+    display_order?: number | null;
   }>,
   responses: Map<string, AssessmentResponse>,
   moduleName: string,
   moduleWeight: number
 ): ModuleScore {
-  const indicatorScores: IndicatorScore[] = indicators.map((indicator) => {
+  // Year-aware filtering happens at the calculateAssessmentScores level BEFORE
+  // this function is called (R8/legacy fallback) — `indicators` here is already
+  // the effective active set. The cobertura gate is then resolved over that set:
+  // a closed/unanswered gate makes downstream indicators not applicable, so they
+  // are omitted from scoring entirely (not scored as 0).
+  const gate = resolveCoberturaGate({
+    indicators,
+    getId: (ind) => ind.id,
+    getCategory: (ind) => ind.category,
+    getDisplayOrder: (ind) => ind.display_order,
+    getCoverageValue: (id) => responses.get(id)?.coverage_value,
+  });
+
+  const indicatorScores: IndicatorScore[] = gate.applicable.map((indicator) => {
     const response = responses.get(indicator.id);
     const rawValue = response ? getRawValue(response, indicator.category) : undefined;
     const normalizedScore = response
@@ -199,10 +214,6 @@ export function calculateModuleScore(
     };
   });
 
-  // Year-aware filtering now happens at the calculateAssessmentScores level BEFORE
-  // this function is called. When activeExpectations is set (R8), only active indicators
-  // are passed here. When it is undefined (legacy instances with no expectations data),
-  // we fall back to the old exclusion behaviour to preserve backward compatibility.
   const moduleScore = calculateWeightedAverage(
     indicatorScores.map((i) => ({ score: i.normalizedScore, weight: i.weight }))
   );
@@ -213,7 +224,7 @@ export function calculateModuleScore(
     moduleScore,
     moduleWeight,
     indicators: indicatorScores,
-    activeIndicatorCount: indicators.length,
+    activeIndicatorCount: gate.applicable.length,
   };
 }
 
@@ -231,6 +242,7 @@ interface ModuleInput {
     category: IndicatorCategory;
     weight: number;
     frequency_config?: FrequencyConfig;
+    display_order?: number | null;
   }>;
 }
 
@@ -494,6 +506,7 @@ export interface InstanceDataForScoring {
       category: IndicatorCategory;
       weight: number;
       frequency_config?: FrequencyConfig;
+      display_order?: number | null;
     }>;
   }>;
   objectives?: Array<{
@@ -510,6 +523,7 @@ export interface InstanceDataForScoring {
         category: IndicatorCategory;
         weight: number;
         frequency_config?: FrequencyConfig;
+        display_order?: number | null;
       }>;
     }>;
   }>;
@@ -681,6 +695,7 @@ export async function fetchInstanceDataForScoring(
     category: ind.category as IndicatorCategory,
     weight: ind.weight ?? 1,
     frequency_config: ind.frequency_config,
+    display_order: ind.display_order,
   });
 
   const mapModule = (m: any) => ({
@@ -1469,7 +1484,12 @@ export async function fetchInstanceGapAnalysis(
   }
 
   const template = snapshotData.template;
-  const snapshotModules = snapshotData.modules || [];
+  // Dual-path: use objectives hierarchy if present, fall back to flat modules.
+  const snapshotObjectives = snapshotData.objectives || [];
+  const flatSnapshotModules = snapshotData.modules || [];
+  const snapshotModules = snapshotObjectives.length > 0
+    ? snapshotObjectives.flatMap((o: any) => o.modules || [])
+    : flatSnapshotModules;
   const transformationYear = instance.transformation_year as 1 | 2 | 3 | 4 | 5;
 
   // Determine which expectation set to use based on generation_type
@@ -1486,11 +1506,16 @@ export async function fetchInstanceGapAnalysis(
     }
   }
 
-  // Build modules with expectations (using correct GT or GI set)
+  // Build modules with expectations (using correct GT or GI set).
+  // Only indicators present in indicatorScores were applicable at scoring time
+  // (calculateModuleScore omits cobertura-gated-out indicators entirely) — a
+  // gated absence must not be reconstructed here as a missing/zero score.
   const modules = snapshotModules.map((m: any) => ({
     id: m.id,
     name: m.name,
-    indicators: (m.indicators || []).map((ind: any) => {
+    indicators: (m.indicators || [])
+      .filter((ind: any) => indicatorScores.has(ind.id))
+      .map((ind: any) => {
       // Select the correct expectation set based on generation_type
       // New snapshots have expectations_gt and expectations_gi
       // Old snapshots only have expectations (treated as GT)

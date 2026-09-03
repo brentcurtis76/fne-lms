@@ -29,6 +29,7 @@ import type {
   ModuleResult,
   GapAnalysisSummary,
 } from '@/components/assessment/results/types';
+import { resolveCoberturaGate } from '@/lib/services/assessment-builder/coberturaGatePolicy';
 
 export type { GapClassification, IndicatorGap, ModuleGapStats, ModuleResult, GapAnalysisSummary };
 
@@ -265,30 +266,27 @@ function scoreModule(
   const indicators = module.indicators;
   if (indicators.length === 0) return null;
 
-  // Check cobertura gate: if the first indicator is cobertura and answer is false,
-  // all other indicators in the module score 0
-  const firstIndicator = indicators[0];
-  const firstResponse = responses[firstIndicator.id];
-  const coberturaGate =
-    firstIndicator.category === 'cobertura' &&
-    (!firstResponse || firstResponse.coverage_value !== true);
+  // A closed/unanswered cobertura gate makes downstream indicators not
+  // applicable — they are omitted from scoring entirely, not scored as 0.
+  const gate = resolveCoberturaGate({
+    indicators,
+    getId: (ind) => ind.id,
+    getCategory: (ind) => ind.category,
+    getDisplayOrder: () => undefined,
+    getCoverageValue: (id) => responses[id]?.coverage_value,
+  });
 
   const indicatorResults: ModuleResult['indicators'] = [];
   let activeCount = 0;
 
-  for (let i = 0; i < indicators.length; i++) {
-    const ind = indicators[i];
+  for (const ind of gate.applicable) {
     const response = responses[ind.id];
     const expectation = expectationsMap.get(ind.id);
 
-    // If cobertura gate is active, non-first indicators score 0
     let normalizedScore: number;
     let rawValue: boolean | number | undefined;
 
-    if (coberturaGate && i > 0) {
-      normalizedScore = 0;
-      rawValue = response ? getRawValue(response, ind.category) : undefined;
-    } else if (response) {
+    if (response) {
       normalizedScore = scoreIndicator(response, ind.category, ind.frequency_config);
       rawValue = getRawValue(response, ind.category);
     } else {
@@ -337,8 +335,7 @@ function scoreModule(
     });
   }
 
-  // Calculate module score as weighted average
-  // If cobertura gate is active, excluded indicators still count with score 0
+  // Calculate module score as weighted average over applicable indicators only
   const moduleScore = calculateWeightedAverage(
     indicatorResults.map((ir) => ({ score: ir.normalizedScore, weight: ir.weight }))
   );

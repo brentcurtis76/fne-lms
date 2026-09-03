@@ -418,6 +418,87 @@ describe('POST /api/docente/assessments/[instanceId]/submit', () => {
     expect(JSON.parse(res._getData()).error).toContain('no definido');
   });
 
+  it('B-01: Cobertura No succeeds without downstream responses (gate-aware submit)', async () => {
+    // Active: IND_COB (cobertura) and IND_FREC (frecuencia), IND_COB first.
+    // Docente answers No on cobertura — IND_FREC becomes not applicable and
+    // must not be required.
+    mockCreateApiSupabaseClient.mockResolvedValue(
+      buildSubmitClient({
+        responsesData: [
+          { indicator_id: IND_COB, coverage_value: false, frequency_value: null, profundity_level: null },
+          // IND_FREC deliberately missing — gated out by cobertura=false
+        ],
+      })
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { instanceId: INSTANCE_ID },
+    });
+
+    await submitHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    const data = JSON.parse(res._getData());
+    expect(data.success).toBe(true);
+  });
+
+  it('B-01: stale saved downstream answer after Sí→No does not block submit or get required', async () => {
+    mockCreateApiSupabaseClient.mockResolvedValue(
+      buildSubmitClient({
+        responsesData: [
+          { indicator_id: IND_COB, coverage_value: false, frequency_value: null, profundity_level: null },
+          // A stale value saved back when cobertura was Sí — still present in
+          // storage but must not be required or block submission now that the
+          // gate is closed.
+          { indicator_id: IND_FREC, coverage_value: null, frequency_value: 7, profundity_level: null },
+        ],
+      })
+    );
+
+    const { req, res } = createMocks({ method: 'POST', query: { instanceId: INSTANCE_ID } });
+    await submitHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+  });
+
+  it('B-01: Cobertura unanswered requires only cobertura, missing list contains just it', async () => {
+    mockCreateApiSupabaseClient.mockResolvedValue(
+      buildSubmitClient({
+        responsesData: [], // nothing answered at all
+      })
+    );
+
+    const { req, res } = createMocks({ method: 'POST', query: { instanceId: INSTANCE_ID } });
+    await submitHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(400);
+    const data = JSON.parse(res._getData());
+    // Only the cobertura indicator is genuinely required while unanswered —
+    // the gated frecuencia indicator must not appear in the missing list.
+    expect(data.missingCount).toBe(1);
+    expect(data.missingIndicators).toEqual(['Indicador cobertura']);
+  });
+
+  it('B-01: Cobertura Sí requires the active downstream indicator', async () => {
+    mockCreateApiSupabaseClient.mockResolvedValue(
+      buildSubmitClient({
+        responsesData: [
+          { indicator_id: IND_COB, coverage_value: true, frequency_value: null, profundity_level: null },
+          // IND_FREC is active and the gate is open — it is required and missing.
+        ],
+      })
+    );
+
+    const { req, res } = createMocks({ method: 'POST', query: { instanceId: INSTANCE_ID } });
+    await submitHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(400);
+    const data = JSON.parse(res._getData());
+    expect(data.missingCount).toBe(1);
+    expect(data.missingIndicators).toEqual(['Indicador frecuencia']);
+  });
+
   it('T-legacy: No year expectations data — validates all scorable indicators', async () => {
     // When no expectations data exists (legacy instance), validate all cobertura/frecuencia/profundidad
     mockCreateApiSupabaseClient.mockResolvedValue(

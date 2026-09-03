@@ -344,7 +344,7 @@ describe('clientScoringService — calculateDemoScores basic', () => {
 // ============================================================
 
 describe('clientScoringService — cobertura gate', () => {
-  it('cobertura false → all other indicators score 0', () => {
+  it('cobertura false → downstream indicators are omitted (not applicable), not scored 0', () => {
     const result = calculateDemoScores(makeInput({
       modules: [{
         id: 'm1',
@@ -363,12 +363,13 @@ describe('clientScoringService — cobertura gate', () => {
       },
     }));
 
-    // All indicators score 0 because cobertura gate is active
+    // Module score is just the cobertura indicator's own score (0) — the gated
+    // downstream indicators are not applicable and are omitted, not zeroed.
     expect(result.totalScore).toBe(0);
     const indicators = result.moduleScores[0].indicators;
+    expect(indicators).toHaveLength(1);
+    expect(indicators[0].indicatorId).toBe('i1');
     expect(indicators[0].normalizedScore).toBe(0); // cobertura false
-    expect(indicators[1].normalizedScore).toBe(0); // gated
-    expect(indicators[2].normalizedScore).toBe(0); // gated
   });
 
   it('cobertura true → other indicators score normally', () => {

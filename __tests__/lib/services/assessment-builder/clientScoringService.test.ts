@@ -833,3 +833,263 @@ describe('clientScoringService — edge cases', () => {
     expect(result.overallLevel).toBe(3);
   });
 });
+
+// ============================================================
+// B-01 remediation R1 — demo scoring must agree with the form:
+// establish the effective active set (isActiveThisYear) FIRST, then resolve
+// the shared cobertura gate over it using the real display order.
+// ============================================================
+
+describe('clientScoringService — active-year filtering and display order (R1)', () => {
+  it('an INACTIVE first cobertura does not gate an active downstream indicator', () => {
+    // Codex repro A: the inactive cobertura carries a stale `false` answer.
+    // The form drops it before resolving the gate, so `frec` is the only
+    // applicable indicator and its answer (100) is the module score.
+    const result = calculateDemoScores(makeInput({
+      modules: [{
+        id: 'm1',
+        name: 'M',
+        weight: 1,
+        indicators: [
+          { id: 'cob', name: 'Cobertura', category: 'cobertura', weight: 1, display_order: 1, is_active_this_year: false },
+          { id: 'frec', name: 'Frecuencia', category: 'frecuencia', weight: 1, display_order: 2, is_active_this_year: true },
+        ],
+      }],
+      responses: { cob: { coverage_value: false }, frec: { frequency_value: 100 } },
+    }));
+
+    expect(result.moduleScores[0].indicators.map((i) => i.indicatorId)).toEqual(['frec']);
+    expect(result.totalScore).toBe(100);
+  });
+
+  it('shuffled input order respects display order when picking the gate indicator', () => {
+    // Codex repro B: raw order is [frecuencia, cobertura] but display orders
+    // are 2 and 1, so cobertura leads. It is answered No, so the stale
+    // frecuencia answer (100) must not be scored.
+    const result = calculateDemoScores(makeInput({
+      modules: [{
+        id: 'm1',
+        name: 'M',
+        weight: 1,
+        indicators: [
+          { id: 'frec', name: 'Frecuencia', category: 'frecuencia', weight: 1, display_order: 2 },
+          { id: 'cob', name: 'Cobertura', category: 'cobertura', weight: 1, display_order: 1 },
+        ],
+      }],
+      responses: { cob: { coverage_value: false }, frec: { frequency_value: 100 } },
+    }));
+
+    expect(result.moduleScores[0].indicators.map((i) => i.indicatorId)).toEqual(['cob']);
+    expect(result.totalScore).toBe(0);
+  });
+
+  it('display order is respected when the gate is answered Sí (all active indicators score)', () => {
+    const result = calculateDemoScores(makeInput({
+      modules: [{
+        id: 'm1',
+        name: 'M',
+        weight: 1,
+        indicators: [
+          { id: 'frec', name: 'Frecuencia', category: 'frecuencia', weight: 1, display_order: 2 },
+          { id: 'cob', name: 'Cobertura', category: 'cobertura', weight: 1, display_order: 1 },
+        ],
+      }],
+      responses: { cob: { coverage_value: true }, frec: { frequency_value: 100 } },
+    }));
+
+    // Ordered by display order, both applicable: (100 + 100) / 2.
+    expect(result.moduleScores[0].indicators.map((i) => i.indicatorId)).toEqual(['cob', 'frec']);
+    expect(result.totalScore).toBe(100);
+  });
+
+  it('an UNANSWERED gate keeps only the gate indicator, ignoring a stale downstream answer', () => {
+    const result = calculateDemoScores(makeInput({
+      modules: [{
+        id: 'm1',
+        name: 'M',
+        weight: 1,
+        indicators: [
+          { id: 'cob', name: 'Cobertura', category: 'cobertura', weight: 1, display_order: 1 },
+          { id: 'frec', name: 'Frecuencia', category: 'frecuencia', weight: 1, display_order: 2 },
+        ],
+      }],
+      responses: { frec: { frequency_value: 100 } },
+    }));
+
+    expect(result.moduleScores[0].indicators.map((i) => i.indicatorId)).toEqual(['cob']);
+    expect(result.totalScore).toBe(0);
+  });
+
+  it('a wholly inactive module is excluded from the flat weighted denominator', () => {
+    const result = calculateDemoScores(makeInput({
+      modules: [
+        {
+          id: 'm1',
+          name: 'Activo',
+          weight: 1,
+          indicators: [
+            { id: 'a1', name: 'Cobertura', category: 'cobertura', weight: 1, display_order: 1, is_active_this_year: true },
+          ],
+        },
+        {
+          id: 'm2',
+          name: 'Inactivo',
+          weight: 1,
+          indicators: [
+            { id: 'b1', name: 'Cobertura', category: 'cobertura', weight: 1, display_order: 1, is_active_this_year: false },
+            { id: 'b2', name: 'Frecuencia', category: 'frecuencia', weight: 1, display_order: 2, is_active_this_year: false },
+          ],
+        },
+      ],
+      responses: { a1: { coverage_value: true }, b1: { coverage_value: false } },
+    }));
+
+    expect(result.moduleScores.map((m) => m.moduleId)).toEqual(['m1']);
+    expect(result.stats.totalModules).toBe(1);
+    // Without the inactive module dragging the average to 50.
+    expect(result.totalScore).toBe(100);
+  });
+
+  it('a wholly inactive module inside an objective is excluded, and an objective with no active module is skipped', () => {
+    const result = calculateDemoScores(makeInput({
+      objectives: [
+        {
+          id: 'obj1',
+          name: 'Objetivo 1',
+          weight: 1,
+          modules: [
+            {
+              id: 'm1',
+              name: 'Activo',
+              weight: 1,
+              indicators: [
+                { id: 'a1', name: 'Cobertura', category: 'cobertura', weight: 1, display_order: 1, is_active_this_year: true },
+              ],
+            },
+            {
+              id: 'm2',
+              name: 'Inactivo',
+              weight: 1,
+              indicators: [
+                { id: 'b1', name: 'Cobertura', category: 'cobertura', weight: 1, display_order: 1, is_active_this_year: false },
+              ],
+            },
+          ],
+        },
+        {
+          id: 'obj2',
+          name: 'Objetivo sin módulos activos',
+          weight: 1,
+          modules: [
+            {
+              id: 'm3',
+              name: 'Inactivo',
+              weight: 1,
+              indicators: [
+                { id: 'c1', name: 'Cobertura', category: 'cobertura', weight: 1, display_order: 1, is_active_this_year: false },
+              ],
+            },
+          ],
+        },
+      ],
+      responses: { a1: { coverage_value: true }, b1: { coverage_value: false }, c1: { coverage_value: false } },
+    }));
+
+    expect(result.objectiveScores!.map((o) => o.objectiveId)).toEqual(['obj1']);
+    expect(result.objectiveScores![0].modules.map((m) => m.moduleId)).toEqual(['m1']);
+    expect(result.totalScore).toBe(100);
+  });
+
+  it('an inactive first cobertura inside an objective does not gate its active downstream indicator', () => {
+    const result = calculateDemoScores(makeInput({
+      objectives: [{
+        id: 'obj1',
+        name: 'Objetivo 1',
+        weight: 1,
+        modules: [{
+          id: 'm1',
+          name: 'M',
+          weight: 1,
+          indicators: [
+            { id: 'cob', name: 'Cobertura', category: 'cobertura', weight: 1, display_order: 1, is_active_this_year: false },
+            { id: 'frec', name: 'Frecuencia', category: 'frecuencia', weight: 1, display_order: 2, is_active_this_year: true },
+          ],
+        }],
+      }],
+      responses: { cob: { coverage_value: false }, frec: { frequency_value: 100 } },
+    }));
+
+    expect(result.objectiveScores![0].modules[0].indicators.map((i) => i.indicatorId)).toEqual(['frec']);
+    expect(result.totalScore).toBe(100);
+  });
+
+  it('missing display order and missing active-year metadata keep the documented legacy behaviour', () => {
+    // No display_order anywhere → stable input order decides the gate.
+    // No is_active_this_year → treated as active (`!== false`), exactly like the form.
+    const result = calculateDemoScores(makeInput({
+      modules: [{
+        id: 'm1',
+        name: 'M',
+        weight: 1,
+        indicators: [
+          { id: 'cob', name: 'Cobertura', category: 'cobertura', weight: 1 },
+          { id: 'frec', name: 'Frecuencia', category: 'frecuencia', weight: 1 },
+        ],
+      }],
+      responses: { cob: { coverage_value: true }, frec: { frequency_value: 50 } },
+    }));
+
+    expect(result.moduleScores[0].indicators.map((i) => i.indicatorId)).toEqual(['cob', 'frec']);
+    expect(result.totalScore).toBe(75);
+  });
+
+  it('legitimate module and objective weighting is unchanged when every indicator is active', () => {
+    const result = calculateDemoScores(makeInput({
+      objectives: [{
+        id: 'obj1',
+        name: 'Objetivo 1',
+        weight: 1,
+        modules: [
+          {
+            id: 'm1',
+            name: 'Peso 3',
+            weight: 3,
+            indicators: [{ id: 'a1', name: 'Cobertura', category: 'cobertura', weight: 1, display_order: 1 }],
+          },
+          {
+            id: 'm2',
+            name: 'Peso 1',
+            weight: 1,
+            indicators: [{ id: 'b1', name: 'Cobertura', category: 'cobertura', weight: 1, display_order: 1 }],
+          },
+        ],
+      }],
+      responses: { a1: { coverage_value: true }, b1: { coverage_value: false } },
+    }));
+
+    // (100*3 + 0*1) / 4 = 75
+    expect(result.totalScore).toBe(75);
+  });
+
+  it('does not mutate the caller\'s modules, indicators, or responses', () => {
+    const input = makeInput({
+      modules: [{
+        id: 'm1',
+        name: 'M',
+        weight: 1,
+        indicators: [
+          { id: 'frec', name: 'Frecuencia', category: 'frecuencia', weight: 1, display_order: 2 },
+          { id: 'cob', name: 'Cobertura', category: 'cobertura', weight: 1, display_order: 1 },
+        ],
+      }],
+      responses: { cob: { coverage_value: false }, frec: { frequency_value: 100 } },
+    });
+    const snapshot = JSON.stringify(input);
+
+    calculateDemoScores(input);
+
+    expect(JSON.stringify(input)).toBe(snapshot);
+    // The shuffled input array itself must not be re-ordered in place.
+    expect(input.modules[0].indicators.map((i) => i.id)).toEqual(['frec', 'cob']);
+  });
+});

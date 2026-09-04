@@ -48,6 +48,10 @@ interface ObjectiveData {
       category: IndicatorCategory;
       weight: number;
       frequency_config?: FrequencyConfig;
+      /** Stable display order from the template. Undefined = keep input order. */
+      display_order?: number | null;
+      /** R11/R12: false = no expectation for this year. Undefined = active. */
+      is_active_this_year?: boolean;
     }>;
   }>;
 }
@@ -63,6 +67,10 @@ interface ModuleData {
     category: IndicatorCategory;
     weight: number;
     frequency_config?: FrequencyConfig;
+    /** Stable display order from the template. Undefined = keep input order. */
+    display_order?: number | null;
+    /** R11/R12: false = no expectation for this year. Undefined = active. */
+    is_active_this_year?: boolean;
   }>;
 }
 
@@ -255,6 +263,10 @@ interface IndicatorInput {
   category: IndicatorCategory;
   weight: number;
   frequency_config?: FrequencyConfig;
+  /** Stable display order from the template. Undefined = keep input order. */
+  display_order?: number | null;
+  /** R11/R12: false = no expectation for this year. Undefined = active. */
+  is_active_this_year?: boolean;
 }
 
 function scoreModule(
@@ -263,16 +275,25 @@ function scoreModule(
   expectationsMap: Map<string, { expected: number | null; tolerance: number }>,
   scoringConfig: ScoringConfig
 ): ModuleResult | null {
-  const indicators = module.indicators;
+  // R12: establish the effective active set FIRST, exactly like the form
+  // (ModuleCard) and the server scorer do — an indicator with no expectation for
+  // this year is not part of the module and must not act as, or be gated by, the
+  // cobertura gate. Missing metadata means active, so legacy payloads are unchanged.
+  const indicators = module.indicators.filter((ind) => ind.is_active_this_year !== false);
+
+  // R10: a module with no active indicator is excluded entirely, so it never
+  // reaches a module/objective weighted denominator.
   if (indicators.length === 0) return null;
 
   // A closed/unanswered cobertura gate makes downstream indicators not
   // applicable — they are omitted from scoring entirely, not scored as 0.
+  // The gate indicator is the FIRST active indicator by display order, which is
+  // what the form shows, so the real order must be passed through here.
   const gate = resolveCoberturaGate({
     indicators,
     getId: (ind) => ind.id,
     getCategory: (ind) => ind.category,
-    getDisplayOrder: () => undefined,
+    getDisplayOrder: (ind) => ind.display_order,
     getCoverageValue: (id) => responses[id]?.coverage_value,
   });
 

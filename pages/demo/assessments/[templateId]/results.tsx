@@ -38,6 +38,10 @@ interface StoredIndicator {
   category: 'cobertura' | 'frecuencia' | 'profundidad' | 'traspaso' | 'detalle';
   weight: number;
   frequencyConfig?: FrequencyConfig;
+  /** Stable display order from the template (demo API always sends it). */
+  displayOrder?: number;
+  /** R11: false = no expectation for the instance's year. Undefined = active. */
+  isActiveThisYear?: boolean;
   [key: string]: unknown;
 }
 
@@ -77,7 +81,7 @@ interface StoredTemplateData {
  * Transform frontend camelCase responses to the snake_case format
  * expected by the scoring service.
  */
-function transformResponses(
+export function transformResponses(
   responses: Record<string, ResponseData>
 ): Record<string, { coverage_value?: boolean; frequency_value?: number; profundity_level?: number; sub_responses?: Record<string, unknown> }> {
   const result: Record<string, any> = {};
@@ -96,7 +100,7 @@ function transformResponses(
  * Transform frontend camelCase module/objective data to the format
  * expected by the scoring service.
  */
-function transformModuleForScoring(mod: StoredModule) {
+export function transformModuleForScoring(mod: StoredModule) {
   return {
     id: mod.id,
     name: mod.name,
@@ -108,11 +112,16 @@ function transformModuleForScoring(mod: StoredModule) {
       category: ind.category,
       weight: ind.weight,
       frequency_config: ind.frequencyConfig as FrequencyConfig | undefined,
+      // The cobertura gate is resolved over the ACTIVE indicators in DISPLAY
+      // order. Dropping either field here made demo scoring disagree with the
+      // form it is supposed to mirror, so both are carried through unchanged.
+      display_order: ind.displayOrder,
+      is_active_this_year: ind.isActiveThisYear,
     })),
   };
 }
 
-function transformObjectiveForScoring(obj: StoredObjective) {
+export function transformObjectiveForScoring(obj: StoredObjective) {
   return {
     id: obj.id,
     name: obj.name,

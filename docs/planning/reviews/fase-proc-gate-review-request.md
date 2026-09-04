@@ -1,6 +1,6 @@
 # Review request — B-01: cobertura-gate consistency (Procesos de Cambio PR 1 item 2 closure recovery)
 
-**STATUS (A6, 2026-09-04): CODEX RE-REVIEW OF `8f79ff3d` RETURNED `APPROVE` (ZERO FINDINGS — intake fact); CURRENT MAIN `8b581217` INTEGRATED BY LOCAL MERGE COMMIT `305c7f1a`; EVERY REQUIRED GATE INCLUDING pgTAP, BOTH CONCURRENCY PROOFS, AND THE MANDATORY PLAYWRIGHT MANIFEST GREEN ON THE INTEGRATED TREE; THE LITERAL `CI=1 npm run e2e` GATE IS RED WITH THE SAME 60 TITLES (reproduced identically on a fresh current-main baseline: intersection 60, 0 either-only) AND THE EXCEPTION DECISION FOR THIS TREE IS BRENT'S AND PENDING. NOT PUSHED, NO PR, NOT MERGED, NOT DEPLOYED. B-01 AND PR 1 REMAIN `PHASE_NOT_CLOSED`.** *(See § Attempt 6 below. The A5 status that follows is preserved verbatim.)* **A5 status:** INDEPENDENT REVIEW RETURNED `REQUEST CHANGES` (Codex) — FINDINGS R1 AND R2 REMEDIATED LOCALLY IN ATTEMPT 5 (A5); INDEPENDENT RE-REVIEW, CURRENT-MAIN INTEGRATION, AND DATABASE-BACKED VALIDATION PENDING. *(A5, 2026-09-04 — see § Attempt 5 below. The paragraph that follows is the attempt-3 status, preserved verbatim.)* **Attempt-3 status:** The cumulative implementation produced in attempt 1 was adopted unchanged, reconciled with integrated main `d1031989` by a **local** merge on this feature branch, and revalidated end to end. Nothing was pushed, and no PR, merge into `main`, or deployment exists. The literal `CI=1 npm run e2e` gate is **RED and is never claimed green**; it now carries Brent's approved, evidence-specific exception for the exact 60 failures that attempt 3 reproduced title-for-title on the clean baseline. B-01 and the broader PR 1 remain `PHASE_NOT_CLOSED`. Three things changed materially since attempt 1's version of this document:
+**STATUS (A7, 2026-09-04): BRENT APPROVED A NARROW B-01-SPECIFIC EXCEPTION FOR THE EXACT 60 LITERAL FULL-E2E FAILURES OBSERVED ON CANDIDATE `305c7f1a` AGAINST BASELINE `8b581217` (RECORDS-ONLY HEAD `25b91f6e`); INDEPENDENT CODEX A6 REVIEW RETURNED `APPROVE` WITH ZERO BLOCKING FINDINGS; `fix/proc-gate` PUSHED TO `origin`; PR [#84](https://github.com/brentcurtis76/fne-lms/pull/84) OPENED AS A DRAFT INTO `main`; THE LITERAL `CI=1 npm run e2e` GATE REMAINS RED (NOT WAIVED, NOT GREEN); NOT MERGED, NOT DEPLOYED. B-01 AND PR 1 REMAIN `PHASE_NOT_CLOSED`.** *(See § Attempt 7 below. The A6 status that follows is preserved verbatim.)* **A6 status:** CODEX RE-REVIEW OF `8f79ff3d` RETURNED `APPROVE` (ZERO FINDINGS — intake fact); CURRENT MAIN `8b581217` INTEGRATED BY LOCAL MERGE COMMIT `305c7f1a`; EVERY REQUIRED GATE INCLUDING pgTAP, BOTH CONCURRENCY PROOFS, AND THE MANDATORY PLAYWRIGHT MANIFEST GREEN ON THE INTEGRATED TREE; THE LITERAL `CI=1 npm run e2e` GATE IS RED WITH THE SAME 60 TITLES (reproduced identically on a fresh current-main baseline: intersection 60, 0 either-only) AND THE EXCEPTION DECISION FOR THIS TREE IS BRENT'S AND PENDING. NOT PUSHED, NO PR, NOT MERGED, NOT DEPLOYED. B-01 AND PR 1 REMAIN `PHASE_NOT_CLOSED`.** *(See § Attempt 6 below. The A5 status that follows is preserved verbatim.)* **A5 status:** INDEPENDENT REVIEW RETURNED `REQUEST CHANGES` (Codex) — FINDINGS R1 AND R2 REMEDIATED LOCALLY IN ATTEMPT 5 (A5); INDEPENDENT RE-REVIEW, CURRENT-MAIN INTEGRATION, AND DATABASE-BACKED VALIDATION PENDING. *(A5, 2026-09-04 — see § Attempt 5 below. The paragraph that follows is the attempt-3 status, preserved verbatim.)* **Attempt-3 status:** The cumulative implementation produced in attempt 1 was adopted unchanged, reconciled with integrated main `d1031989` by a **local** merge on this feature branch, and revalidated end to end. Nothing was pushed, and no PR, merge into `main`, or deployment exists. The literal `CI=1 npm run e2e` gate is **RED and is never claimed green**; it now carries Brent's approved, evidence-specific exception for the exact 60 failures that attempt 3 reproduced title-for-title on the clean baseline. B-01 and the broader PR 1 remain `PHASE_NOT_CLOSED`. Three things changed materially since attempt 1's version of this document:
 
 1. **The E2E exception is now approved, on baseline evidence, for these exact 60 failures.** The audit trail runs in three steps. **Attempt 2** ran `CI=1 npm run e2e` to **completion** (attempt 1 was stopped early at 89 attempts) and found **60 distinct failing titles, only 29 of which are `proposal-*`**; the other 31 fell outside Brent's then-current `proposal-*` wording, so attempt 2 **correctly stopped rather than inventing an exception nobody had granted**. **Attempt 3** ran the same literal gate on a disposable worktree detached at exactly `d1031989` with no B-01 code, and found the **same 60 failing titles — intersection 60, branch-only 0, baseline-only 0**. **Brent then approved** extending the B-01-specific exception to these exact 60 observed failures. That approval supersedes the `proposal-*`-only restriction **only for these 60 titles on this tree against this baseline** — not for arbitrary failures, future trees, or other phases — and it does **not** make the gate green. See § Literal E2E gate and § Baseline comparison evidence (attempt 3).
 2. **The full Vitest suite is now green.** Attempt 1 recorded 5 failures in `__tests__/pages/community/workspace.mention-scope.test.tsx` (an unrelated file), reproduced on the exact base. On the reconciled tree the full suite passes: **382 files, 8750 passed / 11 skipped / 0 failed**, and that file's 5 tests pass. **No waiver was needed, requested, or granted for those failures** — see the `npm test` row and its honest caveat in § Validation.
@@ -19,9 +19,14 @@ Everything else is green: type-check, lint, all four guards, `git diff --check`,
 - `a5c07fcb0c022b864b0820263a8dcbc86279f37a` — the attempt-3 records commit recording Brent's approved baseline E2E exception (this document and `PROJECT_STATE.md` again; named here by A5, it was "its SHA is in the completion report" when attempt 3 wrote this list).
 - `8f79ff3d69dca3289da55fe4e88092fd3b9ef8ee` — the A5 checkpoint commit: the R1/R2 remediation, its regression tests, and both records (named here by A6; A5 wrote "its SHA is in the A5 completion report"). This is the commit Codex re-reviewed and approved.
 - `305c7f1ac082b40d2bdcb1e5774a2d91982dfcf8` — the A6 two-parent local merge of current `origin/main` `8b58121779eb744c790538b517db7cf023ad1da1` (A6, 2026-09-04).
-- one A6 records commit — this document and `PROJECT_STATE.md` only; its SHA is in the A6 completion report.
+- `25b91f6ecb4461d7dc6369efa75ebc43d7c56eb2` — the A6 records commit: this document and `PROJECT_STATE.md` only (named here by A7; A6 wrote "its SHA is in the A6 completion report"). This is the records-only head named in Brent's A7 exception and the head first pushed to `origin`.
+- one A7 records commit — this document and `PROJECT_STATE.md` only (A7, 2026-09-04); its SHA is in the A7 completion report. It is the PR's final head.
+
+**Publication (A7, 2026-09-04):** `fix/proc-gate` pushed to `origin`; PR [#84](https://github.com/brentcurtis76/fne-lms/pull/84) `fix(assessment): unify cobertura gate behavior` into `main`. See § Attempt 7.
 
 **Reviewable range:** `git diff d1031989..HEAD` — the **18** B-01 paths listed in § Files changed (16 code/test files plus this document and `PROJECT_STATE.md`). At `a5c07fcb` this was 16 paths; A5 added `pages/demo/assessments/[templateId]/results.tsx` and `__tests__/pages/demo/results-adapter.test.ts`, both explicitly authorized by the A5 dispatch. The count is derived from `git diff --name-only d1031989..HEAD`, not asserted. The range is pinned to the tested baseline `d1031989`, **not** to `origin/main`, which has since advanced to `8b58121779eb744c790538b517db7cf023ad1da1` (observed read-only 2026-09-03; no fetch, merge, rebase, or rerun followed). Compatibility and integration against current main are **PENDING** and are not claimed by this document. **A6:** integrated — after merge commit `305c7f1a`, `git diff --name-only origin/main..HEAD` (with `origin/main` = `8b581217`) is exactly the same 18 paths, and the 17 non-`PROJECT_STATE.md` paths are byte-identical to `8f79ff3d`; see § Attempt 6.
+
+*A7 (2026-09-04): the branch has since been pushed and PR #84 opened — see § Attempt 7. The paragraph below is attempt 2's statement, preserved verbatim.*
 
 **Not pushed, no PR, not merged, not deployed.** No production database, Supabase Management API, Vercel, provider, GitHub-mutating, or secret-state access occurred. `.env.local` was never inspected, printed, copied, or tracked. The pre-existing unrelated `stash@{0}` was not applied, deleted, or relied on; no other worktree or the primary checkout was touched. The only environment used is the local Docker Supabase stack already running on this machine (project ref `sxlogxqzmarhqsblxmtj`, ports 54321–54323), which attempt 2 did **not** reset and did **not** reseed — it ran against the schema and synthetic fixtures already present. Before using it, coordination checks confirmed no external client sessions (only the stack's own PostgREST/realtime/storage connections), no `vitest`/`playwright`/`next` processes, and nothing bound to port 3000.
 
@@ -145,6 +150,54 @@ The attempt-3 exception covered the `0207d83c` tree against baseline `d1031989`.
 ### A6 boundaries
 
 No push, PR, merge into `main`, deployment, production or remote database access, secret display, rebase, amend, reset, stash operation, or worktree deletion. The only Git writes are the merge commit `305c7f1a`, the A6 records commit, and the new detached baseline worktree (left in place, clean, for independent inspection). The only database writes were two `supabase db reset` cycles and synthetic seeding against the loopback local stack. The temporary `.env.local` backup was removed after the restore was hash-verified.
+
+## Attempt 7 (A7) — approval record and publication
+
+**Work ID:** B-01 attempt 7 · **Date:** 2026-09-04 · **Unit type:** records and publication only — no executable code or test changed; no rebase, amend, reset, stash operation, worktree removal, database reset/seed, build, Vitest, pgTAP, or Playwright rerun. `.env.local` was not opened.
+
+### Preflight (revalidated before any write)
+
+| Fact | Observed |
+|---|---|
+| Worktree / branch | `/Users/brentcurtis/dev/wt/proc-gate` on `fix/proc-gate`, common dir `/Users/brentcurtis/Documents/fne-lms-working/.git` |
+| HEAD | `25b91f6ecb4461d7dc6369efa75ebc43d7c56eb2` (records-only head) |
+| Executable candidate | `305c7f1ac082b40d2bdcb1e5774a2d91982dfcf8`; `git diff --name-only 305c7f1a HEAD` = `PROJECT_STATE.md`, this document — nothing else |
+| Tree / index | clean; no `index.lock`; no merge/rebase/cherry-pick/bisect/revert in progress |
+| Live `refs/heads/main` (`git ls-remote`) | `8b58121779eb744c790538b517db7cf023ad1da1` — unchanged; 7 ahead / 0 behind; merge-base = main |
+| Remote branch / PR | no `refs/heads/fix/proc-gate` on `origin`; no open or closed PR for the branch or for B-01 |
+| Cumulative diff `origin/main...HEAD` | exactly the **18** B-01 paths of § Files changed |
+| Preserved | `stash@{0}` (pre-existing, on `main`), every other worktree, both detached baseline worktrees `proc-gate-base-d1031989` and `proc-gate-base-8b581217` |
+
+### Brent's decision (2026-09-04), quoted exactly
+
+> I approve a B-01-specific exception for the exact 60 literal full-E2E failures observed on executable candidate `305c7f1ac082b40d2bdcb1e5774a2d91982dfcf8` against exact current-main baseline `8b58121779eb744c790538b517db7cf023ad1da1`, with records-only head `25b91f6ecb4461d7dc6369efa75ebc43d7c56eb2`.
+>
+> This approval is based on all 60 failures reproducing on both trees with zero candidate-only failures, identical retry behavior, and identical normalized full error payloads. It does not make the gate green and is not a waiver for future trees, arbitrary failures, other phases, or the gate itself.
+
+**Scope, restated:** the exception is bound to these three SHAs and these 60 titles (§ Literal E2E gate). It supersedes nothing about the gate itself: `CI=1 npm run e2e` is still recorded RED on `305c7f1a`, and any future executable change to this branch would need its own evidence and its own decision.
+
+### Independent Codex A6 review — `APPROVE`, zero blocking findings (intake fact)
+
+Recorded from Brent's dispatch, not re-derived here. Codex independently confirmed that all 60 complete normalized per-attempt error payloads match between the candidate (`305c7f1a`) and baseline (`8b581217`) runs after removing only expected run-specific noise — not merely their first lines, which is what § Attempt 6 had compared. Codex also reran the eight focused suites: 8 files / 224 tests passed, with type-check and lint clean.
+
+### Publication
+
+| Step | Result |
+|---|---|
+| Push | `git push -u origin fix/proc-gate` → new remote branch at `25b91f6e`; live main re-read as `8b581217` immediately before the push |
+| Draft PR | [#84](https://github.com/brentcurtis76/fne-lms/pull/84) `fix(assessment): unify cobertura gate behavior`, base `main`, head `fix/proc-gate` @ `25b91f6e`, opened as a draft |
+| PR body discloses | the shared cobertura-gate behaviour; the A5 remediation, Codex re-review `APPROVE` and Codex A6 `APPROVE`; current-main integration via `305c7f1a`; every green required validation; the literal gate's 60 failures and their exact reproduction on baseline `8b581217`; Brent's exception verbatim; that the gate is not green; this record's path |
+| Records commit | one ordinary commit (no amend) changing only `PROJECT_STATE.md` and this document; `git diff --check` and the staged-index secret guard run before it; SHA in the A7 completion report |
+| Ready-for-review | after the records push, live `refs/heads/main` is re-read: the PR is marked ready **only if** main is still `8b581217`; otherwise it stays a draft and A7 stops with findings |
+| Checks | the final head's GitHub checks are monitored to a terminal result and reported; **nothing is merged** |
+
+### `PROJECT_STATE.md` wording correction
+
+The A6 sentence “all 17 non-record B-01 paths are byte-identical to `8f79ff3d`” now reads “all 17 non-`PROJECT_STATE.md` B-01 paths are byte-identical to `8f79ff3d`”. This document is one of the 17 and did change after `8f79ff3d`, so “non-record” was inaccurate; the evidence (17 paths byte-identical, `PROJECT_STATE.md` merged) is unchanged. This file already used the correct wording in § Reviewable range and § Merge.
+
+### A7 boundaries and what remains
+
+No merge into `main`, no deployment, no production, provider, remote-database, or secret access, no CI repair, no scope change. The literal `CI=1 npm run e2e` gate remains **RED** under the approved exception and is not claimed green; GitHub's `Gate 4 — E2E` job runs the mandatory manifest (green locally, 192/192), not the literal full suite, and its result on the PR head is reported from the checks, not asserted. **B-01 and PR 1 remain `PHASE_NOT_CLOSED`**: closure still requires independent PR review, final CI acceptance on the PR head, Brent's merge decision, and the required post-merge verification.
 
 ## Objective (from the dispatch)
 
@@ -491,3 +544,6 @@ The disposable baseline worktree is left in place, detached at `d1031989` and cl
 - **(A6) The literal `CI=1 npm run e2e` gate is RED on the integrated tree** with exactly the 60 previously recorded titles, reproduced title-for-title on a fresh detached `8b581217` baseline (intersection 60, zero either-only, identical normalized errors 60/60). The attempt-3 exception does not cover this tree and A6 inferred no new one; **whether the exception extends to this tree is Brent's pending decision.** All 60 failures remain unowned by B-01 and undiagnosed.
 - **(A6) The Codex `APPROVE` is recorded from intake**, not re-derived; no verdict artifact is committed in this repository.
 - **(A5) Prior A5-session validation is unverified.** The remediation existed as an uncommitted tree when this continuation began, with no preserved gate logs; the § Attempt 5 validation runs are the record.
+- **(A7) The literal `CI=1 npm run e2e` gate remains RED on the published head.** Brent's exception (2026-09-04, quoted in § Attempt 7) covers exactly the 60 failures on candidate `305c7f1a` against baseline `8b581217`; it is not a waiver for future trees, arbitrary failures, other phases, or the gate itself. The 60 failures remain unowned and undiagnosed.
+- **(A7) The Codex A6 `APPROVE` is recorded from intake**, not re-derived; no verdict artifact is committed in this repository.
+- **(A7) Merge and deployment have not occurred.** PR #84 is the publication; closure of B-01 and PR 1 awaits independent PR review, CI acceptance on the final head, Brent's merge decision, and post-merge verification.

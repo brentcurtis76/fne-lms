@@ -24,12 +24,20 @@ import {
   WEBHOOK_ONLY_STATUSES,
   deliveryMessage,
   linkGenerationFailed,
-  sendPasswordSetupEmail,
-  sendPasswordRecoveryEmail,
-  sendAccessGrantedEmail,
+  sendPasswordSetupEmail as sendPasswordSetupEmailRaw,
+  sendPasswordRecoveryEmail as sendPasswordRecoveryEmailRaw,
+  sendAccessGrantedEmail as sendAccessGrantedEmailRaw,
   type DeliveryResult,
   type EmailTransport,
 } from '../../../lib/email/invitations';
+import { PUBLIC_OUTBOUND_EMAIL } from '../../../lib/email/outbound-policy';
+
+const sendPasswordSetupEmail = (params: any, transport?: EmailTransport) =>
+  sendPasswordSetupEmailRaw({ ...params, authorization: PUBLIC_OUTBOUND_EMAIL }, transport);
+const sendPasswordRecoveryEmail = (params: any, transport?: EmailTransport) =>
+  sendPasswordRecoveryEmailRaw({ ...params, authorization: PUBLIC_OUTBOUND_EMAIL }, transport);
+const sendAccessGrantedEmail = (params: any, transport?: EmailTransport) =>
+  sendAccessGrantedEmailRaw({ ...params, authorization: PUBLIC_OUTBOUND_EMAIL }, transport);
 
 const RECOVERY_URL = 'https://genera.example.cl/reset-password?token_hash=abc&type=recovery';
 

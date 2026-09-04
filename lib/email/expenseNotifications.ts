@@ -14,9 +14,10 @@
  * already-committed state change, so a missing API key or a Resend outage is
  * logged and reported, never thrown.
  */
-import { Resend } from 'resend';
 import { EXPENSE_APPROVER_EMAIL } from '../../utils/expenseConfig';
 import { escapeHtml } from '../utils/html-escape';
+import { deliverOutboundEmail } from './provider';
+import type { OutboundEmailAuthorization } from './outbound-policy';
 
 /** Deep link included in the notification bodies (unchanged from the pre-B1a templates). */
 const EXPENSE_REPORTS_URL = 'https://fne-lms.vercel.app/expense-reports';
@@ -33,6 +34,7 @@ export interface ExpenseEmailResult {
   sent: boolean;
   /** No RESEND_API_KEY configured: the notification was logged, not an error. */
   skipped?: boolean;
+  status?: 'provider_accepted' | 'provider_rejected' | 'transport_error' | 'not_configured' | 'suppressed_qa' | 'refused';
   error?: string;
 }
 
@@ -216,7 +218,11 @@ export function buildExpenseDecisionMessage(input: ExpenseDecisionInput): Expens
  * Only the recipient's domain is logged; the local part is not, so a log line
  * never carries a full address.
  */
-async function deliver(message: ExpenseEmailMessage, context: string): Promise<ExpenseEmailResult> {
+async function deliver(
+  message: ExpenseEmailMessage,
+  context: string,
+  authorization: OutboundEmailAuthorization
+): Promise<ExpenseEmailResult> {
   const toDomain = message.to.split('@')[1] ?? 'unknown';
 
   if (!message.to) {
@@ -224,44 +230,40 @@ async function deliver(message: ExpenseEmailMessage, context: string): Promise<E
     return { sent: false, error: 'missing_recipient' };
   }
 
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    console.log(`[expense-notifications] RESEND_API_KEY missing; ${context} not sent`, { toDomain });
-    return { sent: false, skipped: true };
-  }
-
-  try {
-    const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({
+  const result = await deliverOutboundEmail({
+    authorization,
+    message: {
       from: process.env.EMAIL_FROM_ADDRESS || DEFAULT_FROM,
       to: message.to,
       subject: message.subject,
-      html: message.html
-    });
+      html: message.html,
+    },
+  });
 
-    if (error) {
-      console.error(`[expense-notifications] Resend failed (${context}):`, error.message);
-      return { sent: false, error: error.message };
-    }
-
-    return { sent: true };
-  } catch (sendError) {
-    console.error(`[expense-notifications] Resend threw (${context}):`, sendError);
-    return {
-      sent: false,
-      error: sendError instanceof Error ? sendError.message : String(sendError)
-    };
+  if (result.status === 'provider_accepted') return { sent: true };
+  if (result.status === 'not_configured') {
+    console.log(`[expense-notifications] ${context} skipped`, { toDomain, status: result.status });
+    return { sent: false, skipped: true };
   }
+  if (result.status === 'suppressed_qa') {
+    console.log(`[expense-notifications] ${context} skipped`, { toDomain, status: result.status });
+    return { sent: false, skipped: true, status: result.status };
+  }
+  const detail = 'detail' in result ? result.detail : undefined;
+  console.error(`[expense-notifications] ${context} failed`, { status: result.status });
+  return { sent: false, error: detail ?? result.status };
 }
 
 export async function sendExpenseSubmissionNotification(
-  input: ExpenseSubmissionInput
+  input: ExpenseSubmissionInput,
+  authorization: OutboundEmailAuthorization
 ): Promise<ExpenseEmailResult> {
-  return deliver(buildExpenseSubmissionMessage(input), 'submission notification');
+  return deliver(buildExpenseSubmissionMessage(input), 'submission notification', authorization);
 }
 
 export async function sendExpenseDecisionNotification(
-  input: ExpenseDecisionInput
+  input: ExpenseDecisionInput,
+  authorization: OutboundEmailAuthorization
 ): Promise<ExpenseEmailResult> {
-  return deliver(buildExpenseDecisionMessage(input), `${input.status} notification`);
+  return deliver(buildExpenseDecisionMessage(input), `${input.status} notification`, authorization);
 }

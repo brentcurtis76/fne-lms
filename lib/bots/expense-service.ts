@@ -11,6 +11,7 @@ import {
 } from './types';
 import { RECEIPTS_BUCKET } from '../../utils/expenseConfig';
 import { logStageFailure } from './bot-logging';
+import { authorizeUserEmail } from '../email/outbound-policy';
 
 const BUCKET = RECEIPTS_BUCKET;
 
@@ -374,7 +375,7 @@ export class ExpenseService {
         totalAmount: result.totalAmount,
         startDate: row.start_date as string,
         endDate: row.end_date as string
-      });
+      }, await authorizeUserEmail(this.supabase, actor.userId));
       if (!emailResult.sent && !emailResult.skipped) {
         console.error(
           `[Bot] submit notification email failed: ${emailResult.error ?? 'unknown error'}`

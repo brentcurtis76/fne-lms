@@ -186,7 +186,7 @@ describe('submission notification', () => {
       totalAmount: 57690,
       startDate: '2026-06-01',
       endDate: '2026-06-30',
-    });
+    }, expect.objectContaining({ kind: 'allow' }));
     // The route never forwards a recipient/subject/HTML choice.
     const payload = mockSendSubmission.mock.calls[0][0] as Record<string, unknown>;
     expect(payload).not.toHaveProperty('to');
@@ -225,6 +225,27 @@ describe('submission notification', () => {
       data: { notification: 'submitted', sent: false, skipped: true },
     });
   });
+
+  it('reports QA suppression explicitly instead of implying delivery', async () => {
+    asUser(OWNER_ID, OWNER_EMAIL);
+    mockSendSubmission.mockResolvedValue({
+      sent: false,
+      skipped: true,
+      status: 'suppressed_qa',
+    });
+    stubTables({ expense_reports: [{ data: reportRow() }] });
+
+    const res = await callHandler();
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getJSONData()).toEqual({
+      data: {
+        notification: 'submitted',
+        sent: false,
+        skipped: true,
+        status: 'suppressed_qa',
+      },
+    });
+  });
 });
 
 describe('decision notification', () => {
@@ -245,7 +266,7 @@ describe('decision notification', () => {
       reviewerName: 'Gonzalo Naranjo',
       totalAmount: 57690,
       comments: undefined,
-    });
+    }, expect.objectContaining({ kind: 'allow' }));
   });
 
   it('takes rejection comments from the report, not from the request', async () => {
@@ -271,7 +292,8 @@ describe('decision notification', () => {
         status: 'rejected',
         recipientEmail: OWNER_EMAIL,
         comments: 'Falta la boleta de junio',
-      })
+      }),
+      expect.objectContaining({ kind: 'allow' })
     );
   });
 
@@ -307,7 +329,8 @@ describe('decision notification', () => {
 
     await callHandler();
     expect(mockSendDecision).toHaveBeenCalledWith(
-      expect.objectContaining({ reviewerName: 'Administrador' })
+      expect.objectContaining({ reviewerName: 'Administrador' }),
+      expect.objectContaining({ kind: 'allow' })
     );
   });
 
@@ -317,6 +340,20 @@ describe('decision notification', () => {
       expense_reports: [
         { data: reportRow({ status: 'approved', profiles: { first_name: 'Ana', last_name: 'P', email: null } }) },
       ],
+    });
+
+    const res = await callHandler();
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getJSONData()).toEqual({
+      data: { notification: 'approved', sent: false, reason: 'recipient_missing' },
+    });
+    expect(mockSendDecision).not.toHaveBeenCalled();
+  });
+
+  it('treats a missing submitter as an absent tenant-authorizable recipient', async () => {
+    asUser(APPROVER_ID, EXPENSE_APPROVER_EMAIL);
+    stubTables({
+      expense_reports: [{ data: reportRow({ status: 'approved', submitted_by: null }) }],
     });
 
     const res = await callHandler();

@@ -63,6 +63,7 @@ async function invokeReconcile(options: {
   queue?: ZoomJobQueue;
   reportStore?: ZoomAttendanceReportStore;
   nowMs?: number;
+  tenantGate?: (schoolId: number) => Promise<any>;
 }) {
   const { req, res } = createMocks<NextApiRequest, NextApiResponse>({
     method: (options.method ?? 'GET') as 'GET',
@@ -73,6 +74,7 @@ async function invokeReconcile(options: {
     queue: options.queue ?? createFakeQueue().queue,
     reportStore: options.reportStore ?? createFakeReportStore().store,
     now: () => options.nowMs ?? NOON_UTC,
+    tenantGate: options.tenantGate ?? (async (schoolId) => ({ kind: 'allow', tenantKind: 'client', schoolId })),
   });
   return res;
 }
@@ -114,7 +116,7 @@ describe('/api/cron/zoom-reconcile — hourly enqueue', () => {
     const res = await invokeReconcile({ queue });
 
     expect(res._getStatusCode()).toBe(200);
-    expect(JSON.parse(res._getData())).toEqual({ enqueued: 2 });
+    expect(JSON.parse(res._getData())).toEqual({ enqueued: 2, suppressed_qa: 0 });
     expect(enqueued).toEqual([
       {
         job_type: 'host_sync',
@@ -135,8 +137,8 @@ describe('/api/cron/zoom-reconcile — hourly enqueue', () => {
     const first = await invokeReconcile({ queue });
     const second = await invokeReconcile({ queue });
 
-    expect(JSON.parse(first._getData())).toEqual({ enqueued: 2 });
-    expect(JSON.parse(second._getData())).toEqual({ enqueued: 0 });
+    expect(JSON.parse(first._getData())).toEqual({ enqueued: 2, suppressed_qa: 0 });
+    expect(JSON.parse(second._getData())).toEqual({ enqueued: 0, suppressed_qa: 0 });
     // Both calls attempted both inserts; the UNIQUE index is what made the second pass
     // a no-op, exactly as a Vercel double-fire would be.
     expect(enqueued).toHaveLength(4);
@@ -153,8 +155,8 @@ describe('/api/cron/zoom-reconcile — hourly enqueue', () => {
       nowMs: Date.parse('2026-07-30T13:00:00.000Z'),
     });
 
-    expect(JSON.parse(noon._getData())).toEqual({ enqueued: 2 });
-    expect(JSON.parse(onePast._getData())).toEqual({ enqueued: 2 });
+    expect(JSON.parse(noon._getData())).toEqual({ enqueued: 2, suppressed_qa: 0 });
+    expect(JSON.parse(onePast._getData())).toEqual({ enqueued: 2, suppressed_qa: 0 });
   });
 
   it('answers 500 when the queue is unreachable', async () => {
@@ -193,8 +195,8 @@ describe('reconcile plan', () => {
 
   it('plans one attendance_reconcile per candidate, keyed per occurrence AND hour', () => {
     const jobs = planReconcileJobs(NOON_UTC, [
-      { meetingId: 'a7a7a7a7-2222-0000-0000-000000000001', zoomMeetingUuid: 'z7Occ/One==' },
-      { meetingId: 'a7a7a7a7-2222-0000-0000-000000000002', zoomMeetingUuid: 'z7Occ/Two==' },
+      { meetingId: 'a7a7a7a7-2222-0000-0000-000000000001', zoomMeetingUuid: 'z7Occ/One==', schoolId: 1 },
+      { meetingId: 'a7a7a7a7-2222-0000-0000-000000000002', zoomMeetingUuid: 'z7Occ/Two==', schoolId: 1 },
     ]);
 
     const attendance = jobs.filter((job) => job.job_type === 'attendance_reconcile');
@@ -221,23 +223,37 @@ describe('reconcile plan', () => {
     // Per-hour, not forever: a candidate whose batches keep getting REJECTED is
     // retried next pass — the §15.3.9 retry path — instead of never again.
     const nextHour = planReconcileJobs(Date.parse('2026-07-30T13:00:00.000Z'), [
-      { meetingId: 'a7a7a7a7-2222-0000-0000-000000000001', zoomMeetingUuid: 'z7Occ/One==' },
+      { meetingId: 'a7a7a7a7-2222-0000-0000-000000000001', zoomMeetingUuid: 'z7Occ/One==', schoolId: 1 },
     ]);
     expect(nextHour[2].dedupe_key).toBe('attendance_reconcile:z7Occ/One==:2026-07-30T13');
   });
 });
 
 describe('/api/cron/zoom-reconcile — attendance candidates', () => {
+  it('does not enqueue QA attendance candidates', async () => {
+    const { queue, enqueued } = createFakeQueue();
+    const { store } = createFakeReportStore([
+      { meetingId: 'a7a7a7a7-2222-0000-0000-000000000009', zoomMeetingUuid: 'qa/occurrence', schoolId: 257 },
+    ]);
+    const res = await invokeReconcile({
+      queue,
+      reportStore: store,
+      tenantGate: async (schoolId) => ({ kind: 'suppressed_qa', tenantKind: 'qa', schoolId, label: 'QA' }),
+    });
+    expect(JSON.parse(res._getData())).toEqual({ enqueued: 2, suppressed_qa: 1 });
+    expect(enqueued.map((job) => job.job_type)).toEqual(['host_sync', 'webhook_sweep']);
+  });
+
   it('asks the store for the bounded window and enqueues each candidate once', async () => {
     const { queue, enqueued } = createFakeQueue();
     const { store, calls } = createFakeReportStore([
-      { meetingId: 'a7a7a7a7-2222-0000-0000-000000000001', zoomMeetingUuid: 'z7Occ/One==' },
+      { meetingId: 'a7a7a7a7-2222-0000-0000-000000000001', zoomMeetingUuid: 'z7Occ/One==', schoolId: 1 },
     ]);
 
     const res = await invokeReconcile({ queue, reportStore: store });
 
     expect(res._getStatusCode()).toBe(200);
-    expect(JSON.parse(res._getData())).toEqual({ enqueued: 3 });
+    expect(JSON.parse(res._getData())).toEqual({ enqueued: 3, suppressed_qa: 0 });
     expect(calls).toEqual([
       {
         receivedAfterIso: new Date(

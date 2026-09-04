@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
+import { readClientReportingScope } from '@/lib/simulation/tenant-policy';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -72,7 +73,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Get reportable users based on role and assignments
     let reportableUsers: string[] = [];
     try {
-      reportableUsers = await getReportableUsers(user.id, userRole);
+      const clientScope = await readClientReportingScope(supabase);
+      reportableUsers = clientScope.filterUserIds(
+        await getReportableUsers(user.id, userRole)
+      );
     } catch (error) {
       console.error('[Reports] getReportableUsers failed:', error);
       warnings.push('No se pudo determinar el alcance de usuarios');

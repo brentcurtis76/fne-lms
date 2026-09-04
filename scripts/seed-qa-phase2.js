@@ -6,6 +6,7 @@
 
 require('dotenv').config({ path: '.env.local' });
 const { createClient } = require('@supabase/supabase-js');
+const { assertLegacySeederIsNotProduction } = require('./production-qa-simulation/legacy-target-guard.cjs');
 const crypto = require('crypto');
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -17,6 +18,8 @@ if (!supabaseUrl || !supabaseServiceKey || !qaSeedPassword) {
   console.error('Missing Supabase or QA seed environment variables');
   process.exit(1);
 }
+
+assertLegacySeederIsNotProduction(supabaseUrl);
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 

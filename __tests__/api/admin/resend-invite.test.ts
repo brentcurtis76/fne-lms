@@ -194,6 +194,12 @@ function buildClient(tracker: Tracker, opts: ClientOptions = {}) {
           error: opts.profileError ?? null,
         });
       }
+      if (table === 'schools') {
+        return chain(table, {
+          data: { id: 55, tenant_kind: 'client', internal_zoom_testing_enabled: false },
+          error: null,
+        });
+      }
       return chain(table, { data: null, error: null });
     }),
   };

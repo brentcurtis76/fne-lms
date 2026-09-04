@@ -15,12 +15,13 @@
  * PRICES: none, ever (D-02). This module imports `cohort-public` only — the
  * commercial module is unreachable from here by construction, not by care.
  */
-import { Resend } from 'resend';
 import { escapeHtml } from '../utils/html-escape';
 import { buildAbsoluteUrl } from '../utils/app-url';
 import { LEGAL_IDENTITY } from '../legal/privacy-notice';
 import { COHORT_LABEL } from './cohort-public';
 import { PASANTIAS_WHATSAPP } from './pdf/contact';
+import { deliverOutboundEmail } from '../email/provider';
+import { PUBLIC_OUTBOUND_EMAIL } from '../email/outbound-policy';
 
 /** Where internal lead notifications go (Appendix A-10 contact address). */
 export const LEAD_NOTIFICATION_RECIPIENT = 'info@nuevaeducacion.org';
@@ -263,34 +264,26 @@ async function sendSoft(
   logPrefix: string,
   payload: { to: string; subject: string; html: string; replyTo?: string }
 ): Promise<LeadEmailResult> {
-  if (!process.env.RESEND_API_KEY) {
-    console.log(`[${logPrefix}] RESEND_API_KEY missing; email not sent`, {
-      toDomain: payload.to.split('@')[1] ?? 'unknown',
-    });
-    return { sent: false, error: 'RESEND_API_KEY no configurado', failure: 'not_configured' };
-  }
-
-  try {
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    const { error } = await resend.emails.send({
+  const result = await deliverOutboundEmail({
+    authorization: PUBLIC_OUTBOUND_EMAIL,
+    message: {
       from: process.env.EMAIL_FROM_ADDRESS || 'Genera <notificaciones@nuevaeducacion.org>',
       to: payload.to,
       ...(payload.replyTo ? { reply_to: payload.replyTo } : {}),
       subject: payload.subject,
       html: payload.html,
-    });
-
-    if (error) {
-      console.error(`[${logPrefix}] Resend failed:`, error);
-      return { sent: false, error: 'Resend rechazó el envío', failure: 'rejected' };
-    }
-
-    return { sent: true };
-  } catch (error) {
-    console.error(`[${logPrefix}] Resend threw:`, error);
-    // Ambiguous by construction: a timeout can follow an accepted request.
-    return { sent: false, error: 'Error de transporte', failure: 'unknown' };
+    },
+  });
+  if (result.status === 'provider_accepted') return { sent: true };
+  if (result.status === 'not_configured') {
+    return { sent: false, error: 'RESEND_API_KEY no configurado', failure: 'not_configured' };
   }
+  if (result.status === 'provider_rejected') {
+    console.error(`[${logPrefix}] provider rejected email`);
+    return { sent: false, error: 'Resend rechazó el envío', failure: 'rejected' };
+  }
+  console.error(`[${logPrefix}] outbound email failed`, { status: result.status });
+  return { sent: false, error: 'Error de transporte', failure: 'unknown' };
 }
 
 /** Auto-reply with the brochure link. Its success gates `brochure_sent_at`. */

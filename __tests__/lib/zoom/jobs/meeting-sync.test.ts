@@ -14,6 +14,11 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 
+vi.mock('../../../../lib/zoom/tenant-boundary', async (importOriginal) => ({
+  ...((await importOriginal()) as Record<string, unknown>),
+  defaultZoomTenantGate: () => async (schoolId: number) => ({ kind: 'allow', tenantKind: 'client', schoolId }),
+}));
+
 import { runZoomTick } from '../../../../lib/zoom/jobs/runner';
 import { createZoomJobRegistry } from '../../../../lib/zoom/jobs/registry';
 import {
@@ -158,6 +163,23 @@ function seedProjection(harness: ReturnType<typeof createMemoryProvisionStore>):
     ends_at: '2026-08-05T20:30:00.000Z',
   });
 }
+
+describe('meeting_sync — QA provider boundary', () => {
+  it('does not move the reservation or call Zoom', async () => {
+    const fake = await seedFakeWithMeeting();
+    const patchSpy = vi.spyOn(fake, 'patchMeeting');
+    const harness = harnessFor();
+    const before = { ...harness.meetingFor(SESSION_ID) };
+    const result = await createMeetingSyncHandler({
+      api: fake,
+      store: harness.syncStore,
+      tenantGate: async (schoolId) => ({ kind: 'suppressed_qa', tenantKind: 'qa', schoolId, label: 'QA' }),
+    })(context());
+    expect(result).toEqual({ skipped: 'suppressed_qa', school_id: 77 });
+    expect(patchSpy).not.toHaveBeenCalled();
+    expect(harness.meetingFor(SESSION_ID)).toEqual(before);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // §10 — the wall-clock contract

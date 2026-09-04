@@ -599,7 +599,8 @@ type OperatorSessionRefusalCode =
   | 'operator_modality_not_remote'
   | 'operator_not_zoom_managed'
   | 'operator_provider_not_zoom'
-  | 'operator_financial_fields_present';
+  | 'operator_financial_fields_present'
+  | 'qa_provider_suppressed';
 
 interface OperatorSessionRefusal {
   code: OperatorSessionRefusalCode;
@@ -625,6 +626,13 @@ function checkOperatorSessionRequest(
   request: OperatorSessionRequest,
   env: NodeJS.ProcessEnv
 ): OperatorSessionRefusal | null {
+  if (school.tenant_kind === 'qa' && request.isZoomManaged) {
+    return {
+      code: 'qa_provider_suppressed',
+      status: 400,
+      message: 'El entorno interno de simulación QA no puede crear reuniones Zoom reales',
+    };
+  }
   if (!isOperatorTenant(school.tenant_kind)) return null;
 
   if (school.internal_zoom_testing_enabled !== true) {

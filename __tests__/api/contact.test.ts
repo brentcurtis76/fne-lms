@@ -269,8 +269,8 @@ describe('api/contact — soft fail', () => {
     expect(mockResendCtor).not.toHaveBeenCalled();
     expect(mockSend).not.toHaveBeenCalled();
     expect(console.log).toHaveBeenCalledWith(
-      '[contact] RESEND_API_KEY missing; notification email not sent',
-      expect.objectContaining({ to: 'info@nuevaeducacion.org' })
+      '✅ Contact form submission processed:',
+      expect.objectContaining({ emailSent: false })
     );
   });
 
@@ -279,8 +279,8 @@ describe('api/contact — soft fail', () => {
     const { res } = await run(validBody());
     expect(res._getStatusCode()).toBe(200);
     expect(res._getJSONData().emailSent).toBe(false);
-    expect(console.error).toHaveBeenCalledWith('[contact] Resend failed:', {
-      message: 'domain not verified',
+    expect(console.error).toHaveBeenCalledWith('[contact] notification email not accepted', {
+      status: 'provider_rejected',
     });
   });
 

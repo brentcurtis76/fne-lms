@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { resolveCoberturaGate } from '@/lib/services/assessment-builder/coberturaGatePolicy';
 
 /**
  * GET /api/docente/assessments/[instanceId]
@@ -165,33 +166,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       : flatModules;
 
     modulesToCount.forEach((module: any) => {
-      const sortedIndicators = [...(module.indicators || [])].sort(
-        (a: any, b: any) => (a.display_order || 0) - (b.display_order || 0)
+      // R11: filter by year-active status BEFORE ordering/gate resolution.
+      const activeIndicators = (module.indicators || []).filter((indicator: any) =>
+        activeExpectationsMap !== null
+          ? (activeExpectationsMap.get(indicator.id) ?? false)
+          : true
       );
-      const hasCoberturaGate = sortedIndicators.length > 0 && sortedIndicators[0].category === 'cobertura';
 
-      if (hasCoberturaGate) {
-        const coberturaResp = responseMap[sortedIndicators[0].id];
-        const coberturaValue = coberturaResp?.coverageValue;
+      const gate = resolveCoberturaGate({
+        indicators: activeIndicators,
+        getId: (ind: any) => ind.id,
+        getCategory: (ind: any) => ind.category,
+        getDisplayOrder: (ind: any) => ind.display_order,
+        getCoverageValue: (id: string) => responseMap[id]?.coverageValue,
+      });
 
-        // Always count the cobertura indicator
-        totalIndicators++;
-        if (countProgress(sortedIndicators[0])) answeredIndicators++;
-
-        if (coberturaValue === true) {
-          // Gate open: count remaining indicators
-          sortedIndicators.slice(1).forEach((indicator: any) => {
-            totalIndicators++;
-            if (countProgress(indicator)) answeredIndicators++;
-          });
-        }
-        // coberturaValue false/undefined: hidden indicators don't count
-      } else {
-        (module.indicators || []).forEach((indicator: any) => {
-          totalIndicators++;
-          if (countProgress(indicator)) answeredIndicators++;
-        });
-      }
+      totalIndicators += gate.applicable.length;
+      gate.applicable.forEach((indicator: any) => {
+        if (countProgress(indicator)) answeredIndicators++;
+      });
     });
 
     // Build modules array for the frontend (flat list from objectives or direct flat)

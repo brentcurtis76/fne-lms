@@ -2,6 +2,7 @@ import React from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { IndicatorData, ModuleData, ResponseData } from './types';
 import IndicatorInput from './IndicatorInput';
+import { resolveCoberturaGate } from '@/lib/services/assessment-builder/coberturaGatePolicy';
 
 interface ModuleCardProps {
   module: ModuleData;
@@ -25,30 +26,18 @@ const ModuleCard: React.FC<ModuleCardProps> = ({
     (ind) => ind.isActiveThisYear !== false
   );
 
-  // Sort active indicators by display order
-  const sortedIndicators = [...activeIndicators].sort((a, b) => a.displayOrder - b.displayOrder);
+  const gate = resolveCoberturaGate({
+    indicators: activeIndicators,
+    getId: (ind: IndicatorData) => ind.id,
+    getCategory: (ind: IndicatorData) => ind.category,
+    getDisplayOrder: (ind: IndicatorData) => ind.displayOrder,
+    getCoverageValue: (id: string) => responses[id]?.coverageValue,
+  });
 
-  // Cobertura gate logic
-  const hasCoberturaGate = sortedIndicators.length > 0 && sortedIndicators[0].category === 'cobertura';
-  const coberturaResponse = hasCoberturaGate ? responses[sortedIndicators[0].id] : undefined;
-  const coberturaValue = coberturaResponse?.coverageValue;
-
-  // Determine which indicators to show
-  let visibleIndicators: IndicatorData[];
-  let showGateMessage = false;
-
-  if (hasCoberturaGate) {
-    if (coberturaValue === true) {
-      visibleIndicators = sortedIndicators;
-    } else if (coberturaValue === false) {
-      visibleIndicators = [sortedIndicators[0]];
-      showGateMessage = true;
-    } else {
-      visibleIndicators = [sortedIndicators[0]];
-    }
-  } else {
-    visibleIndicators = sortedIndicators;
-  }
+  const hasCoberturaGate = gate.hasGate;
+  const coberturaValue = gate.state === 'yes' ? true : gate.state === 'no' ? false : undefined;
+  const visibleIndicators = gate.applicable;
+  const showGateMessage = gate.state === 'no';
 
   return (
     <div className="bg-white rounded-xl border border-brand_primary/[0.08] overflow-hidden transition-shadow hover:shadow-sm">

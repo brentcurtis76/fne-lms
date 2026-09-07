@@ -21,6 +21,7 @@ import {
 } from '@/types/assessment-builder';
 import { ModuleCard } from '@/components/assessment';
 import type { IndicatorData, ModuleData, ObjectiveData, ResponseData } from '@/components/assessment';
+import { resolveCoberturaGate } from '@/lib/services/assessment-builder/coberturaGatePolicy';
 
 const AssessmentResponseForm: React.FC = () => {
   const router = useRouter();
@@ -138,6 +139,28 @@ const AssessmentResponseForm: React.FC = () => {
     return false;
   };
 
+  // Compute a module's applicable indicators (cobertura-gate-aware) and how many are answered.
+  const computeModuleProgress = (
+    module: ModuleData,
+    currentResponses: Record<string, ResponseData>
+  ): { total: number; answered: number } => {
+    const activeIndicators = module.indicators.filter((ind) => ind.isActiveThisYear !== false);
+    const gate = resolveCoberturaGate({
+      indicators: activeIndicators,
+      getId: (ind: IndicatorData) => ind.id,
+      getCategory: (ind: IndicatorData) => ind.category,
+      getDisplayOrder: (ind: IndicatorData) => ind.displayOrder,
+      getCoverageValue: (id: string) => currentResponses[id]?.coverageValue,
+    });
+
+    let answered = 0;
+    gate.applicable.forEach((indicator) => {
+      if (isIndicatorAnswered(indicator, currentResponses[indicator.id])) answered++;
+    });
+
+    return { total: gate.applicable.length, answered };
+  };
+
   // Update progress whenever responses change
   useEffect(() => {
     const modulesToCheck = objectives.length > 0
@@ -145,41 +168,13 @@ const AssessmentResponseForm: React.FC = () => {
       : modules;
 
     if (modulesToCheck.length > 0) {
-      // Recalculate progress based on current responses
       let total = 0;
       let answered = 0;
 
-      modulesToCheck.forEach(module => {
-        const sortedIndicators = [...module.indicators]
-          .filter((ind) => ind.isActiveThisYear !== false)
-          .sort((a, b) => a.displayOrder - b.displayOrder);
-        const hasCoberturaGate = sortedIndicators.length > 0 && sortedIndicators[0].category === 'cobertura';
-
-        if (hasCoberturaGate) {
-          const coberturaResp = responses[sortedIndicators[0].id];
-          const coberturaValue = coberturaResp?.coverageValue;
-
-          // Always count the cobertura indicator
-          total++;
-          if (isIndicatorAnswered(sortedIndicators[0], coberturaResp)) answered++;
-
-          if (coberturaValue === false) {
-            // Gate closed: hidden indicators don't count
-          } else if (coberturaValue === true) {
-            // Gate open: count remaining indicators
-            sortedIndicators.slice(1).forEach(indicator => {
-              total++;
-              if (isIndicatorAnswered(indicator, responses[indicator.id])) answered++;
-            });
-          }
-          // coberturaValue undefined: only show cobertura indicator (already counted above)
-        } else {
-          // Legacy: no cobertura gate, count all
-          module.indicators.forEach(indicator => {
-            total++;
-            if (isIndicatorAnswered(indicator, responses[indicator.id])) answered++;
-          });
-        }
+      modulesToCheck.forEach((module) => {
+        const contribution = computeModuleProgress(module, responses);
+        total += contribution.total;
+        answered += contribution.answered;
       });
 
       setProgress({
@@ -283,31 +278,10 @@ const AssessmentResponseForm: React.FC = () => {
     let total = 0;
     let answered = 0;
 
-    allModules.forEach(module => {
-      const sortedIndicators = [...module.indicators]
-        .filter((ind) => ind.isActiveThisYear !== false)
-        .sort((a, b) => a.displayOrder - b.displayOrder);
-      const hasCoberturaGate = sortedIndicators.length > 0 && sortedIndicators[0].category === 'cobertura';
-
-      if (hasCoberturaGate) {
-        const coberturaResp = currentResponses[sortedIndicators[0].id];
-        const coberturaValue = coberturaResp?.coverageValue;
-
-        total++;
-        if (isIndicatorAnswered(sortedIndicators[0], coberturaResp)) answered++;
-
-        if (coberturaValue === true) {
-          sortedIndicators.slice(1).forEach(indicator => {
-            total++;
-            if (isIndicatorAnswered(indicator, currentResponses[indicator.id])) answered++;
-          });
-        }
-      } else {
-        module.indicators.forEach(indicator => {
-          total++;
-          if (isIndicatorAnswered(indicator, currentResponses[indicator.id])) answered++;
-        });
-      }
+    allModules.forEach((module) => {
+      const contribution = computeModuleProgress(module, currentResponses);
+      total += contribution.total;
+      answered += contribution.answered;
     });
 
     setProgress({

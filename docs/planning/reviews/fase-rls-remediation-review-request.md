@@ -1,4 +1,4 @@
-> **CURRENT C-R2-01 status: IMPLEMENTED_AND_TESTED locally — cumulative candidate unstaged/uncommitted, independent review pending.** The current correction and final evidence are at the end. Earlier round records are historical; no publication or Production verification is claimed.
+> **CURRENT: controlled release preparation on `codex/rls-release`; original cumulative candidate APPROVE WITH NOTES (independent C-R2 review), integrated-tree independent review PENDING.** The release section below supersedes historical uncommitted/pending-review status statements. No Production readiness, merge or deployment is claimed.
 
 # Review request — RLS remediation: W-B2c-01 + W-B10a-01 + D-RLS-01/02 (`fix/rls-learn`) — cumulative, after Codex review R1
 
@@ -528,3 +528,55 @@ The correction establishes effective access through the explicit assignment; **i
 Disposable cleanup: all proof/governance/rehearsal fixtures owned by this correction are absent; 13 standard synthetic E2E personas and the 48-migration disposable stack remain. App listeners 3001/3002/3003 are stopped. Local session/environment/trace artifacts in this session's scratch replica are removed after retaining redacted evidence. No other worktree, remote, shared database or provider was changed.
 
 Operator work remains separate: unknown-origin reconciliation, named ownership acceptance, publication, Production migration application and Production verification. External actions: NONE. Candidate remains unstaged and uncommitted.
+
+
+# Controlled release integration — 2026-09-08
+
+The original independent C-R2 review approved the exact local 89-path candidate with notes and closed C-R2-01. That approval is not approval of this integrated tree. Independent responsibility remains with the original Codex reviewer.
+
+- Source/base `92df72a637f2cead48c1fce9b3d71d9a34204c8e`, original branch `fix/rls-learn`.
+- Preservation `ce24dba2ba6b98251ccf162aa88ab1717611cc37`: exact 89 manifest paths, staged blobs and committed content SHA-256 verified; parent exactly the locked source. No attribution trailer was present. Clean worktree after preservation.
+- Integrated main `3d13ddb5ec34b784215991354f10f7d86a3ebc19`, unchanged from the remote state recorded in the request.
+- Merge `4350af2ad0c1339db332b82d12d01d43fcbe8a8b`: parents preservation + exact main. No rebase, history rewrite or discarded workstream.
+- Only content conflict: `PROJECT_STATE.md`, resolved by preserving both complete evidence blocks (removing duplicate byte-identical paragraphs only). Every nonblank line on both sides was verified retained. Historical records stay historical; no assessment exception is adopted for this release.
+- `scripts/ci/e2e-mandatory.mjs` auto-merged: union of the 14 RLS candidate specs and main's assessment-draft spec, 15 total. No exclusions or guard weakening.
+- Routine integration documentation fix: stripped two trailing-whitespace lines inherited from main's assessment-role review request; no semantic change.
+- All 87 other approved paths, including seven migrations, remained byte-identical after merge. Every main-side assessment implementation/test file also remained byte-identical. No approved permission, settlement, provenance or migration-order behavior changed.
+
+The source history also includes B2c-M1 documentation commit `92df72a6`, which is the head of draft PR #85. Its documentation changes remain visible in this release diff. PR #85 is not repurposed; no push targets `fix/rls-learn`.
+
+## Fresh integrated evidence
+
+Execution evidence is retained outside the repository at `/Users/brentcurtis/Documents/ChatGPT/RLS Review/release-evidence/`. The final release report records exact commands/exits/counts, publication identity and CI independently from local results. Node v22.22.0 throughout. Only identified `rlslearn-disposable`, container `supabase_db_rlslearn-disposable`, API 127.0.0.1:54351 / DB 127.0.0.1:54352; synthetic data and external disposable environment file.
+
+| Fresh gate | Result | Evidence file in release-evidence |
+|---|---|---|
+| `npm run guard:migrations` | exit 0; 48 migrations, both guards | `guards.log` |
+| Fresh `supabase db reset` on identified disposable | exit 0; 48 migrations | `fresh-reset.log` |
+| `supabase test db` | exit 0; 36 files / 3,753 assertions; also repeated before E2E | `pgtap-full.log`, `pgtap-final-run3.log` |
+| `npm run test:lp-settlement`, normal and `LP_PROOF_LONG=1` | exit 0 each; 18 checks each, 2-second/62-second revocation | `settlement.log`, `settlement-long.log` |
+| `node scripts/ci/course-grant-proof.mjs` | exit 0; 14 checks, repeated before E2E | `grant-concurrency.log` |
+| `npm run type-check`; `npm run lint` | exit 0 each; zero lint warnings | `type-check.log`, `lint.log` |
+| `npm test` | exit 0; 412 files / 9,140 passed / 12 existing opt-in skips | `vitest-full.log` |
+| `npm run build`, integrated and current-main archive | exit 0 each; main archive 2,527 tracked files verified against exact main | `build.log`, `main-build.log`, `main-source-verification.json` |
+| Actual current-main P0–P7 / injected failures / old-new app | exit 0; 533 checks, 0 failures | `prefix-current-main.log`, `run-rehearsal.sh`, `rehearse-current-main.mjs` |
+| Full integrated mandatory E2E | exit 0; 219 passed / 0 skipped / 0 flaky, 15 specs | `e2e-final.log`, `e2e-stats.json`, `resume-e2e.sh` |
+| No-skip guard on original and retained redacted JSON | exit 0 both | `no-skip.log`, `no-skip-redacted.log` |
+| Ledger validator | **exit 1; exact 67 ownership errors unchanged**, no other inherited exception | `ledger.log`, `ledger-comparison.json` |
+| Committed-secrets / browser-boundary / action-runtime guards | exit 0 each | `secrets-guard.log`, `browser-boundary.log`, `actions-guard.log` |
+
+The first E2E attempt stopped before test execution because the new scratch replica lacked the empty `.env.local` file required by two existing specs. Adding that empty file outside repository source allowed the entire mandatory set to run; no test/source/guard change or skip was made. Disposable credentials stayed in the external environment file. Two disposable JWT occurrences captured by the JSON reporter were redacted from retained evidence; the redacted report passes the same no-skip guard.
+
+The compatibility application is **current main `3d13ddb5`**, freshly archived, hash-verified and built in `/private/tmp/rls-release-20260908/main-app`. It is not the historical `92df72a6` archive. The rehearsal preserves the documented legacy admin duplicate-retry 500 limitation and proves established grants/history survive. Assessment implementation and tests from main are byte-identical in the integration, and both fresh assessment-recovery E2E tests pass. All implementation code was final before these gates; subsequent changes only update documentation.
+
+## Independent review focus
+
+1. Confirm the source preservation and two-parent integration against the manifest; distinguish original approval from this review.
+2. Check shared authentication/reporting changes against main's assessment endpoints and draft recovery, with both mandatory E2E workstreams intact.
+3. Inspect the fresh current-main P0–P7 and injected-failure rehearsal, especially old independent grants and progress during database-first deployment; historical HEAD evidence alone is insufficient.
+4. Review the unexecuted operator checklist's prefix prerequisites, unknown-origin acceptance, partial failure containment, secret-presence and scheduler checks.
+5. Verify the exact unchanged 67 ownership failures are openly retained and no assessment exception or invented owner acceptance is adopted.
+
+## Remaining release boundary
+
+Integrated independent review, Production identity/schema preflight, explicit historical-unknown disposition, ownership acceptance and every Production operation remain pending. See `docs/reviews/rls-release-operator-checklist-2026-09-08.md`. **DO NOT MERGE before the authorized Production database sequence and review.**

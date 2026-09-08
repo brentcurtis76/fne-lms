@@ -38,6 +38,7 @@ let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
   requests = [];
   saveResult = json({ saved: 1 });
   fetchMock = vi.fn(async (_url: string, options?: RequestInit) => {
@@ -61,6 +62,58 @@ async function editAndSubmit() {
 }
 
 describe('Assessment completion preserves answers', () => {
+  it('restores a draft after closing before autosave without replacing untouched server answers', async () => {
+    const first = render(<AssessmentResponseForm />);
+    fireEvent.change(await screen.findByLabelText('Respuesta'), { target: { value: '12' } });
+    expect(localStorage.length).toBe(1);
+    first.unmount();
+    render(<AssessmentResponseForm />);
+    const recovery = await screen.findByTestId('recover-assessment-draft');
+    expect(screen.getByLabelText('Respuesta')).toHaveValue('2');
+    expect(screen.getByLabelText('Respuesta')).toBeDisabled();
+    fireEvent.click(recovery);
+    expect(screen.getByLabelText('Respuesta')).toHaveValue('12');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Guardar$/ })); });
+    expect(requests.map(request => request.method)).toEqual(['PUT']);
+    expect(requests[0].body.responses[0].frequency_value).toBe(12);
+    expect(localStorage.length).toBe(0);
+  });
+
+  it('keeps the form unavailable after a load failure and recovers server responses on retry', async () => {
+    fetchMock.mockResolvedValueOnce(json({ error: 'Error al recuperar respuestas' }, false));
+    render(<AssessmentResponseForm />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('No pudimos cargar');
+    expect(screen.queryByLabelText('Respuesta')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar carga' }));
+    expect(await screen.findByLabelText('Respuesta')).toHaveValue('2');
+    expect(requests).toEqual([]);
+  });
+
+  it('warns before unloading with unsaved answers and removes the warning after saving', async () => {
+    render(<AssessmentResponseForm />);
+    fireEvent.change(await screen.findByLabelText('Respuesta'), { target: { value: '7' } });
+    const before = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(before);
+    expect(before.defaultPrevented).toBe(true);
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Guardar$/ })); });
+    const after = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(after);
+    expect(after.defaultPrevented).toBe(false);
+  });
+
+  it('retries on reconnect and removes the journal only after server confirmation', async () => {
+    render(<AssessmentResponseForm />);
+    fireEvent.change(await screen.findByLabelText('Respuesta'), { target: { value: '7' } });
+    saveResult = json({ error: 'Sin conexión' }, false);
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Guardar$/ })); });
+    expect(localStorage.length).toBe(1);
+    saveResult = json({ saved: 1 });
+    await act(async () => { window.dispatchEvent(new Event('online')); });
+    expect(requests.map(request => request.method)).toEqual(['PUT', 'PUT']);
+    expect(localStorage.length).toBe(0);
+    expect(screen.getByTestId('assessment-save-status')).toHaveTextContent('Respuestas guardadas en el servidor.');
+  });
+
   it('saves the latest answer before submitting and retains it with the completion message', async () => {
     await editAndSubmit();
     expect(await screen.findByRole('status')).toHaveTextContent('Los informes individuales y del colegio se generarán');

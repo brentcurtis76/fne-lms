@@ -14,6 +14,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import HelpButton from '@/components/tutorials/HelpButton';
+import { ResponseDraftSession, DraftState } from '@/lib/services/assessment-builder/responseDraft';
 import {
   AREA_LABELS,
   ENTITY_LABELS,
@@ -30,7 +31,8 @@ const AssessmentResponseForm: React.FC = () => {
 
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadedScope, setLoadedScope] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>('');
 
@@ -45,12 +47,40 @@ const AssessmentResponseForm: React.FC = () => {
 
   // UI state
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [draftState, setDraftState] = useState<DraftState>({ ready: false, saving: false,
+    pendingCount: 0, recovery: [], storageError: false, saveError: null, lastSavedAt: null });
+  const [draftOwner, setDraftOwner] = useState<{ scope: string; session: ResponseDraftSession } | null>(null);
+  const scope = user?.id && typeof instanceId === 'string' ? `${user.id}:${instanceId}` : null;
+  const draftSession = draftOwner?.scope === scope ? draftOwner.session : null;
+  const saving = draftState.saving;
+  const hasUnsavedChanges = draftState.pendingCount > 0;
 
-  // Debounce timer for auto-save
-  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const pendingIndicatorIds = useRef(new Set<string>());
-  const saveQueue = useRef<Promise<boolean>>(Promise.resolve(true));
+  useEffect(() => {
+    if (!scope || typeof instanceId !== 'string') return;
+    const session = new ResponseDraftSession(user.id, instanceId, () => window.localStorage);
+    const unsubscribe = session.subscribe(setDraftState);
+    setDraftOwner({ scope, session });
+    return () => { unsubscribe(); session.dispose(); };
+  }, [scope, user?.id, instanceId]);
+
+  useEffect(() => {
+    if (!draftSession) return;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (draftSession.state.pendingCount > 0) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    };
+    const reconnect = () => { if (draftSession.state.pendingCount > 0) void draftSession.save(); };
+    window.addEventListener('beforeunload', beforeUnload);
+    window.addEventListener('online', reconnect);
+    return () => {
+      window.removeEventListener('beforeunload', beforeUnload);
+      window.removeEventListener('online', reconnect);
+    };
+  }, [draftSession]);
+
+  const loadSequence = useRef(0);
   const submittingRef = useRef(false);
 
   // Check auth
@@ -79,9 +109,10 @@ const AssessmentResponseForm: React.FC = () => {
 
   // Fetch assessment data
   const fetchAssessment = useCallback(async () => {
-    if (!user || !instanceId) return;
-
+    if (!user || typeof instanceId !== 'string' || !draftSession) return;
+    const sequence = ++loadSequence.current;
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await fetch(`/api/docente/assessments/${instanceId}`);
       if (!response.ok) {
@@ -90,6 +121,12 @@ const AssessmentResponseForm: React.FC = () => {
       }
 
       const data = await response.json();
+      if (sequence !== loadSequence.current) return;
+      const all = data.objectives?.length
+        ? data.objectives.flatMap((objective: ObjectiveData) => objective.modules) : (data.modules || []);
+      draftSession.initialize(all.flatMap((module: ModuleData) => module.indicators.map(indicator => indicator.id)),
+        data.assignee?.canEdit && !['completed', 'archived'].includes(data.instance.status));
+      setLoadedScope(`${user.id}:${instanceId}`);
       setInstance(data.instance);
       setTemplate(data.template);
       setModules(data.modules || []);
@@ -106,23 +143,18 @@ const AssessmentResponseForm: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Error fetching assessment:', error);
-      toast.error(error.message || 'Error al cargar la evaluación');
-      router.push('/docente/assessments');
+      if (sequence === loadSequence.current) setLoadError(error.message || 'No se pudieron recuperar las respuestas guardadas.');
     } finally {
-      setLoading(false);
+      if (sequence === loadSequence.current) setLoading(false);
     }
-  }, [user, instanceId, router]);
+  }, [user, instanceId, draftSession]);
 
   useEffect(() => {
     if (user && instanceId) {
-      fetchAssessment();
+      void fetchAssessment();
     }
+    return () => { loadSequence.current++; };
   }, [user, instanceId, fetchAssessment]);
-
-  // Compute all modules (from objectives hierarchy or flat list)
-  const allModules: ModuleData[] = objectives.length > 0
-    ? objectives.flatMap((o) => o.modules)
-    : modules;
 
   // Check if an indicator response is "answered"
   const isIndicatorAnswered = (indicator: IndicatorData, resp: ResponseData | undefined): boolean => {
@@ -202,118 +234,28 @@ const AssessmentResponseForm: React.FC = () => {
     });
   };
 
-  // Handle response change
-  const handleResponseChange = (indicatorId: string, field: keyof ResponseData, value: ResponseData[keyof ResponseData]) => {
-    if (submittingRef.current) return;
-    pendingIndicatorIds.current.add(indicatorId);
-    setResponses(prev => ({
-      ...prev,
-      [indicatorId]: {
-        ...prev[indicatorId],
-        [field]: value,
-      },
-    }));
-    setHasUnsavedChanges(true);
-
-    // Debounced auto-save
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-    }
-    saveTimerRef.current = setTimeout(() => {
-      const ids = Array.from(pendingIndicatorIds.current);
-      pendingIndicatorIds.current.clear();
-      void saveResponses(ids);
-    }, 2000);
-  };
-
-  // Save responses - uses ref to avoid stale closure issues
   const responsesRef = useRef(responses);
   responsesRef.current = responses;
 
-  // Serialize writes so an earlier autosave cannot overwrite the final save.
-  const saveResponses = (indicatorIds?: string[]): Promise<boolean> => {
-    const nextSave = saveQueue.current.then(() => persistResponses(indicatorIds));
-    saveQueue.current = nextSave;
-    return nextSave;
+  const handleResponseChange = (indicatorId: string, field: keyof ResponseData, value: ResponseData[keyof ResponseData]) => {
+    if (submittingRef.current || !draftSession?.state.ready || draftSession.state.recovery.length) return;
+    const answer = { ...responsesRef.current[indicatorId], [field]: value };
+    const next = { ...responsesRef.current, [indicatorId]: answer };
+    // Persist synchronously in the input event, before a render or debounce can be interrupted.
+    draftSession.record(indicatorId, answer);
+    responsesRef.current = next;
+    setResponses(next);
   };
 
-  const persistResponses = async (indicatorIds?: string[]): Promise<boolean> => {
-    if (!instanceId) return false;
+  const saveResponses = () => draftSession?.save() ?? Promise.resolve(false);
 
-    // Use ref to get current responses (avoids stale closure)
-    const currentResponses = responsesRef.current;
-
-    // Build array of responses to save
-    const idsToSave = indicatorIds || Object.keys(currentResponses);
-    const responsesToSave = idsToSave
-      .filter(id => currentResponses[id])
-      .map(id => ({
-        indicator_id: id,
-        coverage_value: currentResponses[id].coverageValue,
-        frequency_value: currentResponses[id].frequencyValue,
-        frequency_unit: currentResponses[id].frequencyUnit,
-        profundity_level: currentResponses[id].profundityLevel,
-        rationale: currentResponses[id].rationale,
-        evidence_notes: currentResponses[id].evidenceNotes,
-        sub_responses: currentResponses[id].subResponses,
-      }));
-
-    if (responsesToSave.length === 0) return true;
-
-    setSaving(true);
-    try {
-      const response = await fetch(`/api/docente/assessments/${instanceId}/responses`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ responses: responsesToSave }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Error al guardar');
-      }
-
-      if (data.errors?.length || data.saved !== responsesToSave.length) {
-        throw new Error('No se pudieron guardar todas las respuestas. Intenta guardar nuevamente antes de enviar.');
-      }
-
-      if (responsesRef.current === currentResponses) {
-        idsToSave.forEach(id => pendingIndicatorIds.current.delete(id));
-      }
-      setHasUnsavedChanges(responsesRef.current !== currentResponses || pendingIndicatorIds.current.size > 0);
-
-      // Update progress
-      updateProgress();
-      return true;
-    } catch (error: any) {
-      console.error('Error saving responses:', error);
-      idsToSave.forEach(id => pendingIndicatorIds.current.add(id));
-      setHasUnsavedChanges(true);
-      toast.error(error.message || 'Error al guardar respuestas');
-      return false;
-    } finally {
-      setSaving(false);
+  const recoverDraft = (key: string) => {
+    const recovered = draftSession?.recover(key);
+    if (recovered) {
+      const next = { ...responsesRef.current, ...recovered };
+      responsesRef.current = next;
+      setResponses(next);
     }
-  };
-
-  // Calculate progress - uses ref to avoid stale closure issues
-  const updateProgress = () => {
-    const currentResponses = responsesRef.current;
-    let total = 0;
-    let answered = 0;
-
-    allModules.forEach((module) => {
-      const contribution = computeModuleProgress(module, currentResponses);
-      total += contribution.total;
-      answered += contribution.answered;
-    });
-
-    setProgress({
-      total,
-      answered,
-      percentage: total > 0 ? Math.round((answered / total) * 100) : 0,
-    });
   };
 
   // Submit assessment
@@ -322,12 +264,14 @@ const AssessmentResponseForm: React.FC = () => {
 
     submittingRef.current = true;
     setSubmitting(true);
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    pendingIndicatorIds.current.clear();
+
     try {
       // Never finalize against older stored answers after a failed or partial save.
-      const saved = await saveResponses(Object.keys(responsesRef.current));
-      if (!saved) return;
+      const saved = await saveResponses();
+      if (!saved) {
+        toast.error('Hay respuestas pendientes de guardar. Intenta nuevamente antes de enviar.');
+        return;
+      }
       const response = await fetch(`/api/docente/assessments/${instanceId}/submit`, {
         method: 'POST',
       });
@@ -359,8 +303,21 @@ const AssessmentResponseForm: React.FC = () => {
     router.push('/login');
   };
 
+  if (loadError) {
+    return (
+      <div className="max-w-xl mx-auto p-8" role="alert">
+        <h1 className="text-xl font-semibold">No pudimos cargar la evaluación</h1>
+        <p className="mt-3">{loadError}</p>
+        <p className="mt-2">Para proteger tus respuestas, el formulario estará disponible cuando podamos recuperarlas.</p>
+        <button data-testid="retry-assessment-load" className="mt-4 px-4 py-2 bg-brand_primary text-white rounded" onClick={() => void fetchAssessment()}>
+          Reintentar carga
+        </button>
+      </div>
+    );
+  }
+
   // Loading state
-  if (loading || !user) {
+  if (loading || !user || loadedScope !== scope || !draftSession) {
     return (
       <div className="min-h-screen bg-brand_light flex justify-center items-center">
         <p className="text-xl text-brand_primary">Cargando...</p>
@@ -369,7 +326,7 @@ const AssessmentResponseForm: React.FC = () => {
   }
 
   const isCompleted = instance?.status === 'completed';
-  const canEdit = assignee?.canEdit && !isCompleted && !submitting;
+  const canEdit = assignee?.canEdit && !isCompleted && instance?.status !== 'archived' && !submitting && draftState.ready && !draftState.recovery.length;
 
   return (
     <MainLayout
@@ -409,7 +366,7 @@ const AssessmentResponseForm: React.FC = () => {
             {!isCompleted && (
               <>
                 <button
-                  onClick={() => saveResponses(Object.keys(responses))}
+                  onClick={() => void saveResponses()}
                   disabled={saving || submitting || !hasUnsavedChanges}
                   className="inline-flex items-center px-4 py-2 text-sm font-medium border border-brand_primary/15 text-brand_primary/70 rounded-lg hover:bg-brand_primary/[0.03] disabled:opacity-40 transition-colors"
                 >
@@ -418,7 +375,7 @@ const AssessmentResponseForm: React.FC = () => {
                 </button>
                 <button
                   onClick={handleSubmit}
-                  disabled={submitting || progress.percentage < 100}
+                  disabled={submitting || !canEdit || progress.percentage < 100}
                   className="inline-flex items-center px-5 py-2 text-sm font-semibold bg-brand_accent text-brand_primary rounded-lg hover:bg-brand_accent_hover disabled:opacity-40 transition-colors shadow-sm"
                 >
                   {submitting ? (
@@ -437,6 +394,36 @@ const AssessmentResponseForm: React.FC = () => {
             )}
           </div>
         </div>
+
+        {draftState.recovery.length > 0 && (
+          <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-5" role="alert">
+            <h2 className="font-semibold">Encontramos un borrador pendiente en este navegador</h2>
+            <p className="mt-2 text-sm">Puedes recuperarlo para continuar. Sus respuestas reemplazarán las correspondientes del formulario; las demás se conservarán. Si otra persona o pestaña actualizó la evaluación, revisa antes de recuperar.</p>
+            {draftState.recovery.map(draft => (
+              <button key={draft.key} data-testid="recover-assessment-draft" className="mt-3 mr-3 rounded bg-brand_primary px-4 py-2 text-white"
+                onClick={() => recoverDraft(draft.key)}>
+                Recuperar borrador ({new Date(draft.savedAt).toLocaleString('es-CL')})
+              </button>
+            ))}
+            <button data-testid="discard-assessment-drafts" className="mt-3 underline" onClick={() => draftSession.discardRecovery()}>
+              Descartar borradores y usar las respuestas del servidor
+            </button>
+          </div>
+        )}
+        {!isCompleted && draftState.ready && !draftState.recovery.length && (
+          <div className="mb-5 text-sm" aria-live="polite" data-testid="assessment-save-status">
+            {saving ? 'Guardando respuestas…' : hasUnsavedChanges
+              ? 'Cambios pendientes de guardar en el servidor.' : 'Respuestas guardadas en el servidor.'}
+            {hasUnsavedChanges && !draftState.storageError && <p>Hay un borrador de tus cambios en este navegador para recuperarlos al volver.</p>}
+            {draftState.saveError && <p className="mt-1 text-amber-800">{draftState.saveError}</p>}
+            {draftState.lastSavedAt && <p>Último guardado: {new Date(draftState.lastSavedAt).toLocaleTimeString('es-CL')}</p>}
+          </div>
+        )}
+        {draftState.storageError && (
+          <p role="alert" className="mb-5 rounded border border-amber-300 bg-amber-50 p-4 text-sm">
+            No pudimos asegurar el respaldo en este navegador. No cierres la página con cambios pendientes; espera la confirmación del guardado en el servidor.
+          </p>
+        )}
 
         {/* Progress bar */}
         <div className="bg-white rounded-xl border border-brand_primary/[0.08] p-5 mb-8">

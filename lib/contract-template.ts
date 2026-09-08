@@ -1,3 +1,5 @@
+import { documentHeader, documentSignatures, DOCUMENT_FOOTER, escapeDocumentText } from './contract-document';
+
 // Contract template with placeholders
 // Replace this with your actual legal contract text
 
@@ -147,7 +149,16 @@ La personería de don Arnoldo Cisternas Chávez, para actuar en representación 
 
 // Function to replace placeholders with actual data
 export function generateContractFromTemplate(contractData: any): string {
-  let contract = CONTRACT_TEMPLATE;
+  const body = CONTRACT_TEMPLATE.slice(CONTRACT_TEMPLATE.indexOf('</div>') + 6).trim();
+  let contract = `<article class="fne-document">${documentHeader('Contrato de prestación de servicios', '{{CONTRATO_NUMERO}}', '{{FECHA_CONTRATO}}', '{{CLIENTE_NOMBRE_LEGAL}}')}${body.split(/\n\s*\n/).map(paragraph => {
+    const text = paragraph.trim();
+    if (/^(PRIMERO|SEGUNDO|TERCERO|CUARTO|QUINTO|SEXTO|SÉPTIMO|OCTAVO|NOVENO|DÉCIMO(?: PRIMERO| SEGUNDO| TERCERO| CUARTO| QUINTO| SEXTO)?):/.test(text)) {
+      const [heading, ...lines] = text.split('\n');
+      return `<h2>${heading}</h2>${lines.length ? `<p>${lines.join('<br>')}</p>` : ''}`;
+    }
+    if (text === '{{CUOTAS_DETALLE}}') return text;
+    return `<p>${text.replace(/\n/g, '<br>')}</p>`;
+  }).join('')}<div class="doc-closing">${documentSignatures('{{CLIENTE_REPRESENTANTE}}', '{{CLIENTE_NOMBRE_LEGAL}}')}${DOCUMENT_FOOTER}</div></article>`;
   
   // Date formatting - parse as local date to avoid timezone issues
   const formatDate = (dateString: string) => {
@@ -235,9 +246,9 @@ export function generateContractFromTemplate(contractData: any): string {
   const generateCuotasDetalle = (cuotas: any[]) => {
     if (!cuotas || cuotas.length === 0) return 'Sin cuotas definidas';
 
-    return cuotas.map(cuota =>
-      `Cuota N° ${cuota.numero_cuota}: ${formatCurrencyByType(cuota.monto_uf || cuota.monto_clp || 0)} con vencimiento el ${formatDate(cuota.fecha_vencimiento)}`
-    ).join('\n');
+    return `<table><thead><tr><th>Cuota</th><th>Monto</th><th>Vencimiento</th></tr></thead><tbody>${cuotas.map(cuota =>
+      `<tr><td>N.º ${escapeDocumentText(cuota.numero_cuota)}</td><td>${formatCurrencyByType(cuota.monto_uf || cuota.monto_clp || 0)}</td><td>${formatDate(cuota.fecha_vencimiento)}</td></tr>`
+    ).join('')}</tbody></table>`;
   };
 
   // Check if we have complete personería information (notary details)
@@ -294,7 +305,7 @@ export function generateContractFromTemplate(contractData: any): string {
   
   // Replace all placeholders in the template
   Object.entries(replacements).forEach(([placeholder, value]) => {
-    contract = contract.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+    contract = contract.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), () => placeholder === '{{CUOTAS_DETALLE}}' ? value : escapeDocumentText(value));
   });
   
   return contract;

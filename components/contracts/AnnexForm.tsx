@@ -2,7 +2,7 @@ import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useState, useEffect } from 'react';
 
 import { Plus, Trash2, Save, FileText, Calendar, DollarSign, Download, Users } from 'lucide-react';
-import jsPDF from 'jspdf';
+import { openDocumentPreview, renderDocumentPreview } from '@/lib/contract-document';
 import { toast } from 'react-hot-toast';
 import { generateAnnexFromTemplate } from '../../lib/annex-template';
 import { reconcileCuotas } from '../../lib/utils/reconcileCuotas';
@@ -380,7 +380,9 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
   const generatePreviewPDF = async () => {
     if (!selectedContrato) return;
     
+    let preview: Window | undefined;
     try {
+      preview = openDocumentPreview();
       // Get next annex number for preview
       const anexoNumero = await getNextAnexoNumber(selectedContrato.id);
       
@@ -388,7 +390,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
       const annexData = {
         ...annexForm,
         anexo_numero: anexoNumero,
-        cuotas: cuotas.filter(c => c.fecha_vencimiento && c.monto > 0),
+        cuotas: cuotas.filter(c => c.fecha_vencimiento && c.monto > 0).map(c => ({ ...c, monto_uf: annexForm.tipo_moneda === 'UF' ? c.monto : 0, monto_clp: annexForm.tipo_moneda === 'CLP' ? c.monto : 0 })),
         parentContract: {
           ...selectedContrato,
           cliente: selectedContrato.clientes,
@@ -398,63 +400,9 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
 
       const contractHTML = generateAnnexFromTemplate(annexData);
       
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      
-      // Clean and format the HTML for better PDF rendering
-      const cleanHTML = contractHTML
-        .replace(/1\. Ingreso de nuevos destinatarios/g, '<h3 style="font-weight: bold; margin: 20px 0 10px 0;">1. Ingreso de nuevos destinatarios</h3>')
-        .replace(/2\. Valor y forma de pago/g, '<h3 style="font-weight: bold; margin: 20px 0 10px 0;">2. Valor y forma de pago</h3>')
-        .replace(/3\. Ratificación del contrato original/g, '<h3 style="font-weight: bold; margin: 20px 0 10px 0;">3. Ratificación del contrato original</h3>')
-        .replace(/4\. Firma de conformidad/g, '<h3 style="font-weight: bold; margin: 20px 0 10px 0;">4. Firma de conformidad</h3>')
-        .replace(/\n/g, '<br>');
-      
-      // Create a temporary element to render the HTML
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = cleanHTML;
-      tempDiv.style.width = '800px';
-      tempDiv.style.fontFamily = 'Arial, sans-serif';
-      tempDiv.style.fontSize = '12px';
-      tempDiv.style.lineHeight = '1.6';
-      tempDiv.style.padding = '20px';
-      tempDiv.style.color = '#000';
-      tempDiv.style.backgroundColor = '#fff';
-      
-      // Style all paragraphs
-      const elements = tempDiv.querySelectorAll('*');
-      elements.forEach(el => {
-        const htmlEl = el as HTMLElement;
-        if (htmlEl.tagName === 'P') {
-          htmlEl.style.textAlign = 'justify';
-          htmlEl.style.marginBottom = '15px';
-          htmlEl.style.lineHeight = '1.6';
-        }
-        if (htmlEl.tagName === 'H1' || htmlEl.tagName === 'H2' || htmlEl.tagName === 'H3' || htmlEl.tagName === 'H4') {
-          htmlEl.style.fontWeight = 'bold';
-          htmlEl.style.margin = '15px 0 10px 0';
-        }
-      });
-      
-      // Add to DOM temporarily for rendering
-      document.body.appendChild(tempDiv);
-      
-      pdf.html(tempDiv, {
-        callback: function (pdf) {
-          // Remove temporary element
-          document.body.removeChild(tempDiv);
-          pdf.save(`anexo-${selectedContrato.numero_contrato}A${anexoNumero}-preview.pdf`);
-        },
-        x: 10,
-        y: 10,
-        width: 180,
-        windowWidth: 800,
-        html2canvas: {
-          scale: 1.0,
-          useCORS: true,
-          letterRendering: true
-        }
-      });
-      
+      await renderDocumentPreview(preview, contractHTML, `Anexo ${selectedContrato.numero_contrato}A${anexoNumero}`);
     } catch (error) {
+      preview?.close();
       console.error('Error generating preview:', error);
       toast.error('Error al generar la vista previa');
     }

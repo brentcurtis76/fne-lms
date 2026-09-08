@@ -309,7 +309,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/docente/assessments',
         description: 'Evaluaciones que tengo asignadas',
         icon: AcademicCapIcon,
-        restrictedRoles: ['docente'],
+        // Assigned participants can respond regardless of their school role.
         requiresAssessments: true
       }
     ]
@@ -1063,8 +1063,13 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   const [communityCheckDone, setCommunityCheckDone] = useState(false);
   const [canRunQATests, setCanRunQATests] = useState(false);
   const [qaCheckDone, setQaCheckDone] = useState(false);
-  const [hasAssessments, setHasAssessments] = useState(false);
-  const [assessmentsCheckDone, setAssessmentsCheckDone] = useState(false);
+  const [assessmentAccess, setAssessmentAccess] = useState<{
+    userId: string;
+    hasAssessments: boolean;
+  } | null>(null);
+  // Never display the previous account's assignment state during a session change.
+  const assessmentsCheckDone = !!user?.id && assessmentAccess?.userId === user.id;
+  const hasAssessments = assessmentsCheckDone && !!assessmentAccess?.hasAssessments;
 
   const fetchNewFeedbackCount = useCallback(async () => {
     try {
@@ -1194,10 +1199,10 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
     return () => { cancelled = true; };
   }, [userId, isAdmin, supabase]);
 
-  // Check if docente has any assigned assessments
+  // The assignment, not a primary role, determines access to personal assessments.
   useEffect(() => {
-    if (!userId || isAdmin || userRole !== 'docente') {
-      setAssessmentsCheckDone(true);
+    setAssessmentAccess(null);
+    if (!userId) {
       return;
     }
 
@@ -1210,18 +1215,16 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
           .eq('user_id', userId);
 
         if (!cancelled) {
-          setHasAssessments(!error && (count ?? 0) > 0);
+          setAssessmentAccess({ userId, hasAssessments: !error && (count ?? 0) > 0 });
         }
       } catch {
-        if (!cancelled) setHasAssessments(false);
-      } finally {
-        if (!cancelled) setAssessmentsCheckDone(true);
+        if (!cancelled) setAssessmentAccess({ userId, hasAssessments: false });
       }
     };
 
     checkAssessments();
     return () => { cancelled = true; };
-  }, [userId, isAdmin, userRole, supabase]);
+  }, [userId, supabase]);
 
   // Fetch new feedback count for admins
   useEffect(() => {

@@ -2,7 +2,7 @@ import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useState, useEffect } from 'react';
 
 import { Plus, Trash2, Save, FileText, Calendar, DollarSign, Download, Building, Upload } from 'lucide-react';
-import jsPDF from 'jspdf';
+import { openDocumentPreview, renderDocumentPreview } from '@/lib/contract-document';
 import { toast } from 'react-hot-toast';
 import { generateContractFromTemplate } from '@/lib/contract-template';
 import { reconcileCuotas, attachExistingCuotaIds } from '@/lib/utils/reconcileCuotas';
@@ -987,7 +987,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
   };
 
   // Generate PDF using contract-template.ts
-  const generateContractPDF = () => {
+  const generateContractPDF = async () => {
     // Get selected program
     const selectedPrograma = programas.find(p => p.id === contractForm.programa_id);
 
@@ -1029,315 +1029,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     // Generate HTML from template
     const htmlContent = generateContractFromTemplate(contractData);
 
-    // Create PDF from HTML using jsPDF
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.width;
-    let yPos = 20;
-
-    // Helper function to add text with automatic wrapping and page breaks
-    const addText = (text: string, x: number, fontSize: number = 10, maxWidth: number = pageWidth - 40, isBold: boolean = false) => {
-      doc.setFontSize(fontSize);
-      doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-      const lines = doc.splitTextToSize(text, maxWidth);
-
-      for (const line of lines) {
-        if (yPos > 270) {
-          doc.addPage();
-          yPos = 20;
-        }
-        doc.text(line, x, yPos);
-        yPos += fontSize * 0.4 + 2;
-      }
-      yPos += 3;
-    };
-
-    // Parse HTML and convert to PDF
-    // Strip HTML tags and process the content
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = htmlContent;
-
-    // Process the title block (centered)
-    const titleDiv = tempDiv.querySelector('div[style*="text-align: center"]');
-    if (titleDiv) {
-      const titleLines = titleDiv.innerHTML.split('<br>').map(line =>
-        line.replace(/<[^>]*>/g, '').trim()
-      ).filter(line => line);
-
-      doc.setFont('helvetica', 'bold');
-      titleLines.forEach((line, index) => {
-        doc.setFontSize(index === 0 ? 14 : 11);
-        doc.text(line, pageWidth / 2, yPos, { align: 'center' });
-        yPos += index === 0 ? 6 : 5;
-      });
-      yPos += 10;
-    }
-
-    // Get the rest of the text content
-    const fullText = tempDiv.textContent || tempDiv.innerText || '';
-
-    // Define clause titles to look for
-    const clauseTitles = [
-      'PRIMERO:', 'SEGUNDO:', 'TERCERO:', 'CUARTO:', 'QUINTO:', 'SEXTO:',
-      'SÉPTIMO:', 'OCTAVO:', 'NOVENO:', 'DÉCIMO:', 'DÉCIMO PRIMERO:',
-      'DÉCIMO SEGUNDO:', 'DÉCIMO TERCERO:', 'DÉCIMO CUARTO:', 'DÉCIMO QUINTO:', 'DÉCIMO SEXTO:'
-    ];
-
-    // Split the text by clause titles while keeping the titles
-    const clausePattern = /(PRIMERO:|SEGUNDO:|TERCERO:|CUARTO:|QUINTO:|SEXTO:|SÉPTIMO:|OCTAVO:|NOVENO:|DÉCIMO PRIMERO:|DÉCIMO SEGUNDO:|DÉCIMO TERCERO:|DÉCIMO CUARTO:|DÉCIMO QUINTO:|DÉCIMO SEXTO:|DÉCIMO:)/g;
-
-    // Find the opening paragraph (before PRIMERO:)
-    const firstClauseIndex = fullText.indexOf('PRIMERO:');
-    if (firstClauseIndex > 0) {
-      // Get text before first clause (skip title block content)
-      let openingText = fullText.substring(0, firstClauseIndex).trim();
-
-      // Remove title block content
-      const titlePatterns = [
-        /CONTRATO DE PRESTACIÓN DE SERVICIOS[^]*?Contrato [^\n]+/,
-        /^[\s\n]*CONTRATO DE PRESTACIÓN DE SERVICIOS/,
-        /FUNDACIÓN INSTITUTO RELACIONAL \(NUEVA EDUCACIÓN\)\s*Y\s*/
-      ];
-      for (const pattern of titlePatterns) {
-        openingText = openingText.replace(pattern, '').trim();
-      }
-
-      // Find "En Santiago de Chile" paragraph
-      const santiagoIndex = openingText.indexOf('En Santiago de Chile');
-      if (santiagoIndex >= 0) {
-        const openingParagraph = openingText.substring(santiagoIndex).trim();
-        if (openingParagraph) {
-          addText(openingParagraph, 20, 10);
-          yPos += 5;
-        }
-      }
-    }
-
-    // Split the rest of the text by clauses
-    const parts = fullText.substring(firstClauseIndex).split(clausePattern).filter(p => p.trim());
-
-    // Process clauses in pairs (title, content)
-    for (let i = 0; i < parts.length; i++) {
-      const part = parts[i].trim();
-
-      // Check if this part is a clause title
-      if (clauseTitles.includes(part)) {
-        // Get the content after the clause marker
-        let nextPart = parts[i + 1] || '';
-
-        // Clean up the content: normalize whitespace while preserving paragraph structure
-        // Replace tabs with spaces, normalize multiple spaces
-        nextPart = nextPart.replace(/\t/g, ' ').replace(/  +/g, ' ');
-
-        // Split by double newlines (paragraph breaks) to preserve structure
-        const paragraphs = nextPart.split(/\n\s*\n/).map(p => p.trim()).filter(p => p);
-
-        // The first paragraph should be the subtitle (if it exists)
-        let subtitle = '';
-        let contentParagraphs: string[] = [];
-
-        if (paragraphs.length > 0) {
-          const firstPara = paragraphs[0];
-
-          // A subtitle is SHORT and reads like a title, not a sentence
-          // Content paragraphs are LONG or start with typical sentence patterns
-          const isShort = firstPara.length <= 80;
-          const startsLikeSentence =
-            firstPara.startsWith('La ') ||
-            firstPara.startsWith('Las ') ||
-            firstPara.startsWith('El ') ||
-            firstPara.startsWith('Los ') ||
-            firstPara.startsWith('Para ') ||
-            firstPara.startsWith('Si ') ||
-            firstPara.startsWith('Cada ') ||
-            firstPara.startsWith('Cualquier ') ||
-            firstPara.startsWith('Este ') ||
-            firstPara.startsWith('Ambas ') ||
-            /^\d+\.?\s/.test(firstPara); // Starts with a number (like "1. ...")
-
-          // If it starts with FUNDACIÓN and is a full sentence (has verb patterns), it's content
-          const startsWithFundacion = firstPara.startsWith('FUNDACIÓN ');
-          const hasSentencePattern = startsWithFundacion && (
-            firstPara.includes(' garantiza ') ||
-            firstPara.includes(' declara ') ||
-            firstPara.includes(' será ') ||
-            firstPara.includes(' expresamente ') ||
-            firstPara.length > 70
-          );
-
-          // It's a subtitle if: short AND doesn't look like a sentence AND not a FUNDACIÓN sentence
-          const isSubtitle = isShort && !startsLikeSentence && !hasSentencePattern;
-
-          if (isSubtitle) {
-            // First paragraph is subtitle
-            subtitle = firstPara.replace(/\n/g, ' ').trim();
-            contentParagraphs = paragraphs.slice(1);
-          } else {
-            // No subtitle, all content
-            contentParagraphs = paragraphs;
-          }
-        }
-
-        yPos += 5;
-
-        // Build the title
-        const fullTitle = subtitle ? `${part} ${subtitle}` : part;
-
-        // Calculate how much space the title will need
-        doc.setFontSize(11);
-        const titleLines = doc.splitTextToSize(fullTitle, pageWidth - 40);
-        const titleHeight = titleLines.length * (11 * 0.4 + 2) + 3;
-
-        // Estimate minimum content height (at least 3-4 lines of first paragraph)
-        const minContentHeight = 25;
-
-        // If title + minimum content won't fit on this page, start a new page
-        if (yPos + titleHeight + minContentHeight > 270) {
-          doc.addPage();
-          yPos = 20;
-        }
-
-        // Now print the title
-        addText(fullTitle, 20, 11, pageWidth - 40, true);
-
-        // Print content paragraphs
-        for (const para of contentParagraphs) {
-          // Check if this paragraph contains cuotas (payment schedule)
-          if (para.includes('Cuota N°')) {
-            // Split by "Cuota N°" to get each cuota on its own line
-            const cuotaPattern = /(Cuota N°\s*\d+:[^C]*?)(?=Cuota N°|$)/g;
-            const cuotaMatches = para.match(cuotaPattern);
-
-            if (cuotaMatches && cuotaMatches.length > 0) {
-              // Print text before the first cuota
-              const firstCuotaIndex = para.indexOf('Cuota N°');
-              if (firstCuotaIndex > 0) {
-                const textBefore = para.substring(0, firstCuotaIndex).replace(/\n/g, ' ').replace(/  +/g, ' ').trim();
-                if (textBefore) {
-                  addText(textBefore, 20, 10);
-                }
-              }
-
-              // Print each cuota on its own line
-              for (const cuota of cuotaMatches) {
-                const cleanCuota = cuota.replace(/\n/g, ' ').replace(/  +/g, ' ').trim();
-                if (cleanCuota) {
-                  addText(cleanCuota, 20, 10);
-                }
-              }
-            } else {
-              // Fallback: just print the paragraph
-              const cleanPara = para.replace(/\n/g, ' ').replace(/  +/g, ' ').trim();
-              if (cleanPara) {
-                addText(cleanPara, 20, 10);
-              }
-            }
-          } else if (/\d+\.\s/.test(para)) {
-            // Paragraph contains numbered items (1. 2. 3. etc.) - split them onto separate lines
-            // Use a different approach: split on the pattern that marks the START of each numbered item
-            // Look for numbers at the beginning or after whitespace: "1. ", "2. ", etc.
-
-            // First, find all positions where numbered items start
-            const itemStarts: number[] = [];
-            const itemStartPattern = /(?:^|\s)(\d+)\.\s/g;
-            let match;
-            while ((match = itemStartPattern.exec(para)) !== null) {
-              // Check if this looks like a list item number (1-20) vs a date/amount
-              const num = parseInt(match[1]);
-              if (num >= 1 && num <= 20) {
-                itemStarts.push(match.index === 0 ? 0 : match.index + 1); // +1 to skip the leading space
-              }
-            }
-
-            if (itemStarts.length > 1) {
-              // Print text before the first numbered item (if any)
-              if (itemStarts[0] > 0) {
-                const textBefore = para.substring(0, itemStarts[0]).replace(/\n/g, ' ').replace(/  +/g, ' ').trim();
-                if (textBefore) {
-                  addText(textBefore, 20, 10);
-                }
-              }
-
-              // Extract and print each numbered item
-              for (let idx = 0; idx < itemStarts.length; idx++) {
-                const start = itemStarts[idx];
-                const end = idx < itemStarts.length - 1 ? itemStarts[idx + 1] : para.length;
-                const item = para.substring(start, end).replace(/\n/g, ' ').replace(/  +/g, ' ').trim();
-                if (item) {
-                  addText(item, 20, 10);
-                }
-              }
-            } else {
-              // Only one or no numbered items, print normally
-              const cleanPara = para.replace(/\n/g, ' ').replace(/  +/g, ' ').trim();
-              if (cleanPara) {
-                addText(cleanPara, 20, 10);
-              }
-            }
-          } else if (/[a-d]\.\s/.test(para) && para.includes('a.') && para.includes('b.')) {
-            // Paragraph contains lettered items (a. b. c. d.) - split them onto separate lines
-            // Use a more specific pattern that looks for "a. ", "b. ", "c. ", "d. " followed by content
-            const letteredPattern = /([a-d]\.\s+.*?)(?=\s+[a-d]\.\s|$)/g;
-            const letteredMatches = para.match(letteredPattern);
-
-            if (letteredMatches && letteredMatches.length > 1) {
-              // Print text before the first lettered item (if any)
-              const firstLetterIndex = para.search(/[a-d]\.\s/);
-              if (firstLetterIndex > 0) {
-                const textBefore = para.substring(0, firstLetterIndex).replace(/\n/g, ' ').replace(/  +/g, ' ').trim();
-                if (textBefore) {
-                  addText(textBefore, 20, 10);
-                }
-              }
-
-              // Print each lettered item on its own line
-              for (const item of letteredMatches) {
-                const cleanItem = item.replace(/\n/g, ' ').replace(/  +/g, ' ').trim();
-                if (cleanItem) {
-                  addText(cleanItem, 20, 10);
-                }
-              }
-            } else {
-              // Only one or no lettered items, print normally
-              const cleanPara = para.replace(/\n/g, ' ').replace(/  +/g, ' ').trim();
-              if (cleanPara) {
-                addText(cleanPara, 20, 10);
-              }
-            }
-          } else {
-            // Regular paragraph: replace single newlines with spaces
-            const cleanPara = para.replace(/\n/g, ' ').replace(/  +/g, ' ').trim();
-            if (cleanPara) {
-              addText(cleanPara, 20, 10);
-            }
-          }
-        }
-
-        i++; // Skip the next part since we processed it
-      }
-    }
-
-    // Add signatures
-    yPos += 30;
-    if (yPos > 220) {
-      doc.addPage();
-      yPos = 60;
-    }
-
-    // Signature lines
-    doc.line(30, yPos, 90, yPos);
-    doc.line(120, yPos, 180, yPos);
-
-    yPos += 5;
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text((clienteForm.nombre_representante || '').toUpperCase(), 60, yPos, { align: 'center' });
-    doc.text('ARNOLDO CISTERNAS CHÁVEZ', 150, yPos, { align: 'center' });
-
-    yPos += 4;
-    doc.text(`p.p. ${(clienteForm.nombre_legal || '').toUpperCase()}`, 60, yPos, { align: 'center' });
-    doc.text('p.p. FUNDACIÓN NUEVA EDUCACIÓN', 150, yPos, { align: 'center' });
-
-    return doc;
+    return renderDocumentPreview(openDocumentPreview(), htmlContent, `Contrato ${contractForm.numero_contrato}`);
   };
 
   // Validation
@@ -2218,14 +1910,13 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <button
                     type="button"
                     onClick={() => {
-                      const pdf = generateContractPDF();
-                      pdf.save(`Contrato_${contractForm.numero_contrato}_${clienteForm.nombre_fantasia.replace(/\s+/g, '_')}.pdf`);
+                      void generateContractPDF().catch(() => toast.error('Error al abrir la vista previa del contrato'));
                     }}
                     disabled={!isStepValid()}
                     className="flex items-center px-6 py-2 bg-brand_accent text-brand_primary rounded-lg hover:bg-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                   >
                     <Download size={16} className="mr-2" />
-                    Generar PDF
+                    Vista previa / PDF
                   </button>
                 )}
                 <button

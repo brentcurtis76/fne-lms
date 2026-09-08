@@ -33,18 +33,22 @@ body{margin:0;background:#F3F4F6;color:#1F1F1F;font-family:Mont,Arial,sans-serif
 .fne-document .signature-entity{font-size:9pt;color:#6B7280}
 .fne-document footer{margin-top:18px;padding-top:8px;border-top:1px solid #E5E7EB;display:flex;justify-content:space-between;gap:12px;font-size:7pt;color:#6B7280;break-inside:avoid}
 .print-controls{padding:16px 24px;background:#0A0A0A;color:white;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.print-guidance{max-width:816px;margin:16px auto;padding:0 16px;font:400 13px/1.5 Mont,Arial,sans-serif;color:#374151}
 .print-controls h2{font-size:16px;margin:0}.print-controls-buttons{display:flex;gap:12px}
 .print-controls button{font:600 14px Mont,Arial,sans-serif;border:0;padding:10px 16px;border-radius:6px;cursor:pointer;background:#FBBF24;color:#0A0A0A;display:flex;align-items:center;gap:8px}
 @media screen and (max-width:816px){.page-container{overflow-x:auto}.fne-document{margin:0}.print-controls{flex-wrap:wrap}}
 @media print{
  @page{size:letter;margin:.55in .7in .45in}
  html,body{background:white;margin:0;padding:0;height:auto}
- .print-controls{display:none!important}
+ .print-controls,.print-guidance{display:none!important}
  .page-container{margin:0;padding:0;overflow:visible}
  .fne-document{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}
  .fne-document *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
 }
 `;
+
+export const CONTRACT_PRINT_GUIDANCE = 'Para guardar el PDF, selecciona tamaño Carta y escala 100 %. Desactiva los encabezados y pies de página del navegador y activa la impresión de fondos.';
 
 export function escapeDocumentText(value: unknown): string {
  return String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]!));
@@ -67,7 +71,7 @@ export function openDocumentPreview(): Window {
 }
 export async function renderDocumentPreview(preview: Window, html: string, title: string): Promise<void> {
  preview.document.open();
- preview.document.write(`<!doctype html><html lang="es-CL"><head><meta charset="utf-8"><base href="${escapeDocumentText(window.location.origin)}/"><title>${escapeDocumentText(title)}</title><style>${CONTRACT_DOCUMENT_CSS}</style></head><body><div class="print-controls"><h2>Vista previa</h2><button id="print-document" disabled>Preparando documento…</button></div><main class="page-container">${html}</main></body></html>`);
+ preview.document.write(`<!doctype html><html lang="es-CL"><head><meta charset="utf-8"><base href="${escapeDocumentText(window.location.origin)}/"><title>${escapeDocumentText(title)}</title><style>${CONTRACT_DOCUMENT_CSS}</style></head><body><div class="print-controls"><h2>Vista previa</h2><button id="print-document" data-testid="print-document" disabled>Preparando documento…</button></div><p class="print-guidance">${CONTRACT_PRINT_GUIDANCE}</p><main class="page-container">${html}</main></body></html>`);
  preview.document.close();
  await preview.document.fonts.ready;
  await Promise.all(Array.from(preview.document.images).map(img => img.decode()));

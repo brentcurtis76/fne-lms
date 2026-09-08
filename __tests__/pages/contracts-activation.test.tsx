@@ -301,3 +301,11 @@ describe('Contracts page — activation writes', () => {
     expect(screen.queryByTestId('firma-pendiente-filter')).not.toBeInTheDocument();
   });
 });
+
+
+describe('Contracts page — displayed currency', () => {
+  it.each([['CLP', '$4.969.000'], ['UF', 'UF 4.969.000'], [undefined, 'UF 4.969.000']])('labels %s totals correctly', async (tipo_moneda, expected) => {
+    await renderPage([makeContrato({ tipo_moneda, precio_total_uf: 4969000 })]);
+    expect(screen.getByText(expected)).toBeInTheDocument();
+  });
+});

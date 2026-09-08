@@ -1,4 +1,4 @@
-import { CONTRACT_DOCUMENT_CSS } from '../../lib/contract-document';
+import { CONTRACT_DOCUMENT_CSS, CONTRACT_PRINT_GUIDANCE } from '../../lib/contract-document';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
@@ -200,6 +200,8 @@ export default function ContractPrintPage() {
           </button>
         </div>
       </div>
+
+      <p className="print-guidance">{CONTRACT_PRINT_GUIDANCE}</p>
 
       {/* Contract Document */}
       <div className="page-container">

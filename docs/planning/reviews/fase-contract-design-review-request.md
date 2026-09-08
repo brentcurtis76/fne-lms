@@ -1,11 +1,11 @@
 # Contract and annex document design review
 
-Branch: `feat/contract-design`. Base: `717c2c095021eb9ff71f1873d87b2e926c6f4d9b` (local main). One implementation commit above the base.
+Branch: `feat/contract-design`. Integrated base: `097b62ed` (origin/main, merged without conflicts in `c8efee4f`). Original design commit: `d4ab5df7`. A release-verification follow-up adds print guidance, CLP labels, and stronger PDF assertions.
 
 ## Objective and scope
 Apply the user's Claude Design anexo reference to the FNE-LMS contract and annex PDF generators. The reference project is `11edbb3b-51e9-45c1-98b2-dbd1c0ff9556`, file `Anexo de Contrato FNE-2026-06-488A1.dc.html`. Its full ZIP was exported through the user's authenticated browser because claude_design MCP is unavailable in this session. HTML, design tokens, fonts, logo and runtime files are retained outside the repository in the task workspace.
 
-In scope: active contract and annex form previews, saved-document print route, shared document styling and synthetic regression proofs. Out of scope: legal terms, database/authentication changes, existing uploaded/signed PDFs, unused legacy React-PDF components, release integration, publishing and deployment. No itinerary was supplied for this design task.
+In scope: active contract and annex form previews, saved-document print route, shared document styling and synthetic regression proofs. Out of scope: legal terms, database/authentication changes, existing uploaded/signed PDFs, unused legacy React-PDF components, production deployment. Release integration and PR CI are now authorized. No itinerary was supplied for this design task.
 
 ## Result and behavior
 Mont typography, the reference gold logo, black headings, yellow title rule, numbered annex sections, restrained payment tables and side-by-side signature spaces now share a Letter print layout. A representative short annex prints on one page including signatures. Longer content flows without clipping; the 30-payment stress example uses three pages, with signatures and footer together. The full synthetic contract uses five pages.
@@ -42,5 +42,14 @@ External evidence: `/Users/brentcurtis/Documents/ChatGPT/RLS Review/contract-des
 4. Verify UF/CLP mapping and HTML escaping retain all dynamic values without introducing markup.
 5. Check long names and installment schedules; one-page output is demonstrated for the short fixture, not forced for arbitrarily long content.
 
-## Limitations and release status
+## Integrated release verification (2026-09-08)
+- Full merged-main unit suite: 416 files, 9,716 passed / 12 existing skips.
+- Type-check, zero-warning lint, and production build: passed on Node 22 with synthetic local environment.
+- Disposable local Supabase stack `contract-design-test` (API 54451, DB 54452): 31 pgTAP files, 2,506 assertions passed.
+- Computer use: logged in as a synthetic admin, created a CLP contrato and anexo through the application, reopened both saved PDF routes, checked dates/amounts/logo/fonts/signatures, and opened both form previews in native Safari. Production was not contacted.
+- Fixed the existing contracts-list CLP-as-UF label; three added currency cases and the targeted document/page suites passed (14 tests).
+- Added the print spec to mandatory CI and PDF text assertions for both signatures/footer plus expected page counts. Four Chromium checks passed.
+- **Open release blocker:** native Safari PDF export omits trailing signatures in representative fixtures despite their presence in browser previews. Diagnostic layout experiments remain outside the repository. Safari PDF output is not approved yet.
+
+## Limitations and release status (initial implementation history)
 Chromium printing is tested. No authenticated application/database E2E, Safari print verification or Production operation was performed. Static screenshots do not substitute for testing real application permissions; those paths were not modified. Existing full-suite skips remain unchanged. Local commit only; no push, PR, merge or deployment.

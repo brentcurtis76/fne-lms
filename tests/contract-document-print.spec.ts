@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { generateAnnexFromTemplate } from '../lib/annex-template';
 import { generateContractFromTemplate } from '../lib/contract-template';
 import { CONTRACT_DOCUMENT_CSS } from '../lib/contract-document';
+import pdfParse from 'pdf-parse';
 
 const parent = { numero_contrato: 'FNE-DEMO-2026', fecha_contrato: '2026-06-22', fecha_fin:'2027-06-22', cliente:{ nombre_legal:'Corporación Educacional de Ejemplo', nombre_fantasia:'Colegio de Ejemplo', nombre_representante:'Representante de Ejemplo', rut:'99.999.999-9', direccion:'Calle de Ejemplo 123', comuna:'Santiago', ciudad:'Santiago' }, programa:{ nombre:'Asesoría Integral para Desarrollar una Cultura de Innovación Educativa Centrada en el Aprendizaje' } };
 const data = { ...parent, parentContract:parent, anexo_numero:1, anexo_fecha:'2026-09-08', numero_participantes:2, nombre_ciclo:'Primer Ciclo', tipo_moneda:'CLP', precio_total_uf:4969000, cuotas:[{numero_cuota:1,monto_clp:4969000,fecha_vencimiento:'2026-09-09'}] };
@@ -28,6 +29,11 @@ for (const kind of ['annex', 'contract', 'long-annex'] as const) {
     if (kind === 'annex') expect(metrics.height).toBeLessThanOrEqual(960); // Letter minus 1in vertical margins.
     const pdf = await page.pdf({path:testInfo.outputPath(`${kind}.pdf`),preferCSSPageSize:true,printBackground:true});
     expect(pdf.byteLength).toBeGreaterThan(10000);
+    const printed = await pdfParse(pdf);
+    expect(printed.text.toUpperCase()).toContain('REPRESENTANTE DE EJEMPLO');
+    expect(printed.text).toContain('ARNOLDO CISTERNAS CHÁVEZ');
+    expect(printed.text).toContain('www.nuevaeducacion.org');
+    expect(printed.numpages).toBe(kind === 'annex' ? 1 : kind === 'contract' ? 5 : 3);
     await page.screenshot({path:testInfo.outputPath(`${kind}.png`),fullPage:true});
   });
 }

@@ -315,7 +315,8 @@ export default function ContractsPage() {
     router.push('/login');
   };
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number, currency?: 'UF' | 'CLP') => {
+    if (currency === 'CLP') return `$${amount.toLocaleString('es-CL')}`;
     // Only show decimals if the amount has non-zero decimal places
     const hasDecimals = amount % 1 !== 0;
     return `UF ${amount.toLocaleString('es-CL', { 
@@ -821,7 +822,7 @@ export default function ContractsPage() {
                             </td>
                             <td className="py-4 px-4">
                               <div className="font-semibold text-brand_primary">
-                                {formatCurrency(contrato.precio_total_uf)}
+                                {formatCurrency(contrato.precio_total_uf, contrato.tipo_moneda)}
                               </div>
                             </td>
                             <td className="py-4 px-4">

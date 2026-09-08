@@ -113,7 +113,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('instance_id', instanceId);
 
     if (responsesError) {
-      console.error('Error fetching responses:', responsesError);
+      console.error('Error fetching assessment responses');
+      return res.status(500).json({ error: 'No se pudieron recuperar las respuestas guardadas. Intenta nuevamente.' });
     }
 
     // Build response map keyed by indicator_id

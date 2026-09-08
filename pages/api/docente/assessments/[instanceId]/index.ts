@@ -241,6 +241,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       instance: {
         id: instance.id,
         transformationYear: instance.transformation_year,
+        generationType: (instance as any).generation_type || 'GT',
         status: instance.status,
         contextResponses: instance.context_responses,
         startedAt: instance.started_at,

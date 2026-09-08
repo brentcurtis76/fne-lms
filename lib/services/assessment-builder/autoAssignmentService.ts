@@ -30,7 +30,10 @@
  *
  * NOTE: This service uses supabaseAdmin to bypass RLS restrictions.
  * RLS policies block inserts to assessment_instances and assessment_instance_assignees
- * from regular authenticated users.
+ * from regular authenticated users. Course-level instance and grant writes go
+ * through `public.attach_course_docente_assessment` (one locked transaction
+ * that re-verifies the docente's active assignment; Codex round 3, finding 1)
+ * — never through separate service-role INSERTs.
  */
 
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
@@ -250,11 +253,6 @@ function isNotFound(error: { code?: string } | null | undefined): boolean {
   return error?.code === 'PGRST116';
 }
 
-/** Postgres unique_violation — a concurrent writer already linked the same row. */
-function isUniqueViolation(error: { code?: string } | null | undefined): boolean {
-  return error?.code === '23505';
-}
-
 function templateNames(rows: { name: string }[]): string {
   return rows.map(r => `"${r.name}"`).join(', ');
 }
@@ -472,20 +470,151 @@ export async function preflightAutoAssignment(
   }
 }
 
+type LiveInstanceLookup =
+  | { kind: 'found'; instance: { id: string } | null }
+  | { kind: 'error'; message: string };
+
+/**
+ * The locked, single-transaction attach (migration
+ * 20260908130000_attach_course_assessment.sql, replaced by
+ * 20260908140000_attach_course_assessment_template_lock.sql; Codex round 3
+ * finding 1 and round 4 finding R5-1).
+ *
+ * Course-level instance and grant writes no longer happen as separate
+ * service-role requests. `public.attach_course_docente_assessment` takes the
+ * course row FOR UPDATE — the row Operation A Step 2, `replace_course_docente`
+ * and `save_transversal_context` also lock — and, in that one transaction,
+ * re-reads the docente's ACTIVE assignment, then decides the template's
+ * eligibility (published, not archived) under a FOR SHARE lock on the
+ * template row that it holds until it commits: an archive, restore or publish
+ * flip of that template either committed before the read (and is seen) or
+ * waits for this transaction (R5-1: the round-4 function read eligibility
+ * unlocked and then waited, so an archive could commit meanwhile). It then
+ * attaches the docente to the live instance for the snapshot (no-op if
+ * already attached) or creates the instance with the grant. A request that
+ * carried a pre-cleanup decision waits at the lock and is refused with
+ * `docente_not_active_on_course` after the cleanup commits; the service role's
+ * RLS bypass no longer matters because the authorization is re-read inside
+ * the write transaction. Co-assignees are never read or touched.
+ *
+ * Exactly what is NOT lock-protected: the current-snapshot check
+ * (`snapshot_not_current`) is the last read before the write against
+ * committed snapshots; `publishTemplate` inserts the snapshot in its own
+ * request, so a snapshot committed after that read is not excluded. The
+ * residual is an instance bound to the previous snapshot — the state every
+ * instance is in after a republish — not an access decision.
+ */
+const ATTACH_RPC = 'attach_course_docente_assessment';
+
+type AttachOutcome = 'created' | 'attached' | 'already_exists';
+
+/** Stable P0001 codes the RPC raises (see the migration header) → es-CL detail. */
+const ATTACH_REFUSALS: Record<string, string> = {
+  docente_not_active_on_course:
+    'La asignación del docente a este curso ya no está activa; no se creó ni vinculó la evaluación.',
+  assignment_invariant_violation:
+    'Este curso registra más de una asignación activa de docente; se requiere una resolución administrativa antes de vincular evaluaciones.',
+  template_not_eligible:
+    'La plantilla ya no está publicada y vigente; no se creó ni vinculó la evaluación.',
+  snapshot_not_current:
+    'La versión publicada de la plantilla cambió durante la asignación; reintente para usar la versión vigente.',
+  snapshot_not_found: 'La versión publicada de la plantilla no existe.',
+  instance_ambiguous:
+    'Existe más de una evaluación activa para este curso y plantilla; se requiere una resolución administrativa antes de asignar.',
+  course_not_found: 'El curso no existe.',
+  invalid_arguments: 'Parámetros de asignación inválidos.',
+};
+
+type AttachResult =
+  | { kind: 'ok'; instanceId: string; outcome: AttachOutcome }
+  | { kind: 'error'; message: string; code?: string };
+
+async function attachCourseDocenteAssessment(args: {
+  courseStructureId: string;
+  docenteId: string;
+  snapshotId: string;
+  transformationYear: number;
+  generationType: GenerationType;
+  assignedBy: string;
+}): Promise<AttachResult> {
+  const { data, error } = await supabaseAdmin.rpc(ATTACH_RPC, {
+    p_course_structure_id: args.courseStructureId,
+    p_docente_id: args.docenteId,
+    p_template_snapshot_id: args.snapshotId,
+    p_transformation_year: args.transformationYear,
+    p_generation_type: args.generationType,
+    p_assigned_by: args.assignedBy,
+  });
+
+  if (error) {
+    // PostgREST surfaces RAISE EXCEPTION 'code' as message = 'code' (P0001).
+    const code = String(error.message ?? '').trim();
+    const known = ATTACH_REFUSALS[code];
+    return known
+      ? { kind: 'error', code, message: known }
+      : { kind: 'error', message: `No se pudo vincular la evaluación: ${error.message}` };
+  }
+  const row = (data ?? null) as { instance_id?: unknown; outcome?: unknown } | null;
+  const outcome = row?.outcome;
+  if (
+    !row || typeof row.instance_id !== 'string' ||
+    (outcome !== 'created' && outcome !== 'attached' && outcome !== 'already_exists')
+  ) {
+    return { kind: 'error', message: 'La vinculación de la evaluación devolvió un resultado inesperado.' };
+  }
+  return { kind: 'ok', instanceId: row.instance_id, outcome };
+}
+
+/**
+ * Reads at most two NON-ARCHIVED school-level instances for a snapshot
+ * (course_structure_id IS NULL). Zero → create; one → reuse; two → the
+ * one-live-instance invariant is already violated and the caller must not
+ * guess which to attach (fail closed). Archived instances never match: they
+ * are history, never reattached (R4). School-level instances carry no docente
+ * grant, so this path is not part of the finding-1 protocol.
+ */
+async function findLiveSchoolInstance(schoolId: number, snapshotId: string): Promise<LiveInstanceLookup> {
+  const { data, error } = await supabaseAdmin
+    .from('assessment_instances')
+    .select('id')
+    .eq('school_id', schoolId)
+    .eq('template_snapshot_id', snapshotId)
+    .is('course_structure_id', null)
+    .neq('status', 'archived')
+    .order('created_at', { ascending: true })
+    .limit(2);
+
+  if (error && !isNotFound(error)) {
+    return { kind: 'error', message: `No se pudo verificar la evaluación existente: ${error.message}` };
+  }
+  const rows = Array.isArray(data) ? data : [];
+  if (rows.length > 1) {
+    return {
+      kind: 'error',
+      message: 'Existe más de una evaluación activa a nivel de escuela para esta plantilla; se requiere una resolución administrativa.',
+    };
+  }
+  return { kind: 'found', instance: rows[0] ?? null };
+}
+
 /**
  * Triggers auto-assignment of assessment instances when a docente is assigned to a course.
  *
  * For each ELIGIBLE template matching the course's grade (see templateEligibility.ts):
  * 1. Resolve the plan (grade, year, GT/GI, eligible templates + current snapshots)
- * 2. If an instance already exists for this course + snapshot, reconcile the
- *    docente's assignee link (attach it if missing, no-op if present)
- * 3. Otherwise create the instance with generation_type and link the docente
+ * 2. Call `attach_course_docente_assessment` (one locked transaction, finding
+ *    1): re-verify the docente's ACTIVE assignment and the template's
+ *    eligibility under the course row lock, then attach the docente to the
+ *    live instance for the snapshot (no-op if present) or create the instance
+ *    with generation_type and the grant.
  *
  * Idempotent: a retry after a partial failure repairs whatever is missing and
  * reports already-existing work under `counts.alreadyExisting`.
  *
- * NOTE: Uses supabaseAdmin internally to bypass RLS restrictions.
- * The supabase parameter is kept for backwards compatibility but ignored.
+ * NOTE: Uses supabaseAdmin internally (service role). The RPC re-reads the
+ * authorization inside the write transaction, so the RLS bypass cannot be used
+ * to restore a grant a cleanup revoked. The supabase parameter is kept for
+ * backwards compatibility but ignored.
  */
 export async function triggerAutoAssignment(
   _supabase: any, // Kept for backwards compatibility, uses supabaseAdmin instead
@@ -526,118 +655,38 @@ export async function triggerAutoAssignment(
       };
 
       try {
-        // Check if an instance already exists for this course structure + current snapshot.
-        // Deterministic under duplicates: oldest row wins.
-        const { data: existingInstance, error: existingInstanceError } = await supabaseAdmin
-          .from('assessment_instances')
-          .select('id')
-          .eq('course_structure_id', courseStructureId)
-          .eq('template_snapshot_id', template.snapshotId)
-          .order('created_at', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-
-        if (existingInstanceError && !isNotFound(existingInstanceError)) {
+        // One locked transaction (finding 1): the RPC re-verifies the docente's
+        // ACTIVE assignment and the template's eligibility under the course
+        // row lock, reuses only a LIVE (non-archived) instance for this course
+        // + current snapshot (R4; two live instances fail closed), and writes
+        // the instance and/or the grant in the same transaction.
+        const attach = await attachCourseDocenteAssessment({
+          courseStructureId,
+          docenteId,
+          snapshotId: template.snapshotId,
+          transformationYear: plan.transformationYear,
+          generationType,
+          assignedBy,
+        });
+        if (attach.kind === 'error') {
           templateDetail.status = 'error';
-          templateDetail.error = `No se pudo verificar la evaluación existente: ${existingInstanceError.message}`;
+          templateDetail.error = attach.message;
+          if (attach.code) templateDetail.reason = attach.code;
           result.errors.push(`Template ${template.name}: ${templateDetail.error}`);
           result.details.push(templateDetail);
           continue;
         }
 
-        if (existingInstance) {
-          templateDetail.instanceId = existingInstance.id;
-
-          // Instance already exists - reconcile the docente's assignee link
-          const { data: existingAssignee, error: assigneeLookupError } = await supabaseAdmin
-            .from('assessment_instance_assignees')
-            .select('id')
-            .eq('instance_id', existingInstance.id)
-            .eq('user_id', docenteId)
-            .limit(1)
-            .maybeSingle();
-
-          if (assigneeLookupError && !isNotFound(assigneeLookupError)) {
-            templateDetail.status = 'error';
-            templateDetail.error = `No se pudo verificar la asignación existente: ${assigneeLookupError.message}`;
-            result.errors.push(`Template ${template.name}: ${templateDetail.error}`);
-            result.details.push(templateDetail);
-            continue;
-          }
-
-          if (existingAssignee) {
-            templateDetail.status = 'already_exists';
-            result.counts.alreadyExisting++;
-          } else {
-            // Repair: add docente as assignee to the existing instance
-            const { error: addAssigneeError } = await supabaseAdmin
-              .from('assessment_instance_assignees')
-              .insert({
-                instance_id: existingInstance.id,
-                user_id: docenteId,
-                can_edit: true,
-                can_submit: true,
-                assigned_by: assignedBy,
-              });
-
-            if (addAssigneeError && isUniqueViolation(addAssigneeError)) {
-              // A concurrent request linked the docente first — same end state.
-              templateDetail.status = 'already_exists';
-              result.counts.alreadyExisting++;
-            } else if (addAssigneeError) {
-              templateDetail.status = 'error';
-              templateDetail.error = `Instance exists but assignee insert failed: ${addAssigneeError.message}`;
-              result.errors.push(`Template ${template.name}: ${templateDetail.error}`);
-            } else {
-              templateDetail.status = 'assignee_attached';
-              result.counts.attached++;
-            }
-          }
+        templateDetail.instanceId = attach.instanceId;
+        if (attach.outcome === 'created') {
+          templateDetail.status = 'created';
+          result.counts.created++;
+        } else if (attach.outcome === 'attached') {
+          templateDetail.status = 'assignee_attached';
+          result.counts.attached++;
         } else {
-          // Create new instance with generation_type
-          const { data: newInstance, error: instanceError } = await supabaseAdmin
-            .from('assessment_instances')
-            .insert({
-              template_snapshot_id: template.snapshotId,
-              school_id: schoolId,
-              course_structure_id: courseStructureId,
-              transformation_year: plan.transformationYear,
-              generation_type: generationType,
-              status: 'pending',
-              assigned_by: assignedBy,
-            })
-            .select()
-            .single();
-
-          if (instanceError || !newInstance) {
-            templateDetail.status = 'error';
-            templateDetail.error = instanceError?.message || 'Failed to create instance';
-            result.errors.push(`Template ${template.name}: ${templateDetail.error}`);
-            result.details.push(templateDetail);
-            continue;
-          }
-
-          templateDetail.instanceId = newInstance.id;
-
-          // Create assignee record
-          const { error: assigneeError } = await supabaseAdmin
-            .from('assessment_instance_assignees')
-            .insert({
-              instance_id: newInstance.id,
-              user_id: docenteId,
-              can_edit: true,
-              can_submit: true,
-              assigned_by: assignedBy,
-            });
-
-          if (assigneeError && !isUniqueViolation(assigneeError)) {
-            templateDetail.status = 'error';
-            templateDetail.error = `Instance created but assignee failed: ${assigneeError.message}`;
-            result.errors.push(`Template ${template.name}: ${templateDetail.error}`);
-          } else {
-            templateDetail.status = 'created';
-            result.counts.created++;
-          }
+          templateDetail.status = 'already_exists';
+          result.counts.alreadyExisting++;
         }
       } catch (err: any) {
         templateDetail.status = 'error';
@@ -717,24 +766,17 @@ export async function createSchoolLevelInstances(
       };
 
       try {
-        // Check if a school-level instance exists (deterministic under duplicates)
-        const { data: existingInstance, error: existingInstanceError } = await supabaseAdmin
-          .from('assessment_instances')
-          .select('id')
-          .eq('school_id', schoolId)
-          .eq('template_snapshot_id', snapshot.id)
-          .is('course_structure_id', null)
-          .order('created_at', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-
-        if (existingInstanceError && !isNotFound(existingInstanceError)) {
+        // Reuse only a LIVE school-level instance; archived ones are history
+        // (R4). Ambiguous duplicates fail closed.
+        const lookup = await findLiveSchoolInstance(schoolId, snapshot.id);
+        if (lookup.kind === 'error') {
           templateDetail.status = 'error';
-          templateDetail.error = `No se pudo verificar la evaluación existente: ${existingInstanceError.message}`;
+          templateDetail.error = lookup.message;
           result.errors.push(`Template ${template.name}: ${templateDetail.error}`);
           result.details.push(templateDetail);
           continue;
         }
+        const existingInstance = lookup.instance;
 
         if (existingInstance) {
           templateDetail.status = 'already_exists';

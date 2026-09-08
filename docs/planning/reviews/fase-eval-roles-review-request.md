@@ -1,7 +1,7 @@
 # Assigned evaluations for every school role
 
-Branch: `codex/eval-roles`  
-Base: `3dccd148` (current main, including assessment completion and draft recovery)  
+Branch: `codex/eval-roles`
+Base: `3dccd148` (current main, including assessment completion and draft recovery)
 Scope: one implementation commit above this base. Brent explicitly requested merge to main and production publication on 2026-09-08; PR CI will validate the rebased commit before merge. Original local validation below ran before rebasing; the application change applied without conflict.
 
 ## Problem and behavior

@@ -32,6 +32,7 @@ const {
   mockSendAuthError,
   mockHandleMethodNotAllowed,
   mockHasDirectivoPermission,
+  mockHasContextWriteRole,
   mockTriggerAutoAssignment,
   mockPreflightAutoAssignment,
 } = vi.hoisted(() => ({
@@ -41,6 +42,7 @@ const {
   mockSendAuthError: vi.fn(),
   mockHandleMethodNotAllowed: vi.fn(),
   mockHasDirectivoPermission: vi.fn(),
+  mockHasContextWriteRole: vi.fn(),
   mockTriggerAutoAssignment: vi.fn(),
   mockPreflightAutoAssignment: vi.fn(),
 }));
@@ -55,6 +57,7 @@ vi.mock('../../../lib/api-auth', () => ({
 
 vi.mock('../../../lib/permissions/directivo', () => ({
   hasDirectivoPermission: mockHasDirectivoPermission,
+  hasContextWriteRole: mockHasContextWriteRole,
 }));
 
 vi.mock('../../../lib/services/assessment-builder/autoAssignmentService', () => ({
@@ -120,20 +123,32 @@ function pgEquals(a: unknown, b: unknown): boolean {
 const resolveError = (spec: ErrorSpec, calls: Call[]) =>
   typeof spec === 'function' ? (spec as (c: Call[]) => unknown)(calls) : spec ?? null;
 
+function applyPredicates(rows: Row[], calls: Call[]): Row[] {
+  let out = [...rows];
+  for (const c of calls) {
+    if (c.method === 'eq') out = out.filter(r => pgEquals(r[c.args[0] as string], c.args[1]));
+    if (c.method === 'neq') out = out.filter(r => !pgEquals(r[c.args[0] as string], c.args[1]));
+    if (c.method === 'in') out = out.filter(r => (c.args[1] as unknown[]).some(v => pgEquals(r[c.args[0] as string], v)));
+  }
+  return out;
+}
+
 function evaluate(calls: Call[], spec: TableSpec): Outcome {
   if (calls.some(c => ['insert', 'update', 'delete'].includes(c.method))) {
-    return { data: null, error: resolveError(spec.writeError, calls), count: null };
+    const writeError = resolveError(spec.writeError, calls);
+    if (writeError) return { data: null, error: writeError, count: null };
+    // A delete with .select() answers the rows it removed (evaluated against the fixture).
+    if (calls.some(c => c.method === 'delete')) {
+      return { data: applyPredicates(spec.rows ?? [], calls), error: null, count: null };
+    }
+    return { data: null, error: null, count: null };
   }
   const readError = resolveError(spec.readError, calls);
   if (readError) return { data: null, error: readError, count: null };
   const override = spec.readOverride?.(calls);
   if (override) return override;
 
-  let rows = [...(spec.rows ?? [])];
-  for (const c of calls) {
-    if (c.method === 'eq') rows = rows.filter(r => pgEquals(r[c.args[0] as string], c.args[1]));
-    if (c.method === 'in') rows = rows.filter(r => (c.args[1] as unknown[]).some(v => pgEquals(r[c.args[0] as string], v)));
-  }
+  let rows = applyPredicates(spec.rows ?? [], calls);
   const limit = calls.find(c => c.method === 'limit');
   if (limit) rows = rows.slice(0, limit.args[0] as number);
 
@@ -268,6 +283,12 @@ function directivo(schoolId: number) {
   mockHasDirectivoPermission.mockResolvedValue({ hasPermission: true, schoolId, isAdmin: false });
 }
 
+/** An assigned consultor: admitted by hasDirectivoPermission, but holds no write role. */
+function consultor(schoolId: number) {
+  mockHasDirectivoPermission.mockResolvedValue({ hasPermission: true, schoolId, isAdmin: false });
+  mockHasContextWriteRole.mockResolvedValue(false);
+}
+
 const ELIGIBLE = {
   id: 'tpl-1',
   name: 'Lectura',
@@ -376,7 +397,7 @@ function expectNothingAfterGuard(user: ReturnType<typeof buildUserClient>, svc: 
 }
 
 // ── Tests ──────────────────────────────────────────────────────
-describe('POST/DELETE /api/school/transversal-context/assign-docente', () => {
+describe('POST /api/school/transversal-context/assign-docente (DELETE disabled)', () => {
   let svc: ReturnType<typeof buildServiceClient>;
 
   beforeEach(() => {
@@ -390,6 +411,9 @@ describe('POST/DELETE /api/school/transversal-context/assign-docente', () => {
     });
     svc = buildServiceClient();
     mockCreateServiceRoleClient.mockReturnValue(svc.client);
+    // Default persona holds a write role (admin / equipo_directivo); the
+    // consultor cases flip this to false.
+    mockHasContextWriteRole.mockResolvedValue(true);
   });
 
   // ── Authentication / authorization ordering (preserved) ──────
@@ -406,11 +430,11 @@ describe('POST/DELETE /api/school/transversal-context/assign-docente', () => {
     expectNothingAfterGuard(user, svc);
   });
 
-  it('returns 405 for non-POST/DELETE methods', async () => {
+  it('returns 405 for non-POST methods, advertising POST only', async () => {
     const { req, res } = createMocks({ method: 'GET' });
     await handler(req, res);
 
-    expect(mockHandleMethodNotAllowed).toHaveBeenCalledWith(expect.anything(), ['POST', 'DELETE']);
+    expect(mockHandleMethodNotAllowed).toHaveBeenCalledWith(expect.anything(), ['POST']);
   });
 
   it('returns 403 for users without directivo/admin role before any course-wide or target inspection', async () => {
@@ -426,6 +450,122 @@ describe('POST/DELETE /api/school/transversal-context/assign-docente', () => {
     expect(JSON.parse(res._getData()).error).toContain('directivos');
     expect(user.client.from).not.toHaveBeenCalled();
     expectNothingAfterGuard(user, svc);
+  });
+
+  it('POST returns 403 for an assigned consultor before reading the course, any guard or write', async () => {
+    authed();
+    consultor(SCHOOL_ID);
+    const user = buildUserClient({ assignments: [assignmentRow('a-cur', CURRENT_DOCENTE_ID, true)] });
+    mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+    const { req, res } = postReq();
+    await handler(req, res);
+
+    expect(res._getStatusCode()).toBe(403);
+    const data = JSON.parse(res._getData());
+    expect(data.code).toBe('assignment_write_forbidden');
+    expect(data.error).toContain('equipo directivo');
+    expect(mockHasContextWriteRole).toHaveBeenCalledWith(user.client, USER_ID);
+    expect(user.client.from).not.toHaveBeenCalled();
+    expectNothingAfterGuard(user, svc);
+    expectNoIdentityLeak(res);
+  });
+
+  // ── DELETE is DISABLED (Codex round 1, finding 1) ─────────────
+  //
+  // Unassignment used to deactivate the assignment on the user client and
+  // delete assignee rows on the service client — two statements, two
+  // clients, a possible partial 207. Until it is one locked transactional
+  // RPC there is NO DELETE: the method is refused before authentication and
+  // nothing is read or written on either client.
+  describe('DELETE is disabled until it is one locked transactional RPC', () => {
+    function deleteReq() {
+      return createMocks({
+        method: 'DELETE',
+        body: { course_structure_id: COURSE_STRUCTURE_ID, docente_id: DOCENTE_ID },
+      });
+    }
+
+    it('answers 405 with Allow: POST before authentication, and touches no client', async () => {
+      authed();
+      directivo(SCHOOL_ID);
+      const user = buildUserClient({ assignments: [assignmentRow('a-cur', DOCENTE_ID, true)] });
+      mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+      const { req, res } = deleteReq();
+      await handler(req, res);
+
+      expect(res._getStatusCode()).toBe(405);
+      expect(res.getHeader('Allow')).toBe('POST');
+      expect(mockHandleMethodNotAllowed).toHaveBeenCalledWith(expect.anything(), ['POST']);
+      // Refused before auth: no session lookup, no clients built, no permission read.
+      expect(mockGetApiUser).not.toHaveBeenCalled();
+      expect(mockCreateApiSupabaseClient).not.toHaveBeenCalled();
+      expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+      expect(mockHasDirectivoPermission).not.toHaveBeenCalled();
+      expect(mockHasContextWriteRole).not.toHaveBeenCalled();
+      expect(user.client.from).not.toHaveBeenCalled();
+      expect(svc.client.from).not.toHaveBeenCalled();
+    });
+
+    it('cannot mutate assignments or assignees for an admin, a directivo or a consultor', async () => {
+      const personas: Array<() => void> = [
+        () => mockHasDirectivoPermission.mockResolvedValue({ hasPermission: true, schoolId: null, isAdmin: true }),
+        () => directivo(SCHOOL_ID),
+        () => consultor(SCHOOL_ID),
+      ];
+      for (const persona of personas) {
+        vi.clearAllMocks();
+        mockHandleMethodNotAllowed.mockImplementation((res: any, methods: string[]) => {
+          res.setHeader('Allow', methods.join(', '));
+          res.status(405).json({ error: 'Method not allowed' });
+        });
+        authed();
+        persona();
+        const user = buildUserClient({ assignments: [assignmentRow('a-cur', DOCENTE_ID, true)] });
+        mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+        const service = buildServiceClient();
+        mockCreateServiceRoleClient.mockReturnValue(service.client);
+
+        const { req, res } = deleteReq();
+        await handler(req, res);
+
+        expect(res._getStatusCode()).toBe(405);
+        expect(writeChains(user.assignments)).toHaveLength(0);
+        expect(user.assignments.chains).toHaveLength(0);
+        expect(user.client.from).not.toHaveBeenCalled();
+        expect(service.client.from).not.toHaveBeenCalled();
+        expect(mockTriggerAutoAssignment).not.toHaveBeenCalled();
+        expect(mockPreflightAutoAssignment).not.toHaveBeenCalled();
+      }
+    });
+
+    it('a DELETE with a malformed body is refused the same way (no validation, no read)', async () => {
+      authed();
+      directivo(SCHOOL_ID);
+      const user = buildUserClient();
+      mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+      const { req, res } = createMocks({ method: 'DELETE', body: {} });
+      await handler(req, res);
+
+      expect(res._getStatusCode()).toBe(405);
+      expect(user.client.from).not.toHaveBeenCalled();
+      expect(svc.client.from).not.toHaveBeenCalled();
+    });
+  });
+
+  it('skips the write-role lookup for admins', async () => {
+    authed();
+    mockHasDirectivoPermission.mockResolvedValue({ hasPermission: true, schoolId: null, isAdmin: true });
+    const user = buildUserClient({ courseError: { code: 'PGRST116', message: 'not found' } });
+    mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+    const { req, res } = postReq();
+    await handler(req, res);
+
+    expect(res._getStatusCode()).toBe(404);
+    expect(mockHasContextWriteRole).not.toHaveBeenCalled();
   });
 
   it('returns 404 when the course is not found before any course-wide or target inspection', async () => {
@@ -1326,106 +1466,5 @@ describe('POST/DELETE /api/school/transversal-context/assign-docente', () => {
 
     expect(res._getStatusCode()).toBe(500);
     expect(mockTriggerAutoAssignment).not.toHaveBeenCalled();
-  });
-
-  // ── DELETE (unchanged behavior) ───────────────────────────────
-  it('DELETE soft-deletes assignment and revokes assessment assignees', async () => {
-    authed();
-    directivo(SCHOOL_ID);
-    const user = buildUserClient();
-    mockCreateApiSupabaseClient.mockResolvedValue(user.client);
-
-    const svcClient = {
-      from: vi.fn((table: string) => {
-        if (table === 'assessment_instances') {
-          return buildChainableQuery([{ id: 'inst-1' }, { id: 'inst-2' }]);
-        }
-        if (table === 'assessment_instance_assignees') {
-          return buildChainableQuery([{ id: 'aa-1' }]); // 1 row deleted
-        }
-        return buildChainableQuery(null, null);
-      }),
-    };
-    mockCreateServiceRoleClient.mockReturnValue(svcClient);
-
-    const { req, res } = createMocks({
-      method: 'DELETE',
-      body: { course_structure_id: COURSE_STRUCTURE_ID, docente_id: DOCENTE_ID },
-    });
-    await handler(req, res);
-
-    expect(res._getStatusCode()).toBe(200);
-    const data = JSON.parse(res._getData());
-    expect(data.success).toBe(true);
-    expect(data.message).toContain('desasignado');
-    expect(data.assigneesRevoked).toBe(1);
-    expect(mockTriggerAutoAssignment).not.toHaveBeenCalled();
-    expect(mockPreflightAutoAssignment).not.toHaveBeenCalled();
-    expect(svcClient.from).toHaveBeenCalledWith('assessment_instances');
-    expect(svcClient.from).toHaveBeenCalledWith('assessment_instance_assignees');
-    // DELETE is untouched by C-01: no course-wide guard and no eligibility read
-    expect(guardChains(user.assignments)).toHaveLength(0);
-    expect(svcClient.from).not.toHaveBeenCalledWith('user_roles');
-    const writes = writeChains(user.assignments);
-    expect(writes).toHaveLength(1);
-    expect(flat(writes[0])).toEqual([
-      ['update', { is_active: false }],
-      ['eq', 'course_structure_id', COURSE_STRUCTURE_ID],
-      ['eq', 'docente_id', DOCENTE_ID],
-    ]);
-  });
-
-  it('DELETE revocation failure returns 207 with warning', async () => {
-    authed();
-    directivo(SCHOOL_ID);
-    mockCreateApiSupabaseClient.mockResolvedValue(buildUserClient().client);
-
-    const svcClient = {
-      from: vi.fn((table: string) => {
-        if (table === 'assessment_instances') {
-          throw new Error('Service unavailable');
-        }
-        return buildChainableQuery(null, null);
-      }),
-    };
-    mockCreateServiceRoleClient.mockReturnValue(svcClient);
-
-    const { req, res } = createMocks({
-      method: 'DELETE',
-      body: { course_structure_id: COURSE_STRUCTURE_ID, docente_id: DOCENTE_ID },
-    });
-    await handler(req, res);
-
-    expect(res._getStatusCode()).toBe(207);
-    const data = JSON.parse(res._getData());
-    expect(data.success).toBe(false);
-    expect(data.warning).toContain('revocar');
-  });
-
-  it('DELETE returns 207 when instances lookup returns a Supabase error object', async () => {
-    authed();
-    directivo(SCHOOL_ID);
-    mockCreateApiSupabaseClient.mockResolvedValue(buildUserClient().client);
-
-    const svcClient = {
-      from: vi.fn((table: string) => {
-        if (table === 'assessment_instances') {
-          return buildChainableQuery(null, { message: 'permission denied for table assessment_instances' });
-        }
-        return buildChainableQuery(null, null);
-      }),
-    };
-    mockCreateServiceRoleClient.mockReturnValue(svcClient);
-
-    const { req, res } = createMocks({
-      method: 'DELETE',
-      body: { course_structure_id: COURSE_STRUCTURE_ID, docente_id: DOCENTE_ID },
-    });
-    await handler(req, res);
-
-    expect(res._getStatusCode()).toBe(207);
-    const data = JSON.parse(res._getData());
-    expect(data.success).toBe(false);
-    expect(data.warning).toContain('revocar');
   });
 });

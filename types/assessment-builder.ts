@@ -36,6 +36,11 @@ export type PeriodSystem = 'semestral' | 'trimestral';
 
 export type GenerationType = 'GT' | 'GI';
 
+export const GENERATION_TYPE_LABELS: Record<GenerationType, string> = {
+  GT: 'Generación Tractor',
+  GI: 'Generación Innova',
+};
+
 export type GradeLevel =
   | 'medio_menor'
   | 'medio_mayor'
@@ -227,7 +232,8 @@ export interface FrequencyConfig {
   min?: number;
   max?: number;
   step?: number;
-  unit?: string; // "veces por semestre", "%", etc.
+  unit?: string; // Default period (a FrequencyUnit) on published instruments; legacy rows may carry "veces"
+  allowed_units?: FrequencyUnit[]; // Periods the docente may choose from; must contain `unit` at publish time
 }
 
 export interface ValidationRules {
@@ -904,7 +910,7 @@ export interface SaveResponseRequest {
   instance_id: string;
   indicator_id: string;
   coverage_value?: boolean;
-  frequency_value?: number;
+  frequency_value?: number | null; // null = cleared by the docente (partial save)
   frequency_unit?: FrequencyUnit;
   profundity_level?: number;
   rationale?: string;

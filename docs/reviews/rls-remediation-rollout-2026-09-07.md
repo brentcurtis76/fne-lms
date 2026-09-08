@@ -1,3 +1,5 @@
+> **Current-main integration (2026-09-08): DO NOT MERGE.** Actual main `097b62ed` is merged in executable candidate `97f735be`; final published identity/CI are recorded in the current-main integration review request and external report. Fresh actual-main P0–P7 and injected-failure rehearsal: 563 checks; exact wrappers: 52 checks; mandatory E2E: 219, no skips/flakes. The seven renamed payloads and wrappers are unchanged. All older source/deployment/preflight observations below are historical; Production needs a separately authorized live re-lock.
+
 > **Local packaging revision (2026-09-08; review pending):** deployment filenames now use `20260908180000`–`20260908180600`; payload bytes are unchanged. Earlier version numbers inside payload comments and historical evidence identify the original reviewed files. Follow the manifest and updated operator checklist; no Production apply is authorized.
 
 # RLS remediation (W-B2c-01 + W-B10a-01 + D-RLS-01/02/03 + R2–R5 corrections + closure C1–C4) — CURRENT rollout, containment and compensation procedure

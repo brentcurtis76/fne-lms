@@ -2,21 +2,22 @@
 
 This checklist grants no Production authority. Independent review of the integrated tree, Brent's release authorization, and the database-first sequence are required before marking ready, merging or deploying. No Production query, migration or maintenance request was executed during preparation.
 
-## Local packaging revision — pending review
+## Current integrated candidate — independent review pending
 
-Production version `20260907120000` belongs to `proc_integrity`. The seven deployment filenames now use `20260908180000` through `20260908180600`, preserving all reviewed SQL bytes. See `rls-release-migration-manifest-2026-09-08.json` for the exact original-to-deployment mapping and hashes. Preserve the existing Production history; never mark the occupied version as this RLS migration or skip the first payload. No generic Production `db push`, baseline replay or migration-history repair.
+**DO NOT MERGE — independent integrated review and separately authorized Production prerequisites remain required.**
 
-The source SHA below identifies the previously approved integration. This local rename/documentation package is unstaged and uncommitted and requires independent review and a new locked source identity before release. Once a revised source is reviewed, record that exact source and its authorized base, and apply the same merge-parent/tree rules to those newly locked identities; do not claim the old approval covers a new commit.
+Production's historical version `20260907120000` belongs to `proc_integrity`. Seven RLS deployment filenames `20260908180000`–`20260908180600` preserve every approved payload byte; see `rls-release-migration-manifest-2026-09-08.json`. Never repurpose that main-side migration, repair history, replay the baseline or use generic Production `db push`.
 
 ## Release identity
 
-- Repository: `https://github.com/brentcurtis76/fne-lms.git`; release branch `codex/rls-release`.
-- Locked source: `92df72a637f2cead48c1fce9b3d71d9a34204c8e`.
-- Exact approved 89-path preservation: `ce24dba2ba6b98251ccf162aa88ab1717611cc37`.
-- Integrated main: `3d13ddb5ec34b784215991354f10f7d86a3ebc19`.
-- Approved integrated source / PR #89 head: `dc63b3899072800eea764af088eedc0522b83d9e`; authorized base/main: `3d13ddb5ec34b784215991354f10f7d86a3ebc19`. Re-lock both against GitHub before any operator action. The earlier locked source and preservation commit above remain historical identities, not the deployment target.
-- The controlled release uses a merge commit; do not silently substitute squash or rebase. Verify the resulting merge SHA has exactly two parents, in order: authorized base `3d13ddb5ec34b784215991354f10f7d86a3ebc19`, then approved source `dc63b3899072800eea764af088eedc0522b83d9e`. With that unchanged base, require the merge tree to equal the approved source tree. A changed base/source or unexpected tree difference requires renewed review before release.
-- The source includes B2c-M1 documentation commit `92df72a6`, also present in draft PR #85. That PR and its branch remain separate.
+- Repository `https://github.com/brentcurtis76/fne-lms.git`; release branch `codex/rls-release`; existing draft PR #89.
+- Reviewed packaging preservation `ddf0f3578546741f65fb8d023e2f8d97601ef7b3`, parent `dc63b3899072800eea764af088eedc0522b83d9e`.
+- Executable integration `97f735be1c883d555709d2da06f524467c4c5006`; merge parents are preservation then actual main `097b62ed00ea11318d1743b7145c2a5793db9e23`.
+- The final publication adds review records. Lock its exact GitHub head and base against `docs/planning/reviews/fase-rls-current-main-integration-review-request.md` and external `current-main-integration-evidence/final-verification.json`; the executable integration SHA alone is not the final publication identity.
+- All earlier source/base/deployment observations remain historical. Independent approval must cover this final combined candidate, not merely the approved packaging or prior `3d13ddb5` integration.
+- Under future explicit release authority, use the controlled merge-commit path. Verify the resulting commit has exactly two parents, in order: newly authorized main/base, then independently reviewed final source. With unchanged base, its tree must equal the reviewed source tree. Verify Production deploys the **resulting merge SHA**. Changed base/source or unexpected tree difference requires renewed review before release.
+- PR #85, `fix/rls-learn`, PR #90 and their histories remain separate and untouched.
+- Exact transaction wrappers are unchanged from the approved packaging revision and were retested against current main plus historical representative metadata. Their 80-row Production registry snapshot is historical: refresh and re-lock under separate authority before any execution. Local fingerprint `7ac1100f…` binds the combined disposable schema only; any target attestation mismatch remains a stop.
 
 ## Prerequisites and stop conditions
 

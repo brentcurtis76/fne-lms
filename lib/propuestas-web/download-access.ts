@@ -2,9 +2,9 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { checkIsAdmin } from '@/lib/api-auth';
 import {
-  getProposalRateLimitCount,
   getProposalRequestIp,
-  recordProposalFailedAttempt,
+  releaseProposalAccessAttempt,
+  reserveProposalAccessAttempt,
 } from './access-rate-limit';
 import { verifyAccessCode } from './access-code';
 
@@ -16,6 +16,10 @@ type DownloadAccessResult =
  * Proposal web downloads are available to recipients with the proposal access
  * code, and to authenticated admins using the preview flow where no code is
  * present in the browser state.
+ *
+ * Rate limiting (R2-02): the attempt is RESERVED (counted and recorded) before
+ * the code is compared; no code reaches verification without a successful
+ * reservation. A correct code releases its reservation.
  */
 export async function authorizeProposalDownload(
   req: NextApiRequest,
@@ -33,9 +37,18 @@ export async function authorizeProposalDownload(
 
   if (normalizedCode) {
     const ip = getProposalRequestIp(req);
-    const { allowed, remaining } = await getProposalRateLimitCount(serviceClient, ip, slug);
+    const reservation = await reserveProposalAccessAttempt(serviceClient, ip, slug);
 
-    if (!allowed) {
+    if (reservation.degraded) {
+      return {
+        ok: false,
+        status: 503,
+        error: 'Servicio no disponible. Intente nuevamente en unos minutos.',
+        remaining: 0,
+      };
+    }
+
+    if (!reservation.allowed) {
       return {
         ok: false,
         status: 429,
@@ -47,15 +60,16 @@ export async function authorizeProposalDownload(
     try {
       const valid = await verifyAccessCode(normalizedCode, accessCodeHash);
       if (valid) {
+        await releaseProposalAccessAttempt(serviceClient, reservation.attemptId);
         return { ok: true };
       }
 
-      await recordProposalFailedAttempt(serviceClient, ip, slug);
+      // The failed attempt is already recorded by the reservation.
       return {
         ok: false,
         status: 401,
         error: 'Codigo de sesion invalido',
-        remaining: Math.max(remaining - 1, 0),
+        remaining: reservation.remaining,
       };
     } catch (err) {
       console.error('[propuesta-web/download-access] Malformed access_code hash:', err);

@@ -1,21 +1,33 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '../../../../lib/api-auth';
+import { LearningPathsService } from '../../../../lib/services/learningPathsService';
 
+/**
+ * GET /api/learning-paths/user/[userId] — the learning paths assigned to one user.
+ *
+ * Authority (W-B2c-01): a user may read their OWN assigned paths; reading
+ * ANOTHER user's paths is cross-user reporting and is literal-admin-only.
+ * equipo_directivo and consultor are refused like any other non-admin role.
+ *
+ * Data: the previous implementation called a `get_user_learning_paths` RPC
+ * that exists in no migration (the route failed on every request) and then
+ * counted `learning_path_courses.path_id`, a column the table does not have
+ * (it is `learning_path_id`). Both are replaced with the service method the
+ * own-paths route already uses, so the response is the same shape as
+ * /api/learning-paths/my-paths plus `course_count`.
+ */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return handleMethodNotAllowed(res, ['GET']);
   }
 
-  // Authenticate user using the standard api-auth pattern
   const { user, error } = await getApiUser(req, res);
-  
+
   if (error || !user) {
     return sendAuthError(res, 'Authentication required');
   }
 
   const requestingUserId = user.id;
-  
-  // Create authenticated Supabase client
   const supabaseClient = await createApiSupabaseClient(req, res);
   const targetUserId = req.query.userId as string;
 
@@ -24,59 +36,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Users can view their own learning paths
-    // Admins and authorized roles can view any user's learning paths
     if (requestingUserId !== targetUserId) {
-      // Check if requesting user has permission
-      const { data: roles } = await supabaseClient
-        .from('user_roles')
-        .select('role_type')
-        .eq('user_id', requestingUserId)
-        .eq('is_active', true)
-        .in('role_type', ['admin', 'equipo_directivo', 'consultor']);
-
-      if (!roles || roles.length === 0) {
-        return res.status(403).json({ 
-          error: 'You can only view your own learning paths' 
+      const isAdmin = await LearningPathsService.hasManagePermission(supabaseClient, requestingUserId);
+      if (!isAdmin) {
+        return res.status(403).json({
+          error: 'You can only view your own learning paths'
         });
       }
     }
 
-    // Use the utility function to get user's learning paths
-    const { data: learningPaths, error } = await supabaseClient
-      .rpc('get_user_learning_paths', { target_user_id: targetUserId });
+    const learningPaths = await LearningPathsService.getUserAssignedPaths(supabaseClient, targetUserId);
+    const pathIds = learningPaths.map((lp: { id: string }) => lp.id);
 
-    if (error) throw error;
-
-    // Enrich the data with course counts
-    const pathIds = learningPaths.map((lp: any) => lp.path_id);
-    
-    if (pathIds.length > 0) {
-      const { data: courseCounts } = await supabaseClient
-        .from('learning_path_courses')
-        .select('path_id')
-        .in('path_id', pathIds);
-
-      const countMap = courseCounts?.reduce((acc: any, item: any) => {
-        acc[item.path_id] = (acc[item.path_id] || 0) + 1;
-        return acc;
-      }, {}) || {};
-
-      // Add course counts to the response
-      const enrichedPaths = learningPaths.map((lp: any) => ({
-        ...lp,
-        course_count: countMap[lp.path_id] || 0
-      }));
-
-      return res.status(200).json(enrichedPaths);
+    if (pathIds.length === 0) {
+      return res.status(200).json(learningPaths);
     }
 
-    return res.status(200).json(learningPaths);
+    const { data: courseLinks, error: courseError } = await supabaseClient
+      .from('learning_path_courses')
+      .select('learning_path_id')
+      .in('learning_path_id', pathIds);
 
-  } catch (error: any) {
-    console.error('Error fetching user learning paths:', error);
-    return res.status(500).json({ 
-      error: error.message || 'Failed to fetch user learning paths' 
+    if (courseError) throw courseError;
+
+    const countMap: Record<string, number> = {};
+    (courseLinks || []).forEach((link: { learning_path_id: string }) => {
+      countMap[link.learning_path_id] = (countMap[link.learning_path_id] || 0) + 1;
     });
+
+    return res.status(200).json(
+      learningPaths.map((lp: { id: string }) => ({
+        ...lp,
+        course_count: countMap[lp.id] || 0
+      }))
+    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to fetch user learning paths';
+    console.error('Error fetching user learning paths:', err);
+    return res.status(500).json({ error: message });
   }
 }

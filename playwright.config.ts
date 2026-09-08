@@ -24,6 +24,15 @@ export const E2E_MAIL_OUTBOX = join(OUTBOX_DIR, 'outbox.jsonl');
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
+/**
+ * App port for the e2e run. Defaults to 3000 (what CI and every saved auth state
+ * use); override with E2E_PORT when 3000 is occupied locally. Specs that need
+ * the origin must read E2E_APP_ORIGIN, never hardcode it.
+ */
+const E2E_PORT = process.env.E2E_PORT || '3000';
+const E2E_APP_ORIGIN = `http://localhost:${E2E_PORT}`;
+process.env.E2E_APP_ORIGIN = E2E_APP_ORIGIN;
+
 export default defineConfig({
   testDir: './tests',
   /* Run tests in files in parallel */
@@ -49,7 +58,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://localhost:3000',
+    baseURL: E2E_APP_ORIGIN,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
@@ -65,8 +74,8 @@ export default defineConfig({
 
   /* Local: dev server. CI: production server (CI builds beforehand — see .github/workflows/ci.yml) */
   webServer: {
-    command: process.env.CI ? 'npm run start' : 'npm run dev:unsafe',
-    url: 'http://localhost:3000',
+    command: process.env.CI ? `npm run start -- -p ${E2E_PORT}` : `npm run dev:unsafe -- -p ${E2E_PORT}`,
+    url: E2E_APP_ORIGIN,
     reuseExistingServer: !process.env.CI,
     timeout: 180 * 1000,
     // Spread first: Playwright REPLACES the child environment with this object,

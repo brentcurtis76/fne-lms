@@ -28,7 +28,7 @@ interface User {
   total_courses?: number;
   completed_courses?: number;
   completion_rate?: number;
-  total_time_spent?: number;
+  total_time_spent?: number | null;
   consultant_info?: {
     has_consultant: boolean;
     consultant_name?: string;
@@ -43,7 +43,7 @@ interface OverviewData {
     active_users: number;
     total_courses: number;
     avg_completion_rate: number;
-    total_time_spent: number;
+    total_time_spent: number | null;
   };
   users: User[];
   communities: Array<{
@@ -273,7 +273,9 @@ const ReportsPage: React.FC = () => {
     }
   };
 
-  const formatTime = (minutes: number) => {
+  const formatTime = (minutes: number | null | undefined) => {
+    // null = unavailable to this audience (learning-path time is admin-only)
+    if (minutes === null || minutes === undefined) return 'No disponible';
     if (!minutes) return '0h 0m';
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
@@ -550,7 +552,7 @@ const ReportsPage: React.FC = () => {
                     {
                       key: 'total_time_spent',
                       label: 'Tiempo',
-                      render: (time) => formatTime(time || 0)
+                      render: (time) => formatTime(time)
                     },
                     {
                       key: 'last_activity',
@@ -764,15 +766,23 @@ const ReportsPage: React.FC = () => {
             </div>
           )}
 
-          {/* Learning Paths Tab */}
+          {/* Learning Paths Tab — cross-user learning-path reporting is literal-admin-only
+              (D2). A non-admin sees the reason instead of a request that would be refused;
+              the component itself also renders a denial if the API says 403. */}
           {activeTab === 'learning-paths' && !dataLoading && !fetchError && (
-            <div className="space-y-6">
+            <div className="space-y-6" data-testid="reports-learning-paths-tab">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900">Análisis de Rutas de Aprendizaje</h3>
               </div>
-              <LearningPathAnalytics 
-                dateRange={parseInt(dateRange)} 
-              />
+              {isAdmin ? (
+                <LearningPathAnalytics
+                  dateRange={parseInt(dateRange)}
+                />
+              ) : (
+                <div className="bg-gray-50 border border-gray-200 text-gray-700 px-4 py-3 rounded-lg" data-testid="lp-analytics-admin-only">
+                  Las analíticas de rutas de aprendizaje están disponibles solo para administradores.
+                </div>
+              )}
             </div>
           )}
 

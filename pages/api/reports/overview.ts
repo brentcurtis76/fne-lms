@@ -70,6 +70,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const warnings: string[] = [];
 
+    // Cross-user learning-path reporting is LITERAL-ADMIN ONLY (W-B2c-01,
+    // closure C3): decided here, before any query, and reported on every
+    // response shape (including the empty one) so a consumer can tell
+    // "unavailable to this audience" from "zero".
+    const learningPathReporting: 'included' | 'admin_only' = userRole === 'admin' ? 'included' : 'admin_only';
+    if (learningPathReporting === 'admin_only') {
+      warnings.push('Tiempo de rutas de aprendizaje: disponible solo para administradores');
+    }
+
     // Get reportable users based on role and assignments
     let reportableUsers: string[] = [];
     try {
@@ -88,11 +97,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         active_users: 0,
         total_courses: 0,
         avg_completion_rate: 0,
-        total_time_spent: 0
+        total_time_spent: learningPathReporting === 'included' ? 0 : null
       },
       users: [],
       communities: [],
       recent_activity: [],
+      learning_path_reporting: learningPathReporting,
       warnings
     };
 
@@ -166,15 +176,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error('Roles fetch error:', rolesError.message);
     }
 
-    // Get learning path summary data for these users (paginated to avoid URL limits)
-    let learningPathData = [];
-    let pathError = null;
-    
+    // Learning-path data: cross-user learning-path reporting is LITERAL-ADMIN
+    // ONLY (W-B2c-01, closure C3). This route runs on the service-role client,
+    // so the gate lives here, not in the view: for every other reporting
+    // audience no learning-path query is issued and the learning-path half of
+    // the payload is marked unavailable (null), while the course half below is
+    // served to its existing audiences unchanged.
+    let learningPathData: any[] = [];
+    let pathError: { message: string } | null = null;
+
     const batchSize = 50;
-    for (let i = 0; i < reportableUsers.length; i += batchSize) {
-      const userBatch = reportableUsers.slice(i, i + batchSize);
-      
-      try {
+    if (learningPathReporting === 'included') {
+      for (let i = 0; i < reportableUsers.length; i += batchSize) {
+        const userBatch = reportableUsers.slice(i, i + batchSize);
         const { data: batchData, error: batchError } = await supabase
           .from('user_learning_path_summary')
           .select(`
@@ -194,12 +208,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           pathError = batchError;
           break;
         }
-
         if (batchData) {
           learningPathData.push(...batchData);
         }
-      } catch (error) {
-        console.error('Learning path data not available for batch:', error);
       }
     }
 
@@ -291,26 +302,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Format data for dashboard UI
+    const learningPathAvailable = learningPathReporting === 'included' && !pathError;
     const formattedData = formatOverviewData(
       enrichedProfiles || [],
       userRoles || [],
       learningPathData || [],
       courseData || [],
-      consultantData || []
+      consultantData || [],
+      learningPathAvailable
     );
 
-    return res.status(200).json({ ...formattedData, warnings });
+    return res.status(200).json({ ...formattedData, learning_path_reporting: learningPathReporting, warnings });
 
   } catch (error) {
     console.error('Overview reports API error:', error);
-    return res.status(200).json({
-      summary: {
-        total_users: 0,
-        active_users: 0,
-        total_courses: 0,
-        avg_completion_rate: 0,
-        total_time_spent: 0
-      },
+    return res.status(500).json({
+      error: 'Error interno del servidor al cargar reportes',
+      summary: null,
       users: [],
       communities: [],
       recent_activity: [],
@@ -447,7 +455,8 @@ function formatOverviewData(
   userRoles: any[], 
   learningPathData: any[], 
   courseData: any[], 
-  consultantData: any[]
+  consultantData: any[],
+  learningPathAvailable: boolean = true
 ): any {
   const totalUsers = userProfiles.length;
 
@@ -586,7 +595,8 @@ function formatOverviewData(
       total_courses: totalUserCourses,
       completed_courses: completedUserCourses,
       completion_rate: completionRate,
-      total_time_spent: Math.round(pathMetrics.totalPathTime), // in minutes
+      // Learning-path time: null = unavailable to this audience (admin-only), never 0
+      total_time_spent: learningPathAvailable ? Math.round(pathMetrics.totalPathTime) : null, // in minutes
       consultant_info: consultantMap.get(profile.id) || {
         has_consultant: false,
         consultant_name: null,
@@ -643,7 +653,7 @@ function formatOverviewData(
       active_users: activeUsers,
       total_courses: totalCourses,
       avg_completion_rate: avgCompletionRate,
-      total_time_spent: Math.round(totalTimeSpentMinutes) // in minutes
+      total_time_spent: learningPathAvailable ? Math.round(totalTimeSpentMinutes) : null // in minutes; null = unavailable
     },
     users: users,
     communities: Array.from(communityBreakdown.values()),

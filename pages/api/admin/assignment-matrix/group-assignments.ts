@@ -40,7 +40,15 @@ interface GroupAssignmentsResponse {
   };
 }
 
-// Check if user has admin/consultor permission and return role info for scoping
+// Cross-user assignment reporting (courses and learning paths for every
+// member of a school or community): the COURSE half keeps its baseline
+// audience (admin, or a consultor scoped to that school / community — the
+// scoping helpers below are the baseline ones); the LEARNING-PATH half is
+// literal-admin-only (W-B2c-01) — a consultor receives no learning-path
+// summary, no learning-path count and no member counted through one. The
+// reads use the service-role client as at baseline (the caller's role and
+// scope are verified first; the matrix aggregates across every member's
+// assignments).
 interface PermissionResult {
   allowed: boolean;
   isAdmin: boolean;
@@ -289,19 +297,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       throw new Error('Error al obtener inscripciones del grupo');
     }
 
-    // Get all LP assignments for members using service client
-    const { data: lpAssignments, error: lpError } = await supabaseService
-      .from('learning_path_assignments')
-      .select(`
-        user_id,
-        path_id,
-        learning_paths (
-          id,
-          name,
-          description
-        )
-      `)
-      .in('user_id', memberIds);
+    // Get all LP assignments for members using service client — admin only
+    // (W-B2c-01): for a consultor no learning-path query is issued and the
+    // response carries no learning-path data.
+    const { data: lpAssignments, error: lpError } = permissions.isAdmin
+      ? await supabaseService
+          .from('learning_path_assignments')
+          .select(`
+            user_id,
+            path_id,
+            learning_paths (
+              id,
+              name,
+              description
+            )
+          `)
+          .in('user_id', memberIds)
+      : { data: [], error: null };
 
     if (lpError) {
       console.error('Error fetching group LP assignments:', lpError);

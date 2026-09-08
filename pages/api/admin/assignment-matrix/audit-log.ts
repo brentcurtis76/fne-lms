@@ -48,7 +48,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check if user is admin, consultor, or equipo_directivo
+    // Course-assignment audit history keeps its baseline audience (admin,
+    // consultor, equipo_directivo). Learning-path audit rows and every
+    // learning-path identifier on a course row (source_learning_path_id /
+    // sourceLPName) are literal-admin-only (W-B2c-01).
     const { data: userRoles } = await supabaseService
       .from('user_roles')
       .select('role_type')
@@ -57,6 +60,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const allowedRoles = ['admin', 'consultor', 'equipo_directivo'];
     const hasAccess = userRoles?.some(r => allowedRoles.includes(r.role_type));
+    const includeLearningPaths = !!userRoles?.some(r => r.role_type === 'admin');
 
     if (!hasAccess) {
       return res.status(403).json({ error: 'Solo administradores, consultores y equipo directivo pueden acceder' });
@@ -118,7 +122,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (hasContentFilter) {
+      if (!includeLearningPaths && contentType !== 'course') {
+        return res.status(403).json({ error: 'Solo administradores pueden ver el historial de rutas de aprendizaje' });
+      }
       query = query.eq('content_type', contentType).eq('content_id', contentId);
+    }
+
+    // Non-admin callers only ever see course rows (W-B2c-01).
+    if (!includeLearningPaths) {
+      query = query.eq('content_type', 'course');
     }
 
     // Apply pagination
@@ -140,8 +152,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Enrich logs with performer names and content titles
-    const enrichedLogs = await enrichAuditLogs(supabaseService, logs);
+    // Enrich logs with performer names and content titles. For a non-admin the
+    // learning-path identifiers of a course row (its provenance) are withheld.
+    const enrichedLogs = includeLearningPaths
+      ? await enrichAuditLogs(supabaseService, logs)
+      : (await enrichAuditLogs(supabaseService, logs.map(log => ({ ...log, source_learning_path_id: null }))))
+          .map(log => ({ ...log, source_learning_path_id: null, sourceLPName: null }));
 
     return res.status(200).json({
       logs: enrichedLogs,

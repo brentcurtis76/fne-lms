@@ -2597,3 +2597,48 @@ describe('toQuotedInList — PostgREST quoting & escaping', () => {
     );
   });
 });
+
+
+/**
+ * RLS remediation (W-B2c-01, 2026-09-07): learning-path assignment reporting across users
+ * is literal-admin-only. The route reads through the service-role client (which bypasses
+ * row security), so the gate has to be in the handler: for equipo_directivo NO
+ * learning_path_assignments query may be issued and every user carries an empty
+ * `learning_path_assignments`; for admin the direct-assignment query still runs.
+ */
+describe('admin/users — learning-path assignment reporting is literal-admin-only', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('equipo_directivo: no learning_path_assignments query is issued and the field is empty', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    stockHappyPath(ED_SCHOOL_ID, tracker, true);
+
+    const { req, res } = createMocks({ method: 'GET', query: {} });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    const tables = tracker.fromCalls.map((c) => c.table);
+    expect(tables).not.toContain('learning_path_assignments');
+    expect(tables).not.toContain('learning_paths');
+    const body = res._getJSONData();
+    expect(body.users).toHaveLength(1);
+    expect(body.users[0].learning_path_assignments).toEqual([]);
+  });
+
+  it('admin: the direct learning_path_assignments query still runs for the listed users', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    stockHappyPath(7, tracker);
+
+    const { req, res } = createMocks({ method: 'GET', query: {} });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    const lpCalls = tracker.fromCalls.filter((c) => c.table === 'learning_path_assignments');
+    expect(lpCalls).toHaveLength(1);
+    expect(lpCalls[0].ins).toEqual([{ col: 'user_id', vals: ['user-1'] }]);
+  });
+});

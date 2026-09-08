@@ -71,10 +71,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // If assigning to a group, verify the group exists
+    // If assigning to a group, verify the group (a community workspace — the
+    // table learning_path_assignments.group_id references and the one
+    // batch-assign.ts validates against) exists.
     if (groupId) {
       const { data: group } = await supabaseClient
-        .from('groups')
+        .from('community_workspaces')
         .select('id')
         .eq('id', groupId)
         .single();
@@ -88,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const result = await LearningPathsService.batchAssignLearningPath(
       supabaseClient,
       pathId,
-      [userId],
+      userId ? [userId] : [],
       groupId ? [groupId] : [],
       assignedBy
     );

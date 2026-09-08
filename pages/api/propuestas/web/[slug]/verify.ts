@@ -3,9 +3,9 @@ import { z } from 'zod';
 import { createServiceRoleClient } from '@/lib/api-auth';
 import { verifyAccessCode } from '@/lib/propuestas-web/access-code';
 import {
-  getProposalRateLimitCount,
   getProposalRequestIp,
-  recordProposalFailedAttempt,
+  releaseProposalAccessAttempt,
+  reserveProposalAccessAttempt,
 } from '@/lib/propuestas-web/access-rate-limit';
 import { resolveSnapshotUrls } from '@/lib/propuestas-web/resolve-urls';
 import type { ProposalSnapshot } from '@/lib/propuestas-web/snapshot';
@@ -15,6 +15,15 @@ import type { ProposalSnapshot } from '@/lib/propuestas-web/snapshot';
  * POST /api/propuestas/web/[slug]/verify
  * Validates the access code and returns the full snapshot on success.
  * Rate limited: 5 attempts per IP per slug per hour (Supabase-backed).
+ *
+ * R2-02 (2026-09-07): the attempt is RESERVED — counted and recorded
+ * atomically — immediately before the code is compared, and never compared
+ * without a successful reservation. A limiter that cannot record answers 503
+ * and the guess does not reach verification; an exhausted window answers 429;
+ * a correct code releases its reservation so recipients do not consume slots.
+ * Method / slug / body validation and the proposal lookup happen first: they
+ * are not guesses (404 / 410 / 400 disclose nothing about the code) and were
+ * never counted before either.
  */
 
 const VerifySchema = z.object({
@@ -32,29 +41,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'Slug inválido' });
   }
 
-  // Rate limiting by IP + slug
-  const ip = getProposalRequestIp(req);
-
-  const serviceClient = createServiceRoleClient();
-  const { allowed, remaining } = await getProposalRateLimitCount(serviceClient, ip, slug);
-
-  if (!allowed) {
-    return res.status(429).json({
-      error: 'Demasiados intentos. Intente nuevamente en una hora.',
-      remaining: 0,
-    });
-  }
-
   // Validate body
   const bodyParse = VerifySchema.safeParse(req.body);
   if (!bodyParse.success) {
     return res.status(400).json({
       error: 'Código inválido',
-      remaining,
     });
   }
 
   const { code } = bodyParse.data;
+  const ip = getProposalRequestIp(req);
+  const serviceClient = createServiceRoleClient();
 
   try {
 
@@ -66,7 +63,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
 
     if (error || !propuesta) {
-      return res.status(404).json({ error: 'Propuesta no encontrada', remaining });
+      return res.status(404).json({ error: 'Propuesta no encontrada' });
     }
 
     if (propuesta.web_status === 'expired') {
@@ -75,6 +72,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (!propuesta.access_code) {
       return res.status(500).json({ error: 'Propuesta sin código de acceso configurado' });
+    }
+
+    // Reserve the attempt (count + record, atomically) BEFORE comparing the code.
+    const reservation = await reserveProposalAccessAttempt(serviceClient, ip, slug);
+
+    if (reservation.degraded) {
+      // The attempt could not be accounted for: refuse (fail-closed) without
+      // telling the client it exhausted its attempts. The code is NOT compared.
+      return res.status(503).json({
+        error: 'Servicio no disponible. Intente nuevamente en unos minutos.',
+      });
+    }
+
+    if (!reservation.allowed) {
+      return res.status(429).json({
+        error: 'Demasiados intentos. Intente nuevamente en una hora.',
+        remaining: 0,
+      });
     }
 
     // Verify the access code
@@ -89,12 +104,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
     if (!valid) {
-      await recordProposalFailedAttempt(serviceClient, ip, slug);
+      // Already recorded by the reservation; nothing to write here.
       return res.status(401).json({
         error: 'Código de acceso incorrecto',
-        remaining: remaining - 1,
+        remaining: reservation.remaining,
       });
     }
+
+    // A correct code does not consume a failed-attempt slot.
+    await releaseProposalAccessAttempt(serviceClient, reservation.attemptId);
 
     // Success — update view tracking
     const updates: Record<string, unknown> = {

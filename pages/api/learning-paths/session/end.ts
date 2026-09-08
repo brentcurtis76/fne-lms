@@ -14,7 +14,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const userId = user.id;
-  const { sessionId, timeSpentMinutes } = req.body;
+  // timeSpentMinutes from the body is intentionally ignored (W-B2c-01): the
+  // assignment credit is computed server-side from the session's own clock by
+  // end_learning_path_session, at most once per session.
+  const { sessionId } = req.body;
 
   // Validate required fields
   if (!sessionId) {
@@ -55,26 +58,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       throw new Error('Failed to end session');
     }
 
-    // Update assignment total time if we have a valid time spent value (atomic via RPC)
-    if (timeSpentMinutes && timeSpentMinutes > 0) {
-      const { data: incOk, error: incErr } = await supabaseClient
-        .rpc('increment_path_assignment_time', {
-          p_user_id: userId,
-          p_path_id: session.path_id,
-          p_minutes: timeSpentMinutes,
-        });
+    const { data: closed } = await supabaseClient
+      .from('learning_path_progress_sessions')
+      .select('time_spent_minutes, session_end')
+      .eq('id', sessionId)
+      .maybeSingle();
 
-      if (incErr || incOk !== true) {
-        console.warn('Failed to increment assignment time:', incErr);
-        // Don't fail the request for this
-      }
-    }
-
-    // Return success
+    // Return success with the server-computed figures
     res.status(200).json({
       sessionId,
-      endedAt: new Date().toISOString(),
-      timeSpentMinutes: timeSpentMinutes || 0
+      endedAt: closed?.session_end ?? new Date().toISOString(),
+      timeSpentMinutes: closed?.time_spent_minutes ?? 0
     });
 
   } catch (error: any) {

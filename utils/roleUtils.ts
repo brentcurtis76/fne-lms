@@ -1296,7 +1296,7 @@ export async function supervisorCanAccessUser(
     // Use the database function for efficient checking
     const { data, error } = await supabase
       .rpc('supervisor_can_access_user', {
-        supervisor_id: supervisorId,
+        supervisor_user_id: supervisorId,
         target_user_id: targetUserId
       });
 

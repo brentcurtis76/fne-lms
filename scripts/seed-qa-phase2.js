@@ -536,6 +536,7 @@ async function seedTestUsers() {
           course_id: COURSE_ID,
           enrollment_type: 'assigned',
           status: 'active',
+          access_origin: 'independent', // QA seed: an explicit non-path grant (C2)
         });
 
       if (enrollError) {

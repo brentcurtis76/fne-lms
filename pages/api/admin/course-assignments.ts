@@ -1,170 +1,191 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import NotificationService from '../../../lib/notificationService';
+import {
+  getApiUser,
+  createApiSupabaseClient,
+  createServiceRoleClient,
+  getForcedPasswordChangeVerdict,
+  sendForcedPasswordChangeResponse,
+} from '../../../lib/api-auth';
 
-import { metadataHasRole } from '../../../utils/roleUtils';
+/**
+ * /api/admin/course-assignments — the admin course-assignment surface
+ * (components/AssignTeachersModal.tsx, pages/admin/courses/[id]/assign.tsx).
+ *
+ * C-R1-03 (closure review 2026-09-08). This route is the designated writer of
+ * INDEPENDENT course entitlements (C2 / D1), so:
+ *
+ *   * authority is the AUTHORITATIVE role row — an active literal `admin` in
+ *     `user_roles`, read on the service-role client. Caller-editable
+ *     `user_metadata` is never consulted (the previous route accepted it as an
+ *     alternative and any verified user could put `role: 'admin'` there);
+ *     a role-query error, a missing or malformed result is a denial;
+ *   * the established forced-password-change boundary is applied here too
+ *     (Bearer callers never reach the middleware's cookie-session branch);
+ *   * the grant itself runs through `admin_grant_course_access` on the CALLER's
+ *     client, so `auth.uid()` is the actor and the database re-checks the same
+ *     admin + password gate; the RPC is atomic (assignment + enrolment +
+ *     provenance succeed or fail together) and idempotent, so this route can
+ *     never report a durable grant whose enrolment or provenance write failed.
+ *
+ * Accepts Bearer or cookie sessions (getApiUser).
+ */
 
-// Create admin client with service role key for elevated permissions
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MAX_RECIPIENTS = 200;
+
+type GrantResult = {
+  success: boolean;
+  assignments_created: number;
+  assignments_existing: number;
+  enrollments_created: number;
+  enrollments_promoted: number;
+  enrollments_unchanged: number;
+  newly_assigned_user_ids: string[];
+};
+
+function isGrantResult(v: unknown): v is GrantResult {
+  if (!v || typeof v !== 'object') return false;
+  const r = v as Record<string, unknown>;
+  return (
+    r.success === true &&
+    ['assignments_created', 'assignments_existing', 'enrollments_created', 'enrollments_promoted', 'enrollments_unchanged'].every((k) => typeof r[k] === 'number') &&
+    Array.isArray(r.newly_assigned_user_ids)
+  );
+}
+
+/** Active literal admin role row, or a reason to deny. */
+async function verifyActiveAdmin(serviceClient: SupabaseClient, userId: string): Promise<'admin' | 'forbidden' | 'error'> {
+  const { data, error } = await serviceClient
+    .from('user_roles')
+    .select('id, role_type, is_active')
+    .eq('user_id', userId)
+    .eq('role_type', 'admin')
+    .eq('is_active', true)
+    .limit(1);
+  if (error) {
+    console.error('[course-assignments] role verification failed:', error.message);
+    return 'error';
   }
-);
+  if (!Array.isArray(data) || data.length === 0) return 'forbidden';
+  const row = data[0] as { role_type?: unknown; is_active?: unknown };
+  return row.role_type === 'admin' && row.is_active === true ? 'admin' : 'forbidden';
+}
 
-// Regular client for auth verification
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+function rpcErrorStatus(err: { code?: string; message?: string }): number {
+  if (err.code === '42501' || /permission|admin only|password change required/i.test(err.message ?? '')) return 403;
+  if (/course not found/i.test(err.message ?? '')) return 404;
+  if (/do(es)? not exist|at least one recipient|at most \d+ recipients/i.test(err.message ?? '')) return 400;
+  return 500;
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    // Get auth header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Missing or invalid authorization header' });
-    }
-
-    // Verify the user is authenticated and is admin
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
+    const { user, error: authError } = await getApiUser(req, res);
     if (authError || !user) {
       return res.status(401).json({ error: 'Invalid authentication token' });
     }
 
-    // Check if user is admin using the new user_roles table
-    const { data: adminRole } = await supabaseAdmin
-      .from('user_roles')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('role_type', 'admin')
-      .eq('is_active', true)
-      .limit(1)
-      .maybeSingle();
+    const serviceClient = createServiceRoleClient();
 
-    const isAdminFromMetadata = metadataHasRole(user.user_metadata, 'admin');
-    const isAdminFromRoles = adminRole !== null;
+    // Forced-password-change boundary (before any authority check or write).
+    const verdict = await getForcedPasswordChangeVerdict(serviceClient, user.id);
+    if (sendForcedPasswordChangeResponse(res, verdict)) return;
 
-    if (!isAdminFromMetadata && !isAdminFromRoles) {
+    // Authority: the active literal admin role row. Nothing else.
+    const authority = await verifyActiveAdmin(serviceClient, user.id);
+    if (authority === 'error') {
+      return res.status(500).json({ error: 'Role verification failed' });
+    }
+    if (authority !== 'admin') {
       return res.status(403).json({ error: 'Insufficient permissions. Admin access required.' });
     }
 
     if (req.method === 'POST') {
-      // Create course assignments
-      const { courseId, teacherIds } = req.body;
-      
-      if (!courseId || !teacherIds || !Array.isArray(teacherIds)) {
-        return res.status(400).json({ error: 'Missing courseId or teacherIds array' });
+      const { courseId, teacherIds } = (req.body ?? {}) as { courseId?: unknown; teacherIds?: unknown };
+      if (typeof courseId !== 'string' || !UUID.test(courseId)) {
+        return res.status(400).json({ error: 'Missing or invalid courseId' });
+      }
+      if (!Array.isArray(teacherIds) || teacherIds.length === 0 || !teacherIds.every((t) => typeof t === 'string' && UUID.test(t))) {
+        return res.status(400).json({ error: 'Missing or invalid teacherIds array' });
+      }
+      const recipients = Array.from(new Set(teacherIds as string[]));
+      if (recipients.length > MAX_RECIPIENTS) {
+        return res.status(400).json({ error: `At most ${MAX_RECIPIENTS} recipients per request` });
       }
 
-      // Create assignments
-      const assignments = teacherIds.map(teacherId => ({
-        course_id: courseId,
-        teacher_id: teacherId,
-        assigned_by: user.id
-      }));
-
-      const { data, error } = await supabaseAdmin
-        .from('course_assignments')
-        .insert(assignments)
-        .select();
-
-      if (error) {
-        console.error('Error creating course assignments:', error);
-        return res.status(500).json({ error: 'Failed to create course assignments: ' + error.message });
-      }
-
-      // Ensure course enrollments exist for assigned users so progress tracking works
-      try {
-        const enrollmentPayload = teacherIds.map(teacherId => ({
-          course_id: courseId,
-          user_id: teacherId,
-          enrollment_type: 'assigned',
-          enrolled_by: user.id,
-          status: 'active'
-        }));
-
-        if (enrollmentPayload.length > 0) {
-          const { error: enrollmentError } = await supabaseAdmin
-            .from('course_enrollments')
-            .upsert(enrollmentPayload, { onConflict: 'course_id,user_id' });
-
-          if (enrollmentError) {
-            console.error('Error ensuring course enrollments:', enrollmentError);
-          }
-        }
-      } catch (enrollmentException) {
-        console.error('Unexpected error creating course enrollments:', enrollmentException);
-      }
-
-      // Get course details for notification
-      const { data: courseData } = await supabaseAdmin
-        .from('courses')
-        .select('title')
-        .eq('id', courseId)
-        .single();
-
-      // Trigger course assignment notifications for each teacher
-      try {
-        await NotificationService.triggerNotification('course_assigned', {
-          course: {
-            id: courseId,
-            name: courseData?.title || 'Nuevo curso'
-          },
-          assigned_users: teacherIds,
-          assigned_by: user.id
-        });
-        console.log(`✅ Course assignment notifications triggered for ${teacherIds.length} teacher(s)`);
-      } catch (notificationError) {
-        console.error('❌ Failed to trigger course assignment notifications:', notificationError);
-        // Don't fail the API call if notifications fail
-      }
-
-      return res.status(200).json({ 
-        success: true, 
-        message: `Course assigned to ${teacherIds.length} teacher(s)`,
-        assignments: data 
+      // The grant: atomic, on the caller's client (auth.uid() = this admin).
+      const callerClient = await createApiSupabaseClient(req, res);
+      const { data: grant, error: grantError } = await callerClient.rpc('admin_grant_course_access', {
+        p_course_id: courseId,
+        p_user_ids: recipients,
       });
-
-    } else if (req.method === 'DELETE') {
-      // Remove course assignment
-      const { courseId, teacherId } = req.body;
-      
-      if (!courseId || !teacherId) {
-        return res.status(400).json({ error: 'Missing courseId or teacherId' });
+      if (grantError) {
+        console.error('[course-assignments] grant failed:', grantError.message);
+        const status = rpcErrorStatus(grantError);
+        return res.status(status).json({
+          error: status === 500 ? 'Failed to grant course access: ' + grantError.message : grantError.message,
+        });
+      }
+      if (!isGrantResult(grant)) {
+        console.error('[course-assignments] grant returned an unexpected result');
+        return res.status(500).json({ error: 'Failed to grant course access: unexpected result' });
       }
 
-      const { error } = await supabaseAdmin
+      // Notify only the newly assigned recipients (a retry re-notifies nobody).
+      if (grant.newly_assigned_user_ids.length > 0) {
+        const { data: courseData } = await serviceClient
+          .from('courses')
+          .select('title')
+          .eq('id', courseId)
+          .maybeSingle();
+        try {
+          await NotificationService.triggerNotification('course_assigned', {
+            course: { id: courseId, name: (courseData as { title?: string } | null)?.title || 'Nuevo curso' },
+            assigned_users: grant.newly_assigned_user_ids,
+            assigned_by: user.id,
+          });
+        } catch (notificationError) {
+          console.error('❌ Failed to trigger course assignment notifications:', notificationError);
+          // The grant is durable; a notification failure does not undo it.
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: `Course assigned to ${grant.assignments_created} teacher(s) (${grant.assignments_existing} already assigned)`,
+        grant,
+      });
+    }
+
+    if (req.method === 'DELETE') {
+      const { courseId, teacherId } = (req.body ?? {}) as { courseId?: unknown; teacherId?: unknown };
+      if (typeof courseId !== 'string' || !UUID.test(courseId) || typeof teacherId !== 'string' || !UUID.test(teacherId)) {
+        return res.status(400).json({ error: 'Missing or invalid courseId / teacherId' });
+      }
+      // Removes the assignment row only; the enrolment (an independent grant,
+      // with its progress) is kept — the pre-existing semantics of this surface
+      // and of batch_unassign_courses.
+      const { error } = await serviceClient
         .from('course_assignments')
         .delete()
         .eq('course_id', courseId)
         .eq('teacher_id', teacherId);
-
       if (error) {
         console.error('Error removing course assignment:', error);
         return res.status(500).json({ error: 'Failed to remove course assignment: ' + error.message });
       }
+      return res.status(200).json({ success: true, message: 'Course assignment removed successfully' });
+    }
 
-      return res.status(200).json({ 
-        success: true, 
-        message: 'Course assignment removed successfully'
-      });
-
-    } else if (req.method === 'GET') {
-      // Get course assignments
+    if (req.method === 'GET') {
       const { courseId } = req.query;
-
-      if (!courseId) {
-        return res.status(400).json({ error: 'Missing courseId parameter' });
+      if (typeof courseId !== 'string' || !UUID.test(courseId)) {
+        return res.status(400).json({ error: 'Missing or invalid courseId parameter' });
       }
 
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await serviceClient
         .from('course_assignments')
         .select(`
           teacher_id,
@@ -184,12 +205,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Get school names from user_roles for each assigned user
-      const teacherIds = (data || []).map(a => a.teacher_id);
-      let schoolMap = new Map<string, string>();
+      const teacherIds = (data || []).map((a: { teacher_id: string }) => a.teacher_id);
+      const schoolMap = new Map<string, string>();
 
       if (teacherIds.length > 0) {
-        // Get active user_roles with school_id for these users
-        const { data: userRoles } = await supabaseAdmin
+        const { data: userRoles } = await serviceClient
           .from('user_roles')
           .select('user_id, school_id')
           .in('user_id', teacherIds)
@@ -197,48 +217,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .not('school_id', 'is', null);
 
         if (userRoles && userRoles.length > 0) {
-          // Get unique school IDs
-          const schoolIds = [...new Set(userRoles.map(r => r.school_id).filter(Boolean))];
-
-          // Fetch school names
-          const { data: schools } = await supabaseAdmin
+          const schoolIds = [...new Set(userRoles.map((r: { school_id: number | null }) => r.school_id).filter(Boolean))];
+          const { data: schools } = await serviceClient
             .from('schools')
             .select('id, name')
             .in('id', schoolIds);
 
           const schoolNameMap = new Map<number, string>();
-          schools?.forEach(s => schoolNameMap.set(s.id, s.name));
+          (schools || []).forEach((s: { id: number; name: string }) => schoolNameMap.set(s.id, s.name));
 
-          // Map user_id to school name (use first active role with school)
-          userRoles.forEach(role => {
+          userRoles.forEach((role: { user_id: string; school_id: number | null }) => {
             if (!schoolMap.has(role.user_id) && role.school_id) {
               const schoolName = schoolNameMap.get(role.school_id);
-              if (schoolName) {
-                schoolMap.set(role.user_id, schoolName);
-              }
+              if (schoolName) schoolMap.set(role.user_id, schoolName);
             }
           });
         }
       }
 
-      // Add school name to each assignment
-      const assignmentsWithSchool = (data || []).map(a => ({
+      const assignmentsWithSchool = (data || []).map((a: { teacher_id: string; profiles: unknown }) => ({
         ...a,
         profiles: {
-          ...a.profiles,
-          school: schoolMap.get(a.teacher_id) || null
-        }
+          ...(a.profiles as Record<string, unknown>),
+          school: schoolMap.get(a.teacher_id) || null,
+        },
       }));
 
-      return res.status(200).json({
-        success: true,
-        assignments: assignmentsWithSchool
-      });
-
-    } else {
-      return res.status(405).json({ error: 'Method not allowed' });
+      return res.status(200).json({ success: true, assignments: assignmentsWithSchool });
     }
 
+    return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
     console.error('Unexpected error in course-assignments API:', error);
     return res.status(500).json({ error: 'Internal server error' });

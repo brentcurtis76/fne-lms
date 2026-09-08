@@ -8,8 +8,18 @@
  * unless the exact bearer secret is presented.
  *
  * What it does NOT prove: that the cleanup is correct against a real database. The backend
- * client is a recording double with synthetic rows; the `increment_path_time` RPC it
- * "answers" is known to be absent from the migration chain.
+ * client is a recording double with synthetic rows.
+ *
+ * RLS closure C4 (2026-09-07): the route performs TWO stages through two service_role-only
+ * SECURITY DEFINER RPCs and reports each truthfully — `close_stale_learning_path_sessions`
+ * (settlement, one transaction, exactly-once credit) and
+ * `archive_settled_learning_path_sessions(before, limit)` (bounded retention that keeps
+ * settlement evidence and reporting grain). Retention runs on idle and settlement-only runs,
+ * a nonzero `settled` is reported even when `closed` is zero, a retention failure is a 500
+ * that still carries what settlement achieved, a backlog is drained in bounded batches with
+ * `hasMore`, and no table is touched directly (no read-modify-write, no direct DELETE).
+ * The database-level semantics are proved by pgTAP 070 §6b / 079 and
+ * scripts/ci/lp-session-settlement-proof.mjs.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMocks } from 'node-mocks-http';
@@ -50,7 +60,7 @@ function installQueryDouble(results: Record<string, Result>) {
     const entry = { table, ops: [] as Array<{ method: string; args: unknown[] }> };
     calls.push(entry);
     const chain: Record<string, unknown> = {};
-    for (const method of ['select', 'eq', 'or', 'gte', 'lt', 'is', 'delete', 'update', 'upsert', 'insert']) {
+    for (const method of ['select', 'eq', 'or', 'gte', 'lt', 'is', 'not', 'delete', 'update', 'upsert', 'insert', 'maybeSingle']) {
       chain[method] = (...args: unknown[]) => {
         entry.ops.push({ method, args });
         return chain;
@@ -181,89 +191,141 @@ describe.each(SUPPORTED_METHODS)('%s /api/cron/cleanup-learning-path-sessions �
 });
 
 describe.each(SUPPORTED_METHODS)('%s /api/cron/cleanup-learning-path-sessions — authenticated processing', (method) => {
-  it('closes a dangling session through the existing path and reports the mocked work', async () => {
+  function installRpc(settlement: Result | Error, archiveBatches: Array<Result | Error>) {
+    let archiveCall = 0;
+    rpc.mockImplementation((name: string) => {
+      if (name === 'close_stale_learning_path_sessions') {
+        if (settlement instanceof Error) throw settlement;
+        return Promise.resolve(settlement);
+      }
+      if (name === 'archive_settled_learning_path_sessions') {
+        const next = archiveBatches[Math.min(archiveCall, archiveBatches.length - 1)];
+        archiveCall += 1;
+        if (next instanceof Error) throw next;
+        return Promise.resolve(next);
+      }
+      throw new Error(`unexpected rpc ${name}`);
+    });
+  }
+  const archive = (deleted: number, has_more: boolean, retained_open_overlap = 0, retained_missing_evidence = 0): Result => ({
+    data: { deleted, has_more, retained_open_overlap, retained_missing_evidence },
+    error: null,
+  });
+
+  it('runs settlement then bounded retention and reports both stages truthfully', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-09-15T12:00:00.000Z'));
-
-    const calls = installQueryDouble({
-      'learning_path_progress_sessions:select': {
-        data: [
-          {
-            id: 'session-1',
-            user_id: 'user-1',
-            path_id: 'path-a',
-            session_start: '2026-09-15T10:00:00.000Z',
-            last_heartbeat: '2026-09-15T10:30:00.000Z',
-          },
-        ],
-        error: null,
-      },
-      'learning_path_progress_sessions:update': { data: null, error: null },
-      'learning_path_progress_sessions:delete': { data: null, error: null, count: 2 },
-    });
-    rpc.mockResolvedValue({ data: null, error: null });
+    installRpc({ data: { closed: 1, settled: 3 }, error: null }, [archive(2, false, 1, 0)]);
+    installQueryDouble({});
 
     const res = await invoke(method, { authorization: VALID_BEARER });
 
     expect(res._getStatusCode()).toBe(200);
-    expect(res._getJSONData()).toMatchObject({
-      message: 'Session cleanup completed',
-      sessionsFound: 1,
-      successfullyClosed: 1,
-      errors: 0,
-      oldSessionsArchived: 2,
+    expect(res._getJSONData()).toEqual({
+      ok: true,
+      message: 'Session maintenance completed',
+      staleCutoff: '2026-09-15T11:45:00.000Z',
+      retentionBoundary: '2026-09-08T11:55:00.000Z',
+      settlement: { closed: 1, settled: 3, ok: true },
+      retention: { archived: 2, batches: 1, hasMore: false, retainedOpenOverlap: 1, retainedMissingEvidence: 0, ok: true },
+      errors: [],
       timestamp: '2026-09-15T12:00:00.000Z',
     });
-
-    // Existing dangling-session query preserved: open sessions with a stale heartbeat (15 min).
-    expect(calls[0]).toMatchObject({ table: 'learning_path_progress_sessions' });
-    expect(calls[0].ops.map((op) => op.method)).toEqual(['select', 'is', 'lt']);
-    expect(calls[0].ops[1].args).toEqual(['session_end', null]);
-    expect(calls[0].ops[2].args).toEqual(['last_heartbeat', '2026-09-15T11:45:00.000Z']);
-
-    // Existing close semantics preserved: last heartbeat as end time, 30 minutes spent.
-    const update = calls[1];
-    expect(update.ops[0].method).toBe('update');
-    expect(update.ops[0].args[0]).toEqual({
-      session_end: '2026-09-15T10:30:00.000Z',
-      time_spent_minutes: 30,
-      updated_at: '2026-09-15T12:00:00.000Z',
-    });
-    expect(update.ops[1]).toEqual({ method: 'eq', args: ['id', 'session-1'] });
-
-    expect(rpc).toHaveBeenCalledTimes(1);
-    expect(rpc).toHaveBeenCalledWith('increment_path_time', {
-      p_user_id: 'user-1',
-      p_path_id: 'path-a',
-      p_time_minutes: 30,
-      p_last_activity: '2026-09-15T10:30:00.000Z',
-    });
-
-    // Existing 7-day retention delete preserved.
-    const archive = calls[2];
-    expect(archive.ops.map((op) => op.method)).toEqual(['delete', 'lt']);
-    expect(archive.ops[1].args).toEqual(['session_start', '2026-09-08T12:00:00.000Z']);
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc).toHaveBeenNthCalledWith(1, 'close_stale_learning_path_sessions', { p_stale_cutoff: '2026-09-15T11:45:00.000Z' });
+    expect(rpc).toHaveBeenNthCalledWith(2, 'archive_settled_learning_path_sessions', { p_before: '2026-09-08T11:55:00.000Z', p_limit: 1000 });
+    // No direct table operation of any kind in this process.
+    expect(from).not.toHaveBeenCalled();
   });
 
-  it('reports "no dangling sessions" through the existing early-return path', async () => {
-    installQueryDouble({
-      'learning_path_progress_sessions:select': { data: [], error: null },
-    });
+  it('an idle run still performs retention and says it was idle (no false "no sessions" early return)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-15T12:00:00.000Z'));
+    installRpc({ data: { closed: 0, settled: 0 }, error: null }, [archive(0, false)]);
     const res = await invoke(method, { authorization: VALID_BEARER });
     expect(res._getStatusCode()).toBe(200);
-    expect(res._getJSONData()).toMatchObject({ message: 'No dangling sessions found', cleanedUp: 0 });
-    expect(from).toHaveBeenCalledTimes(1);
-    expect(rpc).not.toHaveBeenCalled();
+    expect(res._getJSONData()).toMatchObject({
+      ok: true,
+      message: 'Idle run: nothing to close, settle or archive',
+      settlement: { closed: 0, settled: 0, ok: true },
+      retention: { archived: 0, batches: 1, hasMore: false, ok: true },
+      errors: [],
+    });
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc).toHaveBeenNthCalledWith(2, 'archive_settled_learning_path_sessions', expect.anything());
   });
 
-  it('keeps the existing 500 shape when the processing path itself fails', async () => {
-    from.mockImplementation(() => {
+  it('a settlement-only run (closed 0, settled > 0) reports the settled count and still archives', async () => {
+    installRpc({ data: { closed: 0, settled: 4 }, error: null }, [archive(7, false)]);
+    const res = await invoke(method, { authorization: VALID_BEARER });
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getJSONData()).toMatchObject({
+      ok: true,
+      message: 'Session maintenance completed',
+      settlement: { closed: 0, settled: 4 },
+      retention: { archived: 7 },
+    });
+  });
+
+  it('drains a backlog in bounded batches (at most 5 per run) and reports hasMore for the next run', async () => {
+    installRpc({ data: { closed: 0, settled: 0 }, error: null }, [
+      archive(1000, true), archive(1000, true), archive(1000, true), archive(1000, true), archive(1000, true), archive(1000, true),
+    ]);
+    const res = await invoke(method, { authorization: VALID_BEARER });
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getJSONData()).toMatchObject({ ok: true, retention: { archived: 5000, batches: 5, hasMore: true, ok: true } });
+    expect(rpc).toHaveBeenCalledTimes(1 + 5);
+  });
+
+  it('stops batching as soon as the database reports no more candidates', async () => {
+    installRpc({ data: { closed: 0, settled: 0 }, error: null }, [archive(1000, true), archive(120, false)]);
+    const res = await invoke(method, { authorization: VALID_BEARER });
+    expect(res._getJSONData()).toMatchObject({ retention: { archived: 1120, batches: 2, hasMore: false } });
+    expect(rpc).toHaveBeenCalledTimes(3);
+  });
+
+  it('a settlement error is a 500, retention is skipped, and nothing is reported as achieved', async () => {
+    installRpc({ data: null, error: { message: 'synthetic settlement failure' } }, [archive(5, false)]);
+    const res = await invoke(method, { authorization: VALID_BEARER });
+    expect(res._getStatusCode()).toBe(500);
+    expect(res._getJSONData()).toMatchObject({
+      ok: false,
+      message: 'Session maintenance failed',
+      settlement: { closed: 0, settled: 0, ok: false },
+      retention: { archived: 0, batches: 0, ok: false },
+      errors: [{ stage: 'settlement', message: 'synthetic settlement failure' }],
+    });
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it('a retention error is a 500 that still carries what settlement achieved (never errors: 0)', async () => {
+    installRpc({ data: { closed: 2, settled: 2 }, error: null }, [archive(300, true), { data: null, error: { message: 'synthetic archive failure' } }]);
+    const res = await invoke(method, { authorization: VALID_BEARER });
+    expect(res._getStatusCode()).toBe(500);
+    expect(res._getJSONData()).toMatchObject({
+      ok: false,
+      settlement: { closed: 2, settled: 2, ok: true },
+      retention: { archived: 300, batches: 1, ok: false },
+      errors: [{ stage: 'retention', message: 'synthetic archive failure' }],
+    });
+  });
+
+  it('keeps a 500 shape when the processing path itself throws', async () => {
+    rpc.mockImplementation(() => {
       throw new Error('synthetic backend failure');
     });
     const res = await invoke(method, { authorization: VALID_BEARER });
     expect(res._getStatusCode()).toBe(500);
-    expect(res._getJSONData()).toMatchObject({ error: 'Cleanup job failed', details: 'synthetic backend failure' });
-    expect(from).toHaveBeenCalledTimes(1); // authenticated, so the processing path WAS entered
+    expect(res._getJSONData()).toMatchObject({ ok: false, errors: [{ stage: 'settlement', message: 'synthetic backend failure' }] });
+    expect(rpc).toHaveBeenCalledTimes(1); // authenticated, so the processing path WAS entered
+  });
+
+  it('never echoes the secret in a failed run', async () => {
+    installRpc(new Error('boom'), []);
+    const res = await invoke(method, { authorization: VALID_BEARER });
+    expect(res._getStatusCode()).toBe(500);
+    expect(res._getData()).not.toContain(SECRET);
   });
 });
 

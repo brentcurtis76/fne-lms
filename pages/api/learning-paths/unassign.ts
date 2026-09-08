@@ -9,198 +9,132 @@ interface UnassignRequest {
   groupIds?: string[];
 }
 
+/**
+ * DELETE /api/learning-paths/unassign — remove EXACTLY the selected assignment
+ * sources of a learning path (W-B2c-01, closure C2, 2026-09-07).
+ *
+ *   - `userIds`  → the DIRECT assignment rows of those users for the path.
+ *   - `groupIds` → the GROUP assignment rows of those workspaces for the path.
+ *
+ * Nothing else is touched. In particular a group removal never deletes the
+ * direct assignments of the group's members (the previous implementation did,
+ * with no provenance predicate — an independent direct assignment was lost).
+ * Course enrolments are never written here: a path-derived enrolment stops
+ * granting access by itself when the learner's last current entitlement
+ * disappears (decision D1; see migration 20260907120500), and independent
+ * enrolments and learning history are untouched.
+ *
+ * Every count in the response is the number of rows the database actually
+ * deleted (a repeated call is idempotent and reports 0), and the audit trail
+ * records only the sources that were actually removed.
+ */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Only allow DELETE method
   if (req.method !== 'DELETE') {
     return handleMethodNotAllowed(res, ['DELETE']);
   }
 
-  // Authenticate user
   const { user, error } = await getApiUser(req, res);
-  
   if (error || !user) {
     return sendAuthError(res, 'Authentication required');
   }
 
-  // Create authenticated Supabase client
   const supabaseClient = await createApiSupabaseClient(req, res);
 
   try {
-    // Check if user has permission to assign learning paths
-    const hasPermission = await LearningPathsService.hasManagePermission(
-      supabaseClient,
-      user.id
-    );
-    
+    const hasPermission = await LearningPathsService.hasManagePermission(supabaseClient, user.id);
     if (!hasPermission) {
-      return res.status(403).json({ 
-        error: 'You do not have permission to unassign learning paths' 
-      });
+      return res.status(403).json({ error: 'You do not have permission to unassign learning paths' });
     }
 
-    // Validate request body
-    const { pathId, userIds, groupIds } = req.body as UnassignRequest;
-
-    if (!pathId) {
-      return res.status(400).json({ 
-        error: 'pathId is required' 
-      });
+    const { pathId, userIds, groupIds } = (req.body ?? {}) as UnassignRequest;
+    if (!pathId || typeof pathId !== 'string') {
+      return res.status(400).json({ error: 'pathId is required' });
     }
 
-    // Validate that at least one user or group is provided
-    const hasUsers = Array.isArray(userIds) && userIds.length > 0;
-    const hasGroups = Array.isArray(groupIds) && groupIds.length > 0;
-
-    if (!hasUsers && !hasGroups) {
-      return res.status(400).json({ 
-        error: 'At least one userId or groupId must be provided' 
-      });
+    const requestedUserIds = Array.isArray(userIds) ? Array.from(new Set(userIds.filter((id) => typeof id === 'string' && id))) : [];
+    const requestedGroupIds = Array.isArray(groupIds) ? Array.from(new Set(groupIds.filter((id) => typeof id === 'string' && id))) : [];
+    if (requestedUserIds.length === 0 && requestedGroupIds.length === 0) {
+      return res.status(400).json({ error: 'At least one userId or groupId must be provided' });
     }
 
-    // Verify the learning path exists
-    const { data: path } = await supabaseClient
+    const { data: path, error: pathError } = await supabaseClient
       .from('learning_paths')
       .select('id, name')
       .eq('id', pathId)
-      .single();
-
+      .maybeSingle();
+    if (pathError) {
+      throw new Error(`Failed to load learning path: ${pathError.message}`);
+    }
     if (!path) {
       return res.status(404).json({ error: 'Learning path not found' });
     }
 
-    let unassignedCount = 0;
+    let removedDirectUserIds: string[] = [];
+    let removedGroupIds: string[] = [];
 
-    // Unassign from users
-    if (hasUsers) {
-      const { error: userError } = await supabaseClient
+    if (requestedUserIds.length > 0) {
+      const { data: removed, error: userError } = await supabaseClient
         .from('learning_path_assignments')
         .delete()
         .eq('path_id', pathId)
-        .in('user_id', userIds!)
-        .is('group_id', null);
-
+        .in('user_id', requestedUserIds)
+        .is('group_id', null)
+        .select('user_id');
       if (userError) {
         throw new Error(`Failed to unassign users: ${userError.message}`);
       }
+      removedDirectUserIds = Array.from(new Set((removed ?? []).map((row: { user_id: string }) => row.user_id)));
 
-      unassignedCount += userIds!.length;
-
-      // Log to audit trail (non-blocking)
-      const auditEntries = createLPAssignmentAuditEntries(
-        'unassigned',
-        pathId,
-        userIds!,
-        user.id,
-        userIds!.length
-      );
-      logBatchAssignmentAudit(supabaseClient, auditEntries);
-    }
-
-    // Unassign from groups (and their members)
-    if (hasGroups) {
-      console.log('Unassigning from groups:', groupIds);
-      for (const groupId of groupIds!) {
-        // Get the community_id for this group
-        const { data: workspace } = await supabaseClient
-          .from('community_workspaces')
-          .select('community_id')
-          .eq('id', groupId)
-          .single();
-
-        if (!workspace) {
-          throw new Error(`Group with ID ${groupId} not found`);
-        }
-
-        // Remove group assignment
-        const { error: groupError } = await supabaseClient
-          .from('learning_path_assignments')
-          .delete()
-          .eq('path_id', pathId)
-          .eq('group_id', groupId);
-
-        if (groupError) {
-          throw new Error(`Failed to unassign group: ${groupError.message}`);
-        }
-
-        // Remove individual assignments for group members
-        // Get all members of this community
-        const { data: members } = await supabaseClient
-          .from('user_roles')
-          .select('user_id')
-          .eq('community_id', workspace.community_id)
-          .eq('is_active', true);
-
-        if (members && members.length > 0) {
-          const memberIds = members.map(m => m.user_id);
-
-          const { error: memberError } = await supabaseClient
-            .from('learning_path_assignments')
-            .delete()
-            .eq('path_id', pathId)
-            .in('user_id', memberIds)
-            .is('group_id', null);
-
-          if (memberError) {
-            console.warn(`Warning: Failed to remove some individual member assignments: ${memberError.message}`);
-          }
-
-          // Log group unassignment to audit trail (non-blocking)
-          // For large groups, log a single summary entry instead of per-member entries
-          // to avoid bloating the audit table
-          const MAX_INDIVIDUAL_AUDIT_ENTRIES = 20;
-
-          if (memberIds.length <= MAX_INDIVIDUAL_AUDIT_ENTRIES) {
-            // Small group: log each member individually
-            const memberAuditEntries = createLPAssignmentAuditEntries(
-              'unassigned',
-              pathId,
-              memberIds,
-              user.id,
-              memberIds.length
-            );
-            memberAuditEntries.forEach(entry => {
-              entry.metadata = { ...entry.metadata, viaWorkspaceGroup: groupId };
-            });
-            logBatchAssignmentAudit(supabaseClient, memberAuditEntries);
-          } else {
-            // Large group: log a single summary entry with member count
-            // Individual member IDs stored in metadata (capped to first 50 for reference)
-            const summaryEntry = createLPAssignmentAuditEntries(
-              'unassigned',
-              pathId,
-              [memberIds[0]], // Use first member as representative entity
-              user.id,
-              1
-            )[0];
-            summaryEntry.metadata = {
-              viaWorkspaceGroup: groupId,
-              bulkUnassignment: true,
-              memberCount: memberIds.length,
-              sampleMemberIds: memberIds.slice(0, 50) // First 50 for debugging reference
-            };
-            logBatchAssignmentAudit(supabaseClient, [summaryEntry]);
-          }
-
-          unassignedCount += memberIds.length;
-        }
-
-        unassignedCount += 1; // Count the group itself
+      if (removedDirectUserIds.length > 0) {
+        const auditEntries = createLPAssignmentAuditEntries('unassigned', pathId, removedDirectUserIds, user.id, removedDirectUserIds.length);
+        auditEntries.forEach((entry) => {
+          entry.metadata = { ...entry.metadata, source: 'direct' };
+        });
+        logBatchAssignmentAudit(supabaseClient, auditEntries);
       }
     }
 
-    // Return success response
+    if (requestedGroupIds.length > 0) {
+      const { data: removed, error: groupError } = await supabaseClient
+        .from('learning_path_assignments')
+        .delete()
+        .eq('path_id', pathId)
+        .in('group_id', requestedGroupIds)
+        .is('user_id', null)
+        .select('group_id');
+      if (groupError) {
+        throw new Error(`Failed to unassign groups: ${groupError.message}`);
+      }
+      removedGroupIds = Array.from(new Set((removed ?? []).map((row: { group_id: string }) => row.group_id)));
+
+      if (removedGroupIds.length > 0) {
+        // One audit entry per removed group source; no member row is deleted.
+        const groupEntries = createLPAssignmentAuditEntries('unassigned', pathId, removedGroupIds, user.id, removedGroupIds.length);
+        groupEntries.forEach((entry) => {
+          entry.entityType = 'community_workspace';
+          entry.metadata = { ...entry.metadata, source: 'group', viaWorkspaceGroup: entry.entityId };
+        });
+        logBatchAssignmentAudit(supabaseClient, groupEntries);
+      }
+    }
+
+    const unassignedCount = removedDirectUserIds.length + removedGroupIds.length;
     return res.status(200).json({
       success: true,
       pathName: path.name,
       unassigned_count: unassignedCount,
-      message: `Successfully unassigned learning path from ${unassignedCount} users/groups`
+      removed: {
+        directUserIds: removedDirectUserIds,
+        groupIds: removedGroupIds,
+        notFound: {
+          userIds: requestedUserIds.filter((id) => !removedDirectUserIds.includes(id)),
+          groupIds: requestedGroupIds.filter((id) => !removedGroupIds.includes(id)),
+        },
+      },
+      message: `Successfully unassigned learning path from ${unassignedCount} source(s)`,
     });
-
   } catch (error: any) {
     console.error('Unassign error:', error);
-    
-    return res.status(500).json({ 
-      error: error.message || 'Failed to unassign learning path' 
-    });
+    return res.status(500).json({ error: error.message || 'Failed to unassign learning path' });
   }
 }

@@ -326,8 +326,45 @@ export class LearningPathsService {
   }
 
   /**
-   * Check if a user has permission to manage learning paths
+   * Management authority over learning paths: the literal RBAC role `admin`
+   * only (owner decision 2026-08-29, W-B2c-01). equipo_directivo and consultor
+   * hold NO create / edit / delete / assign / unassign authority and no
+   * cross-user reporting reads. The database enforces the same rule
+   * (migration 20260907120000); this is the API-boundary half of it.
    */
+  /**
+   * Workspace ids of the groups the user belongs to. learning_path_assignments.
+   * group_id references community_workspaces.id, while a membership is a
+   * user_roles row whose community_id is a growth_communities.id; the two are
+   * different identifiers, joined through community_workspaces.community_id
+   * (UNIQUE, 1:1). Only ACTIVE memberships count. Read through the caller's
+   * client: a member can read their own workspaces (members_read_their_workspaces).
+   */
+  static async resolveAssignedGroupIds(supabaseClient: any, userId: string): Promise<string[]> {
+    const { data: userRoles, error: rolesError } = await supabaseClient
+      .from('user_roles')
+      .select('community_id')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .not('community_id', 'is', null);
+
+    if (rolesError) throw rolesError;
+
+    const communityIds = Array.from(
+      new Set((userRoles || []).map((role: any) => role.community_id).filter(Boolean))
+    ) as string[];
+    if (communityIds.length === 0) return [];
+
+    const { data: workspaces, error: workspacesError } = await supabaseClient
+      .from('community_workspaces')
+      .select('id')
+      .in('community_id', communityIds);
+
+    if (workspacesError) throw workspacesError;
+
+    return (workspaces || []).map((w: any) => w.id).filter(Boolean);
+  }
+
   static async hasManagePermission(
     supabaseClient: any,
     userId: string
@@ -338,40 +375,25 @@ export class LearningPathsService {
         .select('role_type')
         .eq('user_id', userId)
         .eq('is_active', true)
-        .in('role_type', ['admin', 'equipo_directivo', 'consultor']);
+        .eq('role_type', 'admin');
 
-      // User has permission if they have at least one of the required roles
-      return !error && data && data.length > 0;
+      return !error && Array.isArray(data) && data.length > 0;
     } catch (error) {
       return false;
     }
   }
 
   /**
-   * Check if a user can manage a specific learning path
+   * Check if a user can manage a specific learning path. Paths are global FNE
+   * templates: there is no owner-based authority (the former `created_by`
+   * shortcut is retired), so this is exactly hasManagePermission.
    */
   static async canManagePath(
     supabaseClient: any,
-    pathId: string,
+    _pathId: string,
     userId: string
   ): Promise<boolean> {
-    try {
-      // Check if user is admin
-      const isAdmin = await this.hasManagePermission(supabaseClient, userId);
-      if (isAdmin) return true;
-
-      // Check if user owns the path
-      const { data, error } = await supabaseClient
-        .from('learning_paths')
-        .select('created_by')
-        .eq('id', pathId)
-        .eq('created_by', userId)
-        .single();
-
-      return !error && data !== null;
-    } catch (error) {
-      return false;
-    }
+    return this.hasManagePermission(supabaseClient, userId);
   }
 
   /**
@@ -382,17 +404,10 @@ export class LearningPathsService {
     userId: string
   ): Promise<any[]> {
     try {
-      // First, get the user's community IDs (groups they belong to)
-      const { data: userRoles, error: rolesError } = await supabaseClient
-        .from('user_roles')
-        .select('community_id')
-        .eq('user_id', userId)
-        .eq('is_active', true)
-        .not('community_id', 'is', null);
-
-      if (rolesError) throw rolesError;
-
-      const communityIds = (userRoles || []).map((role: any) => role.community_id);
+      // Assigned groups are community WORKSPACES (learning_path_assignments.
+      // group_id -> community_workspaces.id); the user's memberships are
+      // growth communities (user_roles.community_id). Resolve one to the other.
+      const groupIds = await this.resolveAssignedGroupIds(supabaseClient, userId);
 
       // Build the query for assignments
       let query = supabaseClient
@@ -403,9 +418,9 @@ export class LearningPathsService {
         `);
 
       // Add filters based on what we have
-      if (communityIds.length > 0) {
+      if (groupIds.length > 0) {
         // User has communities, get both direct and group assignments
-        query = query.or(`user_id.eq.${userId},group_id.in.(${communityIds.join(',')})`);
+        query = query.or(`user_id.eq.${userId},group_id.in.(${groupIds.join(',')})`);
       } else {
         // User has no communities, only get direct assignments
         query = query.eq('user_id', userId);
@@ -519,17 +534,8 @@ export class LearningPathsService {
     try {
       console.log(`[LearningPathsService] Getting path details for user ${userId}, path ${pathId}`);
 
-      // First, get user's community IDs (groups they belong to)
-      const { data: userRoles, error: rolesError } = await supabaseClient
-        .from('user_roles')
-        .select('community_id')
-        .eq('user_id', userId)
-        .eq('is_active', true)
-        .not('community_id', 'is', null);
-
-      if (rolesError) throw rolesError;
-
-      const communityIds = (userRoles || []).map((role: any) => role.community_id);
+      // Workspaces of the user's active communities (see resolveAssignedGroupIds)
+      const groupIds = await this.resolveAssignedGroupIds(supabaseClient, userId);
 
       // Now check for learning path assignment
       let assignmentQuery = supabaseClient
@@ -538,9 +544,9 @@ export class LearningPathsService {
         .eq('path_id', pathId);
 
       // Add filters based on what we have
-      if (communityIds.length > 0) {
+      if (groupIds.length > 0) {
         // User has communities, get both direct and group assignments
-        assignmentQuery = assignmentQuery.or(`user_id.eq.${userId},group_id.in.(${communityIds.join(',')})`);
+        assignmentQuery = assignmentQuery.or(`user_id.eq.${userId},group_id.in.(${groupIds.join(',')})`);
       } else {
         // User has no communities, only get direct assignments
         assignmentQuery = assignmentQuery.eq('user_id', userId);

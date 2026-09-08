@@ -20,6 +20,10 @@
     {
       "path": "/api/cron/auth-retention",
       "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-learning-path-sessions",
+      "schedule": "0 * * * *"
     }
   ]
 }

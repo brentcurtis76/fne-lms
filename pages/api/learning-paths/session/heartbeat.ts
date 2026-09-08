@@ -48,6 +48,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
     if (heartbeatError) {
+      // 42501 = the caller no longer holds assignment authority for the path
+      // (R3-01): a heartbeat extends the creditable interval, so it is refused
+      // once the assignment or membership has ended. Nothing was written.
+      if ((heartbeatError as { code?: string }).code === '42501') {
+        return res.status(403).json({ error: 'You do not have access to this learning path' });
+      }
       console.error('Failed to update heartbeat:', heartbeatError);
       throw new Error('Failed to update session heartbeat');
     }

@@ -25,7 +25,7 @@ returns text as $$
        from pg_class pc
        join pg_namespace pn on pn.oid = pc.relnamespace
       where pn.nspname = rls_enabled.testing_schema
-        and pc.relkind = 'r'
+        and pc.relkind in ('r', 'p')  -- ordinary and partitioned tables
         and not pc.relrowsecurity),
     0,
     'Todas las tablas del schema ' || testing_schema || ' deben tener RLS habilitado'
@@ -43,7 +43,7 @@ returns text as $$
        join pg_namespace pn on pn.oid = pc.relnamespace
       where pn.nspname = rls_enabled.testing_schema
         and pc.relname = rls_enabled.testing_table
-        and pc.relkind = 'r'
+        and pc.relkind in ('r', 'p')  -- ordinary and partitioned tables
         and pc.relrowsecurity),
     1,
     'La tabla ' || testing_table || ' del schema ' || testing_schema || ' debe tener RLS habilitado'

@@ -86,7 +86,7 @@ function requiredEnv(key: string): string {
 
 const SUPABASE_URL = requiredEnv('NEXT_PUBLIC_SUPABASE_URL');
 const ANON_KEY = requiredEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
-const APP_ORIGIN = 'http://localhost:3000';
+const APP_ORIGIN = process.env.E2E_APP_ORIGIN || 'http://localhost:3000';
 
 /** Refuse to run against anything but the ephemeral local stack. */
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '0.0.0.0']);

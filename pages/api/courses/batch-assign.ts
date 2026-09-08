@@ -5,13 +5,13 @@ import { logBatchAssignmentAudit, createCourseAssignmentAuditEntries } from '../
 
 // Check if user has permission to assign courses
 async function hasAssignPermission(supabaseClient: any, userId: string): Promise<boolean> {
-  const { data: roles } = await supabaseClient
+  const { data: roles, error } = await supabaseClient
     .from('user_roles')
     .select('role_type')
     .eq('user_id', userId)
     .eq('is_active', true);
 
-  if (!roles || roles.length === 0) return false;
+  if (error || !Array.isArray(roles) || roles.length === 0) return false;
 
   const userRoles = roles.map((r: any) => r.role_type);
   return userRoles.includes('admin') || userRoles.includes('consultor');
@@ -81,9 +81,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         p_user_ids: userIds
       });
 
-    if (dbError) {
+    if (dbError || result?.success !== true) {
       console.error('Database function error:', dbError);
-      throw new Error(dbError.message || 'Error al asignar curso');
+      throw new Error(dbError?.message || 'Error al asignar curso');
     }
 
     // Trigger course assignment notifications for successfully assigned users
@@ -94,7 +94,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .from('course_assignments')
           .select('teacher_id')
           .eq('course_id', courseId)
-          .in('teacher_id', userIds);
+          .in('id', result.assignment_ids);
 
         const assignedUserIds = newAssignments?.map((a: any) => a.teacher_id) || [];
 
@@ -132,6 +132,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       assignments_created: result.assignments_created,
       assignments_skipped: result.assignments_skipped,
       enrollments_created: result.enrollments_created,
+      enrollments_promoted: result.enrollments_promoted ?? 0,
+      enrollments_unchanged: result.enrollments_unchanged ?? 0,
       message: result.message
     });
 

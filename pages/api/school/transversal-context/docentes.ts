@@ -2,41 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
 import type { UserRoleType } from '@/types/roles';
-
-// Check if user has directivo permission for a specific school
-async function hasDirectivoPermission(
-  supabaseClient: any,
-  userId: string,
-  schoolId?: number
-): Promise<{ hasPermission: boolean; schoolId: number | null; isAdmin: boolean }> {
-  // Check for admin/consultor first
-  const { data: roles } = await supabaseClient
-    .from('user_roles')
-    .select('role_type, school_id')
-    .eq('user_id', userId)
-    .eq('is_active', true);
-
-  if (!roles || roles.length === 0) {
-    return { hasPermission: false, schoolId: null, isAdmin: false };
-  }
-
-  const isAdmin = roles.some((r: any) => ['admin', 'consultor'].includes(r.role_type));
-
-  if (isAdmin) {
-    return { hasPermission: true, schoolId: schoolId || null, isAdmin: true };
-  }
-
-  // Check for directivo role
-  const directivoRole = roles.find((r: any) => r.role_type === 'equipo_directivo');
-  if (directivoRole) {
-    if (schoolId && directivoRole.school_id !== schoolId) {
-      return { hasPermission: false, schoolId: null, isAdmin: false };
-    }
-    return { hasPermission: true, schoolId: directivoRole.school_id, isAdmin: false };
-  }
-
-  return { hasPermission: false, schoolId: null, isAdmin: false };
-}
+import { hasDirectivoPermission, hasContextWriteRole } from '@/lib/permissions/directivo';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -64,6 +30,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!hasPermission) {
     return res.status(403).json({
       error: 'Solo directivos y administradores pueden acceder a esta información'
+    });
+  }
+
+  // The docente directory exists to assign docentes; assigned consultores
+  // (admitted by hasDirectivoPermission for read surfaces) cannot assign, so
+  // they get no directory either.
+  if (!isAdmin && !(await hasContextWriteRole(supabaseClient, user.id))) {
+    return res.status(403).json({
+      code: 'directory_forbidden',
+      error: 'Solo el equipo directivo y los administradores pueden ver el directorio de docentes'
     });
   }
 

@@ -16,7 +16,14 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import HelpButton from '@/components/tutorials/HelpButton';
-import { AREA_LABELS, TransformationArea, GenerationType } from '@/types/assessment-builder';
+import {
+  AREA_LABELS,
+  GENERATION_TYPE_LABELS,
+  GRADE_LEVEL_LABELS,
+  GradeLevel,
+  TransformationArea,
+  GenerationType,
+} from '@/types/assessment-builder';
 
 interface AssessmentListItem {
   id: string;
@@ -285,7 +292,7 @@ const AssessmentCard: React.FC<AssessmentCardProps> = ({ assessment, allAssessme
                     ? 'bg-brand_accent/15 text-brand_primary/70'
                     : 'bg-sky-50 text-sky-700'
                 }`}
-                title={assessment.generationType === 'GT' ? 'Generación Tractor' : 'Generación Innova'}
+                title={GENERATION_TYPE_LABELS[assessment.generationType]}
               >
                 {assessment.generationType}
               </span>
@@ -311,8 +318,17 @@ const AssessmentCard: React.FC<AssessmentCardProps> = ({ assessment, allAssessme
             <span className="font-medium text-brand_primary/60">
               {AREA_LABELS[assessment.templateArea]}
             </span>
-            {assessment.courseName && (
-              <span>{assessment.courseName}</span>
+            {(assessment.gradeLevel || assessment.courseName) && (
+              <span data-testid={`assessment-card-course-${assessment.id}`} className="text-brand_primary/60">
+                {[
+                  assessment.gradeLevel
+                    ? (GRADE_LEVEL_LABELS[assessment.gradeLevel as GradeLevel] ?? assessment.gradeLevel)
+                    : null,
+                  assessment.courseName,
+                ]
+                  .filter((part, index, parts) => part && parts.indexOf(part) === index)
+                  .join(' · ')}
+              </span>
             )}
             <span>Año {assessment.transformationYear}</span>
             <span>

@@ -36,6 +36,8 @@ vi.mock('../../../lib/api-auth', () => ({
 
 vi.mock('../../../lib/permissions/directivo', () => ({
   hasDirectivoPermission: mockHasDirectivoPermission,
+  // PR 2: the POST write gate; the audit persona is an equipo_directivo.
+  hasContextWriteRole: vi.fn().mockResolvedValue(true),
 }));
 
 // Dynamic imports — must come after vi.mock()
@@ -130,172 +132,46 @@ describe('Transversal context POST — audit logging', () => {
     period_system: 'semestral',
   };
 
-  it('creates history entry with correct previous_state/new_state', async () => {
+  // Review remediation (R2): the transversal-context history row is written
+  // INSIDE the transactional RPC save_transversal_context together with the
+  // context and the course reconciliation (pgTAP 072 [S-3], [S-4], [S-7]
+  // prove previous_state/new_state, changed_fields and the initial_save /
+  // update actions). The route no longer writes school_change_history: it
+  // calls the RPC once and never touches a table itself.
+  it('delegates the save — and its audit row — to the RPC; the route writes no history itself', async () => {
     authed();
     setupPermission();
-
-    const previousContext = {
-      id: 'ctx-1',
-      school_id: SCHOOL_ID,
-      total_students: 100,
-      grade_levels: ['1_basico'],
-      implementation_year_2026: 1,
-      period_system: 'semestral',
-    };
-
-    const savedContext = {
-      id: 'ctx-1',
-      school_id: SCHOOL_ID,
-      total_students: 200,
-      grade_levels: ['1_basico', '2_basico'],
-      implementation_year_2026: 1,
-      period_system: 'semestral',
-    };
-
-    // User-scoped client: first call to school_transversal_context returns previous,
-    // second call (update().select().single()) returns saved
-    let tcCallCount = 0;
-    const userClient = {
-      from: vi.fn((table: string) => {
-        if (table === 'school_transversal_context') {
-          tcCallCount++;
-          if (tcCallCount === 1) {
-            return buildChainableQuery(previousContext);
-          }
-          return buildChainableQuery(savedContext);
-        }
-        if (table === 'school_course_structure') {
-          return buildChainableQuery(null);
-        }
-        return buildChainableQuery(savedContext);
-      }),
-    };
-    mockCreateApiSupabaseClient.mockResolvedValue(userClient);
-
-    // Service client (for audit logging)
-    const { client: serviceClient, historyInserts } = buildRecordingServiceClient({
-      profileName: 'Ana García',
-      previousTransversal: previousContext,
+    const rpc = vi.fn().mockResolvedValue({
+      data: { context: { id: 'ctx-1', ...validBody, is_completed: true }, action: 'update', courses_generated: 0, courses_deleted: 0, courses_relinked: 0, year_changed: false },
+      error: null,
     });
-    mockCreateServiceRoleClient.mockReturnValue(serviceClient);
-
-    const { req, res } = createMocks({
-      method: 'POST',
-      body: validBody,
-    });
-    await transversalHandler(req, res);
-
-    expect(res._getStatusCode()).toBe(200);
-
-    // History was logged
-    expect(historyInserts.length).toBeGreaterThanOrEqual(1);
-    const historyEntry = historyInserts[0] as any;
-    expect(historyEntry.feature).toBe('transversal_context');
-    expect(historyEntry.action).toBe('update');
-    expect(historyEntry.previous_state).toBeTruthy();
-    expect(historyEntry.new_state).toBeTruthy();
-    expect(historyEntry.user_name).toBe('Ana García');
-  });
-
-  it('filters noise fields (school_id, updated_at, etc.) from changed_fields', async () => {
-    authed();
-    setupPermission();
-
-    const previousContext = {
-      id: 'ctx-1',
-      school_id: SCHOOL_ID,
-      total_students: 100,
-      grade_levels: ['1_basico'],
-      implementation_year_2026: 1,
-      period_system: 'semestral',
-      updated_at: '2026-03-15T00:00:00Z',
-      created_at: '2026-03-14T00:00:00Z',
-    };
-
-    const savedContext = {
-      ...previousContext,
-      total_students: 200,
-      grade_levels: ['1_basico', '2_basico'],
-      updated_at: '2026-03-16T00:00:00Z',
-    };
-
-    let tcCallCount = 0;
-    const userClient = {
-      from: vi.fn((table: string) => {
-        if (table === 'school_transversal_context') {
-          tcCallCount++;
-          if (tcCallCount === 1) return buildChainableQuery(previousContext);
-          return buildChainableQuery(savedContext);
-        }
-        if (table === 'school_course_structure') {
-          return buildChainableQuery(null);
-        }
-        return buildChainableQuery(savedContext);
-      }),
-    };
-    mockCreateApiSupabaseClient.mockResolvedValue(userClient);
-
-    const { client: serviceClient, historyInserts } = buildRecordingServiceClient({
-      previousTransversal: previousContext,
-    });
-    mockCreateServiceRoleClient.mockReturnValue(serviceClient);
+    mockCreateApiSupabaseClient.mockResolvedValue({ from: vi.fn(() => buildChainableQuery(null, null)), rpc });
+    const service = buildRecordingServiceClient({ previousTransversal: null });
+    mockCreateServiceRoleClient.mockReturnValue(service.client);
 
     const { req, res } = createMocks({ method: 'POST', body: validBody });
     await transversalHandler(req, res);
 
     expect(res._getStatusCode()).toBe(200);
-    expect(historyInserts.length).toBeGreaterThanOrEqual(1);
-
-    const entry = historyInserts[0] as any;
-    // Noise fields should NOT be in changed_fields
-    const noiseFields = ['school_id', 'updated_at', 'created_at', 'id', 'is_completed', 'completed_at', 'completed_by'];
-    for (const field of noiseFields) {
-      expect(entry.changed_fields || []).not.toContain(field);
-    }
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc.mock.calls[0][0]).toBe('save_transversal_context');
+    expect(service.historyInserts).toHaveLength(0);
+    expect(service.client.from).not.toHaveBeenCalledWith('school_change_history');
   });
 
-  it('wraps history logging in try/catch — audit failure does not break save', async () => {
+  it('a refused RPC produces no history row and no 200', async () => {
     authed();
     setupPermission();
-
-    const savedContext = {
-      id: 'ctx-new',
-      school_id: SCHOOL_ID,
-      total_students: 200,
-      grade_levels: ['1_basico'],
-      implementation_year_2026: 1,
-      period_system: 'semestral',
-    };
-
-    const userClient = {
-      from: vi.fn((table: string) => {
-        if (table === 'school_course_structure') {
-          return buildChainableQuery(null);
-        }
-        return buildChainableQuery(savedContext);
-      }),
-    };
-    mockCreateApiSupabaseClient.mockResolvedValue(userClient);
-
-    // Service client where profile lookup throws inside the audit try/catch
-    const serviceClient = {
-      from: vi.fn((table: string) => {
-        if (table === 'profiles') {
-          throw new Error('Profile lookup failed');
-        }
-        // Return empty/success for all other tables (course reconciliation, ab_grades, etc.)
-        return buildChainableQuery([]);
-      }),
-    };
-    mockCreateServiceRoleClient.mockReturnValue(serviceClient);
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: { code: 'P0001', message: 'invalid_year' } });
+    mockCreateApiSupabaseClient.mockResolvedValue({ from: vi.fn(() => buildChainableQuery(null, null)), rpc });
+    const service = buildRecordingServiceClient({ previousTransversal: null });
+    mockCreateServiceRoleClient.mockReturnValue(service.client);
 
     const { req, res } = createMocks({ method: 'POST', body: validBody });
     await transversalHandler(req, res);
 
-    // The save should still succeed (200) even though audit logging failed
-    expect(res._getStatusCode()).toBe(200);
-    const data = JSON.parse(res._getData());
-    expect(data.success).toBe(true);
+    expect(res._getStatusCode()).toBe(400);
+    expect(service.historyInserts).toHaveLength(0);
   });
 });
 

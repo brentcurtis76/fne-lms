@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
-import { hasDirectivoPermission } from '@/lib/permissions/directivo';
+import { hasDirectivoPermission, isFullDirectivoScope, CONSULTOR_READABLE_FEATURE } from '@/lib/permissions/directivo';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -20,15 +20,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'school_id debe ser un número válido' });
   }
 
-  const { hasPermission, schoolId, isAdmin } = await hasDirectivoPermission(
+  const permission = await hasDirectivoPermission(
     serviceClient,
     user.id,
     requestedSchoolId
   );
+  const { hasPermission, schoolId, isAdmin } = permission;
 
   if (!hasPermission) {
     return res.status(403).json({
       error: 'Solo directivos, consultores y administradores pueden acceder al historial de cambios'
+    });
+  }
+
+  // R5 / Codex round 1 (finding 2): an admitted consultor keeps ONLY the
+  // documented migration-plan access. The transversal-context and
+  // context-responses history is denied to them pending the product
+  // decision, so a consultor must ask for feature=migration_plan explicitly;
+  // an absent or different feature is refused before any read. Any
+  // permission that is not a full admin / equipo_directivo grant is treated
+  // as consultor scope (fail closed).
+  const consultorScope = !isFullDirectivoScope(permission);
+  if (consultorScope && req.query.feature !== CONSULTOR_READABLE_FEATURE) {
+    return res.status(403).json({
+      success: false,
+      code: 'consultor_access_pending_decision',
+      error: 'Los consultores solo pueden consultar el historial del plan de migración. El acceso al historial del contexto transversal está pendiente de definición.',
     });
   }
 

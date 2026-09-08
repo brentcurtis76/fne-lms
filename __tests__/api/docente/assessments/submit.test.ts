@@ -111,12 +111,12 @@ function buildChainableQuery(data: unknown = null, error: unknown = null) {
  * Build a mock Supabase client for submit tests.
  *
  * The submit handler calls `from()` in this order:
- * 1. assessment_instance_assignees (SELECT + later UPDATE)
+ * 1. assessment_instance_assignees (SELECT only — has_submitted is set by the
+ *    assessment_instance_progress_flags_trg trigger, never by the user client)
  * 2. assessment_instances (SELECT)
  * 3. assessment_responses (SELECT)
  * 4. assessment_year_expectations (SELECT)
- * 5. assessment_instances (UPDATE)
- * 6. assessment_instance_assignees (UPDATE has_submitted)
+ * 5. assessment_instances (UPDATE status = completed)
  */
 function buildSubmitClient(options: {
   responsesData?: unknown[];
@@ -137,12 +137,9 @@ function buildSubmitClient(options: {
       const callN = tableCallCount[table];
 
       if (table === 'assessment_instance_assignees') {
-        if (callN === 1) {
-          // First call: SELECT
-          return buildChainableQuery(assignee, null);
-        }
-        // Second call: UPDATE has_submitted
-        return buildChainableQuery(null, null);
+        // Only ever a SELECT; a second call would be a regression (the
+        // user-client has_submitted write was removed in favour of the trigger).
+        return buildChainableQuery(callN === 1 ? assignee : null, null);
       }
 
       if (table === 'assessment_instances') {
@@ -204,6 +201,24 @@ describe('POST /api/docente/assessments/[instanceId]/submit', () => {
     expect(res._getStatusCode()).toBe(200);
     const data = JSON.parse(res._getData());
     expect(data.success).toBe(true);
+  });
+
+  it('marks the instance completed and never writes assessment_instance_assignees (trigger owns has_submitted)', async () => {
+    const client = buildSubmitClient({
+      responsesData: [
+        { indicator_id: IND_COB, coverage_value: true, frequency_value: null, profundity_level: null },
+        { indicator_id: IND_FREC, coverage_value: null, frequency_value: 5, profundity_level: null },
+      ],
+    });
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+
+    const { req, res } = createMocks({ method: 'POST', query: { instanceId: INSTANCE_ID } });
+    await submitHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(200);
+
+    const tables = client.from.mock.calls.map(c => c[0]);
+    expect(tables.filter(t => t === 'assessment_instance_assignees')).toHaveLength(1);
+    expect(tables.filter(t => t === 'assessment_instances')).toHaveLength(2);
   });
 
   it('T10: Submit with missing response for an active indicator returns 400', async () => {

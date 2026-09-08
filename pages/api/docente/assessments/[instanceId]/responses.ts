@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import type { SaveResponseRequest } from '@/types/assessment-builder';
+import { validateFrequencyResponse } from '@/lib/services/assessment-builder/frequencyConfig';
 
 /**
  * PUT /api/docente/assessments/[instanceId]/responses
@@ -87,6 +88,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Build set of valid indicator IDs from snapshot (supports both flat modules and objectives hierarchy)
     const validIndicatorIds = new Set<string>();
     const indicatorCategories = new Map<string, string>();
+    const frequencyConfigs = new Map<string, unknown>();
 
     const snapshotData = snapshot.snapshot_data as any;
     const flatModules = snapshotData?.modules || [];
@@ -102,6 +104,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       (module.indicators || []).forEach((indicator: any) => {
         validIndicatorIds.add(indicator.id);
         indicatorCategories.set(indicator.id, indicator.category);
+        if (indicator.category === 'frecuencia') frequencyConfigs.set(indicator.id, indicator.frequency_config);
       });
     });
 
@@ -126,9 +129,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (category === 'cobertura' && response.coverage_value === undefined) {
         // Allow empty/partial saves, just skip validation
       }
-      if (category === 'frecuencia' && response.frequency_value !== undefined) {
-        if (typeof response.frequency_value !== 'number') {
-          errors.push(`Indicador ${response.indicator_id}: frecuencia debe ser un número`);
+      // R7 — frecuencia is validated against the PERSISTED snapshot config:
+      // finite number, configured min/max, step grid, exact FrequencyUnit and
+      // allowed_units. A cleared value (null) is a partial save. A malformed
+      // snapshot config refuses the whole request (nothing is clamped).
+      if (category === 'frecuencia') {
+        const verdict = validateFrequencyResponse(
+          frequencyConfigs.get(response.indicator_id),
+          response.frequency_value,
+          response.frequency_unit
+        );
+        if (verdict.ok === false && verdict.code === 'malformed_config') {
+          console.error('[responses] malformed snapshot frequency_config:', { indicatorId: response.indicator_id });
+          return res.status(422).json({
+            success: false,
+            code: 'invalid_snapshot_frequency_config',
+            error: `Indicador ${response.indicator_id}: ${verdict.message}. Contacte al administrador.`,
+          });
+        }
+        if (verdict.ok === false) {
+          errors.push(`Indicador ${response.indicator_id}: ${verdict.message}`);
           continue;
         }
       }
@@ -206,23 +226,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al guardar respuestas' });
     }
 
-    // Update instance status to in_progress if it was pending
+    // Update instance status to in_progress if it was pending. The assignee
+    // flag has_started is derived from this transition by the database trigger
+    // assessment_instance_progress_flags_trg (assessment_instance_assignees is
+    // admin-write-only, so a user-client write here would silently no-op).
     if (instance.status === 'pending') {
-      await supabaseClient
+      const { error: statusError } = await supabaseClient
         .from('assessment_instances')
         .update({
           status: 'in_progress',
           started_at: new Date().toISOString(),
         })
         .eq('id', instanceId);
-    }
 
-    // Mark assignee as started
-    if (!assignee.has_started) {
-      await supabaseClient
-        .from('assessment_instance_assignees')
-        .update({ has_started: true })
-        .eq('id', assignee.id);
+      if (statusError) {
+        // Responses are already saved; the next save retries the transition.
+        console.error('Error moving instance to in_progress:', statusError);
+      }
     }
 
     return res.status(200).json({

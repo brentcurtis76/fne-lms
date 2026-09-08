@@ -11,7 +11,13 @@
  * no Desasignar, an es-CL note); more than one active assignment renders an
  * integrity warning and every assignment without singling one out; a stale 409
  * keeps the modal open with the message and refreshes the course list even
- * though nothing was written; no replacement workflow is offered anywhere.
+ * though nothing was written; no unassign control exists anywhere.
+ *
+ * PR 2 item 2: the ONLY replacement path is the deliberate "Cambiar docente"
+ * control on a locked (exactly-one-active) card, offered to admin and
+ * equipo_directivo; it is never auto-opened by a refusal, never offered on a
+ * zero-active or multiple-active card, and never offered to a consultor. The
+ * modal itself is covered in transversal-context-replace.test.tsx.
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -81,6 +87,8 @@ import TransversalContextDashboard from '../../../pages/school/transversal-conte
 // Fixtures (synthetic)
 // ---------------------------------------------------------------------------
 const SCHOOL_ID = 42;
+/** The directivo school of the mixed-role admin fixture: never the one being viewed. */
+const OTHER_SCHOOL_ID = 77;
 const COURSE_ID = '44444444-4444-4444-8444-444444444444';
 const DOCENTE_ID = '22222222-2222-4222-8222-222222222222';
 const CURRENT_DOCENTE_ID = '33333333-3333-4333-8333-333333333333';
@@ -214,13 +222,20 @@ const ALREADY_ASSIGNED_MESSAGE =
 const INVARIANT_MESSAGE =
   'Este curso registra más de una asignación activa de docente, lo que no es válido. Se requiere una resolución administrativa controlada antes de poder asignar o cambiar el docente de este curso.';
 
-/** No replacement workflow exists on this page, in any state. */
-function expectNoReplacementFlow() {
-  expect(screen.queryByText(/cambiar docente/i)).toBeNull();
+/** No unassign control exists on this page, and no replacement modal is open. */
+function expectNoUnassignControl() {
   expect(screen.queryByText(/reemplazar/i)).toBeNull();
   expect(screen.queryByTitle('Desasignar')).toBeNull();
   expect(screen.queryByText('Desasignar')).toBeNull();
   expect(screen.queryByRole('button', { name: /desasignar/i })).toBeNull();
+  expect(screen.queryByRole('heading', { name: 'Cambiar Docente' })).toBeNull();
+  expect(screen.queryByTestId('replace-docente-select')).toBeNull();
+}
+
+/** The deliberate replacement control is absent (zero- or multiple-active cards, read-only viewers). */
+function expectNoReplaceControl() {
+  expect(screen.queryByTestId(`open-replace-docente-${COURSE_ID}`)).toBeNull();
+  expect(screen.queryByRole('button', { name: /cambiar docente/i })).toBeNull();
 }
 
 describe('Transversal context — docente assignment (PROC-CONTAIN-01 A-02 · PROC-COURSE-OWNER-01 C-01)', () => {
@@ -250,10 +265,11 @@ describe('Transversal context — docente assignment (PROC-CONTAIN-01 A-02 · PR
       expect(button).toHaveTextContent('Asignar');
       expect(screen.queryByTestId(`course-assignment-locked-${COURSE_ID}`)).toBeNull();
       expect(screen.queryByTestId(`course-assignment-integrity-warning-${COURSE_ID}`)).toBeNull();
-      expectNoReplacementFlow();
+      expectNoUnassignControl();
+      expectNoReplaceControl();
     });
 
-    it('exactly one active assignment: no "Asignar", no "Desasignar", the assignment stays visible and the locked note is shown', async () => {
+    it('exactly one active assignment: no "Asignar", no "Desasignar", the assignment stays visible, the locked note and the deliberate "Cambiar docente" control are shown', async () => {
       courses.current = [courseWith(ONE_ACTIVE)];
       render(<TransversalContextDashboard />);
 
@@ -265,7 +281,11 @@ describe('Transversal context — docente assignment (PROC-CONTAIN-01 A-02 · PR
       expect(screen.queryByText('Asignar')).toBeNull();
       expect(screen.getByTestId('course-active-assignment-a-cur')).toHaveTextContent(CURRENT_DOCENTE_NAME);
       expect(screen.queryByTestId(`course-assignment-integrity-warning-${COURSE_ID}`)).toBeNull();
-      expectNoReplacementFlow();
+      // The only control on a locked card is the deliberate replacement (modal stays closed until clicked)
+      const card = screen.getByTestId(`course-card-${COURSE_ID}`);
+      expect(within(card).getByTestId(`open-replace-docente-${COURSE_ID}`)).toHaveTextContent('Cambiar docente');
+      expect(within(card).queryAllByRole('button')).toHaveLength(1);
+      expectNoUnassignControl();
     });
 
     it('more than one active assignment: integrity warning, every assignment visible, no controls', async () => {
@@ -284,7 +304,8 @@ describe('Transversal context — docente assignment (PROC-CONTAIN-01 A-02 · PR
       expect(screen.queryByText('Asignar')).toBeNull();
       expect(screen.queryByTestId(`course-assignment-locked-${COURSE_ID}`)).toBeNull();
       expect(within(screen.getByTestId(`course-card-${COURSE_ID}`)).queryAllByRole('button')).toHaveLength(0);
-      expectNoReplacementFlow();
+      expectNoUnassignControl();
+      expectNoReplaceControl();
     });
 
     it('the multiple-active display does not select or imply a correct docente', async () => {
@@ -310,12 +331,21 @@ describe('Transversal context — docente assignment (PROC-CONTAIN-01 A-02 · PR
   });
 
   // ── C-01: explicit viewer-role coverage (final assurance pass) ─
-  type ViewerRole = { roles: RoleRow[]; query: Record<string, string>; offersAssign: boolean };
+  type ViewerRole = { roles: RoleRow[]; query: Record<string, string>; offersAssign: boolean; offersReplace: boolean };
   const VIEWER_ROLES: Array<[string, ViewerRole]> = [
-    ['directivo', { roles: DIRECTIVO_ROLES, query: {}, offersAssign: true }],
-    // Read-only viewers reach the page through the admin/consultor branch, which needs the school in the query.
-    ['read-only admin', { roles: [{ role_type: 'admin', school_id: null }], query: { school_id: String(SCHOOL_ID) }, offersAssign: false }],
-    ['read-only consultor', { roles: [{ role_type: 'consultor', school_id: null }], query: { school_id: String(SCHOOL_ID) }, offersAssign: false }],
+    ['directivo', { roles: DIRECTIVO_ROLES, query: {}, offersAssign: true, offersReplace: true }],
+    // Admin reaches the page through the school picker (school in the query) and — review
+    // remediation R11 — keeps the full initial-assign / edit / replace capability.
+    ['admin', { roles: [{ role_type: 'admin', school_id: null }], query: { school_id: String(SCHOOL_ID) }, offersAssign: true, offersReplace: true }],
+    // Codex round 1 (finding 6): a MIXED-ROLE admin (admin + equipo_directivo of
+    // another school) is an admin first — the explicit school_id is honoured on
+    // a school that is NOT their directivo school, with the full capability.
+    ['mixed-role admin on another school', {
+      roles: [{ role_type: 'admin', school_id: null }, { role_type: 'equipo_directivo', school_id: OTHER_SCHOOL_ID }],
+      query: { school_id: String(SCHOOL_ID) },
+      offersAssign: true,
+      offersReplace: true,
+    }],
   ];
 
   describe.each(VIEWER_ROLES)('viewer role: %s (C-01)', (_label, viewer) => {
@@ -333,10 +363,11 @@ describe('Transversal context — docente assignment (PROC-CONTAIN-01 A-02 · PR
       expect(screen.queryByTestId(`open-assign-docente-${COURSE_ID}`)).toBeNull();
       expect(screen.queryByText('Asignar')).toBeNull();
       expect(within(screen.getByTestId(`course-card-${COURSE_ID}`)).queryAllByRole('button')).toHaveLength(0);
-      expectNoReplacementFlow();
+      expectNoUnassignControl();
+      expectNoReplaceControl();
     }
 
-    it('zero active: the assign control is offered to the directivo only', async () => {
+    it('zero active: the assign control is offered to the directivo and to the admin', async () => {
       render(<TransversalContextDashboard />);
 
       const card = await screen.findByTestId(`course-card-${COURSE_ID}`);
@@ -348,10 +379,11 @@ describe('Transversal context — docente assignment (PROC-CONTAIN-01 A-02 · PR
       }
       expect(screen.queryByTestId(`course-assignment-locked-${COURSE_ID}`)).toBeNull();
       expect(screen.queryByTestId(`course-assignment-integrity-warning-${COURSE_ID}`)).toBeNull();
-      expectNoReplacementFlow();
+      expectNoUnassignControl();
+      expectNoReplaceControl();
     });
 
-    it('one active: locked note visible, assignment displayed, no assignment, unassignment or replacement control', async () => {
+    it('one active: locked note visible, assignment displayed, no assignment or unassignment control; "Cambiar docente" only for admin / directivo', async () => {
       courses.current = [courseWith(ONE_ACTIVE)];
       render(<TransversalContextDashboard />);
 
@@ -360,7 +392,15 @@ describe('Transversal context — docente assignment (PROC-CONTAIN-01 A-02 · PR
       expect(note).toHaveTextContent('resolución administrativa controlada');
       expect(screen.getByTestId('course-active-assignment-a-cur')).toHaveTextContent(CURRENT_DOCENTE_NAME);
       expect(screen.queryByTestId(`course-assignment-integrity-warning-${COURSE_ID}`)).toBeNull();
-      expectNoAssignmentControls();
+      if (viewer.offersReplace) {
+        const card = screen.getByTestId(`course-card-${COURSE_ID}`);
+        expect(within(card).getByTestId(`open-replace-docente-${COURSE_ID}`)).toHaveTextContent('Cambiar docente');
+        expect(within(card).queryAllByRole('button')).toHaveLength(1);
+        expect(screen.queryByTestId(`open-assign-docente-${COURSE_ID}`)).toBeNull();
+        expectNoUnassignControl();
+      } else {
+        expectNoAssignmentControls();
+      }
     });
 
     it('multiple active: integrity alert visible, every row displayed identically, no resolution control', async () => {
@@ -384,6 +424,85 @@ describe('Transversal context — docente assignment (PROC-CONTAIN-01 A-02 · PR
 
       expect(screen.queryByTestId(`course-assignment-locked-${COURSE_ID}`)).toBeNull();
       expectNoAssignmentControls();
+    });
+  });
+
+  // ── Codex round 1 (finding 6): admin authority takes precedence over equipo_directivo ─
+  describe('mixed-role admin (admin + equipo_directivo)', () => {
+    const MIXED: RoleRow[] = [
+      { role_type: 'equipo_directivo', school_id: OTHER_SCHOOL_ID },
+      { role_type: 'admin', school_id: null },
+    ];
+
+    afterEach(() => {
+      routerMock.query = {};
+    });
+
+    it('honours an explicit school_id for a school that is NOT the directivo school, and is never redirected', async () => {
+      installSupabase(MIXED);
+      routerMock.query = { school_id: String(SCHOOL_ID) };
+      render(<TransversalContextDashboard />);
+
+      await screen.findByTestId(`course-card-${COURSE_ID}`);
+      expect(mockRouterPush).not.toHaveBeenCalledWith('/dashboard');
+      expect(contextGets(fetchLog).map(c => c.url)).toEqual([`/api/school/transversal-context?school_id=${SCHOOL_ID}`]);
+      // Admin chrome: the global "back to school selection" control and the admin copy.
+      expect(screen.getByRole('button', { name: /volver a selección de escuelas/i })).toBeInTheDocument();
+      // Full capability: initial assign on a zero-active course + the edit link carrying the school.
+      expect(screen.getByTestId(`open-assign-docente-${COURSE_ID}`)).toHaveTextContent('Asignar');
+      expect(screen.getAllByRole('link', { name: /editar|completar/i })[0]).toHaveAttribute('href', expect.stringContaining(`school_id=${SCHOOL_ID}`));
+    });
+
+    it('keeps the deliberate "Cambiar docente" control on a locked course of another school', async () => {
+      installSupabase(MIXED);
+      routerMock.query = { school_id: String(SCHOOL_ID) };
+      courses.current = [courseWith(ONE_ACTIVE)];
+      render(<TransversalContextDashboard />);
+
+      const card = await screen.findByTestId(`course-card-${COURSE_ID}`);
+      expect(within(card).getByTestId(`open-replace-docente-${COURSE_ID}`)).toHaveTextContent('Cambiar docente');
+    });
+
+    it('without a school_id shows the GLOBAL selector instead of silently landing on the directivo school', async () => {
+      installSupabase(MIXED);
+      routerMock.query = {};
+      render(<TransversalContextDashboard />);
+
+      await screen.findByRole('heading', { name: 'Selecciona una escuela' });
+      expect(contextGets(fetchLog)).toHaveLength(0);
+      expect(fetchLog.some(c => c.url === '/api/school/transversal-context/schools')).toBe(true);
+      expect(mockRouterPush).not.toHaveBeenCalledWith('/dashboard');
+    });
+
+    it('control: a plain directivo with a foreign school_id is redirected to the dashboard and fetches nothing', async () => {
+      installSupabase(DIRECTIVO_ROLES);
+      routerMock.query = { school_id: String(OTHER_SCHOOL_ID) };
+      render(<TransversalContextDashboard />);
+
+      await waitFor(() => expect(mockRouterPush).toHaveBeenCalledWith('/dashboard'));
+      expect(contextGets(fetchLog)).toHaveLength(0);
+    });
+  });
+
+  // ── R11 / R5: consultor is denied on this surface pending the product decision ─
+  describe('viewer role: consultor (R5 pending decision)', () => {
+    beforeEach(() => {
+      installSupabase([{ role_type: 'consultor', school_id: null }]);
+      routerMock.query = { school_id: String(SCHOOL_ID) };
+    });
+    afterEach(() => {
+      routerMock.query = {};
+    });
+
+    it('sees the pending-decision notice, no course card, no controls, and the page fetches no context', async () => {
+      render(<TransversalContextDashboard />);
+      const notice = await screen.findByTestId('consultor-access-pending');
+      expect(notice).toHaveTextContent('Acceso pendiente de definición');
+      expect(screen.queryByTestId(`course-card-${COURSE_ID}`)).toBeNull();
+      expect(screen.queryByTestId(`open-assign-docente-${COURSE_ID}`)).toBeNull();
+      expect(screen.queryByRole('button', { name: /cambiar docente/i })).toBeNull();
+      expect(screen.queryByRole('link', { name: /editar|completar/i })).toBeNull();
+      expect(fetchLog.filter(c => c.url.startsWith('/api/school/transversal-context'))).toHaveLength(0);
     });
   });
 
@@ -416,9 +535,11 @@ describe('Transversal context — docente assignment (PROC-CONTAIN-01 A-02 · PR
       await waitFor(() => expect(screen.getByTestId(`course-assignment-locked-${COURSE_ID}`)).toBeInTheDocument());
       expect(screen.queryByTestId(`open-assign-docente-${COURSE_ID}`)).toBeNull();
       expect(screen.getByTestId('course-active-assignment-a-cur')).toHaveTextContent(CURRENT_DOCENTE_NAME);
-      // The message stays visible after the refresh; no replacement flow is opened or suggested
+      // The message stays visible after the refresh; the replacement modal is NOT auto-opened —
+      // the refreshed locked card merely offers the deliberate "Cambiar docente" control
       expect(screen.getByTestId('assign-docente-error')).toHaveTextContent('ya tiene un docente activo asignado');
-      expectNoReplacementFlow();
+      expectNoUnassignControl();
+      expect(screen.getByTestId(`open-replace-docente-${COURSE_ID}`)).toBeInTheDocument();
     });
 
     it('assignment_invariant_violation keeps the modal open with the message and the refreshed list shows the integrity warning', async () => {
@@ -445,7 +566,8 @@ describe('Transversal context — docente assignment (PROC-CONTAIN-01 A-02 · PR
       expect(screen.getByTestId('course-active-assignment-a-cur')).toBeInTheDocument();
       expect(screen.getByTestId('course-active-assignment-a-second')).toBeInTheDocument();
       expect(screen.getByTestId('assign-docente-error')).toHaveTextContent('más de una asignación activa');
-      expectNoReplacementFlow();
+      expectNoUnassignControl();
+      expectNoReplaceControl();
     });
 
     it('a 422 docente_not_eligible_for_school keeps the modal open and does NOT refresh (nothing changed server-side)', async () => {
@@ -461,7 +583,8 @@ describe('Transversal context — docente assignment (PROC-CONTAIN-01 A-02 · PR
       expect(screen.getByText('Asignar Docente')).toBeInTheDocument();
       expect(contextGets(fetchLog).length).toBe(initialContextLoads);
       expect(screen.getByTestId(`open-assign-docente-${COURSE_ID}`)).toBeInTheDocument();
-      expectNoReplacementFlow();
+      expectNoUnassignControl();
+      expectNoReplaceControl();
     });
   });
 

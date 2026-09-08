@@ -5,7 +5,7 @@ import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
 import MainLayout from '@/components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '@/components/layout/FunctionalPageHeader';
-import { Building2, ArrowLeft, Save, Info, HelpCircle } from 'lucide-react';
+import { Building2, ArrowLeft, Save, Info, HelpCircle, AlertTriangle } from 'lucide-react';
 import ChangeHistorySection from '@/components/school/ChangeHistorySection';
 import { TRANSVERSAL_CONTEXT_FIELD_LABELS } from '@/lib/constants/transversal-context';
 import type { GradeLevel, PeriodSystem, SaveTransversalContextRequest, ContextGeneralQuestion } from '@/types/assessment-builder';
@@ -57,6 +57,22 @@ const TransversalContextEdit: React.FC = () => {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // 409 from the API: the requested course structure would remove courses that
+  // still have docentes or assessments. Rendered inline (not only as a toast).
+  type BlockedCourse = {
+    id: string;
+    course_name: string;
+    grade_level: string;
+    activeAssignments: number;
+    inactiveAssignments?: number;
+    instances: number;
+    archivedInstances?: number;
+  };
+  /** The context as loaded from the server; used to warn on a year change (R11). */
+  const [savedYear, setSavedYear] = useState<number | null>(null);
+  const [blockedSave, setBlockedSave] = useState<{ message: string; courses: BlockedCourse[] } | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   // Custom responses for generic questions
   const [customResponses, setCustomResponses] = useState<Record<string, unknown>>({});
 
@@ -93,7 +109,8 @@ const TransversalContextEdit: React.FC = () => {
         return;
       }
 
-      const isAdmin = roles.some(r => ['admin', 'consultor'].includes(r.role_type));
+      // R11 / R5: admin edits; consultores are not admitted here.
+      const isAdmin = roles.some(r => r.role_type === 'admin');
       const directivoRole = roles.find(r => r.role_type === 'equipo_directivo');
 
       if (!isAdmin && !directivoRole) {
@@ -104,15 +121,20 @@ const TransversalContextEdit: React.FC = () => {
 
       setHasPermission(true);
 
-      // Get school_id
+      // Get school_id — Codex round 1 (finding 6): ADMIN takes precedence
+      // over equipo_directivo. A mixed-role admin edits the school named in
+      // the query (any school); without a query the directivo's own school
+      // is the fallback so the mixed-role admin is not stranded.
       let effectiveSchoolId: number | null = null;
-      if (directivoRole?.school_id) {
+      const querySchoolId = router.query.school_id;
+      const parsedQuerySchoolId =
+        typeof querySchoolId === 'string' && /^\d+$/.test(querySchoolId) ? parseInt(querySchoolId, 10) : null;
+
+      if (isAdmin) {
+        effectiveSchoolId = parsedQuerySchoolId ?? directivoRole?.school_id ?? null;
+      } else if (directivoRole?.school_id) {
+        // A plain directivo edits their own school only; the query is ignored (unchanged behaviour).
         effectiveSchoolId = directivoRole.school_id;
-      } else if (isAdmin) {
-        const querySchoolId = router.query.school_id;
-        if (querySchoolId && typeof querySchoolId === 'string') {
-          effectiveSchoolId = parseInt(querySchoolId);
-        }
       }
 
       if (effectiveSchoolId) {
@@ -155,6 +177,7 @@ const TransversalContextEdit: React.FC = () => {
             programa_inicia_hours: data.context.programa_inicia_hours,
             programa_inicia_year: data.context.programa_inicia_year,
           });
+          setSavedYear(data.context.implementation_year_2026 ?? null);
         }
       }
     } catch (error) {
@@ -292,6 +315,8 @@ const TransversalContextEdit: React.FC = () => {
 
     if (!validateForm() || !schoolId) return;
 
+    setBlockedSave(null);
+    setSaveError(null);
     setSaving(true);
     try {
       const response = await fetch('/api/school/transversal-context', {
@@ -306,17 +331,36 @@ const TransversalContextEdit: React.FC = () => {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 409 && data.code === 'courses_have_dependencies') {
+          setBlockedSave({
+            message: data.error || 'La nueva configuración eliminaría cursos con docentes o evaluaciones asociadas.',
+            courses: Array.isArray(data.blockedCourses) ? data.blockedCourses : [],
+          });
+          toast.error('No se guardó el contexto: revise los cursos bloqueados', { duration: 6000 });
+          return;
+        }
+        if (response.status === 409 && data.code === 'context_already_exists') {
+          const msg = data.error || 'Esta escuela ya tiene un contexto transversal guardado. Recargue la página para editarlo.';
+          setSaveError(msg);
+          toast.error(msg, { duration: 6000 });
+          return;
+        }
         throw new Error(data.error || 'Error al guardar');
       }
 
       // Show success message
       toast.success(data.message || 'Contexto guardado exitosamente');
 
-      // Show warning if courses failed to generate
+      // The save is all-or-nothing (transactional RPC): a warning here is
+      // informational (e.g. the year changed and existing evaluations keep
+      // their frozen year), never a partial-failure report.
       if (data.warning) {
-        toast.error(data.warning, { duration: 6000 });
-      } else if (data.coursesGenerated !== undefined) {
-        toast.success(`${data.coursesGenerated} cursos generados`, { duration: 3000 });
+        toast(data.warning, { duration: 8000, icon: '⚠️' });
+      }
+      if (data.coursesGenerated !== undefined) {
+        const parts = [`${data.coursesGenerated} cursos generados`];
+        if (data.coursesDeleted) parts.push(`${data.coursesDeleted} cursos eliminados`);
+        toast.success(parts.join(', '), { duration: 3000 });
       }
 
       // Save custom responses before redirecting
@@ -485,7 +529,7 @@ const TransversalContextEdit: React.FC = () => {
         )}
 
         <div className="space-y-3">
-          {formData.grade_levels
+          {[...formData.grade_levels]
             .sort((a, b) => {
               const order = [...GRADE_LEVEL_CATEGORIES.preescolar, ...GRADE_LEVEL_CATEGORIES.basica, ...GRADE_LEVEL_CATEGORIES.media];
               return order.indexOf(a) - order.indexOf(b);
@@ -549,6 +593,21 @@ const TransversalContextEdit: React.FC = () => {
           Año 1 = Incipiente, Año 5 = Consolidado.
         </p>
       </div>
+
+      {savedYear !== null && formData.implementation_year_2026 !== savedYear && (
+        <div
+          role="alert"
+          data-testid="context-year-change-warning"
+          className="mt-3 p-3 rounded-lg border border-amber-300 bg-amber-50 flex items-start gap-2"
+        >
+          <AlertTriangle className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-amber-800">
+            Está cambiando el año de implementación de {savedYear} a {formData.implementation_year_2026}.
+            Las evaluaciones ya creadas conservan el año con el que fueron generadas: no se reescriben ni se recalculan
+            automáticamente. Si necesita actualizar evaluaciones existentes, solicite una resolución administrativa.
+          </p>
+        </div>
+      )}
 
       {errors.implementation_year_2026 && (
         <p className="mt-2 text-sm text-red-500">{errors.implementation_year_2026}</p>
@@ -931,6 +990,42 @@ const TransversalContextEdit: React.FC = () => {
           {/* Render all questions in display_order from DB */}
           {allQuestions.map(q => renderQuestion(q))}
 
+          {blockedSave && (
+            <div
+              role="alert"
+              data-testid="context-blocked-courses"
+              className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800"
+            >
+              <p className="font-semibold">No se guardó el contexto</p>
+              <p className="mt-1">{blockedSave.message}</p>
+              {blockedSave.courses.length > 0 && (
+                <ul className="mt-2 list-disc pl-5 space-y-1">
+                  {blockedSave.courses.map(c => (
+                    <li key={c.id}>
+                      <span className="font-medium">{c.course_name}</span>
+                      {': '}
+                      {c.activeAssignments} {c.activeAssignments === 1 ? 'docente asignado' : 'docentes asignados'}
+                      {(c.inactiveAssignments ?? 0) > 0 && ` (${c.inactiveAssignments} en el historial)`}
+                      {', '}
+                      {c.instances} {c.instances === 1 ? 'evaluación activa' : 'evaluaciones activas'}
+                      {(c.archivedInstances ?? 0) > 0 && ` (${c.archivedInstances} archivada${c.archivedInstances === 1 ? '' : 's'})`}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="mt-2">
+                El historial de asignaciones y evaluaciones (incluido el archivado) se conserva y no puede eliminarse desde aquí.
+                Mantenga los niveles y cantidades actuales o solicite una resolución administrativa.
+              </p>
+            </div>
+          )}
+
+          {saveError && (
+            <div role="alert" data-testid="context-save-error" className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800">
+              {saveError}
+            </div>
+          )}
+
           {/* Submit */}
           <div className="flex items-center justify-end gap-3 pt-4">
             <Link
@@ -944,6 +1039,7 @@ const TransversalContextEdit: React.FC = () => {
             <button
               type="submit"
               disabled={saving}
+              data-testid="context-submit"
               className="inline-flex items-center px-6 py-2 bg-brand_blue text-white rounded-lg font-medium hover:bg-brand_blue/90 disabled:opacity-50"
             >
               {saving ? (

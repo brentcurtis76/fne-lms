@@ -45,7 +45,7 @@ beforeEach(() => {
     if (!options) return json({
       instance: { status: 'in_progress' }, template: { name: 'Evaluación sintética' },
       modules: [{ id: 'module', indicators: [{ id: 'indicator', category: 'frecuencia', displayOrder: 1 }] }],
-      responses: { indicator: { frequencyValue: 2 } }, assignee: { canEdit: true },
+      responses: { indicator: { frequencyValue: 2 } }, assignee: { canEdit: true, canSubmit: true },
       progress: { total: 1, answered: 1, percentage: 100 },
     });
     requests.push({ method: options.method!, body: options.body ? JSON.parse(String(options.body)) : null });
@@ -59,6 +59,7 @@ async function editAndSubmit() {
   render(<AssessmentResponseForm />);
   fireEvent.change(await screen.findByLabelText('Respuesta'), { target: { value: '7' } });
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Enviar/ })); });
+  await act(async () => { fireEvent.click(screen.getByTestId('assessment-submit-confirm-button')); });
 }
 
 describe('Assessment completion preserves answers', () => {
@@ -132,6 +133,7 @@ describe('Assessment completion preserves answers', () => {
     await waitFor(() => expect(requests).toHaveLength(1), { timeout: 3500 });
     fireEvent.change(screen.getByLabelText('Respuesta'), { target: { value: '9' } });
     fireEvent.click(screen.getByRole('button', { name: /Enviar/ }));
+    fireEvent.click(await screen.findByTestId('assessment-submit-confirm-button'));
     expect(requests.map(request => request.method)).toEqual(['PUT']);
     expect(screen.getByLabelText('Respuesta')).toBeDisabled();
     saveResult = json({ saved: 1 });
@@ -155,6 +157,7 @@ describe('Assessment completion preserves answers', () => {
     await waitFor(() => expect(screen.getByLabelText('Respuesta')).toBeEnabled());
     saveResult = json({ saved: 1 });
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Enviar/ })); });
+    await act(async () => { fireEvent.click(screen.getByTestId('assessment-submit-confirm-button')); });
     expect(await screen.findByRole('status')).toHaveTextContent('Evaluación completada');
     expect(requests.map(request => request.method)).toEqual(['PUT', 'PUT', 'POST']);
     expect(requests[1].body.responses[0].frequency_value).toBe(7);

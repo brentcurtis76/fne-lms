@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
-import { hasDirectivoPermission } from '@/lib/permissions/directivo';
+import { hasDirectivoPermission, hasContextWriteRole } from '@/lib/permissions/directivo';
 import { Validators } from '@/lib/types/api-auth.types';
 import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
 import {
@@ -11,8 +11,15 @@ import {
 } from '@/lib/services/assessment-builder/autoAssignmentService';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (!['POST', 'DELETE'].includes(req.method || '')) {
-    return handleMethodNotAllowed(res, ['POST', 'DELETE']);
+  // Codex round 1 (finding 1): DELETE is DISABLED. The previous DELETE
+  // deactivated the assignment with one statement and removed assignee rows
+  // with another, on two different clients, and could answer a partial 207.
+  // Until unassignment is one locked transactional RPC (like
+  // replace_course_docente), there is no unassignment path at all: any
+  // non-POST method is refused before authentication, before any read and
+  // before any write. Nothing is mutated.
+  if (req.method !== 'POST') {
+    return handleMethodNotAllowed(res, ['POST']);
   }
 
   // Authentication check
@@ -33,6 +40,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!hasPermission) {
     return res.status(403).json({
       error: 'Solo directivos y administradores pueden asignar docentes'
+    });
+  }
+
+  // hasDirectivoPermission admits assigned consultores (read surface). Only
+  // admin and equipo_directivo may assign or revoke.
+  if (!isAdmin && !(await hasContextWriteRole(supabaseClient, user.id))) {
+    return res.status(403).json({
+      code: 'assignment_write_forbidden',
+      error: 'Solo el equipo directivo y los administradores pueden asignar o desasignar docentes',
     });
   }
 
@@ -60,11 +76,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const effectiveSchoolId = course.school_id;
 
-  if (req.method === 'POST') {
-    return handlePost(res, supabaseClient, serviceClient, course_structure_id, docente_id, effectiveSchoolId, user.id);
-  } else if (req.method === 'DELETE') {
-    return handleDelete(res, supabaseClient, serviceClient, course_structure_id, docente_id);
-  }
+  return handlePost(res, supabaseClient, serviceClient, course_structure_id, docente_id, effectiveSchoolId, user.id);
 }
 
 interface AssignmentOutcome {
@@ -238,9 +250,14 @@ async function readTargetEligibility(
 //    explicit counts. `success` is true only when at least one assessment was
 //    created, attached, or confirmed as already existing and no error occurred.
 //
-// This is an application-layer check only. Two concurrent requests for
-// different docentes can both pass step 1 until the one-active-per-course
-// database constraint (D-01) lands; nothing here locks, retries or cleans up.
+// Step 1 is an application-layer check only. Two concurrent requests for
+// different docentes can both pass it until the one-active-per-course
+// database constraint (D-01) lands; nothing here locks, retries or cleans up
+// the assignment row itself. Step 5 is different (Codex round 3, finding 1):
+// every instance / grant write happens inside
+// `public.attach_course_docente_assessment`, one locked transaction that
+// re-reads the docente's ACTIVE assignment under the course row lock, so a
+// request that carried a pre-cleanup decision cannot restore a revoked grant.
 async function handlePost(
   res: NextApiResponse,
   supabaseClient: any,
@@ -440,72 +457,5 @@ async function handlePost(
   } catch (err: any) {
     console.error('Unexpected error assigning docente:', err);
     return res.status(500).json({ error: err.message || 'Error al asignar docente' });
-  }
-}
-
-// DELETE - Unassign docente from course and revoke assessment access
-async function handleDelete(
-  res: NextApiResponse,
-  supabaseClient: any,
-  serviceClient: any,
-  courseStructureId: string,
-  docenteId: string
-) {
-  try {
-    // Soft-delete the course assignment
-    const { error } = await supabaseClient
-      .from('school_course_docente_assignments')
-      .update({ is_active: false })
-      .eq('course_structure_id', courseStructureId)
-      .eq('docente_id', docenteId);
-
-    if (error) {
-      console.error('Error unassigning docente:', error);
-      return res.status(500).json({ error: 'Error al desasignar docente' });
-    }
-
-    // Revoke assessment access: delete assignee rows for this docente
-    // on all instances linked to this course
-    let assigneesRevoked = 0;
-    let revokeWarning: string | null = null;
-    try {
-      const { data: instances, error: instancesError } = await serviceClient
-        .from('assessment_instances')
-        .select('id')
-        .eq('course_structure_id', courseStructureId);
-
-      if (instancesError) {
-        console.error('Error fetching instances for revocation:', instancesError);
-        revokeWarning = 'El docente fue desasignado del curso, pero no se pudo revocar el acceso a las evaluaciones. Contacte al administrador.';
-      } else if (instances && instances.length > 0) {
-        const instanceIds = instances.map((i: any) => i.id);
-        const { data: deleted, error: revokeError } = await serviceClient
-          .from('assessment_instance_assignees')
-          .delete()
-          .in('instance_id', instanceIds)
-          .eq('user_id', docenteId)
-          .select('id');
-
-        if (revokeError) {
-          console.error('Error revoking assessment assignees:', revokeError);
-          revokeWarning = 'El docente fue desasignado del curso, pero no se pudo revocar el acceso a las evaluaciones. Contacte al administrador.';
-        } else {
-          assigneesRevoked = deleted?.length || 0;
-        }
-      }
-    } catch (revokeErr) {
-      console.error('Error revoking assessment access:', revokeErr);
-      revokeWarning = 'El docente fue desasignado del curso, pero no se pudo revocar el acceso a las evaluaciones. Contacte al administrador.';
-    }
-
-    return res.status(revokeWarning ? 207 : 200).json({
-      success: !revokeWarning,
-      message: revokeWarning || 'Docente desasignado correctamente',
-      assigneesRevoked,
-      warning: revokeWarning || undefined,
-    });
-  } catch (err: any) {
-    console.error('Unexpected error unassigning docente:', err);
-    return res.status(500).json({ error: err.message || 'Error al desasignar docente' });
   }
 }

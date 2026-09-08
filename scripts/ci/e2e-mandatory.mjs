@@ -16,6 +16,8 @@ import { readFileSync } from 'node:fs';
 /** Every spec the e2e gate must actually execute. Add to this list, never trim it. */
 export const MANDATORY_SPECS = [
   'tests/e2e/smoke.spec.ts',
+  // Draft recovery must survive browser closure and a failed response load.
+  'tests/e2e/assessment-draft.spec.ts',
   'tests/e2e/ci-fixture.spec.ts',
   // Z1c — the Zoom/session authorization surface. Each family defends a different half of
   // it: who may open a session, what is allowed inside the payload, and what survives into

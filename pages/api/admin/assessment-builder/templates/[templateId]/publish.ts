@@ -1,8 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
-import { upgradeExistingAssignments } from '@/lib/services/assessment-builder/autoAssignmentService';
-import { categoryScopedColumns } from '@/lib/services/assessment-builder/indicatorCategoryColumns';
 import { hasAssessmentWritePermission } from '@/lib/assessment-permissions';
+import { publishTemplate } from '@/lib/services/assessment-builder/publishTemplate';
 
 /**
  * POST /api/admin/assessment-builder/templates/[templateId]/publish
@@ -12,6 +11,20 @@ import { hasAssessmentWritePermission } from '@/lib/assessment-permissions';
  * 2. Creates an immutable snapshot with full nested data
  * 3. Increments the version number
  * 4. Sets status to 'published'
+ *
+ * PR 3 (item 2): every frecuencia indicator must carry a complete
+ * frequency_config (finite min < max, step > 0, unit, allowed_units containing
+ * unit) or publishing fails with HTTP 400 listing the offending indicators. The
+ * scorer would otherwise silently assume max = 100 for the whole instrument.
+ *
+ * PR 4 (pilot provisioning): steps 1-4 were extracted verbatim into
+ * `lib/services/assessment-builder/publishTemplate.ts`; this handler keeps
+ * auth, permission and containment checks and maps the service result to HTTP.
+ *
+ * PROC-CONTAIN-01 (A-01): a request carrying `upgradeExisting: true` is rejected
+ * with HTTP 409 before any read or write. The former "upgrade existing
+ * assignments" path matched old instances by AREA only (grade-blind) and
+ * cloned them onto the new snapshot; it was removed from the service.
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -37,349 +50,53 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'templateId es requerido' });
   }
 
+  // Refuse the disabled upgrade flag before touching the database, so no
+  // snapshot insert or status update can happen on a request that asked for it.
+  const upgradeExistingRequested = Boolean(
+    (req.body as { upgradeExisting?: unknown } | null | undefined)?.upgradeExisting
+  );
+  if (upgradeExistingRequested) {
+    return res.status(409).json({
+      error:
+        'La actualización automática de evaluaciones existentes está deshabilitada. ' +
+        'Publique el template sin esa opción; las evaluaciones existentes deben migrarse con un proceso que valide el nivel.',
+      code: 'upgrade_existing_disabled',
+    });
+  }
+
   try {
-    // Get template with current status and grade info
-    const { data: template, error: templateError } = await supabaseClient
-      .from('assessment_templates')
-      .select(`
-        *,
-        grade:ab_grades (
-          id, name, is_always_gt
-        )
-      `)
-      .eq('id', templateId)
-      .single();
+    // Validation + snapshot + status flip live in the shared publication
+    // service so the pilot-provisioning CLI and this route publish through
+    // ONE validated code path. The result is mapped to the same HTTP shapes
+    // this route always produced.
+    const result = await publishTemplate(supabaseClient, templateId, { id: user.id });
 
-    if (templateError || !template) {
-      return res.status(404).json({ error: 'Template no encontrado' });
-    }
-
-    // Determine if this template requires dual expectations
-    const isAlwaysGT = template.grade?.is_always_gt ?? true;
-    const requiresDualExpectations = !isAlwaysGT;
-
-    // Only draft templates can be published
-    if (template.status !== 'draft') {
-      return res.status(400).json({
-        error: 'Solo los templates en estado borrador pueden ser publicados. Use "duplicar" para crear una nueva versión.',
+    if (result.ok === false) {
+      return res.status(result.status).json({
+        error: result.error,
+        ...(result.code !== undefined ? { code: result.code } : {}),
+        ...(result.details !== undefined ? { details: result.details } : {}),
       });
-    }
-
-    // Get all objectives for this template
-    const { data: objectives, error: objectivesError } = await supabaseClient
-      .from('assessment_objectives')
-      .select('*')
-      .eq('template_id', templateId)
-      .order('display_order', { ascending: true });
-
-    if (objectivesError) {
-      console.error('Error fetching objectives:', objectivesError);
-      return res.status(500).json({ error: 'Error al cargar objetivos' });
-    }
-
-    // Get all modules for this template
-    const { data: modules, error: modulesError } = await supabaseClient
-      .from('assessment_modules')
-      .select('*')
-      .eq('template_id', templateId)
-      .order('display_order', { ascending: true });
-
-    if (modulesError) {
-      console.error('Error fetching modules:', modulesError);
-      return res.status(500).json({ error: 'Error al cargar módulos' });
-    }
-
-    if (!modules || modules.length === 0) {
-      return res.status(400).json({
-        error: 'El template debe tener al menos un módulo para ser publicado',
-      });
-    }
-
-    // Validate all modules have an objective_id
-    const unassignedModules = modules.filter((m: any) => !m.objective_id);
-    if (unassignedModules.length > 0) {
-      const names = unassignedModules.map((m: any) => m.name).join(', ');
-      return res.status(400).json({
-        error: `Todas las acciones deben pertenecer a un objetivo. Acciones sin objetivo: ${names}`,
-      });
-    }
-
-    // Validate all modules reference objectives that belong to this template
-    const validObjectiveIds = new Set((objectives || []).map((o: any) => o.id));
-    const invalidRelationModules = modules.filter((m: any) => !validObjectiveIds.has(m.objective_id));
-    if (invalidRelationModules.length > 0) {
-      const names = invalidRelationModules.map((m: any) => m.name).join(', ');
-      return res.status(400).json({
-        error: `Las siguientes acciones referencian objetivos que no pertenecen a este template: ${names}`,
-      });
-    }
-
-    // Get all indicators for all modules
-    const moduleIds = modules.map(m => m.id);
-    const { data: allIndicators, error: indicatorsError } = await supabaseClient
-      .from('assessment_indicators')
-      .select('*')
-      .in('module_id', moduleIds)
-      .order('display_order', { ascending: true });
-
-    if (indicatorsError) {
-      console.error('Error fetching indicators:', indicatorsError);
-      return res.status(500).json({ error: 'Error al cargar indicadores' });
-    }
-
-    if (!allIndicators || allIndicators.length === 0) {
-      return res.status(400).json({
-        error: 'El template debe tener al menos un indicador para ser publicado',
-      });
-    }
-
-    // Get all year expectations for this template (both GT and GI)
-    const { data: expectations, error: expectationsError } = await supabaseClient
-      .from('assessment_year_expectations')
-      .select('*')
-      .eq('template_id', templateId);
-
-    if (expectationsError) {
-      console.error('Error fetching expectations:', expectationsError);
-      return res.status(500).json({ error: 'Error al cargar expectativas' });
-    }
-
-    // Build expectations maps by indicator ID and generation_type
-    const expectationsMapGT = new Map<string, any>();
-    const expectationsMapGI = new Map<string, any>();
-    (expectations || []).forEach((exp: any) => {
-      const expData = {
-        year_1_expected: exp.year_1_expected,
-        year_1_expected_unit: exp.year_1_expected_unit,
-        year_2_expected: exp.year_2_expected,
-        year_2_expected_unit: exp.year_2_expected_unit,
-        year_3_expected: exp.year_3_expected,
-        year_3_expected_unit: exp.year_3_expected_unit,
-        year_4_expected: exp.year_4_expected,
-        year_4_expected_unit: exp.year_4_expected_unit,
-        year_5_expected: exp.year_5_expected,
-        year_5_expected_unit: exp.year_5_expected_unit,
-        tolerance: exp.tolerance,
-      };
-      const genType = exp.generation_type || 'GT';
-      if (genType === 'GT') {
-        expectationsMapGT.set(exp.indicator_id, expData);
-      } else {
-        expectationsMapGI.set(exp.indicator_id, expData);
-      }
-    });
-
-    // Validate expectations completeness
-    const indicatorsWithoutGT: string[] = [];
-    const indicatorsWithoutGI: string[] = [];
-    allIndicators.forEach((ind: any) => {
-      const hasGT = expectationsMapGT.has(ind.id);
-      const hasGI = expectationsMapGI.has(ind.id);
-
-      if (!hasGT) {
-        indicatorsWithoutGT.push(ind.code || ind.name);
-      }
-      if (requiresDualExpectations && !hasGI) {
-        indicatorsWithoutGI.push(ind.code || ind.name);
-      }
-    });
-
-    // Warning if not all indicators have expectations (but don't block publishing)
-    const expectationsWarnings: string[] = [];
-    if (indicatorsWithoutGT.length > 0) {
-      expectationsWarnings.push(
-        `${indicatorsWithoutGT.length} indicador(es) sin expectativas GT configuradas`
-      );
-    }
-    if (requiresDualExpectations && indicatorsWithoutGI.length > 0) {
-      expectationsWarnings.push(
-        `${indicatorsWithoutGI.length} indicador(es) sin expectativas GI configuradas`
-      );
-    }
-
-    // Helper to build indicator snapshot data.
-    // Category-specific columns are projected through categoryScopedColumns so
-    // off-category data preserved on a category change never reaches the snapshot.
-    const buildIndicatorSnapshot = (indicator: any) => ({
-      id: indicator.id,
-      code: indicator.code,
-      name: indicator.name,
-      description: indicator.description,
-      category: indicator.category,
-      ...categoryScopedColumns(indicator),
-      display_order: indicator.display_order,
-      weight: indicator.weight,
-      sub_questions: indicator.sub_questions,
-      // Include both GT and GI expectations
-      expectations_gt: expectationsMapGT.get(indicator.id) || null,
-      expectations_gi: requiresDualExpectations ? (expectationsMapGI.get(indicator.id) || null) : null,
-      // Legacy field for backward compatibility
-      expectations: expectationsMapGT.get(indicator.id) || null,
-    });
-
-    // Helper to build module snapshot data
-    const buildModuleSnapshot = (module: any) => ({
-      id: module.id,
-      name: module.name,
-      description: module.description,
-      instructions: module.instructions,
-      display_order: module.display_order,
-      weight: module.weight,
-      objective_id: module.objective_id || null,
-      indicators: allIndicators
-        .filter(ind => ind.module_id === module.id)
-        .map(buildIndicatorSnapshot),
-    });
-
-    // Build objectives hierarchy (new format)
-    const objectivesSnapshot = (objectives || []).map((objective: any) => ({
-      id: objective.id,
-      name: objective.name,
-      description: objective.description,
-      display_order: objective.display_order,
-      weight: objective.weight,
-      modules: modules
-        .filter((m: any) => m.objective_id === objective.id)
-        .map(buildModuleSnapshot),
-    }));
-
-    // Also include flat modules list for backward compatibility
-    const flatModulesSnapshot = modules.map(buildModuleSnapshot);
-
-    // Fetch per-year weights for snapshot capture
-    // These are stored so scoring of published instances uses weights from publish time,
-    // not whatever the live DB has (which may have been edited after publishing).
-    const { data: yearWeightRows, error: yearWeightsSnapshotError } = await supabaseClient
-      .from('assessment_entity_year_weights')
-      .select('entity_type, entity_id, year, weight')
-      .eq('template_id', templateId);
-
-    if (yearWeightsSnapshotError) {
-      console.error('Error fetching year weights for snapshot (non-fatal):', yearWeightsSnapshotError);
-    }
-
-    // Group per-year weights by year
-    const yearWeightsSnapshot: Record<number, {
-      objectives: Array<{ id: string; weight: number }>;
-      modules: Array<{ id: string; weight: number }>;
-      indicators: Array<{ id: string; weight: number }>;
-    }> = {};
-
-    if (yearWeightRows && yearWeightRows.length > 0) {
-      for (const row of yearWeightRows) {
-        const yr = row.year as number;
-        if (!yearWeightsSnapshot[yr]) {
-          yearWeightsSnapshot[yr] = { objectives: [], modules: [], indicators: [] };
-        }
-        const entry = { id: row.entity_id as string, weight: Number(row.weight) };
-        if (row.entity_type === 'objective') yearWeightsSnapshot[yr].objectives.push(entry);
-        else if (row.entity_type === 'module') yearWeightsSnapshot[yr].modules.push(entry);
-        else if (row.entity_type === 'indicator') yearWeightsSnapshot[yr].indicators.push(entry);
-      }
-    }
-
-    // Build the snapshot data structure
-    const snapshotData = {
-      template: {
-        id: template.id,
-        name: template.name,
-        description: template.description,
-        area: template.area,
-        grade_id: template.grade_id,
-        grade_name: template.grade?.name,
-        is_always_gt: isAlwaysGT,
-        requires_dual_expectations: requiresDualExpectations,
-        scoring_config: template.scoring_config,
-        created_at: template.created_at,
-      },
-      // New hierarchy: objectives → modules → indicators
-      objectives: objectivesSnapshot,
-      // Legacy flat list for backward compatibility
-      modules: flatModulesSnapshot,
-      // Per-year weight overrides (captured at publish time for stable scoring)
-      yearWeights: Object.keys(yearWeightsSnapshot).length > 0 ? yearWeightsSnapshot : undefined,
-      published_at: new Date().toISOString(),
-      published_by: user.id,
-    };
-
-    // Calculate new version (increment from current)
-    const currentVersion = template.version || '1.0.0';
-    const versionParts = currentVersion.split('.').map(Number);
-    // For publishing, increment minor version
-    versionParts[1] = (versionParts[1] || 0) + 1;
-    versionParts[2] = 0; // Reset patch
-    const newVersion = versionParts.join('.');
-
-    // Create the snapshot
-    const { data: snapshot, error: snapshotError } = await supabaseClient
-      .from('assessment_template_snapshots')
-      .insert({
-        template_id: templateId,
-        version: newVersion,
-        snapshot_data: snapshotData,
-      })
-      .select()
-      .single();
-
-    if (snapshotError) {
-      console.error('Error creating snapshot:', snapshotError);
-      return res.status(500).json({ error: 'Error al crear snapshot' });
-    }
-
-    // Update template status and version
-    const { data: updatedTemplate, error: updateError } = await supabaseClient
-      .from('assessment_templates')
-      .update({
-        status: 'published',
-        version: newVersion,
-      })
-      .eq('id', templateId)
-      .select()
-      .single();
-
-    if (updateError) {
-      console.error('Error updating template:', updateError);
-      // Try to rollback snapshot
-      await supabaseClient.from('assessment_template_snapshots').delete().eq('id', snapshot.id);
-      return res.status(500).json({ error: 'Error al actualizar template' });
-    }
-
-    // Check if we should upgrade existing assignments
-    const { upgradeExisting } = req.body || {};
-    let upgradeResult = null;
-
-    if (upgradeExisting) {
-      // Create new instances for all existing assignees with the new snapshot
-      upgradeResult = await upgradeExistingAssignments(
-        templateId,
-        snapshot.id,
-        user.id
-      );
     }
 
     return res.status(200).json({
       success: true,
-      message: `Template publicado como versión ${newVersion}`,
+      message: `Template publicado como versión ${result.newVersion}`,
       template: {
-        id: updatedTemplate.id,
-        name: updatedTemplate.name,
-        area: updatedTemplate.area,
-        status: updatedTemplate.status,
-        version: updatedTemplate.version,
-        isAlwaysGT,
-        requiresDualExpectations,
+        id: result.template.id,
+        name: result.template.name,
+        area: result.template.area,
+        status: result.template.status,
+        version: result.template.version,
+        isAlwaysGT: result.isAlwaysGT,
+        requiresDualExpectations: result.requiresDualExpectations,
       },
       snapshot: {
-        id: snapshot.id,
-        version: snapshot.version,
-        createdAt: snapshot.created_at,
+        id: result.snapshot.id,
+        version: result.snapshot.version,
+        createdAt: result.snapshot.createdAt,
       },
-      upgrade: upgradeResult ? {
-        instancesCreated: upgradeResult.instancesCreated,
-        instancesSkipped: upgradeResult.instancesSkipped,
-        errors: upgradeResult.errors.length > 0 ? upgradeResult.errors : undefined,
-      } : undefined,
-      warnings: expectationsWarnings.length > 0 ? expectationsWarnings : undefined,
+      warnings: result.warnings.length > 0 ? result.warnings : undefined,
     });
   } catch (err: any) {
     console.error('Unexpected error publishing template:', err);

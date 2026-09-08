@@ -18,6 +18,8 @@ import { getHighestRole, extractRolesFromMetadata } from '../../utils/roleUtils'
 import { LogOut } from 'lucide-react';
 import { MenuIcon as Bars3Icon } from '@heroicons/react/outline';
 import FeedbackButtonWithPermissions from '../feedback/FeedbackButtonWithPermissions';
+import SimulationEnvironmentBanner from '../SimulationEnvironmentBanner';
+import { shouldShowQaSimulationBanner } from '../../lib/simulation/route-context';
 
 interface Breadcrumb {
   label: string;
@@ -113,6 +115,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   // Fetch profile data if not provided as prop
   const [fetchedProfileData, setFetchedProfileData] = useState<any>(null);
   const effectiveProfileData = profileData || fetchedProfileData;
+  const routeSchoolId =
+    router.query.school_id ?? router.query.schoolId ?? router.query.colegio_id;
+  const showQaSimulationBanner = shouldShowQaSimulationBanner({
+    routeSchoolId,
+    profileSchoolId: auth.profile?.school_id,
+    profileTenantKind: auth.profile?.school?.tenant_kind,
+    roles: auth.userRoles,
+  });
 
   useEffect(() => {
     const loadProfileData = async () => {
@@ -372,6 +382,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
               </div>
             </div>
           </div>
+
+          <SimulationEnvironmentBanner visible={showQaSimulationBanner} />
           
           {/* Content wrapper */}
           <div className="min-h-screen w-full">

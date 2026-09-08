@@ -8,6 +8,15 @@ import { hasAssessmentWritePermission } from '@/lib/assessment-permissions';
  *
  * POST /api/admin/assessment-builder/templates/[templateId]/archive?action=restore
  * Restores an archived template back to published
+ *
+ * Concurrency (Codex round 4, R5-1): both writes are a single UPDATE of the
+ * template row. `public.attach_course_docente_assessment` (the automatic
+ * course-level assignment) and Operation A Step 2e hold that row FOR SHARE
+ * from their eligibility decision to COMMIT, so this UPDATE waits for any
+ * such transaction in flight and an attach that starts after this UPDATE
+ * committed sees the new state. Archiving never touches instances here: a
+ * live instance under an archived template is listed by Operation A Step 1c
+ * and archived / revoked by Step 2e (docs/planning/operation-a-…handoff.md).
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {

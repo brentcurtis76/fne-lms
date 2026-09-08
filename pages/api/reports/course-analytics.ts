@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
+import { readClientReportingScope } from '@/lib/simulation/tenant-policy';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -70,13 +71,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } = req.query;
 
     // Get reportable users to scope data access
-    const reportableUsers = await getReportableUsers(user.id, profile.role);
+    const clientScope = await readClientReportingScope(supabase);
+    if (school_id && !clientScope.isClientSchool(Array.isArray(school_id) ? school_id[0] : school_id)) {
+      return res.status(200).json({ data: [], total_courses: 0, total_enrollments: 0, timestamp: new Date().toISOString() });
+    }
+    const reportableUsers = clientScope.filterUserIds(
+      await getReportableUsers(user.id, profile.role)
+    );
 
     let analyticsData = [];
     let analyticsError = null;
 
     // Apply user access filtering with batching
-    if (profile.role !== 'admin' && reportableUsers.length > 0) {
+    if (reportableUsers.length > 0) {
       // For consultors, filter by their assigned users using batching
       const batchSize = 50;
       for (let i = 0; i < reportableUsers.length; i += batchSize) {
@@ -135,49 +142,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const limitNum = Math.min(parseInt(limit as string) || 50, 200);
       analyticsData = analyticsData.slice(0, limitNum);
       
-    } else if (profile.role !== 'admin') {
-      // If no reportable users and not admin, return empty
+    } else {
+      // No client-tenant users in the authorized scope.
       return res.status(200).json({
         message: 'No accessible course data found',
         data: []
       });
-    } else {
-      // Admin - no user filtering needed
-      let query = supabase
-        .from('course_progress_analytics')
-        .select('*');
-
-      // Apply filters
-      if (course_id) {
-        query = query.eq('course_id', course_id);
-      }
-      if (community_id) {
-        query = query.eq('community_id', community_id);
-      }
-      if (school_id) {
-        query = query.eq('school_id', school_id);
-      }
-      if (start_date) {
-        query = query.gte('analysis_date', start_date);
-      }
-      if (end_date) {
-        query = query.lte('analysis_date', end_date);
-      }
-
-      // Apply sorting
-      const validSortFields = ['enrollment_count', 'completion_rate', 'average_progress', 'course_name', 'analysis_date'];
-      const sortField = validSortFields.includes(sort_by as string) ? sort_by as string : 'enrollment_count';
-      const ascending = sort_order === 'asc';
-
-      query = query.order(sortField, { ascending });
-
-      // Apply limit
-      const limitNum = Math.min(parseInt(limit as string) || 50, 200);
-      query = query.limit(limitNum);
-
-      const { data: queryData, error: queryError } = await query;
-      analyticsData = queryData || [];
-      analyticsError = queryError;
     }
 
     if (analyticsError) {

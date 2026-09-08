@@ -52,7 +52,6 @@ vi.mock('react-hot-toast', () => ({
 
 vi.mock('../../../utils/meetingUtils', () => ({
   createMeetingWithDocumentation: vi.fn(),
-  getCommunityMembersForAssignment: vi.fn().mockResolvedValue([]),
   getMeetingDetails: vi.fn().mockResolvedValue({
     id: 'meeting-1',
     title: 'Test meeting',
@@ -113,10 +112,16 @@ describe('MeetingDocumentationModal — clearing rich text clears plaintext', ()
   beforeEach(() => {
     editorOnChange.clear();
     for (const key of Object.keys(capturedCalls)) delete capturedCalls[key];
+    // Route-aware: the community-scoped member pickers load through
+    // /api/community/members and an empty community is a valid answer.
     // @ts-expect-error override global fetch for test
-    global.fetch = vi.fn(async () =>
-      new Response(JSON.stringify({ data: null }), { status: 200 })
-    );
+    global.fetch = vi.fn(async (input: RequestInfo) => {
+      const url = typeof input === 'string' ? input : (input as Request).url;
+      if (url.startsWith('/api/community/members')) {
+        return new Response(JSON.stringify({ members: [] }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ data: null }), { status: 200 });
+    });
   });
 
   afterEach(() => {
@@ -129,6 +134,7 @@ describe('MeetingDocumentationModal — clearing rich text clears plaintext', ()
         isOpen={false}
         onClose={vi.fn()}
         workspaceId="ws-1"
+        communityId="comm-1"
         userId="user-1"
         onSuccess={vi.fn()}
         meetingId="meeting-1"
@@ -142,6 +148,7 @@ describe('MeetingDocumentationModal — clearing rich text clears plaintext', ()
           isOpen
           onClose={vi.fn()}
           workspaceId="ws-1"
+          communityId="comm-1"
           userId="user-1"
           onSuccess={vi.fn()}
           meetingId="meeting-1"

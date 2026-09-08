@@ -21,6 +21,7 @@ import {
 } from '@/types/assessment-builder';
 import { ModuleCard } from '@/components/assessment';
 import type { IndicatorData, ModuleData, ObjectiveData, ResponseData } from '@/components/assessment';
+import { resolveCoberturaGate } from '@/lib/services/assessment-builder/coberturaGatePolicy';
 
 const DemoAssessmentForm: React.FC = () => {
   const router = useRouter();
@@ -154,33 +155,20 @@ const DemoAssessmentForm: React.FC = () => {
       let total = 0;
       let answered = 0;
 
-      modulesToCheck.forEach(module => {
-        const sortedIndicators = [...module.indicators]
-          .filter((ind) => ind.isActiveThisYear !== false)
-          .sort((a, b) => a.displayOrder - b.displayOrder);
-        const hasCoberturaGate = sortedIndicators.length > 0 && sortedIndicators[0].category === 'cobertura';
+      modulesToCheck.forEach((module) => {
+        const activeIndicators = module.indicators.filter((ind) => ind.isActiveThisYear !== false);
+        const gate = resolveCoberturaGate({
+          indicators: activeIndicators,
+          getId: (ind: IndicatorData) => ind.id,
+          getCategory: (ind: IndicatorData) => ind.category,
+          getDisplayOrder: (ind: IndicatorData) => ind.displayOrder,
+          getCoverageValue: (id: string) => responses[id]?.coverageValue,
+        });
 
-        if (hasCoberturaGate) {
-          const coberturaResp = responses[sortedIndicators[0].id];
-          const coberturaValue = coberturaResp?.coverageValue;
-
-          total++;
-          if (isIndicatorAnswered(sortedIndicators[0], coberturaResp)) answered++;
-
-          if (coberturaValue === false) {
-            // Gate closed
-          } else if (coberturaValue === true) {
-            sortedIndicators.slice(1).forEach(indicator => {
-              total++;
-              if (isIndicatorAnswered(indicator, responses[indicator.id])) answered++;
-            });
-          }
-        } else {
-          module.indicators.forEach(indicator => {
-            total++;
-            if (isIndicatorAnswered(indicator, responses[indicator.id])) answered++;
-          });
-        }
+        total += gate.applicable.length;
+        gate.applicable.forEach((indicator) => {
+          if (isIndicatorAnswered(indicator, responses[indicator.id])) answered++;
+        });
       });
 
       setProgress({

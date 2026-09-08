@@ -446,6 +446,11 @@ import { isZoomError, ZoomNonRetryableError } from '../errors';
 import { createZoomServiceClient, zoomInternalSchema } from '../service-client';
 import { ZoomJobLeaseLostError, type ZoomJobHandler } from './types';
 import {
+  defaultZoomTenantGate,
+  enforceZoomTenantBoundary,
+  type ZoomTenantGate,
+} from '../tenant-boundary';
+import {
   ZOOM_MEETING_ACTIVE_STATUSES,
   type SessionMeetingPublicStatus,
   type ZoomMeetingStatus,
@@ -1846,6 +1851,7 @@ export interface MeetingProvisionDeps {
   store?: MeetingProvisionStore;
   env?: NodeJS.ProcessEnv;
   passcodeFactory?: () => string;
+  tenantGate?: ZoomTenantGate;
 }
 
 export interface MeetingProvisionResult extends Record<string, unknown> {
@@ -2145,6 +2151,13 @@ export function createMeetingProvisionHandler(deps: MeetingProvisionDeps = {}): 
         { operation: 'meeting_provision' }
       );
     }
+
+    const qaSuppression = await enforceZoomTenantBoundary({
+      schoolId: session.school_id,
+      operation: 'meeting_provision',
+      gate: deps.tenantGate ?? defaultZoomTenantGate(env),
+    });
+    if (qaSuppression) return qaSuppression;
 
     // --- §8 eligibility, BEFORE any reservation ---------------------------
     // The handler used to validate only the schedule FIELDS, so a cancelled, draft,

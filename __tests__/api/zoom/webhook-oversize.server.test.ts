@@ -68,9 +68,12 @@ interface ClientOutcome {
 function postOversized(port: number, bytes: number): Promise<ClientOutcome> {
   return new Promise((resolve) => {
     let settled = false;
+    let responseStarted = false;
+    let requestErrorTimer: NodeJS.Timeout | undefined;
     const finish = (outcome: ClientOutcome) => {
       if (settled) return;
       settled = true;
+      if (requestErrorTimer) clearTimeout(requestErrorTimer);
       resolve(outcome);
     };
 
@@ -88,6 +91,8 @@ function postOversized(port: number, bytes: number): Promise<ClientOutcome> {
         },
       },
       (response) => {
+        responseStarted = true;
+        if (requestErrorTimer) clearTimeout(requestErrorTimer);
         const chunks: Buffer[] = [];
         response.on('data', (chunk: Buffer) => chunks.push(chunk));
         response.on('end', () =>
@@ -106,9 +111,17 @@ function postOversized(port: number, bytes: number): Promise<ClientOutcome> {
 
     // The upload itself may fail once the server stops reading — that is expected and
     // is NOT the thing under test; what matters is whether a response arrived.
-    request.on('error', (error: NodeJS.ErrnoException) =>
-      finish({ errorCode: error.code ?? error.message })
-    );
+    request.on('error', (error: NodeJS.ErrnoException) => {
+      if (responseStarted) return;
+      const errorCode = error.code ?? error.message;
+      // Refusing a request mid-upload legitimately closes the write side and may
+      // surface EPIPE before Node emits the already-in-flight `response` event.
+      // Give the wire response a short opportunity to win; only classify this as
+      // the old no-response regression if no status line follows.
+      requestErrorTimer = setTimeout(() => {
+        if (!responseStarted) finish({ errorCode });
+      }, 250);
+    });
 
     // 64 KiB at a time, so the response can arrive while we are still writing.
     const chunk = Buffer.alloc(64 * 1024, 0x61);

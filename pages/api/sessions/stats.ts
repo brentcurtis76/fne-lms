@@ -7,6 +7,7 @@ import {
   logApiRequest,
   handleMethodNotAllowed,
 } from '../../../lib/api-auth';
+import { readClientSchoolScope } from '../../../lib/simulation/tenant-policy';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-stats');
@@ -23,10 +24,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const serviceClient = createServiceRoleClient();
+    const clientSchools = await readClientSchoolScope(serviceClient);
 
     const { data, error } = await serviceClient
       .from('consultor_sessions')
-      .select('status');
+      .select('status')
+      .in('school_id', clientSchools.ids);
 
     if (error) {
       console.error('Database error fetching session stats:', error);

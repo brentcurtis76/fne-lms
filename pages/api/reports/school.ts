@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
 import type { UserRoleType } from '@/types/roles';
+import { readClientSchoolScope } from '@/lib/simulation/tenant-policy';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -69,14 +70,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const warnings: string[] = [];
+    const clientSchools = await readClientSchoolScope(supabase);
 
     // Get query parameters
     const { school_id, community_id, start_date, end_date } = req.query;
 
     // Get accessible schools based on user role
-    let accessibleSchools: string[] = [];
+    let accessibleSchools: number[] = [];
     try {
-      accessibleSchools = await getAccessibleSchools(user.id, userRole);
+      accessibleSchools = (await getAccessibleSchools(user.id, userRole))
+        .filter((schoolId) => clientSchools.isClientSchool(schoolId));
     } catch (error) {
       console.error('[School Reports] getAccessibleSchools failed:', error);
       warnings.push('No se pudo determinar el alcance de escuelas');
@@ -90,8 +93,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Get schools to report on
       let schoolsToQuery = accessibleSchools;
       if (school_id) {
-        const schoolIdStr = Array.isArray(school_id) ? school_id[0] : school_id;
-        schoolsToQuery = schoolsToQuery.includes(schoolIdStr) ? [schoolIdStr] : [];
+        const rawSchoolId = Array.isArray(school_id) ? school_id[0] : school_id;
+        const requestedSchoolId = Number(rawSchoolId);
+        schoolsToQuery = clientSchools.isClientSchool(requestedSchoolId) &&
+          schoolsToQuery.includes(requestedSchoolId)
+          ? [requestedSchoolId]
+          : [];
       }
       
       if (schoolsToQuery.length === 0 && userRole !== 'admin') {
@@ -103,10 +110,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // If admin and no specific schools, get all schools
       if (userRole === 'admin' && schoolsToQuery.length === 0) {
-        const { data: allSchools } = await supabase
-          .from('schools')
-          .select('id');
-        schoolsToQuery = allSchools?.map(s => s.id) || [];
+        schoolsToQuery = school_id ? [] : clientSchools.ids;
       }
 
       if (schoolsToQuery.length > 0) {
@@ -114,7 +118,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const { data: schools } = await supabase
           .from('schools')
           .select('id, name, community_id')
-          .in('id', schoolsToQuery);
+          .in('id', schoolsToQuery)
+          .eq('tenant_kind', 'client');
 
         // Get community names separately to avoid relationship issues
         const communityIds = schools?.map(s => s.community_id).filter(Boolean) || [];
@@ -281,13 +286,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-async function getAccessibleSchools(userId: string, userRole: string): Promise<string[]> {
+async function getAccessibleSchools(userId: string, userRole: string): Promise<number[]> {
   try {
     if (userRole === 'admin') {
       const { data: allSchools } = await supabase
         .from('schools')
-        .select('id');
-      return allSchools?.map(s => s.id) || [];
+        .select('id')
+        .eq('tenant_kind', 'client');
+      return allSchools?.map(s => Number(s.id)).filter(Number.isSafeInteger) || [];
 
     } else if (userRole === 'consultor') {
       const { data: assignments } = await supabase
@@ -305,7 +311,7 @@ async function getAccessibleSchools(userId: string, userRole: string): Promise<s
         .in('id', studentIds)
         .not('school_id', 'is', null);
 
-      return [...new Set(studentProfiles?.map(p => p.school_id).filter(Boolean) || [])] as string[];
+      return [...new Set(studentProfiles?.map(p => Number(p.school_id)).filter(Number.isSafeInteger) || [])];
 
     } else if (userRole === 'supervisor_de_red') {
       const { data: supervisorRole } = await supabase
@@ -323,7 +329,7 @@ async function getAccessibleSchools(userId: string, userRole: string): Promise<s
         .select('school_id')
         .eq('red_id', supervisorRole.red_id);
 
-      return networkSchools?.map(ns => ns.school_id) || [];
+      return networkSchools?.map(ns => Number(ns.school_id)).filter(Number.isSafeInteger) || [];
 
     } else if (userRole === 'equipo_directivo') {
       const { data: profile } = await supabase
@@ -332,7 +338,7 @@ async function getAccessibleSchools(userId: string, userRole: string): Promise<s
         .eq('id', userId)
         .single();
 
-      return profile?.school_id ? [profile.school_id] : [];
+      return profile?.school_id ? [Number(profile.school_id)] : [];
 
     } else if (userRole === 'lider_generacion') {
       const { data: profile } = await supabase
@@ -350,7 +356,7 @@ async function getAccessibleSchools(userId: string, userRole: string): Promise<s
         .eq('generation_id', profile.generation_id)
         .not('school_id', 'is', null);
 
-      return [...new Set(genUsers?.map(u => u.school_id).filter(Boolean) || [])] as string[];
+      return [...new Set(genUsers?.map(u => Number(u.school_id)).filter(Number.isSafeInteger) || [])];
 
     } else if (userRole === 'lider_comunidad') {
       const { data: requesterRoles } = await supabase
@@ -371,7 +377,7 @@ async function getAccessibleSchools(userId: string, userRole: string): Promise<s
         .eq('id', requesterRoles.community_id)
         .single();
 
-      return community?.school_id ? [community.school_id.toString()] : [];
+      return community?.school_id ? [Number(community.school_id)] : [];
     }
 
     return [];

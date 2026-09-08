@@ -34,32 +34,72 @@ const U3 = '55555555-5555-4555-8555-555555555555'; // holds two active roles
 
 type Result = { data?: unknown; error?: unknown };
 
+type EqCall = [column: string, value: unknown];
+
+/** The filters one specific query instance was built with. */
+type RecordedQuery = { eqCalls: EqCall[] };
+
+/**
+ * Every chain handed out by `from(table)`, per table and in call order, so a
+ * test can assert the filters of ONE query instance. The handler queries
+ * `user_roles` twice — [0] verifies the requester, [1] lists the community's
+ * members — and a scope assertion must read [1], not whichever call happened
+ * to carry a matching `.eq`.
+ */
+let recordedQueries: Record<string, RecordedQuery[]> = {};
+
 /**
  * A thenable query chain: every builder method (.select/.eq/.in) returns the
- * same object, and awaiting it resolves to { data, error }.
+ * same object, and awaiting it resolves to { data, error }. `.eq` arguments are
+ * captured on this instance's record. The mock never filters rows itself, so
+ * the ONLY proof that the handler scopes a query is the captured `.eq` calls —
+ * a prefiltered fixture proves nothing.
  */
 function makeChain(result: Result) {
   const resolved = { data: result.data ?? null, error: result.error ?? null };
+  const record: RecordedQuery = { eqCalls: [] };
   const chain: any = {
     select: () => chain,
-    eq: () => chain,
+    eq: (column: string, value: unknown) => {
+      record.eqCalls.push([column, value]);
+      return chain;
+    },
     in: () => chain,
     then: (resolve: (v: unknown) => void) => resolve(resolved),
   };
-  return chain;
+  return { chain, record };
 }
 
 /**
  * Returns a `from(table)` impl that hands back the next queued result for that
- * table on each call (the handler queries `user_roles` twice, `profiles` once).
+ * table on each call (the handler queries `user_roles` twice, `profiles` once)
+ * and records each created chain in `recordedQueries`.
  */
 function sequencedFrom(queue: Record<string, Result[]>) {
   const idx: Record<string, number> = {};
   return (table: string) => {
     const i = idx[table] ?? 0;
     idx[table] = i + 1;
-    return makeChain(queue[table]?.[i] ?? { data: [] });
+    const { chain, record } = makeChain(queue[table]?.[i] ?? { data: [] });
+    (recordedQueries[table] ??= []).push(record);
+    return chain;
   };
+}
+
+/**
+ * Asserts that the SECOND `user_roles` query — the community-member query — was
+ * built with exactly `.eq('community_id', <requested>)` and `.eq('is_active',
+ * true)` and nothing else. Indexing the second instance explicitly means the
+ * requester query's own `.eq('is_active', true)` (instance [0]) can never
+ * satisfy this; removing either member filter from the handler fails it.
+ */
+function expectCommunityMemberQueryScopedTo(requestedCommunityId: string) {
+  const queries = recordedQueries.user_roles ?? [];
+  expect(queries).toHaveLength(2);
+  const { eqCalls } = queries[1];
+  expect(eqCalls).toHaveLength(2);
+  expect(eqCalls).toContainEqual(['community_id', requestedCommunityId]);
+  expect(eqCalls).toContainEqual(['is_active', true]);
 }
 
 function setSession(userId: string | null) {
@@ -107,6 +147,7 @@ function setMemberRequester(communityId: string) {
 describe('GET /api/community/members', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    recordedQueries = {};
   });
 
   it('lets a member of the community fetch its members', async () => {
@@ -120,6 +161,38 @@ describe('GET /api/community/members', () => {
     // 4 role rows -> 3 distinct users (U3 deduped)
     expect(members).toHaveLength(3);
     expect(members.map((m: any) => m.id).sort()).toEqual([U1, U2, U3].sort());
+
+    // The member list is scoped at the query, not by the fixture.
+    expect(recordedQueries.user_roles[0].eqCalls).toEqual([
+      ['user_id', MEMBER_ID],
+      ['is_active', true],
+    ]);
+    expectCommunityMemberQueryScopedTo(COMMUNITY_ID);
+  });
+
+  it('scopes the member query to the requested community id, not to the requester', async () => {
+    setSession(MEMBER_ID);
+    // Requester belongs to BOTH communities; the query must carry the one that
+    // was requested (OTHER_COMMUNITY_ID), never the requester's first/other one.
+    setService({
+      user_roles: [
+        {
+          data: [
+            { role_type: 'docente', community_id: COMMUNITY_ID, is_active: true },
+            { role_type: 'docente', community_id: OTHER_COMMUNITY_ID, is_active: true },
+          ],
+        },
+        { data: [] },
+      ],
+    });
+
+    const res = await invoke({ community_id: OTHER_COMMUNITY_ID });
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(JSON.parse(res._getData()).members).toEqual([]);
+    expectCommunityMemberQueryScopedTo(OTHER_COMMUNITY_ID);
+    // Zero member rows short-circuits before any profile lookup.
+    expect(recordedQueries.profiles ?? []).toHaveLength(0);
   });
 
   it('forbids a member of a different community (403)', async () => {
@@ -134,6 +207,9 @@ describe('GET /api/community/members', () => {
     const res = await invoke({ community_id: COMMUNITY_ID });
 
     expect(res._getStatusCode()).toBe(403);
+    // Denied before the member query is ever built.
+    expect(recordedQueries.user_roles).toHaveLength(1);
+    expect(recordedQueries.profiles ?? []).toHaveLength(0);
   });
 
   it('lets an admin fetch any community', async () => {
@@ -150,6 +226,17 @@ describe('GET /api/community/members', () => {
 
     expect(res._getStatusCode()).toBe(200);
     expect(JSON.parse(res._getData()).members).toHaveLength(3);
+
+    // An admin who is NOT a member of the community is authorized by role, yet
+    // the member query must still be scoped to the REQUESTED community and to
+    // active rows. The requester query ([0]) carries the admin's own filters;
+    // the member query ([1]) is asserted on its own instance.
+    expect(recordedQueries.user_roles).toHaveLength(2);
+    expect(recordedQueries.user_roles[0].eqCalls).toEqual([
+      ['user_id', ADMIN_ID],
+      ['is_active', true],
+    ]);
+    expectCommunityMemberQueryScopedTo(COMMUNITY_ID);
   });
 
   it('returns profile fields for every active community member', async () => {

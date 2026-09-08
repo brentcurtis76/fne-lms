@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient, useSession } from '@supabase/auth-helpers-react';
 import Head from 'next/head';
@@ -17,6 +17,16 @@ export default function LoginPage() {
   const [isResetMode, setIsResetMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  // S9: the recovery request had no in-flight state at all, so the "Enviar
+  // enlace" button stayed live and every impatient click issued another
+  // request — each one invalidating the previous link, which is how a user ends
+  // up with three e-mails of which only the last one works.
+  const [isSendingReset, setIsSendingReset] = useState(false);
+  // The guard is a REF, not the state above. State drives the button's disabled
+  // attribute, but it does not update until React re-renders — so several clicks
+  // dispatched before that flush would all read `false` and all fire a request.
+  // A ref is written synchronously and closes the window completely.
+  const sendingResetRef = useRef(false);
 
   /**
    * Where to land once nothing else is owed.
@@ -120,26 +130,30 @@ export default function LoginPage() {
             // Wait a moment for auth session to be fully established
             await new Promise(resolve => setTimeout(resolve, 500));
             
-            // First check if user must change password
-            const { data: profile, error: profileError } = await supabaseClient
-              .from('profiles')
-              .select('must_change_password')
-              .eq('id', userId)
-              .single();
-            
-            if (profileError) {
-              console.error('Error fetching profile for password check:', profileError);
-              // On profile fetch error, check profile completion to determine redirect
-              const isProfileComplete = await checkProfileCompletionSimple(supabaseClient, userId);
-              if (isProfileComplete) {
-                router.push(postLoginDestination());
-              } else {
-                router.push('/profile?from=login&error=profile-check-failed');
-              }
+            // F1: the forced-change flag comes from
+            // `current_password_change_state()`, not from a `profiles` SELECT.
+            //
+            // The database gate added in 20260819120000 refuses every PostgREST
+            // request from a flagged account, and a plain `.from('profiles')`
+            // here is one of them — so the branch that exists to catch flagged
+            // users is exactly the branch that would have errored. This RPC is
+            // the one route the gate leaves open, it takes no argument, and it
+            // reads `auth.uid()`, so it can only ever answer about the caller.
+            const { data: mustChangePassword, error: flagError } = await supabaseClient.rpc(
+              'current_password_change_state'
+            );
+
+            if (flagError) {
+              console.error('Error reading the password-change state:', flagError);
+              // Do NOT fall through to the dashboard. The middleware gates every
+              // authenticated page and will make the same call server-side; send
+              // the user to the forced-change page and let the gate decide,
+              // rather than guessing "not flagged" on an error.
+              router.push('/change-password');
               return;
             }
-            
-            if (profile?.must_change_password) {
+
+            if (mustChangePassword === true) {
               // Forced flow — ignores `next` on purpose
               router.push('/change-password');
             } else {
@@ -172,26 +186,78 @@ export default function LoginPage() {
   };
 
 
+  /**
+   * S9 — password recovery request.
+   *
+   * Three fixes, all small and all user-visible:
+   *
+   *   NORMALISATION. The address went to Supabase exactly as typed. A trailing
+   *   space from a copy-paste, or `Nombre@Colegio.cl` when the account is stored
+   *   lowercase, produced a request that matched nothing — and, because the
+   *   endpoint is deliberately silent about whether an account exists, the user
+   *   was told the mail had been sent. Trimmed and lower-cased, matching
+   *   `normalizeEmail` in lib/signups.ts, which is how every address in this
+   *   platform is stored.
+   *
+   *   IN-FLIGHT STATE. There was none, so repeated clicks issued repeated
+   *   requests and each new link invalidated the last.
+   *
+   *   ANTI-ENUMERATION. Supabase answers identically whether or not the account
+   *   exists — and the old code then leaked the difference anyway by printing
+   *   the provider's error message. The response here is now the same sentence
+   *   in every outcome, success or failure, so the form cannot be used to test
+   *   whether an address has an account. The provider error still reaches the
+   *   console for operators.
+   */
+  const RESET_ACKNOWLEDGEMENT =
+    'Si existe una cuenta con ese correo, te enviamos un enlace para restablecer tu contraseña. ' +
+    'Revisa tu bandeja de entrada y la carpeta de spam.';
+
   const handlePasswordReset = async () => {
-    if (!email) {
+    if (sendingResetRef.current) return;
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
       setMessage('Por favor ingresa tu correo electrónico');
       return;
     }
 
+    sendingResetRef.current = true;
+    setIsSendingReset(true);
+    setMessage('');
+
     try {
-      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`
+      // THE SERVER SENDS THE LINK. This used to call
+      // `supabaseClient.auth.resetPasswordForEmail()`, which sends SUPABASE'S
+      // template with SUPABASE'S link — landing as an implicit `#access_token=`
+      // fragment or a PKCE `?code=`, depending on a dashboard setting. Neither of
+      // those can be turned into server-verifiable, purpose-bound, one-time proof,
+      // which is what the recovery ceremony now requires, and neither is the
+      // format the invitation path already used.
+      //
+      // `/api/auth/recovery-request` mints the same `?token_hash=` URL every other
+      // recovery path in this platform sends, through the same server-only mailer.
+      // It answers identically whether or not the account exists.
+      const response = await fetch('/api/auth/recovery-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: normalizedEmail }),
       });
 
-      if (error) {
-        setMessage('Error al enviar email: ' + error.message);
-      } else {
-        setMessage('Se ha enviado un link de recuperación a tu correo electrónico');
-        setIsResetMode(false);
+      if (!response.ok) {
+        // Logged, never shown. The acknowledgement below is the same sentence on
+        // every path, so the form cannot be used to test whether an address has
+        // an account.
+        console.error('[Login] password reset request failed:', response.status);
       }
     } catch (err) {
-      console.error('Password reset error:', err);
-      setMessage('Error al enviar email: An unexpected error occurred');
+      console.error('[Login] password reset request threw:', err);
+    } finally {
+      // Identical answer on every path.
+      setMessage(RESET_ACKNOWLEDGEMENT);
+      sendingResetRef.current = false;
+      setIsSendingReset(false);
     }
   };
 
@@ -300,6 +366,7 @@ export default function LoginPage() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               autoComplete="email"
+              data-testid="login-email"
               className="w-full pl-12 pr-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent transition-all duration-200 hover:border-gray-400"
             />
           </div>
@@ -346,6 +413,7 @@ export default function LoginPage() {
               <button 
                 type="button"
                 onClick={() => setIsResetMode(true)}
+                data-testid="login-forgot-password"
                 className="text-sm font-medium text-[#0a0a0a] hover:text-[#fbbf24] transition-colors duration-200 flex items-center"
               >
                 <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -363,7 +431,9 @@ export default function LoginPage() {
             <button 
               type="button"
               onClick={() => setIsResetMode(false)} 
-              className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02]"
+              disabled={isSendingReset}
+              data-testid="login-reset-back"
+              className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg className="h-5 w-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -373,12 +443,30 @@ export default function LoginPage() {
             <button 
               type="button"
               onClick={handlePasswordReset} 
-              className="flex-1 bg-gradient-to-r from-[#0a0a0a] to-[#1f1f1f] hover:from-[#1f1f1f] hover:to-[#0a0a0a] text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] shadow-lg"
+              disabled={isSendingReset}
+              data-testid="login-reset-submit"
+              className={`flex-1 font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform shadow-lg text-white
+                ${isSendingReset
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-[#0a0a0a] to-[#1f1f1f] hover:from-[#1f1f1f] hover:to-[#0a0a0a] hover:scale-[1.02]'
+                }`}
             >
-              <svg className="h-5 w-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              Enviar enlace
+              {isSendingReset ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 inline mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <svg className="h-5 w-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  Enviar enlace
+                </>
+              )}
             </button>
           </div>
         ) : (
@@ -414,7 +502,9 @@ export default function LoginPage() {
         
         {/* Error/success message */}
         {message && (
-          <div className={`p-4 rounded-lg flex items-start space-x-3 animate-fade-in ${
+          <div
+            data-testid="login-message"
+            className={`p-4 rounded-lg flex items-start space-x-3 animate-fade-in ${
             message.includes('failed') || message.includes('Error') || message.includes('incorrectos')
               ? 'bg-red-50 border border-red-200'
               : 'bg-[#fbbf24]/10 border border-[#fbbf24]/30'

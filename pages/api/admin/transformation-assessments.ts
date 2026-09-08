@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
+import { readClientSchoolScope } from '../../../lib/simulation/tenant-policy';
 
 /**
  * GET /api/admin/transformation-assessments
@@ -61,8 +62,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const { status = 'all', schoolId } = req.query;
+    const clientSchools = await readClientSchoolScope(supabaseAdmin);
+    const tenantFilter = clientSchools.ids.length > 0
+      ? `school_id.is.null,school_id.in.(${clientSchools.ids.join(',')})`
+      : 'school_id.is.null';
 
-    // 1. Fetch all assessments for admin view
+    // 1. Fetch assessments for official admin reporting. Legacy unscoped rows remain
+    // visible, while QA/operator tenants never enter this stakeholder-facing surface.
     let assessmentsQuery = supabaseAdmin
       .from('transformation_assessments')
       .select(`
@@ -82,7 +88,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           name
         )
       `)
-      .order('updated_at', { ascending: false });
+      .order('updated_at', { ascending: false })
+      .or(tenantFilter);
 
     // Filter by status if specified
     if (status && status !== 'all') {
@@ -102,10 +109,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 2. Fetch all schools for filtering dropdown
-    const { data: schools, error: schoolsError } = await supabaseAdmin
-      .from('schools')
-      .select('id, name')
-      .order('name');
+    const schoolsResult = clientSchools.ids.length > 0
+      ? await supabaseAdmin
+          .from('schools')
+          .select('id, name')
+          .in('id', clientSchools.ids)
+          .order('name')
+      : { data: [], error: null };
+    const { data: schools, error: schoolsError } = schoolsResult;
 
     if (schoolsError) {
       console.error('[admin/transformation-assessments] Error fetching schools:', schoolsError);

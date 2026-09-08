@@ -33,6 +33,12 @@ const DECLARED_FIXTURE_KEYS = [
   'consultorAssigned',
   'consultorOtherSchool',
   'gcLeader',
+  'directivo',
+  'directivoSecondary',
+  'generationLeader',
+  'networkSupervisor',
+  'communityManager',
+  'procurementManager',
   'inactiveConsultor',
 ] as const;
 
@@ -50,8 +56,23 @@ export interface E2eFixtureUser {
   roleScope?: string;
   /** Which fixture growth community the role row points at. Absent means none. */
   community?: string;
+  /** Which fixture generation the role row points at. Absent means none. */
+  generation?: string;
+  /**
+   * Which fixture school network the role row points at — `primary` | `secondary`.
+   * Absent means none. Only `networkSupervisor` carries it, and only as `primary`;
+   * see E2E_NETWORK_SECONDARY for why the other network is deliberately unassigned.
+   */
+  network?: string;
   /** Extra role rows seeded with is_active=false. */
-  inactiveRoles?: { role: string; school?: string; roleScope?: string; community?: string }[];
+  inactiveRoles?: {
+    role: string;
+    school?: string;
+    roleScope?: string;
+    community?: string;
+    generation?: string;
+    network?: string;
+  }[];
 }
 
 /**
@@ -108,6 +129,34 @@ assertFixtureRosterComplete();
 export const E2E_USERS: Record<FixtureKey, E2eFixtureUser> = fixtures.users;
 export const E2E_SCHOOL: { id: number; name: string } = fixtures.school;
 export const E2E_SCHOOL_SECONDARY: { id: number; name: string } = fixtures.schoolSecondary;
+export const E2E_GENERATION: { id: string; name: string } = fixtures.generation;
+export const E2E_ROLE_COMMUNITY: { id: string; name: string } = fixtures.roleCommunity;
+
+interface E2eNetwork {
+  id: string;
+  name: string;
+  /** Which fixture school this network holds — `primary` | `secondary`. */
+  school: string;
+}
+
+/** The network `networkSupervisor` supervises. Holds the primary school only. */
+export const E2E_NETWORK: E2eNetwork = fixtures.network;
+
+/**
+ * The CROSS-NETWORK NEGATIVE CONTROL, and the reason it is seeded at all.
+ *
+ * A real `redes_de_colegios` row holding the SECONDARY school, which NO persona in the
+ * roster has a role in. `networkSupervisor` is scoped to E2E_NETWORK and to nothing else,
+ * so a later batch can assert a supervisor_de_red denial against a network that genuinely
+ * exists and genuinely has a school in it — rather than against an absent id, which would
+ * make the denial pass for the wrong reason and keep passing if the scoping broke.
+ *
+ * WHAT THIS DOES NOT DO: seeding the topology is not a denial proof. ci-fixture.spec.ts
+ * asserts the topology only (which network each role row carries, which school each
+ * network holds). No product surface is exercised across the network boundary here; each
+ * batch that touches one owes its own positive and negative end-to-end checks.
+ */
+export const E2E_NETWORK_SECONDARY: E2eNetwork = fixtures.networkSecondary;
 
 /**
  * Every seeded persona, derived from the fixture file rather than listed again — so a

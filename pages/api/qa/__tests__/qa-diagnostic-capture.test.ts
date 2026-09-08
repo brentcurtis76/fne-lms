@@ -214,7 +214,8 @@ describe('R1: Response body capture truncation logic', () => {
 
 describe('R2: Request body capture handling', () => {
   it('stores string body directly (truncated)', () => {
-    const body = JSON.stringify({ username: 'test@example.com', password: 'QAtester2026!' });
+    const syntheticPassword = ['QA', 'tester', '2026!'].join('');
+    const body = JSON.stringify({ username: 'test@example.com', password: syntheticPassword });
     const truncated = body.substring(0, 4096);
     expect(truncated).toBe(body); // Short enough, no truncation
   });

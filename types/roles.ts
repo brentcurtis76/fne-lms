@@ -21,6 +21,8 @@ export interface School {
   name: string;
   code?: string;
   has_generations?: boolean;
+  tenant_kind?: 'client' | 'operator' | 'qa';
+  internal_zoom_testing_enabled?: boolean;
   created_at?: string;
 }
 

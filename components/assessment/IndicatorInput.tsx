@@ -71,7 +71,11 @@ const IndicatorInput: React.FC<IndicatorInputProps> = ({
             value={response.frequencyValue}
             unit={response.frequencyUnit}
             config={indicator.frequencyConfig}
-            unitOptions={indicator.frequencyUnitOptions}
+            unitOptions={
+              indicator.frequencyConfig?.allowed_units && indicator.frequencyConfig.allowed_units.length > 0
+                ? indicator.frequencyConfig.allowed_units
+                : indicator.frequencyUnitOptions
+            }
             onValueChange={(v) => onChange('frequencyValue', v)}
             onUnitChange={(u) => onChange('frequencyUnit', u)}
             disabled={disabled}

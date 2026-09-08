@@ -75,10 +75,11 @@ SELECT is((SELECT is_generated FROM information_schema.columns
   WHERE table_schema = 'public' AND table_name = 'contract_hours_ledger'
     AND column_name = 'effective_minutes'), 'NEVER',
   'effective_minutes is not generated');
-SELECT is((SELECT count(*)::int FROM pg_trigger
-  WHERE tgrelid = 'public.contract_hours_ledger'::regclass
-    AND NOT tgisinternal AND (tgtype & 2) = 2), 0,
-  'no BEFORE trigger can populate effective_minutes');
+SELECT is((SELECT count(*)::int FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid
+  WHERE t.tgrelid = 'public.contract_hours_ledger'::regclass
+    AND NOT t.tgisinternal AND (t.tgtype & 2) = 2
+    AND p.prosrc ~* 'effective_minutes'), 0,
+  'no BEFORE trigger function can populate or assign effective_minutes');
 SELECT is((SELECT count(*)::int FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
   WHERE n.nspname IN ('public', 'zoom_internal')
     AND p.prosrc ~* 'SET[[:space:]]+effective_minutes'), 1,

@@ -60,6 +60,11 @@ import {
   ZoomRetryableError,
 } from '../errors';
 import { ZoomJobLeaseLostError, type ZoomJobHandler } from './types';
+import {
+  defaultZoomTenantGate,
+  enforceZoomTenantBoundary,
+  type ZoomTenantGate,
+} from '../tenant-boundary';
 
 /**
  * Requested on EVERY page — §15.3.9's "unchanged query parameters". 100 is inside
@@ -86,6 +91,7 @@ export interface AttendanceReconcileDeps {
   matchLookups?: ParticipantMatchLookups;
   env?: NodeJS.ProcessEnv;
   now?: () => number;
+  tenantGate?: ZoomTenantGate;
 }
 
 function readMeetingIdFromPayload(payload: Record<string, unknown>): string {
@@ -144,6 +150,12 @@ export function createAttendanceReconcileHandler(
     // this payload.
     if (meeting === null) return { skipped: 'meeting_not_found' };
     if (meeting.zoomMeetingUuid === null) return { skipped: 'no_occurrence_uuid' };
+    const qaSuppression = await enforceZoomTenantBoundary({
+      schoolId: meeting.schoolId,
+      operation: 'attendance_reconcile',
+      gate: deps.tenantGate ?? defaultZoomTenantGate(env),
+    });
+    if (qaSuppression) return qaSuppression;
     const occurrenceUuid = meeting.zoomMeetingUuid;
 
     const batchId = await store.createPendingBatch({

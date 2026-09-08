@@ -11,6 +11,7 @@ import { Validators } from '../../../../lib/types/api-auth.types';
 import { getUserRoles, getHighestRole } from '../../../../utils/roleUtils';
 import { SessionStatus } from '../../../../lib/types/consultor-sessions.types';
 import { billableHours } from '../../../../lib/services/billable-hours';
+import { readClientSchoolScope } from '../../../../lib/simulation/tenant-policy';
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -195,6 +196,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    const clientSchools = await readClientSchoolScope(serviceClient);
+    if (schoolIdFilter !== null && !clientSchools.isClientSchool(schoolIdFilter)) {
+      return sendApiResponse(res, buildEmptyResponse());
+    }
     // ============================================================
     // STEP 1: Determine accessible session IDs
     // ============================================================
@@ -240,7 +245,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let sessionsQuery = serviceClient
       .from('consultor_sessions')
       .select('id, title, session_date, status, modality, school_id, growth_community_id, scheduled_duration_minutes')
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .in('school_id', clientSchools.ids);
 
     if (sessionIdFilter) {
       sessionsQuery = sessionsQuery.in('id', sessionIdFilter);

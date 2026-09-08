@@ -48,6 +48,11 @@ import {
   type ZoomAttendanceReportStore,
 } from '../../../lib/zoom/attendance-report-store';
 import type { ZoomJobInsert } from '../../../lib/zoom/db-types';
+import {
+  defaultZoomTenantGate,
+  enforceZoomTenantBoundary,
+  type ZoomTenantGate,
+} from '../../../lib/zoom/tenant-boundary';
 
 /** `2026-07-30T12` — UTC hour, the dedupe granularity of an hourly reconcile. */
 export function utcHourKey(nowMs: number): string {
@@ -111,6 +116,7 @@ export interface ZoomReconcileHandlerDeps {
   reportStore?: ZoomAttendanceReportStore;
   env?: NodeJS.ProcessEnv;
   now?: () => number;
+  tenantGate?: ZoomTenantGate;
 }
 
 export async function handleZoomReconcile(
@@ -143,12 +149,24 @@ export async function handleZoomReconcile(
       windowStart,
       ATTENDANCE_RECONCILE_MAX_CANDIDATES
     );
+    const reportableCandidates: ReconcileCandidate[] = [];
+    let suppressedQa = 0;
+    const tenantGate = deps.tenantGate ?? defaultZoomTenantGate(env);
+    for (const candidate of candidates) {
+      const suppression = await enforceZoomTenantBoundary({
+        schoolId: candidate.schoolId,
+        operation: 'zoom_reconcile',
+        gate: tenantGate,
+      });
+      if (suppression) suppressedQa += 1;
+      else reportableCandidates.push(candidate);
+    }
     let enqueued = 0;
-    for (const job of planReconcileJobs(now(), candidates)) {
+    for (const job of planReconcileJobs(now(), reportableCandidates)) {
       const outcome = await queue.enqueue(job);
       if (outcome === 'enqueued') enqueued += 1;
     }
-    res.status(200).json({ enqueued });
+    res.status(200).json({ enqueued, suppressed_qa: suppressedQa });
   } catch (error) {
     console.error('[zoom-reconcile] enqueue failed:', error);
     res.status(500).json({ error: 'Internal error' });

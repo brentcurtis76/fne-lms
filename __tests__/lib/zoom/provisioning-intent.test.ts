@@ -26,7 +26,10 @@ vi.mock('../../../lib/zoom/jobs/meeting-provision', async (importOriginal) => {
 });
 
 import {
+  checkCleanupGate,
   checkProvisionGate,
+  checkZoomRolloutPolicy,
+  enqueueSessionMeetingDelete,
   enqueueSessionProvision,
   parseSchoolAllowlist,
   provisionDedupeKey,
@@ -220,13 +223,141 @@ describe('checkProvisionGate', () => {
     ).toEqual({ reason: 'school_not_allowlisted', schoolId: 77 });
   });
 
-  it('reports ineligibility before the allowlist — the narrower reason wins', () => {
+  it('reports the allowlist before ineligibility — rollout policy is evaluated first (B1)', () => {
+    // Before Unit B1 the order was flag → eligibility → allowlist, so this exact input
+    // answered `session_ineligible`. The provision gate now runs the whole shared rollout
+    // policy before it reads any source state, so the wave refusal wins.
     expect(
       checkProvisionGate(session({ school_id: 77, is_zoom_managed: false }), {
         ...ON,
         ZOOM_SCHOOL_ALLOWLIST: '12',
       })
-    ).toEqual({ reason: 'session_ineligible', check: 'is_zoom_managed' });
+    ).toEqual({ reason: 'school_not_allowlisted', schoolId: 77 });
+  });
+
+  it('delegates: an allowlist refusal happens before ANY eligibility call', () => {
+    checkProvisionGate(session({ school_id: 77, status: 'cancelada' }), {
+      ...ON,
+      ZOOM_SCHOOL_ALLOWLIST: '12',
+    });
+    expect(spyCheckSessionEligibility).not.toHaveBeenCalled();
+  });
+
+  it('delegates: once rollout passes, canonical eligibility is called exactly once with the row', () => {
+    const row = session({ school_id: 12, status: 'borrador' });
+    expect(checkProvisionGate(row, { ...ON, ZOOM_SCHOOL_ALLOWLIST: '12' })).toEqual({
+      reason: 'session_ineligible',
+      check: 'status',
+    });
+    expect(spyCheckSessionEligibility).toHaveBeenCalledTimes(1);
+    expect(spyCheckSessionEligibility).toHaveBeenCalledWith(row);
+  });
+
+  it('agrees with checkZoomRolloutPolicy on every rollout outcome for the same school and env', () => {
+    const envs: NodeJS.ProcessEnv[] = [
+      {},
+      { FEATURE_ZOOM_MEETINGS: 'false' },
+      ON,
+      { ...ON, ZOOM_SCHOOL_ALLOWLIST: '77' },
+      { ...ON, ZOOM_SCHOOL_ALLOWLIST: '12' },
+      { ...ON, ZOOM_SCHOOL_ALLOWLIST: 'colegio-77' },
+    ];
+    for (const env of envs) {
+      const rollout = checkZoomRolloutPolicy(77, env);
+      const gate = checkProvisionGate(session({ school_id: 77 }), env);
+      expect(gate).toEqual(rollout);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// checkZoomRolloutPolicy — the shared §14 layer on its own (Unit B1)
+// ---------------------------------------------------------------------------
+
+describe('checkZoomRolloutPolicy', () => {
+  it('passes with the master flag on and no allowlist', () => {
+    expect(checkZoomRolloutPolicy(77, ON)).toBeNull();
+  });
+
+  it("refuses every non-'true' master value — the exact-string convention", () => {
+    for (const value of [undefined, '', 'false', 'TRUE', 'True', '1', 'yes', ' true']) {
+      const env: NodeJS.ProcessEnv = value === undefined ? {} : { FEATURE_ZOOM_MEETINGS: value };
+      expect(checkZoomRolloutPolicy(77, env)).toEqual({ reason: 'feature_disabled' });
+    }
+  });
+
+  it('passes an allowlisted school', () => {
+    expect(checkZoomRolloutPolicy(77, { ...ON, ZOOM_SCHOOL_ALLOWLIST: '12, 77' })).toBeNull();
+  });
+
+  it('refuses a school outside a non-empty allowlist, naming the school', () => {
+    expect(checkZoomRolloutPolicy(77, { ...ON, ZOOM_SCHOOL_ALLOWLIST: '12' })).toEqual({
+      reason: 'school_not_allowlisted',
+      schoolId: 77,
+    });
+  });
+
+  it('a malformed non-empty allowlist fails closed rather than opening every school', () => {
+    expect(checkZoomRolloutPolicy(77, { ...ON, ZOOM_SCHOOL_ALLOWLIST: 'colegio-77' })).toEqual({
+      reason: 'school_not_allowlisted',
+      schoolId: 77,
+    });
+  });
+
+  it('treats an unset, empty or whitespace-only allowlist as every school', () => {
+    for (const raw of [undefined, '', '   ']) {
+      const env: NodeJS.ProcessEnv = raw === undefined ? ON : { ...ON, ZOOM_SCHOOL_ALLOWLIST: raw };
+      expect(checkZoomRolloutPolicy(77, env)).toBeNull();
+    }
+  });
+
+  it('never invokes session eligibility — a draft can ask without being programada', () => {
+    checkZoomRolloutPolicy(77, ON);
+    checkZoomRolloutPolicy(77, {});
+    checkZoomRolloutPolicy(77, { ...ON, ZOOM_SCHOOL_ALLOWLIST: '12' });
+    expect(spyCheckSessionEligibility).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cleanup stays flag-free after the rollout-policy extraction (Unit B1)
+// ---------------------------------------------------------------------------
+
+describe('cleanup ignores the rollout policy', () => {
+  const OFF_AND_OUT: NodeJS.ProcessEnv = {
+    FEATURE_ZOOM_MEETINGS: 'false',
+    ZOOM_SCHOOL_ALLOWLIST: '12',
+  };
+
+  it('checkCleanupGate passes durable managed intent with no environment at all', () => {
+    expect(checkCleanupGate(session({ school_id: 77, status: 'cancelada' }))).toBeNull();
+    expect(spyCheckSessionEligibility).not.toHaveBeenCalled();
+  });
+
+  it('enqueues meeting_delete with the master flag off AND the school outside the allowlist', async () => {
+    const queue = { enqueue: vi.fn().mockResolvedValue('enqueued') } as unknown as ZoomJobQueue;
+    const outcome = await enqueueSessionMeetingDelete({
+      session: session({ school_id: 77, status: 'cancelada', is_zoom_managed: true }),
+      queue,
+      env: OFF_AND_OUT,
+    });
+    expect(outcome).toEqual({
+      status: 'enqueued',
+      dedupeKey: `meeting_delete:consultor_session:${SESSION_ID}`,
+    });
+    expect(queue.enqueue).toHaveBeenCalledTimes(1);
+    expect(checkZoomRolloutPolicy(77, OFF_AND_OUT)).not.toBeNull();
+  });
+
+  it('still refuses an unmanaged session, and never touches the queue', async () => {
+    const queue = { enqueue: vi.fn() } as unknown as ZoomJobQueue;
+    const outcome = await enqueueSessionMeetingDelete({
+      session: session({ status: 'cancelada', is_zoom_managed: false }),
+      queue,
+      env: ON,
+    });
+    expect(outcome).toEqual({ status: 'skipped', refusal: { reason: 'not_managed' } });
+    expect(queue.enqueue).not.toHaveBeenCalled();
   });
 });
 

@@ -47,12 +47,13 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
   const [importResults, setImportResults] = useState<ImportResult[] | null>(null);
   const [showPasswords, setShowPasswords] = useState(false);
   const [step, setStep] = useState<'input' | 'preview' | 'results'>('input');
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [passwords, setPasswords] = useState<{ email: string; password: string }[]>([]);
-
-  // Options
-  const [globalPassword, setGlobalPassword] = useState('');
-  const [useGlobalPassword, setUseGlobalPassword] = useState(true);
+  // S10: the one-time credentials come back in the import response itself.
+  // There is no `sessionId` and no second request: the previous design stashed
+  // them in a module-level Map on the server, which on a serverless platform
+  // routinely returned an empty list because the retrieval request landed on a
+  // different instance — and, when it did not, let any admin who learned a
+  // batch id fetch another admin's credentials.
+  const [credentials, setCredentials] = useState<{ email: string; password: string }[]>([]);
 
   // Organizational data
   const [schools, setSchools] = useState<School[]>([]);
@@ -131,12 +132,6 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
       return;
     }
 
-    // Validate global password if using it
-    if (useGlobalPassword && globalPassword.length < 8) {
-      toast.error('La contraseña debe tener al menos 8 caracteres');
-      return;
-    }
-
     if (!csvText.trim()) {
       toast.error('Por favor ingrese datos para importar');
       return;
@@ -144,7 +139,6 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
 
     const result = parseBulkUserData(csvText, {
       validateRut: false, // RUT validation disabled
-      generatePasswords: !useGlobalPassword, // Only generate if not using global password
       organizationalScope: {
         globalSchoolId: globalSchoolId || undefined,
         globalGenerationId: globalGenerationId || undefined,
@@ -194,8 +188,6 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
           csvData: csvText,
           options: {
             validateRut: false,
-            generatePasswords: !useGlobalPassword,
-            globalPassword: useGlobalPassword ? globalPassword : undefined,
             organizationalScope: {
               globalSchoolId: globalSchoolId || undefined,
               globalGenerationId: globalGenerationId || undefined,
@@ -214,9 +206,15 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
       setImportResults(data.results);
       setStep('results');
 
-      // Store sessionId if provided
-      if (data.sessionId) {
-        setSessionId(data.sessionId);
+      // S10: one-time credentials, delivered inline. Held in component state
+      // for as long as this modal is open and never fetched again.
+      setCredentials(Array.isArray(data.credentials) ? data.credentials : []);
+
+      if (data.audited === false) {
+        toast('La importación se registró, pero no se pudo escribir la auditoría.', {
+          icon: '⚠️',
+          style: { background: '#FEF3C7', color: '#92400E' },
+        });
       }
 
       const succeeded = data.summary.succeeded;
@@ -248,8 +246,8 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
     setInvalidUsers([]);
     setImportResults(null);
     setStep('input');
-    setSessionId(null);
-    setPasswords([]);
+    setCredentials([]);
+    setShowPasswords(false);
     // Keep organizational selections for next import
   };
 
@@ -258,40 +256,6 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
     setGlobalSchoolId('');
     setGlobalGenerationId('');
     setGlobalCommunityId('');
-    setGlobalPassword('');
-    setUseGlobalPassword(true);
-  };
-
-  const retrievePasswords = async () => {
-    if (!sessionId) return;
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      const response = await fetch('/api/admin/retrieve-import-passwords', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`
-        },
-        body: JSON.stringify({ sessionId })
-      });
-
-      if (!response.ok) {
-        throw new Error('Error al recuperar contraseñas');
-      }
-
-      const data = await response.json();
-      setPasswords(data.passwords);
-      setShowPasswords(true);
-      toast.success('Contraseñas recuperadas. Esta información solo está disponible una vez.');
-
-      // Clear sessionId as passwords can only be retrieved once
-      setSessionId(null);
-    } catch (error) {
-      console.error('Error retrieving passwords:', error);
-      toast.error('Error al recuperar contraseñas');
-    }
   };
 
   const handleClose = () => {
@@ -336,13 +300,13 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
   };
 
   const copyCredentials = () => {
-    if (passwords.length === 0) {
-      toast.error('Primero debe recuperar las contraseñas');
+    if (credentials.length === 0) {
+      toast.error('No hay credenciales para copiar');
       return;
     }
 
-    const text = passwords
-      .map(p => `${p.email}\t${p.password}`)
+    const text = credentials
+      .map(c => `${c.email}\t${c.password}`)
       .join('\n');
 
     navigator.clipboard.writeText(text);
@@ -529,53 +493,38 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
                 </div>
               </div>
 
-              {/* Password Configuration */}
+              {/* Password Configuration (S11) */}
+              {/*
+                The "Usar misma contraseña para todos" checkbox lived here, and
+                it was checked by DEFAULT — one operator-chosen password handed
+                to every account in the import. It is gone, and the API rejects
+                the option outright so an older client cannot reinstate it.
+                Operators are guided toward the one safe path instead.
+              */}
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+                <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
                   <Key className="h-4 w-4 mr-2 text-[#0a0a0a]" />
-                  Contraseña Inicial
+                  Contraseñas iniciales
                 </h4>
-                <div className="space-y-3">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={useGlobalPassword}
-                      onChange={(e) => setUseGlobalPassword(e.target.checked)}
-                      className="rounded border-gray-300 text-[#0a0a0a] focus:ring-[#0a0a0a]"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">Usar misma contraseña para todos</span>
-                  </label>
-
-                  {useGlobalPassword && (
-                    <div>
-                      <input
-                        type="text"
-                        value={globalPassword}
-                        onChange={(e) => setGlobalPassword(e.target.value)}
-                        placeholder="Ingrese la contraseña inicial (mín. 8 caracteres)"
-                        className={`w-full p-2 border rounded-md text-sm ${
-                          globalPassword.length > 0 && globalPassword.length < 8
-                            ? 'border-red-300 bg-red-50'
-                            : 'border-gray-300'
-                        }`}
-                      />
-                      {globalPassword.length > 0 && globalPassword.length < 8 && (
-                        <p className="text-xs text-red-600 mt-1">
-                          La contraseña debe tener al menos 8 caracteres
-                        </p>
-                      )}
-                      <p className="text-xs text-gray-500 mt-1">
-                        Los usuarios deberán cambiar esta contraseña en su primer inicio de sesión.
-                      </p>
-                    </div>
-                  )}
-
-                  {!useGlobalPassword && (
-                    <p className="text-xs text-gray-500">
-                      Se generará una contraseña aleatoria para cada usuario.
-                    </p>
-                  )}
-                </div>
+                <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
+                  <li>
+                    Cada usuario recibe una <strong>contraseña única</strong>, generada de forma
+                    segura. No se comparte una misma contraseña entre personas.
+                  </li>
+                  <li>
+                    Todos deberán <strong>cambiarla en su primer inicio de sesión</strong>; hasta
+                    entonces no podrán usar la plataforma.
+                  </li>
+                  <li>
+                    Las contraseñas se muestran <strong>una sola vez</strong>, al terminar la
+                    importación. Cópialas antes de cerrar esta ventana y entrégalas por un medio
+                    seguro.
+                  </li>
+                  <li>
+                    Si tu archivo incluye una columna <code>password</code>, esa contraseña se
+                    usará y debe cumplir la política de seguridad.
+                  </li>
+                </ul>
               </div>
 
               <div className="flex justify-between items-center">
@@ -710,26 +659,19 @@ usuario3@ejemplo.cl,Pedro,Soto,consultor`}
                   Resultados de Importación
                 </h4>
                 <div className="flex items-center space-x-2">
-                  {sessionId && (
-                    <button
-                      onClick={retrievePasswords}
-                      className="inline-flex items-center px-3 py-1.5 border border-brand_accent text-sm font-medium rounded-md text-brand_accent bg-brand_beige hover:bg-amber-100"
-                    >
-                      <Key className="h-4 w-4 mr-1" />
-                      Recuperar Contraseñas
-                    </button>
-                  )}
-                  {passwords.length > 0 && (
+                  {credentials.length > 0 && (
                     <button
                       onClick={() => setShowPasswords(!showPasswords)}
+                      data-testid="bulk-toggle-passwords"
                       className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                     >
                       {showPasswords ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   )}
-                  {passwords.length > 0 && (
+                  {credentials.length > 0 && (
                     <button
                       onClick={copyCredentials}
+                      data-testid="bulk-copy-credentials"
                       className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                     >
                       <Copy className="h-4 w-4 mr-1" />
@@ -747,15 +689,20 @@ usuario3@ejemplo.cl,Pedro,Soto,consultor`}
               </div>
 
               {/* Security Notice */}
-              {passwords.length > 0 && (
+              {credentials.length > 0 && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
                   <div className="flex">
                     <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
                     <div className="ml-3">
-                      <h4 className="text-sm font-medium text-yellow-900">Aviso de Seguridad</h4>
+                      <h4 className="text-sm font-medium text-yellow-900">Aviso de seguridad</h4>
                       <p className="text-sm text-yellow-700 mt-1">
-                        Las contraseñas han sido recuperadas. Por seguridad, solo pueden recuperarse una vez.
-                        Asegúrese de copiarlas o compartirlas de forma segura con los usuarios.
+                        Estas contraseñas se muestran <strong>una sola vez</strong> y no quedan
+                        guardadas en ninguna parte. Cópialas ahora y entrégalas por un medio seguro;
+                        al cerrar esta ventana no será posible recuperarlas.
+                      </p>
+                      <p className="text-sm text-yellow-700 mt-1">
+                        Si se pierden, restablece la contraseña de la persona desde la lista de
+                        usuarios.
                       </p>
                     </div>
                   </div>
@@ -820,9 +767,9 @@ usuario3@ejemplo.cl,Pedro,Soto,consultor`}
                         <td className="px-4 py-3 text-sm text-gray-900">{result.email}</td>
                         <td className="px-4 py-3 text-sm text-gray-900 font-mono">
                           {(() => {
-                            const pwd = passwords.find(p => p.email === result.email);
-                            if (pwd && showPasswords) {
-                              return pwd.password;
+                            const issued = credentials.find(c => c.email === result.email);
+                            if (issued && showPasswords) {
+                              return issued.password;
                             }
                             return result.success ? '••••••••' : '-';
                           })()}
@@ -851,7 +798,7 @@ usuario3@ejemplo.cl,Pedro,Soto,consultor`}
               </button>
               <button
                 onClick={handleParse}
-                disabled={!globalSchoolId || loadingOrgData || (useGlobalPassword && globalPassword.length < 8)}
+                disabled={!globalSchoolId || loadingOrgData}
                 className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#002844] transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Continuar

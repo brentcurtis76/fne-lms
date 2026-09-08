@@ -1,8 +1,206 @@
-import { useState, useEffect, useRef } from 'react';
+// The default React import is required for the classic JSX transform Vitest
+// uses (Next.js compiles with the automatic runtime and does not need it).
+// `pages/login.tsx` carries it for the same reason.
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import Head from 'next/head';
 import Link from 'next/link';
+import { PASSWORD_RULES, firstPasswordPolicyError } from '../lib/auth/password-policy';
+
+/**
+ * Password recovery.
+ *
+ * ==========================================================================
+ * WHAT WAS BROKEN, in three rounds. The third is the one that matters.
+ * ==========================================================================
+ *
+ * ROUND ONE (S12). The page's first action was `getSession()`, and ANY session
+ * satisfied it. A signed-in visitor got a working password form with no
+ * credential at all, and opening SOMEONE ELSE'S expired link while signed in
+ * changed YOUR password.
+ *
+ * ROUND TWO closed four holes in that fix: the legacy fragment branch still
+ * trusted the session; `detectSessionInUrl` raced the page for the URL;
+ * `signOut()`'s `{ error }` return was ignored; and the password write still
+ * happened in the browser with no audit row.
+ *
+ * ROUND THREE — the finding this version answers. Round two moved the write to
+ * the server, which was right, and then PROVED IDENTITY TO THAT SERVER WITH AN
+ * ACCESS TOKEN. The page consumed the recovery material here (`verifyOtp`), took
+ * the session that fell out of it, and posted that token as a bearer credential.
+ * `/api/auth/recovery-complete` called `auth.getUser(token)` and changed the
+ * named account's password.
+ *
+ * `getUser` proves a token is valid and says whose it is. It does not say WHAT
+ * MINTED IT — and an ordinary password login mints an indistinguishable token.
+ * So any signed-in account could post its own access token to that endpoint and
+ * set a new password with no link and no current password. The S12 defect,
+ * closed in the page, had reopened one layer down at the API.
+ *
+ * ==========================================================================
+ * WHAT REPLACES IT: THIS PAGE VERIFIES NOTHING.
+ * ==========================================================================
+ *
+ *   THE BROWSER NO LONGER CONSUMES THE CREDENTIAL. There is no `verifyOtp`, no
+ *   `exchangeCodeForSession`, no `setSession`, no `getUser` and no `getSession`
+ *   anywhere on this page. The one-time `token_hash` is forwarded to
+ *   `/api/auth/recovery/exchange`, which consumes it server-side and stores the
+ *   resulting opaque, short-lived grant in an HttpOnly cookie scoped to the
+ *   recovery endpoints. THIS PAGE NEVER HOLDS THE GRANT AT ALL: the fourth
+ *   independent review found the previous version kept it in a React ref, so a
+ *   refresh or tab remount silently destroyed a live recovery context. Now the
+ *   browser re-presents the cookie, `/api/auth/recovery/context` says whether
+ *   the ceremony is still open (a read-only peek — it consumes no attempt), and
+ *   `/api/auth/recovery/complete` reads the grant from the cookie alone.
+ *
+ *   ONE FORMAT IS ACCEPTED, and it is the format this application itself sends.
+ *   `lib/auth/recovery-link.ts` builds every recovery URL the platform emits —
+ *   invitation, resend, and now self-service too (`/api/auth/recovery-request`) —
+ *   as `/reset-password?token_hash=...&type=recovery`.
+ *
+ *   THE OTHER FORMATS ARE REFUSED BY NAME. An implicit `#access_token=` fragment
+ *   is an ORDINARY SESSION CREDENTIAL: there is no server-side check that could
+ *   tell it apart from a login, so accepting it would be the same defect wearing
+ *   a different hat. A PKCE `?code=` can only be exchanged with a verifier held
+ *   in this browser, so there is nothing the server could verify. Both get a
+ *   plain es-CL "solicita un enlace nuevo" instead of a fall-through.
+ *
+ *   THE FORM OPENS ONLY AFTER EXCHANGE. Provider policy rejection, 5xx, and
+ *   network failure do not require a second e-mail: the grant remains usable
+ *   until its short lifetime or bounded attempt count ends.
+ *
+ *   ANY PRE-EXISTING SESSION IS SIGNED OUT before the form opens, and the
+ *   `{ error }` return is checked. Nothing here depends on a session any more,
+ *   so this is defence in depth rather than the control — but a recovery form
+ *   rendered over somebody else's live session is a state worth refusing.
+ *
+ *   NOTHING IS LOGGED. No hash, no fragment, no URL and no password reaches the
+ *   console or any response body.
+ */
+
+type Phase = 'validating' | 'ready' | 'invalid' | 'updated';
+
+/** What the URL carried, read once and synchronously. */
+export interface RecoveryMaterial {
+  tokenHash: string | null;
+  code: string | null;
+  rawToken: string | null;
+  /** The declared `type`, if the link carried one. */
+  type: string | null;
+  /**
+   * Whether the URL carried an implicit-flow fragment of ANY completeness.
+   * Recorded only so the page can refuse it explicitly.
+   */
+  hasImplicitFragment: boolean;
+}
+
+export const RECOVERY_MESSAGES = {
+  expired:
+    'El enlace de recuperación no es válido o ya expiró. Solicita uno nuevo desde la página de inicio de sesión.',
+  missing:
+    'Este enlace no es válido. Para cambiar tu contraseña, solicita un enlace de recuperación desde la página de inicio de sesión.',
+  rawToken:
+    'El enlace no contiene la información necesaria. Solicita un enlace de recuperación nuevo desde la página de inicio de sesión.',
+  wrongType:
+    'Este enlace no sirve para cambiar la contraseña. Solicita un enlace de recuperación desde la página de inicio de sesión.',
+  unsupportedFormat:
+    'Este enlace usa un formato que ya no aceptamos por seguridad. Solicita un enlace de recuperación nuevo desde la página de inicio de sesión.',
+  signOutFailed:
+    'No pudimos cerrar la sesión anterior de forma segura, así que no abrimos el formulario. Cierra sesión e intenta con el enlace nuevamente.',
+  mismatch: 'Las contraseñas no coinciden',
+  samePassword: 'La nueva contraseña debe ser diferente a la anterior',
+  weak: 'La contraseña no cumple con los requisitos de seguridad del sistema',
+  generic: 'No se pudo actualizar la contraseña. Inténtalo nuevamente.',
+  grantUnavailable:
+    'No pudimos preparar la recuperación. Inténtalo nuevamente en unos momentos.',
+  success: 'Contraseña actualizada exitosamente',
+} as const;
+
+/**
+ * Reads recovery material out of a URL. Pure, exported, and tested directly.
+ *
+ * It only reads. Every judgement about what is usable lives in
+ * `judgeRecoveryMaterial` below, so the admission rule is one function that can
+ * be asserted on directly rather than a sequence of early returns in an effect.
+ */
+export function readRecoveryMaterial(search: string, hash: string): RecoveryMaterial {
+  const query = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+  const fragment = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
+
+  const accessToken = fragment.get('access_token');
+  const refreshToken = fragment.get('refresh_token');
+  const fragmentType = fragment.get('type');
+
+  return {
+    tokenHash: query.get('token_hash'),
+    code: query.get('code'),
+    rawToken: query.get('token'),
+    type: query.get('type') ?? fragmentType,
+    // Recorded so the page can REFUSE it by name rather than ignoring it. See
+    // the header: a fragment access token is an ordinary session credential and
+    // is not recovery proof.
+    hasImplicitFragment: Boolean(accessToken || refreshToken || fragmentType),
+  };
+}
+
+export function hasRecoveryMaterial(material: RecoveryMaterial): boolean {
+  return Boolean(
+    material.tokenHash || material.code || material.rawToken || material.hasImplicitFragment
+  );
+}
+
+/** The only `type` this page will act on. Absent means recovery. */
+function typeIsRecovery(material: RecoveryMaterial): boolean {
+  return material.type === null || material.type === 'recovery';
+}
+
+/**
+ * The verdict this page reaches from the URL alone, with no network call.
+ *
+ * Exported and pure so it can be asserted directly: it is the whole of the
+ * page's admission logic, and it admits exactly ONE shape.
+ */
+export type UsableMaterial = { usable: true; tokenHash: string };
+export type UnusableMaterial = { usable: false; message: string };
+export type MaterialVerdict = UsableMaterial | UnusableMaterial;
+
+/** A guard, not truthiness: this project compiles with `strict: false`. */
+export function isUnusableMaterial(verdict: MaterialVerdict): verdict is UnusableMaterial {
+  return verdict.usable === false;
+}
+
+export function judgeRecoveryMaterial(material: RecoveryMaterial): MaterialVerdict {
+  if (!hasRecoveryMaterial(material)) {
+    return { usable: false, message: RECOVERY_MESSAGES.missing };
+  }
+
+  // An implicit fragment carries an ORDINARY ACCESS TOKEN. Refused by name,
+  // before anything else looks at it, because "it says type=recovery" was the
+  // admission ticket that let a hand-typed fragment open this form.
+  if (material.hasImplicitFragment) {
+    return { usable: false, message: RECOVERY_MESSAGES.unsupportedFormat };
+  }
+
+  if (!typeIsRecovery(material)) {
+    return { usable: false, message: RECOVERY_MESSAGES.wrongType };
+  }
+
+  // PKCE. The code can only be exchanged with a verifier this browser holds, so
+  // there is nothing the SERVER could verify — and the server is where the
+  // ceremony now lives. Every link this platform sends is `token_hash`.
+  if (material.code) {
+    return { usable: false, message: RECOVERY_MESSAGES.unsupportedFormat };
+  }
+
+  // A raw `{{ .Token }}` link needs the account's e-mail to verify, and the page
+  // does not have it.
+  if (!material.tokenHash) {
+    return { usable: false, message: RECOVERY_MESSAGES.rawToken };
+  }
+
+  return { usable: true, tokenHash: material.tokenHash };
+}
 
 export default function ResetPasswordPage() {
   const supabase = useSupabaseClient();
@@ -12,272 +210,203 @@ export default function ResetPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isValidatingToken, setIsValidatingToken] = useState(true);
-  const [hasValidSession, setHasValidSession] = useState(false);
+  const [phase, setPhase] = useState<Phase>('validating');
 
-  // Use ref to track if we've already attempted token processing
-  // IMPORTANT: Don't reset these on mount - they persist to prevent double-processing in Strict Mode
-  const processingRef = useRef(false);
-  const hasProcessedRef = useRef(false);
-  const mountCountRef = useRef(0);
+  /**
+   * The URL, captured during the FIRST RENDER via a lazy initialiser — before
+   * any effect of this page or any other component can run, and before the
+   * router has a chance to rewrite the query. Combined with
+   * `detectSessionInUrl: false` on the shared client, this is what removes the
+   * initialisation race entirely rather than narrowing it.
+   */
+  const [material] = useState<RecoveryMaterial>(() =>
+    typeof window === 'undefined'
+      ? readRecoveryMaterial('', '')
+      : readRecoveryMaterial(window.location.search, window.location.hash)
+  );
+
+  /** The admission decision runs at most once per page load. */
+  const judgedRef = useRef(false);
+
+  const stripUrl = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    window.history.replaceState({}, '', '/reset-password');
+  }, []);
+
+  const fail = useCallback((text: string) => {
+    setMessage(text);
+    setPhase('invalid');
+  }, []);
 
   useEffect(() => {
-    mountCountRef.current += 1;
-    const currentMount = mountCountRef.current;
+    if (judgedRef.current) return;
+    judgedRef.current = true;
 
-    // Handle the password reset token
-    const handleRecoveryToken = async () => {
-      // First, always check for existing session - this handles cases where
-      // the token was already processed (Strict Mode, email client prefetch, etc.)
-      const { data: { session: existingSession } } = await supabase.auth.getSession();
-      if (existingSession) {
-        setHasValidSession(true);
-        setIsValidatingToken(false);
-        // Clean up URL if it has tokens
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('code') || urlParams.get('token_hash') || urlParams.get('token')) {
-          window.history.replaceState({}, '', '/reset-password');
-        }
-        return;
-      }
+    const admit = async () => {
+      const verdict = judgeRecoveryMaterial(material);
 
-      // Prevent double-processing in React Strict Mode
-      if (processingRef.current || hasProcessedRef.current) {
-        // Wait and check for session that might have been established by the other mount
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          setHasValidSession(true);
-          setIsValidatingToken(false);
-        } else {
-          // No session after waiting - show error
-          setMessage('Error al validar el enlace de recuperación. El enlace puede haber expirado o ya fue utilizado. Por favor solicita un nuevo enlace.');
-          setIsValidatingToken(false);
-        }
-        return;
-      }
-
-      processingRef.current = true;
-
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-      const token = urlParams.get('token');
-      const tokenHash = urlParams.get('token_hash');
-
-      // Check for implicit flow: #access_token=xxx&type=recovery (legacy)
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const hashType = hashParams.get('type');
-      const accessToken = hashParams.get('access_token');
-
-      // Method 1: Handle token_hash (from Supabase email links with PKCE)
-      if (tokenHash) {
-
-        try {
-          const { data, error } = await supabase.auth.verifyOtp({
-            token_hash: tokenHash,
-            type: 'recovery'
-          });
-
-          // Clean URL AFTER verification attempt
-          window.history.replaceState({}, '', '/reset-password');
-          hasProcessedRef.current = true;
-
-          if (error) {
-            console.error('[ResetPassword] Error verifying token_hash:', error);
-            // Check if session was somehow established despite error
-            const { data: { session: retrySession } } = await supabase.auth.getSession();
-            if (retrySession) {
-              setHasValidSession(true);
-              setIsValidatingToken(false);
+      if (isUnusableMaterial(verdict)) {
+        // A BARE visit — no material of any kind — may be a refresh or a tab
+        // remount of an already-exchanged recovery context: the HttpOnly cookie
+        // survives both, so ask the server whether the ceremony is still open.
+        // The probe is read-only and consumes no attempt. URLs that DO carry
+        // material in a refused format are still refused by name, exactly as
+        // before — a live cookie must not launder an unsupported link shape.
+        if (!hasRecoveryMaterial(material)) {
+          try {
+            const context = await fetch('/api/auth/recovery/context');
+            const state = (await context.json().catch(() => ({}))) as { active?: unknown };
+            if (context.ok && state.active === true) {
+              stripUrl();
+              setPhase('ready');
               return;
             }
-            setMessage('Error al validar el enlace de recuperación. El enlace puede haber expirado. Por favor solicita un nuevo enlace.');
-            setIsValidatingToken(false);
-            return;
+          } catch {
+            // Fall through to the ordinary refusal below.
           }
-
-          if (data.session) {
-            setHasValidSession(true);
-            setIsValidatingToken(false);
-            return;
-          }
-        } catch (err) {
-          console.error('[ResetPassword] Exception verifying token_hash:', err);
-          window.history.replaceState({}, '', '/reset-password');
-          hasProcessedRef.current = true;
-          setMessage('Error al validar el enlace de recuperación. Por favor solicita un nuevo enlace.');
-          setIsValidatingToken(false);
-          return;
         }
-      }
-
-      // Method 2: Handle raw token (from custom email template with {{ .Token }})
-      if (token) {
-        hasProcessedRef.current = true;
-        // Raw tokens need the user's email to verify - we don't have it here
-        setMessage('Error: El enlace no contiene la información necesaria. Por favor solicita un nuevo enlace de recuperación.');
-        setIsValidatingToken(false);
+        stripUrl();
+        fail(verdict.message);
         return;
       }
 
-      // Method 3: Handle PKCE code (from standard Supabase flow)
-      if (code) {
-        try {
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-
-          // Clean URL AFTER exchange attempt
-          window.history.replaceState({}, '', '/reset-password');
-          hasProcessedRef.current = true;
-
-          if (error) {
-            console.error('[ResetPassword] Error exchanging code:', error);
-            // Check if session was somehow established despite error
-            const { data: { session: retrySession } } = await supabase.auth.getSession();
-            if (retrySession) {
-              setHasValidSession(true);
-              setIsValidatingToken(false);
-              return;
-            }
-            setMessage('Error al validar el enlace de recuperación. El enlace puede haber expirado. Por favor solicita un nuevo enlace.');
-            setIsValidatingToken(false);
-            return;
-          }
-
-          if (data.session) {
-            setHasValidSession(true);
-            setIsValidatingToken(false);
-            return;
-          }
-        } catch (err) {
-          console.error('[ResetPassword] Exception exchanging code:', err);
-          window.history.replaceState({}, '', '/reset-password');
-          hasProcessedRef.current = true;
-          // Check if session exists despite exception
-          const { data: { session: retrySession } } = await supabase.auth.getSession();
-          if (retrySession) {
-            setHasValidSession(true);
-            setIsValidatingToken(false);
-            return;
-          }
-          setMessage('Error al validar el enlace de recuperación. Por favor solicita un nuevo enlace.');
-          setIsValidatingToken(false);
+      // --- Discard any pre-existing session BEFORE opening the form ----------
+      // Nothing here depends on a session any more, so this is not load-bearing
+      // for identity — but a recovery form rendered over somebody else's live
+      // session is a confusing and dangerous state, and the previous defect was
+      // exactly a session surviving into a decision about who you are.
+      // `scope: 'local'` because the goal is that THIS TAB has nothing; revoking
+      // the person's other devices because they clicked a link would be punitive.
+      //
+      // The RETURN VALUE is checked: supabase-js reports failure as `{ error }`
+      // rather than throwing, so a try/catch alone cannot see it.
+      try {
+        const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
+        if (signOutError) {
+          stripUrl();
+          fail(RECOVERY_MESSAGES.signOutFailed);
           return;
         }
-      }
-
-      // Handle implicit flow with hash fragment (legacy)
-      if (hashType === 'recovery' && accessToken) {
-        hasProcessedRef.current = true;
-
-        // Give Supabase time to process the token
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
-        const { data: { session }, error } = await supabase.auth.getSession();
-
-        if (error) {
-          console.error('[ResetPassword] Error getting session:', error);
-          setMessage('Error al validar el enlace de recuperación. El enlace puede haber expirado.');
-          setIsValidatingToken(false);
-          return;
-        }
-
-        if (session) {
-          setHasValidSession(true);
-          setIsValidatingToken(false);
-          return;
-        }
-      }
-
-      // No recovery token found in URL
-      hasProcessedRef.current = true;
-
-      // Wait a moment and check session one more time
-      // (auth state listener might have processed it)
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const { data: { session: finalSession } } = await supabase.auth.getSession();
-
-      if (!finalSession) {
-        router.push('/login');
+      } catch {
+        stripUrl();
+        fail(RECOVERY_MESSAGES.signOutFailed);
         return;
       }
 
-      setHasValidSession(true);
-      setIsValidatingToken(false);
-    };
-
-    // Listen for auth state changes (Supabase may process the token asynchronously)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        hasProcessedRef.current = true;
-        setHasValidSession(true);
-        setIsValidatingToken(false);
-      } else if (event === 'SIGNED_IN' && session) {
-        hasProcessedRef.current = true;
-        setHasValidSession(true);
-        setIsValidatingToken(false);
+      let exchange: Response;
+      try {
+        exchange = await fetch('/api/auth/recovery/exchange', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tokenHash: verdict.tokenHash, type: 'recovery' }),
+        });
+      } catch {
+        stripUrl();
+        fail(RECOVERY_MESSAGES.grantUnavailable);
+        return;
       }
-    });
 
-    handleRecoveryToken();
+      // The grant is NOT in this response and never reaches page JavaScript:
+      // the server stored it in an HttpOnly recovery-scoped cookie. On a 503
+      // the server's own message is shown — it distinguishes "try again" from
+      // the honest "the link was already consumed; request a new one".
+      const exchanged = await exchange.json().catch(() => ({} as Record<string, unknown>));
+      if (!exchange.ok || (exchanged as { ok?: unknown }).ok !== true) {
+        stripUrl();
+        fail(
+          exchange.status >= 500
+            ? (exchanged as { error?: string }).error || RECOVERY_MESSAGES.grantUnavailable
+            : RECOVERY_MESSAGES.expired
+        );
+        return;
+      }
 
-    return () => {
-      subscription.unsubscribe();
-      processingRef.current = false;
+      stripUrl();
+      setPhase('ready');
     };
-  }, [router, supabase.auth]);
+
+    void admit();
+  }, [supabase, material, fail, stripUrl]);
 
   const handlePasswordUpdate = async () => {
+    if (phase !== 'ready') return;
+
     if (password !== confirmPassword) {
-      setMessage('Las contraseñas no coinciden');
+      setMessage(RECOVERY_MESSAGES.mismatch);
       return;
     }
 
-    if (password.length < 6) {
-      setMessage('La contraseña debe tener al menos 6 caracteres');
+    // The shared policy, for usability. The endpoint re-checks it, and THAT is
+    // the boundary — this form used to be the only check anywhere.
+    const policyError = firstPasswordPolicyError(password);
+    if (policyError) {
+      setMessage(policyError);
       return;
     }
 
     setLoading(true);
     try {
-      // Verify we have a valid session before attempting update
-      const { data: { session } } = await supabase.auth.getSession();
+      // The e-mailed one-time proof has already been exchanged, and the bounded
+      // grant lives in an HttpOnly cookie the browser presents by itself. The
+      // request body carries ONLY the new password.
+      //
+      // No Authorization header. There is deliberately no session credential in
+      // this request: an access token is not proof of a recovery, and the
+      // endpoint would refuse one anyway because it never reads one.
+      const response = await fetch('/api/auth/recovery/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword: password }),
+      });
 
-      if (!session) {
-        console.error('[ResetPassword] No session found when updating password');
-        setMessage('Tu sesión ha expirado. Por favor solicita un nuevo enlace de recuperación.');
+      const result = await response.json().catch(() => ({} as Record<string, unknown>));
+
+      if (!response.ok) {
+        const code = (result as { code?: string }).code;
+
+        if (code === 'RECOVERY_GRANT_INVALID' || code === 'RECOVERY_ATTEMPTS_EXHAUSTED') {
+          // Terminal; the server also cleared the recovery cookie.
+          setMessage(RECOVERY_MESSAGES.expired);
+          setPhase('invalid');
+          return;
+        }
+
+        if (code === 'RECOVERY_ATTEMPT_INTERRUPTED') {
+          // Ambiguous provider outcome: the ceremony is closed and the server's
+          // message honestly tells the user to TEST the password they typed.
+          setMessage((result as { error?: string }).error || RECOVERY_MESSAGES.expired);
+          setPhase('invalid');
+          return;
+        }
+
+        // Provider policy and transient failures leave the bounded grant alive.
+        // The endpoint's message is es-CL and contains no provider wording.
+        setMessage((result as { error?: string }).error || RECOVERY_MESSAGES.generic);
         return;
       }
 
-      const { error } = await supabase.auth.updateUser({
-        password: password
-      });
-
-      if (error) {
-        console.error('[ResetPassword] Update error:', error);
-        setMessage('Error al actualizar contraseña: ' + error.message);
-      } else {
-        const { error: profileFlagError } = await supabase
-          .from('profiles')
-          .update({ must_change_password: false })
-          .eq('id', session.user.id);
-
-        if (profileFlagError) {
-          console.error('[ResetPassword] Could not clear password-change flag:', profileFlagError);
-        }
-
-        setMessage('Contraseña actualizada exitosamente');
-        // Redirect to dashboard after successful password reset
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 2000);
-      }
-    } catch (err) {
-      console.error('Password update error:', err);
-      setMessage('Error al actualizar contraseña: An unexpected error occurred');
+      setMessage(RECOVERY_MESSAGES.success);
+      setPhase('updated');
+      setTimeout(() => {
+        router.push('/login');
+      }, 2000);
+    } catch {
+      // No error object is logged: it can carry the request, and the request
+      // carries the one-time material.
+      console.error('[ResetPassword] the completion request failed');
+      setMessage(RECOVERY_MESSAGES.generic);
     } finally {
       setLoading(false);
     }
   };
+
+  const isValidatingToken = phase === 'validating';
+
+  // The banner used to pick its colour by looking for the substring "Error" in
+  // the message. None of the messages this page emits contains that word any
+  // more, so "las contraseñas no coinciden" would have rendered in the success
+  // palette. Derive it from the one thing that actually distinguishes them.
+  const isErrorMessage = Boolean(message) && message !== RECOVERY_MESSAGES.success;
 
   // Show loading state while validating token
   if (isValidatingToken) {
@@ -287,9 +416,66 @@ export default function ResetPasswordPage() {
           <title>Restablecer Contraseña | Genera</title>
         </Head>
         <div className="min-h-screen flex items-center justify-center bg-brand_beige">
-          <div className="text-center">
+          <div className="text-center" data-testid="reset-validating">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand_blue"></div>
             <p className="mt-2 text-gray-600">Validando enlace de recuperación...</p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // S12: an invalid, expired, reused or absent recovery link gets THIS — not a
+  // usable password form. The old page reached the form whenever any session
+  // existed, which is what let a signed-in visitor change a password with no
+  // recovery credential at all.
+  if (phase === 'invalid') {
+    return (
+      <>
+        <Head>
+          <title>Restablecer Contraseña | Genera</title>
+        </Head>
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+          <div className="w-full max-w-md text-center" data-testid="reset-invalid-link">
+            <Link href="/">
+              <img
+                src="/images/logo.png"
+                alt="Fundación Nueva Educación"
+                className="h-16 w-auto mx-auto mb-8 cursor-pointer"
+              />
+            </Link>
+
+            <div className="mx-auto mb-6 w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+              <svg className="h-8 w-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+
+            <h1 className="text-2xl font-bold text-[#0a0a0a] mb-3">
+              Enlace no válido
+            </h1>
+            <p className="text-gray-600 mb-8">
+              {message || RECOVERY_MESSAGES.missing}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => router.push('/login')}
+              data-testid="reset-invalid-back-to-login"
+              className="w-full bg-gradient-to-r from-[#0a0a0a] to-[#002844] hover:from-[#002844] hover:to-[#0a0a0a] text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-lg"
+            >
+              Ir a iniciar sesión
+            </button>
+
+            <p className="mt-8 text-sm text-gray-600">
+              ¿Necesitas ayuda?
+              <a
+                href="mailto:soporte@nuevaeducacion.org"
+                className="font-medium text-[#0a0a0a] hover:text-[#fbbf24] transition-colors duration-200 ml-1"
+              >
+                Contacta soporte
+              </a>
+            </p>
           </div>
         </div>
       </>
@@ -375,10 +561,13 @@ export default function ResetPasswordPage() {
               </p>
             </div>
 
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              handlePasswordUpdate();
-            }}>
+            <form
+              data-testid="reset-password-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handlePasswordUpdate();
+              }}
+            >
               {/* New Password input */}
               <div className="mb-6">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Nueva Contraseña</label>
@@ -394,6 +583,7 @@ export default function ResetPasswordPage() {
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     autoComplete="new-password"
+                    data-testid="reset-new-password"
                     className="w-full pl-12 pr-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent transition-all duration-200 hover:border-gray-400"
                   />
                 </div>
@@ -414,18 +604,42 @@ export default function ResetPasswordPage() {
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}
                     autoComplete="new-password"
+                    data-testid="reset-confirm-password"
                     className="w-full pl-12 pr-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent transition-all duration-200 hover:border-gray-400"
                   />
                 </div>
+              </div>
+
+              {/* Password requirements — the shared policy (S5). This form used
+                  to accept six characters with no character classes. */}
+              <div className="mb-6 bg-gray-50 rounded-lg p-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">
+                  Requisitos de la contraseña:
+                </p>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  {PASSWORD_RULES.map((rule) => {
+                    const met = rule.test(password);
+                    return (
+                      <li
+                        key={rule.id}
+                        className={`flex items-center gap-1 ${met ? 'text-green-600' : ''}`}
+                      >
+                        <span>{met ? '✓' : '•'}</span>
+                        {rule.label}
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
 
               {/* Update Password Button */}
               <div className="mb-6">
                 <button
                   type="submit"
-                  disabled={loading}
+                  data-testid="reset-submit"
+                  disabled={loading || phase === 'updated'}
                   className={`w-full font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform text-white shadow-lg
-                    ${loading
+                    ${loading || phase === 'updated'
                       ? 'bg-gray-400 cursor-not-allowed'
                       : 'bg-gradient-to-r from-[#0a0a0a] to-[#002844] hover:from-[#002844] hover:to-[#0a0a0a] hover:scale-[1.02] hover:shadow-xl'
                     }`}
@@ -449,11 +663,22 @@ export default function ResetPasswordPage() {
                 </button>
               </div>
 
-              {/* Back to Login */}
+              {/* Back to Login — abandoning an OPEN ceremony explicitly
+                  invalidates the durable grant and clears the recovery cookie,
+                  so the context cannot linger usable in this browser. */}
               <div className="text-center">
                 <button
                   type="button"
-                  onClick={() => router.push('/login')}
+                  onClick={async () => {
+                    if (phase === 'ready') {
+                      try {
+                        await fetch('/api/auth/recovery/invalidate', { method: 'POST' });
+                      } catch {
+                        // Leaving anyway; the grant still dies at its TTL.
+                      }
+                    }
+                    router.push('/login');
+                  }}
                   className="text-sm font-medium text-[#0a0a0a] hover:text-[#fbbf24] transition-colors duration-200 flex items-center justify-center mx-auto"
                 >
                   <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -465,12 +690,14 @@ export default function ResetPasswordPage() {
 
               {/* Error/success message */}
               {message && (
-                <div className={`mt-6 p-4 rounded-lg flex items-start space-x-3 animate-fade-in ${
-                  message.includes('Error')
+                <div
+                  data-testid="reset-message"
+                  className={`mt-6 p-4 rounded-lg flex items-start space-x-3 animate-fade-in ${
+                  isErrorMessage
                     ? 'bg-red-50 border border-red-200'
                     : 'bg-[#fbbf24]/10 border border-[#fbbf24]/30'
                 }`}>
-                  {message.includes('Error') ? (
+                  {isErrorMessage ? (
                     <svg className="h-5 w-5 text-red-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
@@ -480,7 +707,7 @@ export default function ResetPasswordPage() {
                     </svg>
                   )}
                   <p className={`text-sm ${
-                    message.includes('Error')
+                    isErrorMessage
                       ? 'text-red-700'
                       : 'text-[#8b6914]'
                   }`}>

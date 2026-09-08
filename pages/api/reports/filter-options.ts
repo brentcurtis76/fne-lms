@@ -2,6 +2,7 @@ import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { getUserRoles, getHighestRole } from '../../../utils/roleUtils';
+import { readClientSchoolScope } from '../../../lib/simulation/tenant-policy';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -49,6 +50,11 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
         return res.status(404).json({ error: 'User profile not found.' });
     }
 
+    // Official report selectors contain client tenants only. This is resolved on the
+    // server before any role-specific option query; an unavailable classification fails
+    // the request instead of returning a plausible but incomplete selector.
+    const clientSchools = await readClientSchoolScope(supabase);
+
     // Fetch filter data based on user role
     let schoolsData = [];
     let generationsData = [];
@@ -57,9 +63,9 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
     if (highestRole === 'admin') {
       // Admins see all options
       const [schoolsRes, generationsRes, communitiesRes] = await Promise.all([
-        supabase.from('schools').select('id, name').order('name'),
-        supabase.from('generations').select('id, name, school_id').order('name'),
-        supabase.from('growth_communities').select('id, name, generation_id, school_id').order('name')
+        supabase.from('schools').select('id, name').eq('tenant_kind', 'client').order('name'),
+        supabase.from('generations').select('id, name, school_id').in('school_id', clientSchools.ids).order('name'),
+        supabase.from('growth_communities').select('id, name, generation_id, school_id').in('school_id', clientSchools.ids).order('name')
       ]);
 
       schoolsData = schoolsRes.data || [];
@@ -69,16 +75,16 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
     } else if (highestRole === 'consultor') {
       // Consultants see all options but filtered data will be restricted by service
       const [schoolsRes, generationsRes, communitiesRes] = await Promise.all([
-        supabase.from('schools').select('id, name').order('name'),
-        supabase.from('generations').select('id, name, school_id').order('name'),
-        supabase.from('growth_communities').select('id, name, generation_id, school_id').order('name')
+        supabase.from('schools').select('id, name').eq('tenant_kind', 'client').order('name'),
+        supabase.from('generations').select('id, name, school_id').in('school_id', clientSchools.ids).order('name'),
+        supabase.from('growth_communities').select('id, name, generation_id, school_id').in('school_id', clientSchools.ids).order('name')
       ]);
 
       schoolsData = schoolsRes.data || [];
       generationsData = generationsRes.data || [];
       communitiesData = communitiesRes.data || [];
 
-    } else if (highestRole === 'equipo_directivo' && userProfile.school_id) {
+    } else if (highestRole === 'equipo_directivo' && userProfile.school_id && clientSchools.isClientSchool(userProfile.school_id)) {
       // School leadership see only their school and its related data
       const schoolRes = await supabase
         .from('schools')
@@ -104,7 +110,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
       generationsData = generationsRes.data || [];
       communitiesData = communitiesRes.data || [];
 
-    } else if (highestRole === 'lider_generacion' && userProfile.school_id && userProfile.generation_id) {
+    } else if (highestRole === 'lider_generacion' && userProfile.school_id && userProfile.generation_id && clientSchools.isClientSchool(userProfile.school_id)) {
       // Generation leaders see their school and generation
       const schoolRes = await supabase
         .from('schools')
@@ -138,7 +144,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
         .eq('id', userProfile.community_id)
         .single();
       
-      if (communityRes.data) {
+      if (communityRes.data && clientSchools.isClientSchool(communityRes.data.school_id)) {
         communitiesData = [communityRes.data];
         
         // Get the related school and generation
@@ -189,7 +195,13 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
         .eq('red_id', supervisorRole.red_id);
       
       if (networkSchools && networkSchools.length > 0) {
-        const schoolIds = networkSchools.map(ns => ns.school_id);
+        const schoolIds = networkSchools
+          .map(ns => ns.school_id)
+          .filter(id => clientSchools.isClientSchool(id));
+
+        if (schoolIds.length === 0) {
+          return res.status(200).json({ schools: [], generations: [], communities: [] });
+        }
 
         const [schoolsRes, generationsRes, communitiesRes] = await Promise.all([
           supabase

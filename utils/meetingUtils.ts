@@ -17,7 +17,6 @@ import {
   MeetingStats,
   MeetingFilters,
   MeetingSortOptions,
-  AssignmentUser,
   TaskStatus,
   MeetingStatus
 } from '../types/meetings';
@@ -477,42 +476,6 @@ export async function updateTaskStatus(
   } catch (error) {
     console.error(`Error in updateTaskStatus for ${itemType}:`, error);
     return { success: false, error: 'Error inesperado al actualizar estado' };
-  }
-}
-
-/**
- * Get community members for task assignment
- */
-export async function getCommunityMembersForAssignment(communityId: string): Promise<AssignmentUser[]> {
-  try {
-    const { data: members, error } = await supabase
-      .from('user_roles')
-      .select('user_id, role_type')
-      .eq('community_id', communityId)
-      .eq('is_active', true);
-
-    if (error) {
-      // Gracefully handle missing tables
-      if (error?.code === '42P01' || error?.message?.includes('does not exist')) {
-        console.warn('User roles table not found - feature not yet implemented');
-      } else {
-        console.error('Error fetching community members:', error);
-      }
-      return [];
-    }
-
-    return members?.map(member => ({
-      id: member.user_id,
-      first_name: 'Usuario',
-      last_name: '',
-      email: '',
-      avatar_url: null,
-      role_type: member.role_type
-    })) || [];
-
-  } catch (error) {
-    console.error('Error in getCommunityMembersForAssignment:', error);
-    return [];
   }
 }
 

@@ -111,12 +111,12 @@ function buildChainableQuery(data: unknown = null, error: unknown = null) {
  * Build a mock Supabase client for submit tests.
  *
  * The submit handler calls `from()` in this order:
- * 1. assessment_instance_assignees (SELECT + later UPDATE)
+ * 1. assessment_instance_assignees (SELECT only — has_submitted is set by the
+ *    assessment_instance_progress_flags_trg trigger, never by the user client)
  * 2. assessment_instances (SELECT)
  * 3. assessment_responses (SELECT)
  * 4. assessment_year_expectations (SELECT)
- * 5. assessment_instances (UPDATE)
- * 6. assessment_instance_assignees (UPDATE has_submitted)
+ * 5. assessment_instances (UPDATE status = completed)
  */
 function buildSubmitClient(options: {
   responsesData?: unknown[];
@@ -137,12 +137,9 @@ function buildSubmitClient(options: {
       const callN = tableCallCount[table];
 
       if (table === 'assessment_instance_assignees') {
-        if (callN === 1) {
-          // First call: SELECT
-          return buildChainableQuery(assignee, null);
-        }
-        // Second call: UPDATE has_submitted
-        return buildChainableQuery(null, null);
+        // Only ever a SELECT; a second call would be a regression (the
+        // user-client has_submitted write was removed in favour of the trigger).
+        return buildChainableQuery(callN === 1 ? assignee : null, null);
       }
 
       if (table === 'assessment_instances') {
@@ -204,6 +201,24 @@ describe('POST /api/docente/assessments/[instanceId]/submit', () => {
     expect(res._getStatusCode()).toBe(200);
     const data = JSON.parse(res._getData());
     expect(data.success).toBe(true);
+  });
+
+  it('marks the instance completed and never writes assessment_instance_assignees (trigger owns has_submitted)', async () => {
+    const client = buildSubmitClient({
+      responsesData: [
+        { indicator_id: IND_COB, coverage_value: true, frequency_value: null, profundity_level: null },
+        { indicator_id: IND_FREC, coverage_value: null, frequency_value: 5, profundity_level: null },
+      ],
+    });
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+
+    const { req, res } = createMocks({ method: 'POST', query: { instanceId: INSTANCE_ID } });
+    await submitHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(200);
+
+    const tables = client.from.mock.calls.map(c => c[0]);
+    expect(tables.filter(t => t === 'assessment_instance_assignees')).toHaveLength(1);
+    expect(tables.filter(t => t === 'assessment_instances')).toHaveLength(2);
   });
 
   it('T10: Submit with missing response for an active indicator returns 400', async () => {
@@ -416,6 +431,87 @@ describe('POST /api/docente/assessments/[instanceId]/submit', () => {
     await submitHandler(req as any, res as any);
     expect(res._getStatusCode()).toBe(400);
     expect(JSON.parse(res._getData()).error).toContain('no definido');
+  });
+
+  it('B-01: Cobertura No succeeds without downstream responses (gate-aware submit)', async () => {
+    // Active: IND_COB (cobertura) and IND_FREC (frecuencia), IND_COB first.
+    // Docente answers No on cobertura — IND_FREC becomes not applicable and
+    // must not be required.
+    mockCreateApiSupabaseClient.mockResolvedValue(
+      buildSubmitClient({
+        responsesData: [
+          { indicator_id: IND_COB, coverage_value: false, frequency_value: null, profundity_level: null },
+          // IND_FREC deliberately missing — gated out by cobertura=false
+        ],
+      })
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { instanceId: INSTANCE_ID },
+    });
+
+    await submitHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    const data = JSON.parse(res._getData());
+    expect(data.success).toBe(true);
+  });
+
+  it('B-01: stale saved downstream answer after Sí→No does not block submit or get required', async () => {
+    mockCreateApiSupabaseClient.mockResolvedValue(
+      buildSubmitClient({
+        responsesData: [
+          { indicator_id: IND_COB, coverage_value: false, frequency_value: null, profundity_level: null },
+          // A stale value saved back when cobertura was Sí — still present in
+          // storage but must not be required or block submission now that the
+          // gate is closed.
+          { indicator_id: IND_FREC, coverage_value: null, frequency_value: 7, profundity_level: null },
+        ],
+      })
+    );
+
+    const { req, res } = createMocks({ method: 'POST', query: { instanceId: INSTANCE_ID } });
+    await submitHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+  });
+
+  it('B-01: Cobertura unanswered requires only cobertura, missing list contains just it', async () => {
+    mockCreateApiSupabaseClient.mockResolvedValue(
+      buildSubmitClient({
+        responsesData: [], // nothing answered at all
+      })
+    );
+
+    const { req, res } = createMocks({ method: 'POST', query: { instanceId: INSTANCE_ID } });
+    await submitHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(400);
+    const data = JSON.parse(res._getData());
+    // Only the cobertura indicator is genuinely required while unanswered —
+    // the gated frecuencia indicator must not appear in the missing list.
+    expect(data.missingCount).toBe(1);
+    expect(data.missingIndicators).toEqual(['Indicador cobertura']);
+  });
+
+  it('B-01: Cobertura Sí requires the active downstream indicator', async () => {
+    mockCreateApiSupabaseClient.mockResolvedValue(
+      buildSubmitClient({
+        responsesData: [
+          { indicator_id: IND_COB, coverage_value: true, frequency_value: null, profundity_level: null },
+          // IND_FREC is active and the gate is open — it is required and missing.
+        ],
+      })
+    );
+
+    const { req, res } = createMocks({ method: 'POST', query: { instanceId: INSTANCE_ID } });
+    await submitHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(400);
+    const data = JSON.parse(res._getData());
+    expect(data.missingCount).toBe(1);
+    expect(data.missingIndicators).toEqual(['Indicador frecuencia']);
   });
 
   it('T-legacy: No year expectations data — validates all scorable indicators', async () => {

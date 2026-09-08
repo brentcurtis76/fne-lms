@@ -33,6 +33,12 @@ export interface Tracker {
   rpcCalls: Array<{ fn: string; args?: unknown }>;
   // Global operation log: 'from:<table>', 'rpc:<fn>', 'auth:<method>'.
   ops: string[];
+  // Arguments the auth admin helpers were called with. `generateLinkArgs`
+  // carries the `redirectTo` a caller derived from the canonical-origin helper,
+  // which is the only way to assert that an invitation link does not point
+  // wherever a request's Host header said.
+  createUserArgs?: unknown;
+  generateLinkArgs?: unknown;
 }
 
 export function makeTracker(): Tracker {
@@ -133,8 +139,9 @@ export function buildClient(
     }),
     auth: {
       admin: {
-        createUser: vi.fn(async () => {
+        createUser: vi.fn(async (args?: unknown) => {
           tracker.ops.push('auth:createUser');
+          tracker.createUserArgs = args;
           return (
             options.createUserResult ?? {
               data: { user: { id: 'stub-created-user-id' } },
@@ -142,11 +149,23 @@ export function buildClient(
             }
           );
         }),
-        generateLink: vi.fn(async () => {
+        generateLink: vi.fn(async (args?: unknown) => {
           tracker.ops.push('auth:generateLink');
+          tracker.generateLinkArgs = args;
           return (
             options.generateLinkResult ?? {
-              data: { properties: { action_link: 'https://example.com/recovery' } },
+              // F2: the application reads `hashed_token` and builds its own
+              // `/reset-password?token_hash=…&type=recovery` URL. It no longer
+              // e-mails the provider's `action_link`, whose landing format
+              // depended on a dashboard setting. Both are present here so a
+              // call site that still reaches for `action_link` is visible
+              // rather than merely undefined.
+              data: {
+                properties: {
+                  hashed_token: 'synthetic-hashed-token',
+                  action_link: 'https://example.com/recovery',
+                },
+              },
               error: null,
             }
           );

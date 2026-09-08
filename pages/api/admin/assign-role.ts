@@ -6,6 +6,7 @@ import {
   SCHOOL_SCOPED_ROLES_SET,
 } from '../../../utils/roleUtils';
 import { UserRoleType, validateRoleAssignment } from '../../../types/roles';
+import { recordSecurityAudit } from '../../../lib/security/audit';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -70,6 +71,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // incidental schoolId shape. Mirrors create-user.ts's error precedence.
     if (requesterRole === 'equipo_directivo' && !(ED_ASSIGNABLE_ROLES as readonly string[]).includes(roleType)) {
       return res.status(403).json({ error: 'Role not assignable by equipo_directivo' });
+    }
+
+    // B2a r2 channel boundary: supervisor_de_red is NOT assignable through
+    // this generic endpoint — for anyone. The role is only meaningful with a
+    // network (user_roles.red_id), which this endpoint neither collects nor
+    // writes, so the FIRST generic grant used to create an ACTIVE supervisor
+    // row with red_id NULL. uq_user_roles_one_active_supervisor (migration
+    // 20260827150000) then counted that row as the user's one active
+    // supervisor role and blocked the real, network-scoped assignment through
+    // Gestión de Redes — an active but unusable supervisor. Network
+    // supervisors are granted only via pages/api/admin/networks/supervisors.ts,
+    // which validates the network and writes red_id. Refused HERE, before any
+    // database write: no user_roles insert, no growth_communities write, no
+    // audit row, no cache refresh. Placement: after the ED-assignability gate
+    // (ED keeps its accurate 403 — Gestión de Redes is admin-only, so this
+    // message would misdirect an ED) and before the schoolId shape check (the
+    // channel refusal is the actionable error; an incidental schoolId is
+    // irrelevant to a role this endpoint will never assign). The database
+    // enforces the same invariant via chk_user_roles_active_supervisor_needs_red
+    // (migration 20260827160000), so even a future caller that skips this
+    // gate cannot persist an active supervisor without a network.
+    if (roleType === 'supervisor_de_red') {
+      return res.status(400).json({
+        error: 'El rol Supervisor de Red debe asignarse desde Gestión de Redes.'
+      });
     }
 
     // Shared schoolId shape validation: applies to BOTH admin and ED paths so
@@ -506,6 +532,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         error: roleError,
         roleInsertData
       });
+
+      // B2a r2: the correction-round-1 mapping of a supervisor 23505 to 409 was
+      // removed here as unreachable — the channel boundary above returns 400
+      // for roleType === 'supervisor_de_red' before this insert can ever run,
+      // so no supervisor row (and therefore no supervisor unique-index
+      // conflict) can originate from this endpoint anymore.
       return res.status(500).json({ error: 'Error al asignar rol' });
     }
 
@@ -573,40 +605,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       school_id: schoolId,
       community_id: finalCommunityId || null,
       generation_id: sanitizedGenerationId,
-      requester_role: requesterRole,
-      requester_user_id: requestingUser.id,
-      timestamp: new Date().toISOString(),
     };
 
-    try {
-      const auditInsertResult = await supabaseService
-        .from('audit_logs')
-        .insert({
-          user_id: requestingUser.id,
-          action: 'role_assigned',
-          table_name: 'user_roles',
-          record_id: targetUserId,
-          details: auditDetails,
-        });
-
-      if (auditInsertResult.error) {
-        console.error('[assign-role] audit_logs insert failed', {
-          target_user_id: targetUserId,
-          role_type: roleType,
-          requester_user_id: requestingUser.id,
-          requester_role: requesterRole,
-          error: auditInsertResult.error.message,
-        });
-      }
-    } catch (auditErr) {
-      // Don't fail the request — the role assignment is already committed.
-      console.error('[assign-role] audit_logs insert threw', {
-        target_user_id: targetUserId,
-        requester_user_id: requestingUser.id,
-        requester_role: requesterRole,
-        error: auditErr instanceof Error ? auditErr.message : String(auditErr),
-      });
-    }
+    // S3: durable audit. This used to target `audit_logs`, a table that does
+    // not exist, so no role assignment has ever been recorded — including
+    // equipo_directivo grants, the ones `requester_role` exists to distinguish.
+    // Actor, target, requester role and school are now COLUMNS rather than keys
+    // inside a details blob, so triage can index them; `timestamp` is gone
+    // because `occurred_at` is written by the database. Fail-open and visible:
+    // the role row is already committed.
+    await recordSecurityAudit(supabaseService, {
+      action: 'role_assigned',
+      outcome: 'success',
+      actorUserId: requestingUser.id,
+      actorRole: requesterRole ?? null,
+      targetUserId: targetUserId,
+      schoolId: typeof schoolId === 'number' ? schoolId : null,
+      metadata: auditDetails,
+    });
 
     // Ensure caches refresh so client queries see the new role immediately
     const { error: cacheRefreshError } = await supabaseService

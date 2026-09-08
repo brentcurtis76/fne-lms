@@ -559,8 +559,14 @@ RESET ROLE;
 -- than only in whichever persona happened to be enumerated above.
 SELECT is(
   (SELECT count(*)::int FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = 'zoom_attendance' AND cmd <> 'SELECT'),
-  0, 'zoom_attendance carries no non-SELECT policy for any role (§7 frozen decision)');
+    WHERE schemaname = 'public' AND tablename = 'zoom_attendance' AND cmd <> 'SELECT'
+      AND NOT (
+        policyname = 'forced_password_change_guard'
+        AND permissive = 'RESTRICTIVE'
+        AND cmd = 'ALL'
+        AND roles = ARRAY['authenticated']::name[]
+      )),
+  0, 'zoom_attendance carries no write-authorizing policy; the only non-SELECT policy allowed is the restrictive auth guard (§7 frozen decision)');
 
 -- =============================================================================
 -- Z7-1 — the facilitator predicate itself.
@@ -929,11 +935,17 @@ SELECT throws_ok(
   NULL,
   'the CHECK also refuses a backwards close, not only a bad INSERT');
 
--- Z7-1's write denial still holds for the new column: no non-SELECT policy appeared.
+-- Z7-1's write denial still holds for the new column: no write-authorizing policy appeared.
 SELECT is(
   (SELECT count(*)::int FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = 'zoom_attendance' AND cmd <> 'SELECT'),
-  0, 'zoom_attendance still carries no non-SELECT policy after the Z7-2 migration');
+    WHERE schemaname = 'public' AND tablename = 'zoom_attendance' AND cmd <> 'SELECT'
+      AND NOT (
+        policyname = 'forced_password_change_guard'
+        AND permissive = 'RESTRICTIVE'
+        AND cmd = 'ALL'
+        AND roles = ARRAY['authenticated']::name[]
+      )),
+  0, 'zoom_attendance still carries no write-authorizing policy after Z7-2; the restrictive auth guard grants nothing');
 
 -- =============================================================================
 -- Z7-2 — identity_tokens as reconciliation evidence, and source_event_key.

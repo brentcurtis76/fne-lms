@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { User } from '@supabase/supabase-js';
@@ -6,8 +6,9 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
 import HoursComparisonPanel from '../../../components/sessions/HoursComparisonPanel';
+import SessionStartControl from '../../../components/sessions/SessionStartControl';
 import { getUserPrimaryRole } from '../../../utils/roleUtils';
-import { Calendar, CheckCircle, XCircle, Link2, ChevronDown, ChevronUp, Eye, CalendarPlus, Play } from 'lucide-react';
+import { Calendar, CheckCircle, XCircle, Link2, ChevronDown, ChevronUp, Eye, CalendarPlus } from 'lucide-react';
 import { SessionWithRelations, SessionStatus } from '../../../lib/types/consultor-sessions.types';
 import {
   getStatusBadge as getStatusBadgeData,
@@ -15,6 +16,14 @@ import {
 } from '../../../lib/utils/session-ui-helpers';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import type { SessionMeetingPublicStatus } from '../../../lib/zoom/db-types';
+import {
+  managedMeetingIsReady,
+  managedMeetingNeedsPolling,
+  managedMeetingIsUnavailable,
+} from '../../../lib/utils/managed-meeting-readiness';
+import { buildSessionJoinPath } from '../../../lib/utils/session-disclosure';
+import { startSessionWorkflow } from '../../../lib/utils/session-start-workflow';
 
 interface SeriesSessionItem {
   id: string;
@@ -38,6 +47,10 @@ const SessionDetailPage: React.FC = () => {
 
   // Data state
   const [session, setSession] = useState<SessionWithRelations | null>(null);
+  const [managedMeetingStatus, setManagedMeetingStatus] =
+    useState<SessionMeetingPublicStatus | null>(null);
+  const [managedMeetingStatusLoading, setManagedMeetingStatusLoading] = useState(false);
+  const [managedMeetingStatusError, setManagedMeetingStatusError] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
   const [actionInProgress, setActionInProgress] = useState(false);
@@ -57,6 +70,32 @@ const SessionDetailPage: React.FC = () => {
   const [availableConsultants, setAvailableConsultants] = useState<Array<{ id: string; first_name: string; last_name: string; email: string }>>([]);
   const [loadingConsultants, setLoadingConsultants] = useState(false);
   const [savingFacilitators, setSavingFacilitators] = useState(false);
+
+  const refreshManagedMeetingStatus = useCallback(
+    async (sessionId: string) => {
+      setManagedMeetingStatusLoading(true);
+      setManagedMeetingStatusError(false);
+
+      const { data, error } = await supabase
+        .from('session_meetings_public')
+        .select('meeting_status')
+        .eq('surface_type', 'consultor_session')
+        .eq('surface_id', sessionId)
+        .maybeSingle();
+
+      if (error) {
+        setManagedMeetingStatus(null);
+        setManagedMeetingStatusError(true);
+      } else {
+        setManagedMeetingStatus(
+          (data?.meeting_status as SessionMeetingPublicStatus | undefined) ?? null
+        );
+      }
+
+      setManagedMeetingStatusLoading(false);
+    },
+    [supabase]
+  );
 
   useEffect(() => {
     initializeAuth();
@@ -79,6 +118,26 @@ const SessionDetailPage: React.FC = () => {
       fetchSeriesData(session.recurrence_group_id);
     }
   }, [showSeriesPanel, session]);
+
+  // Approval and Zoom provisioning are intentionally asynchronous. Keep polling while a
+  // managed session is scheduled or in progress and has no conclusive projection. The
+  // scheduled case prevents the provisioning race; the in-progress case recovers from a
+  // transient projection-read failure so the “Reintentando…” message is truthful.
+  useEffect(() => {
+    if (!session || !managedMeetingNeedsPolling(
+      session.status,
+      session.is_zoom_managed === true,
+      managedMeetingStatus
+    )) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      void refreshManagedMeetingStatus(session.id);
+    }, 3000);
+
+    return () => window.clearInterval(timer);
+  }, [session, managedMeetingStatus, refreshManagedMeetingStatus]);
 
   // Focus trap and escape key for cancel modal
   useEffect(() => {
@@ -221,7 +280,15 @@ const SessionDetailPage: React.FC = () => {
       }
 
       const result = await response.json();
-      setSession(result.data.session);
+      const loadedSession = result.data.session as SessionWithRelations;
+      setSession(loadedSession);
+
+      if (loadedSession.is_zoom_managed) {
+        await refreshManagedMeetingStatus(loadedSession.id);
+      } else {
+        setManagedMeetingStatus(null);
+        setManagedMeetingStatusError(false);
+      }
     } catch (error: unknown) {
       console.error('Error fetching session:', error);
       toast.error(error instanceof Error ? error.message : 'Error al cargar sesión');
@@ -281,22 +348,16 @@ const SessionDetailPage: React.FC = () => {
         return;
       }
 
-      const response = await fetch(`/api/sessions/${id}`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${authSession.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: 'en_progreso' }),
+      await startSessionWorkflow({
+        sessionId: session.id,
+        accessToken: authSession.access_token,
+        isManagedZoom: session.is_zoom_managed === true,
+        request: fetch,
+        navigate: (path) => router.push(path),
+        refreshSession: fetchSession,
+        notifySuccess: (message) => toast.success(message),
+        notifyError: (message) => toast.error(message),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al iniciar sesión');
-      }
-
-      toast.success('Sesión iniciada exitosamente');
-      fetchSession();
     } catch (error: unknown) {
       console.error('Error starting session:', error);
       toast.error(error instanceof Error ? error.message : 'Error al iniciar sesión');
@@ -801,15 +862,28 @@ const SessionDetailPage: React.FC = () => {
               )}
 
               {session.status === 'programada' && (
-                <button
-                  onClick={handleStartSession}
-                  disabled={actionInProgress}
-                  className="inline-flex items-center px-4 py-2 bg-brand_accent text-brand_primary hover:bg-brand_accent_hover rounded-lg transition-colors disabled:opacity-50"
-                >
-                  <Play size={20} className="mr-2" />
-                  Iniciar Sesión
-                </button>
+                <SessionStartControl
+                  isManagedZoom={session.is_zoom_managed === true}
+                  meetingStatus={managedMeetingStatus}
+                  meetingStatusLoading={managedMeetingStatusLoading}
+                  meetingStatusError={managedMeetingStatusError}
+                  actionInProgress={actionInProgress}
+                  onStart={handleStartSession}
+                />
               )}
+
+              {session.status === 'en_progreso' &&
+                session.is_zoom_managed === true &&
+                managedMeetingIsReady(managedMeetingStatus) && (
+                  <a
+                    href={buildSessionJoinPath(session.id)}
+                    data-testid="session-zoom-entry-button"
+                    className="inline-flex items-center px-4 py-2 bg-brand_accent text-brand_primary hover:bg-brand_accent_hover rounded-lg transition-colors"
+                  >
+                    <Link2 size={20} aria-hidden="true" className="mr-2" />
+                    Ir a Zoom
+                  </a>
+                )}
 
               {session.status !== 'completada' && session.status !== 'cancelada' && (
                 <button
@@ -856,7 +930,23 @@ const SessionDetailPage: React.FC = () => {
               </div>
             )}
 
-            {session.has_meeting && session.join_path && (
+            {session.is_zoom_managed && managedMeetingIsUnavailable(managedMeetingStatus) ? (
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-1">Reunión Zoom</h3>
+                <p className="text-red-700" role="alert">
+                  La reunión terminó o fue cancelada. Cancela o reprograma la sesión.
+                </p>
+              </div>
+            ) : session.is_zoom_managed && !managedMeetingIsReady(managedMeetingStatus) ? (
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-1">Reunión Zoom</h3>
+                <p className="text-amber-700" role="status">
+                  {managedMeetingStatusError
+                    ? 'No se pudo verificar el estado de Zoom. Reintentando…'
+                    : 'Preparando la reunión Zoom…'}
+                </p>
+              </div>
+            ) : session.has_meeting && session.join_path ? (
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-1">Enlace de reunión</h3>
                 {/* Routes through the platform interstitial for every persona —
@@ -866,10 +956,10 @@ const SessionDetailPage: React.FC = () => {
                   data-testid="session-join-link"
                   className="text-brand_accent_hover hover:underline"
                 >
-                  {session.meeting_provider || 'Enlace'}
+                  {session.is_zoom_managed ? 'Unirse a la reunión Zoom' : 'Abrir reunión'}
                 </a>
               </div>
-            )}
+            ) : null}
 
             {session.description && (
               <div className="md:col-span-2">

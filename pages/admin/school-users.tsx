@@ -19,6 +19,7 @@ import {
   isGlobalAdmin,
 } from '../../utils/roleUtils';
 import { ROLE_NAMES, type UserRoleType } from '../../types/roles';
+import { PASSWORD_POLICY, PASSWORD_POLICY_SUMMARY, firstPasswordPolicyError } from '../../lib/auth/password-policy';
 
 type PageProps = { schoolId: number };
 
@@ -383,6 +384,21 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
       return;
     }
 
+    // S5: the shared policy. This form advertised "Mínimo 6 caracteres" while
+    // the platform requires eight plus three character classes, so an
+    // administrator could create an account with a password the user could
+    // never re-set to anything similar. The server re-checks the same rule.
+    const passwordError = firstPasswordPolicyError(newUserPassword);
+    if (passwordError) {
+      toast.error(passwordError, {
+        duration: 5000,
+        position: 'top-right',
+        style: { background: '#EF4444', color: 'white' },
+        icon: '⚠️',
+      });
+      return;
+    }
+
     setIsCreating(true);
     try {
       const {
@@ -630,8 +646,8 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
                     value={newUserPassword}
                     onChange={(e) => setNewUserPassword(e.target.value)}
                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
-                    placeholder="Mínimo 6 caracteres"
-                    minLength={6}
+                    placeholder={PASSWORD_POLICY_SUMMARY}
+                    minLength={PASSWORD_POLICY.minLength}
                     autoComplete="new-password"
                     required
                   />

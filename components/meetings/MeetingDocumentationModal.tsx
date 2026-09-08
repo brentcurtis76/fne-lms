@@ -41,10 +41,11 @@ import {
 } from '../../types/meetings';
 import { 
   createMeetingWithDocumentation,
-  getCommunityMembersForAssignment,
   getMeetingDetails,
   updateMeeting
 } from '../../utils/meetingUtils';
+import { fetchCommunityMembers } from '../../lib/community/fetchCommunityMembers';
+import type { CommunityMember } from '../../lib/community/fetchCommunityMembers';
 import { uploadFile } from '../../utils/storage';
 import { FinalizeMeetingDialog } from './FinalizeMeetingDialog';
 import { WorkSessionBanner } from './WorkSessionBanner';
@@ -70,10 +71,42 @@ type MeetingAgreementInput = MeetingDocumentationInput['agreements'][number];
 type MeetingCommitmentInput = MeetingDocumentationInput['commitments'][number];
 type MeetingTaskInput = MeetingDocumentationInput['tasks'][number];
 
+/**
+ * Load state of the community candidate list. `availableUsers.length === 0`
+ * alone cannot tell an empty community from a pending or failed load, and the
+ * historical-assignee labels may only call someone "outside the community"
+ * after a SUCCESSFUL load.
+ */
+type MembersLoadState = 'idle' | 'loading' | 'success' | 'error';
+
+const MEMBERS_LOAD_ERROR_TOAST_ID = 'meeting-members-load-error';
+const MEMBERS_LOAD_ERROR_MESSAGE =
+  'No se pudieron cargar los miembros de la comunidad. Intenta nuevamente.';
+
+/**
+ * Map endpoint members to the picker's `AssignmentUser` shape. `role_type` is
+ * the member's first role exactly as the endpoint orders them (most significant
+ * first); a member the endpoint returns without roles keeps an empty role rather
+ * than being promoted to one they do not hold. Ordering is the endpoint's
+ * deterministic name-then-email sort, so it is not re-sorted here.
+ */
+function toAssignmentUsers(members: CommunityMember[]): AssignmentUser[] {
+  return members.map((member) => ({
+    id: member.id,
+    first_name: member.first_name ?? '',
+    last_name: member.last_name ?? '',
+    email: member.email ?? '',
+    avatar_url: member.avatar_url ?? undefined,
+    role_type: member.user_roles?.[0]?.role_type ?? '',
+  }));
+}
+
 interface MeetingDocumentationModalProps {
   isOpen: boolean;
   onClose: () => void;
   workspaceId: string;
+  /** Growth community the workspace belongs to; scopes every member picker. */
+  communityId: string;
   userId: string;
   onSuccess: () => void;
   className?: string;
@@ -106,6 +139,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   isOpen,
   onClose,
   workspaceId,
+  communityId,
   userId,
   onSuccess,
   className = '',
@@ -118,7 +152,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<AssignmentUser[]>([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [membersLoadState, setMembersLoadState] = useState<MembersLoadState>('idle');
   const [loadingMeeting, setLoadingMeeting] = useState(false);
 
   // Draft / autosave state. `currentMeetingId` becomes populated either because
@@ -184,7 +218,6 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      loadCommunityMembers();
       if (mode === 'edit' && meetingId) {
         setCurrentMeetingId(meetingId);
         loadMeetingData();
@@ -195,6 +228,44 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, workspaceId, mode, meetingId]);
+
+  // Candidate list shared by Asistentes, Compromisos and Tareas. The ONLY
+  // source is the access-controlled members endpoint for the exact community
+  // the parent workspace passed in. It fails closed: any failure leaves the
+  // list empty, flips the state to `error` and shows one toast — never a
+  // browser-side `profiles` / `user_roles` / `community_workspaces` query.
+  // The controller aborts the in-flight request on close/unmount and the
+  // `active` flag guarantees a late settlement can neither touch state nor
+  // toast. A community switch is not coordinated here on purpose: the parent
+  // clears its workspace and unmounts this modal, which runs this cleanup.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const controller = new AbortController();
+    let active = true;
+
+    setAvailableUsers([]);
+    setMembersLoadState('loading');
+
+    fetchCommunityMembers(communityId, { signal: controller.signal })
+      .then((members) => {
+        if (!active) return;
+        setAvailableUsers(toAssignmentUsers(members));
+        setMembersLoadState('success');
+      })
+      .catch((error: unknown) => {
+        if (!active || controller.signal.aborted) return;
+        console.error('Error loading community members:', error);
+        setAvailableUsers([]);
+        setMembersLoadState('error');
+        toast.error(MEMBERS_LOAD_ERROR_MESSAGE, { id: MEMBERS_LOAD_ERROR_TOAST_ID });
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [isOpen, communityId]);
 
   // Tick the "Guardado hace Ns" relative label so it stays fresh while the
   // modal is open. Cheap — just bumps a counter every 10s.
@@ -271,115 +342,6 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       if (mId && sId) endWorkSession(mId, sId, false);
     };
   }, [endWorkSession]);
-
-  const loadCommunityMembers = async () => {
-    try {
-      setLoadingUsers(true);
-      
-      // Get workspace details first
-      const { data: workspace, error: wsError } = await supabase
-        .from('community_workspaces')
-        .select('community_id')
-        .eq('id', workspaceId)
-        .single();
-
-      if (wsError || !workspace) {
-        // If workspace table doesn't exist, just get all users from profiles
-        const { data: allUsers, error: usersError } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, email, avatar_url')
-          .order('first_name', { ascending: true });
-
-        if (!usersError && allUsers) {
-          const formattedUsers: AssignmentUser[] = allUsers.map(user => ({
-            id: user.id,
-            first_name: user.first_name || 'Usuario',
-            last_name: user.last_name || '',
-            email: user.email || '',
-            avatar_url: user.avatar_url,
-            role_type: 'docente'
-          }));
-          setAvailableUsers(formattedUsers);
-        }
-        return;
-      }
-
-      // Get community members
-      const { data: userRoles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('community_id', workspace.community_id)
-        .eq('is_active', true);
-
-      if (rolesError || !userRoles || userRoles.length === 0) {
-        // Fallback to all users if no community members found
-        const { data: allUsers, error: usersError } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, email, avatar_url')
-          .order('first_name', { ascending: true });
-
-        if (!usersError && allUsers) {
-          const formattedUsers: AssignmentUser[] = allUsers.map(user => ({
-            id: user.id,
-            first_name: user.first_name || 'Usuario',
-            last_name: user.last_name || '',
-            email: user.email || '',
-            avatar_url: user.avatar_url,
-            role_type: 'docente'
-          }));
-          setAvailableUsers(formattedUsers);
-        }
-        return;
-      }
-
-      // Get user details for community members
-      const userIds = userRoles.map(role => role.user_id);
-      const { data: users, error: usersError } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, email, avatar_url')
-        .in('id', userIds)
-        .order('first_name', { ascending: true });
-
-      if (!usersError && users) {
-        const formattedUsers: AssignmentUser[] = users.map(user => ({
-          id: user.id,
-          first_name: user.first_name || 'Usuario',
-          last_name: user.last_name || '',
-          email: user.email || '',
-          avatar_url: user.avatar_url,
-          role_type: 'docente'
-        }));
-        setAvailableUsers(formattedUsers);
-      }
-      
-    } catch (error) {
-      console.error('Error loading community members:', error);
-      // Fallback to loading all users if there's an error
-      try {
-        const { data: allUsers, error: usersError } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, email, avatar_url')
-          .order('first_name', { ascending: true });
-
-        if (!usersError && allUsers) {
-          const formattedUsers: AssignmentUser[] = allUsers.map(user => ({
-            id: user.id,
-            first_name: user.first_name || 'Usuario',
-            last_name: user.last_name || '',
-            email: user.email || '',
-            avatar_url: user.avatar_url,
-            role_type: 'docente'
-          }));
-          setAvailableUsers(formattedUsers);
-        }
-      } catch (fallbackError) {
-        console.error('Error loading fallback users:', fallbackError);
-        toast.error('Error al cargar miembros de la comunidad');
-      }
-    } finally {
-      setLoadingUsers(false);
-    }
-  };
 
   const loadMeetingData = async () => {
     if (!meetingId) return;
@@ -1011,6 +973,69 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  // ---- Community-scoped picker helpers --------------------------------------
+
+  const isCandidate = (id: string) => availableUsers.some((user) => user.id === id);
+
+  // Saved commitments/tasks may reference someone who is not (or is no longer)
+  // a member. Preserve that id with a record-local, disabled option so an
+  // unchanged save keeps it and an explicit reassignment can replace it. The
+  // label stays neutral until the members request has SUCCEEDED; only then do
+  // we say the person is outside the community. Returns null when the assignee
+  // is empty or a current candidate, i.e. no synthetic option is needed.
+  const historicalAssigneeLabel = (assignedTo: string): string | null => {
+    if (!assignedTo || isCandidate(assignedTo)) return null;
+    if (membersLoadState === 'success') return 'Usuario fuera de la comunidad';
+    if (membersLoadState === 'error') return 'No se pudo verificar la membresía';
+    return 'Verificando membresía…';
+  };
+
+  const renderHistoricalAssigneeOption = (assignedTo: string) => {
+    const label = historicalAssigneeLabel(assignedTo);
+    if (!label) return null;
+    return (
+      <option value={assignedTo} disabled data-testid="meeting-historical-assignee">
+        {label}
+      </option>
+    );
+  };
+
+  // Saved attendees absent from the candidate list render as read-only
+  // historical rows once the load has succeeded. They are never added to
+  // `availableUsers`, so they cannot be picked for any other record.
+  const historicalAttendeeIds =
+    membersLoadState === 'success'
+      ? formData.meeting_info.attendee_ids.filter((id) => !isCandidate(id))
+      : [];
+
+  // Nothing can be chosen until the request settles.
+  const assigneePickerDisabled = membersLoadState === 'idle' || membersLoadState === 'loading';
+
+  const renderMembersStatus = (scope: string) => {
+    if (membersLoadState === 'idle' || membersLoadState === 'loading') {
+      return (
+        <p className="text-sm text-gray-500" data-testid={`meeting-members-status-${scope}`} data-state="loading">
+          Cargando miembros de la comunidad…
+        </p>
+      );
+    }
+    if (membersLoadState === 'error') {
+      return (
+        <p className="text-sm text-red-600" data-testid={`meeting-members-status-${scope}`} data-state="error">
+          No se pudieron cargar los miembros de la comunidad.
+        </p>
+      );
+    }
+    if (availableUsers.length === 0) {
+      return (
+        <p className="text-sm text-gray-500" data-testid={`meeting-members-status-${scope}`} data-state="empty">
+          Esta comunidad aún no tiene miembros asignados.
+        </p>
+      );
+    }
+    return null;
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -1163,10 +1188,12 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                     Asistentes
                   </label>
                   <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                    {renderMembersStatus('attendees')}
                     {availableUsers.map(user => (
                       <label key={user.id} className="flex items-center">
                         <input
                           type="checkbox"
+                          data-testid={`meeting-attendee-${user.id}`}
                           checked={formData.meeting_info.attendee_ids.includes(user.id)}
                           onChange={(e) => {
                             const attendeeIds = e.target.checked
@@ -1179,6 +1206,22 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                         <span className="ml-2 text-sm text-gray-700">
                           {profileName(user, 'Usuario sin nombre')}
                         </span>
+                      </label>
+                    ))}
+                    {historicalAttendeeIds.map(attendeeId => (
+                      <label
+                        key={`historical-${attendeeId}`}
+                        className="flex items-center text-gray-500"
+                        data-testid={`meeting-attendee-historical-${attendeeId}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked
+                          disabled
+                          readOnly
+                          className="h-4 w-4 border-gray-300 rounded"
+                        />
+                        <span className="ml-2 text-sm">Usuario fuera de la comunidad</span>
                       </label>
                     ))}
                   </div>
@@ -1402,6 +1445,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                     </div>
                   ) : (
                     <div className="space-y-4">
+                      {renderMembersStatus('commitments')}
                       {formData.commitments.map((commitment, index) => (
                         <div key={index} className="border border-gray-200 rounded-lg p-4">
                           <div className="flex items-start justify-between mb-3">
@@ -1431,9 +1475,12 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                               <select
                                 value={commitment.assigned_to}
                                 onChange={(e) => updateCommitment(index, 'assigned_to', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                                disabled={assigneePickerDisabled}
+                                data-testid={`meeting-commitment-assignee-${index}`}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent disabled:bg-gray-100"
                               >
                                 <option value="">Asignar a…</option>
+                                {renderHistoricalAssigneeOption(commitment.assigned_to)}
                                 {availableUsers.map(user => (
                                   <option key={user.id} value={user.id}>
                                     {profileName(user, 'Usuario sin nombre')}
@@ -1476,6 +1523,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                     </div>
                   ) : (
                     <div className="space-y-4">
+                      {renderMembersStatus('tasks')}
                       {formData.tasks.map((task, index) => (
                         <div key={index} className="border border-gray-200 rounded-lg p-4">
                           <div className="flex items-start justify-between mb-3">
@@ -1513,9 +1561,12 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                               <select
                                 value={task.assigned_to}
                                 onChange={(e) => updateTask(index, 'assigned_to', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                                disabled={assigneePickerDisabled}
+                                data-testid={`meeting-task-assignee-${index}`}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent disabled:bg-gray-100"
                               >
                                 <option value="">Asignar a…</option>
+                                {renderHistoricalAssigneeOption(task.assigned_to)}
                                 {availableUsers.map(user => (
                                   <option key={user.id} value={user.id}>
                                     {profileName(user, 'Usuario sin nombre')}

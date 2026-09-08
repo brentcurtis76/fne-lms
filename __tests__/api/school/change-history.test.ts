@@ -25,9 +25,10 @@ vi.mock('../../../lib/api-auth', () => ({
   handleMethodNotAllowed: mockHandleMethodNotAllowed,
 }));
 
-vi.mock('../../../lib/permissions/directivo', () => ({
-  hasDirectivoPermission: mockHasDirectivoPermission,
-}));
+vi.mock('../../../lib/permissions/directivo', async () => {
+  const actual = await vi.importActual<typeof import('../../../lib/permissions/directivo')>('../../../lib/permissions/directivo');
+  return { ...actual, hasDirectivoPermission: mockHasDirectivoPermission };
+});
 
 import handler from '../../../pages/api/school/change-history/index';
 
@@ -39,16 +40,39 @@ function authed() {
 }
 
 function denied() {
-  mockHasDirectivoPermission.mockResolvedValue({ hasPermission: false, schoolId: null, isAdmin: false });
+  mockHasDirectivoPermission.mockResolvedValue({ hasPermission: false, schoolId: null, isAdmin: false, via: null });
 }
 
 function directivo(schoolId: number) {
-  mockHasDirectivoPermission.mockResolvedValue({ hasPermission: true, schoolId, isAdmin: false });
+  mockHasDirectivoPermission.mockResolvedValue({ hasPermission: true, schoolId, isAdmin: false, via: 'equipo_directivo' });
 }
 
 function admin() {
-  mockHasDirectivoPermission.mockResolvedValue({ hasPermission: true, schoolId: null, isAdmin: true });
+  mockHasDirectivoPermission.mockResolvedValue({ hasPermission: true, schoolId: null, isAdmin: true, via: 'admin' });
 }
+
+/** An ASSIGNED consultor: hasDirectivoPermission admits them, scoped to the assigned school. */
+function consultor(schoolId: number) {
+  mockHasDirectivoPermission.mockResolvedValue({ hasPermission: true, schoolId, isAdmin: false, via: 'consultor' });
+}
+
+
+/** A chainable query that RECORDS every call, so a test can prove the predicates the handler sent. */
+function recordingQuery(data: unknown, error: unknown = null, count: number | null = null) {
+  const calls: Array<{ method: string; args: unknown[] }> = [];
+  const handler: ProxyHandler<Record<string, unknown>> = {
+    get(_target, prop) {
+      if (prop === 'then') return (resolve: (value: unknown) => void) => resolve({ data, error, count });
+      if (prop === '__calls') return calls;
+      return (...args: unknown[]) => {
+        calls.push({ method: String(prop), args });
+        return new Proxy({}, handler);
+      };
+    },
+  };
+  return new Proxy({}, handler) as any;
+}
+const callsOf = (chain: any): Array<{ method: string; args: unknown[] }> => chain.__calls;
 
 function buildServiceClient(historyData: unknown[] | null, historyError: unknown = null, count: number | null = null) {
   return {
@@ -226,5 +250,74 @@ describe('GET /api/school/change-history', () => {
     expect(res._getStatusCode()).toBe(500);
     const data = JSON.parse(res._getData());
     expect(data.error).toContain('historial');
+  });
+
+  // ── R5 / Codex round 1 finding 2: consultor scope = migration_plan only ──
+  describe('consultor scope (pending product decision)', () => {
+    const HISTORY_ROW = { id: 'h-1', school_id: 42, feature: 'migration_plan', action: 'update', user_id: USER_ID, user_name: 'x', created_at: '2026-01-01T00:00:00Z' };
+
+    it.each([
+      ['no feature', {}],
+      ['feature=transversal_context', { feature: 'transversal_context' }],
+      ['feature=context_responses', { feature: 'context_responses' }],
+      ['an unknown feature', { feature: 'migration_plan_x' }],
+    ])('refuses an assigned consultor with 403 and reads nothing when asked for %s', async (_label, extra) => {
+      authed();
+      consultor(42);
+      const client = buildServiceClient([HISTORY_ROW], null, 1);
+      mockCreateServiceRoleClient.mockReturnValue(client);
+
+      const { req, res } = createMocks({ method: 'GET', query: { school_id: '42', ...extra } });
+      await handler(req, res);
+
+      expect(res._getStatusCode()).toBe(403);
+      expect(JSON.parse(res._getData()).code).toBe('consultor_access_pending_decision');
+      expect(client.from).not.toHaveBeenCalled();
+    });
+
+    it('serves an assigned consultor ONLY the migration_plan history (feature pinned in the query)', async () => {
+      authed();
+      consultor(42);
+      const chains: any[] = [];
+      const client = { from: vi.fn((table: string) => { const q = recordingQuery(table === 'school_change_history' ? [HISTORY_ROW] : [], null, 1); chains.push(q); return q; }) };
+      mockCreateServiceRoleClient.mockReturnValue(client);
+
+      const { req, res } = createMocks({ method: 'GET', query: { school_id: '42', feature: 'migration_plan' } });
+      await handler(req, res);
+
+      expect(res._getStatusCode()).toBe(200);
+      const calls = callsOf(chains[0]);
+      expect(calls).toEqual(expect.arrayContaining([
+        { method: 'eq', args: ['school_id', 42] },
+        { method: 'eq', args: ['feature', 'migration_plan'] },
+      ]));
+    });
+
+    it('treats a permission without a full role (no via) as consultor scope — fail closed', async () => {
+      authed();
+      mockHasDirectivoPermission.mockResolvedValue({ hasPermission: true, schoolId: 42, isAdmin: false });
+      const client = buildServiceClient([HISTORY_ROW], null, 1);
+      mockCreateServiceRoleClient.mockReturnValue(client);
+
+      const { req, res } = createMocks({ method: 'GET', query: { school_id: '42', feature: 'transversal_context' } });
+      await handler(req, res);
+
+      expect(res._getStatusCode()).toBe(403);
+      expect(client.from).not.toHaveBeenCalled();
+    });
+
+    it('a directivo still reads every feature without pinning one (control)', async () => {
+      authed();
+      directivo(42);
+      const chains: any[] = [];
+      const client = { from: vi.fn((table: string) => { const q = recordingQuery(table === 'school_change_history' ? [HISTORY_ROW] : [], null, 1); chains.push(q); return q; }) };
+      mockCreateServiceRoleClient.mockReturnValue(client);
+
+      const { req, res } = createMocks({ method: 'GET', query: {} });
+      await handler(req, res);
+
+      expect(res._getStatusCode()).toBe(200);
+      expect(callsOf(chains[0]).filter(c => c.method === 'eq' && c.args[0] === 'feature')).toHaveLength(0);
+    });
   });
 });

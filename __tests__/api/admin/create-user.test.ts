@@ -2,10 +2,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
 
-const { mockCheckIsAdminOrEquipoDirectivo, mockCreateServiceRoleClient } = vi.hoisted(() => ({
-  mockCheckIsAdminOrEquipoDirectivo: vi.fn(),
-  mockCreateServiceRoleClient: vi.fn(),
-}));
+const { mockCheckIsAdminOrEquipoDirectivo, mockCreateServiceRoleClient, mockProvisionAuthAccount } =
+  vi.hoisted(() => ({
+    mockCheckIsAdminOrEquipoDirectivo: vi.fn(),
+    mockCreateServiceRoleClient: vi.fn(),
+    mockProvisionAuthAccount: vi.fn(),
+  }));
 
 vi.mock('../../../lib/api-auth', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
@@ -13,6 +15,21 @@ vi.mock('../../../lib/api-auth', async (importOriginal) => {
     ...actual,
     checkIsAdminOrEquipoDirectivo: mockCheckIsAdminOrEquipoDirectivo,
     createServiceRoleClient: mockCreateServiceRoleClient,
+  };
+});
+
+// Passthrough spy: the real provisionAuthAccount runs (the happy-path tests
+// depend on its policy check + client call), but the channel-boundary tests
+// can assert it was NEVER invoked. `vi.clearAllMocks()` clears call history
+// only, not this implementation.
+vi.mock('../../../lib/auth/account-provisioning', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  mockProvisionAuthAccount.mockImplementation(
+    actual.provisionAuthAccount as (...args: unknown[]) => unknown,
+  );
+  return {
+    ...actual,
+    provisionAuthAccount: mockProvisionAuthAccount,
   };
 });
 
@@ -144,6 +161,15 @@ function setupEquipoDirectivo(schoolId: number | null) {
   });
 }
 
+/**
+ * S5: this endpoint had NO password rule of any kind. The fixture used to be
+ * `pw-12345`, which the endpoint accepted happily; it now fails the shared
+ * policy (no uppercase), so the happy-path fixture is a compliant value and the
+ * old shape is exercised as an explicit rejection case below.
+ */
+const VALID_PASSWORD = 'Sintetica-2026';
+const WEAK_PASSWORD = 'pw-12345';
+
 function setupUnauthenticated() {
   mockCheckIsAdminOrEquipoDirectivo.mockResolvedValueOnce({
     isAuthorized: false,
@@ -160,6 +186,7 @@ function stockHappyPath(tracker: Tracker) {
       {
         profiles: [{ data: null, error: null }],
         user_roles: [{ data: null, error: null }],
+        security_audit_events: [{ data: null, error: null }],
       },
       tracker,
     ),
@@ -169,7 +196,7 @@ function stockHappyPath(tracker: Tracker) {
 function bodyFor(role: string | undefined, schoolId?: number) {
   const body: Record<string, unknown> = {
     email: 'new@example.com',
-    password: 'pw-12345',
+    password: VALID_PASSWORD,
     firstName: 'New',
     lastName: 'User',
   };
@@ -286,25 +313,73 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
     expect(inserted.school_id).toBe(OTHER_SCHOOL_ID);
   });
 
-  it('admin: assigning supervisor_de_red with schoolId=42 preserves user_roles.school_id=42', async () => {
-    setupAdmin();
-    const tracker = makeTracker();
-    stockHappyPath(tracker);
+  // B2a r3 — REPLACES the former "admin: assigning supervisor_de_red with
+  // schoolId=42 preserves user_roles.school_id=42" test, which approved
+  // creating an account with the supervisor role through this endpoint.
+  // Since chk_user_roles_active_supervisor_needs_red (B2a r2) that creation
+  // could only ever provision the auth account and profile, then fail the
+  // role insert at the database (23514), roll everything back, and answer a
+  // generic 500. The channel boundary now refuses BEFORE provisioning.
+  describe('supervisor_de_red channel boundary (B2a r3)', () => {
+    const CHANNEL_ERROR = 'El rol Supervisor de Red debe asignarse desde Gestión de Redes.';
 
-    const { req, res } = createMocks({
-      method: 'POST',
-      body: bodyFor('supervisor_de_red', OTHER_SCHOOL_ID),
+    it('admin: role=supervisor_de_red → 400 with the exact es-CL guidance, before ANY provisioning', async () => {
+      setupAdmin();
+      // Deliberately no stockHappyPath: nothing may build a client.
+
+      const { req, res } = createMocks({
+        method: 'POST',
+        body: bodyFor('supervisor_de_red', OTHER_SCHOOL_ID),
+      });
+      await handler(req as never, res as never);
+
+      expect(res._getStatusCode()).toBe(400);
+      expect(res._getJSONData()).toEqual({ error: CHANNEL_ERROR });
+
+      // The refusal happens before createServiceRoleClient() is even built,
+      // so there is no client through which ANY write — auth account,
+      // profile, role row, audit row — could have happened.
+      expect(mockProvisionAuthAccount).not.toHaveBeenCalled();
+      expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
     });
-    await handler(req as never, res as never);
 
-    expect(res._getStatusCode()).toBe(200);
+    it('the channel 400 wins precedence over a malformed schoolId', async () => {
+      // Mirrors assign-role.ts: the channel refusal is the actionable error;
+      // an incidental schoolId is irrelevant to a role this endpoint will
+      // never create.
+      setupAdmin();
 
-    const roleInsert = tracker.fromCalls.find(
-      (c) => c.table === 'user_roles' && c.inserts.length > 0,
-    )!;
-    const inserted = roleInsert.inserts[0] as any;
-    expect(inserted.role_type).toBe('supervisor_de_red');
-    expect(inserted.school_id).toBe(OTHER_SCHOOL_ID);
+      const { req, res } = createMocks({
+        method: 'POST',
+        body: { ...bodyFor('supervisor_de_red'), schoolId: 'abc' },
+      });
+      await handler(req as never, res as never);
+
+      expect(res._getStatusCode()).toBe(400);
+      expect(res._getJSONData()).toEqual({ error: CHANNEL_ERROR });
+      expect(mockProvisionAuthAccount).not.toHaveBeenCalled();
+      expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+    });
+
+    it('ED: role=supervisor_de_red keeps the authorization 403 (precedence over the channel 400)', async () => {
+      // Deliberate, matching assign-role.ts B2a r2: Gestión de Redes is
+      // admin-only, so the channel guidance would misdirect an ED. The ED
+      // assignability gate answers first.
+      setupEquipoDirectivo(ED_SCHOOL_ID);
+
+      const { req, res } = createMocks({
+        method: 'POST',
+        body: bodyFor('supervisor_de_red'),
+      });
+      await handler(req as never, res as never);
+
+      expect(res._getStatusCode()).toBe(403);
+      expect(res._getJSONData()).toEqual({
+        error: 'Role not assignable by equipo_directivo',
+      });
+      expect(mockProvisionAuthAccount).not.toHaveBeenCalled();
+      expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+    });
   });
 
   // Phase 16.7 F1: structured visibility warn (mirrors assign-role.ts F3).
@@ -438,7 +513,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         role: 'admin',
@@ -636,7 +711,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         role: 'docente',
@@ -657,7 +732,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         role: 'docente',
@@ -679,7 +754,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         role: 'docente',
@@ -700,7 +775,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         role: 'docente',
@@ -721,7 +796,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         role: 'docente',
@@ -742,7 +817,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         role: 'docente',
@@ -763,7 +838,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         role: 'docente',
@@ -784,7 +859,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         role: 'docente',
@@ -807,7 +882,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         role: 'docente',
@@ -845,7 +920,7 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       method: 'POST',
       body: {
         email: 'new@example.com',
-        password: 'pw-12345',
+        password: VALID_PASSWORD,
         firstName: 'New',
         lastName: 'User',
         // role intentionally omitted
@@ -957,5 +1032,182 @@ describe('admin/create-user — POST (ED auth + scoping)', () => {
       expect(roleDeletes).toHaveLength(1);
       expect(roleDeletes[0].eqs).toContainEqual({ col: 'user_id', val: NEW_USER_ID });
     });
+  });
+});
+
+/**
+ * S14 — the handler now does what the UI has always claimed.
+ *
+ * Both quick-create surfaces (`/admin/school-users`, `/admin/user-management`)
+ * tell the administrator: "El usuario deberá cambiar su contraseña en el primer
+ * inicio de sesión." The handler wrote `must_change_password: false`, so they
+ * never were — the administrator-chosen password became the account's permanent
+ * password, known to two people, and (before S4) nothing in the platform would
+ * ever have forced a change even if the flag had been set.
+ */
+describe('admin/create-user — forced first-login change (S14)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('sets must_change_password: true on the created profile', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({ method: 'POST', body: bodyFor('docente', OTHER_SCHOOL_ID) });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const profileUpdate = tracker.fromCalls.find(
+      (c) => c.table === 'profiles' && c.updates.length > 0,
+    )!;
+    // The whole defect, in one assertion.
+    expect((profileUpdate.updates[0] as any).must_change_password).toBe(true);
+  });
+
+  it('tells the caller so, in the response', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({ method: 'POST', body: bodyFor('docente', OTHER_SCHOOL_ID) });
+    await handler(req as never, res as never);
+
+    expect(res._getJSONData().user).toMatchObject({ mustChangePassword: true });
+  });
+
+  it('does the same for an equipo_directivo requester', async () => {
+    setupEquipoDirectivo(ED_SCHOOL_ID);
+    const tracker = makeTracker();
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({ method: 'POST', body: bodyFor('docente', ED_SCHOOL_ID) });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const profileUpdate = tracker.fromCalls.find(
+      (c) => c.table === 'profiles' && c.updates.length > 0,
+    )!;
+    expect((profileUpdate.updates[0] as any).must_change_password).toBe(true);
+  });
+});
+
+describe('admin/create-user — server-side password policy (S5)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it.each([
+    ['the old fixture shape (no uppercase)', WEAK_PASSWORD],
+    ['too short', 'Ab1'],
+    ['no lowercase', 'SINTETICA2026'],
+    ['no number', 'SinteticaSegura'],
+    ['a single character', 'a'],
+  ])('400 for a password that is %s — no account is created', async (_label, weak) => {
+    setupAdmin();
+    // Deliberately no `stockHappyPath` here. `vi.clearAllMocks()` clears call
+    // history but NOT a queued `mockReturnValueOnce`, so a client queued for a
+    // request that never builds one would be handed to the NEXT test — bound to
+    // a tracker that test does not hold, and silently invisible to it.
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { ...bodyFor('docente', OTHER_SCHOOL_ID), password: weak },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData().error).toMatch(/^La contraseña/);
+    // The service-role client is built lazily AFTER validation, so nothing was
+    // even connected to, let alone written.
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+  });
+
+  it('400 in es-CL when email or password is missing', async () => {
+    setupAdmin();
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { email: 'new@example.com' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toMatchObject({
+      error: 'Email y contraseña son obligatorios',
+    });
+  });
+});
+
+describe('admin/create-user — audit (S3)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('records user_created_manual with actor, target and role', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({ method: 'POST', body: bodyFor('docente', OTHER_SCHOOL_ID) });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+
+    const audit = tracker.fromCalls.filter((c) => c.table === 'security_audit_events');
+    expect(audit).toHaveLength(1);
+    expect(audit[0].inserts[0]).toMatchObject({
+      action: 'user_created_manual',
+      outcome: 'success',
+      actor_user_id: ADMIN_ID,
+      actor_role: 'admin',
+      target_user_id: NEW_USER_ID,
+      school_id: OTHER_SCHOOL_ID,
+    });
+  });
+
+  it('never puts the chosen password anywhere but the GoTrue call', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    stockHappyPath(tracker);
+
+    const { req, res } = createMocks({ method: 'POST', body: bodyFor('docente', OTHER_SCHOOL_ID) });
+    await handler(req as never, res as never);
+
+    for (const call of tracker.fromCalls) {
+      for (const payload of [...call.inserts, ...call.updates]) {
+        expect(JSON.stringify(payload ?? null)).not.toContain(VALID_PASSWORD);
+      }
+    }
+    expect(res._getData()).not.toContain(VALID_PASSWORD);
+  });
+
+  it('a failed audit does not fail the creation — fail-open, but reported', async () => {
+    setupAdmin();
+    const tracker = makeTracker();
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildAdminClient(
+        {
+          profiles: [{ data: null, error: null }],
+          user_roles: [{ data: null, error: null }],
+          security_audit_events: [{ data: null, error: { message: 'audit insert failed' } }],
+        },
+        tracker,
+      ),
+    );
+
+    const { req, res } = createMocks({ method: 'POST', body: bodyFor('docente', OTHER_SCHOOL_ID) });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getJSONData().audited).toBe(false);
+    expect(errSpy).toHaveBeenCalledWith(
+      '[security-audit] write failed',
+      expect.objectContaining({ action: 'user_created_manual' }),
+    );
+    errSpy.mockRestore();
   });
 });

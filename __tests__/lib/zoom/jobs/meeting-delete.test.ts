@@ -12,6 +12,11 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 
+vi.mock('../../../../lib/zoom/tenant-boundary', async (importOriginal) => ({
+  ...((await importOriginal()) as Record<string, unknown>),
+  defaultZoomTenantGate: () => async (schoolId: number) => ({ kind: 'allow', tenantKind: 'client', schoolId }),
+}));
+
 import { runZoomTick } from '../../../../lib/zoom/jobs/runner';
 import { createZoomJobRegistry } from '../../../../lib/zoom/jobs/registry';
 import { describeJobFailure } from '../../../../lib/zoom/jobs/runner';
@@ -146,6 +151,25 @@ function seedProjection(
     ends_at: '2026-08-05T20:30:00.000Z',
   });
 }
+
+describe('meeting_delete — QA provider boundary', () => {
+  it('leaves the provider, internal row and projection untouched', async () => {
+    const fake = await seedFakeWithMeeting();
+    const deleteSpy = vi.spyOn(fake, 'deleteMeeting');
+    const harness = harnessFor();
+    seedProjection(harness);
+    const before = { ...harness.meetingFor(SESSION_ID) };
+    const result = await createMeetingDeleteHandler({
+      api: fake,
+      store: harness.deleteStore,
+      tenantGate: async (schoolId) => ({ kind: 'suppressed_qa', tenantKind: 'qa', schoolId, label: 'QA' }),
+    })(context());
+    expect(result).toEqual({ skipped: 'suppressed_qa', school_id: 77 });
+    expect(deleteSpy).not.toHaveBeenCalled();
+    expect(harness.meetingFor(SESSION_ID)).toEqual(before);
+    expect(harness.projectionFor(SESSION_ID)?.meeting_status).toBe('scheduled');
+  });
+});
 
 // ---------------------------------------------------------------------------
 // The round trip

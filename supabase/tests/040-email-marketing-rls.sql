@@ -107,7 +107,15 @@ SELECT is(
             ),
             '(none)')
      FROM pg_policies p
-    WHERE p.schemaname = 'public' AND p.tablename = tbl),
+      -- PERMISSIVE only. Every row-secured table in `public` also carries the
+      -- RESTRICTIVE `forced_password_change_guard`
+      -- (20260819120200_forced_password_change_data_layer.sql), which is ANDed
+      -- with whatever is here and can only ever NARROW access. What this
+      -- assertion is about is what GRANTS access, and a restrictive policy never
+      -- does. `supabase/tests/053-...` asserts the guard is present on this table
+      -- and every other one.
+    WHERE p.permissive = 'PERMISSIVE'
+      AND p.schemaname = 'public' AND p.tablename = tbl),
   tbl || '_admin_select|SELECT|authenticated',
   tbl || ': exactly one policy — admin SELECT-only, TO authenticated'
 ) FROM unnest(pg_temp.comms_tables()) AS tbl;
@@ -117,7 +125,15 @@ SELECT is(
 SELECT is(
   (SELECT count(*)::int
      FROM pg_policies p
-    WHERE p.schemaname = 'public'
+      -- PERMISSIVE only. Every row-secured table in `public` also carries the
+      -- RESTRICTIVE `forced_password_change_guard`
+      -- (20260819120200_forced_password_change_data_layer.sql), which is ANDed
+      -- with whatever is here and can only ever NARROW access. What this
+      -- assertion is about is what GRANTS access, and a restrictive policy never
+      -- does. `supabase/tests/053-...` asserts the guard is present on this table
+      -- and every other one.
+    WHERE p.permissive = 'PERMISSIVE'
+      AND p.schemaname = 'public'
       AND p.tablename = ANY (pg_temp.comms_tables())
       AND p.with_check IS NOT NULL),
   0,

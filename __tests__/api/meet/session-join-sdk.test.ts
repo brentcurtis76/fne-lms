@@ -43,6 +43,12 @@ vi.mock('../../../utils/roleUtils', async (importOriginal) => {
   };
 });
 
+vi.mock('../../../lib/simulation/tenant-policy', () => ({
+  resolveSchoolProviderDisposition: vi.fn(async (_client, schoolId) => ({
+    kind: 'allow', tenantKind: 'client', schoolId,
+  })),
+}));
+
 vi.mock('../../../lib/zoom/service-client', () => ({
   createZoomServiceClient: vi.fn(() => ({ __internal: true })),
   zoomInternalSchema: vi.fn(() => mockInternalClient),

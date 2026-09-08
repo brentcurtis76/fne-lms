@@ -1,13 +1,59 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { timingSafeEqual } from 'crypto';
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
+
+/**
+ * Maintenance-endpoint authentication (B2c-M1).
+ *
+ * Fail closed. The route is reachable over plain HTTP and runs with the
+ * privileged client, so it must prove the caller holds the scheduler secret
+ * before any query or RPC runs:
+ *   - `CRON_SECRET` missing, empty or whitespace-only  → 'unconfigured' (503)
+ *   - Authorization is not exactly `Bearer ${CRON_SECRET}` → 'unauthorized' (401)
+ * No cookie, application role, query parameter, alternate header or other
+ * secret is accepted. The secret and the presented header are never logged or
+ * echoed. Kept file-local on purpose: this unit is scoped to these two routes.
+ */
+type MaintenanceAuthResult = 'ok' | 'unconfigured' | 'unauthorized';
+
+function authorizeMaintenanceRequest(req: NextApiRequest): MaintenanceAuthResult {
+  const secret = process.env.CRON_SECRET;
+  if (typeof secret !== 'string' || secret.trim().length === 0) {
+    return 'unconfigured';
+  }
+
+  const presented = req.headers.authorization;
+  if (typeof presented !== 'string') {
+    return 'unauthorized';
+  }
+
+  const expectedBytes = Buffer.from(`Bearer ${secret}`, 'utf8');
+  const presentedBytes = Buffer.from(presented, 'utf8');
+  if (expectedBytes.length !== presentedBytes.length) {
+    return 'unauthorized';
+  }
+  return timingSafeEqual(expectedBytes, presentedBytes) ? 'ok' : 'unauthorized';
+}
 
 /**
  * Background job to update learning path summary tables
  * Should be called daily via cron job or external scheduler
+ *
+ * Authorization: `Authorization: Bearer ${CRON_SECRET}` only (see
+ * authorizeMaintenanceRequest). Enforced before any database operation.
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const auth = authorizeMaintenanceRequest(req);
+  if (auth === 'unconfigured') {
+    console.error('[learning-path-summaries] CRON_SECRET is not configured; refusing to run');
+    return res.status(503).json({ error: 'Service unavailable' });
+  }
+  if (auth !== 'ok') {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {

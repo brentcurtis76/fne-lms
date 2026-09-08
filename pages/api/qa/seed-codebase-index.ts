@@ -7,11 +7,9 @@
 
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import { assertLegacySeederIsNotProduction } from '../../../lib/simulation/legacy-seeder-guard';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
 // Initial codebase index data
 const CODEBASE_INDEX_DATA = [
@@ -701,6 +699,12 @@ export default async function handler(
 ) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    assertLegacySeederIsNotProduction(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  } catch {
+    return res.status(403).json({ error: 'Legacy QA seeding is disabled in Production' });
   }
 
   try {

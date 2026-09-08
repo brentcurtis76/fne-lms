@@ -317,12 +317,13 @@ describe('admin/assign-role — admin path', () => {
     expect(payload.school_id).toBe(ED_SCHOOL_ID);
   });
 
-  // F2 (phase 16.1): community_manager and supervisor_de_red do NOT use the
-  // null-vs-non-null school_id scope signal (community_manager scopes via
-  // community_id; supervisor_de_red scopes via red_id). The admin path
+  // F2 (phase 16.1): community_manager does NOT use the null-vs-non-null
+  // school_id scope signal (it scopes via community_id). The admin path
   // therefore preserves any caller-supplied schoolId verbatim — no
   // null-normalization — same as for consultor. Verified by grep on
-  // 2026-05-12 across lib/, utils/, pages/.
+  // 2026-05-12 across lib/, utils/, pages/. (supervisor_de_red used to sit in
+  // this pair of tests; since B2a r2 the endpoint refuses that role outright —
+  // see the "supervisor_de_red channel boundary" block below.)
   it('admin: assigning "community_manager" with schoolId=42 → user_roles.school_id is 42 (preserved, no normalization)', async () => {
     setupAdmin();
     const tracker = makeTracker();
@@ -342,26 +343,109 @@ describe('admin/assign-role — admin path', () => {
     expect(payload.school_id).toBe(ED_SCHOOL_ID);
   });
 
-  it('admin: assigning "supervisor_de_red" with schoolId=42 → user_roles.school_id is 42 (preserved, no normalization)', async () => {
-    setupAdmin();
-    const tracker = makeTracker();
-    mockCreateServiceRoleClient.mockReturnValueOnce(
-      buildClient(
-        { user_roles: [{ data: { id: ROLE_ROW_ID }, error: null }] },
-        tracker,
-      ),
-    );
+  // B2a r2 — the supervisor_de_red channel boundary. These tests REPLACE the
+  // pair that used to approve a generic supervisor grant here (one asserted a
+  // 200 with school_id preserved; one asserted the 23505→409 mapping on the
+  // insert). That path was the round-2 review finding: this endpoint collects
+  // no network and writes no red_id, so its FIRST supervisor grant for a user
+  // succeeded as an ACTIVE row with red_id NULL — a row
+  // uq_user_roles_one_active_supervisor then counted as the user's single
+  // active supervisor role, blocking the real assignment through Gestión de
+  // Redes (an active but unusable supervisor). The endpoint now refuses the
+  // role type outright, BEFORE any database write, with plain es-CL guidance
+  // to the only legitimate channel. The 409 mapping was removed with it: no
+  // supervisor insert can originate here anymore.
+  describe('supervisor_de_red channel boundary (B2a r2)', () => {
+    const EXPECTED_GUIDANCE = 'El rol Supervisor de Red debe asignarse desde Gestión de Redes.';
 
-    const { req, res } = createMocks({
-      method: 'POST',
-      body: { targetUserId: TARGET_USER_ID, roleType: 'supervisor_de_red', schoolId: ED_SCHOOL_ID },
+    it('admin: assigning supervisor_de_red (the FIRST grant, no conflict in sight) → 400 with exact es-CL guidance; zero database writes', async () => {
+      setupAdmin();
+      const tracker = makeTracker();
+      // The stub would happily answer a user_roles insert with success — the
+      // 400 must come from the handler's own gate, not from any DB refusal.
+      mockCreateServiceRoleClient.mockReturnValueOnce(
+        buildClient(
+          { user_roles: [{ data: { id: ROLE_ROW_ID }, error: null }] },
+          tracker,
+        ),
+      );
+
+      const { req, res } = createMocks({
+        method: 'POST',
+        body: { targetUserId: TARGET_USER_ID, roleType: 'supervisor_de_red' },
+      });
+      await handler(req as never, res as never);
+
+      expect(res._getStatusCode()).toBe(400);
+      expect(res._getJSONData()).toEqual({ error: EXPECTED_GUIDANCE });
+
+      // Nothing was written or even attempted: no user_roles insert, no
+      // community auto-create, no audit row, no cache refresh — the tables
+      // were never touched at all.
+      expect(countInserts(tracker, 'user_roles')).toBe(0);
+      expect(countInserts(tracker, 'growth_communities')).toBe(0);
+      expect(countInserts(tracker, 'security_audit_events')).toBe(0);
+      expect(tracker.fromCalls).toHaveLength(0);
+      expect(tracker.rpcCalls).toHaveLength(0);
     });
-    await handler(req as never, res as never);
 
-    expect(res._getStatusCode()).toBe(200);
-    const payload = findInsertPayload(tracker, 'user_roles') as Record<string, unknown>;
-    expect(payload.role_type).toBe('supervisor_de_red');
-    expect(payload.school_id).toBe(ED_SCHOOL_ID);
+    it('admin: supervisor_de_red with a schoolId (the old approved shape) → same 400, schoolId cannot smuggle the grant through', async () => {
+      setupAdmin();
+      const tracker = makeTracker();
+      mockCreateServiceRoleClient.mockReturnValueOnce(
+        buildClient(
+          { user_roles: [{ data: { id: ROLE_ROW_ID }, error: null }] },
+          tracker,
+        ),
+      );
+
+      const { req, res } = createMocks({
+        method: 'POST',
+        body: { targetUserId: TARGET_USER_ID, roleType: 'supervisor_de_red', schoolId: ED_SCHOOL_ID },
+      });
+      await handler(req as never, res as never);
+
+      expect(res._getStatusCode()).toBe(400);
+      expect(res._getJSONData()).toEqual({ error: EXPECTED_GUIDANCE });
+      expect(countInserts(tracker, 'user_roles')).toBe(0);
+      expect(tracker.fromCalls).toHaveLength(0);
+      expect(tracker.rpcCalls).toHaveLength(0);
+    });
+
+    it('admin: supervisor_de_red with a MALFORMED schoolId → the channel guidance wins over the incidental shape 400', async () => {
+      // Error precedence, mirroring the hoisted ED gate's rationale: the
+      // actionable message is "this role does not belong on this endpoint",
+      // not a complaint about a field that would never be used anyway.
+      setupAdmin();
+      const tracker = makeTracker();
+      mockCreateServiceRoleClient.mockReturnValueOnce(buildClient({}, tracker));
+
+      const { req, res } = createMocks({
+        method: 'POST',
+        body: { targetUserId: TARGET_USER_ID, roleType: 'supervisor_de_red', schoolId: 'abc' },
+      });
+      await handler(req as never, res as never);
+
+      expect(res._getStatusCode()).toBe(400);
+      expect(res._getJSONData()).toEqual({ error: EXPECTED_GUIDANCE });
+      expect(tracker.fromCalls).toHaveLength(0);
+    });
+
+    it('the guidance is plain es-CL — no English, no database internals', async () => {
+      setupAdmin();
+      const tracker = makeTracker();
+      mockCreateServiceRoleClient.mockReturnValueOnce(buildClient({}, tracker));
+
+      const { req, res } = createMocks({
+        method: 'POST',
+        body: { targetUserId: TARGET_USER_ID, roleType: 'supervisor_de_red' },
+      });
+      await handler(req as never, res as never);
+
+      const body = res._getJSONData() as { error: string };
+      expect(body.error).not.toMatch(/role type|invalid|constraint|23505|red_id|null/i);
+      expect(body.error).toContain('Gestión de Redes');
+    });
   });
 
   it('admin can assign "docente" — inserts role and updates profile school_id', async () => {
@@ -680,6 +764,9 @@ describe('admin/assign-role — equipo_directivo path', () => {
   });
 
   // Roles outside ED_ASSIGNABLE_ROLES must be rejected before any DB write.
+  // supervisor_de_red included: for an ED the AUTHORIZATION 403 deliberately
+  // precedes the B2a r2 channel-boundary 400 — "use Gestión de Redes" would
+  // misdirect a caller who cannot reach that admin-only surface at all.
   it.each(['admin', 'consultor', 'community_manager', 'supervisor_de_red'] as const)(
     'ED assigning "%s" → 403, no user_roles or growth_communities insert',
     async (roleType) => {
@@ -1342,16 +1429,21 @@ describe('admin/assign-role — ED explicit FK scoping', () => {
   });
 });
 
-// F5: assign-role writes an audit_logs row on success — sensitive policy
-// event, mirrors delete-user/reset-password/update-user. Captures
-// requester_role so forensic investigations can distinguish ED vs admin
-// initiated role grants.
+// F5: assign-role writes an audit row on success — sensitive policy event,
+// mirrors delete-user/reset-password/update-user. Captures the requester role
+// so forensic investigations can distinguish ED- from admin-initiated grants.
+//
+// S3: the target table is now `security_audit_events`. It used to be
+// `audit_logs`, which does not exist — so every one of these rows was answered
+// with 42P01 and discarded, and this suite was asserting on a call that could
+// never persist anything. Actor, target, requester role and school are COLUMNS
+// now; `metadata` carries only the role-shape detail.
 describe('admin/assign-role — audit logging', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('admin: successful role assignment writes audit_logs with requester_role=admin', async () => {
+  it('admin: successful role assignment writes a security audit row with actor_role=admin', async () => {
     setupAdmin();
     const tracker = makeTracker();
     mockCreateServiceRoleClient.mockReturnValueOnce(
@@ -1366,19 +1458,19 @@ describe('admin/assign-role — audit logging', () => {
 
     expect(res._getStatusCode()).toBe(200);
 
-    const auditInsert = findInsertPayload(tracker, 'audit_logs') as Record<string, any> | undefined;
+    const auditInsert = findInsertPayload(tracker, 'security_audit_events') as Record<string, any> | undefined;
     expect(auditInsert).toBeDefined();
     expect(auditInsert!.action).toBe('role_assigned');
-    expect(auditInsert!.table_name).toBe('user_roles');
-    expect(auditInsert!.record_id).toBe(TARGET_USER_ID);
-    expect(auditInsert!.user_id).toBe(ADMIN_ID);
-    expect(auditInsert!.details.role_type).toBe('docente');
-    expect(auditInsert!.details.school_id).toBe(ED_SCHOOL_ID);
-    expect(auditInsert!.details.requester_role).toBe('admin');
-    expect(auditInsert!.details.requester_user_id).toBe(ADMIN_ID);
+    expect(auditInsert!.outcome).toBe('success');
+    expect(auditInsert!.target_user_id).toBe(TARGET_USER_ID);
+    expect(auditInsert!.actor_user_id).toBe(ADMIN_ID);
+    expect(auditInsert!.actor_role).toBe('admin');
+    expect(auditInsert!.school_id).toBe(ED_SCHOOL_ID);
+    expect(auditInsert!.metadata.role_type).toBe('docente');
+    expect(auditInsert!.metadata.school_id).toBe(ED_SCHOOL_ID);
   });
 
-  it('ED: successful role assignment writes audit_logs with requester_role=equipo_directivo', async () => {
+  it('ED: successful role assignment writes a security audit row with actor_role=equipo_directivo', async () => {
     setupEquipoDirectivo(ED_SCHOOL_ID);
     const tracker = makeTracker();
     mockCreateServiceRoleClient.mockReturnValueOnce(
@@ -1406,13 +1498,12 @@ describe('admin/assign-role — audit logging', () => {
 
     expect(res._getStatusCode()).toBe(200);
 
-    const auditInsert = findInsertPayload(tracker, 'audit_logs') as Record<string, any> | undefined;
+    const auditInsert = findInsertPayload(tracker, 'security_audit_events') as Record<string, any> | undefined;
     expect(auditInsert).toBeDefined();
     expect(auditInsert!.action).toBe('role_assigned');
-    expect(auditInsert!.user_id).toBe(ED_ID);
-    expect(auditInsert!.details.requester_role).toBe('equipo_directivo');
-    expect(auditInsert!.details.requester_user_id).toBe(ED_ID);
-    expect(auditInsert!.details.role_type).toBe('docente');
+    expect(auditInsert!.actor_user_id).toBe(ED_ID);
+    expect(auditInsert!.actor_role).toBe('equipo_directivo');
+    expect(auditInsert!.metadata.role_type).toBe('docente');
   });
 
   // F1 (phase 16.1): audit details source from request-derived variables
@@ -1434,16 +1525,18 @@ describe('admin/assign-role — audit logging', () => {
     await handler(req as never, res as never);
 
     expect(res._getStatusCode()).toBe(200);
-    const auditInsert = findInsertPayload(tracker, 'audit_logs') as Record<string, any> | undefined;
+    const auditInsert = findInsertPayload(tracker, 'security_audit_events') as Record<string, any> | undefined;
     expect(auditInsert).toBeDefined();
-    expect(auditInsert!.details.school_id).toBe(42);
-    expect(typeof auditInsert!.details.school_id).toBe('number');
-    expect(auditInsert!.details.role_type).toBe('docente');
-    expect(auditInsert!.details.community_id).toBeNull();
-    expect(auditInsert!.details.generation_id).toBeNull();
+    expect(auditInsert!.school_id).toBe(42);
+    expect(typeof auditInsert!.school_id).toBe('number');
+    expect(auditInsert!.metadata.school_id).toBe(42);
+    expect(typeof auditInsert!.metadata.school_id).toBe('number');
+    expect(auditInsert!.metadata.role_type).toBe('docente');
+    expect(auditInsert!.metadata.community_id).toBeNull();
+    expect(auditInsert!.metadata.generation_id).toBeNull();
   });
 
-  it('audit_logs insert failure is logged but request still returns 200', async () => {
+  it('audit insert failure is logged but request still returns 200 (fail-open, visible)', async () => {
     setupAdmin();
     const tracker = makeTracker();
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -1451,7 +1544,7 @@ describe('admin/assign-role — audit logging', () => {
       buildClient(
         {
           ...schoolScopedTables('Colegio Alfa'),
-          audit_logs: [{ data: null, error: { message: 'audit insert failed' } }],
+          security_audit_events: [{ data: null, error: { message: 'audit insert failed' } }],
         },
         tracker,
       ),
@@ -1464,15 +1557,17 @@ describe('admin/assign-role — audit logging', () => {
     await handler(req as never, res as never);
 
     expect(res._getStatusCode()).toBe(200);
-    expect(countInserts(tracker, 'audit_logs')).toBe(1);
-    expect(errSpy).toHaveBeenCalledWith(
-      '[assign-role] audit_logs insert failed',
-      expect.objectContaining({
-        target_user_id: TARGET_USER_ID,
-        role_type: 'docente',
-        requester_role: 'admin',
-      }),
-    );
+    expect(countInserts(tracker, 'security_audit_events')).toBe(1);
+    // The failure is surfaced by the centralised writer under a stable prefix
+    // — that is what keeps "fail open" from meaning "fail silent".
+    expect(errSpy).toHaveBeenCalledWith('[security-audit] write failed', {
+      action: 'role_assigned',
+      outcome: 'success',
+      code: null,
+    });
+    const logged = JSON.stringify(errSpy.mock.calls);
+    expect(logged).not.toContain(TARGET_USER_ID);
+    expect(logged).not.toContain('audit insert failed');
     errSpy.mockRestore();
   });
 });
@@ -1520,7 +1615,7 @@ describe('admin/assign-role — admin scope-mismatch warn (F3)', () => {
     expect(payload.school_id).toBe(ED_SCHOOL_ID);
 
     // Audit log still written.
-    expect(countInserts(tracker, 'audit_logs')).toBe(1);
+    expect(countInserts(tracker, 'security_audit_events')).toBe(1);
 
     warnSpy.mockRestore();
   });

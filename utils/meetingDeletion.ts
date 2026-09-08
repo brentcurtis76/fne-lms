@@ -5,7 +5,6 @@
  */
 
 import { supabase } from '../lib/supabase-wrapper';
-import { toast } from 'react-hot-toast';
 
 interface DeletionResult {
   success: boolean;
@@ -23,196 +22,69 @@ interface DeleteMeetingOptions {
  * Delete a meeting and all its related data
  * This includes: agreements, commitments, tasks, attendees, attachments, and storage files
  */
+/**
+ * Delete a meeting and all its related data.
+ *
+ * F4 — this used to do the work here, in the browser, and then call
+ * `recordSecurityAudit` with the browser's own user-scoped client.
+ * `security_audit_events` grants `authenticated` SELECT and nothing else, so
+ * that insert failed with 42501 on every deletion the platform has ever
+ * performed. `recordSecurityAudit` does not throw, so the failure was a console
+ * line and the deletion reported success — the `meeting_deleted` action was
+ * typed, constrained, indexed and never once written.
+ *
+ * The operation moved to `POST /api/meetings/delete`, which re-establishes the
+ * caller with `auth.getUser()`, re-checks authorization server-side, deletes on
+ * a user-scoped client so RLS still governs it, and writes the audit row with a
+ * service-role client once it knows the real outcome. Giving the browser the
+ * privilege instead would have made the trail forgeable, which is worse than not
+ * having one.
+ *
+ * `userId` is still accepted so callers do not change, but it is no longer
+ * TRUSTED: the endpoint takes the actor from the auth server and ignores
+ * anything the body claims.
+ */
 export async function deleteMeeting(
   meetingId: string,
   options: DeleteMeetingOptions
 ): Promise<DeletionResult> {
-  const errors: string[] = [];
-  let deletedFiles = 0;
-
   try {
-    // 1. First, verify the meeting exists and get its details
-    const { data: meeting, error: meetingError } = await supabase
-      .from('community_meetings')
-      .select('*')
-      .eq('id', meetingId)
-      .single();
+    const response = await fetch('/api/meetings/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ meetingId, reason: options.reason ?? null }),
+    });
 
-    if (meetingError || !meeting) {
-      throw new Error('Reunión no encontrada');
-    }
+    const result = await response.json().catch(() => ({} as Record<string, unknown>));
 
-    // 2. Get meeting attachments separately
-    const { data: attachments } = await supabase
-      .from('meeting_attachments')
-      .select('*')
-      .eq('meeting_id', meetingId);
-
-    // 3. Log the deletion attempt for audit purposes (skip if table doesn't exist)
-    try {
-      await supabase.from('audit_logs').insert({
-        user_id: options.userId,
-        action: 'meeting_deletion_attempt',
-        resource_type: 'meeting',
-        resource_id: meetingId,
-        metadata: {
-          meeting_title: meeting.title,
-          reason: options.reason,
-          timestamp: new Date().toISOString()
-        }
-      });
-    } catch (auditError) {
-      // Audit logging is optional - continue if it fails
-      console.warn('Audit logging skipped:', auditError);
-    }
-
-    // 4. Delete storage files first (before database records)
-    if (attachments && attachments.length > 0) {
-      for (const attachment of attachments) {
-        try {
-          const { error: storageError } = await supabase.storage
-            .from('meeting-documents')
-            .remove([attachment.file_path]);
-
-          if (storageError) {
-            errors.push(`Error al eliminar archivo ${attachment.filename}: ${storageError.message}`);
-          } else {
-            deletedFiles++;
-          }
-        } catch (fileError) {
-          errors.push(`Error al procesar archivo ${attachment.filename}`);
-        }
-      }
-    }
-
-    // 4. Delete related data in the correct order (respecting foreign key constraints)
-    // Order matters here to avoid constraint violations
-
-    // Delete attachments records
-    const { error: attachmentsError, count: attachmentsCount } = await supabase
-      .from('meeting_attachments')
-      .delete()
-      .eq('meeting_id', meetingId)
-      .select(undefined, { count: 'exact', head: true });
-    
-    if (attachmentsError) {
-      console.error('Error deleting attachments:', attachmentsError);
-      errors.push(`Error al eliminar archivos adjuntos: ${attachmentsError.message}`);
-    }
-
-    // Delete tasks
-    const { error: tasksError, count: tasksCount } = await supabase
-      .from('meeting_tasks')
-      .delete()
-      .eq('meeting_id', meetingId)
-      .select(undefined, { count: 'exact', head: true });
-    
-    if (tasksError) {
-      console.error('Error deleting tasks:', tasksError);
-      errors.push(`Error al eliminar tareas: ${tasksError.message}`);
-    }
-
-    // Delete commitments
-    const { error: commitmentsError, count: commitmentsCount } = await supabase
-      .from('meeting_commitments')
-      .delete()
-      .eq('meeting_id', meetingId)
-      .select(undefined, { count: 'exact', head: true });
-    
-    if (commitmentsError) {
-      console.error('Error deleting commitments:', commitmentsError);
-      errors.push(`Error al eliminar compromisos: ${commitmentsError.message}`);
-    }
-
-    // Delete agreements
-    const { error: agreementsError, count: agreementsCount } = await supabase
-      .from('meeting_agreements')
-      .delete()
-      .eq('meeting_id', meetingId)
-      .select(undefined, { count: 'exact', head: true });
-    
-    if (agreementsError) {
-      console.error('Error deleting agreements:', agreementsError);
-      errors.push(`Error al eliminar acuerdos: ${agreementsError.message}`);
-    }
-
-    // Delete attendees
-    const { error: attendeesError, count: attendeesCount } = await supabase
-      .from('meeting_attendees')
-      .delete()
-      .eq('meeting_id', meetingId)
-      .select(undefined, { count: 'exact', head: true });
-    
-    if (attendeesError) {
-      console.error('Error deleting attendees:', attendeesError);
-      errors.push(`Error al eliminar lista de participantes: ${attendeesError.message}`);
-    }
-
-    // 5. Finally, delete the meeting itself
-    const { error: deleteMeetingError, count: meetingCount } = await supabase
-      .from('community_meetings')
-      .delete()
-      .eq('id', meetingId)
-      .select(undefined, { count: 'exact', head: true });
-
-    if (deleteMeetingError) {
-      console.error('Error deleting meeting:', deleteMeetingError);
-      throw new Error(`Error al eliminar la reunión: ${deleteMeetingError.message}`);
-    }
-
-    // Check if the meeting was actually deleted
-    if (meetingCount === 0) {
-      throw new Error('No se pudo eliminar la reunión. Es posible que no tengas permisos suficientes.');
-    }
-
-    // 6. Log successful deletion (skip if table doesn't exist)
-    try {
-      await supabase.from('audit_logs').insert({
-        user_id: options.userId,
-        action: 'meeting_deleted',
-        resource_type: 'meeting',
-        resource_id: meetingId,
-        metadata: {
-          meeting_title: meeting.title,
-          deleted_files: deletedFiles,
-          errors: errors,
-          timestamp: new Date().toISOString()
-        }
-      });
-    } catch (auditError) {
-      console.warn('Audit logging skipped:', auditError);
+    if (!response.ok) {
+      const errors = Array.isArray((result as { errors?: unknown }).errors)
+        ? ((result as { errors: string[] }).errors)
+        : [
+            (result as { error?: string }).error ||
+              'Error al eliminar la reunión. Inténtalo nuevamente.',
+          ];
+      return {
+        success: false,
+        deletedFiles: Number((result as { deletedFiles?: number }).deletedFiles) || 0,
+        errors,
+      };
     }
 
     return {
       success: true,
-      deletedFiles,
-      errors
+      deletedFiles: Number((result as { deletedFiles?: number }).deletedFiles) || 0,
+      errors: Array.isArray((result as { errors?: unknown }).errors)
+        ? ((result as { errors: string[] }).errors)
+        : [],
     };
-
   } catch (error) {
     console.error('Error in deleteMeeting:', error);
-    
-    // Log the failure (skip if table doesn't exist)
-    try {
-      await supabase.from('audit_logs').insert({
-        user_id: options.userId,
-        action: 'meeting_deletion_failed',
-        resource_type: 'meeting',
-        resource_id: meetingId,
-        metadata: {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          timestamp: new Date().toISOString()
-        }
-      });
-    } catch (logError) {
-      // Audit logging is optional
-      console.warn('Audit logging skipped:', logError);
-    }
-
     return {
       success: false,
-      deletedFiles,
-      errors: [...errors, error instanceof Error ? error.message : 'Error desconocido']
+      deletedFiles: 0,
+      errors: [error instanceof Error ? error.message : 'Error desconocido'],
     };
   }
 }
@@ -246,20 +118,10 @@ export async function softDeleteMeeting(
       throw new Error('No se pudo archivar la reunión. Es posible que no tengas permisos suficientes o que la reunión no exista.');
     }
 
-    // Log the soft deletion (skip if table doesn't exist)
-    try {
-      await supabase.from('audit_logs').insert({
-        user_id: userId,
-        action: 'meeting_soft_deleted',
-        resource_type: 'meeting',
-        resource_id: meetingId,
-        metadata: {
-          timestamp: new Date().toISOString()
-        }
-      });
-    } catch (auditError) {
-      console.warn('Audit logging skipped:', auditError);
-    }
+    // No audit row. Archiving is a reversible content-lifecycle action, not a
+    // security operation, and the row itself already records who and when in
+    // `community_meetings.deleted_by` / `deleted_at` — which is more than the
+    // old insert into the non-existent `audit_logs` ever managed.
 
     return { success: true };
   } catch (error) {
@@ -292,20 +154,8 @@ export async function restoreMeeting(
       throw error;
     }
 
-    // Log the restoration (skip if table doesn't exist)
-    try {
-      await supabase.from('audit_logs').insert({
-        user_id: userId,
-        action: 'meeting_restored',
-        resource_type: 'meeting',
-        resource_id: meetingId,
-        metadata: {
-          timestamp: new Date().toISOString()
-        }
-      });
-    } catch (auditError) {
-      console.warn('Audit logging skipped:', auditError);
-    }
+    // No audit row, for the same reason as `softDeleteMeeting` above: a
+    // reversible content action is not a security event. See that comment.
 
     return { success: true };
   } catch (error) {

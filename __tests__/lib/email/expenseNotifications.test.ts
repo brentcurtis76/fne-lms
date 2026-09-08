@@ -26,6 +26,12 @@ import {
   sendExpenseSubmissionNotification,
 } from '../../../lib/email/expenseNotifications';
 import { EXPENSE_APPROVER_EMAIL } from '../../../utils/expenseConfig';
+import { PUBLIC_OUTBOUND_EMAIL } from '../../../lib/email/outbound-policy';
+
+const sendSubmission = (input: typeof submission) =>
+  sendExpenseSubmissionNotification(input, PUBLIC_OUTBOUND_EMAIL);
+const sendDecision = (input: typeof decision) =>
+  sendExpenseDecisionNotification(input, PUBLIC_OUTBOUND_EMAIL);
 
 const submission = {
   reportName: 'Gastos junio 2026',
@@ -100,7 +106,7 @@ describe('message building', () => {
 describe('delivery', () => {
   it('soft-fails without RESEND_API_KEY and never constructs a client', async () => {
     vi.stubEnv('RESEND_API_KEY', '');
-    const result = await sendExpenseSubmissionNotification(submission);
+    const result = await sendSubmission(submission);
     expect(result).toEqual({ sent: false, skipped: true });
     expect(ResendMock).not.toHaveBeenCalled();
     expect(mockSend).not.toHaveBeenCalled();
@@ -110,7 +116,7 @@ describe('delivery', () => {
     vi.stubEnv('RESEND_API_KEY', 're_test_key');
     vi.stubEnv('EMAIL_FROM_ADDRESS', 'Genera <notificaciones@nuevaeducacion.org>');
 
-    const result = await sendExpenseSubmissionNotification(submission);
+    const result = await sendSubmission(submission);
 
     expect(result).toEqual({ sent: true });
     expect(ResendMock).toHaveBeenCalledWith('re_test_key');
@@ -126,7 +132,7 @@ describe('delivery', () => {
     vi.stubEnv('RESEND_API_KEY', 're_test_key');
     mockSend.mockResolvedValue({ data: null, error: { message: 'domain not verified' } });
 
-    const result = await sendExpenseDecisionNotification(decision);
+    const result = await sendDecision(decision);
 
     expect(result).toEqual({ sent: false, error: 'domain not verified' });
   });
@@ -135,7 +141,7 @@ describe('delivery', () => {
     vi.stubEnv('RESEND_API_KEY', 're_test_key');
     mockSend.mockRejectedValue(new Error('network down'));
 
-    const result = await sendExpenseDecisionNotification(decision);
+    const result = await sendDecision(decision);
 
     expect(result).toEqual({ sent: false, error: 'network down' });
   });
@@ -143,7 +149,7 @@ describe('delivery', () => {
   it('refuses to send a decision with no recipient', async () => {
     vi.stubEnv('RESEND_API_KEY', 're_test_key');
 
-    const result = await sendExpenseDecisionNotification({ ...decision, recipientEmail: '' });
+    const result = await sendDecision({ ...decision, recipientEmail: '' });
 
     expect(result).toEqual({ sent: false, error: 'missing_recipient' });
     expect(mockSend).not.toHaveBeenCalled();

@@ -33,7 +33,7 @@ vi.mock('../../../lib/utils/facilitator-validation', () => ({
 
 import handler from '../../../pages/api/sessions/index';
 
-function buildChainableQuery(data: unknown[] | null = [], error: unknown = null) {
+function buildChainableQuery(data: unknown = [], error: unknown = null) {
   const handler: ProxyHandler<Record<string, unknown>> = {
     get(_target, prop) {
       if (prop === 'then') {
@@ -54,6 +54,14 @@ function buildMockServiceClient(
 ) {
   return {
     from: vi.fn((table: string) => {
+      if (table === 'schools') {
+        // Unit B1: the route reads the selected school's tenant controls before anything
+        // else touches the database. A plain client tenant keeps every behaviour below.
+        return buildChainableQuery(
+          { id: SCHOOL_ID, tenant_kind: 'client', internal_zoom_testing_enabled: false },
+          null
+        );
+      }
       if (table === 'growth_communities') {
         return buildChainableQuery(gcCheckData ? [gcCheckData] : null, gcCheckError);
       }

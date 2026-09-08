@@ -135,7 +135,13 @@ afterEach(() => {
 });
 
 describe('RoleAssignmentModal — allowedRoles prop', () => {
-  it('default (allowedRoles undefined) shows all roles in dropdown', async () => {
+  // B2a r2: supervisor_de_red is fenced out of the generic modal — it needs a
+  // network (red_id) this form cannot collect, so offering it minted active
+  // supervisor rows with red_id NULL that blocked the real assignment through
+  // Gestión de Redes. The full default list is therefore EIGHT roles, and the
+  // assertion is exhaustive (toEqual on a sorted copy would also work, but
+  // arrayContaining + exact length + explicit absence reads the intent).
+  it('default (allowedRoles undefined) shows every generically-assignable role — supervisor_de_red is NOT offered', async () => {
     installFetchWithRoles([]);
 
     render(<RoleAssignmentModal {...baseProps} />);
@@ -153,13 +159,53 @@ describe('RoleAssignmentModal — allowedRoles prop', () => {
         'equipo_directivo',
         'lider_generacion',
         'lider_comunidad',
-        'supervisor_de_red',
         'community_manager',
         'docente',
         'encargado_licitacion',
       ]),
     );
-    expect(values).toHaveLength(9);
+    expect(values).not.toContain('supervisor_de_red');
+    expect(values).toHaveLength(8);
+  });
+
+  // B2a r2, the other half of the boundary: an EXISTING supervisor role must
+  // stay fully visible (list entry and detail view) — only the ability to
+  // assign a NEW one through this modal disappears.
+  it('an existing supervisor_de_red role stays visible in current roles while the new-role dropdown never offers it', async () => {
+    installFetchWithRoles([
+      {
+        id: 'role-supervisor-1',
+        user_id: baseProps.userId,
+        role_type: 'supervisor_de_red',
+        school_id: null,
+        generation_id: null,
+        community_id: null,
+        is_active: true,
+      },
+    ]);
+
+    render(<RoleAssignmentModal {...baseProps} />);
+
+    // The role list AND the auto-opened detail pane both name the role.
+    await waitFor(() => {
+      expect(document.body.textContent).toMatch(/Supervisor de Red/);
+    });
+    expect(document.body.textContent).toMatch(/Detalles del Rol/);
+
+    // Open the new-role form from the viewing state ("+ Nuevo Rol", not the
+    // empty-state "Asignar Primer Rol") and check the dropdown.
+    const newRoleBtn = findButtonByText(/\+ Nuevo Rol/i);
+    expect(newRoleBtn).toBeDefined();
+    await act(async () => {
+      fireEvent.click(newRoleBtn!);
+    });
+
+    const values = getRoleOptionValues();
+    expect(values).toHaveLength(8);
+    expect(values).not.toContain('supervisor_de_red');
+
+    // The existing role's list entry survives entering the form.
+    expect(document.body.textContent).toMatch(/Supervisor de Red/);
   });
 
   it('allowedRoles={["docente"]} shows only docente', async () => {

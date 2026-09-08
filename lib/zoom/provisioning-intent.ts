@@ -10,7 +10,9 @@
  * claim; this gate only decides whether a job is worth minting at all).
  *
  * What IS here and nowhere else: the two §14 flags, which are enqueue-time policy rather
- * than source-state, and the three dedupe keys.
+ * than source-state — exposed on their own as `checkZoomRolloutPolicy` so a draft session
+ * can be asked "would this school get a meeting?" without pretending it is eligible yet —
+ * and the three dedupe keys.
  */
 import {
   checkSessionEligibility,
@@ -28,10 +30,19 @@ export const ZOOM_MEETINGS_FLAG = FeatureFlags.ZOOM_MEETINGS;
 /** §14 wave rollout: csv of `school_id`s. Unset or empty = every school. */
 export const ZOOM_SCHOOL_ALLOWLIST_VAR = 'ZOOM_SCHOOL_ALLOWLIST';
 
-/** Why the gate refused. Structural, so callers log a reason instead of a sentence. */
-export type ProvisionGateRefusal =
+/**
+ * Why the ROLLOUT POLICY refused — the two §14 flags and nothing else. Structural, so
+ * callers log a reason instead of a sentence. Shared verbatim by the provision gate, by the
+ * draft capability response and by the session POST, so those three surfaces can never
+ * disagree about which schools are in the Zoom wave.
+ */
+export type ZoomRolloutRefusal =
   | { reason: 'feature_disabled' }
-  | { reason: 'school_not_allowlisted'; schoolId: number }
+  | { reason: 'school_not_allowlisted'; schoolId: number };
+
+/** Why the provision gate refused: a rollout refusal, or source-state ineligibility. */
+export type ProvisionGateRefusal =
+  | ZoomRolloutRefusal
   | { reason: 'session_ineligible'; check: SessionEligibilityCheck };
 
 /**
@@ -124,24 +135,48 @@ export function meetingDeleteDedupeKey(sessionId: string): string {
 }
 
 /**
+ * The §14 rollout policy on its own: `null` when `schoolId` is in the Zoom wave, otherwise
+ * the first refusal. Evaluates ONLY the master flag and the school allowlist.
+ *
+ * Deliberately knows nothing about a session — not its status, provider, modality or
+ * managed intent — because it is also asked about sessions that do not exist yet: the
+ * creation page's capability response and the session POST evaluate a draft that is not
+ * `programada`, which `checkSessionEligibility` would (rightly) refuse. Those callers use
+ * this layer directly and never the full provision gate.
+ *
+ * Order: master flag (cheapest and most absolute) → school allowlist.
+ */
+export function checkZoomRolloutPolicy(
+  schoolId: number,
+  env: NodeJS.ProcessEnv = process.env
+): ZoomRolloutRefusal | null {
+  if (env[ZOOM_MEETINGS_FLAG] !== 'true') return { reason: 'feature_disabled' };
+
+  const allowlist = parseSchoolAllowlist(env[ZOOM_SCHOOL_ALLOWLIST_VAR]);
+  if (allowlist !== null && !allowlist.has(schoolId)) {
+    return { reason: 'school_not_allowlisted', schoolId };
+  }
+
+  return null;
+}
+
+/**
  * `null` when the session should be provisioned for; otherwise the first refusal.
  *
- * Order: master flag (cheapest and most absolute) → source-state eligibility (delegated)
- * → school allowlist (the wave gate, last because it is the most likely to change).
+ * Order: shared rollout policy (master flag, then school allowlist — both enqueue-time
+ * policy, both evaluated before any source state is read) → source-state eligibility
+ * (delegated to the provisioner's canonical `checkSessionEligibility`). Neither half is
+ * restated here.
  */
 export function checkProvisionGate(
   session: ProvisionSessionRow,
   env: NodeJS.ProcessEnv = process.env
 ): ProvisionGateRefusal | null {
-  if (env[ZOOM_MEETINGS_FLAG] !== 'true') return { reason: 'feature_disabled' };
+  const rollout = checkZoomRolloutPolicy(session.school_id, env);
+  if (rollout !== null) return rollout;
 
   const check = checkSessionEligibility(session);
   if (check !== null) return { reason: 'session_ineligible', check };
-
-  const allowlist = parseSchoolAllowlist(env[ZOOM_SCHOOL_ALLOWLIST_VAR]);
-  if (allowlist !== null && !allowlist.has(session.school_id)) {
-    return { reason: 'school_not_allowlisted', schoolId: session.school_id };
-  }
 
   return null;
 }
@@ -162,7 +197,7 @@ export function checkProvisionGate(
  * can legitimately be hand-managed, whereas the intent is the fact.
  *
  * NEITHER §14 flag is consulted here, deliberately — this is not an oversight, so do not
- * "restore" a flag check. §14 says the master kill switch stops *new meetings and joins*,
+ * "restore" a flag check, and do not route this through `checkZoomRolloutPolicy` either. §14 says the master kill switch stops *new meetings and joins*,
  * **never cleanup**, and names `meeting_delete` for cancellations among the jobs that
  * CONTINUE while it is off: a session cancelled during an incident window would otherwise
  * leave a live meeting on a booked host, which is the failure that sentence exists to

@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { getUserPrimaryRole } from '../../../utils/roleUtils';
+import { readClientReportingScope } from '../../../lib/simulation/tenant-policy';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -68,7 +69,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     };
 
     // Get reportable users based on role
-    const reportableUsers = await getReportableUsers(user.id, userRole, filters);
+    const clientScope = await readClientReportingScope(supabase);
+    if (filters.schoolId && !clientScope.isClientSchool(filters.schoolId)) {
+      return res.status(200).json({
+        cards: { kpiSummary: getEmptyKPIData() },
+        metadata: {
+          userId: user.id,
+          userRole,
+          generatedAt: new Date().toISOString(),
+          timeRange,
+          appliedFilters: filters,
+          permissions: [userRole],
+          loadTimeMs: Date.now() - startTime
+        }
+      });
+    }
+    const reportableUsers = clientScope.filterUserIds(
+      await getReportableUsers(user.id, userRole, filters)
+    );
     
     if (reportableUsers.length === 0) {
       return res.status(200).json({

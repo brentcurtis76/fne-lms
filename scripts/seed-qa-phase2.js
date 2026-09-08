@@ -6,16 +6,20 @@
 
 require('dotenv').config({ path: '.env.local' });
 const { createClient } = require('@supabase/supabase-js');
+const { assertLegacySeederIsNotProduction } = require('./production-qa-simulation/legacy-target-guard.cjs');
 const crypto = require('crypto');
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const qaSeedPassword = process.env.QA_SEED_PASSWORD;
 const BASE_URL = 'http://localhost:3000';
 
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('Missing Supabase environment variables');
+if (!supabaseUrl || !supabaseServiceKey || !qaSeedPassword) {
+  console.error('Missing Supabase or QA seed environment variables');
   process.exit(1);
 }
+
+assertLegacySeederIsNotProduction(supabaseUrl);
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -411,7 +415,7 @@ async function seedTestUsers() {
     // Create auth user
     const { data: authUser1, error: authError1 } = await supabase.auth.admin.createUser({
       email: 'docente-noschool.qa@fne.cl',
-      password: 'TestQA2026!',
+      password: qaSeedPassword,
       email_confirm: true,
     });
 
@@ -469,7 +473,7 @@ async function seedTestUsers() {
   } else {
     const { data: authUser2, error: authError2 } = await supabase.auth.admin.createUser({
       email: 'docente-multirole.qa@fne.cl',
-      password: 'TestQA2026!',
+      password: qaSeedPassword,
       email_confirm: true,
     });
 

@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { Resend } from 'resend';
+import { deliverOutboundEmail } from '../../lib/email/provider';
+import { PUBLIC_OUTBOUND_EMAIL } from '../../lib/email/outbound-policy';
 import { rateLimit } from '../../lib/rateLimit';
 import { escapeHtml } from '../../lib/utils/html-escape';
 
@@ -155,31 +156,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // to the visitor — the form still reports success, as it did before.
     let emailSent = false;
 
-    if (!process.env.RESEND_API_KEY) {
-      console.log('[contact] RESEND_API_KEY missing; notification email not sent', {
-        to: CONTACT_RECIPIENT,
-        interes: interestText,
-        timestamp: new Date().toISOString()
-      });
-    } else {
-      try {
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        const { error } = await resend.emails.send({
+    try {
+      const delivery = await deliverOutboundEmail({
+        authorization: PUBLIC_OUTBOUND_EMAIL,
+        message: {
           from: process.env.EMAIL_FROM_ADDRESS || 'Genera <notificaciones@nuevaeducacion.org>',
           to: CONTACT_RECIPIENT,
           reply_to: email,
           subject,
           html: htmlContent
-        });
-
-        if (error) {
-          console.error('[contact] Resend failed:', error);
-        } else {
-          emailSent = true;
-        }
-      } catch (error) {
-        console.error('[contact] Resend threw:', error);
-      }
+        },
+      });
+      emailSent = delivery.status === 'provider_accepted';
+      if (!emailSent) console.error('[contact] notification email not accepted', { status: delivery.status });
+    } catch (error) {
+      console.error('[contact] outbound email threw:', error);
     }
 
     // Log successful submission

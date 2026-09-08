@@ -1,4 +1,25 @@
 import { defineConfig, devices } from '@playwright/test';
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+/**
+ * The outbound-mail outbox the authentication-lifecycle spec reads.
+ *
+ * `tests/e2e/auth-lifecycle.spec.ts` has to open the link that was ACTUALLY
+ * placed in the invitation message — it used to mint its own through the admin
+ * API, in a different format from the one the product sends, so the test that
+ * was supposed to prove the invitation chain connects proved it for a URL nobody
+ * receives.
+ *
+ * `lib/email/outbox.ts` appends every outbound message here when this variable
+ * is set, and REFUSES to do so on a Vercel deployment whatever the variable
+ * says. The directory is created here, at config-evaluation time, because the
+ * server starts before any test does and `appendFileSync` will not create a
+ * missing parent.
+ */
+const OUTBOX_DIR = join(__dirname, '.e2e-outbox');
+mkdirSync(OUTBOX_DIR, { recursive: true });
+export const E2E_MAIL_OUTBOX = join(OUTBOX_DIR, 'outbox.jsonl');
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -48,5 +69,8 @@ export default defineConfig({
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 180 * 1000,
+    // Spread first: Playwright REPLACES the child environment with this object,
+    // so omitting process.env would strip the Supabase keys the server needs.
+    env: { ...(process.env as Record<string, string>), E2E_MAIL_OUTBOX },
   },
 });

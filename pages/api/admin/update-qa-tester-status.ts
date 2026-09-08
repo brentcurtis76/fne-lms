@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { hasAdminPrivileges } from '../../../utils/roleUtils';
+import { recordSecurityAudit } from '../../../lib/security/audit';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -93,19 +94,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Error al actualizar estado de tester QA' });
       }
 
-      // Log the update in audit_logs
-      await supabaseAdmin
-        .from('audit_logs')
-        .insert({
-          user_id: requestingUser.id,
-          action: canRunQATests ? 'enable_qa_tester' : 'disable_qa_tester',
-          table_name: 'profiles',
-          record_id: userId,
-          details: {
-            can_run_qa_tests: canRunQATests,
-            target_email: updatedProfile?.email
-          }
-        });
+      // S3: durable audit. Was an insert into the non-existent `audit_logs`,
+      // and it carried the target's e-mail address — which the audit table
+      // refuses at the storage layer. `target_user_id` identifies the account.
+      await recordSecurityAudit(supabaseAdmin, {
+        action: 'qa_tester_status_changed',
+        outcome: 'success',
+        actorUserId: requestingUser.id,
+        targetUserId: userId,
+        metadata: { can_run_qa_tests: canRunQATests },
+      });
 
       return res.status(200).json({
         success: true,

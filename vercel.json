@@ -12,6 +12,14 @@
     {
       "path": "/api/cron/zoom-reconcile",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/recovery-outbox",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/auth-retention",
+      "schedule": "30 3 * * *"
     }
   ]
 }

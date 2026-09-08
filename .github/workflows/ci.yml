@@ -1,9 +1,11 @@
 # GENERA — CI: quality gates on every PR (Fase 0)
 # Gates: (1) typecheck  (1b) lint (zero warnings)  (2) unit/Vitest  (3) supabase test db (pgTAP/RLS)
 #        (4) Playwright e2e on a seeded, ephemeral local Supabase stack (T2)
-# Plus: RLS migration guard (blocks any migration that disables ROW LEVEL SECURITY).
-# Branch protection on `main` must require these six checks — see docs/ci-setup.md.
+# Plus: migration-safety and browser/server-boundary guards.
+# Branch protection on `main` must require all seven exact job names — see docs/ci-setup.md.
 # All jobs: timeout-minutes 20 (GitHub default is 360 — a hung job would burn 6h of Actions).
+# Third-party action majors and selected Node versions are enforced by
+# scripts/ci/check-action-runtimes.mjs; update its reviewed policy deliberately.
 
 name: CI
 
@@ -18,21 +20,59 @@ concurrency:
 
 jobs:
   rls-migration-guard:
-    name: RLS migration guard
+    name: Migration safety guard
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Block deprecated or unreviewed GitHub Action runtimes
+        run: npm run guard:actions
       - name: Block migrations that disable RLS
         run: bash scripts/ci/check-rls-migrations.sh
+      # Additive-only migrations (CLAUDE.md -> Database Safety). Comment-aware and
+      # literal-aware, so it catches `EXECUTE 'DROP ...'` without failing the
+      # prose headers this repository writes. Negative controls:
+      # __tests__/security/destructive-migration-guard.test.ts
+      - name: Block destructive migrations (DROP / TRUNCATE / destructive ALTER)
+        run: node scripts/ci/check-destructive-migrations.mjs
+      # Committed credentials. Classifies credential-SHAPED text rather than
+      # grepping for one known string, and fails closed on anything it cannot
+      # classify. Never prints a matched value: findings carry file, line,
+      # category and a truncated SHA-256 fingerprint only. Runs here because this
+      # job has no `npm ci`, so the guard uses Node builtins only.
+      # Negative controls: __tests__/security/committed-secrets-guard.test.ts
+      - name: Block committed credentials (service_role JWTs, secret keys, DB passwords)
+        run: node scripts/ci/check-committed-secrets.mjs
+
+  browser-boundary-guard:
+    name: Browser/server boundary guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # AST + import-graph, not a regex over a directory list. Fails on a browser
+      # password write, a browser write to must_change_password, a browser audit
+      # insert, or any password-capable Supabase admin primitive outside the
+      # three fixed-purpose modules (there is no route allow-list).
+      # Negative controls: __tests__/security/browser-boundary.test.ts
+      - name: Enforce the browser/server security boundary
+        run: node scripts/ci/check-browser-boundaries.mjs
 
   typecheck:
     name: Gate 1 — Typecheck
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -44,8 +84,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -57,8 +97,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -70,10 +110,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
+      - uses: actions/checkout@v7
+      # setup-cli v3 installs the CLI from npm and reuses this explicit Node
+      # runtime. Keep it before setup-cli so the action never inherits the
+      # runner image's ambient Node version.
+      - uses: actions/setup-node@v7
         with:
-          version: latest
+          node-version: 22
+          cache: npm
+      - uses: supabase/setup-cli@v3
+        with:
+          # Gate 4 already proved this exact CLI version against the full stack.
+          # Pin Gate 3 too: an unrelated CLI release must not change a PR gate.
+          version: 2.110.0
       # NOTE: `supabase db start` builds a shadow DB from supabase/migrations.
       # Repo migrations start at 2026-02 (schema predates them). If they fail to
       # apply from scratch, add a baseline schema snapshot as the first migration
@@ -88,11 +137,7 @@ jobs:
       # FOR UPDATE SKIP LOCKED proof the vitest queue suite explicitly disclaims
       # — no in-process double can produce a second transaction to skip a lock
       # on. `supabase db start` brings up Postgres only (no PostgREST), so the
-      # proof speaks SQL and needs the Node toolchain the other gates set up.
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
+      # proof speaks SQL and uses the Node toolchain configured above.
       - run: npm ci
       - name: Queue concurrency proof (§17 overlapping ticker)
         run: |
@@ -100,6 +145,10 @@ jobs:
           # future [db] section in supabase/config.toml cannot silently break this.
           eval "$(supabase status -o env | grep '^DB_URL=')"
           SUPABASE_DB_URL="${DB_URL}" npm run test:queue
+      - name: Recovery concurrency proof (cooldown and leases)
+        run: |
+          eval "$(supabase status -o env | grep '^DB_URL=')"
+          SUPABASE_DB_URL="${DB_URL}" npm run test:recovery-concurrency
 
   # T2: the e2e gate runs against an ISOLATED, EPHEMERAL Supabase stack started on
   # the runner — no remote QA project, no production credentials, no shared state.
@@ -112,22 +161,37 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
-          # Pinned, unlike gate 3: this job passes service names to `supabase start -x`,
-          # and a rename in a future CLI release would break the gate on an unrelated PR.
+          # Pinned in both Supabase gates: this job passes service names to
+          # `supabase start -x`, and a rename in a future CLI release would
+          # break the gate on an unrelated PR.
           version: 2.110.0
       - run: npm ci
 
       # Excluded services are the ones no e2e path touches; skipping them saves
-      # several GB of image pulls per run. db, auth, rest, storage and kong stay.
+      # several GB of image pulls per run. db, auth, rest, storage, REALTIME and
+      # kong stay.
+      #
+      # `mailpit` stays excluded and is not needed: every recovery and invitation
+      # message this platform sends now goes through its OWN server-side mailer
+      # (lib/email/invitations.ts), which the e2e reads from lib/email/outbox.ts.
+      # Self-service recovery first commits an encrypted durable outbox row; the
+      # auth lifecycle spec drives its authenticated cron worker before reading
+      # that captured message. Nothing goes out over Supabase SMTP any more.
+      #
+      # `realtime` used to be excluded. It is not any more: the forced-password
+      # boundary is now a restrictive RLS policy, and the claim that it governs
+      # Realtime row delivery cannot be proved by a stack with no Realtime in it.
+      # tests/e2e/auth-lifecycle.spec.ts opens a real postgres_changes channel
+      # with a flagged token and with an unflagged one.
       - name: Start ephemeral local Supabase stack
-        run: supabase start -x studio,logflare,vector,edge-runtime,imgproxy,mailpit,realtime,supavisor,pooler
+        run: supabase start -x studio,logflare,vector,edge-runtime,imgproxy,mailpit,supavisor,pooler
       - name: Apply all migrations from scratch
         run: supabase db reset
 
@@ -139,6 +203,12 @@ jobs:
             echo "NEXT_PUBLIC_SUPABASE_URL=$(jq -er '.API_URL' <<<"$STATUS")"
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(jq -er '.ANON_KEY' <<<"$STATUS")"
             echo "SUPABASE_SERVICE_ROLE_KEY=$(jq -er '.SERVICE_ROLE_KEY' <<<"$STATUS")"
+            # The Storage half of the forced-password boundary is proved by
+            # creating a synthetic bucket and a permissive policy scoped to it,
+            # driving the real storage-api with flagged and unflagged tokens, and
+            # tearing both down. That needs a direct connection; PostgREST cannot
+            # issue DDL. Ephemeral stack, synthetic credentials, dies with the runner.
+            echo "SUPABASE_DB_URL=$(jq -er '.DB_URL' <<<"$STATUS")"
             # A floor, not a feature: `resolveZoomMode` (lib/zoom/api.ts:431-436) treats an
             # UNSET ZOOM_MODE as `live`, which is right for production and wrong for a test
             # environment. Reachable only through the job registry behind
@@ -216,7 +286,7 @@ jobs:
 
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: playwright-report/

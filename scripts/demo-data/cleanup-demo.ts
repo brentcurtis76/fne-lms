@@ -6,6 +6,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { assertLegacySeederIsNotProduction } from '../../lib/simulation/legacy-seeder-guard';
 import { DEMO_CONFIG } from './config';
 
 async function cleanupDemoData() {
@@ -22,6 +23,8 @@ async function cleanupDemoData() {
     console.error('Please ensure NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set in .env.local');
     process.exit(1);
   }
+
+  assertLegacySeederIsNotProduction(supabaseUrl);
 
   // Create Supabase client with service role key for admin operations
   const supabase = createClient(supabaseUrl, supabaseServiceKey, {

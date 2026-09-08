@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import { calculateAndSaveScores } from '@/lib/services/assessment-builder/scoringService';
+import { resolveCoberturaGate } from '@/lib/services/assessment-builder/coberturaGatePolicy';
 
 /**
  * POST /api/docente/assessments/[instanceId]/submit
@@ -146,18 +147,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const missingIndicators: string[] = [];
 
     modulesToValidate.forEach((module: any) => {
-      (module.indicators || []).forEach((indicator: any) => {
-        // R12: skip inactive indicators (if expectations data exists)
-        if (activeIndicatorIds !== null && !activeIndicatorIds.has(indicator.id)) {
-          return;
+      // Step 1: effective active indicators (year-aware, or legacy traspaso/detalle exclusion).
+      const activeIndicators = (module.indicators || []).filter((indicator: any) => {
+        if (activeIndicatorIds !== null) {
+          return activeIndicatorIds.has(indicator.id);
         }
+        return indicator.category !== 'traspaso' && indicator.category !== 'detalle';
+      });
 
-        // Legacy mode: when no year expectations data is available, skip traspaso/detalle
-        // (they are descriptive-only and were never required in the original validation).
-        if (activeIndicatorIds === null && (indicator.category === 'traspaso' || indicator.category === 'detalle')) {
-          return;
-        }
+      // Step 2: only genuinely applicable indicators (cobertura-gate-aware) are required.
+      const gate = resolveCoberturaGate({
+        indicators: activeIndicators,
+        getId: (ind: any) => ind.id,
+        getCategory: (ind: any) => ind.category,
+        getDisplayOrder: (ind: any) => ind.display_order,
+        getCoverageValue: (id: string) => responseMap.get(id)?.coverage_value,
+      });
 
+      gate.applicable.forEach((indicator: any) => {
         const response = responseMap.get(indicator.id);
 
         if (!response) {
@@ -225,18 +232,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al completar la evaluación' });
     }
 
-    // Update assignee as submitted
-    const { error: updateAssigneeError } = await supabaseClient
-      .from('assessment_instance_assignees')
-      .update({
-        has_submitted: true,
-      })
-      .eq('id', assignee.id);
-
-    if (updateAssigneeError) {
-      console.error('Error updating assignee:', updateAssigneeError);
-      // Don't fail the request, instance is already marked complete
-    }
+    // has_submitted on the caller's assignee row is set by the database trigger
+    // assessment_instance_progress_flags_trg on the completed transition above
+    // (assessment_instance_assignees is admin-write-only for user clients).
 
     // Auto-calculate scores on submit
     const scoringResult = await calculateAndSaveScores(

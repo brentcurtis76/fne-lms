@@ -52,7 +52,7 @@ import {
   FREQUENCY_UNIT_LABELS,
   DEFAULT_FREQUENCY_UNIT_OPTIONS,
 } from '@/types/assessment-builder';
-import { buildFrequencyConfig } from '@/lib/services/assessment-builder/frequencyConfig';
+import { buildFrequencyConfig, validateFrequencyConfig } from '@/lib/services/assessment-builder/frequencyConfig';
 import { validateProfundidadDescriptors } from '@/lib/validation/profundidadValidator';
 
 const STATUS_LABELS: Record<string, { label: string; bgColor: string; textColor: string }> = {
@@ -137,6 +137,9 @@ const TemplateEditor: React.FC = () => {
     category: IndicatorCategory;
     frequencyUnit: string;
     frequencyUnitOptions: FrequencyUnit[];
+    frequencyMin: string;
+    frequencyMax: string;
+    frequencyStep: string;
     level0Descriptor: string;
     level1Descriptor: string;
     level2Descriptor: string;
@@ -149,8 +152,11 @@ const TemplateEditor: React.FC = () => {
     description: '',
     evaluationGuidance: '',
     category: 'cobertura',
-    frequencyUnit: 'veces',
+    frequencyUnit: DEFAULT_FREQUENCY_UNIT_OPTIONS[0],
     frequencyUnitOptions: [...DEFAULT_FREQUENCY_UNIT_OPTIONS],
+    frequencyMin: '0',
+    frequencyMax: '',
+    frequencyStep: '1',
     level0Descriptor: '',
     level1Descriptor: '',
     level2Descriptor: '',
@@ -215,8 +221,11 @@ const TemplateEditor: React.FC = () => {
     onConfirm: () => void;
   } | null>(null);
 
-  // Publish flow: step 1 = confirm publish, step 2 = ask about upgrade
-  const [publishStep, setPublishStep] = useState<null | 'confirm' | 'upgrade'>(null);
+  // Publish flow: a single inline confirmation. The former second step
+  // ("¿Crear evaluaciones para docentes existentes?") sent upgradeExisting:true
+  // to a grade-blind upgrade path and was removed (PROC-CONTAIN-01 A-01); the
+  // publish API now rejects that flag with HTTP 409.
+  const [publishStep, setPublishStep] = useState<null | 'confirm'>(null);
 
   const requestConfirm = (key: string, onConfirm: () => void) => {
     setPendingConfirm({ key, onConfirm });
@@ -596,6 +605,44 @@ const TemplateEditor: React.FC = () => {
     return `${areaCode}${objOrder}.${modOrder}.${indOrder}`;
   };
 
+  /**
+   * Prefills the frecuencia fields from an indicator's stored config. The
+   * allowed periods come from frequency_config.allowed_units when present
+   * (published contract), else the legacy frequency_unit_options column. A
+   * legacy default unit such as "veces" is not a period, so the default falls
+   * back to the first allowed period.
+   */
+  const frequencyFormFromIndicator = (indicator: IndicatorData) => {
+    const config = indicator.frequencyConfig;
+    const allowed: FrequencyUnit[] =
+      config?.allowed_units && config.allowed_units.length > 0
+        ? config.allowed_units
+        : indicator.frequencyUnitOptions && indicator.frequencyUnitOptions.length > 0
+          ? indicator.frequencyUnitOptions
+          : [...DEFAULT_FREQUENCY_UNIT_OPTIONS];
+    const storedUnit = config?.unit;
+    const frequencyUnit = storedUnit && (allowed as string[]).includes(storedUnit) ? storedUnit : allowed[0];
+    const asField = (v: number | undefined) => (typeof v === 'number' && Number.isFinite(v) ? String(v) : '');
+    return {
+      frequencyUnit,
+      frequencyUnitOptions: [...allowed],
+      frequencyMin: asField(config?.min),
+      frequencyMax: asField(config?.max),
+      frequencyStep: asField(config?.step),
+    };
+  };
+
+  /** Parses the frecuencia fields into the config the API stores; NaN for blanks so the validator reports them. */
+  const frequencyConfigFromForm = () => {
+    const num = (raw: string) => (raw.trim() === '' ? Number.NaN : Number(raw));
+    return buildFrequencyConfig(editingIndicator?.frequencyConfig, indicatorForm.frequencyUnit, {
+      min: num(indicatorForm.frequencyMin),
+      max: num(indicatorForm.frequencyMax),
+      step: num(indicatorForm.frequencyStep),
+      allowed_units: indicatorForm.frequencyUnitOptions,
+    });
+  };
+
   // Indicator CRUD
   const openIndicatorModal = (moduleId: string, indicator?: IndicatorData) => {
     setIndicatorModuleId(moduleId);
@@ -614,8 +661,7 @@ const TemplateEditor: React.FC = () => {
         description: indicator.description || '',
         evaluationGuidance: indicator.evaluationGuidance || '',
         category: indicator.category,
-        frequencyUnit: indicator.frequencyConfig?.unit || 'veces',
-        frequencyUnitOptions: indicator.frequencyUnitOptions || [...DEFAULT_FREQUENCY_UNIT_OPTIONS],
+        ...frequencyFormFromIndicator(indicator),
         level0Descriptor: indicator.level0Descriptor || '',
         level1Descriptor: indicator.level1Descriptor || '',
         level2Descriptor: indicator.level2Descriptor || '',
@@ -640,8 +686,11 @@ const TemplateEditor: React.FC = () => {
         description: '',
         evaluationGuidance: '',
         category: 'cobertura',
-        frequencyUnit: 'veces',
+        frequencyUnit: DEFAULT_FREQUENCY_UNIT_OPTIONS[0],
         frequencyUnitOptions: [...DEFAULT_FREQUENCY_UNIT_OPTIONS],
+        frequencyMin: '0',
+        frequencyMax: '',
+        frequencyStep: '1',
         level0Descriptor: '',
         level1Descriptor: '',
         level2Descriptor: '',
@@ -675,10 +724,16 @@ const TemplateEditor: React.FC = () => {
       }
     }
 
-    // For frecuencia, require at least one unit option
+    // For frecuencia, require the full publish-time contract (same validator
+    // the publish endpoint enforces, so the admin learns about gaps here).
     if (indicatorForm.category === 'frecuencia') {
       if (indicatorForm.frequencyUnitOptions.length === 0) {
         toast.error('Los indicadores de frecuencia requieren al menos un período permitido');
+        return;
+      }
+      const check = validateFrequencyConfig(frequencyConfigFromForm());
+      if (!check.valid) {
+        toast.error(`Configuración de frecuencia incompleta: ${check.errors[0]}`);
         return;
       }
     }
@@ -711,9 +766,9 @@ const TemplateEditor: React.FC = () => {
       }
 
       if (indicatorForm.category === 'frecuencia') {
-        // Merge the chosen unit onto the existing config so scoring fields
-        // (min/max/step/type) the modal doesn't expose aren't wiped on edit.
-        body.frequencyConfig = buildFrequencyConfig(editingIndicator?.frequencyConfig, indicatorForm.frequencyUnit || 'veces');
+        // Full config (unit, min/max/step, allowed_units) merged onto the
+        // existing one so any field the modal doesn't expose isn't wiped.
+        body.frequencyConfig = frequencyConfigFromForm();
         body.frequencyUnitOptions = indicatorForm.frequencyUnitOptions;
       }
 
@@ -851,15 +906,17 @@ const TemplateEditor: React.FC = () => {
     return;
   };
 
-  const executePublish = async (upgradeExisting: boolean) => {
+  const executePublish = async () => {
     if (!template) return;
     setPublishStep(null);
     setIsPublishing(true);
     try {
+      // Never sends upgradeExisting: the publish API rejects it (409) and the
+      // grade-blind upgrade flow no longer exists in this UI.
       const response = await fetch(`/api/admin/assessment-builder/templates/${template.id}/publish`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ upgradeExisting }),
+        body: JSON.stringify({}),
       });
 
       if (!response.ok) {
@@ -870,12 +927,7 @@ const TemplateEditor: React.FC = () => {
       const data = await response.json();
       setTemplate(prev => prev ? { ...prev, status: 'published', version: data.template.version } : null);
 
-      // Show upgrade results if applicable
-      let message = data.message || 'Template publicado correctamente';
-      if (data.upgrade?.instancesCreated > 0) {
-        message += `. Se crearon ${data.upgrade.instancesCreated} nuevas evaluaciones para docentes existentes.`;
-      }
-      toast.success(message);
+      toast.success(data.message || 'Template publicado correctamente');
     } catch (error: any) {
       console.error('Error publishing:', error);
       toast.error(error.message || 'Error al publicar template');
@@ -1504,36 +1556,16 @@ const TemplateEditor: React.FC = () => {
                       <span className="flex items-center gap-2">
                         <span className="text-xs text-gray-600">¿Publicar este template?</span>
                         <button
-                          onClick={() => setPublishStep('upgrade')}
+                          data-testid="publish-confirm-btn"
+                          onClick={() => executePublish()}
                           className="px-3 py-1.5 text-xs bg-brand_accent text-white rounded-lg hover:bg-amber-400"
                         >
                           Sí, publicar
                         </button>
                         <button
+                          data-testid="publish-cancel-btn"
                           onClick={() => setPublishStep(null)}
                           className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-900"
-                        >
-                          Cancelar
-                        </button>
-                      </span>
-                    ) : publishStep === 'upgrade' ? (
-                      <span className="flex items-center gap-2">
-                        <span className="text-xs text-gray-600">¿Crear evaluaciones para docentes existentes?</span>
-                        <button
-                          onClick={() => executePublish(true)}
-                          className="px-3 py-1.5 text-xs bg-brand_accent text-white rounded-lg hover:bg-amber-400"
-                        >
-                          Sí
-                        </button>
-                        <button
-                          onClick={() => executePublish(false)}
-                          className="px-3 py-1.5 text-xs bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-                        >
-                          No
-                        </button>
-                        <button
-                          onClick={() => setPublishStep(null)}
-                          className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700"
                         >
                           Cancelar
                         </button>
@@ -2504,12 +2536,16 @@ const TemplateEditor: React.FC = () => {
                                   frequencyUnitOptions: [...indicatorForm.frequencyUnitOptions, unit],
                                 });
                               } else {
+                                const remaining = indicatorForm.frequencyUnitOptions.filter((u) => u !== unit);
                                 setIndicatorForm({
                                   ...indicatorForm,
-                                  frequencyUnitOptions: indicatorForm.frequencyUnitOptions.filter((u) => u !== unit),
+                                  frequencyUnitOptions: remaining,
+                                  // The default period must stay among the allowed ones.
+                                  frequencyUnit: indicatorForm.frequencyUnit === unit ? (remaining[0] ?? '') : indicatorForm.frequencyUnit,
                                 });
                               }
                             }}
+                            data-testid={`frequency-allowed-unit-${unit}`}
                             className="w-4 h-4 text-brand_primary border-gray-300 rounded focus:ring-brand_primary"
                           />
                           <span className="text-sm text-gray-700 capitalize">
@@ -2523,6 +2559,79 @@ const TemplateEditor: React.FC = () => {
                         Debes seleccionar al menos un período
                       </p>
                     )}
+
+                    <div className="mt-4">
+                      <label htmlFor="frequency-default-unit" className="block text-sm font-medium text-gray-700 mb-1">
+                        Período por defecto <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        id="frequency-default-unit"
+                        data-testid="frequency-default-unit"
+                        value={indicatorForm.frequencyUnit}
+                        onChange={(e) => setIndicatorForm({ ...indicatorForm, frequencyUnit: e.target.value })}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
+                      >
+                        {indicatorForm.frequencyUnitOptions.map((unit) => (
+                          <option key={unit} value={unit}>
+                            Por {FREQUENCY_UNIT_LABELS[unit]}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Se muestra seleccionado al docente hasta que elija otro período permitido
+                      </p>
+                    </div>
+
+                    <p className="text-sm font-medium text-gray-700 mt-4 mb-1">
+                      Rango de puntuación <span className="text-red-500">*</span>
+                    </p>
+                    <p className="text-xs text-gray-500 mb-2">
+                      El puntaje del indicador se normaliza entre el mínimo y el máximo. Requerido para publicar.
+                    </p>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label htmlFor="frequency-min" className="block text-xs font-medium text-gray-600 mb-1">Valor mínimo</label>
+                        <input
+                          id="frequency-min"
+                          data-testid="frequency-min"
+                          type="number"
+                          value={indicatorForm.frequencyMin}
+                          onChange={(e) => setIndicatorForm({ ...indicatorForm, frequencyMin: e.target.value })}
+                          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="frequency-max" className="block text-xs font-medium text-gray-600 mb-1">Valor máximo</label>
+                        <input
+                          id="frequency-max"
+                          data-testid="frequency-max"
+                          type="number"
+                          value={indicatorForm.frequencyMax}
+                          onChange={(e) => setIndicatorForm({ ...indicatorForm, frequencyMax: e.target.value })}
+                          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="frequency-step" className="block text-xs font-medium text-gray-600 mb-1">Paso</label>
+                        <input
+                          id="frequency-step"
+                          data-testid="frequency-step"
+                          type="number"
+                          min={0}
+                          value={indicatorForm.frequencyStep}
+                          onChange={(e) => setIndicatorForm({ ...indicatorForm, frequencyStep: e.target.value })}
+                          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
+                        />
+                      </div>
+                    </div>
+                    {(() => {
+                      const check = validateFrequencyConfig(frequencyConfigFromForm());
+                      return check.valid ? null : (
+                        <p className="text-xs text-amber-600 mt-2" data-testid="frequency-config-hint">
+                          Para publicar: {check.errors[0]}
+                        </p>
+                      );
+                    })()}
                   </div>
                 )}
 
@@ -2711,6 +2820,7 @@ const TemplateEditor: React.FC = () => {
                 <button
                   onClick={handleSaveIndicator}
                   disabled={isSaving}
+                  data-testid="indicator-save-btn"
                   className="px-4 py-2 bg-brand_primary text-white rounded-lg text-sm font-medium hover:bg-brand_primary/90 disabled:opacity-50"
                 >
                   {isSaving ? 'Guardando...' : editingIndicator ? 'Actualizar' : 'Crear'}

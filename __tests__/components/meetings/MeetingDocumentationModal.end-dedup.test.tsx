@@ -32,7 +32,6 @@ vi.mock('../../../src/components/TipTapEditor', () => ({
 
 vi.mock('../../../utils/meetingUtils', () => ({
   createMeetingWithDocumentation: vi.fn(),
-  getCommunityMembersForAssignment: vi.fn().mockResolvedValue([]),
   getMeetingDetails: vi.fn().mockResolvedValue({
     id: 'meeting-1',
     title: 'Test meeting',
@@ -68,6 +67,14 @@ describe('MeetingDocumentationModal — endWorkSession dedup', () => {
     endCalls.length = 0;
     fetchSpy = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : (input as Request).url;
+      // Community-scoped member pickers load through this route; an empty
+      // community is a valid answer and keeps this test independent of it.
+      if (url.startsWith('/api/community/members')) {
+        return new Response(JSON.stringify({ members: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
       if (url.endsWith('/work-session/start')) {
         return new Response(JSON.stringify({ data: { id: 'ws-1' } }), {
           status: 201,
@@ -101,6 +108,7 @@ describe('MeetingDocumentationModal — endWorkSession dedup', () => {
         isOpen={false}
         onClose={onClose}
         workspaceId="ws-1"
+        communityId="comm-1"
         userId="user-1"
         onSuccess={() => {}}
         meetingId="meeting-1"
@@ -114,6 +122,7 @@ describe('MeetingDocumentationModal — endWorkSession dedup', () => {
           isOpen
           onClose={onClose}
           workspaceId="ws-1"
+          communityId="comm-1"
           userId="user-1"
           onSuccess={() => {}}
           meetingId="meeting-1"

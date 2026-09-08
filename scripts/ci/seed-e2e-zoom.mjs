@@ -29,6 +29,7 @@
  * 100% synthetic: invented school, invented growth community, invented session, no real
  * person, school or meeting. Nothing here is student data.
  */
+import { resolveGenerationId } from './e2e-fixture-scopes.mjs';
 
 /**
  * `consultor_sessions.scheduled_duration_minutes` is GENERATED ALWAYS from
@@ -36,14 +37,13 @@
  * which is known to lag). Writing it is an error, so it is absent from the payload below
  * by design rather than by omission.
  */
-async function ensureGrowthCommunity(supabase, community, schoolId) {
+async function ensureGrowthCommunity(supabase, community, schoolId, generationId) {
   const { error } = await supabase.from('growth_communities').upsert(
     {
       id: community.id,
       school_id: schoolId,
       name: community.name,
-      // generation_id stays NULL: the fixture school has has_generations=false.
-      generation_id: null,
+      generation_id: generationId,
     },
     { onConflict: 'id' }
   );
@@ -231,7 +231,8 @@ export async function seedZoomFixtures({ supabase, fixtures, userIds }) {
   const { community, session, linkedSession, managedSession } = fixtures.zoom;
   const schoolId = fixtures.school.id;
 
-  await ensureGrowthCommunity(supabase, community, schoolId);
+  const generationId = resolveGenerationId(fixtures, community.generation, 'zoom.community');
+  await ensureGrowthCommunity(supabase, community, schoolId, generationId);
   console.log(`[seed-e2e-zoom] growth community ${community.id} "${community.name}" ready`);
 
   // All three sessions live in the SAME school and growth community on purpose: the

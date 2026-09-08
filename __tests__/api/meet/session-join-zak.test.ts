@@ -44,6 +44,12 @@ vi.mock('../../../lib/api-auth', async (importOriginal) => {
   };
 });
 
+vi.mock('../../../lib/simulation/tenant-policy', () => ({
+  resolveSchoolProviderDisposition: vi.fn(async (_client, schoolId) => ({
+    kind: 'allow', tenantKind: 'client', schoolId,
+  })),
+}));
+
 vi.mock('../../../utils/roleUtils', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {

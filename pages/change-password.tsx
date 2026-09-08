@@ -1,10 +1,18 @@
-import { useState, useEffect } from 'react';
+// The default React import is required for the classic JSX transform Vitest
+// uses (Next.js compiles with the automatic runtime and does not need it).
+// `pages/login.tsx` and `pages/reset-password.tsx` carry it for the same reason.
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { supabase } from '../lib/supabase';
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';
 import { LockClosedIcon, ExclamationIcon, LogoutIcon } from '@heroicons/react/outline';
+import { PASSWORD_RULES, firstPasswordPolicyError } from '../lib/auth/password-policy';
+import {
+  FORCED_CHANGE_UNVERIFIED_PARAM,
+  FORCED_CHANGE_UNVERIFIED_VALUE,
+} from '../lib/auth/forced-password-change';
 
 export default function ChangePasswordPage() {
   const router = useRouter();
@@ -18,6 +26,12 @@ export default function ChangePasswordPage() {
   const [showPasswords, setShowPasswords] = useState(false);
   const [isAdminReset, setIsAdminReset] = useState(false);
   const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
+  // S4: the middleware could not READ the flag (database unreachable) rather
+  // than finding it set. It fails closed and sends the user here with a marker.
+  // Without the marker this page would read the flag, find it false, push to
+  // /dashboard, and be bounced straight back — a redirect ping-pong lasting as
+  // long as the outage. With it, the page stops and offers a retry.
+  const [verificationUnavailable, setVerificationUnavailable] = useState(false);
 
   useEffect(() => {
     if (!hasCheckedAuth) {
@@ -26,7 +40,22 @@ export default function ChangePasswordPage() {
     }
   }, [hasCheckedAuth]);
 
+  /**
+   * F1/F3 — the page's state comes from the SERVER now.
+   *
+   * It used to come from two places the page could not trust and can no longer
+   * reach: a browser `profiles` SELECT for the flag, which the database gate in
+   * `20260819120000` refuses for precisely the flagged accounts this page
+   * serves; and `session.user.user_metadata` for the administrative-reset
+   * banner, which is decoded from a cookie the caller owns.
+   *
+   * `/api/auth/password-change-state` answers both with a service-role read,
+   * after establishing the caller with `auth.getUser()`.
+   */
   const checkAuth = async () => {
+    const arrivedUnverified =
+      router.query[FORCED_CHANGE_UNVERIFIED_PARAM] === FORCED_CHANGE_UNVERIFIED_VALUE;
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
 
@@ -37,37 +66,52 @@ export default function ChangePasswordPage() {
 
       setUser(session.user);
 
-      // Check if user actually needs to change password
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('must_change_password')
-        .eq('id', session.user.id)
-        .single();
+      const response = await fetch('/api/auth/password-change-state', {
+        credentials: 'include',
+      });
 
-      if (profileError) {
-        console.error('Error checking password change requirement:', profileError);
-        // On error, assume user needs to change password (stay on page)
-        // This prevents redirect loop when profile fetch fails
+      if (response.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      if (!response.ok) {
+        // The server could not determine the state. Staying put is the safe
+        // answer — the alternative is pushing to /dashboard, which the
+        // middleware may bounce straight back here.
+        console.error('[ChangePassword] could not read the password-change state');
+        setVerificationUnavailable(true);
         setLoading(false);
         return;
       }
 
-      if (!profile?.must_change_password) {
-        // User doesn't need to change password, redirect to dashboard
+      const state = (await response.json()) as {
+        mustChangePassword?: boolean;
+        isAdminReset?: boolean;
+      };
+
+      if (!state.mustChangePassword) {
+        // The flag is not set. Normally that means the user landed here by
+        // mistake and belongs on the dashboard — but if the middleware sent
+        // them here because it could not verify, redirecting back is exactly
+        // the loop the marker exists to break. Stop and let them choose.
+        if (arrivedUnverified) {
+          setVerificationUnavailable(true);
+          setLoading(false);
+          return;
+        }
         router.push('/dashboard');
         return;
       }
 
-      // Check if this is an admin password reset
-      const metadata = session.user.user_metadata;
-      if (metadata?.password_reset_by_admin) {
-        setIsAdminReset(true);
-      }
-
+      setIsAdminReset(state.isAdminReset === true);
       setLoading(false);
     } catch (error) {
       console.error('Auth check error:', error);
-      router.push('/login');
+      // A network failure is not a reason to sign somebody out, and it is not a
+      // reason to send them to a dashboard the middleware will bounce.
+      setVerificationUnavailable(true);
+      setLoading(false);
     }
   };
 
@@ -76,22 +120,8 @@ export default function ChangePasswordPage() {
     router.push('/login');
   };
 
-  const validatePassword = (password: string): string | null => {
-    if (password.length < 8) {
-      return 'La contraseña debe tener al menos 8 caracteres';
-    }
-    if (!/[A-Z]/.test(password)) {
-      return 'La contraseña debe contener al menos una letra mayúscula';
-    }
-    if (!/[a-z]/.test(password)) {
-      return 'La contraseña debe contener al menos una letra minúscula';
-    }
-    if (!/[0-9]/.test(password)) {
-      return 'La contraseña debe contener al menos un número';
-    }
-    return null;
-  };
-
+  // S5: the rule lives in lib/auth/password-policy and is re-checked
+  // server-side by /api/auth/force-password-change. This is the usability half.
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -100,7 +130,7 @@ export default function ChangePasswordPage() {
       return;
     }
 
-    const validationError = validatePassword(newPassword);
+    const validationError = firstPasswordPolicyError(newPassword);
     if (validationError) {
       toast.error(validationError);
       return;
@@ -109,127 +139,64 @@ export default function ChangePasswordPage() {
     setUpdating(true);
 
     try {
-      // First attempt: Try direct password update
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword
+      // F3 — ALWAYS the audited server endpoint. This used to call
+      // `supabase.auth.updateUser({ password })` from the browser and fall back
+      // here only on a 422. "Secure password change" is off on this project, so
+      // the 422 never came, so the fallback never fired: the ordinary forced
+      // change bypassed the server policy check, bypassed the trusted flag
+      // clear, and wrote no `password_change_forced` audit row.
+      //
+      // There is no direct-update branch any more, and there is no browser write
+      // to `profiles` either — the endpoint clears the flag through the database
+      // path and tells us whether it worked.
+      const response = await fetch('/api/auth/force-password-change', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ newPassword }),
       });
 
-      // If we get a 422 error, it means secure password change is enabled
-      // and we need to use a workaround for first-time password changes
-      if (updateError && (updateError as any).status === 422) {
-        console.log('Secure password change detected, using admin endpoint for first-time change');
+      const result = await response.json().catch(() => ({}));
 
-        // Use the admin endpoint to bypass secure password change requirement
-        const response = await fetch('/api/auth/force-password-change', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ newPassword }),
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-          throw new Error(result.error || 'Failed to update password');
-        }
-
-        // If we reach here, password was updated successfully via admin endpoint
-        // Continue with the normal flow
-      } else if (updateError) {
-        throw updateError;
-      }
-
-      // Update the must_change_password flag
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          must_change_password: false
-        })
-        .eq('id', user.id);
-
-      if (profileError) {
-        console.error('Could not update profile flags:', profileError);
-        // Continue anyway - password was changed successfully
-        // The important thing is the password is updated, not the flags
-      }
-
-      // Clear the admin reset metadata
-      if (isAdminReset) {
-        await supabase.auth.updateUser({
-          data: {
-            password_reset_by_admin: null,
-            password_reset_at: null
-          }
-        });
-      }
-
-      // Check if profile is complete before redirecting
-      const { data: profile, error: checkError } = await supabase
-        .from('profiles')
-        .select('first_name, last_name, school')
-        .eq('id', user.id)
-        .single();
-
-      let isProfileComplete = false;
-
-      if (checkError) {
-        console.error('Could not check profile completion:', checkError);
-        // On error, assume profile is incomplete and send to profile page
-        toast.success('Contraseña actualizada exitosamente. Por favor completa tu perfil.');
-      } else {
-        isProfileComplete = profile?.first_name && profile?.last_name && profile?.school;
-
-        if (isProfileComplete) {
-          toast.success('Contraseña actualizada exitosamente');
+      if (!response.ok) {
+        // `passwordChanged` distinguishes "type a different password" from "your
+        // password DID change but we could not finish" — which the old code
+        // could not express at all, because it reported success either way.
+        if (result?.passwordChanged) {
+          toast.error(result.error || 'Tu contraseña se actualizó, pero no pudimos completar el proceso.');
         } else {
-          toast.success('Contraseña actualizada exitosamente. Ahora completa tu perfil.');
+          toast.error(result?.error || 'Error al actualizar la contraseña. Por favor intenta nuevamente.');
         }
+        return;
       }
 
-      // Redirect based on profile completion status
+      // THE SESSION IS GONE, and that is not a bug to work around.
+      //
+      // The password is now written by the server through
+      // `auth.admin.updateUserById`, and GoTrue revokes the account's refresh
+      // tokens when its password changes. So by the time this line runs the
+      // browser is holding a dead session: the old code's next steps — a
+      // `profiles` read, then `router.push('/dashboard')` — would have failed
+      // and then bounced off the middleware to `/login` anyway, which is exactly
+      // what the e2e observed.
+      //
+      // Sending the user to sign in with the credential they just chose is both
+      // the honest end of this flow and the same rule `/reset-password` follows,
+      // so "you completed a password change through the server, now sign in"
+      // holds everywhere rather than in one place.
+      toast.success('Contraseña actualizada exitosamente. Inicia sesión con tu nueva contraseña.');
+
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+
       setTimeout(() => {
-        if (isProfileComplete && !checkError) {
-          router.push('/dashboard');
-        } else {
-          router.push('/profile');
-        }
+        router.push('/login');
       }, 1000);
     } catch (error: any) {
-      // Enhanced error logging for debugging
-      console.error('Password update error - Full details:', {
-        error: error,
-        errorMessage: error?.message,
-        errorCode: error?.code,
-        errorStatus: error?.status,
-        errorName: error?.name,
-        userEmail: user?.email,
-        timestamp: new Date().toISOString()
+      console.error('[ChangePassword] password update failed:', {
+        message: error?.message,
+        userId: user?.id,
       });
-
-      // Check for specific Supabase auth errors
-      if (error?.message?.includes('reauthentication required') ||
-        error?.message?.includes('New password should be different from the old password') ||
-        error?.code === 'same_password') {
-        toast.error('Por favor usa una contraseña diferente a la anterior');
-      } else if (error?.message?.includes('Password should be at least') ||
-        error?.message?.includes('password')) {
-        // Supabase might have its own password requirements
-        toast.error('La contraseña no cumple con los requisitos de seguridad del sistema');
-      } else if (error?.status === 422 || error?.message?.includes('auth')) {
-        // Common error when secure password change is enabled
-        toast.error('Error de autenticación. Es posible que necesites volver a iniciar sesión. Por favor contacta al administrador.');
-      } else {
-        toast.error(error.message || 'Error al actualizar la contraseña. Por favor intenta nuevamente.');
-      }
-
-      // Log to help identify the issue for this specific user
-      if (user?.email === 'maritza.cortes@lisamvallenar.cl') {
-        console.warn('DEBUG - Password change failed for maritza.cortes:', {
-          fullError: JSON.stringify(error, null, 2),
-          stack: error?.stack
-        });
-      }
+      toast.error('Error al actualizar la contraseña. Por favor intenta nuevamente.');
     } finally {
       setUpdating(false);
     }
@@ -240,6 +207,50 @@ export default function ChangePasswordPage() {
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#0a0a0a]"></div>
       </div>
+    );
+  }
+
+  if (verificationUnavailable) {
+    return (
+      <>
+        <Head>
+          <title>Cambiar Contraseña - Genera</title>
+        </Head>
+        <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+          <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
+            <div className="flex justify-center">
+              <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center">
+                <ExclamationIcon className="w-10 h-10 text-yellow-600" />
+              </div>
+            </div>
+            <h2 className="mt-6 text-2xl font-extrabold text-gray-900">
+              No pudimos verificar tu cuenta
+            </h2>
+            <p className="mt-3 text-sm text-gray-600">
+              No pudimos comprobar si necesitas cambiar tu contraseña. Es un problema temporal
+              de conexión, no de tu cuenta.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <button
+                type="button"
+                onClick={() => router.replace('/dashboard')}
+                data-testid="forced-change-retry"
+                className="inline-flex justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#0a0a0a] hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition-colors"
+              >
+                Reintentar
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                data-testid="forced-change-logout"
+                className="inline-flex justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Cerrar sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
     );
   }
 
@@ -341,22 +352,18 @@ export default function ChangePasswordPage() {
                   Requisitos de la contraseña:
                 </p>
                 <ul className="text-sm text-gray-600 space-y-1">
-                  <li className={`flex items-center gap-1 ${newPassword.length >= 8 ? 'text-green-600' : ''}`}>
-                    <span>{newPassword.length >= 8 ? '✓' : '•'}</span>
-                    Al menos 8 caracteres
-                  </li>
-                  <li className={`flex items-center gap-1 ${/[A-Z]/.test(newPassword) ? 'text-green-600' : ''}`}>
-                    <span>{/[A-Z]/.test(newPassword) ? '✓' : '•'}</span>
-                    Al menos una letra mayúscula
-                  </li>
-                  <li className={`flex items-center gap-1 ${/[a-z]/.test(newPassword) ? 'text-green-600' : ''}`}>
-                    <span>{/[a-z]/.test(newPassword) ? '✓' : '•'}</span>
-                    Al menos una letra minúscula
-                  </li>
-                  <li className={`flex items-center gap-1 ${/[0-9]/.test(newPassword) ? 'text-green-600' : ''}`}>
-                    <span>{/[0-9]/.test(newPassword) ? '✓' : '•'}</span>
-                    Al menos un número
-                  </li>
+                  {PASSWORD_RULES.map((rule) => {
+                    const met = rule.test(newPassword);
+                    return (
+                      <li
+                        key={rule.id}
+                        className={`flex items-center gap-1 ${met ? 'text-green-600' : ''}`}
+                      >
+                        <span>{met ? '✓' : '•'}</span>
+                        {rule.label}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
 

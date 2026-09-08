@@ -1,0 +1,33 @@
+{
+  "_comment": [
+    "Pilot provisioning target allowlist (scripts/pilot-provisioning/target-guard.mjs).",
+    "Two targets exist and only these two: `staging` (synthetic rehearsal, environmentClass",
+    "`staging`) and `realPilot` (approved non-PII configuration only, environmentClass",
+    "`production`). Every entry ships with projectRef/supabaseUrl = null and approved = false,",
+    "which makes the guard REFUSE that target before any client is created. Brent fills the",
+    "exact Supabase project ref (20 lowercase alphanumerics), the exact URL",
+    "(https://<projectRef>.supabase.co, no path, port, query or credentials) and flips",
+    "`approved` to true when the target is authorised. There is no flag, env var or code path",
+    "that bypasses an unapproved, null, mismatched, localhost or unknown target.",
+    "`keyEnv` names the environment variable that must carry the service-role key at runtime;",
+    "the key value itself is never committed, logged or echoed. The guard additionally",
+    "cross-checks a JWT-shaped key's embedded project ref and role against the entry."
+  ],
+  "schemaVersion": 1,
+  "targets": {
+    "staging": {
+      "projectRef": null,
+      "supabaseUrl": null,
+      "environmentClass": "staging",
+      "keyEnv": "PILOT_STAGING_SERVICE_ROLE_KEY",
+      "approved": false
+    },
+    "realPilot": {
+      "projectRef": null,
+      "supabaseUrl": null,
+      "environmentClass": "production",
+      "keyEnv": "PILOT_REALPILOT_SERVICE_ROLE_KEY",
+      "approved": false
+    }
+  }
+}

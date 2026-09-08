@@ -34,6 +34,12 @@ import {
   filterReportsByVisibility,
   redactProfileEmails,
 } from '../../../../lib/utils/session-disclosure';
+import {
+  managedMeetingIsReady,
+  managedMeetingIsUnavailable,
+  MANAGED_MEETING_NOT_READY_MESSAGE,
+  MANAGED_MEETING_UNAVAILABLE_MESSAGE,
+} from '../../../../lib/utils/managed-meeting-readiness';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-detail');
@@ -324,6 +330,51 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
           'La reunión Zoom gestionada solo se puede activar o desactivar mientras la sesión está en borrador o pendiente de aprobación.',
         code: 'ZOOM_MANAGED_LOCKED',
       });
+    }
+
+    // A managed meeting is provisioned asynchronously after approval. Starting the
+    // source session before its public projection exists changes the source status to
+    // `en_progreso`; the provisioner then correctly re-checks eligibility and
+    // compensates the meeting it was creating. Close that race here, not only in the
+    // admin UI, so a direct API call cannot strand the session without a meeting.
+    const startsManagedSession =
+      session.is_zoom_managed === true &&
+      session.status !== 'en_progreso' &&
+      req.body.status === 'en_progreso';
+
+    if (startsManagedSession) {
+      const { data: meetingProjection, error: meetingProjectionError } = await serviceClient
+        .from('session_meetings_public')
+        .select('meeting_status')
+        .eq('surface_type', 'consultor_session')
+        .eq('surface_id', sessionId)
+        .maybeSingle();
+
+      if (meetingProjectionError) {
+        console.error(
+          '[sessions-detail] managed meeting readiness check failed:',
+          meetingProjectionError.message
+        );
+        return sendAuthError(
+          res,
+          'No se pudo verificar si la reunión Zoom está lista. La sesión no se inició.',
+          500
+        );
+      }
+
+      if (managedMeetingIsUnavailable(meetingProjection?.meeting_status)) {
+        return res.status(409).json({
+          error: MANAGED_MEETING_UNAVAILABLE_MESSAGE,
+          code: 'ZOOM_MEETING_UNAVAILABLE',
+        });
+      }
+
+      if (!managedMeetingIsReady(meetingProjection?.meeting_status)) {
+        return res.status(409).json({
+          error: MANAGED_MEETING_NOT_READY_MESSAGE,
+          code: 'ZOOM_MEETING_NOT_READY',
+        });
+      }
     }
 
     // Turning managed ON is a TRANSITION: the stored intent is not yet true and the

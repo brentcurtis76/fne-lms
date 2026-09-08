@@ -44,7 +44,11 @@ body{margin:0;background:#F3F4F6;color:#1F1F1F;font-family:Mont,Arial,sans-serif
  .page-container{margin:0;padding:0;overflow:visible}
  .fne-document{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}
  .fne-document *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-
+ /* Safari can omit an avoided closing block when it crosses the last page.
+    Start the final legal clauses on a fresh page so signatures stay with them. */
+ @supports (font:-apple-system-body){
+  .fne-document .contract-signing-start{break-before:page}
+ }
 }
 `;
 

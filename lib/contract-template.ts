@@ -154,7 +154,7 @@ export function generateContractFromTemplate(contractData: any): string {
     const text = paragraph.trim();
     if (/^(PRIMERO|SEGUNDO|TERCERO|CUARTO|QUINTO|SEXTO|SÉPTIMO|OCTAVO|NOVENO|DÉCIMO(?: PRIMERO| SEGUNDO| TERCERO| CUARTO| QUINTO| SEXTO)?):/.test(text)) {
       const [heading, ...lines] = text.split('\n');
-      return `<h2>${heading}</h2>${lines.length ? `<p>${lines.join('<br>')}</p>` : ''}`;
+      return `<h2${heading.startsWith('DÉCIMO CUARTO:') ? ' class="contract-signing-start"' : ''}>${heading}</h2>${lines.length ? `<p>${lines.join('<br>')}</p>` : ''}`;
     }
     if (text === '{{CUOTAS_DETALLE}}') return text;
     return `<p>${text.replace(/\n/g, '<br>')}</p>`;

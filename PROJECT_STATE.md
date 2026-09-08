@@ -1,6 +1,6 @@
 ## Contract design release verification — 2026-09-08
 
-`feat/contract-design` integrates origin/main `097b62ed`. Local unit (9,716 passed), type-check, lint, build, pgTAP (2,506 assertions), and Chromium print checks passed. Synthetic authenticated contract/anexo creation and saved-print routes verified with computer use. CLP list labels corrected; print tests made mandatory in CI. Native Safari PDF signature omission remains under investigation; not production-ready. See `docs/planning/reviews/fase-contract-design-review-request.md`.
+`feat/contract-design` integrates origin/main `097b62ed`. Local unit (9,716 passed), type-check, lint, build, pgTAP (2,506 assertions), and Chromium print checks passed. Synthetic authenticated contract/anexo creation and saved-print routes verified with computer use. CLP list labels corrected; print tests made mandatory in CI. Safari contrato pagination fixed and visually verified: final clauses/signatures/footer together on six Letter pages; Chromium remains five. Safari short/long anexos verified at one/three pages. PR #91 awaits final-head CI; not merged to main. See `docs/planning/reviews/fase-contract-design-review-request.md`.
 
 # PROJECT_STATE.md
 

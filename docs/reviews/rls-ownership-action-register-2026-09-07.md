@@ -116,4 +116,3 @@ Grouped by area so one triage decision can cover many rows. Proposed triage owne
 2. The names are written into `docs/reviews/santa-marta-work-items.csv` (`triage_owner` for BACKLOG rows, `dueno` for the W-D rows) in a documentation-only change, independently reviewed like every ledger edit.
 3. `node scripts/check-ledger.mjs` is re-run; the expected result is 0 failures **without** any change to the validator.
 4. The W-D operations remain BLOCKED until Brent's separate written authorization; naming an owner is not authorization.
-

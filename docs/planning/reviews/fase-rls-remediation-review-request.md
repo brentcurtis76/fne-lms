@@ -540,7 +540,7 @@ The original independent C-R2 review approved the exact local 89-path candidate 
 - Merge `4350af2ad0c1339db332b82d12d01d43fcbe8a8b`: parents preservation + exact main. No rebase, history rewrite or discarded workstream.
 - Only content conflict: `PROJECT_STATE.md`, resolved by preserving both complete evidence blocks (removing duplicate byte-identical paragraphs only). Every nonblank line on both sides was verified retained. Historical records stay historical; no assessment exception is adopted for this release.
 - `scripts/ci/e2e-mandatory.mjs` auto-merged: union of the 14 RLS candidate specs and main's assessment-draft spec, 15 total. No exclusions or guard weakening.
-- Routine integration documentation fix: stripped two trailing-whitespace lines inherited from main's assessment-role review request; no semantic change.
+- Routine integration documentation fix: stripped two trailing-whitespace lines inherited from main's assessment-role review request; no semantic change. Final whole-PR whitespace validation also found one extra EOF blank line in the preserved ownership-register document; that blank line alone was removed in a follow-up documentation commit, with the ledger content and exact failure set unchanged.
 - All 87 other approved paths, including seven migrations, remained byte-identical after merge. Every main-side assessment implementation/test file also remained byte-identical. No approved permission, settlement, provenance or migration-order behavior changed.
 
 The source history also includes B2c-M1 documentation commit `92df72a6`, which is the head of draft PR #85. Its documentation changes remain visible in this release diff. PR #85 is not repurposed; no push targets `fix/rls-learn`.

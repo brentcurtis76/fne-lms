@@ -49,6 +49,9 @@ const AssessmentResponseForm: React.FC = () => {
 
   // Debounce timer for auto-save
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingIndicatorIds = useRef(new Set<string>());
+  const saveQueue = useRef<Promise<boolean>>(Promise.resolve(true));
+  const submittingRef = useRef(false);
 
   // Check auth
   useEffect(() => {
@@ -201,6 +204,8 @@ const AssessmentResponseForm: React.FC = () => {
 
   // Handle response change
   const handleResponseChange = (indicatorId: string, field: keyof ResponseData, value: ResponseData[keyof ResponseData]) => {
+    if (submittingRef.current) return;
+    pendingIndicatorIds.current.add(indicatorId);
     setResponses(prev => ({
       ...prev,
       [indicatorId]: {
@@ -215,7 +220,9 @@ const AssessmentResponseForm: React.FC = () => {
       clearTimeout(saveTimerRef.current);
     }
     saveTimerRef.current = setTimeout(() => {
-      saveResponses([indicatorId]);
+      const ids = Array.from(pendingIndicatorIds.current);
+      pendingIndicatorIds.current.clear();
+      void saveResponses(ids);
     }, 2000);
   };
 
@@ -223,8 +230,15 @@ const AssessmentResponseForm: React.FC = () => {
   const responsesRef = useRef(responses);
   responsesRef.current = responses;
 
-  const saveResponses = async (indicatorIds?: string[]) => {
-    if (!instanceId) return;
+  // Serialize writes so an earlier autosave cannot overwrite the final save.
+  const saveResponses = (indicatorIds?: string[]): Promise<boolean> => {
+    const nextSave = saveQueue.current.then(() => persistResponses(indicatorIds));
+    saveQueue.current = nextSave;
+    return nextSave;
+  };
+
+  const persistResponses = async (indicatorIds?: string[]): Promise<boolean> => {
+    if (!instanceId) return false;
 
     // Use ref to get current responses (avoids stale closure)
     const currentResponses = responsesRef.current;
@@ -244,7 +258,7 @@ const AssessmentResponseForm: React.FC = () => {
         sub_responses: currentResponses[id].subResponses,
       }));
 
-    if (responsesToSave.length === 0) return;
+    if (responsesToSave.length === 0) return true;
 
     setSaving(true);
     try {
@@ -260,13 +274,24 @@ const AssessmentResponseForm: React.FC = () => {
         throw new Error(data.error || 'Error al guardar');
       }
 
-      setHasUnsavedChanges(false);
+      if (data.errors?.length || data.saved !== responsesToSave.length) {
+        throw new Error('No se pudieron guardar todas las respuestas. Intenta guardar nuevamente antes de enviar.');
+      }
+
+      if (responsesRef.current === currentResponses) {
+        idsToSave.forEach(id => pendingIndicatorIds.current.delete(id));
+      }
+      setHasUnsavedChanges(responsesRef.current !== currentResponses || pendingIndicatorIds.current.size > 0);
 
       // Update progress
       updateProgress();
+      return true;
     } catch (error: any) {
       console.error('Error saving responses:', error);
+      idsToSave.forEach(id => pendingIndicatorIds.current.add(id));
+      setHasUnsavedChanges(true);
       toast.error(error.message || 'Error al guardar respuestas');
+      return false;
     } finally {
       setSaving(false);
     }
@@ -293,13 +318,16 @@ const AssessmentResponseForm: React.FC = () => {
 
   // Submit assessment
   const handleSubmit = async () => {
-    if (!instanceId) return;
+    if (!instanceId || submittingRef.current) return;
 
-    // First save any pending changes (use ref to get current responses)
-    await saveResponses(Object.keys(responsesRef.current));
-
+    submittingRef.current = true;
     setSubmitting(true);
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    pendingIndicatorIds.current.clear();
     try {
+      // Never finalize against older stored answers after a failed or partial save.
+      const saved = await saveResponses(Object.keys(responsesRef.current));
+      if (!saved) return;
       const response = await fetch(`/api/docente/assessments/${instanceId}/submit`, {
         method: 'POST',
       });
@@ -315,13 +343,13 @@ const AssessmentResponseForm: React.FC = () => {
         return;
       }
 
-      toast.success('Evaluación enviada correctamente');
-      // Redirect to results page after successful submission
-      router.push(`/docente/assessments/${instanceId}/results`);
+      setInstance((previous: any) => ({ ...previous, status: 'completed', completed_at: data.completedAt }));
+      toast.success('Evaluación completada');
     } catch (error: any) {
       console.error('Error submitting:', error);
       toast.error(error.message || 'Error al enviar la evaluación');
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -341,7 +369,7 @@ const AssessmentResponseForm: React.FC = () => {
   }
 
   const isCompleted = instance?.status === 'completed';
-  const canEdit = assignee?.canEdit && !isCompleted;
+  const canEdit = assignee?.canEdit && !isCompleted && !submitting;
 
   return (
     <MainLayout
@@ -382,7 +410,7 @@ const AssessmentResponseForm: React.FC = () => {
               <>
                 <button
                   onClick={() => saveResponses(Object.keys(responses))}
-                  disabled={saving || !hasUnsavedChanges}
+                  disabled={saving || submitting || !hasUnsavedChanges}
                   className="inline-flex items-center px-4 py-2 text-sm font-medium border border-brand_primary/15 text-brand_primary/70 rounded-lg hover:bg-brand_primary/[0.03] disabled:opacity-40 transition-colors"
                 >
                   <Save className="w-4 h-4 mr-1.5" />
@@ -427,9 +455,14 @@ const AssessmentResponseForm: React.FC = () => {
             />
           </div>
           {isCompleted && (
-            <div className="mt-3 flex items-center text-brand_accent">
-              <CheckCircle className="w-4 h-4 mr-2" />
-              <span className="text-sm font-semibold text-brand_primary">Evaluación completada</span>
+            <div role="status" className="mt-3 text-brand_primary">
+              <div className="flex items-center font-semibold">
+                <CheckCircle className="w-4 h-4 mr-2 text-brand_accent" />
+                <span className="text-sm">Evaluación completada</span>
+              </div>
+              <p className="mt-2 text-sm leading-relaxed">
+                Los informes individuales y del colegio se generarán una vez que todas las personas responsables hayan completado sus evaluaciones y los asesores correspondientes hayan aportado su retroalimentación al proceso.
+              </p>
             </div>
           )}
         </div>

@@ -2,13 +2,20 @@
 
 This checklist grants no Production authority. Independent review of the integrated tree, Brent's release authorization, and the database-first sequence are required before marking ready, merging or deploying. No Production query, migration or maintenance request was executed during preparation.
 
+## Local packaging revision — pending review
+
+Production version `20260907120000` belongs to `proc_integrity`. The seven deployment filenames now use `20260908180000` through `20260908180600`, preserving all reviewed SQL bytes. See `rls-release-migration-manifest-2026-09-08.json` for the exact original-to-deployment mapping and hashes. Preserve the existing Production history; never mark the occupied version as this RLS migration or skip the first payload. No generic Production `db push`, baseline replay or migration-history repair.
+
+The source SHA below identifies the previously approved integration. This local rename/documentation package is unstaged and uncommitted and requires independent review and a new locked source identity before release. Once a revised source is reviewed, record that exact source and its authorized base, and apply the same merge-parent/tree rules to those newly locked identities; do not claim the old approval covers a new commit.
+
 ## Release identity
 
 - Repository: `https://github.com/brentcurtis76/fne-lms.git`; release branch `codex/rls-release`.
 - Locked source: `92df72a637f2cead48c1fce9b3d71d9a34204c8e`.
 - Exact approved 89-path preservation: `ce24dba2ba6b98251ccf162aa88ab1717611cc37`.
 - Integrated main: `3d13ddb5ec34b784215991354f10f7d86a3ebc19`.
-- Resolve the final PR/head from the accompanying release evidence report, then verify GitHub's live head and main match those recorded SHAs before any operator action. Any changed head requires review; changed main requires integration assessment.
+- Approved integrated source / PR #89 head: `dc63b3899072800eea764af088eedc0522b83d9e`; authorized base/main: `3d13ddb5ec34b784215991354f10f7d86a3ebc19`. Re-lock both against GitHub before any operator action. The earlier locked source and preservation commit above remain historical identities, not the deployment target.
+- The controlled release uses a merge commit; do not silently substitute squash or rebase. Verify the resulting merge SHA has exactly two parents, in order: authorized base `3d13ddb5ec34b784215991354f10f7d86a3ebc19`, then approved source `dc63b3899072800eea764af088eedc0522b83d9e`. With that unchanged base, require the merge tree to equal the approved source tree. A changed base/source or unexpected tree difference requires renewed review before release.
 - The source includes B2c-M1 documentation commit `92df72a6`, also present in draft PR #85. That PR and its branch remain separate.
 
 ## Prerequisites and stop conditions
@@ -36,15 +43,15 @@ Stop before apply for unknown/partial schema, unexpected existing closure object
 
 ## Database before application
 
-Under separate Production authorization, apply each exact reviewed file atomically, in this order, recording successful version and checksum before advancing:
+Under separate Production authorization, recheck the manifest versions are unused and the verified preceding prefix is intact. Apply each exact reviewed payload and its new version/name/statements history row in the same transaction, in this order. A history-recording failure rolls back the payload too. Retain its SHA-256 externally, and verify history plus actual schema in a fresh read-only transaction before advancing:
 
-1. `20260907120000_learning_path_governance.sql`
-2. `20260907120100_b10a_referenced_tables_rls.sql`
-3. `20260907120200_drls_function_exposure.sql`
-4. `20260907120300_r2_remediation.sql`
-5. `20260907120400_c1_function_exposure.sql`
-6. `20260907120500_c2_course_entitlement.sql`
-7. `20260907120600_c3_reporting_retention.sql`
+1. `20260908180000_learning_path_governance.sql`
+2. `20260908180100_b10a_referenced_tables_rls.sql`
+3. `20260908180200_drls_function_exposure.sql`
+4. `20260908180300_r2_remediation.sql`
+5. `20260908180400_c1_function_exposure.sql`
+6. `20260908180500_c2_course_entitlement.sql`
+7. `20260908180600_c3_reporting_retention.sql`
 
 Do not mark ready/merge/deploy before the authorized database sequence and required review are complete. All seven must exist before the new app deploys. Migration CI is disposable-only and does not establish Production schema readiness.
 
@@ -58,7 +65,7 @@ Do not mark ready/merge/deploy before the authorized database sequence and requi
 
 ## Application, scheduler and postflight
 
-After explicit authorization and P7 checks, follow Brent's controlled merge/deployment path. Confirm the deployed commit is the approved head.
+After explicit authorization and P7 checks, follow Brent's controlled merge/deployment path. Merging `main` triggers automatic Production deployment, so complete all database prerequisites first. Record and verify the resulting merge SHA, its exact parents and tree as specified above, then confirm Vercel Production deploys that verified merge SHA. The PR head is the approved source parent; the resulting merge SHA is the deployment target.
 
 Verify admin learning-path management/reporting and school counts; assigned learner path/course/lesson and Mis cursos access; non-admin denial of cross-user learning-path reports with preserved course reporting; forced-password isolation; path-only loss versus independent grant survival using approved synthetic/operator test accounts and an explicitly authorized write scope. Historical unknown access is preserved, not certified.
 

@@ -129,6 +129,8 @@ run-*.mjs
 !scripts/ci/e2e-fixtures.json  # synthetic CI e2e fixtures (seeder + specs share it)
 # Governed exact-target lock for Production QA simulation.
 !config/production-qa-simulation-target.json
+# Reviewed RLS release mapping: filenames and hashes only, no secrets.
+!docs/reviews/rls-release-migration-manifest-2026-09-08.json
 
 # Backups
 /backups/

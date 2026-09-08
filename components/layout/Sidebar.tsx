@@ -112,7 +112,7 @@ interface NavigationChild {
   icon?: React.ComponentType<any>;
 }
 
-const NAVIGATION_ITEMS: NavigationItem[] = [
+export const NAVIGATION_ITEMS: NavigationItem[] = [
   {
     id: 'dashboard',
     label: 'Mi Panel',

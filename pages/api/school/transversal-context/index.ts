@@ -1,14 +1,22 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
-import { hasDirectivoPermission } from '@/lib/permissions/directivo';
-import type { SaveTransversalContextRequest, GradeLevel } from '@/types/assessment-builder';
+import { hasDirectivoPermission, hasContextWriteRole } from '@/lib/permissions/directivo';
+import type { SaveTransversalContextRequest } from '@/types/assessment-builder';
 import { GRADE_LEVEL_SORT_ORDER } from '@/types/assessment-builder';
+
+/** Course letters per grade level; also the hard cap on courses_per_level values. */
+const COURSE_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+export const MAX_COURSES_PER_LEVEL = COURSE_LETTERS.length;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Authentication check
   const { user, error: authError } = await getApiUser(req, res);
   if (authError || !user) {
     return sendAuthError(res, 'Autenticación requerida');
+  }
+
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return handleMethodNotAllowed(res, ['GET', 'POST']);
   }
 
   const supabaseClient = await createApiSupabaseClient(req, res);
@@ -31,6 +39,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 
+  // R5 — consultor access is DENIED on this whole surface (GET and POST)
+  // until the product decision (deny entirely vs. designed read-only) is
+  // taken. hasDirectivoPermission admits assigned consultores; they hold no
+  // context-write role, so this gate refuses them consistently. Nothing is
+  // read with the service role on their behalf.
+  const canAccess = isAdmin || (await hasContextWriteRole(supabaseClient, user.id));
+  if (!canAccess) {
+    return res.status(403).json({
+      success: false,
+      code: 'consultor_access_pending_decision',
+      error: 'El acceso de consultores al contexto transversal está pendiente de definición. Solo el equipo directivo y los administradores pueden acceder.',
+    });
+  }
+
   // For non-admin users, we must have a school_id
   if (!isAdmin && !schoolId) {
     return res.status(400).json({
@@ -47,17 +69,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const effectiveSchoolId = isAdmin ? requestedSchoolId : schoolId;
 
-  switch (req.method) {
-    case 'GET':
-      return handleGet(req, res, supabaseClient, effectiveSchoolId!);
-    case 'POST':
-      return handlePost(req, res, supabaseClient, effectiveSchoolId!, user.id);
-    default:
-      return handleMethodNotAllowed(res, ['GET', 'POST']);
+  if (req.method === 'GET') {
+    return handleGet(req, res, supabaseClient, effectiveSchoolId!);
   }
+  return handlePost(req, res, supabaseClient, effectiveSchoolId!, user.id);
 }
 
 // GET /api/school/transversal-context
+//
+// The context, the course structure and the assignments are read with the
+// caller's USER client, so RLS — not this route — decides what is visible.
+// Only the docente display names are resolved with the service role, after
+// authorisation succeeded, because profiles are self-readable only.
 async function handleGet(
   req: NextApiRequest,
   res: NextApiResponse,
@@ -79,9 +102,7 @@ async function handleGet(
       return res.status(500).json({ error: 'Error al obtener el contexto transversal' });
     }
 
-    // Fetch course structure + assignments using service client (bypasses RLS)
-    const courseServiceClient = createServiceRoleClient();
-    const { data: rawCourseStructure, error: courseError } = await courseServiceClient
+    const { data: rawCourseStructure, error: courseError } = await supabaseClient
       .from('school_course_structure')
       .select(`
         id,
@@ -102,6 +123,7 @@ async function handleGet(
 
     if (courseError) {
       console.error('Error fetching course structure:', courseError);
+      return res.status(500).json({ error: 'Error al obtener la estructura de cursos' });
     }
 
     // Resolve docente names separately (docente_id FK points to auth.users, not profiles)
@@ -116,7 +138,8 @@ async function handleGet(
       )];
 
       if (docenteIds.length > 0) {
-        const { data: docenteProfiles } = await courseServiceClient
+        const profileClient = createServiceRoleClient();
+        const { data: docenteProfiles } = await profileClient
           .from('profiles')
           .select('id, name, email')
           .in('id', docenteIds);
@@ -147,245 +170,252 @@ async function handleGet(
   }
 }
 
+// ---------------------------------------------------------------------------
+// POST — validation + one transactional RPC
+// ---------------------------------------------------------------------------
+
+export interface BlockedCourse {
+  id: string;
+  course_name: string;
+  grade_level: string;
+  activeAssignments: number;
+  inactiveAssignments: number;
+  instances: number;
+  archivedInstances: number;
+}
+
+/** The exact GradeLevel allowlist (mirrors the SQL allowlist in save_transversal_context). */
+export const GRADE_LEVEL_ALLOWLIST: readonly string[] = Object.keys(GRADE_LEVEL_SORT_ORDER);
+
+/**
+ * Validates the POST body FAIL CLOSED. Returns an es-CL message on the first
+ * problem, or the normalised courses_per_level (only the submitted grade
+ * levels, each an integer 1..MAX_COURSES_PER_LEVEL, defaulting to 1) when
+ * everything is valid. The database RPC re-validates every rule; this layer
+ * only turns the common mistakes into a fast 400.
+ */
+export function validateContextBody(
+  body: any
+): { ok: false; error: string } | { ok: true; coursesPerLevel: Record<string, number> } {
+  if (!body || typeof body !== 'object') {
+    return { ok: false, error: 'Cuerpo de la solicitud inválido' };
+  }
+
+  if (!Number.isInteger(body.total_students) || body.total_students < 1) {
+    return { ok: false, error: 'Se requiere el número total de estudiantes' };
+  }
+
+  if (!Array.isArray(body.grade_levels) || body.grade_levels.length === 0) {
+    return { ok: false, error: 'Se requiere al menos un nivel educativo' };
+  }
+
+  if (!body.grade_levels.every((g: unknown) => typeof g === 'string' && g.length > 0)) {
+    return { ok: false, error: 'Los niveles educativos deben ser textos válidos' };
+  }
+
+  const unknownLevel = (body.grade_levels as string[]).find(g => !GRADE_LEVEL_ALLOWLIST.includes(g));
+  if (unknownLevel !== undefined) {
+    return { ok: false, error: 'Uno de los niveles educativos no es un nivel reconocido' };
+  }
+
+  if (new Set(body.grade_levels).size !== body.grade_levels.length) {
+    return { ok: false, error: 'Los niveles educativos no pueden repetirse' };
+  }
+
+  const year = body.implementation_year_2026;
+  if (!Number.isInteger(year) || year < 1 || year > 5) {
+    return { ok: false, error: 'Se requiere un año de implementación válido (1-5)' };
+  }
+
+  if (!body.period_system || !['semestral', 'trimestral'].includes(body.period_system)) {
+    return { ok: false, error: 'Se requiere un sistema de períodos válido' };
+  }
+
+  const rawCourses = body.courses_per_level ?? {};
+  if (typeof rawCourses !== 'object' || rawCourses === null || Array.isArray(rawCourses)) {
+    return { ok: false, error: 'La cantidad de cursos por nivel debe ser un objeto por nivel educativo' };
+  }
+
+  const coursesPerLevel: Record<string, number> = {};
+  for (const level of body.grade_levels as string[]) {
+    const value = rawCourses[level];
+    if (value === undefined || value === null) {
+      coursesPerLevel[level] = 1;
+      continue;
+    }
+    if (!Number.isInteger(value) || value < 1 || value > MAX_COURSES_PER_LEVEL) {
+      return {
+        ok: false,
+        error: `La cantidad de cursos para ${level.replace(/_/g, ' ')} debe ser un número entero entre 1 y ${MAX_COURSES_PER_LEVEL}`,
+      };
+    }
+    coursesPerLevel[level] = value;
+  }
+
+  return { ok: true, coursesPerLevel };
+}
+
+type SaveRefusal = {
+  status: 400 | 403 | 409 | 500;
+  code: string;
+  error: string;
+  blockedCourses?: BlockedCourse[];
+};
+
+const DEPENDENCY_MESSAGE =
+  'No se guardó el contexto: la nueva configuración eliminaría cursos que tienen docentes asignados o evaluaciones registradas (%NAMES%). ' +
+  'El historial de asignaciones y evaluaciones se conserva; mantenga los niveles y cantidades actuales o solicite una resolución administrativa.';
+
+const P0001_MESSAGES: Record<string, { status: 400 | 409; error: string }> = {
+  invalid_payload: { status: 400, error: 'Cuerpo de la solicitud inválido' },
+  invalid_total_students: { status: 400, error: 'Se requiere el número total de estudiantes' },
+  invalid_grade_levels: { status: 400, error: 'Se requiere al menos un nivel educativo válido' },
+  invalid_grade_level: { status: 400, error: 'Uno de los niveles educativos no es un nivel reconocido' },
+  duplicate_grade_levels: { status: 400, error: 'Los niveles educativos no pueden repetirse' },
+  invalid_year: { status: 400, error: 'Se requiere un año de implementación válido (1-5)' },
+  invalid_period_system: { status: 400, error: 'Se requiere un sistema de períodos válido' },
+  invalid_courses_per_level: { status: 400, error: `La cantidad de cursos por nivel debe ser un número entero entre 1 y ${MAX_COURSES_PER_LEVEL}` },
+  invalid_programa_inicia: { status: 400, error: 'Los datos del Programa Inicia no son válidos' },
+  grade_mapping_missing: { status: 409, error: 'No existe el nivel en el catálogo de niveles (ab_grades); no se creó ningún curso. Contacte al administrador.' },
+  grade_mapping_ambiguous: { status: 409, error: 'El catálogo de niveles (ab_grades) es ambiguo para uno de los niveles; no se creó ningún curso. Contacte al administrador.' },
+};
+
+function parseBlockedCourses(detail: unknown): BlockedCourse[] {
+  if (typeof detail !== 'string' || detail.length === 0) return [];
+  try {
+    const parsed = JSON.parse(detail);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((b: any) => b && typeof b === 'object' && typeof b.id === 'string')
+      .map((b: any) => ({
+        id: String(b.id),
+        course_name: String(b.course_name ?? ''),
+        grade_level: String(b.grade_level ?? ''),
+        activeAssignments: Number(b.activeAssignments ?? 0),
+        inactiveAssignments: Number(b.inactiveAssignments ?? 0),
+        instances: Number(b.instances ?? 0),
+        archivedInstances: Number(b.archivedInstances ?? 0),
+      }));
+  } catch {
+    return [];
+  }
+}
+
+/** Maps a save_transversal_context refusal to the HTTP contract. Exported for tests. */
+export function mapSaveRpcError(error: any): SaveRefusal {
+  const pgCode: string = String(error?.code ?? '');
+  const message: string = String(error?.message ?? '');
+
+  if (pgCode === '42501') {
+    return {
+      status: 403,
+      code: 'context_write_forbidden',
+      error: 'Solo el equipo directivo de la escuela y los administradores pueden guardar el contexto transversal',
+    };
+  }
+
+  if (pgCode === 'P0001') {
+    const token = message.split(':')[0].trim();
+    if (token === 'courses_have_dependencies') {
+      const blocked = parseBlockedCourses(error?.details);
+      const names = blocked.map(b => b.course_name).join(', ');
+      return {
+        status: 409,
+        code: 'courses_have_dependencies',
+        error: DEPENDENCY_MESSAGE.replace('%NAMES%', names || 'cursos con historial'),
+        blockedCourses: blocked,
+      };
+    }
+    const known = P0001_MESSAGES[token];
+    if (known) return { status: known.status, code: token, error: known.error };
+  }
+
+  return { status: 500, code: 'context_save_failed', error: 'Error al guardar el contexto transversal' };
+}
+
 // POST /api/school/transversal-context
+//
+// After the handler's auth + write-role gates: validate (fast 400), then ONE
+// call to the transactional RPC on the USER client (auth.uid() is the caller;
+// the function re-authorises against the same predicate as the table
+// policies). Either the context, its history, the completion flag and the
+// whole course reconciliation land together, or nothing does. There is no
+// partial-success response.
 async function handlePost(
   req: NextApiRequest,
   res: NextApiResponse,
   supabaseClient: any,
   schoolId: number,
-  userId: string
+  _userId: string
 ) {
   try {
     const body = req.body as SaveTransversalContextRequest;
 
-    // Validate required fields
-    if (!body.total_students || body.total_students < 1) {
-      return res.status(400).json({ error: 'Se requiere el número total de estudiantes' });
+    const validation = validateContextBody(body);
+    if (validation.ok === false) {
+      return res.status(400).json({ success: false, code: 'invalid_request', error: validation.error });
     }
 
-    if (!body.grade_levels || body.grade_levels.length === 0) {
-      return res.status(400).json({ error: 'Se requiere al menos un nivel educativo' });
-    }
-
-    if (!body.implementation_year_2026 || body.implementation_year_2026 < 1 || body.implementation_year_2026 > 5) {
-      return res.status(400).json({ error: 'Se requiere un año de implementación válido (1-5)' });
-    }
-
-    if (!body.period_system || !['semestral', 'trimestral'].includes(body.period_system)) {
-      return res.status(400).json({ error: 'Se requiere un sistema de períodos válido' });
-    }
-
-    // Fetch previous state for change history
-    const { data: previousContext } = await supabaseClient
-      .from('school_transversal_context')
-      .select('*')
-      .eq('school_id', schoolId)
-      .maybeSingle();
-
-    // Check if context already exists (use previous fetch)
-    const existingContext = previousContext ? { id: previousContext.id } : null;
-
-    const contextData = {
-      school_id: schoolId,
+    const payload = {
       total_students: body.total_students,
       grade_levels: body.grade_levels,
-      courses_per_level: body.courses_per_level || {},
+      courses_per_level: validation.coursesPerLevel,
       implementation_year_2026: body.implementation_year_2026,
       period_system: body.period_system,
       programa_inicia_completed: body.programa_inicia_completed || false,
-      programa_inicia_hours: body.programa_inicia_hours || null,
-      programa_inicia_year: body.programa_inicia_year || null,
-      updated_at: new Date().toISOString(),
+      programa_inicia_hours: body.programa_inicia_hours ?? null,
+      programa_inicia_year: body.programa_inicia_year ?? null,
     };
 
-    let savedContext;
-    if (existingContext) {
-      // Update existing
-      const { data, error } = await supabaseClient
-        .from('school_transversal_context')
-        .update(contextData)
-        .eq('id', existingContext.id)
-        .select()
-        .single();
+    const { data, error } = await supabaseClient.rpc('save_transversal_context', {
+      p_school_id: schoolId,
+      p_payload: payload,
+    });
 
-      if (error) {
-        console.error('Error updating transversal context:', error);
-        return res.status(500).json({ error: 'Error al actualizar el contexto transversal' });
-      }
-      savedContext = data;
-    } else {
-      // Insert new
-      const { data, error } = await supabaseClient
-        .from('school_transversal_context')
-        .insert({
-          ...contextData,
-          created_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error inserting transversal context:', error);
-        return res.status(500).json({ error: 'Error al guardar el contexto transversal' });
-      }
-      savedContext = data;
-    }
-
-    // Service client for audit logging + course reconciliation (bypasses RLS)
-    const serviceClient = createServiceRoleClient();
-
-    // Log change history and update completion status
-    try {
-      const { data: profile } = await serviceClient.from('profiles').select('name').eq('id', userId).single();
-
-      const DIFF_IGNORE_FIELDS = new Set(['school_id', 'updated_at', 'created_at', 'id', 'is_completed', 'completed_at', 'completed_by']);
-      const changedFields = Object.keys(contextData)
-        .filter(key => !DIFF_IGNORE_FIELDS.has(key))
-        .filter(key =>
-          JSON.stringify(previousContext?.[key]) !== JSON.stringify(savedContext[key])
-        );
-
-      if (changedFields.length > 0 || !previousContext) {
-        await serviceClient.from('school_change_history').insert({
-          school_id: schoolId,
-          feature: 'transversal_context',
-          action: previousContext ? 'update' : 'initial_save',
-          previous_state: previousContext || null,
-          new_state: savedContext,
-          changed_fields: changedFields,
-          user_id: userId,
-          user_name: profile?.name || 'Unknown',
-        });
-      }
-
-      const isComplete = !!(savedContext.total_students && savedContext.grade_levels?.length > 0 && savedContext.implementation_year_2026 && savedContext.period_system);
-      const completionUpdate: Record<string, any> = {
-        is_completed: isComplete,
-      };
-      if (isComplete) {
-        // Always update to reflect the latest completion
-        completionUpdate.completed_at = new Date().toISOString();
-        completionUpdate.completed_by = userId;
+    if (error) {
+      const refusal = mapSaveRpcError(error);
+      if (refusal.status === 500) {
+        console.error('[transversal-context] save failed:', { pgCode: error?.code ?? null });
       } else {
-        // Clear completion fields when no longer complete
-        completionUpdate.completed_at = null;
-        completionUpdate.completed_by = null;
+        console.warn('[transversal-context] save refused:', refusal.code);
       }
-      await serviceClient.from('school_transversal_context').update(completionUpdate).eq('id', savedContext.id);
-    } catch (historyErr) {
-      console.error('Error logging change history:', historyErr);
-    }
-
-    // Reconcile course structure: add missing, remove extras, preserve existing
-    // (preserves docente assignments and assessment instance links on unchanged courses)
-    let coursesGenerated = 0;
-    let warning = null;
-
-    try {
-      // Fetch ab_grades once to resolve grade_id FK
-      const { data: allGrades } = await serviceClient
-        .from('ab_grades').select('id, sort_order');
-      const sortOrderToGradeId: Record<number, number> = Object.fromEntries(
-        (allGrades || []).map((g: any) => [g.sort_order, g.id])
-      );
-
-      // Build desired courses from the form submission
-      const courseLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
-      const desiredCourses: Array<{ grade_level: string; course_name: string; grade_id: number | null }> = [];
-
-      for (const gradeLevel of body.grade_levels) {
-        const numCourses = body.courses_per_level?.[gradeLevel] || 1;
-        const sortOrder = GRADE_LEVEL_SORT_ORDER[gradeLevel as GradeLevel];
-        const gradeId = sortOrder ? sortOrderToGradeId[sortOrder] || null : null;
-
-        for (let i = 0; i < numCourses; i++) {
-          desiredCourses.push({
-            grade_level: gradeLevel,
-            grade_id: gradeId,
-            course_name: `${gradeLevel.replace(/_/g, ' ')} ${courseLetters[i]}`.toUpperCase(),
-          });
-        }
-      }
-
-      // Fetch existing courses for this school
-      const { data: existingCourses } = await serviceClient
-        .from('school_course_structure')
-        .select('id, grade_level, course_name, grade_id')
-        .eq('school_id', schoolId);
-
-      const existing = existingCourses || [];
-
-      // Build keyed sets for diffing (grade_level + course_name is the natural key)
-      const existingKeys = new Map(existing.map((c: any) => [`${c.grade_level}::${c.course_name}`, c]));
-      const desiredKeys = new Set(desiredCourses.map(c => `${c.grade_level}::${c.course_name}`));
-
-      // Courses to add: in desired but not in existing
-      const toInsert = desiredCourses.filter(c => !existingKeys.has(`${c.grade_level}::${c.course_name}`));
-
-      // Courses to remove: in existing but not in desired
-      const toDeleteIds = existing
-        .filter((c: any) => !desiredKeys.has(`${c.grade_level}::${c.course_name}`))
-        .map((c: any) => c.id);
-
-      // Courses that exist but need grade_id update (backfill)
-      const toUpdateGradeId = existing.filter((c: any) => {
-        if (!desiredKeys.has(`${c.grade_level}::${c.course_name}`)) return false;
-        const desired = desiredCourses.find(d => d.grade_level === c.grade_level && d.course_name === c.course_name);
-        return desired && desired.grade_id && c.grade_id !== desired.grade_id;
+      return res.status(refusal.status).json({
+        success: false,
+        code: refusal.code,
+        error: refusal.error,
+        ...(refusal.blockedCourses ? { blockedCourses: refusal.blockedCourses } : {}),
       });
-
-      // Delete only obsolete courses (preserves assignments on kept courses)
-      if (toDeleteIds.length > 0) {
-        await serviceClient
-          .from('school_course_structure')
-          .delete()
-          .in('id', toDeleteIds);
-      }
-
-      // Insert only new courses
-      if (toInsert.length > 0) {
-        const { error: courseInsertError } = await serviceClient
-          .from('school_course_structure')
-          .insert(toInsert.map(c => ({
-            school_id: schoolId,
-            context_id: savedContext.id,
-            grade_level: c.grade_level,
-            grade_id: c.grade_id,
-            course_name: c.course_name,
-          })));
-
-        if (courseInsertError) {
-          console.error('Error inserting new courses:', courseInsertError);
-          warning = 'El contexto se guardó pero hubo un error al generar algunos cursos';
-        } else {
-          coursesGenerated = toInsert.length;
-        }
-      }
-
-      // Update grade_id on existing courses that were missing it
-      for (const course of toUpdateGradeId) {
-        const desired = desiredCourses.find(d => d.grade_level === course.grade_level && d.course_name === course.course_name);
-        if (desired?.grade_id) {
-          await serviceClient
-            .from('school_course_structure')
-            .update({ grade_id: desired.grade_id })
-            .eq('id', course.id);
-        }
-      }
-    } catch (courseErr) {
-      console.error('Error in course generation:', courseErr);
-      warning = 'El contexto se guardó pero hubo un error al generar los cursos';
     }
 
+    const result = (data ?? {}) as {
+      context?: any;
+      action?: string;
+      courses_generated?: number;
+      courses_deleted?: number;
+      courses_relinked?: number;
+      year_changed?: boolean;
+    };
+
+    if (!result.context) {
+      console.error('[transversal-context] save returned no context');
+      return res.status(500).json({ success: false, code: 'context_save_failed', error: 'Error al guardar el contexto transversal' });
+    }
+
+    const yearChanged = result.year_changed === true;
     return res.status(200).json({
       success: true,
-      context: savedContext,
-      message: existingContext ? 'Contexto actualizado exitosamente' : 'Contexto guardado exitosamente',
-      coursesGenerated,
-      warning,
+      context: result.context,
+      message: result.action === 'update' ? 'Contexto actualizado exitosamente' : 'Contexto guardado exitosamente',
+      coursesGenerated: result.courses_generated ?? 0,
+      coursesDeleted: result.courses_deleted ?? 0,
+      coursesRelinked: result.courses_relinked ?? 0,
+      yearChanged,
+      warning: yearChanged
+        ? 'El año de transformación cambió. Las evaluaciones ya creadas conservan el año con el que fueron generadas; no se reescriben.'
+        : null,
     });
   } catch (err: any) {
     console.error('Unexpected error saving transversal context:', err);
-    return res.status(500).json({ error: err.message || 'Error al guardar contexto transversal' });
+    return res.status(500).json({ success: false, code: 'context_save_failed', error: 'Error al guardar el contexto transversal' });
   }
 }

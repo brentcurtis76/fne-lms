@@ -14,6 +14,7 @@ import {
   GraduationCap,
   Calendar,
   UserPlus,
+  UserCog,
   X,
   Loader2,
   ArrowLeft,
@@ -72,7 +73,12 @@ const TransversalContextDashboard: React.FC = () => {
   const [courseStructure, setCourseStructure] = useState<any[]>([]);
 
   // Track if user is admin/consultor (read-only mode)
-  const [isAdminOrConsultor, setIsAdminOrConsultor] = useState(false);
+  // R11 — admin and consultor are separated: an admin (without a directivo
+  // role at the school) picks a school and then holds the full initial-assign /
+  // edit / assign / replace capability; a consultor is denied on this surface
+  // until the product decision (deny vs. designed read-only) is taken.
+  const [isAdminViewer, setIsAdminViewer] = useState(false);
+  const [consultorDenied, setConsultorDenied] = useState(false);
 
   // School selector for admins
   const [schools, setSchools] = useState<any[]>([]);
@@ -94,6 +100,21 @@ const TransversalContextDashboard: React.FC = () => {
     message: string;
     warnings: string[];
   } | null>(null);
+
+  // PR 2 item 2 — safe docente replacement (admin / equipo_directivo only).
+  // The modal posts to /replace-docente; the RPC behind it swaps the docente
+  // only while every live evaluation of the course is pending and answer-free.
+  const [canReplaceDocente, setCanReplaceDocente] = useState(false);
+  const [replaceModalOpen, setReplaceModalOpen] = useState(false);
+  const [replaceCourse, setReplaceCourse] = useState<any>(null);
+  const [replaceCandidates, setReplaceCandidates] = useState<DocenteOption[]>([]);
+  const [selectedReplacement, setSelectedReplacement] = useState<string>('');
+  const [loadingReplaceCandidates, setLoadingReplaceCandidates] = useState(false);
+  const [replacing, setReplacing] = useState(false);
+  // Refusal of the last attempt, shown inside the modal (which stays open)
+  const [replaceError, setReplaceError] = useState<{ code: string | null; message: string } | null>(null);
+  // Last successful replacement, visible until dismissed
+  const [replacementNotice, setReplacementNotice] = useState<{ courseName: string; message: string } | null>(null);
 
   // All context questions (structural + generic, driven from DB)
   const [allQuestions, setAllQuestions] = useState<ContextGeneralQuestion[]>([]);
@@ -141,34 +162,45 @@ const TransversalContextDashboard: React.FC = () => {
         return;
       }
 
-      const isAdmin = roles.some(r => ['admin', 'consultor'].includes(r.role_type));
+      const isAdmin = roles.some(r => r.role_type === 'admin');
+      const isConsultor = roles.some(r => r.role_type === 'consultor');
       const directivoRole = roles.find(r => r.role_type === 'equipo_directivo');
 
       if (!isAdmin && !directivoRole) {
+        // A consultor without admin/directivo rights lands on the pending-
+        // decision notice, everyone else on the generic denial. Nothing is
+        // fetched for either.
+        setConsultorDenied(isConsultor);
         setHasPermission(false);
         setLoading(false);
         return;
       }
 
       setHasPermission(true);
-      setIsAdminOrConsultor(isAdmin && !directivoRole); // Admin/consultor without directivo role = read-only
+      // Codex round 1 (finding 6): ADMIN takes precedence over equipo_directivo.
+      // A mixed-role admin keeps the global selector, the "back to schools"
+      // control and the edit / assign / replace capability on ANY school.
+      setIsAdminViewer(isAdmin);
+      // Replacement is a write: admin or equipo_directivo only (never consultor).
+      setCanReplaceDocente(roles.some(r => ['admin', 'equipo_directivo'].includes(r.role_type)));
 
-      // Get school_id
+      // Get school_id — admin first, then the directivo's own school.
       let effectiveSchoolId: number | null = null;
-      if (directivoRole?.school_id) {
+      const querySchoolId = router.query.school_id;
+      const parsedQuerySchoolId =
+        typeof querySchoolId === 'string' && /^\d+$/.test(querySchoolId) ? parseInt(querySchoolId, 10) : null;
+
+      if (isAdmin) {
+        // An explicit school_id is honoured on any school (admin authority);
+        // without one, a mixed-role admin still gets the global selector.
+        effectiveSchoolId = parsedQuerySchoolId;
+      } else if (directivoRole?.school_id) {
         effectiveSchoolId = directivoRole.school_id;
 
         // Block cross-school access: if query has a different school_id, ignore it
-        const querySchoolId = router.query.school_id;
-        if (querySchoolId && !isAdmin && parseInt(String(querySchoolId)) !== effectiveSchoolId) {
+        if (parsedQuerySchoolId !== null && parsedQuerySchoolId !== effectiveSchoolId) {
           router.push('/dashboard');
           return;
-        }
-      } else if (isAdmin) {
-        // For admin, check query parameter or show school selector
-        const querySchoolId = router.query.school_id;
-        if (querySchoolId && typeof querySchoolId === 'string') {
-          effectiveSchoolId = parseInt(querySchoolId);
         }
       }
 
@@ -398,7 +430,95 @@ const TransversalContextDashboard: React.FC = () => {
   // C-01: the page-level "Desasignar" control is deliberately gone. Exposing it
   // next to "Asignar" created an unassign-then-reassign replacement path that
   // could attach a new docente to a preserved assessment instance. Replacement
-  // is a controlled process (C-02); the DELETE endpoint itself is unchanged.
+  // is the controlled process below (PR 2 item 2): one atomic RPC that only
+  // proceeds while the evaluation has not started and never transfers answers.
+  // The DELETE endpoint itself is unchanged.
+
+  const currentDocenteOf = (course: any) =>
+    course?.school_course_docente_assignments?.find((a: any) => a.is_active) ?? null;
+
+  const openReplaceModal = async (course: any) => {
+    setReplaceCourse(course);
+    setSelectedReplacement('');
+    setReplaceError(null);
+    setReplaceModalOpen(true);
+    setLoadingReplaceCandidates(true);
+
+    try {
+      const response = await fetch(`/api/school/transversal-context/docentes?school_id=${schoolId}`);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al cargar docentes');
+      }
+      const currentId = currentDocenteOf(course)?.docente_id;
+      setReplaceCandidates(
+        (data.docentes || []).filter((d: DocenteOption) => d.id !== currentId)
+      );
+    } catch (error: any) {
+      console.error('Error fetching docentes:', error);
+      toast.error('Error al cargar docentes');
+      setReplaceCandidates([]);
+    } finally {
+      setLoadingReplaceCandidates(false);
+    }
+  };
+
+  const closeReplaceModal = () => {
+    setReplaceModalOpen(false);
+    setReplaceError(null);
+  };
+
+  // A refusal keeps the modal open with the API's explanation. A 409
+  // evaluation_started means the course can no longer be changed from here;
+  // the other 409s (no active docente, invariant violation) mean the list this
+  // page rendered was stale, so the course list is refreshed. Success closes
+  // the modal, refreshes the list and leaves a notice.
+  const handleReplaceDocente = async () => {
+    if (!replaceCourse || !selectedReplacement) return;
+
+    setReplacing(true);
+    setReplaceError(null);
+    try {
+      const response = await fetch('/api/school/transversal-context/replace-docente', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          course_structure_id: replaceCourse.id,
+          docente_id: selectedReplacement,
+        }),
+      });
+
+      let data: any = {};
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
+      }
+
+      if (!response.ok || data.success !== true) {
+        const message = data.error || data.message || 'No se pudo completar el cambio de docente';
+        setReplaceError({ code: data.code ?? null, message });
+        toast.error(message, { duration: 8000 });
+        if (response.status === 409 && data.code !== 'evaluation_started') {
+          fetchContext();
+        }
+        return; // modal stays open
+      }
+
+      const message = data.message || 'Docente cambiado correctamente';
+      setReplacementNotice({ courseName: replaceCourse.course_name, message });
+      toast.success(message);
+      closeReplaceModal();
+      fetchContext();
+    } catch (error: any) {
+      console.error('Error replacing docente:', error);
+      const message = error.message || 'Error al cambiar docente';
+      setReplaceError({ code: null, message });
+      toast.error(message);
+    } finally {
+      setReplacing(false);
+    }
+  };
 
   // Loading state
   if (loading || hasPermission === null) {
@@ -422,10 +542,14 @@ const TransversalContextDashboard: React.FC = () => {
         avatarUrl={avatarUrl}
       >
         <div className="flex flex-col justify-center items-center min-h-[50vh]">
-          <div className="text-center p-8">
-            <h1 className="text-2xl font-semibold text-brand_primary mb-4">Acceso Denegado</h1>
+          <div className="text-center p-8" data-testid={consultorDenied ? 'consultor-access-pending' : 'access-denied'}>
+            <h1 className="text-2xl font-semibold text-brand_primary mb-4">
+              {consultorDenied ? 'Acceso pendiente de definición' : 'Acceso Denegado'}
+            </h1>
             <p className="text-brand_primary/70 mb-6">
-              Solo directivos y administradores pueden acceder al contexto transversal.
+              {consultorDenied
+                ? 'El acceso de consultores al contexto transversal aún no está definido. Por ahora solo el equipo directivo y los administradores pueden acceder.'
+                : 'Solo directivos y administradores pueden acceder al contexto transversal.'}
             </p>
             <Link href="/dashboard" legacyBehavior>
               <a className="px-6 py-2 bg-brand_primary text-white rounded-lg shadow hover:bg-brand_primary/90 transition-colors">
@@ -542,8 +666,8 @@ const TransversalContextDashboard: React.FC = () => {
       />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Back button for admins/consultores */}
-        {isAdminOrConsultor && (
+        {/* Back button for admins (school picker) */}
+        {isAdminViewer && (
           <button
             onClick={async () => {
               setSchoolId(null);
@@ -593,15 +717,15 @@ const TransversalContextDashboard: React.FC = () => {
               <div>
                 <p className="font-medium text-brand_primary">Cuestionario pendiente</p>
                 <p className="text-sm text-brand_primary/70">
-                  {isAdminOrConsultor
-                    ? 'El equipo directivo debe completar el cuestionario transversal'
+                  {isAdminViewer
+                    ? 'El equipo directivo debe completar el cuestionario transversal; como administrador también puede completarlo'
                     : 'Complete el cuestionario transversal para configurar su escuela'}
                 </p>
               </div>
             </>
           )}
-          {/* Edit button - only for directivos, not admins/consultores */}
-          {!isAdminOrConsultor && (
+          {/* Edit button - directivos and admins (R11: admin keeps the initial-assign / edit capability) */}
+          {(
             <Link
               href={`/school/transversal-context/edit${schoolId ? `?school_id=${schoolId}` : ''}`}
               legacyBehavior
@@ -896,6 +1020,30 @@ const TransversalContextDashboard: React.FC = () => {
           </div>
         )}
 
+        {/* Last successful docente replacement (visible until dismissed) */}
+        {replacementNotice && (
+          <div
+            data-testid="replace-docente-success"
+            role="status"
+            className="mt-6 p-4 rounded-lg bg-green-50 border border-green-300 text-sm text-green-900"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-medium">Docente cambiado: {replacementNotice.courseName}</p>
+                <p className="mt-1">{replacementNotice.message}</p>
+              </div>
+              <button
+                data-testid="replace-docente-success-dismiss"
+                onClick={() => setReplacementNotice(null)}
+                className="p-1 hover:bg-green-100 rounded"
+                title="Cerrar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Course Structure */}
         {courseStructure.length > 0 && (
           <div className="bg-white shadow-md rounded-lg overflow-hidden mt-6">
@@ -918,7 +1066,7 @@ const TransversalContextDashboard: React.FC = () => {
                         (a: any) => a.is_active
                       ) || [];
                       // C-01 — classify by the number of ACTIVE assignments the API returned:
-                      //   0  → the ordinary "Asignar" control (directivos only)
+                      //   0  → the ordinary "Asignar" control (directivos and admins)
                       //   1  → locked: no "Asignar", no "Desasignar"; changing the docente is a
                       //        controlled administrative resolution (C-02), not a page action
                       //   >1 → integrity conflict: nothing is offered and no row is presumed
@@ -926,7 +1074,8 @@ const TransversalContextDashboard: React.FC = () => {
                       const activeCount = activeAssignments.length;
                       const isLocked = activeCount === 1;
                       const hasIntegrityConflict = activeCount > 1;
-                      const canOfferAssign = !isAdminOrConsultor && activeCount === 0;
+                      // R11: admin and directivo may assign; a consultor never reaches this page.
+                      const canOfferAssign = activeCount === 0;
 
                       return (
                         <div
@@ -977,13 +1126,26 @@ const TransversalContextDashboard: React.FC = () => {
                           )}
 
                           {isLocked && (
-                            <p
-                              data-testid={`course-assignment-locked-${course.id}`}
-                              className="mt-2 text-xs text-brand_primary/70"
-                            >
-                              Este curso ya tiene un docente asignado. Para cambiar el docente se requiere una
-                              resolución administrativa controlada; no es posible asignar ni desasignar desde esta página.
-                            </p>
+                            <div className="mt-2 flex items-start justify-between gap-3">
+                              <p
+                                data-testid={`course-assignment-locked-${course.id}`}
+                                className="text-xs text-brand_primary/70"
+                              >
+                                Este curso ya tiene un docente asignado. Mientras la evaluación no haya comenzado,
+                                el equipo directivo puede cambiar el docente con «Cambiar docente»; si ya comenzó,
+                                se requiere una resolución administrativa controlada. No es posible desasignar desde esta página.
+                              </p>
+                              {canReplaceDocente && (
+                                <button
+                                  data-testid={`open-replace-docente-${course.id}`}
+                                  onClick={() => openReplaceModal(course)}
+                                  className="shrink-0 inline-flex items-center px-2 py-1 text-xs font-medium text-brand_primary hover:bg-brand_accent/20 rounded transition-colors"
+                                >
+                                  <UserCog className="w-3.5 h-3.5 mr-1" />
+                                  Cambiar docente
+                                </button>
+                              )}
+                            </div>
                           )}
 
                           {hasIntegrityConflict && (
@@ -1035,14 +1197,14 @@ const TransversalContextDashboard: React.FC = () => {
           <div className="bg-white shadow-md rounded-lg p-12 text-center">
             <Building2 className="mx-auto h-16 w-16 text-brand_primary/30 mb-4" />
             <h3 className="text-xl font-semibold text-brand_primary mb-2">
-              {isAdminOrConsultor ? 'Escuela sin configurar' : 'Configure su escuela'}
+              {isAdminViewer ? 'Escuela sin configurar' : 'Configure su escuela'}
             </h3>
             <p className="text-brand_primary/60 mb-6 max-w-md mx-auto">
-              {isAdminOrConsultor
-                ? 'El equipo directivo de esta escuela aún no ha completado el cuestionario transversal.'
+              {isAdminViewer
+                ? 'El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. Como administrador puede completarlo ahora.'
                 : 'Complete el cuestionario transversal para configurar los datos de su escuela y habilitar las evaluaciones de transformación.'}
             </p>
-            {!isAdminOrConsultor && (
+            {(
               <Link
                 href={`/school/transversal-context/edit${schoolId ? `?school_id=${schoolId}` : ''}`}
                 legacyBehavior
@@ -1162,6 +1324,124 @@ const TransversalContextDashboard: React.FC = () => {
                   <>
                     <UserPlus className="w-4 h-4 mr-2" />
                     Asignar
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Docente Replacement Modal (PR 2 item 2) */}
+      {replaceModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-brand_primary">
+                Cambiar Docente
+              </h3>
+              <button
+                data-testid="replace-docente-close"
+                onClick={closeReplaceModal}
+                className="p-1 hover:bg-brand_beige rounded"
+              >
+                <X className="w-5 h-5 text-brand_primary/60" />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <p className="text-sm text-brand_primary/70">
+                Curso <strong className="text-brand_primary">{replaceCourse?.course_name}</strong>
+              </p>
+              <p data-testid="replace-docente-current" className="text-sm text-brand_primary/70 mt-1">
+                Docente actual:{' '}
+                <strong className="text-brand_primary">
+                  {currentDocenteOf(replaceCourse)?.profiles?.name || currentDocenteOf(replaceCourse)?.docente_id || '—'}
+                </strong>
+              </p>
+              <p className="mt-3 text-xs text-brand_primary/70 bg-brand_beige rounded p-2">
+                El cambio solo es posible mientras la evaluación del curso no haya comenzado y no registre
+                respuestas. El docente anterior pierde el acceso a las evaluaciones pendientes y el nuevo docente
+                las recibe en blanco: las respuestas nunca se transfieren.
+              </p>
+
+              {loadingReplaceCandidates ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-brand_primary" />
+                </div>
+              ) : replaceCandidates.length === 0 ? (
+                <div className="text-center py-8">
+                  <Users className="mx-auto h-10 w-10 text-brand_primary/30 mb-2" />
+                  <p className="text-sm text-brand_primary/60">
+                    No hay otros docentes disponibles en esta escuela
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-brand_primary mb-2">
+                    Nuevo docente
+                  </label>
+                  <select
+                    data-testid="replace-docente-select"
+                    value={selectedReplacement}
+                    onChange={(e) => setSelectedReplacement(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_accent text-brand_primary"
+                  >
+                    <option value="">-- Seleccionar --</option>
+                    {replaceCandidates.map(docente => {
+                      const displayName = docente.name || docente.email;
+                      const roleLabels = (docente.roles ?? [])
+                        .map(docenteRoleLabel)
+                        .join(', ');
+                      return (
+                        <option key={docente.id} value={docente.id}>
+                          {roleLabels ? `${displayName} — ${roleLabels}` : displayName}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              )}
+
+              {replaceError && (
+                <div
+                  data-testid="replace-docente-error"
+                  role="alert"
+                  className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800"
+                >
+                  <p className="font-medium">
+                    {replaceError.code === 'evaluation_started'
+                      ? 'La evaluación ya comenzó'
+                      : 'No se pudo cambiar el docente'}
+                  </p>
+                  <p className="mt-1">{replaceError.message}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                data-testid="replace-docente-cancel"
+                onClick={closeReplaceModal}
+                className="px-4 py-2 text-sm font-medium text-brand_primary/70 hover:text-brand_primary"
+              >
+                Cancelar
+              </button>
+              <button
+                data-testid="replace-docente-submit"
+                onClick={handleReplaceDocente}
+                disabled={!selectedReplacement || replacing}
+                className="px-4 py-2 bg-brand_primary text-white text-sm font-medium rounded-lg hover:bg-brand_primary/90 disabled:opacity-50 inline-flex items-center"
+              >
+                {replacing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Cambiando...
+                  </>
+                ) : (
+                  <>
+                    <UserCog className="w-4 h-4 mr-2" />
+                    Cambiar docente
                   </>
                 )}
               </button>

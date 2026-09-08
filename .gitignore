@@ -129,6 +129,12 @@ run-*.mjs
 !scripts/ci/e2e-fixtures.json  # synthetic CI e2e fixtures (seeder + specs share it)
 # Governed exact-target lock for Production QA simulation.
 !config/production-qa-simulation-target.json
+# Pilot provisioning: target allowlist (ships null/unapproved) and non-PII manifests.
+!config/pilot-provisioning-targets.json
+!config/pilot-manifests/
+!config/pilot-manifests/*.json
+# Pilot provisioning: versioned schema attestation expectation (R10; regenerate from a fresh local reset).
+!config/pilot-schema-attestation.json
 
 # Backups
 /backups/
@@ -182,6 +188,9 @@ test-results/
 # The e2e outbound-mail outbox (lib/email/outbox.ts). Message bodies carry live
 # recovery URLs, so it must never be committed.
 .e2e-outbox/
+
+# Pilot provisioning runtime state (locks, audit records, protected inputs) — never committed
+.pilot-provisioning/
 # Live sessions produced by tests/e2e/helpers/auth.ts — never commit these
 tests/e2e/.auth/
 

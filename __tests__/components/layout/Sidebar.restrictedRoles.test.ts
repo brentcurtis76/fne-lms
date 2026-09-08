@@ -1,4 +1,4 @@
-// @vitest-environment node
+// @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 
 // Mirrors the parent-item restrictedRoles predicate used in
@@ -74,5 +74,41 @@ describe('Sidebar growth-communities restrictedRoles gating', () => {
     expect(
       isItemVisible(growthCommunitiesItem, { userRole: 'docente', isAdmin: false })
     ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PR #88 supersedes PR 3's teaching-role restriction: personal assignments,
+// not the role name, determine whether Mis Evaluaciones is available.
+// The full Sidebar behavior is covered by Sidebar.assessmentAccess.test.tsx.
+// ---------------------------------------------------------------------------
+import { NAVIGATION_ITEMS } from '../../../components/layout/Sidebar';
+
+function findChild(id: string) {
+  for (const item of NAVIGATION_ITEMS) {
+    const child = (item.children || []).find(c => c.id === id);
+    if (child) return child;
+  }
+  return undefined;
+}
+
+describe("Sidebar 'Mis Evaluaciones' restrictedRoles (real navigation config)", () => {
+  const item = findChild('docente-mis-evaluaciones');
+
+  it('exists under the assessment section and still requires assigned assessments', () => {
+    expect(item).toBeDefined();
+    expect(item!.href).toBe('/docente/assessments');
+    expect(item!.requiresAssessments).toBe(true);
+  });
+
+  it('does not exclude assigned participants by role', () => {
+    expect(item!.restrictedRoles).toBeUndefined();
+  });
+
+  it('passes the role predicate for all nine roles; assignment checks remain mandatory', () => {
+    for (const role of ['docente', 'admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red', 'community_manager', 'encargado_licitacion']) {
+      expect(isItemVisible(item!, { userRoles: [role], isAdmin: role === 'admin' })).toBe(true);
+    }
+    expect(item!.requiresAssessments).toBe(true);
   });
 });

@@ -6,7 +6,7 @@ import {
   sendAuthError,
   handleMethodNotAllowed,
 } from '@/lib/api-auth';
-import { hasDirectivoPermission } from '@/lib/permissions/directivo';
+import { hasDirectivoPermission, hasContextWriteRole } from '@/lib/permissions/directivo';
 import type { SaveContextResponsesRequest, ContextGeneralResponse } from '@/types/assessment-builder';
 
 // ============================================================
@@ -46,6 +46,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!hasPermission) {
     return res.status(403).json({
       error: 'Solo directivos y administradores pueden acceder a las respuestas de contexto'
+    });
+  }
+
+  // R5 / Codex round 1 (finding 2): the custom context responses are part of
+  // the transversal-context surface. Consultores are DENIED here (GET and
+  // POST) exactly as on /api/school/transversal-context, pending the product
+  // decision. hasDirectivoPermission admits assigned consultores; they hold
+  // no context-write role, so this gate refuses them before any read.
+  if (!isAdmin && !(await hasContextWriteRole(supabaseClient, user.id))) {
+    return res.status(403).json({
+      success: false,
+      code: 'consultor_access_pending_decision',
+      error: 'El acceso de consultores al contexto transversal está pendiente de definición. Solo el equipo directivo y los administradores pueden acceder.',
     });
   }
 

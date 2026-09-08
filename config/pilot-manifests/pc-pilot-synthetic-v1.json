@@ -1,0 +1,195 @@
+{
+  "_comment": [
+    "Synthetic staging rehearsal manifest for the Procesos de Cambio pilot provisioning tooling.",
+    "Everything here is invented: the school, the two adult personas (reserved example.com",
+    "addresses, never delivered), the instruments and the expectations. No minor data, no RUT,",
+    "no real names, no identifiers of any real tenant. Every name carries the [SINTÉTICO] banner",
+    "so the rows are unmistakable inside the staging project. Row ids are derived (uuidv5 under",
+    "the pc-pilot-synthetic-v1 namespace) and never written here. The personas are documented",
+    "for the rehearsal script only: this tooling creates no users, profiles or roles."
+  ],
+  "schemaVersion": 1,
+  "manifestVersion": "pc-pilot-synthetic-v1",
+  "mode": "synthetic",
+  "target": "staging",
+  "environmentClass": "staging",
+  "approved": true,
+  "scenarioEpoch": "2026-09-07T12:00:00.000Z",
+  "syntheticMarker": "[SINTÉTICO]",
+  "syntheticSchool": {
+    "id": 900001,
+    "name": "[SINTÉTICO] Colegio Piloto",
+    "tenantKind": "qa"
+  },
+  "rehearsalPersonas": [
+    {
+      "role": "equipo_directivo",
+      "displayName": "Directiva Sintética Uno",
+      "email": "directivo.pc-pilot@example.com",
+      "createdByThisTooling": false
+    },
+    {
+      "role": "docente",
+      "displayName": "Docente Sintético Uno",
+      "email": "docente.pc-pilot@example.com",
+      "createdByThisTooling": false
+    }
+  ],
+  "grades": [
+    {
+      "key": "1_basico",
+      "sortOrder": 5,
+      "expectedName": "1° Básico",
+      "isAlwaysGt": true,
+      "generationType": "GT",
+      "migrationPlan": [
+        { "yearNumber": 1, "generationType": "GT" },
+        { "yearNumber": 2, "generationType": "GT" }
+      ]
+    },
+    {
+      "key": "5_basico",
+      "sortOrder": 9,
+      "expectedName": "5° Básico",
+      "isAlwaysGt": false,
+      "generationType": "GI",
+      "migrationPlan": [
+        { "yearNumber": 1, "generationType": "GI" },
+        { "yearNumber": 2, "generationType": "GI" }
+      ]
+    }
+  ],
+  "templates": [
+    {
+      "key": "eva-1b",
+      "gradeKey": "1_basico",
+      "area": "evaluacion",
+      "name": "[SINTÉTICO] Evaluación 1° Básico — ensayo piloto",
+      "description": "[SINTÉTICO] Instrumento de ensayo para la rehearsal de staging. Sin validez.",
+      "draftVersion": "1.0.0",
+      "objectives": [
+        {
+          "key": "obj-1",
+          "name": "[SINTÉTICO] Objetivo 1 — evaluación formativa en aula",
+          "weight": 1,
+          "modules": [
+            {
+              "key": "mod-1",
+              "name": "[SINTÉTICO] Acción 1 — retroalimentación",
+              "instructions": "Responder con la práctica habitual del equipo docente.",
+              "weight": 1,
+              "indicators": [
+                {
+                  "key": "ind-cob-1",
+                  "code": "SIN-EVA-01",
+                  "name": "[SINTÉTICO] Cobertura de retroalimentación escrita",
+                  "category": "cobertura",
+                  "weight": 1,
+                  "expectations": { "GT": { "expected": [25, 50, 75, 90, 100], "tolerance": 1 } }
+                },
+                {
+                  "key": "ind-fre-1",
+                  "code": "SIN-EVA-02",
+                  "name": "[SINTÉTICO] Frecuencia de instancias de retroalimentación",
+                  "category": "frecuencia",
+                  "weight": 1,
+                  "frequencyConfig": { "min": 0, "max": 10, "step": 1, "unit": "semana", "allowed_units": ["semana", "mes"] },
+                  "expectations": { "GT": { "expected": [1, 2, 3, 4, 5], "unit": "semana", "tolerance": 1 } }
+                },
+                {
+                  "key": "ind-pro-1",
+                  "code": "SIN-EVA-03",
+                  "name": "[SINTÉTICO] Profundidad del uso de rúbricas",
+                  "category": "profundidad",
+                  "weight": 1,
+                  "levelDescriptors": [
+                    "No se usan rúbricas.",
+                    "Rúbricas ocasionales sin socializar.",
+                    "Rúbricas compartidas antes de la tarea.",
+                    "Rúbricas co-construidas con el curso.",
+                    "Rúbricas co-construidas y usadas para autoevaluación."
+                  ],
+                  "expectations": { "GT": { "expected": [1, 2, 3, 3, 4], "tolerance": 1 } }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "yearWeights": [
+        { "year": 1, "entityType": "indicator", "entityKey": "ind-cob-1", "weight": 40 },
+        { "year": 1, "entityType": "indicator", "entityKey": "ind-fre-1", "weight": 30 },
+        { "year": 1, "entityType": "indicator", "entityKey": "ind-pro-1", "weight": 30 }
+      ]
+    },
+    {
+      "key": "apr-5b",
+      "gradeKey": "5_basico",
+      "area": "aprendizaje",
+      "name": "[SINTÉTICO] Aprendizaje 5° Básico — ensayo piloto",
+      "description": "[SINTÉTICO] Instrumento de ensayo con expectativas GT y GI. Sin validez.",
+      "draftVersion": "1.0.0",
+      "objectives": [
+        {
+          "key": "obj-1",
+          "name": "[SINTÉTICO] Objetivo 1 — metodologías activas",
+          "weight": 1,
+          "modules": [
+            {
+              "key": "mod-1",
+              "name": "[SINTÉTICO] Acción 1 — trabajo por proyectos",
+              "weight": 1,
+              "indicators": [
+                {
+                  "key": "ind-cob-1",
+                  "code": "SIN-APR-01",
+                  "name": "[SINTÉTICO] Cobertura de asignaturas con proyectos",
+                  "category": "cobertura",
+                  "weight": 1,
+                  "expectations": {
+                    "GT": { "expected": [20, 40, 60, 80, 100], "tolerance": 1 },
+                    "GI": { "expected": [10, 30, 50, 70, 90], "tolerance": 1 }
+                  }
+                },
+                {
+                  "key": "ind-fre-1",
+                  "code": "SIN-APR-02",
+                  "name": "[SINTÉTICO] Frecuencia de sesiones de proyecto",
+                  "category": "frecuencia",
+                  "weight": 1,
+                  "frequencyConfig": { "min": 0, "max": 8, "step": 1, "unit": "mes", "allowed_units": ["semana", "mes", "trimestre"] },
+                  "expectations": {
+                    "GT": { "expected": [1, 2, 3, 4, 4], "unit": "mes", "tolerance": 1 },
+                    "GI": { "expected": [1, 1, 2, 3, 4], "unit": "mes", "tolerance": 1 }
+                  }
+                },
+                {
+                  "key": "ind-det-1",
+                  "code": "SIN-APR-03",
+                  "name": "[SINTÉTICO] Metodologías activas utilizadas",
+                  "category": "detalle",
+                  "weight": 1,
+                  "detalleOptions": ["ABP", "Cajas de aprendizaje", "Gamificación"],
+                  "expectations": {
+                    "GT": { "expected": [1, 1, 2, 2, 3], "tolerance": 1 },
+                    "GI": { "expected": [0, 1, 1, 2, 2], "tolerance": 1 }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "expectedCounts": {
+    "templates": 2,
+    "objectives": 2,
+    "modules": 2,
+    "indicators": 6,
+    "expectations": 9,
+    "yearWeights": 3,
+    "snapshots": 2,
+    "migrationPlanEntries": 4
+  }
+}

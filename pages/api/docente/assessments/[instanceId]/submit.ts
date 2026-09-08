@@ -232,18 +232,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al completar la evaluación' });
     }
 
-    // Update assignee as submitted
-    const { error: updateAssigneeError } = await supabaseClient
-      .from('assessment_instance_assignees')
-      .update({
-        has_submitted: true,
-      })
-      .eq('id', assignee.id);
-
-    if (updateAssigneeError) {
-      console.error('Error updating assignee:', updateAssigneeError);
-      // Don't fail the request, instance is already marked complete
-    }
+    // has_submitted on the caller's assignee row is set by the database trigger
+    // assessment_instance_progress_flags_trg on the completed transition above
+    // (assessment_instance_assignees is admin-write-only for user clients).
 
     // Auto-calculate scores on submit
     const scoringResult = await calculateAndSaveScores(

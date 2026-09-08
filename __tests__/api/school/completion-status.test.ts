@@ -25,9 +25,10 @@ vi.mock('../../../lib/api-auth', () => ({
   handleMethodNotAllowed: mockHandleMethodNotAllowed,
 }));
 
-vi.mock('../../../lib/permissions/directivo', () => ({
-  hasDirectivoPermission: mockHasDirectivoPermission,
-}));
+vi.mock('../../../lib/permissions/directivo', async () => {
+  const actual = await vi.importActual<typeof import('../../../lib/permissions/directivo')>('../../../lib/permissions/directivo');
+  return { ...actual, hasDirectivoPermission: mockHasDirectivoPermission };
+});
 
 import handler from '../../../pages/api/school/completion-status/index';
 
@@ -40,12 +41,35 @@ function authed() {
 }
 
 function directivo(schoolId: number) {
-  mockHasDirectivoPermission.mockResolvedValue({ hasPermission: true, schoolId, isAdmin: false });
+  mockHasDirectivoPermission.mockResolvedValue({ hasPermission: true, schoolId, isAdmin: false, via: 'equipo_directivo' });
 }
 
 function admin() {
-  mockHasDirectivoPermission.mockResolvedValue({ hasPermission: true, schoolId: null, isAdmin: true });
+  mockHasDirectivoPermission.mockResolvedValue({ hasPermission: true, schoolId: null, isAdmin: true, via: 'admin' });
 }
+
+/** An ASSIGNED consultor: admitted by hasDirectivoPermission, scoped to the assigned school. */
+function consultor(schoolId: number) {
+  mockHasDirectivoPermission.mockResolvedValue({ hasPermission: true, schoolId, isAdmin: false, via: 'consultor' });
+}
+
+
+/** A chainable query that RECORDS every call, so a test can prove the predicates the handler sent. */
+function recordingQuery(data: unknown, error: unknown = null, count: number | null = null) {
+  const calls: Array<{ method: string; args: unknown[] }> = [];
+  const handler: ProxyHandler<Record<string, unknown>> = {
+    get(_target, prop) {
+      if (prop === 'then') return (resolve: (value: unknown) => void) => resolve({ data, error, count });
+      if (prop === '__calls') return calls;
+      return (...args: unknown[]) => {
+        calls.push({ method: String(prop), args });
+        return new Proxy({}, handler);
+      };
+    },
+  };
+  return new Proxy({}, handler) as any;
+}
+const callsOf = (chain: any): Array<{ method: string; args: unknown[] }> => chain.__calls;
 
 /**
  * Build a multi-table mock service client for completion-status.
@@ -246,5 +270,93 @@ describe('GET /api/school/completion-status', () => {
     expect(res._getStatusCode()).toBe(400);
     const data = JSON.parse(res._getData());
     expect(data.error).toContain('school_id');
+  });
+
+  // ── R5 / Codex round 1 finding 2: consultor scope = migration_plan only ──
+  describe('consultor scope (pending product decision)', () => {
+    function consultorClient() {
+      const tables: string[] = [];
+      const chains: Array<{ table: string; chain: any }> = [];
+      const client = {
+        from: vi.fn((table: string) => {
+          tables.push(table);
+          let chain: any;
+          if (table === 'school_plan_completion_status') {
+            chain = recordingQuery([{ feature: 'migration_plan', is_completed: true, completed_at: '2026-02-01T00:00:00Z', completed_by: COMPLETER_ID }]);
+          } else if (table === 'school_change_history') {
+            chain = recordingQuery([{ feature: 'migration_plan', user_name: 'Alguien', created_at: '2026-02-02T00:00:00Z' }]);
+          } else if (table === 'profiles') {
+            chain = recordingQuery({ id: COMPLETER_ID, name: 'Completador' });
+          } else if (table === 'school_transversal_context') {
+            // The transversal context must NEVER be read on this scope: a read blows up loudly.
+            throw new Error('school_transversal_context read on consultor scope');
+          } else {
+            chain = recordingQuery(null);
+          }
+          chains.push({ table, chain });
+          return chain;
+        }),
+      };
+      return { client, tables, chains };
+    }
+
+    it('returns the migration_plan status ONLY and never reads the transversal context', async () => {
+      authed();
+      consultor(42);
+      const { client, tables, chains } = consultorClient();
+      mockCreateServiceRoleClient.mockReturnValue(client);
+
+      const { req, res } = createMocks({ method: 'GET', query: { school_id: '42' } });
+      await handler(req, res);
+
+      expect(res._getStatusCode()).toBe(200);
+      const data = JSON.parse(res._getData());
+      expect(data.scope).toBe('migration_plan');
+      expect(Object.keys(data.status)).toEqual(['migration_plan']);
+      expect(data.status.migration_plan).toEqual({
+        is_completed: true,
+        completed_at: '2026-02-01T00:00:00Z',
+        completed_by_name: 'Completador',
+        last_updated_at: '2026-02-02T00:00:00Z',
+        last_updated_by_name: 'Alguien',
+      });
+      expect(tables).not.toContain('school_transversal_context');
+      // Every completion / history read is pinned to the migration_plan feature.
+      const scoped = chains.filter(c => c.table === 'school_plan_completion_status' || c.table === 'school_change_history');
+      expect(scoped).toHaveLength(2);
+      for (const { chain } of scoped) {
+        expect(callsOf(chain)).toEqual(expect.arrayContaining([{ method: 'eq', args: ['feature', 'migration_plan'] }]));
+      }
+    });
+
+    it('treats a permission without a full role (no via) as consultor scope — fail closed', async () => {
+      authed();
+      mockHasDirectivoPermission.mockResolvedValue({ hasPermission: true, schoolId: 42, isAdmin: false });
+      const { client, tables } = consultorClient();
+      mockCreateServiceRoleClient.mockReturnValue(client);
+
+      const { req, res } = createMocks({ method: 'GET', query: {} });
+      await handler(req, res);
+
+      expect(res._getStatusCode()).toBe(200);
+      expect(Object.keys(JSON.parse(res._getData()).status)).toEqual(['migration_plan']);
+      expect(tables).not.toContain('school_transversal_context');
+    });
+
+    it('answers 500 (no partial status) when the migration-plan read fails', async () => {
+      authed();
+      consultor(42);
+      mockCreateServiceRoleClient.mockReturnValue({
+        from: vi.fn((table: string) => {
+          if (table === 'school_plan_completion_status') return buildChainableQuery(null, { code: '42501', message: 'denied' });
+          return buildChainableQuery([]);
+        }),
+      });
+
+      const { req, res } = createMocks({ method: 'GET', query: { school_id: '42' } });
+      await handler(req, res);
+
+      expect(res._getStatusCode()).toBe(500);
+    });
   });
 });

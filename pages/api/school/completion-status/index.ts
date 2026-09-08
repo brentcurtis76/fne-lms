@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
-import { hasDirectivoPermission } from '@/lib/permissions/directivo';
+import { hasDirectivoPermission, isFullDirectivoScope } from '@/lib/permissions/directivo';
 
 interface FeatureStatus {
   is_completed: boolean;
@@ -28,17 +28,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'school_id debe ser un número válido' });
   }
 
-  const { hasPermission, schoolId, isAdmin } = await hasDirectivoPermission(
+  const permission = await hasDirectivoPermission(
     serviceClient,
     user.id,
     requestedSchoolId
   );
+  const { hasPermission, schoolId, isAdmin } = permission;
 
   if (!hasPermission) {
     return res.status(403).json({
       error: 'Solo directivos, consultores y administradores pueden acceder al estado de completitud'
     });
   }
+
+  // R5 / Codex round 1 (finding 2): an admitted consultor gets the
+  // migration-plan status ONLY. The transversal-context row and the
+  // context-responses status are neither read nor returned for them
+  // (pending the product decision). Anything that is not a full admin /
+  // equipo_directivo grant is consultor scope (fail closed).
+  const consultorScope = !isFullDirectivoScope(permission);
 
   if (!isAdmin && !schoolId) {
     return res.status(400).json({ error: 'No se encontró escuela asociada al usuario' });
@@ -49,6 +57,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const effectiveSchoolId = isAdmin ? requestedSchoolId! : schoolId!;
+
+  if (consultorScope) {
+    return handleConsultorScope(res, serviceClient, effectiveSchoolId);
+  }
 
   try {
     // Fetch all data in parallel
@@ -184,6 +196,64 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Error desconocido';
     console.error('Unexpected error fetching completion status:', message);
+    return res.status(500).json({ error: 'Error inesperado al obtener el estado de completitud' });
+  }
+}
+
+/**
+ * Consultor scope: the migration-plan feature only. school_transversal_context
+ * and the context_responses rows are never read here; the response carries a
+ * single key so the caller cannot infer the other features' state.
+ */
+async function handleConsultorScope(res: NextApiResponse, serviceClient: any, schoolId: number) {
+  try {
+    const [planStatusResult, lastUpdateResult] = await Promise.all([
+      serviceClient
+        .from('school_plan_completion_status')
+        .select('feature, is_completed, completed_at, completed_by')
+        .eq('school_id', schoolId)
+        .eq('feature', 'migration_plan'),
+      serviceClient
+        .from('school_change_history')
+        .select('feature, user_name, created_at')
+        .eq('school_id', schoolId)
+        .eq('feature', 'migration_plan')
+        .order('created_at', { ascending: false })
+        .limit(1),
+    ]);
+
+    if (planStatusResult.error || lastUpdateResult.error) {
+      console.error('Error fetching migration-plan status for consultor scope:', {
+        plan: planStatusResult.error?.code ?? null,
+        history: lastUpdateResult.error?.code ?? null,
+      });
+      return res.status(500).json({ error: 'Error al obtener el estado de completitud' });
+    }
+
+    const ps = (planStatusResult.data || []).find((row: any) => row.feature === 'migration_plan') ?? null;
+    let completedByName: string | null = null;
+    if (ps?.completed_by) {
+      const { data: profile } = await serviceClient
+        .from('profiles')
+        .select('id, name')
+        .eq('id', ps.completed_by)
+        .maybeSingle();
+      completedByName = profile?.name ?? null;
+    }
+    const lastUpdate = lastUpdateResult.data?.[0] ?? null;
+
+    const migrationPlan: FeatureStatus = {
+      is_completed: ps?.is_completed ?? false,
+      completed_at: ps?.completed_at ?? null,
+      completed_by_name: completedByName,
+      last_updated_at: lastUpdate?.created_at ?? null,
+      last_updated_by_name: lastUpdate?.user_name ?? null,
+    };
+
+    return res.status(200).json({ success: true, scope: 'migration_plan', status: { migration_plan: migrationPlan } });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Error desconocido';
+    console.error('Unexpected error fetching consultor-scoped completion status:', message);
     return res.status(500).json({ error: 'Error inesperado al obtener el estado de completitud' });
   }
 }

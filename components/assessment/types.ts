@@ -12,6 +12,7 @@ export interface IndicatorData {
     max?: number;
     step?: number;
     unit?: string;
+    allowed_units?: FrequencyUnit[];
   };
   frequencyUnitOptions?: FrequencyUnit[];
   level0Descriptor?: string;
@@ -49,7 +50,7 @@ export interface ObjectiveData {
 export interface ResponseData {
   id?: string;
   coverageValue?: boolean;
-  frequencyValue?: number;
+  frequencyValue?: number | null;
   frequencyUnit?: FrequencyUnit;
   profundityLevel?: number;
   rationale?: string;

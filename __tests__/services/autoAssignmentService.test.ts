@@ -14,7 +14,7 @@ import { buildChainableQuery } from '../api/assessment-builder/_helpers';
 // Mock supabaseAdmin
 // ----------------------------------------------------------------
 const { mockSupabaseAdmin } = vi.hoisted(() => ({
-  mockSupabaseAdmin: { from: vi.fn() },
+  mockSupabaseAdmin: { from: vi.fn(), rpc: vi.fn() },
 }));
 
 vi.mock('../../lib/supabaseAdmin', () => ({
@@ -132,9 +132,25 @@ function happyPathMap(overrides: Partial<{
 
 const run = () => triggerAutoAssignment(null, DOCENTE_ID, COURSE_STRUCTURE_ID, SCHOOL_ID, ASSIGNED_BY);
 
+/**
+ * Codex round 3, finding 1: every course-level instance / grant write goes
+ * through the locked RPC `attach_course_docente_assessment` (one transaction
+ * that re-verifies the docente's ACTIVE assignment under the course row
+ * lock). The service never touches assessment_instances or
+ * assessment_instance_assignees directly on this path.
+ */
+const ATTACH_RPC = 'attach_course_docente_assessment';
+type Outcome = 'created' | 'attached' | 'already_exists';
+const rpcResolves = (outcome: Outcome, instanceId: string = INSTANCE_ID) =>
+  mockSupabaseAdmin.rpc.mockResolvedValue({ data: { instance_id: instanceId, assignment_id: 'asg-uuid-1', outcome }, error: null });
+const rpcRefuses = (code: string) =>
+  mockSupabaseAdmin.rpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: code } });
+const rpcCalls = () => mockSupabaseAdmin.rpc.mock.calls as Array<[string, Record<string, unknown>]>;
+
 describe('triggerAutoAssignment', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    rpcResolves('created');
   });
 
   // ── Plan resolution ────────────────────────────────────────────
@@ -209,10 +225,8 @@ describe('triggerAutoAssignment', () => {
   });
 
   it('never creates or attaches an instance for an archived published template', async () => {
-    const instances = recordingQuery(null, null);
     configureMock(happyPathMap({
       templates: buildChainableQuery([archivedTemplate()]),
-      instances: [instances.query, instances.query],
     }));
 
     const result = await run();
@@ -225,22 +239,20 @@ describe('triggerAutoAssignment', () => {
     expect(result.blockingError?.code).toBe('no_eligible_templates');
     expect(mockSupabaseAdmin.from).not.toHaveBeenCalledWith('assessment_instances');
     expect(mockSupabaseAdmin.from).not.toHaveBeenCalledWith('assessment_instance_assignees');
-    expect(insertPayloads(instances.calls)).toHaveLength(0);
+    expect(mockSupabaseAdmin.rpc).not.toHaveBeenCalled();
   });
 
   it('processes only the active template when the query returns archived and active rows', async () => {
-    const insert = recordingQuery({ id: INSTANCE_ID });
     configureMock(happyPathMap({
       templates: buildChainableQuery([archivedTemplate(), activeTemplate()]),
-      instances: [buildChainableQuery(null, null), insert.query],
     }));
 
     const result = await run();
 
     expect(result.success).toBe(true);
     expect(result.counts).toMatchObject({ created: 1, skipped: 1, errors: 0 });
-    expect(insertPayloads(insert.calls)).toHaveLength(1);
-    expect(insertPayloads(insert.calls)[0]).toMatchObject({ template_snapshot_id: SNAPSHOT_ID });
+    expect(rpcCalls()).toHaveLength(1);
+    expect(rpcCalls()[0][1]).toMatchObject({ p_template_snapshot_id: SNAPSHOT_ID });
     expect(result.details.map(d => d.status).sort()).toEqual(['created', 'skipped']);
   });
 
@@ -280,33 +292,22 @@ describe('triggerAutoAssignment', () => {
     expect(mockSupabaseAdmin.from).not.toHaveBeenCalledWith('assessment_instances');
   });
 
-  // ── Creation ───────────────────────────────────────────────────
-  it('creates an instance with generation_type from the migration plan and links the docente', async () => {
-    const insert = recordingQuery({ id: INSTANCE_ID });
-    const assignee = recordingQuery(null, null);
-    configureMock(happyPathMap({
-      instances: [buildChainableQuery(null, null), insert.query],
-      assignees: [assignee.query],
-    }));
+  // ── Creation through the locked RPC (finding 1) ───────────────
+  it('creates an instance with generation_type from the migration plan and links the docente in ONE locked RPC call', async () => {
+    configureMock(happyPathMap());
 
     const result = await run();
 
-    expect(insertPayloads(insert.calls)[0]).toMatchObject({
-      template_snapshot_id: SNAPSHOT_ID,
-      generation_type: 'GI',
-      school_id: SCHOOL_ID,
-      course_structure_id: COURSE_STRUCTURE_ID,
-      transformation_year: 2,
-      status: 'pending',
-      assigned_by: ASSIGNED_BY,
-    });
-    expect(insertPayloads(assignee.calls)[0]).toMatchObject({
-      instance_id: INSTANCE_ID,
-      user_id: DOCENTE_ID,
-      can_edit: true,
-      can_submit: true,
-      assigned_by: ASSIGNED_BY,
-    });
+    expect(rpcCalls()).toEqual([[ATTACH_RPC, {
+      p_course_structure_id: COURSE_STRUCTURE_ID,
+      p_docente_id: DOCENTE_ID,
+      p_template_snapshot_id: SNAPSHOT_ID,
+      p_transformation_year: 2,
+      p_generation_type: 'GI',
+      p_assigned_by: ASSIGNED_BY,
+    }]]);
+    expect(mockSupabaseAdmin.from).not.toHaveBeenCalledWith('assessment_instances');
+    expect(mockSupabaseAdmin.from).not.toHaveBeenCalledWith('assessment_instance_assignees');
     expect(result.success).toBe(true);
     expect(result.counts).toEqual({ created: 1, attached: 0, alreadyExisting: 0, skipped: 0, errors: 0 });
     expect(result.instancesCreated).toBe(1);
@@ -314,16 +315,14 @@ describe('triggerAutoAssignment', () => {
   });
 
   it('defaults to GT for always-GT grades and skips the migration plan lookup', async () => {
-    const insert = recordingQuery({ id: INSTANCE_ID });
     configureMock(happyPathMap({
       abGrades: buildChainableQuery({ name: 'Kinder', is_always_gt: true }),
-      instances: [buildChainableQuery(null, null), insert.query],
     }));
 
     await run();
 
     expect(mockSupabaseAdmin.from).not.toHaveBeenCalledWith('ab_migration_plan');
-    expect(insertPayloads(insert.calls)[0]).toMatchObject({ generation_type: 'GT' });
+    expect(rpcCalls()[0][1]).toMatchObject({ p_generation_type: 'GT' });
   });
 
   it('keeps a missing migration plan as a visible warning without blocking', async () => {
@@ -338,14 +337,10 @@ describe('triggerAutoAssignment', () => {
     expect(result.warnings[0]).toContain(`grade_id ${GRADE_ID}`);
   });
 
-  // ── Idempotent reconciliation (A-02) ───────────────────────────
-  it('is a truthful no-op when the instance and the assignee link already exist', async () => {
-    const instances = recordingQuery({ id: INSTANCE_ID });
-    const assignees = recordingQuery({ id: 'existing-assignee' });
-    configureMock(happyPathMap({
-      instances: [instances.query],
-      assignees: [assignees.query],
-    }));
+  // ── Idempotent reconciliation (A-02) — outcomes reported by the RPC ──
+  it('is a truthful no-op when the RPC reports the instance and the grant already exist', async () => {
+    configureMock(happyPathMap());
+    rpcResolves('already_exists');
 
     const result = await run();
 
@@ -353,75 +348,118 @@ describe('triggerAutoAssignment', () => {
     expect(result.counts).toEqual({ created: 0, attached: 0, alreadyExisting: 1, skipped: 0, errors: 0 });
     expect(result.instancesSkipped).toBe(1);
     expect(result.details[0]).toMatchObject({ status: 'already_exists', instanceId: INSTANCE_ID });
-    expect(insertPayloads(instances.calls)).toHaveLength(0);
-    expect(insertPayloads(assignees.calls)).toHaveLength(0);
+    expect(rpcCalls()).toHaveLength(1);
   });
 
-  it('repairs a missing assignee link on an existing instance', async () => {
-    const lookup = recordingQuery(null, null);
-    const insert = recordingQuery(null, null);
-    configureMock(happyPathMap({
-      instances: [buildChainableQuery({ id: INSTANCE_ID })],
-      assignees: [lookup.query, insert.query],
-    }));
+  it('reports a repaired grant on an existing live instance as assignee_attached', async () => {
+    configureMock(happyPathMap());
+    rpcResolves('attached');
 
     const result = await run();
 
     expect(result.success).toBe(true);
     expect(result.counts).toEqual({ created: 0, attached: 1, alreadyExisting: 0, skipped: 0, errors: 0 });
     expect(result.details[0]).toMatchObject({ status: 'assignee_attached', instanceId: INSTANCE_ID });
-    expect(insertPayloads(insert.calls)[0]).toMatchObject({
-      instance_id: INSTANCE_ID,
-      user_id: DOCENTE_ID,
-      can_edit: true,
-      can_submit: true,
-      assigned_by: ASSIGNED_BY,
-    });
   });
 
-  it('treats a unique violation on the assignee insert as already linked (concurrent repair)', async () => {
-    configureMock(happyPathMap({
-      instances: [buildChainableQuery({ id: INSTANCE_ID })],
-      assignees: [
-        buildChainableQuery(null, null),
-        buildChainableQuery(null, { code: '23505', message: 'duplicate key value violates unique constraint' }),
-      ],
-    }));
+  it('calls the RPC once per eligible template, each with its own current snapshot', async () => {
+    const second = activeTemplate({
+      id: 'tpl-uuid-second', name: 'Matemática', area: 'matematica',
+      assessment_template_snapshots: [{ id: 'snap-uuid-second', version: '2.0', created_at: '2026-03-01T00:00:00Z' }],
+    });
+    configureMock(happyPathMap({ templates: buildChainableQuery([activeTemplate(), second]) }));
+    mockSupabaseAdmin.rpc
+      .mockResolvedValueOnce({ data: { instance_id: INSTANCE_ID, outcome: 'already_exists' }, error: null })
+      .mockResolvedValueOnce({ data: { instance_id: 'inst-uuid-second', outcome: 'created' }, error: null });
 
     const result = await run();
 
+    expect(rpcCalls().map(([, args]) => args.p_template_snapshot_id)).toEqual([SNAPSHOT_ID, 'snap-uuid-second']);
+    expect(result.counts).toEqual({ created: 1, attached: 0, alreadyExisting: 1, skipped: 0, errors: 0 });
     expect(result.success).toBe(true);
-    expect(result.counts.alreadyExisting).toBe(1);
-    expect(result.errors).toHaveLength(0);
   });
 
-  it('reports an error when the assignee insert fails on an existing instance', async () => {
-    configureMock(happyPathMap({
-      instances: [buildChainableQuery({ id: INSTANCE_ID })],
-      assignees: [
-        buildChainableQuery(null, null),
-        buildChainableQuery(null, { message: 'permission denied' }),
-      ],
-    }));
+  // ── Refusals raised by the RPC (stable P0001 codes) ────────────
+  it('a stale request after a cleanup (docente_not_active_on_course) is an error with zero confirmed assessments', async () => {
+    configureMock(happyPathMap());
+    rpcRefuses('docente_not_active_on_course');
 
     const result = await run();
 
     expect(result.success).toBe(false);
-    expect(result.counts.errors).toBe(1);
-    expect(result.errors[0]).toContain('assignee insert failed');
-    expect(result.details[0]?.status).toBe('error');
+    expect(result.counts).toEqual({ created: 0, attached: 0, alreadyExisting: 0, skipped: 0, errors: 1 });
+    expect(result.details[0]).toMatchObject({ status: 'error', reason: 'docente_not_active_on_course' });
+    expect(result.errors[0]).toContain('ya no está activa');
+    expect(mockSupabaseAdmin.from).not.toHaveBeenCalledWith('assessment_instance_assignees');
   });
 
-  it('cannot report success when the instance insert fails (zero confirmed assessments)', async () => {
-    configureMock(happyPathMap({
-      instances: [buildChainableQuery(null, null), buildChainableQuery(null, { message: 'insert failed' })],
-    }));
+  it('an archived template at write time (template_not_eligible) is an error, never a create', async () => {
+    configureMock(happyPathMap());
+    rpcRefuses('template_not_eligible');
+
+    const result = await run();
+
+    expect(result.success).toBe(false);
+    expect(result.details[0]).toMatchObject({ status: 'error', reason: 'template_not_eligible' });
+    expect(result.errors[0]).toContain('ya no está publicada');
+  });
+
+  it('fails closed (no write, no attach) when the RPC reports two live instances for the same course and snapshot', async () => {
+    configureMock(happyPathMap());
+    rpcRefuses('instance_ambiguous');
+
+    const result = await run();
+
+    expect(result.success).toBe(false);
+    expect(result.counts).toEqual({ created: 0, attached: 0, alreadyExisting: 0, skipped: 0, errors: 1 });
+    expect(result.details[0]).toMatchObject({ status: 'error', reason: 'instance_ambiguous' });
+    expect(result.errors[0]).toContain('más de una evaluación activa');
+  });
+
+  it('a course whose invariant is already violated (assignment_invariant_violation) is refused with a resolution message', async () => {
+    configureMock(happyPathMap());
+    rpcRefuses('assignment_invariant_violation');
+
+    const result = await run();
+
+    expect(result.success).toBe(false);
+    expect(result.errors[0]).toContain('resolución administrativa');
+  });
+
+  it('cannot report success when the RPC fails with an unmapped error (zero confirmed assessments)', async () => {
+    configureMock(happyPathMap());
+    mockSupabaseAdmin.rpc.mockResolvedValue({ data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint' } });
 
     const result = await run();
 
     expect(result.success).toBe(false);
     expect(result.counts.created + result.counts.attached + result.counts.alreadyExisting).toBe(0);
-    expect(result.errors[0]).toContain('insert failed');
+    expect(result.errors[0]).toContain('duplicate key value');
+    expect(result.details[0]?.status).toBe('error');
+    expect(result.details[0]?.reason).toBeUndefined();
+  });
+
+  it('an unexpected RPC payload (no instance id / unknown outcome) is an error, not a confirmed assessment', async () => {
+    configureMock(happyPathMap());
+    mockSupabaseAdmin.rpc.mockResolvedValue({ data: { outcome: 'linked' }, error: null });
+
+    const result = await run();
+
+    expect(result.success).toBe(false);
+    expect(result.counts.errors).toBe(1);
+    expect(result.errors[0]).toContain('resultado inesperado');
+  });
+
+  it('never reads or writes assessment_instances / assignees directly on the course path', async () => {
+    configureMock(happyPathMap());
+
+    await run();
+
+    const tables = mockSupabaseAdmin.from.mock.calls.map(([t]) => t);
+    expect(tables).not.toContain('assessment_instances');
+    expect(tables).not.toContain('assessment_instance_assignees');
+    expect(rpcCalls()).toHaveLength(1);
+    expect(rpcCalls()[0][0]).toBe(ATTACH_RPC);
   });
 });
 
@@ -601,7 +639,7 @@ describe('createSchoolLevelInstances', () => {
   });
 
   it('reports an already-existing school-level instance without inserting', async () => {
-    const existing = recordingQuery({ id: INSTANCE_ID });
+    const existing = recordingQuery([{ id: INSTANCE_ID }]);
     configureMock({
       assessment_templates: buildChainableQuery([activeTemplate()]),
       assessment_instances: [existing.query],
@@ -613,5 +651,20 @@ describe('createSchoolLevelInstances', () => {
     expect(result.counts.alreadyExisting).toBe(1);
     expect(result.details[0]).toMatchObject({ status: 'already_exists', instanceId: INSTANCE_ID });
     expect(insertPayloads(existing.calls)).toHaveLength(0);
+  });
+  it('never reuses an archived school-level instance and fails closed on duplicates', async () => {
+    const existence = recordingQuery([{ id: INSTANCE_ID }, { id: 'inst-uuid-dup' }], null);
+    configureMock({
+      assessment_templates: buildChainableQuery([activeTemplate()]),
+      assessment_instances: [existence.query],
+    });
+
+    const result = await runSchool();
+
+    expect(existence.calls.find(c => c.method === 'neq')?.args).toEqual(['status', 'archived']);
+    expect(existence.calls.find(c => c.method === 'limit')?.args).toEqual([2]);
+    expect(result.success).toBe(false);
+    expect(result.counts.errors).toBe(1);
+    expect(insertPayloads(existence.calls)).toHaveLength(0);
   });
 });

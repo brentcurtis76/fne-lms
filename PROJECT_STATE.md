@@ -1,8 +1,16 @@
+## Contract design release verification — 2026-09-08
+
+`feat/contract-design` integrates origin/main `097b62ed`. Local unit (9,716 passed), type-check, lint, build, pgTAP (2,506 assertions), and Chromium print checks passed. Synthetic authenticated contract/anexo creation and saved-print routes verified with computer use. CLP list labels corrected; print tests made mandatory in CI. Safari contrato pagination fixed and visually verified: final clauses/signatures/footer together on six Letter pages; Chromium remains five. Safari short/long anexos verified at one/three pages. PR #91 awaits final-head CI; not merged to main. See `docs/planning/reviews/fase-contract-design-review-request.md`.
+
 # PROJECT_STATE.md
 
 > Documento vivo de estado (estructura según §2.2 del itinerario: `docs/planning/GENERA-itinerario-construccion.md`).
 > Convenciones durables: CLAUDE.md / AGENTS.md. Cada fase termina actualizando este archivo.
 > Phase close requires `docs/planning/reviews/fase-<N>-review-request.md` (see CLAUDE.md executor rules). Reviewer verdict is recorded in the Human-review queue before merge.
+
+## Contract document design — local candidate (2026-09-08)
+
+`feat/contract-design` applies the Claude Design annex reference to active contract/annex previews and browser PDF printing. Mont, gold logo, Letter layout, payment tables and signature spaces share one renderer; the short synthetic annex fits one page. Type-check, lint, build, 7,435 unit tests and four browser print checks pass. Review request: `docs/planning/reviews/fase-contract-design-review-request.md`. Local candidate only; no publication or deployment.
 
 ## Meta
 - **RLS PR #89 current-main integration (2026-09-08): LOCAL GATES PASSED; PUBLICATION/CI OBSERVATION IN THIS UNIT; INDEPENDENT REVIEW AND RELEASE HOLD.** Reviewed package preserved in `ddf0f357`; main `097b62ed` merged through `97f735be`, both histories retained. All 55 migrations and both test/proof sets survive; seven RLS SQL payloads and exact atomic wrappers remain unchanged. Pilot schema expectation regenerated for the combined membership trigger and two profile foreign keys; fail-closed drift guard retained. Fresh results: 9,868 unit passes / 12 existing skips, 4,116 pgTAP assertions, 219 mandatory E2E / zero skips or flakes, 563 actual-current-main prefix checks, 52 wrapper checks, settlement/grant/assessment/pilot concurrency and lifecycle proofs. See `docs/planning/reviews/fase-rls-current-main-integration-review-request.md` and external `current-main-integration-evidence/REPORT.md` for final publication SHA and CI/Preview. No Production/shared-database operation, merge, deployment or acceptance. Historical-access/recovery decisions and exactly 67 ownership errors remain open. Earlier entries below are historical evidence, not current release approval.

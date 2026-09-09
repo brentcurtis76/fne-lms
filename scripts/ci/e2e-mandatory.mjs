@@ -15,6 +15,8 @@ import { readFileSync } from 'node:fs';
 
 /** Every spec the e2e gate must actually execute. Add to this list, never trim it. */
 export const MANDATORY_SPECS = [
+  // Contract and anexo preview, pagination and print asset readiness.
+  'tests/contract-document-print.spec.ts',
   'tests/e2e/smoke.spec.ts',
   // Draft recovery must survive browser closure and a failed response load.
   'tests/e2e/assessment-draft.spec.ts',

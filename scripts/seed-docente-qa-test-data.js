@@ -115,6 +115,7 @@ async function seedDocenteQATestData() {
         user_id: userId,
         course_id: targetCourse.id,
         status: 'active',
+        access_origin: 'independent', // QA seed: an explicit non-path grant (C2)
         enrolled_at: new Date().toISOString(),
         progress_percentage: 0,
         lessons_completed: 0,

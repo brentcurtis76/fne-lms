@@ -116,14 +116,14 @@ SELECT is(
      FROM pg_class c
      JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE n.nspname = 'public'
-      AND c.relkind = 'r'
+      AND c.relkind IN ('r', 'p')
       AND c.relrowsecurity
       AND NOT EXISTS (
         SELECT 1 FROM pg_policy po
          WHERE po.polrelid = c.oid AND po.polname = 'forced_password_change_guard'
       )),
   '{}'::text[],
-  'CATALOG INVARIANT: every row-secured table in public carries forced_password_change_guard — a new table fails this until it joins the boundary'
+  'CATALOG INVARIANT: every row-secured table in public (ordinary or partitioned) carries forced_password_change_guard — a new table fails this until it joins the boundary'
 );
 
 SELECT is(
@@ -246,19 +246,20 @@ SELECT is(
   'REALTIME: every published table carries the guard — postgres_changes delivers a row only to a subscriber that could SELECT it, so this IS the delivery control'
 );
 
--- --- The legacy allowlist has not grown ---------------------------------------
+-- --- The legacy allowlist is empty and stays empty ----------------------------
 -- A table with row security switched off cannot carry a policy at all. The
 -- allowlist is pinned in 001-rls-enabled.sql; this asserts its SIZE here too, so
 -- "add the table to the allowlist" cannot be used to escape the boundary.
 -- W-B2b-01 (migration 20260827170000, 2026-08-27) row-secured the fourteen
--- repository-unused legacy tables — each now carries this guard, asserted by
--- the catalog invariant above and table-by-table in 062 — shrinking the
--- allowlist from its original 22 to exactly 8 (6 B10a + 2 B2c).
+-- repository-unused legacy tables (062); the RLS remediation of 2026-09-07
+-- (migrations 20260907120000 W-B2c-01 and 20260907120100 W-B10a-01; 070 /
+-- 071) row-secured the last eight, so the allowlist went 22 → 8 → 0. The
+-- count covers ordinary AND partitioned tables (relkind 'r' or 'p').
 SELECT is(
   (SELECT count(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname = 'public' AND c.relkind = 'r' AND NOT c.relrowsecurity),
-  8,
-  'the 8-table legacy no-row-security allowlist has not grown — escaping the boundary by omitting row security would fail here and in 001'
+    WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND NOT c.relrowsecurity),
+  0,
+  'the legacy no-row-security allowlist is empty — escaping the boundary by omitting row security would fail here and in 001'
 );
 
 -- =============================================================================

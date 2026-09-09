@@ -5,9 +5,11 @@
  * What this suite proves: the guard's ordering and outcomes (405 → 503 → 401 → processing)
  * and that no privileged query or RPC runs unless the exact bearer secret is presented.
  *
- * What it does NOT prove: that the summary processing is correct against a real database.
- * The backend client is a recording double with synthetic rows; the RPCs it "answers"
- * (`update_learning_path_*_summary`) are known to be absent from the migration chain.
+ * RLS closure C3 (2026-09-07, decision D2): the summaries are LIVE views (migration
+ * 20260907120600); this refresh job is RETIRED. After the unchanged authentication guard
+ * the route answers 410 Gone with an explicit `retired` payload and performs NO database
+ * operation — a stale scheduler entry can never look like a working refresh, and the
+ * three RPCs the old body called (absent from every migration) are never invoked.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMocks } from 'node-mocks-http';
@@ -178,58 +180,40 @@ describe('POST /api/cron/update-learning-path-summaries — authorization (401)'
   });
 });
 
-describe('POST /api/cron/update-learning-path-summaries — authenticated processing', () => {
-  it('reaches the existing processing path and reports the mocked work', async () => {
-    // Mid-month so the first-of-month monthly branch is deterministically skipped.
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-09-15T12:00:00.000Z'));
-
-    const calls = installQueryDouble({
-      'learning_paths:select': { data: [{ id: 'path-a' }, { id: 'path-b' }], error: null },
-      'learning_path_assignments:select': { data: [{ user_id: 'user-1', path_id: 'path-a' }], error: null },
-      'learning_path_daily_summary:delete': { data: null, error: null, count: 3 },
-    });
-    rpc.mockResolvedValue({ data: null, error: null });
-
+describe('POST /api/cron/update-learning-path-summaries — retired after authentication (410)', () => {
+  it('answers 410 Gone with the retired contract and touches no backend', async () => {
     const res = await invoke('POST', { authorization: VALID_BEARER });
-
-    expect(res._getStatusCode()).toBe(200);
+    expect(res._getStatusCode()).toBe(410);
     expect(res._getJSONData()).toMatchObject({
-      success: true,
-      updates: {
-        performanceSummaries: 2,
-        dailySummaries: 4, // 2 paths × (yesterday, today)
-        userSummaries: 1,
-        monthlySummaries: 0,
+      success: false,
+      retired: true,
+      replacement: {
+        relations: [
+          'user_learning_path_summary',
+          'learning_path_performance_summary',
+          'learning_path_daily_summary',
+          'learning_path_monthly_summary',
+        ],
+        retentionJob: '/api/cron/cleanup-learning-path-sessions',
       },
-      cleanup: { oldDailySummaries: 3 },
-      message: 'Learning path summaries updated successfully',
     });
-
-    // The privileged path was entered with its existing queries and RPCs intact.
-    expect(calls[0]).toMatchObject({ table: 'learning_paths' });
-    expect(calls[0].ops.map((op) => op.method)).toEqual(['select', 'eq']);
-    expect(calls[0].ops[1].args).toEqual(['status', 'published']);
-    expect(rpc).toHaveBeenCalledWith('update_learning_path_performance_summary', { p_path_id: 'path-a' });
-    expect(rpc).toHaveBeenCalledWith('update_learning_path_performance_summary', { p_path_id: 'path-b' });
-    expect(rpc).toHaveBeenCalledWith('update_learning_path_daily_summary', { p_path_id: 'path-a', p_date: '2026-09-14' });
-    expect(rpc).toHaveBeenCalledWith('update_learning_path_daily_summary', { p_path_id: 'path-a', p_date: '2026-09-15' });
-    expect(rpc).toHaveBeenCalledWith('update_user_learning_path_summary', { p_user_id: 'user-1', p_path_id: 'path-a' });
-    expect(rpc).toHaveBeenCalledTimes(2 + 4 + 1);
-
-    const deleteCall = calls.find((c) => c.table === 'learning_path_daily_summary');
-    expect(deleteCall?.ops.map((op) => op.method)).toEqual(['delete', 'lt']);
-    expect(deleteCall?.ops[1].args).toEqual(['summary_date', '2026-06-17']); // 90-day retention preserved
+    // No query, no RPC: nothing to refresh, and the never-migrated RPCs are never called.
+    expectNoBackendOperation();
   });
 
-  it('keeps the existing 500 shape when the processing path itself fails', async () => {
-    from.mockImplementation(() => {
-      throw new Error('synthetic backend failure');
-    });
+  it('regression: the retired body never calls the absent update_*_summary RPCs nor the 90-day summary delete', async () => {
+    installQueryDouble({});
+    rpc.mockResolvedValue({ data: null, error: null });
     const res = await invoke('POST', { authorization: VALID_BEARER });
-    expect(res._getStatusCode()).toBe(500);
-    expect(res._getJSONData()).toMatchObject({ success: false, error: 'synthetic backend failure' });
-    expect(from).toHaveBeenCalledTimes(1); // authenticated, so the processing path WAS entered
+    expect(res._getStatusCode()).toBe(410);
+    expect(rpc).not.toHaveBeenCalled();
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it('the 410 still requires the exact bearer (a wrong secret is 401, not 410)', async () => {
+    const res = await invoke('POST', { authorization: 'Bearer not-the-secret' });
+    expect(res._getStatusCode()).toBe(401);
+    expectNoBackendOperation();
   });
 });
 

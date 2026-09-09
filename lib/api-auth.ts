@@ -11,6 +11,12 @@ import {
   ApiSuccess
 } from './types/api-auth.types';
 import { hasAdminPrivileges, getEquipoDirectivoSchoolId, extractRolesFromMetadata } from '../utils/roleUtils';
+import {
+  verdictFromProfile,
+  forcedChangeApiBody,
+  forcedChangeApiStatus,
+  type ForcedChangeVerdict,
+} from './auth/forced-password-change';
 
 // Create a consistent Supabase client for API routes
 export async function createApiSupabaseClient(
@@ -18,6 +24,25 @@ export async function createApiSupabaseClient(
   res: NextApiResponse
 ): Promise<SupabaseClient> {
   try {
+    // Bearer callers (W-B2c-01 cookie/Bearer parity): the auth-helpers client
+    // only reads the cookie session, so a request authenticated with an
+    // `Authorization: Bearer <jwt>` header used to query PostgREST as `anon`.
+    // With row security on every table that is a hard "permission denied";
+    // before it, it silently read as anon. Forward the caller's JWT so the
+    // database sees the same identity getApiUser() verified.
+    const authHeader = req.headers.authorization;
+    if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !anonKey) {
+        throw new Error('Supabase URL / anon key not configured');
+      }
+      return createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      });
+    }
+
     // Use auth-helpers to create a client that respects the user's session
     const client = createServerSupabaseClient({ req, res });
     return client;
@@ -109,6 +134,40 @@ export async function getApiUser(
       error: error instanceof Error ? error : new Error('Authentication failed') 
     };
   }
+}
+
+/**
+ * The forced-password-change boundary for an API route that authenticates its
+ * caller itself (Bearer token or cookie) — C-R1-03, closure review 2026-09-08.
+ *
+ * The middleware applies the same rule to every `/api/*` request that carries a
+ * cookie session, but a request authenticated ONLY by `Authorization: Bearer`
+ * never reaches that branch (no cookie session), so a route that accepts Bearer
+ * callers re-asks the question here, with the same helpers the middleware uses
+ * (`verdictFromProfile`: an unreadable flag is `unavailable`, never allowed).
+ * Reads the flag on the service-role client because the database gate refuses a
+ * flagged account's own profile read through PostgREST.
+ */
+export async function getForcedPasswordChangeVerdict(
+  serviceClient: SupabaseClient,
+  userId: string
+): Promise<ForcedChangeVerdict> {
+  const { data, error } = await serviceClient
+    .from('profiles')
+    .select('must_change_password')
+    .eq('id', userId)
+    .maybeSingle();
+  return verdictFromProfile(data as { must_change_password?: boolean | null } | null, error);
+}
+
+/** Writes the established forced-change API response; returns true when the caller was held. */
+export function sendForcedPasswordChangeResponse(
+  res: NextApiResponse,
+  verdict: ForcedChangeVerdict
+): boolean {
+  if (verdict === 'allowed') return false;
+  res.status(forcedChangeApiStatus(verdict)).json(forcedChangeApiBody(verdict));
+  return true;
 }
 
 // Check if user is admin (using consistent pattern)

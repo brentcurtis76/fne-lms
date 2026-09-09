@@ -119,15 +119,41 @@ function makeMockServiceClient(
     return { data: makeStorageBlob(file), error: null };
   });
 
+  // R2-02: the callers now reserve the attempt through an atomic RPC instead of
+  // a raw count+insert. The double routes that RPC back through the same
+  // rateLimitChain (count via gte, record via insert) so the existing
+  // assertions on _rateLimitChain.gte / .insert keep their meaning, and adds
+  // the release RPC used after a correct code.
+  const MAX = 5;
+  const rpc = vi.fn(async (fn: string, args: Record<string, unknown>) => {
+    if (fn === 'reserve_propuesta_access_attempt') {
+      if (options.rateLimitError) return { data: null, error: options.rateLimitError };
+      const count = options.rateLimitCount ?? 0;
+      // observe the read the same way the old code did
+      await rateLimitChain.gte('attempted_at', 'window');
+      if (count >= MAX) {
+        return { data: { allowed: false, remaining: 0, attempt_id: null }, error: null };
+      }
+      await rateLimitChain.insert({ ip_address: args.p_ip, slug: args.p_slug });
+      return { data: { allowed: true, remaining: MAX - count - 1, attempt_id: 1 }, error: null };
+    }
+    if (fn === 'release_propuesta_access_attempt') {
+      return { data: true, error: null };
+    }
+    throw new Error(`unexpected rpc ${fn}`);
+  });
+
   return {
     from: vi.fn((table: string) =>
       table === 'propuesta_rate_limits' ? rateLimitChain : proposalChain
     ),
+    rpc,
     storage: {
       from: vi.fn().mockReturnValue({ download }),
     },
     _chain: proposalChain,
     _rateLimitChain: rateLimitChain,
+    _rpc: rpc,
     _download: download,
   };
 }

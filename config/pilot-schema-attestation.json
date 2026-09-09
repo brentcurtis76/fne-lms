@@ -7,8 +7,8 @@
   ],
   "schemaVersion": 1,
   "attestationVersion": 1,
-  "expectedDigest": "fda8f58392f84821505b376358cce8c417cacf456ab7b9674de5cf8dcc80ca2c",
-  "generatedFromMigration": "20260908110000_pilot_schema_attestation.sql",
+  "expectedDigest": "7ac1100fb7b19def7f70d1291eb99db1e12c9a0638471642287a70b78b13fd17",
+  "generatedFromMigration": "20260908180600_c3_reporting_retention.sql",
   "tables": [
     "ab_grades",
     "ab_migration_plan",
@@ -41,7 +41,7 @@
     "save_transversal_context(p_school_id integer, p_payload jsonb)",
     "transversal_grade_sort_order(p_grade_level text)"
   ],
-  "referencingForeignKeys": 170,
+  "referencingForeignKeys": 172,
   "sections": {
     "table:ab_grades": "69912b4e701a04112ed07983ca987eb2d5d7c30d6170ceee6c3fff95f07d8aec",
     "table:ab_migration_plan": "c53cd13ee50b5c0d6bd9e72a06ad4832971526a56fa107685fd0327d0f693532",
@@ -63,7 +63,7 @@
     "table:school_course_structure": "eeb1082fd62122b253c2900427e2fbaf6a22e5d8825bae55f48ed13ab37ba006",
     "table:school_transversal_context": "1ca577b848e428f4dda0b7506ebc0f30bbeed95321cb317f24d79e59c0e7e503",
     "table:schools": "4351e7191ea6a390af054483d1ffa073a3238212e25b02281bca82809e6c012a",
-    "table:user_roles": "01b84bcb9f7b7904ad461c679ed3f7b296d2dcd810ec868834d94d0166c222a5",
+    "table:user_roles": "755f8dd68feb9223fd94bf313ce88865cfcf75966434cbd5a54d36a3ba32718a",
     "function:assessment_instance_progress_flags()": "fe84240840998c250ef700789315f343bdc6d3a9fcbe4620d62ad51fc02c6cf8",
     "function:auth_is_assessment_admin()": "595effafc668ddd8bf962cdc4869c59c581b29797251509f917b823baf9a7478",
     "function:auth_is_school_directivo(p_school_id integer)": "0f4cf3aed53dbdf784a47db18ab3258702a1563125f8eb548f35449150afd5e1",
@@ -71,6 +71,6 @@
     "function:replace_course_docente(p_course_structure_id uuid, p_new_docente_id uuid)": "36d2bb15fc0d23dbae36da10823bf72f924994c6015a0924b01100796dad76db",
     "function:save_transversal_context(p_school_id integer, p_payload jsonb)": "69e7aabb0b41014032efd0b90769b2dda959582030c00462bcb778ec2423b11e",
     "function:transversal_grade_sort_order(p_grade_level text)": "830ac919e5a73311a388d010fcfb149cc7ee03539ebaac5825193a3e9a38559a",
-    "referencing_foreign_keys": "d813d45b4872884c0c7d53aa4872194856d1e78afe7c11bae6277b768eb08942"
+    "referencing_foreign_keys": "7a05d7561bbf6060e49bef92baebb138838bd10d17a7dcaf435a1278d3f73765"
   }
 }

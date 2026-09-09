@@ -32,22 +32,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check if user is admin or consultor
+    // Course statistics keep their baseline audience (admin, consultor).
+    // Learning-path statistics — the learningPaths list, per-course
+    // learningPathCount / lpAssigneeCount and the LP share of
+    // totalAssigneeCount — are literal-admin-only (W-B2c-01).
     const { data: userRoles } = await supabaseService
       .from('user_roles')
       .select('role_type')
       .eq('user_id', session.user.id)
       .eq('is_active', true);
 
-    const isAdmin = userRoles?.some(r => r.role_type === 'admin');
-    const isConsultor = userRoles?.some(r => r.role_type === 'consultor');
-
+    const isAdmin = !!userRoles?.some(r => r.role_type === 'admin');
+    const isConsultor = !!userRoles?.some(r => r.role_type === 'consultor');
     if (!isAdmin && !isConsultor) {
       return res.status(403).json({ error: 'Solo administradores y consultores pueden acceder' });
     }
+    const includeLearningPaths = isAdmin;
 
     // Parse query params
-    const contentType = (req.query.contentType as string) || 'all';
+    const requestedContentType = (req.query.contentType as string) || 'all';
+    if (!includeLearningPaths && requestedContentType === 'learning_paths') {
+      return res.status(403).json({ error: 'Solo administradores pueden ver estadísticas de rutas de aprendizaje' });
+    }
+    const contentType = includeLearningPaths ? requestedContentType : 'courses';
     const search = (req.query.search as string)?.trim() || '';
     const page = Math.max(parseInt((req.query.page as string) || '1', 10), 1);
     const pageSizeParam = Math.max(parseInt((req.query.pageSize as string) || '20', 10), 1);
@@ -65,7 +72,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Fetch courses with assignment stats
     if (contentType === 'all' || contentType === 'courses') {
-      const coursesData = await fetchCoursesWithStats(supabaseService, search, offset, pageSize);
+      const coursesData = await fetchCoursesWithStats(supabaseService, search, offset, pageSize, includeLearningPaths);
       result.courses = coursesData.courses;
       result.totalCourses = coursesData.total;
     }
@@ -114,7 +121,8 @@ async function fetchCoursesWithStats(
   supabase: any,
   search: string,
   offset: number,
-  pageSize: number
+  pageSize: number,
+  includeLearningPaths: boolean
 ): Promise<{ courses: CourseWithStats[]; total: number }> {
   // Build base query for courses
   let query = supabase
@@ -167,11 +175,14 @@ async function fetchCoursesWithStats(
     directCounts.set(a.course_id, (directCounts.get(a.course_id) || 0) + 1);
   });
 
-  // Get LP membership for each course (how many LPs contain it)
-  const { data: lpCourses } = await supabase
-    .from('learning_path_courses')
-    .select('course_id, learning_path_id')
-    .in('course_id', courseIds);
+  // Get LP membership for each course (how many LPs contain it) — admin only
+  // (W-B2c-01); otherwise no learning-path query runs and every LP figure is 0.
+  const { data: lpCourses } = includeLearningPaths
+    ? await supabase
+        .from('learning_path_courses')
+        .select('course_id, learning_path_id')
+        .in('course_id', courseIds)
+    : { data: [] as Array<{ course_id: string; learning_path_id: string }> };
 
   // Count LPs per course
   const lpCounts = new Map<string, Set<string>>();

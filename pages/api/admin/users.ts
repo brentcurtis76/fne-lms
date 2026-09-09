@@ -599,38 +599,69 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al obtener cursos asignados' });
     }
 
-    // Fetch learning path assignments - direct user assignments
-    const { data: directLPData, error: directLPError } = await supabaseService
-      .from('learning_path_assignments')
-      .select(`
-        user_id,
-        assigned_at,
-        path:learning_paths(id, name, description)
-      `)
-      .in('user_id', userIds);
-
-    if (directLPError) {
-      console.error('[users API] Error fetching direct learning path assignments:', directLPError);
-      return res.status(500).json({ error: 'Error al obtener vías de aprendizaje asignadas' });
-    }
-
-    // Fetch learning path assignments - group-based (using uniqueCommunityIds already extracted)
+    // Learning-path assignment reporting across users is literal-admin-only
+    // (W-B2c-01). This listing reads through the service-role client, which
+    // bypasses row security, so the gate lives here: equipo_directivo gets
+    // the user list without any learning-path data and no learning-path
+    // query is issued on its behalf.
+    let directLPData: any[] = [];
     let groupLPData: any[] = [];
-    if (uniqueCommunityIds.length > 0) {
-      const { data: groupLP, error: groupLPError } = await supabaseService
+    // workspace id -> growth community id, for the group-based assignments
+    const workspaceCommunityMap = new Map<string, string>();
+    if (role === 'admin') {
+      // Fetch learning path assignments - direct user assignments
+      const { data: directLP, error: directLPError } = await supabaseService
         .from('learning_path_assignments')
         .select(`
-          group_id,
+          user_id,
           assigned_at,
           path:learning_paths(id, name, description)
         `)
-        .in('group_id', uniqueCommunityIds);
+        .in('user_id', userIds);
 
-      if (groupLPError) {
-        console.error('[users API] Error fetching group learning path assignments:', groupLPError);
-        return res.status(500).json({ error: 'Error al obtener vías de aprendizaje de grupos' });
+      if (directLPError) {
+        console.error('[users API] Error fetching direct learning path assignments:', directLPError);
+        return res.status(500).json({ error: 'Error al obtener vías de aprendizaje asignadas' });
       }
-      groupLPData = groupLP || [];
+      directLPData = directLP || [];
+
+      // Fetch learning path assignments - group-based. An assigned group is a
+      // community WORKSPACE (group_id -> community_workspaces.id); the users'
+      // memberships are growth communities (user_roles.community_id). Resolve
+      // the workspaces of the listed communities first and keep the mapping so
+      // each assignment can be handed back to the members of ITS community.
+      if (uniqueCommunityIds.length > 0) {
+        const { data: workspaces, error: workspacesError } = await supabaseService
+          .from('community_workspaces')
+          .select('id, community_id')
+          .in('community_id', uniqueCommunityIds);
+
+        if (workspacesError) {
+          console.error('[users API] Error resolving community workspaces:', workspacesError);
+          return res.status(500).json({ error: 'Error al obtener vías de aprendizaje de grupos' });
+        }
+        (workspaces || []).forEach((w: any) => {
+          if (w?.id && w?.community_id) workspaceCommunityMap.set(w.id, w.community_id);
+        });
+
+        const workspaceIds = Array.from(workspaceCommunityMap.keys());
+        if (workspaceIds.length > 0) {
+          const { data: groupLP, error: groupLPError } = await supabaseService
+            .from('learning_path_assignments')
+            .select(`
+              group_id,
+              assigned_at,
+              path:learning_paths(id, name, description)
+            `)
+            .in('group_id', workspaceIds);
+
+          if (groupLPError) {
+            console.error('[users API] Error fetching group learning path assignments:', groupLPError);
+            return res.status(500).json({ error: 'Error al obtener vías de aprendizaje de grupos' });
+          }
+          groupLPData = groupLP || [];
+        }
+      }
     }
 
     const rolesMap = new Map<string, any[]>();
@@ -680,19 +711,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const learningPathMap = new Map<string, any[]>();
 
     // Add direct assignments
-    (directLPData || []).forEach(entry => {
+    directLPData.forEach(entry => {
       if (!entry.user_id) return;
       const arr = learningPathMap.get(entry.user_id) || [];
       arr.push({ ...entry, assignment_type: 'direct' });
       learningPathMap.set(entry.user_id, arr);
     });
 
-    // Add group-based assignments (map group_id back to users via their community membership)
+    // Add group-based assignments (map the assigned workspace back to its
+    // community, then to the users holding an active role in that community)
     groupLPData.forEach(entry => {
       if (!entry.group_id) return;
-      // Find users who belong to this community/group
+      const communityId = workspaceCommunityMap.get(entry.group_id);
+      if (!communityId) return;
       (rolesData || [])
-        .filter(role => role.community_id === entry.group_id)
+        .filter(role => role.community_id === communityId && role.is_active !== false)
         .forEach(role => {
           const arr = learningPathMap.get(role.user_id) || [];
           // Avoid duplicates if same path assigned both directly and via group

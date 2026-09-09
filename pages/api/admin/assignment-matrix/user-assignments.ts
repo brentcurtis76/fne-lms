@@ -41,18 +41,25 @@ interface UserAssignmentsResponse {
   };
 }
 
-// Check if user has admin/consultor permission
-async function hasViewPermission(supabaseClient: any, userId: string): Promise<boolean> {
+// Course-assignment reporting keeps its baseline audience (admin, consultor).
+// Cross-user LEARNING-PATH reporting is literal-admin-only (W-B2c-01): a
+// non-admin caller receives the course half of the matrix with no
+// learning-path assignment, name, id or count in it.
+async function getViewPermission(
+  supabaseClient: any,
+  userId: string
+): Promise<{ allowed: boolean; includeLearningPaths: boolean }> {
   const { data: roles } = await supabaseClient
     .from('user_roles')
     .select('role_type')
     .eq('user_id', userId)
     .eq('is_active', true);
 
-  if (!roles || roles.length === 0) return false;
+  if (!roles || roles.length === 0) return { allowed: false, includeLearningPaths: false };
 
-  const userRoles = roles.map((r: any) => r.role_type);
-  return userRoles.includes('admin') || userRoles.includes('consultor');
+  const isAdmin = roles.some((r: any) => r.role_type === 'admin');
+  const isConsultor = roles.some((r: any) => r.role_type === 'consultor');
+  return { allowed: isAdmin || isConsultor, includeLearningPaths: isAdmin };
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -73,8 +80,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // Check permission
-    const hasPermission = await hasViewPermission(supabaseClient, user.id);
-    if (!hasPermission) {
+    const { allowed, includeLearningPaths } = await getViewPermission(supabaseClient, user.id);
+    if (!allowed) {
       return res.status(403).json({
         error: 'No tienes permiso para ver asignaciones'
       });
@@ -174,21 +181,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // 3. Get all LP assignments for user
-    const { data: lpAssignments, error: lpError } = await supabaseClient
-      .from('learning_path_assignments')
-      .select(`
-        id,
-        path_id,
-        assigned_by,
-        assigned_at,
-        learning_paths (
-          id,
-          name,
-          description
-        )
-      `)
-      .eq('user_id', userId);
+    // 3. Get all LP assignments for user — admin only (W-B2c-01). For any other
+    //    caller no learning-path query is issued and the response carries none.
+    const { data: lpAssignments, error: lpError } = includeLearningPaths
+      ? await supabaseClient
+          .from('learning_path_assignments')
+          .select(`
+            id,
+            path_id,
+            assigned_by,
+            assigned_at,
+            learning_paths (
+              id,
+              name,
+              description
+            )
+          `)
+          .eq('user_id', userId)
+      : { data: [], error: null };
 
     if (lpError) {
       console.error('Error fetching LP assignments:', lpError);

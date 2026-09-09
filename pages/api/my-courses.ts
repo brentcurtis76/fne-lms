@@ -49,9 +49,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al cargar los cursos' });
     }
 
+    // C2 / D1: an enrolment row grants access only while it is independent /
+    // unknown-origin, or a learning-path row backed by a CURRENT path
+    // entitlement. A lapsed path-only enrolment stays as history but is not
+    // listed as a course the learner can open (the courses RLS policy already
+    // hides its course row; the explicit filter makes the contract visible).
+    const { data: accessibleRows, error: accessError } = await supabase.rpc('auth_accessible_course_ids');
+    if (accessError) {
+      console.error('Error resolving accessible courses:', accessError);
+      return res.status(500).json({ error: 'Error al cargar los cursos' });
+    }
+    const accessible = new Set<string>(
+      (Array.isArray(accessibleRows) ? accessibleRows : []).map((row: any) => (typeof row === 'string' ? row : row?.auth_accessible_course_ids))
+    );
+    const visibleEnrollments = (enrollments || []).filter((enrollment: any) => accessible.has(enrollment.course_id));
+
     // Calculate progress from lesson_progress table for accuracy
     // This ensures we always show the real progress, not stale cached values
-    const courses = await Promise.all((enrollments || []).map(async (enrollment: any) => {
+    const courses = await Promise.all(visibleEnrollments.map(async (enrollment: any) => {
       if (!enrollment.courses) return null;
 
       const courseId = enrollment.courses.id;

@@ -28,41 +28,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const supabaseClient = await createApiSupabaseClient(req, res);
 
-    // Check if user is admin first - admins have access to everything
-    const { data: userRoles, error: rolesError } = await supabaseClient
+    // Literal admin may open a session on any path; everyone else must be
+    // assigned to it — directly or through an active membership of an
+    // assigned group. The answer comes from the same auth.uid()-derived
+    // helper the database policies use, so the API and the database agree.
+    const { data: userRoles } = await supabaseClient
       .from('user_roles')
       .select('role_type')
       .eq('user_id', userId)
       .eq('is_active', true);
 
-    console.log('[Session Start] User ID:', userId);
-    console.log('[Session Start] User roles query result:', userRoles);
-    console.log('[Session Start] Roles error:', rolesError);
-
-    const hasAdminAccess = userRoles?.some(role => 
-      ['admin', 'equipo_directivo', 'consultor'].includes(role.role_type)
-    );
-
-    console.log('[Session Start] Has admin access:', hasAdminAccess);
-    console.log('[Session Start] User roles found:', userRoles?.map(r => r.role_type));
+    const hasAdminAccess = userRoles?.some(role => role.role_type === 'admin');
 
     if (!hasAdminAccess) {
-      // For non-admin users, verify they have access to this learning path
-      const { data: assignments, error: assignmentError } = await supabaseClient
-        .from('learning_path_assignments')
-        .select('id, path_id, user_id, group_id')
-        .eq('path_id', pathId)
-        .or(`user_id.eq.${userId},group_id.is.not.null`);
+      const { data: isAssignee, error: assigneeError } = await supabaseClient
+        .rpc('auth_is_learning_path_assignee', { p_path_id: pathId });
 
-      if (assignmentError || !assignments || assignments.length === 0) {
-        return res.status(403).json({ error: 'You do not have access to this learning path' });
-      }
-
-      // Check if user has direct assignment or belongs to an assigned group
-      const userAssignment = assignments.find(a => a.user_id === userId);
-      const groupAssignments = assignments.filter(a => a.group_id && !a.user_id);
-      
-      if (!userAssignment && groupAssignments.length === 0) {
+      if (assigneeError || isAssignee !== true) {
         return res.status(403).json({ error: 'You do not have access to this learning path' });
       }
     }

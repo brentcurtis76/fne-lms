@@ -72,6 +72,14 @@ export const MANDATORY_SPECS = [
   // network — the product-level denial test the fixture topology block
   // (ci-fixture.spec.ts) explicitly deferred to "each affected batch".
   'tests/e2e/network-supervisors.spec.ts',
+  // RLS remediation (W-B2c-01 / W-B10a-01 / D-RLS-02): literal-admin-only
+  // template management and cross-user reporting; assigned-content consumption
+  // down to the lesson without an enrolment row; group membership resolved
+  // through the workspace -> community join with distinct ids; session course
+  // scope, server-side timing and at-most-once credit incl. the CRON_SECRET
+  // maintenance route; cookie/Bearer parity; the consultor's course-only view
+  // of the assignment matrix; PostgREST denials and reads on the B10a tables.
+  'tests/e2e/learning-path-governance.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

@@ -149,6 +149,16 @@ jobs:
         run: |
           eval "$(supabase status -o env | grep '^DB_URL=')"
           SUPABASE_DB_URL="${DB_URL}" npm run test:recovery-concurrency
+      # W-B2c-01 session settlement proof: two overlapping maintenance runs
+      # against the REAL close_stale_learning_path_sessions /
+      # settle_learning_path_sessions (FOR UPDATE SKIP LOCKED + settled_at),
+      # a rolled-back settlement, a repeated end call — every session credited
+      # exactly once, concurrent increments preserved. The Vitest cleanup suite
+      # explicitly disclaims this (no in-process double can hold a row lock).
+      - name: Learning-path session settlement proof (concurrency, idempotence)
+        run: |
+          eval "$(supabase status -o env | grep '^DB_URL=')"
+          SUPABASE_DB_URL="${DB_URL}" npm run test:lp-settlement
 
   # T2: the e2e gate runs against an ISOLATED, EPHEMERAL Supabase stack started on
   # the runner — no remote QA project, no production credentials, no shared state.

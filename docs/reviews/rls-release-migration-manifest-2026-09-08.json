@@ -1,0 +1,91 @@
+{
+  "reviewed_source": "dc63b3899072800eea764af088eedc0522b83d9e",
+  "reviewed_base": "3d13ddb5ec34b784215991354f10f7d86a3ebc19",
+  "production_project_ref": "sxlogxqzmarhqsblxmtj",
+  "reason": "Production version 20260907120000 belongs to proc_integrity. New ordered filenames preserve all reviewed payload bytes and existing Production history.",
+  "migrations": [
+    {
+      "order": 1,
+      "reviewed_file": "20260907120000_learning_path_governance.sql",
+      "deployment_file": "20260908180000_learning_path_governance.sql",
+      "version": "20260908180000",
+      "sha256": "531f26d9bcbbed5ee6e8b4cc0d7489a7a5d568024985f4338f49ad27a04252ac",
+      "requires_previous_steps": []
+    },
+    {
+      "order": 2,
+      "reviewed_file": "20260907120100_b10a_referenced_tables_rls.sql",
+      "deployment_file": "20260908180100_b10a_referenced_tables_rls.sql",
+      "version": "20260908180100",
+      "sha256": "9eae018bafe961051aff510a472aac9bc3134a1fa227ddd9a0d1fcdaaf3136cb",
+      "requires_previous_steps": [
+        1
+      ]
+    },
+    {
+      "order": 3,
+      "reviewed_file": "20260907120200_drls_function_exposure.sql",
+      "deployment_file": "20260908180200_drls_function_exposure.sql",
+      "version": "20260908180200",
+      "sha256": "9c5cdde7844278ab51280170a17cd665709d8514328164647bb6fadc227dd221",
+      "requires_previous_steps": [
+        1,
+        2
+      ]
+    },
+    {
+      "order": 4,
+      "reviewed_file": "20260907120300_r2_remediation.sql",
+      "deployment_file": "20260908180300_r2_remediation.sql",
+      "version": "20260908180300",
+      "sha256": "f670e51974b028b1df51dedd6a5c4413109805b1de51a0fb581da58eccdf18b5",
+      "requires_previous_steps": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "order": 5,
+      "reviewed_file": "20260907120400_c1_function_exposure.sql",
+      "deployment_file": "20260908180400_c1_function_exposure.sql",
+      "version": "20260908180400",
+      "sha256": "6a8bc13f4acdb95e135613ab6696bacf9d7245e1ec12547493e364b10adba1d0",
+      "requires_previous_steps": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "order": 6,
+      "reviewed_file": "20260907120500_c2_course_entitlement.sql",
+      "deployment_file": "20260908180500_c2_course_entitlement.sql",
+      "version": "20260908180500",
+      "sha256": "6efec15025cf23e5aeef452dab33650dd791202de6c16dcbd866f0225c1315bf",
+      "requires_previous_steps": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "order": 7,
+      "reviewed_file": "20260907120600_c3_reporting_retention.sql",
+      "deployment_file": "20260908180600_c3_reporting_retention.sql",
+      "version": "20260908180600",
+      "sha256": "a3a76729e0b0784d1de379b606bec70f37cf692948fbe1c069914ac2734dbaa8",
+      "requires_previous_steps": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    }
+  ]
+}

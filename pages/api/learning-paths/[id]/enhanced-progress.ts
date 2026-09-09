@@ -21,16 +21,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const supabaseClient = await createApiSupabaseClient(req, res);
 
-    // Check if user is admin first - admins have access to everything
+    // Literal admin only may read a path without being assigned to it
+    // (cross-user reporting, W-B2c-01). Every other role goes through its
+    // own assignment below.
     const { data: userRoles } = await supabaseClient
       .from('user_roles')
       .select('role_type')
       .eq('user_id', userId)
       .eq('is_active', true);
 
-    const hasAdminAccess = userRoles?.some(role => 
-      ['admin', 'equipo_directivo', 'consultor'].includes(role.role_type)
-    );
+    const hasAdminAccess = userRoles?.some(role => role.role_type === 'admin');
 
     let assignment = null;
     let learningPath = null;
@@ -57,7 +57,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         learning_paths: pathData
       };
     } else {
-      // For non-admin users, check assignment
+      // For non-admin users, check assignment. A DIRECT assignee has their own
+      // row; a GROUP-ONLY assignee has none (R2-04) — their authority is the
+      // auth.uid()-derived helper the database policies use, and their progress
+      // lives in learning_path_user_progress (own row, RLS-readable).
       const { data: assignmentData, error: assignmentError } = await supabaseClient
         .from('learning_path_assignments')
         .select(`
@@ -66,14 +69,76 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         `)
         .eq('user_id', userId)
         .eq('path_id', pathId)
-        .single();
+        .maybeSingle();
 
-      if (assignmentError || !assignmentData) {
+      if (assignmentError) {
         return res.status(404).json({ error: 'Learning path assignment not found' });
       }
 
-      assignment = assignmentData;
-      learningPath = assignmentData.learning_paths;
+      if (assignmentData) {
+        // R3-04: learning_path_user_progress is the ONE authoritative
+        // own-progress record (it is seeded from / mirrored into the direct
+        // row, and it survives assignment-source changes). The direct row
+        // establishes the assignment and its metadata; its progress columns
+        // are only the fallback for a pair that has no progress row yet.
+        const { data: ownProgress } = await supabaseClient
+          .from('learning_path_user_progress')
+          .select('started_at, last_activity_at, completed_at, current_course_sequence, total_time_spent_minutes')
+          .eq('path_id', pathId)
+          .eq('user_id', userId)
+          .maybeSingle();
+        assignment = ownProgress
+          ? {
+              ...assignmentData,
+              started_at: ownProgress.started_at ?? assignmentData.started_at ?? null,
+              last_activity_at: ownProgress.last_activity_at ?? assignmentData.last_activity_at ?? null,
+              completed_at: ownProgress.completed_at ?? assignmentData.completed_at ?? null,
+              current_course_sequence: ownProgress.current_course_sequence ?? assignmentData.current_course_sequence ?? 1,
+              total_time_spent_minutes: ownProgress.total_time_spent_minutes ?? assignmentData.total_time_spent_minutes ?? 0,
+            }
+          : assignmentData;
+        learningPath = assignmentData.learning_paths;
+      } else {
+        const { data: isAssignee } = await supabaseClient
+          .rpc('auth_is_learning_path_assignee', { p_path_id: pathId });
+        if (isAssignee !== true) {
+          return res.status(404).json({ error: 'Learning path assignment not found' });
+        }
+        const { data: groupRow, error: groupError } = await supabaseClient
+          .from('learning_path_assignments')
+          .select(`
+            id, path_id, group_id, assigned_at,
+            learning_paths!inner(id, name, description, created_at)
+          `)
+          .eq('path_id', pathId)
+          .not('group_id', 'is', null)
+          .order('assigned_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (groupError || !groupRow) {
+          return res.status(404).json({ error: 'Learning path assignment not found' });
+        }
+        const { data: ownProgress } = await supabaseClient
+          .from('learning_path_user_progress')
+          .select('started_at, last_activity_at, completed_at, current_course_sequence, total_time_spent_minutes')
+          .eq('path_id', pathId)
+          .eq('user_id', userId)
+          .maybeSingle();
+        assignment = {
+          id: groupRow.id,
+          user_id: userId,
+          path_id: pathId,
+          group_id: groupRow.group_id,
+          assigned_at: groupRow.assigned_at,
+          started_at: ownProgress?.started_at ?? null,
+          last_activity_at: ownProgress?.last_activity_at ?? null,
+          completed_at: ownProgress?.completed_at ?? null,
+          current_course_sequence: ownProgress?.current_course_sequence ?? 1,
+          total_time_spent_minutes: ownProgress?.total_time_spent_minutes ?? 0,
+          learning_paths: groupRow.learning_paths,
+        };
+        learningPath = groupRow.learning_paths;
+      }
     }
 
     // 2. Get all courses in this learning path
@@ -151,11 +216,13 @@ function calculateUserProgress(assignment: any, pathCourses: any[], courseEnroll
     ? Math.round((completedCourses / totalCourses) * 100)
     : 0;
   
-  // Determine status based on available data
+  // Determine status based on available data. The own-progress record
+  // (R3-04: learning_path_user_progress, mirrored into a direct row) is
+  // authoritative for completion, elapsed minutes, current course and start.
   let status = 'not_started';
-  if (overallProgress === 100) {
+  if (overallProgress === 100 || assignment.completed_at) {
     status = 'completed';
-  } else if (completedCourses > 0 || inProgressCourses > 0) {
+  } else if (completedCourses > 0 || inProgressCourses > 0 || assignment.started_at || (assignment.total_time_spent_minutes ?? 0) > 0) {
     status = 'in_progress';
   }
 
@@ -181,14 +248,15 @@ function calculateUserProgress(assignment: any, pathCourses: any[], courseEnroll
   return {
     status,
     overallProgress,
-    totalTimeSpent: 0, // Not available in basic schema
+    totalTimeSpent: Number(assignment.total_time_spent_minutes ?? 0) || 0, // own-progress record (R3-04)
     totalSessions: 0, // Not available in basic schema
     avgSessionMinutes: 0, // Not available in basic schema
-    currentCourse: 1, // Placeholder - could be calculated from course sequence
+    currentCourse: Number(assignment.current_course_sequence ?? 1) || 1, // own-progress record (R3-04)
     daysSinceLastActivity,
     isAtRisk: daysSinceLastActivity > 7 && status === 'in_progress',
     completionStreak: 0, // Not available in basic schema
-    startDate: mostRecentActivity || assignment.assigned_at, // Use first course activity or assignment date
+    startDate: assignment.started_at || mostRecentActivity || assignment.assigned_at, // own-progress start, else first course activity, else assignment date
+    completedAt: assignment.completed_at ?? null, // own-progress record (R3-04)
     estimatedCompletionDate: null, // Not available in basic schema
     totalCourses,
     completedCourses,

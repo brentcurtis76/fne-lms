@@ -10,7 +10,7 @@ These names are exact and are the values branch protection must require.
 | `Gate 1 — Typecheck` | `npm run type-check` |
 | `Gate 1b — Lint` | `npm run lint` with zero warnings |
 | `Gate 2 — Unit (Vitest)` | `npm test` |
-| `Gate 3 — RLS pgTAP (supabase test db)` | Fresh local database, all pgTAP suites, real Zoom queue concurrency, and real recovery cooldown/lease concurrency. |
+| `Gate 3 — RLS pgTAP (supabase test db)` | Fresh local database, all pgTAP suites, real Zoom queue concurrency, real recovery cooldown/lease concurrency, and real Zoom explicit-roster concurrency. |
 | `Gate 4 — E2E (Playwright on seeded local Supabase)` | Production build and the mandatory Playwright manifest against an ephemeral seeded stack; the skip guard fails if a mandatory spec did not run. |
 
 The workflow is the source of truth. When a job `name:` changes, update this
@@ -115,8 +115,8 @@ after a read-only GitHub settings check shows those seven live contexts.
 ## Gate details
 
 Gate 3 starts local Postgres, applies all migrations, and runs
-`supabase test db`. It then opens separate SQL sessions for two concurrency
-proofs:
+`supabase test db`. It then opens separate SQL sessions for concurrency
+proofs, including:
 
 - `npm run test:queue`: overlapping Zoom tick workers partition jobs via
   `FOR UPDATE SKIP LOCKED`.
@@ -130,6 +130,12 @@ proofs:
   own synthetic fingerprints, so it passes repeatedly without a reset and on a
   database holding unrelated queued recovery work — it seeds such a bystander
   job itself and proves it comes through untouched.
+- `npm run test:zoom-roster-concurrency`: the ZOOM-B2a operator roster
+  approval gate (status transitions and school/community moves), the roster
+  add/remove RPCs, direct attendee deletes and membership revocation interleave
+  on two connections. Every wait is confirmed with `pg_blocking_pids()`, every
+  no-wait branch by its structural busy result, and statement/lock timeouts
+  plus a watchdog make broken locking fail instead of hanging.
 
 Gate 4 creates `.env.local` from the ephemeral Supabase stack, sets only
 synthetic cron configuration, builds after the `NEXT_PUBLIC_*` values exist,
@@ -154,6 +160,7 @@ npm run guard:migrations
 npm run guard:browser
 npm run test:db
 npm run test:recovery-concurrency
+npm run test:zoom-roster-concurrency
 npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list)
 node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json
 git diff --check

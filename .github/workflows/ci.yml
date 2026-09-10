@@ -159,6 +159,14 @@ jobs:
         run: |
           eval "$(supabase status -o env | grep '^DB_URL=')"
           SUPABASE_DB_URL="${DB_URL}" npm run test:lp-settlement
+      # ZOOM-B2a explicit operator roster: real two-connection interleavings of
+      # the roster RPCs, the operator approval gate and membership revocation,
+      # each forced through a pg_blocking_pids() lock barrier. pgTAP (081)
+      # cannot hold a lock against itself, so this is the serialization proof.
+      - name: Zoom explicit roster concurrency proof (approval gate, removal, revocation)
+        run: |
+          eval "$(supabase status -o env | grep '^DB_URL=')"
+          SUPABASE_DB_URL="${DB_URL}" npm run test:zoom-roster-concurrency
 
   # T2: the e2e gate runs against an ISOLATED, EPHEMERAL Supabase stack started on
   # the runner — no remote QA project, no production credentials, no shared state.

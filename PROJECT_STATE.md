@@ -406,3 +406,13 @@ Dos hilos en paralelo, con dueños distintos:
 - Redacción es-CL del consentimiento parental (libre, específica, inequívoca, informada)
 - Due diligence copyright corpus RAG — bloquea Fases 10–11
 - Ética sociométrica: toda superficie que pudiera revelar estatus de un menor (Fase 6, permanente)
+
+
+## Santa Marta W-B1b-01 — local checkpoint 2026-09-09
+
+Codex PM / Claude Code executor; orders r1–r3. Query correction implemented and independently inspected on isolated `fix/horas-rep` at base b17a6839. Local mandatory E2E 223/223, pgTAP 4116, focused 55 pass; full unit/type/lint/build evidence retained. PHASE_NOT_CLOSED: PDF export fails on existing autoTable usage; user scope decision pending. No commit/push/merge/deploy. Continuation executions 1, remediation rounds 0. See `docs/planning/reviews/santa-marta-w-b1b-01-pm-review.md` for exact frozen state, authority, remaining UI/human gates and retained resources. Original checkout preserved; no other phase activated.
+
+
+## Santa Marta W-B1b-01 — final local review 2026-09-10
+
+User authorized PDF extension. Claude completed r4/r5; Codex APPROVED_WITH_NOTES, UI_VERIFIED, B1B-F01/F02 closed. Final full unit9881, focused57 (PM three passes), production E2E223/no skips, type/lint/build pass; prior DB4116 retained unchanged. Four product files remain uncommitted on fix/horas-rep, base b17a6839. Local implementation/review boundary complete; release ledger remains SCHEDULED pending controlled publication and Directora acceptance. No merge/deploy/provider actions. Execution1, remediation2/2. Final hashes, evidence, limits and routed notes: docs/planning/reviews/santa-marta-w-b1b-01-pm-review.md, Final local review. Prior pending-PDF statement is superseded. Original work preserved; no next phase activated.

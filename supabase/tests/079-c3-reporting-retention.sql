@@ -28,14 +28,18 @@
 --      each view applies password_change_gate_ok() itself — actual SELECTs as
 --      a flagged / unflagged admin and learner across all five views, plus the
 --      definer readers get_school_user_counts and auth_accessible_course_ids,
---      with anon and backend controls; clearing the flag restores the reads
+--      with anon and backend controls; clearing the flag restores the reads;
+--      the daily / monthly counts are derived from the fixture calendar
+--   9. calendar boundaries (CI run 34467890545, 2026-09-10): literal events on
+--      either side of America/Santiago month transitions in winter (UTC-4)
+--      and summer (UTC-3), through the daily and monthly views
 --
 -- Synthetic/local state only. Rolls back. DO NOT run against production.
 -- =============================================================================
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(121);
+SELECT plan(129);
 
 CREATE OR REPLACE FUNCTION pg_temp.set_anon() RETURNS void AS $$
 BEGIN
@@ -330,10 +334,49 @@ LANGUAGE sql STABLE AS $$
     || '/' || (SELECT count(*) FROM public.learning_path_performance_summary WHERE path_id = p)
     || '/' || (SELECT count(*) FROM public.learning_path_daily_summary WHERE path_id = p)
     || '/' || (SELECT count(*) FROM public.learning_path_monthly_summary WHERE path_id = p) $$;
+-- Expected daily / monthly counts come from the fixture calendar, not a literal.
+-- Fixtures above are now()-relative, so the number of Santiago MONTHS they span
+-- depends on the run date: the old literal 4 held until 2026-09-10T04:00:00Z,
+-- when now() - 40 days (u1's assignment) reached 2026-08-01 00:00 in Santiago
+-- (UTC-4) and merged into August (CI run 34467890545 read 3). Every event that
+-- creates a path-a day key is listed from the fixture inputs and bucketed by
+-- the America/Santiago calendar with AT TIME ZONE — never through the views or
+-- lp_activity_date. Not listed: u2's 25-day-old session (its grain row was
+-- deleted in 5) and u2's new open session from 7 (unsettled, no grain).
+CREATE TEMP TABLE c3_calendar_oracle (event text PRIMARY KEY, at timestamptz NOT NULL);
+INSERT INTO c3_calendar_oracle (event, at) VALUES
+  ('2: u1 session s1',                              '2026-03-10T13:00:00Z'),
+  ('2: u1 session s2',                              '2026-03-10T14:00:00Z'),
+  ('2: u1 session s3',                              '2026-03-10T13:20:00Z'),
+  ('2: u1 late-evening session s4',                 '2026-03-12T02:30:00Z'),
+  ('2: u2 session s5',                              '2026-03-10T16:00:00Z'),
+  ('fixtures: u1 K1 completion',                    '2026-03-10T15:00:00Z'),
+  ('fixtures: u3 K1 completion',                    '2026-03-11T15:00:00Z'),
+  ('fixtures: u3 K2 completion',                    '2026-03-12T15:00:00Z'),
+  ('fixtures: u1 direct assignment',                now() - interval '40 days'),
+  ('fixtures: group assignment',                    now() - interval '10 days'),
+  ('fixtures: u3 direct assignment',                now() - interval '2 days'),
+  ('5: u3 session o1',                              now() - interval '20 days'),
+  ('5: u3 session o2',                              now() - interval '21 days'),
+  ('5: u3 session o3',                              now() - interval '22 days'),
+  ('5: u1 session o4',                              now() - interval '30 days'),
+  ('5: u1 open session settled by close_stale',     now() - interval '31 days'),
+  ('7: u2 later-started predecessor',               (SELECT session_start FROM public.learning_path_progress_sessions WHERE id = '79000000-0000-4000-8000-00000000f7a1'));
+SELECT count(DISTINCT (at AT TIME ZONE 'America/Santiago')::date) AS c3_days,
+       '3/3/1/' || count(DISTINCT (at AT TIME ZONE 'America/Santiago')::date)
+         || '/' || count(DISTINCT date_trunc('month', at AT TIME ZONE 'America/Santiago')) AS c3_expected_counts,
+       string_agg(DISTINCT to_char(at AT TIME ZONE 'America/Santiago', 'YYYY-MM-DD'), ','
+                  ORDER BY to_char(at AT TIME ZONE 'America/Santiago', 'YYYY-MM-DD')) AS c3_day_keys,
+       string_agg(DISTINCT to_char(at AT TIME ZONE 'America/Santiago', 'YYYY-MM'), ','
+                  ORDER BY to_char(at AT TIME ZONE 'America/Santiago', 'YYYY-MM')) AS c3_month_keys
+  FROM c3_calendar_oracle \gset
+SELECT is(:c3_days, 12, '8: oracle — the fixture calendar is 12 distinct Santiago days on any run date (3 in March 2026 + 9 distinct now()-relative days)');
 -- unflagged controls first (the data the flagged reads must NOT return)
 SELECT tests.authenticate_as('c3_admin');
 SELECT ok(public.password_change_gate_ok(), '8: control — the unflagged admin passes the gate');
-SELECT is(pg_temp.view_counts('79000000-0000-4000-8000-00000000000a'), '3/3/1/12/4', '8: control — the unflagged admin reads every view (assigned 3 / user 3 / performance 1 / daily 12 / monthly 4)');
+SELECT is(pg_temp.view_counts('79000000-0000-4000-8000-00000000000a'), :'c3_expected_counts', '8: control — the unflagged admin reads every view (assigned 3 / user 3 / performance 1 / daily and monthly as the fixture calendar derives)');
+SELECT is((SELECT string_agg(to_char(summary_date, 'YYYY-MM-DD'), ',' ORDER BY summary_date) FROM public.learning_path_daily_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a'), :'c3_day_keys', '8: control — the admin''s daily rows are exactly the fixture calendar''s Santiago days');
+SELECT is((SELECT string_agg(to_char(summary_month, 'YYYY-MM'), ',' ORDER BY summary_month) FROM public.learning_path_monthly_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a'), :'c3_month_keys', '8: control — the admin''s monthly rows are exactly the Santiago months of those days');
 SELECT lives_ok($$SELECT * FROM public.get_school_user_counts()$$, '8: control — the unflagged admin may call get_school_user_counts');
 RESET ROLE;
 SELECT tests.authenticate_as('c3_u1');
@@ -361,19 +404,54 @@ SELECT pg_temp.set_anon();
 SELECT throws_ok($$SELECT count(*) FROM public.learning_path_performance_summary$$, '42501', NULL, '8: anon is refused by the view grant (not by an empty result)');
 RESET ROLE;
 SELECT pg_temp.set_service();
-SELECT is(pg_temp.view_counts('79000000-0000-4000-8000-00000000000a'), '3/3/1/12/4', '8: the backend (service_role, no end-user identity) still reads every view — legitimate maintenance / reporting');
+SELECT is(pg_temp.view_counts('79000000-0000-4000-8000-00000000000a'), :'c3_expected_counts', '8: the backend (service_role, no end-user identity) still reads every view — legitimate maintenance / reporting');
 SELECT lives_ok($$SELECT * FROM public.get_school_user_counts()$$, '8: the backend may still call get_school_user_counts');
 RESET ROLE;
 SELECT set_config('request.jwt.claims', '', true);
-SELECT is(pg_temp.view_counts('79000000-0000-4000-8000-00000000000a'), '3/3/1/12/4', '8: a direct database session (postgres, no claims) reads every view');
+SELECT is(pg_temp.view_counts('79000000-0000-4000-8000-00000000000a'), :'c3_expected_counts', '8: a direct database session (postgres, no claims) reads every view');
 -- the established way out: the flag is cleared (the change-password completion runs on the service role)
 UPDATE public.profiles SET must_change_password = false WHERE id IN (pg_temp.uid('c3_admin'), pg_temp.uid('c3_u1'));
 SELECT tests.authenticate_as('c3_admin');
-SELECT is(pg_temp.view_counts('79000000-0000-4000-8000-00000000000a'), '3/3/1/12/4', '8: clearing the flag restores the admin''s reads through every view');
+SELECT is(pg_temp.view_counts('79000000-0000-4000-8000-00000000000a'), :'c3_expected_counts', '8: clearing the flag restores the admin''s reads through every view');
 RESET ROLE;
 SELECT tests.authenticate_as('c3_u1');
 SELECT is(pg_temp.view_counts('79000000-0000-4000-8000-00000000000a'), '1/1/0/0/0', '8: clearing the flag restores the learner''s own-row reads');
 SELECT is((SELECT count(*)::int FROM public.auth_accessible_course_ids()), 2, '8: … and the accessible course ids');
+RESET ROLE;
+
+-- ----------------------------------------------------------------------------
+-- 9. Calendar boundaries: America/Santiago month transitions in both offsets
+-- ----------------------------------------------------------------------------
+-- Literal instants only, so the result is the same on every run date. A path
+-- nothing above reads gets events on either side of two local month starts:
+-- 2026-08-01 00:00 Santiago = 04:00Z (winter, UTC-4: the offset at the instant
+-- section 8's 40-day-old fixture crossed on 2026-09-10) and 2026-10-01 00:00 =
+-- 03:00Z (summer, UTC-3, after the 2026-09-06 switch). July and October get
+-- only an assignment (the monthly view's daily-summary source); August and
+-- September only settled sessions (the grain). A UTC day, a fixed -3 h or -4 h
+-- offset, or months keyed from the grain alone each move or drop a month.
+RESET ROLE;
+SELECT set_config('request.jwt.claims', '', true);
+SELECT is(to_char(public.lp_activity_date('2026-08-01T03:59:59Z'), 'YYYY-MM-DD') || ' ' || to_char(public.lp_activity_date('2026-08-01T04:00:00Z'), 'YYYY-MM-DD'),
+          '2026-07-31 2026-08-01', '9: winter (UTC-4): 03:59:59Z on Aug 1 is Jul 31 in Santiago, 04:00Z is Aug 1');
+SELECT is(to_char(public.lp_activity_date('2026-10-01T02:59:59Z'), 'YYYY-MM-DD') || ' ' || to_char(public.lp_activity_date('2026-10-01T03:00:00Z'), 'YYYY-MM-DD'),
+          '2026-09-30 2026-10-01', '9: summer (UTC-3): 02:59:59Z on Oct 1 is Sep 30 in Santiago, 03:00Z is Oct 1');
+INSERT INTO public.learning_paths (id, name, description, created_by) VALUES
+  ('79000000-0000-4000-8000-00000000000c', 'C3 calendar path', 'month / timezone boundaries', pg_temp.uid('c3_admin'));
+INSERT INTO public.learning_path_assignments (path_id, user_id, group_id, assigned_by, assigned_at) VALUES
+  ('79000000-0000-4000-8000-00000000000c', pg_temp.uid('c3_u1'), NULL, pg_temp.uid('c3_admin'), '2026-08-01T03:30:00Z'),  -- Jul 31 23:30 Santiago
+  ('79000000-0000-4000-8000-00000000000c', pg_temp.uid('c3_u2'), NULL, pg_temp.uid('c3_admin'), '2026-10-01T03:30:00Z');  -- Oct 1 00:30 Santiago
+SELECT pg_temp.closed_session('c3_u1', '79000000-0000-4000-8000-00000000000c', '2026-08-01T04:10:00Z', '2026-08-01T04:20:00Z') AS b1 \gset
+SELECT pg_temp.closed_session('c3_u2', '79000000-0000-4000-8000-00000000000c', '2026-09-01T03:30:00Z', '2026-09-01T03:40:00Z') AS b2 \gset
+SELECT pg_temp.closed_session('c3_u2', '79000000-0000-4000-8000-00000000000c', '2026-10-01T02:50:00Z', '2026-10-01T03:00:00Z') AS b3 \gset
+SELECT is(public.settle_learning_path_sessions(ARRAY[:'b1'::uuid, :'b2'::uuid, :'b3'::uuid]), 3, '9: boundary sessions settle (Aug 1 00:10, Aug 31 23:30, Sep 30 23:50 Santiago)');
+SELECT tests.authenticate_as('c3_admin');
+SELECT is((SELECT string_agg(to_char(summary_date, 'YYYY-MM-DD'), ',' ORDER BY summary_date) FROM public.learning_path_daily_summary WHERE path_id = '79000000-0000-4000-8000-00000000000c'),
+          '2026-07-31,2026-08-01,2026-08-31,2026-09-30,2026-10-01', '9: daily rows fall on the Santiago day of each boundary event');
+SELECT is((SELECT string_agg(to_char(summary_month, 'YYYY-MM') || ' ' || total_active_users || '/' || total_sessions || '/' || total_new_enrollments, ',' ORDER BY summary_month)
+             FROM public.learning_path_monthly_summary WHERE path_id = '79000000-0000-4000-8000-00000000000c'),
+          '2026-07 0/0/1,2026-08 2/2/0,2026-09 1/1/0,2026-10 0/0/1',
+          '9: monthly users/sessions/assignments: July = the Jul 31 23:30 assignment only; August = u1 on the 1st + u2 on the 31st; September = u2 on the 30th; October = the Oct 1 00:30 assignment only');
 RESET ROLE;
 
 SELECT * FROM finish();

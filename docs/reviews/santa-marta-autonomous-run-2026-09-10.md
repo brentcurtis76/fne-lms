@@ -15,3 +15,5 @@ Origin/main b17a68393dc7cd3a6ccfed9fffa3252c7e97fb46, live verified 2026-09-10. 
 ## Run log
 
 - START: publish reviewed B1b without force push or changing its tested product bytes. Preserve old PR history by joining the reviewed equivalent old correction into branch ancestry, then run hosted CI. Read-only ledger reconciliation in parallel; one product writer/release batch.
+
+- PM CONTINUATION: clean-context receiver `/root/pm_continuation` accepted source `/root` transfer in the same user task; sole PM/ledger/release ownership confirmed. Active Claude CI079 and B6b writers preserved, no duplicate dispatch. PR50 remains release reservation; all hosted checks except known pgTAP079 passed on `10983e7fe1a6f579cef6ba9a1407847543fad6ec`. Context occupancy UNKNOWN. Independent review will follow each executor freeze. Peer Zoom and Procesos PMs notified; B5 remains Procesos-owned.

@@ -447,8 +447,9 @@ SELECT ok(coalesce(length((SELECT obj_description(t.oid, 'pg_trigger') FROM pg_c
 SELECT set_eq($$
   SELECT tgname::text FROM pg_catalog.pg_trigger
    WHERE tgrelid = 'public.consultor_sessions'::regclass AND NOT tgisinternal
-$$, ARRAY['trg_consultor_sessions_updated_at', 'trg_enforce_operator_session_tenant_guard'],
-  'C15 consultor_sessions carries exactly the pre-existing updated_at trigger plus the operator guard');
+$$, ARRAY['trg_consultor_sessions_updated_at', 'trg_enforce_operator_roster_approval_gate',
+          'trg_enforce_operator_session_tenant_guard'],
+  'C15 consultor_sessions carries exactly the pre-existing updated_at trigger, the operator guard and the Unit B2a roster approval gate');
 SELECT set_eq($$
   SELECT tgname::text FROM pg_catalog.pg_trigger
    WHERE tgrelid = 'public.contract_hours_ledger'::regclass AND NOT tgisinternal
@@ -718,6 +719,14 @@ SELECT throws_ok($$INSERT INTO public.consultor_sessions
 -- nothing else.
 SELECT lives_ok($$UPDATE public.schools SET internal_zoom_testing_enabled = false WHERE id = 9602$$,
   'E26 fixture: disable internal Zoom testing for 9602 again');
+-- Fixture (Unit B2a, 20260910120000_zoom_explicit_roster): scheduling an
+-- operator session needs an expected attendee who is an active member of its
+-- exact growth community. E27 is about the switch, so select one first.
+INSERT INTO public.user_roles (user_id, role_type, school_id, community_id, is_active)
+VALUES ('a63a0001-0000-4000-8000-000000000001', 'docente', 9602,
+        'a63a0007-0000-4000-8000-000000000002', true);
+INSERT INTO public.session_attendees (session_id, user_id, expected)
+VALUES ('a63a0008-0000-4000-8000-000000000003', 'a63a0001-0000-4000-8000-000000000001', true);
 SELECT lives_ok($$UPDATE public.consultor_sessions
   SET status = 'programada', approved_by = 'a63a0001-0000-4000-8000-000000000001',
       approved_at = now()

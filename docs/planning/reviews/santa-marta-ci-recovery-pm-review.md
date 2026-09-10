@@ -1,0 +1,13 @@
+# SM-CI-RECOVERY r1 — independent PM review
+
+Codex PM `/root/pm_continuation/next_pm`, 2026-09-10. APPROVED_WITH_NOTES; test-only implementation complete, publication pending with B6b. Initial 1, remediation 0 of 2. Brent's autonomous grant applies. Claude writer PID84445 exited with completed READY_FOR_REVIEW result before this final review.
+
+Reviewed full cumulative test diff against HEAD10983e7fe1a6f579cef6ba9a1407847543fad6ec, actual crypto parsing/authentication implementation and executor report. Final test SHA256 d8f098c24064ef42d5dbb81257aabd44c1b970bca910e05ede20b5771b1b2093. Production crypto unchanged; B6b Sidebar5793e9510cd6da533fe9cabb133b69ad4a5905e4bc4c1ac0f98ccdc8abe6f2e4 and test05e7dd31284484ae8c08454b785b80d28cfdf0d3721c1be68288d73c6016c812 preserved.
+
+Decoded byte bit flips guarantee actual tampering while retaining valid segment lengths and shape. Real library positive controls precede IV/ciphertext/tag and grant negatives. Wrong-secret/purpose checks are meaningful. The old textual replacement can leave the decoded tag unchanged; PM independent baseline diagnosis and focused crypto28/2files PASS are retained in task evidence/recovery-crypto-baseline-diagnosis.json and evidence/pm-recovery-focused.log. Final file hash agrees with executor freeze. Executor final Node22 full suite431files/9904pass/12skip, typecheck/lint PASS inspected; original Node26 failure51 remains recorded as environment failure, resolved by supported Node22 invocation, not by altering tests. No duplicate full run needed for unchanged verified bytes. UI_NOT_APPLICABLE for test-only repair; B6b has separate UI evidence.
+
+Nonblocking N1: comment/report call all aQ..af suffixes canonical. Only aQ is canonical for decoded final byte105; the others are equivalent noncanonical encodings. Actual 1/256 probability and implemented deterministic rejection are sound. Destination: later scoped test/documentation maintenance; Claude owner, before any future alteration of this diagnostic explanation. No security failure established.
+
+Nonblocking N2: local Node26 native localStorage conflicts with jsdom; use explicit Node22 matching CI for further validation. Destination: developer-runtime maintenance if an additional version pin is warranted; no config repair authorized by this test order.
+
+All scratch resources retained. No product/test/config written by PM. First hash command failed due unsupported C.UTF-8 locale before hashing; rerun LC_ALL=C succeeded. Integration must preserve reviewed bytes and establish current-main compatibility before release. PHASE_NOT_CLOSED until integration/publication/records.

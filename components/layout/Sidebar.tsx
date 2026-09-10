@@ -336,13 +336,6 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
         icon: OfficeBuildingIcon
       },
       {
-        id: 'vias-resultados-escuela',
-        label: 'Panel de Resultados',
-        href: '/directivo/assessments/dashboard',
-        description: 'Resultados de evaluaciones de la escuela',
-        icon: ChartBarIcon
-      },
-      {
         id: 'vias-admin-todas',
         label: 'Todas las Evaluaciones',
         href: '/admin/transformation/assessments',
@@ -614,6 +607,15 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
         icon: ChartBarIcon,
         description: 'Análisis y reportes',
         restrictedRoles: ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red']
+      },
+      {
+        // Single definition: the adminOnly Vías group must not be opened to directivos.
+        id: 'vias-resultados-escuela',
+        label: 'Panel de Resultados',
+        href: '/directivo/assessments/dashboard',
+        description: 'Resultados de evaluaciones de la escuela',
+        icon: ChartBarIcon,
+        restrictedRoles: ['admin', 'equipo_directivo']
       },
       {
         id: 'reporte-horas',

@@ -45,10 +45,15 @@ const BASE_SCHEMA: Record<string, TableDef> = {
   schools: { columns: ['id', 'name', 'tenant_kind'] },
   clientes: { columns: ['id', 'school_id'] },
   contratos: {
+    // `is_anexo` has ONE n (baseline line 7903, `idx_contratos_is_anexo`). This mirror
+    // once carried the code-under-test's `is_annexo` typo instead of the dump's column,
+    // which made validateSelect bless a select PostgREST 42703s — the whole suite passed
+    // while /reporte-horas 500'd for every school with an active contract. The mirror is
+    // only worth having if it is copied from the dump, never from the query it checks.
     columns: [
       'id',
       'numero_contrato',
-      'is_annexo',
+      'is_anexo',
       'horas_contratadas',
       'programa_id',
       'cliente_id',
@@ -442,7 +447,7 @@ function baseOptions(overrides: Partial<ClientOptions> = {}): ClientOptions {
       {
         id: CONTRATO_ID,
         numero_contrato: 'CTR-2026-001',
-        is_annexo: false,
+        is_anexo: false,
         horas_contratadas: 50,
         programa_id: PROGRAMA_ID,
         cliente_id: CLIENTE_ID,
@@ -588,6 +593,58 @@ describe('fetchSchoolReportData', () => {
       expect(entry.order).toBe('session_date');
       expect(validateSelect(BASE_SCHEMA, 'consultor_sessions', entry.select)).toBeNull();
     }
+  });
+
+  // ============================================================
+  // contratos.is_anexo — the DB column has ONE n, the wire field has two.
+  // Asking for `is_annexo` 42703'd the contratos read, so /reporte-horas 500'd for every
+  // school with an active contract while this suite stayed green on a mirrored typo.
+  // ============================================================
+
+  it('asks contratos for is_anexo (one n) and never for is_annexo', async () => {
+    const log: QueryLog[] = [];
+    await fetchSchoolReportData(clientFor(baseOptions(), log), SCHOOL_ID);
+
+    const contratosQuery = log.find((entry) => entry.table === 'contratos');
+    expect(contratosQuery).toBeDefined();
+
+    const selected = splitTopLevel(contratosQuery!.select);
+    expect(selected).toContain('is_anexo');
+    expect(selected).not.toContain('is_annexo');
+    // The select has to survive the dump-faithful mirror, not just spell the column right.
+    expect(validateSelect(BASE_SCHEMA, 'contratos', contratosQuery!.select)).toBeNull();
+  });
+
+  // true/false/null: the mapping is `contrato.is_anexo ?? false`, so false alone proves
+  // nothing — a select that never read the column also renders false. Only `true`
+  // distinguishes a real read from a silent default, and `null` pins the default itself.
+  it.each([
+    { stored: true, wire: true, label: 'true passes through as an annex' },
+    { stored: false, wire: false, label: 'false passes through as a regular contract' },
+    { stored: null, wire: false, label: 'null (column DEFAULT false, nullable) becomes false' },
+  ])('maps contratos.is_anexo $stored to the wire field is_annexo $wire — $label', async ({ stored, wire }) => {
+    const options = baseOptions({
+      contratos: [
+        {
+          id: CONTRATO_ID,
+          numero_contrato: 'CTR-2026-002-A1',
+          is_anexo: stored,
+          horas_contratadas: 10,
+          programa_id: PROGRAMA_ID,
+          cliente_id: CLIENTE_ID,
+          estado: 'activo',
+          programas: { id: PROGRAMA_ID, nombre: 'Acompañamiento Directivo' },
+        },
+      ],
+    });
+
+    const result = await fetchSchoolReportData(clientFor(options), SCHOOL_ID);
+
+    // The WIRE field stays `is_annexo` — ContractSummary, the PDF and SchoolHoursReport.tsx
+    // all render `contract.is_annexo` — and it is a boolean, never null.
+    const contract = result!.programs[0].contracts[0];
+    expect(contract.is_annexo).toBe(wire);
+    expect(contract.numero_contrato).toBe('CTR-2026-002-A1');
   });
 
   it('reads hours from the ledger sub-query it already makes, without a second round trip', async () => {
@@ -852,7 +909,7 @@ describe('fetchSchoolReportData', () => {
             columns: [
               'id',
               'numero_contrato',
-              'is_annexo',
+              'is_anexo',
               'horas_contratadas',
               'programa_id',
               'cliente_id',

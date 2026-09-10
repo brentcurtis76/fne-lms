@@ -11,6 +11,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import path from 'path';
 import fs from 'fs';
+import type { CellHookData } from 'jspdf-autotable';
 import {
   getApiUser,
   createServiceRoleClient,
@@ -95,7 +96,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Generate PDF using jsPDF
     // Dynamic import to avoid SSR issues
     const { default: jsPDF } = await import('jspdf');
-    await import('jspdf-autotable');
+    // jspdf-autotable v5 no longer patches jsPDF on import: call its exported function.
+    const autoTable = (await import('jspdf-autotable')).default;
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -143,7 +145,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     cursorY += 6;
 
     // Summary table
-    doc.autoTable({
+    autoTable(doc, {
       startY: cursorY,
       head: [['Horas Contratadas', 'Consumidas', 'Reservadas', 'Disponibles']],
       body: [[
@@ -186,7 +188,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ]);
 
         if (bucketRows.length > 0) {
-          doc.autoTable({
+          autoTable(doc, {
             startY: cursorY,
             head: [['Categoría', 'Asignadas', 'Reservadas', 'Consumidas', 'Disponibles', 'Horas Anexo']],
             body: bucketRows,
@@ -218,7 +220,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             s.attendance ? `${s.attendance.attended}/${s.attendance.expected}` : '—',
           ]);
 
-          doc.autoTable({
+          autoTable(doc, {
             startY: cursorY,
             head: [['Fecha', 'Consultor', 'Título', 'Horas', 'Estado', 'Asistencia']],
             body: sessionRows,
@@ -229,7 +231,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             bodyStyles: {
               textColor: [60, 60, 60],
             },
-            didParseCell: (data: { row: { section: string }; cell: { text: string[]; styles: { textColor: [number, number, number] } }; column: { index: number } }) => {
+            didParseCell: (data: CellHookData) => {
               if (data.row.section === 'body' && data.column.index === 4) {
                 const status = data.cell.text[0];
                 const color = STATUS_COLORS[status];

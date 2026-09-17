@@ -11,12 +11,26 @@ import type {
   BucketWithSessions,
   SessionDetail,
   ContractSummary,
+  SchoolHoursSummary,
 } from '../types/hour-tracking.types';
 import { billableHours } from './billable-hours';
 import { isClientTenant, parseTenantKind } from '../types/tenant-kind';
 
 // Max sessions returned per bucket (DoS prevention)
 const MAX_SESSIONS_PER_BUCKET = 500;
+
+// Requested page size for school-wide reads; the server may return fewer rows per page.
+// IN lists stay short enough for the request URL.
+const PAGE_SIZE = 1000;
+const ID_CHUNK_SIZE = 100;
+
+const EMPTY_SUMMARY: SchoolHoursSummary = {
+  total_contracted_hours: 0,
+  total_allocated: 0,
+  total_reserved: 0,
+  total_consumed: 0,
+  total_available: 0,
+};
 
 // ============================================================
 // DB row types (local)
@@ -64,6 +78,113 @@ type ContratoRow = {
   programa_id: string | null;
   programas: { id: string; nombre: string } | null;
 };
+
+type AllocationRow = { id: string; allocated_hours: number | null };
+
+type SummaryLedgerRow = {
+  id: string;
+  status: string;
+  hours: number | null;
+  effective_minutes: number | null;
+};
+
+type ServiceClient = ReturnType<typeof createServiceRoleClient>;
+
+type PageResult = { data: unknown; error: unknown };
+
+/**
+ * Reads every row matching each ID chunk, failing on any error. `page` builds a query
+ * ordered by `id` for one chunk and the inclusive `[from, to]` range. The offset advances
+ * by the rows actually returned and stops only on an empty page, so a server row cap
+ * smaller than PAGE_SIZE can neither end the read early nor skip rows.
+ */
+async function readAllIn<T extends { id: string }>(
+  label: string,
+  ids: string[],
+  page: (chunk: string[], from: number, to: number) => PromiseLike<PageResult>
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let c = 0; c < ids.length; c += ID_CHUNK_SIZE) {
+    const chunk = ids.slice(c, c + ID_CHUNK_SIZE);
+    for (let from = 0; ; ) {
+      const { data, error } = await page(chunk, from, from + PAGE_SIZE - 1);
+      if (error || !Array.isArray(data)) {
+        console.error(`[SchoolHoursReport] ${label} read failed:`, error);
+        throw new Error('No se pudieron obtener las horas del colegio');
+      }
+      if (data.length === 0) break;
+      rows.push(...(data as T[]));
+      from += data.length;
+    }
+  }
+  return rows;
+}
+
+function finiteOrThrow(value: number | null): number {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n)) {
+    throw new Error('El resumen de horas del colegio contiene valores inválidos');
+  }
+  return n;
+}
+
+const roundHours = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * School-wide totals. Mirrors `get_bucket_summary` membership (direct allocations plus
+ * one-hop `adds_to_allocation_id` annexes) and ledger accounting, but counts each
+ * allocation and ledger row once by ID across all active contracts: an annex allocation
+ * belongs to both its own contract and its parent, so summing per-contract totals
+ * double-counts it.
+ */
+async function computeSchoolSummary(
+  serviceClient: ServiceClient,
+  contratoList: ContratoRow[]
+): Promise<SchoolHoursSummary> {
+  const contratoIds = contratoList.map((c) => c.id);
+  const direct = await readAllIn<AllocationRow>('contract_hour_allocations', contratoIds, (chunk, from, to) =>
+    serviceClient.from('contract_hour_allocations').select('id, allocated_hours')
+      .in('contrato_id', chunk).order('id', { ascending: true }).range(from, to)
+  );
+  const linked = await readAllIn<AllocationRow>('contract_hour_allocations', direct.map((a) => a.id), (chunk, from, to) =>
+    serviceClient.from('contract_hour_allocations').select('id, allocated_hours')
+      .in('adds_to_allocation_id', chunk).order('id', { ascending: true }).range(from, to)
+  );
+  const allocations = new Map<string, AllocationRow>();
+  for (const a of [...direct, ...linked]) allocations.set(a.id, a);
+
+  const ledgerRows = await readAllIn<SummaryLedgerRow>('contract_hours_ledger', Array.from(allocations.keys()), (chunk, from, to) =>
+    serviceClient.from('contract_hours_ledger').select('id, status, hours, effective_minutes')
+      .in('allocation_id', chunk).in('status', ['reservada', 'consumida', 'penalizada'])
+      .order('id', { ascending: true }).range(from, to)
+  );
+  const ledger = new Map<string, SummaryLedgerRow>();
+  for (const row of ledgerRows) ledger.set(row.id, row);
+
+  let allocated = 0;
+  for (const a of allocations.values()) allocated += finiteOrThrow(a.allocated_hours);
+
+  let reserved = 0;
+  let consumed = 0;
+  for (const row of ledger.values()) {
+    const hours = billableHours(
+      { status: row.status, hours: finiteOrThrow(row.hours), effective_minutes: row.effective_minutes === null ? null : finiteOrThrow(row.effective_minutes) },
+      null,
+      'per_session_display'
+    );
+    if (row.status === 'reservada') reserved += hours;
+    else if (row.status === 'consumida' || row.status === 'penalizada') consumed += hours;
+  }
+
+  const contracted = contratoList.reduce((s, c) => s + finiteOrThrow(c.horas_contratadas), 0);
+  return {
+    total_contracted_hours: roundHours(contracted),
+    total_allocated: roundHours(allocated),
+    total_reserved: roundHours(reserved),
+    total_consumed: roundHours(consumed),
+    total_available: roundHours(allocated - reserved - consumed),
+  };
+}
 
 // Fallback mapping from session status → display status (used only when no ledger entry exists)
 const SESSION_STATUS_FALLBACK: Record<string, SessionDetail['status']> = {
@@ -131,7 +252,7 @@ export async function fetchSchoolReportData(
 
   const clienteIds = (clientesData ?? []).map((c: { id: string }) => c.id);
   if (clienteIds.length === 0) {
-    return { school_id: schoolId, school_name: schoolData.name, programs: [] };
+    return { school_id: schoolId, school_name: schoolData.name, programs: [], school_summary: EMPTY_SUMMARY };
   }
 
   // Step 2: Fetch active contracts with program info
@@ -159,7 +280,7 @@ export async function fetchSchoolReportData(
   const contratoList = (contratos ?? []) as unknown as ContratoRow[];
 
   if (contratoList.length === 0) {
-    return { school_id: schoolId, school_name: schoolData.name, programs: [] };
+    return { school_id: schoolId, school_name: schoolData.name, programs: [], school_summary: EMPTY_SUMMARY };
   }
 
   // Group contracts by programa_id
@@ -341,5 +462,6 @@ export async function fetchSchoolReportData(
     school_id: schoolId,
     school_name: schoolData.name,
     programs: Array.from(programaMap.values()),
+    school_summary: await computeSchoolSummary(serviceClient, contratoList),
   };
 }

@@ -13,7 +13,7 @@ All remediation/triage owners are **unassigned**. Priorities describe product ri
 
 | Child ID (audit ID) | Priority | Disposition | Work to resolve |
 |---|---|---|---|
-| A14-4-F01 (F1) | P1 | BACKLOG — reproduce first | Correct overlapping parent/annex school-wide totals |
+| A14-4-F01 (F1) | P1 | LOCALLY_APPROVED — shipping pending | Correct overlapping parent/annex school-wide totals |
 | A14-4-F02 (F2) | P2 | DECISION_PENDING | Define export scope and missing aggregate/annex fields |
 | A14-4-F03 (F3) | P2 | DECISION_PENDING | Distinguish session hours from charged totals |
 | A14-4-F04 (F4) | P2 | BACKLOG | Identify unledgered session status/hours honestly |
@@ -32,7 +32,7 @@ Source: `supabase/migrations/20260813120200_session_hour_overrides.sql:407` incl
 
 Counterexample: base allocation 50 + linked annex 10 + unrelated contract 20 gives 80 unique allocated hours. The PDF sums 60 + 10 + 20 = 90. With 3.33 consumed and 2 reserved, it shows 84.7 available rather than 74.7. An annex-owned consumed row can also be counted in both summaries; subtracting annex allocation from available alone is not a sufficient general correction. This is source-derived, not an observed production invoice.
 
-Next action: scope a separately authorized synthetic, database-faithful reproduction, including linked and unlinked annexes and ledger rows on both parent and annex allocations. Then identify the smallest consumer correction while preserving intentional per-contract aggregation.
+Local resolution (2026-09-17, SM-02): real-service/PDF regression and independent review complete; unique allocation/ledger identity, short-page completeness and exact ledger inventory registration verified. PM236focused/inventory tests and25browser assertions pass; executor fullunit9305pass/1existing skip,type/lint/syntheticbuildpass. See /home/brent/Projects/pm-workflow/runs/SM-02/pm-review-r1.md and docs/planning/reviews/fase-sm-02-review-request.md. Next action: Brent-controlled shipping and institutional acceptance; no deployment or Production verification claimed.
 
 Done when: unique school-wide allocated/reserved/consumed/available figures reconcile without double-counting, including empty, override/waiver, returned and penalized cases; the real service-to-PDF path has a regression that fails against the old behavior. Existing billing semantics and per-contract views remain accounted for. No production or schema action is authorized by this entry.
 
@@ -126,7 +126,7 @@ Done when: existing 400/401/403/404/405/500 behavior has explicit assertions for
 
 ## Activation and closure
 
-Start with a bounded F01 reproduction/correction proposal; it is hours-sensitive, so this registration does not activate it. Decide F02/F03 together before exporter redesign. F06 is an independent UI candidate. Other entries remain unscheduled; F11 remains held.
+F01 is locally approved through SM-02; shipping remains Brent-controlled. Decide F02/F03 together before exporter redesign. F06 is an independent UI candidate. Other entries remain unscheduled; F11 remains held.
 
 When an item is activated, record its named owner, approved order, dependencies and target date here and reflect scheduling in the parent work ledger. When closed, retain the finding and append exact code/test/UI evidence or an explicit accepted deferral with owner and rationale. Parent closure requires dispositions for all twelve entries, applicable implementation quality gates and separately recorded institutional acceptance. An audit verdict or passing mock suite alone does not close the parent claim.
 

@@ -70,7 +70,18 @@ function setupAuth(userId: string, roleType: string, schoolId: number | null = n
 }
 
 function makeSchoolReport(schoolId: number, schoolName: string, programs: unknown[] = []) {
-  return { school_id: schoolId, school_name: schoolName, programs };
+  return {
+    school_id: schoolId,
+    school_name: schoolName,
+    programs,
+    school_summary: {
+      total_contracted_hours: 0,
+      total_allocated: 0,
+      total_reserved: 0,
+      total_consumed: 0,
+      total_available: 0,
+    },
+  };
 }
 
 // ============================================================

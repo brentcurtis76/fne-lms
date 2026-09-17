@@ -131,12 +131,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ---- Summary section ----
     let cursorY = 35;
 
-    // Compute grand totals
-    const allContracts = reportData.programs.flatMap((p) => p.contracts);
-    const grandContracted = allContracts.reduce((s, c) => s + c.total_contracted_hours, 0);
-    const grandConsumed = allContracts.reduce((s, c) => s + c.total_consumed, 0);
-    const grandReserved = allContracts.reduce((s, c) => s + c.total_reserved, 0);
-    const grandAvailable = allContracts.reduce((s, c) => s + c.total_available, 0);
+    // School-wide totals come from the service, which counts each allocation and ledger
+    // row once. Summing per-contract totals double-counts a parent and its active annex.
+    const {
+      total_contracted_hours: grandContracted,
+      total_consumed: grandConsumed,
+      total_reserved: grandReserved,
+      total_available: grandAvailable,
+    } = reportData.school_summary;
 
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');

@@ -348,4 +348,18 @@ export interface SchoolReportData {
   school_id: number;
   school_name: string;
   programs: ProgramGroup[];
+  /**
+   * School-wide totals with each allocation and ledger row counted once. Per-contract
+   * totals overlap when a parent and its linked annex are both active, so they must
+   * not be summed across contracts.
+   */
+  school_summary: SchoolHoursSummary;
+}
+
+export interface SchoolHoursSummary {
+  total_contracted_hours: number;
+  total_allocated: number;
+  total_reserved: number;
+  total_consumed: number;
+  total_available: number;
 }

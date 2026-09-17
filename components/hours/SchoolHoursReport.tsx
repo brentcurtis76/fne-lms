@@ -6,7 +6,7 @@
  * CSV export and PDF download buttons.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { Download, FileText, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -284,19 +284,19 @@ function BucketCard({ bucket }: { bucket: BucketWithSessions }) {
 // Per-program view
 // ============================================================
 
-function ProgramView({ program }: { program: ProgramGroup }) {
-  const [selectedContractId, setSelectedContractId] = useState<string>(
-    program.contracts[0]?.contrato_id ?? ''
-  );
-
-  const selectedContract: ContractSummary | undefined = program.contracts.find(
-    (c) => c.contrato_id === selectedContractId
-  ) ?? program.contracts[0];
-
+function ProgramView({
+  program,
+  selectedContract,
+  onSelectContract,
+}: {
+  program: ProgramGroup;
+  selectedContract: ContractSummary | undefined;
+  onSelectContract: (contratoId: string) => void;
+}) {
   if (!selectedContract) {
     return (
       <p className="text-center text-gray-500 py-8">
-        Esta escuela no tiene programas activos
+        Este programa no tiene contratos activos
       </p>
     );
   }
@@ -309,8 +309,8 @@ function ProgramView({ program }: { program: ProgramGroup }) {
           <label htmlFor="contract-selector" className="text-sm font-medium text-gray-700">Contrato:</label>
           <select
             id="contract-selector"
-            value={selectedContractId}
-            onChange={(e) => setSelectedContractId(e.target.value)}
+            value={selectedContract.contrato_id}
+            onChange={(e) => onSelectContract(e.target.value)}
             className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand_accent"
           >
             {program.contracts.map((c) => (
@@ -407,25 +407,37 @@ export default function SchoolHoursReport({ schoolId, isAdmin, schoolName: initi
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeProgram, setActiveProgram] = useState<string | null>(null);
+  const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
+  // Both downloads export whatever contract is on screen, so a response for a school the
+  // user has already navigated away from must not become that selection. Only the newest
+  // request may write state; older ones are dropped on arrival.
+  const requestSeqRef = useRef(0);
 
   const loadReport = useCallback(async () => {
+    const requestId = ++requestSeqRef.current;
     setLoading(true);
     setError(null);
+    setData(null);
+    setActiveProgram(null);
+    setSelectedContractId(null);
     try {
       const res = await fetch(`/api/school-hours-report/${schoolId}`);
       const json = await res.json();
+      if (requestId !== requestSeqRef.current) return;
       if (!res.ok) {
         setError(json.error ?? 'Error al cargar el reporte');
         return;
       }
-      setData(json.data ?? null);
-      if (json.data?.programs?.length > 0) {
-        setActiveProgram(json.data.programs[0].programa_id);
-      }
+      const report: SchoolReportData | null = json.data ?? null;
+      setData(report);
+      const firstProgram = report?.programs?.[0];
+      setActiveProgram(firstProgram?.programa_id ?? null);
+      setSelectedContractId(firstProgram?.contracts[0]?.contrato_id ?? null);
     } catch {
+      if (requestId !== requestSeqRef.current) return;
       setError('Error de red al cargar el reporte.');
     } finally {
-      setLoading(false);
+      if (requestId === requestSeqRef.current) setLoading(false);
     }
   }, [schoolId]);
 
@@ -433,49 +445,60 @@ export default function SchoolHoursReport({ schoolId, isAdmin, schoolName: initi
     loadReport();
   }, [loadReport]);
 
-  // ---- CSV Export ----
+  // The one effective selection shared by the display, the selector, the CSV and the PDF.
+  // A stale id (program switched, contract gone after a refresh) falls back to the active
+  // program's first contract, so all four always name the same contract.
+  const activeProgData: ProgramGroup | undefined = data?.programs.find((p) => p.programa_id === activeProgram);
+  const programContracts = activeProgData?.contracts ?? [];
+  const selectedContract: ContractSummary | undefined =
+    programContracts.find((c) => c.contrato_id === selectedContractId) ?? programContracts[0];
+
+  // ---- CSV Export (selected contract only) ----
   function handleExportCSV() {
-    if (!data || data.programs.length === 0) {
-      toast.error('No hay datos para exportar.');
+    if (!data || !activeProgData || !selectedContract) {
+      toast.error('No hay un contrato seleccionado para exportar.');
       return;
     }
 
+    const identity = {
+      Programa: activeProgData.programa_name,
+      Contrato: selectedContract.numero_contrato,
+    };
+    const blankSession = {
+      Fecha: '',
+      Título: '',
+      Consultor: '',
+      Horas: '',
+      Estado: '',
+      'Sobre Presupuesto': '',
+      'Asistencia Esperada': '',
+      'Asistencia Real': '',
+    };
+
     const rows: Record<string, string>[] = [];
-    for (const program of data.programs) {
-      for (const contract of program.contracts) {
-        for (const bucket of contract.buckets) {
-          if (bucket.sessions.length === 0) {
-            // Add a row even for empty buckets
-            rows.push({
-              Programa: program.programa_name,
-              Contrato: contract.numero_contrato,
-              'Categoría': bucket.display_name,
-              Fecha: '',
-              Título: '',
-              Consultor: '',
-              Horas: '',
-              Estado: '',
-              'Sobre Presupuesto': '',
-              'Asistencia Esperada': '',
-              'Asistencia Real': '',
-            });
-          } else {
-            for (const session of bucket.sessions) {
-              rows.push({
-                Programa: program.programa_name,
-                Contrato: contract.numero_contrato,
-                'Categoría': bucket.display_name,
-                Fecha: session.date,
-                Título: session.title,
-                Consultor: session.consultant_name,
-                Horas: session.hours.toFixed(2),
-                Estado: session.status,
-                'Sobre Presupuesto': session.is_over_budget ? 'Sí' : 'No',
-                'Asistencia Esperada': session.attendance ? String(session.attendance.expected) : '',
-                'Asistencia Real': session.attendance ? String(session.attendance.attended) : '',
-              });
-            }
-          }
+    // A contract with no categories at all still names itself, so the export is never a
+    // header-only file the reader cannot attribute.
+    if (selectedContract.buckets.length === 0) {
+      rows.push({ ...identity, 'Categoría': '', ...blankSession });
+    }
+    for (const bucket of selectedContract.buckets) {
+      if (bucket.sessions.length === 0) {
+        // Add a row even for empty buckets
+        rows.push({ ...identity, 'Categoría': bucket.display_name, ...blankSession });
+      } else {
+        for (const session of bucket.sessions) {
+          rows.push({
+            ...identity,
+            'Categoría': bucket.display_name,
+            Fecha: session.date,
+            Título: session.title,
+            Consultor: session.consultant_name,
+            Horas: session.hours.toFixed(2),
+            Estado: session.status,
+            'Sobre Presupuesto': session.is_over_budget ? 'Sí' : 'No',
+            'Asistencia Esperada': session.attendance ? String(session.attendance.expected) : '',
+            'Asistencia Real': session.attendance ? String(session.attendance.attended) : '',
+          });
         }
       }
     }
@@ -483,24 +506,33 @@ export default function SchoolHoursReport({ schoolId, isAdmin, schoolName: initi
     const safeSchoolName = (data.school_name ?? 'escuela').replace(/\s+/g, '_');
     const dateStr = new Date().toISOString().slice(0, 10);
 
-    ReportExporter.exportToCSV({
-      filename: `reporte-horas-${safeSchoolName}-${dateStr}`,
-      title: `Reporte de Horas — ${data.school_name} (${dateStr})`,
-      headers: ['Programa', 'Contrato', 'Categoría', 'Fecha', 'Título', 'Consultor', 'Horas', 'Estado', 'Sobre Presupuesto', 'Asistencia Esperada', 'Asistencia Real'],
-      data: rows,
-      metadata: { totalRecords: rows.length },
-    });
+    try {
+      ReportExporter.exportToCSV({
+        filename: `reporte-horas-${safeSchoolName}-${dateStr}`,
+        title: `Reporte de Horas — ${data.school_name} · ${activeProgData.programa_name} · Contrato ${selectedContract.numero_contrato} (${dateStr})`,
+        headers: ['Programa', 'Contrato', 'Categoría', 'Fecha', 'Título', 'Consultor', 'Horas', 'Estado', 'Sobre Presupuesto', 'Asistencia Esperada', 'Asistencia Real'],
+        data: rows,
+        metadata: { totalRecords: rows.length },
+      });
+    } catch {
+      toast.error('No se pudo generar el CSV.');
+      return;
+    }
 
     toast.success('CSV descargado correctamente');
   }
 
-  // ---- PDF Download ----
+  // ---- PDF Download (selected contract only) ----
   function handleDownloadPDF() {
-    window.open(`/api/school-hours-report/${schoolId}/pdf`, '_blank');
+    if (!selectedContract) {
+      toast.error('No hay un contrato seleccionado para descargar.');
+      return;
+    }
+    const query = `?contrato_id=${encodeURIComponent(selectedContract.contrato_id)}`;
+    window.open(`/api/school-hours-report/${schoolId}/pdf${query}`, '_blank');
   }
 
   const schoolDisplayName = data?.school_name ?? initialSchoolName ?? 'Escuela';
-  const activeProgData: ProgramGroup | undefined = data?.programs.find((p) => p.programa_id === activeProgram);
 
   if (loading) return <ReportSkeleton />;
 
@@ -522,7 +554,7 @@ export default function SchoolHoursReport({ schoolId, isAdmin, schoolName: initi
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900">{schoolDisplayName}</h1>
         <div className="flex gap-2 flex-wrap">
-          {data && data.programs.length > 0 && (
+          {selectedContract && (
             <>
               <button
                 onClick={handleDownloadPDF}
@@ -557,7 +589,10 @@ export default function SchoolHoursReport({ schoolId, isAdmin, schoolName: initi
                 {data.programs.map((prog) => (
                   <button
                     key={prog.programa_id}
-                    onClick={() => setActiveProgram(prog.programa_id)}
+                    onClick={() => {
+                      setActiveProgram(prog.programa_id);
+                      setSelectedContractId(null);
+                    }}
                     className={`whitespace-nowrap pb-3 text-sm font-medium border-b-2 transition-colors ${
                       activeProgram === prog.programa_id
                         ? 'border-brand_accent text-brand_primary'
@@ -573,7 +608,11 @@ export default function SchoolHoursReport({ schoolId, isAdmin, schoolName: initi
 
           {/* Active program view */}
           {activeProgData ? (
-            <ProgramView program={activeProgData} />
+            <ProgramView
+              program={activeProgData}
+              selectedContract={selectedContract}
+              onSelectContract={setSelectedContractId}
+            />
           ) : (
             <p className="text-center text-gray-500 py-8">
               Seleccione un programa para ver el detalle

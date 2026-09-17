@@ -18,7 +18,7 @@ PROC-01 ran the archived-evaluations browser check on local synthetic fixtures (
 | PROC-CONSULTOR-C1 | Consultores C1: lectura de Contexto Transversal y Plan en todas las escuelas (matriz de roles, API, pantalla) | todo |  | 2026-09-10 |  |
 | PROC-CONSULTOR-DASHBOARD-INTEGRATION | Consultores: integrar la política de permisos en el dashboard | blocked |  | 2026-09-10 |  |
 | PROC-LIFECYCLE-ARCHIVE-ACTION | Ciclo de vida: la API de archivo rechaza acciones inválidas | done |  | 2026-09-10 |  |
-| PROC-LIFECYCLE-ARCHIVED-LIST | Evaluaciones archivadas: listado, filtro y vista de solo consulta verificados en navegador | in-progress | PROC-01 | 2026-09-17 |  |
+| PROC-LIFECYCLE-ARCHIVED-LIST | Evaluaciones archivadas: listado, filtro y vista de solo consulta verificados en navegador | done | PROC-01 | 2026-09-17 |  |
 | PROC-LIFECYCLE-CANCELLATION | Ciclo de vida: cancelación explícita solo por administradores, conservando versión, respuestas e historia | todo |  | 2026-09-11 |  |
 | PROC-FULL-SUITE-PUBLICATION | Integrar con main, resolver la batería completa (308/52/12), revisar y publicar el conjunto | todo |  | 2026-09-10 |  |
 | PROC-HISTORICAL-DATA | Datos históricos: corregir asignaciones antiguas inválidas sin borrar historia (decisiones de Brent pendientes) | blocked |  | 2026-09-10 |  |
@@ -226,3 +226,7 @@ PROC-01 ran the archived-evaluations browser check on local synthetic fixtures (
 - 2026-09-11T01:42+00:00 · PM · STORAGE CONTEXT STOP · solePM01a08dc8. DirectBrentexceptionAUTHORIZED persists; NOTEXECUTED. NativeCLI2.1.263 opus5/high/NONE PID50313 exit143/334.57s/absent sessiond4135768-1346-48c9-8a06-00da6167dd28. PM stopped conservative17788input+22950s
 - 2026-09-11T01:42+00:00 · PM · STORAGE CONTEXT STOP · solePM01a08dc8. DirectBrentexceptionAUTHORIZED persists; NOTEXECUTED. NativeCLI2.1.263 opus5/high/NONE PID50313 exit143/334.57s/absent sessiond4135768-1346-48c9-8a06-00da6167dd28. PM stopped conservative17788input+22950s
 - 2026-09-17 · PROC-01 · UNIT · Archived-evaluations browser check with local synthetic fixtures: journey 97 assertions PASS, fixtures cleaned; final validation/report pending (continuation)
+- 2026-09-17T12:48:08-03:00 · PROC-01 · IN-PROGRESS · Brent requested round 0 resume; recorded extension permits continuation 2 to finish validation and report before independent review.
+- 2026-09-17T13:09:33-03:00 · PROC-01 · IN-PROGRESS · Independent r0 review requires cleanup-commit recovery, real list-card test collection, and unit environment isolation; round 1 bounded remediation.
+- 2026-09-17T14:01:45-03:00 · PROC-01 · IN-PROGRESS · Independent r1 review verified cleanup and browser journeys; r2 limited to making full jsdom test coverage reproducible in the RUN-only gate wrapper and documenting it.
+- 2026-09-17T14:18:44-03:00 · PROC-01 · DONE · APPROVED_WITH_NOTES: archived-list local browser97 and independent tablet9 passed; exact test fixtures removed, complete436-file unit gate passed via documented local runner; protected source untouched, broader phase and

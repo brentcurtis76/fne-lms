@@ -83,8 +83,21 @@ function setupAuth(userId: string, roleType: string, schoolId: number | null = n
   mockCreateServiceRoleClient.mockReturnValue({});
 }
 
-function makeSchoolReport(schoolId: number, schoolName: string, programs: unknown[] = []) {
-  return { school_id: schoolId, school_name: schoolName, programs };
+const EMPTY_SCHOOL_SUMMARY = {
+  total_contracted_hours: 0,
+  total_allocated: 0,
+  total_reserved: 0,
+  total_consumed: 0,
+  total_available: 0,
+};
+
+function makeSchoolReport(
+  schoolId: number,
+  schoolName: string,
+  programs: unknown[] = [],
+  schoolSummary: typeof EMPTY_SCHOOL_SUMMARY = EMPTY_SCHOOL_SUMMARY
+) {
+  return { school_id: schoolId, school_name: schoolName, programs, school_summary: schoolSummary };
 }
 
 type MockRes = { _getBuffer: () => Buffer; _getData: () => unknown; _getStatusCode: () => number };
@@ -250,7 +263,14 @@ function reportWithRegularAndAnnex() {
         },
       ],
     },
-  ]);
+  ], {
+    // The service's school-wide totals: the 10 h annex allocation is counted once.
+    total_contracted_hours: 60,
+    total_allocated: 60,
+    total_reserved: 2,
+    total_consumed: 3,
+    total_available: 55,
+  });
 }
 
 // ============================================================

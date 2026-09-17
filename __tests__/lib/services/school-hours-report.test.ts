@@ -84,8 +84,20 @@ const BASE_SCHEMA: Record<string, TableDef> = {
     relations: { profiles: 'profiles' },
   },
   profiles: { columns: ['id', 'first_name', 'last_name'] },
+  contract_hour_allocations: {
+    columns: [
+      'id',
+      'contrato_id',
+      'hour_type_id',
+      'allocated_hours',
+      'is_fixed_allocation',
+      'adds_to_allocation_id',
+    ],
+  },
   contract_hours_ledger: {
     columns: [
+      'id',
+      'allocation_id',
       'session_id',
       'status',
       'is_over_budget',
@@ -195,6 +207,7 @@ type ClientOptions = {
   contratos?: Row[];
   sessions?: Row[];
   ledger?: Row[];
+  allocations?: Row[];
   buckets?: Record<string, Row[]>;
   /** Per-table column-list overrides, for reproducing a table that lacks a column. */
   schemaOverrides?: Record<string, TableDef>;
@@ -211,6 +224,7 @@ function buildClient(options: ClientOptions, log: QueryLog[]) {
     contratos: options.contratos ?? [],
     consultor_sessions: options.sessions ?? [],
     contract_hours_ledger: options.ledger ?? [],
+    contract_hour_allocations: options.allocations ?? [],
   };
 
   function makeQuery(table: string) {
@@ -219,6 +233,7 @@ function buildClient(options: ClientOptions, log: QueryLog[]) {
     let selectStr = '*';
     let orderBy: { column: string; ascending: boolean } | null = null;
     let rowLimit: number | null = null;
+    let rowRange: { from: number; to: number } | null = null;
 
     function settle(): { data: unknown; error: PgError | null } {
       log.push({
@@ -273,6 +288,7 @@ function buildClient(options: ClientOptions, log: QueryLog[]) {
       }
 
       if (rowLimit !== null) matched = matched.slice(0, rowLimit);
+      if (rowRange !== null) matched = matched.slice(rowRange.from, rowRange.to + 1);
 
       return { data: matched.map((row) => project(selectStr, row)), error: null };
     }
@@ -296,6 +312,10 @@ function buildClient(options: ClientOptions, log: QueryLog[]) {
       },
       limit(count: number) {
         rowLimit = count;
+        return query;
+      },
+      range(from: number, to: number) {
+        rowRange = { from, to };
         return query;
       },
       single() {
@@ -362,6 +382,14 @@ const SESSION_MARCH = 'ses-44444444-4444-4444-8444-444444444444';
 const SESSION_APRIL = 'ses-55555555-5555-4555-8555-555555555555';
 const SESSION_OTHER_BUCKET = 'ses-66666666-6666-4666-8666-666666666666';
 const SESSION_LEGACY = 'ses-77777777-7777-4777-8777-777777777777';
+
+const EMPTY_SCHOOL_SUMMARY = {
+  total_contracted_hours: 0,
+  total_allocated: 0,
+  total_reserved: 0,
+  total_consumed: 0,
+  total_available: 0,
+};
 
 const BUCKET_KEY = 'acompanamiento';
 const OTHER_BUCKET_KEY = 'diagnostico';
@@ -937,7 +965,12 @@ describe('fetchSchoolReportData', () => {
         SCHOOL_ID
       );
 
-      expect(result).toEqual({ school_id: SCHOOL_ID, school_name: SCHOOL_NAME, programs: [] });
+      expect(result).toEqual({
+        school_id: SCHOOL_ID,
+        school_name: SCHOOL_NAME,
+        programs: [],
+        school_summary: EMPTY_SCHOOL_SUMMARY,
+      });
     });
   });
 
@@ -950,6 +983,11 @@ describe('fetchSchoolReportData', () => {
 
   it('returns an empty program list when the school has no active contracts', async () => {
     const result = await fetchSchoolReportData(clientFor(baseOptions({ contratos: [] })), SCHOOL_ID);
-    expect(result).toEqual({ school_id: SCHOOL_ID, school_name: SCHOOL_NAME, programs: [] });
+    expect(result).toEqual({
+      school_id: SCHOOL_ID,
+      school_name: SCHOOL_NAME,
+      programs: [],
+      school_summary: EMPTY_SCHOOL_SUMMARY,
+    });
   });
 });

@@ -4587,7 +4587,7 @@ const DIRECT_TS_TOUCHES: Record<string, UseClass[]> = {
   'lib/services/hour-tracking.ts': [
     'write', 'status-only', 'write', 'status-only', 'write', 'write',
   ],
-  'lib/services/school-hours-report.ts': ['billable'],
+  'lib/services/school-hours-report.ts': ['aggregate', 'billable'],
   'pages/admin/sessions/index.tsx': ['status-only'],
   'pages/api/admin/consultant-rates/[id].ts': ['status-only', 'status-only'],
   'pages/api/admin/sessions/[id]/hours-comparison.ts': ['historical'],

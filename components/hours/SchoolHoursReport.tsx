@@ -474,17 +474,40 @@ export default function SchoolHoursReport({ schoolId, isAdmin, schoolName: initi
       'Asistencia Esperada': '',
       'Asistencia Real': '',
     };
+    // Only the summary row carries the contract totals. Detail rows leave them blank so the
+    // four totals are stated once and a session's own hours can never be read as the
+    // contract's.
+    const blankTotals = {
+      'Horas contratadas': '',
+      'Horas consumidas': '',
+      'Horas reservadas': '',
+      'Horas disponibles': '',
+    };
 
     const rows: Record<string, string>[] = [];
+    // The totals shown beside the ring chart for the contract on screen, exported verbatim
+    // at the same one-decimal precision. They are the contract's own figures, never a sum of
+    // the session rows below, which legitimately disagree (annex contributions, §11
+    // overrides, waivers, reservations without sessions).
+    rows.push({
+      ...identity,
+      'Categoría': '',
+      ...blankSession,
+      'Tipo de fila': 'Resumen del contrato',
+      'Horas contratadas': selectedContract.total_contracted_hours.toFixed(1),
+      'Horas consumidas': selectedContract.total_consumed.toFixed(1),
+      'Horas reservadas': selectedContract.total_reserved.toFixed(1),
+      'Horas disponibles': selectedContract.total_available.toFixed(1),
+    });
     // A contract with no categories at all still names itself, so the export is never a
     // header-only file the reader cannot attribute.
     if (selectedContract.buckets.length === 0) {
-      rows.push({ ...identity, 'Categoría': '', ...blankSession });
+      rows.push({ ...identity, 'Categoría': '', ...blankSession, 'Tipo de fila': 'Contrato sin categorías', ...blankTotals });
     }
     for (const bucket of selectedContract.buckets) {
       if (bucket.sessions.length === 0) {
         // Add a row even for empty buckets
-        rows.push({ ...identity, 'Categoría': bucket.display_name, ...blankSession });
+        rows.push({ ...identity, 'Categoría': bucket.display_name, ...blankSession, 'Tipo de fila': 'Categoría sin sesiones', ...blankTotals });
       } else {
         for (const session of bucket.sessions) {
           rows.push({
@@ -498,6 +521,8 @@ export default function SchoolHoursReport({ schoolId, isAdmin, schoolName: initi
             'Sobre Presupuesto': session.is_over_budget ? 'Sí' : 'No',
             'Asistencia Esperada': session.attendance ? String(session.attendance.expected) : '',
             'Asistencia Real': session.attendance ? String(session.attendance.attended) : '',
+            'Tipo de fila': 'Sesión',
+            ...blankTotals,
           });
         }
       }
@@ -510,7 +535,7 @@ export default function SchoolHoursReport({ schoolId, isAdmin, schoolName: initi
       ReportExporter.exportToCSV({
         filename: `reporte-horas-${safeSchoolName}-${dateStr}`,
         title: `Reporte de Horas — ${data.school_name} · ${activeProgData.programa_name} · Contrato ${selectedContract.numero_contrato} (${dateStr})`,
-        headers: ['Programa', 'Contrato', 'Categoría', 'Fecha', 'Título', 'Consultor', 'Horas', 'Estado', 'Sobre Presupuesto', 'Asistencia Esperada', 'Asistencia Real'],
+        headers: ['Programa', 'Contrato', 'Categoría', 'Fecha', 'Título', 'Consultor', 'Horas', 'Estado', 'Sobre Presupuesto', 'Asistencia Esperada', 'Asistencia Real', 'Tipo de fila', 'Horas contratadas', 'Horas consumidas', 'Horas reservadas', 'Horas disponibles'],
         data: rows,
         metadata: { totalRecords: rows.length },
       });

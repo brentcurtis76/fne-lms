@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 /**
- * SM-03 / A14-4-F02 — both downloads export the contract actually on screen.
+ * SM-03 + SM-04 / A14-4-F02 — both downloads export the contract actually on screen, and
+ * the CSV states that contract's own totals once.
  *
  * Before this unit the CSV button looped every program and contract in the school and the
  * PDF button passed only `school_id`, so a school with two contracts got the same
@@ -10,6 +11,11 @@
  * touches are stubbed (fetch, `window.open`, the anchor click, toasts and the lazily
  * imported Recharts pieces, which draw nothing assertable in jsdom — the browser journey
  * renders those for real).
+ *
+ * SM-04 adds the summary row: the file now opens with one `Resumen del contrato` row
+ * carrying the four totals rendered beside the ring chart, followed by the unchanged detail
+ * rows. Every assertion below reads the emitted file through a quoting-aware reader, so a
+ * cell holding a comma, a quote or a newline is compared as the value a spreadsheet sees.
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -53,8 +59,14 @@ const NO_BUCKETS_NUMERO = 'SIN-2026-003';
 /** Titles that must never appear in an export scoped to another contract. */
 const SIBLING_SESSION_TITLE = 'Taller del contrato hermano';
 
-const CSV_HEADER =
-  'Programa,Contrato,Categoría,Fecha,Título,Consultor,Horas,Estado,Sobre Presupuesto,Asistencia Esperada,Asistencia Real';
+/** The eleven pre-existing detail columns, then the five SM-04 summary columns. */
+const CSV_COLUMNS = [
+  'Programa', 'Contrato', 'Categoría', 'Fecha', 'Título', 'Consultor', 'Horas', 'Estado',
+  'Sobre Presupuesto', 'Asistencia Esperada', 'Asistencia Real',
+  'Tipo de fila', 'Horas contratadas', 'Horas consumidas', 'Horas reservadas', 'Horas disponibles',
+] as const;
+
+const CSV_HEADER = CSV_COLUMNS.join(',');
 
 function makeReport(schoolName = SCHOOL_NAME): SchoolReportData {
   return {
@@ -296,7 +308,53 @@ async function downloadCsv(user: ReturnType<typeof userEvent.setup>) {
   return capturedCsv;
 }
 
-const csvLines = (csv: string | null) => (csv ?? '').trim().split('\n');
+type CsvRow = Record<string, string>;
+
+/**
+ * RFC 4180 reader. Quoted cells may hold commas, doubled quotes and newlines, so splitting
+ * the file on ',' or '\n' would not see what a spreadsheet sees.
+ */
+function parseCsv(csv: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let quoted = false;
+  for (let i = 0; i < csv.length; i += 1) {
+    const ch = csv[i];
+    if (quoted) {
+      if (ch !== '"') field += ch;
+      else if (csv[i + 1] === '"') { field += '"'; i += 1; }
+      else quoted = false;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ',') { row.push(field); field = ''; }
+    else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+    else field += ch;
+  }
+  row.push(field);
+  rows.push(row);
+  return rows;
+}
+
+/** The emitted data rows, header asserted and dropped, each keyed by column name. */
+function csvRows(csv: string | null): CsvRow[] {
+  const [header, ...rest] = parseCsv(csv ?? '');
+  expect(header).toEqual([...CSV_COLUMNS]);
+  return rest.map((cells) => {
+    // One rectangular table: sixteen cells on every row, never a ragged tail.
+    expect(cells).toHaveLength(CSV_COLUMNS.length);
+    return Object.fromEntries(CSV_COLUMNS.map((column, i) => [column, cells[i]])) as CsvRow;
+  });
+}
+
+/** An expected row: every column not named here must come back exactly empty. */
+function expectedRow(overrides: Partial<Record<(typeof CSV_COLUMNS)[number], string>>): CsvRow {
+  return Object.fromEntries(CSV_COLUMNS.map((column) => [column, overrides[column] ?? ''])) as CsvRow;
+}
+
+/** The pre-existing header line, checked as raw text (no column name needs quoting). */
+const csvHeaderLine = (csv: string | null) => (csv ?? '').split('\n')[0];
+
+const SUMMARY_ROW = 'Resumen del contrato';
 
 // ============================================================
 // D1 — the selected contract, and only it
@@ -307,26 +365,63 @@ describe('D1 selected-contract export scope', () => {
     const user = userEvent.setup();
     await renderReport(makeReport());
 
-    const lines = csvLines(await downloadCsv(user));
-    expect(lines[0]).toBe(CSV_HEADER);
-    expect(lines).toHaveLength(5); // header + the parent contract's four sessions
-    expect(lines[1]).toBe(
-      `Programa Sintetico Alfa,${PARENT_NUMERO},Asesoria Tecnica,2026-04-15,Sesion consumida,Consultora Sintetica,3.00,consumida,No,,`
-    );
-    expect(lines[2]).toBe(
-      `Programa Sintetico Alfa,${PARENT_NUMERO},Asesoria Tecnica,2026-06-08,Sesion reservada,Consultora Sintetica,2.00,reservada,No,,`
-    );
+    const csv = await downloadCsv(user);
+    expect(csvHeaderLine(csv)).toBe(CSV_HEADER);
+    const rows = csvRows(csv);
+    expect(rows).toHaveLength(5); // one contract summary + the parent contract's four sessions
+
+    // Exactly one summary, first, and no other contract's.
+    expect(rows.filter((r) => r['Tipo de fila'] === SUMMARY_ROW)).toHaveLength(1);
+    expect(rows[0]).toEqual(expectedRow({
+      Programa: 'Programa Sintetico Alfa',
+      Contrato: PARENT_NUMERO,
+      'Tipo de fila': SUMMARY_ROW,
+      // 52 h contracted for this contract (the +10 h annex contribution is already inside
+      // it), 4.25 h consumed, 2 h reserved and negative availability — all at one decimal.
+      'Horas contratadas': '52.0',
+      'Horas consumidas': '4.3',
+      'Horas reservadas': '2.0',
+      'Horas disponibles': '-1.3',
+    }));
+
+    // The four totals are the ones on screen, cell for cell.
+    const screenTotals = [
+      ['Horas contratadas', 'Contratadas:'],
+      ['Horas consumidas', 'Consumidas:'],
+      ['Horas reservadas', 'Reservadas:'],
+      ['Horas disponibles', 'Disponibles:'],
+    ] as const;
+    for (const [column, label] of screenTotals) {
+      const line = screen.getByText(label).closest('div') as HTMLElement;
+      expect(within(line).getByText(`${rows[0][column]} h`)).toBeInTheDocument();
+    }
+
+    // Never derived from the rows below: the four sessions add up to 6.25 h while the
+    // contract's own consumed total is 4.25 h.
+    expect(rows.slice(1).reduce((sum, r) => sum + Number(r.Horas), 0)).toBeCloseTo(6.25, 5);
+    expect(rows[0]['Horas consumidas']).not.toBe('6.3');
+
+    // The eleven original detail cells are unchanged and carry no totals of their own.
+    const detail = (over: Partial<Record<(typeof CSV_COLUMNS)[number], string>>) => expectedRow({
+      Programa: 'Programa Sintetico Alfa',
+      Contrato: PARENT_NUMERO,
+      'Categoría': 'Asesoria Tecnica',
+      Consultor: 'Consultora Sintetica',
+      'Sobre Presupuesto': 'No',
+      'Tipo de fila': 'Sesión',
+      ...over,
+    });
+    expect(rows[1]).toEqual(detail({ Fecha: '2026-04-15', 'Título': 'Sesion consumida', Horas: '3.00', Estado: 'consumida' }));
+    expect(rows[2]).toEqual(detail({ Fecha: '2026-06-08', 'Título': 'Sesion reservada', Horas: '2.00', Estado: 'reservada' }));
     // Fractional §11 override survives verbatim, with its over-budget flag.
-    expect(lines[3]).toBe(
-      `Programa Sintetico Alfa,${PARENT_NUMERO},Asesoria Tecnica,2026-05-20,Sesion penalizada con override,Consultor Sintetico,1.25,penalizada,Sí,,`
-    );
+    expect(rows[3]).toEqual(detail({
+      Fecha: '2026-05-20', 'Título': 'Sesion penalizada con override', Consultor: 'Consultor Sintetico',
+      Horas: '1.25', Estado: 'penalizada', 'Sobre Presupuesto': 'Sí',
+    }));
     // Zero waiver stays 0.00 rather than being dropped or re-derived.
-    expect(lines[4]).toBe(
-      `Programa Sintetico Alfa,${PARENT_NUMERO},Asesoria Tecnica,2026-05-25,Sesion devuelta eximida,Consultora Sintetica,0.00,devuelta,No,,`
-    );
+    expect(rows[4]).toEqual(detail({ Fecha: '2026-05-25', 'Título': 'Sesion devuelta eximida', Horas: '0.00', Estado: 'devuelta' }));
 
     // No sibling contract, annex section or other-program row leaked in.
-    const csv = capturedCsv ?? '';
     expect(csv).not.toContain(ANNEX_NUMERO);
     expect(csv).not.toContain(SIBLING_NUMERO);
     expect(csv).not.toContain(SIBLING_SESSION_TITLE);
@@ -341,9 +436,25 @@ describe('D1 selected-contract export scope', () => {
     await user.selectOptions(screen.getByLabelText('Contrato:'), ANNEX_ID);
     expect(screen.getByRole('heading', { level: 3, name: ANNEX_NUMERO })).toBeInTheDocument();
 
-    const lines = csvLines(await downloadCsv(user));
-    expect(lines).toHaveLength(2);
-    expect(lines[1]).toBe(`Programa Sintetico Alfa,${ANNEX_NUMERO},Asesoria Tecnica,,,,,,,,`);
+    const rows = csvRows(await downloadCsv(user));
+    expect(rows).toHaveLength(2);
+    // The annex's own totals — zeros survive as 0.0 rather than collapsing to blank cells.
+    expect(rows[0]).toEqual(expectedRow({
+      Programa: 'Programa Sintetico Alfa',
+      Contrato: ANNEX_NUMERO,
+      'Tipo de fila': SUMMARY_ROW,
+      'Horas contratadas': '10.0',
+      'Horas consumidas': '0.0',
+      'Horas reservadas': '0.0',
+      'Horas disponibles': '10.0',
+    }));
+    // Its one empty category keeps the identifying row it already had.
+    expect(rows[1]).toEqual(expectedRow({
+      Programa: 'Programa Sintetico Alfa',
+      Contrato: ANNEX_NUMERO,
+      'Categoría': 'Asesoria Tecnica',
+      'Tipo de fila': 'Categoría sin sesiones',
+    }));
     expect(capturedCsv).not.toContain('Sesion consumida');
     expect(capturedCsv).not.toContain(`,${PARENT_NUMERO},`);
 
@@ -375,9 +486,24 @@ describe('D2 empty and absent selections', () => {
     await user.selectOptions(screen.getByLabelText('Contrato:'), NO_BUCKETS_ID);
     expect(screen.getByText('No hay categorías de horas para este contrato.')).toBeInTheDocument();
 
-    const lines = csvLines(await downloadCsv(user));
-    expect(lines).toHaveLength(2);
-    expect(lines[1]).toBe(`Programa Sintetico Beta,${NO_BUCKETS_NUMERO},,,,,,,,,`);
+    const rows = csvRows(await downloadCsv(user));
+    expect(rows).toHaveLength(2);
+    // A contract with nothing consumed still states its zeros, so the reader can tell an
+    // untouched contract from a missing one.
+    expect(rows[0]).toEqual(expectedRow({
+      Programa: 'Programa Sintetico Beta',
+      Contrato: NO_BUCKETS_NUMERO,
+      'Tipo de fila': SUMMARY_ROW,
+      'Horas contratadas': '0.0',
+      'Horas consumidas': '0.0',
+      'Horas reservadas': '0.0',
+      'Horas disponibles': '0.0',
+    }));
+    expect(rows[1]).toEqual(expectedRow({
+      Programa: 'Programa Sintetico Beta',
+      Contrato: NO_BUCKETS_NUMERO,
+      'Tipo de fila': 'Contrato sin categorías',
+    }));
     expect(capturedCsv).not.toContain(SIBLING_SESSION_TITLE);
   });
 
@@ -460,10 +586,13 @@ describe('D3 failures and late responses', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Descargar Reporte PDF' }));
     expect(openedUrls).toEqual(['/api/school-hours-report/7/pdf?contrato_id=99999999-9999-4999-8999-999999999999']);
-    const lines = csvLines(await downloadCsv(user));
-    expect(capturedCsv).toContain('NUEVA-2026-001');
+    const rows = csvRows(await downloadCsv(user));
+    // Summary and details alike name the school now on screen; nothing stale is exportable.
+    expect(rows[0]['Tipo de fila']).toBe(SUMMARY_ROW);
+    expect(rows[0].Contrato).toBe('NUEVA-2026-001');
+    expect(rows.every((r) => r.Contrato === 'NUEVA-2026-001')).toBe(true);
     expect(capturedCsv).not.toContain(PARENT_NUMERO);
-    expect(lines.length).toBeGreaterThan(1);
+    expect(rows.length).toBeGreaterThan(1);
   });
 
   it('D3 ignores a delayed old-school error, leaving the new school usable', async () => {
@@ -519,8 +648,16 @@ describe('D4 selection transitions', () => {
     await user.click(screen.getByRole('button', { name: 'Descargar Reporte PDF' }));
     expect(openedUrls).toEqual([`/api/school-hours-report/${SCHOOL_ID}/pdf?contrato_id=${SIBLING_ID}`]);
     expect(capturedCsv).toBeNull();
-    const lines = csvLines(await downloadCsv(user));
-    expect(lines[1]).toContain(SIBLING_NUMERO);
+    const rows = csvRows(await downloadCsv(user));
+    expect(rows[0]).toEqual(expectedRow({
+      Programa: 'Programa Sintetico Beta',
+      Contrato: SIBLING_NUMERO,
+      'Tipo de fila': SUMMARY_ROW,
+      'Horas contratadas': '20.0',
+      'Horas consumidas': '1.5',
+      'Horas reservadas': '0.0',
+      'Horas disponibles': '18.5',
+    }));
     expect(capturedCsv).not.toContain(ANNEX_NUMERO);
   });
 
@@ -552,9 +689,40 @@ describe('D4 selection transitions', () => {
     await user.click(screen.getByRole('button', { name: 'Descargar Reporte PDF' }));
     expect(openedUrls).toEqual([`/api/school-hours-report/${SCHOOL_ID}/pdf?contrato_id=${PARENT_ID}`]);
 
-    const lines = csvLines(await downloadCsv(user));
-    expect(lines[1]).toContain(PARENT_NUMERO);
+    const rows = csvRows(await downloadCsv(user));
+    expect(rows[0]['Tipo de fila']).toBe(SUMMARY_ROW);
+    expect(rows[0].Contrato).toBe(PARENT_NUMERO);
+    expect(rows[0]['Horas contratadas']).toBe('52.0');
     expect(capturedCsv).not.toContain(ANNEX_NUMERO);
+  });
+
+  it('D4 quotes and neutralizes an identity with commas, quotes, newlines and formula text', async () => {
+    const user = userEvent.setup();
+    const report = makeReport();
+    report.programs[0].programa_name = 'Programa "Beta", con coma\ny salto';
+    report.programs[0].contracts = [report.programs[0].contracts[0]];
+    report.programs[0].contracts[0].numero_contrato = '=SUM(A1,A9)';
+    await renderReport(report);
+
+    const csv = await downloadCsv(user);
+    // csvRows asserts sixteen cells per row through the quoting reader, so a newline or a
+    // stray comma inside a cell cannot silently shift the summary columns.
+    const rows = csvRows(csv);
+    expect(rows).toHaveLength(5);
+    // The exporter's existing protection is untouched: formula text keeps its apostrophe
+    // and the whole cell is quoted.
+    expect(csv).toContain('"\'=SUM(A1,A9)"');
+    expect(rows[0]).toEqual(expectedRow({
+      Programa: 'Programa "Beta", con coma\ny salto',
+      Contrato: "'=SUM(A1,A9)",
+      'Tipo de fila': SUMMARY_ROW,
+      'Horas contratadas': '52.0',
+      'Horas consumidas': '4.3',
+      'Horas reservadas': '2.0',
+      'Horas disponibles': '-1.3',
+    }));
+    expect(rows[1]['Tipo de fila']).toBe('Sesión');
+    expect(rows[1]['Horas contratadas']).toBe('');
   });
 });
 
@@ -568,7 +736,8 @@ describe('D5 emitted CSV and selected-contract UI text', () => {
     await renderReport(makeReport());
 
     const csv = await downloadCsv(user);
-    expect(csvLines(csv)[0]).toBe(CSV_HEADER);
+    expect(csvHeaderLine(csv)).toBe(CSV_HEADER);
+    expect(csvHeaderLine(csv).split(',')).toHaveLength(16);
     // The file name is the pre-existing school/date one: naming the contract inside it
     // was outside this unit's scope, so contract identity lives in the cells instead.
     expect(capturedFilename).toMatch(

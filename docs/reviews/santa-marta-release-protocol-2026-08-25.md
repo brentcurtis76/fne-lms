@@ -355,3 +355,10 @@ La inspección solicitada por Brent observó, mediante cuatro consultas correcta
 Secuencia obligatoria: enmienda documental revisada y mergeada → auditoría fresca y decisión de alcance de W-SIM-01 → autorización local separada → implementación/revisión → decisión de merge y despliegue por Brent → verificación de contención sin proveedor ni escritura → autorización nominal de W-SIM-02 con manifiesto/conteos/ventana/reset exactos → ejecución clase 3 sobre sólo 257/259. Ningún paso se infiere del anterior.
 
 Esta revisión 11 no autoriza aplicación, commit, push, PR, merge, despliegue, clasificación, seed/reset, correo, Zoom ni otra escritura a Producción. Conserva la revisión 10 como registro histórico, pero prohíbe ejecutar sus pasos de staging.
+
+
+### SM-01 hours-report findings — detailed backlog of W-BL-A14-4
+
+Brent authorized recording the twelve findings from the independently reviewed SM-01 parity audit. Their actionable register is [santa-marta-hours-report-findings.md](santa-marta-hours-report-findings.md), referenced directly by `W-BL-A14-4` in the mutable work ledger. Stable child IDs `A14-4-F01`–`A14-4-F12` carry priority, disposition, source evidence, next action and proposed completion criteria. They are the breakdown of the existing report/export-parity work item, not new claims, claim mappings, delivery batches or top-level work items; the protocol's quantitative ledger summaries therefore remain unchanged.
+
+The parent remains BACKLOG/P1. Remediation owners and delivery dates remain unassigned. F01 (overlapping parent/annex totals) is the first proposed technical follow-up; F02/F03 require export/measure decisions; F11 remains a held attendance-provenance dependency, not a reopening or claimed completion of W-B4c-01. Registration does not authorize implementation, database access or release. Preserve the original audit's distinction between source-supported findings and unperformed database/browser verification.

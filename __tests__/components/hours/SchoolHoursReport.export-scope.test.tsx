@@ -16,6 +16,11 @@
  * carrying the four totals rendered beside the ring chart, followed by the unchanged detail
  * rows. Every assertion below reads the emitted file through a quoting-aware reader, so a
  * cell holding a comma, a quote or a newline is compared as the value a spreadsheet sees.
+ *
+ * SM-05 adds the seventeenth column `Tipo de contrato`: the summary row says `Anexo` or
+ * `Contrato` for the contract the selector shows, read from the same `is_annexo` flag the
+ * selector labels its options with. Detail rows leave the cell blank, and neither the
+ * contract number nor a bucket's `annex_hours` contribution may decide the label.
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -59,11 +64,16 @@ const NO_BUCKETS_NUMERO = 'SIN-2026-003';
 /** Titles that must never appear in an export scoped to another contract. */
 const SIBLING_SESSION_TITLE = 'Taller del contrato hermano';
 
-/** The eleven pre-existing detail columns, then the five SM-04 summary columns. */
+/**
+ * The eleven pre-existing detail columns, the five SM-04 summary columns, then the SM-05
+ * contract-type column. The first sixteen keep their order, so a reader's existing columns
+ * do not move.
+ */
 const CSV_COLUMNS = [
   'Programa', 'Contrato', 'Categoría', 'Fecha', 'Título', 'Consultor', 'Horas', 'Estado',
   'Sobre Presupuesto', 'Asistencia Esperada', 'Asistencia Real',
   'Tipo de fila', 'Horas contratadas', 'Horas consumidas', 'Horas reservadas', 'Horas disponibles',
+  'Tipo de contrato',
 ] as const;
 
 const CSV_HEADER = CSV_COLUMNS.join(',');
@@ -340,7 +350,7 @@ function csvRows(csv: string | null): CsvRow[] {
   const [header, ...rest] = parseCsv(csv ?? '');
   expect(header).toEqual([...CSV_COLUMNS]);
   return rest.map((cells) => {
-    // One rectangular table: sixteen cells on every row, never a ragged tail.
+    // One rectangular table: seventeen cells on every row, never a ragged tail.
     expect(cells).toHaveLength(CSV_COLUMNS.length);
     return Object.fromEntries(CSV_COLUMNS.map((column, i) => [column, cells[i]])) as CsvRow;
   });
@@ -355,6 +365,9 @@ function expectedRow(overrides: Partial<Record<(typeof CSV_COLUMNS)[number], str
 const csvHeaderLine = (csv: string | null) => (csv ?? '').split('\n')[0];
 
 const SUMMARY_ROW = 'Resumen del contrato';
+const TYPE_COLUMN = 'Tipo de contrato';
+const TYPE_ORDINARY = 'Contrato';
+const TYPE_ANNEX = 'Anexo';
 
 // ============================================================
 // D1 — the selected contract, and only it
@@ -376,6 +389,8 @@ describe('D1 selected-contract export scope', () => {
       Programa: 'Programa Sintetico Alfa',
       Contrato: PARENT_NUMERO,
       'Tipo de fila': SUMMARY_ROW,
+      // An ordinary contract, even though a +10 h annex contributes hours to its bucket.
+      [TYPE_COLUMN]: TYPE_ORDINARY,
       // 52 h contracted for this contract (the +10 h annex contribution is already inside
       // it), 4.25 h consumed, 2 h reserved and negative availability — all at one decimal.
       'Horas contratadas': '52.0',
@@ -443,6 +458,7 @@ describe('D1 selected-contract export scope', () => {
       Programa: 'Programa Sintetico Alfa',
       Contrato: ANNEX_NUMERO,
       'Tipo de fila': SUMMARY_ROW,
+      [TYPE_COLUMN]: TYPE_ANNEX,
       'Horas contratadas': '10.0',
       'Horas consumidas': '0.0',
       'Horas reservadas': '0.0',
@@ -494,6 +510,7 @@ describe('D2 empty and absent selections', () => {
       Programa: 'Programa Sintetico Beta',
       Contrato: NO_BUCKETS_NUMERO,
       'Tipo de fila': SUMMARY_ROW,
+      [TYPE_COLUMN]: TYPE_ORDINARY,
       'Horas contratadas': '0.0',
       'Horas consumidas': '0.0',
       'Horas reservadas': '0.0',
@@ -590,6 +607,7 @@ describe('D3 failures and late responses', () => {
     // Summary and details alike name the school now on screen; nothing stale is exportable.
     expect(rows[0]['Tipo de fila']).toBe(SUMMARY_ROW);
     expect(rows[0].Contrato).toBe('NUEVA-2026-001');
+    expect(rows[0][TYPE_COLUMN]).toBe(TYPE_ORDINARY);
     expect(rows.every((r) => r.Contrato === 'NUEVA-2026-001')).toBe(true);
     expect(capturedCsv).not.toContain(PARENT_NUMERO);
     expect(rows.length).toBeGreaterThan(1);
@@ -653,6 +671,7 @@ describe('D4 selection transitions', () => {
       Programa: 'Programa Sintetico Beta',
       Contrato: SIBLING_NUMERO,
       'Tipo de fila': SUMMARY_ROW,
+      [TYPE_COLUMN]: TYPE_ORDINARY,
       'Horas contratadas': '20.0',
       'Horas consumidas': '1.5',
       'Horas reservadas': '0.0',
@@ -692,6 +711,7 @@ describe('D4 selection transitions', () => {
     const rows = csvRows(await downloadCsv(user));
     expect(rows[0]['Tipo de fila']).toBe(SUMMARY_ROW);
     expect(rows[0].Contrato).toBe(PARENT_NUMERO);
+    expect(rows[0][TYPE_COLUMN]).toBe(TYPE_ORDINARY);
     expect(rows[0]['Horas contratadas']).toBe('52.0');
     expect(capturedCsv).not.toContain(ANNEX_NUMERO);
   });
@@ -705,8 +725,8 @@ describe('D4 selection transitions', () => {
     await renderReport(report);
 
     const csv = await downloadCsv(user);
-    // csvRows asserts sixteen cells per row through the quoting reader, so a newline or a
-    // stray comma inside a cell cannot silently shift the summary columns.
+    // csvRows asserts seventeen cells per row through the quoting reader, so a newline or a
+    // stray comma inside a cell cannot silently shift the summary or type columns.
     const rows = csvRows(csv);
     expect(rows).toHaveLength(5);
     // The exporter's existing protection is untouched: formula text keeps its apostrophe
@@ -716,6 +736,7 @@ describe('D4 selection transitions', () => {
       Programa: 'Programa "Beta", con coma\ny salto',
       Contrato: "'=SUM(A1,A9)",
       'Tipo de fila': SUMMARY_ROW,
+      [TYPE_COLUMN]: TYPE_ORDINARY,
       'Horas contratadas': '52.0',
       'Horas consumidas': '4.3',
       'Horas reservadas': '2.0',
@@ -723,6 +744,7 @@ describe('D4 selection transitions', () => {
     }));
     expect(rows[1]['Tipo de fila']).toBe('Sesión');
     expect(rows[1]['Horas contratadas']).toBe('');
+    expect(rows[1][TYPE_COLUMN]).toBe('');
   });
 });
 
@@ -737,7 +759,7 @@ describe('D5 emitted CSV and selected-contract UI text', () => {
 
     const csv = await downloadCsv(user);
     expect(csvHeaderLine(csv)).toBe(CSV_HEADER);
-    expect(csvHeaderLine(csv).split(',')).toHaveLength(16);
+    expect(csvHeaderLine(csv).split(',')).toHaveLength(17);
     // The file name is the pre-existing school/date one: naming the contract inside it
     // was outside this unit's scope, so contract identity lives in the cells instead.
     expect(capturedFilename).toMatch(
@@ -772,5 +794,157 @@ describe('D5 emitted CSV and selected-contract UI text', () => {
     await waitFor(() => expect(openedUrls).toHaveLength(1));
     expect(openedUrls[0]).toContain('contrato_id=');
     expect(openedUrls[0].endsWith('/pdf')).toBe(false);
+  });
+});
+
+// ============================================================
+// SM-05 — the seventeenth column names the selected contract's type
+// ============================================================
+
+describe('SM-05 contract type column', () => {
+  it('D1 labels the selected contract and leaves every detail row blank', async () => {
+    const user = userEvent.setup();
+    await renderReport(makeReport());
+
+    // Parent first: an ordinary contract whose bucket receives +10 h from the annex.
+    const parentRows = csvRows(await downloadCsv(user));
+    expect(parentRows[0][TYPE_COLUMN]).toBe(TYPE_ORDINARY);
+    expect(parentRows.slice(1).map((r) => r[TYPE_COLUMN])).toEqual(['', '', '', '']);
+
+    // Same program, annex selected: only the summary carries the label, now `Anexo`.
+    await user.selectOptions(screen.getByLabelText('Contrato:'), ANNEX_ID);
+    const annexRows = csvRows(await downloadCsv(user));
+    expect(annexRows[0][TYPE_COLUMN]).toBe(TYPE_ANNEX);
+    expect(annexRows[1]['Tipo de fila']).toBe('Categoría sin sesiones');
+    expect(annexRows[1][TYPE_COLUMN]).toBe('');
+
+    // A sibling ordinary contract in the other program.
+    await user.click(screen.getByRole('button', { name: 'Programa Sintetico Beta' }));
+    const siblingRows = csvRows(await downloadCsv(user));
+    expect(siblingRows[0][TYPE_COLUMN]).toBe(TYPE_ORDINARY);
+    expect(siblingRows[1]['Tipo de fila']).toBe('Sesión');
+    expect(siblingRows[1][TYPE_COLUMN]).toBe('');
+  });
+
+  it('D1 keeps the first sixteen cells identical to the pre-SM-05 file', async () => {
+    const user = userEvent.setup();
+    await renderReport(makeReport());
+
+    const rows = parseCsv((await downloadCsv(user)) ?? '');
+    expect(rows).toHaveLength(6); // header + summary + four sessions
+    // Appending a column may not disturb what a reader already parses by position.
+    expect(rows[0].slice(0, 16)).toEqual([
+      'Programa', 'Contrato', 'Categoría', 'Fecha', 'Título', 'Consultor', 'Horas', 'Estado',
+      'Sobre Presupuesto', 'Asistencia Esperada', 'Asistencia Real',
+      'Tipo de fila', 'Horas contratadas', 'Horas consumidas', 'Horas reservadas', 'Horas disponibles',
+    ]);
+    expect(rows[0][16]).toBe(TYPE_COLUMN);
+    expect(rows[1].slice(0, 16)).toEqual([
+      'Programa Sintetico Alfa', PARENT_NUMERO, '', '', '', '', '', '', '', '', '',
+      SUMMARY_ROW, '52.0', '4.3', '2.0', '-1.3',
+    ]);
+    expect(rows[2].slice(0, 16)).toEqual([
+      'Programa Sintetico Alfa', PARENT_NUMERO, 'Asesoria Tecnica', '2026-04-15',
+      'Sesion consumida', 'Consultora Sintetica', '3.00', 'consumida', 'No', '', '',
+      'Sesión', '', '', '', '',
+    ]);
+    // Only the seventeenth cell is new, and only on the summary row.
+    expect(rows.slice(1).map((cells) => cells[16])).toEqual([TYPE_ORDINARY, '', '', '', '']);
+  });
+
+  it('D2 labels an annex with no buckets at all, keeping its zeros and identifying row', async () => {
+    const user = userEvent.setup();
+    const report = makeReport();
+    // The bucket-less contract in the other program is in fact an annex.
+    report.programs[1].contracts[1].is_annexo = true;
+    await renderReport(report);
+
+    await user.click(screen.getByRole('button', { name: 'Programa Sintetico Beta' }));
+    await user.selectOptions(screen.getByLabelText('Contrato:'), NO_BUCKETS_ID);
+
+    const rows = csvRows(await downloadCsv(user));
+    expect(rows).toHaveLength(2);
+    // The label survives with no detail rows to carry it.
+    expect(rows[0]).toEqual(expectedRow({
+      Programa: 'Programa Sintetico Beta',
+      Contrato: NO_BUCKETS_NUMERO,
+      'Tipo de fila': SUMMARY_ROW,
+      [TYPE_COLUMN]: TYPE_ANNEX,
+      'Horas contratadas': '0.0',
+      'Horas consumidas': '0.0',
+      'Horas reservadas': '0.0',
+      'Horas disponibles': '0.0',
+    }));
+    expect(rows[1]).toEqual(expectedRow({
+      Programa: 'Programa Sintetico Beta',
+      Contrato: NO_BUCKETS_NUMERO,
+      'Tipo de fila': 'Contrato sin categorías',
+    }));
+  });
+
+  it('D2 reads the flag, never the contract number or the bucket annex hours', async () => {
+    const user = userEvent.setup();
+    const report = makeReport();
+    // Deliberately misleading identities: the ordinary contract is numbered like an annex
+    // and receives annex hours, while the real annex has a plain sequential number.
+    report.programs[0].contracts[0].numero_contrato = 'SIN-2026-009-A4';
+    report.programs[0].contracts[1].numero_contrato = 'SIN-2026-010';
+    // The real annex contributes nothing to its own bucket; the parent's shows +10 h.
+    expect(report.programs[0].contracts[0].buckets[0].annex_hours).toBe(10);
+    expect(report.programs[0].contracts[1].buckets[0].annex_hours).toBe(0);
+    await renderReport(report);
+
+    const parentRows = csvRows(await downloadCsv(user));
+    expect(parentRows[0].Contrato).toBe('SIN-2026-009-A4');
+    expect(parentRows[0][TYPE_COLUMN]).toBe(TYPE_ORDINARY);
+    // Fractional and negative totals keep their one-decimal precision beside the new cell.
+    expect(parentRows[0]['Horas consumidas']).toBe('4.3');
+    expect(parentRows[0]['Horas disponibles']).toBe('-1.3');
+
+    await user.selectOptions(screen.getByLabelText('Contrato:'), ANNEX_ID);
+    const annexRows = csvRows(await downloadCsv(user));
+    expect(annexRows[0].Contrato).toBe('SIN-2026-010');
+    expect(annexRows[0][TYPE_COLUMN]).toBe(TYPE_ANNEX);
+  });
+
+  it('D3 relabels on every selection change and never emits a stale label', async () => {
+    const user = userEvent.setup();
+    await renderReport(makeReport());
+
+    await user.selectOptions(screen.getByLabelText('Contrato:'), ANNEX_ID);
+    expect(csvRows(await downloadCsv(user))[0][TYPE_COLUMN]).toBe(TYPE_ANNEX);
+
+    // Back to the parent in the same program.
+    await user.selectOptions(screen.getByLabelText('Contrato:'), PARENT_ID);
+    expect(csvRows(await downloadCsv(user))[0][TYPE_COLUMN]).toBe(TYPE_ORDINARY);
+
+    // And on to the other program, whose first contract is selected for us.
+    await user.click(screen.getByRole('button', { name: 'Programa Sintetico Beta' }));
+    const rows = csvRows(await downloadCsv(user));
+    expect(rows[0].Contrato).toBe(SIBLING_NUMERO);
+    expect(rows[0][TYPE_COLUMN]).toBe(TYPE_ORDINARY);
+    expect(capturedCsv).not.toContain(ANNEX_NUMERO);
+  });
+
+  it('D4 emits no labelled file when the export throws, and quotes nothing it need not', async () => {
+    const user = userEvent.setup();
+    await renderReport(makeReport());
+
+    exportThrows = true;
+    await user.click(screen.getByRole('button', { name: 'Descargar CSV' }));
+    await flushBlob();
+    expect(capturedBlob).toBeNull();
+    expect(mockToast.error).toHaveBeenCalledWith('No se pudo generar el CSV.');
+    expect(mockToast.success).not.toHaveBeenCalled();
+
+    // The next successful export carries the exact es-CL labels, needing no quoting.
+    exportThrows = false;
+    const csv = await downloadCsv(user);
+    expect(csvHeaderLine(csv)).toBe(CSV_HEADER);
+    expect(csvHeaderLine(csv).endsWith(`,${TYPE_COLUMN}`)).toBe(true);
+    const summary = csvRows(csv)[0];
+    expect(summary[TYPE_COLUMN]).toBe(TYPE_ORDINARY);
+    expect((csv ?? '').split('\n')[1].endsWith(`,${TYPE_ORDINARY}`)).toBe(true);
+    expect(mockToast.success).toHaveBeenCalledWith('CSV descargado correctamente');
   });
 });

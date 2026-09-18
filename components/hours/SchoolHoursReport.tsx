@@ -468,7 +468,7 @@ export default function SchoolHoursReport({ schoolId, isAdmin, schoolName: initi
       Fecha: '',
       Título: '',
       Consultor: '',
-      Horas: '',
+      'Horas de sesión': '',
       Estado: '',
       'Sobre Presupuesto': '',
       'Asistencia Esperada': '',
@@ -519,7 +519,7 @@ export default function SchoolHoursReport({ schoolId, isAdmin, schoolName: initi
             Fecha: session.date,
             Título: session.title,
             Consultor: session.consultant_name,
-            Horas: session.hours.toFixed(2),
+            'Horas de sesión': session.hours.toFixed(2),
             Estado: session.status,
             'Sobre Presupuesto': session.is_over_budget ? 'Sí' : 'No',
             'Asistencia Esperada': session.attendance ? String(session.attendance.expected) : '',
@@ -539,7 +539,7 @@ export default function SchoolHoursReport({ schoolId, isAdmin, schoolName: initi
       ReportExporter.exportToCSV({
         filename: `reporte-horas-${safeSchoolName}-${dateStr}`,
         title: `Reporte de Horas — ${data.school_name} · ${activeProgData.programa_name} · Contrato ${selectedContract.numero_contrato} (${dateStr})`,
-        headers: ['Programa', 'Contrato', 'Categoría', 'Fecha', 'Título', 'Consultor', 'Horas', 'Estado', 'Sobre Presupuesto', 'Asistencia Esperada', 'Asistencia Real', 'Tipo de fila', 'Horas contratadas', 'Horas consumidas', 'Horas reservadas', 'Horas disponibles', 'Tipo de contrato'],
+        headers: ['Programa', 'Contrato', 'Categoría', 'Fecha', 'Título', 'Consultor', 'Horas de sesión', 'Estado', 'Sobre Presupuesto', 'Asistencia Esperada', 'Asistencia Real', 'Tipo de fila', 'Horas contratadas', 'Horas consumidas', 'Horas reservadas', 'Horas disponibles', 'Tipo de contrato'],
         data: rows,
         metadata: { totalRecords: rows.length },
       });

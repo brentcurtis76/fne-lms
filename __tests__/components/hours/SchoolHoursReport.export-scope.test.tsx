@@ -70,7 +70,7 @@ const SIBLING_SESSION_TITLE = 'Taller del contrato hermano';
  * do not move.
  */
 const CSV_COLUMNS = [
-  'Programa', 'Contrato', 'Categoría', 'Fecha', 'Título', 'Consultor', 'Horas', 'Estado',
+  'Programa', 'Contrato', 'Categoría', 'Fecha', 'Título', 'Consultor', 'Horas de sesión', 'Estado',
   'Sobre Presupuesto', 'Asistencia Esperada', 'Asistencia Real',
   'Tipo de fila', 'Horas contratadas', 'Horas consumidas', 'Horas reservadas', 'Horas disponibles',
   'Tipo de contrato',
@@ -413,7 +413,7 @@ describe('D1 selected-contract export scope', () => {
 
     // Never derived from the rows below: the four sessions add up to 6.25 h while the
     // contract's own consumed total is 4.25 h.
-    expect(rows.slice(1).reduce((sum, r) => sum + Number(r.Horas), 0)).toBeCloseTo(6.25, 5);
+    expect(rows.slice(1).reduce((sum, r) => sum + Number(r['Horas de sesión']), 0)).toBeCloseTo(6.25, 5);
     expect(rows[0]['Horas consumidas']).not.toBe('6.3');
 
     // The eleven original detail cells are unchanged and carry no totals of their own.
@@ -426,15 +426,15 @@ describe('D1 selected-contract export scope', () => {
       'Tipo de fila': 'Sesión',
       ...over,
     });
-    expect(rows[1]).toEqual(detail({ Fecha: '2026-04-15', 'Título': 'Sesion consumida', Horas: '3.00', Estado: 'consumida' }));
-    expect(rows[2]).toEqual(detail({ Fecha: '2026-06-08', 'Título': 'Sesion reservada', Horas: '2.00', Estado: 'reservada' }));
+    expect(rows[1]).toEqual(detail({ Fecha: '2026-04-15', 'Título': 'Sesion consumida', 'Horas de sesión': '3.00', Estado: 'consumida' }));
+    expect(rows[2]).toEqual(detail({ Fecha: '2026-06-08', 'Título': 'Sesion reservada', 'Horas de sesión': '2.00', Estado: 'reservada' }));
     // Fractional §11 override survives verbatim, with its over-budget flag.
     expect(rows[3]).toEqual(detail({
       Fecha: '2026-05-20', 'Título': 'Sesion penalizada con override', Consultor: 'Consultor Sintetico',
-      Horas: '1.25', Estado: 'penalizada', 'Sobre Presupuesto': 'Sí',
+      'Horas de sesión': '1.25', Estado: 'penalizada', 'Sobre Presupuesto': 'Sí',
     }));
     // Zero waiver stays 0.00 rather than being dropped or re-derived.
-    expect(rows[4]).toEqual(detail({ Fecha: '2026-05-25', 'Título': 'Sesion devuelta eximida', Horas: '0.00', Estado: 'devuelta' }));
+    expect(rows[4]).toEqual(detail({ Fecha: '2026-05-25', 'Título': 'Sesion devuelta eximida', 'Horas de sesión': '0.00', Estado: 'devuelta' }));
 
     // No sibling contract, annex section or other-program row leaked in.
     expect(csv).not.toContain(ANNEX_NUMERO);
@@ -834,7 +834,7 @@ describe('SM-05 contract type column', () => {
     expect(rows).toHaveLength(6); // header + summary + four sessions
     // Appending a column may not disturb what a reader already parses by position.
     expect(rows[0].slice(0, 16)).toEqual([
-      'Programa', 'Contrato', 'Categoría', 'Fecha', 'Título', 'Consultor', 'Horas', 'Estado',
+      'Programa', 'Contrato', 'Categoría', 'Fecha', 'Título', 'Consultor', 'Horas de sesión', 'Estado',
       'Sobre Presupuesto', 'Asistencia Esperada', 'Asistencia Real',
       'Tipo de fila', 'Horas contratadas', 'Horas consumidas', 'Horas reservadas', 'Horas disponibles',
     ]);
@@ -946,5 +946,131 @@ describe('SM-05 contract type column', () => {
     expect(summary[TYPE_COLUMN]).toBe(TYPE_ORDINARY);
     expect((csv ?? '').split('\n')[1].endsWith(`,${TYPE_ORDINARY}`)).toBe(true);
     expect(mockToast.success).toHaveBeenCalledWith('CSV descargado correctamente');
+  });
+});
+
+// ============================================================
+// SM-06 — the seventh column names the session measure
+// ============================================================
+
+const SESSION_HOURS_COLUMN = 'Horas de sesión';
+
+/** The seventh heading before SM-06, which no longer belongs in the emitted file. */
+const LEGACY_SESSION_HOURS_COLUMN = 'Horas';
+
+describe('SM-06 session-hours heading', () => {
+  it('D1 names the seventh column Horas de sesión and leaves the other sixteen alone', async () => {
+    const user = userEvent.setup();
+    await renderReport(makeReport());
+
+    const header = csvHeaderLine(await downloadCsv(user)).split(',');
+    expect(header).toHaveLength(17);
+    expect(header[6]).toBe(SESSION_HOURS_COLUMN);
+    expect(header).not.toContain(LEGACY_SESSION_HOURS_COLUMN);
+    // Every other heading, and every heading's position, is the pre-SM-06 one.
+    expect(header.filter((_, i) => i !== 6)).toEqual(
+      [...CSV_COLUMNS].filter((_, i) => i !== 6)
+    );
+
+    // The same heading on the annex and on the other program's contract.
+    await user.selectOptions(screen.getByLabelText('Contrato:'), ANNEX_ID);
+    expect(csvHeaderLine(await downloadCsv(user)).split(',')[6]).toBe(SESSION_HOURS_COLUMN);
+    expect(csvRows(capturedCsv)[0][TYPE_COLUMN]).toBe(TYPE_ANNEX);
+
+    await user.click(screen.getByRole('button', { name: 'Programa Sintetico Beta' }));
+    expect(csvHeaderLine(await downloadCsv(user)).split(',')[6]).toBe(SESSION_HOURS_COLUMN);
+  });
+
+  it('D2 keeps every session value, including 0.00, under the renamed key', async () => {
+    const user = userEvent.setup();
+    await renderReport(makeReport());
+
+    const rows = csvRows(await downloadCsv(user));
+    // Consumed, reserved, the fractional §11 override and the zero waiver, cell for cell.
+    expect(rows.slice(1).map((r) => r[SESSION_HOURS_COLUMN])).toEqual(['3.00', '2.00', '1.25', '0.00']);
+    // The summary states the contract's four totals at one decimal and no session hours,
+    // and those totals are still not the sum of the rows below them (4.25 h vs 6.25 h).
+    expect(rows[0][SESSION_HOURS_COLUMN]).toBe('');
+    expect([
+      rows[0]['Horas contratadas'], rows[0]['Horas consumidas'],
+      rows[0]['Horas reservadas'], rows[0]['Horas disponibles'],
+    ]).toEqual(['52.0', '4.3', '2.0', '-1.3']);
+    expect(rows.slice(1).reduce((sum, r) => sum + Number(r[SESSION_HOURS_COLUMN]), 0)).toBeCloseTo(6.25, 5);
+
+    // A contract with no categories at all leaves the renamed cell blank, not absent.
+    await user.click(screen.getByRole('button', { name: 'Programa Sintetico Beta' }));
+    await user.selectOptions(screen.getByLabelText('Contrato:'), NO_BUCKETS_ID);
+    const emptyRows = csvRows(await downloadCsv(user));
+    expect(emptyRows.map((r) => r[SESSION_HOURS_COLUMN])).toEqual(['', '']);
+  });
+
+  it('D3 never blanks a session value through the old key, and offers no stale download', async () => {
+    const user = userEvent.setup();
+    mockFetchOnce({ data: makeReport() });
+    const { rerender } = render(<SchoolHoursReport schoolId={SCHOOL_ID} isAdmin={false} />);
+    await screen.findByRole('heading', { level: 1 });
+
+    // Had the header moved on without the row keys, the cells would silently go blank.
+    const rows = csvRows(await downloadCsv(user));
+    const details = rows.filter((r) => r['Tipo de fila'] === 'Sesión');
+    expect(details).toHaveLength(4);
+    expect(details.every((r) => r[SESSION_HOURS_COLUMN] !== '')).toBe(true);
+    expect(details.every((r) => !(LEGACY_SESSION_HOURS_COLUMN in r))).toBe(true);
+
+    // A school change re-keys the rows too: the new school's sessions carry their own
+    // values, and none of the first school's rows remain exportable.
+    const newReport = makeReport('Escuela Nueva');
+    newReport.programs[0].contracts[0].numero_contrato = 'NUEVA-2026-001';
+    mockFetchOnce({ data: newReport });
+    rerender(<SchoolHoursReport schoolId={7} isAdmin={false} />);
+    await screen.findByRole('heading', { level: 1, name: 'Escuela Nueva' });
+
+    const freshDetails = csvRows(await downloadCsv(user)).filter((r) => r['Tipo de fila'] === 'Sesión');
+    expect(freshDetails.map((r) => r[SESSION_HOURS_COLUMN])).toEqual(['3.00', '2.00', '1.25', '0.00']);
+    expect(capturedCsv).not.toContain(PARENT_NUMERO);
+  });
+
+  it('D4 emits the accented heading exactly once and still quotes a hostile identity', async () => {
+    const user = userEvent.setup();
+    const report = makeReport();
+    report.programs[0].programa_name = 'Programa "Alfa", =1+1';
+    await renderReport(report);
+
+    // No file and no success claim when the exporter throws.
+    exportThrows = true;
+    await user.click(screen.getByRole('button', { name: 'Descargar CSV' }));
+    await flushBlob();
+    expect(capturedBlob).toBeNull();
+    expect(mockToast.success).not.toHaveBeenCalled();
+
+    exportThrows = false;
+    const csv = await downloadCsv(user);
+    // The heading is written once, in the header line, and never as a data cell.
+    expect((csv ?? '').split(SESSION_HOURS_COLUMN)).toHaveLength(2);
+    expect(csvHeaderLine(csv)).toBe(CSV_HEADER);
+    const rows = parseCsv(csv ?? '');
+    expect(rows.every((cells) => cells.length === 17)).toBe(true);
+    expect(rows[2][6]).toBe('3.00');
+    expect(mockToast.success).toHaveBeenCalledWith('CSV descargado correctamente');
+  });
+
+  it('D5 leaves the on-screen heading, the file name and the PDF target untouched', async () => {
+    const user = userEvent.setup();
+    await renderReport(makeReport());
+
+    // The drill-down table on screen still says Horas; only the CSV column was renamed.
+    await user.click(screen.getAllByRole('button', { name: /Ver Detalle/ })[0]);
+    expect(screen.getByRole('columnheader', { name: LEGACY_SESSION_HOURS_COLUMN })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: SESSION_HOURS_COLUMN })).not.toBeInTheDocument();
+
+    const csv = await downloadCsv(user);
+    expect(csvHeaderLine(csv).split(',')[6]).toBe(SESSION_HOURS_COLUMN);
+    expect(capturedFilename).toMatch(
+      new RegExp('^reporte-horas-Colegio_Sintetico_Los_Arrayanes-\\d{4}-\\d{2}-\\d{2}\\.csv$')
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Descargar Reporte PDF' }));
+    await waitFor(() => expect(openedUrls).toHaveLength(1));
+    expect(openedUrls[0]).toBe(`/api/school-hours-report/${SCHOOL_ID}/pdf?contrato_id=${PARENT_ID}`);
   });
 });

@@ -498,16 +498,19 @@ export default function SchoolHoursReport({ schoolId, isAdmin, schoolName: initi
       'Horas consumidas': selectedContract.total_consumed.toFixed(1),
       'Horas reservadas': selectedContract.total_reserved.toFixed(1),
       'Horas disponibles': selectedContract.total_available.toFixed(1),
+      // The same flag the selector labels its options with, so the file says what the
+      // reader saw on screen. A parent that receives annex hours is still a Contrato.
+      'Tipo de contrato': selectedContract.is_annexo ? 'Anexo' : 'Contrato',
     });
     // A contract with no categories at all still names itself, so the export is never a
     // header-only file the reader cannot attribute.
     if (selectedContract.buckets.length === 0) {
-      rows.push({ ...identity, 'Categoría': '', ...blankSession, 'Tipo de fila': 'Contrato sin categorías', ...blankTotals });
+      rows.push({ ...identity, 'Categoría': '', ...blankSession, 'Tipo de fila': 'Contrato sin categorías', ...blankTotals, 'Tipo de contrato': '' });
     }
     for (const bucket of selectedContract.buckets) {
       if (bucket.sessions.length === 0) {
         // Add a row even for empty buckets
-        rows.push({ ...identity, 'Categoría': bucket.display_name, ...blankSession, 'Tipo de fila': 'Categoría sin sesiones', ...blankTotals });
+        rows.push({ ...identity, 'Categoría': bucket.display_name, ...blankSession, 'Tipo de fila': 'Categoría sin sesiones', ...blankTotals, 'Tipo de contrato': '' });
       } else {
         for (const session of bucket.sessions) {
           rows.push({
@@ -523,6 +526,7 @@ export default function SchoolHoursReport({ schoolId, isAdmin, schoolName: initi
             'Asistencia Real': session.attendance ? String(session.attendance.attended) : '',
             'Tipo de fila': 'Sesión',
             ...blankTotals,
+            'Tipo de contrato': '',
           });
         }
       }
@@ -535,7 +539,7 @@ export default function SchoolHoursReport({ schoolId, isAdmin, schoolName: initi
       ReportExporter.exportToCSV({
         filename: `reporte-horas-${safeSchoolName}-${dateStr}`,
         title: `Reporte de Horas — ${data.school_name} · ${activeProgData.programa_name} · Contrato ${selectedContract.numero_contrato} (${dateStr})`,
-        headers: ['Programa', 'Contrato', 'Categoría', 'Fecha', 'Título', 'Consultor', 'Horas', 'Estado', 'Sobre Presupuesto', 'Asistencia Esperada', 'Asistencia Real', 'Tipo de fila', 'Horas contratadas', 'Horas consumidas', 'Horas reservadas', 'Horas disponibles'],
+        headers: ['Programa', 'Contrato', 'Categoría', 'Fecha', 'Título', 'Consultor', 'Horas', 'Estado', 'Sobre Presupuesto', 'Asistencia Esperada', 'Asistencia Real', 'Tipo de fila', 'Horas contratadas', 'Horas consumidas', 'Horas reservadas', 'Horas disponibles', 'Tipo de contrato'],
         data: rows,
         metadata: { totalRecords: rows.length },
       });

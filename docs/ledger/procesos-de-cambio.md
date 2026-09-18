@@ -3,27 +3,29 @@ Index: ~/Projects/pm-workflow/ledgers/PROC.json (machine copy; keep both in sync
 Converted from Mini proc-coordination-20260910/LEDGER.md + CURRENT.md + MAPA on 2026-09-17 (v1 format, see ~/Projects/pm-workflow/LEDGER-FORMAT.md). The original stays in place until every reference points here.
 
 ## Now
-PROC-01 ran the archived-evaluations browser check on local synthetic fixtures (pass, fixtures cleaned up) and needs one more executor session for final validation and the report. Full E2E is still red (52 failures); cancellation design, consultor access and B5 wait on decisions and integration onto current main.
+
+PROC-03's documentation-only numeric audit closure is APPROVED_WITH_NOTES. The repository review request records the evidence and five unresolved findings; the parent numeric feature remains held and unfinished. The next approved split step is PROC-04: offline browser-fixture specification and synthetic guard tests, with no database or browser execution. PROC-02's four attempts and unfinished browser plan remain preserved as history, not approved instructions. No product or database changes were made, and nothing has been published. Other workstream triage remains as recorded below.
 
 ## Items
 | id | title | status | unit | updated | notes |
 |---|---|---|---|---|---|
 | PROC-E2E-AUTH | Autenticación de pruebas E2E: clasificación de personas y registros corregidos | done |  | 2026-09-10 |  |
 | PROC-PROPOSAL-LIBRARIES | Bibliotecas de propuestas: páginas, guardias de carga y pruebas | done |  | 2026-09-10 |  |
-| PROC-NUMERIC-VALIDATION | Validación de valores numéricos: límites y pasos, aceptación dentro del conjunto | todo |  | 2026-09-10 |  |
-| PROC-B5-VERSIONING | B5 versiones e historia: detección en indicadores y grados, crear/seleccionar versiones y conectar la aplicación | todo |  | 2026-09-10 |  |
-| PROC-B5-CONCURRENCY | B5: ensayo real de ediciones simultáneas (sospecha de interbloqueo) | blocked |  | 2026-09-10 |  |
-| PROC-B5-PGTAP-RENUMBER | B5: renumerar las pruebas pgTAP (081 duplicado con 081-zoom-explicit-roster.sql de main) | todo |  | 2026-09-16 |  |
-| PROC-CONSULTOR-C0 | Consultores C0: sin escrituras en Plan de Migración (guardia de contraseña, API, pantalla de solo lectura) | todo |  | 2026-09-10 |  |
-| PROC-CONSULTOR-C1 | Consultores C1: lectura de Contexto Transversal y Plan en todas las escuelas (matriz de roles, API, pantalla) | todo |  | 2026-09-10 |  |
-| PROC-CONSULTOR-DASHBOARD-INTEGRATION | Consultores: integrar la política de permisos en el dashboard | blocked |  | 2026-09-10 |  |
+| PROC-NUMERIC-VALIDATION | Validación de valores numéricos: límites y pasos, aceptación dentro del conjunto | held | PROC-02 | 2026-09-17 |  |
+| PROC-B5-VERSIONING | B5 versiones e historia: detección en indicadores y grados, crear/seleccionar versiones y conectar la aplicación | todo |  | 2026-09-17 |  |
+| PROC-B5-CONCURRENCY | B5: ensayo real de ediciones simultáneas (sospecha de interbloqueo) | waiting |  | 2026-09-17 |  |
+| PROC-B5-PGTAP-RENUMBER | B5: renumerar las pruebas pgTAP (081 duplicado con 081-zoom-explicit-roster.sql de main) | todo |  | 2026-09-16 | 081 collision confirmed; renaming untracked SQL requires bounded integration approval. |
+| PROC-CONSULTOR-C0 | Consultores C0: sin escrituras en Plan de Migración (guardia de contraseña, API, pantalla de solo lectura) | waiting |  | 2026-09-17 |  |
+| PROC-CONSULTOR-C1 | Consultores C1: lectura de Contexto Transversal y Plan en todas las escuelas (matriz de roles, API, pantalla) | todo |  | 2026-09-17 |  |
+| PROC-CONSULTOR-DASHBOARD-INTEGRATION | Consultores: integrar la política de permisos en el dashboard | blocked |  | 2026-09-17 |  |
 | PROC-LIFECYCLE-ARCHIVE-ACTION | Ciclo de vida: la API de archivo rechaza acciones inválidas | done |  | 2026-09-10 |  |
-| PROC-LIFECYCLE-ARCHIVED-LIST | Evaluaciones archivadas: listado, filtro y vista de solo consulta verificados en navegador | done | PROC-01 | 2026-09-17 |  |
-| PROC-LIFECYCLE-CANCELLATION | Ciclo de vida: cancelación explícita solo por administradores, conservando versión, respuestas e historia | todo |  | 2026-09-11 |  |
-| PROC-FULL-SUITE-PUBLICATION | Integrar con main, resolver la batería completa (308/52/12), revisar y publicar el conjunto | todo |  | 2026-09-10 |  |
-| PROC-HISTORICAL-DATA | Datos históricos: corregir asignaciones antiguas inválidas sin borrar historia (decisiones de Brent pendientes) | blocked |  | 2026-09-10 |  |
-| PROC-PILOT | Piloto: datos reales aprobados y prueba supervisada directivo → curso → docente → entrega → resultados | blocked |  | 2026-09-10 |  |
+| PROC-LIFECYCLE-ARCHIVED-LIST | Evaluaciones archivadas: listado, filtro y vista de solo consulta verificados en navegador | done | PROC-01 | 2026-09-17 | DONE LOCALLY: reviewed and committed in PROC-01; no publication. |
+| PROC-LIFECYCLE-CANCELLATION | Ciclo de vida: cancelación explícita solo por administradores, conservando versión, respuestas e historia | todo |  | 2026-09-17 |  |
+| PROC-FULL-SUITE-PUBLICATION | Integrar con main, resolver la batería completa (308/52/12), revisar y publicar el conjunto | blocked |  | 2026-09-17 |  |
+| PROC-HISTORICAL-DATA | Datos históricos: corregir asignaciones antiguas inválidas sin borrar historia (decisiones de Brent pendientes) | waiting |  | 2026-09-17 |  |
+| PROC-PILOT | Piloto: datos reales aprobados y prueba supervisada directivo → curso → docente → entrega → resultados | waiting |  | 2026-09-17 |  |
 | PROC-CALIBRATION | Calibración, expectativas y afirmaciones sobre resultados (aplazado por Brent) | held |  | 2026-09-10 |  |
+| PROC-NUMERIC-AUDIT-CLOSURE | Close the numeric audit evidence; feature acceptance remains open | done | PROC-03 | 2026-09-17 |  |
 
 ## Events (append-only, newest last)
 - 2026-09-10T02:10+00:00 · PM · RECORD · COORDINATED authorized by user. Claude Fable5.1 discovery01 stopped at context boundary, no edits, exit143. Discovery02 fresh restricted intake running. Independent PM portability/raw-report/trace checkpoint written; ful
@@ -230,3 +232,18 @@ PROC-01 ran the archived-evaluations browser check on local synthetic fixtures (
 - 2026-09-17T13:09:33-03:00 · PROC-01 · IN-PROGRESS · Independent r0 review requires cleanup-commit recovery, real list-card test collection, and unit environment isolation; round 1 bounded remediation.
 - 2026-09-17T14:01:45-03:00 · PROC-01 · IN-PROGRESS · Independent r1 review verified cleanup and browser journeys; r2 limited to making full jsdom test coverage reproducible in the RUN-only gate wrapper and documenting it.
 - 2026-09-17T14:18:44-03:00 · PROC-01 · DONE · APPROVED_WITH_NOTES: archived-list local browser97 and independent tablet9 passed; exact test fixtures removed, complete436-file unit gate passed via documented local runner; protected source untouched, broader phase and
+- 2026-09-17T15:47:43-03:00 · PROC-02 · TODO · Ready for proposed PROC-02 independent numeric audit; 7 implementation files unchanged. Browser acceptance and publication remain pending.
+- 2026-09-17T15:47:43-03:00 · PM · BLOCKED · Partial guard implementation; completion needs remaining components, concurrent-write proof and app integration. Historical stops preserved.
+- 2026-09-17T15:47:43-03:00 · PM · BLOCKED · Partial local implementation; password guard, API and read-only screen remain pending under prior stops. Needs bounded recovery approval.
+- 2026-09-17T15:47:44-03:00 · PM · BLOCKED · List and dormant capability code exist; SQL role proof, API and dashboard integration remain pending. Prior stops preserved.
+- 2026-09-17T15:47:44-03:00 · PM · BLOCKED · Policy resolved; design still requires replan for isolation visibility, lock order, compatibility and sizing. No implementation ready.
+- 2026-09-17T15:47:44-03:00 · PM · BLOCKED · Release not ready: integration and acceptance incomplete; historical full E2E52 failures remain unresolved, distinct from green unit tests.
+- 2026-09-17T15:47:44-03:00 · PM · READY · PROC-02 numeric review-only audit proposed; see runs/PROC-02/readiness-plan.md. Archived-list unit committed locally; no next executor launched.
+- 2026-09-17T15:59:57-03:00 · PROC-02 · IN-PROGRESS · Brent approved PROC-02 numeric audit and browser acceptance planning; source fixes and fixture writes excluded; feature acceptance remains pending.
+- 2026-09-17T17:06:52-03:00 · PM · TODO · PROC-B5-VERSIONING is todo again: not blocked, ordinary unfinished work (triage 2026-09-17)
+- 2026-09-17T17:06:52-03:00 · PM · TODO · PROC-CONSULTOR-C1 is todo again: not blocked, ordinary unfinished work (triage 2026-09-17)
+- 2026-09-17T17:06:52-03:00 · PM · TODO · PROC-LIFECYCLE-CANCELLATION is todo again: not blocked, ordinary unfinished work (triage 2026-09-17)
+- 2026-09-17T19:08:04-03:00 · PROC-02 · WAITING · PROC-02 final review: numeric evidence complete; browser fixture recovery remains unapproved after final correction round. Proposed split saved in completion-plan.md.
+- 2026-09-17T21:42:12-03:00 · PROC-02 · HELD · PROC-02 replanned: too big for one unit; split into smaller units (RUN/pm-replan-required.md)
+- 2026-09-17T21:47:31-03:00 · PROC-03 · IN-PROGRESS · Brent authorized fixing the missing ledger anchor. Registration repaired; approved audit-closure child can start, with no product or DB changes.
+- 2026-09-17T22:06:08-03:00 · PROC-03 · DONE · APPROVED_WITH_NOTES: numeric audit evidence consolidated and independently reviewed; feature/UI acceptance remains open. Documentation only; no source or database changes.

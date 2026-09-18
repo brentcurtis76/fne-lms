@@ -1267,3 +1267,181 @@ describe('SM-07 unrecorded session hours', () => {
     expect(capturedBlob).toBeNull();
   });
 });
+
+// ============================================================
+// SM-08 / A14-4-F05 — a category whose session list stops at 500 says so
+// ============================================================
+
+/** The exact notice, pinned here as a literal so a reworded constant fails this suite. */
+const PARTIAL_NOTICE =
+  'Detalle parcial: se muestran las 500 sesiones más recientes de esta categoría. ' +
+  'Hay sesiones anteriores no incluidas. Los totales de horas corresponden al registro ' +
+  'completo, no solo a estas filas.';
+const PARTIAL_ROW = 'Aviso de detalle parcial';
+const NOTICE_TESTID = 'bucket-partial-detail-notice';
+
+/** A category name carrying a comma, a quote and accents — the file must survive all three. */
+const AWKWARD_CATEGORY = 'Acompañamiento "intensivo", nivel 2';
+
+/**
+ * The parent contract with two categories: the first one truncated, the second complete.
+ * Nothing about the four totals moves — they cover the whole record either way.
+ */
+function makeReportWithTruncatedBucket(categoryName = 'Asesoria Tecnica'): SchoolReportData {
+  const report = makeReport();
+  const parent = report.programs[0].contracts[0];
+  parent.buckets[0].display_name = categoryName;
+  parent.buckets[0].sessions_truncated = true;
+  parent.buckets.push({
+    hour_type_key: 'talleres_presenciales',
+    display_name: 'Talleres Presenciales',
+    allocated: 12,
+    reserved: 0,
+    consumed: 2,
+    available: 10,
+    is_fixed: false,
+    annex_hours: 0,
+    sessions_truncated: false,
+    sessions: [
+      {
+        session_id: 's0000000-0000-4000-8000-00000000000d',
+        title: 'Taller completo uno',
+        date: '2026-09-01',
+        consultant_name: 'Tallerista Sintetica',
+        hours: 1,
+        status: 'consumida',
+        is_over_budget: false,
+        attendance: null,
+      },
+      {
+        session_id: 's0000000-0000-4000-8000-00000000000e',
+        title: 'Taller completo dos',
+        date: '2026-09-02',
+        consultant_name: 'Tallerista Sintetica',
+        hours: 1,
+        status: 'consumida',
+        is_over_budget: false,
+        attendance: null,
+      },
+    ],
+  });
+  return report;
+}
+
+describe('SM-08 partial session detail', () => {
+  it('UI1 shows the notice on the truncated category while the detail is collapsed', async () => {
+    await renderReport(makeReportWithTruncatedBucket());
+
+    // No row of the table is on screen yet — this is the reader who never expands, and
+    // the one who would otherwise take the 500 rows for the whole record.
+    expect(screen.queryByText('Sesion consumida')).not.toBeInTheDocument();
+
+    const notices = screen.getAllByTestId(NOTICE_TESTID);
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toHaveTextContent(PARTIAL_NOTICE);
+
+    // On the truncated card, and not on the complete one beside it.
+    const card = notices[0].closest('div.bg-white') as HTMLElement;
+    expect(within(card).getByText('Asesoria Tecnica')).toBeInTheDocument();
+    expect(within(card).queryByText('Talleres Presenciales')).not.toBeInTheDocument();
+  });
+
+  it('UI1 keeps the notice and the existing session count once the detail is expanded', async () => {
+    const user = userEvent.setup();
+    await renderReport(makeReportWithTruncatedBucket());
+    await expandFirstBucket(user);
+
+    expect(screen.getAllByTestId(NOTICE_TESTID)).toHaveLength(1);
+    // The button still counts the rows it actually shows; the notice is not a session.
+    expect(screen.getByRole('button', { name: /Ver Detalle \(4 sesiones\)|Ocultar \(4 sesiones\)/ }))
+      .toBeInTheDocument();
+    expect(screen.getByText('Sesion consumida')).toBeInTheDocument();
+  });
+
+  it('UI1/D5 shows no notice at all when every category is complete', async () => {
+    const user = userEvent.setup();
+    await renderReport(makeReport());
+
+    expect(screen.queryByTestId(NOTICE_TESTID)).not.toBeInTheDocument();
+    const rows = csvRows(await downloadCsv(user));
+    expect(rows.some((r) => r['Tipo de fila'] === PARTIAL_ROW)).toBe(false);
+    expect(rows).toHaveLength(5);
+  });
+
+  it('D4 writes exactly one notice row ahead of the truncated category, every other cell blank', async () => {
+    const user = userEvent.setup();
+    await renderReport(makeReportWithTruncatedBucket());
+
+    const csv = await downloadCsv(user);
+    // The file shape does not move: same header line, same seventeen columns.
+    expect(csvHeaderLine(csv)).toBe(CSV_HEADER);
+    const rows = csvRows(csv);
+    // summary + notice + the truncated category's four sessions + the complete two.
+    expect(rows).toHaveLength(8);
+    expect(rows[0]['Tipo de fila']).toBe(SUMMARY_ROW);
+
+    expect(rows.filter((r) => r['Tipo de fila'] === PARTIAL_ROW)).toHaveLength(1);
+    expect(rows[1]).toEqual(expectedRow({
+      Programa: 'Programa Sintetico Alfa',
+      Contrato: PARENT_NUMERO,
+      'Categoría': 'Asesoria Tecnica',
+      'Título': PARTIAL_NOTICE,
+      'Tipo de fila': PARTIAL_ROW,
+    }));
+    // It sits immediately before the rows it qualifies, and is never one of them.
+    expect(rows[2]['Título']).toBe('Sesion consumida');
+    expect(rows.filter((r) => r['Tipo de fila'] === 'Sesión')).toHaveLength(6);
+
+    // No hour, status or total cell anywhere on it — nothing a spreadsheet can add up.
+    for (const column of ['Horas de sesión', 'Estado', 'Sobre Presupuesto', 'Fecha',
+      'Horas contratadas', 'Horas consumidas', 'Horas reservadas', 'Horas disponibles',
+      TYPE_COLUMN] as const) {
+      expect(rows[1][column]).toBe('');
+    }
+  });
+
+  it('D4 adds no notice row for the complete category in the same file', async () => {
+    const user = userEvent.setup();
+    await renderReport(makeReportWithTruncatedBucket());
+
+    const rows = csvRows(await downloadCsv(user));
+    const talleres = rows.filter((r) => r['Categoría'] === 'Talleres Presenciales');
+    expect(talleres).toHaveLength(2);
+    expect(talleres.every((r) => r['Tipo de fila'] === 'Sesión')).toBe(true);
+  });
+
+  it('D4 keeps a comma, a quote and accents in the notice row readable as cells', async () => {
+    const user = userEvent.setup();
+    await renderReport(makeReportWithTruncatedBucket(AWKWARD_CATEGORY));
+
+    const rows = csvRows(await downloadCsv(user));
+    expect(rows[1]['Categoría']).toBe(AWKWARD_CATEGORY);
+    expect(rows[1]['Título']).toBe(PARTIAL_NOTICE);
+    // Read back through the quoting-aware reader, the table is still rectangular above.
+    expect(rows[2]['Categoría']).toBe(AWKWARD_CATEGORY);
+  });
+
+  it('D5/UI2 drops the notice when the reader switches to a complete contract', async () => {
+    const user = userEvent.setup();
+    await renderReport(makeReportWithTruncatedBucket());
+    expect(screen.getAllByTestId(NOTICE_TESTID)).toHaveLength(1);
+
+    await user.selectOptions(screen.getByLabelText('Contrato:'), ANNEX_ID);
+    expect(screen.queryByTestId(NOTICE_TESTID)).not.toBeInTheDocument();
+
+    // And the annex's own export carries no notice row either.
+    const rows = csvRows(await downloadCsv(user));
+    expect(rows.some((r) => r['Tipo de fila'] === PARTIAL_ROW)).toBe(false);
+    expect(rows[0].Contrato).toBe(ANNEX_NUMERO);
+  });
+
+  it('D5 shows no notice and emits no file when the report itself failed', async () => {
+    mockFetchOnce({ error: 'boom' }, { ok: false, status: 500 });
+    render(<SchoolHoursReport schoolId={SCHOOL_ID} isAdmin={false} />);
+    await screen.findByText(/Error/);
+
+    expect(screen.queryByTestId(NOTICE_TESTID)).not.toBeInTheDocument();
+    expect(screen.queryByText(PARTIAL_NOTICE)).not.toBeInTheDocument();
+    expect(capturedBlob).toBeNull();
+  });
+});

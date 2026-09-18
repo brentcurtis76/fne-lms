@@ -171,21 +171,27 @@ function literalStrings(content: string): string[] {
   return strings;
 }
 
-/** Strict pdf-lib parse; the text is every page's content-stream strings (jsPDF leaves them uncompressed). */
-async function pdfText(bytes: Buffer): Promise<{ pages: number; text: string }> {
+/**
+ * Strict pdf-lib parse; the text is every page's content-stream strings (jsPDF leaves them
+ * uncompressed). `pageTexts` keeps them separated per page, so an assertion can ask what a
+ * reader who lands on page 9 of a long table actually sees.
+ */
+async function pdfText(bytes: Buffer): Promise<{ pages: number; text: string; pageTexts: string[] }> {
   const doc = await PDFDocument.load(bytes, STRICT_LOAD);
-  const strings: string[] = [];
+  const pageTexts: string[] = [];
   for (const page of doc.getPages()) {
     const contents = page.node.Contents();
     const streams = contents instanceof PDFArray
       ? contents.asArray().map((ref) => doc.context.lookup(ref))
       : [contents];
+    const strings: string[] = [];
     for (const stream of streams) {
       if (!(stream instanceof PDFRawStream)) throw new Error('page content is not a raw stream');
       strings.push(...literalStrings(Buffer.from(decodePDFRawStream(stream).decode()).toString('latin1')));
     }
+    pageTexts.push(strings.join('\n'));
   }
-  return { pages: doc.getPageCount(), text: strings.join('\n') };
+  return { pages: doc.getPageCount(), text: pageTexts.join('\n'), pageTexts };
 }
 
 const REGULAR_NUMERO = 'CTR-2026-001';
@@ -419,8 +425,14 @@ describe('GET /api/school-hours-report/[school_id]/pdf', () => {
     await handler(req as never, res as never);
     const bytes = pdfBytes(res);
     expect(xrefProblems(bytes)).toEqual([]);
-    const { text } = await pdfText(bytes);
-    return { raw: text, packed: text.replace(/\s+/g, ''), res };
+    const { text, pages, pageTexts } = await pdfText(bytes);
+    return {
+      raw: text,
+      packed: text.replace(/\s+/g, ''),
+      pages,
+      packedPages: pageTexts.map((t) => t.replace(/\s+/g, '')),
+      res,
+    };
   }
 
   it('SM-07 names an unrecorded session and the origin of its number in the Estado cell', async () => {
@@ -460,6 +472,90 @@ describe('GET /api/school-hours-report/[school_id]/pdf', () => {
     expect(packed).not.toContain('Sinregistro\u2026');
     // The page still parses strictly and the row's own number is intact beside it.
     expect(packed).toContain('1.50Sinregistrodehoras(horasprogramadas)');
+  });
+
+  // ---- SM-08 / A14-4-F05: a category whose session list stops at 500 ----
+
+  /** The exact notice, pinned as a literal so a reworded constant fails this suite. */
+  const PARTIAL_NOTICE =
+    'Detalle parcial: se muestran las 500 sesiones más recientes de esta categoría. ' +
+    'Hay sesiones anteriores no incluidas. Los totales de horas corresponden al registro ' +
+    'completo, no solo a estas filas.';
+  const PACKED_NOTICE = PARTIAL_NOTICE.replace(/\s+/g, '');
+  /** The session table's own column headings, as they are drawn. */
+  const PACKED_SESSION_HEAD = 'FechaConsultorTítuloHorasEstadoAsistencia'.replace(/\s+/g, '');
+
+  /** The regular contract's only category, filled to the cap and flagged as truncated. */
+  function reportWithTruncatedBucket() {
+    const report = reportWithRegularAndAnnex();
+    const bucket = (report.programs[0] as {
+      contracts: { buckets: Record<string, unknown>[] }[];
+    }).contracts[0].buckets[0];
+    bucket.sessions_truncated = true;
+    bucket.sessions = Array.from({ length: 500 }, (_, i) => ({
+      session_id: `550e8400-e29b-41d4-a716-4466554${String(i).padStart(5, '0')}`,
+      title: `Sesion sintetica ${String(i).padStart(3, '0')}`,
+      date: '2026-05-04',
+      consultant_name: 'Consultora Sintetica',
+      hours: 0,
+      status: 'consumida',
+      attendance: null,
+    }));
+    return report;
+  }
+
+  it('SM-08 attaches the partial-detail notice to the session table on EVERY page it spans', async () => {
+    const { packed, pages, packedPages } = await pdfTextFor(reportWithTruncatedBucket());
+
+    // 500 rows at 7pt do not fit on one A4 page; the notice must survive the break.
+    expect(pages).toBeGreaterThan(1);
+    expect(packed).toContain(PACKED_NOTICE);
+
+    // autoTable repeats the head, so the notice is drawn immediately above the column
+    // headings on every page the table reaches — never once, at the top, and gone.
+    const tablePages = packedPages.filter((p) => p.includes(PACKED_SESSION_HEAD));
+    expect(tablePages.length).toBeGreaterThan(1);
+    for (const page of tablePages) {
+      expect(page).toContain(`${PACKED_NOTICE}${PACKED_SESSION_HEAD}`);
+    }
+  });
+
+  it('SM-08 wraps the notice instead of clipping it, and still emits a strictly valid PDF', async () => {
+    const { raw, packed } = await pdfTextFor(reportWithTruncatedBucket());
+
+    // Every word survives the wrap; nothing is replaced by an ellipsis.
+    for (const word of ['Detalle', 'parcial:', 'sesiones', 'recientes', 'anteriores', 'filas.']) {
+      expect(raw).toContain(word);
+    }
+    expect(packed).not.toContain('Detalleparcial:semuestran\u2026');
+    // The rows it qualifies are all there, first and last alike.
+    expect(packed).toContain('Sesionsintetica000');
+    expect(packed).toContain('Sesionsintetica499');
+    // The contract's own totals are untouched by a category that stops short.
+    expect(packed).toContain('60.03.02.055.0');
+    expect(packed).toContain('AsesoriaTecnica50.02.03.045.0+10.0');
+  });
+
+  it('SM-08 prints no notice when the category is complete', async () => {
+    const { packed } = await pdfTextFor(reportWithRegularAndAnnex());
+
+    expect(packed).not.toContain(PACKED_NOTICE);
+    expect(packed).not.toContain('Detalleparcial');
+    // The unflagged table is otherwise exactly what it was.
+    expect(packed).toContain('ConsultoraSinteticaSesionconsumida3.00consumida');
+  });
+
+  it('SM-08 emits no PDF and no notice when the report read itself fails', async () => {
+    setupAuth(DIRECTIVO_UUID, 'equipo_directivo', SCHOOL_ID);
+    mockFetchSchoolReportData.mockRejectedValue(
+      new Error('No se pudieron obtener las sesiones del bucket "asesoria_tecnica_presencial"')
+    );
+
+    const { req, res } = createMocks({ method: 'GET', query: { school_id: String(SCHOOL_ID) } });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(500);
+    expect(String(res._getData())).not.toContain('Detalle parcial');
   });
 
   it('SM-07 emits no PDF and no label when the report read itself fails', async () => {

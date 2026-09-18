@@ -13,6 +13,7 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ReportExporter } from '../../lib/exportUtils';
+import { PARTIAL_SESSION_DETAIL_NOTICE } from '../../lib/types/hour-tracking.types';
 import type { SchoolReportData, ProgramGroup, ContractSummary, BucketWithSessions, SessionDetail } from '../../lib/types/hour-tracking.types';
 
 // ============================================================
@@ -213,6 +214,18 @@ function BucketCard({ bucket }: { bucket: BucketWithSessions }) {
       <div className="text-xs text-gray-500 text-center mb-2">
         {bucket.consumed.toFixed(1)} / {bucket.allocated.toFixed(1)} horas
       </div>
+
+      {/* Outside the collapsible detail on purpose: a reader who never expands the list is
+          exactly the one who would otherwise read the 500 rows as the whole record. */}
+      {bucket.sessions_truncated && (
+        <div
+          data-testid="bucket-partial-detail-notice"
+          className="flex items-start gap-1.5 mb-2 p-2 rounded bg-yellow-50 border border-yellow-200 text-[11px] leading-tight text-yellow-900"
+        >
+          <AlertTriangle className="h-3 w-3 flex-shrink-0 mt-0.5" aria-hidden="true" />
+          <p>{PARTIAL_SESSION_DETAIL_NOTICE}</p>
+        </div>
+      )}
 
       {bucket.sessions.length > 0 && (
         <button
@@ -520,6 +533,20 @@ export default function SchoolHoursReport({ schoolId, isAdmin, schoolName: initi
         // Add a row even for empty buckets
         rows.push({ ...identity, 'Categoría': bucket.display_name, ...blankSession, 'Tipo de fila': 'Categoría sin sesiones', ...blankTotals, 'Tipo de contrato': '' });
       } else {
+        // One notice row ahead of the rows it qualifies, carrying nothing but its identity
+        // and the text: every hour, status and total cell stays blank so no reader and no
+        // spreadsheet can total it as a session.
+        if (bucket.sessions_truncated) {
+          rows.push({
+            ...identity,
+            'Categoría': bucket.display_name,
+            ...blankSession,
+            'Título': PARTIAL_SESSION_DETAIL_NOTICE,
+            'Tipo de fila': 'Aviso de detalle parcial',
+            ...blankTotals,
+            'Tipo de contrato': '',
+          });
+        }
         for (const session of bucket.sessions) {
           rows.push({
             ...identity,

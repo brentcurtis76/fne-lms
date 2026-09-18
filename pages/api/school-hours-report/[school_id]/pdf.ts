@@ -26,6 +26,7 @@ import {
 } from '../../../../lib/api-auth';
 import { getUserRoles, getHighestRole } from '../../../../utils/roleUtils';
 import { fetchSchoolReportData } from '../../../../lib/services/school-hours-report';
+import { PARTIAL_SESSION_DETAIL_NOTICE } from '../../../../lib/types/hour-tracking.types';
 import type { ContractSummary, ProgramGroup } from '../../../../lib/types/hour-tracking.types';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -275,9 +276,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             s.attendance ? `${s.attendance.attended}/${s.attendance.expected}` : '—',
           ]);
 
+          // The notice is the table's first head row rather than free text above it, so
+          // autoTable owns its wrapping and its page breaks: it repeats with the column
+          // headings on every page the 500 rows spill onto, and a reader who lands on
+          // page 9 still sees why the list stops where it does.
+          const noticeHead = bucket.sessions_truncated
+            ? [[{
+                content: PARTIAL_SESSION_DETAIL_NOTICE,
+                colSpan: 6,
+                styles: {
+                  fillColor: [254, 243, 199] as [number, number, number],
+                  textColor: [120, 53, 15] as [number, number, number],
+                  fontStyle: 'normal' as const,
+                  halign: 'left' as const,
+                },
+              }]]
+            : [];
+
           autoTable(doc, {
             startY: cursorY,
-            head: [['Fecha', 'Consultor', 'Título', 'Horas', 'Estado', 'Asistencia']],
+            head: [...noticeHead, ['Fecha', 'Consultor', 'Título', 'Horas', 'Estado', 'Asistencia']],
             body: sessionRows,
             headStyles: { fillColor: [100, 100, 100], textColor: [255, 255, 255], fontSize: 7 },
             alternateRowStyles: { fillColor: [250, 250, 250] },

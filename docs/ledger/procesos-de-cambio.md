@@ -4,7 +4,7 @@ Converted from Mini proc-coordination-20260910/LEDGER.md + CURRENT.md + MAPA on 
 
 ## Now
 
-PROC-05 receipt-parent integrity is independently approved: 54 model tests and independent counterexamples pass. Brent approved a limited baseline-build exception for the two offline completion steps; the application build remains RED, and the numeric feature remains held. Next is the already-approved final offline contract/result reconciliation. PROC-04 remains held until that finishing step closes its original model item; every previous attempt is preserved. No product/database/browser acceptance or publication is claimed.
+The two approved offline completion steps are finished: PROC-05 repaired receipt-parent integrity and PROC-06 reconciled the contract and generated result, independently approved with 54 model tests passing and protected product files unchanged. The original offline model item is done; all earlier attempts remain preserved. The numeric feature remains held: real local database/browser validation and cleanup proof still need a separately authorized unit. The application build remains RED; the limited exception expires with these offline steps. Nothing has been pushed, deployed or accepted as live behavior. Remaining ready implementation items touch protected files, permissions or database behavior and are not eligible for unattended low-risk start.
 
 ## Items
 | id | title | status | unit | updated | notes |
@@ -26,9 +26,9 @@ PROC-05 receipt-parent integrity is independently approved: 54 model tests and i
 | PROC-PILOT | Piloto: datos reales aprobados y prueba supervisada directivo → curso → docente → entrega → resultados | waiting |  | 2026-09-17 |  |
 | PROC-CALIBRATION | Calibración, expectativas y afirmaciones sobre resultados (aplazado por Brent) | held |  | 2026-09-10 |  |
 | PROC-NUMERIC-AUDIT-CLOSURE | Close the numeric audit evidence; feature acceptance remains open | done | PROC-03 | 2026-09-17 |  |
-| PROC-NUMERIC-FIXTURE-MODEL | Offline numeric browser-fixture contract and guard model | held | PROC-04 | 2026-09-18 |  |
+| PROC-NUMERIC-FIXTURE-MODEL | Offline numeric browser-fixture contract and guard model | done | PROC-06 | 2026-09-18 |  |
 | PROC-FIXTURE-PARENT-INTEGRITY | Validate restored receipt parent references in the offline model | done | PROC-05 | 2026-09-18 |  |
-| PROC-FIXTURE-EVIDENCE-CLOSURE | Reconcile final offline fixture contract and result evidence | todo |  | 2026-09-18 |  |
+| PROC-FIXTURE-EVIDENCE-CLOSURE | Reconcile final offline fixture contract and result evidence | done | PROC-06 | 2026-09-18 |  |
 
 ## Events (append-only, newest last)
 - 2026-09-10T02:10+00:00 · PM · RECORD · COORDINATED authorized by user. Claude Fable5.1 discovery01 stopped at context boundary, no edits, exit143. Discovery02 fresh restricted intake running. Independent PM portability/raw-report/trace checkpoint written; ful
@@ -258,3 +258,6 @@ PROC-05 receipt-parent integrity is independently approved: 54 model tests and i
 - 2026-09-18T07:10:13-03:00 · PROC-05 · WAITING · Independent review passed all model checks; closure awaits a scoped decision on the unchanged application build failure, with no product or database authority implied.
 - 2026-09-18T07:11:42-03:00 · PROC-05 · DONE · Receipt-parent integrity independently approved:54tests and independent probes pass; Brent granted scoped offline build exception, and final contract/result reconciliation remains separate.
 - 2026-09-18T07:11:42-03:00 · PM · TODO · PROC-FIXTURE-EVIDENCE-CLOSURE is free again: PROC-FIXTURE-PARENT-INTEGRITY finished.
+- 2026-09-18T07:20:35-03:00 · PROC-06 · IN-PROGRESS · Approved split final step starts after PROC-05 acceptance; reconcile external fixture contract/results with frozen model and retain the explicit baseline-build exception.
+- 2026-09-18T08:56:41-03:00 · PROC-06 · DONE · Independent r2 review approved final offline contract and result; 54 model tests pass, protected files unchanged, live numeric validation remains held.
+- 2026-09-18T08:56:44-03:00 · PROC-06 · DONE · Approved split steps PROC-05 and PROC-06 complete the original offline model outcome; historical attempts preserved, numeric feature and live acceptance remain held.

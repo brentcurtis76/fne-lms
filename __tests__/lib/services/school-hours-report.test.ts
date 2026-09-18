@@ -199,7 +199,28 @@ function project(select: string, row: Row): Row {
 
 type Filter = { column: string; kind: 'eq' | 'in'; value: unknown; values?: unknown[] };
 
-type QueryLog = { table: string; select: string; filters: Filter[]; order: string | null };
+type QueryLog = {
+  table: string;
+  select: string;
+  filters: Filter[];
+  /** The PRIMARY sort column, i.e. the first `.order()` — unchanged by any tie-break. */
+  order: string | null;
+  /** Every `.order()` in the order it was chained, as `column:asc|desc`. */
+  orders: string[];
+  limit: number | null;
+  range: { from: number; to: number } | null;
+};
+
+/** What a server does to one `consultor_sessions` request instead of answering it. */
+type SessionPageFault =
+  | { kind: 'error'; error: PgError }
+  | { kind: 'throw'; message: string }
+  /** A 200 whose body is not a list of rows. */
+  | { kind: 'malformed' }
+  /** Hands back the previous page again — a server that never advances. */
+  | { kind: 'repeat' }
+  /** Answers with `rows` fresh rows from the offset asked for, ignoring the window's end. */
+  | { kind: 'overflow'; rows: number };
 
 type ClientOptions = {
   schools?: Row[];
@@ -213,10 +234,21 @@ type ClientOptions = {
   schemaOverrides?: Record<string, TableDef>;
   /** Makes `get_bucket_summary` fail — the RPC has no select string to break. */
   bucketError?: PgError;
+  /**
+   * Server row cap per `consultor_sessions` request, regardless of the range asked for.
+   * PostgREST's `max-rows` does exactly this, and it is what makes a page short.
+   */
+  serverMaxRows?: number;
+  /** Fault for the Nth `consultor_sessions` request of the whole run (1-based). */
+  sessionFaults?: Record<number, SessionPageFault>;
 };
 
 function buildClient(options: ClientOptions, log: QueryLog[]) {
   const schema = { ...BASE_SCHEMA, ...(options.schemaOverrides ?? {}) };
+  // Request-scoped server state: which `consultor_sessions` request this is, and what the
+  // previous one answered, so a repeated page can be replayed exactly.
+  let sessionRequests = 0;
+  let lastSessionPage: Row[] = [];
 
   const tables: Record<string, Row[]> = {
     schools: options.schools ?? [],
@@ -231,7 +263,10 @@ function buildClient(options: ClientOptions, log: QueryLog[]) {
     const rows = tables[table] ?? [];
     const filters: Filter[] = [];
     let selectStr = '*';
-    let orderBy: { column: string; ascending: boolean } | null = null;
+    // PostgREST applies every `.order()` in the order it was chained: the first decides,
+    // the rest break its ties. The double used to keep only the last, so a tie-break could
+    // not be told from a replaced primary sort.
+    const orderBy: Array<{ column: string; ascending: boolean }> = [];
     let rowLimit: number | null = null;
     let rowRange: { from: number; to: number } | null = null;
 
@@ -240,7 +275,10 @@ function buildClient(options: ClientOptions, log: QueryLog[]) {
         table,
         select: selectStr,
         filters: [...filters],
-        order: orderBy?.column ?? null,
+        order: orderBy[0]?.column ?? null,
+        orders: orderBy.map((o) => `${o.column}:${o.ascending ? 'asc' : 'desc'}`),
+        limit: rowLimit,
+        range: rowRange === null ? null : { ...rowRange },
       });
 
       const def = schema[table];
@@ -260,11 +298,13 @@ function buildClient(options: ClientOptions, log: QueryLog[]) {
           };
         }
       }
-      if (orderBy && !def.columns.includes(orderBy.column)) {
-        return {
-          data: null,
-          error: pgError('42703', `column ${table}.${orderBy.column} does not exist`),
-        };
+      for (const sort of orderBy) {
+        if (!def.columns.includes(sort.column)) {
+          return {
+            data: null,
+            error: pgError('42703', `column ${table}.${sort.column} does not exist`),
+          };
+        }
       }
 
       let matched = rows.filter((row) =>
@@ -275,20 +315,41 @@ function buildClient(options: ClientOptions, log: QueryLog[]) {
         )
       );
 
-      if (orderBy) {
-        const { column, ascending } = orderBy;
+      if (orderBy.length > 0) {
         matched = [...matched].sort((a, b) => {
-          const left = a[column];
-          const right = b[column];
-          if (left === right) return 0;
-          if (left === null || left === undefined) return 1;
-          if (right === null || right === undefined) return -1;
-          return (left < right ? -1 : 1) * (ascending ? 1 : -1);
+          for (const { column, ascending } of orderBy) {
+            const left = a[column];
+            const right = b[column];
+            if (left === right) continue;
+            // NULLS LAST in either direction, as before.
+            if (left === null || left === undefined) return 1;
+            if (right === null || right === undefined) return -1;
+            return (left < right ? -1 : 1) * (ascending ? 1 : -1);
+          }
+          return 0;
         });
       }
 
       if (rowLimit !== null) matched = matched.slice(0, rowLimit);
+      const beforeRange = matched;
       if (rowRange !== null) matched = matched.slice(rowRange.from, rowRange.to + 1);
+
+      if (table === 'consultor_sessions') {
+        sessionRequests += 1;
+        const fault = options.sessionFaults?.[sessionRequests];
+        if (fault?.kind === 'error') return { data: null, error: fault.error };
+        if (fault?.kind === 'throw') throw new Error(fault.message);
+        if (fault?.kind === 'malformed') {
+          return { data: { rows: matched.length } as unknown, error: null };
+        }
+        if (fault?.kind === 'repeat') return { data: [...lastSessionPage], error: null };
+        if (options.serverMaxRows !== undefined) matched = matched.slice(0, options.serverMaxRows);
+        if (fault?.kind === 'overflow') {
+          matched = beforeRange.slice(rowRange!.from, rowRange!.from + fault.rows);
+        }
+        lastSessionPage = matched.map((row) => project(selectStr, row));
+        return { data: [...lastSessionPage], error: null };
+      }
 
       return { data: matched.map((row) => project(selectStr, row)), error: null };
     }
@@ -307,7 +368,7 @@ function buildClient(options: ClientOptions, log: QueryLog[]) {
         return query;
       },
       order(column: string, opts?: { ascending?: boolean }) {
-        orderBy = { column, ascending: opts?.ascending ?? true };
+        orderBy.push({ column, ascending: opts?.ascending ?? true });
         return query;
       },
       limit(count: number) {
@@ -1139,6 +1200,293 @@ describe('fetchSchoolReportData', () => {
       school_name: SCHOOL_NAME,
       programs: [],
       school_summary: EMPTY_SCHOOL_SUMMARY,
+    });
+  });
+  // ============================================================
+  // SM-08 / A14-4-F05 — the drill-down says when it stops short.
+  //
+  // `.limit(500)` returned the cap with nothing to say whether it WAS the cap. These
+  // exercise the bounded reader that answers that: one row past the cap, never emitted.
+  // ============================================================
+
+  const PROBE = 501;
+  const FOREIGN_CONTRATO = 'ctr-99999999-9999-4999-8999-999999999999';
+
+  /**
+   * `count` synthetic sessions in one bucket, newest first by construction: index 0 is the
+   * newest and its id sorts first. Consecutive pairs SHARE a `session_date`, so the only
+   * thing that can make a paged read deterministic is the id tie-break.
+   */
+  function bulkSessions(
+    count: number,
+    overrides: { hourType?: string; contrato?: string; prefix?: string } = {}
+  ): Row[] {
+    const base = Date.UTC(2026, 0, 1);
+    return Array.from({ length: count }, (_, i) => ({
+      id: `${overrides.prefix ?? 'bulk'}-${String(i).padStart(4, '0')}-4000-8000-000000000000`,
+      title: `Sesión sintética ${i}`,
+      session_date: new Date(base - Math.floor(i / 2) * 86400000).toISOString().slice(0, 10),
+      actual_duration_minutes: 60,
+      scheduled_duration_minutes: 60,
+      status: 'completada',
+      hour_type_key: overrides.hourType ?? BUCKET_KEY,
+      contrato_id: overrides.contrato ?? CONTRATO_ID,
+      session_facilitators: [{ profiles: { first_name: 'Ana', last_name: 'Rojas' } }],
+    }));
+  }
+
+  const ONE_BUCKET = { [CONTRATO_ID]: [bucketFixtures[0]] };
+
+  /** The bucket under test, from a run whose only bucket is `BUCKET_KEY`. */
+  async function bucketFor(options: ClientOptions, log: QueryLog[] = []) {
+    const result = await fetchSchoolReportData(clientFor(options, log), SCHOOL_ID);
+    return result!.programs[0].contracts[0].buckets.find((b) => b.hour_type_key === BUCKET_KEY)!;
+  }
+
+  const sessionQueries = (log: QueryLog[]) => log.filter((e) => e.table === 'consultor_sessions');
+
+  describe('D1 bounded drill-down and the truncation flag', () => {
+    for (const [total, shown, truncated] of [
+      [0, 0, false],
+      [499, 499, false],
+      [500, 500, false],
+      [501, 500, true],
+      [650, 500, true],
+    ] as const) {
+      it(`emits ${shown} of ${total} sessions with sessions_truncated=${truncated}`, async () => {
+        const bucket = await bucketFor(
+          baseOptions({ sessions: bulkSessions(total), ledger: [], buckets: ONE_BUCKET })
+        );
+
+        expect(bucket.sessions).toHaveLength(shown);
+        expect(bucket.sessions_truncated).toBe(truncated);
+        // Exactly the latest rows, in the order the reader asked for them.
+        expect(bucket.sessions.map((s) => s.session_id)).toEqual(
+          bulkSessions(shown).map((row) => row.id)
+        );
+        // The totals are the bucket summary's, never a sum of the rows above.
+        expect(bucket.consumed).toBe(1.5);
+        expect(bucket.available).toBe(36.5);
+      });
+    }
+
+    it('keeps tied dates in a stable id order and never emits the 501st probe row', async () => {
+      const sessions = bulkSessions(PROBE);
+      const sentinelId = sessions[500].id;
+      const log: QueryLog[] = [];
+      const bucket = await bucketFor(
+        baseOptions({
+          sessions,
+          // The probe row HAS a ledger entry; reading it would be reading a row nobody
+          // may see. Two waived/zero rows sit just above it for the same reason.
+          ledger: [
+            { session_id: sentinelId, status: 'consumida', is_over_budget: true, hours: 9 },
+            { session_id: sessions[499].id, status: 'devuelta', is_over_budget: false, hours: 0 },
+          ],
+          buckets: ONE_BUCKET,
+        }),
+        log
+      );
+
+      expect(bucket.sessions.map((s) => s.session_id)).not.toContain(sentinelId);
+      expect(bucket.sessions[499].status).toBe('devuelta');
+      expect(bucket.sessions[499].hours).toBe(0);
+
+      const ledgerQuery = log.find((e) => e.table === 'contract_hours_ledger');
+      expect(ledgerQuery!.filters[0].values).toHaveLength(500);
+      expect(ledgerQuery!.filters[0].values).not.toContain(sentinelId);
+    });
+
+    it('asks for at most 501 rows per bucket, keeping both filters and the primary sort', async () => {
+      const log: QueryLog[] = [];
+      await bucketFor(baseOptions({ sessions: bulkSessions(650), ledger: [], buckets: ONE_BUCKET }), log);
+
+      for (const entry of sessionQueries(log)) {
+        expect(entry.limit).toBeNull();
+        expect(entry.range!.to).toBe(PROBE - 1);
+        expect(entry.range!.from).toBeLessThan(PROBE);
+        // The tie-break is added AFTER the primary sort, never in place of it.
+        expect(entry.order).toBe('session_date');
+        expect(entry.orders).toEqual(['session_date:desc', 'id:asc']);
+        expect(entry.filters).toEqual([
+          { column: 'contrato_id', kind: 'eq', value: CONTRATO_ID },
+          { column: 'hour_type_key', kind: 'eq', value: BUCKET_KEY },
+        ]);
+      }
+    });
+  });
+
+  describe('D2 short pages, foreign rows and per-bucket isolation', () => {
+    it('progresses through 137-row server pages without skipping or repeating a row', async () => {
+      const log: QueryLog[] = [];
+      const bucket = await bucketFor(
+        baseOptions({ sessions: bulkSessions(650), ledger: [], buckets: ONE_BUCKET, serverMaxRows: 137 }),
+        log
+      );
+
+      expect(bucket.sessions).toHaveLength(500);
+      expect(bucket.sessions_truncated).toBe(true);
+      expect(new Set(bucket.sessions.map((s) => s.session_id)).size).toBe(500);
+      expect(bucket.sessions.map((s) => s.session_id)).toEqual(
+        bulkSessions(500).map((row) => row.id)
+      );
+
+      // 137 + 137 + 137 + 90 = 501: the offset advances by the rows actually returned.
+      const ranges = sessionQueries(log).map((e) => e.range!.from);
+      expect(ranges).toEqual([0, 137, 274, 411]);
+      expect(sessionQueries(log).length).toBeLessThanOrEqual(502);
+    });
+
+    it('counts only this contract and category, and leaves null dates where they were', async () => {
+      const sessions = [
+        ...bulkSessions(499),
+        // Undated rows sort last in either direction, as they always have.
+        { ...bulkSessions(1, { prefix: 'null1' })[0], session_date: null },
+        { ...bulkSessions(1, { prefix: 'null2' })[0], session_date: null },
+        ...bulkSessions(60, { contrato: FOREIGN_CONTRATO, prefix: 'foreign' }),
+        ...bulkSessions(60, { hourType: OTHER_BUCKET_KEY, prefix: 'othercat' }),
+      ];
+      const bucket = await bucketFor(
+        baseOptions({ sessions, ledger: [], buckets: ONE_BUCKET })
+      );
+
+      // 499 + 2 undated = 501 matching rows: truncated by one, and the one dropped is the
+      // second undated row, not anything belonging to another contract or category.
+      expect(bucket.sessions).toHaveLength(500);
+      expect(bucket.sessions_truncated).toBe(true);
+      expect(bucket.sessions[499].session_id).toContain('null1');
+      expect(bucket.sessions.some((s) => s.session_id.includes('foreign'))).toBe(false);
+      expect(bucket.sessions.some((s) => s.session_id.includes('othercat'))).toBe(false);
+      expect(bucket.sessions[499].date).toBe('');
+    });
+
+    it('flags only the bucket that is short, leaving the complete one alone', async () => {
+      const result = await fetchSchoolReportData(
+        clientFor(
+          baseOptions({
+            sessions: [
+              ...bulkSessions(PROBE),
+              ...bulkSessions(3, { hourType: OTHER_BUCKET_KEY, prefix: 'small' }),
+            ],
+            ledger: [],
+          })
+        ),
+        SCHOOL_ID
+      );
+
+      const buckets = result!.programs[0].contracts[0].buckets;
+      expect(buckets.find((b) => b.hour_type_key === BUCKET_KEY)!.sessions_truncated).toBe(true);
+      const complete = buckets.find((b) => b.hour_type_key === OTHER_BUCKET_KEY)!;
+      expect(complete.sessions_truncated).toBe(false);
+      expect(complete.sessions).toHaveLength(3);
+    });
+  });
+
+  describe('D3 a paged sessions read fails closed', () => {
+    const expectBucketFailure = async (options: ClientOptions) => {
+      await expect(fetchSchoolReportData(clientFor(options), SCHOOL_ID)).rejects.toThrow(
+        /No se pudieron obtener las sesiones del bucket "acompanamiento"/
+      );
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`contrato=${CONTRATO_ID}, bucket=${BUCKET_KEY}`),
+        expect.anything()
+      );
+    };
+
+    it('fails when the FIRST page errors', async () => {
+      await expectBucketFailure(
+        baseOptions({
+          sessions: bulkSessions(650),
+          buckets: ONE_BUCKET,
+          sessionFaults: { 1: { kind: 'error', error: pgError('57014', 'statement timeout') } },
+        })
+      );
+    });
+
+    it('fails when a LATER page errors, instead of keeping the rows already read', async () => {
+      await expectBucketFailure(
+        baseOptions({
+          sessions: bulkSessions(650),
+          buckets: ONE_BUCKET,
+          serverMaxRows: 137,
+          sessionFaults: { 2: { kind: 'error', error: pgError('57014', 'statement timeout') } },
+        })
+      );
+    });
+
+    it('fails when the client throws instead of answering', async () => {
+      await expectBucketFailure(
+        baseOptions({
+          sessions: bulkSessions(650),
+          buckets: ONE_BUCKET,
+          sessionFaults: { 1: { kind: 'throw', message: 'socket hang up' } },
+        })
+      );
+    });
+
+    it('fails when a page is not a list of rows', async () => {
+      await expectBucketFailure(
+        baseOptions({
+          sessions: bulkSessions(650),
+          buckets: ONE_BUCKET,
+          sessionFaults: { 1: { kind: 'malformed' } },
+        })
+      );
+    });
+
+    it('fails when the FIRST page returns more rows than the 501 asked for', async () => {
+      const log: QueryLog[] = [];
+      const options = baseOptions({
+        sessions: bulkSessions(650),
+        buckets: ONE_BUCKET,
+        sessionFaults: { 1: { kind: 'overflow', rows: PROBE + 1 } },
+      });
+
+      await expect(fetchSchoolReportData(clientFor(options, log), SCHOOL_ID)).rejects.toThrow(
+        /No se pudieron obtener las sesiones del bucket "acompanamiento"/
+      );
+      // Rejected on the page's size, not on anything found by reading its rows.
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`contrato=${CONTRATO_ID}, bucket=${BUCKET_KEY}`),
+        expect.objectContaining({ message: 'sessions page returned 502 rows for a window of 501' })
+      );
+      expect(sessionQueries(log)).toHaveLength(1);
+    });
+
+    it('fails when a LATER page overshoots the single row still allowed', async () => {
+      const log: QueryLog[] = [];
+      const options = baseOptions({
+        sessions: bulkSessions(650),
+        buckets: ONE_BUCKET,
+        serverMaxRows: 500,
+        sessionFaults: { 2: { kind: 'overflow', rows: 2 } },
+      });
+
+      await expect(fetchSchoolReportData(clientFor(options, log), SCHOOL_ID)).rejects.toThrow(
+        /No se pudieron obtener las sesiones del bucket "acompanamiento"/
+      );
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`contrato=${CONTRATO_ID}, bucket=${BUCKET_KEY}`),
+        expect.objectContaining({ message: 'sessions page returned 2 rows for a window of 1' })
+      );
+      expect(sessionQueries(log)).toHaveLength(2);
+    });
+
+    it('fails on a server that replays a page instead of advancing', async () => {
+      const log: QueryLog[] = [];
+      const options = baseOptions({
+        sessions: bulkSessions(650),
+        buckets: ONE_BUCKET,
+        serverMaxRows: 10,
+        sessionFaults: { 2: { kind: 'repeat' } },
+      });
+
+      await expect(fetchSchoolReportData(clientFor(options, log), SCHOOL_ID)).rejects.toThrow(
+        /No se pudieron obtener las sesiones del bucket "acompanamiento"/
+      );
+      // Bounded: it gave up on the repeat, it did not spin to the request budget.
+      expect(sessionQueries(log).length).toBeLessThanOrEqual(502);
+      expect(sessionQueries(log)).toHaveLength(2);
     });
   });
 });

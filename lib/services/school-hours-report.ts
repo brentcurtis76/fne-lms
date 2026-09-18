@@ -18,6 +18,12 @@ import { isClientTenant, parseTenantKind } from '../types/tenant-kind';
 
 // Max sessions returned per bucket (DoS prevention)
 const MAX_SESSIONS_PER_BUCKET = 500;
+// One row past the cap. Its existence is the whole proof that older sessions were left
+// out; it is never emitted, never looked up in the ledger and never counted.
+const TRUNCATION_PROBE_ROWS = MAX_SESSIONS_PER_BUCKET + 1;
+// Every page but the last carries at least one row, so a server that makes progress needs
+// at most one request per probed row plus the empty page that ends the read.
+const MAX_SESSION_REQUESTS_PER_BUCKET = TRUNCATION_PROBE_ROWS + 1;
 
 // Requested page size for school-wide reads; the server may return fewer rows per page.
 // IN lists stay short enough for the request URL.
@@ -118,6 +124,103 @@ async function readAllIn<T extends { id: string }>(
     }
   }
   return rows;
+}
+
+/**
+ * The latest sessions of one bucket, plus the single row that proves older ones exist.
+ *
+ * `.limit(500)` returned the cap with nothing to say whether it WAS the cap: a category
+ * with exactly 500 sessions and one with 4000 rendered identically, under totals that
+ * cover the whole record. Reading one row past the cap answers that without an exact count
+ * and without an unbounded read — the 501st row is dropped before anything downstream sees
+ * it. The offset advances by the rows actually returned, so a server page cap smaller than
+ * the window asked for can neither end the read early nor skip rows, and a page that
+ * overruns that window, repeats a row, returns something other than a list or never ends
+ * fails the report rather than quietly duplicating or inventing sessions.
+ */
+async function readBucketSessions(
+  serviceClient: ServiceClient,
+  contratoId: string,
+  hourTypeKey: string
+): Promise<{ rows: SessionRow[]; truncated: boolean }> {
+  const collected: SessionRow[] = [];
+  const seenIds = new Set<string>();
+
+  // A failed sessions read must never be reported as "this bucket has no sessions":
+  // schools reconcile billable hours against this drill-down, so a silently short list is
+  // worse than a visible error. Fail the whole report, naming contract and bucket.
+  const fail = (reason: unknown): never => {
+    console.error(
+      `[SchoolHoursReport] Sessions query failed (contrato=${contratoId}, bucket=${hourTypeKey}):`,
+      reason
+    );
+    throw new Error(
+      `No se pudieron obtener las sesiones del bucket "${hourTypeKey}" del contrato ${contratoId}`
+    );
+  };
+
+  for (let requests = 0; collected.length < TRUNCATION_PROBE_ROWS; requests += 1) {
+    if (requests >= MAX_SESSION_REQUESTS_PER_BUCKET) {
+      fail(new Error(`sessions read exceeded ${MAX_SESSION_REQUESTS_PER_BUCKET} requests`));
+    }
+
+    let page: { data: unknown; error: unknown };
+    try {
+      page = await serviceClient
+        .from('consultor_sessions')
+        .select(`
+          id,
+          title,
+          session_date,
+          scheduled_duration_minutes,
+          status,
+          hour_type_key,
+          session_facilitators(
+            profiles(first_name, last_name)
+          )
+        `)
+        .eq('contrato_id', contratoId)
+        .eq('hour_type_key', hourTypeKey)
+        .order('session_date', { ascending: false })
+        // Tie-break only — the primary order stays `session_date` descending. Sessions
+        // sharing a date are otherwise free to change places between requests, which is
+        // exactly how a paged read skips one row and repeats another.
+        .order('id', { ascending: true })
+        .range(collected.length, TRUNCATION_PROBE_ROWS - 1);
+    } catch (thrown) {
+      return fail(thrown);
+    }
+
+    if (page.error) return fail(page.error);
+    if (!Array.isArray(page.data)) return fail(new Error('sessions page was not a list of rows'));
+    if (page.data.length === 0) break;
+
+    // The window asked for is never wider than what is left of the probe allowance, so a
+    // longer page is malformed: fail on its size before reading any of its rows, rather
+    // than slicing the surplus off and reporting the oversized answer as a good one.
+    const windowRows = TRUNCATION_PROBE_ROWS - collected.length;
+    if (page.data.length > windowRows) {
+      return fail(
+        new Error(`sessions page returned ${page.data.length} rows for a window of ${windowRows}`)
+      );
+    }
+
+    for (const row of page.data as SessionRow[]) {
+      if (typeof row?.id !== 'string') {
+        return fail(new Error('sessions page returned a row without an id'));
+      }
+      if (seenIds.has(row.id)) {
+        return fail(new Error(`sessions page repeated session ${row.id}`));
+      }
+      seenIds.add(row.id);
+      collected.push(row);
+    }
+  }
+
+  return {
+    rows: collected.slice(0, MAX_SESSIONS_PER_BUCKET),
+    truncated: collected.length > MAX_SESSIONS_PER_BUCKET,
+  };
 }
 
 function finiteOrThrow(value: number | null): number {
@@ -315,39 +418,13 @@ export async function fetchSchoolReportData(
     const bucketsWithSessions: BucketWithSessions[] = [];
 
     for (const bucket of (bucketRows ?? []) as BucketRow[]) {
-      // Fetch sessions for this contract + hour_type_key
-      const { data: sessionRows, error: sessionsError } = await serviceClient
-        .from('consultor_sessions')
-        .select(`
-          id,
-          title,
-          session_date,
-          scheduled_duration_minutes,
-          status,
-          hour_type_key,
-          session_facilitators(
-            profiles(first_name, last_name)
-          )
-        `)
-        .eq('contrato_id', contrato.id)
-        .eq('hour_type_key', bucket.hour_type_key)
-        .order('session_date', { ascending: false })
-        .limit(MAX_SESSIONS_PER_BUCKET);
-
-      // A failed sessions query must never be reported as "this bucket has no
-      // sessions": schools reconcile billable hours against this drill-down, so a
-      // silently short list is worse than a visible error. Fail the whole report.
-      if (sessionsError) {
-        console.error(
-          `[SchoolHoursReport] Sessions query failed (contrato=${contrato.id}, bucket=${bucket.hour_type_key}):`,
-          sessionsError
-        );
-        throw new Error(
-          `No se pudieron obtener las sesiones del bucket "${bucket.hour_type_key}" del contrato ${contrato.id}`
-        );
-      }
-
-      const typedRows = (sessionRows ?? []) as unknown as SessionRow[];
+      // Fetch sessions for this contract + hour_type_key, plus the one extra row that
+      // says whether older sessions were left out of the list below.
+      const { rows: typedRows, truncated } = await readBucketSessions(
+        serviceClient,
+        contrato.id,
+        bucket.hour_type_key
+      );
 
       // Fetch the authoritative ledger row for these sessions. One round trip carries
       // everything the drill-down needs about a session's hours: the billed `hours`, the
@@ -434,6 +511,9 @@ export async function fetchSchoolReportData(
         is_fixed: bucket.is_fixed_allocation,
         annex_hours: bucket.annex_hours,
         sessions,
+        // Per bucket, never shared: the flag says only that THIS category's list stops
+        // short. The four totals above it still cover the complete record.
+        sessions_truncated: truncated,
       });
     }
 

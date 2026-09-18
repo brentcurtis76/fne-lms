@@ -322,7 +322,22 @@ export interface BucketWithSessions {
   is_fixed: boolean;
   annex_hours: number;
   sessions: SessionDetail[];
+  /**
+   * Report-only: `sessions` holds the latest 500 and older ones exist. The service always
+   * states it either way; absent means a source that predates the flag, which is not a
+   * claim that the list is complete. The hour totals above always cover the whole record.
+   */
+  sessions_truncated?: boolean;
 }
+
+/**
+ * The one wording every surface uses for a truncated drill-down — screen, CSV and PDF.
+ * It lives beside the flag it explains so the three cannot drift apart.
+ */
+export const PARTIAL_SESSION_DETAIL_NOTICE =
+  'Detalle parcial: se muestran las 500 sesiones más recientes de esta categoría. ' +
+  'Hay sesiones anteriores no incluidas. Los totales de horas corresponden al registro ' +
+  'completo, no solo a estas filas.';
 
 /**
  * ContractSummary — Contract with bucket breakdown for school report

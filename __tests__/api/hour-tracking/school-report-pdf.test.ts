@@ -378,6 +378,85 @@ describe('GET /api/school-hours-report/[school_id]/pdf', () => {
     expect(text).toContain('ConsultoraSinteticaSesionreservada2.00reservada');
   });
 
+  // ---- SM-03 / A14-4-F02: the optional selected-contract scope ----
+
+  it('keeps the whole-school PDF, filename included, when no contract is named', async () => {
+    setupAuth(DIRECTIVO_UUID, 'equipo_directivo', SCHOOL_ID);
+    mockFetchSchoolReportData.mockResolvedValue(reportWithRegularAndAnnex());
+
+    const { req, res } = createMocks({ method: 'GET', query: { school_id: String(SCHOOL_ID) } });
+    await handler(req as never, res as never);
+
+    const { text: pageText } = await pdfText(pdfBytes(res));
+    const text = pageText.replace(/\s+/g, '');
+    expect(text).toContain('ResumenGeneral');
+    expect(text).not.toContain('ResumendelContrato');
+    expect(text).toContain(`Contrato:${REGULAR_NUMERO}`);
+    expect(text).toContain(`Contrato:${ANNEX_NUMERO}(Anexo)`);
+    expect(String(res.getHeader('Content-Disposition'))).not.toContain(REGULAR_NUMERO);
+  });
+
+  it('renders only the named contract and labels the summary with its own totals', async () => {
+    setupAuth(DIRECTIVO_UUID, 'equipo_directivo', SCHOOL_ID);
+    mockFetchSchoolReportData.mockResolvedValue(reportWithRegularAndAnnex());
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { school_id: String(SCHOOL_ID), contrato_id: '550e8400-e29b-41d4-a716-446655440010' },
+    });
+    await handler(req as never, res as never);
+
+    const { text: pageText } = await pdfText(pdfBytes(res));
+    const text = pageText.replace(/\s+/g, '');
+    // The contract's own 50/3/2/45, not the school's 60/3/2/55.
+    expect(text).toContain(`ResumendelContrato${REGULAR_NUMERO}`);
+    expect(text).toContain('50.03.02.045.0');
+    expect(text).not.toContain('60.03.02.055.0');
+    expect(text).not.toContain(ANNEX_NUMERO);
+    // The file name stays the legacy school/date one; only the contents are scoped.
+    expect(String(res.getHeader('Content-Disposition'))).toMatch(
+      /attachment; filename="reporte-horas-.+-\d{4}-\d{2}-\d{2}\.pdf"/
+    );
+    expect(String(res.getHeader('Content-Disposition'))).not.toContain(REGULAR_NUMERO);
+  });
+
+  it('refuses an unauthenticated request that names a contract with 401, before any report read', async () => {
+    mockGetApiUser.mockResolvedValue({ user: null, error: new Error('No session') });
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { school_id: String(SCHOOL_ID), contrato_id: '550e8400-e29b-41d4-a716-446655440010' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(401);
+    expect(mockFetchSchoolReportData).not.toHaveBeenCalled();
+  });
+
+  it("refuses another school's report with 403 even when the named contract is the caller's own", async () => {
+    setupAuth(DIRECTIVO_UUID, 'equipo_directivo', SCHOOL_ID);
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { school_id: String(OTHER_SCHOOL_ID), contrato_id: '550e8400-e29b-41d4-a716-446655440010' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(mockFetchSchoolReportData).not.toHaveBeenCalled();
+  });
+
+  it('refuses a non-GET request that names a contract with 405', async () => {
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { school_id: String(SCHOOL_ID), contrato_id: '550e8400-e29b-41d4-a716-446655440010' },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(405);
+    expect(mockFetchSchoolReportData).not.toHaveBeenCalled();
+  });
+
   it('the PDF checks reject a misplaced xref entry and truncated bytes', async () => {
     setupAuth(ADMIN_UUID, 'admin');
     mockFetchSchoolReportData.mockResolvedValue(reportWithRegularAndAnnex());

@@ -13,8 +13,8 @@ All remediation/triage owners are **unassigned**. Priorities describe product ri
 
 | Child ID (audit ID) | Priority | Disposition | Work to resolve |
 |---|---|---|---|
-| A14-4-F01 (F1) | P1 | LOCALLY_APPROVED — shipping pending | Correct overlapping parent/annex school-wide totals |
-| A14-4-F02 (F2) | P2 | DECISION_PENDING | Define export scope and missing aggregate/annex fields |
+| A14-4-F01 (F1) | P1 | MERGED — production/institutional verification pending | Correct overlapping parent/annex school-wide totals |
+| A14-4-F02 (F2) | P2 | PARTIALLY_LOCALLY_APPROVED — remaining fields held | Selected-contract exports and CSV totals verified in SM-03/04; annex identification remains open |
 | A14-4-F03 (F3) | P2 | DECISION_PENDING | Distinguish session hours from charged totals |
 | A14-4-F04 (F4) | P2 | BACKLOG | Identify unledgered session status/hours honestly |
 | A14-4-F05 (F5) | P2 | BACKLOG | Make capped session detail complete or explicitly partial |
@@ -131,3 +131,10 @@ F01 is locally approved through SM-02; shipping remains Brent-controlled. Decide
 When an item is activated, record its named owner, approved order, dependencies and target date here and reflect scheduling in the parent work ledger. When closed, retain the finding and append exact code/test/UI evidence or an explicit accepted deferral with owner and rationale. Parent closure requires dispositions for all twelve entries, applicable implementation quality gates and separately recorded institutional acceptance. An audit verdict or passing mock suite alone does not close the parent claim.
 
 The three PM evidence/process notes (chronology, scratchpad discipline and a qualified empty-state statement) remain in the SM-01 PM review. They are workflow notes, not additional product defects or claims.
+
+
+SM-02 merge verified 2026-09-17: GitHub PR #96 is merged into main (95766de9979d7c8bfabf5c22daff4ec5c70f98ce). Release contains the approved hours correction and its Santa Marta ledger documentation; unrelated GENERA work remains queued. F01 technical merge is complete. Parent W-BL-A14-4 remains held/unfinished, F02–F12 are not closed, and production/institutional acceptance is not claimed. Evidence: /home/brent/Projects/pm-workflow/runs/SM-02/merge-verification.json.
+
+SM-03 local review 2026-09-17: Brent decided both downloads follow the selected contract. Independent r1 review approved that bounded correction: shared effective selection, selected PDF summary/detail and CSV rows, identifying empty-contract row, legacy filenames, unchanged hours accounting and legacy unscoped API compatibility. PM observed211focused tests including16component tests and31browser checks; complete repaired-runtime suite reported10114passed/12existing skips. Evidence: /home/brent/Projects/pm-workflow/runs/SM-03/pm-review-r1.md. Isolated runtime repair changes no repository/shared dependencies. Remaining F02 aggregate/annex fields and F03-F12 are held; F02 and parent are not closed. Shipping and production acceptance remain separate. Advisory documentation count wording/CI inference and existing presentation limits route to the next parent documentation/presentation unit.
+
+SM-04 local review 2026-09-17: Brent approved selected-contract CSV summary totals alongside detail. Independent review accepts one first summary row, four existing screen totals at one decimal,16columns, unchanged session/category cells, explicit row kinds and blank totals on detail rows. PM212focused tests,32browser checks and6downloads parsed with Python csv passed; final full suite REPORTED10115passed/12existing skips. Evidence /home/brent/Projects/pm-workflow/runs/SM-04/pm-review-r0.md. Review-request bullet repeats baseline10114 in error; final10115 is authoritative. Session detail is not a reconciliation source for charged totals; F03 retains this semantic/label decision. Annex identification and F03-F12 remain held; parent and shipping/institutional acceptance are not closed.

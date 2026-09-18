@@ -3,6 +3,11 @@
  *
  * Generates a PDF report for a school's hour usage.
  *
+ * Optional `contrato_id` narrows the report to the single contract the caller has on
+ * screen. It is resolved only inside this school's already-authorized report, never
+ * through a separate contract lookup, and there is no fallback to the whole school.
+ * Omitting it keeps the school-wide report byte-for-byte as before.
+ *
  * Auth: same as index.ts (admin any school, equipo_directivo own school only)
  *
  * Response: application/pdf with Content-Disposition: attachment
@@ -21,6 +26,9 @@ import {
 } from '../../../../lib/api-auth';
 import { getUserRoles, getHighestRole } from '../../../../utils/roleUtils';
 import { fetchSchoolReportData } from '../../../../lib/services/school-hours-report';
+import type { ContractSummary, ProgramGroup } from '../../../../lib/types/hour-tracking.types';
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Brand colours
 const NAVY = '#003A5B';
@@ -87,11 +95,47 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return sendAuthError(res, 'Acceso denegado', 403);
     }
 
+    // Selected-contract scope. Validated after the school authorization above, so an
+    // unauthenticated or foreign-school caller still gets its existing refusal. A repeated
+    // query parameter arrives as an array and is rejected here, not silently narrowed.
+    const rawContratoId = req.query.contrato_id;
+    let contratoId: string | null = null;
+    if (rawContratoId !== undefined) {
+      if (typeof rawContratoId !== 'string' || !UUID_PATTERN.test(rawContratoId)) {
+        return sendAuthError(res, 'ID de contrato inválido', 400);
+      }
+      contratoId = rawContratoId;
+    }
+
     // Fetch report data via shared service
     const reportData = await fetchSchoolReportData(serviceClient, parsedSchoolId);
     if (!reportData) {
       return sendAuthError(res, 'Escuela no encontrada', 404);
     }
+
+    // Membership is decided inside this school's report: a contract that is not in it is
+    // absent as far as this caller is concerned, and the request fails rather than
+    // widening back to every contract.
+    let selectedProgram: ProgramGroup | undefined;
+    let selectedContract: ContractSummary | undefined;
+    if (contratoId !== null) {
+      for (const program of reportData.programs) {
+        const match = program.contracts.find((c) => c.contrato_id === contratoId);
+        if (match) {
+          selectedProgram = program;
+          selectedContract = match;
+          break;
+        }
+      }
+      if (!selectedProgram || !selectedContract) {
+        return sendAuthError(res, 'Contrato no encontrado en el reporte de esta escuela', 404);
+      }
+    }
+
+    const programsToRender: ProgramGroup[] =
+      selectedProgram && selectedContract
+        ? [{ ...selectedProgram, contracts: [selectedContract] }]
+        : reportData.programs;
 
     // Generate PDF using jsPDF
     // Dynamic import to avoid SSR issues
@@ -131,19 +175,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ---- Summary section ----
     let cursorY = 35;
 
-    // School-wide totals come from the service, which counts each allocation and ledger
-    // row once. Summing per-contract totals double-counts a parent and its active annex.
+    // With a contract selected, the summary is that contract's own totals — the figures
+    // already on screen for it, annex contributions included. Without one, the school-wide
+    // totals come from the service, which counts each allocation and ledger row once;
+    // summing per-contract totals double-counts a parent and its active annex.
     const {
       total_contracted_hours: grandContracted,
       total_consumed: grandConsumed,
       total_reserved: grandReserved,
       total_available: grandAvailable,
-    } = reportData.school_summary;
+    } = selectedContract ?? reportData.school_summary;
 
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(nr, ng, nb);
-    doc.text('Resumen General', margin, cursorY);
+    doc.text(
+      selectedContract ? `Resumen del Contrato ${selectedContract.numero_contrato}` : 'Resumen General',
+      margin,
+      cursorY
+    );
     cursorY += 6;
 
     // Summary table
@@ -164,7 +214,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     cursorY = (doc as any).lastAutoTable.finalY + 8;
 
     // ---- Per-program breakdown ----
-    for (const program of reportData.programs) {
+    for (const program of programsToRender) {
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(nr, ng, nb);

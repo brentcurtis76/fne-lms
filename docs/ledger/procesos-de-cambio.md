@@ -4,7 +4,7 @@ Converted from Mini proc-coordination-20260910/LEDGER.md + CURRENT.md + MAPA on 
 
 ## Now
 
-PROC-03's documentation-only numeric audit closure is APPROVED_WITH_NOTES. The repository review request records the evidence and five unresolved findings; the parent numeric feature remains held and unfinished. The next approved split step is PROC-04: offline browser-fixture specification and synthetic guard tests, with no database or browser execution. PROC-02's four attempts and unfinished browser plan remain preserved as history, not approved instructions. No product or database changes were made, and nothing has been published. Other workstream triage remains as recorded below.
+PROC-05 receipt-parent integrity is independently approved: 54 model tests and independent counterexamples pass. Brent approved a limited baseline-build exception for the two offline completion steps; the application build remains RED, and the numeric feature remains held. Next is the already-approved final offline contract/result reconciliation. PROC-04 remains held until that finishing step closes its original model item; every previous attempt is preserved. No product/database/browser acceptance or publication is claimed.
 
 ## Items
 | id | title | status | unit | updated | notes |
@@ -26,6 +26,9 @@ PROC-03's documentation-only numeric audit closure is APPROVED_WITH_NOTES. The r
 | PROC-PILOT | Piloto: datos reales aprobados y prueba supervisada directivo → curso → docente → entrega → resultados | waiting |  | 2026-09-17 |  |
 | PROC-CALIBRATION | Calibración, expectativas y afirmaciones sobre resultados (aplazado por Brent) | held |  | 2026-09-10 |  |
 | PROC-NUMERIC-AUDIT-CLOSURE | Close the numeric audit evidence; feature acceptance remains open | done | PROC-03 | 2026-09-17 |  |
+| PROC-NUMERIC-FIXTURE-MODEL | Offline numeric browser-fixture contract and guard model | held | PROC-04 | 2026-09-18 |  |
+| PROC-FIXTURE-PARENT-INTEGRITY | Validate restored receipt parent references in the offline model | done | PROC-05 | 2026-09-18 |  |
+| PROC-FIXTURE-EVIDENCE-CLOSURE | Reconcile final offline fixture contract and result evidence | todo |  | 2026-09-18 |  |
 
 ## Events (append-only, newest last)
 - 2026-09-10T02:10+00:00 · PM · RECORD · COORDINATED authorized by user. Claude Fable5.1 discovery01 stopped at context boundary, no edits, exit143. Discovery02 fresh restricted intake running. Independent PM portability/raw-report/trace checkpoint written; ful
@@ -247,3 +250,11 @@ PROC-03's documentation-only numeric audit closure is APPROVED_WITH_NOTES. The r
 - 2026-09-17T21:42:12-03:00 · PROC-02 · HELD · PROC-02 replanned: too big for one unit; split into smaller units (RUN/pm-replan-required.md)
 - 2026-09-17T21:47:31-03:00 · PROC-03 · IN-PROGRESS · Brent authorized fixing the missing ledger anchor. Registration repaired; approved audit-closure child can start, with no product or DB changes.
 - 2026-09-17T22:06:08-03:00 · PROC-03 · DONE · APPROVED_WITH_NOTES: numeric audit evidence consolidated and independently reviewed; feature/UI acceptance remains open. Documentation only; no source or database changes.
+- 2026-09-17T23:18:08-03:00 · PROC-04 · TODO · Brent approved ledger-registration repair; PROC-04 proposes offline split step 2, with no database or browser execution. Parent numeric feature remains held.
+- 2026-09-17T23:21:35-03:00 · PROC-04 · IN-PROGRESS · Brent approved order r0: offline fixture contract and guard model only; executor dispatch authorized, no live DB or browser work.
+- 2026-09-18T06:32:52-03:00 · PROC-04 · HELD · PROC-04 replanned: too big for one unit; split into smaller units (RUN/pm-replan-required.md)
+- 2026-09-18T06:33:31-03:00 · PROC-05 · IN-PROGRESS · Brent approved the preserved PROC-04 split; PROC-05 implements only receipt-parent reference integrity, with all parent attempts retained.
+- 2026-09-18T06:33:37-03:00 · PM · BLOCKED · Final contract and result reconciliation awaits the approved receipt-parent integrity step; no build exception or parent completion is claimed.
+- 2026-09-18T07:10:13-03:00 · PROC-05 · WAITING · Independent review passed all model checks; closure awaits a scoped decision on the unchanged application build failure, with no product or database authority implied.
+- 2026-09-18T07:11:42-03:00 · PROC-05 · DONE · Receipt-parent integrity independently approved:54tests and independent probes pass; Brent granted scoped offline build exception, and final contract/result reconciliation remains separate.
+- 2026-09-18T07:11:42-03:00 · PM · TODO · PROC-FIXTURE-EVIDENCE-CLOSURE is free again: PROC-FIXTURE-PARENT-INTEGRITY finished.

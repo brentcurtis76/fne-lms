@@ -567,7 +567,7 @@ describe('fetchSchoolReportData', () => {
       date: '2026-04-02',
       consultant_name: 'Sin asignar',
       hours: 2,
-      status: 'reservada', // no ledger entry → fallback from `programada`
+      status: 'sin_registro', // successful ledger read, no row → absence, not a reservation
       is_over_budget: false,
     });
 
@@ -588,7 +588,7 @@ describe('fetchSchoolReportData', () => {
     expect(legacy).toMatchObject({
       session_id: SESSION_LEGACY,
       hours: 1.5,
-      status: 'consumida', // no ledger entry → fallback from `completada`
+      status: 'sin_registro', // `completada` is the session's own status, not a billing record
     });
   });
 
@@ -788,10 +788,161 @@ describe('fetchSchoolReportData', () => {
       expect(byId.get(S_SIN_LEDGER)!.hours).toBe(1.5);
     });
 
+    it('reports a session with no ledger row as sin_registro, not as a derived status', async () => {
+      const byId = await hoursById();
+
+      // A14-4-F04. `completada` is the SESSION's own lifecycle status; it says nothing
+      // about whether anyone billed the hours. The old fallback read it as `consumida`,
+      // so a session nobody ever ledgered was indistinguishable on screen from one the
+      // school was charged for.
+      expect(byId.get(S_SIN_LEDGER)!.status).toBe('sin_registro');
+    });
+
     it('passes an admin_override row through with its adjusted hours', async () => {
       const byId = await hoursById();
 
       expect(byId.get(S_OVERRIDE)!.hours).toBe(1.1);
+    });
+  });
+
+  // ============================================================
+  // A14-4-F04 — a session with no ledger row after a SUCCESSFUL read.
+  //
+  // The absence is the whole fact. `SESSION_STATUS_FALLBACK` used to turn it into one of
+  // the four ledger statuses by reading `consultor_sessions.status`: a cancellation nobody
+  // billed became `penalizada`, a finished session nobody ledgered became `consumida`, and
+  // anything else became `reservada` — three different invented billing records, none of
+  // which exists. The numeric hours stay the scheduled estimate they have always been.
+  // ============================================================
+
+  describe('sessions with no ledger row (sin_registro)', () => {
+    const ABSENT_BUCKET_KEY = 'sin_libro';
+
+    /** Every lifecycle value the old fallback map keyed on, plus one it did not know. */
+    const LIFECYCLE_STATUSES = [
+      'programada',
+      'borrador',
+      'completada',
+      'aprobada',
+      'reservada',
+      'en_curso',
+      'cancelada',
+      'un_estado_que_nadie_ha_visto',
+    ];
+
+    const absentId = (i: number) => `ses-b${i}000000-0000-4000-8000-00000000000${i}`;
+
+    function absentOptions(scheduledMinutes: number | null = 90) {
+      return baseOptions({
+        sessions: LIFECYCLE_STATUSES.map((status, i) => ({
+          id: absentId(i),
+          title: `Sesión ${status}`,
+          session_date: '2026-07-01',
+          actual_duration_minutes: 240,
+          scheduled_duration_minutes: scheduledMinutes,
+          status,
+          hour_type_key: ABSENT_BUCKET_KEY,
+          contrato_id: CONTRATO_ID,
+          session_facilitators: [],
+        })),
+        // Deliberately empty: every session above is unledgered, and the read SUCCEEDS.
+        ledger: [],
+        buckets: {
+          [CONTRATO_ID]: [
+            {
+              hour_type_key: ABSENT_BUCKET_KEY,
+              display_name: 'Sin libro',
+              allocated_hours: 20,
+              reserved_hours: 0,
+              consumed_hours: 0,
+              available_hours: 20,
+              is_fixed_allocation: false,
+              annex_hours: 0,
+            },
+          ],
+        },
+      });
+    }
+
+    async function absentSessions(scheduledMinutes: number | null = 90) {
+      const result = await fetchSchoolReportData(clientFor(absentOptions(scheduledMinutes)), SCHOOL_ID);
+      return result!.programs[0].contracts[0].buckets[0].sessions;
+    }
+
+    it('classifies every session lifecycle status as sin_registro when the row is absent', async () => {
+      const sessions = await absentSessions();
+
+      expect(sessions).toHaveLength(LIFECYCLE_STATUSES.length);
+      expect(sessions.map((s) => s.status)).toEqual(LIFECYCLE_STATUSES.map(() => 'sin_registro'));
+      // Specifically: no cancellation is presented as a penalty anyone charged, and no
+      // finished session as hours anyone consumed.
+      expect(sessions.map((s) => s.status)).not.toContain('penalizada');
+      expect(sessions.map((s) => s.status)).not.toContain('consumida');
+    });
+
+    it('keeps the scheduled-duration estimate and assumes no over-budget for those rows', async () => {
+      const sessions = await absentSessions();
+
+      // 90 scheduled minutes → 1.5h, unchanged by this finding. Never the 4h that
+      // actual_duration_minutes holds, and never 0 by omission.
+      expect(sessions.map((s) => s.hours)).toEqual(LIFECYCLE_STATUSES.map(() => 1.5));
+      expect(sessions.every((s) => s.is_over_budget === false)).toBe(true);
+    });
+
+    it('keeps the existing null-schedule fallback at 0 rather than inventing a duration', async () => {
+      const sessions = await absentSessions(null);
+
+      expect(sessions.map((s) => s.hours)).toEqual(LIFECYCLE_STATUSES.map(() => 0));
+      expect(sessions.map((s) => s.status)).toEqual(LIFECYCLE_STATUSES.map(() => 'sin_registro'));
+    });
+
+    it('never classifies a recorded row as sin_registro, whatever its hours are', async () => {
+      // 0 recorded hours, a 0-minute full waiver and a fractional override are all
+      // RECORDED facts. Only the absence of the row itself means "no record".
+      const recorded = [
+        { session_id: absentId(0), status: 'consumida', is_over_budget: false, hours: 0, admin_override: false },
+        { session_id: absentId(1), status: 'devuelta', is_over_budget: false, hours: 3, effective_minutes: 0, admin_override: true },
+        { session_id: absentId(2), status: 'penalizada', is_over_budget: true, hours: 2, effective_minutes: 50, admin_override: true },
+      ];
+      const options = { ...absentOptions(), ledger: recorded };
+      const result = await fetchSchoolReportData(clientFor(options), SCHOOL_ID);
+      const byId = new Map(
+        result!.programs[0].contracts[0].buckets[0].sessions.map((s) => [s.session_id, s])
+      );
+
+      expect(byId.get(absentId(0))).toMatchObject({ status: 'consumida', hours: 0, is_over_budget: false });
+      expect(byId.get(absentId(1))).toMatchObject({ status: 'devuelta', hours: 0, is_over_budget: false });
+      expect(byId.get(absentId(2))).toMatchObject({ status: 'penalizada', hours: 0.83, is_over_budget: true });
+      // Only the sessions genuinely missing a row are labelled as missing.
+      const unrecorded = LIFECYCLE_STATUSES.slice(3).map((_, i) => byId.get(absentId(i + 3))!.status);
+      expect(unrecorded).toEqual(LIFECYCLE_STATUSES.slice(3).map(() => 'sin_registro'));
+    });
+
+    it('does not add the scheduled estimates of unrecorded sessions to the school totals', async () => {
+      // The summary reads contract_hour_allocations/contract_hours_ledger directly; a
+      // session with no ledger row contributes nothing to it, however many scheduled
+      // hours its own drill-down row shows.
+      const result = await fetchSchoolReportData(clientFor(absentOptions()), SCHOOL_ID);
+      const sessions = result!.programs[0].contracts[0].buckets[0].sessions;
+
+      expect(sessions.reduce((sum, s) => sum + s.hours, 0)).toBe(1.5 * LIFECYCLE_STATUSES.length);
+      expect(result!.school_summary.total_consumed).toBe(0);
+      expect(result!.school_summary.total_reserved).toBe(0);
+    });
+
+    it('never labels a session sin_registro when the ledger read itself failed', async () => {
+      // The absence has to be PROVEN by a successful query. An errored read must stay an
+      // error: a fabricated "no record" is exactly as wrong as a fabricated charge.
+      const options = {
+        ...absentOptions(),
+        schemaOverrides: {
+          contract_hours_ledger: { columns: ['session_id', 'status', 'is_over_budget'] },
+        },
+      };
+
+      await expect(fetchSchoolReportData(clientFor(options), SCHOOL_ID)).rejects.toThrow(
+        /No se pudieron obtener las horas registradas del bucket "sin_libro"/
+      );
     });
   });
 

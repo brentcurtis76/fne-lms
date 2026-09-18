@@ -51,6 +51,9 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   reservada: { label: 'Reservada', className: 'bg-gray-200 text-gray-700' },
   penalizada: { label: 'Penalizada', className: 'bg-red-100 text-red-800' },
   devuelta: { label: 'Devuelta', className: 'bg-green-50 text-green-700' },
+  // Report-only: no ledger row was found for the session. Deliberately neutral — this is
+  // the absence of a record, not a good or bad outcome, and never a charge.
+  sin_registro: { label: 'Sin registro de horas', className: 'bg-gray-100 text-gray-600' },
 };
 
 // ============================================================
@@ -258,6 +261,11 @@ function BucketCard({ bucket }: { bucket: BucketWithSessions }) {
                           </span>
                         )}
                       </div>
+                      {session.status === 'sin_registro' && (
+                        <p className="mt-0.5 text-[10px] leading-tight text-gray-500">
+                          Horas programadas
+                        </p>
+                      )}
                     </td>
                     <td className="py-1 text-right text-gray-500">
                       {session.attendance
@@ -520,7 +528,10 @@ export default function SchoolHoursReport({ schoolId, isAdmin, schoolName: initi
             Título: session.title,
             Consultor: session.consultant_name,
             'Horas de sesión': session.hours.toFixed(2),
-            Estado: session.status,
+            // The four ledger statuses export verbatim, as they always have. A session with
+            // no hours record says so in full, together with where its number came from,
+            // so the cell can never be read as an amount the school was charged.
+            Estado: session.status === 'sin_registro' ? 'Sin registro de horas (horas programadas)' : session.status,
             'Sobre Presupuesto': session.is_over_budget ? 'Sí' : 'No',
             'Asistencia Esperada': session.attendance ? String(session.attendance.expected) : '',
             'Asistencia Real': session.attendance ? String(session.attendance.attended) : '',

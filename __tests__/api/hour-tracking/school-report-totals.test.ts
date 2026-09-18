@@ -496,7 +496,7 @@ describe('SM-02 school report totals (real service → JSON/PDF handlers)', () =
         'Sesion reservada': [1.5, 'reservada'],
         'Sesion consumida': [4.25, 'consumida'],
         'Sesion ajustada': [0.75, 'consumida'],
-        'Sesion sin libro': [10, 'consumida'],
+        'Sesion sin libro': [10, 'sin_registro'],
       });
 
       const pdf = await call('pdf', { tables: mixedTables() });

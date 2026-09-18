@@ -186,15 +186,6 @@ async function computeSchoolSummary(
   };
 }
 
-// Fallback mapping from session status → display status (used only when no ledger entry exists)
-const SESSION_STATUS_FALLBACK: Record<string, SessionDetail['status']> = {
-  completada: 'consumida',
-  aprobada: 'consumida',
-  reservada: 'reservada',
-  en_curso: 'reservada',
-  cancelada: 'penalizada', // conservative fallback; ledger entry is authoritative
-};
-
 /**
  * Fetches the full school hours report data.
  *
@@ -411,10 +402,15 @@ export async function fetchSchoolReportData(
           'per_session_display'
         );
 
-        // Use ledger status if available, otherwise fall back to session status mapping
+        // The ledger row is authoritative when there is one. When there is not — and the
+        // read above SUCCEEDED, so the absence is proven rather than assumed — the session
+        // has no hours record at all, whatever its own lifecycle status says. Deriving one
+        // from `s.status` invented facts: a cancellation nobody ever billed was shown as
+        // `penalizada`, a finished session nobody ledgered as `consumida`, and everything
+        // else as a reservation that was never made. `sin_registro` says only what is true,
+        // and the `hours` beside it stays the scheduled estimate it has always been.
         const mappedStatus: SessionDetail['status'] =
-          (ledgerEntry?.status as SessionDetail['status'] | undefined) ??
-          (SESSION_STATUS_FALLBACK[s.status] ?? 'reservada');
+          (ledgerEntry?.status as SessionDetail['status'] | undefined) ?? 'sin_registro';
 
         return {
           session_id: s.id,

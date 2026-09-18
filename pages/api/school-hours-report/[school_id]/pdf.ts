@@ -268,7 +268,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             s.consultant_name,
             s.title.length > 35 ? s.title.slice(0, 35) + '…' : s.title,
             s.hours.toFixed(2),
-            s.status,
+            // Same cell the CSV writes: the four ledger statuses verbatim, and a session
+            // with no hours record named in full with the origin of its number. autoTable's
+            // default `linebreak` overflow wraps the longer text inside the column.
+            s.status === 'sin_registro' ? 'Sin registro de horas (horas programadas)' : s.status,
             s.attendance ? `${s.attendance.attended}/${s.attendance.expected}` : '—',
           ]);
 

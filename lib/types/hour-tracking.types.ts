@@ -296,7 +296,13 @@ export interface SessionDetail {
   date: string;
   consultant_name: string;
   hours: number;
-  status: 'reservada' | 'consumida' | 'penalizada' | 'devuelta';
+  /**
+   * The four ledger statuses are authoritative, read verbatim from the session's
+   * `contract_hours_ledger` row. `sin_registro` is report-only: it is never stored and
+   * never written to any table, and means a SUCCESSFUL ledger read proved the session has
+   * no row at all. Its `hours` is then the scheduled-duration estimate, not a charge.
+   */
+  status: 'reservada' | 'consumida' | 'penalizada' | 'devuelta' | 'sin_registro';
   /** True when the ledger entry was recorded over the budget (is_over_budget=true in contract_hours_ledger) */
   is_over_budget?: boolean;
   /** Reserved for future attendance tracking. session_attendance table does not exist yet. */

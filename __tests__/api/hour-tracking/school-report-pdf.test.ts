@@ -378,6 +378,105 @@ describe('GET /api/school-hours-report/[school_id]/pdf', () => {
     expect(text).toContain('ConsultoraSinteticaSesionreservada2.00reservada');
   });
 
+  // ---- SM-07 / A14-4-F04: sessions with no hours record ----
+
+  /**
+   * The same contract, with two sessions the service found no ledger row for: one the old
+   * fallback rendered as `penalizada`, one it rendered as `consumida`. Their hours are the
+   * scheduled estimate, and the contract's own totals stay where they were.
+   */
+  function reportWithUnrecordedSessions() {
+    const report = reportWithRegularAndAnnex();
+    const sessions = (report.programs[0] as { contracts: { buckets: { sessions: unknown[] }[] }[] })
+      .contracts[0].buckets[0].sessions;
+    sessions.push(
+      {
+        session_id: '550e8400-e29b-41d4-a716-446655440032',
+        title: 'Sesion cancelada sin registro',
+        date: '2026-07-02',
+        consultant_name: 'Consultor Sintetico',
+        hours: 1.5,
+        status: 'sin_registro',
+        attendance: null,
+      },
+      {
+        session_id: '550e8400-e29b-41d4-a716-446655440033',
+        title: 'Sesion completada sin registro',
+        date: '2026-07-03',
+        consultant_name: 'Consultora Sintetica',
+        hours: 0,
+        status: 'sin_registro',
+        attendance: null,
+      }
+    );
+    return report;
+  }
+
+  async function pdfTextFor(report: unknown) {
+    setupAuth(DIRECTIVO_UUID, 'equipo_directivo', SCHOOL_ID);
+    mockFetchSchoolReportData.mockResolvedValue(report);
+    const { req, res } = createMocks({ method: 'GET', query: { school_id: String(SCHOOL_ID) } });
+    await handler(req as never, res as never);
+    const bytes = pdfBytes(res);
+    expect(xrefProblems(bytes)).toEqual([]);
+    const { text } = await pdfText(bytes);
+    return { raw: text, packed: text.replace(/\s+/g, ''), res };
+  }
+
+  it('SM-07 names an unrecorded session and the origin of its number in the Estado cell', async () => {
+    const { packed } = await pdfTextFor(reportWithUnrecordedSessions());
+
+    // Both no-entry rows say the same thing, in full, whatever their session status was.
+    expect(packed).toContain('Sesioncanceladasinregistro1.50Sinregistrodehoras(horasprogramadas)');
+    expect(packed).toContain('Sesioncompletadasinregistro0.00Sinregistrodehoras(horasprogramadas)');
+    // Neither is dressed as a penalty or a consumption anyone recorded.
+    expect(packed).not.toContain('Sesioncanceladasinregistro1.50penalizada');
+    expect(packed).not.toContain('Sesioncompletadasinregistro0.00consumida');
+    // The report-only key itself never reaches the page.
+    expect(packed).not.toContain('sin_registro');
+  });
+
+  it('SM-07 leaves the four recorded statuses, the numbers and the totals untouched', async () => {
+    const { packed } = await pdfTextFor(reportWithUnrecordedSessions());
+
+    // Verbatim from the pre-SM-07 assertions above.
+    expect(packed).toContain('ConsultoraSinteticaSesionconsumida3.00consumida');
+    expect(packed).toContain('ConsultoraSinteticaSesionreservada2.00reservada');
+    expect(packed).toContain('60.03.02.055.0');
+    expect(packed).toContain('AsesoriaTecnica50.02.03.045.0+10.0');
+    // The 4.5 h of scheduled estimates added by the two rows reach no total on the page.
+    expect(packed).not.toContain('60.07.52.055.0');
+  });
+
+  it('SM-07 wraps the longer status text instead of clipping or truncating it', async () => {
+    const { raw, packed } = await pdfTextFor(reportWithUnrecordedSessions());
+
+    // autoTable's default `linebreak` overflow splits the cell across lines rather than
+    // cutting it, so every word survives and nothing is replaced by an ellipsis.
+    for (const word of ['Sin', 'registro', 'de', 'horas', '(horas', 'programadas)']) {
+      expect(raw).toContain(word);
+    }
+    expect(packed).not.toContain('Sinregistrodeh\u2026');
+    expect(packed).not.toContain('Sinregistro\u2026');
+    // The page still parses strictly and the row's own number is intact beside it.
+    expect(packed).toContain('1.50Sinregistrodehoras(horasprogramadas)');
+  });
+
+  it('SM-07 emits no PDF and no label when the report read itself fails', async () => {
+    setupAuth(DIRECTIVO_UUID, 'equipo_directivo', SCHOOL_ID);
+    mockFetchSchoolReportData.mockRejectedValue(
+      new Error('No se pudieron obtener las horas registradas del bucket "asesoria_tecnica_presencial"')
+    );
+
+    const { req, res } = createMocks({ method: 'GET', query: { school_id: String(SCHOOL_ID) } });
+    await handler(req as never, res as never);
+
+    // A failed read stays a failure: never a partial file, never a proven absence.
+    expect(res._getStatusCode()).toBe(500);
+    expect(JSON.stringify(res._getData())).not.toContain('Sin registro de horas');
+    expect(res._getBuffer().subarray(0, 5).toString('latin1')).not.toBe('%PDF-');
+  });
+
   // ---- SM-03 / A14-4-F02: the optional selected-contract scope ----
 
   it('keeps the whole-school PDF, filename included, when no contract is named', async () => {

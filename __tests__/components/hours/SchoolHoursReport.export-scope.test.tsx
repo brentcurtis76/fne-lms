@@ -1074,3 +1074,196 @@ describe('SM-06 session-hours heading', () => {
     expect(openedUrls[0]).toBe(`/api/school-hours-report/${SCHOOL_ID}/pdf?contrato_id=${PARENT_ID}`);
   });
 });
+
+// ============================================================
+// SM-07 / A14-4-F04 — sessions with no hours record
+//
+// A session the service could not find a `contract_hours_ledger` row for arrives as the
+// report-only status `sin_registro`. On screen it gets a neutral badge and a caption
+// naming where its number came from; in the CSV its `Estado` cell says both things in
+// full. The four recorded statuses, the seventeen columns and every number are untouched.
+// ============================================================
+
+const SIN_REGISTRO_BADGE = 'Sin registro de horas';
+const SIN_REGISTRO_CAPTION = 'Horas programadas';
+const SIN_REGISTRO_CELL = 'Sin registro de horas (horas programadas)';
+
+/** A very long title, to prove the status cell is not what truncates a row. */
+const LONG_TITLE = 'Sesión de acompañamiento directivo con equipo ampliado y apoderados invitados';
+
+/**
+ * The parent contract with three unledgered sessions appended: a cancellation the old
+ * fallback called `penalizada`, a finished session it called `consumida`, and a draft it
+ * called `reservada`. Their hours are scheduled estimates, and the contract's own totals
+ * deliberately stay at the pre-existing 4.25 h / 2 h, which no estimate may move.
+ */
+function makeReportWithUnrecorded(): SchoolReportData {
+  const report = makeReport();
+  const bucket = report.programs[0].contracts[0].buckets[0];
+  bucket.sessions.push(
+    {
+      session_id: 's0000000-0000-4000-8000-00000000000a',
+      title: 'Sesion cancelada sin registro',
+      date: '2026-08-01',
+      consultant_name: 'Consultora Sintetica',
+      hours: 1.5,
+      status: 'sin_registro',
+      is_over_budget: false,
+      attendance: null,
+    },
+    {
+      session_id: 's0000000-0000-4000-8000-00000000000b',
+      title: LONG_TITLE,
+      date: '2026-08-02',
+      consultant_name: 'Consultor Sintetico',
+      hours: 2,
+      status: 'sin_registro',
+      is_over_budget: false,
+      attendance: null,
+    },
+    {
+      // No schedule at all: the pre-existing 0 fallback, which must not read as a waiver.
+      session_id: 's0000000-0000-4000-8000-00000000000c',
+      title: 'Sesion borrador sin horario',
+      date: '2026-08-03',
+      consultant_name: 'Consultora Sintetica',
+      hours: 0,
+      status: 'sin_registro',
+      is_over_budget: false,
+      attendance: null,
+    }
+  );
+  return report;
+}
+
+const expandFirstBucket = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(screen.getAllByRole('button', { name: /Ver Detalle/ })[0]);
+};
+
+describe('SM-07 unrecorded session hours', () => {
+  it('D1 badges every unrecorded row on screen and captions its number as scheduled', async () => {
+    const user = userEvent.setup();
+    await renderReport(makeReportWithUnrecorded());
+    await expandFirstBucket(user);
+
+    // One badge and one caption per unrecorded row, and none for the four recorded ones.
+    expect(screen.getAllByText(SIN_REGISTRO_BADGE)).toHaveLength(3);
+    expect(screen.getAllByText(SIN_REGISTRO_CAPTION)).toHaveLength(3);
+
+    // The caption sits in the same row as the badge, beside that row's own number.
+    const row = screen.getByText('Sesion cancelada sin registro').closest('tr') as HTMLElement;
+    expect(within(row).getByText(SIN_REGISTRO_BADGE)).toBeInTheDocument();
+    expect(within(row).getByText(SIN_REGISTRO_CAPTION)).toBeInTheDocument();
+    expect(within(row).getByText('1.50')).toBeInTheDocument();
+    // Never presented as a penalty, a consumption or a reservation anyone recorded.
+    expect(within(row).queryByText('Penalizada')).not.toBeInTheDocument();
+    expect(within(row).queryByText('Sobre presupuesto')).not.toBeInTheDocument();
+
+    // The four recorded rows keep their own badges, unchanged.
+    for (const label of ['Consumida', 'Reservada', 'Penalizada', 'Devuelta']) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+  });
+
+  it('D1/D4 writes the exact Estado cell for unrecorded rows and leaves the recorded four alone', async () => {
+    const user = userEvent.setup();
+    await renderReport(makeReportWithUnrecorded());
+
+    const csv = await downloadCsv(user);
+    // The file shape does not move: same header line, same seventeen columns.
+    expect(csvHeaderLine(csv)).toBe(CSV_HEADER);
+    const rows = csvRows(csv);
+    expect(rows).toHaveLength(8); // summary + four recorded + three unrecorded
+
+    expect(rows.slice(1, 5).map((r) => r.Estado)).toEqual([
+      'consumida', 'reservada', 'penalizada', 'devuelta',
+    ]);
+    expect(rows.slice(5).map((r) => r.Estado)).toEqual([
+      SIN_REGISTRO_CELL, SIN_REGISTRO_CELL, SIN_REGISTRO_CELL,
+    ]);
+    // The report-only key itself never reaches the file.
+    expect(csv).not.toContain('sin_registro');
+
+    // Numeric hours keep two decimals, including the 0.00 no-schedule fallback, and the
+    // remaining sixteen cells of an unrecorded row are exactly what a recorded row has.
+    expect(rows.slice(5).map((r) => r['Horas de sesión'])).toEqual(['1.50', '2.00', '0.00']);
+    expect(rows[5]).toEqual(expectedRow({
+      Programa: 'Programa Sintetico Alfa',
+      Contrato: PARENT_NUMERO,
+      'Categoría': 'Asesoria Tecnica',
+      Fecha: '2026-08-01',
+      'Título': 'Sesion cancelada sin registro',
+      Consultor: 'Consultora Sintetica',
+      'Horas de sesión': '1.50',
+      Estado: SIN_REGISTRO_CELL,
+      'Sobre Presupuesto': 'No',
+      'Tipo de fila': 'Sesión',
+    }));
+  });
+
+  it('D2 keeps the contract totals free of the scheduled estimates, on screen and in the file', async () => {
+    const user = userEvent.setup();
+    await renderReport(makeReportWithUnrecorded());
+
+    const rows = csvRows(await downloadCsv(user));
+    // Unchanged by the three added rows: the contract's own recorded figures.
+    expect(rows[0]).toEqual(expectedRow({
+      Programa: 'Programa Sintetico Alfa',
+      Contrato: PARENT_NUMERO,
+      'Tipo de fila': SUMMARY_ROW,
+      [TYPE_COLUMN]: TYPE_ORDINARY,
+      'Horas contratadas': '52.0',
+      'Horas consumidas': '4.3',
+      'Horas reservadas': '2.0',
+      'Horas disponibles': '-1.3',
+    }));
+    // The session column now sums to 9.75 h while consumed stays 4.3 — the summary is not
+    // a sum of the rows, and an estimate can never become a charge by being added up.
+    expect(rows.slice(1).reduce((sum, r) => sum + Number(r['Horas de sesión']), 0)).toBeCloseTo(9.75, 5);
+    expect(screen.getByText('4.3 h')).toBeInTheDocument();
+  });
+
+  it('D2/UI2 keeps an unrecorded 0.00 distinguishable from a recorded zero waiver', async () => {
+    const user = userEvent.setup();
+    await renderReport(makeReportWithUnrecorded());
+    await expandFirstBucket(user);
+
+    const waiver = screen.getByText('Sesion devuelta eximida').closest('tr') as HTMLElement;
+    const unrecorded = screen.getByText('Sesion borrador sin horario').closest('tr') as HTMLElement;
+
+    // Both show 0.00 hours; only their status text tells them apart, so it has to.
+    expect(within(waiver).getByText('0.00')).toBeInTheDocument();
+    expect(within(unrecorded).getByText('0.00')).toBeInTheDocument();
+    expect(within(waiver).getByText('Devuelta')).toBeInTheDocument();
+    expect(within(waiver).queryByText(SIN_REGISTRO_CAPTION)).not.toBeInTheDocument();
+    expect(within(unrecorded).getByText(SIN_REGISTRO_BADGE)).toBeInTheDocument();
+    expect(within(unrecorded).queryByText('Devuelta')).not.toBeInTheDocument();
+  });
+
+  it('D4 renders the badge as wrapping text, never clipped or truncated', async () => {
+    const user = userEvent.setup();
+    await renderReport(makeReportWithUnrecorded());
+    await expandFirstBucket(user);
+
+    // The long title keeps the component's pre-existing truncation; the status beside it
+    // does not borrow it, so the label is readable in full at any width.
+    const row = screen.getByText(LONG_TITLE).closest('tr') as HTMLElement;
+    const badge = within(row).getByText(SIN_REGISTRO_BADGE);
+    expect(badge.className).not.toMatch(/truncate|whitespace-nowrap|overflow-hidden/);
+    expect(badge.textContent).toBe(SIN_REGISTRO_BADGE);
+    // Its container is the pre-existing wrapping flex row, so a narrow column wraps it.
+    expect((badge.parentElement as HTMLElement).className).toMatch(/flex-wrap/);
+  });
+
+  it('D3/D4 shows no badge, no caption and no file when the report itself failed', async () => {
+    mockFetchOnce({ error: 'boom' }, { ok: false, status: 500 });
+    render(<SchoolHoursReport schoolId={SCHOOL_ID} isAdmin={false} />);
+    await screen.findByText(/Error/);
+
+    // A failed read is never dressed up as a proven absence.
+    expect(screen.queryByText(SIN_REGISTRO_BADGE)).not.toBeInTheDocument();
+    expect(screen.queryByText(SIN_REGISTRO_CAPTION)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Descargar CSV' })).not.toBeInTheDocument();
+    expect(capturedBlob).toBeNull();
+  });
+});

@@ -12,9 +12,9 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-E2E-AUTH | Autenticación de pruebas E2E: clasificación de personas y registros corregidos | done |  | 2026-09-10 |  |
 | PROC-PROPOSAL-LIBRARIES | Bibliotecas de propuestas: páginas, guardias de carga y pruebas | done |  | 2026-09-10 |  |
 | PROC-NUMERIC-VALIDATION | Validación de valores numéricos: límites y pasos, aceptación dentro del conjunto | held | PROC-02 | 2026-09-17 |  |
-| PROC-B5-VERSIONING | B5 versiones e historia: detección en indicadores y grados, crear/seleccionar versiones y conectar la aplicación | todo |  | 2026-09-17 |  |
+| PROC-B5-VERSIONING | B5 versiones e historia: detección en indicadores y grados, crear/seleccionar versiones y conectar la aplicación | done | PROC-08 | 2026-09-20 |  |
 | PROC-B5-CONCURRENCY | B5: ensayo real de ediciones simultáneas (sospecha de interbloqueo) | waiting |  | 2026-09-17 |  |
-| PROC-B5-PGTAP-RENUMBER | B5: renumerar las pruebas pgTAP (081 duplicado con 081-zoom-explicit-roster.sql de main) | todo |  | 2026-09-16 | 081 collision confirmed; renaming untracked SQL requires bounded integration approval. |
+| PROC-B5-PGTAP-RENUMBER | B5: renumerar las pruebas pgTAP (081 duplicado con 081-zoom-explicit-roster.sql de main) | done | PROC-09 | 2026-09-20 |  |
 | PROC-CONSULTOR-C0 | Consultores C0: sin escrituras en Plan de Migración (guardia de contraseña, API, pantalla de solo lectura) | waiting |  | 2026-09-17 |  |
 | PROC-CONSULTOR-C1 | Consultores C1: lectura de Contexto Transversal y Plan en todas las escuelas (matriz de roles, API, pantalla) | todo |  | 2026-09-17 |  |
 | PROC-CONSULTOR-DASHBOARD-INTEGRATION | Consultores: integrar la política de permisos en el dashboard | blocked |  | 2026-09-17 |  |
@@ -29,6 +29,7 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-NUMERIC-FIXTURE-MODEL | Offline numeric browser-fixture contract and guard model | done | PROC-06 | 2026-09-18 |  |
 | PROC-FIXTURE-PARENT-INTEGRITY | Validate restored receipt parent references in the offline model | done | PROC-05 | 2026-09-18 |  |
 | PROC-FIXTURE-EVIDENCE-CLOSURE | Reconcile final offline fixture contract and result evidence | done | PROC-06 | 2026-09-18 |  |
+| PROC-NUMERIC-LOCAL-READINESS | Verify local schema and synthetic prerequisites for numeric browser validation | done | PROC-07 | 2026-09-19 |  |
 
 ## Events (append-only, newest last)
 - 2026-09-10T02:10+00:00 · PM · RECORD · COORDINATED authorized by user. Claude Fable5.1 discovery01 stopped at context boundary, no edits, exit143. Discovery02 fresh restricted intake running. Independent PM portability/raw-report/trace checkpoint written; ful
@@ -261,3 +262,11 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 - 2026-09-18T07:20:35-03:00 · PROC-06 · IN-PROGRESS · Approved split final step starts after PROC-05 acceptance; reconcile external fixture contract/results with frozen model and retain the explicit baseline-build exception.
 - 2026-09-18T08:56:41-03:00 · PROC-06 · DONE · Independent r2 review approved final offline contract and result; 54 model tests pass, protected files unchanged, live numeric validation remains held.
 - 2026-09-18T08:56:44-03:00 · PROC-06 · DONE · Approved split steps PROC-05 and PROC-06 complete the original offline model outcome; historical attempts preserved, numeric feature and live acceptance remain held.
+- 2026-09-18T09:57:01-03:00 · PROC-07 · TODO · Brent reserved the existing local GENERA database; propose read-only schema and prerequisite verification before any fixture writes or browser actions.
+- 2026-09-18T09:59:35-03:00 · PROC-07 · IN-PROGRESS · Brent approved the read-only readiness order; verify reserved local database catalogs and synthetic prerequisites without fixture writes or browser execution.
+- 2026-09-19T23:22:22-03:00 · PROC-07 · DONE · PROC-07: harden local readiness probe
+- 2026-09-19T23:42:52-03:00 · PROC-08 · IN-PROGRESS · PROC-08 r0 dispatched (pm-unit begin)
+- 2026-09-20T00:30:22-03:00 · PROC-08 · DONE · PROC-08: finalize B5 versioning discovery contract
+- 2026-09-20T08:47:32-03:00 · Claude for Brent (20 Sep triage: all open items need Brent until he marks some auto) · TRIAGE · authority set on 11 items: 0 auto, 11 brent
+- 2026-09-20T09:59:33-03:00 · PROC-09 · IN-PROGRESS · PROC-09 r0 dispatched (pm-unit begin) · token ls-63f08fab9f
+- 2026-09-20T10:47:21-03:00 · PROC-09 · DONE · PROC-09: renumber B5 pgTAP tests · token 134f4cc959f5

@@ -24,7 +24,7 @@
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import type { SchoolReportData } from '../../../lib/types/hour-tracking.types';
@@ -1443,5 +1443,443 @@ describe('SM-08 partial session detail', () => {
     expect(screen.queryByTestId(NOTICE_TESTID)).not.toBeInTheDocument();
     expect(screen.queryByText(PARTIAL_NOTICE)).not.toBeInTheDocument();
     expect(capturedBlob).toBeNull();
+  });
+});
+
+// ============================================================
+// SM-09 — only the newest request may decide what is shown and what downloads
+// ============================================================
+
+/** A UUID-shaped id whose head is the generation tag, so a leaked id names its origin. */
+function taggedUuid(tag: string, n: number) {
+  const head = `${tag}000000`.slice(0, 8);
+  const d = String(n).repeat(4);
+  return `${head}-${d}-4${d.slice(0, 3)}-8${d.slice(0, 3)}-${head}${head.slice(0, 4)}`;
+}
+
+/**
+ * A report whose every visible marker carries `tag`: school, program, contract number and
+ * id, session title and the four totals. Two generations of the SAME school get different
+ * tags, so a stale one that wins shows up in the heading, the selector, the CSV and the
+ * PDF target alike — being "the school we are on" cannot disguise it.
+ */
+function markedReport(tag: string, base: number): SchoolReportData {
+  const report = makeReport(`Escuela ${tag}`);
+  report.programs.forEach((prog, pi) => {
+    prog.programa_id = taggedUuid(tag, pi + 1);
+    prog.programa_name = `Programa ${tag}${pi + 1}`;
+    prog.contracts.forEach((contract, ci) => {
+      const hours = base + pi * 10 + ci;
+      contract.contrato_id = taggedUuid(tag, (pi + 1) * 4 + ci);
+      contract.numero_contrato = `${tag}-2026-${hours}`;
+      contract.total_contracted_hours = hours;
+      contract.total_consumed = hours / 4;
+      contract.total_reserved = 0;
+      contract.total_available = hours - hours / 4;
+      contract.buckets.forEach((bucket) => {
+        bucket.sessions.forEach((session, si) => {
+          session.title = `Sesion ${tag}${pi}${ci}${si}`;
+        });
+      });
+    });
+  });
+  return report;
+}
+
+/** Every string of a generation that must never surface once that generation is stale. */
+function markersOf(report: SchoolReportData): string[] {
+  const out = [String(report.school_name)];
+  for (const prog of report.programs) {
+    out.push(prog.programa_name);
+    for (const contract of prog.contracts) {
+      out.push(contract.numero_contrato, contract.contrato_id);
+      for (const bucket of contract.buckets) {
+        for (const session of bucket.sessions) {
+          out.push(session.title);
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function expectNoMarkers(haystack: string | null, report: SchoolReportData) {
+  for (const marker of markersOf(report)) {
+    expect(haystack ?? '').not.toContain(marker);
+  }
+}
+
+/** `resolveHttp` lands the response; its JSON body stays in flight until `resolveBody`. */
+type DeferredResponse = {
+  resolveHttp: (init?: { ok?: boolean; status?: number }) => void;
+  resolveBody: (body: unknown) => void;
+  rejectBody: (error: unknown) => void;
+};
+
+/**
+ * Queues one fetch whose two stages — the HTTP response and its JSON body — are released
+ * by hand, so the completion orders below are exact rather than raced and a response can
+ * be held open across a school change.
+ */
+function queueDeferredResponse(): DeferredResponse {
+  let settleHttp: (value: unknown) => void = () => {};
+  const http = new Promise((resolve) => { settleHttp = resolve; });
+  let settleBody: (value: unknown) => void = () => {};
+  let failBody: (error: unknown) => void = () => {};
+  const body = new Promise((resolve, reject) => { settleBody = resolve; failBody = reject; });
+  // The component consumes the rejection; this only keeps it from being reported unhandled.
+  body.catch(() => {});
+  (global.fetch as ReturnType<typeof vi.fn>).mockImplementationOnce(() => http);
+  return {
+    resolveHttp: (init = {}) => settleHttp({ ok: init.ok ?? true, status: init.status ?? 200, json: () => body }),
+    resolveBody: settleBody,
+    rejectBody: failBody,
+  };
+}
+
+const CSV_BUTTON = 'Descargar CSV';
+const PDF_BUTTON = 'Descargar Reporte PDF';
+const ERROR_TITLE = 'Error al cargar el reporte';
+const NETWORK_ERROR = 'Error de red al cargar el reporte.';
+const EMPTY_STATE = 'Esta escuela no tiene programas activos';
+
+const pdfUrl = (schoolId: number, contratoId: string) =>
+  `/api/school-hours-report/${schoolId}/pdf?contrato_id=${contratoId}`;
+
+describe('SM-09 D1 overlapping school switches', () => {
+  it('D1 lets only the newest generation set report, selection and loading when A→B→A overlap', async () => {
+    const user = userEvent.setup();
+    const a1 = markedReport('a1', 100);
+    const b0 = markedReport('b0', 200);
+    const a2 = markedReport('a2', 300);
+
+    // A1's HTTP response lands immediately; its JSON body stays in flight, so the request
+    // is still running when the reader leaves and comes back to the same school.
+    const first = queueDeferredResponse();
+    const { rerender } = render(<SchoolHoursReport schoolId={SCHOOL_ID} isAdmin={false} />);
+    first.resolveHttp();
+    await flushBlob();
+
+    const second = queueDeferredResponse();
+    rerender(<SchoolHoursReport schoolId={7} isAdmin={false} />);
+
+    const third = queueDeferredResponse();
+    rerender(<SchoolHoursReport schoolId={SCHOOL_ID} isAdmin={false} />);
+    third.resolveHttp();
+    third.resolveBody({ data: a2 });
+    await screen.findByRole('heading', { level: 1, name: String(a2.school_name) });
+
+    // Adversarial order: both stale generations finish last, A1 last of all and for the
+    // school currently on screen.
+    second.resolveHttp();
+    second.resolveBody({ data: b0 });
+    first.resolveBody({ data: a1 });
+    await flushBlob();
+
+    const parent = a2.programs[0].contracts[0];
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(String(a2.school_name));
+    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(parent.numero_contrato);
+    expect(screen.getByLabelText('Contrato:')).toHaveValue(parent.contrato_id);
+
+    await user.click(screen.getByRole('button', { name: PDF_BUTTON }));
+    expect(openedUrls).toEqual([pdfUrl(SCHOOL_ID, parent.contrato_id)]);
+
+    const rows = csvRows(await downloadCsv(user));
+    expect(rows[0]['Tipo de fila']).toBe(SUMMARY_ROW);
+    expect(rows[0]['Horas contratadas']).toBe(parent.total_contracted_hours.toFixed(1));
+    expect(rows.every((r) => r.Contrato === parent.numero_contrato)).toBe(true);
+    expectNoMarkers(capturedCsv, a1);
+    expectNoMarkers(capturedCsv, b0);
+    expectNoMarkers(document.body.textContent, a1);
+    expectNoMarkers(document.body.textContent, b0);
+  });
+
+  it('D1 drops the annex and the program the reader had chosen when the school changes', async () => {
+    const user = userEvent.setup();
+    const a1 = markedReport('a1', 100);
+    const b0 = markedReport('b0', 200);
+
+    mockFetchOnce({ data: a1 });
+    const { rerender } = render(<SchoolHoursReport schoolId={SCHOOL_ID} isAdmin={false} />);
+    await screen.findByRole('heading', { level: 1, name: String(a1.school_name) });
+
+    // Both selections moved off their defaults before the switch.
+    const annex = a1.programs[0].contracts[1];
+    await user.selectOptions(screen.getByLabelText('Contrato:'), annex.contrato_id);
+    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(annex.numero_contrato);
+    await user.click(screen.getByRole('button', { name: a1.programs[1].programa_name }));
+    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(a1.programs[1].contracts[0].numero_contrato);
+
+    mockFetchOnce({ data: b0 });
+    rerender(<SchoolHoursReport schoolId={7} isAdmin={false} />);
+    await screen.findByRole('heading', { level: 1, name: String(b0.school_name) });
+
+    const fresh = b0.programs[0].contracts[0];
+    expect(screen.getByLabelText('Contrato:')).toHaveValue(fresh.contrato_id);
+    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(fresh.numero_contrato);
+
+    const rows = csvRows(await downloadCsv(user));
+    expect(rows[0].Programa).toBe(b0.programs[0].programa_name);
+    expect(rows[0].Contrato).toBe(fresh.numero_contrato);
+    expect(rows[0][TYPE_COLUMN]).toBe(TYPE_ORDINARY);
+    expectNoMarkers(capturedCsv, a1);
+  });
+});
+
+describe('SM-09 D2 stale completion matrix', () => {
+  it('D2 keeps the skeleton when a stale success lands while the newest request is loading', async () => {
+    const a1 = markedReport('a1', 100);
+    const b0 = markedReport('b0', 200);
+
+    const first = queueDeferredResponse();
+    const { container, rerender } = render(<SchoolHoursReport schoolId={SCHOOL_ID} isAdmin={false} />);
+    first.resolveHttp();
+    await flushBlob();
+
+    const second = queueDeferredResponse();
+    rerender(<SchoolHoursReport schoolId={7} isAdmin={false} />);
+
+    first.resolveBody({ data: a1 });
+    await flushBlob();
+
+    expect(container.querySelector('.animate-pulse')).not.toBeNull();
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: CSV_BUTTON })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: PDF_BUTTON })).not.toBeInTheDocument();
+    expectNoMarkers(document.body.textContent, a1);
+
+    // The newest request still finishes normally afterwards.
+    second.resolveHttp();
+    second.resolveBody({ data: b0 });
+    await screen.findByRole('heading', { level: 1, name: String(b0.school_name) });
+    expect(container.querySelector('.animate-pulse')).toBeNull();
+  });
+
+  it('D2 keeps the newest report when a stale failure lands after it', async () => {
+    // Two ways an abandoned request can fail late: an HTTP refusal, and a 200 whose body
+    // is an HTML error page where JSON was promised.
+    const failures: [string, (stale: DeferredResponse) => void][] = [
+      ['403', (stale) => {
+        stale.resolveHttp({ ok: false, status: 403 });
+        stale.resolveBody({ error: 'No tiene permisos para ver el reporte de esta escuela' });
+      }],
+      ['non-JSON', (stale) => {
+        stale.resolveHttp();
+        stale.rejectBody(new SyntaxError('Unexpected token < in JSON at position 0'));
+      }],
+    ];
+    for (const [, failStale] of failures) {
+      const user = userEvent.setup();
+      const a1 = markedReport('a1', 100);
+      const b0 = markedReport('b0', 200);
+      const stale = queueDeferredResponse();
+      const { rerender } = render(<SchoolHoursReport schoolId={SCHOOL_ID} isAdmin={false} />);
+
+      mockFetchOnce({ data: b0 });
+      rerender(<SchoolHoursReport schoolId={7} isAdmin={false} />);
+      await screen.findByRole('heading', { level: 1, name: String(b0.school_name) });
+
+      failStale(stale);
+      await flushBlob();
+
+      expect(screen.queryByText(ERROR_TITLE)).not.toBeInTheDocument();
+      expect(screen.queryByText(NETWORK_ERROR)).not.toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(String(b0.school_name));
+
+      const fresh = b0.programs[0].contracts[0];
+      openedUrls = [];
+      capturedBlob = null;
+      await user.click(screen.getByRole('button', { name: PDF_BUTTON }));
+      expect(openedUrls).toEqual([pdfUrl(7, fresh.contrato_id)]);
+      expect(csvRows(await downloadCsv(user)).every((r) => r.Contrato === fresh.numero_contrato)).toBe(true);
+      expectNoMarkers(capturedCsv, a1);
+      cleanup();
+    }
+  });
+
+  it('D2 keeps the newest error on screen when a stale success lands after it', async () => {
+    const a1 = markedReport('a1', 100);
+
+    const first = queueDeferredResponse();
+    const { rerender } = render(<SchoolHoursReport schoolId={SCHOOL_ID} isAdmin={false} />);
+
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: 'Error inesperado al obtener el reporte de horas' }),
+    });
+    rerender(<SchoolHoursReport schoolId={7} isAdmin={false} />);
+    await screen.findByText('Error inesperado al obtener el reporte de horas');
+
+    first.resolveHttp();
+    first.resolveBody({ data: a1 });
+    await flushBlob();
+
+    expect(screen.getByText(ERROR_TITLE)).toBeInTheDocument();
+    expect(screen.getByText('Error inesperado al obtener el reporte de horas')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: CSV_BUTTON })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: PDF_BUTTON })).not.toBeInTheDocument();
+    expectNoMarkers(document.body.textContent, a1);
+    expect(capturedCsv).toBeNull();
+  });
+});
+
+describe('SM-09 D3 newest-request failures and recovery', () => {
+  it('D3 shows the API message and offers no download for 403, 404 and 500 alike', async () => {
+    const cases: [number, string][] = [
+      [403, 'No tiene permisos para ver el reporte de esta escuela'],
+      [404, 'Escuela no encontrada'],
+      [500, 'Error inesperado al obtener el reporte de horas'],
+    ];
+    for (const [status, message] of cases) {
+      (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ok: false,
+        status,
+        json: async () => ({ error: message }),
+      });
+      render(<SchoolHoursReport schoolId={SCHOOL_ID} isAdmin={false} />);
+      expect(await screen.findByText(ERROR_TITLE)).toBeInTheDocument();
+      expect(screen.getByText(message)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: CSV_BUTTON })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: PDF_BUTTON })).not.toBeInTheDocument();
+      cleanup();
+    }
+  });
+
+  it('D3 reports a network error when the newest body is not JSON, and offers no download', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => { throw new SyntaxError('Unexpected token < in JSON at position 0'); },
+    });
+    render(<SchoolHoursReport schoolId={SCHOOL_ID} isAdmin={false} />);
+
+    expect(await screen.findByText(NETWORK_ERROR)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: CSV_BUTTON })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: PDF_BUTTON })).not.toBeInTheDocument();
+  });
+
+  it('D3 offers no download for null or programme-less data, and recovers on a valid school', async () => {
+    const user = userEvent.setup();
+    const empty = markedReport('a1', 100);
+    empty.programs = [];
+    const valid = markedReport('b0', 200);
+
+    mockFetchOnce({ data: null });
+    const { rerender } = render(<SchoolHoursReport schoolId={SCHOOL_ID} isAdmin={false} />);
+    expect(await screen.findByText(EMPTY_STATE)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: CSV_BUTTON })).not.toBeInTheDocument();
+
+    mockFetchOnce({ data: empty });
+    rerender(<SchoolHoursReport schoolId={7} isAdmin={false} />);
+    await screen.findByRole('heading', { level: 1, name: String(empty.school_name) });
+    expect(screen.getByText(EMPTY_STATE)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: PDF_BUTTON })).not.toBeInTheDocument();
+
+    mockFetchOnce({ data: valid });
+    rerender(<SchoolHoursReport schoolId={9} isAdmin={false} />);
+    await screen.findByRole('heading', { level: 1, name: String(valid.school_name) });
+
+    const fresh = valid.programs[0].contracts[0];
+    expect(screen.queryByText(EMPTY_STATE)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: PDF_BUTTON }));
+    expect(openedUrls).toEqual([pdfUrl(9, fresh.contrato_id)]);
+    expect(csvRows(await downloadCsv(user)).every((r) => r.Contrato === fresh.numero_contrato)).toBe(true);
+  });
+});
+
+describe('SM-09 D4 downloads at every stop of a switch cycle', () => {
+  it('D4 keeps heading, selector, CSV and PDF in agreement through A → B → A', async () => {
+    const user = userEvent.setup();
+    const generations = [markedReport('a1', 100), markedReport('b0', 200), markedReport('a2', 300)];
+    const schoolIds = [SCHOOL_ID, 7, SCHOOL_ID];
+    const dateStr = new Date().toISOString().slice(0, 10);
+    let rerender: (ui: React.ReactElement) => void = () => {};
+
+    for (let step = 0; step < generations.length; step += 1) {
+      const report = generations[step];
+      const schoolId = schoolIds[step];
+      mockFetchOnce({ data: report });
+      if (step === 0) {
+        ({ rerender } = render(<SchoolHoursReport schoolId={schoolId} isAdmin={false} />));
+      } else {
+        rerender(<SchoolHoursReport schoolId={schoolId} isAdmin={false} />);
+      }
+      await screen.findByRole('heading', { level: 1, name: String(report.school_name) });
+
+      // The annex is chosen at the first stop, so the later stops also prove that the
+      // choice did not survive the switch back to the same school id.
+      if (step === 0) {
+        await user.selectOptions(screen.getByLabelText('Contrato:'), report.programs[0].contracts[1].contrato_id);
+      }
+      const contract = report.programs[0].contracts[step === 0 ? 1 : 0];
+      expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(contract.numero_contrato);
+      expect(screen.getByLabelText('Contrato:')).toHaveValue(contract.contrato_id);
+
+      openedUrls = [];
+      capturedBlob = null;
+      capturedFilename = null;
+      await user.click(screen.getByRole('button', { name: PDF_BUTTON }));
+      expect(openedUrls).toEqual([pdfUrl(schoolId, contract.contrato_id)]);
+
+      const rows = csvRows(await downloadCsv(user));
+      expect(rows[0]).toEqual(expectedRow({
+        Programa: report.programs[0].programa_name,
+        Contrato: contract.numero_contrato,
+        'Tipo de fila': SUMMARY_ROW,
+        [TYPE_COLUMN]: contract.is_annexo ? TYPE_ANNEX : TYPE_ORDINARY,
+        'Horas contratadas': contract.total_contracted_hours.toFixed(1),
+        'Horas consumidas': contract.total_consumed.toFixed(1),
+        'Horas reservadas': contract.total_reserved.toFixed(1),
+        'Horas disponibles': contract.total_available.toFixed(1),
+      }));
+      expect(rows.every((r) => r.Contrato === contract.numero_contrato)).toBe(true);
+      expect(capturedFilename).toBe(`reporte-horas-${String(report.school_name).replace(/\s+/g, '_')}-${dateStr}.csv`);
+      for (const other of generations) {
+        if (other !== report) expectNoMarkers(capturedCsv, other);
+      }
+    }
+  });
+});
+
+describe('SM-09 D5 copy and evidence hygiene across a switch cycle', () => {
+  it('D5 keeps the es-CL copy and the seventeen columns, and reaches no other endpoint', async () => {
+    const user = userEvent.setup();
+    const a1 = markedReport('a1', 100);
+    const a2 = markedReport('a2', 300);
+
+    mockFetchOnce({ data: a1 });
+    const { rerender } = render(<SchoolHoursReport schoolId={SCHOOL_ID} isAdmin={false} />);
+    await screen.findByRole('heading', { level: 1, name: String(a1.school_name) });
+
+    mockFetchOnce({ data: markedReport('b0', 200) });
+    rerender(<SchoolHoursReport schoolId={7} isAdmin={false} />);
+    await screen.findByRole('heading', { level: 1, name: 'Escuela b0' });
+
+    mockFetchOnce({ data: a2 });
+    rerender(<SchoolHoursReport schoolId={SCHOOL_ID} isAdmin={false} />);
+    await screen.findByRole('heading', { level: 1, name: String(a2.school_name) });
+
+    const csv = await downloadCsv(user);
+    expect(csvHeaderLine(csv)).toBe(CSV_HEADER);
+    expect(csvHeaderLine(csv).split(',')).toHaveLength(17);
+    expect(mockToast.success).toHaveBeenCalledWith('CSV descargado correctamente');
+    expect(mockToast.error).not.toHaveBeenCalled();
+    expect(capturedFilename).toMatch(new RegExp('^reporte-horas-Escuela_a2-\\d{4}-\\d{2}-\\d{2}\\.csv$'));
+    expect(csv).not.toContain('/api/');
+
+    // The selector and both buttons keep the pre-existing strings; no error or empty copy.
+    expect(screen.getByLabelText('Contrato:')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: PDF_BUTTON })).toBeInTheDocument();
+    expect(screen.queryByText(ERROR_TITLE)).not.toBeInTheDocument();
+
+    // Every request went to this school report route and nowhere else.
+    expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[0])).toEqual([
+      `/api/school-hours-report/${SCHOOL_ID}`,
+      '/api/school-hours-report/7',
+      `/api/school-hours-report/${SCHOOL_ID}`,
+    ]);
+    expectNoMarkers(document.body.textContent, a1);
   });
 });

@@ -66,7 +66,7 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 | W-BL-A12-3 | Lo que el profesor aprendio queda escrito en el lugar donde el profesor que llegue el proximo ano lo va a encontrar. | todo |  | 2026-09-16 | Sin lote: el ledger legacy la dejaba en BACKLOG-P2. Rama propuesta por esta normalización: no existe en el repositorio y no tiene commits. |
 | W-BL-A13-2 | Todas las superficies —notificacion, recordatorio, calendario, lista del espacio colaborativo— llevan a esta pantalla, q | todo |  | 2026-09-16 | Sin lote: el ledger legacy la dejaba en BACKLOG-P1. Rama propuesta por esta normalización: no existe en el repositorio y no tiene commits. |
 | W-BL-A14-3 | Cuando un bucket baja del 25 por ciento disponible, la plataforma lo marca en ambar. Nadie se entera en diciembre de que | todo |  | 2026-09-16 | Sin lote: el ledger legacy la dejaba en BACKLOG-P1. Rama propuesta por esta normalización: no existe en el repositorio y no tiene commits. |
-| W-BL-A14-4 | Descargar Reporte PDF y Descargar CSV funcionan y coinciden con la pantalla | in-progress | SM-11 | 2026-09-20 |  |
+| W-BL-A14-4 | Descargar Reporte PDF y Descargar CSV funcionan y coinciden con la pantalla | done | SM-11 | 2026-09-21 |  |
 | W-BL-A14-5 | Lado consultora: horas ejecutadas, penalizadas, total horas, tarifa EUR/h, Total EUR, Total CLP, con TC 897 CLP/EUR actu | todo |  | 2026-09-16 | Sin lote: el ledger legacy la dejaba en BACKLOG-P1. Rama propuesta por esta normalización: no existe en el repositorio y no tiene commits. |
 | W-BL-A14-7 | El libro de horas es el mismo libro que sostiene la rendicion de la Ley SEP | todo |  | 2026-09-16 | Sin lote: el ledger legacy la dejaba en BACKLOG-P1. Rama propuesta por esta normalización: no existe en el repositorio y no tiene commits. |
 | W-BL-A15-4 | Progreso de Usuarios: tabla por usuario con Usuario, Rol, Cursos, Completados, Tasa, Tiempo, Ultima Actividad, y Exporta | todo |  | 2026-09-16 | Sin lote: el ledger legacy la dejaba en BACKLOG-P1. Rama propuesta por esta normalización: no existe en el repositorio y no tiene commits. |
@@ -173,3 +173,4 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 - 2026-09-21T09:43:30-03:00 · SM-10 · BLOCKED · SM-10 r0 reviewed BLOCKED (SM10-R0-B1); remediation runs as SM-12; SM-10 resumes after SM-12 is accepted · token ls-b6969b71ae
 - 2026-09-21T13:47:22-03:00 · SM-12 · DONE · SM-12: enforce school-scoped transformation access · token d689add8ba36
 - 2026-09-21T13:47:22-03:00 · PM · TODO · W-B10a-01 is free again: W-B10a-02 finished. · token d689add8ba36-free-W-B10a-01
+- 2026-09-21T14:54:13-03:00 · SM-11 · DONE · SM-11: remove unpublished B5 tests from SM-09 release · token 99457843b08f

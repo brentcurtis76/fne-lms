@@ -6,6 +6,8 @@ import type { SaveMigrationPlanRequest, GenerationType } from '@/types/assessmen
 // IDs of always-GT grades (1-6: Medio Menor through Segundo Básico)
 const ALWAYS_GT_GRADE_IDS = [1, 2, 3, 4, 5, 6];
 
+const ACCESS_DENIED = 'Solo directivos y administradores pueden acceder al plan de migración';
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Authentication check
   const { user, error: authError } = await getApiUser(req, res);
@@ -20,17 +22,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const bodySchoolId = req.body?.school_id ? parseInt(req.body.school_id) : undefined;
   const requestedSchoolId = req.method === 'GET' ? querySchoolId : bodySchoolId;
 
-  // Permission check
-  const { hasPermission, schoolId, isAdmin } = await hasDirectivoPermission(
-    supabaseClient,
+  // Permission check. Its consultor branch reads `consultant_assignments`,
+  // which RLS exposes to global admins only, so a valid assignment is invisible
+  // through the caller client and an assigned consultor is refused. Give the
+  // lookup a trusted read of that one table — for the authenticated user, whose
+  // id the helper filters on — and leave the role lookup, and every plan read
+  // and write below, on `supabaseClient`, so RLS stays the data and write
+  // boundary. Each read names its own table literally, so the trusted read
+  // cannot widen to another table. The trusted client is built only when the
+  // lookup reaches the assignment table; if it cannot be built the read falls
+  // back to the caller client, which sees no assignment row and so denies.
+  const permissionReads: Record<string, () => any> = {
+    user_roles: () => supabaseClient.from('user_roles'),
+    consultant_assignments: () => {
+      try {
+        return createServiceRoleClient().from('consultant_assignments');
+      } catch (clientError) {
+        console.error('Error creating assignment lookup client:', clientError);
+        return supabaseClient.from('consultant_assignments');
+      }
+    },
+  };
+
+  const { hasPermission, schoolId, isAdmin, via } = await hasDirectivoPermission(
+    { from: (table: string) => permissionReads[table]() },
     user.id,
     requestedSchoolId
   );
 
   if (!hasPermission) {
-    return res.status(403).json({
-      error: 'Solo directivos y administradores pueden acceder al plan de migración'
-    });
+    return res.status(403).json({ error: ACCESS_DENIED });
+  }
+
+  // An admitted consultor may only read the plan. Refuse the write here, before
+  // any plan, history or completion-status access; admin and equipo_directivo
+  // keep the mutation.
+  if (req.method === 'PUT' && via === 'consultor') {
+    return res.status(403).json({ error: ACCESS_DENIED });
   }
 
   // For non-admin users, we must have a school_id

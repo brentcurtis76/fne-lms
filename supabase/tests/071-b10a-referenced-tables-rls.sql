@@ -14,6 +14,9 @@
 --   5. per table, the legitimate reads survive and the illegitimate ones do
 --      not: admin, consultor, a community member, an enrolled docente, a
 --      learning-path assignee, an outsider
+--   5b. W-B10a-02 (SM10-R0-B1): growth_community_transformation_access reads by
+--      a school leader stop at their own school, while admin, consultor,
+--      membership, service_role and every write path stay exactly as they were
 --
 -- Synthetic/local state only. Rolls back. DO NOT run against production.
 -- =============================================================================
@@ -22,12 +25,21 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(164);
+SELECT plan(195);
 
 CREATE OR REPLACE FUNCTION pg_temp.set_anon() RETURNS void AS $$
 BEGIN
   PERFORM set_config('role', 'anon', true);
   PERFORM set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);
+END;
+$$ LANGUAGE plpgsql;
+
+-- service_role holds rolbypassrls, so this shim is how the suite proves the
+-- backend path is untouched by any policy added to these tables.
+CREATE OR REPLACE FUNCTION pg_temp.set_service_role() RETURNS void AS $$
+BEGIN
+  PERFORM set_config('role', 'service_role', true);
+  PERFORM set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
 END;
 $$ LANGUAGE plpgsql;
 
@@ -193,6 +205,36 @@ VALUES ('71000000-0000-4000-8000-00000000d001', 'b10a-assignment', '71000000-000
 INSERT INTO public.growth_community_transformation_access (growth_community_id, assigned_by, is_active)
 VALUES ('71000000-0000-4000-8000-00000000c001', pg_temp.uid('b10a_admin'), true);
 
+-- W-B10a-02 fixtures: two literal `equipo_directivo` of school 9711 (one active,
+-- one deactivated) and the rows a cross-school read would reach — c002 belongs to
+-- the OTHER school (9712) and c003 belongs to no school at all.
+SELECT tests.create_supabase_user('b10a_directivo');           -- active equipo_directivo, school 9711
+SELECT tests.create_supabase_user('b10a_directivo_inactive');  -- same role and school, is_active = false
+-- SM12-R0-B1: user_roles.is_active is nullable (default true, but an explicit NULL
+-- sticks). `b10a_directivo_null` is the counterexample the r0 review found — same
+-- role and school as b10a_directivo, is_active NULL. `b10a_directivo_dual` holds
+-- the school role AND an FNE consultor role, the case auth_is_equipo_directivo_only
+-- deliberately exempts.
+SELECT tests.create_supabase_user('b10a_directivo_null');      -- same role and school, is_active NULL
+SELECT tests.create_supabase_user('b10a_directivo_dual');      -- equipo_directivo of 9711 AND consultor
+INSERT INTO public.profiles (id, email, name, approval_status)
+SELECT pg_temp.uid(k), k || '@test.local', k, 'approved'
+  FROM unnest(ARRAY['b10a_directivo','b10a_directivo_inactive','b10a_directivo_null','b10a_directivo_dual']) k
+ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.user_roles (user_id, role_type, school_id, community_id, is_active) VALUES
+  (pg_temp.uid('b10a_directivo'),          'equipo_directivo', 9711, NULL, true),
+  (pg_temp.uid('b10a_directivo_inactive'), 'equipo_directivo', 9711, NULL, false),
+  (pg_temp.uid('b10a_directivo_null'),     'equipo_directivo', 9711, NULL, NULL),
+  (pg_temp.uid('b10a_directivo_dual'),     'equipo_directivo', 9711, NULL, true),
+  (pg_temp.uid('b10a_directivo_dual'),     'consultor',        9711, NULL, true);
+SELECT is((SELECT is_active FROM public.user_roles WHERE user_id = pg_temp.uid('b10a_directivo_null')), NULL::boolean,
+  'SM12-R0-B1 fixture: the NULL-active school leader''s role row really does carry is_active NULL');
+INSERT INTO public.growth_communities (id, school_id, name) VALUES
+  ('71000000-0000-4000-8000-00000000c003', NULL, 'B10a school-less community');
+INSERT INTO public.growth_community_transformation_access (growth_community_id, assigned_by, is_active) VALUES
+  ('71000000-0000-4000-8000-00000000c002', pg_temp.uid('b10a_admin'), true),
+  ('71000000-0000-4000-8000-00000000c003', pg_temp.uid('b10a_admin'), true);
+
 INSERT INTO public.qa_tester_time_logs (tester_id, date, total_seconds)
 VALUES (pg_temp.uid('b10a_enrolled'), current_date, 60);
 
@@ -289,6 +331,146 @@ SELECT is((SELECT count(*)::int FROM public.qa_tester_time_logs), 0, 'outsider: 
 SELECT throws_ok($$INSERT INTO public.qa_tester_time_logs (tester_id, date) VALUES (pg_temp.uid('b10a_outsider'), current_date)$$, '42501', NULL, 'outsider: cannot write QA time logs');
 SELECT throws_ok($$SELECT count(*) FROM public.propuesta_rate_limits$$, '42501', 'permission denied for table propuesta_rate_limits', 'outsider: cannot read the rate-limit table');
 SELECT throws_ok($$SELECT nextval('public.propuesta_rate_limits_id_seq')$$, '42501', NULL, 'outsider: cannot advance the rate-limit sequence');
+RESET ROLE;
+
+-- ----------------------------------------------------------------------------
+-- 5b. W-B10a-02 — growth_community_transformation_access is school-scoped for a
+--     school leader (SM10-R0-B1). Three access rows are now in play: c001
+--     (school 9711), c002 (school 9712) and c003 (no school).
+-- ----------------------------------------------------------------------------
+
+-- Catalog: the boundary is additive, restrictive and actor-bound (11)
+SELECT ok(
+  EXISTS (SELECT 1 FROM pg_policies
+           WHERE schemaname = 'public' AND tablename = 'growth_community_transformation_access'
+             AND policyname = 'growth_community_transformation_access_school_scope'
+             AND permissive = 'RESTRICTIVE' AND cmd = 'SELECT'),
+  'W-B10a-02: the school-scope boundary is a RESTRICTIVE SELECT policy (ANDed, so it can only narrow)');
+SELECT ok(
+  EXISTS (SELECT 1 FROM pg_policies
+           WHERE schemaname = 'public' AND tablename = 'growth_community_transformation_access'
+             AND policyname = 'growth_community_transformation_access_staff_or_member_read'
+             AND permissive = 'PERMISSIVE' AND cmd = 'SELECT'
+             AND qual LIKE '%is_admin_or_consultor%'
+             AND qual LIKE '%auth_is_community_member%'),
+  'W-B10a-02 is additive: the W-B10a-01 permissive read policy is still there, unrewritten');
+SELECT ok(
+  EXISTS (SELECT 1 FROM pg_policies
+           WHERE schemaname = 'public' AND tablename = 'growth_community_transformation_access'
+             AND policyname = 'growth_community_transformation_access_admin_manage'
+             AND permissive = 'PERMISSIVE' AND cmd = 'ALL'),
+  'W-B10a-02 is additive: the W-B10a-01 admin write policy is still there');
+SELECT ok((SELECT p.prosecdef FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = 'public' AND p.proname = 'auth_is_equipo_directivo_only'),
+  'auth_is_equipo_directivo_only is SECURITY DEFINER (public.user_roles is itself row-secured)');
+SELECT ok((SELECT p.prosecdef FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = 'public' AND p.proname = 'auth_community_in_actor_schools'),
+  'auth_community_in_actor_schools is SECURITY DEFINER');
+SELECT ok(NOT has_function_privilege('anon', 'public.auth_is_equipo_directivo_only()', 'EXECUTE'),
+  'anon cannot execute auth_is_equipo_directivo_only');
+SELECT ok(NOT has_function_privilege('anon', 'public.auth_community_in_actor_schools(uuid)', 'EXECUTE'),
+  'anon cannot execute auth_community_in_actor_schools');
+SELECT ok(has_function_privilege('authenticated', 'public.auth_is_equipo_directivo_only()', 'EXECUTE'),
+  'authenticated can execute auth_is_equipo_directivo_only (the policy runs as the caller)');
+SELECT ok(has_function_privilege('authenticated', 'public.auth_community_in_actor_schools(uuid)', 'EXECUTE'),
+  'authenticated can execute auth_community_in_actor_schools');
+SELECT ok(has_function_privilege('service_role', 'public.auth_is_equipo_directivo_only()', 'EXECUTE'),
+  'service_role can execute auth_is_equipo_directivo_only');
+SELECT ok(has_function_privilege('service_role', 'public.auth_community_in_actor_schools(uuid)', 'EXECUTE'),
+  'service_role can execute auth_community_in_actor_schools');
+
+-- D1: active literal equipo_directivo of school 9711 (3)
+SELECT tests.authenticate_as('b10a_directivo');
+SELECT is((SELECT count(*)::int FROM public.growth_community_transformation_access WHERE growth_community_id = '71000000-0000-4000-8000-00000000c001'), 1,
+  'equipo_directivo: READS the access row of a community in their OWN school');
+SELECT is((SELECT count(*)::int FROM public.growth_community_transformation_access WHERE growth_community_id = '71000000-0000-4000-8000-00000000c002'), 0,
+  'equipo_directivo: CANNOT read the access row of a community in ANOTHER school (SM10-R0-B1 counterexample)');
+SELECT is((SELECT array_agg(growth_community_id::text ORDER BY growth_community_id::text)
+             FROM public.growth_community_transformation_access WHERE growth_community_id::text LIKE '71000000-%'),
+  ARRAY['71000000-0000-4000-8000-00000000c001'],
+  'equipo_directivo: the whole visible set is exactly their own school''s row');
+RESET ROLE;
+
+-- D1 (SM12-R0-B1): a NULL-active school leader is treated as active by BOTH sides
+-- of the boundary, so the restriction narrows them to their own school instead of
+-- hiding their own school's row (5)
+SELECT tests.authenticate_as('b10a_directivo_null');
+SELECT ok(public.is_admin_or_consultor(pg_temp.uid('b10a_directivo_null')),
+  'NULL-active equipo_directivo: the legacy helper reads is_active NULL as active (COALESCE), so the permissive read policy admits them');
+SELECT ok(public.auth_is_equipo_directivo_only(),
+  'NULL-active equipo_directivo: the new classifier agrees — they are school-scoped, not FNE staff');
+SELECT is((SELECT count(*)::int FROM public.growth_community_transformation_access WHERE growth_community_id = '71000000-0000-4000-8000-00000000c001'), 1,
+  'NULL-active equipo_directivo: KEEPS the access row of a community in their OWN school (SM12-R0-B1 counterexample)');
+SELECT is((SELECT count(*)::int FROM public.growth_community_transformation_access WHERE growth_community_id = '71000000-0000-4000-8000-00000000c002'), 0,
+  'NULL-active equipo_directivo: still CANNOT read the access row of a community in ANOTHER school');
+SELECT is((SELECT array_agg(growth_community_id::text ORDER BY growth_community_id::text)
+             FROM public.growth_community_transformation_access WHERE growth_community_id::text LIKE '71000000-%'),
+  ARRAY['71000000-0000-4000-8000-00000000c001'],
+  'NULL-active equipo_directivo: the whole visible set is exactly their own school''s row');
+RESET ROLE;
+
+-- D2: a school leader who ALSO holds an active consultor role is the wider one (1)
+SELECT tests.authenticate_as('b10a_directivo_dual');
+SELECT is((SELECT array_agg(growth_community_id::text ORDER BY growth_community_id::text)
+             FROM public.growth_community_transformation_access WHERE growth_community_id::text LIKE '71000000-%'),
+  ARRAY['71000000-0000-4000-8000-00000000c001','71000000-0000-4000-8000-00000000c002','71000000-0000-4000-8000-00000000c003'],
+  'equipo_directivo + consultor: unchanged — an actor holding both roles is exempted from the school scope, as is_admin_or_consultor already treats them');
+RESET ROLE;
+
+-- D3: the same school leader gains no write authority (3)
+SELECT tests.authenticate_as('b10a_directivo');
+SELECT throws_ok($$INSERT INTO public.growth_community_transformation_access (growth_community_id) VALUES ('71000000-0000-4000-8000-00000000c001')$$,
+  '42501', NULL, 'equipo_directivo: cannot grant transformation access, not even in their own school');
+SELECT is(pg_temp.rows_affected($$UPDATE public.growth_community_transformation_access SET notes = 'directivo note' WHERE growth_community_id = '71000000-0000-4000-8000-00000000c001'$$), 0,
+  'equipo_directivo: cannot edit transformation access in their own school');
+SELECT is(pg_temp.rows_affected($$DELETE FROM public.growth_community_transformation_access WHERE growth_community_id = '71000000-0000-4000-8000-00000000c001'$$), 0,
+  'equipo_directivo: cannot revoke transformation access');
+RESET ROLE;
+
+-- D3: a community with no school is reachable by membership, never by a role (1)
+SELECT tests.authenticate_as('b10a_directivo');
+SELECT is((SELECT count(*)::int FROM public.growth_community_transformation_access WHERE growth_community_id = '71000000-0000-4000-8000-00000000c003'), 0,
+  'equipo_directivo: a community with school_id NULL belongs to no school, so the school leader does not reach it');
+RESET ROLE;
+
+-- D2: deactivated school leader, outsider, and the membership path (3)
+SELECT tests.authenticate_as('b10a_directivo_inactive');
+SELECT is((SELECT count(*)::int FROM public.growth_community_transformation_access WHERE growth_community_id::text LIKE '71000000-%'), 0,
+  'INACTIVE equipo_directivo: sees no transformation access at all, own school included');
+RESET ROLE;
+
+SELECT tests.authenticate_as('b10a_outsider');
+SELECT is((SELECT count(*)::int FROM public.growth_community_transformation_access WHERE growth_community_id::text LIKE '71000000-%'), 0,
+  'outsider: still sees no transformation access now that three rows exist');
+RESET ROLE;
+
+SELECT tests.authenticate_as('b10a_member');
+SELECT is((SELECT array_agg(growth_community_id::text ORDER BY growth_community_id::text)
+             FROM public.growth_community_transformation_access WHERE growth_community_id::text LIKE '71000000-%'),
+  ARRAY['71000000-0000-4000-8000-00000000c001'],
+  'active community member: unchanged — still exactly their own community''s row, and no more');
+RESET ROLE;
+
+-- D3: admin, consultor and service_role keep the reads they had (3)
+SELECT tests.authenticate_as('b10a_admin');
+SELECT is((SELECT array_agg(growth_community_id::text ORDER BY growth_community_id::text)
+             FROM public.growth_community_transformation_access WHERE growth_community_id::text LIKE '71000000-%'),
+  ARRAY['71000000-0000-4000-8000-00000000c001','71000000-0000-4000-8000-00000000c002','71000000-0000-4000-8000-00000000c003'],
+  'admin: unchanged — reads every community''s access row across schools');
+RESET ROLE;
+
+SELECT tests.authenticate_as('b10a_consultor');
+SELECT is((SELECT array_agg(growth_community_id::text ORDER BY growth_community_id::text)
+             FROM public.growth_community_transformation_access WHERE growth_community_id::text LIKE '71000000-%'),
+  ARRAY['71000000-0000-4000-8000-00000000c001','71000000-0000-4000-8000-00000000c002','71000000-0000-4000-8000-00000000c003'],
+  'consultor: unchanged — the restriction is scoped to equipo_directivo, not to FNE staff');
+RESET ROLE;
+
+SELECT pg_temp.set_service_role();
+SELECT is((SELECT array_agg(growth_community_id::text ORDER BY growth_community_id::text)
+             FROM public.growth_community_transformation_access WHERE growth_community_id::text LIKE '71000000-%'),
+  ARRAY['71000000-0000-4000-8000-00000000c001','71000000-0000-4000-8000-00000000c002','71000000-0000-4000-8000-00000000c003'],
+  'service_role: unchanged — bypasses row security, so the backend path is untouched');
 RESET ROLE;
 
 -- ----------------------------------------------------------------------------

@@ -8,7 +8,7 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 ## Items
 | id | title | status | unit | updated | notes |
 |---|---|---|---|---|---|
-| W-B10a-01 | RLS grupo B: diseñar política para las seis tablas legacy referenciadas restantes | todo |  | 2026-09-16 | Una de las tres unidades de remediación de la única reclamación SWEEP-PRIOR-AUDIT-09 (con W-B2b-01 y W-B2c-01). Corrección de gobernanza 2026-08-27: el hallazgo |
+| W-B10a-01 | RLS grupo B: diseñar política para las seis tablas legacy referenciadas restantes | blocked | SM-10 | 2026-09-21 |  |
 | W-B10b-01 | Sustituir NotificationService: hoy ninguna rama produce correo | todo |  | 2026-09-16 | lib/notificationService.ts:1134 es literalmente `case 'immediate': // TODO` + console.log, y tres RPC que invoca no existen en el esquema. DISTINTO del resumen  |
 | W-B10c-01 | Integrar fix/auth-sec2 sobre main con Z7 incorporado | todo |  | 2026-09-16 | fix/auth-sec2 (4b87243c) forkó en 4399949, ANTES de 717c2c09 (Z7, PR #49). git diff HEAD main --stat = 283 archivos: es una integración, no un fast-forward ni u |
 | W-B1a-01 | Inicializar Sentry en los tres runtimes (withSentryConfig) y dejar session replay en 0 | todo |  | 2026-09-16 | next.config.js:90 nunca aplica withSentryConfig pese a los tres sentry.*.config.ts. Propuesta documentada, no aplicada: replaysSessionSampleRate y replaysOnErro |
@@ -66,7 +66,7 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 | W-BL-A12-3 | Lo que el profesor aprendio queda escrito en el lugar donde el profesor que llegue el proximo ano lo va a encontrar. | todo |  | 2026-09-16 | Sin lote: el ledger legacy la dejaba en BACKLOG-P2. Rama propuesta por esta normalización: no existe en el repositorio y no tiene commits. |
 | W-BL-A13-2 | Todas las superficies —notificacion, recordatorio, calendario, lista del espacio colaborativo— llevan a esta pantalla, q | todo |  | 2026-09-16 | Sin lote: el ledger legacy la dejaba en BACKLOG-P1. Rama propuesta por esta normalización: no existe en el repositorio y no tiene commits. |
 | W-BL-A14-3 | Cuando un bucket baja del 25 por ciento disponible, la plataforma lo marca en ambar. Nadie se entera en diciembre de que | todo |  | 2026-09-16 | Sin lote: el ledger legacy la dejaba en BACKLOG-P1. Rama propuesta por esta normalización: no existe en el repositorio y no tiene commits. |
-| W-BL-A14-4 | Descargar Reporte PDF y Descargar CSV funcionan y coinciden con la pantalla | held | SM-08 | 2026-09-18 |  |
+| W-BL-A14-4 | Descargar Reporte PDF y Descargar CSV funcionan y coinciden con la pantalla | in-progress | SM-11 | 2026-09-20 |  |
 | W-BL-A14-5 | Lado consultora: horas ejecutadas, penalizadas, total horas, tarifa EUR/h, Total EUR, Total CLP, con TC 897 CLP/EUR actu | todo |  | 2026-09-16 | Sin lote: el ledger legacy la dejaba en BACKLOG-P1. Rama propuesta por esta normalización: no existe en el repositorio y no tiene commits. |
 | W-BL-A14-7 | El libro de horas es el mismo libro que sostiene la rendicion de la Ley SEP | todo |  | 2026-09-16 | Sin lote: el ledger legacy la dejaba en BACKLOG-P1. Rama propuesta por esta normalización: no existe en el repositorio y no tiene commits. |
 | W-BL-A15-4 | Progreso de Usuarios: tabla por usuario con Usuario, Rol, Cursos, Completados, Tasa, Tiempo, Ultima Actividad, y Exporta | todo |  | 2026-09-16 | Sin lote: el ledger legacy la dejaba en BACKLOG-P1. Rama propuesta por esta normalización: no existe en el repositorio y no tiene commits. |
@@ -116,6 +116,7 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 | W-PC-06 | Clasificación de datos de rutas de aprendizaje en solo lectura: decide el backfill y la clase de B2c | done |  | 2026-09-16 | EJECUTADA (2026-08-28) en solo lectura con autorización explícita de Brent. Cronología: Brent (authorization_owner) autorizó la comprobación y ejecutó personalm |
 | W-SIM-01 | Implementar contención por tenant y herramientas deterministas para simulación con QA sintético en Producción | waiting |  | 2026-09-17 |  |
 | W-SIM-02 | Clasificar los tenants QA y sembrar solo las brechas sintéticas autorizadas en Producción | waiting |  | 2026-09-17 |  |
+| W-B10a-02 | Restringir la lectura de transformation access al colegio de equipo_directivo | in-progress | SM-12 | 2026-09-21 |  |
 
 ## Events (append-only, newest last)
 - 2026-09-10 · PM · RECORD · Authorization and operating boundary
@@ -157,3 +158,16 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 - 2026-09-18T07:13:49-03:00 · SM-08 · HELD · Brent chose explicit partial-detail notices for the 500-session cap. SM-08 bounded screen/CSV/PDF proposal being prepared; concrete order approval pending.
 - 2026-09-18T07:21:05-03:00 · SM-08 · IN-PROGRESS · Brent approved SM-08 r0: explicitly identify truncated session detail across screen/CSV/PDF while preserving the 500-session display cap and complete totals.
 - 2026-09-18T10:09:16-03:00 · SM-08 · HELD · SM-08 F05 independently verified locally: capped session detail explicitly marked partial across screen/CSV/PDF, bounded lookahead and malformed-page rejection tested, totals preserved. Parent held for F03 completeness,
+- 2026-09-18T10:14:11-03:00 · SM-09 · HELD · Brent chose F06 verification of school switching and download consistency. Existing request guard supersedes stale no-guard finding; SM-09 proposal pending approval.
+- 2026-09-18T10:18:44-03:00 · SM-09 · IN-PROGRESS · Brent approved SM-09 r0: verify existing school-switch guard, delayed responses and actual download identity; application code remains read-only.
+- 2026-09-19T23:43:21-03:00 · SM-09 · DONE · SM-09: verify school-switch export consistency
+- 2026-09-20T08:47:31-03:00 · Claude for Brent (20 Sep triage: all open items need Brent until he marks some auto) · TRIAGE · authority set on 100 items: 0 auto, 100 brent
+- 2026-09-20T09:36:28-03:00 · SM-10 · IN-PROGRESS · SM-10 r0 dispatched (pm-unit begin)
+- 2026-09-20T19:46:17-03:00 · SM-09 · IN-PROGRESS · SM-09 r1 dispatched (pm-unit begin) · token ls-582ff0a5f0
+- 2026-09-20T21:41:51-03:00 · SM-09 · HELD · SM-09 replanned: too big for one unit; split into smaller units (RUN/pm-replan-required.md) · token ls-0334019afc
+- 2026-09-20T21:47:00-03:00 · SM-11 · IN-PROGRESS · SM-11 r0 dispatched (pm-unit begin) · token ls-6ab36941b8
+- 2026-09-21T00:33:42-03:00 · PM · TODO · Authorized dependency recorded before resuming SM-10 verification · token ls-a8ca6b172a
+- 2026-09-21T00:33:50-03:00 · PM · BLOCKED · Blocked on W-B10a-02 after independent review · token ls-ac8f0e0ade
+- 2026-09-21T00:35:54-03:00 · SM-12 · IN-PROGRESS · SM-12 r0 dispatched (pm-unit begin) · token ls-7e28a31514
+- 2026-09-21T07:36:42-03:00 · SM-11 PM renewal 2 · WAITING · SM-11 is waiting on SM-12's declared-path commit before recomputing its lock and rerunning precheck; SM-12 must close first in the shared worktree.
+- 2026-09-21T09:43:30-03:00 · SM-10 · BLOCKED · SM-10 r0 reviewed BLOCKED (SM10-R0-B1); remediation runs as SM-12; SM-10 resumes after SM-12 is accepted · token ls-b6969b71ae

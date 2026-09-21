@@ -40,6 +40,7 @@ const MigrationPlanPage: React.FC = () => {
   const [schoolId, setSchoolId] = useState<number | null>(null);
   const [schoolName, setSchoolName] = useState<string>('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [planLoadFailed, setPlanLoadFailed] = useState(false);
 
   // Data state
   const [grades, setGrades] = useState<Grade[]>([]);
@@ -165,6 +166,7 @@ const MigrationPlanPage: React.FC = () => {
     if (!schoolId) return;
 
     setLoading(true);
+    setPlanLoadFailed(false);
     try {
       const response = await fetch(`/api/school/migration-plan?school_id=${schoolId}`);
       const data = await response.json();
@@ -181,6 +183,7 @@ const MigrationPlanPage: React.FC = () => {
       initializePlanGrid(data.grades || [], data.entries || []);
     } catch (error: any) {
       console.error('Error fetching migration plan:', error);
+      setPlanLoadFailed(true);
       toast.error(error.message || 'Error al cargar el plan de migración');
     } finally {
       setLoading(false);
@@ -357,8 +360,8 @@ const MigrationPlanPage: React.FC = () => {
     );
   }
 
-  // Access denied
-  if (hasPermission === false) {
+  // Access denied, or the plan could not be loaded (403 or any other failure)
+  if (hasPermission === false || planLoadFailed) {
     return (
       <MainLayout
         user={user}

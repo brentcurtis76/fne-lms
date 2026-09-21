@@ -20,7 +20,7 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-CONSULTOR-DASHBOARD-INTEGRATION | Consultores: integrar la política de permisos en el dashboard | blocked |  | 2026-09-17 |  |
 | PROC-LIFECYCLE-ARCHIVE-ACTION | Ciclo de vida: la API de archivo rechaza acciones inválidas | done |  | 2026-09-10 |  |
 | PROC-LIFECYCLE-ARCHIVED-LIST | Evaluaciones archivadas: listado, filtro y vista de solo consulta verificados en navegador | done | PROC-01 | 2026-09-17 | DONE LOCALLY: reviewed and committed in PROC-01; no publication. |
-| PROC-LIFECYCLE-CANCELLATION | Ciclo de vida: cancelación explícita solo por administradores, conservando versión, respuestas e historia | todo |  | 2026-09-20 |  |
+| PROC-LIFECYCLE-CANCELLATION | Ciclo de vida: cancelación explícita solo por administradores, conservando versión, respuestas e historia | done | PROC-14 | 2026-09-21 |  |
 | PROC-FULL-SUITE-PUBLICATION | Integrar con main, resolver la batería completa (308/52/12), revisar y publicar el conjunto | blocked |  | 2026-09-17 |  |
 | PROC-HISTORICAL-DATA | Datos históricos: corregir asignaciones antiguas inválidas sin borrar historia (decisiones de Brent pendientes) | waiting |  | 2026-09-17 |  |
 | PROC-PILOT | Piloto: datos reales aprobados y prueba supervisada directivo → curso → docente → entrega → resultados | waiting |  | 2026-09-17 |  |
@@ -277,3 +277,6 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 - 2026-09-20T19:09:10-03:00 · PROC-11 · HELD · PROC-11 replanned: too big for one unit; split into smaller units (RUN/pm-replan-required.md) · token ls-757e9b4588
 - 2026-09-20T19:39:40-03:00 · PROC-12 · IN-PROGRESS · PROC-12 r0 dispatched (pm-unit begin) · token ls-17dafbe37a
 - 2026-09-20T21:13:22-03:00 · PROC-12 · DONE · PROC-12: verify consultor migration-plan access · token 0df1998b411f
+- 2026-09-20T21:17:16-03:00 · PROC-13 · HELD · PROC-13 replanned: too big for one unit; split into smaller units (RUN/pm-replan-required.md) · token ls-91958048f7
+- 2026-09-20T21:21:33-03:00 · PROC-14 · IN-PROGRESS · PROC-14 r0 dispatched (pm-unit begin) · token ls-ef8f777150
+- 2026-09-21T07:08:05-03:00 · PROC-14 · DONE · PROC-14: add assessment instance cancellation foundation · token 73bf6c100553

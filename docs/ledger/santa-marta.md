@@ -8,7 +8,7 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 ## Items
 | id | title | status | unit | updated | notes |
 |---|---|---|---|---|---|
-| W-B10a-01 | RLS grupo B: diseñar política para las seis tablas legacy referenciadas restantes | blocked | SM-10 | 2026-09-21 |  |
+| W-B10a-01 | RLS grupo B: diseñar política para las seis tablas legacy referenciadas restantes | todo | SM-10 | 2026-09-21 |  |
 | W-B10b-01 | Sustituir NotificationService: hoy ninguna rama produce correo | todo |  | 2026-09-16 | lib/notificationService.ts:1134 es literalmente `case 'immediate': // TODO` + console.log, y tres RPC que invoca no existen en el esquema. DISTINTO del resumen  |
 | W-B10c-01 | Integrar fix/auth-sec2 sobre main con Z7 incorporado | todo |  | 2026-09-16 | fix/auth-sec2 (4b87243c) forkó en 4399949, ANTES de 717c2c09 (Z7, PR #49). git diff HEAD main --stat = 283 archivos: es una integración, no un fast-forward ni u |
 | W-B1a-01 | Inicializar Sentry en los tres runtimes (withSentryConfig) y dejar session replay en 0 | todo |  | 2026-09-16 | next.config.js:90 nunca aplica withSentryConfig pese a los tres sentry.*.config.ts. Propuesta documentada, no aplicada: replaysSessionSampleRate y replaysOnErro |
@@ -116,7 +116,7 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 | W-PC-06 | Clasificación de datos de rutas de aprendizaje en solo lectura: decide el backfill y la clase de B2c | done |  | 2026-09-16 | EJECUTADA (2026-08-28) en solo lectura con autorización explícita de Brent. Cronología: Brent (authorization_owner) autorizó la comprobación y ejecutó personalm |
 | W-SIM-01 | Implementar contención por tenant y herramientas deterministas para simulación con QA sintético en Producción | waiting |  | 2026-09-17 |  |
 | W-SIM-02 | Clasificar los tenants QA y sembrar solo las brechas sintéticas autorizadas en Producción | waiting |  | 2026-09-17 |  |
-| W-B10a-02 | Restringir la lectura de transformation access al colegio de equipo_directivo | in-progress | SM-12 | 2026-09-21 |  |
+| W-B10a-02 | Restringir la lectura de transformation access al colegio de equipo_directivo | done | SM-12 | 2026-09-21 |  |
 
 ## Events (append-only, newest last)
 - 2026-09-10 · PM · RECORD · Authorization and operating boundary
@@ -171,3 +171,5 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 - 2026-09-21T00:35:54-03:00 · SM-12 · IN-PROGRESS · SM-12 r0 dispatched (pm-unit begin) · token ls-7e28a31514
 - 2026-09-21T07:36:42-03:00 · SM-11 PM renewal 2 · WAITING · SM-11 is waiting on SM-12's declared-path commit before recomputing its lock and rerunning precheck; SM-12 must close first in the shared worktree.
 - 2026-09-21T09:43:30-03:00 · SM-10 · BLOCKED · SM-10 r0 reviewed BLOCKED (SM10-R0-B1); remediation runs as SM-12; SM-10 resumes after SM-12 is accepted · token ls-b6969b71ae
+- 2026-09-21T13:47:22-03:00 · SM-12 · DONE · SM-12: enforce school-scoped transformation access · token d689add8ba36
+- 2026-09-21T13:47:22-03:00 · PM · TODO · W-B10a-01 is free again: W-B10a-02 finished. · token d689add8ba36-free-W-B10a-01

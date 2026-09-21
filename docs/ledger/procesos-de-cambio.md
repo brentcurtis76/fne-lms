@@ -16,11 +16,11 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-B5-CONCURRENCY | B5: ensayo real de ediciones simultáneas (sospecha de interbloqueo) | waiting |  | 2026-09-17 |  |
 | PROC-B5-PGTAP-RENUMBER | B5: renumerar las pruebas pgTAP (081 duplicado con 081-zoom-explicit-roster.sql de main) | done | PROC-09 | 2026-09-20 |  |
 | PROC-CONSULTOR-C0 | Consultores C0: sin escrituras en Plan de Migración (guardia de contraseña, API, pantalla de solo lectura) | waiting |  | 2026-09-17 |  |
-| PROC-CONSULTOR-C1 | Consultores C1: lectura de Contexto Transversal y Plan en todas las escuelas (matriz de roles, API, pantalla) | todo |  | 2026-09-17 |  |
+| PROC-CONSULTOR-C1 | Consultores C1: lectura de Contexto Transversal y Plan en todas las escuelas (matriz de roles, API, pantalla) | done | PROC-12 | 2026-09-20 |  |
 | PROC-CONSULTOR-DASHBOARD-INTEGRATION | Consultores: integrar la política de permisos en el dashboard | blocked |  | 2026-09-17 |  |
 | PROC-LIFECYCLE-ARCHIVE-ACTION | Ciclo de vida: la API de archivo rechaza acciones inválidas | done |  | 2026-09-10 |  |
 | PROC-LIFECYCLE-ARCHIVED-LIST | Evaluaciones archivadas: listado, filtro y vista de solo consulta verificados en navegador | done | PROC-01 | 2026-09-17 | DONE LOCALLY: reviewed and committed in PROC-01; no publication. |
-| PROC-LIFECYCLE-CANCELLATION | Ciclo de vida: cancelación explícita solo por administradores, conservando versión, respuestas e historia | todo |  | 2026-09-17 |  |
+| PROC-LIFECYCLE-CANCELLATION | Ciclo de vida: cancelación explícita solo por administradores, conservando versión, respuestas e historia | todo |  | 2026-09-20 |  |
 | PROC-FULL-SUITE-PUBLICATION | Integrar con main, resolver la batería completa (308/52/12), revisar y publicar el conjunto | blocked |  | 2026-09-17 |  |
 | PROC-HISTORICAL-DATA | Datos históricos: corregir asignaciones antiguas inválidas sin borrar historia (decisiones de Brent pendientes) | waiting |  | 2026-09-17 |  |
 | PROC-PILOT | Piloto: datos reales aprobados y prueba supervisada directivo → curso → docente → entrega → resultados | waiting |  | 2026-09-17 |  |
@@ -270,3 +270,10 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 - 2026-09-20T08:47:32-03:00 · Claude for Brent (20 Sep triage: all open items need Brent until he marks some auto) · TRIAGE · authority set on 11 items: 0 auto, 11 brent
 - 2026-09-20T09:59:33-03:00 · PROC-09 · IN-PROGRESS · PROC-09 r0 dispatched (pm-unit begin) · token ls-63f08fab9f
 - 2026-09-20T10:47:21-03:00 · PROC-09 · DONE · PROC-09: renumber B5 pgTAP tests · token 134f4cc959f5
+- 2026-09-20T13:17:12-03:00 · PROC-10 · IN-PROGRESS · PROC-10 r0 dispatched (pm-unit begin) · token ls-6aca42e59b
+- 2026-09-20T15:26:44-03:00 · PROC-10 · HELD · PROC-10 replanned: too big for one unit; split into smaller units (RUN/pm-replan-required.md) · token ls-56005cb835
+- 2026-09-20T15:30:44-03:00 · PROC-11 · IN-PROGRESS · PROC-11 r0 dispatched (pm-unit begin) · token ls-9c1a755a4b
+- 2026-09-20T17:13:10-03:00 · PM · TODO · PROC-LIFECYCLE-CANCELLATION may start without Brent (Brent): Brent approved the next Procesos item on 20 Sep 16:50 (console alert 'choose the next ledger item'); he told Claude to record it · token ls-30515c96de
+- 2026-09-20T19:09:10-03:00 · PROC-11 · HELD · PROC-11 replanned: too big for one unit; split into smaller units (RUN/pm-replan-required.md) · token ls-757e9b4588
+- 2026-09-20T19:39:40-03:00 · PROC-12 · IN-PROGRESS · PROC-12 r0 dispatched (pm-unit begin) · token ls-17dafbe37a
+- 2026-09-20T21:13:22-03:00 · PROC-12 · DONE · PROC-12: verify consultor migration-plan access · token 0df1998b411f

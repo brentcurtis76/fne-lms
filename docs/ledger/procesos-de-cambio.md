@@ -13,9 +13,9 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-PROPOSAL-LIBRARIES | Bibliotecas de propuestas: páginas, guardias de carga y pruebas | done |  | 2026-09-10 |  |
 | PROC-NUMERIC-VALIDATION | Validación de valores numéricos: límites y pasos, aceptación dentro del conjunto | held | PROC-02 | 2026-09-17 |  |
 | PROC-B5-VERSIONING | B5 versiones e historia: detección en indicadores y grados, crear/seleccionar versiones y conectar la aplicación | done | PROC-08 | 2026-09-20 |  |
-| PROC-B5-CONCURRENCY | B5: ensayo real de ediciones simultáneas (sospecha de interbloqueo) | waiting |  | 2026-09-17 |  |
+| PROC-B5-CONCURRENCY | B5: ensayo real de ediciones simultáneas (sospecha de interbloqueo) | todo |  | 2026-09-22 |  |
 | PROC-B5-PGTAP-RENUMBER | B5: renumerar las pruebas pgTAP (081 duplicado con 081-zoom-explicit-roster.sql de main) | done | PROC-09 | 2026-09-20 |  |
-| PROC-CONSULTOR-C0 | Consultores C0: sin escrituras en Plan de Migración (guardia de contraseña, API, pantalla de solo lectura) | done | PROC-15 | 2026-09-21 |  |
+| PROC-CONSULTOR-C0 | Consultores C0: sin escrituras en Plan de Migración (guardia de contraseña, API, pantalla de solo lectura) | done | PROC-PR104-RECOVERY | 2026-09-22 |  |
 | PROC-CONSULTOR-C1 | Consultores C1: lectura de Contexto Transversal y Plan en todas las escuelas (matriz de roles, API, pantalla) | done | PROC-12 | 2026-09-20 |  |
 | PROC-CONSULTOR-DASHBOARD-INTEGRATION | Consultores: integrar la política de permisos en el dashboard | done | PROC-16 | 2026-09-22 |  |
 | PROC-LIFECYCLE-ARCHIVE-ACTION | Ciclo de vida: la API de archivo rechaza acciones inválidas | done |  | 2026-09-10 |  |
@@ -287,3 +287,7 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 - 2026-09-21T23:07:25-03:00 · PM · TODO · PROC-CONSULTOR-DASHBOARD-INTEGRATION is free again: PROC-CONSULTOR-C0, PROC-CONSULTOR-C1 finished. · token 104f1bbf6ace-free-PROC-CONSULTOR-DASHBOARD-INTEGRATION
 - 2026-09-22T06:39:42-03:00 · PROC-16 · IN-PROGRESS · PROC-16 r0 dispatched (pm-unit begin) · token ls-b35e697bcd
 - 2026-09-22T08:19:43-03:00 · PROC-16 · DONE · PROC-16: integrate consultor dashboard read-only access · token daa7001882ff
+- 2026-09-22T08:48:36-03:00 · PM · TODO · Brent approved PROC-B5-CONCURRENCY as the next unit with an available Codex executor. · token ls-9779ec17a9
+- 2026-09-22T08:51:37-03:00 · PM · TODO · Reopened for PR #104 recovery: clean CI proved PROC-15 omitted the required tracked write-boundary migration; recovery scope and clean-DB gates are in runs/PROC-16/PR-104-RECOVERY.md. · token ls-1c79a942dc
+- 2026-09-22T08:55:45-03:00 · PROC-PR104-RECOVERY · IN-PROGRESS · PROC-PR104-RECOVERY r0 dispatched (pm-unit begin) · token ls-feafa45bb4
+- 2026-09-22T09:20:12-03:00 · PROC-PR104-RECOVERY · DONE · PROC-PR104-RECOVERY: restore omitted migration for PR 104 · token b983fa5916d8

@@ -1,5 +1,5 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
@@ -29,6 +29,7 @@ import { TRANSVERSAL_CONTEXT_FIELD_LABELS } from '@/lib/constants/transversal-co
 import type { SchoolTransversalContext, GradeLevel, ContextGeneralQuestion, ContextGeneralResponse } from '@/types/assessment-builder';
 import { GRADE_LEVEL_LABELS } from '@/types/assessment-builder';
 import type { UserRoleType } from '@/types/roles';
+import { getTransversalContextDashboardCapabilities } from '@/lib/permissions/transversal-context-dashboard';
 
 type DocenteOption = {
   id: string;
@@ -75,12 +76,21 @@ const TransversalContextDashboard: React.FC = () => {
   // Track if user is admin/consultor (read-only mode)
   // R11 — admin and consultor are separated: an admin (without a directivo
   // role at the school) picks a school and then holds the full initial-assign /
-  // edit / assign / replace capability; a consultor is denied on this surface
-  // until the product decision (deny vs. designed read-only) is taken.
+  // edit / assign / replace capability.
+  // PROC-CONSULTOR-C1 — a consultor now reads this surface instead of being
+  // denied: the same all-school picker as an admin, and a read-only view of
+  // any school. Every write control, and every request for a restricted
+  // surface (custom responses, completion metadata, change history), is
+  // withheld from that viewer.
+  // R0-F1 — read-only is a property of the SELECTED SCHOOL, not of the user:
+  // a consultor who is also the directivo of one school still writes THAT
+  // school and reads the others. The decision is `lib/permissions/
+  // transversal-context-dashboard`, the single capability policy for it.
   const [isAdminViewer, setIsAdminViewer] = useState(false);
-  const [consultorDenied, setConsultorDenied] = useState(false);
+  const [isReadOnlyViewer, setIsReadOnlyViewer] = useState(false);
+  const [canSelectSchool, setCanSelectSchool] = useState(false);
 
-  // School selector for admins
+  // School selector for admins and consultores
   const [schools, setSchools] = useState<any[]>([]);
   const [loadingSchools, setLoadingSchools] = useState(false);
 
@@ -129,10 +139,26 @@ const TransversalContextDashboard: React.FC = () => {
     last_updated_by_name: string | null;
   }>>({});
 
+  // D5 — school selection generation.
+  //
+  // Next re-creates the public router instance on every navigation, so the auth
+  // effect below re-runs whenever the school in the query changes, while the
+  // requests of the PREVIOUS school are still in flight. Every async read that
+  // ends in a setState captures the generation it started in and drops its
+  // result once the selection has moved on, so a delayed prior-school response
+  // can never overwrite the current selection's data, capability or school name.
+  const selectionGenerationRef = useRef(0);
+  /** The school the last committed render is scoped to; null while on the picker. */
+  const previousSchoolIdRef = useRef<number | null>(null);
+
   // Check auth and permissions
   useEffect(() => {
+    const generation = (selectionGenerationRef.current += 1);
+    const isStale = () => selectionGenerationRef.current !== generation;
+
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      if (isStale()) return;
       if (!session?.user) {
         router.push('/login');
         return;
@@ -145,6 +171,7 @@ const TransversalContextDashboard: React.FC = () => {
         .eq('id', session.user.id)
         .single();
 
+      if (isStale()) return;
       if (profileData?.avatar_url) {
         setAvatarUrl(profileData.avatar_url);
       }
@@ -156,6 +183,7 @@ const TransversalContextDashboard: React.FC = () => {
         .eq('user_id', session.user.id)
         .eq('is_active', true);
 
+      if (isStale()) return;
       if (!roles || roles.length === 0) {
         setHasPermission(false);
         setLoading(false);
@@ -166,33 +194,23 @@ const TransversalContextDashboard: React.FC = () => {
       const isConsultor = roles.some(r => r.role_type === 'consultor');
       const directivoRole = roles.find(r => r.role_type === 'equipo_directivo');
 
-      if (!isAdmin && !directivoRole) {
-        // A consultor without admin/directivo rights lands on the pending-
-        // decision notice, everyone else on the generic denial. Nothing is
-        // fetched for either.
-        setConsultorDenied(isConsultor);
+      if (!isAdmin && !directivoRole && !isConsultor) {
         setHasPermission(false);
         setLoading(false);
         return;
       }
 
-      setHasPermission(true);
-      // Codex round 1 (finding 6): ADMIN takes precedence over equipo_directivo.
-      // A mixed-role admin keeps the global selector, the "back to schools"
-      // control and the edit / assign / replace capability on ANY school.
-      setIsAdminViewer(isAdmin);
-      // Replacement is a write: admin or equipo_directivo only (never consultor).
-      setCanReplaceDocente(roles.some(r => ['admin', 'equipo_directivo'].includes(r.role_type)));
-
-      // Get school_id — admin first, then the directivo's own school.
+      // Get school_id — an admin or a consultor names the school, a plain
+      // directivo is pinned to their own.
       let effectiveSchoolId: number | null = null;
       const querySchoolId = router.query.school_id;
       const parsedQuerySchoolId =
         typeof querySchoolId === 'string' && /^\d+$/.test(querySchoolId) ? parseInt(querySchoolId, 10) : null;
 
-      if (isAdmin) {
-        // An explicit school_id is honoured on any school (admin authority);
-        // without one, a mixed-role admin still gets the global selector.
+      if (isAdmin || isConsultor) {
+        // An explicit school_id is honoured on any school (admin authority, and
+        // the consultor's all-school read); without one, both land on the
+        // global selector — including a consultor who also directs a school.
         effectiveSchoolId = parsedQuerySchoolId;
       } else if (directivoRole?.school_id) {
         effectiveSchoolId = directivoRole.school_id;
@@ -204,6 +222,31 @@ const TransversalContextDashboard: React.FC = () => {
         }
       }
 
+      // The rows are already filtered by user and is_active in the query above;
+      // the policy is told so explicitly because it re-checks both.
+      const capabilities = getTransversalContextDashboardCapabilities({
+        callerId: session.user.id,
+        roles: roles.map(r => ({
+          user_id: session.user.id,
+          role_type: r.role_type,
+          school_id: r.school_id,
+          is_active: true,
+        })),
+        selectedSchoolId: effectiveSchoolId,
+      });
+
+      setHasPermission(true);
+      // Read-only is decided for the selected school: an admin, and the
+      // directivo of THAT school, write; anyone else who may read does not.
+      setIsReadOnlyViewer(!capabilities.canWriteSchool);
+      // Codex round 1 (finding 6): ADMIN takes precedence over equipo_directivo.
+      // A mixed-role admin keeps the global selector, the "back to schools"
+      // control and the edit / assign / replace capability on ANY school.
+      setIsAdminViewer(capabilities.isAdmin);
+      setCanSelectSchool(capabilities.canSelectSchool);
+      // Replacement is a write on the selected school.
+      setCanReplaceDocente(capabilities.canWriteSchool);
+
       if (effectiveSchoolId) {
         setSchoolId(effectiveSchoolId);
 
@@ -214,16 +257,25 @@ const TransversalContextDashboard: React.FC = () => {
           .eq('id', effectiveSchoolId)
           .single();
 
+        if (isStale()) return;
         if (school) {
           setSchoolName(school.name);
         }
-      } else if (isAdmin) {
-        // No school selected (admin case without query parameter)
+      } else if (isAdmin || isConsultor) {
+        // D5: this selection names no school, so the previous one must leave the
+        // screen with its write controls. Only the "Volver a Selección de
+        // Escuelas" button used to do this, which left the browser Back button
+        // rendering the previous school under the picker's URL.
+        setSchoolId(null);
+        setSchoolName('');
+
+        // No school selected (admin / consultor case without query parameter)
         // Fetch schools via API (bypasses RLS)
         setLoadingSchools(true);
         try {
           const response = await fetch('/api/school/transversal-context/schools');
           const data = await response.json();
+          if (isStale()) return;
           if (response.ok && data.schools) {
             setSchools(data.schools);
           } else {
@@ -232,6 +284,9 @@ const TransversalContextDashboard: React.FC = () => {
         } catch (err) {
           console.error('Error fetching schools:', err);
         } finally {
+          // Loading flags are not school-scoped data: a superseded run may clear
+          // them. Gating them on staleness can strand the page on the spinner
+          // when the auth effect re-runs before the previous one finished.
           setLoadingSchools(false);
           setLoading(false);
         }
@@ -250,16 +305,23 @@ const TransversalContextDashboard: React.FC = () => {
       return;
     }
 
+    const generation = selectionGenerationRef.current;
+    const requestedSchoolId = schoolId;
+
     try {
-      const response = await fetch(`/api/school/transversal-context?school_id=${schoolId}`);
+      const response = await fetch(`/api/school/transversal-context?school_id=${requestedSchoolId}`);
       if (!response.ok) {
         throw new Error('Error al cargar el contexto');
       }
 
       const data = await response.json();
+      // D5: a response for a school the user has already navigated away from is
+      // dropped rather than rendered under the current school's name.
+      if (selectionGenerationRef.current !== generation) return;
       setContext(data.context);
       setCourseStructure(data.courseStructure || []);
     } catch (error: any) {
+      if (selectionGenerationRef.current !== generation) return;
       console.error('[TransversalContext] Error fetching context:', error);
       toast.error(error.message || 'Error al cargar el contexto');
     } finally {
@@ -274,25 +336,39 @@ const TransversalContextDashboard: React.FC = () => {
   }, [schoolId, hasPermission, fetchContext]);
 
   // Fetch custom context questions, responses, and completion status
+  // A read-only viewer requests the question catalogue only: the custom
+  // responses and the completion metadata are restricted surfaces and are
+  // never asked for on their behalf.
   useEffect(() => {
     if (!schoolId || !hasPermission) return;
+    const generation = selectionGenerationRef.current;
+    const isStale = () => selectionGenerationRef.current !== generation;
     const fetchCustom = async () => {
       try {
-        const [qRes, rRes, csRes] = await Promise.all([
-          fetch('/api/school/transversal-context/questions'),
+        const qRes = await fetch('/api/school/transversal-context/questions');
+        if (isStale()) return;
+        if (qRes.ok) {
+          const qData = await qRes.json();
+          if (isStale()) return;
+          setAllQuestions((qData.questions || []).filter((q: ContextGeneralQuestion) => q.is_active));
+        }
+        if (isReadOnlyViewer) return;
+
+        const [rRes, csRes] = await Promise.all([
           fetch(`/api/school/transversal-context/custom-responses?school_id=${schoolId}`),
           fetch(`/api/school/completion-status?school_id=${schoolId}`),
         ]);
-        if (qRes.ok) {
-          const qData = await qRes.json();
-          setAllQuestions((qData.questions || []).filter((q: ContextGeneralQuestion) => q.is_active));
-        }
+        // D5: the restricted surfaces of a school that is no longer selected are
+        // never rendered next to another school's context.
+        if (isStale()) return;
         if (rRes.ok) {
           const rData = await rRes.json();
+          if (isStale()) return;
           setCustomResponses(rData.responses || []);
         }
         if (csRes.ok) {
           const csData = await csRes.json();
+          if (isStale()) return;
           setCompletionStatus(csData.status || {});
         }
       } catch (err) {
@@ -300,7 +376,29 @@ const TransversalContextDashboard: React.FC = () => {
       }
     };
     fetchCustom();
-  }, [schoolId, hasPermission]);
+  }, [schoolId, hasPermission, isReadOnlyViewer]);
+
+  // D5: when the selection moves to another school, nothing scoped to the
+  // previous one survives the switch — not the context it rendered, not its
+  // restricted surfaces, and not a modal opened on one of its courses.
+  useEffect(() => {
+    const previousSchoolId = previousSchoolIdRef.current;
+    previousSchoolIdRef.current = schoolId;
+    if (previousSchoolId === null || previousSchoolId === schoolId) return;
+
+    setContext(null);
+    setCourseStructure([]);
+    setCustomResponses([]);
+    setCompletionStatus({});
+    setAssignModalOpen(false);
+    setAssignError(null);
+    setAssignErrorWarnings([]);
+    setAssignmentNotice(null);
+    setReplaceModalOpen(false);
+    setReplaceError(null);
+    setReplacementNotice(null);
+    if (schoolId !== null) setLoading(true);
+  }, [schoolId]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -316,9 +414,15 @@ const TransversalContextDashboard: React.FC = () => {
     setAssignModalOpen(true);
     setLoadingDocentes(true);
 
+    const generation = selectionGenerationRef.current;
+    const isStale = () => selectionGenerationRef.current !== generation;
+
     try {
       const response = await fetch(`/api/school/transversal-context/docentes?school_id=${schoolId}`);
       const data = await response.json();
+      // D5: the modal was closed by the school switch; its roster is not loaded
+      // into the modal the new school may since have opened.
+      if (isStale()) return;
 
       if (!response.ok) {
         throw new Error(data.error || 'Error al cargar docentes');
@@ -337,6 +441,7 @@ const TransversalContextDashboard: React.FC = () => {
 
       setAvailableDocentes(available);
     } catch (error: any) {
+      if (isStale()) return;
       console.error('Error fetching docentes:', error);
       toast.error('Error al cargar docentes');
       setAvailableDocentes([]);
@@ -444,9 +549,15 @@ const TransversalContextDashboard: React.FC = () => {
     setReplaceModalOpen(true);
     setLoadingReplaceCandidates(true);
 
+    const generation = selectionGenerationRef.current;
+    const isStale = () => selectionGenerationRef.current !== generation;
+
     try {
       const response = await fetch(`/api/school/transversal-context/docentes?school_id=${schoolId}`);
       const data = await response.json();
+      // D5: same guard as the assignment modal — a roster fetched for the
+      // previous school never reaches the current one's modal.
+      if (isStale()) return;
       if (!response.ok) {
         throw new Error(data.error || 'Error al cargar docentes');
       }
@@ -455,6 +566,7 @@ const TransversalContextDashboard: React.FC = () => {
         (data.docentes || []).filter((d: DocenteOption) => d.id !== currentId)
       );
     } catch (error: any) {
+      if (isStale()) return;
       console.error('Error fetching docentes:', error);
       toast.error('Error al cargar docentes');
       setReplaceCandidates([]);
@@ -520,8 +632,21 @@ const TransversalContextDashboard: React.FC = () => {
     }
   };
 
+  // D5: a client-side school switch changes the URL one paint before the auth
+  // effect has resolved the new selection, so without this the previous
+  // school's view — and its write controls — are painted under the new
+  // school's URL. While the two disagree the page is still resolving.
+  const querySchoolIdParam = router.query.school_id;
+  // A denied caller never resolves a school, so the denial must not be held
+  // behind this gate.
+  const pendingSchoolSwitch =
+    hasPermission !== false &&
+    typeof querySchoolIdParam === 'string' &&
+    /^\d+$/.test(querySchoolIdParam) &&
+    parseInt(querySchoolIdParam, 10) !== schoolId;
+
   // Loading state
-  if (loading || hasPermission === null) {
+  if (loading || hasPermission === null || pendingSchoolSwitch) {
     return (
       <div className="min-h-screen bg-brand_beige flex justify-center items-center">
         <Loader2 className="w-8 h-8 animate-spin text-brand_primary" />
@@ -542,14 +667,12 @@ const TransversalContextDashboard: React.FC = () => {
         avatarUrl={avatarUrl}
       >
         <div className="flex flex-col justify-center items-center min-h-[50vh]">
-          <div className="text-center p-8" data-testid={consultorDenied ? 'consultor-access-pending' : 'access-denied'}>
+          <div className="text-center p-8" data-testid="access-denied">
             <h1 className="text-2xl font-semibold text-brand_primary mb-4">
-              {consultorDenied ? 'Acceso pendiente de definición' : 'Acceso Denegado'}
+              Acceso Denegado
             </h1>
             <p className="text-brand_primary/70 mb-6">
-              {consultorDenied
-                ? 'El acceso de consultores al contexto transversal aún no está definido. Por ahora solo el equipo directivo y los administradores pueden acceder.'
-                : 'Solo directivos y administradores pueden acceder al contexto transversal.'}
+              Solo directivos, consultores y administradores pueden acceder al contexto transversal.
             </p>
             <Link href="/dashboard" legacyBehavior>
               <a className="px-6 py-2 bg-brand_primary text-white rounded-lg shadow hover:bg-brand_primary/90 transition-colors">
@@ -577,7 +700,7 @@ const TransversalContextDashboard: React.FC = () => {
         currentPage="transversal-context"
         pageTitle=""
         breadcrumbs={[]}
-        isAdmin={true}
+        isAdmin={isAdminViewer}
         onLogout={handleLogout}
         avatarUrl={avatarUrl}
       >
@@ -592,8 +715,10 @@ const TransversalContextDashboard: React.FC = () => {
             <h3 className="text-lg font-medium text-brand_primary mb-2">
               Selecciona una escuela
             </h3>
-            <p className="text-sm text-brand_primary/60 mb-6">
-              Como administrador, selecciona una escuela para ver su contexto transversal.
+            <p className="text-sm text-brand_primary/60 mb-6" data-testid="school-picker-hint">
+              {isAdminViewer
+                ? 'Como administrador, selecciona una escuela para ver su contexto transversal.'
+                : 'Como consultor, selecciona una escuela para consultar su contexto transversal en modo solo lectura.'}
             </p>
 
             {loadingSchools ? (
@@ -655,7 +780,7 @@ const TransversalContextDashboard: React.FC = () => {
       currentPage="transversal-context"
       pageTitle=""
       breadcrumbs={[]}
-      isAdmin={hasPermission}
+      isAdmin={hasPermission && !isReadOnlyViewer}
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >
@@ -666,8 +791,8 @@ const TransversalContextDashboard: React.FC = () => {
       />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Back button for admins (school picker) */}
-        {isAdminViewer && (
+        {/* Back button for admins and consultores (school picker) */}
+        {canSelectSchool && (
           <button
             onClick={async () => {
               setSchoolId(null);
@@ -695,6 +820,21 @@ const TransversalContextDashboard: React.FC = () => {
           </button>
         )}
 
+        {/* Read-only notice for a pure consultor */}
+        {isReadOnlyViewer && (
+          <div
+            data-testid="consultor-read-only-notice"
+            role="status"
+            className="mb-6 p-4 rounded-lg bg-brand_beige border border-brand_primary/20 text-sm text-brand_primary"
+          >
+            <p className="font-medium">Vista de solo lectura</p>
+            <p className="mt-1 text-brand_primary/70">
+              Como consultor puede consultar el contexto transversal de cualquier escuela registrada,
+              pero no puede editarlo ni asignar o cambiar docentes.
+            </p>
+          </div>
+        )}
+
         {/* Status Banner */}
         <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
           hasCompleteContext
@@ -717,15 +857,17 @@ const TransversalContextDashboard: React.FC = () => {
               <div>
                 <p className="font-medium text-brand_primary">Cuestionario pendiente</p>
                 <p className="text-sm text-brand_primary/70">
-                  {isAdminViewer
-                    ? 'El equipo directivo debe completar el cuestionario transversal; como administrador también puede completarlo'
-                    : 'Complete el cuestionario transversal para configurar su escuela'}
+                  {isReadOnlyViewer
+                    ? 'El equipo directivo de esta escuela aún no ha completado el cuestionario transversal'
+                    : isAdminViewer
+                      ? 'El equipo directivo debe completar el cuestionario transversal; como administrador también puede completarlo'
+                      : 'Complete el cuestionario transversal para configurar su escuela'}
                 </p>
               </div>
             </>
           )}
           {/* Edit button - directivos and admins (R11: admin keeps the initial-assign / edit capability) */}
-          {(
+          {!isReadOnlyViewer && (
             <Link
               href={`/school/transversal-context/edit${schoolId ? `?school_id=${schoolId}` : ''}`}
               legacyBehavior
@@ -955,6 +1097,8 @@ const TransversalContextDashboard: React.FC = () => {
 
               // --- generic ---
               if (widgetType === 'generic') {
+                // Custom responses are restricted: never rendered read-only.
+                if (isReadOnlyViewer) return null;
                 const resp = customResponses.find(r => r.question_id === q.id);
                 const value = resp?.response;
                 return (
@@ -1074,8 +1218,8 @@ const TransversalContextDashboard: React.FC = () => {
                       const activeCount = activeAssignments.length;
                       const isLocked = activeCount === 1;
                       const hasIntegrityConflict = activeCount > 1;
-                      // R11: admin and directivo may assign; a consultor never reaches this page.
-                      const canOfferAssign = activeCount === 0;
+                      // R11: admin and directivo may assign; a read-only consultor never does.
+                      const canOfferAssign = activeCount === 0 && !isReadOnlyViewer;
 
                       return (
                         <div
@@ -1172,15 +1316,19 @@ const TransversalContextDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* Change History */}
-        {context && schoolId && (
+        {/* Change History — a restricted surface: never requested read-only */}
+        {context && schoolId && !isReadOnlyViewer && (
           <>
+            {/* D5: keyed by school so a switch remounts the history instead of
+                leaving the previous school's rows on screen while it refetches. */}
             <ChangeHistorySection
+              key={`transversal_context-${schoolId}`}
               schoolId={schoolId}
               feature="transversal_context"
               fieldLabels={TRANSVERSAL_CONTEXT_FIELD_LABELS}
             />
             <ChangeHistorySection
+              key={`context_responses-${schoolId}`}
               schoolId={schoolId}
               feature="context_responses"
               fieldLabels={Object.fromEntries(
@@ -1197,14 +1345,16 @@ const TransversalContextDashboard: React.FC = () => {
           <div className="bg-white shadow-md rounded-lg p-12 text-center">
             <Building2 className="mx-auto h-16 w-16 text-brand_primary/30 mb-4" />
             <h3 className="text-xl font-semibold text-brand_primary mb-2">
-              {isAdminViewer ? 'Escuela sin configurar' : 'Configure su escuela'}
+              {isAdminViewer || isReadOnlyViewer ? 'Escuela sin configurar' : 'Configure su escuela'}
             </h3>
             <p className="text-brand_primary/60 mb-6 max-w-md mx-auto">
-              {isAdminViewer
-                ? 'El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. Como administrador puede completarlo ahora.'
-                : 'Complete el cuestionario transversal para configurar los datos de su escuela y habilitar las evaluaciones de transformación.'}
+              {isReadOnlyViewer
+                ? 'El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. No hay contexto que consultar por ahora.'
+                : isAdminViewer
+                  ? 'El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. Como administrador puede completarlo ahora.'
+                  : 'Complete el cuestionario transversal para configurar los datos de su escuela y habilitar las evaluaciones de transformación.'}
             </p>
-            {(
+            {!isReadOnlyViewer && (
               <Link
                 href={`/school/transversal-context/edit${schoolId ? `?school_id=${schoolId}` : ''}`}
                 legacyBehavior

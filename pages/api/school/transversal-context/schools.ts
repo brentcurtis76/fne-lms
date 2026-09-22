@@ -5,9 +5,9 @@ import { getApiUser, createServiceRoleClient, sendAuthError, handleMethodNotAllo
  * GET /api/school/transversal-context/schools
  *
  * School picker for the transversal-context and migration-plan pages.
- *   admin     -> every school
- *   consultor -> only the schools in their ACTIVE consultant_assignments
- *   others    -> 403
+ *   active admin or consultor -> every registered school (not narrowed by
+ *                                consultant_assignments)
+ *   others                    -> 403
  * Response shape: { schools: [{ id, name }] } (consumed by
  * pages/school/transversal-context/index.tsx and pages/school/migration-plan/index.tsx).
  */
@@ -22,8 +22,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Service-role client: user_roles RLS only exposes the caller's own rows
-    // anyway, and consultant_assignments is admin-managed.
+    // Service-role client bypasses RLS, so the role read must stay scoped to
+    // the caller's own ACTIVE rows via the explicit filters below.
     const serviceClient = createServiceRoleClient();
 
     const { data: userRoles, error: rolesError } = await serviceClient
@@ -45,41 +45,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'Solo administradores y consultores pueden listar escuelas' });
     }
 
-    let assignedSchoolIds: number[] | null = null;
-
-    if (!isAdmin) {
-      const { data: assignments, error: assignmentsError } = await serviceClient
-        .from('consultant_assignments')
-        .select('school_id')
-        .eq('consultant_id', user.id)
-        .eq('is_active', true);
-
-      if (assignmentsError) {
-        console.error('Error fetching consultant assignments:', assignmentsError);
-        return res.status(500).json({ error: 'No se pudieron verificar las escuelas asignadas' });
-      }
-
-      const schoolIds = [...new Set(
-        (assignments || [])
-          .map((a: any) => a.school_id)
-          .filter((id: unknown): id is number => typeof id === 'number')
-      )];
-
-      if (schoolIds.length === 0) {
-        return res.status(200).json({ schools: [] });
-      }
-      assignedSchoolIds = schoolIds;
-    }
-
-    let query = serviceClient
+    const { data: schools, error: schoolsError } = await serviceClient
       .from('schools')
       .select('id, name')
       .order('name', { ascending: true });
-    if (assignedSchoolIds) {
-      query = query.in('id', assignedSchoolIds);
-    }
-
-    const { data: schools, error: schoolsError } = await query;
 
     if (schoolsError) {
       console.error('Error fetching schools:', schoolsError);

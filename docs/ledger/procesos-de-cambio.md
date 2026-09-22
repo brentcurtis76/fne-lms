@@ -15,9 +15,9 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-B5-VERSIONING | B5 versiones e historia: detección en indicadores y grados, crear/seleccionar versiones y conectar la aplicación | done | PROC-08 | 2026-09-20 |  |
 | PROC-B5-CONCURRENCY | B5: ensayo real de ediciones simultáneas (sospecha de interbloqueo) | waiting |  | 2026-09-17 |  |
 | PROC-B5-PGTAP-RENUMBER | B5: renumerar las pruebas pgTAP (081 duplicado con 081-zoom-explicit-roster.sql de main) | done | PROC-09 | 2026-09-20 |  |
-| PROC-CONSULTOR-C0 | Consultores C0: sin escrituras en Plan de Migración (guardia de contraseña, API, pantalla de solo lectura) | waiting |  | 2026-09-17 |  |
+| PROC-CONSULTOR-C0 | Consultores C0: sin escrituras en Plan de Migración (guardia de contraseña, API, pantalla de solo lectura) | done | PROC-15 | 2026-09-21 |  |
 | PROC-CONSULTOR-C1 | Consultores C1: lectura de Contexto Transversal y Plan en todas las escuelas (matriz de roles, API, pantalla) | done | PROC-12 | 2026-09-20 |  |
-| PROC-CONSULTOR-DASHBOARD-INTEGRATION | Consultores: integrar la política de permisos en el dashboard | blocked |  | 2026-09-17 |  |
+| PROC-CONSULTOR-DASHBOARD-INTEGRATION | Consultores: integrar la política de permisos en el dashboard | todo |  | 2026-09-21 |  |
 | PROC-LIFECYCLE-ARCHIVE-ACTION | Ciclo de vida: la API de archivo rechaza acciones inválidas | done |  | 2026-09-10 |  |
 | PROC-LIFECYCLE-ARCHIVED-LIST | Evaluaciones archivadas: listado, filtro y vista de solo consulta verificados en navegador | done | PROC-01 | 2026-09-17 | DONE LOCALLY: reviewed and committed in PROC-01; no publication. |
 | PROC-LIFECYCLE-CANCELLATION | Ciclo de vida: cancelación explícita solo por administradores, conservando versión, respuestas e historia | done | PROC-14 | 2026-09-21 |  |
@@ -280,3 +280,8 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 - 2026-09-20T21:17:16-03:00 · PROC-13 · HELD · PROC-13 replanned: too big for one unit; split into smaller units (RUN/pm-replan-required.md) · token ls-91958048f7
 - 2026-09-20T21:21:33-03:00 · PROC-14 · IN-PROGRESS · PROC-14 r0 dispatched (pm-unit begin) · token ls-ef8f777150
 - 2026-09-21T07:08:05-03:00 · PROC-14 · DONE · PROC-14: add assessment instance cancellation foundation · token 73bf6c100553
+- 2026-09-21T20:28:25-03:00 · PM · TODO · Brent approved the bounded recovery unit to finish the password guard, API, and read-only screen · token ls-72458b2a7f
+- 2026-09-21T20:39:35-03:00 · PROC-15 · TODO · PROC-15 r0 proposed: forced-password real-role pgTAP closure; API and read-only UI remain the already-approved PROC-12 state · token ls-1fa492bec4
+- 2026-09-21T20:48:53-03:00 · PROC-15 · IN-PROGRESS · PROC-15 r0 dispatched (pm-unit begin) · token ls-def625fa36
+- 2026-09-21T23:07:25-03:00 · PROC-15 · DONE · PROC-15: verify forced-password migration-plan guard · token 104f1bbf6ace
+- 2026-09-21T23:07:25-03:00 · PM · TODO · PROC-CONSULTOR-DASHBOARD-INTEGRATION is free again: PROC-CONSULTOR-C0, PROC-CONSULTOR-C1 finished. · token 104f1bbf6ace-free-PROC-CONSULTOR-DASHBOARD-INTEGRATION

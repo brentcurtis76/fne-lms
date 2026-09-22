@@ -13,7 +13,7 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-PROPOSAL-LIBRARIES | Bibliotecas de propuestas: páginas, guardias de carga y pruebas | done |  | 2026-09-10 |  |
 | PROC-NUMERIC-VALIDATION | Validación de valores numéricos: límites y pasos, aceptación dentro del conjunto | held | PROC-02 | 2026-09-17 |  |
 | PROC-B5-VERSIONING | B5 versiones e historia: detección en indicadores y grados, crear/seleccionar versiones y conectar la aplicación | done | PROC-08 | 2026-09-20 |  |
-| PROC-B5-CONCURRENCY | B5: ensayo real de ediciones simultáneas (sospecha de interbloqueo) | todo |  | 2026-09-22 |  |
+| PROC-B5-CONCURRENCY | B5: ensayo real de ediciones simultáneas (sospecha de interbloqueo) | done | PROC-B5-CONCURRENCY | 2026-09-22 |  |
 | PROC-B5-PGTAP-RENUMBER | B5: renumerar las pruebas pgTAP (081 duplicado con 081-zoom-explicit-roster.sql de main) | done | PROC-09 | 2026-09-20 |  |
 | PROC-CONSULTOR-C0 | Consultores C0: sin escrituras en Plan de Migración (guardia de contraseña, API, pantalla de solo lectura) | done | PROC-PR104-RECOVERY | 2026-09-22 |  |
 | PROC-CONSULTOR-C1 | Consultores C1: lectura de Contexto Transversal y Plan en todas las escuelas (matriz de roles, API, pantalla) | done | PROC-12 | 2026-09-20 |  |
@@ -21,7 +21,7 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-LIFECYCLE-ARCHIVE-ACTION | Ciclo de vida: la API de archivo rechaza acciones inválidas | done |  | 2026-09-10 |  |
 | PROC-LIFECYCLE-ARCHIVED-LIST | Evaluaciones archivadas: listado, filtro y vista de solo consulta verificados en navegador | done | PROC-01 | 2026-09-17 | DONE LOCALLY: reviewed and committed in PROC-01; no publication. |
 | PROC-LIFECYCLE-CANCELLATION | Ciclo de vida: cancelación explícita solo por administradores, conservando versión, respuestas e historia | done | PROC-14 | 2026-09-21 |  |
-| PROC-FULL-SUITE-PUBLICATION | Integrar con main, resolver la batería completa (308/52/12), revisar y publicar el conjunto | blocked |  | 2026-09-17 |  |
+| PROC-FULL-SUITE-PUBLICATION | Integrar con main, resolver la batería completa (308/52/12), revisar y publicar el conjunto | todo |  | 2026-09-22 |  |
 | PROC-HISTORICAL-DATA | Datos históricos: corregir asignaciones antiguas inválidas sin borrar historia (decisiones de Brent pendientes) | waiting |  | 2026-09-17 |  |
 | PROC-PILOT | Piloto: datos reales aprobados y prueba supervisada directivo → curso → docente → entrega → resultados | waiting |  | 2026-09-17 |  |
 | PROC-CALIBRATION | Calibración, expectativas y afirmaciones sobre resultados (aplazado por Brent) | held |  | 2026-09-10 |  |
@@ -291,3 +291,6 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 - 2026-09-22T08:51:37-03:00 · PM · TODO · Reopened for PR #104 recovery: clean CI proved PROC-15 omitted the required tracked write-boundary migration; recovery scope and clean-DB gates are in runs/PROC-16/PR-104-RECOVERY.md. · token ls-1c79a942dc
 - 2026-09-22T08:55:45-03:00 · PROC-PR104-RECOVERY · IN-PROGRESS · PROC-PR104-RECOVERY r0 dispatched (pm-unit begin) · token ls-feafa45bb4
 - 2026-09-22T09:20:12-03:00 · PROC-PR104-RECOVERY · DONE · PROC-PR104-RECOVERY: restore omitted migration for PR 104 · token b983fa5916d8
+- 2026-09-22T09:31:24-03:00 · PROC-B5-CONCURRENCY · IN-PROGRESS · PROC-B5-CONCURRENCY r0 dispatched (pm-unit begin) · token ls-c8e6ba611a
+- 2026-09-22T10:16:13-03:00 · PROC-B5-CONCURRENCY · DONE · PROC-B5-CONCURRENCY: add safe B5 concurrency diagnostic · token f31118ee65a5
+- 2026-09-22T10:16:13-03:00 · PM · TODO · PROC-FULL-SUITE-PUBLICATION is free again: PROC-B5-VERSIONING, PROC-B5-CONCURRENCY, PROC-CONSULTOR-C0, PROC-CONSULTOR-C1, PROC-CONSULTOR-DASHBOARD-INTEGRATION, PROC-LIFECYCLE-CANCELLATION finished. · token f31118ee65a5-free-PROC-FULL-SUITE-PUBLICATION

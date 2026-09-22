@@ -17,7 +17,7 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-B5-PGTAP-RENUMBER | B5: renumerar las pruebas pgTAP (081 duplicado con 081-zoom-explicit-roster.sql de main) | done | PROC-09 | 2026-09-20 |  |
 | PROC-CONSULTOR-C0 | Consultores C0: sin escrituras en Plan de Migración (guardia de contraseña, API, pantalla de solo lectura) | done | PROC-15 | 2026-09-21 |  |
 | PROC-CONSULTOR-C1 | Consultores C1: lectura de Contexto Transversal y Plan en todas las escuelas (matriz de roles, API, pantalla) | done | PROC-12 | 2026-09-20 |  |
-| PROC-CONSULTOR-DASHBOARD-INTEGRATION | Consultores: integrar la política de permisos en el dashboard | todo |  | 2026-09-21 |  |
+| PROC-CONSULTOR-DASHBOARD-INTEGRATION | Consultores: integrar la política de permisos en el dashboard | done | PROC-16 | 2026-09-22 |  |
 | PROC-LIFECYCLE-ARCHIVE-ACTION | Ciclo de vida: la API de archivo rechaza acciones inválidas | done |  | 2026-09-10 |  |
 | PROC-LIFECYCLE-ARCHIVED-LIST | Evaluaciones archivadas: listado, filtro y vista de solo consulta verificados en navegador | done | PROC-01 | 2026-09-17 | DONE LOCALLY: reviewed and committed in PROC-01; no publication. |
 | PROC-LIFECYCLE-CANCELLATION | Ciclo de vida: cancelación explícita solo por administradores, conservando versión, respuestas e historia | done | PROC-14 | 2026-09-21 |  |
@@ -285,3 +285,5 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 - 2026-09-21T20:48:53-03:00 · PROC-15 · IN-PROGRESS · PROC-15 r0 dispatched (pm-unit begin) · token ls-def625fa36
 - 2026-09-21T23:07:25-03:00 · PROC-15 · DONE · PROC-15: verify forced-password migration-plan guard · token 104f1bbf6ace
 - 2026-09-21T23:07:25-03:00 · PM · TODO · PROC-CONSULTOR-DASHBOARD-INTEGRATION is free again: PROC-CONSULTOR-C0, PROC-CONSULTOR-C1 finished. · token 104f1bbf6ace-free-PROC-CONSULTOR-DASHBOARD-INTEGRATION
+- 2026-09-22T06:39:42-03:00 · PROC-16 · IN-PROGRESS · PROC-16 r0 dispatched (pm-unit begin) · token ls-b35e697bcd
+- 2026-09-22T08:19:43-03:00 · PROC-16 · DONE · PROC-16: integrate consultor dashboard read-only access · token daa7001882ff

@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { createServer, type AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { parse as parseEnv } from 'dotenv';
@@ -94,6 +95,11 @@ const ZOOM_CREDENTIAL_VARS = [
 ] as const;
 
 const CRON_SECRET = requiredEnv('CRON_SECRET');
+const coordinatorPort = Number(
+  process.env.E2E_PORT || new URL(requiredEnv('NEXT_PUBLIC_BASE_URL')).port
+);
+const controlPorts = new Set<number>([coordinatorPort]);
+let primaryControlPort: number | undefined;
 
 const supabase: SupabaseClient = createClient(
   requiredEnv('NEXT_PUBLIC_SUPABASE_URL'),
@@ -176,20 +182,57 @@ async function runHostSyncCycle(
  * the SAME route, registry and handler as the positive proof rather than an analogue of it.
  * `next start` reuses the build the gate already produced.
  */
-async function startServer(port: number, overrides: Record<string, string>): Promise<ChildProcess> {
-  const child = spawn('npx', ['next', 'start', '-p', String(port)], {
-    cwd: ROOT,
-    env: { ...fileEnv, ...process.env, ...overrides },
-    stdio: 'pipe',
+async function selectControlPort(): Promise<number> {
+  const reservation = createServer();
+  await new Promise<void>((resolve, reject) => {
+    reservation.once('error', reject);
+    reservation.listen({ host: '127.0.0.1', port: 0, exclusive: true }, resolve);
   });
+  const port = (reservation.address() as AddressInfo).port;
+  await new Promise<void>((resolve, reject) =>
+    reservation.close((error) => (error ? reject(error) : resolve()))
+  );
+  if (controlPorts.has(port)) return selectControlPort();
+  controlPorts.add(port);
+  return port;
+}
+
+async function startServer(
+  overrides: Record<string, string>
+): Promise<{ child: ChildProcess; baseUrl: string; port: number }> {
+  const port = await selectControlPort();
+  const child = spawn(
+    'npx',
+    ['next', 'start', '--hostname', '127.0.0.1', '-p', String(port)],
+    {
+      cwd: ROOT,
+      env: { ...fileEnv, ...process.env, ...overrides },
+      stdio: 'pipe',
+    }
+  );
+
+  let childOutput = '';
+  const recordOutput = (chunk: Buffer) => {
+    childOutput = `${childOutput}${chunk.toString()}`.slice(-4096);
+  };
+  child.stdout?.on('data', recordOutput);
+  child.stderr?.on('data', recordOutput);
 
   // An unauthenticated ticker POST answers 401 without touching the queue — the cheapest
-  // probe that proves the server is up AND routing to the endpoint under test.
+  // route probe. The child's own Ready line proves an unrelated listener did not answer it.
   const deadline = Date.now() + 120_000;
   while (Date.now() < deadline) {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      throw new Error(`[zoom-mock-mode] child server exited with code ${child.exitCode}`);
+    }
     try {
       const probe = await fetch(`http://127.0.0.1:${port}/api/cron/zoom-ticker`, { method: 'POST' });
-      if (probe.status === 401) return child;
+      if (/Ready in/.test(childOutput) && probe.status === 401) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        if (child.exitCode === null && child.signalCode === null) {
+          return { child, baseUrl: `http://127.0.0.1:${port}`, port };
+        }
+      }
     } catch {
       // not listening yet
     }
@@ -265,8 +308,12 @@ test.describe('the negative controls — the proof fails without ZOOM_MODE, and 
     try {
       // resolveZoomMode throws for this value before createLiveZoomApi() is constructed,
       // so this control is structurally incapable of reaching the network.
-      server = await startServer(3101, { ZOOM_MODE: 'bogus' });
-      const { tick, job } = await runHostSyncCycle('http://127.0.0.1:3101');
+      const started = await startServer({ ZOOM_MODE: 'bogus' });
+      server = started.child;
+      expect(started.port).not.toBe(coordinatorPort);
+      primaryControlPort = started.port;
+      console.log(`[zoom-mock-mode] PRIMARY child ready at 127.0.0.1:${started.port}`);
+      const { tick, job } = await runHostSyncCycle(started.baseUrl);
 
       // The tick itself still succeeds — the queue is healthy; it is the JOB that refuses.
       expect(tick.status).toBe(200);
@@ -295,8 +342,13 @@ test.describe('the negative controls — the proof fails without ZOOM_MODE, and 
     try {
       // '' is treated exactly as unset by resolveZoomMode (api.ts:432) and survives
       // .env.local, which would otherwise refill a deleted key with 'mock'.
-      server = await startServer(3102, { ZOOM_MODE: '' });
-      const { tick, job } = await runHostSyncCycle('http://127.0.0.1:3102');
+      const started = await startServer({ ZOOM_MODE: '' });
+      server = started.child;
+      expect(primaryControlPort).toBeDefined();
+      expect(started.port).not.toBe(coordinatorPort);
+      expect(started.port).not.toBe(primaryControlPort);
+      console.log(`[zoom-mock-mode] SECONDARY child ready at 127.0.0.1:${started.port}`);
+      const { tick, job } = await runHostSyncCycle(started.baseUrl);
 
       expect(tick.status).toBe(200);
       expect(tick.body.completed, 'a job completed with no Zoom credentials').toBe(0);

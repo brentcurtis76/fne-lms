@@ -25,7 +25,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(195);
+SELECT plan(201);
 
 CREATE OR REPLACE FUNCTION pg_temp.set_anon() RETURNS void AS $$
 BEGIN
@@ -390,6 +390,60 @@ SELECT is((SELECT array_agg(growth_community_id::text ORDER BY growth_community_
   ARRAY['71000000-0000-4000-8000-00000000c001'],
   'equipo_directivo: the whole visible set is exactly their own school''s row');
 RESET ROLE;
+
+-- SM-13: the same authenticated school leader follows current authority inside
+-- one database session. Each transition is made as the fixture owner, then the
+-- real authenticated entry point is exercised again. The former-school row is
+-- the rollback-only negative control for stale authority (6).
+UPDATE public.user_roles SET is_active = false
+WHERE user_id = pg_temp.uid('b10a_directivo') AND role_type = 'equipo_directivo';
+SELECT tests.authenticate_as('b10a_directivo');
+SELECT is((SELECT count(*)::int FROM public.growth_community_transformation_access
+             WHERE growth_community_id::text LIKE '71000000-%'), 0,
+  'SM-13 transition: deactivation immediately removes all school-leader reads');
+RESET ROLE;
+
+UPDATE public.user_roles SET is_active = true
+WHERE user_id = pg_temp.uid('b10a_directivo') AND role_type = 'equipo_directivo';
+SELECT tests.authenticate_as('b10a_directivo');
+SELECT is((SELECT array_agg(growth_community_id::text ORDER BY growth_community_id::text)
+             FROM public.growth_community_transformation_access WHERE growth_community_id::text LIKE '71000000-%'),
+  ARRAY['71000000-0000-4000-8000-00000000c001'],
+  'SM-13 transition: reactivation immediately restores exactly the current-school row');
+RESET ROLE;
+
+UPDATE public.user_roles SET school_id = 9712
+WHERE user_id = pg_temp.uid('b10a_directivo') AND role_type = 'equipo_directivo';
+SELECT tests.authenticate_as('b10a_directivo');
+SELECT is((SELECT count(*)::int FROM public.growth_community_transformation_access
+             WHERE growth_community_id = '71000000-0000-4000-8000-00000000c001'), 0,
+  'SM-13 transition negative control: reassignment immediately denies the former-school row');
+SELECT is((SELECT array_agg(growth_community_id::text ORDER BY growth_community_id::text)
+             FROM public.growth_community_transformation_access WHERE growth_community_id::text LIKE '71000000-%'),
+  ARRAY['71000000-0000-4000-8000-00000000c002'],
+  'SM-13 transition: reassignment exposes exactly the new current-school row, never a cross-school row');
+RESET ROLE;
+
+UPDATE public.profiles SET must_change_password = true
+WHERE id = pg_temp.uid('b10a_directivo');
+SELECT tests.authenticate_as('b10a_directivo');
+SELECT is((SELECT count(*)::int FROM public.growth_community_transformation_access
+             WHERE growth_community_id::text LIKE '71000000-%'), 0,
+  'SM-13 transition: the forced-password flag suppresses the exact B10a surface');
+RESET ROLE;
+
+UPDATE public.profiles SET must_change_password = false
+WHERE id = pg_temp.uid('b10a_directivo');
+SELECT tests.authenticate_as('b10a_directivo');
+SELECT is((SELECT array_agg(growth_community_id::text ORDER BY growth_community_id::text)
+             FROM public.growth_community_transformation_access WHERE growth_community_id::text LIKE '71000000-%'),
+  ARRAY['71000000-0000-4000-8000-00000000c002'],
+  'SM-13 transition: clearing the flag restores exactly the current-school row in the same session');
+RESET ROLE;
+
+-- Restore the fixture for the remaining independent write-authority probes.
+UPDATE public.user_roles SET school_id = 9711
+WHERE user_id = pg_temp.uid('b10a_directivo') AND role_type = 'equipo_directivo';
 
 -- D1 (SM12-R0-B1): a NULL-active school leader is treated as active by BOTH sides
 -- of the boundary, so the restriction narrows them to their own school instead of

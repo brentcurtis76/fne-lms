@@ -163,26 +163,28 @@ export default function ArchiveView({ licitacionId, isAdmin = false, isEncargado
                     bucketDocs.map(doc => (
                       <div
                         key={doc.id}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors"
+                        className="grid grid-cols-[16px_minmax(0,1fr)] items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors sm:grid-cols-[16px_minmax(0,1fr)_auto]"
                       >
                         <FileText size={16} className="text-gray-400 shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-800 truncate">{doc.nombre}</p>
-                          <p className="text-xs text-gray-400">
+                          <p className="text-sm text-gray-800 truncate" title={doc.nombre}>{doc.nombre}</p>
+                          <p className="text-xs text-gray-400 [overflow-wrap:anywhere]">
                             {doc.file_name}
                             {doc.file_size ? ` · ${formatFileSize(doc.file_size)}` : ''}
                             {doc.created_at ? ` · ${formatDate(doc.created_at)}` : ''}
                           </p>
                         </div>
-                        <DocumentPreview licitacionId={licitacionId} documento={doc} onDownload={() => handleDownload(doc)} downloading={downloadingId === doc.id} />
-                        <button
-                          onClick={() => handleDownload(doc)}
-                          disabled={downloadingId === doc.id}
-                          className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-xs disabled:opacity-60"
-                        >
-                          <Download size={12} />
-                          {downloadingId === doc.id ? 'Generando...' : 'Descargar'}
-                        </button>
+                        <div className="col-start-2 flex flex-wrap items-center gap-3 sm:col-start-auto">
+                          <DocumentPreview licitacionId={licitacionId} documento={doc} onDownload={() => handleDownload(doc)} downloading={downloadingId === doc.id} />
+                          <button
+                            onClick={() => handleDownload(doc)}
+                            disabled={downloadingId === doc.id}
+                            className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-xs disabled:opacity-60"
+                          >
+                            <Download size={12} />
+                            {downloadingId === doc.id ? 'Generando...' : 'Descargar'}
+                          </button>
+                        </div>
                       </div>
                     ))
                   )}

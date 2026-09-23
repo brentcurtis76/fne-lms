@@ -1,3 +1,7 @@
+## Document filename containment — local candidate (2026-09-23)
+
+`fix/lic-overflow`, based on `643d0c4f7`, contains long document filenames within ArchiveView and DocumentCenter rows and wraps action groups on narrow screens. Type-check, lint, build, 10,398 unit tests and scoped synthetic browser checks at six widths passed. Twelve existing unit skips. Full authenticated application E2E and release pending; live site unchanged. See `docs/planning/reviews/fase-lic-overflow-review-request.md`.
+
 ## Contract design release verification — 2026-09-08
 
 `feat/contract-design` integrates origin/main `097b62ed`. Local unit (9,716 passed), type-check, lint, build, pgTAP (2,506 assertions), and Chromium print checks passed. Synthetic authenticated contract/anexo creation and saved-print routes verified with computer use. CLP list labels corrected; print tests made mandatory in CI. Safari contrato pagination fixed and visually verified: final clauses/signatures/footer together on six Letter pages; Chromium remains five. Safari short/long anexos verified at one/three pages. PR #91 awaits final-head CI; not merged to main. See `docs/planning/reviews/fase-contract-design-review-request.md`.

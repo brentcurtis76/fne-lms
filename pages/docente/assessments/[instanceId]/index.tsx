@@ -15,14 +15,13 @@ import {
 import HelpButton from '@/components/tutorials/HelpButton';
 import { ResponseDraftSession, DraftState } from '@/lib/services/assessment-builder/responseDraft';
 import {
-  AREA_LABELS,
+  getRegistroLabel,
   ENTITY_LABELS,
   GENERATION_TYPE_LABELS,
   GRADE_LEVEL_LABELS,
   GenerationType,
   GradeLevel,
   InstanceStatus,
-  TransformationArea,
 } from '@/types/assessment-builder';
 import { ModuleCard } from '@/components/assessment';
 import type { IndicatorData, ModuleData, ObjectiveData, ResponseData } from '@/components/assessment';
@@ -154,7 +153,7 @@ const AssessmentResponseForm: React.FC = () => {
       const response = await fetch(`/api/docente/assessments/${instanceId}`);
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Error al cargar la evaluación');
+        throw new Error(data.error || 'Error al cargar el registro');
       }
 
       const data = await response.json();
@@ -355,10 +354,10 @@ const AssessmentResponseForm: React.FC = () => {
       }
 
       setInstance((previous: any) => ({ ...previous, status: 'completed', completed_at: data.completedAt }));
-      toast.success('Evaluación completada');
+      toast.success('Registro completado');
     } catch (error: any) {
       console.error('Error submitting:', error);
-      toast.error(error.message || 'Error al enviar la evaluación');
+      toast.error(error.message || 'Error al enviar el registro');
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -373,7 +372,7 @@ const AssessmentResponseForm: React.FC = () => {
   if (loadError) {
     return (
       <div className="max-w-xl mx-auto p-8" role="alert">
-        <h1 className="text-xl font-semibold">No pudimos cargar la evaluación</h1>
+        <h1 className="text-xl font-semibold">No pudimos cargar el registro</h1>
         <p className="mt-3">{loadError}</p>
         <p className="mt-2">Para proteger tus respuestas, el formulario estará disponible cuando podamos recuperarlas.</p>
         <button data-testid="retry-assessment-load" className="mt-4 px-4 py-2 bg-brand_primary text-white rounded" onClick={() => void fetchAssessment()}>
@@ -416,8 +415,8 @@ const AssessmentResponseForm: React.FC = () => {
     >
       <ResponsiveFunctionalPageHeader
         icon={<ClipboardCheck />}
-        title={template?.name || 'Evaluación'}
-        subtitle={AREA_LABELS[template?.area as TransformationArea] || 'Evaluación'}
+        title={template?.name || getRegistroLabel(template?.area)}
+        subtitle={getRegistroLabel(template?.area)}
       >
         <HelpButton sectionId="proceso-de-cambio" />
       </ResponsiveFunctionalPageHeader>
@@ -433,7 +432,7 @@ const AssessmentResponseForm: React.FC = () => {
             className="inline-flex items-center text-sm text-brand_primary/50 hover:text-brand_primary transition-colors disabled:opacity-60"
           >
             <ArrowLeft className="w-4 h-4 mr-1.5" />
-            {leaving ? 'Guardando y volviendo...' : 'Volver a evaluaciones'}
+            {leaving ? 'Guardando y volviendo...' : 'Volver a registros'}
           </button>
 
           <div className="flex items-center gap-3">
@@ -478,7 +477,7 @@ const AssessmentResponseForm: React.FC = () => {
               <span
                 data-testid="assessment-submit-unavailable"
                 className="text-sm text-brand_primary/50"
-                title="Solo el docente responsable puede enviar esta evaluación"
+                title="Solo el docente responsable puede enviar este registro"
               >
                 Sin autorización para enviar
               </span>
@@ -496,10 +495,10 @@ const AssessmentResponseForm: React.FC = () => {
           >
             <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
               <h2 id="assessment-submit-confirm-title" className="text-lg font-semibold text-brand_primary">
-                ¿Enviar la evaluación?
+                ¿Enviar el registro?
               </h2>
               <p className="mt-2 text-sm text-brand_primary/70">
-                Al enviar, la evaluación queda completada y no podrás modificar tus respuestas.
+                Al enviar, el registro queda completado y no podrás modificar tus respuestas.
                 Tus respuestas pendientes se guardarán antes de enviar.
               </p>
               <div className="mt-6 flex justify-end gap-3">
@@ -563,7 +562,7 @@ const AssessmentResponseForm: React.FC = () => {
         {draftState.recovery.length > 0 && (
           <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-5" role="alert">
             <h2 className="font-semibold">Encontramos un borrador pendiente en este navegador</h2>
-            <p className="mt-2 text-sm">Puedes recuperarlo para continuar. Sus respuestas reemplazarán las correspondientes del formulario; las demás se conservarán. Si otra persona o pestaña actualizó la evaluación, revisa antes de recuperar.</p>
+            <p className="mt-2 text-sm">Puedes recuperarlo para continuar. Sus respuestas reemplazarán las correspondientes del formulario; las demás se conservarán. Si otra persona o pestaña actualizó el registro, revisa antes de recuperar.</p>
             {draftState.recovery.map(draft => (
               <button key={draft.key} data-testid="recover-assessment-draft" className="mt-3 mr-3 rounded bg-brand_primary px-4 py-2 text-white"
                 onClick={() => recoverDraft(draft.key)}>
@@ -610,10 +609,10 @@ const AssessmentResponseForm: React.FC = () => {
             <div role="status" className="mt-3 text-brand_primary">
               <div className="flex items-center font-semibold">
                 <CheckCircle className="w-4 h-4 mr-2 text-brand_accent" />
-                <span className="text-sm">Evaluación completada</span>
+                <span className="text-sm">Registro completado</span>
               </div>
               <p className="mt-2 text-sm leading-relaxed">
-                Los informes individuales y del colegio se generarán una vez que todas las personas responsables hayan completado sus evaluaciones y los asesores correspondientes hayan aportado su retroalimentación al proceso.
+                Los informes individuales y del colegio se generarán una vez que todas las personas responsables hayan completado sus registros y los asesores correspondientes hayan aportado su retroalimentación al proceso.
               </p>
             </div>
           )}

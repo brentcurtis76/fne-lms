@@ -81,6 +81,16 @@ export const AREA_LABELS: Record<TransformationArea, string> = {
   liderazgo: 'Liderazgo',
 };
 
+/**
+ * Nombre que ve el docente asignado: "Registro de Crecimiento", etc.
+ * Los docentes nunca ven la palabra "Evaluación" para estos instrumentos.
+ */
+export function getRegistroLabel(area: string | null | undefined, plural = false): string {
+  const noun = plural ? 'Registros' : 'Registro';
+  const areaLabel = area ? AREA_LABELS[area as TransformationArea] : undefined;
+  return areaLabel ? `${noun} de ${areaLabel}` : noun;
+}
+
 export const AREA_CODES: Record<TransformationArea, string> = {
   personalizacion: 'CRE',
   aprendizaje: 'APR',

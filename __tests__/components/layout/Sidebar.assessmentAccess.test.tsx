@@ -68,7 +68,7 @@ describe('Assigned assessments in the actual Sidebar', () => {
     render(sidebar(role));
     await waitFor(() => expect(mocks.assignmentQuery).toHaveBeenCalledWith('user_id', 'synthetic-adult-a'));
     await openProcesses();
-    expect(await screen.findByRole('link', { name: /Mis Evaluaciones Evaluaciones que tengo asignadas/ }))
+    expect(await screen.findByRole('link', { name: /Mis Registros Registros que tengo asignados/ }))
       .toHaveAttribute('href', '/docente/assessments');
     if (!['admin', 'consultor'].includes(role)) {
       expect(screen.queryByRole('link', { name: /Constructor de Evaluaciones/ })).not.toBeInTheDocument();
@@ -80,7 +80,7 @@ describe('Assigned assessments in the actual Sidebar', () => {
     render(sidebar(role));
     await act(async () => {});
     await openProcesses(false);
-    expect(screen.queryByRole('link', { name: /Mis Evaluaciones Evaluaciones que tengo asignadas/ }))
+    expect(screen.queryByRole('link', { name: /Mis Registros Registros que tengo asignados/ }))
       .not.toBeInTheDocument();
   });
 
@@ -88,7 +88,7 @@ describe('Assigned assessments in the actual Sidebar', () => {
     render(sidebar('lider_comunidad', 'synthetic-adult-a', true));
     await act(async () => {});
     await openProcesses();
-    expect(await screen.findByRole('link', { name: /Mis Evaluaciones Evaluaciones que tengo asignadas/ }))
+    expect(await screen.findByRole('link', { name: /Mis Registros Registros que tengo asignados/ }))
       .toHaveAttribute('href', '/docente/assessments');
   });
 
@@ -97,7 +97,7 @@ describe('Assigned assessments in the actual Sidebar', () => {
     render(sidebar('lider_comunidad'));
     await act(async () => {});
     await openProcesses(false);
-    expect(screen.queryByRole('link', { name: /Mis Evaluaciones Evaluaciones que tengo asignadas/ }))
+    expect(screen.queryByRole('link', { name: /Mis Registros Registros que tengo asignados/ }))
       .not.toBeInTheDocument();
   });
 
@@ -111,14 +111,14 @@ describe('Assigned assessments in the actual Sidebar', () => {
     const view = render(sidebar('lider_comunidad'));
     view.rerender(sidebar('lider_generacion', 'synthetic-adult-b'));
     await act(async () => { finishA({ count: 1, error: null }); });
-    expect(screen.queryByRole('link', { name: /Mis Evaluaciones Evaluaciones que tengo asignadas/ }))
+    expect(screen.queryByRole('link', { name: /Mis Registros Registros que tengo asignados/ }))
       .not.toBeInTheDocument();
     await act(async () => { finishB({ count: 1, error: null }); });
     await openProcesses();
-    expect(await screen.findByRole('link', { name: /Mis Evaluaciones Evaluaciones que tengo asignadas/ }))
+    expect(await screen.findByRole('link', { name: /Mis Registros Registros que tengo asignados/ }))
       .toBeInTheDocument();
     view.rerender(sidebar('lider_generacion', null));
-    expect(screen.queryByRole('link', { name: /Mis Evaluaciones Evaluaciones que tengo asignadas/ }))
+    expect(screen.queryByRole('link', { name: /Mis Registros Registros que tengo asignados/ }))
       .not.toBeInTheDocument();
   });
 });

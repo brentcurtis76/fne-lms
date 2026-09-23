@@ -82,7 +82,7 @@ test.describe('Assessment draft recovery', () => {
     const api = await assessmentApi(context);
     api.setLoadFailure(true);
     await page.goto(PAGE);
-    await expect(page.getByRole('heading', { name: 'No pudimos cargar la evaluación' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'No pudimos cargar el registro' })).toBeVisible();
     await expect(page.getByRole('spinbutton')).toHaveCount(0);
     api.setLoadFailure(false);
     await page.getByTestId('retry-assessment-load').click();

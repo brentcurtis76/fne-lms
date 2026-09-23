@@ -79,7 +79,7 @@ describe('Sidebar growth-communities restrictedRoles gating', () => {
 
 // ---------------------------------------------------------------------------
 // PR #88 supersedes PR 3's teaching-role restriction: personal assignments,
-// not the role name, determine whether Mis Evaluaciones is available.
+// not the role name, determine whether Mis Registros is available.
 // The full Sidebar behavior is covered by Sidebar.assessmentAccess.test.tsx.
 // ---------------------------------------------------------------------------
 import { NAVIGATION_ITEMS } from '../../../components/layout/Sidebar';
@@ -92,7 +92,7 @@ function findChild(id: string) {
   return undefined;
 }
 
-describe("Sidebar 'Mis Evaluaciones' restrictedRoles (real navigation config)", () => {
+describe("Sidebar 'Mis Registros' restrictedRoles (real navigation config)", () => {
   const item = findChild('docente-mis-evaluaciones');
 
   it('exists under the assessment section and still requires assigned assessments', () => {

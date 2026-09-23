@@ -261,7 +261,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     id: 'assessment-builder',
     label: 'Gestor de Cambio',
     icon: ClipboardDocumentListIcon,
-    description: 'Constructor de evaluaciones y rúbricas',
+    description: 'Registros y herramientas de cambio',
     children: [
       {
         id: 'assessment-builder-main',
@@ -305,9 +305,9 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
       },
       {
         id: 'docente-mis-evaluaciones',
-        label: 'Mis Evaluaciones',
+        label: 'Mis Registros',
         href: '/docente/assessments',
-        description: 'Evaluaciones que tengo asignadas',
+        description: 'Registros que tengo asignados',
         icon: AcademicCapIcon,
         // Assigned participants can respond regardless of their school role.
         requiresAssessments: true

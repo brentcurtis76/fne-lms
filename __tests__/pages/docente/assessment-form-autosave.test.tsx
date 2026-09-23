@@ -659,7 +659,7 @@ describe('docente assessment form — context summary', () => {
 
       fireEvent.click(submit);
       const dialog = await screen.findByTestId('assessment-submit-confirm');
-      expect(dialog).toHaveTextContent('¿Enviar la evaluación?');
+      expect(dialog).toHaveTextContent('¿Enviar el registro?');
       fireEvent.click(screen.getByTestId('assessment-submit-cancel'));
 
       await waitFor(() => expect(screen.queryByTestId('assessment-submit-confirm')).not.toBeInTheDocument());

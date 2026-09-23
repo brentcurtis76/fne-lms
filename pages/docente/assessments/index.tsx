@@ -18,6 +18,7 @@ import {
 import HelpButton from '@/components/tutorials/HelpButton';
 import {
   AREA_LABELS,
+  getRegistroLabel,
   GENERATION_TYPE_LABELS,
   GRADE_LEVEL_LABELS,
   GradeLevel,
@@ -118,14 +119,14 @@ const DocenteAssessmentsPage: React.FC = () => {
       const response = await fetch(`/api/docente/assessments?${params.toString()}`);
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Error al cargar evaluaciones');
+        throw new Error(data.error || 'Error al cargar registros');
       }
 
       const data = await response.json();
       setAssessments(data.assessments || []);
     } catch (error: any) {
       console.error('Error fetching assessments:', error);
-      toast.error(error.message || 'Error al cargar evaluaciones');
+      toast.error(error.message || 'Error al cargar registros');
     } finally {
       setLoading(false);
     }
@@ -143,8 +144,23 @@ const DocenteAssessmentsPage: React.FC = () => {
   };
 
   // Group assessments by status
-  const pendingAssessments = assessments.filter(a => a.status === 'pending' || a.status === 'in_progress');
-  const completedAssessments = assessments.filter(a => a.status === 'completed');
+  // One group per vía (Crecimiento, Aprendizaje, ...) in AREA_LABELS order;
+  // unknown areas go last so nothing assigned is ever hidden.
+  const areaKeys = Object.keys(AREA_LABELS);
+  const areaOrder = (area: string) => {
+    const index = areaKeys.indexOf(area);
+    return index === -1 ? areaKeys.length : index;
+  };
+  const areaGroups = Array.from(new Set(assessments.map(a => a.templateArea)))
+    .sort((a, b) => areaOrder(a) - areaOrder(b))
+    .map(area => {
+      const items = assessments.filter(a => a.templateArea === area);
+      return {
+        area,
+        pending: items.filter(a => a.status === 'pending' || a.status === 'in_progress'),
+        completed: items.filter(a => a.status === 'completed'),
+      };
+    });
 
   // Loading state
   if (!user) {
@@ -167,8 +183,8 @@ const DocenteAssessmentsPage: React.FC = () => {
     >
       <ResponsiveFunctionalPageHeader
         icon={<ClipboardCheck />}
-        title="Mis Evaluaciones"
-        subtitle={`${assessments.length} evaluación${assessments.length !== 1 ? 'es' : ''} asignada${assessments.length !== 1 ? 's' : ''}`}
+        title="Mis Registros"
+        subtitle={`${assessments.length} registro${assessments.length !== 1 ? 's' : ''} asignado${assessments.length !== 1 ? 's' : ''}`}
       >
         <HelpButton sectionId="proceso-de-cambio" />
       </ResponsiveFunctionalPageHeader>
@@ -191,55 +207,64 @@ const DocenteAssessmentsPage: React.FC = () => {
 
         {loading ? (
           <div className="text-center py-20">
-            <p className="text-brand_primary/40">Cargando evaluaciones...</p>
+            <p className="text-brand_primary/40">Cargando registros...</p>
           </div>
         ) : assessments.length === 0 ? (
           <div className="text-center py-24">
             <ClipboardCheck className="mx-auto h-16 w-16 text-brand_primary/15" />
             <h3 className="mt-6 text-xl font-semibold text-brand_primary">
-              No hay evaluaciones asignadas
+              No hay registros asignados
             </h3>
             <p className="mt-3 text-sm text-brand_primary/45 max-w-sm mx-auto leading-relaxed">
-              Cuando te asignen evaluaciones, aparecerán aquí.
+              Cuando te asignen registros, aparecerán aquí.
             </p>
           </div>
         ) : (
-          <div className="space-y-14">
-            {/* Pending/In Progress Section */}
-            {pendingAssessments.length > 0 && (
-              <section>
-                <h2 className="text-xs font-bold text-brand_primary/50 uppercase tracking-[0.15em] mb-6">
-                  Por Completar ({pendingAssessments.length})
+          <div className="space-y-16">
+            {areaGroups.map(({ area, pending, completed }) => (
+              <section key={area} data-testid={`registro-group-${area}`}>
+                <h2 className="text-lg font-semibold text-brand_primary mb-8">
+                  {getRegistroLabel(area, true)}
                 </h2>
-                <div className="space-y-5">
-                  {pendingAssessments.map((assessment) => (
-                    <AssessmentCard
-                      key={assessment.id}
-                      assessment={assessment}
-                      allAssessments={assessments}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
+                <div className="space-y-12">
+                  {/* Pending/In Progress */}
+                  {pending.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-bold text-brand_primary/50 uppercase tracking-[0.15em] mb-6">
+                        Por Completar ({pending.length})
+                      </h3>
+                      <div className="space-y-5">
+                        {pending.map((assessment) => (
+                          <AssessmentCard
+                            key={assessment.id}
+                            assessment={assessment}
+                            allAssessments={assessments}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-            {/* Completed Section */}
-            {completedAssessments.length > 0 && (
-              <section>
-                <h2 className="text-xs font-bold text-brand_primary/35 uppercase tracking-[0.15em] mb-6">
-                  Completadas ({completedAssessments.length})
-                </h2>
-                <div className="space-y-5">
-                  {completedAssessments.map((assessment) => (
-                    <AssessmentCard
-                      key={assessment.id}
-                      assessment={assessment}
-                      allAssessments={assessments}
-                    />
-                  ))}
+                  {/* Completed */}
+                  {completed.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-bold text-brand_primary/35 uppercase tracking-[0.15em] mb-6">
+                        Completados ({completed.length})
+                      </h3>
+                      <div className="space-y-5">
+                        {completed.map((assessment) => (
+                          <AssessmentCard
+                            key={assessment.id}
+                            assessment={assessment}
+                            allAssessments={assessments}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </section>
-            )}
+            ))}
           </div>
         )}
       </div>
@@ -309,14 +334,14 @@ const AssessmentCard: React.FC<AssessmentCardProps> = ({ assessment, allAssessme
           {isNewerVersion && (
             <p className="text-xs text-amber-600 mt-3 flex items-center gap-1.5">
               <RefreshCw className="w-3 h-3 flex-shrink-0" />
-              Nueva versión — el instrumento fue actualizado desde tu última evaluación
+              Nueva versión — el instrumento fue actualizado desde tu último registro
             </p>
           )}
 
           {/* Metadata */}
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 mt-4 text-sm text-brand_primary/40">
             <span className="font-medium text-brand_primary/60">
-              {AREA_LABELS[assessment.templateArea]}
+              {getRegistroLabel(assessment.templateArea)}
             </span>
             {(assessment.gradeLevel || assessment.courseName) && (
               <span data-testid={`assessment-card-course-${assessment.id}`} className="text-brand_primary/60">

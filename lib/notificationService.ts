@@ -11,6 +11,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { getAccessibleUrl } from '../utils/notificationPermissions';
 import { getEventConfig, hasEventConfig } from './notificationEvents';
+import { sendNotificationEmail } from './email/notifications';
+import type { EmailTransport } from './email/provider';
 import { profileName } from './utils/profile-name';
 
 // Type definitions for notification service
@@ -45,6 +47,12 @@ interface NotificationContent {
   importance: 'low' | 'normal' | 'high';
 }
 
+/** Injection seam for the two collaborators `createNotification` reaches out to. */
+interface CreateNotificationDeps {
+  client?: SupabaseClient;
+  transport?: EmailTransport;
+}
+
 interface Recipient {
   id: string;
 }
@@ -59,21 +67,6 @@ interface NotificationData {
   read_at: null;
   event_type?: string;
   idempotency_key?: string | null;
-}
-
-interface UserPreferences {
-  do_not_disturb: boolean;
-  quiet_hours_start: string;
-  quiet_hours_end: string;
-  weekend_quiet: boolean;
-  priority_override: boolean;
-  notification_settings: Record<string, unknown>;
-}
-
-interface SendCheckResult {
-  send_in_app: boolean;
-  send_email: boolean;
-  email_frequency: 'immediate' | 'daily' | 'weekly' | 'never';
 }
 
 // Use service role key for bypassing RLS when creating notifications
@@ -878,95 +871,55 @@ class NotificationService {
   }
 
   /**
-   * Create a new notification in the database
+   * Create a new notification.
+   *
+   * The in-app row and the immediate e-mail are two independent channels: each
+   * one is governed by its own column in `user_notification_preferences`, and
+   * a recipient who has switched the in-app channel off still gets the mail.
+   * The e-mail therefore does NOT wait on an inserted row — requiring one is
+   * what made an email-only preference silently deliver nothing.
+   *
    * @param {Object} notificationData - Notification data to insert
+   * @param {Object} [deps] - Injection seam for tests: `client` replaces the
+   *   service-role Supabase client, `transport` replaces the e-mail provider.
+   *   Production passes neither.
    */
-  async createNotification(notificationData) {
+  async createNotification(notificationData, deps: CreateNotificationDeps = {}) {
+    const client = deps.client || supabaseServiceRole;
+
     try {
       console.log('📧 Creating notification:', notificationData.title);
-      
-      // First check user preferences
-      const userPrefs = await this.getUserPreferences(notificationData.user_id);
+
       const notificationType = notificationData.event_type || notificationData.category;
-      
-      // Check if notification should be sent
-      const shouldSend = await this.shouldSendNotification(
+      const preference = await this.getNotificationPreference(
+        client,
         notificationData.user_id,
-        notificationType,
-        notificationData.importance || 'normal',
-        userPrefs
+        notificationType
       );
 
-      if (!shouldSend.send_in_app && !shouldSend.send_email) {
+      if (!preference.in_app_enabled && !preference.email_enabled) {
         console.log(`🔕 User ${notificationData.user_id} has disabled ${notificationType} notifications`);
         return null;
       }
 
-      // Check quiet hours
-      if (await this.isQuietHours(notificationData.user_id, userPrefs)) {
-        const priority = notificationData.importance || 'normal';
-        if (!userPrefs.priority_override || priority !== 'high') {
-          console.log(`🌙 Notification delayed due to quiet hours for user ${notificationData.user_id}`);
-          // Queue for later delivery
-          await this.queueForLater(notificationData);
-          return null;
-        }
-      }
-
-      // Create in-app notification if enabled
+      // The in-app failure is held rather than thrown so the e-mail channel
+      // still runs; it is rethrown below, keeping this method's contract.
       let createdNotification = null;
-      if (shouldSend.send_in_app) {
-        // Check for recent duplicates before creating
-        const isDuplicate = await this.checkForDuplicate(
-          notificationData.user_id,
-          notificationData.title,
-          notificationData.description
-        );
-        
-        if (isDuplicate) {
-          console.log(`🔕 Duplicate notification prevented for user ${notificationData.user_id}: ${notificationData.title}`);
-          return null;
+      let inAppError = null;
+      if (preference.in_app_enabled) {
+        try {
+          createdNotification = await this.createInAppNotification(client, notificationData);
+        } catch (error) {
+          inAppError = error;
         }
-        
-        const insertData = {
-          user_id: notificationData.user_id,
-          title: notificationData.title,
-          description: notificationData.description,
-          category: notificationData.category,
-          related_url: notificationData.related_url,
-          importance: notificationData.importance || 'normal',
-          read_at: null,
-          created_at: new Date().toISOString(),
-          idempotency_key: notificationData.idempotency_key || null
-        };
-        
-        // Insert notification to database
-        const { data, error } = await supabaseServiceRole
-          .from('user_notifications')
-          .insert(insertData)
-          .select()
-          .single();
-
-        if (error) {
-          // Check if it's a unique constraint violation on idempotency_key
-          if (error.code === '23505' && error.message.includes('unique_notification_idempotency_key')) {
-            console.log(`🔕 Duplicate notification prevented by idempotency key for user ${notificationData.user_id}`);
-            return null;
-          }
-          console.error('Database error creating notification:', error);
-          throw error;
-        }
-        
-        createdNotification = data;
       }
 
-      // Handle email notifications based on frequency
-      if (shouldSend.send_email && createdNotification) {
-        await this.handleEmailNotification(
-          notificationData,
-          createdNotification.id,
-          shouldSend.email_frequency
-        );
+      if (preference.email_enabled) {
+        await this.sendImmediateEmail(client, notificationData, deps.transport);
+      }
+
+      if (inAppError) {
+        throw inAppError;
       }
 
       return createdNotification;
@@ -977,17 +930,108 @@ class NotificationService {
   }
 
   /**
+   * Insert the in-app row, or return null when this notification is a repeat.
+   * @param {Object} client - Supabase client to write through
+   * @param {Object} notificationData - Notification data to insert
+   */
+  async createInAppNotification(client, notificationData) {
+    const isDuplicate = await this.checkForDuplicate(
+      client,
+      notificationData.user_id,
+      notificationData.title,
+      notificationData.description
+    );
+
+    if (isDuplicate) {
+      console.log(`🔕 Duplicate notification prevented for user ${notificationData.user_id}: ${notificationData.title}`);
+      return null;
+    }
+
+    const insertData = {
+      user_id: notificationData.user_id,
+      title: notificationData.title,
+      description: notificationData.description,
+      category: notificationData.category,
+      related_url: notificationData.related_url,
+      importance: notificationData.importance || 'normal',
+      read_at: null,
+      created_at: new Date().toISOString(),
+      idempotency_key: notificationData.idempotency_key || null
+    };
+
+    const { data, error } = await client
+      .from('user_notifications')
+      .insert(insertData)
+      .select()
+      .single();
+
+    if (error) {
+      // Check if it's a unique constraint violation on idempotency_key
+      if (error.code === '23505' && error.message.includes('unique_notification_idempotency_key')) {
+        console.log(`🔕 Duplicate notification prevented by idempotency key for user ${notificationData.user_id}`);
+        return null;
+      }
+      console.error('Database error creating notification:', error);
+      throw error;
+    }
+
+    return data;
+  }
+
+  /**
+   * Hand this notification to the authorized outbound-email boundary.
+   *
+   * Never throws and never reports a send it did not get: every outcome other
+   * than `provider_accepted` is logged as not sent. The log lines carry the
+   * delivery status and nothing that identifies the recipient: a notification
+   * recipient may be a student, so neither their address, their domain nor
+   * their user id belongs in a log line (Ley 21.719).
+   *
+   * @param {Object} client - Supabase client used for the recipient lookup and authorization
+   * @param {Object} notificationData - Notification data being delivered
+   * @param {Function} [transport] - Injected e-mail transport (tests only)
+   */
+  async sendImmediateEmail(client, notificationData, transport) {
+    try {
+      const result = await sendNotificationEmail(
+        client,
+        {
+          userId: notificationData.user_id,
+          title: notificationData.title,
+          description: notificationData.description,
+          relatedUrl: notificationData.related_url,
+          idempotencyKey: notificationData.idempotency_key
+        },
+        transport
+      );
+
+      if (result.sent) {
+        console.log('📧 Notification email accepted by the provider');
+      } else {
+        console.log('📭 Notification email NOT sent', { status: result.status });
+      }
+
+      return result;
+    } catch (error) {
+      // A notification trigger must stay nonfatal for its caller.
+      console.error('Error sending notification email:', error instanceof Error ? error.message : String(error));
+      return { sent: false, status: 'transport_error' };
+    }
+  }
+
+  /**
    * Check if a similar notification was recently created
+   * @param {Object} client - Supabase client to read through
    * @param {string} userId - User ID to check
    * @param {string} title - Notification title
    * @param {string} description - Notification description
    * @param {number} timeWindowSeconds - Time window to check (default 60 seconds)
    */
-  async checkForDuplicate(userId, title, description, timeWindowSeconds = 60) {
+  async checkForDuplicate(client, userId, title, description, timeWindowSeconds = 60) {
     try {
       const cutoffTime = new Date(Date.now() - (timeWindowSeconds * 1000)).toISOString();
       
-      const { data, error } = await supabaseServiceRole
+      const { data, error } = await client
         .from('user_notifications')
         .select('id')
         .eq('user_id', userId)
@@ -1002,7 +1046,7 @@ class NotificationService {
       
       // If description is provided, also check if it matches
       if (data && data.length > 0 && description) {
-        const { data: exactMatch } = await supabaseServiceRole
+        const { data: exactMatch } = await client
           .from('user_notifications')
           .select('id')
           .eq('user_id', userId)
@@ -1022,137 +1066,39 @@ class NotificationService {
   }
 
   /**
-   * Get user notification preferences
+   * Resolve the recipient's per-type channel preferences.
+   *
+   * `user_notification_preferences` carries exactly two switches per
+   * (user, notification_type): `email_enabled` and `in_app_enabled`. There is
+   * no row for most (user, type) pairs, and the absence of one means both
+   * channels are on — the same default the columns themselves declare.
+   *
+   * @param {Object} client - Supabase client to read through
+   * @param {string} userId - Recipient user id
+   * @param {string} notificationType - Event type, falling back to the category
    */
-  async getUserPreferences(userId) {
+  async getNotificationPreference(client, userId, notificationType) {
+    const bothEnabled = { email_enabled: true, in_app_enabled: true };
+
     try {
-      const { data, error } = await supabaseServiceRole
+      const { data, error } = await client
         .from('user_notification_preferences')
-        .select('*')
+        .select('email_enabled, in_app_enabled')
         .eq('user_id', userId)
-        .single();
+        .eq('notification_type', notificationType)
+        .maybeSingle();
 
       if (error || !data) {
-        // Return defaults
-        return {
-          do_not_disturb: false,
-          quiet_hours_start: '22:00',
-          quiet_hours_end: '07:00',
-          weekend_quiet: false,
-          priority_override: true,
-          notification_settings: {}
-        };
+        return bothEnabled;
       }
 
-      return data;
-    } catch (error) {
-      console.error('Error fetching user preferences:', error);
-      return {};
-    }
-  }
-
-  /**
-   * Check if notification should be sent based on preferences
-   */
-  async shouldSendNotification(userId, notificationType, priority, preferences) {
-    try {
-      // Use Supabase function to check
-      const { data, error } = await supabaseServiceRole.rpc('should_send_notification', {
-        p_user_id: userId,
-        p_notification_type: notificationType,
-        p_priority: priority
-      });
-
-      if (error || !data || data.length === 0) {
-        // Default to sending if function fails
-        return {
-          send_in_app: true,
-          send_email: true,
-          email_frequency: 'immediate'
-        };
-      }
-
-      return data[0];
-    } catch (error) {
-      console.error('Error checking notification preferences:', error);
       return {
-        send_in_app: true,
-        send_email: true,
-        email_frequency: 'immediate'
+        email_enabled: data.email_enabled !== false,
+        in_app_enabled: data.in_app_enabled !== false
       };
-    }
-  }
-
-  /**
-   * Check if user is in quiet hours
-   */
-  async isQuietHours(userId, preferences) {
-    if (preferences.do_not_disturb) {
-      return true;
-    }
-
-    try {
-      const { data, error } = await supabaseServiceRole.rpc('is_quiet_hours', {
-        p_user_id: userId
-      });
-
-      return data === true;
     } catch (error) {
-      console.error('Error checking quiet hours:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Queue notification for later delivery
-   */
-  async queueForLater(notificationData) {
-    try {
-      // Calculate next delivery time (after quiet hours)
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(7, 0, 0, 0); // Default to 7 AM next day
-
-      await supabaseServiceRole
-        .from('delayed_notifications')
-        .insert({
-          ...notificationData,
-          scheduled_for: tomorrow.toISOString(),
-          reason: 'quiet_hours'
-        });
-    } catch (error) {
-      console.error('Error queuing notification:', error);
-    }
-  }
-
-  /**
-   * Handle email notification based on frequency preference
-   */
-  async handleEmailNotification(notificationData, notificationId, frequency) {
-    try {
-      switch (frequency) {
-        case 'immediate':
-          // TODO: Send email immediately
-          console.log(`📧 Would send immediate email for: ${notificationData.title}`);
-          break;
-          
-        case 'daily':
-        case 'weekly':
-          // Add to digest queue
-          await supabaseServiceRole.rpc('add_to_digest_queue', {
-            p_user_id: notificationData.user_id,
-            p_notification_id: notificationId,
-            p_digest_type: frequency
-          });
-          console.log(`📋 Added to ${frequency} digest for user ${notificationData.user_id}`);
-          break;
-          
-        case 'never':
-          // Do nothing
-          break;
-      }
-    } catch (error) {
-      console.error('Error handling email notification:', error);
+      console.error('Error fetching notification preferences:', error);
+      return bothEnabled;
     }
   }
 

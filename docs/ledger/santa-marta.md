@@ -8,8 +8,8 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 ## Items
 | id | title | status | unit | updated | notes |
 |---|---|---|---|---|---|
-| W-B10a-01 | RLS grupo B: diseñar política para las seis tablas legacy referenciadas restantes | todo | SM-10 | 2026-09-21 |  |
-| W-B10b-01 | Sustituir NotificationService: hoy ninguna rama produce correo | todo |  | 2026-09-16 | lib/notificationService.ts:1134 es literalmente `case 'immediate': // TODO` + console.log, y tres RPC que invoca no existen en el esquema. DISTINTO del resumen  |
+| W-B10a-01 | RLS grupo B: diseñar política para las seis tablas legacy referenciadas restantes | held | SM-10 | 2026-09-21 |  |
+| W-B10b-01 | Sustituir NotificationService: hoy ninguna rama produce correo | done | SM-15 | 2026-09-23 |  |
 | W-B10c-01 | Integrar fix/auth-sec2 sobre main con Z7 incorporado | todo |  | 2026-09-16 | fix/auth-sec2 (4b87243c) forkó en 4399949, ANTES de 717c2c09 (Z7, PR #49). git diff HEAD main --stat = 283 archivos: es una integración, no un fast-forward ni u |
 | W-B1a-01 | Inicializar Sentry en los tres runtimes (withSentryConfig) y dejar session replay en 0 | todo |  | 2026-09-16 | next.config.js:90 nunca aplica withSentryConfig pese a los tres sentry.*.config.ts. Propuesta documentada, no aplicada: replaysSessionSampleRate y replaysOnErro |
 | W-B1b-01 | Corregir contratos.is_annexo → is_anexo en el reporte de horas (PR #50) | todo |  | 2026-09-16 | PR #50, head f6d0e908. Rama existente en el repositorio. Basada en main actual y conserva effective_minutes de Z7: fast-forward limpio. CONSOLIDACIÓN: A14-1 y S |
@@ -66,7 +66,7 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 | W-BL-A12-3 | Lo que el profesor aprendio queda escrito en el lugar donde el profesor que llegue el proximo ano lo va a encontrar. | todo |  | 2026-09-16 | Sin lote: el ledger legacy la dejaba en BACKLOG-P2. Rama propuesta por esta normalización: no existe en el repositorio y no tiene commits. |
 | W-BL-A13-2 | Todas las superficies —notificacion, recordatorio, calendario, lista del espacio colaborativo— llevan a esta pantalla, q | todo |  | 2026-09-16 | Sin lote: el ledger legacy la dejaba en BACKLOG-P1. Rama propuesta por esta normalización: no existe en el repositorio y no tiene commits. |
 | W-BL-A14-3 | Cuando un bucket baja del 25 por ciento disponible, la plataforma lo marca en ambar. Nadie se entera en diciembre de que | todo |  | 2026-09-16 | Sin lote: el ledger legacy la dejaba en BACKLOG-P1. Rama propuesta por esta normalización: no existe en el repositorio y no tiene commits. |
-| W-BL-A14-4 | Descargar Reporte PDF y Descargar CSV funcionan y coinciden con la pantalla | done | SM-11 | 2026-09-21 |  |
+| W-BL-A14-4 | Descargar Reporte PDF y Descargar CSV funcionan y coinciden con la pantalla | done | SM-14 | 2026-09-22 |  |
 | W-BL-A14-5 | Lado consultora: horas ejecutadas, penalizadas, total horas, tarifa EUR/h, Total EUR, Total CLP, con TC 897 CLP/EUR actu | todo |  | 2026-09-16 | Sin lote: el ledger legacy la dejaba en BACKLOG-P1. Rama propuesta por esta normalización: no existe en el repositorio y no tiene commits. |
 | W-BL-A14-7 | El libro de horas es el mismo libro que sostiene la rendicion de la Ley SEP | todo |  | 2026-09-16 | Sin lote: el ledger legacy la dejaba en BACKLOG-P1. Rama propuesta por esta normalización: no existe en el repositorio y no tiene commits. |
 | W-BL-A15-4 | Progreso de Usuarios: tabla por usuario con Usuario, Rol, Cursos, Completados, Tasa, Tiempo, Ultima Actividad, y Exporta | todo |  | 2026-09-16 | Sin lote: el ledger legacy la dejaba en BACKLOG-P1. Rama propuesta por esta normalización: no existe en el repositorio y no tiene commits. |
@@ -174,3 +174,11 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 - 2026-09-21T13:47:22-03:00 · SM-12 · DONE · SM-12: enforce school-scoped transformation access · token d689add8ba36
 - 2026-09-21T13:47:22-03:00 · PM · TODO · W-B10a-01 is free again: W-B10a-02 finished. · token d689add8ba36-free-W-B10a-01
 - 2026-09-21T14:54:13-03:00 · SM-11 · DONE · SM-11: remove unpublished B5 tests from SM-09 release · token 99457843b08f
+- 2026-09-21T20:34:34-03:00 · SM-10 · IN-PROGRESS · SM-10 r1 dispatched (pm-unit begin) · token ls-222cbdd500
+- 2026-09-21T21:13:59-03:00 · SM-10 · HELD · SM-10 replanned: too big for one unit; split into smaller units (RUN/pm-replan-required.md) · token ls-ae0a180918
+- 2026-09-21T21:32:26-03:00 · SM-13 · IN-PROGRESS · SM-13 r0 dispatched (pm-unit begin) · token ls-bb6a02ca78
+- 2026-09-22T08:44:19-03:00 · SM-13 · HELD · SM-13 replanned: too big for one unit; split into smaller units (RUN/pm-replan-required.md) · token ls-0620f45596
+- 2026-09-22T08:46:44-03:00 · SM-14 · IN-PROGRESS · SM-14 r0 dispatched (pm-unit begin) · token ls-baa778401a
+- 2026-09-22T09:59:17-03:00 · SM-14 · DONE · SM-14: isolate Zoom negative-control ports · token 3c3cd609f851
+- 2026-09-22T10:07:13-03:00 · SM-15 · IN-PROGRESS · SM-15 r0 dispatched (pm-unit begin) · token ls-875fb5467c
+- 2026-09-23T00:04:17-03:00 · SM-15 · DONE · SM-15: deliver immediate notification email safely · token 4b62b53dfd9a

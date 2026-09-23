@@ -11,7 +11,10 @@
  * evaluation_started keeps the modal open with the explanation inline and
  * does not refresh; a stale 409 (no_active_assignment) keeps the modal open
  * and refreshes; success closes the modal, refreshes the course list and
- * shows the success notice; a consultor never sees the control.
+ * shows the success notice; a read-only consultor never sees the control
+ * (PROC-CONSULTOR-C1 D4/D5: the consultor now READS the page, so the absence
+ * of the control has to be proved on a rendered locked card, not on a denial
+ * screen).
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -22,26 +25,30 @@ import { buildChainableQuery } from '../../api/assessment-builder/_helpers';
 // ---------------------------------------------------------------------------
 // Hoisted mocks
 // ---------------------------------------------------------------------------
-const { mockRouterPush, mockToastCall, mockToastError, mockToastSuccess, supabaseHolder, routerMock } = vi.hoisted(() => {
+const { mockRouterPush, mockToastCall, mockToastError, mockToastSuccess, supabaseHolder, routerMock, routerHolder } = vi.hoisted(() => {
   const mockRouterPush = vi.fn();
+  const routerMock = {
+    push: mockRouterPush,
+    replace: vi.fn(),
+    pathname: '/school/transversal-context',
+    query: {} as Record<string, string>,
+    isReady: true,
+  };
   return {
     mockRouterPush,
     mockToastCall: vi.fn(),
     mockToastError: vi.fn(),
     mockToastSuccess: vi.fn(),
     supabaseHolder: { current: null as any },
-    routerMock: {
-      push: mockRouterPush,
-      replace: vi.fn(),
-      pathname: '/school/transversal-context',
-      query: {} as Record<string, string>,
-      isReady: true,
-    },
+    routerMock,
+    // Next hands out a NEW public router instance per navigation, which is what
+    // re-runs the page's auth effect on a school switch. D5 swaps this holder.
+    routerHolder: { current: routerMock },
   };
 });
 
 vi.mock('next/router', () => ({
-  useRouter: () => routerMock,
+  useRouter: () => routerHolder.current,
 }));
 
 vi.mock('next/link', () => ({
@@ -79,6 +86,7 @@ import TransversalContextDashboard from '../../../pages/school/transversal-conte
 // Fixtures (synthetic)
 // ---------------------------------------------------------------------------
 const SCHOOL_ID = 42;
+const OTHER_SCHOOL_ID = 77;
 const COURSE_ID = '44444444-4444-4444-8444-444444444444';
 const NEW_DOCENTE_ID = '22222222-2222-4222-8222-222222222222';
 const CURRENT_DOCENTE_ID = '33333333-3333-4333-8333-333333333333';
@@ -223,6 +231,7 @@ describe('Transversal context — docente replacement modal (PR 2 item 2)', () =
     courses.current = [courseWith(CURRENT_ACTIVE)];
     replace.current = { status: 200, body: {} };
     routerMock.query = {};
+    routerHolder.current = routerMock;
     installFetch(fetchLog, replace);
     installSupabase();
   });
@@ -391,19 +400,102 @@ describe('Transversal context — docente replacement modal (PR 2 item 2)', () =
     expect(mockToastSuccess).not.toHaveBeenCalled();
   });
 
-  it('admin (with the school in the query) gets the control; a consultor never does', async () => {
+  // ── R0-F1 (D1): consultor + equipo_directivo — "Cambiar docente" follows the
+  // SELECTED school: offered on the school they direct, withheld elsewhere. ──
+  describe.each([
+    ['consultor row first', [
+      { role_type: 'consultor', school_id: null },
+      { role_type: 'equipo_directivo', school_id: SCHOOL_ID },
+    ] as RoleRow[]],
+    ['directivo row first', [
+      { role_type: 'equipo_directivo', school_id: SCHOOL_ID },
+      { role_type: 'consultor', school_id: null },
+    ] as RoleRow[]],
+  ])('mixed consultor + equipo_directivo, role order: %s (D1)', (_label, roles) => {
+    it('keeps "Cambiar docente" on a locked course of their OWN school', async () => {
+      installSupabase(roles);
+      routerMock.query = { school_id: String(SCHOOL_ID) };
+      render(<TransversalContextDashboard />);
+
+      expect(await screen.findByTestId(`open-replace-docente-${COURSE_ID}`)).toHaveTextContent('Cambiar docente');
+      expect(screen.queryByTestId('consultor-read-only-notice')).toBeNull();
+      expect(mockRouterPush).not.toHaveBeenCalledWith('/dashboard');
+    });
+
+    it('opening the modal on their own school still posts a real replacement', async () => {
+      installSupabase(roles);
+      routerMock.query = { school_id: String(SCHOOL_ID) };
+      replace.current = {
+        status: 200,
+        body: { success: true, message: SUCCESS_MESSAGE, replacement: { previousDocenteId: CURRENT_DOCENTE_ID, newDocenteId: NEW_DOCENTE_ID, instancesReattached: 2 } },
+      };
+      render(<TransversalContextDashboard />);
+      await screen.findByTestId(`open-replace-docente-${COURSE_ID}`);
+      await openSelectAndSubmit();
+
+      await waitFor(() => expect(replacePosts(fetchLog)).toHaveLength(1));
+      expect(JSON.parse(String(replacePosts(fetchLog)[0].init?.body))).toEqual({
+        course_structure_id: COURSE_ID,
+        docente_id: NEW_DOCENTE_ID,
+      });
+    });
+
+    it('sees the locked card of a FOREIGN school read-only, with no replacement control or modal', async () => {
+      installSupabase(roles);
+      routerMock.query = { school_id: String(OTHER_SCHOOL_ID) };
+      render(<TransversalContextDashboard />);
+
+      await screen.findByTestId('consultor-read-only-notice');
+      expect(mockRouterPush).not.toHaveBeenCalledWith('/dashboard');
+      expect(await screen.findByTestId(`course-assignment-locked-${COURSE_ID}`)).toBeInTheDocument();
+      expect(screen.queryByTestId(`open-replace-docente-${COURSE_ID}`)).toBeNull();
+      expect(screen.queryByRole('button', { name: /cambiar docente/i })).toBeNull();
+      expect(screen.queryByTestId('replace-docente-select')).toBeNull();
+      expect(replacePosts(fetchLog)).toHaveLength(0);
+    });
+  });
+
+  // D5 — a replacement modal is the most dangerous thing to leave open across a
+  // school switch: it is the page's only write path onto a locked course.
+  it('a replacement modal opened on their own school does not survive a switch to a foreign school (D5)', async () => {
+    const roles: RoleRow[] = [
+      { role_type: 'consultor', school_id: null },
+      { role_type: 'equipo_directivo', school_id: SCHOOL_ID },
+    ];
+    installSupabase(roles);
+    routerHolder.current = { ...routerMock, query: { school_id: String(SCHOOL_ID) } };
+    const { rerender } = render(<TransversalContextDashboard />);
+    await openReplaceModal();
+    expect(screen.getByRole('heading', { name: 'Cambiar Docente' })).toBeInTheDocument();
+
+    routerHolder.current = { ...routerMock, query: { school_id: String(OTHER_SCHOOL_ID) } };
+    rerender(<TransversalContextDashboard />);
+
+    await screen.findByTestId('consultor-read-only-notice');
+    expect(screen.queryByRole('heading', { name: 'Cambiar Docente' })).toBeNull();
+    expect(screen.queryByTestId('replace-docente-select')).toBeNull();
+    expect(screen.queryByTestId('replace-docente-submit')).toBeNull();
+    expect(screen.queryByTestId(`open-replace-docente-${COURSE_ID}`)).toBeNull();
+    expect(replacePosts(fetchLog)).toHaveLength(0);
+  });
+
+  it('admin (with the school in the query) gets the control; a read-only consultor sees the locked card without it', async () => {
     installSupabase([{ role_type: 'admin', school_id: null }]);
     routerMock.query = { school_id: String(SCHOOL_ID) };
     const { unmount } = render(<TransversalContextDashboard />);
     expect(await screen.findByTestId(`open-replace-docente-${COURSE_ID}`)).toHaveTextContent('Cambiar docente');
+    expect(screen.queryByTestId('consultor-read-only-notice')).toBeNull();
     unmount();
 
     installSupabase([{ role_type: 'consultor', school_id: null }]);
     render(<TransversalContextDashboard />);
-    // R5/R11: the consultor surface is denied pending the product decision — no card, no control.
-    await screen.findByTestId('consultor-access-pending');
-    expect(screen.queryByTestId(`course-assignment-locked-${COURSE_ID}`)).toBeNull();
+    // PROC-CONSULTOR-C1: the consultor READS the same locked card — and is
+    // offered no replacement control on it, and no replacement modal.
+    await screen.findByTestId('consultor-read-only-notice');
+    expect(await screen.findByTestId(`course-assignment-locked-${COURSE_ID}`)).toBeInTheDocument();
     expect(screen.queryByTestId(`open-replace-docente-${COURSE_ID}`)).toBeNull();
     expect(screen.queryByRole('button', { name: /cambiar docente/i })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Cambiar Docente' })).toBeNull();
+    expect(screen.queryByTestId('replace-docente-select')).toBeNull();
   });
 });

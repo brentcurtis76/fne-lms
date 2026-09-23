@@ -194,6 +194,21 @@ describe('rule: password-bearing Postgres URLs', () => {
   it('still fails on a remote host even when the password looks short', () => {
     expect(rules(remoteUrl('postgres', SHORT_PW, 'prod-db.example.com'))).toEqual(['DATABASE_URL_PASSWORD']);
   });
+
+  it('allowlists the exact matched URL only, not another URL on the same host', () => {
+    const allowed = remoteUrl('postgres', PW, 'fixture-db.example.com');
+    const other = remoteUrl('postgres', SHORT_PW, 'fixture-db.example.com');
+    // The key is the fingerprint the finding itself reports, i.e. of the
+    // matched URL — not of the whole source line.
+    const fp = scanText(allowed, 'synthetic.ts')[0].fingerprint;
+    ALLOWLIST.set(fp, 'runtime-built fixture proving the Rule 3 exact-fingerprint check');
+    try {
+      expect(rules(allowed)).toEqual([]);
+      expect(rules(other)).toEqual(['DATABASE_URL_PASSWORD']);
+    } finally {
+      ALLOWLIST.delete(fp);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -230,6 +245,18 @@ describe('rule: database password assignments', () => {
     expect(rules('DB_PASSWORD=changeme')).toEqual([]);
     expect(rules('POSTGRES_PASSWORD=postgres')).toEqual([]);
     expect(rules('DB_PASSWORD=xxxxx')).toEqual([]);
+  });
+
+  it('is not allowlistable: the reported fingerprint does not suppress it', () => {
+    // Rule 3 gained an exact-fingerprint exception path; rule 4 did not.
+    const assignment = `DB_PASSWORD=${PW}`;
+    const fp = scanText(assignment, 'synthetic.ts')[0].fingerprint;
+    ALLOWLIST.set(fp, 'attempt to allowlist a rule 4 assignment; must have no effect');
+    try {
+      expect(rules(assignment)).toEqual(['DATABASE_PASSWORD_ASSIGNMENT']);
+    } finally {
+      ALLOWLIST.delete(fp);
+    }
   });
 });
 
@@ -318,6 +345,7 @@ describe('allowlisted synthetic fixtures', () => {
     { fp: '256286fd4bd0', file: '__tests__/lib/zoom/webhook-store.test.ts', what: 'synthetic sb_secret_ placeholder' },
     { fp: '6a580c6113e6', file: '__tests__/lib/auth/recovery-grant.test.ts', what: 'synthetic session-token negative control' },
     { fp: '9e80e5552996', file: '__tests__/lib/security/audit.test.ts', what: 'JWT-shaped audit redaction fixture' },
+    { fp: 'feb6b64eb5e1', file: 'scripts/test-b5-concurrency.mjs', what: 'synthetic loopback B5 diagnostic URL' },
   ];
 
   for (const { fp, file, what } of CASES) {
@@ -954,8 +982,8 @@ describe('allowlist contract (self-contained)', () => {
   // depth 1, where those commit objects do not exist, so PR #66's Gate 2 failed
   // deterministically on `git show 8117dfc7...` while the guard itself found
   // nothing. The contract is therefore asserted self-containedly: the ALLOWLIST
-  // must contain EXACTLY the five independently reviewed fingerprints — the
-  // same five the `allowlisted synthetic fixtures` describe proves against the
+  // must contain EXACTLY the six independently reviewed fingerprints — the
+  // same six the `allowlisted synthetic fixtures` describe proves against the
   // real tracked files, pass AND fail-when-removed. Any added, removed or
   // altered fingerprint changes this set and fails here; any weakening of what
   // an entry permits fails there. Nothing depends on history being fetchable.
@@ -965,11 +993,12 @@ describe('allowlist contract (self-contained)', () => {
     '9e80e5552996', // JWT-shaped audit redaction fixture (audit suite)
     'bf1725a8f98b', // published Supabase localhost demo anon key (supabase-test)
     'db71d1a6b661', // fabricated Zoom JWT redaction fixture (spike redactor)
+    'feb6b64eb5e1', // synthetic loopback B5 diagnostic URL (test-b5-concurrency)
   ];
 
-  it('contains exactly the five independently reviewed fingerprints', () => {
+  it('contains exactly the six independently reviewed fingerprints', () => {
     expect([...ALLOWLIST.keys()].sort()).toEqual(REVIEWED_FINGERPRINTS);
-    expect(ALLOWLIST.size).toBe(5);
+    expect(ALLOWLIST.size).toBe(6);
   });
 
   /**
@@ -992,10 +1021,11 @@ describe('allowlist contract (self-contained)', () => {
     // depth-1 CI clone. Any added, removed or altered fingerprint OR any
     // reworded reason changes this digest.
     //
-    // EXPECTED was recomputed from the guard whose ALLOWLIST is byte-identical
-    // to the approved head 31a9f10b. To recompute after a REVIEWED change:
+    // EXPECTED was recomputed after the reviewed addition of the sixth entry,
+    // feb6b64eb5e1 (synthetic loopback B5 diagnostic URL). To recompute after a
+    // REVIEWED change:
     //   node --input-type=module -e "import { ALLOWLIST } from './scripts/ci/check-committed-secrets.mjs'; import { createHash } from 'node:crypto'; console.log(createHash('sha256').update(JSON.stringify([...ALLOWLIST.entries()].sort(([a],[b])=>(a<b?-1:a>b?1:0))),'utf8').digest('hex'))"
-    const EXPECTED = '640b5a9a63bbb077799e15ad8bd70c5cc47455e7a71de5bd8915db076ba802cb';
+    const EXPECTED = 'b6d8db8d580489a53d084654dc27a8df7457b833a21734ed5402ac32ecf0404e';
 
     // Per-entry sanity first, so a mismatch names the culprit before the
     // digest comparison fails.

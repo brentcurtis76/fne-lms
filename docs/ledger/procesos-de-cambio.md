@@ -13,15 +13,15 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-PROPOSAL-LIBRARIES | Bibliotecas de propuestas: páginas, guardias de carga y pruebas | done |  | 2026-09-10 |  |
 | PROC-NUMERIC-VALIDATION | Validación de valores numéricos: límites y pasos, aceptación dentro del conjunto | held | PROC-02 | 2026-09-17 |  |
 | PROC-B5-VERSIONING | B5 versiones e historia: detección en indicadores y grados, crear/seleccionar versiones y conectar la aplicación | done | PROC-08 | 2026-09-20 |  |
-| PROC-B5-CONCURRENCY | B5: ensayo real de ediciones simultáneas (sospecha de interbloqueo) | waiting |  | 2026-09-17 |  |
+| PROC-B5-CONCURRENCY | B5: ensayo real de ediciones simultáneas (sospecha de interbloqueo) | done | PROC-B5-CONCURRENCY | 2026-09-22 |  |
 | PROC-B5-PGTAP-RENUMBER | B5: renumerar las pruebas pgTAP (081 duplicado con 081-zoom-explicit-roster.sql de main) | done | PROC-09 | 2026-09-20 |  |
-| PROC-CONSULTOR-C0 | Consultores C0: sin escrituras en Plan de Migración (guardia de contraseña, API, pantalla de solo lectura) | waiting |  | 2026-09-17 |  |
+| PROC-CONSULTOR-C0 | Consultores C0: sin escrituras en Plan de Migración (guardia de contraseña, API, pantalla de solo lectura) | done | PROC-PR104-RECOVERY | 2026-09-22 |  |
 | PROC-CONSULTOR-C1 | Consultores C1: lectura de Contexto Transversal y Plan en todas las escuelas (matriz de roles, API, pantalla) | done | PROC-12 | 2026-09-20 |  |
-| PROC-CONSULTOR-DASHBOARD-INTEGRATION | Consultores: integrar la política de permisos en el dashboard | blocked |  | 2026-09-17 |  |
+| PROC-CONSULTOR-DASHBOARD-INTEGRATION | Consultores: integrar la política de permisos en el dashboard | done | PROC-16 | 2026-09-22 |  |
 | PROC-LIFECYCLE-ARCHIVE-ACTION | Ciclo de vida: la API de archivo rechaza acciones inválidas | done |  | 2026-09-10 |  |
 | PROC-LIFECYCLE-ARCHIVED-LIST | Evaluaciones archivadas: listado, filtro y vista de solo consulta verificados en navegador | done | PROC-01 | 2026-09-17 | DONE LOCALLY: reviewed and committed in PROC-01; no publication. |
 | PROC-LIFECYCLE-CANCELLATION | Ciclo de vida: cancelación explícita solo por administradores, conservando versión, respuestas e historia | done | PROC-14 | 2026-09-21 |  |
-| PROC-FULL-SUITE-PUBLICATION | Integrar con main, resolver la batería completa (308/52/12), revisar y publicar el conjunto | blocked |  | 2026-09-17 |  |
+| PROC-FULL-SUITE-PUBLICATION | Integrar con main, resolver la batería completa (308/52/12), revisar y publicar el conjunto | done | PROC-B5-CONCURRENCY-3 | 2026-09-22 |  |
 | PROC-HISTORICAL-DATA | Datos históricos: corregir asignaciones antiguas inválidas sin borrar historia (decisiones de Brent pendientes) | waiting |  | 2026-09-17 |  |
 | PROC-PILOT | Piloto: datos reales aprobados y prueba supervisada directivo → curso → docente → entrega → resultados | waiting |  | 2026-09-17 |  |
 | PROC-CALIBRATION | Calibración, expectativas y afirmaciones sobre resultados (aplazado por Brent) | held |  | 2026-09-10 |  |
@@ -280,3 +280,21 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 - 2026-09-20T21:17:16-03:00 · PROC-13 · HELD · PROC-13 replanned: too big for one unit; split into smaller units (RUN/pm-replan-required.md) · token ls-91958048f7
 - 2026-09-20T21:21:33-03:00 · PROC-14 · IN-PROGRESS · PROC-14 r0 dispatched (pm-unit begin) · token ls-ef8f777150
 - 2026-09-21T07:08:05-03:00 · PROC-14 · DONE · PROC-14: add assessment instance cancellation foundation · token 73bf6c100553
+- 2026-09-21T20:28:25-03:00 · PM · TODO · Brent approved the bounded recovery unit to finish the password guard, API, and read-only screen · token ls-72458b2a7f
+- 2026-09-21T20:39:35-03:00 · PROC-15 · TODO · PROC-15 r0 proposed: forced-password real-role pgTAP closure; API and read-only UI remain the already-approved PROC-12 state · token ls-1fa492bec4
+- 2026-09-21T20:48:53-03:00 · PROC-15 · IN-PROGRESS · PROC-15 r0 dispatched (pm-unit begin) · token ls-def625fa36
+- 2026-09-21T23:07:25-03:00 · PROC-15 · DONE · PROC-15: verify forced-password migration-plan guard · token 104f1bbf6ace
+- 2026-09-21T23:07:25-03:00 · PM · TODO · PROC-CONSULTOR-DASHBOARD-INTEGRATION is free again: PROC-CONSULTOR-C0, PROC-CONSULTOR-C1 finished. · token 104f1bbf6ace-free-PROC-CONSULTOR-DASHBOARD-INTEGRATION
+- 2026-09-22T06:39:42-03:00 · PROC-16 · IN-PROGRESS · PROC-16 r0 dispatched (pm-unit begin) · token ls-b35e697bcd
+- 2026-09-22T08:19:43-03:00 · PROC-16 · DONE · PROC-16: integrate consultor dashboard read-only access · token daa7001882ff
+- 2026-09-22T08:48:36-03:00 · PM · TODO · Brent approved PROC-B5-CONCURRENCY as the next unit with an available Codex executor. · token ls-9779ec17a9
+- 2026-09-22T08:51:37-03:00 · PM · TODO · Reopened for PR #104 recovery: clean CI proved PROC-15 omitted the required tracked write-boundary migration; recovery scope and clean-DB gates are in runs/PROC-16/PR-104-RECOVERY.md. · token ls-1c79a942dc
+- 2026-09-22T08:55:45-03:00 · PROC-PR104-RECOVERY · IN-PROGRESS · PROC-PR104-RECOVERY r0 dispatched (pm-unit begin) · token ls-feafa45bb4
+- 2026-09-22T09:20:12-03:00 · PROC-PR104-RECOVERY · DONE · PROC-PR104-RECOVERY: restore omitted migration for PR 104 · token b983fa5916d8
+- 2026-09-22T09:31:24-03:00 · PROC-B5-CONCURRENCY · IN-PROGRESS · PROC-B5-CONCURRENCY r0 dispatched (pm-unit begin) · token ls-c8e6ba611a
+- 2026-09-22T10:16:13-03:00 · PROC-B5-CONCURRENCY · DONE · PROC-B5-CONCURRENCY: add safe B5 concurrency diagnostic · token f31118ee65a5
+- 2026-09-22T10:16:13-03:00 · PM · TODO · PROC-FULL-SUITE-PUBLICATION is free again: PROC-B5-VERSIONING, PROC-B5-CONCURRENCY, PROC-CONSULTOR-C0, PROC-CONSULTOR-C1, PROC-CONSULTOR-DASHBOARD-INTEGRATION, PROC-LIFECYCLE-CANCELLATION finished. · token f31118ee65a5-free-PROC-FULL-SUITE-PUBLICATION
+- 2026-09-22T10:20:46-03:00 · PROC-B5-CONCURRENCY-2 · IN-PROGRESS · PROC-B5-CONCURRENCY-2 r0 dispatched (pm-unit begin) · token ls-1506c6ec1c
+- 2026-09-22T11:00:55-03:00 · PROC-B5-CONCURRENCY-2 · HELD · PROC-B5-CONCURRENCY-2 replanned: too big for one unit; split into smaller units (RUN/pm-replan-required.md) · token ls-f44dbc9f44
+- 2026-09-22T11:02:33-03:00 · PROC-B5-CONCURRENCY-3 · IN-PROGRESS · PROC-B5-CONCURRENCY-3 r0 dispatched (pm-unit begin) · token ls-18964aa3aa
+- 2026-09-22T23:08:39-03:00 · PROC-B5-CONCURRENCY-3 · DONE · PROC-B5-CONCURRENCY-3: allowlist synthetic B5 database URL · token 8e767bc8b7f6

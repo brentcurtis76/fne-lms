@@ -276,6 +276,14 @@ export const ALLOWLIST = new Map([
       'it to sanitiseAuditMetadata to prove token-shaped values are replaced with ' +
       '"[redacted-token]" before an audit row is written.',
   ],
+  [
+    'feb6b64eb5e1',
+    'Synthetic loopback connection string in the B5 concurrency diagnostic, ' +
+      'scripts/test-b5-concurrency.mjs:47. Host and port are interpolated from ' +
+      'APPROVED_HOST/APPROVED_PORT, so the matched text ends at the "${APPROVED_HOST}" ' +
+      'token and the literal host check cannot see the 127.0.0.1 behind it. The ' +
+      'password is the local Supabase default and the target is a local container.',
+  ],
 ]);
 
 /** Truncated SHA-256. Never reversible for a high-entropy secret. */
@@ -410,6 +418,11 @@ export function scanText(text, file = '<input>') {
       if (!password) continue; // no password component carries no secret
       const localDefault = LOCAL_DB_HOSTS.has(host.toLowerCase()) && isPlaceholderPassword(password);
       if (localDefault || isReference(password)) continue;
+      // Allowlistable, but only on the EXACT matched URL: the key is the
+      // fingerprint of `whole`, the same value the finding reports. A reviewed
+      // entry therefore permits one specific URL and nothing else — a different
+      // password, user or host produces a different fingerprint and still fails.
+      if (ALLOWLIST.has(fingerprint(whole))) continue;
       add('DATABASE_URL_PASSWORD', line, whole, `Password-bearing Postgres URL for host ${host}`);
     }
 

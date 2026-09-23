@@ -259,7 +259,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   },
   {
     id: 'assessment-builder',
-    label: 'Procesos de Cambio',
+    label: 'Gestor de Cambio',
     icon: ClipboardDocumentListIcon,
     description: 'Constructor de evaluaciones y rúbricas',
     children: [

@@ -58,8 +58,8 @@ beforeEach(() => {
 
 async function openProcesses(required = true) {
   const button = required
-    ? await screen.findByRole('button', { name: /Procesos de Cambio/ })
-    : screen.queryByRole('button', { name: /Procesos de Cambio/ });
+    ? await screen.findByRole('button', { name: /Gestor de Cambio/ })
+    : screen.queryByRole('button', { name: /Gestor de Cambio/ });
   if (button) fireEvent.click(button);
 }
 

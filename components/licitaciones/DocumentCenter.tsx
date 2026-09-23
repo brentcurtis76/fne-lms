@@ -16,6 +16,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { LicitacionDocumento } from '@/types/licitaciones';
+import DocumentPreview from './DocumentPreview';
 
 interface DocumentCenterProps {
   licitacionId: string;
@@ -59,7 +60,7 @@ const FOLDERS: FolderInfo[] = [
   {
     key: '06-otros',
     label: '06 — Otros',
-    tipos: ['otro'],
+    tipos: ['otro', 'anexos'],
   },
 ];
 
@@ -325,6 +326,7 @@ export default function DocumentCenter({
                             </p>
                           </div>
                           <div className="flex items-center gap-1.5">
+                            <DocumentPreview licitacionId={licitacionId} documento={doc} onDownload={() => handleDownload(doc)} downloading={downloadingId === doc.id} />
                             <button
                               onClick={() => handleDownload(doc)}
                               disabled={downloadingId === doc.id}

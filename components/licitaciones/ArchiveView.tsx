@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { Download, Upload, FileText, Archive } from 'lucide-react';
 import { LicitacionDocumento } from '@/types/licitaciones';
+import DocumentPreview from './DocumentPreview';
 
 interface ArchiveViewProps {
   licitacionId: string;
@@ -173,6 +174,7 @@ export default function ArchiveView({ licitacionId, isAdmin = false, isEncargado
                             {doc.created_at ? ` · ${formatDate(doc.created_at)}` : ''}
                           </p>
                         </div>
+                        <DocumentPreview licitacionId={licitacionId} documento={doc} onDownload={() => handleDownload(doc)} downloading={downloadingId === doc.id} />
                         <button
                           onClick={() => handleDownload(doc)}
                           disabled={downloadingId === doc.id}

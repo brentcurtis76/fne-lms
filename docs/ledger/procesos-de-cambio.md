@@ -21,7 +21,7 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-LIFECYCLE-ARCHIVE-ACTION | Ciclo de vida: la API de archivo rechaza acciones inválidas | done |  | 2026-09-10 |  |
 | PROC-LIFECYCLE-ARCHIVED-LIST | Evaluaciones archivadas: listado, filtro y vista de solo consulta verificados en navegador | done | PROC-01 | 2026-09-17 | DONE LOCALLY: reviewed and committed in PROC-01; no publication. |
 | PROC-LIFECYCLE-CANCELLATION | Ciclo de vida: cancelación explícita solo por administradores, conservando versión, respuestas e historia | done | PROC-14 | 2026-09-21 |  |
-| PROC-FULL-SUITE-PUBLICATION | Integrar con main, resolver la batería completa (308/52/12), revisar y publicar el conjunto | todo |  | 2026-09-22 |  |
+| PROC-FULL-SUITE-PUBLICATION | Integrar con main, resolver la batería completa (308/52/12), revisar y publicar el conjunto | done | PROC-B5-CONCURRENCY-3 | 2026-09-22 |  |
 | PROC-HISTORICAL-DATA | Datos históricos: corregir asignaciones antiguas inválidas sin borrar historia (decisiones de Brent pendientes) | waiting |  | 2026-09-17 |  |
 | PROC-PILOT | Piloto: datos reales aprobados y prueba supervisada directivo → curso → docente → entrega → resultados | waiting |  | 2026-09-17 |  |
 | PROC-CALIBRATION | Calibración, expectativas y afirmaciones sobre resultados (aplazado por Brent) | held |  | 2026-09-10 |  |
@@ -290,3 +290,7 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 - 2026-09-22T09:31:24-03:00 · PROC-B5-CONCURRENCY · IN-PROGRESS · PROC-B5-CONCURRENCY r0 dispatched (pm-unit begin) · token ls-c8e6ba611a
 - 2026-09-22T10:16:13-03:00 · PROC-B5-CONCURRENCY · DONE · PROC-B5-CONCURRENCY: add safe B5 concurrency diagnostic · token f31118ee65a5
 - 2026-09-22T10:16:13-03:00 · PM · TODO · PROC-FULL-SUITE-PUBLICATION is free again: PROC-B5-VERSIONING, PROC-B5-CONCURRENCY, PROC-CONSULTOR-C0, PROC-CONSULTOR-C1, PROC-CONSULTOR-DASHBOARD-INTEGRATION, PROC-LIFECYCLE-CANCELLATION finished. · token f31118ee65a5-free-PROC-FULL-SUITE-PUBLICATION
+- 2026-09-22T10:20:46-03:00 · PROC-B5-CONCURRENCY-2 · IN-PROGRESS · PROC-B5-CONCURRENCY-2 r0 dispatched (pm-unit begin) · token ls-1506c6ec1c
+- 2026-09-22T11:00:55-03:00 · PROC-B5-CONCURRENCY-2 · HELD · PROC-B5-CONCURRENCY-2 replanned: too big for one unit; split into smaller units (RUN/pm-replan-required.md) · token ls-f44dbc9f44
+- 2026-09-22T11:02:33-03:00 · PROC-B5-CONCURRENCY-3 · IN-PROGRESS · PROC-B5-CONCURRENCY-3 r0 dispatched (pm-unit begin) · token ls-18964aa3aa
+- 2026-09-22T23:08:39-03:00 · PROC-B5-CONCURRENCY-3 · DONE · PROC-B5-CONCURRENCY-3: allowlist synthetic B5 database URL · token 8e767bc8b7f6

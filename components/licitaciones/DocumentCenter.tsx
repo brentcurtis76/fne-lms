@@ -254,8 +254,8 @@ export default function DocumentCenter({
   return (
     <div className="bg-white rounded-lg shadow">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="px-6 py-4 border-b border-gray-200 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <Package size={18} className="text-gray-600" />
           <h2 className="font-semibold text-gray-900">Centro de Documentos</h2>
           {documentos.length > 0 && (
@@ -314,18 +314,18 @@ export default function DocumentCenter({
                       {folderDocs.map(doc => (
                         <div
                           key={doc.id}
-                          className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors"
+                          className="grid grid-cols-[16px_minmax(0,1fr)] items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors sm:grid-cols-[16px_minmax(0,1fr)_auto]"
                         >
                           <FileText size={16} className="text-gray-400 shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm text-gray-800 truncate">{doc.nombre}</p>
-                            <p className="text-xs text-gray-400">
+                            <p className="text-sm text-gray-800 truncate" title={doc.nombre}>{doc.nombre}</p>
+                            <p className="text-xs text-gray-400 [overflow-wrap:anywhere]">
                               {doc.file_name}
                               {doc.file_size && ` · ${formatFileSize(doc.file_size)}`}
                               {doc.created_at && ` · ${formatDate(doc.created_at)}`}
                             </p>
                           </div>
-                          <div className="flex items-center gap-1.5">
+                          <div className="col-start-2 flex flex-wrap items-center gap-1.5 sm:col-start-auto">
                             <DocumentPreview licitacionId={licitacionId} documento={doc} onDownload={() => handleDownload(doc)} downloading={downloadingId === doc.id} />
                             <button
                               onClick={() => handleDownload(doc)}

@@ -9,7 +9,7 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 | id | title | status | unit | updated | notes |
 |---|---|---|---|---|---|
 | W-B10a-01 | RLS grupo B: diseñar política para las seis tablas legacy referenciadas restantes | held | SM-10 | 2026-09-21 |  |
-| W-B10b-01 | Sustituir NotificationService: hoy ninguna rama produce correo | todo |  | 2026-09-16 | lib/notificationService.ts:1134 es literalmente `case 'immediate': // TODO` + console.log, y tres RPC que invoca no existen en el esquema. DISTINTO del resumen  |
+| W-B10b-01 | Sustituir NotificationService: hoy ninguna rama produce correo | done | SM-15 | 2026-09-23 |  |
 | W-B10c-01 | Integrar fix/auth-sec2 sobre main con Z7 incorporado | todo |  | 2026-09-16 | fix/auth-sec2 (4b87243c) forkó en 4399949, ANTES de 717c2c09 (Z7, PR #49). git diff HEAD main --stat = 283 archivos: es una integración, no un fast-forward ni u |
 | W-B1a-01 | Inicializar Sentry en los tres runtimes (withSentryConfig) y dejar session replay en 0 | todo |  | 2026-09-16 | next.config.js:90 nunca aplica withSentryConfig pese a los tres sentry.*.config.ts. Propuesta documentada, no aplicada: replaysSessionSampleRate y replaysOnErro |
 | W-B1b-01 | Corregir contratos.is_annexo → is_anexo en el reporte de horas (PR #50) | todo |  | 2026-09-16 | PR #50, head f6d0e908. Rama existente en el repositorio. Basada en main actual y conserva effective_minutes de Z7: fast-forward limpio. CONSOLIDACIÓN: A14-1 y S |
@@ -180,3 +180,5 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 - 2026-09-22T08:44:19-03:00 · SM-13 · HELD · SM-13 replanned: too big for one unit; split into smaller units (RUN/pm-replan-required.md) · token ls-0620f45596
 - 2026-09-22T08:46:44-03:00 · SM-14 · IN-PROGRESS · SM-14 r0 dispatched (pm-unit begin) · token ls-baa778401a
 - 2026-09-22T09:59:17-03:00 · SM-14 · DONE · SM-14: isolate Zoom negative-control ports · token 3c3cd609f851
+- 2026-09-22T10:07:13-03:00 · SM-15 · IN-PROGRESS · SM-15 r0 dispatched (pm-unit begin) · token ls-875fb5467c
+- 2026-09-23T00:04:17-03:00 · SM-15 · DONE · SM-15: deliver immediate notification email safely · token 4b62b53dfd9a

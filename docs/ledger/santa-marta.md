@@ -10,7 +10,7 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 |---|---|---|---|---|---|
 | W-B10a-01 | RLS grupo B: diseñar política para las seis tablas legacy referenciadas restantes | held | SM-10 | 2026-09-21 |  |
 | W-B10b-01 | Sustituir NotificationService: hoy ninguna rama produce correo | done | SM-15 | 2026-09-23 |  |
-| W-B10c-01 | Integrar fix/auth-sec2 sobre main con Z7 incorporado | todo |  | 2026-09-16 | fix/auth-sec2 (4b87243c) forkó en 4399949, ANTES de 717c2c09 (Z7, PR #49). git diff HEAD main --stat = 283 archivos: es una integración, no un fast-forward ni u |
+| W-B10c-01 | Integrar fix/auth-sec2 sobre main con Z7 incorporado | held | SM-17 | 2026-09-25 |  |
 | W-B1a-01 | Inicializar Sentry en los tres runtimes (withSentryConfig) y dejar session replay en 0 | todo |  | 2026-09-16 | next.config.js:90 nunca aplica withSentryConfig pese a los tres sentry.*.config.ts. Propuesta documentada, no aplicada: replaysSessionSampleRate y replaysOnErro |
 | W-B1b-01 | Corregir contratos.is_annexo → is_anexo en el reporte de horas (PR #50) | todo |  | 2026-09-16 | PR #50, head f6d0e908. Rama existente en el repositorio. Basada en main actual y conserva effective_minutes de Z7: fast-forward limpio. CONSOLIDACIÓN: A14-1 y S |
 | W-B1c-01 | Compuerta de cobertura: dejar de bloquear un envío válido en submit.ts | todo |  | 2026-09-16 | Head 59bc7803 + 63616d61. Rama existente en el repositorio. Fast-forward limpio y SIN PR — sin PR no hay cobertura de CI (ci.yml dispara en pull_request y push: |
@@ -117,6 +117,8 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 | W-SIM-01 | Implementar contención por tenant y herramientas deterministas para simulación con QA sintético en Producción | waiting |  | 2026-09-17 |  |
 | W-SIM-02 | Clasificar los tenants QA y sembrar solo las brechas sintéticas autorizadas en Producción | waiting |  | 2026-09-17 |  |
 | W-B10a-02 | Restringir la lectura de transformation access al colegio de equipo_directivo | done | SM-12 | 2026-09-21 |  |
+| W-B10c-01a | Verify API caller identity for privileged actions | done | SM-18 | 2026-09-25 |  |
+| W-B10c-01b | Verify middleware caller identity and browser access | todo |  | 2026-09-25 |  |
 
 ## Events (append-only, newest last)
 - 2026-09-10 · PM · RECORD · Authorization and operating boundary
@@ -182,3 +184,14 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 - 2026-09-22T09:59:17-03:00 · SM-14 · DONE · SM-14: isolate Zoom negative-control ports · token 3c3cd609f851
 - 2026-09-22T10:07:13-03:00 · SM-15 · IN-PROGRESS · SM-15 r0 dispatched (pm-unit begin) · token ls-875fb5467c
 - 2026-09-23T00:04:17-03:00 · SM-15 · DONE · SM-15: deliver immediate notification email safely · token 4b62b53dfd9a
+- 2026-09-25T11:51:57-03:00 · SM-16 · HELD · SM-16 replanned: too big for one unit; split into smaller units (RUN/pm-replan-required.md) · token ls-9237713efe
+- 2026-09-25T11:52:04-03:00 · SM-16 · WAITING · SM-16 closed at boundary; W-B10c-01 waits for Security acceptance · token ls-ef5a41d2dc
+- 2026-09-25T11:55:27-03:00 · SM-16 · HELD · No Security signer exists; gate requires an owner decision on an alternate acceptance path · token ls-03d38a98c7
+- 2026-09-25T12:09:41-03:00 · SM-16 · HELD · Independent read-only auth review requires changes; verified-identity boundary and logout/recovery disposition remain open · token ls-60e0f97713
+- 2026-09-25T12:15:11-03:00 · SM-17 · IN-PROGRESS · SM-17 r0 dispatched (pm-unit begin) · token ls-df4e5f03a5
+- 2026-09-25T12:41:32-03:00 · SM-17 · HELD · SM-17 replanned: too big for one unit; split into smaller units (RUN/pm-replan-required.md) · token ls-0c46692c23
+- 2026-09-25T12:43:09-03:00 · SM-18 · TODO · Approved API child of the verified-identity fix; parent W-B10c-01 remains held · token ls-691c0cc9c6
+- 2026-09-25T12:43:17-03:00 · PM · BLOCKED · Middleware child waits for the API identity child; parent W-B10c-01 remains held · token ls-9b0e0af668
+- 2026-09-25T12:45:01-03:00 · SM-18 · IN-PROGRESS · SM-18 r0 dispatched (pm-unit begin) · token ls-34ea12dab9
+- 2026-09-25T15:01:39-03:00 · SM-18 · DONE · SM-18: verify privileged API cookie identity · token 5f8491382e2d
+- 2026-09-25T15:01:39-03:00 · PM · TODO · W-B10c-01b is free again: W-B10c-01a finished. · token 5f8491382e2d-free-W-B10c-01b

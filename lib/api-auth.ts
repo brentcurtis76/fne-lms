@@ -104,7 +104,10 @@ export async function getApiUser(
       return { user, error: null };
     }
     
-    // Fall back to cookie-based auth
+    // Fall back to cookie-based auth. The cookie supplies only the access
+    // token: its stored `user` is client-controlled (auth-helpers accepts a
+    // legacy JSON session object as-is), so the identity comes from the auth
+    // server, as in the Bearer branch above. Any verification failure denies.
     const supabase = await createApiSupabaseClient(req, res);
     const { data: { session }, error } = await supabase.auth.getSession();
     
@@ -117,16 +120,23 @@ export async function getApiUser(
       return { user: null, error: new Error('No active session') };
     }
     
-    const metadataRoles = extractRolesFromMetadata(session.user.user_metadata);
+    const { data: { user }, error: userError } = await supabase.auth.getUser(session.access_token);
+
+    if (userError || !user) {
+      console.error('[API Auth] Cookie session verification failed:', userError);
+      return { user: null, error: userError || new Error('Invalid session') };
+    }
+
+    const metadataRoles = extractRolesFromMetadata(user.user_metadata);
 
     // Log successful auth (without sensitive data)
     console.log('[API Auth] User authenticated via session:', {
-      userId: session.user.id,
-      email: session.user.email?.split('@')[0] + '@***',
+      userId: user.id,
+      email: user.email?.split('@')[0] + '@***',
       roles: metadataRoles
     });
 
-    return { user: session.user, error: null };
+    return { user, error: null };
   } catch (error) {
     console.error('[API Auth] Unexpected error:', error);
     return { 

@@ -11,7 +11,7 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 | W-B10a-01 | RLS grupo B: diseñar política para las seis tablas legacy referenciadas restantes | held | SM-10 | 2026-09-21 |  |
 | W-B10b-01 | Sustituir NotificationService: hoy ninguna rama produce correo | done | SM-15 | 2026-09-23 |  |
 | W-B10c-01 | Integrar fix/auth-sec2 sobre main con Z7 incorporado | held | SM-17 | 2026-09-25 |  |
-| W-B1a-01 | Inicializar Sentry en los tres runtimes (withSentryConfig) y dejar session replay en 0 | todo |  | 2026-09-16 | next.config.js:90 nunca aplica withSentryConfig pese a los tres sentry.*.config.ts. Propuesta documentada, no aplicada: replaysSessionSampleRate y replaysOnErro |
+| W-B1a-01 | Inicializar Sentry en los tres runtimes (withSentryConfig) y dejar session replay en 0 | done | SM-19 | 2026-09-25 |  |
 | W-B1b-01 | Corregir contratos.is_annexo → is_anexo en el reporte de horas (PR #50) | todo |  | 2026-09-16 | PR #50, head f6d0e908. Rama existente en el repositorio. Basada en main actual y conserva effective_minutes de Z7: fast-forward limpio. CONSOLIDACIÓN: A14-1 y S |
 | W-B1c-01 | Compuerta de cobertura: dejar de bloquear un envío válido en submit.ts | todo |  | 2026-09-16 | Head 59bc7803 + 63616d61. Rama existente en el repositorio. Fast-forward limpio y SIN PR — sin PR no hay cobertura de CI (ci.yml dispara en pull_request y push: |
 | W-B1c-02 | Puntuación: corregir lo que aporta al total una práctica cerrada por la compuerta | todo |  | 2026-09-16 | Head 59bc7803 + 63616d61. Rama existente en el repositorio. Fast-forward limpio y SIN PR — sin PR no hay cobertura de CI (ci.yml dispara en pull_request y push: |
@@ -119,6 +119,7 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 | W-B10a-02 | Restringir la lectura de transformation access al colegio de equipo_directivo | done | SM-12 | 2026-09-21 |  |
 | W-B10c-01a | Verify API caller identity for privileged actions | done | SM-18 | 2026-09-25 |  |
 | W-B10c-01b | Verify middleware caller identity and browser access | todo |  | 2026-09-25 |  |
+| W-B1a-02 | Verificar Sentry con proveedor: recepción, release, alertas, ruido y decisión de privacidad/tracing | held |  | 2026-09-25 |  |
 
 ## Events (append-only, newest last)
 - 2026-09-10 · PM · RECORD · Authorization and operating boundary
@@ -195,3 +196,6 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 - 2026-09-25T12:45:01-03:00 · SM-18 · IN-PROGRESS · SM-18 r0 dispatched (pm-unit begin) · token ls-34ea12dab9
 - 2026-09-25T15:01:39-03:00 · SM-18 · DONE · SM-18: verify privileged API cookie identity · token 5f8491382e2d
 - 2026-09-25T15:01:39-03:00 · PM · TODO · W-B10c-01b is free again: W-B10c-01a finished. · token 5f8491382e2d-free-W-B10c-01b
+- 2026-09-25T15:09:49-03:00 · SM-19 · IN-PROGRESS · SM-19 r0 dispatched (pm-unit begin) · token ls-3a9091a5bc
+- 2026-09-25T16:47:55-03:00 · SM-19 · DEFERRED · W-B1a-02 held by Brent after SM-19 local review: provider receipt, release tag, alerts, noise threshold, privacy and tracing policy require a separately approved scope before resuming.
+- 2026-09-25T16:48:49-03:00 · SM-19 · DONE · SM-19: initialize privacy-gated Sentry locally · token 03fe58d1a454

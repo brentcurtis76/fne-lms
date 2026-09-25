@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const crypto = require('crypto');
+const { withSentryConfig } = require('@sentry/nextjs');
 
 const nextConfig = {
   reactStrictMode: true,
@@ -109,4 +110,17 @@ const nextConfig = {
   },
 }
 
-module.exports = nextConfig;
+// Source-map upload and release creation talk to sentry.io, so the Sentry
+// webpack plugins only run when an auth token is configured. Without one the
+// build stays offline; the runtime configs are injected either way.
+const uploadEnabled = Boolean(process.env.SENTRY_AUTH_TOKEN);
+
+module.exports = withSentryConfig(
+  nextConfig,
+  { silent: true },
+  {
+    hideSourceMaps: true,
+    disableServerWebpackPlugin: !uploadEnabled,
+    disableClientWebpackPlugin: !uploadEnabled,
+  }
+);

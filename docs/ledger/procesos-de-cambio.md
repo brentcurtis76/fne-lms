@@ -30,6 +30,7 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-FIXTURE-PARENT-INTEGRITY | Validate restored receipt parent references in the offline model | done | PROC-05 | 2026-09-18 |  |
 | PROC-FIXTURE-EVIDENCE-CLOSURE | Reconcile final offline fixture contract and result evidence | done | PROC-06 | 2026-09-18 |  |
 | PROC-NUMERIC-LOCAL-READINESS | Verify local schema and synthetic prerequisites for numeric browser validation | done | PROC-07 | 2026-09-19 |  |
+| PROC-ARCHIVE-ACTION-TEST | Commit the existing archive-action API regression test | done | PROC-B5-CONCURRENCY-4 | 2026-09-25 |  |
 
 ## Events (append-only, newest last)
 - 2026-09-10T02:10+00:00 · PM · RECORD · COORDINATED authorized by user. Claude Fable5.1 discovery01 stopped at context boundary, no edits, exit143. Discovery02 fresh restricted intake running. Independent PM portability/raw-report/trace checkpoint written; ful
@@ -298,3 +299,8 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 - 2026-09-22T11:00:55-03:00 · PROC-B5-CONCURRENCY-2 · HELD · PROC-B5-CONCURRENCY-2 replanned: too big for one unit; split into smaller units (RUN/pm-replan-required.md) · token ls-f44dbc9f44
 - 2026-09-22T11:02:33-03:00 · PROC-B5-CONCURRENCY-3 · IN-PROGRESS · PROC-B5-CONCURRENCY-3 r0 dispatched (pm-unit begin) · token ls-18964aa3aa
 - 2026-09-22T23:08:39-03:00 · PROC-B5-CONCURRENCY-3 · DONE · PROC-B5-CONCURRENCY-3: allowlist synthetic B5 database URL · token 8e767bc8b7f6
+- 2026-09-25T11:49:35-03:00 · PROC-B5-CONCURRENCY-4 · TODO · Independent U2c child of retained publication completion plan; existing test is untracked, 15 focused tests pass locally; parent publication row is historically marked done although its remaining gates are open. · token ls-ebbfbcae34
+- 2026-09-25T11:52:50-03:00 · PROC-B5-CONCURRENCY-4 · IN-PROGRESS · PROC-B5-CONCURRENCY-4 r0 dispatched (pm-unit begin) · token ls-d845758e78
+- 2026-09-25T12:21:12-03:00 · PROC-B5-CONCURRENCY-4 · WAITING · PM r0 review BLOCKED: synthetic exception marker reaches HTTP 500 body and wrong-method copy is English; no test accepted or committed. · token ls-9c4e8778b3
+- 2026-09-25T13:49:13-03:00 · PROC-B5-CONCURRENCY-4 · IN-PROGRESS · PROC-B5-CONCURRENCY-4 r1 dispatched (pm-unit begin) · token ls-5100510db9
+- 2026-09-25T14:18:09-03:00 · PROC-B5-CONCURRENCY-4 · DONE · PROC-B5-CONCURRENCY-4: fix archive error responses and tests · token 75bc8953f753

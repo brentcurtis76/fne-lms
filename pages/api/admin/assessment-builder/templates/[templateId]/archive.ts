@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { getApiUser, createApiSupabaseClient, sendAuthError } from '@/lib/api-auth';
 import { hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 
 /**
@@ -8,6 +8,11 @@ import { hasAssessmentWritePermission } from '@/lib/assessment-permissions';
  *
  * POST /api/admin/assessment-builder/templates/[templateId]/archive?action=restore
  * Restores an archived template back to published
+ *
+ * Supported `action` query values: omitted or exactly `archive` (archive) and
+ * exactly `restore` (restore). Any other value — empty, whitespace, case
+ * variants, unknown strings or repeated/array values — is rejected with 400
+ * before the template is read, so a malformed request never archives.
  *
  * Concurrency (Codex round 4, R5-1): both writes are a single UPDATE of the
  * template row. `public.attach_course_docente_assessment` (the automatic
@@ -20,7 +25,8 @@ import { hasAssessmentWritePermission } from '@/lib/assessment-permissions';
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
-    return handleMethodNotAllowed(res, ['POST']);
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ error: 'Método no permitido' });
   }
 
   const { user, error: authError } = await getApiUser(req, res);
@@ -35,11 +41,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(403).json({ error: 'No tienes permiso para archivar templates' });
   }
 
-  const { templateId } = req.query;
-  const action = req.query.action as string;
+  const { templateId, action } = req.query;
 
   if (!templateId || typeof templateId !== 'string') {
     return res.status(400).json({ error: 'templateId es requerido' });
+  }
+
+  if (action !== undefined && action !== 'archive' && action !== 'restore') {
+    return res.status(400).json({
+      error: 'Acción no válida: los valores permitidos son "archive" o "restore"',
+    });
   }
 
   try {
@@ -119,8 +130,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         },
       });
     }
-  } catch (err: any) {
+  } catch (err) {
     console.error('Unexpected error:', err);
-    return res.status(500).json({ error: err.message || 'Error interno del servidor' });
+    return res.status(500).json({ error: 'Error interno del servidor' });
   }
 }

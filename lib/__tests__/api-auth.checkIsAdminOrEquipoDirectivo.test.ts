@@ -60,9 +60,11 @@ function setSession(user: any | null, error: any = null) {
   const supabase = {
     auth: {
       getSession: vi.fn().mockResolvedValue({
-        data: { session: user ? { user } : null },
+        data: { session: user ? { user, access_token: `token-${user.id}` } : null },
         error,
       }),
+      // Cookie identity is verified by the auth server for the session token.
+      getUser: vi.fn().mockResolvedValue({ data: { user }, error: null }),
     },
   };
   mockedCreateServerSupabaseClient.mockReturnValue(supabase as any);
@@ -104,7 +106,7 @@ describe('checkIsAdminOrEquipoDirectivo', () => {
 
   it('returns authorized admin with schoolId null when user is admin', async () => {
     const user = mkUser('admin-1');
-    setSession(user);
+    const supabase = setSession(user);
     mockedHasAdminPrivileges.mockResolvedValue(true);
 
     const result = await checkIsAdminOrEquipoDirectivo(req, res);
@@ -116,6 +118,7 @@ describe('checkIsAdminOrEquipoDirectivo', () => {
       user,
       error: null,
     });
+    expect(supabase.auth.getUser).toHaveBeenCalledWith('token-admin-1');
     expect(mockedHasAdminPrivileges).toHaveBeenCalledWith(fakeServiceClient, 'admin-1');
   });
 

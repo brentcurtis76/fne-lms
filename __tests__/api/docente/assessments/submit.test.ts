@@ -258,6 +258,21 @@ describe('POST /api/docente/assessments/[instanceId]/submit', () => {
     expect(res._getStatusCode()).toBe(401);
   });
 
+  it('Access check: a docente not assigned to the instance (other school) gets 403 before any read or write', async () => {
+    // RLS hides another school's assignee row, so .single() returns no row.
+    const client = {
+      from: vi.fn((_table: string) => buildChainableQuery(null, { code: 'PGRST116' })),
+    };
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+
+    const { req, res } = createMocks({ method: 'POST', query: { instanceId: INSTANCE_ID } });
+    await submitHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(client.from.mock.calls.map(([table]) => table)).toEqual(['assessment_instance_assignees']);
+    expect(mockCalculateAndSaveScores).not.toHaveBeenCalled();
+  });
+
   it('Method check: rejects GET requests with 405', async () => {
     const { req, res } = createMocks({
       method: 'GET',

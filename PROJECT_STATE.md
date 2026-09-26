@@ -1,3 +1,9 @@
+## Password-reset login recovery — local candidate (2026-09-25)
+
+`fix/login-loop`, based on `801805248`, removes competing login redirects and bounds session verification, sign-in, password-state/profile checks and navigation with a 15-second deadline. Stale sessions are validated and cleared locally when invalid; stalled or failed attempts show a Spanish reload/retry panel. Forced-password enforcement and safe deep links are preserved.
+
+Validation: type-check, zero-warning lint, production build, 445 unit files (10,525 passed / 12 existing skips), 4,687 pgTAP assertions, four browser authentication-lifecycle cases and three browser failure/retry cases passed. Desktop/mobile retry screenshots inspected. Synthetic isolated local stack only. Original incident's exact trigger remains unconfirmed; no production operation, publication or deployment. Review request: `docs/planning/reviews/fase-login-loop-review-request.md`.
+
 ## Document filename containment — local candidate (2026-09-23)
 
 `fix/lic-overflow`, based on `643d0c4f7`, contains long document filenames within ArchiveView and DocumentCenter rows and wraps action groups on narrow screens. Type-check, lint, build, 10,398 unit tests and scoped synthetic browser checks at six widths passed. Twelve existing unit skips. Full authenticated application E2E and release pending; live site unchanged. See `docs/planning/reviews/fase-lic-overflow-review-request.md`.

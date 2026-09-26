@@ -3,7 +3,7 @@
 ## State and scope
 
 - Branch: `fix/login-loop`; base: `801805248fa50ddcc6fc1736befec91ff0d71755` (current main at intake).
-- Delivery: two local commits above base, including this request. No push, PR, merge or deployment.
+- Delivery: three local commits above base: two implementation commits plus a documentation-only approval record. No push, PR, merge or deployment.
 - Authority/objective: Brent's password-reset/login incident report followed by “fix it”; eliminate the confirmed indefinite login spinner and competing redirects. This is a bounded bug repair, not an itinerary phase.
 - In scope: login session initialization, credential submission, password-state/profile checks, post-login navigation, recoverable failures, regression coverage.
 - Out of scope: password mutation/recovery authorization, middleware/RLS changes, dashboard data loading, provider settings, production access or release.
@@ -49,7 +49,7 @@ The original user's exact incident could not be reproduced because the affected 
 
 ## Claude review correction (2026-09-26)
 
-Review of `2148c87238e6d2738f8238bd4c6d6acb002ea770`: REQUEST CHANGES, two major findings. Original report preserved at `/home/brent/Projects/pm-workflow/reviews/genera-login-loop-claude-findings.md`. This revision is awaiting independent re-review; findings are addressed by implementation and tests, not independently closed.
+Review of `2148c87238e6d2738f8238bd4c6d6acb002ea770`: REQUEST CHANGES, two major findings. Original report preserved at `/home/brent/Projects/pm-workflow/reviews/genera-login-loop-claude-findings.md`. The subsequent independent re-review approved application commit `fecc185373a37cf356d768ae0774f738914655db` with notes; see the approval record below.
 
 - MAJOR-1: race only authentication/session verification, session cleanup, password-state and profile requests against 15 seconds. Clear the timer before awaiting navigation. Show an explicit page-loading message during navigation. Unit coverage allows navigation to resolve after the deadline; Chromium holds the actual dashboard data response past 20 simulated seconds and then completes. The initial bundle-stall browser probe hit Next.js's own 3.8-second asset fallback, so the final test holds the data response instead.
 - MAJOR-2: restore structured console diagnostics containing only controlled stage/reason labels and numeric HTTP status. No provider message, token, email, user ID or arbitrary error object is logged by the new diagnostics. A regression test checks the RPC failure stage/status and absence of synthetic private fields. HTTP status is read from the RPC response envelope, not its PostgREST error object; a Chromium assertion verifies status 503 through the real SDK. Diagnostics remain browser-console output; no new telemetry service is introduced.
@@ -70,3 +70,19 @@ The original incident is still not attributed to a confirmed trigger. Dashboard'
 Final validation: type-check, zero-warning lint and production build PASS; 446 unit files / 10,534 passed / 12 existing skips; 46 pgTAP files / 4,687 assertions; all nine auth/resilience Chromium cases PASS with zero retries. Final logs: `revision-typecheck-final.log`, `revision-lint-final.log`, `revision-build-final.log`, `revision-unit-final.log`, `revision-pgtap.log`, `revision-e2e-final-head.log` under `/tmp/genera-auth-investigation/`. The exact candidate commit is recorded in the external re-review handoff. All new browser checks use synthetic data against the isolated local stack and the production build, with retries disabled. The first revised browser run exposed a missing synthetic profile and the Next.js asset-timeout behavior; the corrected five-case resilience run passes. The existing four-case auth lifecycle passed in the initial revised run. All nine auth/resilience browser cases passed again on the final production build after the RPC diagnostic correction (`revision-e2e-final-head.log`). No application source change was needed for those test corrections.
 
 The unit suite's counts include expanded parameterized cases (the original 31 were expanded cases, not 31 source-level test blocks). Full application E2E outside the auth-related specs and remote CI remain unrun. Publication and deployment remain pending.
+
+## Independent approval record (2026-09-26)
+
+**APPROVE WITH NOTES**, Claude Code, for application commit `fecc185373a37cf356d768ae0774f738914655db`. Full report: `/home/brent/Projects/pm-workflow/reviews/genera-login-loop-claude-rereview-findings.md`. Both prior MAJOR findings are independently resolved. Prior minor findings are addressed; test faithfulness is substantially resolved with the remaining assertion gap below. Provider sticky-error containment and real revoked-cookie coverage were accepted.
+
+The reviewer independently ran 103 focused tests, changed-file ESLint and incremental type-check successfully. Full unit, build, pgTAP and browser evidence comes from the executor's previously recorded runs; the reviewer inspected those logs, not reran those suites.
+
+Non-blocking notes retained for follow-up:
+
+- Add safe SDK error-code/name classification to distinguish network, lock and provider failures. Use controlled values; current diagnostics intentionally expose only stage/reason/status.
+- The revoked-cookie browser case proves successful new-password login but does not explicitly assert the expired-session message and login URL before submission. Its access token is fresh and its session revoked. An expired access token with a dead refresh token can instead be removed by auth-js during initialization; this is not a second real-browser scenario covered by the current test.
+- Document in code that a successful Next.js navigation normally unmounts login before `push` resolves; the ownership assertion then exits silently. The pathname check is relevant when login remains mounted, as on a middleware bounce.
+- Wrong-password/unconfirmed-email outcomes currently produce error-level console entries; downgrading expected user-correctable outcomes would reduce future telemetry noise.
+- Provider-error recovery still requires reload and may repeatedly fail during an ongoing outage. The global provider and dashboard null-session/loading candidates remain unchanged, and the original incident remains unattributed.
+
+This approval-record commit changes documentation only; reviewed application and test files remain byte-for-byte unchanged. No test rerun was needed for this record. Approval is not publication or release: remote CI, non-auth application E2E and production verification remain outstanding. Nothing has been pushed, merged or deployed.

@@ -39,6 +39,7 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-B5-YEAR-EXPECTATION-GUARD-TEST | Deliver B5 year-expectation source-guard pgTAP test | done | PROC-B5-CONCURRENCY-10 | 2026-09-26 |  |
 | PROC-NUMERIC-PERSISTENCE-DIAGNOSIS | Read-only numeric persistence source diagnosis | done | PROC-17 | 2026-09-26 |  |
 | PROC-NUMERIC-SENTINEL | Preserve fail-closed synthetic marker checks while removing raw NUL bytes | done | PROC-18 | 2026-09-26 |  |
+| PROC-NUMERIC-EXPECTATION-RULE | Align frequency expectation API validation with whole-number counts | done | PROC-19 | 2026-09-26 |  |
 
 ## Events (append-only, newest last)
 - 2026-09-10T02:10+00:00 · PM · RECORD · COORDINATED authorized by user. Claude Fable5.1 discovery01 stopped at context boundary, no edits, exit143. Discovery02 fresh restricted intake running. Independent PM portability/raw-report/trace checkpoint written; ful
@@ -330,3 +331,6 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 - 2026-09-26T16:15:42-03:00 · PM · TODO · PM selected F3 as the next bounded PROC candidate after PROC-17; no implementation authority inferred · token ls-09ef6ee2b0
 - 2026-09-26T16:20:56-03:00 · PROC-18 · IN-PROGRESS · PROC-18 r0 dispatched (pm-unit begin) · token ls-ad7bda350b
 - 2026-09-26T16:54:35-03:00 · PROC-18 · DONE · PROC-18: preserve synthetic marker sentinel without raw NUL bytes · token 92f055e916dc
+- 2026-09-26T17:47:31-03:00 · PROC-19 · TODO · PM proposed a bounded F1 API consistency unit; numeric parent remains held and no production or database authority inferred. · token ls-52ecafe446
+- 2026-09-26T17:54:58-03:00 · PROC-19 · IN-PROGRESS · PROC-19 r0 dispatched (pm-unit begin) · token ls-c55cdfa955
+- 2026-09-26T19:56:56-03:00 · PROC-19 · DONE · PROC-19: validate numeric expectations before mixed writes · token d077f09e033f

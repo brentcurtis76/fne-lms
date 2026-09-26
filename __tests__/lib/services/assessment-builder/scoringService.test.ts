@@ -30,6 +30,7 @@ import {
   calculateObjectiveScore,
   classifyGap,
 } from '@/lib/services/assessment-builder/scoringService';
+import { calculateDemoScores } from '@/lib/services/assessment-builder/clientScoringService';
 import { scoreToLevel } from '@/types/assessment-builder';
 import type {
   FrequencyConfig,
@@ -1182,5 +1183,175 @@ describe('calculateAssessmentScores — 3-level hierarchy', () => {
     expect(result.totalScore).toBe(100);
     expect(result.objectiveScores).toBeUndefined();
     expect(result.moduleScores).toHaveLength(1);
+  });
+});
+
+// ============================================================
+// W-B1c-02 — contribution of a gate-closed practice to the total
+// ============================================================
+
+describe('calculateAssessmentScores — gate-closed practice in a mixed weighted total (W-B1c-02)', () => {
+  type Ind = {
+    id: string; name: string; category: IndicatorCategory; weight: number;
+    display_order: number; active: boolean; frequency_config?: FrequencyConfig;
+  };
+  type Mod = { id: string; name: string; weight: number; indicators: Ind[] };
+  type Res = Omit<AssessmentResponse, 'id' | 'instance_id' | 'responded_at' | 'updated_at'>;
+
+  // Practice A (weight 3) is closed: its cobertura is answered "No", but stale
+  // auto-saved answers remain on its downstream indicators, and a year-inactive
+  // indicator sits first by display order. Practice B (weight 2) is open. Practice
+  // C (weight 5) has no indicator active this year.
+  const MODULES: Mod[] = [
+    { id: 'A', name: 'Práctica cerrada', weight: 3, indicators: [
+      { id: 'a-prof', name: 'Profundidad A', category: 'profundidad', weight: 2, display_order: 2, active: true },
+      { id: 'a-inactive', name: 'Inactiva A', category: 'profundidad', weight: 5, display_order: 0, active: false },
+      { id: 'a-cob', name: 'Cobertura A', category: 'cobertura', weight: 1, display_order: 1, active: true },
+      { id: 'a-frec', name: 'Frecuencia A', category: 'frecuencia', weight: 1, display_order: 3, active: true,
+        frequency_config: { type: 'count', min: 0, max: 10 } },
+    ] },
+    { id: 'B', name: 'Práctica abierta', weight: 2, indicators: [
+      { id: 'b-cob', name: 'Cobertura B', category: 'cobertura', weight: 1, display_order: 1, active: true },
+      { id: 'b-prof', name: 'Profundidad B', category: 'profundidad', weight: 3, display_order: 2, active: true },
+      { id: 'b-trasp', name: 'Traspaso B', category: 'traspaso', weight: 2, display_order: 3, active: false },
+    ] },
+    { id: 'C', name: 'Práctica sin indicadores este año', weight: 5, indicators: [
+      { id: 'c-cob', name: 'Cobertura C', category: 'cobertura', weight: 1, display_order: 1, active: false },
+    ] },
+  ];
+
+  const STALE: Res[] = [
+    { indicator_id: 'a-prof', profundity_level: 4 },
+    { indicator_id: 'a-frec', frequency_value: 10 },
+    { indicator_id: 'a-inactive', profundity_level: 4 },
+  ];
+  const OPEN_B: Res[] = [
+    { indicator_id: 'b-cob', coverage_value: true },
+    { indicator_id: 'b-prof', profundity_level: 2 },
+    { indicator_id: 'b-trasp', sub_responses: { evidence_link: 'https://example.com/evidencia' } },
+    { indicator_id: 'c-cob', coverage_value: true },
+  ];
+
+  function score(
+    responses: Res[],
+    objectives?: Array<{ id: string; name: string; weight: number; moduleIds: string[] }>
+  ) {
+    const toModule = (m: Mod) => ({
+      id: m.id, name: m.name, weight: m.weight,
+      indicators: m.indicators.map(({ active: _active, ...ind }) => ind),
+    });
+    return calculateAssessmentScores({
+      instanceId: 'synthetic',
+      transformationYear: 2,
+      area: 'evaluacion',
+      modules: MODULES.map(toModule),
+      objectives: objectives?.map((o) => ({
+        id: o.id, name: o.name, weight: o.weight,
+        modules: MODULES.filter((m) => o.moduleIds.includes(m.id)).map(toModule),
+      })),
+      responses: responses.map((r, i) => ({
+        id: `r${i}`, instance_id: 'synthetic', responded_at: '', updated_at: '', ...r,
+      })),
+      activeExpectations: new Map(MODULES.flatMap((m) => m.indicators).map((ind) => [
+        ind.id, { expected: ind.active ? 2 : null, unit: null, tolerance: 1 },
+      ])),
+    });
+  }
+
+  const breakdown = (result: ReturnType<typeof score>) => result.moduleScores.map((m) => ({
+    id: m.moduleId, score: m.moduleScore, weight: m.moduleWeight,
+    indicators: m.indicators.map((i) => i.indicatorId),
+  }));
+
+  it('D1: closed practice counts as 0 at its full weight; stale downstream answers are ignored', () => {
+    const result = score([{ indicator_id: 'a-cob', coverage_value: false }, ...STALE, ...OPEN_B]);
+
+    // A: only the gate applies → 0. B: (100*1 + 50*3) / 4 = 62.5. C: nothing active → excluded.
+    // Total: (0*3 + 62.5*2) / (3+2) = 25.
+    // Scoring the stale answers would give A = (0*1 + 100*2 + 100*1) / 4 = 75 and a total of 70;
+    // dropping the closed practice from the denominator would give 62.5.
+    expect(result.totalScore).toBe(25);
+    expect(breakdown(result)).toEqual([
+      { id: 'A', score: 0, weight: 3, indicators: ['a-cob'] },
+      { id: 'B', score: 62.5, weight: 2, indicators: ['b-cob', 'b-prof'] },
+    ]);
+    expect(result.moduleScores[0].activeIndicatorCount).toBe(1);
+  });
+
+  it('D1: removing the stale rows changes nothing', () => {
+    const withStale = score([{ indicator_id: 'a-cob', coverage_value: false }, ...STALE, ...OPEN_B]);
+    const withoutStale = score([{ indicator_id: 'a-cob', coverage_value: false }, ...OPEN_B]);
+    expect(withoutStale.totalScore).toBe(25);
+    expect(breakdown(withoutStale)).toEqual(breakdown(withStale));
+  });
+
+  it('D2: an unanswered gate scores the practice 0 at full weight, like "No"', () => {
+    const result = score([...STALE, ...OPEN_B]);
+    expect(result.totalScore).toBe(25);
+    expect(breakdown(result)[0]).toEqual({ id: 'A', score: 0, weight: 3, indicators: ['a-cob'] });
+  });
+
+  it('D2: an open gate scores every active indicator of the practice (unchanged behaviour)', () => {
+    const result = score([{ indicator_id: 'a-cob', coverage_value: true }, ...STALE, ...OPEN_B]);
+    // A: (100*1 + 100*2 + 100*1) / 4 = 100 (a-inactive still excluded). Total: (100*3 + 62.5*2) / 5 = 85.
+    expect(result.totalScore).toBe(85);
+    expect(breakdown(result)[0]).toEqual({ id: 'A', score: 100, weight: 3, indicators: ['a-cob', 'a-prof', 'a-frec'] });
+  });
+
+  it('D2: no responses at all → every applicable indicator 0, total 0', () => {
+    const result = score([]);
+    expect(result.totalScore).toBe(0);
+    expect(breakdown(result)).toEqual([
+      { id: 'A', score: 0, weight: 3, indicators: ['a-cob'] },
+      { id: 'B', score: 0, weight: 2, indicators: ['b-cob'] },
+    ]);
+  });
+
+  it('D1: 3-level — the closed practice zeroes its objective, which keeps its objective weight', () => {
+    const result = score(
+      [{ indicator_id: 'a-cob', coverage_value: false }, ...STALE, ...OPEN_B],
+      [
+        { id: 'O1', name: 'Objetivo 1', weight: 2, moduleIds: ['A'] },
+        { id: 'O2', name: 'Objetivo 2', weight: 3, moduleIds: ['B', 'C'] },
+      ]
+    );
+    // O1 = 0; O2 = 62.5 (C excluded). Total: (0*2 + 62.5*3) / 5 = 37.5.
+    expect(result.objectiveScores?.map((o) => [o.objectiveId, o.objectiveScore, o.objectiveWeight])).toEqual([
+      ['O1', 0, 2],
+      ['O2', 62.5, 3],
+    ]);
+    expect(result.totalScore).toBe(37.5);
+  });
+
+  it('D2: server and client scoring agree on applicable indicators, module scores and total', () => {
+    const variants: Array<[string, Res[]]> = [
+      ['closed', [{ indicator_id: 'a-cob', coverage_value: false }, ...STALE, ...OPEN_B]],
+      ['unanswered', [...STALE, ...OPEN_B]],
+      ['open', [{ indicator_id: 'a-cob', coverage_value: true }, ...STALE, ...OPEN_B]],
+      ['empty', []],
+    ];
+    for (const [label, responses] of variants) {
+      const server = score(responses);
+      const client = calculateDemoScores({
+        objectives: [],
+        modules: MODULES.map((m) => ({
+          id: m.id, name: m.name, weight: m.weight,
+          indicators: m.indicators.map(({ active, ...ind }) => ({ ...ind, is_active_this_year: active })),
+        })),
+        responses: Object.fromEntries(responses.map(({ indicator_id, ...r }) => [indicator_id, r])),
+        expectations: [],
+        scoringConfig: { level_thresholds: { consolidated: 87.5, advanced: 62.5, developing: 37.5, emerging: 12.5 },
+          default_weights: { objective: 1, module: 1, indicator: 1 } },
+        transformationYear: 2,
+        generationType: 'GT',
+        templateName: 'Sintética',
+        templateArea: 'evaluacion',
+      });
+      expect({ label, total: client.totalScore }).toEqual({ label, total: server.totalScore });
+      expect({ label, modules: client.moduleScores.map((m) => ({
+        id: m.moduleId, score: m.moduleScore, weight: m.moduleWeight,
+        indicators: m.indicators.map((i) => i.indicatorId),
+      })) }).toEqual({ label, modules: breakdown(server) });
+    }
   });
 });

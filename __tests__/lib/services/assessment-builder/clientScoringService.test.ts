@@ -1093,3 +1093,107 @@ describe('clientScoringService — active-year filtering and display order (R1)'
     expect(input.modules[0].indicators.map((i) => i.id)).toEqual(['frec', 'cob']);
   });
 });
+
+describe('clientScoringService — gate-closed practice in a mixed weighted total (W-B1c-02)', () => {
+  // Practice A (weight 3): cobertura "No", stale downstream answers, and a
+  // year-inactive indicator first by display order. Practice B (weight 2): open.
+  // Practice C (weight 5): nothing active this year.
+  const modules: DemoScoringInput['modules'] = [
+    { id: 'A', name: 'Práctica cerrada', weight: 3, indicators: [
+      { id: 'a-prof', name: 'Profundidad A', category: 'profundidad', weight: 2, display_order: 2 },
+      { id: 'a-inactive', name: 'Inactiva A', category: 'profundidad', weight: 5, display_order: 0, is_active_this_year: false },
+      { id: 'a-cob', name: 'Cobertura A', category: 'cobertura', weight: 1, display_order: 1 },
+      { id: 'a-frec', name: 'Frecuencia A', category: 'frecuencia', weight: 1, display_order: 3,
+        frequency_config: { type: 'count', min: 0, max: 10 } },
+    ] },
+    { id: 'B', name: 'Práctica abierta', weight: 2, indicators: [
+      { id: 'b-cob', name: 'Cobertura B', category: 'cobertura', weight: 1, display_order: 1 },
+      { id: 'b-prof', name: 'Profundidad B', category: 'profundidad', weight: 3, display_order: 2 },
+      { id: 'b-trasp', name: 'Traspaso B', category: 'traspaso', weight: 2, display_order: 3, is_active_this_year: false },
+    ] },
+    { id: 'C', name: 'Práctica sin indicadores este año', weight: 5, indicators: [
+      { id: 'c-cob', name: 'Cobertura C', category: 'cobertura', weight: 1, display_order: 1, is_active_this_year: false },
+    ] },
+  ];
+  const stale = {
+    'a-prof': { profundity_level: 4 },
+    'a-frec': { frequency_value: 10 },
+    'a-inactive': { profundity_level: 4 },
+  };
+  const openB = {
+    'b-cob': { coverage_value: true },
+    'b-prof': { profundity_level: 2 },
+    'b-trasp': { sub_responses: { evidence_link: 'https://example.com/evidencia' } },
+    'c-cob': { coverage_value: true },
+  };
+  const breakdown = (result: ReturnType<typeof calculateDemoScores>) => result.moduleScores.map((m) => ({
+    id: m.moduleId, score: m.moduleScore, weight: m.moduleWeight,
+    indicators: m.indicators.map((i) => i.indicatorId),
+  }));
+
+  it('D1: closed practice counts as 0 at its full weight; stale downstream answers are ignored', () => {
+    const result = calculateDemoScores(makeInput({
+      modules,
+      responses: { 'a-cob': { coverage_value: false }, ...stale, ...openB },
+    }));
+    // A = 0 (only the gate applies). B = (100*1 + 50*3) / 4 = 62.5. C excluded.
+    // Total = (0*3 + 62.5*2) / 5 = 25 (70 if stale answers were scored, 62.5 if A were dropped).
+    expect(result.totalScore).toBe(25);
+    expect(breakdown(result)).toEqual([
+      { id: 'A', score: 0, weight: 3, indicators: ['a-cob'] },
+      { id: 'B', score: 62.5, weight: 2, indicators: ['b-cob', 'b-prof'] },
+    ]);
+    expect(result.stats.totalModules).toBe(2);
+    expect(result.stats.totalIndicators).toBe(3);
+    expect(result.stats.weakestModule).toBe('Práctica cerrada');
+  });
+
+  it('D1: removing the stale rows changes nothing', () => {
+    const withStale = calculateDemoScores(makeInput({
+      modules, responses: { 'a-cob': { coverage_value: false }, ...stale, ...openB },
+    }));
+    const withoutStale = calculateDemoScores(makeInput({
+      modules, responses: { 'a-cob': { coverage_value: false }, ...openB },
+    }));
+    expect(withoutStale.totalScore).toBe(25);
+    expect(breakdown(withoutStale)).toEqual(breakdown(withStale));
+  });
+
+  it('D2: unanswered gate → 0 at full weight; open gate → every active indicator scored', () => {
+    const unanswered = calculateDemoScores(makeInput({ modules, responses: { ...stale, ...openB } }));
+    expect(unanswered.totalScore).toBe(25);
+    expect(breakdown(unanswered)[0]).toEqual({ id: 'A', score: 0, weight: 3, indicators: ['a-cob'] });
+
+    const open = calculateDemoScores(makeInput({
+      modules, responses: { 'a-cob': { coverage_value: true }, ...stale, ...openB },
+    }));
+    // A = (100*1 + 100*2 + 100*1) / 4 = 100. Total = (100*3 + 62.5*2) / 5 = 85.
+    expect(open.totalScore).toBe(85);
+    expect(breakdown(open)[0]).toEqual({ id: 'A', score: 100, weight: 3, indicators: ['a-cob', 'a-prof', 'a-frec'] });
+  });
+
+  it('D2: no responses → total 0 with the same applicable indicators', () => {
+    const result = calculateDemoScores(makeInput({ modules, responses: {} }));
+    expect(result.totalScore).toBe(0);
+    expect(breakdown(result)).toEqual([
+      { id: 'A', score: 0, weight: 3, indicators: ['a-cob'] },
+      { id: 'B', score: 0, weight: 2, indicators: ['b-cob'] },
+    ]);
+  });
+
+  it('D1: 3-level — the closed practice zeroes its objective, which keeps its objective weight', () => {
+    const result = calculateDemoScores(makeInput({
+      objectives: [
+        { id: 'O1', name: 'Objetivo 1', weight: 2, modules: [modules[0]] },
+        { id: 'O2', name: 'Objetivo 2', weight: 3, modules: [modules[1], modules[2]] },
+      ],
+      responses: { 'a-cob': { coverage_value: false }, ...stale, ...openB },
+    }));
+    // O1 = 0; O2 = 62.5. Total = (0*2 + 62.5*3) / 5 = 37.5.
+    expect(result.objectiveScores?.map((o) => [o.objectiveId, o.objectiveScore, o.objectiveWeight])).toEqual([
+      ['O1', 0, 2],
+      ['O2', 62.5, 3],
+    ]);
+    expect(result.totalScore).toBe(37.5);
+  });
+});

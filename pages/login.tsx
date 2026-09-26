@@ -7,12 +7,20 @@ import { checkProfileCompletionSimple } from '../utils/profileCompletionCheck';
 import { resolveSafeInternalPath } from '../lib/utils/safe-redirect';
 
 export const LOGIN_TIMEOUT_MS = 15_000;
+// Only controlled stage/reason values and numeric status reach diagnostics.
+// Provider messages, tokens, destinations and user identifiers may contain PII.
+function reportLoginFailure(stage: string, reason: string, error?: unknown) {
+  const status = error && typeof error === 'object' && 'status' in error &&
+    typeof error.status === 'number' ? error.status : undefined;
+  console.error('[Login] attempt failed', { stage, reason, status });
+}
+
 const LOGIN_RETRY_MESSAGE = 'No pudimos completar el inicio de sesión. Revisa tu conexión y vuelve a intentarlo.';
 
 export default function LoginPage() {
   const router = useRouter();
   const supabaseClient = useSupabaseClient();
-  const { session, isLoading: sessionLoading } = useSessionContext();
+  const { session, isLoading: sessionLoading, error: sessionError } = useSessionContext();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,6 +32,8 @@ export default function LoginPage() {
   const activeAttempt = useRef<number | null>(null);
   const attemptSequence = useRef(0);
   const attemptedSession = useRef(false);
+  const initialWaitStartedAt = useRef(Date.now());
+  const [isNavigating, setIsNavigating] = useState(false);
   const reloadRequired = useRef(false);
   const attemptTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // S9: the recovery request had no in-flight state at all, so the "Enviar
@@ -45,25 +55,33 @@ export default function LoginPage() {
     activeAttempt.current = attempt;
     attemptedSession.current = true;
     setMessage('');
-    setIsLoading(false);
+    setIsLoading(!credentials);
     setIsSigningIn(true);
+    let stage = credentials ? 'authentication' : 'session-verification';
+    let failureReason = 'request-failed';
+    let providerError: unknown;
 
     const assertCurrent = () => {
       if (activeAttempt.current !== attempt) throw new Error('Inactive login attempt');
     };
 
-    const complete = async (): Promise<string | null> => {
+    const complete = async (): Promise<{ message: string } | { destination: string }> => {
       let userId: string;
       if (credentials) {
         const { data, error } = await supabaseClient.auth.signInWithPassword(credentials);
         assertCurrent();
         if (error) {
           if (error.message.includes('Invalid login credentials')) {
-            return 'Correo o contraseña incorrectos';
+            attemptedSession.current = false;
+            reportLoginFailure(stage, 'invalid-credentials');
+            return { message: 'Correo o contraseña incorrectos' };
           }
           if (error.message.includes('Email not confirmed')) {
-            return 'Por favor confirma tu correo electrónico antes de iniciar sesión';
+            attemptedSession.current = false;
+            reportLoginFailure(stage, 'email-not-confirmed');
+            return { message: 'Por favor confirma tu correo electrónico antes de iniciar sesión' };
           }
+          providerError = error;
           throw new Error('Sign-in unavailable');
         }
         if (!data.user) throw new Error('Missing authenticated user');
@@ -78,28 +96,37 @@ export default function LoginPage() {
             error.name === 'AuthSessionMissingError' ||
             ['refresh_token_not_found', 'refresh_token_already_used', 'session_not_found', 'bad_jwt', 'user_not_found'].includes(error.code ?? '');
           if (!expiredSession) {
+            providerError = error;
             throw new Error('Session verification unavailable');
           }
+          stage = 'session-cleanup';
           const { error: signOutError } = await supabaseClient.auth.signOut({ scope: 'local' });
           assertCurrent();
-          if (signOutError) throw new Error('Session cleanup unavailable');
-          return 'Tu sesión venció. Inicia sesión con tu nueva contraseña.';
+          if (signOutError) {
+            providerError = signOutError;
+            throw new Error('Session cleanup unavailable');
+          }
+          return { message: 'Tu sesión venció. Inicia sesión con tu nueva contraseña.' };
         }
         userId = data.user.id;
       }
 
-      const { data: mustChangePassword, error: flagError } = await supabaseClient.rpc(
+      stage = 'password-state';
+      const { data: mustChangePassword, error: flagError, status: flagStatus } = await supabaseClient.rpc(
         'current_password_change_state'
       );
       assertCurrent();
       // Stay here on a failed check. Never guess that a password change is not
       // required, or bounce between the dashboard and the change-password page.
       if (flagError || typeof mustChangePassword !== 'boolean') {
+        providerError = { status: flagStatus };
+        failureReason = flagError ? 'request-failed' : 'malformed-response';
         throw new Error('Password state unavailable');
       }
 
       let destination = '/change-password';
       if (!mustChangePassword) {
+        stage = 'profile';
         const profileComplete = await checkProfileCompletionSimple(supabaseClient, userId);
         assertCurrent();
         const requested = resolveSafeInternalPath(router.query.next);
@@ -110,21 +137,38 @@ export default function LoginPage() {
           : '/profile?from=login';
       }
 
-      assertCurrent();
-      const navigated = await router.push(destination);
-      assertCurrent();
-      if (!navigated) throw new Error('Login navigation cancelled');
-      return null;
+      return { destination };
     };
 
     try {
       const timeout = new Promise<never>((_, reject) => {
-        attemptTimer.current = setTimeout(() => reject(new Error('Login timed out')), LOGIN_TIMEOUT_MS);
+        attemptTimer.current = setTimeout(() => {
+          failureReason = 'timeout';
+          reject(new Error('Login timed out'));
+        }, LOGIN_TIMEOUT_MS);
       });
       const result = await Promise.race([complete(), timeout]);
-      if (activeAttempt.current === attempt && result) setMessage(result);
+      assertCurrent();
+      if (attemptTimer.current) clearTimeout(attemptTimer.current);
+      attemptTimer.current = null;
+      if ('message' in result) {
+        setMessage(result.message);
+      } else {
+        // Downloading a route is not an authentication failure. Let slow school
+        // connections finish without a deadline that restarts their download.
+        stage = 'navigation';
+        setIsNavigating(true);
+        setIsLoading(true);
+        const navigated = await router.push(result.destination);
+        assertCurrent();
+        if (!navigated || window.location.pathname.replace(/\/$/, '') === '/login') {
+          failureReason = navigated ? 'returned-to-login' : 'cancelled';
+          throw new Error('Login navigation incomplete');
+        }
+      }
     } catch {
       if (activeAttempt.current !== attempt) return;
+      reportLoginFailure(stage, failureReason, providerError);
       // Supabase signInWithPassword cannot be cancelled. Reload for a retry so
       // a late SDK response cannot overwrite a newer attempt's session. Checks
       // after each await also prevent stale work from initiating navigation.
@@ -137,6 +181,7 @@ export default function LoginPage() {
         attemptTimer.current = null;
         activeAttempt.current = null;
         setIsSigningIn(false);
+        setIsNavigating(false);
         setIsLoading(false);
       }
     }
@@ -150,13 +195,22 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (reloadRequired.current || activeAttempt.current) return;
+    if (sessionError) {
+      reportLoginFailure('session-initialization', 'provider-context-error', sessionError);
+      reloadRequired.current = true;
+      setRequiresReload(true);
+      setMessage(LOGIN_RETRY_MESSAGE);
+      setIsLoading(false);
+      return;
+    }
     if (sessionLoading || !router.isReady) {
       const timer = setTimeout(() => {
+        reportLoginFailure('session-initialization', 'timeout');
         reloadRequired.current = true;
         setRequiresReload(true);
         setMessage(LOGIN_RETRY_MESSAGE);
         setIsLoading(false);
-      }, LOGIN_TIMEOUT_MS);
+      }, Math.max(0, LOGIN_TIMEOUT_MS - (Date.now() - initialWaitStartedAt.current)));
       return () => clearTimeout(timer);
     }
     if (session && !attemptedSession.current) {
@@ -164,10 +218,10 @@ export default function LoginPage() {
     } else {
       setIsLoading(false);
     }
-  }, [session, sessionLoading, router.isReady, runLogin]);
+  }, [session, sessionLoading, sessionError, router.isReady, runLogin]);
 
   const handleSignIn = async () => {
-    if (!router.isReady || sessionLoading || activeAttempt.current || reloadRequired.current) return;
+    if (!router.isReady || sessionLoading || sessionError || activeAttempt.current || reloadRequired.current) return;
     if (!email.trim() || !password) {
       setMessage('Por favor ingresa tu correo y contraseña');
       return;
@@ -282,7 +336,7 @@ export default function LoginPage() {
         <div className="min-h-screen flex items-center justify-center bg-brand_beige">
           <div className="text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand_blue"></div>
-            <p className="mt-2 text-gray-600">Verificando sesión...</p>
+            <p className="mt-2 text-gray-600">{isNavigating ? 'Tu sesión está lista. Estamos cargando la página...' : 'Verificando sesión...'}</p>
           </div>
         </div>
       </>

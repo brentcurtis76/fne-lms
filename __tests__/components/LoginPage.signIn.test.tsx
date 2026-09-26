@@ -7,6 +7,7 @@ import '@testing-library/jest-dom';
 const state = vi.hoisted(() => ({
   session: null as any,
   loading: false,
+  error: null as any,
   client: null as any,
   router: { push: vi.fn(), replace: vi.fn(), query: {} as Record<string, unknown>, isReady: true },
   profile: vi.fn(),
@@ -15,7 +16,7 @@ vi.mock('next/router', () => ({ useRouter: () => state.router }));
 vi.mock('next/head', () => ({ default: ({ children }: any) => <>{children}</> }));
 vi.mock('next/link', () => ({ default: ({ children, href }: any) => <a href={href}>{children}</a> }));
 vi.mock('@supabase/auth-helpers-react', () => ({
-  useSessionContext: () => ({ session: state.session, isLoading: state.loading }),
+  useSessionContext: () => ({ session: state.session, isLoading: state.loading, error: state.error }),
   useSupabaseClient: () => state.client,
 }));
 vi.mock('../../utils/profileCompletionCheck', () => ({
@@ -49,10 +50,12 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.clearAllMocks();
   state.session = null;
+  state.error = null;
+  window.history.replaceState({}, '', '/login');
   state.loading = false;
   state.router.isReady = true;
   state.router.query = {};
-  state.router.push.mockResolvedValue(true);
+  state.router.push.mockImplementation(async (path: string) => { window.history.replaceState({}, '', path); return true; });
   state.profile.mockResolvedValue(true);
   state.client = {
     auth: {
@@ -103,7 +106,7 @@ describe('login completion and recovery', () => {
     expectRecovery();
   });
 
-  it.each(['authentication', 'password-state', 'profile', 'navigation'])('recovers when %s stalls and ignores a late result', async (stage) => {
+  it.each(['authentication', 'password-state', 'profile'])('recovers when %s stalls and ignores a late result', async (stage) => {
     const pending = deferred();
     const target = stage === 'authentication' ? state.client.auth.signInWithPassword
       : stage === 'password-state' ? state.client.rpc
@@ -131,6 +134,94 @@ describe('login completion and recovery', () => {
     render(<LoginPage />);
     await submit();
     expectRecovery();
+  });
+
+  it('gives a submitted login its full deadline after time spent on the form', async () => {
+    state.client.auth.signInWithPassword.mockReturnValue(deferred().promise);
+    render(<LoginPage />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    await submit();
+    await act(async () => { await vi.advanceTimersByTimeAsync(14_000); });
+    expect(screen.getByText('Iniciando sesión...')).toBeInTheDocument();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+    expectRecovery();
+  });
+
+  it.each(['verification', 'cleanup'])('bounds stalled existing-session %s', async (stage) => {
+    state.session = { user: USER };
+    if (stage === 'verification') state.client.auth.getUser.mockReturnValue(deferred().promise);
+    else {
+      state.client.auth.getUser.mockResolvedValue({ data: {}, error: { status: 401 } });
+      state.client.auth.signOut.mockReturnValue(deferred().promise);
+    }
+    await act(async () => { render(<LoginPage />); });
+    await expire();
+    expectRecovery();
+    expect(state.router.push).not.toHaveBeenCalled();
+  });
+
+  it('allows slow navigation to finish beyond the network deadline', async () => {
+    const navigation = deferred<boolean>();
+    state.router.push.mockReturnValue(navigation.promise);
+    render(<LoginPage />);
+    await submit();
+    await expire();
+    expect(screen.getByText('Tu sesión está lista. Estamos cargando la página...')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument();
+    await act(async () => {
+      window.history.replaceState({}, '', '/dashboard');
+      navigation.resolve(true);
+    });
+    expect(state.router.push).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument();
+  });
+
+  it('reports middleware returning to login despite a successful push', async () => {
+    state.router.push.mockResolvedValue(true);
+    render(<LoginPage />);
+    await submit();
+    expectRecovery();
+  });
+
+  it('accepts a later cross-tab session after incorrect credentials', async () => {
+    state.client.auth.signInWithPassword.mockResolvedValue({ data: {}, error: { message: 'Invalid login credentials' } });
+    const view = render(<LoginPage />);
+    await submit();
+    state.session = { user: USER };
+    await act(async () => { view.rerender(<LoginPage />); });
+    expect(state.client.auth.getUser).toHaveBeenCalledTimes(1);
+    expect(state.router.push).toHaveBeenCalledWith('/dashboard');
+  });
+
+  it('keeps an existing-session check on the neutral loading screen', async () => {
+    state.session = { user: USER };
+    state.client.auth.getUser.mockReturnValue(deferred().promise);
+    render(<LoginPage />);
+    expect(screen.getByText('Verificando sesión...')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Contraseña$/)).not.toBeInTheDocument();
+    await expire();
+    expectRecovery();
+  });
+
+  it('does not restart the initial deadline when router identity changes', async () => {
+    state.loading = true;
+    const view = render(<LoginPage />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    state.router = { ...state.router, isReady: false };
+    view.rerender(<LoginPage />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
+    expectRecovery();
+  });
+
+  it('records the failed stage and status without provider messages or credentials', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      state.client.rpc.mockResolvedValue({ data: null, status: 503, error: { message: 'PRIVATE token email', code: 'PRIVATE' } });
+      render(<LoginPage />);
+      await submit();
+      expect(log).toHaveBeenCalledWith('[Login] attempt failed', { stage: 'password-state', reason: 'request-failed', status: 503 });
+      expect(JSON.stringify(log.mock.calls)).not.toMatch(/PRIVATE|Synthetic2026|synthetic@example/);
+    } finally { log.mockRestore(); }
   });
 
   it('lets users correct an invalid password without reloading', async () => {

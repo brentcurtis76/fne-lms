@@ -1,8 +1,10 @@
-## Password-reset login recovery — local candidate (2026-09-25)
+## Password-reset login recovery — review correction (2026-09-26)
 
-`fix/login-loop`, based on `801805248`, removes competing login redirects and bounds session verification, sign-in, password-state/profile checks and navigation with a 15-second deadline. Stale sessions are validated and cleared locally when invalid; stalled or failed attempts show a Spanish reload/retry panel. Forced-password enforcement and safe deep links are preserved.
+`fix/login-loop`, based on `801805248`, contains the original login recovery patch plus a local correction for Claude's REQUEST CHANGES review of `2148c8723`. Authentication/session/password-state/profile work has a 15-second deadline; page navigation is awaited separately, with an explicit loading message. Structured diagnostics record controlled stage/reason and HTTP status without credentials or raw provider messages. Middleware bounce, initialization timing, existing-session UI and cross-tab continuation after incorrect credentials have regression coverage.
 
-Validation: type-check, zero-warning lint, production build, 445 unit files (10,525 passed / 12 existing skips), 4,687 pgTAP assertions, four browser authentication-lifecycle cases and three browser failure/retry cases passed. Desktop/mobile retry screenshots inspected. Synthetic isolated local stack only. Original incident's exact trigger remains unconfirmed; no production operation, publication or deployment. Review request: `docs/planning/reviews/fase-login-loop-review-request.md`.
+The installed SessionContextProvider's sticky initialization error was reproduced with the real provider. Login now detects it and offers reload instead of navigating with the broken context. This contains that loop at login; it does not replace the shared provider or change dashboard's own null-session redirects/loading. The original incident's cause remains unconfirmed.
+
+Validation: final type-check, zero-warning lint and production build pass; 4,687 pgTAP assertions and all nine auth/resilience browser cases pass. Browser coverage now retains actual revoked pre-reset cookies before signing in with the new password, holds dashboard navigation beyond the auth deadline, and verifies the real SDK's RPC failure diagnostic. Final full-unit suite: 446 files, 10,534 passed and 12 existing skips. Desktop/mobile recovery screenshots inspected. Synthetic isolated local stack only; stopped after validation. No production operation, publication or deployment. Independent re-review remains pending. Review request: `docs/planning/reviews/fase-login-loop-review-request.md`.
 
 ## Document filename containment — local candidate (2026-09-23)
 

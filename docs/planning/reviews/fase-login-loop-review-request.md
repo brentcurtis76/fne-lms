@@ -3,7 +3,7 @@
 ## State and scope
 
 - Branch: `fix/login-loop`; base: `801805248fa50ddcc6fc1736befec91ff0d71755` (current main at intake).
-- Delivery: three local commits above base: two implementation commits plus a documentation-only approval record. No push, PR, merge or deployment.
+- Reviewed package: three local commits above the original base: two implementation commits plus a documentation-only approval record. Release integration is recorded below.
 - Authority/objective: Brent's password-reset/login incident report followed by “fix it”; eliminate the confirmed indefinite login spinner and competing redirects. This is a bounded bug repair, not an itinerary phase.
 - In scope: login session initialization, credential submission, password-state/profile checks, post-login navigation, recoverable failures, regression coverage.
 - Out of scope: password mutation/recovery authorization, middleware/RLS changes, dashboard data loading, provider settings, production access or release.
@@ -86,3 +86,9 @@ Non-blocking notes retained for follow-up:
 - Provider-error recovery still requires reload and may repeatedly fail during an ongoing outage. The global provider and dashboard null-session/loading candidates remain unchanged, and the original incident remains unattributed.
 
 This approval-record commit changes documentation only; reviewed application and test files remain byte-for-byte unchanged. No test rerun was needed for this record. Approval is not publication or release: remote CI, non-auth application E2E and production verification remain outstanding. Nothing has been pushed, merged or deployed.
+
+## Authorized production release preparation (2026-09-26)
+
+Brent requested “let's get this into production” after the APPROVE WITH NOTES review. Integrated production main `b931f33488b65d3ab098617cc07d3dbe547f8188` without conflicts; application and regression-test files remain byte-identical to reviewed commit `fecc185373a37cf356d768ae0774f738914655db`. Added `login-resilience.spec.ts` to the mandatory CI list so all five new browser cases and the skip guard run on the release candidate. No database migration is introduced by this PR; incoming migrations already belong to main.
+
+Release plan: publish the branch, require all CI gates and preview build to pass, merge the exact checked candidate into main, then verify the production deployment and public login page. Execution evidence and final deployment identity are recorded separately at `/home/brent/Projects/pm-workflow/reviews/genera-login-production-release.md` to avoid deploying a second documentation-only build. Existing validation above remains evidence for the reviewed fix; remote CI will validate the integrated candidate.

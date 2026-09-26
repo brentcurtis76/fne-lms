@@ -32,11 +32,12 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-NUMERIC-LOCAL-READINESS | Verify local schema and synthetic prerequisites for numeric browser validation | done | PROC-07 | 2026-09-19 |  |
 | PROC-ARCHIVE-ACTION-TEST | Commit the existing archive-action API regression test | done | PROC-B5-CONCURRENCY-4 | 2026-09-25 |  |
 | PROC-B5-FOUNDATION-DELIVERY | Deliver the five existing B5 migration foundation files with isolated validation | done | PROC-B5-CONCURRENCY-5 | 2026-09-25 |  |
-| PROC-B5-SOURCE-GUARD-TESTS | Deliver the four B5 source-guard pgTAP tests on the committed foundation | held | PROC-B5-CONCURRENCY-6 | 2026-09-25 |  |
+| PROC-B5-SOURCE-GUARD-TESTS | Deliver the four B5 source-guard pgTAP tests on the committed foundation | done | PROC-B5-CONCURRENCY-6 | 2026-09-26 |  |
 | PROC-B5-TEMPLATE-GUARD-TEST | Deliver B5 template source-guard pgTAP test | done | PROC-B5-CONCURRENCY-7 | 2026-09-25 |  |
 | PROC-B5-OBJECTIVE-MODULE-GUARD-TEST | Deliver B5 objective and module source-guard pgTAP test | done | PROC-B5-CONCURRENCY-8 | 2026-09-25 |  |
 | PROC-B5-YEAR-WEIGHT-GUARD-TEST | Deliver B5 year-weight source-guard pgTAP test | done | PROC-B5-CONCURRENCY-9 | 2026-09-26 |  |
 | PROC-B5-YEAR-EXPECTATION-GUARD-TEST | Deliver B5 year-expectation source-guard pgTAP test | done | PROC-B5-CONCURRENCY-10 | 2026-09-26 |  |
+| PROC-NUMERIC-PERSISTENCE-DIAGNOSIS | Read-only numeric persistence source diagnosis | done | PROC-17 | 2026-09-26 |  |
 
 ## Events (append-only, newest last)
 - 2026-09-10T02:10+00:00 · PM · RECORD · COORDINATED authorized by user. Claude Fable5.1 discovery01 stopped at context boundary, no edits, exit143. Discovery02 fresh restricted intake running. Independent PM portability/raw-report/trace checkpoint written; ful
@@ -323,3 +324,5 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 - 2026-09-26T07:38:52-03:00 · PROC-B5-CONCURRENCY-9 · DONE · PROC-B5-CONCURRENCY-9: add year-weight source-guard tests · token 158551fc3c00
 - 2026-09-26T07:40:35-03:00 · PROC-B5-CONCURRENCY-10 · IN-PROGRESS · PROC-B5-CONCURRENCY-10 r0 dispatched (pm-unit begin) · token ls-12ac5ab251
 - 2026-09-26T08:15:47-03:00 · PROC-B5-CONCURRENCY-10 · DONE · PROC-B5-CONCURRENCY-10: add year-expectation source-guard tests · token 96621bbbac1b
+- 2026-09-26T16:06:04-03:00 · PM · TODO · Propose a source-only diagnosis of numeric precision, anchors, and ranges; no product, database, fixture, or browser changes. · token ls-d39d0fb063
+- 2026-09-26T16:11:27-03:00 · PROC-17 · DONE · PROC-17: diagnose numeric persistence boundary · token 8d9f63a1a705

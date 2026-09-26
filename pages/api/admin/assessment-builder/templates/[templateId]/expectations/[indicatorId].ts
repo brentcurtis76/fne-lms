@@ -42,7 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Verify indicator belongs to template
   const { data: indicator, error: indicatorError } = await supabaseClient
     .from('assessment_indicators')
-    .select('id, name, assessment_modules!inner(template_id)')
+    .select('id, name, category, assessment_modules!inner(template_id)')
     .eq('id', indicatorId)
     .eq('assessment_modules.template_id', templateId)
     .single();
@@ -60,7 +60,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'Solo administradores pueden modificar expectativas' });
     }
     if (req.method === 'PUT') {
-      return handlePut(req, res, supabaseClient, templateId, indicatorId);
+      return handlePut(req, res, supabaseClient, templateId, indicatorId, indicator.category);
     }
     return handleDelete(req, res, supabaseClient, templateId, indicatorId);
   }
@@ -118,7 +118,8 @@ async function handlePut(
   res: NextApiResponse,
   supabase: any,
   templateId: string,
-  indicatorId: string
+  indicatorId: string,
+  category: string
 ) {
   try {
     // Verify template is in draft status
@@ -138,16 +139,27 @@ async function handlePut(
       });
     }
 
+    // This route has no unit contract; frecuencia expectations are saved through the bulk route
+    if (category === 'frecuencia') {
+      return res.status(400).json({
+        error: 'Las expectativas de frecuencia requieren unidad y deben guardarse desde el editor de expectativas',
+      });
+    }
+
     const { year1, year2, year3, year4, year5, tolerance } = req.body;
 
-    // Validate year values
+    // Validate year values: profundidad is an integer level 0-4, other categories keep the 0-4 range
+    let hasInvalidYear = false;
     const validateYearValue = (value: any): number | null => {
       if (value === null || value === undefined) return null;
-      const num = Number(value);
-      if (isNaN(num) || num < 0 || num > 4) {
-        throw new Error('Los valores de año deben ser 0-4 o null');
+      if (category === 'profundidad') {
+        if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 4) return value;
+      } else {
+        const num = Number(value);
+        if (!isNaN(num) && num >= 0 && num <= 4) return num;
       }
-      return num;
+      hasInvalidYear = true;
+      return null;
     };
 
     let validTolerance = 1;
@@ -169,6 +181,10 @@ async function handlePut(
       year_5_expected: validateYearValue(year5),
       tolerance: validTolerance,
     };
+
+    if (hasInvalidYear) {
+      return res.status(400).json({ error: 'Los valores de año deben ser 0-4 o null' });
+    }
 
     const { data: savedExpectation, error: upsertError } = await supabase
       .from('assessment_year_expectations')

@@ -428,6 +428,115 @@ async function handlePut(
     }
 
     const validIndicatorIds = new Set((indicators || []).map((i: any) => i.id));
+    const indicatorCategoryById = new Map<string, string>((indicators || []).map((i: any) => [i.id, i.category]));
+
+    // ---- Validate expectations before any weight or year-weight write ----
+    const errors: string[] = [];
+    const valueErrors: string[] = [];
+    const upsertData: any[] = [];
+
+    // Valid frequency units
+    const validUnits = ['dia', 'semana', 'mes', 'trimestre', 'semestre', 'año'];
+
+    for (const exp of expectations || []) {
+      if (!exp.indicatorId) {
+        errors.push('indicatorId es requerido para cada expectativa');
+        continue;
+      }
+
+      if (!validIndicatorIds.has(exp.indicatorId)) {
+        errors.push(`Indicador ${exp.indicatorId} no pertenece a este template`);
+        continue;
+      }
+
+      // Validate generation_type
+      const generationType = exp.generationType || 'GT';
+      if (!['GT', 'GI'].includes(generationType)) {
+        errors.push(`Indicador ${exp.indicatorId}: generationType debe ser GT o GI`);
+        continue;
+      }
+
+      // For always_gt templates, only accept GT expectations
+      if (isAlwaysGT && generationType !== 'GT') {
+        errors.push(`Indicador ${exp.indicatorId}: Este template solo acepta expectativas GT (es un nivel siempre GT)`);
+        continue;
+      }
+
+      // Validate year values: frecuencia is a whole-number count per period (no upper bound),
+      // profundidad is an integer level 0-4, other categories keep the >= 0 rule
+      const category = indicatorCategoryById.get(exp.indicatorId);
+      const validateYearValue = (value: any, yearNum: number): number | null => {
+        if (value === null || value === undefined) return null;
+        if (category === 'frecuencia') {
+          if (typeof value === 'number' && Number.isInteger(value) && value >= 0) return value;
+          valueErrors.push(`Indicador ${exp.indicatorId}: year${yearNum} debe ser un número entero >= 0 o null`);
+        } else if (category === 'profundidad') {
+          if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 4) return value;
+          valueErrors.push(`Indicador ${exp.indicatorId}: year${yearNum} debe ser un nivel entero entre 0 y 4 o null`);
+        } else {
+          const num = Number(value);
+          if (!isNaN(num) && num >= 0) return num;
+          valueErrors.push(`Indicador ${exp.indicatorId}: year${yearNum} debe ser >= 0 o null`);
+        }
+        return null;
+      };
+
+      // Validate unit values
+      const validateUnitValue = (value: any): string | null => {
+        if (value === null || value === undefined) return null;
+        if (!validUnits.includes(value)) {
+          return null;
+        }
+        return value;
+      };
+
+      const year1 = validateYearValue(exp.year1, 1);
+      const year1Unit = validateUnitValue(exp.year1Unit);
+      const year2 = validateYearValue(exp.year2, 2);
+      const year2Unit = validateUnitValue(exp.year2Unit);
+      const year3 = validateYearValue(exp.year3, 3);
+      const year3Unit = validateUnitValue(exp.year3Unit);
+      const year4 = validateYearValue(exp.year4, 4);
+      const year4Unit = validateUnitValue(exp.year4Unit);
+      const year5 = validateYearValue(exp.year5, 5);
+      const year5Unit = validateUnitValue(exp.year5Unit);
+
+      // Validate tolerance (0-2)
+      let tolerance = 1;
+      if (exp.tolerance !== undefined) {
+        const tol = Number(exp.tolerance);
+        if (isNaN(tol) || tol < 0 || tol > 2) {
+          errors.push(`Indicador ${exp.indicatorId}: tolerance debe ser 0-2`);
+        } else {
+          tolerance = tol;
+        }
+      }
+
+      upsertData.push({
+        template_id: templateId,
+        indicator_id: exp.indicatorId,
+        generation_type: generationType,
+        year_1_expected: year1,
+        year_1_expected_unit: year1Unit,
+        year_2_expected: year2,
+        year_2_expected_unit: year2Unit,
+        year_3_expected: year3,
+        year_3_expected_unit: year3Unit,
+        year_4_expected: year4,
+        year_4_expected_unit: year4Unit,
+        year_5_expected: year5,
+        year_5_expected_unit: year5Unit,
+        tolerance,
+      });
+    }
+
+    // Any invalid expected value rejects the whole request so no invalid row is saved
+    if (valueErrors.length > 0) {
+      return res.status(400).json({
+        error: 'Valores de expectativa inválidos',
+        details: valueErrors,
+      });
+    }
 
     // ---- Handle weight updates ----
     let weightsSaved = 0;
@@ -753,97 +862,6 @@ async function handlePut(
         message: `${weightsSaved} pesos guardados, ${yearWeightsSaved} pesos por año guardados`,
         weightsSaved,
         yearWeightsSaved,
-      });
-    }
-
-    // Validate and prepare upsert data
-    const errors: string[] = [];
-    const upsertData: any[] = [];
-
-    // Valid frequency units
-    const validUnits = ['dia', 'semana', 'mes', 'trimestre', 'semestre', 'año'];
-
-    for (const exp of expectations) {
-      if (!exp.indicatorId) {
-        errors.push('indicatorId es requerido para cada expectativa');
-        continue;
-      }
-
-      if (!validIndicatorIds.has(exp.indicatorId)) {
-        errors.push(`Indicador ${exp.indicatorId} no pertenece a este template`);
-        continue;
-      }
-
-      // Validate generation_type
-      const generationType = exp.generationType || 'GT';
-      if (!['GT', 'GI'].includes(generationType)) {
-        errors.push(`Indicador ${exp.indicatorId}: generationType debe ser GT o GI`);
-        continue;
-      }
-
-      // For always_gt templates, only accept GT expectations
-      if (isAlwaysGT && generationType !== 'GT') {
-        errors.push(`Indicador ${exp.indicatorId}: Este template solo acepta expectativas GT (es un nivel siempre GT)`);
-        continue;
-      }
-
-      // Validate year values (allow larger values for frequency indicators)
-      const validateYearValue = (value: any, yearNum: number): number | null => {
-        if (value === null || value === undefined) return null;
-        const num = Number(value);
-        if (isNaN(num) || num < 0) {
-          errors.push(`Indicador ${exp.indicatorId}: year${yearNum} debe ser >= 0 o null`);
-          return null;
-        }
-        return num;
-      };
-
-      // Validate unit values
-      const validateUnitValue = (value: any): string | null => {
-        if (value === null || value === undefined) return null;
-        if (!validUnits.includes(value)) {
-          return null;
-        }
-        return value;
-      };
-
-      const year1 = validateYearValue(exp.year1, 1);
-      const year1Unit = validateUnitValue(exp.year1Unit);
-      const year2 = validateYearValue(exp.year2, 2);
-      const year2Unit = validateUnitValue(exp.year2Unit);
-      const year3 = validateYearValue(exp.year3, 3);
-      const year3Unit = validateUnitValue(exp.year3Unit);
-      const year4 = validateYearValue(exp.year4, 4);
-      const year4Unit = validateUnitValue(exp.year4Unit);
-      const year5 = validateYearValue(exp.year5, 5);
-      const year5Unit = validateUnitValue(exp.year5Unit);
-
-      // Validate tolerance (0-2)
-      let tolerance = 1;
-      if (exp.tolerance !== undefined) {
-        const tol = Number(exp.tolerance);
-        if (isNaN(tol) || tol < 0 || tol > 2) {
-          errors.push(`Indicador ${exp.indicatorId}: tolerance debe ser 0-2`);
-        } else {
-          tolerance = tol;
-        }
-      }
-
-      upsertData.push({
-        template_id: templateId,
-        indicator_id: exp.indicatorId,
-        generation_type: generationType,
-        year_1_expected: year1,
-        year_1_expected_unit: year1Unit,
-        year_2_expected: year2,
-        year_2_expected_unit: year2Unit,
-        year_3_expected: year3,
-        year_3_expected_unit: year3Unit,
-        year_4_expected: year4,
-        year_4_expected_unit: year4Unit,
-        year_5_expected: year5,
-        year_5_expected_unit: year5Unit,
-        tolerance,
       });
     }
 

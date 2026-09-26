@@ -65,6 +65,8 @@ export const MANDATORY_SPECS = [
   // than tolerates — and the invitation link is minted through the service-role
   // admin API on the ephemeral local stack.
   'tests/e2e/auth-lifecycle.spec.ts',
+  // Login recovery: revoked cookies, stalled auth, slow navigation and safe diagnostics.
+  'tests/e2e/login-resilience.spec.ts',
   // SM-18 — privileged API identity comes from the auth server, not the cookie:
   // a forged cookie naming an admin is denied, a real admin is allowed, and a
   // session revoked at the provider is refused on replay.

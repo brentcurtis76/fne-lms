@@ -43,7 +43,7 @@ vi.mock('next/link', () => ({ default: ({ children, href }: any) => <a href={hre
 vi.mock('next/head', () => ({ default: ({ children }: any) => <>{children}</> }));
 vi.mock('@supabase/auth-helpers-react', () => ({
   useSupabaseClient: () => supabaseHolder.current,
-  useSession: () => sessionHolder.current,
+  useSessionContext: () => ({ session: sessionHolder.current, isLoading: false }),
 }));
 vi.mock('../../utils/profileCompletionCheck', () => ({
   checkProfileCompletionSimple: vi.fn(async () => true),

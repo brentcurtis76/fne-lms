@@ -1,15 +1,26 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
-import { useSupabaseClient, useSession } from '@supabase/auth-helpers-react';
+import { useSupabaseClient, useSessionContext } from '@supabase/auth-helpers-react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { checkProfileCompletionSimple } from '../utils/profileCompletionCheck';
 import { resolveSafeInternalPath } from '../lib/utils/safe-redirect';
 
+export const LOGIN_TIMEOUT_MS = 15_000;
+// Only controlled stage/reason values and numeric status reach diagnostics.
+// Provider messages, tokens, destinations and user identifiers may contain PII.
+function reportLoginFailure(stage: string, reason: string, error?: unknown) {
+  const status = error && typeof error === 'object' && 'status' in error &&
+    typeof error.status === 'number' ? error.status : undefined;
+  console.error('[Login] attempt failed', { stage, reason, status });
+}
+
+const LOGIN_RETRY_MESSAGE = 'No pudimos completar el inicio de sesión. Revisa tu conexión y vuelve a intentarlo.';
+
 export default function LoginPage() {
   const router = useRouter();
   const supabaseClient = useSupabaseClient();
-  const session = useSession();
+  const { session, isLoading: sessionLoading, error: sessionError } = useSessionContext();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,6 +28,14 @@ export default function LoginPage() {
   const [isResetMode, setIsResetMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [requiresReload, setRequiresReload] = useState(false);
+  const activeAttempt = useRef<number | null>(null);
+  const attemptSequence = useRef(0);
+  const attemptedSession = useRef(false);
+  const initialWaitStartedAt = useRef(Date.now());
+  const [isNavigating, setIsNavigating] = useState(false);
+  const reloadRequired = useRef(false);
+  const attemptTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // S9: the recovery request had no in-flight state at all, so the "Enviar
   // enlace" button stayed live and every impatient click issued another
   // request — each one invalidating the previous link, which is how a user ends
@@ -28,163 +47,187 @@ export default function LoginPage() {
   // A ref is written synchronously and closes the window completely.
   const sendingResetRef = useRef(false);
 
-  /**
-   * Where to land once nothing else is owed.
-   *
-   * The middleware round-trips the destination the user was bounced off as
-   * `?next=`, so a deep link survives the login. It is attacker-controllable,
-   * hence the internal-path guard; anything suspicious falls back to the
-   * dashboard.
-   *
-   * Only the three "login is finished" branches call this. The forced flows —
-   * change-password and profile completion — ignore `next` entirely, so no one
-   * can skip them by crafting a login URL.
-   */
-  const postLoginDestination = () =>
-    resolveSafeInternalPath(router.query.next) ?? '/dashboard';
+  // One owner for both an existing session and a submitted sign-in. In
+  // particular, SIGNED_IN must not start a second redirect during this flow.
+  const runLogin = useCallback(async (credentials?: { email: string; password: string }) => {
+    if (activeAttempt.current || reloadRequired.current) return;
+    const attempt = ++attemptSequence.current;
+    activeAttempt.current = attempt;
+    attemptedSession.current = true;
+    setMessage('');
+    setIsLoading(!credentials);
+    setIsSigningIn(true);
+    let stage = credentials ? 'authentication' : 'session-verification';
+    let failureReason = 'request-failed';
+    let providerError: unknown;
 
-  // Check for existing session on mount
-  useEffect(() => {
-    if (session) {
-      // User is already logged in, send them on
-      router.push(postLoginDestination());
-    } else {
-      // No session, user can proceed with login
-      setIsLoading(false);
-    }
-  }, [session, router]);
-
-  // Safety timeout to prevent infinite loading
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (isLoading) {
-        console.warn('[Login Page] Loading timeout reached, forcing render');
-        setIsLoading(false);
-        // If we have a session but stuck here, it means redirect failed
-        if (session) {
-          setMessage('Session detected but redirect failed. Please try refreshing.');
-        }
-      }
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [isLoading, session]);
-
-  // Test Supabase connection
-  useEffect(() => {
-    const testConnection = async () => {
-      try {
-        await supabaseClient.auth.getSession();
-      } catch (e) {
-        console.error('[Login Page] Session check exception:', e);
-      }
+    const assertCurrent = () => {
+      if (activeAttempt.current !== attempt) throw new Error('Inactive login attempt');
     };
 
-    testConnection();
-  }, [supabaseClient]);
+    const complete = async (): Promise<{ message: string } | { destination: string }> => {
+      let userId: string;
+      if (credentials) {
+        const { data, error } = await supabaseClient.auth.signInWithPassword(credentials);
+        assertCurrent();
+        if (error) {
+          if (error.message.includes('Invalid login credentials')) {
+            attemptedSession.current = false;
+            reportLoginFailure(stage, 'invalid-credentials');
+            return { message: 'Correo o contraseña incorrectos' };
+          }
+          if (error.message.includes('Email not confirmed')) {
+            attemptedSession.current = false;
+            reportLoginFailure(stage, 'email-not-confirmed');
+            return { message: 'Por favor confirma tu correo electrónico antes de iniciar sesión' };
+          }
+          providerError = error;
+          throw new Error('Sign-in unavailable');
+        }
+        if (!data.user) throw new Error('Missing authenticated user');
+        userId = data.user.id;
+      } else {
+        // A cached session can outlive a password reset. Validate it before
+        // navigating, rather than treating the cookie as proof of a live login.
+        const { data, error } = await supabaseClient.auth.getUser();
+        assertCurrent();
+        if (error || !data.user) {
+          const expiredSession = !error || error.status === 401 || error.status === 403 ||
+            error.name === 'AuthSessionMissingError' ||
+            ['refresh_token_not_found', 'refresh_token_already_used', 'session_not_found', 'bad_jwt', 'user_not_found'].includes(error.code ?? '');
+          if (!expiredSession) {
+            providerError = error;
+            throw new Error('Session verification unavailable');
+          }
+          stage = 'session-cleanup';
+          const { error: signOutError } = await supabaseClient.auth.signOut({ scope: 'local' });
+          assertCurrent();
+          if (signOutError) {
+            providerError = signOutError;
+            throw new Error('Session cleanup unavailable');
+          }
+          return { message: 'Tu sesión venció. Inicia sesión con tu nueva contraseña.' };
+        }
+        userId = data.user.id;
+      }
+
+      stage = 'password-state';
+      const { data: mustChangePassword, error: flagError, status: flagStatus } = await supabaseClient.rpc(
+        'current_password_change_state'
+      );
+      assertCurrent();
+      // Stay here on a failed check. Never guess that a password change is not
+      // required, or bounce between the dashboard and the change-password page.
+      if (flagError || typeof mustChangePassword !== 'boolean') {
+        providerError = { status: flagStatus };
+        failureReason = flagError ? 'request-failed' : 'malformed-response';
+        throw new Error('Password state unavailable');
+      }
+
+      let destination = '/change-password';
+      if (!mustChangePassword) {
+        stage = 'profile';
+        const profileComplete = await checkProfileCompletionSimple(supabaseClient, userId);
+        assertCurrent();
+        const requested = resolveSafeInternalPath(router.query.next);
+        const requestedPath = requested ? new URL(requested, 'http://internal.invalid').pathname : '';
+        const authDestination = ['/login', '/logout', '/reset-password'].includes(requestedPath.replace(/\/$/, ''));
+        destination = profileComplete
+          ? (requested && !authDestination ? requested : '/dashboard')
+          : '/profile?from=login';
+      }
+
+      return { destination };
+    };
+
+    try {
+      const timeout = new Promise<never>((_, reject) => {
+        attemptTimer.current = setTimeout(() => {
+          failureReason = 'timeout';
+          reject(new Error('Login timed out'));
+        }, LOGIN_TIMEOUT_MS);
+      });
+      const result = await Promise.race([complete(), timeout]);
+      assertCurrent();
+      if (attemptTimer.current) clearTimeout(attemptTimer.current);
+      attemptTimer.current = null;
+      if ('message' in result) {
+        setMessage(result.message);
+      } else {
+        // Downloading a route is not an authentication failure. Let slow school
+        // connections finish without a deadline that restarts their download.
+        stage = 'navigation';
+        setIsNavigating(true);
+        setIsLoading(true);
+        const navigated = await router.push(result.destination);
+        assertCurrent();
+        if (!navigated || window.location.pathname.replace(/\/$/, '') === '/login') {
+          failureReason = navigated ? 'returned-to-login' : 'cancelled';
+          throw new Error('Login navigation incomplete');
+        }
+      }
+    } catch {
+      if (activeAttempt.current !== attempt) return;
+      reportLoginFailure(stage, failureReason, providerError);
+      // Supabase signInWithPassword cannot be cancelled. Reload for a retry so
+      // a late SDK response cannot overwrite a newer attempt's session. Checks
+      // after each await also prevent stale work from initiating navigation.
+      reloadRequired.current = true;
+      setRequiresReload(true);
+      setMessage(LOGIN_RETRY_MESSAGE);
+    } finally {
+      if (activeAttempt.current === attempt) {
+        if (attemptTimer.current) clearTimeout(attemptTimer.current);
+        attemptTimer.current = null;
+        activeAttempt.current = null;
+        setIsSigningIn(false);
+        setIsNavigating(false);
+        setIsLoading(false);
+      }
+    }
+  }, [router, supabaseClient]);
+
+  useEffect(() => () => {
+    activeAttempt.current = null;
+    attemptedSession.current = false;
+    if (attemptTimer.current) clearTimeout(attemptTimer.current);
+  }, []);
+
+  useEffect(() => {
+    if (reloadRequired.current || activeAttempt.current) return;
+    if (sessionError) {
+      reportLoginFailure('session-initialization', 'provider-context-error', sessionError);
+      reloadRequired.current = true;
+      setRequiresReload(true);
+      setMessage(LOGIN_RETRY_MESSAGE);
+      setIsLoading(false);
+      return;
+    }
+    if (sessionLoading || !router.isReady) {
+      const timer = setTimeout(() => {
+        reportLoginFailure('session-initialization', 'timeout');
+        reloadRequired.current = true;
+        setRequiresReload(true);
+        setMessage(LOGIN_RETRY_MESSAGE);
+        setIsLoading(false);
+      }, Math.max(0, LOGIN_TIMEOUT_MS - (Date.now() - initialWaitStartedAt.current)));
+      return () => clearTimeout(timer);
+    }
+    if (session && !attemptedSession.current) {
+      void runLogin();
+    } else {
+      setIsLoading(false);
+    }
+  }, [session, sessionLoading, sessionError, router.isReady, runLogin]);
 
   const handleSignIn = async () => {
-    // Clear any previous messages
-    setMessage('');
-    
-    // Validate inputs
-    if (!email || !password) {
+    if (!router.isReady || sessionLoading || sessionError || activeAttempt.current || reloadRequired.current) return;
+    if (!email.trim() || !password) {
       setMessage('Por favor ingresa tu correo y contraseña');
       return;
     }
-
-    // Set signing in state
-    setIsSigningIn(true);
-
-    try {
-      const { error, data } = await supabaseClient.auth.signInWithPassword({ 
-        email: email.trim(), 
-        password
-      });
-
-      if (error) {
-        console.error('[Login Page] Auth error details:', {
-          message: error.message,
-          status: error.status,
-          name: error.name,
-          details: error
-        });
-        
-        // Provide user-friendly error messages
-        if (error.message.includes('Invalid login credentials')) {
-          setMessage('Correo o contraseña incorrectos');
-        } else if (error.message.includes('Email not confirmed')) {
-          setMessage('Por favor confirma tu correo electrónico antes de iniciar sesión');
-        } else {
-          setMessage('Error al iniciar sesión: ' + error.message);
-        }
-        
-        // Error occurred, user can try again
-        setIsSigningIn(false);
-      } else {
-        setMessage('Login successful!');
-        
-        // Get user ID for profile checks
-        const userId = data.user?.id;
-        if (userId) {
-          try {
-            // Wait a moment for auth session to be fully established
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // F1: the forced-change flag comes from
-            // `current_password_change_state()`, not from a `profiles` SELECT.
-            //
-            // The database gate added in 20260819120000 refuses every PostgREST
-            // request from a flagged account, and a plain `.from('profiles')`
-            // here is one of them — so the branch that exists to catch flagged
-            // users is exactly the branch that would have errored. This RPC is
-            // the one route the gate leaves open, it takes no argument, and it
-            // reads `auth.uid()`, so it can only ever answer about the caller.
-            const { data: mustChangePassword, error: flagError } = await supabaseClient.rpc(
-              'current_password_change_state'
-            );
-
-            if (flagError) {
-              console.error('Error reading the password-change state:', flagError);
-              // Do NOT fall through to the dashboard. The middleware gates every
-              // authenticated page and will make the same call server-side; send
-              // the user to the forced-change page and let the gate decide,
-              // rather than guessing "not flagged" on an error.
-              router.push('/change-password');
-              return;
-            }
-
-            if (mustChangePassword === true) {
-              // Forced flow — ignores `next` on purpose
-              router.push('/change-password');
-            } else {
-              // Check if profile is complete
-              const isProfileComplete = await checkProfileCompletionSimple(supabaseClient, userId);
-
-              if (isProfileComplete) {
-                // Nothing else owed — honour the requested destination
-                router.push(postLoginDestination());
-              } else {
-                // If profile is incomplete, redirect to profile page
-                router.push('/profile?from=login');
-              }
-            }
-          } catch (error) {
-            console.error('Error during profile checks:', error);
-            // On any error, assume profile is incomplete and redirect to profile page
-            router.push('/profile?from=login&error=check-failed');
-          }
-        } else {
-          // Fallback if user ID is not available
-          router.push('/profile?from=login');
-        }
-      }
-    } catch (err) {
-      console.error('Sign in error:', err);
-      setMessage('Error al iniciar sesión: Ocurrió un error inesperado');
-      setIsSigningIn(false);
-    }
+    await runLogin({ email: email.trim(), password });
   };
-
 
   /**
    * S9 — password recovery request.
@@ -261,6 +304,28 @@ export default function LoginPage() {
     }
   };
 
+  if (requiresReload) {
+    return (
+      <>
+        <Head><title>Iniciar sesión | Genera</title></Head>
+        <main className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+          <div className="w-full max-w-md rounded-xl bg-white p-8 text-center shadow-lg">
+            <h1 className="text-2xl font-bold text-gray-900">No pudimos iniciar sesión</h1>
+            <p role="alert" className="mt-4 text-gray-700">{message}</p>
+            <button
+              type="button"
+              data-testid="login-retry"
+              onClick={() => window.location.reload()}
+              className="mt-6 rounded-lg bg-[#0a0a0a] px-6 py-3 font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+            >
+              Reintentar
+            </button>
+          </div>
+        </main>
+      </>
+    );
+  }
+
   // Show loading state while checking session
   if (isLoading) {
     return (
@@ -271,7 +336,7 @@ export default function LoginPage() {
         <div className="min-h-screen flex items-center justify-center bg-brand_beige">
           <div className="text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand_blue"></div>
-            <p className="mt-2 text-gray-600">Verificando sesión...</p>
+            <p className="mt-2 text-gray-600">{isNavigating ? 'Tu sesión está lista. Estamos cargando la página...' : 'Verificando sesión...'}</p>
           </div>
         </div>
       </>
@@ -353,7 +418,7 @@ export default function LoginPage() {
         
         {/* Email input */}
         <div className="mb-6">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Correo electrónico</label>
+          <label htmlFor="login-email" className="block text-sm font-semibold text-gray-700 mb-2">Correo electrónico</label>
           <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
               <svg className="h-5 w-5 text-gray-400 group-focus-within:text-[#0a0a0a] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -361,6 +426,7 @@ export default function LoginPage() {
               </svg>
             </div>
             <input
+              id="login-email"
               type="email"
               placeholder="tu@email.com"
               value={email}
@@ -375,7 +441,7 @@ export default function LoginPage() {
         {/* Password input - only show in login mode */}
         {!isResetMode && (
           <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Contraseña</label>
+            <label htmlFor="login-password" className="block text-sm font-semibold text-gray-700 mb-2">Contraseña</label>
             <div className="relative group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <svg className="h-5 w-5 text-gray-400 group-focus-within:text-[#0a0a0a] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -383,6 +449,8 @@ export default function LoginPage() {
                 </svg>
               </div>
               <input
+                id="login-password"
+                data-testid="login-password"
                 type="password"
                 placeholder="••••••••"
                 value={password}
@@ -412,6 +480,7 @@ export default function LoginPage() {
             <div className="flex items-center">
               <button 
                 type="button"
+                disabled={isSigningIn}
                 onClick={() => setIsResetMode(true)}
                 data-testid="login-forgot-password"
                 className="text-sm font-medium text-[#0a0a0a] hover:text-[#fbbf24] transition-colors duration-200 flex items-center"
@@ -473,6 +542,7 @@ export default function LoginPage() {
           <div className="mb-6">
             <button 
               type="submit"
+              data-testid="login-submit"
               disabled={isSigningIn}
               className={`w-full font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform text-white shadow-lg
                 ${isSigningIn 

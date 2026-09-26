@@ -21,7 +21,7 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 | W-B3a-01 | Políticas INSERT y SELECT en meeting_agreements y meeting_tasks | done | SM-22 | 2026-09-25 |  |
 | W-B3a-02 | Propagar el error de los cuatro inserts hijos y los tres bucles de update; applyMeetingDiffs deja de devolver void | todo |  | 2026-09-16 | utils/meetingUtils.ts:347-413 (cuatro inserts), persistMeeting.ts (tres bucles), applyMeetingDiffs → Promise<{success,error}>, MeetingDocumentationModal.tsx:735 |
 | W-B3a-03 | Exigir responsable y fecha de vencimiento en UI, API y base; coercer cadena vacía a null | todo |  | 2026-09-16 | validateStep(AGREEMENTS) hoy devuelve true incondicionalmente (plan combinado §1.3). SEPARACIÓN: raíz distinta de W-B3a-01 y W-B3a-02. Su mitad de esquema (NOT  |
-| W-B3b-01 | Ramificar sobre el resultado real del envío de correo del resumen de reunión | todo |  | 2026-09-16 | const { data, error } en lib/emailService.js:37-48, patrón de expenseNotifications.ts:235-245 (plan combinado §1.4). Hoy sendMeetingSummary sí llama a Resend po |
+| W-B3b-01 | Ramificar sobre el resultado real del envío de correo del resumen de reunión | done | SM-25 | 2026-09-26 |  |
 | W-B3b-02 | Unificar el contrato de EMAIL_FROM_ADDRESS entre sus dos consumidores | todo |  | 2026-09-16 | Una sola variable consumida con dos contratos incompatibles (dirección desnuda frente a forma con nombre). SEPARACIÓN: raíz distinta de W-B3b-01 — allí se desca |
 | W-B3c-01 | NOT NULL sobre meeting_tasks.due_date tras backfill | todo |  | 2026-09-16 | UNIDAD AÑADIDA: existía en la prosa del protocolo (§3) sin fila en el ledger legacy. Fusiona después de B3a. Rama planificada: no existe en el repositorio (git  |
 | W-B4a-01 | Enrutar la tarjeta de sesión del espacio colaborativo a una superficie que admita equipo_directivo | todo |  | 2026-09-16 | WorkspaceSessionsTab enruta a /consultor/sessions/[id], acotado a consultor\|admin\|lider_comunidad. DISCREPANCIA REGISTRADA: el plan combinado §1.6 agrupa A05- |
@@ -205,3 +205,5 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 - 2026-09-25T18:13:58-03:00 · SM-21 · DONE · SM-21: verify closed-gate score contribution · token 1edfd516b32d
 - 2026-09-25T19:16:43-03:00 · SM-22 · IN-PROGRESS · SM-22 r0 dispatched (pm-unit begin) · token ls-acd2eb55b4
 - 2026-09-25T23:40:35-03:00 · SM-22 · DONE · SM-22: secure meeting agreement and task access · token 274b0ddc81de
+- 2026-09-26T16:30:16-03:00 · SM-25 · IN-PROGRESS · SM-25 r0 dispatched (pm-unit begin) · token ls-62b61a52e5
+- 2026-09-26T19:46:56-03:00 · SM-25 · DONE · SM-25: report actual meeting summary email outcome · token cd6cad355c03

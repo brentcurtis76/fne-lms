@@ -35,6 +35,8 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-B5-SOURCE-GUARD-TESTS | Deliver the four B5 source-guard pgTAP tests on the committed foundation | held | PROC-B5-CONCURRENCY-6 | 2026-09-25 |  |
 | PROC-B5-TEMPLATE-GUARD-TEST | Deliver B5 template source-guard pgTAP test | done | PROC-B5-CONCURRENCY-7 | 2026-09-25 |  |
 | PROC-B5-OBJECTIVE-MODULE-GUARD-TEST | Deliver B5 objective and module source-guard pgTAP test | done | PROC-B5-CONCURRENCY-8 | 2026-09-25 |  |
+| PROC-B5-YEAR-WEIGHT-GUARD-TEST | Deliver B5 year-weight source-guard pgTAP test | done | PROC-B5-CONCURRENCY-9 | 2026-09-26 |  |
+| PROC-B5-YEAR-EXPECTATION-GUARD-TEST | Deliver B5 year-expectation source-guard pgTAP test | done | PROC-B5-CONCURRENCY-10 | 2026-09-26 |  |
 
 ## Events (append-only, newest last)
 - 2026-09-10T02:10+00:00 · PM · RECORD · COORDINATED authorized by user. Claude Fable5.1 discovery01 stopped at context boundary, no edits, exit143. Discovery02 fresh restricted intake running. Independent PM portability/raw-report/trace checkpoint written; ful
@@ -317,3 +319,7 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 - 2026-09-25T22:27:55-03:00 · PROC-B5-CONCURRENCY-7 · DONE · PROC-B5-CONCURRENCY-7: add template source-guard regression tests · token e9ab9d6717d5
 - 2026-09-25T22:29:13-03:00 · PROC-B5-CONCURRENCY-8 · IN-PROGRESS · PROC-B5-CONCURRENCY-8 r0 dispatched (pm-unit begin) · token ls-5c9355930c
 - 2026-09-25T23:05:14-03:00 · PROC-B5-CONCURRENCY-8 · DONE · PROC-B5-CONCURRENCY-8: add objective and module source-guard tests · token 6cdddefda627
+- 2026-09-25T23:16:26-03:00 · PROC-B5-CONCURRENCY-9 · IN-PROGRESS · PROC-B5-CONCURRENCY-9 r0 dispatched (pm-unit begin) · token ls-875d545527
+- 2026-09-26T07:38:52-03:00 · PROC-B5-CONCURRENCY-9 · DONE · PROC-B5-CONCURRENCY-9: add year-weight source-guard tests · token 158551fc3c00
+- 2026-09-26T07:40:35-03:00 · PROC-B5-CONCURRENCY-10 · IN-PROGRESS · PROC-B5-CONCURRENCY-10 r0 dispatched (pm-unit begin) · token ls-12ac5ab251
+- 2026-09-26T08:15:47-03:00 · PROC-B5-CONCURRENCY-10 · DONE · PROC-B5-CONCURRENCY-10: add year-expectation source-guard tests · token 96621bbbac1b

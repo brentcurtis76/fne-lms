@@ -32,6 +32,8 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-NUMERIC-LOCAL-READINESS | Verify local schema and synthetic prerequisites for numeric browser validation | done | PROC-07 | 2026-09-19 |  |
 | PROC-ARCHIVE-ACTION-TEST | Commit the existing archive-action API regression test | done | PROC-B5-CONCURRENCY-4 | 2026-09-25 |  |
 | PROC-B5-FOUNDATION-DELIVERY | Deliver the five existing B5 migration foundation files with isolated validation | done | PROC-B5-CONCURRENCY-5 | 2026-09-25 |  |
+| PROC-B5-SOURCE-GUARD-TESTS | Deliver the four B5 source-guard pgTAP tests on the committed foundation | held | PROC-B5-CONCURRENCY-6 | 2026-09-25 |  |
+| PROC-B5-TEMPLATE-GUARD-TEST | Deliver B5 template source-guard pgTAP test | done | PROC-B5-CONCURRENCY-7 | 2026-09-25 |  |
 
 ## Events (append-only, newest last)
 - 2026-09-10T02:10+00:00 · PM · RECORD · COORDINATED authorized by user. Claude Fable5.1 discovery01 stopped at context boundary, no edits, exit143. Discovery02 fresh restricted intake running. Independent PM portability/raw-report/trace checkpoint written; ful
@@ -307,3 +309,8 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 - 2026-09-25T14:18:09-03:00 · PROC-B5-CONCURRENCY-4 · DONE · PROC-B5-CONCURRENCY-4: fix archive error responses and tests · token 75bc8953f753
 - 2026-09-25T16:53:56-03:00 · PROC-B5-CONCURRENCY-5 · IN-PROGRESS · PROC-B5-CONCURRENCY-5 r2 dispatched (pm-unit begin) · token ls-5b6a115e7c
 - 2026-09-25T17:51:42-03:00 · PROC-B5-CONCURRENCY-5 · DONE · PROC-B5-CONCURRENCY-5: verify current-main foundation rebuild · token b068f354dea0
+- 2026-09-25T21:33:07-03:00 · PROC-B5-CONCURRENCY-6 · TODO · Selected the dependency-ready four-test follow-up from PROC-B5-CONCURRENCY-5 completion plan; no executor started · token ls-c7851cbecc
+- 2026-09-25T21:40:54-03:00 · PROC-B5-CONCURRENCY-6 · IN-PROGRESS · PROC-B5-CONCURRENCY-6 r0 dispatched (pm-unit begin) · token ls-b67d17763e
+- 2026-09-25T21:45:14-03:00 · PROC-B5-CONCURRENCY-6 · HELD · PROC-B5-CONCURRENCY-6 replanned: too big for one unit; split into smaller units (RUN/pm-replan-required.md) · token ls-02c83e6a94
+- 2026-09-25T21:53:48-03:00 · PROC-B5-CONCURRENCY-7 · IN-PROGRESS · PROC-B5-CONCURRENCY-7 r0 dispatched (pm-unit begin) · token ls-a74f61b291
+- 2026-09-25T22:27:55-03:00 · PROC-B5-CONCURRENCY-7 · DONE · PROC-B5-CONCURRENCY-7: add template source-guard regression tests · token e9ab9d6717d5

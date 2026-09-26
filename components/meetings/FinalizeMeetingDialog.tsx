@@ -23,6 +23,35 @@ const CONFLICT_MESSAGES: Record<string, string> = {
   meeting_already_finalized: 'La reunión ya fue finalizada por otro usuario',
 };
 
+type FinalizeResult = {
+  sent?: number;
+  failed?: number;
+  summary_email_sent?: boolean;
+  summary_email_error?: string | null;
+};
+
+const recipientLabel = (n: number) => `${n} ${n === 1 ? 'destinatario' : 'destinatarios'}`;
+
+// Every 200 means the meeting is already finalized; the email is a separate
+// best-effort outcome, so only an all-accepted send may read as a success.
+function emailWarning(result: FinalizeResult): string | null {
+  const sent = result.sent ?? 0;
+  const failed = result.failed ?? 0;
+  if (result.summary_email_sent === true && sent > 0 && failed === 0) return null;
+  switch (result.summary_email_error) {
+    case 'suppressed_qa':
+      return 'Reunión finalizada, pero el resumen no se envió por correo: los envíos están desactivados en este entorno de pruebas.';
+    case 'tenant_scope_refused':
+      return 'Reunión finalizada, pero el resumen no se envió por correo: el envío no está autorizado para esta comunidad.';
+    case 'no_recipients':
+      return 'Reunión finalizada, pero el resumen no se envió por correo: no hay destinatarios.';
+  }
+  if (sent > 0 && failed > 0) {
+    return `Reunión finalizada, pero el resumen solo se envió a ${sent} de ${recipientLabel(sent + failed)}.`;
+  }
+  return 'Reunión finalizada, pero no se pudo enviar el resumen por correo.';
+}
+
 interface FinalizeMeetingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -123,9 +152,13 @@ export function FinalizeMeetingDialog({
         return;
       }
 
-      const data = payload?.data ?? payload;
-      const count = data?.recipients_count ?? 0;
-      toast.success(`Reunión finalizada y enviada a ${count} destinatarios`);
+      const result: FinalizeResult = payload?.data ?? payload ?? {};
+      const warning = emailWarning(result);
+      if (warning) {
+        toast.error(warning, { duration: 10000 });
+      } else {
+        toast.success(`Reunión finalizada. Resumen enviado a ${recipientLabel(result.sent ?? 0)}.`);
+      }
       onFinalized?.();
       onOpenChange(false);
     } catch {

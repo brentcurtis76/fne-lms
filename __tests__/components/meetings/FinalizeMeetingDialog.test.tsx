@@ -163,7 +163,9 @@ describe('FinalizeMeetingDialog', () => {
   });
 
   it('on 200 response, calls onFinalized, closes the dialog, and triggers toast.success', async () => {
-    const payload = { data: { recipients_count: 7, meeting_id: 'mtg-1' } };
+    const payload = {
+      data: { ok: true, recipients_count: 7, sent: 7, failed: 0, summary_email_sent: true, summary_email_error: null },
+    };
     installFetch(async (url) => {
       if (url.includes('/recipients')) return jsonResponse({ data: { count: 7 } });
       return jsonResponse(payload, 200);
@@ -193,7 +195,63 @@ describe('FinalizeMeetingDialog', () => {
     });
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(toastSuccess).toHaveBeenCalledTimes(1);
+    expect(toastSuccess).toHaveBeenCalledWith('Reunión finalizada. Resumen enviado a 7 destinatarios.');
     expect(toastError).not.toHaveBeenCalled();
+  });
+
+  describe('reports the actual summary-email outcome of a finalized meeting', () => {
+    const finalize = async (data: Record<string, unknown>) => {
+      const posts: string[] = [];
+      installFetch(async (url, init) => {
+        if (url.includes('/recipients')) return jsonResponse({ data: { count: 3 } });
+        if (init?.method === 'POST') posts.push(url);
+        return jsonResponse({ data: { ok: true, ...data } }, 200);
+      });
+      const onOpenChange = vi.fn();
+      const onFinalized = vi.fn();
+      const { container } = render(
+        <FinalizeMeetingDialog {...baseProps} onOpenChange={onOpenChange} onFinalized={onFinalized} />,
+      );
+      await waitFor(() => {
+        expect(getFinalizeButton(container)).toBeDefined();
+      });
+      await act(async () => {
+        fireEvent.click(getFinalizeButton(container));
+      });
+      await waitFor(() => {
+        expect(onFinalized).toHaveBeenCalledTimes(1);
+      });
+      return { posts, onOpenChange, onFinalized };
+    };
+
+    it('uses the singular for one provider-accepted recipient', async () => {
+      await finalize({ recipients_count: 1, sent: 1, failed: 0, summary_email_sent: true, summary_email_error: null });
+      expect(toastSuccess).toHaveBeenCalledWith('Reunión finalizada. Resumen enviado a 1 destinatario.');
+      expect(toastError).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['partial failure', { recipients_count: 3, sent: 1, failed: 2, summary_email_sent: false, summary_email_error: null },
+        'Reunión finalizada, pero el resumen solo se envió a 1 de 3 destinatarios.'],
+      ['total failure', { recipients_count: 3, sent: 0, failed: 3, summary_email_sent: false, summary_email_error: null },
+        'Reunión finalizada, pero no se pudo enviar el resumen por correo.'],
+      ['thrown dispatch', { recipients_count: 3, sent: 0, failed: 0, summary_email_sent: false, summary_email_error: 'resend_outage' },
+        'Reunión finalizada, pero no se pudo enviar el resumen por correo.'],
+      ['QA suppression', { recipients_count: 3, sent: 0, failed: 3, summary_email_sent: false, summary_email_error: 'suppressed_qa' },
+        'Reunión finalizada, pero el resumen no se envió por correo: los envíos están desactivados en este entorno de pruebas.'],
+      ['refused authorization', { recipients_count: 3, sent: 0, failed: 3, summary_email_sent: false, summary_email_error: 'tenant_scope_refused' },
+        'Reunión finalizada, pero el resumen no se envió por correo: el envío no está autorizado para esta comunidad.'],
+      ['zero recipients', { recipients_count: 0, sent: 0, failed: 0, summary_email_sent: false, summary_email_error: 'no_recipients' },
+        'Reunión finalizada, pero el resumen no se envió por correo: no hay destinatarios.'],
+    ])('%s: warns instead of claiming the email was sent, closes once, never retries', async (_name, data, warning) => {
+      const { posts, onOpenChange, onFinalized } = await finalize(data);
+      expect(toastSuccess).not.toHaveBeenCalled();
+      expect(toastError).toHaveBeenCalledTimes(1);
+      expect(toastError).toHaveBeenCalledWith(warning, { duration: 10000 });
+      expect(onFinalized).toHaveBeenCalledTimes(1);
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+      expect(posts).toEqual(['/api/meetings/mtg-1/finalize']);
+    });
   });
 
   it('on 409 with code "meeting_not_draft", triggers toast.error', async () => {
@@ -227,9 +285,63 @@ describe('FinalizeMeetingDialog', () => {
     await waitFor(() => {
       expect(toastError).toHaveBeenCalledTimes(1);
     });
+    expect(toastError).toHaveBeenCalledWith('La reunión ya no está en borrador');
     expect(toastSuccess).not.toHaveBeenCalled();
+    expect(onFinalized).not.toHaveBeenCalled();
     // Conflict path leaves the dialog open (no programmatic close).
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
+  it('on 409 with code "meeting_already_finalized", keeps the refusal copy and the dialog open', async () => {
+    installFetch(async (url) => {
+      if (url.includes('/recipients')) return jsonResponse({ data: { count: 2 } });
+      return jsonResponse(
+        { code: 'meeting_already_finalized', error: 'La reunión ya fue finalizada por otro usuario' },
+        409,
+      );
+    });
+    const onOpenChange = vi.fn();
+    const onFinalized = vi.fn();
+    const { container } = render(
+      <FinalizeMeetingDialog {...baseProps} onOpenChange={onOpenChange} onFinalized={onFinalized} />,
+    );
+    await waitFor(() => {
+      expect(getFinalizeButton(container)).toBeDefined();
+    });
+    await act(async () => {
+      fireEvent.click(getFinalizeButton(container));
+    });
+    await waitFor(() => {
+      expect(toastError).toHaveBeenCalledWith('La reunión ya fue finalizada por otro usuario');
+    });
+    expect(toastSuccess).not.toHaveBeenCalled();
+    expect(onFinalized).not.toHaveBeenCalled();
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
+  it('when the finalize request itself fails, shows the error and keeps the dialog open', async () => {
+    installFetch(async (url) => {
+      if (url.includes('/recipients')) return jsonResponse({ data: { count: 2 } });
+      throw new TypeError('Failed to fetch');
+    });
+    const onOpenChange = vi.fn();
+    const onFinalized = vi.fn();
+    const { container } = render(
+      <FinalizeMeetingDialog {...baseProps} onOpenChange={onOpenChange} onFinalized={onFinalized} />,
+    );
+    await waitFor(() => {
+      expect(getFinalizeButton(container)).toBeDefined();
+    });
+    await act(async () => {
+      fireEvent.click(getFinalizeButton(container));
+    });
+    await waitFor(() => {
+      expect(toastError).toHaveBeenCalledWith('Error al finalizar la reunión');
+    });
+    expect(toastSuccess).not.toHaveBeenCalled();
+    expect(onFinalized).not.toHaveBeenCalled();
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    expect(getFinalizeButton(container).disabled).toBe(false);
   });
 
   it('on generic 500 response, triggers toast.error and does not close the dialog', async () => {
@@ -260,6 +372,7 @@ describe('FinalizeMeetingDialog', () => {
     await waitFor(() => {
       expect(toastError).toHaveBeenCalledTimes(1);
     });
+    expect(toastError).toHaveBeenCalledWith('boom');
     expect(toastSuccess).not.toHaveBeenCalled();
     expect(onFinalized).not.toHaveBeenCalled();
     expect(onOpenChange).not.toHaveBeenCalledWith(false);

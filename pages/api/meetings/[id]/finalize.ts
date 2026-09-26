@@ -262,7 +262,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // a best-effort side effect — if Resend throws we must still return 200
     // so the client doesn't retry (retries hit `meeting_already_finalized`
     // and leave the user with a misleading error). The warning fields let
-    // the client surface "Finalizada — correo pendiente" instead.
+    // the client report the actual email outcome instead of a blanket success.
     let summaryEmailSent = true;
     let summaryEmailError: string | null = null;
     let sent = 0;
@@ -280,6 +280,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } else if (emailAuthorization.kind === 'refuse') {
         summaryEmailSent = false;
         summaryEmailError = 'tenant_scope_refused';
+      } else if (recipients.length === 0) {
+        // Nothing was sent, so the summary email must not read as delivered.
+        summaryEmailSent = false;
+        summaryEmailError = 'no_recipients';
       }
     } catch (emailErr: any) {
       summaryEmailSent = false;

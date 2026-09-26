@@ -18,7 +18,7 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 | W-B2a-01 | redes_de_colegios: name → nombre en la asignación de supervisor de red, con comprobación de error | done |  | 2026-09-16 | pages/api/admin/networks/supervisors.ts:79,110,121,131,144; comprobar error en ambos lookups; quitar updated_at del payload. CONSOLIDACIÓN: A15-1 y SWEEP-PRIOR- |
 | W-B2b-01 | Cierre RLS grupo A: REVOKE + ENABLE en exactamente las catorce tablas legacy sin referencias en código | done |  | 2026-09-16 | Vía flujo del agente de BD (CLAUDE.md §Database Safety). CORRECCIÓN DE GOBERNANZA aprobada por Brent (2026-08-27): lockdown atómico de exactamente catorce tabla |
 | W-B2c-01 | Corrección de seguridad/RLS de rutas de aprendizaje: plantillas globales FNE, gestión exclusiva del rol literal admin, consumo por asignación | waiting |  | 2026-09-17 |  |
-| W-B3a-01 | Políticas INSERT y SELECT en meeting_agreements y meeting_tasks | todo |  | 2026-09-16 | can_edit_meeting(auth.uid(), meeting_id) + pgTAP (plan combinado §1.1). Hoy ambas tablas no tienen política INSERT/SELECT: los inserts se rechazan y el error se |
+| W-B3a-01 | Políticas INSERT y SELECT en meeting_agreements y meeting_tasks | done | SM-22 | 2026-09-25 |  |
 | W-B3a-02 | Propagar el error de los cuatro inserts hijos y los tres bucles de update; applyMeetingDiffs deja de devolver void | todo |  | 2026-09-16 | utils/meetingUtils.ts:347-413 (cuatro inserts), persistMeeting.ts (tres bucles), applyMeetingDiffs → Promise<{success,error}>, MeetingDocumentationModal.tsx:735 |
 | W-B3a-03 | Exigir responsable y fecha de vencimiento en UI, API y base; coercer cadena vacía a null | todo |  | 2026-09-16 | validateStep(AGREEMENTS) hoy devuelve true incondicionalmente (plan combinado §1.3). SEPARACIÓN: raíz distinta de W-B3a-01 y W-B3a-02. Su mitad de esquema (NOT  |
 | W-B3b-01 | Ramificar sobre el resultado real del envío de correo del resumen de reunión | todo |  | 2026-09-16 | const { data, error } en lib/emailService.js:37-48, patrón de expenseNotifications.ts:235-245 (plan combinado §1.4). Hoy sendMeetingSummary sí llama a Resend po |
@@ -203,3 +203,5 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 - 2026-09-25T17:28:51-03:00 · SM-20 · DONE · SM-20: verify cobertura submission gate · token 27ae79b77ea3
 - 2026-09-25T17:43:26-03:00 · SM-21 · IN-PROGRESS · SM-21 r0 dispatched (pm-unit begin) · token ls-d025e76d5e
 - 2026-09-25T18:13:58-03:00 · SM-21 · DONE · SM-21: verify closed-gate score contribution · token 1edfd516b32d
+- 2026-09-25T19:16:43-03:00 · SM-22 · IN-PROGRESS · SM-22 r0 dispatched (pm-unit begin) · token ls-acd2eb55b4
+- 2026-09-25T23:40:35-03:00 · SM-22 · DONE · SM-22: secure meeting agreement and task access · token 274b0ddc81de

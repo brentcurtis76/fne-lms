@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -15,6 +16,7 @@ import {
 
 const SYNTHETIC = resolve(__dirname, '../../../config/pilot-manifests/pc-pilot-synthetic-v1.json');
 const SKELETON = resolve(__dirname, '../../../config/pilot-manifests/pc-pilot-v1.template.json');
+const MANIFEST_SOURCE = resolve(__dirname, '../../../scripts/pilot-provisioning/manifest.mjs');
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 
@@ -165,6 +167,49 @@ describe('pilot provisioning manifests', () => {
       const m2 = base();
       m2.rehearsalPersonas[0].createdByThisTooling = true;
       expect(validateManifest(m2).join('\n')).toMatch(/createdByThisTooling must be false/);
+    });
+
+    describe('synthetic marker prefix checks', () => {
+      const markerErrors = (errors: string[]) => errors.filter((e) => /synthetic marker|syntheticMarker/.test(e));
+
+      it('keeps the source free of raw NUL bytes with both prefix checks visible to text search', () => {
+        const source = readFileSync(MANIFEST_SOURCE);
+        expect(source.includes(0)).toBe(false);
+        expect(source.toString('utf8').match(/\.startsWith\(manifest\.syntheticMarker \|\| '\\u0000'\)/g)).toHaveLength(2);
+      });
+
+      it('accepts a valid synthetic manifest whose school and template names carry the marker', () => {
+        const m = base();
+        expect(m.syntheticMarker).toBe('[SINTÉTICO]');
+        expect(validateManifest(m)).toEqual([]);
+      });
+
+      it.each([
+        ['missing', (m: any) => delete m.syntheticMarker],
+        ['null', (m: any) => (m.syntheticMarker = null)],
+        ['empty', (m: any) => (m.syntheticMarker = '')],
+      ])('fails closed on both name checks when the marker is %s', (_label, mutate) => {
+        const m = base();
+        mutate(m);
+        expect(markerErrors(validateManifest(m))).toEqual([
+          'syntheticMarker is required in synthetic mode',
+          'syntheticSchool.name must start with the synthetic marker',
+          'templates[0]: name must start with the synthetic marker',
+          'templates[1]: name must start with the synthetic marker',
+        ]);
+      });
+
+      it('refuses only the school name that lacks the marker', () => {
+        const m = base();
+        m.syntheticSchool.name = 'Colegio sin marca';
+        expect(markerErrors(validateManifest(m))).toEqual(['syntheticSchool.name must start with the synthetic marker']);
+      });
+
+      it('refuses only the template name that lacks the marker', () => {
+        const m = base();
+        m.templates[1].name = 'Evaluación sin marca';
+        expect(markerErrors(validateManifest(m))).toEqual(['templates[1]: name must start with the synthetic marker']);
+      });
     });
 
     it('binds mode to target and environment class', () => {

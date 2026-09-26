@@ -328,7 +328,7 @@ export function validateManifest(manifest) {
       errors.push('syntheticSchool is required in synthetic mode');
     } else {
       if (!isInt(school.id) || school.id <= 0) errors.push('syntheticSchool.id must be a positive integer');
-      if (!isNonEmptyString(school.name) || !school.name.startsWith(manifest.syntheticMarker ?? ' ')) {
+      if (!isNonEmptyString(school.name) || !school.name.startsWith(manifest.syntheticMarker || '\u0000')) {
         errors.push('syntheticSchool.name must start with the synthetic marker');
       }
       if (school.tenantKind !== 'qa') errors.push('syntheticSchool.tenantKind must be qa');
@@ -406,7 +406,7 @@ export function validateManifest(manifest) {
       else gradesCovered.add(grade.key);
       if (!isNonEmptyString(template?.area) || !/^[a-z_]+$/.test(template.area)) errors.push(`${label}: area invalid`);
       if (!isNonEmptyString(template?.name)) errors.push(`${label}: name missing`);
-      if (manifest.mode === 'synthetic' && isNonEmptyString(template?.name) && !template.name.startsWith(manifest.syntheticMarker ?? ' ')) {
+      if (manifest.mode === 'synthetic' && isNonEmptyString(template?.name) && !template.name.startsWith(manifest.syntheticMarker || '\u0000')) {
         errors.push(`${label}: name must start with the synthetic marker`);
       }
       if (!isNonEmptyString(template?.draftVersion) || !VERSION_RE.test(template.draftVersion)) {

@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
 import handler from '../../../pages/api/meetings/[id]/finalize';
+import { QA_SIMULATION_SCHOOL_IDS } from '../../../lib/simulation/constants';
 
 vi.mock('../../../lib/api-auth', () => ({
   getApiUser: vi.fn(),
@@ -71,9 +72,16 @@ type BuildClientOpts = {
   attendees?: any[];
   updateResult?: any; // row returned by the atomic update (null => already finalized)
   commitments?: any[];
+  school?: any;
 };
 
-function buildClient({ meetingRow, attendees = [], updateResult, commitments = [] }: BuildClientOpts) {
+function buildClient({
+  meetingRow,
+  attendees = [],
+  updateResult,
+  commitments = [],
+  school = { id: 1, tenant_kind: 'client', internal_zoom_testing_enabled: false },
+}: BuildClientOpts) {
   const updateMaybeSingle = vi.fn().mockResolvedValue({
     data: updateResult === undefined ? { id: MEETING_ID, finalized_at: new Date().toISOString() } : updateResult,
     error: null,
@@ -170,10 +178,7 @@ function buildClient({ meetingRow, attendees = [], updateResult, commitments = [
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: { id: 1, tenant_kind: 'client', internal_zoom_testing_enabled: false },
-                error: null,
-              }),
+              maybeSingle: vi.fn().mockResolvedValue({ data: school, error: null }),
             }),
           }),
         };
@@ -331,6 +336,8 @@ describe('/api/meetings/[id]/finalize', () => {
       recipients_count: 3,
       sent: 3,
       failed: 0,
+      summary_email_sent: true,
+      summary_email_error: null,
     });
     // getCommunityRecipients should have been called with onlyAttended=false
     expect(m.getCommunityRecipients).toHaveBeenCalledWith(
@@ -612,6 +619,80 @@ describe('/api/meetings/[id]/finalize', () => {
 
     expect(res._getStatusCode()).toBe(200);
     const payload = JSON.parse(res._getData());
-    expect(payload.data).toMatchObject({ ok: true, sent: 1, failed: 1, recipients_count: 2 });
+    expect(payload.data).toMatchObject({
+      ok: true, sent: 1, failed: 1, recipients_count: 2, summary_email_sent: false, summary_email_error: null,
+    });
+  });
+
+  describe('reports the real summary-email outcome with 200 after the commit', () => {
+    const twoRecipients = [
+      { id: 'u1', email: 'u1@example.com', name: 'U1' },
+      { id: 'u2', email: 'u2@example.com', name: 'U2' },
+    ];
+
+    async function finalizeWith(opts: {
+      recipients: any[];
+      summary: { sent: number; failed: number; errors: unknown[] };
+      schoolId?: unknown;
+      school?: any;
+    }) {
+      const m = await loadMocks();
+      (m.getApiUser as any).mockResolvedValue({ user: { id: USER_ID }, error: null });
+      (m.getUserRoles as any).mockResolvedValue([]);
+      (m.getHighestRole as any).mockReturnValue('admin');
+      (m.canFinalizeMeeting as any).mockReturnValue(true);
+      (m.getCommunityRecipients as any).mockResolvedValue(opts.recipients);
+      (m.sendMeetingSummary as any).mockResolvedValue(opts.summary);
+      const row = opts.schoolId === undefined
+        ? meetingRow
+        : { ...meetingRow, workspace: { ...meetingRow.workspace, community: { ...meetingRow.workspace.community, school_id: opts.schoolId } } };
+      const client = buildClient({ meetingRow: row, school: opts.school });
+      (m.createServiceRoleClient as any).mockReturnValue(client);
+      const { req, res } = createMocks({ method: 'POST', query: { id: MEETING_ID }, body: { audience: 'community' } });
+      await handler(req as any, res as any);
+      // The meeting was committed exactly once before any email outcome.
+      expect((client as any).__meetingUpdateFn).toHaveBeenCalledTimes(1);
+      expect(res._getStatusCode()).toBe(200);
+      return { m, data: JSON.parse(res._getData()).data };
+    }
+
+    it('total provider failure is reported as not sent', async () => {
+      const { data } = await finalizeWith({
+        recipients: twoRecipients,
+        summary: { sent: 0, failed: 2, errors: [{ email: 'u1@example.com', error: 'provider_rejected' }] },
+      });
+      expect(data).toMatchObject({
+        ok: true, recipients_count: 2, sent: 0, failed: 2, summary_email_sent: false, summary_email_error: null,
+      });
+    });
+
+    it('zero recipients is reported as not sent with no_recipients', async () => {
+      const { data } = await finalizeWith({ recipients: [], summary: { sent: 0, failed: 0, errors: [] } });
+      expect(data).toMatchObject({
+        ok: true, recipients_count: 0, sent: 0, failed: 0, summary_email_sent: false, summary_email_error: 'no_recipients',
+      });
+    });
+
+    it('QA-suppressed delivery is reported as suppressed_qa', async () => {
+      const qaSchoolId = QA_SIMULATION_SCHOOL_IDS[0];
+      const { m, data } = await finalizeWith({
+        recipients: twoRecipients,
+        summary: { sent: 0, failed: 2, errors: [] },
+        schoolId: qaSchoolId,
+        school: { id: qaSchoolId, tenant_kind: 'qa', internal_zoom_testing_enabled: false },
+      });
+      expect((m.sendMeetingSummary as any).mock.calls[0][2]).toMatchObject({ kind: 'suppressed_qa' });
+      expect(data).toMatchObject({ ok: true, sent: 0, summary_email_sent: false, summary_email_error: 'suppressed_qa' });
+    });
+
+    it('refused tenant authorization is reported as tenant_scope_refused', async () => {
+      const { m, data } = await finalizeWith({
+        recipients: twoRecipients,
+        summary: { sent: 0, failed: 2, errors: [] },
+        schoolId: 'not-a-school',
+      });
+      expect((m.sendMeetingSummary as any).mock.calls[0][2]).toMatchObject({ kind: 'refuse' });
+      expect(data).toMatchObject({ ok: true, sent: 0, summary_email_sent: false, summary_email_error: 'tenant_scope_refused' });
+    });
   });
 });

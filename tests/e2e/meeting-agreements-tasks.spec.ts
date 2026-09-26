@@ -210,18 +210,18 @@ test.describe.configure({ mode: 'serial' });
 
 test.describe('dedicated write-target guard', () => {
   const dedicated: TargetEnv = {
-    NEXT_PUBLIC_SUPABASE_URL: DEDICATED_API, SUPABASE_DB_URL: `postgresql://postgres:synthetic@${DEDICATED_DB}/postgres`,
+    NEXT_PUBLIC_SUPABASE_URL: DEDICATED_API, SUPABASE_DB_URL: `postgresql://postgres@${DEDICATED_DB}/postgres`,
     SUPABASE_SERVICE_ROLE_KEY: 'synthetic', E2E_SUPABASE_STACK_ID: 'sm22-dedicated-guard',
   };
   const refusals: [string, TargetEnv, RegExp][] = [
     ['nothing set', {}, /missing NEXT_PUBLIC_SUPABASE_URL, SUPABASE_DB_URL, SUPABASE_SERVICE_ROLE_KEY, E2E_SUPABASE_STACK_ID/],
     ['the .env.development.local default (shared 54421/54422)', { ...dedicated,
-      NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54421', SUPABASE_DB_URL: 'postgresql://postgres:synthetic@127.0.0.1:54422/postgres' }, /API 127\.0\.0\.1:54421/],
+      NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54421', SUPABASE_DB_URL: 'postgresql://postgres@127.0.0.1:54422/postgres' }, /API 127\.0\.0\.1:54421/],
     ['the shared API 54421 with the dedicated DB', { ...dedicated, NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54421' }, /API 127\.0\.0\.1:54421/],
     ['the dedicated API with the shared DB 54422', { ...dedicated,
-      SUPABASE_DB_URL: 'postgresql://postgres:synthetic@127.0.0.1:54422/postgres' }, /DB 127\.0\.0\.1:54422/],
+      SUPABASE_DB_URL: 'postgresql://postgres@127.0.0.1:54422/postgres' }, /DB 127\.0\.0\.1:54422/],
     ['the CLI default 54321/54322', { ...dedicated,
-      NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321', SUPABASE_DB_URL: 'postgresql://postgres:synthetic@127.0.0.1:54322/postgres' }, /API 127\.0\.0\.1:54321/],
+      NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321', SUPABASE_DB_URL: 'postgresql://postgres@127.0.0.1:54322/postgres' }, /API 127\.0\.0\.1:54321/],
     ['a hosted project', { ...dedicated, NEXT_PUBLIC_SUPABASE_URL: 'https://abcdefghijklmnop.supabase.co' }, /API abcdefghijklmnop\.supabase\.co/],
     ['a localhost alias of the dedicated port', { ...dedicated, NEXT_PUBLIC_SUPABASE_URL: 'http://localhost:54821' }, /API localhost:54821/],
     ['a missing stack identity', { ...dedicated, E2E_SUPABASE_STACK_ID: undefined }, /missing E2E_SUPABASE_STACK_ID/],

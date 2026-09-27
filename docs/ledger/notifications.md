@@ -10,8 +10,8 @@ NOTIF-01 proposes N0-01: secure the feedback notification route and add the imme
 |---|---|---|---|---|---|
 | N0-01 | Authenticate notify-admins; derive admins and text from the persisted feedback; add the `NOTIFICATION_EMAIL_ENABLED` kill switch (default ON) to `sendImmediateEmail` | done | NOTIF-01 | 2026-09-26 |  |
 | N0-02 | Derive recipients and content server-side, with membership checks, for `messaging/mention` and `messaging/send` | done | NOTIF-02 | 2026-09-26 |  |
-| N0-03 | DB: revoke create_notification_safe from anon/authenticated/PUBLIC; restrict user_notifications INSERT to service_role; remove anon grant; pgTAP and browser-insert inventory | todo |  | 2026-09-26 |  |
-| N1-01 | `catalog.ts` and completeness tests; notification `urlBuilder`s | blocked |  | 2026-09-26 |  |
+| N0-03 | DB: revoke create_notification_safe from anon/authenticated/PUBLIC; restrict user_notifications INSERT to service_role; remove anon grant; pgTAP and browser-insert inventory | done | NOTIF-03 | 2026-09-27 |  |
+| N1-01 | `catalog.ts` and completeness tests; notification `urlBuilder`s | todo |  | 2026-09-27 |  |
 | N1-02 | Category-preferences table, RLS and pgTAP | blocked |  | 2026-09-26 |  |
 | N1-03 | Precedence resolver (SM-15 legacy rule, meeting any-false rule, mandatory), wired into the sync path in compat mode (digest sent as immediate) | blocked |  | 2026-09-26 |  |
 | N2-01 | Occurrence-id idempotency (in-app and provider key); stop logging the full eventData | blocked |  | 2026-09-26 |  |
@@ -78,3 +78,6 @@ NOTIF-01 proposes N0-01: secure the feedback notification route and add the imme
 - 2026-09-26T19:58:13-03:00 · PM · TODO · N0-03 is free again: N0-02 finished. · token d5487e7e01b3-free-N0-03
 - 2026-09-26T20:07:51-03:00 · NOTIF-01 · IN-PROGRESS · NOTIF-01 r3 dispatched (pm-unit begin) · token ls-d07df98629
 - 2026-09-26T21:01:10-03:00 · NOTIF-01 · DONE · NOTIF-01: contain feedback notifications · token 5f506e4dc36e
+- 2026-09-27T07:57:35-03:00 · NOTIF-03 · IN-PROGRESS · NOTIF-03 r0 dispatched (pm-unit begin) · token ls-91f289e77c
+- 2026-09-27T08:38:36-03:00 · NOTIF-03 · DONE · NOTIF-03: restrict notification inserts to service role · token 4dce916e3e66
+- 2026-09-27T08:38:36-03:00 · PM · TODO · N1-01 is free again: N0-03 finished. · token 4dce916e3e66-free-N1-01

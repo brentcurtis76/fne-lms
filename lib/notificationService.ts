@@ -228,6 +228,16 @@ export async function getCommunityRecipients(
   return recipients;
 }
 
+/**
+ * Log-safe context for a caught error: only a SQLSTATE or PostgREST code
+ * survives. A message, details or hint can carry a credential or a recipient
+ * id, so none of them is logged.
+ */
+function loggableError(error: unknown): { code?: string } {
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code === 'string' && /^(?:[0-9A-Z]{5}|PGRST\d{3})$/.test(code) ? { code } : {};
+}
+
 class NotificationService {
   
   /**
@@ -242,7 +252,8 @@ class NotificationService {
     options: TriggerOptions = {}
   ): Promise<TriggerResult> {
     try {
-      console.log(`🔔 Notification trigger fired: ${eventType}`, eventData);
+      // eventData carries recipient ids (e.g. `assigned_users`), so it is not logged.
+      console.log(`🔔 Notification trigger fired: ${eventType}`);
 
       // Get active triggers for this event type from database
       const triggers = await this.getActiveTriggers(eventType);
@@ -256,7 +267,7 @@ class NotificationService {
             const notificationCount = await this.processNotification(trigger, eventData, eventType, options);
             totalNotificationsCreated += notificationCount;
           } catch (error) {
-            console.error(`❌ Error processing trigger ${trigger.trigger_id}:`, error);
+            console.error(`❌ Error processing trigger ${trigger.trigger_id}`, loggableError(error));
             // Continue with other triggers even if one fails
           }
         }
@@ -281,7 +292,7 @@ class NotificationService {
           const notificationCount = await this.processNotification(syntheticTrigger, eventData, eventType, options);
           totalNotificationsCreated += notificationCount;
         } catch (error) {
-          console.error(`❌ Error processing code-based notification for ${eventType}:`, error);
+          console.error(`❌ Error processing code-based notification for ${eventType}`, loggableError(error));
         }
       }
 
@@ -292,7 +303,7 @@ class NotificationService {
       return { success: true, notificationsCreated: totalNotificationsCreated };
 
     } catch (error) {
-      console.error(`❌ Notification trigger failed for ${eventType}:`, error);
+      console.error(`❌ Notification trigger failed for ${eventType}`, loggableError(error));
       await this.logNotificationEvent(eventType, eventData, null, 0, 'failed');
       return { success: false, error: error.message };
     }
@@ -309,13 +320,13 @@ class NotificationService {
       });
 
       if (error) {
-        console.error('Error fetching triggers:', error);
+        console.error('Error fetching triggers', loggableError(error));
         return [];
       }
 
       return data || [];
     } catch (error) {
-      console.error('Exception fetching triggers:', error);
+      console.error('Exception fetching triggers', loggableError(error));
       return [];
     }
   }
@@ -427,7 +438,9 @@ class NotificationService {
           });
           notificationsCreated++;
         } catch (error) {
-          console.error(`❌ Failed to create notification for user ${recipient.id}:`, error);
+          // The error can carry the recipient id (e.g. a foreign-key violation's
+          // details), so neither it nor the id is logged.
+          console.error(`❌ Failed to create notification for trigger ${trigger.trigger_id}`);
         }
       }
 
@@ -435,7 +448,7 @@ class NotificationService {
       return notificationsCreated;
 
     } catch (error) {
-      console.error('Error processing notification:', error);
+      console.error('Error processing notification', loggableError(error));
       throw error;
     }
   }
@@ -720,7 +733,7 @@ class NotificationService {
       };
 
     } catch (error) {
-      console.error('Error generating content:', error);
+      console.error('Error generating content', loggableError(error));
       // Ultimate fallback - should rarely happen
       return {
         title: eventConfig.defaultTitle(eventData),
@@ -898,7 +911,7 @@ class NotificationService {
       );
 
       if (!preference.in_app_enabled && !preference.email_enabled) {
-        console.log(`🔕 User ${notificationData.user_id} has disabled ${notificationType} notifications`);
+        console.log(`🔕 Recipient has disabled ${notificationType} notifications`);
         return null;
       }
 
@@ -924,7 +937,7 @@ class NotificationService {
 
       return createdNotification;
     } catch (error) {
-      console.error('Error creating notification:', error);
+      console.error('Error creating notification');
       throw error;
     }
   }
@@ -943,7 +956,7 @@ class NotificationService {
     );
 
     if (isDuplicate) {
-      console.log(`🔕 Duplicate notification prevented for user ${notificationData.user_id}: ${notificationData.title}`);
+      console.log(`🔕 Duplicate notification prevented: ${notificationData.title}`);
       return null;
     }
 
@@ -968,10 +981,10 @@ class NotificationService {
     if (error) {
       // Check if it's a unique constraint violation on idempotency_key
       if (error.code === '23505' && error.message.includes('unique_notification_idempotency_key')) {
-        console.log(`🔕 Duplicate notification prevented by idempotency key for user ${notificationData.user_id}`);
+        console.log('🔕 Duplicate notification prevented by idempotency key');
         return null;
       }
-      console.error('Database error creating notification:', error);
+      console.error('Database error creating notification');
       throw error;
     }
 
@@ -989,9 +1002,20 @@ class NotificationService {
    *
    * @param {Object} client - Supabase client used for the recipient lookup and authorization
    * @param {Object} notificationData - Notification data being delivered
+   * `NOTIFICATION_EMAIL_ENABLED` is the kill switch for this path: unset keeps
+   * it on (the shipped SM-15 behaviour); `off`, `false` or `0` suppresses every
+   * immediate mail before the recipient lookup or the provider is reached. It
+   * gates only this channel, never the in-app row.
+   *
    * @param {Function} [transport] - Injected e-mail transport (tests only)
    */
   async sendImmediateEmail(client, notificationData, transport) {
+    const flag = process.env.NOTIFICATION_EMAIL_ENABLED?.trim().toLowerCase();
+    if (flag === 'off' || flag === 'false' || flag === '0') {
+      console.log('📭 Notification email NOT sent', { status: 'disabled' });
+      return { sent: false, status: 'disabled' };
+    }
+
     try {
       const result = await sendNotificationEmail(
         client,
@@ -1013,8 +1037,9 @@ class NotificationService {
 
       return result;
     } catch (error) {
-      // A notification trigger must stay nonfatal for its caller.
-      console.error('Error sending notification email:', error instanceof Error ? error.message : String(error));
+      // A notification trigger must stay nonfatal for its caller. The message is
+      // not logged: it can carry a recipient identifier or a credential.
+      console.error('Error sending notification email', { status: 'transport_error' });
       return { sent: false, status: 'transport_error' };
     }
   }
@@ -1040,7 +1065,7 @@ class NotificationService {
         .limit(1);
       
       if (error) {
-        console.error('Error checking for duplicate notifications:', error);
+        console.error('Error checking for duplicate notifications', loggableError(error));
         return false; // Don't prevent notification on error
       }
       
@@ -1060,7 +1085,7 @@ class NotificationService {
       
       return data && data.length > 0;
     } catch (error) {
-      console.error('Exception checking for duplicate notifications:', error);
+      console.error('Exception checking for duplicate notifications', loggableError(error));
       return false; // Don't prevent notification on error
     }
   }
@@ -1097,7 +1122,7 @@ class NotificationService {
         in_app_enabled: data.in_app_enabled !== false
       };
     } catch (error) {
-      console.error('Error fetching notification preferences:', error);
+      console.error('Error fetching notification preferences', loggableError(error));
       return bothEnabled;
     }
   }
@@ -1121,10 +1146,10 @@ class NotificationService {
       });
 
       if (error) {
-        console.error('Error logging notification event:', error);
+        console.error('Error logging notification event', loggableError(error));
       }
     } catch (error) {
-      console.error('Exception logging notification event:', error);
+      console.error('Exception logging notification event', loggableError(error));
     }
   }
 

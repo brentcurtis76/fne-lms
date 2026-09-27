@@ -144,48 +144,23 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
         throw error;
       }
 
-      // Get user profile for notification
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('first_name, last_name, email')
-        .eq('id', user.id)
-        .single();
-
-      // Notify admins about new feedback
+      // Notify admins about new feedback. The server derives the recipients and
+      // the notification text from the persisted row; only its id is sent.
       try {
-        // Get all admin users from user_roles table
-        const { data: adminRoles } = await supabase
-          .from('user_roles')
-          .select('user_id')
-          .eq('role_type', 'admin');
+        const response = await fetch('/api/feedback/notify-admins', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ feedback_id: feedback.id })
+        });
 
-        if (adminRoles && adminRoles.length > 0) {
-          // Send notification via API route (server-side)
-          const response = await fetch('/api/feedback/notify-admins', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              feedbackData: {
-                feedback_id: feedback.id,
-                feedback_type: type,
-                user_name: profile ? `${profile.first_name} ${profile.last_name}` : user.email,
-                user_email: profile?.email || user.email,
-                description: description.trim().substring(0, 100) + (description.length > 100 ? '...' : ''),
-                page_url: window.location.href,
-                assigned_users: adminRoles.map(admin => admin.user_id)
-              }
-            })
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            console.warn('Failed to send admin notifications:', errorData.error);
-          } else {
-            const result = await response.json();
-            console.log('✅ Admin notifications sent:', result.notificationsCreated);
-          }
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.warn('Failed to send admin notifications:', errorData.error);
+        } else {
+          const result = await response.json();
+          console.log('✅ Admin notifications sent:', result.notificationsCreated);
         }
       } catch (notificationError) {
         console.error('Error sending notification:', notificationError);

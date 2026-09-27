@@ -111,7 +111,9 @@ interface WorldOptions {
   rolesError?: boolean;
   /** Rows the duplicate check finds. */
   duplicateRows?: unknown[];
-  insertError?: { code: string; message: string } | null;
+  insertError?: { code: string; message: string; details?: string } | null;
+  /** The recipient's e-mail lookup throws this instead of answering. */
+  profileThrows?: Error;
 }
 
 function world(options: WorldOptions = {}) {
@@ -133,6 +135,7 @@ function world(options: WorldOptions = {}) {
       if (query.columns === 'school_id') {
         return { data: { school_id: options.schoolId ?? null }, error: null };
       }
+      if (options.profileThrows) throw options.profileThrows;
       if (options.profileError) return { data: null, error: { message: 'lookup failed' } };
       return {
         data: options.profileEmail === null ? {} : { email: options.profileEmail ?? RECIPIENT },
@@ -203,6 +206,7 @@ beforeEach(() => {
     'NEXT_PUBLIC_APP_URL',
     'EMAIL_FROM_ADDRESS',
     'RESEND_API_KEY',
+    'NOTIFICATION_EMAIL_ENABLED',
   ]) {
     savedEnv[key] = process.env[key];
     delete process.env[key];
@@ -492,6 +496,129 @@ describe('createNotification — in-app and immediate email are independent chan
       notificationService.createNotification(notificationData(), { client, transport })
     ).rejects.toMatchObject({ code: '42501' });
     expect(sends).toHaveLength(1);
+  });
+});
+
+describe('createNotification — log safety on failure branches (r1 D1)', () => {
+  const SYNTHETIC_KEY = 're_synthetic_key_not_a_real_credential';
+
+  it('R1-D1: an in-app insert failure naming the recipient id logs neither the id nor the database error', async () => {
+    const { client } = world({
+      preference: { email_enabled: false, in_app_enabled: true },
+      insertError: {
+        code: '23503',
+        message: 'insert or update on table "user_notifications" violates foreign key constraint',
+        details: `Key (user_id)=(${USER_ID}) is not present in table "users".`,
+      },
+    });
+
+    await expect(notificationService.createNotification(notificationData(), { client })).rejects.toMatchObject({
+      code: '23503',
+    });
+
+    const text = loggedText();
+    expect(text).toContain('Database error creating notification');
+    expect(text).not.toContain(USER_ID);
+    expect(text).not.toContain('Key (user_id)');
+    expect(text).not.toContain('foreign key');
+  });
+
+  it('R1-D1: a delivery exception carrying a credential and the recipient stays nonfatal and logs only its status', async () => {
+    process.env.RESEND_API_KEY = SYNTHETIC_KEY;
+    const { client } = world({
+      profileThrows: new Error(`ECONNREFUSED apikey=${SYNTHETIC_KEY} user=${USER_ID} <${RECIPIENT}>`),
+    });
+    const { transport } = acceptingTransport();
+
+    const result = await notificationService.sendImmediateEmail(client, notificationData(), transport);
+
+    expect(result).toEqual({ sent: false, status: 'transport_error' });
+    expect(transport).not.toHaveBeenCalled();
+    const text = loggedText();
+    expect(text).toContain('transport_error');
+    for (const secret of [SYNTHETIC_KEY, USER_ID, RECIPIENT, 'ECONNREFUSED']) {
+      expect(text).not.toContain(secret);
+    }
+  });
+});
+
+describe('NOTIFICATION_EMAIL_ENABLED — kill switch for the immediate email', () => {
+  it('D4: unset keeps the immediate email on', async () => {
+    const { client, inserted } = world({ preference: { email_enabled: true, in_app_enabled: true } });
+    const { transport, sends } = acceptingTransport();
+
+    await notificationService.createNotification(notificationData(), { client, transport });
+
+    expect(inserted).toHaveLength(1);
+    expect(sends).toHaveLength(1);
+    expect(sends[0].message.to).toBe(RECIPIENT);
+  });
+
+  it.each(['on', 'true', ''])('D4: "%s" also keeps the immediate email on', async (value) => {
+    process.env.NOTIFICATION_EMAIL_ENABLED = value;
+    const { client } = world({ preference: { email_enabled: true, in_app_enabled: true } });
+    const { transport, sends } = acceptingTransport();
+
+    await notificationService.createNotification(notificationData(), { client, transport });
+
+    expect(sends).toHaveLength(1);
+  });
+
+  it.each(['off', 'false', '0', 'OFF', ' False '])(
+    'D4: "%s" suppresses the email before the recipient lookup or the provider',
+    async (value) => {
+      process.env.NOTIFICATION_EMAIL_ENABLED = value;
+      process.env.RESEND_API_KEY = 're_synthetic_key_not_a_real_credential';
+      const { client, calls } = world({ preference: { email_enabled: true, in_app_enabled: true } });
+      const { transport } = acceptingTransport();
+
+      const result = await notificationService.sendImmediateEmail(client, notificationData(), transport);
+
+      expect(result).toEqual({ sent: false, status: 'disabled' });
+      expect(transport).not.toHaveBeenCalled();
+      expect(calls).toHaveLength(0);
+      expect(loggedText()).toContain('disabled');
+      expect(loggedText()).not.toContain('accepted by the provider');
+    }
+  );
+
+  it.each([
+    { in_app_enabled: true, email_enabled: true, rows: 1 },
+    { in_app_enabled: true, email_enabled: false, rows: 1 },
+    { in_app_enabled: false, email_enabled: true, rows: 0 },
+    { in_app_enabled: false, email_enabled: false, rows: 0 },
+  ])(
+    'D4: with the switch off, in-app=$in_app_enabled email=$email_enabled writes $rows row(s) and sends nothing',
+    async ({ in_app_enabled, email_enabled, rows }) => {
+      process.env.NOTIFICATION_EMAIL_ENABLED = 'off';
+      const { client, inserted } = world({ preference: { email_enabled, in_app_enabled } });
+      const { transport } = acceptingTransport();
+
+      await notificationService.createNotification(notificationData(), { client, transport });
+
+      expect(inserted).toHaveLength(rows);
+      expect(transport).not.toHaveBeenCalled();
+    }
+  );
+
+  it('D5: with the switch unset, a provider refusal stays nonfatal and logs no recipient or credential', async () => {
+    process.env.RESEND_API_KEY = 're_synthetic_key_not_a_real_credential';
+    const { client, inserted } = world({ preference: { email_enabled: true, in_app_enabled: true } });
+    const transport = vi.fn(async () => ({ data: null, error: { message: 'domain not verified' } }));
+
+    const result = await notificationService.sendImmediateEmail(client, notificationData(), transport);
+    await expect(
+      notificationService.createNotification(notificationData(), { client, transport })
+    ).resolves.not.toBeNull();
+
+    expect(result).toMatchObject({ sent: false, status: 'provider_rejected' });
+    expect(transport).toHaveBeenCalledTimes(2);
+    expect(inserted).toHaveLength(1);
+    const text = loggedText();
+    expect(text).toContain('provider_rejected');
+    expect(text).not.toContain(RECIPIENT);
+    expect(text).not.toContain(USER_ID);
+    expect(text).not.toContain('re_synthetic_key_not_a_real_credential');
   });
 });
 

@@ -13,13 +13,15 @@
 --      attendee inserts still work
 --   5. D4: anon, inactive role, wrong meeting, NULL meeting id, meeting-id move,
 --      UPDATE / DELETE on both tables
+--   6. W-B3c-01 (SM-27): migration 20260926210000 makes meeting_tasks.due_date
+--      NOT NULL with no default and no backfill; task fixtures carry a date
 --
 -- Synthetic/local state only. Rolls back. DO NOT run against production.
 -- =============================================================================
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(118);
+SELECT plan(134);
 
 CREATE OR REPLACE FUNCTION pg_temp.set_anon() RETURNS void AS $$
 BEGIN
@@ -52,7 +54,7 @@ BEGIN
   IF t = 'meeting_agreements' THEN
     INSERT INTO public.meeting_agreements (meeting_id, agreement_text) VALUES (m, label);
   ELSE
-    INSERT INTO public.meeting_tasks (meeting_id, task_title, assigned_to) VALUES (m, label, pg_temp.uid('editor'));
+    INSERT INTO public.meeting_tasks (meeting_id, task_title, assigned_to, due_date) VALUES (m, label, pg_temp.uid('editor'), current_date + 7);
   END IF;
 END;
 $$ LANGUAGE plpgsql;
@@ -314,6 +316,46 @@ SELECT is((SELECT count(*)::int FROM public.meeting_agreements WHERE meeting_id 
   'D4: B1 rows are intact after every cross-tenant attempt');
 SELECT is((SELECT count(*)::int FROM public.meeting_agreements WHERE meeting_id = '5e220000-0000-4000-8000-0000000000e3' AND agreement_text = 'seed'), 1,
   'D4: B1 agreement text unchanged');
+
+-- ---------------------------------------------------------------------------
+-- 6. W-B3c-01 (SM-27) — due_date NOT NULL, fail closed, no invented date (16)
+-- ---------------------------------------------------------------------------
+SELECT col_not_null('public', 'meeting_tasks', 'due_date', 'SM-27: meeting_tasks.due_date is NOT NULL');
+SELECT col_hasnt_default('public', 'meeting_tasks', 'due_date', 'SM-27: no default date is invented');
+
+-- Guard mechanism on synthetic tables: SET NOT NULL passes with zero NULL rows
+-- and fails closed with one, leaving every row as it was.
+CREATE TEMP TABLE sm27_zero_null (id int PRIMARY KEY, due_date date) ON COMMIT DROP;
+INSERT INTO sm27_zero_null VALUES (1, '2026-10-15');
+SELECT lives_ok('ALTER TABLE sm27_zero_null ALTER COLUMN due_date SET NOT NULL', 'SM-27 guard: zero NULL rows, the constraint applies');
+SELECT results_eq('SELECT id, due_date FROM sm27_zero_null', $$VALUES (1, '2026-10-15'::date)$$, 'SM-27 guard: zero NULL rows, no row changed');
+CREATE TEMP TABLE sm27_one_null (id int PRIMARY KEY, due_date date) ON COMMIT DROP;
+INSERT INTO sm27_one_null VALUES (1, '2026-10-15'), (2, NULL);
+SELECT throws_ok('ALTER TABLE sm27_one_null ALTER COLUMN due_date SET NOT NULL', '23502', NULL, 'SM-27 guard: one NULL row, the constraint is refused');
+SELECT results_eq('SELECT id, due_date FROM sm27_one_null ORDER BY id', $$VALUES (1, '2026-10-15'::date), (2, NULL::date)$$,
+  'SM-27 guard: one NULL row, no row changed and no date invented');
+
+-- Through RLS as the verified editor: NULL is refused, a valid date is kept.
+SELECT pg_temp.as_user('editor');
+SELECT throws_ok($$INSERT INTO public.meeting_tasks (meeting_id, task_title, assigned_to) VALUES ('5e220000-0000-4000-8000-0000000000e1', 'SM27 sin fecha', pg_temp.uid('editor'))$$,
+  '23502', NULL, 'SM-27 editor: INSERT without due_date is refused');
+SELECT throws_ok($$INSERT INTO public.meeting_tasks (meeting_id, task_title, assigned_to, due_date) VALUES ('5e220000-0000-4000-8000-0000000000e1', 'SM27 fecha nula', pg_temp.uid('editor'), NULL)$$,
+  '23502', NULL, 'SM-27 editor: INSERT with explicit NULL due_date is refused');
+SELECT lives_ok($$INSERT INTO public.meeting_tasks (meeting_id, task_title, assigned_to, due_date) VALUES ('5e220000-0000-4000-8000-0000000000e1', 'SM27 con fecha', pg_temp.uid('editor'), '2026-10-15')$$,
+  'SM-27 editor: INSERT with a valid due_date succeeds');
+SELECT is((SELECT due_date FROM public.meeting_tasks WHERE task_title = 'SM27 con fecha'), '2026-10-15'::date, 'SM-27 editor: the saved due_date reads back unchanged');
+SELECT throws_ok($$UPDATE public.meeting_tasks SET due_date = NULL WHERE task_title = 'SM27 con fecha'$$,
+  '23502', NULL, 'SM-27 editor: UPDATE to NULL due_date is refused');
+SELECT is((SELECT due_date FROM public.meeting_tasks WHERE task_title = 'SM27 con fecha'), '2026-10-15'::date, 'SM-27 editor: the refused UPDATE left the date in place');
+SELECT lives_ok($$UPDATE public.meeting_tasks SET due_date = '2026-11-02' WHERE task_title = 'SM27 con fecha'$$,
+  'SM-27 editor: UPDATE to another valid due_date succeeds');
+SELECT is((SELECT due_date FROM public.meeting_tasks WHERE task_title = 'SM27 con fecha'), '2026-11-02'::date, 'SM-27 editor: the new due_date is kept');
+-- RLS still decides first for a non-editor, with or without a date.
+SELECT pg_temp.as_user('outsider');
+SELECT throws_ok($$INSERT INTO public.meeting_tasks (meeting_id, task_title, assigned_to) VALUES ('5e220000-0000-4000-8000-0000000000e1', 'SM27 intruso', auth.uid())$$,
+  '42501', NULL, 'SM-27 outsider: INSERT without due_date is still denied by RLS');
+SELECT is(pg_temp.upd('meeting_tasks', '5e220000-0000-4000-8000-0000000000e1'), 0, 'SM-27 outsider: UPDATE on the dated task changes no row');
+SELECT pg_temp.reset_auth();
 
 SELECT * FROM finish();
 ROLLBACK;

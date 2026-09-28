@@ -1,110 +1,180 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@supabase/supabase-js';
 import NotificationService from '../../../lib/notificationService';
+import {
+  getApiUser,
+  createServiceRoleClient,
+  getForcedPasswordChangeVerdict,
+  sendForcedPasswordChangeResponse,
+} from '../../../lib/api-auth';
 
-// Create admin client with service role key for elevated permissions
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
+/**
+ * /api/messaging/mention — notifies a user mentioned in a community post
+ * (lib/services/feedService.ts, after the post and its post_mentions rows are saved).
+ *
+ * The caller supplies only the post id (`discussion_id`) and the mentioned user
+ * id. The service-role write and the notification happen only when:
+ *
+ *   * the post exists and the caller is its author;
+ *   * a persisted post_mentions row links that post to that user;
+ *   * both the author and the mentioned user can access the post's workspace
+ *     (can_access_workspace: active community member, school consultor or admin).
+ *
+ * The notification text is generic: the post body and any caller-supplied
+ * preview, name or context never reach the notification, the e-mail or a log.
+ * A repeated call for an already-recorded mention does not notify again.
+ */
 
-// Regular client for auth verification
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const CONTEXT = 'community_post';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Método no permitido' });
+  }
+
   try {
-    // Only allow POST method
-    if (req.method !== 'POST') {
-      return res.status(405).json({ error: 'Method not allowed' });
-    }
-
-    // Get auth header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Missing or invalid authorization header' });
-    }
-
-    // Verify the user is authenticated
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
+    const { user, error: authError } = await getApiUser(req, res);
     if (authError || !user) {
-      return res.status(401).json({ error: 'Invalid authentication token' });
+      return res.status(401).json({ error: 'Debes iniciar sesión' });
     }
 
-    const { mentioned_user_id, context, discussion_id, content } = req.body;
-    
-    if (!mentioned_user_id || !context) {
-      return res.status(400).json({ error: 'Missing mentioned_user_id or context' });
+    const serviceClient = createServiceRoleClient();
+
+    const verdict = await getForcedPasswordChangeVerdict(serviceClient, user.id);
+    if (sendForcedPasswordChangeResponse(res, verdict)) return;
+
+    const { mentioned_user_id: mentionedUserId, discussion_id: postId, context } = req.body ?? {};
+    if (
+      typeof mentionedUserId !== 'string' || !UUID.test(mentionedUserId) ||
+      typeof postId !== 'string' || !UUID.test(postId)
+    ) {
+      return res.status(400).json({ error: 'Identificadores de mención inválidos' });
+    }
+    if (context !== undefined && context !== CONTEXT) {
+      return res.status(400).json({ error: 'Tipo de mención no soportado' });
     }
 
-    // Get user profile for mention author information
-    const { data: authorProfile } = await supabaseAdmin
-      .from('profiles')
-      .select('first_name, last_name')
-      .eq('id', user.id)
-      .single();
-
-    // Create mention record
-    const mentionData = {
-      author_id: user.id,
-      mentioned_user_id,
-      context,
-      discussion_id: discussion_id || null,
-      content: content || '',
-      created_at: new Date().toISOString()
-    };
-
-    const { data: mentionResult, error: mentionError } = await supabaseAdmin
-      .from('user_mentions')
-      .insert(mentionData)
-      .select()
-      .single();
-
-    if (mentionError) {
-      console.error('Error creating mention:', mentionError);
-      return res.status(500).json({ error: 'Failed to create mention: ' + mentionError.message });
+    const { data: post, error: postError } = await serviceClient
+      .from('community_posts')
+      .select('id, workspace_id, author_id, is_archived')
+      .eq('id', postId)
+      .maybeSingle();
+    if (postError) {
+      console.error('[messaging/mention] post lookup failed');
+      return res.status(500).json({ error: 'No se pudo verificar la publicación' });
+    }
+    if (!post || post.is_archived) {
+      return res.status(404).json({ error: 'Publicación no encontrada' });
+    }
+    if (post.author_id !== user.id) {
+      return res.status(403).json({ error: 'Solo el autor de la publicación puede notificar sus menciones' });
     }
 
-    // Trigger mention notification
-    try {
-      const authorName = authorProfile ? 
-        `${authorProfile.first_name} ${authorProfile.last_name}`.trim() : 
-        'Un usuario';
+    const { data: postMentions, error: postMentionError } = await serviceClient
+      .from('post_mentions')
+      .select('id')
+      .eq('post_id', post.id)
+      .eq('mentioned_user_id', mentionedUserId)
+      .limit(1);
+    if (postMentionError) {
+      console.error('[messaging/mention] post mention lookup failed');
+      return res.status(500).json({ error: 'No se pudo verificar la mención' });
+    }
+    if (!postMentions || postMentions.length === 0) {
+      return res.status(404).json({ error: 'Mención no encontrada' });
+    }
 
-      await NotificationService.triggerNotification('user_mentioned', {
-        mention_id: mentionResult.id,
-        author_id: user.id,
-        mentioned_user_id: mentioned_user_id,
-        author_name: authorName,
-        context: context,
-        discussion_id: discussion_id || null,
-        content_preview: content ? content.substring(0, 100) : ''
+    for (const [memberId, deniedMessage] of [
+      [user.id, 'No tienes acceso a esta comunidad'],
+      [mentionedUserId, 'El usuario mencionado no pertenece a esta comunidad'],
+    ]) {
+      const { data: canAccess, error: accessError } = await serviceClient.rpc('can_access_workspace', {
+        p_user_id: memberId,
+        p_workspace_id: post.workspace_id,
       });
-
-      console.log(`✅ Mention notification triggered for user ${mentioned_user_id}`);
-    } catch (notificationError) {
-      console.error('❌ Failed to trigger mention notification:', notificationError);
-      // Don't fail the API call if notifications fail
+      if (accessError) {
+        console.error('[messaging/mention] membership check failed');
+        return res.status(500).json({ error: 'No se pudo verificar la membresía' });
+      }
+      if (canAccess !== true) {
+        return res.status(403).json({ error: deniedMessage });
+      }
     }
 
-    return res.status(200).json({ 
-      success: true, 
-      message: 'Mention created successfully',
-      mentionId: mentionResult.id
-    });
+    const { data: existing, error: existingError } = await serviceClient
+      .from('user_mentions')
+      .select('id')
+      .eq('author_id', user.id)
+      .eq('mentioned_user_id', mentionedUserId)
+      .eq('context', CONTEXT)
+      .eq('discussion_id', post.id)
+      .limit(1);
+    if (existingError) {
+      console.error('[messaging/mention] mention lookup failed');
+      return res.status(500).json({ error: 'No se pudo registrar la mención' });
+    }
+    if (existing && existing.length > 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'La mención ya estaba registrada',
+        mentionId: existing[0].id,
+        notificationSent: false,
+      });
+    }
 
-  } catch (error) {
-    console.error('Unexpected error in mention API:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    const { data: mention, error: mentionError } = await serviceClient
+      .from('user_mentions')
+      .insert({
+        author_id: user.id,
+        mentioned_user_id: mentionedUserId,
+        context: CONTEXT,
+        discussion_id: post.id,
+      })
+      .select('id')
+      .single();
+    if (mentionError || !mention) {
+      console.error('[messaging/mention] mention insert failed');
+      return res.status(500).json({ error: 'No se pudo registrar la mención' });
+    }
+
+    let notificationSent = false;
+    try {
+      const { data: authorProfile } = await serviceClient
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('id', user.id)
+        .maybeSingle();
+      const authorName =
+        `${authorProfile?.first_name ?? ''} ${authorProfile?.last_name ?? ''}`.trim() || 'Un usuario';
+
+      const result = await NotificationService.triggerNotification('user_mentioned', {
+        mention_id: mention.id,
+        author_id: user.id,
+        mentioned_user_id: mentionedUserId,
+        author_name: authorName,
+        context: CONTEXT,
+        discussion_id: post.id,
+        workspace_id: post.workspace_id,
+        content_preview: 'Te mencionaron en una publicación',
+      });
+      notificationSent = result.success && (result.notificationsCreated ?? 0) > 0;
+      if (!notificationSent) {
+        console.error('[messaging/mention] mention notification was not created');
+      }
+    } catch {
+      // Nonfatal: the mention is saved. The exception text is not logged.
+      console.error('[messaging/mention] mention notification failed');
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Mención registrada',
+      mentionId: mention.id,
+      notificationSent,
+    });
+  } catch {
+    // The exception text is not logged: it can carry a credential or an identifier.
+    console.error('[messaging/mention] unexpected error');
+    return res.status(500).json({ error: 'Error interno del servidor' });
   }
 }

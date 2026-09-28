@@ -1,5 +1,6 @@
 // Instagram-style feed service for Collaborative Space
 
+import { toast } from 'react-hot-toast';
 import { supabase } from '../supabase-wrapper';
 import type { 
   CommunityPost, 
@@ -10,6 +11,9 @@ import type {
   PostComment,
   ReactionType
 } from '@/types/feed';
+
+const MENTION_NOTIFICATION_FAILED =
+  'Tu publicación se guardó, pero no pudimos enviar la notificación de mención.';
 
 export class FeedService {
   /**
@@ -226,6 +230,7 @@ export class FeedService {
         await supabase.from('post_mentions').insert(mentionData);
 
         // Trigger notifications for each mentioned user via API endpoint
+        let mentionNotificationFailed = false;
         for (const mentionedUserId of input.mentions) {
           try {
             // Get auth token for API call
@@ -237,27 +242,31 @@ export class FeedService {
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${session.access_token}`
                 },
+                // The server derives the notification from the saved post and mention.
                 body: JSON.stringify({
                   mentioned_user_id: mentionedUserId,
                   context: 'community_post',
-                  discussion_id: post.id, // Use post.id as discussion_id for context
-                  content: input.content.text?.substring(0, 100) || 'Te mencionaron en una publicación'
+                  discussion_id: post.id,
                 })
               });
               
-              if (response.ok) {
-                console.log(`✅ Mention notification triggered for user: ${mentionedUserId}`);
-              } else {
-                const errorData = await response.json();
-                console.error(`❌ Failed to trigger mention notification:`, errorData);
+              if (!response.ok) {
+                mentionNotificationFailed = true;
+                console.error('❌ Mention notification rejected with status', response.status);
               }
             } else {
+              mentionNotificationFailed = true;
               console.error('❌ No auth session found for mention notification');
             }
-          } catch (error) {
-            console.error('❌ Error triggering mention notification:', error);
+          } catch {
+            mentionNotificationFailed = true;
+            console.error('❌ Error triggering mention notification');
             // Don't fail the whole operation if notification fails
           }
+        }
+        // The post is already saved: tell the author only the notification failed.
+        if (mentionNotificationFailed) {
+          toast.error(MENTION_NOTIFICATION_FAILED, { duration: 8000 });
         }
       }
 

@@ -40,6 +40,8 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-NUMERIC-PERSISTENCE-DIAGNOSIS | Read-only numeric persistence source diagnosis | done | PROC-17 | 2026-09-26 |  |
 | PROC-NUMERIC-SENTINEL | Preserve fail-closed synthetic marker checks while removing raw NUL bytes | done | PROC-18 | 2026-09-26 |  |
 | PROC-NUMERIC-EXPECTATION-RULE | Align frequency expectation API validation with whole-number counts | done | PROC-19 | 2026-09-26 |  |
+| PROC-NUMERIC-EXPECTATION-EDITOR | Correct frequency expectation editor input and save semantics | held | PROC-20 | 2026-09-27 |  |
+| PROC-NUMERIC-EXPECTATION-EDITOR-VERIFY | Validate and commit the approved frequency expectation editor correction | done | PROC-21 | 2026-09-28 |  |
 
 ## Events (append-only, newest last)
 - 2026-09-10T02:10+00:00 · PM · RECORD · COORDINATED authorized by user. Claude Fable5.1 discovery01 stopped at context boundary, no edits, exit143. Discovery02 fresh restricted intake running. Independent PM portability/raw-report/trace checkpoint written; ful
@@ -334,3 +336,10 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 - 2026-09-26T17:47:31-03:00 · PROC-19 · TODO · PM proposed a bounded F1 API consistency unit; numeric parent remains held and no production or database authority inferred. · token ls-52ecafe446
 - 2026-09-26T17:54:58-03:00 · PROC-19 · IN-PROGRESS · PROC-19 r0 dispatched (pm-unit begin) · token ls-c55cdfa955
 - 2026-09-26T19:56:56-03:00 · PROC-19 · DONE · PROC-19: validate numeric expectations before mixed writes · token d077f09e033f
+- 2026-09-26T20:10:52-03:00 · PROC-20 · IN-PROGRESS · PROC-20 r0 dispatched (pm-unit begin) · token ls-872f44f1d4
+- 2026-09-27T00:39:58-03:00 · PROC-20 · HELD · PROC-20 replanned: too big for one unit; split into smaller units (RUN/pm-replan-required.md) · token ls-48049dd87e
+- 2026-09-27T00:40:12-03:00 · PROC-21 · TODO · PROC-20 safely subdivided after r3 executor startup block; child verifies unchanged editor candidate under the same approved outcome. · token ls-913a1a4204
+- 2026-09-27T00:42:21-03:00 · PROC-21 · HELD · Undispatched child: pm-unit scope gate refused tests-kind order because approved editor page is a code path; subdivision withdrawn, no product edit or approval. · token ls-270d6ccc2a
+- 2026-09-27T05:07:06-03:00 · PROC-21 · TODO · Approved-plan revision 2 derived validation child; r0 never dispatched; r1 code-kind recovery preserves editor D1-D4 and UI gates. · token ls-fce7e566ea
+- 2026-09-27T05:07:21-03:00 · PROC-21 · IN-PROGRESS · PROC-21 r1 dispatched (pm-unit begin) · token ls-b8a18e7632
+- 2026-09-28T07:55:26-03:00 · PROC-21 · DONE · PROC-21: validate and commit frequency expectation editor · token 655d1fee1665

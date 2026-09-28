@@ -10,7 +10,17 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { getAccessibleUrl } from '../utils/notificationPermissions';
+import { getHighestRole, getUserRoles } from '../utils/roleUtils';
 import { getEventConfig, hasEventConfig } from './notificationEvents';
+import {
+  buildRecordUrl,
+  DEFAULT_NOTIFICATION_URL,
+  getFallbackUrl,
+  isOpenToRole,
+  isSafeNotificationPath,
+  isSessionRecordOpenTo,
+  type SessionRecord,
+} from './notifications/catalog';
 import { sendNotificationEmail } from './email/notifications';
 import type { EmailTransport } from './email/provider';
 import { profileName } from './utils/profile-name';
@@ -355,75 +365,40 @@ class NotificationService {
 
       // Generate notification content from template (hybrid: DB template with code fallback)
       const content = await this.generateContent(trigger.template, eventData, eventType);
+
+      // A session record page re-checks `canViewSession` for its viewer, so the
+      // session is read once here and each recipient's link is decided against it.
+      const sessionRecord = await this.getSessionRecord(eventData);
       
       let notificationsCreated = 0;
 
       // Create notification for each recipient
       for (const recipient of recipients) {
         try {
-          // Get recipient's role for URL generation
-          const { data: profile } = await supabaseServiceRole
-            .from('profiles')
-            .select('role')
-            .eq('id', recipient.id)
-            .single();
+          // Recipient's active roles, for URL generation (profiles has no role column)
+          const userRoles = await getUserRoles(supabaseServiceRole, recipient.id);
+          const highestRole = getHighestRole(userRoles);
+          const userRole = highestRole || 'docente';
           
-          const userRole = profile?.role || 'docente';
-          
-          // Determine appropriate URL based on recipient's role
+          // The catalog's record path wins when the payload identifies the record;
+          // otherwise the template/default URL. Either is checked against the
+          // recipient's role and, for a session record, against the page's own
+          // access rule; anything else becomes the event's fallback page.
           const relatedUrl = getAccessibleUrl(
-            content.related_url, 
-            userRole, 
+            buildRecordUrl(eventType, eventData, userRole) ?? content.related_url,
+            userRole,
             eventData
           );
           
           // Generate idempotency key for this notification
           const idempotencyKey = this.generateIdempotencyKey(eventType, eventData, recipient.id);
           
-          // Provide fallback URL if the template substitution failed
-          let finalRelatedUrl = relatedUrl;
-          if (!finalRelatedUrl || finalRelatedUrl.includes('{')) {
-            console.warn(`⚠️ Invalid or missing related_url for ${eventType}, generating fallback`);
-            switch (eventType) {
-              case 'new_feedback':
-                finalRelatedUrl = '/admin/feedback';
-                break;
-              case 'assignment_created':
-                finalRelatedUrl = '/assignments';
-                break;
-              case 'course_assigned':
-                finalRelatedUrl = '/mi-aprendizaje';
-                break;
-              case 'session_edit_request_submitted':
-                finalRelatedUrl = '/admin/sessions/approvals';
-                break;
-              case 'session_edit_request_approved':
-              case 'session_edit_request_rejected':
-              case 'session_reminder_24h':
-              case 'session_reminder_1h':
-                finalRelatedUrl = '/consultor/sessions';
-                break;
-              case 'licitacion_created':
-              case 'licitacion_published':
-              case 'licitacion_bases_deadline_1d':
-              case 'licitacion_bases_deadline':
-              case 'licitacion_consultas_deadline_1d':
-              case 'licitacion_consultas_deadline':
-              case 'licitacion_propuestas_open':
-              case 'licitacion_propuestas_deadline_1d':
-              case 'licitacion_propuestas_deadline':
-              case 'licitacion_evaluacion_start':
-              case 'licitacion_evaluacion_deadline_1d':
-              case 'licitacion_evaluacion_complete':
-              case 'licitacion_adjudicada':
-              case 'licitacion_contrato_generado':
-                finalRelatedUrl = '/licitaciones';
-                break;
-              default:
-                finalRelatedUrl = '/dashboard';
-            }
-            console.log(`🔄 Using fallback URL: ${finalRelatedUrl}`);
-          }
+          const finalRelatedUrl =
+            isSafeNotificationPath(relatedUrl) &&
+            isOpenToRole(relatedUrl, userRole) &&
+            isSessionRecordOpenTo(relatedUrl, { userId: recipient.id, userRoles, highestRole }, sessionRecord)
+              ? relatedUrl
+              : getAccessibleUrl(getFallbackUrl(eventType, userRole), userRole) ?? DEFAULT_NOTIFICATION_URL;
           
           await this.createNotification({
             user_id: recipient.id,
@@ -459,6 +434,28 @@ class NotificationService {
    * @param eventData - Event data containing recipient information
    * @param eventType - The event type
    */
+  /**
+   * The session a payload's `session.id` names, as the session record pages
+   * read it for their access rule; null when the id is not a UUID or the read
+   * fails, which denies every session record link for this event.
+   */
+  async getSessionRecord(eventData: Record<string, unknown>): Promise<SessionRecord | null> {
+    const id = (eventData?.session as Record<string, unknown> | undefined)?.id;
+    if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      return null;
+    }
+    try {
+      const { data, error } = await supabaseServiceRole
+        .from('consultor_sessions')
+        .select('id, school_id, growth_community_id, status, is_active')
+        .eq('id', id)
+        .maybeSingle();
+      return error || !data ? null : (data as SessionRecord);
+    } catch {
+      return null;
+    }
+  }
+
   async getRecipients(
     trigger: NotificationTrigger,
     eventData: Record<string, unknown>,
@@ -714,7 +711,7 @@ class NotificationService {
           return {
             title: substitutedTitle,
             description: substitutedDesc || eventConfig.defaultDescription(eventData),
-            related_url: substitutedUrl || eventConfig.defaultUrl,
+            related_url: substitutedUrl || getFallbackUrl(eventType),
             importance: template.importance || eventConfig.importance,
           };
         }
@@ -728,7 +725,7 @@ class NotificationService {
       return {
         title: eventConfig.defaultTitle(eventData),
         description: eventConfig.defaultDescription(eventData),
-        related_url: eventConfig.defaultUrl,
+        related_url: getFallbackUrl(eventType),
         importance: eventConfig.importance,
       };
 
@@ -738,7 +735,7 @@ class NotificationService {
       return {
         title: eventConfig.defaultTitle(eventData),
         description: eventConfig.defaultDescription(eventData),
-        related_url: eventConfig.defaultUrl,
+        related_url: getFallbackUrl(eventType),
         importance: eventConfig.importance,
       };
     }

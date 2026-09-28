@@ -135,6 +135,12 @@ const at = (base: string, ...idPaths: string[]) => (data: EventData) => {
 /** No record route exists for this event; the link is the entry's `fallbackUrl`. */
 const noRecord = () => null;
 
+/** The workspace messaging section with the thread a workspace message payload names. */
+const workspaceThreadUrl = (data: EventData) => {
+  const id = get(data, 'thread_id');
+  return typeof id === 'string' && UUID.test(id) ? `/community/workspace?section=messaging&thread=${id.toLowerCase()}` : null;
+};
+
 /**
  * Roles the consultor session pages admit; they send every other role to the
  * dashboard (pages/consultor/sessions/[id].tsx and index.tsx).
@@ -237,8 +243,13 @@ export const NOTIFICATION_CATALOG: Record<string, NotificationCatalogEntry> = {
   assignment_feedback: plain('assignments', 'student', 'immediate', [], ASSIGNMENT_FIELDS, assignmentUrl, '/assignments'),
   assignment_due_soon: plain('assignments', 'student', 'immediate', ['assignment_id', 'student_id', 'due_date'], ASSIGNMENT_FIELDS, assignmentUrl, '/assignments'),
 
-  message_sent: plain('community', 'message_recipient', 'immediate', ['message_id'], ['sender_name'], noRecord, '/community/workspace?section=messaging'),
-  user_mentioned: plain('community', 'mentioned_user', 'immediate', ['mention_id'], ['author_name'], noRecord, '/community/workspace?section=overview'),
+  message_sent: plain('community', 'message_recipient', 'immediate', ['message_id'], ['sender_name'], workspaceThreadUrl, '/community/workspace?section=messaging'),
+  // A post mention is one occurrence per user_mentions row; a workspace message
+  // mention (no mention_id) is one per message, keyed with its recipient.
+  user_mentioned: {
+    ...plain('community', 'mentioned_user', 'immediate', ['mention_id'], ['author_name'], workspaceThreadUrl, '/community/workspace?section=overview'),
+    occurrenceId: (d) => occurrence(d, 'mention_id') ?? occurrence(d, 'message_id'),
+  },
   // `emailDefault` governs the finalize route's summary mail; the notification itself is in-app only until N5-06.
   meeting_finalized: plain('community', 'meeting_recipients', 'immediate', ['meeting_id'], ['title'], noRecord, '/community/workspace?section=meetings'),
 

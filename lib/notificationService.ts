@@ -81,6 +81,7 @@ interface NotificationData {
   read_at: null;
   event_type?: string;
   idempotency_key?: string | null;
+  notification_type_id?: string | null;
 }
 
 // Use service role key for bypassing RLS when creating notifications
@@ -159,6 +160,8 @@ async function getLicitacionRecipients(
 
 /** The catalog event the meeting-summary email is governed by. */
 const MEETING_SUMMARY_EVENT = 'meeting_finalized';
+
+const USER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Resolve recipients for a community-meeting finalize/update email.
@@ -422,6 +425,10 @@ class NotificationService {
       // Generate notification content from template (hybrid: DB template with code fallback)
       const content = await this.generateContent(trigger.template, eventData, eventType);
 
+      // A mapped event is stored under its catalog category; an unknown one keeps its trigger's.
+      const category = getCatalogEntry(eventType)?.category ?? trigger.category;
+      const notificationTypeId = await this.getNotificationTypeId(eventType);
+
       // A session record page re-checks `canViewSession` for its viewer, so the
       // session is read once here and each recipient's link is decided against it.
       const sessionRecord = await this.getSessionRecord(eventData);
@@ -459,12 +466,13 @@ class NotificationService {
             user_id: recipient.id,
             title: content.title,
             description: content.description,
-            category: trigger.category,
+            category,
             related_url: finalRelatedUrl,
             importance: content.importance || 'normal',
             read_at: null,
             event_type: eventType,
-            idempotency_key: idempotencyKey
+            idempotency_key: idempotencyKey,
+            notification_type_id: notificationTypeId
           });
           notificationsCreated++;
         } catch (error) {
@@ -480,6 +488,30 @@ class NotificationService {
     } catch (error) {
       console.error('Error processing notification', loggableError(error));
       throw error;
+    }
+  }
+
+  /**
+   * The `notification_types` row named after this event, or null when there is
+   * none or the read fails: the column is a nullable foreign key and the types
+   * are not seeded, so a missing type never costs the notification.
+   * @param eventType - The event type
+   */
+  async getNotificationTypeId(eventType: string): Promise<string | null> {
+    try {
+      const { data, error } = await supabaseServiceRole
+        .from('notification_types')
+        .select('id')
+        .eq('id', eventType)
+        .maybeSingle();
+      if (error) {
+        console.error('Notification type lookup failed', loggableError(error));
+        return null;
+      }
+      return typeof data?.id === 'string' ? data.id : null;
+    } catch (error) {
+      console.error('Notification type lookup failed', loggableError(error));
+      return null;
     }
   }
 
@@ -553,6 +585,21 @@ class NotificationService {
             recipients.push({ id: eventData.mentioned_user_id });
           }
           break;
+
+        case 'meeting_finalized': {
+          // Exactly the finalize route's resolved recipients: valid, distinct user
+          // ids only. Nothing is inferred from the title or the audience.
+          const seen = new Set<string>();
+          for (const userId of Array.isArray(eventData.recipient_ids) ? eventData.recipient_ids : []) {
+            if (typeof userId !== 'string' || !USER_ID.test(userId)) continue;
+            const id = userId.toLowerCase();
+            if (!seen.has(id)) {
+              seen.add(id);
+              recipients.push({ id });
+            }
+          }
+          break;
+        }
 
         case 'assignment_feedback':
         case 'assignment_due_soon':
@@ -872,7 +919,8 @@ class NotificationService {
     const client = deps.client || supabaseServiceRole;
 
     try {
-      console.log('📧 Creating notification:', notificationData.title);
+      // The title can carry a person's name, so only the event type is logged.
+      console.log('📧 Creating notification', { event_type: notificationData.event_type ?? null });
 
       const notificationType = notificationData.event_type || notificationData.category;
       const preference = await this.getNotificationPreference(
@@ -918,7 +966,8 @@ class NotificationService {
   /**
    * Whether the immediate email goes out for this recipient.
    *
-   * The kill switch is checked first, before any preference read. Then the
+   * `meeting_finalized` never mails here. The kill switch is checked next,
+   * before any preference read. Then the
    * recipient's row for the event's catalog category is read, and
    * `resolveEmailPreference` applies the precedence with SM-15's exact legacy
    * row. This synchronous path runs in compat mode until the outbox cutover: a
@@ -930,6 +979,13 @@ class NotificationService {
    * @param {Object} preference - Result of `getNotificationPreference`
    */
   async resolveEmailChannel(client, notificationData, preference) {
+    // Until N5-06 the finalize route's summary is a meeting's only email, so its
+    // notification is in-app only whatever the category mode or kill switch.
+    if (notificationData.event_type === MEETING_SUMMARY_EVENT) {
+      console.log('📭 Notification email NOT sent', { status: 'in_app_only' });
+      return false;
+    }
+
     if (isEmailKillSwitchOff()) {
       console.log('📭 Notification email NOT sent', { status: 'disabled' });
       return false;
@@ -999,7 +1055,8 @@ class NotificationService {
       importance: notificationData.importance || 'normal',
       read_at: null,
       created_at: new Date().toISOString(),
-      idempotency_key: notificationData.idempotency_key || null
+      idempotency_key: notificationData.idempotency_key || null,
+      notification_type_id: notificationData.notification_type_id || null
     };
 
     const { data, error } = await client

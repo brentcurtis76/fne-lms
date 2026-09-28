@@ -333,7 +333,8 @@ describe('notify-admins — the creator triggers, the server decides (D1)', () =
     for (const row of state.inserted) {
       expect(row.title).toBe('Nuevo feedback recibido');
       expect(row.description).toBe('Nuevo reporte de tipo Problema...');
-      expect(row.category).toBe('admin');
+      // A mapped event is stored under its catalog category, not the trigger's `admin`.
+      expect(row.category).toBe('qa_support');
     }
 
     // The existing immediate-email path carries the same generic text.

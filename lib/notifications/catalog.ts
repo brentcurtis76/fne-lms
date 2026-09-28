@@ -44,6 +44,8 @@ export type Audience =
   | 'student'
   | 'message_recipient'
   | 'mentioned_user'
+  /** The finalize route's resolved `recipient_ids`, validated and deduplicated. */
+  | 'meeting_recipients'
   | 'session_participants'
   | 'edit_requester'
   | 'tester'
@@ -237,7 +239,8 @@ export const NOTIFICATION_CATALOG: Record<string, NotificationCatalogEntry> = {
 
   message_sent: plain('community', 'message_recipient', 'immediate', ['message_id'], ['sender_name'], noRecord, '/community/workspace?section=messaging'),
   user_mentioned: plain('community', 'mentioned_user', 'immediate', ['mention_id'], ['author_name'], noRecord, '/community/workspace?section=overview'),
-  meeting_finalized: plain('community', 'unwired', 'immediate', ['meeting_id'], ['title'], noRecord, '/community/workspace?section=meetings'),
+  // `emailDefault` governs the finalize route's summary mail; the notification itself is in-app only until N5-06.
+  meeting_finalized: plain('community', 'meeting_recipients', 'immediate', ['meeting_id'], ['title'], noRecord, '/community/workspace?section=meetings'),
 
   session_created: session('session_participants', ['session.id']),
   // No transition id: a later move back to an earlier schedule (A→B→A→B) is

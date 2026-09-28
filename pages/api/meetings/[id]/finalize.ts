@@ -82,7 +82,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const startedAt = Date.now();
 
   try {
-    // Finalize needs the `community:communities(id, name)` inner select on
+    // Finalize needs the `community:growth_communities(id, name)` inner select on
     // the workspace join for the email header, so it re-declares the
     // workspace clause instead of using the plain `MEETING_POLICY_COLUMNS`.
     // Policy reads still only require `community_id` off the join, which
@@ -90,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const ctx = await loadMeetingAuthContext<FinalizeMeeting>(req, res, {
       meetingSelect:
         'id, status, created_by, facilitator_id, secretary_id, ' +
-        'workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id, community:communities(id, name, school_id)), ' +
+        'workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id, community:growth_communities!community_workspaces_community_id_fkey(id, name, school_id)), ' +
         'title, meeting_date, summary, summary_doc, notes, notes_doc, finalized_at, version',
       require: 'finalize',
     });
@@ -296,12 +296,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Fire in-app notification event. Do not await in a way that blocks on failure.
     try {
+      // Bell recipients are the same audience before any email filtering, so a
+      // member with email off or no address still gets the in-app notice. A
+      // failed lookup notifies nobody.
+      let bellRecipientIds: string[] = [];
+      if (audience === 'attended') {
+        bellRecipientIds = (attendeesRich || [])
+          .filter((a: any) => a.attendance_status === 'attended')
+          .map((a: any) => a.user_id);
+      } else if (workspace?.community_id) {
+        const { data: memberRows } = await serviceClient
+          .from('user_roles')
+          .select('user_id')
+          .eq('community_id', workspace.community_id)
+          .eq('is_active', true);
+        bellRecipientIds = (memberRows || []).map((row: any) => row.user_id);
+      }
       await notificationService.triggerNotification('meeting_finalized', {
         meeting_id: id,
         title: meeting.title,
         finalizer_name: templateData.finalizerName,
         audience,
-        recipient_ids: recipients.map((r) => r.id),
+        recipient_ids: bellRecipientIds,
       });
     } catch (err) {
       console.error('meeting_finalized notification trigger failed:', err);

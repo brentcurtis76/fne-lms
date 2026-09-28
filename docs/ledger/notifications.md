@@ -12,8 +12,8 @@ NOTIF-01 proposes N0-01: secure the feedback notification route and add the imme
 | N0-02 | Derive recipients and content server-side, with membership checks, for `messaging/mention` and `messaging/send` | done | NOTIF-02 | 2026-09-28 |  |
 | N0-03 | DB: revoke create_notification_safe from anon/authenticated/PUBLIC; restrict user_notifications INSERT to service_role; remove anon grant; pgTAP and browser-insert inventory | done | NOTIF-03 | 2026-09-27 |  |
 | N1-01 | `catalog.ts` and completeness tests; notification `urlBuilder`s | in-progress | NOTIF-04 | 2026-09-27 |  |
-| N1-02 | Category-preferences table, RLS and pgTAP | blocked |  | 2026-09-26 |  |
-| N1-03 | Precedence resolver (SM-15 legacy rule, meeting any-false rule, mandatory), wired into the sync path in compat mode (digest sent as immediate) | blocked |  | 2026-09-26 |  |
+| N1-02 | Category-preferences table, RLS and pgTAP | done | NOTIF-05 | 2026-09-28 |  |
+| N1-03 | Precedence resolver (SM-15 legacy rule, meeting any-false rule, mandatory), wired into the sync path in compat mode (digest sent as immediate) | todo |  | 2026-09-28 |  |
 | N2-01 | Occurrence-id idempotency (in-app and provider key); stop logging the full eventData | blocked |  | 2026-09-26 |  |
 | N2-02 | Payload/template fixes; `notification_type_id`/category; `meeting_finalized` recipients **in-app only** (email suppressed until N5-06, so no double send) | blocked |  | 2026-09-26 |  |
 | N2-03 | Workspace mentions and replies moved server-side, with reconciliation | blocked |  | 2026-09-26 |  |
@@ -84,3 +84,6 @@ NOTIF-01 proposes N0-01: secure the feedback notification route and add the imme
 - 2026-09-27T08:40:12-03:00 · NOTIF-02 · IN-PROGRESS · N0-02 current-main rebuild r3 reopened after pm-ship set aside commit 6dd3f072d; same approved outcome and preserved prior review · token ls-981602c087
 - 2026-09-27T08:40:34-03:00 · NOTIF-04 · IN-PROGRESS · NOTIF-04 r0 dispatched (pm-unit begin) · token ls-96bf7cff09
 - 2026-09-28T06:00:47-03:00 · NOTIF-02 · DONE · NOTIF-02: contain messaging notification endpoints on current main · token 010d4c2f1f14
+- 2026-09-28T12:10:30-03:00 · NOTIF-05 · IN-PROGRESS · NOTIF-05 r0 dispatched (pm-unit begin) · token ls-1bb336d703
+- 2026-09-28T12:54:52-03:00 · NOTIF-05 · DONE · NOTIF-05: add category preference storage and RLS · token 0d3682b38dd5
+- 2026-09-28T12:54:52-03:00 · PM · TODO · N1-03 is free again: N1-02 finished. · token 0d3682b38dd5-free-N1-03

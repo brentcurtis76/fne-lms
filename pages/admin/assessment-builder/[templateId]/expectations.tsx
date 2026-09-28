@@ -99,6 +99,28 @@ interface TemplateInfo {
   requiresDualExpectations: boolean;
 }
 
+type YearKey = 'year1' | 'year2' | 'year3' | 'year4' | 'year5';
+const YEAR_KEYS: YearKey[] = ['year1', 'year2', 'year3', 'year4', 'year5'];
+
+// Frequency counts are whole numbers >= 0 (same rule as the expectations API).
+const isWholeCount = (raw: string) => /^\d+$/.test(raw) && Number.isSafeInteger(Number(raw));
+const FREQUENCY_COUNT_ERROR =
+  'No se guardaron los cambios: la cantidad de frecuencia debe ser un número entero mayor o igual a 0.';
+
+const frequencyDraftKey = (indicatorId: string, generationType: GenerationType, yearKey: YearKey) =>
+  `freq-${indicatorId}-${generationType}-${yearKey}`;
+
+const frequencyUnitsFor = (indicator: IndicatorExpectation): FrequencyUnit[] =>
+  indicator.frequencyUnitOptions && indicator.frequencyUnitOptions.length > 0
+    ? indicator.frequencyUnitOptions
+    : FREQUENCY_UNIT_OPTIONS;
+
+// The period the select actually shows: the stored unit, or the first option as default.
+const visibleFrequencyUnit = (indicator: IndicatorExpectation, unit: FrequencyUnit | null): FrequencyUnit => {
+  const units = frequencyUnitsFor(indicator);
+  return unit && units.includes(unit) ? unit : units[0];
+};
+
 const ExpectationsEditor: React.FC = () => {
   const router = useRouter();
   const { templateId } = router.query;
@@ -116,6 +138,9 @@ const ExpectationsEditor: React.FC = () => {
   // Expectations data
   const [moduleExpectations, setModuleExpectations] = useState<ModuleExpectations[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+  // Raw text of each typed frequency count, so an invalid draft such as "1.5" stays visible
+  const [frequencyDrafts, setFrequencyDrafts] = useState<Record<string, string>>({});
+  const [showFrequencyErrors, setShowFrequencyErrors] = useState(false);
 
   // Expanded level descriptors state (indicatorId or null)
   const [expandedDescriptors, setExpandedDescriptors] = useState<string | null>(null);
@@ -278,6 +303,8 @@ const ExpectationsEditor: React.FC = () => {
       }));
 
       setModuleExpectations(modules);
+      setFrequencyDrafts({});
+      setShowFrequencyErrors(false);
 
       // Load weight distributor data from objectives hierarchy
       const rawObjectives = expectationsData.objectives || [];
@@ -483,65 +510,54 @@ const ExpectationsEditor: React.FC = () => {
     setHasChanges(true);
   };
 
+  // Frequency cells whose typed text is not a whole count >= 0
+  const invalidFrequencyCells = moduleExpectations.flatMap(mod =>
+    mod.indicators
+      .filter(ind => ind.indicatorCategory === 'frecuencia')
+      .flatMap(ind =>
+        (['GT', 'GI'] as GenerationType[]).flatMap(generationType =>
+          YEAR_KEYS.filter(yearKey => {
+            const draft = frequencyDrafts[frequencyDraftKey(ind.indicatorId, generationType, yearKey)]?.trim();
+            return draft !== undefined && draft !== '' && !isWholeCount(draft);
+          }).map(yearKey => ({
+            key: frequencyDraftKey(ind.indicatorId, generationType, yearKey),
+            label: `${ind.indicatorCode || ind.indicatorName} (${generationType}, Año ${yearKey.slice(4)})`,
+          }))
+        )
+      )
+  );
+
   // Save all changes
   const handleSaveAll = async () => {
     if (!template) return;
 
-    // Collect all dirty indicators (GT and GI separately)
-    const updates: Array<{
-      indicatorId: string;
-      generationType: GenerationType;
-      year1: number | null;
-      year1Unit: FrequencyUnit | null;
-      year2: number | null;
-      year2Unit: FrequencyUnit | null;
-      year3: number | null;
-      year3Unit: FrequencyUnit | null;
-      year4: number | null;
-      year4Unit: FrequencyUnit | null;
-      year5: number | null;
-      year5Unit: FrequencyUnit | null;
-      tolerance: number;
-    }> = [];
+    if (invalidFrequencyCells.length > 0) {
+      setShowFrequencyErrors(true);
+      toast.error(FREQUENCY_COUNT_ERROR);
+      document.getElementById(invalidFrequencyCells[0].key)?.focus();
+      return;
+    }
 
+    type ExpectationUpdate = { indicatorId: string; generationType: GenerationType } & ExpectationData;
+    // A frequency count is saved with the period its select shows, including the default one
+    const toUpdate = (ind: IndicatorExpectation, generationType: GenerationType, exp: ExpectationData): ExpectationUpdate => {
+      const update: ExpectationUpdate = { indicatorId: ind.indicatorId, generationType, ...exp };
+      if (ind.indicatorCategory === 'frecuencia') {
+        YEAR_KEYS.forEach(yearKey => {
+          const unitKey = `${yearKey}Unit` as const;
+          if (exp[yearKey] !== null) update[unitKey] = visibleFrequencyUnit(ind, exp[unitKey]);
+        });
+      }
+      return update;
+    };
+
+    // Collect all dirty indicators (GT and GI separately)
+    const updates: ExpectationUpdate[] = [];
     moduleExpectations.forEach(mod => {
       mod.indicators.forEach(ind => {
-        // Save GT expectations if dirty
-        if (ind.isDirtyGT) {
-          updates.push({
-            indicatorId: ind.indicatorId,
-            generationType: 'GT',
-            year1: ind.expectationsGT.year1,
-            year1Unit: ind.expectationsGT.year1Unit,
-            year2: ind.expectationsGT.year2,
-            year2Unit: ind.expectationsGT.year2Unit,
-            year3: ind.expectationsGT.year3,
-            year3Unit: ind.expectationsGT.year3Unit,
-            year4: ind.expectationsGT.year4,
-            year4Unit: ind.expectationsGT.year4Unit,
-            year5: ind.expectationsGT.year5,
-            year5Unit: ind.expectationsGT.year5Unit,
-            tolerance: ind.expectationsGT.tolerance,
-          });
-        }
-        // Save GI expectations if dirty (only for non-always_gt templates)
-        if (ind.isDirtyGI && ind.expectationsGI) {
-          updates.push({
-            indicatorId: ind.indicatorId,
-            generationType: 'GI',
-            year1: ind.expectationsGI.year1,
-            year1Unit: ind.expectationsGI.year1Unit,
-            year2: ind.expectationsGI.year2,
-            year2Unit: ind.expectationsGI.year2Unit,
-            year3: ind.expectationsGI.year3,
-            year3Unit: ind.expectationsGI.year3Unit,
-            year4: ind.expectationsGI.year4,
-            year4Unit: ind.expectationsGI.year4Unit,
-            year5: ind.expectationsGI.year5,
-            year5Unit: ind.expectationsGI.year5Unit,
-            tolerance: ind.expectationsGI.tolerance,
-          });
-        }
+        if (ind.isDirtyGT) updates.push(toUpdate(ind, 'GT', ind.expectationsGT));
+        // GI only exists for non-always_gt templates
+        if (ind.isDirtyGI && ind.expectationsGI) updates.push(toUpdate(ind, 'GI', ind.expectationsGI));
       });
     });
 
@@ -559,7 +575,7 @@ const ExpectationsEditor: React.FC = () => {
       });
 
       if (!response.ok) {
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
         throw new Error(data.error || 'Error al guardar expectativas');
       }
 
@@ -571,6 +587,8 @@ const ExpectationsEditor: React.FC = () => {
         }))
       );
       setHasChanges(false);
+      setFrequencyDrafts({});
+      setShowFrequencyErrors(false);
       toast.success(`${updates.length} expectativa${updates.length !== 1 ? 's' : ''} guardada${updates.length !== 1 ? 's' : ''}`);
     } catch (error: any) {
       console.error('Error saving expectations:', error);
@@ -771,31 +789,44 @@ const ExpectationsEditor: React.FC = () => {
 
     // For frecuencia indicators, show numeric input AND unit dropdown
     if (indicator.indicatorCategory === 'frecuencia') {
-      const unitKey = `${yearKey}Unit` as keyof ExpectationData;
-      const unitValue = expectations[unitKey] as FrequencyUnit | null;
-      const availableUnits = indicator.frequencyUnitOptions && indicator.frequencyUnitOptions.length > 0
-        ? indicator.frequencyUnitOptions
-        : FREQUENCY_UNIT_OPTIONS;
+      const unitKey = `${yearKey}Unit` as const;
+      const availableUnits = frequencyUnitsFor(indicator);
+      const draftKey = frequencyDraftKey(indicator.indicatorId, generationType, yearKey);
+      const draft = frequencyDrafts[draftKey];
+      const isInvalid = showFrequencyErrors && invalidFrequencyCells.some(cell => cell.key === draftKey);
+      const cellLabel = `${indicator.indicatorName}, ${generationType}, Año ${yearKey.slice(4)}`;
 
       return (
         <td key={`${yearKey}-${generationType}`} className="px-2 py-2 text-center border-r border-gray-200">
           <div className="flex items-center gap-1 justify-center">
             <input
-              type="number"
-              min="0"
-              max="999"
-              value={value ?? ''}
+              id={draftKey}
+              data-testid={draftKey}
+              type="text"
+              inputMode="numeric"
+              aria-label={`Cantidad de frecuencia: ${cellLabel}`}
+              aria-invalid={isInvalid || undefined}
+              aria-describedby={isInvalid ? 'frequency-count-error' : undefined}
+              value={draft ?? (value ?? '')}
               onChange={(e) => {
-                const newValue = e.target.value === '' ? null : parseInt(e.target.value, 10);
+                const raw = e.target.value;
+                setFrequencyDrafts(prev => ({ ...prev, [draftKey]: raw }));
+                // An invalid draft keeps the last valid count; saving is blocked until it is fixed
+                const trimmed = raw.trim();
+                const newValue = trimmed === '' ? null : isWholeCount(trimmed) ? Number(trimmed) : value;
                 updateExpectation(moduleId, indicator.indicatorId, generationType, yearKey, newValue);
               }}
               disabled={disabled}
               placeholder="-"
-              className="w-12 px-1 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand_primary disabled:bg-gray-100 disabled:opacity-50"
+              className={`w-16 px-1 py-1 text-sm text-center border rounded focus:outline-none focus:ring-1 focus:ring-brand_primary disabled:bg-gray-100 disabled:opacity-50 ${
+                isInvalid ? 'border-red-600' : 'border-gray-300'
+              }`}
             />
             <span className="text-xs text-gray-400">/</span>
             <select
-              value={unitValue || availableUnits[0]}
+              data-testid={`${draftKey}-unit`}
+              aria-label={`Periodo de frecuencia: ${cellLabel}`}
+              value={visibleFrequencyUnit(indicator, expectations[unitKey])}
               onChange={(e) => {
                 updateExpectation(moduleId, indicator.indicatorId, generationType, unitKey, e.target.value as FrequencyUnit);
               }}
@@ -1435,6 +1466,21 @@ const ExpectationsEditor: React.FC = () => {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {showFrequencyErrors && invalidFrequencyCells.length > 0 && (
+          <div
+            id="frequency-count-error"
+            role="alert"
+            data-testid="frequency-count-error"
+            className="mb-6 flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800"
+          >
+            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium">{FREQUENCY_COUNT_ERROR}</p>
+              <p className="mt-1">Revisa: {invalidFrequencyCells.map(cell => cell.label).join('; ')}</p>
+            </div>
           </div>
         )}
 

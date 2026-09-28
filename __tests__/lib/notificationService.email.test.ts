@@ -28,6 +28,11 @@ const USER_ID = '11111111-1111-4111-8111-111111111111';
 const RECIPIENT = 'destinataria.sintetica@ejemplo.invalid';
 const QA_SCHOOL_ID = 257; // config/production-qa-simulation-target.json
 const IDEMPOTENCY_KEY = 'licitacion_published-lic-1-11111111-1111-4111-8111-111111111111-2026-09-22T10:00';
+/** What the database answers when a row with the same idempotency key already exists. */
+const KEY_CONFLICT = {
+  code: '23505',
+  message: 'duplicate key value violates unique constraint "unique_notification_idempotency_key"',
+};
 
 type Terminator = 'single' | 'maybeSingle' | 'await';
 
@@ -409,10 +414,10 @@ describe('createNotification — in-app and immediate email are independent chan
       transport,
     });
 
-    // The retry sees the row the first attempt wrote.
+    // The retry's insert hits the row the first attempt wrote under the same key.
     const retry = world({
       preference: { email_enabled: true, in_app_enabled: true },
-      duplicateRows: [{ id: 'notif-1' }],
+      insertError: KEY_CONFLICT,
     });
     const created = await notificationService.createNotification(notificationData(), {
       client: retry.client,
@@ -422,6 +427,8 @@ describe('createNotification — in-app and immediate email are independent chan
     expect(first.inserted).toHaveLength(1);
     expect(retry.inserted).toHaveLength(0);
     expect(created).toBeNull();
+    // A keyed row is deduplicated by its key, never by the 60-second title check.
+    expect(retry.calls.some((c) => c.table === 'user_notifications' && c.op === 'select')).toBe(false);
 
     expect(sends).toHaveLength(2);
     expect(sends[0].options.idempotencyKey).toBe(IDEMPOTENCY_KEY);
@@ -831,7 +838,7 @@ describe('createNotification — N1-03 email precedence on the live sync path (c
     const { transport, sends } = acceptingTransport();
 
     await notificationService.createNotification(notificationData(), { client, transport });
-    const retry = world({ preference: null, categoryMode: 'digest', duplicateRows: [{ id: 'notif-1' }] });
+    const retry = world({ preference: null, categoryMode: 'digest', insertError: KEY_CONFLICT });
     await notificationService.createNotification(notificationData(), { client: retry.client, transport });
 
     expect(inserted).toHaveLength(1);

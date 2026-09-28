@@ -63,7 +63,11 @@ export interface NotificationCatalogEntry {
   mandatory: boolean;
   /** Required when `mandatory` is true. */
   mandatoryJustification?: string;
-  /** Stable id of the persisted record occurrence, or null when the payload lacks it. */
+  /**
+   * Stable id of the persisted record occurrence, or null when the payload lacks
+   * one. Null (`[]` paths) is also used where the payload names only the entity,
+   * whose repeat is a genuine new occurrence: each such trigger is then delivered.
+   */
   occurrenceId: (data: EventData) => string | null;
   /** Dotted payload paths an email may carry. Everything else is dropped. */
   emailFields: readonly string[];
@@ -104,12 +108,21 @@ function recordId(data: EventData, ...paths: string[]): string | null {
   return null;
 }
 
+/**
+ * Each path must hold a non-blank string or a finite number, else null. A UUID
+ * is lowercased so a retry keeps its id whatever the case; each part is encoded
+ * so no two different tuples join to the same id.
+ */
 function occurrence(data: EventData, ...paths: string[]): string | null {
   if (paths.length === 0) return null;
-  const parts = paths.map((path) => get(data, path));
-  if (parts.some((part) => typeof part !== 'string' && typeof part !== 'number')) return null;
-  if (parts.some((part) => String(part).length === 0)) return null;
-  return parts.map(String).join(':');
+  const parts: string[] = [];
+  for (const path of paths) {
+    const value = get(data, path);
+    if (typeof value === 'number' ? !Number.isFinite(value) : typeof value !== 'string' || value.trim() === '') return null;
+    const text = String(value);
+    parts.push(encodeURIComponent(UUID.test(text) ? text.toLowerCase() : text));
+  }
+  return parts.join(':');
 }
 
 const at = (base: string, ...idPaths: string[]) => (data: EventData) => {
@@ -177,6 +190,16 @@ const licitacion = (audience: Audience, extraFields: string[] = []): Notificatio
   fallbackUrl: '/licitaciones',
 });
 
+/**
+ * A deadline reminder is one occurrence per (licitación, persisted deadline date,
+ * reminder phase): the checker reruns on every page load, and the evaluación
+ * event is sent both the day before and the day of the same deadline.
+ */
+const deadline = (audience: Audience): NotificationCatalogEntry => ({
+  ...licitacion(audience),
+  occurrenceId: (d) => occurrence(d, 'licitacion_id', 'deadline_date', 'reminder'),
+});
+
 const plain = (
   category: NotificationCategory,
   audience: Audience,
@@ -201,13 +224,15 @@ const ASSIGNMENT_FIELDS = ['assignment.title', 'assignment.due_date', 'assignmen
 const assignmentUrl = at('/assignments', 'assignment.id', 'assignment_id');
 
 export const NOTIFICATION_CATALOG: Record<string, NotificationCatalogEntry> = {
-  course_assigned: plain('courses', 'assigned_users', 'immediate', ['course.id'], ['course.name'], noRecord, '/mi-aprendizaje'),
-  learning_path_assigned: plain('courses', 'unwired', 'immediate', ['learning_path.id'], ['learning_path.name'], noRecord, '/mi-aprendizaje'),
+  // The payload names the course, not the assignment row: a re-assignment is a new occurrence.
+  course_assigned: plain('courses', 'assigned_users', 'immediate', [], ['course.name'], noRecord, '/mi-aprendizaje'),
+  learning_path_assigned: plain('courses', 'unwired', 'immediate', [], ['learning_path.name'], noRecord, '/mi-aprendizaje'),
   course_completed: plain('courses', 'student', 'digest', ['course_id', 'student_id'], ['course.name', 'course_name'], noRecord, '/mi-aprendizaje'),
   module_completed: plain('courses', 'student', 'digest', ['module_id', 'student_id'], ['module.name', 'course.name', 'module_name', 'course_name'], noRecord, '/mi-aprendizaje'),
 
   assignment_created: plain('assignments', 'assigned_users', 'immediate', ['assignment.id'], ASSIGNMENT_FIELDS, assignmentUrl, '/assignments'),
-  assignment_feedback: plain('assignments', 'student', 'immediate', ['assignment_id', 'student_id'], ASSIGNMENT_FIELDS, assignmentUrl, '/assignments'),
+  // Feedback is upserted per (assignment, student): each new feedback is a new occurrence.
+  assignment_feedback: plain('assignments', 'student', 'immediate', [], ASSIGNMENT_FIELDS, assignmentUrl, '/assignments'),
   assignment_due_soon: plain('assignments', 'student', 'immediate', ['assignment_id', 'student_id', 'due_date'], ASSIGNMENT_FIELDS, assignmentUrl, '/assignments'),
 
   message_sent: plain('community', 'message_recipient', 'immediate', ['message_id'], ['sender_name'], noRecord, '/community/workspace?section=messaging'),
@@ -215,7 +240,9 @@ export const NOTIFICATION_CATALOG: Record<string, NotificationCatalogEntry> = {
   meeting_finalized: plain('community', 'unwired', 'immediate', ['meeting_id'], ['title'], noRecord, '/community/workspace?section=meetings'),
 
   session_created: session('session_participants', ['session.id']),
-  session_rescheduled: session('session_participants', ['session.id', 'session.date', 'session.time'], {
+  // No transition id: a later move back to an earlier schedule (A→B→A→B) is
+  // indistinguishable from a retry, so each reschedule is delivered.
+  session_rescheduled: session('session_participants', [], {
     emailFields: [...SESSION_FIELDS, 'session.previous_date', 'session.previous_time', 'session.previous_end_time'],
   }),
   session_cancelled: session('session_participants', ['session.id'], {
@@ -224,27 +251,28 @@ export const NOTIFICATION_CATALOG: Record<string, NotificationCatalogEntry> = {
   }),
   session_reminder_24h: session('session_participants', ['session.id', 'session.date', 'session.time']),
   session_reminder_1h: session('session_participants', ['session.id', 'session.date', 'session.time']),
-  session_edit_request_submitted: session('admins', ['session.id', 'requester_id'], {
+  // The payload has no edit-request id: two requests on one session are two occurrences.
+  session_edit_request_submitted: session('admins', [], {
     emailFields: ['session.title'],
     urlBuilder: noRecord,
     fallbackUrl: '/admin/sessions/approvals',
   }),
-  session_edit_request_approved: session('edit_requester', ['session.id', 'requester_id'], { emailFields: ['session.title'] }),
-  session_edit_request_rejected: session('edit_requester', ['session.id', 'requester_id'], { emailFields: ['session.title'] }),
+  session_edit_request_approved: session('edit_requester', [], { emailFields: ['session.title'] }),
+  session_edit_request_rejected: session('edit_requester', [], { emailFields: ['session.title'] }),
 
   consultant_assigned: plain('advisory', 'student', 'immediate', ['assignment_id'], ['consultant.name', 'consultant_name'], noRecord, '/profile'),
 
   licitacion_created: licitacion('school_encargados'),
   licitacion_published: licitacion('school_encargados', ['fecha_publicacion']),
-  licitacion_bases_deadline_1d: licitacion('school_encargados'),
-  licitacion_bases_deadline: licitacion('school_encargados'),
-  licitacion_consultas_deadline_1d: licitacion('school_encargados'),
-  licitacion_consultas_deadline: licitacion('school_encargados'),
+  licitacion_bases_deadline_1d: deadline('school_encargados'),
+  licitacion_bases_deadline: deadline('school_encargados'),
+  licitacion_consultas_deadline_1d: deadline('school_encargados'),
+  licitacion_consultas_deadline: deadline('school_encargados'),
   licitacion_propuestas_open: licitacion('school_encargados'),
-  licitacion_propuestas_deadline_1d: licitacion('school_encargados'),
-  licitacion_propuestas_deadline: licitacion('school_encargados'),
+  licitacion_propuestas_deadline_1d: deadline('school_encargados'),
+  licitacion_propuestas_deadline: deadline('school_encargados'),
   licitacion_evaluacion_start: licitacion('school_encargados'),
-  licitacion_evaluacion_deadline_1d: licitacion('school_encargados'),
+  licitacion_evaluacion_deadline_1d: deadline('school_encargados'),
   licitacion_evaluacion_complete: licitacion('school_encargados_and_admins', ['ganador_nombre']),
   licitacion_adjudicada: licitacion('school_encargados_and_admins', ['ganador_nombre']),
   licitacion_contrato_generado: licitacion('admins'),

@@ -8,6 +8,7 @@
  * - If DB template substitution fails, code defaults are used
  */
 
+import { createHash, randomUUID } from 'crypto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { getAccessibleUrl } from '../utils/notificationPermissions';
 import { getHighestRole, getUserRoles } from '../utils/roleUtils';
@@ -293,6 +294,13 @@ function loggableError(error: unknown): { code?: string } {
   return typeof code === 'string' && /^(?:[0-9A-Z]{5}|PGRST\d{3})$/.test(code) ? { code } : {};
 }
 
+function sha256Hex(value: string): string {
+  return createHash('sha256').update(value, 'utf8').digest('hex');
+}
+
+/** The occurrence prefix `resolveOccurrence` gives a payload the catalog identifies. */
+const IDENTIFIED_OCCURRENCE = 'record:';
+
 class NotificationService {
   
   /**
@@ -306,6 +314,7 @@ class NotificationService {
     eventData: Record<string, unknown>,
     options: TriggerOptions = {}
   ): Promise<TriggerResult> {
+    const occurrence = this.resolveOccurrence(eventType, eventData);
     try {
       // eventData carries recipient ids (e.g. `assigned_users`), so it is not logged.
       console.log(`🔔 Notification trigger fired: ${eventType}`);
@@ -319,7 +328,7 @@ class NotificationService {
       if (triggers && triggers.length > 0) {
         for (const trigger of triggers) {
           try {
-            const notificationCount = await this.processNotification(trigger, eventData, eventType, options);
+            const notificationCount = await this.processNotification(trigger, eventData, eventType, options, occurrence);
             totalNotificationsCreated += notificationCount;
           } catch (error) {
             console.error(`❌ Error processing trigger ${trigger.trigger_id}`, loggableError(error));
@@ -344,7 +353,7 @@ class NotificationService {
         };
 
         try {
-          const notificationCount = await this.processNotification(syntheticTrigger, eventData, eventType, options);
+          const notificationCount = await this.processNotification(syntheticTrigger, eventData, eventType, options, occurrence);
           totalNotificationsCreated += notificationCount;
         } catch (error) {
           console.error(`❌ Error processing code-based notification for ${eventType}`, loggableError(error));
@@ -352,14 +361,14 @@ class NotificationService {
       }
 
       // Log the event for audit trail
-      await this.logNotificationEvent(eventType, eventData, null, totalNotificationsCreated, 'success');
+      await this.logNotificationEvent(eventType, occurrence, null, totalNotificationsCreated, 'success');
 
       console.log(`✅ Notification processing complete: ${totalNotificationsCreated} notifications created`);
       return { success: true, notificationsCreated: totalNotificationsCreated };
 
     } catch (error) {
       console.error(`❌ Notification trigger failed for ${eventType}`, loggableError(error));
-      await this.logNotificationEvent(eventType, eventData, null, 0, 'failed');
+      await this.logNotificationEvent(eventType, occurrence, null, 0, 'failed');
       return { success: false, error: error.message };
     }
   }
@@ -392,12 +401,14 @@ class NotificationService {
    * @param eventData - Event data for template substitution
    * @param eventType - The event type
    * @param options - Processing options
+   * @param occurrence - The trigger call's occurrence (`resolveOccurrence`)
    */
   async processNotification(
     trigger: NotificationTrigger,
     eventData: Record<string, unknown>,
     eventType: string,
-    options: TriggerOptions = {}
+    options: TriggerOptions = {},
+    occurrence: string = this.resolveOccurrence(eventType, eventData)
   ): Promise<number> {
     try {
       // Get recipients for this trigger
@@ -435,8 +446,7 @@ class NotificationService {
             eventData
           );
           
-          // Generate idempotency key for this notification
-          const idempotencyKey = this.generateIdempotencyKey(eventType, eventData, recipient.id);
+          const idempotencyKey = this.generateIdempotencyKey(eventType, occurrence, recipient.id);
           
           const finalRelatedUrl =
             isSafeNotificationPath(relatedUrl) &&
@@ -817,112 +827,30 @@ class NotificationService {
   }
 
   /**
-   * Generate idempotency key for notifications to prevent duplicates
-   * @param {string} eventType - The type of event
-   * @param {Object} eventData - Event data containing unique identifiers
-   * @param {string} userId - The recipient user ID
+   * The occurrence a trigger call notifies about (plan D3, N2-01): the
+   * catalog's record identity when the payload carries a valid one. Otherwise
+   * a fresh id for this call, so an unidentified call is never merged with
+   * another one (two genuine occurrences stay two) and is never claimed to be
+   * idempotent: a repeated unidentified call is delivered again.
+   * @param eventType - The event type
+   * @param eventData - Event payload
    */
-  generateIdempotencyKey(eventType, eventData, userId) {
-    // Extract a unique identifier from the event data
-    let eventId = '';
-    
-    // Map event types to their unique identifiers
-    switch (eventType) {
-      case 'new_feedback':
-        eventId = eventData.feedback_id || '';
-        break;
-      case 'assignment_created':
-        eventId = eventData.assignment_id || '';
-        break;
-      case 'course_assigned':
-        eventId = eventData.course_id || '';
-        break;
-      case 'message_sent':
-        eventId = eventData.message_id || '';
-        break;
-      case 'user_mentioned':
-        eventId = `${eventData.workspace_id}-${eventData.mentioned_user_id}`;
-        break;
-      case 'assignment_feedback':
-        eventId = eventData.submission_id || '';
-        break;
-      case 'course_completed':
-        eventId = `${eventData.course_id}-${eventData.student_id}`;
-        break;
-      case 'module_completed':
-        eventId = `${eventData.module_id}-${eventData.student_id}`;
-        break;
-      // Licitacion deadline reminders use daily granularity to prevent duplicate firings per page load
-      case 'licitacion_bases_deadline_1d':
-      case 'licitacion_bases_deadline':
-      case 'licitacion_consultas_deadline_1d':
-      case 'licitacion_consultas_deadline':
-      case 'licitacion_propuestas_deadline_1d':
-      case 'licitacion_propuestas_deadline':
-      case 'licitacion_evaluacion_deadline_1d': {
-        const licitId = eventData.licitacion_id || '';
-        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-        return `licitacion_deadline_${licitId}_${eventType}_${today}_${userId}`;
-      }
-      case 'licitacion_created':
-        eventId = (eventData.licitacion_id as string) || '';
-        break;
-      case 'licitacion_published':
-        eventId = `${eventData.licitacion_id || ''}-published`;
-        break;
-      case 'licitacion_propuestas_open':
-        eventId = `${eventData.licitacion_id || ''}-propuestas-open`;
-        break;
-      case 'licitacion_evaluacion_start':
-        eventId = `${eventData.licitacion_id || ''}-evaluacion-start`;
-        break;
-      case 'licitacion_evaluacion_complete':
-        eventId = `${eventData.licitacion_id || ''}-evaluacion-complete`;
-        break;
-      case 'licitacion_adjudicada':
-        eventId = `${eventData.licitacion_id || ''}-adjudicada`;
-        break;
-      case 'licitacion_contrato_generado':
-        eventId = `${eventData.licitacion_id || ''}-contrato`;
-        break;
-      default:
-        // For unknown event types, create a hash of the event data
-        eventId = this.hashObject(eventData);
-    }
-    
-    // Generate key with minute-level timestamp to allow re-notification after time
-    const timestamp = new Date();
-    const minuteTimestamp = new Date(timestamp.getFullYear(), timestamp.getMonth(), 
-      timestamp.getDate(), timestamp.getHours(), timestamp.getMinutes()).toISOString();
-    
-    // Create a consistent key format
-    const keyString = `${eventType}-${eventId}-${userId}-${minuteTimestamp}`;
-    
-    // Return a hash for consistent length and format
-    return this.simpleHash(keyString);
+  resolveOccurrence(eventType: string, eventData: Record<string, unknown>): string {
+    const id = getCatalogEntry(eventType)?.occurrenceId(eventData ?? {}) ?? null;
+    return id === null ? `unidentified:${randomUUID()}` : `${IDENTIFIED_OCCURRENCE}${id}`;
   }
 
   /**
-   * Simple hash function for generating consistent strings
-   * @param {string} str - String to hash
+   * The key shared by the in-app row (`unique_notification_idempotency_key`)
+   * and the provider request: an opaque SHA-256 of event, occurrence and
+   * recipient. It carries no readable id and does not depend on the clock;
+   * 70 characters fit the column's 255 and the provider's 256.
+   * @param eventType - The event type
+   * @param occurrence - The trigger call's occurrence (`resolveOccurrence`)
+   * @param userId - The recipient user ID
    */
-  simpleHash(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash).toString(36);
-  }
-
-  /**
-   * Hash an object to create a unique identifier
-   * @param {Object} obj - Object to hash
-   */
-  hashObject(obj) {
-    const str = JSON.stringify(obj, Object.keys(obj).sort());
-    return this.simpleHash(str);
+  generateIdempotencyKey(eventType: string, occurrence: string, userId: string): string {
+    return `notif-${sha256Hex(JSON.stringify([eventType, occurrence, userId]))}`;
   }
 
   /**
@@ -1046,16 +974,20 @@ class NotificationService {
    * @param {Object} notificationData - Notification data to insert
    */
   async createInAppNotification(client, notificationData) {
-    const isDuplicate = await this.checkForDuplicate(
-      client,
-      notificationData.user_id,
-      notificationData.title,
-      notificationData.description
-    );
+    // A keyed row is deduplicated by its occurrence key alone: the title check
+    // would merge two genuine occurrences that happen to share a text.
+    if (!notificationData.idempotency_key) {
+      const isDuplicate = await this.checkForDuplicate(
+        client,
+        notificationData.user_id,
+        notificationData.title,
+        notificationData.description
+      );
 
-    if (isDuplicate) {
-      console.log(`🔕 Duplicate notification prevented: ${notificationData.title}`);
-      return null;
+      if (isDuplicate) {
+        console.log(`🔕 Duplicate notification prevented: ${notificationData.title}`);
+        return null;
+      }
     }
 
     const insertData = {
@@ -1231,18 +1163,26 @@ class NotificationService {
   }
 
   /**
-   * Log notification event for audit trail
+   * Log notification event for audit trail.
+   *
+   * The payload is not written: it carries recipient ids, addresses and free
+   * text. The audit keeps whether the occurrence was identified and, if so, an
+   * opaque reference that is the same on every retry of that occurrence.
    * @param {string} eventType - The event type
-   * @param {Object} eventData - Event data
+   * @param {string} occurrence - The trigger call's occurrence (`resolveOccurrence`)
    * @param {string} triggerId - Trigger ID (optional)
    * @param {number} notificationCount - Number of notifications created
    * @param {string} status - Processing status
    */
-  async logNotificationEvent(eventType, eventData, triggerId, notificationCount, status) {
+  async logNotificationEvent(eventType, occurrence, triggerId, notificationCount, status) {
+    const identified = occurrence.startsWith(IDENTIFIED_OCCURRENCE);
     try {
       const { error } = await supabaseServiceRole.rpc('log_notification_event', {
         p_event_type: eventType,
-        p_event_data: eventData,
+        p_event_data: {
+          occurrence: identified ? 'identified' : 'unidentified',
+          occurrence_ref: identified ? `occ-${sha256Hex(JSON.stringify([eventType, occurrence]))}` : null,
+        },
         p_trigger_id: triggerId,
         p_notifications_count: notificationCount,
         p_status: status

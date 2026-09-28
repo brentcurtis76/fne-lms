@@ -77,7 +77,7 @@ export function platformPath(raw: string | null | undefined): string {
  * The provider idempotency key for this message.
  *
  * An explicit key is passed through verbatim: `notificationService` already
- * derives one per (event, event id, recipient) and the in-app row is stored
+ * derives one per (event, occurrence, recipient) and the in-app row is stored
  * under it, so the two channels must agree.
  *
  * Most callers supply none — `pages/api/assignments/collaborative-submit.ts`

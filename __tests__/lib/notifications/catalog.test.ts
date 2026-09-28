@@ -188,10 +188,45 @@ describe('D1 · catalog completeness and typed definitions', () => {
     expect(NOTIFICATION_CATALOG.message_sent.occurrenceId({ message_id: 'm-1' })).toBe('m-1');
     expect(
       NOTIFICATION_CATALOG.session_reminder_1h.occurrenceId({ session: { id: SESSION_ID, date: '2026-10-01', time: '09:00' } })
-    ).toBe(`${SESSION_ID}:2026-10-01:09:00`);
+    ).toBe(`${SESSION_ID}:2026-10-01:09%3A00`);
     expect(NOTIFICATION_CATALOG.message_sent.occurrenceId({})).toBeNull();
     expect(NOTIFICATION_CATALOG.licitacion_created.occurrenceId({ licitacion_id: '' })).toBeNull();
     expect(NOTIFICATION_CATALOG.qa_scenario_assigned.occurrenceId({ tester_id: USER_A })).toBeNull();
+  });
+
+  it('N2-01: an entity id alone is no occurrence, and a UUID part is case-normalized', () => {
+    const entityOnly = {
+      course_assigned: { course: { id: 'c-1' } },
+      assignment_feedback: { assignment_id: ASSIGNMENT_ID, student_id: USER_A },
+      session_edit_request_submitted: { session: { id: SESSION_ID }, requester_id: USER_A },
+      session_edit_request_approved: { session: { id: SESSION_ID }, requester_id: USER_A },
+      session_edit_request_rejected: { session: { id: SESSION_ID }, requester_id: USER_A },
+    };
+    for (const [event, data] of Object.entries(entityOnly)) expect(NOTIFICATION_CATALOG[event].occurrenceId(data)).toBeNull();
+    expect(NOTIFICATION_CATALOG.licitacion_created.occurrenceId({ licitacion_id: LICITACION_ID.toUpperCase() })).toBe(LICITACION_ID);
+    expect(NOTIFICATION_CATALOG.qa_test_failed.occurrenceId({ test_run_id: RUN_ID, step_index: 0 })).toBe(`${RUN_ID}:0`);
+    expect(NOTIFICATION_CATALOG.qa_test_failed.occurrenceId({ test_run_id: RUN_ID, step_index: Infinity })).toBeNull();
+  });
+
+  it('N2-01: a deadline reminder is keyed by licitación, deadline date and phase; without either it is unidentified', () => {
+    const deadlineEvents = Object.keys(NOTIFICATION_CATALOG).filter((e) => /^licitacion_.*_deadline(_1d)?$/.test(e));
+    expect(deadlineEvents).toHaveLength(7);
+    const at = (deadline_date: unknown, reminder: unknown) => ({ licitacion_id: LICITACION_ID, deadline_date, reminder });
+    for (const event of deadlineEvents) {
+      const id = NOTIFICATION_CATALOG[event].occurrenceId;
+      expect(id(at('2026-10-02', '1d'))).toBe(`${LICITACION_ID}:2026-10-02:1d`);
+      expect(id(at('2026-10-02', 'today'))).not.toBe(id(at('2026-10-02', '1d')));
+      expect(id(at('2026-10-09', '1d'))).not.toBe(id(at('2026-10-02', '1d')));
+      for (const data of [{ licitacion_id: LICITACION_ID }, at(undefined, '1d'), at('2026-10-02', ''), at(null, 'today')]) {
+        expect(id(data)).toBeNull();
+      }
+    }
+  });
+
+  it('N2-01: a reschedule has no transition id, so every reschedule (duration-only or a move back) is unidentified', () => {
+    const moved = (time: string, end_time: string) => ({ session: { id: SESSION_ID, date: '2026-10-02', time, end_time } });
+    expect(NOTIFICATION_CATALOG.session_rescheduled.occurrenceId(moved('09:00', '10:00'))).toBeNull();
+    expect(NOTIFICATION_CATALOG.session_rescheduled.occurrenceId(moved('09:00', '11:00'))).toBeNull();
   });
 
   it.each(Object.keys(NOTIFICATION_CATALOG))('%s email payload keeps only allowlisted scalar fields', (eventType) => {

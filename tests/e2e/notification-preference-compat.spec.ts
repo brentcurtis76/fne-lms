@@ -1,6 +1,6 @@
 import { test, expect, type Browser, type Page } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import NotificationService from '../../lib/notificationService';
@@ -47,6 +47,10 @@ interface Capture {
 }
 
 const captures: Capture[] = [];
+/** Each event this spec triggered, with the opaque audit ref of its occurrence (null when unidentified). */
+const triggered: Array<{ eventType: string; ref: string | null }> = [];
+/** Audit ids that existed before this spec ran, for its unidentified events. */
+let auditBefore = new Set<string>();
 const titles: Record<string, string> = {};
 const evidence: Record<string, unknown> = { run: RUN, marker: MARKER, supabaseUrl: SUPABASE_URL };
 let service: SupabaseClient;
@@ -69,8 +73,37 @@ async function shot(page: Page, name: string) {
   await page.screenshot({ path: join(dir, `${name}.png`), fullPage: false });
 }
 
+async function auditIdsOf(eventTypes: string[]): Promise<string[]> {
+  const rows = must('audit ids', await service.from('notification_events').select('id').in('event_type', eventTypes)) as Array<{ id: string }>;
+  return rows.map((r) => r.id);
+}
+
+/**
+ * The audit rows this spec wrote. An identified event's row carries the opaque
+ * ref of its own occurrence (the service's `occ-` + sha256 of event and
+ * occurrence); an unidentified one's has none, and is found as a row of that
+ * event type that did not exist before. No other spec triggers those types.
+ */
+async function ownedAuditIds(): Promise<string[]> {
+  const owned = new Set<string>();
+  for (const { eventType, ref } of triggered) {
+    if (ref) {
+      const rows = must('audit ids', await service.from('notification_events').select('id').eq('event_type', eventType).eq('event_data->>occurrence_ref', ref)) as Array<{ id: string }>;
+      rows.forEach((r) => owned.add(r.id));
+    } else {
+      (await auditIdsOf([eventType])).filter((id) => !auditBefore.has(id)).forEach((id) => owned.add(id));
+    }
+  }
+  return [...owned];
+}
+
 /** Run one producer event with every provider attempt captured under its event type. */
 async function trigger(eventType: string, eventData: Record<string, unknown>) {
+  const occurrence = NotificationService.resolveOccurrence(eventType, eventData);
+  triggered.push({
+    eventType,
+    ref: occurrence.startsWith('record:') ? `occ-${createHash('sha256').update(JSON.stringify([eventType, occurrence])).digest('hex')}` : null,
+  });
   const target = NotificationService as unknown as { createNotification: (data: unknown, deps?: unknown) => Promise<unknown> };
   const original = target.createNotification;
   const transport = async (message: { to: string; subject: string; html: string }, options: { idempotencyKey?: string }) => {
@@ -138,6 +171,7 @@ test.describe('notification preference compat (N1-03)', () => {
       { user_id: recipient.id, notification_type: 'course_completed', email_enabled: false, in_app_enabled: true },
       { user_id: recipient.id, notification_type: 'session_cancelled', email_enabled: false, in_app_enabled: true },
     ]));
+    auditBefore = new Set(await auditIdsOf(['assignment_feedback', 'course_completed', 'message_sent', 'session_cancelled']));
   });
 
   test('D5 empty: before any event the recipient sees the empty bell', async ({ browser }) => {
@@ -189,16 +223,8 @@ test.describe('notification preference compat (N1-03)', () => {
     const remaining: Record<string, number | string> = {};
     const count = (r: { error: { message: string } | null; count: number | null }) => (r.error ? r.error.message : r.count ?? -1);
     if (service && recipient.id) {
-      const eventIds: string[] = [];
-      for (const [path, value] of [
-        ['event_data->assignment->>title', `${MARKER} Tarea`],
-        ['event_data->course->>name', `${MARKER} Curso`],
-        ['event_data->>message_id', `${MARKER}-m1`],
-        ['event_data->session->>title', `${MARKER} Taller`],
-      ]) {
-        const found = await service.from('notification_events').select('id').eq(path, value);
-        eventIds.push(...(found.data ?? []).map((r: { id: string }) => r.id));
-      }
+      const eventIds = await ownedAuditIds();
+      evidence.auditIds = eventIds;
       cleanup.notification_events = count(await service.from('notification_events').delete({ count: 'exact' }).in('id', eventIds));
       for (const table of ['user_notifications', 'user_notification_preferences', 'user_notification_category_prefs', 'user_roles']) {
         cleanup[table] = count(await service.from(table).delete({ count: 'exact' }).eq('user_id', recipient.id));
@@ -236,6 +262,7 @@ test.describe('notification preference compat (N1-03)', () => {
     expect(byEvent('message_sent')).toHaveLength(1);
     expect(byEvent('session_cancelled')).toHaveLength(1);
     expect(captures).toHaveLength(2);
+    expect(await ownedAuditIds()).toHaveLength(4);
     for (const c of captures) {
       expect(c.to).toBe(recipient.email);
       expect(c.subject).toBe(titles[c.eventType]);

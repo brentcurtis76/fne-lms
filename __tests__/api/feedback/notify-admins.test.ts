@@ -37,6 +37,7 @@ const { state, fakeClient, mockGetApiUser } = vi.hoisted(() => {
     insertFails: boolean;
     emailLookupError: Error | null;
     preference: { email_enabled: boolean; in_app_enabled: boolean } | null;
+    /** A row under this notification's idempotency key already exists: the insert is a unique-key conflict. */
     existingNotification: boolean;
     transport: any;
     /** Keyed `<table>.<op>` or `rpc.<fn>`: that query returns `error` or throws `throws`. */
@@ -106,10 +107,16 @@ const { state, fakeClient, mockGetApiUser } = vi.hoisted(() => {
               },
             };
           }
+          if (state.existingNotification) {
+            return {
+              data: null,
+              error: { code: '23505', message: 'duplicate key value violates unique constraint "unique_notification_idempotency_key"' },
+            };
+          }
           state.inserted.push(q.payload);
           return { data: { id: `notif-${state.inserted.length}`, ...q.payload }, error: null };
         }
-        return { data: state.existingNotification ? [{ id: 'notif-existing' }] : [], error: null };
+        return { data: [], error: null };
       default:
         throw new Error(`fake supabase: unexpected table "${q.table}"`);
     }
@@ -677,7 +684,7 @@ describe('notify-admins — log safety on exception and failure branches (r1 D1)
 
   it.each([
     ['both channels switched off', { preference: { email_enabled: false, in_app_enabled: false } }, 'has disabled'],
-    ['a repeat of a notification sent a moment ago', { existingNotification: true }, 'Duplicate notification prevented'],
+    ['a repeat of a notification sent a moment ago', { existingNotification: true }, 'Duplicate notification prevented by idempotency key'],
   ])('R1-D1: an admin skipped for %s is logged without the admin UUID', async (_label, setup, logged) => {
     Object.assign(state, setup);
 
@@ -686,6 +693,8 @@ describe('notify-admins — log safety on exception and failure branches (r1 D1)
     expect(status).toBe(200);
     expect(json.success).toBe(true);
     expect(state.inserted).toHaveLength(0);
+    // A keyed row is deduplicated by the unique key, never by the 60-second title check.
+    expect(state.calls.filter((c) => c.table === 'user_notifications' && c.op === 'select')).toHaveLength(0);
     expect(loggedText()).toContain(logged);
     assertNothingLogged(text);
   });
@@ -721,8 +730,6 @@ describe('notify-admins — log safety on every new_feedback service branch (r2 
   }
 
   it.each([
-    ['duplicate check returns', 'user_notifications.select', 'Error checking for duplicate notifications'],
-    ['duplicate check throws', 'user_notifications.select', 'Exception checking for duplicate notifications'],
     ['active-trigger lookup returns', 'rpc.get_active_triggers', 'Error fetching triggers'],
     ['active-trigger lookup throws', 'rpc.get_active_triggers', 'Exception fetching triggers'],
     ['audit RPC returns', 'rpc.log_notification_event', 'Error logging notification event'],
@@ -765,6 +772,23 @@ describe('notify-admins — log safety on every new_feedback service branch (r2 
     assertDelivered({ status, json });
     expect(state.inserted.map((n) => n.title)).toEqual(['Nuevo feedback recibido', 'Nuevo feedback recibido']);
     expect(loggedText()).toContain('Error generating content');
+    assertNothingLogged(text);
+  });
+
+  it.each([
+    ['returns', false],
+    ['throws', true],
+  ])('R2-D1: when the keyed insert (the retry dedup) %s an error naming a credential and the admin, delivery stays nonfatal and only the bounded line is logged', async (_label, thrown) => {
+    state.faults['user_notifications.insert'] = thrown ? { throws: thrownError() } : { error: returnedError() };
+
+    const { status, json, text } = await call({ feedback_id: FEEDBACK_ID });
+
+    expect(status).toBe(200);
+    expect(json).toEqual({ success: true, message: 'Administradores notificados', notificationsCreated: 0 });
+    expect(state.inserted).toHaveLength(0);
+    expect(state.calls.filter((c) => c.table === 'user_notifications' && c.op === 'select')).toHaveLength(0);
+    expect(loggedText()).toContain('❌ Failed to create notification for trigger code-default-new_feedback');
+    expect(loggedText()).not.toContain('"code"');
     assertNothingLogged(text);
   });
 

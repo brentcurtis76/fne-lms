@@ -42,6 +42,11 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-NUMERIC-EXPECTATION-RULE | Align frequency expectation API validation with whole-number counts | done | PROC-19 | 2026-09-26 |  |
 | PROC-NUMERIC-EXPECTATION-EDITOR | Correct frequency expectation editor input and save semantics | held | PROC-20 | 2026-09-27 |  |
 | PROC-NUMERIC-EXPECTATION-EDITOR-VERIFY | Validate and commit the approved frequency expectation editor correction | done | PROC-21 | 2026-09-28 |  |
+| PROC-B001 | Correct frequency expectation editor input and save semantics | todo |  | 2026-09-28 |  |
+| PROC-B002 | Validate and commit the approved frequency expectation editor correction | done | PROC-21 | 2026-09-28 |  |
+| PROC-B003 | Run isolated numeric browser acceptance | done | PROC-PR104-RECOVERY-2 | 2026-09-29 |  |
+| PROC-B004 | Resolve acceptance-proven defects or record none | todo |  | 2026-09-28 |  |
+| PROC-B005 | Independently review and close the numeric-validation parent | todo |  | 2026-09-28 |  |
 
 ## Events (append-only, newest last)
 - 2026-09-10T02:10+00:00 · PM · RECORD · COORDINATED authorized by user. Claude Fable5.1 discovery01 stopped at context boundary, no edits, exit143. Discovery02 fresh restricted intake running. Independent PM portability/raw-report/trace checkpoint written; ful
@@ -343,3 +348,10 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 - 2026-09-27T05:07:06-03:00 · PROC-21 · TODO · Approved-plan revision 2 derived validation child; r0 never dispatched; r1 code-kind recovery preserves editor D1-D4 and UI gates. · token ls-fce7e566ea
 - 2026-09-27T05:07:21-03:00 · PROC-21 · IN-PROGRESS · PROC-21 r1 dispatched (pm-unit begin) · token ls-b8a18e7632
 - 2026-09-28T07:55:26-03:00 · PROC-21 · DONE · PROC-21: validate and commit frequency expectation editor · token 655d1fee1665
+- 2026-09-28T21:03:03-03:00 · PM · TODO · generated from planning session PS-20260928-200523 (gen-PS-20260928-200523-39945e3f5f3c:row:PROC-B001) · token ls-e83b45b088
+- 2026-09-28T21:03:03-03:00 · PM · TODO · generated from planning session PS-20260928-200523 (gen-PS-20260928-200523-39945e3f5f3c:row:PROC-B002) · token ls-9b0c4d664e
+- 2026-09-28T21:03:04-03:00 · PM · TODO · generated from planning session PS-20260928-200523 (gen-PS-20260928-200523-39945e3f5f3c:row:PROC-B003) · token ls-39ea59a118
+- 2026-09-28T21:03:04-03:00 · PM · TODO · generated from planning session PS-20260928-200523 (gen-PS-20260928-200523-39945e3f5f3c:row:PROC-B004) · token ls-b6f433a568
+- 2026-09-28T21:03:04-03:00 · PM · TODO · generated from planning session PS-20260928-200523 (gen-PS-20260928-200523-39945e3f5f3c:row:PROC-B005) · token ls-f4f78d6961
+- 2026-09-28T21:08:38-03:00 · PROC-PR104-RECOVERY-2 · IN-PROGRESS · PROC-PR104-RECOVERY-2 r0 dispatched (pm-unit begin) · token ls-fb3bcb3307
+- 2026-09-29T13:43:00-03:00 · PROC-PR104-RECOVERY-2 · DONE · PROC-PR104-RECOVERY-2: accept isolated numeric browser evidence · token 9e0915e73d2d

@@ -45,7 +45,7 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-B001 | Correct frequency expectation editor input and save semantics | todo |  | 2026-09-28 |  |
 | PROC-B002 | Validate and commit the approved frequency expectation editor correction | done | PROC-21 | 2026-09-28 |  |
 | PROC-B003 | Run isolated numeric browser acceptance | done | PROC-PR104-RECOVERY-2 | 2026-09-29 |  |
-| PROC-B004 | Resolve acceptance-proven defects or record none | todo |  | 2026-09-28 |  |
+| PROC-B004 | Resolve acceptance-proven defects or record none | done | PROC-PR104-RECOVERY-3 | 2026-09-30 |  |
 | PROC-B005 | Independently review and close the numeric-validation parent | todo |  | 2026-09-28 |  |
 
 ## Events (append-only, newest last)
@@ -355,3 +355,5 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 - 2026-09-28T21:03:04-03:00 · PM · TODO · generated from planning session PS-20260928-200523 (gen-PS-20260928-200523-39945e3f5f3c:row:PROC-B005) · token ls-f4f78d6961
 - 2026-09-28T21:08:38-03:00 · PROC-PR104-RECOVERY-2 · IN-PROGRESS · PROC-PR104-RECOVERY-2 r0 dispatched (pm-unit begin) · token ls-fb3bcb3307
 - 2026-09-29T13:43:00-03:00 · PROC-PR104-RECOVERY-2 · DONE · PROC-PR104-RECOVERY-2: accept isolated numeric browser evidence · token 9e0915e73d2d
+- 2026-09-29T13:46:22-03:00 · PROC-PR104-RECOVERY-3 · IN-PROGRESS · PROC-PR104-RECOVERY-3 r0 dispatched (pm-unit begin) · token ls-90c2452264
+- 2026-09-30T10:22:43-03:00 · PROC-PR104-RECOVERY-3 · DONE · PROC-B004: accept numeric UI corrections with approved gate disposition · token e4cbcebfbb48

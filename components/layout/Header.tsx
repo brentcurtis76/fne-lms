@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { User } from '@supabase/supabase-js';
-import RealtimeNotificationBell from '../notifications/RealtimeNotificationBell';
+import NotificationBell from '../notifications/NotificationBell';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 
 interface HeaderProps {
@@ -82,7 +82,7 @@ export default function Header({ user }: HeaderProps) {
             {isLoggedIn ? (
               <>
                 {/* Notification Bell */}
-                <RealtimeNotificationBell className="text-white/70 hover:text-white" />
+                <NotificationBell className="text-white/70 hover:text-white" />
 
                 {/* User Avatar */}
                 <div className="w-8 h-8 bg-[#fbbf24] rounded-full flex items-center justify-center">

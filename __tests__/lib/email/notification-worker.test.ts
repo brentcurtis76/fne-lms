@@ -1,17 +1,20 @@
 // @vitest-environment node
 /**
- * N3-03 worker core, N3-04 failure semantics and the N3-05 unsubscribe headers,
- * through the real entry point `runNotificationEmailWorker`.
+ * N3-03 worker core, N3-04 failure semantics, the N3-05 unsubscribe headers and
+ * the N3-06 bounce suppression, through the real entry point
+ * `runNotificationEmailWorker`.
  *
  * The database is an in-memory stand-in: plain tables behind the query calls the
- * worker makes, and the worker RPCs with the semantics pgTAP 100 and 101 prove
- * for the real functions (claim under a lease and behind due recovery mail,
+ * worker makes, and the worker RPCs with the semantics pgTAP 100, 101 and 103
+ * prove for the real functions (claim under a lease and behind due recovery mail,
  * live-owner freeze and finish, a stored snapshot never replaced, no attempt and
- * only `unknown` 24 hours after the first one). The provider is a captured
+ * only `unknown` 24 hours after the first one, the address digest of a row fixed
+ * once its message is frozen). The provider is a captured
  * transport, or the real one over a stubbed `fetch` where the HTTP status
  * matters. Everything is synthetic: no real address, tenant or credential
  * appears here.
  */
+import { createHash, createHmac } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../lib/email/outbound-policy', async (importOriginal) => {
@@ -25,7 +28,13 @@ vi.mock('../../../lib/email/provider', async (importOriginal) => {
 
 import { authorizeUserEmail } from '../../../lib/email/outbound-policy';
 import { deliverOutboundEmail } from '../../../lib/email/provider';
-import { openSnapshot, runNotificationEmailWorker, sealSnapshot } from '../../../lib/email/notification-worker';
+import {
+  notificationAddressDigest,
+  openSnapshot,
+  readNotificationAddressSuppression,
+  runNotificationEmailWorker,
+  sealSnapshot,
+} from '../../../lib/email/notification-worker';
 import { verifyUnsubscribeToken } from '../../../lib/email/notification-unsubscribe';
 
 type Row = Record<string, any>;
@@ -45,6 +54,7 @@ const QA_SCHOOL = 257; // config/production-qa-simulation-target.json
 const ADDRESS = 'destinataria.sintetica@ejemplo.invalid';
 const BASE_URL = 'https://genera.test';
 const UNSUBSCRIBE_SECRET = 'synthetic-unsubscribe-secret-0123456789abcdef';
+const SUPPRESSION_SECRET = 'synthetic-suppression-secret-0123456789abcdef';
 const DAY = 86400;
 
 const role = (role_type: string, extra: Row = {}): Row => ({
@@ -56,6 +66,10 @@ function createDb(tables: Tables) {
     tables: {
       outbox: [],
       sources: [],
+      /** notification_email_outbox_address: the address digest recorded for a row. */
+      addresses: [],
+      /** notification_email_suppressions: the digests of bounced addresses. */
+      suppressions: [],
       /** auth_security.password_recovery_outbox, as far as its due rule reads it. */
       recovery: [],
       profiles: [{ id: U, email: ADDRESS, school_id: null }],
@@ -64,6 +78,8 @@ function createDb(tables: Tables) {
     } as Tables,
     /** Table or RPC names whose next calls fail. */
     failing: new Set<string>(),
+    /** RPC names that answer this value instead of their own. */
+    forced: new Map<string, unknown>(),
     /** Every table read and RPC, in order. */
     calls: [] as string[],
     now: 1000,
@@ -126,6 +142,20 @@ function createDb(tables: Tables) {
       else Object.assign(row!, { status: p_outcome, send_snapshot: null, provider_message_id: p_provider_message_id });
       return true;
     },
+    check_notification_email_address: ({ p_id, p_owner, p_address_digest }) => {
+      const row = db.tables.outbox.find((r) => r.id === p_id);
+      if (!live(row, p_owner)) return null;
+      let recorded = db.tables.addresses.find((a) => a.outbox_id === p_id);
+      if (row!.send_snapshot === null) {
+        if (p_address_digest === null) return 'unrecorded';
+        if (recorded) recorded.address_digest = p_address_digest;
+        else db.tables.addresses.push((recorded = { outbox_id: p_id, address_digest: p_address_digest }));
+      }
+      if (!recorded) return 'unrecorded';
+      return db.tables.suppressions.some((s) => s.address_digest === recorded!.address_digest) ? 'suppressed' : 'clear';
+    },
+    notification_email_address_suppressed: ({ p_address_digest }) =>
+      db.tables.suppressions.some((s) => s.address_digest === p_address_digest),
     can_access_workspace: ({ p_user_id, p_workspace_id }) =>
       (db.tables.workspace_members ?? []).some((m) => m.user_id === p_user_id && m.workspace_id === p_workspace_id),
   };
@@ -161,7 +191,9 @@ function createDb(tables: Tables) {
     },
     async rpc(name: string, args: Row) {
       db.calls.push(`rpc:${name}`);
-      const result = db.failing.has(name) ? failure : { data: rpcs[name](args), error: null };
+      const result = db.failing.has(name)
+        ? failure
+        : { data: db.forced.has(name) ? db.forced.get(name) : rpcs[name](args), error: null };
       db.afterRpc(name);
       return result;
     },
@@ -201,6 +233,7 @@ beforeEach(() => {
   vi.stubEnv('NOTIFICATION_OUTBOX_DELIVERY', 'on');
   vi.stubEnv('NOTIFICATION_SNAPSHOT_SECRET', 'synthetic-snapshot-secret-0123456789abcdef');
   vi.stubEnv('NOTIFICATION_UNSUBSCRIBE_SECRET', UNSUBSCRIBE_SECRET);
+  vi.stubEnv('NOTIFICATION_SUPPRESSION_SECRET', SUPPRESSION_SECRET);
   vi.stubEnv('NEXT_PUBLIC_BASE_URL', BASE_URL);
   vi.stubEnv('EMAIL_FROM_ADDRESS', '');
   vi.stubEnv('RESEND_API_KEY', '');
@@ -1253,5 +1286,237 @@ describe('N3-05 D4 — the unsubscribe headers are frozen with the message', () 
     for (const bad of [null, 'texto', { 'List-Unsubscribe': 5 }]) {
       expect(openSnapshot(key, sealSnapshot(key, { ...message, headers: bad as never }))).toBeNull();
     }
+  });
+});
+
+describe('N3-06 — a bounced address gets nothing more', () => {
+  const BOUNCED = 'rebote.sintetico@qa.local.test';
+  const FINE = 'entrega.sintetica@qa.local.test';
+  const [A, B, C] = [uuid(51), uuid(52), uuid(53)];
+  const CHECK = 'check_notification_email_address';
+  /** Three users who may open the course. A and B have the same address, written differently; C has another. */
+  const people = (): Tables => ({
+    profiles: [
+      { id: A, email: BOUNCED, school_id: null },
+      { id: B, email: `  ${BOUNCED.toUpperCase()} `, school_id: null },
+      { id: C, email: FINE, school_id: null },
+    ],
+    user_roles: [A, B, C].map((user_id) => role('docente', { user_id, school_id: SCHOOL })),
+    course_enrollments: [A, B, C].map((user_id) => ({ user_id, course_id: RECORD, access_origin: 'independent' })),
+  });
+  /** What the database does with a verified bounce: it suppresses the digest it recorded for the row that was sent. */
+  const bounce = (db: ReturnType<typeof createDb>, row: Row) =>
+    db.tables.suppressions.push({ address_digest: db.tables.addresses.find((a) => a.outbox_id === row.id)!.address_digest });
+  /** A's first email went out and bounced. */
+  async function bounced() {
+    const db = createDb(people());
+    const transport = accepted();
+    const first = queue(db, 'course_assigned', COURSE, { user_id: A });
+    await run(db, transport);
+    expect(first.status).toBe('sent');
+    bounce(db, first);
+    return { db, transport };
+  }
+  const begun = (db: ReturnType<typeof createDb>) => db.calls.filter((c) => c === 'rpc:begin_notification_email_attempt').length;
+
+  it('D3 — the address is refused for every user who has it, however it is written; another address still gets its mail', async () => {
+    const { db, transport } = await bounced();
+    const rows = [A, B, C].map((user_id) => queue(db, 'course_assigned', COURSE, { user_id }));
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 3, cancelled: 2, sent: 1 });
+
+    expect(transport.mock.calls.map(([message]) => message.to)).toEqual([BOUNCED, FINE]);
+    for (const row of rows.slice(0, 2)) {
+      expect(row).toMatchObject({ status: 'cancelled', last_error_code: 'address_suppressed', send_snapshot: null, attempt_count: 0, first_attempt_at: null });
+    }
+    expect(rows[2]).toMatchObject({ status: 'sent', attempt_count: 1 });
+    // No attempt began on the bounced address: the first email and C's are the only two.
+    expect(begun(db)).toBe(2);
+  });
+
+  it('D3 — a changed address is judged as the new one, in both directions', async () => {
+    const { db, transport } = await bounced();
+    db.tables.profiles[0].email = 'nueva.direccion@qa.local.test';
+    db.tables.profiles[2].email = BOUNCED;
+    const rows = [A, C].map((user_id) => queue(db, 'course_assigned', COURSE, { user_id }));
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 2, cancelled: 1, sent: 1 });
+
+    expect(transport.mock.calls.map(([message]) => message.to)).toEqual([BOUNCED, 'nueva.direccion@qa.local.test']);
+    expect(rows[0].status).toBe('sent');
+    expect(rows[1]).toMatchObject({ status: 'cancelled', last_error_code: 'address_suppressed' });
+  });
+
+  it('D3 — a frozen retry cannot escape: its address bounced since, and the stored message is never sent again', async () => {
+    const { db, row, transport } = await ambiguousRow();
+    bounce(db, row);
+    // The frozen message still goes to the address that bounced, whatever the profile says now.
+    db.tables.profiles[0].email = FINE;
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, cancelled: 1, sent: 0 });
+
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(begun(db)).toBe(1);
+    // It may have gone out once: closed as an ambiguous row, not as a plain cancellation.
+    expect(row).toMatchObject({ status: 'cancelled_after_ambiguous', last_error_code: 'address_suppressed', send_snapshot: null, lease_owner: null, attempt_count: 1 });
+    expect(db.calls.filter((c) => c === 'rpc:settle_ambiguous_notification_email')).toHaveLength(1);
+  });
+
+  it('D3 — a frozen retry to an address that did not bounce goes out, judged by the digest recorded at the freeze', async () => {
+    const { db, row, transport } = await ambiguousRow();
+    const recorded = { ...db.tables.addresses[0] };
+    // Another address bounced, and the recipient has moved to it since.
+    db.tables.suppressions.push({ address_digest: notificationAddressDigest(BOUNCED) });
+    db.tables.profiles[0].email = BOUNCED;
+    const rpc = vi.spyOn(db.client, 'rpc');
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, sent: 1 });
+
+    expect(transport.mock.calls[1]).toEqual(transport.mock.calls[0]);
+    expect(rpc.mock.calls.find(([name]) => name === CHECK)?.[1]).toMatchObject({ p_id: row.id, p_address_digest: null });
+    expect(db.tables.addresses).toEqual([recorded]);
+  });
+
+  it.each([['unset', undefined], ['shorter than 32 characters', 'short-synthetic-secret']])(
+    'D4 — suppression key %s: a first send is neither frozen nor sent, and goes out once the key is there',
+    async (_name, value) => {
+      if (value === undefined) delete process.env.NOTIFICATION_SUPPRESSION_SECRET;
+      else vi.stubEnv('NOTIFICATION_SUPPRESSION_SECRET', value);
+      const db = createDb(ENROLLED);
+      const row = queue(db, 'course_assigned', COURSE);
+      const transport = accepted();
+
+      expect(await run(db, transport)).toMatchObject({ claimed: 1, retried: 1, sent: 0 });
+
+      expect(transport).not.toHaveBeenCalled();
+      expect(db.calls).not.toContain(`rpc:${CHECK}`);
+      expect(begun(db)).toBe(0);
+      expect(row).toMatchObject({ status: 'pending', last_error_code: 'suppression_unavailable', send_snapshot: null, attempt_count: 0 });
+      expect(row.next_attempt_at).toBe(db.now + 900);
+
+      vi.stubEnv('NOTIFICATION_SUPPRESSION_SECRET', SUPPRESSION_SECRET);
+      db.now = row.next_attempt_at;
+      expect(await run(db, transport)).toMatchObject({ claimed: 1, sent: 1 });
+    }
+  );
+
+  it('D4 — without the key a frozen retry is not sent either, and keeps its message', async () => {
+    const { db, row, transport, frozen } = await ambiguousRow();
+    delete process.env.NOTIFICATION_SUPPRESSION_SECRET;
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, retried: 1, sent: 0 });
+
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(row).toMatchObject({ status: 'pending', last_error_code: 'suppression_unavailable', send_snapshot: frozen, attempt_count: 1 });
+  });
+
+  const broken: Array<[string, (db: ReturnType<typeof createDb>) => void]> = [
+    ['fails', (db) => { db.failing.add(CHECK); }],
+    ['throws', (db) => {
+      const rpc = db.client.rpc;
+      db.client.rpc = async (name: string, args: Row) => {
+        if (name === CHECK) throw new Error(`timeout reading ${ADDRESS}`);
+        return rpc(name, args);
+      };
+    }],
+    ['has no digest for the row', (db) => { db.forced.set(CHECK, 'unrecorded'); }],
+    ['answers something it does not know', (db) => { db.forced.set(CHECK, 'quizás'); }],
+  ];
+
+  it.each(broken)('D4 — the suppression read %s: a first send is neither frozen nor sent', async (_name, breakIt) => {
+    const db = createDb(ENROLLED);
+    const row = queue(db, 'course_assigned', COURSE);
+    const transport = accepted();
+    breakIt(db);
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, retried: 1, sent: 0 });
+
+    expect(transport).not.toHaveBeenCalled();
+    expect(begun(db)).toBe(0);
+    expect(row).toMatchObject({ status: 'pending', last_error_code: 'suppression_unavailable', send_snapshot: null, attempt_count: 0 });
+  });
+
+  it.each(broken)('D4 — the suppression read %s: a frozen retry is not sent and stays ambiguous', async (_name, breakIt) => {
+    const { db, row, transport, frozen } = await ambiguousRow();
+    breakIt(db);
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, retried: 1, sent: 0, cancelled: 0 });
+
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(begun(db)).toBe(1);
+    expect(row).toMatchObject({ status: 'pending', last_error_code: 'suppression_unavailable', send_snapshot: frozen, attempt_count: 1 });
+  });
+
+  it('D4 — a lease that ran out before the suppression read: no attempt begins and the row is left to its next owner', async () => {
+    const db = createDb(ENROLLED);
+    const row = queue(db, 'course_assigned', COURSE);
+    const transport = accepted();
+    db.forced.set(CHECK, null);
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, lost: 1, sent: 0 });
+
+    expect(transport).not.toHaveBeenCalled();
+    expect(begun(db)).toBe(0);
+    expect(row).toMatchObject({ status: 'sending', send_snapshot: null, attempt_count: 0 });
+  });
+
+  it('D5 — the database is given a keyed digest of the normalised address, never the address', async () => {
+    const logs = ['log', 'error', 'warn', 'info'].map((level) => vi.spyOn(console, level as 'log').mockImplementation(() => undefined));
+    const { db, transport } = await bounced();
+    const rpc = vi.spyOn(db.client, 'rpc');
+    [A, B, C].forEach((user_id) => queue(db, 'course_assigned', COURSE, { user_id }));
+
+    const result = await run(db, transport);
+
+    const digests = rpc.mock.calls.filter(([name]) => name === CHECK).map(([, args]) => (args as Row).p_address_digest);
+    const key = createHash('sha256').update('genera/notification-address-suppression/v1/').update(SUPPRESSION_SECRET).digest();
+    const keyed = (address: string) => createHmac('sha256', key).update(address, 'utf8').digest('hex');
+    expect(digests).toEqual([keyed(BOUNCED), keyed(BOUNCED), keyed(FINE)]);
+    expect(digests[0]).toMatch(/^[0-9a-f]{64}$/);
+    // Not something a guessed address can be checked against without the key.
+    expect(digests[0]).not.toBe(createHash('sha256').update(BOUNCED).digest('hex'));
+    vi.stubEnv('NOTIFICATION_SUPPRESSION_SECRET', 'another-synthetic-secret-0123456789abcdef');
+    expect(notificationAddressDigest(BOUNCED)).not.toBe(digests[0]);
+
+    const kept = JSON.stringify([db.tables.addresses, db.tables.suppressions, rpc.mock.calls, result, ...logs.map((spy) => spy.mock.calls)]).toLowerCase();
+    for (const plain of [BOUNCED, FINE, 'qa.local.test']) expect(kept).not.toContain(plain);
+    logs.forEach((spy) => spy.mockRestore());
+  });
+
+  it('D5 — flag off: no suppression read, no key needed, nothing claimed or sent', async () => {
+    delete process.env.NOTIFICATION_SUPPRESSION_SECRET;
+    vi.stubEnv('NOTIFICATION_OUTBOX_DELIVERY', '');
+    const db = createDb(ENROLLED);
+    const row = queue(db, 'course_assigned', COURSE);
+    const transport = accepted();
+
+    expect(await run(db, transport)).toMatchObject({ enabled: false, status: 'disabled', claimed: 0 });
+
+    expect(db.calls).toEqual([]);
+    expect(transport).not.toHaveBeenCalled();
+    expect(row.status).toBe('pending');
+  });
+
+  it('the private read for a later notice: suppressed, clear, or unavailable without the key or an answer', async () => {
+    const db = createDb({ suppressions: [{ address_digest: notificationAddressDigest(BOUNCED) }] });
+    const rpc = vi.spyOn(db.client, 'rpc');
+
+    expect(await readNotificationAddressSuppression(db.client, ` ${BOUNCED.toUpperCase()}`)).toBe('suppressed');
+    expect(await readNotificationAddressSuppression(db.client, FINE)).toBe('clear');
+    expect(JSON.stringify(rpc.mock.calls).toLowerCase()).not.toContain('qa.local.test');
+
+    db.forced.set('notification_email_address_suppressed', null);
+    expect(await readNotificationAddressSuppression(db.client, BOUNCED)).toBe('unavailable');
+    db.forced.clear();
+    db.failing.add('notification_email_address_suppressed');
+    expect(await readNotificationAddressSuppression(db.client, BOUNCED)).toBe('unavailable');
+    db.failing.clear();
+    expect(await readNotificationAddressSuppression({ rpc: async () => { throw new Error('timeout'); } } as never, BOUNCED)).toBe('unavailable');
+
+    rpc.mockClear();
+    expect(await readNotificationAddressSuppression(db.client, '   ')).toBe('unavailable');
+    delete process.env.NOTIFICATION_SUPPRESSION_SECRET;
+    expect(await readNotificationAddressSuppression(db.client, BOUNCED)).toBe('unavailable');
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

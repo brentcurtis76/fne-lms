@@ -42,6 +42,17 @@ const BACK_SAVE_FAILED_MESSAGE =
   'No se pudieron guardar tus respuestas antes de salir. Revisa tu conexión e intenta nuevamente.';
 const ASSESSMENTS_LIST_PATH = '/docente/assessments';
 
+/**
+ * The server's reasons when it answered a save and refused some or all of it (validation 4xx, or a
+ * partial save listing errors). Null for success, network failures and retryable statuses.
+ */
+function saveRefusalReasons(status: number, data: any): string[] | null {
+  if (status >= 400 && status < 500 && status !== 408 && status !== 429) {
+    return data?.details?.length ? data.details : [data?.error || 'El servidor rechazó el guardado.'];
+  }
+  return status < 300 && data?.errors?.length ? data.errors : null;
+}
+
 const AssessmentResponseForm: React.FC = () => {
   const router = useRouter();
   const { instanceId } = router.query;
@@ -71,6 +82,8 @@ const AssessmentResponseForm: React.FC = () => {
   const [draftState, setDraftState] = useState<DraftState>({ ready: false, saving: false,
     pendingCount: 0, recovery: [], storageError: false, saveError: null, lastSavedAt: null });
   const [draftOwner, setDraftOwner] = useState<{ scope: string; session: ResponseDraftSession } | null>(null);
+  const [saveRefusal, setSaveRefusal] = useState<string[] | null>(null);
+  const saveRefusalRef = useRef<string[] | null>(null);
   const scope = user?.id && typeof instanceId === 'string' ? `${user.id}:${instanceId}` : null;
   const draftSession = draftOwner?.scope === scope ? draftOwner.session : null;
   const saving = draftState.saving;
@@ -78,7 +91,17 @@ const AssessmentResponseForm: React.FC = () => {
 
   useEffect(() => {
     if (!scope || typeof instanceId !== 'string') return;
-    const session = new ResponseDraftSession(user.id, instanceId, () => window.localStorage);
+    const showRefusal = (reasons: string[] | null) => { saveRefusalRef.current = reasons; setSaveRefusal(reasons); };
+    showRefusal(null);
+    // The draft session reduces every failed save to `false`; read the server's answer on the way
+    // through so a validation refusal is not reported as a connection problem.
+    const request: typeof fetch = async (input, init) => {
+      const response = await fetch(input, init).catch((error) => { showRefusal(null); throw error; });
+      const body = response.json();
+      body.then((data) => showRefusal(saveRefusalReasons(response.status, data)), () => showRefusal(null));
+      return Object.assign(response, { json: () => body });
+    };
+    const session = new ResponseDraftSession(user.id, instanceId, () => window.localStorage, request);
     const unsubscribe = session.subscribe(setDraftState);
     setDraftOwner({ scope, session });
     return () => { unsubscribe(); session.dispose(); };
@@ -286,8 +309,19 @@ const AssessmentResponseForm: React.FC = () => {
 
   const saveResponses = () => draftSession?.save() ?? Promise.resolve(false);
 
+  // Server reasons name indicators by id ("Indicador <id>: …"); show the indicator's name instead.
+  const describeRefusal = (reasons: string[]) => {
+    const names = new Map([...modules, ...objectives.flatMap((objective) => objective.modules)]
+      .flatMap((module) => module.indicators.map((indicator) => [indicator.id, indicator.name] as const)));
+    return reasons.map((reason) => reason.replace(/^Indicador ([^:]+): /, (prefix, id: string) =>
+      names.has(id) ? `«${names.get(id)}»: ` : prefix));
+  };
+  const saveFailureMessage = (connectionMessage: string) => saveRefusalRef.current
+    ? `No se guardaron tus respuestas. ${describeRefusal(saveRefusalRef.current).join('; ')}`
+    : connectionMessage;
+
   const handleManualSave = async () => {
-    if (!(await saveResponses())) toast.error(SAVE_FAILED_MESSAGE);
+    if (!(await saveResponses())) toast.error(saveFailureMessage(SAVE_FAILED_MESSAGE));
   };
 
   const handleBack = async () => {
@@ -295,7 +329,7 @@ const AssessmentResponseForm: React.FC = () => {
     setLeaving(true);
     try {
       if (draftSession?.state.pendingCount && !(await saveResponses())) {
-        toast.error(BACK_SAVE_FAILED_MESSAGE);
+        toast.error(saveFailureMessage(BACK_SAVE_FAILED_MESSAGE));
         return;
       }
       navigationAllowedRef.current = true;
@@ -581,6 +615,11 @@ const AssessmentResponseForm: React.FC = () => {
               ? 'Cambios pendientes de guardar en el servidor.' : 'Respuestas guardadas en el servidor.'}
             {hasUnsavedChanges && !draftState.storageError && <p>Hay un borrador de tus cambios en este navegador para recuperarlos al volver.</p>}
             {draftState.saveError && <p className="mt-1 text-amber-800">{draftState.saveError}</p>}
+            {draftState.saveError && saveRefusal && (
+              <ul className="mt-1 list-disc pl-5 text-amber-800" data-testid="assessment-save-refusal">
+                {describeRefusal(saveRefusal).map((reason) => <li key={reason}>{reason}</li>)}
+              </ul>
+            )}
             {draftState.lastSavedAt && <p>Último guardado: {new Date(draftState.lastSavedAt).toLocaleTimeString('es-CL')}</p>}
           </div>
         )}

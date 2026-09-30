@@ -1,12 +1,16 @@
 // @vitest-environment node
 /**
- * N3-03 worker core, through its real entry point `runNotificationEmailWorker`.
+ * N3-03 worker core and N3-04 failure semantics, through the real entry point
+ * `runNotificationEmailWorker`.
  *
  * The database is an in-memory stand-in: plain tables behind the query calls the
- * worker makes, and the three worker RPCs with the semantics pgTAP 100 proves for
- * the real functions (claim under a lease, live-owner freeze and finish, a stored
- * snapshot never replaced). The provider is a captured transport. Everything is
- * synthetic: no real address, tenant or credential appears here.
+ * worker makes, and the worker RPCs with the semantics pgTAP 100 and 101 prove
+ * for the real functions (claim under a lease and behind due recovery mail,
+ * live-owner freeze and finish, a stored snapshot never replaced, no attempt and
+ * only `unknown` 24 hours after the first one). The provider is a captured
+ * transport, or the real one over a stubbed `fetch` where the HTTP status
+ * matters. Everything is synthetic: no real address, tenant or credential
+ * appears here.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -39,6 +43,7 @@ const OTHER_SCHOOL = 12;
 const QA_SCHOOL = 257; // config/production-qa-simulation-target.json
 const ADDRESS = 'destinataria.sintetica@ejemplo.invalid';
 const BASE_URL = 'https://genera.test';
+const DAY = 86400;
 
 const role = (role_type: string, extra: Row = {}): Row => ({
   user_id: U, role_type, school_id: null, generation_id: null, community_id: null, is_active: true, ...extra,
@@ -49,6 +54,8 @@ function createDb(tables: Tables) {
     tables: {
       outbox: [],
       sources: [],
+      /** auth_security.password_recovery_outbox, as far as its due rule reads it. */
+      recovery: [],
       profiles: [{ id: U, email: ADDRESS, school_id: null }],
       schools: [SCHOOL, OTHER_SCHOOL].map((id) => ({ id, tenant_kind: 'client', internal_zoom_testing_enabled: false })),
       ...tables,
@@ -65,10 +72,14 @@ function createDb(tables: Tables) {
   const failure = { data: null, error: { message: `synthetic failure naming ${U}` } };
   const live = (row: Row | undefined, owner: string) =>
     !!row && row.status === 'sending' && row.lease_owner === owner && row.lease_expires_at > db.now;
+  const expired = (row: Row) => row.send_snapshot !== null && row.first_attempt_at !== null && row.first_attempt_at <= db.now - DAY;
+  const recoveryDue = () => db.tables.recovery.some((r) =>
+    ['queued', 'processing'].includes(r.state) && r.available_at <= db.now && r.provider_attempts < r.max_provider_attempts);
 
   const rpcs: Record<string, (args: Row) => unknown> = {
+    password_recovery_email_due: recoveryDue,
     claim_notification_emails: ({ p_owner, p_limit, p_lease_seconds }) =>
-      db.tables.outbox
+      (recoveryDue() ? [] : db.tables.outbox)
         .filter((r) => r.email_mode === 'immediate' && r.next_attempt_at <= db.now &&
           (r.status === 'pending' || (r.status === 'sending' && r.lease_expires_at <= db.now)))
         .slice(0, p_limit)
@@ -83,10 +94,22 @@ function createDb(tables: Tables) {
         }),
     begin_notification_email_attempt: ({ p_id, p_owner, p_snapshot }) => {
       const row = db.tables.outbox.find((r) => r.id === p_id);
-      if (!live(row, p_owner) || !(row!.send_snapshot ?? p_snapshot)) return null;
+      if (!live(row, p_owner) || !(row!.send_snapshot ?? p_snapshot) || expired(row!)) return null;
       row!.send_snapshot ??= p_snapshot;
+      row!.first_attempt_at ??= db.now;
       row!.attempt_count += 1;
       return row!.send_snapshot;
+    },
+    notification_email_retry_state: ({ p_id, p_owner }) => {
+      const row = db.tables.outbox.find((r) => r.id === p_id);
+      return live(row, p_owner) ? [{ attempt_count: row!.attempt_count, expired: expired(row!) }] : [];
+    },
+    settle_ambiguous_notification_email: ({ p_id, p_owner, p_outcome, p_error_code }) => {
+      const row = db.tables.outbox.find((r) => r.id === p_id);
+      if (!live(row, p_owner) || row!.send_snapshot === null) return false;
+      if (p_outcome === 'unknown' && !expired(row!)) return false;
+      Object.assign(row!, { status: p_outcome, last_error_code: p_error_code, send_snapshot: null, lease_owner: null, lease_expires_at: null });
+      return true;
     },
     finish_notification_email: ({ p_id, p_owner, p_outcome, p_error_code, p_provider_message_id, p_retry_seconds }) => {
       const row = db.tables.outbox.find((r) => r.id === p_id);
@@ -139,7 +162,7 @@ function queue(db: ReturnType<typeof createDb>, event: string, source: [string, 
   const row: Row = {
     id, idempotency_key: `notif-${id}`, event_type: event, user_id: U, notification_id: null,
     email_mode: 'immediate', related_url: '/mi-aprendizaje', payload: {}, status: 'pending', attempt_count: 0,
-    next_attempt_at: 0, lease_owner: null, lease_expires_at: null, last_error_code: null,
+    next_attempt_at: 0, lease_owner: null, lease_expires_at: null, first_attempt_at: null, last_error_code: null,
     provider_message_id: null, send_snapshot: null, ...extra,
   };
   db.tables.outbox.push(row);
@@ -148,7 +171,9 @@ function queue(db: ReturnType<typeof createDb>, event: string, source: [string, 
 }
 
 const accepted = () => vi.fn(async (_message: Row, _options?: Row) => ({ data: { id: 'provider-message-1' }, error: null }));
-const run = (db: ReturnType<typeof createDb>, transport: any) => runNotificationEmailWorker(db.client, { transport });
+/** `random` is fixed, so a backoff is exact: 0.5 gives three quarters of the attempt's ceiling. */
+const run = (db: ReturnType<typeof createDb>, transport: any, random = () => 0.5) =>
+  runNotificationEmailWorker(db.client, { transport, random });
 
 /** A course the recipient may open: the simplest sendable row. */
 const ENROLLED: Tables = {
@@ -474,8 +499,8 @@ describe('D3 — the frozen, encrypted message', () => {
     expect(transport).toHaveBeenCalledTimes(2);
     expect(transport.mock.calls[1]).toEqual(transport.mock.calls[0]);
     expect(row).toMatchObject({ status: 'sent', send_snapshot: null, attempt_count: 2, provider_message_id: 'provider-message-2' });
-    // The retry read neither the source record nor the address again.
-    expect(db.calls.filter((c) => c === 'course_enrollments')).toHaveLength(1);
+    // The source record is checked again before the retry (N3-04); the address is the frozen one.
+    expect(db.calls.filter((c) => c === 'course_enrollments')).toHaveLength(2);
   });
 
   it('a snapshot sealed under another key is never sent', async () => {
@@ -589,7 +614,7 @@ describe('D4 — authorization, then the provider', () => {
     expect(await run(db, transport)).toMatchObject({ claimed: 1, retried: 1, sent: 0 });
     expect(row).toMatchObject({ status: 'pending', last_error_code: 'transport_error', provider_message_id: null });
     expect(row.send_snapshot).not.toBeNull();
-    expect(row.next_attempt_at).toBe(db.now + 900);
+    expect(row.next_attempt_at).toBe(db.now + 90);
   });
 
   it('no provider key: nothing is sent and the row waits', async () => {
@@ -632,5 +657,441 @@ describe('D5 — the flag', () => {
     const db = createDb(ENROLLED);
     db.failing.add('claim_notification_emails');
     await expect(run(db, accepted())).rejects.toThrow(/^claim_failed$/);
+  });
+});
+
+/** One course row whose first attempt got no answer: pending again, frozen, attempt 1, due now. */
+async function ambiguousRow() {
+  const db = createDb(ENROLLED);
+  const row = queue(db, 'course_assigned', COURSE, { payload: { 'course.name': 'Curso sintético' } });
+  const transport = vi.fn()
+    .mockRejectedValueOnce(new Error(`connection reset for ${ADDRESS}`))
+    .mockResolvedValue({ data: { id: 'provider-message-2' }, error: null });
+  await run(db, transport);
+  db.now = row.next_attempt_at;
+  return { db, row, transport, frozen: row.send_snapshot as string };
+}
+
+describe('N3-04 D1 — what the provider answered', () => {
+  const http = (status: number, body: Row) => vi.fn(async (_url: string, _init: Row) => ({ ok: status < 300, status, json: async () => body }));
+  const refusal = { name: 'synthetic_error', message: `refused for ${ADDRESS}` };
+  /** The real transport: only `fetch` is a stand-in. */
+  const send = (db: ReturnType<typeof createDb>) => runNotificationEmailWorker(db.client, { random: () => 0.5 });
+
+  beforeEach(() => vi.stubEnv('RESEND_API_KEY', 'synthetic-provider-key'));
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each([
+    ['200 is sent', 200, { id: 'provider-message-9' }, 'sent', null],
+    ['422 is a definite refusal', 422, refusal, 'failed', 'provider_rejected'],
+    ['403 is a definite refusal', 403, refusal, 'failed', 'provider_rejected'],
+    ['409 is final on its first response', 409, refusal, 'failed', 'provider_conflict'],
+  ] as Array<[string, number, Row, string, string | null]>)('%s', async (_name, status, body, expected, code) => {
+    const db = createDb(ENROLLED);
+    const row = queue(db, 'course_assigned', COURSE);
+    const key = row.idempotency_key;
+    const fetchMock = http(status, body);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await send(db);
+
+    expect(result).toMatchObject({ claimed: 1, [expected]: 1 });
+    expect(row).toMatchObject({ status: expected, last_error_code: code, send_snapshot: null, lease_owner: null, attempt_count: 1 });
+    expect(fetchMock.mock.calls[0][1].headers['Idempotency-Key']).toBe(key);
+    expect(JSON.stringify([result, row.last_error_code])).not.toContain(ADDRESS);
+
+    // Over: never claimed again, and never sent under another key.
+    db.now += DAY;
+    expect(await send(db)).toMatchObject({ claimed: 0 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(row.idempotency_key).toBe(key);
+  });
+
+  it.each([
+    ['429', () => http(429, refusal)],
+    ['500', () => http(500, refusal)],
+    ['503', () => http(503, refusal)],
+    ['a call that threw', () => vi.fn(async () => { throw new Error(`socket closed for ${ADDRESS}`); })],
+  ] as Array<[string, () => any]>)('%s is ambiguous: the row keeps its snapshot and key and goes out again unchanged', async (_name, failing) => {
+    const db = createDb(ENROLLED);
+    const row = queue(db, 'course_assigned', COURSE);
+    const key = row.idempotency_key;
+    vi.stubGlobal('fetch', failing());
+
+    expect(await send(db)).toMatchObject({ claimed: 1, retried: 1, sent: 0, failed: 0 });
+    expect(row).toMatchObject({ status: 'pending', last_error_code: 'transport_error', idempotency_key: key, attempt_count: 1, provider_message_id: null });
+    expect(row.next_attempt_at).toBe(db.now + 90);
+    const frozen = row.send_snapshot;
+    expect(frozen).toMatch(/^\\x[0-9a-f]+$/);
+
+    const accepting = http(200, { id: 'provider-message-9' });
+    let storedAtSend: unknown = null;
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: Row) => {
+      storedAtSend = row.send_snapshot;
+      return accepting(url, init);
+    }));
+    db.now = row.next_attempt_at;
+    expect(await send(db)).toMatchObject({ claimed: 1, sent: 1 });
+    expect(storedAtSend).toBe(frozen);
+    expect(accepting.mock.calls[0][1].headers['Idempotency-Key']).toBe(key);
+    expect(JSON.parse(accepting.mock.calls[0][1].body).to).toBe(ADDRESS);
+    expect(row).toMatchObject({ status: 'sent', send_snapshot: null, attempt_count: 2 });
+  });
+
+  it.each([
+    [400, 'failed', 'provider_rejected'],
+    [409, 'failed', 'provider_conflict'],
+    [429, 'pending', 'transport_error'],
+    [500, 'pending', 'transport_error'],
+    [502, 'pending', 'transport_error'],
+  ])('a transport that reports status %i as an error value is classified the same way', async (statusCode, status, code) => {
+    const db = createDb(ENROLLED);
+    const row = queue(db, 'course_assigned', COURSE);
+    const transport = vi.fn(async () => ({ data: null, error: { message: `refused for ${ADDRESS}`, statusCode } }));
+
+    await run(db, transport);
+
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(row).toMatchObject({ status, last_error_code: code, attempt_count: 1 });
+    expect(row.send_snapshot === null).toBe(status === 'failed');
+  });
+
+  // The senders that pass no idempotency key are live today: a status changes nothing for them.
+  it.each([429, 500, 409])('an unkeyed send that gets status %i as an error value is a plain refusal, as before', async (statusCode) => {
+    const transport = vi.fn(async (_message: Row, _options?: Row) => ({ data: null, error: { message: 'synthetic refusal', statusCode } }));
+
+    const result = await deliverOutboundEmail({
+      authorization: { kind: 'allow', scope: 'client', schoolId: SCHOOL },
+      message: { to: ADDRESS, subject: 'Asunto sintético', html: '<p>Mensaje sintético</p>' },
+      transport,
+    });
+
+    expect(result).toEqual({ status: 'provider_rejected', detail: 'synthetic refusal' });
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(transport.mock.calls[0][1]).toEqual({ idempotencyKey: undefined });
+  });
+
+  it('no provider key: the row waits unfrozen, no call is made, and it is sent once the key is there', async () => {
+    vi.stubEnv('RESEND_API_KEY', '');
+    const db = createDb(ENROLLED);
+    const row = queue(db, 'course_assigned', COURSE);
+    const fetchMock = http(200, { id: 'provider-message-9' });
+    vi.stubGlobal('fetch', fetchMock);
+
+    expect(await send(db)).toMatchObject({ claimed: 1, retried: 1 });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(db.calls).not.toContain('rpc:begin_notification_email_attempt');
+    expect(row).toMatchObject({ status: 'pending', last_error_code: 'not_configured', send_snapshot: null, attempt_count: 0, first_attempt_at: null });
+    expect(row.next_attempt_at).toBe(db.now + 900);
+
+    vi.stubEnv('RESEND_API_KEY', 'synthetic-provider-key');
+    db.now = row.next_attempt_at;
+    expect(await send(db)).toMatchObject({ claimed: 1, sent: 1 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('N3-04 D2 — eligibility before every ambiguous retry', () => {
+  it.each([
+    ['the enrolment was removed', (t: Tables) => { t.course_enrollments = []; }, 'source_access_revoked'],
+    ['no active role is left', (t: Tables) => { t.user_roles = [role('docente', { school_id: SCHOOL, is_active: false })]; }, 'no_active_role'],
+    ['the category was switched off', (t: Tables) => { t.user_notification_category_prefs = [{ user_id: U, category: 'courses', email_mode: 'off' }]; }, 'preference_off'],
+    ['the event was switched off', (t: Tables) => { t.user_notification_preferences = [{ user_id: U, notification_type: 'course_assigned', email_enabled: false }]; }, 'preference_off'],
+    ['the category was moved to the digest', (t: Tables) => { t.user_notification_category_prefs = [{ user_id: U, category: 'courses', email_mode: 'digest' }]; }, 'preference_digest'],
+    ['the recipient moved to the QA tenant', (t: Tables) => {
+      t.user_roles = [role('docente', { school_id: QA_SCHOOL })];
+      t.schools = [{ id: QA_SCHOOL, tenant_kind: 'qa', internal_zoom_testing_enabled: false }];
+    }, 'suppressed_qa'],
+    ['the recipient moved to a QA school outside the allowlist', (t: Tables) => {
+      t.user_roles = [role('docente', { school_id: 999 })];
+      t.schools = [{ id: 999, tenant_kind: 'qa', internal_zoom_testing_enabled: false }];
+    }, 'refused_qa_school_not_allowlisted'],
+  ] as Array<[string, (t: Tables) => void, string]>)('%s: cancelled after ambiguous, nothing more is sent', async (_name, revoke, code) => {
+    const { db, row, transport } = await ambiguousRow();
+    revoke(db.tables);
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, cancelled: 1, sent: 0 });
+
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(row).toMatchObject({ status: 'cancelled_after_ambiguous', last_error_code: code, send_snapshot: null, lease_owner: null, attempt_count: 1 });
+    // Closed through the ambiguous-row function: the only finish call is the first run's retry.
+    expect(db.calls.filter((c) => c === 'rpc:finish_notification_email')).toHaveLength(1);
+    expect(db.calls.filter((c) => c === 'rpc:settle_ambiguous_notification_email')).toHaveLength(1);
+  });
+
+  it.each([
+    ['the role read', 'user_roles', 'access_lookup_failed'],
+    ['the source record read', 'course_enrollments', 'access_lookup_failed'],
+    ['the legacy preference read', 'user_notification_preferences', 'preference_unavailable'],
+    ['the category preference read', 'user_notification_category_prefs', 'preference_unavailable'],
+    ['the school read', 'schools', 'refused_school_lookup_failed'],
+  ])('a retry sends nothing when %s fails, and the same bytes once it answers', async (_name, failing, code) => {
+    const { db, row, transport, frozen } = await ambiguousRow();
+    db.failing.add(failing);
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, retried: 1, sent: 0 });
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(row).toMatchObject({ status: 'pending', last_error_code: code, send_snapshot: frozen, attempt_count: 1 });
+    expect(row.next_attempt_at).toBe(db.now + 900);
+
+    db.failing.clear();
+    db.now = row.next_attempt_at;
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, sent: 1 });
+    expect(transport.mock.calls[1]).toEqual(transport.mock.calls[0]);
+  });
+
+  it('an eligible retry sends the stored bytes, address and key, whatever the row and the profile say now', async () => {
+    const { db, row, transport, frozen } = await ambiguousRow();
+    const key = row.idempotency_key;
+    row.payload = { 'course.name': 'Otro nombre' };
+    db.tables.profiles[0].email = 'otra.direccion@ejemplo.invalid';
+    let storedAtSend: unknown = null;
+    transport.mockImplementationOnce(async () => {
+      storedAtSend = row.send_snapshot;
+      return { data: { id: 'provider-message-2' }, error: null };
+    });
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, sent: 1 });
+
+    expect(storedAtSend).toBe(frozen);
+    expect(transport.mock.calls[1]).toEqual(transport.mock.calls[0]);
+    expect(transport.mock.calls[1][0].to).toBe(ADDRESS);
+    expect(transport.mock.calls[1][1]).toEqual({ idempotencyKey: key });
+    expect(db.calls.filter((c) => c === 'course_enrollments')).toHaveLength(2);
+    expect(row).toMatchObject({ status: 'sent', send_snapshot: null, attempt_count: 2, idempotency_key: key });
+  });
+
+  it('a retry whose lease ran out during the checks starts no attempt', async () => {
+    const { db, row, transport, frozen } = await ambiguousRow();
+    db.afterRpc = (name) => { if (name === 'password_recovery_email_due') db.now += 121; };
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, lost: 1, sent: 0 });
+
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(row).toMatchObject({ status: 'sending', send_snapshot: frozen, attempt_count: 1 });
+  });
+});
+
+describe('N3-04 D3 — 24 hours, and rows that are over', () => {
+  it('an ambiguous row becomes unknown 24 hours after its first attempt, without another send', async () => {
+    const { db, row, transport } = await ambiguousRow();
+    db.now = row.first_attempt_at + DAY;
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, unknown: 1, sent: 0, retried: 0 });
+
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(db.calls.filter((c) => c === 'rpc:begin_notification_email_attempt')).toHaveLength(1);
+    expect(row).toMatchObject({ status: 'unknown', last_error_code: 'ambiguous_timeout', send_snapshot: null, lease_owner: null, attempt_count: 1 });
+  });
+
+  it('one second before 24 hours it is still retried', async () => {
+    const { db, row, transport } = await ambiguousRow();
+    db.now = row.first_attempt_at + DAY - 1;
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, sent: 1, unknown: 0 });
+    expect(row.status).toBe('sent');
+  });
+
+  it('a retry that reaches 24 hours during the checks is not sent, and the next run closes it', async () => {
+    const { db, row, transport, frozen } = await ambiguousRow();
+    db.now = row.first_attempt_at + DAY - 1;
+    db.afterRpc = (name) => { if (name === 'password_recovery_email_due') db.now += 1; };
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, lost: 1, sent: 0 });
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(row).toMatchObject({ status: 'sending', send_snapshot: frozen, attempt_count: 1 });
+
+    db.afterRpc = () => undefined;
+    db.now += 121;
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, unknown: 1 });
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['cancelled_after_ambiguous', (t: Tables) => { t.course_enrollments = []; }, 0],
+    ['unknown', () => undefined, DAY],
+  ] as Array<[string, (t: Tables) => void, number]>)('an owner whose lease ran out cannot close a row as %s', async (_name, change, wait) => {
+    const { db, row, transport, frozen } = await ambiguousRow();
+    change(db.tables);
+    db.now = Math.max(db.now, row.first_attempt_at + wait);
+    db.afterRpc = (name) => { if (name === 'notification_email_retry_state') db.now += 121; };
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, lost: 1, cancelled: 0, unknown: 0 });
+    expect(row).toMatchObject({ status: 'sending', send_snapshot: frozen, attempt_count: 1 });
+  });
+
+  const over: Array<[string, () => Promise<{ db: ReturnType<typeof createDb>; row: Row; transport: any }>]> = [
+    ['sent', async () => {
+      const db = createDb(ENROLLED);
+      return { db, row: queue(db, 'course_assigned', COURSE), transport: accepted() };
+    }],
+    ['failed', async () => {
+      const db = createDb(ENROLLED);
+      return { db, row: queue(db, 'course_assigned', COURSE), transport: vi.fn(async () => ({ data: null, error: { message: 'refused', statusCode: 409 } })) };
+    }],
+    ['cancelled', async () => {
+      const db = createDb({ user_roles: [role('docente')] });
+      return { db, row: queue(db, 'course_assigned', COURSE), transport: accepted() };
+    }],
+    ['cancelled_after_ambiguous', async () => {
+      const state = await ambiguousRow();
+      state.db.tables.course_enrollments = [];
+      return state;
+    }],
+    ['unknown', async () => {
+      const state = await ambiguousRow();
+      state.db.now = state.row.first_attempt_at + DAY;
+      return state;
+    }],
+  ];
+  it.each(over)('a %s row holds no snapshot or lease and is never claimed again', async (status, setup) => {
+    const { db, row, transport } = await setup();
+    await run(db, transport);
+    expect(row).toMatchObject({ status, send_snapshot: null, lease_owner: null, lease_expires_at: null });
+    const calls = transport.mock.calls.length;
+
+    // Whatever would make it sendable again, it stays over.
+    db.tables.course_enrollments = ENROLLED.course_enrollments;
+    db.tables.user_roles = ENROLLED.user_roles;
+    db.now += 10 * DAY;
+    expect(await run(db, transport)).toMatchObject({ claimed: 0 });
+    expect(transport).toHaveBeenCalledTimes(calls);
+    expect(row.status).toBe(status);
+  });
+});
+
+describe('N3-04 D4 — backoff, the send budget and recovery mail first', () => {
+  const recoveryJob = (extra: Row = {}): Row => ({ state: 'queued', available_at: 0, provider_attempts: 0, max_provider_attempts: 8, ...extra });
+  const threeRows = (tables: Tables = {}) => {
+    const db = createDb({ ...ENROLLED, ...tables });
+    return { db, rows: [0, 1, 2].map(() => queue(db, 'course_assigned', COURSE)) };
+  };
+
+  it.each([
+    ['the low end', 0, [60, 120, 240, 480, 960, 1800, 1800]],
+    ['the middle', 0.5, [90, 180, 360, 720, 1440, 2700, 2700]],
+    ['the high end', 0.999999, [120, 240, 480, 960, 1920, 3600, 3600]],
+  ])('the delay doubles per ambiguous attempt, randomized in its upper half and capped at an hour: %s', async (_name, random, delays) => {
+    const db = createDb(ENROLLED);
+    const row = queue(db, 'course_assigned', COURSE);
+    const transport = vi.fn().mockRejectedValue(new Error('provider unavailable'));
+
+    const seen: number[] = [];
+    for (let attempt = 1; attempt <= delays.length; attempt++) {
+      db.now = Math.max(db.now, row.next_attempt_at);
+      expect(await run(db, transport, () => random)).toMatchObject({ claimed: 1, retried: 1 });
+      seen.push(row.next_attempt_at - db.now);
+    }
+
+    expect(seen).toEqual(delays);
+    expect(transport).toHaveBeenCalledTimes(delays.length);
+    expect(row).toMatchObject({ status: 'pending', attempt_count: delays.length, last_error_code: 'transport_error' });
+  });
+
+  it('one run claims and sends at most 20 rows, one at a time', async () => {
+    const db = createDb(ENROLLED);
+    const rows = Array.from({ length: 25 }, () => queue(db, 'course_assigned', COURSE));
+    let inFlight = 0;
+    let peak = 0;
+    const transport = vi.fn(async () => {
+      peak = Math.max(peak, ++inFlight);
+      await Promise.resolve();
+      inFlight--;
+      return { data: { id: 'provider-message-1' }, error: null };
+    });
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 20, sent: 20 });
+
+    expect(transport).toHaveBeenCalledTimes(20);
+    expect(peak).toBe(1);
+    expect(rows.filter((r) => r.status === 'pending' && r.lease_owner === null)).toHaveLength(5);
+  });
+
+  it('an ambiguous answer ends the sends of the run; the other rows are handed back untouched and nothing is logged', async () => {
+    const logs = ['log', 'error', 'warn', 'info'].map((level) => vi.spyOn(console, level as 'log').mockImplementation(() => undefined));
+    const { db, rows } = threeRows();
+    const transport = vi.fn().mockRejectedValue(new Error(`429 too many requests for ${ADDRESS}`));
+
+    const result = await run(db, transport);
+
+    expect(result).toMatchObject({ claimed: 3, retried: 1, deferred: 2, sent: 0 });
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(rows[0]).toMatchObject({ status: 'pending', last_error_code: 'transport_error', attempt_count: 1, next_attempt_at: db.now + 90 });
+    for (const row of rows.slice(1)) {
+      expect(row).toMatchObject({ status: 'pending', last_error_code: 'provider_backoff', send_snapshot: null, attempt_count: 0, lease_owner: null, next_attempt_at: db.now + 60 });
+    }
+    const printed = JSON.stringify([result, ...logs.map((spy) => spy.mock.calls)]);
+    expect(printed).not.toContain(ADDRESS);
+    expect(printed).not.toContain(U);
+    logs.forEach((spy) => spy.mockRestore());
+  });
+
+  it.each([
+    ['queued and due', {}],
+    ['being sent right now', { state: 'processing' }],
+  ] as Array<[string, Row]>)('recovery mail %s: no notification is claimed or sent', async (_name, job) => {
+    const { db, rows } = threeRows({ recovery: [recoveryJob(job)] });
+    const transport = accepted();
+
+    expect(await run(db, transport)).toMatchObject({ status: 'ok', claimed: 0, sent: 0 });
+
+    expect(transport).not.toHaveBeenCalled();
+    for (const row of rows) expect(row).toMatchObject({ status: 'pending', lease_owner: null, next_attempt_at: 0 });
+  });
+
+  it.each([
+    ['not due yet', { available_at: 5000 }],
+    ['already accepted', { state: 'provider_accepted' }],
+    ['out of attempts', { provider_attempts: 8 }],
+  ] as Array<[string, Row]>)('recovery mail %s holds nothing back', async (_name, job) => {
+    const { db } = threeRows({ recovery: [recoveryJob(job)] });
+    expect(await run(db, accepted())).toMatchObject({ claimed: 3, sent: 3 });
+  });
+
+  it('recovery mail that becomes due during a run gets the next send: the rest is handed back', async () => {
+    const { db, rows } = threeRows();
+    db.afterRpc = (name) => {
+      if (name === 'finish_notification_email' && db.tables.recovery.length === 0) db.tables.recovery.push(recoveryJob());
+    };
+    const transport = accepted();
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 3, sent: 1, deferred: 2 });
+
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(rows[0].status).toBe('sent');
+    for (const row of rows.slice(1)) {
+      expect(row).toMatchObject({ status: 'pending', last_error_code: 'recovery_priority', send_snapshot: null, attempt_count: 0, next_attempt_at: db.now + 60 });
+    }
+  });
+
+  it('an unreadable recovery queue fails closed: nothing is frozen or sent', async () => {
+    const { db, rows } = threeRows();
+    db.failing.add('password_recovery_email_due');
+    const transport = accepted();
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 3, deferred: 3, sent: 0 });
+
+    expect(transport).not.toHaveBeenCalled();
+    expect(db.calls).not.toContain('rpc:begin_notification_email_attempt');
+    for (const row of rows) {
+      expect(row).toMatchObject({ status: 'pending', last_error_code: 'priority_unavailable', send_snapshot: null, attempt_count: 0 });
+    }
+  });
+
+  it('a held-back ambiguous row keeps its snapshot and is retried once recovery mail is through', async () => {
+    const { db, row, transport, frozen } = await ambiguousRow();
+    queue(db, 'course_assigned', COURSE);
+    db.afterRpc = (name) => {
+      if (name === 'notification_email_retry_state') db.tables.recovery.push(recoveryJob());
+    };
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 2, deferred: 2, sent: 0 });
+    expect(row).toMatchObject({ status: 'pending', last_error_code: 'recovery_priority', send_snapshot: frozen, attempt_count: 1 });
+
+    db.afterRpc = () => undefined;
+    db.tables.recovery = [];
+    db.now = row.next_attempt_at;
+    expect(await run(db, transport)).toMatchObject({ claimed: 2, sent: 2 });
+    expect(transport.mock.calls[1]).toEqual(transport.mock.calls[0]);
   });
 });

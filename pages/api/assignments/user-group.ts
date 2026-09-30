@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
-import { requireVerifiedCaller } from '@/lib/api-auth';
+import { loggableError, requireVerifiedCaller } from '@/lib/api-auth';
 
 /**
  * GET /api/assignments/user-group
@@ -38,7 +38,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const userId = caller.user.id;
-    console.log('[user-group] REQUEST - userId:', userId, 'assignmentId:', assignmentId);
+    // Logs keep labels, booleans and error codes: no id, group name or error text.
+    console.log('[user-group] REQUEST');
 
     // Initialize admin client for RLS bypass
     // This is safe because we only return the authenticated user's own group
@@ -61,12 +62,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('user_id', userId)
       .maybeSingle();
 
-    console.log('[user-group] membership query result:', {
-      found: !!membership,
-      groupId: membership?.group_id,
-      error: membershipError?.message,
-      code: membershipError?.code
-    });
+    console.log('[user-group] membership query result:', { found: !!membership, ...loggableError(membershipError) });
 
     if (membershipError) {
       // PGRST116 = no rows found, which is expected if user has no group
@@ -75,7 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(200).json({ group: null });
       }
 
-      console.error('[user-group] Error checking membership:', membershipError);
+      console.error('[user-group] Error checking membership:', loggableError(membershipError));
       return res.status(500).json({ error: 'Error al verificar grupo' });
     }
 
@@ -92,17 +88,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('id', membership.group_id)
       .single();
 
-    console.log('[user-group] group query result:', {
-      found: !!group,
-      groupId: group?.id,
-      groupName: group?.name,
-      error: groupError?.message
-    });
+    console.log('[user-group] group query result:', { found: !!group, ...loggableError(groupError) });
 
     if (groupError || !group) {
       // Group doesn't exist - this is an orphaned membership record
       // Clean it up and treat as "no group" instead of erroring
-      console.warn('[user-group] Orphaned membership - group_id', membership.group_id, 'does not exist. Cleaning up...');
+      console.warn('[user-group] Orphaned membership - group does not exist. Cleaning up...');
 
       // Delete the orphaned membership record
       await supabaseAdmin
@@ -115,14 +106,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ group: null });
     }
 
-    console.log('[user-group] Found group:', group.id, 'name:', group.name);
+    console.log('[user-group] Found group');
     return res.status(200).json({ group });
 
-  } catch (error: any) {
-    console.error('[user-group] Uncaught error:', error);
-    return res.status(500).json({
-      error: 'Error interno del servidor',
-      details: error?.message || String(error)
-    });
+  } catch (error) {
+    // Fixed body: the exception text can carry ids or query details.
+    console.error('[user-group] Uncaught error:', loggableError(error));
+    return res.status(500).json({ error: 'Error interno del servidor' });
   }
 }

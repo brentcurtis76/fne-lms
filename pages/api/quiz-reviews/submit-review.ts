@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import { deliverRecordBells, loggableError } from './notify-pending';
 
 // Use service role to bypass RLS
 const supabaseService = createClient(
@@ -64,12 +65,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Valid review status required (pass or needs_review)' });
     }
 
-    console.log('[API submit-review] User:', user.id, 'Submission:', submissionId, 'Status:', reviewStatus);
+    console.log('[API submit-review] Saving review');
 
     // Get the submission to verify it exists and get student info
     const { data: submission, error: subError } = await supabaseService
       .from('quiz_submissions')
-      .select('id, student_id, course_id, lesson_id, review_status')
+      .select('id, student_id, course_id, lesson_id, review_status, general_feedback, graded_by, graded_at')
       .eq('id', submissionId)
       .single();
 
@@ -77,52 +78,64 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'Submission not found' });
     }
 
-    // Update the quiz submission directly instead of using RPC
-    // Note: question_feedback column does not exist in the table, only general_feedback
-    const { error: updateError } = await supabaseService
-      .from('quiz_submissions')
-      .update({
-        review_status: reviewStatus,
-        general_feedback: generalFeedback || null,
-        graded_by: user.id,
-        graded_at: new Date().toISOString()
-      })
-      .eq('id', submissionId);
+    // Saving the same review again keeps its graded_at and is the same notification
+    // occurrence; any other review, including a return to an earlier status, is new.
+    const feedback = generalFeedback || null;
+    const isRetry =
+      !!submission.graded_at &&
+      submission.review_status === reviewStatus &&
+      submission.general_feedback === feedback &&
+      submission.graded_by === user.id;
+    // A new review is later than the saved graded_at even with a frozen or backward clock.
+    const gradedAt = isRetry
+      ? new Date(submission.graded_at).toISOString()
+      : new Date(Math.max(Date.now(), submission.graded_at ? Date.parse(submission.graded_at) + 1 : 0)).toISOString();
 
-    if (updateError) {
-      console.error('Error updating submission:', updateError);
-      return res.status(500).json({ error: 'Failed to save review', details: updateError.message });
+    if (!isRetry) {
+      // Update the quiz submission directly instead of using RPC
+      // Note: question_feedback column does not exist in the table, only general_feedback
+      // Compare-and-set on the graded_at read above: an overlapping review saved first
+      // has moved it on, and this one is refused rather than sharing its occurrence.
+      const update = supabaseService
+        .from('quiz_submissions')
+        .update({
+          review_status: reviewStatus,
+          general_feedback: feedback,
+          graded_by: user.id,
+          graded_at: gradedAt
+        })
+        .eq('id', submissionId);
+      const { data: updated, error: updateError } = await (submission.graded_at
+        ? update.eq('graded_at', submission.graded_at)
+        : update.is('graded_at', null)
+      ).select('id');
+
+      if (updateError) {
+        console.error('Error updating submission:', loggableError(updateError));
+        // Fixed body: the database message can carry ids, feedback or SQL.
+        return res.status(500).json({ error: 'No se pudo guardar la revisión' });
+      }
+      if (!updated || updated.length === 0) {
+        return res.status(409).json({ error: 'La revisión cambió mientras se guardaba; recarga e inténtalo de nuevo' });
+      }
     }
 
-    // Send notification to student
-    const notificationMessage = reviewStatus === 'pass'
-      ? 'Tu quiz ha sido revisado y aprobado. ¡Buen trabajo!'
-      : 'Tu quiz ha sido revisado. Por favor revisa la retroalimentación del instructor.';
-
-    const { error: notifError } = await supabaseService
-      .from('notifications')
-      .insert({
-        user_id: submission.student_id,
-        type: 'quiz_reviewed',
-        title: 'Quiz revisado',
-        message: notificationMessage,
-        data: {
-          submission_id: submission.id,
-          course_id: submission.course_id,
-          lesson_id: submission.lesson_id,
-          review_status: reviewStatus
-        }
-      });
-
-    if (notifError) {
-      console.error('Error creating notification:', notifError);
-      // Don't fail the whole request just because notification failed
+    // The student's bell; nonfatal for the saved review, and a retry fills it.
+    let notificationsDelivered = true;
+    if (submission.student_id !== user.id) {
+      notificationsDelivered =
+        (await deliverRecordBells(
+          'quiz_reviewed',
+          { submission_id: submission.id, graded_at: gradedAt, lesson_id: submission.lesson_id },
+          [{ id: submission.student_id }]
+        )) === 0;
+      if (!notificationsDelivered) console.error('[API submit-review] review notification not created');
     }
 
-    return res.status(200).json({ success: true });
+    return res.status(200).json({ success: true, notificationsDelivered });
 
   } catch (error) {
-    console.error('Submit review API error:', error);
+    console.error('Submit review API error:', loggableError(error));
     return res.status(500).json({ error: 'Internal server error' });
   }
 }

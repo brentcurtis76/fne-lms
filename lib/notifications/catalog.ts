@@ -53,6 +53,12 @@ export type Audience =
   | 'school_encargados'
   | 'school_encargados_and_admins'
   | 'all_active_users'
+  /** The producer's persisted group members other than the actor (create-group, add-classmates). */
+  | 'group_invitees'
+  /** Active consultor/admin users with an active consultant assignment to the group's community (submit-group). */
+  | 'group_consultants'
+  /** Reviewers the pending-review list shows the submission to: consultant assignments covering its student (notify-pending). */
+  | 'quiz_reviewers'
   /** No recipient rule exists yet (producer or recipient case still to be wired). */
   | 'unwired';
 
@@ -242,6 +248,31 @@ export const NOTIFICATION_CATALOG: Record<string, NotificationCatalogEntry> = {
   // Feedback is upserted per (assignment, student): each new feedback is a new occurrence.
   assignment_feedback: plain('assignments', 'student', 'immediate', [], ASSIGNMENT_FIELDS, assignmentUrl, '/assignments'),
   assignment_due_soon: plain('assignments', 'student', 'immediate', ['assignment_id', 'student_id', 'due_date'], ASSIGNMENT_FIELDS, assignmentUrl, '/assignments'),
+
+  // Group and quiz bells (N2-04) carry fixed producer copy and no email fields.
+  // A group has no record page for members; one invitation per group and member.
+  group_invitation: {
+    ...plain('assignments', 'group_invitees', 'immediate', ['group_id'], [], noRecord, '/mi-aprendizaje/tareas'),
+    templates: 'producer',
+  },
+  // One per saved group submission (its persisted submitted_at): an edited resubmission
+  // is a new occurrence, an identical retry keeps the timestamp and is not.
+  // The review page is admin-only in middleware, so a consultor lands on the overview.
+  group_assignment_submitted: {
+    ...plain('assignments', 'group_consultants', 'immediate', ['group_id', 'submitted_at'], [], noRecord, '/admin/assignment-overview'),
+    templates: 'producer',
+    urlBuilder: (d, role) => (role === 'admin' ? at('/admin/assignment-review', 'assignment_id')(d) : null),
+  },
+  quiz_review_pending: {
+    ...plain('assignments', 'quiz_reviewers', 'immediate', ['submission_id'], [], at('/quiz-reviews', 'submission_id'), '/quiz-reviews'),
+    templates: 'producer',
+  },
+  // One per saved review (its persisted graded_at): pass → needs_review → pass is three
+  // occurrences, saving the same review again keeps the timestamp and is not.
+  quiz_reviewed: {
+    ...plain('assignments', 'student', 'immediate', ['submission_id', 'graded_at'], [], at('/student/lesson', 'lesson_id'), '/mi-aprendizaje'),
+    templates: 'producer',
+  },
 
   message_sent: plain('community', 'message_recipient', 'immediate', ['message_id'], ['sender_name'], workspaceThreadUrl, '/community/workspace?section=messaging'),
   // A post mention is one occurrence per user_mentions row; a workspace message

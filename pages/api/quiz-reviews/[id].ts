@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import { loggableError } from '@/lib/api-auth';
 
 // Use service role to bypass RLS
 const supabaseService = createClient(
@@ -44,7 +45,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('is_active', true);
 
     if (rolesError) {
-      console.error('Error fetching user roles:', rolesError);
+      console.error('Error fetching user roles:', loggableError(rolesError));
       return res.status(500).json({ error: 'Failed to fetch user roles' });
     }
 
@@ -63,7 +64,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'No permission to access quiz reviews' });
     }
 
-    console.log('[API quiz-review] User:', user.id, 'Role:', userRole, 'Submission:', id);
+    // Logs keep the reviewer's role and error codes: no id, student or answer.
+    console.log('[API quiz-review] Role:', userRole);
 
     // Get the quiz submission with related data
     const { data: submission, error: submissionError } = await supabaseService
@@ -79,7 +81,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
 
     if (submissionError) {
-      console.error('Error fetching quiz submission:', submissionError);
+      console.error('Error fetching quiz submission:', loggableError(submissionError));
       return res.status(500).json({ error: 'Failed to fetch quiz submission' });
     }
 
@@ -96,7 +98,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .eq('is_active', true);
 
       if (assignmentsError) {
-        console.error('Error fetching consultant assignments:', assignmentsError);
+        console.error('Error fetching consultant assignments:', loggableError(assignmentsError));
         return res.status(500).json({ error: 'Failed to verify access' });
       }
 
@@ -153,7 +155,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
   } catch (error) {
-    console.error('Quiz review API error:', error);
+    console.error('Quiz review API error:', loggableError(error));
     return res.status(500).json({ error: 'Internal server error' });
   }
 }

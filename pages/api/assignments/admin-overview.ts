@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import { loggableError } from '../../../lib/api-auth';
 
 // Use service role to bypass RLS
 const supabaseService = createClient(
@@ -54,7 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const limitNum = parseInt(limit as string);
     const offsetNum = parseInt(offset as string);
 
-    console.log('[API assignments] User:', user.id, 'isAdmin:', isAdmin, 'isConsultant:', isConsultant);
+    console.log('[API assignments] isAdmin:', isAdmin, 'isConsultant:', isConsultant);
 
     let courseIds: string[] = [];
     let allowedStudentIds: Set<string> = new Set();
@@ -76,7 +77,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .eq('is_active', true);
 
       if (assignmentsError) {
-        console.error('Error fetching consultant assignments:', assignmentsError);
+        console.error('Error fetching consultant assignments:', loggableError(assignmentsError));
         return res.status(500).json({ error: 'Failed to fetch consultant assignments' });
       }
 
@@ -317,7 +318,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
   } catch (error) {
-    console.error('Admin assignments API error:', error);
+    console.error('Admin assignments API error:', loggableError(error));
     return res.status(500).json({ error: 'Internal server error' });
   }
 }

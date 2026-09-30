@@ -19,8 +19,8 @@ NOTIF-01 proposes N0-01: secure the feedback notification route and add the imme
 | N2-03 | Workspace mentions and replies moved server-side, with reconciliation | blocked |  | 2026-09-26 |  |
 | N2-04 | Group and quiz writers moved to the service; `quiz_review_pending` recipient fix | blocked |  | 2026-09-26 |  |
 | N2-05 | Retire the legacy bell and dead notification code | done | NOTIF-11 | 2026-09-30 |  |
-| N3-01 | Outbox table and `enqueue_notification` RPC with independently conditional inserts; pgTAP | todo |  | 2026-09-30 |  |
-| N3-02 | Shared renderer `lib/email/render.ts` and a single sender contract | blocked |  | 2026-09-26 |  |
+| N3-01 | Outbox table and `enqueue_notification` RPC with independently conditional inserts; pgTAP | done | NOTIF-12 | 2026-09-30 |  |
+| N3-02 | Shared renderer `lib/email/render.ts` and a single sender contract | todo |  | 2026-09-30 |  |
 | N3-03 | Worker core: claim/lease, pre-first-attempt access and preference checks, encrypted snapshot freeze, send through `authorizeUserEmail`/`deliverOutboundEmail` | blocked |  | 2026-09-26 |  |
 | N3-04 | Worker failure semantics: ambiguous vs definite, terminal 409, 24h `unknown`, backoff/throttle, recovery-outbox priority, snapshot clearing and retention purge | blocked |  | 2026-09-26 |  |
 | N3-05 | Unsubscribe tokens, RFC 8058 POST endpoint, GET confirmation page, headers | blocked |  | 2026-09-26 |  |
@@ -90,3 +90,6 @@ NOTIF-01 proposes N0-01: secure the feedback notification route and add the imme
 - 2026-09-30T00:25:52-03:00 · NOTIF-11 · IN-PROGRESS · NOTIF-11 r0 dispatched (pm-unit begin) · token ls-5a8ad8a6a9
 - 2026-09-30T01:31:30-03:00 · NOTIF-11 · DONE · NOTIF-11: retire legacy notification code · token daec7dc9d09b
 - 2026-09-30T01:31:30-03:00 · PM · TODO · N3-01 is free again: N2-05 finished. · token daec7dc9d09b-free-N3-01
+- 2026-09-30T01:36:42-03:00 · NOTIF-12 · IN-PROGRESS · NOTIF-12 r0 dispatched (pm-unit begin) · token ls-66cd28cc51
+- 2026-09-30T02:33:09-03:00 · NOTIF-12 · DONE · NOTIF-12: add dormant transactional notification outbox · token 6e29a706c163
+- 2026-09-30T02:33:09-03:00 · PM · TODO · N3-02 is free again: N3-01 finished. · token 6e29a706c163-free-N3-02

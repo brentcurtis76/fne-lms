@@ -54,7 +54,7 @@ describe('the scan reaches the code it claims to', () => {
 
   it('includes .js and .jsx modules — the second hole', () => {
     expect(modules).toContain('utils/storage.js');
-    expect(modules).toContain('lib/realtimeNotifications.js');
+    expect(modules).toContain('lib/services/communityWorkspace.js');
   });
 
   it('includes browser modules nothing imports yet — the blind spot a pure import graph has', () => {

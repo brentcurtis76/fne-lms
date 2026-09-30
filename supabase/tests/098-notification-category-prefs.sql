@@ -10,7 +10,9 @@
 --      claim) cannot read, insert, update, delete or transfer another user's
 --      row; blocked INSERT throws, blocked UPDATE/DELETE return empty.
 --   D4 service_role manages any row; PUBLIC/anon hold no table or column
---      grant; no function, view or trigger exposes the table.
+--      grant; no view or trigger exposes the table, and the only function
+--      that reads it is the service-role-only SECURITY INVOKER
+--      public.enqueue_notification (N3-01).
 --   D5 bad category/mode, NULLs, duplicate pair, missing profile and denied
 --      transfers are rejected and leave every surviving row unchanged.
 --
@@ -133,12 +135,20 @@ SELECT ok(
   'D1: la policy UPDATE exige dueño en la fila vieja (USING) y en la nueva (WITH CHECK)'
 );
 
+-- Each referencing function as name(args):SECURITY DEFINER:config:roles with
+-- EXECUTE other than the owner (a NULL ACL means the PUBLIC default).
 SELECT is(
-  (SELECT count(*)::int FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+  (SELECT array_agg(format('%s.%s(%s):%s:%s:%s', n.nspname, p.proname, oidvectortypes(p.proargtypes),
+            p.prosecdef, p.proconfig,
+            (SELECT array_agg(CASE a.grantee WHEN 0 THEN 'PUBLIC' ELSE a.grantee::regrole::text END ORDER BY a.grantee)
+               FROM aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+              WHERE a.privilege_type = 'EXECUTE' AND a.grantee <> p.proowner))
+          ORDER BY n.nspname, p.proname, p.oid)
+     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
     WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
       AND p.prosrc ILIKE '%user_notification_category_prefs%'),
-  0,
-  'D4: ninguna función (SECURITY DEFINER o no) referencia la tabla'
+  ARRAY['public.enqueue_notification(text, text, uuid, text, text, boolean, text, text, text, text, text, jsonb):f:{"search_path=\"\""}:{service_role}'],
+  'D4: la única función que referencia la tabla es enqueue_notification: SECURITY INVOKER, search_path fijo, EXECUTE solo service_role'
 );
 SELECT is(
   (SELECT count(DISTINCT r.ev_class)::int FROM pg_depend d

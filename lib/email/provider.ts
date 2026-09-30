@@ -11,6 +11,43 @@ export interface OutboundEmailMessage {
   headers?: Record<string, string>;
 }
 
+/**
+ * THE SENDER CONTRACT — one rule for every outbound message: the consumers that
+ * omit `message.from` (meeting summary, notification, invitation/recovery and
+ * expense mail) and the ones that pass their own (contact, pasantías).
+ *
+ * The sender value — `message.from` when given, else `EMAIL_FROM_ADDRESS` —
+ * accepts exactly two forms:
+ *
+ *   Name <address@host.tld>   used verbatim
+ *   address@host.tld          a bare address, which gets the Genera display name
+ *
+ * Unset or empty means `DEFAULT_SENDER`. Anything else is invalid, and so is any
+ * value holding a control character (CR/LF included): it could inject headers.
+ * An invalid value is never sent and never repaired — `deliverOutboundEmail`
+ * answers `not_configured` with detail `invalid_sender` before the transport.
+ */
+const DEFAULT_SENDER = 'Genera <notificaciones@nuevaeducacion.org>';
+
+const ADDRESS = '[^\\s<>@]+@[^\\s<>@]+\\.[^\\s<>@]+';
+const BARE_ADDRESS = new RegExp(`^${ADDRESS}$`);
+const NAMED_ADDRESS = new RegExp(`^[^<>]*[^\\s<>]\\s*<${ADDRESS}>$`);
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
+
+/**
+ * The sender to use, or null when the value is invalid. `explicit` is a
+ * caller's own `message.from`; without one the value is `EMAIL_FROM_ADDRESS`.
+ */
+export function resolveSender(explicit?: string): string | null {
+  const configured = explicit || process.env.EMAIL_FROM_ADDRESS;
+  if (!configured) return DEFAULT_SENDER;
+  if (CONTROL_CHARACTER.test(configured)) return null;
+  if (BARE_ADDRESS.test(configured)) return `Genera <${configured}>`;
+  if (NAMED_ADDRESS.test(configured)) return configured;
+  return null;
+}
+
 export type EmailTransport = (
   message: OutboundEmailMessage,
   options?: { idempotencyKey?: string }
@@ -20,7 +57,7 @@ export type ProviderDelivery =
   | { status: 'provider_accepted'; providerMessageId?: string }
   | { status: 'provider_rejected'; detail?: string }
   | { status: 'transport_error'; detail?: string }
-  | { status: 'not_configured' }
+  | { status: 'not_configured'; detail?: string }
   | { status: 'suppressed_qa' }
   | { status: 'refused'; detail?: string };
 
@@ -55,7 +92,8 @@ function resendTransport(apiKey: string): EmailTransport {
 /** The only module allowed to call the real outbound email provider. */
 export async function deliverOutboundEmail(params: {
   authorization: OutboundEmailAuthorization;
-  message: OutboundEmailMessage;
+  /** Omit `from` to send as the canonical sender; a given one obeys the same rule (see `resolveSender`). */
+  message: Omit<OutboundEmailMessage, 'from'> & { from?: string };
   idempotencyKey?: string;
   transport?: EmailTransport;
 }): Promise<ProviderDelivery> {
@@ -64,12 +102,15 @@ export async function deliverOutboundEmail(params: {
     return { status: 'refused', detail: params.authorization.reason };
   }
 
+  const from = resolveSender(params.message.from);
+  if (!from) return { status: 'not_configured', detail: 'invalid_sender' };
+
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey && !params.transport) return { status: 'not_configured' };
 
   try {
     const transport = params.transport ?? resendTransport(apiKey as string);
-    const { data, error } = await transport(params.message, {
+    const { data, error } = await transport({ ...params.message, from }, {
       idempotencyKey: params.idempotencyKey,
     });
     if (error) return { status: 'provider_rejected', detail: error.message };

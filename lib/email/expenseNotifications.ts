@@ -22,8 +22,6 @@ import type { OutboundEmailAuthorization } from './outbound-policy';
 /** Deep link included in the notification bodies (unchanged from the pre-B1a templates). */
 const EXPENSE_REPORTS_URL = 'https://fne-lms.vercel.app/expense-reports';
 
-const DEFAULT_FROM = 'Genera <notificaciones@nuevaeducacion.org>';
-
 export interface ExpenseEmailMessage {
   to: string;
   subject: string;
@@ -233,7 +231,6 @@ async function deliver(
   const result = await deliverOutboundEmail({
     authorization,
     message: {
-      from: process.env.EMAIL_FROM_ADDRESS || DEFAULT_FROM,
       to: message.to,
       subject: message.subject,
       html: message.html,
@@ -241,7 +238,8 @@ async function deliver(
   });
 
   if (result.status === 'provider_accepted') return { sent: true };
-  if (result.status === 'not_configured') {
+  // An invalid EMAIL_FROM_ADDRESS carries a detail and is a failure, not a skip.
+  if (result.status === 'not_configured' && !result.detail) {
     console.log(`[expense-notifications] ${context} skipped`, { toDomain, status: result.status });
     return { sent: false, skipped: true };
   }

@@ -18,8 +18,8 @@ NOTIF-01 proposes N0-01: secure the feedback notification route and add the imme
 | N2-02 | Payload/template fixes; `notification_type_id`/category; `meeting_finalized` recipients **in-app only** (email suppressed until N5-06, so no double send) | blocked |  | 2026-09-26 |  |
 | N2-03 | Workspace mentions and replies moved server-side, with reconciliation | blocked |  | 2026-09-26 |  |
 | N2-04 | Group and quiz writers moved to the service; `quiz_review_pending` recipient fix | blocked |  | 2026-09-26 |  |
-| N2-05 | Retire the legacy bell and dead notification code | blocked |  | 2026-09-26 |  |
-| N3-01 | Outbox table and `enqueue_notification` RPC with independently conditional inserts; pgTAP | blocked |  | 2026-09-26 |  |
+| N2-05 | Retire the legacy bell and dead notification code | done | NOTIF-11 | 2026-09-30 |  |
+| N3-01 | Outbox table and `enqueue_notification` RPC with independently conditional inserts; pgTAP | todo |  | 2026-09-30 |  |
 | N3-02 | Shared renderer `lib/email/render.ts` and a single sender contract | blocked |  | 2026-09-26 |  |
 | N3-03 | Worker core: claim/lease, pre-first-attempt access and preference checks, encrypted snapshot freeze, send through `authorizeUserEmail`/`deliverOutboundEmail` | blocked |  | 2026-09-26 |  |
 | N3-04 | Worker failure semantics: ambiguous vs definite, terminal 409, 24h `unknown`, backoff/throttle, recovery-outbox priority, snapshot clearing and retention purge | blocked |  | 2026-09-26 |  |
@@ -87,3 +87,6 @@ NOTIF-01 proposes N0-01: secure the feedback notification route and add the imme
 - 2026-09-28T12:10:30-03:00 · NOTIF-05 · IN-PROGRESS · NOTIF-05 r0 dispatched (pm-unit begin) · token ls-1bb336d703
 - 2026-09-28T12:54:52-03:00 · NOTIF-05 · DONE · NOTIF-05: add category preference storage and RLS · token 0d3682b38dd5
 - 2026-09-28T12:54:52-03:00 · PM · TODO · N1-03 is free again: N1-02 finished. · token 0d3682b38dd5-free-N1-03
+- 2026-09-30T00:25:52-03:00 · NOTIF-11 · IN-PROGRESS · NOTIF-11 r0 dispatched (pm-unit begin) · token ls-5a8ad8a6a9
+- 2026-09-30T01:31:30-03:00 · NOTIF-11 · DONE · NOTIF-11: retire legacy notification code · token daec7dc9d09b
+- 2026-09-30T01:31:30-03:00 · PM · TODO · N3-01 is free again: N2-05 finished. · token daec7dc9d09b-free-N3-01

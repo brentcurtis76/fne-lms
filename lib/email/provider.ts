@@ -51,11 +51,12 @@ export function resolveSender(explicit?: string): string | null {
 export type EmailTransport = (
   message: OutboundEmailMessage,
   options?: { idempotencyKey?: string }
-) => Promise<{ data?: { id?: string } | null; error?: { message?: string } | null }>;
+) => Promise<{ data?: { id?: string } | null; error?: { message?: string; statusCode?: number | null } | null }>;
 
 export type ProviderDelivery =
   | { status: 'provider_accepted'; providerMessageId?: string }
-  | { status: 'provider_rejected'; detail?: string }
+  /** A definite refusal. `conflict` marks HTTP 409: the provider already holds this idempotency key. */
+  | { status: 'provider_rejected'; detail?: string; conflict?: true }
   | { status: 'transport_error'; detail?: string }
   | { status: 'not_configured'; detail?: string }
   | { status: 'suppressed_qa' }
@@ -83,10 +84,18 @@ function resendTransport(apiKey: string): EmailTransport {
       if (response.status === 429 || response.status >= 500) {
         throw new Error('transient provider failure');
       }
-      return { data: null, error: { message: body?.message ?? 'provider rejected request' } };
+      return {
+        data: null,
+        error: { message: body?.message ?? 'provider rejected request', statusCode: response.status },
+      };
     }
     return { data: { id: body?.id }, error: null };
   };
+}
+
+/** False when `deliverOutboundEmail` would answer `not_configured` for the canonical sender. */
+export function isDeliveryConfigured(transport?: EmailTransport): boolean {
+  return resolveSender() !== null && Boolean(transport || process.env.RESEND_API_KEY);
 }
 
 /** The only module allowed to call the real outbound email provider. */
@@ -113,7 +122,19 @@ export async function deliverOutboundEmail(params: {
     const { data, error } = await transport({ ...params.message, from }, {
       idempotencyKey: params.idempotencyKey,
     });
-    if (error) return { status: 'provider_rejected', detail: error.message };
+    if (error) {
+      // Only a keyed send reads the status: an unkeyed one keeps the plain refusal it always had.
+      const status = params.idempotencyKey ? error.statusCode : undefined;
+      // 429 and 5xx leave it open whether the message was taken, like a call that threw.
+      if (status === 429 || (typeof status === 'number' && status >= 500)) {
+        return { status: 'transport_error', detail: error.message };
+      }
+      return {
+        status: 'provider_rejected',
+        detail: error.message,
+        ...(status === 409 ? { conflict: true as const } : {}),
+      };
+    }
     return {
       status: 'provider_accepted',
       ...(typeof data?.id === 'string' ? { providerMessageId: data.id } : {}),

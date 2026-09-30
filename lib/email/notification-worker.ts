@@ -6,7 +6,7 @@
  * One run claims due immediate rows of `notification_email_outbox` under a
  * lease (`claim_notification_emails`, `SKIP LOCKED`) and, for each:
  *
- *   1. before the first attempt, re-checks that the recipient can still see the
+ *   1. before every attempt, re-checks that the recipient can still see the
  *      source record (`checkNotificationAccess`) and still wants the email
  *      (`resolveEmailPreference`, current rows). Revoked or switched off
  *      cancels the row; a failed read sends nothing and leaves it for later;
@@ -17,10 +17,21 @@
  *      message under the same idempotency key;
  *   4. submits through `deliverOutboundEmail` and records what happened.
  *
- * Only the live lease owner can freeze or finish a row: the database checks it.
- * N3-04 owns retry classification, backoff, the 24-hour `unknown` and the purge;
- * here an unsent row is retried after a fixed delay.
+ * Failure semantics (N3-04). A provider refusal is definite: the row fails, and
+ * a 409 fails it on the first response, the key never changed to get past it.
+ * A 429, a 5xx or a call that threw is ambiguous: the message may have gone
+ * out. The row keeps its snapshot and key, waits out a jittered exponential
+ * backoff, and once a snapshot is frozen a row that stops is never `cancelled`
+ * but `cancelled_after_ambiguous`; 24 hours after its first attempt it becomes
+ * `unknown` without another send.
  *
+ * Throttle. One run claims at most `SEND_BUDGET` rows and sends them one after
+ * another. Password recovery mail shares the provider and goes first: the claim
+ * returns nothing while recovery mail is due, and the worker asks again before
+ * each send. When recovery mail is due, that read fails, or the provider
+ * answers ambiguously, the run sends nothing more and hands its rows back.
+ *
+ * Only the live lease owner can freeze or finish a row: the database checks it.
  * Nothing that identifies a recipient is logged or returned.
  */
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from 'node:crypto';
@@ -31,11 +42,18 @@ import { getAppBaseUrl } from '../utils/app-url';
 import { checkNotificationAccess } from './notification-access';
 import { buildNotificationEmail, platformPath } from './notifications';
 import { authorizeUserEmail } from './outbound-policy';
-import { deliverOutboundEmail, resolveSender, type EmailTransport } from './provider';
+import { deliverOutboundEmail, isDeliveryConfigured, resolveSender, type EmailTransport } from './provider';
 
-const BATCH_SIZE = 20;
+/** Rows claimed per run. Each makes at most one provider call, so this is also the most a run can send. */
+const SEND_BUDGET = 20;
 const LEASE_SECONDS = 120;
+/** After a failed read or a missing configuration: nothing was sent. */
 const RETRY_SECONDS = 900;
+/** For a row handed back unsent because the run stopped sending. */
+const RELEASE_SECONDS = 60;
+/** After an ambiguous provider outcome: doubles per attempt up to the maximum. */
+const BACKOFF_BASE_SECONDS = 120;
+const BACKOFF_MAX_SECONDS = 3600;
 const GENERIC_TITLE = 'Tienes una nueva notificación en Genera';
 /** Until N5-06 the finalize route's summary is a meeting's only email. */
 const EMAIL_SUPPRESSED_EVENT = 'meeting_finalized';
@@ -52,11 +70,15 @@ export interface NotificationWorkerResult {
   failed: number;
   retried: number;
   digest: number;
+  /** Ambiguous for 24 hours: closed without another send. */
+  unknown: number;
+  /** Handed back unsent because the run stopped sending (recovery mail due, or the provider backing off). */
+  deferred: number;
   /** Rows whose lease was gone before the outcome could be written; the database left them unchanged. */
   lost: number;
 }
 
-type RowOutcome = 'sent' | 'cancelled' | 'failed' | 'retried' | 'digest' | 'lost';
+type RowOutcome = 'sent' | 'cancelled' | 'failed' | 'retried' | 'digest' | 'unknown' | 'deferred' | 'lost';
 
 interface ClaimedRow {
   id: string;
@@ -200,8 +222,8 @@ async function preferenceStep(client: SupabaseClient, row: ClaimedRow): Promise<
   return null;
 }
 
-/** Everything that must hold before a first attempt; the sealed message when it does. */
-async function firstAttempt(client: SupabaseClient, row: ClaimedRow, key: Buffer): Promise<Stop | { sealed: string }> {
+/** Whether the recipient may get this email now: the source record and the current preference. Null when they may. */
+async function eligibility(client: SupabaseClient, row: ClaimedRow): Promise<Stop | null> {
   if (row.event_type === EMAIL_SUPPRESSED_EVENT) return { outcome: 'cancelled', code: 'email_suppressed' };
 
   const access = await checkNotificationAccess(client, {
@@ -214,10 +236,11 @@ async function firstAttempt(client: SupabaseClient, row: ClaimedRow, key: Buffer
   if (access.access === 'invalid') return { outcome: 'failed', code: access.code };
   if (access.access === 'unavailable') return { outcome: 'retry', code: access.code };
 
-  const preference = await preferenceStep(client, row);
-  if (preference) return preference;
+  return preferenceStep(client, row);
+}
 
-  // The address comes from the profile, never from the row or its payload.
+/** The sealed message of a first attempt. The address comes from the profile, never from the row or its payload. */
+async function sealFirstAttempt(client: SupabaseClient, row: ClaimedRow, key: Buffer): Promise<Stop | { sealed: string }> {
   const { data: profile, error } = await client.from('profiles').select('email').eq('id', row.user_id).maybeSingle();
   if (error) return { outcome: 'retry', code: 'recipient_lookup_failed' };
   const to = typeof profile?.email === 'string' ? profile.email.trim() : '';
@@ -226,83 +249,142 @@ async function firstAttempt(client: SupabaseClient, row: ClaimedRow, key: Buffer
   return { sealed: sealSnapshot(key, renderMessage(row, to)) };
 }
 
-async function processRow(
-  client: SupabaseClient,
+/** Seconds until the next attempt after `attempt` ambiguous ones: doubling, capped, the upper half random. */
+function backoffSeconds(attempt: number, random: () => number): number {
+  const ceiling = Math.min(BACKOFF_MAX_SECONDS, BACKOFF_BASE_SECONDS * 2 ** (attempt - 1));
+  return Math.round(ceiling / 2 + random() * (ceiling / 2));
+}
+
+interface Run {
+  client: SupabaseClient;
+  owner: string;
+  key: Buffer;
+  transport?: EmailTransport;
+  random: () => number;
+}
+
+async function finishRow(
+  run: Run,
   row: ClaimedRow,
-  owner: string,
-  key: Buffer,
-  transport?: EmailTransport
+  outcome: 'sent' | 'cancelled' | 'failed' | 'retry' | 'digest',
+  code?: string,
+  extra: { providerMessageId?: string; retrySeconds?: number } = {}
 ): Promise<RowOutcome> {
-  const finish = async (
-    outcome: 'sent' | 'cancelled' | 'failed' | 'retry' | 'digest',
-    code?: string,
-    providerMessageId?: string
-  ): Promise<RowOutcome> => {
-    const { data, error } = await client.rpc('finish_notification_email', {
+  const { data, error } = await run.client.rpc('finish_notification_email', {
+    p_id: row.id,
+    p_owner: run.owner,
+    p_outcome: outcome,
+    p_error_code: code ?? null,
+    p_provider_message_id: extra.providerMessageId ?? null,
+    p_retry_seconds: outcome === 'retry' ? extra.retrySeconds ?? RETRY_SECONDS : null,
+  });
+  if (error || data !== true) return 'lost';
+  return outcome === 'retry' ? 'retried' : outcome;
+}
+
+/** Hands a claimed row back unsent, due again shortly; whatever it holds is kept. */
+async function releaseRow(run: Run, row: ClaimedRow, code: string): Promise<RowOutcome> {
+  const released = await finishRow(run, row, 'retry', code, { retrySeconds: RELEASE_SECONDS });
+  return released === 'retried' ? 'deferred' : released;
+}
+
+/** One row. `halt` is set when the run must send nothing more; it is the code the remaining rows are released with. */
+async function processRow(run: Run, row: ClaimedRow): Promise<{ outcome: RowOutcome; halt?: string }> {
+  const { client, owner } = run;
+
+  const settle = async (outcome: 'cancelled_after_ambiguous' | 'unknown', code: string): Promise<RowOutcome> => {
+    const { data, error } = await client.rpc('settle_ambiguous_notification_email', {
       p_id: row.id,
       p_owner: owner,
       p_outcome: outcome,
-      p_error_code: code ?? null,
-      p_provider_message_id: providerMessageId ?? null,
-      p_retry_seconds: outcome === 'retry' ? RETRY_SECONDS : null,
+      p_error_code: code,
     });
     if (error || data !== true) return 'lost';
-    return outcome === 'retry' ? 'retried' : outcome;
+    return outcome === 'unknown' ? 'unknown' : 'cancelled';
   };
 
-  let sealed: string | null = null;
-  if (!row.has_snapshot) {
-    let step: Stop | { sealed: string };
-    try {
-      step = await firstAttempt(client, row, key);
-    } catch {
-      step = { outcome: 'retry', code: 'worker_error' };
-    }
-    if ('outcome' in step) return finish(step.outcome, step.code);
-    sealed = step.sealed;
+  // A frozen snapshot means an earlier attempt may have reached the provider.
+  const ambiguous = row.has_snapshot;
+  let attempts = 0;
+  if (ambiguous) {
+    const { data, error } = await client.rpc('notification_email_retry_state', { p_id: row.id, p_owner: owner });
+    const state = Array.isArray(data) ? data[0] : null;
+    if (error || !state) return { outcome: 'lost' };
+    if (state.expired) return { outcome: await settle('unknown', 'ambiguous_timeout') };
+    attempts = state.attempt_count;
   }
+
+  /** Ends the row, or leaves it for later. A row that may already have been sent is never plainly cancelled or failed. */
+  const stop = (step: Stop): Promise<RowOutcome> => {
+    if (step.outcome === 'retry') return finishRow(run, row, 'retry', step.code);
+    if (ambiguous) return settle('cancelled_after_ambiguous', step.code ?? 'preference_digest');
+    return finishRow(run, row, step.outcome, step.code);
+  };
+
+  let step: Stop | { sealed: string | null };
+  try {
+    // Before the first attempt, and again before every retry of an ambiguous one.
+    step = (await eligibility(client, row)) ?? (ambiguous ? { sealed: null } : await sealFirstAttempt(client, row, run.key));
+  } catch {
+    step = { outcome: 'retry', code: 'worker_error' };
+  }
+  if ('outcome' in step) return { outcome: await stop(step) };
 
   const authorization = await authorizeUserEmail(client, row.user_id);
-  if (authorization.kind === 'suppressed_qa') return finish('cancelled', 'suppressed_qa');
+  if (authorization.kind === 'suppressed_qa') return { outcome: await stop({ outcome: 'cancelled', code: 'suppressed_qa' }) };
   if (authorization.kind === 'refuse') {
     const transient = authorization.reason === 'user_lookup_failed' || authorization.reason === 'school_lookup_failed';
-    return finish(transient ? 'retry' : 'failed', `refused_${authorization.reason}`);
+    return { outcome: await stop({ outcome: transient ? 'retry' : 'failed', code: `refused_${authorization.reason}` }) };
   }
 
-  // The database keeps an already frozen snapshot and hands back what is stored;
-  // nothing comes back unless this run still owns the lease.
+  // Nothing to send with: the row stays unfrozen, so it is not mistaken for an attempt.
+  if (!isDeliveryConfigured(run.transport)) return { outcome: await finishRow(run, row, 'retry', 'not_configured') };
+
+  // Password recovery mail goes first. A queue that cannot be read counts as due.
+  const recovery = await client.rpc('password_recovery_email_due');
+  if (recovery.error || recovery.data !== false) {
+    const code = recovery.data === true && !recovery.error ? 'recovery_priority' : 'priority_unavailable';
+    return { outcome: await releaseRow(run, row, code), halt: code };
+  }
+
+  // The database keeps an already frozen snapshot and hands back what is stored; nothing comes
+  // back unless this run still owns the lease and the row is within 24 hours of its first attempt.
   const { data: stored, error: beginError } = await client.rpc('begin_notification_email_attempt', {
     p_id: row.id,
     p_owner: owner,
-    p_snapshot: sealed,
+    p_snapshot: step.sealed,
   });
-  if (beginError || !stored) return 'lost';
+  if (beginError || !stored) return { outcome: 'lost' };
 
-  const message = openSnapshot(key, stored);
-  if (!message) return finish('retry', 'snapshot_unreadable');
+  const message = openSnapshot(run.key, stored);
+  if (!message) return { outcome: await finishRow(run, row, 'retry', 'snapshot_unreadable') };
 
   const result = await deliverOutboundEmail({
     authorization,
     message,
     idempotencyKey: row.idempotency_key,
-    transport,
+    transport: run.transport,
   });
 
   switch (result.status) {
     case 'provider_accepted':
-      return finish('sent', undefined, result.providerMessageId);
+      return { outcome: await finishRow(run, row, 'sent', undefined, { providerMessageId: result.providerMessageId }) };
     case 'provider_rejected':
-      // A definite refusal by the provider. Its text can name the address, so only the status is kept.
-      return finish('failed', 'provider_rejected');
-    default:
-      // transport_error is ambiguous and not_configured is fixable: the frozen bytes go out again later.
-      return finish('retry', result.status);
+      // A definite refusal, and a 409 is one: the key is never changed to get past it.
+      // The provider's text can name the address, so only a code is kept.
+      return { outcome: await finishRow(run, row, 'failed', result.conflict ? 'provider_conflict' : 'provider_rejected') };
+    default: {
+      // 429, 5xx or a call that threw: the message may have gone out. The frozen bytes go
+      // out again later under the same key, and this run leaves the provider alone.
+      const retrySeconds = backoffSeconds(attempts + 1, run.random);
+      return { outcome: await finishRow(run, row, 'retry', result.status, { retrySeconds }), halt: 'provider_backoff' };
+    }
   }
 }
 
 export async function runNotificationEmailWorker(
   client: SupabaseClient,
-  deps: { transport?: EmailTransport } = {}
+  deps: { transport?: EmailTransport; random?: () => number } = {}
 ): Promise<NotificationWorkerResult> {
   const result: NotificationWorkerResult = {
     enabled: false,
@@ -313,6 +395,8 @@ export async function runNotificationEmailWorker(
     failed: 0,
     retried: 0,
     digest: 0,
+    unknown: 0,
+    deferred: 0,
     lost: 0,
   };
   if (!isOutboxDeliveryEnabled()) return result;
@@ -326,19 +410,30 @@ export async function runNotificationEmailWorker(
   }
   result.status = 'ok';
 
-  const owner = `notification-emails:${randomUUID()}`;
+  const run: Run = {
+    client,
+    owner: `notification-emails:${randomUUID()}`,
+    key,
+    transport: deps.transport,
+    random: deps.random ?? Math.random,
+  };
   const { data: claimed, error } = await client.rpc('claim_notification_emails', {
-    p_owner: owner,
-    p_limit: BATCH_SIZE,
+    p_owner: run.owner,
+    p_limit: SEND_BUDGET,
     p_lease_seconds: LEASE_SECONDS,
   });
   if (error) throw new Error('claim_failed');
 
+  let halt: string | undefined;
   for (const row of (claimed ?? []) as ClaimedRow[]) {
     result.claimed++;
     let outcome: RowOutcome;
     try {
-      outcome = await processRow(client, row, owner, key, deps.transport);
+      if (halt) {
+        outcome = await releaseRow(run, row, halt);
+      } else {
+        ({ outcome, halt } = await processRow(run, row));
+      }
     } catch {
       // The row keeps its lease until it expires; the next run picks it up.
       outcome = 'lost';

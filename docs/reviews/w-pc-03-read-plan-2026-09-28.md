@@ -24,7 +24,7 @@ For **each** read below, Brent must first give separate dated authorization of t
 1. **Vercel Production dashboard, GENERA project:** inspect only whether `EMAIL_FROM_ADDRESS` is set, empty, or unset and, if set, its display form and sender domain. Do not copy other environment variables or secrets. Record Production deployment commit SHA from Brent-supplied evidence or a separately authorized read-only Vercel deployment view; otherwise record `unknown`. Do not infer the deployed SHA from the repository.
 2. **Resend dashboard, authorized sender domain:** inspect only the named domain's verification status and available SPF, DKIM, DMARC, and region observations. Mark fields the dashboard does not expose as `unknown`. Public DNS may corroborate but cannot replace Resend's status. No domain, DNS, key, webhook, or provider setting change is proposed.
 
-### Per-read authorization and observation template (unfilled)
+### Original per-read authorization and observation template (unfilled before the reads)
 
 | Field | Vercel Production read | Resend domain read |
 |---|---|---|
@@ -41,3 +41,17 @@ The later dated evidence record `docs/reviews/w-pc-03-sender-domain-verification
 Brent approved the revised plan on 2026-09-28: he chose guided dashboard checks by himself without an API key; the sender domain of record is whatever Vercel Production actually configures; a mismatch or not-verified result closes W-PC-03 as `checked: not verified` with remediation as a separate item; and Brent is the Engineering signer for the older gate unless he names another. Those choices are recorded in `reviews/workflow-v2-20260928/planning/SM-brent-approval-20260928.md` in the workflow repository. Each hosted read still requires its own authorization, executor naming, and acceptance of this committed record. The actual Production domain, deployment SHA, Resend status, and signing action remain unobserved.
 
 The machine ledger marks `W-B3b-02` **done**, but its exit gate still requires a Resend-verified sender (PC-03) and Engineering sign-off. The separate W-PC-03 row remains **waiting/UNAUTHORIZED**. This packet records that discrepancy; it does not change either row or supply a sign-off. The release protocol (`docs/reviews/santa-marta-release-protocol-2026-08-25.md`, gate 3) also names the Resend verification check. NOTIF N5-07 may receive the later evidence path through its own PM workflow; this packet asserts no Production activation or institutional-mailbox delivery.
+
+## Post-read annotation — 2026-09-29
+
+Brent performed the two scoped dashboard reads himself on 2026-09-29. The source record is `runs/SM-30/evidence/w-pc-03-brent-checks-20260929/RECORD.md` in the workflow repository, with screenshots retained alongside it. At about 14:55 -03:00, after the look-only scope of both reads was explained, Brent asked in Claude Code chat to be walked through them. That record names Brent as executor and identifies this packet at commit `3a3812b24e0da573b82e0d281d254f9284f52088` as the pre-read location. Brent reaffirmed those facts and instructed the PM to record the results in his 2026-09-29 message. No API key, setting change, or email send was involved.
+
+| Field | Vercel Production read | Resend domain read |
+|---|---|---|
+| Authorization and executor | Brent's ~14:55 -03:00 guided-check instruction; Brent performed the read | Same dated instruction named this separate domain-status scope; Brent performed the read |
+| Source and scope | Vercel dashboard, project `fne-lms`, Production `EMAIL_FROM_ADDRESS` and Production deployment overview | Resend dashboard, team `nuevaeducacion`, Domains page for `nuevaeducacion.org` |
+| Read time | 2026-09-29 after ~14:55 and before source record at 15:39:32 -03:00; exact minute unrecorded | Same bounded interval; exact minute unrecorded |
+| Observation | `Genera <notificaciones@nuevaeducacion.org>`; Production deployment source `main` at `51ed605cf17c80bc62e654e987983aadea0d5d29`, Ready | `nuevaeducacion.org` shows `Verified`; SPF, DKIM, DMARC, and region were not opened and remain unknown |
+| Screenshot | `vercel-env-EMAIL_FROM_ADDRESS.png`, `vercel-overview.png` beside the source record | `resend-domains.png` beside the source record |
+
+**Timing qualification:** the original committed packet preceded the reads, and Brent's dated chat authorization preceded them, but the authorization table above was added to the repository *after* the reads. The approved plan called for that dated authorization to be committed in this file before each read. Brent approved a one-time exception for these two completed reads in the 2026-09-29 PM conversation, recorded as resolved workflow decision `15bf1e93b10f2866` with scope in `runs/SM-30/TIMING-EXCEPTION-EVIDENCE.md`. Do not cite the post-read amendment as a pre-read commit. The machine ledger remains `waiting`/`UNAUTHORIZED` until the supported reconciliation step; this annotation does not update it. The dated result and its limits are in `docs/reviews/w-pc-03-sender-domain-verification-2026-09-29.md`.

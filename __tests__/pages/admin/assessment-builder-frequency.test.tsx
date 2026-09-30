@@ -13,13 +13,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { buildChainableQuery } from '../../api/assessment-builder/_helpers';
+import { validateFrequencyConfig } from '../../../lib/services/assessment-builder/frequencyConfig';
 
 const TEMPLATE_ID = 'ab000002-0000-0000-0000-000000000001';
 
-const { mockToastError, mockToastSuccess, supabaseHolder, routerMock } = vi.hoisted(() => ({
+const { mockToastError, mockToastSuccess, supabaseHolder, routerHolder, routerMock } = vi.hoisted(() => ({
   mockToastError: vi.fn(),
   mockToastSuccess: vi.fn(),
   supabaseHolder: { current: null as any },
+  routerHolder: { current: null as any },
   routerMock: {
     push: vi.fn(),
     replace: vi.fn(),
@@ -29,7 +31,7 @@ const { mockToastError, mockToastSuccess, supabaseHolder, routerMock } = vi.hois
   },
 }));
 
-vi.mock('next/router', () => ({ useRouter: () => routerMock }));
+vi.mock('next/router', () => ({ useRouter: () => routerHolder.current }));
 vi.mock('next/link', () => ({ default: ({ children, href }: any) => <a href={href}>{children}</a> }));
 vi.mock('@supabase/auth-helpers-react', () => ({ useSupabaseClient: () => supabaseHolder.current }));
 vi.mock('react-hot-toast', () => {
@@ -88,7 +90,15 @@ function installFetch(log: FetchCall[], module: unknown) {
     }
     if (url.includes('/indicators/ind-2') && method === 'PUT') {
       const body = JSON.parse(String(init?.body));
+      (module as any).indicators[1].frequencyConfig = body.frequencyConfig;
       return jsonResponse({ indicator: { ...(module as any).indicators[1], frequencyConfig: body.frequencyConfig, frequencyUnitOptions: body.frequencyUnitOptions } });
+    }
+    // Stands in for the publish endpoint's own gate: the stored config must pass the shared validator.
+    if (url.endsWith(`/templates/${TEMPLATE_ID}/publish`) && method === 'POST') {
+      const { valid, errors } = validateFrequencyConfig((module as any).indicators[1].frequencyConfig);
+      return valid
+        ? jsonResponse({ template: { version: '1.0.0' }, message: 'Template publicado correctamente' })
+        : jsonResponse({ error: 'Configuración de frecuencia inválida', details: errors }, 400);
     }
     return jsonResponse({});
   });
@@ -128,6 +138,7 @@ describe('Template editor — frecuencia indicator configuration (PR 3 item 2)',
   beforeEach(() => {
     vi.clearAllMocks();
     fetchLog = [];
+    routerHolder.current = routerMock;
     installSupabase();
   });
   afterEach(() => {
@@ -160,7 +171,8 @@ describe('Template editor — frecuencia indicator configuration (PR 3 item 2)',
     expect(screen.getByTestId('frequency-config-hint')).toHaveTextContent('Para publicar: el valor mínimo debe ser un número');
 
     fireEvent.click(screen.getByTestId('indicator-save-btn'));
-    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith(expect.stringContaining('Configuración de frecuencia incompleta')));
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith(
+      expect.stringContaining('Configuración de frecuencia incompleta'), { position: 'top-center' }));
     expect(putCalls(fetchLog)).toHaveLength(0);
 
     fireEvent.change(screen.getByTestId('frequency-min'), { target: { value: '5' } });
@@ -194,5 +206,48 @@ describe('Template editor — frecuencia indicator configuration (PR 3 item 2)',
     expect(body.frequencyUnitOptions).toEqual(['semana', 'mes']);
     await waitFor(() => expect(mockToastSuccess).toHaveBeenCalledWith('Indicador actualizado'));
     expect(mockToastError).not.toHaveBeenCalled();
+  });
+
+  it('keeps the tree expanded when the router settles after first load, then saves and publishes past the separate gate (PROC-B004 D2)', async () => {
+    installFetch(fetchLog, moduleWith({ type: 'count', min: 0.1, max: 3.1, step: 4, unit: 'semana', allowed_units: ['semana'] }, ['semana']));
+    // Every session read yields a fresh user object, as a real client does.
+    supabaseHolder.current.auth.getSession = vi.fn(async () => ({ data: { session: { user: { id: 'admin-1', email: 'admin@example.test' } } } }));
+    const view = render(<TemplateEditor />);
+    fireEvent.click(await screen.findByRole('button', { name: /Expandir proceso generativo: Objetivo A/ }));
+    fireEvent.click(await screen.findByText('Módulo A'));
+    const editButton = await screen.findByRole('button', { name: 'Editar indicador: Frecuencia uno' });
+
+    // Hydration: Next hands the page a new router object for the same route.
+    routerHolder.current = { ...routerMock };
+    view.rerender(<TemplateEditor />);
+    await waitFor(() => expect(supabaseHolder.current.auth.getSession).toHaveBeenCalledTimes(1));
+    const templateLoads = () => fetchLog.filter(c => c.url.endsWith(`/templates/${TEMPLATE_ID}`) && !c.init?.method).length;
+    expect(templateLoads()).toBe(1);
+    expect(screen.getByRole('button', { name: 'Editar indicador: Frecuencia uno' })).toBe(editButton);
+
+    // The stored draft config is invalid, so the publish gate refuses it and the template stays a draft.
+    fireEvent.click(screen.getByTestId('publish-btn'));
+    fireEvent.click(await screen.findByTestId('publish-confirm-btn'));
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('Configuración de frecuencia inválida'));
+    expect(mockToastSuccess).not.toHaveBeenCalled();
+
+    fireEvent.click(editButton);
+    await screen.findByTestId('frequency-min');
+    // The modal's own refusal is raised at the top, away from the bottom-right toaster that covers its buttons (R0-F1).
+    fireEvent.click(screen.getByTestId('indicator-save-btn'));
+    await waitFor(() => expect(mockToastError).toHaveBeenLastCalledWith(
+      expect.stringContaining('Configuración de frecuencia incompleta'), { position: 'top-center' }));
+    expect(putCalls(fetchLog)).toHaveLength(0);
+    fireEvent.change(screen.getByTestId('frequency-step'), { target: { value: '0.1' } });
+    fireEvent.click(screen.getByTestId('indicator-save-btn'));
+    await waitFor(() => expect(mockToastSuccess).toHaveBeenCalledWith('Indicador actualizado'));
+    expect(putBody(fetchLog).frequencyConfig).toMatchObject({ min: 0.1, max: 3.1, step: 0.1, unit: 'semana' });
+
+    fireEvent.click(screen.getByTestId('publish-btn'));
+    fireEvent.click(await screen.findByTestId('publish-confirm-btn'));
+    await waitFor(() => expect(mockToastSuccess).toHaveBeenCalledWith('Template publicado correctamente'));
+    const publishes = fetchLog.filter(c => c.url.endsWith('/publish'));
+    expect(publishes).toHaveLength(2);
+    expect(templateLoads()).toBe(1);
   });
 });

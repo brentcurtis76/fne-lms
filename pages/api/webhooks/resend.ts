@@ -1,10 +1,16 @@
 /**
- * Resend delivery evidence for password-recovery messages.
+ * Resend delivery evidence for password-recovery messages, and bounces of
+ * notification emails (N3-06).
  *
  * Provider API acceptance is not delivery. Only a signature-verified
  * `email.delivered` or `email.bounced` webhook may advance the durable outbox
  * and write the corresponding audit outcome. The raw body is verified before
  * parsing, and no recipient, subject, or message body is logged or persisted.
+ *
+ * A verified bounce also goes to the notification outbox, which suppresses the
+ * address it recorded for the row that carries the provider id. Only the id
+ * leaves this route: the event's own recipient is never read, so an id no row
+ * carries suppresses nothing, and a delivered event never lifts a suppression.
  */
 import type { NextApiRequest, NextApiResponse } from 'next';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -88,10 +94,37 @@ interface ResendEvent {
   data?: { email_id?: unknown };
 }
 
+type DurableVerdict = 'recorded' | 'pending' | 'ignored' | 'failed';
+
+/** The verdict of one durable write. `applied` is the answer of its function that means a row changed. */
+async function durable(
+  store: 'recovery' | 'notification',
+  write: PromiseLike<{ data: unknown; error: unknown }>,
+  applied: string
+): Promise<DurableVerdict> {
+  try {
+    const { data, error } = await write;
+    if (error) {
+      console.error('[resend-webhook] durable write failed', {
+        store,
+        code: (error as { code?: string }).code ?? null,
+      });
+      return 'failed';
+    }
+    if (data === applied) return 'recorded';
+    if (data === 'pending') return 'pending';
+    return 'ignored';
+  } catch {
+    console.error('[resend-webhook] durable write threw', { store });
+    return 'failed';
+  }
+}
+
 /**
  * Persist one signature-verified event durably, whatever the ordering.
  *
- *   'recorded' — a matched outbox row changed state (audit row written in SQL)
+ *   'recorded' — a matched outbox row changed state (audit row written in SQL),
+ *                or a notification address was suppressed
  *   'pending'  — no outbox row carries this provider id YET; the evidence is
  *                stored and reconciled transactionally when acceptance commits
  *   'ignored'  — not a delivery/bounce event, or precedence refused the
@@ -99,11 +132,15 @@ interface ResendEvent {
  *   'failed'   — the DATABASE could not take the evidence. The route answers
  *                500 so the provider retries: a webhook we could not persist
  *                must never be acknowledged.
+ *
+ * A bounce is offered to both outboxes, recovery first: the id says nothing
+ * about which one sent the message, and each ignores an id it does not hold.
+ * Both writes are idempotent, so a retry after one of them failed is safe.
  */
 export async function applyVerifiedResendEvent(
   admin: Pick<SupabaseClient, 'rpc'>,
   event: ResendEvent
-): Promise<'recorded' | 'pending' | 'ignored' | 'failed'> {
+): Promise<DurableVerdict> {
   const outcome =
     event.type === 'email.delivered'
       ? 'delivered'
@@ -113,24 +150,27 @@ export async function applyVerifiedResendEvent(
   const emailId = event.data?.email_id;
   if (!outcome || typeof emailId !== 'string' || emailId.length === 0) return 'ignored';
 
-  try {
-    const { data, error } = await admin.rpc('record_password_recovery_delivery', {
-      p_provider_message_id: emailId,
-      p_outcome: outcome,
-    });
-    if (error) {
-      console.error('[resend-webhook] durable delivery transition failed', {
-        code: (error as { code?: string }).code ?? null,
-      });
-      return 'failed';
-    }
-    if (data === 'applied') return 'recorded';
-    if (data === 'pending') return 'pending';
-    return 'ignored';
-  } catch {
-    console.error('[resend-webhook] durable delivery transition threw');
-    return 'failed';
+  const verdicts = [
+    await durable(
+      'recovery',
+      admin.rpc('record_password_recovery_delivery', { p_provider_message_id: emailId, p_outcome: outcome }),
+      'applied'
+    ),
+  ];
+  if (outcome === 'bounced') {
+    verdicts.push(
+      await durable(
+        'notification',
+        admin.rpc('record_notification_email_bounce', { p_provider_message_id: emailId }),
+        'suppressed'
+      )
+    );
   }
+
+  for (const verdict of ['failed', 'recorded', 'pending'] as const) {
+    if (verdicts.includes(verdict)) return verdict;
+  }
+  return 'ignored';
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

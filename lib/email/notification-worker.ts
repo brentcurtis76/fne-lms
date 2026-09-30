@@ -19,7 +19,12 @@
  *      signed for the version of the recipient's preference row, which is
  *      written in `default` when there is none; when they cannot be signed
  *      it is not frozen and nothing is sent;
- *   4. submits through `deliverOutboundEmail` and records what happened.
+ *   4. asks the database whether the address has bounced (N3-06), on every
+ *      attempt: a first attempt hands over a keyed digest of the address, which
+ *      is recorded for the row; a retry is judged by the digest recorded when
+ *      its message was frozen. A bounce suppresses the address, not the user:
+ *      the row is cancelled, and without the key or an answer nothing is sent;
+ *   5. submits through `deliverOutboundEmail` and records what happened.
  *
  * Failure semantics (N3-04). A provider refusal is definite: the row fails, and
  * a 409 fails it on the first response, the key never changed to get past it.
@@ -38,7 +43,7 @@
  * Only the live lease owner can freeze or finish a row: the database checks it.
  * Nothing that identifies a recipient is logged or returned.
  */
-import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getCatalogEntry, getCatalogTemplates, type NotificationCategory } from '../notifications/catalog';
 import { resolveEmailPreference } from '../notifications/resolve-preference';
@@ -151,6 +156,49 @@ export function openSnapshot(key: Buffer, stored: unknown): FrozenMessage | null
     return message;
   } catch {
     return null;
+  }
+}
+
+/**
+ * The address digest key, from the server-only `NOTIFICATION_SUPPRESSION_SECRET`. No
+ * fallback to another secret: under a changed key no stored suppression would
+ * match again. Shorter than 32 characters counts as unset.
+ */
+function suppressionKey(): Buffer | null {
+  const secret = process.env.NOTIFICATION_SUPPRESSION_SECRET;
+  if (typeof secret !== 'string' || secret.length < 32) return null;
+  return createHash('sha256').update('genera/notification-address-suppression/v1/').update(secret).digest();
+}
+
+/**
+ * What a bounce suppression is stored and looked up under: HMAC-SHA256 of the
+ * trimmed, lowercased address, as hex. The address itself is never stored.
+ * Null without the key or an address.
+ */
+export function notificationAddressDigest(address: string): string | null {
+  const key = suppressionKey();
+  const normalized = address.trim().toLowerCase();
+  if (!key || !normalized) return null;
+  return createHmac('sha256', key).update(normalized, 'utf8').digest('hex');
+}
+
+/**
+ * Whether notification email to this address is suppressed after a bounce, for
+ * server code with the service role (N4-02's notice). `unavailable` without the
+ * key or an answer.
+ */
+export async function readNotificationAddressSuppression(
+  client: Pick<SupabaseClient, 'rpc'>,
+  address: string
+): Promise<'suppressed' | 'clear' | 'unavailable'> {
+  const digest = notificationAddressDigest(address);
+  if (!digest) return 'unavailable';
+  try {
+    const { data, error } = await client.rpc('notification_email_address_suppressed', { p_address_digest: digest });
+    if (error || typeof data !== 'boolean') return 'unavailable';
+    return data ? 'suppressed' : 'clear';
+  } catch {
+    return 'unavailable';
   }
 }
 
@@ -268,7 +316,7 @@ async function sealFirstAttempt(
   row: ClaimedRow,
   key: Buffer,
   unsubscribe: Go['unsubscribe']
-): Promise<Stop | { sealed: string }> {
+): Promise<Stop | { sealed: string; to: string }> {
   const { data: profile, error } = await client.from('profiles').select('email').eq('id', row.user_id).maybeSingle();
   if (error) return { outcome: 'retry', code: 'recipient_lookup_failed' };
   const to = typeof profile?.email === 'string' ? profile.email.trim() : '';
@@ -283,7 +331,30 @@ async function sealFirstAttempt(
     headers = unsubscribeHeaders(token);
   }
 
-  return { sealed: sealSnapshot(key, { ...renderMessage(row, to), ...(headers ? { headers } : {}) }) };
+  return { sealed: sealSnapshot(key, { ...renderMessage(row, to), ...(headers ? { headers } : {}) }), to };
+}
+
+/**
+ * Whether the row's address has bounced. `to` is the address of a first attempt; null for a retry, whose
+ * frozen address the database already holds a digest of. Null when the address is clear to send to.
+ */
+async function addressStep(client: SupabaseClient, owner: string, row: ClaimedRow, to: string | null): Promise<Stop | 'lost' | null> {
+  const unavailable: Stop = { outcome: 'retry', code: 'suppression_unavailable' };
+  if (!suppressionKey()) return unavailable;
+  try {
+    const { data, error } = await client.rpc('check_notification_email_address', {
+      p_id: row.id,
+      p_owner: owner,
+      p_address_digest: to === null ? null : notificationAddressDigest(to),
+    });
+    if (error) return unavailable;
+    if (data === null) return 'lost';
+    if (data === 'clear') return null;
+    if (data === 'suppressed') return { outcome: 'cancelled', code: 'address_suppressed' };
+    return unavailable;
+  } catch {
+    return unavailable;
+  }
 }
 
 /** Seconds until the next attempt after `attempt` ambiguous ones: doubling, capped, the upper half random. */
@@ -358,12 +429,12 @@ async function processRow(run: Run, row: ClaimedRow): Promise<{ outcome: RowOutc
     return finishRow(run, row, step.outcome, step.code);
   };
 
-  let step: Stop | { sealed: string | null };
+  let step: Stop | { sealed: string | null; to: string | null };
   try {
     // Before the first attempt, and again before every retry of an ambiguous one.
     const checked = await eligibility(client, row);
     if ('outcome' in checked) step = checked;
-    else step = ambiguous ? { sealed: null } : await sealFirstAttempt(client, row, run.key, checked.unsubscribe);
+    else step = ambiguous ? { sealed: null, to: null } : await sealFirstAttempt(client, row, run.key, checked.unsubscribe);
   } catch {
     step = { outcome: 'retry', code: 'worker_error' };
   }
@@ -385,6 +456,11 @@ async function processRow(run: Run, row: ClaimedRow): Promise<{ outcome: RowOutc
     const code = recovery.data === true && !recovery.error ? 'recovery_priority' : 'priority_unavailable';
     return { outcome: await releaseRow(run, row, code), halt: code };
   }
+
+  // A bounced address gets nothing more, whoever the user is: neither a first message nor a frozen one.
+  const suppression = await addressStep(client, owner, row, step.to);
+  if (suppression === 'lost') return { outcome: 'lost' };
+  if (suppression) return { outcome: await stop(suppression) };
 
   // The database keeps an already frozen snapshot and hands back what is stored; nothing comes
   // back unless this run still owns the lease and the row is within 24 hours of its first attempt.

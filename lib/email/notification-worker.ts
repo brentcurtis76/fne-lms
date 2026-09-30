@@ -24,7 +24,9 @@
  *      is recorded for the row; a retry is judged by the digest recorded when
  *      its message was frozen. A bounce suppresses the address, not the user:
  *      the row is cancelled, and without the key or an answer nothing is sent;
- *   5. submits through `deliverOutboundEmail` and records what happened.
+ *   5. submits through `deliverOutboundEmail` and records what happened. The
+ *      submitted message is also mirrored into the local E2E outbox (`./outbox`),
+ *      which is inert outside a local e2e run.
  *
  * Failure semantics (N3-04). A provider refusal is definite: the row fails, and
  * a 409 fails it on the first response, the key never changed to get past it.
@@ -52,6 +54,7 @@ import { checkNotificationAccess } from './notification-access';
 import { createUnsubscribeToken, preferenceVersionForLink, unsubscribeHeaders } from './notification-unsubscribe';
 import { buildNotificationEmail, platformPath } from './notifications';
 import { authorizeUserEmail } from './outbound-policy';
+import { captureOutboundEmail } from './outbox';
 import { deliverOutboundEmail, isDeliveryConfigured, resolveSender, type EmailTransport } from './provider';
 
 /** Rows claimed per run. Each makes at most one provider call, so this is also the most a run can send. */
@@ -474,6 +477,8 @@ async function processRow(run: Run, row: ClaimedRow): Promise<{ outcome: RowOutc
   const message = openSnapshot(run.key, stored);
   if (!message) return { outcome: await finishRow(run, row, 'retry', 'snapshot_unreadable') };
 
+  // Only an authorized attempt with a valid sender gets here: the frozen bytes it submits are mirrored once.
+  captureOutboundEmail({ to: message.to, subject: message.subject, html: message.html });
   const result = await deliverOutboundEmail({
     authorization,
     message,

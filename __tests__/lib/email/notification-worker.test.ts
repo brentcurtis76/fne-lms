@@ -15,6 +15,9 @@
  * appears here.
  */
 import { createHash, createHmac } from 'node:crypto';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../lib/email/outbound-policy', async (importOriginal) => {
@@ -1518,5 +1521,215 @@ describe('N3-06 — a bounced address gets nothing more', () => {
     delete process.env.NOTIFICATION_SUPPRESSION_SECRET;
     expect(await readNotificationAddressSuppression(db.client, BOUNCED)).toBe('unavailable');
     expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe('N3-07 — the local E2E mail mirror', () => {
+  let dir: string;
+  let outbox: string;
+  const mirrored = (): Row[] =>
+    existsSync(outbox) ? readFileSync(outbox, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
+  /** What each provider call was handed, in the mirror's shape. */
+  const submitted = (transport: any): Row[] =>
+    transport.mock.calls.map(([message]: [Row]) => ({ to: message.to, subject: message.subject, html: message.html }));
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'worker-mirror-'));
+    outbox = join(dir, 'outbox.jsonl');
+    vi.stubEnv('E2E_MAIL_OUTBOX', outbox);
+    vi.stubEnv('VERCEL', '');
+    vi.stubEnv('VERCEL_ENV', '');
+  });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  it('D3 — an eligible send mirrors the frozen recipient, subject and body the provider was handed, once', async () => {
+    const db = createDb(ENROLLED);
+    const row = queue(db, 'course_assigned', COURSE, { payload: { 'course.name': 'Curso sintético' } });
+    const transport = accepted();
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, sent: 1 });
+
+    expect(row).toMatchObject({ status: 'sent', provider_message_id: 'provider-message-1' });
+    expect(mirrored()).toEqual(submitted(transport));
+    expect(mirrored()).toHaveLength(1);
+    expect(mirrored()[0].to).toBe(ADDRESS);
+    expect(mirrored()[0].html).toContain(`${BASE_URL}/mi-aprendizaje`);
+  });
+
+  it('D3 — an ambiguous attempt and its retry are two attempts of the same frozen bytes: one line each', async () => {
+    const { db, row, transport } = await ambiguousRow();
+    expect(mirrored()).toHaveLength(1);
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, sent: 1 });
+
+    expect(transport).toHaveBeenCalledTimes(2);
+    expect(mirrored()).toEqual(submitted(transport));
+    expect(mirrored()[1]).toEqual(mirrored()[0]);
+    expect(row).toMatchObject({ status: 'sent', attempt_count: 2 });
+  });
+
+  it('D3 — a definite provider refusal is the one attempt mirrored, and the row is never tried again', async () => {
+    const db = createDb(ENROLLED);
+    const row = queue(db, 'course_assigned', COURSE);
+    const transport = vi.fn(async () => ({ data: null, error: { message: `invalid recipient ${ADDRESS}` } }));
+
+    await run(db, transport);
+    db.now += DAY;
+    await run(db, transport);
+
+    expect(row).toMatchObject({ status: 'failed', last_error_code: 'provider_rejected' });
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(mirrored()).toHaveLength(1);
+  });
+
+  it.each([
+    ['access is revoked', (db: ReturnType<typeof createDb>, _row: Row) => { db.tables.course_enrollments = []; }, 'cancelled_after_ambiguous', 'source_access_revoked'],
+    ['24 hours have passed', (db: ReturnType<typeof createDb>, row: Row) => { db.now = row.first_attempt_at + DAY; }, 'unknown', 'ambiguous_timeout'],
+    ['the stored snapshot cannot be opened', (_db: ReturnType<typeof createDb>, row: Row) => { row.send_snapshot = '\\x00'; }, 'pending', 'snapshot_unreadable'],
+  ])('D3 — a retry that is not attempted because %s adds no line', async (_name, change, status, code) => {
+    const { db, row, transport } = await ambiguousRow();
+    change(db, row);
+
+    await run(db, transport);
+
+    expect(row).toMatchObject({ status, last_error_code: code });
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(mirrored()).toHaveLength(1);
+  });
+
+  it.each([
+    ['its lease ran out before the attempt', (db: ReturnType<typeof createDb>) => { db.afterRpc = (name) => { if (name === 'password_recovery_email_due') db.now += 121; }; }],
+    ['recovery mail is due', (db: ReturnType<typeof createDb>) => { db.tables.recovery.push({ state: 'queued', available_at: 0, provider_attempts: 0, max_provider_attempts: 3 }); }],
+    ['the recovery queue cannot be read', (db: ReturnType<typeof createDb>) => { db.failing.add('password_recovery_email_due'); }],
+    ['the suppression read fails', (db: ReturnType<typeof createDb>) => { db.failing.add('check_notification_email_address'); }],
+  ])('D3 — a row not attempted because %s leaves no line', async (_name, change) => {
+    const db = createDb(ENROLLED);
+    queue(db, 'course_assigned', COURSE);
+    change(db);
+    const transport = accepted();
+
+    await run(db, transport);
+
+    expect(transport).not.toHaveBeenCalled();
+    expect(existsSync(outbox)).toBe(false);
+  });
+
+  it('D4 — a bounced address gets no line, and neither does a later email to it', async () => {
+    const db = createDb(ENROLLED);
+    const first = queue(db, 'course_assigned', COURSE);
+    const transport = accepted();
+    await run(db, transport);
+    db.tables.suppressions.push({ address_digest: db.tables.addresses.find((a) => a.outbox_id === first.id)!.address_digest });
+    const second = queue(db, 'course_assigned', COURSE);
+
+    await run(db, transport);
+
+    expect(second).toMatchObject({ status: 'cancelled', last_error_code: 'address_suppressed' });
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(mirrored()).toHaveLength(1);
+  });
+
+  it.each([
+    ['a QA tenant recipient', { user_roles: [role('docente', { school_id: QA_SCHOOL })], schools: [{ id: QA_SCHOOL, tenant_kind: 'qa', internal_zoom_testing_enabled: false }] }, 'cancelled', 'suppressed_qa'],
+    ['a refused recipient', { user_roles: [role('docente', { school_id: 999 })], schools: [{ id: 999, tenant_kind: 'qa', internal_zoom_testing_enabled: false }] }, 'failed', 'refused_qa_school_not_allowlisted'],
+    ['a recipient without access', { course_enrollments: [] }, 'cancelled', 'source_access_revoked'],
+    ['a recipient who switched the email off', { user_notification_category_prefs: [{ user_id: U, category: 'courses', email_mode: 'off' }] }, 'cancelled', 'preference_off'],
+  ] as Array<[string, Tables, string, string]>)('D4 — %s leaves no line and reaches no provider', async (_name, tables, status, code) => {
+    const db = createDb({ ...ENROLLED, ...tables });
+    const row = queue(db, 'course_assigned', COURSE);
+    const transport = accepted();
+
+    await run(db, transport);
+
+    expect(row).toMatchObject({ status, last_error_code: code });
+    expect(transport).not.toHaveBeenCalled();
+    expect(existsSync(outbox)).toBe(false);
+  });
+
+  it('D4 — an invalid sender claims nothing and leaves no line', async () => {
+    vi.stubEnv('EMAIL_FROM_ADDRESS', 'Genera notificaciones');
+    const db = createDb(ENROLLED);
+    queue(db, 'course_assigned', COURSE);
+    const transport = accepted();
+
+    expect(await run(db, transport)).toMatchObject({ status: 'not_configured', claimed: 0 });
+    expect(transport).not.toHaveBeenCalled();
+    expect(existsSync(outbox)).toBe(false);
+  });
+
+  it('D4 — no provider key: the row waits unfrozen and nothing is mirrored', async () => {
+    const db = createDb(ENROLLED);
+    const row = queue(db, 'course_assigned', COURSE);
+
+    await runNotificationEmailWorker(db.client);
+
+    expect(row).toMatchObject({ status: 'pending', last_error_code: 'not_configured', send_snapshot: null });
+    expect(existsSync(outbox)).toBe(false);
+  });
+
+  it.each([
+    ['capture is unset', 'E2E_MAIL_OUTBOX', ''],
+    ['on Vercel', 'VERCEL', '1'],
+    ['on a Vercel production deployment', 'VERCEL_ENV', 'production'],
+  ])('D4 — %s: nothing is written and the send is recorded as before', async (_name, variable, value) => {
+    vi.stubEnv(variable, value);
+    const logs = ['log', 'error', 'warn', 'info'].map((level) => vi.spyOn(console, level as 'log').mockImplementation(() => undefined));
+    const db = createDb(ENROLLED);
+    const row = queue(db, 'course_assigned', COURSE);
+    const transport = accepted();
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, sent: 1 });
+
+    expect(row).toMatchObject({ status: 'sent', provider_message_id: 'provider-message-1' });
+    expect(readdirSync(dir)).toEqual([]);
+    expect(JSON.stringify(logs.map((spy) => spy.mock.calls))).not.toContain(ADDRESS);
+    logs.forEach((spy) => spy.mockRestore());
+  });
+
+  it('D4 — a mirror that cannot be written changes nothing about the send, and logs no recipient data', async () => {
+    vi.stubEnv('E2E_MAIL_OUTBOX', join(dir, 'no', 'such', 'dir', 'outbox.jsonl'));
+    const logs = ['log', 'error', 'warn', 'info'].map((level) => vi.spyOn(console, level as 'log').mockImplementation(() => undefined));
+    const db = createDb(ENROLLED);
+    const row = queue(db, 'course_assigned', COURSE);
+    const transport = accepted();
+
+    const result = await run(db, transport);
+
+    expect(result).toMatchObject({ claimed: 1, sent: 1 });
+    expect(row).toMatchObject({ status: 'sent', provider_message_id: 'provider-message-1', attempt_count: 1 });
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(logs[1]).toHaveBeenCalledWith('[outbox] could not append to the outbox', expect.anything());
+    const printed = JSON.stringify([result, ...logs.map((spy) => spy.mock.calls)]);
+    expect(printed).not.toContain(ADDRESS);
+    expect(printed).not.toContain(U);
+    logs.forEach((spy) => spy.mockRestore());
+  });
+
+  it('D5 — flag off: nothing claimed, sent or mirrored', async () => {
+    vi.stubEnv('NOTIFICATION_OUTBOX_DELIVERY', 'off');
+    const db = createDb(ENROLLED);
+    queue(db, 'course_assigned', COURSE);
+    const transport = accepted();
+
+    expect(await run(db, transport)).toMatchObject({ enabled: false, claimed: 0 });
+    expect(db.calls).toEqual([]);
+    expect(existsSync(outbox)).toBe(false);
+  });
+
+  it('D5 — flag on: one provider call per row and no database call beyond the ones it made before', async () => {
+    vi.stubEnv('E2E_MAIL_OUTBOX', '');
+    const plain = createDb(ENROLLED);
+    queue(plain, 'course_assigned', COURSE);
+    await run(plain, accepted());
+    vi.stubEnv('E2E_MAIL_OUTBOX', outbox);
+    const mirroredDb = createDb(ENROLLED);
+    queue(mirroredDb, 'course_assigned', COURSE);
+    const transport = accepted();
+
+    await run(mirroredDb, transport);
+
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(mirroredDb.calls).toEqual(plain.calls);
+    expect(mirrored()).toHaveLength(1);
   });
 });

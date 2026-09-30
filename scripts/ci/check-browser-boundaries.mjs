@@ -256,13 +256,44 @@ function parse(file, source) {
   );
 }
 
+/**
+ * Whether an import/export declaration is erased at compile time and so pulls
+ * nothing into the bundle: `import type …`, `export type … from`, or named
+ * specifiers that are ALL `type`. A default binding, a namespace import, an
+ * empty `{}` or a bare `import 'x'` keeps the module and stays an edge.
+ */
+function isTypeOnlyDeclaration(node) {
+  if (ts.isImportDeclaration(node)) {
+    const clause = node.importClause;
+    if (!clause) return false;
+    if (clause.isTypeOnly) return true;
+    const named = clause.namedBindings;
+    return (
+      !clause.name &&
+      Boolean(named) &&
+      ts.isNamedImports(named) &&
+      named.elements.length > 0 &&
+      named.elements.every((el) => el.isTypeOnly)
+    );
+  }
+  if (node.isTypeOnly) return true;
+  const clause = node.exportClause;
+  return (
+    Boolean(clause) &&
+    ts.isNamedExports(clause) &&
+    clause.elements.length > 0 &&
+    clause.elements.every((el) => el.isTypeOnly)
+  );
+}
+
 function importSpecifiers(sourceFile) {
   const out = [];
   const visit = (node) => {
     if (
       (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
       node.moduleSpecifier &&
-      ts.isStringLiteral(node.moduleSpecifier)
+      ts.isStringLiteral(node.moduleSpecifier) &&
+      !isTypeOnlyDeclaration(node)
     ) {
       out.push(node.moduleSpecifier.text);
     }
@@ -297,8 +328,8 @@ function walkFiles(dir, out = []) {
   return out;
 }
 
-/** Transitive closure over relative imports, from a set of entry files. */
-function closure(entries) {
+/** Transitive closure over relative runtime imports, from a set of entry files. */
+export function closure(entries) {
   const seen = new Set();
   const queue = [...entries];
 

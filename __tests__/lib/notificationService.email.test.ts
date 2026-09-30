@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -1072,5 +1073,188 @@ describe('platformPath — only an in-app path is ever linked', () => {
     expect(platformPath('/sessions/{session_id}')).toBe('/notifications');
     expect(platformPath('javascript:alert(1)')).toBe('/notifications');
     expect(platformPath(null)).toBe('/notifications');
+  });
+});
+
+describe('local E2E mail mirror (N3-07) — the sync sender', () => {
+  const MIRROR_ENV = ['E2E_MAIL_OUTBOX', 'VERCEL', 'VERCEL_ENV'];
+  const savedMirrorEnv: Record<string, string | undefined> = {};
+  let dir: string;
+  let outbox: string;
+
+  const mirrored = (): Array<{ to: string; subject: string; html: string }> =>
+    existsSync(outbox)
+      ? readFileSync(outbox, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l))
+      : [];
+  const eligible = () => world({ preference: { email_enabled: true, in_app_enabled: true } });
+  const input = {
+    userId: USER_ID,
+    title: 'Licitación publicada',
+    description: 'La licitación "Matemática 2026" ya está publicada.',
+    relatedUrl: '/licitaciones',
+    idempotencyKey: IDEMPOTENCY_KEY,
+  };
+
+  beforeEach(() => {
+    for (const key of MIRROR_ENV) {
+      savedMirrorEnv[key] = process.env[key];
+      delete process.env[key];
+    }
+    dir = mkdtempSync(join(tmpdir(), 'notif-mirror-'));
+    outbox = join(dir, 'outbox.jsonl');
+    process.env.E2E_MAIL_OUTBOX = outbox;
+  });
+
+  afterEach(() => {
+    for (const [key, value] of Object.entries(savedMirrorEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('D2: an eligible notification mirrors exactly the recipient, subject and body the provider was handed, once', async () => {
+    const { client, inserted } = eligible();
+    const { transport, sends } = acceptingTransport();
+
+    const created = await notificationService.createNotification(notificationData(), { client, transport });
+
+    expect(created).toMatchObject({ user_id: USER_ID, idempotency_key: IDEMPOTENCY_KEY });
+    expect(inserted).toHaveLength(1);
+    expect(sends).toHaveLength(1);
+    expect(sends[0].options).toEqual({ idempotencyKey: IDEMPOTENCY_KEY });
+    const lines = mirrored();
+    expect(lines).toEqual([
+      { to: RECIPIENT, subject: 'Licitación publicada', html: sends[0].message.html },
+    ]);
+    expect(lines[0].html).toContain(`${BASE_URL}/licitaciones`);
+  });
+
+  it('D2: the mirror leaves the provider result as it was — accepted keeps its id', async () => {
+    const { transport } = acceptingTransport();
+
+    const result = await sendNotificationEmail(eligible().client, input, transport);
+
+    expect(result).toEqual({ sent: true, status: 'provider_accepted', providerMessageId: 'provider-1' });
+    expect(mirrored()).toHaveLength(1);
+  });
+
+  it('D2: each provider attempt is mirrored once, a retry under the same key included', async () => {
+    const { transport, sends } = acceptingTransport();
+
+    await sendNotificationEmail(eligible().client, input, transport);
+    await sendNotificationEmail(eligible().client, input, transport);
+
+    expect(sends).toHaveLength(2);
+    expect(sends[1].options.idempotencyKey).toBe(sends[0].options.idempotencyKey);
+    expect(mirrored()).toHaveLength(2);
+    expect(mirrored()[1]).toEqual(mirrored()[0]);
+  });
+
+  it('D2: with no provider configured the authorized message is still mirrored, and reported not_configured', async () => {
+    const result = await sendNotificationEmail(eligible().client, input);
+
+    expect(result).toEqual({ sent: false, status: 'not_configured' });
+    expect(mirrored()).toEqual([expect.objectContaining({ to: RECIPIENT, subject: 'Licitación publicada' })]);
+  });
+
+  it.each([
+    ['a QA tenant', { schoolId: QA_SCHOOL_ID, schoolTenantKind: 'qa' }, { sent: false, status: 'suppressed_qa' }],
+    ['a failed authorization lookup', { rolesError: true }, { sent: false, status: 'refused', detail: 'user_lookup_failed' }],
+    ['a recipient with no address', { profileEmail: null }, { sent: false, status: 'missing_recipient' }],
+    ['a failed recipient lookup', { profileError: true }, { sent: false, status: 'recipient_lookup_failed' }],
+  ] as const)('D4: %s leaves no mirrored mail and reaches no provider', async (_label, options, expected) => {
+    const { transport } = acceptingTransport();
+
+    const result = await sendNotificationEmail(world(options as WorldOptions).client, input, transport);
+
+    expect(result).toEqual(expected);
+    expect(transport).not.toHaveBeenCalled();
+    expect(existsSync(outbox)).toBe(false);
+  });
+
+  it('D4: an invalid sender leaves no mirrored mail and reaches no provider', async () => {
+    process.env.EMAIL_FROM_ADDRESS = 'Genera notificaciones';
+    const { transport } = acceptingTransport();
+
+    const result = await sendNotificationEmail(eligible().client, input, transport);
+
+    expect(result).toEqual({ sent: false, status: 'not_configured', detail: 'invalid_sender' });
+    expect(transport).not.toHaveBeenCalled();
+    expect(existsSync(outbox)).toBe(false);
+  });
+
+  it('D4: a recipient who switched the email channel off gets their in-app row and no mirrored mail', async () => {
+    const { client, inserted } = world({ preference: { email_enabled: false, in_app_enabled: true } });
+    const { transport } = acceptingTransport();
+
+    await notificationService.createNotification(notificationData(), { client, transport });
+
+    expect(inserted).toHaveLength(1);
+    expect(transport).not.toHaveBeenCalled();
+    expect(existsSync(outbox)).toBe(false);
+  });
+
+  it('D4: with capture unset nothing is written and delivery is unchanged', async () => {
+    delete process.env.E2E_MAIL_OUTBOX;
+    const { transport } = acceptingTransport();
+
+    const result = await sendNotificationEmail(eligible().client, input, transport);
+
+    expect(result).toEqual({ sent: true, status: 'provider_accepted', providerMessageId: 'provider-1' });
+    expect(readdirSync(dir)).toEqual([]);
+  });
+
+  it.each([
+    ['VERCEL', '1'],
+    ['VERCEL_ENV', 'production'],
+  ])('D4: on a Vercel deployment (%s=%s) nothing is mirrored and delivery is unchanged', async (key, value) => {
+    process.env[key] = value;
+    const { transport } = acceptingTransport();
+
+    const result = await sendNotificationEmail(eligible().client, input, transport);
+
+    expect(result).toEqual({ sent: true, status: 'provider_accepted', providerMessageId: 'provider-1' });
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(readdirSync(dir)).toEqual([]);
+  });
+
+  it('D4: a mirror that cannot be written does not alter delivery, and logs no recipient data', async () => {
+    process.env.E2E_MAIL_OUTBOX = join(dir, 'no', 'such', 'dir', 'outbox.jsonl');
+    const { transport } = acceptingTransport();
+
+    const result = await sendNotificationEmail(eligible().client, input, transport);
+
+    expect(result).toEqual({ sent: true, status: 'provider_accepted', providerMessageId: 'provider-1' });
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledWith('[outbox] could not append to the outbox', expect.anything());
+    const text = loggedText();
+    expect(text).not.toContain(RECIPIENT);
+    expect(text).not.toContain(USER_ID);
+    expect(JSON.stringify(result)).not.toContain(RECIPIENT);
+  });
+
+  it('D5: with the kill switch off nothing is sent, mirrored or read', async () => {
+    process.env.NOTIFICATION_EMAIL_ENABLED = 'off';
+    const { client, calls } = eligible();
+    const { transport } = acceptingTransport();
+
+    const result = await notificationService.sendImmediateEmail(client, notificationData(), transport);
+
+    expect(result).toEqual({ sent: false, status: 'disabled' });
+    expect(transport).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(0);
+    expect(existsSync(outbox)).toBe(false);
+  });
+
+  it('D5: the ordinary flow sends once and writes nothing new to the database', async () => {
+    const { client, calls } = eligible();
+    const { transport } = acceptingTransport();
+
+    await notificationService.createNotification(notificationData(), { client, transport });
+
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(calls.filter((c) => c.op === 'insert').map((c) => c.table)).toEqual(['user_notifications']);
+    expect(mirrored()).toHaveLength(1);
   });
 });

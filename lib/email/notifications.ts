@@ -12,17 +12,14 @@
  * address of its choosing, and neither the HTML body nor the authorization is
  * ever supplied from outside.
  *
- * Unlike `lib/email/invitations.ts` this module does NOT mirror into the local
- * E2E outbox. `lib/notificationService.ts` sits inside the browser-reachable
- * closure that `scripts/ci/check-browser-boundaries.mjs` computes, so importing
- * the server-only `./outbox` from here fails that boundary check. Nothing needs
- * the mirror yet: the delivery this unit proves is captured through an injected
- * transport instead.
+ * Like `lib/email/invitations.ts`, an authorized message is also mirrored into
+ * the local E2E outbox (`./outbox`), which is inert outside a local e2e run.
  */
 import { createHash } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getAppBaseUrl } from '../utils/app-url';
 import { authorizeUserEmail } from './outbound-policy';
+import { captureOutboundEmail } from './outbox';
 import { deliverOutboundEmail, resolveSender, type EmailTransport } from './provider';
 import { renderEmail } from './render';
 
@@ -165,6 +162,9 @@ export async function sendNotificationEmail(
     description: input.description,
     url,
   });
+
+  // The local E2E outbox mirrors only authorized mail; the sender was validated above.
+  if (authorization.kind === 'allow') captureOutboundEmail({ to, subject, html });
 
   const result = await deliverOutboundEmail({
     authorization,

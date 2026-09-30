@@ -90,6 +90,9 @@ const { state, fakeClient, mockGetApiUser } = vi.hoisted(() => {
         return { data: { email: idFilter ? state.emails[idFilter] ?? null : null }, error: null };
       case 'user_notification_preferences':
         return { data: state.preference, error: null };
+      case 'user_notification_category_prefs':
+        // No admin has chosen a category mode: the catalog default decides.
+        return { data: null, error: null };
       case 'user_notifications':
         if (q.op === 'insert') {
           if (state.insertFails) {
@@ -328,6 +331,12 @@ describe('notify-admins — the creator triggers, the server decides (D1)', () =
 
     // The existing immediate-email path carries the same generic text.
     expect(sends.map((s) => s.message.to).sort()).toEqual([ADMIN_A_EMAIL, ADMIN_B_EMAIL]);
+    // Each admin's missing category row leaves the catalog digest, sent now in compat mode.
+    const categoryQueries = state.calls.filter((c) => c.table === 'user_notification_category_prefs');
+    expect(categoryQueries.map((c) => c.filters).sort()).toEqual([
+      [['eq', 'user_id', ADMIN_A], ['eq', 'category', 'qa_support']],
+      [['eq', 'user_id', ADMIN_B], ['eq', 'category', 'qa_support']],
+    ]);
     for (const { message } of sends) {
       expect(message.subject).toBe('Nuevo feedback recibido');
       expect(message.html).toContain('Nuevo reporte de tipo Problema');
@@ -732,13 +741,14 @@ describe('notify-admins — log safety on every new_feedback service branch (r2 
     assertNothingLogged(text);
   });
 
-  it('R2-D1: a preference lookup that returns an error naming the admin falls back to both channels and logs nothing of it', async () => {
+  it('R2-D1: a preference lookup that returns an error naming the admin keeps the in-app row, suppresses the e-mail and logs nothing of it', async () => {
     state.faults['user_notification_preferences.select'] = { error: returnedError() };
 
     const { status, json, text } = await call({ feedback_id: FEEDBACK_ID });
 
     assertDelivered({ status, json });
-    expect(state.transport).toHaveBeenCalledTimes(2); // the e-mail channel stays on too
+    expect(state.transport).not.toHaveBeenCalled(); // N1-03: an unread preference never sends
+    expect(loggedText()).toContain('preference_unavailable');
     assertNothingLogged(text);
   });
 

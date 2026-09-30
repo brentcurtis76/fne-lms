@@ -15,12 +15,15 @@ import { getEventConfig, hasEventConfig } from './notificationEvents';
 import {
   buildRecordUrl,
   DEFAULT_NOTIFICATION_URL,
+  getCatalogEntry,
   getFallbackUrl,
   isOpenToRole,
+  NOTIFICATION_CATALOG,
   isSafeNotificationPath,
   isSessionRecordOpenTo,
   type SessionRecord,
 } from './notifications/catalog';
+import { resolveEmailPreference } from './notifications/resolve-preference';
 import { sendNotificationEmail } from './email/notifications';
 import type { EmailTransport } from './email/provider';
 import { profileName } from './utils/profile-name';
@@ -153,6 +156,9 @@ async function getLicitacionRecipients(
   return recipients;
 }
 
+/** The catalog event the meeting-summary email is governed by. */
+const MEETING_SUMMARY_EVENT = 'meeting_finalized';
+
 /**
  * Resolve recipients for a community-meeting finalize/update email.
  *
@@ -160,8 +166,10 @@ async function getLicitacionRecipients(
  *   growth community (all role types).
  * - `opts.onlyAttended = true`: only users with `meeting_attendees.attendance_status = 'attended'`.
  *
- * Dedupes by user id. Filters users whose notification preferences have
- * `email_enabled = false`.
+ * Dedupes by user id. Keeps only users the `meeting_finalized` email
+ * precedence sends to: a non-default `community` category mode decides, then
+ * any legacy preference row with `email_enabled = false` suppresses, then the
+ * catalog default. If either preference read fails, nobody is returned.
  */
 export async function getCommunityRecipients(
   supabase: SupabaseClient,
@@ -217,25 +225,62 @@ export async function getCommunityRecipients(
     .select('id, email, first_name, last_name, name')
     .in('id', userIds);
 
-  // Respect email-enabled preference; when no row exists, default is to send.
-  const { data: prefs } = await supabase
-    .from('user_notification_preferences')
-    .select('user_id, email_enabled')
-    .in('user_id', userIds);
+  let preferenceReads;
+  try {
+    preferenceReads = await Promise.all([
+      supabase
+        .from('user_notification_preferences')
+        .select('user_id, email_enabled')
+        .in('user_id', userIds),
+      supabase
+        .from('user_notification_category_prefs')
+        .select('user_id, email_mode')
+        .eq('category', NOTIFICATION_CATALOG[MEETING_SUMMARY_EVENT].category)
+        .in('user_id', userIds),
+    ]);
+  } catch {
+    preferenceReads = null;
+  }
 
-  const optedOut = new Set(
+  if (!preferenceReads || preferenceReads[0].error || preferenceReads[1].error) {
+    console.error('Meeting summary email suppressed', { status: 'preference_unavailable' });
+    return [];
+  }
+  const [{ data: prefs }, { data: categoryPrefs }] = preferenceReads;
+
+  // Any false legacy row suppresses the meeting summary (its pre-N1-03 rule).
+  const legacyOptedOut = new Set(
     (prefs || [])
       .filter((p: any) => p.email_enabled === false)
       .map((p: any) => p.user_id as string)
   );
+  const categoryModes = new Map(
+    (categoryPrefs || []).map((p: any) => [p.user_id as string, p.email_mode])
+  );
 
   const recipients: Array<{ id: string; email: string; name: string }> = [];
   for (const p of profiles || []) {
-    if (!p.email || optedOut.has(p.id)) continue;
+    if (!p.email) continue;
+    const decision = resolveEmailPreference({
+      eventType: MEETING_SUMMARY_EVENT,
+      categoryMode: categoryModes.get(p.id) ?? null,
+      legacySuppressed: legacyOptedOut.has(p.id),
+    });
+    // Compat mode until the outbox: a digest choice is sent immediately.
+    if (decision.mode === 'off') continue;
     const name = profileName(p as any, p.email as string);
     recipients.push({ id: p.id as string, email: p.email as string, name });
   }
   return recipients;
+}
+
+/**
+ * `NOTIFICATION_EMAIL_ENABLED` set to `off`, `false` or `0`; unset or anything
+ * else keeps the immediate email on.
+ */
+function isEmailKillSwitchOff(): boolean {
+  const flag = process.env.NOTIFICATION_EMAIL_ENABLED?.trim().toLowerCase();
+  return flag === 'off' || flag === 'false' || flag === '0';
 }
 
 /**
@@ -883,9 +928,10 @@ class NotificationService {
   /**
    * Create a new notification.
    *
-   * The in-app row and the immediate e-mail are two independent channels: each
-   * one is governed by its own column in `user_notification_preferences`, and
-   * a recipient who has switched the in-app channel off still gets the mail.
+   * The in-app row and the immediate e-mail are two independent channels. The
+   * in-app row follows `user_notification_preferences.in_app_enabled`; the mail
+   * follows the N1-03 precedence (`resolveEmailChannel`). A recipient who has
+   * switched the in-app channel off still gets the mail.
    * The e-mail therefore does NOT wait on an inserted row — requiring one is
    * what made an email-only preference silently deliver nothing.
    *
@@ -907,7 +953,9 @@ class NotificationService {
         notificationType
       );
 
-      if (!preference.in_app_enabled && !preference.email_enabled) {
+      const emailEnabled = await this.resolveEmailChannel(client, notificationData, preference);
+
+      if (!preference.in_app_enabled && !emailEnabled) {
         console.log(`🔕 Recipient has disabled ${notificationType} notifications`);
         return null;
       }
@@ -924,7 +972,7 @@ class NotificationService {
         }
       }
 
-      if (preference.email_enabled) {
+      if (emailEnabled) {
         await this.sendImmediateEmail(client, notificationData, deps.transport);
       }
 
@@ -937,6 +985,59 @@ class NotificationService {
       console.error('Error creating notification');
       throw error;
     }
+  }
+
+  /**
+   * Whether the immediate email goes out for this recipient.
+   *
+   * The kill switch is checked first, before any preference read. Then the
+   * recipient's row for the event's catalog category is read, and
+   * `resolveEmailPreference` applies the precedence with SM-15's exact legacy
+   * row. This synchronous path runs in compat mode until the outbox cutover: a
+   * `digest` result is sent immediately and only `off` suppresses. A failed
+   * read suppresses a non-mandatory email and logs only a status.
+   *
+   * @param {Object} client - Supabase client to read through
+   * @param {Object} notificationData - Notification being delivered
+   * @param {Object} preference - Result of `getNotificationPreference`
+   */
+  async resolveEmailChannel(client, notificationData, preference) {
+    if (isEmailKillSwitchOff()) {
+      console.log('📭 Notification email NOT sent', { status: 'disabled' });
+      return false;
+    }
+
+    const eventType = notificationData.event_type;
+    const category = eventType ? getCatalogEntry(eventType)?.category : undefined;
+    let categoryMode = null;
+    let lookupFailed = preference.lookup_failed === true;
+
+    if (category && !lookupFailed) {
+      try {
+        const { data, error } = await client
+          .from('user_notification_category_prefs')
+          .select('email_mode')
+          .eq('user_id', notificationData.user_id)
+          .eq('category', category)
+          .maybeSingle();
+        if (error) lookupFailed = true;
+        else categoryMode = data?.email_mode ?? null;
+      } catch {
+        lookupFailed = true;
+      }
+    }
+
+    const decision = resolveEmailPreference({
+      eventType,
+      categoryMode,
+      legacySuppressed: !preference.email_enabled,
+      lookupFailed,
+    });
+
+    if (decision.reason === 'preference_unavailable') {
+      console.error('Notification email suppressed', { status: 'preference_unavailable' });
+    }
+    return decision.mode !== 'off';
   }
 
   /**
@@ -1007,8 +1108,7 @@ class NotificationService {
    * @param {Function} [transport] - Injected e-mail transport (tests only)
    */
   async sendImmediateEmail(client, notificationData, transport) {
-    const flag = process.env.NOTIFICATION_EMAIL_ENABLED?.trim().toLowerCase();
-    if (flag === 'off' || flag === 'false' || flag === '0') {
+    if (isEmailKillSwitchOff()) {
       console.log('📭 Notification email NOT sent', { status: 'disabled' });
       return { sent: false, status: 'disabled' };
     }
@@ -1093,7 +1193,9 @@ class NotificationService {
    * `user_notification_preferences` carries exactly two switches per
    * (user, notification_type): `email_enabled` and `in_app_enabled`. There is
    * no row for most (user, type) pairs, and the absence of one means both
-   * channels are on — the same default the columns themselves declare.
+   * channels are on — the same default the columns themselves declare. A
+   * failed read keeps both on and sets `lookup_failed`, which suppresses the
+   * email (`resolveEmailChannel`) but leaves the in-app row independent.
    *
    * @param {Object} client - Supabase client to read through
    * @param {string} userId - Recipient user id
@@ -1110,7 +1212,11 @@ class NotificationService {
         .eq('notification_type', notificationType)
         .maybeSingle();
 
-      if (error || !data) {
+      if (error) {
+        console.error('Error fetching notification preferences', loggableError(error));
+        return { ...bothEnabled, lookup_failed: true };
+      }
+      if (!data) {
         return bothEnabled;
       }
 
@@ -1120,7 +1226,7 @@ class NotificationService {
       };
     } catch (error) {
       console.error('Error fetching notification preferences', loggableError(error));
-      return bothEnabled;
+      return { ...bothEnabled, lookup_failed: true };
     }
   }
 

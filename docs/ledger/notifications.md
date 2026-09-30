@@ -13,15 +13,15 @@ NOTIF-01 proposes N0-01: secure the feedback notification route and add the imme
 | N0-03 | DB: revoke create_notification_safe from anon/authenticated/PUBLIC; restrict user_notifications INSERT to service_role; remove anon grant; pgTAP and browser-insert inventory | done | NOTIF-03 | 2026-09-27 |  |
 | N1-01 | `catalog.ts` and completeness tests; notification `urlBuilder`s | in-progress | NOTIF-04 | 2026-09-27 |  |
 | N1-02 | Category-preferences table, RLS and pgTAP | done | NOTIF-05 | 2026-09-28 |  |
-| N1-03 | Precedence resolver (SM-15 legacy rule, meeting any-false rule, mandatory), wired into the sync path in compat mode (digest sent as immediate) | todo |  | 2026-09-28 |  |
+| N1-03 | Precedence resolver (SM-15 legacy rule, meeting any-false rule, mandatory), wired into the sync path in compat mode (digest sent as immediate) | in-progress | NOTIF-06 | 2026-09-30 |  |
 | N2-01 | Occurrence-id idempotency (in-app and provider key); stop logging the full eventData | blocked |  | 2026-09-26 |  |
 | N2-02 | Payload/template fixes; `notification_type_id`/category; `meeting_finalized` recipients **in-app only** (email suppressed until N5-06, so no double send) | blocked |  | 2026-09-26 |  |
 | N2-03 | Workspace mentions and replies moved server-side, with reconciliation | blocked |  | 2026-09-26 |  |
 | N2-04 | Group and quiz writers moved to the service; `quiz_review_pending` recipient fix | blocked |  | 2026-09-26 |  |
 | N2-05 | Retire the legacy bell and dead notification code | blocked |  | 2026-09-26 |  |
 | N3-01 | Outbox table and `enqueue_notification` RPC with independently conditional inserts; pgTAP | blocked |  | 2026-09-26 |  |
-| N3-02 | Shared renderer `lib/email/render.ts` and a single sender contract | blocked |  | 2026-09-26 |  |
-| N3-03 | Worker core: claim/lease, pre-first-attempt access and preference checks, encrypted snapshot freeze, send through `authorizeUserEmail`/`deliverOutboundEmail` | blocked |  | 2026-09-26 |  |
+| N3-02 | Shared renderer `lib/email/render.ts` and a single sender contract | done | NOTIF-13 | 2026-09-30 |  |
+| N3-03 | Worker core: claim/lease, pre-first-attempt access and preference checks, encrypted snapshot freeze, send through `authorizeUserEmail`/`deliverOutboundEmail` | todo |  | 2026-09-30 |  |
 | N3-04 | Worker failure semantics: ambiguous vs definite, terminal 409, 24h `unknown`, backoff/throttle, recovery-outbox priority, snapshot clearing and retention purge | blocked |  | 2026-09-26 |  |
 | N3-05 | Unsubscribe tokens, RFC 8058 POST endpoint, GET confirmation page, headers | blocked |  | 2026-09-26 |  |
 | N3-06 | Resend bounce webhook and per-address suppression | blocked |  | 2026-09-26 |  |
@@ -87,3 +87,7 @@ NOTIF-01 proposes N0-01: secure the feedback notification route and add the imme
 - 2026-09-28T12:10:30-03:00 · NOTIF-05 · IN-PROGRESS · NOTIF-05 r0 dispatched (pm-unit begin) · token ls-1bb336d703
 - 2026-09-28T12:54:52-03:00 · NOTIF-05 · DONE · NOTIF-05: add category preference storage and RLS · token 0d3682b38dd5
 - 2026-09-28T12:54:52-03:00 · PM · TODO · N1-03 is free again: N1-02 finished. · token 0d3682b38dd5-free-N1-03
+- 2026-09-30T02:35:26-03:00 · NOTIF-06 · IN-PROGRESS · Reopen N1-03 for the release-requested current-main rebuild; r1 approval and commit remain preserved · token ls-0dda282e71
+- 2026-09-30T02:49:43-03:00 · NOTIF-13 · IN-PROGRESS · NOTIF-13 r0 dispatched (pm-unit begin) · token ls-86e6a189d2
+- 2026-09-30T04:15:03-03:00 · NOTIF-13 · DONE · NOTIF-13: unify email rendering and sender validation · token 3deb245e5aa1
+- 2026-09-30T04:15:03-03:00 · PM · TODO · N3-03 is free again: N3-02 finished. · token 3deb245e5aa1-free-N3-03

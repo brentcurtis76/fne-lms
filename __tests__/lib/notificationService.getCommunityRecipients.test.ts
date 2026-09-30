@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 // notificationService.ts builds a Supabase client at import time and throws if
 // the URL is missing OR invalid. Set known-good values UNCONDITIONALLY: a `||`
@@ -17,6 +17,9 @@ type TableResponse = {
   // For tables whose chain is awaited directly.
   data?: unknown[];
   error?: unknown;
+  // The awaited chain rejects, or building it throws, with this value.
+  rejects?: unknown;
+  throws?: unknown;
 };
 
 type RecordedCall = {
@@ -42,6 +45,7 @@ function createFakeSupabase(responses: Record<string, TableResponse | undefined>
         },
         in(col: string, val: unknown) {
           record.filters.push(['in', col, val]);
+          if (resp?.throws) throw resp.throws;
           return builder;
         },
         single() {
@@ -50,6 +54,7 @@ function createFakeSupabase(responses: Record<string, TableResponse | undefined>
           return Promise.resolve(r);
         },
         then(onFul: (value: unknown) => unknown, onRej?: (reason: unknown) => unknown) {
+          if (resp?.rejects) return Promise.reject(resp.rejects).then(onFul, onRej);
           const r = { data: resp?.data ?? [], error: resp?.error ?? null };
           return Promise.resolve(r).then(onFul, onRej);
         },
@@ -218,6 +223,103 @@ describe('getCommunityRecipients', () => {
       false
     );
   });
+
+  it('D2: a non-default community category mode decides over any legacy false row; default restores it', async () => {
+    const ids = ['u1', 'u2', 'u3', 'u4', 'u5', 'u6'];
+    const { client, calls } = createFakeSupabase({
+      community_meetings: meetingRow(),
+      user_roles: { data: ids.map((user_id) => ({ user_id })) },
+      profiles: {
+        data: ids.map((id) => ({ id, email: `${id}@qa.local.test`, first_name: id, last_name: 'Sintetico' })),
+      },
+      // Any false row counts for the meeting summary, whatever its notification type.
+      user_notification_preferences: {
+        data: [
+          { user_id: 'u1', email_enabled: false },
+          { user_id: 'u2', email_enabled: false },
+          { user_id: 'u3', email_enabled: false },
+          { user_id: 'u6', email_enabled: false },
+          { user_id: 'u6', email_enabled: true },
+        ],
+      },
+      user_notification_category_prefs: {
+        data: [
+          { user_id: 'u1', email_mode: 'immediate' },
+          { user_id: 'u2', email_mode: 'digest' },
+          { user_id: 'u3', email_mode: 'default' },
+          { user_id: 'u4', email_mode: 'off' },
+          { user_id: 'u6', email_mode: 'weekly' },
+        ],
+      },
+    });
+
+    const recipients = await getCommunityRecipients(client, MEETING_ID, { onlyAttended: false });
+
+    // u1 immediate and u2 digest (compat: sent now) override the false row; u3 default
+    // and u6 invalid mode keep it; u4 off suppresses; u5 has no rows and gets the catalog default.
+    expect(recipients.map((r) => r.id)).toEqual(['u1', 'u2', 'u5']);
+
+    const categoryCall = calls.find((c) => c.table === 'user_notification_category_prefs');
+    expect(categoryCall?.filters).toEqual([
+      ['eq', 'category', 'community'],
+      ['in', 'user_id', ids],
+    ]);
+  });
+
+  it.each(['user_notification_preferences', 'user_notification_category_prefs'])(
+    'D4: a failed %s read suppresses every meeting-summary email and logs only a status',
+    async (failing) => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        const { client } = createFakeSupabase({
+          community_meetings: meetingRow(),
+          user_roles: { data: [{ user_id: 'u1' }] },
+          profiles: { data: [{ id: 'u1', email: 'u1@qa.local.test', first_name: 'One', last_name: 'User' }] },
+          [failing]: { error: { code: '57014', message: 'timeout reading u1@qa.local.test' } },
+        });
+
+        const recipients = await getCommunityRecipients(client, MEETING_ID, { onlyAttended: false });
+
+        expect(recipients).toEqual([]);
+        const text = JSON.stringify(errorSpy.mock.calls);
+        expect(text).toContain('preference_unavailable');
+        expect(text).not.toContain('u1');
+        expect(text).not.toContain('timeout');
+      } finally {
+        errorSpy.mockRestore();
+      }
+    }
+  );
+
+  it.each([
+    ['user_notification_preferences', 'rejects'],
+    ['user_notification_category_prefs', 'rejects'],
+    ['user_notification_preferences', 'throws'],
+    ['user_notification_category_prefs', 'throws'],
+  ])(
+    'D8: a %s read that %s resolves to no recipients and logs only a status',
+    async (failing, kind) => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        const { client } = createFakeSupabase({
+          community_meetings: meetingRow(),
+          user_roles: { data: [{ user_id: 'u1' }] },
+          profiles: { data: [{ id: 'u1', email: 'u1@qa.local.test', first_name: 'One', last_name: 'User' }] },
+          user_notification_preferences: { data: [] },
+          user_notification_category_prefs: { data: [] },
+          [failing]: { [kind]: new Error('connection reset reading u1@qa.local.test') },
+        });
+
+        await expect(getCommunityRecipients(client, MEETING_ID, { onlyAttended: false })).resolves.toEqual([]);
+        const text = JSON.stringify(errorSpy.mock.calls);
+        expect(text).toContain('preference_unavailable');
+        expect(text).not.toContain('u1');
+        expect(text).not.toContain('connection reset');
+      } finally {
+        errorSpy.mockRestore();
+      }
+    }
+  );
 
   it('throws Error("meeting_not_found") when the meeting lookup returns null', async () => {
     const { client } = createFakeSupabase({

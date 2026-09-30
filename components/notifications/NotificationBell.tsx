@@ -6,6 +6,8 @@ import { BellIcon as BellSolidIcon } from '@heroicons/react/solid';
 import NotificationDropdown from './NotificationDropdown';
 import { UserNotification } from '../../pages/api/notifications/index';
 
+const LOAD_ERROR = 'No se pudieron cargar las notificaciones';
+
 interface NotificationBellProps {
   className?: string;
 }
@@ -44,7 +46,9 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ className = '' }) =
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch notifications: ${response.status}`);
+        console.error('Error fetching notifications: status', response.status);
+        setError(`${LOAD_ERROR} (código ${response.status}).`);
+        return;
       }
 
       const result = await response.json();
@@ -61,11 +65,12 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ className = '' }) =
         setNotifications(result.data || []);
         setUnreadCount(newUnreadCount);
       } else {
-        throw new Error(result.error || 'Failed to load notifications');
+        console.error('Error fetching notifications:', result.error);
+        setError(`${LOAD_ERROR}.`);
       }
     } catch (err) {
       console.error('Error fetching notifications:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load notifications');
+      setError(`${LOAD_ERROR}.`);
     } finally {
       if (showLoading) setLoading(false);
     }
@@ -184,7 +189,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ className = '' }) =
           ${hasNewNotification ? 'animate-bounce' : ''}
           ${className}
         `}
-        aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+        aria-label={`Notificaciones${unreadCount > 0 ? ` (${unreadCount} ${unreadCount === 1 ? 'no leída' : 'no leídas'})` : ''}`}
       >
         {/* Bell Icon */}
         {unreadCount > 0 ? (

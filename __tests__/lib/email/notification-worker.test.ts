@@ -1,7 +1,7 @@
 // @vitest-environment node
 /**
- * N3-03 worker core and N3-04 failure semantics, through the real entry point
- * `runNotificationEmailWorker`.
+ * N3-03 worker core, N3-04 failure semantics and the N3-05 unsubscribe headers,
+ * through the real entry point `runNotificationEmailWorker`.
  *
  * The database is an in-memory stand-in: plain tables behind the query calls the
  * worker makes, and the worker RPCs with the semantics pgTAP 100 and 101 prove
@@ -25,7 +25,8 @@ vi.mock('../../../lib/email/provider', async (importOriginal) => {
 
 import { authorizeUserEmail } from '../../../lib/email/outbound-policy';
 import { deliverOutboundEmail } from '../../../lib/email/provider';
-import { runNotificationEmailWorker } from '../../../lib/email/notification-worker';
+import { openSnapshot, runNotificationEmailWorker, sealSnapshot } from '../../../lib/email/notification-worker';
+import { verifyUnsubscribeToken } from '../../../lib/email/notification-unsubscribe';
 
 type Row = Record<string, any>;
 type Tables = Record<string, Row[]>;
@@ -43,6 +44,7 @@ const OTHER_SCHOOL = 12;
 const QA_SCHOOL = 257; // config/production-qa-simulation-target.json
 const ADDRESS = 'destinataria.sintetica@ejemplo.invalid';
 const BASE_URL = 'https://genera.test';
+const UNSUBSCRIBE_SECRET = 'synthetic-unsubscribe-secret-0123456789abcdef';
 const DAY = 86400;
 
 const role = (role_type: string, extra: Row = {}): Row => ({
@@ -65,6 +67,8 @@ function createDb(tables: Tables) {
     /** Every table read and RPC, in order. */
     calls: [] as string[],
     now: 1000,
+    /** The next value of the preference version sequence. */
+    nextVersion: 2,
     /** Runs after an RPC returns, to move the clock or the lease mid-run. */
     afterRpc: (_name: string) => undefined as void,
     client: null as any,
@@ -142,6 +146,16 @@ function createDb(tables: Tables) {
         not: (column: string) => (filters.push((row) => row[column] !== null && row[column] !== undefined), builder),
         maybeSingle: () => Promise.resolve(run(true)),
         then: (resolve: any, reject: any) => Promise.resolve(run(false)).then(resolve, reject),
+        // The database's ON CONFLICT DO NOTHING on (user_id, category), its mode default and its version trigger.
+        upsert: async (value: Row) => {
+          db.calls.push(`${table}:upsert`);
+          if (db.failing.has(`${table}:upsert`)) return failure;
+          const rows = (db.tables[table] ??= []);
+          if (!rows.some((r) => r.user_id === value.user_id && r.category === value.category)) {
+            rows.push({ email_mode: 'default', pref_version: db.nextVersion++, ...value });
+          }
+          return { data: null, error: null };
+        },
       };
       return builder;
     },
@@ -186,6 +200,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv('NOTIFICATION_OUTBOX_DELIVERY', 'on');
   vi.stubEnv('NOTIFICATION_SNAPSHOT_SECRET', 'synthetic-snapshot-secret-0123456789abcdef');
+  vi.stubEnv('NOTIFICATION_UNSUBSCRIBE_SECRET', UNSUBSCRIBE_SECRET);
   vi.stubEnv('NEXT_PUBLIC_BASE_URL', BASE_URL);
   vi.stubEnv('EMAIL_FROM_ADDRESS', '');
   vi.stubEnv('RESEND_API_KEY', '');
@@ -406,7 +421,7 @@ describe('D2 — source access and preference before the first attempt', () => {
     ['category switched off', { user_notification_category_prefs: [{ user_id: U, category: 'courses', email_mode: 'off' }] }, 'cancelled', 'preference_off'],
     ['legacy row switched off', { user_notification_preferences: [{ user_id: U, notification_type: 'course_assigned', email_enabled: false }] }, 'cancelled', 'preference_off'],
     ['category immediate over a legacy off', {
-      user_notification_category_prefs: [{ user_id: U, category: 'courses', email_mode: 'immediate' }],
+      user_notification_category_prefs: [{ user_id: U, category: 'courses', email_mode: 'immediate', pref_version: 7 }],
       user_notification_preferences: [{ user_id: U, notification_type: 'course_assigned', email_enabled: false }],
     }, 'sent', null],
     ['another category switched off', { user_notification_category_prefs: [{ user_id: U, category: 'sessions', email_mode: 'off' }] }, 'sent', null],
@@ -1093,5 +1108,150 @@ describe('N3-04 D4 — backoff, the send budget and recovery mail first', () => 
     db.now = row.next_attempt_at;
     expect(await run(db, transport)).toMatchObject({ claimed: 2, sent: 2 });
     expect(transport.mock.calls[1]).toEqual(transport.mock.calls[0]);
+  });
+});
+
+describe('N3-05 D4 — the unsubscribe headers are frozen with the message', () => {
+  const session = { id: RECORD, school_id: SCHOOL, growth_community_id: COMMUNITY, status: 'cancelada', is_active: true };
+  const MANDATORY: Tables = { user_roles: [role('docente', { school_id: SCHOOL, community_id: COMMUNITY })], consultor_sessions: [session] };
+  const prefs = (pref_version: unknown): Tables => ({
+    user_notification_category_prefs: [{ user_id: U, category: 'courses', email_mode: 'immediate', pref_version }],
+  });
+  /** The token of the one-click URL; the URL must be this app's unsubscribe endpoint and nothing else. */
+  const tokenOf = (message: Row) =>
+    /^<https:\/\/genera\.test\/api\/notifications\/unsubscribe\?t=([A-Za-z0-9_.-]+)>$/.exec(message.headers['List-Unsubscribe'])?.[1];
+
+  it.each([
+    ['no preference row: one is written in default and the link carries its version', {}, 2, [{ user_id: U, category: 'courses', email_mode: 'default', pref_version: 2 }]],
+    ['a preference row: its version, and nothing is written', prefs(7), 7, prefs(7).user_notification_category_prefs],
+  ] as Array<[string, Tables, number, Row[]]>)('first send, %s', async (_name, tables, version, stored) => {
+    const db = createDb({ ...ENROLLED, ...tables });
+    const row = queue(db, 'course_assigned', COURSE);
+    const transport = accepted();
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, sent: 1 });
+
+    const [message, options] = transport.mock.calls[0];
+    expect(options).toEqual({ idempotencyKey: row.idempotency_key });
+    expect(Object.keys(message.headers).sort()).toEqual(['List-Unsubscribe', 'List-Unsubscribe-Post']);
+    expect(message.headers['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click');
+    expect(verifyUnsubscribeToken(tokenOf(message))).toEqual({
+      ok: true, kind: 'category', userId: U, scopes: [{ category: 'courses', prefVersion: version }],
+    });
+    expect(db.tables.user_notification_category_prefs).toEqual(stored);
+    expect(db.calls.includes('user_notification_category_prefs:upsert')).toBe(version === 2);
+  });
+
+  it('no preference row and the row cannot be written: the email is not frozen and not sent; it goes out once the row can be written', async () => {
+    const db = createDb(ENROLLED);
+    const row = queue(db, 'course_assigned', COURSE);
+    const transport = accepted();
+    db.failing.add('user_notification_category_prefs:upsert');
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, retried: 1, sent: 0 });
+    expect(transport).not.toHaveBeenCalled();
+    expect(row).toMatchObject({ status: 'pending', last_error_code: 'unsubscribe_unavailable', send_snapshot: null, attempt_count: 0 });
+    expect(db.calls).not.toContain('rpc:begin_notification_email_attempt');
+
+    db.failing.clear();
+    db.now = row.next_attempt_at;
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, sent: 1 });
+    expect(verifyUnsubscribeToken(tokenOf(transport.mock.calls[0][0]))).toMatchObject({ ok: true, scopes: [{ category: 'courses', prefVersion: 2 }] });
+  });
+
+  it('a retry sends the frozen URL and headers under the same key, whatever the version and the secret are by then', async () => {
+    const db = createDb({ ...ENROLLED, ...prefs(7) });
+    const row = queue(db, 'course_assigned', COURSE);
+    const transport = vi.fn()
+      .mockRejectedValueOnce(new Error('transient'))
+      .mockResolvedValue({ data: { id: 'provider-message-2' }, error: null });
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, retried: 1 });
+    const sealed = row.send_snapshot;
+    const storedText = Buffer.from(String(sealed).slice(2), 'hex').toString('latin1');
+    for (const plain of ['List-Unsubscribe', 'One-Click', 'unsubscribe?t=']) expect(storedText).not.toContain(plain);
+
+    db.tables.user_notification_category_prefs[0].pref_version = 8;
+    vi.stubEnv('NOTIFICATION_UNSUBSCRIBE_SECRET', '');
+    db.now = row.next_attempt_at;
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, sent: 1 });
+
+    expect(transport).toHaveBeenCalledTimes(2);
+    expect(transport.mock.calls[1]).toEqual(transport.mock.calls[0]);
+    const [message, options] = transport.mock.calls[1];
+    expect(options).toEqual({ idempotencyKey: row.idempotency_key });
+    vi.stubEnv('NOTIFICATION_UNSUBSCRIBE_SECRET', UNSUBSCRIBE_SECRET);
+    expect(verifyUnsubscribeToken(tokenOf(message))).toMatchObject({ ok: true, scopes: [{ category: 'courses', prefVersion: 7 }] });
+  });
+
+  it.each([
+    ['unset', undefined],
+    ['empty', ''],
+    ['shorter than 32 characters', 'too-short-synthetic-secret'],
+  ])('signing secret %s: an email with an unsubscribe link is not frozen and not sent; it goes out with its headers once the secret is there', async (_name, secret) => {
+    if (secret === undefined) delete process.env.NOTIFICATION_UNSUBSCRIBE_SECRET;
+    else vi.stubEnv('NOTIFICATION_UNSUBSCRIBE_SECRET', secret);
+    const db = createDb(ENROLLED);
+    const row = queue(db, 'course_assigned', COURSE);
+    const transport = accepted();
+
+    expect(await run(db, transport)).toMatchObject({ status: 'ok', claimed: 1, retried: 1, sent: 0 });
+    expect(transport).not.toHaveBeenCalled();
+    expect(row).toMatchObject({ status: 'pending', last_error_code: 'unsubscribe_unavailable', send_snapshot: null, attempt_count: 0 });
+    expect(db.calls).not.toContain('rpc:begin_notification_email_attempt');
+    expect(db.calls).not.toContain('user_notification_category_prefs:upsert');
+
+    vi.stubEnv('NOTIFICATION_UNSUBSCRIBE_SECRET', UNSUBSCRIBE_SECRET);
+    db.now = row.next_attempt_at;
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, sent: 1 });
+    expect(tokenOf(transport.mock.calls[0][0])).toBeTruthy();
+  });
+
+  it.each([['missing', null], ['not a number', '7'], ['negative', -1], ['zero', 0]])(
+    'a stored version that is %s signs nothing: the email is not frozen and not sent',
+    async (_name, version) => {
+      const db = createDb({ ...ENROLLED, ...prefs(version) });
+      const row = queue(db, 'course_assigned', COURSE);
+      const transport = accepted();
+
+      expect(await run(db, transport)).toMatchObject({ claimed: 1, retried: 1, sent: 0 });
+      expect(transport).not.toHaveBeenCalled();
+      expect(row).toMatchObject({ status: 'pending', last_error_code: 'unsubscribe_unavailable', send_snapshot: null });
+    }
+  );
+
+  it('a mandatory email has no unsubscribe link: it goes out without the headers, and without the secret', async () => {
+    delete process.env.NOTIFICATION_UNSUBSCRIBE_SECRET;
+    const db = createDb(MANDATORY);
+    const row = queue(db, 'session_cancelled', ['session', RECORD]);
+    const transport = accepted();
+
+    expect(await run(db, transport)).toMatchObject({ claimed: 1, sent: 1 });
+    expect(row.status).toBe('sent');
+    expect(transport.mock.calls[0][0]).not.toHaveProperty('headers');
+  });
+
+  it('flag off and no signing secret: the worker stays inert, as before', async () => {
+    delete process.env.NOTIFICATION_UNSUBSCRIBE_SECRET;
+    vi.stubEnv('NOTIFICATION_OUTBOX_DELIVERY', '');
+    const db = createDb(ENROLLED);
+    queue(db, 'course_assigned', COURSE);
+    const transport = accepted();
+
+    expect(await run(db, transport)).toMatchObject({ enabled: false, status: 'disabled', claimed: 0 });
+    expect(db.calls).toEqual([]);
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it('a snapshot whose headers are not plain text is not a message', () => {
+    const key = Buffer.alloc(32, 7);
+    const message = { to: ADDRESS, subject: 'Asunto', html: '<p>Cuerpo</p>' };
+    const headers = { 'List-Unsubscribe': '<https://genera.test/x>', 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' };
+
+    expect(openSnapshot(key, sealSnapshot(key, { ...message, headers }))).toEqual({ ...message, headers });
+    expect(openSnapshot(key, sealSnapshot(key, message))).toEqual(message);
+    for (const bad of [null, 'texto', { 'List-Unsubscribe': 5 }]) {
+      expect(openSnapshot(key, sealSnapshot(key, { ...message, headers: bad as never }))).toBeNull();
+    }
   });
 });

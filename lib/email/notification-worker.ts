@@ -14,7 +14,11 @@
  *   3. freezes the rendered message, encrypted, in `send_snapshot`
  *      (`begin_notification_email_attempt`, which never replaces a stored one)
  *      and sends the bytes the database returned, so a retry is the same
- *      message under the same idempotency key;
+ *      message under the same idempotency key. An email the recipient can
+ *      switch off is frozen with its `List-Unsubscribe` headers (N3-05),
+ *      signed for the version of the recipient's preference row, which is
+ *      written in `default` when there is none; when they cannot be signed
+ *      it is not frozen and nothing is sent;
  *   4. submits through `deliverOutboundEmail` and records what happened.
  *
  * Failure semantics (N3-04). A provider refusal is definite: the row fails, and
@@ -36,10 +40,11 @@
  */
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getCatalogEntry, getCatalogTemplates } from '../notifications/catalog';
+import { getCatalogEntry, getCatalogTemplates, type NotificationCategory } from '../notifications/catalog';
 import { resolveEmailPreference } from '../notifications/resolve-preference';
 import { getAppBaseUrl } from '../utils/app-url';
 import { checkNotificationAccess } from './notification-access';
+import { createUnsubscribeToken, preferenceVersionForLink, unsubscribeHeaders } from './notification-unsubscribe';
 import { buildNotificationEmail, platformPath } from './notifications';
 import { authorizeUserEmail } from './outbound-policy';
 import { deliverOutboundEmail, isDeliveryConfigured, resolveSender, type EmailTransport } from './provider';
@@ -96,6 +101,8 @@ interface FrozenMessage {
   to: string;
   subject: string;
   html: string;
+  /** The unsubscribe headers of an email the recipient can switch off. */
+  headers?: Record<string, string>;
 }
 
 /** Off unless explicitly on: unset, empty or any other value keeps the worker inert. */
@@ -134,9 +141,14 @@ export function openSnapshot(key: Buffer, stored: unknown): FrozenMessage | null
     decipher.setAAD(SNAPSHOT_AAD);
     decipher.setAuthTag(bytes.subarray(13, 29));
     const parsed = JSON.parse(Buffer.concat([decipher.update(bytes.subarray(29)), decipher.final()]).toString('utf8'));
-    return typeof parsed?.to === 'string' && typeof parsed.subject === 'string' && typeof parsed.html === 'string'
-      ? { to: parsed.to, subject: parsed.subject, html: parsed.html }
-      : null;
+    if (typeof parsed?.to !== 'string' || typeof parsed.subject !== 'string' || typeof parsed.html !== 'string') return null;
+    const message: FrozenMessage = { to: parsed.to, subject: parsed.subject, html: parsed.html };
+    if (parsed.headers !== undefined) {
+      const headers = parsed.headers;
+      if (!headers || typeof headers !== 'object' || Object.values(headers).some((value) => typeof value !== 'string')) return null;
+      message.headers = headers;
+    }
+    return message;
   } catch {
     return null;
   }
@@ -182,11 +194,17 @@ function renderMessage(row: ClaimedRow, to: string): FrozenMessage {
 }
 
 type Stop = { outcome: 'cancelled' | 'failed' | 'retry' | 'digest'; code?: string };
+/**
+ * The email goes out now. `unsubscribe` is what its link switches off, with the version of the preference row
+ * that was read (null when there is no row); null for an email nobody can switch off.
+ */
+type Go = { unsubscribe: { category: NotificationCategory; prefVersion: unknown } | null };
 
-/** The recipient's current email preference for this event; null when the email still goes out now. */
-async function preferenceStep(client: SupabaseClient, row: ClaimedRow): Promise<Stop | null> {
+/** The recipient's current email preference for this event. */
+async function preferenceStep(client: SupabaseClient, row: ClaimedRow): Promise<Stop | Go> {
   const entry = getCatalogEntry(row.event_type);
   let categoryMode: unknown = null;
+  let prefVersion: unknown = null;
   let legacySuppressed = false;
   let lookupFailed = false;
 
@@ -202,7 +220,7 @@ async function preferenceStep(client: SupabaseClient, row: ClaimedRow): Promise<
           .maybeSingle(),
         client
           .from('user_notification_category_prefs')
-          .select('email_mode')
+          .select('email_mode, pref_version')
           .eq('user_id', row.user_id)
           .eq('category', entry.category)
           .maybeSingle(),
@@ -210,6 +228,7 @@ async function preferenceStep(client: SupabaseClient, row: ClaimedRow): Promise<
       if (legacy.error || category.error) lookupFailed = true;
       legacySuppressed = legacy.data?.email_enabled === false;
       categoryMode = category.data?.email_mode ?? null;
+      if (category.data) prefVersion = category.data.pref_version;
     } catch {
       lookupFailed = true;
     }
@@ -219,11 +238,12 @@ async function preferenceStep(client: SupabaseClient, row: ClaimedRow): Promise<
   if (decision.reason === 'preference_unavailable') return { outcome: 'retry', code: 'preference_unavailable' };
   if (decision.mode === 'off') return { outcome: 'cancelled', code: 'preference_off' };
   if (decision.mode === 'digest') return { outcome: 'digest' };
-  return null;
+  if (!entry || entry.mandatory) return { unsubscribe: null };
+  return { unsubscribe: { category: entry.category, prefVersion } };
 }
 
-/** Whether the recipient may get this email now: the source record and the current preference. Null when they may. */
-async function eligibility(client: SupabaseClient, row: ClaimedRow): Promise<Stop | null> {
+/** Whether the recipient may get this email now: the source record and the current preference. */
+async function eligibility(client: SupabaseClient, row: ClaimedRow): Promise<Stop | Go> {
   if (row.event_type === EMAIL_SUPPRESSED_EVENT) return { outcome: 'cancelled', code: 'email_suppressed' };
 
   const access = await checkNotificationAccess(client, {
@@ -239,14 +259,31 @@ async function eligibility(client: SupabaseClient, row: ClaimedRow): Promise<Sto
   return preferenceStep(client, row);
 }
 
-/** The sealed message of a first attempt. The address comes from the profile, never from the row or its payload. */
-async function sealFirstAttempt(client: SupabaseClient, row: ClaimedRow, key: Buffer): Promise<Stop | { sealed: string }> {
+/**
+ * The sealed message of a first attempt. The address comes from the profile, never from the row or its payload.
+ * An email the recipient can switch off is sealed with its unsubscribe headers, or not at all.
+ */
+async function sealFirstAttempt(
+  client: SupabaseClient,
+  row: ClaimedRow,
+  key: Buffer,
+  unsubscribe: Go['unsubscribe']
+): Promise<Stop | { sealed: string }> {
   const { data: profile, error } = await client.from('profiles').select('email').eq('id', row.user_id).maybeSingle();
   if (error) return { outcome: 'retry', code: 'recipient_lookup_failed' };
   const to = typeof profile?.email === 'string' ? profile.email.trim() : '';
   if (!to) return { outcome: 'failed', code: 'missing_recipient' };
 
-  return { sealed: sealSnapshot(key, renderMessage(row, to)) };
+  let headers: Record<string, string> | undefined;
+  if (unsubscribe) {
+    // The link is signed for a row's version: a recipient with no row gets the row first.
+    const prefVersion = unsubscribe.prefVersion ?? (await preferenceVersionForLink(client, row.user_id, unsubscribe.category));
+    const token = createUnsubscribeToken('category', row.user_id, [{ category: unsubscribe.category, prefVersion: prefVersion as number }]);
+    if (!token) return { outcome: 'retry', code: 'unsubscribe_unavailable' };
+    headers = unsubscribeHeaders(token);
+  }
+
+  return { sealed: sealSnapshot(key, { ...renderMessage(row, to), ...(headers ? { headers } : {}) }) };
 }
 
 /** Seconds until the next attempt after `attempt` ambiguous ones: doubling, capped, the upper half random. */
@@ -324,7 +361,9 @@ async function processRow(run: Run, row: ClaimedRow): Promise<{ outcome: RowOutc
   let step: Stop | { sealed: string | null };
   try {
     // Before the first attempt, and again before every retry of an ambiguous one.
-    step = (await eligibility(client, row)) ?? (ambiguous ? { sealed: null } : await sealFirstAttempt(client, row, run.key));
+    const checked = await eligibility(client, row);
+    if ('outcome' in checked) step = checked;
+    else step = ambiguous ? { sealed: null } : await sealFirstAttempt(client, row, run.key, checked.unsubscribe);
   } catch {
     step = { outcome: 'retry', code: 'worker_error' };
   }

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type Request } from '@playwright/test';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { validateFrequencyConfig, validateFrequencyResponse } from '../../lib/services/assessment-builder/frequencyConfig';
@@ -17,8 +17,12 @@ function assertTarget() {
   }
 }
 
-/** Types an out-of-bounds or off-grid value, presses the visible Save button and returns the refused response. */
-async function saveInvalid(page: Page, instance: string, value: number) {
+/**
+ * Types an out-of-bounds or off-grid value, presses the visible Save button and returns the refused response.
+ * The refusal is reported with the server's reason (for `indicatorName` when the server names the indicator), never as a
+ * connection problem.
+ */
+async function saveInvalid(page: Page, instance: string, value: number, indicatorName?: string) {
   const input = page.getByRole('spinbutton', { name: 'Cantidad de frecuencia' });
   await input.fill(String(value));
   const validity = await input.evaluate(el => {
@@ -32,9 +36,31 @@ async function saveInvalid(page: Page, instance: string, value: number) {
   expect(response.status()).toBe(400);
   expect(response.request().postDataJSON().responses[0].frequency_value).toBe(value);
   await expect(page.getByTestId('assessment-save-status')).toContainText('No hay respuestas válidas para guardar');
-  await expect(page.getByText('No se pudieron guardar tus respuestas').first()).toBeVisible();
+  const refusal = page.getByTestId('assessment-save-refusal');
+  await expect(refusal).toContainText('frecuencia debe');
+  if (indicatorName) await expect(refusal).toContainText(`«${indicatorName}»: frecuencia debe`);
+  await expect(page.getByText(/^No se guardaron tus respuestas\. .*frecuencia debe/).first()).toBeVisible();
+  await expect(page.getByText('Revisa tu conexión')).toHaveCount(0);
   await expect(input).toHaveValue(String(value));
-  return { value, validity, status: response.status(), body: await response.json() };
+  return { value, validity, status: response.status(), body: await response.json(), refusal: await refusal.innerText() };
+}
+
+/** A save that fails in transit or with a 5xx keeps the connection/retry message and shows no refusal reason. */
+async function expectConnectionFailure(page: Page) {
+  await expect(page.getByText('Revisa tu conexión e intenta nuevamente').first()).toBeVisible();
+  await expect(page.getByTestId('assessment-save-refusal')).toHaveCount(0);
+}
+
+/** Network failure, then an immediate manual retry that meets a 5xx: both keep the retry message, neither is a refusal. */
+async function failSaves(page: Page, abortNext: () => Promise<void>, fail500Next: () => Promise<void>) {
+  await page.getByRole('spinbutton', { name: 'Cantidad de frecuencia' }).fill('1.3');
+  await abortNext();
+  await page.getByTestId('assessment-save-button').click();
+  await expectConnectionFailure(page);
+  await fail500Next();
+  await page.getByTestId('assessment-save-button').click();
+  await expect(page.getByTestId('assessment-save-status')).toContainText('Error sintético del servidor');
+  await expectConnectionFailure(page);
 }
 
 async function login(page: Page, role: 'docente' | 'admin') {
@@ -53,19 +79,60 @@ async function evidence(page: Page, name: string, detail: unknown) {
   writeFileSync(join(dir, `${name}.json`), JSON.stringify(detail, null, 2));
 }
 
+/**
+ * The editor's refusal toast settles clear of the modal's save button, so the admin can retry at once (R0-F1: the app's
+ * bottom-right toast covered it and, being paused while hovered, never expired under the pointer).
+ */
+async function expectToastClearOfSave(page: Page) {
+  const toast = page.locator('[data-rht-toaster] > div > div').filter({ hasText: /Configuración de frecuencia incompleta/i });
+  const save = page.getByTestId('indicator-save-btn');
+  await expect(toast).toBeVisible();
+  let previous = '';
+  await expect.poll(async () => {
+    const current = JSON.stringify(await toast.boundingBox());
+    const settled = current === previous;
+    previous = current;
+    return settled;
+  }).toBe(true);
+  await save.scrollIntoViewIfNeeded();
+  const [toastBox, saveBox] = [(await toast.boundingBox())!, (await save.boundingBox())!];
+  const overlap = toastBox.x < saveBox.x + saveBox.width && saveBox.x < toastBox.x + toastBox.width
+    && toastBox.y < saveBox.y + saveBox.height && saveBox.y < toastBox.y + toastBox.height;
+  expect(overlap).toBe(false);
+  expect(await save.evaluate(el => {
+    const box = el.getBoundingClientRect();
+    return document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)?.closest('[data-testid]') === el;
+  })).toBe(true);
+  return { toast: toastBox, save: saveBox };
+}
+
+/** Expands the tree as soon as it renders and asserts it does not collapse under a first-load refetch. */
 async function openIndicatorEditor(page: Page, template: string, name: string) {
   const editor = page.getByRole('button', { name: `Editar indicador: ${name}` });
-  const expand = page.getByRole('button', { name: 'Expandir proceso generativo: Proceso sintético' });
-  const module = page.getByTestId('module-card').getByRole('button', { name: /Acción sintética/ }).first();
+  const loads: string[] = [];
+  const countLoad = (request: Request) => {
+    if (request.method() === 'GET' && new URL(request.url()).pathname === `/api/admin/assessment-builder/templates/${template}`) {
+      loads.push(request.url());
+    }
+  };
+  page.on('request', countLoad);
   await page.goto(`/admin/assessment-builder/${template}`);
-  // The builder refetches and collapses its tree once the router becomes ready, so retry the open until it holds.
-  await expect(async () => {
-    if (await expand.isVisible()) await expand.click({ timeout: 5_000 });
-    if (!(await editor.isVisible())) await module.click({ timeout: 5_000 });
-    await expect(editor).toBeVisible({ timeout: 5_000 });
-  }).toPass({ timeout: 90_000 });
+  await page.getByRole('button', { name: 'Expandir proceso generativo: Proceso sintético' }).click();
+  await page.getByTestId('module-card').getByRole('button', { name: /Acción sintética/ }).first().click();
+  await expect(editor).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await expect(editor).toBeVisible();
+  expect(loads).toHaveLength(1);
+  page.off('request', countLoad);
   return editor;
 }
+
+// Local runs use `next dev`, whose hot-reload socket pushes "refresh page data"/full reloads into this page whenever another
+// worker's compile lands mid-journey (R0-F2). Keep the page's heartbeat to the dev server but drop those instructions; a
+// production server (CI) has no such socket, so this changes nothing there.
+test.beforeEach(async ({ page }) => {
+  await page.routeWebSocket(/\/_next\/webpack-hmr/, ws => { ws.connectToServer().onMessage(() => {}); });
+});
 
 if (live) {
 for (const [index, viewport] of viewports.entries()) {
@@ -123,7 +190,7 @@ for (const [index, viewport] of viewports.entries()) {
       const url = `/api/docente/assessments/${instance}/responses`;
       const denied: unknown[] = [];
       for (const value of invalidValues) {
-        const viaSave = await saveInvalid(page, instance, value);
+        const viaSave = await saveInvalid(page, instance, value, `Frecuencia sintética ${n}`);
         expect(viaSave.body).toHaveProperty('details');
         const direct = await page.request.put(url, {
           data: { responses: [{ indicator_id: indicator, frequency_value: value, frequency_unit: 'semana' }] },
@@ -133,10 +200,12 @@ for (const [index, viewport] of viewports.entries()) {
         expect((await loaded.json()).responses[indicator].frequencyValue).toBe(1.2);
         denied.push({ viaSave, direct: { status: direct.status(), body: await direct.json() } });
       }
-      await input.fill('1.3');
-      await page.route(url, route => route.fulfill({ status: 500, json: { error: 'Error sintético del servidor' } }), { times: 1 });
-      await page.getByTestId('assessment-save-button').click();
-      await expect(page.getByText(/Error sintético del servidor|No se pudieron guardar|Error al guardar/i).first()).toBeVisible();
+      await evidence(page, `docente-refused-${viewport.width}`, { denied, persisted: 1.2 });
+      await failSaves(page,
+        () => page.route(url, route => route.abort('internetdisconnected'), { times: 1 }),
+        () => page.route(url, route => route.fulfill({ status: 500, json: { error: 'Error sintético del servidor' } }), { times: 1 }));
+      const afterFailures = await page.request.get(`/api/docente/assessments/${instance}`);
+      expect((await afterFailures.json()).responses[indicator].frequencyValue).toBe(1.2);
       await evidence(page, `docente-error-${viewport.width}`, { denied, saves, nativeStep: '0.1' });
 
       await input.fill('1.2');
@@ -181,6 +250,8 @@ for (const [index, viewport] of viewports.entries()) {
       await step.fill('4');
       await page.getByTestId('indicator-save-btn').click();
       await expect(page.getByText(/Configuración de frecuencia incompleta/i).first()).toBeVisible();
+      const toastClear = await expectToastClearOfSave(page);
+      await evidence(page, `admin-toast-clear-${viewport.width}`, toastClear);
       await expect(min).toHaveValue('3.1');
 
       await min.fill('0.1');
@@ -230,12 +301,18 @@ if (!live) {
         let value: number | null = null;
         let status = 'in_progress';
         let failNext = false;
+        let abortNext = false;
         const writes: number[] = [];
         const attempts: number[] = [];
         await page.route(`**/api/docente/assessments/${instance}**`, async route => {
           const request = route.request();
           const path = new URL(request.url()).pathname;
           if (path.endsWith('/responses') && request.method() === 'PUT') {
+            if (abortNext) {
+              abortNext = false;
+              await route.abort('internetdisconnected');
+              return;
+            }
             if (failNext) {
               failNext = false;
               await route.fulfill({ status: 500, json: { error: 'Error sintético del servidor' } });
@@ -286,10 +363,7 @@ if (!live) {
           expect(value).toBe(1.2);
         }
         expect(attempts.slice(-invalidValues.length)).toEqual(invalidValues);
-        failNext = true;
-        await input.fill('1.3');
-        await page.getByTestId('assessment-save-button').click();
-        await expect(page.getByText(/Error sintético del servidor|No se pudieron guardar|Error al guardar/i).first()).toBeVisible();
+        await failSaves(page, async () => { abortNext = true; }, async () => { failNext = true; });
         expect(value).toBe(1.2);
         await input.fill('1.2');
         await page.getByTestId('assessment-save-button').click();
@@ -352,6 +426,7 @@ if (!live) {
         await page.getByTestId('frequency-step').fill('4');
         await page.getByTestId('indicator-save-btn').click();
         await expect(page.getByText(/Configuración de frecuencia incompleta/i).first()).toBeVisible();
+        const toastClear = await expectToastClearOfSave(page);
         expect(updated).toBe(false);
         await min.fill('0.1');
         await page.getByTestId('frequency-max').fill('3.1');
@@ -365,7 +440,7 @@ if (!live) {
         expect(publishes.map(item => item.status)).toEqual([400, 200]);
         await page.reload();
         await expect(page.getByText(/Publicado|published/i).first()).toBeVisible();
-        await evidence(page, `default-admin-${viewport.width}`, { status, config, publishes });
+        await evidence(page, `default-admin-${viewport.width}`, { status, config, publishes, toastClear });
       });
     });
   }

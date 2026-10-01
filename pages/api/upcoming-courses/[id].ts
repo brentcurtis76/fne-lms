@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { requireVerifiedRole } from '../../../lib/api-auth';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -68,37 +68,19 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, id: string) 
 // PUT: Update upcoming course (admin only)
 async function handlePut(req: NextApiRequest, res: NextApiResponse, id: string) {
   try {
-    // Check authentication
-    const supabaseClient = createPagesServerClient({ req, res });
-    const { data: { session } } = await supabaseClient.auth.getSession();
-
-    if (!session) {
+    // Verified caller with an active admin role. Never `user_metadata`: a
+    // signed-in user can write their own metadata, so it is not authority.
+    const auth = await requireVerifiedRole(req, res, ['admin']);
+    if (auth.status === 401) {
       return res.status(401).json({ error: 'No autorizado' });
     }
-
-    // Check if user is admin from metadata
-    const userRoles = session.user?.user_metadata?.roles || [];
-    let isAdmin = userRoles.includes('admin');
-
-    // Fallback: check user_roles table if not admin from metadata
-    if (!isAdmin) {
-      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-      const { data: adminRoles } = await supabaseAdmin
-        .from('user_roles')
-        .select('id')
-        .eq('user_id', session.user.id)
-        .eq('role_type', 'admin')
-        .eq('is_active', true)
-        .limit(1);
-
-      if (adminRoles && adminRoles.length > 0) {
-        isAdmin = true;
-      }
-    }
-
-    if (!isAdmin) {
+    if (auth.status === 403) {
       return res.status(403).json({ error: 'Solo administradores pueden editar cursos próximos' });
     }
+    if (auth.status === 500) {
+      return res.status(500).json({ error: 'Error del servidor' });
+    }
+    const caller = auth.user;
 
     const { title, description, instructor_id, thumbnail_url, estimated_release_date, display_order, is_active } = req.body;
 
@@ -160,37 +142,19 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, id: string) 
 // DELETE: Delete upcoming course (admin only)
 async function handleDelete(req: NextApiRequest, res: NextApiResponse, id: string) {
   try {
-    // Check authentication
-    const supabaseClient = createPagesServerClient({ req, res });
-    const { data: { session } } = await supabaseClient.auth.getSession();
-
-    if (!session) {
+    // Verified caller with an active admin role. Never `user_metadata`: a
+    // signed-in user can write their own metadata, so it is not authority.
+    const auth = await requireVerifiedRole(req, res, ['admin']);
+    if (auth.status === 401) {
       return res.status(401).json({ error: 'No autorizado' });
     }
-
-    // Check if user is admin from metadata
-    const userRoles = session.user?.user_metadata?.roles || [];
-    let isAdmin = userRoles.includes('admin');
-
-    // Fallback: check user_roles table if not admin from metadata
-    if (!isAdmin) {
-      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-      const { data: adminRoles } = await supabaseAdmin
-        .from('user_roles')
-        .select('id')
-        .eq('user_id', session.user.id)
-        .eq('role_type', 'admin')
-        .eq('is_active', true)
-        .limit(1);
-
-      if (adminRoles && adminRoles.length > 0) {
-        isAdmin = true;
-      }
-    }
-
-    if (!isAdmin) {
+    if (auth.status === 403) {
       return res.status(403).json({ error: 'Solo administradores pueden eliminar cursos próximos' });
     }
+    if (auth.status === 500) {
+      return res.status(500).json({ error: 'Error del servidor' });
+    }
+    const caller = auth.user;
 
     // Use service role for delete
     const supabase = createClient(supabaseUrl, supabaseServiceKey);

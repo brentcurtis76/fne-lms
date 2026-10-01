@@ -1,12 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@supabase/supabase-js';
 import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-);
+import { requireVerifiedSuperadmin } from '../../../../../lib/api-auth';
 
 export default async function handler(
   req: NextApiRequest,
@@ -53,27 +47,16 @@ export default async function handler(
   }
 
   try {
-    // Get session-bound client for RLS enforcement
+    // The caller's identity is verified with the auth server; the cookie's
+    // stored `user` is client-controlled and is never used (SM-B015).
+    const auth = await requireVerifiedSuperadmin(req, res);
+    if (!auth.user) {
+      return res.status(auth.status).json(auth.body);
+    }
+    const user = auth.user;
+
+    // Session-bound client for RLS enforcement
     const supabase = createServerSupabaseClient({ req, res });
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-    if (sessionError || !session) {
-      console.log('[overlay] No session found');
-      return res.status(401).json({ error: 'No autorizado' });
-    }
-
-    // Verify superadmin status using admin client
-    const { data: isSuperadmin } = await supabaseAdmin
-      .from('superadmins')
-      .select('user_id')
-      .eq('user_id', session.user.id)
-      .eq('is_active', true)
-      .single();
-
-    if (!isSuperadmin) {
-      console.log('[overlay] User is not superadmin:', session.user.id);
-      return res.status(403).json({ error: 'Acceso denegado - solo superadministradores' });
-    }
 
     const { role_type, permission_key, granted, reason, dry_run, idempotency_key } = req.body;
 
@@ -106,7 +89,7 @@ export default async function handler(
     const { data: currentTestMode, error: testModeCheckError } = await supabase
       .from('test_mode_state')
       .select('enabled, test_run_id, expires_at')
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .single();
 
     console.log('[overlay] Current test mode state:', currentTestMode ? 'exists' : 'not found');
@@ -128,7 +111,7 @@ export default async function handler(
       const { error: upsertError } = await supabase
         .from('test_mode_state')
         .upsert({
-          user_id: session.user.id,
+          user_id: user.id,
           enabled: true,
           test_run_id: testRunId,
           enabled_at: new Date().toISOString(),
@@ -148,7 +131,7 @@ export default async function handler(
       const { data: confirmedTestMode, error: refetchError } = await supabase
         .from('test_mode_state')
         .select('enabled, test_run_id, expires_at')
-        .eq('user_id', session.user.id)
+        .eq('user_id', user.id)
         .single();
 
       if (refetchError || !confirmedTestMode?.test_run_id) {
@@ -229,7 +212,7 @@ export default async function handler(
       permission_key,
       granted,
       reason: finalReason,
-      created_by: session.user.id,
+      created_by: user.id,
       test_run_id: testRunId,
       is_test: true,
       active: true,

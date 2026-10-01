@@ -13,7 +13,7 @@ vi.mock('@supabase/supabase-js', () => ({
 
 import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
-import { requireVerifiedRole } from '../api-auth';
+import { requireVerifiedRole, requireVerifiedSuperadmin } from '../api-auth';
 
 const mockedCreateServerSupabaseClient = vi.mocked(createServerSupabaseClient);
 const mockedCreateClient = vi.mocked(createClient);
@@ -206,5 +206,106 @@ describe('requireVerifiedRole', () => {
       setService({});
       expect(await requireVerifiedRole(bearerReq, res, ['admin'])).toMatchObject({ user: null, status: 401 });
     });
+  });
+});
+
+/** Service client for the superadmin check: `auth_is_superadmin` answers from `superadmins`. */
+function setSuperadminService(
+  superadmins: string[],
+  opts: { rpcError?: unknown; mustChange?: boolean; profileError?: unknown; bearerUser?: unknown } = {}
+) {
+  const asked: unknown[] = [];
+  const profiles: any = {
+    select: vi.fn(() => profiles),
+    eq: vi.fn(() => profiles),
+    maybeSingle: vi.fn(async () =>
+      opts.profileError
+        ? { data: null, error: opts.profileError }
+        : { data: { must_change_password: opts.mustChange === true }, error: null }
+    ),
+  };
+  mockedCreateClient.mockReturnValue({
+    from: vi.fn(() => profiles),
+    rpc: vi.fn(async (fn: string, args: { check_user_id: string }) => {
+      asked.push([fn, args.check_user_id]);
+      if (opts.rpcError) return { data: null, error: opts.rpcError };
+      return { data: superadmins.includes(args.check_user_id), error: null };
+    }),
+    auth: { getUser: vi.fn(async () => ({ data: { user: opts.bearerUser ?? null }, error: opts.bearerUser ? null : { message: 'bad' } })) },
+  } as any);
+  return asked;
+}
+
+describe('requireVerifiedSuperadmin', () => {
+  const origUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const origKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-key';
+  });
+
+  afterEach(() => {
+    if (origUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    else process.env.NEXT_PUBLIC_SUPABASE_URL = origUrl;
+    if (origKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    else process.env.SUPABASE_SERVICE_ROLE_KEY = origKey;
+  });
+
+  it('401 without a session, and asks nothing', async () => {
+    setSession(null);
+    const asked = setSuperadminService(['super-1']);
+    expect(await requireVerifiedSuperadmin(req, res)).toMatchObject({ user: null, status: 401 });
+    expect(asked).toEqual([]);
+  });
+
+  it("asks about the auth server's user, not the cookie's claimed superadmin", async () => {
+    setSession(user('super-1'), user('docente-1'));
+    const asked = setSuperadminService(['super-1']);
+    expect(await requireVerifiedSuperadmin(req, res)).toEqual({
+      user: null,
+      status: 403,
+      body: { error: 'Acceso denegado - solo superadministradores' },
+    });
+    expect(asked).toEqual([['auth_is_superadmin', 'docente-1']]);
+  });
+
+  it('allows an active superadmin, returning the verified user', async () => {
+    const sa = user('super-1');
+    setSession(sa);
+    setSuperadminService(['super-1']);
+    expect(await requireVerifiedSuperadmin(req, res)).toEqual({ user: sa, status: null, body: null });
+  });
+
+  it('holds a superadmin who must change their password, before the superadmin check', async () => {
+    setSession(user('super-1'));
+    const asked = setSuperadminService(['super-1'], { mustChange: true });
+    expect(await requireVerifiedSuperadmin(req, res)).toMatchObject({
+      user: null,
+      status: 403,
+      body: { code: 'PASSWORD_CHANGE_REQUIRED' },
+    });
+    expect(asked).toEqual([]);
+  });
+
+  it('fails closed with 503 when the forced-password flag cannot be read', async () => {
+    setSession(user('super-1'));
+    setSuperadminService(['super-1'], { profileError: { message: 'connection reset' } });
+    expect(await requireVerifiedSuperadmin(req, res)).toMatchObject({ user: null, status: 503 });
+  });
+
+  it('fails closed with 500 when the superadmin lookup errors', async () => {
+    setSession(user('super-1'));
+    setSuperadminService(['super-1'], { rpcError: { message: 'connection reset' } });
+    expect(await requireVerifiedSuperadmin(req, res)).toMatchObject({ user: null, status: 500 });
+  });
+
+  it('accepts a verified Bearer superadmin', async () => {
+    const bearerReq = { headers: { authorization: 'Bearer some-token' } } as unknown as NextApiRequest;
+    setSession(null);
+    const sa = user('super-1');
+    setSuperadminService(['super-1'], { bearerUser: sa });
+    expect(await requireVerifiedSuperadmin(bearerReq, res)).toEqual({ user: sa, status: null, body: null });
   });
 });

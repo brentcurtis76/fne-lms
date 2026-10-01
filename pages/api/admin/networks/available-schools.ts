@@ -7,11 +7,9 @@
 
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
-import { hasAdminPrivileges } from '../../../../utils/roleUtils';
+import { requireVerifiedRole } from '../../../../lib/api-auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const supabase = createServerSupabaseClient({ req, res });
-
   try {
     // Only allow GET requests
     if (req.method !== 'GET') {
@@ -19,21 +17,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(405).json({ error: 'Método no permitido' });
     }
 
-    // Get current user session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !session?.user) {
-      return res.status(401).json({ error: 'No autorizado' });
+    // SECURITY: verified caller (auth server, not the cookie's stored user)
+    // with an active admin role (SM-B015).
+    const auth = await requireVerifiedRole(req, res, ['admin'], 'Solo administradores pueden acceder a esta información');
+    if (!auth.user) {
+      return res.status(auth.status).json(auth.body);
     }
 
-    // SECURITY: Verify admin privileges using service role client
     const supabaseAdmin = createServerSupabaseClient({ req, res }, {
       supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY
     });
-    
-    const isAdmin = await hasAdminPrivileges(supabaseAdmin, session.user.id);
-    if (!isAdmin) {
-      return res.status(403).json({ error: 'Solo administradores pueden acceder a esta información' });
-    }
 
     return handleGetAllSchoolsWithStatus(supabaseAdmin, res);
   } catch (error) {

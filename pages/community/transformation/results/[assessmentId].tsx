@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { ResultsDisplay } from '@/components/transformation/ResultsDisplay';
 import { downloadReportAsPdf } from '@/utils/transformationReportPdf';
+import { getServerSideUser } from '../../../../lib/api-auth';
 
 interface RubricItem {
   id: string;
@@ -91,11 +92,10 @@ interface ResultsPageProps {
 export const getServerSideProps: GetServerSideProps<ResultsPageProps> = async (ctx) => {
   const { assessmentId } = ctx.query;
   const supabase = createPagesServerClient(ctx);
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  // The verified user (auth server), never the cookie's stored `user` (SM-B015).
+  const user = await getServerSideUser(ctx);
 
-  if (!session) {
+  if (!user) {
     return {
       redirect: {
         destination: `/login?redirect=/community/transformation/results/${assessmentId}`,
@@ -140,11 +140,11 @@ export const getServerSideProps: GetServerSideProps<ResultsPageProps> = async (c
   // The report shows the logged-in user who is viewing/accessing the report
   let creatorData = null;
 
-  if (session?.user?.id) {
+  if (user?.id) {
     const { data: currentUserProfile, error: currentUserError } = await supabase
       .from('profiles')
       .select('id, first_name, last_name, email')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single();
 
     console.log('Debug - Current user profile:', currentUserProfile);

@@ -29,8 +29,12 @@ vi.mock('@supabase/auth-helpers-nextjs', () => ({
   createPagesServerClient: () => ({ auth: { getSession: mockGetSession } }),
 }));
 
+// getServerSideUser verifies the token with the auth server; its forged-cookie
+// behaviour is covered in __tests__/lib/api-auth.server-side-user.test.ts.
+// Here the session fixture stands for the verified user.
 vi.mock('../../../lib/api-auth', () => ({
   createServiceRoleClient: () => ({}),
+  getServerSideUser: async () => (await mockGetSession())?.data?.session?.user ?? null,
 }));
 
 vi.mock('../../../lib/utils/session-meet-access', () => ({

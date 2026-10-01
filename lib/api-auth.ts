@@ -261,25 +261,41 @@ export async function checkIsAdminOrEquipoDirectivo(
 
 // Verified caller + an active `user_roles` row of one of `roles`.
 //
-// The identity comes from getApiUser() (verified with the auth server), and the
-// role from the database through the service client. It deliberately never
-// consults `user_metadata`: a signed-in user can write their own metadata
-// (`supabase.auth.updateUser({ data })`), so `user_metadata.roles` is caller
-// input, not authority.
+// The identity comes from getApiUser() (verified with the auth server; cookie
+// or Bearer), and the role from the database through the service client. It
+// deliberately never consults `user_metadata`: a signed-in user can write their
+// own metadata (`supabase.auth.updateUser({ data })`), so `user_metadata.roles`
+// is caller input, not authority.
 //
-//   status 401 — no verified caller
-//   status 403 — verified, but no active role of the requested kinds
-//   status 500 — the role lookup failed (fail closed)
+// A Bearer-only caller never meets the middleware's forced-password gate (it
+// has no cookie session), so the gate is asked here too, before any role
+// decision, with the same helpers and the same responses.
+//
+// On refusal `body` is the JSON to send with `status`:
+//   401 — no verified caller
+//   403 / 503 — forced password change required / its state unreadable
+//   403 — verified, but no active role of the requested kinds (`forbiddenMessage`)
+//   500 — the role lookup failed (fail closed)
+export type VerifiedRoleResult =
+  | { user: User; status: null; body: null }
+  | { user: null; status: number; body: { error: string; code?: string } };
+
 export async function requireVerifiedRole(
   req: NextApiRequest,
   res: NextApiResponse,
-  roles: readonly string[]
-): Promise<{ user: User; status: null } | { user: null; status: 401 | 403 | 500 }> {
+  roles: readonly string[],
+  forbiddenMessage = 'No autorizado'
+): Promise<VerifiedRoleResult> {
   const { user, error } = await getApiUser(req, res);
   if (error || !user) {
-    return { user: null, status: 401 };
+    return { user: null, status: 401, body: { error: 'No autorizado' } };
   }
-  const { data, error: roleError } = await createServiceRoleClient()
+  const serviceClient = createServiceRoleClient();
+  const verdict = await getForcedPasswordChangeVerdict(serviceClient, user.id);
+  if (verdict !== 'allowed') {
+    return { user: null, status: forcedChangeApiStatus(verdict), body: forcedChangeApiBody(verdict) };
+  }
+  const { data, error: roleError } = await serviceClient
     .from('user_roles')
     .select('role_type')
     .eq('user_id', user.id)
@@ -288,9 +304,11 @@ export async function requireVerifiedRole(
     .limit(1);
   if (roleError) {
     console.error('[API Auth] Role lookup failed:', roleError.message);
-    return { user: null, status: 500 };
+    return { user: null, status: 500, body: { error: 'Error del servidor' } };
   }
-  return data && data.length > 0 ? { user, status: null } : { user: null, status: 403 };
+  return data && data.length > 0
+    ? { user, status: null, body: null }
+    : { user: null, status: 403, body: { error: forbiddenMessage } };
 }
 
 // Standard error response with logging. Despite the name, this is the

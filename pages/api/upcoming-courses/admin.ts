@@ -14,15 +14,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // Verified caller with an active admin role. Never `user_metadata`: a
     // signed-in user can write their own metadata, so it is not authority.
-    const auth = await requireVerifiedRole(req, res, ['admin']);
-    if (auth.status === 401) {
-      return res.status(401).json({ error: 'No autorizado' });
-    }
-    if (auth.status === 403) {
-      return res.status(403).json({ error: 'Solo administradores pueden acceder a esta página' });
-    }
-    if (auth.status === 500) {
-      return res.status(500).json({ error: 'Error del servidor' });
+    const auth = await requireVerifiedRole(req, res, ['admin'], 'Solo administradores pueden acceder a esta página');
+    if (!auth.user) {
+      return res.status(auth.status).json(auth.body);
     }
     const caller = auth.user;
 

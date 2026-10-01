@@ -1128,13 +1128,21 @@ test.describe('authentication lifecycle', () => {
  * W-B10c-01b — page authorization uses the identity the auth server verifies,
  * not the `user` stored in the cookie. auth-helpers accepts a legacy JSON
  * session object and returns its `user` as stored, so a lower-role caller can
- * pair a valid token of their own with an admin's id. The unit suite covers the
- * branches; this proves the running middleware resolves the token.
+ * pair a valid token of their own with an admin's id.
+ *
+ * The bug is only reachable when the caller can READ the admin's role row:
+ * `user_roles_community_member_view` shows roles of members of the caller's
+ * own growth community. So the fixture puts a synthetic admin and a synthetic
+ * docente in one synthetic community — on the base commit the forged cookie
+ * then opened /admin pages (the role lookup ran for the admin's id and found
+ * `admin`). The unit suite covers the branches; this proves the running
+ * middleware resolves the token.
  */
 test.describe('middleware verified identity (W-B10c-01b)', () => {
   test.use({ viewport: { width: 1366, height: 768 }, storageState: { cookies: [], origins: [] } });
 
   const AUTH_COOKIE = `sb-${new URL(SUPABASE_URL).hostname.split('.')[0]}-auth-token`;
+  const ADMIN_PAGE = '/admin/user-management';
 
   function legacySessionCookie(session: Record<string, any>, claimedUserId: string) {
     return {
@@ -1153,7 +1161,7 @@ test.describe('middleware verified identity (W-B10c-01b)', () => {
     };
   }
 
-  async function createAccount(label: string, stamp: string, roleType: string) {
+  async function createAccount(label: string, stamp: string, roleType: string, communityId: string) {
     const email = `e2e-b10c01b-${label}-${stamp}@example.com`;
     const password = `B10cSintetico${label}2026`;
     const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
@@ -1173,43 +1181,62 @@ test.describe('middleware verified identity (W-B10c-01b)', () => {
     if (profileError) throw new Error(`[W-B10c-01b] profile ${label}: ${profileError.message}`);
     const { error: roleError } = await admin
       .from('user_roles')
-      .insert({ user_id: data.user.id, role_type: roleType, is_active: true });
+      .insert({ user_id: data.user.id, role_type: roleType, community_id: communityId, is_active: true });
     if (roleError) throw new Error(`[W-B10c-01b] role ${label}: ${roleError.message}`);
     return { id: data.user.id, email, password };
   }
 
-  test('a lower-role token in a cookie naming an admin cannot open admin or workspace pages', async ({
+  test('a lower-role token in a cookie naming an admin of the same community cannot open admin pages', async ({
     browser,
   }) => {
     const stamp = `${Date.now()}`;
     const ids: string[] = [];
+    let communityId: string | null = null;
     try {
-      const adminAccount = await createAccount('admin', stamp, 'admin');
+      const { data: community, error: communityError } = await admin
+        .from('growth_communities')
+        .insert({ name: `E2E B10c-01b comunidad sintetica ${stamp}` })
+        .select('id')
+        .single();
+      if (communityError || !community) throw new Error(`[W-B10c-01b] community: ${communityError?.message}`);
+      communityId = community.id as string;
+
+      const adminAccount = await createAccount('admin', stamp, 'admin', communityId);
       ids.push(adminAccount.id);
-      const lowAccount = await createAccount('docente', stamp, 'docente');
+      const lowAccount = await createAccount('docente', stamp, 'docente', communityId);
       ids.push(lowAccount.id);
-      console.log(`[W-B10c-01b] fixtures ${JSON.stringify({ supabase: new URL(SUPABASE_URL).host, accounts: ids })}`);
+      console.log(
+        `[W-B10c-01b] fixtures ${JSON.stringify({ supabase: new URL(SUPABASE_URL).host, community: communityId, accounts: ids })}`
+      );
 
       const low = await signInDirectly(lowAccount.email, lowAccount.password);
       expect(low.status).toBe(200);
+
+      // Precondition that makes this a real test: under the docente's own token
+      // the admin's role row IS readable (shared community), so a middleware
+      // that looked roles up for the cookie's claimed id would find `admin`.
+      const visible = await fetch(
+        `${SUPABASE_URL}/rest/v1/user_roles?select=role_type&user_id=eq.${adminAccount.id}`,
+        { headers: { apikey: ANON_KEY, Authorization: `Bearer ${low.body.access_token}` } }
+      );
+      expect(await visible.json()).toEqual([{ role_type: 'admin' }]);
+
+      // Read the middleware's own answer (no redirect following): pages also gate
+      // client-side, which would hide a middleware that let the request in.
       const forged = await browser.newContext({ storageState: { cookies: [], origins: [] } });
       await forged.addCookies([legacySessionCookie(low.body, adminAccount.id)]);
-      // Read the middleware's own answer (no redirect following): the pages also
-      // gate client-side, which would hide a middleware that let the request in.
-      for (const path of ['/admin/users', '/community/workspace']) {
-        const denied = await forged.request.get(path, { maxRedirects: 0, failOnStatusCode: false });
-        expect(denied.status(), `${path} with a forged admin cookie`).toBe(307);
-        expect(new URL(denied.headers()['location'], APP_ORIGIN).pathname).toBe('/dashboard');
-      }
+      const denied = await forged.request.get(ADMIN_PAGE, { maxRedirects: 0, failOnStatusCode: false });
+      expect(denied.status(), `${ADMIN_PAGE} with a forged admin cookie`).toBe(307);
+      expect(new URL(denied.headers()['location'], APP_ORIGIN).pathname).toBe('/dashboard');
       await forged.close();
 
-      // Positive control: the admin's own token with its own id still opens the page.
+      // Positive control: the admin's own token with its own id opens the page.
       const real = await signInDirectly(adminAccount.email, adminAccount.password);
       expect(real.status).toBe(200);
       const honest = await browser.newContext({ storageState: { cookies: [], origins: [] } });
       await honest.addCookies([legacySessionCookie(real.body, adminAccount.id)]);
-      const allowed = await honest.request.get('/admin/users', { maxRedirects: 0, failOnStatusCode: false });
-      expect(allowed.status(), '/admin/users for the real admin').toBe(200);
+      const allowed = await honest.request.get(ADMIN_PAGE, { maxRedirects: 0, failOnStatusCode: false });
+      expect(allowed.status(), `${ADMIN_PAGE} for the real admin`).toBe(200);
       await honest.close();
     } finally {
       for (const id of ids) {
@@ -1217,6 +1244,7 @@ test.describe('middleware verified identity (W-B10c-01b)', () => {
         await admin.from('profiles').delete().eq('id', id);
         await admin.auth.admin.deleteUser(id);
       }
+      if (communityId) await admin.from('growth_communities').delete().eq('id', communityId);
     }
   });
 });

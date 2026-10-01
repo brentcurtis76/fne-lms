@@ -194,6 +194,16 @@ const ROUTES: Array<[string, Handler, string, Record<string, string>, unknown]> 
   ['community/ensure-workspace', ensureWorkspace, 'POST', {}, { communityId: COMMUNITY }],
 ];
 
+/** What a verified admin gets back from each route: exact status and the payload keys. */
+const USER_DETAILS_KEYS = ['basic_info', 'course_progress', 'summary'];
+const ADMIN_SUCCESS: Record<string, [number, string[]]> = {
+  'reports/detailed': [200, ['users', 'summary', 'pagination']],
+  'reports/filter-options': [200, ['schools', 'generations', 'communities']],
+  'reports/user-details': [200, USER_DETAILS_KEYS],
+  'community/members': [200, ['members']],
+  'community/ensure-workspace': [201, ['workspace', 'created']],
+};
+
 /** Every id the service client was asked about, as user_id / id filters. */
 const askedIds = () =>
   serviceLog.flatMap((e) => e.ops.filter(([op, col]) => op === 'eq' && (col === 'user_id' || col === 'id')).map(([, , v]) => v));
@@ -238,7 +248,9 @@ describe("a cookie naming an admin's id does not lend the admin's access", () =>
   it.each(ROUTES)('%s: a verified admin is looked up as themselves, never as the cookie user', async (_n, handler, method, query, body) => {
     verifiedUser = { id: ADMIN };
     const res = await call(handler, method, query, body);
-    expect(res.statusCode).toBeLessThan(300);
+    const [status, keys] = ADMIN_SUCCESS[_n];
+    expect(res.statusCode).toBe(status);
+    expect(Object.keys(res.body ?? {})).toEqual(expect.arrayContaining(keys));
     expect(askedIds()).toContain(ADMIN);
     expect(askedIds()).not.toContain(VICTIM);
   });
@@ -320,6 +332,24 @@ describe('reports/filter-options: leadership options come from the leadership ro
       for (const v of other) expect(scoped).not.toContain(v);
     } finally {
       ROLE_ROWS[idx] = saved;
+    }
+  });
+});
+
+describe('reports/filter-options: a scope-less leadership row does not hide the scoped one', () => {
+  it('equipo_directivo with an earlier school-less row still lists its school', async () => {
+    ROLE_ROWS.unshift(row(LEADER, 'equipo_directivo'));
+    try {
+      verifiedUser = { id: LEADER };
+      const res = await call(filterOptions, 'GET');
+      expect(res.statusCode).toBe(200);
+      const schoolFilters = serviceLog
+        .filter((e) => ['schools', 'generations', 'growth_communities'].includes(e.table))
+        .flatMap((e) => e.ops.filter(([op, col]) => op === 'eq' && (col === 'id' || col === 'school_id')).map(([, , v]) => v));
+      expect(schoolFilters).toContain(1);
+      expect(schoolFilters).not.toContain(2);
+    } finally {
+      ROLE_ROWS.shift();
     }
   });
 });

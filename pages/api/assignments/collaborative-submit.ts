@@ -5,10 +5,9 @@
  */
 
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { userAssignmentsService } from '@/lib/services/userAssignments';
 import notificationService from '@/lib/notificationService';
-import { requireVerifiedCaller } from '@/lib/api-auth';
+import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
 
 export default async function handler(
   req: NextApiRequest,
@@ -20,7 +19,7 @@ export default async function handler(
 
   try {
     // Create Supabase client
-    const supabase = createPagesServerClient({ req, res });
+    const supabase = await createApiSupabaseClient(req, res);
 
     // Check authentication
     // Identity comes from the auth server; the cookie's stored `user` is

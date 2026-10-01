@@ -158,13 +158,13 @@ vi.mock('@supabase/supabase-js', () => ({
       return { data: SUPERADMINS.has(args.check_user_id), error: null };
     }),
     from: vi.fn((table: string) =>
-      chainFor(table, (ops) => {
+      chainFor(table, (ops, mode) => {
         if (table === 'profiles') {
           const id = eqValue(ops, 'id') as string;
           lookups.profile.push(id);
           return { data: { must_change_password: MUST_CHANGE.has(id) }, error: null };
         }
-        if (table === 'user_roles') {
+        if (table === 'user_roles' && eqValue(ops, 'user_id') !== undefined) {
           lookups.adminRole.push(eqValue(ops, 'user_id'));
           return { data: roleRows(ops), error: null };
         }
@@ -174,8 +174,10 @@ vi.mock('@supabase/supabase-js', () => ({
           lookups.superadmin.push(id);
           return { data: SUPERADMINS.has(id) ? { user_id: id } : null, error: null };
         }
-        return { data: null, error: null };
-      })
+        // Everything else is route data (the network routes read and write
+        // with the service role).
+        return dataAnswer(table, ops, mode);
+      }, dataLog)
     ),
   })),
 }));
@@ -242,6 +244,13 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/** Route data only: the gate's own lookups (password flag, roles, superadmins) are not route data. */
+const routeData = () =>
+  dataLog.filter(
+    (e) =>
+      !(e.table === 'profiles' || e.table === 'superadmins' || (e.table === 'user_roles' && eqValue(e.ops, 'user_id') !== undefined))
+  );
+
 const touchedIds = () =>
   JSON.stringify(dataLog.map((d) => d.ops));
 
@@ -252,7 +261,7 @@ describe('a cookie naming a privileged id does not lend its privilege', () => {
     expect(res.statusCode).toBe(403);
     expect(lookups.superadmin).toEqual([ATTACKER]);
     expect(lookups.profile).toEqual([ATTACKER]);
-    expect(dataLog).toEqual([]);
+    expect(routeData()).toEqual([]);
   });
 
   it.each(ADMIN_ROUTES)('%s: plain verified caller → 403, nothing read or written', async (_n, handler, method, body) => {
@@ -261,7 +270,7 @@ describe('a cookie naming a privileged id does not lend its privilege', () => {
     expect(res.statusCode).toBe(403);
     expect(lookups.adminRole).toEqual([ATTACKER]);
     expect(lookups.profile).toEqual([ATTACKER]);
-    expect(dataLog).toEqual([]);
+    expect(routeData()).toEqual([]);
   });
 
   it.each([...SUPERADMIN_ROUTES, ...ADMIN_ROUTES])('%s: token the auth server rejects → 401, no lookups', async (_n, handler, method, body) => {
@@ -270,7 +279,7 @@ describe('a cookie naming a privileged id does not lend its privilege', () => {
     expect(res.statusCode).toBe(401);
     expect(lookups.superadmin).toEqual([]);
     expect(lookups.adminRole).toEqual([]);
-    expect(dataLog).toEqual([]);
+    expect(routeData()).toEqual([]);
   });
 });
 
@@ -329,7 +338,7 @@ describe('forced password change and Bearer callers', () => {
     expect(res.body).toMatchObject({ code: 'PASSWORD_CHANGE_REQUIRED' });
     expect(lookups.superadmin).toEqual([]);
     expect(lookups.adminRole).toEqual([]);
-    expect(dataLog).toEqual([]);
+    expect(routeData()).toEqual([]);
   });
 
   const bearer = { authorization: `Bearer ${BEARER_TOKEN}` };
@@ -350,6 +359,6 @@ describe('forced password change and Bearer callers', () => {
     const res = await call(handler, method, body, bearer);
     expect(res.statusCode).toBe(403);
     expect(bearerTokensSeen).toEqual([BEARER_TOKEN]);
-    expect(dataLog).toEqual([]);
+    expect(routeData()).toEqual([]);
   });
 });

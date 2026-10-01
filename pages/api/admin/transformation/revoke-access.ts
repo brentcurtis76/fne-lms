@@ -26,8 +26,7 @@
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { requireVerifiedCaller } from '@/lib/api-auth';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
 import {
   revokeTransformationAccess,
   isUserAdmin,
@@ -42,7 +41,7 @@ export default async function handler(
     return res.status(405).json({ error: 'Método no permitido' });
   }
 
-  const supabase = createPagesServerClient({ req, res });
+  const supabase = await createApiSupabaseClient(req, res);
   // Identity comes from the auth server; the cookie's stored `user` is
   // client-controlled (SM-B015).
   const caller = await requireVerifiedCaller(req, res);

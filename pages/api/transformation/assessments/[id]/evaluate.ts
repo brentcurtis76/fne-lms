@@ -1,6 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { requireVerifiedCaller } from '@/lib/api-auth';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
 import { RubricEvaluator } from '@/lib/transformation/evaluator';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -106,7 +105,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     console.log('✅ Creating Supabase client...');
-    const supabase = createPagesServerClient({ req, res });
+    const supabase = await createApiSupabaseClient(req, res);
 
     // Check authentication
     console.log('✅ Checking authentication...');

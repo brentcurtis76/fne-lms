@@ -6,8 +6,7 @@
  */
 
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
-import { requireVerifiedRole } from '../../../../lib/api-auth';
+import { createServiceRoleClient, requireVerifiedRole } from '../../../../lib/api-auth';
 
 interface AssignSchoolRequest {
   networkId: string;
@@ -34,9 +33,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     const user = auth.user;
 
-    const supabaseAdmin = createServerSupabaseClient({ req, res }, {
-      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY
-    });
+    // A real service-role client. (Built from the request it carried the
+    // caller's cookie token, so a request with a Bearer for one user and a
+    // cookie for another queried as the cookie user.)
+    const supabaseAdmin = createServiceRoleClient();
 
     switch (req.method) {
       case 'GET':

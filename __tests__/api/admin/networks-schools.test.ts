@@ -31,18 +31,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
 
-const { mockCreateServerSupabaseClient, mockRequireVerifiedRole } = vi.hoisted(() => ({
-  mockCreateServerSupabaseClient: vi.fn(),
+const { mockCreateServiceRoleClient, mockRequireVerifiedRole } = vi.hoisted(() => ({
+  mockCreateServiceRoleClient: vi.fn(),
   mockRequireVerifiedRole: vi.fn(),
-}));
-
-vi.mock('@supabase/auth-helpers-nextjs', () => ({
-  createServerSupabaseClient: mockCreateServerSupabaseClient,
 }));
 
 // The verified-admin gate itself is covered by admin-forged-session.test.ts.
 vi.mock('../../../lib/api-auth', () => ({
   requireVerifiedRole: mockRequireVerifiedRole,
+  createServiceRoleClient: mockCreateServiceRoleClient,
 }));
 
 import handler from '../../../pages/api/admin/networks/schools';
@@ -151,7 +148,7 @@ function buildRecordingClient(resultsByTable: Record<string, TableResult[]>, tra
  */
 function setupAdmin(resultsByTable: Record<string, TableResult[]>, tracker: Tracker) {
   mockRequireVerifiedRole.mockResolvedValueOnce({ user: { id: ADMIN_ID }, status: null, body: null });
-  mockCreateServerSupabaseClient.mockReturnValueOnce(
+  mockCreateServiceRoleClient.mockReturnValueOnce(
     buildRecordingClient(resultsByTable, tracker),
   );
 }

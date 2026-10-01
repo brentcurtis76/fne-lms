@@ -1,6 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
-import { requireVerifiedSuperadmin } from '../../../../../lib/api-auth';
+import { createApiSupabaseClient, requireVerifiedSuperadmin } from '../../../../../lib/api-auth';
 
 export default async function handler(
   req: NextApiRequest,
@@ -56,7 +55,7 @@ export default async function handler(
     const user = auth.user;
 
     // Session-bound client for RLS enforcement
-    const supabase = createServerSupabaseClient({ req, res });
+    const supabase = await createApiSupabaseClient(req, res);
 
     const { role_type, permission_key, granted, reason, dry_run, idempotency_key } = req.body;
 

@@ -46,14 +46,13 @@ function code(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 }
 
-const READS_SESSION_USER = /\bsession\s*\??\.\s*user\b/;
-const CALLS_GET_SESSION = /\.getSession\s*\(/;
+/** `session.user`, `session?.user`, `data.session.user`, and `const { user } = session`. */
+const READS_SESSION_USER = /\bsession\s*\??\.\s*user\b|\{[^{}]*\buser\b[^{}]*\}\s*=\s*(?:[\w$.?]*\.)?session\b/;
+/** Any reference to getSession: `.getSession(`, `['getSession'](`, aliases. */
+const CALLS_GET_SESSION = /\bgetSession\b/;
 
-/** The body of `export const getServerSideProps = ...` / `export async function getServerSideProps`. */
-function getServerSidePropsBody(source: string): string | null {
-  const start = source.search(/export\s+(const|async\s+function)\s+getServerSideProps\b/);
-  if (start < 0) return null;
-  const open = source.indexOf('{', source.indexOf('=>', start) > -1 ? source.indexOf('=>', start) : start);
+/** Brace-matched block starting at `open` (index of a `{`). */
+function blockAt(source: string, open: number): string {
   let depth = 0;
   for (let i = open; i < source.length; i++) {
     if (source[i] === '{') depth++;
@@ -63,6 +62,30 @@ function getServerSidePropsBody(source: string): string | null {
     }
   }
   return source.slice(open);
+}
+
+/**
+ * The body of the function exported as getServerSideProps, whether written
+ * `export const getServerSideProps = async (ctx) => {…}`,
+ * `export async function getServerSideProps(ctx) {…}`, or
+ * `const load = …; export { load as getServerSideProps }`.
+ * When the export exists but its body cannot be located, the whole file is
+ * returned, so an unusual shape fails closed instead of slipping through.
+ */
+function getServerSidePropsBody(source: string): string | null {
+  const alias = source.match(/export\s*\{[^}]*\b(\w+)\s+as\s+getServerSideProps\b[^}]*\}/);
+  const exported = /export\s+(?:const|let|var|async\s+function|function)\s+getServerSideProps\b/.test(source);
+  if (!alias && !exported) return null;
+  const name = alias ? alias[1] : 'getServerSideProps';
+  const fn = new RegExp(`function\\s+${name}\\s*\\(`).exec(source);
+  if (fn) {
+    const paramsEnd = source.indexOf(')', fn.index);
+    const open = source.indexOf('{', paramsEnd);
+    if (open > -1) return blockAt(source, open);
+  }
+  const arrow = new RegExp(`\\b${name}\\b[^=]*=\\s*(?:async\\s*)?\\([^)]*\\)[^=]*=>\\s*\\{`).exec(source);
+  if (arrow) return blockAt(source, arrow.index + arrow[0].length - 1);
+  return source;
 }
 
 const apiFiles = walk(join(ROOT, 'pages', 'api')).map((p) => relative(ROOT, p));
@@ -113,11 +136,30 @@ describe('the guard itself', () => {
   it('flags the old patterns and passes the new ones', () => {
     expect(READS_SESSION_USER.test(code('const id = session.user.id;'))).toBe(true);
     expect(READS_SESSION_USER.test(code('if (!session?.user) return;'))).toBe(true);
+    expect(READS_SESSION_USER.test(code('const u = data.session.user;'))).toBe(true);
+    expect(READS_SESSION_USER.test(code('const { user } = session;'))).toBe(true);
+    expect(READS_SESSION_USER.test(code('const { user: u } = data.session;'))).toBe(true);
     expect(READS_SESSION_USER.test(code('// session.user.id was the bug'))).toBe(false);
+    expect(READS_SESSION_USER.test(code('const { user } = await getApiUser(req, res);'))).toBe(false);
     expect(CALLS_GET_SESSION.test(code('await supabase.auth.getSession();'))).toBe(true);
+    expect(CALLS_GET_SESSION.test(code("await s.auth['getSession']();"))).toBe(true);
     expect(CALLS_GET_SESSION.test(code('const caller = await requireVerifiedCaller(req, res);'))).toBe(false);
-    expect(
-      getServerSidePropsBody('export const getServerSideProps = async (ctx) => {\n  const { data: { session } } = await s.auth.getSession();\n  return { props: {} };\n};\nfunction Page() { useEffect(() => {}); }')
-    ).toContain('getSession');
+  });
+
+  it('finds getServerSideProps in every export shape', () => {
+    const arrow = 'export const getServerSideProps = async (ctx) => {\n  const s = await x.auth.getSession();\n  return { props: {} };\n};\nfunction Page() { useEffect(() => { x.auth.getSession(); }); }';
+    expect(getServerSidePropsBody(arrow)).toContain('getSession');
+    expect(getServerSidePropsBody(arrow)).not.toContain('useEffect');
+
+    const fn = 'export async function getServerSideProps(ctx) {\n  const f = () => { return 1; };\n  const s = await x.auth.getSession();\n  return { props: {} };\n}';
+    expect(getServerSidePropsBody(fn)).toContain('getSession');
+
+    const aliased = 'const load = async (ctx) => {\n  const { user } = session;\n  return { props: {} };\n};\nexport { load as getServerSideProps };';
+    expect(READS_SESSION_USER.test(getServerSidePropsBody(aliased) ?? '')).toBe(true);
+
+    const aliasedFn = 'async function load(ctx) {\n  await x.auth.getSession();\n}\nexport { load as getServerSideProps };';
+    expect(getServerSidePropsBody(aliasedFn)).toContain('getSession');
+
+    expect(getServerSidePropsBody('export default function Page() { x.auth.getSession(); }')).toBeNull();
   });
 });

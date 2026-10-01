@@ -227,8 +227,9 @@ const writes = () =>
 
 const savedEnv: Record<string, string | undefined> = {};
 beforeEach(() => {
-  for (const k of ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']) savedEnv[k] = process.env[k];
+  for (const k of ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'NEXT_PUBLIC_SUPABASE_ANON_KEY']) savedEnv[k] = process.env[k];
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:1';
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-key';
   serviceLog.length = 0;
   verifiedUser = null;

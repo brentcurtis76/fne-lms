@@ -41,6 +41,9 @@ const lookups: { superadmin: unknown[]; adminRole: unknown[]; profile: unknown[]
   profile: [],
 };
 let verifiedUser: { id: string } | null = null;
+/** False for a Bearer-only request: no session cookie at all. */
+let cookiePresent = true;
+const bearerTokensSeen: unknown[] = [];
 /** test_mode_state rows by user_id (the overlay routes create and read them). */
 const testModes = new Map<string, Record<string, unknown>>();
 
@@ -121,7 +124,7 @@ function cookieClient() {
   return {
     auth: {
       getSession: vi.fn(async () => ({
-        data: { session: { user: { id: VICTIM }, access_token: COOKIE_TOKEN } },
+        data: { session: cookiePresent ? { user: { id: VICTIM }, access_token: COOKIE_TOKEN } : null },
         error: null,
       })),
       getUser: vi.fn(async (token?: string) =>
@@ -142,11 +145,12 @@ vi.mock('@supabase/auth-helpers-nextjs', () => ({
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({
     auth: {
-      getUser: vi.fn(async (token?: string) =>
-        token === BEARER_TOKEN && verifiedUser
+      getUser: vi.fn(async (token?: string) => {
+        bearerTokensSeen.push(token);
+        return token === BEARER_TOKEN && verifiedUser
           ? { data: { user: verifiedUser }, error: null }
-          : { data: { user: null }, error: { message: 'invalid token' } }
-      ),
+          : { data: { user: null }, error: { message: 'invalid token' } };
+      }),
     },
     rpc: vi.fn(async (fn: string, args: { check_user_id: string }) => {
       if (fn !== 'auth_is_superadmin') throw new Error(`unexpected rpc ${fn}`);
@@ -224,6 +228,8 @@ beforeEach(() => {
   MUST_CHANGE.clear();
   testModes.clear();
   verifiedUser = null;
+  cookiePresent = true;
+  bearerTokensSeen.length = 0;
   vi.spyOn(console, 'log').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
@@ -326,13 +332,24 @@ describe('forced password change and Bearer callers', () => {
     expect(dataLog).toEqual([]);
   });
 
-  it('a verified Bearer admin can list network schools; a Bearer plain user cannot', async () => {
-    const bearer = { authorization: `Bearer ${BEARER_TOKEN}` };
+  const bearer = { authorization: `Bearer ${BEARER_TOKEN}` };
+
+  it.each(ADMIN_ROUTES)('%s: a verified Bearer admin (no cookie) passes the gate', async (_n, handler, method, body) => {
+    cookiePresent = false;
     verifiedUser = { id: ADMIN };
-    expect((await call(availableSchools, 'GET', {}, bearer)).statusCode).toBe(200);
+    const res = await call(handler, method, body, bearer);
+    expect(res.statusCode).not.toBe(401);
+    expect(res.statusCode).not.toBe(403);
+    expect(bearerTokensSeen).toEqual([BEARER_TOKEN]);
+    expect(lookups.adminRole).toEqual([ADMIN]);
+  });
+
+  it.each(ADMIN_ROUTES)('%s: a Bearer plain user (no cookie) is refused before any data access', async (_n, handler, method, body) => {
+    cookiePresent = false;
     verifiedUser = { id: ATTACKER };
-    dataLog.length = 0;
-    expect((await call(availableSchools, 'GET', {}, bearer)).statusCode).toBe(403);
+    const res = await call(handler, method, body, bearer);
+    expect(res.statusCode).toBe(403);
+    expect(bearerTokensSeen).toEqual([BEARER_TOKEN]);
     expect(dataLog).toEqual([]);
   });
 });

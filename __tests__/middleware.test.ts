@@ -377,7 +377,17 @@ describe('middleware verified identity (W-B10c-01b)', () => {
     expect(isRedirect(res)).toBe(false);
   });
 
-  it('treats a verification error as no session: /admin goes to login, no role lookup', async () => {
+  const AUTH_COOKIE = 'sb-127-auth-token=forged; other=keep';
+  const RETRYABLE = { __isAuthError: true, name: 'AuthRetryableFetchError', status: 0, message: 'fetch failed' };
+
+  function expiredCookies(res: Response): string[] {
+    return (res.headers.get('set-cookie') ?? '')
+      .split(/,(?=\s*[^;,]+=)/)
+      .filter((c) => /max-age=0/i.test(c))
+      .map((c) => c.trim().split('=')[0]);
+  }
+
+  it('treats a rejected token as signed out on /admin: login with next, no role lookup, auth cookie expired', async () => {
     const supabase = buildSupabase({
       session: FORGED_SESSION,
       roles: [{ role_type: 'admin' }],
@@ -386,15 +396,20 @@ describe('middleware verified identity (W-B10c-01b)', () => {
     });
     createMiddlewareClient.mockReturnValue(supabase);
     const { middleware } = await import('../middleware');
-    const res = await middleware(new NextRequest('http://localhost/admin/users'));
+    const res = await middleware(
+      new NextRequest('http://localhost/admin/users', { headers: { cookie: AUTH_COOKIE } })
+    );
     expect(isRedirect(res)).toBe(true);
     expect(res.headers.get('location')).toBe(
       `http://localhost/login?next=${encodeURIComponent('/admin/users')}`
     );
     expect(supabase.from).not.toHaveBeenCalled();
+    // Without this the login page would see the leftover session and bounce
+    // straight back to /admin/users: a redirect loop.
+    expect(expiredCookies(res)).toEqual(['sb-127-auth-token']);
   });
 
-  it('treats a verification with no user as no session on /meet', async () => {
+  it('treats a verification with no user as signed out on /meet', async () => {
     const supabase = buildSupabase({ session: FORGED_SESSION, roles: [], verifiedUser: null });
     createMiddlewareClient.mockReturnValue(supabase);
     const { middleware } = await import('../middleware');
@@ -405,7 +420,7 @@ describe('middleware verified identity (W-B10c-01b)', () => {
     );
   });
 
-  it('lets an unverifiable API request fall through like an anonymous one (the route authenticates itself)', async () => {
+  it('refuses a rejected token on an API path with 401 instead of falling through', async () => {
     const supabase = buildSupabase({
       session: FORGED_SESSION,
       roles: [],
@@ -414,9 +429,64 @@ describe('middleware verified identity (W-B10c-01b)', () => {
     });
     createMiddlewareClient.mockReturnValue(supabase);
     const { middleware } = await import('../middleware');
-    const res = await middleware(new NextRequest('http://localhost/api/admin/users'));
-    expect(isRedirect(res)).toBe(false);
-    expect(res.status).toBe(200);
+    const res = await middleware(
+      new NextRequest('http://localhost/api/admin/assignment-matrix/content-stats', {
+        headers: { cookie: AUTH_COOKIE },
+      })
+    );
+    expect(res.status).toBe(401);
+    expect((await res.json()).code).toBe('SESSION_INVALID');
+    expect(expiredCookies(res)).toEqual(['sb-127-auth-token']);
     expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it('expires a rejected cookie but keeps anonymous behaviour on a page that needs no session', async () => {
+    const supabase = buildSupabase({
+      session: FORGED_SESSION,
+      roles: [],
+      verifiedUser: null,
+      userError: { message: 'invalid JWT' },
+    });
+    createMiddlewareClient.mockReturnValue(supabase);
+    const { middleware } = await import('../middleware');
+    const res = await middleware(
+      new NextRequest('http://localhost/courses', { headers: { cookie: AUTH_COOKIE } })
+    );
+    expect(isRedirect(res)).toBe(false);
+    expect(expiredCookies(res)).toEqual(['sb-127-auth-token']);
+  });
+
+  it('auth server unreachable: API answers 503 and keeps the cookie', async () => {
+    const supabase = buildSupabase({
+      session: FORGED_SESSION,
+      roles: [],
+      verifiedUser: null,
+      userError: RETRYABLE,
+    });
+    createMiddlewareClient.mockReturnValue(supabase);
+    const { middleware } = await import('../middleware');
+    const res = await middleware(
+      new NextRequest('http://localhost/api/admin/users', { headers: { cookie: AUTH_COOKIE } })
+    );
+    expect(res.status).toBe(503);
+    expect((await res.json()).code).toBe('PASSWORD_STATE_UNAVAILABLE');
+    expect(expiredCookies(res)).toEqual([]);
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it('auth server unreachable: a page goes to the retry panel, never to the cookie user', async () => {
+    const supabase = buildSupabase({
+      session: FORGED_SESSION,
+      roles: [{ role_type: 'admin' }],
+      verifiedUser: null,
+      userError: RETRYABLE,
+    });
+    createMiddlewareClient.mockReturnValue(supabase);
+    const { middleware } = await import('../middleware');
+    const res = await middleware(new NextRequest('http://localhost/admin/users'));
+    expect(isRedirect(res)).toBe(true);
+    expect(res.headers.get('location')).toBe('http://localhost/change-password?estado=no-verificado');
+    expect(supabase.from).not.toHaveBeenCalled();
   });
 });

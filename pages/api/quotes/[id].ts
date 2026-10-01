@@ -151,7 +151,7 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
     // Check if the quote exists and user can access it using service role
     const { data: existingQuote, error: checkError } = await serviceSupabase
       .from('pasantias_quotes')
-      .select('id, created_by')
+      .select('id, created_by, status')
       .eq('id', id)
       .single();
     
@@ -169,6 +169,25 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
       return res.status(403).json({ 
         error: 'Solo puedes editar tus propias cotizaciones'
       });
+    }
+
+    // Travel groups live in pasantias_quote_groups and are not saved by this
+    // route. Saying so beats reporting success while dropping the edit (before
+    // the field allowlist, such a save failed on the unknown column).
+    if (Array.isArray(req.body?.groups)) {
+      return res.status(400).json({
+        error: 'Por ahora no se pueden editar cotizaciones con grupos de viaje'
+      });
+    }
+
+    // Status: the editor keeps the current one or publishes the quote
+    // ('sent'). viewed / accepted / rejected / expired are never set by hand.
+    if (
+      req.body?.status !== undefined &&
+      req.body.status !== existingQuote.status &&
+      req.body.status !== 'sent'
+    ) {
+      return res.status(400).json({ error: 'Estado de cotización no permitido' });
     }
 
     // Only the fields the quote editor sends (components/quotes/QuoteFormV2):

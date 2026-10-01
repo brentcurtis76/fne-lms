@@ -39,10 +39,32 @@ const ROLE_ROWS: RoleRow[] = [
   role(CONSULTOR, 'docente', { school_id: SCHOOL_B, community_id: COMMUNITY_B }),
   role(CONSULTOR, 'consultor', { school_id: SCHOOL_A, community_id: COMMUNITY_A }),
 ];
+const CONSULTOR_VIA_COMMUNITY = '55555555-5555-4555-8555-555555555555';
+ROLE_ROWS.push(role(CONSULTOR_VIA_COMMUNITY, 'consultor', { community_id: COMMUNITY_A }));
+
+/** Plain tables the routes read, answered with PostgREST-style filtering. */
+const TABLES: Record<string, Record<string, unknown>[]> = {
+  growth_communities: [
+    { id: COMMUNITY_A, school_id: SCHOOL_A, name: 'Comunidad A' },
+    { id: COMMUNITY_B, school_id: SCHOOL_B, name: 'Comunidad B' },
+  ],
+  schools: [
+    { id: SCHOOL_A, name: 'Colegio A' },
+    { id: SCHOOL_B, name: 'Colegio B' },
+  ],
+  course_enrollments: [
+    { user_id: CONSULTOR, course_id: 'course-1', lessons_completed: 1, total_lessons: 2, status: 'active', courses: { id: 'course-1', title: 'Curso Sintético', description: '' } },
+  ],
+  assignment_audit_log: [
+    { id: 'log-1', content_type: 'course', content_id: COMMUNITY_A, action: 'assigned', created_at: '2026-10-01T00:00:00Z', performed_by: ADMIN },
+  ],
+  courses: [{ id: 'course-1', title: 'Curso Sintético', description: '', status: 'published' }],
+};
 const MUST_CHANGE = new Set<string>();
 const BEARER_TOKEN = 'caller-bearer-token';
 let cookiePresent = true;
-const QUOTE_OWNERS: Record<string, string> = { 'q-victim': VICTIM, 'q-consultor': CONSULTOR };
+const QUOTE_OWNERS: Record<string, string> = { 'q-victim': VICTIM, 'q-consultor': CONSULTOR, 'q-accepted': CONSULTOR };
+const QUOTE_STATUS: Record<string, string> = { 'q-victim': 'draft', 'q-consultor': 'draft', 'q-accepted': 'accepted' };
 const COOKIE_TOKEN = 'caller-own-valid-token';
 
 type Op = [string, ...unknown[]];
@@ -74,16 +96,17 @@ function serviceAnswer(table: string, ops: Op[], mode: 'many' | 'one') {
     // A group's members: everyone holding an active role in it.
     return { data: matchRows(ROLE_ROWS, ops).map((r) => ({ user_id: r.user_id })), error: null };
   }
-  if (table === 'growth_communities') {
-    if (mode === 'one') return { data: { id: eqValue(ops, 'id'), name: 'Comunidad' }, error: null };
-    return { data: [], error: null };
+  if (TABLES[table]) {
+    const rows = matchRows(TABLES[table], ops);
+    return mode === 'one' ? { data: rows[0] ?? null, error: null } : { data: rows, error: null, count: rows.length };
   }
-  if (table === 'schools' && mode === 'one') return { data: { id: eqValue(ops, 'id'), name: 'Colegio' }, error: null };
   if (table === 'pasantias_quotes') {
     const id = eqValue(ops, 'id') as string | undefined;
     if (has('insert')) return { data: { id: 'q-new' }, error: null };
     if (has('update') || has('delete')) return { data: mode === 'one' ? { id } : null, error: null };
-    return id && QUOTE_OWNERS[id] ? { data: { id, created_by: QUOTE_OWNERS[id] }, error: null } : { data: null, error: null };
+    return id && QUOTE_OWNERS[id]
+      ? { data: { id, created_by: QUOTE_OWNERS[id], status: QUOTE_STATUS[id] }, error: null }
+      : { data: null, error: null };
   }
   if (table === 'pasantias_programs') return { data: [{ id: 'p-1', price: 1000 }], error: null };
   return { data: mode === 'one' ? null : [], error: null, count: 0 };
@@ -313,12 +336,11 @@ describe('quote edits cannot set protected columns', () => {
       created_at: '2020-01-01T00:00:00Z',
       id: 'q-other',
       nights: 99,
-      groups: [{ name: 'g' }],
     });
     expect(res.statusCode).toBe(200);
     const update = writes().find(([t, o]) => t === 'pasantias_quotes' && o === 'update')?.[2] as Record<string, unknown>;
     expect(update).toMatchObject({ client_name: 'Nuevo', status: 'sent', updated_by: CONSULTOR });
-    for (const k of ['quote_number', 'created_by', 'viewed_at', 'accepted_at', 'created_at', 'id', 'nights', 'groups']) {
+    for (const k of ['quote_number', 'created_by', 'viewed_at', 'accepted_at', 'created_at', 'id', 'nights']) {
       expect(update).not.toHaveProperty(k);
     }
   });
@@ -347,5 +369,70 @@ describe('inactive roles, the password gate and Bearer callers', () => {
     const res = await call(handler, method, query, body, { authorization: `Bearer ${BEARER_TOKEN}` });
     expect(res.statusCode).toBe(ADMIN_SUCCESS[_n][0]);
     expect(askedIds()).toContain(ADMIN);
+  });
+});
+
+describe('populated results for a verified admin', () => {
+  it('group-assignments aggregates the community members\' courses', async () => {
+    verifiedUser = { id: ADMIN };
+    const res = await call(groupAssignments, 'GET', { groupType: 'community', groupId: COMMUNITY_A });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.stats.totalMembers).toBeGreaterThan(0);
+    expect(JSON.stringify(res.body.commonAssignments)).toContain('Curso Sintético');
+  });
+
+  it('audit-log returns the seeded entry', async () => {
+    verifiedUser = { id: ADMIN };
+    const res = await call(auditLog, 'GET', { contentType: 'course', contentId: COMMUNITY_A });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.logs).toHaveLength(1);
+  });
+
+  it('content-stats lists the seeded course', async () => {
+    verifiedUser = { id: ADMIN };
+    const res = await call(contentStats, 'GET', {});
+    expect(res.statusCode).toBe(200);
+    expect(JSON.stringify(res.body.courses)).toContain('course-1');
+  });
+
+  it('a consultor holding only community A reaches school A through it, not school B', async () => {
+    verifiedUser = { id: CONSULTOR_VIA_COMMUNITY };
+    expect((await call(groupAssignments, 'GET', { groupType: 'school', groupId: String(SCHOOL_A) })).statusCode).toBe(200);
+    expect((await call(groupAssignments, 'GET', { groupType: 'school', groupId: String(SCHOOL_B) })).statusCode).toBe(403);
+  });
+});
+
+describe('quote status and travel groups on PUT', () => {
+  it.each(['accepted', 'viewed', 'rejected', 'expired'])('an owner cannot set status %s by hand', async (status) => {
+    verifiedUser = { id: CONSULTOR };
+    const res = await call(quoteById, 'PUT', { id: 'q-consultor' }, { client_name: 'X', status });
+    expect(res.statusCode).toBe(400);
+    expect(writes()).toEqual([]);
+  });
+
+  it('an admin cannot either', async () => {
+    verifiedUser = { id: ADMIN };
+    const res = await call(quoteById, 'PUT', { id: 'q-consultor' }, { status: 'accepted' });
+    expect(res.statusCode).toBe(400);
+    expect(writes()).toEqual([]);
+  });
+
+  it.each([
+    ['q-consultor', 'sent'],
+    ['q-consultor', 'draft'],
+    ['q-accepted', 'accepted'],
+  ])('%s may be saved with status %s (publish, or unchanged)', async (id, status) => {
+    verifiedUser = { id: CONSULTOR };
+    const res = await call(quoteById, 'PUT', { id }, { client_name: 'X', status });
+    expect(res.statusCode).toBe(200);
+    const update = writes().find(([t, o]) => t === 'pasantias_quotes' && o === 'update')?.[2];
+    expect(update).toMatchObject({ status });
+  });
+
+  it('a save carrying travel groups is refused instead of silently dropping them', async () => {
+    verifiedUser = { id: CONSULTOR };
+    const res = await call(quoteById, 'PUT', { id: 'q-consultor' }, { client_name: 'X', use_groups: true, groups: [{ name: 'g' }] });
+    expect(res.statusCode).toBe(400);
+    expect(writes()).toEqual([]);
   });
 });

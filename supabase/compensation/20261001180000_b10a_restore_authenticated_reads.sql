@@ -42,8 +42,9 @@
 --
 -- How to stand it down (no DROP, ever): neutralise the policy,
 --   ALTER POLICY b10a_compensation_authenticated_read ON public.<table> USING (false);
--- Re-running the block on a stood-down or altered policy RAISES instead of
--- silently doing nothing; to reactivate it, run exactly
+-- Re-running the block on a stood-down policy RAISES instead of silently
+-- doing nothing (on any other unexpected definition it raises and says to
+-- stop and investigate); to reactivate a stood-down policy, run exactly
 --   ALTER POLICY b10a_compensation_authenticated_read ON public.<table> USING (true);
 -- A neutralised policy stays in place until a separately reviewed forward
 -- migration supersedes it.
@@ -74,9 +75,11 @@ BEGIN
     CREATE POLICY b10a_compensation_authenticated_read ON public.group_assignment_discussions
       AS PERMISSIVE FOR SELECT TO authenticated USING (true);
   ELSIF existing.cmd <> 'SELECT' OR existing.roles <> ARRAY['authenticated']::name[]
-     OR existing.permissive <> 'PERMISSIVE' OR existing.qual IS DISTINCT FROM 'true' THEN
-    RAISE EXCEPTION 'b10a compensation: public.group_assignment_discussions already has b10a_compensation_authenticated_read but it is stood down or altered (%, %, %, %); to reactivate it run: ALTER POLICY b10a_compensation_authenticated_read ON public.group_assignment_discussions USING (true);',
+     OR existing.permissive <> 'PERMISSIVE' OR existing.qual NOT IN ('true', 'false') THEN
+    RAISE EXCEPTION 'b10a compensation: public.group_assignment_discussions has a b10a_compensation_authenticated_read policy with an unexpected definition (%, %, %, %); do NOT reactivate it — stop and investigate',
       existing.cmd, existing.roles, existing.permissive, existing.qual;
+  ELSIF existing.qual = 'false' THEN
+    RAISE EXCEPTION 'b10a compensation: public.group_assignment_discussions has b10a_compensation_authenticated_read stood down; to reactivate it run: ALTER POLICY b10a_compensation_authenticated_read ON public.group_assignment_discussions USING (true);';
   END IF;
 END
 $compensation$;
@@ -98,9 +101,11 @@ BEGIN
     CREATE POLICY b10a_compensation_authenticated_read ON public.growth_community_transformation_access
       AS PERMISSIVE FOR SELECT TO authenticated USING (true);
   ELSIF existing.cmd <> 'SELECT' OR existing.roles <> ARRAY['authenticated']::name[]
-     OR existing.permissive <> 'PERMISSIVE' OR existing.qual IS DISTINCT FROM 'true' THEN
-    RAISE EXCEPTION 'b10a compensation: public.growth_community_transformation_access already has b10a_compensation_authenticated_read but it is stood down or altered (%, %, %, %); to reactivate it run: ALTER POLICY b10a_compensation_authenticated_read ON public.growth_community_transformation_access USING (true);',
+     OR existing.permissive <> 'PERMISSIVE' OR existing.qual NOT IN ('true', 'false') THEN
+    RAISE EXCEPTION 'b10a compensation: public.growth_community_transformation_access has a b10a_compensation_authenticated_read policy with an unexpected definition (%, %, %, %); do NOT reactivate it — stop and investigate',
       existing.cmd, existing.roles, existing.permissive, existing.qual;
+  ELSIF existing.qual = 'false' THEN
+    RAISE EXCEPTION 'b10a compensation: public.growth_community_transformation_access has b10a_compensation_authenticated_read stood down; to reactivate it run: ALTER POLICY b10a_compensation_authenticated_read ON public.growth_community_transformation_access USING (true);';
   END IF;
 END
 $compensation$;
@@ -122,9 +127,11 @@ BEGIN
     CREATE POLICY b10a_compensation_authenticated_read ON public.modules
       AS PERMISSIVE FOR SELECT TO authenticated USING (true);
   ELSIF existing.cmd <> 'SELECT' OR existing.roles <> ARRAY['authenticated']::name[]
-     OR existing.permissive <> 'PERMISSIVE' OR existing.qual IS DISTINCT FROM 'true' THEN
-    RAISE EXCEPTION 'b10a compensation: public.modules already has b10a_compensation_authenticated_read but it is stood down or altered (%, %, %, %); to reactivate it run: ALTER POLICY b10a_compensation_authenticated_read ON public.modules USING (true);',
+     OR existing.permissive <> 'PERMISSIVE' OR existing.qual NOT IN ('true', 'false') THEN
+    RAISE EXCEPTION 'b10a compensation: public.modules has a b10a_compensation_authenticated_read policy with an unexpected definition (%, %, %, %); do NOT reactivate it — stop and investigate',
       existing.cmd, existing.roles, existing.permissive, existing.qual;
+  ELSIF existing.qual = 'false' THEN
+    RAISE EXCEPTION 'b10a compensation: public.modules has b10a_compensation_authenticated_read stood down; to reactivate it run: ALTER POLICY b10a_compensation_authenticated_read ON public.modules USING (true);';
   END IF;
 END
 $compensation$;
@@ -146,9 +153,11 @@ BEGIN
     CREATE POLICY b10a_compensation_authenticated_read ON public.qa_tester_time_logs
       AS PERMISSIVE FOR SELECT TO authenticated USING (true);
   ELSIF existing.cmd <> 'SELECT' OR existing.roles <> ARRAY['authenticated']::name[]
-     OR existing.permissive <> 'PERMISSIVE' OR existing.qual IS DISTINCT FROM 'true' THEN
-    RAISE EXCEPTION 'b10a compensation: public.qa_tester_time_logs already has b10a_compensation_authenticated_read but it is stood down or altered (%, %, %, %); to reactivate it run: ALTER POLICY b10a_compensation_authenticated_read ON public.qa_tester_time_logs USING (true);',
+     OR existing.permissive <> 'PERMISSIVE' OR existing.qual NOT IN ('true', 'false') THEN
+    RAISE EXCEPTION 'b10a compensation: public.qa_tester_time_logs has a b10a_compensation_authenticated_read policy with an unexpected definition (%, %, %, %); do NOT reactivate it — stop and investigate',
       existing.cmd, existing.roles, existing.permissive, existing.qual;
+  ELSIF existing.qual = 'false' THEN
+    RAISE EXCEPTION 'b10a compensation: public.qa_tester_time_logs has b10a_compensation_authenticated_read stood down; to reactivate it run: ALTER POLICY b10a_compensation_authenticated_read ON public.qa_tester_time_logs USING (true);';
   END IF;
 END
 $compensation$;

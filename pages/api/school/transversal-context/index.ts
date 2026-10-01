@@ -8,6 +8,25 @@ import { GRADE_LEVEL_SORT_ORDER } from '@/types/assessment-builder';
 const COURSE_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
 export const MAX_COURSES_PER_LEVEL = COURSE_LETTERS.length;
 
+/**
+ * True when the user holds an active consultor role. Read-only Contexto access
+ * follows the role alone, not consultant_assignments. Fails closed on any
+ * read error.
+ */
+async function hasActiveConsultorRole(
+  supabaseClient: any,
+  userId: string
+): Promise<boolean> {
+  const { data: roles, error } = await supabaseClient
+    .from('user_roles')
+    .select('role_type')
+    .eq('user_id', userId)
+    .eq('is_active', true);
+
+  if (error || !roles) return false;
+  return roles.some((r: any) => r.role_type === 'consultor');
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Authentication check
   const { user, error: authError } = await getApiUser(req, res);
@@ -33,41 +52,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     requestedSchoolId
   );
 
-  if (!hasPermission) {
+  // PROC-CONSULTOR-C1 — the two capabilities on this surface are separate.
+  //
+  // WRITE (POST): admin, or the school's own equipo_directivo. Unchanged.
+  // READ (GET):   the same callers, plus ANY caller holding an ACTIVE
+  //               consultor role — read-only, over every registered school,
+  //               not narrowed by consultant_assignments (the same grant the
+  //               school picker in ./schools.ts already makes, and the one
+  //               20261001190000_consultor_context_select.sql gives at the
+  //               database). A consultor names the school explicitly, like an
+  //               admin; RLS still decides what the read returns.
+  // Both role lookups fail closed, so a lookup error denies.
+  const canWrite = hasPermission && (isAdmin || (await hasContextWriteRole(supabaseClient, user.id)));
+
+  if (req.method === 'POST') {
+    if (!canWrite) {
+      return res.status(403).json({
+        success: false,
+        code: 'context_write_forbidden',
+        error: 'Solo el equipo directivo de la escuela y los administradores pueden guardar el contexto transversal',
+      });
+    }
+  } else if (!canWrite && !(await hasActiveConsultorRole(supabaseClient, user.id))) {
     return res.status(403).json({
       error: 'Solo directivos y administradores pueden acceder al contexto transversal'
     });
   }
 
-  // R5 — consultor access is DENIED on this whole surface (GET and POST)
-  // until the product decision (deny entirely vs. designed read-only) is
-  // taken. hasDirectivoPermission admits assigned consultores; they hold no
-  // context-write role, so this gate refuses them consistently. Nothing is
-  // read with the service role on their behalf.
-  const canAccess = isAdmin || (await hasContextWriteRole(supabaseClient, user.id));
-  if (!canAccess) {
-    return res.status(403).json({
-      success: false,
-      code: 'consultor_access_pending_decision',
-      error: 'El acceso de consultores al contexto transversal está pendiente de definición. Solo el equipo directivo y los administradores pueden acceder.',
-    });
-  }
+  // A directivo works on the school of their own role row; an admin and a
+  // consultor reader name it in the request.
+  const usesOwnSchool = canWrite && !isAdmin;
 
-  // For non-admin users, we must have a school_id
-  if (!isAdmin && !schoolId) {
+  if (usesOwnSchool && !schoolId) {
     return res.status(400).json({
       error: 'No se encontró escuela asociada al usuario'
     });
   }
 
-  // For admin, require school_id in request
-  if (isAdmin && !requestedSchoolId) {
+  if (!usesOwnSchool && !requestedSchoolId) {
     return res.status(400).json({
-      error: 'Se requiere school_id para administradores'
+      error: isAdmin
+        ? 'Se requiere school_id para administradores'
+        : 'Se requiere school_id para consultores'
     });
   }
 
-  const effectiveSchoolId = isAdmin ? requestedSchoolId : schoolId;
+  const effectiveSchoolId = usesOwnSchool ? schoolId : requestedSchoolId;
 
   if (req.method === 'GET') {
     return handleGet(req, res, supabaseClient, effectiveSchoolId!);

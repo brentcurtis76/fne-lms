@@ -311,6 +311,35 @@ export async function requireVerifiedRole(
     : { user: null, status: 403, body: { error: forbiddenMessage } };
 }
 
+// Verified caller who is an active superadmin (`auth_is_superadmin`, the
+// `superadmins` table). Same identity source, forced-password gate and
+// responses as requireVerifiedRole; a failed superadmin lookup is 500.
+export async function requireVerifiedSuperadmin(
+  req: NextApiRequest,
+  res: NextApiResponse,
+  forbiddenMessage = 'Acceso denegado - solo superadministradores'
+): Promise<VerifiedRoleResult> {
+  const { user, error } = await getApiUser(req, res);
+  if (error || !user) {
+    return { user: null, status: 401, body: { error: 'No autorizado' } };
+  }
+  const serviceClient = createServiceRoleClient();
+  const verdict = await getForcedPasswordChangeVerdict(serviceClient, user.id);
+  if (verdict !== 'allowed') {
+    return { user: null, status: forcedChangeApiStatus(verdict), body: forcedChangeApiBody(verdict) };
+  }
+  const { data, error: lookupError } = await serviceClient.rpc('auth_is_superadmin', {
+    check_user_id: user.id,
+  });
+  if (lookupError) {
+    console.error('[API Auth] Superadmin lookup failed:', lookupError.message);
+    return { user: null, status: 500, body: { error: 'Error del servidor' } };
+  }
+  return data === true
+    ? { user, status: null, body: null }
+    : { user: null, status: 403, body: { error: forbiddenMessage } };
+}
+
 // Standard error response with logging. Despite the name, this is the
 // catch-all error helper used for 400 validation, 404 not-found, 500 server
 // errors, and genuine 401/403 auth failures. Prefer `sendApiError` below

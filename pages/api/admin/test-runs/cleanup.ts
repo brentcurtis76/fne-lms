@@ -1,12 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@supabase/supabase-js';
 import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-);
+import { requireVerifiedSuperadmin } from '../../../../lib/api-auth';
 
 export default async function handler(
   req: NextApiRequest,
@@ -45,21 +39,16 @@ export default async function handler(
   }
 
   try {
-    // Get session-bound client for RLS enforcement
+    // The caller's identity is verified with the auth server; the cookie's
+    // stored `user` is client-controlled and is never used (SM-B015).
+    const auth = await requireVerifiedSuperadmin(req, res);
+    if (!auth.user) {
+      return res.status(auth.status).json(auth.body);
+    }
+    const user = auth.user;
+
+    // Session-bound client for RLS enforcement
     const supabase = createServerSupabaseClient({ req, res });
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-    if (sessionError || !session) {
-      return res.status(401).json({ error: 'No autorizado' });
-    }
-
-    // Verify superadmin status
-    const { data: isSuperadmin } = await supabaseAdmin
-      .rpc('auth_is_superadmin', { check_user_id: session.user.id });
-
-    if (!isSuperadmin) {
-      return res.status(403).json({ error: 'Acceso denegado - solo superadministradores' });
-    }
 
     const { test_run_id, confirm } = req.body;
 
@@ -112,7 +101,7 @@ export default async function handler(
 
     // Enforce owner-only cleanup to align with RLS
     // RLS requires user_id = auth.uid() for UPDATE on test_mode_state
-    if (testMode.user_id !== session.user.id) {
+    if (testMode.user_id !== user.id) {
       return res.status(403).json({ 
         success: false,
         error: 'Solo puedes limpiar tus propios test runs'
@@ -125,7 +114,7 @@ export default async function handler(
       .delete()
       .eq('test_run_id', test_run_id)
       .eq('is_test', true)
-      .eq('created_by', session.user.id);
+      .eq('created_by', user.id);
 
     if (deleteError) {
       console.error('Error deleting overlays:', deleteError);
@@ -140,7 +129,7 @@ export default async function handler(
         test_run_id: null,
         expires_at: null
       })
-      .eq('user_id', session.user.id);
+      .eq('user_id', user.id);
 
     if (updateError) {
       console.error('Error updating test mode:', updateError);

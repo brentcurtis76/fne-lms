@@ -14,6 +14,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
+import { requireVerifiedCaller } from '@/lib/api-auth';
 import { userAssignmentsService } from '@/lib/services/userAssignments';
 
 export default async function handler(
@@ -27,12 +28,11 @@ export default async function handler(
   try {
     const supabase = createPagesServerClient({ req, res });
 
-    const {
-      data: { session }
-    } = await supabase.auth.getSession();
-
-    if (!session) {
-      return res.status(401).json({ error: 'No autorizado' });
+    // Identity comes from the auth server; the cookie's stored `user` is
+    // client-controlled (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
 
     const { assignmentId, communityId, groupId } = req.query;
@@ -47,7 +47,7 @@ export default async function handler(
       });
     }
 
-    const userId = session.user.id;
+    const userId = caller.user.id;
 
     // Group-scoped path: dispatch on group.community_id, falling back to
     // school scope when null. Mirrors validation in eligible-classmates.

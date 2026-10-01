@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
+import { requireVerifiedCaller } from '@/lib/api-auth';
 
 /**
  * GET /api/assignments/group-members
@@ -37,9 +38,11 @@ async function handleGetMembers(req: NextApiRequest, res: NextApiResponse) {
   const supabase = createPagesServerClient({ req, res });
 
   // Check authentication
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    return res.status(401).json({ error: 'No autorizado' });
+  // Identity comes from the auth server; the cookie's stored `user` is
+  // client-controlled (SM-B015).
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) {
+    return res.status(caller.status).json(caller.body);
   }
 
   const { groupId, assignmentId } = req.query;
@@ -54,7 +57,7 @@ async function handleGetMembers(req: NextApiRequest, res: NextApiResponse) {
   }
 
   try {
-    const userId = session.user.id;
+    const userId = caller.user.id;
 
     console.log('[group-members] Request from user:', userId, 'for group:', groupId, 'assignment:', assignmentId);
 
@@ -156,9 +159,11 @@ async function handleGetMembers(req: NextApiRequest, res: NextApiResponse) {
 async function handleRemoveMember(req: NextApiRequest, res: NextApiResponse) {
   const supabase = createPagesServerClient({ req, res });
 
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    return res.status(401).json({ error: 'No autorizado' });
+  // Identity comes from the auth server; the cookie's stored `user` is
+  // client-controlled (SM-B015).
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) {
+    return res.status(caller.status).json(caller.body);
   }
 
   const { groupId, assignmentId, memberId } = req.body || {};
@@ -168,7 +173,7 @@ async function handleRemoveMember(req: NextApiRequest, res: NextApiResponse) {
   }
 
   try {
-    const userId = session.user.id;
+    const userId = caller.user.id;
     console.log('[group-members] DELETE request', { userId, groupId, assignmentId, memberId });
 
     const { data: membership, error: membershipError } = await supabase

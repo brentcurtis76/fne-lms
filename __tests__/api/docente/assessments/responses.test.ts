@@ -125,6 +125,14 @@ describe('PUT /api/docente/assessments/[instanceId]/responses — progress flags
     const r = await put(client);
     expect(r.status).toBe(400);
   });
+
+  it('refuses an archived instance with 400 and writes no response', async () => {
+    const client = buildClient({ instanceStatus: 'archived' });
+    const r = await put(client);
+    expect(r.status).toBe(400);
+    expect(client.from).not.toHaveBeenCalledWith('assessment_responses');
+    expect(client.chains.filter(c => isWrite(c.calls))).toEqual([]);
+  });
 });
 
 describe('PUT /api/docente/assessments/[instanceId]/responses — frecuencia value validation (PR 3)', () => {

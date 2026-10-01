@@ -35,6 +35,8 @@ const ROLELESS = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const MUST_CHANGE = new Set<string>();
 const BEARER_TOKEN = 'caller-bearer-token';
 let cookiePresent = true;
+/** Service-role reads of this table fail (to prove fail-closed paths). */
+let failingServiceTable: string | null = null;
 const COOKIE_TOKEN = 'caller-own-valid-token';
 
 type Row = Record<string, unknown>;
@@ -129,7 +131,10 @@ function visibleToCaller(table: string, rows: Row[]): Row[] {
 
 function client(kind: 'cookie' | 'service' | 'anon') {
   const resolveFor = (table: string, ops: Op[], mode: 'many' | 'one') => {
-    if (kind === 'service') return answer(table, ops, mode);
+    if (kind === 'service') {
+      if (table === failingServiceTable) return { data: null, error: { message: 'connection reset' }, count: null };
+      return answer(table, ops, mode);
+    }
     // No session cookie and no forwarded JWT: PostgREST runs as anon.
     if (kind === 'anon') return { data: mode === 'one' ? null : [], error: null, count: 0 };
     const saved = ROWS[table];
@@ -265,6 +270,7 @@ beforeEach(() => {
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-key';
   MUST_CHANGE.clear();
   cookiePresent = true;
+  failingServiceTable = null;
   resetRows();
   log.length = 0;
   shareable.calls.length = 0;
@@ -432,5 +438,36 @@ describe('password gate and Bearer callers', () => {
     const res = await call(handler, method, query, body, { authorization: `Bearer ${BEARER_TOKEN}` });
     expect(res.statusCode).toBe(200);
     expect(askedUserIds()).toContain(MEMBER);
+  });
+});
+
+describe('empty-group auto-grouping and fail-closed lookups', () => {
+  const G4 = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+
+  it('an enrolled same-school caller may fill a truly empty group', async () => {
+    ROWS.group_assignment_groups.push({ id: G4, assignment_id: A1, community_id: null, school_id: 1, name: 'Vacío', is_consultant_managed: false });
+    verifiedUser = { id: PEER };
+    const res = await call(addClassmates, 'POST', {}, { assignmentId: A1, groupId: G4, classmateIds: [CLASSMATE] });
+    expect(res.statusCode).toBe(200);
+    const inserted = writes().find(([t, o]) => t === 'group_assignment_members' && o === 'insert')?.[2];
+    expect(inserted).toEqual([expect.objectContaining({ group_id: G4, user_id: CLASSMATE })]);
+  });
+
+  it('add-classmates refuses when the member count cannot be read', async () => {
+    ROWS.group_assignment_groups.push({ id: G4, assignment_id: A1, community_id: null, school_id: 1, name: 'Vacío', is_consultant_managed: false });
+    verifiedUser = { id: PEER };
+    // The group itself must still be readable; only memberships fail.
+    failingServiceTable = 'group_assignment_members';
+    const res = await call(addClassmates, 'POST', {}, { assignmentId: A1, groupId: G4, classmateIds: [CLASSMATE] });
+    expect(res.statusCode).toBe(500);
+    expect(writes()).toEqual([]);
+  });
+
+  it('create-group refuses when classmate roles cannot be read', async () => {
+    verifiedUser = { id: PEER };
+    failingServiceTable = 'user_roles';
+    const res = await call(createGroup, 'POST', {}, { assignmentId: A1, classmateIds: [CLASSMATE] });
+    expect(res.statusCode).toBe(500);
+    expect(writes()).toEqual([]);
   });
 });

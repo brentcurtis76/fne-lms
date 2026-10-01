@@ -27,6 +27,12 @@ function buildSupabase(opts: {
   mustChangePassword?: boolean | null;
   profileError?: unknown;
   profileMissing?: boolean;
+  /**
+   * W-B10c-01b: what the auth server says about the cookie's access token.
+   * Omitted → the session's own user (an honest cookie). `null` → no user.
+   */
+  verifiedUser?: { id: string } | null;
+  userError?: unknown;
 }) {
   const rolesEqInner = vi.fn().mockResolvedValue({ data: opts.roles });
   const rolesEqOuter = vi.fn(() => ({ eq: rolesEqInner }));
@@ -54,7 +60,12 @@ function buildSupabase(opts: {
   });
 
   const getSession = vi.fn().mockResolvedValue({ data: { session: opts.session } });
-  return { auth: { getSession }, from, rpc };
+  const sessionUser = (opts.session as { user?: { id: string } } | null)?.user ?? null;
+  const getUser = vi.fn().mockResolvedValue({
+    data: { user: opts.verifiedUser === undefined ? sessionUser : opts.verifiedUser },
+    error: opts.userError ?? null,
+  });
+  return { auth: { getSession, getUser }, from, rpc, rolesEqOuter };
 }
 
 const SESSION = { user: { id: 'user-uuid-1' } };
@@ -294,5 +305,118 @@ describe('middleware matcher', () => {
     ]) {
       expect(config.matcher).toContain(original);
     }
+  });
+});
+
+describe('middleware verified identity (W-B10c-01b)', () => {
+  // A lower-role caller's own valid access token inside a legacy JSON cookie
+  // whose stored `user` names an admin. The auth server resolves the token to
+  // the caller, so every role lookup must use the caller's id.
+  const FORGED_SESSION = { access_token: 'low-role-token', user: { id: 'admin-uuid' } };
+  const LOW_ROLE = { id: 'low-role-uuid' };
+
+  function rolesById(
+    supabase: ReturnType<typeof buildSupabase>,
+    byId: Record<string, Array<{ role_type: string; community_id?: string | null; school_id?: string | null }>>
+  ) {
+    supabase.rolesEqOuter.mockImplementation(((_col: string, id: string) => ({
+      eq: vi.fn().mockResolvedValue({ data: byId[id] ?? [] }),
+    })) as never);
+  }
+
+  const ADMIN_AND_LOW = {
+    'admin-uuid': [{ role_type: 'admin', community_id: 'c-1', school_id: '9' }],
+    'low-role-uuid': [{ role_type: 'docente', community_id: null, school_id: '1' }],
+  };
+
+  it('denies /admin/users to a lower-role caller whose cookie names an admin', async () => {
+    const supabase = buildSupabase({ session: FORGED_SESSION, roles: [], verifiedUser: LOW_ROLE });
+    rolesById(supabase, ADMIN_AND_LOW);
+    createMiddlewareClient.mockReturnValue(supabase);
+    const { middleware } = await import('../middleware');
+    const res = await middleware(new NextRequest('http://localhost/admin/users'));
+    expect(supabase.auth.getUser).toHaveBeenCalledWith('low-role-token');
+    expect(supabase.rolesEqOuter).toHaveBeenCalledWith('user_id', 'low-role-uuid');
+    expect(supabase.rolesEqOuter).not.toHaveBeenCalledWith('user_id', 'admin-uuid');
+    expect(isRedirect(res)).toBe(true);
+    expect(res.headers.get('location')).toBe('http://localhost/dashboard');
+  });
+
+  it('denies /community/workspace to a forged-cookie caller without a community', async () => {
+    const supabase = buildSupabase({ session: FORGED_SESSION, roles: [], verifiedUser: LOW_ROLE });
+    rolesById(supabase, ADMIN_AND_LOW);
+    createMiddlewareClient.mockReturnValue(supabase);
+    const { middleware } = await import('../middleware');
+    const res = await middleware(new NextRequest('http://localhost/community/workspace'));
+    expect(isRedirect(res)).toBe(true);
+    expect(res.headers.get('location')).toBe('http://localhost/dashboard');
+  });
+
+  it("denies another school's page to a forged-cookie caller", async () => {
+    const supabase = buildSupabase({ session: FORGED_SESSION, roles: [], verifiedUser: LOW_ROLE });
+    rolesById(supabase, ADMIN_AND_LOW);
+    createMiddlewareClient.mockReturnValue(supabase);
+    const { middleware } = await import('../middleware');
+    const res = await middleware(
+      new NextRequest('http://localhost/school/transversal-context?school_id=9')
+    );
+    expect(isRedirect(res)).toBe(true);
+    expect(res.headers.get('location')).toBe('http://localhost/dashboard');
+  });
+
+  it('still allows a real admin whose token verifies as the admin', async () => {
+    const supabase = buildSupabase({
+      session: { access_token: 'admin-token', user: { id: 'admin-uuid' } },
+      roles: [],
+    });
+    rolesById(supabase, ADMIN_AND_LOW);
+    createMiddlewareClient.mockReturnValue(supabase);
+    const { middleware } = await import('../middleware');
+    const res = await middleware(new NextRequest('http://localhost/admin/users'));
+    expect(supabase.auth.getUser).toHaveBeenCalledWith('admin-token');
+    expect(isRedirect(res)).toBe(false);
+  });
+
+  it('treats a verification error as no session: /admin goes to login, no role lookup', async () => {
+    const supabase = buildSupabase({
+      session: FORGED_SESSION,
+      roles: [{ role_type: 'admin' }],
+      verifiedUser: null,
+      userError: { message: 'invalid JWT' },
+    });
+    createMiddlewareClient.mockReturnValue(supabase);
+    const { middleware } = await import('../middleware');
+    const res = await middleware(new NextRequest('http://localhost/admin/users'));
+    expect(isRedirect(res)).toBe(true);
+    expect(res.headers.get('location')).toBe(
+      `http://localhost/login?next=${encodeURIComponent('/admin/users')}`
+    );
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it('treats a verification with no user as no session on /meet', async () => {
+    const supabase = buildSupabase({ session: FORGED_SESSION, roles: [], verifiedUser: null });
+    createMiddlewareClient.mockReturnValue(supabase);
+    const { middleware } = await import('../middleware');
+    const res = await middleware(new NextRequest('http://localhost/meet/abc'));
+    expect(isRedirect(res)).toBe(true);
+    expect(res.headers.get('location')).toBe(
+      `http://localhost/login?next=${encodeURIComponent('/meet/abc')}`
+    );
+  });
+
+  it('lets an unverifiable API request fall through like an anonymous one (the route authenticates itself)', async () => {
+    const supabase = buildSupabase({
+      session: FORGED_SESSION,
+      roles: [],
+      verifiedUser: null,
+      userError: { message: 'invalid JWT' },
+    });
+    createMiddlewareClient.mockReturnValue(supabase);
+    const { middleware } = await import('../middleware');
+    const res = await middleware(new NextRequest('http://localhost/api/admin/users'));
+    expect(isRedirect(res)).toBe(false);
+    expect(res.status).toBe(200);
+    expect(supabase.rpc).not.toHaveBeenCalled();
   });
 });

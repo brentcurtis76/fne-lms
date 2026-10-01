@@ -95,7 +95,12 @@ function buildSupabase(opts: {
   });
 
   const getSession = vi.fn().mockResolvedValue({ data: { session: opts.session } });
-  return { auth: { getSession }, from, rpc };
+  // W-B10c-01b: the middleware verifies the cookie's token with the auth server.
+  // Here the verified user is always the session's own user; the forged-cookie
+  // and failed-verification cases live in __tests__/middleware.test.ts.
+  const sessionUser = (opts.session as { user?: { id: string } } | null)?.user ?? null;
+  const getUser = vi.fn().mockResolvedValue({ data: { user: sessionUser }, error: null });
+  return { auth: { getSession, getUser }, from, rpc };
 }
 
 function isRedirect(res: Response): boolean {

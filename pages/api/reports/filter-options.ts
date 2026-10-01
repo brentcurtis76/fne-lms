@@ -59,7 +59,16 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
     // Leadership scope comes from the row of the role that grants it, never
     // from the profile or from another role the caller holds elsewhere (the
     // same rule as reports/detailed getReportableUsers).
-    const scopeRole = userRoles.find((r) => r.role_type === highestRole && !r.from_cache);
+    // Like detailed's `.not(<scope>, 'is', null).limit(1)`: the first row of
+    // that role that carries the scope the role is about.
+    const scopeColumn =
+      highestRole === 'equipo_directivo' ? 'school_id'
+        : highestRole === 'lider_generacion' ? 'generation_id'
+          : highestRole === 'lider_comunidad' ? 'community_id'
+            : null;
+    const scopeRole = userRoles.find(
+      (r) => r.role_type === highestRole && !r.from_cache && (!scopeColumn || r[scopeColumn])
+    );
     const scopeGenerationId = scopeRole?.generation_id ?? null;
     const scopeCommunityId = scopeRole?.community_id ?? null;
     let scopeSchoolId: string | number | null = scopeRole?.school_id ?? null;

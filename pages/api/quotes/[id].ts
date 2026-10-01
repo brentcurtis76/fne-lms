@@ -3,6 +3,16 @@ import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
 import { requireVerifiedCaller } from '../../../lib/api-auth';
 
+const EDITABLE_QUOTE_FIELDS = [
+  'client_name', 'client_email', 'client_phone', 'client_institution',
+  'arrival_date', 'departure_date', 'flight_price', 'flight_notes',
+  'room_type', 'single_room_price', 'double_room_price', 'num_pasantes',
+  'selected_programs', 'apply_early_bird_discount', 'early_bird_payment_date',
+  'viaticos_type', 'viaticos_amount', 'viaticos_total', 'viaticos_display_amount',
+  'notes', 'internal_notes', 'status', 'valid_until', 'use_groups',
+  'grand_total', 'total_per_person',
+] as const;
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const supabase = createPagesServerClient({ req, res });
   const { id } = req.query;
@@ -161,16 +171,18 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
       });
     }
 
-    const updateData = {
-      ...req.body,
-      updated_by: userId,
-      updated_at: new Date().toISOString()
-    };
-
-    // Remove fields that shouldn't be updated directly
-    delete updateData.id;
-    delete updateData.created_at;
-    delete updateData.created_by;
+    // Only the fields the quote editor sends (components/quotes/QuoteFormV2):
+    // identity, numbering, attribution and lifecycle timestamps
+    // (quote_number, created_by, viewed_at, accepted_at, ...) are never
+    // taken from the request.
+    const updateData: Record<string, unknown> = {};
+    for (const field of EDITABLE_QUOTE_FIELDS) {
+      if (req.body && Object.prototype.hasOwnProperty.call(req.body, field)) {
+        updateData[field] = req.body[field];
+      }
+    }
+    updateData.updated_by = userId;
+    updateData.updated_at = new Date().toISOString();
 
     console.log('[UPDATE] Updating with data keys:', Object.keys(updateData));
     
@@ -214,7 +226,7 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
         resource_type: 'pasantias_quote',
         resource_id: id,
         details: {
-          changes: Object.keys(req.body)
+          changes: Object.keys(updateData).filter((k) => k !== 'updated_by' && k !== 'updated_at')
         }
       });
 

@@ -1,6 +1,6 @@
 # W-B10a-01 C4 — compensation artifact and rollback-only test — review request
 
-- **Branch:** `fix/b10a-comp` (local only), base `fix/sm09-ci` at `2e119d117`, 1 commit.
+- **Branch:** `fix/b10a-comp` (local only), base `fix/sm09-ci` at `2e119d117`, 3 commits (artifact+tests, Privacy sign-off record, pgTAP role-reset fix).
 - **Authority:** Brent's decision `94d02887658014cb` (2026-09-30, recommendation): "a narrowly scoped plan revision for a dated compensation artifact outside auto-applied migrations and a rollback-only pgTAP test; exact file boundary, independent review, no widening of anon/PUBLIC grants." Worked by hand with Claude on 2026-10-01 (Brent's instruction); Codex reviews.
 - **Gate:** W-B10a-01 clause C4 / blocker B10A-G2 (`docs/reviews/w-b10a-01-acceptance-disposition.md` §4). PR #89 already put `20260908180100_b10a_referenced_tables_rls.sql` on `origin/main`, so "written and tested before merge" cannot hold literally; this artifact is the replacement route the decision chose.
 
@@ -30,9 +30,9 @@ It never: drops, truncates, disables RLS, grants, touches anon/PUBLIC, or adds a
 
 1. **Is "authenticated may read everything" the right restore?** It is the pre-B10a state for reads, but for `qa_tester_time_logs` and `growth_community_transformation_access` it is broader than any legitimate consumer needs. Alternative: per-consumer narrower policies (more code, more ways to be wrong in an emergency).
 2. **Guard interaction**: confirm the restrictive guard really ANDs with a new permissive policy (3c asserts it for a flagged user).
-3. **pgTAP fixtures**: written against 071's fixture shapes; not yet executed — check column names/constraints and the `pg_policies.qual = 'true'` comparison.
+3. **pgTAP assertions**: check the `pg_policies.qual = 'true'` comparison and that 3c really exercises the guard (the flagged account is a profile with `must_change_password = true`).
 4. **CLAUDE.md "DB agent owns migrations"**: this is not a migration, but it is hand-written SQL meant for a production operator. Is the header's procedure enough?
 
 ## Not covered / still open for W-B10a-01
 
-- G1 (missing pgTAP cells), G3 (Privacy sign-off — draft prepared for Brent), G4 (Production application state — Brent's decision) remain open; W-B10a-01 stays held until all four gates are met and accepted.
+- G1 (missing pgTAP cells) and G4 (Production application state — Brent's decision) remain open; G3 is now met by Brent's dated sign-off `docs/reviews/w-b10a-01-privacy-signoff-2026-10-01.md` (2026-10-01). W-B10a-01 stays held until all four gates are met and accepted.

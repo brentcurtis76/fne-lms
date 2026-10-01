@@ -3,6 +3,7 @@ import { GetServerSideProps } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { getServerSideUser } from '../../../lib/api-auth';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -35,11 +36,10 @@ interface MetricsPageProps {
 
 export const getServerSideProps: GetServerSideProps<MetricsPageProps> = async (ctx) => {
   const supabase = createPagesServerClient(ctx);
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  // The verified user (auth server), never the cookie's stored `user` (SM-B015).
+  const user = await getServerSideUser(ctx);
 
-  if (!session) {
+  if (!user) {
     return {
       redirect: {
         destination: '/auth/login?redirect=/admin/transformation/metrics',
@@ -51,13 +51,12 @@ export const getServerSideProps: GetServerSideProps<MetricsPageProps> = async (c
   const { data: dbRoles } = await supabase
     .from('user_roles')
     .select('role_type')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .eq('is_active', true);
 
-  const roles = new Set<string>([
-    ...(session.user.user_metadata?.roles ?? []),
-    ...(dbRoles?.map((row) => row.role_type) ?? []),
-  ]);
+  // Roles come from active user_roles rows only: user_metadata is writable
+  // by the user (auth.updateUser) and is never authority.
+  const roles = new Set<string>(dbRoles?.map((row) => row.role_type) ?? []);
 
   const isAdmin = roles.has('admin') || roles.has('consultor');
   const env = process.env.NODE_ENV;
@@ -87,7 +86,7 @@ export const getServerSideProps: GetServerSideProps<MetricsPageProps> = async (c
     supabase
       .from('user_roles')
       .select('community_id, growth_communities(id, name, transformation_enabled)')
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .eq('is_active', true)
       .not('community_id', 'is', null),
   ]);

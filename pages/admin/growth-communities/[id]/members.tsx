@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type { GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { User } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
@@ -19,7 +18,7 @@ import {
 } from 'lucide-react';
 import MainLayout from '../../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../../components/layout/FunctionalPageHeader';
-import { createServiceRoleClient } from '../../../../lib/api-auth';
+import { createServiceRoleClient, getServerSideUser } from '../../../../lib/api-auth';
 
 interface CommunityProps {
   id: string;
@@ -72,11 +71,9 @@ type PageProps = {
 };
 
 export const getServerSideProps: GetServerSideProps<PageProps> = async (ctx) => {
-  const supabase = createPagesServerClient(ctx);
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session?.user) {
+  // The verified user (auth server), never the cookie's stored `user` (SM-B015).
+  const user = await getServerSideUser(ctx);
+  if (!user) {
     return { redirect: { destination: '/login', permanent: false } };
   }
 
@@ -84,7 +81,7 @@ export const getServerSideProps: GetServerSideProps<PageProps> = async (ctx) => 
   const { data: roleRows } = await service
     .from('user_roles')
     .select('id, role_type, school_id')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .eq('is_active', true);
 
   const rows = (roleRows ?? []) as Array<{

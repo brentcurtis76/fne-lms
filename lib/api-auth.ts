@@ -1,5 +1,5 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
+import { NextApiRequest, NextApiResponse, GetServerSidePropsContext } from 'next';
+import { createServerSupabaseClient, createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import {
   AuthResult,
@@ -144,6 +144,31 @@ export async function getApiUser(
       error: error instanceof Error ? error : new Error('Authentication failed') 
     };
   }
+}
+
+// The verified user behind a page request, for getServerSideProps. The
+// cookie supplies only the access token: its stored `user` is client-
+// controlled (auth-helpers accepts a legacy JSON session object as-is), so
+// the identity comes from the auth server, exactly as in getApiUser's cookie
+// branch. Returns null when there is no session or the token is refused.
+// (The forced-password gate for pages is the middleware's.)
+export async function getServerSideUser(
+  ctx: Pick<GetServerSidePropsContext, 'req' | 'res'>
+): Promise<User | null> {
+  const supabase = createPagesServerClient(ctx as GetServerSidePropsContext);
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return null;
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser(session.access_token);
+  if (error || !user) {
+    console.error('[API Auth] Page session verification failed:', error);
+    return null;
+  }
+  return user;
 }
 
 /**

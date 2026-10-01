@@ -7,6 +7,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Message, useTransformationChat } from '@/hooks/useTransformationChat';
 import type { TransformationChatState } from '@/hooks/useTransformationChat';
+import { getServerSideUser } from '../../../../lib/api-auth';
 
 interface RubricItem {
   id: string;
@@ -41,11 +42,10 @@ interface EvaluatePageProps {
 
 export const getServerSideProps: GetServerSideProps<EvaluatePageProps> = async (ctx) => {
   const supabase = createPagesServerClient(ctx);
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  // The verified user (auth server), never the cookie's stored `user` (SM-B015).
+  const user = await getServerSideUser(ctx);
 
-  if (!session) {
+  if (!user) {
     return {
       redirect: {
         destination: '/auth/login?redirect=/community/workspace/transformation/evaluate',

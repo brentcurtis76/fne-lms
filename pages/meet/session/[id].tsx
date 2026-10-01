@@ -2,11 +2,10 @@ import React from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import type { GetServerSideProps } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { Calendar, Clock, ExternalLink } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { createServiceRoleClient } from '../../../lib/api-auth';
+import { createServiceRoleClient, getServerSideUser } from '../../../lib/api-auth';
 import JoinMeetingButton from '../../../components/sessions/JoinMeetingButton';
 import { formatTime } from '../../../lib/utils/session-ui-helpers';
 import {
@@ -160,14 +159,13 @@ const MeetSessionPage: React.FC<MeetSessionPageProps> = ({ session }) => {
 };
 
 export const getServerSideProps: GetServerSideProps<MeetSessionPageProps> = async (context) => {
-  const supabase = createPagesServerClient(context);
-  const {
-    data: { session: authSession },
-  } = await supabase.auth.getSession();
+  // The verified user (auth server), never the cookie's stored `user`: a
+  // forged attendee id would otherwise receive the meeting link (SM-B015).
+  const viewer = await getServerSideUser(context);
 
   const access = await resolveMeetSessionAccess({
     sessionId: context.params?.id,
-    userId: authSession?.user?.id ?? null,
+    userId: viewer?.id ?? null,
     service: createServiceRoleClient(),
   });
 

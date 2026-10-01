@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { User } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
@@ -11,7 +10,7 @@ import UnifiedUserManagement from '../../components/admin/UnifiedUserManagement'
 import RoleAssignmentModal from '../../components/RoleAssignmentModal';
 import PasswordResetModal from '../../components/PasswordResetModal';
 import UserEditModal from '../../components/admin/UserEditModal';
-import { createServiceRoleClient } from '../../lib/api-auth';
+import { createServiceRoleClient, getServerSideUser } from '../../lib/api-auth';
 import {
   ED_ASSIGNABLE_ROLES,
   ED_CREATE_USER_ROLES,
@@ -44,21 +43,19 @@ type ListUser = {
 const PAGE_SIZE = 25;
 
 export const getServerSideProps: GetServerSideProps<PageProps> = async (ctx) => {
-  const supabase = createPagesServerClient(ctx);
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session?.user) {
+  // The verified user (auth server), never the cookie's stored `user` (SM-B015).
+  const user = await getServerSideUser(ctx);
+  if (!user) {
     return { redirect: { destination: '/login', permanent: false } };
   }
 
   const service = createServiceRoleClient();
 
-  if (await isGlobalAdmin(service, session.user.id)) {
+  if (await isGlobalAdmin(service, user.id)) {
     return { redirect: { destination: '/admin/user-management', permanent: false } };
   }
 
-  const schoolId = await getEquipoDirectivoSchoolId(service, session.user.id);
+  const schoolId = await getEquipoDirectivoSchoolId(service, user.id);
   if (schoolId === null) {
     return { redirect: { destination: '/dashboard', permanent: false } };
   }

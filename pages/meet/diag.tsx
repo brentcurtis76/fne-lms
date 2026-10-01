@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { GetServerSideProps } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { isDiagJoinConfigured } from '../../lib/meet/diag-config';
+import { getServerSideUser } from '../../lib/api-auth';
 
 /**
  * /meet/diag — capability probe for the Zoom hardware/network protocol (Z0B).
@@ -1016,11 +1017,10 @@ const MeetDiagPage: React.FC<MeetDiagPageProps> = ({ joinAvailable }) => {
  */
 export const getServerSideProps: GetServerSideProps<MeetDiagPageProps> = async (context) => {
   const supabase = createPagesServerClient(context);
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  // The verified user (auth server), never the cookie's stored `user` (SM-B015).
+  const user = await getServerSideUser(context);
 
-  if (!session) {
+  if (!user) {
     return {
       redirect: {
         destination: `/login?next=${encodeURIComponent(context.resolvedUrl)}`,

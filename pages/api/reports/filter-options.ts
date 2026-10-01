@@ -1,8 +1,8 @@
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { getUserRoles, getHighestRole } from '../../../utils/roleUtils';
 import { readClientSchoolScope } from '../../../lib/simulation/tenant-policy';
+import { requireVerifiedCaller } from '../../../lib/api-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,15 +22,16 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
   }
 
   try {
-    const sessionClient = createPagesServerClient({ req, res });
-    const { data: { session } } = await sessionClient.auth.getSession();
-
-    if (!session) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    // Identity comes from the auth server; the cookie's stored `user` is
+    // client-controlled (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
+    const callerId = caller.user.id;
 
     // Get user roles using the modern role system
-    const userRoles = await getUserRoles(supabase, session.user.id);
+    const userRoles = await getUserRoles(supabase, callerId);
     const highestRole = getHighestRole(userRoles);
     
     // Check if user has access to reports
@@ -43,7 +44,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
     const { data: userProfile, error: userProfileError } = await supabase
       .from('profiles')
       .select('id, first_name, last_name, school_id, generation_id, community_id')
-      .eq('id', session.user.id)
+      .eq('id', callerId)
       .single();
 
     if (userProfileError || !userProfile) {
@@ -175,7 +176,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
       const { data: supervisorRole } = await supabase
         .from('user_roles')
         .select('red_id')
-        .eq('user_id', session.user.id)
+        .eq('user_id', callerId)
         .eq('role_type', 'supervisor_de_red')
         .eq('is_active', true)
         .maybeSingle();

@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
 import { rolePriorityIndex } from '../../../utils/roleUtils';
+import { requireVerifiedCaller } from '../../../lib/api-auth';
 
 // Service-role client to bypass RLS safely on the server
 const serviceClient = createClient(
@@ -42,12 +42,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const sessionClient = createPagesServerClient({ req, res });
-    const { data: sessionData } = await sessionClient.auth.getSession();
-    const session = sessionData?.session;
-
-    if (!session) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    // Identity comes from the auth server; the cookie's stored `user` is
+    // client-controlled (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
 
     const communityId = (req.query.community_id || req.query.communityId) as string | undefined;
@@ -59,7 +58,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: requesterRoles, error: requesterRolesError } = await serviceClient
       .from('user_roles')
       .select('role_type, community_id, is_active')
-      .eq('user_id', session.user.id)
+      .eq('user_id', caller.user.id)
       .eq('is_active', true);
 
     if (requesterRolesError) {

@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
 import { readClientReportingScope } from '@/lib/simulation/tenant-policy';
+import { requireVerifiedCaller } from '@/lib/api-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,14 +28,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const sessionClient = createPagesServerClient({ req, res });
-    const { data: { session } } = await sessionClient.auth.getSession();
-
-    if (!session?.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    // Identity comes from the auth server; the cookie's stored `user` is
+    // client-controlled (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
 
-    const user = session.user;
+    const user = caller.user;
 
     const { userId } = req.query;
     if (!userId) {

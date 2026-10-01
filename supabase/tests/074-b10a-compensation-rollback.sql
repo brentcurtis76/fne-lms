@@ -12,8 +12,11 @@
 --      (must_change_password) account still reads nothing (the restrictive
 --      guard holds); anon / PUBLIC hold nothing; row security stays on; the
 --      new policies are SELECT-only, TO authenticated, permissive
---   4. re-running a block is a no-op (idempotent)
---   5. instructors and propuesta_rate_limits are untouched
+--   4. re-running the whole artifact is a no-op (idempotent)
+--   5. the later W-B10a-02 school boundary still holds
+--   6. stand-down (ALTER POLICY … USING (false)) works, a re-run then raises,
+--      and ALTER POLICY … USING (true) reactivates it
+--   instructors and propuesta_rate_limits are untouched throughout
 --
 -- Synthetic/local state only. Rolls back: this is the "rollback-only" proof
 -- Brent's decision 94d02887658014cb asked for. DO NOT run against production.
@@ -23,7 +26,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(33);
+SELECT plan(38);
 
 CREATE OR REPLACE FUNCTION pg_temp.uid(k text) RETURNS uuid
 LANGUAGE sql STABLE SECURITY DEFINER AS $$ SELECT tests.get_supabase_uid(k) $$;
@@ -54,10 +57,12 @@ SELECT tests.create_supabase_user('b10c_member');    -- in the group: creates th
 SELECT tests.create_supabase_user('b10c_tester');    -- owns the QA time log
 SELECT tests.create_supabase_user('b10c_outsider');  -- docente of another school, no memberships
 SELECT tests.create_supabase_user('b10c_flagged');   -- must change password
+SELECT tests.create_supabase_user('b10c_directivo_same');   -- equipo_directivo of school 9741
+SELECT tests.create_supabase_user('b10c_directivo_other');  -- equipo_directivo of school 9742
 
 INSERT INTO public.profiles (id, email, name, approval_status, must_change_password)
 SELECT pg_temp.uid(k), k || '@test.local', k, 'approved', k = 'b10c_flagged'
-  FROM unnest(ARRAY['b10c_admin','b10c_member','b10c_tester','b10c_outsider','b10c_flagged']) k
+  FROM unnest(ARRAY['b10c_admin','b10c_member','b10c_tester','b10c_outsider','b10c_flagged','b10c_directivo_same','b10c_directivo_other']) k
 ON CONFLICT (id) DO UPDATE SET must_change_password = EXCLUDED.must_change_password;
 
 INSERT INTO public.schools (id, name) VALUES (9741, 'B10a comp school (pgTAP 074)'), (9742, 'B10a comp other school (pgTAP 074)')
@@ -70,7 +75,9 @@ INSERT INTO public.user_roles (user_id, role_type, school_id, community_id, is_a
   (pg_temp.uid('b10c_member'),   'docente', 9741, '74000000-0000-4000-8000-00000000c001', true),
   (pg_temp.uid('b10c_tester'),   'docente', 9741, NULL, true),
   (pg_temp.uid('b10c_outsider'), 'docente', 9742, NULL, true),
-  (pg_temp.uid('b10c_flagged'),  'docente', 9742, NULL, true);
+  (pg_temp.uid('b10c_flagged'),  'docente', 9742, NULL, true),
+  (pg_temp.uid('b10c_directivo_same'),  'equipo_directivo', 9741, NULL, true),
+  (pg_temp.uid('b10c_directivo_other'), 'equipo_directivo', 9742, NULL, true);
 
 INSERT INTO public.instructors (id, full_name, bio)
 VALUES ('74000000-0000-4000-8000-00000000f001', 'B10a comp instructor', 'synthetic');
@@ -106,70 +113,98 @@ RESET ROLE;
 -- 2. Apply the artifact (as the database owner) — verbatim copy
 -- ----------------------------------------------------------------------------
 -- BEGIN COMPENSATION
--- ---- public.group_assignment_discussions -------------------------------------------------------
+-- ---- public.group_assignment_discussions ----
 DO $compensation$
+DECLARE
+  existing record;
 BEGIN
   IF NOT (SELECT c.relrowsecurity FROM pg_class c
             JOIN pg_namespace n ON n.oid = c.relnamespace
            WHERE n.nspname = 'public' AND c.relname = 'group_assignment_discussions') THEN
     RAISE EXCEPTION 'b10a compensation: public.group_assignment_discussions does not have row security on; stop and investigate';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies
-                  WHERE schemaname = 'public' AND tablename = 'group_assignment_discussions'
-                    AND policyname = 'b10a_compensation_authenticated_read') THEN
+  SELECT cmd, roles, permissive, qual INTO existing FROM pg_policies
+   WHERE schemaname = 'public' AND tablename = 'group_assignment_discussions'
+     AND policyname = 'b10a_compensation_authenticated_read';
+  IF NOT FOUND THEN
     CREATE POLICY b10a_compensation_authenticated_read ON public.group_assignment_discussions
       AS PERMISSIVE FOR SELECT TO authenticated USING (true);
+  ELSIF existing.cmd <> 'SELECT' OR existing.roles <> ARRAY['authenticated']::name[]
+     OR existing.permissive <> 'PERMISSIVE' OR existing.qual IS DISTINCT FROM 'true' THEN
+    RAISE EXCEPTION 'b10a compensation: public.group_assignment_discussions already has b10a_compensation_authenticated_read but it is stood down or altered (%, %, %, %); to reactivate it run: ALTER POLICY b10a_compensation_authenticated_read ON public.group_assignment_discussions USING (true);',
+      existing.cmd, existing.roles, existing.permissive, existing.qual;
   END IF;
 END
 $compensation$;
 
--- ---- public.growth_community_transformation_access -------------------------------------------------------
+-- ---- public.growth_community_transformation_access ----
 DO $compensation$
+DECLARE
+  existing record;
 BEGIN
   IF NOT (SELECT c.relrowsecurity FROM pg_class c
             JOIN pg_namespace n ON n.oid = c.relnamespace
            WHERE n.nspname = 'public' AND c.relname = 'growth_community_transformation_access') THEN
     RAISE EXCEPTION 'b10a compensation: public.growth_community_transformation_access does not have row security on; stop and investigate';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies
-                  WHERE schemaname = 'public' AND tablename = 'growth_community_transformation_access'
-                    AND policyname = 'b10a_compensation_authenticated_read') THEN
+  SELECT cmd, roles, permissive, qual INTO existing FROM pg_policies
+   WHERE schemaname = 'public' AND tablename = 'growth_community_transformation_access'
+     AND policyname = 'b10a_compensation_authenticated_read';
+  IF NOT FOUND THEN
     CREATE POLICY b10a_compensation_authenticated_read ON public.growth_community_transformation_access
       AS PERMISSIVE FOR SELECT TO authenticated USING (true);
+  ELSIF existing.cmd <> 'SELECT' OR existing.roles <> ARRAY['authenticated']::name[]
+     OR existing.permissive <> 'PERMISSIVE' OR existing.qual IS DISTINCT FROM 'true' THEN
+    RAISE EXCEPTION 'b10a compensation: public.growth_community_transformation_access already has b10a_compensation_authenticated_read but it is stood down or altered (%, %, %, %); to reactivate it run: ALTER POLICY b10a_compensation_authenticated_read ON public.growth_community_transformation_access USING (true);',
+      existing.cmd, existing.roles, existing.permissive, existing.qual;
   END IF;
 END
 $compensation$;
 
--- ---- public.modules -------------------------------------------------------
+-- ---- public.modules ----
 DO $compensation$
+DECLARE
+  existing record;
 BEGIN
   IF NOT (SELECT c.relrowsecurity FROM pg_class c
             JOIN pg_namespace n ON n.oid = c.relnamespace
            WHERE n.nspname = 'public' AND c.relname = 'modules') THEN
     RAISE EXCEPTION 'b10a compensation: public.modules does not have row security on; stop and investigate';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies
-                  WHERE schemaname = 'public' AND tablename = 'modules'
-                    AND policyname = 'b10a_compensation_authenticated_read') THEN
+  SELECT cmd, roles, permissive, qual INTO existing FROM pg_policies
+   WHERE schemaname = 'public' AND tablename = 'modules'
+     AND policyname = 'b10a_compensation_authenticated_read';
+  IF NOT FOUND THEN
     CREATE POLICY b10a_compensation_authenticated_read ON public.modules
       AS PERMISSIVE FOR SELECT TO authenticated USING (true);
+  ELSIF existing.cmd <> 'SELECT' OR existing.roles <> ARRAY['authenticated']::name[]
+     OR existing.permissive <> 'PERMISSIVE' OR existing.qual IS DISTINCT FROM 'true' THEN
+    RAISE EXCEPTION 'b10a compensation: public.modules already has b10a_compensation_authenticated_read but it is stood down or altered (%, %, %, %); to reactivate it run: ALTER POLICY b10a_compensation_authenticated_read ON public.modules USING (true);',
+      existing.cmd, existing.roles, existing.permissive, existing.qual;
   END IF;
 END
 $compensation$;
 
--- ---- public.qa_tester_time_logs -------------------------------------------------------
+-- ---- public.qa_tester_time_logs ----
 DO $compensation$
+DECLARE
+  existing record;
 BEGIN
   IF NOT (SELECT c.relrowsecurity FROM pg_class c
             JOIN pg_namespace n ON n.oid = c.relnamespace
            WHERE n.nspname = 'public' AND c.relname = 'qa_tester_time_logs') THEN
     RAISE EXCEPTION 'b10a compensation: public.qa_tester_time_logs does not have row security on; stop and investigate';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies
-                  WHERE schemaname = 'public' AND tablename = 'qa_tester_time_logs'
-                    AND policyname = 'b10a_compensation_authenticated_read') THEN
+  SELECT cmd, roles, permissive, qual INTO existing FROM pg_policies
+   WHERE schemaname = 'public' AND tablename = 'qa_tester_time_logs'
+     AND policyname = 'b10a_compensation_authenticated_read';
+  IF NOT FOUND THEN
     CREATE POLICY b10a_compensation_authenticated_read ON public.qa_tester_time_logs
       AS PERMISSIVE FOR SELECT TO authenticated USING (true);
+  ELSIF existing.cmd <> 'SELECT' OR existing.roles <> ARRAY['authenticated']::name[]
+     OR existing.permissive <> 'PERMISSIVE' OR existing.qual IS DISTINCT FROM 'true' THEN
+    RAISE EXCEPTION 'b10a compensation: public.qa_tester_time_logs already has b10a_compensation_authenticated_read but it is stood down or altered (%, %, %, %); to reactivate it run: ALTER POLICY b10a_compensation_authenticated_read ON public.qa_tester_time_logs USING (true);',
+      existing.cmd, existing.roles, existing.permissive, existing.qual;
   END IF;
 END
 $compensation$;
@@ -224,25 +259,166 @@ SELECT is((SELECT sum(n)::int FROM pg_temp.visible()), 0, 'after: a must-change-
 RESET ROLE;
 
 -- ----------------------------------------------------------------------------
--- 4. Idempotent: re-running a block changes nothing (2)
+-- 4. Idempotent: the whole artifact region again, verbatim. If any block
+--    raised here the file would abort and the plan count would fail. (1)
 -- ----------------------------------------------------------------------------
-SELECT lives_ok($rerun$
+-- BEGIN COMPENSATION
+-- ---- public.group_assignment_discussions ----
 DO $compensation$
+DECLARE
+  existing record;
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies
-                  WHERE schemaname = 'public' AND tablename = 'modules'
-                    AND policyname = 'b10a_compensation_authenticated_read') THEN
-    CREATE POLICY b10a_compensation_authenticated_read ON public.modules
+  IF NOT (SELECT c.relrowsecurity FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+           WHERE n.nspname = 'public' AND c.relname = 'group_assignment_discussions') THEN
+    RAISE EXCEPTION 'b10a compensation: public.group_assignment_discussions does not have row security on; stop and investigate';
+  END IF;
+  SELECT cmd, roles, permissive, qual INTO existing FROM pg_policies
+   WHERE schemaname = 'public' AND tablename = 'group_assignment_discussions'
+     AND policyname = 'b10a_compensation_authenticated_read';
+  IF NOT FOUND THEN
+    CREATE POLICY b10a_compensation_authenticated_read ON public.group_assignment_discussions
       AS PERMISSIVE FOR SELECT TO authenticated USING (true);
+  ELSIF existing.cmd <> 'SELECT' OR existing.roles <> ARRAY['authenticated']::name[]
+     OR existing.permissive <> 'PERMISSIVE' OR existing.qual IS DISTINCT FROM 'true' THEN
+    RAISE EXCEPTION 'b10a compensation: public.group_assignment_discussions already has b10a_compensation_authenticated_read but it is stood down or altered (%, %, %, %); to reactivate it run: ALTER POLICY b10a_compensation_authenticated_read ON public.group_assignment_discussions USING (true);',
+      existing.cmd, existing.roles, existing.permissive, existing.qual;
   END IF;
 END
 $compensation$;
-$rerun$, 're-running the modules block raises nothing');
+
+-- ---- public.growth_community_transformation_access ----
+DO $compensation$
+DECLARE
+  existing record;
+BEGIN
+  IF NOT (SELECT c.relrowsecurity FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+           WHERE n.nspname = 'public' AND c.relname = 'growth_community_transformation_access') THEN
+    RAISE EXCEPTION 'b10a compensation: public.growth_community_transformation_access does not have row security on; stop and investigate';
+  END IF;
+  SELECT cmd, roles, permissive, qual INTO existing FROM pg_policies
+   WHERE schemaname = 'public' AND tablename = 'growth_community_transformation_access'
+     AND policyname = 'b10a_compensation_authenticated_read';
+  IF NOT FOUND THEN
+    CREATE POLICY b10a_compensation_authenticated_read ON public.growth_community_transformation_access
+      AS PERMISSIVE FOR SELECT TO authenticated USING (true);
+  ELSIF existing.cmd <> 'SELECT' OR existing.roles <> ARRAY['authenticated']::name[]
+     OR existing.permissive <> 'PERMISSIVE' OR existing.qual IS DISTINCT FROM 'true' THEN
+    RAISE EXCEPTION 'b10a compensation: public.growth_community_transformation_access already has b10a_compensation_authenticated_read but it is stood down or altered (%, %, %, %); to reactivate it run: ALTER POLICY b10a_compensation_authenticated_read ON public.growth_community_transformation_access USING (true);',
+      existing.cmd, existing.roles, existing.permissive, existing.qual;
+  END IF;
+END
+$compensation$;
+
+-- ---- public.modules ----
+DO $compensation$
+DECLARE
+  existing record;
+BEGIN
+  IF NOT (SELECT c.relrowsecurity FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+           WHERE n.nspname = 'public' AND c.relname = 'modules') THEN
+    RAISE EXCEPTION 'b10a compensation: public.modules does not have row security on; stop and investigate';
+  END IF;
+  SELECT cmd, roles, permissive, qual INTO existing FROM pg_policies
+   WHERE schemaname = 'public' AND tablename = 'modules'
+     AND policyname = 'b10a_compensation_authenticated_read';
+  IF NOT FOUND THEN
+    CREATE POLICY b10a_compensation_authenticated_read ON public.modules
+      AS PERMISSIVE FOR SELECT TO authenticated USING (true);
+  ELSIF existing.cmd <> 'SELECT' OR existing.roles <> ARRAY['authenticated']::name[]
+     OR existing.permissive <> 'PERMISSIVE' OR existing.qual IS DISTINCT FROM 'true' THEN
+    RAISE EXCEPTION 'b10a compensation: public.modules already has b10a_compensation_authenticated_read but it is stood down or altered (%, %, %, %); to reactivate it run: ALTER POLICY b10a_compensation_authenticated_read ON public.modules USING (true);',
+      existing.cmd, existing.roles, existing.permissive, existing.qual;
+  END IF;
+END
+$compensation$;
+
+-- ---- public.qa_tester_time_logs ----
+DO $compensation$
+DECLARE
+  existing record;
+BEGIN
+  IF NOT (SELECT c.relrowsecurity FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+           WHERE n.nspname = 'public' AND c.relname = 'qa_tester_time_logs') THEN
+    RAISE EXCEPTION 'b10a compensation: public.qa_tester_time_logs does not have row security on; stop and investigate';
+  END IF;
+  SELECT cmd, roles, permissive, qual INTO existing FROM pg_policies
+   WHERE schemaname = 'public' AND tablename = 'qa_tester_time_logs'
+     AND policyname = 'b10a_compensation_authenticated_read';
+  IF NOT FOUND THEN
+    CREATE POLICY b10a_compensation_authenticated_read ON public.qa_tester_time_logs
+      AS PERMISSIVE FOR SELECT TO authenticated USING (true);
+  ELSIF existing.cmd <> 'SELECT' OR existing.roles <> ARRAY['authenticated']::name[]
+     OR existing.permissive <> 'PERMISSIVE' OR existing.qual IS DISTINCT FROM 'true' THEN
+    RAISE EXCEPTION 'b10a compensation: public.qa_tester_time_logs already has b10a_compensation_authenticated_read but it is stood down or altered (%, %, %, %); to reactivate it run: ALTER POLICY b10a_compensation_authenticated_read ON public.qa_tester_time_logs USING (true);',
+      existing.cmd, existing.roles, existing.permissive, existing.qual;
+  END IF;
+END
+$compensation$;
+-- END COMPENSATION
 SELECT is(
   (SELECT count(*)::int FROM pg_policies WHERE schemaname = 'public' AND policyname = 'b10a_compensation_authenticated_read'),
-  4, 'still exactly four compensation policies');
+  4, 're-running the whole artifact leaves exactly four compensation policies');
 
--- 4 (before) + 18 (catalog) + 8 (outsider) + 1 (flagged) + 2 (idempotent) = 33
+-- ----------------------------------------------------------------------------
+-- 5. The later school boundary (W-B10a-02, RESTRICTIVE) still holds after
+--    compensation for an equipo_directivo-only actor (2)
+-- ----------------------------------------------------------------------------
+SELECT tests.authenticate_as('b10c_directivo_same');
+SELECT is((SELECT n FROM pg_temp.visible() WHERE tbl = 'growth_community_transformation_access'), 1,
+  'after: equipo_directivo of the same school reads its community transformation access');
+RESET ROLE;
+SELECT tests.authenticate_as('b10c_directivo_other');
+SELECT is((SELECT n FROM pg_temp.visible() WHERE tbl = 'growth_community_transformation_access'), 0,
+  'after: equipo_directivo of another school still reads nothing (school scope survives)');
+RESET ROLE;
+
+-- ----------------------------------------------------------------------------
+-- 6. Stand-down -> re-run raises -> reactivate (4)
+-- ----------------------------------------------------------------------------
+ALTER POLICY b10a_compensation_authenticated_read ON public.modules USING (false);
+SELECT tests.authenticate_as('b10c_outsider');
+SELECT is((SELECT n FROM pg_temp.visible() WHERE tbl = 'modules'), 0, 'stood down: outsider reads no module again');
+RESET ROLE;
+SELECT throws_like($standdown$
+-- BEGIN MODULES BLOCK
+-- ---- public.modules ----
+DO $compensation$
+DECLARE
+  existing record;
+BEGIN
+  IF NOT (SELECT c.relrowsecurity FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+           WHERE n.nspname = 'public' AND c.relname = 'modules') THEN
+    RAISE EXCEPTION 'b10a compensation: public.modules does not have row security on; stop and investigate';
+  END IF;
+  SELECT cmd, roles, permissive, qual INTO existing FROM pg_policies
+   WHERE schemaname = 'public' AND tablename = 'modules'
+     AND policyname = 'b10a_compensation_authenticated_read';
+  IF NOT FOUND THEN
+    CREATE POLICY b10a_compensation_authenticated_read ON public.modules
+      AS PERMISSIVE FOR SELECT TO authenticated USING (true);
+  ELSIF existing.cmd <> 'SELECT' OR existing.roles <> ARRAY['authenticated']::name[]
+     OR existing.permissive <> 'PERMISSIVE' OR existing.qual IS DISTINCT FROM 'true' THEN
+    RAISE EXCEPTION 'b10a compensation: public.modules already has b10a_compensation_authenticated_read but it is stood down or altered (%, %, %, %); to reactivate it run: ALTER POLICY b10a_compensation_authenticated_read ON public.modules USING (true);',
+      existing.cmd, existing.roles, existing.permissive, existing.qual;
+  END IF;
+END
+$compensation$;
+-- END MODULES BLOCK
+$standdown$, '%stood down or altered%', 're-running the modules block on a stood-down policy raises with the reactivation command');
+ALTER POLICY b10a_compensation_authenticated_read ON public.modules USING (true);
+SELECT tests.authenticate_as('b10c_outsider');
+SELECT is((SELECT n FROM pg_temp.visible() WHERE tbl = 'modules'), 1, 'reactivated: outsider reads the module again');
+RESET ROLE;
+SELECT is(
+  (SELECT qual FROM pg_policies WHERE schemaname = 'public' AND tablename = 'modules' AND policyname = 'b10a_compensation_authenticated_read'),
+  'true', 'reactivated policy is the original USING (true)');
+
+-- 4 (before) + 18 (catalog) + 8 (outsider) + 1 (flagged) + 1 (idempotent) + 2 (school scope) + 4 (stand-down) = 38
 SELECT * FROM finish();
 
 ROLLBACK;

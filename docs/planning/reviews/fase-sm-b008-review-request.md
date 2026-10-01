@@ -18,6 +18,9 @@
   - API paths → `401 {code: SESSION_INVALID}` (round 1: no longer falls through as anonymous — Codex r0 #1: `assignment-matrix/content-stats.ts` reads `session.user.id` with a service-role client, so falling through was a bypass).
   - Pages → treated as signed out (session-required pages → `/login?next=…`; others → anonymous) **and the `sb-*-auth-token[.n]` cookies are expired** on that response (round 1 — Codex r0 #2: otherwise `pages/login.tsx:46–50` sees the leftover client session and pushes back to `next`, a loop).
 - **Auth server unreachable** (`isAuthRetryableFetchError`): API → 503 `PASSWORD_STATE_UNAVAILABLE`; pages → the existing retry panel `/change-password?estado=no-verificado`; cookie kept. Same fail-closed shape as an unreadable forced-change flag.
+- **Round 2 (Codex r1):**
+  - *Outage loop* — `pages/api/auth/password-change-state.ts` answered 401 for a retryable `getUser` error, so `/change-password` sent the user to `/login`, whose retained session pushed back through the middleware's retry panel. It now answers **503 `PASSWORD_STATE_UNAVAILABLE`**, which the page already renders as its retry panel (it stops there).
+  - *Mounted-session loop* — `pages/login.tsx` pushed to `next` on any remembered session. It now calls `lib/auth/remembered-session.ts` `checkRememberedSession()`: `getUser()` first; confirmed → proceed as before; rejected → `signOut({ scope: 'local' })` and show the form; unreachable → stay with a retry message, session kept. Covers client-side navigation where the React session context survives the cookie expiry.
 
 ## Tests
 
@@ -26,21 +29,23 @@
 - `__tests__/middleware.forced-password-change.test.ts`: stub gains `getUser`; 161/161 unchanged.
 - `tests/e2e/auth-lifecycle.spec.ts` — `middleware verified identity (W-B10c-01b)` (round 1 — Codex r0 #3): synthetic community + synthetic admin and docente **in that community**, so under the docente's own token the admin's `user_roles` row is readable (`user_roles_community_member_view`) — the precondition is asserted over PostgREST, so the case cannot pass vacuously. The docente's token in a legacy cookie naming the admin → `GET /admin/user-management` answers **307 → /dashboard** (`maxRedirects: 0`, the middleware's own answer); positive control: the admin's honest cookie → **200**. Exact-id cleanup (roles, profiles, auth users, community) in `finally`.
 
-## Gate evidence (local, round 1 tree, 2026-10-01)
+## Gate evidence (local, round 2 tree, 2026-10-01)
 
 | Gate | Result |
 |---|---|
-| focused `vitest run __tests__/middleware.test.ts __tests__/middleware.forced-password-change.test.ts` | 195/195 (34 + 161) |
-| same 10 new cases on the **base** middleware | 10 failed / 24 passed (discriminates) |
-| `npm run type-check` | exit 0 |
-| `npm run lint` (zero warnings) | exit 0 |
-| `npm test` | 364 files, 9,541 passed, 1 skipped (base 9,531 + 10 new) |
+| focused middleware suites | 195/195 (10 new cases fail on the base middleware) |
+| `__tests__/lib/auth/remembered-session.test.ts` (new, node env) | 4/4 |
+| `__tests__/api/auth/password-change-state.availability.test.ts` (new) | 2/2 (retryable → 503, rejected → 401) |
+| existing login / change-password / security suites | 207/207 — **but see note**: `.tsx` component tests do not execute in this checkout |
+| `npm run type-check` / `npm run lint` | exit 0 / exit 0 |
+| `npm test` | 366 files, 9,547 passed, 1 skipped |
 | `npm run build` (synthetic public env) | exit 0 |
-| `git diff --check` | clean |
-| e2e `--grep "W-B10c-01b"` on this tree | **1 passed** (forged → 307 /dashboard; admin → 200) |
-| same e2e on the **base** middleware | **1 failed: expected 307, received 200** — the bug reproduced end to end |
+| e2e `--grep "W-B10c-01b"` | **2 passed**: forged cookie → 307 (old code: 200); **revoked session while the page is open → lands on /login and stays** (7 rejected requests in the server log, then quiet) |
+| revoked-session e2e with the round-1 `pages/login.tsx` | **failed** (did not settle on /login within 5 min) — the loop reproduced |
 
-E2E environment: disposable Supabase stack `sm1001disposable` (API 127.0.0.1:55021, DB 127.0.0.1:55022; all SM migrations through `20260926210000`, no seed), app via `npm run dev:unsafe` on :3311 (`E2E_PORT=3311`), gitignored `.env.local` pointing at that stack. Brent authorised synthetic local accounts on 2026-10-01. Fixtures logged by the spec (1 community, 2 accounts); after both runs 0 `e2e-b10c01b-%` users, 0 fixture communities, 0 fixture role rows.
+E2E environment: disposable stack `sm1001disposable` (API :55021, DB :55022), app `dev:unsafe` on :3311, gitignored `.env.local`. Cleanup: every passing run removes its rows in `finally`; the deliberately failing run was killed by its timeout and left 1 account + 1 community, removed afterwards by exact id (residue now 0).
+
+**Note — component tests silently skipped:** in this checkout (and the configured SM root) every `__tests__/**/*.test.tsx` (67 files, including `LoginPage.passwordRecovery`) reports "no tests" under Vitest 0.34.6 / Node 22.16 without error; the 366 files counted are `.ts` only. Pre-existing, not caused by this unit; the round-2 logic was therefore put in `lib/auth/remembered-session.ts` and tested in node. Needs its own investigation (CI may share it).
 
 ## Scrutinize hardest
 
@@ -54,3 +59,7 @@ E2E environment: disposable Supabase stack `sm1001disposable` (API 127.0.0.1:550
 
 - Revoked session replayed before JWT expiry: `getUser` asks the auth server, so a revoked session should now fail, but this unit does not prove it (SM-18 D5 measured provider behavior for APIs).
 - W-B10c-01 parent stays held (needs SM-B009 logout decision, SM-B015 inventory, SM-B010 final review, Brent's gate decision).
+
+## Release port onto origin/main (2026-10-01)
+
+`origin/main` (0cb21adef) already carries a newer `pages/login.tsx` (the login-loop recovery work, `2148c8723`/`fecc18537`) whose `runLogin` validates a remembered session with `auth.getUser()`, signs out locally when the provider rejects it, refuses to navigate when verification or cleanup is unavailable, and guards every step with an attempt id. That covers what SM-B008 rounds 2–3 added to the older SM-branch login page (`lib/auth/remembered-session.ts`). The release branch `fix/sm-hand-rel` therefore keeps main's login page unchanged and carries from SM-B008: the middleware (rounds 0–1), `pages/api/auth/password-change-state.ts` 503-on-outage + its test, and the two e2e cases. The remembered-session helper and its test exist only on `fix/sm-b008-mw`. The revoked-session e2e is re-run against main's login page on the release tree.

@@ -26,98 +26,153 @@ const ADMIN = 'verified-admin';
 
 const SUPERADMINS = new Set([VICTIM, SUPER]);
 const ADMINS = new Set([VICTIM, ADMIN]);
+/** Accounts flagged to change their password before doing anything else. */
+const MUST_CHANGE = new Set<string>();
+
+/** The cookie's access token is the caller's own; only the auth server knows whose. */
+const COOKIE_TOKEN = 'caller-own-valid-token';
+const BEARER_TOKEN = 'caller-bearer-token';
 
 type Op = [string, ...unknown[]];
 const dataLog: Array<{ table: string; ops: Op[] }> = [];
-const lookups: { superadmin: unknown[]; adminRole: unknown[] } = { superadmin: [], adminRole: [] };
+const lookups: { superadmin: unknown[]; adminRole: unknown[]; profile: unknown[] } = {
+  superadmin: [],
+  adminRole: [],
+  profile: [],
+};
 let verifiedUser: { id: string } | null = null;
+/** test_mode_state rows by user_id (the overlay routes create and read them). */
+const testModes = new Map<string, Record<string, unknown>>();
+
+const eqValue = (ops: Op[], col: string) => ops.find(([op, c]) => op === 'eq' && c === col)?.[2];
+
+/** Active `user_roles` rows, as the database would answer a filtered lookup. */
+function roleRows(ops: Op[]) {
+  const userId = eqValue(ops, 'user_id') as string;
+  const roleType = eqValue(ops, 'role_type');
+  const inRoles = ops.find(([op]) => op === 'in')?.[2] as string[] | undefined;
+  const wantsAdmin = roleType === 'admin' || (inRoles?.includes('admin') ?? false);
+  return wantsAdmin && ADMINS.has(userId) ? [{ id: `role-${userId}`, role_type: 'admin' }] : [];
+}
+
+/**
+ * A recording query chain. `answer(ops, mode)` resolves it: mode is 'many'
+ * when awaited, 'one' for single()/maybeSingle().
+ */
+function chainFor(
+  table: string,
+  answer: (ops: Op[], mode: 'many' | 'one') => { data: unknown; error: unknown },
+  log?: Array<{ table: string; ops: Op[] }>
+) {
+  const entry = { table, ops: [] as Op[] };
+  log?.push(entry);
+  const chain: any = new Proxy(
+    {},
+    {
+      get(_t, prop: string) {
+        if (prop === 'then') {
+          return (resolve: (v: unknown) => void) => resolve(answer(entry.ops, 'many'));
+        }
+        if (prop === 'single' || prop === 'maybeSingle') {
+          return async () => answer(entry.ops, 'one');
+        }
+        return (...args: unknown[]) => {
+          entry.ops.push([prop, ...args]);
+          return chain;
+        };
+      },
+    }
+  );
+  return chain;
+}
+
+/** What the cookie-bound / data client's tables hold. */
+function dataAnswer(table: string, ops: Op[], mode: 'many' | 'one') {
+  const has = (name: string) => ops.some(([op]) => op === name);
+  if (table === 'user_roles') return { data: roleRows(ops), error: null };
+  if (table === 'schools') {
+    return { data: mode === 'one' ? { id: 1, name: 'Colegio' } : [{ id: 1, name: 'Colegio' }], error: null };
+  }
+  if (table === 'redes_de_colegios') return { data: { id: 'net-1', nombre: 'Red' }, error: null };
+  if (table === 'role_permissions') {
+    if (has('insert')) return { data: { id: 'ov-1' }, error: null };
+    if (has('delete') || mode === 'one') return { data: null, error: null };
+    return { data: [{ id: 'ov-1', role_type: 'docente', permission_key: 'k', granted: true }], error: null };
+  }
+  if (table === 'test_mode_state') {
+    const upsert = ops.find(([op]) => op === 'upsert')?.[1] as Record<string, unknown> | undefined;
+    if (upsert) {
+      testModes.set(upsert.user_id as string, upsert);
+      return { data: null, error: null };
+    }
+    if (has('update')) return { data: null, error: null };
+    const byUser = eqValue(ops, 'user_id') as string | undefined;
+    const byRun = eqValue(ops, 'test_run_id');
+    const row = byUser
+      ? testModes.get(byUser)
+      : [...testModes.values()].find((r) => r.test_run_id === byRun);
+    return { data: row ?? null, error: row ? null : { code: 'PGRST116' } };
+  }
+  return { data: mode === 'one' ? null : [], error: null };
+}
 
 /** The cookie/user-JWT client (also the networks routes' data client). */
-function recordingClient() {
+function cookieClient() {
   return {
     auth: {
       getSession: vi.fn(async () => ({
-        data: { session: { user: { id: VICTIM }, access_token: 'attacker-own-valid-token' } },
+        data: { session: { user: { id: VICTIM }, access_token: COOKIE_TOKEN } },
         error: null,
       })),
-      getUser: vi.fn(async () =>
-        verifiedUser
+      getUser: vi.fn(async (token?: string) =>
+        token === COOKIE_TOKEN && verifiedUser
           ? { data: { user: verifiedUser }, error: null }
           : { data: { user: null }, error: { message: 'invalid token' } }
       ),
     },
-    from: vi.fn((table: string) => {
-      const entry = { table, ops: [] as Op[] };
-      dataLog.push(entry);
-      const chain: any = new Proxy(
-        {},
-        {
-          get(_t, prop: string) {
-            if (prop === 'then') {
-              const rows =
-                table === 'schools'
-                  ? [{ id: 1, name: 'Colegio' }]
-                  : table === 'role_permissions' && !entry.ops.some(([op]) => op === 'delete')
-                    ? [{ id: 'ov-1', role_type: 'docente', permission_key: 'k', granted: true }]
-                    : [];
-              return (resolve: (v: unknown) => void) => resolve({ data: rows, error: null });
-            }
-            if (prop === 'single' || prop === 'maybeSingle') {
-              return async () => {
-                const wrote = entry.ops.some(([op]) => op === 'insert' || op === 'upsert');
-                if (table === 'redes_de_colegios') return { data: { id: 'net-1', nombre: 'Red' }, error: null };
-                if (table === 'schools') return { data: { id: 1, name: 'Colegio' }, error: null };
-                if (table === 'role_permissions' && wrote) return { data: { id: 'ov-1' }, error: null };
-                if (table === 'test_mode_state') {
-                  // The run belongs to whoever the auth server verified.
-                  return { data: { enabled: true, test_run_id: 'run-1', expires_at: 'x', user_id: verifiedUser?.id ?? null }, error: null };
-                }
-                return { data: null, error: null };
-              };
-            }
-            return (...args: unknown[]) => {
-              entry.ops.push([prop, ...args]);
-              return chain;
-            };
-          },
-        }
-      );
-      return chain;
-    }),
+    from: vi.fn((table: string) => chainFor(table, (ops, mode) => dataAnswer(table, ops, mode), dataLog)),
   };
 }
 
 vi.mock('@supabase/auth-helpers-nextjs', () => ({
-  createServerSupabaseClient: vi.fn(() => recordingClient()),
+  createServerSupabaseClient: vi.fn(() => cookieClient()),
 }));
 
 /** The service-role client the helpers use for the privilege decision. */
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({
-    auth: { getUser: vi.fn(async () => ({ data: { user: null }, error: { message: 'no bearer' } })) },
+    auth: {
+      getUser: vi.fn(async (token?: string) =>
+        token === BEARER_TOKEN && verifiedUser
+          ? { data: { user: verifiedUser }, error: null }
+          : { data: { user: null }, error: { message: 'invalid token' } }
+      ),
+    },
     rpc: vi.fn(async (fn: string, args: { check_user_id: string }) => {
       if (fn !== 'auth_is_superadmin') throw new Error(`unexpected rpc ${fn}`);
       lookups.superadmin.push(args.check_user_id);
       return { data: SUPERADMINS.has(args.check_user_id), error: null };
     }),
-    from: vi.fn((table: string) => {
-      const q: any = { userId: undefined as unknown, roles: [] as string[] };
-      const chain: any = {
-        select: () => chain,
-        eq: (col: string, val: unknown) => {
-          if (col === 'user_id' || col === 'id') q.userId = val;
-          return chain;
-        },
-        in: (_c: string, v: string[]) => ((q.roles = v), chain),
-        maybeSingle: async () => ({ data: { must_change_password: false }, error: null }),
-        limit: async () => {
-          lookups.adminRole.push(q.userId);
-          const hit = table === 'user_roles' && q.roles.includes('admin') && ADMINS.has(q.userId as string);
-          return { data: hit ? [{ role_type: 'admin' }] : [], error: null };
-        },
-      };
-      return chain;
-    }),
+    from: vi.fn((table: string) =>
+      chainFor(table, (ops) => {
+        if (table === 'profiles') {
+          const id = eqValue(ops, 'id') as string;
+          lookups.profile.push(id);
+          return { data: { must_change_password: MUST_CHANGE.has(id) }, error: null };
+        }
+        if (table === 'user_roles') {
+          lookups.adminRole.push(eqValue(ops, 'user_id'));
+          return { data: roleRows(ops), error: null };
+        }
+        if (table === 'superadmins') {
+          // The pre-fix overlay read this table directly.
+          const id = eqValue(ops, 'user_id') as string;
+          lookups.superadmin.push(id);
+          return { data: SUPERADMINS.has(id) ? { user_id: id } : null, error: null };
+        }
+        return { data: null, error: null };
+      })
+    ),
   })),
 }));
 
@@ -129,12 +184,12 @@ import availableSchools from '../../../pages/api/admin/networks/available-school
 
 type Handler = (req: NextApiRequest, res: NextApiResponse) => Promise<unknown>;
 
-async function call(handler: Handler, method: string, body: unknown = {}) {
+async function call(handler: Handler, method: string, body: unknown = {}, headers: Record<string, string> = {}) {
   const res: any = { statusCode: 0, body: undefined };
   res.status = (code: number) => ((res.statusCode = code), res);
   res.json = (b: unknown) => ((res.body = b), res);
   res.setHeader = () => res;
-  await handler({ method, query: {}, headers: {}, cookies: {}, body } as unknown as NextApiRequest, res);
+  await handler({ method, query: {}, headers, cookies: {}, body } as unknown as NextApiRequest, res);
   return res;
 }
 
@@ -165,6 +220,9 @@ beforeEach(() => {
   dataLog.length = 0;
   lookups.superadmin.length = 0;
   lookups.adminRole.length = 0;
+  lookups.profile.length = 0;
+  MUST_CHANGE.clear();
+  testModes.clear();
   verifiedUser = null;
   vi.spyOn(console, 'log').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -187,6 +245,7 @@ describe('a cookie naming a privileged id does not lend its privilege', () => {
     const res = await call(handler, method, body);
     expect(res.statusCode).toBe(403);
     expect(lookups.superadmin).toEqual([ATTACKER]);
+    expect(lookups.profile).toEqual([ATTACKER]);
     expect(dataLog).toEqual([]);
   });
 
@@ -195,6 +254,7 @@ describe('a cookie naming a privileged id does not lend its privilege', () => {
     const res = await call(handler, method, body);
     expect(res.statusCode).toBe(403);
     expect(lookups.adminRole).toEqual([ATTACKER]);
+    expect(lookups.profile).toEqual([ATTACKER]);
     expect(dataLog).toEqual([]);
   });
 
@@ -211,6 +271,8 @@ describe('a cookie naming a privileged id does not lend its privilege', () => {
 describe('a verified privileged caller acts as themselves, not as the cookie user', () => {
   it.each(SUPERADMIN_ROUTES)('%s', async (_n, handler, method, body) => {
     verifiedUser = { id: SUPER };
+    // cleanup needs a run to clean; the overlay routes create test mode themselves.
+    if (handler === cleanup) testModes.set(SUPER, { user_id: SUPER, enabled: true, test_run_id: 'run-1' });
     const res = await call(handler, method, body);
     expect(res.statusCode).toBe(200);
     expect(lookups.superadmin).toEqual([SUPER]);
@@ -218,9 +280,10 @@ describe('a verified privileged caller acts as themselves, not as the cookie use
     expect(touchedIds()).not.toContain(VICTIM);
   });
 
-  it('overlay records the verified superadmin as the creator', async () => {
+  it('overlay creates test mode for, and records as creator, the verified superadmin', async () => {
     verifiedUser = { id: SUPER };
     await call(overlay, 'POST', OVERLAY_BODY);
+    expect([...testModes.keys()]).toEqual([SUPER]);
     const inserts = dataLog.filter((d) => d.table === 'role_permissions').flatMap((d) => d.ops.filter(([op]) => op === 'insert'));
     expect(inserts).toHaveLength(1);
     expect(inserts[0][1]).toMatchObject({ created_by: SUPER });
@@ -237,5 +300,39 @@ describe('a verified privileged caller acts as themselves, not as the cookie use
     expect(inserts.length).toBeGreaterThan(0);
     expect(JSON.stringify(inserts)).toContain(ADMIN);
     expect(touchedIds()).not.toContain(VICTIM);
+  });
+});
+
+describe('cleanup only clears the verified caller\'s own run', () => {
+  it("refuses a run that belongs to the cookie's claimed user", async () => {
+    verifiedUser = { id: SUPER };
+    testModes.set(VICTIM, { user_id: VICTIM, enabled: true, test_run_id: 'run-1' });
+    const res = await call(cleanup, 'POST', { test_run_id: 'run-1', confirm: true });
+    expect(res.statusCode).toBe(403);
+    expect(dataLog.flatMap((d) => d.ops.filter(([op]) => op === 'delete' || op === 'update'))).toEqual([]);
+  });
+});
+
+describe('forced password change and Bearer callers', () => {
+  it.each([...SUPERADMIN_ROUTES, ...ADMIN_ROUTES])('%s: a privileged caller who must change their password is held', async (_n, handler, method, body) => {
+    const id = SUPERADMIN_ROUTES.some(([, h]) => h === handler) ? SUPER : ADMIN;
+    verifiedUser = { id };
+    MUST_CHANGE.add(id);
+    const res = await call(handler, method, body);
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toMatchObject({ code: 'PASSWORD_CHANGE_REQUIRED' });
+    expect(lookups.superadmin).toEqual([]);
+    expect(lookups.adminRole).toEqual([]);
+    expect(dataLog).toEqual([]);
+  });
+
+  it('a verified Bearer admin can list network schools; a Bearer plain user cannot', async () => {
+    const bearer = { authorization: `Bearer ${BEARER_TOKEN}` };
+    verifiedUser = { id: ADMIN };
+    expect((await call(availableSchools, 'GET', {}, bearer)).statusCode).toBe(200);
+    verifiedUser = { id: ATTACKER };
+    dataLog.length = 0;
+    expect((await call(availableSchools, 'GET', {}, bearer)).statusCode).toBe(403);
+    expect(dataLog).toEqual([]);
   });
 });

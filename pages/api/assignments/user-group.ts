@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
+import { requireVerifiedCaller } from '@/lib/api-auth';
 
 /**
  * GET /api/assignments/user-group
@@ -22,12 +22,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Método no permitido' });
   }
 
-  const supabase = createPagesServerClient({ req, res });
-
   // Check authentication
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    return res.status(401).json({ error: 'No autorizado' });
+  // Identity comes from the auth server; the cookie's stored `user` is
+  // client-controlled (SM-B015).
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) {
+    return res.status(caller.status).json(caller.body);
   }
 
   const { assignmentId } = req.query;
@@ -37,7 +37,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const userId = session.user.id;
+    const userId = caller.user.id;
     console.log('[user-group] REQUEST - userId:', userId, 'assignmentId:', assignmentId);
 
     // Initialize admin client for RLS bypass

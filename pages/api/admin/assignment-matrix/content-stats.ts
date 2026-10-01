@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
+import { requireVerifiedCaller } from '../../../../lib/api-auth';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -23,11 +23,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const supabaseClient = createPagesServerClient({ req, res });
-    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
-
-    if (sessionError || !session) {
-      return res.status(401).json({ error: 'No autorizado' });
+    // Identity comes from the auth server; the cookie's stored `user` is
+    // client-controlled (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
 
     const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
@@ -39,7 +39,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: userRoles } = await supabaseService
       .from('user_roles')
       .select('role_type')
-      .eq('user_id', session.user.id)
+      .eq('user_id', caller.user.id)
       .eq('is_active', true);
 
     const isAdmin = !!userRoles?.some(r => r.role_type === 'admin');

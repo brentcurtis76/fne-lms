@@ -23,15 +23,9 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
   try {
     // Verified caller with an active admin or consultor role. Never
     // `user_metadata`: a signed-in user can write their own metadata.
-    const auth = await requireVerifiedRole(req, res, ['admin', 'consultor']);
-    if (auth.status === 401) {
-      return res.status(401).json({ error: 'No autorizado' });
-    }
-    if (auth.status === 403) {
-      return res.status(403).json({ error: 'Solo administradores y consultores pueden ver propuestas' });
-    }
-    if (auth.status === 500) {
-      return res.status(500).json({ error: 'Error del servidor' });
+    const auth = await requireVerifiedRole(req, res, ['admin', 'consultor'], 'Solo administradores y consultores pueden ver propuestas');
+    if (!auth.user) {
+      return res.status(auth.status).json(auth.body);
     }
     const caller = auth.user;
 
@@ -89,15 +83,9 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
   try {
     // Verified caller with an active admin or consultor role. Never
     // `user_metadata`: a signed-in user can write their own metadata.
-    const auth = await requireVerifiedRole(req, res, ['admin', 'consultor']);
-    if (auth.status === 401) {
-      return res.status(401).json({ error: 'No autorizado' });
-    }
-    if (auth.status === 403) {
-      return res.status(403).json({ error: 'Solo administradores y consultores pueden crear propuestas' });
-    }
-    if (auth.status === 500) {
-      return res.status(500).json({ error: 'Error del servidor' });
+    const auth = await requireVerifiedRole(req, res, ['admin', 'consultor'], 'Solo administradores y consultores pueden crear propuestas');
+    if (!auth.user) {
+      return res.status(auth.status).json(auth.body);
     }
     const caller = auth.user;
 

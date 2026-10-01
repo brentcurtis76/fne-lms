@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { createServiceRoleClient } from '../../../lib/api-auth';
 
 /**
@@ -34,6 +35,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // getUser, not getSession: the latter returns whatever the cookie decodes to.
     const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (isAuthRetryableFetchError(userError)) {
+      // The auth server is unreachable, which is not "signed out". A 401 here
+      // sends /change-password to /login, whose retained session sends the
+      // browser back through the middleware's retry panel — a loop during an
+      // outage (W-B10c-01b). 503 renders the page's retry panel and stops.
+      return res.status(503).json({
+        error: 'No pudimos verificar el estado de tu cuenta.',
+        code: 'PASSWORD_STATE_UNAVAILABLE',
+      });
+    }
 
     if (userError || !user?.id) {
       return res.status(401).json({ error: 'No autorizado' });

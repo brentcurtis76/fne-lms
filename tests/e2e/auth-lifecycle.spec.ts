@@ -1123,3 +1123,181 @@ test.describe('authentication lifecycle', () => {
     }
   });
 });
+
+/**
+ * W-B10c-01b — page authorization uses the identity the auth server verifies,
+ * not the `user` stored in the cookie. auth-helpers accepts a legacy JSON
+ * session object and returns its `user` as stored, so a lower-role caller can
+ * pair a valid token of their own with an admin's id.
+ *
+ * The bug is only reachable when the caller can READ the admin's role row:
+ * `user_roles_community_member_view` shows roles of members of the caller's
+ * own growth community. So the fixture puts a synthetic admin and a synthetic
+ * docente in one synthetic community — on the base commit the forged cookie
+ * then opened /admin pages (the role lookup ran for the admin's id and found
+ * `admin`). The unit suite covers the branches; this proves the running
+ * middleware resolves the token.
+ */
+test.describe('middleware verified identity (W-B10c-01b)', () => {
+  test.use({ viewport: { width: 1366, height: 768 }, storageState: { cookies: [], origins: [] } });
+
+  const AUTH_COOKIE = `sb-${new URL(SUPABASE_URL).hostname.split('.')[0]}-auth-token`;
+  const ADMIN_PAGE = '/admin/user-management';
+
+  function legacySessionCookie(session: Record<string, any>, claimedUserId: string) {
+    return {
+      name: AUTH_COOKIE,
+      value: encodeURIComponent(
+        JSON.stringify({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+          expires_at: session.expires_at,
+          expires_in: session.expires_in,
+          token_type: 'bearer',
+          user: { id: claimedUserId, aud: 'authenticated', role: 'authenticated' },
+        })
+      ),
+      url: APP_ORIGIN,
+    };
+  }
+
+  async function createAccount(label: string, stamp: string, roleType: string, communityId: string) {
+    const email = `e2e-b10c01b-${label}-${stamp}@example.com`;
+    const password = `B10cSintetico${label}2026`;
+    const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+    if (error || !data.user) throw new Error(`[W-B10c-01b] createUser ${label}: ${error?.message}`);
+    const { error: profileError } = await admin.from('profiles').upsert(
+      {
+        id: data.user.id,
+        email,
+        first_name: 'Sintetico',
+        last_name: label,
+        name: `Sintetico ${label}`,
+        approval_status: 'approved',
+        must_change_password: false,
+      },
+      { onConflict: 'id' }
+    );
+    if (profileError) throw new Error(`[W-B10c-01b] profile ${label}: ${profileError.message}`);
+    const { error: roleError } = await admin
+      .from('user_roles')
+      .insert({ user_id: data.user.id, role_type: roleType, community_id: communityId, is_active: true });
+    if (roleError) throw new Error(`[W-B10c-01b] role ${label}: ${roleError.message}`);
+    return { id: data.user.id, email, password };
+  }
+
+  test('a lower-role token in a cookie naming an admin of the same community cannot open admin pages', async ({
+    browser,
+  }) => {
+    const stamp = `${Date.now()}`;
+    const ids: string[] = [];
+    let communityId: string | null = null;
+    try {
+      const { data: community, error: communityError } = await admin
+        .from('growth_communities')
+        .insert({ name: `E2E B10c-01b comunidad sintetica ${stamp}` })
+        .select('id')
+        .single();
+      if (communityError || !community) throw new Error(`[W-B10c-01b] community: ${communityError?.message}`);
+      communityId = community.id as string;
+
+      const adminAccount = await createAccount('admin', stamp, 'admin', communityId);
+      ids.push(adminAccount.id);
+      const lowAccount = await createAccount('docente', stamp, 'docente', communityId);
+      ids.push(lowAccount.id);
+      console.log(
+        `[W-B10c-01b] fixtures ${JSON.stringify({ supabase: new URL(SUPABASE_URL).host, community: communityId, accounts: ids })}`
+      );
+
+      const low = await signInDirectly(lowAccount.email, lowAccount.password);
+      expect(low.status).toBe(200);
+
+      // Precondition that makes this a real test: under the docente's own token
+      // the admin's role row IS readable (shared community), so a middleware
+      // that looked roles up for the cookie's claimed id would find `admin`.
+      const visible = await fetch(
+        `${SUPABASE_URL}/rest/v1/user_roles?select=role_type&user_id=eq.${adminAccount.id}`,
+        { headers: { apikey: ANON_KEY, Authorization: `Bearer ${low.body.access_token}` } }
+      );
+      expect(await visible.json()).toEqual([{ role_type: 'admin' }]);
+
+      // Read the middleware's own answer (no redirect following): pages also gate
+      // client-side, which would hide a middleware that let the request in.
+      const forged = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+      await forged.addCookies([legacySessionCookie(low.body, adminAccount.id)]);
+      const denied = await forged.request.get(ADMIN_PAGE, { maxRedirects: 0, failOnStatusCode: false });
+      expect(denied.status(), `${ADMIN_PAGE} with a forged admin cookie`).toBe(307);
+      expect(new URL(denied.headers()['location'], APP_ORIGIN).pathname).toBe('/dashboard');
+      await forged.close();
+
+      // Positive control: the admin's own token with its own id opens the page.
+      const real = await signInDirectly(adminAccount.email, adminAccount.password);
+      expect(real.status).toBe(200);
+      const honest = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+      await honest.addCookies([legacySessionCookie(real.body, adminAccount.id)]);
+      const allowed = await honest.request.get(ADMIN_PAGE, { maxRedirects: 0, failOnStatusCode: false });
+      expect(allowed.status(), `${ADMIN_PAGE} for the real admin`).toBe(200);
+      await honest.close();
+    } finally {
+      for (const id of ids) {
+        await admin.from('user_roles').delete().eq('user_id', id);
+        await admin.from('profiles').delete().eq('id', id);
+        await admin.auth.admin.deleteUser(id);
+      }
+      if (communityId) await admin.from('growth_communities').delete().eq('id', communityId);
+    }
+  });
+
+  test('a session revoked while the page is open lands on /login and stays there (no loop)', async ({ browser }) => {
+    const stamp = `${Date.now()}`;
+    const ids: string[] = [];
+    let communityId: string | null = null;
+    try {
+      const { data: community, error: communityError } = await admin
+        .from('growth_communities')
+        .insert({ name: `E2E B10c-01b comunidad sintetica ${stamp}` })
+        .select('id')
+        .single();
+      if (communityError || !community) throw new Error(`[W-B10c-01b] community: ${communityError?.message}`);
+      communityId = community.id as string;
+      const account = await createAccount('revocado', stamp, 'docente', communityId);
+      ids.push(account.id);
+
+      const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+      const page = await context.newPage();
+      await page.goto('/login');
+      await page.getByPlaceholder('tu@email.com').fill(account.email);
+      await page.locator('input[type="password"]').fill(account.password);
+      await page.getByRole('button', { name: /iniciar sesión/i }).click();
+      await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+
+      // Revoke every session of this account at the provider. The page keeps
+      // its mounted session context; only the server now rejects the token.
+      const token = (await context.cookies()).find((c) => c.name.startsWith('sb-') && c.name.includes('auth-token'));
+      expect(token, 'signed-in browser holds an auth cookie').toBeTruthy();
+      const parsed = JSON.parse(decodeURIComponent(token!.value.startsWith('base64-')
+        ? Buffer.from(token!.value.slice(7), 'base64').toString('utf8')
+        : token!.value));
+      const accessToken = Array.isArray(parsed) ? parsed[0] : parsed.access_token;
+      const { error: revokeError } = await admin.auth.admin.signOut(accessToken, 'global');
+      expect(revokeError).toBeNull();
+
+      // Client-side navigation from the already-open page, as a user clicking a link would.
+      await page.evaluate(() => (window as any).next.router.push('/community/workspace'));
+      await expect(page).toHaveURL(/\/login/, { timeout: 60_000 });
+      await expect(page.getByPlaceholder('tu@email.com')).toBeVisible({ timeout: 30_000 });
+      // It stays: no bounce back out of /login while the page settles.
+      await page.waitForLoadState('networkidle');
+      await expect(page).toHaveURL(/\/login/);
+      await expect(page.getByPlaceholder('tu@email.com')).toBeVisible();
+      await context.close();
+    } finally {
+      for (const id of ids) {
+        await admin.from('user_roles').delete().eq('user_id', id);
+        await admin.from('profiles').delete().eq('id', id);
+        await admin.auth.admin.deleteUser(id);
+      }
+      if (communityId) await admin.from('growth_communities').delete().eq('id', communityId);
+    }
+  });
+});

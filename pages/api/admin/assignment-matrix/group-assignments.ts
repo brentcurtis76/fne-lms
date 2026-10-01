@@ -70,10 +70,13 @@ async function checkPermissions(supabaseClient: any, userId: string): Promise<Pe
   const isAdmin = roleTypes.includes('admin');
   const isConsultor = roleTypes.includes('consultor');
 
+  // Scope checks below run only for consultors, and only the consultor rows
+  // may grant scope: a school/community on another role the caller holds
+  // (e.g. docente elsewhere) must not widen what a consultor can read.
   return {
     allowed: isAdmin || isConsultor,
     isAdmin,
-    userRoles: roles
+    userRoles: roles.filter((r: any) => r.role_type === 'consultor')
   };
 }
 

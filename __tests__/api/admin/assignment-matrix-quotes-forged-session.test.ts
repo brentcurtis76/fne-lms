@@ -22,7 +22,26 @@ const ATTACKER = '22222222-2222-4222-8222-222222222222';
 const ADMIN = '33333333-3333-4333-8333-333333333333';
 const CONSULTOR = '44444444-4444-4444-8444-444444444444';
 
-const ROLES: Record<string, string[]> = { [VICTIM]: ['admin'], [ADMIN]: ['admin'], [CONSULTOR]: ['consultor'] };
+const SCHOOL_A = 1;
+const SCHOOL_B = 2;
+const COMMUNITY_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const COMMUNITY_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+
+type RoleRow = { user_id: string; role_type: string; school_id: number | null; community_id: string | null; is_active: boolean };
+const role = (user_id: string, role_type: string, extra: Partial<RoleRow> = {}): RoleRow => ({
+  user_id, role_type, school_id: null, community_id: null, is_active: true, ...extra,
+});
+/** CONSULTOR consults for school A / community A and also teaches in school B / community B. */
+const ROLE_ROWS: RoleRow[] = [
+  role(VICTIM, 'admin'),
+  role(ADMIN, 'admin'),
+  role(ATTACKER, 'admin', { is_active: false }),
+  role(CONSULTOR, 'docente', { school_id: SCHOOL_B, community_id: COMMUNITY_B }),
+  role(CONSULTOR, 'consultor', { school_id: SCHOOL_A, community_id: COMMUNITY_A }),
+];
+const MUST_CHANGE = new Set<string>();
+const BEARER_TOKEN = 'caller-bearer-token';
+let cookiePresent = true;
 const QUOTE_OWNERS: Record<string, string> = { 'q-victim': VICTIM, 'q-consultor': CONSULTOR };
 const COOKIE_TOKEN = 'caller-own-valid-token';
 
@@ -32,19 +51,34 @@ let verifiedUser: { id: string } | null = null;
 
 const eqValue = (ops: Op[], col: string) => ops.find(([op, c]) => op === 'eq' && c === col)?.[2];
 
+/** Applies eq / in filters like PostgREST. */
+function matchRows<T extends Record<string, unknown>>(rows: T[], ops: Op[]): T[] {
+  return rows.filter((r) =>
+    ops.every(([op, col, a]) => {
+      if (op === 'eq') return r[col as string] === a;
+      if (op === 'in') return (a as unknown[]).includes(r[col as string]);
+      return true;
+    })
+  );
+}
+
 function serviceAnswer(table: string, ops: Op[], mode: 'many' | 'one') {
   const has = (name: string) => ops.some(([op]) => op === name);
   if (table === 'profiles') {
-    return { data: { id: eqValue(ops, 'id'), must_change_password: false }, error: null };
+    const id = eqValue(ops, 'id') as string;
+    if (mode === 'one') return { data: { id, must_change_password: MUST_CHANGE.has(id) }, error: null };
+    return { data: [], error: null };
   }
   if (table === 'user_roles') {
-    const userId = eqValue(ops, 'user_id') as string | undefined;
-    const wanted = ops.find(([op]) => op === 'in')?.[2] as string[] | undefined;
-    const rows = (ROLES[userId ?? ''] ?? [])
-      .filter((r) => !wanted || wanted.includes(r))
-      .map((role_type) => ({ role_type, school_id: null, community_id: null }));
-    return { data: rows, error: null };
+    if (eqValue(ops, 'user_id') !== undefined) return { data: matchRows(ROLE_ROWS, ops), error: null };
+    // A group's members: everyone holding an active role in it.
+    return { data: matchRows(ROLE_ROWS, ops).map((r) => ({ user_id: r.user_id })), error: null };
   }
+  if (table === 'growth_communities') {
+    if (mode === 'one') return { data: { id: eqValue(ops, 'id'), name: 'Comunidad' }, error: null };
+    return { data: [], error: null };
+  }
+  if (table === 'schools' && mode === 'one') return { data: { id: eqValue(ops, 'id'), name: 'Colegio' }, error: null };
   if (table === 'pasantias_quotes') {
     const id = eqValue(ops, 'id') as string | undefined;
     if (has('insert')) return { data: { id: 'q-new' }, error: null };
@@ -52,7 +86,7 @@ function serviceAnswer(table: string, ops: Op[], mode: 'many' | 'one') {
     return id && QUOTE_OWNERS[id] ? { data: { id, created_by: QUOTE_OWNERS[id] }, error: null } : { data: null, error: null };
   }
   if (table === 'pasantias_programs') return { data: [{ id: 'p-1', price: 1000 }], error: null };
-  return { data: mode === 'one' ? null : [], error: null };
+  return { data: mode === 'one' ? null : [], error: null, count: 0 };
 }
 
 function recordingChain(table: string) {
@@ -78,7 +112,7 @@ function cookieClient() {
   return {
     auth: {
       getSession: vi.fn(async () => ({
-        data: { session: { user: { id: VICTIM }, access_token: COOKIE_TOKEN } },
+        data: { session: cookiePresent ? { user: { id: VICTIM }, access_token: COOKIE_TOKEN } : null },
         error: null,
       })),
       getUser: vi.fn(async (token?: string) =>
@@ -100,7 +134,13 @@ vi.mock('@supabase/auth-helpers-nextjs', () => ({
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({
-    auth: { getUser: vi.fn(async () => ({ data: { user: null }, error: { message: 'no bearer' } })) },
+    auth: {
+      getUser: vi.fn(async (token?: string) =>
+        token === BEARER_TOKEN && verifiedUser
+          ? { data: { user: verifiedUser }, error: null }
+          : { data: { user: null }, error: { message: 'invalid token' } }
+      ),
+    },
     rpc: vi.fn(async () => ({ data: null, error: null })),
     from: vi.fn((table: string) => recordingChain(table)),
   })),
@@ -114,26 +154,42 @@ import quoteById from '../../../pages/api/quotes/[id]';
 
 type Handler = (req: NextApiRequest, res: NextApiResponse) => Promise<unknown>;
 
-async function call(handler: Handler, method: string, query: Record<string, string> = {}, body: unknown = {}) {
+async function call(
+  handler: Handler,
+  method: string,
+  query: Record<string, string> = {},
+  body: unknown = {},
+  headers: Record<string, string> = {}
+) {
   const res: any = { statusCode: 0, body: undefined };
   res.status = (code: number) => ((res.statusCode = code), res);
   res.json = (b: unknown) => ((res.body = b), res);
   res.end = () => res;
   res.setHeader = () => res;
-  await handler({ method, query, headers: {}, cookies: {}, body } as unknown as NextApiRequest, res);
+  await handler({ method, query, headers, cookies: {}, body } as unknown as NextApiRequest, res);
   return res;
 }
 
 const QUOTE_BODY = { client_name: 'Cliente', arrival_date: '2027-01-10', departure_date: '2027-01-20', room_type: 'double', selected_programs: ['p-1'], num_pasantes: 1 };
 
 const ROUTES: Array<[string, Handler, string, Record<string, string>, unknown]> = [
-  ['assignment-matrix/group-assignments', groupAssignments, 'GET', { groupType: 'community', groupId: 'c-1' }, {}],
-  ['assignment-matrix/audit-log', auditLog, 'GET', {}, {}],
+  ['assignment-matrix/group-assignments', groupAssignments, 'GET', { groupType: 'community', groupId: COMMUNITY_A }, {}],
+  ['assignment-matrix/audit-log', auditLog, 'GET', { contentType: 'course', contentId: COMMUNITY_A }, {}],
   ['assignment-matrix/content-stats', contentStats, 'GET', {}, {}],
   ['quotes/createV2', createQuote, 'POST', {}, QUOTE_BODY],
   ['quotes/[id] PUT', quoteById, 'PUT', { id: 'q-victim' }, { client_name: 'X' }],
   ['quotes/[id] DELETE', quoteById, 'DELETE', { id: 'q-victim' }, {}],
 ];
+
+/** A verified admin's exact success: status and payload keys. */
+const ADMIN_SUCCESS: Record<string, [number, string[]]> = {
+  'assignment-matrix/group-assignments': [200, ['group', 'commonAssignments', 'stats']],
+  'assignment-matrix/audit-log': [200, ['logs', 'total', 'page']],
+  'assignment-matrix/content-stats': [200, ['courses', 'page', 'pageSize']],
+  'quotes/createV2': [200, ['success', 'quote', 'share_url']],
+  'quotes/[id] PUT': [200, ['success', 'quote']],
+  'quotes/[id] DELETE': [200, ['success']],
+};
 
 const askedIds = () =>
   serviceLog.flatMap((e) => e.ops.filter(([op, col]) => op === 'eq' && (col === 'user_id' || col === 'id')).map(([, , v]) => v));
@@ -147,6 +203,8 @@ beforeEach(() => {
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-key';
   serviceLog.length = 0;
   verifiedUser = null;
+  cookiePresent = true;
+  MUST_CHANGE.clear();
   vi.spyOn(console, 'log').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
   vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -179,7 +237,9 @@ describe("a cookie naming an admin's id does not lend the admin's access", () =>
   it.each(ROUTES)('%s: a verified admin is looked up as themselves, never as the cookie user', async (_n, handler, method, query, body) => {
     verifiedUser = { id: ADMIN };
     const res = await call(handler, method, query, body);
-    expect([401, 403]).not.toContain(res.statusCode);
+    const [status, keys] = ADMIN_SUCCESS[_n];
+    expect(res.statusCode).toBe(status);
+    expect(Object.keys(res.body ?? {})).toEqual(expect.arrayContaining(keys));
     expect(askedIds()).toContain(ADMIN);
     expect(askedIds().filter((v) => v === VICTIM)).toEqual([]);
   });
@@ -218,5 +278,74 @@ describe('quote ownership is decided by the verified caller', () => {
     await call(createQuote, 'POST', {}, QUOTE_BODY);
     const insert = writes().find(([t, o]) => t === 'pasantias_quotes' && o === 'insert');
     expect(insert?.[2]).toMatchObject({ created_by: CONSULTOR, updated_by: CONSULTOR });
+  });
+});
+
+describe('a consultor reads only the scope of their consultor role', () => {
+  it.each([
+    ['school', String(SCHOOL_A), 200],
+    ['community', COMMUNITY_A, 200],
+    ['school', String(SCHOOL_B), 403],
+    ['community', COMMUNITY_B, 403],
+  ])('group-assignments %s %s → %i', async (groupType, groupId, status) => {
+    verifiedUser = { id: CONSULTOR };
+    const res = await call(groupAssignments, 'GET', { groupType, groupId });
+    expect(res.statusCode).toBe(status);
+    if (status === 403) {
+      // Refused before any member or enrolment read.
+      expect(serviceLog.filter((e) => e.table === 'course_enrollments')).toEqual([]);
+      expect(serviceLog.filter((e) => e.table === 'user_roles' && eqValue(e.ops, 'user_id') === undefined)).toEqual([]);
+    }
+  });
+});
+
+describe('quote edits cannot set protected columns', () => {
+  it('drops quote_number, attribution and lifecycle timestamps from a PUT', async () => {
+    verifiedUser = { id: CONSULTOR };
+    const res = await call(quoteById, 'PUT', { id: 'q-consultor' }, {
+      client_name: 'Nuevo',
+      status: 'sent',
+      quote_number: 1,
+      created_by: VICTIM,
+      updated_by: VICTIM,
+      viewed_at: '2026-01-01T00:00:00Z',
+      accepted_at: '2026-01-01T00:00:00Z',
+      created_at: '2020-01-01T00:00:00Z',
+      id: 'q-other',
+      nights: 99,
+      groups: [{ name: 'g' }],
+    });
+    expect(res.statusCode).toBe(200);
+    const update = writes().find(([t, o]) => t === 'pasantias_quotes' && o === 'update')?.[2] as Record<string, unknown>;
+    expect(update).toMatchObject({ client_name: 'Nuevo', status: 'sent', updated_by: CONSULTOR });
+    for (const k of ['quote_number', 'created_by', 'viewed_at', 'accepted_at', 'created_at', 'id', 'nights', 'groups']) {
+      expect(update).not.toHaveProperty(k);
+    }
+  });
+});
+
+describe('inactive roles, the password gate and Bearer callers', () => {
+  it.each(ROUTES)('%s: an inactive admin row grants nothing', async (_n, handler, method, query, body) => {
+    verifiedUser = { id: ATTACKER }; // holds only an inactive admin row
+    const res = await call(handler, method, query, body);
+    expect(res.statusCode).toBe(403);
+    expect(writes()).toEqual([]);
+  });
+
+  it.each(ROUTES)('%s: an admin who must change their password is held before any role read', async (_n, handler, method, query, body) => {
+    verifiedUser = { id: ADMIN };
+    MUST_CHANGE.add(ADMIN);
+    const res = await call(handler, method, query, body);
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toMatchObject({ code: 'PASSWORD_CHANGE_REQUIRED' });
+    expect(serviceLog.filter((e) => e.table !== 'profiles')).toEqual([]);
+  });
+
+  it.each(ROUTES)('%s: a verified Bearer admin with no cookie succeeds', async (_n, handler, method, query, body) => {
+    cookiePresent = false;
+    verifiedUser = { id: ADMIN };
+    const res = await call(handler, method, query, body, { authorization: `Bearer ${BEARER_TOKEN}` });
+    expect(res.statusCode).toBe(ADMIN_SUCCESS[_n][0]);
+    expect(askedIds()).toContain(ADMIN);
   });
 });

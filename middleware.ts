@@ -1,4 +1,5 @@
 import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
+import { isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import {
@@ -12,6 +13,27 @@ import {
   requiresSessionPresence,
   verdictFromProfile,
 } from './lib/auth/forced-password-change';
+
+/** W-B10c-01b: what a gated API answers when the auth server rejects the cookie's token. */
+const INVALID_SESSION_API_BODY = {
+  error: 'Tu sesión no es válida. Inicia sesión nuevamente.',
+  code: 'SESSION_INVALID',
+};
+
+/**
+ * Supabase auth cookies: `sb-<ref>-auth-token`, chunked as `.0`, `.1`, … when
+ * the session is large. Only these are expired; nothing else the browser holds.
+ */
+const AUTH_COOKIE_PATTERN = /^sb-.+-auth-token(\.\d+)?$/;
+
+function expireAuthCookies(req: NextRequest, response: NextResponse): NextResponse {
+  for (const { name } of req.cookies.getAll()) {
+    if (AUTH_COOKIE_PATTERN.test(name)) {
+      response.cookies.set(name, '', { path: '/', maxAge: 0 });
+    }
+  }
+  return response;
+}
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
@@ -35,20 +57,50 @@ export async function middleware(req: NextRequest) {
   // so a lower-role caller could pair their own valid token with a cookie that
   // names an admin and have the role lookups below run for the admin's id. The
   // identity used for every decision comes from the auth server instead, as in
-  // lib/api-auth.ts. Any verification failure is treated exactly like having no
-  // session: never fall back to the cookie's user.
+  // lib/api-auth.ts. Never fall back to the cookie's user.
   let userId: string | null = null;
+  let invalidSession = false;
   if (session) {
     const { data: { user }, error: userError } = await supabase.auth.getUser(
       session.access_token
     );
     if (!userError && user) {
       userId = user.id;
+    } else if (isAuthRetryableFetchError(userError)) {
+      // The auth server could not be reached, so we cannot tell who this is.
+      // Same fail-closed answer as an unreadable forced-change flag: the retry
+      // panel for pages, 503 for APIs. The cookie is kept — it may be fine.
+      console.error('[middleware] session verification unavailable', {
+        pathname,
+        error: userError?.message,
+      });
+      if (isApiPath(pathname)) {
+        return new NextResponse(JSON.stringify(forcedChangeApiBody('unavailable')), {
+          status: forcedChangeApiStatus('unavailable'),
+          headers: { 'content-type': 'application/json; charset=utf-8' },
+        });
+      }
+      return NextResponse.redirect(new URL(forcedChangeRedirectPath('unavailable'), req.url));
     } else {
+      // The auth server rejects the token: a forged, revoked or otherwise dead
+      // cookie. APIs refuse it outright — falling through as anonymous would let
+      // a route that still reads the cookie's user act on it. Pages treat the
+      // caller as signed out AND expire the cookie, otherwise the login page
+      // would see the leftover session and bounce straight back here.
       console.warn('[middleware] session verification failed', {
         pathname,
         error: (userError as { message?: string } | null)?.message ?? 'no user',
       });
+      if (isApiPath(pathname)) {
+        return expireAuthCookies(
+          req,
+          new NextResponse(JSON.stringify(INVALID_SESSION_API_BODY), {
+            status: 401,
+            headers: { 'content-type': 'application/json; charset=utf-8' },
+          })
+        );
+      }
+      invalidSession = true;
     }
   }
 
@@ -68,12 +120,13 @@ export async function middleware(req: NextRequest) {
   // a logged-out visitor sees changes anywhere in this commit.
   if (!userId) {
     if (!requiresSessionPresence(pathname)) {
-      return res;
+      return invalidSession ? expireAuthCookies(req, res) : res;
     }
     const destination = `${pathname}${req.nextUrl.search}`;
-    return NextResponse.redirect(
+    const toLogin = NextResponse.redirect(
       new URL(`/login?next=${encodeURIComponent(destination)}`, req.url)
     );
+    return invalidSession ? expireAuthCookies(req, toLogin) : toLogin;
   }
 
   // --- S4 STEP 1: forced password change --------------------------------------

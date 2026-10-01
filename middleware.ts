@@ -30,6 +30,28 @@ export async function middleware(req: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession();
 
+  // W-B10c-01b: the cookie supplies only the access token. Its stored `user` is
+  // client-controlled (auth-helpers accepts a legacy JSON session object as-is),
+  // so a lower-role caller could pair their own valid token with a cookie that
+  // names an admin and have the role lookups below run for the admin's id. The
+  // identity used for every decision comes from the auth server instead, as in
+  // lib/api-auth.ts. Any verification failure is treated exactly like having no
+  // session: never fall back to the cookie's user.
+  let userId: string | null = null;
+  if (session) {
+    const { data: { user }, error: userError } = await supabase.auth.getUser(
+      session.access_token
+    );
+    if (!userError && user) {
+      userId = user.id;
+    } else {
+      console.warn('[middleware] session verification failed', {
+        pathname,
+        error: (userError as { message?: string } | null)?.message ?? 'no user',
+      });
+    }
+  }
+
   // No session → login, carrying the destination so a deep link survives the
   // bounce instead of dumping everyone on /dashboard. The value is echoed back
   // by an attacker-controllable URL, so the login page runs it through
@@ -44,7 +66,7 @@ export async function middleware(req: NextRequest) {
   // five. Every prefix added for the forced-change gate keeps exactly the
   // anonymous behaviour it had before (client-side gating, or public). Nothing
   // a logged-out visitor sees changes anywhere in this commit.
-  if (!session) {
+  if (!userId) {
     if (!requiresSessionPresence(pathname)) {
       return res;
     }
@@ -87,7 +109,7 @@ export async function middleware(req: NextRequest) {
     if (verdict !== 'allowed') {
       if (error) {
         console.error('[middleware] could not read must_change_password', {
-          user_id: session.user.id,
+          user_id: userId,
           pathname,
           error: (error as { message?: string })?.message ?? String(error),
         });
@@ -128,7 +150,7 @@ export async function middleware(req: NextRequest) {
     const { data: userRoles } = await supabase
       .from('user_roles')
       .select('role_type, community_id')
-      .eq('user_id', session.user.id)
+      .eq('user_id', userId)
       .eq('is_active', true);
 
     const roles = userRoles?.map(r => r.role_type) || [];
@@ -173,7 +195,7 @@ export async function middleware(req: NextRequest) {
     const { data: userRoles } = await supabase
       .from('user_roles')
       .select('role_type, community_id')
-      .eq('user_id', session.user.id)
+      .eq('user_id', userId)
       .eq('is_active', true);
 
     const roles = userRoles?.map(r => r.role_type) || [];
@@ -205,7 +227,7 @@ export async function middleware(req: NextRequest) {
       const { data: userRoles } = await supabase
         .from('user_roles')
         .select('role_type, school_id')
-        .eq('user_id', session.user.id)
+        .eq('user_id', userId)
         .eq('is_active', true);
 
       const roles = userRoles?.map(r => r.role_type) || [];

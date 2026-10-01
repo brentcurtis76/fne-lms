@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
 import { readClientSchoolScope } from '../../../lib/simulation/tenant-policy';
+import { requireVerifiedCaller } from '@/lib/api-auth';
 
 /**
  * GET /api/admin/transformation-assessments
@@ -18,15 +19,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const supabase = createPagesServerClient({ req, res });
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) {
-    return res.status(401).json({ error: 'No autorizado' });
+  // Identity comes from the auth server; the cookie's stored `user` is
+  // client-controlled (SM-B015).
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) {
+    return res.status(caller.status).json(caller.body);
   }
 
-  const userId = session.user.id;
+  const userId = caller.user.id;
 
   // Check if user is admin or consultor
   const { data: userRoles, error: rolesError } = await supabase

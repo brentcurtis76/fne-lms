@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { requireVerifiedCaller } from '@/lib/api-auth';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import {
   hasTransformationAccess,
@@ -13,12 +14,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const supabase = createPagesServerClient({ req, res });
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) {
-    return res.status(401).json({ error: 'No autorizado' });
+  // Identity comes from the auth server; the cookie's stored `user` is
+  // client-controlled (SM-B015).
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) {
+    return res.status(caller.status).json(caller.body);
   }
 
   // Validate required fields
@@ -61,15 +61,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (!hasAccess) {
     // If user is admin, auto-assign access; otherwise, deny
-    const isAdmin = await isUserAdmin(supabase, session.user.id);
+    const isAdmin = await isUserAdmin(supabase, caller.user.id);
 
     if (isAdmin) {
-      console.log('[transformation/create-assessment] Auto-assigning transformation access for admin:', session.user.id);
+      console.log('[transformation/create-assessment] Auto-assigning transformation access for admin:', caller.user.id);
 
       const assignResult = await assignTransformationAccess(
         supabase,
         communityId,
-        session.user.id,
+        caller.user.id,
         'Auto-asignado al crear primer assessment'
       );
 
@@ -97,7 +97,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       growth_community_id: communityId,
       area,
       status: 'in_progress',
-      created_by: session.user.id,
+      created_by: caller.user.id,
       started_at: now,
       updated_at: now,
     })

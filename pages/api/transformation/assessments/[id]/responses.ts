@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { requireVerifiedCaller } from '@/lib/api-auth';
 
 /**
  * PUT /api/transformation/assessments/[id]/responses
@@ -23,12 +24,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === 'GET') {
     // GET: Load saved responses
     const supabase = createPagesServerClient({ req, res });
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
-      return res.status(401).json({ error: 'No autorizado' });
+    // Identity comes from the auth server; the cookie's stored `user` is
+    // client-controlled (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
 
     if (!id || typeof id !== 'string') {
@@ -53,12 +53,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === 'PUT') {
     // PUT: Save responses
     const supabase = createPagesServerClient({ req, res });
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
-      return res.status(401).json({ error: 'No autorizado' });
+    // Identity comes from the auth server; the cookie's stored `user` is
+    // client-controlled (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
 
     // Validate UUID format

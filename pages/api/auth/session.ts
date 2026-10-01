@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { getApiUser } from '../../../lib/api-auth';
 
 /**
  * API endpoint to get current session information
@@ -11,30 +11,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Create Supabase client with session from cookies
-    const supabase = createPagesServerClient({ req, res });
-    
-    // Get current session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError) {
-      console.error('[session API] Error getting session:', sessionError.message);
-      return res.status(401).json({ error: 'Session error', user: null });
-    }
+    // The user comes from the auth server (cookie token or Bearer), never
+    // from the cookie's stored `user`, which is client-controlled (SM-B015).
+    // No forced-password gate: /change-password relies on this route.
+    const { user, error } = await getApiUser(req, res);
 
-    if (!session?.user) {
-      console.log('[session API] No active session');
+    if (error || !user) {
       return res.status(200).json({ user: null });
     }
 
-    console.log('[session API] Found session for user:', session.user.id);
-    
     // Return user information
     return res.status(200).json({
       user: {
-        id: session.user.id,
-        email: session.user.email,
-        user_metadata: session.user.user_metadata
+        id: user.id,
+        email: user.email,
+        user_metadata: user.user_metadata
       }
     });
 

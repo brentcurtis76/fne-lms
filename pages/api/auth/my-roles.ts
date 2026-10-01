@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { requireVerifiedCaller } from '@/lib/api-auth';
 import { createClient } from '@supabase/supabase-js';
 import { rolePriorityIndex } from '../../../utils/roleUtils';
 
@@ -16,38 +16,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    let userId: string;
-
-    // Check for Bearer token in Authorization header first
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.replace('Bearer ', '');
-      const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
-      const { data: { user }, error } = await supabaseService.auth.getUser(token);
-
-      if (error || !user) {
-        console.log('[my-roles API] Bearer token auth failed:', error?.message);
-        return res.status(401).json({ error: 'No autorizado' });
-      }
-
-      userId = user.id;
-      console.log('[my-roles API] User authenticated via Bearer:', { userId, email: user.email });
-    } else {
-      // Fall back to session-based auth
-      const supabaseClient = createPagesServerClient({ req, res });
-      const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
-
-      if (sessionError || !session) {
-        console.log('[my-roles API] Session check failed:', {
-          error: sessionError?.message,
-          hasSession: !!session
-        });
-        return res.status(401).json({ error: 'No autorizado' });
-      }
-
-      userId = session.user.id;
-      console.log('[my-roles API] User authenticated via session:', { userId, email: session.user.email });
+    // Cookie or Bearer, verified with the auth server, plus the
+    // forced-password gate (this route is behind it). The cookie's stored
+    // `user` is client-controlled and never used (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
+    const userId = caller.user.id;
 
     // Use service role to bypass RLS
     const supabaseService = createClient(supabaseUrl, supabaseServiceKey);

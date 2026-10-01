@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
+import { requireVerifiedCaller } from '@/lib/api-auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -7,16 +8,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const supabase = createServerSupabaseClient({ req, res });
-  const { data: { session } } = await supabase.auth.getSession();
-
-  if (!session) {
-    return res.status(401).json({ error: 'Not authenticated' });
+  // Identity comes from the auth server; the cookie's stored `user` is
+  // client-controlled (SM-B015).
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) {
+    return res.status(caller.status).json(caller.body);
   }
 
   const tests = {
     user: {
-      id: session.user.id,
-      email: session.user.email
+      id: caller.user.id,
+      email: caller.user.email
     },
     results: {}
   };
@@ -26,7 +28,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: profile } = await supabase
       .from('profiles')
       .select('role, name')
-      .eq('id', session.user.id)
+      .eq('id', caller.user.id)
       .single();
 
     tests.results['userRole'] = {
@@ -44,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const userAssignments = assignments?.filter(a => {
       if (!a.group_assignments) return false;
       return a.group_assignments.some((g: any) => 
-        g.members.some((m: any) => m.user_id === session.user.id)
+        g.members.some((m: any) => m.user_id === caller.user.id)
       );
     }) || [];
 
@@ -56,7 +58,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         title: a.title,
         groups: a.group_assignments?.map((g: any) => ({
           name: g.group_name,
-          isUserMember: g.members.some((m: any) => m.user_id === session.user.id),
+          isUserMember: g.members.some((m: any) => m.user_id === caller.user.id),
           hasSubmission: !!g.submission
         }))
       }))
@@ -72,7 +74,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           title
         )
       `)
-      .eq('user_id', session.user.id)
+      .eq('user_id', caller.user.id)
       .eq('status', 'enrolled');
 
     tests.results['enrolledCourses'] = {

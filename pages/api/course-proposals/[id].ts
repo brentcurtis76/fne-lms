@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { requireVerifiedRole } from '../../../lib/api-auth';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -23,44 +23,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   return res.status(405).json({ error: 'Método no permitido' });
 }
 
-// Helper to check if user has admin or consultor role
-async function hasAdminOrConsultorRole(
-  session: any,
-  supabaseAdmin: any
-): Promise<boolean> {
-  const userRoles = session.user?.user_metadata?.roles || [];
-  if (userRoles.includes('admin') || userRoles.includes('consultor')) {
-    return true;
-  }
-
-  const { data: roles } = await supabaseAdmin
-    .from('user_roles')
-    .select('role_type')
-    .eq('user_id', session.user.id)
-    .in('role_type', ['admin', 'consultor'])
-    .eq('is_active', true)
-    .limit(1);
-
-  return roles && roles.length > 0;
-}
-
 // PUT: Update a course proposal (only owner can update)
 async function handlePut(req: NextApiRequest, res: NextApiResponse, id: string) {
   try {
-    const supabaseClient = createPagesServerClient({ req, res });
-    const { data: { session } } = await supabaseClient.auth.getSession();
-
-    if (!session) {
+    // Verified caller with an active admin or consultor role. Never
+    // `user_metadata`: a signed-in user can write their own metadata.
+    const auth = await requireVerifiedRole(req, res, ['admin', 'consultor']);
+    if (auth.status === 401) {
       return res.status(401).json({ error: 'No autorizado' });
     }
-
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Check if user has admin or consultor role
-    const hasAccess = await hasAdminOrConsultorRole(session, supabaseAdmin);
-    if (!hasAccess) {
+    if (auth.status === 403) {
       return res.status(403).json({ error: 'Solo administradores y consultores pueden editar propuestas' });
     }
+    if (auth.status === 500) {
+      return res.status(500).json({ error: 'Error del servidor' });
+    }
+    const caller = auth.user;
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     // Check if user owns this proposal
     const { data: existing } = await supabaseAdmin
@@ -73,7 +53,7 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, id: string) 
       return res.status(404).json({ error: 'Propuesta no encontrada' });
     }
 
-    if (existing.created_by !== session.user.id) {
+    if (existing.created_by !== caller.id) {
       return res.status(403).json({ error: 'Solo puedes editar tus propias propuestas' });
     }
 
@@ -149,20 +129,21 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, id: string) 
 // DELETE: Delete a course proposal (only owner can delete)
 async function handleDelete(req: NextApiRequest, res: NextApiResponse, id: string) {
   try {
-    const supabaseClient = createPagesServerClient({ req, res });
-    const { data: { session } } = await supabaseClient.auth.getSession();
-
-    if (!session) {
+    // Verified caller with an active admin or consultor role. Never
+    // `user_metadata`: a signed-in user can write their own metadata.
+    const auth = await requireVerifiedRole(req, res, ['admin', 'consultor']);
+    if (auth.status === 401) {
       return res.status(401).json({ error: 'No autorizado' });
     }
-
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Check if user has admin or consultor role
-    const hasAccess = await hasAdminOrConsultorRole(session, supabaseAdmin);
-    if (!hasAccess) {
+    if (auth.status === 403) {
       return res.status(403).json({ error: 'Solo administradores y consultores pueden eliminar propuestas' });
     }
+    if (auth.status === 500) {
+      return res.status(500).json({ error: 'Error del servidor' });
+    }
+    const caller = auth.user;
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     // Check if user owns this proposal
     const { data: existing } = await supabaseAdmin
@@ -175,7 +156,7 @@ async function handleDelete(req: NextApiRequest, res: NextApiResponse, id: strin
       return res.status(404).json({ error: 'Propuesta no encontrada' });
     }
 
-    if (existing.created_by !== session.user.id) {
+    if (existing.created_by !== caller.id) {
       return res.status(403).json({ error: 'Solo puedes eliminar tus propias propuestas' });
     }
 

@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import {
   AuthResult,
   AdminAuthResult,
@@ -257,6 +257,40 @@ export async function checkIsAdminOrEquipoDirectivo(
       error: error instanceof Error ? error : new Error('Authorization check failed')
     };
   }
+}
+
+// Verified caller + an active `user_roles` row of one of `roles`.
+//
+// The identity comes from getApiUser() (verified with the auth server), and the
+// role from the database through the service client. It deliberately never
+// consults `user_metadata`: a signed-in user can write their own metadata
+// (`supabase.auth.updateUser({ data })`), so `user_metadata.roles` is caller
+// input, not authority.
+//
+//   status 401 — no verified caller
+//   status 403 — verified, but no active role of the requested kinds
+//   status 500 — the role lookup failed (fail closed)
+export async function requireVerifiedRole(
+  req: NextApiRequest,
+  res: NextApiResponse,
+  roles: readonly string[]
+): Promise<{ user: User; status: null } | { user: null; status: 401 | 403 | 500 }> {
+  const { user, error } = await getApiUser(req, res);
+  if (error || !user) {
+    return { user: null, status: 401 };
+  }
+  const { data, error: roleError } = await createServiceRoleClient()
+    .from('user_roles')
+    .select('role_type')
+    .eq('user_id', user.id)
+    .in('role_type', [...roles])
+    .eq('is_active', true)
+    .limit(1);
+  if (roleError) {
+    console.error('[API Auth] Role lookup failed:', roleError.message);
+    return { user: null, status: 500 };
+  }
+  return data && data.length > 0 ? { user, status: null } : { user: null, status: 403 };
 }
 
 // Standard error response with logging. Despite the name, this is the

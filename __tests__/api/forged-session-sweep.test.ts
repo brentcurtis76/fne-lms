@@ -24,6 +24,12 @@ const BEARER_TOKEN = 'caller-bearer-token';
 /** Mixed credentials: the cookie's token is VICTIM's real token, the Bearer is PLAIN's. */
 let mixed = false;
 const clientTags: string[] = [];
+/** Rows of transformation_assessments visible to each principal (by client tag). */
+const ASSESSMENTS_BY_CLIENT: Record<string, unknown> = {
+  bearer: { context_metadata: { responses: { q1: { response: 'respuesta de PLAIN' } } } },
+  cookie: { context_metadata: { responses: { q1: { response: 'respuesta de VICTIM' } } } },
+};
+const forwardedAuth: string[] = [];
 
 const ROLE_ROWS = [{ id: 'r-1', user_id: VICTIM, role_type: 'admin', school_id: null, is_active: true }];
 
@@ -45,6 +51,9 @@ function chain(table: string, tag = 'service') {
         })
       );
       return { data: mode === 'one' ? rows[0] ?? null : rows, error: null };
+    }
+    if (table === 'transformation_assessments' && tag !== 'service') {
+      return { data: mode === 'one' ? ASSESSMENTS_BY_CLIENT[tag] ?? null : [], error: null };
     }
     if (table === 'profiles') {
       const id = entry.ops.find(([op, col]) => op === 'eq' && col === 'id')?.[2];
@@ -96,6 +105,7 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn((_url: string, _key: string, opts?: { global?: { headers?: Record<string, string> } }) => {
     // createApiSupabaseClient's Bearer client carries the caller's JWT.
     const tag = opts?.global?.headers?.Authorization ? 'bearer' : 'service';
+    if (opts?.global?.headers?.Authorization) forwardedAuth.push(opts.global.headers.Authorization);
     return {
       auth: {
         getUser: vi.fn(async (token?: string) =>
@@ -165,6 +175,7 @@ beforeEach(() => {
   process.env.ZOOM_DIAG_MEETING_IDS = '90210042001';
   log.length = 0;
   clientTags.length = 0;
+  forwardedAuth.length = 0;
   mixed = false;
   verifiedUser = null;
   for (const m of ['log', 'error', 'warn', 'info', 'debug'] as const) vi.spyOn(console, m).mockImplementation(() => {});
@@ -261,5 +272,26 @@ describe('one credential per request', () => {
     await call(handler, method, query, body, { authorization: `Bearer ${BEARER_TOKEN}` });
     expect(clientTags).not.toContain('cookie');
     expect(JSON.stringify(log)).not.toContain(VICTIM);
+  });
+});
+
+describe('transformation/assessments/[id]/responses GET with mixed credentials', () => {
+  const X = '33333333-3333-4333-8333-333333333333';
+
+  it("returns the Bearer user's data, read with the Bearer token, never the cookie user's", async () => {
+    mixed = true;
+    verifiedUser = { id: PLAIN };
+    const res = await call(responses, 'GET', { id: X }, {}, { authorization: `Bearer ${BEARER_TOKEN}` });
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ responses: { q1: { response: 'respuesta de PLAIN' } } });
+    expect(forwardedAuth).toEqual([`Bearer ${BEARER_TOKEN}`]);
+    expect(clientTags).not.toContain('cookie');
+  });
+
+  it('a Bearer-only caller (no cookie) is served as themselves', async () => {
+    verifiedUser = { id: PLAIN };
+    const res = await call(responses, 'GET', { id: X }, {}, { authorization: `Bearer ${BEARER_TOKEN}` });
+    expect(res.statusCode).toBe(200);
+    expect(JSON.stringify(res.body)).toContain('respuesta de PLAIN');
   });
 });

@@ -46,6 +46,15 @@ function code(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 }
 
+/** Same length, string contents replaced by spaces: for finding braces only. */
+function blankStrings(source: string): string {
+  const blank = (m: string) => m[0] + ' '.repeat(m.length - 2) + m[m.length - 1];
+  return source
+    .replace(/'(?:\\.|[^'\\\n])*'/g, blank)
+    .replace(/"(?:\\.|[^"\\\n])*"/g, blank)
+    .replace(/`(?:\\.|[^`\\])*`/g, blank);
+}
+
 /** `session.user`, `session?.user`, `data.session.user`, and `const { user } = session`. */
 const READS_SESSION_USER = /\bsession\s*\??\.\s*user\b|\{[^{}]*\buser\b[^{}]*\}\s*=\s*(?:[\w$.?]*\.)?session\b/;
 /** Any reference to getSession: `.getSession(`, `['getSession'](`, aliases. */
@@ -53,10 +62,11 @@ const CALLS_GET_SESSION = /\bgetSession\b/;
 
 /** Brace-matched block starting at `open` (index of a `{`). */
 function blockAt(source: string, open: number): string {
+  const scan = blankStrings(source);
   let depth = 0;
-  for (let i = open; i < source.length; i++) {
-    if (source[i] === '{') depth++;
-    else if (source[i] === '}') {
+  for (let i = open; i < scan.length; i++) {
+    if (scan[i] === '{') depth++;
+    else if (scan[i] === '}') {
       depth--;
       if (depth === 0) return source.slice(open, i + 1);
     }
@@ -74,12 +84,15 @@ function blockAt(source: string, open: number): string {
  */
 function getServerSidePropsBody(source: string): string | null {
   const alias = source.match(/export\s*\{[^}]*\b(\w+)\s+as\s+getServerSideProps\b[^}]*\}/);
+  const bare = /export\s*\{[^}]*\bgetServerSideProps\b[^}]*\}/.test(source);
   const exported = /export\s+(?:const|let|var|async\s+function|function)\s+getServerSideProps\b/.test(source);
-  if (!alias && !exported) return null;
+  if (!alias && !bare && !exported) return null;
   const name = alias ? alias[1] : 'getServerSideProps';
   const fn = new RegExp(`function\\s+${name}\\s*\\(`).exec(source);
   if (fn) {
     const paramsEnd = source.indexOf(')', fn.index);
+    // A return-type annotation has braces of its own: scan the whole file.
+    if (/^\s*:/.test(source.slice(paramsEnd + 1))) return source;
     const open = source.indexOf('{', paramsEnd);
     if (open > -1) return blockAt(source, open);
   }
@@ -159,6 +172,15 @@ describe('the guard itself', () => {
 
     const aliasedFn = 'async function load(ctx) {\n  await x.auth.getSession();\n}\nexport { load as getServerSideProps };';
     expect(getServerSidePropsBody(aliasedFn)).toContain('getSession');
+
+    const bareExport = 'async function getServerSideProps(ctx) {\n  await x.auth.getSession();\n}\nexport { getServerSideProps };';
+    expect(getServerSidePropsBody(bareExport)).toContain('getSession');
+
+    const typed = 'export async function getServerSideProps(ctx): Promise<{ props: any }> {\n  await x.auth.getSession();\n  return { props: {} };\n}';
+    expect(CALLS_GET_SESSION.test(getServerSidePropsBody(code(typed)) ?? '')).toBe(true);
+
+    const braceInString = 'export const getServerSideProps = async (ctx) => {\n  const s = "}";\n  await x.auth.getSession();\n  return { props: {} };\n};';
+    expect(CALLS_GET_SESSION.test(getServerSidePropsBody(code(braceInString)) ?? '')).toBe(true);
 
     expect(getServerSidePropsBody('export default function Page() { x.auth.getSession(); }')).toBeNull();
   });

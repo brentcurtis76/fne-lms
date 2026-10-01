@@ -100,7 +100,7 @@ VALUES (pg_temp.uid('b10c_tester'), current_date, 60);
 SELECT tests.authenticate_as('b10c_outsider');
 SELECT is((SELECT n FROM pg_temp.visible() WHERE tbl = t), 0, 'before: outsider reads no ' || t || ' fixture row')
   FROM unnest(ARRAY['group_assignment_discussions','growth_community_transformation_access','modules','qa_tester_time_logs']) t;
-SELECT tests.clear_authentication();
+RESET ROLE;
 
 -- ----------------------------------------------------------------------------
 -- 2. Apply the artifact (as the database owner) — verbatim copy
@@ -218,9 +218,10 @@ SELECT throws_ok($$INSERT INTO public.group_assignment_discussions (assignment_i
 -- ----------------------------------------------------------------------------
 -- 3c. A flagged account still reads nothing: the guard is ANDed on top (1)
 -- ----------------------------------------------------------------------------
+RESET ROLE;
 SELECT tests.authenticate_as('b10c_flagged');
 SELECT is((SELECT sum(n)::int FROM pg_temp.visible()), 0, 'after: a must-change-password account still reads none of the four');
-SELECT tests.clear_authentication();
+RESET ROLE;
 
 -- ----------------------------------------------------------------------------
 -- 4. Idempotent: re-running a block changes nothing (2)

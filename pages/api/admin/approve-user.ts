@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 
-import { metadataHasRole } from '../../../utils/roleUtils';
+import { getForcedPasswordChangeVerdict, sendForcedPasswordChangeResponse } from '../../../lib/api-auth';
 
 // Create admin client with service role key for elevated permissions
 const supabaseAdmin = createClient(
@@ -41,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ error: 'Invalid authentication token' });
     }
 
-    // Check if user is admin by checking both metadata and profile
+    // Check the caller holds an active admin role
     const { data: adminRole } = await supabaseAdmin
       .from('user_roles')
       .select('*')
@@ -51,10 +51,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .limit(1)
       .maybeSingle();
 
-    const isAdminFromMetadata = metadataHasRole(user.user_metadata, 'admin');
-    const isAdminFromRoles = adminRole !== null;
+    // Bearer-only route: the middleware's forced-password gate never sees it.
+    const verdict = await getForcedPasswordChangeVerdict(supabaseAdmin, user.id);
+    if (sendForcedPasswordChangeResponse(res, verdict)) return;
 
-    if (!isAdminFromMetadata && !isAdminFromRoles) {
+    // The active user_roles row is the authority. user_metadata is NOT: the
+    // user can write it themselves (supabase.auth.updateUser).
+    if (adminRole === null) {
       return res.status(403).json({ error: 'Insufficient permissions. Admin access required.' });
     }
 

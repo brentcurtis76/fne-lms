@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { requireVerifiedRole } from '../../../lib/api-auth';
 import { createClient } from '@supabase/supabase-js';
 import { CreateCourseProposalInput } from '../../../types/course-proposals';
 
@@ -18,46 +18,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   return res.status(405).json({ error: 'Método no permitido' });
 }
 
-// Helper to check if user has admin or consultor role
-async function hasAdminOrConsultorRole(
-  session: any,
-  supabaseAdmin: any
-): Promise<boolean> {
-  // Check from metadata first
-  const userRoles = session.user?.user_metadata?.roles || [];
-  if (userRoles.includes('admin') || userRoles.includes('consultor')) {
-    return true;
-  }
-
-  // Fallback: check user_roles table
-  const { data: roles } = await supabaseAdmin
-    .from('user_roles')
-    .select('role_type')
-    .eq('user_id', session.user.id)
-    .in('role_type', ['admin', 'consultor'])
-    .eq('is_active', true)
-    .limit(1);
-
-  return roles && roles.length > 0;
-}
-
 // GET: List all course proposals (admin/consultor only)
 async function handleGet(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const supabaseClient = createPagesServerClient({ req, res });
-    const { data: { session } } = await supabaseClient.auth.getSession();
-
-    if (!session) {
-      return res.status(401).json({ error: 'No autorizado' });
+    // Verified caller with an active admin or consultor role. Never
+    // `user_metadata`: a signed-in user can write their own metadata.
+    const auth = await requireVerifiedRole(req, res, ['admin', 'consultor'], 'Solo administradores y consultores pueden ver propuestas');
+    if (!auth.user) {
+      return res.status(auth.status).json(auth.body);
     }
+    const caller = auth.user;
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Check if user has admin or consultor role
-    const hasAccess = await hasAdminOrConsultorRole(session, supabaseAdmin);
-    if (!hasAccess) {
-      return res.status(403).json({ error: 'Solo administradores y consultores pueden ver propuestas' });
-    }
 
     const { data, error } = await supabaseAdmin
       .from('course_proposals')
@@ -109,20 +81,15 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
 // POST: Create new course proposal (admin/consultor only)
 async function handlePost(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const supabaseClient = createPagesServerClient({ req, res });
-    const { data: { session } } = await supabaseClient.auth.getSession();
-
-    if (!session) {
-      return res.status(401).json({ error: 'No autorizado' });
+    // Verified caller with an active admin or consultor role. Never
+    // `user_metadata`: a signed-in user can write their own metadata.
+    const auth = await requireVerifiedRole(req, res, ['admin', 'consultor'], 'Solo administradores y consultores pueden crear propuestas');
+    if (!auth.user) {
+      return res.status(auth.status).json(auth.body);
     }
+    const caller = auth.user;
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Check if user has admin or consultor role
-    const hasAccess = await hasAdminOrConsultorRole(session, supabaseAdmin);
-    if (!hasAccess) {
-      return res.status(403).json({ error: 'Solo administradores y consultores pueden crear propuestas' });
-    }
 
     const {
       titulo,
@@ -154,7 +121,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
         competencias_desarrollar: competencias_desarrollar.trim(),
         tiempo_requerido_desarrollo: tiempo_requerido_desarrollo.trim(),
         necesita_ayuda_diseno_instruccional: necesita_ayuda_diseno_instruccional || false,
-        created_by: session.user.id,
+        created_by: caller.id,
         status: 'pending'
       })
       .select(`

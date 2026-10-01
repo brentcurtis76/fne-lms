@@ -1,8 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { supabase } from '../../../lib/supabase-wrapper';
 import { createClient } from '@supabase/supabase-js';
 
-import { metadataHasRole } from '../../../utils/roleUtils';
+import { requireVerifiedRole } from '../../../lib/api-auth';
 
 export interface NotificationType {
   id: string;
@@ -17,6 +16,7 @@ export interface NotificationTypesResponse {
   success: boolean;
   data?: NotificationType[];
   error?: string;
+  code?: string;
   totalCount?: number;
 }
 
@@ -33,42 +33,15 @@ export default async function handler(
   }
 
   try {
-    // Get the user's session to verify admin access
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized - No valid session'
-      });
+    // Verified caller (Bearer or cookie), forced-password gate, and an active
+    // admin user_roles row. Not user_metadata (user-writable) and not the
+    // legacy profiles.role column.
+    const auth = await requireVerifiedRole(req, res, ['admin'], 'Forbidden - Admin access required');
+    if (!auth.user) {
+      return res.status(auth.status).json({ success: false, ...auth.body });
     }
-
-    const token = authHeader.split(' ')[1];
-    
-    // Verify the user session
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      return res.status(401).json({
-        success: false,
-        error: 'Unauthorized - Invalid session'
-      });
-    }
-
-    // Check if user is admin
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    const isAdmin = metadataHasRole(user.user_metadata, 'admin') || profileData?.role === 'admin';
-    
-    if (!isAdmin) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden - Admin access required'
-      });
-    }
+    const user = auth.user;
+    const isAdmin = true;
 
     console.log('🔍 API: Starting notification types fetch...');
     console.log('🔍 API: User ID:', user.id);

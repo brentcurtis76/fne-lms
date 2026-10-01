@@ -2,7 +2,6 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
 import { RubricEvaluator } from '@/lib/transformation/evaluator';
-import { isAdmin } from '@/utils/getUserRoles';
 
 export const config = {
   api: {
@@ -54,6 +53,17 @@ export default async function handler(
     return res.status(401).json({ error: 'No autenticado' });
   }
 
+  // The cookie's stored user is client-controlled (auth-helpers returns a
+  // legacy JSON session object as-is). Resolve the caller with the auth server
+  // and use only that id below (SM-B015).
+  const {
+    data: { user: caller },
+    error: callerError,
+  } = await supabase.auth.getUser(session.access_token);
+  if (callerError || !caller) {
+    return res.status(401).json({ error: 'No autenticado' });
+  }
+
   const { id } = req.query;
 
   // Validate UUID format
@@ -81,15 +91,15 @@ export default async function handler(
 
     // Verify user has access to this community
     // Allow admins (global) OR users with an active role in this community
-    let userIsAdmin = isAdmin(session);
+    let userIsAdmin = false;
 
-    // If not admin from metadata, check user_roles table for admin role
+    // Check user_roles table for admin role
     // Use service role client to bypass RLS restrictions on user_roles
     if (!userIsAdmin) {
       const { data: adminRoles } = await supabaseAdmin
         .from('user_roles')
         .select('id')
-        .eq('user_id', session.user.id)
+        .eq('user_id', caller.id)
         .eq('role_type', 'admin')
         .eq('is_active', true)
         .limit(1);
@@ -111,7 +121,7 @@ export default async function handler(
         const { data: communityRole } = await supabaseAdmin
           .from('user_roles')
           .select('id')
-          .eq('user_id', session.user.id)
+          .eq('user_id', caller.id)
           .eq('community_id', assessmentCheck.growth_community_id)
           .eq('is_active', true)
           .maybeSingle();
@@ -127,7 +137,7 @@ export default async function handler(
         const { data: schoolRole } = await supabaseAdmin
           .from('user_roles')
           .select('id')
-          .eq('user_id', session.user.id)
+          .eq('user_id', caller.id)
           .eq('school_id', assessmentCheck.school_id)
           .eq('is_active', true)
           .maybeSingle();

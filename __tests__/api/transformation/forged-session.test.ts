@@ -23,6 +23,8 @@ const CREATOR = '11111111-1111-4111-8111-111111111111';
 const OUTSIDER = '22222222-2222-4222-8222-222222222222';
 const COLLEAGUE = '33333333-3333-4333-8333-333333333333';
 const X1 = '44444444-4444-4444-8444-444444444444';
+const X2 = '55555555-5555-4555-8555-555555555555'; // school 2, created by OUTSIDER
+const FAR_COLLABORATOR = '66666666-6666-4666-8666-666666666666'; // school 3, collaborates on X1
 const COOKIE_TOKEN = 'caller-own-valid-token';
 const BEARER_TOKEN = 'caller-bearer-token';
 const MUST_CHANGE = new Set<string>();
@@ -35,14 +37,17 @@ function resetRows() {
     { user_id: CREATOR, role_type: 'docente', school_id: 1, is_active: true },
     { user_id: COLLEAGUE, role_type: 'docente', school_id: 1, is_active: true },
     { user_id: OUTSIDER, role_type: 'docente', school_id: 2, is_active: true },
+    { user_id: FAR_COLLABORATOR, role_type: 'docente', school_id: 3, is_active: true },
   ];
   ROWS.transformation_assessments = [
     { id: X1, school_id: 1, created_by: CREATOR, area: 'evaluacion', status: 'in_progress', grades: [], context_metadata: {} },
+    { id: X2, school_id: 2, created_by: OUTSIDER, area: 'evaluacion', status: 'in_progress', grades: [], context_metadata: {} },
   ];
   ROWS.transformation_assessment_collaborators = [
     { assessment_id: X1, user_id: CREATOR, role: 'creator', can_edit: true },
+    { assessment_id: X1, user_id: FAR_COLLABORATOR, role: 'collaborator', can_edit: true },
   ];
-  ROWS.profiles = [CREATOR, OUTSIDER, COLLEAGUE].map((id) => ({ id, first_name: 'N', last_name: 'S', must_change_password: MUST_CHANGE.has(id) }));
+  ROWS.profiles = [CREATOR, OUTSIDER, COLLEAGUE, FAR_COLLABORATOR].map((id) => ({ id, first_name: 'N', last_name: 'S', must_change_password: MUST_CHANGE.has(id) }));
   ROWS.schools = [{ id: 1, name: 'Colegio 1' }, { id: 2, name: 'Colegio 2' }];
   ROWS.transformation_llm_usage = [];
 }
@@ -63,17 +68,18 @@ function matchRows(rows: Row[], ops: Op[]): Row[] {
   );
 }
 
-function answer(table: string, ops: Op[], mode: 'many' | 'one') {
+function answer(table: string, ops: Op[], mode: 'many' | 'one' | 'maybe') {
   const write = ops.find(([op]) => ['insert', 'upsert'].includes(op as string))?.[1];
   if (write) {
     const rows = (Array.isArray(write) ? write : [write]).map((r: Row) => (table === 'transformation_assessments' ? { id: 'x-new', ...r } : r));
-    return { data: mode === 'one' ? rows[0] : rows, error: null };
+    return { data: mode !== 'many' ? rows[0] : rows, error: null };
   }
   if (ops.some(([op]) => op === 'delete' || op === 'update')) {
     const rows = matchRows(ROWS[table] ?? [], ops);
-    return { data: mode === 'one' ? rows[0] ?? null : rows, error: null };
+    return { data: mode !== 'many' ? rows[0] ?? null : rows, error: null };
   }
   const rows = matchRows(ROWS[table] ?? [], ops);
+  if (mode === 'maybe') return { data: rows[0] ?? null, error: null };
   if (mode === 'one') return { data: rows[0] ?? null, error: rows[0] ? null : { code: 'PGRST116' } };
   return { data: rows, error: null, count: rows.length };
 }
@@ -82,14 +88,15 @@ function from(table: string, anon = false) {
   const entry = { table, ops: [] as Op[] };
   log.push(entry);
   // No cookie and no forwarded JWT: PostgREST runs as anon and sees nothing.
-  const resolve = (mode: 'many' | 'one') =>
-    anon ? { data: mode === 'one' ? null : [], error: null, count: 0 } : answer(table, entry.ops, mode);
+  const resolve = (mode: 'many' | 'one' | 'maybe') =>
+    anon ? { data: mode === 'many' ? [] : null, error: null, count: 0 } : answer(table, entry.ops, mode);
   const chain: any = new Proxy(
     {},
     {
       get(_t, prop: string) {
         if (prop === 'then') return (r: (v: unknown) => void) => r(resolve('many'));
-        if (prop === 'single' || prop === 'maybeSingle') return async () => resolve('one');
+        if (prop === 'single') return async () => resolve('one');
+        if (prop === 'maybeSingle') return async () => resolve('maybe');
         return (...args: unknown[]) => {
           entry.ops.push([prop, ...args]);
           return chain;
@@ -193,6 +200,7 @@ async function call(
 /** Routes gated on being X1's creator / collaborator / school member. */
 const GATED: Array<[string, Handler, string, Record<string, string>, unknown]> = [
   ['vias/[id] GET', assessmentById, 'GET', { id: X1 }, {}],
+  ['vias/[id]/collaborators GET', collaborators, 'GET', { id: X1 }, {}],
   ['vias/[id] PATCH', assessmentById, 'PATCH', { id: X1 }, { status: 'archived' }],
   ['vias/[id]/collaborators POST', collaborators, 'POST', { id: X1 }, { userIds: [COLLEAGUE] }],
   ['vias/[id]/collaborators DELETE', collaborators, 'DELETE', { id: X1 }, { userId: COLLEAGUE }],
@@ -274,7 +282,7 @@ describe('legitimate callers act as themselves', () => {
     verifiedUser = { id: OUTSIDER };
     const res = await call(assessments, 'GET');
     expect(res.statusCode).toBe(200);
-    expect(res.body.assessments).toEqual([]);
+    expect(res.body.assessments.map((a: { id: string }) => a.id)).toEqual([X2]);
     expect(askedUserIds()).not.toContain(CREATOR);
   });
 
@@ -311,9 +319,12 @@ describe('password gate and Bearer callers', () => {
   const OWN: Array<[string, Handler, string, Record<string, string>, unknown]> = [
     ['vias/[id] GET', assessmentById, 'GET', { id: X1 }, {}],
     ['vias/[id] PATCH', assessmentById, 'PATCH', { id: X1 }, { status: 'archived' }],
+    ['vias/[id]/collaborators GET', collaborators, 'GET', { id: X1 }, {}],
     ['vias/[id]/collaborators POST', collaborators, 'POST', { id: X1 }, { userIds: [COLLEAGUE] }],
+    ['vias/[id]/collaborators DELETE', collaborators, 'DELETE', { id: X1 }, { userId: FAR_COLLABORATOR }],
     ['vias/eligible-collaborators', eligibleCollaborators, 'GET', { schoolId: '1' }, {}],
     ['vias GET', assessments, 'GET', {}, {}],
+    ['vias POST', assessments, 'POST', {}, { schoolId: 1, area: 'evaluacion', grades: ['1B'] }],
     ['transformation/chat', chat, 'POST', {}, { assessmentId: X1, rubricItemId: 'r-1', userMessage: 'hola' }],
   ];
 
@@ -332,7 +343,56 @@ describe('password gate and Bearer callers', () => {
     cookiePresent = false;
     verifiedUser = { id: CREATOR };
     const res = await call(handler, method, query, body, { authorization: `Bearer ${BEARER_TOKEN}` });
+    expect(res.statusCode).toBe(handler === assessments && method === 'POST' ? 201 : 200);
+    // (The creator's own assessment needs no role lookup on collaborators GET.)
+    if (!(handler === collaborators && method === 'GET')) expect(askedUserIds()).toContain(CREATOR);
+  });
+});
+
+describe('assessment data is shown only to people who may read the assessment', () => {
+  it.each([
+    ['the creator', CREATOR],
+    ['a same-school member', COLLEAGUE],
+    ['a collaborator from another school', FAR_COLLABORATOR],
+  ])('collaborators GET: %s sees the list', async (_n, id) => {
+    verifiedUser = { id };
+    const res = await call(collaborators, 'GET', { id: X1 });
     expect(res.statusCode).toBe(200);
-    expect(askedUserIds()).toContain(CREATOR);
+    expect(res.body.collaborators.map((c: { id: string }) => c.id).sort()).toEqual([CREATOR, FAR_COLLABORATOR].sort());
+  });
+
+  it('eligible-collaborators with an assessment of another school is refused', async () => {
+    verifiedUser = { id: CREATOR };
+    const res = await call(eligibleCollaborators, 'GET', { schoolId: '1', assessmentId: X2 });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("eligible-collaborators accepts an assessment of the caller's own school", async () => {
+    ROWS.user_roles.push({ user_id: OUTSIDER, role_type: 'docente', school_id: 3, is_active: true });
+    ROWS.transformation_assessments.push({ id: 'x3', school_id: 3, created_by: COLLEAGUE });
+    // OUTSIDER belongs to school 3, so may read school-3 assessments: allowed.
+    verifiedUser = { id: OUTSIDER };
+    expect((await call(eligibleCollaborators, 'GET', { schoolId: '3', assessmentId: 'x3' })).statusCode).toBe(200);
+  });
+
+  it('eligible-collaborators leaves out existing collaborators of a readable assessment', async () => {
+    verifiedUser = { id: COLLEAGUE };
+    const res = await call(eligibleCollaborators, 'GET', { schoolId: '1', assessmentId: X1 });
+    expect(res.statusCode).toBe(200);
+    expect(JSON.stringify(res.body)).not.toContain(CREATOR);
+  });
+
+  it('removing oneself from an assessment one is not part of touches nothing', async () => {
+    verifiedUser = { id: OUTSIDER };
+    const res = await call(collaborators, 'DELETE', { id: X1 }, { userId: OUTSIDER });
+    expect(res.statusCode).toBe(404);
+    expect(writes()).toEqual([]);
+  });
+
+  it('a collaborator may remove themselves', async () => {
+    verifiedUser = { id: FAR_COLLABORATOR };
+    const res = await call(collaborators, 'DELETE', { id: X1 }, { userId: FAR_COLLABORATOR });
+    expect(res.statusCode).toBe(200);
+    expect(writes().some(([t, o]) => t === 'transformation_assessment_collaborators' && o === 'delete')).toBe(true);
   });
 });

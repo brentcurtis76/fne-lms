@@ -2,7 +2,7 @@
 
 - **Branch:** `fix/b10a-comp` (local only), base `fix/sm09-ci` at `2e119d117`, 4 commits (artifact+tests, Privacy sign-off record, pgTAP role-reset fix, round 1 answering Codex r0 APPROVED_WITH_NOTES).
 - **Authority:** Brent's decision `94d02887658014cb` (2026-09-30, recommendation): "a narrowly scoped plan revision for a dated compensation artifact outside auto-applied migrations and a rollback-only pgTAP test; exact file boundary, independent review, no widening of anon/PUBLIC grants." Worked by hand with Claude on 2026-10-01 (Brent's instruction); Codex reviews.
-- **Gate:** W-B10a-01 clause C4 / blocker B10A-G2 (`docs/reviews/w-b10a-01-acceptance-disposition.md` §4 — not on this branch yet: it is the uncommitted SM-34 evidence in `~/Projects/pm-workflow/worktrees/sm-pc03`, accepted predecessor commit `b1b17a0a0`). PR #89 already put `20260908180100_b10a_referenced_tables_rls.sql` on `origin/main`, so "written and tested before merge" cannot hold literally; this artifact is the replacement route the decision chose.
+- **Gate:** W-B10a-01 clause C4 / blocker B10A-G2 (`docs/reviews/w-b10a-01-acceptance-disposition.md` §4 — not on this branch yet: it is the uncommitted SM-34 evidence kept with the SM-34 run records (branch `fix/pc03`, accepted predecessor commit `b1b17a0a0`)). PR #89 already put `20260908180100_b10a_referenced_tables_rls.sql` on `origin/main`, so "written and tested before merge" cannot hold literally; this artifact is the replacement route the decision chose.
 
 ## Exact file boundary
 

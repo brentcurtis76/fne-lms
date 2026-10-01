@@ -280,21 +280,37 @@ export type VerifiedRoleResult =
   | { user: User; status: null; body: null }
   | { user: null; status: number; body: { error: string; code?: string } };
 
+// Verified caller, no role requirement: getApiUser() (cookie token or Bearer,
+// verified with the auth server) plus the forced-password gate. For routes
+// whose authorization is not a plain role list; they must use only the
+// returned user's id, never the cookie's stored `session.user`.
+//   401 — no verified caller
+//   403 / 503 — forced password change required / its state unreadable
+export async function requireVerifiedCaller(
+  req: NextApiRequest,
+  res: NextApiResponse
+): Promise<VerifiedRoleResult> {
+  const { user, error } = await getApiUser(req, res);
+  if (error || !user) {
+    return { user: null, status: 401, body: { error: 'No autorizado' } };
+  }
+  const verdict = await getForcedPasswordChangeVerdict(createServiceRoleClient(), user.id);
+  if (verdict !== 'allowed') {
+    return { user: null, status: forcedChangeApiStatus(verdict), body: forcedChangeApiBody(verdict) };
+  }
+  return { user, status: null, body: null };
+}
+
 export async function requireVerifiedRole(
   req: NextApiRequest,
   res: NextApiResponse,
   roles: readonly string[],
   forbiddenMessage = 'No autorizado'
 ): Promise<VerifiedRoleResult> {
-  const { user, error } = await getApiUser(req, res);
-  if (error || !user) {
-    return { user: null, status: 401, body: { error: 'No autorizado' } };
-  }
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) return caller;
+  const user = caller.user;
   const serviceClient = createServiceRoleClient();
-  const verdict = await getForcedPasswordChangeVerdict(serviceClient, user.id);
-  if (verdict !== 'allowed') {
-    return { user: null, status: forcedChangeApiStatus(verdict), body: forcedChangeApiBody(verdict) };
-  }
   const { data, error: roleError } = await serviceClient
     .from('user_roles')
     .select('role_type')
@@ -319,15 +335,10 @@ export async function requireVerifiedSuperadmin(
   res: NextApiResponse,
   forbiddenMessage = 'Acceso denegado - solo superadministradores'
 ): Promise<VerifiedRoleResult> {
-  const { user, error } = await getApiUser(req, res);
-  if (error || !user) {
-    return { user: null, status: 401, body: { error: 'No autorizado' } };
-  }
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) return caller;
+  const user = caller.user;
   const serviceClient = createServiceRoleClient();
-  const verdict = await getForcedPasswordChangeVerdict(serviceClient, user.id);
-  if (verdict !== 'allowed') {
-    return { user: null, status: forcedChangeApiStatus(verdict), body: forcedChangeApiBody(verdict) };
-  }
   const { data, error: lookupError } = await serviceClient.rpc('auth_is_superadmin', {
     check_user_id: user.id,
   });

@@ -1,11 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
+import { requireVerifiedCaller } from '../../../lib/api-auth';
 
 const serviceClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * POST /api/community/ensure-workspace
@@ -20,20 +22,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Authenticate
-  const supabase = createPagesServerClient({ req, res });
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  // Authenticate: identity comes from the auth server; the cookie's stored
+  // `user` is client-controlled (SM-B015).
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) {
+    return res.status(caller.status).json(caller.body);
   }
 
+  // communityId is interpolated into the PostgREST `or` filter below, so it
+  // must be a bare UUID: anything else could add its own filter terms.
   const { communityId } = req.body;
-  if (!communityId || typeof communityId !== 'string') {
+  if (!communityId || typeof communityId !== 'string' || !UUID_RE.test(communityId)) {
     return res.status(400).json({ error: 'communityId is required' });
   }
 
   // Verify the user belongs to this community (or is admin)
-  const userId = session.user.id;
+  const userId = caller.user.id;
   const { data: membership } = await serviceClient
     .from('user_roles')
     .select('id, role_type')

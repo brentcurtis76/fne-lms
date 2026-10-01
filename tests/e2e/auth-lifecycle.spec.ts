@@ -1247,4 +1247,57 @@ test.describe('middleware verified identity (W-B10c-01b)', () => {
       if (communityId) await admin.from('growth_communities').delete().eq('id', communityId);
     }
   });
+
+  test('a session revoked while the page is open lands on /login and stays there (no loop)', async ({ browser }) => {
+    const stamp = `${Date.now()}`;
+    const ids: string[] = [];
+    let communityId: string | null = null;
+    try {
+      const { data: community, error: communityError } = await admin
+        .from('growth_communities')
+        .insert({ name: `E2E B10c-01b comunidad sintetica ${stamp}` })
+        .select('id')
+        .single();
+      if (communityError || !community) throw new Error(`[W-B10c-01b] community: ${communityError?.message}`);
+      communityId = community.id as string;
+      const account = await createAccount('revocado', stamp, 'docente', communityId);
+      ids.push(account.id);
+
+      const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+      const page = await context.newPage();
+      await page.goto('/login');
+      await page.getByPlaceholder('tu@email.com').fill(account.email);
+      await page.locator('input[type="password"]').fill(account.password);
+      await page.getByRole('button', { name: /iniciar sesión/i }).click();
+      await expect(page).not.toHaveURL(/\/login/, { timeout: 60_000 });
+
+      // Revoke every session of this account at the provider. The page keeps
+      // its mounted session context; only the server now rejects the token.
+      const token = (await context.cookies()).find((c) => c.name.startsWith('sb-') && c.name.includes('auth-token'));
+      expect(token, 'signed-in browser holds an auth cookie').toBeTruthy();
+      const parsed = JSON.parse(decodeURIComponent(token!.value.startsWith('base64-')
+        ? Buffer.from(token!.value.slice(7), 'base64').toString('utf8')
+        : token!.value));
+      const accessToken = Array.isArray(parsed) ? parsed[0] : parsed.access_token;
+      const { error: revokeError } = await admin.auth.admin.signOut(accessToken, 'global');
+      expect(revokeError).toBeNull();
+
+      // Client-side navigation from the already-open page, as a user clicking a link would.
+      await page.evaluate(() => (window as any).next.router.push('/community/workspace'));
+      await expect(page).toHaveURL(/\/login/, { timeout: 60_000 });
+      await expect(page.getByPlaceholder('tu@email.com')).toBeVisible({ timeout: 30_000 });
+      // It stays: no bounce back out of /login while the page settles.
+      await page.waitForLoadState('networkidle');
+      await expect(page).toHaveURL(/\/login/);
+      await expect(page.getByPlaceholder('tu@email.com')).toBeVisible();
+      await context.close();
+    } finally {
+      for (const id of ids) {
+        await admin.from('user_roles').delete().eq('user_id', id);
+        await admin.from('profiles').delete().eq('id', id);
+        await admin.auth.admin.deleteUser(id);
+      }
+      if (communityId) await admin.from('growth_communities').delete().eq('id', communityId);
+    }
+  });
 });

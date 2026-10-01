@@ -735,12 +735,15 @@ async function getReportableUsers(userId: string, userRole: string): Promise<str
       console.log('[getReportableUsers] Total unique users:', userIds.size);
       return Array.from(userIds);
     } else if (userRole === 'equipo_directivo') {
-      // School leadership can see users from their school
+      // School leadership can see users from their school. Each leadership
+      // branch reads the scope from the row of the role that grants it, so a
+      // second role elsewhere (e.g. docente in another school) never widens it.
       // FIX: Use user_roles as source of truth for school assignments
       const { data: requesterRoles } = await supabase
         .from('user_roles')
         .select('school_id')
         .eq('user_id', userId)
+        .eq('role_type', 'equipo_directivo')
         .eq('is_active', true)
         .not('school_id', 'is', null)
         .limit(1)
@@ -763,6 +766,7 @@ async function getReportableUsers(userId: string, userRole: string): Promise<str
         .from('user_roles')
         .select('generation_id')
         .eq('user_id', userId)
+        .eq('role_type', 'lider_generacion')
         .eq('is_active', true)
         .not('generation_id', 'is', null)
         .limit(1)
@@ -785,6 +789,7 @@ async function getReportableUsers(userId: string, userRole: string): Promise<str
         .from('user_roles')
         .select('community_id')
         .eq('user_id', userId)
+        .eq('role_type', 'lider_comunidad')
         .eq('is_active', true)
         .not('community_id', 'is', null)
         .limit(1)

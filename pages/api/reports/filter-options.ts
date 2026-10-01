@@ -56,6 +56,23 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
     // the request instead of returning a plausible but incomplete selector.
     const clientSchools = await readClientSchoolScope(supabase);
 
+    // Leadership scope comes from the row of the role that grants it, never
+    // from the profile or from another role the caller holds elsewhere (the
+    // same rule as reports/detailed getReportableUsers).
+    const scopeRole = userRoles.find((r) => r.role_type === highestRole && !r.from_cache);
+    const scopeGenerationId = scopeRole?.generation_id ?? null;
+    const scopeCommunityId = scopeRole?.community_id ?? null;
+    let scopeSchoolId: string | number | null = scopeRole?.school_id ?? null;
+    if (highestRole === 'lider_generacion' && !scopeSchoolId && scopeGenerationId) {
+      // A generation-leader row may carry only its generation; its school is the generation's.
+      const { data: generation } = await supabase
+        .from('generations')
+        .select('school_id')
+        .eq('id', scopeGenerationId)
+        .maybeSingle();
+      scopeSchoolId = generation?.school_id ?? null;
+    }
+
     // Fetch filter data based on user role
     let schoolsData = [];
     let generationsData = [];
@@ -85,12 +102,12 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
       generationsData = generationsRes.data || [];
       communitiesData = communitiesRes.data || [];
 
-    } else if (highestRole === 'equipo_directivo' && userProfile.school_id && clientSchools.isClientSchool(userProfile.school_id)) {
+    } else if (highestRole === 'equipo_directivo' && scopeSchoolId && clientSchools.isClientSchool(scopeSchoolId)) {
       // School leadership see only their school and its related data
       const schoolRes = await supabase
         .from('schools')
         .select('id, name')
-        .eq('id', userProfile.school_id)
+        .eq('id', scopeSchoolId)
         .single();
       
       if (schoolRes.data) schoolsData = [schoolRes.data];
@@ -99,24 +116,24 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
         supabase
           .from('generations')
           .select('id, name, school_id')
-          .eq('school_id', userProfile.school_id)
+          .eq('school_id', scopeSchoolId)
           .order('name'),
         supabase
           .from('growth_communities')
           .select('id, name, generation_id, school_id')
-          .eq('school_id', userProfile.school_id)
+          .eq('school_id', scopeSchoolId)
           .order('name')
       ]);
 
       generationsData = generationsRes.data || [];
       communitiesData = communitiesRes.data || [];
 
-    } else if (highestRole === 'lider_generacion' && userProfile.school_id && userProfile.generation_id && clientSchools.isClientSchool(userProfile.school_id)) {
+    } else if (highestRole === 'lider_generacion' && scopeSchoolId && scopeGenerationId && clientSchools.isClientSchool(scopeSchoolId)) {
       // Generation leaders see their school and generation
       const schoolRes = await supabase
         .from('schools')
         .select('id, name')
-        .eq('id', userProfile.school_id)
+        .eq('id', scopeSchoolId)
         .single();
       
       if (schoolRes.data) schoolsData = [schoolRes.data];
@@ -124,7 +141,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
       const generationRes = await supabase
         .from('generations')
         .select('id, name, school_id')
-        .eq('id', userProfile.generation_id)
+        .eq('id', scopeGenerationId)
         .single();
       
       if (generationRes.data) generationsData = [generationRes.data];
@@ -132,17 +149,17 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
       const communitiesRes = await supabase
         .from('growth_communities')
         .select('id, name, generation_id, school_id')
-        .eq('generation_id', userProfile.generation_id)
+        .eq('generation_id', scopeGenerationId)
         .order('name');
 
       communitiesData = communitiesRes.data || [];
 
-    } else if (highestRole === 'lider_comunidad' && userProfile.community_id) {
+    } else if (highestRole === 'lider_comunidad' && scopeCommunityId) {
       // Community leaders see only their community
       const communityRes = await supabase
         .from('growth_communities')
         .select('id, name, generation_id, school_id')
-        .eq('id', userProfile.community_id)
+        .eq('id', scopeCommunityId)
         .single();
       
       if (communityRes.data && clientSchools.isClientSchool(communityRes.data.school_id)) {

@@ -48,6 +48,9 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, id: string) 
         instructor:instructors(id, full_name)
       `)
       .eq('id', id)
+      // Public detail matches the public list: inactive (unpublished) entries
+      // are not disclosed by guessing an id. Admins read them via /admin.
+      .eq('is_active', true)
       .single();
 
     if (error) {
@@ -70,15 +73,9 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, id: string) 
   try {
     // Verified caller with an active admin role. Never `user_metadata`: a
     // signed-in user can write their own metadata, so it is not authority.
-    const auth = await requireVerifiedRole(req, res, ['admin']);
-    if (auth.status === 401) {
-      return res.status(401).json({ error: 'No autorizado' });
-    }
-    if (auth.status === 403) {
-      return res.status(403).json({ error: 'Solo administradores pueden editar cursos próximos' });
-    }
-    if (auth.status === 500) {
-      return res.status(500).json({ error: 'Error del servidor' });
+    const auth = await requireVerifiedRole(req, res, ['admin'], 'Solo administradores pueden editar cursos próximos');
+    if (!auth.user) {
+      return res.status(auth.status).json(auth.body);
     }
     const caller = auth.user;
 
@@ -144,15 +141,9 @@ async function handleDelete(req: NextApiRequest, res: NextApiResponse, id: strin
   try {
     // Verified caller with an active admin role. Never `user_metadata`: a
     // signed-in user can write their own metadata, so it is not authority.
-    const auth = await requireVerifiedRole(req, res, ['admin']);
-    if (auth.status === 401) {
-      return res.status(401).json({ error: 'No autorizado' });
-    }
-    if (auth.status === 403) {
-      return res.status(403).json({ error: 'Solo administradores pueden eliminar cursos próximos' });
-    }
-    if (auth.status === 500) {
-      return res.status(500).json({ error: 'Error del servidor' });
+    const auth = await requireVerifiedRole(req, res, ['admin'], 'Solo administradores pueden eliminar cursos próximos');
+    if (!auth.user) {
+      return res.status(auth.status).json(auth.body);
     }
     const caller = auth.user;
 

@@ -45,28 +45,51 @@ function setSession(cookieUser: any | null, verifiedUser: any | null = cookieUse
   } as any);
 }
 
-/** user_roles rows by user id, read through the service client. */
-function setRoles(byUser: Record<string, string[]>, error: unknown = null) {
-  const calls: { userId?: string; roles?: string[] } = {};
-  const chain: any = {
-    select: vi.fn(() => chain),
+type RoleRow = { role_type: string; is_active: boolean };
+
+/**
+ * The service client: `profiles` answers the forced-password flag, `user_roles`
+ * the role rows. The role chain honours every filter the helper applies
+ * (user_id, role_type IN, is_active), so dropping one of them changes the result.
+ */
+function setService(
+  byUser: Record<string, RoleRow[]>,
+  opts: { roleError?: unknown; mustChange?: boolean; profileError?: unknown } = {}
+) {
+  const calls: { userId?: string; roles?: string[]; activeOnly?: boolean } = {};
+  const roles: any = {
+    select: vi.fn(() => roles),
     eq: vi.fn((col: string, val: unknown) => {
       if (col === 'user_id') calls.userId = val as string;
-      return chain;
+      if (col === 'is_active') calls.activeOnly = val === true;
+      return roles;
     }),
-    in: vi.fn((_col: string, roles: string[]) => {
-      calls.roles = roles;
-      return chain;
+    in: vi.fn((_col: string, wanted: string[]) => {
+      calls.roles = wanted;
+      return roles;
     }),
     limit: vi.fn(async () => {
-      if (error) return { data: null, error };
-      const held = byUser[calls.userId ?? ''] ?? [];
-      return { data: held.filter((r) => calls.roles?.includes(r)).map((role_type) => ({ role_type })), error: null };
+      if (opts.roleError) return { data: null, error: opts.roleError };
+      const rows = (byUser[calls.userId ?? ''] ?? []).filter(
+        (r) => calls.roles?.includes(r.role_type) && (!calls.activeOnly || r.is_active)
+      );
+      return { data: rows.map(({ role_type }) => ({ role_type })), error: null };
     }),
   };
-  mockedCreateClient.mockReturnValue({ from: vi.fn(() => chain) } as any);
+  const profiles: any = {
+    select: vi.fn(() => profiles),
+    eq: vi.fn(() => profiles),
+    maybeSingle: vi.fn(async () =>
+      opts.profileError
+        ? { data: null, error: opts.profileError }
+        : { data: { must_change_password: opts.mustChange === true }, error: null }
+    ),
+  };
+  mockedCreateClient.mockReturnValue({ from: vi.fn((t: string) => (t === 'profiles' ? profiles : roles)) } as any);
   return calls;
 }
+
+const active = (role_type: string): RoleRow => ({ role_type, is_active: true });
 
 describe('requireVerifiedRole', () => {
   const origUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -87,36 +110,65 @@ describe('requireVerifiedRole', () => {
 
   it('401 without a session', async () => {
     setSession(null);
-    setRoles({});
-    expect(await requireVerifiedRole(req, res, ['admin'])).toEqual({ user: null, status: 401 });
+    setService({});
+    expect(await requireVerifiedRole(req, res, ['admin'])).toMatchObject({ user: null, status: 401 });
   });
 
   it('403 for a user whose own metadata claims admin but who holds no admin role', async () => {
-    const self = user('docente-1', ['admin']);
-    setSession(self);
-    setRoles({ 'docente-1': ['docente'] });
-    expect(await requireVerifiedRole(req, res, ['admin'])).toEqual({ user: null, status: 403 });
+    setSession(user('docente-1', ['admin']));
+    setService({ 'docente-1': [active('docente')] });
+    expect(await requireVerifiedRole(req, res, ['admin'], 'solo admin')).toEqual({
+      user: null,
+      status: 403,
+      body: { error: 'solo admin' },
+    });
+  });
+
+  it('403 for an inactive role row', async () => {
+    setSession(user('ex-admin'));
+    const calls = setService({ 'ex-admin': [{ role_type: 'admin', is_active: false }] });
+    expect(await requireVerifiedRole(req, res, ['admin'])).toMatchObject({ user: null, status: 403 });
+    expect(calls.activeOnly).toBe(true);
   });
 
   it('allows a user with an active role of the requested kinds, returning the verified user', async () => {
     const admin = user('admin-1');
     setSession(admin);
-    const calls = setRoles({ 'admin-1': ['admin'] });
-    const result = await requireVerifiedRole(req, res, ['admin', 'consultor']);
-    expect(result).toEqual({ user: admin, status: null });
+    const calls = setService({ 'admin-1': [active('admin')] });
+    expect(await requireVerifiedRole(req, res, ['admin', 'consultor'])).toEqual({ user: admin, status: null, body: null });
     expect(calls.roles).toEqual(['admin', 'consultor']);
   });
 
   it("looks up the auth server's user, not the cookie's claimed user", async () => {
     setSession(user('admin-1'), user('docente-1'));
-    const calls = setRoles({ 'admin-1': ['admin'], 'docente-1': ['docente'] });
-    expect(await requireVerifiedRole(req, res, ['admin'])).toEqual({ user: null, status: 403 });
+    const calls = setService({ 'admin-1': [active('admin')], 'docente-1': [active('docente')] });
+    expect(await requireVerifiedRole(req, res, ['admin'])).toMatchObject({ user: null, status: 403 });
     expect(calls.userId).toBe('docente-1');
+  });
+
+  it('holds an admin who must change their password (Bearer callers never meet the middleware gate)', async () => {
+    setSession(user('admin-1'));
+    setService({ 'admin-1': [active('admin')] }, { mustChange: true });
+    expect(await requireVerifiedRole(req, res, ['admin'])).toMatchObject({
+      user: null,
+      status: 403,
+      body: { code: 'PASSWORD_CHANGE_REQUIRED' },
+    });
+  });
+
+  it('fails closed with 503 when the forced-password flag cannot be read', async () => {
+    setSession(user('admin-1'));
+    setService({ 'admin-1': [active('admin')] }, { profileError: { message: 'connection reset' } });
+    expect(await requireVerifiedRole(req, res, ['admin'])).toMatchObject({
+      user: null,
+      status: 503,
+      body: { code: 'PASSWORD_STATE_UNAVAILABLE' },
+    });
   });
 
   it('fails closed with 500 when the role lookup errors', async () => {
     setSession(user('admin-1'));
-    setRoles({ 'admin-1': ['admin'] }, { message: 'connection reset' });
-    expect(await requireVerifiedRole(req, res, ['admin'])).toEqual({ user: null, status: 500 });
+    setService({ 'admin-1': [active('admin')] }, { roleError: { message: 'connection reset' } });
+    expect(await requireVerifiedRole(req, res, ['admin'])).toMatchObject({ user: null, status: 500 });
   });
 });

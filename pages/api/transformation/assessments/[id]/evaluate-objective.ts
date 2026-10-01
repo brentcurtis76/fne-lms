@@ -2,7 +2,6 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
 import { RubricEvaluator } from '@/lib/transformation/evaluator';
-import { isAdmin } from '@/utils/getUserRoles';
 
 export const config = {
   api: {
@@ -73,7 +72,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ error: 'No autorizado' });
     }
 
-    console.log('✅ User authenticated:', session.user.email);
+    // The cookie's stored user is client-controlled (auth-helpers returns a
+    // legacy JSON session object as-is). Resolve the caller with the auth server
+    // and use only that id below (SM-B015).
+    const {
+      data: { user: caller },
+      error: callerError,
+    } = await supabase.auth.getUser(session.access_token);
+    if (callerError || !caller) {
+      return res.status(401).json({ error: 'No autorizado' });
+    }
+
+    console.log('✅ User authenticated:', caller.email);
 
     // Load assessment
     console.log('📥 Loading assessment...');
@@ -96,17 +106,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Allow admins (global) OR users with an active role in this community
     console.log('🔐 Verifying user access to community...');
 
-    // Check admin status from user_metadata first
-    let userIsAdmin = isAdmin(session);
-    console.log('🔍 Is admin (from metadata)?', userIsAdmin);
+    // Admin only from an active user_roles row (user_metadata is user-writable)
+    let userIsAdmin = false;
 
-    // If not admin from metadata, check user_roles table for admin role
+    // Check user_roles table for admin role
     // Use service role client to bypass RLS restrictions on user_roles
     if (!userIsAdmin) {
       const { data: adminRoles } = await supabaseAdmin
         .from('user_roles')
         .select('id')
-        .eq('user_id', session.user.id)
+        .eq('user_id', caller.id)
         .eq('role_type', 'admin')
         .eq('is_active', true)
         .limit(1);
@@ -131,7 +140,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const { data: communityRole } = await supabaseAdmin
           .from('user_roles')
           .select('id')
-          .eq('user_id', session.user.id)
+          .eq('user_id', caller.id)
           .eq('community_id', assessment.growth_community_id)
           .eq('is_active', true)
           .maybeSingle();
@@ -148,7 +157,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const { data: schoolRole } = await supabaseAdmin
           .from('user_roles')
           .select('id')
-          .eq('user_id', session.user.id)
+          .eq('user_id', caller.id)
           .eq('school_id', assessment.school_id)
           .eq('is_active', true)
           .maybeSingle();
@@ -161,7 +170,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (!hasAccess) {
         console.error('❌ User does not have access to this assessment');
-        console.error('   User ID:', session.user.id);
+        console.error('   User ID:', caller.id);
         console.error('   Community ID:', assessment.growth_community_id);
         console.error('   School ID:', assessment.school_id);
         return res.status(403).json({ error: 'No tienes permiso para evaluar esta evaluación' });
@@ -326,7 +335,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       await supabase.rpc('record_objective_evaluation_metadata', {
         p_assessment_id: id,
         p_objective_number: objectiveNumber,
-        p_user_id: session.user.id,
+        p_user_id: caller.id,
       });
     } catch (metadataError) {
       // Non-critical - log but don't fail

@@ -1,28 +1,66 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { requireVerifiedCaller, createServiceRoleClient } from '../../../../lib/api-auth';
+
+// Columns a caller may set on a travel group. quote_id comes from the URL;
+// id, nights and the timestamps are the database's.
+const EDITABLE_GROUP_FIELDS = [
+  'group_name', 'num_participants', 'arrival_date', 'departure_date',
+  'flight_price', 'room_type', 'room_price_per_night', 'accommodation_total',
+  'flight_total', 'viaticos_type', 'viaticos_amount', 'viaticos_total',
+  'viaticos_display_amount',
+] as const;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const supabase = createPagesServerClient({ req, res });
   const { id } = req.query;
 
-  // Check authentication
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  if (!session) {
-    return res.status(401).json({ error: 'No autorizado' });
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ error: 'ID de cotización inválido' });
   }
 
+  // Identity comes from the auth server; the cookie's stored `user` is
+  // client-controlled (SM-B015).
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) {
+    return res.status(caller.status).json(caller.body);
+  }
+  const userId = caller.user.id;
+  const serviceSupabase = createServiceRoleClient();
+
   // Check if user has permission
-  const { data: userRole } = await supabase
+  const { data: userRoles, error: rolesError } = await serviceSupabase
     .from('user_roles')
     .select('role_type')
-    .eq('user_id', session.user.id)
+    .eq('user_id', userId)
     .eq('is_active', true)
-    .in('role_type', ['admin', 'consultor', 'community_manager'])
-    .single();
+    .in('role_type', ['admin', 'consultor', 'community_manager']);
 
-  if (!userRole) {
+  if (rolesError) {
+    return res.status(500).json({ error: 'Error al verificar permisos' });
+  }
+  if (!userRoles || userRoles.length === 0) {
     return res.status(403).json({ error: 'No tienes permisos para gestionar cotizaciones' });
+  }
+
+  // Changing a quote's groups follows the quote's own rule (quotes/[id] PUT):
+  // its creator or an admin.
+  if (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') {
+    const { data: quote, error: quoteError } = await serviceSupabase
+      .from('pasantias_quotes')
+      .select('id, created_by')
+      .eq('id', id)
+      .maybeSingle();
+    if (quoteError) {
+      return res.status(500).json({ error: 'Error al verificar la cotización' });
+    }
+    if (!quote) {
+      return res.status(404).json({ error: 'Cotización no encontrada' });
+    }
+    const isAdmin = userRoles.some((r: { role_type: string }) => r.role_type === 'admin');
+    if (!isAdmin && quote.created_by !== userId) {
+      return res.status(403).json({ error: 'Solo puedes editar tus propias cotizaciones' });
+    }
   }
 
   switch (req.method) {
@@ -45,8 +83,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { data: newGroup, error: createError } = await supabase
         .from('pasantias_quote_groups')
         .insert({
-          quote_id: id,
-          ...req.body
+          ...pickEditable(req.body),
+          quote_id: id
         })
         .select()
         .single();
@@ -130,4 +168,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     default:
       return res.status(405).json({ error: 'Método no permitido' });
   }
+}
+function pickEditable(body: unknown): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (body && typeof body === 'object') {
+    for (const field of EDITABLE_GROUP_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(body, field)) {
+        out[field] = (body as Record<string, unknown>)[field];
+      }
+    }
+  }
+  return out;
 }

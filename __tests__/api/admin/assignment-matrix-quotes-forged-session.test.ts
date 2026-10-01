@@ -178,6 +178,7 @@ import auditLog from '../../../pages/api/admin/assignment-matrix/audit-log';
 import contentStats from '../../../pages/api/admin/assignment-matrix/content-stats';
 import createQuote from '../../../pages/api/quotes/createV2';
 import createQuoteV1 from '../../../pages/api/quotes/create';
+import quoteGroups from '../../../pages/api/quotes/[id]/groups';
 import quoteById from '../../../pages/api/quotes/[id]';
 
 type Handler = (req: NextApiRequest, res: NextApiResponse) => Promise<unknown>;
@@ -477,5 +478,54 @@ describe('quote creation starts as draft or sent', () => {
     expect(res.statusCode).toBe(200);
     const insert = writes().find(([t, o]) => t === 'pasantias_quotes' && o === 'insert')?.[2];
     expect(insert).toMatchObject({ status, created_by: CONSULTOR });
+  });
+});
+
+describe("quote travel groups follow the quote's owner-or-admin rule", () => {
+  const GROUP = { group_name: 'G', num_participants: 2, arrival_date: '2027-01-10', departure_date: '2027-01-12', room_type: 'double' };
+
+  it.each([
+    ['POST', GROUP],
+    ['PUT', { groups: [{ id: 'grp-1', ...GROUP }] }],
+    ['DELETE', { groupId: 'grp-1' }],
+  ])("%s on someone else's quote is refused before any write", async (method, body) => {
+    verifiedUser = { id: CONSULTOR };
+    const res = await call(quoteGroups, method, { id: 'q-victim' }, body);
+    expect(res.statusCode).toBe(403);
+    expect(writes()).toEqual([]);
+  });
+
+  it('a cookie naming the owner does not help', async () => {
+    verifiedUser = { id: ATTACKER };
+    const res = await call(quoteGroups, 'POST', { id: 'q-victim' }, GROUP);
+    expect(res.statusCode).toBe(403);
+    expect(writes()).toEqual([]);
+  });
+
+  it('the owner adds a group; quote_id comes from the URL and protected columns are dropped', async () => {
+    verifiedUser = { id: CONSULTOR };
+    const res = await call(quoteGroups, 'POST', { id: 'q-consultor' }, {
+      ...GROUP,
+      quote_id: 'q-victim',
+      id: 'forged-id',
+      created_at: '2020-01-01T00:00:00Z',
+      nights: 99,
+    });
+    expect(res.statusCode).toBe(201);
+    const insert = writes().find(([t, o]) => t === 'pasantias_quote_groups' && o === 'insert')?.[2] as Record<string, unknown>;
+    expect(insert).toMatchObject({ ...GROUP, quote_id: 'q-consultor' });
+    for (const k of ['id', 'created_at', 'nights']) expect(insert).not.toHaveProperty(k);
+  });
+
+  it("an admin may change any quote's groups", async () => {
+    verifiedUser = { id: ADMIN };
+    const res = await call(quoteGroups, 'POST', { id: 'q-victim' }, GROUP);
+    expect(res.statusCode).toBe(201);
+  });
+
+  it('a verified caller without a quote role is refused', async () => {
+    verifiedUser = { id: ATTACKER };
+    const res = await call(quoteGroups, 'GET', { id: 'q-consultor' });
+    expect(res.statusCode).toBe(403);
   });
 });

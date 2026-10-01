@@ -192,14 +192,21 @@ export function readsMetadataRoles(source: string): boolean {
     .split('\n')
     .filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line))
     .join('\n');
-  return [
+  const direct = [
     /user_metadata\??\.roles?\b/,
-    /user_metadata\??\.?\[\s*['"]roles?['"]\s*\]/,
+    /user_metadata['"]?\s*\]?\??\.?\[\s*['"]roles?['"]\s*\]/,
     /\{[^}]*\broles?\b[^}]*\}\s*=\s*[^;\n]*user_metadata/,
     /\bmetadataHasRole\s*\(/,
     /\bextractRolesFromMetadata\s*\(/,
     /\b(isAdmin|hasRole|hasAnyRole|getUserRoles)\s*\(\s*session\b/,
   ].some((re) => re.test(code));
+  if (direct) return true;
+  // Aliases: `const meta = x.user_metadata;` … `meta.roles` / `meta?.['role']`.
+  for (const m of code.matchAll(/\b(?:const|let|var)\s+(\w+)\s*=\s*[^;\n]*user_metadata\b[^;\n]*/g)) {
+    const alias = m[1];
+    if (new RegExp(`\\b${alias}\\??\\.roles?\\b|\\b${alias}\\??\\.?\\[\\s*['"]roles?['"]\\s*\\]`).test(code)) return true;
+  }
+  return false;
 }
 
 describe('repository guard', () => {
@@ -212,16 +219,24 @@ describe('repository guard', () => {
       "const { roles } = session.user.user_metadata;",
       "if (metadataHasRole(user.user_metadata, 'admin')) {}",
       "let a = isAdmin(session);",
+      "const r = user['user_metadata']['roles'];",
+      "const meta = session.user.user_metadata;\nif (meta.roles.includes('admin')) {}",
+      "const m = user?.user_metadata ?? {};\nconst ok = m?.['role'] === 'admin';",
     ]) {
       expect(readsMetadataRoles(bad), bad).toBe(true);
     }
     expect(readsMetadataRoles("// user_metadata.roles is user-writable")).toBe(false);
     expect(readsMetadataRoles("const m = user.user_metadata.full_name;")).toBe(false);
+    expect(readsMetadataRoles("const meta = user.user_metadata;\nconst n = meta.full_name;")).toBe(false);
   });
 
-  /** Known, reviewed exceptions: never authority. */
+  /**
+   * Known, reviewed exceptions: never authority. Each is ONE exact line that is
+   * removed before the file is scanned, so anything else in the same file —
+   * e.g. requireVerifiedRole in lib/api-auth.ts — is still checked.
+   */
   const EXCEPTIONS: Record<string, string> = {
-    'lib/api-auth.ts': 'extractRolesFromMetadata feeds the auth log line only',
+    'lib/api-auth.ts': 'const metadataRoles = extractRolesFromMetadata(user.user_metadata);', // feeds the auth log line only
   };
 
   function files(dir: string): string[] {
@@ -236,8 +251,15 @@ describe('repository guard', () => {
     const root = join(__dirname, '..', '..', '..');
     const offenders = [...files(join(root, 'pages', 'api')), ...files(join(root, 'lib'))]
       .map((f) => f.slice(root.length + 1))
-      .filter((f) => !(f in EXCEPTIONS))
-      .filter((f) => readsMetadataRoles(readFileSync(join(root, f), 'utf8')));
+      .filter((f) => {
+        let source = readFileSync(join(root, f), 'utf8');
+        const allowed = EXCEPTIONS[f];
+        if (allowed) {
+          expect(source.split(allowed).length - 1, `${f}: the excepted line exists exactly once`).toBe(1);
+          source = source.replace(allowed, '');
+        }
+        return readsMetadataRoles(source);
+      });
     expect(offenders).toEqual([]);
   });
 });

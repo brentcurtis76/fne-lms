@@ -12,9 +12,8 @@
  */
 
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
-import { requireVerifiedCaller } from '@/lib/api-auth';
+import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
 import { userAssignmentsService } from '@/lib/services/userAssignments';
 
 export default async function handler(
@@ -26,7 +25,7 @@ export default async function handler(
   }
 
   try {
-    const supabase = createPagesServerClient({ req, res });
+    const supabase = await createApiSupabaseClient(req, res);
 
     // Identity comes from the auth server; the cookie's stored `user` is
     // client-controlled (SM-B015).

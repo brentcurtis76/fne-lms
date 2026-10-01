@@ -1,7 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
-import { requireVerifiedCaller } from '@/lib/api-auth';
+import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
 
 /**
  * GET /api/assignments/group-members
@@ -35,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 async function handleGetMembers(req: NextApiRequest, res: NextApiResponse) {
-  const supabase = createPagesServerClient({ req, res });
+  const supabase = await createApiSupabaseClient(req, res);
 
   // Check authentication
   // Identity comes from the auth server; the cookie's stored `user` is
@@ -157,7 +156,7 @@ async function handleGetMembers(req: NextApiRequest, res: NextApiResponse) {
 }
 
 async function handleRemoveMember(req: NextApiRequest, res: NextApiResponse) {
-  const supabase = createPagesServerClient({ req, res });
+  const supabase = await createApiSupabaseClient(req, res);
 
   // Identity comes from the auth server; the cookie's stored `user` is
   // client-controlled (SM-B015).

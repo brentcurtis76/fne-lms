@@ -17,20 +17,16 @@ if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 }
 
-// Node >= 25 ships its own global localStorage/sessionStorage (localStorage
-// is undefined unless --localstorage-file is given; sessionStorage is a
-// process-wide store). Vitest's jsdom environment does not copy globals that
-// already exist, so jsdom's Web Storage is shadowed: storage-backed suites
-// fail and values can leak between test files. CI runs Node 22 and is not
-// affected. When a storage global was not installed by the jsdom environment
-// (its accessor differs from the one Vitest uses for `document`), install a
-// fresh jsdom Storage for this file and restore the original afterwards.
+// Every DOM test file gets its own fresh Web Storage, restored afterwards.
+// Two reasons: Node >= 25 ships its own global localStorage/sessionStorage
+// (localStorage is undefined unless --localstorage-file is given), which
+// Vitest's jsdom environment does not override, so jsdom's storage is
+// shadowed; and with threads:false, values written by one file were visible
+// to the next even on Node 22 (CI). The paired storage-isolation tests guard
+// both.
 if (typeof document !== 'undefined') {
-  const envAccessor = Object.getOwnPropertyDescriptor(globalThis, 'document')?.get?.toString();
   for (const key of ['localStorage', 'sessionStorage'] as const) {
     const original = Object.getOwnPropertyDescriptor(globalThis, key);
-    const fromJsdomEnv = Boolean(envAccessor && original?.get && original.get.toString() === envAccessor);
-    if (fromJsdomEnv) continue;
     const storage = new JSDOM('', { url: globalThis.location?.href || 'http://localhost:3000/' }).window[key];
     Object.defineProperty(globalThis, key, { value: storage, configurable: true, writable: true });
     afterAll(() => {

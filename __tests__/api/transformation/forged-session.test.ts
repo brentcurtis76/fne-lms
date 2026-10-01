@@ -25,6 +25,8 @@ const COLLEAGUE = '33333333-3333-4333-8333-333333333333';
 const X1 = '44444444-4444-4444-8444-444444444444';
 const X2 = '55555555-5555-4555-8555-555555555555'; // school 2, created by OUTSIDER
 const FAR_COLLABORATOR = '66666666-6666-4666-8666-666666666666'; // school 3, collaborates on X1
+const BYSTANDER = '77777777-7777-4777-8777-777777777777'; // school 1, not on X1
+let failingTable: string | null = null;
 const COOKIE_TOKEN = 'caller-own-valid-token';
 const BEARER_TOKEN = 'caller-bearer-token';
 const MUST_CHANGE = new Set<string>();
@@ -38,7 +40,8 @@ function resetRows() {
     { user_id: COLLEAGUE, role_type: 'docente', school_id: 1, is_active: true },
     { user_id: OUTSIDER, role_type: 'docente', school_id: 2, is_active: true },
     { user_id: FAR_COLLABORATOR, role_type: 'docente', school_id: 3, is_active: true },
-  ];
+    { user_id: BYSTANDER, role_type: 'docente', school_id: 1, is_active: true },
+  ].map((r) => ({ ...r, profiles: { id: r.user_id, first_name: 'N', last_name: r.user_id.slice(0, 4), email: `${r.user_id}@example.invalid`, avatar_url: null } }));
   ROWS.transformation_assessments = [
     { id: X1, school_id: 1, created_by: CREATOR, area: 'evaluacion', status: 'in_progress', grades: [], context_metadata: {} },
     { id: X2, school_id: 2, created_by: OUTSIDER, area: 'evaluacion', status: 'in_progress', grades: [], context_metadata: {} },
@@ -69,6 +72,7 @@ function matchRows(rows: Row[], ops: Op[]): Row[] {
 }
 
 function answer(table: string, ops: Op[], mode: 'many' | 'one' | 'maybe') {
+  if (table === failingTable) return { data: null, error: { message: 'connection reset' }, count: null };
   const write = ops.find(([op]) => ['insert', 'upsert'].includes(op as string))?.[1];
   if (write) {
     const rows = (Array.isArray(write) ? write : [write]).map((r: Row) => (table === 'transformation_assessments' ? { id: 'x-new', ...r } : r));
@@ -222,6 +226,7 @@ beforeEach(() => {
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:1';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-key';
   process.env.ANTHROPIC_API_KEY = 'synthetic-key';
+  failingTable = null;
   resetRows();
   log.length = 0;
   llm.calls = 0;
@@ -310,6 +315,8 @@ describe('transformation/chat rate limit counts the verified caller', () => {
     const res = await call(chat, 'POST', {}, { assessmentId: X1, rubricItemId: 'r-1', userMessage: 'hola' });
     expect(res.statusCode).toBe(200);
     expect(llm.calls).toBe(1);
+    const { buildTransformationContext } = await import('@/lib/transformation/contextBuilder');
+    expect(buildTransformationContext).toHaveBeenCalledWith(expect.objectContaining({ userId: OUTSIDER }));
     const usage = writes().find(([t, o]) => t === 'transformation_llm_usage' && o === 'insert')?.[2];
     expect(usage).toMatchObject({ user_id: OUTSIDER });
   });
@@ -375,12 +382,27 @@ describe('assessment data is shown only to people who may read the assessment', 
     expect((await call(eligibleCollaborators, 'GET', { schoolId: '3', assessmentId: 'x3' })).statusCode).toBe(200);
   });
 
-  it('eligible-collaborators leaves out existing collaborators of a readable assessment', async () => {
+  it('eligible-collaborators leaves out existing collaborators of a readable assessment, and keeps the rest', async () => {
     verifiedUser = { id: COLLEAGUE };
+    const without = await call(eligibleCollaborators, 'GET', { schoolId: '1' });
+    expect(JSON.stringify(without.body)).toContain(CREATOR);
+    expect(JSON.stringify(without.body)).toContain(BYSTANDER);
     const res = await call(eligibleCollaborators, 'GET', { schoolId: '1', assessmentId: X1 });
     expect(res.statusCode).toBe(200);
     expect(JSON.stringify(res.body)).not.toContain(CREATOR);
+    expect(JSON.stringify(res.body)).toContain(BYSTANDER);
   });
+
+  it.each(['transformation_assessment_collaborators', 'user_roles'])(
+    'collaborators GET fails closed when %s cannot be read',
+    async (table) => {
+      verifiedUser = { id: COLLEAGUE };
+      // profiles must stay readable for the password gate.
+      failingTable = table;
+      const res = await call(collaborators, 'GET', { id: X1 });
+      expect(res.statusCode).toBe(500);
+    }
+  );
 
   it('removing oneself from an assessment one is not part of touches nothing', async () => {
     verifiedUser = { id: OUTSIDER };

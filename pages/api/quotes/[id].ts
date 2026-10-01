@@ -181,7 +181,8 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
     }
 
     // Status: the editor keeps the current one or publishes the quote
-    // ('sent'). viewed / accepted / rejected / expired are never set by hand.
+    // ('sent'). 'viewed' is written only by the public GET above; accepted /
+    // rejected / expired are never set by hand.
     if (
       req.body?.status !== undefined &&
       req.body.status !== existingQuote.status &&

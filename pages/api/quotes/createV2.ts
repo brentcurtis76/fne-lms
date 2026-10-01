@@ -75,6 +75,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
+    // A new quote starts as a draft or is published at once ('sent');
+    // viewed / accepted / rejected / expired are never set by the creator.
+    if (status !== undefined && status !== null && status !== 'draft' && status !== 'sent') {
+      return res.status(400).json({ error: 'Estado de cotización no permitido' });
+    }
+
     // If using groups, validate at least one group exists
     if (use_groups && (!groups || groups.length === 0)) {
       return res.status(400).json({ 

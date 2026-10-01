@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom';
 import { cleanup } from '@testing-library/react';
-import { afterEach } from 'vitest';
+import { afterAll, afterEach } from 'vitest';
 import { JSDOM } from 'jsdom';
 
 // vitest runs with threads:false, so every test file shares one process.env.
@@ -17,27 +17,26 @@ if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 }
 
-// Node >= 25 ships its own global localStorage/sessionStorage (undefined
-// unless --localstorage-file is given). Vitest's jsdom environment does not
-// copy globals that already exist, so jsdom's Web Storage is shadowed and every
-// storage-backed suite fails on such a Node (CI runs Node 22 and is not
-// affected). In a DOM environment, put a working jsdom Storage back.
-const OWN_STORAGE = Symbol.for('genera.test.jsdomStorage');
+// Node >= 25 ships its own global localStorage/sessionStorage (localStorage
+// is undefined unless --localstorage-file is given; sessionStorage is a
+// process-wide store). Vitest's jsdom environment does not copy globals that
+// already exist, so jsdom's Web Storage is shadowed: storage-backed suites
+// fail and values can leak between test files. CI runs Node 22 and is not
+// affected. When a storage global was not installed by the jsdom environment
+// (its accessor differs from the one Vitest uses for `document`), install a
+// fresh jsdom Storage for this file and restore the original afterwards.
 if (typeof document !== 'undefined') {
+  const envAccessor = Object.getOwnPropertyDescriptor(globalThis, 'document')?.get?.toString();
   for (const key of ['localStorage', 'sessionStorage'] as const) {
-    let usable = false;
-    try {
-      const current = globalThis[key] as (Storage & { [OWN_STORAGE]?: true }) | undefined;
-      // Our own replacement is renewed per test file, like jsdom's would be.
-      usable = typeof current?.getItem === 'function' && !current[OWN_STORAGE];
-    } catch {
-      usable = false;
-    }
-    if (!usable) {
-      const storage = new JSDOM('', { url: globalThis.location?.href || 'http://localhost:3000/' }).window[key];
-      Object.defineProperty(storage, OWN_STORAGE, { value: true });
-      Object.defineProperty(globalThis, key, { value: storage, configurable: true, writable: true });
-    }
+    const original = Object.getOwnPropertyDescriptor(globalThis, key);
+    const fromJsdomEnv = Boolean(envAccessor && original?.get && original.get.toString() === envAccessor);
+    if (fromJsdomEnv) continue;
+    const storage = new JSDOM('', { url: globalThis.location?.href || 'http://localhost:3000/' }).window[key];
+    Object.defineProperty(globalThis, key, { value: storage, configurable: true, writable: true });
+    afterAll(() => {
+      if (original) Object.defineProperty(globalThis, key, original);
+      else delete (globalThis as Record<string, unknown>)[key];
+    });
   }
 }
 

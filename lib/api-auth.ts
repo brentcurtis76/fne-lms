@@ -150,25 +150,33 @@ export async function getApiUser(
 // cookie supplies only the access token: its stored `user` is client-
 // controlled (auth-helpers accepts a legacy JSON session object as-is), so
 // the identity comes from the auth server, exactly as in getApiUser's cookie
-// branch. Returns null when there is no session or the token is refused.
+// branch. Returns null when there is no session, the token is refused, or
+// the lookup fails.
 // (The forced-password gate for pages is the middleware's.)
 export async function getServerSideUser(
   ctx: Pick<GetServerSidePropsContext, 'req' | 'res'>
 ): Promise<User | null> {
-  const supabase = createPagesServerClient(ctx as GetServerSidePropsContext);
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return null;
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser(session.access_token);
-  if (error || !user) {
-    console.error('[API Auth] Page session verification failed:', error);
+  try {
+    const supabase = createPagesServerClient(ctx as GetServerSidePropsContext);
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+    if (sessionError || !session) return null;
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(session.access_token);
+    if (error || !user) {
+      console.error('[API Auth] Page session verification failed:', error);
+      return null;
+    }
+    return user;
+  } catch (error) {
+    // Treated as signed out: the page redirects to login instead of failing.
+    console.error('[API Auth] Page session verification threw:', error);
     return null;
   }
-  return user;
 }
 
 /**

@@ -23,6 +23,7 @@ const COOKIE_TOKEN = 'viewer-own-valid-token';
 
 let verifiedUser: { id: string } | null = null;
 let sessionPresent = true;
+let sessionFailure: 'error' | 'throw' | null = null;
 const askedIds: unknown[] = [];
 
 type Op = [string, ...unknown[]];
@@ -67,10 +68,13 @@ const getUserTokens: unknown[] = [];
 function pagesClient() {
   return {
     auth: {
-      getSession: vi.fn(async () => ({
-        data: { session: sessionPresent ? { user: { id: VICTIM }, access_token: COOKIE_TOKEN } : null },
-        error: null,
-      })),
+      getSession: vi.fn(async () => {
+        if (sessionFailure === 'throw') throw new Error('auth server unreachable');
+        return {
+          data: { session: sessionPresent ? { user: { id: VICTIM }, access_token: COOKIE_TOKEN } : null },
+          error: sessionFailure === 'error' ? { message: 'bad cookie' } : null,
+        };
+      }),
       getUser: vi.fn(async (token?: string) => {
         getUserTokens.push(token);
         return token === COOKIE_TOKEN && verifiedUser
@@ -107,6 +111,10 @@ vi.mock('../../lib/utils/session-meet-access', () => ({
   }),
 }));
 
+// Page components are irrelevant to getServerSideProps; this one builds JSX
+// at module load with the classic runtime, which needs a global React.
+vi.mock('@/components/transformation/ResultsDisplay', () => ({ ResultsDisplay: () => null }));
+
 import { getServerSideUser } from '../../lib/api-auth';
 import { getServerSideProps as schoolUsers } from '../../pages/admin/school-users';
 import { getServerSideProps as growthCommunities } from '../../pages/admin/growth-communities/index';
@@ -115,6 +123,11 @@ import { getServerSideProps as tractorSignups } from '../../pages/admin/tractor-
 import { getServerSideProps as pasantiaLeads } from '../../pages/admin/pasantia-leads';
 import { getServerSideProps as metrics } from '../../pages/admin/transformation/metrics';
 import { getServerSideProps as meetSession } from '../../pages/meet/session/[id]';
+import { getServerSideProps as meetDiag } from '../../pages/meet/diag';
+import { getServerSideProps as evaluatePage } from '../../pages/community/workspace/transformation/evaluate';
+import { getServerSideProps as resultsPage } from '../../pages/community/transformation/results/[assessmentId]';
+import { getServerSideProps as rutaPage } from '../../pages/mi-aprendizaje/ruta/[id]';
+import { getServerSideProps as myPathsPage } from '../../pages/my-paths/[id]';
 
 function ctx(extra: Partial<GetServerSidePropsContext> = {}): GetServerSidePropsContext {
   return {
@@ -134,6 +147,7 @@ beforeEach(() => {
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-key';
   verifiedUser = null;
   sessionPresent = true;
+  sessionFailure = null;
   askedIds.length = 0;
   getUserTokens.length = 0;
   meet.userIds.length = 0;
@@ -160,6 +174,13 @@ describe('getServerSideUser', () => {
   it('returns null when the token is refused', async () => {
     verifiedUser = null;
     expect(await getServerSideUser(ctx())).toBeNull();
+  });
+
+  it.each(['error', 'throw'] as const)('returns null when the session lookup reports %s', async (failure) => {
+    verifiedUser = { id: PLAIN };
+    sessionFailure = failure;
+    expect(await getServerSideUser(ctx())).toBeNull();
+    expect(getUserTokens).toEqual([]);
   });
 
   it('returns null without a session, without asking the auth server', async () => {
@@ -223,5 +244,36 @@ describe('meet/session/[id]', () => {
     verifiedUser = null;
     await (meetSession as GSSP)(ctx({ params: { id: 's-1' } }));
     expect(meet.userIds).toEqual([null]);
+  });
+});
+
+describe('the other converted pages', () => {
+  const PAGES: Array<[string, GSSP, Partial<GetServerSidePropsContext>]> = [
+    ['meet/diag', meetDiag as GSSP, {}],
+    ['community/workspace/transformation/evaluate', evaluatePage as GSSP, {}],
+    ['community/transformation/results/[assessmentId]', resultsPage as GSSP, { params: { assessmentId: 'a-1' } }],
+    ['mi-aprendizaje/ruta/[id]', rutaPage as GSSP, { params: { id: 'p-1' } }],
+    ['my-paths/[id]', myPathsPage as GSSP, { params: { id: 'p-1' } }],
+  ];
+
+  it.each(PAGES)('%s: a cookie whose token the auth server refuses is signed out', async (_n, gssp, extra) => {
+    verifiedUser = null;
+    const result = (await gssp(ctx(extra))) as { redirect?: unknown; props?: unknown };
+    expect(result.redirect).toBeDefined();
+    expect(askedIds).toEqual([]);
+  });
+
+  it.each(PAGES.slice(3))('%s: props carry the verified user, not the cookie user', async (_n, gssp, extra) => {
+    verifiedUser = { id: PLAIN };
+    const result = (await gssp(ctx(extra))) as { props?: { user?: { id: string } } };
+    expect(result.props?.user?.id).toBe(PLAIN);
+    expect(askedIds).toContain(PLAIN);
+    expect(askedIds).not.toContain(VICTIM);
+  });
+
+  it('community/transformation/results looks up the verified viewer', async () => {
+    verifiedUser = { id: PLAIN };
+    await (resultsPage as GSSP)(ctx({ params: { assessmentId: 'a-1' } }));
+    expect(askedIds).not.toContain(VICTIM);
   });
 });

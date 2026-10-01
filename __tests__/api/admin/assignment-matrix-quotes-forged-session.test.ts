@@ -40,6 +40,7 @@ const ROLE_ROWS: RoleRow[] = [
   role(CONSULTOR, 'consultor', { school_id: SCHOOL_A, community_id: COMMUNITY_A }),
 ];
 const CONSULTOR_VIA_COMMUNITY = '55555555-5555-4555-8555-555555555555';
+const COURSE_ID = 'c0c0c0c0-c0c0-4c0c-8c0c-c0c0c0c0c0c0';
 ROLE_ROWS.push(role(CONSULTOR_VIA_COMMUNITY, 'consultor', { community_id: COMMUNITY_A }));
 
 /** Plain tables the routes read, answered with PostgREST-style filtering. */
@@ -53,12 +54,15 @@ const TABLES: Record<string, Record<string, unknown>[]> = {
     { id: SCHOOL_B, name: 'Colegio B' },
   ],
   course_enrollments: [
-    { user_id: CONSULTOR, course_id: 'course-1', lessons_completed: 1, total_lessons: 2, status: 'active', courses: { id: 'course-1', title: 'Curso Sintético', description: '' } },
+    { user_id: CONSULTOR, course_id: COURSE_ID, lessons_completed: 1, total_lessons: 2, status: 'active', courses: { id: COURSE_ID, title: 'Curso Sintético', description: '' } },
   ],
   assignment_audit_log: [
-    { id: 'log-1', content_type: 'course', content_id: COMMUNITY_A, action: 'assigned', created_at: '2026-10-01T00:00:00Z', performed_by: ADMIN },
+    { id: 'log-1', content_type: 'course', content_id: COURSE_ID, entity_type: 'user', entity_id: CONSULTOR, action: 'assigned', performed_at: '2026-10-01T00:00:00Z', performed_by: ADMIN, source_learning_path_id: null },
   ],
-  courses: [{ id: 'course-1', title: 'Curso Sintético', description: '', status: 'published' }],
+  courses: [{ id: COURSE_ID, title: 'Curso Sintético', description: '', status: 'published' }],
+  learning_path_assignments: [
+    { user_id: CONSULTOR, path_id: 'lp-1', learning_paths: { id: 'lp-1', name: 'Ruta Sintética', description: '' } },
+  ],
 };
 const MUST_CHANGE = new Set<string>();
 const BEARER_TOKEN = 'caller-bearer-token';
@@ -89,7 +93,8 @@ function serviceAnswer(table: string, ops: Op[], mode: 'many' | 'one') {
   if (table === 'profiles') {
     const id = eqValue(ops, 'id') as string;
     if (mode === 'one') return { data: { id, must_change_password: MUST_CHANGE.has(id) }, error: null };
-    return { data: [], error: null };
+    const ids = (ops.find(([op, col]) => op === 'in' && col === 'id')?.[2] as string[] | undefined) ?? [];
+    return { data: ids.map((pid) => ({ id: pid, first_name: pid === ADMIN ? 'Ada' : 'Ciro', last_name: 'Sintético', email: `${pid}@example.invalid` })), error: null };
   }
   if (table === 'user_roles') {
     if (eqValue(ops, 'user_id') !== undefined) return { data: matchRows(ROLE_ROWS, ops), error: null };
@@ -144,9 +149,8 @@ function cookieClient() {
           : { data: { user: null }, error: { message: 'invalid token' } }
       ),
     },
-    from: vi.fn(() => {
-      throw new Error('these routes read through the service client only');
-    }),
+    // Only quotes/create reads through the caller's own client.
+    from: vi.fn((table: string) => recordingChain(table)),
   };
 }
 
@@ -173,6 +177,7 @@ import groupAssignments from '../../../pages/api/admin/assignment-matrix/group-a
 import auditLog from '../../../pages/api/admin/assignment-matrix/audit-log';
 import contentStats from '../../../pages/api/admin/assignment-matrix/content-stats';
 import createQuote from '../../../pages/api/quotes/createV2';
+import createQuoteV1 from '../../../pages/api/quotes/create';
 import quoteById from '../../../pages/api/quotes/[id]';
 
 type Handler = (req: NextApiRequest, res: NextApiResponse) => Promise<unknown>;
@@ -197,7 +202,7 @@ const QUOTE_BODY = { client_name: 'Cliente', arrival_date: '2027-01-10', departu
 
 const ROUTES: Array<[string, Handler, string, Record<string, string>, unknown]> = [
   ['assignment-matrix/group-assignments', groupAssignments, 'GET', { groupType: 'community', groupId: COMMUNITY_A }, {}],
-  ['assignment-matrix/audit-log', auditLog, 'GET', { contentType: 'course', contentId: COMMUNITY_A }, {}],
+  ['assignment-matrix/audit-log', auditLog, 'GET', { contentType: 'course', contentId: COURSE_ID }, {}],
   ['assignment-matrix/content-stats', contentStats, 'GET', {}, {}],
   ['quotes/createV2', createQuote, 'POST', {}, QUOTE_BODY],
   ['quotes/[id] PUT', quoteById, 'PUT', { id: 'q-victim' }, { client_name: 'X' }],
@@ -373,26 +378,39 @@ describe('inactive roles, the password gate and Bearer callers', () => {
 });
 
 describe('populated results for a verified admin', () => {
-  it('group-assignments aggregates the community members\' courses', async () => {
+  it("group-assignments aggregates the community members' courses and paths", async () => {
     verifiedUser = { id: ADMIN };
     const res = await call(groupAssignments, 'GET', { groupType: 'community', groupId: COMMUNITY_A });
     expect(res.statusCode).toBe(200);
-    expect(res.body.stats.totalMembers).toBeGreaterThan(0);
-    expect(JSON.stringify(res.body.commonAssignments)).toContain('Curso Sintético');
+    // Community A's active members: CONSULTOR and CONSULTOR_VIA_COMMUNITY.
+    expect(res.body.stats).toMatchObject({ totalMembers: 2, membersWithAssignments: 1, uniqueCourses: 1, uniqueLPs: 1 });
+    const titles = res.body.commonAssignments.map((a: { contentTitle: string }) => a.contentTitle).sort();
+    expect(titles).toEqual(['Curso Sintético', 'Ruta Sintética']);
   });
 
-  it('audit-log returns the seeded entry', async () => {
-    verifiedUser = { id: ADMIN };
-    const res = await call(auditLog, 'GET', { contentType: 'course', contentId: COMMUNITY_A });
+  it('a consultor gets the same group without any learning-path data', async () => {
+    verifiedUser = { id: CONSULTOR };
+    const res = await call(groupAssignments, 'GET', { groupType: 'community', groupId: COMMUNITY_A });
     expect(res.statusCode).toBe(200);
+    expect(res.body.stats.uniqueLPs ?? 0).toBe(0);
+    expect(JSON.stringify(res.body)).not.toContain('Ruta Sintética');
+  });
+
+  it('audit-log returns the seeded entry, enriched', async () => {
+    verifiedUser = { id: ADMIN };
+    const res = await call(auditLog, 'GET', { contentType: 'course', contentId: COURSE_ID });
+    expect(res.statusCode).toBe(200);
+    expect(res.body.total).toBe(1);
     expect(res.body.logs).toHaveLength(1);
+    expect(res.body.logs[0]).toMatchObject({ contentTitle: 'Curso Sintético', performerName: 'Ada Sintético', entityName: 'Ciro Sintético' });
   });
 
   it('content-stats lists the seeded course', async () => {
     verifiedUser = { id: ADMIN };
     const res = await call(contentStats, 'GET', {});
     expect(res.statusCode).toBe(200);
-    expect(JSON.stringify(res.body.courses)).toContain('course-1');
+    expect(res.body.courses).toHaveLength(1);
+    expect(res.body.courses[0]).toMatchObject({ id: COURSE_ID });
   });
 
   it('a consultor holding only community A reaches school A through it, not school B', async () => {
@@ -434,5 +452,30 @@ describe('quote status and travel groups on PUT', () => {
     const res = await call(quoteById, 'PUT', { id: 'q-consultor' }, { client_name: 'X', use_groups: true, groups: [{ name: 'g' }] });
     expect(res.statusCode).toBe(400);
     expect(writes()).toEqual([]);
+  });
+});
+
+describe('quote creation starts as draft or sent', () => {
+  it.each([
+    ['createV2', 'accepted'],
+    ['createV2', 'viewed'],
+    ['create', 'accepted'],
+    ['create', 'expired'],
+  ])('%s refuses initial status %s before inserting', async (route, status) => {
+    verifiedUser = { id: CONSULTOR };
+    const res = await call(route === 'create' ? createQuoteV1 : createQuote, 'POST', {}, { ...QUOTE_BODY, status });
+    expect(res.statusCode).toBe(400);
+    expect(writes()).toEqual([]);
+  });
+
+  it.each([
+    ['createV2', 'sent'],
+    ['create', 'draft'],
+  ])('%s accepts %s', async (route, status) => {
+    verifiedUser = { id: CONSULTOR };
+    const res = await call(route === 'create' ? createQuoteV1 : createQuote, 'POST', {}, { ...QUOTE_BODY, status });
+    expect(res.statusCode).toBe(200);
+    const insert = writes().find(([t, o]) => t === 'pasantias_quotes' && o === 'insert')?.[2];
+    expect(insert).toMatchObject({ status, created_by: CONSULTOR });
   });
 });

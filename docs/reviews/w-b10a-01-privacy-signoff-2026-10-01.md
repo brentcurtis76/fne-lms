@@ -33,3 +33,13 @@ The migration notes that none of the six tables holds data about minors.
 - Whether the migration is already applied in Production (B10A-G4).
 - The compensation artifact and its test (B10A-G2, decision 94d02887658014cb).
 - The missing pgTAP cells (B10A-G1).
+
+## Factual correction — 2026-10-01 (added after independent review; NOT part of the signed text)
+
+Codex's independent review of this record (2026-10-01) found that the summary bullet "signed-in users only see or change rows their role and membership allow (admins everything; consultants and members only their own groups, paths and courses)" is imprecise. The signed text above is preserved unchanged; these are the exact facts, from the migrations:
+
+- **Consultants** read `growth_community_transformation_access` for **all** communities, not only their own (`…180100` staff-or-member read; `…003500` narrows only `equipo_directivo`-only actors to their schools).
+- **instructors** (course-catalog profiles) are readable by **every** signed-in user (`instructors_authenticated_read`); only admins change them.
+- **propuesta_rate_limits** (IP addresses) is closed to **all** signed-in users, admins included; only the server's service role reads it.
+
+None of these widens access compared with before the migration (when every signed-in user, and anonymous callers, could read and change all six tables). Brent has been told of this correction; if he wants to re-sign against the corrected wording, that will be recorded here as a new dated entry.

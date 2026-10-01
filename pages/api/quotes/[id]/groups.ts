@@ -1,6 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
-import { requireVerifiedCaller, createServiceRoleClient } from '../../../../lib/api-auth';
+import { createApiSupabaseClient, requireVerifiedCaller, createServiceRoleClient } from '../../../../lib/api-auth';
 
 // Columns a caller may set on a travel group. quote_id comes from the URL;
 // id, nights and the timestamps are the database's.
@@ -12,7 +11,7 @@ const EDITABLE_GROUP_FIELDS = [
 ] as const;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const supabase = createPagesServerClient({ req, res });
+  const supabase = await createApiSupabaseClient(req, res);
   const { id } = req.query;
 
   if (!id || typeof id !== 'string') {

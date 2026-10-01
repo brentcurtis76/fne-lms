@@ -1,7 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
-import { requireVerifiedCaller } from '../../../lib/api-auth';
+import { createApiSupabaseClient, requireVerifiedCaller } from '../../../lib/api-auth';
 
 const EDITABLE_QUOTE_FIELDS = [
   'client_name', 'client_email', 'client_phone', 'client_institution',
@@ -14,7 +13,7 @@ const EDITABLE_QUOTE_FIELDS = [
 ] as const;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const supabase = createPagesServerClient({ req, res });
+  const supabase = await createApiSupabaseClient(req, res);
   const { id } = req.query;
 
   if (!id || typeof id !== 'string') {

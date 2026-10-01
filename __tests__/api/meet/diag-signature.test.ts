@@ -29,6 +29,7 @@ vi.mock('@supabase/auth-helpers-nextjs', () => ({
 // forged-cookie behaviour is covered with the other SM-B015 suites. Here the
 // session fixture stands for the verified user.
 vi.mock('../../../lib/api-auth', () => ({
+  createApiSupabaseClient: async () => ({ auth: { getSession: mockGetSession } }),
   requireVerifiedCaller: async () => {
     const user = (await mockGetSession())?.data?.session?.user ?? null;
     return user

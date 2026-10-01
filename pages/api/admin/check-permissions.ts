@@ -4,8 +4,7 @@
  */
 
 import { NextApiRequest, NextApiResponse } from 'next';
-import { requireVerifiedCaller } from '@/lib/api-auth';
-import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
+import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
 import { 
   getUserRoles, 
   hasAdminPrivileges, 
@@ -22,7 +21,7 @@ export default async function handler(
   }
 
   try {
-    const supabase = createServerSupabaseClient({ req, res });
+    const supabase = await createApiSupabaseClient(req, res);
     
     // Get current user
     // Identity comes from the auth server; the cookie's stored `user` is

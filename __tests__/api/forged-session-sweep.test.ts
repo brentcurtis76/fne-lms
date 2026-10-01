@@ -20,6 +20,10 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 const VICTIM = '11111111-1111-4111-8111-111111111111';
 const PLAIN = '22222222-2222-4222-8222-222222222222';
 const COOKIE_TOKEN = 'caller-own-valid-token';
+const BEARER_TOKEN = 'caller-bearer-token';
+/** Mixed credentials: the cookie's token is VICTIM's real token, the Bearer is PLAIN's. */
+let mixed = false;
+const clientTags: string[] = [];
 
 const ROLE_ROWS = [{ id: 'r-1', user_id: VICTIM, role_type: 'admin', school_id: null, is_active: true }];
 
@@ -27,7 +31,8 @@ type Op = [string, ...unknown[]];
 const log: Array<{ table: string; ops: Op[] }> = [];
 let verifiedUser: { id: string; email?: string; user_metadata?: Record<string, unknown> } | null = null;
 
-function chain(table: string) {
+function chain(table: string, tag = 'service') {
+  clientTags.push(tag);
   const entry = { table, ops: [] as Op[] };
   log.push(entry);
   const answer = (mode: 'many' | 'one') => {
@@ -70,13 +75,14 @@ function cookieClient() {
         data: { session: { user: { id: VICTIM, email: 'victim@example.invalid', user_metadata: { roles: ['admin'] } }, access_token: COOKIE_TOKEN } },
         error: null,
       })),
-      getUser: vi.fn(async (token?: string) =>
-        token === COOKIE_TOKEN && verifiedUser
+      getUser: vi.fn(async (token?: string) => {
+        if (mixed && token === COOKIE_TOKEN) return { data: { user: { id: VICTIM } }, error: null };
+        return token === COOKIE_TOKEN && verifiedUser
           ? { data: { user: verifiedUser }, error: null }
-          : { data: { user: null }, error: { message: 'invalid token' } }
-      ),
+          : { data: { user: null }, error: { message: 'invalid token' } };
+      }),
     },
-    from: vi.fn(chain),
+    from: vi.fn((table: string) => chain(table, 'cookie')),
     rpc: vi.fn(async () => ({ data: [], error: null })),
   };
 }
@@ -87,11 +93,21 @@ vi.mock('@supabase/auth-helpers-nextjs', () => ({
 }));
 
 vi.mock('@supabase/supabase-js', () => ({
-  createClient: vi.fn(() => ({
-    auth: { getUser: vi.fn(async () => ({ data: { user: null }, error: { message: 'no bearer' } })) },
-    from: vi.fn(chain),
-    rpc: vi.fn(async () => ({ data: [], error: null })),
-  })),
+  createClient: vi.fn((_url: string, _key: string, opts?: { global?: { headers?: Record<string, string> } }) => {
+    // createApiSupabaseClient's Bearer client carries the caller's JWT.
+    const tag = opts?.global?.headers?.Authorization ? 'bearer' : 'service';
+    return {
+      auth: {
+        getUser: vi.fn(async (token?: string) =>
+          token === BEARER_TOKEN && verifiedUser
+            ? { data: { user: verifiedUser }, error: null }
+            : { data: { user: null }, error: { message: 'invalid token' } }
+        ),
+      },
+      from: vi.fn((table: string) => chain(table, tag)),
+      rpc: vi.fn(async () => ({ data: [], error: null })),
+    };
+  }),
 }));
 
 import myRoles from '../../pages/api/auth/my-roles';
@@ -117,14 +133,20 @@ import userSchool from '../../pages/api/users/[userId]/school';
 
 type Handler = (req: NextApiRequest, res: NextApiResponse) => Promise<unknown>;
 
-async function call(handler: Handler, method: string, query: Record<string, string> = {}, body: unknown = {}) {
+async function call(
+  handler: Handler,
+  method: string,
+  query: Record<string, string> = {},
+  body: unknown = {},
+  headers: Record<string, string> = {}
+) {
   const res: any = { statusCode: 0, body: undefined };
   res.status = (code: number) => ((res.statusCode = code), res);
   res.json = (b: unknown) => ((res.body = b), res);
   res.send = (b: unknown) => ((res.body = b), res);
   res.end = () => res;
   res.setHeader = () => res;
-  await handler({ method, query, headers: {}, cookies: {}, body } as unknown as NextApiRequest, res);
+  await handler({ method, query, headers, cookies: {}, body } as unknown as NextApiRequest, res);
   return res;
 }
 
@@ -142,6 +164,8 @@ beforeEach(() => {
   process.env.ZOOM_SDK_CLIENT_SECRET = 'sdk-secret';
   process.env.ZOOM_DIAG_MEETING_IDS = '90210042001';
   log.length = 0;
+  clientTags.length = 0;
+  mixed = false;
   verifiedUser = null;
   for (const m of ['log', 'error', 'warn', 'info', 'debug'] as const) vi.spyOn(console, m).mockImplementation(() => {});
 });
@@ -226,6 +250,16 @@ describe('every converted route', () => {
     verifiedUser = { id: PLAIN, email: 'plain@example.invalid' };
     await call(handler, method, query, body);
     expect(askedIds()).not.toContain(VICTIM);
+    expect(JSON.stringify(log)).not.toContain(VICTIM);
+  });
+});
+
+describe('one credential per request', () => {
+  it.each(SWEEP)('%s: with a Bearer for one user and a cookie for another, nothing queries as the cookie user', async (_n, handler, method, query, body) => {
+    mixed = true;
+    verifiedUser = { id: PLAIN, email: 'plain@example.invalid' };
+    await call(handler, method, query, body, { authorization: `Bearer ${BEARER_TOKEN}` });
+    expect(clientTags).not.toContain('cookie');
     expect(JSON.stringify(log)).not.toContain(VICTIM);
   });
 });

@@ -1,9 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { getUserPrimaryRole } from '../../../utils/roleUtils';
 import { diagMeetingAllowlist, isDiagJoinConfigured } from '../../../lib/meet/diag-config';
 import { signZoomSdkJwt } from '../../../lib/zoom/signer';
-import { requireVerifiedCaller } from '@/lib/api-auth';
+import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
 
 /**
  * Meeting SDK signature for the /meet/diag test-join probe (Z0B-2, spike).
@@ -94,7 +93,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // Gate 2 — authenticated.
-  const supabase = createPagesServerClient({ req, res });
+  const supabase = await createApiSupabaseClient(req, res);
   // Identity comes from the auth server; the cookie's stored `user` is
   // client-controlled (SM-B015).
   const caller = await requireVerifiedCaller(req, res);

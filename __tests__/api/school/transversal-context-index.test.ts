@@ -2,9 +2,11 @@
 /**
  * GET/POST /api/school/transversal-context (index)
  *
- * Review remediation (R1–R3, R5) on top of PR 2: the route validates FAIL
- * CLOSED (exact GradeLevel allowlist, integer year), denies consultores on
- * GET and POST, reads with the user client, and delegates the whole
+ * Review remediation (R1–R3, R5) on top of PR 2, then PROC-CONSULTOR-C1: the
+ * route validates FAIL CLOSED (exact GradeLevel allowlist, integer year),
+ * admits an ACTIVE consultor on GET only — read-only, over every registered
+ * school — refuses every consultor write before the RPC, reads with the user
+ * client, and delegates the whole
  * context + course reconciliation to ONE transactional RPC
  * (save_transversal_context) on the user client — it never writes a table
  * itself and never answers a partial success. The real handler runs with the
@@ -191,6 +193,8 @@ const validBody = (overrides: Record<string, unknown> = {}) => ({
 
 interface Scenario {
   roles?: Row[];
+  /** Lets a test make the caller's own role lookup fail (the gates must fail closed). */
+  rolesSpec?: Partial<TableSpec>;
   consultantAssignments?: Row[];
   contexts?: Row[];
   contextSpec?: Partial<TableSpec>;
@@ -219,7 +223,7 @@ const rpcSuccess = (overrides: Record<string, unknown> = {}) => ({
 
 function arrange(s: Scenario = {}) {
   const userTables = {
-    user_roles: recordingTable({ rows: s.roles ?? [roleRow('equipo_directivo')] }),
+    user_roles: recordingTable({ rows: s.roles ?? [roleRow('equipo_directivo')], ...s.rolesSpec }),
     consultant_assignments: recordingTable({ rows: s.consultantAssignments ?? [] }),
     [CONTEXT_TABLE]: recordingTable({ rows: s.contexts ?? [], insertId: CONTEXT_ID, ...s.contextSpec }),
     [COURSE_TABLE]: recordingTable({ rows: s.courses ?? [], ...s.courseSpec }),
@@ -508,32 +512,145 @@ describe('GET — reads with the user client (RLS decides)', () => {
   });
 });
 
-describe('tenancy (R5: consultor surface denied pending the product decision)', () => {
-  const consultorScenario = () => ({
+// ══════════════════════════════════════════════════════════════
+// PROC-CONSULTOR-C1 — read-only consultor access (D2, D3)
+// ══════════════════════════════════════════════════════════════
+
+describe('consultor — read-only Contexto over every registered school (D2)', () => {
+  /** A PURE consultor: the consultor role only, and NO consultant_assignments row. */
+  const pureConsultor = (overrides: Partial<Scenario> = {}): Scenario => ({
     roles: [roleRow('consultor', null)],
-    consultantAssignments: [{ consultant_id: USER_ID, school_id: SCHOOL_ID, is_active: true }],
+    consultantAssignments: [],
     contexts: [contextRow()],
     courses: [courseRow(COURSE_A, '1 BASICO A')],
+    ...overrides,
   });
 
-  it('refuses an assigned consultor on GET with 403 consultor_access_pending_decision and reads no context/course data', async () => {
-    const clients = arrange(consultorScenario());
+  it('GET returns the core context and course structure of the requested school, read with the USER client', async () => {
+    const clients = arrange(pureConsultor());
     const { status, json } = await get({ school_id: String(SCHOOL_ID) });
-    expect(status).toBe(403);
-    expect(json.code).toBe('consultor_access_pending_decision');
+    expect(status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(json.context).toMatchObject({ id: CONTEXT_ID, school_id: SCHOOL_ID });
+    expect(json.courseStructure).toHaveLength(1);
+    // Read with the caller's own client, so RLS — not this route — decides.
+    expect(clients.userClient.from).toHaveBeenCalledWith(CONTEXT_TABLE);
+    expect(clients.userClient.from).toHaveBeenCalledWith(COURSE_TABLE);
+    expect(clients.serviceClient.from).not.toHaveBeenCalledWith(CONTEXT_TABLE);
+    expect(clients.serviceClient.from).not.toHaveBeenCalledWith(COURSE_TABLE);
+    // Only the three core surfaces; nothing restricted is touched.
+    expectNoWrites(clients);
+  });
+
+  it('GET reads a school the consultor has NO assignment for (the role grants it, not the assignment)', async () => {
+    const clients = arrange(pureConsultor({
+      contexts: [{ ...contextRow(), school_id: OTHER_SCHOOL_ID }],
+      courses: [{ ...courseRow(COURSE_A, '1 BASICO A'), school_id: OTHER_SCHOOL_ID }],
+    }));
+    const { status, json } = await get({ school_id: String(OTHER_SCHOOL_ID) });
+    expect(status).toBe(200);
+    expect(json.context).toMatchObject({ school_id: OTHER_SCHOOL_ID });
+    expectNoWrites(clients);
+  });
+
+  it('GET of an unconfigured school answers 200 with a null context and no courses', async () => {
+    const clients = arrange(pureConsultor({ contexts: [], courses: [] }));
+    const { status, json } = await get({ school_id: String(OTHER_SCHOOL_ID) });
+    expect(status).toBe(200);
+    expect(json.context).toBeNull();
+    expect(json.courseStructure).toEqual([]);
+    expectNoWrites(clients);
+  });
+
+  it('GET without a school_id answers 400 and reads nothing (a consultor has no own school)', async () => {
+    const clients = arrange(pureConsultor());
+    const { status, json } = await get({});
+    expect(status).toBe(400);
+    expect(json.error).toBe('Se requiere school_id para consultores');
     expect(clients.userClient.from).not.toHaveBeenCalledWith(CONTEXT_TABLE);
     expect(clients.userClient.from).not.toHaveBeenCalledWith(COURSE_TABLE);
-    expect(clients.serviceClient.from).not.toHaveBeenCalled();
+    expectNoWrites(clients);
   });
 
-  it('refuses that consultor on POST with the same 403 before the RPC', async () => {
-    const clients = arrange(consultorScenario());
-    const { status, json } = await post(validBody());
-    expect(status).toBe(403);
-    expect(json.code).toBe('consultor_access_pending_decision');
+  it('POST answers 403 context_write_forbidden BEFORE the RPC, for an assigned consultor too', async () => {
+    for (const scenario of [
+      pureConsultor(),
+      pureConsultor({ consultantAssignments: [{ consultant_id: USER_ID, school_id: SCHOOL_ID, is_active: true }] }),
+    ]) {
+      const clients = arrange(scenario);
+      const { status, json } = await post(validBody());
+      expect(status).toBe(403);
+      expect(json.success).toBe(false);
+      expect(json.code).toBe('context_write_forbidden');
+      expectNoSave(clients);
+    }
+  });
+
+  it('fails closed when the role lookup errors: no read, no write', async () => {
+    const clients = arrange({
+      ...pureConsultor(),
+      rolesSpec: { readError: { message: 'roles unavailable' } },
+    });
+    expect((await get({ school_id: String(SCHOOL_ID) })).status).toBe(403);
+    expect((await post(validBody())).status).toBe(403);
+    expect(clients.userClient.from).not.toHaveBeenCalledWith(CONTEXT_TABLE);
     expectNoSave(clients);
   });
 
+  it('refuses an INACTIVE consultor role and another user\'s consultor role on both methods', async () => {
+    const inactive = arrange(pureConsultor({
+      roles: [{ user_id: USER_ID, role_type: 'consultor', school_id: null, is_active: false }],
+    }));
+    expect((await get({ school_id: String(SCHOOL_ID) })).status).toBe(403);
+    expect((await post(validBody())).status).toBe(403);
+    expectNoSave(inactive);
+
+    const foreign = arrange(pureConsultor({
+      roles: [{ user_id: 'someone-else', role_type: 'consultor', school_id: null, is_active: true }],
+    }));
+    expect((await get({ school_id: String(SCHOOL_ID) })).status).toBe(403);
+    expect((await post(validBody())).status).toBe(403);
+    expectNoSave(foreign);
+  });
+});
+
+describe('mixed consultor + equipo_directivo — read everywhere, write only at home (D3)', () => {
+  const mixed = (overrides: Partial<Scenario> = {}): Scenario => ({
+    roles: [roleRow('equipo_directivo', SCHOOL_ID), roleRow('consultor', null)],
+    consultantAssignments: [],
+    contexts: [contextRow()],
+    courses: [courseRow(COURSE_A, '1 BASICO A')],
+    ...overrides,
+  });
+
+  it('writes their OWN school exactly as before', async () => {
+    const clients = arrange(mixed());
+    const { status } = await post(validBody());
+    expect(status).toBe(200);
+    expect(rpcArgs(clients.userClient)[1]).toMatchObject({ p_school_id: SCHOOL_ID });
+  });
+
+  it('READS another school through the consultor role', async () => {
+    const clients = arrange(mixed({
+      contexts: [{ ...contextRow(), school_id: OTHER_SCHOOL_ID }],
+      courses: [],
+    }));
+    const { status, json } = await get({ school_id: String(OTHER_SCHOOL_ID) });
+    expect(status).toBe(200);
+    expect(json.context).toMatchObject({ school_id: OTHER_SCHOOL_ID });
+    expectNoWrites(clients);
+  });
+
+  it('does NOT write another school', async () => {
+    const clients = arrange(mixed());
+    const { status, json } = await post(validBody({ school_id: OTHER_SCHOOL_ID }));
+    expect(status).toBe(403);
+    expect(json.code).toBe('context_write_forbidden');
+    expectNoSave(clients);
+  });
+});
+
+describe('tenancy (admin / directivo behaviour is unchanged)', () => {
   it('refuses a directivo of another school with 403', async () => {
     const clients = arrange({ roles: [roleRow('equipo_directivo', OTHER_SCHOOL_ID)] });
     const { status } = await post(validBody());

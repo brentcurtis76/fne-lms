@@ -16,6 +16,7 @@ export interface NotificationTypesResponse {
   success: boolean;
   data?: NotificationType[];
   error?: string;
+  code?: string;
   totalCount?: number;
 }
 
@@ -37,7 +38,7 @@ export default async function handler(
     // legacy profiles.role column.
     const auth = await requireVerifiedRole(req, res, ['admin'], 'Forbidden - Admin access required');
     if (!auth.user) {
-      return res.status(auth.status).json({ success: false, error: auth.body.error });
+      return res.status(auth.status).json({ success: false, ...auth.body });
     }
     const user = auth.user;
     const isAdmin = true;

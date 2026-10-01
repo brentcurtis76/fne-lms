@@ -1,6 +1,6 @@
 # SM-B015 batch 1 — user-writable `user_metadata.roles` granted admin — review request
 
-- **Branch:** `fix/meta-admin` (local only), base `fix/sm09-ci` at `2e119d117`, 2 commits (round 1 answers Codex r0 CHANGES_REQUIRED: 1 blocking + 4 notes).
+- **Branch:** `fix/meta-admin` (local only), base `fix/sm09-ci` at `2e119d117`, 3 commits (round 1 answers Codex r0 CHANGES_REQUIRED: 1 blocking + 4 notes; round 2 answers r1 APPROVED_WITH_NOTES).
 - **Origin:** SM-B015 direct-session route inventory (2026-10-01, `sm-b015-route-inventory.md`, 68 rows) — this is its most urgent item because it needs **no forged cookie**: any signed-in user can call `supabase.auth.updateUser({ data: { roles: ['admin'] } })` from the browser console, and these routes then accepted them as admin (or consultor) and wrote through the **service-role** client. Exploitable in Production today if this code is live there.
 - **Authority:** Brent's 2026-10-01 instruction to work SM by hand and fix what blocks it; plan criterion SM-C019 (each risky route gets a bounded remediation). Codex reviews.
 
@@ -31,6 +31,12 @@ Round 1 (Codex r0):
   - `lib/__tests__/api-auth.requireVerifiedRole.test.ts` (8): the role mock honours `user_id`, `role_type IN` and `is_active`; adds inactive-row 403, flagged admin 403 `PASSWORD_CHANGE_REQUIRED`, unreadable flag 503.
   - `__tests__/api/upcoming-courses/metadata-authority.test.ts` (18): all 8 protected handlers pass every refusal (401/403/forced 403/503/500) through unchanged with **no** service-role access; both POSTs attribute `created_by` to the verified id; PUT/DELETE on someone else's proposal → 403 with no write, on the caller's own → proceeds; public list and detail GETs need no caller and filter `is_active`. The **repository guard** now scans `pages/api` **and** `lib`, catches dotted/optional/bracket/destructured metadata role reads plus `metadataHasRole`, `extractRolesFromMetadata`, `isAdmin|hasRole|hasAnyRole|getUserRoles(session…)`, proves its detector on positive and negative fixtures, and lists its one reviewed exception (`lib/api-auth.ts`: metadata roles feed only the auth log line).
   - `__tests__/api/admin/approve-user.authority.test.ts` (3): metadata-claimed admin → 403 no write; flagged admin → 403 `PASSWORD_CHANGE_REQUIRED` no write; active admin → 200.
+
+Round 2 (Codex r1 notes):
+- `notification-types` now returns the full refusal body (`code` included) and its response type allows `code`.
+- Guard: the `lib/api-auth.ts` exception is narrowed to the one exact logging line (asserted to occur once, then removed before scanning, so `requireVerifiedRole` in the same file is still checked); the detector also catches `x['user_metadata']['roles']` and metadata aliases (`const meta = …user_metadata; meta.roles`), with positive and negative fixtures.
+- `requireVerifiedRole` tests (12): real `Authorization: Bearer` callers — flagged admin held, metadata-only admin refused, active admin allowed, invalid token 401.
+- `__tests__/api/transformation/assessment-verified-identity.test.ts` (4): for both `evaluate-objective` and `finalize`, a cookie naming an admin over a lower-role token (with metadata also claiming admin) → 403, every role lookup is for the verified id, no evaluator/write; an unverifiable token → 401 before any lookup. **All 4 fail on the base routes.**
 
 ## Scrutinize hardest
 

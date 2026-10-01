@@ -54,7 +54,7 @@ type RoleRow = { role_type: string; is_active: boolean };
  */
 function setService(
   byUser: Record<string, RoleRow[]>,
-  opts: { roleError?: unknown; mustChange?: boolean; profileError?: unknown } = {}
+  opts: { roleError?: unknown; mustChange?: boolean; profileError?: unknown; bearerUser?: unknown } = {}
 ) {
   const calls: { userId?: string; roles?: string[]; activeOnly?: boolean } = {};
   const roles: any = {
@@ -85,7 +85,11 @@ function setService(
         : { data: { must_change_password: opts.mustChange === true }, error: null }
     ),
   };
-  mockedCreateClient.mockReturnValue({ from: vi.fn((t: string) => (t === 'profiles' ? profiles : roles)) } as any);
+  mockedCreateClient.mockReturnValue({
+    from: vi.fn((t: string) => (t === 'profiles' ? profiles : roles)),
+    // getApiUser verifies a Bearer token with the service client.
+    auth: { getUser: vi.fn(async () => ({ data: { user: opts.bearerUser ?? null }, error: opts.bearerUser ? null : { message: 'bad' } })) },
+  } as any);
   return calls;
 }
 
@@ -170,5 +174,37 @@ describe('requireVerifiedRole', () => {
     setSession(user('admin-1'));
     setService({ 'admin-1': [active('admin')] }, { roleError: { message: 'connection reset' } });
     expect(await requireVerifiedRole(req, res, ['admin'])).toMatchObject({ user: null, status: 500 });
+  });
+
+  describe('Bearer callers (no cookie: the middleware gate never runs for them)', () => {
+    const bearerReq = { headers: { authorization: 'Bearer some-token' } } as unknown as NextApiRequest;
+
+    it('holds a flagged admin calling with a Bearer token', async () => {
+      setSession(null);
+      setService({ 'admin-1': [active('admin')] }, { mustChange: true, bearerUser: user('admin-1') });
+      expect(await requireVerifiedRole(bearerReq, res, ['admin'])).toMatchObject({
+        status: 403,
+        body: { code: 'PASSWORD_CHANGE_REQUIRED' },
+      });
+    });
+
+    it('refuses a Bearer caller whose metadata claims admin without an admin row', async () => {
+      setSession(null);
+      setService({ 'docente-1': [active('docente')] }, { bearerUser: user('docente-1', ['admin']) });
+      expect(await requireVerifiedRole(bearerReq, res, ['admin'])).toMatchObject({ user: null, status: 403 });
+    });
+
+    it('allows an active admin with a Bearer token', async () => {
+      setSession(null);
+      const admin = user('admin-1');
+      setService({ 'admin-1': [active('admin')] }, { bearerUser: admin });
+      expect(await requireVerifiedRole(bearerReq, res, ['admin'])).toEqual({ user: admin, status: null, body: null });
+    });
+
+    it('401 for an invalid Bearer token', async () => {
+      setSession(null);
+      setService({});
+      expect(await requireVerifiedRole(bearerReq, res, ['admin'])).toMatchObject({ user: null, status: 401 });
+    });
   });
 });

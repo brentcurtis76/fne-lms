@@ -33,7 +33,7 @@
 
 BEGIN;
 
-SELECT plan(97);
+SELECT plan(101);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures
@@ -45,10 +45,12 @@ SELECT tests.create_supabase_user('cs_dir_a');      -- directivo of 9980
 SELECT tests.create_supabase_user('cs_admin');
 SELECT tests.create_supabase_user('cs_docente');    -- docente of 9980
 SELECT tests.create_supabase_user('cs_docente_b');  -- docente of 9981
+SELECT tests.create_supabase_user('cs_doc_comm');   -- docente sharing a community with cs_cons_comm
+SELECT tests.create_supabase_user('cs_cons_comm');  -- consultor whose role row is community-visible
 
 INSERT INTO public.profiles (id, email, name, approval_status)
 SELECT tests.get_supabase_uid(x.ident), x.ident || '@test.local', x.ident, 'approved'
-FROM (VALUES ('cs_cons_a'), ('cs_cons_none'), ('cs_cons_off'), ('cs_dir_a'), ('cs_admin'), ('cs_docente'), ('cs_docente_b')) AS x(ident)
+FROM (VALUES ('cs_cons_a'), ('cs_cons_none'), ('cs_cons_off'), ('cs_dir_a'), ('cs_admin'), ('cs_docente'), ('cs_docente_b'), ('cs_doc_comm'), ('cs_cons_comm')) AS x(ident)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.schools (id, name) VALUES
@@ -64,6 +66,17 @@ INSERT INTO public.user_roles (user_id, role_type, school_id, is_active) VALUES
   (tests.get_supabase_uid('cs_admin'),     'admin',            NULL, true),
   (tests.get_supabase_uid('cs_docente'),   'docente',          9980, true),
   (tests.get_supabase_uid('cs_docente_b'), 'docente',          9981, true);
+
+-- A growth community shared by a docente and a consultor: the baseline policy
+-- user_roles_community_member_view makes the consultor's role row VISIBLE to
+-- the docente, so only the policies' `ur.user_id = auth.uid()` keeps that row
+-- from conferring the consultor grant.
+INSERT INTO public.growth_communities (id, school_id, name) VALUES
+  ('74000000-0000-4000-8000-0000000c0001', 9980, 'Consultor Scope Shared GC')
+ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.user_roles (user_id, role_type, school_id, community_id, is_active) VALUES
+  (tests.get_supabase_uid('cs_doc_comm'),  'docente',   9981, '74000000-0000-4000-8000-0000000c0001', true),
+  (tests.get_supabase_uid('cs_cons_comm'), 'consultor', NULL, '74000000-0000-4000-8000-0000000c0001', true);
 
 INSERT INTO public.consultant_assignments (consultant_id, school_id, is_active, assignment_type)
 VALUES (tests.get_supabase_uid('cs_cons_a'), 9980, true, 'monitoring');
@@ -281,6 +294,23 @@ WITH d AS (DELETE FROM public.school_course_structure RETURNING 1)
 SELECT is((SELECT count(*)::int FROM d), 0, 'C-4: inactive consultor DELETE touches 0 courses');
 WITH d AS (DELETE FROM public.school_transversal_context RETURNING 1)
 SELECT is((SELECT count(*)::int FROM d), 0, 'C-4: inactive consultor DELETE touches 0 transversal contexts');
+
+-- -----------------------------------------------------------------------------
+-- Docente sharing a community with a consultor (cs_doc_comm): the consultor's
+-- role row is visible to them, and still confers nothing
+-- -----------------------------------------------------------------------------
+RESET ROLE;
+SELECT tests.authenticate_as('cs_doc_comm');
+SELECT is((SELECT count(*)::int FROM public.user_roles
+           WHERE role_type = 'consultor' AND is_active IS TRUE
+             AND community_id = '74000000-0000-4000-8000-0000000c0001'), 1,
+  'control: community docente CAN see the active consultor role row of a community peer');
+SELECT is((SELECT count(*)::int FROM public.school_transversal_context), 0,
+  'C-4: community docente reads no transversal context (a visible peer consultor row confers nothing)');
+SELECT is((SELECT count(*)::int FROM public.school_course_structure), 0,
+  'C-4: community docente reads no course structure');
+SELECT is((SELECT count(*)::int FROM public.school_course_docente_assignments), 0,
+  'C-4: community docente reads no docente assignment rows');
 
 -- -----------------------------------------------------------------------------
 -- Docente (cs_docente): another user's consultor role never confers the grant

@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { requireVerifiedCaller } from '@/lib/api-auth';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { RubricEvaluator } from '@/lib/transformation/evaluator';
 import * as fs from 'fs';
@@ -109,19 +110,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Check authentication
     console.log('✅ Checking authentication...');
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-    if (sessionError) {
-      console.error('❌ Session error:', sessionError);
-      return res.status(401).json({ error: 'Authentication error' });
+    // Identity comes from the auth server; the cookie's stored `user` is
+    // client-controlled (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
 
-    if (!session) {
-      console.error('❌ No session found');
-      return res.status(401).json({ error: 'No autorizado' });
-    }
-
-    console.log('✅ User authenticated:', session.user.id);
+    console.log('✅ User authenticated:', caller.user.id);
 
     // 1. Load assessment with responses
     console.log('✅ Fetching assessment from database...');

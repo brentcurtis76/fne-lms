@@ -4,6 +4,7 @@
  */
 
 import { NextApiRequest, NextApiResponse } from 'next';
+import { requireVerifiedCaller } from '@/lib/api-auth';
 import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
 import { 
   getUserRoles, 
@@ -24,13 +25,14 @@ export default async function handler(
     const supabase = createServerSupabaseClient({ req, res });
     
     // Get current user
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError || !session?.user) {
-      return res.status(401).json({ error: 'No authenticated user' });
+    // Identity comes from the auth server; the cookie's stored `user` is
+    // client-controlled (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
 
-    const userId = session.user.id;
+    const userId = caller.user.id;
 
     // Get legacy profile for backward compatibility
     const { data: profile, error: profileError } = await supabase
@@ -55,7 +57,7 @@ export default async function handler(
     return res.status(200).json({
       user: {
         id: userId,
-        email: session.user.email,
+        email: caller.user.email,
         name: profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : null
       },
       legacy: {

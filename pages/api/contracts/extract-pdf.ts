@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import Anthropic from '@anthropic-ai/sdk';
 import pdfParse from 'pdf-parse';
+import { requireVerifiedCaller } from '@/lib/api-auth';
 
 // Types for extracted data
 interface ExtractedContract {
@@ -200,16 +201,18 @@ export default async function handler(
     const supabase = createPagesServerClient({ req, res });
     
     // Check authentication
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) {
-      return res.status(401).json({ error: 'No autorizado' });
+    // Identity comes from the auth server; the cookie's stored `user` is
+    // client-controlled (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
 
     // Check if user is admin
     const { data: userRoles } = await supabase
       .from('user_roles')
       .select('role_type')
-      .eq('user_id', session.user.id)
+      .eq('user_id', caller.user.id)
       .eq('role_type', 'admin')
       .eq('is_active', true)
       .single();

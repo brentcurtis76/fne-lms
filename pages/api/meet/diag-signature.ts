@@ -3,6 +3,7 @@ import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { getUserPrimaryRole } from '../../../utils/roleUtils';
 import { diagMeetingAllowlist, isDiagJoinConfigured } from '../../../lib/meet/diag-config';
 import { signZoomSdkJwt } from '../../../lib/zoom/signer';
+import { requireVerifiedCaller } from '@/lib/api-auth';
 
 /**
  * Meeting SDK signature for the /meet/diag test-join probe (Z0B-2, spike).
@@ -94,15 +95,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // Gate 2 — authenticated.
   const supabase = createPagesServerClient({ req, res });
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  // Identity comes from the auth server; the cookie's stored `user` is
+  // client-controlled (SM-B015).
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) {
+    return res.status(caller.status).json(caller.body);
   }
 
   // Gate 3 — role.
-  const role = await getUserPrimaryRole(session.user.id);
+  const role = await getUserPrimaryRole(caller.user.id);
   if (!ALLOWED_ROLES.includes(role)) {
     return res.status(403).json({ error: 'Forbidden' });
   }

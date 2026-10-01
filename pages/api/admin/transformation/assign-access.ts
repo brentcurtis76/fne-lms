@@ -19,6 +19,7 @@
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { requireVerifiedCaller } from '@/lib/api-auth';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import {
   assignTransformationAccess,
@@ -35,16 +36,15 @@ export default async function handler(
   }
 
   const supabase = createPagesServerClient({ req, res });
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) {
-    return res.status(401).json({ error: 'No autorizado' });
+  // Identity comes from the auth server; the cookie's stored `user` is
+  // client-controlled (SM-B015).
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) {
+    return res.status(caller.status).json(caller.body);
   }
 
   // Verificar que usuario sea admin
-  const isAdmin = await isUserAdmin(supabase, session.user.id);
+  const isAdmin = await isUserAdmin(supabase, caller.user.id);
 
   if (!isAdmin) {
     return res.status(403).json({
@@ -73,7 +73,7 @@ export default async function handler(
   const result = await assignTransformationAccess(
     supabase,
     communityId,
-    session.user.id,
+    caller.user.id,
     notes
   );
 

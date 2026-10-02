@@ -53,7 +53,7 @@ export const MANIFEST = {
   grade: { id: 990905, name: '1° Básico', sortOrder: 5, isAlwaysGt: true },
   template: {
     id: 'b0100000-0000-4000-8000-0000000000e1',
-    name: '[SINTÉTICO] Ensayo piloto — Evaluación 1° Básico',
+    name: '[SINTÉTICO] Ensayo piloto — Registro 1° Básico',
     area: 'evaluacion',
     objectiveId: 'b0100000-0000-4000-8000-0000000000b1',
     moduleId: 'b0100000-0000-4000-8000-0000000000c1',

@@ -9,7 +9,7 @@
  *   director fills the Contexto Transversal (1° Básico, one course) → the
  *   course "1 BASICO A" appears → director assigns the docente → the product
  *   creates the instance for the published synthetic template → docente sees
- *   it in "Mis Evaluaciones" with the right course → answers Sí / 5 / level 3,
+ *   it in "Mis Registros" with the right course → answers Sí / 5 / level 3,
  *   saves, reloads (answers persisted in the database and shown) → submits →
  *   docente results show 100 / 50 / 75 and a 75% total → the director's
  *   dashboard shows the 75% average.
@@ -165,7 +165,7 @@ for (const run of MANIFEST.runs) {
       await page.goto(`/docente/assessments/${inst.id}`);
       await page.getByTestId('assessment-submit-button').click();
       await page.getByTestId('assessment-submit-confirm-button').click();
-      await expect(page.getByRole('status').filter({ hasText: /^Evaluación completada$/ })).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByRole('status').filter({ hasText: /^Registro completado$/ })).toBeVisible({ timeout: 30_000 });
       expect((await instanceOf(run)).status).toBe('completed');
 
       await page.goto(`/docente/assessments/${inst.id}/results`);

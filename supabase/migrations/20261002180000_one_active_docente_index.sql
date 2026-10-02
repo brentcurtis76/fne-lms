@@ -54,6 +54,21 @@ BEGIN
   CREATE UNIQUE INDEX IF NOT EXISTS school_course_docente_assignments_one_active_key
     ON public.school_course_docente_assignments (course_structure_id)
     WHERE is_active;
+
+  -- IF NOT EXISTS accepts any relation of that name; fail closed unless it is
+  -- exactly this unique, valid index.
+  IF NOT EXISTS (
+    SELECT 1
+      FROM pg_indexes i
+      JOIN pg_index x ON x.indexrelid = to_regclass('public.school_course_docente_assignments_one_active_key')
+     WHERE i.schemaname = 'public'
+       AND i.indexname = 'school_course_docente_assignments_one_active_key'
+       AND x.indisunique AND x.indisvalid
+       AND i.indexdef = 'CREATE UNIQUE INDEX school_course_docente_assignments_one_active_key ON public.school_course_docente_assignments USING btree (course_structure_id) WHERE is_active'
+  ) THEN
+    RAISE EXCEPTION 'one_active_docente_index: an object named school_course_docente_assignments_one_active_key exists but is not the expected unique, valid partial index — nothing changed'
+      USING ERRCODE = 'duplicate_object';
+  END IF;
 END;
 $$;
 

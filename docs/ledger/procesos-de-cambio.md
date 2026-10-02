@@ -4,14 +4,14 @@ Converted from Mini proc-coordination-20260910/LEDGER.md + CURRENT.md + MAPA on 
 
 ## Now
 
-The two approved offline completion steps are finished: PROC-05 repaired receipt-parent integrity and PROC-06 reconciled the contract and generated result, independently approved with 54 model tests passing and protected product files unchanged. The original offline model item is done; all earlier attempts remain preserved. The numeric feature remains held: real local database/browser validation and cleanup proof still need a separately authorized unit. The application build remains RED; the limited exception expires with these offline steps. Nothing has been pushed, deployed or accepted as live behavior. Remaining ready implementation items touch protected files, permissions or database behavior and are not eligible for unattended low-risk start.
+2 Oct 2026 (worked by hand with Claude while the PM–Executor workflow is paused; Codex reviews every change, Brent publishes): numeric validation is closed and live (PR #138 archived list + consultor Contexto, #140 frequency expectations within their indicator's range and step, #141 numeric save feedback). This machine can now run CI's browser gate locally (`scripts/ci/e2e-local.sh`). Historical data: the Operation A procedure was re-verified on a fresh synthetic database (its Step 1 discovery now runs verbatim; one Step 2 line fixed so the live system's `postgres` role can run it) and a plain-language decision pack is ready (`docs/planning/proc-historical-data-decision-pack.md`); nothing has touched real data — waiting for Brent's decisions. Pilot: not started (synthetic rehearsal next, then Brent's pilot decisions).
 
 ## Items
 | id | title | status | unit | updated | notes |
 |---|---|---|---|---|---|
 | PROC-E2E-AUTH | Autenticación de pruebas E2E: clasificación de personas y registros corregidos | done |  | 2026-09-10 |  |
 | PROC-PROPOSAL-LIBRARIES | Bibliotecas de propuestas: páginas, guardias de carga y pruebas | done |  | 2026-09-10 |  |
-| PROC-NUMERIC-VALIDATION | Validación de valores numéricos: límites y pasos, aceptación dentro del conjunto | held | PROC-02 | 2026-09-17 |  |
+| PROC-NUMERIC-VALIDATION | Validación de valores numéricos: límites y pasos, aceptación dentro del conjunto | done | PROC-02 | 2026-10-02 | Closed by Brent's OK (decision ae66f02bb1341199); live via PRs #138, #140, #141. |
 | PROC-B5-VERSIONING | B5 versiones e historia: detección en indicadores y grados, crear/seleccionar versiones y conectar la aplicación | done | PROC-08 | 2026-09-20 |  |
 | PROC-B5-CONCURRENCY | B5: ensayo real de ediciones simultáneas (sospecha de interbloqueo) | done | PROC-B5-CONCURRENCY | 2026-09-22 |  |
 | PROC-B5-PGTAP-RENUMBER | B5: renumerar las pruebas pgTAP (081 duplicado con 081-zoom-explicit-roster.sql de main) | done | PROC-09 | 2026-09-20 |  |
@@ -22,7 +22,7 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-LIFECYCLE-ARCHIVED-LIST | Evaluaciones archivadas: listado, filtro y vista de solo consulta verificados en navegador | done | PROC-01 | 2026-09-17 | DONE LOCALLY: reviewed and committed in PROC-01; no publication. |
 | PROC-LIFECYCLE-CANCELLATION | Ciclo de vida: cancelación explícita solo por administradores, conservando versión, respuestas e historia | done | PROC-14 | 2026-09-21 |  |
 | PROC-FULL-SUITE-PUBLICATION | Integrar con main, resolver la batería completa (308/52/12), revisar y publicar el conjunto | done | PROC-B5-CONCURRENCY-3 | 2026-09-22 |  |
-| PROC-HISTORICAL-DATA | Datos históricos: corregir asignaciones antiguas inválidas sin borrar historia (decisiones de Brent pendientes) | waiting |  | 2026-09-17 |  |
+| PROC-HISTORICAL-DATA | Datos históricos: corregir asignaciones antiguas inválidas sin borrar historia (decisiones de Brent pendientes) | waiting |  | 2026-10-02 | Local proof re-verified (B006) and decision pack ready (B007); waiting for Brent's decisions. No real data touched. |
 | PROC-PILOT | Piloto: datos reales aprobados y prueba supervisada directivo → curso → docente → entrega → resultados | waiting |  | 2026-09-17 |  |
 | PROC-CALIBRATION | Calibración, expectativas y afirmaciones sobre resultados (aplazado por Brent) | held |  | 2026-09-10 |  |
 | PROC-NUMERIC-AUDIT-CLOSURE | Close the numeric audit evidence; feature acceptance remains open | done | PROC-03 | 2026-09-17 |  |
@@ -42,11 +42,13 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 | PROC-NUMERIC-EXPECTATION-RULE | Align frequency expectation API validation with whole-number counts | done | PROC-19 | 2026-09-26 |  |
 | PROC-NUMERIC-EXPECTATION-EDITOR | Correct frequency expectation editor input and save semantics | held | PROC-20 | 2026-09-27 |  |
 | PROC-NUMERIC-EXPECTATION-EDITOR-VERIFY | Validate and commit the approved frequency expectation editor correction | done | PROC-21 | 2026-09-28 |  |
-| PROC-B001 | Correct frequency expectation editor input and save semantics | todo |  | 2026-09-28 |  |
+| PROC-B001 | Correct frequency expectation editor input and save semantics | done |  | 2026-10-02 | Satisfied by PROC-20/PROC-21 (no re-execution). |
 | PROC-B002 | Validate and commit the approved frequency expectation editor correction | done | PROC-21 | 2026-09-28 |  |
 | PROC-B003 | Run isolated numeric browser acceptance | done | PROC-PR104-RECOVERY-2 | 2026-09-29 |  |
 | PROC-B004 | Resolve acceptance-proven defects or record none | done | PROC-PR104-RECOVERY-3 | 2026-09-30 |  |
-| PROC-B005 | Independently review and close the numeric-validation parent | todo |  | 2026-09-28 |  |
+| PROC-B005 | Independently review and close the numeric-validation parent | done |  | 2026-10-02 |  |
+| PROC-F1-EXPECTATION-CROSSCHECK | Expectativas de frecuencia dentro del rango y pasos de su indicador (editor, API, publicación) | done | PROC-F1 | 2026-10-02 | PR #140. |
+| PROC-GATE-BASELINE-FOLLOWUP | Este equipo replica la compuerta E2E y el build de CI (script local); lista de 81 pruebas antiguas fuera de PROC | done | PROC-HD | 2026-10-02 | Done when this release (PROC-HD) merges: `scripts/ci/e2e-local.sh`; the 81 legacy failing specs (outside CI's mandatory set) are listed, not repaired, by Brent's choice. |
 
 ## Events (append-only, newest last)
 - 2026-09-10T02:10+00:00 · PM · RECORD · COORDINATED authorized by user. Claude Fable5.1 discovery01 stopped at context boundary, no edits, exit143. Discovery02 fresh restricted intake running. Independent PM portability/raw-report/trace checkpoint written; ful
@@ -357,3 +359,7 @@ The two approved offline completion steps are finished: PROC-05 repaired receipt
 - 2026-09-29T13:43:00-03:00 · PROC-PR104-RECOVERY-2 · DONE · PROC-PR104-RECOVERY-2: accept isolated numeric browser evidence · token 9e0915e73d2d
 - 2026-09-29T13:46:22-03:00 · PROC-PR104-RECOVERY-3 · IN-PROGRESS · PROC-PR104-RECOVERY-3 r0 dispatched (pm-unit begin) · token ls-90c2452264
 - 2026-09-30T10:22:43-03:00 · PROC-PR104-RECOVERY-3 · DONE · PROC-B004: accept numeric UI corrections with approved gate disposition · token e4cbcebfbb48
+- 2026-10-01T21:52:43-03:00 · PROC-H1 · DONE · Docente archived list + consultor read-only Contexto in every school shipped (PR #138); prod RLS policies applied by Brent (migration 20261001190000) · token hand-proc-h1
+- 2026-10-02T09:01:42-03:00 · PROC-F1 · DONE · Frequency expectations must fit their indicator's min/max/step (editor, API, publish) shipped (PR #140) · token hand-proc-f1
+- 2026-10-02T09:40:14-03:00 · PROC-H3 · DONE · B004 numeric save feedback ported onto main shipped (PR #141); PROC-NUMERIC-VALIDATION, PROC-B001, PROC-B005 done · token hand-proc-h3
+- 2026-10-02T10:18:26-03:00 · PROC-HD · DONE · Local CI browser-gate script (PROC-GATE-BASELINE-FOLLOWUP); Operation A Step 1 verified verbatim on a fresh synthetic stack + Step 2 deadlock_timeout fix (B006); historical-data decision pack (B007). No real data touched. · token hand-proc-hd

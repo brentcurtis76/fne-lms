@@ -1467,4 +1467,64 @@ describe('POST /api/school/transversal-context/assign-docente (DELETE disabled)'
     expect(res._getStatusCode()).toBe(500);
     expect(mockTriggerAutoAssignment).not.toHaveBeenCalled();
   });
+
+  // ── One-active index (20261002180000): a concurrent second docente ──
+  const ONE_ACTIVE_23505 = {
+    code: '23505',
+    message: 'duplicate key value violates unique constraint "school_course_docente_assignments_one_active_key"',
+    details: 'Key (course_structure_id)=(00000000-0000-4000-8000-000000000000) already exists.',
+  };
+
+  it('answers 409 course_already_assigned when the insert hits the one-active index, without auto-assignment or identities', async () => {
+    readyToProceed();
+    const user = buildUserClient({ assignmentsSpec: { writeError: ONE_ACTIVE_23505 } });
+    mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+    const { req, res } = postReq();
+    await handler(req, res);
+
+    const data = expectRefusal(res, 409, 'course_already_assigned');
+    expect(data.error).toContain('ya tiene un docente activo');
+    expect(user.assignments.chains.filter(ch => ch[0]?.method === 'insert')).toHaveLength(1);
+    expect(mockTriggerAutoAssignment).not.toHaveBeenCalled();
+    expectNoIdentityLeak(res);
+    expect(res._getData()).not.toContain('one_active_key');
+  });
+
+  it('answers 409 course_already_assigned when reactivating the same-pair row hits the one-active index', async () => {
+    readyToProceed();
+    const user = buildUserClient({
+      assignments: [assignmentRow('a-same', DOCENTE_ID, false)],
+      assignmentsSpec: { writeError: ONE_ACTIVE_23505 },
+    });
+    mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+    const { req, res } = postReq();
+    await handler(req, res);
+
+    expectRefusal(res, 409, 'course_already_assigned');
+    expect(writeChains(user.assignments).map(ch => flat(ch))).toEqual([[['update', { is_active: true }], ['eq', 'id', 'a-same']]]);
+    expect(mockTriggerAutoAssignment).not.toHaveBeenCalled();
+    expectNoIdentityLeak(res);
+  });
+
+  it('keeps the generic 500 for the other unique constraint (same course and docente), which is not a second docente', async () => {
+    readyToProceed();
+    const user = buildUserClient({
+      assignmentsSpec: {
+        writeError: {
+          code: '23505',
+          message: 'duplicate key value violates unique constraint "school_course_docente_assignm_course_structure_id_docente_i_key"',
+        },
+      },
+    });
+    mockCreateApiSupabaseClient.mockResolvedValue(user.client);
+
+    const { req, res } = postReq();
+    await handler(req, res);
+
+    expect(res._getStatusCode()).toBe(500);
+    expect(JSON.parse(res._getData()).code).toBeUndefined();
+    expect(mockTriggerAutoAssignment).not.toHaveBeenCalled();
+  });
 });

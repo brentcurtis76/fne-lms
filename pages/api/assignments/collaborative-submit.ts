@@ -5,9 +5,9 @@
  */
 
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { userAssignmentsService } from '@/lib/services/userAssignments';
 import notificationService from '@/lib/notificationService';
+import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
 
 export default async function handler(
   req: NextApiRequest,
@@ -19,15 +19,14 @@ export default async function handler(
 
   try {
     // Create Supabase client
-    const supabase = createPagesServerClient({ req, res });
+    const supabase = await createApiSupabaseClient(req, res);
 
     // Check authentication
-    const {
-      data: { session }
-    } = await supabase.auth.getSession();
-
-    if (!session) {
-      return res.status(401).json({ error: 'No autorizado' });
+    // Identity comes from the auth server; the cookie's stored `user` is
+    // client-controlled (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
 
     // Parse request body
@@ -71,7 +70,7 @@ export default async function handler(
     const { data: enrollment } = await supabase
       .from('course_enrollments')
       .select('id')
-      .eq('user_id', session.user.id)
+      .eq('user_id', caller.user.id)
       .eq('course_id', assignment.course_id)
       .eq('status', 'active')
       .single();
@@ -87,7 +86,7 @@ export default async function handler(
       supabase,
       {
         assignmentId,
-        submitterId: session.user.id,
+        submitterId: caller.user.id,
         communityId,
         content,
         fileUrl,
@@ -105,7 +104,7 @@ export default async function handler(
     const { data: submitterProfile } = await supabase
       .from('profiles')
       .select('name, first_name, last_name, email')
-      .eq('id', session.user.id)
+      .eq('id', caller.user.id)
       .single();
 
     const submitterName = submitterProfile?.name ||

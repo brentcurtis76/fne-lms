@@ -14,6 +14,14 @@ vi.mock('@supabase/auth-helpers-nextjs', () => ({
   createPagesServerClient: mockCreatePagesServerClient,
 }));
 
+// The verified caller comes from requireVerifiedCaller (SM-B015); its
+// forged-cookie behaviour is covered with the other SM-B015 suites.
+vi.mock('../../../lib/api-auth', () => ({
+  // The caller-scoped client is the cookie client this suite builds.
+  createApiSupabaseClient: async () => mockCreatePagesServerClient(),
+  requireVerifiedCaller: async () => ({ user: { id: 'admin-1' }, status: null, body: null }),
+}));
+
 vi.mock('@supabase/supabase-js', () => ({
   createClient: mockCreateClient,
 }));

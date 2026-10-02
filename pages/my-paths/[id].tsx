@@ -23,6 +23,7 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useSessionTracker } from '../../lib/services/learningPathSessionTracker';
+import { getServerSideUser } from '../../lib/api-auth';
 
 interface Course {
   sequence: number;
@@ -496,9 +497,10 @@ export default function PathDetailsPage({ profileData, user, isAdmin, userRole }
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const supabase = createServerSupabaseClient(ctx);
-  const { data: { session } } = await supabase.auth.getSession();
+  // The verified user (auth server), never the cookie's stored `user` (SM-B015).
+  const user = await getServerSideUser(ctx);
 
-  if (!session) {
+  if (!user) {
     return {
       redirect: {
         destination: '/auth/signin',
@@ -510,7 +512,7 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const { data: profileData } = await supabase
     .from('profiles')
     .select('*')
-    .eq('id', session.user.id)
+    .eq('id', user.id)
     .single();
 
   if (!profileData) {
@@ -526,7 +528,7 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const { data: userRoles } = await supabase
     .from('user_roles')
     .select('role_type')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .eq('is_active', true)
     .order('role_type');
 
@@ -538,7 +540,7 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   return {
     props: {
       profileData,
-      user: session.user,
+      user: user,
       isAdmin,
       userRole: primaryRole,
     },

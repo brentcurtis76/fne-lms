@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
+import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
 
 // Service role client to bypass RLS
 const supabaseAdmin = createClient(
@@ -15,11 +15,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // Verify the requesting user is authenticated
-    const sessionClient = createPagesServerClient({ req, res });
-    const { data: { session } } = await sessionClient.auth.getSession();
-
-    if (!session?.user) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    const sessionClient = await createApiSupabaseClient(req, res);
+    // Identity comes from the auth server; the cookie's stored `user` is
+    // client-controlled (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
 
     const { userId } = req.query;

@@ -1,26 +1,27 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Método no permitido' });
   }
 
-  const supabase = createPagesServerClient({ req, res });
+  const supabase = await createApiSupabaseClient(req, res);
 
   try {
     // Check authentication
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      return res.status(401).json({ error: 'No autorizado' });
+    // Identity comes from the auth server; the cookie's stored `user` is
+    // client-controlled (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
 
     // Check if user has permission to view quotes
     const { data: userRole } = await supabase
       .from('user_roles')
       .select('role_type')
-      .eq('user_id', session.user.id)
+      .eq('user_id', caller.user.id)
       .eq('is_active', true)
       .in('role_type', ['admin', 'consultor', 'community_manager'])
       .single();

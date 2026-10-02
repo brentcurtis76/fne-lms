@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
+import { canReadViasAssessment, loadViasAssessment } from '@/lib/transformation/viasAssessmentAccess';
 import { createClient } from '@supabase/supabase-js';
 
 /**
@@ -15,16 +16,15 @@ import { createClient } from '@supabase/supabase-js';
  * Body: { userId: string }
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const supabase = createPagesServerClient({ req, res });
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) {
-    return res.status(401).json({ error: 'No autorizado' });
+  const supabase = await createApiSupabaseClient(req, res);
+  // Identity comes from the auth server; the cookie's stored `user` is
+  // client-controlled (SM-B015).
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) {
+    return res.status(caller.status).json(caller.body);
   }
 
-  const userId = session.user.id;
+  const userId = caller.user.id;
   const { id: assessmentId } = req.query;
 
   if (!assessmentId || typeof assessmentId !== 'string') {
@@ -44,7 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   );
 
   if (req.method === 'GET') {
-    return handleGet(res, supabaseAdmin, assessmentId);
+    return handleGet(res, supabaseAdmin, userId, assessmentId);
   } else if (req.method === 'POST') {
     return handlePost(req, res, supabase, supabaseAdmin, userId, assessmentId);
   } else if (req.method === 'DELETE') {
@@ -61,9 +61,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 async function handleGet(
   res: NextApiResponse,
   supabaseAdmin: any,
+  userId: string,
   assessmentId: string
 ) {
   try {
+    // Only someone who may read the assessment may list its collaborators.
+    const assessment = await loadViasAssessment(supabaseAdmin, assessmentId);
+    if (!assessment) {
+      return res.status(404).json({ error: 'Evaluación no encontrada' });
+    }
+    if (!(await canReadViasAssessment(supabaseAdmin, userId, assessment))) {
+      return res.status(403).json({ error: 'No tienes acceso a esta evaluación' });
+    }
+
     // Get collaborators without join (foreign key relationship doesn't exist)
     const { data: collaborators, error } = await supabaseAdmin
       .from('transformation_assessment_collaborators')
@@ -290,6 +300,12 @@ async function handleDelete(
       .eq('assessment_id', assessmentId)
       .eq('user_id', targetUserId)
       .single();
+
+    // Removing oneself needs an actual collaborator row; otherwise there is
+    // nothing to remove and the assessment must not be touched.
+    if (!isAdmin && !isCreator && !targetCollab) {
+      return res.status(404).json({ error: 'No eres colaborador de esta evaluación' });
+    }
 
     if (targetCollab?.role === 'creator') {
       return res.status(400).json({ error: 'No se puede eliminar al creador de la evaluación' });

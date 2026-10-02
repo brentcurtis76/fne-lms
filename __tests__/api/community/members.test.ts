@@ -2,18 +2,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
 
-// The community members API authorizes the caller with a session client, then
-// reads role rows + profiles with a module-level service-role client. Mock both
-// so we can drive the access checks and the returned data deterministically.
-const { mockGetSession, mockServiceFrom } = vi.hoisted(() => ({
-  mockGetSession: vi.fn(),
+// The community members API takes the verified caller from
+// requireVerifiedCaller (its forged-cookie behaviour is covered in
+// reports-community-forged-session.test.ts), then reads role rows + profiles
+// with a module-level service-role client. Mock both so we can drive the
+// access checks and the returned data deterministically.
+const { mockRequireVerifiedCaller, mockServiceFrom } = vi.hoisted(() => ({
+  mockRequireVerifiedCaller: vi.fn(),
   mockServiceFrom: vi.fn(),
 }));
 
-vi.mock('@supabase/auth-helpers-nextjs', () => ({
-  createPagesServerClient: () => ({
-    auth: { getSession: mockGetSession },
-  }),
+vi.mock('../../../lib/api-auth', () => ({
+  requireVerifiedCaller: mockRequireVerifiedCaller,
 }));
 
 vi.mock('@supabase/supabase-js', () => ({
@@ -103,9 +103,11 @@ function expectCommunityMemberQueryScopedTo(requestedCommunityId: string) {
 }
 
 function setSession(userId: string | null) {
-  mockGetSession.mockResolvedValue({
-    data: { session: userId ? { user: { id: userId } } : null },
-  });
+  mockRequireVerifiedCaller.mockResolvedValue(
+    userId
+      ? { user: { id: userId }, status: null, body: null }
+      : { user: null, status: 401, body: { error: 'No autorizado' } },
+  );
 }
 
 function setService(queue: Record<string, Result[]>) {

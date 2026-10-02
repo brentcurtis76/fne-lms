@@ -1,11 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { GetServerSideProps } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { toast } from 'react-hot-toast';
 import { Briefcase, ChevronDown, ChevronRight, Download, Loader2, RefreshCw, Search } from 'lucide-react';
 import MainLayout from '../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../components/layout/FunctionalPageHeader';
-import { createServiceRoleClient } from '../../lib/api-auth';
+import { createServiceRoleClient, getServerSideUser } from '../../lib/api-auth';
 import { ReportExporter } from '../../lib/exportUtils';
 import { formatDateTime } from '../../lib/signups';
 import { LEAD_STATUSES, type LeadStatus } from '../../lib/pasantias/leads';
@@ -41,17 +40,14 @@ interface LeadCounts {
 const EMPTY_COUNTS: LeadCounts = { new: 0, contacted: 0, converted: 0, dismissed: 0, total: 0 };
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
-  const supabase = createPagesServerClient(ctx);
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session?.user) {
+  // The verified user (auth server), never the cookie's stored `user` (SM-B015).
+  const user = await getServerSideUser(ctx);
+  if (!user) {
     return { redirect: { destination: '/login', permanent: false } };
   }
 
   const service = createServiceRoleClient();
-  const isAdmin = await isGlobalAdmin(service, session.user.id);
+  const isAdmin = await isGlobalAdmin(service, user.id);
   if (!isAdmin) {
     return { redirect: { destination: '/dashboard', permanent: false } };
   }

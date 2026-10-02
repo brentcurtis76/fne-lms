@@ -31,17 +31,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
 
-const { mockCreateServerSupabaseClient, mockHasAdminPrivileges } = vi.hoisted(() => ({
-  mockCreateServerSupabaseClient: vi.fn(),
-  mockHasAdminPrivileges: vi.fn(),
+const { mockCreateServiceRoleClient, mockRequireVerifiedRole } = vi.hoisted(() => ({
+  mockCreateServiceRoleClient: vi.fn(),
+  mockRequireVerifiedRole: vi.fn(),
 }));
 
-vi.mock('@supabase/auth-helpers-nextjs', () => ({
-  createServerSupabaseClient: mockCreateServerSupabaseClient,
-}));
-
-vi.mock('../../../utils/roleUtils', () => ({
-  hasAdminPrivileges: mockHasAdminPrivileges,
+// The verified-admin gate itself is covered by admin-forged-session.test.ts.
+vi.mock('../../../lib/api-auth', () => ({
+  requireVerifiedRole: mockRequireVerifiedRole,
+  createServiceRoleClient: mockCreateServiceRoleClient,
 }));
 
 import handler from '../../../pages/api/admin/networks/schools';
@@ -145,22 +143,14 @@ function buildRecordingClient(resultsByTable: Record<string, TableResult[]>, tra
 }
 
 /**
- * Wire an authenticated admin. The handler builds two clients: an anon one for
- * getSession(), then a service-role one that runs every query.
+ * Wire a verified admin. The handler then builds one service-role client that
+ * runs every query.
  */
 function setupAdmin(resultsByTable: Record<string, TableResult[]>, tracker: Tracker) {
-  mockCreateServerSupabaseClient.mockReturnValueOnce({
-    auth: {
-      getSession: vi.fn(async () => ({
-        data: { session: { user: { id: ADMIN_ID } } },
-        error: null,
-      })),
-    },
-  });
-  mockCreateServerSupabaseClient.mockReturnValueOnce(
+  mockRequireVerifiedRole.mockResolvedValueOnce({ user: { id: ADMIN_ID }, status: null, body: null });
+  mockCreateServiceRoleClient.mockReturnValueOnce(
     buildRecordingClient(resultsByTable, tracker),
   );
-  mockHasAdminPrivileges.mockResolvedValueOnce(true);
 }
 
 async function callDelete(tracker: Tracker) {

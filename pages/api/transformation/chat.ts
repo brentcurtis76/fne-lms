@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
 import Anthropic from '@anthropic-ai/sdk';
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 import { z } from 'zod';
@@ -45,13 +45,12 @@ export default async function handler(
     return res.status(405).json({ error: 'Método no permitido' });
   }
 
-  const supabase = createPagesServerClient({ req, res });
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) {
-    return res.status(401).json({ error: 'No autorizado' });
+  const supabase = await createApiSupabaseClient(req, res);
+  // Identity comes from the auth server; the cookie's stored `user` is
+  // client-controlled (SM-B015).
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) {
+    return res.status(caller.status).json(caller.body);
   }
 
   const { assessmentId, rubricItemId, userMessage, forceLevel, metadataPatch } = req.body ?? {};
@@ -85,7 +84,7 @@ export default async function handler(
       supabase,
       assessmentId: String(assessmentId),
       rubricItemId: String(rubricItemId),
-      userId: session.user.id,
+      userId: caller.user.id,
     });
 
     const conversationHistory = context.conversationHistory;
@@ -144,7 +143,7 @@ export default async function handler(
     const { count: recentUsageCount, error: recentUsageError } = await supabase
       .from('transformation_llm_usage')
       .select('id', { count: 'exact', head: true })
-      .eq('user_id', session.user.id)
+      .eq('user_id', caller.user.id)
       .gte('created_at', windowStart);
 
     if (recentUsageError) {
@@ -265,7 +264,7 @@ export default async function handler(
     });
 
     const { error: logError } = await supabase.from('transformation_llm_usage').insert({
-      user_id: session.user.id,
+      user_id: caller.user.id,
       assessment_id: context.assessment.id,
       model: MODEL_ID,
       input_tokens: response.usage?.input_tokens ?? null,

@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { GetServerSideProps } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { toast } from 'react-hot-toast';
 import {
   AlertTriangle,
@@ -27,7 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../components/ui/dialog';
-import { createServiceRoleClient } from '../../lib/api-auth';
+import { createServiceRoleClient, getServerSideUser } from '../../lib/api-auth';
 import { ReportExporter } from '../../lib/exportUtils';
 import {
   SIGNUP_SOURCES,
@@ -60,17 +59,14 @@ type ExistingFilter = 'all' | 'existing' | 'new';
 type SignupAction = 'grant' | 'dismiss' | 'delete' | 'resend';
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
-  const supabase = createPagesServerClient(ctx);
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session?.user) {
+  // The verified user (auth server), never the cookie's stored `user` (SM-B015).
+  const user = await getServerSideUser(ctx);
+  if (!user) {
     return { redirect: { destination: '/login', permanent: false } };
   }
 
   const service = createServiceRoleClient();
-  const isAdmin = await isGlobalAdmin(service, session.user.id);
+  const isAdmin = await isGlobalAdmin(service, user.id);
   if (!isAdmin) {
     return { redirect: { destination: '/dashboard', permanent: false } };
   }

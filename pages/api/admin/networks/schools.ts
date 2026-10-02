@@ -6,8 +6,7 @@
  */
 
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
-import { hasAdminPrivileges } from '../../../../utils/roleUtils';
+import { createServiceRoleClient, requireVerifiedRole } from '../../../../lib/api-auth';
 
 interface AssignSchoolRequest {
   networkId: string;
@@ -25,34 +24,29 @@ interface BulkAssignSchoolsRequest {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const supabase = createServerSupabaseClient({ req, res });
-
   try {
-    // Get current user session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !session?.user) {
-      return res.status(401).json({ error: 'No autorizado' });
+    // SECURITY: verified caller (auth server, not the cookie's stored user)
+    // with an active admin role (SM-B015).
+    const auth = await requireVerifiedRole(req, res, ['admin'], 'Solo administradores pueden gestionar asignaciones de escuelas');
+    if (!auth.user) {
+      return res.status(auth.status).json(auth.body);
     }
+    const user = auth.user;
 
-    // SECURITY: Verify admin privileges using service role client
-    const supabaseAdmin = createServerSupabaseClient({ req, res }, {
-      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY
-    });
-    
-    const isAdmin = await hasAdminPrivileges(supabaseAdmin, session.user.id);
-    if (!isAdmin) {
-      return res.status(403).json({ error: 'Solo administradores pueden gestionar asignaciones de escuelas' });
-    }
+    // A real service-role client. (Built from the request it carried the
+    // caller's cookie token, so a request with a Bearer for one user and a
+    // cookie for another queried as the cookie user.)
+    const supabaseAdmin = createServiceRoleClient();
 
     switch (req.method) {
       case 'GET':
         return handleGetAvailableSchools(supabaseAdmin, res);
       case 'POST':
-        return handleAssignSchool(supabaseAdmin, req.body as AssignSchoolRequest, session.user.id, res);
+        return handleAssignSchool(supabaseAdmin, req.body as AssignSchoolRequest, user.id, res);
       case 'DELETE':
         return handleRemoveSchool(supabaseAdmin, req.body as RemoveSchoolRequest, res);
       case 'PUT':
-        return handleBulkAssignSchools(supabaseAdmin, req.body as BulkAssignSchoolsRequest, session.user.id, res);
+        return handleBulkAssignSchools(supabaseAdmin, req.body as BulkAssignSchoolsRequest, user.id, res);
       default:
         res.setHeader('Allow', ['GET', 'POST', 'DELETE', 'PUT']);
         return res.status(405).json({ error: 'Método no permitido' });

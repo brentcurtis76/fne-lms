@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
 import {
   hasTransformationAccess,
   assignTransformationAccess,
@@ -12,13 +12,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Método no permitido' });
   }
 
-  const supabase = createPagesServerClient({ req, res });
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) {
-    return res.status(401).json({ error: 'No autorizado' });
+  const supabase = await createApiSupabaseClient(req, res);
+  // Identity comes from the auth server; the cookie's stored `user` is
+  // client-controlled (SM-B015).
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) {
+    return res.status(caller.status).json(caller.body);
   }
 
   // Validate required fields
@@ -61,15 +60,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (!hasAccess) {
     // If user is admin, auto-assign access; otherwise, deny
-    const isAdmin = await isUserAdmin(supabase, session.user.id);
+    const isAdmin = await isUserAdmin(supabase, caller.user.id);
 
     if (isAdmin) {
-      console.log('[transformation/create-assessment] Auto-assigning transformation access for admin:', session.user.id);
+      console.log('[transformation/create-assessment] Auto-assigning transformation access for admin:', caller.user.id);
 
       const assignResult = await assignTransformationAccess(
         supabase,
         communityId,
-        session.user.id,
+        caller.user.id,
         'Auto-asignado al crear primer assessment'
       );
 
@@ -97,7 +96,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       growth_community_id: communityId,
       area,
       status: 'in_progress',
-      created_by: session.user.id,
+      created_by: caller.user.id,
       started_at: now,
       updated_at: now,
     })

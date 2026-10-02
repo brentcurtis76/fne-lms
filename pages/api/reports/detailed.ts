@@ -1,9 +1,9 @@
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { getUserRoles, getHighestRole } from '../../../utils/roleUtils';
 import { calculateActivityScore } from '../../../lib/utils/activityScore';
 import { readClientReportingScope } from '../../../lib/simulation/tenant-policy';
+import { requireVerifiedCaller } from '../../../lib/api-auth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,16 +54,17 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
 
   try {
     console.log('[detailed-api] Step 1: Starting handler');
-    const sessionClient = createPagesServerClient({ req, res });
-    const { data: { session } } = await sessionClient.auth.getSession();
-
-    if (!session) {
-      return res.status(401).json({ error: 'Unauthorized' });
+    // Identity comes from the auth server; the cookie's stored `user` is
+    // client-controlled (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
-    console.log('[detailed-api] Step 2: Session obtained, user:', session.user.id);
+    const callerId = caller.user.id;
+    console.log('[detailed-api] Step 2: Caller verified, user:', callerId);
 
     // Get user roles using the modern role system
-    const userRoles = await getUserRoles(supabase, session.user.id);
+    const userRoles = await getUserRoles(supabase, callerId);
     console.log('[detailed-api] Step 3: Got user roles:', userRoles.length);
     const highestRole = getHighestRole(userRoles);
     console.log('[detailed-api] Step 4: Highest role:', highestRole);
@@ -78,7 +79,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
     const { data: userProfile, error: userProfileError } = await supabase
       .from('profiles')
       .select('id, first_name, last_name, school_id, generation_id, community_id')
-      .eq('id', session.user.id)
+      .eq('id', callerId)
       .maybeSingle();
 
     if (userProfileError) {
@@ -112,7 +113,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
     // Get reportable users based on role and assignments
     const clientScope = await readClientReportingScope(supabase);
     const reportableUsers = clientScope.filterUserIds(
-      await getReportableUsers(session.user.id, highestRole)
+      await getReportableUsers(callerId, highestRole)
     );
     console.log('[detailed-api] Step 7: Got reportable users:', reportableUsers.length);
     
@@ -734,12 +735,15 @@ async function getReportableUsers(userId: string, userRole: string): Promise<str
       console.log('[getReportableUsers] Total unique users:', userIds.size);
       return Array.from(userIds);
     } else if (userRole === 'equipo_directivo') {
-      // School leadership can see users from their school
+      // School leadership can see users from their school. Each leadership
+      // branch reads the scope from the row of the role that grants it, so a
+      // second role elsewhere (e.g. docente in another school) never widens it.
       // FIX: Use user_roles as source of truth for school assignments
       const { data: requesterRoles } = await supabase
         .from('user_roles')
         .select('school_id')
         .eq('user_id', userId)
+        .eq('role_type', 'equipo_directivo')
         .eq('is_active', true)
         .not('school_id', 'is', null)
         .limit(1)
@@ -762,6 +766,7 @@ async function getReportableUsers(userId: string, userRole: string): Promise<str
         .from('user_roles')
         .select('generation_id')
         .eq('user_id', userId)
+        .eq('role_type', 'lider_generacion')
         .eq('is_active', true)
         .not('generation_id', 'is', null)
         .limit(1)
@@ -784,6 +789,7 @@ async function getReportableUsers(userId: string, userRole: string): Promise<str
         .from('user_roles')
         .select('community_id')
         .eq('user_id', userId)
+        .eq('role_type', 'lider_comunidad')
         .eq('is_active', true)
         .not('community_id', 'is', null)
         .limit(1)

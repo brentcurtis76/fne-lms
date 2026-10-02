@@ -15,8 +15,19 @@ import type { GetServerSidePropsContext } from 'next';
 
 const { mockGetSession } = vi.hoisted(() => ({ mockGetSession: vi.fn() }));
 
+// The real getServerSideUser runs: the token is verified with getUser, which
+// here answers with the session fixture's user.
 vi.mock('@supabase/auth-helpers-nextjs', () => ({
-  createPagesServerClient: () => ({ auth: { getSession: mockGetSession } }),
+  createPagesServerClient: () => ({
+    auth: {
+      getSession: mockGetSession,
+      getUser: async () => {
+        const user = (await mockGetSession())?.data?.session?.user ?? null;
+        return { data: { user }, error: user ? null : { message: 'invalid token' } };
+      },
+    },
+  }),
+  createServerSupabaseClient: vi.fn(),
 }));
 
 import { getServerSideProps } from '../../../pages/meet/diag';

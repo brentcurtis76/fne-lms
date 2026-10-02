@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
+import { canReadViasAssessment, loadViasAssessment } from '@/lib/transformation/viasAssessmentAccess';
 import { createClient } from '@supabase/supabase-js';
 
 /**
@@ -22,16 +23,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Método no permitido' });
   }
 
-  const supabase = createPagesServerClient({ req, res });
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) {
-    return res.status(401).json({ error: 'No autorizado' });
+  const supabase = await createApiSupabaseClient(req, res);
+  // Identity comes from the auth server; the cookie's stored `user` is
+  // client-controlled (SM-B015).
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) {
+    return res.status(caller.status).json(caller.body);
   }
 
-  const userId = session.user.id;
+  const userId = caller.user.id;
   const { schoolId, assessmentId } = req.query;
 
   if (!schoolId) {
@@ -125,8 +125,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     let eligibleUsers = Array.from(userMap.values());
 
-    // 4. If assessmentId provided, exclude existing collaborators
+    // 4. If assessmentId provided, exclude existing collaborators — only for
+    // an assessment of this school that the caller may read; otherwise the
+    // filter would reveal who collaborates on someone else's assessment.
     if (assessmentId) {
+      const assessment = await loadViasAssessment(supabaseAdmin, assessmentId as string);
+      if (!assessment) {
+        return res.status(404).json({ error: 'Evaluación no encontrada' });
+      }
+      if (assessment.school_id !== schoolIdNum) {
+        return res.status(400).json({ error: 'La evaluación no pertenece a esta escuela' });
+      }
+      if (!(await canReadViasAssessment(supabaseAdmin, userId, assessment))) {
+        return res.status(403).json({ error: 'No tienes acceso a esta evaluación' });
+      }
+
       const { data: existingCollaborators, error: collabError } = await supabaseAdmin
         .from('transformation_assessment_collaborators')
         .select('user_id')

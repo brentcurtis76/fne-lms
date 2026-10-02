@@ -63,9 +63,17 @@ test.describe('login failure recovery', () => {
       await page.getByTestId('login-email').fill(email);
       await page.getByTestId('login-password').fill(oldPassword);
       const signedIn = page.waitForResponse(response => response.url().includes('/auth/v1/token?grant_type=password'));
+      // The dashboard's last API call; registered before sign-in so it cannot be missed.
+      const dashboardPaths = page.waitForResponse(response => response.url().includes('/api/learning-paths/my-paths'));
       await page.getByTestId('login-submit').click();
       const oldSession = await (await signedIn).json();
       await expect(page).toHaveURL(/\/dashboard(?:\?|$)/, { timeout: 30_000 });
+      // Let the dashboard finish its own API calls, then leave it. Any of those
+      // calls landing after the reset is refused by the middleware, which expires
+      // the revoked cookie (correct, but not the browser state under test here).
+      await (await dashboardPaths).finished();
+      await page.waitForLoadState('networkidle');
+      await page.goto('about:blank');
       const cookiesBeforeReset = (await page.context().cookies()).filter(cookie => cookie.name.startsWith('sb-'));
       expect(cookiesBeforeReset.length).toBeGreaterThan(0);
       const reset = await admin.auth.admin.updateUserById(userId, { password: newPassword });

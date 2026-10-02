@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
+import { requireVerifiedCaller } from '../../../../lib/api-auth';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -70,10 +70,13 @@ async function checkPermissions(supabaseClient: any, userId: string): Promise<Pe
   const isAdmin = roleTypes.includes('admin');
   const isConsultor = roleTypes.includes('consultor');
 
+  // Scope checks below run only for consultors, and only the consultor rows
+  // may grant scope: a school/community on another role the caller holds
+  // (e.g. docente elsewhere) must not widen what a consultor can read.
   return {
     allowed: isAdmin || isConsultor,
     isAdmin,
-    userRoles: roles
+    userRoles: roles.filter((r: any) => r.role_type === 'consultor')
   };
 }
 
@@ -171,19 +174,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Authenticate user
-    const supabaseAuth = createServerSupabaseClient({ req, res });
-    const { data: { session }, error: sessionError } = await supabaseAuth.auth.getSession();
-
-    if (sessionError || !session) {
-      return res.status(401).json({ error: 'Authentication required' });
+    // Identity comes from the auth server; the cookie's stored `user` is
+    // client-controlled (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
 
     // Create service role client for bypassing RLS
     const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
 
     // Check permission and get role info for scoping
-    const permissions = await checkPermissions(supabaseService, session.user.id);
+    const permissions = await checkPermissions(supabaseService, caller.user.id);
     if (!permissions.allowed) {
       return res.status(403).json({
         error: 'No tienes permiso para ver asignaciones de grupos'

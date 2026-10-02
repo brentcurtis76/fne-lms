@@ -1,20 +1,18 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
+import { requireVerifiedCaller } from '../../../lib/api-auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método no permitido' });
   }
 
-  const supabase = createPagesServerClient({ req, res });
-
   try {
-    // Check authentication
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      return res.status(401).json({ error: 'No autorizado' });
+    // Identity comes from the auth server; the cookie's stored `user` is
+    // client-controlled (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
 
     // Create service role client to bypass RLS for database operations
@@ -33,7 +31,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: userRoles, error: rolesError } = await serviceSupabase
       .from('user_roles')
       .select('role_type')
-      .eq('user_id', session.user.id)
+      .eq('user_id', caller.user.id)
       .eq('is_active', true)
       .in('role_type', ['admin', 'consultor', 'community_manager']);
 
@@ -77,6 +75,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
+    // A new quote starts as a draft or is published at once ('sent');
+    // viewed / accepted / rejected / expired are never set by the creator.
+    if (status !== undefined && status !== null && status !== 'draft' && status !== 'sent') {
+      return res.status(400).json({ error: 'Estado de cotización no permitido' });
+    }
+
     // If using groups, validate at least one group exists
     if (use_groups && (!groups || groups.length === 0)) {
       return res.status(400).json({ 
@@ -107,8 +111,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       status: status || 'draft',
       valid_until,
       use_groups: use_groups || false,
-      created_by: session.user.id,
-      updated_by: session.user.id
+      created_by: caller.user.id,
+      updated_by: caller.user.id
     };
 
     // If not using groups, include legacy fields
@@ -202,7 +206,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await serviceSupabase
       .from('activity_logs')
       .insert({
-        user_id: session.user.id,
+        user_id: caller.user.id,
         action: 'create_quote',
         resource_type: 'pasantias_quote',
         resource_id: quoteId,

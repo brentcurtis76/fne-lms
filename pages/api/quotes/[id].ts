@@ -1,9 +1,19 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
+import { createApiSupabaseClient, requireVerifiedCaller } from '../../../lib/api-auth';
+
+const EDITABLE_QUOTE_FIELDS = [
+  'client_name', 'client_email', 'client_phone', 'client_institution',
+  'arrival_date', 'departure_date', 'flight_price', 'flight_notes',
+  'room_type', 'single_room_price', 'double_room_price', 'num_pasantes',
+  'selected_programs', 'apply_early_bird_discount', 'early_bird_payment_date',
+  'viaticos_type', 'viaticos_amount', 'viaticos_total', 'viaticos_display_amount',
+  'notes', 'internal_notes', 'status', 'valid_until', 'use_groups',
+  'grand_total', 'total_per_person',
+] as const;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const supabase = createPagesServerClient({ req, res });
+  const supabase = await createApiSupabaseClient(req, res);
   const { id } = req.query;
 
   if (!id || typeof id !== 'string') {
@@ -100,15 +110,14 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
   try {
     console.log('[UPDATE] Starting quote update for ID:', id);
     
-    // Check authentication
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      console.log('[UPDATE] No session found');
-      return res.status(401).json({ error: 'No autorizado' });
+    // Identity comes from the auth server; the cookie's stored `user` is
+    // client-controlled (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
-    
-    console.log('[UPDATE] User ID:', session.user.id);
+    const userId = caller.user.id;
+    console.log('[UPDATE] User ID:', userId);
 
     // Create service role client to bypass RLS
     const serviceSupabase = createClient(
@@ -126,7 +135,7 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
     const { data: userRoles, error: rolesError } = await serviceSupabase
       .from('user_roles')
       .select('role_type')
-      .eq('user_id', session.user.id)
+      .eq('user_id', userId)
       .eq('is_active', true)
       .in('role_type', ['admin', 'consultor', 'community_manager']);
 
@@ -141,7 +150,7 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
     // Check if the quote exists and user can access it using service role
     const { data: existingQuote, error: checkError } = await serviceSupabase
       .from('pasantias_quotes')
-      .select('id, created_by')
+      .select('id, created_by, status')
       .eq('id', id)
       .single();
     
@@ -154,23 +163,45 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
     
     // Check if user owns the quote or is admin
     const isAdmin = userRoles.some((r: any) => r.role_type === 'admin');
-    if (!isAdmin && existingQuote.created_by !== session.user.id) {
+    if (!isAdmin && existingQuote.created_by !== userId) {
       console.error('[UPDATE] User does not own quote and is not admin');
       return res.status(403).json({ 
         error: 'Solo puedes editar tus propias cotizaciones'
       });
     }
 
-    const updateData = {
-      ...req.body,
-      updated_by: session.user.id,
-      updated_at: new Date().toISOString()
-    };
+    // Travel groups live in pasantias_quote_groups and are not saved by this
+    // route. Saying so beats reporting success while dropping the edit (before
+    // the field allowlist, such a save failed on the unknown column).
+    if (Array.isArray(req.body?.groups)) {
+      return res.status(400).json({
+        error: 'Por ahora no se pueden editar cotizaciones con grupos de viaje'
+      });
+    }
 
-    // Remove fields that shouldn't be updated directly
-    delete updateData.id;
-    delete updateData.created_at;
-    delete updateData.created_by;
+    // Status: the editor keeps the current one or publishes the quote
+    // ('sent'). 'viewed' is written only by the public GET above; accepted /
+    // rejected / expired are never set by hand.
+    if (
+      req.body?.status !== undefined &&
+      req.body.status !== existingQuote.status &&
+      req.body.status !== 'sent'
+    ) {
+      return res.status(400).json({ error: 'Estado de cotización no permitido' });
+    }
+
+    // Only the fields the quote editor sends (components/quotes/QuoteFormV2):
+    // identity, numbering, attribution and lifecycle timestamps
+    // (quote_number, created_by, viewed_at, accepted_at, ...) are never
+    // taken from the request.
+    const updateData: Record<string, unknown> = {};
+    for (const field of EDITABLE_QUOTE_FIELDS) {
+      if (req.body && Object.prototype.hasOwnProperty.call(req.body, field)) {
+        updateData[field] = req.body[field];
+      }
+    }
+    updateData.updated_by = userId;
+    updateData.updated_at = new Date().toISOString();
 
     console.log('[UPDATE] Updating with data keys:', Object.keys(updateData));
     
@@ -209,12 +240,12 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
     await serviceSupabase
       .from('activity_logs')
       .insert({
-        user_id: session.user.id,
+        user_id: userId,
         action: 'update_quote',
         resource_type: 'pasantias_quote',
         resource_id: id,
         details: {
-          changes: Object.keys(req.body)
+          changes: Object.keys(updateData).filter((k) => k !== 'updated_by' && k !== 'updated_at')
         }
       });
 
@@ -234,12 +265,13 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
 
 async function handleDelete(supabase: any, id: string, req: NextApiRequest, res: NextApiResponse) {
   try {
-    // Check authentication
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      return res.status(401).json({ error: 'No autorizado' });
+    // Identity comes from the auth server; the cookie's stored `user` is
+    // client-controlled (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
+    const userId = caller.user.id;
 
     // Create service role client to bypass RLS
     const serviceSupabase = createClient(
@@ -257,7 +289,7 @@ async function handleDelete(supabase: any, id: string, req: NextApiRequest, res:
     const { data: userRole } = await serviceSupabase
       .from('user_roles')
       .select('role_type')
-      .eq('user_id', session.user.id)
+      .eq('user_id', userId)
       .eq('is_active', true)
       .in('role_type', ['admin', 'consultor', 'community_manager']);
 
@@ -274,7 +306,7 @@ async function handleDelete(supabase: any, id: string, req: NextApiRequest, res:
         .eq('id', id)
         .single();
         
-      if (!quote || quote.created_by !== session.user.id) {
+      if (!quote || quote.created_by !== userId) {
         return res.status(403).json({ error: 'Solo puedes eliminar tus propias cotizaciones' });
       }
     }
@@ -297,7 +329,7 @@ async function handleDelete(supabase: any, id: string, req: NextApiRequest, res:
     await serviceSupabase
       .from('activity_logs')
       .insert({
-        user_id: session.user.id,
+        user_id: userId,
         action: 'delete_quote',
         resource_type: 'pasantias_quote',
         resource_id: id

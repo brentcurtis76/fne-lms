@@ -1,5 +1,5 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
+import { NextApiRequest, NextApiResponse, GetServerSidePropsContext } from 'next';
+import { createServerSupabaseClient, createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import {
   AuthResult,
@@ -146,6 +146,39 @@ export async function getApiUser(
   }
 }
 
+// The verified user behind a page request, for getServerSideProps. The
+// cookie supplies only the access token: its stored `user` is client-
+// controlled (auth-helpers accepts a legacy JSON session object as-is), so
+// the identity comes from the auth server, exactly as in getApiUser's cookie
+// branch. Returns null when there is no session, the token is refused, or
+// the lookup fails.
+// (The forced-password gate for pages is the middleware's.)
+export async function getServerSideUser(
+  ctx: Pick<GetServerSidePropsContext, 'req' | 'res'>
+): Promise<User | null> {
+  try {
+    const supabase = createPagesServerClient(ctx as GetServerSidePropsContext);
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+    if (sessionError || !session) return null;
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(session.access_token);
+    if (error || !user) {
+      console.error('[API Auth] Page session verification failed:', error);
+      return null;
+    }
+    return user;
+  } catch (error) {
+    // Treated as signed out: the page redirects to login instead of failing.
+    console.error('[API Auth] Page session verification threw:', error);
+    return null;
+  }
+}
+
 /**
  * The forced-password-change boundary for an API route that authenticates its
  * caller itself (Bearer token or cookie) — C-R1-03, closure review 2026-09-08.
@@ -280,21 +313,37 @@ export type VerifiedRoleResult =
   | { user: User; status: null; body: null }
   | { user: null; status: number; body: { error: string; code?: string } };
 
+// Verified caller, no role requirement: getApiUser() (cookie token or Bearer,
+// verified with the auth server) plus the forced-password gate. For routes
+// whose authorization is not a plain role list; they must use only the
+// returned user's id, never the cookie's stored `session.user`.
+//   401 — no verified caller
+//   403 / 503 — forced password change required / its state unreadable
+export async function requireVerifiedCaller(
+  req: NextApiRequest,
+  res: NextApiResponse
+): Promise<VerifiedRoleResult> {
+  const { user, error } = await getApiUser(req, res);
+  if (error || !user) {
+    return { user: null, status: 401, body: { error: 'No autorizado' } };
+  }
+  const verdict = await getForcedPasswordChangeVerdict(createServiceRoleClient(), user.id);
+  if (verdict !== 'allowed') {
+    return { user: null, status: forcedChangeApiStatus(verdict), body: forcedChangeApiBody(verdict) };
+  }
+  return { user, status: null, body: null };
+}
+
 export async function requireVerifiedRole(
   req: NextApiRequest,
   res: NextApiResponse,
   roles: readonly string[],
   forbiddenMessage = 'No autorizado'
 ): Promise<VerifiedRoleResult> {
-  const { user, error } = await getApiUser(req, res);
-  if (error || !user) {
-    return { user: null, status: 401, body: { error: 'No autorizado' } };
-  }
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) return caller;
+  const user = caller.user;
   const serviceClient = createServiceRoleClient();
-  const verdict = await getForcedPasswordChangeVerdict(serviceClient, user.id);
-  if (verdict !== 'allowed') {
-    return { user: null, status: forcedChangeApiStatus(verdict), body: forcedChangeApiBody(verdict) };
-  }
   const { data, error: roleError } = await serviceClient
     .from('user_roles')
     .select('role_type')
@@ -307,6 +356,30 @@ export async function requireVerifiedRole(
     return { user: null, status: 500, body: { error: 'Error del servidor' } };
   }
   return data && data.length > 0
+    ? { user, status: null, body: null }
+    : { user: null, status: 403, body: { error: forbiddenMessage } };
+}
+
+// Verified caller who is an active superadmin (`auth_is_superadmin`, the
+// `superadmins` table). Same identity source, forced-password gate and
+// responses as requireVerifiedRole; a failed superadmin lookup is 500.
+export async function requireVerifiedSuperadmin(
+  req: NextApiRequest,
+  res: NextApiResponse,
+  forbiddenMessage = 'Acceso denegado - solo superadministradores'
+): Promise<VerifiedRoleResult> {
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) return caller;
+  const user = caller.user;
+  const serviceClient = createServiceRoleClient();
+  const { data, error: lookupError } = await serviceClient.rpc('auth_is_superadmin', {
+    check_user_id: user.id,
+  });
+  if (lookupError) {
+    console.error('[API Auth] Superadmin lookup failed:', lookupError.message);
+    return { user: null, status: 500, body: { error: 'Error del servidor' } };
+  }
+  return data === true
     ? { user, status: null, body: null }
     : { user: null, status: 403, body: { error: forbiddenMessage } };
 }

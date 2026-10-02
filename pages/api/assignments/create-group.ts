@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
+import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
 import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
 import type { UserRoleType } from '@/types/roles';
 
@@ -18,12 +18,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(405).json({ error: 'Método no permitido' });
     }
 
-    const supabase = createPagesServerClient({ req, res });
+    const supabase = await createApiSupabaseClient(req, res);
 
     // Check authentication
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-        return res.status(401).json({ error: 'No autorizado' });
+    // Identity comes from the auth server; the cookie's stored `user` is
+    // client-controlled (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
 
     const { assignmentId, classmateIds } = req.body;
@@ -34,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-        const userId = session.user.id;
+        const userId = caller.user.id;
         console.log('[create-group] Starting group creation for user:', userId);
         console.log('[create-group] Payload:', { assignmentId, classmateIds });
 
@@ -76,18 +78,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return res.status(403).json({ error: 'No tienes una escuela asignada' });
         }
 
-        // Resolve community_id independently: active role with community_id,
-        // otherwise profiles.community_id, otherwise null.
-        let requesterCommunityId: string | number | null =
-            requesterRoles?.find(r => r.community_id)?.community_id ?? null;
+        // Resolve community_id: from the role that gave the school, else any
+        // active role's community, else profiles.community_id — but only a
+        // community that belongs to that same school. A community from another
+        // school would expose this group's memberships to that community.
+        const schoolRole = teachingRoleWithSchool ?? fallbackRoleWithSchool;
+        const candidateCommunityIds: Array<string | number> = [];
+        if (schoolRole?.community_id) candidateCommunityIds.push(schoolRole.community_id);
+        for (const r of requesterRoles ?? []) {
+            if (r.community_id && !candidateCommunityIds.includes(r.community_id)) {
+                candidateCommunityIds.push(r.community_id);
+            }
+        }
+        const { data: profileCommunity } = await supabase
+            .from('profiles')
+            .select('community_id')
+            .eq('id', userId)
+            .maybeSingle();
+        if (profileCommunity?.community_id && !candidateCommunityIds.includes(profileCommunity.community_id)) {
+            candidateCommunityIds.push(profileCommunity.community_id);
+        }
 
-        if (!requesterCommunityId) {
-            const { data: profileCommunity } = await supabase
-                .from('profiles')
-                .select('community_id')
-                .eq('id', userId)
-                .maybeSingle();
-            requesterCommunityId = profileCommunity?.community_id ?? null;
+        let requesterCommunityId: string | number | null = null;
+        if (candidateCommunityIds.length > 0) {
+            const { data: sameSchoolCommunities, error: communityError } = await supabaseAdmin
+                .from('growth_communities')
+                .select('id, school_id')
+                .in('id', candidateCommunityIds)
+                .eq('school_id', requesterSchoolId);
+            if (communityError) {
+                console.error('[create-group] Community lookup failed:', communityError);
+                return res.status(500).json({ error: 'Error al verificar la comunidad' });
+            }
+            const allowed = new Set((sameSchoolCommunities ?? []).map(c => c.id));
+            requesterCommunityId = candidateCommunityIds.find(id => allowed.has(id)) ?? null;
         }
 
         console.log('[create-group] Requester school ID:', requesterSchoolId);
@@ -145,15 +169,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         // 4. Validate classmates (same school, enrolled, not in group)
         if (classmateIds.length > 0) {
-            // Check schools
-            const { data: classmateRoles } = await supabaseAdmin
+            // Check schools: every classmate needs an active role in the
+            // requester's school, and none in another school.
+            const { data: classmateRoles, error: classmateRolesError } = await supabaseAdmin
                 .from('user_roles')
                 .select('user_id, school_id')
                 .in('user_id', classmateIds)
                 .eq('is_active', true);
 
+            if (classmateRolesError) {
+                console.error('[create-group] Classmate role lookup failed:', classmateRolesError);
+                return res.status(500).json({ error: 'Error al validar compañeros' });
+            }
+
             const invalidSchool = classmateRoles?.filter(r => r.school_id !== requesterSchoolId);
-            if (invalidSchool && invalidSchool.length > 0) {
+            const inSchool = new Set((classmateRoles ?? []).filter(r => r.school_id === requesterSchoolId).map(r => r.user_id));
+            if ((invalidSchool && invalidSchool.length > 0) || classmateIds.some((id: string) => !inSchool.has(id))) {
                 console.error('[create-group] Invalid school for classmates:', invalidSchool);
                 return res.status(400).json({ error: 'Algunos compañeros no pertenecen a tu escuela' });
             }

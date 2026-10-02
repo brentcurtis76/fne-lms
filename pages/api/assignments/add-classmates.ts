@@ -1,8 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
-import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
-import type { UserRoleType } from '@/types/roles';
+import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
 
 /**
  * POST /api/assignments/add-classmates
@@ -28,12 +26,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Método no permitido' });
   }
 
-  const supabase = createPagesServerClient({ req, res });
+  const supabase = await createApiSupabaseClient(req, res);
 
   // Check authentication
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    return res.status(401).json({ error: 'No autorizado' });
+  // Identity comes from the auth server; the cookie's stored `user` is
+  // client-controlled (SM-B015).
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) {
+    return res.status(caller.status).json(caller.body);
   }
 
   const { assignmentId, groupId, classmateIds } = req.body;
@@ -44,7 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const userId = session.user.id;
+    const userId = caller.user.id;
 
     // Service role client for RLS-bypassing reads/inserts after we validate membership
     const supabaseAdmin = createClient(
@@ -74,10 +74,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('assignment_id', assignmentId)
       .maybeSingle();
 
-    // 2. Get group details and validate
-    const { data: group, error: groupError } = await supabase
+    // 2. Get group details and validate. Read with the service role: the
+    // group's school decides who may join it, so it must not depend on what
+    // row security happens to show this caller.
+    const { data: group, error: groupError } = await supabaseAdmin
       .from('group_assignment_groups')
-      .select('is_consultant_managed')
+      .select('is_consultant_managed, school_id, community_id, assignment_id')
       .eq('id', groupId)
       .single();
 
@@ -104,22 +106,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'No tienes una escuela asignada' });
     }
 
-    // Select school_id deterministically: prefer any teaching-eligible role
-    // (docente or an inheriting leadership role) > first with school_id
-    let selectedRole = requesterRoles.find(
-      r => TEACHING_ELIGIBLE_ROLES.includes(r.role_type as UserRoleType) && r.school_id
-    );
-    if (!selectedRole) {
-      selectedRole = requesterRoles.find(r => r.school_id);
+    // The group's school is the scope: the caller must hold an active role in
+    // it, and classmates are validated against it (not against whichever
+    // school the caller's other roles point at).
+    if (group.assignment_id && group.assignment_id !== assignmentId) {
+      return res.status(400).json({ error: 'El grupo no corresponde a esta tarea' });
     }
-
-    if (!selectedRole || !selectedRole.school_id) {
-      console.error('[add-classmates] No role with school_id found for user:', userId);
-      return res.status(403).json({ error: 'No tienes una escuela asignada' });
+    const requesterSchoolId = group.school_id;
+    if (!requesterSchoolId || !requesterRoles.some(r => r.school_id === requesterSchoolId)) {
+      return res.status(403).json({ error: 'No perteneces a la escuela de este grupo' });
     }
-
-    const requesterSchoolId = selectedRole.school_id;
-    console.log('[add-classmates] requester has', requesterRoles.length, 'active roles, selected role:', selectedRole.role_type, 'school_id:', requesterSchoolId);
+    console.log('[add-classmates] requester has', requesterRoles.length, 'active roles; group school_id:', requesterSchoolId);
 
     // 2c. Get assignment's course_id
     const { data: assignmentBlock, error: blockError } = await supabase
@@ -148,12 +145,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // If not a member, check if group is empty AND if requester is enrolled in the course
     if (!membership) {
-      const { count: memberCount } = await supabase
+      // Only a truly empty group may be joined this way. Count with the
+      // service role: row security hides some groups' memberships from a
+      // non-member, which would make an occupied group look empty.
+      const { count: memberCount, error: countError } = await supabaseAdmin
         .from('group_assignment_members')
         .select('*', { count: 'exact', head: true })
         .eq('group_id', groupId);
 
-      if (memberCount && memberCount > 0) {
+      if (countError || memberCount === null || memberCount === undefined) {
+        console.error('[add-classmates] Could not count group members:', countError);
+        return res.status(500).json({ error: 'Error al verificar el grupo' });
+      }
+      if (memberCount > 0) {
         return res.status(403).json({ error: 'No eres miembro de este grupo' });
       }
 
@@ -251,9 +255,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    if (classmateRoles?.length !== classmateIds.length) {
-      const foundIds = new Set(classmateRoles?.map(r => r.user_id) || []);
-      const missingIds = classmateIds.filter(id => !foundIds.has(id));
+    // Every classmate needs an active role in the group's school.
+    const inSchool = new Set(
+      (classmateRoles || []).filter(r => r.school_id === requesterSchoolId).map(r => r.user_id)
+    );
+    if (classmateIds.some((id: string) => !inSchool.has(id))) {
+      const foundIds = inSchool;
+      const missingIds = classmateIds.filter((id: string) => !foundIds.has(id));
       console.error('[add-classmates] VALIDATION FAILED - Roles Check');
       console.error('[add-classmates] Requested classmates:', classmateIds);
       console.error('[add-classmates] Found with active roles:', Array.from(foundIds));

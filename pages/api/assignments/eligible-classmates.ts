@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
+import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
 import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
 import type { UserRoleType } from '@/types/roles';
 
@@ -24,12 +24,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Método no permitido' });
   }
 
-  const supabase = createPagesServerClient({ req, res });
+  const supabase = await createApiSupabaseClient(req, res);
 
   // Check authentication
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    return res.status(401).json({ error: 'No autorizado' });
+  // Identity comes from the auth server; the cookie's stored `user` is
+  // client-controlled (SM-B015).
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) {
+    return res.status(caller.status).json(caller.body);
   }
 
   const { assignmentId, groupId } = req.query;
@@ -39,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const userId = session.user.id;
+    const userId = caller.user.id;
     console.log('[eligible-classmates] REQUEST - userId:', userId, 'assignmentId:', assignmentId, 'groupId:', groupId);
 
     // 1. Validate user is a member of the specified group (only if groupId is provided)

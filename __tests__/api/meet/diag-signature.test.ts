@@ -25,6 +25,19 @@ vi.mock('@supabase/auth-helpers-nextjs', () => ({
   createPagesServerClient: () => ({ auth: { getSession: mockGetSession } }),
 }));
 
+// The verified caller (auth server) comes from requireVerifiedCaller; its
+// forged-cookie behaviour is covered with the other SM-B015 suites. Here the
+// session fixture stands for the verified user.
+vi.mock('../../../lib/api-auth', () => ({
+  createApiSupabaseClient: async () => ({ auth: { getSession: mockGetSession } }),
+  requireVerifiedCaller: async () => {
+    const user = (await mockGetSession())?.data?.session?.user ?? null;
+    return user
+      ? { user, status: null, body: null }
+      : { user: null, status: 401, body: { error: 'No autorizado' } };
+  },
+}));
+
 vi.mock('../../../utils/roleUtils', () => ({
   getUserPrimaryRole: mockGetUserPrimaryRole,
 }));
@@ -140,7 +153,7 @@ describe('POST /api/meet/diag-signature — authentication and role', () => {
     mockGetSession.mockResolvedValue({ data: { session: null } });
     const result = await call({ meetingNumber: ALLOWED_MEETING });
     expect(result.status).toBe(401);
-    expect(result.body).toEqual({ error: 'Unauthorized' });
+    expect(result.body).toEqual({ error: 'No autorizado' });
     // Never reaches the role lookup.
     expect(mockGetUserPrimaryRole).not.toHaveBeenCalled();
   });

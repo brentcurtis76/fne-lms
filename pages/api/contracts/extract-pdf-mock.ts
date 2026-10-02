@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
 
 // Mock data for testing without API key - Updated for Monte Carmelo/Evoluciona style
 const MOCK_EXTRACTION = {
@@ -56,12 +56,14 @@ export default async function handler(
 
   try {
     // Create Supabase client
-    const supabase = createPagesServerClient({ req, res });
+    const supabase = await createApiSupabaseClient(req, res);
     
     // Check authentication
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) {
-      return res.status(401).json({ error: 'No autorizado' });
+    // Identity comes from the auth server; the cookie's stored `user` is
+    // client-controlled (SM-B015).
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
 
     // Simulate processing delay

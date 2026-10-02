@@ -609,6 +609,17 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
         restrictedRoles: ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red']
       },
       {
+        // Learning-path reporting audience (W-B2c-01, Brent 2026-10-02): admin, consultor
+        // (all schools), equipo_directivo (own school). The page itself explains when a
+        // director has no school.
+        id: 'learning-path-reports',
+        label: 'Rutas de Aprendizaje',
+        href: '/reports?tab=learning-paths',
+        icon: ChartBarIcon,
+        description: 'Avance y alertas de rutas',
+        restrictedRoles: ['admin', 'consultor', 'equipo_directivo']
+      },
+      {
         // Single definition: the adminOnly Vías group must not be opened to directivos.
         id: 'vias-resultados-escuela',
         label: 'Panel de Resultados',

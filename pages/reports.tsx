@@ -15,6 +15,7 @@ import { BarChart3, Calendar, Map } from 'lucide-react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { getUserPrimaryRole } from '../utils/roleUtils';
 import { learningPathReportScope, type LearningPathReportScope } from '../lib/learning-paths/reportScope';
+import { initialReportTab } from '../lib/reports/reportTabs';
 
 interface User {
   id: string;
@@ -116,6 +117,10 @@ const ReportsPage: React.FC = () => {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('overview');
+  // A menu link may open a specific tab (e.g. /reports?tab=learning-paths).
+  useEffect(() => {
+    if (router.isReady) setActiveTab(initialReportTab(router.query.tab));
+  }, [router.isReady, router.query.tab]);
   const [overviewData, setOverviewData] = useState<OverviewData | null>(null);
   const [communityData, setCommunityData] = useState<CommunityData[]>([]);
   const [schoolData, setSchoolData] = useState<SchoolData[]>([]);

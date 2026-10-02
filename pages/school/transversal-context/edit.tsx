@@ -333,7 +333,7 @@ const TransversalContextEdit: React.FC = () => {
       if (!response.ok) {
         if (response.status === 409 && data.code === 'courses_have_dependencies') {
           setBlockedSave({
-            message: data.error || 'La nueva configuración eliminaría cursos con docentes o evaluaciones asociadas.',
+            message: data.error || 'La nueva configuración eliminaría cursos con docentes o registros asociados.',
             courses: Array.isArray(data.blockedCourses) ? data.blockedCourses : [],
           });
           toast.error('No se guardó el contexto: revise los cursos bloqueados', { duration: 6000 });
@@ -589,7 +589,7 @@ const TransversalContextEdit: React.FC = () => {
       <div className="mt-4 p-3 bg-blue-50 rounded-lg flex items-start gap-2">
         <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
         <p className="text-sm text-blue-700">
-          El año de implementación determina el nivel de madurez esperado para las evaluaciones.
+          El año de implementación determina el nivel de madurez esperado para los registros.
           Año 1 = Incipiente, Año 5 = Consolidado.
         </p>
       </div>
@@ -603,8 +603,8 @@ const TransversalContextEdit: React.FC = () => {
           <AlertTriangle className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
           <p className="text-sm text-amber-800">
             Está cambiando el año de implementación de {savedYear} a {formData.implementation_year_2026}.
-            Las evaluaciones ya creadas conservan el año con el que fueron generadas: no se reescriben ni se recalculan
-            automáticamente. Si necesita actualizar evaluaciones existentes, solicite una resolución administrativa.
+            Los registros ya creados conservan el año con el que fueron generados: no se reescriben ni se recalculan
+            automáticamente. Si necesita actualizar registros existentes, solicite una resolución administrativa.
           </p>
         </div>
       )}
@@ -1007,14 +1007,14 @@ const TransversalContextEdit: React.FC = () => {
                       {c.activeAssignments} {c.activeAssignments === 1 ? 'docente asignado' : 'docentes asignados'}
                       {(c.inactiveAssignments ?? 0) > 0 && ` (${c.inactiveAssignments} en el historial)`}
                       {', '}
-                      {c.instances} {c.instances === 1 ? 'evaluación activa' : 'evaluaciones activas'}
-                      {(c.archivedInstances ?? 0) > 0 && ` (${c.archivedInstances} archivada${c.archivedInstances === 1 ? '' : 's'})`}
+                      {c.instances} {c.instances === 1 ? 'registro activo' : 'registros activos'}
+                      {(c.archivedInstances ?? 0) > 0 && ` (${c.archivedInstances} archivado${c.archivedInstances === 1 ? '' : 's'})`}
                     </li>
                   ))}
                 </ul>
               )}
               <p className="mt-2">
-                El historial de asignaciones y evaluaciones (incluido el archivado) se conserva y no puede eliminarse desde aquí.
+                El historial de asignaciones y registros (incluido el archivado) se conserva y no puede eliminarse desde aquí.
                 Mantenga los niveles y cantidades actuales o solicite una resolución administrativa.
               </p>
             </div>

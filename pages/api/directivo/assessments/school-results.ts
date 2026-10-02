@@ -122,7 +122,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (instancesError) {
       console.error('Error fetching instances:', instancesError);
-      return res.status(500).json({ error: 'Error al cargar evaluaciones' });
+      return res.status(500).json({ error: 'Error al cargar registros' });
     }
 
     if (!instances || instances.length === 0) {
@@ -133,7 +133,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           name: school?.name || 'Escuela',
         },
         transformationYear,
-        message: 'No hay evaluaciones completadas para esta escuela',
+        message: 'No hay registros completados para esta escuela',
         results: {
           byArea: {},
           overall: { avgScore: 0, avgLevel: 0, totalInstances: 0 },

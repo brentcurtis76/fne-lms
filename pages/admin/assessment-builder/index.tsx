@@ -224,7 +224,7 @@ const AssessmentBuilderIndex: React.FC = () => {
       return;
     }
 
-    if (!confirm(`¿Estás seguro de archivar el template "${template.name}"? No podrá ser usado para nuevas evaluaciones.`)) {
+    if (!confirm(`¿Estás seguro de archivar el template "${template.name}"? No podrá ser usado para nuevos registros.`)) {
       return;
     }
 
@@ -360,7 +360,7 @@ const AssessmentBuilderIndex: React.FC = () => {
         <div className="flex flex-col justify-center items-center min-h-[50vh]">
           <div className="text-center p-8">
             <h1 className="text-2xl font-semibold text-brand_blue mb-4">Acceso Denegado</h1>
-            <p className="text-gray-700 mb-6">No tienes permiso para acceder al Constructor de Evaluaciones.</p>
+            <p className="text-gray-700 mb-6">No tienes permiso para acceder al Constructor de Registros.</p>
             <Link href="/dashboard" legacyBehavior>
               <a className="px-6 py-2 bg-brand_blue text-white rounded-lg shadow hover:bg-opacity-90 transition-colors">
                 Ir al Panel
@@ -395,7 +395,7 @@ const AssessmentBuilderIndex: React.FC = () => {
     >
       <ResponsiveFunctionalPageHeader
         icon={<ClipboardList />}
-        title="Constructor de Evaluaciones"
+        title="Constructor de Registros"
         subtitle={`${templates.length} template${templates.length !== 1 ? 's' : ''}`}
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
@@ -490,7 +490,7 @@ const AssessmentBuilderIndex: React.FC = () => {
                 </h3>
                 <p className="mt-2 text-sm text-gray-600">
                   {templates.length === 0
-                    ? '¡Comienza creando tu primer template de evaluación!'
+                    ? '¡Comienza creando tu primer template de registro!'
                     : 'Intenta con otros términos de búsqueda o filtros'}
                 </p>
                 {templates.length === 0 && isAdmin && (
@@ -656,7 +656,7 @@ const AssessmentBuilderIndex: React.FC = () => {
                   ⚠️ Este template tiene datos asociados:
                 </p>
                 <ul className="text-sm text-red-700 space-y-1">
-                  <li>• {deleteConfirmation.counts.instances} evaluaciones</li>
+                  <li>• {deleteConfirmation.counts.instances} registros</li>
                   <li>• {deleteConfirmation.counts.responses} respuestas</li>
                   <li>• {deleteConfirmation.counts.snapshots} versiones guardadas</li>
                   <li>• {deleteConfirmation.counts.modules} módulos</li>

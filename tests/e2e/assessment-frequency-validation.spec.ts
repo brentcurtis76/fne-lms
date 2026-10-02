@@ -213,7 +213,7 @@ for (const [index, viewport] of viewports.entries()) {
       await expect(page.getByTestId('assessment-save-status')).toContainText('Respuestas guardadas');
       await page.getByTestId('assessment-submit-button').click();
       await page.getByTestId('assessment-submit-confirm-button').click();
-      await expect(page.getByText('Evaluación completada').first()).toBeVisible();
+      await expect(page.getByText('Registro completado').first()).toBeVisible();
       await page.reload();
       await expect(input).toHaveValue('1.2');
       await expect(input).toBeDisabled();
@@ -370,7 +370,7 @@ if (!live) {
         await expect(page.getByTestId('assessment-save-status')).toContainText('Respuestas guardadas');
         await page.getByTestId('assessment-submit-button').click();
         await page.getByTestId('assessment-submit-confirm-button').click();
-        await expect(page.getByText('Evaluación completada').first()).toBeVisible();
+        await expect(page.getByText('Registro completado').first()).toBeVisible();
         await page.reload();
         await expect(input).toHaveValue('1.2');
         await expect(input).toBeDisabled();

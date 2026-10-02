@@ -23,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Read permission check (admin or consultor)
   const canRead = await hasAssessmentReadPermission(supabaseClient, user.id);
   if (!canRead) {
-    return res.status(403).json({ error: 'No tienes permiso para acceder al constructor de evaluaciones' });
+    return res.status(403).json({ error: 'No tienes permiso para acceder al constructor de registros' });
   }
 
   switch (req.method) {
@@ -405,7 +405,7 @@ async function handleDelete(
           snapshots: snapshotIds.length,
           modules: moduleIds.length,
         },
-        message: `Este template tiene ${instanceCount} evaluaciones y ${responseCount} respuestas. La eliminación es permanente.`,
+        message: `Este template tiene ${instanceCount} registros y ${responseCount} respuestas. La eliminación es permanente.`,
       });
     }
 

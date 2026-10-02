@@ -413,7 +413,7 @@ describe('triggerAutoAssignment', () => {
     expect(result.success).toBe(false);
     expect(result.counts).toEqual({ created: 0, attached: 0, alreadyExisting: 0, skipped: 0, errors: 1 });
     expect(result.details[0]).toMatchObject({ status: 'error', reason: 'instance_ambiguous' });
-    expect(result.errors[0]).toContain('más de una evaluación activa');
+    expect(result.errors[0]).toContain('más de un registro activo');
   });
 
   it('a course whose invariant is already violated (assignment_invariant_violation) is refused with a resolution message', async () => {

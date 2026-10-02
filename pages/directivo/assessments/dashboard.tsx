@@ -318,10 +318,10 @@ const DirectivoDashboard: React.FC = () => {
           <div className="bg-white shadow-md rounded-lg p-8 text-center">
             <School className="w-12 h-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-700 mb-2">
-              No hay evaluaciones completadas
+              No hay registros completados
             </h3>
             <p className="text-gray-500">
-              Cuando los docentes completen sus evaluaciones, los resultados aparecerán aquí.
+              Cuando los docentes completen sus registros, los resultados aparecerán aquí.
             </p>
           </div>
         ) : (
@@ -377,13 +377,13 @@ const DirectivoDashboard: React.FC = () => {
                   {/* Total instances */}
                   <div className="bg-white shadow-md rounded-lg p-5">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-500">Evaluaciones</span>
+                      <span className="text-sm text-gray-500">Registros</span>
                       <Users className="w-5 h-5 text-gray-500" />
                     </div>
                     <div className="text-3xl font-bold text-gray-800">
                       {overall?.totalInstances || 0}
                     </div>
-                    <div className="text-sm text-gray-500">completadas</div>
+                    <div className="text-sm text-gray-500">completados</div>
                   </div>
 
                   {/* Areas covered */}
@@ -427,7 +427,7 @@ const DirectivoDashboard: React.FC = () => {
                           <Tooltip
                             formatter={(value: number, name: string, props: any) => [
                               `${value}%`,
-                              `Puntuación (${props.payload.count} evaluaciones)`,
+                              `Puntuación (${props.payload.count} registros)`,
                             ]}
                           />
                           <Bar dataKey="score" radius={[4, 4, 0, 0]}>
@@ -644,7 +644,7 @@ const DirectivoDashboard: React.FC = () => {
 
                         {Object.keys(course.byArea).length === 0 && (
                           <p className="text-sm text-gray-500 italic">
-                            Sin evaluaciones completadas
+                            Sin registros completados
                           </p>
                         )}
                       </div>

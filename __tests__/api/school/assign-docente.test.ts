@@ -1160,7 +1160,7 @@ describe('POST /api/school/transversal-context/assign-docente (DELETE disabled)'
     mockPreflightAutoAssignment.mockResolvedValue(
       planBlocked(
         'no_eligible_templates',
-        'No hay evaluaciones publicadas y vigentes para el nivel "3° Básico" (grade_id 7). Publique un template para este nivel antes de asignar docentes.'
+        'No hay registros publicados y vigentes para el nivel "3° Básico" (grade_id 7). Publique un template para este nivel antes de asignar docentes.'
       )
     );
     const user = buildUserClient();
@@ -1302,7 +1302,7 @@ describe('POST /api/school/transversal-context/assign-docente (DELETE disabled)'
     expect(data.success).toBe(true);
     expect(data.assignment).toEqual({ created: false, reactivated: false, alreadyActive: true, mutated: false });
     expect(data.assessments).toMatchObject({ created: 0, attached: 1, alreadyExisting: 1 });
-    expect(data.message).toContain('1 vinculada(s)');
+    expect(data.message).toContain('1 vinculado(s)');
     // Eligibility was re-validated, preflight ran, and the active row was neither inserted nor updated
     expect(svc.userRoles.chains).toHaveLength(1);
     expect(mockPreflightAutoAssignment).toHaveBeenCalledWith(COURSE_STRUCTURE_ID, SCHOOL_ID);
@@ -1335,7 +1335,7 @@ describe('POST /api/school/transversal-context/assign-docente (DELETE disabled)'
     authed();
     directivo(SCHOOL_ID);
     mockPreflightAutoAssignment.mockResolvedValue(
-      planBlocked('no_eligible_templates', 'No hay evaluaciones publicadas y vigentes para el nivel "3° Básico" (grade_id 7).')
+      planBlocked('no_eligible_templates', 'No hay registros publicados y vigentes para el nivel "3° Básico" (grade_id 7).')
     );
     const user = buildUserClient({ assignments: [assignmentRow('a-same', DOCENTE_ID, true)] });
     mockCreateApiSupabaseClient.mockResolvedValue(user.client);
@@ -1355,7 +1355,7 @@ describe('POST /api/school/transversal-context/assign-docente (DELETE disabled)'
     mockPreflightAutoAssignment.mockResolvedValue(planOk());
     // Service resolved "cleanly" but confirmed nothing (e.g. templates archived between preflight and write)
     mockTriggerAutoAssignment.mockResolvedValue(
-      serviceResult({}, { blockingError: { code: 'no_eligible_templates', message: 'No hay evaluaciones publicadas y vigentes para el nivel "3° Básico" (grade_id 7).' }, errors: ['No hay evaluaciones publicadas y vigentes para el nivel "3° Básico" (grade_id 7).'] })
+      serviceResult({}, { blockingError: { code: 'no_eligible_templates', message: 'No hay registros publicados y vigentes para el nivel "3° Básico" (grade_id 7).' }, errors: ['No hay registros publicados y vigentes para el nivel "3° Básico" (grade_id 7).'] })
     );
     const user = buildUserClient();
     mockCreateApiSupabaseClient.mockResolvedValue(user.client);
@@ -1367,7 +1367,7 @@ describe('POST /api/school/transversal-context/assign-docente (DELETE disabled)'
     const data = JSON.parse(res._getData());
     expect(data.success).toBe(false);
     expect(data.code).toBe('no_eligible_templates');
-    expect(data.error).toContain('no se pudo confirmar ninguna evaluación');
+    expect(data.error).toContain('no se pudo confirmar ningún registro');
     expect(data.error).toContain('3° Básico');
     expect(data.assignment.mutated).toBe(true);
     expect(data.assessments).toMatchObject({ created: 0, attached: 0, alreadyExisting: 0 });
@@ -1453,7 +1453,7 @@ describe('POST /api/school/transversal-context/assign-docente (DELETE disabled)'
     expect(data.warnings).toEqual([warning]);
     expect(data.assessments.warnings).toEqual([warning]);
     expect(data.warning).toContain('plan de migración');
-    expect(data.message).toContain('2 creada(s)');
+    expect(data.message).toContain('2 creado(s)');
   });
 
   it('returns 500 and does not run auto-assignment when the assignment insert fails', async () => {

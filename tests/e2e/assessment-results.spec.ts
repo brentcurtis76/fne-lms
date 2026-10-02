@@ -125,7 +125,7 @@ for (const viewport of [{ name: 'desktop', width: 1280, height: 800 }, { name: '
       const denied = page.waitForResponse(response => response.url().endsWith(`/api/docente/assessments/${instance}/results`));
       await page.goto(`/docente/assessments/${instance}/results`);
       expect((await denied).status()).toBe(403);
-      await expect(page.getByText('No tienes permiso para ver los resultados de esta evaluación')).toBeVisible();
+      await expect(page.getByText('No tienes permiso para ver los resultados de este registro')).toBeVisible();
       await expect(page.getByText('Puntuación Total', { exact: true })).toHaveCount(0);
       await evidence(page, `results-denied-${viewport.name}`);
     });

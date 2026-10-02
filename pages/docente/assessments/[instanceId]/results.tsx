@@ -146,7 +146,7 @@ const AssessmentResults: React.FC = () => {
         <Link href="/docente/assessments" legacyBehavior>
           <a className="inline-flex items-center text-sm text-gray-600 hover:text-brand_primary mb-6">
             <ArrowLeft className="w-4 h-4 mr-1" />
-            Volver a evaluaciones
+            Volver a registros
           </a>
         </Link>
 
@@ -187,7 +187,7 @@ const AssessmentResults: React.FC = () => {
         {/* Completion info */}
         <div className="mt-8 text-center text-sm text-gray-500">
           <p>
-            Evaluación completada el{' '}
+            Registro completado el{' '}
             {new Date(results.instance.completedAt).toLocaleDateString('es-CL', {
               year: 'numeric',
               month: 'long',

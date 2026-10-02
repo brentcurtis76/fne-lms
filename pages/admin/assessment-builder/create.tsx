@@ -62,7 +62,7 @@ const CreateTemplate: React.FC = () => {
       const isConsultor = roles?.some((r: any) => r.role_type === 'consultor') || false;
 
       if (isConsultor && !isAdmin) {
-        toast.error('Los consultores solo tienen acceso de lectura al constructor de evaluaciones.');
+        toast.error('Los consultores solo tienen acceso de lectura al constructor de registros.');
         router.push('/admin/assessment-builder');
         return;
       }
@@ -221,7 +221,7 @@ const CreateTemplate: React.FC = () => {
         <div className="flex flex-col justify-center items-center min-h-[50vh]">
           <div className="text-center p-8">
             <h1 className="text-2xl font-semibold text-brand_primary mb-4">Acceso Denegado</h1>
-            <p className="text-gray-700 mb-6">No tienes permiso para crear templates de evaluación.</p>
+            <p className="text-gray-700 mb-6">No tienes permiso para crear templates de registro.</p>
             <Link href="/dashboard" legacyBehavior>
               <a className="px-6 py-2 bg-brand_primary text-white rounded-lg shadow hover:bg-opacity-90 transition-colors">
                 Ir al Panel
@@ -245,7 +245,7 @@ const CreateTemplate: React.FC = () => {
     >
       <ResponsiveFunctionalPageHeader
         icon={<ClipboardList />}
-        title="Constructor de Evaluaciones"
+        title="Constructor de Registros"
         subtitle="Crear nuevo template"
       />
 
@@ -261,9 +261,9 @@ const CreateTemplate: React.FC = () => {
         {/* Form Card */}
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
           <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-brand_primary">Nuevo Template de Evaluación</h2>
+            <h2 className="text-xl font-semibold text-brand_primary">Nuevo Template de Registro</h2>
             <p className="mt-1 text-sm text-gray-500">
-              Crea un nuevo template de evaluación para una vía de evolución
+              Crea un nuevo template de registro para una vía de evolución
             </p>
           </div>
 
@@ -334,7 +334,7 @@ const CreateTemplate: React.FC = () => {
                 data-testid="template-name-input"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Ej: Evaluación de Personalización 2026"
+                placeholder="Ej: Registro de Personalización 2026"
                 className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary focus:border-brand_primary ${
                   errors.name ? 'border-red-500' : 'border-gray-300'
                 }`}

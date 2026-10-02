@@ -220,7 +220,7 @@ describe('POST /api/school/transversal-context/replace-docente', () => {
     expect(json).toEqual({
       success: true,
       code: 'docente_replaced',
-      message: expect.stringContaining('2 evaluación(es)'),
+      message: expect.stringContaining('2 registro(s)'),
       replacement: {
         previousDocenteId: PREVIOUS_DOCENTE_ID,
         newDocenteId: NEW_DOCENTE_ID,

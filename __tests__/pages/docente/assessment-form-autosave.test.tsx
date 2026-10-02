@@ -389,7 +389,7 @@ describe('docente assessment form — autosave reliability', () => {
     await waitFor(() => expect(submits).toHaveLength(1));
     expect(puts).toHaveLength(1);
     expect(rowFor(puts, 0, IND_C)).toMatchObject({ profundity_level: 4 });
-    await waitFor(() => expect(screen.getByTestId('assessment-context-status')).toHaveTextContent('Completada'));
+    await waitFor(() => expect(screen.getByTestId('assessment-context-status')).toHaveTextContent('Completado'));
     expect(routerMock.push).not.toHaveBeenCalled();
   });
 
@@ -659,7 +659,7 @@ describe('docente assessment form — context summary', () => {
 
       fireEvent.click(submit);
       const dialog = await screen.findByTestId('assessment-submit-confirm');
-      expect(dialog).toHaveTextContent('¿Enviar la evaluación?');
+      expect(dialog).toHaveTextContent('¿Enviar el registro?');
       fireEvent.click(screen.getByTestId('assessment-submit-cancel'));
 
       await waitFor(() => expect(screen.queryByTestId('assessment-submit-confirm')).not.toBeInTheDocument());
@@ -678,7 +678,7 @@ describe('docente assessment form — context summary', () => {
       fireEvent.click(await screen.findByTestId('assessment-submit-confirm-button'));
 
       await waitFor(() => expect(submits).toHaveLength(1));
-      await waitFor(() => expect(screen.getByTestId('assessment-context-status')).toHaveTextContent('Completada'));
+      await waitFor(() => expect(screen.getByTestId('assessment-context-status')).toHaveTextContent('Completado'));
       expect(routerMock.push).not.toHaveBeenCalled();
       expect(() => routerMock.events.fire('routeChangeStart', `/docente/assessments/${INSTANCE_ID}/results`)).not.toThrow();
       expect(confirmSpy).not.toHaveBeenCalled();

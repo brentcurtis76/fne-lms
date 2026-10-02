@@ -409,7 +409,7 @@ async function resolveCourseAssignmentPlan(
   if (templatesError) {
     return blockPlan(plan, {
       code: 'query_error',
-      message: `Error al consultar templates de evaluación: ${templatesError.message}`,
+      message: `Error al consultar templates de registro: ${templatesError.message}`,
     });
   }
 
@@ -424,7 +424,7 @@ async function resolveCourseAssignmentPlan(
     return blockPlan(plan, {
       code: 'no_eligible_templates',
       message:
-        `No hay evaluaciones publicadas y vigentes para el nivel "${gradeLabel(plan)}" (grade_id ${courseGradeId}). ` +
+        `No hay registros publicados y vigentes para el nivel "${gradeLabel(plan)}" (grade_id ${courseGradeId}). ` +
         'Publique un template para este nivel antes de asignar docentes.',
     });
   }
@@ -465,7 +465,7 @@ export async function preflightAutoAssignment(
   } catch (err: any) {
     return blockPlan(emptyPlan(), {
       code: 'query_error',
-      message: `Error inesperado al verificar la configuración de evaluaciones: ${err?.message ?? 'desconocido'}`,
+      message: `Error inesperado al verificar la configuración de registros: ${err?.message ?? 'desconocido'}`,
     });
   }
 }
@@ -511,16 +511,16 @@ type AttachOutcome = 'created' | 'attached' | 'already_exists';
 /** Stable P0001 codes the RPC raises (see the migration header) → es-CL detail. */
 const ATTACH_REFUSALS: Record<string, string> = {
   docente_not_active_on_course:
-    'La asignación del docente a este curso ya no está activa; no se creó ni vinculó la evaluación.',
+    'La asignación del docente a este curso ya no está activa; no se creó ni vinculó el registro.',
   assignment_invariant_violation:
-    'Este curso registra más de una asignación activa de docente; se requiere una resolución administrativa antes de vincular evaluaciones.',
+    'Este curso registra más de una asignación activa de docente; se requiere una resolución administrativa antes de vincular registros.',
   template_not_eligible:
-    'La plantilla ya no está publicada y vigente; no se creó ni vinculó la evaluación.',
+    'La plantilla ya no está publicada y vigente; no se creó ni vinculó el registro.',
   snapshot_not_current:
     'La versión publicada de la plantilla cambió durante la asignación; reintente para usar la versión vigente.',
   snapshot_not_found: 'La versión publicada de la plantilla no existe.',
   instance_ambiguous:
-    'Existe más de una evaluación activa para este curso y plantilla; se requiere una resolución administrativa antes de asignar.',
+    'Existe más de un registro activo para este curso y plantilla; se requiere una resolución administrativa antes de asignar.',
   course_not_found: 'El curso no existe.',
   invalid_arguments: 'Parámetros de asignación inválidos.',
 };
@@ -552,7 +552,7 @@ async function attachCourseDocenteAssessment(args: {
     const known = ATTACH_REFUSALS[code];
     return known
       ? { kind: 'error', code, message: known }
-      : { kind: 'error', message: `No se pudo vincular la evaluación: ${error.message}` };
+      : { kind: 'error', message: `No se pudo vincular el registro: ${error.message}` };
   }
   const row = (data ?? null) as { instance_id?: unknown; outcome?: unknown } | null;
   const outcome = row?.outcome;
@@ -560,7 +560,7 @@ async function attachCourseDocenteAssessment(args: {
     !row || typeof row.instance_id !== 'string' ||
     (outcome !== 'created' && outcome !== 'attached' && outcome !== 'already_exists')
   ) {
-    return { kind: 'error', message: 'La vinculación de la evaluación devolvió un resultado inesperado.' };
+    return { kind: 'error', message: 'La vinculación del registro devolvió un resultado inesperado.' };
   }
   return { kind: 'ok', instanceId: row.instance_id, outcome };
 }
@@ -585,13 +585,13 @@ async function findLiveSchoolInstance(schoolId: number, snapshotId: string): Pro
     .limit(2);
 
   if (error && !isNotFound(error)) {
-    return { kind: 'error', message: `No se pudo verificar la evaluación existente: ${error.message}` };
+    return { kind: 'error', message: `No se pudo verificar el registro existente: ${error.message}` };
   }
   const rows = Array.isArray(data) ? data : [];
   if (rows.length > 1) {
     return {
       kind: 'error',
-      message: 'Existe más de una evaluación activa a nivel de escuela para esta plantilla; se requiere una resolución administrativa.',
+      message: 'Existe más de un registro activo a nivel de escuela para esta plantilla; se requiere una resolución administrativa.',
     };
   }
   return { kind: 'found', instance: rows[0] ?? null };
@@ -636,7 +636,7 @@ export async function triggerAutoAssignment(
     if (!plan.ok) {
       return blocked(result, plan.blockingError ?? {
         code: 'query_error',
-        message: 'No se pudo determinar el plan de asignación de evaluaciones.',
+        message: 'No se pudo determinar el plan de asignación de registros.',
       });
     }
 
@@ -738,7 +738,7 @@ export async function createSchoolLevelInstances(
     if (templatesError || !templateRows) {
       return blocked(result, {
         code: 'query_error',
-        message: `Error al consultar templates de evaluación: ${templatesError?.message ?? 'sin datos'}`,
+        message: `Error al consultar templates de registro: ${templatesError?.message ?? 'sin datos'}`,
       });
     }
 
@@ -753,7 +753,7 @@ export async function createSchoolLevelInstances(
     if (classified.eligible.length === 0) {
       return blocked(result, {
         code: 'no_eligible_templates',
-        message: 'No hay templates publicados y vigentes para crear evaluaciones a nivel de escuela.',
+        message: 'No hay templates publicados y vigentes para crear registros a nivel de escuela.',
       });
     }
 

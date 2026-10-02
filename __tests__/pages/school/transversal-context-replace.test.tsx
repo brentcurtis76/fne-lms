@@ -214,11 +214,11 @@ function refusal(code: string, message: string, status: number, extra: Record<st
 }
 
 const EVALUATION_STARTED_MESSAGE =
-  'La evaluación de este curso ya comenzó o registra respuestas, por lo que no es posible cambiar el docente desde aquí. ' +
+  'El registro de este curso ya comenzó o tiene respuestas, por lo que no es posible cambiar el docente desde aquí. ' +
   'Se requiere una resolución administrativa; las respuestas del docente anterior nunca se transfieren.';
 const NO_ACTIVE_MESSAGE = 'Este curso no tiene un docente activo asignado; use "Asignar" en lugar de cambiar el docente.';
 const SUCCESS_MESSAGE =
-  'Docente cambiado correctamente. 2 evaluación(es) pendiente(s) reasignada(s) al nuevo docente; ninguna respuesta fue transferida.';
+  'Docente cambiado correctamente. 2 registro(s) pendiente(s) reasignado(s) al nuevo docente; ninguna respuesta fue transferida.';
 
 describe('Transversal context — docente replacement modal (PR 2 item 2)', () => {
   let fetchLog: FetchCall[];
@@ -247,7 +247,7 @@ describe('Transversal context — docente replacement modal (PR 2 item 2)', () =
 
     expect(screen.getByRole('heading', { name: 'Cambiar Docente' })).toBeInTheDocument();
     expect(screen.getByTestId('replace-docente-current')).toHaveTextContent(`Docente actual: ${CURRENT_DOCENTE_NAME}`);
-    expect(screen.getByText(/mientras la evaluación del curso no haya comenzado/i)).toBeInTheDocument();
+    expect(screen.getByText(/mientras el registro del curso no haya comenzado/i)).toBeInTheDocument();
     expect(screen.getByText(/las respuestas nunca se transfieren/i)).toBeInTheDocument();
 
     const options = within(select).getAllByRole('option').map(o => (o as HTMLOptionElement).value);
@@ -302,8 +302,8 @@ describe('Transversal context — docente replacement modal (PR 2 item 2)', () =
 
     const errorBox = await screen.findByTestId('replace-docente-error');
     expect(errorBox).toHaveAttribute('role', 'alert');
-    expect(errorBox).toHaveTextContent('La evaluación ya comenzó');
-    expect(errorBox).toHaveTextContent('ya comenzó o registra respuestas');
+    expect(errorBox).toHaveTextContent('El registro ya comenzó');
+    expect(errorBox).toHaveTextContent('ya comenzó o tiene respuestas');
     expect(errorBox).toHaveTextContent('nunca se transfieren');
     expect(screen.getByRole('heading', { name: 'Cambiar Docente' })).toBeInTheDocument(); // modal still open
     expect(mockToastError).toHaveBeenCalledWith(EVALUATION_STARTED_MESSAGE, expect.objectContaining({ duration: 8000 }));

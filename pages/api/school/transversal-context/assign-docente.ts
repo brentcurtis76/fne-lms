@@ -297,7 +297,7 @@ async function handlePost(
     if (!plan.ok) {
       const blocking = plan.blockingError ?? {
         code: 'query_error' as const,
-        message: 'No se pudo verificar la configuración de evaluaciones para este curso.',
+        message: 'No se pudo verificar la configuración de registros para este curso.',
       };
       console.warn('[assign-docente] preflight blocked:', blocking.code, blocking.message);
 
@@ -410,7 +410,7 @@ async function handlePost(
       );
     } catch (autoErr: any) {
       console.error('Error in auto-assignment:', autoErr);
-      const message = autoErr?.message || 'Error en asignación automática de evaluaciones';
+      const message = autoErr?.message || 'Error en asignación automática de registros';
       result = {
         success: false,
         instancesCreated: 0,
@@ -435,16 +435,16 @@ async function handlePost(
 
     let message: string;
     if (isBlocking) {
-      const reason = result.blockingError?.message ?? result.errors[0] ?? 'No se confirmó ninguna evaluación.';
+      const reason = result.blockingError?.message ?? result.errors[0] ?? 'No se confirmó ningún registro.';
       message = assignment.alreadyActive
-        ? `El docente ya estaba asignado al curso, pero no se pudo confirmar ninguna evaluación: ${reason}`
-        : `Docente asignado al curso, pero no se pudo confirmar ninguna evaluación: ${reason}`;
+        ? `El docente ya estaba asignado al curso, pero no se pudo confirmar ningún registro: ${reason}`
+        : `Docente asignado al curso, pero no se pudo confirmar ningún registro: ${reason}`;
     } else if (assignment.alreadyActive && created === 0 && attached === 0) {
-      message = `El docente ya estaba asignado y sus evaluaciones están al día (${alreadyExisting} ya existente(s)).`;
+      message = `El docente ya estaba asignado y sus registros están al día (${alreadyExisting} ya existente(s)).`;
     } else {
       message =
-        `Docente asignado correctamente. Evaluaciones: ${created} creada(s), ` +
-        `${attached} vinculada(s), ${alreadyExisting} ya existente(s).`;
+        `Docente asignado correctamente. Registros: ${created} creado(s), ` +
+        `${attached} vinculado(s), ${alreadyExisting} ya existente(s).`;
     }
 
     return res.status(isBlocking ? 207 : 200).json({

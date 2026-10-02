@@ -1350,7 +1350,7 @@ const TemplateEditor: React.FC = () => {
         <div className="flex flex-col justify-center items-center min-h-[50vh]">
           <div className="text-center p-8">
             <h1 className="text-2xl font-semibold text-brand_primary mb-4">Acceso Denegado</h1>
-            <p className="text-gray-700 mb-6">No tienes permiso para editar templates de evaluación.</p>
+            <p className="text-gray-700 mb-6">No tienes permiso para editar templates de registro.</p>
             <Link href="/dashboard" legacyBehavior>
               <a className="px-6 py-2 bg-brand_primary text-white rounded-lg shadow hover:bg-opacity-90 transition-colors">
                 Ir al Panel
@@ -1405,7 +1405,7 @@ const TemplateEditor: React.FC = () => {
     >
       <ResponsiveFunctionalPageHeader
         icon={<ClipboardList />}
-        title="Constructor de Evaluaciones"
+        title="Constructor de Registros"
         subtitle={template.name}
       />
 
@@ -1429,11 +1429,11 @@ const TemplateEditor: React.FC = () => {
               </div>
               <div className="flex-1">
                 <h4 className="text-sm font-medium text-amber-800">
-                  Este template tiene evaluaciones en uso
+                  Este template tiene registros en uso
                 </h4>
                 <p className="text-sm text-amber-700 mt-1">
-                  Hay {usageStats.instanceCount} evaluación{usageStats.instanceCount !== 1 ? 'es' : ''} asignada{usageStats.instanceCount !== 1 ? 's' : ''} con {usageStats.responseCount} respuesta{usageStats.responseCount !== 1 ? 's' : ''} registrada{usageStats.responseCount !== 1 ? 's' : ''}.
-                  Los cambios que realices afectarán a las nuevas evaluaciones. Las respuestas existentes mantendrán su snapshot actual.
+                  Hay {usageStats.instanceCount} registro{usageStats.instanceCount !== 1 ? 's' : ''} asignado{usageStats.instanceCount !== 1 ? 's' : ''} con {usageStats.responseCount} respuesta{usageStats.responseCount !== 1 ? 's' : ''} registrada{usageStats.responseCount !== 1 ? 's' : ''}.
+                  Los cambios que realices afectarán a los nuevos registros. Las respuestas existentes mantendrán su snapshot actual.
                 </p>
               </div>
             </div>
@@ -1608,7 +1608,7 @@ const TemplateEditor: React.FC = () => {
               <>
                 <div className="flex items-center gap-2 text-sm text-amber-700">
                   <Archive className="w-4 h-4" />
-                  <span>Template archivado v{template.version} - No disponible para nuevas evaluaciones</span>
+                  <span>Template archivado v{template.version} - No disponible para nuevos registros</span>
                 </div>
                 {isAdmin && (
                   <div className="flex items-center gap-2">
@@ -1765,7 +1765,7 @@ const TemplateEditor: React.FC = () => {
               <ClipboardList className="mx-auto h-12 w-12 text-gray-300" />
               <h4 className="mt-4 text-lg font-medium text-gray-900">Sin {ENTITY_LABELS.objectives.toLowerCase()}</h4>
               <p className="mt-2 text-sm text-gray-500">
-                Agrega {ENTITY_LABELS.objectives.toLowerCase()} para organizar las {ENTITY_LABELS.modules.toLowerCase()} e indicadores de evaluación
+                Agrega {ENTITY_LABELS.objectives.toLowerCase()} para organizar las {ENTITY_LABELS.modules.toLowerCase()} e indicadores del registro
               </p>
               {canEdit && (
                 <button
@@ -2488,7 +2488,7 @@ const TemplateEditor: React.FC = () => {
 
                 <div>
                   <label htmlFor="indicator-evaluation-guidance" className="block text-sm font-medium text-gray-700 mb-1">
-                    Guía de Evaluación
+                    Guía de Registro
                   </label>
                   <textarea
                     id="indicator-evaluation-guidance"
@@ -2499,7 +2499,7 @@ const TemplateEditor: React.FC = () => {
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    Instrucciones para la IA al generar el informe de evaluación. Ejemplo: &quot;Realizar esto más de una vez al año no es necesario — no señalar baja frecuencia como problema.&quot;
+                    Instrucciones para la IA al generar el informe del registro. Ejemplo: &quot;Realizar esto más de una vez al año no es necesario — no señalar baja frecuencia como problema.&quot;
                   </p>
                 </div>
 
@@ -2948,7 +2948,7 @@ const TemplateEditor: React.FC = () => {
               <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50 rounded-t-lg">
                 <div>
                   <h3 id="preview-modal-title" className="text-lg font-semibold text-brand_primary">Vista Previa del Evaluador</h3>
-                  <p className="text-xs text-gray-500">Así verá esta práctica quien complete la evaluación</p>
+                  <p className="text-xs text-gray-500">Así verá esta práctica quien complete el registro</p>
                 </div>
                 <button
                   onClick={() => setIsPreviewOpen(false)}
@@ -3094,7 +3094,7 @@ const TemplateEditor: React.FC = () => {
                           {/* Gate messages after cobertura indicator */}
                           {previewCoberturaAnswer === null && sorted.length > 1 && (
                             <div className="text-sm text-gray-400 italic text-center py-3">
-                              Seleccione Sí o No para ver cómo se comporta la evaluación
+                              Seleccione Sí o No para ver cómo se comporta el registro
                             </div>
                           )}
                           {previewCoberturaAnswer === false && (
@@ -3136,7 +3136,7 @@ const TemplateEditor: React.FC = () => {
                   ⚠️ Este template tiene datos asociados:
                 </p>
                 <ul className="text-sm text-red-700 space-y-1">
-                  <li>• {deleteConfirmData.counts.instances} evaluaciones</li>
+                  <li>• {deleteConfirmData.counts.instances} registros</li>
                   <li>• {deleteConfirmData.counts.responses} respuestas</li>
                   <li>• {deleteConfirmData.counts.snapshots} versiones guardadas</li>
                   <li>• {deleteConfirmData.counts.modules} {ENTITY_LABELS.modules.toLowerCase()}</li>

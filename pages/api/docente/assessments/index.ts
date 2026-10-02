@@ -64,7 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (error) {
       console.error('Error fetching assessments:', error);
-      return res.status(500).json({ error: 'Error al obtener las evaluaciones' });
+      return res.status(500).json({ error: 'Error al obtener los registros' });
     }
 
     // Transform data for frontend consumption
@@ -130,6 +130,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (err: any) {
     console.error('Unexpected error fetching assessments:', err);
-    return res.status(500).json({ error: err.message || 'Error al obtener evaluaciones' });
+    return res.status(500).json({ error: err.message || 'Error al obtener registros' });
   }
 }

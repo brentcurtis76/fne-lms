@@ -25,6 +25,8 @@ There are two kinds of correction. **The course cleanup** (for each duplicated c
 
 **The leftover-evaluation correction** (Decision D, for one named evaluation at a time): the evaluation is archived with a recorded reason and **everyone's** access to it is removed — including the kept teacher and any co-teacher. The evaluation and any answers stay as history.
 
+Wherever this pack says "with a recorded reason", the reason is written in the correction record kept with the run evidence (who approved it, which ID, why); the database itself only marks the evaluation as archived.
+
 Both corrections never delete an assignment, an evaluation or an answer; never pick a teacher by date or by guess; never move answers from one teacher to another; and never touch a started or answered evaluation in a duplicated course without a written decision from you that names it.
 
 What they re-check just before changing anything (and if a check fails they change nothing and ask for a recount):

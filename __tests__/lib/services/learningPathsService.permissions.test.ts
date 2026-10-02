@@ -91,3 +91,63 @@ describe('LearningPathsService.canManagePath — no owner shortcut', () => {
     expect(calls.map((c) => c.table)).toEqual(['user_roles']);
   });
 });
+
+/**
+ * W-B2c-01 reporting scope (Brent 2026-10-02): the report DOOR (who may open the
+ * learning-path reports at all). Which rows a reporter then sees is decided by the
+ * report views (supabase/tests/101-lp-reporting-scope.sql). The double returns its
+ * rows whatever the filters say, so the service must ALSO drop inactive rows itself.
+ */
+describe('LearningPathsService.getReportScope — the caller\'s own ACTIVE roles', () => {
+  const SCHOOL = 7;
+  it.each([
+    ['admin', [{ role_type: 'admin', school_id: null, is_active: true }], 'all'],
+    ['consultor (all schools)', [{ role_type: 'consultor', school_id: SCHOOL, is_active: true }], 'all'],
+    ['consultor without a school', [{ role_type: 'consultor', school_id: null, is_active: true }], 'all'],
+    ['equipo_directivo with a school', [{ role_type: 'equipo_directivo', school_id: SCHOOL, is_active: true }], 'school'],
+    ['equipo_directivo + consultor', [
+      { role_type: 'equipo_directivo', school_id: SCHOOL, is_active: true },
+      { role_type: 'consultor', school_id: null, is_active: true },
+    ], 'all'],
+    ['equipo_directivo WITHOUT a school', [{ role_type: 'equipo_directivo', school_id: null, is_active: true }], null],
+    ['docente', [{ role_type: 'docente', school_id: SCHOOL, is_active: true }], null],
+    ['lider_comunidad', [{ role_type: 'lider_comunidad', school_id: SCHOOL, is_active: true }], null],
+    ['supervisor_de_red', [{ role_type: 'supervisor_de_red', school_id: null, is_active: true }], null],
+    ['no roles', [], null],
+  ])('%s → %s', async (_label, rows, expected) => {
+    const { client } = clientAnswering(rows);
+    await expect(LearningPathsService.getReportScope(client, USER)).resolves.toBe(expected);
+  });
+
+  it('INACTIVE rows are ignored (an inactive admin / consultor / directivo opens nothing)', async () => {
+    const { client } = clientAnswering([
+      { role_type: 'admin', school_id: null, is_active: false },
+      { role_type: 'consultor', school_id: SCHOOL, is_active: false },
+      { role_type: 'equipo_directivo', school_id: SCHOOL, is_active: null },
+      { role_type: 'docente', school_id: SCHOOL, is_active: true },
+    ]);
+    await expect(LearningPathsService.getReportScope(client, USER)).resolves.toBeNull();
+  });
+
+  it('an inactive consultor row does not lift an active directivo above their school', async () => {
+    const { client } = clientAnswering([
+      { role_type: 'consultor', school_id: null, is_active: false },
+      { role_type: 'equipo_directivo', school_id: SCHOOL, is_active: true },
+    ]);
+    await expect(LearningPathsService.getReportScope(client, USER)).resolves.toBe('school');
+  });
+
+  it('asks only for the caller\'s own ACTIVE user_roles rows', async () => {
+    const { client, calls } = clientAnswering([{ role_type: 'consultor', school_id: null, is_active: true }]);
+    await LearningPathsService.getReportScope(client, USER);
+    expect(calls.map((c) => c.table)).toEqual(['user_roles']);
+    expect(calls[0].eqs).toEqual([['user_id', USER], ['is_active', true]]);
+  });
+
+  it('fails closed (null) on a query error or a thrown client', async () => {
+    const { client } = clientAnswering(null, { message: 'synthetic' });
+    await expect(LearningPathsService.getReportScope(client, USER)).resolves.toBeNull();
+    const throwing = { from: () => { throw new Error('boom'); } };
+    await expect(LearningPathsService.getReportScope(throwing, USER)).resolves.toBeNull();
+  });
+});

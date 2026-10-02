@@ -3,9 +3,12 @@
  * W-B2c-01 — the API boundary of the learning-path access model
  * (docs/reviews/w-b2c-01-learning-path-governance-correction-2026-08-29.md §5):
  *
- *   * management (create / assign) and cross-user reporting (analytics, another
- *     user's paths, the assignment matrix) are literal-admin-only — equipo_directivo
- *     and consultor are refused with 403 BEFORE any write or privileged read;
+ *   * management (create / assign), another user's paths and the assignment matrix
+ *     are literal-admin-only — equipo_directivo and consultor are refused with 403
+ *     BEFORE any write or privileged read;
+ *   * learning-path REPORTS (analytics) follow the W-B2c-01 reporting scope (Brent
+ *     2026-10-02): admin / consultor / equipo_directivo-with-a-school open them, read
+ *     on their OWN client (the report views scope the rows); everyone else is refused;
  *   * consumption is own-data: a user reads their own paths, and a session may only
  *     be started on a path the database's auth.uid()-derived helper says is assigned;
  *   * the actor passed to the SECURITY DEFINER RPCs is always the authenticated user.
@@ -32,8 +35,10 @@ const { mockGetApiUser, mockCreateApiSupabaseClient, mockRpc, mockFrom } = vi.ho
   mockFrom: vi.fn(),
 }));
 
-const { mockHasManagePermission, mockCreateLearningPath, mockGetUserAssignedPaths, mockBatchAssign } = vi.hoisted(() => ({
+const { mockHasManagePermission, mockGetReportScope, mockCreateLearningPath, mockGetUserAssignedPaths, mockBatchAssign, mockCreateServiceRoleClient } = vi.hoisted(() => ({
   mockHasManagePermission: vi.fn(),
+  mockGetReportScope: vi.fn(),
+  mockCreateServiceRoleClient: vi.fn(),
   mockCreateLearningPath: vi.fn(),
   mockGetUserAssignedPaths: vi.fn(),
   mockBatchAssign: vi.fn(),
@@ -45,12 +50,14 @@ vi.mock('../../../lib/api-auth', async (importOriginal) => {
     ...actual,
     getApiUser: mockGetApiUser,
     createApiSupabaseClient: mockCreateApiSupabaseClient,
+    createServiceRoleClient: mockCreateServiceRoleClient,
   };
 });
 
 vi.mock('../../../lib/services/learningPathsService', () => ({
   LearningPathsService: {
     hasManagePermission: mockHasManagePermission,
+    getReportScope: mockGetReportScope,
     canManagePath: mockHasManagePermission,
     createLearningPath: mockCreateLearningPath,
     getUserAssignedPaths: mockGetUserAssignedPaths,
@@ -72,7 +79,7 @@ function installQueryDouble(results: Record<string, { data?: unknown; error?: un
     const entry = { table, ops: [] as Array<{ method: string; args: unknown[] }> };
     calls.push(entry);
     const chain: Record<string, unknown> = {};
-    for (const method of ['select', 'eq', 'in', 'or', 'not', 'is', 'single', 'maybeSingle', 'order', 'insert', 'update', 'delete']) {
+    for (const method of ['select', 'eq', 'in', 'or', 'not', 'is', 'gte', 'single', 'maybeSingle', 'order', 'insert', 'update', 'delete']) {
       chain[method] = (...args: unknown[]) => {
         entry.ops.push({ method, args });
         return chain;
@@ -123,6 +130,8 @@ describe('POST /api/learning-paths — create is literal-admin-only', () => {
     expect(res._getStatusCode()).toBe(403);
     expect(mockHasManagePermission).toHaveBeenCalledWith(expect.anything(), id);
     expect(mockCreateLearningPath).not.toHaveBeenCalled();
+    // The wider REPORT scope never opens a write route.
+    expect(mockGetReportScope).not.toHaveBeenCalled();
   });
 
   it('admin: created with the AUTHENTICATED user as actor, never a body-supplied one', async () => {
@@ -149,18 +158,48 @@ describe('POST /api/learning-paths/assign — assign is literal-admin-only', () 
     expect(res._getStatusCode()).toBe(403);
     expect(mockFrom).not.toHaveBeenCalled();
     expect(mockBatchAssign).not.toHaveBeenCalled();
+    expect(mockGetReportScope).not.toHaveBeenCalled();
   });
 });
 
-describe('GET /api/learning-paths/analytics — cross-user reporting is literal-admin-only', () => {
+describe('GET /api/learning-paths/analytics — reporting scope: admin, consultor, equipo_directivo', () => {
   it.each([
-    ['equipo_directivo', DIRECTIVO],
-    ['consultor', CONSULTOR],
-  ])('%s: 403 before any query', async (_role, id) => {
+    ['equipo_directivo (own school)', DIRECTIVO, 'school'],
+    ['consultor (all schools)', CONSULTOR, 'all'],
+    ['admin', ADMIN, 'all'],
+  ])('%s: 200, reads the report views on the CALLER\'s client, never the service role', async (_role, id, scope) => {
     authenticatedAs(id);
+    mockGetReportScope.mockResolvedValue(scope);
     mockHasManagePermission.mockResolvedValue(false);
+    const calls = installQueryDouble({});
+    const res = await call(analyticsHandler, { method: 'GET', query: {} });
+    expect(res._getStatusCode()).toBe(200);
+    expect(mockGetReportScope).toHaveBeenCalledWith(expect.anything(), id);
+    expect(calls.map((c) => c.table)).toEqual(['learning_path_performance_summary', 'learning_path_daily_summary']);
+    expect(mockCreateApiSupabaseClient).toHaveBeenCalled();
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+    // The report door is not the management door.
+    expect(mockHasManagePermission).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['docente', DOCENTE],
+    ['lider_comunidad / lider_generacion / supervisor_de_red (no report scope)', OTHER],
+    ['equipo_directivo without a school', DIRECTIVO],
+  ])('%s: 403 before any report query', async (_role, id) => {
+    authenticatedAs(id);
+    mockGetReportScope.mockResolvedValue(null);
     const res = await call(analyticsHandler, { method: 'GET', query: {} });
     expect(res._getStatusCode()).toBe(403);
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('anonymous: 401 and nothing is read', async () => {
+    mockGetApiUser.mockResolvedValue({ user: null, error: new Error('no session') });
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const res = await call(analyticsHandler, { method: 'GET', query: {} });
+    expect(res._getStatusCode()).toBe(401);
+    expect(mockGetReportScope).not.toHaveBeenCalled();
     expect(mockFrom).not.toHaveBeenCalled();
   });
 });

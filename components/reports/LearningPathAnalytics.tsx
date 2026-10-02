@@ -24,10 +24,8 @@ import {
 import {
   isOverviewAnalytics,
   isPathSpecificAnalytics,
-  UNAVAILABLE_METRIC_LABELS,
   type LearningPathAnalyticsOverview,
   type PathSpecificAnalytics,
-  type UnavailableMetric,
 } from '../../types/learning-path-analytics';
 
 /**
@@ -68,12 +66,6 @@ function formatHours(value: number | null | undefined): string {
 function formatDays(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return UNAVAILABLE;
   return `${value.toFixed(1)} días`;
-}
-
-function unavailableLabels(keys: readonly string[]): string {
-  return keys
-    .map((k) => UNAVAILABLE_METRIC_LABELS[k as UnavailableMetric] ?? k)
-    .join(', ');
 }
 
 export default function LearningPathAnalytics({ selectedPath, dateRange = 30 }: LearningPathAnalyticsProps) {
@@ -288,11 +280,6 @@ export default function LearningPathAnalytics({ selectedPath, dateRange = 30 }: 
         </div>
       )}
 
-      {data.unavailable.length > 0 && (
-        <p className="text-xs text-gray-500" data-testid="lp-analytics-unavailable-note">
-          Métricas sin definición aprobada (no disponibles, no se calculan): {unavailableLabels(data.unavailable)}.
-        </p>
-      )}
     </div>
   );
 }
@@ -329,11 +316,6 @@ function PathSpecificView({ data }: { data: PathSpecificAnalytics }) {
             ))}
           </ul>
         </div>
-      )}
-      {data.unavailable.length > 0 && (
-        <p className="text-xs text-gray-500" data-testid="lp-analytics-unavailable-note">
-          Métricas sin definición aprobada (no disponibles, no se calculan): {unavailableLabels(data.unavailable)}.
-        </p>
       )}
     </div>
   );

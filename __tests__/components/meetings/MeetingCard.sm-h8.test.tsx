@@ -64,6 +64,22 @@ describe('MeetingCard (SM-H8)', () => {
     expect(onView).toHaveBeenCalledWith('m1');
   });
 
+  it('without read access, loaded content is NOT shown (fails closed), also when access is lost after render', () => {
+    const { queryByText, queryByTestId, getByTestId, rerender } = render(<MeetingCard meeting={meeting} canEdit={false} canReadContent />);
+    fireEvent.click(getByTestId('meeting-chip-tasks-m1'));
+    expect(queryByText('Tarea uno')).not.toBeNull();
+
+    rerender(<MeetingCard meeting={meeting} canEdit={false} canReadContent={false} />);
+    expect(queryByText('Tarea uno')).toBeNull();
+    expect(queryByText('Acuerdo uno')).toBeNull();
+    expect(queryByText('Compromiso uno')).toBeNull();
+    expect(queryByTestId('meeting-chip-agreements-m1')).toBeNull();
+    expect(queryByTestId('meeting-chip-commitments-m1')).toBeNull();
+    expect(queryByTestId('meeting-chip-tasks-m1')).toBeNull();
+    expect(queryByText(/completadas/)).toBeNull();
+    expect(getByTestId('meeting-content-hidden-m1')).toBeDefined();
+  });
+
   it('without read access: no documents chip, no task stats, and an explanation', () => {
     const empty = { ...meeting, agreements: [], commitments: [], tasks: [] };
     const { queryByText, getByTestId } = render(<MeetingCard meeting={empty} canEdit={false} canReadContent={false} />);

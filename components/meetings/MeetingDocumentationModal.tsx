@@ -261,6 +261,10 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   // SM-H8: problems from the last save attempt. `showItemChecks` turns on the
   // live per-item messages after the first blocked save.
   const [saveProblems, setSaveProblems] = useState<SaveProblem[]>([]);
+  // SM-H8: a half-typed date/time (e.g. the hour typed into Chrome's 6-digit
+  // year box) LOOKS filled but the input's value stays empty. The browser marks
+  // it `badInput`; we say so instead of a generic "required" message.
+  const [meetingDateIncomplete, setMeetingDateIncomplete] = useState(false);
   const [showItemChecks, setShowItemChecks] = useState(false);
   // Scroll container of the step body; reset to the top on every step change
   // so step 3 opens at "Documentos", not where step 2 was scrolled to.
@@ -715,6 +719,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     loadedMeetingDateRef.current = null;
     setSaveProblems([]);
     setShowItemChecks(false);
+    setMeetingDateIncomplete(false);
     setExistingAttachments([]);
     setAttachmentsToDelete([]);
     setSelectedFiles([]);
@@ -748,7 +753,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     runValidations: boolean;
   }): Promise<{ success: boolean; meetingId?: string; version?: number }> => {
     if (runValidations && !validateStep(currentStep)) {
-      toast.error('Por favor completa los campos requeridos');
+      toast.error(currentStep === MeetingFormStep.INFORMATION ? meetingInfoProblem() : 'Por favor completa los campos requeridos');
       return { success: false };
     }
     const loadedDate = loadedMeetingDateRef.current;
@@ -757,7 +762,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         ? loadedDate.iso
         : datetimeLocalToIso(formData.meeting_info.meeting_date);
     if (!formData.meeting_info.title || !meetingDateIso) {
-      toast.error('Título y fecha son requeridos');
+      toast.error(meetingInfoProblem());
       return { success: false };
     }
 
@@ -848,12 +853,16 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       );
       const after = await readMeetingPeople(supabase, savedMeetingId);
       if (after.people) {
-        // What the form now shows is the baseline for the next save; people
-        // someone else added meanwhile stay out of it (they are not removed).
-        const formPeople = new Set([...formData.meeting_info.attendee_ids, ...(formData.meeting_info.reader_ids ?? [])]);
+        // Baseline for the next save: what is stored now, limited to people this
+        // form knows about — those it shows, and those it was removing (a removal
+        // that failed stays pending). People someone else added meanwhile stay
+        // out of it, so they are never removed by this form.
+        const previous = peopleBaselineRef.current;
+        const knownParticipant = new Set([...formData.meeting_info.attendee_ids, ...Array.from(previous.participants.keys())]);
+        const knownReader = new Set([...(formData.meeting_info.reader_ids ?? []), ...Array.from(previous.readerIds)]);
         peopleBaselineRef.current = {
-          participants: new Map(Array.from(after.people.participants.entries()).filter(([id]) => formPeople.has(id))),
-          readerIds: new Set(Array.from(after.people.readerIds).filter((id) => formPeople.has(id))),
+          participants: new Map(Array.from(after.people.participants.entries()).filter(([id]) => knownParticipant.has(id))),
+          readerIds: new Set(Array.from(after.people.readerIds).filter((id) => knownReader.has(id))),
         };
       } else if (after.problem) {
         problems.push(after.problem);
@@ -868,7 +877,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       tasks: originalTaskIdsRef.current,
     });
     problems.push(...items.problems);
-    adoptSavedItemIds(items.ids, items.problems, savedKeys);
+    adoptSavedItemIds(items.ids, items.pendingDeletes, savedKeys);
 
     const pendingRemovals = attachmentsToDelete;
     const removal = await removeDeletedAttachments(supabase, pendingRemovals);
@@ -900,23 +909,20 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   // Put the ids of the rows a save wrote onto the items they belong to (by
   // client_key, not position, so removals/reorders during the save are safe).
   // Every written id joins the originals, so a row whose item was removed while
-  // the save ran is deleted by the next save; removed rows stay in the
-  // originals when their delete failed, so a retry deletes them again.
+  // the save ran is deleted by the next save; rows whose delete is still
+  // pending stay in the originals, so a retry deletes exactly those.
   const adoptSavedItemIds = (
     ids: MeetingItemIds,
-    itemProblems: SaveProblem[],
+    pendingDeletes: { agreements: string[]; commitments: string[]; tasks: string[] },
     savedKeys: { agreements: Array<string | undefined>; commitments: Array<string | undefined>; tasks: Array<string | undefined> },
   ) => {
-    const failedDelete = (kind: SaveProblem['kind']) =>
-      itemProblems.some((problem) => problem.kind === kind && problem.index === undefined);
-    const nextOriginals = (previous: Set<string>, saved: Array<string | undefined>, kind: SaveProblem['kind']) => {
-      const next = new Set(saved.filter((id): id is string => !!id));
-      if (failedDelete(kind)) previous.forEach((id) => next.add(id));
-      return next;
-    };
-    originalAgreementIdsRef.current = nextOriginals(originalAgreementIdsRef.current, ids.agreements, 'agreement');
-    originalCommitmentIdsRef.current = nextOriginals(originalCommitmentIdsRef.current, ids.commitments, 'commitment');
-    originalTaskIdsRef.current = nextOriginals(originalTaskIdsRef.current, ids.tasks, 'task');
+    // Originals = every row this save wrote, plus rows whose deletion is still
+    // pending (they still exist), so the next save retries exactly those.
+    const nextOriginals = (saved: Array<string | undefined>, pending: string[]) =>
+      new Set([...saved.filter((id): id is string => !!id), ...pending]);
+    originalAgreementIdsRef.current = nextOriginals(ids.agreements, pendingDeletes.agreements);
+    originalCommitmentIdsRef.current = nextOriginals(ids.commitments, pendingDeletes.commitments);
+    originalTaskIdsRef.current = nextOriginals(ids.tasks, pendingDeletes.tasks);
     const byKey = (keys: Array<string | undefined>, saved: Array<string | undefined>) => {
       const map = new Map<string, string>();
       keys.forEach((key, i) => {
@@ -956,6 +962,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         if (!currentMeetingId) setMeetingVersion(savedVersion ?? 0);
         await startWorkSession(savedId);
         await loadWorkSessions(savedId);
+        if (!mountedRef.current) return;
       }
 
       updateSummaryInfo('status', MEETING_STATUS.BORRADOR);
@@ -1006,9 +1013,16 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     }
   };
 
+  // What is missing on step 1, in plain words.
+  const meetingInfoProblem = () => {
+    if (!formData.meeting_info.title) return 'Escribe el título de la reunión.';
+    if (meetingDateIncomplete) return 'La fecha y hora están incompletas: completa día, mes, año, hora y minutos.';
+    return 'Indica la fecha y hora de la reunión.';
+  };
+
   const handleNext = () => {
     if (!validateStep(currentStep)) {
-      toast.error('Por favor completa los campos requeridos');
+      toast.error(currentStep === MeetingFormStep.INFORMATION ? meetingInfoProblem() : 'Por favor completa los campos requeridos');
       return;
     }
 
@@ -1440,9 +1454,19 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                     <input
                       type="datetime-local"
                       value={formData.meeting_info.meeting_date}
-                      onChange={(e) => updateMeetingInfo('meeting_date', e.target.value)}
+                      onChange={(e) => {
+                        updateMeetingInfo('meeting_date', e.target.value);
+                        setMeetingDateIncomplete(e.target.validity.badInput);
+                      }}
+                      onBlur={(e) => setMeetingDateIncomplete(e.currentTarget.validity.badInput)}
+                      data-testid="meeting-date"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                     />
+                    {meetingDateIncomplete && (
+                      <p className="mt-1 text-sm text-red-600" data-testid="meeting-date-incomplete">
+                        La fecha y hora están incompletas: completa día, mes, año, hora y minutos.
+                      </p>
+                    )}
                   </div>
 
                   <div>

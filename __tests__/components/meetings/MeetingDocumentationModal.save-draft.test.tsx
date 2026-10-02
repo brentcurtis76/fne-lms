@@ -13,6 +13,7 @@ import {
   holdWrites,
   makeGate,
   failingReads,
+  refusedWrites,
 } from './meetingSupabaseMock';
 
 // Capture TipTapEditor onChange callbacks keyed by placeholder. Placeholders
@@ -465,6 +466,53 @@ describe('MeetingDocumentationModal — saving (SM-H8)', () => {
         if (previousTz === undefined) delete process.env.TZ;
         else process.env.TZ = previousTz;
       }
+    });
+
+    it('a participant removal that failed is retried on the next save (not forgotten after a good read-back)', async () => {
+      seedRows('meeting_attendees', [
+        { id: 'att-ana', meeting_id: 'meeting-1', user_id: ANA.id, role: 'participant' },
+        { id: 'att-bruno', meeting_id: 'meeting-1', user_id: BRUNO.id, role: 'participant' },
+      ]);
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const utils = await openEdit(editMeeting({
+        attendees: [{ user_id: ANA.id, role: 'participant' }, { user_id: BRUNO.id, role: 'participant' }],
+      }));
+      await waitFor(() => expect((utils.getByTestId(`meeting-attendee-${BRUNO.id}`) as HTMLInputElement).checked).toBe(true));
+      await click(utils.getByTestId(`meeting-attendee-${BRUNO.id}`));
+
+      refusedWrites.add('delete:meeting_attendees');
+      await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+      await waitFor(() => expect(toastError).toHaveBeenCalledWith('Participantes: no tienes permiso para guardar este cambio.'));
+      expect(tableRows.meeting_attendees.map((row) => row.user_id)).toContain(BRUNO.id);
+
+      refusedWrites.delete('delete:meeting_attendees');
+      await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+      await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Borrador guardado'));
+      expect(tableRows.meeting_attendees.map((row) => row.user_id)).toEqual([ANA.id]);
+      consoleError.mockRestore();
+    });
+
+    it('closing (unmount) while the draft save is finishing shows no success and calls nothing', async () => {
+      const gate = makeGate();
+      const plainFetch = global.fetch;
+      // @ts-expect-error override global fetch for test
+      global.fetch = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : (input as Request).url;
+        if (url.endsWith('/work-session/start')) {
+          await gate.promise;
+          return new Response(JSON.stringify({ data: { id: 'ws-late' } }), { status: 201 });
+        }
+        return (plainFetch as any)(input, init);
+      });
+      const utils = render(<MeetingDocumentationModal {...defaultProps} />);
+      await createToStep3(utils);
+      await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+      await waitFor(() => expect(capturedCalls['insert:community_meetings']).toHaveLength(1));
+      utils.unmount();
+      await act(async () => { gate.release(); });
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+      expect(toastSuccess).not.toHaveBeenCalled();
+      expect(defaultProps.onDraftSaved).not.toHaveBeenCalled();
     });
   });
 });

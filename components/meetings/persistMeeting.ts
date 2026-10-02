@@ -171,6 +171,8 @@ export interface MeetingItemIds {
 export interface MeetingWriteResult {
   problems: SaveProblem[];
   ids: MeetingItemIds;
+  /** Rows asked to be deleted that still exist (refused or failed): retry them. */
+  pendingDeletes: { agreements: string[]; commitments: string[]; tasks: string[] };
 }
 
 /**
@@ -209,19 +211,33 @@ export async function applyMeetingDiffs(
   const commitmentsTable: ChildTable = () => supabase.from('meeting_commitments');
   const tasksTable: ChildTable = () => supabase.from('meeting_tasks');
 
-  const deleteRows = async (table: ChildTable, kind: SaveItemKind, ids: string[]) => {
-    if (ids.length === 0) return;
+  // Returns the ids that still exist afterwards. A row that is already gone
+  // (another editor, or an earlier attempt, removed it) counts as deleted.
+  const deleteRows = async (table: ChildTable, kind: SaveItemKind, ids: string[]): Promise<string[]> => {
+    if (ids.length === 0) return [];
     const { data, error } = await table().delete().in('id', ids).select('id');
     if (error) {
       problems.push(describeSaveError(error, kind));
-    } else if ((data ?? []).length !== ids.length) {
-      problems.push(noRowsProblem(kind));
+      return ids;
     }
+    const deleted = new Set(((data ?? []) as Array<{ id: string }>).map((row) => row.id));
+    const unconfirmed = ids.filter((id) => !deleted.has(id));
+    if (unconfirmed.length === 0) return [];
+    const { data: still, error: lookError } = await table().select('id').in('id', unconfirmed);
+    if (lookError) {
+      problems.push(describeSaveError(lookError, kind));
+      return unconfirmed;
+    }
+    const remaining = ((still ?? []) as Array<{ id: string }>).map((row) => row.id);
+    if (remaining.length > 0) problems.push(noRowsProblem(kind));
+    return remaining;
   };
 
-  await deleteRows(agreementsTable, 'agreement', removed(originalIds.agreements, agreementsForPersist));
-  await deleteRows(commitmentsTable, 'commitment', removed(originalIds.commitments, commitmentsForPersist));
-  await deleteRows(tasksTable, 'task', removed(originalIds.tasks, tasksForPersist));
+  const pendingDeletes = {
+    agreements: await deleteRows(agreementsTable, 'agreement', removed(originalIds.agreements, agreementsForPersist)),
+    commitments: await deleteRows(commitmentsTable, 'commitment', removed(originalIds.commitments, commitmentsForPersist)),
+    tasks: await deleteRows(tasksTable, 'task', removed(originalIds.tasks, tasksForPersist)),
+  };
 
   const writeRow = async (
     table: ChildTable,
@@ -289,7 +305,7 @@ export async function applyMeetingDiffs(
     );
   }
 
-  return { problems, ids };
+  return { problems, ids, pendingDeletes };
 }
 
 /** Attendee roles this form never removes (they are managed elsewhere). */

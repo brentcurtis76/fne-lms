@@ -19,6 +19,8 @@ export const capturedCalls: Record<string, any[]> = {};
 export const fromCalls: string[] = [];
 /** `<verb>:<table>` → error returned for that write (e.g. `insert:meeting_tasks`). */
 export const failingWrites: Record<string, { code: string; message: string }> = {};
+/** `<verb>:<table>` whose writes RLS silently filters: no error, no row reached. */
+export const refusedWrites = new Set<string>();
 /** table → error returned for plain selects of that table. */
 export const failingReads: Record<string, { code: string; message: string }> = {};
 /** `<verb>:<table>` → promise the write waits for before answering. */
@@ -44,6 +46,7 @@ export function resetMeetingSupabaseMock() {
     for (const key of Object.keys(store)) delete store[key];
   }
   fromCalls.length = 0;
+  refusedWrites.clear();
 }
 
 let insertCounter = 0;
@@ -85,6 +88,7 @@ export function makeMeetingSupabaseClient() {
           store.push(...inserted);
           return { data: inserted, error: null };
         }
+        if (refusedWrites.has(`${state.op}:${table}`)) return { data: [], error: null };
         const hit = store.filter(matches);
         if (state.op === 'update') {
           hit.forEach((row) => Object.assign(row, state.payload));

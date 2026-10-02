@@ -8,6 +8,7 @@ import {
   resetMeetingSupabaseMock,
   seedRows,
   tableRows,
+  refusedWrites,
 } from './meetingSupabaseMock';
 import {
   deriveMeetingDocs,
@@ -220,11 +221,21 @@ describe('applyMeetingDiffs (SM-H8)', () => {
     expect(tableRows.meeting_tasks).toEqual([]);
   });
 
-  it('a delete that reaches no row (already gone or refused) is reported', async () => {
+  it('a row that is already gone counts as deleted (nothing to retry, nothing to report)', async () => {
     seedRows('meeting_tasks', [{ id: 't1', meeting_id: 'm1' }]);
     const client = makeMeetingSupabaseClient() as any;
     const result = await applyMeetingDiffs(client, 'm1', payload(), { ...none, tasks: new Set(['t1', 'ghost']) });
+    expect(result.problems).toEqual([]);
+    expect(result.pendingDeletes.tasks).toEqual([]);
+  });
+
+  it('a delete RLS refuses (row still there) is reported and stays pending for the retry', async () => {
+    seedRows('meeting_tasks', [{ id: 't1', meeting_id: 'm1' }, { id: 't2', meeting_id: 'm1' }]);
+    refusedWrites.add('delete:meeting_tasks');
+    const client = makeMeetingSupabaseClient() as any;
+    const result = await applyMeetingDiffs(client, 'm1', payload(), { ...none, tasks: new Set(['t1', 't2']) });
     expect(result.problems).toEqual([{ kind: 'task', message: 'Tarea: no tienes permiso para guardar este cambio.' }]);
+    expect(result.pendingDeletes.tasks).toEqual(['t1', 't2']);
   });
 });
 

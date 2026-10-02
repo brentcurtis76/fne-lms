@@ -137,12 +137,12 @@ describe('docente assessments list — archived assessments', () => {
     globalThis.fetch = originalFetch;
   });
 
-  it('renders an archived-only response in the Archivadas group with a read-only detail link', async () => {
+  it('renders an archived-only response in the Archivados group with a read-only detail link', async () => {
     installApiFetch([archived]);
     render(<DocenteAssessmentsPage />);
 
-    await screen.findByRole('heading', { level: 2, name: 'Archivadas (1)' });
-    const section = sectionFor('Archivadas (1)');
+    await screen.findByRole('heading', { level: 2, name: 'Archivados (1)' });
+    const section = sectionFor('Archivados (1)');
     expect(within(section).getByRole('heading', { level: 3, name: 'Plantilla Archivada' })).toBeInTheDocument();
     expect(within(section).getByText('v1.0.0')).toBeInTheDocument();
     expect(within(section).getByText('Archivado')).toBeInTheDocument();
@@ -151,13 +151,13 @@ describe('docente assessments list — archived assessments', () => {
 
     const links = within(section).getAllByRole('link');
     expect(links).toHaveLength(1);
-    expect(links[0]).toHaveAccessibleName('Ver evaluación');
+    expect(links[0]).toHaveAccessibleName('Ver registro');
     expect(links[0]).toHaveAttribute('href', '/docente/assessments/a-1');
     expect(screen.queryByRole('link', { name: /Continuar/ })).toBeNull();
     expect(screen.queryByRole('link', { name: /Ver Resultados/ })).toBeNull();
     expect(screen.queryByRole('heading', { name: /Por Completar/ })).toBeNull();
-    expect(screen.queryByRole('heading', { name: /Completadas/ })).toBeNull();
-    expect(screen.queryByText('No hay evaluaciones asignadas')).toBeNull();
+    expect(screen.queryByRole('heading', { name: /Completados/ })).toBeNull();
+    expect(screen.queryByText('No hay registros asignados')).toBeNull();
   });
 
   it('groups a mixed response into active, completed and archived with their own actions', async () => {
@@ -174,16 +174,16 @@ describe('docente assessments list — archived assessments', () => {
     ]);
     activeLinks.forEach((link) => expect(link).toHaveAccessibleName('Continuar'));
 
-    const completedLinks = within(sectionFor('Completadas (1)')).getAllByRole('link');
+    const completedLinks = within(sectionFor('Completados (1)')).getAllByRole('link');
     expect(completedLinks).toHaveLength(1);
     expect(completedLinks[0]).toHaveAccessibleName('Ver Resultados');
     expect(completedLinks[0]).toHaveAttribute('href', '/docente/assessments/c-1/results');
 
-    const archivedSection = sectionFor('Archivadas (1)');
+    const archivedSection = sectionFor('Archivados (1)');
     expect(within(archivedSection).getByRole('heading', { level: 3, name: 'Plantilla Archivada' })).toBeInTheDocument();
     const archivedLinks = within(archivedSection).getAllByRole('link');
     expect(archivedLinks).toHaveLength(1);
-    expect(archivedLinks[0]).toHaveAccessibleName('Ver evaluación');
+    expect(archivedLinks[0]).toHaveAccessibleName('Ver registro');
     expect(archivedLinks[0]).toHaveAttribute('href', '/docente/assessments/a-1');
   });
 
@@ -201,9 +201,9 @@ describe('docente assessments list — archived assessments', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenLastCalledWith('/api/docente/assessments?status=archived');
-      expect(screen.getByRole('heading', { level: 2, name: 'Archivadas (1)' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 2, name: 'Archivados (1)' })).toBeInTheDocument();
       expect(screen.queryByRole('heading', { name: /Por Completar/ })).toBeNull();
-      expect(screen.queryByRole('heading', { name: /Completadas/ })).toBeNull();
+      expect(screen.queryByRole('heading', { name: /Completados/ })).toBeNull();
     });
     expect(screen.getAllByRole('link')).toHaveLength(1);
 
@@ -211,8 +211,8 @@ describe('docente assessments list — archived assessments', () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenLastCalledWith('/api/docente/assessments?');
       expect(screen.getByRole('heading', { level: 2, name: 'Por Completar (2)' })).toBeInTheDocument();
-      expect(screen.getByRole('heading', { level: 2, name: 'Completadas (1)' })).toBeInTheDocument();
-      expect(screen.getByRole('heading', { level: 2, name: 'Archivadas (1)' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 2, name: 'Completados (1)' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 2, name: 'Archivados (1)' })).toBeInTheDocument();
     });
   });
 
@@ -221,11 +221,11 @@ describe('docente assessments list — archived assessments', () => {
     globalThis.fetch = vi.fn(() => new Promise((resolve) => { resolveResponse = resolve; })) as unknown as typeof fetch;
     render(<DocenteAssessmentsPage />);
 
-    expect(await screen.findByText('Cargando evaluaciones...')).toBeInTheDocument();
+    expect(await screen.findByText('Cargando registros...')).toBeInTheDocument();
     resolveResponse({ ok: true, status: 200, json: async () => ({ success: true, assessments: [], total: 0 }) });
 
-    expect(await screen.findByText('No hay evaluaciones asignadas')).toBeInTheDocument();
-    expect(screen.queryByText('Cargando evaluaciones...')).toBeNull();
+    expect(await screen.findByText('No hay registros asignados')).toBeInTheDocument();
+    expect(screen.queryByText('Cargando registros...')).toBeNull();
     expect(screen.queryAllByRole('link')).toHaveLength(0);
   });
 });

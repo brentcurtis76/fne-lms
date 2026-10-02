@@ -132,7 +132,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (instancesError) {
       console.error('Error fetching instances:', instancesError);
-      return res.status(500).json({ error: 'Error al cargar evaluaciones' });
+      return res.status(500).json({ error: 'Error al cargar registros' });
     }
 
     // Group instances by course

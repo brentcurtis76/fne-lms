@@ -119,14 +119,14 @@ const DocenteAssessmentsPage: React.FC = () => {
       const response = await fetch(`/api/docente/assessments?${params.toString()}`);
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Error al cargar evaluaciones');
+        throw new Error(data.error || 'Error al cargar registros');
       }
 
       const data = await response.json();
       setAssessments(data.assessments || []);
     } catch (error: any) {
       console.error('Error fetching assessments:', error);
-      toast.error(error.message || 'Error al cargar evaluaciones');
+      toast.error(error.message || 'Error al cargar registros');
     } finally {
       setLoading(false);
     }
@@ -169,8 +169,8 @@ const DocenteAssessmentsPage: React.FC = () => {
     >
       <ResponsiveFunctionalPageHeader
         icon={<ClipboardCheck />}
-        title="Mis Evaluaciones"
-        subtitle={`${assessments.length} evaluación${assessments.length !== 1 ? 'es' : ''} asignada${assessments.length !== 1 ? 's' : ''}`}
+        title="Mis Registros"
+        subtitle={`${assessments.length} registro${assessments.length !== 1 ? 's' : ''} asignado${assessments.length !== 1 ? 's' : ''}`}
       >
         <HelpButton sectionId="proceso-de-cambio" />
       </ResponsiveFunctionalPageHeader>
@@ -196,16 +196,16 @@ const DocenteAssessmentsPage: React.FC = () => {
 
         {loading ? (
           <div className="text-center py-20">
-            <p className="text-brand_primary/40">Cargando evaluaciones...</p>
+            <p className="text-brand_primary/40">Cargando registros...</p>
           </div>
         ) : assessments.length === 0 ? (
           <div className="text-center py-24">
             <ClipboardCheck className="mx-auto h-16 w-16 text-brand_primary/15" />
             <h3 className="mt-6 text-xl font-semibold text-brand_primary">
-              No hay evaluaciones asignadas
+              No hay registros asignados
             </h3>
             <p className="mt-3 text-sm text-brand_primary/45 max-w-sm mx-auto leading-relaxed">
-              Cuando te asignen evaluaciones, aparecerán aquí.
+              Cuando te asignen registros, aparecerán aquí.
             </p>
           </div>
         ) : (
@@ -232,7 +232,7 @@ const DocenteAssessmentsPage: React.FC = () => {
             {completedAssessments.length > 0 && (
               <section>
                 <h2 className="text-xs font-bold text-brand_primary/35 uppercase tracking-[0.15em] mb-6">
-                  Completadas ({completedAssessments.length})
+                  Completados ({completedAssessments.length})
                 </h2>
                 <div className="space-y-5">
                   {completedAssessments.map((assessment) => (
@@ -250,7 +250,7 @@ const DocenteAssessmentsPage: React.FC = () => {
             {archivedAssessments.length > 0 && (
               <section>
                 <h2 className="text-xs font-bold text-brand_primary/35 uppercase tracking-[0.15em] mb-6">
-                  Archivadas ({archivedAssessments.length})
+                  Archivados ({archivedAssessments.length})
                 </h2>
                 <div className="space-y-5">
                   {archivedAssessments.map((assessment) => (
@@ -333,14 +333,14 @@ const AssessmentCard: React.FC<AssessmentCardProps> = ({ assessment, allAssessme
           {isNewerVersion && (
             <p className="text-xs text-amber-600 mt-3 flex items-center gap-1.5">
               <RefreshCw className="w-3 h-3 flex-shrink-0" />
-              Nueva versión — el instrumento fue actualizado desde tu última evaluación
+              Nueva versión — el instrumento fue actualizado desde tu último registro
             </p>
           )}
 
           {/* Archived note */}
           {isArchived && (
             <p className="text-xs text-brand_primary/50 mt-3">
-              Evaluación archivada: disponible solo para consulta, no se puede continuar ni enviar.
+              Registro archivado: disponible solo para consulta, no se puede continuar ni enviar.
             </p>
           )}
 
@@ -386,7 +386,7 @@ const AssessmentCard: React.FC<AssessmentCardProps> = ({ assessment, allAssessme
             <Link href={`/docente/assessments/${assessment.id}`} legacyBehavior>
               <a className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium border border-brand_primary/15 text-brand_primary/70 rounded-lg hover:bg-brand_primary/[0.03] transition-colors">
                 <Eye className="w-4 h-4" />
-                Ver evaluación
+                Ver registro
               </a>
             </Link>
           ) : (

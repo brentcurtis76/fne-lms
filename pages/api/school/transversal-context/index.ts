@@ -293,8 +293,8 @@ type SaveRefusal = {
 };
 
 const DEPENDENCY_MESSAGE =
-  'No se guardó el contexto: la nueva configuración eliminaría cursos que tienen docentes asignados o evaluaciones registradas (%NAMES%). ' +
-  'El historial de asignaciones y evaluaciones se conserva; mantenga los niveles y cantidades actuales o solicite una resolución administrativa.';
+  'No se guardó el contexto: la nueva configuración eliminaría cursos que tienen docentes asignados o registros asociados (%NAMES%). ' +
+  'El historial de asignaciones y registros se conserva; mantenga los niveles y cantidades actuales o solicite una resolución administrativa.';
 
 const P0001_MESSAGES: Record<string, { status: 400 | 409; error: string }> = {
   invalid_payload: { status: 400, error: 'Cuerpo de la solicitud inválido' },
@@ -441,7 +441,7 @@ async function handlePost(
       coursesRelinked: result.courses_relinked ?? 0,
       yearChanged,
       warning: yearChanged
-        ? 'El año de transformación cambió. Las evaluaciones ya creadas conservan el año con el que fueron generadas; no se reescriben.'
+        ? 'El año de transformación cambió. Los registros ya creados conservan el año con el que fueron generados; no se reescriben.'
         : null,
     });
   } catch (err: any) {

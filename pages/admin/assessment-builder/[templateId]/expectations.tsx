@@ -1437,7 +1437,7 @@ const ExpectationsEditor: React.FC = () => {
                                               <div
                                                 key={ind.id}
                                                 className={`flex items-center gap-3 py-1.5 border-b border-gray-50 last:border-0 ${isInactive ? 'opacity-50' : ''}`}
-                                                title={isInactive ? `Sin expectativa para Año ${selectedWeightYear} — no participará en la evaluación` : undefined}
+                                                title={isInactive ? `Sin expectativa para Año ${selectedWeightYear} — no participará en el registro` : undefined}
                                               >
                                                 <div className="flex-1 flex items-center gap-2 min-w-0">
                                                   {/* Brand-compliant category badge */}

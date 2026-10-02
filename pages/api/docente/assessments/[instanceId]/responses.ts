@@ -39,13 +39,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (assigneeError || !assignee) {
       return res.status(403).json({
-        error: 'No tienes permiso para responder esta evaluación'
+        error: 'No tienes permiso para completar este registro'
       });
     }
 
     if (!assignee.can_edit) {
       return res.status(403).json({
-        error: 'No tienes permiso de edición para esta evaluación'
+        error: 'No tienes permiso de edición para este registro'
       });
     }
 
@@ -57,13 +57,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
 
     if (instanceError || !instance) {
-      return res.status(404).json({ error: 'Evaluación no encontrada' });
+      return res.status(404).json({ error: 'Registro no encontrado' });
     }
 
     // Don't allow editing completed/archived instances
     if (instance.status === 'completed' || instance.status === 'archived') {
       return res.status(400).json({
-        error: 'Esta evaluación ya está completada y no puede ser modificada'
+        error: 'Este registro ya está completado y no puede ser modificado'
       });
     }
 
@@ -119,7 +119,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       if (!validIndicatorIds.has(response.indicator_id)) {
-        errors.push(`Indicador ${response.indicator_id} no existe en esta evaluación`);
+        errors.push(`Indicador ${response.indicator_id} no existe en este registro`);
         continue;
       }
 

@@ -37,7 +37,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (assigneeError || !assignee) {
       return res.status(403).json({
-        error: 'No tienes permiso para acceder a esta evaluación'
+        error: 'No tienes permiso para acceder a este registro'
       });
     }
 
@@ -76,7 +76,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (instanceError || !instance) {
       console.error('Error fetching instance:', instanceError);
-      return res.status(404).json({ error: 'Evaluación no encontrada' });
+      return res.status(404).json({ error: 'Registro no encontrado' });
     }
 
     // R11: Fetch year expectations for the instance's transformation year and generation_type
@@ -279,6 +279,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (err: any) {
     console.error('Unexpected error fetching assessment:', err);
-    return res.status(500).json({ error: err.message || 'Error al obtener la evaluación' });
+    return res.status(500).json({ error: err.message || 'Error al obtener el registro' });
   }
 }

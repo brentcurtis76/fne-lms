@@ -123,7 +123,7 @@ describe('transversal-context edit page (R11)', () => {
     const warning = await screen.findByTestId('context-year-change-warning');
     expect(warning).toHaveAttribute('role', 'alert');
     expect(warning).toHaveTextContent('de 2 a 4');
-    expect(warning).toHaveTextContent('conservan el año con el que fueron generadas');
+    expect(warning).toHaveTextContent('conservan el año con el que fueron generados');
     expect(warning).toHaveTextContent('no se reescriben');
 
     fireEvent.click(screen.getByRole('button', { name: 'Año 2' }));
@@ -178,7 +178,7 @@ describe('transversal-context edit page (R11)', () => {
     const alert = await screen.findByTestId('context-blocked-courses');
     expect(alert).toHaveTextContent('3 BASICO B');
     expect(alert).toHaveTextContent('0 docentes asignados (1 en el historial)');
-    expect(alert).toHaveTextContent('0 evaluaciones activas (2 archivadas)');
+    expect(alert).toHaveTextContent('0 registros activos (2 archivados)');
     expect(alert).toHaveTextContent('incluido el archivado');
     expect(alert).toHaveTextContent('se conserva');
     expect(mockToastError).toHaveBeenCalled();

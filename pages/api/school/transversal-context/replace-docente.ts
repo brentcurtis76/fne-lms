@@ -40,7 +40,7 @@ const REFUSAL_STATUS: Record<Exclude<ReplacementCode, 'docente_replaced'>, 403 |
 
 const REFUSAL_MESSAGE: Record<Exclude<ReplacementCode, 'docente_replaced'>, string> = {
   evaluation_started:
-    'La evaluación de este curso ya comenzó o registra respuestas, por lo que no es posible cambiar el docente desde aquí. ' +
+    'El registro de este curso ya comenzó o tiene respuestas, por lo que no es posible cambiar el docente desde aquí. ' +
     'Se requiere una resolución administrativa; las respuestas del docente anterior nunca se transfieren.',
   no_active_assignment:
     'Este curso no tiene un docente activo asignado; use "Asignar" en lugar de cambiar el docente.',
@@ -206,8 +206,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ? (result.instances_reattached as number)
       : 0;
     const message =
-      `Docente cambiado correctamente. ${instancesReattached} evaluación(es) pendiente(s) ` +
-      'reasignada(s) al nuevo docente; ninguna respuesta fue transferida.';
+      `Docente cambiado correctamente. ${instancesReattached} registro(s) pendiente(s) ` +
+      'reasignado(s) al nuevo docente; ninguna respuesta fue transferida.';
 
     return res.status(200).json({
       success: true,

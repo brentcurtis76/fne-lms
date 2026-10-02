@@ -39,19 +39,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (assigneeError || !assignee) {
       return res.status(403).json({
-        error: 'No tienes permiso para enviar esta evaluación'
+        error: 'No tienes permiso para enviar este registro'
       });
     }
 
     if (!assignee.can_submit) {
       return res.status(403).json({
-        error: 'No tienes permiso para enviar esta evaluación'
+        error: 'No tienes permiso para enviar este registro'
       });
     }
 
     if (assignee.has_submitted) {
       return res.status(400).json({
-        error: 'Esta evaluación ya fue enviada anteriormente'
+        error: 'Este registro ya fue enviado anteriormente'
       });
     }
 
@@ -73,13 +73,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
 
     if (instanceError || !instance) {
-      return res.status(404).json({ error: 'Evaluación no encontrada' });
+      return res.status(404).json({ error: 'Registro no encontrado' });
     }
 
     // Don't allow submitting completed/archived instances
     if (instance.status === 'completed' || instance.status === 'archived') {
       return res.status(400).json({
-        error: 'Esta evaluación ya está completada'
+        error: 'Este registro ya está completado'
       });
     }
 
@@ -229,7 +229,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (updateInstanceError) {
       console.error('Error updating instance:', updateInstanceError);
-      return res.status(500).json({ error: 'Error al completar la evaluación' });
+      return res.status(500).json({ error: 'Error al completar el registro' });
     }
 
     // has_submitted on the caller's assignee row is set by the database trigger
@@ -250,7 +250,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(200).json({
       success: true,
-      message: 'Evaluación enviada correctamente',
+      message: 'Registro enviado correctamente',
       completedAt,
       scoring: scoringResult.success
         ? {
@@ -262,6 +262,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (err: any) {
     console.error('Unexpected error submitting assessment:', err);
-    return res.status(500).json({ error: err.message || 'Error al enviar la evaluación' });
+    return res.status(500).json({ error: err.message || 'Error al enviar el registro' });
   }
 }

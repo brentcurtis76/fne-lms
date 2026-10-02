@@ -138,7 +138,7 @@ describe('Assessment completion preserves answers', () => {
     expect(screen.getByLabelText('Respuesta')).toBeDisabled();
     saveResult = json({ saved: 1 });
     await act(async () => { finishAutosave(json({ saved: 1 })); });
-    expect(await screen.findByRole('status')).toHaveTextContent('Evaluación completada');
+    expect(await screen.findByRole('status')).toHaveTextContent('Registro completado');
     expect(requests.map(request => request.method)).toEqual(['PUT', 'PUT', 'POST']);
     expect(requests[0].body.responses[0].frequency_value).toBe(4);
     expect(requests[1].body.responses[0].frequency_value).toBe(9);
@@ -158,7 +158,7 @@ describe('Assessment completion preserves answers', () => {
     saveResult = json({ saved: 1 });
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Enviar/ })); });
     await act(async () => { fireEvent.click(screen.getByTestId('assessment-submit-confirm-button')); });
-    expect(await screen.findByRole('status')).toHaveTextContent('Evaluación completada');
+    expect(await screen.findByRole('status')).toHaveTextContent('Registro completado');
     expect(requests.map(request => request.method)).toEqual(['PUT', 'PUT', 'POST']);
     expect(requests[1].body.responses[0].frequency_value).toBe(7);
   });

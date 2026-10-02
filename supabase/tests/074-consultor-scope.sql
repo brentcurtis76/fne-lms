@@ -24,7 +24,8 @@
 --         rows. An INACTIVE consultor, a docente and anon are denied every
 --         operation on all three core tables — SELECT, INSERT (42501),
 --         UPDATE and DELETE (0 rows) — except the docente's own assignment
---         row, which its own assignment grants and which stays read-only.
+--         row and (since 20261002200000) that assignment's course, which its
+--         own assignment grants and which stay read-only.
 --         RLS stays enabled on the three tables.
 --   [C-5] the three consultor-scoped policies carry the narrowed predicate in
 --         pg_policies.
@@ -319,8 +320,9 @@ RESET ROLE;
 SELECT tests.authenticate_as('cs_docente');
 SELECT is((SELECT count(*)::int FROM public.school_transversal_context), 0,
   'C-4: docente reads no transversal context (another user''s consultor row confers nothing)');
-SELECT is((SELECT count(*)::int FROM public.school_course_structure), 0,
-  'C-4: docente reads no course structure');
+-- 20261002200000: the docente reads the course of its OWN assignment, never via the consultor row.
+SELECT is((SELECT array_agg(id) FROM public.school_course_structure), ARRAY['74000000-0000-4000-8000-00000000cc01'::uuid],
+  'C-4: docente reads only the course of its own assignment');
 -- The docente's OWN assignment row stays readable: that grant comes from the
 -- assignment itself, never from the consultor policy. It is the control that
 -- keeps the denials below honest.

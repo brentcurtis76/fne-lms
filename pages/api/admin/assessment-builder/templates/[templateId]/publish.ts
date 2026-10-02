@@ -58,8 +58,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (upgradeExistingRequested) {
     return res.status(409).json({
       error:
-        'La actualización automática de evaluaciones existentes está deshabilitada. ' +
-        'Publique el template sin esa opción; las evaluaciones existentes deben migrarse con un proceso que valide el nivel.',
+        'La actualización automática de registros existentes está deshabilitada. ' +
+        'Publique el template sin esa opción; los registros existentes deben migrarse con un proceso que valide el nivel.',
       code: 'upgrade_existing_disabled',
     });
   }

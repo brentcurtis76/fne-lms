@@ -50,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Read permission check (admin or consultor)
   const canRead = await hasAssessmentReadPermission(serviceClient, user.id);
   if (!canRead) {
-    return res.status(403).json({ error: 'No tienes permiso para acceder al constructor de evaluaciones' });
+    return res.status(403).json({ error: 'No tienes permiso para acceder al constructor de registros' });
   }
 
   // Verify template exists

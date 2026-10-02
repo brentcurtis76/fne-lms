@@ -82,7 +82,7 @@ test.describe('Assessment draft recovery', () => {
     const api = await assessmentApi(context);
     api.setLoadFailure(true);
     await page.goto(PAGE);
-    await expect(page.getByRole('heading', { name: 'No pudimos cargar la evaluación' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'No pudimos cargar el registro' })).toBeVisible();
     await expect(page.getByRole('spinbutton')).toHaveCount(0);
     api.setLoadFailure(false);
     await page.getByTestId('retry-assessment-load').click();
@@ -139,8 +139,8 @@ for (const viewport of [{ name: 'desktop', width: 1280, height: 800 }, { name: '
       await expect(page.getByText('Traspaso inactivo este año')).toHaveCount(0);
       await page.getByTestId('assessment-submit-button').click();
       await page.getByTestId('assessment-submit-confirm-button').click();
-      await expect(page.getByRole('status').filter({ hasText: /^Evaluación completada$/ })).toBeVisible();
-      await expect(page.getByRole('main').getByText('Evaluación completada', { exact: true })).toBeVisible();
+      await expect(page.getByRole('status').filter({ hasText: /^Registro completado$/ })).toBeVisible();
+      await expect(page.getByRole('main').getByText('Registro completado', { exact: true })).toBeVisible();
       await expect(page.getByTestId('assessment-submit-button')).toHaveCount(0);
       expect(submits).toEqual([1]);
     });
@@ -163,7 +163,7 @@ for (const viewport of [{ name: 'desktop', width: 1280, height: 800 }, { name: '
       await page.getByTestId('assessment-submit-button').click();
       await page.getByTestId('assessment-submit-confirm-button').click();
       expect((await denied).status()).toBe(403);
-      await expect(page.getByText('No tienes permiso para enviar esta evaluación')).toBeVisible();
+      await expect(page.getByText('No tienes permiso para enviar este registro')).toBeVisible();
       await expect(page.getByTestId('assessment-submit-button')).toBeVisible();
     });
   });

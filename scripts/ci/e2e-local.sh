@@ -6,6 +6,7 @@
 #
 #   scripts/ci/e2e-local.sh                     # full run, then remove the stack
 #   E2E_KEEP_STACK=1 scripts/ci/e2e-local.sh    # leave the stack running afterwards
+#   scripts/ci/e2e-local.sh tests/e2e/x.spec.ts  # run only the named specs (no mandatory check)
 #
 # Differences from CI, all deliberate:
 #   - the stack is a private copy of supabase/ with a project_id unique to this
@@ -33,6 +34,12 @@ APP_PORT="${E2E_PORT:-3300}"
 [[ "$APP_PORT" =~ ^[1-9][0-9]{3,4}$ ]] && (( APP_PORT >= 1024 && APP_PORT <= 65535 )) \
   || { echo "E2E_PORT must be a decimal port between 1024 and 65535" >&2; exit 2; }
 PROJECT_ID="genera-e2e-$(date +%s)-$$"
+SPECS=()
+for spec in "$@"; do
+  real="$(realpath -e -- "$spec" 2>/dev/null)" || { echo "No such spec: $spec" >&2; exit 2; }
+  [[ "$real" == "$ROOT/tests/"*.spec.ts ]] || { echo "Not a spec file under $ROOT/tests/: $spec" >&2; exit 2; }
+  SPECS+=("${real#"$ROOT/"}")
+done
 
 for f in .env.local .env .env.production .env.production.local; do
   if [ -e "$f" ] || [ -L "$f" ]; then
@@ -57,6 +64,16 @@ cleanup() {
       echo "WARNING: could not stop stack $PROJECT_ID; its config is kept in $WORK" >&2
       [ "$rc" -eq 0 ] && rc=3
       exit "$rc"
+    fi
+    # Verified disposal: nothing labelled with this run's project, and its ports closed.
+    left_c="$(docker ps -aq --filter "label=com.supabase.cli.project=$PROJECT_ID" | wc -l)"
+    left_v="$(docker volume ls -q | grep -cF -- "$PROJECT_ID" || true)"
+    left_n="$(docker network ls --format "{{.Name}}" | grep -cF -- "$PROJECT_ID" || true)"
+    left_p="$(ss -ltn | grep -cE ":($((BASE + 21))|$((BASE + 22))) " || true)"
+    echo "== Stack $PROJECT_ID disposed: containers $left_c, volumes $left_v, networks $left_n, open ports $left_p"
+    if [ "$left_c$left_v$left_n$left_p" != "0000" ]; then
+      echo "WARNING: stack $PROJECT_ID was not fully removed" >&2
+      [ "$rc" -eq 0 ] && rc=3
     fi
   elif [ -n "$STACK_OWNED" ]; then
     echo "Stack kept running: (cd $WORK && supabase stop --no-backup) to remove it."
@@ -119,8 +136,15 @@ run npm run build >/dev/null
 run node scripts/check-price-leak.mjs
 echo "== Seeding synthetic fixtures"
 run node scripts/ci/seed-e2e.mjs >/dev/null
-echo "== Mandatory e2e specs (port $APP_PORT)"
 status=0
+if [ "${#SPECS[@]}" -gt 0 ]; then
+  # Explicit specs (e.g. the PROC pilot rehearsal): run only those, on this
+  # private stack, without retries; E2E_LOCAL_EXPLICIT tells such specs they are on one.
+  echo "== Explicit e2e specs: ${SPECS[*]} (port $APP_PORT)"
+  run E2E_LOCAL_EXPLICIT=1 E2E_LOCAL_PROJECT_ID="$PROJECT_ID" npx playwright test "${SPECS[@]}" --project=chromium --retries=0 || status=$?
+  exit "$status"
+fi
+echo "== Mandatory e2e specs (port $APP_PORT)"
 run npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium || status=$?
 run node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json || status=$?
 exit "$status"

@@ -1275,7 +1275,7 @@ const TransversalContextDashboard: React.FC = () => {
                                 data-testid={`course-assignment-locked-${course.id}`}
                                 className="text-xs text-brand_primary/70"
                               >
-                                Este curso ya tiene un docente asignado. Mientras la evaluación no haya comenzado,
+                                Este curso ya tiene un docente asignado. Mientras el registro no haya comenzado,
                                 el equipo directivo puede cambiar el docente con «Cambiar docente»; si ya comenzó,
                                 se requiere una resolución administrativa controlada. No es posible desasignar desde esta página.
                               </p>
@@ -1352,7 +1352,7 @@ const TransversalContextDashboard: React.FC = () => {
                 ? 'El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. No hay contexto que consultar por ahora.'
                 : isAdminViewer
                   ? 'El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. Como administrador puede completarlo ahora.'
-                  : 'Complete el cuestionario transversal para configurar los datos de su escuela y habilitar las evaluaciones de transformación.'}
+                  : 'Complete el cuestionario transversal para configurar los datos de su escuela y habilitar los registros de transformación.'}
             </p>
             {!isReadOnlyViewer && (
               <Link
@@ -1510,9 +1510,9 @@ const TransversalContextDashboard: React.FC = () => {
                 </strong>
               </p>
               <p className="mt-3 text-xs text-brand_primary/70 bg-brand_beige rounded p-2">
-                El cambio solo es posible mientras la evaluación del curso no haya comenzado y no registre
-                respuestas. El docente anterior pierde el acceso a las evaluaciones pendientes y el nuevo docente
-                las recibe en blanco: las respuestas nunca se transfieren.
+                El cambio solo es posible mientras el registro del curso no haya comenzado y no registre
+                respuestas. El docente anterior pierde el acceso a los registros pendientes y el nuevo docente
+                los recibe en blanco: las respuestas nunca se transfieren.
               </p>
 
               {loadingReplaceCandidates ? (
@@ -1561,7 +1561,7 @@ const TransversalContextDashboard: React.FC = () => {
                 >
                   <p className="font-medium">
                     {replaceError.code === 'evaluation_started'
-                      ? 'La evaluación ya comenzó'
+                      ? 'El registro ya comenzó'
                       : 'No se pudo cambiar el docente'}
                   </p>
                   <p className="mt-1">{replaceError.message}</p>

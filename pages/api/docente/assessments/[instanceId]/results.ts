@@ -43,7 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (assigneeError || !assignee) {
       return res.status(403).json({
-        error: 'No tienes permiso para ver los resultados de esta evaluación',
+        error: 'No tienes permiso para ver los resultados de este registro',
       });
     }
 
@@ -70,13 +70,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
 
     if (instanceError || !instance) {
-      return res.status(404).json({ error: 'Evaluación no encontrada' });
+      return res.status(404).json({ error: 'Registro no encontrado' });
     }
 
     // Only show results for completed instances
     if (instance.status !== 'completed') {
       return res.status(400).json({
-        error: 'Los resultados solo están disponibles para evaluaciones completadas',
+        error: 'Los resultados solo están disponibles para registros completados',
         status: instance.status,
       });
     }

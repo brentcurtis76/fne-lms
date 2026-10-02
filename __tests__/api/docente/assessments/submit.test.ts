@@ -218,7 +218,7 @@ describe('POST /api/docente/assessments/[instanceId]/submit', () => {
     await submitHandler(req as any, res as any);
 
     expect(res._getStatusCode()).toBe(400);
-    expect(JSON.parse(res._getData()).error).toMatch(/ya fue enviada|completada|archivada/i);
+    expect(JSON.parse(res._getData()).error).toMatch(/ya fue enviado|completado|archivado/i);
     expect(client.from.mock.calls.filter(([table]) => table === 'assessment_instances')).toHaveLength(1);
     expect(mockCalculateAndSaveScores).not.toHaveBeenCalled();
   });

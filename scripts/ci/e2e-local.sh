@@ -6,6 +6,7 @@
 #
 #   scripts/ci/e2e-local.sh                     # full run, then remove the stack
 #   E2E_KEEP_STACK=1 scripts/ci/e2e-local.sh    # leave the stack running afterwards
+#   scripts/ci/e2e-local.sh tests/e2e/x.spec.ts  # run only the named specs (no mandatory check)
 #
 # Differences from CI, all deliberate:
 #   - the stack is a private copy of supabase/ with a project_id unique to this
@@ -33,6 +34,11 @@ APP_PORT="${E2E_PORT:-3300}"
 [[ "$APP_PORT" =~ ^[1-9][0-9]{3,4}$ ]] && (( APP_PORT >= 1024 && APP_PORT <= 65535 )) \
   || { echo "E2E_PORT must be a decimal port between 1024 and 65535" >&2; exit 2; }
 PROJECT_ID="genera-e2e-$(date +%s)-$$"
+SPECS=("$@")
+for spec in "${SPECS[@]}"; do
+  [[ "$spec" == tests/*.spec.ts && -f "$spec" ]] \
+    || { echo "Not a spec file under tests/: $spec" >&2; exit 2; }
+done
 
 for f in .env.local .env .env.production .env.production.local; do
   if [ -e "$f" ] || [ -L "$f" ]; then
@@ -119,8 +125,15 @@ run npm run build >/dev/null
 run node scripts/check-price-leak.mjs
 echo "== Seeding synthetic fixtures"
 run node scripts/ci/seed-e2e.mjs >/dev/null
-echo "== Mandatory e2e specs (port $APP_PORT)"
 status=0
+if [ "${#SPECS[@]}" -gt 0 ]; then
+  # Explicit specs (e.g. the PROC pilot rehearsal): run only those, on this
+  # private stack, without retries; E2E_LOCAL_EXPLICIT tells such specs they are on one.
+  echo "== Explicit e2e specs: ${SPECS[*]} (port $APP_PORT)"
+  run E2E_LOCAL_EXPLICIT=1 npx playwright test "${SPECS[@]}" --project=chromium --retries=0 || status=$?
+  exit "$status"
+fi
+echo "== Mandatory e2e specs (port $APP_PORT)"
 run npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium || status=$?
 run node scripts/ci/e2e-mandatory.mjs --check test-results/e2e-results.json || status=$?
 exit "$status"

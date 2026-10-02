@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
-import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
+import { createApiSupabaseClient, loggableError, requireVerifiedCaller } from '@/lib/api-auth';
 
 /**
  * GET /api/assignments/group-members
@@ -58,7 +58,8 @@ async function handleGetMembers(req: NextApiRequest, res: NextApiResponse) {
   try {
     const userId = caller.user.id;
 
-    console.log('[group-members] Request from user:', userId, 'for group:', groupId, 'assignment:', assignmentId);
+    // Logs keep labels, counts and error codes: no id or member row.
+    console.log('[group-members] Request received');
 
     // 1. Verify user is a member of this group BEFORE using admin client
     const { data: membership, error: membershipError } = await supabase
@@ -70,12 +71,12 @@ async function handleGetMembers(req: NextApiRequest, res: NextApiResponse) {
       .maybeSingle();
 
     if (membershipError) {
-      console.error('[group-members] Error checking membership:', membershipError);
+      console.error('[group-members] Error checking membership:', loggableError(membershipError));
       return res.status(500).json({ error: 'Error al verificar membresía' });
     }
 
     if (!membership) {
-      console.log('[group-members] User not a member:', userId, 'group:', groupId);
+      console.log('[group-members] Requester is not a member of the group');
       return res.status(403).json({ error: 'No eres miembro de este grupo' });
     }
 
@@ -102,12 +103,12 @@ async function handleGetMembers(req: NextApiRequest, res: NextApiResponse) {
       .eq('assignment_id', assignmentId);
 
     if (membersError) {
-      console.error('[group-members] Error fetching members:', membersError);
+      console.error('[group-members] Error fetching members:', loggableError(membersError));
       return res.status(500).json({ error: 'Error al cargar miembros del grupo' });
     }
 
     if (!members || members.length === 0) {
-      console.log('[group-members] No members found for group:', groupId);
+      console.log('[group-members] No members found for group');
       return res.status(200).json({ members: [] });
     }
 
@@ -119,7 +120,7 @@ async function handleGetMembers(req: NextApiRequest, res: NextApiResponse) {
       .in('id', userIds);
 
     if (profilesError) {
-      console.error('[group-members] Error fetching profiles:', profilesError);
+      console.error('[group-members] Error fetching profiles:', loggableError(profilesError));
       return res.status(500).json({ error: 'Error al cargar perfiles' });
     }
 
@@ -150,7 +151,7 @@ async function handleGetMembers(req: NextApiRequest, res: NextApiResponse) {
     return res.status(200).json({ members: formattedMembers });
 
   } catch (error) {
-    console.error('[group-members] Unexpected error:', error);
+    console.error('[group-members] Unexpected error:', loggableError(error));
     return res.status(500).json({ error: 'Error interno del servidor' });
   }
 }
@@ -173,7 +174,7 @@ async function handleRemoveMember(req: NextApiRequest, res: NextApiResponse) {
 
   try {
     const userId = caller.user.id;
-    console.log('[group-members] DELETE request', { userId, groupId, assignmentId, memberId });
+    console.log('[group-members] DELETE request');
 
     const { data: membership, error: membershipError } = await supabase
       .from('group_assignment_members')
@@ -184,7 +185,7 @@ async function handleRemoveMember(req: NextApiRequest, res: NextApiResponse) {
       .maybeSingle();
 
     if (membershipError) {
-      console.error('[group-members] Error checking membership on delete:', membershipError);
+      console.error('[group-members] Error checking membership on delete:', loggableError(membershipError));
       return res.status(500).json({ error: 'Error al verificar permisos' });
     }
 
@@ -212,7 +213,7 @@ async function handleRemoveMember(req: NextApiRequest, res: NextApiResponse) {
       .maybeSingle();
 
     if (memberFetchError) {
-      console.error('[group-members] Error verifying member to delete:', memberFetchError);
+      console.error('[group-members] Error verifying member to delete:', loggableError(memberFetchError));
       return res.status(500).json({ error: 'Error al verificar miembro' });
     }
 
@@ -228,14 +229,14 @@ async function handleRemoveMember(req: NextApiRequest, res: NextApiResponse) {
       .eq('user_id', memberId);
 
     if (deleteError) {
-      console.error('[group-members] Error deleting member:', deleteError);
+      console.error('[group-members] Error deleting member:', loggableError(deleteError));
       return res.status(500).json({ error: 'Error al remover al miembro' });
     }
 
-    console.log('[group-members] Member removed successfully:', memberId);
+    console.log('[group-members] Member removed successfully');
     return res.status(200).json({ success: true });
   } catch (error) {
-    console.error('[group-members] Unexpected delete error:', error);
+    console.error('[group-members] Unexpected delete error:', loggableError(error));
     return res.status(500).json({ error: 'Error interno del servidor' });
   }
 }

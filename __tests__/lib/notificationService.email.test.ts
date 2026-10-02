@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -28,6 +29,11 @@ const USER_ID = '11111111-1111-4111-8111-111111111111';
 const RECIPIENT = 'destinataria.sintetica@ejemplo.invalid';
 const QA_SCHOOL_ID = 257; // config/production-qa-simulation-target.json
 const IDEMPOTENCY_KEY = 'licitacion_published-lic-1-11111111-1111-4111-8111-111111111111-2026-09-22T10:00';
+/** What the database answers when a row with the same idempotency key already exists. */
+const KEY_CONFLICT = {
+  code: '23505',
+  message: 'duplicate key value violates unique constraint "unique_notification_idempotency_key"',
+};
 
 type Terminator = 'single' | 'maybeSingle' | 'await';
 
@@ -103,6 +109,14 @@ function createFakeSupabase(handlers: Record<string, Handler>) {
 interface WorldOptions {
   /** `null` means no preference row exists for this (user, type). */
   preference?: { email_enabled: boolean; in_app_enabled: boolean } | null;
+  /** The legacy preference read answers with an error. */
+  preferenceError?: boolean;
+  /** Stored `email_mode` of the recipient's category row; omitted means no row. */
+  categoryMode?: unknown;
+  /** The category preference read answers with an error. */
+  categoryError?: boolean;
+  /** The category preference read throws instead of answering. */
+  categoryThrows?: boolean;
   profileEmail?: string | null;
   profileError?: boolean;
   /** A school the recipient belongs to; omitted means an unscoped user. */
@@ -119,10 +133,16 @@ interface WorldOptions {
 function world(options: WorldOptions = {}) {
   const inserted: any[] = [];
   const { client, calls } = createFakeSupabase({
-    user_notification_preferences: () => ({
-      data: options.preference === undefined ? null : options.preference,
-      error: null,
-    }),
+    user_notification_preferences: () =>
+      options.preferenceError
+        ? { data: null, error: { code: '57014', message: 'canceling statement for 11111111-1111-4111-8111-111111111111' } }
+        : { data: options.preference === undefined ? null : options.preference, error: null },
+    user_notification_category_prefs: () => {
+      if (options.categoryThrows) throw new Error('socket hang up for 11111111-1111-4111-8111-111111111111');
+      return options.categoryError
+        ? { data: null, error: { code: 'PGRST301', message: 'JWT secret re_synthetic_key_not_a_real_credential' } }
+        : { data: options.categoryMode === undefined ? null : { email_mode: options.categoryMode }, error: null };
+    },
     user_notifications: (query) => {
       if (query.op === 'insert') {
         if (options.insertError) return { data: null, error: options.insertError };
@@ -395,10 +415,10 @@ describe('createNotification — in-app and immediate email are independent chan
       transport,
     });
 
-    // The retry sees the row the first attempt wrote.
+    // The retry's insert hits the row the first attempt wrote under the same key.
     const retry = world({
       preference: { email_enabled: true, in_app_enabled: true },
-      duplicateRows: [{ id: 'notif-1' }],
+      insertError: KEY_CONFLICT,
     });
     const created = await notificationService.createNotification(notificationData(), {
       client: retry.client,
@@ -408,6 +428,8 @@ describe('createNotification — in-app and immediate email are independent chan
     expect(first.inserted).toHaveLength(1);
     expect(retry.inserted).toHaveLength(0);
     expect(created).toBeNull();
+    // A keyed row is deduplicated by its key, never by the 60-second title check.
+    expect(retry.calls.some((c) => c.table === 'user_notifications' && c.op === 'select')).toBe(false);
 
     expect(sends).toHaveLength(2);
     expect(sends[0].options.idempotencyKey).toBe(IDEMPOTENCY_KEY);
@@ -622,6 +644,318 @@ describe('NOTIFICATION_EMAIL_ENABLED — kill switch for the immediate email', (
   });
 });
 
+/** Every table the synchronous path may touch; the outbox is not one of them. */
+const SYNC_TABLES = new Set([
+  'user_notification_preferences',
+  'user_notification_category_prefs',
+  'user_notifications',
+  'profiles',
+  'user_roles',
+  'schools',
+]);
+
+function touchedTables(calls: Array<{ table: string }>) {
+  return new Set(calls.map((c) => c.table));
+}
+
+function categoryReads(calls: Array<{ table: string }>) {
+  return calls.filter((c) => c.table === 'user_notification_category_prefs');
+}
+
+describe('createNotification — N1-03 email precedence on the live sync path (compat mode)', () => {
+  const cancelled = () =>
+    notificationData({
+      event_type: 'session_cancelled',
+      category: 'sessions',
+      title: 'Sesión cancelada',
+      related_url: '/meet/session/22222222-2222-4222-8222-222222222222',
+    });
+
+  it('D1: the mandatory event sends past a legacy false row and a category off', async () => {
+    const { client, inserted } = world({
+      preference: { email_enabled: false, in_app_enabled: true },
+      categoryMode: 'off',
+    });
+    const { transport, sends } = acceptingTransport();
+
+    await notificationService.createNotification(cancelled(), { client, transport });
+
+    expect(sends).toHaveLength(1);
+    expect(sends[0].message.subject).toBe('Sesión cancelada');
+    expect(inserted).toHaveLength(1);
+  });
+
+  it('D1: a digest category mode gives exactly one immediate provider attempt and no outbox write', async () => {
+    const { client, calls, inserted } = world({
+      preference: { email_enabled: false, in_app_enabled: true },
+      categoryMode: 'digest',
+    });
+    const { transport, sends } = acceptingTransport();
+
+    await notificationService.createNotification(notificationData(), { client, transport });
+
+    expect(sends).toHaveLength(1);
+    expect(sends[0].options).toEqual({ idempotencyKey: IDEMPOTENCY_KEY });
+    expect(inserted).toHaveLength(1);
+    for (const table of touchedTables(calls)) expect(SYNC_TABLES.has(table)).toBe(true);
+  });
+
+  it('D1: a category off gives no provider attempt, and the in-app row is still written', async () => {
+    const { client, inserted } = world({
+      preference: { email_enabled: true, in_app_enabled: true },
+      categoryMode: 'off',
+    });
+    const { transport } = acceptingTransport();
+
+    await notificationService.createNotification(notificationData(), { client, transport });
+
+    expect(transport).not.toHaveBeenCalled();
+    expect(inserted).toHaveLength(1);
+  });
+
+  it('D1: an immediate category mode overrides a legacy false row', async () => {
+    const { client } = world({
+      preference: { email_enabled: false, in_app_enabled: true },
+      categoryMode: 'immediate',
+    });
+    const { transport, sends } = acceptingTransport();
+
+    await notificationService.createNotification(notificationData(), { client, transport });
+
+    expect(sends).toHaveLength(1);
+  });
+
+  it('D1/D2: a default category row re-applies the legacy false row, and sends when there is none', async () => {
+    const suppressed = world({ preference: { email_enabled: false, in_app_enabled: true }, categoryMode: 'default' });
+    const open = world({ preference: null, categoryMode: 'default' });
+    const { transport, sends } = acceptingTransport();
+
+    await notificationService.createNotification(notificationData(), { client: suppressed.client, transport });
+    expect(sends).toHaveLength(0);
+    expect(suppressed.inserted).toHaveLength(1);
+
+    await notificationService.createNotification(notificationData(), { client: open.client, transport });
+    expect(sends).toHaveLength(1);
+  });
+
+  it('D1: the catalog default applies with no rows — digest sends now, off (system_update) sends nothing', async () => {
+    const { transport, sends } = acceptingTransport();
+    const digest = world({ preference: null });
+    const off = world({ preference: null });
+
+    await notificationService.createNotification(
+      notificationData({ event_type: 'new_feedback', category: 'qa_support', title: 'Nuevo feedback' }),
+      { client: digest.client, transport }
+    );
+    await notificationService.createNotification(
+      notificationData({ event_type: 'system_update', category: 'system', title: 'Actualización del sistema' }),
+      { client: off.client, transport }
+    );
+
+    expect(sends.map((s) => s.message.subject)).toEqual(['Nuevo feedback']);
+    expect(off.inserted).toHaveLength(1);
+  });
+
+  it("D1: the category row read is the recipient's row for the event's catalog category", async () => {
+    const { client, calls } = world({ preference: null });
+    const { transport } = acceptingTransport();
+
+    await notificationService.createNotification(
+      notificationData({ event_type: 'message_sent', category: 'mensajes' }),
+      { client, transport }
+    );
+
+    const [read] = categoryReads(calls);
+    expect(read.columns).toBe('email_mode');
+    expect(read.filters).toEqual([
+      ['eq', 'user_id', USER_ID],
+      ['eq', 'category', 'community'],
+    ]);
+  });
+
+  it('D2: a legacy false row for another type does not suppress; the row read is the exact event type', async () => {
+    // The fake answers only the row the service asks for; an unrelated row never reaches it.
+    const { client, calls } = world({ preference: null });
+    const { transport, sends } = acceptingTransport();
+
+    await notificationService.createNotification(notificationData(), { client, transport });
+
+    expect(sends).toHaveLength(1);
+    const legacy = calls.find((c) => c.table === 'user_notification_preferences');
+    expect(legacy?.filters).toEqual([
+      ['eq', 'user_id', USER_ID],
+      ['eq', 'notification_type', 'licitacion_published'],
+    ]);
+  });
+
+  it('D3: in-app off with a category immediate is email-only; in-app on with category off is in-app-only', async () => {
+    const emailOnly = world({ preference: { email_enabled: true, in_app_enabled: false }, categoryMode: 'immediate' });
+    const inAppOnly = world({ preference: { email_enabled: true, in_app_enabled: true }, categoryMode: 'off' });
+    const { transport, sends } = acceptingTransport();
+
+    const first = await notificationService.createNotification(notificationData(), { client: emailOnly.client, transport });
+    expect(first).toBeNull();
+    expect(emailOnly.inserted).toHaveLength(0);
+    expect(sends).toHaveLength(1);
+
+    await notificationService.createNotification(notificationData(), { client: inAppOnly.client, transport });
+    expect(inAppOnly.inserted).toHaveLength(1);
+    expect(sends).toHaveLength(1);
+  });
+
+  it('D3: in-app off and category off writes nothing and sends nothing', async () => {
+    const { client, inserted } = world({ preference: { email_enabled: true, in_app_enabled: false }, categoryMode: 'off' });
+    const { transport } = acceptingTransport();
+
+    const created = await notificationService.createNotification(notificationData(), { client, transport });
+
+    expect(created).toBeNull();
+    expect(inserted).toHaveLength(0);
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it.each(['off', 'false', '0'])(
+    'D3: kill switch "%s" wins before the category read and the provider, even for the mandatory event',
+    async (value) => {
+      process.env.NOTIFICATION_EMAIL_ENABLED = value;
+      const { client, calls, inserted } = world({
+        preference: { email_enabled: true, in_app_enabled: true },
+        categoryMode: 'immediate',
+      });
+      const { transport } = acceptingTransport();
+
+      await notificationService.createNotification(cancelled(), { client, transport });
+
+      expect(transport).not.toHaveBeenCalled();
+      expect(categoryReads(calls)).toHaveLength(0);
+      expect(calls.some((c) => c.table === 'profiles')).toBe(false);
+      expect(inserted).toHaveLength(1);
+      expect(loggedText()).toContain('disabled');
+    }
+  );
+
+  it('D3: a retry under a digest mode keeps the same provider idempotency key and writes no second row', async () => {
+    const { client, inserted } = world({ preference: null, categoryMode: 'digest' });
+    const { transport, sends } = acceptingTransport();
+
+    await notificationService.createNotification(notificationData(), { client, transport });
+    const retry = world({ preference: null, categoryMode: 'digest', insertError: KEY_CONFLICT });
+    await notificationService.createNotification(notificationData(), { client: retry.client, transport });
+
+    expect(inserted).toHaveLength(1);
+    expect(retry.inserted).toHaveLength(0);
+    expect(sends.map((s) => s.options.idempotencyKey)).toEqual([IDEMPOTENCY_KEY, IDEMPOTENCY_KEY]);
+  });
+
+  it('D3: a provider refusal under a category mode stays nonfatal and keeps the in-app result', async () => {
+    const { client, inserted } = world({ preference: null, categoryMode: 'immediate' });
+    const transport = vi.fn(async () => ({ data: null, error: { message: 'domain not verified' } }));
+
+    const created = await notificationService.createNotification(notificationData(), { client, transport });
+
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(created).toMatchObject({ user_id: USER_ID });
+    expect(inserted).toHaveLength(1);
+    expect(loggedText()).toContain('provider_rejected');
+  });
+
+  it.each([
+    { name: 'legacy read error', options: { preferenceError: true, categoryMode: 'immediate' } },
+    { name: 'category read error', options: { preference: null, categoryError: true } },
+    { name: 'category read throws', options: { preference: null, categoryThrows: true } },
+  ])('D4: a $name sends no email, keeps the in-app row and logs only a status', async ({ options }) => {
+    process.env.RESEND_API_KEY = 're_synthetic_key_not_a_real_credential';
+    const { client, calls, inserted } = world(options);
+    const { transport } = acceptingTransport();
+
+    const created = await notificationService.createNotification(notificationData(), { client, transport });
+
+    expect(transport).not.toHaveBeenCalled();
+    expect(calls.some((c) => c.table === 'profiles')).toBe(false);
+    expect(inserted).toHaveLength(1);
+    expect(created).not.toBeNull();
+    const text = loggedText();
+    expect(text).toContain('preference_unavailable');
+    for (const leaked of [USER_ID, RECIPIENT, 're_synthetic_key_not_a_real_credential', 'canceling statement', 'socket hang up', 'JWT secret']) {
+      expect(text).not.toContain(leaked);
+    }
+  });
+
+  it('D4: a legacy read error skips the category read', async () => {
+    const { client, calls } = world({ preferenceError: true });
+    const { transport } = acceptingTransport();
+
+    await notificationService.createNotification(notificationData(), { client, transport });
+
+    expect(categoryReads(calls)).toHaveLength(0);
+  });
+
+  it('D4: a read error cannot silence the mandatory event', async () => {
+    const { client } = world({ preferenceError: true });
+    const { transport, sends } = acceptingTransport();
+
+    await notificationService.createNotification(cancelled(), { client, transport });
+
+    expect(sends).toHaveLength(1);
+  });
+
+  it('D4: an unknown event keeps the legacy rule and never reads a category row', async () => {
+    const unknown = notificationData({ event_type: 'evento_desconocido', category: 'otros' });
+    const suppressed = world({ preference: { email_enabled: false, in_app_enabled: true } });
+    const open = world({ preference: null });
+    const { transport, sends } = acceptingTransport();
+
+    await notificationService.createNotification(unknown, { client: suppressed.client, transport });
+    await notificationService.createNotification(unknown, { client: open.client, transport });
+
+    expect(sends).toHaveLength(1);
+    expect(categoryReads([...suppressed.calls, ...open.calls])).toHaveLength(0);
+    expect(suppressed.inserted).toHaveLength(1);
+  });
+
+  it('D4: a notification with only a trigger category (no event type) keeps the legacy rule', async () => {
+    const { client, calls } = world({ preference: { email_enabled: false, in_app_enabled: true } });
+    const { transport } = acceptingTransport();
+
+    await notificationService.createNotification(notificationData({ event_type: undefined, category: 'system' }), {
+      client,
+      transport,
+    });
+
+    expect(transport).not.toHaveBeenCalled();
+    expect(categoryReads(calls)).toHaveLength(0);
+    const legacy = calls.find((c) => c.table === 'user_notification_preferences');
+    expect(legacy?.filters).toContainEqual(['eq', 'notification_type', 'system']);
+  });
+
+  it.each(['weekly', 'IMMEDIATE', 1])('D4: an invalid stored mode %j is not an opt-in', async (categoryMode) => {
+    const legacyFalse = world({ preference: { email_enabled: false, in_app_enabled: true }, categoryMode });
+    const catalogOff = world({ preference: null, categoryMode });
+    const { transport } = acceptingTransport();
+
+    await notificationService.createNotification(notificationData(), { client: legacyFalse.client, transport });
+    await notificationService.createNotification(
+      notificationData({ event_type: 'system_update', category: 'system' }),
+      { client: catalogOff.client, transport }
+    );
+
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it('D4: a mode supplied in the notification data never replaces the stored lookup', async () => {
+    const { client, calls } = world({ preference: { email_enabled: false, in_app_enabled: true } });
+    const { transport } = acceptingTransport();
+
+    await notificationService.createNotification(
+      notificationData({ email_mode: 'immediate', categoryMode: 'immediate', mandatory: true }),
+      { client, transport }
+    );
+
+    expect(transport).not.toHaveBeenCalled();
+    expect(categoryReads(calls)).toHaveLength(1);
+  });
+});
+
 describe('sendNotificationEmail — refusal matrix', () => {
   const input = {
     userId: USER_ID,
@@ -739,5 +1073,188 @@ describe('platformPath — only an in-app path is ever linked', () => {
     expect(platformPath('/sessions/{session_id}')).toBe('/notifications');
     expect(platformPath('javascript:alert(1)')).toBe('/notifications');
     expect(platformPath(null)).toBe('/notifications');
+  });
+});
+
+describe('local E2E mail mirror (N3-07) — the sync sender', () => {
+  const MIRROR_ENV = ['E2E_MAIL_OUTBOX', 'VERCEL', 'VERCEL_ENV'];
+  const savedMirrorEnv: Record<string, string | undefined> = {};
+  let dir: string;
+  let outbox: string;
+
+  const mirrored = (): Array<{ to: string; subject: string; html: string }> =>
+    existsSync(outbox)
+      ? readFileSync(outbox, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l))
+      : [];
+  const eligible = () => world({ preference: { email_enabled: true, in_app_enabled: true } });
+  const input = {
+    userId: USER_ID,
+    title: 'Licitación publicada',
+    description: 'La licitación "Matemática 2026" ya está publicada.',
+    relatedUrl: '/licitaciones',
+    idempotencyKey: IDEMPOTENCY_KEY,
+  };
+
+  beforeEach(() => {
+    for (const key of MIRROR_ENV) {
+      savedMirrorEnv[key] = process.env[key];
+      delete process.env[key];
+    }
+    dir = mkdtempSync(join(tmpdir(), 'notif-mirror-'));
+    outbox = join(dir, 'outbox.jsonl');
+    process.env.E2E_MAIL_OUTBOX = outbox;
+  });
+
+  afterEach(() => {
+    for (const [key, value] of Object.entries(savedMirrorEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('D2: an eligible notification mirrors exactly the recipient, subject and body the provider was handed, once', async () => {
+    const { client, inserted } = eligible();
+    const { transport, sends } = acceptingTransport();
+
+    const created = await notificationService.createNotification(notificationData(), { client, transport });
+
+    expect(created).toMatchObject({ user_id: USER_ID, idempotency_key: IDEMPOTENCY_KEY });
+    expect(inserted).toHaveLength(1);
+    expect(sends).toHaveLength(1);
+    expect(sends[0].options).toEqual({ idempotencyKey: IDEMPOTENCY_KEY });
+    const lines = mirrored();
+    expect(lines).toEqual([
+      { to: RECIPIENT, subject: 'Licitación publicada', html: sends[0].message.html },
+    ]);
+    expect(lines[0].html).toContain(`${BASE_URL}/licitaciones`);
+  });
+
+  it('D2: the mirror leaves the provider result as it was — accepted keeps its id', async () => {
+    const { transport } = acceptingTransport();
+
+    const result = await sendNotificationEmail(eligible().client, input, transport);
+
+    expect(result).toEqual({ sent: true, status: 'provider_accepted', providerMessageId: 'provider-1' });
+    expect(mirrored()).toHaveLength(1);
+  });
+
+  it('D2: each provider attempt is mirrored once, a retry under the same key included', async () => {
+    const { transport, sends } = acceptingTransport();
+
+    await sendNotificationEmail(eligible().client, input, transport);
+    await sendNotificationEmail(eligible().client, input, transport);
+
+    expect(sends).toHaveLength(2);
+    expect(sends[1].options.idempotencyKey).toBe(sends[0].options.idempotencyKey);
+    expect(mirrored()).toHaveLength(2);
+    expect(mirrored()[1]).toEqual(mirrored()[0]);
+  });
+
+  it('D2: with no provider configured the authorized message is still mirrored, and reported not_configured', async () => {
+    const result = await sendNotificationEmail(eligible().client, input);
+
+    expect(result).toEqual({ sent: false, status: 'not_configured' });
+    expect(mirrored()).toEqual([expect.objectContaining({ to: RECIPIENT, subject: 'Licitación publicada' })]);
+  });
+
+  it.each([
+    ['a QA tenant', { schoolId: QA_SCHOOL_ID, schoolTenantKind: 'qa' }, { sent: false, status: 'suppressed_qa' }],
+    ['a failed authorization lookup', { rolesError: true }, { sent: false, status: 'refused', detail: 'user_lookup_failed' }],
+    ['a recipient with no address', { profileEmail: null }, { sent: false, status: 'missing_recipient' }],
+    ['a failed recipient lookup', { profileError: true }, { sent: false, status: 'recipient_lookup_failed' }],
+  ] as const)('D4: %s leaves no mirrored mail and reaches no provider', async (_label, options, expected) => {
+    const { transport } = acceptingTransport();
+
+    const result = await sendNotificationEmail(world(options as WorldOptions).client, input, transport);
+
+    expect(result).toEqual(expected);
+    expect(transport).not.toHaveBeenCalled();
+    expect(existsSync(outbox)).toBe(false);
+  });
+
+  it('D4: an invalid sender leaves no mirrored mail and reaches no provider', async () => {
+    process.env.EMAIL_FROM_ADDRESS = 'Genera notificaciones';
+    const { transport } = acceptingTransport();
+
+    const result = await sendNotificationEmail(eligible().client, input, transport);
+
+    expect(result).toEqual({ sent: false, status: 'not_configured', detail: 'invalid_sender' });
+    expect(transport).not.toHaveBeenCalled();
+    expect(existsSync(outbox)).toBe(false);
+  });
+
+  it('D4: a recipient who switched the email channel off gets their in-app row and no mirrored mail', async () => {
+    const { client, inserted } = world({ preference: { email_enabled: false, in_app_enabled: true } });
+    const { transport } = acceptingTransport();
+
+    await notificationService.createNotification(notificationData(), { client, transport });
+
+    expect(inserted).toHaveLength(1);
+    expect(transport).not.toHaveBeenCalled();
+    expect(existsSync(outbox)).toBe(false);
+  });
+
+  it('D4: with capture unset nothing is written and delivery is unchanged', async () => {
+    delete process.env.E2E_MAIL_OUTBOX;
+    const { transport } = acceptingTransport();
+
+    const result = await sendNotificationEmail(eligible().client, input, transport);
+
+    expect(result).toEqual({ sent: true, status: 'provider_accepted', providerMessageId: 'provider-1' });
+    expect(readdirSync(dir)).toEqual([]);
+  });
+
+  it.each([
+    ['VERCEL', '1'],
+    ['VERCEL_ENV', 'production'],
+  ])('D4: on a Vercel deployment (%s=%s) nothing is mirrored and delivery is unchanged', async (key, value) => {
+    process.env[key] = value;
+    const { transport } = acceptingTransport();
+
+    const result = await sendNotificationEmail(eligible().client, input, transport);
+
+    expect(result).toEqual({ sent: true, status: 'provider_accepted', providerMessageId: 'provider-1' });
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(readdirSync(dir)).toEqual([]);
+  });
+
+  it('D4: a mirror that cannot be written does not alter delivery, and logs no recipient data', async () => {
+    process.env.E2E_MAIL_OUTBOX = join(dir, 'no', 'such', 'dir', 'outbox.jsonl');
+    const { transport } = acceptingTransport();
+
+    const result = await sendNotificationEmail(eligible().client, input, transport);
+
+    expect(result).toEqual({ sent: true, status: 'provider_accepted', providerMessageId: 'provider-1' });
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledWith('[outbox] could not append to the outbox', expect.anything());
+    const text = loggedText();
+    expect(text).not.toContain(RECIPIENT);
+    expect(text).not.toContain(USER_ID);
+    expect(JSON.stringify(result)).not.toContain(RECIPIENT);
+  });
+
+  it('D5: with the kill switch off nothing is sent, mirrored or read', async () => {
+    process.env.NOTIFICATION_EMAIL_ENABLED = 'off';
+    const { client, calls } = eligible();
+    const { transport } = acceptingTransport();
+
+    const result = await notificationService.sendImmediateEmail(client, notificationData(), transport);
+
+    expect(result).toEqual({ sent: false, status: 'disabled' });
+    expect(transport).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(0);
+    expect(existsSync(outbox)).toBe(false);
+  });
+
+  it('D5: the ordinary flow sends once and writes nothing new to the database', async () => {
+    const { client, calls } = eligible();
+    const { transport } = acceptingTransport();
+
+    await notificationService.createNotification(notificationData(), { client, transport });
+
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(calls.filter((c) => c.op === 'insert').map((c) => c.table)).toEqual(['user_notifications']);
+    expect(mirrored()).toHaveLength(1);
   });
 });

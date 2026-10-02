@@ -99,7 +99,8 @@ import {
   getUserMessagingPermissions,
   createThread,
   sendMessage,
-  subscribeToWorkspaceMessages
+  subscribeToWorkspaceMessages,
+  getThreadCommunityId
 } from '../../utils/messagingUtils-simple';
 import {
   getActivityFeed,
@@ -134,6 +135,22 @@ import { navigationManager } from '../../utils/navigationManager';
 
 type SectionType = 'overview' | 'communities' | 'meetings' | 'sessions' | 'documents' | 'messaging';
 
+type ThreadTarget = { threadId: string; communityId: string };
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Resolves a `?thread=` deep link (bell links) to the community owning the
+ * thread, only when that community is one the caller can already access. The
+ * thread itself is opened later from that workspace's own thread list.
+ */
+async function resolveThreadTarget(threadId: string, access: WorkspaceAccess): Promise<ThreadTarget | null> {
+  if (!UUID_PATTERN.test(threadId)) return null;
+  const communityId = await getThreadCommunityId(threadId);
+  if (!communityId || !access.availableCommunities.some(c => c.id === communityId)) return null;
+  return { threadId, communityId };
+}
+
 // Sidebar state management
 interface SidebarState {
   isCollapsed: boolean;
@@ -155,6 +172,11 @@ const CommunityWorkspacePage: React.FC = () => {
   const [membersError, setMembersError] = useState(false);
   const membersErrorToastRef = useRef<string | null>(null);
   const [showMembers, setShowMembers] = useState(false);
+
+  // Thread deep link: the target waits until its community's messaging tab has
+  // loaded its threads; a link that cannot be opened shows a notice instead.
+  const [threadTarget, setThreadTarget] = useState<ThreadTarget | null>(null);
+  const [threadLinkFailed, setThreadLinkFailed] = useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -260,6 +282,33 @@ const CommunityWorkspacePage: React.FC = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [query.section]);
+
+  // Every thread link followed while the page is already open (the bell
+  // navigates in place). Each navigation is handled, even to the URL already
+  // shown, so the same bell reopens its thread after the thread was closed or
+  // another section visited. The link of a page load is handled by
+  // initializeWorkspace.
+  useEffect(() => {
+    if (!workspaceAccess?.canAccess) return;
+    const access = workspaceAccess;
+
+    const handleRouteChange = (url: string) => {
+      const threadParam = new URL(url, window.location.origin).searchParams.get('thread');
+      if (!threadParam) return;
+      setActiveSection('messaging');
+
+      resolveThreadTarget(threadParam, access).then(target => {
+        setThreadLinkFailed(!target);
+        setThreadTarget(target);
+        if (target && target.communityId !== selectedCommunityId) {
+          handleCommunityChange(target.communityId);
+        }
+      });
+    };
+
+    router.events.on('routeChangeComplete', handleRouteChange);
+    return () => router.events.off('routeChangeComplete', handleRouteChange);
+  }, [workspaceAccess, selectedCommunityId]);
   
   // UI state
   const [showCommunitySelector, setShowCommunitySelector] = useState(false);
@@ -302,6 +351,7 @@ const CommunityWorkspacePage: React.FC = () => {
       // Get user's workspace access
       // Pass isAdmin from useAuth() hook as override to handle RLS edge cases
       const access = await getUserWorkspaceAccess(user.id, isAdmin);
+      const threadParam = new URLSearchParams(window.location.search).get('thread');
       setWorkspaceAccess(access);
 
       if (!access.canAccess) {
@@ -309,6 +359,10 @@ const CommunityWorkspacePage: React.FC = () => {
         setLoading(false);
         return;
       }
+
+      const target = threadParam ? await resolveThreadTarget(threadParam, access) : null;
+      setThreadLinkFailed(Boolean(threadParam) && !target);
+      setThreadTarget(target);
 
       // Set default community (check sessionStorage first for returns from assessment)
       const returnCommunityId = typeof window !== 'undefined'
@@ -320,7 +374,10 @@ const CommunityWorkspacePage: React.FC = () => {
         sessionStorage.removeItem('workspace_return_community');
       }
 
-      if (returnCommunityId && access.availableCommunities.some(c => c.id === returnCommunityId)) {
+      if (target) {
+        // Open the community that owns the linked thread
+        setSelectedCommunityId(target.communityId);
+      } else if (returnCommunityId && access.availableCommunities.some(c => c.id === returnCommunityId)) {
         // Use community from sessionStorage (coming back from assessment)
         setSelectedCommunityId(returnCommunityId);
       } else if (access.defaultCommunityId) {
@@ -546,6 +603,25 @@ const CommunityWorkspacePage: React.FC = () => {
   const renderMainContent = () => {
     return (
       <>
+        {threadLinkFailed && (
+          <div
+            role="alert"
+            data-testid="thread-link-unavailable"
+            className="mb-4 flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+          >
+            <p>No pudimos abrir la conversación del enlace. Puede que ya no exista o que no tengas acceso a ella.</p>
+            <button
+              type="button"
+              onClick={() => setThreadLinkFailed(false)}
+              aria-label="Cerrar aviso"
+              data-testid="thread-link-unavailable-dismiss"
+              className="text-amber-700 hover:text-amber-900"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Overview section - Instagram-style feed */}
         <div style={{ display: activeSection === 'overview' ? 'block' : 'none' }}>
           {!currentWorkspace ? (
@@ -727,6 +803,11 @@ const CommunityWorkspacePage: React.FC = () => {
             user={user} 
             searchQuery={searchQuery}
             filterThreadsBySearch={filterThreadsBySearch}
+            targetThreadId={threadTarget && threadTarget.communityId === currentWorkspace?.community_id ? threadTarget.threadId : null}
+            onTargetThreadResolved={(found) => {
+              setThreadTarget(null);
+              setThreadLinkFailed(!found);
+            }}
           />
         </div>
 
@@ -1726,9 +1807,12 @@ interface MessagingTabContentProps {
   user: any;
   searchQuery: string;
   filterThreadsBySearch: (threads: ThreadWithDetails[]) => ThreadWithDetails[];
+  /** A linked thread to open once this workspace's threads have loaded. */
+  targetThreadId: string | null;
+  onTargetThreadResolved: (found: boolean) => void;
 }
 
-const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, workspaceAccess, user, searchQuery, filterThreadsBySearch }) => {
+const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, workspaceAccess, user, searchQuery, filterThreadsBySearch, targetThreadId, onTargetThreadResolved }) => {
   // Messaging state
   const [messages, setMessages] = useState<MessageWithDetails[]>([]);
   const [threads, setThreads] = useState<ThreadWithDetails[]>([]);
@@ -1829,6 +1913,17 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
       loadThreads();
     }
   }, [workspace, threadFilters]);
+
+  // Open a linked thread only if it is in this workspace's own thread list
+  useEffect(() => {
+    if (!targetThreadId || !workspace || loading) return;
+    const target = threads.find(thread => thread.id === targetThreadId);
+    if (target) {
+      setSelectedThread(target);
+      setActiveView('messages');
+    }
+    onTargetThreadResolved(Boolean(target));
+  }, [targetThreadId, workspace, loading, threads]);
 
   const loadMessagingData = async () => {
     await Promise.all([

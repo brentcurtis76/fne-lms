@@ -12,21 +12,16 @@
  * address of its choosing, and neither the HTML body nor the authorization is
  * ever supplied from outside.
  *
- * Unlike `lib/email/invitations.ts` this module does NOT mirror into the local
- * E2E outbox. `lib/notificationService.ts` sits inside the browser-reachable
- * closure that `scripts/ci/check-browser-boundaries.mjs` computes, so importing
- * the server-only `./outbox` from here fails that boundary check. Nothing needs
- * the mirror yet: the delivery this unit proves is captured through an injected
- * transport instead.
+ * Like `lib/email/invitations.ts`, an authorized message is also mirrored into
+ * the local E2E outbox (`./outbox`), which is inert outside a local e2e run.
  */
 import { createHash } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { escapeHtml } from '../utils/html-escape';
 import { getAppBaseUrl } from '../utils/app-url';
 import { authorizeUserEmail } from './outbound-policy';
-import { deliverOutboundEmail, type EmailTransport } from './provider';
-
-const DEFAULT_FROM = 'Genera <notificaciones@nuevaeducacion.org>';
+import { captureOutboundEmail } from './outbox';
+import { deliverOutboundEmail, resolveSender, type EmailTransport } from './provider';
+import { renderEmail } from './render';
 
 /** Where a notification whose own link is not usable sends the reader instead. */
 const FALLBACK_PATH = '/notifications';
@@ -77,7 +72,7 @@ export function platformPath(raw: string | null | undefined): string {
  * The provider idempotency key for this message.
  *
  * An explicit key is passed through verbatim: `notificationService` already
- * derives one per (event, event id, recipient) and the in-app row is stored
+ * derives one per (event, occurrence, recipient) and the in-app row is stored
  * under it, so the two channels must agree.
  *
  * Most callers supply none — `pages/api/assignments/collaborative-submit.ts`
@@ -108,63 +103,27 @@ function subjectFor(title: string): string {
 }
 
 /**
- * The message body. Every interpolated value is escaped — the title and the
- * description come from event payloads, and the href is escaped too because it
- * is interpolated into an attribute.
+ * The message body, in the shared shell. `renderEmail` escapes every value: the
+ * title and the description come from event payloads, and the href is
+ * interpolated into an attribute.
  */
 export function buildNotificationEmail(params: {
   title: string;
   description?: string | null;
   url: string;
 }): { subject: string; html: string } {
-  const subject = subjectFor(params.title);
-  const safeTitle = escapeHtml(params.title);
-  const safeDescription = escapeHtml(params.description);
-  const safeHref = escapeHtml(params.url);
-
-  const html = `
-      <!doctype html>
-      <html lang="es">
-        <head>
-          <meta charset="utf-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-        </head>
-        <body style="margin:0;background:#f5f5f5;font-family:Arial,sans-serif;color:#202020;">
-          <div style="max-width:620px;margin:0 auto;background:#ffffff;">
-            <div style="background:#0a0a0a;color:#ffffff;padding:28px 28px 22px;">
-              <div style="color:#fbbf24;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">
-                Genera
-              </div>
-              <h1 style="margin:12px 0 0;font-size:26px;line-height:1.25;">
-                ${safeTitle}
-              </h1>
-            </div>
-            <div style="padding:30px 28px;">
-              ${safeDescription
-                ? `<p style="margin:0 0 20px;font-size:16px;line-height:1.6;">${safeDescription}</p>`
-                : ''}
-              <p style="margin:26px 0;text-align:center;">
-                <a href="${safeHref}" style="display:inline-block;background:#fbbf24;color:#0a0a0a;text-decoration:none;font-weight:700;border-radius:6px;padding:14px 22px;">
-                  Ver en Genera
-                </a>
-              </p>
-              <p style="margin:0 0 8px;color:#666;font-size:13px;line-height:1.6;">
-                Si el botón no funciona, copia este enlace en tu navegador:
-              </p>
-              <p style="margin:0;color:#0a0a0a;font-size:13px;line-height:1.6;word-break:break-all;">
-                ${safeHref}
-              </p>
-              <p style="margin:24px 0 0;color:#666;font-size:13px;line-height:1.6;">
-                Recibes este correo porque tienes activadas las notificaciones por correo en Genera.
-                Puedes cambiarlo en tu configuración de notificaciones.
-              </p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
-
-  return { subject, html };
+  return {
+    subject: subjectFor(params.title),
+    html: renderEmail({
+      heading: params.title,
+      paragraphs: [params.description],
+      ctaLabel: 'Ver en Genera',
+      ctaHref: params.url,
+      fallbackLead: 'Si el botón no funciona, copia este enlace en tu navegador:',
+      closingLine:
+        'Recibes este correo porque tienes activadas las notificaciones por correo en Genera. Puedes cambiarlo en tu configuración de notificaciones.',
+    }),
+  };
 }
 
 /**
@@ -179,6 +138,11 @@ export async function sendNotificationEmail(
   input: NotificationEmailInput,
   transport?: EmailTransport
 ): Promise<NotificationEmailResult> {
+  // An invalid sender can never be delivered: stop before reading the recipient.
+  if (resolveSender() === null) {
+    return { sent: false, status: 'not_configured', detail: 'invalid_sender' };
+  }
+
   const { data: profile, error } = await client
     .from('profiles')
     .select('email')
@@ -199,14 +163,12 @@ export async function sendNotificationEmail(
     url,
   });
 
+  // The local E2E outbox mirrors only authorized mail; the sender was validated above.
+  if (authorization.kind === 'allow') captureOutboundEmail({ to, subject, html });
+
   const result = await deliverOutboundEmail({
     authorization,
-    message: {
-      from: process.env.EMAIL_FROM_ADDRESS || DEFAULT_FROM,
-      to,
-      subject,
-      html,
-    },
+    message: { to, subject, html },
     idempotencyKey: providerIdempotencyKey(input),
     transport,
   });

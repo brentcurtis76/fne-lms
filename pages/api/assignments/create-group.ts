@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
 import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
 import type { UserRoleType } from '@/types/roles';
+import { deliverRecordBells, loggableError } from '../quiz-reviews/notify-pending';
 
 /**
  * POST /api/assignments/create-group
@@ -37,8 +38,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     try {
         const userId = caller.user.id;
-        console.log('[create-group] Starting group creation for user:', userId);
-        console.log('[create-group] Payload:', { assignmentId, classmateIds });
+        console.log('[create-group] Starting group creation');
+        console.log('[create-group] Payload:', { classmates: classmateIds.length });
 
         // Service role client for RLS-bypassing
         const supabaseAdmin = createClient(
@@ -60,7 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             .eq('is_active', true);
 
         if (roleError) {
-            console.error('[create-group] Role check failed:', roleError);
+            console.error('[create-group] Role check failed:', loggableError(roleError));
             return res.status(403).json({ error: 'No tienes una escuela asignada' });
         }
 
@@ -74,7 +75,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             teachingRoleWithSchool?.school_id ?? fallbackRoleWithSchool?.school_id ?? null;
 
         if (!requesterSchoolId) {
-            console.error('[create-group] No school_id found in roles:', requesterRoles);
+            console.error('[create-group] No school_id found in roles:', { roles: requesterRoles?.length ?? 0 });
             return res.status(403).json({ error: 'No tienes una escuela asignada' });
         }
 
@@ -107,15 +108,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 .in('id', candidateCommunityIds)
                 .eq('school_id', requesterSchoolId);
             if (communityError) {
-                console.error('[create-group] Community lookup failed:', communityError);
+                console.error('[create-group] Community lookup failed:', loggableError(communityError));
                 return res.status(500).json({ error: 'Error al verificar la comunidad' });
             }
             const allowed = new Set((sameSchoolCommunities ?? []).map(c => c.id));
             requesterCommunityId = candidateCommunityIds.find(id => allowed.has(id)) ?? null;
         }
 
-        console.log('[create-group] Requester school ID:', requesterSchoolId);
-        console.log('[create-group] Requester community ID:', requesterCommunityId);
+        console.log('[create-group] Requester scope resolved:', { community: requesterCommunityId !== null });
 
         // 2. Validate assignment and get course_id
         const { data: assignmentBlock, error: blockError } = await supabase
@@ -125,7 +125,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             .single();
 
         if (blockError || !assignmentBlock || !assignmentBlock.lesson_id) {
-            console.error('[create-group] Assignment block not found:', blockError);
+            console.error('[create-group] Assignment block not found:', loggableError(blockError));
             return res.status(404).json({ error: 'Tarea no encontrada' });
         }
 
@@ -136,12 +136,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             .single();
 
         if (lessonError || !lesson || !lesson.course_id) {
-            console.error('[create-group] Lesson/Course not found:', lessonError);
+            console.error('[create-group] Lesson/Course not found:', loggableError(lessonError));
             return res.status(404).json({ error: 'Curso no encontrado para esta tarea' });
         }
 
         const courseId = lesson.course_id;
-        console.log('[create-group] Course ID:', courseId);
 
         // 3. Validate requester is enrolled in the course (or has access)
         // Simplified check for now - assuming if they can see the modal they have access, 
@@ -163,7 +162,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             .maybeSingle();
 
         if (existingGroup) {
-            console.error('[create-group] User already in group:', existingGroup);
+            console.error('[create-group] User already in group');
             return res.status(400).json({ error: 'Ya perteneces a un grupo para esta tarea' });
         }
 
@@ -178,14 +177,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 .eq('is_active', true);
 
             if (classmateRolesError) {
-                console.error('[create-group] Classmate role lookup failed:', classmateRolesError);
+                console.error('[create-group] Classmate role lookup failed:', loggableError(classmateRolesError));
                 return res.status(500).json({ error: 'Error al validar compañeros' });
             }
 
             const invalidSchool = classmateRoles?.filter(r => r.school_id !== requesterSchoolId);
             const inSchool = new Set((classmateRoles ?? []).filter(r => r.school_id === requesterSchoolId).map(r => r.user_id));
             if ((invalidSchool && invalidSchool.length > 0) || classmateIds.some((id: string) => !inSchool.has(id))) {
-                console.error('[create-group] Invalid school for classmates:', invalidSchool);
+                console.error('[create-group] Invalid school for classmates:', { count: invalidSchool?.length ?? 0 });
                 return res.status(400).json({ error: 'Algunos compañeros no pertenecen a tu escuela' });
             }
 
@@ -197,7 +196,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 .in('user_id', classmateIds);
 
             if (existingMembers && existingMembers.length > 0) {
-                console.error('[create-group] Classmates already in groups:', existingMembers);
+                console.error('[create-group] Classmates already in groups:', { count: existingMembers.length });
                 return res.status(400).json({ error: 'Algunos compañeros ya están en grupos' });
             }
         }
@@ -230,10 +229,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             .single();
 
         if (createError || !newGroup) {
-            console.error('[create-group] Error creating group:', createError);
-            return res.status(500).json({ error: 'Error al crear el grupo', details: createError });
+            console.error('[create-group] Error creating group:', loggableError(createError));
+            // Fixed bodies on failure: a database error or exception can carry ids, rows or SQL.
+            return res.status(500).json({ error: 'Error al crear el grupo' });
         }
-        console.log('[create-group] Group created:', newGroup.id);
+        console.log('[create-group] Group created');
 
         // 6. Add Members (Creator + Classmates)
         const members = [
@@ -251,61 +251,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }))
         ];
 
-        console.log('[create-group] Adding members:', members);
+        console.log('[create-group] Adding members:', { count: members.length });
         const { data: insertedMembers, error: insertError } = await supabaseAdmin
             .from('group_assignment_members')
             .insert(members)
             .select();
 
         if (insertError) {
-            console.error('[create-group] Error adding members:', insertError);
+            console.error('[create-group] Error adding members:', loggableError(insertError));
             // Rollback group creation? Ideally yes, but for now just fail
-            return res.status(500).json({ error: 'Error al agregar miembros', details: insertError });
+            return res.status(500).json({ error: 'Error al agregar miembros' });
         }
 
-        // 7. Send Notifications
-        try {
-            const assignmentTitle = assignmentBlock.payload?.title || 'Sin título';
-
-            // Get adder's name
-            const { data: adderProfile } = await supabase
-                .from('profiles')
-                .select('first_name, last_name')
-                .eq('id', userId)
-                .single();
-
-            const adderName = adderProfile
-                ? `${adderProfile.first_name || ''} ${adderProfile.last_name || ''}`.trim()
-                : 'Un compañero';
-
-            const notifications = classmateIds.map((id: string) => ({
-                user_id: id,
-                type: 'group_invitation',
-                title: 'Te agregaron a un grupo',
-                message: `${adderName} te agregó a su grupo para la tarea "${assignmentTitle}"`,
-                data: {
-                    assignment_id: assignmentId,
-                    group_id: newGroup.id,
-                    added_by: userId
-                },
-                created_at: new Date().toISOString()
-            }));
-
-            if (notifications.length > 0) {
-                await supabase.from('notifications').insert(notifications);
-            }
-        } catch (e) {
-            console.error('[create-group] Notification error:', e);
+        // 7. Invitation bells for the persisted members other than the creator.
+        const invitees = (insertedMembers ?? [])
+            .filter((m: { user_id: string }) => m.user_id !== userId)
+            .map((m: { user_id: string }) => ({ id: m.user_id }));
+        const failed = await deliverRecordBells('group_invitation', { group_id: newGroup.id }, invitees);
+        if (failed > 0) {
+            // Nonfatal: the group is saved; add-classmates with the same ids fills the gap.
+            console.error('[create-group] invitation notifications not created', { failed });
         }
 
         return res.status(200).json({
             success: true,
             group: newGroup,
-            members: insertedMembers
+            members: insertedMembers,
+            notificationsDelivered: failed === 0
         });
 
-    } catch (error: any) {
-        console.error('[create-group] Unhandled error:', error);
-        return res.status(500).json({ error: 'Error interno del servidor', message: error.message, stack: error.stack });
+    } catch (error) {
+        console.error('[create-group] Unhandled error:', loggableError(error));
+        return res.status(500).json({ error: 'Error interno del servidor' });
     }
 }

@@ -3,7 +3,8 @@
  *
  * Page-load deadline reminder system (no cron).
  * Checks active licitaciones for upcoming deadlines and fires notifications
- * with daily-granularity idempotency keys to prevent duplicate firings.
+ * that name the deadline date and reminder phase, so a page-load rerun is a
+ * retry of the same occurrence (see the deadline entries in the catalog).
  *
  * Called from the check-deadlines API endpoint which is triggered fire-and-forget
  * from page useEffect hooks in the dashboard and detail pages.
@@ -151,12 +152,13 @@ export async function checkAndFireDeadlineReminders(
           numero_licitacion: lic.numero_licitacion,
           school_id: lic.school_id,
           school_name: schoolNameMap[lic.school_id] || '',
+          deadline_date: dateValue,
         };
 
         if (dateValue === today) {
           // Deadline is today
           try {
-            await notificationService.triggerNotification(config.todayEvent, eventData);
+            await notificationService.triggerNotification(config.todayEvent, { ...eventData, reminder: 'today' });
             notificationsFired++;
           } catch (err) {
             console.error(`Deadline checker: failed to fire ${config.todayEvent}:`, err);
@@ -164,7 +166,7 @@ export async function checkAndFireDeadlineReminders(
         } else if (dateValue === tomorrow) {
           // Deadline is tomorrow
           try {
-            await notificationService.triggerNotification(config.oneDayEvent, eventData);
+            await notificationService.triggerNotification(config.oneDayEvent, { ...eventData, reminder: '1d' });
             notificationsFired++;
           } catch (err) {
             console.error(`Deadline checker: failed to fire ${config.oneDayEvent}:`, err);

@@ -10,7 +10,12 @@
 --      claim) cannot read, insert, update, delete or transfer another user's
 --      row; blocked INSERT throws, blocked UPDATE/DELETE return empty.
 --   D4 service_role manages any row; PUBLIC/anon hold no table or column
---      grant; no function, view or trigger exposes the table.
+--      grant; no view exposes the table; the only functions that name it are
+--      the two service-role-only SECURITY INVOKER functions
+--      public.enqueue_notification (N3-01) and
+--      public.apply_notification_unsubscribe (N3-05); its triggers are
+--      updated_at and the version trigger (N3-05), whose SECURITY DEFINER
+--      function no browser role may execute.
 --   D5 bad category/mode, NULLs, duplicate pair, missing profile and denied
 --      transfers are rejected and leave every surviving row unchanged.
 --
@@ -32,14 +37,14 @@ SELECT is(
   ARRAY(SELECT attname::text FROM pg_attribute
          WHERE attrelid = 'public.user_notification_category_prefs'::regclass
            AND attnum > 0 AND NOT attisdropped ORDER BY attnum),
-  ARRAY['user_id', 'category', 'email_mode', 'created_at', 'updated_at'],
+  ARRAY['user_id', 'category', 'email_mode', 'created_at', 'updated_at', 'pref_version'],
   'D1: columnas de la tabla'
 );
 SELECT is(
   ARRAY(SELECT attname::text FROM pg_attribute
          WHERE attrelid = 'public.user_notification_category_prefs'::regclass
            AND attnum > 0 AND NOT attisdropped AND attnotnull ORDER BY attnum),
-  ARRAY['user_id', 'category', 'email_mode', 'created_at', 'updated_at'],
+  ARRAY['user_id', 'category', 'email_mode', 'created_at', 'updated_at', 'pref_version'],
   'D1: todas las columnas son NOT NULL'
 );
 SELECT col_is_pk('public', 'user_notification_category_prefs', ARRAY['user_id', 'category'],
@@ -133,12 +138,27 @@ SELECT ok(
   'D1: la policy UPDATE exige dueño en la fila vieja (USING) y en la nueva (WITH CHECK)'
 );
 
+-- Each function that names the table in its source, and each SECURITY DEFINER
+-- function behind one of its triggers (the version trigger's source names
+-- only the sequence), as name(args):SECURITY DEFINER:config:roles with
+-- EXECUTE other than the owner (a NULL ACL means the PUBLIC default).
 SELECT is(
-  (SELECT count(*)::int FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+  (SELECT array_agg(format('%s.%s(%s):%s:%s:%s', n.nspname, p.proname, oidvectortypes(p.proargtypes),
+            p.prosecdef, p.proconfig,
+            (SELECT array_agg(CASE a.grantee WHEN 0 THEN 'PUBLIC' ELSE a.grantee::regrole::text END ORDER BY a.grantee)
+               FROM aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+              WHERE a.privilege_type = 'EXECUTE' AND a.grantee <> p.proowner))
+          ORDER BY n.nspname, p.proname, p.oid)
+     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
     WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
-      AND p.prosrc ILIKE '%user_notification_category_prefs%'),
-  0,
-  'D4: ninguna función (SECURITY DEFINER o no) referencia la tabla'
+      AND (p.prosrc ILIKE '%user_notification_category_prefs%'
+           OR (p.prosecdef AND EXISTS (SELECT 1 FROM pg_trigger t
+                                        WHERE t.tgrelid = 'public.user_notification_category_prefs'::regclass
+                                          AND NOT t.tgisinternal AND t.tgfoid = p.oid)))),
+  ARRAY['public.apply_notification_unsubscribe(uuid, text[], bigint[]):f:{"search_path=\"\""}:{service_role}',
+        'public.enqueue_notification(text, text, uuid, text, text, boolean, text, text, text, text, text, jsonb):f:{"search_path=\"\""}:{service_role}',
+        'public.set_user_notification_category_pref_version():t:{"search_path=\"\""}:{service_role}'],
+  'D4: las únicas funciones que referencian la tabla son apply_notification_unsubscribe y enqueue_notification (SECURITY INVOKER, search_path fijo, EXECUTE solo service_role); la del trigger de versión es SECURITY DEFINER con search_path fijo y sin EXECUTE para PUBLIC, anon ni authenticated'
 );
 SELECT is(
   (SELECT count(DISTINCT r.ev_class)::int FROM pg_depend d
@@ -150,12 +170,13 @@ SELECT is(
   'D4: ninguna vista expone la tabla'
 );
 SELECT is(
-  (SELECT array_agg(format('%s:%s:%s', t.tgname, p.proname, p.prosecdef))
+  (SELECT array_agg(format('%s:%s:%s', t.tgname, p.proname, p.prosecdef) ORDER BY t.tgname)
      FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid
     WHERE t.tgrelid = 'public.user_notification_category_prefs'::regclass
       AND NOT t.tgisinternal),
-  ARRAY['update_user_notification_category_prefs_updated_at:update_updated_at_column:f'],
-  'D4: único trigger updated_at, con función SECURITY INVOKER'
+  ARRAY['set_user_notification_category_prefs_version:set_user_notification_category_pref_version:t',
+        'update_user_notification_category_prefs_updated_at:update_updated_at_column:f'],
+  'D4: dos triggers: el de versión, con función SECURITY DEFINER, y el de updated_at, con función SECURITY INVOKER'
 );
 
 -- ---------------------------------------------------------------------------

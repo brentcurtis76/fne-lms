@@ -14,6 +14,7 @@
  *
  * All identities are synthetic (Ley 21.719).
  */
+import { format } from 'node:util';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
@@ -30,7 +31,7 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: mockCreateClient,
 }));
 
-import { getApiUser, checkIsAdmin, checkIsAdminOrEquipoDirectivo } from '../../lib/api-auth';
+import { getApiUser, checkIsAdmin, checkIsAdminOrEquipoDirectivo, loggableError } from '../../lib/api-auth';
 
 const ADMIN_ID = '11111111-1111-4111-8111-111111111111';
 const ED_ID = '22222222-2222-4222-8222-222222222222';
@@ -289,5 +290,94 @@ describe('getApiUser cookie branch — provider-verified identity', () => {
       expect(mockCreateServerSupabaseClient).not.toHaveBeenCalled();
       expect(result).toMatchObject({ isAuthorized: true, role: 'admin' });
     });
+  });
+
+  describe('R4-F1 — getApiUser logs carry no identity, e-mail or raw error', () => {
+    // Sentinels in every place an identity or an error could reach a log line.
+    const SENTINEL = `SINTETICO-RAW ${LOW_ID} alumno@qa.local.test`;
+    const logged = () =>
+      [console.log, console.error].flatMap((fn) => (fn as unknown as ReturnType<typeof vi.fn>).mock.calls.map((args) => format(...args)));
+    const bearerReq = () => ({ headers: { authorization: `Bearer ${BEARER_TOKEN}` } }) as unknown as NextApiRequest;
+
+    afterEach(() => {
+      for (const line of logged()) {
+        expect(line).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|@|sintetico|juan|perez|maria|m4ria|ju4na/i);
+      }
+    });
+
+    it('Bearer success keeps the verified identity and logs only its label', async () => {
+      bearerGetUser.mockResolvedValue({ data: { user: mkUser(LOW_ID) }, error: null });
+
+      expect((await getApiUser(bearerReq(), res)).user?.id).toBe(LOW_ID);
+      expect(logged()).toEqual(['[API Auth] User authenticated via Bearer token']);
+    });
+
+    it('cookie success keeps the verified identity and logs a count of the user-written metadata roles', async () => {
+      setCookie(ADMIN_ID, { user: { ...mkUser(LOW_ID), user_metadata: { role: 'SINTETICO-ROL', roles: ['docente'] } } });
+
+      expect((await getApiUser(cookieReq(), res)).user?.id).toBe(LOW_ID);
+      expect(logged()).toEqual(['[API Auth] User authenticated via session: { metadataRoles: 2 }']);
+    });
+
+    it.each([
+      ['a rejected Bearer token', () => bearerGetUser.mockResolvedValue({ data: { user: null }, error: { code: 'bad_jwt', status: 403, message: SENTINEL } }), bearerReq, "[API Auth] Bearer token validation failed: { code: 'bad_jwt', status: 403 }"],
+      ['an expired cookie token', () => setCookie(LOW_ID, { error: { code: 'session_expired', status: 403, message: SENTINEL } }), cookieReq, "[API Auth] Cookie session verification failed: { code: 'session_expired', status: 403 }"],
+      ['a rejected Bearer token whose code is name-shaped', () => bearerGetUser.mockResolvedValue({ data: { user: null }, error: { code: 'alumno_juan_perez', status: 403, message: SENTINEL } }), bearerReq, '[API Auth] Bearer token validation failed: { status: 403 }'],
+      ['a cookie token whose code is name-shaped', () => setCookie(LOW_ID, { error: { code: 'student_name_maria', status: 401, message: SENTINEL } }), cookieReq, '[API Auth] Cookie session verification failed: { status: 401 }'],
+      ['a rejected Bearer token whose code is a name with a digit', () => bearerGetUser.mockResolvedValue({ data: { user: null }, error: { code: 'M4RIA', status: 403, message: SENTINEL } }), bearerReq, '[API Auth] Bearer token validation failed: { status: 403 }'],
+      ['a cookie token whose code is a name with a digit', () => setCookie(LOW_ID, { error: { code: 'JU4NA', status: 401, message: SENTINEL } }), cookieReq, '[API Auth] Cookie session verification failed: { status: 401 }'],
+      ['a provider error without a code', () => setCookie(LOW_ID, { error: { message: SENTINEL, status: 504 } }), cookieReq, '[API Auth] Cookie session verification failed: { status: 504 }'],
+      ['an unreadable cookie session', () => mockCreateServerSupabaseClient.mockReturnValue({ auth: { getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: new Error(SENTINEL) }), getUser: vi.fn() } }), cookieReq, '[API Auth] Session error: {}'],
+      ['a provider lookup that throws', () => setCookie(LOW_ID, { throws: new Error(SENTINEL) }), cookieReq, '[API Auth] Unexpected error: {}'],
+      ['a cookie client that cannot be built', () => mockCreateServerSupabaseClient.mockImplementation(() => { throw new Error(SENTINEL); }), cookieReq, '[API Auth] Failed to create Supabase client: {}'],
+      ['a service client that cannot be built', () => mockCreateClient.mockImplementation(() => { throw new Error(SENTINEL); }), bearerReq, '[API Auth] Failed to create service role client: {}'],
+    ])('%s is denied and logged by label, code and status only', async (_label, arrange, req, line) => {
+      arrange();
+
+      const result = await getApiUser(req(), res);
+
+      expect(result.user).toBeNull();
+      expect(result.error).toBeTruthy();
+      expect(logged()).toContain(line);
+    });
+  });
+
+  describe('R5-F2 — loggableError keeps only vetted auth, SQLSTATE and PostgREST codes', () => {
+    it.each(['alumno_juan_perez', 'student_name_maria', 'juan_perez', 'maria', 'MARIA', 'PEREZ', 'PGRST', 'bad_jwt_juan', ''])(
+      'drops the unvetted code %j and keeps the status',
+      (code) => {
+        expect(loggableError({ code, status: 403, message: 'SINTETICO-RAW' })).toEqual({ status: 403 });
+      },
+    );
+
+    it.each(['bad_jwt', 'session_expired', 'session_not_found', 'refresh_token_not_found', 'user_not_found', '22023', '23505', '42501', 'XX000', 'P0001', 'PGRST116'])(
+      'keeps the vetted code %s',
+      (code) => {
+        expect(loggableError({ code, message: 'SINTETICO-RAW', details: LOW_ID })).toEqual({ code });
+      },
+    );
+
+    it('keeps only an integer HTTP status', () => {
+      expect([504, 99, 600, 4.5, '403', null].map((status) => loggableError({ status }))).toEqual([{ status: 504 }, {}, {}, {}, {}, {}]);
+      expect(loggableError(null)).toEqual({});
+      expect(loggableError(new Error('SINTETICO-RAW'))).toEqual({});
+    });
+  });
+
+  describe('R6-F1 — loggableError keeps a listed code only, never text that merely looks like one', () => {
+    // The first eight fit the r6 shape rule (five uppercase letters or digits, one a digit, or PGRST and three digits).
+    it.each(['M4RIA', 'JU4NA', 'P3DR0', '4LUMN', 'R0SA1', '12345', 'A1B2C', 'PGRST999', 'xx000', '23505 ', 'PGRST116 '])(
+      'drops the unlisted code %j and keeps the status',
+      (code) => {
+        expect(loggableError({ code, status: 500, message: 'SINTETICO-RAW' })).toEqual({ status: 500 });
+      },
+    );
+
+    it.each(['22023', '23502', '23503', '23505', '23514', '40001', '40P01', '42501', '57014', 'P0001', 'XX000', 'PGRST116', 'PGRST202', 'PGRST301'])(
+      'keeps the listed database code %s',
+      (code) => {
+        expect(loggableError({ code, status: 500, message: 'SINTETICO-RAW', details: LOW_ID })).toEqual({ code, status: 500 });
+      },
+    );
   });
 });

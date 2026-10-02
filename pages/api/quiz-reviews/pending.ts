@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import { loggableError } from '../../../lib/api-auth';
 
 // Use service role to bypass RLS
 const supabaseService = createClient(
@@ -38,7 +39,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('is_active', true);
 
     if (rolesError) {
-      console.error('Error fetching user roles:', rolesError);
+      console.error('Error fetching user roles:', loggableError(rolesError));
       return res.status(500).json({ error: 'Failed to fetch user roles' });
     }
 
@@ -57,7 +58,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'No permission to access quiz reviews' });
     }
 
-    console.log('[API pending] User:', user.id, 'Role:', userRole);
+    console.log('[API pending] Role:', userRole);
 
     // Get all pending reviews
     const { data: allReviews, error: reviewsError } = await supabaseService
@@ -66,7 +67,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .order('submitted_at', { ascending: true });
 
     if (reviewsError) {
-      console.error('Error fetching pending reviews:', reviewsError);
+      console.error('Error fetching pending reviews:', loggableError(reviewsError));
       return res.status(500).json({ error: 'Failed to fetch pending reviews' });
     }
 
@@ -89,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log('[API pending] Assignments found:', assignments?.length);
 
       if (assignmentsError) {
-        console.error('Error fetching consultant assignments:', assignmentsError);
+        console.error('Error fetching consultant assignments:', loggableError(assignmentsError));
         return res.status(500).json({ error: 'Failed to fetch assignments' });
       }
 
@@ -102,7 +103,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       for (const assignment of assignments) {
         const scope = assignment.assignment_data?.assignment_scope || 'individual';
-        console.log('[API pending] Processing scope:', scope, 'school_id:', assignment.school_id);
+        // The stored scope is free JSON: only a known label is logged.
+        console.log('[API pending] Processing scope:', ['individual', 'school', 'generation', 'community'].includes(scope) ? scope : 'unknown');
 
         if (scope === 'individual' && assignment.student_id) {
           allowedStudentIds.add(assignment.student_id);
@@ -152,7 +154,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({ data: allReviews });
 
   } catch (error) {
-    console.error('Quiz reviews API error:', error);
+    console.error('Quiz reviews API error:', loggableError(error));
     return res.status(500).json({ error: 'Internal server error' });
   }
 }

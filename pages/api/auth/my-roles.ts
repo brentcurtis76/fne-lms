@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { requireVerifiedCaller } from '@/lib/api-auth';
+import { loggableError, requireVerifiedCaller } from '@/lib/api-auth';
 import { createClient } from '@supabase/supabase-js';
 import { rolePriorityIndex } from '../../../utils/roleUtils';
 
@@ -41,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .order('role_type');
 
     if (error) {
-      console.error('[my-roles API] Error fetching roles:', error);
+      console.error('[my-roles API] Error fetching roles:', loggableError(error));
       return res.status(500).json({ error: 'Error al obtener roles' });
     }
 
@@ -53,7 +53,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const highestRole = sortedRoles[0]?.role_type || null;
 
     console.log('[my-roles API] Returning roles:', {
-      userId,
       roleCount: sortedRoles.length,
       roles: sortedRoles.map(r => r.role_type),
       highestRole
@@ -65,7 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       userId
     });
   } catch (error) {
-    console.error('[my-roles API] Unexpected error:', error);
+    console.error('[my-roles API] Unexpected error:', loggableError(error));
     return res.status(500).json({ error: 'Error inesperado' });
   }
 }

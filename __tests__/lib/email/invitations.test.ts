@@ -15,6 +15,9 @@
  * And the invariant the rest of the remediation depends on: the action link
  * never leaves this module — not in the result, not in a log line.
  */
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   DELIVERY_MESSAGES,
@@ -26,6 +29,7 @@ import {
   sendPasswordSetupEmail as sendPasswordSetupEmailRaw,
   type EmailTransport,
 } from '../../../lib/email/invitations';
+import { buildNotificationEmail } from '../../../lib/email/notifications';
 import { PUBLIC_OUTBOUND_EMAIL } from '../../../lib/email/outbound-policy';
 
 const sendPasswordSetupEmail = (params: any, transport?: EmailTransport) =>
@@ -154,7 +158,208 @@ describe('sendPasswordSetupEmail — the new-account invitation', () => {
       { to: 'persona@example.com', firstName: 'Ana', recoveryUrl: ACTION_LINK, bodyLine: 'x' },
       transport
     );
-    expect(sent[0].from).toContain('notificaciones@nuevaeducacion.org');
+    expect(sent[0].from).toBe('Genera <notificaciones@nuevaeducacion.org>');
+  });
+
+  it('gives a bare configured address the Genera display name', async () => {
+    vi.stubEnv('EMAIL_FROM_ADDRESS', 'hola@example.org');
+    const { transport, sent } = captureTransport();
+    await sendPasswordRecoveryEmail(
+      { to: 'persona@example.com', firstName: 'Ana', recoveryUrl: ACTION_LINK },
+      transport
+    );
+    expect(sent[0].from).toBe('Genera <hola@example.org>');
+  });
+
+  it.each([
+    ['doubled brackets', 'Genera <<hola@example.org>>'],
+    ['no address', 'hola at example dot org'],
+    ['blank', '   '],
+    ['CRLF', 'Genera\r\nBcc: otro@example.org <hola@example.org>'],
+    ['LF', 'Genera\nX-Test: injected <hola@example.org>'],
+    ['CR', 'Genera\rBcc: otro@example.org <hola@example.org>'],
+  ])('a malformed sender (%s) fails before the transport, as not_configured', async (_label, value) => {
+    vi.stubEnv('EMAIL_FROM_ADDRESS', value);
+    const { transport, sent } = captureTransport();
+
+    const results = [
+      await sendPasswordSetupEmail(
+        { to: 'persona@example.com', firstName: 'Ana', recoveryUrl: ACTION_LINK, bodyLine: 'x' },
+        transport
+      ),
+      await sendAccessGrantedEmail(
+        { to: 'persona@example.com', firstName: 'Ana', loginUrl: LOGIN_URL, bodyLine: 'x' },
+        transport
+      ),
+      await sendPasswordRecoveryEmail(
+        { to: 'persona@example.com', firstName: 'Ana', recoveryUrl: ACTION_LINK },
+        transport
+      ),
+    ];
+
+    expect(sent).toEqual([]);
+    for (const result of results) {
+      expect(result).toEqual({
+        sent: false,
+        status: 'not_configured',
+        reason: 'not_configured',
+        detail: 'invalid_sender',
+      });
+      expect(deliveryMessage(result)).toBe(DELIVERY_MESSAGES.not_configured);
+    }
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain('Bcc');
+  });
+});
+
+describe('sendPasswordRecoveryEmail — self-service recovery', () => {
+  it('renders the es-CL copy, the button and the complete URL as visible text', async () => {
+    const { transport, sent } = captureTransport();
+    const result = await sendPasswordRecoveryEmail(
+      { to: 'persona@example.com', firstName: '<b>Ana</b>', recoveryUrl: ACTION_LINK },
+      transport
+    );
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0].subject).toBe('Restablece tu contraseña de Genera');
+    const html = sent[0].html;
+    expect(html).toContain('Hola &lt;b&gt;Ana&lt;/b&gt;,');
+    expect(html).toContain('Recibimos una solicitud para restablecer tu contraseña.');
+    expect(html).toContain('Restablecer contraseña');
+    expect(html).toContain('copia y pega esta dirección completa en tu navegador');
+    expect(html).toContain('tu contraseña actual sigue funcionando');
+    expect(html.split(escapeHtml(ACTION_LINK)).length - 1).toBe(2);
+    expect(JSON.stringify(result)).not.toContain('token_hash');
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain('token_hash');
+  });
+});
+
+describe('the shared renderer (lib/email/render.ts)', () => {
+  it('gives the invitation and the notification the same shell, button and fallback markup', async () => {
+    const { transport, sent } = captureTransport();
+    await sendPasswordSetupEmail(
+      { to: 'persona@example.com', firstName: 'Ana', recoveryUrl: LOGIN_URL, bodyLine: 'Cuerpo.' },
+      transport
+    );
+    const invitation = sent[0].html;
+    const notification = buildNotificationEmail({
+      title: 'Tu acceso está listo',
+      description: 'Cuerpo.',
+      url: LOGIN_URL,
+    }).html;
+
+    const shell = (html: string) => html.slice(0, html.indexOf('<p '));
+    const fallbackUrl = (html: string) =>
+      html.slice(html.indexOf('<p style="margin:0;color:#0a0a0a'), html.lastIndexOf('<p '));
+    const button = (html: string) => html.slice(html.indexOf('<a href='), html.indexOf('">', html.indexOf('<a href=')));
+
+    expect(shell(invitation)).toContain('Tu acceso está listo');
+    expect(shell(notification)).toBe(shell(invitation));
+    expect(button(notification)).toBe(button(invitation));
+    expect(fallbackUrl(notification)).toBe(fallbackUrl(invitation));
+    expect(fallbackUrl(invitation)).toContain(LOGIN_URL);
+  });
+});
+
+describe('authorization boundary and the synchronous path', () => {
+  let outboxDir: string;
+  let outbox: string;
+
+  beforeEach(() => {
+    outboxDir = mkdtempSync(join(tmpdir(), 'notif13-outbox-'));
+    outbox = join(outboxDir, 'outbox.jsonl');
+    vi.stubEnv('E2E_MAIL_OUTBOX', outbox);
+    vi.stubEnv('VERCEL_ENV', '');
+    vi.stubEnv('VERCEL', '');
+  });
+
+  afterEach(() => {
+    rmSync(outboxDir, { recursive: true, force: true });
+  });
+
+  it.each([
+    ['QA tenant', { kind: 'suppressed_qa', schoolId: 257, reason: 'qa_tenant' }, 'suppressed_qa'],
+    ['refused scope', { kind: 'refuse', reason: 'school_lookup_failed' }, 'refused'],
+  ] as const)('%s: no transport call and no outbox mirror', async (_label, authorization, status) => {
+    const { transport, sent } = captureTransport();
+    const result = await sendPasswordSetupEmailRaw(
+      {
+        to: 'persona@example.com',
+        firstName: 'Ana',
+        recoveryUrl: ACTION_LINK,
+        bodyLine: 'x',
+        authorization,
+      },
+      transport
+    );
+
+    expect(result).toMatchObject({ sent: false, status, reason: status });
+    expect(sent).toEqual([]);
+    expect(existsSync(outbox)).toBe(false);
+    expect(JSON.stringify(result)).not.toContain('token_hash');
+  });
+
+  it('an authorized call hands the transport exactly one message and mirrors exactly one', async () => {
+    const { transport, sent } = captureTransport();
+    const result = await sendAccessGrantedEmail(
+      { to: 'persona@example.com', firstName: 'Ana', loginUrl: LOGIN_URL, bodyLine: 'x' },
+      transport
+    );
+
+    expect(result).toEqual({ sent: true, status: 'provider_accepted' });
+    expect(sent).toHaveLength(1);
+    const mirrored = readFileSync(outbox, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+    expect(mirrored).toEqual([
+      { to: 'persona@example.com', subject: sent[0].subject, html: sent[0].html },
+    ]);
+  });
+
+  it.each([
+    ['CRLF', 'Genera\r\nBcc: otro@example.org <hola@example.org>'],
+    ['doubled brackets', 'Genera <<hola@example.org>>'],
+  ])('an authorized call with a malformed sender (%s): no transport call and no outbox mirror', async (_label, value) => {
+    vi.stubEnv('EMAIL_FROM_ADDRESS', value);
+    const { transport, sent } = captureTransport();
+
+    const results = [
+      await sendPasswordSetupEmail(
+        { to: 'persona@example.com', firstName: 'Ana', recoveryUrl: ACTION_LINK, bodyLine: 'x' },
+        transport
+      ),
+      await sendAccessGrantedEmail(
+        { to: 'persona@example.com', firstName: 'Ana', loginUrl: LOGIN_URL, bodyLine: 'x' },
+        transport
+      ),
+      await sendPasswordRecoveryEmail(
+        { to: 'persona@example.com', firstName: 'Ana', recoveryUrl: ACTION_LINK },
+        transport
+      ),
+    ];
+
+    for (const result of results) {
+      expect(result).toEqual({
+        sent: false,
+        status: 'not_configured',
+        reason: 'not_configured',
+        detail: 'invalid_sender',
+      });
+    }
+    expect(sent).toEqual([]);
+    expect(existsSync(outbox)).toBe(false);
+  });
+
+  it('without an API key (local test mode) an authorized message is still mirrored once', async () => {
+    vi.stubEnv('RESEND_API_KEY', '');
+    const result = await sendPasswordSetupEmail({
+      to: 'persona@example.com',
+      firstName: 'Ana',
+      recoveryUrl: ACTION_LINK,
+      bodyLine: 'x',
+    });
+
+    expect(result).toEqual({ sent: false, status: 'not_configured', reason: 'not_configured' });
+    const mirrored = readFileSync(outbox, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+    expect(mirrored).toHaveLength(1);
+    expect(mirrored[0]).toMatchObject({ to: 'persona@example.com', subject: 'Activa tu acceso a Genera' });
   });
 });
 

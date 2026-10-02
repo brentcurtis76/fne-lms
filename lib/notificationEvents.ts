@@ -62,8 +62,13 @@ export interface AssignmentEventData extends BaseEventData {
   submission_id?: string;
 }
 
-/** Message-related event data */
+/**
+ * Message-related event data, as `/api/messaging/send` persists it. The nested
+ * `sender.name` / `message_preview` shape is an older fallback.
+ */
 export interface MessageEventData extends BaseEventData {
+  sender_name?: string;
+  content?: string;
   sender?: {
     id?: string;
     name?: string;
@@ -73,8 +78,13 @@ export interface MessageEventData extends BaseEventData {
   recipient_id?: string;
 }
 
-/** Mention event data */
+/**
+ * Mention event data, as `/api/messaging/mention` persists it. The nested
+ * `mentioned_by.name` shape is an older fallback.
+ */
 export interface MentionEventData extends BaseEventData {
+  author_name?: string;
+  content_preview?: string;
   mentioned_by?: {
     id?: string;
     name?: string;
@@ -188,6 +198,17 @@ export type NotificationEventData =
  * NOTIFICATION_EVENTS['course_assigned'].defaultTitle(data);
  */
 type EventDataAccessor = Record<string, any>;
+
+/** Longest name and preview a registry template puts in a title or description. */
+const NAME_MAX = 80;
+const PREVIEW_MAX = 120;
+
+/** Payload text for display: whitespace collapsed, cut to `max` characters with an ellipsis; '' when not a string. */
+function bounded(value: unknown, max: number): string {
+  if (typeof value !== 'string') return '';
+  const text = value.replace(/\s+/g, ' ').trim();
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+}
 
 export interface NotificationEventConfig {
   /** Function to generate default title from event data */
@@ -331,25 +352,29 @@ export const NOTIFICATION_EVENTS: Record<string, NotificationEventConfig> = {
   // ============================================
 
   message_sent: {
-    defaultTitle: (d) =>
-      d.sender?.name ? `Mensaje de ${d.sender.name}` : 'Nuevo mensaje',
+    defaultTitle: (d) => {
+      const name = bounded(d.sender_name, NAME_MAX) || bounded(d.sender?.name, NAME_MAX);
+      return name ? `Mensaje de ${name}` : 'Nuevo mensaje';
+    },
     defaultDescription: (d) =>
-      d.message_preview
-        ? d.message_preview.substring(0, 120)
-        : 'Has recibido un nuevo mensaje.',
+      bounded(d.content, PREVIEW_MAX) ||
+      bounded(d.message_preview, PREVIEW_MAX) ||
+      'Has recibido un nuevo mensaje.',
     defaultUrl: '/messages',
     importance: 'normal',
     category: 'messaging',
   },
 
   user_mentioned: {
-    defaultTitle: (d) =>
-      d.mentioned_by?.name
-        ? `${d.mentioned_by.name} te ha mencionado`
-        : 'Te han mencionado',
+    defaultTitle: (d) => {
+      const name = bounded(d.author_name, NAME_MAX) || bounded(d.mentioned_by?.name, NAME_MAX);
+      return name ? `${name} te ha mencionado` : 'Te han mencionado';
+    },
     defaultDescription: (d) => {
-      const where = d.workspace?.name ? ` en "${d.workspace.name}"` : '';
-      return `Has sido mencionado en una conversación${where}.`;
+      const preview = bounded(d.content_preview, PREVIEW_MAX);
+      if (preview) return preview;
+      const workspace = bounded(d.workspace?.name, NAME_MAX);
+      return `Has sido mencionado en una conversación${workspace ? ` en "${workspace}"` : ''}.`;
     },
     defaultUrl: '/workspace',
     importance: 'normal',
@@ -769,15 +794,18 @@ export const NOTIFICATION_EVENTS: Record<string, NotificationEventConfig> = {
   // ============================================
 
   meeting_finalized: {
-    defaultTitle: (d) =>
-      d.title ? `Reunión finalizada: ${d.title}` : 'Reunión finalizada',
+    defaultTitle: (d) => {
+      const title = bounded(d.title, PREVIEW_MAX);
+      return title ? `Reunión finalizada: ${title}` : 'Reunión finalizada';
+    },
     defaultDescription: (d) => {
-      const who = d.finalizer_name ? ` por ${d.finalizer_name}` : '';
+      const finalizer = bounded(d.finalizer_name, NAME_MAX);
+      const who = finalizer ? ` por ${finalizer}` : '';
       const audience =
         d.audience === 'attended'
           ? ' Enviada a quienes asistieron.'
           : ' Enviada a la Comunidad de Crecimiento.';
-      return `La reunión "${d.title || 'sin título'}" fue finalizada${who}.${audience}`;
+      return `La reunión "${bounded(d.title, PREVIEW_MAX) || 'sin título'}" fue finalizada${who}.${audience}`;
     },
     defaultUrl: '/comunidades-crecimiento',
     importance: 'normal',

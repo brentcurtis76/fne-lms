@@ -129,6 +129,34 @@ export async function getWorkspaceThreads(
 }
 
 /**
+ * The community owning a thread, or null when the thread or its workspace is
+ * not visible to the caller. Reads ids only, never thread content; callers
+ * must still check the community against the caller's own access.
+ */
+export async function getThreadCommunityId(threadId: string): Promise<string | null> {
+  try {
+    const { data: thread, error } = await supabase
+      .from('message_threads')
+      .select('workspace_id')
+      .eq('id', threadId)
+      .maybeSingle();
+    if (error || !thread?.workspace_id) return null;
+
+    const { data: workspace, error: workspaceError } = await supabase
+      .from('community_workspaces')
+      .select('community_id')
+      .eq('id', thread.workspace_id)
+      .maybeSingle();
+    if (workspaceError || !workspace?.community_id) return null;
+
+    return workspace.community_id;
+  } catch {
+    console.error('Thread community lookup failed');
+    return null;
+  }
+}
+
+/**
  * Get messages for a workspace or thread (simplified)
  */
 export async function getWorkspaceMessages(
@@ -565,12 +593,9 @@ export async function sendMessage(
       })
       .eq('id', messageData.thread_id);
 
-    // Handle mentions and create notifications
-    if (messageData.mentions && messageData.mentions.length > 0) {
-      await handleMentions(message.id, messageData.mentions, userId, workspaceId, authorName, messageData.content, messageData.reply_to_id);
-    } else if (messageData.reply_to_id) {
-      // Even if no mentions, handle reply notification
-      await handleMentions(message.id, [], userId, workspaceId, authorName, messageData.content, messageData.reply_to_id);
+    // The server derives the mention and reply bells from the saved message
+    if ((messageData.mentions && messageData.mentions.length > 0) || messageData.reply_to_id) {
+      await requestMessageNotifications(workspaceId, message.id, messageData.mentions ?? []);
     }
 
     return {
@@ -770,118 +795,33 @@ export function subscribeToWorkspaceMessages(
 }
 
 /**
- * Handle mentions and create notifications
+ * Asks /api/community/workspace-message-notifications for a saved message's
+ * mention and reply bells. The message stays sent whatever happens here; a
+ * repeat for the same message id creates only the bells still missing.
  */
-async function handleMentions(
-  messageId: string,
-  mentions: string[],
-  senderId: string,
+async function requestMessageNotifications(
   workspaceId: string,
-  senderName: string,
-  messageContent: string,
-  replyToId?: string
+  messageId: string,
+  mentions: string[]
 ): Promise<void> {
   try {
-    // Get workspace and thread information
-    const { data: messageData } = await supabase
-      .from('community_messages')
-      .select('thread_id')
-      .eq('id', messageId)
-      .single();
-
-    if (!messageData?.thread_id) return;
-
-    // Get thread information
-    const { data: threadData } = await supabase
-      .from('message_threads')
-      .select('thread_title, workspace_id')
-      .eq('id', messageData.thread_id)
-      .single();
-
-    if (!threadData) return;
-
-    const threadTitle = threadData.thread_title;
-    
-    // Get workspace name
-    const { data: workspaceData } = await supabase
-      .from('community_workspaces')
-      .select('name')
-      .eq('id', threadData.workspace_id)
-      .single();
-    
-    const communityName = workspaceData?.name || 'la comunidad';
-
-    // Process each mention
-    for (const mentionedUserId of mentions) {
-      // Skip if user is mentioning themselves
-      if (mentionedUserId === senderId) continue;
-
-      // Create notification for the mentioned user
-      const { error: notifError } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: mentionedUserId,
-          type: 'mention_in_message',
-          title: `${senderName} te mencionó en un mensaje`,
-          message: `Te han mencionado en el hilo "${threadTitle}" en ${communityName}`,
-          metadata: {
-            message_id: messageId,
-            thread_id: messageData.thread_id,
-            workspace_id: workspaceId,
-            sender_id: senderId,
-            sender_name: senderName,
-            message_preview: messageContent.substring(0, 100) + (messageContent.length > 100 ? '...' : '')
-          },
-          priority: 'medium',
-          action_url: `/community/workspace?section=messaging&thread=${messageData.thread_id}&message=${messageId}`,
-          is_read: false,
-          created_at: new Date().toISOString()
-        });
-      
-      if (notifError) {
-        console.error('Error creating mention notification:', notifError);
-      }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      console.error('Message notifications skipped: no auth session');
+      return;
     }
-
-    // Also check if someone is replying to a message where the original author should be notified
-    if (replyToId) {
-      const { data: parentMessage } = await supabase
-        .from('community_messages')
-        .select('author_id, content')
-        .eq('id', replyToId)
-        .single();
-
-      if (parentMessage && parentMessage.author_id !== senderId) {
-        // Notify the original message author about the reply
-        const { error: replyNotifError } = await supabase
-          .from('notifications')
-          .insert({
-            user_id: parentMessage.author_id,
-            type: 'reply_to_message',
-            title: `${senderName} respondió a tu mensaje`,
-            message: `Nueva respuesta en el hilo "${threadTitle}" en ${communityName}`,
-            metadata: {
-              message_id: messageId,
-              thread_id: messageData.thread_id,
-              workspace_id: workspaceId,
-              sender_id: senderId,
-              sender_name: senderName,
-              original_message_preview: parentMessage.content.substring(0, 50) + '...',
-              reply_preview: messageContent.substring(0, 100) + (messageContent.length > 100 ? '...' : '')
-            },
-            priority: 'medium',
-            action_url: `/community/workspace?section=messaging&thread=${messageData.thread_id}&message=${messageId}`,
-            is_read: false,
-            created_at: new Date().toISOString()
-          });
-        
-        if (replyNotifError) {
-          console.error('Error creating reply notification:', replyNotifError);
-        }
-      }
+    const response = await fetch('/api/community/workspace-message-notifications', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ message_id: messageId, workspace_id: workspaceId, mentioned_user_ids: mentions }),
+    });
+    if (!response.ok) {
+      console.error('Message notifications rejected with status', response.status);
     }
-  } catch (error) {
-    console.error('Error handling mentions:', error);
-    // Don't throw - we don't want mention errors to prevent message sending
+  } catch {
+    console.error('Message notifications request failed');
   }
 }

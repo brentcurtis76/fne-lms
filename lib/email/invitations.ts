@@ -28,9 +28,11 @@
 import { captureOutboundEmail } from './outbox';
 import {
   deliverOutboundEmail,
+  resolveSender,
   type EmailTransport,
 } from './provider';
 import type { OutboundEmailAuthorization } from './outbound-policy';
+import { renderEmail } from './render';
 
 export type { EmailTransport } from './provider';
 
@@ -130,85 +132,35 @@ export const DELIVERY_MESSAGES: Record<DeliveryFailureReason, string> = {
 export const DELIVERY_SUCCESS_MESSAGE =
   'El proveedor de correo aceptó el mensaje. La llegada a la bandeja del destinatario no se confirma desde aquí.';
 
-const DEFAULT_FROM = 'Genera <notificaciones@nuevaeducacion.org>';
-
-export function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+export { escapeHtml } from '../utils/html-escape';
 
 /**
- * The shared shell. `ctaHref` is escaped for both the attribute and the visible
- * fallback; the two are the same string, so a mail client that renders neither
- * anchors nor styles still shows a usable URL.
+ * The invitation/recovery message in the shared shell (`./render`, which
+ * escapes every value): a greeting, one body line, the button, and the same URL
+ * as visible text.
  */
-function renderEmail(params: {
+function renderInvitation(params: {
   heading: string;
   firstName: string;
   bodyLine: string;
   ctaLabel: string;
   ctaHref: string;
-  fallbackLead: string;
-  closingLine?: string;
+  closingLine: string;
 }): string {
-  const normalizedFirstName = params.firstName.trim();
+  const firstName = params.firstName.trim();
   // Older recovery callers used "Hola" as a missing-name placeholder, which
   // rendered as the accidental greeting "Hola Hola,". Treat that legacy
   // placeholder exactly like an absent name.
-  const safeFirstName = /^hola,?$/i.test(normalizedFirstName)
-    ? ''
-    : escapeHtml(normalizedFirstName);
-  const greeting = safeFirstName ? `Hola ${safeFirstName},` : 'Hola,';
-  const safeBodyLine = escapeHtml(params.bodyLine);
-  const safeHeading = escapeHtml(params.heading);
-  const safeCtaLabel = escapeHtml(params.ctaLabel);
-  const safeHref = escapeHtml(params.ctaHref);
-  const safeFallbackLead = escapeHtml(params.fallbackLead);
-  const safeClosing = params.closingLine ? escapeHtml(params.closingLine) : null;
+  const greeting = firstName && !/^hola,?$/i.test(firstName) ? `Hola ${firstName},` : 'Hola,';
 
-  return `
-      <!doctype html>
-      <html lang="es">
-        <head>
-          <meta charset="utf-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-        </head>
-        <body style="margin:0;background:#f5f5f5;font-family:Arial,sans-serif;color:#202020;">
-          <div style="max-width:620px;margin:0 auto;background:#ffffff;">
-            <div style="background:#0a0a0a;color:#ffffff;padding:28px 28px 22px;">
-              <div style="color:#fbbf24;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">
-                Genera
-              </div>
-              <h1 style="margin:12px 0 0;font-size:26px;line-height:1.25;">
-                ${safeHeading}
-              </h1>
-            </div>
-            <div style="padding:30px 28px;">
-              <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">${greeting}</p>
-              <p style="margin:0 0 20px;font-size:16px;line-height:1.6;">
-                ${safeBodyLine}
-              </p>
-              <p style="margin:26px 0;text-align:center;">
-                <a href="${safeHref}" style="display:inline-block;background:#fbbf24;color:#0a0a0a;text-decoration:none;font-weight:700;border-radius:6px;padding:14px 22px;">
-                  ${safeCtaLabel}
-                </a>
-              </p>
-              <p style="margin:0 0 8px;color:#666;font-size:13px;line-height:1.6;">
-                ${safeFallbackLead}
-              </p>
-              <p style="margin:0;color:#0a0a0a;font-size:13px;line-height:1.6;word-break:break-all;">
-                ${safeHref}
-              </p>
-              ${safeClosing ? `<p style="margin:20px 0 0;color:#666;font-size:13px;line-height:1.6;">${safeClosing}</p>` : ''}
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
+  return renderEmail({
+    heading: params.heading,
+    paragraphs: [greeting, params.bodyLine],
+    ctaLabel: params.ctaLabel,
+    ctaHref: params.ctaHref,
+    fallbackLead: 'Si el botón no funciona, copia y pega esta dirección completa en tu navegador:',
+    closingLine: params.closingLine,
+  });
 }
 
 /**
@@ -226,16 +178,16 @@ async function send(
   },
   transport?: EmailTransport
 ): Promise<DeliveryResult> {
-  if (params.authorization.kind === 'allow') {
-    // The local E2E outbox mirrors only authorized mail. QA/refused mail must
-    // leave no transport-adjacent artifact at all.
+  if (params.authorization.kind === 'allow' && resolveSender() !== null) {
+    // The local E2E outbox mirrors only authorized mail with a valid sender.
+    // QA/refused mail and mail that an invalid sender keeps from the provider
+    // must leave no transport-adjacent artifact at all.
     captureOutboundEmail(params);
   }
 
   const result = await deliverOutboundEmail({
     authorization: params.authorization,
     message: {
-      from: process.env.EMAIL_FROM_ADDRESS || DEFAULT_FROM,
       to: params.to,
       subject: params.subject,
       html: params.html,
@@ -301,14 +253,12 @@ export async function sendPasswordSetupEmail(
       to: params.to,
       authorization: params.authorization,
       subject: 'Activa tu acceso a Genera',
-      html: renderEmail({
+      html: renderInvitation({
         heading: 'Tu acceso está listo',
         firstName: params.firstName,
         bodyLine: params.bodyLine,
         ctaLabel: 'Establecer contraseña',
         ctaHref: params.recoveryUrl,
-        fallbackLead:
-          'Si el botón no funciona, copia y pega esta dirección completa en tu navegador:',
         closingLine:
           'Por seguridad, este enlace caduca. Si ya no funciona, pide a tu administrador que te reenvíe la invitación.',
       }),
@@ -341,14 +291,12 @@ export async function sendAccessGrantedEmail(
       to: params.to,
       authorization: params.authorization,
       subject: 'Tu acceso a Genera fue actualizado',
-      html: renderEmail({
+      html: renderInvitation({
         heading: 'Tienes acceso nuevo',
         firstName: params.firstName,
         bodyLine: params.bodyLine,
         ctaLabel: 'Ir a Genera',
         ctaHref: params.loginUrl,
-        fallbackLead:
-          'Si el botón no funciona, copia y pega esta dirección completa en tu navegador:',
         closingLine:
           'Ingresa con la contraseña que ya usabas. Si no la recuerdas, usa "¿Olvidaste tu contraseña?" en la página de inicio de sesión.',
       }),
@@ -388,15 +336,13 @@ export async function sendPasswordRecoveryEmail(
       authorization: params.authorization,
       subject: 'Restablece tu contraseña de Genera',
       idempotencyKey: params.idempotencyKey,
-      html: renderEmail({
+      html: renderInvitation({
         heading: 'Restablece tu contraseña',
         firstName: params.firstName,
         bodyLine:
           'Recibimos una solicitud para restablecer tu contraseña. Si fuiste tú, usa el botón para elegir una nueva.',
         ctaLabel: 'Restablecer contraseña',
         ctaHref: params.recoveryUrl,
-        fallbackLead:
-          'Si el botón no funciona, copia y pega esta dirección completa en tu navegador:',
         closingLine:
           'Si no solicitaste este cambio, ignora este mensaje: tu contraseña actual sigue funcionando. Por seguridad, este enlace caduca.',
       }),

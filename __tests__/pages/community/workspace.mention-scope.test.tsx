@@ -44,6 +44,8 @@ const h = vi.hoisted(() => ({
     asPath: '/community/workspace?section=messaging',
     push: vi.fn(async () => true),
     replace: vi.fn(async () => true),
+    // The page listens for in-place thread links (NOTIF-09); this suite never navigates.
+    events: { on: vi.fn(), off: vi.fn() },
   },
   auth: {
     user: { id: 'user-1', email: 'admin@fne.cl', name: 'Admin' },

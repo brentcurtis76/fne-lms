@@ -18,6 +18,56 @@ import {
   type ForcedChangeVerdict,
 } from './auth/forced-password-change';
 
+// The error codes a log line may keep, each one listed. Any other code is dropped:
+// a code field can carry arbitrary text (a database function can raise any five
+// letters or digits as its SQLSTATE), such as a name.
+const LOGGABLE_CODES = new Set([
+  // Auth server answers to a session or token check
+  'bad_jwt',
+  'invalid_jwt',
+  'no_authorization',
+  'session_not_found',
+  'session_expired',
+  'refresh_token_not_found',
+  'refresh_token_already_used',
+  'user_not_found',
+  'user_banned',
+  'over_request_rate_limit',
+  'request_timeout',
+  'unexpected_failure',
+  // SQLSTATE: invalid parameter (save_group_submission); not-null, foreign-key,
+  // unique and check violations; serialization failure and deadlock; row
+  // security refusal; statement timeout; raised exception; internal error
+  '22023',
+  '23502',
+  '23503',
+  '23505',
+  '23514',
+  '40001',
+  '40P01',
+  '42501',
+  '57014',
+  'P0001',
+  'XX000',
+  // PostgREST: not exactly one row, function not found, JWT refused
+  'PGRST116',
+  'PGRST202',
+  'PGRST301',
+]);
+
+/**
+ * What a log line keeps of an error: a listed auth, SQLSTATE or PostgREST code
+ * and its HTTP status, nothing else. A message, detail, hint or stack can carry
+ * ids, e-mails, tokens or submitted text.
+ */
+export function loggableError(error: unknown): { code?: string; status?: number } {
+  const { code, status } = (error ?? {}) as { code?: unknown; status?: unknown };
+  return {
+    ...(typeof code === 'string' && LOGGABLE_CODES.has(code) ? { code } : {}),
+    ...(Number.isInteger(status) && (status as number) >= 100 && (status as number) < 600 ? { status: status as number } : {}),
+  };
+}
+
 // Create a consistent Supabase client for API routes
 export async function createApiSupabaseClient(
   req: NextApiRequest, 
@@ -47,7 +97,7 @@ export async function createApiSupabaseClient(
     const client = createServerSupabaseClient({ req, res });
     return client;
   } catch (error) {
-    console.error('[API Auth] Failed to create Supabase client:', error);
+    console.error('[API Auth] Failed to create Supabase client:', loggableError(error));
     throw new Error('Failed to initialize database connection');
   }
 }
@@ -71,7 +121,7 @@ export function createServiceRoleClient(): SupabaseClient {
       }
     });
   } catch (error) {
-    console.error('[API Auth] Failed to create service role client:', error);
+    console.error('[API Auth] Failed to create service role client:', loggableError(error));
     throw new Error('Failed to initialize admin connection');
   }
 }
@@ -92,14 +142,11 @@ export async function getApiUser(
       const { data: { user }, error } = await serviceClient.auth.getUser(token);
       
       if (error || !user) {
-        console.error('[API Auth] Bearer token validation failed:', error);
+        console.error('[API Auth] Bearer token validation failed:', loggableError(error));
         return { user: null, error: error || new Error('Invalid token') };
       }
       
-      console.log('[API Auth] User authenticated via Bearer token:', {
-        userId: user.id,
-        email: user.email?.split('@')[0] + '@***'
-      });
+      console.log('[API Auth] User authenticated via Bearer token');
       
       return { user, error: null };
     }
@@ -112,7 +159,7 @@ export async function getApiUser(
     const { data: { session }, error } = await supabase.auth.getSession();
     
     if (error) {
-      console.error('[API Auth] Session error:', error);
+      console.error('[API Auth] Session error:', loggableError(error));
       return { user: null, error };
     }
     
@@ -123,22 +170,19 @@ export async function getApiUser(
     const { data: { user }, error: userError } = await supabase.auth.getUser(session.access_token);
 
     if (userError || !user) {
-      console.error('[API Auth] Cookie session verification failed:', userError);
+      console.error('[API Auth] Cookie session verification failed:', loggableError(userError));
       return { user: null, error: userError || new Error('Invalid session') };
     }
 
     const metadataRoles = extractRolesFromMetadata(user.user_metadata);
 
-    // Log successful auth (without sensitive data)
-    console.log('[API Auth] User authenticated via session:', {
-      userId: user.id,
-      email: user.email?.split('@')[0] + '@***',
-      roles: metadataRoles
-    });
+    // Log successful auth without identity: no id, no e-mail, and a count of the
+    // metadata roles, which the user can write.
+    console.log('[API Auth] User authenticated via session:', { metadataRoles: metadataRoles.length });
 
     return { user, error: null };
   } catch (error) {
-    console.error('[API Auth] Unexpected error:', error);
+    console.error('[API Auth] Unexpected error:', loggableError(error));
     return { 
       user: null, 
       error: error instanceof Error ? error : new Error('Authentication failed') 

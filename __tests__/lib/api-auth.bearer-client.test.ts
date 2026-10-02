@@ -47,6 +47,16 @@ describe('createApiSupabaseClient', () => {
     expect(mockCreateClient).not.toHaveBeenCalled();
   });
 
+  it('R4-F1: a cookie client that cannot be built fails with a fixed error and logs no exception text', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockCreateServerSupabaseClient.mockImplementationOnce(() => {
+      throw new Error('SINTETICO-RAW 00000000-0000-4000-8000-000000000001 alumno@qa.local.test');
+    });
+    await expect(createApiSupabaseClient({ headers: {} } as never, {} as never)).rejects.toThrow('Failed to initialize database connection');
+    expect(error.mock.calls).toEqual([['[API Auth] Failed to create Supabase client:', {}]]);
+    error.mockRestore();
+  });
+
   it('does not treat a non-Bearer Authorization header as a token', async () => {
     const req = { headers: { authorization: 'Basic abc' } } as never;
     await createApiSupabaseClient(req, {} as never);

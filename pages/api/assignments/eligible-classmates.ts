@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
 import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
 import type { UserRoleType } from '@/types/roles';
+import { loggableError } from '@/lib/api-auth';
 
 /**
  * GET /api/assignments/eligible-classmates
@@ -42,7 +43,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const userId = caller.user.id;
-    console.log('[eligible-classmates] REQUEST - userId:', userId, 'assignmentId:', assignmentId, 'groupId:', groupId);
+    // Logs keep labels, counts, booleans and error codes: no id, e-mail or classmate row.
+    console.log('[eligible-classmates] REQUEST:', { group: !!groupId });
 
     // 1. Validate user is a member of the specified group (only if groupId is provided)
     if (groupId) {
@@ -54,15 +56,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .eq('assignment_id', assignmentId as string)
         .single();
 
-      console.log('[eligible-classmates] STEP 1 - Membership check:', {
-        found: !!membership,
-        error: membershipError?.message,
-        code: membershipError?.code,
-        data: membership
-      });
+      console.log('[eligible-classmates] STEP 1 - Membership check:', { found: !!membership, ...loggableError(membershipError) });
 
       if (membershipError || !membership) {
-        console.error('[eligible-classmates] ABORT - User not member:', userId, 'group:', groupId, 'error:', membershipError);
+        console.error('[eligible-classmates] ABORT - User not member:', loggableError(membershipError));
         return res.status(403).json({ error: 'No eres miembro de este grupo' });
       }
     } else {
@@ -90,7 +87,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .single();
 
       if (groupError || !group) {
-        console.error('[eligible-classmates] ABORT - Group not found:', groupId, 'error:', groupError);
+        console.error('[eligible-classmates] ABORT - Group not found:', loggableError(groupError));
         return res.status(404).json({ error: 'Grupo no encontrado' });
       }
 
@@ -110,7 +107,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('is_active', true);
 
     if (roleError || !requesterRoles || requesterRoles.length === 0) {
-      console.error('[eligible-classmates] No active roles found for user:', userId, roleError);
+      console.error('[eligible-classmates] No active roles found for requester:', loggableError(roleError));
       return res.status(403).json({ error: 'No tienes una escuela asignada' });
     }
 
@@ -127,12 +124,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (!selectedRole || !selectedRole.school_id) {
-      console.error('[eligible-classmates] No role with school_id found for user:', userId);
+      console.error('[eligible-classmates] No role with school_id found for requester');
       return res.status(403).json({ error: 'No tienes una escuela asignada' });
     }
 
     const requesterSchoolId = selectedRole.school_id;
-    console.log('[eligible-classmates] requester has', requesterRoles.length, 'active roles, selected role:', selectedRole.role_type, 'school_id:', requesterSchoolId);
+    console.log('[eligible-classmates] requester has', requesterRoles.length, 'active roles, selected role:', selectedRole.role_type);
 
     // Resolve requester's effective community: active role with community_id,
     // otherwise profiles.community_id, otherwise null.
@@ -147,7 +144,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .maybeSingle();
       requesterCommunityId = requesterProfile?.community_id ?? null;
     }
-    console.log('[eligible-classmates] requester effective community_id:', requesterCommunityId);
+    console.log('[eligible-classmates] requester effective community resolved:', { community: !!requesterCommunityId });
 
     // 4. Get assignment's course_id by traversing blocks → lessons
     // Use supabaseAdmin to bypass RLS (blocks table may have restrictive policies)
@@ -158,7 +155,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
 
     if (blockError || !assignmentBlock || !assignmentBlock.lesson_id) {
-      console.error('[eligible-classmates] Assignment block not found or has no lesson:', assignmentId, blockError);
+      console.error('[eligible-classmates] Assignment block not found or has no lesson:', loggableError(blockError));
       return res.status(404).json({ error: 'Tarea no encontrada' });
     }
 
@@ -170,11 +167,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
 
     if (lessonError || !lesson) {
-      console.error('[eligible-classmates] Lesson not found:', assignmentBlock.lesson_id, lessonError);
+      console.error('[eligible-classmates] Lesson not found:', loggableError(lessonError));
       return res.status(404).json({ error: 'Curso no encontrado para esta tarea' });
     }
 
-    console.log('[eligible-classmates] STEP 4a - Lesson data:', { lesson_id: assignmentBlock.lesson_id, course_id: lesson.course_id, module_id: lesson.module_id });
+    console.log('[eligible-classmates] STEP 4a - Lesson data:', { course: !!lesson.course_id, module: !!lesson.module_id });
 
     // course_id can be on lesson directly OR on the module — query module separately if needed
     let courseId = lesson.course_id;
@@ -187,18 +184,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .single();
 
       if (moduleError) {
-        console.error('[eligible-classmates] Error fetching module:', lesson.module_id, moduleError);
+        console.error('[eligible-classmates] Error fetching module:', loggableError(moduleError));
       }
 
-      console.log('[eligible-classmates] STEP 4b - Module data:', { module_id: lesson.module_id, course_id: moduleData?.course_id, error: moduleError?.message });
+      console.log('[eligible-classmates] STEP 4b - Module data:', { course: !!moduleData?.course_id });
       courseId = moduleData?.course_id || null;
     }
 
     if (!courseId) {
-      console.error('[eligible-classmates] No course_id found on lesson or module:', assignmentBlock.lesson_id);
+      console.error('[eligible-classmates] No course_id found on lesson or module');
       return res.status(404).json({ error: 'Curso no encontrado para esta tarea' });
     }
-    console.log('[eligible-classmates] STEP 4 - Resolved course_id:', courseId);
+    console.log('[eligible-classmates] STEP 4 - Resolved course');
 
     // 5. Get all students enrolled in this course (no FK join — just user_id)
     // Use supabaseAdmin to bypass RLS (safe: already validated user is group member)
@@ -210,22 +207,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .neq('user_id', userId); // Exclude self
 
     if (enrollmentError) {
-      console.error('[eligible-classmates] Error fetching course enrollments:', {
-        message: enrollmentError.message,
-        code: enrollmentError.code,
-        details: enrollmentError.details,
-        hint: enrollmentError.hint
-      });
+      console.error('[eligible-classmates] Error fetching course enrollments:', loggableError(enrollmentError));
       return res.status(500).json({ error: 'Error al obtener compañeros' });
     }
 
     console.log('[eligible-classmates] STEP 5 - Total course enrollments (excluding self):', enrolledClassmates?.length || 0);
-    if (enrolledClassmates && enrolledClassmates.length > 0) {
-      console.log('[eligible-classmates] STEP 5 - Enrolled user_ids:', enrolledClassmates.map(e => e.user_id));
-    }
 
     if (!enrolledClassmates || enrolledClassmates.length === 0) {
-      console.log('[eligible-classmates] No enrolled classmates found for course:', courseId);
+      console.log('[eligible-classmates] No enrolled classmates found for course');
       return res.status(200).json({ classmates: [] });
     }
 
@@ -239,7 +228,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('is_active', true);
 
     if (classmateRolesError) {
-      console.error('[eligible-classmates] Error fetching classmate roles:', classmateRolesError);
+      console.error('[eligible-classmates] Error fetching classmate roles:', loggableError(classmateRolesError));
       return res.status(500).json({ error: 'Error al verificar compañeros' });
     }
 
@@ -255,13 +244,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const sameSchoolClassmates = enrolledClassmates.filter(c => sameSchoolUserIds.has(c.user_id));
 
     console.log('[eligible-classmates] STEP 6 - Classmate roles in same school:', classmateRoles?.length || 0);
-    if (classmateRoles && classmateRoles.length > 0) {
-      console.log('[eligible-classmates] STEP 6 - Same-school user_ids:', classmateRoles.map(r => r.user_id));
-    }
     console.log('[eligible-classmates] STEP 6 - Same school classmates after filter:', sameSchoolClassmates.length);
 
     if (sameSchoolClassmates.length === 0) {
-      console.log('[eligible-classmates] No classmates from school_id:', requesterSchoolId);
+      console.log('[eligible-classmates] No classmates from the requester school');
       return res.status(200).json({ classmates: [] });
     }
 
@@ -273,22 +259,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('assignment_id', assignmentId as string);
 
     if (groupMembersError) {
-      console.error('[eligible-classmates] Error fetching group members:', groupMembersError);
+      console.error('[eligible-classmates] Error fetching group members:', loggableError(groupMembersError));
       return res.status(500).json({ error: 'Error al verificar grupos' });
     }
 
     const assignedUserIds = groupMembers?.map(m => m.user_id) || [];
     console.log('[eligible-classmates] STEP 7 - Already assigned users:', assignedUserIds.length);
-    if (assignedUserIds.length > 0) {
-      console.log('[eligible-classmates] STEP 7 - Assigned user_ids:', assignedUserIds);
-    }
 
     // 8. Filter out already-assigned students, then fetch profiles separately
     const eligibleUserIds = sameSchoolClassmates
       .filter(member => !assignedUserIds.includes(member.user_id))
       .map(member => member.user_id);
 
-    console.log('[eligible-classmates] STEP 8 - Eligible user_ids after filtering:', eligibleUserIds.length, eligibleUserIds);
+    console.log('[eligible-classmates] STEP 8 - Eligible classmates after filtering:', eligibleUserIds.length);
 
     if (eligibleUserIds.length === 0) {
       console.log('[eligible-classmates] No eligible classmates after filtering assigned users');
@@ -302,7 +285,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .in('id', eligibleUserIds);
 
     if (profilesError) {
-      console.error('[eligible-classmates] STEP 8 - Error fetching profiles:', profilesError);
+      console.error('[eligible-classmates] STEP 8 - Error fetching profiles:', loggableError(profilesError));
       return res.status(500).json({ error: 'Error al obtener perfiles de compañeros' });
     }
 
@@ -339,11 +322,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
     });
 
-    console.log('[eligible-classmates] user', userId, 'assignment', assignmentId, 'group', groupId, 'school_id', requesterSchoolId, 'course_id', courseId, 'eligible', eligibleClassmates.length, '(filtered from', sameSchoolClassmates.length, 'same-school enrolled classmates)');
+    console.log('[eligible-classmates] eligible', eligibleClassmates.length, '(filtered from', sameSchoolClassmates.length, 'same-school enrolled classmates)');
     return res.status(200).json({ classmates: eligibleClassmates });
 
   } catch (error) {
-    console.error('Error in eligible-classmates endpoint:', error);
+    console.error('Error in eligible-classmates endpoint:', loggableError(error));
     return res.status(500).json({ error: 'Error interno del servidor' });
   }
 }

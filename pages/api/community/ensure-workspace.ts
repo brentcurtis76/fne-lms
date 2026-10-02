@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
-import { requireVerifiedCaller } from '../../../lib/api-auth';
+import { loggableError, requireVerifiedCaller } from '../../../lib/api-auth';
 
 const serviceClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -89,7 +89,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .single();
 
   if (createError) {
-    console.error('[ensure-workspace] Error creating workspace:', createError);
+    // Only the error code: the detail names the community.
+    console.error('[ensure-workspace] Error creating workspace:', loggableError(createError));
     return res.status(500).json({ error: 'Failed to create workspace' });
   }
 

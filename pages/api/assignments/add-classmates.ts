@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
+import { deliverRecordBells, loggableError } from '../quiz-reviews/notify-pending';
 
 /**
  * POST /api/assignments/add-classmates
@@ -58,12 +59,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     );
 
-    // DETAILED LOGGING: Log full request payload for debugging
+    // Counts only: user, group and classmate ids identify students and stay out of logs.
     console.log('[add-classmates] === REQUEST START ===');
-    console.log('[add-classmates] User ID:', userId);
-    console.log('[add-classmates] Assignment ID:', assignmentId);
-    console.log('[add-classmates] Group ID:', groupId);
-    console.log('[add-classmates] Classmate IDs:', JSON.stringify(classmateIds));
+    console.log('[add-classmates] Classmates requested:', classmateIds.length);
 
     // 1. Check if user is a member of the specified group OR if group is empty (auto-grouping flow)
     const { data: membership } = await supabase
@@ -102,7 +100,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('is_active', true);
 
     if (roleError || !requesterRoles || requesterRoles.length === 0) {
-      console.error('[add-classmates] No active roles found for user:', userId, roleError);
+      console.error('[add-classmates] No active roles found for requester:', loggableError(roleError));
       return res.status(403).json({ error: 'No tienes una escuela asignada' });
     }
 
@@ -114,9 +112,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     const requesterSchoolId = group.school_id;
     if (!requesterSchoolId || !requesterRoles.some(r => r.school_id === requesterSchoolId)) {
+      console.error('[add-classmates] Requester has no role in the group school');
       return res.status(403).json({ error: 'No perteneces a la escuela de este grupo' });
     }
-    console.log('[add-classmates] requester has', requesterRoles.length, 'active roles; group school_id:', requesterSchoolId);
+    console.log('[add-classmates] requester has', requesterRoles.length, 'active roles in scope');
 
     // 2c. Get assignment's course_id
     const { data: assignmentBlock, error: blockError } = await supabase
@@ -126,7 +125,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
 
     if (blockError || !assignmentBlock || !assignmentBlock.lesson_id) {
-      console.error('[add-classmates] Assignment block not found:', assignmentId, blockError);
+      console.error('[add-classmates] Assignment block not found:', loggableError(blockError));
       return res.status(404).json({ error: 'Tarea no encontrada' });
     }
 
@@ -137,7 +136,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
 
     if (lessonError || !lesson || !lesson.course_id) {
-      console.error('[add-classmates] Lesson not found:', assignmentBlock.lesson_id, lessonError);
+      console.error('[add-classmates] Lesson not found:', loggableError(lessonError));
       return res.status(404).json({ error: 'Curso no encontrado para esta tarea' });
     }
 
@@ -154,7 +153,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .eq('group_id', groupId);
 
       if (countError || memberCount === null || memberCount === undefined) {
-        console.error('[add-classmates] Could not count group members:', countError);
+        console.error('[add-classmates] Could not count group members:', loggableError(countError));
         return res.status(500).json({ error: 'Error al verificar el grupo' });
       }
       if (memberCount > 0) {
@@ -223,7 +222,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       if (!hasAccess) {
-        console.error('[add-classmates] Requester has no access to course:', userId, courseId, '- checked: enrollments, course_assignments, consultant_assignments');
+        console.error('[add-classmates] Requester has no access to course - checked: enrollments, course_assignments, consultant_assignments');
         return res.status(403).json({
           error: 'Debes estar inscrito en el curso para agregar compañeros a este grupo'
         });
@@ -240,7 +239,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('is_active', true);
 
     if (rolesError) {
-      console.error('[add-classmates] Error validating classmate roles:', rolesError);
+      console.error('[add-classmates] Error validating classmate roles:', loggableError(rolesError));
       return res.status(500).json({ error: 'Error al validar compañeros' });
     }
 
@@ -260,13 +259,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       (classmateRoles || []).filter(r => r.school_id === requesterSchoolId).map(r => r.user_id)
     );
     if (classmateIds.some((id: string) => !inSchool.has(id))) {
-      const foundIds = inSchool;
-      const missingIds = classmateIds.filter((id: string) => !foundIds.has(id));
-      console.error('[add-classmates] VALIDATION FAILED - Roles Check');
-      console.error('[add-classmates] Requested classmates:', classmateIds);
-      console.error('[add-classmates] Found with active roles:', Array.from(foundIds));
-      console.error('[add-classmates] Missing active roles:', missingIds);
-      console.error('[add-classmates] Classmate roles found:', JSON.stringify(classmateRoles));
+      const missingIds = classmateIds.filter((id: string) => !inSchool.has(id));
+      console.error('[add-classmates] VALIDATION FAILED - Roles Check:', {
+        requested: classmateIds.length,
+        found: inSchool.size,
+        missing: missingIds.length,
+      });
       return res.status(400).json({
         error: 'Algunos compañeros no tienen roles activos en el sistema o no pertenecen a tu escuela',
         details: { missingIds, foundCount: classmateRoles?.length, requestedCount: classmateIds.length }
@@ -282,7 +280,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('status', 'active');
 
     if (enrollmentError) {
-      console.error('[add-classmates] Error validating course enrollments:', enrollmentError);
+      console.error('[add-classmates] Error validating course enrollments:', loggableError(enrollmentError));
       return res.status(500).json({ error: 'Error al validar inscripciones' });
     }
 
@@ -290,11 +288,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const notEnrolled = classmateIds.filter(id => !enrolledUserIds.has(id));
 
     if (notEnrolled.length > 0) {
-      console.error('[add-classmates] VALIDATION FAILED - Enrollment Check');
-      console.error('[add-classmates] Course ID:', courseId);
-      console.error('[add-classmates] Requested classmates:', classmateIds);
-      console.error('[add-classmates] Enrolled classmates:', Array.from(enrolledUserIds));
-      console.error('[add-classmates] NOT enrolled:', notEnrolled);
+      console.error('[add-classmates] VALIDATION FAILED - Enrollment Check:', {
+        requested: classmateIds.length,
+        enrolled: enrolledUserIds.size,
+        notEnrolled: notEnrolled.length,
+      });
       return res.status(400).json({
         error: 'Algunos compañeros no están inscritos en el curso de esta tarea',
         details: { notEnrolled, courseId, enrolledCount: enrolledUserIds.size }
@@ -302,95 +300,72 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 5. Validate classmates are not already in groups for this assignment
+    // A classmate already in THIS group is a retry: not inserted again, but
+    // their invitation bell is re-requested (keyed, so never duplicated).
     const { data: existingMembers, error: existingError } = await supabaseAdmin
       .from('group_assignment_members')
-      .select('user_id')
+      .select('user_id, group_id')
       .eq('assignment_id', assignmentId)
       .in('user_id', classmateIds);
 
     if (existingError) {
-      console.error('Error checking existing members:', existingError);
+      console.error('Error checking existing members:', loggableError(existingError));
       return res.status(500).json({ error: 'Error al verificar membresías' });
     }
 
-    if (existingMembers && existingMembers.length > 0) {
+    if (existingMembers?.some(m => m.group_id !== groupId)) {
       return res.status(400).json({
         error: 'Algunos compañeros ya están en grupos para esta tarea'
       });
     }
 
+    const alreadyInGroup = new Set((existingMembers ?? []).map(m => m.user_id));
+
     // 6. Insert new members using service role client to bypass RLS
     // All validation has been done above, so this is safe
 
-    const members = classmateIds.map(classmateId => ({
-      group_id: groupId,
-      assignment_id: assignmentId,
-      user_id: classmateId,
-      role: 'member'
-    }));
-
-    const { data: insertedMembers, error: insertError } = await supabaseAdmin
-      .from('group_assignment_members')
-      .insert(members)
-      .select();
-
-    if (insertError) {
-      console.error('Error inserting members:', insertError);
-      return res.status(500).json({ error: 'Error al agregar compañeros al grupo' });
-    }
-
-    // 7. Send notifications to added classmates
-    try {
-      // Get assignment details
-      const { data: assignmentBlock } = await supabase
-        .from('blocks')
-        .select('payload')
-        .eq('id', assignmentId)
-        .single();
-
-      const assignmentTitle = assignmentBlock?.payload?.title || 'Sin título';
-
-      // Get adder's profile
-      const { data: adderProfile } = await supabase
-        .from('profiles')
-        .select('first_name, last_name')
-        .eq('id', userId)
-        .single();
-
-      const adderName = adderProfile
-        ? `${adderProfile.first_name || ''} ${adderProfile.last_name || ''}`.trim()
-        : 'Un compañero';
-
-      // Create notifications
-      const notifications = classmateIds.map(classmateId => ({
+    const members = [...new Set<string>(classmateIds)]
+      .filter(classmateId => !alreadyInGroup.has(classmateId))
+      .map(classmateId => ({
+        group_id: groupId,
+        assignment_id: assignmentId,
         user_id: classmateId,
-        type: 'group_invitation',
-        title: 'Te agregaron a un grupo',
-        message: `${adderName} te agregó a su grupo para la tarea "${assignmentTitle}"`,
-        data: {
-          assignment_id: assignmentId,
-          group_id: groupId,
-          added_by: userId
-        },
-        created_at: new Date().toISOString()
+        role: 'member'
       }));
 
-      await supabase
-        .from('notifications')
-        .insert(notifications);
-    } catch (notifError) {
-      // Notifications are non-critical, log but don't fail
-      console.error('Error sending notifications:', notifError);
+    let insertedMembers: Array<{ user_id: string }> = [];
+    if (members.length > 0) {
+      const { data, error: insertError } = await supabaseAdmin
+        .from('group_assignment_members')
+        .insert(members)
+        .select();
+
+      if (insertError) {
+        console.error('Error inserting members:', loggableError(insertError));
+        return res.status(500).json({ error: 'Error al agregar compañeros al grupo' });
+      }
+      insertedMembers = data ?? [];
+    }
+
+    // 7. Invitation bells for the persisted members of this group, never the requester.
+    const invitees = [...insertedMembers.map(m => m.user_id), ...alreadyInGroup]
+      .filter(id => id !== userId)
+      .map(id => ({ id }));
+    const failed = await deliverRecordBells('group_invitation', { group_id: groupId }, invitees);
+    if (failed > 0) {
+      // Nonfatal: the members are saved; the same request again fills the gap.
+      console.error('[add-classmates] invitation notifications not created', { failed });
     }
 
     return res.status(200).json({
       success: true,
       members: insertedMembers,
-      count: insertedMembers?.length || 0
+      count: insertedMembers.length,
+      notificationsDelivered: failed === 0
     });
 
   } catch (error) {
-    console.error('Error in add-classmates endpoint:', error);
+    console.error('Error in add-classmates endpoint:', loggableError(error));
     return res.status(500).json({ error: 'Error interno del servidor' });
   }
 }

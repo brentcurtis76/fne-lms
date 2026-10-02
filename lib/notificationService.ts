@@ -8,9 +8,23 @@
  * - If DB template substitution fails, code defaults are used
  */
 
+import { createHash, randomUUID } from 'crypto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { getAccessibleUrl } from '../utils/notificationPermissions';
+import { getHighestRole, getUserRoles } from '../utils/roleUtils';
 import { getEventConfig, hasEventConfig } from './notificationEvents';
+import {
+  buildRecordUrl,
+  DEFAULT_NOTIFICATION_URL,
+  getCatalogEntry,
+  getFallbackUrl,
+  isOpenToRole,
+  NOTIFICATION_CATALOG,
+  isSafeNotificationPath,
+  isSessionRecordOpenTo,
+  type SessionRecord,
+} from './notifications/catalog';
+import { resolveEmailPreference } from './notifications/resolve-preference';
 import { sendNotificationEmail } from './email/notifications';
 import type { EmailTransport } from './email/provider';
 import { profileName } from './utils/profile-name';
@@ -67,6 +81,7 @@ interface NotificationData {
   read_at: null;
   event_type?: string;
   idempotency_key?: string | null;
+  notification_type_id?: string | null;
 }
 
 // Use service role key for bypassing RLS when creating notifications
@@ -143,6 +158,11 @@ async function getLicitacionRecipients(
   return recipients;
 }
 
+/** The catalog event the meeting-summary email is governed by. */
+const MEETING_SUMMARY_EVENT = 'meeting_finalized';
+
+const USER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Resolve recipients for a community-meeting finalize/update email.
  *
@@ -150,8 +170,10 @@ async function getLicitacionRecipients(
  *   growth community (all role types).
  * - `opts.onlyAttended = true`: only users with `meeting_attendees.attendance_status = 'attended'`.
  *
- * Dedupes by user id. Filters users whose notification preferences have
- * `email_enabled = false`.
+ * Dedupes by user id. Keeps only users the `meeting_finalized` email
+ * precedence sends to: a non-default `community` category mode decides, then
+ * any legacy preference row with `email_enabled = false` suppresses, then the
+ * catalog default. If either preference read fails, nobody is returned.
  */
 export async function getCommunityRecipients(
   supabase: SupabaseClient,
@@ -207,25 +229,62 @@ export async function getCommunityRecipients(
     .select('id, email, first_name, last_name, name')
     .in('id', userIds);
 
-  // Respect email-enabled preference; when no row exists, default is to send.
-  const { data: prefs } = await supabase
-    .from('user_notification_preferences')
-    .select('user_id, email_enabled')
-    .in('user_id', userIds);
+  let preferenceReads;
+  try {
+    preferenceReads = await Promise.all([
+      supabase
+        .from('user_notification_preferences')
+        .select('user_id, email_enabled')
+        .in('user_id', userIds),
+      supabase
+        .from('user_notification_category_prefs')
+        .select('user_id, email_mode')
+        .eq('category', NOTIFICATION_CATALOG[MEETING_SUMMARY_EVENT].category)
+        .in('user_id', userIds),
+    ]);
+  } catch {
+    preferenceReads = null;
+  }
 
-  const optedOut = new Set(
+  if (!preferenceReads || preferenceReads[0].error || preferenceReads[1].error) {
+    console.error('Meeting summary email suppressed', { status: 'preference_unavailable' });
+    return [];
+  }
+  const [{ data: prefs }, { data: categoryPrefs }] = preferenceReads;
+
+  // Any false legacy row suppresses the meeting summary (its pre-N1-03 rule).
+  const legacyOptedOut = new Set(
     (prefs || [])
       .filter((p: any) => p.email_enabled === false)
       .map((p: any) => p.user_id as string)
   );
+  const categoryModes = new Map(
+    (categoryPrefs || []).map((p: any) => [p.user_id as string, p.email_mode])
+  );
 
   const recipients: Array<{ id: string; email: string; name: string }> = [];
   for (const p of profiles || []) {
-    if (!p.email || optedOut.has(p.id)) continue;
+    if (!p.email) continue;
+    const decision = resolveEmailPreference({
+      eventType: MEETING_SUMMARY_EVENT,
+      categoryMode: categoryModes.get(p.id) ?? null,
+      legacySuppressed: legacyOptedOut.has(p.id),
+    });
+    // Compat mode until the outbox: a digest choice is sent immediately.
+    if (decision.mode === 'off') continue;
     const name = profileName(p as any, p.email as string);
     recipients.push({ id: p.id as string, email: p.email as string, name });
   }
   return recipients;
+}
+
+/**
+ * `NOTIFICATION_EMAIL_ENABLED` set to `off`, `false` or `0`; unset or anything
+ * else keeps the immediate email on.
+ */
+function isEmailKillSwitchOff(): boolean {
+  const flag = process.env.NOTIFICATION_EMAIL_ENABLED?.trim().toLowerCase();
+  return flag === 'off' || flag === 'false' || flag === '0';
 }
 
 /**
@@ -237,6 +296,13 @@ function loggableError(error: unknown): { code?: string } {
   const code = (error as { code?: unknown } | null)?.code;
   return typeof code === 'string' && /^(?:[0-9A-Z]{5}|PGRST\d{3})$/.test(code) ? { code } : {};
 }
+
+function sha256Hex(value: string): string {
+  return createHash('sha256').update(value, 'utf8').digest('hex');
+}
+
+/** The occurrence prefix `resolveOccurrence` gives a payload the catalog identifies. */
+const IDENTIFIED_OCCURRENCE = 'record:';
 
 class NotificationService {
   
@@ -251,6 +317,7 @@ class NotificationService {
     eventData: Record<string, unknown>,
     options: TriggerOptions = {}
   ): Promise<TriggerResult> {
+    const occurrence = this.resolveOccurrence(eventType, eventData);
     try {
       // eventData carries recipient ids (e.g. `assigned_users`), so it is not logged.
       console.log(`🔔 Notification trigger fired: ${eventType}`);
@@ -264,7 +331,7 @@ class NotificationService {
       if (triggers && triggers.length > 0) {
         for (const trigger of triggers) {
           try {
-            const notificationCount = await this.processNotification(trigger, eventData, eventType, options);
+            const notificationCount = await this.processNotification(trigger, eventData, eventType, options, occurrence);
             totalNotificationsCreated += notificationCount;
           } catch (error) {
             console.error(`❌ Error processing trigger ${trigger.trigger_id}`, loggableError(error));
@@ -289,7 +356,7 @@ class NotificationService {
         };
 
         try {
-          const notificationCount = await this.processNotification(syntheticTrigger, eventData, eventType, options);
+          const notificationCount = await this.processNotification(syntheticTrigger, eventData, eventType, options, occurrence);
           totalNotificationsCreated += notificationCount;
         } catch (error) {
           console.error(`❌ Error processing code-based notification for ${eventType}`, loggableError(error));
@@ -297,14 +364,14 @@ class NotificationService {
       }
 
       // Log the event for audit trail
-      await this.logNotificationEvent(eventType, eventData, null, totalNotificationsCreated, 'success');
+      await this.logNotificationEvent(eventType, occurrence, null, totalNotificationsCreated, 'success');
 
       console.log(`✅ Notification processing complete: ${totalNotificationsCreated} notifications created`);
       return { success: true, notificationsCreated: totalNotificationsCreated };
 
     } catch (error) {
       console.error(`❌ Notification trigger failed for ${eventType}`, loggableError(error));
-      await this.logNotificationEvent(eventType, eventData, null, 0, 'failed');
+      await this.logNotificationEvent(eventType, occurrence, null, 0, 'failed');
       return { success: false, error: error.message };
     }
   }
@@ -337,12 +404,14 @@ class NotificationService {
    * @param eventData - Event data for template substitution
    * @param eventType - The event type
    * @param options - Processing options
+   * @param occurrence - The trigger call's occurrence (`resolveOccurrence`)
    */
   async processNotification(
     trigger: NotificationTrigger,
     eventData: Record<string, unknown>,
     eventType: string,
-    options: TriggerOptions = {}
+    options: TriggerOptions = {},
+    occurrence: string = this.resolveOccurrence(eventType, eventData)
   ): Promise<number> {
     try {
       // Get recipients for this trigger
@@ -355,86 +424,55 @@ class NotificationService {
 
       // Generate notification content from template (hybrid: DB template with code fallback)
       const content = await this.generateContent(trigger.template, eventData, eventType);
+
+      // A mapped event is stored under its catalog category; an unknown one keeps its trigger's.
+      const category = getCatalogEntry(eventType)?.category ?? trigger.category;
+      const notificationTypeId = await this.getNotificationTypeId(eventType);
+
+      // A session record page re-checks `canViewSession` for its viewer, so the
+      // session is read once here and each recipient's link is decided against it.
+      const sessionRecord = await this.getSessionRecord(eventData);
       
       let notificationsCreated = 0;
 
       // Create notification for each recipient
       for (const recipient of recipients) {
         try {
-          // Get recipient's role for URL generation
-          const { data: profile } = await supabaseServiceRole
-            .from('profiles')
-            .select('role')
-            .eq('id', recipient.id)
-            .single();
+          // Recipient's active roles, for URL generation (profiles has no role column)
+          const userRoles = await getUserRoles(supabaseServiceRole, recipient.id);
+          const highestRole = getHighestRole(userRoles);
+          const userRole = highestRole || 'docente';
           
-          const userRole = profile?.role || 'docente';
-          
-          // Determine appropriate URL based on recipient's role
+          // The catalog's record path wins when the payload identifies the record;
+          // otherwise the template/default URL. Either is checked against the
+          // recipient's role and, for a session record, against the page's own
+          // access rule; anything else becomes the event's fallback page.
           const relatedUrl = getAccessibleUrl(
-            content.related_url, 
-            userRole, 
+            buildRecordUrl(eventType, eventData, userRole) ?? content.related_url,
+            userRole,
             eventData
           );
           
-          // Generate idempotency key for this notification
-          const idempotencyKey = this.generateIdempotencyKey(eventType, eventData, recipient.id);
+          const idempotencyKey = this.generateIdempotencyKey(eventType, occurrence, recipient.id);
           
-          // Provide fallback URL if the template substitution failed
-          let finalRelatedUrl = relatedUrl;
-          if (!finalRelatedUrl || finalRelatedUrl.includes('{')) {
-            console.warn(`⚠️ Invalid or missing related_url for ${eventType}, generating fallback`);
-            switch (eventType) {
-              case 'new_feedback':
-                finalRelatedUrl = '/admin/feedback';
-                break;
-              case 'assignment_created':
-                finalRelatedUrl = '/assignments';
-                break;
-              case 'course_assigned':
-                finalRelatedUrl = '/mi-aprendizaje';
-                break;
-              case 'session_edit_request_submitted':
-                finalRelatedUrl = '/admin/sessions/approvals';
-                break;
-              case 'session_edit_request_approved':
-              case 'session_edit_request_rejected':
-              case 'session_reminder_24h':
-              case 'session_reminder_1h':
-                finalRelatedUrl = '/consultor/sessions';
-                break;
-              case 'licitacion_created':
-              case 'licitacion_published':
-              case 'licitacion_bases_deadline_1d':
-              case 'licitacion_bases_deadline':
-              case 'licitacion_consultas_deadline_1d':
-              case 'licitacion_consultas_deadline':
-              case 'licitacion_propuestas_open':
-              case 'licitacion_propuestas_deadline_1d':
-              case 'licitacion_propuestas_deadline':
-              case 'licitacion_evaluacion_start':
-              case 'licitacion_evaluacion_deadline_1d':
-              case 'licitacion_evaluacion_complete':
-              case 'licitacion_adjudicada':
-              case 'licitacion_contrato_generado':
-                finalRelatedUrl = '/licitaciones';
-                break;
-              default:
-                finalRelatedUrl = '/dashboard';
-            }
-            console.log(`🔄 Using fallback URL: ${finalRelatedUrl}`);
-          }
+          const finalRelatedUrl =
+            isSafeNotificationPath(relatedUrl) &&
+            isOpenToRole(relatedUrl, userRole) &&
+            isSessionRecordOpenTo(relatedUrl, { userId: recipient.id, userRoles, highestRole }, sessionRecord)
+              ? relatedUrl
+              : getAccessibleUrl(getFallbackUrl(eventType, userRole), userRole) ?? DEFAULT_NOTIFICATION_URL;
           
           await this.createNotification({
             user_id: recipient.id,
             title: content.title,
             description: content.description,
-            category: trigger.category,
+            category,
             related_url: finalRelatedUrl,
             importance: content.importance || 'normal',
             read_at: null,
             event_type: eventType,
-            idempotency_key: idempotencyKey
+            idempotency_key: idempotencyKey,
+            notification_type_id: notificationTypeId
           });
           notificationsCreated++;
         } catch (error) {
@@ -454,11 +492,57 @@ class NotificationService {
   }
 
   /**
+   * The `notification_types` row named after this event, or null when there is
+   * none or the read fails: the column is a nullable foreign key and the types
+   * are not seeded, so a missing type never costs the notification.
+   * @param eventType - The event type
+   */
+  async getNotificationTypeId(eventType: string): Promise<string | null> {
+    try {
+      const { data, error } = await supabaseServiceRole
+        .from('notification_types')
+        .select('id')
+        .eq('id', eventType)
+        .maybeSingle();
+      if (error) {
+        console.error('Notification type lookup failed', loggableError(error));
+        return null;
+      }
+      return typeof data?.id === 'string' ? data.id : null;
+    } catch (error) {
+      console.error('Notification type lookup failed', loggableError(error));
+      return null;
+    }
+  }
+
+  /**
    * Determine recipients based on trigger type and event data
    * @param trigger - The trigger configuration
    * @param eventData - Event data containing recipient information
    * @param eventType - The event type
    */
+  /**
+   * The session a payload's `session.id` names, as the session record pages
+   * read it for their access rule; null when the id is not a UUID or the read
+   * fails, which denies every session record link for this event.
+   */
+  async getSessionRecord(eventData: Record<string, unknown>): Promise<SessionRecord | null> {
+    const id = (eventData?.session as Record<string, unknown> | undefined)?.id;
+    if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      return null;
+    }
+    try {
+      const { data, error } = await supabaseServiceRole
+        .from('consultor_sessions')
+        .select('id, school_id, growth_community_id, status, is_active')
+        .eq('id', id)
+        .maybeSingle();
+      return error || !data ? null : (data as SessionRecord);
+    } catch {
+      return null;
+    }
+  }
+
   async getRecipients(
     trigger: NotificationTrigger,
     eventData: Record<string, unknown>,
@@ -501,6 +585,21 @@ class NotificationService {
             recipients.push({ id: eventData.mentioned_user_id });
           }
           break;
+
+        case 'meeting_finalized': {
+          // Exactly the finalize route's resolved recipients: valid, distinct user
+          // ids only. Nothing is inferred from the title or the audience.
+          const seen = new Set<string>();
+          for (const userId of Array.isArray(eventData.recipient_ids) ? eventData.recipient_ids : []) {
+            if (typeof userId !== 'string' || !USER_ID.test(userId)) continue;
+            const id = userId.toLowerCase();
+            if (!seen.has(id)) {
+              seen.add(id);
+              recipients.push({ id });
+            }
+          }
+          break;
+        }
 
         case 'assignment_feedback':
         case 'assignment_due_soon':
@@ -714,7 +813,7 @@ class NotificationService {
           return {
             title: substitutedTitle,
             description: substitutedDesc || eventConfig.defaultDescription(eventData),
-            related_url: substitutedUrl || eventConfig.defaultUrl,
+            related_url: substitutedUrl || getFallbackUrl(eventType),
             importance: template.importance || eventConfig.importance,
           };
         }
@@ -728,7 +827,7 @@ class NotificationService {
       return {
         title: eventConfig.defaultTitle(eventData),
         description: eventConfig.defaultDescription(eventData),
-        related_url: eventConfig.defaultUrl,
+        related_url: getFallbackUrl(eventType),
         importance: eventConfig.importance,
       };
 
@@ -738,7 +837,7 @@ class NotificationService {
       return {
         title: eventConfig.defaultTitle(eventData),
         description: eventConfig.defaultDescription(eventData),
-        related_url: eventConfig.defaultUrl,
+        related_url: getFallbackUrl(eventType),
         importance: eventConfig.importance,
       };
     }
@@ -775,120 +874,39 @@ class NotificationService {
   }
 
   /**
-   * Generate idempotency key for notifications to prevent duplicates
-   * @param {string} eventType - The type of event
-   * @param {Object} eventData - Event data containing unique identifiers
-   * @param {string} userId - The recipient user ID
+   * The occurrence a trigger call notifies about (plan D3, N2-01): the
+   * catalog's record identity when the payload carries a valid one. Otherwise
+   * a fresh id for this call, so an unidentified call is never merged with
+   * another one (two genuine occurrences stay two) and is never claimed to be
+   * idempotent: a repeated unidentified call is delivered again.
+   * @param eventType - The event type
+   * @param eventData - Event payload
    */
-  generateIdempotencyKey(eventType, eventData, userId) {
-    // Extract a unique identifier from the event data
-    let eventId = '';
-    
-    // Map event types to their unique identifiers
-    switch (eventType) {
-      case 'new_feedback':
-        eventId = eventData.feedback_id || '';
-        break;
-      case 'assignment_created':
-        eventId = eventData.assignment_id || '';
-        break;
-      case 'course_assigned':
-        eventId = eventData.course_id || '';
-        break;
-      case 'message_sent':
-        eventId = eventData.message_id || '';
-        break;
-      case 'user_mentioned':
-        eventId = `${eventData.workspace_id}-${eventData.mentioned_user_id}`;
-        break;
-      case 'assignment_feedback':
-        eventId = eventData.submission_id || '';
-        break;
-      case 'course_completed':
-        eventId = `${eventData.course_id}-${eventData.student_id}`;
-        break;
-      case 'module_completed':
-        eventId = `${eventData.module_id}-${eventData.student_id}`;
-        break;
-      // Licitacion deadline reminders use daily granularity to prevent duplicate firings per page load
-      case 'licitacion_bases_deadline_1d':
-      case 'licitacion_bases_deadline':
-      case 'licitacion_consultas_deadline_1d':
-      case 'licitacion_consultas_deadline':
-      case 'licitacion_propuestas_deadline_1d':
-      case 'licitacion_propuestas_deadline':
-      case 'licitacion_evaluacion_deadline_1d': {
-        const licitId = eventData.licitacion_id || '';
-        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-        return `licitacion_deadline_${licitId}_${eventType}_${today}_${userId}`;
-      }
-      case 'licitacion_created':
-        eventId = (eventData.licitacion_id as string) || '';
-        break;
-      case 'licitacion_published':
-        eventId = `${eventData.licitacion_id || ''}-published`;
-        break;
-      case 'licitacion_propuestas_open':
-        eventId = `${eventData.licitacion_id || ''}-propuestas-open`;
-        break;
-      case 'licitacion_evaluacion_start':
-        eventId = `${eventData.licitacion_id || ''}-evaluacion-start`;
-        break;
-      case 'licitacion_evaluacion_complete':
-        eventId = `${eventData.licitacion_id || ''}-evaluacion-complete`;
-        break;
-      case 'licitacion_adjudicada':
-        eventId = `${eventData.licitacion_id || ''}-adjudicada`;
-        break;
-      case 'licitacion_contrato_generado':
-        eventId = `${eventData.licitacion_id || ''}-contrato`;
-        break;
-      default:
-        // For unknown event types, create a hash of the event data
-        eventId = this.hashObject(eventData);
-    }
-    
-    // Generate key with minute-level timestamp to allow re-notification after time
-    const timestamp = new Date();
-    const minuteTimestamp = new Date(timestamp.getFullYear(), timestamp.getMonth(), 
-      timestamp.getDate(), timestamp.getHours(), timestamp.getMinutes()).toISOString();
-    
-    // Create a consistent key format
-    const keyString = `${eventType}-${eventId}-${userId}-${minuteTimestamp}`;
-    
-    // Return a hash for consistent length and format
-    return this.simpleHash(keyString);
+  resolveOccurrence(eventType: string, eventData: Record<string, unknown>): string {
+    const id = getCatalogEntry(eventType)?.occurrenceId(eventData ?? {}) ?? null;
+    return id === null ? `unidentified:${randomUUID()}` : `${IDENTIFIED_OCCURRENCE}${id}`;
   }
 
   /**
-   * Simple hash function for generating consistent strings
-   * @param {string} str - String to hash
+   * The key shared by the in-app row (`unique_notification_idempotency_key`)
+   * and the provider request: an opaque SHA-256 of event, occurrence and
+   * recipient. It carries no readable id and does not depend on the clock;
+   * 70 characters fit the column's 255 and the provider's 256.
+   * @param eventType - The event type
+   * @param occurrence - The trigger call's occurrence (`resolveOccurrence`)
+   * @param userId - The recipient user ID
    */
-  simpleHash(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash).toString(36);
-  }
-
-  /**
-   * Hash an object to create a unique identifier
-   * @param {Object} obj - Object to hash
-   */
-  hashObject(obj) {
-    const str = JSON.stringify(obj, Object.keys(obj).sort());
-    return this.simpleHash(str);
+  generateIdempotencyKey(eventType: string, occurrence: string, userId: string): string {
+    return `notif-${sha256Hex(JSON.stringify([eventType, occurrence, userId]))}`;
   }
 
   /**
    * Create a new notification.
    *
-   * The in-app row and the immediate e-mail are two independent channels: each
-   * one is governed by its own column in `user_notification_preferences`, and
-   * a recipient who has switched the in-app channel off still gets the mail.
+   * The in-app row and the immediate e-mail are two independent channels. The
+   * in-app row follows `user_notification_preferences.in_app_enabled`; the mail
+   * follows the N1-03 precedence (`resolveEmailChannel`). A recipient who has
+   * switched the in-app channel off still gets the mail.
    * The e-mail therefore does NOT wait on an inserted row — requiring one is
    * what made an email-only preference silently deliver nothing.
    *
@@ -901,7 +919,8 @@ class NotificationService {
     const client = deps.client || supabaseServiceRole;
 
     try {
-      console.log('📧 Creating notification:', notificationData.title);
+      // The title can carry a person's name, so only the event type is logged.
+      console.log('📧 Creating notification', { event_type: notificationData.event_type ?? null });
 
       const notificationType = notificationData.event_type || notificationData.category;
       const preference = await this.getNotificationPreference(
@@ -910,7 +929,9 @@ class NotificationService {
         notificationType
       );
 
-      if (!preference.in_app_enabled && !preference.email_enabled) {
+      const emailEnabled = await this.resolveEmailChannel(client, notificationData, preference);
+
+      if (!preference.in_app_enabled && !emailEnabled) {
         console.log(`🔕 Recipient has disabled ${notificationType} notifications`);
         return null;
       }
@@ -927,7 +948,7 @@ class NotificationService {
         }
       }
 
-      if (preference.email_enabled) {
+      if (emailEnabled) {
         await this.sendImmediateEmail(client, notificationData, deps.transport);
       }
 
@@ -943,21 +964,86 @@ class NotificationService {
   }
 
   /**
+   * Whether the immediate email goes out for this recipient.
+   *
+   * `meeting_finalized` never mails here. The kill switch is checked next,
+   * before any preference read. Then the
+   * recipient's row for the event's catalog category is read, and
+   * `resolveEmailPreference` applies the precedence with SM-15's exact legacy
+   * row. This synchronous path runs in compat mode until the outbox cutover: a
+   * `digest` result is sent immediately and only `off` suppresses. A failed
+   * read suppresses a non-mandatory email and logs only a status.
+   *
+   * @param {Object} client - Supabase client to read through
+   * @param {Object} notificationData - Notification being delivered
+   * @param {Object} preference - Result of `getNotificationPreference`
+   */
+  async resolveEmailChannel(client, notificationData, preference) {
+    // Until N5-06 the finalize route's summary is a meeting's only email, so its
+    // notification is in-app only whatever the category mode or kill switch.
+    if (notificationData.event_type === MEETING_SUMMARY_EVENT) {
+      console.log('📭 Notification email NOT sent', { status: 'in_app_only' });
+      return false;
+    }
+
+    if (isEmailKillSwitchOff()) {
+      console.log('📭 Notification email NOT sent', { status: 'disabled' });
+      return false;
+    }
+
+    const eventType = notificationData.event_type;
+    const category = eventType ? getCatalogEntry(eventType)?.category : undefined;
+    let categoryMode = null;
+    let lookupFailed = preference.lookup_failed === true;
+
+    if (category && !lookupFailed) {
+      try {
+        const { data, error } = await client
+          .from('user_notification_category_prefs')
+          .select('email_mode')
+          .eq('user_id', notificationData.user_id)
+          .eq('category', category)
+          .maybeSingle();
+        if (error) lookupFailed = true;
+        else categoryMode = data?.email_mode ?? null;
+      } catch {
+        lookupFailed = true;
+      }
+    }
+
+    const decision = resolveEmailPreference({
+      eventType,
+      categoryMode,
+      legacySuppressed: !preference.email_enabled,
+      lookupFailed,
+    });
+
+    if (decision.reason === 'preference_unavailable') {
+      console.error('Notification email suppressed', { status: 'preference_unavailable' });
+    }
+    return decision.mode !== 'off';
+  }
+
+  /**
    * Insert the in-app row, or return null when this notification is a repeat.
    * @param {Object} client - Supabase client to write through
    * @param {Object} notificationData - Notification data to insert
    */
   async createInAppNotification(client, notificationData) {
-    const isDuplicate = await this.checkForDuplicate(
-      client,
-      notificationData.user_id,
-      notificationData.title,
-      notificationData.description
-    );
+    // A keyed row is deduplicated by its occurrence key alone: the title check
+    // would merge two genuine occurrences that happen to share a text.
+    if (!notificationData.idempotency_key) {
+      const isDuplicate = await this.checkForDuplicate(
+        client,
+        notificationData.user_id,
+        notificationData.title,
+        notificationData.description
+      );
 
-    if (isDuplicate) {
-      console.log(`🔕 Duplicate notification prevented: ${notificationData.title}`);
-      return null;
+      if (isDuplicate) {
+        console.log(`🔕 Duplicate notification prevented: ${notificationData.title}`);
+        return null;
+      }
     }
 
     const insertData = {
@@ -969,7 +1055,8 @@ class NotificationService {
       importance: notificationData.importance || 'normal',
       read_at: null,
       created_at: new Date().toISOString(),
-      idempotency_key: notificationData.idempotency_key || null
+      idempotency_key: notificationData.idempotency_key || null,
+      notification_type_id: notificationData.notification_type_id || null
     };
 
     const { data, error } = await client
@@ -1010,8 +1097,7 @@ class NotificationService {
    * @param {Function} [transport] - Injected e-mail transport (tests only)
    */
   async sendImmediateEmail(client, notificationData, transport) {
-    const flag = process.env.NOTIFICATION_EMAIL_ENABLED?.trim().toLowerCase();
-    if (flag === 'off' || flag === 'false' || flag === '0') {
+    if (isEmailKillSwitchOff()) {
       console.log('📭 Notification email NOT sent', { status: 'disabled' });
       return { sent: false, status: 'disabled' };
     }
@@ -1096,7 +1182,9 @@ class NotificationService {
    * `user_notification_preferences` carries exactly two switches per
    * (user, notification_type): `email_enabled` and `in_app_enabled`. There is
    * no row for most (user, type) pairs, and the absence of one means both
-   * channels are on — the same default the columns themselves declare.
+   * channels are on — the same default the columns themselves declare. A
+   * failed read keeps both on and sets `lookup_failed`, which suppresses the
+   * email (`resolveEmailChannel`) but leaves the in-app row independent.
    *
    * @param {Object} client - Supabase client to read through
    * @param {string} userId - Recipient user id
@@ -1113,7 +1201,11 @@ class NotificationService {
         .eq('notification_type', notificationType)
         .maybeSingle();
 
-      if (error || !data) {
+      if (error) {
+        console.error('Error fetching notification preferences', loggableError(error));
+        return { ...bothEnabled, lookup_failed: true };
+      }
+      if (!data) {
         return bothEnabled;
       }
 
@@ -1123,23 +1215,31 @@ class NotificationService {
       };
     } catch (error) {
       console.error('Error fetching notification preferences', loggableError(error));
-      return bothEnabled;
+      return { ...bothEnabled, lookup_failed: true };
     }
   }
 
   /**
-   * Log notification event for audit trail
+   * Log notification event for audit trail.
+   *
+   * The payload is not written: it carries recipient ids, addresses and free
+   * text. The audit keeps whether the occurrence was identified and, if so, an
+   * opaque reference that is the same on every retry of that occurrence.
    * @param {string} eventType - The event type
-   * @param {Object} eventData - Event data
+   * @param {string} occurrence - The trigger call's occurrence (`resolveOccurrence`)
    * @param {string} triggerId - Trigger ID (optional)
    * @param {number} notificationCount - Number of notifications created
    * @param {string} status - Processing status
    */
-  async logNotificationEvent(eventType, eventData, triggerId, notificationCount, status) {
+  async logNotificationEvent(eventType, occurrence, triggerId, notificationCount, status) {
+    const identified = occurrence.startsWith(IDENTIFIED_OCCURRENCE);
     try {
       const { error } = await supabaseServiceRole.rpc('log_notification_event', {
         p_event_type: eventType,
-        p_event_data: eventData,
+        p_event_data: {
+          occurrence: identified ? 'identified' : 'unidentified',
+          occurrence_ref: identified ? `occ-${sha256Hex(JSON.stringify([eventType, occurrence]))}` : null,
+        },
         p_trigger_id: triggerId,
         p_notifications_count: notificationCount,
         p_status: status

@@ -16,11 +16,14 @@
  * asserted here too — a fixture that leaked into the real scan would fail CI for
  * the wrong reason.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   run,
   scanFile,
+  closure,
   computeBrowserGraph,
   RAW_AUTH_PRIMITIVE_MODULES,
   LOW_LEVEL_IMPORT_SURFACES,
@@ -54,7 +57,7 @@ describe('the scan reaches the code it claims to', () => {
 
   it('includes .js and .jsx modules — the second hole', () => {
     expect(modules).toContain('utils/storage.js');
-    expect(modules).toContain('lib/realtimeNotifications.js');
+    expect(modules).toContain('lib/services/communityWorkspace.js');
   });
 
   it('includes browser modules nothing imports yet — the blind spot a pure import graph has', () => {
@@ -264,5 +267,102 @@ describe('the browser graph', () => {
     expect(entries.length).toBeGreaterThan(100);
     // A module only reachable through a chain of relative imports.
     expect([...modules].some((f: string) => f.includes('lib/auth/password-policy'))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Type-only edges. A declaration the compiler erases pulls nothing into the
+// bundle, so it must not drag a server route into the browser set; every form
+// that survives compilation must still be an edge.
+// ---------------------------------------------------------------------------
+
+describe('the browser graph ignores type-only edges and keeps runtime ones', () => {
+  let dir: string;
+  const at = (name: string) => join(dir, `${name}.ts`);
+
+  const ENTRY = [
+    "import type { A } from './type-import';",
+    "import { type B, type C } from './type-named';",
+    "import type * as NS from './type-namespace';",
+    "import type D from './type-default';",
+    "export type { E } from './type-export';",
+    "export { type F, type G } from './type-export-named';",
+    "export type * from './type-export-star';",
+    "import { type H, value } from './run-mixed';",
+    "import Def, { type I } from './run-default-mixed';",
+    "import {} from './run-empty';",
+    "import './run-side-effect';",
+    "export { reexported } from './run-reexport';",
+    "export { type J, K } from './run-reexport-mixed';",
+    "export * from './run-star';",
+    "export * as starNs from './run-star-namespace';",
+    "const required = require('./run-require');",
+    "const lazy = import('./run-dynamic');",
+  ].join('\n');
+
+  const TYPE_TARGETS = [
+    'type-import', 'type-named', 'type-namespace', 'type-default', 'type-export',
+    'type-export-named', 'type-export-star', 'deep-type',
+  ];
+  const RUNTIME_TARGETS = [
+    'run-mixed', 'run-default-mixed', 'run-empty', 'run-side-effect', 'run-reexport',
+    'run-reexport-mixed', 'run-star', 'run-star-namespace', 'run-require', 'run-dynamic', 'deep-run',
+  ];
+
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), 'browser-graph-'));
+    writeFileSync(at('entry'), ENTRY);
+    for (const name of [...TYPE_TARGETS, ...RUNTIME_TARGETS]) writeFileSync(at(name), 'export const x = 1;\n');
+    // A runtime module reached only through the graph: its own type edge is skipped, its runtime edge followed.
+    writeFileSync(at('run-mixed'), "import type { T } from './deep-type';\nimport { u } from './deep-run';\nexport const value = 1;\n");
+    // Server modules, named by the path alias exactly as application code names them.
+    writeFileSync(at('page-type-outbox'), "import type { CapturedMessage } from '@/lib/email/outbox';\nexport type M = CapturedMessage;\n");
+    writeFileSync(at('page-runtime-outbox'), "import { captureOutboundEmail } from '@/lib/email/outbox';\nexport const c = captureOutboundEmail;\n");
+    writeFileSync(at('page-via-helper'), "import { send } from './helper-runtime-outbox';\nexport const s = send;\n");
+    writeFileSync(at('helper-runtime-outbox'), "import { captureOutboundEmail } from '@/lib/email/outbox';\nexport const send = captureOutboundEmail;\n");
+    writeFileSync(at('page-dynamic-outbox'), "export const load = () => import('@/lib/email/outbox');\n");
+    writeFileSync(at('page-require-outbox'), "export const load = () => require('@/lib/email/outbox');\n");
+  });
+
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('follows no pure type edge, including named specifiers that are all types', () => {
+    const reached: Set<string> = closure([at('entry')]);
+    for (const name of TYPE_TARGETS) expect(reached.has(at(name)), name).toBe(false);
+  });
+
+  it('follows every runtime edge: mixed, default, empty, side-effect, re-export, star, require, dynamic, transitive', () => {
+    const reached: Set<string> = closure([at('entry')]);
+    for (const name of RUNTIME_TARGETS) expect(reached.has(at(name)), name).toBe(true);
+  });
+
+  it('reaches a server-only module through runtime imports, require and dynamic import, not through a type import', () => {
+    const outbox = join(process.cwd(), 'lib', 'email', 'outbox.ts');
+    expect(closure([at('page-type-outbox')]).has(outbox)).toBe(false);
+    for (const page of ['page-runtime-outbox', 'page-via-helper', 'page-dynamic-outbox', 'page-require-outbox']) {
+      expect(closure([at(page)]).has(outbox), page).toBe(true);
+    }
+    expect(closure([at('page-via-helper')]).has(at('helper-runtime-outbox'))).toBe(true);
+  });
+
+  it('still flags a browser file that names a server-only module, whether by value or by type', () => {
+    const found = (name: string) => scanFile(at(name), { browser: true }).map((f: any) => f.rule);
+    expect(found('page-runtime-outbox')).toContain('BROWSER_IMPORTS_SERVER_MODULE');
+    expect(found('helper-runtime-outbox')).toContain('BROWSER_IMPORTS_SERVER_MODULE');
+    expect(found('page-type-outbox')).toContain('BROWSER_IMPORTS_SERVER_MODULE');
+  });
+
+  it('no longer classifies a server route and its mailer as browser code through the QA page type import', () => {
+    const { modules, browserReachable } = computeBrowserGraph();
+    const rel = (f: string) => f.slice(process.cwd().length + 1);
+    const browser = [...modules].map(rel);
+    const reachable = [...browserReachable].map(rel);
+    expect(browser).toContain('pages/admin/qa/assignments.tsx');
+    expect(reachable).not.toContain('pages/api/qa/assignments.ts');
+    for (const server of ['lib/notificationService.ts', 'lib/email/notifications.ts', 'lib/email/provider.ts']) {
+      expect(browser).not.toContain(server);
+    }
   });
 });

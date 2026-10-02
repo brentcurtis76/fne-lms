@@ -110,7 +110,8 @@ async function seedContent() {
 
 async function removeContent() {
   if (auditRowIdsForCleanup.length > 0) {
-    await service.from('assignment_audit_log').delete().in('id', auditRowIdsForCleanup);
+    const { error: auditCleanupError } = await service.from('assignment_audit_log').delete().in('id', auditRowIdsForCleanup);
+    if (auditCleanupError) throw new Error(`[learning-path-governance] audit row cleanup: ${auditCleanupError.message}`);
   }
   await service.from('learning_path_progress_sessions').delete().in('course_id', [COURSE_ID, OTHER_COURSE_ID]);
   if (pathIdForCleanup) {

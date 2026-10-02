@@ -59,6 +59,11 @@ BEGIN
   IF check_meeting_id IS NULL OR NOT public.auth_actor_bound(check_user_id) THEN
     RETURN false;
   END IF;
+  -- Definer callers (storage policies, get_overdue_items) bypass the table
+  -- guard policies, so the forced-password-change gate is applied here too.
+  IF auth.uid() IS NOT NULL AND NOT public.password_change_gate_ok() THEN
+    RETURN false;
+  END IF;
 
   IF public.can_edit_meeting_verified(check_user_id, check_meeting_id) THEN
     RETURN true;
@@ -123,21 +128,32 @@ COMMENT ON FUNCTION public.can_delete_meeting(uuid, uuid) IS
   'SM-H8: creator, active admin or active community leader of the meeting''s community.';
 
 -- A read grant may only name someone who holds an active role in the meeting's
--- community.
+-- community. Answers only a verified editor of that meeting (the person adding
+-- the grant) or a backend caller, so it cannot be used to probe membership.
 CREATE FUNCTION public.is_meeting_community_member(check_user_id uuid, check_meeting_id uuid)
 RETURNS boolean
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
-  SELECT EXISTS (
+BEGIN
+  IF auth.uid() IS NULL THEN
+    IF NOT public.auth_is_backend_caller() THEN
+      RETURN false;
+    END IF;
+  ELSIF NOT public.can_edit_meeting_verified(auth.uid(), check_meeting_id) THEN
+    RETURN false;
+  END IF;
+
+  RETURN EXISTS (
     SELECT 1
       FROM public.community_meetings cm
       JOIN public.community_workspaces cw ON cw.id = cm.workspace_id
       JOIN public.user_roles ur ON ur.community_id = cw.community_id
      WHERE cm.id = check_meeting_id AND ur.user_id = check_user_id AND ur.is_active = true
   );
+END;
 $$;
 REVOKE ALL ON FUNCTION public.is_meeting_community_member(uuid, uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.is_meeting_community_member(uuid, uuid) TO authenticated, service_role;
@@ -404,6 +420,11 @@ DECLARE
   v_actor uuid := auth.uid();
 BEGIN
   IF v_actor IS NOT NULL THEN
+    -- Definer function: the table guard policies do not apply, so the
+    -- forced-password-change gate is checked here.
+    IF NOT public.password_change_gate_ok() THEN
+      RETURN;
+    END IF;
     IF p_workspace_id IS NOT NULL THEN
       PERFORM public.assert_workspace_access(p_workspace_id);
     END IF;

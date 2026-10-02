@@ -19,12 +19,15 @@
 --   6. storage: upload path rules, no UPDATE, DELETE by editors only
 --   7. RPCs: get_my_meeting_rights, actor binding, get_overdue_items
 --
+--   3b. demotion of a verified co_editor; attachment rows
+--   The four Production-only storage policies are modelled in the fixtures.
+--
 -- Synthetic/local state only. Rolls back. DO NOT run against production.
 -- =============================================================================
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(204);
+SELECT plan(232);
 
 CREATE TEMP TABLE ids (p text PRIMARY KEY, id uuid) ON COMMIT DROP;
 GRANT SELECT ON ids TO anon, authenticated;
@@ -138,9 +141,9 @@ GRANT SELECT ON content_tables TO anon, authenticated;
 -- ---------------------------------------------------------------------------
 INSERT INTO ids SELECT p, tests.create_supabase_user('smh8_' || p, 'smh8-' || p || '@example.test')
 FROM unnest(ARRAY['creator','facilitator','leader','admin','consultor','participant','granted','legacy',
-                  'member','outsider','leader_b','assignee','gated','inactive_leader']) p;
+                  'member','outsider','leader_b','assignee','gated','inactive_leader','gated_editor','coeditor']) p;
 INSERT INTO public.profiles (id) SELECT id FROM ids ON CONFLICT (id) DO NOTHING;
-UPDATE public.profiles SET must_change_password = true WHERE id = pg_temp.uid('gated');
+UPDATE public.profiles SET must_change_password = true WHERE id IN (pg_temp.uid('gated'), pg_temp.uid('gated_editor'));
 INSERT INTO public.growth_communities (id, name) VALUES
   ('5e880000-0000-4000-8000-0000000000c1', 'SMH8 Comunidad A'),
   ('5e880000-0000-4000-8000-0000000000c2', 'SMH8 Comunidad B');
@@ -160,6 +163,8 @@ SELECT pg_temp.uid(p), r::user_role_type, c::uuid, a FROM (VALUES
   ('legacy', 'docente', '5e880000-0000-4000-8000-0000000000c1', true),
   ('member', 'docente', '5e880000-0000-4000-8000-0000000000c1', true),
   ('gated', 'docente', '5e880000-0000-4000-8000-0000000000c1', true),
+  ('gated_editor', 'docente', '5e880000-0000-4000-8000-0000000000c1', true),
+  ('coeditor', 'docente', '5e880000-0000-4000-8000-0000000000c1', true),
   ('leader_b', 'lider_comunidad', '5e880000-0000-4000-8000-0000000000c2', true),
   ('assignee', 'docente', '5e880000-0000-4000-8000-0000000000c2', true)) v(p, r, c, a);
 INSERT INTO public.community_meetings (id, workspace_id, title, meeting_date, created_by, facilitator_id)
@@ -171,6 +176,7 @@ FROM (VALUES
   ('4', '5e880000-0000-4000-8000-0000000000a1', 'creator', NULL::uuid),
   ('5', '5e880000-0000-4000-8000-0000000000a1', 'creator', NULL::uuid),
   ('6', '5e880000-0000-4000-8000-0000000000a1', 'creator', NULL::uuid)) v(k, w, c, f);
+UPDATE public.community_meetings SET secretary_id = pg_temp.uid('gated_editor') WHERE id = '5e880000-0000-4000-8000-0000000000e1';
 INSERT INTO public.meeting_attendees (meeting_id, user_id, role) VALUES
   ('5e880000-0000-4000-8000-0000000000e1', pg_temp.uid('participant'), 'participant'),
   ('5e880000-0000-4000-8000-0000000000e1', pg_temp.uid('gated'), 'participant'),
@@ -187,6 +193,22 @@ INSERT INTO public.meeting_tasks (meeting_id, task_title, assigned_to, due_date)
 INSERT INTO public.meeting_attachments (meeting_id, filename, file_path, file_size, file_type, uploaded_by) VALUES
   ('5e880000-0000-4000-8000-0000000000e1', 'acta.pdf', '5e880000-0000-4000-8000-0000000000a1/5e880000-0000-4000-8000-0000000000e1/1-acta.pdf', 10, 'application/pdf', pg_temp.uid('creator')),
   ('5e880000-0000-4000-8000-0000000000e2', 'acta.pdf', '5e880000-0000-4000-8000-0000000000a2/5e880000-0000-4000-8000-0000000000e2/1-acta.pdf', 10, 'application/pdf', pg_temp.uid('leader_b'));
+-- The four bucket-only permissive policies that exist in Production outside
+-- the migration history, modelled here so the restrictive limits are tested
+-- against them; plus an unrelated bucket the limits must not touch.
+CREATE POLICY "Authenticated users can view meeting documents" ON storage.objects
+  FOR SELECT TO authenticated USING (bucket_id = 'meeting-documents');
+CREATE POLICY "Authenticated users can upload meeting documents" ON storage.objects
+  FOR INSERT TO authenticated WITH CHECK (bucket_id = 'meeting-documents');
+CREATE POLICY "Users can update their own meeting documents" ON storage.objects
+  FOR UPDATE TO authenticated USING (bucket_id = 'meeting-documents') WITH CHECK (bucket_id = 'meeting-documents');
+CREATE POLICY "Users can delete their own meeting documents" ON storage.objects
+  FOR DELETE TO authenticated USING (bucket_id = 'meeting-documents');
+INSERT INTO storage.buckets (id, name, public) VALUES ('smh8-other', 'smh8-other', false);
+CREATE POLICY "smh8 other bucket open" ON storage.objects
+  FOR ALL TO authenticated USING (bucket_id = 'smh8-other') WITH CHECK (bucket_id = 'smh8-other');
+INSERT INTO storage.objects (bucket_id, name, owner) VALUES
+  ('smh8-other', 'libre/otro.pdf', pg_temp.uid('member'));
 INSERT INTO storage.objects (bucket_id, name, owner) VALUES
   ('meeting-documents', '5e880000-0000-4000-8000-0000000000a1/5e880000-0000-4000-8000-0000000000e1/1-acta.pdf', pg_temp.uid('creator')),
   ('meeting-documents', '5e880000-0000-4000-8000-0000000000a2/5e880000-0000-4000-8000-0000000000e2/1-acta.pdf', pg_temp.uid('leader_b'));
@@ -253,6 +275,8 @@ SELECT pg_temp.as_user('leader_b');
 SELECT is(pg_temp.visible(t, '5e880000-0000-4000-8000-0000000000e1'), 0, format('read leader of another community %s: sees nothing of M1', t)) FROM content_tables ORDER BY t;
 SELECT pg_temp.as_user('gated');
 SELECT is(pg_temp.visible(t, '5e880000-0000-4000-8000-0000000000e1'), 0, format('read participant who must change password %s: sees nothing of M1', t)) FROM content_tables ORDER BY t;
+SELECT pg_temp.as_user('gated_editor');
+SELECT is(pg_temp.visible(t, '5e880000-0000-4000-8000-0000000000e1'), 0, format('read secretary who must change password %s: sees nothing of M1', t)) FROM content_tables ORDER BY t;
 SELECT pg_temp.as_user('inactive_leader');
 SELECT is(pg_temp.visible(t, '5e880000-0000-4000-8000-0000000000e1'), 0, format('read inactive community leader %s: sees nothing of M1', t)) FROM content_tables ORDER BY t;
 SELECT pg_temp.as_user('assignee');
@@ -353,6 +377,36 @@ SELECT is(pg_temp.exec_count($q$DELETE FROM public.meeting_tasks WHERE meeting_i
 SELECT pg_temp.reset_auth();
 
 -- ---------------------------------------------------------------------------
+-- 3b. A verified co_editor demoted to participant keeps reading, loses writes;
+--     attachment rows follow the editor rule
+-- ---------------------------------------------------------------------------
+SELECT pg_temp.as_user('creator');
+SELECT lives_ok($$INSERT INTO public.meeting_attendees (meeting_id, user_id, role) VALUES ('5e880000-0000-4000-8000-0000000000e1', pg_temp.uid('coeditor'), 'co_editor')$$, 'demotion: creator grants co_editor');
+SELECT pg_temp.as_user('coeditor');
+SELECT lives_ok($$INSERT INTO public.meeting_tasks (meeting_id, task_title, assigned_to, due_date) VALUES ('5e880000-0000-4000-8000-0000000000e1', 'del coeditor', pg_temp.uid('participant'), current_date + 2)$$, 'demotion: verified co_editor adds a task');
+SELECT pg_temp.as_user('creator');
+UPDATE public.meeting_attendees SET role = 'participant' WHERE meeting_id = '5e880000-0000-4000-8000-0000000000e1' AND user_id = pg_temp.uid('coeditor');
+SELECT pg_temp.as_user('coeditor');
+SELECT ok(pg_temp.visible('meeting_tasks', '5e880000-0000-4000-8000-0000000000e1') > 0, 'demotion: still reads as a participant');
+SELECT throws_ok($$INSERT INTO public.meeting_tasks (meeting_id, task_title, assigned_to, due_date) VALUES ('5e880000-0000-4000-8000-0000000000e1', 'otra', pg_temp.uid('participant'), current_date + 2)$$, '42501', NULL, 'demotion: can no longer add a task');
+SELECT is(pg_temp.exec_count($q$UPDATE public.meeting_tasks SET task_title = task_title WHERE meeting_id = '5e880000-0000-4000-8000-0000000000e1'$q$), 0, 'demotion: can no longer update tasks');
+SELECT is(pg_temp.del('meeting_tasks', '5e880000-0000-4000-8000-0000000000e1'), 0, 'demotion: can no longer delete tasks');
+SELECT pg_temp.as_user('participant');
+SELECT throws_ok($$INSERT INTO public.meeting_attachments (meeting_id, filename, file_path, file_size, file_type, uploaded_by) VALUES ('5e880000-0000-4000-8000-0000000000e1', 'p.pdf', 'x/y/p.pdf', 1, 'application/pdf', auth.uid())$$, '42501', NULL, 'attachments participant: cannot add a row');
+SELECT pg_temp.as_user('facilitator');
+SELECT throws_ok($$INSERT INTO public.meeting_attachments (meeting_id, filename, file_path, file_size, file_type, uploaded_by) VALUES ('5e880000-0000-4000-8000-0000000000e1', 'f.pdf', 'x/y/f.pdf', 1, 'application/pdf', pg_temp.uid('creator'))$$, '42501', NULL, 'attachments facilitator: cannot record someone else as uploader');
+SELECT lives_ok($$INSERT INTO public.meeting_attachments (meeting_id, filename, file_path, file_size, file_type, uploaded_by) VALUES ('5e880000-0000-4000-8000-0000000000e1', 'f.pdf', 'x/y/f.pdf', 1, 'application/pdf', auth.uid())$$, 'attachments facilitator: adds a row');
+SELECT pg_temp.reset_auth();
+UPDATE public.community_meetings SET facilitator_id = NULL WHERE id = '5e880000-0000-4000-8000-0000000000e1';
+SELECT pg_temp.as_user('facilitator');
+SELECT is(pg_temp.exec_count($q$DELETE FROM public.meeting_attachments WHERE meeting_id = '5e880000-0000-4000-8000-0000000000e1' AND filename = 'f.pdf'$q$), 0, 'attachments: an uploader who is no longer an editor cannot delete the row');
+SELECT pg_temp.reset_auth();
+UPDATE public.community_meetings SET facilitator_id = pg_temp.uid('facilitator') WHERE id = '5e880000-0000-4000-8000-0000000000e1';
+SELECT pg_temp.as_user('leader');
+SELECT is(pg_temp.exec_count($q$DELETE FROM public.meeting_attachments WHERE meeting_id = '5e880000-0000-4000-8000-0000000000e1' AND filename = 'f.pdf'$q$), 1, 'attachments: an editor deletes another person''s row');
+SELECT pg_temp.reset_auth();
+
+-- ---------------------------------------------------------------------------
 -- 4. Meetings: delete, archive, guarded columns, unverified co_editor
 -- ---------------------------------------------------------------------------
 SELECT pg_temp.as_user('member');
@@ -436,7 +490,15 @@ SELECT is(pg_temp.del_storage('5e880000-0000-4000-8000-0000000000e1'), 0, 'stora
 SELECT pg_temp.as_user('member');
 SELECT throws_ok($$INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('meeting-documents', '5e880000-0000-4000-8000-0000000000a1/5e880000-0000-4000-8000-0000000000e1/4-member.pdf', auth.uid())$$, '42501', NULL, 'storage member: cannot upload');
 SELECT is(pg_temp.del_storage('5e880000-0000-4000-8000-0000000000e1'), 0, 'storage member: deletes nothing');
+SELECT pg_temp.as_user('gated_editor');
+SELECT throws_ok($$INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('meeting-documents', '5e880000-0000-4000-8000-0000000000a1/5e880000-0000-4000-8000-0000000000e1/5-gated.pdf', auth.uid())$$, '42501', NULL, 'storage gated secretary: cannot upload');
+SELECT is(pg_temp.del_storage('5e880000-0000-4000-8000-0000000000e1'), 0, 'storage gated secretary: deletes nothing');
+SELECT pg_temp.as_user('member');
+SELECT throws_ok($q$UPDATE storage.objects SET bucket_id = 'meeting-documents', name = '5e880000-0000-4000-8000-0000000000a1/5e880000-0000-4000-8000-0000000000e1/9-movido.pdf' WHERE bucket_id = 'smh8-other'$q$, '42501', NULL, 'storage member: cannot move an object into the meeting bucket');
+SELECT is((SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'smh8-other'), 1, 'storage: the limits do not hide other buckets');
 SELECT pg_temp.as_user('creator');
+SELECT is(pg_temp.exec_count($q$UPDATE storage.objects SET bucket_id = 'smh8-other', name = 'libre/sacado.pdf' WHERE bucket_id = 'meeting-documents' AND split_part(name, '/', 2) = '5e880000-0000-4000-8000-0000000000e1'$q$), 0, 'storage creator: cannot move a meeting document out of the bucket');
+SELECT is(pg_temp.upd_storage('5e880000-0000-4000-8000-0000000000e1'), 0, 'storage creator: no UPDATE even with the Production permissive policy');
 SELECT is(pg_temp.del_storage('5e880000-0000-4000-8000-0000000000e1'), 2, 'storage creator: deletes the meeting documents');
 SELECT is(pg_temp.del_storage('5e880000-0000-4000-8000-0000000000e2'), 0, 'storage creator: deletes nothing of M2');
 SELECT pg_temp.reset_auth();
@@ -470,6 +532,15 @@ SELECT results_eq($$SELECT can_edit, can_delete, can_read_content FROM public.ge
   $$VALUES (False, False, False)$$, 'rights member: edit=f delete=f read=f');
 SELECT pg_temp.as_user('gated');
 SELECT is((SELECT count(*)::int FROM public.get_my_meeting_rights(ARRAY['5e880000-0000-4000-8000-0000000000e1']::uuid[])), 0, 'rights gated: password gate hides the meeting');
+SELECT pg_temp.as_user('gated');
+SELECT is((SELECT count(*)::int FROM public.get_overdue_items('5e880000-0000-4000-8000-0000000000a1'::uuid, NULL)), 0, 'overdue gated participant: nothing');
+SELECT is((SELECT count(*)::int FROM public.get_overdue_items(NULL, NULL)), 0, 'overdue gated participant, own mode: nothing');
+SELECT ok(NOT public.can_read_meeting_content(auth.uid(), '5e880000-0000-4000-8000-0000000000e1'), 'gated participant: can_read_meeting_content is false');
+SELECT pg_temp.as_user('member');
+SELECT ok(NOT public.is_meeting_community_member(pg_temp.uid('participant'), '5e880000-0000-4000-8000-0000000000e1'), 'membership probe: a non-editor gets no answer');
+SELECT pg_temp.as_user('facilitator');
+SELECT ok(public.is_meeting_community_member(pg_temp.uid('participant'), '5e880000-0000-4000-8000-0000000000e1'), 'membership probe: an editor of the meeting gets the answer');
+SELECT ok(NOT public.is_meeting_community_member(pg_temp.uid('assignee'), '5e880000-0000-4000-8000-0000000000e2'), 'membership probe: not for another community''s meeting');
 SELECT pg_temp.as_user('outsider');
 SELECT is((SELECT count(*)::int FROM public.get_my_meeting_rights(ARRAY['5e880000-0000-4000-8000-0000000000e1', '5e880000-0000-4000-8000-0000000000e2']::uuid[])), 0, 'rights outsider: no meeting returned');
 SELECT pg_temp.as_user('member');

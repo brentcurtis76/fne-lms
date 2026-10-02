@@ -275,7 +275,7 @@ UPDATE public.meeting_attendees SET role = 'participant'
  WHERE meeting_id = '5e220000-0000-4000-8000-0000000000e1' AND user_id = pg_temp.uid('grantee');
 SELECT pg_temp.as_user('grantee');
 -- SM-H8: the demoted grantee is still a participant, so it keeps READ access
--- (asserted here) and loses write access (asserted in 104).
+-- (asserted here); its loss of write access is asserted in 104 section 3b.
 SELECT is(pg_temp.visible('meeting_agreements', '5e220000-0000-4000-8000-0000000000e1'), 4, 'D3 grantee: demotion removes edit, participant still reads (SM-H8)');
 SELECT pg_temp.reset_auth();
 

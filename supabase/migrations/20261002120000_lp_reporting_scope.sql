@@ -24,11 +24,15 @@
 --     column of user_learning_path_summary is kept as it was, for history).
 --   * COMPLETION RATE = finished / assigned, in percent, NULL when nobody is
 --     assigned. Daily = cumulative (finished by that day / assigned by that
---     day); monthly = finished in month M / assigned by the end of M. A person
---     who had already finished every course before being assigned counts as
---     finishing on their assignment day (finish day = later of finished_at and
---     first assignment), so the rate can never exceed 100 %. Days and months
---     are America/Santiago (lp_activity_date).
+--     day: people assigned by day D whose finished_at day is <= D, over people
+--     assigned by D); monthly = people assigned by the end of M whose
+--     finished_at falls in M, over people assigned by the end of M. The
+--     numerator is always a subset of the denominator, so the rate never
+--     exceeds 100 %; someone who finished before being assigned counts in the
+--     daily cumulative rate from their assignment day, but in no month's
+--     numerator (owner wording: "finished that month"). Days and months are
+--     America/Santiago (lp_activity_date). Finish days are also report keys,
+--     so a completion with no other event that day / month still appears.
 --   * AT RISK = assigned, not finished, and last activity older than
 --     now() - 14 days; never for a path with no courses (decided 2026-10-02:
 --     such assignees stay not-finished and still count in the completion-rate
@@ -52,7 +56,10 @@
 -- -----------------------------------------------------------------------------
 -- 1. Scope helpers. SECURITY DEFINER so the caller's own user_roles rows are
 --    read reliably whatever user_roles policies say; they only ever ask about
---    auth.uid(). is_active IS TRUE: NULL / false fails closed.
+--    auth.uid(). is_active IS TRUE: NULL / false fails closed. Each helper is
+--    itself gated by password_change_gate_ok(): it is callable directly over
+--    RPC, so a caller held by the forced-password-change flag gets FALSE
+--    (a backend caller has no identity, the gate is TRUE for it).
 -- -----------------------------------------------------------------------------
 
 -- Every person: literal admin, backend caller (no end-user identity), or an
@@ -64,7 +71,8 @@ STABLE
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
-  SELECT public.auth_is_admin()
+  SELECT public.password_change_gate_ok() IS TRUE
+     AND (public.auth_is_admin()
       OR public.auth_is_backend_caller()
       OR EXISTS (
            SELECT 1
@@ -72,7 +80,7 @@ AS $$
             WHERE ur.user_id = auth.uid()
               AND ur.role_type = 'consultor'::public.user_role_type
               AND ur.is_active IS TRUE
-         );
+         ));
 $$;
 
 -- May the caller see learning-path report data about p_user? report_all, or the
@@ -86,7 +94,8 @@ STABLE
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
-  SELECT public.auth_lp_report_all()
+  SELECT public.password_change_gate_ok() IS TRUE
+     AND (public.auth_lp_report_all()
       OR (p_user IS NOT NULL AND EXISTS (
            SELECT 1
              FROM public.user_roles me
@@ -98,7 +107,7 @@ AS $$
               AND me.school_id IS NOT NULL
               AND t.user_id = p_user
               AND t.is_active IS TRUE
-         ));
+         )));
 $$;
 
 -- Does the caller get cross-user aggregates at all? report_all, or an active
@@ -110,7 +119,8 @@ STABLE
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
-  SELECT public.auth_lp_report_all()
+  SELECT public.password_change_gate_ok() IS TRUE
+     AND (public.auth_lp_report_all()
       OR EXISTS (
            SELECT 1
              FROM public.user_roles ur
@@ -118,7 +128,7 @@ AS $$
               AND ur.role_type = 'equipo_directivo'::public.user_role_type
               AND ur.is_active IS TRUE
               AND ur.school_id IS NOT NULL
-         );
+         ));
 $$;
 
 REVOKE ALL ON FUNCTION public.auth_lp_report_all() FROM PUBLIC, anon;
@@ -131,11 +141,11 @@ GRANT EXECUTE ON FUNCTION public.auth_lp_report_sees_user(uuid) TO authenticated
 GRANT EXECUTE ON FUNCTION public.auth_lp_reporter() TO authenticated, service_role;
 
 COMMENT ON FUNCTION public.auth_lp_report_all() IS
-  'W-B2c-01 (2026-10-02): TRUE when the caller may read learning-path report data about every person: literal admin, backend caller, or active consultor.';
+  'W-B2c-01 (2026-10-02): TRUE when the caller may read learning-path report data about every person: literal admin, backend caller, or active consultor. FALSE while the caller is held by the forced-password-change flag.';
 COMMENT ON FUNCTION public.auth_lp_report_sees_user(uuid) IS
-  'W-B2c-01 (2026-10-02): TRUE when the caller may read learning-path report data about p_user: auth_lp_report_all(), or an active equipo_directivo of school S and p_user has an active user_roles row in S. Own rows are granted by the views, not here.';
+  'W-B2c-01 (2026-10-02): TRUE when the caller may read learning-path report data about p_user: auth_lp_report_all(), or an active equipo_directivo of school S and p_user has an active user_roles row in S. Own rows are granted by the views, not here. FALSE while the caller is held by the forced-password-change flag.';
 COMMENT ON FUNCTION public.auth_lp_reporter() IS
-  'W-B2c-01 (2026-10-02): TRUE when the caller receives learning-path cross-user aggregates (scoped by auth_lp_report_sees_user): auth_lp_report_all() or an active equipo_directivo with a school.';
+  'W-B2c-01 (2026-10-02): TRUE when the caller receives learning-path cross-user aggregates (scoped by auth_lp_report_sees_user): auth_lp_report_all() or an active equipo_directivo with a school. FALSE while the caller is held by the forced-password-change flag.';
 
 -- -----------------------------------------------------------------------------
 -- 2. Views (owner-run, security_barrier, privacy filtered inside; see the C3
@@ -279,7 +289,7 @@ WITH (security_barrier = true) AS
     SELECT s.path_id,
            public.lp_activity_date(s.first_assigned_at) AS assigned_on,
            CASE WHEN s.is_finished
-                THEN public.lp_activity_date(greatest(s.finished_at, s.first_assigned_at)) END AS finished_on
+                THEN public.lp_activity_date(s.finished_at) END AS finished_on
       FROM public.user_learning_path_summary s
   ), act AS (
     SELECT a.path_id, a.activity_date AS summary_date,
@@ -308,6 +318,7 @@ WITH (security_barrier = true) AS
     SELECT path_id, summary_date FROM act
     UNION SELECT path_id, summary_date FROM comp
     UNION SELECT path_id, summary_date FROM newa
+    UNION SELECT path_id, finished_on FROM pop WHERE finished_on IS NOT NULL
   )
   SELECT k.path_id, k.summary_date,
          coalesce(act.total_active_users, 0) AS total_active_users,
@@ -338,7 +349,7 @@ WITH (security_barrier = true) AS
     SELECT s.path_id,
            public.lp_activity_date(s.first_assigned_at) AS assigned_on,
            CASE WHEN s.is_finished
-                THEN public.lp_activity_date(greatest(s.finished_at, s.first_assigned_at)) END AS finished_on
+                THEN public.lp_activity_date(s.finished_at) END AS finished_on
       FROM public.user_learning_path_summary s
   ), grain AS (
     SELECT a.path_id, a.user_id, a.activity_date, a.sessions_count, a.credited_minutes
@@ -365,7 +376,9 @@ WITH (security_barrier = true) AS
       FROM public.learning_path_daily_summary
      GROUP BY 1, 2
   ), keys AS (
-    SELECT path_id, summary_month FROM act UNION SELECT path_id, summary_month FROM d
+    SELECT path_id, summary_month FROM act
+    UNION SELECT path_id, summary_month FROM d
+    UNION SELECT path_id, date_trunc('month', finished_on)::date FROM pop WHERE finished_on IS NOT NULL
   )
   SELECT k.path_id, k.summary_month,
          coalesce(act.total_active_users, 0) AS total_active_users,

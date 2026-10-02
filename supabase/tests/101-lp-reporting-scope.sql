@@ -29,7 +29,7 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(108);
+SELECT plan(116);
 
 CREATE OR REPLACE FUNCTION pg_temp.set_anon() RETURNS void AS $$
 BEGIN
@@ -167,11 +167,13 @@ SELECT ok((SELECT obj_description('public.learning_path_performance_summary'::re
 -- ----------------------------------------------------------------------------
 SELECT tests.create_supabase_user(k)
   FROM unnest(ARRAY['lp101_admin','lp101_dirA','lp101_dirA_off','lp101_dirNull','lp101_cons','lp101_cons_off','lp101_cons_null',
-                    'lp101_a1','lp101_a2','lp101_a3','lp101_a4','lp101_b1','lp101_b2','lp101_b3','lp101_lider','lp101_sup']) k;
+                    'lp101_a1','lp101_a2','lp101_a3','lp101_a4','lp101_b1','lp101_b2','lp101_b3','lp101_lider','lp101_sup',
+                    'lp101_dirB','lp101_dirAB','lp101_dual','lp101_xin']) k;
 INSERT INTO public.profiles (id, email, name, approval_status)
 SELECT pg_temp.uid(k), k || '@test.local', k, 'approved'
   FROM unnest(ARRAY['lp101_admin','lp101_dirA','lp101_dirA_off','lp101_dirNull','lp101_cons','lp101_cons_off','lp101_cons_null',
-                    'lp101_a1','lp101_a2','lp101_a3','lp101_a4','lp101_b1','lp101_b2','lp101_b3','lp101_lider','lp101_sup']) k
+                    'lp101_a1','lp101_a2','lp101_a3','lp101_a4','lp101_b1','lp101_b2','lp101_b3','lp101_lider','lp101_sup',
+                    'lp101_dirB','lp101_dirAB','lp101_dual','lp101_xin']) k
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO public.schools (id, name) VALUES (10101, 'LP101 school A (pgTAP 101)'), (10102, 'LP101 school B (pgTAP 101)')
 ON CONFLICT (id) DO NOTHING;
@@ -202,7 +204,15 @@ INSERT INTO public.user_roles (user_id, role_type, school_id, community_id, is_a
   (pg_temp.uid('lp101_b2'),        'docente',           10102, '10100000-0000-4000-8000-00000000c00b', true),
   -- member of the school-A community, but their own role is in school B
   (pg_temp.uid('lp101_b3'),        'docente',           10102, '10100000-0000-4000-8000-00000000c00a', true),
-  (pg_temp.uid('lp101_lider'),     'lider_comunidad',   10101, NULL, true);
+  (pg_temp.uid('lp101_lider'),     'lider_comunidad',   10101, NULL, true),
+  -- scope edge cases (no assignments: helper-level checks only)
+  (pg_temp.uid('lp101_dirB'),      'equipo_directivo',  10102, NULL, true),
+  (pg_temp.uid('lp101_dirAB'),     'equipo_directivo',  10101, NULL, true),   -- director of two schools
+  (pg_temp.uid('lp101_dirAB'),     'equipo_directivo',  10102, NULL, true),
+  (pg_temp.uid('lp101_dual'),      'docente',           10101, NULL, true),   -- active in both schools
+  (pg_temp.uid('lp101_dual'),      'docente',           10102, NULL, true),
+  (pg_temp.uid('lp101_xin'),       'docente',           10101, NULL, false),  -- membership of A is inactive
+  (pg_temp.uid('lp101_xin'),       'docente',           10102, NULL, true);
 -- supervisor_de_red: no school, active rows need a network (red_id)
 INSERT INTO public.user_roles (user_id, role_type, school_id, community_id, is_active, red_id) VALUES
   (pg_temp.uid('lp101_sup'), 'supervisor_de_red', NULL, NULL, true, '10100000-0000-4000-8000-00000000ed01');
@@ -211,7 +221,8 @@ INSERT INTO public.courses (id, title, description, instructor_id) VALUES
   ('10100000-0000-4000-8000-000000000c01', 'LP101 K1', 'x', '10100000-0000-4000-8000-00000000f001'),
   ('10100000-0000-4000-8000-000000000c02', 'LP101 K2', 'x', '10100000-0000-4000-8000-00000000f001'),
   ('10100000-0000-4000-8000-000000000c03', 'LP101 K3', 'x', '10100000-0000-4000-8000-00000000f001'),
-  ('10100000-0000-4000-8000-000000000c04', 'LP101 K4', 'x', '10100000-0000-4000-8000-00000000f001');
+  ('10100000-0000-4000-8000-000000000c04', 'LP101 K4', 'x', '10100000-0000-4000-8000-00000000f001'),
+  ('10100000-0000-4000-8000-000000000c05', 'LP101 K5', 'x', '10100000-0000-4000-8000-00000000f001');
 INSERT INTO public.learning_paths (id, name, description, created_by) VALUES
   ('10100000-0000-4000-8000-000000000001', 'LP101 P1', 'scope + at risk',          pg_temp.uid('lp101_admin')),
   ('10100000-0000-4000-8000-000000000002', 'LP101 P2', 'school-B people only',     pg_temp.uid('lp101_admin')),
@@ -219,13 +230,16 @@ INSERT INTO public.learning_paths (id, name, description, created_by) VALUES
   ('10100000-0000-4000-8000-000000000004', 'LP101 P4', 'literal calendar',         pg_temp.uid('lp101_admin')),
   ('10100000-0000-4000-8000-000000000005', 'LP101 P5', 'no courses, no people',    pg_temp.uid('lp101_admin')),
   -- P6 (outside pg_temp.paths()): no courses, one assignee 30 days ago, no activity
-  ('10100000-0000-4000-8000-000000000006', 'LP101 P6', 'no courses, one person',   pg_temp.uid('lp101_admin'));
+  ('10100000-0000-4000-8000-000000000006', 'LP101 P6', 'no courses, one person',   pg_temp.uid('lp101_admin')),
+  -- P7 (outside pg_temp.paths()): finish dated only by updated_at, nothing else that month
+  ('10100000-0000-4000-8000-000000000007', 'LP101 P7', 'fallback-dated finish',    pg_temp.uid('lp101_admin'));
 INSERT INTO public.learning_path_courses (learning_path_id, course_id, sequence_order) VALUES
   ('10100000-0000-4000-8000-000000000001', '10100000-0000-4000-8000-000000000c01', 1),
   ('10100000-0000-4000-8000-000000000001', '10100000-0000-4000-8000-000000000c02', 2),
   ('10100000-0000-4000-8000-000000000002', '10100000-0000-4000-8000-000000000c03', 1),
   ('10100000-0000-4000-8000-000000000003', '10100000-0000-4000-8000-000000000c01', 1),
-  ('10100000-0000-4000-8000-000000000004', '10100000-0000-4000-8000-000000000c04', 1);
+  ('10100000-0000-4000-8000-000000000004', '10100000-0000-4000-8000-000000000c04', 1),
+  ('10100000-0000-4000-8000-000000000007', '10100000-0000-4000-8000-000000000c05', 1);
 INSERT INTO public.learning_path_assignments (path_id, user_id, group_id, assigned_by, assigned_at) VALUES
   -- P1: a1, a3, b1 direct; workspace A (a2, a4, b3) 28 days ago; an EMPTY workspace 25 days ago
   ('10100000-0000-4000-8000-000000000001', pg_temp.uid('lp101_a1'), NULL, pg_temp.uid('lp101_admin'), now() - interval '40 days'),
@@ -242,7 +256,8 @@ INSERT INTO public.learning_path_assignments (path_id, user_id, group_id, assign
   ('10100000-0000-4000-8000-000000000004', pg_temp.uid('lp101_a1'), NULL, pg_temp.uid('lp101_admin'), '2026-05-10T15:00:00Z'),
   ('10100000-0000-4000-8000-000000000004', pg_temp.uid('lp101_b1'), NULL, pg_temp.uid('lp101_admin'), '2026-05-10T15:00:00Z'),
   ('10100000-0000-4000-8000-000000000004', pg_temp.uid('lp101_a2'), NULL, pg_temp.uid('lp101_admin'), '2026-06-05T15:00:00Z'),
-  ('10100000-0000-4000-8000-000000000006', pg_temp.uid('lp101_sup'), NULL, pg_temp.uid('lp101_admin'), now() - interval '30 days');
+  ('10100000-0000-4000-8000-000000000006', pg_temp.uid('lp101_sup'), NULL, pg_temp.uid('lp101_admin'), now() - interval '30 days'),
+  ('10100000-0000-4000-8000-000000000007', pg_temp.uid('lp101_a3'),  NULL, pg_temp.uid('lp101_admin'), '2026-07-10T15:00:00Z');
 -- Course completion: a1 finished P1 (completed_at); b1 finished P1 with K1 at
 -- progress 100 (not flagged) and K2 flagged without completed_at (finished_at
 -- falls back to updated_at); a2 half of K1. P4: a1 May 20, b1 Jun 10, a2 May 1
@@ -255,7 +270,9 @@ INSERT INTO public.course_enrollments (user_id, course_id, is_completed, progres
   (pg_temp.uid('lp101_a2'), '10100000-0000-4000-8000-000000000c01', false, 50,  NULL,                       now() - interval '13 days', 'learning_path'),
   (pg_temp.uid('lp101_a1'), '10100000-0000-4000-8000-000000000c04', true,  100, '2026-05-20T15:00:00Z',     '2026-05-20T15:00:00Z',     'learning_path'),
   (pg_temp.uid('lp101_b1'), '10100000-0000-4000-8000-000000000c04', true,  100, '2026-06-10T15:00:00Z',     '2026-06-10T15:00:00Z',     'learning_path'),
-  (pg_temp.uid('lp101_a2'), '10100000-0000-4000-8000-000000000c04', true,  100, '2026-05-01T15:00:00Z',     '2026-05-01T15:00:00Z',     'learning_path')
+  (pg_temp.uid('lp101_a2'), '10100000-0000-4000-8000-000000000c04', true,  100, '2026-05-01T15:00:00Z',     '2026-05-01T15:00:00Z',     'learning_path'),
+  -- P7: flagged complete, completed_at NULL, only updated_at (Aug 12, 11:00 Santiago) dates it
+  (pg_temp.uid('lp101_a3'), '10100000-0000-4000-8000-000000000c05', true,  100, NULL,                       '2026-08-12T15:00:00Z',     'learning_path')
 ON CONFLICT (user_id, course_id) DO UPDATE
   SET is_completed = EXCLUDED.is_completed, progress_percentage = EXCLUDED.progress_percentage,
       completed_at = EXCLUDED.completed_at, updated_at = EXCLUDED.updated_at;
@@ -299,6 +316,16 @@ SELECT is(public.auth_lp_report_sees_user(pg_temp.uid('lp101_a1'))::text || '/' 
 SELECT is(public.auth_lp_report_sees_user(pg_temp.uid('lp101_b1'))::text || '/' || public.auth_lp_report_sees_user(pg_temp.uid('lp101_b3'))::text
           || '/' || public.auth_lp_report_sees_user(pg_temp.uid('lp101_sup'))::text || '/' || public.auth_lp_report_sees_user(NULL)::text,
           'false/false/false/false', '2: director A does not see school B (despite their own docente role in B), a school-A community member whose role is in B, a school-less supervisor, or NULL');
+SELECT is(public.auth_lp_report_sees_user(pg_temp.uid('lp101_dual'))::text || '/' || public.auth_lp_report_sees_user(pg_temp.uid('lp101_xin'))::text,
+          'true/false', '2: director A sees a person active in both schools, not one whose school-A membership is inactive');
+RESET ROLE;
+SELECT tests.authenticate_as('lp101_dirB');
+SELECT is(public.auth_lp_report_sees_user(pg_temp.uid('lp101_dual'))::text || '/' || public.auth_lp_report_sees_user(pg_temp.uid('lp101_xin'))::text || '/' || public.auth_lp_report_sees_user(pg_temp.uid('lp101_a1'))::text,
+          'true/true/false', '2: director B sees the dual-school person and the B member, not school-A people');
+RESET ROLE;
+SELECT tests.authenticate_as('lp101_dirAB');
+SELECT is(public.auth_lp_report_sees_user(pg_temp.uid('lp101_a1'))::text || '/' || public.auth_lp_report_sees_user(pg_temp.uid('lp101_b1'))::text || '/' || public.auth_lp_report_sees_user(pg_temp.uid('lp101_sup'))::text,
+          'true/true/false', '2: a director of two schools sees people of both, not the school-less supervisor');
 RESET ROLE;
 SELECT tests.authenticate_as('lp101_cons');
 SELECT is(public.auth_lp_report_all()::text || '/' || public.auth_lp_report_sees_user(pg_temp.uid('lp101_b1'))::text, 'true/true', '2: active consultor: report-all, sees school B');
@@ -365,10 +392,14 @@ SELECT is((SELECT count(*)::int FROM public.learning_path_daily_summary WHERE pa
           '3: the empty workspace assignment creates no daily row (nobody was assigned) — documented admin figure change');
 SELECT is(pg_temp.daily('10100000-0000-4000-8000-000000000004'),
           '05-01 0/0/0/1/0/NULL, 05-10 0/0/0/0/2/0.00, 05-20 2/2/75/1/0/50.00, 06-05 1/2/25/0/1/66.67, 06-10 0/0/0/1/0/100.00',
-          '3: P4 admin daily (users/sessions/minutes/completions/new/cumulative rate): May 1 nobody assigned yet → NULL; a2 (done May 1, assigned Jun 5) counts as finished on Jun 5');
+          '3: P4 admin daily (users/sessions/minutes/completions/new/cumulative rate): May 1 nobody assigned yet → NULL; a2 (done May 1) enters numerator and denominator on its assignment day Jun 5');
 SELECT is(pg_temp.monthly('10100000-0000-4000-8000-000000000004'),
-          '2026-05 2/2/75/2/2/50.00, 2026-06 1/2/25/1/1/66.67',
-          '3: P4 admin monthly: May 1 of 2 assigned finished in May = 50 %; June a2 + b1 of 3 = 66.67 %');
+          '2026-05 2/2/75/2/2/50.00, 2026-06 1/2/25/1/1/33.33',
+          '3: P4 admin monthly: May a1 of 2 assigned = 50 %; June b1 of 3 = 33.33 % (a2 finished May 1, before being assigned: in no month''s numerator)');
+SELECT is(pg_temp.daily('10100000-0000-4000-8000-000000000007'), '07-10 0/0/0/0/1/0.00, 08-12 0/0/0/0/0/100.00',
+          '3: P7 daily: a finish dated only by updated_at (completed_at NULL), with no other event that day, still has its own row (100 %)');
+SELECT is(pg_temp.monthly('10100000-0000-4000-8000-000000000007'), '2026-07 0/0/0/0/1/0.00, 2026-08 0/0/0/0/0/100.00',
+          '3: P7 monthly: the otherwise empty finish month (August) appears with 1 of 1 = 100 %');
 
 -- ----------------------------------------------------------------------------
 -- 4. Director of school A
@@ -409,8 +440,10 @@ SELECT is(pg_temp.daily('10100000-0000-4000-8000-000000000004'),
           '05-01 0/0/0/1/0/NULL, 05-10 0/0/0/0/1/0.00, 05-20 1/1/30/1/0/100.00, 06-05 1/2/25/0/1/100.00',
           '4: director A P4 daily: only a1 and a2 (b1''s 45 minutes, its assignment and its Jun 10 completion are absent); cumulative rate over A people');
 SELECT is(pg_temp.monthly('10100000-0000-4000-8000-000000000004'),
-          '2026-05 1/1/30/2/1/100.00, 2026-06 1/2/25/0/1/50.00',
-          '4: director A P4 monthly: May a1 of 1 = 100 %; June a2 of 2 assigned = 50 %');
+          '2026-05 1/1/30/2/1/100.00, 2026-06 1/2/25/0/1/0.00',
+          '4: director A P4 monthly: May a1 of 1 = 100 %; June nobody in scope finished in June = 0 %');
+SELECT is(pg_temp.monthly('10100000-0000-4000-8000-000000000007'), '2026-07 0/0/0/0/1/0.00, 2026-08 0/0/0/0/0/100.00',
+          '4: director A P7 monthly (a3 is a school-A person): the finish month appears');
 SELECT is((SELECT string_agg(pg_temp.plabel(rc.path_id) || ':' || rc.sequence_order || ':' || rc.course_title, ',' ORDER BY pg_temp.plabel(rc.path_id), rc.sequence_order)
              FROM public.learning_path_report_courses rc
             WHERE rc.path_id = ANY (pg_temp.paths())),
@@ -518,9 +551,13 @@ SELECT set_config('request.jwt.claims', '', true);
 UPDATE public.profiles SET must_change_password = true WHERE id IN (pg_temp.uid('lp101_dirA'), pg_temp.uid('lp101_cons'));
 SELECT tests.authenticate_as('lp101_dirA');
 SELECT is(pg_temp.view_counts(), '0/0/0/0/0/0', '8: a flagged director reads nothing through the six views');
+SELECT is(public.auth_lp_report_all()::text || '/' || public.auth_lp_reporter()::text || '/' || public.auth_lp_report_sees_user(pg_temp.uid('lp101_a1'))::text,
+          'false/false/false', '8: a flagged director calling the helpers directly (RPC) gets false from all three (no membership probing)');
 RESET ROLE;
 SELECT tests.authenticate_as('lp101_cons');
 SELECT is(pg_temp.view_counts(), '0/0/0/0/0/0', '8: a flagged consultor reads nothing through the six views');
+SELECT is(public.auth_lp_report_all()::text || '/' || public.auth_lp_report_sees_user(pg_temp.uid('lp101_b1'))::text,
+          'false/false', '8: a flagged consultor calling the helpers directly gets false');
 RESET ROLE;
 SELECT set_config('request.jwt.claims', '', true);
 UPDATE public.profiles SET must_change_password = false WHERE id IN (pg_temp.uid('lp101_dirA'), pg_temp.uid('lp101_cons'));

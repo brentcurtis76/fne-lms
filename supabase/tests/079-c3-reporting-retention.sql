@@ -198,14 +198,14 @@ SELECT is((SELECT total_active_users || '/' || course_completions FROM public.le
 -- 20261002120000: daily completion_rate = cumulative finished / assigned by that
 -- day. Every assignment is now()-relative (after March 2026), so on 2026-03-10
 -- nobody is assigned yet → NULL; on u3's assignment day all 3 are assigned and
--- u3 (finished in March, before being assigned) counts as finished that day.
+-- u3 (finished in March, before being assigned) is finished by that day.
 SELECT is((SELECT completion_rate FROM public.learning_path_daily_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a' AND summary_date = '2026-03-10'), NULL, '3: daily completion_rate on 2026-03-10 is NULL (nobody assigned by that day)');
 SELECT is((SELECT completion_rate FROM public.learning_path_daily_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a' AND summary_date = public.lp_activity_date(now() - interval '2 days')), 33.33, '3: daily completion_rate on u3''s assignment day = 1 finished of 3 assigned = 33.33');
 SELECT is((SELECT total_active_users || '/' || total_sessions || '/' || total_session_time_minutes || '/' || total_completions || '/' || avg_daily_active_users || '/' || avg_session_duration_minutes
              FROM public.learning_path_monthly_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a' AND summary_month = '2026-03-01'),
           '2/5/125/3/0.10/25.00', '3: monthly 2026-03: 2 DISTINCT users (not 3 = 2 + 1 summed from days), 5 sessions, 125 min, 3 completions, 3 user-days / 31 = 0.10, 25 min per session');
 SELECT is((SELECT avg_completion_rate FROM public.learning_path_monthly_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a' AND summary_month = '2026-03-01'), NULL, '3: monthly avg_completion_rate for 2026-03 is NULL (nobody assigned by the end of March)');
-SELECT is((SELECT avg_completion_rate FROM public.learning_path_monthly_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a' AND summary_month = date_trunc('month', public.lp_activity_date(now() - interval '2 days'))::date), 33.33, '3: monthly avg_completion_rate for the month of u3''s assignment = u3 of 3 assigned by month end = 33.33');
+SELECT is((SELECT avg_completion_rate FROM public.learning_path_monthly_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a' AND summary_month = date_trunc('month', public.lp_activity_date(now() - interval '2 days'))::date), 0.00, '3: monthly avg_completion_rate for the month of u3''s assignment = 0.00 (3 assigned by month end; u3 finished in March, before being assigned, so in no month''s numerator)');
 
 -- ----------------------------------------------------------------------------
 -- 4. Exposure

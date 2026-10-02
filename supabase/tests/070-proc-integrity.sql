@@ -221,7 +221,9 @@ SELECT is((SELECT count(*)::int FROM d), 0, 'ctx DELETE: even admin deletes 0 ro
 -- =============================================================================
 RESET ROLE;
 SELECT tests.authenticate_as('pi_docente');
-SELECT is((SELECT count(*)::int FROM public.school_course_structure), 0, 'course SELECT: assigned docente sees nothing');
+-- 20261002200000: a docente reads the course of its own active assignment (read-only), nothing else.
+SELECT is((SELECT array_agg(id) FROM public.school_course_structure), ARRAY['70000000-0000-4000-8000-0000000000a1'::uuid],
+  'course SELECT: assigned docente reads only its own course');
 SELECT throws_ok($$
   INSERT INTO public.school_course_structure (school_id, context_id, grade_level, course_name)
   VALUES (9970, '70000000-0000-4000-8000-00000000c0a1', '1_basico', '1 BASICO Z')

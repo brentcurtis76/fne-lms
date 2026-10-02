@@ -23,6 +23,7 @@ import {
   FREQUENCY_UNIT_LABELS,
   FREQUENCY_UNIT_OPTIONS,
 } from '@/types/assessment-builder';
+import { frequencyExpectationViolation } from '@/lib/services/assessment-builder/frequencyConfig';
 import type { TransformationArea, IndicatorCategory, FrequencyUnit, GenerationType } from '@/types/assessment-builder';
 
 interface ExpectationData {
@@ -45,6 +46,8 @@ interface IndicatorExpectation {
   indicatorName: string;
   indicatorCategory: IndicatorCategory;
   frequencyUnitOptions?: FrequencyUnit[];
+  /** The indicator's own answer rules (min/max/step), for frecuencia only. */
+  frequencyConfig?: unknown;
   levelDescriptors?: {
     level0?: string;
     level1?: string;
@@ -106,6 +109,9 @@ const YEAR_KEYS: YearKey[] = ['year1', 'year2', 'year3', 'year4', 'year5'];
 const isWholeCount = (raw: string) => /^\d+$/.test(raw) && Number.isSafeInteger(Number(raw));
 const FREQUENCY_COUNT_ERROR =
   'No se guardaron los cambios: la cantidad de frecuencia debe ser un número entero mayor o igual a 0.';
+
+const FREQUENCY_RANGE_ERROR =
+  'No se guardaron los cambios: hay expectativas de frecuencia fuera del rango o de los pasos que permite el indicador.';
 
 const frequencyDraftKey = (indicatorId: string, generationType: GenerationType, yearKey: YearKey) =>
   `freq-${indicatorId}-${generationType}-${yearKey}`;
@@ -293,6 +299,7 @@ const ExpectationsEditor: React.FC = () => {
             indicatorName: ind.indicatorName,
             indicatorCategory: ind.indicatorCategory,
             frequencyUnitOptions: ind.frequencyUnitOptions,
+            frequencyConfig: ind.frequencyConfig,
             levelDescriptors: ind.levelDescriptors,
             expectationsGT: gtData,
             expectationsGI: giData,
@@ -527,6 +534,34 @@ const ExpectationsEditor: React.FC = () => {
       )
   );
 
+  // F1: frequency counts the indicator's own rules (min/max/step) refuse. Uses the
+  // typed draft when it is a whole count, otherwise the stored value.
+  const outOfRangeCells = moduleExpectations.flatMap(mod =>
+    mod.indicators
+      .filter(ind => ind.indicatorCategory === 'frecuencia')
+      .flatMap(ind =>
+        (['GT', 'GI'] as GenerationType[]).flatMap(generationType => {
+          const exp = generationType === 'GT' ? ind.expectationsGT : ind.expectationsGI;
+          if (!exp) return [];
+          const dirty = generationType === 'GT' ? ind.isDirtyGT : ind.isDirtyGI;
+          return YEAR_KEYS.flatMap(yearKey => {
+            const key = frequencyDraftKey(ind.indicatorId, generationType, yearKey);
+            const draft = frequencyDrafts[key]?.trim();
+            const value = draft !== undefined && draft !== '' && isWholeCount(draft) ? Number(draft) : exp[yearKey];
+            const violation = frequencyExpectationViolation(ind.frequencyConfig, value);
+            return violation
+              ? [{
+                  key,
+                  dirty,
+                  label: `${ind.indicatorCode || ind.indicatorName} (${generationType}, Año ${yearKey.slice(4)}): ${violation.message}`,
+                }]
+              : [];
+          });
+        })
+      )
+  );
+  const blockingOutOfRangeCells = outOfRangeCells.filter(cell => cell.dirty);
+
   // Save all changes
   const handleSaveAll = async () => {
     if (!template) return;
@@ -535,6 +570,12 @@ const ExpectationsEditor: React.FC = () => {
       setShowFrequencyErrors(true);
       toast.error(FREQUENCY_COUNT_ERROR);
       document.getElementById(invalidFrequencyCells[0].key)?.focus();
+      return;
+    }
+
+    if (blockingOutOfRangeCells.length > 0) {
+      toast.error(FREQUENCY_RANGE_ERROR);
+      document.getElementById(blockingOutOfRangeCells[0].key)?.focus();
       return;
     }
 
@@ -576,7 +617,8 @@ const ExpectationsEditor: React.FC = () => {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || 'Error al guardar expectativas');
+        const details = Array.isArray(data.details) && data.details.length > 0 ? `: ${data.details.join('; ')}` : '';
+        throw new Error(`${data.error || 'Error al guardar expectativas'}${details}`);
       }
 
       // Clear dirty flags
@@ -793,7 +835,8 @@ const ExpectationsEditor: React.FC = () => {
       const availableUnits = frequencyUnitsFor(indicator);
       const draftKey = frequencyDraftKey(indicator.indicatorId, generationType, yearKey);
       const draft = frequencyDrafts[draftKey];
-      const isInvalid = showFrequencyErrors && invalidFrequencyCells.some(cell => cell.key === draftKey);
+      const isOutOfRange = outOfRangeCells.some(cell => cell.key === draftKey);
+      const isInvalid = (showFrequencyErrors && invalidFrequencyCells.some(cell => cell.key === draftKey)) || isOutOfRange;
       const cellLabel = `${indicator.indicatorName}, ${generationType}, Año ${yearKey.slice(4)}`;
 
       return (
@@ -806,7 +849,7 @@ const ExpectationsEditor: React.FC = () => {
               inputMode="numeric"
               aria-label={`Cantidad de frecuencia: ${cellLabel}`}
               aria-invalid={isInvalid || undefined}
-              aria-describedby={isInvalid ? 'frequency-count-error' : undefined}
+              aria-describedby={isOutOfRange ? 'frequency-range-error' : isInvalid ? 'frequency-count-error' : undefined}
               value={draft ?? (value ?? '')}
               onChange={(e) => {
                 const raw = e.target.value;
@@ -1480,6 +1523,30 @@ const ExpectationsEditor: React.FC = () => {
             <div>
               <p className="font-medium">{FREQUENCY_COUNT_ERROR}</p>
               <p className="mt-1">Revisa: {invalidFrequencyCells.map(cell => cell.label).join('; ')}</p>
+            </div>
+          </div>
+        )}
+
+        {outOfRangeCells.length > 0 && (
+          <div
+            id="frequency-range-error"
+            role="alert"
+            data-testid="frequency-range-error"
+            className="mb-6 flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800"
+          >
+            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium">
+                {outOfRangeCells.length === 1
+                  ? '1 expectativa de frecuencia no calza con las reglas de su indicador'
+                  : `${outOfRangeCells.length} expectativas de frecuencia no calzan con las reglas de sus indicadores`}{' '}
+                (mínimo, máximo o pasos). No se podrá publicar el template hasta corregirlas.
+              </p>
+              <ul className="mt-1 list-disc pl-5">
+                {outOfRangeCells.map(cell => (
+                  <li key={cell.key}>{cell.label}</li>
+                ))}
+              </ul>
             </div>
           </div>
         )}

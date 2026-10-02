@@ -58,7 +58,7 @@ const emptyRow = (): Row => ({
 });
 
 // Stateful fake of GET/PUT /expectations: a PUT row replaces the stored row, GET returns it.
-function installServer(calls: Call[]) {
+function installServer(calls: Call[], frequencyConfig?: Row) {
   const stored: Record<string, Row> = {
     [`${FREQ}-GT`]: { ...emptyRow(), year1: 2, year1Unit: 'mes' },
     [`${FREQ}-GI`]: emptyRow(),
@@ -100,7 +100,7 @@ function installServer(calls: Call[]) {
         modules: [{
           moduleId: 'mod-1', moduleName: 'Acción sintética', moduleOrder: 1,
           indicators: [
-            indicator(FREQ, 'Frecuencia sintética', 'frecuencia', { frequencyUnitOptions: ['semana', 'mes'] }),
+            indicator(FREQ, 'Frecuencia sintética', 'frecuencia', { frequencyUnitOptions: ['semana', 'mes'], frequencyConfig }),
             indicator(DEPTH, 'Profundidad sintética', 'profundidad'),
           ],
         }],
@@ -288,5 +288,89 @@ describe('Expectations editor — frequency count and period (PROC-20)', () => {
     expect(mockToastSuccess).not.toHaveBeenCalled();
     expect(saveButton()).toBeEnabled();
     expect(screen.getByText('Hay cambios sin guardar')).toBeInTheDocument();
+  });
+});
+
+// F1: the expected count must be an answer the indicator itself accepts
+const RANGE_ERROR =
+  'No se guardaron los cambios: hay expectativas de frecuencia fuera del rango o de los pasos que permite el indicador.';
+const ZERO_TO_FIVE = { min: 0, max: 5, step: 1, unit: 'semana', allowed_units: ['semana', 'mes'] };
+
+describe('Expectations editor — frequency range and step (F1)', () => {
+  let calls: Call[];
+  const originalFetch = globalThis.fetch;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    calls = [];
+    installSupabase();
+  });
+
+  afterEach(() => {
+    cleanup();
+    globalThis.fetch = originalFetch;
+  });
+
+  it('a count above the maximum is flagged in the cell and the list, and blocks the save without a PUT', async () => {
+    installServer(calls, ZERO_TO_FIVE);
+    await renderEditor();
+    fireEvent.change(count('GT', 2), { target: { value: '8' } });
+
+    const banner = await screen.findByTestId('frequency-range-error');
+    expect(banner).toHaveTextContent('1 expectativa de frecuencia no calza con las reglas de su indicador');
+    expect(banner).toHaveTextContent('F1 (GT, Año 2): 8 es mayor que el máximo (5)');
+    expect(count('GT', 2)).toHaveAttribute('aria-invalid', 'true');
+
+    fireEvent.click(saveButton());
+    expect(mockToastError).toHaveBeenCalledWith(RANGE_ERROR);
+    expect(count('GT', 2)).toHaveFocus();
+    expect(puts(calls)).toHaveLength(0);
+
+    // Fixing the value clears the flag and the save goes through
+    fireEvent.change(count('GT', 2), { target: { value: '5' } });
+    expect(screen.queryByTestId('frequency-range-error')).toBeNull();
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(puts(calls)).toHaveLength(1));
+    expect(puts(calls)[0].body.expectations[0]).toMatchObject({ generationType: 'GT', year2: 5 });
+  });
+
+  it('an off-step count is named with the step it must follow', async () => {
+    installServer(calls, { ...ZERO_TO_FIVE, min: 1, step: 2 });
+    await renderEditor();
+    fireEvent.change(count('GI', 3), { target: { value: '4' } });
+
+    expect(await screen.findByTestId('frequency-range-error')).toHaveTextContent(
+      'F1 (GI, Año 3): 4 no corresponde a los pasos de 2 desde 1'
+    );
+  });
+
+  it('an already-stored value that no longer fits is shown, warns about publishing, and does not block other saves', async () => {
+    // Stored GT year1 = 2 (see installServer); the rules now start at 3
+    installServer(calls, { ...ZERO_TO_FIVE, min: 3 });
+    await renderEditor();
+
+    const banner = await screen.findByTestId('frequency-range-error');
+    expect(banner).toHaveTextContent('F1 (GT, Año 1): 2 es menor que el mínimo (3)');
+    expect(banner).toHaveTextContent('No se podrá publicar el template hasta corregirlas');
+
+    fireEvent.change(count('GI', 1), { target: { value: '4' } });
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(puts(calls)).toHaveLength(1));
+    expect(puts(calls)[0].body.expectations).toEqual([expect.objectContaining({ generationType: 'GI', year1: 4 })]);
+  });
+
+  it('shows the server details when the API refuses a value', async () => {
+    const server = installServer(calls);
+    server.failNextPut(400, {
+      error: 'Valores de expectativa inválidos',
+      details: ['F1 (GT, Año 2): 8 es mayor que el máximo (5)'],
+    });
+    await renderEditor();
+    fireEvent.change(count('GT', 2), { target: { value: '8' } });
+    fireEvent.click(saveButton());
+
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith(
+      'Valores de expectativa inválidos: F1 (GT, Año 2): 8 es mayor que el máximo (5)'
+    ));
   });
 });

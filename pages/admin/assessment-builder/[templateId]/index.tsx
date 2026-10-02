@@ -797,7 +797,8 @@ const TemplateEditor: React.FC = () => {
 
         if (!response.ok) {
           const data = await response.json();
-          throw new Error(data.error || 'Error al actualizar el indicador');
+          const details = Array.isArray(data.details) && data.details.length > 0 ? ` ${data.details.join('; ')}` : '';
+          throw new Error(`${data.error || 'Error al actualizar el indicador'}${details}`);
         }
 
         const data = await response.json();
@@ -814,6 +815,15 @@ const TemplateEditor: React.FC = () => {
           )
         );
         toast.success('Indicador actualizado');
+        // F1: saved, but some year expectations no longer fit the new rules;
+        // publishing stays blocked until they are corrected.
+        if (Array.isArray(data.expectationWarnings) && data.expectationWarnings.length > 0) {
+          toast(
+            `Atención: ${data.expectationWarnings.length} expectativa(s) ya no calzan con las nuevas reglas ` +
+              `y deben corregirse en Expectativas antes de publicar. ${data.expectationWarnings.join('; ')}`,
+            { icon: '⚠️', duration: 12000, id: 'indicator-expectation-warnings' }
+          );
+        }
       } else {
         // Create indicator
         const response = await fetch(

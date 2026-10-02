@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { categoryScopedColumns } from './indicatorCategoryColumns';
-import { validateFrequencyConfig } from './frequencyConfig';
+import { describeExpectationConflict, frequencyExpectationConflicts, validateFrequencyConfig } from './frequencyConfig';
 
 /**
  * The validated template publication service.
@@ -197,6 +197,36 @@ export async function publishTemplate(
   if (expectationsError) {
     console.error('Error fetching expectations:', expectationsError);
     return fail(500, 'Error al cargar expectativas');
+  }
+
+  // Hard gate (F1): every frecuencia year expectation must be an answer its
+  // indicator accepts (inside min/max, on the step grid).
+  const expectationConflicts = allIndicators
+    .filter((ind: any) => ind.category === 'frecuencia')
+    .flatMap((ind: any) =>
+      frequencyExpectationConflicts(
+        ind.frequency_config,
+        (expectations || []).filter((exp: any) => exp.indicator_id === ind.id)
+      ).map((conflict) => ({ ...conflict, indicator: String(ind.code || ind.name) }))
+    );
+
+  if (expectationConflicts.length > 0) {
+    return fail(
+      400,
+      `No se puede publicar: ${expectationConflicts.length} expectativa(s) de frecuencia fuera del rango o de los pasos ` +
+        `que permite su indicador: ${expectationConflicts.map(describeExpectationConflict).join('; ')}`,
+      {
+        code: 'expectations_out_of_range',
+        details: expectationConflicts.map((conflict) => ({
+          indicator: conflict.indicator,
+          generationType: conflict.generationType,
+          year: conflict.year,
+          value: conflict.value,
+          code: conflict.code,
+          message: describeExpectationConflict(conflict),
+        })),
+      }
+    );
   }
 
   // Build expectations maps by indicator ID and generation_type

@@ -2,6 +2,13 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import type { GenerationType } from '@/types/assessment-builder';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
+import {
+  describeExpectationConflict,
+  frequencyExpectationConflicts,
+  frequencyExpectationViolation,
+  validateFrequencyConfig,
+  type ExpectationYear,
+} from '@/lib/services/assessment-builder/frequencyConfig';
 
 // ============================================================
 // Weight validation helper (shared between `weights` and `yearWeights`)
@@ -155,6 +162,7 @@ async function handleGet(
           category,
           display_order,
           weight,
+          frequency_config,
           frequency_unit_options,
           level_0_descriptor,
           level_1_descriptor,
@@ -230,6 +238,7 @@ async function handleGet(
             indicatorCategory: indicator.category,
             indicatorWeight: indicator.weight,
             frequencyUnitOptions: indicator.frequency_unit_options,
+            frequencyConfig: indicator.category === 'frecuencia' ? (indicator.frequency_config ?? null) : undefined,
             displayOrder: indicator.display_order,
             levelDescriptors: indicator.category === 'profundidad' ? {
               level0: indicator.level_0_descriptor,
@@ -419,7 +428,7 @@ async function handlePut(
     // Get all indicator IDs for this template to validate (including category for weight validation)
     const { data: indicators, error: indicatorsError } = await supabase
       .from('assessment_indicators')
-      .select('id, module_id, category, assessment_modules!inner(template_id)')
+      .select('id, code, name, category, frequency_config, module_id, assessment_modules!inner(template_id)')
       .eq('assessment_modules.template_id', templateId);
 
     if (indicatorsError) {
@@ -429,6 +438,7 @@ async function handlePut(
 
     const validIndicatorIds = new Set((indicators || []).map((i: any) => i.id));
     const indicatorCategoryById = new Map<string, string>((indicators || []).map((i: any) => [i.id, i.category]));
+    const indicatorById = new Map<string, any>((indicators || []).map((i: any) => [i.id, i]));
 
     // ---- Validate expectations before any weight or year-weight write ----
     const errors: string[] = [];
@@ -468,7 +478,22 @@ async function handlePut(
       const validateYearValue = (value: any, yearNum: number): number | null => {
         if (value === null || value === undefined) return null;
         if (category === 'frecuencia') {
-          if (typeof value === 'number' && Number.isInteger(value) && value >= 0) return value;
+          if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+            // F1: the expected count must be an answer the indicator itself accepts
+            const indicator = indicatorById.get(exp.indicatorId);
+            const violation = frequencyExpectationViolation(indicator?.frequency_config, value);
+            if (!violation) return value;
+            valueErrors.push(
+              describeExpectationConflict({
+                indicator: String(indicator?.code || indicator?.name || exp.indicatorId),
+                generationType,
+                year: yearNum as ExpectationYear,
+                value,
+                ...violation,
+              })
+            );
+            return null;
+          }
           valueErrors.push(`Indicador ${exp.indicatorId}: year${yearNum} debe ser un número entero >= 0 o null`);
         } else if (category === 'profundidad') {
           if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 4) return value;
@@ -872,6 +897,26 @@ async function handlePut(
       });
     }
 
+    // F1 on a published template (no publish gate follows): remember the rows
+    // this save replaces (the WHOLE batch), so a rule change committed by
+    // someone else in the same instant can be detected after the write and
+    // this save undone in full.
+    const isPublished = template.status === 'published';
+    const frequencyRows = upsertData.filter((row) => indicatorCategoryById.get(row.indicator_id) === 'frecuencia');
+    let previousRows: any[] = [];
+    if (isPublished && frequencyRows.length > 0) {
+      const { data: before, error: beforeError } = await supabase
+        .from('assessment_year_expectations')
+        .select('*')
+        .eq('template_id', templateId)
+        .in('indicator_id', Array.from(new Set(upsertData.map((row) => row.indicator_id))));
+      if (beforeError) {
+        console.error('Error reading expectations before save:', beforeError);
+        return res.status(500).json({ error: 'Error al guardar expectativas' });
+      }
+      previousRows = before || [];
+    }
+
     // Upsert expectations (new unique constraint includes generation_type)
     const { data: savedExpectations, error: upsertError } = await supabase
       .from('assessment_year_expectations')
@@ -886,6 +931,33 @@ async function handlePut(
       return res.status(500).json({ error: 'Error al guardar expectativas' });
     }
 
+    // F1 re-check after the write: compare what was saved with the rules as
+    // they are NOW. A conflict here means the rules changed concurrently; undo
+    // this save (restore replaced rows, remove rows it created) and ask to retry.
+    if (isPublished && frequencyRows.length > 0) {
+      const lateConflicts = await expectationConflictsAfterWrite(supabase, frequencyRows, indicatorById);
+      if (lateConflicts === null || lateConflicts.length > 0) {
+        const undone = await restoreExpectationRows(supabase, templateId as string, upsertData, previousRows);
+        if (!undone) {
+          return res.status(500).json({
+            error:
+              'Las reglas de frecuencia cambiaron mientras se guardaba y no se pudo deshacer por completo este guardado. ' +
+              'Revisa las expectativas de este template antes de continuar.',
+            code: 'undo_incomplete',
+            details: lateConflicts ?? [],
+          });
+        }
+        return res.status(409).json({
+          error:
+            'No se guardaron las expectativas: las reglas de frecuencia del indicador cambiaron mientras se guardaba. ' +
+            'Recarga la página y vuelve a intentarlo.' +
+            (weightsSaved + yearWeightsSaved > 0 ? ' Los pesos sí se guardaron.' : ''),
+          code: 'concurrent_rule_change',
+          details: lateConflicts ?? [],
+        });
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: `${savedExpectations?.length || 0} expectativas guardadas`,
@@ -898,4 +970,72 @@ async function handlePut(
     console.error('Unexpected error saving expectations:', err);
     return res.status(500).json({ error: err.message || 'Error al guardar expectativas' });
   }
+}
+
+/**
+ * Conflicts between just-written frecuencia expectation rows and the
+ * indicators' CURRENT rules (re-read after the write), as es-CL lines. null
+ * (= conflict, fail closed) when the rules cannot be read, an indicator is
+ * gone, or rules that met the publish contract when this save was validated
+ * no longer do (removed, legacy or incomplete). Rules that already failed it
+ * (legacy/unconfigured) stay unjudged, exactly as at validation time.
+ */
+async function expectationConflictsAfterWrite(
+  supabase: any,
+  rows: any[],
+  validatedById: Map<string, any>
+): Promise<string[] | null> {
+  const ids = Array.from(new Set(rows.map((row) => row.indicator_id)));
+  const { data: indicators, error } = await supabase
+    .from('assessment_indicators')
+    .select('id, code, name, category, frequency_config')
+    .in('id', ids);
+  if (error || !Array.isArray(indicators)) {
+    console.error('Error re-reading indicator rules after saving expectations:', error);
+    return null;
+  }
+  const byId = new Map<string, any>(indicators.map((ind: any) => [ind.id, ind]));
+  const out: string[] = [];
+  for (const row of rows) {
+    const now = byId.get(row.indicator_id);
+    if (!now) return null;
+    // "Usable" = meets the full publish contract; absent and legacy rules do not.
+    const wasUsable = validateFrequencyConfig(validatedById.get(row.indicator_id)?.frequency_config).valid;
+    const isUsable = now.category === 'frecuencia' && validateFrequencyConfig(now.frequency_config).valid;
+    if (wasUsable && !isUsable) return null;
+    out.push(
+      ...frequencyExpectationConflicts(now.frequency_config, [row]).map((conflict) =>
+        describeExpectationConflict({ ...conflict, indicator: String(now.code || now.name || row.indicator_id) })
+      )
+    );
+  }
+  return out;
+}
+
+/**
+ * Puts back the rows a save replaced and removes the rows it created.
+ * Returns true only when every restore/removal succeeded.
+ */
+async function restoreExpectationRows(supabase: any, templateId: string, written: any[], previous: any[]): Promise<boolean> {
+  const key = (row: any) => `${row.indicator_id}|${row.generation_type || 'GT'}`;
+  const previousByKey = new Map(previous.map((row) => [key(row), row]));
+  let ok = true;
+  for (const row of written) {
+    const old = previousByKey.get(key(row));
+    const { error } = old
+      ? await supabase
+          .from('assessment_year_expectations')
+          .upsert({ ...old }, { onConflict: 'template_id,indicator_id,generation_type', ignoreDuplicates: false })
+      : await supabase
+          .from('assessment_year_expectations')
+          .delete()
+          .eq('template_id', templateId)
+          .eq('indicator_id', row.indicator_id)
+          .eq('generation_type', row.generation_type);
+    if (error) {
+      ok = false;
+      console.error('Error restoring expectation row after a concurrent rule change:', error);
+    }
+  }
+  return ok;
 }

@@ -44,7 +44,10 @@ vi.mock('../../../lib/assessment-permissions', () => ({
 import handler from '../../../pages/api/admin/assessment-builder/templates/[templateId]/publish';
 
 /** Draft template + one objective/module/indicator: the minimal publishable fixture. */
-function publishableFixture(extraIndicators: Array<Record<string, unknown>> = []) {
+function publishableFixture(
+  extraIndicators: Array<Record<string, unknown>> = [],
+  expectations: Array<Record<string, unknown>> = []
+) {
   const template = {
     id: TEMPLATE_DRAFT_1,
     area: 'evaluacion',
@@ -69,7 +72,7 @@ function publishableFixture(extraIndicators: Array<Record<string, unknown>> = []
       if (table === 'assessment_objectives') return buildChainableQuery([objective]);
       if (table === 'assessment_modules') return buildChainableQuery([module]);
       if (table === 'assessment_indicators') return buildChainableQuery([indicator, ...extraIndicators]);
-      if (table === 'assessment_year_expectations') return buildChainableQuery([]);
+      if (table === 'assessment_year_expectations') return buildChainableQuery(expectations);
       if (table === 'assessment_template_snapshots') return buildChainableQuery(snapshot);
       return buildChainableQuery([]);
     }),
@@ -305,6 +308,40 @@ describe('POST /api/.../templates/[id]/publish', () => {
       expect(r.body.error).toContain('2 indicador(es)');
       expect(r.body.details.map((d: any) => d.indicator)).toEqual(['F1', 'F2']);
       expect(r.body.details[1].errors).toEqual(['el valor mínimo debe ser menor que el máximo']);
+    });
+
+    it('F1: refuses publish (400 expectations_out_of_range, no snapshot) when an expectation does not fit its indicator', async () => {
+      const { mockClient } = publishableFixture(
+        [frecuenciaIndicator(IND_FRECUENCIA_1, 'F1', { ...VALID_FREQUENCY_CONFIG, max: 5 })],
+        [
+          { indicator_id: IND_FRECUENCIA_1, generation_type: 'GT', year_1_expected: 2, year_2_expected: 8, year_3_expected: null, year_4_expected: null, year_5_expected: null },
+          { indicator_id: IND_COBERTURA_1, generation_type: 'GT', year_1_expected: 1, year_2_expected: 9, year_3_expected: null, year_4_expected: null, year_5_expected: null },
+        ]
+      );
+      const r = await publish(mockClient);
+      expect(r.status).toBe(400);
+      expect(r.body.code).toBe('expectations_out_of_range');
+      expect(r.body.error).toContain('No se puede publicar: 1 expectativa(s) de frecuencia');
+      expect(r.body.details).toEqual([
+        {
+          indicator: 'F1',
+          generationType: 'GT',
+          year: 2,
+          value: 8,
+          code: 'above_max',
+          message: 'F1 (GT, Año 2): 8 es mayor que el máximo (5)',
+        },
+      ]);
+      expect((mockClient as any).from).not.toHaveBeenCalledWith('assessment_template_snapshots');
+    });
+
+    it('F1: publishes when every frecuencia expectation is inside the range and on the step grid', async () => {
+      const { mockClient } = publishableFixture(
+        [frecuenciaIndicator(IND_FRECUENCIA_1, 'F1', { ...VALID_FREQUENCY_CONFIG, min: 0, max: 10, step: 2 })],
+        [{ indicator_id: IND_FRECUENCIA_1, generation_type: 'GT', year_1_expected: 0, year_2_expected: 4, year_3_expected: 10, year_4_expected: null, year_5_expected: null }]
+      );
+      const r = await publish(mockClient);
+      expect(r.status).toBe(200);
     });
 
     it('rejects a default unit outside allowed_units and a non-positive step', async () => {

@@ -99,7 +99,7 @@ describe('GET /api/.../templates/[id]/expectations', () => {
 
 // Stateful fake: upserted expectation rows are stored and returned by the next GET;
 // every write (update/upsert/insert/delete) on any table is recorded in `writes`
-function buildPutClient(templateOverrides: Record<string, unknown> = {}) {
+function buildPutClient(templateOverrides: Record<string, unknown> = {}, frequencyConfig: unknown = undefined) {
   const store: any[] = [];
   const writes: Array<{ table: string; op: string; payload: any }> = [];
   const recordWrites = (table: string, query: any) =>
@@ -125,7 +125,7 @@ function buildPutClient(templateOverrides: Record<string, unknown> = {}) {
   };
   const indicators = [
     { id: IND_COBERTURA_1, module_id: MODULE_A, category: 'cobertura' },
-    { id: IND_FRECUENCIA_1, module_id: MODULE_A, category: 'frecuencia' },
+    { id: IND_FRECUENCIA_1, module_id: MODULE_A, category: 'frecuencia', code: 'FREC-1', frequency_config: frequencyConfig },
     { id: IND_PROFUNDIDAD_1, module_id: MODULE_A, category: 'profundidad' },
   ];
   const modules = [
@@ -135,7 +135,12 @@ function buildPutClient(templateOverrides: Record<string, unknown> = {}) {
       display_order: 1,
       weight: 100,
       objective_id: null,
-      assessment_indicators: indicators.map((ind, i) => ({ id: ind.id, category: ind.category, display_order: i + 1 })),
+      assessment_indicators: indicators.map((ind, i) => ({
+        id: ind.id,
+        category: ind.category,
+        display_order: i + 1,
+        frequency_config: (ind as any).frequency_config,
+      })),
     },
   ];
   const expectationsTable = {
@@ -399,5 +404,67 @@ describe('PUT /api/.../templates/[id]/expectations — mixed weights and expecta
     );
     expect(byId.get(IND_FRECUENCIA_1)).toMatchObject({ year1: 5, year1Unit: 'semana' });
     expect(byId.get(IND_PROFUNDIDAD_1)).toMatchObject({ year1: 4 });
+  });
+});
+
+// F1: an expected frequency count must be an answer the indicator itself accepts
+const WEEKLY_0_TO_5 = { min: 0, max: 5, step: 1, unit: 'semana', allowed_units: ['semana'] };
+const EVEN_2_TO_10 = { min: 2, max: 10, step: 2, unit: 'semana', allowed_units: ['semana', 'mes'] };
+
+describe('PUT /api/.../templates/[id]/expectations — F1 indicator range and step', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('accepts expectations inside the range and on the step grid, including both ends', async () => {
+    const { client, upsert } = buildPutClient({}, EVEN_2_TO_10);
+    asAdmin(client);
+
+    const res = await put([
+      { indicatorId: IND_FRECUENCIA_1, generationType: 'GT', year1: 2, year1Unit: 'semana', year2: 6, year2Unit: 'semana', year5: 10, year5Unit: 'mes' },
+    ]);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(upsert.mock.calls[0][0][0]).toMatchObject({ year_1_expected: 2, year_2_expected: 6, year_5_expected: 10 });
+  });
+
+  it.each([
+    ['above the maximum', { year1: 8, year1Unit: 'semana' }, 'FREC-1 (GT, Año 1): 8 es mayor que el máximo (5)', WEEKLY_0_TO_5],
+    ['below the minimum', { year2: 0, year2Unit: 'semana' }, 'FREC-1 (GT, Año 2): 0 es menor que el mínimo (2)', EVEN_2_TO_10],
+    ['off the step grid', { year3: 5, year3Unit: 'semana' }, 'FREC-1 (GT, Año 3): 5 no corresponde a los pasos de 2 desde 2', EVEN_2_TO_10],
+  ])('refuses a value %s with 400, names the cell, and writes nothing', async (_label, years, detail, config) => {
+    const { client, upsert, writes } = buildPutClient({}, config);
+    asAdmin(client);
+
+    const res = await put([
+      { indicatorId: IND_FRECUENCIA_1, generationType: 'GT', ...years },
+      { indicatorId: IND_PROFUNDIDAD_1, generationType: 'GT', year1: 4 },
+    ]);
+
+    expect(res._getStatusCode()).toBe(400);
+    const body = JSON.parse(res._getData());
+    expect(body.error).toBe('Valores de expectativa inválidos');
+    expect(body.details).toEqual([detail]);
+    expect(upsert).not.toHaveBeenCalled();
+    expect(writes).toEqual([]);
+  });
+
+  it('does not check against an indicator whose rules are not configured yet (publish gates those)', async () => {
+    const { client, upsert } = buildPutClient({}, { unit: 'veces' });
+    asAdmin(client);
+
+    const res = await put([{ indicatorId: IND_FRECUENCIA_1, generationType: 'GT', year1: 50, year1Unit: 'semana' }]);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(upsert.mock.calls[0][0][0]).toMatchObject({ year_1_expected: 50 });
+  });
+
+  it('GET returns the frecuencia indicator rules so the editor can check cells before saving', async () => {
+    const { client } = buildPutClient({}, WEEKLY_0_TO_5);
+    asAdmin(client);
+    const { req, res } = createMocks({ method: 'GET', query: { templateId: TEMPLATE_DRAFT_1 } });
+    await handler(req as any, res as any);
+
+    const indicators = JSON.parse(res._getData()).modules[0].indicators;
+    expect(indicators.find((i: any) => i.indicatorId === IND_FRECUENCIA_1).frequencyConfig).toEqual(WEEKLY_0_TO_5);
+    expect(indicators.find((i: any) => i.indicatorId === IND_PROFUNDIDAD_1).frequencyConfig).toBeUndefined();
   });
 });

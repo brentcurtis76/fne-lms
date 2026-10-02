@@ -486,18 +486,18 @@ async function runProof({ fault = null, quiet = false } = {}) {
       ok('S1: 1a lists exactly the five duplicated courses with their exact active assignment ids (inactive history row and single-docente course excluded)');
 
       // 1b: every LIVE instance of a duplicated course; I2 (started) and I3 (answered) are the human decision points.
-      const expected1b = { [I1]: ['pending', 0, [D1, D2, X]], [I2]: ['in_progress', 0, [D1, D2]], [I3]: ['pending', 1, [D1, D2]], [I4]: ['pending', 0, [D1, D2]], [I5]: ['pending', 0, [D1, D2, X]] };
-      log(`  1b observed ${JSON.stringify(r1b.rows.map((r) => ({ instance: r.instance_id, status: r.status, responses: Number(r.responses), assignees: r.assignee_ids })))}`);
+      const expected1b = { [I1]: [C1, 'pending', 0, [D1, D2, X]], [I2]: [C2, 'in_progress', 0, [D1, D2]], [I3]: [C3, 'pending', 1, [D1, D2]], [I4]: [C4, 'pending', 0, [D1, D2]], [I5]: [C5, 'pending', 0, [D1, D2, X]] };
+      log(`  1b observed ${JSON.stringify(r1b.rows.map((r) => ({ instance: r.instance_id, course: r.course_structure_id, status: r.status, responses: Number(r.responses), assignees: r.assignee_ids })))}`);
       if (!sameSet(r1b.rows.map((r) => r.instance_id), Object.keys(expected1b))) fail(`S1: 1b drift — expected live instances ${JSON.stringify(Object.keys(expected1b))}`);
       for (const row of r1b.rows) {
-        const [status, responses, assignees] = expected1b[row.instance_id];
-        if (row.status !== status || Number(row.responses) !== responses || !sameSet(row.assignee_ids, assignees) || row.template_snapshot_id !== SNAPSHOT_ID) {
+        const [course, status, responses, assignees] = expected1b[row.instance_id];
+        if (row.course_structure_id !== course || row.status !== status || Number(row.responses) !== responses || !sameSet(row.assignee_ids, assignees) || row.template_snapshot_id !== SNAPSHOT_ID) {
           fail(`S1: 1b drift on instance ${row.instance_id}: ${JSON.stringify(row)}`);
         }
       }
       const decisionPoints = r1b.rows.filter((r) => r.status !== 'pending' || Number(r.responses) > 0).map((r) => r.instance_id);
       if (!sameSet(decisionPoints, [I2, I3])) fail(`S1: 1b human decision points ${JSON.stringify(decisionPoints)}, expected the started I2 and the answered I3`);
-      ok('S1: 1b lists exactly the five live instances (archived instance excluded) with status, response count and assignees; human decision points = the started and the answered instance');
+      ok('S1: 1b lists exactly the five live instances (archived instance excluded) with course, status, response count and assignees; human decision points = the started and the answered instance');
 
       // 1c: exactly the live instance of the archived template.
       log(`  1c observed ${JSON.stringify(r1c.rows.map((r) => ({ instance: r.id, school: r.school_id, course: r.course_structure_id, status: r.status, template: r.template_id, assignees: Number(r.assignees), responses: Number(r.responses) })))}`);
@@ -589,7 +589,7 @@ async function runProof({ fault = null, quiet = false } = {}) {
         if (!can && (inTx !== serverDefault || !refusedNotice)) fail(`P: a role refused deadlock_timeout ran Step 2 with ${inTx} (notice ${refusedNotice})`);
         ok(can
           ? 'P: this role may set deadlock_timeout — Step 2 ran with 200ms'
-          : `P: this role may NOT set deadlock_timeout — Step 2 ran on with the server default (${serverDefault}) and said so in a NOTICE`);
+          : `P: this role may NOT set deadlock_timeout — Step 2 ran on with its current value (${serverDefault}) and said so in a NOTICE`);
       } finally {
         opA.off('notice', onNotice);
         await opA.query('ROLLBACK');
@@ -1036,8 +1036,8 @@ async function runProof({ fault = null, quiet = false } = {}) {
         result.cleanupErrors.push(`purge failed: ${e.message}`);
       }
       try {
-        const { rows } = await admin.query('SELECT count(*)::int AS n FROM public.schools WHERE id = $1', [SCHOOL_ID]);
-        if (rows[0].n !== 0) result.cleanupErrors.push(`fixture school ${SCHOOL_ID} still exists`);
+        const { rows } = await admin.query('SELECT count(*)::int AS n FROM public.schools WHERE id = ANY($1::int[])', [ALL_SCHOOLS]);
+        if (rows[0].n !== 0) result.cleanupErrors.push(`${rows[0].n} fixture school(s) of ${ALL_SCHOOLS.join(', ')} still exist`);
         const { rows: idx } = await admin.query('SELECT 1 FROM pg_indexes WHERE schemaname = $1 AND indexname = $2', ['public', INDEX_NAME]);
         if (idx.length > 0 && result.ok) result.cleanupErrors.push(`index ${INDEX_NAME} still exists after a passing run`);
       } catch (e) {
@@ -1071,7 +1071,7 @@ async function lifecycleDrills() {
   const outer = new Client({ connectionString: DB_URL, application_name: 'proof-drill-admin' });
   await outer.connect();
   try {
-    const noFixtures = async () => (await outer.query('SELECT count(*)::int AS n FROM public.schools WHERE id = $1', [SCHOOL_ID])).rows[0].n === 0;
+    const noFixtures = async () => (await outer.query('SELECT count(*)::int AS n FROM public.schools WHERE id = ANY($1::int[])', [ALL_SCHOOLS])).rows[0].n === 0;
     const noSessions = async () => (await outer.query(`SELECT count(*)::int AS n FROM pg_stat_activity WHERE application_name LIKE 'opa-%' `)).rows[0].n === 0;
     const indexExists = async () => (await outer.query('SELECT 1 FROM pg_indexes WHERE schemaname = $1 AND indexname = $2', ['public', INDEX_NAME])).rows.length > 0;
 

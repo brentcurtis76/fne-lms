@@ -9,7 +9,7 @@
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { buildChainableQuery } from '../../api/assessment-builder/_helpers';
 
@@ -165,7 +165,7 @@ describe('docente save feedback across instance navigation (PROC-B004, Codex por
     routerMock.query = { instanceId: INSTANCE_ID };
   });
 
-  it('a refusal that arrives after moving to another evaluation is not shown on the new one', async () => {
+  it("a late refusal from the previous evaluation never replaces the new evaluation's own refusal", async () => {
     supabaseHolder.current = {
       auth: {
         getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: 'docente-1', email: 'docente@example.test' } } } }),
@@ -173,8 +173,8 @@ describe('docente save feedback across instance navigation (PROC-B004, Codex por
       },
       from: vi.fn(() => buildChainableQuery({ avatar_url: null })),
     };
-    let finishRefusal!: (body: unknown) => void;
-    const lateBody = new Promise(resolve => { finishRefusal = resolve; });
+    let finishOld!: (body: unknown) => void;
+    const oldBody = new Promise(resolve => { finishOld = resolve; });
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       for (const id of [INSTANCE_ID, OTHER_ID]) {
@@ -183,11 +183,18 @@ describe('docente save feedback across instance navigation (PROC-B004, Codex por
         }
       }
       if (url === `/api/docente/assessments/${INSTANCE_ID}/responses` && init?.method === 'PUT') {
-        return { ok: false, status: 400, json: () => lateBody } as unknown as Response;
+        return { ok: false, status: 400, json: () => oldBody } as unknown as Response;
+      }
+      if (url === `/api/docente/assessments/${OTHER_ID}/responses` && init?.method === 'PUT') {
+        return new Response(JSON.stringify({
+          error: 'No hay respuestas válidas para guardar',
+          details: [`Indicador ${INDICATOR}: frecuencia debe ser menor o igual a 3.1`],
+        }), { status: 400 });
       }
       return new Response('{}', { status: 404 });
     }) as unknown as typeof fetch;
 
+    // Evaluation A: a save is in flight when the docente moves on.
     const view = render(<AssessmentResponseForm />);
     fireEvent.change(await screen.findByRole('spinbutton', { name: 'Cantidad de frecuencia' }), { target: { value: '0' } });
     fireEvent.click(screen.getByTestId('assessment-save-button'));
@@ -195,14 +202,21 @@ describe('docente save feedback across instance navigation (PROC-B004, Codex por
       `/api/docente/assessments/${INSTANCE_ID}/responses`, expect.objectContaining({ method: 'PUT' })
     ));
 
+    // Evaluation B: its own save is refused and its reason is shown.
     routerMock.query = { instanceId: OTHER_ID };
     view.rerender(<AssessmentResponseForm />);
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith(`/api/docente/assessments/${OTHER_ID}`));
-    await screen.findByRole('spinbutton', { name: 'Cantidad de frecuencia' });
+    fireEvent.change(await screen.findByRole('spinbutton', { name: 'Cantidad de frecuencia' }), { target: { value: '9' } });
+    fireEvent.click(screen.getByTestId('assessment-save-button'));
+    const refusal = await screen.findByTestId('assessment-save-refusal');
+    expect(refusal).toHaveTextContent('menor o igual a 3.1');
 
-    finishRefusal({ error: 'No hay respuestas válidas para guardar', details: [`Indicador ${INDICATOR}: frecuencia debe ser mayor o igual a 0.1`] });
-    await new Promise(resolve => setTimeout(resolve, 20));
-
-    expect(screen.queryByTestId('assessment-save-refusal')).toBeNull();
+    // A's refusal finally arrives: it must not replace B's.
+    await act(async () => {
+      finishOld({ error: 'No hay respuestas válidas para guardar', details: [`Indicador ${INDICATOR}: frecuencia debe ser mayor o igual a 0.1`] });
+      await oldBody;
+    });
+    expect(screen.getByTestId('assessment-save-refusal')).toHaveTextContent('menor o igual a 3.1');
+    expect(screen.getByTestId('assessment-save-refusal')).not.toHaveTextContent('mayor o igual a 0.1');
   });
 });

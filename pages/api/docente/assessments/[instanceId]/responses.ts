@@ -39,7 +39,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (assigneeError || !assignee) {
       return res.status(403).json({
-        error: 'No tienes permiso para responder este registro'
+        error: 'No tienes permiso para completar este registro'
       });
     }
 

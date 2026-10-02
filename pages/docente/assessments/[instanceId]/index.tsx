@@ -32,7 +32,7 @@ const INSTANCE_STATUS_LABELS: Record<InstanceStatus, string> = {
   pending: 'Pendiente',
   in_progress: 'En progreso',
   completed: 'Completado',
-  archived: 'Archivada',
+  archived: 'Archivado',
 };
 
 const SAVE_FAILED_MESSAGE = 'No se pudieron guardar tus respuestas. Revisa tu conexión e intenta nuevamente.';

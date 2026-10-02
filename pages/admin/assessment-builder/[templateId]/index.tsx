@@ -1765,7 +1765,7 @@ const TemplateEditor: React.FC = () => {
               <ClipboardList className="mx-auto h-12 w-12 text-gray-300" />
               <h4 className="mt-4 text-lg font-medium text-gray-900">Sin {ENTITY_LABELS.objectives.toLowerCase()}</h4>
               <p className="mt-2 text-sm text-gray-500">
-                Agrega {ENTITY_LABELS.objectives.toLowerCase()} para organizar las {ENTITY_LABELS.modules.toLowerCase()} e indicadores del registro
+                Agrega {ENTITY_LABELS.objectives.toLowerCase()} para organizar las {ENTITY_LABELS.modules.toLowerCase()} e indicadores que componen el registro
               </p>
               {canEdit && (
                 <button
@@ -2488,7 +2488,7 @@ const TemplateEditor: React.FC = () => {
 
                 <div>
                   <label htmlFor="indicator-evaluation-guidance" className="block text-sm font-medium text-gray-700 mb-1">
-                    Guía de Registro
+                    Orientaciones para interpretar el indicador
                   </label>
                   <textarea
                     id="indicator-evaluation-guidance"
@@ -2499,7 +2499,7 @@ const TemplateEditor: React.FC = () => {
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    Instrucciones para la IA al generar el informe del registro. Ejemplo: &quot;Realizar esto más de una vez al año no es necesario — no señalar baja frecuencia como problema.&quot;
+                    Instrucciones para la IA al generar el informe a partir de las respuestas del registro. Ejemplo: &quot;Realizar esto más de una vez al año no es necesario — no señalar baja frecuencia como problema.&quot;
                   </p>
                 </div>
 

@@ -133,7 +133,6 @@ import diagSignature from '../../pages/api/meet/diag-signature';
 import myCourses from '../../pages/api/my-courses';
 import quotesList from '../../pages/api/quotes/list';
 import quotesPrograms from '../../pages/api/quotes/programs';
-import testGroupAssignments from '../../pages/api/test-group-assignments';
 import evaluate from '../../pages/api/transformation/assessments/[id]/evaluate';
 import responses from '../../pages/api/transformation/assessments/[id]/responses';
 import assessmentById from '../../pages/api/transformation/assessments/[id]';
@@ -239,7 +238,6 @@ const SWEEP: Array<[string, Handler, string, Record<string, string>, unknown]> =
   ['my-courses', myCourses, 'GET', {}, {}],
   ['quotes/list', quotesList, 'GET', {}, {}],
   ['quotes/programs POST', quotesPrograms, 'POST', {}, { name: 'P' }],
-  ['test-group-assignments', testGroupAssignments, 'GET', {}, {}],
   ['transformation/assessments/[id]/evaluate', evaluate, 'POST', { id: 'x-1' }, {}],
   ['transformation/assessments/[id]/responses', responses, 'PUT', { id: 'x-1' }, {}],
   ['transformation/assessments/[id]', assessmentById, 'PATCH', { id: 'x-1' }, {}],

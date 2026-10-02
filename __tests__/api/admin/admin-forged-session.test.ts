@@ -183,7 +183,6 @@ vi.mock('@supabase/supabase-js', () => ({
 }));
 
 import overlay from '../../../pages/api/admin/roles/permissions/overlay';
-import overlayBackup from '../../../pages/api/admin/roles/permissions/overlay-backup';
 import cleanup from '../../../pages/api/admin/test-runs/cleanup';
 import networkSchools from '../../../pages/api/admin/networks/schools';
 import availableSchools from '../../../pages/api/admin/networks/available-schools';
@@ -203,7 +202,6 @@ const OVERLAY_BODY = { role_type: 'docente', permission_key: 'k', granted: true,
 
 const SUPERADMIN_ROUTES: Array<[string, Handler, string, unknown]> = [
   ['overlay', overlay, 'POST', OVERLAY_BODY],
-  ['overlay-backup', overlayBackup, 'POST', OVERLAY_BODY],
   ['test-runs/cleanup', cleanup, 'POST', { test_run_id: 'run-1', confirm: true }],
 ];
 const ADMIN_ROUTES: Array<[string, Handler, string, unknown]> = [

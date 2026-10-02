@@ -155,3 +155,54 @@ describe('docente frecuencia save feedback (PROC-B004 D1)', () => {
     expect(screen.getByTestId('assessment-save-status')).toHaveTextContent('Error al guardar respuestas');
   });
 });
+
+describe('docente save feedback across instance navigation (PROC-B004, Codex port note 2)', () => {
+  const OTHER_ID = '88888888-8888-4888-8888-888888888888';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.localStorage.clear();
+    routerMock.query = { instanceId: INSTANCE_ID };
+  });
+
+  it('a refusal that arrives after moving to another evaluation is not shown on the new one', async () => {
+    supabaseHolder.current = {
+      auth: {
+        getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: 'docente-1', email: 'docente@example.test' } } } }),
+        signOut: vi.fn(),
+      },
+      from: vi.fn(() => buildChainableQuery({ avatar_url: null })),
+    };
+    let finishRefusal!: (body: unknown) => void;
+    const lateBody = new Promise(resolve => { finishRefusal = resolve; });
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      for (const id of [INSTANCE_ID, OTHER_ID]) {
+        if (url === `/api/docente/assessments/${id}` && !init?.method) {
+          return new Response(JSON.stringify({ ...payload, instance: { ...payload.instance, id } }), { status: 200 });
+        }
+      }
+      if (url === `/api/docente/assessments/${INSTANCE_ID}/responses` && init?.method === 'PUT') {
+        return { ok: false, status: 400, json: () => lateBody } as unknown as Response;
+      }
+      return new Response('{}', { status: 404 });
+    }) as unknown as typeof fetch;
+
+    const view = render(<AssessmentResponseForm />);
+    fireEvent.change(await screen.findByRole('spinbutton', { name: 'Cantidad de frecuencia' }), { target: { value: '0' } });
+    fireEvent.click(screen.getByTestId('assessment-save-button'));
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith(
+      `/api/docente/assessments/${INSTANCE_ID}/responses`, expect.objectContaining({ method: 'PUT' })
+    ));
+
+    routerMock.query = { instanceId: OTHER_ID };
+    view.rerender(<AssessmentResponseForm />);
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith(`/api/docente/assessments/${OTHER_ID}`));
+    await screen.findByRole('spinbutton', { name: 'Cantidad de frecuencia' });
+
+    finishRefusal({ error: 'No hay respuestas válidas para guardar', details: [`Indicador ${INDICATOR}: frecuencia debe ser mayor o igual a 0.1`] });
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    expect(screen.queryByTestId('assessment-save-refusal')).toBeNull();
+  });
+});

@@ -91,7 +91,14 @@ const AssessmentResponseForm: React.FC = () => {
 
   useEffect(() => {
     if (!scope || typeof instanceId !== 'string') return;
-    const showRefusal = (reasons: string[] | null) => { saveRefusalRef.current = reasons; setSaveRefusal(reasons); };
+    // A save that finishes after this session is disposed (e.g. navigation to
+    // another instance) must not write its refusal into the next session's UI.
+    let disposed = false;
+    const showRefusal = (reasons: string[] | null) => {
+      if (disposed) return;
+      saveRefusalRef.current = reasons;
+      setSaveRefusal(reasons);
+    };
     showRefusal(null);
     // The draft session reduces every failed save to `false`; read the server's answer on the way
     // through so a validation refusal is not reported as a connection problem.
@@ -104,7 +111,7 @@ const AssessmentResponseForm: React.FC = () => {
     const session = new ResponseDraftSession(user.id, instanceId, () => window.localStorage, request);
     const unsubscribe = session.subscribe(setDraftState);
     setDraftOwner({ scope, session });
-    return () => { unsubscribe(); session.dispose(); };
+    return () => { disposed = true; unsubscribe(); session.dispose(); };
   }, [scope, user?.id, instanceId]);
 
   useEffect(() => {

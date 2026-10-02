@@ -117,6 +117,40 @@ export async function getMeetings(
   }
 }
 
+export interface MeetingRights {
+  canEdit: boolean;
+  canDelete: boolean;
+  canReadContent: boolean;
+}
+
+/**
+ * SM-H8: what the signed-in person may do with each meeting, answered by the
+ * database (get_my_meeting_rights uses the same predicates as the RLS
+ * policies), so buttons and database cannot disagree. Fails closed: on any
+ * error the map is empty and the UI shows no edit/delete button and no content.
+ */
+export async function getMyMeetingRights(meetingIds: string[]): Promise<Map<string, MeetingRights>> {
+  const rights = new Map<string, MeetingRights>();
+  if (meetingIds.length === 0) return rights;
+  try {
+    const { data, error } = await supabase.rpc('get_my_meeting_rights', { p_meeting_ids: meetingIds });
+    if (error) {
+      console.error('Error fetching meeting rights:', error);
+      return rights;
+    }
+    for (const row of (data ?? []) as Array<{ meeting_id: string; can_edit: boolean; can_delete: boolean; can_read_content: boolean }>) {
+      rights.set(row.meeting_id, {
+        canEdit: row.can_edit === true,
+        canDelete: row.can_delete === true,
+        canReadContent: row.can_read_content === true,
+      });
+    }
+  } catch (error) {
+    console.error('Error in getMyMeetingRights:', error);
+  }
+  return rights;
+}
+
 /**
  * Get detailed meeting information including all related data
  */

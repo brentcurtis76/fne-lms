@@ -7,7 +7,7 @@ import {
   logApiRequest,
   handleMethodNotAllowed,
 } from '../../../../lib/api-auth';
-import { getCommunityRecipients } from '../../../../lib/notificationService';
+import { getCommunityRecipients, getMeetingAccessUserIds } from '../../../../lib/notificationService';
 import notificationService from '../../../../lib/notificationService';
 import { sendMeetingSummary } from '../../../../lib/emailService';
 import {
@@ -305,12 +305,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .filter((a: any) => a.attendance_status === 'attended')
           .map((a: any) => a.user_id);
       } else if (workspace?.community_id) {
-        const { data: memberRows } = await serviceClient
-          .from('user_roles')
-          .select('user_id')
-          .eq('community_id', workspace.community_id)
-          .eq('is_active', true);
-        bellRecipientIds = (memberRows || []).map((row: any) => row.user_id);
+        // SM-H8: the people with access to the meeting, not the whole community.
+        bellRecipientIds = (await getMeetingAccessUserIds(serviceClient, id)) ?? [];
       }
       await notificationService.triggerNotification('meeting_finalized', {
         meeting_id: id,

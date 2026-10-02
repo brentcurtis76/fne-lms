@@ -4,6 +4,12 @@ import { createMocks } from 'node-mocks-http';
 import handler from '../../../pages/api/meetings/[id]/finalize';
 import { QA_SIMULATION_SCHOOL_IDS } from '../../../lib/simulation/constants';
 
+// SM-H8: the routes also ask the database whether the caller is a verified
+// editor (can_edit_meeting_verified). These tests exercise the route logic
+// with that answer fixed to yes; verified-editor.test.ts covers the call.
+const verifiedEditorMock = vi.hoisted(() => ({ isVerifiedMeetingEditor: vi.fn(async () => true) }));
+vi.mock('../../../lib/api/meetings/verified-editor', () => verifiedEditorMock);
+
 vi.mock('../../../lib/api-auth', () => ({
   getApiUser: vi.fn(),
   createServiceRoleClient: vi.fn(),
@@ -52,6 +58,8 @@ vi.mock('../../../lib/notificationService', () => ({
     triggerNotification: vi.fn().mockResolvedValue({ success: true }),
   },
   getCommunityRecipients: vi.fn(),
+  // SM-H8: bells for the 'community' audience go to the people with access.
+  getMeetingAccessUserIds: vi.fn().mockResolvedValue(['leader-1', 'participant-1']),
 }));
 
 vi.mock('../../../lib/tiptap/render', () => ({
@@ -348,6 +356,8 @@ describe('/api/meetings/[id]/finalize', () => {
     expect(m.triggerNotification).toHaveBeenCalledWith('meeting_finalized', expect.objectContaining({
       meeting_id: MEETING_ID,
       audience: 'community',
+      // SM-H8: the people with access to the meeting, not every community member.
+      recipient_ids: ['leader-1', 'participant-1'],
     }));
   });
 

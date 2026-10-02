@@ -9,6 +9,12 @@ import { createMocks } from 'node-mocks-http';
 // hitting a concurrently-finalized (`completada`) meeting fell through the
 // real `canEditMeeting` 403 branch before the `requireDraft` 409 branch
 // could fire.
+// SM-H8: the routes also ask the database whether the caller is a verified
+// editor (can_edit_meeting_verified). These tests exercise the route logic
+// with that answer fixed to yes; verified-editor.test.ts covers the call.
+const verifiedEditorMock = vi.hoisted(() => ({ isVerifiedMeetingEditor: vi.fn(async () => true) }));
+vi.mock('../../../../lib/api/meetings/verified-editor', () => verifiedEditorMock);
+
 vi.mock('../../../../lib/api-auth', () => ({
   getApiUser: vi.fn(),
   createServiceRoleClient: vi.fn(),
@@ -161,5 +167,37 @@ describe('loadMeetingAuthContext — requireDraft reorder (F3)', () => {
     expect(ctx).not.toBeNull();
     expect(ctx?.meeting).toBeDefined();
     expect(ctx?.workspace?.community_id).toBe('community-1');
+  });
+
+  it('SM-H8: refuses a caller the TS policy lets through but the database does not verify (e.g. legacy co_editor row)', async () => {
+    const { getApiUser, createServiceRoleClient } = await import('../../../../lib/api-auth');
+    const { getUserRoles, getHighestRole } = await import('../../../../utils/roleUtils');
+    const { loadMeetingAuthContext } = await import('../../../../lib/api/meetings/load-context');
+
+    (getApiUser as any).mockResolvedValue({ user: { id: USER_ID }, error: null });
+    (getUserRoles as any).mockResolvedValue([{ role_type: 'docente', is_active: true, community_id: null }]);
+    (getHighestRole as any).mockReturnValue('docente');
+    (createServiceRoleClient as any).mockReturnValue(
+      buildClient({
+        id: MEETING_ID,
+        status: 'borrador',
+        created_by: 'someone-else',
+        facilitator_id: USER_ID,
+        secretary_id: null,
+        workspace: { community_id: 'community-1' },
+      }),
+    );
+    verifiedEditorMock.isVerifiedMeetingEditor.mockResolvedValueOnce(false);
+
+    const { req, res } = createMocks({ method: 'POST', query: { id: MEETING_ID }, body: {} });
+    const ctx = await loadMeetingAuthContext(req as any, res as any, {
+      meetingSelect: 'id, status, created_by, facilitator_id, secretary_id, workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id)',
+      require: 'edit',
+      requireDraft: true,
+    });
+
+    expect(ctx).toBeNull();
+    expect(res._getStatusCode()).toBe(403);
+    expect(verifiedEditorMock.isVerifiedMeetingEditor).toHaveBeenCalledWith(expect.anything(), USER_ID, MEETING_ID);
   });
 });

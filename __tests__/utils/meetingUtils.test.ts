@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Fake Supabase client that records the filter chain so we can assert on
 // which clauses were applied for a given filter input. Each `.from()` call
@@ -80,7 +80,7 @@ vi.mock('../../utils/workspaceUtils', () => ({ logWorkspaceActivity: vi.fn() }))
 // test body only drains the queue if that test actually runs; skip or filter it
 // and the queue spills into whichever file the sequencer places next. See
 // tools/eslint-plugin-mock-hygiene/drain-mock-queue.js.
-import { getMeetings } from '../../utils/meetingUtils';
+import { getMeetings, getMyMeetingRights } from '../../utils/meetingUtils';
 
 describe('getMeetings — myDrafts filter', () => {
   beforeEach(() => {
@@ -194,3 +194,38 @@ describe('getMeetings — myDrafts filter', () => {
 function swapClient(next: { from: (table: string) => unknown }) {
   (fakeSupabase.client as any).from = next.from.bind(next);
 }
+
+describe('getMyMeetingRights (SM-H8)', () => {
+  const client = fakeSupabase.client as any;
+  afterEach(() => {
+    delete client.rpc;
+  });
+
+  it('maps the database answer per meeting', async () => {
+    client.rpc = vi.fn(async () => ({
+      data: [
+        { meeting_id: 'm1', can_edit: true, can_delete: false, can_read_content: true },
+        { meeting_id: 'm2', can_edit: false, can_delete: false, can_read_content: false },
+      ],
+      error: null,
+    }));
+    const rights = await getMyMeetingRights(['m1', 'm2']);
+    expect(client.rpc).toHaveBeenCalledWith('get_my_meeting_rights', { p_meeting_ids: ['m1', 'm2'] });
+    expect(rights.get('m1')).toEqual({ canEdit: true, canDelete: false, canReadContent: true });
+    expect(rights.get('m2')).toEqual({ canEdit: false, canDelete: false, canReadContent: false });
+  });
+
+  it('fails closed: an error gives no rights at all', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    client.rpc = vi.fn(async () => ({ data: null, error: { message: 'function does not exist' } }));
+    const rights = await getMyMeetingRights(['m1']);
+    expect(rights.size).toBe(0);
+    consoleError.mockRestore();
+  });
+
+  it('asks nothing for an empty list', async () => {
+    client.rpc = vi.fn();
+    expect((await getMyMeetingRights([])).size).toBe(0);
+    expect(client.rpc).not.toHaveBeenCalled();
+  });
+});

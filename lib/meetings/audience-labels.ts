@@ -13,8 +13,11 @@ import type { FinalizeAudience } from '../../types/meetings';
  * Short, imperative form for the finalize-dialog radio picker.
  * "Toda la comunidad" / "Solo los asistentes".
  */
+// SM-H8 (owner decision 4): the stored value 'community' now means the people
+// with access to the meeting (leader, creator/facilitator/secretary,
+// participants, people added by an editor) — never the whole community.
 export const AUDIENCE_PICKER_LABELS: Record<FinalizeAudience, string> = {
-  community: 'Toda la comunidad',
+  community: 'Las personas con acceso a la reunión',
   attended: 'Solo los asistentes',
 };
 
@@ -23,7 +26,7 @@ export const AUDIENCE_PICKER_LABELS: Record<FinalizeAudience, string> = {
  * Lowercase, grammatically natural when embedded in a sentence.
  */
 export const AUDIENCE_PROSE_LABELS: Record<FinalizeAudience, string> = {
-  community: 'toda la comunidad de crecimiento',
+  community: 'las personas con acceso a la reunión',
   attended: 'sólo quienes asistieron',
 };
 

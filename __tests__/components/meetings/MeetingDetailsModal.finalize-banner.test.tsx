@@ -96,7 +96,7 @@ describe('MeetingDetailsModal — post-finalize banner', () => {
     // Wait for the async load to complete and banner to render.
     await findByText(/Finalizada el/);
     await findByText(/Ana Pérez/);
-    await findByText(/toda la comunidad de crecimiento/);
+    await findByText(/las personas con acceso a la reunión/);
 
     // Placeholder button is present.
     expect(getByTitle('Disponible próximamente')).toBeDefined();
@@ -153,7 +153,7 @@ describe('MeetingDetailsModal — post-finalize banner', () => {
 
     await findByText(/sólo quienes asistieron/);
     // And the community copy must NOT appear.
-    expect(queryByText(/toda la comunidad de crecimiento/)).toBeNull();
+    expect(queryByText(/las personas con acceso a la reunión/)).toBeNull();
   });
 
   it('renders the placeholder button as disabled with the "Disponible próximamente" tooltip', async () => {

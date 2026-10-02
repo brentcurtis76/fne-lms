@@ -112,6 +112,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     const requesterSchoolId = group.school_id;
     if (!requesterSchoolId || !requesterRoles.some(r => r.school_id === requesterSchoolId)) {
+      console.error('[add-classmates] Requester has no role in the group school');
       return res.status(403).json({ error: 'No perteneces a la escuela de este grupo' });
     }
     console.log('[add-classmates] requester has', requesterRoles.length, 'active roles; group school_id:', requesterSchoolId);

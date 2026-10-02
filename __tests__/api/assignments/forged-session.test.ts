@@ -200,7 +200,12 @@ vi.mock('@supabase/supabase-js', () => ({
             : { data: { user: null }, error: { message: 'invalid token' } }
         ),
       },
-      rpc: vi.fn(async () => ({ data: null, error: null })),
+      // save_group_submission (NOTIF-10) answers like the real function on success.
+      rpc: vi.fn(async (fn: string) =>
+        fn === 'save_group_submission'
+          ? { data: { outcome: 'saved', submitted_at: '2026-10-02T12:00:00.000Z' }, error: null }
+          : { data: null, error: null }
+      ),
       from: vi.fn(client('service')),
     };
   }),

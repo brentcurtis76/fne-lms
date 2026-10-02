@@ -54,7 +54,10 @@ const { db, fakeClient, mockGetApiUser, mockSendEmail } = vi.hoisted(() => {
   };
   // A fault is an error result, a thrown Error, or a function choosing one per call.
   const run = (table: string, q: any, mode: 'many' | 'single' | 'maybe') => {
-    const planned = db.faults[`${table}.${q.op}`];
+    // The forced-password gate's own flag read (requireVerifiedCaller, SM-B015) is not
+    // the profile lookup a fault targets: it always answers.
+    const gateRead = table === 'profiles' && q.op === 'select' && q.columns === 'must_change_password';
+    const planned = gateRead ? undefined : db.faults[`${table}.${q.op}`];
     const fault = typeof planned === 'function' ? planned() : planned;
     if (fault instanceof Error) return Promise.reject(fault);
     if (fault) return Promise.resolve({ data: null, error: fault, count: null });
@@ -132,7 +135,7 @@ const { db, fakeClient, mockGetApiUser, mockSendEmail } = vi.hoisted(() => {
     from(table: string) {
       const q: any = { op: 'select', filters: [], head: false };
       const b: any = {
-        select: (_c?: string, opts?: { head?: boolean }) => ((q.head = q.op === 'select' && !!opts?.head), b),
+        select: (c?: string, opts?: { head?: boolean }) => ((q.head = q.op === 'select' && !!opts?.head), (q.columns ??= c), b),
         insert: (p: unknown) => ((q.op = 'insert'), (q.payload = p), b),
         upsert: (p: unknown, o?: { onConflict?: string }) => ((q.op = 'upsert'), (q.payload = p), (q.onConflict = o?.onConflict), b),
         update: (p: unknown) => ((q.op = 'update'), (q.payload = p), b),
@@ -845,7 +848,7 @@ describe('R3-F1 · logs keep fixed labels, counts and database codes, never ids,
     ['create-group, member insert error', createGroup, LEADER, create(), fail('group_assignment_members.insert'), 500, `[create-group] Error adding members: ${CODE}`],
     ['create-group, thrown exception', createGroup, LEADER, create(), fail('profiles.select', thrown()), 500, '[create-group] Unhandled error: {}'],
     ['add-classmates, requester role lookup error', addClassmates, MATE1, add(), fail('user_roles.select'), 403, `[add-classmates] No active roles found for requester: ${CODE}`],
-    ['add-classmates, requester without a school', addClassmates, CONSULTANT, add(), none, 403, '[add-classmates] No role with school_id found for requester'],
+    ['add-classmates, requester without a school', addClassmates, CONSULTANT, add(), none, 403, '[add-classmates] Requester has no role in the group school'],
     ['add-classmates, assignment lookup error', addClassmates, MATE1, add(), fail('blocks.select'), 404, `[add-classmates] Assignment block not found: ${CODE}`],
     ['add-classmates, lesson lookup error', addClassmates, MATE1, add(), fail('lessons.select'), 404, `[add-classmates] Lesson not found: ${CODE}`],
     ['add-classmates, requester without course access', addClassmates, STUDENT, add([MATE2], EMPTY_GROUP), emptyGroup, 403, '[add-classmates] Requester has no access to course - checked: enrollments, course_assignments, consultant_assignments'],
@@ -878,9 +881,9 @@ describe('R3-F1 · logs keep fixed labels, counts and database codes, never ids,
     expect((await review(REVIEWER_INDIV, reviewed)).status).toBe(200);
     expect(logs).toEqual(expect.arrayContaining([
       '[add-classmates] Classmates requested: 1',
-      '[add-classmates] requester has 1 active roles, selected role: docente',
+      '[add-classmates] requester has 1 active roles; group school_id: 101',
       '[create-group] Payload: { classmates: 0 }',
-      '[create-group] Requester scope resolved: { community: true }',
+      '[create-group] Requester scope resolved: { community: false }',
       '[create-group] Adding members: { count: 1 }',
       '[create-group] Group created',
       '[API submit-review] Saving review',
@@ -992,8 +995,8 @@ describe('R4-F1/F2/F3 · the group and quiz journey’s auth and sibling routes 
       '[group-members] DELETE request',
       '[group-members] Member removed successfully',
       '[API quiz-review] Role: consultor',
-      '[my-roles API] User authenticated via session',
-      '[my-roles API] User authenticated via Bearer',
+      '[API Auth] User authenticated via session: { metadataRoles: 1 }',
+      '[API Auth] User authenticated via Bearer token',
       "[my-roles API] Returning roles: { roleCount: 1, roles: [ 'consultor' ], highestRole: 'consultor' }",
     ]));
   });
@@ -1030,8 +1033,8 @@ describe('R4-F1/F2/F3 · the group and quiz journey’s auth and sibling routes 
     ['ensure-workspace, anonymous', ensureWorkspace, null, { body: { communityId: COMMUNITY } }, community, 401, null],
     ['ensure-workspace, another community', ensureWorkspace, FOREIGN, { body: { communityId: COMMUNITY } }, community, 403, null],
     ['ensure-workspace, insert error', ensureWorkspace, MATE1, { body: { communityId: COMMUNITY } }, () => (community(), fail('community_workspaces.insert')()), 500, `[ensure-workspace] Error creating workspace: ${CODE}`],
-    ['my-roles, anonymous', myRoles, null, get({}), none, 401, '[my-roles API] Session check failed: { hasSession: false }'],
-    ['my-roles, invalid token', myRoles, STUDENT, get({}, bearer), badToken, 401, "[my-roles API] Bearer token auth failed: { code: 'bad_jwt', status: 403 }"],
+    ['my-roles, anonymous', myRoles, null, get({}), none, 401, null],
+    ['my-roles, invalid token', myRoles, STUDENT, get({}, bearer), badToken, 401, "[API Auth] Bearer token validation failed: { code: 'bad_jwt', status: 403 }"],
     ['my-roles, role lookup error', myRoles, STUDENT, get({}), fail('user_roles.select'), 500, `[my-roles API] Error fetching roles: ${CODE}`],
     ['my-roles, thrown exception', myRoles, STUDENT, get({}), fail('user_roles.select', thrown()), 500, '[my-roles API] Unexpected error: {}'],
   ])('D3/D5/R4-F2: %s is denied or fails closed, logs only its label and answers without data', async (_case, handler, actor, request, arrange, status, line) => {

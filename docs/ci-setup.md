@@ -173,13 +173,16 @@ never be pointed at production.
 ### Gate 4 exactly as CI runs it
 
 `scripts/ci/e2e-local.sh` reproduces the e2e job on a developer machine: a
-private, throwaway Supabase stack on its own ports (default API 56321 / DB
-56322, `E2E_LOCAL_PORT_BASE` to move them), CI's settings written to
-`.env.local` and removed afterwards (it refuses to run if one already exists),
-a production build with `CI=1`, the synthetic seed, the mandatory specs and the
-skip guard. Run it with Node 22 to match CI. The plain `npm run build` needs
-the `NEXT_PUBLIC_SUPABASE_*` settings like CI provides; without them it fails
-by design rather than shipping an unconfigured client.
+private Supabase stack with a project id unique to the run and its own ports
+(default API 56321 / DB 56322, `E2E_LOCAL_PORT_BASE` to move them), CI's
+settings written to `.env.local` and removed afterwards, build, seed and specs
+in a scrubbed environment holding only CI's keys, a production build with
+`CI=1`, the synthetic seed, the mandatory specs and the skip guard. It refuses
+to run while `.env.local`, `.env`, `.env.production` or
+`.env.production.local` exists, and exits non-zero if it cannot stop its stack.
+Run it with Node 22 to match CI. The plain `npm run build` needs the
+`NEXT_PUBLIC_SUPABASE_*` settings like CI provides; without them it fails by
+design rather than shipping an unconfigured client.
 
 The specs outside the mandatory list are not run by CI; many of them no longer
 match the product and fail locally. They are not a release signal.

@@ -162,10 +162,14 @@ export async function seed(svc: SupabaseClient, c: pg.Client): Promise<void> {
   const { rows: pre } = await c.query(
     `SELECT (SELECT count(*) FROM public.schools WHERE id = ANY($1::int[]))::int AS schools,
             (SELECT count(*) FROM public.assessment_templates WHERE id = $2::uuid)::int AS templates,
+            ((SELECT count(*) FROM public.assessment_objectives WHERE id = $3::uuid)
+             + (SELECT count(*) FROM public.assessment_modules WHERE id = $4::uuid)
+             + (SELECT count(*) FROM public.assessment_indicators WHERE id = ANY($5::uuid[])))::int AS template_parts,
             (SELECT count(*) FROM auth.users WHERE email LIKE 'proc-pilot-%@rehearsal.invalid')::int AS users`,
-    [schoolIds(), MANIFEST.template.id]
+    [schoolIds(), MANIFEST.template.id, MANIFEST.template.objectiveId, MANIFEST.template.moduleId,
+     MANIFEST.template.indicators.map((i) => i.id)]
   );
-  if (pre[0].schools || pre[0].templates || pre[0].users) {
+  if (pre[0].schools || pre[0].templates || pre[0].template_parts || pre[0].users) {
     throw new Error(`[${SYNTHETIC_LABEL}] fixture ids already exist (${JSON.stringify(pre[0])}) — refusing to seed; nothing will be cleaned`);
   }
 
@@ -310,7 +314,8 @@ export async function cleanup(svc: SupabaseClient, c: pg.Client): Promise<{ resi
   if (created.template) {
     await c.query('DELETE FROM public.assessment_year_expectations WHERE template_id = $1', [tpl]);
     await c.query('DELETE FROM public.assessment_entity_year_weights WHERE template_id = $1', [tpl]);
-    await c.query('DELETE FROM public.assessment_indicators WHERE module_id = $1', [MANIFEST.template.moduleId]);
+    // Only indicators of modules that belong to the template this run created.
+    await c.query('DELETE FROM public.assessment_indicators WHERE module_id IN (SELECT id FROM public.assessment_modules WHERE template_id = $1)', [tpl]);
     await c.query('DELETE FROM public.assessment_modules WHERE template_id = $1', [tpl]);
     await c.query('DELETE FROM public.assessment_objectives WHERE template_id = $1', [tpl]);
     await c.query('DELETE FROM public.assessment_template_snapshots WHERE template_id = $1', [tpl]);

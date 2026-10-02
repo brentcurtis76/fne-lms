@@ -29,8 +29,10 @@
 --     finished_at falls in M, over people assigned by the end of M. The
 --     numerator is always a subset of the denominator, so the rate never
 --     exceeds 100 %; someone who finished before being assigned counts in the
---     daily cumulative rate from their assignment day, but in no month's
---     numerator (owner wording: "finished that month"). Days and months are
+--     daily cumulative rate from their assignment day; in the monthly rate
+--     they count only if assignment and finish fall in the same month, never
+--     when they were assigned in a later month (owner wording: "finished that
+--     month"). Days and months are
 --     America/Santiago (lp_activity_date). Finish days are also report keys,
 --     so a completion with no other event that day / month still appears.
 --   * AT RISK = assigned, not finished, and last activity older than

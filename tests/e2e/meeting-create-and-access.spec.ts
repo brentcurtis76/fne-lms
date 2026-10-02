@@ -88,7 +88,8 @@ function card(page: Page) {
 test.describe.configure({ mode: 'serial' });
 
 test.describe('SM-H8 meetings: create like a person, then who sees what', () => {
-  test.use({ timezoneId: 'America/Santiago', viewport: { width: 1366, height: 900 }, storageState: { cookies: [], origins: [] } });
+  // en-US fixes the datetime-local segment order the keyboard sequence below uses.
+  test.use({ locale: 'en-US', timezoneId: 'America/Santiago', viewport: { width: 1366, height: 900 }, storageState: { cookies: [], origins: [] } });
 
   test.beforeAll(async () => {
     const community = await must('community', service.from('growth_communities').insert({
@@ -114,17 +115,28 @@ test.describe('SM-H8 meetings: create like a person, then who sees what', () => 
   });
 
   test.afterAll(async () => {
-    const meetings = await must('meetings', service.from('community_meetings').select('id').eq('workspace_id', created.workspace || '00000000-0000-0000-0000-000000000000'));
+    // Every step runs even if an earlier one fails; failures are reported at the end.
+    const errors: string[] = [];
+    const step = async (label: string, run: PromiseLike<{ error: { message: string } | null }>) => {
+      const { error } = await run;
+      if (error) errors.push(`${label}: ${error.message}`);
+    };
+    const { data: meetings } = await service.from('community_meetings').select('id').eq('workspace_id', created.workspace || '00000000-0000-0000-0000-000000000000');
     const ids = [...new Set([...created.meetings, ...((meetings as Array<{ id: string }>) ?? []).map((m) => m.id)])];
-    for (const table of ['meeting_tasks', 'meeting_commitments', 'meeting_agreements', 'meeting_attendees', 'meeting_read_grants', 'meeting_attachments', 'meeting_work_sessions']) {
-      if (ids.length) await must(`delete ${table}`, service.from(table).delete().in('meeting_id', ids));
+    if (ids.length) {
+      for (const table of ['meeting_tasks', 'meeting_commitments', 'meeting_agreements', 'meeting_attendees', 'meeting_read_grants', 'meeting_attachments', 'meeting_work_sessions']) {
+        await step(`delete ${table}`, service.from(table).delete().in('meeting_id', ids));
+      }
+      await step('delete meetings', service.from('community_meetings').delete().in('id', ids));
+      // The delete route writes a security audit row per deletion attempt.
+      await step('delete audit rows', service.from('security_audit_events').delete().eq('action', 'meeting_deleted').in('metadata->>meeting_id', ids));
     }
-    if (ids.length) await must('delete meetings', service.from('community_meetings').delete().in('id', ids));
-    if (created.roles.length) await must('delete roles', service.from('user_roles').delete().in('id', created.roles));
-    if (created.workspace) await must('delete workspace', service.from('community_workspaces').delete().eq('id', created.workspace));
-    if (created.community) await must('delete community', service.from('growth_communities').delete().eq('id', created.community));
-    if (created.accounts.length) await must('delete profiles', service.from('profiles').delete().in('id', created.accounts));
-    for (const id of created.accounts) await must('deleteUser', service.auth.admin.deleteUser(id));
+    if (created.roles.length) await step('delete roles', service.from('user_roles').delete().in('id', created.roles));
+    if (created.workspace) await step('delete workspace', service.from('community_workspaces').delete().eq('id', created.workspace));
+    if (created.community) await step('delete community', service.from('growth_communities').delete().eq('id', created.community));
+    if (created.accounts.length) await step('delete profiles', service.from('profiles').delete().in('id', created.accounts));
+    for (const id of created.accounts) await step('deleteUser', service.auth.admin.deleteUser(id));
+    if (errors.length) throw new Error(`[meeting-create-and-access] cleanup incomplete: ${errors.join('; ')}`);
   });
 
   test('the creator fills a new meeting like a person and everything is saved', async ({ page }) => {
@@ -160,12 +172,15 @@ test.describe('SM-H8 meetings: create like a person, then who sees what', () => 
     // Step 2 — summary.
     await page.locator('[contenteditable="true"]').first().click();
     await page.keyboard.type('Resumen sintetico SMH8');
-    await page.getByTestId('meeting-step-body').evaluate((el) => { el.scrollTop = el.scrollHeight; });
+    const body = page.getByTestId('meeting-step-body');
+    await body.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+    // Step 2 really is scrolled down before moving on (otherwise the next check proves nothing).
+    expect(await body.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
     await page.getByRole('button', { name: 'Siguiente' }).click();
 
     // Step 3 opens at the top: "Documentos" is the first thing in view.
     await expect(page.getByRole('heading', { name: 'Documentos' })).toBeInViewport();
-    expect(await page.getByTestId('meeting-step-body').evaluate((el) => el.scrollTop)).toBe(0);
+    await expect.poll(() => body.evaluate((el) => el.scrollTop)).toBe(0);
 
     await page.getByRole('button', { name: 'Agregar Acuerdo' }).click();
     await page.locator('[contenteditable="true"]').nth(0).click();
@@ -186,6 +201,7 @@ test.describe('SM-H8 meetings: create like a person, then who sees what', () => 
     await page.getByRole('button', { name: 'Agregar Tarea' }).click();
     await page.getByTestId('meeting-task-title-0').click();
     await page.keyboard.type(TASK);
+    await expect(page.getByTestId('meeting-task-assignee-0').locator('option')).toHaveText(['Asignar a…', 'Sintetico Participante SMH8']);
     await page.getByTestId('meeting-task-assignee-0').selectOption({ label: 'Sintetico Participante SMH8' });
     await page.getByTestId('meeting-task-due-0').click();
     await page.getByTestId('meeting-task-due-0').press('Home');
@@ -238,6 +254,11 @@ test.describe('SM-H8 meetings: create like a person, then who sees what', () => 
     await openMeetings(page);
     const meetingCard = card(page);
     await expect(meetingCard).toBeVisible();
+    // As a participant (not only as the task's assignee) every kind of content is readable.
+    await meetingCard.getByTestId(`meeting-chip-agreements-${meetingId}`).click();
+    await expect(meetingCard.getByText(AGREEMENT)).toBeVisible();
+    await meetingCard.getByTestId(`meeting-chip-commitments-${meetingId}`).click();
+    await expect(meetingCard.getByText(COMMITMENT)).toBeVisible();
     await meetingCard.getByTestId(`meeting-chip-tasks-${meetingId}`).click();
     await expect(meetingCard.getByText(TASK)).toBeVisible();
     await expect(meetingCard.getByTestId(`meeting-edit-${meetingId}`)).toHaveCount(0);
@@ -253,9 +274,17 @@ test.describe('SM-H8 meetings: create like a person, then who sees what', () => 
     await expect(meetingCard).toBeVisible();
     await expect(meetingCard.getByTestId(`meeting-content-hidden-${meetingId}`)).toBeVisible();
     await expect(meetingCard.getByTestId(`meeting-chip-agreements-${meetingId}`)).toHaveCount(0);
+    await expect(meetingCard.getByTestId(`meeting-chip-commitments-${meetingId}`)).toHaveCount(0);
     await expect(meetingCard.getByTestId(`meeting-chip-tasks-${meetingId}`)).toHaveCount(0);
-    await expect(page.getByText(TASK)).toHaveCount(0);
     await expect(meetingCard.getByTestId(`meeting-delete-${meetingId}`)).toHaveCount(0);
+    for (const text of [AGREEMENT, COMMITMENT, TASK]) await expect(page.getByText(text)).toHaveCount(0);
+
+    // The eye opens the details (title, date, summary stay visible) without the content.
+    await meetingCard.getByTestId(`meeting-view-${meetingId}`).click();
+    const details = page.locator('div.fixed.inset-0.z-50').filter({ has: page.getByRole('heading', { name: TITLE }) });
+    await expect(details.getByTestId('meeting-content-hidden')).toBeVisible();
+    await expect(details.getByRole('button', { name: /Compromisos|Tareas|Acuerdos|Documentos/ })).toHaveCount(0);
+    for (const text of [AGREEMENT, COMMITMENT, TASK]) await expect(details.getByText(text)).toHaveCount(0);
   });
 
   test('the creator deletes the meeting with the delete button', async ({ page }) => {

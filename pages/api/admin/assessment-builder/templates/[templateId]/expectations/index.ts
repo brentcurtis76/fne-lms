@@ -4,6 +4,7 @@ import type { GenerationType } from '@/types/assessment-builder';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 import {
   describeExpectationConflict,
+  frequencyExpectationConflicts,
   frequencyExpectationViolation,
   type ExpectationYear,
 } from '@/lib/services/assessment-builder/frequencyConfig';
@@ -895,6 +896,25 @@ async function handlePut(
       });
     }
 
+    // F1 on a published template (no publish gate follows): remember the rows
+    // this save replaces, so a rule change committed by someone else in the
+    // same instant can be detected after the write and this save undone.
+    const isPublished = template.status === 'published';
+    const frequencyRows = upsertData.filter((row) => indicatorCategoryById.get(row.indicator_id) === 'frecuencia');
+    let previousRows: any[] = [];
+    if (isPublished && frequencyRows.length > 0) {
+      const { data: before, error: beforeError } = await supabase
+        .from('assessment_year_expectations')
+        .select('*')
+        .eq('template_id', templateId)
+        .in('indicator_id', Array.from(new Set(frequencyRows.map((row) => row.indicator_id))));
+      if (beforeError) {
+        console.error('Error reading expectations before save:', beforeError);
+        return res.status(500).json({ error: 'Error al guardar expectativas' });
+      }
+      previousRows = before || [];
+    }
+
     // Upsert expectations (new unique constraint includes generation_type)
     const { data: savedExpectations, error: upsertError } = await supabase
       .from('assessment_year_expectations')
@@ -909,6 +929,24 @@ async function handlePut(
       return res.status(500).json({ error: 'Error al guardar expectativas' });
     }
 
+    // F1 re-check after the write: compare what was saved with the rules as
+    // they are NOW. A conflict here means the rules changed concurrently; undo
+    // this save (restore replaced rows, remove rows it created) and ask to retry.
+    if (isPublished && frequencyRows.length > 0) {
+      const lateConflicts = await expectationConflictsAfterWrite(supabase, frequencyRows);
+      if (lateConflicts === null || lateConflicts.length > 0) {
+        await restoreExpectationRows(supabase, templateId as string, frequencyRows, previousRows);
+        return res.status(409).json({
+          error:
+            'No se guardaron las expectativas: las reglas de frecuencia del indicador cambiaron mientras se guardaba. ' +
+            'Recarga la página y vuelve a intentarlo.' +
+            (weightsSaved + yearWeightsSaved > 0 ? ' Los pesos sí se guardaron.' : ''),
+          code: 'concurrent_rule_change',
+          details: lateConflicts ?? [],
+        });
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: `${savedExpectations?.length || 0} expectativas guardadas`,
@@ -920,5 +958,48 @@ async function handlePut(
   } catch (err: any) {
     console.error('Unexpected error saving expectations:', err);
     return res.status(500).json({ error: err.message || 'Error al guardar expectativas' });
+  }
+}
+
+/**
+ * Conflicts between just-written frecuencia expectation rows and the
+ * indicators' CURRENT rules (re-read after the write), as es-CL lines. null
+ * when the rules cannot be read — treated as a conflict (fail closed).
+ */
+async function expectationConflictsAfterWrite(supabase: any, rows: any[]): Promise<string[] | null> {
+  const { data: indicators, error } = await supabase
+    .from('assessment_indicators')
+    .select('id, code, name, frequency_config')
+    .in('id', Array.from(new Set(rows.map((row) => row.indicator_id))));
+  if (error || !indicators) {
+    console.error('Error re-reading indicator rules after saving expectations:', error);
+    return null;
+  }
+  const byId = new Map<string, any>(indicators.map((ind: any) => [ind.id, ind]));
+  return rows.flatMap((row) => {
+    const ind = byId.get(row.indicator_id);
+    return frequencyExpectationConflicts(ind?.frequency_config, [row]).map((conflict) =>
+      describeExpectationConflict({ ...conflict, indicator: String(ind?.code || ind?.name || row.indicator_id) })
+    );
+  });
+}
+
+/** Puts back the rows a save replaced and removes the rows it created. Errors are logged, not thrown. */
+async function restoreExpectationRows(supabase: any, templateId: string, written: any[], previous: any[]) {
+  const key = (row: any) => `${row.indicator_id}|${row.generation_type || 'GT'}`;
+  const previousByKey = new Map(previous.map((row) => [key(row), row]));
+  for (const row of written) {
+    const old = previousByKey.get(key(row));
+    const { error } = old
+      ? await supabase
+          .from('assessment_year_expectations')
+          .upsert({ ...old }, { onConflict: 'template_id,indicator_id,generation_type', ignoreDuplicates: false })
+      : await supabase
+          .from('assessment_year_expectations')
+          .delete()
+          .eq('template_id', templateId)
+          .eq('indicator_id', row.indicator_id)
+          .eq('generation_type', row.generation_type);
+    if (error) console.error('Error restoring expectation row after a concurrent rule change:', error);
   }
 }

@@ -78,8 +78,13 @@ const expectationRows = [
   { generation_type: 'GT', year_1_expected: 2, year_2_expected: 4, year_3_expected: 8, year_4_expected: null, year_5_expected: 10 },
 ];
 
-function buildClient(templateStatus: string, rows = expectationRows) {
+function buildClient(
+  templateStatus: string,
+  rows = expectationRows,
+  rowsAfterWrite: typeof expectationRows | 'error' = rows
+) {
   const updates: Record<string, unknown>[] = [];
+  let expectationReads = 0;
   const indicatorsHandler: ProxyHandler<Record<string, unknown>> = {
     get(_target, prop) {
       if (prop === 'then') return (resolve: (value: unknown) => void) => resolve({ data: row, error: null });
@@ -99,7 +104,11 @@ function buildClient(templateStatus: string, rows = expectationRows) {
       }
       if (table === 'assessment_modules') return buildChainableQuery({ id: MODULE_A, template_id: TEMPLATE_DRAFT_1 });
       if (table === 'assessment_indicators') return new Proxy({}, indicatorsHandler);
-      if (table === 'assessment_year_expectations') return buildChainableQuery(rows);
+      if (table === 'assessment_year_expectations') {
+        expectationReads += 1;
+        if (expectationReads === 1) return buildChainableQuery(rows);
+        return rowsAfterWrite === 'error' ? buildChainableQuery(null, { message: 'boom' }) : buildChainableQuery(rowsAfterWrite);
+      }
       return buildChainableQuery([]);
     }),
   };
@@ -170,6 +179,54 @@ describe('PUT indicator — F1 year expectations against new frequency rules', (
     expect(res.status).toBe(200);
     expect(updates).toHaveLength(1);
     expect(res.json.expectationWarnings).toBeUndefined();
+  });
+
+  it.each([
+    ['missing allowed_units', { min: 0, max: 5, step: 1, unit: 'semana' }],
+    ['legacy unit only', { unit: 'veces' }],
+    ['min not below max', { min: 5, max: 5, step: 1, unit: 'semana', allowed_units: ['semana'] }],
+  ])('published: refuses an unusable config (%s) with 400 and writes nothing', async (_label, config) => {
+    const { client, updates } = buildClient('published');
+    const res = await put(client, { name: 'Frecuencia sintética', frequencyConfig: config });
+
+    expect(res.status).toBe(400);
+    expect(res.json.code).toBe('invalid_frequency_config');
+    expect(res.json.details.length).toBeGreaterThan(0);
+    expect(updates).toEqual([]);
+    expect(mockUpdateSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('draft: an incomplete config is still saved (publish refuses it later)', async () => {
+    const { client, updates } = buildClient('draft');
+    const res = await put(client, { name: 'Frecuencia sintética', frequencyConfig: { min: 0, max: 5, step: 1, unit: 'semana' } });
+
+    expect(res.status).toBe(200);
+    expect(updates).toHaveLength(1);
+  });
+
+  it('published: undoes the rule change when expectations changed concurrently (409, previous values restored, no snapshot)', async () => {
+    const stranded = [{ ...expectationRows[0], year_3_expected: 4, year_5_expected: 5 }, { generation_type: 'GI', year_1_expected: 9, year_2_expected: null, year_3_expected: null, year_4_expected: null, year_5_expected: null }];
+    const { client, updates } = buildClient('published', [{ ...expectationRows[0], year_3_expected: 4, year_5_expected: 5 }], stranded);
+    const res = await put(client, { name: 'Frecuencia sintética', frequencyConfig: NEW_CONFIG });
+
+    expect(res.status).toBe(409);
+    expect(res.json.code).toBe('concurrent_expectation_change');
+    expect(res.json.details).toEqual(['FREC-1 (GI, Año 1): 9 es mayor que el máximo (5)']);
+    expect(updates).toHaveLength(2);
+    expect(updates[0].frequency_config).toEqual(NEW_CONFIG);
+    expect(updates[1]).toEqual({ name: 'Frecuencia sintética', frequency_config: OLD_CONFIG });
+    expect(mockUpdateSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('published: fails closed when expectations cannot be re-read after the write', async () => {
+    const fitting = [{ ...expectationRows[0], year_3_expected: 4, year_5_expected: 5 }];
+    const { client, updates } = buildClient('published', fitting, 'error');
+    const res = await put(client, { name: 'Frecuencia sintética', frequencyConfig: NEW_CONFIG });
+
+    expect(res.status).toBe(409);
+    expect(updates).toHaveLength(2);
+    expect(updates[1].frequency_config).toEqual(OLD_CONFIG);
+    expect(mockUpdateSnapshot).not.toHaveBeenCalled();
   });
 
   it('a change that does not touch the frequency rules does not consult expectations', async () => {

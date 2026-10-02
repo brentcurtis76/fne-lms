@@ -10,6 +10,7 @@ import { mapIndicatorRow } from '@/lib/services/assessment-builder/indicatorMapp
 import {
   describeExpectationConflict,
   frequencyExpectationConflicts,
+  validateFrequencyConfig,
   type FrequencyExpectationConflict,
 } from '@/lib/services/assessment-builder/frequencyConfig';
 
@@ -311,9 +312,24 @@ async function handlePut(
     // expectations are fixed) and gets the conflicts back as warnings; a
     // published template has no later gate, so the change is refused.
     let expectationConflicts: Array<FrequencyExpectationConflict & { indicator: string }> = [];
+    let recheck: null | { config: unknown; label: string } = null;
     // effectiveCategory: computed above (post-update category)
     if (effectiveCategory === 'frecuencia' && (frequencyConfig !== undefined || category !== undefined)) {
       const effectiveConfig = frequencyConfig !== undefined ? frequencyConfig : currentRow?.frequency_config;
+      // Published: these rules go live with no publish gate after them, so they
+      // must meet the full publish contract first. An incomplete config would
+      // otherwise skip the expectation check below and reach docentes.
+      if (templateStatus === 'published') {
+        const configCheck = validateFrequencyConfig(effectiveConfig);
+        if (!configCheck.valid) {
+          return res.status(400).json({
+            error:
+              'No se guardó: este template ya está publicado y la configuración de frecuencia está incompleta o es inválida.',
+            code: 'invalid_frequency_config',
+            details: configCheck.errors,
+          });
+        }
+      }
       const { data: expectationRows, error: expectationsError } = await serviceClient
         .from('assessment_year_expectations')
         .select('generation_type, year_1_expected, year_2_expected, year_3_expected, year_4_expected, year_5_expected')
@@ -338,6 +354,23 @@ async function handlePut(
           details: expectationConflicts.map(describeExpectationConflict),
         });
       }
+      if (templateStatus === 'published') recheck = { config: effectiveConfig, label: String(label) };
+    }
+
+    // Published: keep the row as it was, so a concurrent expectation save that
+    // makes these rules stranding can be detected after the write and undone.
+    let previousRow: Record<string, unknown> | null = null;
+    if (recheck) {
+      const { data: before, error: beforeError } = await serviceClient
+        .from('assessment_indicators')
+        .select('*')
+        .eq('id', indicatorId)
+        .single();
+      if (beforeError || !before) {
+        console.error('Error reading indicator before update:', beforeError);
+        return res.status(500).json({ error: 'Error al actualizar el indicador' });
+      }
+      previousRow = before;
     }
 
     // Update indicator
@@ -351,6 +384,38 @@ async function handlePut(
     if (error) {
       console.error('Error updating indicator:', error);
       return res.status(500).json({ error: 'Error al actualizar el indicador' });
+    }
+
+    // F1 re-check after the write (published only): expectations as they are
+    // NOW against the rules just saved. A conflict means someone saved
+    // expectations in the same instant: restore the previous row, refresh
+    // nothing, and ask to retry. An unreadable re-check fails closed.
+    if (recheck && previousRow) {
+      const { data: rowsNow, error: rowsNowError } = await serviceClient
+        .from('assessment_year_expectations')
+        .select('generation_type, year_1_expected, year_2_expected, year_3_expected, year_4_expected, year_5_expected')
+        .eq('template_id', templateId)
+        .eq('indicator_id', indicatorId);
+      const lateConflicts = rowsNowError
+        ? null
+        : frequencyExpectationConflicts(recheck.config, rowsNow || []).map((conflict) =>
+            describeExpectationConflict({ ...conflict, indicator: recheck!.label })
+          );
+      if (lateConflicts === null || lateConflicts.length > 0) {
+        const restore = Object.fromEntries(Object.keys(updateData).map((k) => [k, previousRow![k] ?? null]));
+        const { error: restoreError } = await serviceClient
+          .from('assessment_indicators')
+          .update(restore)
+          .eq('id', indicatorId);
+        if (restoreError) console.error('Error restoring indicator after a concurrent expectation change:', restoreError);
+        return res.status(409).json({
+          error:
+            'No se guardó: las expectativas de este indicador cambiaron mientras se guardaba y ya no calzan con las nuevas reglas. ' +
+            'Recarga la página y vuelve a intentarlo.',
+          code: 'concurrent_expectation_change',
+          details: lateConflicts ?? [],
+        });
+      }
     }
 
     // Update the snapshot for published templates

@@ -127,13 +127,11 @@ import checkPermissions from '../../pages/api/admin/check-permissions';
 import assignAccess from '../../pages/api/admin/transformation/assign-access';
 import revokeAccess from '../../pages/api/admin/transformation/revoke-access';
 import collaborativeSubmit from '../../pages/api/assignments/collaborative-submit';
-import extractPdfMock from '../../pages/api/contracts/extract-pdf-mock';
 import extractPdf from '../../pages/api/contracts/extract-pdf';
 import diagSignature from '../../pages/api/meet/diag-signature';
 import myCourses from '../../pages/api/my-courses';
 import quotesList from '../../pages/api/quotes/list';
 import quotesPrograms from '../../pages/api/quotes/programs';
-import testGroupAssignments from '../../pages/api/test-group-assignments';
 import evaluate from '../../pages/api/transformation/assessments/[id]/evaluate';
 import responses from '../../pages/api/transformation/assessments/[id]/responses';
 import assessmentById from '../../pages/api/transformation/assessments/[id]';
@@ -233,13 +231,11 @@ const SWEEP: Array<[string, Handler, string, Record<string, string>, unknown]> =
   ['admin/transformation/assign-access', assignAccess, 'POST', {}, { communityId: 'c-1' }],
   ['admin/transformation/revoke-access', revokeAccess, 'POST', {}, { communityId: 'c-1' }],
   ['assignments/collaborative-submit', collaborativeSubmit, 'POST', {}, { assignmentId: 'a-1' }],
-  ['contracts/extract-pdf-mock', extractPdfMock, 'POST', {}, {}],
   ['contracts/extract-pdf', extractPdf, 'POST', {}, {}],
   ['meet/diag-signature', diagSignature, 'POST', {}, { meetingNumber: '90210042001' }],
   ['my-courses', myCourses, 'GET', {}, {}],
   ['quotes/list', quotesList, 'GET', {}, {}],
   ['quotes/programs POST', quotesPrograms, 'POST', {}, { name: 'P' }],
-  ['test-group-assignments', testGroupAssignments, 'GET', {}, {}],
   ['transformation/assessments/[id]/evaluate', evaluate, 'POST', { id: 'x-1' }, {}],
   ['transformation/assessments/[id]/responses', responses, 'PUT', { id: 'x-1' }, {}],
   ['transformation/assessments/[id]', assessmentById, 'PATCH', { id: 'x-1' }, {}],

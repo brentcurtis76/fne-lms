@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '../../../../lib/api-auth';
+import { requireVerifiedCaller, createApiSupabaseClient, createServiceRoleClient, handleMethodNotAllowed } from '../../../../lib/api-auth';
+import { lpReportVisibleUsers } from '../../../../lib/learning-paths/reportScopeDb';
 
 // Source types for the 4-state model
 type AssignmentSource = 'asignacion_directa' | 'ruta' | 'directa_y_ruta' | 'inscripcion_otro';
@@ -41,25 +42,27 @@ interface UserAssignmentsResponse {
   };
 }
 
-// Course-assignment reporting keeps its baseline audience (admin, consultor).
-// Cross-user LEARNING-PATH reporting is literal-admin-only (W-B2c-01): a
-// non-admin caller receives the course half of the matrix with no
-// learning-path assignment, name, id or count in it.
+// Screen audience (admin, consultor) is unchanged. The LEARNING-PATH half
+// follows the learning-path report rule (W-B2c-01, Brent 2026-10-02): it is
+// included only when the database's auth_lp_report_sees_user(target), asked on
+// the CALLER's client, says the caller may see that person's learning-path
+// data (admin / active consultor: everyone). Read-only; managing stays
+// admin-only in the write routes.
 async function getViewPermission(
   supabaseClient: any,
   userId: string
-): Promise<{ allowed: boolean; includeLearningPaths: boolean }> {
+): Promise<{ allowed: boolean }> {
   const { data: roles } = await supabaseClient
     .from('user_roles')
     .select('role_type')
     .eq('user_id', userId)
     .eq('is_active', true);
 
-  if (!roles || roles.length === 0) return { allowed: false, includeLearningPaths: false };
+  if (!roles || roles.length === 0) return { allowed: false };
 
   const isAdmin = roles.some((r: any) => r.role_type === 'admin');
   const isConsultor = roles.some((r: any) => r.role_type === 'consultor');
-  return { allowed: isAdmin || isConsultor, includeLearningPaths: isAdmin };
+  return { allowed: isAdmin || isConsultor };
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -68,19 +71,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return handleMethodNotAllowed(res, ['GET']);
   }
 
-  // Authenticate user
-  const { user, error } = await getApiUser(req, res);
-
-  if (error || !user) {
-    return sendAuthError(res, 'Authentication required');
+  // Verified identity plus the forced-password-change gate (cookie or Bearer).
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) {
+    return res.status(caller.status).json(caller.body);
   }
+  const user = caller.user;
 
   // Create authenticated Supabase client
   const supabaseClient = await createApiSupabaseClient(req, res);
 
   try {
     // Check permission
-    const { allowed, includeLearningPaths } = await getViewPermission(supabaseClient, user.id);
+    const { allowed } = await getViewPermission(supabaseClient, user.id);
     if (!allowed) {
       return res.status(403).json({
         error: 'No tienes permiso para ver asignaciones'
@@ -181,10 +184,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // 3. Get all LP assignments for user — admin only (W-B2c-01). For any other
-    //    caller no learning-path query is issued and the response carries none.
+    // 3. LP assignments of the user — only when the database admits the caller
+    //    to this person's learning-path data (asked on the caller's client).
+    //    learning_path_assignments / learning_path_courses are closed to
+    //    non-admin clients, so the admitted read uses the service role, for
+    //    this one person only. Otherwise no learning-path query is issued.
+    const includeLearningPaths = (await lpReportVisibleUsers(supabaseClient, [userId])).has(userId);
+    const lpClient: any = includeLearningPaths ? createServiceRoleClient() : null;
     const { data: lpAssignments, error: lpError } = includeLearningPaths
-      ? await supabaseClient
+      ? await lpClient
           .from('learning_path_assignments')
           .select(`
             id,
@@ -237,8 +245,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     });
 
-    if (assignedLPIds.length > 0) {
-      const { data: lpCourses, error: lpCoursesError } = await supabaseClient
+    if (includeLearningPaths && assignedLPIds.length > 0) {
+      const { data: lpCourses, error: lpCoursesError } = await lpClient
         .from('learning_path_courses')
         .select(`
           learning_path_id,

@@ -3,9 +3,13 @@
  * W-B2c-01 — the API boundary of the learning-path access model
  * (docs/reviews/w-b2c-01-learning-path-governance-correction-2026-08-29.md §5):
  *
- *   * management (create / assign) and cross-user reporting (analytics, another
- *     user's paths, the assignment matrix) are literal-admin-only — equipo_directivo
- *     and consultor are refused with 403 BEFORE any write or privileged read;
+ *   * management (create / assign) and another user's paths are literal-admin-only
+ *     — equipo_directivo and consultor are refused with 403 BEFORE any write or
+ *     privileged read;
+ *   * learning-path REPORTS (analytics, and the learning-path half of the
+ *     assignment matrix) follow the W-B2c-01 reporting scope (Brent
+ *     2026-10-02): admin / consultor / equipo_directivo-with-a-school open them, read
+ *     on their OWN client (the report views scope the rows); everyone else is refused;
  *   * consumption is own-data: a user reads their own paths, and a session may only
  *     be started on a path the database's auth.uid()-derived helper says is assigned;
  *   * the actor passed to the SECURITY DEFINER RPCs is always the authenticated user.
@@ -25,15 +29,18 @@ const DOCENTE = '44444444-4444-4444-8444-444444444444';
 const OTHER = '55555555-5555-4555-8555-555555555555';
 const PATH = '66666666-6666-4666-8666-666666666666';
 
-const { mockGetApiUser, mockCreateApiSupabaseClient, mockRpc, mockFrom } = vi.hoisted(() => ({
+const { mockGetApiUser, mockRequireVerifiedCaller, mockCreateApiSupabaseClient, mockRpc, mockFrom } = vi.hoisted(() => ({
   mockGetApiUser: vi.fn(),
+  mockRequireVerifiedCaller: vi.fn(),
   mockCreateApiSupabaseClient: vi.fn(),
   mockRpc: vi.fn(),
   mockFrom: vi.fn(),
 }));
 
-const { mockHasManagePermission, mockCreateLearningPath, mockGetUserAssignedPaths, mockBatchAssign } = vi.hoisted(() => ({
+const { mockHasManagePermission, mockGetReportScope, mockCreateLearningPath, mockGetUserAssignedPaths, mockBatchAssign, mockCreateServiceRoleClient } = vi.hoisted(() => ({
   mockHasManagePermission: vi.fn(),
+  mockGetReportScope: vi.fn(),
+  mockCreateServiceRoleClient: vi.fn(),
   mockCreateLearningPath: vi.fn(),
   mockGetUserAssignedPaths: vi.fn(),
   mockBatchAssign: vi.fn(),
@@ -44,13 +51,16 @@ vi.mock('../../../lib/api-auth', async (importOriginal) => {
   return {
     ...actual,
     getApiUser: mockGetApiUser,
+    requireVerifiedCaller: mockRequireVerifiedCaller,
     createApiSupabaseClient: mockCreateApiSupabaseClient,
+    createServiceRoleClient: mockCreateServiceRoleClient,
   };
 });
 
 vi.mock('../../../lib/services/learningPathsService', () => ({
   LearningPathsService: {
     hasManagePermission: mockHasManagePermission,
+    getReportScope: mockGetReportScope,
     canManagePath: mockHasManagePermission,
     createLearningPath: mockCreateLearningPath,
     getUserAssignedPaths: mockGetUserAssignedPaths,
@@ -72,7 +82,7 @@ function installQueryDouble(results: Record<string, { data?: unknown; error?: un
     const entry = { table, ops: [] as Array<{ method: string; args: unknown[] }> };
     calls.push(entry);
     const chain: Record<string, unknown> = {};
-    for (const method of ['select', 'eq', 'in', 'or', 'not', 'is', 'single', 'maybeSingle', 'order', 'insert', 'update', 'delete']) {
+    for (const method of ['select', 'eq', 'in', 'or', 'not', 'is', 'gte', 'single', 'maybeSingle', 'order', 'insert', 'update', 'delete']) {
       chain[method] = (...args: unknown[]) => {
         entry.ops.push({ method, args });
         return chain;
@@ -101,6 +111,13 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockCreateApiSupabaseClient.mockResolvedValue({ from: mockFrom, rpc: mockRpc });
   mockRpc.mockResolvedValue({ data: null, error: null });
+  // requireVerifiedCaller = the verified getApiUser identity (the forced-password
+  // gate itself is covered in assignment-matrix-lp-report-scope.test.ts).
+  mockRequireVerifiedCaller.mockImplementation(async () => {
+    const { user } = await mockGetApiUser();
+    return user ? { user, status: null, body: null } : { user: null, status: 401, body: { error: 'No autorizado' } };
+  });
+  mockCreateServiceRoleClient.mockReturnValue({ from: mockFrom, rpc: mockRpc });
   installQueryDouble({});
 });
 
@@ -123,6 +140,8 @@ describe('POST /api/learning-paths — create is literal-admin-only', () => {
     expect(res._getStatusCode()).toBe(403);
     expect(mockHasManagePermission).toHaveBeenCalledWith(expect.anything(), id);
     expect(mockCreateLearningPath).not.toHaveBeenCalled();
+    // The wider REPORT scope never opens a write route.
+    expect(mockGetReportScope).not.toHaveBeenCalled();
   });
 
   it('admin: created with the AUTHENTICATED user as actor, never a body-supplied one', async () => {
@@ -149,18 +168,48 @@ describe('POST /api/learning-paths/assign — assign is literal-admin-only', () 
     expect(res._getStatusCode()).toBe(403);
     expect(mockFrom).not.toHaveBeenCalled();
     expect(mockBatchAssign).not.toHaveBeenCalled();
+    expect(mockGetReportScope).not.toHaveBeenCalled();
   });
 });
 
-describe('GET /api/learning-paths/analytics — cross-user reporting is literal-admin-only', () => {
+describe('GET /api/learning-paths/analytics — reporting scope: admin, consultor, equipo_directivo', () => {
   it.each([
-    ['equipo_directivo', DIRECTIVO],
-    ['consultor', CONSULTOR],
-  ])('%s: 403 before any query', async (_role, id) => {
+    ['equipo_directivo (own school)', DIRECTIVO, 'school'],
+    ['consultor (all schools)', CONSULTOR, 'all'],
+    ['admin', ADMIN, 'all'],
+  ])('%s: 200, reads the report views on the CALLER\'s client, never the service role', async (_role, id, scope) => {
     authenticatedAs(id);
+    mockGetReportScope.mockResolvedValue(scope);
     mockHasManagePermission.mockResolvedValue(false);
+    const calls = installQueryDouble({});
+    const res = await call(analyticsHandler, { method: 'GET', query: {} });
+    expect(res._getStatusCode()).toBe(200);
+    expect(mockGetReportScope).toHaveBeenCalledWith(expect.anything(), id);
+    expect(calls.map((c) => c.table)).toEqual(['learning_path_performance_summary', 'learning_path_daily_summary']);
+    expect(mockCreateApiSupabaseClient).toHaveBeenCalled();
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+    // The report door is not the management door.
+    expect(mockHasManagePermission).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['docente', DOCENTE],
+    ['lider_comunidad / lider_generacion / supervisor_de_red (no report scope)', OTHER],
+    ['equipo_directivo without a school', DIRECTIVO],
+  ])('%s: 403 before any report query', async (_role, id) => {
+    authenticatedAs(id);
+    mockGetReportScope.mockResolvedValue(null);
     const res = await call(analyticsHandler, { method: 'GET', query: {} });
     expect(res._getStatusCode()).toBe(403);
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it('anonymous: 401 and nothing is read', async () => {
+    mockGetApiUser.mockResolvedValue({ user: null, error: new Error('no session') });
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const res = await call(analyticsHandler, { method: 'GET', query: {} });
+    expect(res._getStatusCode()).toBe(401);
+    expect(mockGetReportScope).not.toHaveBeenCalled();
     expect(mockFrom).not.toHaveBeenCalled();
   });
 });
@@ -234,8 +283,9 @@ describe('POST /api/learning-paths/session/start — assignment decided by the d
   });
 });
 
-describe('GET /api/admin/assignment-matrix/user-assignments — course half for consultor, learning paths admin-only', () => {
+describe('GET /api/admin/assignment-matrix/user-assignments — learning-path half decided by the database on the caller client', () => {
   const target = { data: { id: DOCENTE, first_name: 'Docente', last_name: 'Sintética', email: 'docente@example.com' }, error: null };
+  const lpRow = { data: [{ id: 'lpa-1', path_id: PATH, assigned_by: null, assigned_at: '2026-09-01T00:00:00.000Z', learning_paths: { id: PATH, name: 'Ruta sintética', description: null } }], error: null };
 
   it('docente: 403 (never in the matrix audience)', async () => {
     authenticatedAs(DOCENTE);
@@ -244,8 +294,9 @@ describe('GET /api/admin/assignment-matrix/user-assignments — course half for 
     expect(res._getStatusCode()).toBe(403);
   });
 
-  it('consultor: 200 with the course assignments, but NO learning-path query and NO learning-path data', async () => {
+  it('consultor the database does NOT admit (auth_lp_report_* false): course half only, NO learning-path query', async () => {
     authenticatedAs(CONSULTOR);
+    mockRpc.mockResolvedValue({ data: false, error: null });
     const calls = installQueryDouble({
       'user_roles:select': { data: [{ role_type: 'consultor' }], error: null },
       'profiles:select': target,
@@ -257,6 +308,7 @@ describe('GET /api/admin/assignment-matrix/user-assignments — course half for 
         }],
         error: null,
       },
+      'learning_path_assignments:select': lpRow,
     });
     const res = await call(userAssignmentsHandler, { method: 'GET', query: { userId: DOCENTE } });
     expect(res._getStatusCode(), JSON.stringify(res._getJSONData())).toBe(200);
@@ -266,17 +318,16 @@ describe('GET /api/admin/assignment-matrix/user-assignments — course half for 
     expect(body.stats).toMatchObject({ totalCourses: 1, totalLPs: 0, overlappingCourses: 0 });
     expect(calls.map((c) => c.table)).not.toContain('learning_path_assignments');
     expect(calls.map((c) => c.table)).not.toContain('learning_path_courses');
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
-  it('admin: the learning-path assignments of the user ARE read', async () => {
-    authenticatedAs(ADMIN);
+  it.each([['consultor', CONSULTOR], ['admin', ADMIN]])('%s admitted by auth_lp_report_all(): the learning-path assignments of the user ARE read', async (_l, id) => {
+    authenticatedAs(id);
+    mockRpc.mockImplementation(async (fn: string) => ({ data: fn === 'auth_lp_report_all', error: null }));
     const calls = installQueryDouble({
-      'user_roles:select': { data: [{ role_type: 'admin' }], error: null },
+      'user_roles:select': { data: [{ role_type: id === ADMIN ? 'admin' : 'consultor' }], error: null },
       'profiles:select': target,
-      'learning_path_assignments:select': {
-        data: [{ id: 'lpa-1', path_id: PATH, assigned_by: null, assigned_at: '2026-09-01T00:00:00.000Z', learning_paths: { id: PATH, name: 'Ruta sintética', description: null } }],
-        error: null,
-      },
+      'learning_path_assignments:select': lpRow,
     });
     const res = await call(userAssignmentsHandler, { method: 'GET', query: { userId: DOCENTE } });
     expect(res._getStatusCode(), JSON.stringify(res._getJSONData())).toBe(200);
@@ -284,5 +335,6 @@ describe('GET /api/admin/assignment-matrix/user-assignments — course half for 
     expect(body.assignments.map((a) => a.type)).toContain('learning_path');
     expect(body.stats.totalLPs).toBe(1);
     expect(calls.map((c) => c.table)).toContain('learning_path_assignments');
+    expect(mockRpc).toHaveBeenCalledWith('auth_lp_report_all');
   });
 });

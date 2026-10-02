@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
 import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../supabase';
+import { learningPathReportScope } from '../learning-paths/reportScope';
 
 interface LearningPath {
   id: string;
@@ -326,13 +327,6 @@ export class LearningPathsService {
   }
 
   /**
-   * Management authority over learning paths: the literal RBAC role `admin`
-   * only (owner decision 2026-08-29, W-B2c-01). equipo_directivo and consultor
-   * hold NO create / edit / delete / assign / unassign authority and no
-   * cross-user reporting reads. The database enforces the same rule
-   * (migration 20260907120000); this is the API-boundary half of it.
-   */
-  /**
    * Workspace ids of the groups the user belongs to. learning_path_assignments.
    * group_id references community_workspaces.id, while a membership is a
    * user_roles row whose community_id is a growth_communities.id; the two are
@@ -365,6 +359,14 @@ export class LearningPathsService {
     return (workspaces || []).map((w: any) => w.id).filter(Boolean);
   }
 
+  /**
+   * Management authority over learning paths: the literal RBAC role `admin`
+   * only (owner decision 2026-08-29, W-B2c-01). equipo_directivo and consultor
+   * hold NO create / edit / delete / assign / unassign authority. The database
+   * enforces the same rule (migration 20260907120000); this is the API-boundary
+   * half of it. Cross-user REPORTING reads are a separate, wider rule: see
+   * getReportScope.
+   */
   static async hasManagePermission(
     supabaseClient: any,
     userId: string
@@ -380,6 +382,33 @@ export class LearningPathsService {
       return !error && Array.isArray(data) && data.length > 0;
     } catch (error) {
       return false;
+    }
+  }
+
+  /**
+   * Learning-path REPORT scope of the caller (W-B2c-01, Brent 2026-10-02),
+   * from their own ACTIVE user_roles rows:
+   *   'all'    — admin or consultor (every school; admin wins over any other role)
+   *   'school' — equipo_directivo with a school_id (their school's people only)
+   *   null     — anyone else, or the roles could not be read (fail closed).
+   * This only gates the API door; WHICH rows a reporter sees is decided by the
+   * report views themselves (migration 20261002120000, auth_lp_report_*), so the
+   * reads must stay on the caller's own client. Grants no management authority.
+   */
+  static async getReportScope(
+    supabaseClient: any,
+    userId: string
+  ): Promise<'all' | 'school' | null> {
+    try {
+      const { data, error } = await supabaseClient
+        .from('user_roles')
+        .select('role_type, school_id, is_active')
+        .eq('user_id', userId)
+        .eq('is_active', true);
+      if (error || !Array.isArray(data)) return null;
+      return learningPathReportScope(data);
+    } catch (error) {
+      return null;
     }
   }
 

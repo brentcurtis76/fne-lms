@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
-import { requireVerifiedCaller } from '../../../../lib/api-auth';
+import { requireVerifiedCaller, createApiSupabaseClient } from '../../../../lib/api-auth';
+import { lpReportVisibleUsers } from '../../../../lib/learning-paths/reportScopeDb';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -41,14 +42,14 @@ interface GroupAssignmentsResponse {
 }
 
 // Cross-user assignment reporting (courses and learning paths for every
-// member of a school or community): the COURSE half keeps its baseline
-// audience (admin, or a consultor scoped to that school / community — the
-// scoping helpers below are the baseline ones); the LEARNING-PATH half is
-// literal-admin-only (W-B2c-01) — a consultor receives no learning-path
-// summary, no learning-path count and no member counted through one. The
-// reads use the service-role client as at baseline (the caller's role and
-// scope are verified first; the matrix aggregates across every member's
-// assignments).
+// member of a school or community): the screen audience and the COURSE half
+// are unchanged (admin, or a consultor scoped to that school / community — the
+// scoping helpers below are the baseline ones). The LEARNING-PATH half follows
+// the learning-path report rule (W-B2c-01, Brent 2026-10-02): it covers only
+// the members the database's auth_lp_report_* helpers, asked on the CALLER's
+// client, admit (admin / active consultor: every member of a group the caller
+// may open). Reads use the service-role client as at baseline (the caller's
+// role and scope are verified first; the matrix aggregates across members).
 interface PermissionResult {
   allowed: boolean;
   isAdmin: boolean;
@@ -299,10 +300,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       throw new Error('Error al obtener inscripciones del grupo');
     }
 
-    // Get all LP assignments for members using service client — admin only
-    // (W-B2c-01): for a consultor no learning-path query is issued and the
-    // response carries no learning-path data.
-    const { data: lpAssignments, error: lpError } = permissions.isAdmin
+    // LP assignments of the members the caller may see learning-path data of
+    // (decided by the database on the caller's own client). No admitted
+    // member → no learning-path query and no learning-path data.
+    const callerClient = await createApiSupabaseClient(req, res);
+    const lpMemberIds = [...(await lpReportVisibleUsers(callerClient, memberIds))];
+    const { data: lpAssignments, error: lpError } = lpMemberIds.length > 0
       ? await supabaseService
           .from('learning_path_assignments')
           .select(`
@@ -314,7 +317,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               description
             )
           `)
-          .in('user_id', memberIds)
+          .in('user_id', lpMemberIds)
       : { data: [], error: null };
 
     if (lpError) {

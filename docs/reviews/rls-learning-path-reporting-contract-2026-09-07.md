@@ -1,5 +1,8 @@
 # Learning-path reporting — metric contract (closure C3, decision D2, 2026-09-07)
 
+> **SUPERSEDED in part (2026-10-02, W-B2c-01, Brent's decisions).** Reporting scope is no longer admin-only: active consultors see all schools, active equipo_directivo only people with an active role in their own school(s) (migration `20261002120000_lp_reporting_scope.sql`, pgTAP 101). "Finished" now means every course of the path finished (course_enrollments), not self-reported completion; completion rate, daily/monthly rates and "at risk" (14 days without activity, path not finished, path has courses) are defined; the learning-path engagement score is retired. See `~/Projects/pm-workflow/reviews/sm-hand-20261001/W-B2C-01-REPORTING-PLAN.md` and the migration header for the current definitions. The rest of this document is kept as history.
+
+
 > Governs migration `20260907120600_c3_reporting_retention.sql` and its readers (`pages/api/learning-paths/analytics.ts`, `pages/api/reports/overview.ts`, `lib/services/reports.js`). Decision D2 (Brent, 2026-09-07): finish the existing learning-path reports; cross-user learning-path reporting stays literal-admin-only; independently authorized course reporting keeps its audiences. Written before implementation; every definition below is tested with known values in `supabase/tests/079-c3-reporting-retention.sql` and `__tests__/api/learning-paths/analytics-contract.test.ts`.
 
 ## 1. Architecture (simplest correct design)

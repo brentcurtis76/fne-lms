@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
-import { requireVerifiedCaller } from '../../../../lib/api-auth';
+import { requireVerifiedCaller, createApiSupabaseClient } from '../../../../lib/api-auth';
+import { lpReportAll } from '../../../../lib/learning-paths/reportScopeDb';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -35,7 +36,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Course statistics keep their baseline audience (admin, consultor).
     // Learning-path statistics — the learningPaths list, per-course
     // learningPathCount / lpAssigneeCount and the LP share of
-    // totalAssigneeCount — are literal-admin-only (W-B2c-01).
+    // totalAssigneeCount — count people of EVERY school, so they follow the
+    // learning-path report rule for all-school scope (W-B2c-01, Brent
+    // 2026-10-02): included only when the database's auth_lp_report_all(),
+    // asked on the CALLER's client, is true (admin, active consultor).
     const { data: userRoles } = await supabaseService
       .from('user_roles')
       .select('role_type')
@@ -47,12 +51,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!isAdmin && !isConsultor) {
       return res.status(403).json({ error: 'Solo administradores y consultores pueden acceder' });
     }
-    const includeLearningPaths = isAdmin;
+    const includeLearningPaths = await lpReportAll(await createApiSupabaseClient(req, res));
 
     // Parse query params
     const requestedContentType = (req.query.contentType as string) || 'all';
     if (!includeLearningPaths && requestedContentType === 'learning_paths') {
-      return res.status(403).json({ error: 'Solo administradores pueden ver estadísticas de rutas de aprendizaje' });
+      return res.status(403).json({ error: 'Solo administradores y consultores pueden ver estadísticas de rutas de aprendizaje' });
     }
     const contentType = includeLearningPaths ? requestedContentType : 'courses';
     const search = (req.query.search as string)?.trim() || '';

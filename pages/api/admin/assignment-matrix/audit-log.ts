@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
-import { requireVerifiedCaller } from '../../../../lib/api-auth';
+import { requireVerifiedCaller, createApiSupabaseClient } from '../../../../lib/api-auth';
+import { lpReportAll, lpReportVisibleUsers } from '../../../../lib/learning-paths/reportScopeDb';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -48,10 +49,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Course-assignment audit history keeps its baseline audience (admin,
-    // consultor, equipo_directivo). Learning-path audit rows and every
-    // learning-path identifier on a course row (source_learning_path_id /
-    // sourceLPName) are literal-admin-only (W-B2c-01).
+    // Audience: admin, consultor, equipo_directivo. Learning-path audit rows
+    // and every learning-path identifier on a course row
+    // (source_learning_path_id / sourceLPName) follow the learning-path report
+    // rule (W-B2c-01, Brent 2026-10-02), decided by the database's
+    // auth_lp_report_* helpers on the CALLER's client:
+    //   * admin / consultor: learning-path rows when auth_lp_report_all() (every
+    //     school); otherwise course rows only, as before;
+    //   * equipo_directivo (and no admin / consultor role): only the history of
+    //     ONE person of their own school (entityType=user, admitted by
+    //     auth_lp_report_sees_user) — course and learning-path rows of that
+    //     person; any other filter (another school's person, a workspace, a
+    //     content-wide listing) is refused, so no row about another school's
+    //     people is returned.
     const { data: userRoles } = await supabaseService
       .from('user_roles')
       .select('role_type')
@@ -60,7 +70,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const allowedRoles = ['admin', 'consultor', 'equipo_directivo'];
     const hasAccess = userRoles?.some(r => allowedRoles.includes(r.role_type));
-    const includeLearningPaths = !!userRoles?.some(r => r.role_type === 'admin');
+    const isDirectorOnly = !userRoles?.some(r => r.role_type === 'admin' || r.role_type === 'consultor');
 
     if (!hasAccess) {
       return res.status(403).json({ error: 'Solo administradores, consultores y equipo directivo pueden acceder' });
@@ -110,6 +120,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'contentId debe ser un UUID valido' });
     }
 
+    const callerClient = await createApiSupabaseClient(req, res);
+    let includeLearningPaths: boolean;
+    if (isDirectorOnly) {
+      const ownSchoolPerson = hasEntityFilter && entityType === 'user'
+        && (await lpReportVisibleUsers(callerClient, [entityId as string])).has(entityId as string);
+      if (!ownSchoolPerson) {
+        return res.status(403).json({ error: 'El equipo directivo solo puede ver el historial de personas de su escuela' });
+      }
+      includeLearningPaths = true;
+    } else {
+      includeLearningPaths = await lpReportAll(callerClient);
+    }
+
     // Build query
     let query = supabaseService
       .from('assignment_audit_log')
@@ -123,12 +146,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (hasContentFilter) {
       if (!includeLearningPaths && contentType !== 'course') {
-        return res.status(403).json({ error: 'Solo administradores pueden ver el historial de rutas de aprendizaje' });
+        return res.status(403).json({ error: 'Solo administradores y consultores pueden ver el historial de rutas de aprendizaje' });
       }
       query = query.eq('content_type', contentType).eq('content_id', contentId);
     }
 
-    // Non-admin callers only ever see course rows (W-B2c-01).
+    // Callers outside the all-school learning-path scope only ever see course rows (W-B2c-01).
     if (!includeLearningPaths) {
       query = query.eq('content_type', 'course');
     }
@@ -152,8 +175,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Enrich logs with performer names and content titles. For a non-admin the
-    // learning-path identifiers of a course row (its provenance) are withheld.
+    // Enrich logs with performer names and content titles. Outside the
+    // all-school learning-path scope the learning-path identifiers of a course
+    // row (its provenance) are withheld.
     const enrichedLogs = includeLearningPaths
       ? await enrichAuditLogs(supabaseService, logs)
       : (await enrichAuditLogs(supabaseService, logs.map(log => ({ ...log, source_learning_path_id: null }))))

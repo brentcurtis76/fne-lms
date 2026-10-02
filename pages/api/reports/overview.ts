@@ -2,6 +2,16 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
 import { readClientReportingScope } from '@/lib/simulation/tenant-policy';
+import {
+  createApiSupabaseClient,
+  getApiUser,
+  getForcedPasswordChangeVerdict,
+  sendForcedPasswordChangeResponse,
+} from '@/lib/api-auth';
+
+// Learning-path report audience (W-B2c-01 reporting scope, Brent 2026-10-02).
+// Which rows each of them sees is decided by the report views themselves.
+const LEARNING_PATH_REPORT_ROLES = ['admin', 'consultor', 'equipo_directivo'];
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -42,21 +52,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Verify authentication
+    // Verify authentication. ONE credential for the whole request: the
+    // header must be exactly `Bearer <token>` — the form lib/api-auth.ts
+    // recognises — so getApiUser() verifies this token and
+    // createApiSupabaseClient() below forwards the SAME token for the
+    // learning-path reads. Any other scheme (e.g. lowercase `bearer`) is
+    // refused here instead of letting those helpers fall back to a cookie
+    // session that may belong to someone else.
     const authHeader = req.headers.authorization;
     if (!authHeader) {
       return res.status(401).json({ error: 'No authorization header' });
     }
 
-    const token = authHeader.split(' ')[1];
-    if (!token) {
+    if (typeof authHeader !== 'string' || !/^Bearer [^\s]+$/.test(authHeader)) {
       return res.status(401).json({ error: 'No token provided' });
     }
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const { user, error: authError } = await getApiUser(req, res);
 
     if (authError || !user) {
       return res.status(401).json({ error: 'Invalid authentication' });
+    }
+
+    // Forced password change: a Bearer-only request never meets the
+    // middleware's cookie-session gate, and every report read below runs on
+    // the service-role client, so the route asks the question itself before
+    // any read (403 required / 503 unreadable state — fail closed).
+    const passwordVerdict = await getForcedPasswordChangeVerdict(supabase, user.id);
+    if (sendForcedPasswordChangeResponse(res, passwordVerdict)) {
+      return;
     }
 
     // Get user role using service role client (bypasses RLS)
@@ -70,13 +94,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const warnings: string[] = [];
 
-    // Cross-user learning-path reporting is LITERAL-ADMIN ONLY (W-B2c-01,
-    // closure C3): decided here, before any query, and reported on every
-    // response shape (including the empty one) so a consumer can tell
-    // "unavailable to this audience" from "zero".
-    const learningPathReporting: 'included' | 'admin_only' = userRole === 'admin' ? 'included' : 'admin_only';
-    if (learningPathReporting === 'admin_only') {
-      warnings.push('Tiempo de rutas de aprendizaje: disponible solo para administradores');
+    // Cross-user learning-path reporting audience (W-B2c-01 reporting scope,
+    // Brent 2026-10-02): admin, consultor, equipo_directivo. Decided here,
+    // before any query, and reported on every response shape (including the
+    // empty one) so a consumer can tell "unavailable to this audience" from
+    // "zero".
+    const learningPathReporting: 'included' | 'not_available' =
+      LEARNING_PATH_REPORT_ROLES.includes(userRole) ? 'included' : 'not_available';
+    if (learningPathReporting === 'not_available') {
+      warnings.push('Rutas de aprendizaje: disponible solo para administración, consultores y equipo directivo');
     }
 
     // Get reportable users based on role and assignments
@@ -176,20 +202,50 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error('Roles fetch error:', rolesError.message);
     }
 
-    // Learning-path data: cross-user learning-path reporting is LITERAL-ADMIN
-    // ONLY (W-B2c-01, closure C3). This route runs on the service-role client,
-    // so the gate lives here, not in the view: for every other reporting
-    // audience no learning-path query is issued and the learning-path half of
-    // the payload is marked unavailable (null), while the course half below is
-    // served to its existing audiences unchanged.
+    // Learning-path data (W-B2c-01 reporting scope). The rest of this route
+    // runs on the service-role client, which the report views treat as a
+    // backend caller (every row). So the learning-path read goes through the
+    // CALLER's own client (their bearer JWT): the view then applies the
+    // caller's scope (admin / consultor all schools, equipo_directivo only
+    // people with an active role in their school), AND the `.in(user_id)`
+    // filter keeps it to the users this route already reports on for that
+    // caller — the intersection of both, never more than either. For every
+    // other audience no learning-path query is issued and the learning-path
+    // half is marked unavailable (null); the course half below is served to
+    // its existing audiences unchanged.
+    //
+    // Per-person eligibility: someone this route reports on but whom the
+    // views do not let this caller see (e.g. a director's school picked by
+    // profiles.school_id while the views use active user_roles schools) has
+    // NO summary row — that is "not visible", not "zero time / not at risk".
+    // So eligibility is asked of the database on the caller's client
+    // (auth_lp_report_all, else auth_lp_report_sees_user per person) and
+    // non-eligible people get null learning-path figures.
     let learningPathData: any[] = [];
     let pathError: { message: string } | null = null;
+    const learningPathEligible = new Set<string>();
 
     const batchSize = 50;
     if (learningPathReporting === 'included') {
-      for (let i = 0; i < reportableUsers.length; i += batchSize) {
-        const userBatch = reportableUsers.slice(i, i + batchSize);
-        const { data: batchData, error: batchError } = await supabase
+      let callerClient: any = null;
+      try {
+        callerClient = await createApiSupabaseClient(req, res);
+      } catch (clientError: any) {
+        pathError = { message: clientError?.message || 'caller client unavailable' };
+      }
+      if (callerClient && reportableUsers.length > 0) {
+        try {
+          const eligible = await resolveLearningPathEligibility(callerClient, user.id, reportableUsers);
+          eligible.forEach((id) => learningPathEligible.add(id));
+        } catch (eligibilityError: any) {
+          pathError = { message: eligibilityError?.message || 'learning-path scope unavailable' };
+          callerClient = null;
+        }
+      }
+      const eligibleUsers = reportableUsers.filter((id) => learningPathEligible.has(id));
+      for (let i = 0; callerClient && i < eligibleUsers.length; i += batchSize) {
+        const userBatch = eligibleUsers.slice(i, i + batchSize);
+        const { data: batchData, error: batchError } = await callerClient
           .from('user_learning_path_summary')
           .select(`
             user_id,
@@ -200,7 +256,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             completed_courses,
             total_time_spent_minutes,
             last_session_date,
-            is_at_risk
+            is_at_risk,
+            is_finished
           `)
           .in('user_id', userBatch);
 
@@ -309,7 +366,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       learningPathData || [],
       courseData || [],
       consultantData || [],
-      learningPathAvailable
+      learningPathAvailable,
+      learningPathEligible
     );
 
     return res.status(200).json({ ...formattedData, learning_path_reporting: learningPathReporting, warnings });
@@ -325,6 +383,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       warnings: ['Error interno del servidor al cargar reportes']
     });
   }
+}
+
+// Which of `userIds` the caller may see in the learning-path report views,
+// decided by the database on the CALLER's client (the same helpers the views
+// use). Throws on any failure: the caller then gets null figures, never zeros.
+async function resolveLearningPathEligibility(callerClient: any, callerId: string, userIds: string[]): Promise<string[]> {
+  const { data: seesAll, error: allError } = await callerClient.rpc('auth_lp_report_all');
+  if (allError) throw new Error(allError.message || 'auth_lp_report_all failed');
+  if (seesAll === true) return [...userIds];
+
+  const eligible: string[] = [];
+  const chunk = 25;
+  for (let i = 0; i < userIds.length; i += chunk) {
+    const slice = userIds.slice(i, i + chunk);
+    const answers = await Promise.all(
+      slice.map((id) => callerClient.rpc('auth_lp_report_sees_user', { p_user: id }))
+    );
+    answers.forEach((answer: any, idx: number) => {
+      if (answer?.error) throw new Error(answer.error.message || 'auth_lp_report_sees_user failed');
+      // Own rows are always visible in the views.
+      if (answer?.data === true || slice[idx] === callerId) eligible.push(slice[idx]);
+    });
+  }
+  return eligible;
 }
 
 async function getReportableUsers(userId: string, userRole: string): Promise<string[]> {
@@ -456,7 +538,8 @@ function formatOverviewData(
   learningPathData: any[], 
   courseData: any[], 
   consultantData: any[],
-  learningPathAvailable: boolean = true
+  learningPathAvailable: boolean = true,
+  learningPathEligible?: Set<string>
 ): any {
   const totalUsers = userProfiles.length;
 
@@ -520,7 +603,7 @@ function formatOverviewData(
     const metrics = userPathMetrics.get(pathData.user_id);
     metrics.totalPaths++;
     
-    if (pathData.status === 'completed') {
+    if (pathData.is_finished === true) {
       metrics.completedPaths++;
     }
     
@@ -531,7 +614,8 @@ function formatOverviewData(
       metrics.lastSessionDate = pathData.last_session_date;
     }
     
-    if (pathData.is_at_risk) {
+    // Defined by the view: assigned, not finished, no activity for 14 days.
+    if (pathData.is_at_risk === true) {
       metrics.isAtRisk = true;
     }
   });
@@ -554,6 +638,10 @@ function formatOverviewData(
       lastActivity: null
     };
     
+    // null = not visible to this caller in the learning-path views (or the
+    // learning-path half is unavailable); a visible person with no
+    // assignment keeps genuine zeros.
+    const lpVisible = learningPathAvailable && (!learningPathEligible || learningPathEligible.has(profile.id));
     const pathMetrics = userPathMetrics.get(profile.id) || {
       totalPaths: 0,
       completedPaths: 0,
@@ -595,8 +683,10 @@ function formatOverviewData(
       total_courses: totalUserCourses,
       completed_courses: completedUserCourses,
       completion_rate: completionRate,
-      // Learning-path time: null = unavailable to this audience (admin-only), never 0
-      total_time_spent: learningPathAvailable ? Math.round(pathMetrics.totalPathTime) : null, // in minutes
+      // Learning-path figures: null = unavailable to this audience (or the read
+      // failed), never 0 / false
+      total_time_spent: lpVisible ? Math.round(pathMetrics.totalPathTime) : null, // in minutes
+      is_at_risk: lpVisible ? pathMetrics.isAtRisk === true : null,
       consultant_info: consultantMap.get(profile.id) || {
         has_consultant: false,
         consultant_name: null,

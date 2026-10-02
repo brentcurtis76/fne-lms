@@ -1,32 +1,21 @@
 /**
  * The learning-path analytics contract shared by the API
  * (pages/api/learning-paths/analytics.ts) and its UI consumer
- * (components/reports/LearningPathAnalytics.tsx) — closure C3, decision D2,
- * docs/reviews/rls-learning-path-reporting-contract-2026-09-07.md.
+ * (components/reports/LearningPathAnalytics.tsx). Audience and figures:
+ * W-B2c-01 reporting scope (Brent 2026-10-02) — admin and consultor see every
+ * school, equipo_directivo their own school's people; the report views
+ * (migration 20261002120000) decide which rows a caller sees.
  *
  * C-R1-04 (closure review 2026-09-08): the contract is NULLABLE where the
- * source views are — a rate over an empty population is `null` (not 0), and a
- * metric with no governing definition is ALWAYS `null` and listed under
- * `unavailable`. A consumer must render `null` as an explicit "no disponible"
- * state and must never draw an undefined metric as a series. Valid zeros are
- * numbers and are rendered as such.
+ * source views are — a rate over an empty population is `null` (not 0). A
+ * consumer must render `null` as an explicit "no disponible" state. Valid zeros
+ * are numbers and are rendered as such.
+ *
+ * Figures: completion = finished every course of the path (not the
+ * self-reported path completion); at risk = assigned, not finished, no activity
+ * for 14 days. The learning-path engagement score is retired (not in the
+ * contract).
  */
-
-export const UNAVAILABLE_METRICS = [
-  'engagementScore',
-  'atRiskUsers',
-  'completionRate(daily)',
-  'avgCompletionRate(monthly)',
-] as const;
-export type UnavailableMetric = (typeof UNAVAILABLE_METRICS)[number];
-
-/** Spanish labels for the unavailable metrics (UI only). */
-export const UNAVAILABLE_METRIC_LABELS: Record<UnavailableMetric, string> = {
-  engagementScore: 'puntuación de engagement',
-  atRiskUsers: 'usuarios en riesgo',
-  'completionRate(daily)': 'tasa de completación diaria',
-  'avgCompletionRate(monthly)': 'tasa de completación mensual promedio',
-};
 
 export interface LearningPathAnalyticsSummary {
   totalPaths: number;
@@ -35,6 +24,8 @@ export interface LearningPathAnalyticsSummary {
   /** Mean of the per-path rates over paths with an assigned population; null when none has one. */
   averageCompletionRate: number | null;
   totalTimeSpentHours: number;
+  /** Assigned, not finished, no activity for 14 days (sum over the visible paths). */
+  atRiskUsers: number;
 }
 
 export interface PathPerformanceEntry {
@@ -47,8 +38,7 @@ export interface PathPerformanceEntry {
   totalUsers: number;
   completedUsers: number;
   inProgressUsers: number;
-  /** Always null: no governing definition (see UNAVAILABLE_METRICS). */
-  engagementScore: null;
+  atRiskUsers: number;
   recentEnrollments: number;
   recentCompletions: number;
   recentSessionTimeHours: number;
@@ -67,7 +57,6 @@ export interface LearningPathAnalyticsOverview {
   pathPerformance: PathPerformanceEntry[];
   /** Paths whose (non-null) completion rate is below 40 %. */
   lowPerformingPaths: PathPerformanceEntry[];
-  unavailable: UnavailableMetric[];
 }
 
 export interface CourseProgressionEntry {
@@ -90,7 +79,7 @@ export interface PathSpecificAnalytics {
     completedUsers: number;
     completionRate: number | null;
     avgCompletionTimeDays: number | null;
-    engagementScore: null;
+    atRiskUsers: number;
     recentEnrollments: number;
     recentCompletions: number;
   };
@@ -105,13 +94,12 @@ export interface PathSpecificAnalytics {
     completedUsers: number;
     inProgressUsers: number;
     notStartedUsers: number;
-    /** Always null: no governing definition. */
-    atRiskUsers: null;
+    /** Assigned, not finished, no activity for 14 days. */
+    atRiskUsers: number;
     avgProgressPercentage: number | null;
   };
   activityHeatmap: Record<string, { sessions: number; activeUsers: number; timeSpent: number }>;
   recentActivity: { totalDays: number; totalSessions: number; activeUserDays: number; timeframe: string };
-  unavailable: UnavailableMetric[];
 }
 
 export type LearningPathAnalyticsResponse = LearningPathAnalyticsOverview | PathSpecificAnalytics;
@@ -141,10 +129,10 @@ export function isOverviewAnalytics(body: unknown): body is LearningPathAnalytic
     isNumber(s.totalCompletedUsers) &&
     isNullableNumber(s.averageCompletionRate) &&
     isNumber(s.totalTimeSpentHours) &&
+    isNumber(s.atRiskUsers) &&
     Array.isArray(b.pathPerformance) &&
     Array.isArray(b.completionTrends) &&
-    Array.isArray(b.lowPerformingPaths) &&
-    Array.isArray(b.unavailable)
+    Array.isArray(b.lowPerformingPaths)
   );
 }
 
@@ -152,5 +140,5 @@ export function isPathSpecificAnalytics(body: unknown): body is PathSpecificAnal
   if (!body || typeof body !== 'object') return false;
   const b = body as Record<string, unknown>;
   const p = b.pathInfo as Record<string, unknown> | undefined;
-  return !!p && typeof p.pathId === 'string' && isNullableNumber(p.completionRate) && Array.isArray(b.courseProgression) && Array.isArray(b.unavailable);
+  return !!p && typeof p.pathId === 'string' && isNullableNumber(p.completionRate) && Array.isArray(b.courseProgression);
 }

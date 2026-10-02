@@ -8,8 +8,10 @@
 --      reporting timezone (America/Santiago day boundary), union-clipped
 --   3. known-value metrics through the views as a literal admin: deduplicated
 --      population, course / path completion, credited time, daily distinct
---      users, monthly distinct users (not the sum of days), unavailable
---      metrics are NULL not 0
+--      users, monthly distinct users (not the sum of days); since
+--      20261002120000 (W-B2c-01 reporting scope) is_at_risk and the daily /
+--      monthly completion rates are defined (exact values pinned here and in
+--      pgTAP 101), engagement_score is retired (always NULL)
 --   4. exposure: a non-admin sees only their own summary row and nothing from
 --      the cross-user views; anon cannot read; the backend reads everything
 --   5. retention: bounded deletion of old settled sessions with has_more;
@@ -39,7 +41,7 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(129);
+SELECT plan(132);
 
 CREATE OR REPLACE FUNCTION pg_temp.set_anon() RETURNS void AS $$
 BEGIN
@@ -177,12 +179,15 @@ SELECT is((SELECT status || '/' || total_courses || '/' || completed_courses || 
           'in_progress/2/1/50.00/85', '3: u1 summary: in_progress, 1 of 2 courses, 50 %, 85 credited minutes');
 SELECT is((SELECT status || '/' || completed_courses || '/' || overall_progress_percentage FROM public.user_learning_path_summary WHERE user_id = pg_temp.uid('c3_u3') AND path_id = '79000000-0000-4000-8000-00000000000a'), 'completed/2/100.00', '3: u3 summary: completed, 2 of 2, 100 %');
 SELECT is((SELECT status || '/' || completed_courses || '/' || total_time_spent_minutes FROM public.user_learning_path_summary WHERE user_id = pg_temp.uid('c3_u2') AND path_id = '79000000-0000-4000-8000-00000000000a'), 'in_progress/0/40', '3: u2 (group only): in_progress from credited time, 0 courses, 40 minutes');
-SELECT is((SELECT is_at_risk FROM public.user_learning_path_summary WHERE user_id = pg_temp.uid('c3_u1') AND path_id = '79000000-0000-4000-8000-00000000000a'), NULL, '3: is_at_risk is NULL (unavailable, no definition)');
+-- 20261002120000: at risk = assigned, not finished, last activity older than
+-- 14 days. u1's last activity is its March 2026 sessions → at risk; u3 finished.
+SELECT is((SELECT is_at_risk FROM public.user_learning_path_summary WHERE user_id = pg_temp.uid('c3_u1') AND path_id = '79000000-0000-4000-8000-00000000000a'), true, '3: is_at_risk: u1 not finished, last active March 2026 (> 14 days) → true');
+SELECT is((SELECT is_at_risk FROM public.user_learning_path_summary WHERE user_id = pg_temp.uid('c3_u3') AND path_id = '79000000-0000-4000-8000-00000000000a'), false, '3: is_at_risk: u3 finished the path → false');
 SELECT is((SELECT total_enrolled_users || '/' || total_completed_users || '/' || total_in_progress_users || '/' || overall_completion_rate || '/' || total_time_spent_hours || '/' || total_courses
              FROM public.learning_path_performance_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a'),
           '3/1/2/33.33/5.42/2', '3: performance: 3 enrolled, 1 completed, 2 in progress, 33.33 %, 5.42 h (325 min), 2 courses');
 SELECT is((SELECT avg_completion_time_days FROM public.learning_path_performance_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a'), 11.13, '3: avg completion time 11.13 days (u3: Mar 1 12:00 → Mar 12 15:00)');
-SELECT is((SELECT engagement_score FROM public.learning_path_performance_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a'), NULL, '3: engagement_score is NULL (unavailable)');
+SELECT is((SELECT engagement_score FROM public.learning_path_performance_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a'), NULL, '3: engagement_score is NULL (retired by 20261002120000; the column stays because view columns cannot be removed)');
 SELECT is((SELECT recent_enrollments FROM public.learning_path_performance_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a'), 2, '3: recent_enrollments = 2 (u3 direct 2 days ago; u2 via the group 10 days ago; u1 counts by its earliest source at 40 days → not recent)');
 SELECT is((SELECT total_enrolled_users || '/' || coalesce(overall_completion_rate::text, 'NULL') FROM public.learning_path_performance_summary WHERE path_id = '79000000-0000-4000-8000-00000000000b'), '0/NULL', '3: empty path: 0 users and a NULL rate (not 0)');
 SELECT is((SELECT total_active_users || '/' || total_sessions_count || '/' || total_session_time_minutes || '/' || course_completions
@@ -190,11 +195,17 @@ SELECT is((SELECT total_active_users || '/' || total_sessions_count || '/' || to
           '2/4/110/1', '3: daily 2026-03-10: 2 distinct users, 4 sessions, 110 credited minutes, 1 course completion (u1 K1)');
 SELECT is((SELECT total_active_users || '/' || course_completions FROM public.learning_path_daily_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a' AND summary_date = '2026-03-11'), '1/1', '3: daily 2026-03-11: 1 user (u1 late evening), 1 completion (u3 K1)');
 SELECT is((SELECT total_active_users || '/' || course_completions FROM public.learning_path_daily_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a' AND summary_date = '2026-03-12'), '0/1', '3: daily 2026-03-12: no activity, 1 completion (a completion-only day still appears)');
-SELECT is((SELECT completion_rate FROM public.learning_path_daily_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a' AND summary_date = '2026-03-10'), NULL, '3: daily completion_rate is NULL (unavailable)');
+-- 20261002120000: daily completion_rate = cumulative finished / assigned by that
+-- day. Every assignment is now()-relative (after March 2026), so on 2026-03-10
+-- nobody is assigned yet → NULL; on u3's assignment day all 3 are assigned and
+-- u3 (finished in March, before being assigned) is finished by that day.
+SELECT is((SELECT completion_rate FROM public.learning_path_daily_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a' AND summary_date = '2026-03-10'), NULL, '3: daily completion_rate on 2026-03-10 is NULL (nobody assigned by that day)');
+SELECT is((SELECT completion_rate FROM public.learning_path_daily_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a' AND summary_date = public.lp_activity_date(now() - interval '2 days')), 33.33, '3: daily completion_rate on u3''s assignment day = 1 finished of 3 assigned = 33.33');
 SELECT is((SELECT total_active_users || '/' || total_sessions || '/' || total_session_time_minutes || '/' || total_completions || '/' || avg_daily_active_users || '/' || avg_session_duration_minutes
              FROM public.learning_path_monthly_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a' AND summary_month = '2026-03-01'),
           '2/5/125/3/0.10/25.00', '3: monthly 2026-03: 2 DISTINCT users (not 3 = 2 + 1 summed from days), 5 sessions, 125 min, 3 completions, 3 user-days / 31 = 0.10, 25 min per session');
-SELECT is((SELECT avg_completion_rate FROM public.learning_path_monthly_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a' AND summary_month = '2026-03-01'), NULL, '3: monthly avg_completion_rate is NULL (unavailable)');
+SELECT is((SELECT avg_completion_rate FROM public.learning_path_monthly_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a' AND summary_month = '2026-03-01'), NULL, '3: monthly avg_completion_rate for 2026-03 is NULL (nobody assigned by the end of March)');
+SELECT is((SELECT avg_completion_rate FROM public.learning_path_monthly_summary WHERE path_id = '79000000-0000-4000-8000-00000000000a' AND summary_month = date_trunc('month', public.lp_activity_date(now() - interval '2 days'))::date), 0.00, '3: monthly avg_completion_rate for the month of u3''s assignment = 0.00 (3 assigned by month end; u3 finished in March, before being assigned, so in no month''s numerator)');
 
 -- ----------------------------------------------------------------------------
 -- 4. Exposure

@@ -14,6 +14,7 @@ import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalP
 import { BarChart3, Calendar, Map } from 'lucide-react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { getUserPrimaryRole } from '../utils/roleUtils';
+import { learningPathReportScope, type LearningPathReportScope } from '../lib/learning-paths/reportScope';
 
 interface User {
   id: string;
@@ -104,6 +105,8 @@ const ReportsPage: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<string>('');
   const [isAdmin, setIsAdmin] = useState(false);
+  // Learning-path report scope, same rule as the API door (getReportScope)
+  const [lpReportScope, setLpReportScope] = useState<LearningPathReportScope>(null);
   const [avatarUrl, setAvatarUrl] = useState('');
   const [userScope, setUserScope] = useState<string>('');
   
@@ -161,6 +164,16 @@ const ReportsPage: React.FC = () => {
         const role = await getUserPrimaryRole(session.user.id);
         setUserRole(role);
         setIsAdmin(role === 'admin');
+
+        // Learning-path tab eligibility from the caller's own active role rows,
+        // exactly as the API decides it (a director needs a school). A failed
+        // read leaves it null: the tab explains instead of requesting.
+        const { data: ownRoles, error: ownRolesError } = await supabase
+          .from('user_roles')
+          .select('role_type, school_id, is_active')
+          .eq('user_id', session.user.id)
+          .eq('is_active', true);
+        setLpReportScope(ownRolesError ? null : learningPathReportScope(ownRoles));
         
         // Check if user has reporting access
         const reportingRoles = ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red'];
@@ -274,7 +287,7 @@ const ReportsPage: React.FC = () => {
   };
 
   const formatTime = (minutes: number | null | undefined) => {
-    // null = unavailable to this audience (learning-path time is admin-only)
+    // null = unavailable to this audience (learning-path time: admin, consultor, equipo_directivo)
     if (minutes === null || minutes === undefined) return 'No disponible';
     if (!minutes) return '0h 0m';
     const hours = Math.floor(minutes / 60);
@@ -766,21 +779,30 @@ const ReportsPage: React.FC = () => {
             </div>
           )}
 
-          {/* Learning Paths Tab — cross-user learning-path reporting is literal-admin-only
-              (D2). A non-admin sees the reason instead of a request that would be refused;
-              the component itself also renders a denial if the API says 403. */}
+          {/* Learning Paths Tab — learning-path reporting audience (W-B2c-01 reporting scope,
+              Brent 2026-10-02): admin and consultor (every school), equipo_directivo (their
+              school's people). Any other role sees the reason instead of a request that would
+              be refused; the component itself also renders a denial if the API says 403. The
+              rows each reporter gets are decided by the API and the report views, not here. */}
           {activeTab === 'learning-paths' && !dataLoading && !fetchError && (
             <div className="space-y-6" data-testid="reports-learning-paths-tab">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900">Análisis de Rutas de Aprendizaje</h3>
               </div>
-              {isAdmin ? (
-                <LearningPathAnalytics
-                  dateRange={parseInt(dateRange)}
-                />
+              {lpReportScope !== null ? (
+                <>
+                  {lpReportScope === 'school' && (
+                    <p className="text-sm text-gray-600" data-testid="lp-analytics-scope-hint">
+                      Nivel escuela: solo ves a las personas de tu escuela.
+                    </p>
+                  )}
+                  <LearningPathAnalytics
+                    dateRange={parseInt(dateRange)}
+                  />
+                </>
               ) : (
-                <div className="bg-gray-50 border border-gray-200 text-gray-700 px-4 py-3 rounded-lg" data-testid="lp-analytics-admin-only">
-                  Las analíticas de rutas de aprendizaje están disponibles solo para administradores.
+                <div className="bg-gray-50 border border-gray-200 text-gray-700 px-4 py-3 rounded-lg" data-testid="lp-analytics-not-available">
+                  Las analíticas de rutas de aprendizaje están disponibles solo para administración, consultores y equipo directivo.
                 </div>
               )}
             </div>

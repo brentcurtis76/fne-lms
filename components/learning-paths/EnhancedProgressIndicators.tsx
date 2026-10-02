@@ -27,8 +27,10 @@ interface EnhancedProgressData {
     totalSessions: number;
     avgSessionMinutes: number;
     currentCourse: number;
-    daysSinceLastActivity: number;
-    isAtRisk: boolean;
+    /** null = unavailable (summary read failed, or the caller is not an assignee) */
+    daysSinceLastActivity: number | null;
+    /** null = unavailable; true = assigned, not finished, no activity for 14 days */
+    isAtRisk: boolean | null;
     completionStreak: number;
     startDate: string;
   };
@@ -36,11 +38,9 @@ interface EnhancedProgressData {
     avgCompletionRate: number;
     avgCompletionTimeDays: number;
     totalEnrolledUsers: number;
-    engagementScore: number;
   };
   insights: {
     paceAnalysis: any;
-    engagementLevel: any;
     timeForecasting: any;
     recommendations: any[];
     milestones: any;
@@ -67,15 +67,15 @@ export default function EnhancedProgressIndicators({ data, pathName }: Props) {
             <BarChart3 className="w-5 h-5" />
             Tu Progreso Inteligente
           </h3>
-          {userProgress.isAtRisk && (
+          {userProgress.isAtRisk === true && (
             <div className="flex items-center gap-2 text-orange-600 bg-orange-50 px-3 py-1 rounded-full text-sm">
               <AlertTriangle className="w-4 h-4" />
-              <span>Necesita atención</span>
+              <span>Sin actividad en 14 días</span>
             </div>
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Pace Analysis */}
           <div className="bg-gradient-to-br from-blue-50 to-slate-50 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -99,27 +99,6 @@ export default function EnhancedProgressIndicators({ data, pathName }: Props) {
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Engagement Level */}
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Flame className={`w-5 h-5 ${insights.engagementLevel.color}`} />
-              <span className="font-medium text-gray-900">Nivel de Compromiso</span>
-            </div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className={`text-sm font-medium ${insights.engagementLevel.color}`}>
-                {insights.engagementLevel.level === 'high' ? 'Alto' : 
-                 insights.engagementLevel.level === 'moderate' ? 'Moderado' : 'Bajo'}
-              </span>
-              <span className="text-sm text-gray-600">
-                ({insights.engagementLevel.score}/100)
-              </span>
-            </div>
-            <p className="text-xs text-gray-600">
-              {insights.engagementLevel.recentSessionCount} sesiones recientes
-              • {insights.engagementLevel.totalRecentTimeHours}h total
-            </p>
           </div>
 
           {/* Time Forecasting */}

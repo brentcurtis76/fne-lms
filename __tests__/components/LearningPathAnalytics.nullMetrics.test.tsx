@@ -3,15 +3,16 @@
  * C-R1-04 (closure review 2026-09-08): components/reports/LearningPathAnalytics.tsx
  * consumes the C3 analytics contract (docs/reviews/rls-learning-path-reporting-
  * contract-2026-09-07.md), in which `summary.averageCompletionRate` and every
- * per-path `completionRate` are NULL when no population is assigned, and the
- * engagement / at-risk metrics are always null (no governing definition).
+ * per-path `completionRate` are NULL when no population is assigned. W-B2c-01
+ * (Brent 2026-10-02): at risk is a defined count and the learning-path engagement
+ * score is retired (no `unavailable` list any more).
  *
  *   * empty population: renders an explicit Spanish unavailable/empty state — the
  *     first run of this file (before the fix) is the fail-before proof: TypeError
  *     "Cannot read properties of null (reading 'toFixed')";
  *   * a valid zero is rendered as 0.0 %, not as "unavailable";
  *   * populated data renders the rate and the chart with the completion series only
- *     (the undefined engagement metric is never drawn as a series);
+ *     (the retired engagement metric is never drawn as a series);
  *   * unrated paths are listed as "sin población asignada", not charted as 0;
  *   * API failure (502 relation error), denial (403) and a network error each
  *     produce a distinct, coherent Spanish state.
@@ -32,17 +33,16 @@ vi.mock('recharts', () => {
 import LearningPathAnalytics from '../../components/reports/LearningPathAnalytics';
 
 const EMPTY_OVERVIEW = {
-  summary: { totalPaths: 0, totalAssignedUsers: 0, totalCompletedUsers: 0, averageCompletionRate: null, totalTimeSpentHours: 0 },
+  summary: { totalPaths: 0, totalAssignedUsers: 0, totalCompletedUsers: 0, averageCompletionRate: null, totalTimeSpentHours: 0, atRiskUsers: 0 },
   recentActivity: { timeframe: '30 days', totalSessions: 0, activeUserDays: 0 },
   completionTrends: [],
   pathPerformance: [],
   lowPerformingPaths: [],
-  unavailable: ['engagementScore', 'atRiskUsers', 'completionRate(daily)', 'avgCompletionRate(monthly)'],
 };
 
 const PATH = (over: Record<string, unknown>) => ({
   pathId: 'p1', pathName: 'Ruta A', completionRate: 42.5, avgCompletionTimeDays: 3.2, totalUsers: 4, completedUsers: 2, inProgressUsers: 1,
-  engagementScore: null, recentEnrollments: 1, recentCompletions: 1, recentSessionTimeHours: 2.5, ...over,
+  atRiskUsers: 0, recentEnrollments: 1, recentCompletions: 1, recentSessionTimeHours: 2.5, ...over,
 });
 
 function respond(status: number, body: unknown) {
@@ -93,10 +93,10 @@ describe('nullable metrics under the C3 contract', () => {
     expect(screen.getByTestId('lp-analytics-performance-chart')).toBeInTheDocument();
   });
 
-  it('populated data: rate, chart with the completion series only, undefined metrics named as unavailable', async () => {
+  it('populated data: rate, chart with the completion series only, no "unavailable metrics" note', async () => {
     respond(200, {
       ...EMPTY_OVERVIEW,
-      summary: { totalPaths: 2, totalAssignedUsers: 7, totalCompletedUsers: 3, averageCompletionRate: 42.5, totalTimeSpentHours: 12.25 },
+      summary: { totalPaths: 2, totalAssignedUsers: 7, totalCompletedUsers: 3, averageCompletionRate: 42.5, totalTimeSpentHours: 12.25, atRiskUsers: 1 },
       completionTrends: [{ date: '2026-09-01', completions: 1, enrollments: 2 }],
       pathPerformance: [PATH({}), PATH({ pathId: 'p2', pathName: 'Ruta B', completionRate: null, totalUsers: 0 })],
       lowPerformingPaths: [],
@@ -107,9 +107,18 @@ describe('nullable metrics under the C3 contract', () => {
     const series = screen.getAllByTestId('chart-series').map((n) => n.getAttribute('data-key'));
     expect(series).toContain('completionRate');
     expect(series).not.toContain('engagementScore');
-    expect(screen.getByTestId('lp-analytics-unavailable-note')).toHaveTextContent(/engagement/i);
+    expect(screen.queryByTestId('lp-analytics-unavailable-note')).not.toBeInTheDocument();
     expect(screen.getByTestId('lp-analytics-unrated')).toHaveTextContent('Ruta B');
     expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
+    // "En riesgo" card: the defined count plus its one-line plain explanation
+    expect(screen.getByTestId('lp-analytics-at-risk')).toHaveTextContent('1');
+    expect(screen.getByTestId('lp-analytics-at-risk-hint')).toHaveTextContent(/sin actividad en 14 días/i);
+  });
+
+  it('a valid zero at-risk count is rendered as 0', async () => {
+    respond(200, EMPTY_OVERVIEW);
+    render(<LearningPathAnalytics dateRange={30} />);
+    expect(await screen.findByTestId('lp-analytics-at-risk')).toHaveTextContent(/^0$/);
   });
 
   it('the low-performing list renders the rate of each entry', async () => {
@@ -132,7 +141,7 @@ describe('failure and denial states are distinct', () => {
   it('403 is a denial state, not a data error', async () => {
     respond(403, { error: 'You do not have permission to view analytics' });
     render(<LearningPathAnalytics dateRange={30} />);
-    expect(await screen.findByTestId('lp-analytics-denied')).toHaveTextContent(/solo para administradores/i);
+    expect(await screen.findByTestId('lp-analytics-denied')).toHaveTextContent(/solo para administración, consultores y equipo directivo/i);
     expect(screen.queryByTestId('lp-analytics-error')).not.toBeInTheDocument();
   });
 

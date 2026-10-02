@@ -4,7 +4,28 @@ import { getApiUser, createApiSupabaseClient, sendAuthError } from '../../../../
 /**
  * Enhanced progress endpoint for learning path detail page
  * Simplified version that works with existing basic tables
+ *
+ * W-B2c-01 figures (Brent 2026-10-02; migration 20261002120000):
+ *   - a course is finished when its course_enrollments row has is_completed
+ *     or progress_percentage >= 100 (ONE predicate, isCourseFinished, for the
+ *     status, the completed-course count, the percentage — same as the views);
+ *     the path is finished when every course of it is; the self-reported path
+ *     completed_at is reported as history only;
+ *   - "at risk" and the last activity are read, never re-derived, from the
+ *     caller's own row of user_learning_path_summary (assigned, not finished,
+ *     no activity for 14 days; never for a courseless path). A failed read
+ *     makes both null (unavailable), never a guess; an absent row (the caller
+ *     is not an assignee, e.g. an admin previewing) also makes them null: the
+ *     definition only applies to assigned people.
+ * The learning-path engagement score / level is retired.
  */
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+type OwnSummary =
+  | { kind: 'row'; isAtRisk: boolean; lastActivityAt: string | null }
+  | { kind: 'absent' }
+  | { kind: 'error' };
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -162,7 +183,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (courseIds.length > 0) {
       const { data: enrollments } = await supabaseClient
         .from('course_enrollments')
-        .select('course_id, progress_percentage, completed_at, created_at')
+        .select('course_id, progress_percentage, is_completed, completed_at, created_at, updated_at')
         .eq('user_id', userId)
         .in('course_id', courseIds);
       
@@ -178,8 +199,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       `)
       .eq('path_id', pathId);
 
+    // 4b. The caller's own row of the report summary (own rows are always
+    // visible to them): the defined at-risk flag and last activity (which
+    // includes lesson activity this route does not read).
+    const { data: summaryRow, error: summaryError } = await supabaseClient
+      .from('user_learning_path_summary')
+      .select('is_at_risk, last_activity_effective_at')
+      .eq('user_id', userId)
+      .eq('path_id', pathId)
+      .maybeSingle();
+    let ownSummary: OwnSummary;
+    if (summaryError) {
+      console.error('Enhanced progress: user_learning_path_summary read failed:', summaryError.message ?? summaryError);
+      ownSummary = { kind: 'error' };
+    } else if (!summaryRow) {
+      ownSummary = { kind: 'absent' };
+    } else {
+      ownSummary = {
+        kind: 'row',
+        isAtRisk: summaryRow.is_at_risk === true,
+        lastActivityAt: summaryRow.last_activity_effective_at ?? null,
+      };
+    }
+
     // 5. Calculate user progress based on existing data
-    const userProgress = calculateUserProgress(assignment, pathCourses, courseEnrollments);
+    const userProgress = calculateUserProgress(assignment, pathCourses, courseEnrollments, ownSummary);
     const pathBenchmarks = calculatePathBenchmarks(pathStats || []);
     const insights = calculateBasicInsights(userProgress, pathBenchmarks, assignment, pathCourses, courseEnrollments);
 
@@ -206,32 +250,51 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-function calculateUserProgress(assignment: any, pathCourses: any[], courseEnrollments: any[]) {
+/** The ONE course-finished predicate (same as the report views). */
+export function isCourseFinished(enrollment: any): boolean {
+  return enrollment?.is_completed === true || Number(enrollment?.progress_percentage ?? 0) >= 100;
+}
+
+function calculateUserProgress(
+  assignment: any,
+  pathCourses: any[],
+  courseEnrollments: any[],
+  ownSummary: OwnSummary
+) {
   const totalCourses = pathCourses?.length || 0;
-  const completedCourses = courseEnrollments.filter(e => e.progress_percentage === 100).length;
-  const inProgressCourses = courseEnrollments.filter(e => e.progress_percentage > 0 && e.progress_percentage < 100).length;
-  
-  // Calculate overall progress percentage based on course completions
-  const overallProgress = totalCourses > 0 
+  const pathCourseIds = new Set((pathCourses || []).map((pc: any) => pc.course_id));
+  const pathEnrollments = courseEnrollments.filter((e) => pathCourseIds.has(e.course_id));
+  const finishedCourseIds = new Set(pathEnrollments.filter(isCourseFinished).map((e) => e.course_id));
+  const completedCourses = finishedCourseIds.size;
+  const inProgressCourses = pathEnrollments.filter(
+    (e) => !finishedCourseIds.has(e.course_id) && Number(e.progress_percentage ?? 0) > 0
+  ).length;
+  const isFinished = totalCourses > 0 && completedCourses === totalCourses;
+
+  // Overall progress = share of the path's courses finished
+  const overallProgress = totalCourses > 0
     ? Math.round((completedCourses / totalCourses) * 100)
     : 0;
-  
-  // Determine status based on available data. The own-progress record
-  // (R3-04: learning_path_user_progress, mirrored into a direct row) is
-  // authoritative for completion, elapsed minutes, current course and start.
+
+  // Status as in user_learning_path_summary: 'completed' only when every
+  // course is finished (the self-reported completed_at is history, reported
+  // as completedAt). The own-progress record (R3-04) still decides
+  // 'in_progress' through its start / minutes.
   let status = 'not_started';
-  if (overallProgress === 100 || assignment.completed_at) {
+  if (isFinished) {
     status = 'completed';
   } else if (completedCourses > 0 || inProgressCourses > 0 || assignment.started_at || (assignment.total_time_spent_minutes ?? 0) > 0) {
     status = 'in_progress';
   }
 
-  // Calculate time since assignment (as a proxy for last activity since we don't have last_activity_at)
-  const daysSinceAssignment = assignment.assigned_at 
-    ? Math.floor((Date.now() - new Date(assignment.assigned_at).getTime()) / (24 * 60 * 60 * 1000))
-    : 0;
+  // At risk / last activity: from the summary row only (null = unavailable).
+  const isAtRisk: boolean | null = ownSummary.kind === 'row' ? ownSummary.isAtRisk : null;
+  const lastActivityAt: string | null = ownSummary.kind === 'row' ? ownSummary.lastActivityAt : null;
+  const daysSinceLastActivity: number | null = lastActivityAt
+    ? Math.max(0, Math.floor((Date.now() - new Date(lastActivityAt).getTime()) / DAY_MS))
+    : null;
 
-  // Find the most recent course activity
+  // Find the most recent course activity (used as a start-date fallback)
   const mostRecentActivity = courseEnrollments.length > 0
     ? courseEnrollments.reduce((latest, enrollment) => {
         const activityDate = enrollment.completed_at || enrollment.created_at;
@@ -241,10 +304,6 @@ function calculateUserProgress(assignment: any, pathCourses: any[], courseEnroll
       }, null)
     : null;
 
-  const daysSinceLastActivity = mostRecentActivity
-    ? Math.floor((Date.now() - new Date(mostRecentActivity).getTime()) / (24 * 60 * 60 * 1000))
-    : daysSinceAssignment;
-
   return {
     status,
     overallProgress,
@@ -253,7 +312,7 @@ function calculateUserProgress(assignment: any, pathCourses: any[], courseEnroll
     avgSessionMinutes: 0, // Not available in basic schema
     currentCourse: Number(assignment.current_course_sequence ?? 1) || 1, // own-progress record (R3-04)
     daysSinceLastActivity,
-    isAtRisk: daysSinceLastActivity > 7 && status === 'in_progress',
+    isAtRisk,
     completionStreak: 0, // Not available in basic schema
     startDate: assignment.started_at || mostRecentActivity || assignment.assigned_at, // own-progress start, else first course activity, else assignment date
     completedAt: assignment.completed_at ?? null, // own-progress record (R3-04)
@@ -286,15 +345,13 @@ function calculatePathBenchmarks(pathStats: any[]) {
     totalCompletedUsers: 0, // Not available in basic schema
     avgCompletionRate: 0, // Not available in basic schema
     avgCompletionTimeDays: 0, // Not available in basic schema
-    avgDaysSinceAssignment: Math.round(avgDaysSinceAssignment),
-    engagementScore: 50 // Placeholder since we can't calculate properly without activity data
+    avgDaysSinceAssignment: Math.round(avgDaysSinceAssignment)
   };
 }
 
 function calculateBasicInsights(userProgress: any, pathBenchmarks: any, assignment: any, pathCourses: any[], courseEnrollments: any[]) {
   const insights = {
     paceAnalysis: calculateBasicPaceAnalysis(userProgress, pathBenchmarks),
-    engagementLevel: calculateBasicEngagementLevel(userProgress),
     timeForecasting: calculateBasicTimeForecasting(userProgress, pathBenchmarks),
     recommendations: generateBasicRecommendations(userProgress, assignment),
     milestones: calculateBasicMilestones(userProgress),
@@ -347,40 +404,6 @@ function calculateBasicPaceAnalysis(userProgress: any, pathBenchmarks: any) {
     actualProgress: userProgress.overallProgress,
     expectedProgress,
     paceDifference
-  };
-}
-
-function calculateBasicEngagementLevel(userProgress: any) {
-  const { completedCourses, inProgressCourses, daysSinceLastActivity, isAtRisk } = userProgress;
-  
-  let level = 'moderate';
-  let message = 'Mantén el buen ritmo de estudio';
-  let color = 'text-yellow-600';
-  let score = 50;
-
-  if (completedCourses > 0 && !isAtRisk) {
-    level = 'high';
-    message = '¡Excelente nivel de compromiso!';
-    color = 'text-green-600';
-    score = Math.min(100, 70 + completedCourses * 10);
-  } else if (isAtRisk || daysSinceLastActivity > 7) {
-    level = 'low';
-    message = 'Intenta retomar tus estudios pronto';
-    color = 'text-red-600';
-    score = Math.max(0, 30 - daysSinceLastActivity);
-  }
-
-  return {
-    level,
-    message,
-    color,
-    score,
-    completedCourses,
-    inProgressCourses,
-    daysSinceLastActivity,
-    avgSessionMinutes: userProgress.avgSessionMinutes || 0,
-    recentSessionCount: userProgress.totalSessions || 0,
-    totalRecentTimeHours: Math.round((userProgress.totalTimeSpent || 0) / 60 * 10) / 10
   };
 }
 
@@ -472,7 +495,8 @@ function generateBasicRecommendations(userProgress: any, assignment: any) {
   const recommendations = [];
 
   // Activity-based recommendations
-  if (userProgress.daysSinceLastActivity > 3) {
+  // null = last activity unavailable: no activity-based nudge
+  if (typeof userProgress.daysSinceLastActivity === 'number' && userProgress.daysSinceLastActivity > 3) {
     recommendations.push({
       type: 'activity',
       priority: 'high',

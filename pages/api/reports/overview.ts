@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
 import { readClientReportingScope } from '@/lib/simulation/tenant-policy';
-import { createApiSupabaseClient } from '@/lib/api-auth';
+import { createApiSupabaseClient, getApiUser } from '@/lib/api-auth';
 
 // Learning-path report audience (W-B2c-01 reporting scope, Brent 2026-10-02).
 // Which rows each of them sees is decided by the report views themselves.
@@ -47,18 +47,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Verify authentication
+    // Verify authentication. ONE credential for the whole request: the
+    // header must be exactly `Bearer <token>` — the form lib/api-auth.ts
+    // recognises — so getApiUser() verifies this token and
+    // createApiSupabaseClient() below forwards the SAME token for the
+    // learning-path reads. Any other scheme (e.g. lowercase `bearer`) is
+    // refused here instead of letting those helpers fall back to a cookie
+    // session that may belong to someone else.
     const authHeader = req.headers.authorization;
     if (!authHeader) {
       return res.status(401).json({ error: 'No authorization header' });
     }
 
-    const token = authHeader.split(' ')[1];
-    if (!token) {
+    if (typeof authHeader !== 'string' || !/^Bearer [^\s]+$/.test(authHeader)) {
       return res.status(401).json({ error: 'No token provided' });
     }
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const { user, error: authError } = await getApiUser(req, res);
 
     if (authError || !user) {
       return res.status(401).json({ error: 'Invalid authentication' });
@@ -194,8 +199,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // other audience no learning-path query is issued and the learning-path
     // half is marked unavailable (null); the course half below is served to
     // its existing audiences unchanged.
+    //
+    // Per-person eligibility: someone this route reports on but whom the
+    // views do not let this caller see (e.g. a director's school picked by
+    // profiles.school_id while the views use active user_roles schools) has
+    // NO summary row — that is "not visible", not "zero time / not at risk".
+    // So eligibility is asked of the database on the caller's client
+    // (auth_lp_report_all, else auth_lp_report_sees_user per person) and
+    // non-eligible people get null learning-path figures.
     let learningPathData: any[] = [];
     let pathError: { message: string } | null = null;
+    const learningPathEligible = new Set<string>();
 
     const batchSize = 50;
     if (learningPathReporting === 'included') {
@@ -205,8 +219,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } catch (clientError: any) {
         pathError = { message: clientError?.message || 'caller client unavailable' };
       }
-      for (let i = 0; callerClient && i < reportableUsers.length; i += batchSize) {
-        const userBatch = reportableUsers.slice(i, i + batchSize);
+      if (callerClient && reportableUsers.length > 0) {
+        try {
+          const eligible = await resolveLearningPathEligibility(callerClient, user.id, reportableUsers);
+          eligible.forEach((id) => learningPathEligible.add(id));
+        } catch (eligibilityError: any) {
+          pathError = { message: eligibilityError?.message || 'learning-path scope unavailable' };
+          callerClient = null;
+        }
+      }
+      const eligibleUsers = reportableUsers.filter((id) => learningPathEligible.has(id));
+      for (let i = 0; callerClient && i < eligibleUsers.length; i += batchSize) {
+        const userBatch = eligibleUsers.slice(i, i + batchSize);
         const { data: batchData, error: batchError } = await callerClient
           .from('user_learning_path_summary')
           .select(`
@@ -328,7 +352,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       learningPathData || [],
       courseData || [],
       consultantData || [],
-      learningPathAvailable
+      learningPathAvailable,
+      learningPathEligible
     );
 
     return res.status(200).json({ ...formattedData, learning_path_reporting: learningPathReporting, warnings });
@@ -344,6 +369,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       warnings: ['Error interno del servidor al cargar reportes']
     });
   }
+}
+
+// Which of `userIds` the caller may see in the learning-path report views,
+// decided by the database on the CALLER's client (the same helpers the views
+// use). Throws on any failure: the caller then gets null figures, never zeros.
+async function resolveLearningPathEligibility(callerClient: any, callerId: string, userIds: string[]): Promise<string[]> {
+  const { data: seesAll, error: allError } = await callerClient.rpc('auth_lp_report_all');
+  if (allError) throw new Error(allError.message || 'auth_lp_report_all failed');
+  if (seesAll === true) return [...userIds];
+
+  const eligible: string[] = [];
+  const chunk = 25;
+  for (let i = 0; i < userIds.length; i += chunk) {
+    const slice = userIds.slice(i, i + chunk);
+    const answers = await Promise.all(
+      slice.map((id) => callerClient.rpc('auth_lp_report_sees_user', { p_user: id }))
+    );
+    answers.forEach((answer: any, idx: number) => {
+      if (answer?.error) throw new Error(answer.error.message || 'auth_lp_report_sees_user failed');
+      // Own rows are always visible in the views.
+      if (answer?.data === true || slice[idx] === callerId) eligible.push(slice[idx]);
+    });
+  }
+  return eligible;
 }
 
 async function getReportableUsers(userId: string, userRole: string): Promise<string[]> {
@@ -475,7 +524,8 @@ function formatOverviewData(
   learningPathData: any[], 
   courseData: any[], 
   consultantData: any[],
-  learningPathAvailable: boolean = true
+  learningPathAvailable: boolean = true,
+  learningPathEligible?: Set<string>
 ): any {
   const totalUsers = userProfiles.length;
 
@@ -574,6 +624,10 @@ function formatOverviewData(
       lastActivity: null
     };
     
+    // null = not visible to this caller in the learning-path views (or the
+    // learning-path half is unavailable); a visible person with no
+    // assignment keeps genuine zeros.
+    const lpVisible = learningPathAvailable && (!learningPathEligible || learningPathEligible.has(profile.id));
     const pathMetrics = userPathMetrics.get(profile.id) || {
       totalPaths: 0,
       completedPaths: 0,
@@ -617,8 +671,8 @@ function formatOverviewData(
       completion_rate: completionRate,
       // Learning-path figures: null = unavailable to this audience (or the read
       // failed), never 0 / false
-      total_time_spent: learningPathAvailable ? Math.round(pathMetrics.totalPathTime) : null, // in minutes
-      is_at_risk: learningPathAvailable ? pathMetrics.isAtRisk === true : null,
+      total_time_spent: lpVisible ? Math.round(pathMetrics.totalPathTime) : null, // in minutes
+      is_at_risk: lpVisible ? pathMetrics.isAtRisk === true : null,
       consultant_info: consultantMap.get(profile.id) || {
         has_consultant: false,
         consultant_name: null,

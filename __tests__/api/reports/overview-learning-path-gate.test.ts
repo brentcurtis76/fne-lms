@@ -13,6 +13,13 @@
  *     supervisor_de_red): NO learning-path query is issued, the learning-path figures
  *     are null (unavailable, never 0), the payload says
  *     `learning_path_reporting: 'not_available'`, and the COURSE half is served unchanged;
+ *   * per-person eligibility is asked of the database on the caller's client
+ *     (auth_lp_report_all / auth_lp_report_sees_user): someone the route reports on but
+ *     the views hide (profiles.school_id vs active user_roles school) gets NULL figures;
+ *     a visible person with no assignment keeps genuine zeros (Codex step-2 r0 #1);
+ *   * one credential per request: only an exact `Bearer <token>` header is accepted, the
+ *     same token is verified and forwarded to the learning-path client, and a cookie
+ *     session is never mixed in (Codex step-2 r0 #2);
  *   * a failed learning-path query is surfaced as a warning with null figures, not as
  *     a silent zero; an internal failure is a 500, not a zeroed 200.
  */
@@ -24,21 +31,42 @@ const DIRECTIVO = '22222222-2222-4222-8222-222222222222';
 const CONSULTOR = '33333333-3333-4333-8333-333333333333';
 const LIDER = '44444444-4444-4444-8444-444444444444';
 const USER_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const USER_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const ANON_KEY = 'synthetic-anon-key';
 const TOKEN = 'synthetic-jwt';
 
-const { mockGetUser, mockFrom, mockCreateClient } = vi.hoisted(() => {
+const { mockGetUser, mockFrom, mockCreateClient, mockRpc, mockCookieClient } = vi.hoisted(() => {
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://synthetic.local';
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'synthetic-anon-key';
-  return { mockGetUser: vi.fn(), mockFrom: vi.fn(), mockCreateClient: vi.fn() };
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'synthetic-service-key';
+  return { mockGetUser: vi.fn(), mockFrom: vi.fn(), mockCreateClient: vi.fn(), mockRpc: vi.fn(), mockCookieClient: vi.fn() };
 });
 vi.mock('@supabase/supabase-js', () => ({
   createClient: (...args: unknown[]) => {
     mockCreateClient(...args);
     // The caller's client is the one built with the anon key + the bearer JWT.
     const client = args[1] === 'synthetic-anon-key' ? 'caller' : 'service';
-    return { auth: { getUser: mockGetUser }, from: (table: string) => mockFrom(table, client) };
+    return {
+      auth: { getUser: mockGetUser },
+      from: (table: string) => mockFrom(table, client),
+      rpc: (fn: string, fnArgs?: unknown) => mockRpc(fn, fnArgs, client),
+    };
   },
+}));
+// A cookie-session client would carry a DIFFERENT identity (COOKIE_USER); it must never be built.
+vi.mock('@supabase/auth-helpers-nextjs', () => ({
+  createServerSupabaseClient: (...args: unknown[]) => {
+    mockCookieClient(...args);
+    return {
+      auth: {
+        getSession: async () => ({ data: { session: { access_token: 'cookie-jwt' } }, error: null }),
+        getUser: async () => ({ data: { user: { id: '99999999-9999-4999-8999-999999999999' } }, error: null }),
+      },
+      from: (table: string) => mockFrom(table, 'cookie'),
+      rpc: (fn: string, fnArgs?: unknown) => mockRpc(fn, fnArgs, 'cookie'),
+    };
+  },
+  createPagesServerClient: (...args: unknown[]) => mockCookieClient(...args),
 }));
 vi.mock('../../../lib/simulation/tenant-policy', () => ({
   readClientReportingScope: async () => ({ filterUserIds: (ids: string[]) => ids }),
@@ -95,14 +123,29 @@ function baseResults(role: string) {
 }
 
 async function call(token = TOKEN) {
-  const { req, res } = createMocks({ method: 'GET', headers: { authorization: `Bearer ${token}` }, query: {} });
+  return callWithHeaders({ authorization: `Bearer ${token}` });
+}
+
+async function callWithHeaders(headers: Record<string, string>) {
+  const { req, res } = createMocks({ method: 'GET', headers, query: {} });
   await handler(req as never, res as never);
   return res;
+}
+
+/** Scope answers of the DB helpers, on whatever client they are asked. */
+function installScope(seesAll: boolean, visible: string[] = []) {
+  mockRpc.mockImplementation(async (fn: string, args: { p_user?: string } | undefined) => {
+    if (fn === 'auth_lp_report_all') return { data: seesAll, error: null };
+    if (fn === 'auth_lp_report_sees_user') return { data: visible.includes(args?.p_user ?? ''), error: null };
+    return { data: null, error: { message: `unexpected rpc ${fn}` } };
+  });
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  vi.spyOn(console, 'log').mockImplementation(() => undefined);
+  installScope(true);
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -113,6 +156,7 @@ describe.each([
 ])('%s (learning-path report audience)', (role, requesterId) => {
   it('reads user_learning_path_summary on the CALLER\'s client, limited to the route\'s reportable users', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: requesterId } }, error: null });
+    if (role === 'equipo_directivo') installScope(false, [USER_A]);
     const calls = installQueryDouble(baseResults(role));
     const res = await call();
     expect(res._getStatusCode()).toBe(200);
@@ -135,6 +179,10 @@ describe.each([
     expect(body.users[0]).toMatchObject({ id: USER_A, total_courses: 1, completed_courses: 1, total_time_spent: 100, is_at_risk: true });
     expect(body.summary.total_time_spent).toBe(100);
     expect(body.warnings).not.toContain('Rutas de aprendizaje: disponible solo para administración, consultores y equipo directivo');
+    // The scope helpers are asked on the caller's client only.
+    expect(mockRpc.mock.calls.length).toBeGreaterThan(0);
+    expect(mockRpc.mock.calls.every((c) => c[2] === 'caller')).toBe(true);
+    expect(mockCookieClient).not.toHaveBeenCalled();
   });
 
   it('a user not at risk on any path is is_at_risk false (a real flag, not a placeholder)', async () => {
@@ -144,6 +192,98 @@ describe.each([
     installQueryDouble(results);
     const body = (await call())._getJSONData();
     expect(body.users[0].is_at_risk).toBe(false);
+  });
+});
+
+describe('per-person eligibility (Codex step-2 r0 #1)', () => {
+  function directorResults() {
+    const results = baseResults('equipo_directivo');
+    // profiles.school_id = 9 selects A and B; only A has an active role in the director's school
+    results['profiles:select.eq'] = { data: [{ id: USER_A }, { id: USER_B }], error: null };
+    results.profiles = {
+      data: [
+        { id: USER_A, first_name: 'A', last_name: 'A', email: 'a@test.local', school_id: 9, generation_id: null, community_id: null },
+        { id: USER_B, first_name: 'B', last_name: 'B', email: 'b@test.local', school_id: 9, generation_id: null, community_id: null },
+      ],
+      error: null,
+    };
+    results.user_learning_path_summary = { data: [], error: null };
+    return results;
+  }
+
+  it('profiles.school_id vs active user_roles school mismatch: the hidden person gets NULL, the visible unassigned one genuine zeros', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: DIRECTIVO } }, error: null });
+    installScope(false, [USER_A]);
+    const calls = installQueryDouble(directorResults());
+    const res = await call();
+    expect(res._getStatusCode()).toBe(200);
+    const body = res._getJSONData();
+    expect(body.learning_path_reporting).toBe('included');
+    const a = body.users.find((u: any) => u.id === USER_A);
+    const b = body.users.find((u: any) => u.id === USER_B);
+    expect(a).toMatchObject({ total_time_spent: 0, is_at_risk: false });
+    expect(b).toMatchObject({ total_time_spent: null, is_at_risk: null });
+    // the hidden person is not even asked for
+    expect(lpCalls(calls)[0].ops.find((op) => op.method === 'in')?.args).toEqual(['user_id', [USER_A]]);
+    expect(mockRpc).toHaveBeenCalledWith('auth_lp_report_sees_user', { p_user: USER_B }, 'caller');
+  });
+
+  it('auth_lp_report_all true: everyone the route reports on is eligible, no per-person checks', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: CONSULTOR } }, error: null });
+    installScope(true);
+    const results = directorResults();
+    results['user_roles:select.eq.eq.order'] = { data: [{ role_type: 'consultor' }], error: null };
+    results['consultant_assignments:select.eq.eq'] = { data: [{ student_id: USER_A }, { student_id: USER_B }], error: null };
+    installQueryDouble(results);
+    const body = (await call())._getJSONData();
+    for (const u of body.users) expect(u).toMatchObject({ total_time_spent: 0, is_at_risk: false });
+    expect(mockRpc.mock.calls.map((c) => c[0])).toEqual(['auth_lp_report_all']);
+  });
+
+  it('a failed scope check is a warning with null figures for everyone, and no learning-path read', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: DIRECTIVO } }, error: null });
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'synthetic rpc failure' } });
+    const calls = installQueryDouble(directorResults());
+    const body = (await call())._getJSONData();
+    expect(body.warnings).toContain('No se pudieron cargar datos de rutas de aprendizaje');
+    for (const u of body.users) expect(u).toMatchObject({ total_time_spent: null, is_at_risk: null });
+    expect(body.summary.total_time_spent).toBeNull();
+    expect(lpCalls(calls)).toHaveLength(0);
+  });
+});
+
+describe('one credential per request (Codex step-2 r0 #2)', () => {
+  it.each([
+    ['lowercase scheme', `bearer ${TOKEN}`],
+    ['other scheme', `Token ${TOKEN}`],
+    ['scheme only', 'Bearer'],
+    ['empty token', 'Bearer '],
+    ['extra parts', `Bearer ${TOKEN} extra`],
+  ])('%s: 401 before any verification or query, and no cookie fallback', async (_label, header) => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: ADMIN } }, error: null });
+    const calls = installQueryDouble(baseResults('admin'));
+    const res = await callWithHeaders({ authorization: header, cookie: 'sb-access-token=cookie-jwt' });
+    expect(res._getStatusCode()).toBe(401);
+    expect(mockGetUser).not.toHaveBeenCalled();
+    expect(mockCookieClient).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(0);
+  });
+
+  it('header (admin) + cookie (someone else): the header token is verified AND forwarded; the cookie is never used', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: ADMIN } }, error: null });
+    const calls = installQueryDouble(baseResults('admin'));
+    const res = await callWithHeaders({ authorization: `Bearer ${TOKEN}`, cookie: 'sb-access-token=cookie-jwt' });
+    expect(res._getStatusCode()).toBe(200);
+    expect(mockGetUser).toHaveBeenCalledWith(TOKEN);
+    expect(mockGetUser).not.toHaveBeenCalledWith('cookie-jwt');
+    expect(mockCookieClient).not.toHaveBeenCalled();
+    const callerClients = mockCreateClient.mock.calls.filter((c) => c[1] === ANON_KEY);
+    expect(callerClients.length).toBeGreaterThan(0);
+    for (const c of callerClients) {
+      expect(c[2]).toMatchObject({ global: { headers: { Authorization: `Bearer ${TOKEN}` } } });
+    }
+    expect(calls.some((c) => c.client === 'cookie')).toBe(false);
+    expect(mockRpc.mock.calls.every((c) => c[2] === 'caller')).toBe(true);
   });
 });
 

@@ -27,7 +27,7 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(232);
+SELECT plan(250);
 
 CREATE TEMP TABLE ids (p text PRIMARY KEY, id uuid) ON COMMIT DROP;
 GRANT SELECT ON ids TO anon, authenticated;
@@ -141,7 +141,7 @@ GRANT SELECT ON content_tables TO anon, authenticated;
 -- ---------------------------------------------------------------------------
 INSERT INTO ids SELECT p, tests.create_supabase_user('smh8_' || p, 'smh8-' || p || '@example.test')
 FROM unnest(ARRAY['creator','facilitator','leader','admin','consultor','participant','granted','legacy',
-                  'member','outsider','leader_b','assignee','gated','inactive_leader','gated_editor','coeditor']) p;
+                  'member','outsider','leader_b','assignee','gated','inactive_leader','gated_editor','coeditor','secretary']) p;
 INSERT INTO public.profiles (id) SELECT id FROM ids ON CONFLICT (id) DO NOTHING;
 UPDATE public.profiles SET must_change_password = true WHERE id IN (pg_temp.uid('gated'), pg_temp.uid('gated_editor'));
 INSERT INTO public.growth_communities (id, name) VALUES
@@ -165,6 +165,7 @@ SELECT pg_temp.uid(p), r::user_role_type, c::uuid, a FROM (VALUES
   ('gated', 'docente', '5e880000-0000-4000-8000-0000000000c1', true),
   ('gated_editor', 'docente', '5e880000-0000-4000-8000-0000000000c1', true),
   ('coeditor', 'docente', '5e880000-0000-4000-8000-0000000000c1', true),
+  ('secretary', 'docente', '5e880000-0000-4000-8000-0000000000c1', true),
   ('leader_b', 'lider_comunidad', '5e880000-0000-4000-8000-0000000000c2', true),
   ('assignee', 'docente', '5e880000-0000-4000-8000-0000000000c2', true)) v(p, r, c, a);
 INSERT INTO public.community_meetings (id, workspace_id, title, meeting_date, created_by, facilitator_id)
@@ -175,7 +176,9 @@ FROM (VALUES
   ('3', '5e880000-0000-4000-8000-0000000000a1', 'creator', NULL::uuid),
   ('4', '5e880000-0000-4000-8000-0000000000a1', 'creator', NULL::uuid),
   ('5', '5e880000-0000-4000-8000-0000000000a1', 'creator', NULL::uuid),
-  ('6', '5e880000-0000-4000-8000-0000000000a1', 'creator', NULL::uuid)) v(k, w, c, f);
+  ('6', '5e880000-0000-4000-8000-0000000000a1', 'creator', NULL::uuid),
+  ('7', '5e880000-0000-4000-8000-0000000000a1', 'creator', NULL::uuid)) v(k, w, c, f);
+UPDATE public.community_meetings SET secretary_id = pg_temp.uid('secretary') WHERE id = '5e880000-0000-4000-8000-0000000000e7';
 UPDATE public.community_meetings SET secretary_id = pg_temp.uid('gated_editor') WHERE id = '5e880000-0000-4000-8000-0000000000e1';
 INSERT INTO public.meeting_attendees (meeting_id, user_id, role) VALUES
   ('5e880000-0000-4000-8000-0000000000e1', pg_temp.uid('participant'), 'participant'),
@@ -183,13 +186,15 @@ INSERT INTO public.meeting_attendees (meeting_id, user_id, role) VALUES
   ('5e880000-0000-4000-8000-0000000000e1', pg_temp.uid('legacy'), 'co_editor');
 INSERT INTO public.meeting_read_grants (meeting_id, user_id, granted_by)
 VALUES ('5e880000-0000-4000-8000-0000000000e1', pg_temp.uid('granted'), pg_temp.uid('creator'));
-INSERT INTO public.meeting_agreements (meeting_id, agreement_text) VALUES ('5e880000-0000-4000-8000-0000000000e1', 'Acuerdo M1'), ('5e880000-0000-4000-8000-0000000000e2', 'Acuerdo M2');
+INSERT INTO public.meeting_agreements (meeting_id, agreement_text) VALUES ('5e880000-0000-4000-8000-0000000000e1', 'Acuerdo M1'), ('5e880000-0000-4000-8000-0000000000e2', 'Acuerdo M2'),
+  ('5e880000-0000-4000-8000-0000000000e7', 'Acuerdo M7');
 INSERT INTO public.meeting_commitments (meeting_id, commitment_text, assigned_to, due_date) VALUES
   ('5e880000-0000-4000-8000-0000000000e1', 'Compromiso M1', pg_temp.uid('participant'), current_date - 3),
   ('5e880000-0000-4000-8000-0000000000e2', 'Compromiso M2', pg_temp.uid('leader_b'), current_date - 3);
 INSERT INTO public.meeting_tasks (meeting_id, task_title, assigned_to, due_date) VALUES
   ('5e880000-0000-4000-8000-0000000000e1', 'Tarea M1', pg_temp.uid('assignee'), current_date - 3),
-  ('5e880000-0000-4000-8000-0000000000e2', 'Tarea M2', pg_temp.uid('leader_b'), current_date - 3);
+  ('5e880000-0000-4000-8000-0000000000e2', 'Tarea M2', pg_temp.uid('leader_b'), current_date - 3),
+  ('5e880000-0000-4000-8000-0000000000e2', 'Tarea M2 para gated', pg_temp.uid('gated'), current_date - 3);
 INSERT INTO public.meeting_attachments (meeting_id, filename, file_path, file_size, file_type, uploaded_by) VALUES
   ('5e880000-0000-4000-8000-0000000000e1', 'acta.pdf', '5e880000-0000-4000-8000-0000000000a1/5e880000-0000-4000-8000-0000000000e1/1-acta.pdf', 10, 'application/pdf', pg_temp.uid('creator')),
   ('5e880000-0000-4000-8000-0000000000e2', 'acta.pdf', '5e880000-0000-4000-8000-0000000000a2/5e880000-0000-4000-8000-0000000000e2/1-acta.pdf', 10, 'application/pdf', pg_temp.uid('leader_b'));
@@ -375,6 +380,36 @@ SELECT is(pg_temp.exec_count($q$DELETE FROM public.meeting_agreements WHERE meet
 SELECT is(pg_temp.exec_count($q$DELETE FROM public.meeting_tasks WHERE meeting_id = '5e880000-0000-4000-8000-0000000000e2'$q$), 0,
   'write facilitator: deletes nothing in M2');
 SELECT pg_temp.reset_auth();
+SELECT pg_temp.as_user('secretary');
+SELECT is(pg_temp.visible('meeting_agreements', '5e880000-0000-4000-8000-0000000000e7'), 1, 'secretary: reads the meeting they are secretary of');
+SELECT lives_ok($$INSERT INTO public.meeting_commitments (meeting_id, commitment_text, assigned_to, due_date) VALUES ('5e880000-0000-4000-8000-0000000000e7', 'por secretaria', pg_temp.uid('participant'), current_date + 1)$$, 'secretary: adds a commitment');
+SELECT is(pg_temp.del('meeting_agreements', '5e880000-0000-4000-8000-0000000000e7'), 1, 'secretary: deletes an agreement');
+SELECT is(pg_temp.visible('meeting_agreements', '5e880000-0000-4000-8000-0000000000e1'), 0, 'secretary of M7: reads nothing of M1');
+SELECT results_eq($$SELECT can_edit, can_delete, can_read_content FROM public.get_my_meeting_rights(ARRAY['5e880000-0000-4000-8000-0000000000e7']::uuid[])$$,
+  $$VALUES (true, false, true)$$, 'rights secretary: edit, no delete, read');
+SELECT pg_temp.as_user('creator');
+SELECT lives_ok($$INSERT INTO public.meeting_attachments (meeting_id, filename, file_path, file_size, file_type, uploaded_by) VALUES ('5e880000-0000-4000-8000-0000000000e1', 'creator.pdf', 'x/y/creator.pdf', 1, 'application/pdf', auth.uid())$$, 'attachments creator: adds a row');
+SELECT pg_temp.as_user('leader');
+SELECT lives_ok($$INSERT INTO public.meeting_attachments (meeting_id, filename, file_path, file_size, file_type, uploaded_by) VALUES ('5e880000-0000-4000-8000-0000000000e1', 'leader.pdf', 'x/y/leader.pdf', 1, 'application/pdf', auth.uid())$$, 'attachments leader: adds a row');
+SELECT pg_temp.as_user('admin');
+SELECT lives_ok($$INSERT INTO public.meeting_attachments (meeting_id, filename, file_path, file_size, file_type, uploaded_by) VALUES ('5e880000-0000-4000-8000-0000000000e1', 'admin.pdf', 'x/y/admin.pdf', 1, 'application/pdf', auth.uid())$$, 'attachments admin: adds a row');
+SELECT pg_temp.as_user('consultor');
+SELECT lives_ok($$INSERT INTO public.meeting_attachments (meeting_id, filename, file_path, file_size, file_type, uploaded_by) VALUES ('5e880000-0000-4000-8000-0000000000e1', 'consultor.pdf', 'x/y/consultor.pdf', 1, 'application/pdf', auth.uid())$$, 'attachments consultor: adds a row');
+SELECT pg_temp.as_user('granted');
+SELECT throws_ok($$INSERT INTO public.meeting_attachments (meeting_id, filename, file_path, file_size, file_type, uploaded_by) VALUES ('5e880000-0000-4000-8000-0000000000e1', 'granted.pdf', 'x/y/granted.pdf', 1, 'application/pdf', auth.uid())$$, '42501', NULL, 'attachments granted: cannot add a row');
+SELECT is(pg_temp.exec_count($q$DELETE FROM public.meeting_attachments WHERE meeting_id = '5e880000-0000-4000-8000-0000000000e1'$q$), 0, 'attachments granted: deletes no row');
+SELECT pg_temp.as_user('legacy');
+SELECT throws_ok($$INSERT INTO public.meeting_attachments (meeting_id, filename, file_path, file_size, file_type, uploaded_by) VALUES ('5e880000-0000-4000-8000-0000000000e1', 'legacy.pdf', 'x/y/legacy.pdf', 1, 'application/pdf', auth.uid())$$, '42501', NULL, 'attachments legacy: cannot add a row');
+SELECT is(pg_temp.exec_count($q$DELETE FROM public.meeting_attachments WHERE meeting_id = '5e880000-0000-4000-8000-0000000000e1'$q$), 0, 'attachments legacy: deletes no row');
+SELECT pg_temp.as_user('member');
+SELECT throws_ok($$INSERT INTO public.meeting_attachments (meeting_id, filename, file_path, file_size, file_type, uploaded_by) VALUES ('5e880000-0000-4000-8000-0000000000e1', 'member.pdf', 'x/y/member.pdf', 1, 'application/pdf', auth.uid())$$, '42501', NULL, 'attachments member: cannot add a row');
+SELECT is(pg_temp.exec_count($q$DELETE FROM public.meeting_attachments WHERE meeting_id = '5e880000-0000-4000-8000-0000000000e1'$q$), 0, 'attachments member: deletes no row');
+SELECT pg_temp.as_user('outsider');
+SELECT throws_ok($$INSERT INTO public.meeting_attachments (meeting_id, filename, file_path, file_size, file_type, uploaded_by) VALUES ('5e880000-0000-4000-8000-0000000000e1', 'outsider.pdf', 'x/y/outsider.pdf', 1, 'application/pdf', auth.uid())$$, '42501', NULL, 'attachments outsider: cannot add a row');
+SELECT is(pg_temp.exec_count($q$DELETE FROM public.meeting_attachments WHERE meeting_id = '5e880000-0000-4000-8000-0000000000e1'$q$), 0, 'attachments outsider: deletes no row');
+SELECT pg_temp.as_user('creator');
+SELECT is(pg_temp.exec_count($q$DELETE FROM public.meeting_attachments WHERE meeting_id = '5e880000-0000-4000-8000-0000000000e1' AND filename IN ('creator.pdf','leader.pdf','admin.pdf','consultor.pdf')$q$), 4, 'attachments creator: removes the added rows');
+SELECT pg_temp.reset_auth();
 
 -- ---------------------------------------------------------------------------
 -- 3b. A verified co_editor demoted to participant keeps reading, loses writes;
@@ -534,7 +569,7 @@ SELECT pg_temp.as_user('gated');
 SELECT is((SELECT count(*)::int FROM public.get_my_meeting_rights(ARRAY['5e880000-0000-4000-8000-0000000000e1']::uuid[])), 0, 'rights gated: password gate hides the meeting');
 SELECT pg_temp.as_user('gated');
 SELECT is((SELECT count(*)::int FROM public.get_overdue_items('5e880000-0000-4000-8000-0000000000a1'::uuid, NULL)), 0, 'overdue gated participant: nothing');
-SELECT is((SELECT count(*)::int FROM public.get_overdue_items(NULL, NULL)), 0, 'overdue gated participant, own mode: nothing');
+SELECT is((SELECT count(*)::int FROM public.get_overdue_items(NULL, NULL)), 0, 'overdue gated assignee, own mode: their own overdue task is withheld until the password is changed');
 SELECT ok(NOT public.can_read_meeting_content(auth.uid(), '5e880000-0000-4000-8000-0000000000e1'), 'gated participant: can_read_meeting_content is false');
 SELECT pg_temp.as_user('member');
 SELECT ok(NOT public.is_meeting_community_member(pg_temp.uid('participant'), '5e880000-0000-4000-8000-0000000000e1'), 'membership probe: a non-editor gets no answer');

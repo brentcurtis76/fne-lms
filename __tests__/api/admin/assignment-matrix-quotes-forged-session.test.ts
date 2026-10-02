@@ -136,6 +136,17 @@ function recordingChain(table: string) {
   return chain;
 }
 
+/**
+ * auth_lp_report_all() as the database answers it for the verified caller
+ * (migration 20261002120000): an active admin or consultor role. The routes
+ * ask it on the caller's own client (W-B2c-01 step 4).
+ */
+async function callerRpc(fn: string) {
+  if (fn !== 'auth_lp_report_all') return { data: null, error: { message: `unexpected rpc ${fn}` } };
+  const id = verifiedUser?.id;
+  return { data: ROLE_ROWS.some((r) => r.user_id === id && r.is_active && (r.role_type === 'admin' || r.role_type === 'consultor')), error: null };
+}
+
 function cookieClient() {
   return {
     auth: {
@@ -149,8 +160,10 @@ function cookieClient() {
           : { data: { user: null }, error: { message: 'invalid token' } }
       ),
     },
-    // Only quotes/create reads through the caller's own client.
+    // Only quotes/create reads through the caller's own client; the
+    // assignment-matrix routes ask the learning-path report helper on it.
     from: vi.fn((table: string) => recordingChain(table)),
+    rpc: vi.fn(callerRpc),
   };
 }
 
@@ -168,7 +181,7 @@ vi.mock('@supabase/supabase-js', () => ({
           : { data: { user: null }, error: { message: 'invalid token' } }
       ),
     },
-    rpc: vi.fn(async () => ({ data: null, error: null })),
+    rpc: vi.fn(callerRpc),
     from: vi.fn((table: string) => recordingChain(table)),
   })),
 }));
@@ -390,12 +403,12 @@ describe('populated results for a verified admin', () => {
     expect(titles).toEqual(['Curso Sintético', 'Ruta Sintética']);
   });
 
-  it('a consultor gets the same group without any learning-path data', async () => {
+  it('a consultor gets the same group with its learning-path half (W-B2c-01 step 4: consultor reports on every school)', async () => {
     verifiedUser = { id: CONSULTOR };
     const res = await call(groupAssignments, 'GET', { groupType: 'community', groupId: COMMUNITY_A });
     expect(res.statusCode).toBe(200);
-    expect(res.body.stats.uniqueLPs ?? 0).toBe(0);
-    expect(JSON.stringify(res.body)).not.toContain('Ruta Sintética');
+    expect(res.body.stats).toMatchObject({ totalMembers: 2, membersWithAssignments: 1, uniqueCourses: 1, uniqueLPs: 1 });
+    expect(JSON.stringify(res.body)).toContain('Ruta Sintética');
   });
 
   it('audit-log returns the seeded entry, enriched', async () => {

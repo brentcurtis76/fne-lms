@@ -1,7 +1,8 @@
 # W-B2c-01 — Privacy sign-off: who may see and change learning-path data — 2026-10-02
 
-Status: **DRAFT — not signed.** Brent chose on 2026-10-02 to sign this himself as a dated note. It becomes signed only
-when Brent reads it and answers in a Claude Code session (his answer is then recorded here verbatim, with the date).
+Status: **SIGNED by Brent Curtis, 2026-10-02.** Brent read this note in a Claude Code session and answered "I sign it as
+written" (recorded verbatim). Recorded by Claude on his instruction; Brent is the signer. The sign-off text below is
+unchanged from the reviewed draft (Codex W-B2C-01-RELEASE r1).
 
 ## What is being signed off
 
@@ -40,7 +41,7 @@ Enforcement is in the database (row security and scoped report views), not only 
 pgTAP 070, 099 (full role × table × operation matrix), 100, 101 (two-school report scope), 102 (two-school assignment
 history), plus API and browser tests.
 
-## Sign-off text (proposed — Brent to approve or change)
+## Sign-off text (approved as written, 2026-10-02)
 
 > I, Brent Curtis, as the person responsible for privacy on GENERA, approve on 2026-10-02 the learning-path access rules
 > described above: the head administrator manages all learning paths and sees everyone's learning-path data; active

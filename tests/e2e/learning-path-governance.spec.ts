@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseEnv } from 'dotenv';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { apiContextFor, ensureStorageState, E2E_USERS, E2E_ROLE_COMMUNITY, type FixtureKey } from './helpers/auth';
+import { apiContextFor, ensureStorageState, E2E_USERS, E2E_ROLE_COMMUNITY, E2E_SCHOOL, type FixtureKey } from './helpers/auth';
 
 /**
  * W-B2c-01 — learning-path governance, end to end on the seeded local stack.
@@ -76,6 +76,7 @@ const OWN_WORKSPACE_ID = `${FX}00000000bb01`;
 let WORKSPACE_ID = OWN_WORKSPACE_ID;
 let createdWorkspace = false;
 let pathIdForCleanup: string | null = null;
+let auditRowIdsForCleanup: string[] = [];
 
 async function seedContent() {
   const step = async (label: string, p: PromiseLike<{ error: { message: string } | null }>) => {
@@ -108,6 +109,9 @@ async function seedContent() {
 }
 
 async function removeContent() {
+  if (auditRowIdsForCleanup.length > 0) {
+    await service.from('assignment_audit_log').delete().in('id', auditRowIdsForCleanup);
+  }
   await service.from('learning_path_progress_sessions').delete().in('course_id', [COURSE_ID, OTHER_COURSE_ID]);
   if (pathIdForCleanup) {
     await service.from('learning_path_daily_user_activity').delete().eq('path_id', pathIdForCleanup);
@@ -468,6 +472,95 @@ test.describe('learning-path governance (W-B2c-01)', () => {
     expect(lpStats.status()).toBe(403);
     const asDocente = await docente.get(`/api/admin/assignment-matrix/user-assignments?userId=${docenteId}`);
     expect(asDocente.status()).toBe(403);
+  });
+
+  test('9b. assignment matrix: group-assignments and audit-log give a scoped consultor no learning-path half', async ({ request }) => {
+    test.skip(!pathId, 'template was not created');
+    // consultorAssigned is the consultor scoped to the primary school (the
+    // global consultor has school_id NULL and is refused by the school scope
+    // check). The docente is a member of that school and holds this spec's path
+    // since test 2. Bearer and cookie are equivalent at these routes.
+    const { userId: adminId } = await accessTokenFor(request, 'admin');
+    const { userId: docenteId } = await accessTokenFor(request, 'docente');
+    const { token: scopedConsultorToken } = await accessTokenFor(request, 'consultorAssigned');
+    const asScopedConsultor = (url: string) => request.get(url, { headers: { Authorization: `Bearer ${scopedConsultorToken}` } });
+
+    type GroupBody = {
+      commonAssignments: Array<{ contentId: string; type: string; assignedCount: number; completedCount: number }>;
+      stats: { totalMembers: number; membersWithAssignments: number; uniqueCourses: number; uniqueLPs: number };
+    };
+    const groupUrl = `/api/admin/assignment-matrix/group-assignments?groupType=school&groupId=${E2E_SCHOOL.id}`;
+
+    // Admin sees the learning-path half, including this spec's path (non-vacuous).
+    const adminGroup = await admin.get(groupUrl);
+    expect(adminGroup.status(), await adminGroup.text()).toBe(200);
+    const adminGroupBody = (await adminGroup.json()) as GroupBody;
+    expect(adminGroupBody.commonAssignments.some((a) => a.type === 'learning_path' && a.contentId === pathId), 'admin sees the spec path').toBe(true);
+    expect(adminGroupBody.stats.uniqueLPs).toBeGreaterThanOrEqual(1);
+
+    // The scoped consultor gets the course half only.
+    const consultorGroup = await asScopedConsultor(groupUrl);
+    expect(consultorGroup.status(), await consultorGroup.text()).toBe(200);
+    const consultorGroupBody = (await consultorGroup.json()) as GroupBody;
+    expect(consultorGroupBody.commonAssignments.some((a) => a.type === 'learning_path'), 'consultor: no learning-path rows').toBe(false);
+    expect(consultorGroupBody.commonAssignments.some((a) => a.contentId === pathId)).toBe(false);
+    expect(consultorGroupBody.stats.uniqueLPs, 'consultor: no learning-path count').toBe(0);
+    // The course half is unchanged: the same course rows the admin sees.
+    const courseRows = (b: GroupBody) => b.commonAssignments.filter((a) => a.type === 'course')
+      .map((a) => `${a.contentId}:${a.assignedCount}:${a.completedCount}`).sort();
+    expect(courseRows(consultorGroupBody)).toEqual(courseRows(adminGroupBody));
+    expect(consultorGroupBody.stats.uniqueCourses).toBe(adminGroupBody.stats.uniqueCourses);
+    expect(consultorGroupBody.stats.totalMembers).toBe(adminGroupBody.stats.totalMembers);
+    // No member is counted through a learning path: membersWithAssignments is
+    // exactly the school's active members holding a course enrollment.
+    const { data: memberRows } = await service.from('user_roles').select('user_id').eq('school_id', E2E_SCHOOL.id).eq('is_active', true);
+    const memberIds = [...new Set((memberRows ?? []).map((r) => r.user_id as string))];
+    const { data: enrolledRows } = await service.from('course_enrollments').select('user_id').in('user_id', memberIds);
+    const enrolledMembers = new Set((enrolledRows ?? []).map((r) => r.user_id as string)).size;
+    expect(consultorGroupBody.stats.membersWithAssignments, 'consultor: members counted by course enrollment only').toBe(enrolledMembers);
+
+    // Audit log. /api/learning-paths/assign writes no audit row, so seed the two
+    // rows a learning-path assignment produces for the docente (server-only
+    // table; synthetic, removed in afterAll): the path row itself and a course
+    // row whose provenance is this path.
+    const { data: seeded, error: seedErr } = await service.from('assignment_audit_log').insert([
+      { action: 'assigned', entity_type: 'user', entity_id: docenteId, content_type: 'learning_path', content_id: pathId, source: 'direct', performed_by: adminId, metadata: { e2e: 'learning-path-governance 9b' } },
+      { action: 'assigned', entity_type: 'user', entity_id: docenteId, content_type: 'course', content_id: COURSE_ID, source: 'learning_path', source_learning_path_id: pathId, performed_by: adminId, metadata: { e2e: 'learning-path-governance 9b' } },
+    ]).select('id');
+    expect(seedErr).toBeNull();
+    auditRowIdsForCleanup = (seeded ?? []).map((r) => r.id as string);
+    expect(auditRowIdsForCleanup).toHaveLength(2);
+
+    type AuditBody = { logs: Array<{ id: string; content_type: string; content_id: string; source_learning_path_id: string | null; sourceLPName: string | null }>; total: number };
+    const auditUrl = `/api/admin/assignment-matrix/audit-log?entityType=user&entityId=${docenteId}&pageSize=50`;
+
+    const adminAudit = await admin.get(auditUrl);
+    expect(adminAudit.status(), await adminAudit.text()).toBe(200);
+    const adminLogs = ((await adminAudit.json()) as AuditBody).logs;
+    expect(adminLogs.some((l) => l.content_type === 'learning_path' && l.content_id === pathId), 'admin sees the path audit row').toBe(true);
+    const adminCourseRow = adminLogs.find((l) => l.id === auditRowIdsForCleanup[1]);
+    expect(adminCourseRow?.source_learning_path_id, 'admin sees the course row provenance').toBe(pathId);
+    expect(adminCourseRow?.sourceLPName).toBe(TEMPLATE_NAME);
+
+    const consultorAudit = await asScopedConsultor(auditUrl);
+    expect(consultorAudit.status(), await consultorAudit.text()).toBe(200);
+    const consultorAuditBody = (await consultorAudit.json()) as AuditBody;
+    const consultorLogs = consultorAuditBody.logs;
+    expect(consultorLogs.some((l) => l.content_type === 'learning_path'), 'consultor: no learning-path audit rows').toBe(false);
+    expect(consultorLogs.every((l) => l.source_learning_path_id === null && l.sourceLPName === null), 'consultor: no learning-path ids on course rows').toBe(true);
+    expect(consultorLogs.some((l) => l.id === auditRowIdsForCleanup[1]), 'consultor keeps the course row').toBe(true);
+    const { count: courseRowCount } = await service.from('assignment_audit_log').select('id', { count: 'exact', head: true })
+      .eq('entity_type', 'user').eq('entity_id', docenteId).eq('content_type', 'course');
+    expect(consultorAuditBody.total, 'consultor: learning-path rows not counted').toBe(courseRowCount);
+    expect(JSON.stringify(consultorAuditBody)).not.toContain(pathId!);
+
+    // Filtering by the path itself is refused for the consultor, allowed for the admin.
+    const byPathUrl = `/api/admin/assignment-matrix/audit-log?contentType=learning_path&contentId=${pathId}`;
+    const consultorByPath = await asScopedConsultor(byPathUrl);
+    expect(consultorByPath.status()).toBe(403);
+    const adminByPath = await admin.get(byPathUrl);
+    expect(adminByPath.status()).toBe(200);
+    expect(((await adminByPath.json()) as AuditBody).logs.some((l) => l.id === auditRowIdsForCleanup[0])).toBe(true);
   });
 
   test('R2-04. a group-only member accrues progress in their own record, not lost', async ({ request }) => {

@@ -26,8 +26,12 @@ cd "$ROOT"
 
 BASE="${E2E_LOCAL_PORT_BASE:-56300}"
 APP_PORT="${E2E_PORT:-3300}"
-[[ "$BASE" =~ ^[0-9]{4,5}$ && "$BASE" -le 65400 ]] || { echo "E2E_LOCAL_PORT_BASE must be a port number" >&2; exit 2; }
-[[ "$APP_PORT" =~ ^[0-9]{2,5}$ ]] || { echo "E2E_PORT must be a port number" >&2; exit 2; }
+# Decimal without leading zeros (bash reads 0-prefixed numbers as octal), and
+# every derived port must stay inside 1024..65535.
+[[ "$BASE" =~ ^[1-9][0-9]{3,4}$ ]] && (( BASE >= 1024 && BASE + 22 <= 65535 )) \
+  || { echo "E2E_LOCAL_PORT_BASE must be a decimal port base between 1024 and 65513" >&2; exit 2; }
+[[ "$APP_PORT" =~ ^[1-9][0-9]{3,4}$ ]] && (( APP_PORT >= 1024 && APP_PORT <= 65535 )) \
+  || { echo "E2E_PORT must be a decimal port between 1024 and 65535" >&2; exit 2; }
 PROJECT_ID="genera-e2e-$(date +%s)-$$"
 
 for f in .env.local .env .env.production .env.production.local; do

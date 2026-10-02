@@ -21,6 +21,15 @@ import {
   MeetingStatus
 } from '../types/meetings';
 import { logWorkspaceActivity } from './workspaceUtils';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SaveProblem } from '../lib/meetings/meeting-save';
+import {
+  applyMeetingDiffs,
+  deriveMeetingDocs,
+  insertMeetingRow,
+  syncMeetingPeople,
+  type MeetingItemIds,
+} from '../components/meetings/persistMeeting';
 
 /**
  * Get meetings for a workspace with filtering and sorting.
@@ -298,126 +307,68 @@ export async function getMeetingWithDetails(meetingId: string): Promise<MeetingW
 }
 
 /**
- * Create a new meeting with documentation
+ * Create a new meeting with documentation.
+ *
+ * SM-H8: built from the same helpers the meeting modal uses, so the create
+ * and edit paths write children identically and every failed write is
+ * reported. Order: meeting row → participants and added readers → agreements,
+ * commitments, tasks. When the row was created but something after it failed,
+ * `meetingId` is still returned with `success: false`, so a retry updates
+ * that meeting instead of creating a second one.
  */
 export async function createMeetingWithDocumentation(
   workspaceId: string,
   userId: string,
   documentation: MeetingDocumentationInput
-): Promise<{ success: boolean; meetingId?: string; version?: number; error?: string }> {
+): Promise<{
+  success: boolean;
+  meetingId?: string;
+  version?: number;
+  error?: string;
+  problems: SaveProblem[];
+  ids?: MeetingItemIds;
+}> {
   try {
-    // Start transaction — read back `version` so the caller can seed its
-    // optimistic-locking state with the authoritative DB value (default is 0).
-    const { data: meeting, error: meetingError } = await supabase
-      .from('community_meetings')
-      .insert({
-        workspace_id: workspaceId,
-        title: documentation.meeting_info.title,
-        meeting_date: documentation.meeting_info.meeting_date,
-        duration_minutes: documentation.meeting_info.duration_minutes,
-        location: documentation.meeting_info.location,
-        summary: documentation.summary_info.summary,
-        summary_doc: documentation.summary_info.summary_doc,
-        notes: documentation.summary_info.notes,
-        notes_doc: documentation.summary_info.notes_doc,
-        status: documentation.summary_info.status,
-        created_by: userId
-      })
-      .select('id, version')
-      .single();
-
-    if (meetingError || !meeting) {
-      console.error('Error creating meeting:', meetingError);
-      return { success: false, error: meetingError?.message || 'Error al crear la reunión' };
+    const client = supabase as unknown as SupabaseClient;
+    const docs = deriveMeetingDocs(documentation);
+    const row = await insertMeetingRow(client, {
+      workspaceId,
+      userId,
+      title: documentation.meeting_info.title,
+      meetingDate: documentation.meeting_info.meeting_date,
+      durationMinutes: documentation.meeting_info.duration_minutes,
+      location: documentation.meeting_info.location,
+      summary: documentation.summary_info.summary,
+      summaryDoc: documentation.summary_info.summary_doc,
+      notes: documentation.summary_info.notes ?? '',
+      notesDoc: documentation.summary_info.notes_doc,
+      status: documentation.summary_info.status,
+    });
+    if (!row.meetingId) {
+      const problems = row.problem ? [row.problem] : [];
+      return { success: false, error: row.problem?.message ?? 'Error al crear la reunión', problems };
     }
+    const meetingId = row.meetingId;
 
-    const meetingId = meeting.id;
+    const peopleProblems = await syncMeetingPeople(client, meetingId, {
+      actorId: userId,
+      participantIds: documentation.meeting_info.attendee_ids,
+      originalParticipants: new Map(),
+      readerIds: documentation.meeting_info.reader_ids ?? [],
+      originalReaderIds: new Set(),
+    });
+    const items = await applyMeetingDiffs(client, meetingId, docs, {
+      agreements: new Set(),
+      commitments: new Set(),
+      tasks: new Set(),
+    });
+    const problems = [...peopleProblems, ...items.problems];
 
-    // Create agreements
-    if (documentation.agreements.length > 0) {
-      const agreementsToInsert = documentation.agreements.map((agreement, index) => ({
-        meeting_id: meetingId,
-        agreement_text: agreement.agreement_text,
-        agreement_doc: agreement.agreement_doc,
-        category: agreement.category,
-        order_index: index
-      }));
-
-      const { error: agreementsError } = await supabase
-        .from('meeting_agreements')
-        .insert(agreementsToInsert);
-
-      if (agreementsError) {
-        console.error('Error creating agreements:', agreementsError);
-      }
-    }
-
-    // Create commitments
-    if (documentation.commitments.length > 0) {
-      const commitmentsToInsert = documentation.commitments.map(commitment => ({
-        meeting_id: meetingId,
-        commitment_text: commitment.commitment_text,
-        commitment_doc: commitment.commitment_doc,
-        assigned_to: commitment.assigned_to,
-        due_date: commitment.due_date
-      }));
-
-      const { error: commitmentsError } = await supabase
-        .from('meeting_commitments')
-        .insert(commitmentsToInsert);
-
-      if (commitmentsError) {
-        console.error('Error creating commitments:', commitmentsError);
-      }
-    }
-
-    // Create tasks
-    if (documentation.tasks.length > 0) {
-      const tasksToInsert = documentation.tasks.map(task => ({
-        meeting_id: meetingId,
-        task_title: task.task_title,
-        task_description: task.task_description,
-        task_description_doc: task.task_description_doc,
-        assigned_to: task.assigned_to,
-        due_date: task.due_date,
-        priority: task.priority,
-        category: task.category,
-        estimated_hours: task.estimated_hours
-      }));
-
-      const { error: tasksError } = await supabase
-        .from('meeting_tasks')
-        .insert(tasksToInsert);
-
-      if (tasksError) {
-        console.error('Error creating tasks:', tasksError);
-      }
-    }
-
-    // Create attendees
-    if (documentation.meeting_info.attendee_ids.length > 0) {
-      const attendeesToInsert = documentation.meeting_info.attendee_ids.map(attendeeId => ({
-        meeting_id: meetingId,
-        user_id: attendeeId,
-        attendance_status: 'invited' as const,
-        role: 'participant' as const
-      }));
-
-      const { error: attendeesError } = await supabase
-        .from('meeting_attendees')
-        .insert(attendeesToInsert);
-
-      if (attendeesError) {
-        console.error('Error creating attendees:', attendeesError);
-      }
-    }
-
-    // Log activity
     await logWorkspaceActivity(
       workspaceId,
       userId,
       'meeting_created',
-      { 
+      {
         meeting_id: meetingId,
         title: documentation.meeting_info.title,
         agreements_count: documentation.agreements.length,
@@ -426,11 +377,22 @@ export async function createMeetingWithDocumentation(
       }
     );
 
-    return { success: true, meetingId, version: (meeting as any).version ?? 0 };
+    return {
+      success: problems.length === 0,
+      meetingId,
+      version: row.version ?? 0,
+      error: problems[0]?.message,
+      problems,
+      ids: items.ids,
+    };
 
   } catch (error) {
     console.error('Error in createMeetingWithDocumentation:', error);
-    return { success: false, error: 'Error inesperado al crear la reunión' };
+    return {
+      success: false,
+      error: 'Error inesperado al crear la reunión',
+      problems: [{ kind: 'meeting', message: 'Error inesperado al crear la reunión.' }],
+    };
   }
 }
 

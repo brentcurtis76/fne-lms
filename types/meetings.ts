@@ -237,6 +237,8 @@ export interface MeetingDocumentationInput {
     duration_minutes: number;
     location?: string;
     attendee_ids: string[];
+    /** SM-H8: community members an editor added as readers (not participants). */
+    reader_ids?: string[];
   };
   
   // Step 2: Summary and Notes

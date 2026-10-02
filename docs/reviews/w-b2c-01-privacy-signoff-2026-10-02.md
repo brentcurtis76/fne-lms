@@ -28,8 +28,9 @@ Also:
 - The server's master key can no longer wipe (TRUNCATE) four tables: learning_paths, learning_path_courses,
   learning_path_assignments and learning_path_progress_sessions. It keeps normal read, write and row-by-row delete.
 - Study-timer records: each finished session is added to that day's total (per person, path and day, kept). An hourly
-  clean-up then deletes closed, settled timer records older than 7 days. Records that are still open, unsettled or missing
-  evidence are kept until they can be settled, so 7 days is the usual age at deletion, not a guaranteed maximum. Brent
+  clean-up makes closed, settled timer records ELIGIBLE for deletion after 7 days. Records still open, unsettled or missing
+  evidence are kept; settled records are also kept while another unsettled session could overlap them; and each run
+  deletes a limited batch, so a backlog can wait for later runs. 7 days is the usual age at deletion, not a maximum. Brent
   accepted this on Claude's recommendation (data minimisation; easy to lengthen later).
 - When someone is removed from a path, courses they only had through it are removed; their history is kept.
 - Report figures: completion rate and "at risk" (no activity for 14 days, path not finished) are defined; the engagement
@@ -45,7 +46,7 @@ history), plus API and browser tests.
 > described above: the head administrator manages all learning paths and sees everyone's learning-path data; active
 > consultants see learning-path report summaries for all schools; active school directors see them only for people of
 > their own school(s); everyone else sees only their own; nobody but the head administrator can change paths or assignments; and
-> closed, settled study-timer records are deleted after about 7 days while daily totals are kept. I accept this as the Privacy
+> closed, settled study-timer records become eligible for deletion after 7 days while daily totals are kept. I accept this as the Privacy
 > sign-off for W-B2c-01.
 
 ## Not covered by this sign-off

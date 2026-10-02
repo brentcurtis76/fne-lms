@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Filter,
   BarChart3,
+  Eye,
   RefreshCw,
 } from 'lucide-react';
 import HelpButton from '@/components/tutorials/HelpButton';
@@ -145,6 +146,7 @@ const DocenteAssessmentsPage: React.FC = () => {
   // Group assessments by status
   const pendingAssessments = assessments.filter(a => a.status === 'pending' || a.status === 'in_progress');
   const completedAssessments = assessments.filter(a => a.status === 'completed');
+  const archivedAssessments = assessments.filter(a => a.status === 'archived');
 
   // Loading state
   if (!user) {
@@ -180,12 +182,15 @@ const DocenteAssessmentsPage: React.FC = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="Filtrar por estado"
+            data-testid="assessment-status-filter"
             className="px-4 py-2.5 border border-brand_primary/10 rounded-lg text-sm text-brand_primary bg-white focus:outline-none focus:ring-2 focus:ring-brand_accent/40 focus:border-brand_accent"
           >
             <option value="">Todos los estados</option>
             <option value="pending">Pendiente</option>
             <option value="in_progress">En Progreso</option>
             <option value="completed">Completado</option>
+            <option value="archived">Archivado</option>
           </select>
         </div>
 
@@ -240,6 +245,24 @@ const DocenteAssessmentsPage: React.FC = () => {
                 </div>
               </section>
             )}
+
+            {/* Archived Section */}
+            {archivedAssessments.length > 0 && (
+              <section>
+                <h2 className="text-xs font-bold text-brand_primary/35 uppercase tracking-[0.15em] mb-6">
+                  Archivadas ({archivedAssessments.length})
+                </h2>
+                <div className="space-y-5">
+                  {archivedAssessments.map((assessment) => (
+                    <AssessmentCard
+                      key={assessment.id}
+                      assessment={assessment}
+                      allAssessments={assessments}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         )}
       </div>
@@ -255,6 +278,7 @@ interface AssessmentCardProps {
 const AssessmentCard: React.FC<AssessmentCardProps> = ({ assessment, allAssessments }) => {
   const statusConfig = STATUS_CONFIG[assessment.status];
   const isCompleted = assessment.status === 'completed';
+  const isArchived = assessment.status === 'archived';
 
   // Check if there are other versions of the same template
   const relatedVersions = allAssessments.filter(
@@ -313,6 +337,13 @@ const AssessmentCard: React.FC<AssessmentCardProps> = ({ assessment, allAssessme
             </p>
           )}
 
+          {/* Archived note */}
+          {isArchived && (
+            <p className="text-xs text-brand_primary/50 mt-3">
+              Evaluación archivada: disponible solo para consulta, no se puede continuar ni enviar.
+            </p>
+          )}
+
           {/* Metadata */}
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 mt-4 text-sm text-brand_primary/40">
             <span className="font-medium text-brand_primary/60">
@@ -349,6 +380,13 @@ const AssessmentCard: React.FC<AssessmentCardProps> = ({ assessment, allAssessme
               <a className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium border border-brand_primary/15 text-brand_primary/70 rounded-lg hover:bg-brand_primary/[0.03] transition-colors">
                 <BarChart3 className="w-4 h-4" />
                 Ver Resultados
+              </a>
+            </Link>
+          ) : isArchived ? (
+            <Link href={`/docente/assessments/${assessment.id}`} legacyBehavior>
+              <a className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium border border-brand_primary/15 text-brand_primary/70 rounded-lg hover:bg-brand_primary/[0.03] transition-colors">
+                <Eye className="w-4 h-4" />
+                Ver evaluación
               </a>
             </Link>
           ) : (

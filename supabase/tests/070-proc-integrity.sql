@@ -13,7 +13,9 @@
 --         (the trigger is the only path);
 --   [T-*] the CURRENT RLS behaviour, per persona, for the seven Procesos de
 --         Cambio tables. These assert what the policies do today, including
---         the gaps (consultores see nothing; directivos cannot update
+--         the gaps (consultores read the Contexto core read-only per
+--         20261001190000_consultor_context_select.sql but see no assessment
+--         rows; directivos cannot update
 --         instances; nobody but admin can delete where an ALL policy exists,
 --         and nobody at all where no DELETE policy exists).
 --
@@ -170,7 +172,7 @@ SELECT is((SELECT count(*)::int FROM d), 0, 'ctx DELETE: docente deletes 0 rows 
 
 RESET ROLE;
 SELECT tests.authenticate_as('pi_cons_a');
-SELECT is((SELECT count(*)::int FROM public.school_transversal_context), 0, 'ctx SELECT: assigned consultor sees nothing (policy has no consultor branch)');
+SELECT is((SELECT count(*)::int FROM public.school_transversal_context WHERE school_id IN (9970, 9971)), 2, 'ctx SELECT: assigned consultor reads both fixture schools (read-only, every school)');
 WITH u AS (UPDATE public.school_transversal_context SET total_students = 999 WHERE school_id = 9970 RETURNING 1)
 SELECT is((SELECT count(*)::int FROM u), 0, 'ctx UPDATE: assigned consultor updates 0 rows');
 SELECT throws_ok($$
@@ -179,7 +181,7 @@ SELECT throws_ok($$
 $$, '42501', NULL, 'ctx INSERT: assigned consultor is refused');
 RESET ROLE;
 SELECT tests.authenticate_as('pi_cons_none');
-SELECT is((SELECT count(*)::int FROM public.school_transversal_context), 0, 'ctx SELECT: unassigned consultor sees nothing');
+SELECT is((SELECT count(*)::int FROM public.school_transversal_context WHERE school_id IN (9970, 9971)), 2, 'ctx SELECT: unassigned consultor reads both fixture schools (the role grants it, not the assignment)');
 
 RESET ROLE;
 SELECT tests.authenticate_as('pi_dir_b');
@@ -226,7 +228,7 @@ SELECT throws_ok($$
 $$, '42501', NULL, 'course INSERT: docente is refused');
 RESET ROLE;
 SELECT tests.authenticate_as('pi_cons_a');
-SELECT is((SELECT count(*)::int FROM public.school_course_structure), 0, 'course SELECT: assigned consultor sees nothing');
+SELECT is((SELECT count(*)::int FROM public.school_course_structure WHERE school_id IN (9970, 9971)), 3, 'course SELECT: assigned consultor reads every fixture course (read-only)');
 RESET ROLE;
 SELECT tests.authenticate_as('pi_dir_b');
 SELECT is((SELECT count(*)::int FROM public.school_course_structure WHERE school_id = 9970), 0, 'course SELECT: directivo of other school sees none of school A');
@@ -272,7 +274,9 @@ SELECT tests.authenticate_as('pi_docente_unrel');
 SELECT is((SELECT count(*)::int FROM public.school_course_docente_assignments), 0, 'assign SELECT: unrelated docente sees nothing');
 RESET ROLE;
 SELECT tests.authenticate_as('pi_cons_a');
-SELECT is((SELECT count(*)::int FROM public.school_course_docente_assignments), 0, 'assign SELECT: assigned consultor sees nothing');
+SELECT is((SELECT count(*)::int FROM public.school_course_docente_assignments a
+            WHERE a.course_structure_id IN (SELECT id FROM public.school_course_structure WHERE school_id IN (9970, 9971))), 1,
+          'assign SELECT: assigned consultor reads the fixture assignment (read-only)');
 SELECT throws_ok($$
   INSERT INTO public.school_course_docente_assignments (course_structure_id, docente_id)
   VALUES ('70000000-0000-4000-8000-0000000000a2', pg_temp.uid('pi_docente_unrel'))

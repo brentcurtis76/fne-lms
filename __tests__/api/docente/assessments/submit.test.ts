@@ -203,6 +203,26 @@ describe('POST /api/docente/assessments/[instanceId]/submit', () => {
     expect(data.success).toBe(true);
   });
 
+  it('refuses to submit an archived instance with 400 and never changes its status or scores', async () => {
+    // Complete answers, so the archived status is the only reason to refuse.
+    const client = buildSubmitClient({
+      instanceData: { ...INSTANCE_DATA, status: 'archived' },
+      responsesData: [
+        { indicator_id: IND_COB, coverage_value: true, frequency_value: null, profundity_level: null },
+        { indicator_id: IND_FREC, coverage_value: null, frequency_value: 5, profundity_level: null },
+      ],
+    });
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+    const { req, res } = createMocks({ method: 'POST', query: { instanceId: INSTANCE_ID } });
+
+    await submitHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(JSON.parse(res._getData()).error).toMatch(/ya fue enviada|completada|archivada/i);
+    expect(client.from.mock.calls.filter(([table]) => table === 'assessment_instances')).toHaveLength(1);
+    expect(mockCalculateAndSaveScores).not.toHaveBeenCalled();
+  });
+
   it('marks the instance completed and never writes assessment_instance_assignees (trigger owns has_submitted)', async () => {
     const client = buildSubmitClient({
       responsesData: [

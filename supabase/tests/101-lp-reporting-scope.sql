@@ -29,7 +29,7 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(116);
+SELECT plan(118);
 
 CREATE OR REPLACE FUNCTION pg_temp.set_anon() RETURNS void AS $$
 BEGIN
@@ -222,7 +222,8 @@ INSERT INTO public.courses (id, title, description, instructor_id) VALUES
   ('10100000-0000-4000-8000-000000000c02', 'LP101 K2', 'x', '10100000-0000-4000-8000-00000000f001'),
   ('10100000-0000-4000-8000-000000000c03', 'LP101 K3', 'x', '10100000-0000-4000-8000-00000000f001'),
   ('10100000-0000-4000-8000-000000000c04', 'LP101 K4', 'x', '10100000-0000-4000-8000-00000000f001'),
-  ('10100000-0000-4000-8000-000000000c05', 'LP101 K5', 'x', '10100000-0000-4000-8000-00000000f001');
+  ('10100000-0000-4000-8000-000000000c05', 'LP101 K5', 'x', '10100000-0000-4000-8000-00000000f001'),
+  ('10100000-0000-4000-8000-000000000c06', 'LP101 K6', 'x', '10100000-0000-4000-8000-00000000f001');
 INSERT INTO public.learning_paths (id, name, description, created_by) VALUES
   ('10100000-0000-4000-8000-000000000001', 'LP101 P1', 'scope + at risk',          pg_temp.uid('lp101_admin')),
   ('10100000-0000-4000-8000-000000000002', 'LP101 P2', 'school-B people only',     pg_temp.uid('lp101_admin')),
@@ -232,14 +233,17 @@ INSERT INTO public.learning_paths (id, name, description, created_by) VALUES
   -- P6 (outside pg_temp.paths()): no courses, one assignee 30 days ago, no activity
   ('10100000-0000-4000-8000-000000000006', 'LP101 P6', 'no courses, one person',   pg_temp.uid('lp101_admin')),
   -- P7 (outside pg_temp.paths()): finish dated only by updated_at, nothing else that month
-  ('10100000-0000-4000-8000-000000000007', 'LP101 P7', 'fallback-dated finish',    pg_temp.uid('lp101_admin'));
+  ('10100000-0000-4000-8000-000000000007', 'LP101 P7', 'fallback-dated finish',    pg_temp.uid('lp101_admin')),
+  -- P8 (outside pg_temp.paths()): one person finished the course BEFORE starting the path
+  ('10100000-0000-4000-8000-000000000008', 'LP101 P8', 'finished before started',  pg_temp.uid('lp101_admin'));
 INSERT INTO public.learning_path_courses (learning_path_id, course_id, sequence_order) VALUES
   ('10100000-0000-4000-8000-000000000001', '10100000-0000-4000-8000-000000000c01', 1),
   ('10100000-0000-4000-8000-000000000001', '10100000-0000-4000-8000-000000000c02', 2),
   ('10100000-0000-4000-8000-000000000002', '10100000-0000-4000-8000-000000000c03', 1),
   ('10100000-0000-4000-8000-000000000003', '10100000-0000-4000-8000-000000000c01', 1),
   ('10100000-0000-4000-8000-000000000004', '10100000-0000-4000-8000-000000000c04', 1),
-  ('10100000-0000-4000-8000-000000000007', '10100000-0000-4000-8000-000000000c05', 1);
+  ('10100000-0000-4000-8000-000000000007', '10100000-0000-4000-8000-000000000c05', 1),
+  ('10100000-0000-4000-8000-000000000008', '10100000-0000-4000-8000-000000000c06', 1);
 INSERT INTO public.learning_path_assignments (path_id, user_id, group_id, assigned_by, assigned_at) VALUES
   -- P1: a1, a3, b1 direct; workspace A (a2, a4, b3) 28 days ago; an EMPTY workspace 25 days ago
   ('10100000-0000-4000-8000-000000000001', pg_temp.uid('lp101_a1'), NULL, pg_temp.uid('lp101_admin'), now() - interval '40 days'),
@@ -257,7 +261,9 @@ INSERT INTO public.learning_path_assignments (path_id, user_id, group_id, assign
   ('10100000-0000-4000-8000-000000000004', pg_temp.uid('lp101_b1'), NULL, pg_temp.uid('lp101_admin'), '2026-05-10T15:00:00Z'),
   ('10100000-0000-4000-8000-000000000004', pg_temp.uid('lp101_a2'), NULL, pg_temp.uid('lp101_admin'), '2026-06-05T15:00:00Z'),
   ('10100000-0000-4000-8000-000000000006', pg_temp.uid('lp101_sup'), NULL, pg_temp.uid('lp101_admin'), now() - interval '30 days'),
-  ('10100000-0000-4000-8000-000000000007', pg_temp.uid('lp101_a3'),  NULL, pg_temp.uid('lp101_admin'), '2026-07-10T15:00:00Z');
+  ('10100000-0000-4000-8000-000000000007', pg_temp.uid('lp101_a3'),  NULL, pg_temp.uid('lp101_admin'), '2026-07-10T15:00:00Z'),
+  ('10100000-0000-4000-8000-000000000008', pg_temp.uid('lp101_a4'),  NULL, pg_temp.uid('lp101_admin'), '2026-08-01T15:00:00Z'),
+  ('10100000-0000-4000-8000-000000000008', pg_temp.uid('lp101_b2'),  NULL, pg_temp.uid('lp101_admin'), '2026-08-01T15:00:00Z');
 -- Course completion: a1 finished P1 (completed_at); b1 finished P1 with K1 at
 -- progress 100 (not flagged) and K2 flagged without completed_at (finished_at
 -- falls back to updated_at); a2 half of K1. P4: a1 May 20, b1 Jun 10, a2 May 1
@@ -272,7 +278,10 @@ INSERT INTO public.course_enrollments (user_id, course_id, is_completed, progres
   (pg_temp.uid('lp101_b1'), '10100000-0000-4000-8000-000000000c04', true,  100, '2026-06-10T15:00:00Z',     '2026-06-10T15:00:00Z',     'learning_path'),
   (pg_temp.uid('lp101_a2'), '10100000-0000-4000-8000-000000000c04', true,  100, '2026-05-01T15:00:00Z',     '2026-05-01T15:00:00Z',     'learning_path'),
   -- P7: flagged complete, completed_at NULL, only updated_at (Aug 12, 11:00 Santiago) dates it
-  (pg_temp.uid('lp101_a3'), '10100000-0000-4000-8000-000000000c05', true,  100, NULL,                       '2026-08-12T15:00:00Z',     'learning_path')
+  (pg_temp.uid('lp101_a3'), '10100000-0000-4000-8000-000000000c05', true,  100, NULL,                       '2026-08-12T15:00:00Z',     'learning_path'),
+  -- P8: b2 starts Aug 10, finishes Aug 14 (4 days); a4 finished Sep 1, starts the path Oct 1
+  (pg_temp.uid('lp101_b2'), '10100000-0000-4000-8000-000000000c06', true,  100, '2026-08-14T15:00:00Z',     '2026-08-14T15:00:00Z',     'learning_path'),
+  (pg_temp.uid('lp101_a4'), '10100000-0000-4000-8000-000000000c06', true,  100, '2026-09-01T15:00:00Z',     '2026-09-01T15:00:00Z',     'learning_path')
 ON CONFLICT (user_id, course_id) DO UPDATE
   SET is_completed = EXCLUDED.is_completed, progress_percentage = EXCLUDED.progress_percentage,
       completed_at = EXCLUDED.completed_at, updated_at = EXCLUDED.updated_at;
@@ -280,7 +289,9 @@ ON CONFLICT (user_id, course_id) DO UPDATE
 INSERT INTO public.learning_path_user_progress (user_id, path_id, started_at, last_activity_at, total_time_spent_minutes) VALUES
   (pg_temp.uid('lp101_a1'), '10100000-0000-4000-8000-000000000001', now() - interval '38 days', now() - interval '33 days', 30),
   (pg_temp.uid('lp101_a2'), '10100000-0000-4000-8000-000000000001', now() - interval '28 days', now() - interval '13 days', 20),
-  (pg_temp.uid('lp101_b1'), '10100000-0000-4000-8000-000000000001', now() - interval '5 days',  now() - interval '4 days',  60)
+  (pg_temp.uid('lp101_b1'), '10100000-0000-4000-8000-000000000001', now() - interval '5 days',  now() - interval '4 days',  60),
+  (pg_temp.uid('lp101_b2'), '10100000-0000-4000-8000-000000000008', '2026-08-10T15:00:00Z', '2026-08-14T15:00:00Z', 0),
+  (pg_temp.uid('lp101_a4'), '10100000-0000-4000-8000-000000000008', '2026-10-01T15:00:00Z', '2026-10-01T15:00:00Z', 0)
 ON CONFLICT (path_id, user_id) DO UPDATE
   SET started_at = EXCLUDED.started_at, last_activity_at = EXCLUDED.last_activity_at,
       total_time_spent_minutes = EXCLUDED.total_time_spent_minutes;
@@ -385,6 +396,10 @@ SELECT is(pg_temp.fig('lp101_sup', '10100000-0000-4000-8000-000000000006'), 'not
           '3: P6 has no courses: its assignee (30 days, never active) is not finished and NEVER at risk');
 SELECT is(pg_temp.perf('10100000-0000-4000-8000-000000000006'), '1/0/0/0.00/0.00/0/0/NULL/1/0/0.00/NULL',
           '3: P6 (courseless): 1 assigned stays in the rate denominator (0.00 %), at_risk_users 0 (assigned exactly 30 days ago = recent boundary, inclusive)');
+SELECT is(pg_temp.perf('10100000-0000-4000-8000-000000000008'), '2/2/0/100.00/0.00/1/0/4.00/0/0/0.00/NULL',
+          '3: P8: both finished (100 %); avg completion 4.00 days = b2 only — a4 (finished Sep 1, started the path Oct 1) is excluded, not -30 days');
+SELECT is(pg_temp.monthly('10100000-0000-4000-8000-000000000008'), '2026-08 0/0/0/1/2/50.00, 2026-09 0/0/0/1/0/50.00',
+          '3: P8 monthly: a4 keeps its real finish date (September numerator) although it is excluded from the average');
 SELECT is(pg_temp.perf('10100000-0000-4000-8000-000000000005'), '0/0/0/NULL/0.00/0/0/NULL/0/0/0.00/NULL', '3: P5 (empty) is listed for an admin with a NULL rate (not 0)');
 SELECT is((SELECT new_enrollments FROM public.learning_path_daily_summary WHERE path_id = '10100000-0000-4000-8000-000000000001' AND summary_date = public.lp_activity_date(now() - interval '28 days')), 3,
           '3: new assignees on the workspace-A day = 3 distinct people (was 1 assignment row) — documented admin figure change');

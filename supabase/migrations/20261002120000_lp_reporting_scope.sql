@@ -263,8 +263,8 @@ WITH (security_barrier = true) AS
          CASE WHEN count(s.user_id) > 0
               THEN round(100.0 * count(*) FILTER (WHERE s.is_finished) / count(s.user_id), 2)
               ELSE NULL END AS overall_completion_rate,
-         CASE WHEN count(*) FILTER (WHERE s.is_finished AND s.started_at IS NOT NULL) > 0
-              THEN round((extract(epoch FROM avg(s.finished_at - s.started_at) FILTER (WHERE s.is_finished AND s.started_at IS NOT NULL)) / 86400.0)::numeric, 2)
+         CASE WHEN count(*) FILTER (WHERE s.is_finished AND s.started_at IS NOT NULL AND s.finished_at >= s.started_at) > 0
+              THEN round((extract(epoch FROM avg(s.finished_at - s.started_at) FILTER (WHERE s.is_finished AND s.started_at IS NOT NULL AND s.finished_at >= s.started_at)) / 86400.0)::numeric, 2)
               ELSE NULL END AS avg_completion_time_days,
          NULL::numeric AS engagement_score,
          count(*) FILTER (WHERE s.first_assigned_at >= now() - interval '30 days')::integer AS recent_enrollments,
@@ -282,7 +282,7 @@ WITH (security_barrier = true) AS
   HAVING public.auth_lp_report_all() OR count(s.user_id) > 0;
 
 COMMENT ON VIEW public.learning_path_performance_summary IS
-  'W-B2c-01 (2026-10-02): live per-path aggregates over the in-scope assigned population. Every path for admin / backend / active consultor; for an active equipo_directivo only paths with >= 1 assignee from their school, counted from those people only; nothing for anyone else. overall_completion_rate = finished / assigned (percent, NULL when nobody is assigned); at_risk_users = assignees with is_at_risk. engagement_score is RETIRED (always NULL; kept only because view columns cannot be removed).';
+  'W-B2c-01 (2026-10-02): live per-path aggregates over the in-scope assigned population. Every path for admin / backend / active consultor; for an active equipo_directivo only paths with >= 1 assignee from their school, counted from those people only; nothing for anyone else. overall_completion_rate = finished / assigned (percent, NULL when nobody is assigned); at_risk_users = assignees with is_at_risk. avg_completion_time_days averages finished_at - started_at over finished people who started the path no later than they finished (courses completed before starting the path are excluded from the average, never negative; they still count as finished). engagement_score is RETIRED (always NULL; kept only because view columns cannot be removed).';
 
 -- 2d. Daily summary per path — reporters only, in-scope people only.
 CREATE OR REPLACE VIEW public.learning_path_daily_summary

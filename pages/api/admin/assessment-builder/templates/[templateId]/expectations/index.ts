@@ -6,6 +6,7 @@ import {
   describeExpectationConflict,
   frequencyExpectationConflicts,
   frequencyExpectationViolation,
+  parseSnapshotFrequencyConfig,
   type ExpectationYear,
 } from '@/lib/services/assessment-builder/frequencyConfig';
 
@@ -897,8 +898,9 @@ async function handlePut(
     }
 
     // F1 on a published template (no publish gate follows): remember the rows
-    // this save replaces, so a rule change committed by someone else in the
-    // same instant can be detected after the write and this save undone.
+    // this save replaces (the WHOLE batch), so a rule change committed by
+    // someone else in the same instant can be detected after the write and
+    // this save undone in full.
     const isPublished = template.status === 'published';
     const frequencyRows = upsertData.filter((row) => indicatorCategoryById.get(row.indicator_id) === 'frecuencia');
     let previousRows: any[] = [];
@@ -907,7 +909,7 @@ async function handlePut(
         .from('assessment_year_expectations')
         .select('*')
         .eq('template_id', templateId)
-        .in('indicator_id', Array.from(new Set(frequencyRows.map((row) => row.indicator_id))));
+        .in('indicator_id', Array.from(new Set(upsertData.map((row) => row.indicator_id))));
       if (beforeError) {
         console.error('Error reading expectations before save:', beforeError);
         return res.status(500).json({ error: 'Error al guardar expectativas' });
@@ -933,9 +935,18 @@ async function handlePut(
     // they are NOW. A conflict here means the rules changed concurrently; undo
     // this save (restore replaced rows, remove rows it created) and ask to retry.
     if (isPublished && frequencyRows.length > 0) {
-      const lateConflicts = await expectationConflictsAfterWrite(supabase, frequencyRows);
+      const lateConflicts = await expectationConflictsAfterWrite(supabase, frequencyRows, indicatorById);
       if (lateConflicts === null || lateConflicts.length > 0) {
-        await restoreExpectationRows(supabase, templateId as string, frequencyRows, previousRows);
+        const undone = await restoreExpectationRows(supabase, templateId as string, upsertData, previousRows);
+        if (!undone) {
+          return res.status(500).json({
+            error:
+              'Las reglas de frecuencia cambiaron mientras se guardaba y no se pudo deshacer por completo este guardado. ' +
+              'Revisa las expectativas de este template antes de continuar.',
+            code: 'undo_incomplete',
+            details: lateConflicts ?? [],
+          });
+        }
         return res.status(409).json({
           error:
             'No se guardaron las expectativas: las reglas de frecuencia del indicador cambiaron mientras se guardaba. ' +
@@ -964,30 +975,50 @@ async function handlePut(
 /**
  * Conflicts between just-written frecuencia expectation rows and the
  * indicators' CURRENT rules (re-read after the write), as es-CL lines. null
- * when the rules cannot be read — treated as a conflict (fail closed).
+ * (= conflict, fail closed) when the rules cannot be read, an indicator is
+ * gone, or rules that were usable when this save was validated are no longer
+ * usable. Rules that were already unusable (legacy configs) stay unjudged,
+ * exactly as at validation time.
  */
-async function expectationConflictsAfterWrite(supabase: any, rows: any[]): Promise<string[] | null> {
+async function expectationConflictsAfterWrite(
+  supabase: any,
+  rows: any[],
+  validatedById: Map<string, any>
+): Promise<string[] | null> {
+  const ids = Array.from(new Set(rows.map((row) => row.indicator_id)));
   const { data: indicators, error } = await supabase
     .from('assessment_indicators')
-    .select('id, code, name, frequency_config')
-    .in('id', Array.from(new Set(rows.map((row) => row.indicator_id))));
-  if (error || !indicators) {
+    .select('id, code, name, category, frequency_config')
+    .in('id', ids);
+  if (error || !Array.isArray(indicators)) {
     console.error('Error re-reading indicator rules after saving expectations:', error);
     return null;
   }
   const byId = new Map<string, any>(indicators.map((ind: any) => [ind.id, ind]));
-  return rows.flatMap((row) => {
-    const ind = byId.get(row.indicator_id);
-    return frequencyExpectationConflicts(ind?.frequency_config, [row]).map((conflict) =>
-      describeExpectationConflict({ ...conflict, indicator: String(ind?.code || ind?.name || row.indicator_id) })
+  const out: string[] = [];
+  for (const row of rows) {
+    const now = byId.get(row.indicator_id);
+    if (!now) return null;
+    const wasUsable = parseSnapshotFrequencyConfig(validatedById.get(row.indicator_id)?.frequency_config).ok;
+    const isUsable = now.category === 'frecuencia' && parseSnapshotFrequencyConfig(now.frequency_config).ok;
+    if (wasUsable && !isUsable) return null;
+    out.push(
+      ...frequencyExpectationConflicts(now.frequency_config, [row]).map((conflict) =>
+        describeExpectationConflict({ ...conflict, indicator: String(now.code || now.name || row.indicator_id) })
+      )
     );
-  });
+  }
+  return out;
 }
 
-/** Puts back the rows a save replaced and removes the rows it created. Errors are logged, not thrown. */
-async function restoreExpectationRows(supabase: any, templateId: string, written: any[], previous: any[]) {
+/**
+ * Puts back the rows a save replaced and removes the rows it created.
+ * Returns true only when every restore/removal succeeded.
+ */
+async function restoreExpectationRows(supabase: any, templateId: string, written: any[], previous: any[]): Promise<boolean> {
   const key = (row: any) => `${row.indicator_id}|${row.generation_type || 'GT'}`;
   const previousByKey = new Map(previous.map((row) => [key(row), row]));
+  let ok = true;
   for (const row of written) {
     const old = previousByKey.get(key(row));
     const { error } = old
@@ -1000,6 +1031,10 @@ async function restoreExpectationRows(supabase: any, templateId: string, written
           .eq('template_id', templateId)
           .eq('indicator_id', row.indicator_id)
           .eq('generation_type', row.generation_type);
-    if (error) console.error('Error restoring expectation row after a concurrent rule change:', error);
+    if (error) {
+      ok = false;
+      console.error('Error restoring expectation row after a concurrent rule change:', error);
+    }
   }
+  return ok;
 }

@@ -56,7 +56,14 @@ const OLD_GT_ROW = {
   year_5_expected: null, year_5_expected_unit: null, tolerance: 1,
 };
 
-function buildClient(opts: { status: string; rulesAfterWrite: unknown; rulesReadFails?: boolean }) {
+function buildClient(opts: {
+  status: string;
+  rulesAfterWrite: unknown;
+  rulesReadFails?: boolean;
+  rulesBefore?: unknown;
+  frequencyGoneAfterWrite?: boolean;
+  restoreFails?: boolean;
+}) {
   const ops: Array<{ table: string; op: string; payload?: unknown; filters?: unknown[] }> = [];
   let indicatorReads = 0;
   const template = {
@@ -69,12 +76,15 @@ function buildClient(opts: { status: string; rulesAfterWrite: unknown; rulesRead
   ];
   const recording = (table: string, data: unknown, error: unknown = null) => {
     const filters: unknown[] = [];
+    let opError = error;
     const handler: ProxyHandler<Record<string, unknown>> = {
       get(_t, prop) {
-        if (prop === 'then') return (resolve: (v: unknown) => void) => resolve({ data, error });
+        if (prop === 'then') return (resolve: (v: unknown) => void) => resolve({ data, error: opError });
         if (prop === 'upsert' || prop === 'delete' || prop === 'update' || prop === 'insert') {
           return (payload?: unknown) => {
+            const isRestore = ops.some((o) => o.table === table && o.op === 'upsert');
             ops.push({ table, op: String(prop), payload, filters });
+            if (opts.restoreFails && isRestore && prop === 'delete') opError = { message: 'restore failed' };
             return new Proxy({}, handler);
           };
         }
@@ -94,8 +104,10 @@ function buildClient(opts: { status: string; rulesAfterWrite: unknown; rulesRead
       if (table === 'assessment_templates') return buildChainableQuery(template);
       if (table === 'assessment_indicators') {
         indicatorReads += 1;
-        if (indicatorReads === 1) return recording(table, indicatorsAt(WIDE));
-        return opts.rulesReadFails ? recording(table, null, { message: 'boom' }) : recording(table, indicatorsAt(opts.rulesAfterWrite));
+        if (indicatorReads === 1) return recording(table, indicatorsAt(opts.rulesBefore ?? WIDE));
+        if (opts.rulesReadFails) return recording(table, null, { message: 'boom' });
+        const after = indicatorsAt(opts.rulesAfterWrite);
+        return recording(table, opts.frequencyGoneAfterWrite ? after.filter((i) => i.category !== 'frecuencia') : after);
       }
       if (table === 'assessment_year_expectations') return recording(table, [OLD_GT_ROW]);
       return recording(table, []);
@@ -174,5 +186,57 @@ describe('PUT expectations — F1 re-check after the write (published template)'
 
     expect(res.status).toBe(200);
     expect(ops.filter((o) => o.table === 'assessment_year_expectations').map((o) => o.op)).toEqual(['upsert']);
+  });
+});
+
+describe('PUT expectations — F1 re-check edge cases (published template)', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('undoes the WHOLE batch, including a non-frecuencia row saved with it', async () => {
+    const { client, ops } = buildClient({ status: 'published', rulesAfterWrite: NARROW });
+    asAdmin(client);
+
+    const res = await put([...SAVE, { indicatorId: IND_PROFUNDIDAD_1, generationType: 'GT', year1: 3 }]);
+
+    expect(res.status).toBe(409);
+    const writes = ops.filter((o) => o.table === 'assessment_year_expectations');
+    expect(writes.map((o) => o.op)).toEqual(['upsert', 'upsert', 'delete', 'delete']);
+    expect(writes[3].filters).toEqual(expect.arrayContaining([['eq', 'indicator_id', IND_PROFUNDIDAD_1]]));
+  });
+
+  it('fails closed when the frecuencia indicator is gone after the write', async () => {
+    const { client, ops } = buildClient({ status: 'published', rulesAfterWrite: WIDE, frequencyGoneAfterWrite: true });
+    asAdmin(client);
+
+    const res = await put(SAVE);
+
+    expect(res.status).toBe(409);
+    expect(ops.filter((o) => o.table === 'assessment_year_expectations').map((o) => o.op)).toEqual(['upsert', 'upsert', 'delete']);
+  });
+
+  it('fails closed when usable rules became unusable after the write', async () => {
+    const { client } = buildClient({ status: 'published', rulesAfterWrite: { min: 0, max: 10, step: 1, unit: 'semana' } });
+    asAdmin(client);
+
+    expect((await put(SAVE)).status).toBe(409);
+  });
+
+  it('leaves legacy rules (unusable before and after) unjudged, as at validation time', async () => {
+    const { client, ops } = buildClient({ status: 'published', rulesBefore: { unit: 'veces' }, rulesAfterWrite: { unit: 'veces' } });
+    asAdmin(client);
+
+    expect((await put(SAVE)).status).toBe(200);
+    expect(ops.filter((o) => o.table === 'assessment_year_expectations').map((o) => o.op)).toEqual(['upsert']);
+  });
+
+  it('reports an incomplete undo as such (500 undo_incomplete), never as "nothing was saved"', async () => {
+    const { client } = buildClient({ status: 'published', rulesAfterWrite: NARROW, restoreFails: true });
+    asAdmin(client);
+
+    const res = await put(SAVE);
+
+    expect(res.status).toBe(500);
+    expect(res.json.code).toBe('undo_incomplete');
+    expect(res.json.error).toContain('no se pudo deshacer por completo');
   });
 });

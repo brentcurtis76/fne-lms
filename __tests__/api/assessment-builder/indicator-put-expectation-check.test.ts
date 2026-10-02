@@ -81,13 +81,18 @@ const expectationRows = [
 function buildClient(
   templateStatus: string,
   rows = expectationRows,
-  rowsAfterWrite: typeof expectationRows | 'error' = rows
+  rowsAfterWrite: typeof expectationRows | 'error' = rows,
+  restoreFails = false
 ) {
   const updates: Record<string, unknown>[] = [];
   let expectationReads = 0;
   const indicatorsHandler: ProxyHandler<Record<string, unknown>> = {
     get(_target, prop) {
-      if (prop === 'then') return (resolve: (value: unknown) => void) => resolve({ data: row, error: null });
+      if (prop === 'then') {
+        const failing = restoreFails && updates.length === 2;
+        return (resolve: (value: unknown) => void) =>
+          resolve(failing ? { data: null, error: { message: 'restore failed' } } : { data: row, error: null });
+      }
       if (prop === 'update') {
         return (data: Record<string, unknown>) => {
           updates.push(data);
@@ -226,6 +231,17 @@ describe('PUT indicator — F1 year expectations against new frequency rules', (
     expect(res.status).toBe(409);
     expect(updates).toHaveLength(2);
     expect(updates[1].frequency_config).toEqual(OLD_CONFIG);
+    expect(mockUpdateSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('published: reports a failed undo as such (500 undo_incomplete), not as a clean refusal', async () => {
+    const fitting = [{ ...expectationRows[0], year_3_expected: 4, year_5_expected: 5 }];
+    const { client, updates } = buildClient('published', fitting, 'error', true);
+    const res = await put(client, { name: 'Frecuencia sintética', frequencyConfig: NEW_CONFIG });
+
+    expect(res.status).toBe(500);
+    expect(res.json.code).toBe('undo_incomplete');
+    expect(updates).toHaveLength(2);
     expect(mockUpdateSnapshot).not.toHaveBeenCalled();
   });
 

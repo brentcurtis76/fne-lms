@@ -407,7 +407,16 @@ async function handlePut(
           .from('assessment_indicators')
           .update(restore)
           .eq('id', indicatorId);
-        if (restoreError) console.error('Error restoring indicator after a concurrent expectation change:', restoreError);
+        if (restoreError) {
+          console.error('Error restoring indicator after a concurrent expectation change:', restoreError);
+          return res.status(500).json({
+            error:
+              'Las expectativas cambiaron mientras se guardaba y no se pudo deshacer este cambio de reglas. ' +
+              'Revisa este indicador y sus expectativas antes de continuar.',
+            code: 'undo_incomplete',
+            details: lateConflicts ?? [],
+          });
+        }
         return res.status(409).json({
           error:
             'No se guardó: las expectativas de este indicador cambiaron mientras se guardaba y ya no calzan con las nuevas reglas. ' +

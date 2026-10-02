@@ -13,6 +13,7 @@
  * are owned through the two synthetic schools and are inventoried and removed
  * by school / course / instance.
  */
+import { execFileSync } from 'node:child_process';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import pg from 'pg';
 import { publishTemplate } from '../../../lib/services/assessment-builder/publishTemplate';
@@ -88,9 +89,10 @@ export const MANIFEST = {
 
 const SHARED_PORTS = new Set(['54321', '54322', '54421', '54422', '55121', '55122']);
 
-/** Refuses anything but an explicitly requested private loopback stack. Returns why, or null when safe. */
+/** Cheap pre-check (used to skip outside the wrapper): explicit run, loopback, not a shared port. */
 export function unsafeTargetReason(): string | null {
   if (process.env.E2E_LOCAL_EXPLICIT !== '1') return 'run it through scripts/ci/e2e-local.sh <spec> (private stack)';
+  if (!process.env.E2E_LOCAL_PROJECT_ID) return 'E2E_LOCAL_PROJECT_ID is not set (the wrapper sets it)';
   const api = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
   const db = process.env.SUPABASE_DB_URL ?? '';
   for (const [name, raw] of [['NEXT_PUBLIC_SUPABASE_URL', api], ['SUPABASE_DB_URL', db]] as const) {
@@ -101,6 +103,26 @@ export function unsafeTargetReason(): string | null {
   }
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return 'SUPABASE_SERVICE_ROLE_KEY is not set';
   return null;
+}
+
+/**
+ * Ownership proof, before any write: the API and DB ports must be published by
+ * the containers of THIS wrapper run's Supabase project (label
+ * com.supabase.cli.project = E2E_LOCAL_PROJECT_ID), so both URLs belong to the
+ * same private stack. Throws otherwise.
+ */
+export function assertOwnedStack(): void {
+  const project = process.env.E2E_LOCAL_PROJECT_ID!;
+  if (!/^genera-e2e-\d+-\d+$/.test(project)) throw new Error(`[${SYNTHETIC_LABEL}] unexpected project id ${project}`);
+  const port = (raw: string) => new URL(raw.replace(/^postgres(ql)?:\/\//, 'http://')).port;
+  const apiPort = port(process.env.NEXT_PUBLIC_SUPABASE_URL!);
+  const dbPort = port(process.env.SUPABASE_DB_URL!);
+  const lines = execFileSync('docker', ['ps', '--filter', `label=com.supabase.cli.project=${project}`, '--format', '{{.Names}} {{.Ports}}'], { encoding: 'utf8' })
+    .split('\n').filter(Boolean);
+  const publishes = (name: string, host: string, inner: string) =>
+    lines.some((l) => l.startsWith(`${name} `) && new RegExp(`:${host}->${inner}/tcp`).test(l));
+  if (!publishes(`supabase_db_${project}`, dbPort, '5432')) throw new Error(`[${SYNTHETIC_LABEL}] DB port ${dbPort} is not published by project ${project}'s database container`);
+  if (!publishes(`supabase_kong_${project}`, apiPort, '8000')) throw new Error(`[${SYNTHETIC_LABEL}] API port ${apiPort} is not published by project ${project}'s gateway container`);
 }
 
 export function serviceClient(): SupabaseClient {
@@ -120,20 +142,42 @@ function allUsers(): SyntheticUser[] {
 }
 const schoolIds = () => MANIFEST.runs.map((r) => r.schoolId);
 
-/** What the fixture created on its own (not product rows); filled by seed, read by cleanup. */
-export const created = { gradeRow: false, questionIds: [] as string[] };
+/**
+ * Ownership ledger: exactly what THIS run created, recorded right after each
+ * insert. Cleanup touches only these (and the product rows hanging off them),
+ * so a collision or a partial seed never deletes a row the run did not create.
+ */
+export const created = {
+  userIds: [] as string[],
+  schoolIds: [] as number[],
+  template: false,
+  gradeRow: false,
+  questionIds: [] as string[],
+  // product-created ids, captured before deletion for the residual scan
+  courseIds: [] as string[],
+  instanceIds: [] as string[],
+};
 
 export async function seed(svc: SupabaseClient, c: pg.Client): Promise<void> {
-  const { rows: pre } = await c.query('SELECT count(*)::int AS n FROM public.schools WHERE id = ANY($1::int[])', [schoolIds()]);
-  if (pre[0].n !== 0) throw new Error(`[${SYNTHETIC_LABEL}] fixture schools already exist — refusing to seed over them`);
+  const { rows: pre } = await c.query(
+    `SELECT (SELECT count(*) FROM public.schools WHERE id = ANY($1::int[]))::int AS schools,
+            (SELECT count(*) FROM public.assessment_templates WHERE id = $2::uuid)::int AS templates,
+            (SELECT count(*) FROM auth.users WHERE email LIKE 'proc-pilot-%@rehearsal.invalid')::int AS users`,
+    [schoolIds(), MANIFEST.template.id]
+  );
+  if (pre[0].schools || pre[0].templates || pre[0].users) {
+    throw new Error(`[${SYNTHETIC_LABEL}] fixture ids already exist (${JSON.stringify(pre[0])}) — refusing to seed; nothing will be cleaned`);
+  }
 
   for (const u of allUsers()) {
     const { data, error } = await svc.auth.admin.createUser({ email: u.email, password: u.password, email_confirm: true });
     if (error || !data.user) throw new Error(`createUser ${u.key}: ${error?.message}`);
     u.id = data.user.id;
+    created.userIds.push(u.id);
   }
   for (const run of MANIFEST.runs) {
     await c.query('INSERT INTO public.schools (id, name) VALUES ($1, $2)', [run.schoolId, run.schoolName]);
+    created.schoolIds.push(run.schoolId);
   }
   for (const u of allUsers()) {
     const schoolId = MANIFEST.runs.find((r) => r.director === u || r.docente === u)?.schoolId ?? null;
@@ -172,6 +216,7 @@ export async function seed(svc: SupabaseClient, c: pg.Client): Promise<void> {
     `INSERT INTO public.assessment_templates (id, area, version, name, status, is_archived, grade_id) VALUES ($1, $2, '1.0.0', $3, 'draft', false, $4)`,
     [t.id, t.area, t.name, g.id]
   );
+  created.template = true;
   await c.query(`INSERT INTO public.assessment_objectives (id, template_id, name, display_order, weight) VALUES ($1, $2, '[SINTÉTICO] Objetivo de práctica', 1, 1)`, [t.objectiveId, t.id]);
   await c.query(`INSERT INTO public.assessment_modules (id, template_id, objective_id, name, display_order, weight) VALUES ($1, $2, $3, $4, 1, 1)`, [t.moduleId, t.id, t.objectiveId, t.moduleName]);
   for (const ind of t.indicators) {
@@ -189,7 +234,7 @@ const OWNED_TABLES_SQL = `
   WITH sch AS (SELECT unnest($1::int[]) AS id),
        crs AS (SELECT id FROM public.school_course_structure WHERE school_id IN (SELECT id FROM sch)),
        ins AS (SELECT id FROM public.assessment_instances WHERE school_id IN (SELECT id FROM sch)
-                 OR template_snapshot_id IN (SELECT id FROM public.assessment_template_snapshots WHERE template_id = $2::uuid))
+                 OR ($4 AND template_snapshot_id IN (SELECT id FROM public.assessment_template_snapshots WHERE template_id = $2::uuid)))
   SELECT 'schools' AS t, count(*)::int AS n FROM public.schools WHERE id IN (SELECT id FROM sch)
   UNION ALL SELECT 'school_transversal_context', count(*)::int FROM public.school_transversal_context WHERE school_id IN (SELECT id FROM sch)
   UNION ALL SELECT 'school_course_structure', count(*)::int FROM crs
@@ -198,68 +243,89 @@ const OWNED_TABLES_SQL = `
   UNION ALL SELECT 'assessment_instance_assignees', count(*)::int FROM public.assessment_instance_assignees WHERE instance_id IN (SELECT id FROM ins)
   UNION ALL SELECT 'assessment_responses', count(*)::int FROM public.assessment_responses WHERE instance_id IN (SELECT id FROM ins)
   UNION ALL SELECT 'assessment_instance_results', count(*)::int FROM public.assessment_instance_results WHERE instance_id IN (SELECT id FROM ins)
-  UNION ALL SELECT 'assessment_templates', count(*)::int FROM public.assessment_templates WHERE id = $2::uuid
-  UNION ALL SELECT 'assessment_template_snapshots', count(*)::int FROM public.assessment_template_snapshots WHERE template_id = $2::uuid
+  UNION ALL SELECT 'assessment_templates', count(*)::int FROM public.assessment_templates WHERE $4 AND id = $2::uuid
+  UNION ALL SELECT 'assessment_template_snapshots', count(*)::int FROM public.assessment_template_snapshots WHERE $4 AND template_id = $2::uuid
   UNION ALL SELECT 'user_roles', count(*)::int FROM public.user_roles WHERE user_id = ANY($3::uuid[])
   UNION ALL SELECT 'profiles', count(*)::int FROM public.profiles WHERE id = ANY($3::uuid[])
-  UNION ALL SELECT 'auth.users', count(*)::int FROM auth.users WHERE email LIKE 'proc-pilot-%@rehearsal.invalid'`;
+  UNION ALL SELECT 'auth.users', count(*)::int FROM auth.users WHERE id = ANY($3::uuid[])
+  UNION ALL SELECT 'ab_grades (created)', count(*)::int FROM public.ab_grades WHERE $5 AND id = $6
+  UNION ALL SELECT 'context_general_questions (created)', count(*)::int FROM public.context_general_questions WHERE id = ANY($7::uuid[])`;
 
-/** Read-only inventory of everything the rehearsal owns. */
+/** Read-only inventory of everything this run owns (per the ownership ledger). */
 export async function inventory(c: pg.Client): Promise<Record<string, number>> {
-  const ids = allUsers().map((u) => u.id).filter(Boolean);
-  const { rows } = await c.query(OWNED_TABLES_SQL, [schoolIds(), MANIFEST.template.id, ids]);
+  const { rows } = await c.query(OWNED_TABLES_SQL, [
+    created.schoolIds, MANIFEST.template.id, created.userIds, created.template,
+    created.gradeRow, MANIFEST.grade.id, created.questionIds,
+  ]);
   return Object.fromEntries(rows.map((r) => [r.t, r.n]));
 }
 
 /**
- * Every public table that has a school_id, user_id, docente_id, course_structure_id or
- * instance_id column: rows that still point at the rehearsal's schools or users.
- * Catches product writes the explicit list above does not name.
+ * Every public table column that can point at what this run created —
+ * school_id (int), and user / course / instance references (uuid) — must hold
+ * no row referencing it after cleanup. Catches product writes the explicit
+ * inventory does not name.
  */
 export async function residualScan(c: pg.Client): Promise<string[]> {
-  const ids = allUsers().map((u) => u.id).filter(Boolean) as string[];
-  const { rows: cols } = await c.query(
-    `SELECT table_name, column_name, data_type FROM information_schema.columns
-      WHERE table_schema = 'public' AND column_name IN ('school_id', 'user_id', 'docente_id', 'responded_by', 'assigned_by', 'created_by')
-        AND data_type IN ('integer', 'bigint', 'uuid')`
-  );
+  const refs: Array<[string[], unknown[], string]> = [
+    [['school_id'], created.schoolIds, 'int'],
+    [['user_id', 'docente_id', 'responded_by', 'assigned_by', 'created_by', 'published_by', 'archived_by', 'calculated_by'], created.userIds, 'uuid'],
+    [['course_structure_id'], created.courseIds, 'uuid'],
+    [['instance_id'], created.instanceIds, 'uuid'],
+  ];
   const found: string[] = [];
-  for (const { table_name: t, column_name: col, data_type: type } of cols) {
-    const sql = type === 'uuid'
-      ? `SELECT count(*)::int AS n FROM public."${t}" WHERE "${col}" = ANY($1::uuid[])`
-      : `SELECT count(*)::int AS n FROM public."${t}" WHERE "${col}" = ANY($1::int[])`;
-    const { rows } = await c.query(sql, [type === 'uuid' ? ids : schoolIds()]);
-    if (rows[0].n > 0) found.push(`${t}.${col}: ${rows[0].n}`);
+  for (const [names, ids, kind] of refs) {
+    if (ids.length === 0) continue;
+    const { rows: cols } = await c.query(
+      `SELECT table_name, column_name FROM information_schema.columns
+        WHERE table_schema = 'public' AND column_name = ANY($1::text[]) AND data_type = ANY($2::text[])`,
+      [names, kind === 'int' ? ['integer', 'bigint'] : ['uuid']]
+    );
+    for (const { table_name: t, column_name: col } of cols) {
+      const { rows } = await c.query(`SELECT count(*)::int AS n FROM public."${t}" WHERE "${col}" = ANY($1::${kind === 'int' ? 'int' : 'uuid'}[])`, [ids]);
+      if (rows[0].n > 0) found.push(`${t}.${col}: ${rows[0].n}`);
+    }
   }
   return found;
 }
 
-/** Removes every row the rehearsal owns, children first, then verifies. Synthetic stack only. */
+/** Removes exactly what this run owns, children first, then verifies. Synthetic stack only. */
 export async function cleanup(svc: SupabaseClient, c: pg.Client): Promise<{ residual: string[]; after: Record<string, number> }> {
-  const ids = allUsers().map((u) => u.id).filter(Boolean) as string[];
-  const sch = schoolIds();
+  const sch = created.schoolIds;
   const tpl = MANIFEST.template.id;
-  const insSql = `SELECT id FROM public.assessment_instances WHERE school_id = ANY($1::int[])
-                   OR template_snapshot_id IN (SELECT id FROM public.assessment_template_snapshots WHERE template_id = $2::uuid)`;
-  await c.query(`DELETE FROM public.assessment_instance_results WHERE instance_id IN (${insSql})`, [sch, tpl]);
-  await c.query(`DELETE FROM public.assessment_responses WHERE instance_id IN (${insSql})`, [sch, tpl]);
-  await c.query(`DELETE FROM public.assessment_instance_assignees WHERE instance_id IN (${insSql})`, [sch, tpl]);
-  await c.query(`DELETE FROM public.assessment_instances WHERE id IN (${insSql})`, [sch, tpl]);
-  await c.query('DELETE FROM public.assessment_year_expectations WHERE template_id = $1', [tpl]);
-  await c.query('DELETE FROM public.assessment_entity_year_weights WHERE template_id = $1', [tpl]);
-  await c.query('DELETE FROM public.assessment_indicators WHERE module_id = $1', [MANIFEST.template.moduleId]);
-  await c.query('DELETE FROM public.assessment_modules WHERE template_id = $1', [tpl]);
-  await c.query('DELETE FROM public.assessment_objectives WHERE template_id = $1', [tpl]);
-  await c.query('DELETE FROM public.assessment_template_snapshots WHERE template_id = $1', [tpl]);
-  await c.query('DELETE FROM public.assessment_templates WHERE id = $1', [tpl]);
-  await c.query(`DELETE FROM public.school_course_docente_assignments WHERE course_structure_id IN
-                   (SELECT id FROM public.school_course_structure WHERE school_id = ANY($1::int[]))`, [sch]);
-  await c.query('DELETE FROM public.school_course_structure WHERE school_id = ANY($1::int[])', [sch]);
+  const { rows: crs } = await c.query('SELECT id FROM public.school_course_structure WHERE school_id = ANY($1::int[])', [sch]);
+  created.courseIds = crs.map((r) => r.id);
+  const { rows: ins } = await c.query(
+    `SELECT id FROM public.assessment_instances WHERE school_id = ANY($1::int[])
+        OR ($3 AND template_snapshot_id IN (SELECT id FROM public.assessment_template_snapshots WHERE template_id = $2::uuid))`,
+    [sch, tpl, created.template]
+  );
+  created.instanceIds = ins.map((r) => r.id);
+
+  const instances = created.instanceIds;
+  await c.query('DELETE FROM public.assessment_instance_results WHERE instance_id = ANY($1::uuid[])', [instances]);
+  await c.query('DELETE FROM public.assessment_responses WHERE instance_id = ANY($1::uuid[])', [instances]);
+  await c.query('DELETE FROM public.assessment_instance_assignees WHERE instance_id = ANY($1::uuid[])', [instances]);
+  await c.query('DELETE FROM public.assessment_instances WHERE id = ANY($1::uuid[])', [instances]);
+  if (created.template) {
+    await c.query('DELETE FROM public.assessment_year_expectations WHERE template_id = $1', [tpl]);
+    await c.query('DELETE FROM public.assessment_entity_year_weights WHERE template_id = $1', [tpl]);
+    await c.query('DELETE FROM public.assessment_indicators WHERE module_id = $1', [MANIFEST.template.moduleId]);
+    await c.query('DELETE FROM public.assessment_modules WHERE template_id = $1', [tpl]);
+    await c.query('DELETE FROM public.assessment_objectives WHERE template_id = $1', [tpl]);
+    await c.query('DELETE FROM public.assessment_template_snapshots WHERE template_id = $1', [tpl]);
+    await c.query('DELETE FROM public.assessment_templates WHERE id = $1', [tpl]);
+  }
+  await c.query('DELETE FROM public.school_course_docente_assignments WHERE course_structure_id = ANY($1::uuid[])', [created.courseIds]);
+  await c.query('DELETE FROM public.school_course_structure WHERE id = ANY($1::uuid[])', [created.courseIds]);
   await c.query('DELETE FROM public.school_change_history WHERE school_id = ANY($1::int[])', [sch]);
   await c.query('DELETE FROM public.school_transversal_context WHERE school_id = ANY($1::int[])', [sch]);
-  await c.query('DELETE FROM public.user_roles WHERE user_id = ANY($1::uuid[])', [ids]);
-  await c.query('DELETE FROM public.profiles WHERE id = ANY($1::uuid[])', [ids]);
-  for (const id of ids) await svc.auth.admin.deleteUser(id);
+  await c.query('DELETE FROM public.user_roles WHERE user_id = ANY($1::uuid[])', [created.userIds]);
+  await c.query('DELETE FROM public.profiles WHERE id = ANY($1::uuid[])', [created.userIds]);
+  for (const id of created.userIds) {
+    const { error } = await svc.auth.admin.deleteUser(id);
+    if (error) throw new Error(`deleteUser ${id}: ${error.message}`);
+  }
   await c.query('DELETE FROM public.schools WHERE id = ANY($1::int[])', [sch]);
   if (created.questionIds.length) await c.query('DELETE FROM public.context_general_questions WHERE id = ANY($1::uuid[])', [created.questionIds]);
   if (created.gradeRow) await c.query('DELETE FROM public.ab_grades WHERE id = $1', [MANIFEST.grade.id]);

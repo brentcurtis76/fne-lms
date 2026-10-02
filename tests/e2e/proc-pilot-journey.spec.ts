@@ -23,7 +23,7 @@ import { expect, test, type Browser, type Page } from '@playwright/test';
 import type pg from 'pg';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
-  MANIFEST, SYNTHETIC_LABEL, cleanup, db, inventory, seed, serviceClient, unsafeTargetReason,
+  MANIFEST, SYNTHETIC_LABEL, assertOwnedStack, cleanup, db, inventory, seed, serviceClient, unsafeTargetReason,
   type SyntheticUser, type ViewportRun,
 } from './fixtures/proc-pilot-fixture';
 
@@ -33,32 +33,13 @@ test.describe.configure({ mode: 'serial' });
 
 const log = (msg: string) => console.log(`[${SYNTHETIC_LABEL}] ${msg}`);
 
-/**
- * Product findings: a journey step that works but shows something wrong to the
- * user. They are recorded (and printed) instead of stopping the run, so one
- * rehearsal surfaces every finding; the final test fails while any exists.
- */
-const findings: string[] = [];
-async function check(label: string, assertion: () => Promise<void>): Promise<void> {
-  try {
-    await assertion();
-  } catch (e) {
-    // eslint-disable-next-line no-control-regex
-    const text = String((e as Error).message).replace(/\u001b\[[0-9;]*m/g, '');
-    const seen = text.split('\n').find((l) => /Received (string|text)|element\(s\) not found/.test(l))?.trim();
-    const msg = `FINDING — ${label}: ${text.split('\n')[0]}${seen ? ` (${seen})` : ''}`;
-    findings.push(msg);
-    test.info().annotations.push({ type: 'finding', description: msg });
-    log(msg);
-  }
-}
 const [IND_COB, IND_FRE, IND_PRO] = MANIFEST.template.indicators;
 
 let svc: SupabaseClient;
 let c: pg.Client;
 
 test.beforeAll(async () => {
-  findings.length = 0;
+  assertOwnedStack(); // before any client or write: the URLs belong to this wrapper run's stack
   svc = serviceClient();
   c = await db();
   await seed(svc, c);
@@ -97,9 +78,9 @@ async function courseIdOf(run: ViewportRun): Promise<string> {
   return rows[0].id;
 }
 
-async function instanceOf(run: ViewportRun): Promise<{ id: string; status: string }> {
+async function instanceOf(run: ViewportRun): Promise<{ id: string; status: string; course_structure_id: string }> {
   const { rows } = await c.query(
-    `SELECT i.id, i.status FROM public.assessment_instances i
+    `SELECT i.id, i.status, i.course_structure_id FROM public.assessment_instances i
        JOIN public.assessment_template_snapshots s ON s.id = i.template_snapshot_id
       WHERE i.school_id = $1 AND s.template_id = $2 AND i.status <> 'archived'`,
     [run.schoolId, MANIFEST.template.id]
@@ -138,6 +119,7 @@ for (const run of MANIFEST.runs) {
       expect(asg.map((r) => r.docente_id)).toEqual([run.docente.id]);
       const inst = await instanceOf(run);
       expect(inst.status).toBe('pending');
+      expect(inst.course_structure_id, 'the instance belongs to the assigned course').toBe(courseId);
       const { rows: grants } = await c.query('SELECT user_id FROM public.assessment_instance_assignees WHERE instance_id = $1', [inst.id]);
       expect(grants.map((r) => r.user_id)).toEqual([run.docente.id]);
       await page.context().close();
@@ -148,12 +130,13 @@ for (const run of MANIFEST.runs) {
       const page = await signIn(browser, run, run.docente);
       await page.goto('/docente/assessments');
       await expect(page.getByRole('heading', { name: MANIFEST.template.name })).toBeVisible({ timeout: 30_000 });
-      await check(`${run.key}: the docente's evaluation card names the course`, () =>
-        expect(page.getByTestId(`assessment-card-course-${inst.id}`)).toContainText('1 BASICO A', { timeout: 5_000 }));
+      // A failed step stops the journey (plan C020): the failure message is the FINDING.
+      await expect(page.getByTestId(`assessment-card-course-${inst.id}`), 'FINDING: the docente\'s evaluation card names the course')
+        .toContainText('1 BASICO A');
 
       await page.goto(`/docente/assessments/${inst.id}`);
-      await check(`${run.key}: the evaluation page names the docente's course`, () =>
-        expect(page.getByTestId('assessment-context-course')).toContainText('1 BASICO A', { timeout: 5_000 }));
+      await expect(page.getByTestId('assessment-context-course'), 'FINDING: the evaluation page names the docente\'s course')
+        .toContainText('1 BASICO A');
       await page.getByRole('button', { name: `Sí: ${IND_COB.name}` }).click();
       await page.getByRole('spinbutton', { name: 'Cantidad de frecuencia' }).fill(String(MANIFEST.answers.frecuencia));
       await page.getByRole('button', { name: /^3\. Avanzado/ }).click();
@@ -194,7 +177,8 @@ for (const run of MANIFEST.runs) {
       await expect(row(IND_FRE.name)).toContainText(`${MANIFEST.expectedScores.frecuencia}%`);
       await expect(row(IND_PRO.name)).toContainText('3 - Avanzado');
       await expect(row(IND_PRO.name)).toContainText(`${MANIFEST.expectedScores.profundidad}%`);
-      await expect(page.getByText(`${MANIFEST.expectedScores.total}%`).first()).toBeVisible();
+      const totalCard = page.getByText('Puntuación Total', { exact: true }).locator('xpath=../..');
+      await expect(totalCard.locator('div.text-3xl')).toHaveText(`${MANIFEST.expectedScores.total}%`);
 
       const { rows: res } = await c.query('SELECT total_score FROM public.assessment_instance_results WHERE instance_id = $1', [inst.id]);
       expect(res).toHaveLength(1);
@@ -205,14 +189,10 @@ for (const run of MANIFEST.runs) {
     test('director dashboard shows the result', async ({ browser }) => {
       const page = await signIn(browser, run, run.director);
       await page.goto('/directivo/assessments/dashboard');
-      await expect(page.getByText('Promedio General')).toBeVisible({ timeout: 30_000 });
-      await expect(page.getByText(`${MANIFEST.expectedScores.total}%`).first()).toBeVisible();
+      const avgCard = page.getByText('Promedio General', { exact: true }).locator('xpath=../..');
+      await expect(avgCard.locator('div.text-3xl')).toHaveText(`${MANIFEST.expectedScores.total}%`, { timeout: 30_000 });
       await page.context().close();
-      log(`${run.key}: journey passed (synthetic)`);
+      log(`${run.key}: every journey step passed (synthetic)`);
     });
   });
 }
-
-test(`[${SYNTHETIC_LABEL}] rehearsal verdict: no product findings`, async () => {
-  expect(findings, findings.join('\n')).toEqual([]);
-});

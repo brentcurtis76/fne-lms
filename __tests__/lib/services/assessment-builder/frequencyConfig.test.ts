@@ -433,3 +433,58 @@ describe('frequency contract parity (publish-time validateFrequencyConfig ⇔ re
     expect(r.errors).toEqual(['la configuración contiene un campo desconocido (tolerance)']);
   });
 });
+
+// F1: year expectations follow the same value rule as docente answers
+import {
+  describeExpectationConflict,
+  frequencyBoundsViolation,
+  frequencyExpectationConflicts,
+  frequencyExpectationViolation,
+} from '../../../../lib/services/assessment-builder/frequencyConfig';
+
+describe('frequencyExpectationViolation (F1)', () => {
+  const CONFIG = { min: 2, max: 10, step: 2, unit: 'semana', allowed_units: ['semana'] };
+
+  it.each([
+    [2, null], [10, null], [6, null],
+    [0, 'below_min'], [12, 'above_max'], [5, 'off_step'],
+  ])('value %s → %s', (value, code) => {
+    expect(frequencyExpectationViolation(CONFIG, value)?.code ?? null).toBe(code);
+  });
+
+  it('uses the response rule, including its decimal tolerance (0.3 on 0.1 + 0.2 steps)', () => {
+    const decimal = { min: 0.1, max: 0.5, step: 0.2, unit: 'dia', allowed_units: ['dia'] };
+    expect(frequencyExpectationViolation(decimal, 0.3)).toBeNull();
+    expect(frequencyExpectationViolation(decimal, 0.2)?.code).toBe('off_step');
+    expect(frequencyBoundsViolation({ min: 0.1, max: 0.5, step: 0.2 }, 0.3)).toBeNull();
+  });
+
+  it.each([
+    ['absent config', null],
+    ['legacy { unit: "veces" }', { unit: 'veces' }],
+    ['incomplete config', { min: 0, unit: 'semana' }],
+    ['incoherent config', { min: 5, max: 1, step: 1, unit: 'semana', allowed_units: ['semana'] }],
+  ])('does not judge values against an unusable config (%s)', (_label, config) => {
+    expect(frequencyExpectationViolation(config, 999)).toBeNull();
+  });
+
+  it('ignores empty cells', () => {
+    expect(frequencyExpectationViolation(CONFIG, null)).toBeNull();
+    expect(frequencyExpectationViolation(CONFIG, undefined)).toBeNull();
+  });
+});
+
+describe('frequencyExpectationConflicts (F1)', () => {
+  it('lists every offending cell across GT/GI rows and years, with a readable es-CL description', () => {
+    const config = { min: 0, max: 5, step: 1, unit: 'semana', allowed_units: ['semana'] };
+    const conflicts = frequencyExpectationConflicts(config, [
+      { generation_type: 'GT', year_1_expected: 1, year_2_expected: 6, year_3_expected: null, year_4_expected: null, year_5_expected: 9 },
+      { generation_type: 'GI', year_1_expected: 5, year_2_expected: null, year_3_expected: null, year_4_expected: null, year_5_expected: null },
+    ]);
+    expect(conflicts.map((c) => [c.generationType, c.year, c.value, c.code])).toEqual([
+      ['GT', 2, 6, 'above_max'],
+      ['GT', 5, 9, 'above_max'],
+    ]);
+    expect(describeExpectationConflict({ ...conflicts[0], indicator: 'F1' })).toBe('F1 (GT, Año 2): 6 es mayor que el máximo (5)');
+  });
+});

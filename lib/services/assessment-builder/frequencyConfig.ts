@@ -321,6 +321,30 @@ export function parseSnapshotFrequencyConfig(config: unknown): ParsedFrequencyCo
   return { ok: true, constraints: { min, max, step, allowedUnits } };
 }
 
+export type FrequencyBoundsViolation = 'below_min' | 'above_max' | 'off_step';
+
+/**
+ * THE value rule shared by docente responses and year expectations: a finite
+ * value must lie inside [min, max] and on the step grid (anchored at min, or
+ * 0 when there is no min). Comparisons use `frequencyTolerance` — the same
+ * representation-error-only allowance as everywhere else. Returns the first
+ * violated rule, or null.
+ */
+export function frequencyBoundsViolation(
+  constraints: Pick<ParsedFrequencyConstraints, 'min' | 'max' | 'step'>,
+  value: number
+): FrequencyBoundsViolation | null {
+  const { min, max, step } = constraints;
+  if (min !== null && min - value > frequencyTolerance(min, value)) return 'below_min';
+  if (max !== null && value - max > frequencyTolerance(max, value)) return 'above_max';
+  if (step !== null) {
+    const anchor = min ?? 0;
+    const nearest = anchor + Math.round((value - anchor) / step) * step;
+    if (Math.abs(value - nearest) > frequencyTolerance(anchor, step, value)) return 'off_step';
+  }
+  return null;
+}
+
 export type FrequencyResponseRefusal =
   | 'malformed_config'
   | 'invalid_value'
@@ -372,18 +396,13 @@ export function validateFrequencyResponse(
   if (!isFiniteNumber(value)) {
     return { ok: false, code: 'invalid_value', message: 'frecuencia debe ser un número válido' };
   }
-  if (min !== null && min - value > frequencyTolerance(min, value)) {
-    return { ok: false, code: 'below_min', message: `frecuencia debe ser mayor o igual a ${min}` };
-  }
-  if (max !== null && value - max > frequencyTolerance(max, value)) {
-    return { ok: false, code: 'above_max', message: `frecuencia debe ser menor o igual a ${max}` };
-  }
-  if (step !== null) {
-    const anchor = min ?? 0;
-    const nearest = anchor + Math.round((value - anchor) / step) * step;
-    if (Math.abs(value - nearest) > frequencyTolerance(anchor, step, value)) {
-      return { ok: false, code: 'off_step', message: `frecuencia debe avanzar de ${step} en ${step}` };
-    }
+  const bounds = frequencyBoundsViolation({ min, max, step }, value);
+  if (bounds !== null) {
+    const message =
+      bounds === 'below_min' ? `frecuencia debe ser mayor o igual a ${min}`
+      : bounds === 'above_max' ? `frecuencia debe ser menor o igual a ${max}`
+      : `frecuencia debe avanzar de ${step} en ${step}`;
+    return { ok: false, code: bounds, message };
   }
 
   if (unit === undefined || unit === null) {
@@ -394,4 +413,67 @@ export function validateFrequencyResponse(
   }
 
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Year-expectation contract (F1): an expected count for a frecuencia
+// indicator must be a value a docente could actually answer.
+// ---------------------------------------------------------------------------
+
+export type ExpectationGenerationType = 'GT' | 'GI';
+export type ExpectationYear = 1 | 2 | 3 | 4 | 5;
+export const EXPECTATION_YEARS: readonly ExpectationYear[] = [1, 2, 3, 4, 5];
+
+export interface FrequencyExpectationConflict {
+  generationType: ExpectationGenerationType;
+  year: ExpectationYear;
+  value: number;
+  code: FrequencyBoundsViolation;
+  /** es-CL, e.g. "8 es mayor que el máximo (5)". */
+  message: string;
+}
+
+/**
+ * Checks one expected value against the indicator's CURRENT frequency_config.
+ * A null value, or a config that does not constrain values (absent, legacy, or
+ * not yet complete/coherent — publish refuses those configs on its own), is
+ * accepted: there is nothing to compare against yet.
+ */
+export function frequencyExpectationViolation(
+  config: unknown,
+  value: unknown
+): { code: FrequencyBoundsViolation; message: string } | null {
+  if (!isFiniteNumber(value)) return null;
+  const parsed = parseSnapshotFrequencyConfig(config);
+  if (parsed.ok === false) return null;
+  const { min, max, step } = parsed.constraints;
+  const code = frequencyBoundsViolation({ min, max, step }, value);
+  if (code === null) return null;
+  const message =
+    code === 'below_min' ? `${value} es menor que el mínimo (${min})`
+    : code === 'above_max' ? `${value} es mayor que el máximo (${max})`
+    : `${value} no corresponde a los pasos de ${step} desde ${min ?? 0}`;
+  return { code, message };
+}
+
+/** Every expected value in the given assessment_year_expectations rows that the config refuses. */
+export function frequencyExpectationConflicts(
+  config: unknown,
+  rows: ReadonlyArray<Record<string, unknown>>
+): FrequencyExpectationConflict[] {
+  const out: FrequencyExpectationConflict[] = [];
+  for (const row of rows) {
+    const generationType: ExpectationGenerationType = row.generation_type === 'GI' ? 'GI' : 'GT';
+    for (const year of EXPECTATION_YEARS) {
+      const value = row[`year_${year}_expected`];
+      const violation = frequencyExpectationViolation(config, value);
+      if (violation) out.push({ generationType, year, value: value as number, ...violation });
+    }
+  }
+  return out;
+}
+
+/** es-CL one-liner for a conflict, e.g. "FREC-1 (GT, Año 2): 8 es mayor que el máximo (5)". */
+export function describeExpectationConflict(conflict: FrequencyExpectationConflict & { indicator: string }): string {
+  return `${conflict.indicator} (${conflict.generationType}, Año ${conflict.year}): ${conflict.message}`;
 }

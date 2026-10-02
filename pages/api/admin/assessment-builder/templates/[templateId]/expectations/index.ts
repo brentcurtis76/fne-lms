@@ -2,6 +2,11 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import type { GenerationType } from '@/types/assessment-builder';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
+import {
+  describeExpectationConflict,
+  frequencyExpectationViolation,
+  type ExpectationYear,
+} from '@/lib/services/assessment-builder/frequencyConfig';
 
 // ============================================================
 // Weight validation helper (shared between `weights` and `yearWeights`)
@@ -155,6 +160,7 @@ async function handleGet(
           category,
           display_order,
           weight,
+          frequency_config,
           frequency_unit_options,
           level_0_descriptor,
           level_1_descriptor,
@@ -230,6 +236,7 @@ async function handleGet(
             indicatorCategory: indicator.category,
             indicatorWeight: indicator.weight,
             frequencyUnitOptions: indicator.frequency_unit_options,
+            frequencyConfig: indicator.category === 'frecuencia' ? (indicator.frequency_config ?? null) : undefined,
             displayOrder: indicator.display_order,
             levelDescriptors: indicator.category === 'profundidad' ? {
               level0: indicator.level_0_descriptor,
@@ -419,7 +426,7 @@ async function handlePut(
     // Get all indicator IDs for this template to validate (including category for weight validation)
     const { data: indicators, error: indicatorsError } = await supabase
       .from('assessment_indicators')
-      .select('id, module_id, category, assessment_modules!inner(template_id)')
+      .select('id, code, name, category, frequency_config, module_id, assessment_modules!inner(template_id)')
       .eq('assessment_modules.template_id', templateId);
 
     if (indicatorsError) {
@@ -429,6 +436,7 @@ async function handlePut(
 
     const validIndicatorIds = new Set((indicators || []).map((i: any) => i.id));
     const indicatorCategoryById = new Map<string, string>((indicators || []).map((i: any) => [i.id, i.category]));
+    const indicatorById = new Map<string, any>((indicators || []).map((i: any) => [i.id, i]));
 
     // ---- Validate expectations before any weight or year-weight write ----
     const errors: string[] = [];
@@ -468,7 +476,22 @@ async function handlePut(
       const validateYearValue = (value: any, yearNum: number): number | null => {
         if (value === null || value === undefined) return null;
         if (category === 'frecuencia') {
-          if (typeof value === 'number' && Number.isInteger(value) && value >= 0) return value;
+          if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+            // F1: the expected count must be an answer the indicator itself accepts
+            const indicator = indicatorById.get(exp.indicatorId);
+            const violation = frequencyExpectationViolation(indicator?.frequency_config, value);
+            if (!violation) return value;
+            valueErrors.push(
+              describeExpectationConflict({
+                indicator: String(indicator?.code || indicator?.name || exp.indicatorId),
+                generationType,
+                year: yearNum as ExpectationYear,
+                value,
+                ...violation,
+              })
+            );
+            return null;
+          }
           valueErrors.push(`Indicador ${exp.indicatorId}: year${yearNum} debe ser un número entero >= 0 o null`);
         } else if (category === 'profundidad') {
           if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 4) return value;

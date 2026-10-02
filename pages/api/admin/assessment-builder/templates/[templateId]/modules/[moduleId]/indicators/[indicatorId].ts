@@ -7,6 +7,11 @@ import { validateDetalleOptions } from '@/lib/validation/detalleValidator';
 import { validateProfundidadDescriptors } from '@/lib/validation/profundidadValidator';
 import { normalizeIndicatorText } from '@/lib/validation/indicatorNormalize';
 import { mapIndicatorRow } from '@/lib/services/assessment-builder/indicatorMapper';
+import {
+  describeExpectationConflict,
+  frequencyExpectationConflicts,
+  type FrequencyExpectationConflict,
+} from '@/lib/services/assessment-builder/frequencyConfig';
 
 const VALID_CATEGORIES: IndicatorCategory[] = ['cobertura', 'frecuencia', 'profundidad', 'traspaso', 'detalle'];
 
@@ -78,7 +83,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // a second round-trip.
   const { data: indicator, error: indicatorError } = await serviceClient
     .from('assessment_indicators')
-    .select('id, module_id, category, level_0_descriptor, level_1_descriptor, level_2_descriptor, level_3_descriptor, level_4_descriptor, detalle_options')
+    .select('id, module_id, code, name, category, frequency_config, level_0_descriptor, level_1_descriptor, level_2_descriptor, level_3_descriptor, level_4_descriptor, detalle_options')
     .eq('id', indicatorId)
     .single();
 
@@ -103,7 +108,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'Los templates archivados no pueden ser modificados' });
       }
       if (req.method === 'PUT') {
-        return handlePut(req, res, serviceClient, templateId, moduleId, indicatorId, user.id, indicator);
+        return handlePut(req, res, serviceClient, templateId, moduleId, indicatorId, user.id, indicator, template.status);
       }
       return handleDelete(req, res, serviceClient, indicatorId, moduleId, templateId, user.id);
     }
@@ -172,7 +177,8 @@ async function handlePut(
   moduleId: string,
   indicatorId: string,
   userId: string,
-  currentRow: any
+  currentRow: any,
+  templateStatus: string
 ) {
   try {
     // Guard against non-object JSON bodies (e.g. a bare string/number/array),
@@ -300,6 +306,40 @@ async function handlePut(
       return res.status(400).json({ error: 'No hay campos para actualizar' });
     }
 
+    // F1: year expectations must stay answerable under the indicator's rules.
+    // A draft template may be saved anyway (publish refuses it until the
+    // expectations are fixed) and gets the conflicts back as warnings; a
+    // published template has no later gate, so the change is refused.
+    let expectationConflicts: Array<FrequencyExpectationConflict & { indicator: string }> = [];
+    // effectiveCategory: computed above (post-update category)
+    if (effectiveCategory === 'frecuencia' && (frequencyConfig !== undefined || category !== undefined)) {
+      const effectiveConfig = frequencyConfig !== undefined ? frequencyConfig : currentRow?.frequency_config;
+      const { data: expectationRows, error: expectationsError } = await serviceClient
+        .from('assessment_year_expectations')
+        .select('generation_type, year_1_expected, year_2_expected, year_3_expected, year_4_expected, year_5_expected')
+        .eq('template_id', templateId)
+        .eq('indicator_id', indicatorId);
+      if (expectationsError) {
+        console.error('Error fetching expectations for indicator check:', expectationsError);
+        return res.status(500).json({ error: 'Error al verificar las expectativas del indicador' });
+      }
+      const label =
+        (code !== undefined ? normalizeIndicatorText(code) : currentRow?.code) ||
+        (name !== undefined ? (name as string).trim() : currentRow?.name) ||
+        indicatorId;
+      expectationConflicts = frequencyExpectationConflicts(effectiveConfig, expectationRows || [])
+        .map((conflict) => ({ ...conflict, indicator: String(label) }));
+      if (expectationConflicts.length > 0 && templateStatus === 'published') {
+        return res.status(409).json({
+          error:
+            'No se guardó: este template ya está publicado y las nuevas reglas de frecuencia dejarían expectativas fuera de rango. ' +
+            'Corrige primero las expectativas.',
+          code: 'expectations_out_of_range',
+          details: expectationConflicts.map(describeExpectationConflict),
+        });
+      }
+    }
+
     // Update indicator
     const { data: indicator, error } = await serviceClient
       .from('assessment_indicators')
@@ -323,6 +363,9 @@ async function handlePut(
       success: true,
       indicator: mapIndicatorRow(indicator),
       snapshotUpdated: snapshotResult.success,
+      ...(expectationConflicts.length > 0
+        ? { expectationWarnings: expectationConflicts.map(describeExpectationConflict) }
+        : {}),
     });
 
   } catch (err: any) {

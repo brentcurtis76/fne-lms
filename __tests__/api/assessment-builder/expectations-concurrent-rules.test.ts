@@ -221,6 +221,16 @@ describe('PUT expectations — F1 re-check edge cases (published template)', () 
     expect((await put(SAVE)).status).toBe(409);
   });
 
+  it.each([
+    ['removed (null)', null],
+    ['replaced by the legacy shape', { unit: 'veces' }],
+  ])('fails closed when publishable rules were %s after the write', async (_label, after) => {
+    const { client } = buildClient({ status: 'published', rulesAfterWrite: after });
+    asAdmin(client);
+
+    expect((await put(SAVE)).status).toBe(409);
+  });
+
   it('leaves legacy rules (unusable before and after) unjudged, as at validation time', async () => {
     const { client, ops } = buildClient({ status: 'published', rulesBefore: { unit: 'veces' }, rulesAfterWrite: { unit: 'veces' } });
     asAdmin(client);
@@ -238,5 +248,96 @@ describe('PUT expectations — F1 re-check edge cases (published template)', () 
     expect(res.status).toBe(500);
     expect(res.json.code).toBe('undo_incomplete');
     expect(res.json.error).toContain('no se pudo deshacer por completo');
+  });
+});
+
+// Stateful store: the final stored rows, not just the calls, prove the undo.
+describe('PUT expectations — F1 undo leaves the stored rows exactly as before', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const PROF_OLD = { ...OLD_GT_ROW, id: 'exp-prof', indicator_id: IND_PROFUNDIDAD_1, year_1_expected: 2, year_1_expected_unit: null };
+  const keyOf = (row: any) => `${row.indicator_id}|${row.generation_type}`;
+
+  function statefulClient(failRestoreUpsert = false) {
+    const store = new Map<string, any>([[keyOf(OLD_GT_ROW), { ...OLD_GT_ROW }], [keyOf(PROF_OLD), { ...PROF_OLD }]]);
+    let indicatorReads = 0;
+    let upserts = 0;
+    const indicators = (config: unknown) => [
+      { id: IND_FRECUENCIA_1, module_id: MODULE_A, code: 'FREC-1', name: 'Frecuencia', category: 'frecuencia', frequency_config: config },
+      { id: IND_PROFUNDIDAD_1, module_id: MODULE_A, code: 'PROF-1', name: 'Profundidad', category: 'profundidad', frequency_config: null },
+    ];
+    const expectations = () => {
+      const eqs: Array<[string, unknown]> = [];
+      let result: { data: unknown; error: unknown } = { data: Array.from(store.values()), error: null };
+      const q: any = {
+        select: () => q,
+        in: () => q,
+        eq: (col: string, val: unknown) => {
+          eqs.push([col, val]);
+          return q;
+        },
+        upsert: (payload: any) => {
+          upserts += 1;
+          if (failRestoreUpsert && upserts > 1) {
+            result = { data: null, error: { message: 'restore failed' } };
+            return q;
+          }
+          for (const row of [].concat(payload)) store.set(keyOf(row), { ...row });
+          result = { data: [].concat(payload), error: null };
+          return q;
+        },
+        delete: () => {
+          const del: any = {
+            eq: (col: string, val: unknown) => {
+              eqs.push([col, val]);
+              return del;
+            },
+            then: (resolve: (v: unknown) => void) => {
+              const f = Object.fromEntries(eqs);
+              store.delete(`${f.indicator_id}|${f.generation_type}`);
+              resolve({ data: null, error: null });
+            },
+          };
+          return del;
+        },
+        then: (resolve: (v: unknown) => void) => resolve(result),
+      };
+      return q;
+    };
+    const client = {
+      from: vi.fn((table: string) => {
+        if (table === 'assessment_templates') {
+          return buildChainableQuery({ id: TEMPLATE_DRAFT_1, status: 'published', is_archived: false, grade_id: 7, grade: { id: 7, name: 'x', is_always_gt: false } });
+        }
+        if (table === 'assessment_indicators') {
+          indicatorReads += 1;
+          return buildChainableQuery(indicators(indicatorReads === 1 ? WIDE : NARROW));
+        }
+        if (table === 'assessment_year_expectations') return expectations();
+        return buildChainableQuery([]);
+      }),
+    };
+    return { client, store };
+  }
+
+  it('a mixed frecuencia + profundidad batch is fully undone: replaced rows back, created row gone', async () => {
+    const { client, store } = statefulClient();
+    asAdmin(client);
+    const before = JSON.stringify(Array.from(store.entries()).sort());
+
+    const res = await put([...SAVE, { indicatorId: IND_PROFUNDIDAD_1, generationType: 'GT', year1: 4 }]);
+
+    expect(res.status).toBe(409);
+    expect(JSON.stringify(Array.from(store.entries()).sort())).toBe(before);
+  });
+
+  it('a failed restore upsert answers 500 undo_incomplete', async () => {
+    const { client } = statefulClient(true);
+    asAdmin(client);
+
+    const res = await put([...SAVE, { indicatorId: IND_PROFUNDIDAD_1, generationType: 'GT', year1: 4 }]);
+
+    expect(res.status).toBe(500);
+    expect(res.json.code).toBe('undo_incomplete');
   });
 });

@@ -6,7 +6,7 @@ import {
   describeExpectationConflict,
   frequencyExpectationConflicts,
   frequencyExpectationViolation,
-  parseSnapshotFrequencyConfig,
+  validateFrequencyConfig,
   type ExpectationYear,
 } from '@/lib/services/assessment-builder/frequencyConfig';
 
@@ -976,9 +976,9 @@ async function handlePut(
  * Conflicts between just-written frecuencia expectation rows and the
  * indicators' CURRENT rules (re-read after the write), as es-CL lines. null
  * (= conflict, fail closed) when the rules cannot be read, an indicator is
- * gone, or rules that were usable when this save was validated are no longer
- * usable. Rules that were already unusable (legacy configs) stay unjudged,
- * exactly as at validation time.
+ * gone, or rules that met the publish contract when this save was validated
+ * no longer do (removed, legacy or incomplete). Rules that already failed it
+ * (legacy/unconfigured) stay unjudged, exactly as at validation time.
  */
 async function expectationConflictsAfterWrite(
   supabase: any,
@@ -999,8 +999,9 @@ async function expectationConflictsAfterWrite(
   for (const row of rows) {
     const now = byId.get(row.indicator_id);
     if (!now) return null;
-    const wasUsable = parseSnapshotFrequencyConfig(validatedById.get(row.indicator_id)?.frequency_config).ok;
-    const isUsable = now.category === 'frecuencia' && parseSnapshotFrequencyConfig(now.frequency_config).ok;
+    // "Usable" = meets the full publish contract; absent and legacy rules do not.
+    const wasUsable = validateFrequencyConfig(validatedById.get(row.indicator_id)?.frequency_config).valid;
+    const isUsable = now.category === 'frecuencia' && validateFrequencyConfig(now.frequency_config).valid;
     if (wasUsable && !isUsable) return null;
     out.push(
       ...frequencyExpectationConflicts(now.frequency_config, [row]).map((conflict) =>

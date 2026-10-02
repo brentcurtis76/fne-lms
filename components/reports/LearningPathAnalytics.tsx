@@ -27,6 +27,7 @@ import {
   type LearningPathAnalyticsOverview,
   type PathSpecificAnalytics,
 } from '../../types/learning-path-analytics';
+import { shortPathLabel } from '../../lib/reports/chartLabels';
 
 /**
  * Learning-path analytics (reports tab). Audience (W-B2c-01 reporting scope,
@@ -218,7 +219,9 @@ export default function LearningPathAnalytics({ selectedPath, dateRange = 30 }: 
           <ResponsiveContainer width="100%" height={400}>
             <BarChart data={ratedPaths}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="pathName" angle={-45} textAnchor="end" height={100} fontSize={12} />
+              {/* Long path names are shortened on the axis (full name in the tooltip) so the
+                  slanted labels never run into the legend. */}
+              <XAxis dataKey="pathName" angle={-35} textAnchor="end" height={110} interval={0} fontSize={12} tickFormatter={shortPathLabel} />
               <YAxis domain={[0, 100]} />
               <Tooltip
                 formatter={(value: number | string, name: string) => {
@@ -226,7 +229,7 @@ export default function LearningPathAnalytics({ selectedPath, dateRange = 30 }: 
                   return [value, name];
                 }}
               />
-              <Legend />
+              <Legend verticalAlign="top" height={32} />
               <Bar dataKey="completionRate" fill="#3b82f6" name="Tasa de Completación (%)" />
             </BarChart>
           </ResponsiveContainer>

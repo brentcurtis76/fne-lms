@@ -2,7 +2,12 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
 import { readClientReportingScope } from '@/lib/simulation/tenant-policy';
-import { createApiSupabaseClient, getApiUser } from '@/lib/api-auth';
+import {
+  createApiSupabaseClient,
+  getApiUser,
+  getForcedPasswordChangeVerdict,
+  sendForcedPasswordChangeResponse,
+} from '@/lib/api-auth';
 
 // Learning-path report audience (W-B2c-01 reporting scope, Brent 2026-10-02).
 // Which rows each of them sees is decided by the report views themselves.
@@ -67,6 +72,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (authError || !user) {
       return res.status(401).json({ error: 'Invalid authentication' });
+    }
+
+    // Forced password change: a Bearer-only request never meets the
+    // middleware's cookie-session gate, and every report read below runs on
+    // the service-role client, so the route asks the question itself before
+    // any read (403 required / 503 unreadable state — fail closed).
+    const passwordVerdict = await getForcedPasswordChangeVerdict(supabase, user.id);
+    if (sendForcedPasswordChangeResponse(res, passwordVerdict)) {
+      return;
     }
 
     // Get user role using service role client (bypasses RLS)

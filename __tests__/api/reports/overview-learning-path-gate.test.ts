@@ -20,6 +20,9 @@
  *   * one credential per request: only an exact `Bearer <token>` header is accepted, the
  *     same token is verified and forwarded to the learning-path client, and a cookie
  *     session is never mixed in (Codex step-2 r0 #2);
+ *   * forced password change (Codex step-2 r1): a flagged Bearer-only caller gets the
+ *     standard 403 PASSWORD_CHANGE_REQUIRED, an unreadable flag the standard 503
+ *     PASSWORD_STATE_UNAVAILABLE, before any report read;
  *   * a failed learning-path query is surfaced as a warning with null figures, not as
  *     a silent zero; an internal failure is a 500, not a zeroed 200.
  */
@@ -101,6 +104,8 @@ const lpCalls = (calls: Call[]) => calls.filter((c) => c.table === 'user_learnin
 
 function baseResults(role: string) {
   return {
+    // forced-password-change flag of the requester (service role)
+    'profiles:select.eq.maybeSingle': { data: { must_change_password: false }, error: null },
     // role lookup for the requester (ordered select) and roles of reportable users
     'user_roles:select.eq.eq.order': { data: [{ role_type: role }], error: null },
     'user_roles:select.in.eq': { data: [{ user_id: USER_A, role_type: 'docente' }], error: null },
@@ -366,8 +371,10 @@ describe('failure contract', () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: ADMIN } }, error: null });
     installQueryDouble(baseResults('admin'));
     const double = mockFrom.getMockImplementation()!;
+    let profileReads = 0;
     mockFrom.mockImplementation((table: string, client: string) => {
-      if (table === 'profiles') throw new Error('synthetic internal failure');
+      // the 1st profiles read is the password gate; the 2nd is the report's profile load
+      if (table === 'profiles' && ++profileReads === 2) throw new Error('synthetic internal failure');
       return double(table, client);
     });
     const res = await call();
@@ -380,6 +387,42 @@ describe('failure contract', () => {
     const calls = installQueryDouble({ 'user_roles:select.eq.eq.order': { data: [{ role_type: 'docente' }], error: null } });
     const res = await call();
     expect(res._getStatusCode()).toBe(403);
-    expect(calls.map((c) => c.table)).toEqual(['user_roles']);
+    expect(calls.map((c) => c.table)).toEqual(['profiles', 'user_roles']);
+  });
+});
+
+describe('forced password change (Codex step-2 r1)', () => {
+  it('a flagged Bearer-only caller is refused with the standard 403 before any report read', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: ADMIN } }, error: null });
+    const results = baseResults('admin');
+    results['profiles:select.eq.maybeSingle'] = { data: { must_change_password: true }, error: null };
+    const calls = installQueryDouble(results);
+    const res = await call();
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toMatchObject({ code: 'PASSWORD_CHANGE_REQUIRED' });
+    expect(calls.map((c) => `${c.table}:${c.ops.map((o) => o.method).join('.')}`)).toEqual(['profiles:select.eq.maybeSingle']);
+    expect(calls[0].client).toBe('service');
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('an unreadable password state fails closed with the standard 503 and no report read', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: DIRECTIVO } }, error: null });
+    const results = baseResults('equipo_directivo');
+    results['profiles:select.eq.maybeSingle'] = { data: null, error: { message: 'synthetic' } };
+    const calls = installQueryDouble(results);
+    const res = await call();
+    expect(res._getStatusCode()).toBe(503);
+    expect(res._getJSONData()).toMatchObject({ code: 'PASSWORD_STATE_UNAVAILABLE' });
+    expect(calls).toHaveLength(1);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('an unflagged caller is served (200) after the check', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: ADMIN } }, error: null });
+    const calls = installQueryDouble(baseResults('admin'));
+    const res = await call();
+    expect(res._getStatusCode()).toBe(200);
+    expect(calls[0]).toMatchObject({ table: 'profiles', client: 'service' });
+    expect(calls[0].ops.find((o) => o.method === 'eq')?.args).toEqual(['id', ADMIN]);
   });
 });

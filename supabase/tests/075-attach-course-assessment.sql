@@ -82,6 +82,13 @@ INSERT INTO public.school_course_structure (id, school_id, context_id, grade_lev
   ('75000000-0000-4000-8000-0000000000a3', 9985, '75000000-0000-4000-8000-00000000c0a1', '1_basico', '1 BASICO C'),
   ('75000000-0000-4000-8000-0000000000a4', 9985, '75000000-0000-4000-8000-00000000c0a1', '1_basico', '1 BASICO D');
 
+-- A1 needs a course with two active docentes, which the one-active index
+-- (20261002180000) now makes impossible. The RPC keeps its own
+-- assignment_invariant_violation guard as defence in depth; to keep proving
+-- it, this file drops the index inside its own transaction (rolled back at the
+-- end, so the index is back for every other file). 099 proves the index.
+DROP INDEX public.school_course_docente_assignments_one_active_key;
+
 INSERT INTO public.school_course_docente_assignments (id, course_structure_id, docente_id, is_active) VALUES
   ('75000000-0000-4000-8000-0000000000d1', '75000000-0000-4000-8000-0000000000a1', tests.get_supabase_uid('at_d1'), true),
   ('75000000-0000-4000-8000-0000000000d2', '75000000-0000-4000-8000-0000000000a1', tests.get_supabase_uid('at_d2'), true),

@@ -155,6 +155,17 @@ function refuse(res: NextApiResponse, code: RefusalCode) {
   });
 }
 
+/**
+ * True only for the one-active-docente index (20261002180000). The table's
+ * other unique constraint (course_structure_id, docente_id) also answers
+ * 23505 and keeps the generic 500, so the constraint name is checked.
+ */
+function isOneActiveViolation(error: { code?: string; message?: string; details?: string } | null): boolean {
+  if (!error || error.code !== '23505') return false;
+  const text = `${error.message ?? ''} ${error.details ?? ''}`;
+  return text.includes('school_course_docente_assignments_one_active_key');
+}
+
 type ActiveAssignmentState =
   | { kind: 'none' }        // zero active rows on the course
   | { kind: 'same' }        // exactly one active row, for the requested docente
@@ -251,9 +262,10 @@ async function readTargetEligibility(
 //    created, attached, or confirmed as already existing and no error occurred.
 //
 // Step 1 is an application-layer check only. Two concurrent requests for
-// different docentes can both pass it until the one-active-per-course
-// database constraint (D-01) lands; nothing here locks, retries or cleans up
-// the assignment row itself. Step 5 is different (Codex round 3, finding 1):
+// different docentes can both pass it; the database's one-active index
+// (20261002180000) then refuses the second write in step 4 with 23505, which
+// is answered as 409 course_already_assigned before any automatic assignment.
+// Nothing here locks, retries or cleans up the assignment row itself. Step 5 is different (Codex round 3, finding 1):
 // every instance / grant write happens inside
 // `public.attach_course_docente_assessment`, one locked transaction that
 // re-reads the docente's ACTIVE assignment under the course row lock, so a
@@ -359,6 +371,7 @@ async function handlePost(
           .update({ is_active: true })
           .eq('id', existing.id);
 
+        if (isOneActiveViolation(updateError)) return refuse(res, 'course_already_assigned');
         if (updateError) {
           console.error('Error reactivating assignment:', updateError);
           return res.status(500).json({ error: 'Error al asignar docente' });
@@ -375,6 +388,7 @@ async function handlePost(
             is_active: true,
           });
 
+        if (isOneActiveViolation(insertError)) return refuse(res, 'course_already_assigned');
         if (insertError) {
           console.error('Error creating assignment:', insertError);
           return res.status(500).json({ error: 'Error al asignar docente' });

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseEnv } from 'dotenv';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { apiContextFor, ensureStorageState, E2E_USERS, E2E_ROLE_COMMUNITY, E2E_SCHOOL, type FixtureKey } from './helpers/auth';
+import { apiContextFor, ensureStorageState, E2E_USERS, E2E_ROLE_COMMUNITY, E2E_SCHOOL, E2E_SCHOOL_SECONDARY, type FixtureKey } from './helpers/auth';
 
 /**
  * W-B2c-01 — learning-path governance, end to end on the seeded local stack.
@@ -14,8 +14,9 @@ import { apiContextFor, ensureStorageState, E2E_USERS, E2E_ROLE_COMMUNITY, E2E_S
  *   2. assignment is literal-admin-only and consumption follows assignment: after the
  *      admin assigns the synthetic template to the docente, the docente sees it in
  *      /api/learning-paths/my-paths and the consultor does not;
- *   3. cross-user reporting is literal-admin-only: the docente cannot read another
- *      user's paths, the equipo_directivo cannot read analytics;
+ *   3. cross-user reporting: the docente cannot read another user's paths nor the
+ *      analytics; the equipo_directivo (own school) can read analytics (W-B2c-01
+ *      reporting scope, Brent 2026-10-02);
  *   4. the database enforces the same model through PostgREST, which is exactly the
  *      surface a browser client reaches: anonymous reads of learning_paths are refused,
  *      the docente's own token sees only the assigned template, the consultor's token
@@ -222,7 +223,7 @@ test.describe('learning-path governance (W-B2c-01)', () => {
     expect(theirPaths.map((p) => p.id)).not.toContain(pathId);
   });
 
-  test('3. cross-user reporting is admin-only', async ({ request }) => {
+  test('3. cross-user reporting: per-user reads own-or-admin; analytics for admin, consultor and equipo_directivo only', async ({ request }) => {
     test.skip(!pathId, 'template was not created');
     const { userId: adminId } = await accessTokenFor(request, 'admin');
     const { userId: docenteId } = await accessTokenFor(request, 'docente');
@@ -234,8 +235,12 @@ test.describe('learning-path governance (W-B2c-01)', () => {
     expect(self.status()).toBe(200);
     expect(((await self.json()) as Array<{ id: string }>).map((p) => p.id)).toContain(pathId);
 
+    // W-B2c-01 reporting scope (Brent 2026-10-02): the director reads analytics
+    // (their school's people — the views scope the rows); a docente does not.
     const analytics = await directivo.get('/api/learning-paths/analytics');
-    expect(analytics.status()).toBe(403);
+    expect(analytics.status(), await analytics.text()).toBe(200);
+    const docenteAnalytics = await docente.get('/api/learning-paths/analytics');
+    expect(docenteAnalytics.status()).toBe(403);
 
     const adminView = await admin.get(`/api/learning-paths/user/${docenteId}`);
     expect(adminView.status()).toBe(200);
@@ -925,23 +930,33 @@ test.describe('learning-path governance (W-B2c-01)', () => {
     expect(await retry.json()).toMatchObject({ unassigned_count: 0, removed: { notFound: { groupIds: [WORKSPACE_ID] } } });
   });
 
-  test('C3. reporting: live views for the admin, learning-path half admin-only in the overview, retired refresh job', async ({ request }) => {
+  test('C3. reporting: live views with defined figures, learning-path half for admin / consultor / equipo_directivo in the overview, retired refresh job', async ({ request }) => {
     test.skip(!pathId, 'template was not created');
     const { token: adminToken } = await accessTokenFor(request, 'admin');
     const { token: consultorToken } = await accessTokenFor(request, 'consultorGlobal');
+    const { token: directivoToken } = await accessTokenFor(request, 'directivo');
+    const { token: gcLeaderToken } = await accessTokenFor(request, 'gcLeader');
     const { token: docenteToken, userId: docenteId } = await accessTokenFor(request, 'docente');
 
+    // W-B2c-01 figures (Brent 2026-10-02): no 'unavailable' list, the
+    // learning-path engagement score is gone, at risk is a defined count.
     const overview = await admin.get('/api/learning-paths/analytics');
     expect(overview.status(), await overview.text()).toBe(200);
     const body = (await overview.json()) as any;
-    expect(body.unavailable).toContain('engagementScore');
+    expect(body).not.toHaveProperty('unavailable');
+    expect(typeof body.summary.atRiskUsers).toBe('number');
     const mine = body.pathPerformance.find((p: any) => p.pathId === pathId);
     expect(mine, 'the template appears in the live performance view').toBeTruthy();
-    expect(mine.engagementScore).toBeNull();
+    expect(mine).not.toHaveProperty('engagementScore');
+    expect(typeof mine.atRiskUsers).toBe('number');
     expect(mine.totalUsers).toBeGreaterThanOrEqual(1);
     const specific = await admin.get(`/api/learning-paths/analytics?pathId=${pathId}`);
     expect(specific.status(), await specific.text()).toBe(200);
-    expect(((await specific.json()) as any).userAnalytics.atRiskUsers).toBeNull();
+    const specificBody = (await specific.json()) as any;
+    expect(specificBody).not.toHaveProperty('unavailable');
+    expect(specificBody.pathInfo).not.toHaveProperty('engagementScore');
+    expect(typeof specificBody.pathInfo.atRiskUsers).toBe('number');
+    expect(typeof specificBody.userAnalytics.atRiskUsers).toBe('number');
 
     // Direct PostgREST reads: the docente sees only their own summary row; nothing from the cross-user views.
     const own = await request.get(`${SUPABASE_URL}/rest/v1/user_learning_path_summary?select=user_id,path_id`, { headers: rest(docenteToken) });
@@ -957,15 +972,19 @@ test.describe('learning-path governance (W-B2c-01)', () => {
     const adminPerf = await request.get(`${SUPABASE_URL}/rest/v1/learning_path_performance_summary?select=path_id&path_id=eq.${pathId}`, { headers: rest(adminToken) });
     expect((await adminPerf.json()) as unknown[]).toHaveLength(1);
 
-    // Overview report: the consultor keeps the course half, the learning-path half is admin-only (null, never 0).
-    const consultorOverview = await request.get('/api/reports/overview', { headers: { Authorization: `Bearer ${consultorToken}` } });
-    expect(consultorOverview.status(), await consultorOverview.text()).toBe(200);
-    const co = (await consultorOverview.json()) as any;
-    expect(co.learning_path_reporting).toBe('admin_only');
-    expect(co.summary.total_time_spent).toBeNull();
-    const adminOverview = await request.get('/api/reports/overview', { headers: { Authorization: `Bearer ${adminToken}` } });
-    expect(adminOverview.status()).toBe(200);
-    expect(((await adminOverview.json()) as any).learning_path_reporting).toBe('included');
+    // Overview report: the learning-path half is included for admin, consultor
+    // and equipo_directivo; any other reporting role gets 'not_available'
+    // (null learning-path figures, never 0) while keeping the course half.
+    for (const [label, token] of [['admin', adminToken], ['consultor', consultorToken], ['equipo_directivo', directivoToken]] as const) {
+      const r = await request.get('/api/reports/overview', { headers: { Authorization: `Bearer ${token}` } });
+      expect(r.status(), `${label}: ${await r.text()}`).toBe(200);
+      expect(((await r.json()) as any).learning_path_reporting, label).toBe('included');
+    }
+    const leaderOverview = await request.get('/api/reports/overview', { headers: { Authorization: `Bearer ${gcLeaderToken}` } });
+    expect(leaderOverview.status(), await leaderOverview.text()).toBe(200);
+    const lo = (await leaderOverview.json()) as any;
+    expect(lo.learning_path_reporting).toBe('not_available');
+    if (lo.summary && 'total_time_spent' in lo.summary) expect(lo.summary.total_time_spent).toBeNull();
 
     // The refresh job is retired: authentication first, then 410 with no work.
     const retired = await request.post('/api/cron/update-learning-path-summaries', { headers: { Authorization: `Bearer ${CRON_SECRET}` } });
@@ -973,6 +992,102 @@ test.describe('learning-path governance (W-B2c-01)', () => {
     expect(((await retired.json()) as any).retired).toBe(true);
     const retiredUnauth = await request.post('/api/cron/update-learning-path-summaries', { headers: { Authorization: 'Bearer not-the-secret' } });
     expect(retiredUnauth.status()).toBe(401);
+  });
+
+  test('C3b. a director sees only their own school: a learner of another school on the same path counts for the admin, never for the director', async ({ request }) => {
+    test.skip(!pathId, 'template was not created');
+    // The seeded director (fixture `directivo`) is equipo_directivo of the
+    // PRIMARY school; the docente assigned in test 2 is a primary-school person,
+    // so the director sees this path. A synthetic learner whose only active
+    // role is in the SECONDARY school is added to the same path, assigned 20
+    // days ago with no activity (so also "at risk"), then removed exactly.
+    const { userId: adminId, token: adminToken } = await accessTokenFor(request, 'admin');
+    const { token: directivoToken } = await accessTokenFor(request, 'directivo');
+    const stamp = `${Date.now()}`;
+    const email = `e2e-lp-otra-escuela-${stamp}@example.com`;
+    let learnerId: string | null = null;
+
+    const figures = async (ctx: APIRequestContext, label: string) => {
+      const overview = await ctx.get('/api/learning-paths/analytics');
+      expect(overview.status(), `${label} overview: ${await overview.text()}`).toBe(200);
+      const o = (await overview.json()) as any;
+      const specific = await ctx.get(`/api/learning-paths/analytics?pathId=${pathId}`);
+      expect(specific.status(), `${label} path: ${await specific.text()}`).toBe(200);
+      const sp = (await specific.json()) as any;
+      return {
+        totalAssigned: o.summary.totalAssignedUsers as number,
+        atRisk: o.summary.atRiskUsers as number,
+        pathAssigned: sp.pathInfo.totalAssignedUsers as number,
+        pathAtRisk: sp.pathInfo.atRiskUsers as number,
+        pathUsers: sp.userAnalytics.totalUsers as number,
+      };
+    };
+    const summaryRows = async (token: string, userId: string) => {
+      const r = await request.get(`${SUPABASE_URL}/rest/v1/user_learning_path_summary?select=user_id,is_at_risk&path_id=eq.${pathId}&user_id=eq.${userId}`, { headers: rest(token) });
+      expect(r.status(), await r.text()).toBe(200);
+      return (await r.json()) as Array<{ user_id: string; is_at_risk: boolean }>;
+    };
+
+    const adminBefore = await figures(admin, 'admin');
+    const directorBefore = await figures(directivo, 'directivo');
+    expect(directorBefore.pathAssigned, 'the director sees this path through a primary-school assignee').toBeGreaterThanOrEqual(1);
+
+    try {
+      const { data: created, error: createError } = await service.auth.admin.createUser({ email, password: `OtraEscuela${stamp}Sintetico`, email_confirm: true });
+      if (createError || !created.user) throw new Error(`[learning-path-governance] createUser: ${createError?.message}`);
+      learnerId = created.user.id;
+      const { error: profileError } = await service.from('profiles').upsert(
+        { id: learnerId, email, first_name: 'Sintetico', last_name: 'Otra Escuela', name: 'Sintetico Otra Escuela', approval_status: 'approved', must_change_password: false, school_id: E2E_SCHOOL_SECONDARY.id },
+        { onConflict: 'id' }
+      );
+      if (profileError) throw new Error(`[learning-path-governance] profile: ${profileError.message}`);
+      const { error: roleError } = await service.from('user_roles').insert({ user_id: learnerId, role_type: 'docente', school_id: E2E_SCHOOL_SECONDARY.id, is_active: true });
+      if (roleError) throw new Error(`[learning-path-governance] role: ${roleError.message}`);
+      const assignedAt = new Date(Date.now() - 20 * 24 * 60 * 60_000).toISOString();
+      const { error: assignError } = await service.from('learning_path_assignments').insert({ path_id: pathId, user_id: learnerId, assigned_by: adminId, assigned_at: assignedAt });
+      if (assignError) throw new Error(`[learning-path-governance] assignment: ${assignError.message}`);
+
+      const adminAfter = await figures(admin, 'admin');
+      const directorAfter = await figures(directivo, 'directivo');
+
+      // The admin counts the other-school learner (assigned, and at risk) …
+      expect(adminAfter.totalAssigned).toBe(adminBefore.totalAssigned + 1);
+      expect(adminAfter.pathAssigned).toBe(adminBefore.pathAssigned + 1);
+      expect(adminAfter.pathUsers).toBe(adminBefore.pathUsers + 1);
+      expect(adminAfter.atRisk).toBe(adminBefore.atRisk + 1);
+      expect(adminAfter.pathAtRisk).toBe(adminBefore.pathAtRisk + 1);
+      // … the director's figures do not move.
+      expect(directorAfter).toEqual(directorBefore);
+
+      // The same through PostgREST: the row exists for the admin, not for the director.
+      const adminRows = await summaryRows(adminToken, learnerId);
+      expect(adminRows).toEqual([{ user_id: learnerId, is_at_risk: true }]);
+      expect(await summaryRows(directivoToken, learnerId)).toEqual([]);
+    } finally {
+      if (learnerId) {
+        const id = learnerId;
+        const del = async (label: string, p: PromiseLike<{ error: { message: string } | null }>) => {
+          const { error } = await p;
+          if (error) throw new Error(`[learning-path-governance] cleanup ${label}: ${error.message}`);
+        };
+        await del('assignment', service.from('learning_path_assignments').delete().eq('user_id', id));
+        await del('progress', service.from('learning_path_user_progress').delete().eq('user_id', id));
+        await del('daily activity', service.from('learning_path_daily_user_activity').delete().eq('user_id', id));
+        await del('enrolments', service.from('course_enrollments').delete().eq('user_id', id));
+        await del('roles', service.from('user_roles').delete().eq('user_id', id));
+        await del('profile', service.from('profiles').delete().eq('id', id));
+        const { error: authDeleteError } = await service.auth.admin.deleteUser(id);
+        if (authDeleteError) throw new Error(`[learning-path-governance] cleanup auth user: ${authDeleteError.message}`);
+        for (const table of ['learning_path_assignments', 'learning_path_user_progress', 'user_roles'] as const) {
+          const { data: left, error: leftError } = await service.from(table).select('user_id').eq('user_id', id);
+          if (leftError) throw new Error(`[learning-path-governance] cleanup check ${table}: ${leftError.message}`);
+          expect(left, `no ${table} row of the synthetic learner is left`).toEqual([]);
+        }
+      }
+    }
+    // Back to the starting figures for both.
+    expect(await figures(admin, 'admin')).toEqual(adminBefore);
+    expect(await figures(directivo, 'directivo')).toEqual(directorBefore);
   });
 
   test('C4. maintenance: an idle run reports both stages; an old closed session is settled, its day is kept as reporting evidence, and the row is archived', async ({ request }) => {
@@ -1166,7 +1281,10 @@ test.describe('learning-path governance (W-B2c-01)', () => {
       await expect(tab).toBeVisible();
       await expect(page.getByTestId('lp-analytics-summary')).toBeVisible({ timeout: 30_000 });
       await expect(page.getByTestId('lp-analytics-avg-rate')).toHaveText(/^(\d+\.\d%|No disponible)$/);
-      await expect(page.getByTestId('lp-analytics-unavailable-note')).toContainText('engagement');
+      await expect(page.getByTestId('lp-analytics-at-risk')).toHaveText(/^\d+$/);
+      await expect(page.getByTestId('lp-analytics-at-risk-hint')).toContainText('Sin actividad en 14 días');
+      await expect(page.getByTestId('lp-analytics-unavailable-note')).toHaveCount(0);
+      await expect(page.getByTestId('lp-analytics-scope-hint')).toHaveCount(0);
       await expect(page.getByTestId('lp-analytics-error')).toHaveCount(0);
       await expect(page.getByTestId('lp-analytics-denied')).toHaveCount(0);
 
@@ -1175,16 +1293,16 @@ test.describe('learning-path governance (W-B2c-01)', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          summary: { totalPaths: 0, totalAssignedUsers: 0, totalCompletedUsers: 0, averageCompletionRate: null, totalTimeSpentHours: 0 },
+          summary: { totalPaths: 0, totalAssignedUsers: 0, totalCompletedUsers: 0, averageCompletionRate: null, totalTimeSpentHours: 0, atRiskUsers: 0 },
           recentActivity: { timeframe: '30 days', totalSessions: 0, activeUserDays: 0 },
           completionTrends: [], pathPerformance: [], lowPerformingPaths: [],
-          unavailable: ['engagementScore', 'atRiskUsers', 'completionRate(daily)', 'avgCompletionRate(monthly)'],
         }),
       }));
       await page.reload();
       await page.getByRole('button', { name: /Rutas de Aprendizaje/ }).click();
       await expect(page.getByTestId('lp-analytics-avg-rate')).toHaveText('No disponible', { timeout: 30_000 });
       await expect(page.getByTestId('lp-analytics-empty')).toContainText('Sin rutas de aprendizaje');
+      await expect(page.getByTestId('lp-analytics-at-risk')).toHaveText('0');
       await expect(page.getByTestId('lp-analytics-error')).toHaveCount(0);
       // and a failed view query is its own state (502 contract)
       await page.unroute('**/api/learning-paths/analytics**');
@@ -1196,17 +1314,49 @@ test.describe('learning-path governance (W-B2c-01)', () => {
       await ctx.close();
     }
 
-    // A reporting role that is not the literal admin: the tab explains instead of requesting.
+    // W-B2c-01 reporting scope (Brent 2026-10-02): the consultor now gets the
+    // real analytics (every school), with no school-level hint and no denial.
     const consultorState = await ensureStorageState(browser, 'consultorGlobal');
     const ctx2 = await browser.newContext({ storageState: consultorState });
     try {
       const page = await ctx2.newPage();
       await page.goto('/reports');
       await page.getByRole('button', { name: /Rutas de Aprendizaje/ }).click();
-      await expect(page.getByTestId('lp-analytics-admin-only')).toContainText('solo para administradores', { timeout: 30_000 });
-      await expect(page.getByTestId('lp-analytics-summary')).toHaveCount(0);
+      await expect(page.getByTestId('lp-analytics-summary')).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByTestId('lp-analytics-at-risk')).toHaveText(/^\d+$/);
+      await expect(page.getByTestId('lp-analytics-not-available')).toHaveCount(0);
+      await expect(page.getByTestId('lp-analytics-denied')).toHaveCount(0);
+      await expect(page.getByTestId('lp-analytics-error')).toHaveCount(0);
+      await expect(page.getByTestId('lp-analytics-scope-hint')).toHaveCount(0);
     } finally {
       await ctx2.close();
+    }
+
+    // The director gets the analytics with the school-level hint.
+    const directivoState = await ensureStorageState(browser, 'directivo');
+    const ctx3 = await browser.newContext({ storageState: directivoState });
+    try {
+      const page = await ctx3.newPage();
+      await page.goto('/reports');
+      await page.getByRole('button', { name: /Rutas de Aprendizaje/ }).click();
+      await expect(page.getByTestId('lp-analytics-scope-hint')).toContainText('Nivel escuela', { timeout: 30_000 });
+      await expect(page.getByTestId('lp-analytics-summary')).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByTestId('lp-analytics-denied')).toHaveCount(0);
+    } finally {
+      await ctx3.close();
+    }
+
+    // Any other reporting role: the tab explains instead of requesting.
+    const leaderState = await ensureStorageState(browser, 'gcLeader');
+    const ctx4 = await browser.newContext({ storageState: leaderState });
+    try {
+      const page = await ctx4.newPage();
+      await page.goto('/reports');
+      await page.getByRole('button', { name: /Rutas de Aprendizaje/ }).click();
+      await expect(page.getByTestId('lp-analytics-not-available')).toContainText('solo para administración, consultores y equipo directivo', { timeout: 30_000 });
+      await expect(page.getByTestId('lp-analytics-summary')).toHaveCount(0);
+    } finally {
+      await ctx4.close();
     }
   });
 

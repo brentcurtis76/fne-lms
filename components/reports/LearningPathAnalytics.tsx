@@ -29,13 +29,15 @@ import {
 } from '../../types/learning-path-analytics';
 
 /**
- * Learning-path analytics (admin reports tab). Consumes the nullable C3
+ * Learning-path analytics (reports tab). Audience (W-B2c-01 reporting scope,
+ * Brent 2026-10-02): admin and consultor see every school, equipo_directivo
+ * their own school's people; the API and the report views decide which rows a
+ * caller gets, this component only renders them. Consumes the nullable
  * contract of types/learning-path-analytics.ts — C-R1-04 (closure review
  * 2026-09-08): a null rate is an explicit "No disponible" state (never a
- * crash, never a fabricated 0), a valid 0 is 0.0 %, metrics without a governing
- * definition are named as unavailable and never drawn as a series, and a
- * denied (403), failed (502 relation) or malformed response each has its own
- * state.
+ * crash, never a fabricated 0), a valid 0 is 0.0 %, and a denied (403), failed
+ * (502 relation) or malformed response each has its own state. "En riesgo" =
+ * assigned, not finished, no activity for 14 days (the views' definition).
  */
 
 interface LearningPathAnalyticsProps {
@@ -51,6 +53,7 @@ type ViewState =
   | { kind: 'path'; data: PathSpecificAnalytics };
 
 const UNAVAILABLE = 'No disponible';
+const AT_RISK_HINT = 'Sin actividad en 14 días y sin terminar la ruta';
 
 /** A nullable rate: null = unavailable; a number (0 included) is a value. */
 export function formatRate(value: number | null | undefined): string {
@@ -128,7 +131,7 @@ export default function LearningPathAnalytics({ selectedPath, dateRange = 30 }: 
       <div className="bg-gray-50 border border-gray-200 text-gray-700 px-4 py-3 rounded-lg" data-testid="lp-analytics-denied">
         <div className="flex items-center">
           <Lock className="h-5 w-5 mr-2" />
-          <span>Las analíticas de rutas de aprendizaje están disponibles solo para administradores.</span>
+          <span>Las analíticas de rutas de aprendizaje están disponibles solo para administración, consultores y equipo directivo.</span>
         </div>
       </div>
     );
@@ -159,7 +162,7 @@ export default function LearningPathAnalytics({ selectedPath, dateRange = 30 }: 
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4" data-testid="lp-analytics-summary">
+      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4" data-testid="lp-analytics-summary">
         <SummaryCard title="Rutas Totales" value={data.summary.totalPaths} icon={<Map className="h-5 w-5" />} color="text-blue-600" />
         <SummaryCard title="Usuarios Asignados" value={data.summary.totalAssignedUsers} icon={<Users className="h-5 w-5" />} color="text-green-600" />
         <SummaryCard title="Completados" value={data.summary.totalCompletedUsers} icon={<Target className="h-5 w-5" />} color="text-amber-600" />
@@ -177,6 +180,14 @@ export default function LearningPathAnalytics({ selectedPath, dateRange = 30 }: 
           icon={<Clock className="h-5 w-5" />}
           color="text-red-600"
           testId="lp-analytics-total-hours"
+        />
+        <SummaryCard
+          title="En riesgo"
+          value={data.summary.atRiskUsers}
+          icon={<AlertTriangle className="h-5 w-5" />}
+          color="text-red-600"
+          testId="lp-analytics-at-risk"
+          hint={AT_RISK_HINT}
         />
       </div>
 
@@ -287,7 +298,7 @@ export default function LearningPathAnalytics({ selectedPath, dateRange = 30 }: 
 function PathSpecificView({ data }: { data: PathSpecificAnalytics }) {
   return (
     <div className="space-y-6" data-testid="lp-analytics-path">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" data-testid="lp-analytics-summary">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4" data-testid="lp-analytics-summary">
         <SummaryCard title="Usuarios Asignados" value={data.pathInfo.totalAssignedUsers} icon={<Users className="h-5 w-5" />} color="text-green-600" />
         <SummaryCard title="Completados" value={data.pathInfo.completedUsers} icon={<Target className="h-5 w-5" />} color="text-amber-600" />
         <SummaryCard
@@ -299,6 +310,14 @@ function PathSpecificView({ data }: { data: PathSpecificAnalytics }) {
           muted={data.pathInfo.completionRate === null}
         />
         <SummaryCard title="Tiempo Promedio" value={formatDays(data.pathInfo.avgCompletionTimeDays)} icon={<Clock className="h-5 w-5" />} color="text-red-600" />
+        <SummaryCard
+          title="En riesgo"
+          value={data.pathInfo.atRiskUsers}
+          icon={<AlertTriangle className="h-5 w-5" />}
+          color="text-red-600"
+          testId="lp-analytics-at-risk"
+          hint={AT_RISK_HINT}
+        />
       </div>
       {data.pathInfo.totalAssignedUsers === 0 && (
         <div className="bg-gray-50 border border-gray-200 text-gray-700 px-4 py-3 rounded-lg" data-testid="lp-analytics-empty">
@@ -328,15 +347,18 @@ interface SummaryCardProps {
   color: string;
   testId?: string;
   muted?: boolean;
+  /** One plain line under the value explaining the figure. */
+  hint?: string;
 }
 
-function SummaryCard({ title, value, icon, color, testId, muted }: SummaryCardProps) {
+function SummaryCard({ title, value, icon, color, testId, muted, hint }: SummaryCardProps) {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-gray-600">{title}</p>
           <p className={`text-2xl font-bold ${muted ? 'text-gray-400' : 'text-gray-900'}`} data-testid={testId}>{value}</p>
+          {hint && <p className="text-xs text-gray-500 mt-1" data-testid={testId ? `${testId}-hint` : undefined}>{hint}</p>}
         </div>
         <div className={`${color}`}>{icon}</div>
       </div>

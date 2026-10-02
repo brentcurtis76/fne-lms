@@ -110,6 +110,15 @@ describe('nullable metrics under the C3 contract', () => {
     expect(screen.queryByTestId('lp-analytics-unavailable-note')).not.toBeInTheDocument();
     expect(screen.getByTestId('lp-analytics-unrated')).toHaveTextContent('Ruta B');
     expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
+    // "En riesgo" card: the defined count plus its one-line plain explanation
+    expect(screen.getByTestId('lp-analytics-at-risk')).toHaveTextContent('1');
+    expect(screen.getByTestId('lp-analytics-at-risk-hint')).toHaveTextContent(/sin actividad en 14 días/i);
+  });
+
+  it('a valid zero at-risk count is rendered as 0', async () => {
+    respond(200, EMPTY_OVERVIEW);
+    render(<LearningPathAnalytics dateRange={30} />);
+    expect(await screen.findByTestId('lp-analytics-at-risk')).toHaveTextContent(/^0$/);
   });
 
   it('the low-performing list renders the rate of each entry', async () => {
@@ -132,7 +141,7 @@ describe('failure and denial states are distinct', () => {
   it('403 is a denial state, not a data error', async () => {
     respond(403, { error: 'You do not have permission to view analytics' });
     render(<LearningPathAnalytics dateRange={30} />);
-    expect(await screen.findByTestId('lp-analytics-denied')).toHaveTextContent(/solo para administradores/i);
+    expect(await screen.findByTestId('lp-analytics-denied')).toHaveTextContent(/solo para administración, consultores y equipo directivo/i);
     expect(screen.queryByTestId('lp-analytics-error')).not.toBeInTheDocument();
   });
 

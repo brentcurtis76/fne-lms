@@ -5,14 +5,27 @@ import { getApiUser, createApiSupabaseClient, sendAuthError } from '../../../../
  * Enhanced progress endpoint for learning path detail page
  * Simplified version that works with existing basic tables
  *
- * "At risk" follows the report views' definition (W-B2c-01 figures, Brent
- * 2026-10-02; migration 20261002120000): assigned, not finished (every course
- * of the path completed), and no activity for 14 days; a path with no courses
- * is never at risk. The learning-path engagement score / level is retired.
+ * W-B2c-01 figures (Brent 2026-10-02; migration 20261002120000):
+ *   - a course is finished when its course_enrollments row has is_completed
+ *     or progress_percentage >= 100 (ONE predicate, isCourseFinished, for the
+ *     status, the completed-course count, the percentage — same as the views);
+ *     the path is finished when every course of it is; the self-reported path
+ *     completed_at is reported as history only;
+ *   - "at risk" and the last activity are read, never re-derived, from the
+ *     caller's own row of user_learning_path_summary (assigned, not finished,
+ *     no activity for 14 days; never for a courseless path). A failed read
+ *     makes both null (unavailable), never a guess; an absent row (the caller
+ *     is not an assignee, e.g. an admin previewing) also makes them null: the
+ *     definition only applies to assigned people.
+ * The learning-path engagement score / level is retired.
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-export const AT_RISK_INACTIVE_DAYS = 14;
+
+type OwnSummary =
+  | { kind: 'row'; isAtRisk: boolean; lastActivityAt: string | null }
+  | { kind: 'absent' }
+  | { kind: 'error' };
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -187,23 +200,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('path_id', pathId);
 
     // 4b. The caller's own row of the report summary (own rows are always
-    // visible to them): its last_activity_effective_at includes lesson
-    // activity on the path's courses, which this route cannot read cheaply.
-    // Absent (e.g. an admin who is not assigned) = fall back to local data.
-    const { data: ownSummary } = await supabaseClient
+    // visible to them): the defined at-risk flag and last activity (which
+    // includes lesson activity this route does not read).
+    const { data: summaryRow, error: summaryError } = await supabaseClient
       .from('user_learning_path_summary')
-      .select('last_activity_effective_at')
+      .select('is_at_risk, last_activity_effective_at')
       .eq('user_id', userId)
       .eq('path_id', pathId)
       .maybeSingle();
+    let ownSummary: OwnSummary;
+    if (summaryError) {
+      console.error('Enhanced progress: user_learning_path_summary read failed:', summaryError.message ?? summaryError);
+      ownSummary = { kind: 'error' };
+    } else if (!summaryRow) {
+      ownSummary = { kind: 'absent' };
+    } else {
+      ownSummary = {
+        kind: 'row',
+        isAtRisk: summaryRow.is_at_risk === true,
+        lastActivityAt: summaryRow.last_activity_effective_at ?? null,
+      };
+    }
 
     // 5. Calculate user progress based on existing data
-    const userProgress = calculateUserProgress(
-      assignment,
-      pathCourses,
-      courseEnrollments,
-      ownSummary?.last_activity_effective_at ?? null
-    );
+    const userProgress = calculateUserProgress(assignment, pathCourses, courseEnrollments, ownSummary);
     const pathBenchmarks = calculatePathBenchmarks(pathStats || []);
     const insights = calculateBasicInsights(userProgress, pathBenchmarks, assignment, pathCourses, courseEnrollments);
 
@@ -230,81 +250,49 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-function isCourseFinished(enrollment: any): boolean {
+/** The ONE course-finished predicate (same as the report views). */
+export function isCourseFinished(enrollment: any): boolean {
   return enrollment?.is_completed === true || Number(enrollment?.progress_percentage ?? 0) >= 100;
-}
-
-function latestDate(values: Array<string | null | undefined>): string | null {
-  let latest: string | null = null;
-  for (const v of values) {
-    if (!v) continue;
-    const t = new Date(v).getTime();
-    if (!Number.isFinite(t)) continue;
-    if (latest === null || t > new Date(latest).getTime()) latest = v;
-  }
-  return latest;
-}
-
-/**
- * The 14-day rule (same as user_learning_path_summary.is_at_risk): the path
- * has at least one course, the learner has not finished every course, and the
- * last activity is older than 14 days.
- */
-export function isAtRiskByRule(input: {
-  totalCourses: number;
-  isFinished: boolean;
-  lastActivityAt: string | null;
-  now?: number;
-}): boolean {
-  const { totalCourses, isFinished, lastActivityAt } = input;
-  if (totalCourses <= 0 || isFinished || !lastActivityAt) return false;
-  const t = new Date(lastActivityAt).getTime();
-  if (!Number.isFinite(t)) return false;
-  return t < (input.now ?? Date.now()) - AT_RISK_INACTIVE_DAYS * DAY_MS;
 }
 
 function calculateUserProgress(
   assignment: any,
   pathCourses: any[],
   courseEnrollments: any[],
-  summaryLastActivityAt: string | null = null
+  ownSummary: OwnSummary
 ) {
   const totalCourses = pathCourses?.length || 0;
-  const completedCourses = courseEnrollments.filter(e => e.progress_percentage === 100).length;
-  const inProgressCourses = courseEnrollments.filter(e => e.progress_percentage > 0 && e.progress_percentage < 100).length;
-  
-  // Calculate overall progress percentage based on course completions
-  const overallProgress = totalCourses > 0 
+  const pathCourseIds = new Set((pathCourses || []).map((pc: any) => pc.course_id));
+  const pathEnrollments = courseEnrollments.filter((e) => pathCourseIds.has(e.course_id));
+  const finishedCourseIds = new Set(pathEnrollments.filter(isCourseFinished).map((e) => e.course_id));
+  const completedCourses = finishedCourseIds.size;
+  const inProgressCourses = pathEnrollments.filter(
+    (e) => !finishedCourseIds.has(e.course_id) && Number(e.progress_percentage ?? 0) > 0
+  ).length;
+  const isFinished = totalCourses > 0 && completedCourses === totalCourses;
+
+  // Overall progress = share of the path's courses finished
+  const overallProgress = totalCourses > 0
     ? Math.round((completedCourses / totalCourses) * 100)
     : 0;
-  
-  // Determine status based on available data. The own-progress record
-  // (R3-04: learning_path_user_progress, mirrored into a direct row) is
-  // authoritative for completion, elapsed minutes, current course and start.
+
+  // Status as in user_learning_path_summary: 'completed' only when every
+  // course is finished (the self-reported completed_at is history, reported
+  // as completedAt). The own-progress record (R3-04) still decides
+  // 'in_progress' through its start / minutes.
   let status = 'not_started';
-  if (overallProgress === 100 || assignment.completed_at) {
+  if (isFinished) {
     status = 'completed';
   } else if (completedCourses > 0 || inProgressCourses > 0 || assignment.started_at || (assignment.total_time_spent_minutes ?? 0) > 0) {
     status = 'in_progress';
   }
 
-  // Finished = every course of the path completed (is_completed or progress
-  // >= 100), as in the report views — not the self-reported path completion.
-  const finishedCourseIds = new Set(courseEnrollments.filter(isCourseFinished).map((e) => e.course_id));
-  const isFinished = totalCourses > 0 && (pathCourses || []).every((pc: any) => finishedCourseIds.has(pc.course_id));
-
-  // Last activity, as in the report views: the summary's effective last
-  // activity (path progress + lesson activity) when available, else the
-  // latest of the own progress record and course activity, else the
-  // assignment date.
-  const lastActivityAt =
-    summaryLastActivityAt ??
-    latestDate([
-      assignment.last_activity_at,
-      ...courseEnrollments.map((e) => e.updated_at || e.completed_at || e.created_at),
-    ]) ??
-    assignment.assigned_at ??
-    null;
+  // At risk / last activity: from the summary row only (null = unavailable).
+  const isAtRisk: boolean | null = ownSummary.kind === 'row' ? ownSummary.isAtRisk : null;
+  const lastActivityAt: string | null = ownSummary.kind === 'row' ? ownSummary.lastActivityAt : null;
+  const daysSinceLastActivity: number | null = lastActivityAt
+    ? Math.max(0, Math.floor((Date.now() - new Date(lastActivityAt).getTime()) / DAY_MS))
+    : null;
 
   // Find the most recent course activity (used as a start-date fallback)
   const mostRecentActivity = courseEnrollments.length > 0
@@ -316,10 +304,6 @@ function calculateUserProgress(
       }, null)
     : null;
 
-  const daysSinceLastActivity = lastActivityAt
-    ? Math.max(0, Math.floor((Date.now() - new Date(lastActivityAt).getTime()) / DAY_MS))
-    : 0;
-
   return {
     status,
     overallProgress,
@@ -328,7 +312,7 @@ function calculateUserProgress(
     avgSessionMinutes: 0, // Not available in basic schema
     currentCourse: Number(assignment.current_course_sequence ?? 1) || 1, // own-progress record (R3-04)
     daysSinceLastActivity,
-    isAtRisk: isAtRiskByRule({ totalCourses, isFinished, lastActivityAt }),
+    isAtRisk,
     completionStreak: 0, // Not available in basic schema
     startDate: assignment.started_at || mostRecentActivity || assignment.assigned_at, // own-progress start, else first course activity, else assignment date
     completedAt: assignment.completed_at ?? null, // own-progress record (R3-04)
@@ -511,7 +495,8 @@ function generateBasicRecommendations(userProgress: any, assignment: any) {
   const recommendations = [];
 
   // Activity-based recommendations
-  if (userProgress.daysSinceLastActivity > 3) {
+  // null = last activity unavailable: no activity-based nudge
+  if (typeof userProgress.daysSinceLastActivity === 'number' && userProgress.daysSinceLastActivity > 3) {
     recommendations.push({
       type: 'activity',
       priority: 'high',

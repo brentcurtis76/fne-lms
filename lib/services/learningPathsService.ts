@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
 import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../supabase';
+import { learningPathReportScope } from '../learning-paths/reportScope';
 
 interface LearningPath {
   id: string;
@@ -405,15 +406,7 @@ export class LearningPathsService {
         .eq('user_id', userId)
         .eq('is_active', true);
       if (error || !Array.isArray(data)) return null;
-
-      const active = data.filter((r: any) => r && r.is_active === true);
-      if (active.some((r: any) => r.role_type === 'admin' || r.role_type === 'consultor')) {
-        return 'all';
-      }
-      if (active.some((r: any) => r.role_type === 'equipo_directivo' && r.school_id !== null && r.school_id !== undefined)) {
-        return 'school';
-      }
-      return null;
+      return learningPathReportScope(data);
     } catch (error) {
       return null;
     }

@@ -27,8 +27,10 @@ interface EnhancedProgressData {
     totalSessions: number;
     avgSessionMinutes: number;
     currentCourse: number;
-    daysSinceLastActivity: number;
-    isAtRisk: boolean;
+    /** null = unavailable (summary read failed, or the caller is not an assignee) */
+    daysSinceLastActivity: number | null;
+    /** null = unavailable; true = assigned, not finished, no activity for 14 days */
+    isAtRisk: boolean | null;
     completionStreak: number;
     startDate: string;
   };
@@ -65,7 +67,7 @@ export default function EnhancedProgressIndicators({ data, pathName }: Props) {
             <BarChart3 className="w-5 h-5" />
             Tu Progreso Inteligente
           </h3>
-          {userProgress.isAtRisk && (
+          {userProgress.isAtRisk === true && (
             <div className="flex items-center gap-2 text-orange-600 bg-orange-50 px-3 py-1 rounded-full text-sm">
               <AlertTriangle className="w-4 h-4" />
               <span>Sin actividad en 14 días</span>

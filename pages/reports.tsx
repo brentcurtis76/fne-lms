@@ -14,6 +14,7 @@ import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalP
 import { BarChart3, Calendar, Map } from 'lucide-react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { getUserPrimaryRole } from '../utils/roleUtils';
+import { learningPathReportScope, type LearningPathReportScope } from '../lib/learning-paths/reportScope';
 
 interface User {
   id: string;
@@ -96,10 +97,6 @@ interface CourseAnalytics {
   popularity_rank: number;
 }
 
-// Learning-path report audience (W-B2c-01 reporting scope, Brent 2026-10-02);
-// same list as pages/api/reports/overview.ts. The API refuses everyone else.
-const LEARNING_PATH_REPORT_ROLES = ['admin', 'consultor', 'equipo_directivo'];
-
 const ReportsPage: React.FC = () => {
   const router = useRouter();
   const supabase = useSupabaseClient();
@@ -108,6 +105,8 @@ const ReportsPage: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<string>('');
   const [isAdmin, setIsAdmin] = useState(false);
+  // Learning-path report scope, same rule as the API door (getReportScope)
+  const [lpReportScope, setLpReportScope] = useState<LearningPathReportScope>(null);
   const [avatarUrl, setAvatarUrl] = useState('');
   const [userScope, setUserScope] = useState<string>('');
   
@@ -165,6 +164,16 @@ const ReportsPage: React.FC = () => {
         const role = await getUserPrimaryRole(session.user.id);
         setUserRole(role);
         setIsAdmin(role === 'admin');
+
+        // Learning-path tab eligibility from the caller's own active role rows,
+        // exactly as the API decides it (a director needs a school). A failed
+        // read leaves it null: the tab explains instead of requesting.
+        const { data: ownRoles, error: ownRolesError } = await supabase
+          .from('user_roles')
+          .select('role_type, school_id, is_active')
+          .eq('user_id', session.user.id)
+          .eq('is_active', true);
+        setLpReportScope(ownRolesError ? null : learningPathReportScope(ownRoles));
         
         // Check if user has reporting access
         const reportingRoles = ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red'];
@@ -780,9 +789,9 @@ const ReportsPage: React.FC = () => {
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900">Análisis de Rutas de Aprendizaje</h3>
               </div>
-              {LEARNING_PATH_REPORT_ROLES.includes(userRole) ? (
+              {lpReportScope !== null ? (
                 <>
-                  {userRole === 'equipo_directivo' && (
+                  {lpReportScope === 'school' && (
                     <p className="text-sm text-gray-600" data-testid="lp-analytics-scope-hint">
                       Nivel escuela: solo ves a las personas de tu escuela.
                     </p>

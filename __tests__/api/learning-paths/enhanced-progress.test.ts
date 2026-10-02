@@ -150,7 +150,9 @@ describe('GET /api/learning-paths/[id]/enhanced-progress — R3-04 authoritative
     expect(body.userProgress.totalTimeSpent).toBe(120);
     expect(body.userProgress.currentCourse).toBe(3);
     expect(body.userProgress.completedAt).toBe('2026-01-20T00:00:00Z');
-    expect(body.userProgress.status).toBe('completed');
+    // W-B2c-01: the self-reported completion is history only; the status follows
+    // the finished-course rule (a courseless path is never finished).
+    expect(body.userProgress.status).toBe('in_progress');
   });
 
   it('a group-only member after losing the direct row still reads their preserved progress', async () => {
@@ -169,13 +171,13 @@ describe('GET /api/learning-paths/[id]/enhanced-progress — R3-04 authoritative
   });
 });
 
-describe('GET /api/learning-paths/[id]/enhanced-progress — W-B2c-01 figures (14-day at-risk, engagement retired)', () => {
+describe('GET /api/learning-paths/[id]/enhanced-progress — W-B2c-01 figures (one finished predicate, at risk from the summary, engagement retired)', () => {
   const COURSE_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
   const COURSE_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
   const daysAgo = (d: number) => new Date(Date.now() - d * 24 * 60 * 60 * 1000).toISOString();
   const twoCourses = { data: [{ course_id: COURSE_A, sequence_order: 1, courses: { id: COURSE_A } }, { course_id: COURSE_B, sequence_order: 2, courses: { id: COURSE_B } }] };
-  const direct = (assignedDaysAgo: number) => ({
-    data: { id: 'a1', user_id: DOCENTE, path_id: PATH, assigned_at: daysAgo(assignedDaysAgo), learning_paths: LP },
+  const direct = (assignedDaysAgo: number, extra: Record<string, unknown> = {}) => ({
+    data: { id: 'a1', user_id: DOCENTE, path_id: PATH, assigned_at: daysAgo(assignedDaysAgo), learning_paths: LP, ...extra },
   });
 
   it('never returns an engagement score or level', async () => {
@@ -184,6 +186,7 @@ describe('GET /api/learning-paths/[id]/enhanced-progress — W-B2c-01 figures (1
       'learning_path_assignments#1': direct(1),
       'learning_path_courses#1': twoCourses,
       'learning_path_assignments#2': { data: [{ user_id: DOCENTE, assigned_at: daysAgo(1) }] },
+      'user_learning_path_summary#1': { data: { is_at_risk: false, last_activity_effective_at: daysAgo(1) } },
     });
     const res = await get();
     expect(res._getStatusCode()).toBe(200);
@@ -193,19 +196,57 @@ describe('GET /api/learning-paths/[id]/enhanced-progress — W-B2c-01 figures (1
     expect(JSON.stringify(body)).not.toMatch(/engagement/i);
   });
 
-  it('not finished and the summary says last activity 15 days ago → at risk (even if never started)', async () => {
+  // Codex r0 reproduction 1: self-reported completion, unfinished courses, activity 20 days ago
+  it('a self-reported completion with unfinished courses is NOT completed, and at risk agrees with the status', async () => {
+    installQueryDouble({
+      'user_roles#1': { data: [{ role_type: 'docente' }] },
+      'learning_path_assignments#1': direct(30, { completed_at: daysAgo(20), started_at: daysAgo(29) }),
+      'learning_path_courses#1': twoCourses,
+      'course_enrollments#1': { data: [{ course_id: COURSE_A, progress_percentage: 30, is_completed: false, created_at: daysAgo(29), updated_at: daysAgo(20) }] },
+      'learning_path_assignments#2': { data: [] },
+      'user_learning_path_summary#1': { data: { is_at_risk: true, last_activity_effective_at: daysAgo(20) } },
+    });
+    const up = (await get())._getJSONData().userProgress;
+    expect(up.status).toBe('in_progress');
+    expect(up.completedCourses).toBe(0);
+    expect(up.overallProgress).toBe(0);
+    expect(up.isAtRisk).toBe(true);
+    expect(up.daysSinceLastActivity).toBe(20);
+    expect(up.completedAt).toEqual(expect.any(String)); // the self-reported date is still reported, as history
+  });
+
+  // Codex r0 reproduction 2: every course finished through is_completed, percentage below 100
+  it('every course finished through is_completed (percentage < 100) is completed at 100 %', async () => {
+    installQueryDouble({
+      'user_roles#1': { data: [{ role_type: 'docente' }] },
+      'learning_path_assignments#1': direct(60),
+      'learning_path_courses#1': twoCourses,
+      'course_enrollments#1': { data: [
+        { course_id: COURSE_A, progress_percentage: 40, is_completed: true, created_at: daysAgo(59), updated_at: daysAgo(50) },
+        { course_id: COURSE_B, progress_percentage: 90, is_completed: true, created_at: daysAgo(59), updated_at: daysAgo(45) },
+      ] },
+      'learning_path_assignments#2': { data: [] },
+      'user_learning_path_summary#1': { data: { is_at_risk: false, last_activity_effective_at: daysAgo(45) } },
+    });
+    const up = (await get())._getJSONData().userProgress;
+    expect(up.status).toBe('completed');
+    expect(up.completedCourses).toBe(2);
+    expect(up.inProgressCourses).toBe(0);
+    expect(up.overallProgress).toBe(100);
+    expect(up.isAtRisk).toBe(false);
+  });
+
+  it('at risk and last activity come from the caller\'s own summary row', async () => {
     const calls = installQueryDouble({
       'user_roles#1': { data: [{ role_type: 'docente' }] },
       'learning_path_assignments#1': direct(30),
       'learning_path_courses#1': twoCourses,
-      'course_enrollments#1': { data: [{ course_id: COURSE_A, progress_percentage: 100, is_completed: true, created_at: daysAgo(29), updated_at: daysAgo(20) }] },
       'learning_path_assignments#2': { data: [] },
-      'user_learning_path_summary#1': { data: { last_activity_effective_at: daysAgo(15) } },
+      'user_learning_path_summary#1': { data: { is_at_risk: true, last_activity_effective_at: daysAgo(15) } },
     });
-    const body = (await get())._getJSONData();
-    expect(body.userProgress.isAtRisk).toBe(true);
-    expect(body.userProgress.daysSinceLastActivity).toBe(15);
-    // the summary read is the caller's own row of that path
+    const up = (await get())._getJSONData().userProgress;
+    expect(up.isAtRisk).toBe(true);
+    expect(up.daysSinceLastActivity).toBe(15);
     const summary = calls.find((c) => c.table === 'user_learning_path_summary')!;
     expect(summary.ops).toEqual(expect.arrayContaining([
       { method: 'eq', args: ['user_id', DOCENTE] },
@@ -213,73 +254,43 @@ describe('GET /api/learning-paths/[id]/enhanced-progress — W-B2c-01 figures (1
     ]));
   });
 
-  it('13 days without activity → not at risk', async () => {
+  it('a FAILED summary read makes at risk and last activity unavailable (null), never a guess — even with old local activity', async () => {
     installQueryDouble({
       'user_roles#1': { data: [{ role_type: 'docente' }] },
-      'learning_path_assignments#1': direct(30),
+      'learning_path_assignments#1': direct(40),
       'learning_path_courses#1': twoCourses,
+      'course_enrollments#1': { data: [{ course_id: COURSE_A, progress_percentage: 10, is_completed: false, created_at: daysAgo(39), updated_at: daysAgo(39) }] },
       'learning_path_assignments#2': { data: [] },
-      'user_learning_path_summary#1': { data: { last_activity_effective_at: daysAgo(13) } },
+      'user_learning_path_summary#1': { data: null, error: { message: 'relation unavailable' } },
     });
-    expect((await get())._getJSONData().userProgress.isAtRisk).toBe(false);
+    const res = await get();
+    expect(res._getStatusCode()).toBe(200);
+    const body = res._getJSONData();
+    expect(body.userProgress.isAtRisk).toBeNull();
+    expect(body.userProgress.daysSinceLastActivity).toBeNull();
+    expect(body.insights.recommendations.map((r: { type: string }) => r.type)).not.toContain('activity');
   });
 
-  it('every course finished → never at risk, however old the activity', async () => {
+  it('an ABSENT summary row (caller not an assignee) is also null — the definition only applies to assigned people', async () => {
     installQueryDouble({
       'user_roles#1': { data: [{ role_type: 'docente' }] },
-      'learning_path_assignments#1': direct(60),
-      'learning_path_courses#1': twoCourses,
-      'course_enrollments#1': { data: [
-        { course_id: COURSE_A, progress_percentage: 40, is_completed: true, created_at: daysAgo(59), updated_at: daysAgo(50) },
-        { course_id: COURSE_B, progress_percentage: 100, is_completed: false, created_at: daysAgo(59), updated_at: daysAgo(45) },
-      ] },
-      'learning_path_assignments#2': { data: [] },
-      'user_learning_path_summary#1': { data: { last_activity_effective_at: daysAgo(45) } },
-    });
-    expect((await get())._getJSONData().userProgress.isAtRisk).toBe(false);
-  });
-
-  it('a path with no courses is never at risk', async () => {
-    installQueryDouble({
-      'user_roles#1': { data: [{ role_type: 'docente' }] },
-      'learning_path_assignments#1': direct(60),
-      'learning_path_courses#1': { data: [] },
-      'learning_path_assignments#2': { data: [] },
-      'user_learning_path_summary#1': { data: { last_activity_effective_at: daysAgo(60) } },
-    });
-    expect((await get())._getJSONData().userProgress.isAtRisk).toBe(false);
-  });
-
-  it('no summary row: falls back to own progress / course activity, else the assignment date', async () => {
-    installQueryDouble({
-      'user_roles#1': { data: [{ role_type: 'docente' }] },
-      'learning_path_assignments#1': direct(20),           // assigned 20 days ago, nothing since
+      'learning_path_assignments#1': direct(40),
       'learning_path_courses#1': twoCourses,
       'learning_path_assignments#2': { data: [] },
+      'user_learning_path_summary#1': { data: null, error: null },
     });
-    expect((await get())._getJSONData().userProgress.isAtRisk).toBe(true);
-
-    installQueryDouble({
-      'user_roles#1': { data: [{ role_type: 'docente' }] },
-      'learning_path_assignments#1': direct(20),
-      'learning_path_user_progress#1': { data: { started_at: daysAgo(19), last_activity_at: daysAgo(3), completed_at: null, current_course_sequence: 1, total_time_spent_minutes: 5 } },
-      'learning_path_courses#1': twoCourses,
-      'learning_path_assignments#2': { data: [] },
-    });
-    expect((await get())._getJSONData().userProgress.isAtRisk).toBe(false);
+    const up = (await get())._getJSONData().userProgress;
+    expect(up.isAtRisk).toBeNull();
+    expect(up.daysSinceLastActivity).toBeNull();
   });
 });
 
-describe('isAtRiskByRule', () => {
-  it('applies the 14-day boundary', async () => {
-    const { isAtRiskByRule } = await import('../../../pages/api/learning-paths/[id]/enhanced-progress');
-    const now = Date.parse('2026-10-02T12:00:00Z');
-    const day = 24 * 60 * 60 * 1000;
-    const at = (d: number) => new Date(now - d * day).toISOString();
-    expect(isAtRiskByRule({ totalCourses: 1, isFinished: false, lastActivityAt: at(15), now })).toBe(true);
-    expect(isAtRiskByRule({ totalCourses: 1, isFinished: false, lastActivityAt: at(13), now })).toBe(false);
-    expect(isAtRiskByRule({ totalCourses: 1, isFinished: true, lastActivityAt: at(30), now })).toBe(false);
-    expect(isAtRiskByRule({ totalCourses: 0, isFinished: false, lastActivityAt: at(30), now })).toBe(false);
-    expect(isAtRiskByRule({ totalCourses: 1, isFinished: false, lastActivityAt: null, now })).toBe(false);
+describe('isCourseFinished', () => {
+  it('is_completed OR progress >= 100, as in the report views', async () => {
+    const { isCourseFinished } = await import('../../../pages/api/learning-paths/[id]/enhanced-progress');
+    expect(isCourseFinished({ is_completed: true, progress_percentage: 0 })).toBe(true);
+    expect(isCourseFinished({ is_completed: false, progress_percentage: 100 })).toBe(true);
+    expect(isCourseFinished({ is_completed: false, progress_percentage: 99 })).toBe(false);
+    expect(isCourseFinished({ is_completed: null, progress_percentage: null })).toBe(false);
   });
 });

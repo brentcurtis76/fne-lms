@@ -403,11 +403,7 @@ const ReportsPage: React.FC = () => {
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => {
-                    setActiveTab(tab.id);
-                    // Keep ?tab= in step so a shared link and the menu highlight match the tab shown.
-                    router.replace({ pathname: router.pathname, query: { ...router.query, tab: tab.id } }, undefined, { shallow: true });
-                  }}
+                  onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
                     activeTab === tab.id
                       ? 'border-[#fbbf24] text-[#0a0a0a]'

@@ -66,6 +66,11 @@ test.describe('login failure recovery', () => {
       await page.getByTestId('login-submit').click();
       const oldSession = await (await signedIn).json();
       await expect(page).toHaveURL(/\/dashboard(?:\?|$)/, { timeout: 30_000 });
+      // Let the dashboard finish its own API calls, then leave it. Any of those
+      // calls landing after the reset is refused by the middleware, which expires
+      // the revoked cookie (correct, but not the browser state under test here).
+      await page.waitForLoadState('networkidle');
+      await page.goto('about:blank');
       const cookiesBeforeReset = (await page.context().cookies()).filter(cookie => cookie.name.startsWith('sb-'));
       expect(cookiesBeforeReset.length).toBeGreaterThan(0);
       const reset = await admin.auth.admin.updateUserById(userId, { password: newPassword });

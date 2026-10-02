@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
+import { extractionErrorMessage } from '../../lib/contracts/extractionError';
 
 // Set worker for react-pdf
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
@@ -125,8 +126,7 @@ export default function ContractPDFImporter({
             throw new Error('Failed to read file');
           }
 
-        // Try real API first, fall back to mock if API key not configured
-        let response = await fetch('/api/contracts/extract-pdf', {
+        const response = await fetch('/api/contracts/extract-pdf', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -137,48 +137,12 @@ export default function ContractPDFImporter({
           }),
         });
 
-        let result;
-        
-        // Check if API key is not configured
-        if (response.status === 500) {
-          const errorData = await response.json();
-          if (errorData.error?.includes('API de Claude')) {
-            console.log('Claude API not configured, using mock extraction mode...');
-            
-            // Use mock endpoint instead
-            const mockResponse = await fetch('/api/contracts/extract-pdf-mock', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                pdfBase64: base64,
-                fileName: file.name
-              }),
-            });
-            
-            result = await mockResponse.json();
-            
-            if (!mockResponse.ok) {
-              throw new Error(result.error || 'Error al procesar el PDF en modo mock');
-            }
-            
-            // Show mock data notice
-            toast(result.message || 'Usando datos de prueba - Configure API key para extracción real', {
-              icon: 'ℹ️',
-              duration: 4000,
-            });
-          } else {
-            // Other error, throw it
-            throw new Error(errorData.error || 'Error al procesar el PDF');
-          }
-        } else {
-          // Response from real API
-          result = await response.json();
-          
-          if (!response.ok) {
-            throw new Error(result.error || 'Error al procesar el PDF');
-          }
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          // No sample-data fallback: a missing AI key must never fill the form
+          // with an invented contract.
+          throw new Error(extractionErrorMessage(response.status, result));
         }
 
         // Set extracted data

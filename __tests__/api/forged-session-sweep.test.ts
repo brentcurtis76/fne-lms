@@ -127,7 +127,6 @@ import checkPermissions from '../../pages/api/admin/check-permissions';
 import assignAccess from '../../pages/api/admin/transformation/assign-access';
 import revokeAccess from '../../pages/api/admin/transformation/revoke-access';
 import collaborativeSubmit from '../../pages/api/assignments/collaborative-submit';
-import extractPdfMock from '../../pages/api/contracts/extract-pdf-mock';
 import extractPdf from '../../pages/api/contracts/extract-pdf';
 import diagSignature from '../../pages/api/meet/diag-signature';
 import myCourses from '../../pages/api/my-courses';
@@ -232,7 +231,6 @@ const SWEEP: Array<[string, Handler, string, Record<string, string>, unknown]> =
   ['admin/transformation/assign-access', assignAccess, 'POST', {}, { communityId: 'c-1' }],
   ['admin/transformation/revoke-access', revokeAccess, 'POST', {}, { communityId: 'c-1' }],
   ['assignments/collaborative-submit', collaborativeSubmit, 'POST', {}, { assignmentId: 'a-1' }],
-  ['contracts/extract-pdf-mock', extractPdfMock, 'POST', {}, {}],
   ['contracts/extract-pdf', extractPdf, 'POST', {}, {}],
   ['meet/diag-signature', diagSignature, 'POST', {}, { meetingNumber: '90210042001' }],
   ['my-courses', myCourses, 'GET', {}, {}],

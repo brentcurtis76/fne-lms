@@ -1,5 +1,5 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
@@ -61,6 +61,10 @@ const STATUS_LABELS: Record<string, { label: string; bgColor: string; textColor:
   archived: { label: 'Archivado', bgColor: 'bg-gray-100', textColor: 'text-gray-800' },
 };
 
+// The app's toaster sits bottom-right, over the indicator modal's action buttons, and a toast never expires
+// while hovered. Errors raised from that modal show at the top so the admin can fix the form and retry at once.
+const INDICATOR_MODAL_TOAST = { position: 'top-center' } as const;
+
 // The builder consumes the exact camelCase shape the indicator API returns
 // (mapIndicatorRow), so derive it rather than maintaining a parallel interface.
 type IndicatorData = MappedIndicator;
@@ -78,8 +82,13 @@ type ObjectiveWithModules = AssessmentObjective & {
 const TemplateEditor: React.FC = () => {
   const router = useRouter();
   const { templateId } = router.query;
+  // Next hands out a new router object once the dynamic query is ready. Auth and the template load
+  // must not re-run for that: a reload resets `loading` and collapses a tree the user already expanded.
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const supabase = useSupabaseClient();
   const [user, setUser] = useState<any>(null);
+  const userId: string | undefined = user?.id;
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>('');
@@ -264,7 +273,7 @@ const TemplateEditor: React.FC = () => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
-        router.push('/login');
+        routerRef.current.push('/login');
         return;
       }
       setUser(session.user);
@@ -292,11 +301,11 @@ const TemplateEditor: React.FC = () => {
     };
 
     checkAuth();
-  }, [supabase, router]);
+  }, [supabase]);
 
   // Fetch template and modules
   const fetchTemplate = useCallback(async () => {
-    if (!templateId || typeof templateId !== 'string' || !user || hasPermission === false) return;
+    if (!templateId || typeof templateId !== 'string' || !userId || hasPermission === false) return;
 
     setLoading(true);
     try {
@@ -333,17 +342,17 @@ const TemplateEditor: React.FC = () => {
     } catch (error: any) {
       console.error('Error fetching template:', error);
       toast.error(error.message || 'Error al cargar el template');
-      router.push('/admin/assessment-builder');
+      routerRef.current.push('/admin/assessment-builder');
     } finally {
       setLoading(false);
     }
-  }, [templateId, user, hasPermission, router]);
+  }, [templateId, userId, hasPermission]);
 
   useEffect(() => {
-    if (user && hasPermission === true && templateId) {
+    if (userId && hasPermission === true && templateId) {
       fetchTemplate();
     }
-  }, [user, hasPermission, templateId, fetchTemplate]);
+  }, [userId, hasPermission, templateId, fetchTemplate]);
 
   // Update template
   const handleUpdateTemplate = async () => {
@@ -705,7 +714,7 @@ const TemplateEditor: React.FC = () => {
   const handleSaveIndicator = async () => {
     if (!template || !indicatorModuleId) return;
     if (!indicatorForm.name.trim()) {
-      toast.error('El nombre del indicador es requerido');
+      toast.error('El nombre del indicador es requerido', INDICATOR_MODAL_TOAST);
       return;
     }
 
@@ -719,7 +728,7 @@ const TemplateEditor: React.FC = () => {
         indicatorForm.level4Descriptor,
       ]);
       if (!result.valid) {
-        toast.error(result.error!);
+        toast.error(result.error!, INDICATOR_MODAL_TOAST);
         return;
       }
     }
@@ -728,12 +737,12 @@ const TemplateEditor: React.FC = () => {
     // the publish endpoint enforces, so the admin learns about gaps here).
     if (indicatorForm.category === 'frecuencia') {
       if (indicatorForm.frequencyUnitOptions.length === 0) {
-        toast.error('Los indicadores de frecuencia requieren al menos un período permitido');
+        toast.error('Los indicadores de frecuencia requieren al menos un período permitido', INDICATOR_MODAL_TOAST);
         return;
       }
       const check = validateFrequencyConfig(frequencyConfigFromForm());
       if (!check.valid) {
-        toast.error(`Configuración de frecuencia incompleta: ${check.errors[0]}`);
+        toast.error(`Configuración de frecuencia incompleta: ${check.errors[0]}`, INDICATOR_MODAL_TOAST);
         return;
       }
     }
@@ -742,12 +751,12 @@ const TemplateEditor: React.FC = () => {
     if (indicatorForm.category === 'detalle') {
       const filledOptions = indicatorForm.detalleOptions.map(o => o.trim()).filter(o => o.length > 0);
       if (filledOptions.length < 2) {
-        toast.error('Los indicadores de detalle requieren al menos 2 opciones');
+        toast.error('Los indicadores de detalle requieren al menos 2 opciones', INDICATOR_MODAL_TOAST);
         return;
       }
       const unique = new Set(filledOptions.map(o => o.toLowerCase()));
       if (unique.size !== filledOptions.length) {
-        toast.error('Las opciones de detalle no pueden repetirse');
+        toast.error('Las opciones de detalle no pueden repetirse', INDICATOR_MODAL_TOAST);
         return;
       }
     }
@@ -854,7 +863,7 @@ const TemplateEditor: React.FC = () => {
       setIsIndicatorModalOpen(false);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Error al guardar el indicador';
-      toast.error(msg);
+      toast.error(msg, INDICATOR_MODAL_TOAST);
     } finally {
       setIsSaving(false);
     }

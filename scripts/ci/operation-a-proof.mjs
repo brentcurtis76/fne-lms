@@ -47,18 +47,27 @@
  *        SHARE so a restore waits for it, a stale attach under the archived
  *        template refuses without waiting, and after the restore an attach
  *        creates a fresh instance while the archived one stays archived (R4);
+ *   [S1] (PROC-B006) the handoff's complete Step 1 discovery block — 1a, 1b,
+ *        1c, 1d0 and both 1d checks — extracted verbatim (its sha256 is
+ *        printed) and executed unfiltered in one READ ONLY transaction right
+ *        after seeding; every result set must equal the fixture's expected
+ *        identifiers exactly, so the proof needs a FRESH isolated target (any
+ *        foreign row is reported as drift and fails the run). The instance
+ *        Step 1c returns is then cleaned with Step 2e and Step 1 re-run;
  *   [L] lifecycle (round 3 finding 4): every client opened is closed on any
  *       failure, an index the proof did not create is never dropped, a
  *       failed purge fails the run while preserving the original failure, and
  *       a passing run leaves zero fixtures, zero index and zero sessions. The
  *       failure paths are drilled in-process after the passing run.
  *
- * Run with `npm run test:operation-a` against a started local stack. Synthetic
+ * Run with `SUPABASE_DB_URL=... npm run test:operation-a` against a FRESH, started, local stack. Synthetic
  * data only; the script pre-purges and re-purges its fixed ids and removes
  * only the index it created (it refuses to run if that index already exists).
  */
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
 const { Client } = pg;
@@ -69,7 +78,8 @@ const DB_URL =
   'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
 const PROOF_TAG = 'operation-a';
-const HANDOFF = resolve(process.cwd(), 'docs/planning/operation-a-one-active-docente-handoff.md');
+// Resolved from this script, never from the cwd: the proof always reads the handoff of its own checkout.
+const HANDOFF = resolve(dirname(fileURLToPath(import.meta.url)), '../../docs/planning/operation-a-one-active-docente-handoff.md');
 const INDEX_NAME = 'school_course_docente_assignments_one_active_key';
 const ATTACH_RPC = 'public.attach_course_docente_assessment';
 const IDLE_LINE = "SET LOCAL idle_in_transaction_session_timeout = '10s';";
@@ -102,6 +112,16 @@ const SNAPSHOT2_ID = U('0000f2');
 const I1 = U('001a01'); const I1_ARCH = U('001a02');
 const I2 = U('002a01'); const I3 = U('003a01'); const I4 = U('004a01'); const I5 = U('005a01');
 const INDICATOR_ID = U('00ee01');
+// [S1] Step 1c fixture, in a second school so the main fixture's counts and fingerprints are unchanged:
+// a single-docente course with a live instance under an archived template (a containment leftover).
+const SCHOOL2_ID = 999803;
+const CONTEXT2_ID = U('0000c2');
+const C6 = U('0000a6');
+const A61 = U('0000db'); // C6 / D1 active (the only one: C6 is NOT a 1a duplicate)
+const TEMPLATE3_ID = U('0000e3'); // archived
+const SNAPSHOT3_ID = U('0000f3');
+const I6 = U('006a01');
+const ALL_SCHOOLS = [SCHOOL_ID, SCHOOL2_ID];
 const ALL_USERS = [D1, D2, X, DIR, D3];
 const ALL_COURSES = [C1, C2, C3, C4, C5];
 const EMAIL = (tag) => `opa-proof-${tag}@rls-test.local`;
@@ -125,6 +145,22 @@ function sqlBlock(tag) {
   if (!m) throw new ProofFailure(`handoff document has no fenced block tagged "sql ${tag}"`);
   return m[1];
 }
+/**
+ * The Step 1 discovery block: the one untagged ```sql fence under the "## Step 1" heading, verbatim.
+ * It is run exactly as written (no filter, no rewrite); the proof prints its sha256.
+ */
+function step1Block() {
+  const doc = readFileSync(HANDOFF, 'utf8');
+  const start = doc.indexOf('\n## Step 1 — Read-only discovery');
+  if (start < 0) throw new ProofFailure('handoff document has no "## Step 1 — Read-only discovery" section');
+  const end = doc.indexOf('\n## ', start + 1);
+  const section = doc.slice(start, end < 0 ? undefined : end);
+  const blocks = [...section.matchAll(/```sql\n([\s\S]*?)\n```/g)];
+  if (blocks.length !== 1) throw new ProofFailure(`Step 1 section must hold exactly one sql block, found ${blocks.length}`);
+  return blocks[0][1];
+}
+const STEP1 = step1Block();
+const STEP1_SHA256 = createHash('sha256').update(STEP1).digest('hex');
 const STEP2 = sqlBlock('operation-a-step2');
 const STEP2E = sqlBlock('operation-a-step2e');
 const STEP3 = sqlBlock('operation-a-step3');
@@ -149,16 +185,16 @@ async function purge(admin, state, fault) {
     await admin.query(`DROP INDEX IF EXISTS public.${INDEX_NAME}`);
     state.indexCreated = false;
   }
-  await admin.query('DELETE FROM public.assessment_responses WHERE instance_id IN (SELECT id FROM public.assessment_instances WHERE school_id = $1)', [SCHOOL_ID]);
-  await admin.query('DELETE FROM public.assessment_instances WHERE school_id = $1', [SCHOOL_ID]);
-  await admin.query('DELETE FROM public.assessment_template_snapshots WHERE id = ANY($1::uuid[])', [[SNAPSHOT_ID, SNAPSHOT2_ID]]);
-  await admin.query('DELETE FROM public.assessment_templates WHERE id = ANY($1::uuid[])', [[TEMPLATE_ID, TEMPLATE2_ID]]);
-  await admin.query('DELETE FROM public.school_course_structure WHERE school_id = $1', [SCHOOL_ID]);
-  await admin.query('DELETE FROM public.school_transversal_context WHERE school_id = $1', [SCHOOL_ID]);
+  await admin.query('DELETE FROM public.assessment_responses WHERE instance_id IN (SELECT id FROM public.assessment_instances WHERE school_id = ANY($1::int[]))', [ALL_SCHOOLS]);
+  await admin.query('DELETE FROM public.assessment_instances WHERE school_id = ANY($1::int[])', [ALL_SCHOOLS]);
+  await admin.query('DELETE FROM public.assessment_template_snapshots WHERE id = ANY($1::uuid[])', [[SNAPSHOT_ID, SNAPSHOT2_ID, SNAPSHOT3_ID]]);
+  await admin.query('DELETE FROM public.assessment_templates WHERE id = ANY($1::uuid[])', [[TEMPLATE_ID, TEMPLATE2_ID, TEMPLATE3_ID]]);
+  await admin.query('DELETE FROM public.school_course_structure WHERE school_id = ANY($1::int[])', [ALL_SCHOOLS]);
+  await admin.query('DELETE FROM public.school_transversal_context WHERE school_id = ANY($1::int[])', [ALL_SCHOOLS]);
   await admin.query('DELETE FROM public.user_roles WHERE user_id = ANY($1::uuid[])', [ALL_USERS]);
   await admin.query('DELETE FROM public.profiles WHERE id = ANY($1::uuid[])', [ALL_USERS]);
   await admin.query('DELETE FROM auth.users WHERE id = ANY($1::uuid[])', [ALL_USERS]);
-  await admin.query('DELETE FROM public.schools WHERE id = $1', [SCHOOL_ID]);
+  await admin.query('DELETE FROM public.schools WHERE id = ANY($1::int[])', [ALL_SCHOOLS]);
   if (fault === 'purge' || fault === 'test+purge') throw new Error('injected purge fault');
 }
 
@@ -227,7 +263,47 @@ async function seed(admin) {
     `INSERT INTO public.assessment_responses (instance_id, indicator_id, coverage_value, responded_by) VALUES ($1, $2, true, $3)`,
     [I3, INDICATOR_ID, D2]
   );
+  // [S1] Step 1c fixture (second school).
+  await admin.query(`INSERT INTO public.schools (id, name) VALUES ($1, '[SINTÉTICO] Operation A Proof School 2')`, [SCHOOL2_ID]);
+  await admin.query(
+    `INSERT INTO public.school_transversal_context (id, school_id, total_students, grade_levels, courses_per_level, implementation_year_2026, period_system)
+     VALUES ($1, $2, 40, ARRAY['1_basico'], '{"1_basico": 1}', 1, 'semestral')`,
+    [CONTEXT2_ID, SCHOOL2_ID]
+  );
+  await admin.query(
+    `INSERT INTO public.school_course_structure (id, school_id, context_id, grade_level, course_name) VALUES ($1, $2, $3, '1_basico', '1 BASICO A')`,
+    [C6, SCHOOL2_ID, CONTEXT2_ID]
+  );
+  await admin.query('INSERT INTO public.school_course_docente_assignments (id, course_structure_id, docente_id, is_active) VALUES ($1, $2, $3, true)', [A61, C6, D1]);
+  await admin.query(
+    `INSERT INTO public.assessment_templates (id, area, version, name, status, is_archived, archived_at)
+     VALUES ($1, 'lenguaje', '1.0', '[SINTÉTICO] Operation A Proof Template 3 (archived)', 'published', true, now())`,
+    [TEMPLATE3_ID]
+  );
+  await admin.query(`INSERT INTO public.assessment_template_snapshots (id, template_id, version, snapshot_data) VALUES ($1, $2, '1.0', '{"modules": []}')`, [SNAPSHOT3_ID, TEMPLATE3_ID]);
+  await admin.query(
+    `INSERT INTO public.assessment_instances (id, template_snapshot_id, school_id, course_structure_id, transformation_year, status) VALUES ($1, $2, $3, $4, 1, 'pending')`,
+    [I6, SNAPSHOT3_ID, SCHOOL2_ID, C6]
+  );
+  await admin.query('INSERT INTO public.assessment_instance_assignees (instance_id, user_id, can_edit, can_submit) VALUES ($1, $2, true, true)', [I6, D1]);
 }
+
+/**
+ * [S1] Runs the handoff's Step 1 block verbatim, unfiltered, in one READ ONLY transaction (rolled back).
+ * Returns the six result sets in document order: 1a, 1b, 1c, 1d0, 1d (context), 1d (instances).
+ */
+async function runStep1(client) {
+  await client.query('BEGIN READ ONLY');
+  try {
+    const results = await client.query(STEP1);
+    return Array.isArray(results) ? results : [results];
+  } finally {
+    await client.query('ROLLBACK');
+  }
+}
+
+const sorted = (ids) => [...ids].sort();
+const sameSet = (a, b) => JSON.stringify(sorted(a ?? [])) === JSON.stringify(sorted(b ?? []));
 
 /** Field-level fingerprint of every fixture row in the five tables. */
 async function fingerprint(admin) {
@@ -346,6 +422,9 @@ async function runProof({ fault = null, quiet = false } = {}) {
       fail(`session ${applicationName} never blocked on a lock`);
     };
 
+    const instanceState = async (instanceId) => (await admin.query(
+      'SELECT status, (SELECT count(*)::int FROM public.assessment_instance_assignees WHERE instance_id = $1) AS grants FROM public.assessment_instances WHERE id = $1', [instanceId]
+    )).rows[0];
     /** Runs a full block; returns { ok, notices } or { ok:false, error }. Always leaves the session idle. */
     const runBlock = async (session, sql) => {
       const notices = [];
@@ -380,6 +459,77 @@ async function runProof({ fault = null, quiet = false } = {}) {
       await opA.query('BEGIN');
       await opA.query('SELECT 1 FROM public.school_course_structure WHERE id = $1 FOR UPDATE', [C1]);
       throw new Error('injected test fault');
+    }
+
+    log('\n[S1] the handoff\'s Step 1 block, verbatim and unfiltered, in one READ ONLY transaction');
+    {
+      log(`  Step 1 block sha256 ${STEP1_SHA256} (${STEP1.length} chars, from ${HANDOFF})`);
+      const res = await runStep1(admin);
+      const commands = res.map((r) => r.command).join(',');
+      if (commands !== 'SELECT,SELECT,SELECT,SHOW,SELECT,SELECT') fail(`S1: Step 1 must return six result sets (1a,1b,1c,1d0,1d,1d), got ${commands}`);
+      ok('S1: the complete Step 1 block executed as written (six result sets: 1a, 1b, 1c, 1d0, 1d, 1d) in a READ ONLY transaction');
+      const [r1a, r1b, r1c, r1d0, r1dCtx, r1dInst] = res;
+
+      // 1a: every course with >1 active docente — exactly C1..C5 of the main school; C6 (one active) is not listed.
+      const expected1a = new Map([[C1, [A1, A2]], [C2, [A21, A22]], [C3, [A31, A32]], [C4, [A41, A42]], [C5, [A51, A52]]]);
+      log(`  1a expected ${JSON.stringify([...expected1a].map(([c, a]) => ({ course: c, assignment_ids: a })))}`);
+      log(`  1a observed ${JSON.stringify(r1a.rows.map((r) => ({ course: r.course_structure_id, school: r.school_id, n: Number(r.active_assignments), assignment_ids: r.assignment_ids, docente_ids: r.docente_ids })))}`);
+      if (r1a.rows.length !== expected1a.size) fail(`S1: 1a drift — expected ${expected1a.size} duplicated courses, observed ${r1a.rows.length} (a fresh isolated target is required)`);
+      for (const row of r1a.rows) {
+        const want = expected1a.get(row.course_structure_id);
+        if (!want) fail(`S1: 1a drift — unexpected course ${row.course_structure_id}`);
+        if (row.school_id !== SCHOOL_ID || Number(row.active_assignments) !== 2 || !sameSet(row.assignment_ids, want) || !sameSet(row.docente_ids, [D1, D2])) {
+          fail(`S1: 1a drift on course ${row.course_structure_id}: ${JSON.stringify(row)}`);
+        }
+      }
+      if (r1a.rows.some((r) => (r.assignment_ids ?? []).includes(A0))) fail('S1: 1a lists the inactive history row');
+      ok('S1: 1a lists exactly the five duplicated courses with their exact active assignment ids (inactive history row and single-docente course excluded)');
+
+      // 1b: every LIVE instance of a duplicated course; I2 (started) and I3 (answered) are the human decision points.
+      const expected1b = { [I1]: ['pending', 0, [D1, D2, X]], [I2]: ['in_progress', 0, [D1, D2]], [I3]: ['pending', 1, [D1, D2]], [I4]: ['pending', 0, [D1, D2]], [I5]: ['pending', 0, [D1, D2, X]] };
+      log(`  1b observed ${JSON.stringify(r1b.rows.map((r) => ({ instance: r.instance_id, status: r.status, responses: Number(r.responses), assignees: r.assignee_ids })))}`);
+      if (!sameSet(r1b.rows.map((r) => r.instance_id), Object.keys(expected1b))) fail(`S1: 1b drift — expected live instances ${JSON.stringify(Object.keys(expected1b))}`);
+      for (const row of r1b.rows) {
+        const [status, responses, assignees] = expected1b[row.instance_id];
+        if (row.status !== status || Number(row.responses) !== responses || !sameSet(row.assignee_ids, assignees) || row.template_snapshot_id !== SNAPSHOT_ID) {
+          fail(`S1: 1b drift on instance ${row.instance_id}: ${JSON.stringify(row)}`);
+        }
+      }
+      const decisionPoints = r1b.rows.filter((r) => r.status !== 'pending' || Number(r.responses) > 0).map((r) => r.instance_id);
+      if (!sameSet(decisionPoints, [I2, I3])) fail(`S1: 1b human decision points ${JSON.stringify(decisionPoints)}, expected the started I2 and the answered I3`);
+      ok('S1: 1b lists exactly the five live instances (archived instance excluded) with status, response count and assignees; human decision points = the started and the answered instance');
+
+      // 1c: exactly the live instance of the archived template.
+      log(`  1c observed ${JSON.stringify(r1c.rows.map((r) => ({ instance: r.id, school: r.school_id, course: r.course_structure_id, status: r.status, template: r.template_id, assignees: Number(r.assignees), responses: Number(r.responses) })))}`);
+      if (r1c.rows.length !== 1) fail(`S1: 1c drift — expected exactly one contaminated instance, observed ${r1c.rows.length}`);
+      {
+        const r = r1c.rows[0];
+        if (r.id !== I6 || r.school_id !== SCHOOL2_ID || r.course_structure_id !== C6 || r.status !== 'pending' || r.template_id !== TEMPLATE3_ID || r.is_archived !== true || Number(r.assignees) !== 1 || Number(r.responses) !== 0) {
+          fail(`S1: 1c drift: ${JSON.stringify(r)}`);
+        }
+      }
+      ok('S1: 1c lists exactly the live instance under the archived template (school, course, template, 1 assignee, 0 responses)');
+
+      // 1d0 / 1d.
+      const version = r1d0.rows[0]?.server_version;
+      if (!version) fail('S1: 1d0 returned no server_version');
+      log(`  1d0 server_version ${version}`);
+      ok(`S1: 1d0 server_version = ${version} (PostgreSQL ${Number.parseInt(version, 10) >= 17 ? '>= 17: transaction_timeout available' : '< 17: transaction_timeout not available'})`);
+      if (r1dCtx.rows.length !== 0) fail(`S1: 1d drift — duplicated transversal contexts ${JSON.stringify(r1dCtx.rows)}`);
+      if (r1dInst.rows.length !== 0) fail(`S1: 1d drift — duplicated live course+snapshot instances ${JSON.stringify(r1dInst.rows)}`);
+      ok('S1: both 1d preflights return no rows');
+
+      // Step 1c → Step 2e, as the handoff prescribes, on the id Step 1c returned; history kept, access revoked.
+      const before1c = await fingerprint(admin);
+      const s2e = await runBlock(opA, STEP2E.replaceAll('<instance_id>', r1c.rows[0].id));
+      if (!s2e.ok) fail(`S1: Step 2e on the Step 1c instance failed: ${s2e.error.message}`);
+      const i6 = await instanceState(I6);
+      if (!i6 || i6.status !== 'archived' || i6.grants !== 0) fail(`S1: expected the Step 1c instance archived with 0 grants, got ${JSON.stringify(i6)}`);
+      if ((await fingerprint(admin)) !== before1c) fail('S1: Step 2e on the second school changed the main fixture');
+      const again = await runStep1(admin);
+      if (again[2].rows.length !== 0) fail(`S1: Step 1c after Step 2e still lists ${JSON.stringify(again[2].rows)}`);
+      if (again[0].rows.length !== 5 || again[1].rows.length !== 5) fail('S1: Step 2e changed the 1a/1b results');
+      ok('S1: Step 2e on the instance from Step 1c archived it (row kept, 0 grants); Step 1 re-run: 1c empty, 1a/1b unchanged');
     }
 
     log('\n[B] exact-target revalidation — every mismatch refuses with zero mutation');
@@ -419,6 +569,31 @@ async function runProof({ fault = null, quiet = false } = {}) {
       ok('D-a: after the writer committed, Step 2 saw the response and refused (human decision); the response survives');
       await admin.query('DELETE FROM public.assessment_responses WHERE instance_id = $1', [I1]);
       if ((await fingerprint(admin)) !== before) fail('D-a: state differs after removing the proof response');
+    }
+
+    log('\n[P] Step 2 runs whether or not the role may set deadlock_timeout');
+    {
+      const { rows: [{ can }] } = await admin.query(
+        `SELECT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user)
+             OR coalesce(has_parameter_privilege('deadlock_timeout', 'SET'), false) AS can`
+      );
+      const { rows: [{ deadlock_timeout: serverDefault }] } = await admin.query('SHOW deadlock_timeout');
+      const notices = [];
+      const onNotice = (n) => notices.push(n.message);
+      opA.on('notice', onNotice);
+      try {
+        await opA.query(withoutFinalCommit(fillStep2(C5, [A51, A52], A51)));
+        const { rows: [{ deadlock_timeout: inTx }] } = await opA.query('SHOW deadlock_timeout');
+        const refusedNotice = notices.some((m) => m.includes('may not set deadlock_timeout'));
+        if (can && (inTx !== '200ms' || refusedNotice)) fail(`P: a role allowed to set deadlock_timeout ran Step 2 with ${inTx} (notice ${refusedNotice})`);
+        if (!can && (inTx !== serverDefault || !refusedNotice)) fail(`P: a role refused deadlock_timeout ran Step 2 with ${inTx} (notice ${refusedNotice})`);
+        ok(can
+          ? 'P: this role may set deadlock_timeout — Step 2 ran with 200ms'
+          : `P: this role may NOT set deadlock_timeout — Step 2 ran on with the server default (${serverDefault}) and said so in a NOTICE`);
+      } finally {
+        opA.off('notice', onNotice);
+        await opA.query('ROLLBACK');
+      }
     }
 
     log('\n[T] idle-in-transaction safeguard: a session that stops after the boundary is terminated and rolled back');
@@ -702,9 +877,6 @@ async function runProof({ fault = null, quiet = false } = {}) {
       );
       return rows.map((r) => r.application_name);
     };
-    const instanceState = async (instanceId) => (await admin.query(
-      'SELECT status, (SELECT count(*)::int FROM public.assessment_instance_assignees WHERE instance_id = $1) AS grants FROM public.assessment_instances WHERE id = $1', [instanceId]
-    )).rows[0];
     const liveInstances = async (course, snapshot) => (await admin.query(
       'SELECT id FROM public.assessment_instances WHERE course_structure_id = $1 AND template_snapshot_id = $2 AND status <> $3 ORDER BY created_at', [course, snapshot, 'archived']
     )).rows.map((r) => r.id);

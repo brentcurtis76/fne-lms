@@ -442,7 +442,8 @@ export interface MeetingSummaryEmailData {
   meetingDates: Date[];
   facilitatorName: string;
   finalizerName: string;
-  audience: 'community' | 'attended';
+  /** SM-H8: 'with_access' = the people with access to the meeting. */
+  audience: 'with_access' | 'attended';
   attendees: Array<{ name: string; attended: boolean; role: string }>;
   summaryHtml: string;
   notesHtml: string;
@@ -483,7 +484,7 @@ export const meetingSummaryTemplate: EmailTemplate = {
   generateHTML: (data: MeetingSummaryEmailData) => {
     const dateLine = renderDateLine(data.meetingDates);
     const audienceLabel =
-      data.audience === 'attended' ? 'quienes asistieron' : 'la Comunidad de Crecimiento';
+      data.audience === 'attended' ? 'quienes asistieron' : 'las personas con acceso a la reunión';
 
     const facilitatorMsg = data.facilitatorMessageHtml
       ? `
@@ -573,7 +574,7 @@ export const meetingSummaryTemplate: EmailTemplate = {
 
   generateText: (data: MeetingSummaryEmailData) => {
     const dateLine = renderDateLine(data.meetingDates);
-    const audienceLabel = data.audience === 'attended' ? 'quienes asistieron' : 'la Comunidad de Crecimiento';
+    const audienceLabel = data.audience === 'attended' ? 'quienes asistieron' : 'las personas con acceso a la reunión';
     const stripTags = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
     const lines: string[] = [];

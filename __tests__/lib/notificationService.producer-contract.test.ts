@@ -443,7 +443,7 @@ describe('D2/D3 · the real finalize route picks bell recipients from the audien
   });
 
   it('D3 + SM-H8: "people with access" audience — leader and every participant get a bell whatever their email; a member who did not take part gets neither bell nor summary', async () => {
-    const { status, body } = await post('community');
+    const { status, body } = await post('with_access');
     expect(status).toBe(200);
     expect(body.data).toMatchObject({ recipients_count: 3, summary_email_sent: true });
     expect(bellIds()).toEqual([LEADER, EMAIL_OFF, NO_EMAIL, MAILED, ABSENT].sort());
@@ -454,7 +454,7 @@ describe('D2/D3 · the real finalize route picks bell recipients from the audien
 
   it('D3: a failed member lookup notifies nobody and the finalize still succeeds', async () => {
     db.memberFailure = true;
-    const { status } = await post('community');
+    const { status } = await post('with_access');
     expect(status).toBe(200);
     expect(db.rows).toEqual([]);
     expect(loggedText()).not.toMatch(/qa\.local\.test|4444-4444/);
@@ -470,7 +470,7 @@ describe('D2/D3 · the real finalize route picks bell recipients from the audien
   });
 
   it('D2: an outsider gets 403 and a repeat is refused as before (403 once finalized, 409 for the race loser); only one finalize writes bells', async () => {
-    const outsider = await post('community', OUTSIDER);
+    const outsider = await post('with_access', OUTSIDER);
     expect(outsider.status).toBe(403);
     expect(db.meeting).toMatchObject({ status: 'borrador', finalized_at: null });
     expect(db.rows).toEqual([]);

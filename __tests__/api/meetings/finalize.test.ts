@@ -255,7 +255,7 @@ describe('/api/meetings/[id]/finalize', () => {
     const { req, res } = createMocks({
       method: 'POST',
       query: { id: MEETING_ID },
-      body: { audience: 'community' },
+      body: { audience: 'with_access' },
     });
     await handler(req as any, res as any);
 
@@ -275,7 +275,7 @@ describe('/api/meetings/[id]/finalize', () => {
     const { req, res } = createMocks({
       method: 'POST',
       query: { id: MEETING_ID },
-      body: { audience: 'community' },
+      body: { audience: 'with_access' },
     });
     await handler(req as any, res as any);
 
@@ -303,7 +303,7 @@ describe('/api/meetings/[id]/finalize', () => {
     const { req, res } = createMocks({
       method: 'POST',
       query: { id: MEETING_ID },
-      body: { audience: 'community' },
+      body: { audience: 'with_access' },
     });
     await handler(req as any, res as any);
 
@@ -333,7 +333,7 @@ describe('/api/meetings/[id]/finalize', () => {
     const { req, res } = createMocks({
       method: 'POST',
       query: { id: MEETING_ID },
-      body: { audience: 'community' },
+      body: { audience: 'with_access' },
     });
     await handler(req as any, res as any);
 
@@ -355,10 +355,25 @@ describe('/api/meetings/[id]/finalize', () => {
     );
     expect(m.triggerNotification).toHaveBeenCalledWith('meeting_finalized', expect.objectContaining({
       meeting_id: MEETING_ID,
-      audience: 'community',
+      audience: 'with_access',
       // SM-H8: the people with access to the meeting, not every community member.
       recipient_ids: ['leader-1', 'participant-1'],
     }));
+    // Stored as 'community' (CHECK unchanged) + the SM-H8 marker.
+    const client = (m.createServiceRoleClient as any).mock.results[0].value;
+    expect(client.__meetingUpdateFn).toHaveBeenCalledWith(
+      expect.objectContaining({ finalize_audience: 'community', finalize_with_access: true }),
+    );
+  });
+
+  it('SM-H8: a request for the whole community is refused (400)', async () => {
+    const m = await loadMocks();
+    (m.getApiUser as any).mockResolvedValue({ user: { id: USER_ID }, error: null });
+    (m.createServiceRoleClient as any).mockReturnValue(buildClient({ meetingRow }));
+    const { req, res } = createMocks({ method: 'POST', query: { id: MEETING_ID }, body: { audience: 'community' } });
+    await handler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(400);
+    expect(m.sendMeetingSummary).not.toHaveBeenCalled();
   });
 
   it('authorizes a legacy community with no school through its recipient users', async () => {
@@ -384,7 +399,7 @@ describe('/api/meetings/[id]/finalize', () => {
     const { req, res } = createMocks({
       method: 'POST',
       query: { id: MEETING_ID },
-      body: { audience: 'community' },
+      body: { audience: 'with_access' },
     });
     await handler(req as any, res as any);
 
@@ -450,7 +465,7 @@ describe('/api/meetings/[id]/finalize', () => {
     const { req, res } = createMocks({
       method: 'POST',
       query: { id: MEETING_ID },
-      body: { audience: 'community' },
+      body: { audience: 'with_access' },
     });
     await handler(req as any, res as any);
 
@@ -476,7 +491,7 @@ describe('/api/meetings/[id]/finalize', () => {
     const { req, res } = createMocks({
       method: 'POST',
       query: { id: MEETING_ID },
-      body: { audience: 'community' },
+      body: { audience: 'with_access' },
     });
     await handler(req as any, res as any);
 
@@ -513,7 +528,7 @@ describe('/api/meetings/[id]/finalize', () => {
     const { req, res } = createMocks({
       method: 'POST',
       query: { id: MEETING_ID },
-      body: { audience: 'community' },
+      body: { audience: 'with_access' },
     });
     await handler(req as any, res as any);
 
@@ -550,7 +565,7 @@ describe('/api/meetings/[id]/finalize', () => {
     const { req, res } = createMocks({
       method: 'POST',
       query: { id: MEETING_ID },
-      body: { audience: 'community' },
+      body: { audience: 'with_access' },
     });
     await handler(req as any, res as any);
 
@@ -583,7 +598,7 @@ describe('/api/meetings/[id]/finalize', () => {
     const { req, res } = createMocks({
       method: 'POST',
       query: { id: MEETING_ID },
-      body: { audience: 'community' },
+      body: { audience: 'with_access' },
     });
     await handler(req as any, res as any);
 
@@ -623,7 +638,7 @@ describe('/api/meetings/[id]/finalize', () => {
     const { req, res } = createMocks({
       method: 'POST',
       query: { id: MEETING_ID },
-      body: { audience: 'community' },
+      body: { audience: 'with_access' },
     });
     await handler(req as any, res as any);
 
@@ -658,7 +673,7 @@ describe('/api/meetings/[id]/finalize', () => {
         : { ...meetingRow, workspace: { ...meetingRow.workspace, community: { ...meetingRow.workspace.community, school_id: opts.schoolId } } };
       const client = buildClient({ meetingRow: row, school: opts.school });
       (m.createServiceRoleClient as any).mockReturnValue(client);
-      const { req, res } = createMocks({ method: 'POST', query: { id: MEETING_ID }, body: { audience: 'community' } });
+      const { req, res } = createMocks({ method: 'POST', query: { id: MEETING_ID }, body: { audience: 'with_access' } });
       await handler(req as any, res as any);
       // The meeting was committed exactly once before any email outcome.
       expect((client as any).__meetingUpdateFn).toHaveBeenCalledTimes(1);

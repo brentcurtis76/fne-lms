@@ -27,7 +27,7 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(250);
+SELECT plan(252);
 
 CREATE TEMP TABLE ids (p text PRIMARY KEY, id uuid) ON COMMIT DROP;
 GRANT SELECT ON ids TO anon, authenticated;
@@ -247,6 +247,8 @@ SELECT ok(NOT has_function_privilege('anon', f, 'EXECUTE'), format('anon cannot 
   'public.meeting_document_meeting_id(text)', 'public.can_upload_meeting_document(uuid,text)', 'public.get_my_meeting_rights(uuid[])']) f;
 SELECT ok(NOT has_function_privilege('authenticated', 'public.guard_community_meeting_update()', 'EXECUTE'), 'authenticated cannot call the trigger function');
 SELECT is((SELECT public FROM storage.buckets WHERE id = 'meeting-documents'), false, 'bucket meeting-documents is private');
+SELECT has_column('public', 'community_meetings', 'finalize_with_access', 'finalize_with_access marks finalizations sent to the people with access');
+SELECT col_is_null('public', 'community_meetings', 'finalize_with_access', 'finalize_with_access is NULL for earlier finalizations');
 SELECT ok((SELECT bool_and(p.prosecdef AND p.proconfig::text LIKE '%search_path%') FROM pg_proc p
   WHERE p.oid IN ('public.can_read_meeting_content(uuid,uuid)'::regprocedure, 'public.can_delete_meeting(uuid,uuid)'::regprocedure,
                   'public.is_meeting_community_member(uuid,uuid)'::regprocedure, 'public.can_upload_meeting_document(uuid,text)'::regprocedure)),

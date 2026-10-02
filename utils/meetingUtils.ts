@@ -384,12 +384,13 @@ export async function createMeetingWithDocumentation(
     }
     const meetingId = row.meetingId;
 
+    const nobody = { participants: new Map<string, string | null>(), readerIds: new Set<string>() };
     const peopleProblems = await syncMeetingPeople(client, meetingId, {
       actorId: userId,
       participantIds: documentation.meeting_info.attendee_ids,
-      originalParticipants: new Map(),
       readerIds: documentation.meeting_info.reader_ids ?? [],
-      originalReaderIds: new Set(),
+      baseline: nobody,
+      current: nobody,
     });
     const items = await applyMeetingDiffs(client, meetingId, docs, {
       agreements: new Set(),

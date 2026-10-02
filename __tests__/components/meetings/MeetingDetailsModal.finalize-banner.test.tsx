@@ -96,10 +96,28 @@ describe('MeetingDetailsModal — post-finalize banner', () => {
     // Wait for the async load to complete and banner to render.
     await findByText(/Finalizada el/);
     await findByText(/Ana Pérez/);
-    await findByText(/las personas con acceso a la reunión/);
+    // Finalized before SM-H8: it really went to the whole community.
+    await findByText(/toda la comunidad de crecimiento/);
 
     // Placeholder button is present.
     expect(getByTitle('Disponible próximamente')).toBeDefined();
+  });
+
+  it('SM-H8: a finalization made under the new rule says it went to the people with access', async () => {
+    getMeetingDetails.mockResolvedValue(
+      baseMeeting({
+        status: 'completada',
+        finalized_at: '2026-10-03T12:00:00Z',
+        finalize_audience: 'community',
+        finalize_with_access: true,
+        finalized_by_profile: { id: 'u-2', first_name: 'Ana', last_name: 'Pérez' },
+      }),
+    );
+    const { findByText, queryByText } = render(
+      <MeetingDetailsModal isOpen onClose={() => {}} meetingId="mtg-1" />,
+    );
+    await findByText(/las personas con acceso a la reunión/);
+    expect(queryByText(/toda la comunidad de crecimiento/)).toBeNull();
   });
 
   it('does not render the banner when the meeting is still a draft', async () => {

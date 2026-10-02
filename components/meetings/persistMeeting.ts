@@ -19,7 +19,6 @@ import { emptyDoc, plainTextFromDoc } from '../../lib/tiptap/helpers';
 import {
   describeSaveError,
   noRowsProblem,
-  type DbErrorLike,
   type SaveItemKind,
   type SaveProblem,
 } from '../../lib/meetings/meeting-save';
@@ -203,9 +202,16 @@ export async function applyMeetingDiffs(
     return Array.from(original).filter((id) => !current.has(id));
   };
 
-  const deleteRows = async (table: string, kind: SaveItemKind, ids: string[]) => {
+  // Each table is named literally at the call site (the ledger-reader
+  // inventory guard refuses `.from(<variable>)` in production code).
+  type ChildTable = () => ReturnType<SupabaseClient['from']>;
+  const agreementsTable: ChildTable = () => supabase.from('meeting_agreements');
+  const commitmentsTable: ChildTable = () => supabase.from('meeting_commitments');
+  const tasksTable: ChildTable = () => supabase.from('meeting_tasks');
+
+  const deleteRows = async (table: ChildTable, kind: SaveItemKind, ids: string[]) => {
     if (ids.length === 0) return;
-    const { data, error } = await supabase.from(table).delete().in('id', ids).select('id');
+    const { data, error } = await table().delete().in('id', ids).select('id');
     if (error) {
       problems.push(describeSaveError(error, kind));
     } else if ((data ?? []).length !== ids.length) {
@@ -213,19 +219,19 @@ export async function applyMeetingDiffs(
     }
   };
 
-  await deleteRows('meeting_agreements', 'agreement', removed(originalIds.agreements, agreementsForPersist));
-  await deleteRows('meeting_commitments', 'commitment', removed(originalIds.commitments, commitmentsForPersist));
-  await deleteRows('meeting_tasks', 'task', removed(originalIds.tasks, tasksForPersist));
+  await deleteRows(agreementsTable, 'agreement', removed(originalIds.agreements, agreementsForPersist));
+  await deleteRows(commitmentsTable, 'commitment', removed(originalIds.commitments, commitmentsForPersist));
+  await deleteRows(tasksTable, 'task', removed(originalIds.tasks, tasksForPersist));
 
   const writeRow = async (
-    table: string,
+    table: ChildTable,
     kind: SaveItemKind,
     index: number,
     id: string | undefined,
     row: Record<string, unknown>,
   ): Promise<string | undefined> => {
     if (id) {
-      const { data, error } = await supabase.from(table).update(row).eq('id', id).select('id');
+      const { data, error } = await table().update(row).eq('id', id).select('id');
       if (error) {
         problems.push(describeSaveError(error, kind, index));
         return id;
@@ -233,8 +239,7 @@ export async function applyMeetingDiffs(
       if ((data ?? []).length === 0) problems.push(noRowsProblem(kind, index));
       return id;
     }
-    const { data, error } = await supabase
-      .from(table)
+    const { data, error } = await table()
       .insert({ meeting_id: meetingId, ...row })
       .select('id')
       .single();
@@ -249,7 +254,7 @@ export async function applyMeetingDiffs(
 
   for (const [index, a] of agreementsForPersist.entries()) {
     ids.agreements.push(
-      await writeRow('meeting_agreements', 'agreement', index, a.id, {
+      await writeRow(agreementsTable, 'agreement', index, a.id, {
         agreement_text: a.agreement_text,
         agreement_doc: a.agreement_doc,
         category: a.category,
@@ -260,7 +265,7 @@ export async function applyMeetingDiffs(
 
   for (const [index, c] of commitmentsForPersist.entries()) {
     ids.commitments.push(
-      await writeRow('meeting_commitments', 'commitment', index, c.id, {
+      await writeRow(commitmentsTable, 'commitment', index, c.id, {
         commitment_text: c.commitment_text,
         commitment_doc: c.commitment_doc,
         assigned_to: c.assigned_to,
@@ -271,7 +276,7 @@ export async function applyMeetingDiffs(
 
   for (const [index, t] of tasksForPersist.entries()) {
     ids.tasks.push(
-      await writeRow('meeting_tasks', 'task', index, t.id, {
+      await writeRow(tasksTable, 'task', index, t.id, {
         task_title: t.task_title,
         task_description: t.task_description,
         task_description_doc: t.task_description_doc,
@@ -287,14 +292,54 @@ export async function applyMeetingDiffs(
   return { problems, ids };
 }
 
+/** Attendee roles this form never removes (they are managed elsewhere). */
+export const PROTECTED_ATTENDEE_ROLES: ReadonlySet<string> = new Set(['facilitator', 'secretary', 'co_editor']);
+
+export interface MeetingPeople {
+  /** user id → meeting_attendees.role */
+  participants: Map<string, string | null>;
+  readerIds: Set<string>;
+}
+
+/** What is stored right now. `null` (plus a problem) when it cannot be read. */
+export async function readMeetingPeople(
+  supabase: SupabaseClient,
+  meetingId: string,
+): Promise<{ people: MeetingPeople | null; problem?: SaveProblem }> {
+  const [attendees, grants] = await Promise.all([
+    supabase.from('meeting_attendees').select('user_id, role').eq('meeting_id', meetingId),
+    supabase.from('meeting_read_grants').select('user_id').eq('meeting_id', meetingId),
+  ]);
+  if (attendees.error || grants.error) {
+    return {
+      people: null,
+      problem: {
+        kind: attendees.error ? 'participant' : 'reader',
+        message: 'No se pudo confirmar quiénes tienen acceso a la reunión. Vuelve a guardar.',
+      },
+    };
+  }
+  return {
+    people: {
+      participants: new Map(
+        ((attendees.data ?? []) as Array<{ user_id: string; role: string | null }>).map((row) => [row.user_id, row.role ?? null]),
+      ),
+      readerIds: new Set(((grants.data ?? []) as Array<{ user_id: string }>).map((row) => row.user_id)),
+    },
+  };
+}
+
 /**
  * Participants (meeting_attendees) and people added as readers
  * (meeting_read_grants) — SM-H8. Both decide who may read the meeting
  * content, and edit mode used to drop participant changes entirely.
  *
- * Only `participant` rows are added or removed here. Rows with another role
- * (facilitator, secretary, co_editor, or Zoom attendance data) are never
- * deleted by unticking, because this form does not manage those roles.
+ * `baseline` is what the form loaded (it says what the person REMOVED);
+ * `current` is what is stored right now (it says what still needs writing),
+ * so a retry after a partial failure neither re-inserts nor forgets a
+ * pending removal. People someone else added meanwhile are left alone.
+ * Rows with a protected role (facilitator, secretary, co_editor) are never
+ * removed here.
  */
 export async function syncMeetingPeople(
   supabase: SupabaseClient,
@@ -302,17 +347,20 @@ export async function syncMeetingPeople(
   params: {
     actorId: string;
     participantIds: string[];
-    originalParticipants: Map<string, string | null>;
     readerIds: string[];
-    originalReaderIds: Set<string>;
+    baseline: MeetingPeople;
+    current: MeetingPeople;
   },
 ): Promise<SaveProblem[]> {
   const problems: SaveProblem[] = [];
+  const { baseline, current } = params;
   const participants = new Set(params.participantIds);
 
-  const toAdd = params.participantIds.filter((id) => !params.originalParticipants.has(id));
-  const toRemove = Array.from(params.originalParticipants.entries())
-    .filter(([id, role]) => !participants.has(id) && (role === 'participant' || role === null))
+  const toAdd = params.participantIds.filter((id) => !current.participants.has(id));
+  const toRemove = Array.from(current.participants.entries())
+    .filter(([id, role]) =>
+      !participants.has(id) && baseline.participants.has(id) && !PROTECTED_ATTENDEE_ROLES.has(role ?? ''),
+    )
     .map(([id]) => id);
 
   if (toAdd.length > 0) {
@@ -343,8 +391,10 @@ export async function syncMeetingPeople(
 
   // A participant needs no separate grant.
   const readers = new Set(params.readerIds.filter((id) => !participants.has(id)));
-  const readersToAdd = Array.from(readers).filter((id) => !params.originalReaderIds.has(id));
-  const readersToRemove = Array.from(params.originalReaderIds).filter((id) => !readers.has(id));
+  const readersToAdd = Array.from(readers).filter((id) => !current.readerIds.has(id));
+  const readersToRemove = Array.from(current.readerIds).filter(
+    (id) => !readers.has(id) && baseline.readerIds.has(id),
+  );
 
   if (readersToAdd.length > 0) {
     const { data, error } = await supabase
@@ -369,36 +419,56 @@ export async function syncMeetingPeople(
 }
 
 /**
- * Remove storage objects + DB rows for attachments the user deleted in
- * this session. A failed storage removal is reported but does not stop the
- * row cleanup — we'd rather have the DB row gone than leave the row pointing
- * at a blob that may already be gone.
+ * Remove the stored file and then the row of each attachment the user deleted
+ * in this session, one attachment at a time. An attachment counts as done only
+ * when its row is gone; a row that is already gone (an earlier attempt removed
+ * it) is done too. Everything not done comes back in `remaining`, so a retry
+ * only repeats what is still pending.
  */
 export async function removeDeletedAttachments(
   supabase: SupabaseClient,
   attachments: ExistingAttachment[],
-): Promise<SaveProblem[]> {
-  if (attachments.length === 0) return [];
+): Promise<{ problems: SaveProblem[]; remaining: ExistingAttachment[] }> {
   const problems: SaveProblem[] = [];
-  const paths = attachments.map((a) => a.file_path);
-  try {
-    const { error } = await supabase.storage.from('meeting-documents').remove(paths);
-    if (error) problems.push(describeSaveError(error as DbErrorLike, 'attachment'));
-  } catch (storageErr) {
-    console.error('Error removing attachment storage files:', storageErr);
-    problems.push(describeSaveError(null, 'attachment'));
+  const remaining: ExistingAttachment[] = [];
+  for (const attachment of attachments) {
+    try {
+      const { error: storageError } = await supabase.storage
+        .from('meeting-documents')
+        .remove([attachment.file_path]);
+      if (storageError) {
+        problems.push({ kind: 'attachment', message: `No se pudo eliminar ${attachment.filename}.` });
+        remaining.push(attachment);
+        continue;
+      }
+      const { data, error } = await supabase
+        .from('meeting_attachments')
+        .delete()
+        .eq('id', attachment.id)
+        .select('id');
+      if (error) {
+        problems.push(describeSaveError(error, 'attachment'));
+        remaining.push(attachment);
+        continue;
+      }
+      if ((data ?? []).length === 0) {
+        // Refused, or already removed by an earlier attempt: look.
+        const { data: still, error: lookError } = await supabase
+          .from('meeting_attachments')
+          .select('id')
+          .eq('id', attachment.id);
+        if (lookError || (still ?? []).length > 0) {
+          problems.push(noRowsProblem('attachment'));
+          remaining.push(attachment);
+        }
+      }
+    } catch (err) {
+      console.error('Error removing attachment:', err);
+      problems.push({ kind: 'attachment', message: `No se pudo eliminar ${attachment.filename}.` });
+      remaining.push(attachment);
+    }
   }
-  const { data, error } = await supabase
-    .from('meeting_attachments')
-    .delete()
-    .in(
-      'id',
-      attachments.map((a) => a.id),
-    )
-    .select('id');
-  if (error) problems.push(describeSaveError(error, 'attachment'));
-  else if ((data ?? []).length !== attachments.length) problems.push(noRowsProblem('attachment'));
-  return problems;
+  return { problems, remaining };
 }
 
 /**

@@ -26,7 +26,9 @@ import {
 } from '../../../../lib/email/outbound-policy';
 
 const finalizeSchema = z.object({
-  audience: z.enum(['community', 'attended']),
+  // SM-H8 (owner decision 4): 'with_access' replaced 'community' (the whole
+  // community); a request for 'community' is now a 400.
+  audience: z.enum(['with_access', 'attended']),
   facilitator_message_doc: z.record(z.unknown()).optional(),
 });
 
@@ -135,7 +137,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         status: 'completada',
         finalized_at: now,
         finalized_by: user.id,
-        finalize_audience: audience,
+        finalize_audience: audience === 'attended' ? 'attended' : 'community',
+        finalize_with_access: audience === 'with_access' ? true : null,
         version: (meeting.version ?? 0) + 1,
         updated_at: now,
         updated_by: user.id,

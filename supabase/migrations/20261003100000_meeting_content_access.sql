@@ -266,6 +266,16 @@ CREATE TRIGGER trg_guard_community_meeting_update
   BEFORE UPDATE ON public.community_meetings
   FOR EACH ROW EXECUTE FUNCTION public.guard_community_meeting_update();
 
+-- Finalize e-mail audience (owner decision 4): from now on the summary goes
+-- to the people with access, never the whole community. The stored
+-- finalize_audience keeps its values ('community' / 'attended'); this column
+-- marks finalizations made under the new rule, so meetings finalized before
+-- SM-H8 keep saying truthfully that their summary went to the community.
+-- Additive (the CHECK on finalize_audience is not widened: no DROP).
+ALTER TABLE public.community_meetings ADD COLUMN finalize_with_access boolean;
+COMMENT ON COLUMN public.community_meetings.finalize_with_access IS
+  'SM-H8: true when the finalize summary went to the people with access (leaders, creator/facilitator/secretary, participants, read grants). NULL for finalizations before SM-H8.';
+
 -- 5. meeting_agreements ----------------------------------------------------------
 ALTER POLICY "Verified meeting editors can view agreements" ON public.meeting_agreements
   USING (public.can_read_meeting_content(auth.uid(), meeting_id));

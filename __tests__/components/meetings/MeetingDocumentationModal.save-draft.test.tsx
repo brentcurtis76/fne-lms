@@ -8,6 +8,11 @@ import {
   failingWrites,
   makeMeetingSupabaseClient,
   resetMeetingSupabaseMock,
+  seedRows,
+  tableRows,
+  holdWrites,
+  makeGate,
+  failingReads,
 } from './meetingSupabaseMock';
 
 // Capture TipTapEditor onChange callbacks keyed by placeholder. Placeholders
@@ -276,6 +281,12 @@ describe('MeetingDocumentationModal — saving (SM-H8)', () => {
       updated_at: new Date().toISOString(),
     });
 
+    seedRows('meeting_commitments', [
+      { id: 'c1', meeting_id: 'meeting-1', commitment_text: 'first' },
+      { id: 'c2', meeting_id: 'meeting-1', commitment_text: 'second' },
+    ]);
+    seedRows('meeting_attendees', [{ id: 'att-ana', meeting_id: 'meeting-1', user_id: ANA.id, role: 'participant' }]);
+
     const { getByRole, container } = render(
       <MeetingDocumentationModal {...defaultProps} meetingId="meeting-1" mode="edit" />
     );
@@ -303,5 +314,157 @@ describe('MeetingDocumentationModal — saving (SM-H8)', () => {
     expect(commitmentUpdates.some((u: any) => u.commitment_text === 'second — updated')).toBe(true);
     expect((capturedCalls['in:meeting_commitments'] ?? []).flat()).toContain('c1');
     await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Borrador guardado'));
+    expect(tableRows.meeting_commitments.map((row) => row.id)).toEqual(['c2']);
+  });
+
+  describe('review r0 fixes', () => {
+    const editMeeting = (over: Record<string, unknown> = {}) => ({
+      id: 'meeting-1',
+      title: 'Existing meeting',
+      meeting_date: new Date('2026-04-21T12:00:00Z').toISOString(),
+      duration_minutes: 60,
+      location: '',
+      status: 'borrador',
+      summary: 'summary text',
+      summary_doc: richDoc('summary text'),
+      notes: '',
+      notes_doc: null,
+      attendees: [{ user_id: ANA.id, role: 'participant' }],
+      agreements: [],
+      commitments: [],
+      tasks: [],
+      version: 1,
+      updated_at: new Date().toISOString(),
+      ...over,
+    });
+    const openEdit = async (meeting: Record<string, unknown>) => {
+      mockGetMeetingDetails.mockResolvedValue(meeting);
+      const utils = render(<MeetingDocumentationModal {...defaultProps} meetingId="meeting-1" mode="edit" />);
+      await waitFor(() => {
+        const titleInput = utils.container.querySelector('input[type="text"]') as HTMLInputElement | null;
+        expect(titleInput?.value).toBe('Existing meeting');
+      });
+      return utils;
+    };
+
+    it('only one save runs at a time: a second click while the first is writing creates nothing more', async () => {
+      const gate = makeGate();
+      holdWrites['insert:community_meetings'] = gate.promise;
+      const utils = render(<MeetingDocumentationModal {...defaultProps} />);
+      await createToStep3(utils);
+      await addCompleteItems(utils);
+
+      await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+      await click(utils.getByRole('button', { name: /Guardando…/i }));
+      expect((utils.getByRole('button', { name: /Crear Reunión/i }) as HTMLButtonElement).disabled).toBe(true);
+      await click(utils.getByRole('button', { name: /Crear Reunión/i }));
+
+      await act(async () => { gate.release(); });
+      await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Borrador guardado'));
+      expect(capturedCalls['insert:community_meetings']).toHaveLength(1);
+      expect(capturedCalls['insert:meeting_tasks']).toHaveLength(1);
+    });
+
+    it('the modal cannot be closed while a save is writing', async () => {
+      const gate = makeGate();
+      holdWrites['insert:community_meetings'] = gate.promise;
+      const utils = render(<MeetingDocumentationModal {...defaultProps} />);
+      await createToStep3(utils);
+      await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+      await click(utils.getByRole('button', { name: /Cancelar/i }));
+      expect(defaultProps.onClose).not.toHaveBeenCalled();
+      await act(async () => { gate.release(); });
+      await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Borrador guardado'));
+    });
+
+    it('ids land on the item that was saved even if the list changed during the save', async () => {
+      const gate = makeGate();
+      holdWrites['insert:meeting_tasks'] = gate.promise;
+      const utils = render(<MeetingDocumentationModal {...defaultProps} />);
+      await createToStep3(utils);
+      // Two complete tasks.
+      for (const index of [0, 1]) {
+        await click(utils.getByRole('button', { name: /Agregar Tarea/i }));
+        fireEvent.change(utils.getByTestId(`meeting-task-title-${index}`), { target: { value: `Tarea ${index}` } });
+        fireEvent.change(utils.getByTestId(`meeting-task-assignee-${index}`), { target: { value: ANA.id } });
+        fireEvent.change(utils.getByTestId(`meeting-task-due-${index}`), { target: { value: '2026-05-12' } });
+      }
+      await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+      // While the inserts are held, remove the first task.
+      await click(utils.getByTestId('meeting-task-remove-0'));
+      await act(async () => { gate.release(); });
+      await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Borrador guardado'));
+      const [first, second] = tableRows.meeting_tasks.map((row) => row.id);
+      expect((utils.getByTestId('meeting-task-title-0') as HTMLInputElement).value).toBe('Tarea 1');
+
+      await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+      await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(2));
+      // The removed task's row is deleted; the kept one is updated, not re-inserted.
+      expect(capturedCalls['insert:meeting_tasks']).toHaveLength(2);
+      expect((capturedCalls['in:meeting_tasks'] ?? []).flat()).toEqual([first]);
+      expect(tableRows.meeting_tasks.map((row) => row.id)).toEqual([second]);
+      expect(tableRows.meeting_tasks[0].task_title).toBe('Tarea 1');
+    });
+
+    it('if who-has-access cannot be read back, the save is not reported as done', async () => {
+      seedRows('meeting_attendees', [{ id: 'att-ana', meeting_id: 'meeting-1', user_id: ANA.id, role: 'participant' }]);
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const utils = await openEdit(editMeeting());
+      failingReads.meeting_attendees = { code: '57014', message: 'timeout' };
+      await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+      await waitFor(() => expect(toastError).toHaveBeenCalledWith('No se pudo confirmar quiénes tienen acceso a la reunión. Vuelve a guardar.'));
+      expect(toastSuccess).not.toHaveBeenCalled();
+      consoleError.mockRestore();
+    });
+
+    it('a facilitator / co-editor row is shown but cannot be unticked', async () => {
+      seedRows('meeting_attendees', [{ id: 'att-ana', meeting_id: 'meeting-1', user_id: ANA.id, role: 'co_editor' }]);
+      const utils = await openEdit(editMeeting({ attendees: [{ user_id: ANA.id, role: 'co_editor' }] }));
+      await waitFor(() => expect((utils.getByTestId(`meeting-attendee-${ANA.id}`) as HTMLInputElement).disabled).toBe(true));
+      expect(utils.getByTestId(`meeting-attendee-${ANA.id}`).closest('label')!.textContent).toContain('(co-editor/a)');
+      expect((utils.getByTestId(`meeting-attendee-${BRUNO.id}`) as HTMLInputElement).disabled).toBe(false);
+    });
+
+    it('a document whose file could not be removed is retried, and is not reported again once gone', async () => {
+      seedRows('meeting_attendees', [{ id: 'att-ana', meeting_id: 'meeting-1', user_id: ANA.id, role: 'participant' }]);
+      seedRows('meeting_attachments', [{ id: 'doc-1', meeting_id: 'meeting-1', filename: 'acta.pdf', file_path: 'ws-1/meeting-1/acta.pdf', file_size: 10, file_type: 'application/pdf' }]);
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const utils = await openEdit(editMeeting());
+      await click(utils.getByRole('button', { name: /Siguiente/i }));
+      await click(utils.getByRole('button', { name: /Siguiente/i }));
+      await waitFor(() => expect(utils.getByText('acta.pdf')).toBeDefined());
+      await click(utils.getByTitle('Eliminar archivo'));
+
+      failingWrites['remove:storage'] = { code: 'storage', message: 'boom' };
+      await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+      await waitFor(() => expect(toastError).toHaveBeenCalledWith('No se pudo eliminar acta.pdf.'));
+      expect(tableRows.meeting_attachments).toHaveLength(1);
+
+      delete failingWrites['remove:storage'];
+      await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+      await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Borrador guardado'));
+      expect(tableRows.meeting_attachments).toHaveLength(0);
+
+      await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+      await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(2));
+      consoleError.mockRestore();
+    });
+
+    it('an unchanged date in the repeated DST hour saves back the exact stored instant', async () => {
+      const previousTz = process.env.TZ;
+      process.env.TZ = 'America/Santiago';
+      try {
+        seedRows('meeting_attendees', [{ id: 'att-ana', meeting_id: 'meeting-1', user_id: ANA.id, role: 'participant' }]);
+        // 2026-04-05T03:30Z is 23:30 on 4 Apr in Santiago, the second time that hour happens.
+        const utils = await openEdit(editMeeting({ meeting_date: '2026-04-05T03:30:00.000Z' }));
+        expect((utils.container.querySelector('input[type="datetime-local"]') as HTMLInputElement).value).toBe('2026-04-04T23:30');
+        await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+        await waitFor(() => expect(mockUpdateMeeting).toHaveBeenCalledTimes(1));
+        expect(mockUpdateMeeting.mock.calls[0][1].meeting_date).toBe('2026-04-05T03:30:00.000Z');
+      } finally {
+        if (previousTz === undefined) delete process.env.TZ;
+        else process.env.TZ = previousTz;
+      }
+    });
   });
 });

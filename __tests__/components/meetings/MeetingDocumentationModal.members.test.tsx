@@ -54,7 +54,17 @@ vi.mock('../../../utils/storage', () => ({
 }));
 
 import MeetingDocumentationModal from '../../../components/meetings/MeetingDocumentationModal';
-import { capturedCalls, fromCalls, resetMeetingSupabaseMock } from './meetingSupabaseMock';
+import { capturedCalls, fromCalls, resetMeetingSupabaseMock, seedRows } from './meetingSupabaseMock';
+
+/** The stored rows behind meetingWithOutsider(), so edit saves reach real rows. */
+function seedHistoricalMeeting() {
+  seedRows('meeting_commitments', [{ id: 'c1', meeting_id: 'meeting-1' }]);
+  seedRows('meeting_tasks', [{ id: 't1', meeting_id: 'meeting-1' }]);
+  seedRows('meeting_attendees', [
+    { id: 'att-a', meeting_id: 'meeting-1', user_id: '33333333-3333-4333-8333-333333333333', role: 'participant' },
+    { id: 'att-o', meeting_id: 'meeting-1', user_id: '99999999-9999-4999-8999-999999999999', role: 'participant' },
+  ]);
+}
 
 const toastError = vi.mocked(toast.error);
 
@@ -589,6 +599,7 @@ describe('MeetingDocumentationModal — community-scoped member pickers', () => 
     it('after a successful load, a missing saved assignee is a disabled record-local option whose id survives an unchanged save', async () => {
       membersResponder = membersOk([MEMBER_A, MEMBER_B]);
       mockGetMeetingDetails.mockResolvedValue(meetingWithOutsider());
+      seedHistoricalMeeting();
 
       const utils = render(
         <MeetingDocumentationModal {...baseProps} meetingId="meeting-1" mode="edit" />
@@ -635,6 +646,7 @@ describe('MeetingDocumentationModal — community-scoped member pickers', () => 
       await waitFor(() => {
         expect(mockUpdateMeeting).toHaveBeenCalledTimes(1);
       });
+      await waitFor(() => expect(vi.mocked(toast.success)).toHaveBeenCalledWith('Reunión actualizada correctamente'));
       const commitmentUpdates = capturedCalls['update:meeting_commitments'] ?? [];
       expect(commitmentUpdates).toHaveLength(1);
       expect(commitmentUpdates[0].assigned_to).toBe(OUTSIDER_ID);
@@ -644,6 +656,7 @@ describe('MeetingDocumentationModal — community-scoped member pickers', () => 
     it('lets the user explicitly replace the historical assignee with a valid member and saves the new id', async () => {
       membersResponder = membersOk([MEMBER_A, MEMBER_B]);
       mockGetMeetingDetails.mockResolvedValue(meetingWithOutsider());
+      seedHistoricalMeeting();
 
       const utils = render(
         <MeetingDocumentationModal {...baseProps} meetingId="meeting-1" mode="edit" />
@@ -672,6 +685,7 @@ describe('MeetingDocumentationModal — community-scoped member pickers', () => 
       await waitFor(() => {
         expect(mockUpdateMeeting).toHaveBeenCalledTimes(1);
       });
+      await waitFor(() => expect(vi.mocked(toast.success)).toHaveBeenCalledWith('Reunión actualizada correctamente'));
       const commitmentUpdates = capturedCalls['update:meeting_commitments'] ?? [];
       expect(commitmentUpdates).toHaveLength(1);
       expect(commitmentUpdates[0].assigned_to).toBe(MEMBER_A.id);

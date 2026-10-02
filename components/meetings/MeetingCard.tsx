@@ -462,7 +462,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
             </button>
 
             {/* SM-H8: acuerdos (not assigned) and compromisos (assigned) are counted apart. */}
-            {meetingWithDetails.agreements.length > 0 && (
+            {canReadContent && meetingWithDetails.agreements.length > 0 && (
               <button
                 onClick={() => toggleSection('agreements')}
                 data-testid={`meeting-chip-agreements-${meeting.id}`}
@@ -477,7 +477,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
               </button>
             )}
 
-            {meetingWithDetails.commitments.length > 0 && (
+            {canReadContent && meetingWithDetails.commitments.length > 0 && (
               <button
                 onClick={() => toggleSection('commitments')}
                 data-testid={`meeting-chip-commitments-${meeting.id}`}
@@ -492,7 +492,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
               </button>
             )}
 
-            {meetingWithDetails.tasks.length > 0 && (
+            {canReadContent && meetingWithDetails.tasks.length > 0 && (
               <button
                 onClick={() => toggleSection('tasks')}
                 data-testid={`meeting-chip-tasks-${meeting.id}`}
@@ -552,10 +552,16 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
         <div className="border-t border-gray-200 p-6 bg-gray-50">
           <div className="max-h-96 overflow-y-auto">
             {activeSection === 'summary' && renderSummarySection()}
-            {activeSection === 'agreements' && renderAgreementsSection()}
-            {activeSection === 'commitments' && renderCommitmentsSection()}
-            {activeSection === 'tasks' && renderTasksSection()}
-            {activeSection === 'documents' && renderDocumentsSection()}
+            {activeSection === 'summary' ? null : !canReadContent ? (
+              <p className="text-sm text-gray-500 italic">{MEETING_CONTENT_HIDDEN_TEXT}</p>
+            ) : (
+              <>
+                {activeSection === 'agreements' && renderAgreementsSection()}
+                {activeSection === 'commitments' && renderCommitmentsSection()}
+                {activeSection === 'tasks' && renderTasksSection()}
+                {activeSection === 'documents' && renderDocumentsSection()}
+              </>
+            )}
           </div>
         </div>
       )}

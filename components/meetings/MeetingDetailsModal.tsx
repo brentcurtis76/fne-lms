@@ -213,7 +213,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                         </p>
                         {meeting.finalize_audience && (
                           <p className="text-emerald-700 mt-0.5">
-                            Resumen enviado a {audienceProseLabel(meeting.finalize_audience)}.
+                            Resumen enviado a {audienceProseLabel(meeting.finalize_audience, meeting.finalize_with_access)}.
                           </p>
                         )}
                       </div>
@@ -293,7 +293,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                       label: 'Acuerdos',
                       icon: MenuIcon,
                       count: meeting.agreements?.length ?? 0,
-                      show: (meeting.agreements?.length ?? 0) > 0,
+                      show: canReadContent && (meeting.agreements?.length ?? 0) > 0,
                     },
                     // SM-H8: acuerdos (not assigned) and compromisos (assigned)
                     // are different things and are shown and counted apart.
@@ -302,14 +302,14 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                       label: 'Compromisos',
                       icon: CheckCircleIcon,
                       count: meeting.commitments?.length ?? 0,
-                      show: (meeting.commitments?.length ?? 0) > 0,
+                      show: canReadContent && (meeting.commitments?.length ?? 0) > 0,
                     },
                     {
                       id: 'tasks',
                       label: 'Tareas',
                       icon: CheckCircleIcon,
                       count: meeting.tasks?.length ?? 0,
-                      show: (meeting.tasks?.length ?? 0) > 0,
+                      show: canReadContent && (meeting.tasks?.length ?? 0) > 0,
                     },
                     {
                       id: 'documents',
@@ -422,7 +422,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                 )}
 
                 {/* Agreements Tab */}
-                {activeTab === 'agreements' && (
+                {canReadContent && activeTab === 'agreements' && (
                   <div className="space-y-4">
                     {meeting.agreements && meeting.agreements.length > 0 ? (
                       <div className="space-y-3">
@@ -455,7 +455,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                 )}
 
                 {/* Commitments Tab */}
-                {activeTab === 'commitments' && (
+                {canReadContent && activeTab === 'commitments' && (
                   <div className="space-y-6">
                     {meeting.commitments.length > 0 && (
                       <div>
@@ -476,7 +476,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                 )}
 
                 {/* Tasks Tab */}
-                {activeTab === 'tasks' && (
+                {canReadContent && activeTab === 'tasks' && (
                   <div className="space-y-6">
                     {meeting.tasks.length > 0 && (
                       <div>
@@ -497,7 +497,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                 )}
 
                 {/* Documents Tab */}
-                {activeTab === 'documents' && (
+                {canReadContent && activeTab === 'documents' && (
                   <div>
                     {loadingAttachments ? (
                       <div className="flex items-center justify-center py-8">

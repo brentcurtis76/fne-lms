@@ -13,8 +13,9 @@ import {
 import TipTapEditor from '../../src/components/TipTapEditor';
 import { emptyDoc, isEmptyDoc, type TipTapDoc } from '../../lib/tiptap/helpers';
 import { AUDIENCE_PICKER_LABELS } from '../../lib/meetings/audience-labels';
+import type { FinalizeRequestAudience } from '../../types/meetings';
 
-type Audience = 'community' | 'attended';
+type Audience = FinalizeRequestAudience;
 
 // Keep all user-visible 409 strings in one place so adding a new meeting-
 // conflict code is a one-line patch.
@@ -73,14 +74,14 @@ export function FinalizeMeetingDialog({
   meetingTitle,
   onFinalized,
 }: FinalizeMeetingDialogProps) {
-  const [audience, setAudience] = useState<Audience>('community');
+  const [audience, setAudience] = useState<Audience>('with_access');
   const [facilitatorDoc, setFacilitatorDoc] = useState<TipTapDoc>(() => emptyDoc());
   const [recipients, setRecipients] = useState<RecipientState>({ kind: 'idle' });
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) {
-      setAudience('community');
+      setAudience('with_access');
       setFacilitatorDoc(emptyDoc());
       setRecipients({ kind: 'idle' });
       setSubmitting(false);
@@ -184,13 +185,13 @@ export function FinalizeMeetingDialog({
               <input
                 type="radio"
                 name="audience"
-                value="community"
-                checked={audience === 'community'}
-                onChange={() => setAudience('community')}
+                value="with_access"
+                checked={audience === 'with_access'}
+                onChange={() => setAudience('with_access')}
                 disabled={submitting}
                 className="mt-1"
               />
-              <span>{AUDIENCE_PICKER_LABELS.community}</span>
+              <span>{AUDIENCE_PICKER_LABELS.with_access}</span>
             </label>
             <label className="flex items-start gap-2 text-sm text-gray-800">
               <input

@@ -6,6 +6,8 @@ import {
   failingWrites,
   makeMeetingSupabaseClient,
   resetMeetingSupabaseMock,
+  seedRows,
+  tableRows,
 } from './meetingSupabaseMock';
 import {
   deriveMeetingDocs,
@@ -210,10 +212,19 @@ describe('applyMeetingDiffs (SM-H8)', () => {
   });
 
   it('deletes rows removed from the form', async () => {
+    seedRows('meeting_tasks', [{ id: 't1', meeting_id: 'm1' }, { id: 't2', meeting_id: 'm1' }]);
     const client = makeMeetingSupabaseClient() as any;
     const result = await applyMeetingDiffs(client, 'm1', payload(), { ...none, tasks: new Set(['t1', 't2']) });
     expect(result.problems).toEqual([]);
     expect(calls['in:meeting_tasks']).toEqual([['t1', 't2']]);
+    expect(tableRows.meeting_tasks).toEqual([]);
+  });
+
+  it('a delete that reaches no row (already gone or refused) is reported', async () => {
+    seedRows('meeting_tasks', [{ id: 't1', meeting_id: 'm1' }]);
+    const client = makeMeetingSupabaseClient() as any;
+    const result = await applyMeetingDiffs(client, 'm1', payload(), { ...none, tasks: new Set(['t1', 'ghost']) });
+    expect(result.problems).toEqual([{ kind: 'task', message: 'Tarea: no tienes permiso para guardar este cambio.' }]);
   });
 });
 
@@ -222,28 +233,59 @@ describe('syncMeetingPeople (SM-H8)', () => {
 
   it('adds new participants, removes unticked participant rows, keeps other roles', async () => {
     const client = makeMeetingSupabaseClient() as any;
+    const stored = {
+      participants: new Map<string, string | null>([['a1', 'participant'], ['old', 'participant'], ['ed', 'co_editor'], ['nul', null]]),
+      readerIds: new Set<string>(),
+    };
+    seedRows('meeting_attendees', Array.from(stored.participants.entries()).map(([user_id, role]) => ({ id: `att-${user_id}`, meeting_id: 'm1', user_id, role })));
     const problems = await syncMeetingPeople(client, 'm1', {
       actorId: 'me',
       participantIds: ['a1', 'n1'],
-      originalParticipants: new Map([['a1', 'participant'], ['old', 'participant'], ['ed', 'co_editor']]),
       readerIds: [],
-      originalReaderIds: new Set(),
+      baseline: stored,
+      current: stored,
     });
     expect(problems).toEqual([]);
     expect(calls['insert:meeting_attendees'][0]).toEqual([
       { meeting_id: 'm1', user_id: 'n1', attendance_status: 'invited', role: 'participant' },
     ]);
+    // 'old' and the NULL-role row are removed; the co_editor row never is.
+    expect(calls['in:meeting_attendees']).toEqual([['old', 'nul']]);
+  });
+
+  it('a retry writes only what is still missing and keeps a pending removal', async () => {
+    const client = makeMeetingSupabaseClient() as any;
+    const baseline = { participants: new Map<string, string | null>([['a1', 'participant'], ['old', 'participant']]), readerIds: new Set<string>() };
+    // A previous attempt added n1 but failed to remove 'old'.
+    const current = { participants: new Map<string, string | null>([['a1', 'participant'], ['old', 'participant'], ['n1', 'participant']]), readerIds: new Set<string>() };
+    seedRows('meeting_attendees', ['a1', 'old', 'n1'].map((user_id) => ({ id: `att-${user_id}`, meeting_id: 'm1', user_id, role: 'participant' })));
+    const problems = await syncMeetingPeople(client, 'm1', {
+      actorId: 'me', participantIds: ['a1', 'n1'], readerIds: [], baseline, current,
+    });
+    expect(problems).toEqual([]);
+    expect(calls['insert:meeting_attendees']).toBeUndefined();
     expect(calls['in:meeting_attendees']).toEqual([['old']]);
+  });
+
+  it('leaves alone people someone else added meanwhile', async () => {
+    const client = makeMeetingSupabaseClient() as any;
+    const baseline = { participants: new Map<string, string | null>([['a1', 'participant']]), readerIds: new Set<string>() };
+    const current = { participants: new Map<string, string | null>([['a1', 'participant'], ['other', 'participant']]), readerIds: new Set<string>(['r-other']) };
+    await syncMeetingPeople(client, 'm1', { actorId: 'me', participantIds: ['a1'], readerIds: [], baseline, current });
+    expect(calls['in:meeting_attendees']).toBeUndefined();
+    expect(calls['in:meeting_read_grants']).toBeUndefined();
   });
 
   it('adds and removes readers, recording who added them; a participant needs no grant', async () => {
     const client = makeMeetingSupabaseClient() as any;
+    const stored = { participants: new Map<string, string | null>([['a1', 'participant']]), readerIds: new Set(['gone']) };
+    seedRows('meeting_read_grants', [{ meeting_id: 'm1', user_id: 'gone', granted_by: 'x' }]);
     const problems = await syncMeetingPeople(client, 'm1', {
       actorId: 'me',
       participantIds: ['a1'],
-      originalParticipants: new Map([['a1', 'participant']]),
       readerIds: ['r1', 'a1'],
-      originalReaderIds: new Set(['gone']),
+      baseline: stored,
+      current: stored,
     });
     expect(problems).toEqual([]);
     expect(calls['insert:meeting_read_grants'][0]).toEqual([{ meeting_id: 'm1', user_id: 'r1', granted_by: 'me' }]);
@@ -253,8 +295,9 @@ describe('syncMeetingPeople (SM-H8)', () => {
   it('reports a refused participant insert', async () => {
     failingWrites['insert:meeting_attendees'] = { code: '42501', message: 'new row violates row-level security policy' };
     const client = makeMeetingSupabaseClient() as any;
+    const nobody = { participants: new Map<string, string | null>(), readerIds: new Set<string>() };
     const problems = await syncMeetingPeople(client, 'm1', {
-      actorId: 'me', participantIds: ['n1'], originalParticipants: new Map(), readerIds: [], originalReaderIds: new Set(),
+      actorId: 'me', participantIds: ['n1'], readerIds: [], baseline: nobody, current: nobody,
     });
     expect(problems).toEqual([{ kind: 'participant', message: 'Participantes: no tienes permiso para guardar este cambio.' }]);
   });

@@ -115,7 +115,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error('[add-classmates] Requester has no role in the group school');
       return res.status(403).json({ error: 'No perteneces a la escuela de este grupo' });
     }
-    console.log('[add-classmates] requester has', requesterRoles.length, 'active roles; group school_id:', requesterSchoolId);
+    console.log('[add-classmates] requester has', requesterRoles.length, 'active roles in scope');
 
     // 2c. Get assignment's course_id
     const { data: assignmentBlock, error: blockError } = await supabase

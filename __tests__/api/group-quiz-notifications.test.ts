@@ -839,6 +839,8 @@ describe('R3-F1 · logs keep fixed labels, counts and database codes, never ids,
   it.each<[string, Handler, string, unknown, () => void, number, string]>([
     ['create-group, role lookup error', createGroup, LEADER, create(), fail('user_roles.select'), 403, `[create-group] Role check failed: ${CODE}`],
     ['create-group, requester without a school', createGroup, CONSULTANT, create(), none, 403, '[create-group] No school_id found in roles: { roles: 1 }'],
+    ['create-group, community lookup error', createGroup, LEADER, create(), fail('growth_communities.select'), 500, `[create-group] Community lookup failed: ${CODE}`],
+    ['create-group, classmate role lookup error', createGroup, LEADER, create(), failCall('user_roles.select', 2), 500, `[create-group] Classmate role lookup failed: ${CODE}`],
     ['create-group, assignment lookup error', createGroup, LEADER, create(), fail('blocks.select'), 404, `[create-group] Assignment block not found: ${CODE}`],
     ['create-group, lesson lookup error', createGroup, LEADER, create(), fail('lessons.select'), 404, `[create-group] Lesson/Course not found: ${CODE}`],
     ['create-group, requester already in a group', createGroup, MATE1, create(), none, 400, '[create-group] User already in group'],
@@ -881,7 +883,7 @@ describe('R3-F1 · logs keep fixed labels, counts and database codes, never ids,
     expect((await review(REVIEWER_INDIV, reviewed)).status).toBe(200);
     expect(logs).toEqual(expect.arrayContaining([
       '[add-classmates] Classmates requested: 1',
-      '[add-classmates] requester has 1 active roles; group school_id: 101',
+      '[add-classmates] requester has 1 active roles in scope',
       '[create-group] Payload: { classmates: 0 }',
       '[create-group] Requester scope resolved: { community: false }',
       '[create-group] Adding members: { count: 1 }',

@@ -108,7 +108,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 .in('id', candidateCommunityIds)
                 .eq('school_id', requesterSchoolId);
             if (communityError) {
-                console.error('[create-group] Community lookup failed:', communityError);
+                console.error('[create-group] Community lookup failed:', loggableError(communityError));
                 return res.status(500).json({ error: 'Error al verificar la comunidad' });
             }
             const allowed = new Set((sameSchoolCommunities ?? []).map(c => c.id));
@@ -177,7 +177,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 .eq('is_active', true);
 
             if (classmateRolesError) {
-                console.error('[create-group] Classmate role lookup failed:', classmateRolesError);
+                console.error('[create-group] Classmate role lookup failed:', loggableError(classmateRolesError));
                 return res.status(500).json({ error: 'Error al validar compañeros' });
             }
 

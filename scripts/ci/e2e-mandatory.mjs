@@ -86,6 +86,11 @@ export const MANDATORY_SPECS = [
   // maintenance route; cookie/Bearer parity; the consultor's course-only view
   // of the assignment matrix; PostgREST denials and reads on the B10a tables.
   'tests/e2e/learning-path-governance.spec.ts',
+  // SM-H8 (W-MEET-01) — meetings as people use them: a NEW meeting filled with the
+  // keyboard (the create path lost tasks in Production while the edit path saved
+  // them), participants-only assignees, the stored time, acuerdos/compromisos
+  // apart, the eye, delete by the creator, and who may read the content.
+  'tests/e2e/meeting-create-and-access.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

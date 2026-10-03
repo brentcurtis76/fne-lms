@@ -8,7 +8,7 @@ const baseData = (overrides: Partial<MeetingSummaryEmailData> = {}): MeetingSumm
   meetingDates: [new Date('2026-04-20T16:00:00Z')],
   facilitatorName: 'Ana Pérez',
   finalizerName: 'Diego Torres',
-  audience: 'community',
+  audience: 'with_access',
   attendees: [
     { name: 'Ana Pérez', attended: true, role: 'participant' },
   ],

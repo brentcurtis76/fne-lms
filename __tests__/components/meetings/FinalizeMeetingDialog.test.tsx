@@ -73,7 +73,7 @@ const getFinalizeButton = (container: HTMLElement) => {
 };
 
 describe('FinalizeMeetingDialog', () => {
-  it('renders community and attended radios with community selected by default', async () => {
+  it('renders with_access (people with access, SM-H8) and attended radios with with_access selected by default', async () => {
     installFetch(recipientsHandler());
     const onOpenChange = vi.fn();
 
@@ -83,7 +83,7 @@ describe('FinalizeMeetingDialog', () => {
 
     const root = document.body;
     const community = root.querySelector(
-      'input[type="radio"][value="community"]',
+      'input[type="radio"][value="with_access"]',
     ) as HTMLInputElement;
     const attended = root.querySelector(
       'input[type="radio"][value="attended"]',
@@ -113,7 +113,7 @@ describe('FinalizeMeetingDialog', () => {
     });
 
     const community = root.querySelector(
-      'input[type="radio"][value="community"]',
+      'input[type="radio"][value="with_access"]',
     ) as HTMLInputElement;
     expect(attended.checked).toBe(true);
     expect(community.checked).toBe(false);
@@ -156,7 +156,7 @@ describe('FinalizeMeetingDialog', () => {
     expect(postCall).toBeDefined();
 
     const body = JSON.parse(postCall!.init.body);
-    expect(body).toEqual({ audience: 'community' });
+    expect(body).toEqual({ audience: 'with_access' });
     // JSON.stringify drops keys whose value is `undefined`, which is the
     // contract for an empty editor on the wire.
     expect(Object.prototype.hasOwnProperty.call(body, 'facilitator_message_doc')).toBe(false);

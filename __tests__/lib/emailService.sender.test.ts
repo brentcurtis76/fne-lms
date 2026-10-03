@@ -35,7 +35,7 @@ const templateData: MeetingSummaryEmailData = {
   meetingDates: [new Date('2026-04-20T16:00:00Z')],
   facilitatorName: 'Persona Facilitadora',
   finalizerName: 'Persona Finalizadora',
-  audience: 'community',
+  audience: 'with_access',
   attendees: [{ name: 'Persona Asistente', attended: true, role: 'participant' }],
   summaryHtml: '<p>Resumen</p>',
   notesHtml: '',

@@ -164,10 +164,69 @@ const MEETING_SUMMARY_EVENT = 'meeting_finalized';
 const USER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
+ * SM-H8 (owner decision 4): the people who may read a meeting's content —
+ * active leaders of its community, its creator, facilitator and secretary,
+ * every participant (meeting_attendees, any role) and everyone an editor added
+ * (meeting_read_grants). Mirrors can_read_meeting_content minus the global
+ * admin/consultor branch (they can read every meeting; they are not mailed
+ * every meeting). Returns null when any read fails, so callers notify nobody.
+ */
+export async function getMeetingAccessUserIds(
+  supabase: SupabaseClient,
+  meetingId: string
+): Promise<string[] | null> {
+  const { data: meeting, error: meetingErr } = await supabase
+    .from('community_meetings')
+    .select(
+      'id, created_by, facilitator_id, secretary_id, workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id)'
+    )
+    .eq('id', meetingId)
+    .single();
+  if (meetingErr || !meeting) return null;
+
+  const workspace = Array.isArray((meeting as any).workspace)
+    ? (meeting as any).workspace[0]
+    : (meeting as any).workspace;
+  const communityId = workspace?.community_id as string | undefined;
+
+  let reads;
+  try {
+    reads = await Promise.all([
+      communityId
+        ? supabase
+            .from('user_roles')
+            .select('user_id')
+            .eq('community_id', communityId)
+            .eq('role_type', 'lider_comunidad')
+            .eq('is_active', true)
+        : Promise.resolve({ data: [], error: null }),
+      supabase.from('meeting_attendees').select('user_id').eq('meeting_id', meetingId),
+      supabase.from('meeting_read_grants').select('user_id').eq('meeting_id', meetingId),
+    ]);
+  } catch {
+    return null;
+  }
+  if (reads.some((r: any) => r?.error)) return null;
+
+  const ids = new Set<string>();
+  for (const id of [(meeting as any).created_by, (meeting as any).facilitator_id, (meeting as any).secretary_id]) {
+    if (typeof id === 'string' && id) ids.add(id);
+  }
+  for (const result of reads) {
+    for (const row of ((result as any).data || []) as Array<{ user_id?: string | null }>) {
+      if (row.user_id) ids.add(row.user_id);
+    }
+  }
+  return Array.from(ids);
+}
+
+/**
  * Resolve recipients for a community-meeting finalize/update email.
  *
- * - `opts.onlyAttended = false` (default): every active member of the meeting's
- *   growth community (all role types).
+ * - `opts.onlyAttended = false` (default): the people with access to the
+ *   meeting (getMeetingAccessUserIds; SM-H8 — it used to be every active
+ *   member of the community, which mailed agreements and commitments to
+ *   people who may not read them).
  * - `opts.onlyAttended = true`: only users with `meeting_attendees.attendance_status = 'attended'`.
  *
  * Dedupes by user id. Keeps only users the `meeting_finalized` email
@@ -210,14 +269,12 @@ export async function getCommunityRecipients(
     }
   } else {
     if (!communityId) return [];
-    const { data: roleRows } = await supabase
-      .from('user_roles')
-      .select('user_id')
-      .eq('community_id', communityId)
-      .eq('is_active', true);
-    for (const row of roleRows || []) {
-      if (row.user_id) userIdSet.add(row.user_id as string);
+    const accessIds = await getMeetingAccessUserIds(supabase, meetingId);
+    if (!accessIds) {
+      console.error('Meeting summary email suppressed', { status: 'access_list_unavailable' });
+      return [];
     }
+    for (const id of accessIds) userIdSet.add(id);
   }
 
   if (userIdSet.size === 0) return [];

@@ -489,6 +489,9 @@ test.describe('meeting_finalized bells through the real finalize route (N2-02)',
     must('attendees', await service.from('meeting_attendees').insert(
       (['emailOff', 'noEmail', 'mailed', 'absent'] as const).map((key) => ({ meeting_id: owned.a, user_id: users[key].id, attendance_status: key === 'absent' ? 'absent' : 'attended' }))
     ));
+    // SM-H8: meeting B's summary goes to the people with access — its creator and
+    // community leader (`leader`) and its one participant (`absent`).
+    must('attendees b', await service.from('meeting_attendees').insert({ meeting_id: owned.b, user_id: users.absent.id, attendance_status: 'invited', role: 'participant' }));
   });
 
   test.afterAll(async () => {
@@ -537,22 +540,25 @@ test.describe('meeting_finalized bells through the real finalize route (N2-02)',
     const attended = await finalize(leader.page, owned.a, 'attended');
     const repeat = await finalize(leader.page, owned.a, 'attended');
     const race = await finalize(leader.page, owned.c, 'attended');
-    const community = await finalize(leader.page, owned.b, 'community');
+    // SM-H8 (owner decision 4): 'with_access' replaced the whole-community audience.
+    const wholeCommunity = await finalize(leader.page, owned.b, 'community');
+    const community = await finalize(leader.page, owned.b, 'with_access');
     await leader.context.close();
-    Object.assign(meeting, { outsider, attended, repeat, race, community });
+    Object.assign(meeting, { outsider, attended, repeat, race, wholeCommunity, community });
 
-    // Only `mailed` passes the summary filter for A; B adds the leader and the absent member (default mode).
+    // Only `mailed` passes the summary filter for A; B goes to the leader and its participant `absent` (default mode).
     // No provider key here, so nothing is sent and the route reports it.
     expect(attended).toMatchObject({ status: 200, body: { data: { ok: true, recipients_count: 1, sent: 0, failed: 1, summary_email_sent: false } } });
-    expect(community).toMatchObject({ status: 200, body: { data: { ok: true, recipients_count: 3, sent: 0, failed: 3, summary_email_sent: false } } });
+    expect(wholeCommunity.status).toBe(400);
+    expect(community).toMatchObject({ status: 200, body: { data: { ok: true, recipients_count: 2, sent: 0, failed: 2, summary_email_sent: false } } });
     expect(repeat.status).toBe(403);
     expect(race).toMatchObject({ status: 409, body: { code: 'meeting_already_finalized' } });
 
-    const rows = must('meetings', await service.from('community_meetings').select('id, status, finalized_by, finalize_audience').in('id', [owned.a, owned.b, owned.c]));
+    const rows = must('meetings', await service.from('community_meetings').select('id, status, finalized_by, finalize_audience, finalize_with_access').in('id', [owned.a, owned.b, owned.c]));
     expect(rows.map(({ id, ...row }) => ({ key: Object.entries(owned).find(([, v]) => v === id)?.[0], ...row })).sort((x, y) => String(x.key).localeCompare(String(y.key)))).toEqual([
-      { key: 'a', status: 'completada', finalized_by: users.leader.id, finalize_audience: 'attended' },
-      { key: 'b', status: 'completada', finalized_by: users.leader.id, finalize_audience: 'community' },
-      { key: 'c', status: 'borrador', finalized_by: null, finalize_audience: null },
+      { key: 'a', status: 'completada', finalized_by: users.leader.id, finalize_audience: 'attended', finalize_with_access: null },
+      { key: 'b', status: 'completada', finalized_by: users.leader.id, finalize_audience: 'community', finalize_with_access: true },
+      { key: 'c', status: 'borrador', finalized_by: null, finalize_audience: null, finalize_with_access: null },
     ]);
 
     const bells = must('bells', await service.from('user_notifications').select('user_id, title, description, related_url, category').in('user_id', userIds()));
@@ -561,7 +567,8 @@ test.describe('meeting_finalized bells through the real finalize route (N2-02)',
     meeting.bells = got;
     expect(got).toEqual([
       ...['emailOff', 'noEmail', 'mailed'].map((k) => `${k} Reunión finalizada: ${titles.a}`),
-      ...['leader', 'emailOff', 'noEmail', 'mailed', 'absent'].map((k) => `${k} Reunión finalizada: ${titles.b}`),
+      // SM-H8: members who did not take part in B (emailOff, noEmail, mailed) get no bell for it.
+      ...['leader', 'absent'].map((k) => `${k} Reunión finalizada: ${titles.b}`),
     ].sort());
     for (const bell of bells) expect(bell).toMatchObject({ related_url: '/community/workspace?section=meetings', category: 'community' });
   });

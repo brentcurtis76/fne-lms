@@ -13,6 +13,9 @@
 --      attendee inserts still work
 --   5. D4: anon, inactive role, wrong meeting, NULL meeting id, meeting-id move,
 --      UPDATE / DELETE on both tables
+--   SM-H8 (20261003100000) changed four expectations here, marked inline:
+--   participants (any attendee row) read; only verified editors write attendee
+--   rows; assignees read their own task; editors may DELETE. Full matrix: 104.
 --   6. W-B3c-01 (SM-27): migration 20260926210000 makes meeting_tasks.due_date
 --      NOT NULL with no default and no backfill; task fixtures carry a date
 --
@@ -140,15 +143,18 @@ VALUES ('5e220000-0000-4000-8000-0000000000e1', pg_temp.uid('legacy'), 'co_edito
 SELECT policies_are('public', 'meeting_agreements', ARRAY[
   'Meeting editors can update agreements', 'Users can delete agreements for deletable meetings', 'forced_password_change_guard',
   'Verified meeting editors can view agreements', 'Verified meeting editors can insert agreements',
-  'Agreement updates require a verified meeting editor'], 'agreements: baseline policies kept, three added');
+  'Agreement updates require a verified meeting editor', 'Verified meeting editors can delete agreements'],
+  'agreements: baseline policies kept, three added (+ SM-H8 editor DELETE)');
 SELECT policies_are('public', 'meeting_tasks', ARRAY[
   'Meeting editors can update tasks', 'Users can delete tasks for deletable meetings', 'forced_password_change_guard',
   'Verified meeting editors can view tasks', 'Verified meeting editors can insert tasks',
-  'Task updates require a verified meeting editor'], 'tasks: baseline policies kept, three added');
+  'Task updates require a verified meeting editor', 'Verified meeting editors can delete tasks'],
+  'tasks: baseline policies kept, three added (+ SM-H8 editor DELETE)');
 SELECT policies_are('public', 'meeting_attendees', ARRAY[
   'Meeting editors can update attendees', 'Users can delete attendees for deletable meetings', 'Users can delete meeting attendees',
   'Users can insert meeting attendees', 'Users can view meeting attendees', 'forced_password_change_guard',
-  'Only verified meeting editors grant co_editor', 'Only verified meeting editors set co_editor'], 'attendees: baseline policies kept, two restrictive added');
+  'Only verified meeting editors grant co_editor', 'Only verified meeting editors set co_editor',
+  'Attendee updates require a verified meeting editor'], 'attendees: baseline policies kept, two restrictive added (+ SM-H8 update limit)');
 SELECT policies_are('public', 'meeting_co_editor_grants', ARRAY['forced_password_change_guard'], 'grants: only the password guard');
 SELECT tests.rls_enabled('public', 'meeting_co_editor_grants');
 SELECT ok(NOT has_table_privilege('authenticated', 'public.meeting_co_editor_grants', 'SELECT,INSERT,UPDATE,DELETE'), 'grants: authenticated holds no table privilege');
@@ -219,7 +225,10 @@ SELECT pg_temp.d2_matrix(p) FROM d2_actors ORDER BY p;
 SELECT pg_temp.as_user('legacy');
 SELECT ok(public.can_edit_meeting(auth.uid(), '5e220000-0000-4000-8000-0000000000e1'), 'D3 legacy: baseline can_edit_meeting still trusts the old row (unchanged function)');
 SELECT ok(NOT public.can_edit_meeting_verified(auth.uid(), '5e220000-0000-4000-8000-0000000000e1'), 'D3 legacy: the old row is not a verified grant');
-SELECT is(pg_temp.visible(t, '5e220000-0000-4000-8000-0000000000e1'), 0, format('D3 legacy %s: SELECT yields no row', t)) FROM child_tables ORDER BY t;
+-- SM-H8 (20261003100000): an attendee row of any role makes its user a reader
+-- of the meeting content, so the legacy co_editor now READS as a participant;
+-- it still gains no write access (below).
+SELECT is(pg_temp.visible(t, '5e220000-0000-4000-8000-0000000000e1'), 3, format('D3 legacy %s: reads as a participant (SM-H8), nothing more', t)) FROM child_tables ORDER BY t;
 SELECT throws_ok(format($$SELECT pg_temp.ins(%L, '5e220000-0000-4000-8000-0000000000e1', 'legado')$$, t), '42501', NULL,
   format('D3 legacy %s: INSERT denied', t)) FROM child_tables ORDER BY t;
 SELECT is(pg_temp.upd(t, '5e220000-0000-4000-8000-0000000000e1'), 0, format('D3 legacy %s: UPDATE with WHERE changes no row', t)) FROM child_tables ORDER BY t;
@@ -228,20 +237,25 @@ SELECT throws_ok($$INSERT INTO public.meeting_attendees (meeting_id, user_id, ro
   '42501', NULL, 'D3 legacy: cannot grant co_editor to someone else');
 SELECT pg_temp.reset_auth();
 
--- Ordinary attendee inserts keep working for any signed-in user.
+-- SM-H8 (20261003100000): a participant row grants read access, so only a
+-- verified editor may write one (it was any signed-in user).
 SELECT pg_temp.as_user('outsider');
-SELECT lives_ok($$INSERT INTO public.meeting_attendees (meeting_id, user_id, role) VALUES ('5e220000-0000-4000-8000-0000000000e1', auth.uid(), 'participant')$$,
-  'D3 outsider: ordinary participant insert still works');
-UPDATE public.meeting_attendees SET role = 'co_editor' WHERE user_id = auth.uid();
+SELECT throws_ok($$INSERT INTO public.meeting_attendees (meeting_id, user_id, role) VALUES ('5e220000-0000-4000-8000-0000000000e1', auth.uid(), 'participant')$$,
+  '42501', NULL, 'D3 outsider: adding oneself as a participant is denied (SM-H8)');
 SELECT pg_temp.reset_auth();
-SELECT is((SELECT role FROM public.meeting_attendees WHERE user_id = pg_temp.uid('outsider')), 'participant',
-  'D3 outsider: promoting own participant row to co_editor changes nothing');
-SELECT pg_temp.as_user('legacy');
-SELECT throws_ok($$UPDATE public.meeting_attendees SET role = 'co_editor' WHERE meeting_id = '5e220000-0000-4000-8000-0000000000e1' AND user_id = pg_temp.uid('outsider')$$,
-  '42501', NULL, 'D3 legacy: cannot promote another attendee to co_editor');
+SELECT is((SELECT count(*)::int FROM public.meeting_attendees WHERE user_id = pg_temp.uid('outsider')), 0,
+  'D3 outsider: no attendee row was written');
 SELECT pg_temp.as_user('editor');
 SELECT lives_ok($$INSERT INTO public.meeting_attendees (meeting_id, user_id, role) VALUES ('5e220000-0000-4000-8000-0000000000e1', pg_temp.uid('member'), 'participant')$$,
   'D3 editor: ordinary participant insert for another user still works');
+SELECT pg_temp.as_user('legacy');
+-- Blocked UPDATE returns no row (SM-H8 restrictive update limit).
+UPDATE public.meeting_attendees SET role = 'co_editor'
+ WHERE meeting_id = '5e220000-0000-4000-8000-0000000000e1' AND user_id = pg_temp.uid('member');
+SELECT pg_temp.reset_auth();
+SELECT is((SELECT role FROM public.meeting_attendees WHERE meeting_id = '5e220000-0000-4000-8000-0000000000e1' AND user_id = pg_temp.uid('member')),
+  'participant', 'D3 legacy: cannot promote another attendee to co_editor');
+SELECT pg_temp.as_user('editor');
 SELECT lives_ok($$INSERT INTO public.meeting_attendees (meeting_id, user_id, role) VALUES ('5e220000-0000-4000-8000-0000000000e1', pg_temp.uid('grantee'), 'co_editor')$$,
   'D3 editor: a verified editor grants co_editor');
 SELECT pg_temp.reset_auth();
@@ -260,7 +274,9 @@ SELECT pg_temp.as_user('editor');
 UPDATE public.meeting_attendees SET role = 'participant'
  WHERE meeting_id = '5e220000-0000-4000-8000-0000000000e1' AND user_id = pg_temp.uid('grantee');
 SELECT pg_temp.as_user('grantee');
-SELECT is(pg_temp.visible('meeting_agreements', '5e220000-0000-4000-8000-0000000000e1'), 0, 'D3 grantee: demotion removes child access');
+-- SM-H8: the demoted grantee is still a participant, so it keeps READ access
+-- (asserted here); its loss of write access is asserted in 104 section 3b.
+SELECT is(pg_temp.visible('meeting_agreements', '5e220000-0000-4000-8000-0000000000e1'), 4, 'D3 grantee: demotion removes edit, participant still reads (SM-H8)');
 SELECT pg_temp.reset_auth();
 
 -- ---------------------------------------------------------------------------
@@ -286,7 +302,9 @@ SELECT is(pg_temp.upd(t, '5e220000-0000-4000-8000-0000000000e1'), 0, format('D4 
 SELECT is(pg_temp.del(t, '5e220000-0000-4000-8000-0000000000e1'), 0, format('D4 inactive %s: DELETE removes no row', t)) FROM child_tables ORDER BY t;
 
 SELECT pg_temp.as_user('editor');
-SELECT is(pg_temp.visible(t, '5e220000-0000-4000-8000-0000000000e3'), 0, format('D4 wrong meeting %s: editor of A reads nothing in B1', t)) FROM child_tables ORDER BY t;
+SELECT is(pg_temp.visible('meeting_agreements', '5e220000-0000-4000-8000-0000000000e3'), 0, 'D4 wrong meeting meeting_agreements: editor of A reads nothing in B1');
+-- SM-H8: the B1 seed task is assigned to this user, and an assignee reads its own task.
+SELECT is(pg_temp.visible('meeting_tasks', '5e220000-0000-4000-8000-0000000000e3'), 1, 'D4 wrong meeting meeting_tasks: editor of A reads only the B1 task assigned to it (SM-H8)');
 SELECT throws_ok(format($$SELECT pg_temp.ins(%L, '5e220000-0000-4000-8000-0000000000e3', 'otro')$$, t), '42501', NULL,
   format('D4 wrong meeting %s: editor of A cannot insert into B1', t)) FROM child_tables ORDER BY t;
 SELECT is(pg_temp.upd(t, '5e220000-0000-4000-8000-0000000000e3'), 0, format('D4 wrong meeting %s: editor of A updates nothing in B1', t)) FROM child_tables ORDER BY t;

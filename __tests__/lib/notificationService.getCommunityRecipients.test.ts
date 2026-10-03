@@ -137,7 +137,7 @@ describe('getCommunityRecipients', () => {
     });
   });
 
-  it('dedupes u1 across multiple community-role rows (onlyAttended:false)', async () => {
+  it('dedupes u1 across multiple leader-role rows (onlyAttended:false)', async () => {
     const { client, calls } = createFakeSupabase({
       community_meetings: meetingRow(),
       // Same user appearing under multiple role rows must collapse to one recipient.
@@ -171,9 +171,48 @@ describe('getCommunityRecipients', () => {
     );
     expect(idsFilter?.[2]).toEqual(['u1']);
 
-    // Community-role path, not attendee path, is queried.
-    expect(calls.some((c) => c.table === 'user_roles')).toBe(true);
-    expect(calls.some((c) => c.table === 'meeting_attendees')).toBe(false);
+    // SM-H8: the 'community' audience is the people with access — community
+    // LEADERS (not every member), participants and read grants.
+    const rolesCall = calls.find((c) => c.table === 'user_roles');
+    expect(rolesCall?.filters).toContainEqual(['eq', 'role_type', 'lider_comunidad']);
+    expect(calls.some((c) => c.table === 'meeting_attendees')).toBe(true);
+    expect(calls.some((c) => c.table === 'meeting_read_grants')).toBe(true);
+  });
+
+  it('SM-H8: mails the creator, facilitator, secretary, participants, added readers and leaders — nobody else', async () => {
+    const { client } = createFakeSupabase({
+      community_meetings: {
+        single: {
+          data: {
+            id: MEETING_ID, created_by: 'creator', facilitator_id: 'facil', secretary_id: null,
+            workspace: { community_id: COMMUNITY_ID },
+          },
+          error: null,
+        },
+      },
+      user_roles: { data: [{ user_id: 'leader' }] },
+      meeting_attendees: { data: [{ user_id: 'part' }, { user_id: 'creator' }] },
+      meeting_read_grants: { data: [{ user_id: 'reader' }] },
+      profiles: {
+        data: ['creator', 'facil', 'leader', 'part', 'reader'].map((id) => ({ id, email: `${id}@test.cl`, first_name: id, last_name: '' })),
+      },
+      user_notification_preferences: { data: [] },
+    });
+    const recipients = await getCommunityRecipients(client, MEETING_ID, { onlyAttended: false });
+    expect(recipients.map((r) => r.id).sort()).toEqual(['creator', 'facil', 'leader', 'part', 'reader']);
+  });
+
+  it('SM-H8: if the access list cannot be read, nobody is mailed', async () => {
+    const { client } = createFakeSupabase({
+      community_meetings: meetingRow(),
+      user_roles: { data: [{ user_id: 'u1' }] },
+      meeting_attendees: { error: { message: 'boom' } },
+      profiles: { data: [{ id: 'u1', email: 'u1@test.cl', first_name: 'One', last_name: 'User' }] },
+      user_notification_preferences: { data: [] },
+    });
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await expect(getCommunityRecipients(client, MEETING_ID, { onlyAttended: false })).resolves.toEqual([]);
+    consoleError.mockRestore();
   });
 
   it('onlyAttended:true reads meeting_attendees filtered by attendance_status=attended', async () => {

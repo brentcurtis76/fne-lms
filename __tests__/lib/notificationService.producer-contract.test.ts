@@ -32,6 +32,12 @@ const db = vi.hoisted(() => ({
   modes: {} as Record<string, string>,
 }));
 
+// SM-H8: the routes also ask the database whether the caller is a verified
+// editor (can_edit_meeting_verified). These tests exercise the route logic
+// with that answer fixed to yes; verified-editor.test.ts covers the call.
+const verifiedEditorMock = vi.hoisted(() => ({ isVerifiedMeetingEditor: vi.fn(async () => true) }));
+vi.mock('../../lib/api/meetings/verified-editor', () => verifiedEditorMock);
+
 vi.mock('@supabase/supabase-js', () => {
   const answer = (table: string, op: string, columns: string | undefined, payload: any, filters: unknown[][]) => {
     const eq = (column: string) => filters.find(([c]) => c === column)?.[1];
@@ -50,7 +56,13 @@ vi.mock('@supabase/supabase-js', () => {
       return { data: db.attendees.filter((a) => !status || a.attendance_status === status).map((a) => ({ ...a, role: 'attendee', user_profile: null })), error: null };
     }
     if (table === 'user_roles' && eq('community_id')) {
-      return db.memberFailure ? { data: null, error: { code: '57014', message: 'timeout' } } : { data: db.members.map((user_id) => ({ user_id })), error: null };
+      if (db.memberFailure) return { data: null, error: { code: '57014', message: 'timeout' } };
+      // SM-H8: the 'community' audience asks for the community LEADERS only.
+      const leadersOnly = eq('role_type') === 'lider_comunidad';
+      const ids = leadersOnly
+        ? db.members.filter((user_id) => (db.roles[user_id] ?? []).some((r: any) => r.role_type === 'lider_comunidad'))
+        : db.members;
+      return { data: ids.map((user_id) => ({ user_id })), error: null };
     }
     if (table === 'user_roles' && eq('user_id')) return { data: db.roles[eq('user_id') as string] ?? [], error: null };
     if (table === 'profiles' && inList) return { data: inList.map((id) => ({ id, email: db.emails[id] ?? null, first_name: 'Sintetica' })), error: null };
@@ -382,6 +394,8 @@ describe('D2/D3 · the real finalize route picks bell recipients from the audien
   const MAILED = '66666666-6666-4666-8666-666666666666';
   const ABSENT = '77777777-7777-4777-8777-777777777777';
   const OUTSIDER = '88888888-8888-4888-8888-888888888888';
+  // SM-H8: an active member of the community who did not take part.
+  const BYSTANDER = '99999999-9999-4999-8999-999999999999';
   const role = (role_type: string, community_id: string | null = COMMUNITY) => [{ role_type, community_id, school_id: null, is_active: true }];
 
   const post = async (audience: string, caller = LEADER) => {
@@ -409,9 +423,9 @@ describe('D2/D3 · the real finalize route picks bell recipients from the audien
         { user_id: MAILED, attendance_status: 'attended' },
         { user_id: ABSENT, attendance_status: 'absent' },
       ],
-      members: [LEADER, EMAIL_OFF, NO_EMAIL, MAILED, ABSENT],
+      members: [LEADER, EMAIL_OFF, NO_EMAIL, MAILED, ABSENT, BYSTANDER],
       roles: { [LEADER]: role('lider_comunidad'), [OUTSIDER]: role('docente', '0b7c2c1e-5d1a-4c6e-9f00-0000000000c2') },
-      emails: { [LEADER]: 'lider@qa.local.test', [EMAIL_OFF]: 'sin-correo@qa.local.test', [MAILED]: 'asistente@qa.local.test', [ABSENT]: 'ausente@qa.local.test' },
+      emails: { [BYSTANDER]: 'miembro@qa.local.test', [LEADER]: 'lider@qa.local.test', [EMAIL_OFF]: 'sin-correo@qa.local.test', [MAILED]: 'asistente@qa.local.test', [ABSENT]: 'ausente@qa.local.test' },
       modes: { [EMAIL_OFF]: 'off', [MAILED]: 'immediate', [ABSENT]: 'digest' },
     });
   });
@@ -428,18 +442,19 @@ describe('D2/D3 · the real finalize route picks bell recipients from the audien
     expect(sends).toEqual([]);
   });
 
-  it('D3: community audience — every active member gets a bell whatever their email; digest and immediate still get the summary', async () => {
-    const { status, body } = await post('community');
+  it('D3 + SM-H8: "people with access" audience — leader and every participant get a bell whatever their email; a member who did not take part gets neither bell nor summary', async () => {
+    const { status, body } = await post('with_access');
     expect(status).toBe(200);
     expect(body.data).toMatchObject({ recipients_count: 3, summary_email_sent: true });
     expect(bellIds()).toEqual([LEADER, EMAIL_OFF, NO_EMAIL, MAILED, ABSENT].sort());
+    expect(bellIds()).not.toContain(BYSTANDER);
     expect(summaryIds()).toEqual([LEADER, MAILED, ABSENT].sort());
     expect(sends).toEqual([]);
   });
 
   it('D3: a failed member lookup notifies nobody and the finalize still succeeds', async () => {
     db.memberFailure = true;
-    const { status } = await post('community');
+    const { status } = await post('with_access');
     expect(status).toBe(200);
     expect(db.rows).toEqual([]);
     expect(loggedText()).not.toMatch(/qa\.local\.test|4444-4444/);
@@ -455,7 +470,7 @@ describe('D2/D3 · the real finalize route picks bell recipients from the audien
   });
 
   it('D2: an outsider gets 403 and a repeat is refused as before (403 once finalized, 409 for the race loser); only one finalize writes bells', async () => {
-    const outsider = await post('community', OUTSIDER);
+    const outsider = await post('with_access', OUTSIDER);
     expect(outsider.status).toBe(403);
     expect(db.meeting).toMatchObject({ status: 'borrador', finalized_at: null });
     expect(db.rows).toEqual([]);

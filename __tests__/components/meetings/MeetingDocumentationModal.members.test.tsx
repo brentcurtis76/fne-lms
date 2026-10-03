@@ -28,37 +28,12 @@ vi.mock('../../../src/components/TipTapEditor', () => ({
 // Every `supabase.from(table)` call is recorded so the suite can prove that
 // candidate loading never touches profiles / user_roles / community_workspaces.
 // Update payloads are captured so the save assertions can read `assigned_to`.
-const fromCalls: string[] = [];
-const capturedCalls: Record<string, any[]> = {};
-
-vi.mock('@supabase/auth-helpers-react', () => ({
-  useSupabaseClient: () => ({
-    from: vi.fn((table: string) => {
-      fromCalls.push(table);
-      const empty = { data: [], error: null };
-      const chain: any = {
-        select: vi.fn(() => chain),
-        eq: vi.fn(() => chain),
-        in: vi.fn(() => chain),
-        is: vi.fn(() => chain),
-        order: vi.fn(() => Promise.resolve(empty)),
-        single: vi.fn(() => Promise.resolve({ data: null, error: null })),
-        then: (resolve: any) => resolve(empty),
-        insert: vi.fn((rows: any) => {
-          (capturedCalls[`insert:${table}`] ??= []).push(rows);
-          return Promise.resolve(empty);
-        }),
-        update: vi.fn((payload: any) => {
-          (capturedCalls[`update:${table}`] ??= []).push(payload);
-          return chain;
-        }),
-        delete: vi.fn(() => chain),
-      };
-      return chain;
-    }),
-    storage: { from: () => ({ remove: vi.fn().mockResolvedValue({ data: null, error: null }) }) },
-  }),
-}));
+// The double answers writes like PostgREST (SM-H8: the modal reads them back).
+vi.mock('@supabase/auth-helpers-react', async () => {
+  const mock = await import('./meetingSupabaseMock');
+  const client = mock.makeMeetingSupabaseClient();
+  return { useSupabaseClient: () => client };
+});
 
 vi.mock('react-hot-toast', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
@@ -79,6 +54,17 @@ vi.mock('../../../utils/storage', () => ({
 }));
 
 import MeetingDocumentationModal from '../../../components/meetings/MeetingDocumentationModal';
+import { capturedCalls, fromCalls, resetMeetingSupabaseMock, seedRows } from './meetingSupabaseMock';
+
+/** The stored rows behind meetingWithOutsider(), so edit saves reach real rows. */
+function seedHistoricalMeeting() {
+  seedRows('meeting_commitments', [{ id: 'c1', meeting_id: 'meeting-1' }]);
+  seedRows('meeting_tasks', [{ id: 't1', meeting_id: 'meeting-1' }]);
+  seedRows('meeting_attendees', [
+    { id: 'att-a', meeting_id: 'meeting-1', user_id: '33333333-3333-4333-8333-333333333333', role: 'participant' },
+    { id: 'att-o', meeting_id: 'meeting-1', user_id: '99999999-9999-4999-8999-999999999999', role: 'participant' },
+  ]);
+}
 
 const toastError = vi.mocked(toast.error);
 
@@ -126,7 +112,10 @@ function meetingWithOutsider() {
     summary_doc: richDoc('resumen'),
     notes: '',
     notes_doc: null,
-    attendees: [{ user_id: MEMBER_A.id }, { user_id: OUTSIDER_ID }],
+    attendees: [
+      { user_id: MEMBER_A.id, role: 'participant' },
+      { user_id: OUTSIDER_ID, role: 'participant' },
+    ],
     agreements: [],
     commitments: [
       {
@@ -134,7 +123,7 @@ function meetingWithOutsider() {
         commitment_text: 'Enviar informe',
         commitment_doc: richDoc('Enviar informe'),
         assigned_to: OUTSIDER_ID,
-        due_date: null,
+        due_date: '2026-05-01',
       },
     ],
     tasks: [
@@ -143,8 +132,8 @@ function meetingWithOutsider() {
         task_title: 'Preparar deck',
         task_description: 'desc',
         task_description_doc: richDoc('desc'),
-        assigned_to: '',
-        due_date: null,
+        assigned_to: MEMBER_A.id,
+        due_date: '2026-05-02',
         priority: 'media',
         category: '',
         estimated_hours: null,
@@ -292,9 +281,8 @@ async function flushMicrotasks() {
 
 beforeEach(() => {
   editorOnChange.clear();
-  fromCalls.length = 0;
+  resetMeetingSupabaseMock();
   membersRequests.length = 0;
-  for (const key of Object.keys(capturedCalls)) delete capturedCalls[key];
   mockCreateMeeting.mockReset();
   mockUpdateMeeting.mockReset();
   mockGetMeetingDetails.mockReset();
@@ -311,7 +299,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('MeetingDocumentationModal — community-scoped member pickers', () => {
-  it('offers exactly the endpoint members in Asistentes and in every Compromiso/Tarea assignee selector', async () => {
+  it('offers the endpoint members in Asistentes and only the ticked participants in every Compromiso/Tarea assignee selector', async () => {
     membersResponder = membersOk([MEMBER_A, MEMBER_B]);
 
     const utils = render(<MeetingDocumentationModal {...baseProps} />);
@@ -323,8 +311,13 @@ describe('MeetingDocumentationModal — community-scoped member pickers', () => 
     expect(getByTestId(`meeting-attendee-${MEMBER_A.id}`).closest('label')?.textContent).toContain('Ana Uno');
     expect(getByTestId(`meeting-attendee-${MEMBER_B.id}`).closest('label')?.textContent).toContain('Bruno Dos');
     expect(queryByTestId('meeting-members-status-attendees')).toBeNull();
-    expect(container.querySelectorAll('input[type="checkbox"]')).toHaveLength(2);
+    // Asistentes (2) + "Otras personas con acceso" (2 non-participants).
+    expect(container.querySelectorAll('input[type="checkbox"]')).toHaveLength(4);
 
+    // SM-H8: only Ana takes part, so only Ana can be assigned.
+    await act(async () => {
+      fireEvent.click(getByTestId(`meeting-attendee-${MEMBER_A.id}`));
+    });
     await createFlowToStep3(utils);
     await act(async () => {
       fireEvent.click(utils.getByRole('button', { name: /Agregar Compromiso/i }));
@@ -335,9 +328,9 @@ describe('MeetingDocumentationModal — community-scoped member pickers', () => 
 
     const commitmentSelect = getByTestId('meeting-commitment-assignee-0') as HTMLSelectElement;
     const taskSelect = getByTestId('meeting-task-assignee-0') as HTMLSelectElement;
-    expect(optionValues(commitmentSelect)).toEqual(['', MEMBER_A.id, MEMBER_B.id]);
-    expect(optionValues(taskSelect)).toEqual(['', MEMBER_A.id, MEMBER_B.id]);
-    expect(optionLabels(commitmentSelect)).toEqual(['Asignar a…', 'Ana Uno', 'Bruno Dos']);
+    expect(optionValues(commitmentSelect)).toEqual(['', MEMBER_A.id]);
+    expect(optionValues(taskSelect)).toEqual(['', MEMBER_A.id]);
+    expect(optionLabels(commitmentSelect)).toEqual(['Asignar a…', 'Ana Uno']);
     expect(commitmentSelect.disabled).toBe(false);
     expect(taskSelect.disabled).toBe(false);
 
@@ -558,7 +551,9 @@ describe('MeetingDocumentationModal — community-scoped member pickers', () => 
       const commitmentSelect = getByTestId('meeting-commitment-assignee-0') as HTMLSelectElement;
       expect(commitmentSelect.disabled).toBe(true);
       expect(commitmentSelect.value).toBe(OUTSIDER_ID);
-      const historical = getByTestId('meeting-historical-assignee') as HTMLOptionElement;
+      // While loading, every saved assignee (also the task's) is held in a
+      // neutral record-local option; read the commitment's own.
+      const historical = commitmentSelect.querySelector('[data-testid="meeting-historical-assignee"]') as HTMLOptionElement;
       expect(historical.value).toBe(OUTSIDER_ID);
       expect(historical.disabled).toBe(true);
       expect(historical.textContent).toBe('Verificando membresía…');
@@ -592,7 +587,7 @@ describe('MeetingDocumentationModal — community-scoped member pickers', () => 
       await editFlowToStep3(utils, 'Reunión histórica');
       const commitmentSelect = getByTestId('meeting-commitment-assignee-0') as HTMLSelectElement;
       expect(commitmentSelect.value).toBe(OUTSIDER_ID);
-      const historical = getByTestId('meeting-historical-assignee') as HTMLOptionElement;
+      const historical = commitmentSelect.querySelector('[data-testid="meeting-historical-assignee"]') as HTMLOptionElement;
       expect(historical.textContent).toBe('No se pudo verificar la membresía');
       expect(historical.disabled).toBe(true);
       expect(queryByText('Usuario fuera de la comunidad')).toBeNull();
@@ -604,6 +599,7 @@ describe('MeetingDocumentationModal — community-scoped member pickers', () => 
     it('after a successful load, a missing saved assignee is a disabled record-local option whose id survives an unchanged save', async () => {
       membersResponder = membersOk([MEMBER_A, MEMBER_B]);
       mockGetMeetingDetails.mockResolvedValue(meetingWithOutsider());
+      seedHistoricalMeeting();
 
       const utils = render(
         <MeetingDocumentationModal {...baseProps} meetingId="meeting-1" mode="edit" />
@@ -631,16 +627,17 @@ describe('MeetingDocumentationModal — community-scoped member pickers', () => 
       const commitmentSelect = getByTestId('meeting-commitment-assignee-0') as HTMLSelectElement;
       expect(commitmentSelect.disabled).toBe(false);
       expect(commitmentSelect.value).toBe(OUTSIDER_ID);
-      expect(optionValues(commitmentSelect)).toEqual(['', OUTSIDER_ID, MEMBER_A.id, MEMBER_B.id]);
+      // SM-H8: options are the participants who are members (Ana; Bruno did not take part).
+      expect(optionValues(commitmentSelect)).toEqual(['', OUTSIDER_ID, MEMBER_A.id]);
       const historical = getByTestId('meeting-historical-assignee') as HTMLOptionElement;
       expect(historical.disabled).toBe(true);
       expect(historical.selected).toBe(true);
       expect(historical.textContent).toBe('Usuario fuera de la comunidad');
 
       // The synthetic option is record-local: the task selector on the same
-      // meeting offers only real members.
+      // meeting offers only real member participants.
       const taskSelect = getByTestId('meeting-task-assignee-0') as HTMLSelectElement;
-      expect(optionValues(taskSelect)).toEqual(['', MEMBER_A.id, MEMBER_B.id]);
+      expect(optionValues(taskSelect)).toEqual(['', MEMBER_A.id]);
 
       // Unchanged save keeps the historical id.
       await act(async () => {
@@ -649,6 +646,7 @@ describe('MeetingDocumentationModal — community-scoped member pickers', () => 
       await waitFor(() => {
         expect(mockUpdateMeeting).toHaveBeenCalledTimes(1);
       });
+      await waitFor(() => expect(vi.mocked(toast.success)).toHaveBeenCalledWith('Reunión actualizada correctamente'));
       const commitmentUpdates = capturedCalls['update:meeting_commitments'] ?? [];
       expect(commitmentUpdates).toHaveLength(1);
       expect(commitmentUpdates[0].assigned_to).toBe(OUTSIDER_ID);
@@ -658,6 +656,7 @@ describe('MeetingDocumentationModal — community-scoped member pickers', () => 
     it('lets the user explicitly replace the historical assignee with a valid member and saves the new id', async () => {
       membersResponder = membersOk([MEMBER_A, MEMBER_B]);
       mockGetMeetingDetails.mockResolvedValue(meetingWithOutsider());
+      seedHistoricalMeeting();
 
       const utils = render(
         <MeetingDocumentationModal {...baseProps} meetingId="meeting-1" mode="edit" />
@@ -678,7 +677,7 @@ describe('MeetingDocumentationModal — community-scoped member pickers', () => 
       expect(commitmentSelect.value).toBe(MEMBER_A.id);
       // Once a real member is chosen the synthetic option is gone for good.
       expect(queryByTestId('meeting-historical-assignee')).toBeNull();
-      expect(optionValues(commitmentSelect)).toEqual(['', MEMBER_A.id, MEMBER_B.id]);
+      expect(optionValues(commitmentSelect)).toEqual(['', MEMBER_A.id]);
 
       await act(async () => {
         fireEvent.click(getByRole('button', { name: /Guardar Cambios/i }));
@@ -686,6 +685,7 @@ describe('MeetingDocumentationModal — community-scoped member pickers', () => 
       await waitFor(() => {
         expect(mockUpdateMeeting).toHaveBeenCalledTimes(1);
       });
+      await waitFor(() => expect(vi.mocked(toast.success)).toHaveBeenCalledWith('Reunión actualizada correctamente'));
       const commitmentUpdates = capturedCalls['update:meeting_commitments'] ?? [];
       expect(commitmentUpdates).toHaveLength(1);
       expect(commitmentUpdates[0].assigned_to).toBe(MEMBER_A.id);

@@ -62,7 +62,7 @@ export const MeetingModalFooter: React.FC<MeetingModalFooterProps> = ({
     <div className="flex items-center justify-between p-6 border-t border-gray-200">
       <button
         onClick={onPrevious}
-        disabled={currentStep === MeetingFormStep.INFORMATION || isSubmitting}
+        disabled={currentStep === MeetingFormStep.INFORMATION || isSubmitting || isSavingDraft}
         className="inline-flex items-center px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
       >
         <ChevronLeftIcon className="h-4 w-4 mr-1" />
@@ -72,7 +72,7 @@ export const MeetingModalFooter: React.FC<MeetingModalFooterProps> = ({
       <div className="flex items-center space-x-3">
         <button
           onClick={onClose}
-          disabled={isSubmitting}
+          disabled={isSubmitting || isSavingDraft}
           className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 disabled:opacity-50"
         >
           Cancelar
@@ -90,7 +90,7 @@ export const MeetingModalFooter: React.FC<MeetingModalFooterProps> = ({
         {currentStep < MeetingFormStep.AGREEMENTS ? (
           <button
             onClick={onNext}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isSavingDraft}
             className="inline-flex items-center px-4 py-2 bg-brand_accent text-brand_primary text-sm rounded-lg hover:bg-brand_accent/90 disabled:opacity-50 transition-colors duration-200"
           >
             Siguiente
@@ -99,7 +99,7 @@ export const MeetingModalFooter: React.FC<MeetingModalFooterProps> = ({
         ) : (
           <button
             onClick={onSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isSavingDraft}
             className="inline-flex items-center px-4 py-2 bg-brand_primary text-white text-sm rounded-lg hover:bg-brand_primary/90 disabled:opacity-50 transition-colors duration-200"
           >
             {isSubmitting ? (

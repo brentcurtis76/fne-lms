@@ -7,14 +7,17 @@
  * an existing one) doesn't have to chase through the codebase.
  */
 
-import type { FinalizeAudience } from '../../types/meetings';
+import type { FinalizeAudience, FinalizeRequestAudience } from '../../types/meetings';
 
 /**
  * Short, imperative form for the finalize-dialog radio picker.
  * "Toda la comunidad" / "Solo los asistentes".
  */
-export const AUDIENCE_PICKER_LABELS: Record<FinalizeAudience, string> = {
-  community: 'Toda la comunidad',
+// SM-H8 (owner decision 4): the picker offers the people with access to the
+// meeting (leader, creator/facilitator/secretary, participants, people added
+// by an editor) — never the whole community any more.
+export const AUDIENCE_PICKER_LABELS: Record<FinalizeRequestAudience, string> = {
+  with_access: 'Las personas con acceso a la reunión',
   attended: 'Solo los asistentes',
 };
 
@@ -29,10 +32,15 @@ export const AUDIENCE_PROSE_LABELS: Record<FinalizeAudience, string> = {
 
 /** Safe accessor — falls back to the raw audience string for unknown values. */
 export function audiencePickerLabel(audience: string): string {
-  return AUDIENCE_PICKER_LABELS[audience as FinalizeAudience] ?? audience;
+  return AUDIENCE_PICKER_LABELS[audience as FinalizeRequestAudience] ?? audience;
 }
 
-/** Safe accessor — falls back to the raw audience string for unknown values. */
-export function audienceProseLabel(audience: string): string {
+/**
+ * Safe accessor — falls back to the raw audience string for unknown values.
+ * A 'community' finalization made under SM-H8 (`withAccess`) went to the
+ * people with access; one made before it really went to the whole community.
+ */
+export function audienceProseLabel(audience: string, withAccess?: boolean | null): string {
+  if (audience === 'community' && withAccess) return 'las personas con acceso a la reunión';
   return AUDIENCE_PROSE_LABELS[audience as FinalizeAudience] ?? audience;
 }

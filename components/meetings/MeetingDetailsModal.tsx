@@ -34,6 +34,7 @@ import { audienceProseLabel } from '../../lib/meetings/audience-labels';
 import { CLOSE_BEFORE_DELETE_MS } from '../../lib/meetings/constants';
 import { profileName } from '../../lib/utils/profile-name';
 import { formatFileSize, getFileIcon } from '../../lib/utils/file-format';
+import { meetingDocumentUrl, MEETING_CONTENT_HIDDEN_TEXT } from '../../lib/meetings/meeting-documents';
 
 interface MeetingDetailsModalProps {
   isOpen: boolean;
@@ -43,6 +44,8 @@ interface MeetingDetailsModalProps {
   onDelete?: (meetingId: string) => void;
   canEdit?: boolean;
   canDelete?: boolean;
+  /** SM-H8: false when the viewer may not read agreements/commitments/tasks/documents. */
+  canReadContent?: boolean;
 }
 
 const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
@@ -52,12 +55,13 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
   onEdit,
   onDelete,
   canEdit = false,
-  canDelete = false
+  canDelete = false,
+  canReadContent = true
 }) => {
   const supabase = useSupabaseClient();
   const [meeting, setMeeting] = useState<MeetingWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'summary' | 'attendees' | 'agreements' | 'tasks' | 'documents'>('summary');
+  const [activeTab, setActiveTab] = useState<'summary' | 'attendees' | 'agreements' | 'commitments' | 'tasks' | 'documents'>('summary');
   const [attachments, setAttachments] = useState<any[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
 
@@ -68,7 +72,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
   }, [isOpen, meetingId]);
 
   useEffect(() => {
-    if (activeTab === 'documents' && meeting) {
+    if (activeTab === 'documents' && meeting && canReadContent) {
       loadAttachments();
     }
   }, [activeTab, meeting]);
@@ -130,11 +134,12 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
 
   const handleDownload = async (attachment: any) => {
     try {
-      const { data } = supabase.storage
-        .from('meeting-documents')
-        .getPublicUrl(attachment.file_path);
-
-      window.open(data.publicUrl, '_blank');
+      const url = await meetingDocumentUrl(supabase, attachment.file_path);
+      if (!url) {
+        toast.error('No se pudo abrir el archivo');
+        return;
+      }
+      window.open(url, '_blank');
     } catch (error) {
       console.error('Error downloading file:', error);
       toast.error('Error al descargar el archivo');
@@ -208,7 +213,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                         </p>
                         {meeting.finalize_audience && (
                           <p className="text-emerald-700 mt-0.5">
-                            Resumen enviado a {audienceProseLabel(meeting.finalize_audience)}.
+                            Resumen enviado a {audienceProseLabel(meeting.finalize_audience, meeting.finalize_with_access)}.
                           </p>
                         )}
                       </div>
@@ -288,26 +293,30 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                       label: 'Acuerdos',
                       icon: MenuIcon,
                       count: meeting.agreements?.length ?? 0,
-                      show: (meeting.agreements?.length ?? 0) > 0,
+                      show: canReadContent && (meeting.agreements?.length ?? 0) > 0,
+                    },
+                    // SM-H8: acuerdos (not assigned) and compromisos (assigned)
+                    // are different things and are shown and counted apart.
+                    {
+                      id: 'commitments',
+                      label: 'Compromisos',
+                      icon: CheckCircleIcon,
+                      count: meeting.commitments?.length ?? 0,
+                      show: canReadContent && (meeting.commitments?.length ?? 0) > 0,
                     },
                     {
                       id: 'tasks',
-                      label: 'Tareas y Compromisos',
+                      label: 'Tareas',
                       icon: CheckCircleIcon,
-                      count:
-                        (meeting.tasks?.length ?? 0) +
-                        (meeting.commitments?.length ?? 0),
-                      show:
-                        (meeting.tasks?.length ?? 0) +
-                          (meeting.commitments?.length ?? 0) >
-                        0,
+                      count: meeting.tasks?.length ?? 0,
+                      show: canReadContent && (meeting.tasks?.length ?? 0) > 0,
                     },
                     {
                       id: 'documents',
                       label: 'Documentos',
                       icon: PaperClipIcon,
                       count: null,
-                      show: true,
+                      show: canReadContent,
                     },
                   ] as const)
                     .filter((tab) => tab.show)
@@ -336,6 +345,11 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
 
               {/* Content */}
               <div className="px-6 py-4 max-h-96 overflow-y-auto">
+                {!canReadContent && (
+                  <p className="mb-4 rounded-lg bg-gray-50 p-3 text-sm text-gray-600" data-testid="meeting-content-hidden">
+                    {MEETING_CONTENT_HIDDEN_TEXT}
+                  </p>
+                )}
                 {/* Summary Tab */}
                 {activeTab === 'summary' && (() => {
                   const hasSummary = !isEmptyDoc(meeting.summary_doc) || Boolean(meeting.summary);
@@ -408,7 +422,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                 )}
 
                 {/* Agreements Tab */}
-                {activeTab === 'agreements' && (
+                {canReadContent && activeTab === 'agreements' && (
                   <div className="space-y-4">
                     {meeting.agreements && meeting.agreements.length > 0 ? (
                       <div className="space-y-3">
@@ -440,12 +454,11 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                   </div>
                 )}
 
-                {/* Tasks Tab */}
-                {activeTab === 'tasks' && (
+                {/* Commitments Tab */}
+                {canReadContent && activeTab === 'commitments' && (
                   <div className="space-y-6">
                     {meeting.commitments.length > 0 && (
                       <div>
-                        <h3 className="text-sm font-medium text-gray-900 mb-3">Compromisos</h3>
                         <div className="space-y-3">
                           {meeting.commitments.map(commitment => (
                             <TaskTracker
@@ -459,9 +472,14 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Tasks Tab */}
+                {canReadContent && activeTab === 'tasks' && (
+                  <div className="space-y-6">
                     {meeting.tasks.length > 0 && (
                       <div>
-                        <h3 className="text-sm font-medium text-gray-900 mb-3">Tareas</h3>
                         <div className="space-y-3">
                           {meeting.tasks.map(task => (
                             <TaskTracker
@@ -475,16 +493,11 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                         </div>
                       </div>
                     )}
-                    {meeting.tasks.length === 0 && meeting.commitments.length === 0 && (
-                      <p className="text-gray-500 italic text-center py-8">
-                        No hay tareas o compromisos registrados para esta reunión.
-                      </p>
-                    )}
                   </div>
                 )}
 
                 {/* Documents Tab */}
-                {activeTab === 'documents' && (
+                {canReadContent && activeTab === 'documents' && (
                   <div>
                     {loadingAttachments ? (
                       <div className="flex items-center justify-center py-8">

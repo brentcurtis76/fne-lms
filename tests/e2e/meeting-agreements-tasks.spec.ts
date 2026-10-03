@@ -8,8 +8,9 @@ import { loginViaUi, E2E_SCHOOL_SECONDARY, type E2eFixtureUser } from './helpers
 
 /**
  * SM-22 (W-B3a-01) — meeting agreements and tasks persist for a verified
- * editor and stay closed to an attendee whose co_editor row has no grant
- * provenance (a historical self-grant).
+ * editor; an attendee whose co_editor row has no grant provenance (a
+ * historical self-grant) cannot edit. Since SM-H8 every attendee row makes its
+ * user a reader, so that attendee now READS the content (owner rule).
  *
  * Standalone: it creates its own synthetic community, accounts and meeting with
  * the service role, writes every row id to a manifest before removing them by
@@ -178,6 +179,12 @@ async function createMeeting(viewport: string) {
     meeting_id: meeting.id, user_id: users.legacy.id, role: 'co_editor',
   }).select('id').single());
   manifest.attendees.push(legacy.id);
+  // SM-H8: commitments and tasks go only to participants, so the editor who
+  // assigns the task to themself takes part in the meeting.
+  const editorAttendee = await must('editor participant', (db) => db.from('meeting_attendees').insert({
+    meeting_id: meeting.id, user_id: users.editor.id, role: 'participant',
+  }).select('id').single());
+  manifest.attendees.push(editorAttendee.id);
   return meeting as { id: string; title: string };
 }
 
@@ -372,27 +379,24 @@ test.describe('Meeting agreements and tasks on the dedicated stack', () => {
         await evidence(page, `editor-reopen-${viewport.name}`);
       });
 
-      test('unverified co_editor sees neither row and cannot add one', async ({ page }) => {
+      test('unverified co_editor reads as a participant (SM-H8) but gets no edit or delete button and writes nothing', async ({ page }) => {
         test.setTimeout(120_000);
         await loginViaUi(page, users.legacy);
-        await openAgreementsStep(page, meeting.title);
-        await expect(page.getByText('No se han agregado acuerdos.')).toBeVisible();
-        await expect(page.getByText('No se han agregado tareas.')).toBeVisible();
-        await expect(page.getByText(agreementText)).toHaveCount(0);
-
-        await page.getByRole('button', { name: 'Agregar Acuerdo' }).click();
-        await page.locator('[contenteditable="true"]').first().fill('Acuerdo no autorizado SM22');
-        await page.getByRole('button', { name: 'Guardar borrador' }).click();
-        await expect(page.getByText(/Borrador guardado|Error/).first()).toBeVisible();
+        await page.goto('/community/workspace?section=meetings');
+        await page.waitForLoadState('networkidle');
+        const card = page.locator('div.bg-white.border').filter({ hasText: meeting.title }).first();
+        await expect(card).toBeVisible();
+        // SM-H8 (owner rule): any attendee row, a historical co_editor one included,
+        // makes its user a READER of the meeting content; editing needs a verified grant.
+        await card.getByTestId(`meeting-chip-agreements-${meeting.id}`).click();
+        await expect(card.getByText(agreementText)).toBeVisible();
+        await expect(card.getByTestId(`meeting-edit-${meeting.id}`)).toHaveCount(0);
+        await expect(card.getByTestId(`meeting-delete-${meeting.id}`)).toHaveCount(0);
 
         const rows = await childRows(meeting.id);
         expect(rows.agreements.map((r) => r.agreement_text)).toEqual([agreementText]);
         expect(rows.tasks.map((r) => r.task_title)).toEqual([taskTitle]);
-
-        await openAgreementsStep(page, meeting.title);
-        await expect(page.getByText('No se han agregado acuerdos.')).toBeVisible();
-        await page.getByText('No se han agregado acuerdos.').scrollIntoViewIfNeeded();
-        await evidence(page, `legacy-denied-${viewport.name}`);
+        await evidence(page, `legacy-reads-${viewport.name}`);
       });
     });
   }

@@ -27,6 +27,7 @@ import {
   MEETING_STATUS,
 } from '../../utils/meeting-policy';
 import type { UserRole } from '../../../types/roles';
+import { isVerifiedMeetingEditor } from './verified-editor';
 import type { MeetingStatus } from '../../../types/meetings';
 
 export type MeetingAuthRequire = 'edit' | 'finalize';
@@ -189,7 +190,14 @@ export async function loadMeetingAuthContext<M extends Record<string, any> = Rec
       ? canFinalizeMeeting(policyUser, policyInput, attendees)
       : canEditMeeting(policyUser, policyInput, attendees);
 
-  if (!policyCheck) {
+  // SM-H8: the routes run on the service role, so RLS does not protect them.
+  // Besides the status rules above, the caller must be an editor by the same
+  // SQL predicate the tables use (can_edit_meeting_verified): attendee roles
+  // without grant provenance (legacy co_editor rows, facilitator/secretary
+  // attendee rows) no longer pass here either.
+  const verifiedEditor = policyCheck && (await isVerifiedMeetingEditor(serviceClient, user.id, id));
+
+  if (!policyCheck || !verifiedEditor) {
     const msg =
       opts.require === 'finalize'
         ? 'No tiene permisos para finalizar esta reunión'

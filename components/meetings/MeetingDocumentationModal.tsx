@@ -39,8 +39,7 @@ import {
   WorkSessionEntry,
   ExistingAttachment,
 } from '../../types/meetings';
-import { 
-  createMeetingWithDocumentation,
+import {
   getMeetingDetails,
   updateMeeting
 } from '../../utils/meetingUtils';
@@ -54,9 +53,23 @@ import { MeetingModalFooter } from './MeetingModalFooter';
 import {
   deriveMeetingDocs,
   applyMeetingDiffs,
+  insertMeetingRow,
+  syncMeetingPeople,
+  readMeetingPeople,
   removeDeletedAttachments,
   uploadSelectedAttachments,
+  PROTECTED_ATTENDEE_ROLES,
+  type MeetingItemIds,
+  type MeetingPeople,
 } from './persistMeeting';
+import {
+  validateMeetingItems,
+  describeSaveError,
+  saveFailureSummary,
+  type SaveProblem,
+  type SaveItemField,
+} from '../../lib/meetings/meeting-save';
+import { toDatetimeLocalValue, datetimeLocalToIso } from '../../lib/meetings/meeting-time';
 import { MEETING_STATUS } from '../../lib/utils/meeting-policy';
 import { profileName } from '../../lib/utils/profile-name';
 import {
@@ -70,6 +83,18 @@ import {
 type MeetingAgreementInput = MeetingDocumentationInput['agreements'][number];
 type MeetingCommitmentInput = MeetingDocumentationInput['commitments'][number];
 type MeetingTaskInput = MeetingDocumentationInput['tasks'][number];
+
+// SM-H8: stable identity for form items (agreements, commitments, tasks), so
+// ids returned by a save land on the item that was saved even if the list
+// changed while the save was running.
+let itemKeyCounter = 0;
+const nextItemKey = () => `item-${++itemKeyCounter}`;
+
+const PROTECTED_ROLE_LABELS: Record<string, string> = {
+  facilitator: 'facilitador/a',
+  secretary: 'secretario/a',
+  co_editor: 'co-editor/a',
+};
 
 /**
  * Load state of the community candidate list. `availableUsers.length === 0`
@@ -109,6 +134,11 @@ interface MeetingDocumentationModalProps {
   communityId: string;
   userId: string;
   onSuccess: () => void;
+  /**
+   * Called after "Guardar borrador" succeeds. The modal stays open; the parent
+   * only refreshes its list. Falls back to `onSuccess` when not given.
+   */
+  onDraftSaved?: () => void;
   className?: string;
   meetingId?: string;
   mode?: 'create' | 'edit';
@@ -142,6 +172,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   communityId,
   userId,
   onSuccess,
+  onDraftSaved,
   className = '',
   meetingId,
   mode = 'create'
@@ -189,7 +220,8 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       meeting_date: '',
       duration_minutes: 60,
       location: '',
-      attendee_ids: []
+      attendee_ids: [],
+      reader_ids: []
     },
     summary_info: {
       summary: '',
@@ -207,6 +239,36 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   const originalAgreementIdsRef = useRef<Set<string>>(new Set());
   const originalCommitmentIdsRef = useRef<Set<string>>(new Set());
   const originalTaskIdsRef = useRef<Set<string>>(new Set());
+  // SM-H8: participants (user id → attendee role) and added readers as last
+  // read from / written to the database, so a save only sends the difference.
+  const peopleBaselineRef = useRef<MeetingPeople>({ participants: new Map(), readerIds: new Set() });
+  // Attendees whose role this form does not manage (shown, not untickable).
+  const [protectedAttendees, setProtectedAttendees] = useState<Map<string, string>>(new Map());
+  // The stored meeting instant and how it was shown; an unchanged field saves
+  // the stored instant back as-is (a wall time in the repeated DST hour has
+  // two instants, so converting it back could move the meeting).
+  const loadedMeetingDateRef = useRef<{ local: string; iso: string } | null>(null);
+  // One save at a time across "Guardar borrador", submit and "Finalizar".
+  const saveInFlightRef = useRef(false);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // SM-H8: problems from the last save attempt. `showItemChecks` turns on the
+  // live per-item messages after the first blocked save.
+  const [saveProblems, setSaveProblems] = useState<SaveProblem[]>([]);
+  // SM-H8: a half-typed date/time (e.g. the hour typed into Chrome's 6-digit
+  // year box) LOOKS filled but the input's value stays empty. The browser marks
+  // it `badInput`; we say so instead of a generic "required" message.
+  const [meetingDateIncomplete, setMeetingDateIncomplete] = useState(false);
+  const [showItemChecks, setShowItemChecks] = useState(false);
+  // Scroll container of the step body; reset to the top on every step change
+  // so step 3 opens at "Documentos", not where step 2 was scrolled to.
+  const stepBodyRef = useRef<HTMLDivElement | null>(null);
 
   // Existing attachments loaded from the database (edit mode)
   const [existingAttachments, setExistingAttachments] = useState<ExistingAttachment[]>([]);
@@ -353,15 +415,35 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       if (meetingDetails) {
         // Extract attendee IDs from the attendees array
         const attendeeIds = meetingDetails.attendees?.map(attendee => attendee.user_id) || [];
+        const participantRoles = new Map<string, string | null>(
+          (meetingDetails.attendees || []).map((attendee) => [attendee.user_id, attendee.role ?? null])
+        );
+        const { data: grantRows } = await supabase
+          .from('meeting_read_grants')
+          .select('user_id')
+          .eq('meeting_id', meetingId);
+        const readerIds = (grantRows || []).map((row: { user_id: string }) => row.user_id);
+        peopleBaselineRef.current = { participants: participantRoles, readerIds: new Set(readerIds) };
+        setProtectedAttendees(
+          new Map(
+            Array.from(participantRoles.entries())
+              .filter(([, role]) => PROTECTED_ATTENDEE_ROLES.has(role ?? ''))
+              .map(([id, role]) => [id, role as string])
+          )
+        );
+        const meetingDateLocal = toDatetimeLocalValue(meetingDetails.meeting_date);
+        loadedMeetingDateRef.current = { local: meetingDateLocal, iso: new Date(meetingDetails.meeting_date).toISOString() };
 
         const loadedAgreements = (meetingDetails.agreements || []).map(a => ({
           id: a.id,
+          client_key: nextItemKey(),
           agreement_text: a.agreement_text || '',
           agreement_doc: docOrFromText(a.agreement_doc, a.agreement_text),
           category: a.category,
         }));
         const loadedCommitments = (meetingDetails.commitments || []).map(c => ({
           id: c.id,
+          client_key: nextItemKey(),
           commitment_text: c.commitment_text || '',
           commitment_doc: docOrFromText(c.commitment_doc, c.commitment_text),
           assigned_to: c.assigned_to,
@@ -369,6 +451,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         }));
         const loadedTasks = (meetingDetails.tasks || []).map(t => ({
           id: t.id,
+          client_key: nextItemKey(),
           task_title: t.task_title,
           task_description: t.task_description || '',
           task_description_doc: docOrFromText(t.task_description_doc, t.task_description),
@@ -387,10 +470,11 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         setFormData({
           meeting_info: {
             title: meetingDetails.title,
-            meeting_date: new Date(meetingDetails.meeting_date).toISOString().slice(0, 16), // Format for datetime-local input
+            meeting_date: meetingDateLocal,
             duration_minutes: meetingDetails.duration_minutes,
             location: meetingDetails.location || '',
-            attendee_ids: attendeeIds
+            attendee_ids: attendeeIds,
+            reader_ids: readerIds
           },
           summary_info: {
             summary: meetingDetails.summary || '',
@@ -507,6 +591,10 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     startWorkSessionRef.current = startWorkSession;
   }, [startWorkSession]);
 
+  useEffect(() => {
+    if (stepBodyRef.current) stepBodyRef.current.scrollTop = 0;
+  }, [currentStep]);
+
   // Best-effort autosave — skips when we have no meetingId yet (user hasn't
   // clicked "Guardar borrador" from the create flow) or when another autosave
   // is already in flight. 409 conflicts prompt a reload.
@@ -594,7 +682,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   }, [currentMeetingId, runAutosave]);
 
   const handleClose = () => {
-    if (isSubmitting) return;
+    if (isSubmitting || isSavingDraft || saveInFlightRef.current) return;
 
     // End any open work-session before we clear it from state.
     if (currentMeetingId && workSessionId) {
@@ -609,7 +697,8 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         meeting_date: '',
         duration_minutes: 60,
         location: '',
-        attendee_ids: []
+        attendee_ids: [],
+        reader_ids: []
       },
       summary_info: {
         summary: '',
@@ -625,6 +714,12 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     originalAgreementIdsRef.current = new Set();
     originalCommitmentIdsRef.current = new Set();
     originalTaskIdsRef.current = new Set();
+    peopleBaselineRef.current = { participants: new Map(), readerIds: new Set() };
+    setProtectedAttendees(new Map());
+    loadedMeetingDateRef.current = null;
+    setSaveProblems([]);
+    setShowItemChecks(false);
+    setMeetingDateIncomplete(false);
     setExistingAttachments([]);
     setAttachmentsToDelete([]);
     setSelectedFiles([]);
@@ -658,26 +753,47 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     runValidations: boolean;
   }): Promise<{ success: boolean; meetingId?: string; version?: number }> => {
     if (runValidations && !validateStep(currentStep)) {
-      toast.error('Por favor completa los campos requeridos');
+      toast.error(currentStep === MeetingFormStep.INFORMATION ? meetingInfoProblem() : 'Por favor completa los campos requeridos');
       return { success: false };
     }
-    if (!formData.meeting_info.title || !formData.meeting_info.meeting_date) {
-      toast.error('Título y fecha son requeridos');
+    const loadedDate = loadedMeetingDateRef.current;
+    const meetingDateIso =
+      loadedDate && formData.meeting_info.meeting_date === loadedDate.local
+        ? loadedDate.iso
+        : datetimeLocalToIso(formData.meeting_info.meeting_date);
+    if (!formData.meeting_info.title || !meetingDateIso) {
+      toast.error(meetingInfoProblem());
+      return { success: false };
+    }
+
+    // SM-H8: block the save while an item is incomplete (owner rule: text,
+    // a participant as assignee and a due date) instead of letting the
+    // database reject it out of sight.
+    const itemProblems = validateMeetingItems(formData);
+    if (itemProblems.length > 0) {
+      setShowItemChecks(true);
+      setSaveProblems([]);
+      setCurrentStep(MeetingFormStep.AGREEMENTS);
+      toast.error(saveFailureSummary(itemProblems));
       return { success: false };
     }
 
     const effectiveStatus: MeetingStatus = status ?? formData.summary_info.status;
-
     const docs = deriveMeetingDocs(formData);
+    // Which form item each saved row belongs to, as the form was when the save started.
+    const savedKeys = {
+      agreements: formData.agreements.map((item) => item.client_key),
+      commitments: formData.commitments.map((item) => item.client_key),
+      tasks: formData.tasks.map((item) => item.client_key),
+    };
+    const problems: SaveProblem[] = [];
+    let createdVersion: number | undefined;
 
-    let result: { success: boolean; meetingId?: string; error?: string };
-
-    const targetMeetingId = currentMeetingId;
+    let targetMeetingId = currentMeetingId;
     if (targetMeetingId) {
-      const meetingId = targetMeetingId;
-      const updateResult = await updateMeeting(meetingId, {
+      const updateResult = await updateMeeting(targetMeetingId, {
         title: formData.meeting_info.title,
-        meeting_date: formData.meeting_info.meeting_date,
+        meeting_date: meetingDateIso,
         duration_minutes: formData.meeting_info.duration_minutes,
         location: formData.meeting_info.location,
         summary: docs.summaryText,
@@ -686,92 +802,201 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         notes_doc: docs.notesDoc,
         status: effectiveStatus,
       });
-
-      if (updateResult.success) {
-        await applyMeetingDiffs(supabase, meetingId, docs, {
-          agreements: originalAgreementIdsRef.current,
-          commitments: originalCommitmentIdsRef.current,
-          tasks: originalTaskIdsRef.current,
-        });
-        await removeDeletedAttachments(supabase, attachmentsToDelete);
-        result = { success: true, meetingId };
-      } else {
-        result = updateResult;
+      if (!updateResult.success) {
+        problems.push(describeSaveError(updateResult.error, 'meeting'));
       }
     } else {
-      // Create new meeting — pass the fully derived plaintext + doc pair.
-      result = await createMeetingWithDocumentation(workspaceId, userId, {
-        ...formData,
-        summary_info: {
-          ...formData.summary_info,
-          summary: docs.summaryText,
-          summary_doc: docs.summaryDoc,
-          notes: docs.notesText,
-          notes_doc: docs.notesDoc,
-          status: effectiveStatus,
-        },
-        agreements: docs.agreementsForPersist.map(({ id: _id, ...rest }) => rest),
-        commitments: docs.commitmentsForPersist.map(({ id: _id, ...rest }) => rest),
-        tasks: docs.tasksForPersist.map(({ id: _id, ...rest }) => rest),
+      const row = await insertMeetingRow(supabase, {
+        workspaceId,
+        userId,
+        title: formData.meeting_info.title,
+        meetingDate: meetingDateIso,
+        durationMinutes: formData.meeting_info.duration_minutes,
+        location: formData.meeting_info.location,
+        summary: docs.summaryText,
+        summaryDoc: docs.summaryDoc,
+        notes: docs.notesText,
+        notesDoc: docs.notesDoc,
+        status: effectiveStatus,
       });
+      if (row.meetingId) {
+        // From here on a retry UPDATES this meeting; it never creates a second one.
+        targetMeetingId = row.meetingId;
+        createdVersion = row.version ?? 0;
+        setCurrentMeetingId(row.meetingId);
+        setMeetingVersion(createdVersion);
+      } else if (row.problem) {
+        problems.push(row.problem);
+      }
     }
 
-    if (!result.success || !result.meetingId) {
-      return { success: false };
+    if (!targetMeetingId || problems.length > 0) {
+      setSaveProblems(problems);
+      toast.error(saveFailureSummary(problems) || 'No se pudo guardar la reunión.');
+      return { success: false, meetingId: targetMeetingId ?? undefined };
+    }
+    const savedMeetingId = targetMeetingId;
+
+    // Participants and readers: diff against what is stored NOW (a retry
+    // after a partial failure neither re-inserts nor forgets a removal), and
+    // never write when the stored state cannot be read.
+    const before = await readMeetingPeople(supabase, savedMeetingId);
+    if (before.people) {
+      problems.push(
+        ...(await syncMeetingPeople(supabase, savedMeetingId, {
+          actorId: userId,
+          participantIds: formData.meeting_info.attendee_ids,
+          readerIds: formData.meeting_info.reader_ids ?? [],
+          baseline: peopleBaselineRef.current,
+          current: before.people,
+        })),
+      );
+      const after = await readMeetingPeople(supabase, savedMeetingId);
+      if (after.people) {
+        // Baseline for the next save: what is stored now, limited to people this
+        // form knows about — those it shows, and those it was removing (a removal
+        // that failed stays pending). People someone else added meanwhile stay
+        // out of it, so they are never removed by this form.
+        const previous = peopleBaselineRef.current;
+        const knownParticipant = new Set([...formData.meeting_info.attendee_ids, ...Array.from(previous.participants.keys())]);
+        const knownReader = new Set([...(formData.meeting_info.reader_ids ?? []), ...Array.from(previous.readerIds)]);
+        peopleBaselineRef.current = {
+          participants: new Map(Array.from(after.people.participants.entries()).filter(([id]) => knownParticipant.has(id))),
+          readerIds: new Set(Array.from(after.people.readerIds).filter((id) => knownReader.has(id))),
+        };
+      } else if (after.problem) {
+        problems.push(after.problem);
+      }
+    } else if (before.problem) {
+      problems.push(before.problem);
     }
 
-    // Attachment uploads (run for both draft and submit paths so a draft saver
-    // doesn't silently drop files they selected in step 3).
-    await uploadSelectedAttachments(supabase, uploadFile, toast.error, {
-      meetingId: result.meetingId,
+    const items = await applyMeetingDiffs(supabase, savedMeetingId, docs, {
+      agreements: originalAgreementIdsRef.current,
+      commitments: originalCommitmentIdsRef.current,
+      tasks: originalTaskIdsRef.current,
+    });
+    problems.push(...items.problems);
+    adoptSavedItemIds(items.ids, items.pendingDeletes, savedKeys);
+
+    const pendingRemovals = attachmentsToDelete;
+    const removal = await removeDeletedAttachments(supabase, pendingRemovals);
+    problems.push(...removal.problems);
+    setAttachmentsToDelete((prev) =>
+      prev.filter((attachment) => !pendingRemovals.includes(attachment) || removal.remaining.includes(attachment))
+    );
+
+    const upload = await uploadSelectedAttachments(supabase, uploadFile, {
+      meetingId: savedMeetingId,
       workspaceId,
       userId,
       files: selectedFiles,
     });
+    problems.push(...upload.problems);
+    if (upload.uploaded.length > 0) {
+      setSelectedFiles((prev) => prev.filter((file) => !upload.uploaded.includes(file)));
+    }
 
-    // Thread the inserted `version` (only populated by the create path — edit
-    // mode already owns an authoritative version in component state) back to
-    // the caller so it can seed the optimistic-lock state correctly.
-    return {
-      success: true,
-      meetingId: result.meetingId,
-      version: 'version' in result ? (result as any).version : undefined,
+    setSaveProblems(problems);
+    if (problems.length > 0) {
+      toast.error(saveFailureSummary(problems));
+      return { success: false, meetingId: savedMeetingId, version: createdVersion };
+    }
+
+    return { success: true, meetingId: savedMeetingId, version: createdVersion };
+  };
+
+  // Put the ids of the rows a save wrote onto the items they belong to (by
+  // client_key, not position, so removals/reorders during the save are safe).
+  // Every written id joins the originals, so a row whose item was removed while
+  // the save ran is deleted by the next save; rows whose delete is still
+  // pending stay in the originals, so a retry deletes exactly those.
+  const adoptSavedItemIds = (
+    ids: MeetingItemIds,
+    pendingDeletes: { agreements: string[]; commitments: string[]; tasks: string[] },
+    savedKeys: { agreements: Array<string | undefined>; commitments: Array<string | undefined>; tasks: Array<string | undefined> },
+  ) => {
+    // Originals = every row this save wrote, plus rows whose deletion is still
+    // pending (they still exist), so the next save retries exactly those.
+    const nextOriginals = (saved: Array<string | undefined>, pending: string[]) =>
+      new Set([...saved.filter((id): id is string => !!id), ...pending]);
+    originalAgreementIdsRef.current = nextOriginals(ids.agreements, pendingDeletes.agreements);
+    originalCommitmentIdsRef.current = nextOriginals(ids.commitments, pendingDeletes.commitments);
+    originalTaskIdsRef.current = nextOriginals(ids.tasks, pendingDeletes.tasks);
+    const byKey = (keys: Array<string | undefined>, saved: Array<string | undefined>) => {
+      const map = new Map<string, string>();
+      keys.forEach((key, i) => {
+        if (key && saved[i]) map.set(key, saved[i] as string);
+      });
+      return map;
     };
+    const agreementIds = byKey(savedKeys.agreements, ids.agreements);
+    const commitmentIds = byKey(savedKeys.commitments, ids.commitments);
+    const taskIds = byKey(savedKeys.tasks, ids.tasks);
+    setFormData((prev) => ({
+      ...prev,
+      agreements: prev.agreements.map((item) => ({ ...item, id: (item.client_key && agreementIds.get(item.client_key)) || item.id })),
+      commitments: prev.commitments.map((item) => ({ ...item, id: (item.client_key && commitmentIds.get(item.client_key)) || item.id })),
+      tasks: prev.tasks.map((item) => ({ ...item, id: (item.client_key && taskIds.get(item.client_key)) || item.id })),
+    }));
   };
 
   const handleSaveDraft = async () => {
-    if (isSavingDraft || isSubmitting) return;
+    if (isSavingDraft || isSubmitting || saveInFlightRef.current) return;
 
+    saveInFlightRef.current = true;
     setIsSavingDraft(true);
     try {
       const { success, meetingId: savedId, version: savedVersion } = await persistMeetingData({
         status: MEETING_STATUS.BORRADOR,
         runValidations: false,
       });
-      if (!success) return;
+      if (!success || !mountedRef.current) return;
 
       // First-save-from-create transitioned us from no-id → id; spin up the
       // work-session so subsequent autosaves have a session to heartbeat on.
       // Seed the version state with the authoritative value returned from the
       // create call; the DB default is 0, not 1, so hardcoding 1 here would
       // cause the very next autosave to 409 with "updated by another user".
-      if (savedId && !currentMeetingId) {
-        setCurrentMeetingId(savedId);
-        setMeetingVersion(savedVersion ?? 0);
+      if (savedId && !workSessionId) {
+        if (!currentMeetingId) setMeetingVersion(savedVersion ?? 0);
         await startWorkSession(savedId);
         await loadWorkSessions(savedId);
+        if (!mountedRef.current) return;
       }
 
       updateSummaryInfo('status', MEETING_STATUS.BORRADOR);
       setLastSavedAt(new Date());
       setSavingIndicator('idle');
       toast.success('Borrador guardado');
-      onSuccess();
+      (onDraftSaved ?? onSuccess)();
     } catch (err) {
       console.error('Error saving draft:', err);
       toast.error('Error inesperado al guardar el borrador');
     } finally {
-      setIsSavingDraft(false);
+      saveInFlightRef.current = false;
+      if (mountedRef.current) setIsSavingDraft(false);
+    }
+  };
+
+  // Edit mode "Finalizar reunión": everything in the form is saved first;
+  // the dialog opens only when every write succeeded (SM-H8).
+  const handleOpenFinalize = async () => {
+    if (isSavingDraft || isSubmitting || saveInFlightRef.current) return;
+    saveInFlightRef.current = true;
+    setIsSavingDraft(true);
+    try {
+      const { success } = await persistMeetingData({ runValidations: false });
+      if (success && mountedRef.current) {
+        setLastSavedAt(new Date());
+        setFinalizeOpen(true);
+      }
+    } catch (err) {
+      console.error('Error saving before finalize:', err);
+      toast.error('No se pudo guardar la reunión antes de finalizarla.');
+    } finally {
+      saveInFlightRef.current = false;
+      if (mountedRef.current) setIsSavingDraft(false);
     }
   };
 
@@ -788,9 +1013,16 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     }
   };
 
+  // What is missing on step 1, in plain words.
+  const meetingInfoProblem = () => {
+    if (!formData.meeting_info.title) return 'Escribe el título de la reunión.';
+    if (meetingDateIncomplete) return 'La fecha y hora están incompletas: completa día, mes, año, hora y minutos.';
+    return 'Indica la fecha y hora de la reunión.';
+  };
+
   const handleNext = () => {
     if (!validateStep(currentStep)) {
-      toast.error('Por favor completa los campos requeridos');
+      toast.error(currentStep === MeetingFormStep.INFORMATION ? meetingInfoProblem() : 'Por favor completa los campos requeridos');
       return;
     }
 
@@ -806,21 +1038,28 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   };
 
   const handleSubmit = async () => {
+    if (isSubmitting || isSavingDraft || saveInFlightRef.current) return;
+    saveInFlightRef.current = true;
     setIsSubmitting(true);
     setUploadingFiles(true);
+    let saved = false;
     try {
       const { success } = await persistMeetingData({ runValidations: true });
-      if (success) {
-        toast.success(mode === 'edit' ? 'Reunión actualizada correctamente' : 'Reunión documentada correctamente');
-        onSuccess();
-        handleClose();
-      }
+      saved = success;
     } catch (error) {
       console.error('Error submitting meeting:', error);
       toast.error(`Error inesperado al ${mode === 'edit' ? 'actualizar' : 'crear'} la reunión`);
     } finally {
-      setIsSubmitting(false);
-      setUploadingFiles(false);
+      saveInFlightRef.current = false;
+      if (mountedRef.current) {
+        setIsSubmitting(false);
+        setUploadingFiles(false);
+      }
+    }
+    if (saved && mountedRef.current) {
+      toast.success(mode === 'edit' ? 'Reunión actualizada correctamente' : 'Reunión documentada correctamente');
+      onSuccess();
+      onClose();
     }
   };
 
@@ -850,7 +1089,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       ...prev,
       agreements: [
         ...prev.agreements,
-        { agreement_text: '', category: '' }
+        { client_key: nextItemKey(), agreement_text: '', category: '' }
       ]
     }));
   };
@@ -880,7 +1119,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       ...prev,
       commitments: [
         ...prev.commitments,
-        { commitment_text: '', commitment_doc: emptyDoc(), assigned_to: '', due_date: '' }
+        { client_key: nextItemKey(), commitment_text: '', commitment_doc: emptyDoc(), assigned_to: '', due_date: '' }
       ]
     }));
   };
@@ -911,6 +1150,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       tasks: [
         ...prev.tasks,
         {
+          client_key: nextItemKey(),
           task_title: '',
           task_description: '',
           task_description_doc: emptyDoc(),
@@ -983,8 +1223,16 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   // label stays neutral until the members request has SUCCEEDED; only then do
   // we say the person is outside the community. Returns null when the assignee
   // is empty or a current candidate, i.e. no synthetic option is needed.
+  // SM-H8: compromisos and tareas may only go to the meeting's participants.
+  const participantIdSet = new Set(formData.meeting_info.attendee_ids);
+  const participantOptions = availableUsers.filter((user) => participantIdSet.has(user.id));
+
+  // Any saved assignee who is not a selectable option (a participant who is
+  // also a current member) keeps a record-local, disabled option.
   const historicalAssigneeLabel = (assignedTo: string): string | null => {
-    if (!assignedTo || isCandidate(assignedTo)) return null;
+    if (!assignedTo || participantOptions.some((user) => user.id === assignedTo)) return null;
+    const member = availableUsers.find((user) => user.id === assignedTo);
+    if (member) return `${profileName(member, 'Usuario sin nombre')} (no es participante)`;
     if (membersLoadState === 'success') return 'Usuario fuera de la comunidad';
     if (membersLoadState === 'error') return 'No se pudo verificar la membresía';
     return 'Verificando membresía…';
@@ -1010,6 +1258,53 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
 
   // Nothing can be chosen until the request settles.
   const assigneePickerDisabled = membersLoadState === 'idle' || membersLoadState === 'loading';
+
+  // Live per-item checks (after the first blocked save) plus what the last
+  // save attempt reported for each item.
+  const liveItemProblems = showItemChecks ? validateMeetingItems(formData) : [];
+  const renderItemMessages = (kind: SaveProblem['kind'], index: number, field?: SaveItemField) => {
+    const messages = [...liveItemProblems, ...saveProblems].filter(
+      (problem) => problem.kind === kind && problem.index === index && (field === undefined || problem.field === field)
+    );
+    if (messages.length === 0) return null;
+    return (
+      <ul className="mt-2 space-y-1" data-testid={`meeting-${kind}-${index}-errors`}>
+        {messages.map((problem, i) => (
+          <li key={i} className="text-sm text-red-600">{problem.message}</li>
+        ))}
+      </ul>
+    );
+  };
+  const meetingLevelProblems = saveProblems.filter((problem) => problem.index === undefined);
+  const renderNoParticipantsHint = (scope: string) =>
+    membersLoadState === 'success' && participantOptions.length === 0 ? (
+      <p className="text-sm text-amber-800" data-testid={`meeting-no-participants-${scope}`}>
+        Marca primero a los participantes en el paso 1 (Información): solo a ellos se les puede asignar.
+      </p>
+    ) : null;
+
+  // Owner decision 5: unticking a participant who still has compromisos or
+  // tareas shows a warning here; the save stays blocked until they are
+  // reassigned (validateMeetingItems).
+  const assigneesNotParticipating = Array.from(
+    new Set(
+      [...formData.commitments, ...formData.tasks]
+        .map((item) => item.assigned_to)
+        .filter((id): id is string => !!id && !participantIdSet.has(id))
+    )
+  ).map((id) => {
+    const member = availableUsers.find((user) => user.id === id);
+    return {
+      id,
+      name: member ? profileName(member, 'Usuario sin nombre') : 'Una persona',
+      commitments: formData.commitments.filter((c) => c.assigned_to === id).length,
+      tasks: formData.tasks.filter((t) => t.assigned_to === id).length,
+    };
+  });
+
+  // People an editor adds as readers: community members who are not participants.
+  const readerCandidates = availableUsers.filter((user) => !participantIdSet.has(user.id));
+  const readerIds = formData.meeting_info.reader_ids ?? [];
 
   const renderMembersStatus = (scope: string) => {
     if (membersLoadState === 'idle' || membersLoadState === 'loading') {
@@ -1117,13 +1412,23 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
           </div>
 
           {/* Content */}
-          <div className="p-6 max-h-96 overflow-y-auto">
+          <div ref={stepBodyRef} className="p-6 max-h-96 overflow-y-auto" data-testid="meeting-step-body">
             {loadingMeeting ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand_accent"></div>
               </div>
             ) : (
               <>
+                {meetingLevelProblems.length > 0 && (
+                  <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-3" data-testid="meeting-save-problems">
+                    <p className="text-sm font-medium text-red-800">No se guardó todo:</p>
+                    <ul className="mt-1 list-disc pl-5 text-sm text-red-700">
+                      {meetingLevelProblems.map((problem, i) => (
+                        <li key={i}>{problem.message}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {/* Step 1: Information */}
                 {currentStep === MeetingFormStep.INFORMATION && (
               <div className="space-y-6">
@@ -1149,9 +1454,19 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                     <input
                       type="datetime-local"
                       value={formData.meeting_info.meeting_date}
-                      onChange={(e) => updateMeetingInfo('meeting_date', e.target.value)}
+                      onChange={(e) => {
+                        updateMeetingInfo('meeting_date', e.target.value);
+                        setMeetingDateIncomplete(e.target.validity.badInput);
+                      }}
+                      onBlur={(e) => setMeetingDateIncomplete(e.currentTarget.validity.badInput)}
+                      data-testid="meeting-date"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                     />
+                    {meetingDateIncomplete && (
+                      <p className="mt-1 text-sm text-red-600" data-testid="meeting-date-incomplete">
+                        La fecha y hora están incompletas: completa día, mes, año, hora y minutos.
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -1195,16 +1510,24 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                           type="checkbox"
                           data-testid={`meeting-attendee-${user.id}`}
                           checked={formData.meeting_info.attendee_ids.includes(user.id)}
+                          // A facilitator, secretary or co-editor row is not managed
+                          // here; it stays a participant (SM-H8).
+                          disabled={protectedAttendees.has(user.id)}
                           onChange={(e) => {
                             const attendeeIds = e.target.checked
                               ? [...formData.meeting_info.attendee_ids, user.id]
                               : formData.meeting_info.attendee_ids.filter(id => id !== user.id);
                             updateMeetingInfo('attendee_ids', attendeeIds);
                           }}
-                          className="h-4 w-4 text-brand_accent focus:ring-brand_accent border-gray-300 rounded"
+                          className="h-4 w-4 text-brand_accent focus:ring-brand_accent border-gray-300 rounded disabled:opacity-60"
                         />
                         <span className="ml-2 text-sm text-gray-700">
                           {profileName(user, 'Usuario sin nombre')}
+                          {protectedAttendees.has(user.id) && (
+                            <span className="ml-1 text-xs text-gray-500">
+                              ({PROTECTED_ROLE_LABELS[protectedAttendees.get(user.id) as string]})
+                            </span>
+                          )}
                         </span>
                       </label>
                     ))}
@@ -1222,6 +1545,57 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                           className="h-4 w-4 border-gray-300 rounded"
                         />
                         <span className="ml-2 text-sm">Usuario fuera de la comunidad</span>
+                      </label>
+                    ))}
+                  </div>
+                  {assigneesNotParticipating.length > 0 && (
+                    <div
+                      className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+                      data-testid="meeting-assignee-not-participant-warning"
+                    >
+                      {assigneesNotParticipating.map((person) => (
+                        <p key={person.id}>
+                          {person.name} ya no es participante, pero tiene
+                          {person.commitments > 0 && ` ${person.commitments} compromiso${person.commitments === 1 ? '' : 's'}`}
+                          {person.commitments > 0 && person.tasks > 0 && ' y'}
+                          {person.tasks > 0 && ` ${person.tasks} tarea${person.tasks === 1 ? '' : 's'}`} asignad{person.commitments + person.tasks === 1 ? 'o' : 'os'}.
+                          Vuelve a marcarla o reasigna en el paso 3 antes de guardar.
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* People added as readers (SM-H8) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Otras personas con acceso
+                  </label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Por ejemplo, alguien que no pudo asistir. Podrán ver los acuerdos, compromisos, tareas y documentos de esta reunión.
+                  </p>
+                  <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-300 rounded-lg p-3" data-testid="meeting-readers">
+                    {renderMembersStatus('readers')}
+                    {membersLoadState === 'success' && availableUsers.length > 0 && readerCandidates.length === 0 && (
+                      <p className="text-sm text-gray-500">Todos los miembros de la comunidad son participantes.</p>
+                    )}
+                    {readerCandidates.map(user => (
+                      <label key={user.id} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          data-testid={`meeting-reader-${user.id}`}
+                          checked={readerIds.includes(user.id)}
+                          onChange={(e) => {
+                            const next = e.target.checked
+                              ? [...readerIds, user.id]
+                              : readerIds.filter(id => id !== user.id);
+                            updateMeetingInfo('reader_ids', next);
+                          }}
+                          className="h-4 w-4 text-brand_accent focus:ring-brand_accent border-gray-300 rounded"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">
+                          {profileName(user, 'Usuario sin nombre')}
+                        </span>
                       </label>
                     ))}
                   </div>
@@ -1416,6 +1790,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                             minHeight={80}
                             placeholder="Describe el acuerdo…"
                           />
+                          {renderItemMessages('agreement', index)}
                         </div>
                       ))}
                     </div>
@@ -1446,6 +1821,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   ) : (
                     <div className="space-y-4">
                       {renderMembersStatus('commitments')}
+                      {renderNoParticipantsHint('commitments')}
                       {formData.commitments.map((commitment, index) => (
                         <div key={index} className="border border-gray-200 rounded-lg p-4">
                           <div className="flex items-start justify-between mb-3">
@@ -1481,7 +1857,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                               >
                                 <option value="">Asignar a…</option>
                                 {renderHistoricalAssigneeOption(commitment.assigned_to)}
-                                {availableUsers.map(user => (
+                                {participantOptions.map(user => (
                                   <option key={user.id} value={user.id}>
                                     {profileName(user, 'Usuario sin nombre')}
                                   </option>
@@ -1492,9 +1868,12 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                                 type="date"
                                 value={commitment.due_date}
                                 onChange={(e) => updateCommitment(index, 'due_date', e.target.value)}
+                                aria-label="Fecha límite del compromiso"
+                                data-testid={`meeting-commitment-due-${index}`}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                               />
                             </div>
+                            {renderItemMessages('commitment', index)}
                           </div>
                         </div>
                       ))}
@@ -1524,6 +1903,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   ) : (
                     <div className="space-y-4">
                       {renderMembersStatus('tasks')}
+                      {renderNoParticipantsHint('tasks')}
                       {formData.tasks.map((task, index) => (
                         <div key={index} className="border border-gray-200 rounded-lg p-4">
                           <div className="flex items-start justify-between mb-3">
@@ -1532,6 +1912,8 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                             </span>
                             <button
                               onClick={() => removeTask(index)}
+                              data-testid={`meeting-task-remove-${index}`}
+                              aria-label="Eliminar tarea"
                               className="p-1 text-red-400 hover:text-red-600"
                             >
                               <TrashIcon className="h-4 w-4" />
@@ -1543,6 +1925,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                               type="text"
                               value={task.task_title}
                               onChange={(e) => updateTask(index, 'task_title', e.target.value)}
+                              data-testid={`meeting-task-title-${index}`}
                               placeholder="Título de la tarea..."
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                             />
@@ -1567,7 +1950,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                               >
                                 <option value="">Asignar a…</option>
                                 {renderHistoricalAssigneeOption(task.assigned_to)}
-                                {availableUsers.map(user => (
+                                {participantOptions.map(user => (
                                   <option key={user.id} value={user.id}>
                                     {profileName(user, 'Usuario sin nombre')}
                                   </option>
@@ -1578,6 +1961,8 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                                 type="date"
                                 value={task.due_date}
                                 onChange={(e) => updateTask(index, 'due_date', e.target.value)}
+                                aria-label="Fecha límite de la tarea"
+                                data-testid={`meeting-task-due-${index}`}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                               />
                               
@@ -1611,6 +1996,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                               />
                             </div>
+                            {renderItemMessages('task', index)}
                           </div>
                         </div>
                       ))}
@@ -1638,7 +2024,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
             onSubmit={handleSubmit}
             onClose={handleClose}
             onSaveDraft={handleSaveDraft}
-            onOpenFinalize={() => setFinalizeOpen(true)}
+            onOpenFinalize={handleOpenFinalize}
           />
 
         </div>

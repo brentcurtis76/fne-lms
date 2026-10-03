@@ -3,6 +3,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
 import handler from '../../../pages/api/meetings/[id]/work-session/start';
 
+// SM-H8: the routes also ask the database whether the caller is a verified
+// editor (can_edit_meeting_verified). These tests exercise the route logic
+// with that answer fixed to yes; verified-editor.test.ts covers the call.
+const verifiedEditorMock = vi.hoisted(() => ({ isVerifiedMeetingEditor: vi.fn(async () => true) }));
+vi.mock('../../../lib/api/meetings/verified-editor', () => verifiedEditorMock);
+
 vi.mock('../../../lib/api-auth', () => ({
   getApiUser: vi.fn(),
   createServiceRoleClient: vi.fn(),

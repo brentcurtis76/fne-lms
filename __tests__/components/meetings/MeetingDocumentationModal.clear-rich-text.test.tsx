@@ -16,35 +16,12 @@ vi.mock('../../../src/components/TipTapEditor', () => ({
   },
 }));
 
-// Capture Supabase insert/update payloads per table.
-const capturedCalls: Record<string, any[]> = {};
-
-vi.mock('@supabase/auth-helpers-react', () => ({
-  useSupabaseClient: () => ({
-    from: vi.fn((table: string) => {
-      const empty = { data: [], error: null };
-      const chain: any = {
-        select: vi.fn(() => chain),
-        eq: vi.fn(() => chain),
-        in: vi.fn(() => chain),
-        is: vi.fn(() => chain),
-        order: vi.fn(() => Promise.resolve(empty)),
-        single: vi.fn(() => Promise.resolve({ data: null, error: null })),
-        then: (resolve: any) => resolve(empty),
-        insert: vi.fn((rows: any) => {
-          (capturedCalls[`insert:${table}`] ??= []).push(rows);
-          return Promise.resolve(empty);
-        }),
-        update: vi.fn((payload: any) => {
-          (capturedCalls[`update:${table}`] ??= []).push(payload);
-          return chain;
-        }),
-        delete: vi.fn(() => chain),
-      };
-      return chain;
-    }),
-  }),
-}));
+// Capture Supabase insert/update payloads per table (shared PostgREST-like double).
+vi.mock('@supabase/auth-helpers-react', async () => {
+  const mock = await import('./meetingSupabaseMock');
+  const client = mock.makeMeetingSupabaseClient();
+  return { useSupabaseClient: () => client };
+});
 
 vi.mock('react-hot-toast', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
@@ -66,7 +43,7 @@ vi.mock('../../../utils/meetingUtils', () => ({
     },
     notes: '',
     notes_doc: null,
-    attendees: [],
+    attendees: [{ user_id: '33333333-3333-4333-8333-333333333333', role: 'participant' }],
     agreements: [],
     commitments: [
       {
@@ -76,8 +53,8 @@ vi.mock('../../../utils/meetingUtils', () => ({
           type: 'doc',
           content: [{ type: 'paragraph', content: [{ type: 'text', text: 'rich commitment' }] }],
         },
-        assigned_to: '',
-        due_date: null,
+        assigned_to: '33333333-3333-4333-8333-333333333333',
+        due_date: '2026-05-01',
       },
     ],
     tasks: [
@@ -89,8 +66,8 @@ vi.mock('../../../utils/meetingUtils', () => ({
           type: 'doc',
           content: [{ type: 'paragraph', content: [{ type: 'text', text: 'rich task desc' }] }],
         },
-        assigned_to: '',
-        due_date: null,
+        assigned_to: '33333333-3333-4333-8333-333333333333',
+        due_date: '2026-05-02',
         priority: 'media',
         category: '',
         estimated_hours: null,
@@ -107,11 +84,13 @@ vi.mock('../../../utils/storage', () => ({
 }));
 
 import MeetingDocumentationModal from '../../../components/meetings/MeetingDocumentationModal';
+import { toast } from 'react-hot-toast';
+import { capturedCalls, resetMeetingSupabaseMock } from './meetingSupabaseMock';
 
 describe('MeetingDocumentationModal — clearing rich text clears plaintext', () => {
   beforeEach(() => {
     editorOnChange.clear();
-    for (const key of Object.keys(capturedCalls)) delete capturedCalls[key];
+    resetMeetingSupabaseMock();
     // Route-aware: the community-scoped member pickers load through
     // /api/community/members and an empty community is a valid answer.
     // @ts-expect-error override global fetch for test
@@ -128,8 +107,8 @@ describe('MeetingDocumentationModal — clearing rich text clears plaintext', ()
     vi.clearAllMocks();
   });
 
-  it('persists empty commitment_text and empty commitment_doc when the editor is cleared', async () => {
-    const { rerender, getByText, container } = render(
+  async function openStep3() {
+    const utils = render(
       <MeetingDocumentationModal
         isOpen={false}
         onClose={vi.fn()}
@@ -141,9 +120,8 @@ describe('MeetingDocumentationModal — clearing rich text clears plaintext', ()
         mode="edit"
       />
     );
-
     await act(async () => {
-      rerender(
+      utils.rerender(
         <MeetingDocumentationModal
           isOpen
           onClose={vi.fn()}
@@ -156,56 +134,47 @@ describe('MeetingDocumentationModal — clearing rich text clears plaintext', ()
         />
       );
     });
-
     // Wait for getMeetingDetails to populate the form (title input reflects loaded meeting).
     await waitFor(() => {
-      const titleInput = container.querySelector('input[type="text"]') as HTMLInputElement | null;
+      const titleInput = utils.container.querySelector('input[type="text"]') as HTMLInputElement | null;
       expect(titleInput?.value).toBe('Test meeting');
     });
-
-    // Step 1 → Step 2
-    await act(async () => {
-      fireEvent.click(getByText('Siguiente'));
-    });
-    await waitFor(() => {
-      expect(editorOnChange.get('Resumen de la reunión…')).toBeDefined();
-    });
-
-    // Step 2 → Step 3 (AGREEMENTS)
-    await act(async () => {
-      fireEvent.click(getByText('Siguiente'));
-    });
-
+    await act(async () => { fireEvent.click(utils.getByText('Siguiente')); });
+    await waitFor(() => expect(editorOnChange.get('Resumen de la reunión…')).toBeDefined());
+    await act(async () => { fireEvent.click(utils.getByText('Siguiente')); });
     await waitFor(() => {
       expect(editorOnChange.get('Describe el compromiso…')).toBeDefined();
       expect(editorOnChange.get('Describe la tarea…')).toBeDefined();
     });
+    return utils;
+  }
 
-    const emptyDocValue = { type: 'doc', content: [{ type: 'paragraph' }] };
+  const emptyDocValue = { type: 'doc', content: [{ type: 'paragraph' }] };
 
-    // Simulate the user clearing both editors — fire onChange with an empty doc.
+  it('persists an empty task_description and task_description_doc when the task editor is cleared', async () => {
+    const { getByText } = await openStep3();
     await act(async () => {
-      editorOnChange.get('Describe el compromiso…')!(emptyDocValue);
       editorOnChange.get('Describe la tarea…')!(emptyDocValue);
     });
-
-    // Save.
-    await act(async () => {
-      fireEvent.click(getByText('Guardar Cambios'));
-    });
+    await act(async () => { fireEvent.click(getByText('Guardar Cambios')); });
 
     await waitFor(() => {
-      const commitmentUpdates = capturedCalls['update:meeting_commitments'] ?? [];
-      expect(commitmentUpdates.length).toBeGreaterThan(0);
+      expect((capturedCalls['update:meeting_tasks'] ?? []).length).toBeGreaterThan(0);
     });
-
-    const commitmentUpdates = capturedCalls['update:meeting_commitments']!;
     const taskUpdates = capturedCalls['update:meeting_tasks']!;
-
-    expect(commitmentUpdates[0].commitment_text).toBe('');
-    expect(commitmentUpdates[0].commitment_doc).toEqual(emptyDocValue);
-
     expect(taskUpdates[0].task_description).toBe('');
     expect(taskUpdates[0].task_description_doc).toEqual(emptyDocValue);
+  });
+
+  it('a cleared commitment is not saved empty: the save is blocked with a message (SM-H8)', async () => {
+    const { getByText, getByTestId } = await openStep3();
+    await act(async () => {
+      editorOnChange.get('Describe el compromiso…')!(emptyDocValue);
+    });
+    await act(async () => { fireEvent.click(getByText('Guardar Cambios')); });
+
+    expect(capturedCalls['update:meeting_commitments']).toBeUndefined();
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Describe el compromiso o elimínalo.');
+    expect(getByTestId('meeting-commitment-0-errors').textContent).toContain('Describe el compromiso o elimínalo.');
   });
 });

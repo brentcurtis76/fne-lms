@@ -17,8 +17,8 @@ import HelpButton from '../../components/tutorials/HelpButton';
 import MeetingFilters from '../../components/meetings/MeetingFilters';
 import MeetingCard from '../../components/meetings/MeetingCard';
 import MeetingDocumentationModal from '../../components/meetings/MeetingDocumentationModal';
-// import MeetingDetailsModal from '../../components/meetings/MeetingDetailsModal';
-// import MeetingDeletionModal from '../../components/meetings/MeetingDeletionModal';
+import MeetingDetailsModal from '../../components/meetings/MeetingDetailsModal';
+import MeetingDeletionModal from '../../components/meetings/MeetingDeletionModal';
 import DocumentUploadModal from '../../components/documents/DocumentUploadModal';
 import DocumentGrid from '../../components/documents/DocumentGrid';
 import FolderNavigation from '../../components/documents/FolderNavigation';
@@ -53,7 +53,9 @@ import {
 import { 
   getMeetings,
   getMeetingDetails,
-  canUserManageMeetings
+  canUserManageMeetings,
+  getMyMeetingRights,
+  type MeetingRights
 } from '../../utils/meetingUtils';
 import {
   getWorkspaceDocuments,
@@ -1081,6 +1083,11 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
   const [selectedMeetingTitle, setSelectedMeetingTitle] = useState<string>('');
+  // SM-H8: the details modal has its own id so opening "Editar" from it does
+  // not get cleared by the details modal closing.
+  const [detailsMeetingId, setDetailsMeetingId] = useState<string | null>(null);
+  const [deleteMeetingId, setDeleteMeetingId] = useState<string | null>(null);
+  const [meetingRights, setMeetingRights] = useState<Map<string, MeetingRights>>(new Map());
   const [filters, setFilters] = useState<MeetingFiltersType>({
     dateRange: {},
     status: [],
@@ -1117,6 +1124,7 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
       );
       
       setMeetings(meetingsWithDetails);
+      setMeetingRights(await getMyMeetingRights(meetingsData.map((meeting) => meeting.id)));
     } catch (error) {
       console.error('Error loading meetings:', error);
       toast.error('Error al cargar las reuniones');
@@ -1151,7 +1159,7 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
   };
 
   const handleViewMeeting = (meetingId: string) => {
-    setSelectedMeetingId(meetingId);
+    setDetailsMeetingId(meetingId);
     setShowDetailsModal(true);
   };
 
@@ -1159,7 +1167,7 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
     // Find the meeting to get its title
     const meeting = meetings.find(m => m.id === meetingId);
     if (meeting) {
-      setSelectedMeetingId(meetingId);
+      setDeleteMeetingId(meetingId);
       setSelectedMeetingTitle(meeting.title);
       setShowDeleteModal(true);
     }
@@ -1168,9 +1176,12 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
   const handleDeleteSuccess = () => {
     loadMeetings();
     setShowDeleteModal(false);
-    setSelectedMeetingId(null);
+    setDeleteMeetingId(null);
     setSelectedMeetingTitle('');
   };
+
+  const rightsFor = (meetingId: string): MeetingRights =>
+    meetingRights.get(meetingId) ?? { canEdit: false, canDelete: false, canReadContent: false };
 
   const handleClearFilters = () => {
     setFilters({
@@ -1286,9 +1297,12 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
             <MeetingCard
               key={meeting.id}
               meeting={meeting}
-              canEdit={canManage}
+              canEdit={rightsFor(meeting.id).canEdit}
+              canDelete={rightsFor(meeting.id).canDelete}
+              canReadContent={rightsFor(meeting.id).canReadContent}
               onEdit={handleEditMeeting}
               onView={handleViewMeeting}
+              onDelete={handleDeleteMeeting}
               onTaskUpdate={loadMeetings}
             />
           ))}
@@ -1328,46 +1342,44 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
           communityId={workspace.community_id}
           userId={user.id}
           onSuccess={handleMeetingCreated}
+          onDraftSaved={loadMeetings}
           meetingId={selectedMeetingId || undefined}
           mode={selectedMeetingId ? 'edit' : 'create'}
         />
       )}
 
-      {/* Meeting Details Modal */}
-      {/* TODO: Uncomment when MeetingDetailsModal component is created
-      {showDetailsModal && selectedMeetingId && (
+      {/* Meeting Details Modal ("Ver detalles", the eye) */}
+      {showDetailsModal && detailsMeetingId && (
         <MeetingDetailsModal
           isOpen={showDetailsModal}
           onClose={() => {
             setShowDetailsModal(false);
-            setSelectedMeetingId(null);
+            setDetailsMeetingId(null);
           }}
-          meetingId={selectedMeetingId}
+          meetingId={detailsMeetingId}
           onEdit={handleEditMeeting}
           onDelete={handleDeleteMeeting}
-          canEdit={canManage}
-          canDelete={canManage}
+          canEdit={rightsFor(detailsMeetingId).canEdit}
+          canDelete={rightsFor(detailsMeetingId).canDelete}
+          canReadContent={rightsFor(detailsMeetingId).canReadContent}
         />
       )}
-      */}
 
-      {/* Meeting Deletion Modal */}
-      {/* TODO: Uncomment when MeetingDeletionModal component is created
-      {showDeleteModal && selectedMeetingId && user && (
+      {/* Meeting Deletion Modal: creator, community leader or admin (SM-H8) */}
+      {showDeleteModal && deleteMeetingId && user && (
         <MeetingDeletionModal
           isOpen={showDeleteModal}
           onClose={() => {
             setShowDeleteModal(false);
-            setSelectedMeetingId(null);
+            setDeleteMeetingId(null);
             setSelectedMeetingTitle('');
           }}
-          meetingId={selectedMeetingId}
+          meetingId={deleteMeetingId}
           meetingTitle={selectedMeetingTitle}
           userId={user.id}
           onSuccess={handleDeleteSuccess}
         />
       )}
-      */}
     </div>
   );
 };

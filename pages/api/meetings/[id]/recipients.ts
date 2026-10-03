@@ -12,7 +12,7 @@ import {
 } from '../../../../lib/api/meetings/load-context';
 
 /**
- * GET /api/meetings/[id]/recipients?audience=community|attended
+ * GET /api/meetings/[id]/recipients?audience=with_access|attended
  * Lightweight recipient-count preview for the finalize dialog. Returns only
  * the count — not the list — to avoid leaking emails through a UI-preview
  * endpoint.
@@ -25,7 +25,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const { audience } = req.query;
-  if (audience !== 'community' && audience !== 'attended') {
+  // SM-H8: 'with_access' replaced 'community' (whole community) — decision 4.
+  if (audience !== 'with_access' && audience !== 'attended') {
     return sendApiError(res, 'audience inválida', 400);
   }
 

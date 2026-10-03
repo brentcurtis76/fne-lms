@@ -7,7 +7,7 @@ import {
   logApiRequest,
   handleMethodNotAllowed,
 } from '../../../../lib/api-auth';
-import { getCommunityRecipients } from '../../../../lib/notificationService';
+import { getCommunityRecipients, getMeetingAccessUserIds } from '../../../../lib/notificationService';
 import notificationService from '../../../../lib/notificationService';
 import { sendMeetingSummary } from '../../../../lib/emailService';
 import {
@@ -26,7 +26,9 @@ import {
 } from '../../../../lib/email/outbound-policy';
 
 const finalizeSchema = z.object({
-  audience: z.enum(['community', 'attended']),
+  // SM-H8 (owner decision 4): 'with_access' replaced 'community' (the whole
+  // community); a request for 'community' is now a 400.
+  audience: z.enum(['with_access', 'attended']),
   facilitator_message_doc: z.record(z.unknown()).optional(),
 });
 
@@ -135,7 +137,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         status: 'completada',
         finalized_at: now,
         finalized_by: user.id,
-        finalize_audience: audience,
+        finalize_audience: audience === 'attended' ? 'attended' : 'community',
+        finalize_with_access: audience === 'with_access' ? true : null,
         version: (meeting.version ?? 0) + 1,
         updated_at: now,
         updated_by: user.id,
@@ -305,12 +308,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .filter((a: any) => a.attendance_status === 'attended')
           .map((a: any) => a.user_id);
       } else if (workspace?.community_id) {
-        const { data: memberRows } = await serviceClient
-          .from('user_roles')
-          .select('user_id')
-          .eq('community_id', workspace.community_id)
-          .eq('is_active', true);
-        bellRecipientIds = (memberRows || []).map((row: any) => row.user_id);
+        // SM-H8: the people with access to the meeting, not the whole community.
+        bellRecipientIds = (await getMeetingAccessUserIds(serviceClient, id)) ?? [];
       }
       await notificationService.triggerNotification('meeting_finalized', {
         meeting_id: id,

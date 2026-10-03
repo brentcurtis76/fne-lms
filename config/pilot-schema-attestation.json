@@ -7,8 +7,8 @@
   ],
   "schemaVersion": 1,
   "attestationVersion": 1,
-  "expectedDigest": "9c654b86fb67514bd0dea4fbdc0b6a0dbbbce8b8ecf579f9599c6a38a8c51672",
-  "generatedFromMigration": "20261002200000_docente_course_select.sql",
+  "expectedDigest": "f8785504b191d8e664b1fe6c859d6b73dbf30d8b75be284399e792503808cc8f",
+  "generatedFromMigration": "20261003100000_meeting_content_access.sql",
   "tables": [
     "ab_grades",
     "ab_migration_plan",
@@ -41,7 +41,7 @@
     "save_transversal_context(p_school_id integer, p_payload jsonb)",
     "transversal_grade_sort_order(p_grade_level text)"
   ],
-  "referencingForeignKeys": 175,
+  "referencingForeignKeys": 177,
   "sections": {
     "table:ab_grades": "69912b4e701a04112ed07983ca987eb2d5d7c30d6170ceee6c3fff95f07d8aec",
     "table:ab_migration_plan": "e6c1e1e34b71894fd043f8273fc39896b443f1a7b1ff71805e0072f01587ac4a",
@@ -71,6 +71,6 @@
     "function:replace_course_docente(p_course_structure_id uuid, p_new_docente_id uuid)": "36d2bb15fc0d23dbae36da10823bf72f924994c6015a0924b01100796dad76db",
     "function:save_transversal_context(p_school_id integer, p_payload jsonb)": "69e7aabb0b41014032efd0b90769b2dda959582030c00462bcb778ec2423b11e",
     "function:transversal_grade_sort_order(p_grade_level text)": "830ac919e5a73311a388d010fcfb149cc7ee03539ebaac5825193a3e9a38559a",
-    "referencing_foreign_keys": "af581504558c8b26a78b7a22335e1d0be897b0fe97a6986d122c78d31559a99f"
+    "referencing_foreign_keys": "21d1694da93f42f747c5105df9cf2dd0e255e3942eabe7bd1d47609a95b90656"
   }
 }

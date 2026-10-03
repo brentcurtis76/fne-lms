@@ -20,7 +20,8 @@ import {
   PencilIcon,
   PaperClipIcon,
   DownloadIcon,
-  UsersIcon
+  UsersIcon,
+  TrashIcon
 } from '@heroicons/react/outline';
 import { 
   CommunityMeeting,
@@ -32,12 +33,18 @@ import { formatMeetingDate, isOverdue } from '../../utils/meetingUtils';
 import { profileName } from '../../lib/utils/profile-name';
 import { formatFileSize, getFileIcon } from '../../lib/utils/file-format';
 import TaskTracker from './TaskTracker';
+import { meetingDocumentUrl, MEETING_CONTENT_HIDDEN_TEXT } from '../../lib/meetings/meeting-documents';
 
 interface MeetingCardProps {
   meeting: CommunityMeeting | MeetingWithDetails;
   canEdit: boolean;
+  /** SM-H8: creator, community leader or admin (from get_my_meeting_rights). */
+  canDelete?: boolean;
+  /** SM-H8: may read agreements, commitments, tasks and documents. */
+  canReadContent?: boolean;
   onEdit?: (meetingId: string) => void;
   onView?: (meetingId: string) => void;
+  onDelete?: (meetingId: string) => void;
   onTaskUpdate?: () => void;
   className?: string;
 }
@@ -45,13 +52,16 @@ interface MeetingCardProps {
 const MeetingCard: React.FC<MeetingCardProps> = ({
   meeting,
   canEdit,
+  canDelete = false,
+  canReadContent = true,
   onEdit,
   onView,
+  onDelete,
   onTaskUpdate,
   className = ''
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [activeSection, setActiveSection] = useState<'summary' | 'agreements' | 'tasks' | 'documents'>('summary');
+  const [activeSection, setActiveSection] = useState<'summary' | 'agreements' | 'commitments' | 'tasks' | 'documents'>('summary');
   const [attachments, setAttachments] = useState<any[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   
@@ -61,7 +71,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
   const meetingWithDetails = hasDetails ? meeting as MeetingWithDetails : null;
 
   const getTaskStats = () => {
-    if (!meetingWithDetails) return null;
+    if (!meetingWithDetails || !canReadContent) return null;
     
     const totalTasks = meetingWithDetails.tasks.length + meetingWithDetails.commitments.length;
     const completedTasks = meetingWithDetails.tasks.filter(t => t.status === 'completado').length +
@@ -76,7 +86,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
 
   // Load attachments when documents section is opened
   useEffect(() => {
-    if (activeSection === 'documents' && isExpanded && attachments.length === 0) {
+    if (activeSection === 'documents' && isExpanded && attachments.length === 0 && canReadContent) {
       loadAttachments();
     }
   }, [activeSection, isExpanded]);
@@ -159,50 +169,47 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
   );
 
   const renderAgreementsSection = () => {
-    const hasAgreements = meetingWithDetails?.agreements.length > 0;
-    const hasCommitments = meetingWithDetails?.commitments.length > 0;
-
-    if (!hasAgreements && !hasCommitments) {
-      return <p className="text-sm text-gray-500 italic">No se registraron acuerdos o compromisos en esta reunión.</p>;
+    if (!meetingWithDetails?.agreements.length) {
+      return <p className="text-sm text-gray-500 italic">No se registraron acuerdos en esta reunión.</p>;
     }
 
     return (
-      <div className="space-y-6">
-        {/* Agreements as unified commitments */}
-        {hasAgreements && (
-          <div className="space-y-3">
-            {meetingWithDetails.agreements.map((agreement, index) => (
-              <div key={agreement.id} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
-                <div className="flex-shrink-0 w-6 h-6 bg-brand_accent rounded-full flex items-center justify-center text-xs font-bold text-brand_primary">
-                  {index + 1}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-900">{agreement.agreement_text}</p>
-                  {agreement.category && (
-                    <span className="inline-block mt-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                      {agreement.category}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
+      <div className="space-y-3">
+        {meetingWithDetails.agreements.map((agreement, index) => (
+          <div key={agreement.id} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+            <div className="flex-shrink-0 w-6 h-6 bg-brand_accent rounded-full flex items-center justify-center text-xs font-bold text-brand_primary">
+              {index + 1}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-gray-900">{agreement.agreement_text}</p>
+              {agreement.category && (
+                <span className="inline-block mt-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                  {agreement.category}
+                </span>
+              )}
+            </div>
           </div>
-        )}
+        ))}
+      </div>
+    );
+  };
 
-        {/* Commitments */}
-        {hasCommitments && (
-          <div className="space-y-3">
-            {meetingWithDetails.commitments.map(commitment => (
-              <TaskTracker
-                key={commitment.id}
-                item={commitment}
-                itemType="commitment"
-                canEdit={canEdit}
-                onStatusUpdate={onTaskUpdate}
-              />
-            ))}
-          </div>
-        )}
+  const renderCommitmentsSection = () => {
+    if (!meetingWithDetails?.commitments.length) {
+      return <p className="text-sm text-gray-500 italic">No se registraron compromisos en esta reunión.</p>;
+    }
+
+    return (
+      <div className="space-y-3">
+        {meetingWithDetails.commitments.map(commitment => (
+          <TaskTracker
+            key={commitment.id}
+            item={commitment}
+            itemType="commitment"
+            canEdit={canEdit}
+            onStatusUpdate={onTaskUpdate}
+          />
+        ))}
       </div>
     );
   };
@@ -229,11 +236,12 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
 
   const handleDownload = async (attachment: any) => {
     try {
-      const { data } = supabase.storage
-        .from('meeting-documents')
-        .getPublicUrl(attachment.file_path);
-
-      window.open(data.publicUrl, '_blank');
+      const url = await meetingDocumentUrl(supabase, attachment.file_path);
+      if (!url) {
+        console.error('Error downloading file: no signed URL');
+        return;
+      }
+      window.open(url, '_blank');
     } catch (error) {
       console.error('Error downloading file:', error);
     }
@@ -387,6 +395,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
                 onClick={() => onView(meeting.id)}
                 className="p-2 text-gray-400 hover:text-brand_primary hover:bg-gray-100 rounded-lg transition-colors duration-200"
                 title="Ver detalles"
+                data-testid={`meeting-view-${meeting.id}`}
               >
                 <EyeIcon className="h-4 w-4" />
               </button>
@@ -397,8 +406,20 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
                 onClick={() => onEdit(meeting.id)}
                 className="p-2 text-gray-400 hover:text-brand_accent hover:bg-brand_accent/10 rounded-lg transition-colors duration-200"
                 title="Editar reunión"
+                data-testid={`meeting-edit-${meeting.id}`}
               >
                 <PencilIcon className="h-4 w-4" />
+              </button>
+            )}
+
+            {canDelete && onDelete && (
+              <button
+                onClick={() => onDelete(meeting.id)}
+                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
+                title="Eliminar reunión"
+                data-testid={`meeting-delete-${meeting.id}`}
+              >
+                <TrashIcon className="h-4 w-4" />
               </button>
             )}
           </div>
@@ -440,9 +461,11 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
               Resumen
             </button>
 
-            {meetingWithDetails && (meetingWithDetails.agreements.length > 0 || meetingWithDetails.commitments.length > 0) && (
+            {/* SM-H8: acuerdos (not assigned) and compromisos (assigned) are counted apart. */}
+            {canReadContent && meetingWithDetails.agreements.length > 0 && (
               <button
                 onClick={() => toggleSection('agreements')}
+                data-testid={`meeting-chip-agreements-${meeting.id}`}
                 className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 ${
                   activeSection === 'agreements' && isExpanded
                     ? 'bg-brand_accent text-brand_primary'
@@ -450,13 +473,29 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
                 }`}
               >
                 <MenuIcon className="h-3 w-3 mr-1" />
-                Acuerdos y Compromisos ({meetingWithDetails.agreements.length + meetingWithDetails.commitments.length})
+                Acuerdos ({meetingWithDetails.agreements.length})
               </button>
             )}
 
-            {meetingWithDetails.tasks.length > 0 && (
+            {canReadContent && meetingWithDetails.commitments.length > 0 && (
+              <button
+                onClick={() => toggleSection('commitments')}
+                data-testid={`meeting-chip-commitments-${meeting.id}`}
+                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 ${
+                  activeSection === 'commitments' && isExpanded
+                    ? 'bg-brand_accent text-brand_primary'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <CheckCircleIcon className="h-3 w-3 mr-1" />
+                Compromisos ({meetingWithDetails.commitments.length})
+              </button>
+            )}
+
+            {canReadContent && meetingWithDetails.tasks.length > 0 && (
               <button
                 onClick={() => toggleSection('tasks')}
+                data-testid={`meeting-chip-tasks-${meeting.id}`}
                 className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 ${
                   activeSection === 'tasks' && isExpanded
                     ? 'bg-brand_accent text-brand_primary'
@@ -468,6 +507,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
               </button>
             )}
 
+            {canReadContent && (
             <button
               onClick={() => toggleSection('documents')}
               className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 ${
@@ -479,8 +519,15 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
               <PaperClipIcon className="h-3 w-3 mr-1" />
               Documentos
             </button>
+            )}
 
           </div>
+        )}
+
+        {meetingWithDetails && !canReadContent && (
+          <p className="mt-3 text-xs text-gray-500" data-testid={`meeting-content-hidden-${meeting.id}`}>
+            {MEETING_CONTENT_HIDDEN_TEXT}
+          </p>
         )}
 
         {/* Expand/Collapse Indicator */}
@@ -505,9 +552,16 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
         <div className="border-t border-gray-200 p-6 bg-gray-50">
           <div className="max-h-96 overflow-y-auto">
             {activeSection === 'summary' && renderSummarySection()}
-            {activeSection === 'agreements' && renderAgreementsSection()}
-            {activeSection === 'tasks' && renderTasksSection()}
-            {activeSection === 'documents' && renderDocumentsSection()}
+            {activeSection === 'summary' ? null : !canReadContent ? (
+              <p className="text-sm text-gray-500 italic">{MEETING_CONTENT_HIDDEN_TEXT}</p>
+            ) : (
+              <>
+                {activeSection === 'agreements' && renderAgreementsSection()}
+                {activeSection === 'commitments' && renderCommitmentsSection()}
+                {activeSection === 'tasks' && renderTasksSection()}
+                {activeSection === 'documents' && renderDocumentsSection()}
+              </>
+            )}
           </div>
         </div>
       )}

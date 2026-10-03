@@ -9,7 +9,14 @@ export type TaskStatus = 'pendiente' | 'en_progreso' | 'completado' | 'vencido' 
 export type TaskPriority = 'baja' | 'media' | 'alta' | 'critica';
 export type AttendanceStatus = 'invited' | 'confirmed' | 'attended' | 'absent' | 'late';
 export type AttendeeRole = 'facilitator' | 'secretary' | 'participant' | 'observer' | 'co_editor';
+/** Stored on community_meetings.finalize_audience. */
 export type FinalizeAudience = 'community' | 'attended';
+/**
+ * What the finalize dialog and API accept (SM-H8): 'with_access' = the people
+ * with access to the meeting (stored as 'community' + finalize_with_access);
+ * a new 'community' (whole community) finalization is no longer possible.
+ */
+export type FinalizeRequestAudience = 'with_access' | 'attended';
 
 // Core meeting interface
 export interface CommunityMeeting {
@@ -41,6 +48,8 @@ export interface CommunityMeeting {
   finalized_at?: string | null;
   finalized_by?: string | null;
   finalize_audience?: FinalizeAudience | null;
+  /** SM-H8: true when the summary went to the people with access. */
+  finalize_with_access?: boolean | null;
   
   // Related data (populated via joins)
   workspace?: {
@@ -237,6 +246,8 @@ export interface MeetingDocumentationInput {
     duration_minutes: number;
     location?: string;
     attendee_ids: string[];
+    /** SM-H8: community members an editor added as readers (not participants). */
+    reader_ids?: string[];
   };
   
   // Step 2: Summary and Notes
@@ -251,6 +262,8 @@ export interface MeetingDocumentationInput {
   // Step 3: Agreements
   agreements: Array<{
     id?: string;
+    /** SM-H8: stable in-form identity, so saved ids land on the right item. */
+    client_key?: string;
     agreement_text: string;
     agreement_doc?: any;
     category?: string;
@@ -259,6 +272,7 @@ export interface MeetingDocumentationInput {
   // Step 4: Commitments and Tasks
   commitments: Array<{
     id?: string;
+    client_key?: string;
     commitment_text: string;
     commitment_doc?: any;
     assigned_to: string;
@@ -267,6 +281,7 @@ export interface MeetingDocumentationInput {
 
   tasks: Array<{
     id?: string;
+    client_key?: string;
     task_title: string;
     task_description?: string;
     task_description_doc?: any;

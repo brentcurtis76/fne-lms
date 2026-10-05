@@ -21,6 +21,7 @@ import {
   MeetingStatus
 } from '../types/meetings';
 import { logWorkspaceActivity } from './workspaceUtils';
+import { daysUntilDueDate } from '../lib/meetings/meeting-time';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { SaveProblem } from '../lib/meetings/meeting-save';
 import {
@@ -675,13 +676,11 @@ export function formatMeetingDate(dateString: string): string {
 }
 
 /**
- * Calculate days until due date
+ * Calculate days until due date (calendar days; a date-only due date is that
+ * day in the local zone — SM-H9).
  */
 export function getDaysUntilDue(dueDateString: string): number {
-  const dueDate = new Date(dueDateString);
-  const today = new Date();
-  const diffTime = dueDate.getTime() - today.getTime();
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return daysUntilDueDate(dueDateString);
 }
 
 /**

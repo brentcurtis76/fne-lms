@@ -27,6 +27,7 @@ import {
   priorityColors
 } from '../../types/meetings';
 import { updateTaskStatus, getDaysUntilDue, isOverdue } from '../../utils/meetingUtils';
+import { formatDueDate } from '../../lib/meetings/meeting-time';
 import { profileName } from '../../lib/utils/profile-name';
 import RichTextView from './RichTextView';
 import { isEmptyDoc } from '../../lib/tiptap/helpers';
@@ -231,7 +232,7 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
           <div className={`flex items-center space-x-1 ${isItemOverdue ? 'text-red-600' : ''}`}>
             <CalendarIcon className="h-3 w-3" />
             <span>
-              {new Date(item.due_date).toLocaleDateString('es-CL')}
+              {formatDueDate(item.due_date)}
               {daysUntilDue !== null && (
                 <span className="ml-1">
                   ({daysUntilDue === 0 ? 'Hoy' : 

@@ -18,6 +18,8 @@
 --      a school leader stop at their own school, while admin, consultor,
 --      membership, service_role and every write path stay exactly as they were
 --
+-- Current-main cumulative behavior: the later approved group-private migration
+-- replaces direct discussion-mapping creation with the atomic authenticated RPC.
 -- Synthetic/local state only. Rolls back. DO NOT run against production.
 -- =============================================================================
 
@@ -286,8 +288,8 @@ RESET ROLE;
 -- community member in the assignment group (8)
 SELECT tests.authenticate_as('b10a_member');
 SELECT is((SELECT count(*)::int FROM public.group_assignment_discussions WHERE id = '71000000-0000-4000-8000-00000000d001'), 1, 'group member: reads the discussion mapping of a visible group');
-SELECT lives_ok($$INSERT INTO public.message_threads (id, thread_title, created_by, workspace_id) VALUES ('71000000-0000-4000-8000-00000000d102', 'B10a thread 2', pg_temp.uid('b10a_member'), '71000000-0000-4000-8000-00000000bb01')$$, 'group member: creates the thread first, in their community''s workspace (as getOrCreateDiscussion does)');
-SELECT lives_ok($$INSERT INTO public.group_assignment_discussions (assignment_id, group_id, workspace_id, thread_id) VALUES ('b10a-assignment', '71000000-0000-4000-8000-00000000b001', '71000000-0000-4000-8000-00000000bb01', '71000000-0000-4000-8000-00000000d102')$$, 'group member: creates a consistent discussion mapping (own group, its assignment, its community''s workspace, own thread there)');
+SELECT lives_ok($$INSERT INTO public.message_threads (id, thread_title, created_by, workspace_id) VALUES ('71000000-0000-4000-8000-00000000d102', 'B10a thread 2', pg_temp.uid('b10a_member'), '71000000-0000-4000-8000-00000000bb01')$$, 'group member: creates the thread first, in their community''s workspace (ordinary thread creation)');
+SELECT lives_ok($$SELECT public.get_or_create_group_discussion('b10a-assignment', '71000000-0000-4000-8000-00000000b001', '71000000-0000-4000-8000-00000000bb01', 'B10a discussion', 'Synthetic')$$, 'group member: atomic RPC opens existing authorized discussion');
 SELECT throws_ok($$INSERT INTO public.group_assignment_discussions (assignment_id, group_id, workspace_id, thread_id) VALUES ('b10a-assignment-2', '71000000-0000-4000-8000-00000000b001', '71000000-0000-4000-8000-00000000bb01', '71000000-0000-4000-8000-00000000d102')$$, '42501', NULL, 'group member: cannot map an assignment_id that is not the group''s assignment');
 SELECT throws_ok($$INSERT INTO public.group_assignment_discussions (assignment_id, group_id, workspace_id, thread_id) VALUES ('b10a-assignment', '71000000-0000-4000-8000-00000000b001', '71000000-0000-4000-8000-00000000bb02', '71000000-0000-4000-8000-00000000d104')$$, '42501', NULL, 'group member: cannot map the group to another community''s workspace');
 SELECT throws_ok($$INSERT INTO public.group_assignment_discussions (assignment_id, group_id, workspace_id, thread_id) VALUES ('b10a-assignment', '71000000-0000-4000-8000-00000000b001', '71000000-0000-4000-8000-00000000bb01', '71000000-0000-4000-8000-00000000d103')$$, '42501', NULL, 'group member: cannot attach a thread created by someone else');

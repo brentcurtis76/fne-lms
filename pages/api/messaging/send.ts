@@ -14,7 +14,7 @@ import {
  * notification happen only when the recipient is inside the sender's scope:
  *
  *   * with `thread_id`: the thread exists and both users can access its
- *     workspace (can_access_workspace);
+ *     thread (can_access_message_thread);
  *   * without it: both users hold an active role in the same community or school.
  *
  * The message `context` is derived here, not taken from the caller. The
@@ -69,14 +69,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.error('[messaging/send] thread lookup failed');
         return res.status(500).json({ error: 'No se pudo verificar la conversación' });
       }
-      if (!thread || !thread.workspace_id) {
+      if (!thread) {
         return res.status(404).json({ error: 'Conversación no encontrada' });
       }
 
       for (const memberId of [user.id, recipientId]) {
-        const { data: canAccess, error: accessError } = await serviceClient.rpc('can_access_workspace', {
+        const { data: canAccess, error: accessError } = await serviceClient.rpc('can_access_message_thread', {
           p_user_id: memberId,
-          p_workspace_id: thread.workspace_id,
+          p_thread_id: thread.id,
         });
         if (accessError) {
           console.error('[messaging/send] membership check failed');

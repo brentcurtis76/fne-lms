@@ -623,7 +623,7 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
         <div className="flex flex-wrap gap-3 items-center mb-4">
           <button
             onClick={handleGenerateBases}
-            disabled={generatingBases}
+            disabled={!isAdmin || generatingBases}
             className={BTN_PRIMARY}
           >
             <span className="flex items-center gap-1">

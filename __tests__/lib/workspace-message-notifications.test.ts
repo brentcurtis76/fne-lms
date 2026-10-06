@@ -86,8 +86,8 @@ vi.mock('@supabase/supabase-js', () => {
     rpc: (fn: string, args: Record<string, any>) => {
       const error = fault(`rpc.${fn}`);
       if (error) return Promise.resolve({ data: null, error });
-      if (fn === 'can_access_workspace') {
-        return Promise.resolve({ data: args.p_workspace_id === 'aaaaaaaa-0000-4000-8000-00000000000a' && db.members.has(args.p_user_id), error: null });
+      if (fn === 'can_access_message_thread') {
+        return Promise.resolve({ data: args.p_thread_id === 'bbbbbbbb-0000-4000-8000-00000000000a' && db.members.has(args.p_user_id), error: null });
       }
       return Promise.resolve({ data: fn === 'get_active_triggers' ? [] : null, error: null });
     },
@@ -243,7 +243,7 @@ describe('D5 · failures fail closed and leak nothing', () => {
     let calls = 0;
     const rpc = (client as any).rpc;
     vi.spyOn(client as any, 'rpc').mockImplementation((fn: any, args: any) =>
-      fn === 'can_access_workspace' && ++calls === 2
+      fn === 'can_access_message_thread' && ++calls === 2
         ? Promise.resolve({ data: null, error: { code: 'XX000', message: 'SYNTHETIC-RAW-DB-ERROR' } })
         : rpc(fn, args)
     );
@@ -278,5 +278,26 @@ describe('D5 · failures fail closed and leak nothing', () => {
     for (const secret of [BODY, 'qa.local.test', 'SYNTHETIC-PROVIDER-FAILURE', 'SYNTHETIC-RAW-DB-ERROR']) {
       expect(text).not.toContain(secret);
     }
+  });
+});
+
+
+describe('private assignment audience', () => {
+  it('uses thread access rather than workspace membership for author and recipients', async () => {
+    const spy = vi.spyOn(client, 'rpc');
+    db.members.delete(MEMBER);
+    expect((await notify()).status).toBe(200);
+    expect(bellsFor(MEMBER)).toHaveLength(0);
+    const accessCalls = spy.mock.calls.filter(([fn]) => fn === 'can_access_message_thread');
+    expect(accessCalls.length).toBeGreaterThan(1);
+    expect(accessCalls.every(([, args]) => args?.p_thread_id === THREAD)).toBe(true);
+    expect(spy.mock.calls.some(([fn]) => fn === 'can_access_workspace')).toBe(false);
+  });
+
+  it('allows a NULL-workspace group only through saved thread access', async () => {
+    db.messages[MESSAGE].workspace_id = null;
+    db.threads[THREAD].workspace_id = null;
+    const result = await notifyWorkspaceMessage(client, AUTHOR, { messageId: MESSAGE, workspaceId: null, mentionedUserIds: [MEMBER] });
+    expect(result).toEqual({ status: 200, body: { success: true, notified: 2 } });
   });
 });

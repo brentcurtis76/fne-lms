@@ -35,7 +35,7 @@ import MentionPicker from './MentionPicker';
 
 interface MessageComposerProps {
   threadId: string;
-  workspaceId: string;
+  workspaceId: string | null;
   onSendMessage: (messageData: MessageCompositionData) => Promise<void>;
   replyToMessage?: MessageWithDetails;
   onCancelReply?: () => void;

@@ -102,8 +102,8 @@ const { state, fakeClient, mockGetApiUser, mockTrigger } = vi.hoisted(() => {
       state.rpcCalls.push({ fn, args });
       const fault = state.faults[`rpc.${fn}`];
       if (fault) return { data: null, error: fault };
-      if (fn !== 'can_access_workspace') throw new Error(`fake supabase: unexpected rpc "${fn}"`);
-      return { data: args.p_workspace_id === WORKSPACE && state.workspaceMembers.has(args.p_user_id), error: null };
+      if (fn !== 'can_access_message_thread') throw new Error(`fake supabase: unexpected rpc "${fn}"`);
+      return { data: args.p_thread_id === THREAD && state.workspaceMembers.has(args.p_user_id), error: null };
     },
   };
 
@@ -220,8 +220,8 @@ describe('D1 · valid sender and recipient in the same scope', () => {
     const res = await call(threadBody);
     expect(res.status).toBe(200);
     expect(state.rpcCalls).toEqual([
-      { fn: 'can_access_workspace', args: { p_user_id: SENDER, p_workspace_id: WORKSPACE } },
-      { fn: 'can_access_workspace', args: { p_user_id: RECIPIENT, p_workspace_id: WORKSPACE } },
+      { fn: 'can_access_message_thread', args: { p_user_id: SENDER, p_thread_id: THREAD } },
+      { fn: 'can_access_message_thread', args: { p_user_id: RECIPIENT, p_thread_id: THREAD } },
     ]);
     expect(inserts()[0].payload).toMatchObject({ thread_id: THREAD, context: 'workspace_thread' });
     expect(mockTrigger.mock.calls[0][1]).toMatchObject({ recipient_id: RECIPIENT, context: 'workspace_thread' });
@@ -317,7 +317,7 @@ describe('D3 · malformed input and failed reads/writes', () => {
   it.each([
     ['user_roles.select', directBody, 'No se pudo verificar la membresía'],
     ['message_threads.select', threadBody, 'No se pudo verificar la conversación'],
-    ['rpc.can_access_workspace', threadBody, 'No se pudo verificar la membresía'],
+    ['rpc.can_access_message_thread', threadBody, 'No se pudo verificar la membresía'],
     ['workspace_messages.insert', directBody, 'No se pudo enviar el mensaje'],
   ])('500 with a stable message when %s fails, without leaking the raw error', async (key, body, message) => {
     state.faults[key] = { message: RAW_DB_ERROR, details: `Key (recipient_id)=(${RECIPIENT})` };

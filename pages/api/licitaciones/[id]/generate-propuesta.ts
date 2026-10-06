@@ -3,6 +3,8 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { z } from 'zod';
 import {
   getApiUser,
+  getForcedPasswordChangeVerdict,
+  sendForcedPasswordChangeResponse,
   createServiceRoleClient,
   sendAuthError,
   sendApiResponse,
@@ -97,8 +99,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (authError || !user) return sendAuthError(res, 'No autorizado', 401);
 
   const serviceClient = createServiceRoleClient();
+  if (sendForcedPasswordChangeResponse(res, await getForcedPasswordChangeVerdict(serviceClient, user.id))) return;
   const userRoles = await getUserRoles(serviceClient, user.id);
-  if (!userRoles.map(r => r.role_type).includes('admin')) {
+  if (!userRoles.some(role => role.role_type === 'admin' && role.is_active === true && !role.from_cache)) {
     return sendAuthError(res, 'Solo administradores pueden generar propuestas', 403);
   }
 

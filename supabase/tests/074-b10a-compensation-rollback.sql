@@ -8,7 +8,10 @@
 --   2. the artifact's own SQL runs (embedded verbatim between the markers;
 --      __tests__/supabase/b10a-compensation-sync.test.ts fails if it drifts —
 --      `supabase test db` mounts only supabase/tests, so `\ir` cannot reach it)
---   3. after: the outsider reads them; writes are still refused; a flagged
+--   3. after: the outsider reads the three unaffected tables; the later
+--      approved group-private restrictive boundary still denies discussion
+--      mappings even when legacy permissive compensation is activated.
+--      Writes are still refused; a flagged
 --      (must_change_password) account still reads nothing (the restrictive
 --      guard holds); anon / PUBLIC hold nothing; row security stays on; the
 --      new policies are SELECT-only, TO authenticated, permissive
@@ -251,7 +254,11 @@ SELECT ok(
 -- 3b. The outsider reads again, and still cannot write (4 + 4 = 8)
 -- ----------------------------------------------------------------------------
 SELECT tests.authenticate_as('b10c_outsider');
-SELECT is((SELECT n FROM pg_temp.visible() WHERE tbl = t), 1, 'after: outsider reads the ' || t || ' fixture row')
+SELECT is((SELECT n FROM pg_temp.visible() WHERE tbl = t),
+  CASE WHEN t = 'group_assignment_discussions' THEN 0 ELSE 1 END,
+  CASE WHEN t = 'group_assignment_discussions'
+    THEN 'after: legacy compensation cannot override the later approved group-private boundary'
+    ELSE 'after: outsider reads the ' || t || ' fixture row' END)
   FROM unnest(ARRAY['group_assignment_discussions','growth_community_transformation_access','modules','qa_tester_time_logs']) t;
 SELECT is(pg_temp.rows_affected($$UPDATE public.modules SET title = 'rogue' WHERE id = '74000000-0000-4000-8000-00000000e001'$$), 0, 'after: outsider still cannot update a module');
 SELECT is(pg_temp.rows_affected($$DELETE FROM public.qa_tester_time_logs WHERE tester_id = pg_temp.uid('b10c_tester')$$), 0, 'after: outsider still cannot delete a QA time log');

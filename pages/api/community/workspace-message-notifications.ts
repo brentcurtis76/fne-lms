@@ -38,7 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { message_id: messageId, workspace_id: workspaceId, mentioned_user_ids: mentions = [] } = req.body ?? {};
     if (
       typeof messageId !== 'string' || !UUID.test(messageId) ||
-      typeof workspaceId !== 'string' || !UUID.test(workspaceId) ||
+      (workspaceId !== null && (typeof workspaceId !== 'string' || !UUID.test(workspaceId))) ||
       !Array.isArray(mentions) || mentions.length > MAX_MENTIONS ||
       !mentions.every((id: unknown) => typeof id === 'string' && UUID.test(id))
     ) {
@@ -47,7 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const outcome = await notifyWorkspaceMessage(serviceClient, user.id, {
       messageId: messageId.toLowerCase(),
-      workspaceId: workspaceId.toLowerCase(),
+      workspaceId: workspaceId === null ? null : workspaceId.toLowerCase(),
       mentionedUserIds: mentions,
     });
     return res.status(outcome.status).json(outcome.body);

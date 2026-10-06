@@ -98,6 +98,13 @@ BEGIN
   PERFORM set_config('n14.admin', v_admin::text, false);
   -- Rows other than these fixtures (none on a fresh stack) leave the due window, so claim results are exact.
   UPDATE public.notification_email_outbox SET next_attempt_at = now() + interval '1 day' WHERE next_attempt_at <= now();
+  -- Pre-existing browser recovery work also gates notification claims. Defer
+  -- only that due work; this entire fixture transaction rolls back. Dedicated
+  -- failure-semantics tests still create and assert their own recovery priority.
+  UPDATE auth_security.password_recovery_outbox
+     SET available_at = clock_timestamp() + interval '1 day'
+   WHERE state IN ('queued', 'processing') AND available_at <= clock_timestamp()
+     AND provider_attempts < max_provider_attempts;
 END
 $fixture$;
 

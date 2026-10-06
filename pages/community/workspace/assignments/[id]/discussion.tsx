@@ -35,17 +35,17 @@ export default function GroupDiscussionPage() {
   }, [user, authLoading, assignmentId]);
 
   useEffect(() => {
-    if (!thread || !workspace) return;
+    if (!thread) return;
 
     // Subscribe to real-time messages
-    const unsubscribe = subscribeToWorkspaceMessages(workspace.id, {
+    const unsubscribe = subscribeToWorkspaceMessages(thread.workspace_id || null, {
       onMessage: (message) => {
         // Only add messages for this thread
         if (message.thread_id === thread.id) {
-          setMessages(prev => [...prev, message]);
+          setMessages(prev => prev.some(existing => existing.id === message.id) ? prev : [...prev, message]);
         }
       }
-    });
+    }, thread.id);
 
     return () => {
       if (unsubscribe) unsubscribe.unsubscribe();
@@ -100,9 +100,6 @@ export default function GroupDiscussionPage() {
           
         const communityId = userRole?.community_id;
         
-        if (!communityId) {
-          throw new Error('User does not have a community assigned');
-        }
         
         // Load course details
         const { data: courseData } = await supabase
@@ -140,78 +137,67 @@ export default function GroupDiscussionPage() {
       
       setAssignment(assignmentData);
 
-      // Load workspace
-      const communityId = assignmentData.community_id;
-      const { data: workspaceData } = await supabase
-        .from('community_workspaces')
+      // The group owns the discussion scope. A school-only group has no
+      // workspace; it still receives its private thread through the atomic RPC.
+      const { data: userGroupData, error: membershipError } = await supabase
+        .from('group_assignment_members')
         .select('*')
-        .eq('community_id', communityId)
+        .eq('assignment_id', assignmentId)
+        .eq('user_id', user.id)
         .single();
-          
-      if (workspaceData) {
-        setWorkspace(workspaceData);
-
-        // Get user's group
-        const { data: userGroupData } = await supabase
-          .from('group_assignment_members')
-          .select('*')
-          .eq('assignment_id', assignmentId)
-          .eq('user_id', user.id)
-          .single();
-
-        if (!userGroupData) {
-          toast.error('No eres parte de ningún grupo para esta tarea');
-          router.push('/mi-aprendizaje/tareas');
-          return;
-        }
-
-        setUserGroup(userGroupData);
-
-        // Get all group members
-        const { data: members } = await supabase
-          .from('group_assignment_members')
-          .select(`
-            *,
-            user:profiles!user_id (
-              id,
-              name,
-              email,
-              avatar_url
-            )
-          `)
-          .eq('group_id', userGroupData.group_id)
-          .eq('assignment_id', assignmentId);
-
-        setGroupMembers(members || []);
-
-        // Get or create discussion thread
-        const discussionThread = await groupAssignmentService.getOrCreateDiscussion(
-          assignmentId as string,
-          userGroupData.group_id,
-          workspaceData.id,
-          user.id
-        );
-
-        setThread(discussionThread);
-
-        // Load messages
-        const { data: threadMessages } = await supabase
-          .from('community_messages')
-          .select(`
-            *,
-            author:profiles!author_id (
-              id,
-              name,
-              email,
-              avatar_url
-            ),
-            attachments:message_attachments (*)
-          `)
-          .eq('thread_id', discussionThread.id)
-          .order('created_at', { ascending: true });
-
-        setMessages(threadMessages || []);
+      if (membershipError || !userGroupData) {
+        toast.error('No eres parte de ningún grupo para esta tarea');
+        router.push('/mi-aprendizaje/tareas');
+        return;
       }
+      setUserGroup(userGroupData);
+      const { data: group, error: groupError } = await supabase
+        .from('group_assignment_groups')
+        .select('id, community_id')
+        .eq('id', userGroupData.group_id)
+        .single();
+      if (groupError || !group) throw new Error('No se pudo verificar el grupo');
+
+      let workspaceData = null;
+      if (group.community_id) {
+        const { data, error } = await supabase
+          .from('community_workspaces')
+          .select('*')
+          .eq('community_id', group.community_id)
+          .single();
+        if (error || !data) throw new Error('No se pudo abrir el espacio del grupo');
+        workspaceData = data;
+      }
+      setWorkspace(workspaceData);
+      const { data: members, error: membersError } = await supabase
+        .from('group_assignment_members')
+        .select('*')
+        .eq('group_id', userGroupData.group_id)
+        .eq('assignment_id', assignmentId);
+      if (membersError) throw membersError;
+
+      const discussionThread = await groupAssignmentService.getOrCreateDiscussion(
+        assignmentId as string, userGroupData.group_id, workspaceData?.id || null
+      );
+      setThread(discussionThread);
+      const { data: threadMessages, error: messagesError } = await supabase
+        .from('community_messages')
+        .select('*, attachments:message_attachments (*)')
+        .eq('thread_id', discussionThread.id)
+        .order('created_at', { ascending: true });
+      if (messagesError) throw messagesError;
+      // Both user foreign keys reference auth.users, so PostgREST cannot embed
+      // public.profiles through them. Fetch readable profiles separately.
+      const profileIds = Array.from(new Set([
+        ...(members || []).map(member => member.user_id),
+        ...(threadMessages || []).map(message => message.author_id)
+      ].filter(Boolean)));
+      const { data: profiles } = profileIds.length
+        ? await supabase.from('profiles').select('id, name, email, avatar_url').in('id', profileIds)
+        : { data: [] };
+      const profilesById = new Map((profiles || []).map(profile => [profile.id, profile]));
+      setGroupMembers((members || []).map(member => ({ ...member, user: profilesById.get(member.user_id) })));
+      setMessages((threadMessages || []).map(message => ({ ...message, author: profilesById.get(message.author_id) })));
 
     } catch (error) {
       console.error('Error loading data:', error);
@@ -222,15 +208,15 @@ export default function GroupDiscussionPage() {
   };
 
   const handleSendMessage = async (messageData: any) => {
-    if (!user || !thread || !workspace) return;
+    if (!user || !thread) return;
 
     try {
-      await sendMessage(workspace.id, {
+      const saved = await sendMessage(thread.workspace_id || null, {
         ...messageData,
         thread_id: thread.id
       }, user.id);
       
-      // Message will be added via real-time subscription
+      setMessages(previous => previous.some(message => message.id === saved.id) ? previous : [...previous, saved]);
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Error al enviar el mensaje');
@@ -370,8 +356,11 @@ export default function GroupDiscussionPage() {
                     key={message.id}
                     message={{
                       ...message,
-                      author_name: message.author?.name || message.author?.email || 'Usuario',
-                      author_avatar: message.author?.avatar_url
+                      mentions: message.mentions || [],
+                      reactions: message.reactions || [],
+                      attachments: message.attachments || [],
+                      author_name: message.author?.name || message.author?.email || message.author_name || 'Usuario',
+                      author_avatar: message.author?.avatar_url || message.author_avatar
                     }}
                     currentUserId={user?.id || ''}
                     onReply={() => {}}
@@ -399,7 +388,7 @@ export default function GroupDiscussionPage() {
             {/* Message Composer */}
             <div className="border-t border-gray-200">
               <MessageComposer
-                workspaceId={workspace.id}
+                workspaceId={thread.workspace_id || null}
                 threadId={thread.id}
                 onSendMessage={handleSendMessage}
                 mentionSuggestions={[]}

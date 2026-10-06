@@ -27,6 +27,7 @@ const BTN_SECONDARY =
 
 export default function Step6Adjudicacion({
   licitacion,
+  isAdmin,
   onRefresh,
 }: Step6AdjudicacionProps) {
   const [ates, setAtes] = useState<LicitacionAte[]>([]);
@@ -451,7 +452,7 @@ export default function Step6Adjudicacion({
 
           <button
             onClick={handleGenerateCarta}
-            disabled={generatingCarta || !selectedAteId}
+            disabled={!isAdmin || generatingCarta || !selectedAteId}
             className={BTN_SECONDARY}
           >
             <span className="flex items-center gap-2">

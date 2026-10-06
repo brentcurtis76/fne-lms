@@ -131,6 +131,12 @@ async function seed() {
     await q('DELETE FROM public.consultant_assignments WHERE id = $1', [IDS.consultantAssignment]);
     await q('DELETE FROM public.user_badges WHERE id = $1', [IDS.userBadge]);
     await q('DELETE FROM public.badges WHERE id = $1', [IDS.badge]);
+    // Remove this local fixture's private discussion before its owning group.
+    // The access migration prevents deleting a group while a private thread
+    // still references it; keep repeat-run cleanup in dependency order.
+    await q('DELETE FROM public.message_attachments WHERE message_id IN (SELECT id FROM public.community_messages WHERE thread_id IN (SELECT thread_id FROM public.group_assignment_discussions WHERE assignment_id = $1))', [IDS.groupBlock]);
+    await q('DELETE FROM public.community_messages WHERE thread_id IN (SELECT thread_id FROM public.group_assignment_discussions WHERE assignment_id = $1)', [IDS.groupBlock]);
+    await q('DELETE FROM public.message_threads WHERE id IN (SELECT thread_id FROM public.group_assignment_discussions WHERE assignment_id = $1)', [IDS.groupBlock]);
     await q('DELETE FROM public.group_assignment_groups WHERE assignment_id = $1', [IDS.groupBlock]);
     await q('DELETE FROM public.quiz_submissions WHERE course_id = $1', [IDS.course]);
     await q('DELETE FROM public.lesson_progress WHERE lesson_id = ANY($1)', [[IDS.lesson, IDS.groupLesson]]);

@@ -80,7 +80,7 @@ const { state, fakeClient, mockGetApiUser, mockTrigger } = vi.hoisted(() => {
     async rpc(fn: string, args: any) {
       const fault = state.faults[`rpc.${fn}`];
       if (fault) return { data: null, error: fault };
-      return { data: args.p_workspace_id === WORKSPACE && state.members.has(args.p_user_id), error: null };
+      return { data: args.p_thread_id === THREAD && state.members.has(args.p_user_id), error: null };
     },
   };
   return { state, fakeClient, mockGetApiUser: vi.fn(), mockTrigger: vi.fn() };
@@ -286,7 +286,7 @@ describe('D3 · repeats and failed bells after the message is saved', () => {
 describe('D5 · database failures fail closed without leaking', () => {
   it.each([
     ['community_messages.select', 'No se pudo verificar el mensaje'],
-    ['rpc.can_access_workspace', 'No se pudo verificar la membresía'],
+    ['rpc.can_access_message_thread', 'No se pudo verificar la membresía'],
   ])('D5: 500 when %s fails', async (fault, error) => {
     state.faults[fault] = { code: '42501', message: RAW_DB_ERROR };
     const response = await call(validBody);

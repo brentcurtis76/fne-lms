@@ -15,6 +15,8 @@ import { readFileSync } from 'node:fs';
 
 /** Every spec the e2e gate must actually execute. Add to this list, never trim it. */
 export const MANDATORY_SPECS = [
+  // Active-admin finance and authoritative private group discussions, including NULL workspaces.
+  'tests/e2e/finance-messaging-access.spec.ts',
   // Actual community leader/consultor upload, preview, exact download, version and reload.
   'tests/e2e/community-document-links.spec.ts',
   // Contract and anexo preview, pagination and print asset readiness.

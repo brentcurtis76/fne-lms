@@ -490,7 +490,7 @@ export async function createThread(
  * Send a message (simplified)
  */
 export async function sendMessage(
-  workspaceId: string,
+  workspaceId: string | null,
   messageData: MessageCompositionData,
   userId: string
 ): Promise<MessageWithDetails> {
@@ -539,7 +539,7 @@ export async function sendMessage(
         try {
           // Generate unique file name
           const fileExt = file.name.split('.').pop();
-          const fileName = `${workspaceId}/${message.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+          const fileName = `${workspaceId || messageData.thread_id}/${message.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
           
           // Upload to storage
           const { data: uploadData, error: uploadError } = await supabase.storage
@@ -668,24 +668,27 @@ export async function getUserMessagingPermissions(
  * Simple Realtime subscription setup
  */
 export function subscribeToWorkspaceMessages(
-  workspaceId: string,
+  workspaceId: string | null,
   callbacks: {
     onMessage?: (message: MessageWithDetails) => void;
     onThread?: (thread: ThreadWithDetails) => void;
     onReaction?: (reaction: any) => void;
-  }
+  },
+  threadId?: string
 ) {
+  if (!workspaceId && !threadId) return { unsubscribe: () => {} };
+  const subscriptionScope = workspaceId || threadId;
   try {
     // Subscribe to new messages
     const messageSubscription = supabase
-      .channel(`workspace-messages-${workspaceId}`)
+      .channel(`workspace-messages-${subscriptionScope}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'community_messages',
-          filter: `workspace_id=eq.${workspaceId}`
+          filter: threadId ? `thread_id=eq.${threadId}` : `workspace_id=eq.${workspaceId}`
         },
         async (payload) => {
           if (callbacks.onMessage) {
@@ -732,14 +735,14 @@ export function subscribeToWorkspaceMessages(
 
     // Subscribe to new threads
     const threadSubscription = supabase
-      .channel(`workspace-threads-${workspaceId}`)
+      .channel(`workspace-threads-${subscriptionScope}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'message_threads',
-          filter: `workspace_id=eq.${workspaceId}`
+          filter: threadId ? `id=eq.${threadId}` : `workspace_id=eq.${workspaceId}`
         },
         async (payload) => {
           if (callbacks.onThread) {
@@ -800,7 +803,7 @@ export function subscribeToWorkspaceMessages(
  * repeat for the same message id creates only the bells still missing.
  */
 async function requestMessageNotifications(
-  workspaceId: string,
+  workspaceId: string | null,
   messageId: string,
   mentions: string[]
 ): Promise<void> {

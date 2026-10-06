@@ -138,13 +138,13 @@ describe('generate-bases auth scenarios (schema documentation)', () => {
     expect(true).toBe(true); // Documented — tested via QA scenarios
   });
 
-  it('documents: non-admin non-encargado request should return 403', () => {
-    // When role check fails (!isAdmin && !isEncargado), route returns 403
+  it('documents: non-admin request should return 403', () => {
+    // When role check fails (!isAdmin), route returns 403
     expect(true).toBe(true); // Documented — tested via QA scenarios
   });
 
-  it('documents: encargado for wrong school should return 403', () => {
-    // When school_id mismatch, route returns 403
+  it('documents: encargado even for its assigned school should return 403', () => {
+    // Client legal details are restricted to admins; encargado returns 403
     expect(true).toBe(true); // Documented — tested via QA scenarios
   });
 

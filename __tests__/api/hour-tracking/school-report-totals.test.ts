@@ -275,6 +275,49 @@ describe('SM-02 school report totals (real service → JSON/PDF handlers)', () =
   });
 
   // ------------------------------------------------------------
+  describe('contract privacy through authorized hours reports', () => {
+    for (const identity of [DIRECTIVO, ADMIN]) {
+      for (const kind of ['json', 'pdf'] as const) {
+        it(`${identity.roles[0].role_type} retains ${kind} hour totals without client/legal contract fields`, async () => {
+          const tables = parentAnnexTables();
+          const sensitive = {
+            snapshot_nombre_representante: 'SYNTHETIC_PRIVATE_REPRESENTATIVE',
+            snapshot_rut_representante: 'SYNTHETIC_PRIVATE_RUT',
+            extraction_data: { legal: 'SYNTHETIC_PRIVATE_EXTRACTION' },
+            pdf_url: 'SYNTHETIC_PRIVATE_CONTRACT_PDF',
+            precio_total_uf: 987654321,
+          };
+          for (const contract of tables.contratos) Object.assign(contract, sensitive);
+          for (const client of tables.clientes) Object.assign(client, {
+            nombre_legal: 'SYNTHETIC_PRIVATE_CLIENT',
+            rut: 'SYNTHETIC_PRIVATE_CLIENT_RUT',
+            email_contacto_administrativo: 'private-synthetic@example.com',
+          });
+          const { res, client } = await call(kind, { tables, identity });
+          expect(res._getStatusCode()).toBe(200);
+          let output: string;
+          if (kind === 'json') {
+            const body = res._getJSONData();
+            expect(body.data.school_summary).toEqual(expectedSchoolSummary(tables, SCHOOL_ID));
+            expect(body.data.programs).toHaveLength(2);
+            output = JSON.stringify(body);
+          } else {
+            const { all } = await pdfStrings(res);
+            expect(summaryRow(all)).toEqual(['82.0', '3.0', '2.0', '75.0']);
+            output = all.join(' ');
+          }
+          expect(output).not.toContain('SYNTHETIC_PRIVATE');
+          expect(output).not.toContain('private-synthetic@example.com');
+          expect(output).not.toContain('987654321');
+          for (const query of client.log.filter(q => q.table === 'contratos' || q.table === 'clientes')) {
+            expect(query.select).not.toContain('*');
+            expect(query.select).not.toMatch(/snapshot_|extraction_data|pdf_url|precio_total_uf|rut/);
+          }
+        });
+      }
+    }
+  });
+
   describe('D2 membership-and-empty matrix', () => {
     const zero = { total_contracted_hours: 0, total_allocated: 0, total_reserved: 0, total_consumed: 0, total_available: 0 };
 

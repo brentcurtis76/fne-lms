@@ -1,6 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import {
   getApiUser,
+  getForcedPasswordChangeVerdict,
+  sendForcedPasswordChangeResponse,
   createServiceRoleClient,
   sendAuthError,
   sendApiResponse,
@@ -32,12 +34,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const serviceClient = createServiceRoleClient();
+    if (sendForcedPasswordChangeResponse(res, await getForcedPasswordChangeVerdict(serviceClient, user.id))) return;
     const userRoles = await getUserRoles(serviceClient, user.id);
-    const roleTypes = userRoles.map(r => r.role_type);
-    const isAdmin = roleTypes.includes('admin');
-    const isEncargado = roleTypes.includes('encargado_licitacion');
+    const isAdmin = userRoles.some(role => role.role_type === 'admin' && role.is_active === true && !role.from_cache);
 
-    if (!isAdmin && !isEncargado) {
+    if (!isAdmin) {
       return sendAuthError(res, 'No tiene permisos para generar Bases', 403);
     }
 
@@ -50,15 +51,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (licitError || !licitacion) {
       return sendAuthError(res, 'Licitacion no encontrada', 404);
-    }
-
-    // School scoping for encargado
-    if (!isAdmin && isEncargado) {
-      const encargadoRole = userRoles.find(r => r.role_type === 'encargado_licitacion');
-      const encargadoSchoolId = encargadoRole?.school_id != null ? Number(encargadoRole.school_id) : null;
-      if (!encargadoRole || encargadoSchoolId !== licitacion.school_id) {
-        return sendAuthError(res, 'No tiene permisos para esta licitacion', 403);
-      }
     }
 
     // Fetch school

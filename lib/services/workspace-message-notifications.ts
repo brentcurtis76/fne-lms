@@ -8,7 +8,7 @@
  *     in the same thread (any other linkage notifies nobody);
  *   * a mentioned user is one already recorded in message_mentions, or a
  *     claimed user whose composer handle (`@First_Last`) is in the saved text;
- *   * every recipient, like the author, passes can_access_workspace.
+ *   * every recipient, like the author, passes the saved thread’s access check.
  *
  * The reply author gets only the reply bell, even when also mentioned, and the
  * author is never notified. Each bell is keyed by message and recipient, so a
@@ -26,7 +26,7 @@ const LOG = '[workspace-message-notifications]';
 
 export interface WorkspaceMessageInput {
   messageId: string;
-  workspaceId: string;
+  workspaceId: string | null;
   mentionedUserIds: string[];
 }
 
@@ -63,7 +63,7 @@ export async function notifyWorkspaceMessage(
   }
   if (!message || message.is_deleted) return fail(404, 'Mensaje no encontrado');
   if (message.author_id !== actorId) return fail(403, 'Solo el autor del mensaje puede notificar');
-  if (!message.workspace_id || message.workspace_id !== input.workspaceId || !message.thread_id) {
+  if (message.workspace_id !== input.workspaceId || !message.thread_id) {
     return fail(400, 'El mensaje no pertenece a este espacio');
   }
 
@@ -80,9 +80,9 @@ export async function notifyWorkspaceMessage(
 
   // null = the check itself failed: the caller fails closed.
   const canAccess = async (userId: string): Promise<boolean | null> => {
-    const { data, error } = await client.rpc('can_access_workspace', {
+    const { data, error } = await client.rpc('can_access_message_thread', {
       p_user_id: userId,
-      p_workspace_id: message.workspace_id,
+      p_thread_id: message.thread_id,
     });
     return error ? null : data === true;
   };

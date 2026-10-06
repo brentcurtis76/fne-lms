@@ -498,8 +498,9 @@ SELECT set_eq($$
    WHERE schemaname = 'public' AND tablename = 'contract_hours_ledger'
 $$, ARRAY[
   'chl_admin_insert', 'chl_admin_select', 'chl_admin_update', 'chl_consultor_select',
-  'chl_equipo_directivo_select', 'forced_password_change_guard'
-], 'D9 contract_hours_ledger policy set is unchanged from the base schema');
+  'chl_equipo_directivo_select', 'forced_password_change_guard',
+  'hours_school_leadership_select'
+], 'D9 contract_hours_ledger retains base policies plus approved school-hour read preservation');
 SELECT is((SELECT count(*)::int FROM pg_catalog.pg_policies
   WHERE schemaname = 'public'
     AND (coalesce(qual, '') ILIKE '%tenant_kind%'

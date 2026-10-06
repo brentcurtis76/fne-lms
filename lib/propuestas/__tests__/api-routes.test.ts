@@ -9,6 +9,8 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 
 vi.mock('@/lib/api-auth', () => ({
   getApiUser: vi.fn(),
+  getForcedPasswordChangeVerdict: vi.fn(async () => 'allowed'),
+  sendForcedPasswordChangeResponse: vi.fn(() => false),
   createServiceRoleClient: vi.fn(),
   sendAuthError: vi.fn((res: MockRes, msg: string, status: number) => {
     res._status = status;
@@ -76,7 +78,7 @@ function mockRes(): NextApiResponse & MockRes {
 
 const ADMIN_USER = { id: 'user-admin-uuid', email: 'admin@fne.cl' };
 const NON_ADMIN_USER = { id: 'user-other-uuid', email: 'other@fne.cl' };
-const ADMIN_ROLES = [{ role_type: 'admin' }];
+const ADMIN_ROLES = [{ role_type: 'admin', is_active: true }];
 const NON_ADMIN_ROLES = [{ role_type: 'consultor' }];
 
 function setupAdmin() {

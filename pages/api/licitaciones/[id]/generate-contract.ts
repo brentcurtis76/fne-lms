@@ -15,6 +15,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import {
   getApiUser,
+  getForcedPasswordChangeVerdict,
+  sendForcedPasswordChangeResponse,
   createServiceRoleClient,
   sendAuthError,
   sendApiResponse,
@@ -48,9 +50,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const serviceClient = createServiceRoleClient();
+    if (sendForcedPasswordChangeResponse(res, await getForcedPasswordChangeVerdict(serviceClient, user.id))) return;
     const userRoles = await getUserRoles(serviceClient, user.id);
-    const roleTypes = userRoles.map(r => r.role_type);
-    const isAdmin = roleTypes.includes('admin');
+    const isAdmin = userRoles.some(role => role.role_type === 'admin' && role.is_active === true && !role.from_cache);
 
     // Admin-only: per Role Access Matrix, only admins can generate contracts
     if (!isAdmin) {

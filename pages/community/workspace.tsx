@@ -23,6 +23,7 @@ import DocumentUploadModal from '../../components/documents/DocumentUploadModal'
 import DocumentGrid from '../../components/documents/DocumentGrid';
 import FolderNavigation from '../../components/documents/FolderNavigation';
 import DocumentPreview from '../../components/documents/DocumentPreview';
+import { resolveCommunityDocumentUrl } from '../../lib/storage/community-document-url';
 import DocumentFilters from '../../components/documents/DocumentFilters';
 import MessageFilters from '../../components/messaging/MessageFilters';
 import MessageComposer from '../../components/messaging/MessageComposer';
@@ -1570,6 +1571,11 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
         
       case 'download':
         if (document.storage_path) {
+          const documentUrl = resolveCommunityDocumentUrl(document.storage_path);
+          if (!documentUrl) {
+            toast.error('El enlace del documento no es válido');
+            return;
+          }
           try {
             // Track download
             await incrementDocumentCounter(document.id, 'download', user.id);
@@ -1578,14 +1584,14 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
             const { data: { session } } = await supabase.auth.getSession();
             if (!session?.access_token) {
               // Fallback to direct URL if no session
-              window.open(document.storage_path, '_blank');
+              window.open(documentUrl, '_blank');
               return;
             }
 
             toast.loading('Preparando descarga...', { id: 'download' });
 
             // Use the download API that streams the file directly
-            const downloadUrl = `/api/storage/download?url=${encodeURIComponent(document.storage_path)}&filename=${encodeURIComponent(document.file_name)}`;
+            const downloadUrl = `/api/storage/download?url=${encodeURIComponent(documentUrl)}&filename=${encodeURIComponent(document.file_name)}`;
 
             const response = await fetch(downloadUrl, {
               headers: {
@@ -1596,7 +1602,7 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
             if (!response.ok) {
               console.error('Download failed:', response.status);
               toast.dismiss('download');
-              window.open(document.storage_path, '_blank');
+              window.open(documentUrl, '_blank');
               return;
             }
 
@@ -1620,7 +1626,7 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
             console.error('Download error:', error);
             toast.dismiss('download');
             // Fallback to direct URL
-            window.open(document.storage_path, '_blank');
+            window.open(documentUrl, '_blank');
           }
         }
         break;

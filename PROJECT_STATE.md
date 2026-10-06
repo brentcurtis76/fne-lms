@@ -1,3 +1,7 @@
+## Community document links — LOCAL GATES PASSED / RELEASE HOLD (2026-10-06)
+
+Isolated branch `fix/doc-links` repairs relative Storage-key preview/download while preserving canonical upload/version keys and existing configured-origin Storage URLs. Real leader/consultor PNG/PDF upload, preview, exact-byte download, reload and version checks: 4/4 twice; 24 focused tests; full Node 22 unit suite 502 files / 12,477 passes / 12 existing skips; type-check, zero-warning lint and build (149 pages) passed; unchanged security HTTP candidate proof 110/110; pgTAP 68 files / 6,657 passed; browser boundary guard passed. See `docs/planning/reviews/fase-document-links-review-request.md`. Frozen security files preserved separately; no database migration, production operation, push or deployment. Independent review and parent-owned release/preflight remain required.
+
 ## Password-reset login recovery — APPROVE WITH NOTES (2026-09-26)
 
 `fix/login-loop`, based on `801805248`, contains the original login recovery patch plus a local correction for Claude's REQUEST CHANGES review of `2148c8723`. Authentication/session/password-state/profile work has a 15-second deadline; page navigation is awaited separately, with an explicit loading message. Structured diagnostics record controlled stage/reason and HTTP status without credentials or raw provider messages. Middleware bounce, initialization timing, existing-session UI and cross-tab continuation after incorrect credentials have regression coverage.

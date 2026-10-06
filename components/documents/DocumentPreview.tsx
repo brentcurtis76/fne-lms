@@ -30,6 +30,7 @@ import {
   formatRelativeTime,
 } from '../../utils/documentUtils';
 import { formatFileSize } from '../../lib/utils/file-format';
+import { resolveCommunityDocumentUrl } from '../../lib/storage/community-document-url';
 
 interface DocumentPreviewProps {
   isOpen: boolean;
@@ -71,7 +72,8 @@ export default function DocumentPreview({
 
   const fileIcon = getFileTypeIcon(document.mime_type);
   const fileColor = getFileTypeColor(document.mime_type);
-  const canPreview = isPreviewSupported(document.mime_type);
+  const documentUrl = resolveCommunityDocumentUrl(document.storage_path);
+  const canPreview = !!documentUrl && isPreviewSupported(document.mime_type);
 
   // Handle download
   const handleDownload = () => {
@@ -80,8 +82,8 @@ export default function DocumentPreview({
 
   // Handle external link open
   const handleExternalOpen = () => {
-    if (document.storage_path) {
-      window.open(document.storage_path, '_blank');
+    if (documentUrl) {
+      window.open(documentUrl, '_blank');
     }
   };
 
@@ -181,7 +183,7 @@ export default function DocumentPreview({
           {/* Image container */}
           <div className="flex-1 flex items-center justify-center p-4 overflow-auto">
             <img
-              src={document.storage_path}
+              src={documentUrl || undefined}
               alt={document.title}
               className="max-w-none transition-transform duration-200"
               style={{
@@ -200,7 +202,7 @@ export default function DocumentPreview({
       return (
         <div className="flex-1 bg-gray-100">
           <iframe
-            src={`${document.storage_path}#view=FitH`}
+            src={`${documentUrl}#view=FitH`}
             className="w-full h-full border-0"
             title={document.title}
             onLoad={() => setLoading(false)}
@@ -220,7 +222,7 @@ export default function DocumentPreview({
             onLoadedData={() => setLoading(false)}
             onError={() => setPreviewError('Error al cargar el video')}
           >
-            <source src={document.storage_path} type={document.mime_type} />
+            <source src={documentUrl || undefined} type={document.mime_type} />
             Tu navegador no soporta la reproducción de videos.
           </video>
         </div>

@@ -41,3 +41,32 @@ export function datetimeLocalToIso(value: string | null | undefined): string | n
   }
   return date.toISOString();
 }
+
+/**
+ * SM-H9: commitment/task due dates are calendar days (`date` column,
+ * "2026-10-16"). `new Date("2026-10-16")` reads that as midnight UTC, which in
+ * Chile is still the evening of the 15th — the details showed the day before
+ * and the "days left" count was off by one. A date-only value is read as that
+ * day in the local zone; anything else (a full timestamp) is parsed as before.
+ */
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+export function parseDueDate(value: string): Date {
+  const match = DATE_ONLY.exec(value);
+  if (!match) return new Date(value);
+  const [, y, m, d] = match.map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/** "16-10-2026" (es-CL) for the calendar day stored, whatever the zone. */
+export function formatDueDate(value: string): string {
+  return parseDueDate(value).toLocaleDateString('es-CL');
+}
+
+/** Whole calendar days from today to the due day (0 = today, -1 = yesterday). */
+export function daysUntilDueDate(value: string, now: Date = new Date()): number {
+  const due = parseDueDate(value);
+  const dueDay = Date.UTC(due.getFullYear(), due.getMonth(), due.getDate());
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((dueDay - today) / 86_400_000);
+}

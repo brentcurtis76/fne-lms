@@ -8,6 +8,7 @@ import {
   handleMethodNotAllowed,
 } from '../../../../lib/api-auth';
 import { getCommunityRecipients, getMeetingAccessUserIds } from '../../../../lib/notificationService';
+import { formatDueDate } from '../../../../lib/meetings/meeting-time';
 import notificationService from '../../../../lib/notificationService';
 import { sendMeetingSummary } from '../../../../lib/emailService';
 import {
@@ -224,7 +225,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .map((c: any) => {
         const body = renderRichOrPlain(c.commitment_doc, c.commitment_text, EMAIL_PARAGRAPH_COMPACT_STYLE);
         const assigneeName = profileName(c.assigned_to_profile, '—');
-        const dueDate = c.due_date ? new Date(c.due_date).toLocaleDateString('es-CL') : '—';
+        const dueDate = c.due_date ? formatDueDate(c.due_date) : '—';
         return `
           <tr>
             <td style="padding: 8px; border-bottom: 1px solid #e5e5e5; vertical-align: top;">${body}</td>

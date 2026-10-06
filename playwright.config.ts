@@ -35,6 +35,8 @@ process.env.E2E_APP_ORIGIN = E2E_APP_ORIGIN;
 
 export default defineConfig({
   testDir: './tests',
+  // Immutable historical before/after evidence; current acceptance is a separate spec.
+  testIgnore: ['**/urgent-anonymous-boundaries.spec.ts'],
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */

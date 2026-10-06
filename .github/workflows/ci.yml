@@ -295,7 +295,11 @@ jobs:
           node scripts/ci/seed-e2e.mjs
 
       - name: Run mandatory e2e specs
-        run: npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium
+        run: |
+          # Each Actions step has a separate shell; export the disposable stack
+          # configuration here too so mandatory SQL-backed specs can collect.
+          set -a; source .env.local; set +a
+          npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium
 
       # A skipped test reports as a success — this is what makes "green" mean "ran".
       - name: Guard — no mandatory spec may be skipped

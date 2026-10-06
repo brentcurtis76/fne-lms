@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { PDFDocument } from 'pdf-lib';
 import pg from 'pg';
+import { prepareFneStorageFixture } from './helpers/fne-storage-fixture';
 import { loginViaUi, E2E_USERS } from './helpers/auth';
 
 const api = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -10,6 +11,7 @@ if (![api, db].every(url => ['localhost', '127.0.0.1'].includes(new URL(url).hos
 mkdirSync('.doclinks/screens', { recursive: true });
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 const run = Date.now();
+test.beforeAll(() => prepareFneStorageFixture());
 async function rows(sql: string, params: unknown[]) {
   const client = new pg.Client({ connectionString: db });
   await client.connect();

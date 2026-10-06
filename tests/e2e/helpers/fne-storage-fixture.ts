@@ -26,11 +26,20 @@ export async function prepareFneStorageFixture(): Promise<void> {
     }
     const community = 'e2e00000-0000-4000-8000-000000000c01';
     const consultor = rows.find(row => row.email === E2E_USERS.consultorAssigned.email).id;
+    // Adding community membership invokes the normal attendee-sync trigger. Keep
+    // the existing Zoom fixture intact: document access needs the role, not new
+    // attendees in another mandatory spec's sessions.
+    const { rows: existingAttendees } = await client.query(`SELECT sa.id FROM public.session_attendees sa
+      JOIN public.consultor_sessions cs ON cs.id=sa.session_id
+      WHERE sa.user_id=$1 AND cs.growth_community_id=$2`, [consultor,community]);
     await client.query(`INSERT INTO public.community_workspaces (community_id) SELECT $1
       WHERE NOT EXISTS (SELECT 1 FROM public.community_workspaces WHERE community_id=$1)`, [community]);
     await client.query(`INSERT INTO public.user_roles (id,user_id,role_type,school_id,community_id,is_active)
       SELECT 'fa0e0000-0000-4000-8000-000000000032',$1,'consultor',990001,$2,true
       WHERE NOT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id=$1 AND role_type='consultor' AND community_id=$2 AND is_active)`, [consultor,community]);
+    await client.query(`DELETE FROM public.session_attendees sa USING public.consultor_sessions cs
+      WHERE cs.id=sa.session_id AND sa.user_id=$1 AND cs.growth_community_id=$2
+      AND NOT (sa.id=ANY($3::uuid[]))`, [consultor,community,existingAttendees.map(row => row.id)]);
     await client.query('REFRESH MATERIALIZED VIEW public.user_roles_cache');
     await client.query('COMMIT');
   } catch (error) {

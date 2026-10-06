@@ -251,11 +251,7 @@ export async function uploadDocument(
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from(STORAGE_BUCKET)
-        .getPublicUrl(storagePath);
-
+      // Keep canonical object keys for documents and versions; readers resolve their URL.
       // Create document record
       const { data: documentData, error: documentError } = await supabase
         .from('community_documents')

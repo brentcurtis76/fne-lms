@@ -100,3 +100,50 @@ describe('GET /api/directivo/assessments/course-results', () => {
     expect(res._getStatusCode()).toBe(403);
   });
 });
+
+describe('results endpoints: a consultor reads only assigned schools', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const consultorAssignedTo = async (schoolId: number) => {
+    const { supabaseAdmin } = await import('../../../lib/supabaseAdmin');
+    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+      if (table === 'user_roles') return buildChainableQuery([{ role_type: 'consultor', school_id: null }]);
+      if (table === 'consultant_assignments') {
+        const filters: [string, unknown][] = [];
+        const q: any = {
+          select: () => q,
+          eq: (c: string, v: unknown) => { filters.push([c, v]); return q; },
+          then: (resolve: (v: unknown) => void) => {
+            const rows = [{ consultant_id: DIRECTIVO_UUID, school_id: schoolId, is_active: true }];
+            resolve({ data: rows.filter((r: any) => filters.every(([c, v]) => r[c] === v)), error: null });
+          },
+        };
+        return q;
+      }
+      return buildChainableQuery([]);
+    });
+    mockGetApiUser.mockResolvedValue({ user: { id: DIRECTIVO_UUID }, error: null });
+    mockCreateApiSupabaseClient.mockResolvedValue({ from: vi.fn(() => buildChainableQuery([])) });
+  };
+
+  it('school-results refuses an unassigned school', async () => {
+    await consultorAssignedTo(7);
+    const { req, res } = createMocks({ method: 'GET', query: { school_id: '8' } });
+    await schoolResultsHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(403);
+  });
+
+  it('course-results refuses an unassigned school', async () => {
+    await consultorAssignedTo(7);
+    const { req, res } = createMocks({ method: 'GET', query: { school_id: '8' } });
+    await courseResultsHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(403);
+  });
+
+  it('course-results admits the assigned school', async () => {
+    await consultorAssignedTo(7);
+    const { req, res } = createMocks({ method: 'GET', query: { school_id: '7' } });
+    await courseResultsHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(200);
+  });
+});

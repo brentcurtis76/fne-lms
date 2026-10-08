@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { resolveResultsSchoolId } from '@/lib/permissions/resultsSchoolScope';
 import {
   getInstanceResults,
   aggregateSchoolScores,
@@ -59,25 +60,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'No tienes permiso para ver resultados de escuela' });
     }
 
-    // Get school ID for directivo
-    let schoolId: number | null = null;
-
-    if (isAdmin) {
-      // Admin must specify school_id
-      const querySchoolId = req.query.school_id;
-      if (!querySchoolId || typeof querySchoolId !== 'string') {
-        return res.status(400).json({ error: 'school_id es requerido para administradores' });
-      }
-      schoolId = parseInt(querySchoolId, 10);
-    } else {
-      // Get directivo's school from user_roles
-      const directivoRole = userRolesData?.find((r: any) => r.role_type === 'equipo_directivo');
-      schoolId = directivoRole?.school_id || null;
+    // School scope: admins any school; consultores only their assigned
+    // schools (or where they are also directivo); directivos their own.
+    const scope = await resolveResultsSchoolId(supabaseAdmin, user.id, userRolesData || [], req.query.school_id);
+    if (scope.kind === 'error') {
+      return res.status(scope.status).json({ error: scope.message });
     }
-
-    if (!schoolId) {
-      return res.status(400).json({ error: 'No se encontró la escuela asociada' });
-    }
+    const schoolId = scope.schoolId;
 
     // Get school info (use admin client to bypass RLS)
     const { data: school } = await supabaseAdmin

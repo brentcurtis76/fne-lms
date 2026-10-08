@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { categoryScopedColumns } from './indicatorCategoryColumns';
 import { describeExpectationConflict, frequencyExpectationConflicts, validateFrequencyConfig } from './frequencyConfig';
+import { templateWriteConflict } from './templateGradeRule';
 
 /**
  * The validated template publication service.
@@ -59,7 +60,7 @@ export interface PublishTemplateSuccess {
 
 export interface PublishTemplateFailure {
   ok: false;
-  status: 400 | 404 | 500;
+  status: 400 | 404 | 409 | 500;
   error: string;
   code?: string;
   details?: unknown;
@@ -421,6 +422,13 @@ export async function publishTemplate(
     console.error('Error updating template:', updateError);
     // Try to rollback snapshot
     await supabaseClient.from('assessment_template_snapshots').delete().eq('id', snapshot.id);
+    // The database refuses a template that does not fit its vía's rule
+    // (assessment_template_via_rule_guard, 20261008120000) and a version that
+    // collides in its scope; both are answered as conflicts, not 500s.
+    const conflict = templateWriteConflict(updateError);
+    if (conflict) {
+      return fail(409, conflict, { code: 'template_conflict' });
+    }
     return fail(500, 'Error al actualizar template');
   }
 

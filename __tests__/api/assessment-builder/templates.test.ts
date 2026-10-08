@@ -94,6 +94,37 @@ describe('GET /api/admin/assessment-builder/templates', () => {
   });
 });
 
+/** The seeded vía rules of migration 20261008120000. */
+const VIA_RULES = [
+  { area: 'personalizacion', target: 'course_docente' },
+  { area: 'aprendizaje', target: 'course_docente' },
+  { area: 'evaluacion', target: 'course_docente' },
+  { area: 'trabajo_docente', target: 'course_docente' },
+  { area: 'familias', target: 'course_docente' },
+  { area: 'liderazgo', target: 'school_responsible' },
+  { area: 'proposito', target: 'school_responsible' },
+];
+
+/** Records the calls made on each table so tests can assert exact filters and payloads. */
+function recordingClient(results: Record<string, unknown[]>) {
+  const calls: { table: string; method: string; args: unknown[] }[] = [];
+  const from = vi.fn((table: string) => {
+    const queue = results[table] ?? [];
+    const data = queue.length > 1 ? queue.shift() : queue[0] ?? null;
+    const handler: ProxyHandler<object> = {
+      get(_t, prop) {
+        if (prop === 'then') return (resolve: (v: unknown) => void) => resolve({ data, error: null, count: 0 });
+        return (...args: unknown[]) => {
+          calls.push({ table, method: String(prop), args });
+          return new Proxy({}, handler);
+        };
+      },
+    };
+    return new Proxy({}, handler);
+  });
+  return { client: { from }, calls };
+}
+
 describe('POST /api/admin/assessment-builder/templates', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -146,7 +177,7 @@ describe('POST /api/admin/assessment-builder/templates', () => {
   it('returns 400 when grade_id is missing', async () => {
     mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
     mockCreateApiSupabaseClient.mockResolvedValue({
-      from: vi.fn(() => buildChainableQuery([])),
+      from: vi.fn((table: string) => buildChainableQuery(table === 'ab_via_assignment_rules' ? VIA_RULES : [])),
     });
     mockHasReadPerm.mockResolvedValue(true);
     mockHasWritePerm.mockResolvedValue(true);
@@ -173,9 +204,10 @@ describe('POST /api/admin/assessment-builder/templates', () => {
     let callCount = 0;
     const mockClient = {
       from: vi.fn((table: string) => {
+        if (table === 'ab_via_assignment_rules') return buildChainableQuery(VIA_RULES);
         callCount++;
         if (table === 'assessment_templates' && callCount === 1) {
-          // First call: getNextVersion → select().eq().order().limit()
+          // First call: nextTemplateVersion → select().eq().eq()
           return buildChainableQuery([{ version: '1.0.0' }]);
         }
         // Second call: insert().select().single()
@@ -198,5 +230,88 @@ describe('POST /api/admin/assessment-builder/templates', () => {
     const body = JSON.parse(res._getData());
     expect(body.success).toBe(true);
     expect(body.template).toBeDefined();
+  });
+});
+
+describe('POST /api/admin/assessment-builder/templates — vía rules (20261008120000)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
+    mockHasReadPerm.mockResolvedValue(true);
+    mockHasWritePerm.mockResolvedValue(true);
+  });
+
+  const post = async (body: Record<string, unknown>, client: unknown) => {
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+    const { req, res } = createMocks({ method: 'POST', body });
+    await handler(req as any, res as any);
+    return res;
+  };
+
+  it('refuses a grade on a school-level vía', async () => {
+    const { client, calls } = recordingClient({ ab_via_assignment_rules: [VIA_RULES] });
+    const res = await post({ area: 'liderazgo', name: 'LID Equipo', grade_id: 7 }, client);
+    expect(res._getStatusCode()).toBe(400);
+    expect(JSON.parse(res._getData()).error).toContain('no lleva nivel');
+    expect(calls.some((c) => c.method === 'insert')).toBe(false);
+  });
+
+  it('creates a grade-less school-level template, versioned by area + trimmed name', async () => {
+    const { client, calls } = recordingClient({
+      ab_via_assignment_rules: [VIA_RULES],
+      assessment_templates: [
+        [{ version: '1.0.3', name: 'LID Equipo' }, { version: '1.0.9', name: 'LID Otro' }],
+        { id: 'new-id', area: 'liderazgo', grade_id: null },
+      ],
+    });
+    const res = await post({ area: 'liderazgo', name: '  LID Equipo  ' }, client);
+    expect(res._getStatusCode()).toBe(201);
+    expect(calls).toContainEqual({ table: 'assessment_templates', method: 'is', args: ['grade_id', null] });
+    const insert = calls.find((c) => c.method === 'insert')!.args[0] as Record<string, unknown>;
+    expect(insert).toMatchObject({ area: 'liderazgo', name: 'LID Equipo', grade_id: null, version: '1.0.4' });
+  });
+
+  it('fails closed when the rules cannot be read', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const client = {
+      from: vi.fn((table: string) =>
+        table === 'ab_via_assignment_rules' ? buildChainableQuery(null, { message: 'down' }) : buildChainableQuery([])
+      ),
+    };
+    const res = await post({ area: 'evaluacion', name: 'EVA', grade_id: 7 }, client);
+    expect(res._getStatusCode()).toBe(500);
+    expect(res._getData()).not.toContain('down');
+  });
+
+  it('maps a database guard refusal to 409', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    let templateCalls = 0;
+    const client = {
+      from: vi.fn((table: string) => {
+        if (table === 'ab_via_assignment_rules') return buildChainableQuery(VIA_RULES);
+        templateCalls++;
+        // first call: version scan (empty scope); second: the refused insert
+        return templateCalls === 1
+          ? buildChainableQuery([])
+          : buildChainableQuery(null, { message: 'template_grade_required', code: 'P0001' });
+      }),
+    };
+    const res = await post({ area: 'evaluacion', name: 'EVA', grade_id: 7 }, client);
+    expect(res._getStatusCode()).toBe(409);
+  });
+});
+
+describe('GET count_only — grade-less count (20261008120000)', () => {
+  it('grade_id=none counts templates without grade only', async () => {
+    vi.clearAllMocks();
+    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
+    mockHasReadPerm.mockResolvedValue(true);
+    const { client, calls } = recordingClient({ assessment_templates: [[]] });
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+    const { req, res } = createMocks({ method: 'GET', query: { count_only: 'true', area: 'liderazgo', grade_id: 'none' } });
+    await handler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(200);
+    expect(calls).toContainEqual({ table: 'assessment_templates', method: 'is', args: ['grade_id', null] });
+    expect(calls.some((c) => c.method === 'eq' && c.args[0] === 'grade_id')).toBe(false);
   });
 });

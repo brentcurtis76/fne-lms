@@ -119,6 +119,7 @@ const CONTEXT2_ID = U('0000c2');
 const C6 = U('0000a6');
 const A61 = U('0000db'); // C6 / D1 active (the only one: C6 is NOT a 1a duplicate)
 const TEMPLATE3_ID = U('0000e3'); // archived
+const PROOF_GRADES = [999811, 999812, 999813];
 const SNAPSHOT3_ID = U('0000f3');
 const I6 = U('006a01');
 const ALL_SCHOOLS = [SCHOOL_ID, SCHOOL2_ID];
@@ -189,6 +190,7 @@ async function purge(admin, state, fault) {
   await admin.query('DELETE FROM public.assessment_instances WHERE school_id = ANY($1::int[])', [ALL_SCHOOLS]);
   await admin.query('DELETE FROM public.assessment_template_snapshots WHERE id = ANY($1::uuid[])', [[SNAPSHOT_ID, SNAPSHOT2_ID, SNAPSHOT3_ID]]);
   await admin.query('DELETE FROM public.assessment_templates WHERE id = ANY($1::uuid[])', [[TEMPLATE_ID, TEMPLATE2_ID, TEMPLATE3_ID]]);
+  await admin.query('DELETE FROM public.ab_grades WHERE id = ANY($1::int[])', [PROOF_GRADES]);
   await admin.query('DELETE FROM public.school_course_structure WHERE school_id = ANY($1::int[])', [ALL_SCHOOLS]);
   await admin.query('DELETE FROM public.school_transversal_context WHERE school_id = ANY($1::int[])', [ALL_SCHOOLS]);
   await admin.query('DELETE FROM public.user_roles WHERE user_id = ANY($1::uuid[])', [ALL_USERS]);
@@ -231,11 +233,17 @@ async function seed(admin) {
        ($10, $16, $17, true), ($11, $16, $18, true)`,
     [A1, A2, A0, A21, A22, A31, A32, A41, A42, A51, A52, C1, C2, C3, C4, C5, D1, D2, D3]
   );
+  // A live template needs a real vía and, for a course vía, a grade (20261008120000).
   await admin.query(
-    `INSERT INTO public.assessment_templates (id, area, version, name, status) VALUES
-       ($1, 'lenguaje', '1.0', '[SINTÉTICO] Operation A Proof Template', 'published'),
-       ($2, 'matematica', '1.0', '[SINTÉTICO] Operation A Proof Template 2', 'published')`,
-    [TEMPLATE_ID, TEMPLATE2_ID]
+    `INSERT INTO public.ab_grades (id, name, sort_order) VALUES
+       ($1, '[SINTÉTICO] Operation A grade 1', $1), ($2, '[SINTÉTICO] Operation A grade 2', $2), ($3, '[SINTÉTICO] Operation A grade 3', $3)`,
+    PROOF_GRADES
+  );
+  await admin.query(
+    `INSERT INTO public.assessment_templates (id, area, version, name, status, grade_id) VALUES
+       ($1, 'personalizacion', '1.0', '[SINTÉTICO] Operation A Proof Template', 'published', $3),
+       ($2, 'personalizacion', '1.0', '[SINTÉTICO] Operation A Proof Template 2', 'published', $4)`,
+    [TEMPLATE_ID, TEMPLATE2_ID, PROOF_GRADES[0], PROOF_GRADES[1]]
   );
   await admin.query(
     `INSERT INTO public.assessment_template_snapshots (id, template_id, version, snapshot_data) VALUES
@@ -276,9 +284,9 @@ async function seed(admin) {
   );
   await admin.query('INSERT INTO public.school_course_docente_assignments (id, course_structure_id, docente_id, is_active) VALUES ($1, $2, $3, true)', [A61, C6, D1]);
   await admin.query(
-    `INSERT INTO public.assessment_templates (id, area, version, name, status, is_archived, archived_at)
-     VALUES ($1, 'lenguaje', '1.0', '[SINTÉTICO] Operation A Proof Template 3 (archived)', 'published', true, now())`,
-    [TEMPLATE3_ID]
+    `INSERT INTO public.assessment_templates (id, area, version, name, status, is_archived, archived_at, grade_id)
+     VALUES ($1, 'personalizacion', '1.0', '[SINTÉTICO] Operation A Proof Template 3 (archived)', 'published', true, now(), $2)`,
+    [TEMPLATE3_ID, PROOF_GRADES[2]]
   );
   await admin.query(`INSERT INTO public.assessment_template_snapshots (id, template_id, version, snapshot_data) VALUES ($1, $2, '1.0', '{"modules": []}')`, [SNAPSHOT3_ID, TEMPLATE3_ID]);
   await admin.query(

@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { resolveResultsSchoolId } from '@/lib/permissions/resultsSchoolScope';
 import {
   getInstanceResults,
   aggregateSchoolScores,
@@ -59,25 +60,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'No tienes permiso para ver resultados de escuela' });
     }
 
-    // Get school ID for directivo
-    let schoolId: number | null = null;
-
-    if (isAdmin) {
-      // Admin must specify school_id
-      const querySchoolId = req.query.school_id;
-      if (!querySchoolId || typeof querySchoolId !== 'string') {
-        return res.status(400).json({ error: 'school_id es requerido para administradores' });
-      }
-      schoolId = parseInt(querySchoolId, 10);
-    } else {
-      // Get directivo's school from user_roles
-      const directivoRole = userRolesData?.find((r: any) => r.role_type === 'equipo_directivo');
-      schoolId = directivoRole?.school_id || null;
+    // School scope: admins any school; consultores only their assigned
+    // schools (or where they are also directivo); directivos their own.
+    const scope = await resolveResultsSchoolId(supabaseAdmin, user.id, userRolesData || [], req.query.school_id);
+    if (scope.kind === 'error') {
+      return res.status(scope.status).json({ error: scope.message });
     }
-
-    if (!schoolId) {
-      return res.status(400).json({ error: 'No se encontró la escuela asociada' });
-    }
+    const schoolId = scope.schoolId;
 
     // Get school info (use admin client to bypass RLS)
     const { data: school } = await supabaseAdmin
@@ -143,6 +132,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Gather summaries and gap analyses for all instances
+    const canRecalculate = (userRolesData || []).some((r: any) => r.role_type === 'admin');
+    let unavailableResults = 0;
     const summaries: AssessmentSummary[] = [];
     const gapAnalyses: AssessmentGapAnalysis[] = [];
     const instanceDetails: any[] = [];
@@ -156,16 +147,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         continue;
       }
 
-      // Get or calculate results
+      // Stored results only (20261008120000): a viewer who cannot read every
+      // response of the registro (e.g. a directivo who is not the vía
+      // responsible) must never recalculate, or a false zero would be saved
+      // through the admin client. Results are written at submit; a completed
+      // registro without one is reported as unavailable. Only an admin, who
+      // reads every response, may still recalculate.
       let summary = await getInstanceResults(supabaseClient, instance.id);
 
-      if (!summary) {
-        // Calculate if not exists
+      if (!summary && canRecalculate) {
         const { getInstanceResults: _, calculateAndSaveScores } = await import(
           '@/lib/services/assessment-builder/scoringService'
         );
         const calcResult = await calculateAndSaveScores(supabaseClient, instance.id);
         summary = calcResult.summary || null;
+      }
+      if (!summary) {
+        unavailableResults++;
       }
 
       if (summary) {
@@ -268,6 +266,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         name: school?.name || 'Escuela',
       },
       transformationYear,
+      /** Completed registros whose stored result is missing (not recalculated here). */
+      unavailableResults,
       expectedLevel: {
         level: expectedLevelForYear,
         label: getMaturityLevelLabel(expectedLevelForYear),

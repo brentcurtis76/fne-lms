@@ -1220,23 +1220,41 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
     }
 
     let cancelled = false;
+    // Initial, navigation and focus checks can overlap: only the newest
+    // request may set the state, so an older answer never overwrites it.
+    let generation = 0;
     const checkAssessments = async () => {
+      const mine = ++generation;
+      const current = () => !cancelled && mine === generation;
       try {
         const { count, error } = await supabase
           .from('assessment_instance_assignees')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', userId);
 
-        if (!cancelled) {
+        if (current()) {
           setAssessmentAccess({ userId, hasAssessments: !error && (count ?? 0) > 0 });
         }
       } catch {
-        if (!cancelled) setAssessmentAccess({ userId, hasAssessments: false });
+        if (current()) setAssessmentAccess({ userId, hasAssessments: false });
       }
     };
 
     checkAssessments();
-    return () => { cancelled = true; };
+    // A first assignment can arrive during a session (e.g. a directivo picked
+    // as Liderazgo responsible in Contexto Transversal, 20261008120000):
+    // re-check after each navigation and when the window regains focus.
+    // These re-checks keep the current state until the answer arrives.
+    const events = router?.events;
+    events?.on?.('routeChangeComplete', checkAssessments);
+    window.addEventListener('focus', checkAssessments);
+    return () => {
+      cancelled = true;
+      events?.off?.('routeChangeComplete', checkAssessments);
+      window.removeEventListener('focus', checkAssessments);
+    };
+  // router.events is a stable singleton
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, supabase]);
 
   // Fetch new feedback count for admins

@@ -4,6 +4,7 @@ import type { UpdateTemplateRequest } from '@/types/assessment-builder';
 import { updatePublishedTemplateSnapshot } from '@/lib/services/assessment-builder/autoAssignmentService';
 import { categoryScopedColumns } from '@/lib/services/assessment-builder/indicatorCategoryColumns';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
+import { checkTemplateGrade, templateWriteConflict } from '@/lib/services/assessment-builder/templateGradeRule';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { templateId } = req.query;
@@ -243,7 +244,7 @@ async function handlePut(
     // Check if template exists
     const { data: existing, error: fetchError } = await supabaseClient
       .from('assessment_templates')
-      .select('id, status, version, is_archived')
+      .select('id, status, version, is_archived, area')
       .eq('id', templateId)
       .single();
 
@@ -256,9 +257,22 @@ async function handlePut(
       return res.status(400).json({ error: 'Los templates archivados no pueden ser editados' });
     }
 
+    // A grade change must fit the vía's rule (20261008120000). Omitted
+    // grade_id = unchanged; an explicit null = no grade.
+    if (grade_id !== undefined) {
+      const gradeId = grade_id === null ? null : Number(grade_id);
+      if (gradeId !== null && !Number.isInteger(gradeId)) {
+        return res.status(400).json({ error: 'Nivel inválido' });
+      }
+      const gradeCheck = await checkTemplateGrade(supabaseClient, existing.area, gradeId);
+      if (gradeCheck.kind === 'error') {
+        return res.status(gradeCheck.status).json({ error: gradeCheck.message });
+      }
+    }
+
     // Build update object
     const updateData: Record<string, any> = {};
-    if (name !== undefined) updateData.name = name;
+    if (name !== undefined) updateData.name = typeof name === 'string' ? name.trim() : name;
     if (description !== undefined) updateData.description = description;
     if (scoring_config !== undefined) updateData.scoring_config = scoring_config;
     if (grade_id !== undefined) updateData.grade_id = grade_id;
@@ -286,6 +300,10 @@ async function handlePut(
 
     if (error) {
       console.error('Error updating template:', error);
+      const conflict = templateWriteConflict(error);
+      if (conflict) {
+        return res.status(409).json({ error: conflict });
+      }
       return res.status(500).json({ error: 'Error al actualizar el template' });
     }
 

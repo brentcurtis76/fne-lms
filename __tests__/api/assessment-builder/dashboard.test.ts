@@ -100,3 +100,77 @@ describe('GET /api/directivo/assessments/course-results', () => {
     expect(res._getStatusCode()).toBe(403);
   });
 });
+
+describe('results endpoints: a consultor reads only assigned schools', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const consultorAssignedTo = async (schoolId: number) => {
+    const { supabaseAdmin } = await import('../../../lib/supabaseAdmin');
+    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+      if (table === 'user_roles') return buildChainableQuery([{ role_type: 'consultor', school_id: null }]);
+      if (table === 'consultant_assignments') {
+        const filters: [string, unknown][] = [];
+        const q: any = {
+          select: () => q,
+          eq: (c: string, v: unknown) => { filters.push([c, v]); return q; },
+          then: (resolve: (v: unknown) => void) => {
+            const rows = [{ consultant_id: DIRECTIVO_UUID, school_id: schoolId, is_active: true }];
+            resolve({ data: rows.filter((r: any) => filters.every(([c, v]) => r[c] === v)), error: null });
+          },
+        };
+        return q;
+      }
+      return buildChainableQuery([]);
+    });
+    mockGetApiUser.mockResolvedValue({ user: { id: DIRECTIVO_UUID }, error: null });
+    mockCreateApiSupabaseClient.mockResolvedValue({ from: vi.fn(() => buildChainableQuery([])) });
+  };
+
+  it('school-results refuses an unassigned school', async () => {
+    await consultorAssignedTo(7);
+    const { req, res } = createMocks({ method: 'GET', query: { school_id: '8' } });
+    await schoolResultsHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(403);
+  });
+
+  it('course-results refuses an unassigned school', async () => {
+    await consultorAssignedTo(7);
+    const { req, res } = createMocks({ method: 'GET', query: { school_id: '8' } });
+    await courseResultsHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(403);
+  });
+
+  it('course-results admits the assigned school', async () => {
+    await consultorAssignedTo(7);
+    const { req, res } = createMocks({ method: 'GET', query: { school_id: '7' } });
+    await courseResultsHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(200);
+  });
+});
+
+describe('stored results only for non-admins (20261008120000)', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('a directivo never recalculates a missing result; it is reported as unavailable', async () => {
+    // The scoringService mock has no calculateAndSaveScores: any recalculation
+    // attempt would throw and turn this into a 500.
+    const scoring = await import('../../../lib/services/assessment-builder/scoringService');
+    const { supabaseAdmin } = await import('../../../lib/supabaseAdmin');
+    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+      if (table === 'user_roles') return buildChainableQuery([{ role_type: 'equipo_directivo', school_id: 5 }]);
+      if (table === 'assessment_instances') {
+        return buildChainableQuery([{ id: 'i1', completed_at: '2026-10-01', assessment_template_snapshots: { snapshot_data: { template: { area: 'liderazgo' } } }, school_course_structure: null }]);
+      }
+      return buildChainableQuery(null);
+    });
+    mockGetApiUser.mockResolvedValue({ user: { id: DIRECTIVO_UUID }, error: null });
+    mockCreateApiSupabaseClient.mockResolvedValue({ from: vi.fn(() => buildChainableQuery([])) });
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await schoolResultsHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(JSON.parse(res._getData()).unavailableResults).toBe(1);
+    expect((scoring as any).getInstanceResults).toHaveBeenCalledWith(expect.anything(), 'i1');
+  });
+});

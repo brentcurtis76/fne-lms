@@ -2,7 +2,7 @@
  * Template eligibility policy for automatic assessment assignment.
  *
  * PROC-CONTAIN-01 (A-01): every automatic-assignment entry point (course-level
- * `triggerAutoAssignment`, school-level `createSchoolLevelInstances`) and the
+ * `triggerAutoAssignment`, school-level `schoolViaAssignmentService`) and the
  * assignment preflight consume this single definition so the rule cannot drift
  * between call sites.
  *

@@ -30,6 +30,7 @@ import type { SchoolTransversalContext, GradeLevel, ContextGeneralQuestion, Cont
 import { GRADE_LEVEL_LABELS } from '@/types/assessment-builder';
 import type { UserRoleType } from '@/types/roles';
 import { getTransversalContextDashboardCapabilities } from '@/lib/permissions/transversal-context-dashboard';
+import ViaResponsiblesSection from '@/components/school/ViaResponsiblesSection';
 
 type DocenteOption = {
   id: string;
@@ -1315,6 +1316,9 @@ const TransversalContextDashboard: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Registros del equipo directivo: one picked responsible per school-level vía (20261008120000) */}
+        {context && schoolId && <ViaResponsiblesSection key={`via-${schoolId}`} schoolId={schoolId} />}
 
         {/* Change History — a restricted surface: never requested read-only */}
         {context && schoolId && !isReadOnlyViewer && (

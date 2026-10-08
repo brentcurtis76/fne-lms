@@ -8,6 +8,7 @@ import { ResponsiveFunctionalPageHeader } from '@/components/layout/FunctionalPa
 import { ClipboardList, Plus, Edit2, Trash2, Eye, Archive, RotateCcw, Copy } from 'lucide-react';
 import type { AssessmentTemplate, TransformationArea, Grade } from '@/types/assessment-builder';
 import { AREA_LABELS } from '@/types/assessment-builder';
+import { loadViaRules, VIA_TARGET_LABELS, type ViaRules } from '@/lib/services/assessment-builder/viaRules';
 
 const STATUS_LABELS: Record<string, { label: string; bgColor: string; textColor: string }> = {
   draft: { label: 'Borrador', bgColor: 'bg-yellow-100', textColor: 'text-yellow-800' },
@@ -47,6 +48,11 @@ const AssessmentBuilderIndex: React.FC = () => {
   const [duplicateModal, setDuplicateModal] = useState<{ template: AssessmentTemplate } | null>(null);
   const [duplicateName, setDuplicateName] = useState('');
   const [duplicateGradeId, setDuplicateGradeId] = useState<number | ''>('');
+  // Vía rules (20261008120000): who answers each vía; school-level vías take no grade.
+  const [viaRules, setViaRules] = useState<ViaRules | null>(null);
+  const duplicateIsSchoolVia =
+    !!duplicateModal && viaRules?.get(duplicateModal.template.area) === 'school_responsible';
+  const duplicateReady = !!duplicateName.trim() && !!viaRules && (duplicateIsSchoolVia || !!duplicateGradeId);
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [grades, setGrades] = useState<Grade[]>([]);
 
@@ -86,6 +92,12 @@ const AssessmentBuilderIndex: React.FC = () => {
 
     checkAuth();
   }, [supabase, router]);
+
+  useEffect(() => {
+    loadViaRules(supabase).then((load) => {
+      if (load.kind === 'ok') setViaRules(load.rules);
+    });
+  }, [supabase]);
 
   // Fetch grades for duplicate modal
   useEffect(() => {
@@ -294,7 +306,7 @@ const AssessmentBuilderIndex: React.FC = () => {
 
   // Handle duplicate submission
   const handleDuplicate = async () => {
-    if (!duplicateModal || !duplicateName.trim() || !duplicateGradeId) {
+    if (!duplicateModal || !duplicateReady) {
       toast.error('Por favor completa todos los campos');
       return;
     }
@@ -306,7 +318,7 @@ const AssessmentBuilderIndex: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: duplicateName.trim(),
-          grade_id: duplicateGradeId,
+          grade_id: duplicateIsSchoolVia ? null : duplicateGradeId,
         }),
       });
 
@@ -429,6 +441,29 @@ const AssessmentBuilderIndex: React.FC = () => {
             </button>
           </nav>
         </div>
+
+        {/* Who answers each vía (read-only; rules change only by a reviewed update) */}
+        {activeTab === 'active' && viaRules && (
+          <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4" data-testid="via-rules-card">
+            <h2 className="text-sm font-semibold text-gray-800">Quién responde cada vía</h2>
+            <ul className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+              {Object.entries(AREA_LABELS).map(([area, label]) => {
+                const target = viaRules.get(area);
+                return (
+                  <li key={area} className="flex justify-between gap-3 border-b border-gray-100 py-1">
+                    <span className="text-gray-700">{label}</span>
+                    <span className="text-gray-500">{target ? VIA_TARGET_LABELS[target] : 'Sin regla'}</span>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="mt-2 text-xs text-gray-500">
+              El responsable del equipo directivo se elige por escuela en Contexto Transversal. Para cambiar quién
+              responde una vía, contacte al equipo técnico: solo es posible mientras la vía no tenga templates
+              publicados.
+            </p>
+          </div>
+        )}
 
         {/* Filters and Create Button */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -712,7 +747,12 @@ const AssessmentBuilderIndex: React.FC = () => {
                 />
               </div>
 
-              {/* Grade selector */}
+              {/* Grade selector: only for vías assigned to the course docente */}
+              {duplicateIsSchoolVia ? (
+                <p className="text-sm text-gray-600">
+                  Esta vía se asigna a una persona del equipo directivo de cada escuela: la copia no lleva nivel.
+                </p>
+              ) : (
               <div>
                 <label htmlFor="duplicate-grade" className="block text-sm font-medium text-gray-700 mb-1">
                   Nivel <span className="text-red-500">*</span>
@@ -734,6 +774,7 @@ const AssessmentBuilderIndex: React.FC = () => {
                   Puede ser el mismo nivel que el original o diferente.
                 </p>
               </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-3 mt-6">
@@ -746,7 +787,7 @@ const AssessmentBuilderIndex: React.FC = () => {
               </button>
               <button
                 onClick={handleDuplicate}
-                disabled={isDuplicating || !duplicateName.trim() || !duplicateGradeId}
+                disabled={isDuplicating || !duplicateReady}
                 className="px-4 py-2 bg-brand_blue text-white hover:bg-brand_blue/90 rounded-lg transition-colors disabled:opacity-50"
               >
                 {isDuplicating ? 'Duplicando...' : 'Duplicar Template'}

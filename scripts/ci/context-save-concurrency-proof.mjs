@@ -125,7 +125,10 @@ async function seed(admin) {
     [DIRECTIVO_ID, DOCENTE_ID, SCHOOL_ID]
   );
   await admin.query(
-    `INSERT INTO public.assessment_templates (id, area, version, name, status) VALUES ($1, 'lenguaje', '1.0', 'Context Save Proof Template', 'published')`,
+    // A live template needs a real vía and, for a course vía, a grade (20261008120000).
+    `INSERT INTO public.assessment_templates (id, area, version, name, status, grade_id)
+     VALUES ($1, 'personalizacion', '1.0', 'Context Save Proof Template', 'published',
+             (SELECT id FROM public.ab_grades WHERE sort_order = 5))`,
     [TEMPLATE_ID]
   );
   await admin.query(

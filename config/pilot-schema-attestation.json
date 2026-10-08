@@ -7,8 +7,8 @@
   ],
   "schemaVersion": 1,
   "attestationVersion": 1,
-  "expectedDigest": "f8785504b191d8e664b1fe6c859d6b73dbf30d8b75be284399e792503808cc8f",
-  "generatedFromMigration": "20261003100000_meeting_content_access.sql",
+  "expectedDigest": "bb718ec493df82f48d0f04a1ec681262c3c137b290d38c213426d7cf95162c90",
+  "generatedFromMigration": "20261008120000_via_assignment_rules.sql",
   "tables": [
     "ab_grades",
     "ab_migration_plan",
@@ -41,7 +41,7 @@
     "save_transversal_context(p_school_id integer, p_payload jsonb)",
     "transversal_grade_sort_order(p_grade_level text)"
   ],
-  "referencingForeignKeys": 177,
+  "referencingForeignKeys": 184,
   "sections": {
     "table:ab_grades": "69912b4e701a04112ed07983ca987eb2d5d7c30d6170ceee6c3fff95f07d8aec",
     "table:ab_migration_plan": "e6c1e1e34b71894fd043f8273fc39896b443f1a7b1ff71805e0072f01587ac4a",
@@ -53,10 +53,10 @@
     "table:assessment_instances": "7ce5738c421b3f172d45fe4ccfe0636cdb1a81e6c9889fab9d7a446252b804c1",
     "table:assessment_modules": "ae2e53a81bb1bf6fe99581e0f70a27822eac98691f93dd649701a95448af3fa6",
     "table:assessment_objectives": "73aee77da15bedce79c1164043ab9fdd7a40fc46740584a623b591cb7df3b24d",
-    "table:assessment_responses": "e233d927143eeb80a029311f8437a6d1d51b75e948526172ee937bb4141ef6ad",
+    "table:assessment_responses": "5f6b826387ce25f27dec4adb67f8de6cb6d754b063c138a7d13917a410babb20",
     "table:assessment_sub_questions": "9e2999c6b1c8121724990ed4b191534ddf3bef87c58576ec25130fc86e919333",
     "table:assessment_template_snapshots": "610975bc83037daa64514799b940b372c98e673597dbd70bd3f5e660b27dff9f",
-    "table:assessment_templates": "2430d36b8dac743db5d1e6b1954b8155917ba955371d718be63b422deb3ca8a4",
+    "table:assessment_templates": "8a6cf95b1a7cf8bf5b781afb36b8024ee96d71b8655a37b78d8c22069dc9c771",
     "table:assessment_year_expectations": "ba94444147bd2b28af1d4da57ce17ee09513ab8ca81b61ad698927783a909afb",
     "table:profiles": "fd0251a0b89cee4c9150f5533ba169ca6dd9a5db6548c92bd9f0b1dc2b8979ed",
     "table:school_course_docente_assignments": "7f9ba556d7773fc33b3e42a4bacc651e7dfa764e618ce555f55d6a27cfd2d021",
@@ -71,6 +71,6 @@
     "function:replace_course_docente(p_course_structure_id uuid, p_new_docente_id uuid)": "36d2bb15fc0d23dbae36da10823bf72f924994c6015a0924b01100796dad76db",
     "function:save_transversal_context(p_school_id integer, p_payload jsonb)": "69e7aabb0b41014032efd0b90769b2dda959582030c00462bcb778ec2423b11e",
     "function:transversal_grade_sort_order(p_grade_level text)": "830ac919e5a73311a388d010fcfb149cc7ee03539ebaac5825193a3e9a38559a",
-    "referencing_foreign_keys": "21d1694da93f42f747c5105df9cf2dd0e255e3942eabe7bd1d47609a95b90656"
+    "referencing_foreign_keys": "1fbe271d51dadc9186921c566295f25bc2daf39acfe5d974e4334238537ec7fa"
   }
 }

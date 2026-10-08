@@ -19,6 +19,8 @@ async function insert(table, row) {
 }
 
 await insert('schools', { id: school, name: 'Colegio sintético PROC-B003', tenant_kind: 'qa' });
+// A Crecimiento template needs a grade to be published (vía rules, 20261008120000).
+await insert('ab_grades', { id: school, name: 'Nivel sintético PROC-B003', sort_order: school });
 const userIds = {};
 for (const [index, user] of users.entries()) {
   const { data, error } = await db.auth.admin.createUser({ email: user.email, password, email_confirm: true });
@@ -38,7 +40,8 @@ for (let suffix = 1; suffix <= 12; suffix++) {
   const module = id(20 + suffix), indicator = id(30 + suffix);
   const snapshot = id(40 + suffix);
   await insert('assessment_templates', {
-    id: template, area: 'personalizacion', version: '1.0.0',
+    // one version each: (area, grade_id, version) is unique once a grade is set
+    id: template, area: 'personalizacion', version: `1.0.${suffix}`, grade_id: school,
     name: `Plantilla sintética ${suffix}`, status: 'draft',
     is_archived: false, created_by: userIds.admin,
   });

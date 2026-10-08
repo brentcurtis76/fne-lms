@@ -24,7 +24,6 @@ vi.mock('../../lib/supabaseAdmin', () => ({
 import {
   triggerAutoAssignment,
   preflightAutoAssignment,
-  createSchoolLevelInstances,
 } from '../../lib/services/assessment-builder/autoAssignmentService';
 
 // ----------------------------------------------------------------
@@ -83,10 +82,21 @@ function configureMock(tableMap: Record<string, Query | Query[]>) {
   });
 }
 
+/** The seeded rules of migration 20261008120000. */
+const DEFAULT_RULES = [
+  { area: 'personalizacion', target: 'course_docente' },
+  { area: 'aprendizaje', target: 'course_docente' },
+  { area: 'evaluacion', target: 'course_docente' },
+  { area: 'trabajo_docente', target: 'course_docente' },
+  { area: 'familias', target: 'course_docente' },
+  { area: 'liderazgo', target: 'school_responsible' },
+  { area: 'proposito', target: 'school_responsible' },
+];
+
 const activeTemplate = (overrides: Record<string, unknown> = {}) => ({
   id: TEMPLATE_ID,
   name: 'Lectura',
-  area: 'lenguaje',
+  area: 'personalizacion',
   status: 'published',
   is_archived: false,
   grade_id: GRADE_ID,
@@ -110,6 +120,7 @@ function happyPathMap(overrides: Partial<{
   abGrades: Query;
   migrationPlan: Query;
   templates: Query;
+  rules: Query;
   instances: Query[];
   assignees: Query[];
 }> = {}): Record<string, Query | Query[]> {
@@ -121,6 +132,7 @@ function happyPathMap(overrides: Partial<{
     ab_grades: overrides.abGrades ?? buildChainableQuery({ name: GRADE_NAME, is_always_gt: false }),
     ab_migration_plan: overrides.migrationPlan ?? buildChainableQuery({ generation_type: 'GI' }),
     assessment_templates: overrides.templates ?? buildChainableQuery([activeTemplate()]),
+    ab_via_assignment_rules: overrides.rules ?? buildChainableQuery(DEFAULT_RULES),
     // Sequential calls: existence check (null = not found), then insert
     assessment_instances: overrides.instances ?? [
       buildChainableQuery(null, null),
@@ -364,7 +376,7 @@ describe('triggerAutoAssignment', () => {
 
   it('calls the RPC once per eligible template, each with its own current snapshot', async () => {
     const second = activeTemplate({
-      id: 'tpl-uuid-second', name: 'Matemática', area: 'matematica',
+      id: 'tpl-uuid-second', name: 'Aprendizaje', area: 'aprendizaje',
       assessment_template_snapshots: [{ id: 'snap-uuid-second', version: '2.0', created_at: '2026-03-01T00:00:00Z' }],
     });
     configureMock(happyPathMap({ templates: buildChainableQuery([activeTemplate(), second]) }));
@@ -551,120 +563,78 @@ describe('preflightAutoAssignment', () => {
   });
 });
 
-describe('createSchoolLevelInstances', () => {
-  const CREATED_BY = 'directivo-uuid-555';
-  const runSchool = () => createSchoolLevelInstances(null, SCHOOL_ID, 3, CREATED_BY);
-
+describe('vía assignment rules on the course path (20261008120000)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('filters templates by status = published and is_archived = false', async () => {
-    const templates = recordingQuery([activeTemplate()]);
-    configureMock({
-      assessment_templates: templates.query,
-      assessment_instances: [buildChainableQuery(null, null), buildChainableQuery({ id: INSTANCE_ID })],
-    });
+  const lidTemplate = (overrides: Record<string, unknown> = {}) =>
+    activeTemplate({ id: 'tpl-lid', name: 'LID Equipo', area: 'liderazgo', grade_id: null, grade: null, ...overrides });
 
-    await runSchool();
-
-    const eqs = eqCalls(templates.calls);
-    expect(eqs).toContainEqual(['status', 'published']);
-    expect(eqs).toContainEqual(['is_archived', false]);
+  it('excludes templates of a school-level vía from the course plan', async () => {
+    configureMock(happyPathMap({ templates: buildChainableQuery([activeTemplate(), lidTemplate()]) }));
+    const plan = await preflightAutoAssignment(COURSE_STRUCTURE_ID, SCHOOL_ID);
+    expect(plan.ok).toBe(true);
+    expect(plan.eligibleTemplates.map((t) => t.id)).toEqual([TEMPLATE_ID]);
   });
 
-  it('never creates a school-level instance for an archived template', async () => {
-    configureMock({
-      assessment_templates: buildChainableQuery([archivedTemplate()]),
-    });
-
-    const result = await runSchool();
-
-    expect(result.success).toBe(false);
-    expect(result.blockingError?.code).toBe('no_eligible_templates');
-    expect(result.counts.skipped).toBe(1);
-    expect(result.details[0]).toMatchObject({ status: 'skipped', reason: 'archived' });
-    expect(mockSupabaseAdmin.from).not.toHaveBeenCalledWith('assessment_instances');
+  it('a course grade with only school-level templates has nothing to assign', async () => {
+    configureMock(happyPathMap({ templates: buildChainableQuery([lidTemplate()]) }));
+    const plan = await preflightAutoAssignment(COURSE_STRUCTURE_ID, SCHOOL_ID);
+    expect(plan.ok).toBe(false);
+    expect(plan.blockingError?.code).toBe('no_eligible_templates');
   });
 
-  it('returns a blocking failure when zero eligible templates exist', async () => {
-    configureMock({ assessment_templates: buildChainableQuery([]) });
-
-    const result = await runSchool();
-
-    expect(result.success).toBe(false);
-    expect(result.blockingError?.code).toBe('no_eligible_templates');
-    expect(result.errors).toHaveLength(1);
+  it('a misconfigured school-level template never blocks the course assignment', async () => {
+    configureMock(happyPathMap({
+      templates: buildChainableQuery([activeTemplate(), lidTemplate({ assessment_template_snapshots: [] })]),
+    }));
+    const plan = await preflightAutoAssignment(COURSE_STRUCTURE_ID, SCHOOL_ID);
+    expect(plan.ok).toBe(true);
+    expect(plan.eligibleTemplates).toHaveLength(1);
   });
 
-  it('returns a structured snapshot_missing error for a published template without snapshot', async () => {
-    configureMock({
-      assessment_templates: buildChainableQuery([activeTemplate(), snapshotlessTemplate()]),
-    });
-
-    const result = await runSchool();
-
-    expect(result.success).toBe(false);
-    expect(result.blockingError).toMatchObject({
-      code: 'snapshot_missing',
-      templates: [{ id: 'tpl-nosnap', name: 'Sin snapshot' }],
-    });
-    expect(mockSupabaseAdmin.from).not.toHaveBeenCalledWith('assessment_instances');
+  it('a failed rules read blocks and is never read as course_docente', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    configureMock(happyPathMap({ rules: buildChainableQuery(null, { message: 'rules unavailable' }) }));
+    const plan = await preflightAutoAssignment(COURSE_STRUCTURE_ID, SCHOOL_ID);
+    expect(plan.ok).toBe(false);
+    expect(plan.blockingError?.code).toBe('query_error');
+    expect(plan.blockingError?.message).toContain('No se pudieron leer las reglas');
+    expect(plan.blockingError?.message).not.toContain('rules unavailable');
   });
 
-  it('creates a school-level GT instance for an eligible template', async () => {
-    const existence = recordingQuery(null, null);
-    const insert = recordingQuery({ id: INSTANCE_ID });
-    configureMock({
-      assessment_templates: buildChainableQuery([activeTemplate()]),
-      assessment_instances: [existence.query, insert.query],
-    });
+  it('an empty rule set blocks', async () => {
+    configureMock(happyPathMap({ rules: buildChainableQuery([]) }));
+    const plan = await preflightAutoAssignment(COURSE_STRUCTURE_ID, SCHOOL_ID);
+    expect(plan.ok).toBe(false);
+    expect(plan.blockingError?.code).toBe('query_error');
+  });
 
-    const result = await runSchool();
+  it('a published template of a vía with no rule blocks', async () => {
+    configureMock(happyPathMap({
+      rules: buildChainableQuery(DEFAULT_RULES.filter((r) => r.area !== 'personalizacion')),
+    }));
+    const plan = await preflightAutoAssignment(COURSE_STRUCTURE_ID, SCHOOL_ID);
+    expect(plan.ok).toBe(false);
+    expect(plan.blockingError?.code).toBe('query_error');
+    expect(plan.blockingError?.templates?.[0]?.id).toBe(TEMPLATE_ID);
+  });
 
+  it('only course-vía templates reach the attach RPC', async () => {
+    configureMock(happyPathMap({ templates: buildChainableQuery([activeTemplate(), lidTemplate()]) }));
+    mockSupabaseAdmin.rpc.mockResolvedValue({ data: { instance_id: INSTANCE_ID, outcome: 'created' }, error: null });
+    const result = await run();
     expect(result.success).toBe(true);
-    expect(result.counts).toEqual({ created: 1, attached: 0, alreadyExisting: 0, skipped: 0, errors: 0 });
-    const payload = insertPayloads(insert.calls)[0] as Record<string, unknown>;
-    expect(payload).toMatchObject({
-      template_snapshot_id: SNAPSHOT_ID,
-      school_id: SCHOOL_ID,
-      transformation_year: 3,
-      generation_type: 'GT',
-      status: 'pending',
-      assigned_by: CREATED_BY,
-    });
-    expect(payload).not.toHaveProperty('course_structure_id');
-    // Existence check is scoped to school-level rows (course_structure_id IS NULL)
-    expect(existence.calls.find(c => c.method === 'is')?.args).toEqual(['course_structure_id', null]);
+    expect(mockSupabaseAdmin.rpc).toHaveBeenCalledTimes(1);
+    expect(mockSupabaseAdmin.rpc.mock.calls[0][1].p_template_snapshot_id).toBe(SNAPSHOT_ID);
   });
 
-  it('reports an already-existing school-level instance without inserting', async () => {
-    const existing = recordingQuery([{ id: INSTANCE_ID }]);
-    configureMock({
-      assessment_templates: buildChainableQuery([activeTemplate()]),
-      assessment_instances: [existing.query],
-    });
-
-    const result = await runSchool();
-
-    expect(result.success).toBe(true);
-    expect(result.counts.alreadyExisting).toBe(1);
-    expect(result.details[0]).toMatchObject({ status: 'already_exists', instanceId: INSTANCE_ID });
-    expect(insertPayloads(existing.calls)).toHaveLength(0);
-  });
-  it('never reuses an archived school-level instance and fails closed on duplicates', async () => {
-    const existence = recordingQuery([{ id: INSTANCE_ID }, { id: 'inst-uuid-dup' }], null);
-    configureMock({
-      assessment_templates: buildChainableQuery([activeTemplate()]),
-      assessment_instances: [existence.query],
-    });
-
-    const result = await runSchool();
-
-    expect(existence.calls.find(c => c.method === 'neq')?.args).toEqual(['status', 'archived']);
-    expect(existence.calls.find(c => c.method === 'limit')?.args).toEqual([2]);
+  it('maps the RPC refusal for a school-level vía to an es-CL message', async () => {
+    configureMock(happyPathMap());
+    mockSupabaseAdmin.rpc.mockResolvedValue({ data: null, error: { message: 'via_not_course_level' } });
+    const result = await run();
     expect(result.success).toBe(false);
-    expect(result.counts.errors).toBe(1);
-    expect(insertPayloads(existence.calls)).toHaveLength(0);
+    expect(result.errors.join(' ')).toContain('responsable del equipo directivo');
   });
 });

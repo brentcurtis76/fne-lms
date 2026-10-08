@@ -22,7 +22,10 @@ const mocks = vi.hoisted(() => {
   });
   return {
     assignmentQuery, supabase: { from },
-    router: { asPath: '/dashboard', push: vi.fn(), prefetch: vi.fn() },
+    router: {
+      asPath: '/dashboard', push: vi.fn(), prefetch: vi.fn(),
+      events: { on: vi.fn(), off: vi.fn() },
+    },
     permissions: {
       hasPermission: () => false, hasAnyPermission: () => false,
       hasAllPermissions: () => false, loading: false,
@@ -122,3 +125,51 @@ describe('Assigned assessments in the actual Sidebar', () => {
       .not.toBeInTheDocument();
   });
 });
+
+describe('A first assignment during the session (20261008120000)', () => {
+  it('appears after the window regains focus, without logging in again', async () => {
+    mocks.assignmentQuery.mockResolvedValue({ count: 0, error: null });
+    render(sidebar('equipo_directivo'));
+    await act(async () => {});
+    await openProcesses(false); // opens the section if it is shown at all
+    expect(screen.queryByRole('link', { name: /Mis Registros Registros que tengo asignados/ })).not.toBeInTheDocument();
+
+    mocks.assignmentQuery.mockResolvedValue({ count: 1, error: null });
+    await act(async () => { window.dispatchEvent(new Event('focus')); });
+    // the section stays open across the re-check; open it only if it was not shown before
+    if (!screen.queryByRole('link', { name: /Mis Registros Registros que tengo asignados/ })) {
+      const button = screen.queryByRole('button', { name: /Gestor de Cambio/ });
+      if (button && button.getAttribute('aria-expanded') !== 'true') fireEvent.click(button);
+    }
+    expect(await screen.findByRole('link', { name: /Mis Registros Registros que tengo asignados/ }))
+      .toHaveAttribute('href', '/docente/assessments');
+  });
+
+  it('re-checks after each navigation and unsubscribes on unmount', async () => {
+    const view = render(sidebar('equipo_directivo'));
+    await act(async () => {});
+    const [event, handler] = mocks.router.events.on.mock.calls.find(([e]: [string]) => e === 'routeChangeComplete')!;
+    expect(event).toBe('routeChangeComplete');
+    const before = mocks.assignmentQuery.mock.calls.length;
+    await act(async () => { await handler(); });
+    expect(mocks.assignmentQuery.mock.calls.length).toBe(before + 1);
+    view.unmount();
+    expect(mocks.router.events.off).toHaveBeenCalledWith('routeChangeComplete', handler);
+  });
+
+  it('an older answer arriving after a newer one never overwrites it (Codex B4 r1)', async () => {
+    const resolvers: ((v: any) => void)[] = [];
+    mocks.assignmentQuery.mockImplementation(() => new Promise((resolve) => resolvers.push(resolve)));
+    render(sidebar('equipo_directivo'));
+    await act(async () => {});
+    // initial check (#0) is pending; a focus starts a newer check (#1)
+    await act(async () => { window.dispatchEvent(new Event('focus')); });
+    expect(resolvers).toHaveLength(2);
+    await act(async () => { resolvers[1]({ count: 1, error: null }); });
+    await act(async () => { resolvers[0]({ count: 0, error: null }); });
+    await openProcesses();
+    expect(await screen.findByRole('link', { name: /Mis Registros Registros que tengo asignados/ }))
+      .toHaveAttribute('href', '/docente/assessments');
+  });
+});
+

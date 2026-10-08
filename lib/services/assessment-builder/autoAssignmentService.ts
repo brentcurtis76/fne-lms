@@ -45,6 +45,7 @@ import {
   type EligibilitySnapshotRow,
   type EligibilityTemplateRow,
 } from '@/lib/services/assessment-builder/templateEligibility';
+import { loadViaRules } from '@/lib/services/assessment-builder/viaRules';
 
 export type AutoAssignmentDetailStatus =
   | 'created'            // new instance created and docente linked
@@ -167,19 +168,6 @@ const COURSE_TEMPLATE_SELECT = `
     name,
     is_always_gt
   ),
-  assessment_template_snapshots (
-    id,
-    version,
-    created_at
-  )
-`;
-
-const SCHOOL_TEMPLATE_SELECT = `
-  id,
-  name,
-  area,
-  status,
-  is_archived,
   assessment_template_snapshots (
     id,
     version,
@@ -413,7 +401,26 @@ async function resolveCourseAssignmentPlan(
     });
   }
 
-  const classified = classifyTemplates((templateRows ?? []) as unknown as TemplateRow[], plan.gradeName);
+  // Only vías assigned by course reach the docente (20261008120000). The rule
+  // filter runs BEFORE classification, so a misconfigured template of a
+  // school-level vía can never block a course assignment. A missing rule or a
+  // failed read blocks: it is never read as 'course_docente'.
+  const rulesLoad = await loadViaRules(supabaseAdmin);
+  if (rulesLoad.kind === 'error') {
+    return blockPlan(plan, { code: 'query_error', message: rulesLoad.message });
+  }
+  const rows = (templateRows ?? []) as unknown as TemplateRow[];
+  const unruled = rows.filter((row) => !rulesLoad.rules.has(row.area));
+  if (unruled.length > 0) {
+    return blockPlan(plan, {
+      code: 'query_error',
+      message: `Hay registros publicados de una vía sin regla de asignación (${templateNames(unruled)}).`,
+      templates: unruled.map((row) => ({ id: row.id, name: row.name })),
+    });
+  }
+  const courseRows = rows.filter((row) => rulesLoad.rules.get(row.area) === 'course_docente');
+
+  const classified = classifyTemplates(courseRows, plan.gradeName);
   plan.skipped = classified.skipped;
 
   if (classified.misconfigured.length > 0) {
@@ -470,10 +477,6 @@ export async function preflightAutoAssignment(
   }
 }
 
-type LiveInstanceLookup =
-  | { kind: 'found'; instance: { id: string } | null }
-  | { kind: 'error'; message: string };
-
 /**
  * The locked, single-transaction attach (migration
  * 20260908130000_attach_course_assessment.sql, replaced by
@@ -522,6 +525,9 @@ const ATTACH_REFUSALS: Record<string, string> = {
   instance_ambiguous:
     'Existe más de un registro activo para este curso y plantilla; se requiere una resolución administrativa antes de asignar.',
   course_not_found: 'El curso no existe.',
+  via_not_course_level:
+    'Esta vía se asigna a un responsable del equipo directivo, no al docente del curso.',
+  via_rule_missing: 'La vía de esta plantilla no tiene regla de asignación.',
   invalid_arguments: 'Parámetros de asignación inválidos.',
 };
 
@@ -563,38 +569,6 @@ async function attachCourseDocenteAssessment(args: {
     return { kind: 'error', message: 'La vinculación del registro devolvió un resultado inesperado.' };
   }
   return { kind: 'ok', instanceId: row.instance_id, outcome };
-}
-
-/**
- * Reads at most two NON-ARCHIVED school-level instances for a snapshot
- * (course_structure_id IS NULL). Zero → create; one → reuse; two → the
- * one-live-instance invariant is already violated and the caller must not
- * guess which to attach (fail closed). Archived instances never match: they
- * are history, never reattached (R4). School-level instances carry no docente
- * grant, so this path is not part of the finding-1 protocol.
- */
-async function findLiveSchoolInstance(schoolId: number, snapshotId: string): Promise<LiveInstanceLookup> {
-  const { data, error } = await supabaseAdmin
-    .from('assessment_instances')
-    .select('id')
-    .eq('school_id', schoolId)
-    .eq('template_snapshot_id', snapshotId)
-    .is('course_structure_id', null)
-    .neq('status', 'archived')
-    .order('created_at', { ascending: true })
-    .limit(2);
-
-  if (error && !isNotFound(error)) {
-    return { kind: 'error', message: `No se pudo verificar el registro existente: ${error.message}` };
-  }
-  const rows = Array.isArray(data) ? data : [];
-  if (rows.length > 1) {
-    return {
-      kind: 'error',
-      message: 'Existe más de un registro activo a nivel de escuela para esta plantilla; se requiere una resolución administrativa.',
-    };
-  }
-  return { kind: 'found', instance: rows[0] ?? null };
 }
 
 /**
@@ -687,124 +661,6 @@ export async function triggerAutoAssignment(
         } else {
           templateDetail.status = 'already_exists';
           result.counts.alreadyExisting++;
-        }
-      } catch (err: any) {
-        templateDetail.status = 'error';
-        templateDetail.error = err.message;
-        result.errors.push(`Template ${template.name}: ${err.message}`);
-      }
-
-      result.details.push(templateDetail);
-    }
-
-    return finalizeResult(result);
-  } catch (err: any) {
-    result.errors.push(`Unexpected error: ${err.message}`);
-    return finalizeResult(result);
-  }
-}
-
-/**
- * Creates assessment instances for a school when context is completed.
- * Unlike triggerAutoAssignment, this creates instances at the school level,
- * not the course level (for directivo-only assessments).
- *
- * Applies the same eligibility policy (published + not archived + current
- * snapshot). Zero eligible templates or a snapshot-less eligible template is a
- * blocking failure, never a silent success.
- *
- * For school-level instances, we default to GT since they are not tied to a
- * specific course/grade. Scoring will use GT expectations.
- *
- * NOTE: Uses supabaseAdmin internally to bypass RLS restrictions.
- */
-export async function createSchoolLevelInstances(
-  _supabase: any, // Kept for backwards compatibility, uses supabaseAdmin instead
-  schoolId: number,
-  transformationYear: 1 | 2 | 3 | 4 | 5,
-  createdBy: string
-): Promise<AutoAssignmentResult> {
-  const result = emptyResult();
-
-  try {
-    // Eligible templates: status = published AND is_archived = false.
-    // `any` for the same TS2589 reason as the course-level query above.
-    const schoolTemplatesQuery: any = supabaseAdmin
-      .from('assessment_templates')
-      .select(SCHOOL_TEMPLATE_SELECT);
-    const { data: templateRows, error: templatesError } = await applyEligibleTemplateFilter(schoolTemplatesQuery)
-      .order('area');
-
-    if (templatesError || !templateRows) {
-      return blocked(result, {
-        code: 'query_error',
-        message: `Error al consultar templates de registro: ${templatesError?.message ?? 'sin datos'}`,
-      });
-    }
-
-    const classified = classifyTemplates(templateRows as unknown as TemplateRow[], null);
-    result.details.push(...classified.skipped);
-    result.counts.skipped = classified.skipped.length;
-
-    if (classified.misconfigured.length > 0) {
-      return blocked(result, snapshotMissingError(classified.misconfigured, null));
-    }
-
-    if (classified.eligible.length === 0) {
-      return blocked(result, {
-        code: 'no_eligible_templates',
-        message: 'No hay templates publicados y vigentes para crear registros a nivel de escuela.',
-      });
-    }
-
-    for (const { row: template, snapshot } of classified.eligible) {
-      const templateDetail: AutoAssignmentDetail = {
-        templateId: template.id,
-        templateName: template.name,
-        area: template.area,
-        status: 'created',
-      };
-
-      try {
-        // Reuse only a LIVE school-level instance; archived ones are history
-        // (R4). Ambiguous duplicates fail closed.
-        const lookup = await findLiveSchoolInstance(schoolId, snapshot.id);
-        if (lookup.kind === 'error') {
-          templateDetail.status = 'error';
-          templateDetail.error = lookup.message;
-          result.errors.push(`Template ${template.name}: ${templateDetail.error}`);
-          result.details.push(templateDetail);
-          continue;
-        }
-        const existingInstance = lookup.instance;
-
-        if (existingInstance) {
-          templateDetail.status = 'already_exists';
-          templateDetail.instanceId = existingInstance.id;
-          result.counts.alreadyExisting++;
-        } else {
-          // School-level instances default to GT
-          const { data: newInstance, error: instanceError } = await supabaseAdmin
-            .from('assessment_instances')
-            .insert({
-              template_snapshot_id: snapshot.id,
-              school_id: schoolId,
-              transformation_year: transformationYear,
-              generation_type: 'GT',
-              status: 'pending',
-              assigned_by: createdBy,
-            })
-            .select()
-            .single();
-
-          if (instanceError || !newInstance) {
-            templateDetail.status = 'error';
-            templateDetail.error = instanceError?.message || 'Failed to create instance';
-            result.errors.push(`Template ${template.name}: ${templateDetail.error}`);
-          } else {
-            templateDetail.instanceId = newInstance.id;
-            result.counts.created++;
-          }
         }
       } catch (err: any) {
         templateDetail.status = 'error';

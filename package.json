@@ -61,6 +61,7 @@
     "test:supervisor-concurrency": "node scripts/ci/supervisor-concurrency-proof.mjs",
     "test:context-save-concurrency": "node scripts/ci/context-save-concurrency-proof.mjs",
     "test:operation-a": "node scripts/ci/operation-a-proof.mjs",
+    "test:via-rules-concurrency": "node scripts/ci/via-rules-concurrency-proof.mjs",
     "test:pilot-reset-cascade": "node --import tsx scripts/ci/pilot-reset-cascade-proof.mjs",
     "test:db:consultor": "psql $DATABASE_URL -f supabase/tests/010-consultor-sessions-rls.sql",
     "apply:group-assignments": "node scripts/apply-group-assignments.js",

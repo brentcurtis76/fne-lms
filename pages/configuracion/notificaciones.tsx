@@ -117,7 +117,7 @@ export const getServerSideProps: GetServerSideProps<SettingsProps> = async (cont
     return { redirect: { destination: `/login?next=${encodeURIComponent(context.resolvedUrl)}`, permanent: false } };
   }
   const service = createServiceRoleClient();
-  // The middleware's page gate does not list /configuracion, so the forced-password rule is applied here.
+  // The middleware's page gate also covers /configuracion; the forced-password rule is applied here as well (defence in depth).
   const verdict = await getForcedPasswordChangeVerdict(service, viewer.id);
   if (verdict !== 'allowed') {
     return { redirect: { destination: forcedChangeRedirectPath(verdict), permanent: false } };

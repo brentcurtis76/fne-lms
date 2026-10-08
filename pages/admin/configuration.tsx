@@ -2,11 +2,11 @@ import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { supabase } from '../../lib/supabase';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 
 import MainLayout from '../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../components/layout/FunctionalPageHeader';
-import { Bell, Settings, Users, Palette, CheckCircle, XCircle, Loader2, RefreshCw, UserCog } from 'lucide-react';
-import UserPreferences from '../../components/configuration/UserPreferences';
+import { Bell, Settings, Users, Palette, CheckCircle, XCircle, Loader2, RefreshCw } from 'lucide-react';
 import FeedbackPermissionsManager from '../../components/admin/FeedbackPermissionsManager';
 import { metadataHasRole } from '../../utils/roleUtils';
 
@@ -30,7 +30,6 @@ const tabs: TabItem[] = [
   { id: 'system', label: 'Sistema General', icon: <Settings className="w-5 h-5" /> },
   { id: 'users', label: 'Usuarios y Permisos', icon: <Users className="w-5 h-5" /> },
   { id: 'customization', label: 'Personalización', icon: <Palette className="w-5 h-5" /> },
-  { id: 'preferences', label: 'Preferencias de Usuario', icon: <UserCog className="w-5 h-5" /> },
 ];
 
 export default function Configuration() {
@@ -99,8 +98,6 @@ export default function Configuration() {
       // User is admin if either metadata or user_roles indicates admin
       const isAdminUser = adminFromMetadata || hasAdminRoleInDB;
       
-      // Allow all authenticated users to access configuration for preferences tab
-      // Only restrict admin-only tabs
       setIsAdmin(isAdminUser);
       
       // Load notification types after successful auth
@@ -392,11 +389,18 @@ export default function Configuration() {
                 <Bell className="h-5 w-5 text-brand_accent mr-2 mt-0.5" />
                 <div>
                   <h4 className="text-sm font-medium text-brand_primary mb-1">
-                    Configuración Avanzada
+                    Preferencias personales
                   </h4>
                   <p className="text-sm text-gray-700">
-                    La gestión de preferencias de usuario individuales estará disponible en una futura actualización.
-                    Por ahora, puedes visualizar todos los tipos de notificación disponibles en el sistema.
+                    Cada persona elige qué notificaciones recibe por correo en{' '}
+                    <Link
+                      href="/configuracion/notificaciones"
+                      className="font-medium text-brand_primary underline hover:text-brand_accent"
+                      data-testid="admin-config-personal-settings"
+                    >
+                      Configuración de notificaciones
+                    </Link>
+                    . Aquí puedes visualizar todos los tipos de notificación disponibles en el sistema.
                   </p>
                 </div>
               </div>
@@ -454,8 +458,6 @@ export default function Configuration() {
             {commonContent}
           </div>
         );
-      case 'preferences':
-        return <UserPreferences userId={currentUser?.id} />;
       default:
         return commonContent;
     }

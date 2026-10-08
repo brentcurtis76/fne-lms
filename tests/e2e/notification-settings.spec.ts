@@ -16,7 +16,9 @@ import { join } from 'node:path';
  * on the happy path. B (docente, no school) sees only B's own settings on a
  * phone-sized screen, and a cookie that names A with B's token shows nothing of
  * A's. C (equipo directivo of the school) is offered the pending-quiz event
- * that reaches assigned reviewers, but not group submissions. Every fixture is deleted by exact id in afterAll and the manifest is
+ * that reaches assigned reviewers, but not group submissions. N4-03: D (admin) and B reach the page from the gear of the
+ * active sidebar bell on /dashboard and of the legacy header bell (empty and failed list, keyboard, modified click), the
+ * /notifications cog and Mi Perfil on desktop and phone; the admin preferences tab and the dead preference routes are gone. Every fixture is deleted by exact id in afterAll and the manifest is
  * written next to the screenshots. Synthetic *@qa.local.test users on a local
  * database only; no email is sent and no producer runs.
  */
@@ -37,6 +39,7 @@ const users = {
   a: { id: '', email: `notif20-${RUN}-a@qa.local.test`, roles: ['consultor', 'encargado_licitacion'] },
   b: { id: '', email: `notif20-${RUN}-b@qa.local.test`, roles: ['docente'] },
   c: { id: '', email: `notif20-${RUN}-c@qa.local.test`, roles: ['equipo_directivo'] },
+  d: { id: '', email: `notif20-${RUN}-d@qa.local.test`, roles: ['admin'] },
 };
 type User = (typeof users)[keyof typeof users];
 const ids = { school: 0, legacy: [] as string[], types: [] as string[] };
@@ -89,6 +92,136 @@ async function openSettings(page: Page, path = PAGE) {
 
 const mode = (page: Page, category: string) => page.getByTestId(`ns-mode-${category}`);
 const fitsWidth = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+const BELL_LIST = '**/api/notifications?limit=10';
+/** The active sidebar bell reads Supabase directly from the browser. */
+const CENTER_LIST = (url: URL) => url.pathname.endsWith('/rest/v1/user_notifications');
+const isPhone = (page: Page) => (page.viewportSize()?.width ?? DESKTOP.width) < 640;
+
+async function dashboard(page: Page) {
+  await page.goto('/dashboard');
+  // The greeting renders once the client session and profile have loaded.
+  await expect(page.getByRole('heading', { name: /^¡Hola, Persona!/ })).toBeVisible({ timeout: 60_000 });
+}
+
+async function expectSettings(page: Page) {
+  await expect(page).toHaveURL(new RegExp(`${PAGE}$`));
+  await expect(page.getByTestId('ns-save')).toBeVisible({ timeout: 60_000 });
+  expect(await fitsWidth(page)).toBe(true);
+}
+
+/**
+ * N4-03: the gear of the bell every MainLayout page shows (ModernNotificationCenter, in the sidebar; on a phone the sidebar
+ * is opened first). 'empty' is the list as the database answers; 'error' fails the browser's own Supabase read.
+ * `modifiedClick` first opens the gear in a new tab, as a browser does with a Ctrl/Cmd click, and checks this page stays.
+ */
+async function followActiveBell(page: Page, label: string, bell: 'empty' | 'error', keyboard: boolean, modifiedClick = false) {
+  if (bell === 'error') {
+    await page.route(CENTER_LIST, (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{"message":"x"}' }));
+  }
+  await dashboard(page);
+  const openBell = async () => {
+    if (isPhone(page)) await page.getByRole('button', { name: 'Abrir menú de navegación' }).click();
+    const bellButton = page.getByRole('button', { name: /^Notificaciones( \(\d+ sin leer\))?$/ });
+    await expect(bellButton).toBeVisible({ timeout: 60_000 });
+    if (keyboard) {
+      await bellButton.focus();
+      await page.keyboard.press('Enter');
+    } else {
+      await bellButton.click();
+    }
+    await expect(page.getByText(bell === 'empty' ? 'Sin notificaciones' : 'Error al cargar')).toBeVisible({ timeout: 60_000 });
+    const gear = page.getByTestId('notification-center-settings');
+    await expect(gear).toHaveAccessibleName('Configuración de notificaciones');
+    await expect(gear).toHaveAttribute('href', PAGE);
+    await expect(gear).toBeInViewport();
+    return gear;
+  };
+
+  let gear = await openBell();
+  await shot(page, `${label}-0-active-bell-${bell}`);
+  if (modifiedClick) {
+    const [tab] = await Promise.all([page.context().waitForEvent('page'), gear.click({ modifiers: ['ControlOrMeta'] })]);
+    await expect(tab).toHaveURL(new RegExp(`${PAGE}$`), { timeout: 60_000 });
+    await expect(tab.getByTestId('ns-save')).toBeVisible({ timeout: 60_000 });
+    await tab.close();
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await dashboard(page);
+    gear = await openBell();
+  }
+  if (keyboard) {
+    await page.keyboard.press('Tab');
+    await expect(gear).toBeFocused();
+    await page.keyboard.press('Enter');
+  } else {
+    await gear.click();
+  }
+  await expectSettings(page);
+  if (bell === 'error') await page.unroute(CENTER_LIST);
+  // Back returns to the dashboard with the panel closed.
+  await page.goBack();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByTestId('notification-center-settings')).toHaveCount(0);
+}
+
+/**
+ * N4-03: the personal entry points, each followed to the real settings page: the active sidebar bell, the legacy header
+ * bell (`/dashboard-old`), the /notifications cog and Mi Perfil. `bell` decides both bells' list state: 'empty' as the
+ * data answers, 'error' when the browser's read fails.
+ */
+async function followEntryPoints(page: Page, label: string, bell: 'empty' | 'error', keyboard: boolean, modifiedClick = false) {
+  await followActiveBell(page, label, bell, keyboard, modifiedClick);
+  if (bell === 'error') {
+    await page.route(BELL_LIST, (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{"success":false,"error":"x"}' }));
+  }
+  await page.goto('/dashboard-old');
+  const bellButton = page.getByRole('button', { name: /^Notificaciones/ });
+  await expect(bellButton).toBeVisible({ timeout: 60_000 });
+  if (keyboard) {
+    await bellButton.focus();
+    await page.keyboard.press('Enter');
+  } else {
+    await bellButton.click();
+  }
+  await expect(page.getByText(bell === 'empty' ? 'No tienes notificaciones' : 'Intentar de nuevo')).toBeVisible({ timeout: 60_000 });
+  const gear = page.getByRole('link', { name: 'Configuración de notificaciones' });
+  await expect(gear).toBeInViewport();
+  await shot(page, `${label}-1-bell-${bell}`);
+  if (keyboard) {
+    await page.keyboard.press('Tab');
+    await expect(gear).toBeFocused();
+    await page.keyboard.press('Enter');
+  } else {
+    await gear.click();
+  }
+  await expectSettings(page);
+  if (bell === 'error') await page.unroute(BELL_LIST);
+  // Back returns to the page the bell was on, with the menu closed.
+  await page.goBack();
+  await expect(page).toHaveURL(/\/dashboard-old$/);
+  await expect(page.getByTestId('notification-dropdown-settings')).toHaveCount(0);
+
+  // /notifications and /profile are reached in-app: a cold load of either renders before the client session exists and
+  // bounces through /login to /dashboard, as before N4-03. /notifications (the bell's "Ver todas", shown only with notices)
+  // is opened with the app's own router from a loaded page; Mi Perfil through the header avatar link.
+  await dashboard(page);
+  await page.evaluate(() => (window as unknown as { next: { router: { push: (url: string) => Promise<boolean> } } }).next.router.push('/notifications'));
+  await expect(page).toHaveURL(/\/notifications$/);
+  await expect(page.getByTestId('notifications-page-settings')).toBeVisible({ timeout: 60_000 });
+  await shot(page, `${label}-2-notifications-cog`);
+  await page.getByTestId('notifications-page-settings').click();
+  await expectSettings(page);
+
+  await dashboard(page);
+  await page.locator('a[href="/profile"]').first().click();
+  await expect(page).toHaveURL(/\/profile$/);
+  const profileLink = page.getByRole('link', { name: /Notificaciones por correo/ });
+  await expect(profileLink).toBeVisible({ timeout: 60_000 });
+  await profileLink.scrollIntoViewIfNeeded();
+  await shot(page, `${label}-3-mi-perfil`);
+  await profileLink.click();
+  await expectSettings(page);
+  await shot(page, `${label}-4-settings`);
+}
 
 test.describe.configure({ mode: 'serial', timeout: 300_000 });
 
@@ -346,5 +479,82 @@ test.describe('notification settings page (N4-02)', () => {
     await shot(page, 'desktop-4-c-directivo-reviewer');
     expect(problems).toEqual([]);
     await context.close();
+  });
+
+  test('entry points (N4-03): D, admin, reaches and keeps own settings from every entry point; the admin tab and dead routes are gone', async ({ browser }) => {
+    test.setTimeout(480_000);
+    const { context, page, problems } = await signedIn(browser, DESKTOP, users.d);
+    await followEntryPoints(page, 'desktop-6-d-admin', 'empty', true, true);
+
+    // D's own choice, saved on the page reached from Mi Perfil, survives reload and back.
+    await mode(page, 'system').selectOption('off');
+    await page.getByTestId('ns-save').click();
+    await expect(page.getByTestId('ns-saved')).toBeVisible();
+    await page.reload();
+    await expect(page.getByTestId('ns-save')).toBeVisible({ timeout: 60_000 });
+    await expect(mode(page, 'system')).toHaveValue('off');
+    expect(await categoryRows(users.d)).toEqual([{ category: 'system', email_mode: 'off' }]);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/profile$/);
+
+    // The admin configuration keeps its other tabs; the personal preferences tab is retired.
+    await page.goto('/admin/configuration');
+    for (const tab of ['Notificaciones', 'Sistema General', 'Usuarios y Permisos', 'Personalización']) {
+      await expect(page.getByRole('button', { name: tab, exact: true })).toBeVisible({ timeout: 60_000 });
+    }
+    await expect(page.getByRole('button', { name: 'Preferencias de Usuario' })).toHaveCount(0);
+    await expect(page.getByTestId('admin-config-personal-settings')).toHaveAttribute('href', PAGE);
+    await expect(page.getByText(/futura actualización/)).toHaveCount(0);
+    await page.getByRole('button', { name: 'Usuarios y Permisos', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Usuarios y Permisos' })).toBeVisible();
+    await shot(page, 'desktop-7-d-admin-configuration');
+
+    // The dead preference routes answer 404 to a signed-in admin and write nothing.
+    const token = (await signIn(users.d)).access_token;
+    const statuses: Record<string, number> = {};
+    for (const [method, path] of [
+      ['POST', '/api/user/notification-preferences/bulk-update'],
+      ['PUT', '/api/user/notification-preferences/bulk-update'],
+      ['GET', '/api/test/notification-preferences'],
+      ['POST', '/api/test/notification-preferences'],
+    ] as const) {
+      const response = await page.request.fetch(path, { method, headers: { Authorization: `Bearer ${token}` }, data: method === 'GET' ? undefined : { preferences: {} } });
+      statuses[`${method} ${path}`] = response.status();
+    }
+    evidence.retiredRoutes = statuses;
+    expect(Object.values(statuses)).toEqual([404, 404, 404, 404]);
+    expect(await categoryRows(users.d)).toEqual([{ category: 'system', email_mode: 'off' }]);
+    expect(must('d legacy rows', await service.from('user_notification_preferences').select('id').eq('user_id', users.d.id))).toEqual([]);
+    expect(problems).toEqual([]);
+    await context.close();
+
+    const phone = await signedIn(browser, MOBILE, users.d);
+    await followEntryPoints(phone.page, 'mobile-5-d-admin', 'error', false);
+    await expect(mode(phone.page, 'system')).toHaveValue('off');
+    expect(phone.problems).toEqual([]);
+    await phone.context.close();
+  });
+
+  test('entry points (N4-03): B, docente, reaches own settings on phone and desktop, including from a failed bell; admin configuration stays closed', async ({ browser }) => {
+    test.setTimeout(480_000);
+    const before = await categoryRows(users.b);
+    const { context, page, problems } = await signedIn(browser, MOBILE, users.b);
+    await followEntryPoints(page, 'mobile-6-b-docente', 'error', false);
+    await mode(page, 'courses').selectOption('immediate');
+    await page.getByTestId('ns-save').click();
+    await expect(page.getByTestId('ns-saved')).toBeVisible();
+    await page.reload();
+    await expect(mode(page, 'courses')).toHaveValue('immediate', { timeout: 60_000 });
+    expect(await categoryRows(users.b)).toEqual([...before, { category: 'courses', email_mode: 'immediate' }].sort((x, y) => x.category.localeCompare(y.category)));
+    await page.goto('/admin/configuration');
+    await expect(page).toHaveURL(/\/dashboard(\?|$)/);
+    expect(problems).toEqual([]);
+    await context.close();
+
+    const desk = await signedIn(browser, DESKTOP, users.b);
+    await followEntryPoints(desk.page, 'desktop-8-b-docente', 'empty', true);
+    await expect(mode(desk.page, 'courses')).toHaveValue('immediate');
+    expect(desk.problems).toEqual([]);
+    await desk.context.close();
   });
 });

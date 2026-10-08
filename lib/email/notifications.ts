@@ -26,6 +26,9 @@ import { renderEmail } from './render';
 /** Where a notification whose own link is not usable sends the reader instead. */
 const FALLBACK_PATH = '/notifications';
 
+/** The owner's notification settings (NOTIF plan D7), linked from every notification e-mail. */
+export const NOTIFICATION_SETTINGS_PATH = '/configuracion/notificaciones';
+
 export type NotificationEmailStatus =
   | 'provider_accepted'
   | 'recipient_lookup_failed'
@@ -105,7 +108,8 @@ function subjectFor(title: string): string {
 /**
  * The message body, in the shared shell. `renderEmail` escapes every value: the
  * title and the description come from event payloads, and the href is
- * interpolated into an attribute.
+ * interpolated into an attribute. The settings link uses the same origin as the
+ * callers' `url` (`getAppBaseUrl`).
  */
 export function buildNotificationEmail(params: {
   title: string;
@@ -122,6 +126,10 @@ export function buildNotificationEmail(params: {
       fallbackLead: 'Si el botón no funciona, copia este enlace en tu navegador:',
       closingLine:
         'Recibes este correo porque tienes activadas las notificaciones por correo en Genera. Puedes cambiarlo en tu configuración de notificaciones.',
+      footerLink: {
+        lead: 'Configuración de notificaciones:',
+        href: `${getAppBaseUrl()}${NOTIFICATION_SETTINGS_PATH}`,
+      },
     }),
   };
 }

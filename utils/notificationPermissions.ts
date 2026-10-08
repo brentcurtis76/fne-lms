@@ -10,7 +10,6 @@ export const isAdminOnlyRoute = (url: string): boolean => {
   // List of admin-only route patterns
   const adminRoutes = [
     '/admin/',
-    '/configuracion',
     '/usuarios',
     '/gestion'
   ];
@@ -27,7 +26,6 @@ export const getRequiredRole = (url: string): string | null => {
   // Map URLs to required roles
   const roleRoutes: Record<string, string[]> = {
     '/admin/': ['admin'],
-    '/configuracion': ['admin'],
     '/usuarios': ['admin'],
     '/consultorias': ['admin', 'consultor'],
     '/gestion': ['admin'],

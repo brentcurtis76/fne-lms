@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react';
 import { supabase } from '../lib/supabase';
@@ -377,9 +378,9 @@ export default function NotificationsPage() {
               </p>
             </div>
             <div className="flex items-center space-x-2">
-              <button onClick={() => router.push('/configuracion')} className="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100" title="Configuración">
-                <CogIcon className="h-5 w-5" />
-              </button>
+              <Link href="/configuracion/notificaciones" className="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100" title="Configuración de notificaciones" aria-label="Configuración de notificaciones" data-testid="notifications-page-settings">
+                <CogIcon className="h-5 w-5" aria-hidden="true" />
+              </Link>
               <button onClick={handleRefresh} disabled={refreshing} className="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-50" title="Refrescar">
                 <RefreshIcon className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
               </button>

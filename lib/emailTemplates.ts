@@ -106,7 +106,7 @@ export function emailLayout(content: string, preheader?: string): string {
                     © ${new Date().getFullYear()} Genera - Fundación Nueva Educación. Todos los derechos reservados.
                   </p>
                   <p style="margin: 0; color: ${styles.colors.gray}; font-size: ${styles.fonts.sizes.small};">
-                    <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/configuration?tab=preferences" 
+                    <a href="${escapeHtml(`${process.env.NEXT_PUBLIC_APP_URL ?? ''}/configuracion/notificaciones`)}"
                        style="color: ${styles.colors.primary}; text-decoration: none;">
                       Administrar preferencias de notificación
                     </a>

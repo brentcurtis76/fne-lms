@@ -120,6 +120,9 @@ const CreateTemplate: React.FC = () => {
     if (!isSchoolVia && !grade) return;
 
     const year = new Date().getFullYear();
+    // A newer vía/grade selection makes this request obsolete: its answer must
+    // never set the name (or the auto-name ref) of the new selection.
+    let obsolete = false;
 
     const fetchCountAndSetName = async () => {
       try {
@@ -129,8 +132,9 @@ const CreateTemplate: React.FC = () => {
           count_only: 'true',
         });
         const response = await fetch(`/api/admin/assessment-builder/templates?${params.toString()}`);
-        if (!response.ok) return;
+        if (obsolete || !response.ok) return;
         const data = await response.json();
+        if (obsolete) return;
         const count = data.count ?? 0;
         const version = count + 1;
 
@@ -154,6 +158,9 @@ const CreateTemplate: React.FC = () => {
     };
 
     fetchCountAndSetName();
+    return () => {
+      obsolete = true;
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.area, formData.grade_id, grades, viaRules]);
 

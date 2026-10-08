@@ -66,20 +66,35 @@ function parseSemver(version: string | null | undefined): [number, number, numbe
   return [parts[0], parts[1], parts[2]];
 }
 
-/** Next patch version in the template's uniqueness scope; '1.0.0' for an empty scope. */
+/** PostgREST answers at most `max_rows` (1000) rows per request: read the scope page by page. */
+const VERSION_PAGE_SIZE = 1000;
+
+/**
+ * Next patch version in the template's uniqueness scope; '1.0.0' for an empty
+ * scope. The whole scope is read in id-ordered pages, so no row cap can hide
+ * an occupied version. Throws when a page cannot be read: guessing a version
+ * from a partial scope could collide.
+ */
 export async function nextTemplateVersion(
   client: any,
   area: string,
   gradeId: number | null,
   name: string
 ): Promise<string> {
-  let query = client.from('assessment_templates').select('version, name').eq('area', area);
-  query = gradeId === null ? query.is('grade_id', null) : query.eq('grade_id', gradeId);
-  const { data } = await query;
+  const rows: { version?: string; name?: string }[] = [];
+  for (let from = 0; ; from += VERSION_PAGE_SIZE) {
+    let query = client.from('assessment_templates').select('id, version, name').eq('area', area);
+    query = gradeId === null ? query.is('grade_id', null) : query.eq('grade_id', gradeId);
+    const { data, error } = await query.order('id', { ascending: true }).range(from, from + VERSION_PAGE_SIZE - 1);
+    if (error) throw new Error('No se pudieron leer las versiones existentes del template.');
+    const page = (data ?? []) as { version?: string; name?: string }[];
+    rows.push(...page);
+    if (page.length < VERSION_PAGE_SIZE) break;
+  }
 
   const trimmed = name.trim();
   let max: [number, number, number] | null = null;
-  for (const row of (data ?? []) as { version?: string; name?: string }[]) {
+  for (const row of rows) {
     if (gradeId === null && String(row.name ?? '').trim() !== trimmed) continue;
     const v = parseSemver(row.version);
     if (!v) continue;

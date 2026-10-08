@@ -285,10 +285,15 @@ describe('POST /api/admin/assessment-builder/templates — vía rules (202610081
 
   it('maps a database guard refusal to 409', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
+    let templateCalls = 0;
     const client = {
       from: vi.fn((table: string) => {
         if (table === 'ab_via_assignment_rules') return buildChainableQuery(VIA_RULES);
-        return buildChainableQuery(null, { message: 'template_grade_required', code: 'P0001' });
+        templateCalls++;
+        // first call: version scan (empty scope); second: the refused insert
+        return templateCalls === 1
+          ? buildChainableQuery([])
+          : buildChainableQuery(null, { message: 'template_grade_required', code: 'P0001' });
       }),
     };
     const res = await post({ area: 'evaluacion', name: 'EVA', grade_id: 7 }, client);

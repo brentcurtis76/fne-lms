@@ -106,21 +106,34 @@ describe('POST /api/.../templates/[id]/duplicate', () => {
     mockHasWritePerm.mockResolvedValue(true);
   };
 
-  it('20261008120000: a school-level vía copy without grade is accepted past validation', async () => {
-    let templateCalls = 0;
+  it('20261008120000: a school-level vía copy without grade is created grade-less', async () => {
+    // Recording client: every call on every table is kept, results are queued per table.
+    const calls: { table: string; method: string; args: unknown[] }[] = [];
+    const queues: Record<string, unknown[]> = {
+      ab_via_assignment_rules: [VIA_RULES],
+      assessment_templates: [
+        { id: TEMPLATE_PUBLISHED, area: 'liderazgo', grade_id: null }, // source
+        [{ version: '1.0.2', name: 'LID copia' }],                      // grade-less version scan
+        { id: 'copy', area: 'liderazgo', grade_id: null },             // insert
+      ],
+    };
     adminWith((table) => {
-      if (table === 'ab_via_assignment_rules') return buildChainableQuery(VIA_RULES);
-      if (table === 'assessment_templates') {
-        templateCalls++;
-        if (templateCalls === 1) return buildChainableQuery({ id: TEMPLATE_PUBLISHED, area: 'liderazgo', grade_id: null });
-        if (templateCalls === 2) return buildChainableQuery([]);
-        return buildChainableQuery({ id: 'copy', area: 'liderazgo', grade_id: null });
-      }
-      return buildChainableQuery([]);
+      const q = queues[table] ?? [];
+      const data = q.length > 1 ? q.shift() : q[0] ?? [];
+      const handler: ProxyHandler<object> = {
+        get(_t, prop) {
+          if (prop === 'then') return (resolve: (v: unknown) => void) => resolve({ data, error: null });
+          return (...args: unknown[]) => { calls.push({ table, method: String(prop), args }); return new Proxy({}, handler); };
+        },
+      };
+      return new Proxy({}, handler);
     });
     const { req, res } = createMocks({ method: 'POST', query: { templateId: TEMPLATE_PUBLISHED }, body: { name: 'LID copia', grade_id: null } });
     await duplicateHandler(req as any, res as any);
-    expect(res._getStatusCode()).not.toBe(400);
+    expect(res._getStatusCode()).toBe(201);
+    expect(calls).toContainEqual({ table: 'assessment_templates', method: 'is', args: ['grade_id', null] });
+    const insert = calls.find((c) => c.table === 'assessment_templates' && c.method === 'insert')!.args[0];
+    expect(insert).toMatchObject({ area: 'liderazgo', grade_id: null, name: 'LID copia', version: '1.0.3', status: 'draft' });
   });
 
   it('20261008120000: a grade on a school-level vía copy is refused', async () => {

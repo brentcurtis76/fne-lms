@@ -59,6 +59,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(scope.status).json({ error: scope.message });
     }
     const schoolId = scope.schoolId;
+    const canRecalculate = (userRolesData || []).some((r: any) => r.role_type === 'admin');
 
     // Get course structures for the school (use admin client to bypass RLS)
     let coursesQuery = supabaseAdmin
@@ -155,6 +156,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         let totalScore = 0;
         let totalLevel = 0;
         let completedCount = 0;
+        let unavailableCount = 0;
         // Track generation type from first instance (all instances for a course should have same type)
         let courseGenerationType: GenerationType | null = null;
 
@@ -167,12 +169,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             courseGenerationType = (instance as any).generation_type as GenerationType;
           }
 
-          // Get or calculate results
+          // Stored results only for non-admins (see school-results): never
+          // recalculate from a response set the viewer may not fully see.
           let summary = await getInstanceResults(supabaseClient, instance.id);
 
-          if (!summary) {
+          if (!summary && canRecalculate) {
             const calcResult = await calculateAndSaveScores(supabaseClient, instance.id);
             summary = calcResult.summary || null;
+          }
+          if (!summary) {
+            unavailableCount++;
           }
 
           if (summary) {
@@ -206,6 +212,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             avgLevel,
             avgLevelLabel: getMaturityLevelLabel(Math.round(avgLevel)),
             meetsExpectations: avgLevel >= expectedLevel,
+            unavailableResults: unavailableCount,
           },
           byArea: areaResults,
         };

@@ -1236,7 +1236,20 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
     };
 
     checkAssessments();
-    return () => { cancelled = true; };
+    // A first assignment can arrive during a session (e.g. a directivo picked
+    // as Liderazgo responsible in Contexto Transversal, 20261008120000):
+    // re-check after each navigation and when the window regains focus.
+    // These re-checks keep the current state until the answer arrives.
+    const events = router?.events;
+    events?.on?.('routeChangeComplete', checkAssessments);
+    window.addEventListener('focus', checkAssessments);
+    return () => {
+      cancelled = true;
+      events?.off?.('routeChangeComplete', checkAssessments);
+      window.removeEventListener('focus', checkAssessments);
+    };
+  // router.events is a stable singleton
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, supabase]);
 
   // Fetch new feedback count for admins

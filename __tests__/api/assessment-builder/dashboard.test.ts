@@ -147,3 +147,30 @@ describe('results endpoints: a consultor reads only assigned schools', () => {
     expect(res._getStatusCode()).toBe(200);
   });
 });
+
+describe('stored results only for non-admins (20261008120000)', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('a directivo never recalculates a missing result; it is reported as unavailable', async () => {
+    // The scoringService mock has no calculateAndSaveScores: any recalculation
+    // attempt would throw and turn this into a 500.
+    const scoring = await import('../../../lib/services/assessment-builder/scoringService');
+    const { supabaseAdmin } = await import('../../../lib/supabaseAdmin');
+    (supabaseAdmin.from as any).mockImplementation((table: string) => {
+      if (table === 'user_roles') return buildChainableQuery([{ role_type: 'equipo_directivo', school_id: 5 }]);
+      if (table === 'assessment_instances') {
+        return buildChainableQuery([{ id: 'i1', completed_at: '2026-10-01', assessment_template_snapshots: { snapshot_data: { template: { area: 'liderazgo' } } }, school_course_structure: null }]);
+      }
+      return buildChainableQuery(null);
+    });
+    mockGetApiUser.mockResolvedValue({ user: { id: DIRECTIVO_UUID }, error: null });
+    mockCreateApiSupabaseClient.mockResolvedValue({ from: vi.fn(() => buildChainableQuery([])) });
+
+    const { req, res } = createMocks({ method: 'GET' });
+    await schoolResultsHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(JSON.parse(res._getData()).unavailableResults).toBe(1);
+    expect((scoring as any).getInstanceResults).toHaveBeenCalledWith(expect.anything(), 'i1');
+  });
+});

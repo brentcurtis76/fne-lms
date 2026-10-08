@@ -82,6 +82,8 @@ interface SchoolResultsData {
     name: string;
   };
   transformationYear: number;
+  /** Completed registros whose stored result is missing (never recalculated for directivos). */
+  unavailableResults?: number;
   expectedLevel: {
     level: number;
     label: string;
@@ -313,6 +315,14 @@ const DirectivoDashboard: React.FC = () => {
             Actualizar
           </button>
         </div>
+
+        {(schoolResults?.unavailableResults ?? 0) > 0 && (
+          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800" data-testid="results-unavailable-note">
+            {schoolResults!.unavailableResults === 1
+              ? 'Un registro completado aún no tiene resultado disponible y no se incluye en los promedios.'
+              : `${schoolResults!.unavailableResults} registros completados aún no tienen resultado disponible y no se incluyen en los promedios.`}
+          </div>
+        )}
 
         {!hasResults ? (
           <div className="bg-white shadow-md rounded-lg p-8 text-center">

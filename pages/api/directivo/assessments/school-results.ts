@@ -132,6 +132,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Gather summaries and gap analyses for all instances
+    const canRecalculate = (userRolesData || []).some((r: any) => r.role_type === 'admin');
+    let unavailableResults = 0;
     const summaries: AssessmentSummary[] = [];
     const gapAnalyses: AssessmentGapAnalysis[] = [];
     const instanceDetails: any[] = [];
@@ -145,16 +147,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         continue;
       }
 
-      // Get or calculate results
+      // Stored results only (20261008120000): a viewer who cannot read every
+      // response of the registro (e.g. a directivo who is not the vía
+      // responsible) must never recalculate, or a false zero would be saved
+      // through the admin client. Results are written at submit; a completed
+      // registro without one is reported as unavailable. Only an admin, who
+      // reads every response, may still recalculate.
       let summary = await getInstanceResults(supabaseClient, instance.id);
 
-      if (!summary) {
-        // Calculate if not exists
+      if (!summary && canRecalculate) {
         const { getInstanceResults: _, calculateAndSaveScores } = await import(
           '@/lib/services/assessment-builder/scoringService'
         );
         const calcResult = await calculateAndSaveScores(supabaseClient, instance.id);
         summary = calcResult.summary || null;
+      }
+      if (!summary) {
+        unavailableResults++;
       }
 
       if (summary) {
@@ -257,6 +266,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         name: school?.name || 'Escuela',
       },
       transformationYear,
+      /** Completed registros whose stored result is missing (not recalculated here). */
+      unavailableResults,
       expectedLevel: {
         level: expectedLevelForYear,
         label: getMaturityLevelLabel(expectedLevelForYear),

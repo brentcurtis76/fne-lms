@@ -195,10 +195,11 @@ export async function getSchoolViaOverview(schoolId: number): Promise<SchoolViaO
         .eq('is_active', true),
       supabaseAdmin
         .from('school_via_instance_links')
-        .select('template_id, instance_id, assessment_instances(cancelled_at, status, assessment_instance_assignees(user_id))')
+        .select('template_id, instance_id, assessment_instances(cancelled_at, status, assessment_instance_assignees(user_id, can_edit, can_submit))')
         .eq('school_id', schoolId),
     ]);
   if (tErr || rErr || lErr) {
+    console.error('[schoolVia] overview read failed:', tErr?.message ?? rErr?.message ?? lErr?.message);
     return { kind: 'error', message: 'No se pudo leer el estado de los registros del equipo directivo.' };
   }
 
@@ -217,7 +218,11 @@ export async function getSchoolViaOverview(schoolId: number): Promise<SchoolViaO
           if (!link) return true;
           const inst = link.assessment_instances;
           if (!inst || inst.cancelled_at || inst.status === 'archived') return false;
-          return !((inst.assessment_instance_assignees ?? []) as any[]).some((a) => a.user_id === resp.user_id);
+          // Delivered only when the responsible can both edit and submit: the
+          // RPC upgrades any weaker grant on a re-send.
+          return !((inst.assessment_instance_assignees ?? []) as any[]).some(
+            (a) => a.user_id === resp.user_id && a.can_edit === true && a.can_submit === true
+          );
         })
       : [];
     return {
@@ -243,7 +248,10 @@ export async function listResponsibleCandidates(
     .eq('school_id', schoolId)
     .eq('role_type', 'equipo_directivo')
     .eq('is_active', true);
-  if (error) return { kind: 'error', message: 'No se pudo leer el equipo directivo de la escuela.' };
+  if (error) {
+    console.error('[schoolVia] candidates read failed:', error.message);
+    return { kind: 'error', message: 'No se pudo leer el equipo directivo de la escuela.' };
+  }
   const ids = [...new Set(((data ?? []) as any[]).map((r) => r.user_id as string))];
   const people = await profilesById(ids);
   return {

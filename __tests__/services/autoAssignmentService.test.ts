@@ -595,11 +595,13 @@ describe('vía assignment rules on the course path (20261008120000)', () => {
   });
 
   it('a failed rules read blocks and is never read as course_docente', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
     configureMock(happyPathMap({ rules: buildChainableQuery(null, { message: 'rules unavailable' }) }));
     const plan = await preflightAutoAssignment(COURSE_STRUCTURE_ID, SCHOOL_ID);
     expect(plan.ok).toBe(false);
     expect(plan.blockingError?.code).toBe('query_error');
-    expect(plan.blockingError?.message).toContain('rules unavailable');
+    expect(plan.blockingError?.message).toContain('No se pudieron leer las reglas');
+    expect(plan.blockingError?.message).not.toContain('rules unavailable');
   });
 
   it('an empty rule set blocks', async () => {

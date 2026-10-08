@@ -77,6 +77,47 @@ export async function hasDirectivoPermission(
 }
 
 /**
+ * Like `hasDirectivoPermission`, but decided only against `schoolId`, and
+ * correct for people with several roles: a directivo role AT that school wins;
+ * otherwise an active consultor assignment TO that school admits read access.
+ * (hasDirectivoPermission looks at the first directivo role only, so a person
+ * who is directivo at two schools, or directivo at A and consultor at B, is
+ * refused for the second school.) Used by the vía-responsibles surface
+ * (20261008120000); fails closed on any read error.
+ */
+export async function hasDirectivoPermissionForSchool(
+  supabaseClient: any,
+  userId: string,
+  schoolId: number
+): Promise<DirectivoPermission> {
+  const { data: roles, error } = await supabaseClient
+    .from('user_roles')
+    .select('role_type, school_id')
+    .eq('user_id', userId)
+    .eq('is_active', true);
+  if (error || !roles || roles.length === 0) return DENIED;
+
+  if (roles.some((r: any) => r.role_type === 'admin')) {
+    return { hasPermission: true, schoolId, isAdmin: true, via: 'admin' };
+  }
+  if (roles.some((r: any) => r.role_type === 'equipo_directivo' && r.school_id === schoolId)) {
+    return { hasPermission: true, schoolId, isAdmin: false, via: 'equipo_directivo' };
+  }
+  if (roles.some((r: any) => r.role_type === 'consultor')) {
+    const { data: assignments, error: assignmentsError } = await supabaseClient
+      .from('consultant_assignments')
+      .select('school_id')
+      .eq('consultant_id', userId)
+      .eq('is_active', true)
+      .eq('school_id', schoolId);
+    if (!assignmentsError && assignments && assignments.length > 0) {
+      return { hasPermission: true, schoolId, isAdmin: false, via: 'consultor' };
+    }
+  }
+  return DENIED;
+}
+
+/**
  * True when the permission was granted through a full directivo-level role
  * (admin or equipo_directivo). A consultor admission — or any permission
  * object that does not name a full role — is NOT full scope. Used by the

@@ -81,6 +81,7 @@ describe('writeSchoolViaResponsible', () => {
 
 describe('getSchoolViaOverview', () => {
   it('fails closed when the rules cannot be read', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
     tables({ ab_via_assignment_rules: buildChainableQuery(null, { message: 'down' }) });
     const r = await getSchoolViaOverview(42);
     expect(r.kind).toBe('error');
@@ -97,7 +98,7 @@ describe('getSchoolViaOverview', () => {
       ]),
       school_via_responsibles: buildChainableQuery([{ area: 'liderazgo', user_id: 'u1', assigned_at: '2026-10-08' }]),
       school_via_instance_links: buildChainableQuery([
-        { template_id: 't-held', instance_id: 'i1', assessment_instances: { cancelled_at: null, status: 'pending', assessment_instance_assignees: [{ user_id: 'u1' }] } },
+        { template_id: 't-held', instance_id: 'i1', assessment_instances: { cancelled_at: null, status: 'pending', assessment_instance_assignees: [{ user_id: 'u1', can_edit: true, can_submit: true }] } },
         { template_id: 't-cancel', instance_id: 'i2', assessment_instances: { cancelled_at: '2026-10-01', status: 'pending', assessment_instance_assignees: [] } },
       ]),
       profiles: buildChainableQuery([{ id: 'u1', first_name: 'Ana', last_name: 'Pérez', email: 'ana@test.local' }]),
@@ -113,6 +114,46 @@ describe('getSchoolViaOverview', () => {
     expect(pro.responsible).toBeNull();
     expect(pro.pendingTemplates).toEqual([]);
     expect(r.vias.map((v) => v.area)).not.toContain('personalizacion');
+  });
+});
+
+describe('getSchoolViaOverview — delivery needs edit AND submit (Codex B2 r1)', () => {
+  const overviewWith = (grant: Record<string, unknown>) => {
+    tables({
+      ab_via_assignment_rules: buildChainableQuery(RULES),
+      assessment_templates: buildChainableQuery([{ id: 't1', name: 'LID A', area: 'liderazgo' }]),
+      school_via_responsibles: buildChainableQuery([{ area: 'liderazgo', user_id: 'u1', assigned_at: '2026-10-08' }]),
+      school_via_instance_links: buildChainableQuery([
+        { template_id: 't1', instance_id: 'i1', assessment_instances: { cancelled_at: null, status: 'pending', assessment_instance_assignees: [{ user_id: 'u1', ...grant }] } },
+      ]),
+      profiles: buildChainableQuery([{ id: 'u1', name: 'Ana', email: null }]),
+    });
+    return getSchoolViaOverview(42);
+  };
+
+  it.each([
+    [{ can_edit: false, can_submit: true }],
+    [{ can_edit: true, can_submit: false }],
+    [{ can_edit: false, can_submit: false }],
+  ])('a weaker grant %j is still pending', async (grant) => {
+    const r = await overviewWith(grant);
+    expect(r.kind).toBe('ok');
+    if (r.kind !== 'ok') return;
+    expect(r.vias.find((v) => v.area === 'liderazgo')!.pendingTemplates.map((t) => t.id)).toEqual(['t1']);
+  });
+
+  it('a full grant is delivered', async () => {
+    const r = await overviewWith({ can_edit: true, can_submit: true });
+    if (r.kind !== 'ok') throw new Error('expected ok');
+    expect(r.vias.find((v) => v.area === 'liderazgo')!.pendingTemplates).toEqual([]);
+  });
+
+  it('a rules read failure never exposes the database message', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    tables({ ab_via_assignment_rules: buildChainableQuery(null, { message: 'permission denied for table ab_via_assignment_rules' }) });
+    const r = await getSchoolViaOverview(42);
+    expect(r.kind).toBe('error');
+    expect(JSON.stringify(r)).not.toContain('permission denied');
   });
 });
 

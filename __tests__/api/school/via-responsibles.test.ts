@@ -39,7 +39,7 @@ vi.mock('../../../lib/api-auth', () => ({
 
 vi.mock('../../../lib/permissions/directivo', async () => {
   const actual = await vi.importActual<any>('../../../lib/permissions/directivo');
-  return { ...actual, hasDirectivoPermission: mockHasDirectivoPermission };
+  return { ...actual, hasDirectivoPermissionForSchool: mockHasDirectivoPermission };
 });
 
 vi.mock('../../../lib/services/assessment-builder/schoolViaAssignmentService', () => ({

@@ -27,6 +27,9 @@ export type ViaRulesLoad =
   | { kind: 'ok'; rules: ViaRules }
   | { kind: 'error'; message: string };
 
+/** Never carries a database message: callers may show it to users. */
+const RULES_UNAVAILABLE = 'No se pudieron leer las reglas de asignación por vía. Intente nuevamente.';
+
 function isTarget(value: unknown): value is ViaAssignmentTarget {
   return value === 'course_docente' || value === 'school_responsible';
 }
@@ -39,7 +42,8 @@ export async function loadViaRules(client: any): Promise<ViaRulesLoad> {
   try {
     const { data, error } = await client.from('ab_via_assignment_rules').select('area, target');
     if (error) {
-      return { kind: 'error', message: `No se pudieron leer las reglas de asignación por vía: ${error.message}` };
+      console.error('[viaRules] read failed:', error.message);
+      return { kind: 'error', message: RULES_UNAVAILABLE };
     }
     const rules = new Map<string, ViaAssignmentTarget>();
     for (const row of (data ?? []) as { area?: unknown; target?: unknown }[]) {
@@ -53,7 +57,8 @@ export async function loadViaRules(client: any): Promise<ViaRulesLoad> {
     }
     return { kind: 'ok', rules };
   } catch (err: any) {
-    return { kind: 'error', message: `No se pudieron leer las reglas de asignación por vía: ${err?.message ?? 'desconocido'}` };
+    console.error('[viaRules] read failed:', err?.message);
+    return { kind: 'error', message: RULES_UNAVAILABLE };
   }
 }
 

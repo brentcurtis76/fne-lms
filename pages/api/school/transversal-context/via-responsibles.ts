@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
-import { hasDirectivoPermission, isFullDirectivoScope } from '@/lib/permissions/directivo';
+import { hasDirectivoPermissionForSchool, isFullDirectivoScope } from '@/lib/permissions/directivo';
 import {
   getSchoolViaOverview,
   listResponsibleCandidates,
@@ -19,7 +19,8 @@ import {
  *
  * Authorization is always decided against the REQUESTED school:
  * - read: admin, equipo_directivo of that school, or a consultor assigned to
- *   it (hasDirectivoPermission with the school id);
+ *   it (hasDirectivoPermissionForSchool: multi-role people are matched on the
+ *   requested school, not on their first role);
  * - write: admin or equipo_directivo of that school only. The RPC re-checks
  *   the actor and the candidate inside the write transaction.
  */
@@ -40,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const serviceClient = createServiceRoleClient();
-  const permission = await hasDirectivoPermission(serviceClient, user.id, schoolId);
+  const permission = await hasDirectivoPermissionForSchool(serviceClient, user.id, schoolId);
   if (!permission.hasPermission) {
     return res.status(403).json({ error: 'No tiene acceso a esta escuela' });
   }

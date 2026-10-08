@@ -95,6 +95,12 @@ export const MANDATORY_SPECS = [
   // them), participants-only assignees, the stored time, acuerdos/compromisos
   // apart, the eye, delete by the creator, and who may read the content.
   'tests/e2e/meeting-create-and-access.spec.ts',
+  // NOTIF N4-01 — the owner-only preferences API: cookie save and reload,
+  // mandatory and legacy suppression, refused bodies, another user's id ignored.
+  'tests/e2e/notification-preferences-api.spec.ts',
+  // NOTIF N4-02 — the settings page: redirect and auth gates, role/scope
+  // filtering, keyboard save and reload, Predeterminado, failures, phone width.
+  'tests/e2e/notification-settings.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

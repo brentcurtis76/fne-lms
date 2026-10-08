@@ -161,7 +161,8 @@ test.describe('notification preferences API in the browser (N4-01)', () => {
     if (!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY) throw new Error('Supabase URL, anon key and service key are required');
     const target = new URL(SUPABASE_URL);
     if (!LOCAL_HOSTS.includes(target.hostname.replace(/^\[|\]$/g, ''))) throw new Error('notification-preferences-api refuses a non-local database');
-    if (['54321', '54322'].includes(target.port)) throw new Error('notification-preferences-api refuses the shared default stack');
+    // Locally the default ports are the shared stack; in CI they are the runner's own ephemeral one.
+    if (!process.env.CI && ['54321', '54322'].includes(target.port)) throw new Error('notification-preferences-api refuses the shared default stack');
     service = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
     for (const user of Object.values(users)) {

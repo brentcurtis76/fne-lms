@@ -90,4 +90,19 @@ describe('ViaResponsiblesSection', () => {
     const { container } = render(<ViaResponsiblesSection schoolId={42} />);
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
+
+  it('the dialog is accessible: named, labelled, focus moves in, Escape closes and returns focus (Codex B4 r1)', async () => {
+    render(<ViaResponsiblesSection schoolId={42} />);
+    const trigger = await screen.findByTestId('via-assign-liderazgo');
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dialog = await screen.findByRole('dialog', { name: /Asignar responsable · Liderazgo/ });
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    expect(screen.getByLabelText('Persona del equipo directivo')).toBe(screen.getByTestId('via-modal-select'));
+    expect(screen.getByRole('button', { name: 'Cerrar' })).toBeInTheDocument();
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+  });
 });
+

@@ -64,6 +64,8 @@ interface CourseResult {
     avgLevel: number;
     avgLevelLabel: string;
     meetsExpectations: boolean;
+    /** Completed registros whose stored result is missing (20261008120000). */
+    unavailableResults?: number;
   };
   byArea: Record<string, {
     area: string;
@@ -253,6 +255,11 @@ const DirectivoDashboard: React.FC = () => {
   const areas = schoolResults?.results?.byArea || {};
   const overall = schoolResults?.results?.overall;
   const courses = courseResults?.courses || [];
+  // A course whose completed registros all lack a stored result has no score:
+  // it is shown as unavailable and kept out of the scored summaries.
+  const isUnavailableOnly = (c: CourseResult) =>
+    c.summary.completedAssessments === 0 && (c.summary.unavailableResults ?? 0) > 0;
+  const scoredCourses = courses.filter((c) => !isUnavailableOnly(c));
 
   // Prepare chart data
   const areaChartData = Object.values(areas).map((area) => ({
@@ -269,8 +276,8 @@ const DirectivoDashboard: React.FC = () => {
   }));
 
   // Pie chart for expectations met
-  const coursesMetExpectations = courses.filter((c) => c.summary.meetsExpectations).length;
-  const coursesNotMet = courses.length - coursesMetExpectations;
+  const coursesMetExpectations = scoredCourses.filter((c) => c.summary.meetsExpectations).length;
+  const coursesNotMet = scoredCourses.length - coursesMetExpectations;
   const pieData = [
     { name: 'Cumplen', value: coursesMetExpectations },
     { name: 'En desarrollo', value: coursesNotMet },
@@ -327,12 +334,25 @@ const DirectivoDashboard: React.FC = () => {
         {!hasResults ? (
           <div className="bg-white shadow-md rounded-lg p-8 text-center">
             <School className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-700 mb-2">
-              No hay registros completados
-            </h3>
-            <p className="text-gray-500">
-              Cuando los docentes completen sus registros, los resultados aparecerán aquí.
-            </p>
+            {(schoolResults?.unavailableResults ?? 0) > 0 ? (
+              <>
+                <h3 className="text-lg font-medium text-gray-700 mb-2" data-testid="results-all-unavailable">
+                  Resultados aún no disponibles
+                </h3>
+                <p className="text-gray-500">
+                  Hay registros completados, pero sus resultados todavía no están disponibles.
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-medium text-gray-700 mb-2">
+                  No hay registros completados
+                </h3>
+                <p className="text-gray-500">
+                  Cuando los docentes completen sus registros, los resultados aparecerán aquí.
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <>
@@ -415,7 +435,7 @@ const DirectivoDashboard: React.FC = () => {
                       <CheckCircle className="w-5 h-5 text-green-500" />
                     </div>
                     <div className="text-3xl font-bold text-gray-800">
-                      {coursesMetExpectations}/{courses.length}
+                      {coursesMetExpectations}/{scoredCourses.length}
                     </div>
                     <div className="text-sm text-gray-500">cursos</div>
                   </div>
@@ -516,7 +536,7 @@ const DirectivoDashboard: React.FC = () => {
             {activeTab === 'courses' && (
               <>
                 {/* Pie chart for course expectations */}
-                {courses.length > 0 && (
+                {scoredCourses.length > 0 && (
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                     <div className="bg-white shadow-md rounded-lg p-6">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">
@@ -550,7 +570,7 @@ const DirectivoDashboard: React.FC = () => {
                         Resumen por Curso
                       </h3>
                       <div className="space-y-3 max-h-64 overflow-y-auto">
-                        {courses.map((course) => (
+                        {scoredCourses.map((course) => (
                           <div
                             key={course.courseId}
                             className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
@@ -620,6 +640,11 @@ const DirectivoDashboard: React.FC = () => {
                             </div>
                             <p className="text-sm text-gray-500">{course.gradeLevelLabel}</p>
                           </div>
+                          {isUnavailableOnly(course) ? (
+                            <div className="text-right text-sm text-amber-700" data-testid={`course-unavailable-${course.courseId}`}>
+                              Resultado no disponible
+                            </div>
+                          ) : (
                           <div className="text-right">
                             <div className="text-2xl font-bold text-brand_blue">
                               {Math.round(course.summary.avgScore)}%
@@ -630,6 +655,7 @@ const DirectivoDashboard: React.FC = () => {
                               {levelInfo.label}
                             </div>
                           </div>
+                          )}
                         </div>
 
                         {/* Area breakdown */}
@@ -654,7 +680,9 @@ const DirectivoDashboard: React.FC = () => {
 
                         {Object.keys(course.byArea).length === 0 && (
                           <p className="text-sm text-gray-500 italic">
-                            Sin registros completados
+                            {(course.summary.unavailableResults ?? 0) > 0
+                              ? `${course.summary.unavailableResults} registro${course.summary.unavailableResults === 1 ? '' : 's'} completado${course.summary.unavailableResults === 1 ? '' : 's'} sin resultado disponible`
+                              : 'Sin registros completados'}
                           </p>
                         )}
                       </div>

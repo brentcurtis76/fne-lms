@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Loader2, UserCheck, X } from 'lucide-react';
 
 /**
@@ -63,6 +64,19 @@ export default function ViaResponsiblesSection({ schoolId }: { schoolId: number 
   const [saving, setSaving] = useState<string | null>(null);
   const [actionError, setActionError] = useState<{ message: string; templates?: string[] } | null>(null);
   const [notice, setNotice] = useState<{ label: string; message: string } | null>(null);
+  // The button that opened the dialog gets focus back when it closes.
+  const dialogTrigger = useRef<HTMLElement | null>(null);
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (modal) {
+      wasOpen.current = true;
+    } else if (wasOpen.current) {
+      wasOpen.current = false;
+      const target = dialogTrigger.current;
+      // after Radix has finished unmounting the dialog
+      setTimeout(() => target?.isConnected && target.focus(), 0);
+    }
+  }, [modal]);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -116,7 +130,8 @@ export default function ViaResponsiblesSection({ schoolId }: { schoolId: number 
     }
   };
 
-  const openModal = (via: ViaRow, mode: 'assign' | 'replace') => {
+  const openModal = (via: ViaRow, mode: 'assign' | 'replace', trigger?: HTMLElement | null) => {
+    dialogTrigger.current = trigger ?? null;
     setModal({ via, mode });
     setSelected('');
     setActionError(null);
@@ -205,7 +220,7 @@ export default function ViaResponsiblesSection({ schoolId }: { schoolId: number 
                 {!via.responsible ? (
                   <button
                     data-testid={`via-assign-${via.area}`}
-                    onClick={() => openModal(via, 'assign')}
+                    onClick={(e) => openModal(via, 'assign', e.currentTarget)}
                     disabled={saving !== null}
                     className="px-3 py-1.5 text-sm bg-brand_primary text-white rounded-lg hover:bg-brand_primary/90 disabled:opacity-50"
                   >
@@ -223,7 +238,7 @@ export default function ViaResponsiblesSection({ schoolId }: { schoolId: number 
                     </button>
                     <button
                       data-testid={`via-replace-${via.area}`}
-                      onClick={() => openModal(via, 'replace')}
+                      onClick={(e) => openModal(via, 'replace', e.currentTarget)}
                       disabled={saving !== null}
                       className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
                     >
@@ -237,63 +252,81 @@ export default function ViaResponsiblesSection({ schoolId }: { schoolId: number 
         ))}
       </ul>
 
-      {modal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full" role="dialog" aria-labelledby="via-modal-title">
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 id="via-modal-title" className="text-lg font-semibold text-brand_primary">
-                {modal.mode === 'assign' ? 'Asignar responsable' : 'Reemplazar responsable'} · {modal.via.label}
-              </h3>
-              <button data-testid="via-modal-close" onClick={() => setModal(null)} className="p-1 hover:bg-brand_beige rounded">
-                <X className="w-5 h-5 text-brand_primary/60" />
-              </button>
-            </div>
-            <div className="p-4 space-y-3">
-              <p className="text-sm text-brand_primary/70">
-                {modal.mode === 'assign'
-                  ? 'Elija a la persona del equipo directivo que responderá los registros de esta vía.'
-                  : 'Solo es posible mientras la persona actual no haya comenzado ningún registro de esta vía.'}
-              </p>
-              {modalCandidates.length === 0 ? (
-                <p className="text-sm text-brand_primary/60">No hay otras personas activas en el equipo directivo de esta escuela.</p>
-              ) : (
-                <select
-                  data-testid="via-modal-select"
-                  value={selected}
-                  onChange={(e) => setSelected(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_accent text-brand_primary"
+      {/* Radix dialog: focus moves in and is trapped, Escape closes, focus returns to the trigger. */}
+      <DialogPrimitive.Root open={modal !== null} onOpenChange={(open) => { if (!open && saving === null) setModal(null); }}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 bg-black/50 z-50" />
+          {modal && (
+            <DialogPrimitive.Content
+              onCloseAutoFocus={(e) => e.preventDefault()}
+              className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl focus:outline-none"
+              data-testid="via-modal"
+            >
+              <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                <DialogPrimitive.Title className="text-lg font-semibold text-brand_primary">
+                  {modal.mode === 'assign' ? 'Asignar responsable' : 'Reemplazar responsable'} · {modal.via.label}
+                </DialogPrimitive.Title>
+                <DialogPrimitive.Close
+                  data-testid="via-modal-close"
+                  aria-label="Cerrar"
+                  className="p-1 hover:bg-brand_beige rounded"
                 >
-                  <option value="">-- Seleccionar --</option>
-                  {modalCandidates.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}{c.email ? ` (${c.email})` : ''}
-                    </option>
-                  ))}
-                </select>
-              )}
-              {actionError && (
-                <p className="text-sm text-red-700" data-testid="via-modal-error">
-                  {actionError.message}
-                  {actionError.templates && actionError.templates.length > 0 && <> ({actionError.templates.join(', ')})</>}
-                </p>
-              )}
-            </div>
-            <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
-              <button onClick={() => setModal(null)} className="px-4 py-2 text-sm text-brand_primary/70 hover:bg-gray-100 rounded-lg">
-                Cancelar
-              </button>
-              <button
-                data-testid="via-modal-confirm"
-                onClick={confirmModal}
-                disabled={!selected || saving !== null}
-                className="px-4 py-2 text-sm bg-brand_primary text-white rounded-lg hover:bg-brand_primary/90 disabled:opacity-50"
-              >
-                {saving ? 'Guardando…' : modal.mode === 'assign' ? 'Asignar' : 'Reemplazar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                  <X className="w-5 h-5 text-brand_primary/60" aria-hidden="true" />
+                </DialogPrimitive.Close>
+              </div>
+              <div className="p-4 space-y-3">
+                <DialogPrimitive.Description className="text-sm text-brand_primary/70">
+                  {modal.mode === 'assign'
+                    ? 'Elija a la persona del equipo directivo que responderá los registros de esta vía.'
+                    : 'Solo es posible mientras la persona actual no haya comenzado ningún registro de esta vía.'}
+                </DialogPrimitive.Description>
+                {modalCandidates.length === 0 ? (
+                  <p className="text-sm text-brand_primary/60">No hay otras personas activas en el equipo directivo de esta escuela.</p>
+                ) : (
+                  <div>
+                    <label htmlFor="via-modal-select" className="block text-sm font-medium text-brand_primary mb-1">
+                      Persona del equipo directivo
+                    </label>
+                    <select
+                      id="via-modal-select"
+                      data-testid="via-modal-select"
+                      value={selected}
+                      onChange={(e) => setSelected(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_accent text-brand_primary"
+                    >
+                      <option value="">-- Seleccionar --</option>
+                      {modalCandidates.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}{c.email ? ` (${c.email})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {actionError && (
+                  <p className="text-sm text-red-700" role="alert" data-testid="via-modal-error">
+                    {actionError.message}
+                    {actionError.templates && actionError.templates.length > 0 && <> ({actionError.templates.join(', ')})</>}
+                  </p>
+                )}
+              </div>
+              <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
+                <DialogPrimitive.Close className="px-4 py-2 text-sm text-brand_primary/70 hover:bg-gray-100 rounded-lg">
+                  Cancelar
+                </DialogPrimitive.Close>
+                <button
+                  data-testid="via-modal-confirm"
+                  onClick={confirmModal}
+                  disabled={!selected || saving !== null}
+                  className="px-4 py-2 text-sm bg-brand_primary text-white rounded-lg hover:bg-brand_primary/90 disabled:opacity-50"
+                >
+                  {saving ? 'Guardando…' : modal.mode === 'assign' ? 'Asignar' : 'Reemplazar'}
+                </button>
+              </div>
+            </DialogPrimitive.Content>
+          )}
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
     </div>
   );
 }

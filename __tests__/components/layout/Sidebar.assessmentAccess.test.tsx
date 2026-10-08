@@ -156,4 +156,20 @@ describe('A first assignment during the session (20261008120000)', () => {
     view.unmount();
     expect(mocks.router.events.off).toHaveBeenCalledWith('routeChangeComplete', handler);
   });
+
+  it('an older answer arriving after a newer one never overwrites it (Codex B4 r1)', async () => {
+    const resolvers: ((v: any) => void)[] = [];
+    mocks.assignmentQuery.mockImplementation(() => new Promise((resolve) => resolvers.push(resolve)));
+    render(sidebar('equipo_directivo'));
+    await act(async () => {});
+    // initial check (#0) is pending; a focus starts a newer check (#1)
+    await act(async () => { window.dispatchEvent(new Event('focus')); });
+    expect(resolvers).toHaveLength(2);
+    await act(async () => { resolvers[1]({ count: 1, error: null }); });
+    await act(async () => { resolvers[0]({ count: 0, error: null }); });
+    await openProcesses();
+    expect(await screen.findByRole('link', { name: /Mis Registros Registros que tengo asignados/ }))
+      .toHaveAttribute('href', '/docente/assessments');
+  });
 });
+

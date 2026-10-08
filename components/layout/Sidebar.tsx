@@ -1220,18 +1220,23 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
     }
 
     let cancelled = false;
+    // Initial, navigation and focus checks can overlap: only the newest
+    // request may set the state, so an older answer never overwrites it.
+    let generation = 0;
     const checkAssessments = async () => {
+      const mine = ++generation;
+      const current = () => !cancelled && mine === generation;
       try {
         const { count, error } = await supabase
           .from('assessment_instance_assignees')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', userId);
 
-        if (!cancelled) {
+        if (current()) {
           setAssessmentAccess({ userId, hasAssessments: !error && (count ?? 0) > 0 });
         }
       } catch {
-        if (!cancelled) setAssessmentAccess({ userId, hasAssessments: false });
+        if (current()) setAssessmentAccess({ userId, hasAssessments: false });
       }
     };
 

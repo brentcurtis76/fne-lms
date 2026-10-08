@@ -6,39 +6,11 @@ import type {
   CreateTemplateRequest
 } from '@/types/assessment-builder';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
-
-// Generate next version number for an area + grade combination
-async function getNextVersion(supabaseClient: any, area: TransformationArea, gradeId: number): Promise<string> {
-  const { data: existing } = await supabaseClient
-    .from('assessment_templates')
-    .select('version')
-    .eq('area', area)
-    .eq('grade_id', gradeId)
-    .order('created_at', { ascending: false })
-    .limit(10);
-
-  if (!existing || existing.length === 0) {
-    return '1.0.0';
-  }
-
-  // Find the highest valid semver version
-  let maxMajor = 0, maxMinor = 0, maxPatch = 0;
-  for (const row of existing) {
-    const parts = row.version.split('.').map(Number);
-    if (parts.length >= 3 && parts.every((p: number) => !isNaN(p))) {
-      if (parts[0] > maxMajor ||
-          (parts[0] === maxMajor && parts[1] > maxMinor) ||
-          (parts[0] === maxMajor && parts[1] === maxMinor && parts[2] > maxPatch)) {
-        maxMajor = parts[0];
-        maxMinor = parts[1];
-        maxPatch = parts[2];
-      }
-    }
-  }
-
-  // Increment patch version
-  return `${maxMajor}.${maxMinor}.${maxPatch + 1}`;
-}
+import {
+  checkTemplateGrade,
+  nextTemplateVersion,
+  templateWriteConflict,
+} from '@/lib/services/assessment-builder/templateGradeRule';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Authentication check
@@ -93,7 +65,11 @@ async function handleGet(
       if (area && typeof area === 'string' && validAreas.includes(area as TransformationArea)) {
         countQuery = countQuery.eq('area', area);
       }
-      if (grade_id && typeof grade_id === 'string') {
+      // grade_id=none counts the grade-less templates of a school-level vía
+      // (20261008120000); without it every template of the area would count.
+      if (grade_id === 'none') {
+        countQuery = countQuery.is('grade_id', null);
+      } else if (grade_id && typeof grade_id === 'string') {
         countQuery = countQuery.eq('grade_id', grade_id);
       }
 
@@ -202,15 +178,12 @@ async function handlePost(
   userId: string
 ) {
   try {
-    const { area, name, description, grade_id } = req.body as CreateTemplateRequest;
+    const { area, description, grade_id } = req.body as CreateTemplateRequest;
+    const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
 
     // Validation
     if (!area || !name) {
       return res.status(400).json({ error: 'Área y nombre son requeridos' });
-    }
-
-    if (!grade_id) {
-      return res.status(400).json({ error: 'El nivel es requerido' });
     }
 
     // Validate area
@@ -222,8 +195,19 @@ async function handlePost(
       return res.status(400).json({ error: 'Área de transformación inválida' });
     }
 
-    // Generate version (scoped to area + grade)
-    const version = await getNextVersion(supabaseClient, area, grade_id);
+    // Course vías need a grade; school-level vías (Liderazgo, Propósito) must
+    // not have one (20261008120000).
+    const gradeId = grade_id === null || grade_id === undefined ? null : Number(grade_id);
+    if (gradeId !== null && !Number.isInteger(gradeId)) {
+      return res.status(400).json({ error: 'Nivel inválido' });
+    }
+    const gradeCheck = await checkTemplateGrade(supabaseClient, area, gradeId);
+    if (gradeCheck.kind === 'error') {
+      return res.status(gradeCheck.status).json({ error: gradeCheck.message });
+    }
+
+    // Version scoped to area + grade, or area + name for a grade-less template
+    const version = await nextTemplateVersion(supabaseClient, area, gradeId, name);
 
     // Create template
     const { data: template, error } = await supabaseClient
@@ -233,7 +217,7 @@ async function handlePost(
         version,
         name,
         description: description || null,
-        grade_id,
+        grade_id: gradeId,
         status: 'draft',
         created_by: userId,
         scoring_config: {
@@ -263,9 +247,9 @@ async function handlePost(
     if (error) {
       console.error('Error creating template:', error);
 
-      // Check for unique constraint violation
-      if (error.code === '23505') {
-        return res.status(409).json({ error: 'Ya existe un template con esta área y versión' });
+      const conflict = templateWriteConflict(error);
+      if (conflict) {
+        return res.status(409).json({ error: conflict });
       }
 
       return res.status(500).json({ error: 'Error al crear el template' });

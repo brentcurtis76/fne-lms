@@ -1,6 +1,11 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import { hasAssessmentWritePermission } from '@/lib/assessment-permissions';
+import {
+  checkTemplateGrade,
+  nextTemplateVersion,
+  templateWriteConflict,
+} from '@/lib/services/assessment-builder/templateGradeRule';
 
 /**
  * POST /api/admin/assessment-builder/templates/[templateId]/duplicate
@@ -11,7 +16,8 @@ import { hasAssessmentWritePermission } from '@/lib/assessment-permissions';
  * 3. Copies all indicators under each module (new IDs)
  * 4. Copies all expectations for each indicator (new IDs, linked to new indicator)
  *
- * Request body: { name: string, grade_id: number }
+ * Request body: { name: string, grade_id: number | null }
+ * (grade_id is null for a template of a school-level vía; 20261008120000)
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -46,9 +52,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'El nombre es requerido' });
     }
 
-    if (!grade_id || typeof grade_id !== 'number') {
-      return res.status(400).json({ error: 'El nivel es requerido' });
+    if (grade_id !== null && grade_id !== undefined && !Number.isInteger(grade_id)) {
+      return res.status(400).json({ error: 'Nivel inválido' });
     }
+    const gradeId: number | null = grade_id ?? null;
 
     // Get source template
     const { data: sourceTemplate, error: templateError } = await supabaseClient
@@ -61,27 +68,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'Template no encontrado' });
     }
 
-    // Find highest existing version for this area + grade combo
-    const { data: existingVersions } = await supabaseClient
-      .from('assessment_templates')
-      .select('version')
-      .eq('area', sourceTemplate.area)
-      .eq('grade_id', grade_id)
-      .order('version', { ascending: false })
-      .limit(10);
-
-    let newVersion = '1.0.0';
-    if (existingVersions && existingVersions.length > 0) {
-      let maxMajor = 0, maxMinor = 0, maxPatch = 0;
-      for (const ev of existingVersions) {
-        const parts = (ev.version || '0.0.0').split('.').map(Number);
-        const [maj = 0, min = 0, pat = 0] = parts;
-        if (maj > maxMajor || (maj === maxMajor && min > maxMinor) || (maj === maxMajor && min === maxMinor && pat > maxPatch)) {
-          maxMajor = maj; maxMinor = min; maxPatch = pat;
-        }
-      }
-      newVersion = `${maxMajor}.${maxMinor}.${maxPatch + 1}`;
+    // The copy must fit the vía's rule: a grade for course vías, none for
+    // school-level vías.
+    const gradeCheck = await checkTemplateGrade(supabaseClient, sourceTemplate.area, gradeId);
+    if (gradeCheck.kind === 'error') {
+      return res.status(gradeCheck.status).json({ error: gradeCheck.message });
     }
+
+    // Next version in the copy's scope: area + grade, or area + name without grade
+    const newVersion = await nextTemplateVersion(supabaseClient, sourceTemplate.area, gradeId, name);
 
     // Create new template as draft with provided name and grade
     const { data: newTemplate, error: newTemplateError } = await supabaseClient
@@ -90,7 +85,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         name: name.trim(),
         description: sourceTemplate.description,
         area: sourceTemplate.area,
-        grade_id: grade_id,
+        grade_id: gradeId,
         status: 'draft',
         version: newVersion,
         scoring_config: sourceTemplate.scoring_config,
@@ -109,6 +104,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (newTemplateError) {
       console.error('Error creating new template:', newTemplateError);
+      const conflict = templateWriteConflict(newTemplateError);
+      if (conflict) {
+        return res.status(409).json({ error: conflict });
+      }
       return res.status(500).json({ error: 'Error al crear nuevo template' });
     }
 

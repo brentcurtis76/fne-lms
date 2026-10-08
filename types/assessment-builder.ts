@@ -450,9 +450,9 @@ export interface AssessmentTemplate {
   created_by?: string;
   created_at: string;
   updated_at: string;
-  // Grade field
-  grade_id?: number;
-  grade?: Grade;
+  // Grade field: null for templates of a school-level vía (Liderazgo, Propósito)
+  grade_id?: number | null;
+  grade?: Grade | null;
   // Archive fields
   is_archived?: boolean;
   archived_at?: string;
@@ -796,14 +796,16 @@ export interface CreateTemplateRequest {
   area: TransformationArea;
   name: string;
   description?: string;
-  grade_id?: number;
+  /** Required for course vías; omitted or null for school-level vías. */
+  grade_id?: number | null;
 }
 
 export interface UpdateTemplateRequest {
   name?: string;
   description?: string;
   scoring_config?: Partial<ScoringConfig>;
-  grade_id?: number;
+  /** Omitted = unchanged; null = no grade (school-level vías only). */
+  grade_id?: number | null;
 }
 
 // Objective CRUD

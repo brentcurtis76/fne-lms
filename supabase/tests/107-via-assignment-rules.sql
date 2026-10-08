@@ -30,7 +30,7 @@
 
 BEGIN;
 
-SELECT plan(73);
+SELECT plan(79);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures
@@ -353,6 +353,34 @@ SELECT tests.authenticate_as('vr_dir2');
 SELECT ok((SELECT count(*) FROM public.school_via_responsibles) > 0, 'V-8: a directivo of the school sees its responsibles');
 RESET ROLE;
 SELECT tests.clear_authentication();
+
+-- =============================================================================
+-- [V-9] Codex B1 r1: transfers never depend on delivery eligibility, and the
+--       responsible always holds edit + submit
+-- =============================================================================
+-- Propósito: dir2 is responsible for 'PRO Live' (V-8). dir3 already holds a
+-- read-only grant there, then the template is archived after assignment.
+INSERT INTO public.assessment_instance_assignees (instance_id, user_id, can_edit, can_submit)
+VALUES (pg_temp.inst('e5'), :'dir3', false, false);
+UPDATE public.assessment_templates SET is_archived = true WHERE id = '10700000-0000-4000-8000-0000000000e5';
+SELECT lives_ok(format($$ SELECT public.replace_school_via_responsible(9107, 'proposito', %L, %L) $$, :'dir3', :'admin'),
+  'V-9: replace succeeds after the template was archived');
+SELECT is((SELECT can_edit AND can_submit FROM public.assessment_instance_assignees
+            WHERE instance_id = pg_temp.inst('e5') AND user_id = :'dir3'),
+          true, 'V-9: the new responsible holds the archived template''s registro with edit + submit');
+SELECT is((SELECT count(*)::int FROM public.assessment_instance_assignees
+            WHERE instance_id = pg_temp.inst('e5') AND user_id = :'dir2'),
+          0, 'V-9: the previous responsible no longer holds it');
+
+-- A re-send upgrades the responsible's own read-only grant and touches no one else.
+UPDATE public.assessment_instance_assignees SET can_edit = false WHERE instance_id = pg_temp.inst('e1') AND user_id = :'dir3';
+SELECT is((SELECT d->>'outcome' FROM jsonb_array_elements(public.assign_school_via_responsible(9107, 'liderazgo', :'dir3', :'admin')->'details') d
+            WHERE d->>'template_id' = '10700000-0000-4000-8000-0000000000e1'),
+          'attached', 'V-9: a re-send repairs a read-only grant of the responsible');
+SELECT is((SELECT can_edit AND can_submit FROM public.assessment_instance_assignees WHERE instance_id = pg_temp.inst('e1') AND user_id = :'dir3'),
+          true, 'V-9: the responsible can answer again');
+SELECT is((SELECT can_edit FROM public.assessment_instance_assignees WHERE instance_id = pg_temp.inst('e1') AND user_id = :'co'),
+          true, 'V-9: the co-assignee''s grant is unchanged');
 
 SELECT * FROM finish();
 ROLLBACK;

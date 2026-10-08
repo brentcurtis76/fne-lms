@@ -22,6 +22,17 @@
  *   5. RULE CHANGE FIRST, THEN PUBLISH — a rule change is held open. A publish
  *      of a now-incompatible template must BLOCK and, after the change commits,
  *      be refused template_grade_not_allowed.
+ *   6. LOCK ORDER (Codex B1 r1) — a third session holds the lower-id linked
+ *      registro; a replace queues behind it, then a response moved from the
+ *      higher-id registro to the lower one queues too. The response guard
+ *      locks parents in ascending id order (as replace does), so it holds
+ *      nothing while it waits: when the third session commits, the replace
+ *      runs, sees the answer and is refused registros_already_started — never
+ *      a deadlock (40P01) — and the move then commits.
+ *
+ * Every client has a statement timeout and the transaction sessions are
+ * closed before cleanup, so a failed assertion exits non-zero instead of
+ * hanging behind an open transaction.
  *
  * Run with `SUPABASE_DB_URL=... npm run test:via-rules-concurrency` against a
  * started LOCAL stack. Synthetic data only; fixed ids are purged before and
@@ -49,8 +60,11 @@ const USERS = [ADMIN_ID, DIR1_ID, DIR2_ID, DIR3_ID];
 const CONTEXT_ID = U('00c1');
 const LID_TEMPLATE_ID = U('00e1');
 const LID_SNAPSHOT_ID = U('00f1');
+const LID2_TEMPLATE_ID = U('00e4'); // second Liderazgo template: two linked registros (scenario 6)
+const LID2_SNAPSHOT_ID = U('00f4');
 const APR_TEMPLATE_ID = U('00e2'); // graded draft in a course vía (scenario 4)
 const EVA_TEMPLATE_ID = U('00e3'); // graded draft in a course vía (scenario 5)
+const ALL_TEMPLATES = [LID_TEMPLATE_ID, LID2_TEMPLATE_ID, APR_TEMPLATE_ID, EVA_TEMPLATE_ID];
 const OBJECTIVE_ID = U('00b1');
 const MODULE_ID = U('00b2');
 const INDICATOR_ID = U('00b3');
@@ -82,8 +96,8 @@ async function purge(admin) {
   await admin.query('DELETE FROM public.assessment_indicators WHERE id = $1', [INDICATOR_ID]);
   await admin.query('DELETE FROM public.assessment_modules WHERE id = $1', [MODULE_ID]);
   await admin.query('DELETE FROM public.assessment_objectives WHERE id = $1', [OBJECTIVE_ID]);
-  await admin.query('DELETE FROM public.assessment_template_snapshots WHERE template_id = ANY($1::uuid[])', [[LID_TEMPLATE_ID, APR_TEMPLATE_ID, EVA_TEMPLATE_ID]]);
-  await admin.query('DELETE FROM public.assessment_templates WHERE id = ANY($1::uuid[])', [[LID_TEMPLATE_ID, APR_TEMPLATE_ID, EVA_TEMPLATE_ID]]);
+  await admin.query('DELETE FROM public.assessment_template_snapshots WHERE template_id = ANY($1::uuid[])', [ALL_TEMPLATES]);
+  await admin.query('DELETE FROM public.assessment_templates WHERE id = ANY($1::uuid[])', [ALL_TEMPLATES]);
   await admin.query('DELETE FROM public.school_transversal_context WHERE school_id = $1', [SCHOOL_ID]);
   await admin.query('DELETE FROM public.user_roles WHERE user_id = ANY($1::uuid[])', [USERS]);
   await admin.query('DELETE FROM public.profiles WHERE id = ANY($1::uuid[])', [USERS]);
@@ -129,12 +143,14 @@ async function seed(admin) {
     `INSERT INTO public.assessment_templates (id, area, version, name, status, grade_id) VALUES
        ($1, 'liderazgo',   '1.0', '[SINTÉTICO] Via Proof LID', 'published', NULL),
        ($2, 'aprendizaje', '1.0', '[SINTÉTICO] Via Proof APR', 'draft', $4),
-       ($3, 'evaluacion',  '1.0', '[SINTÉTICO] Via Proof EVA', 'draft', $4)`,
-    [LID_TEMPLATE_ID, APR_TEMPLATE_ID, EVA_TEMPLATE_ID, GRADE_ID]
+       ($3, 'evaluacion',  '1.0', '[SINTÉTICO] Via Proof EVA', 'draft', $4),
+       ($5, 'liderazgo',   '1.0', '[SINTÉTICO] Via Proof LID 2', 'published', NULL)`,
+    [LID_TEMPLATE_ID, APR_TEMPLATE_ID, EVA_TEMPLATE_ID, GRADE_ID, LID2_TEMPLATE_ID]
   );
   await admin.query(
-    `INSERT INTO public.assessment_template_snapshots (id, template_id, version, snapshot_data) VALUES ($1, $2, '1.0', '{"modules": []}')`,
-    [LID_SNAPSHOT_ID, LID_TEMPLATE_ID]
+    `INSERT INTO public.assessment_template_snapshots (id, template_id, version, snapshot_data)
+     VALUES ($1, $2, '1.0', '{"modules": []}'), ($3, $4, '1.0', '{"modules": []}')`,
+    [LID_SNAPSHOT_ID, LID_TEMPLATE_ID, LID2_SNAPSHOT_ID, LID2_TEMPLATE_ID]
   );
   await admin.query(`INSERT INTO public.assessment_objectives (id, template_id, name, display_order) VALUES ($1, $2, 'Obj', 1)`, [OBJECTIVE_ID, LID_TEMPLATE_ID]);
   await admin.query(`INSERT INTO public.assessment_modules (id, template_id, objective_id, name, display_order) VALUES ($1, $2, $3, 'Mod', 1)`, [MODULE_ID, LID_TEMPLATE_ID, OBJECTIVE_ID]);
@@ -195,11 +211,13 @@ function expectError(outcome, code, label) {
 async function main() {
   assertLocal(DB_URL);
 
-  const admin = new Client({ connectionString: DB_URL, application_name: 'via-proof-admin' });
-  const observer = new Client({ connectionString: DB_URL, application_name: 'via-proof-observer' });
-  const sessionA = new Client({ connectionString: DB_URL, application_name: 'via-proof-a' });
-  const sessionB = new Client({ connectionString: DB_URL, application_name: 'via-proof-b' });
-  await Promise.all([admin.connect(), observer.connect(), sessionA.connect(), sessionB.connect()]);
+  const client = (name) => new Client({ connectionString: DB_URL, application_name: name, statement_timeout: 20000 });
+  const admin = client('via-proof-admin');
+  const observer = client('via-proof-observer');
+  const sessionA = client('via-proof-a');
+  const sessionB = client('via-proof-b');
+  const sessionC = client('via-proof-c');
+  await Promise.all([admin.connect(), observer.connect(), sessionA.connect(), sessionB.connect(), sessionC.connect()]);
 
   try {
     await purge(admin);
@@ -216,10 +234,10 @@ async function main() {
     expectError(both.find((o) => !o.ok), 'responsible_already_assigned', '[1] loser');
     const { rows: active } = await admin.query('SELECT user_id FROM public.school_via_responsibles WHERE school_id = $1 AND is_active', [SCHOOL_ID]);
     const { rows: links } = await admin.query('SELECT count(*)::int AS n FROM public.school_via_instance_links WHERE school_id = $1', [SCHOOL_ID]);
-    if (active.length !== 1 || links[0].n !== 1) fail(`[1] expected 1 active responsible and 1 registro, got ${active.length} / ${links[0].n}`);
+    if (active.length !== 1 || links[0].n !== 2) fail(`[1] expected 1 active responsible and 2 registros, got ${active.length} / ${links[0].n}`);
     const current = active[0].user_id;
     const other = current === DIR1_ID ? DIR2_ID : DIR1_ID;
-    ok('one assign won, the other was refused; one responsible, one registro');
+    ok('one assign won, the other was refused; one responsible, one registro per template');
 
     console.log('\n[2] held response save by the responsible vs. replace');
     const instanceId = await linkedInstance(admin);
@@ -279,10 +297,38 @@ async function main() {
     if (eva[0].status !== 'draft') fail('[5] the incompatible template must stay a draft');
     ok('publish refused after the rule change committed');
 
+    console.log('\n[6] lock order: response moved between two linked registros vs. replace');
+    const { rows: pair } = await admin.query(
+      'SELECT instance_id FROM public.school_via_instance_links WHERE school_id = $1 ORDER BY instance_id', [SCHOOL_ID]
+    );
+    const [lowId, highId] = pair.map((r) => r.instance_id);
+    await admin.query(
+      'INSERT INTO public.assessment_responses (instance_id, indicator_id, coverage_value) VALUES ($1, $2, true)',
+      [highId, INDICATOR_ID]
+    );
+    await sessionC.query('BEGIN');
+    await sessionC.query('SELECT 1 FROM public.assessment_instances WHERE id = $1 FOR UPDATE', [lowId]);
+    const replace6 = inTx(sessionA, {}, () => rpc(sessionA, 'replace_school_via_responsible', [SCHOOL_ID, 'liderazgo', DIR3_ID, ADMIN_ID]));
+    await waitForBlocked(observer, 'via-proof-a');
+    const move6 = inTx(sessionB, { role: null }, () =>
+      sessionB.query('UPDATE public.assessment_responses SET instance_id = $1 WHERE instance_id = $2', [lowId, highId])
+    );
+    await waitForBlocked(observer, 'via-proof-b');
+    ok('replace and the response move both queue behind the held registro');
+    await sessionC.query('COMMIT');
+    const [r6, m6] = await Promise.all([replace6, move6]);
+    if (!r6.ok && r6.error.code === '40P01') fail('[6] the replace deadlocked');
+    if (!m6.ok) fail(`[6] the response move failed: ${m6.error.code ?? ''} ${m6.error.message}`);
+    expectError(r6, 'registros_already_started', '[6] replace');
+    ok('no deadlock: the replace was refused with the answer present; the move committed');
+
     console.log(`\n✓ PASS [${PROOF_TAG}]`);
   } finally {
+    // Close the transaction sessions first: closing rolls back anything still
+    // open, so cleanup can never wait behind a held lock.
+    await Promise.all([sessionA.end(), sessionB.end(), sessionC.end()]).catch(() => {});
     await purge(admin).catch((e) => console.error(`[${PROOF_TAG}] purge failed: ${e.message}`));
-    await Promise.all([admin.end(), observer.end(), sessionA.end(), sessionB.end()]);
+    await Promise.all([admin.end(), observer.end()]).catch(() => {});
   }
 }
 

@@ -40,8 +40,9 @@
 --
 -- LOCK ORDER
 --   course RPC:   course row → template FOR SHARE → rule FOR SHARE → instance
---   school RPCs:  advisory (school, vía) → rule FOR SHARE → template FOR SHARE
---                 → linked instances FOR UPDATE
+--   school RPCs:  advisory (school, vía) → rule FOR SHARE → the vía's linked
+--                 instances FOR UPDATE (ascending id) → template FOR SHARE
+--   response save on a linked instance: parent instances FOR SHARE (ascending id)
 --   template write: template row (UPDATE) → rule FOR SHARE
 --   rule change:  rule FOR UPDATE → plain reads
 --   Rule locks taken by RPCs and the template guard are all FOR SHARE (mutually
@@ -349,6 +350,17 @@ BEGIN
     RAISE EXCEPTION 'context_missing' USING ERRCODE = 'P0001';
   END IF;
 
+  -- Lock the vía's existing linked registros up front in ascending id order,
+  -- the order replace_school_via_responsible and the response guard use, so
+  -- no two of them can deadlock. The per-template FOR UPDATE below then only
+  -- re-reads rows this transaction already holds.
+  PERFORM 1
+     FROM public.assessment_instances i
+     JOIN public.school_via_instance_links l ON l.instance_id = i.id
+    WHERE l.school_id = p_school_id AND l.area = p_area
+    ORDER BY i.id
+      FOR UPDATE OF i;
+
   FOR v_tpl IN
     SELECT t.id, t.name
       FROM public.assessment_templates t
@@ -382,10 +394,14 @@ BEGIN
         v_out := v_out || jsonb_build_object('template_id', v_tpl.id, 'template_name', v_tpl.name,
                                              'instance_id', v_link.instance_id, 'outcome', 'archived');
       ELSE
-        INSERT INTO public.assessment_instance_assignees
+        -- The responsible always answers: an existing read-only grant of the
+        -- same person is upgraded; other co-assignees are never touched.
+        INSERT INTO public.assessment_instance_assignees AS a
           (instance_id, user_id, can_edit, can_submit, assigned_by)
         VALUES (v_link.instance_id, p_user_id, true, true, p_by)
-        ON CONFLICT (instance_id, user_id) DO NOTHING;
+        ON CONFLICT (instance_id, user_id) DO UPDATE
+          SET can_edit = true, can_submit = true
+          WHERE a.can_edit IS NOT TRUE OR a.can_submit IS NOT TRUE;
         v_out := v_out || jsonb_build_object('template_id', v_tpl.id, 'template_name', v_tpl.name,
                                              'instance_id', v_link.instance_id,
                                              'outcome', CASE WHEN FOUND THEN 'attached' ELSE 'already_exists' END);
@@ -526,13 +542,26 @@ BEGIN
   INSERT INTO public.school_via_responsibles (school_id, area, user_id, assigned_by)
   VALUES (p_school_id, p_area, p_new_user_id, p_by);
 
-  -- Only the previous responsible's own grants move; co-assignees stay.
+  -- The previous responsible's own grants move to the new person on EVERY
+  -- linked registro (all untouched, checked above), including one whose
+  -- template was archived after assignment: the transfer does not depend on
+  -- delivery eligibility. Co-assignees stay; a read-only grant the new person
+  -- already held is upgraded.
   DELETE FROM public.assessment_instance_assignees a
    USING public.school_via_instance_links l
    WHERE a.instance_id = l.instance_id
      AND l.school_id = p_school_id AND l.area = p_area
      AND a.user_id = v_old.user_id;
   GET DIAGNOSTICS v_moved = ROW_COUNT;
+
+  INSERT INTO public.assessment_instance_assignees AS a
+    (instance_id, user_id, can_edit, can_submit, assigned_by)
+  SELECT l.instance_id, p_new_user_id, true, true, p_by
+    FROM public.school_via_instance_links l
+   WHERE l.school_id = p_school_id AND l.area = p_area
+  ON CONFLICT (instance_id, user_id) DO UPDATE
+    SET can_edit = true, can_submit = true
+    WHERE a.can_edit IS NOT TRUE OR a.can_submit IS NOT TRUE;
 
   RETURN jsonb_build_object(
     'mode', 'replaced',
@@ -564,11 +593,17 @@ DECLARE
   v_cancelled timestamptz;
   v_uid       uuid := auth.uid();
 BEGIN
-  FOREACH v_parent IN ARRAY ARRAY[
-    CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE OLD.instance_id END,
-    NEW.instance_id
-  ] LOOP
-    CONTINUE WHEN v_parent IS NULL;
+  -- Distinct parents in ascending id order: the same order in which
+  -- replace_school_via_responsible locks a vía's instances, so a response moved
+  -- between two linked registros can never deadlock against a replace.
+  FOR v_parent IN
+    SELECT DISTINCT p FROM unnest(ARRAY[
+      CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE OLD.instance_id END,
+      NEW.instance_id
+    ]) AS p
+     WHERE p IS NOT NULL
+     ORDER BY p
+  LOOP
     CONTINUE WHEN NOT EXISTS (SELECT 1 FROM public.school_via_instance_links WHERE instance_id = v_parent);
 
     SELECT cancelled_at INTO v_cancelled

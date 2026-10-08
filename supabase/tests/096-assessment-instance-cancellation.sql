@@ -124,7 +124,7 @@ BEGIN
     (v_exadmin, 'admin', NULL, false);
 
   INSERT INTO public.assessment_templates (id, area, version, name, status)
-  VALUES ('96000000-0000-4000-8000-0000000000a1', 'C14 Synthetic Area 096', 'v-096', 'C14 Synthetic Template 096', 'published');
+  VALUES ('96000000-0000-4000-8000-0000000000a1', 'liderazgo', 'v-096', 'C14 Synthetic Template 096', 'published');
 
   INSERT INTO public.assessment_template_snapshots (id, template_id, version, snapshot_data)
   VALUES ('96000000-0000-4000-8000-0000000000b1', '96000000-0000-4000-8000-0000000000a1', 'v-096', '{"modules": []}'::jsonb);

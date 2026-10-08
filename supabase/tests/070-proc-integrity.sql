@@ -87,8 +87,11 @@ INSERT INTO public.school_course_structure (id, school_id, context_id, grade_lev
 INSERT INTO public.school_course_docente_assignments (id, course_structure_id, docente_id, is_active) VALUES
   ('70000000-0000-4000-8000-0000000000d1', '70000000-0000-4000-8000-0000000000a1', tests.get_supabase_uid('pi_docente'), true);
 
-INSERT INTO public.assessment_templates (id, area, version, name, status) VALUES
-  ('70000000-0000-4000-8000-0000000000e1', 'lenguaje', '1.0', 'Proc Integrity Template', 'published');
+-- 20261008120000 (vía rules): a live template needs a real vía and, for a
+-- course vía, a grade.
+INSERT INTO public.ab_grades (id, name, sort_order) VALUES (97001, 'Grade 070', 97001);
+INSERT INTO public.assessment_templates (id, area, version, name, status, grade_id) VALUES
+  ('70000000-0000-4000-8000-0000000000e1', 'personalizacion', '1.0', 'Proc Integrity Template', 'published', 97001);
 
 INSERT INTO public.assessment_template_snapshots (id, template_id, version, snapshot_data) VALUES
   ('70000000-0000-4000-8000-0000000000f1', '70000000-0000-4000-8000-0000000000e1', '1.0', '{"modules": []}');

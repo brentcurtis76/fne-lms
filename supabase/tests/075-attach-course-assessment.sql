@@ -99,10 +99,15 @@ INSERT INTO public.school_course_docente_assignments (id, course_structure_id, d
 -- e1: published, current snapshot f2 (newer) and stale snapshot f1
 -- e2: archived (status kept published), snapshot f3
 -- e3: draft, snapshot f4
-INSERT INTO public.assessment_templates (id, area, version, name, status, is_archived) VALUES
-  ('75000000-0000-4000-8000-0000000000e1', 'lenguaje',    '1.0', 'Attach Template',          'published', false),
-  ('75000000-0000-4000-8000-0000000000e2', 'matematica',  '1.0', 'Attach Archived Template', 'published', true),
-  ('75000000-0000-4000-8000-0000000000e3', 'convivencia', '1.0', 'Attach Draft Template',    'draft',     false);
+-- 20261008120000 (vía rules): a live template needs a real vía and, for a
+-- course vía, a grade.
+INSERT INTO public.ab_grades (id, name, sort_order) VALUES
+  (97501, 'Grade 075 A', 97501),
+  (97502, 'Grade 075 B', 97502);
+INSERT INTO public.assessment_templates (id, area, version, name, status, is_archived, grade_id) VALUES
+  ('75000000-0000-4000-8000-0000000000e1', 'personalizacion', '1.0', 'Attach Template',          'published', false, 97501),
+  ('75000000-0000-4000-8000-0000000000e2', 'personalizacion', '1.0', 'Attach Archived Template', 'published', true,  97502),
+  ('75000000-0000-4000-8000-0000000000e3', 'personalizacion', '1.0', 'Attach Draft Template',    'draft',     false, NULL);
 
 INSERT INTO public.assessment_template_snapshots (id, template_id, version, snapshot_data, created_at) VALUES
   ('75000000-0000-4000-8000-0000000000f1', '75000000-0000-4000-8000-0000000000e1', '1.0', '{"modules": []}', '2026-01-01T00:00:00Z'),

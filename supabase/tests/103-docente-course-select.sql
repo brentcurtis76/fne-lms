@@ -62,8 +62,11 @@ INSERT INTO public.school_course_docente_assignments (course_structure_id, docen
   ('10000000-0000-4000-8000-0000000000a3', tests.get_supabase_uid('dc_gone'),    false),
   ('10000000-0000-4000-8000-0000000000b1', tests.get_supabase_uid('dc_other'),   true);
 
-INSERT INTO public.assessment_templates (id, area, version, name, status) VALUES
-  ('10000000-0000-4000-8000-0000000000e1', 'lenguaje', '1.0', 'Docente Course Template', 'published');
+-- 20261008120000 (vía rules): a live template needs a real vía and, for a
+-- course vía, a grade.
+INSERT INTO public.ab_grades (id, name, sort_order) VALUES (97301, 'Grade 103', 97301);
+INSERT INTO public.assessment_templates (id, area, version, name, status, grade_id) VALUES
+  ('10000000-0000-4000-8000-0000000000e1', 'personalizacion', '1.0', 'Docente Course Template', 'published', 97301);
 INSERT INTO public.assessment_template_snapshots (id, template_id, version, snapshot_data) VALUES
   ('10000000-0000-4000-8000-0000000000f1', '10000000-0000-4000-8000-0000000000e1', '1.0', '{"modules": []}');
 INSERT INTO public.assessment_instances (id, template_snapshot_id, school_id, course_structure_id, transformation_year, status) VALUES

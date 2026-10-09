@@ -23,6 +23,7 @@ PASANT-B001 parent stays held, candidate NOT RATIFIED/NOT ACTIVE. Whole-contract
 | PASANT-B001a | Verify A9 continuation provenance and pinned January brochure facts | done | PASANT-01 | 2026-10-08 |  |
 | PASANT-B001b | Prepare evidence-backed January contract and resolve continuation prerequisites | done | PASANT-03 | 2026-10-08 |  |
 | PASANT-B001c | Reconcile recorded Brent corrections into a reviewable January candidate | done | PASANT-04 | 2026-10-08 |  |
+| PASANT-B001e | Activate ratified January normative contract and independent oracle | done | PASANT-06 | 2026-10-09 |  |
 
 ## Events (append-only, newest last)
 - 2026-10-08T19:54:59-03:00 · PM · TODO · generated from planning session PS-20261008-183505 (gen-PS-20261008-183505-f326716d048a:row:PASANT-B001) · token ls-27027257d5
@@ -45,3 +46,6 @@ PASANT-B001 parent stays held, candidate NOT RATIFIED/NOT ACTIVE. Whole-contract
 - 2026-10-08T21:59:29-03:00 · PASANT-04 · IN-PROGRESS · PASANT-04 r0 dispatched (pm-unit begin) · token ls-3b49351a6c
 - 2026-10-08T22:00:20-03:00 · PASANT-02 · CHECKPOINT · PASANT-04 r0 running under same sole PM; Now reconciled with enabled power, saved accepted closure and recorded answers; next wait/review-start, parent C001-C003 held. No external decision or parent completion.
 - 2026-10-08T22:28:26-03:00 · PASANT-04 · DONE · PASANT-04: reconcile recorded January contract corrections · token 0cbbfe988945
+- 2026-10-09T09:24:51-03:00 · PM · TODO · PASANT-B001e may start without Brent (PASANT-05 PM under PASANT revision 1 and Brent contract approval 6d9b56320e62019a): Finish C003 planned normative-source and oracle transition; preserve October history and all paren · token ls-cb8561a20d
+- 2026-10-09T09:28:45-03:00 · PASANT-06 · IN-PROGRESS · PASANT-06 r0 dispatched (pm-unit begin) · token ls-99f43d11e8
+- 2026-10-09T11:30:15-03:00 · PASANT-06 · DONE · PASANT-06: activate ratified January contract and staged independent oracles · token a24d829d09f3

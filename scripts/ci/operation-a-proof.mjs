@@ -63,6 +63,14 @@
  * Run with `SUPABASE_DB_URL=... npm run test:operation-a` against a FRESH, started, local stack. Synthetic
  * data only; the script pre-purges and re-purges its fixed ids and removes
  * only the index it created (it refuses to run if that index already exists).
+ *
+ * Since migration 20261002180000 (Step 3 shipped) every fresh stack HAS the
+ * index, so the proof alone could no longer run. main() therefore suspends
+ * the index first — only when that migration is recorded and the index
+ * definition is exactly the migration's — runs the proof and the drills
+ * (which need the pre-Step-3 state), and always restores the same definition
+ * afterwards, failing the run if it cannot. Any other pre-existing index is
+ * still refused by runProof's preflight and never touched.
  */
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -1129,8 +1137,50 @@ async function lifecycleDrills() {
   return failures;
 }
 
-async function main() {
-  assertLocal(DB_URL);
+// ── The shipped index (migration 20261002180000) ────────────────────────────
+const INDEX_MIGRATION = '20261002180000';
+const INDEX_MIGRATION_DEF =
+  `CREATE UNIQUE INDEX ${INDEX_NAME} ON public.school_course_docente_assignments USING btree (course_structure_id) WHERE is_active`;
+
+async function withIndexOwner(fn) {
+  const c = new Client({ connectionString: DB_URL, application_name: 'proof-index-owner' });
+  await c.connect();
+  try {
+    return await fn(c);
+  } finally {
+    await c.end().catch(() => {});
+  }
+}
+
+/**
+ * Drops the index only when it is the migration's: the migration is recorded
+ * and the definition is exactly the migration's. Returns true when it did.
+ * Otherwise nothing is touched and runProof's preflight decides (refusal).
+ */
+async function suspendMigrationIndex() {
+  return withIndexOwner(async (c) => {
+    const { rows } = await c.query('SELECT indexdef FROM pg_indexes WHERE schemaname = $1 AND indexname = $2', ['public', INDEX_NAME]);
+    if (rows.length === 0) return false;
+    const { rows: table } = await c.query(`SELECT to_regclass('supabase_migrations.schema_migrations') IS NOT NULL AS present`);
+    if (!table[0].present) return false;
+    const { rows: mig } = await c.query('SELECT 1 FROM supabase_migrations.schema_migrations WHERE version = $1', [INDEX_MIGRATION]);
+    if (mig.length === 0 || rows[0].indexdef !== INDEX_MIGRATION_DEF) return false;
+    await c.query(`DROP INDEX public.${INDEX_NAME}`);
+    return true;
+  });
+}
+
+async function restoreMigrationIndex() {
+  await withIndexOwner(async (c) => {
+    await c.query(INDEX_MIGRATION_DEF);
+    const { rows } = await c.query('SELECT indexdef FROM pg_indexes WHERE schemaname = $1 AND indexname = $2', ['public', INDEX_NAME]);
+    if (rows.length !== 1 || rows[0].indexdef !== INDEX_MIGRATION_DEF) {
+      throw new Error(`restored index does not match migration ${INDEX_MIGRATION}`);
+    }
+  });
+}
+
+async function proveAndDrill() {
   const r = await runProof();
   if (r.ok) {
     console.log(`\n✓ PASS [${PROOF_TAG}] — ${r.checks} checks; fixtures, index and sessions cleaned (clients ${r.clientsOpened} opened / ${r.clientsClosed} closed)`);
@@ -1148,6 +1198,25 @@ async function main() {
     return;
   }
   console.log(`\n✓ PASS [${PROOF_TAG}] lifecycle drills`);
+}
+
+async function main() {
+  assertLocal(DB_URL);
+  const suspended = await suspendMigrationIndex();
+  if (suspended) console.log(`[${PROOF_TAG}] index ${INDEX_NAME} (migration ${INDEX_MIGRATION}) suspended for the run`);
+  try {
+    await proveAndDrill();
+  } finally {
+    if (suspended) {
+      try {
+        await restoreMigrationIndex();
+        console.log(`✓ [${PROOF_TAG}] index ${INDEX_NAME} restored exactly as migration ${INDEX_MIGRATION} defines it`);
+      } catch (error) {
+        console.error(`\n✗ FAIL [${PROOF_TAG}]: could not restore ${INDEX_NAME}: ${error.message} — recreate it with: ${INDEX_MIGRATION_DEF}`);
+        process.exitCode = 1;
+      }
+    }
+  }
 }
 
 main().catch((error) => {

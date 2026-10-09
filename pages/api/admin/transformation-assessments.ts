@@ -89,7 +89,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     let requestedSchoolId: number | null = null;
     if (schoolId !== undefined && schoolId !== '') {
-      requestedSchoolId = Number(schoolId);
+      requestedSchoolId = typeof schoolId === 'string' && /^\d+$/.test(schoolId) ? Number(schoolId) : NaN;
       if (!Number.isSafeInteger(requestedSchoolId) || requestedSchoolId <= 0) {
         return res.status(400).json({ error: 'schoolId inválido' });
       }

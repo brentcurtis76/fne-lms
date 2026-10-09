@@ -218,8 +218,8 @@ describe('/api/admin/transformation-assessments', () => {
     expect(res._getJSONData().schoolGroups.map((group: Row) => group.school_id)).toEqual([2]);
   });
 
-  it('an invalid schoolId is refused', async () => {
-    const { req, res } = createMocks({ method: 'GET', query: { schoolId: 'abc' } });
+  it.each([['abc'], ['1.0'], [['1']], [['1', '2']]])('an invalid schoolId %j is refused', async (schoolId) => {
+    const { req, res } = createMocks({ method: 'GET', query: { schoolId: schoolId as any } });
     await handler(req as any, res as any);
     expect(res._getStatusCode()).toBe(400);
   });

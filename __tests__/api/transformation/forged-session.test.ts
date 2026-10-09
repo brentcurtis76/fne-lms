@@ -26,6 +26,7 @@ const X1 = '44444444-4444-4444-8444-444444444444';
 const X2 = '55555555-5555-4555-8555-555555555555'; // school 2, created by OUTSIDER
 const FAR_COLLABORATOR = '66666666-6666-4666-8666-666666666666'; // school 3, collaborates on X1
 const BYSTANDER = '77777777-7777-4777-8777-777777777777'; // school 1, not on X1
+const CONSULTOR = '88888888-8888-4888-8888-888888888888'; // consultor assigned to school 2 only
 let failingTable: string | null = null;
 const COOKIE_TOKEN = 'caller-own-valid-token';
 const BEARER_TOKEN = 'caller-bearer-token';
@@ -41,6 +42,7 @@ function resetRows() {
     { user_id: OUTSIDER, role_type: 'docente', school_id: 2, is_active: true },
     { user_id: FAR_COLLABORATOR, role_type: 'docente', school_id: 3, is_active: true },
     { user_id: BYSTANDER, role_type: 'docente', school_id: 1, is_active: true },
+    { user_id: CONSULTOR, role_type: 'consultor', school_id: null, is_active: true },
   ].map((r) => ({ ...r, profiles: { id: r.user_id, first_name: 'N', last_name: r.user_id.slice(0, 4), email: `${r.user_id}@example.invalid`, avatar_url: null } }));
   ROWS.transformation_assessments = [
     { id: X1, school_id: 1, created_by: CREATOR, area: 'evaluacion', status: 'in_progress', grades: [], context_metadata: {} },
@@ -50,7 +52,11 @@ function resetRows() {
     { assessment_id: X1, user_id: CREATOR, role: 'creator', can_edit: true },
     { assessment_id: X1, user_id: FAR_COLLABORATOR, role: 'collaborator', can_edit: true },
   ];
-  ROWS.profiles = [CREATOR, OUTSIDER, COLLEAGUE, FAR_COLLABORATOR].map((id) => ({ id, first_name: 'N', last_name: 'S', must_change_password: MUST_CHANGE.has(id) }));
+  ROWS.consultant_assignments = [
+    { consultant_id: CONSULTOR, school_id: 2, is_active: true },
+    { consultant_id: CONSULTOR, school_id: 1, is_active: false },
+  ];
+  ROWS.profiles = [CREATOR, OUTSIDER, COLLEAGUE, FAR_COLLABORATOR, CONSULTOR].map((id) => ({ id, first_name: 'N', last_name: 'S', must_change_password: MUST_CHANGE.has(id) }));
   ROWS.schools = [{ id: 1, name: 'Colegio 1' }, { id: 2, name: 'Colegio 2' }];
   ROWS.transformation_llm_usage = [];
 }
@@ -416,5 +422,48 @@ describe('assessment data is shown only to people who may read the assessment', 
     const res = await call(collaborators, 'DELETE', { id: X1 }, { userId: FAR_COLLABORATOR });
     expect(res.statusCode).toBe(200);
     expect(writes().some(([t, o]) => t === 'transformation_assessment_collaborators' && o === 'delete')).toBe(true);
+  });
+});
+
+describe('consultores act only on the schools of their active assignments', () => {
+  beforeEach(() => {
+    verifiedUser = { id: CONSULTOR };
+  });
+
+  it.each(GATED)('%s on a school-1 assessment is refused, nothing written', async (_n, handler, method, query, body) => {
+    const res = await call(handler, method, query, body);
+    expect(res.statusCode).toBe(403);
+    expect(writes()).toEqual([]);
+  });
+
+  it('vias GET lists only the assigned school', async () => {
+    const res = await call(assessments, 'GET');
+    expect(res.statusCode).toBe(200);
+    expect(res.body.assessments.map((a: { id: string }) => a.id)).toEqual([X2]);
+    expect(res.body.isAdmin).toBe(false);
+  });
+
+  it('on an assigned school the consultor keeps staff rights (read, edit, collaborators)', async () => {
+    ROWS.consultant_assignments.push({ consultant_id: CONSULTOR, school_id: 1, is_active: true });
+    expect((await call(assessmentById, 'GET', { id: X1 })).statusCode).toBe(200);
+    expect((await call(collaborators, 'GET', { id: X1 })).statusCode).toBe(200);
+    expect((await call(eligibleCollaborators, 'GET', { schoolId: '1' })).statusCode).toBe(200);
+    expect((await call(assessmentById, 'PATCH', { id: X1 }, { status: 'archived' })).statusCode).toBe(200);
+    expect(writes().some(([t, o]) => t === 'transformation_assessments' && o === 'update')).toBe(true);
+  });
+
+  it('fails closed when the assignments cannot be read', async () => {
+    failingTable = 'consultant_assignments';
+    expect((await call(assessmentById, 'GET', { id: X2 })).statusCode).toBe(500);
+    expect((await call(assessments, 'GET')).statusCode).toBe(500);
+    expect((await call(assessmentById, 'PATCH', { id: X2 }, { status: 'archived' })).statusCode).toBe(500);
+    expect(writes()).toEqual([]);
+  });
+
+  it('an admin still acts on every school', async () => {
+    ROWS.user_roles.push({ user_id: CONSULTOR, role_type: 'admin', school_id: null, is_active: true });
+    expect((await call(assessmentById, 'GET', { id: X1 })).statusCode).toBe(200);
+    const list = await call(assessments, 'GET');
+    expect(list.body.assessments.map((a: { id: string }) => a.id).sort()).toEqual([X1, X2].sort());
   });
 });

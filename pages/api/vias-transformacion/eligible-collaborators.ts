@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
-import { canReadViasAssessment, loadViasAssessment } from '@/lib/transformation/viasAssessmentAccess';
+import { canReadViasAssessment, isViasStaffFor, loadViasAssessment, loadViasStaffScope } from '@/lib/transformation/viasAssessmentAccess';
 import { createClient } from '@supabase/supabase-js';
 
 /**
@@ -68,10 +68,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al verificar permisos' });
     }
 
-    const isAdmin = userRoles?.some(r => ['admin', 'consultor'].includes(r.role_type));
+    const isStaff = isViasStaffFor(await loadViasStaffScope(supabaseAdmin, userId, userRoles), schoolIdNum);
     const userSchoolIds = userRoles?.filter(r => r.school_id).map(r => r.school_id) || [];
 
-    if (!isAdmin && !userSchoolIds.includes(schoolIdNum)) {
+    if (!isStaff && !userSchoolIds.includes(schoolIdNum)) {
       return res.status(403).json({ error: 'No tienes acceso a esta escuela' });
     }
 

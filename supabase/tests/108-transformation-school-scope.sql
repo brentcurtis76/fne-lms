@@ -18,13 +18,18 @@
 --   [S-4] admin: every school, including a row without a school.
 --   [S-5] unchanged: a docente of A reads A by membership and nothing of B;
 --         a growth-community member reads the community's messages.
+--   [S-6] unchanged, each right on its own (Codex F1 r3 note): a plain school
+--         member reads but cannot update; a community member (no school
+--         role) reads, updates and inserts when the community has
+--         transformation access; an editable collaborator from another
+--         school reads, updates and removes only their own row.
 --
 -- Fixtures are synthetic and the whole file rolls back.
 -- =============================================================================
 
 BEGIN;
 
-SELECT plan(44);
+SELECT plan(56);
 
 CREATE OR REPLACE FUNCTION pg_temp.uid(k text) RETURNS uuid
 LANGUAGE sql STABLE SECURITY DEFINER AS $$ SELECT tests.get_supabase_uid(k) $$;
@@ -46,10 +51,13 @@ SELECT tests.create_supabase_user('ts_cons');      -- consultor, active assignme
 SELECT tests.create_supabase_user('ts_cons_none'); -- consultor, no assignment
 SELECT tests.create_supabase_user('ts_dir_b');     -- equipo_directivo, school B
 SELECT tests.create_supabase_user('ts_doc_a');     -- docente, school A, community GA
+SELECT tests.create_supabase_user('ts_mem_a');     -- docente, school A only (no community, not creator / collaborator)
+SELECT tests.create_supabase_user('ts_comm_a');    -- docente, community GA only (no school on the role)
+SELECT tests.create_supabase_user('ts_collab_a');  -- docente of school B, editable collaborator on A
 
 INSERT INTO public.profiles (id, email, name, approval_status)
 SELECT pg_temp.uid(x.ident), x.ident || '@test.local', x.ident, 'approved'
-FROM (VALUES ('ts_admin'), ('ts_cons'), ('ts_cons_none'), ('ts_dir_b'), ('ts_doc_a')) AS x(ident)
+FROM (VALUES ('ts_admin'), ('ts_cons'), ('ts_cons_none'), ('ts_dir_b'), ('ts_doc_a'), ('ts_mem_a'), ('ts_comm_a'), ('ts_collab_a')) AS x(ident)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.schools (id, name) VALUES (9811, 'TS school A (pgTAP 108)'), (9812, 'TS school B (pgTAP 108)')
@@ -63,7 +71,10 @@ INSERT INTO public.user_roles (user_id, role_type, school_id, community_id, is_a
   (pg_temp.uid('ts_cons'),      'consultor',        NULL, NULL, true),
   (pg_temp.uid('ts_cons_none'), 'consultor',        NULL, NULL, true),
   (pg_temp.uid('ts_dir_b'),     'equipo_directivo', 9812, NULL, true),
-  (pg_temp.uid('ts_doc_a'),     'docente',          9811, '10800000-0000-4000-8000-00000000c00a', true);
+  (pg_temp.uid('ts_doc_a'),     'docente',          9811, '10800000-0000-4000-8000-00000000c00a', true),
+  (pg_temp.uid('ts_mem_a'),     'docente',          9811, NULL, true),
+  (pg_temp.uid('ts_comm_a'),    'docente',          NULL, '10800000-0000-4000-8000-00000000c00a', true),
+  (pg_temp.uid('ts_collab_a'),  'docente',          9812, NULL, true);
 
 INSERT INTO public.consultant_assignments (consultant_id, school_id, is_active) VALUES
   (pg_temp.uid('ts_cons'), 9811, true),
@@ -79,7 +90,10 @@ INSERT INTO public.transformation_assessments (id, growth_community_id, area, sc
   ('10800000-0000-4000-8000-0000000000c1', NULL, 'evaluacion', NULL, NULL);
 INSERT INTO public.transformation_assessment_collaborators (assessment_id, user_id, can_edit) VALUES
   ('10800000-0000-4000-8000-0000000000a1', pg_temp.uid('ts_doc_a'), true),
-  ('10800000-0000-4000-8000-0000000000b1', pg_temp.uid('ts_dir_b'), true);
+  ('10800000-0000-4000-8000-0000000000b1', pg_temp.uid('ts_dir_b'), true),
+  ('10800000-0000-4000-8000-0000000000a1', pg_temp.uid('ts_collab_a'), true);
+-- Community A has transformation access (the members_* write branches).
+UPDATE public.growth_communities SET transformation_enabled = true WHERE id = '10800000-0000-4000-8000-00000000c00a';
 INSERT INTO public.transformation_conversation_messages (assessment_id, rubric_item_id, role, content) VALUES
   ('10800000-0000-4000-8000-0000000000a1', '10800000-0000-4000-8000-0000000000f1', 'user', 'A'),
   ('10800000-0000-4000-8000-0000000000b1', '10800000-0000-4000-8000-0000000000f1', 'user', 'B');
@@ -185,6 +199,33 @@ SELECT is((SELECT count(*)::int FROM public.transformation_assessments WHERE id 
 SELECT is((SELECT count(*)::int FROM public.transformation_assessments WHERE id = '10800000-0000-4000-8000-0000000000b1'), 0, 'S-5: docente of A reads nothing of B');
 SELECT is((SELECT count(*)::int FROM public.transformation_conversation_messages WHERE assessment_id = '10800000-0000-4000-8000-0000000000a1'), 1, 'S-5: community member reads A''s conversation');
 SELECT is(pg_temp.rows_affected($$DELETE FROM public.transformation_assessment_collaborators WHERE assessment_id = '10800000-0000-4000-8000-0000000000a1' AND user_id = auth.uid()$$), 1, 'S-5: a collaborator may remove themself');
+RESET ROLE;
+
+-- =============================================================================
+-- [S-6] each preserved right on its own
+-- =============================================================================
+SELECT tests.authenticate_as('ts_mem_a');
+SELECT is((SELECT count(*)::int FROM public.transformation_assessments WHERE id = '10800000-0000-4000-8000-0000000000a1'), 1, 'S-6: a plain school member reads A');
+SELECT is(pg_temp.rows_affected($$UPDATE public.transformation_assessments SET context_metadata = '{"x":6}' WHERE id = '10800000-0000-4000-8000-0000000000a1'$$), 0, 'S-6: a plain school member cannot update A');
+SELECT is((SELECT count(*)::int FROM public.transformation_results WHERE assessment_id = '10800000-0000-4000-8000-0000000000a1'), 0, 'S-6: a plain school member reads no result (results are community-scoped)');
+RESET ROLE;
+SELECT tests.authenticate_as('ts_comm_a');
+SELECT is((SELECT count(*)::int FROM public.transformation_assessments WHERE id = '10800000-0000-4000-8000-0000000000a1'), 1, 'S-6: a community member reads the community''s assessment');
+SELECT is((SELECT count(*)::int FROM public.transformation_results WHERE assessment_id = '10800000-0000-4000-8000-0000000000a1'), 1, 'S-6: a community member reads its results');
+SELECT is(pg_temp.rows_affected($$UPDATE public.transformation_assessments SET context_metadata = '{"x":7}' WHERE id = '10800000-0000-4000-8000-0000000000a1'$$), 1, 'S-6: a community member updates it (transformation access on)');
+SELECT lives_ok($$INSERT INTO public.transformation_assessments (growth_community_id, area, school_id, created_by) VALUES ('10800000-0000-4000-8000-00000000c00a', 'personalizacion', 9811, auth.uid())$$,
+  'S-6: a community member may create one for the community');
+SELECT is((SELECT count(*)::int FROM public.transformation_assessments WHERE id = '10800000-0000-4000-8000-0000000000b1'), 0, 'S-6: a community member reads nothing of another community');
+RESET ROLE;
+SELECT tests.authenticate_as('ts_collab_a');
+SELECT is((SELECT count(*)::int FROM public.transformation_assessments WHERE id = '10800000-0000-4000-8000-0000000000a1'), 1, 'S-6: an editable collaborator from another school reads A');
+-- Unchanged from before this migration: the update WITH CHECK keeps a
+-- school row writable only by its school's members (or staff), so an editable
+-- collaborator from ANOTHER school sees the row but cannot write it.
+SELECT throws_ok($$UPDATE public.transformation_assessments SET context_metadata = '{"x":8}' WHERE id = '10800000-0000-4000-8000-0000000000a1'$$,
+  '42501', NULL, 'S-6: an editable collaborator from another school cannot write A (WITH CHECK, unchanged)');
+SELECT is(pg_temp.rows_affected($$DELETE FROM public.transformation_assessment_collaborators WHERE assessment_id = '10800000-0000-4000-8000-0000000000a1' AND user_id <> auth.uid()$$), 0, 'S-6: a collaborator cannot remove someone else');
+SELECT is(pg_temp.rows_affected($$DELETE FROM public.transformation_assessment_collaborators WHERE assessment_id = '10800000-0000-4000-8000-0000000000a1' AND user_id = auth.uid()$$), 1, 'S-6: a collaborator removes their own row');
 RESET ROLE;
 
 SELECT * FROM finish();

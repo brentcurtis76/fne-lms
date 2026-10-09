@@ -4,7 +4,7 @@ import { isOutboxDeliveryEnabled, runNotificationEmailWorker } from '../../../li
 import { authorizeCronRequest, isAllowedCronMethod } from '../../../lib/zoom/cron-auth';
 
 /**
- * Notification email dispatcher (N3-03). Not scheduled yet: N5-02 registers it.
+ * Notification email dispatcher (N3-03), scheduled every minute in vercel.json (N5-02).
  * While `NOTIFICATION_OUTBOX_DELIVERY` is unset or off it answers without
  * creating a database client, so it claims and sends nothing.
  */

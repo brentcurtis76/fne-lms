@@ -78,6 +78,7 @@ export async function deliverRecordBells(
         read_at: null,
         event_type: eventType,
         idempotency_key: NotificationService.generateIdempotencyKey(eventType, occurrence, id),
+        source_context: { occurrence, eventData: record },
       });
     } catch {
       failed++;

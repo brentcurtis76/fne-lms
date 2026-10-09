@@ -14,6 +14,8 @@
  *   group                  group_assignment_groups RLS, then its members / its community's consultants
  *   quiz_submission        its student / the reviewers notify-pending resolves
  *   workspace              can_access_workspace
+ *   group (message)        can_access_assignment_group: a message in an assignment-group
+ *                          thread, as can_access_message_thread decides for that thread
  *
  * Events without a record are decided by the recipient's current audience role.
  *
@@ -246,6 +248,13 @@ const workspaceAccess: Check = async (ctx) => {
   return data === true;
 };
 
+/** Workspace access is not enough here: removal, an inactive role or a forced password change all deny. */
+const groupThreadAccess: Check = async (ctx) => {
+  const { data, error } = await ctx.client.rpc('can_access_assignment_group', { p_user_id: ctx.userId, p_group_id: ctx.sourceId });
+  if (error) throw new LookupFailed();
+  return data === true;
+};
+
 const testerAccess: Check = async (ctx) => {
   if (hasRole(ctx, 'admin')) return true;
   const [profile] = await rows<{ can_run_qa_tests: boolean | null }>(
@@ -270,13 +279,15 @@ const LICITACION = record('licitacion', licitacionAccess);
 const COURSE = record('course', (ctx) => courseAccess(ctx, ctx.sourceId));
 const ASSIGNMENT = record('assignment', assignmentAccess);
 const WORKSPACE = record('workspace', workspaceAccess);
+/** A message names its workspace, or the group that owns its thread. */
+const MESSAGE = [WORKSPACE, record('group', groupThreadAccess)];
 const ADMINS: Rule = { kind: null, check: adminOnly };
 
 /**
  * Every event the worker may mail. An event absent here — unmapped, `unwired`
  * (`learning_path_assigned`) or `meeting_finalized` — is never sent.
  */
-const RULES: Record<string, Rule> = {
+const RULES: Record<string, Rule | Rule[]> = {
   course_assigned: COURSE,
   course_completed: COURSE,
   module_completed: COURSE,
@@ -287,8 +298,8 @@ const RULES: Record<string, Rule> = {
   group_assignment_submitted: record('group', groupConsultantAccess),
   quiz_review_pending: record('quiz_submission', quizReviewerAccess),
   quiz_reviewed: record('quiz_submission', quizStudentAccess),
-  message_sent: WORKSPACE,
-  user_mentioned: WORKSPACE,
+  message_sent: MESSAGE,
+  user_mentioned: MESSAGE,
   session_created: SESSION,
   session_rescheduled: SESSION,
   session_cancelled: SESSION,
@@ -320,7 +331,9 @@ const RULES: Record<string, Rule> = {
 };
 
 export async function checkNotificationAccess(client: SupabaseClient, input: AccessInput): Promise<AccessDecision> {
-  const rule = Object.prototype.hasOwnProperty.call(RULES, input.eventType) ? RULES[input.eventType] : undefined;
+  const entry = Object.prototype.hasOwnProperty.call(RULES, input.eventType) ? RULES[input.eventType] : undefined;
+  const rules = entry === undefined ? [] : Array.isArray(entry) ? entry : [entry];
+  const rule = rules.find((r) => r.kind === input.sourceKind) ?? rules[0];
   if (!rule || !getCatalogEntry(input.eventType)) return { access: 'invalid', code: 'event_unsupported' };
 
   const { sourceKind, sourceId } = input;

@@ -12,6 +12,7 @@
  * reads this catalog, system updates stop sending email by default.
  */
 import type { UserRole } from '../../types/roles';
+import type { SourceKind } from '../email/notification-access';
 import { NOTIFICATION_EVENTS } from '../notificationEvents';
 import { canViewSession } from '../utils/session-policy';
 
@@ -64,6 +65,21 @@ export type Audience =
 
 type EventData = Record<string, unknown>;
 
+/** The record an event is about, as `notification_email_outbox_source` stores it. */
+export interface NotificationSource {
+  kind: SourceKind;
+  /** Server payload paths that may name the record; when several do, they must agree. */
+  paths: readonly string[];
+  /** A payload that has no record by design: kept on the synchronous path, never invalid. */
+  recordless?: (data: EventData) => boolean;
+  /**
+   * Payload path of the assignment groups that own a message's thread, as the
+   * producer read them from the persisted thread. One group is the record
+   * instead of `paths`: only that group's audience may read the thread.
+   */
+  groupsPath?: string;
+}
+
 export interface NotificationCatalogEntry {
   category: NotificationCategory;
   audience: Audience;
@@ -85,6 +101,11 @@ export interface NotificationCatalogEntry {
   urlBuilder: (data: EventData, role?: string) => string | null;
   /** Safe landing page when there is no record context. Always an existing route; see `getFallbackUrl`. */
   fallbackUrl: string;
+  /**
+   * The record the outbox worker re-checks access against (`checkNotificationAccess`
+   * RULES); null for an event without one; absent for an event the worker never mails.
+   */
+  source?: NotificationSource | null;
 }
 
 export const DEFAULT_NOTIFICATION_URL = '/dashboard';
@@ -132,6 +153,8 @@ function occurrence(data: EventData, ...paths: string[]): string | null {
   }
   return parts.join(':');
 }
+
+const from = (kind: SourceKind, ...paths: string[]): NotificationSource => ({ kind, paths });
 
 const at = (base: string, ...idPaths: string[]) => (data: EventData) => {
   const id = recordId(data, ...idPaths);
@@ -189,6 +212,7 @@ const session = (
   templates: 'registry',
   urlBuilder: sessionUrl,
   fallbackUrl: '/consultor/sessions',
+  source: from('session', 'session.id'),
   ...extra,
 });
 
@@ -202,6 +226,7 @@ const licitacion = (audience: Audience, extraFields: string[] = []): Notificatio
   templates: 'registry',
   urlBuilder: at('/licitaciones', 'licitacion_id'),
   fallbackUrl: '/licitaciones',
+  source: from('licitacion', 'licitacion_id'),
 });
 
 /**
@@ -239,21 +264,22 @@ const assignmentUrl = at('/assignments', 'assignment.id', 'assignment_id');
 
 export const NOTIFICATION_CATALOG: Record<string, NotificationCatalogEntry> = {
   // The payload names the course, not the assignment row: a re-assignment is a new occurrence.
-  course_assigned: plain('courses', 'assigned_users', 'immediate', [], ['course.name'], noRecord, '/mi-aprendizaje'),
+  course_assigned: { ...plain('courses', 'assigned_users', 'immediate', [], ['course.name'], noRecord, '/mi-aprendizaje'), source: from('course', 'course.id') },
   learning_path_assigned: plain('courses', 'unwired', 'immediate', [], ['learning_path.name'], noRecord, '/mi-aprendizaje'),
-  course_completed: plain('courses', 'student', 'digest', ['course_id', 'student_id'], ['course.name', 'course_name'], noRecord, '/mi-aprendizaje'),
-  module_completed: plain('courses', 'student', 'digest', ['module_id', 'student_id'], ['module.name', 'course.name', 'module_name', 'course_name'], noRecord, '/mi-aprendizaje'),
+  course_completed: { ...plain('courses', 'student', 'digest', ['course_id', 'student_id'], ['course.name', 'course_name'], noRecord, '/mi-aprendizaje'), source: from('course', 'course_id') },
+  module_completed: { ...plain('courses', 'student', 'digest', ['module_id', 'student_id'], ['module.name', 'course.name', 'module_name', 'course_name'], noRecord, '/mi-aprendizaje'), source: from('course', 'course_id') },
 
-  assignment_created: plain('assignments', 'assigned_users', 'immediate', ['assignment.id'], ASSIGNMENT_FIELDS, assignmentUrl, '/assignments'),
+  assignment_created: { ...plain('assignments', 'assigned_users', 'immediate', ['assignment.id'], ASSIGNMENT_FIELDS, assignmentUrl, '/assignments'), source: from('assignment', 'assignment.id', 'assignment_id') },
   // Feedback is upserted per (assignment, student): each new feedback is a new occurrence.
-  assignment_feedback: plain('assignments', 'student', 'immediate', [], ASSIGNMENT_FIELDS, assignmentUrl, '/assignments'),
-  assignment_due_soon: plain('assignments', 'student', 'immediate', ['assignment_id', 'student_id', 'due_date'], ASSIGNMENT_FIELDS, assignmentUrl, '/assignments'),
+  assignment_feedback: { ...plain('assignments', 'student', 'immediate', [], ASSIGNMENT_FIELDS, assignmentUrl, '/assignments'), source: from('assignment', 'assignment_id') },
+  assignment_due_soon: { ...plain('assignments', 'student', 'immediate', ['assignment_id', 'student_id', 'due_date'], ASSIGNMENT_FIELDS, assignmentUrl, '/assignments'), source: from('assignment', 'assignment_id') },
 
   // Group and quiz bells (N2-04) carry fixed producer copy and no email fields.
   // A group has no record page for members; one invitation per group and member.
   group_invitation: {
     ...plain('assignments', 'group_invitees', 'immediate', ['group_id'], [], noRecord, '/mi-aprendizaje/tareas'),
     templates: 'producer',
+    source: from('group', 'group_id'),
   },
   // One per saved group submission (its persisted submitted_at): an edited resubmission
   // is a new occurrence, an identical retry keeps the timestamp and is not.
@@ -262,24 +288,33 @@ export const NOTIFICATION_CATALOG: Record<string, NotificationCatalogEntry> = {
     ...plain('assignments', 'group_consultants', 'immediate', ['group_id', 'submitted_at'], [], noRecord, '/admin/assignment-overview'),
     templates: 'producer',
     urlBuilder: (d, role) => (role === 'admin' ? at('/admin/assignment-review', 'assignment_id')(d) : null),
+    source: from('group', 'group_id'),
   },
   quiz_review_pending: {
     ...plain('assignments', 'quiz_reviewers', 'immediate', ['submission_id'], [], at('/quiz-reviews', 'submission_id'), '/quiz-reviews'),
     templates: 'producer',
+    source: from('quiz_submission', 'submission_id'),
   },
   // One per saved review (its persisted graded_at): pass → needs_review → pass is three
   // occurrences, saving the same review again keeps the timestamp and is not.
   quiz_reviewed: {
     ...plain('assignments', 'student', 'immediate', ['submission_id', 'graded_at'], [], at('/student/lesson', 'lesson_id'), '/mi-aprendizaje'),
     templates: 'producer',
+    source: from('quiz_submission', 'submission_id'),
   },
 
-  message_sent: plain('community', 'message_recipient', 'immediate', ['message_id'], ['sender_name'], workspaceThreadUrl, '/community/workspace?section=messaging'),
+  // A direct message (messaging/send without a thread) has no workspace; a
+  // message in an assignment-group thread names the thread's group.
+  message_sent: {
+    ...plain('community', 'message_recipient', 'immediate', ['message_id'], ['sender_name'], workspaceThreadUrl, '/community/workspace?section=messaging'),
+    source: { ...from('workspace', 'workspace_id'), groupsPath: 'thread_group_ids', recordless: (d) => get(d, 'context') === 'direct_message' },
+  },
   // A post mention is one occurrence per user_mentions row; a workspace message
   // mention (no mention_id) is one per message, keyed with its recipient.
   user_mentioned: {
     ...plain('community', 'mentioned_user', 'immediate', ['mention_id'], ['author_name'], workspaceThreadUrl, '/community/workspace?section=overview'),
     occurrenceId: (d) => occurrence(d, 'mention_id') ?? occurrence(d, 'message_id'),
+    source: { ...from('workspace', 'workspace_id'), groupsPath: 'thread_group_ids' },
   },
   // `emailDefault` governs the finalize route's summary mail; the notification itself is in-app only until N5-06.
   meeting_finalized: plain('community', 'meeting_recipients', 'immediate', ['meeting_id'], ['title'], noRecord, '/community/workspace?section=meetings'),
@@ -305,7 +340,7 @@ export const NOTIFICATION_CATALOG: Record<string, NotificationCatalogEntry> = {
   session_edit_request_approved: session('edit_requester', [], { emailFields: ['session.title'] }),
   session_edit_request_rejected: session('edit_requester', [], { emailFields: ['session.title'] }),
 
-  consultant_assigned: plain('advisory', 'student', 'immediate', ['assignment_id'], ['consultant.name', 'consultant_name'], noRecord, '/profile'),
+  consultant_assigned: { ...plain('advisory', 'student', 'immediate', ['assignment_id'], ['consultant.name', 'consultant_name'], noRecord, '/profile'), source: from('consultant_assignment', 'assignment_id') },
 
   licitacion_created: licitacion('school_encargados'),
   licitacion_published: licitacion('school_encargados', ['fecha_publicacion']),
@@ -322,21 +357,61 @@ export const NOTIFICATION_CATALOG: Record<string, NotificationCatalogEntry> = {
   licitacion_adjudicada: licitacion('school_encargados_and_admins', ['ganador_nombre']),
   licitacion_contrato_generado: licitacion('admins'),
 
-  qa_scenario_assigned: plain('qa_support', 'tester', 'immediate', [], ['scenario_count', 'due_date'], noRecord, '/qa'),
-  new_feedback: plain('qa_support', 'admins', 'digest', ['feedback_id'], ['feedback_type'], noRecord, '/admin/feedback'),
-  qa_test_failed: plain('qa_support', 'admins', 'digest', ['test_run_id', 'step_index'], ['scenario_name', 'feature_area'], at('/admin/qa/runs', 'test_run_id'), '/admin/qa'),
+  qa_scenario_assigned: { ...plain('qa_support', 'tester', 'immediate', [], ['scenario_count', 'due_date'], noRecord, '/qa'), source: null },
+  new_feedback: { ...plain('qa_support', 'admins', 'digest', ['feedback_id'], ['feedback_type'], noRecord, '/admin/feedback'), source: null },
+  qa_test_failed: { ...plain('qa_support', 'admins', 'digest', ['test_run_id', 'step_index'], ['scenario_name', 'feature_area'], at('/admin/qa/runs', 'test_run_id'), '/admin/qa'), source: null },
   data_quality_alert: {
     ...plain('qa_support', 'admins', 'digest', [], [], noRecord, '/admin/course-builder'),
     templates: 'producer',
+    source: null,
   },
 
-  system_update: plain('system', 'all_active_users', 'off', ['update_id'], ['title', 'version'], noRecord, DEFAULT_NOTIFICATION_URL),
+  system_update: { ...plain('system', 'all_active_users', 'off', ['update_id'], ['title', 'version'], noRecord, DEFAULT_NOTIFICATION_URL), source: null },
 };
 
 export function getCatalogEntry(eventType: string): NotificationCatalogEntry | undefined {
   return Object.prototype.hasOwnProperty.call(NOTIFICATION_CATALOG, eventType)
     ? NOTIFICATION_CATALOG[eventType]
     : undefined;
+}
+
+export type NotificationSourceResult =
+  | { status: 'ok'; sourceKind: SourceKind | null; sourceId: string | null }
+  /** The worker never mails this event, or this payload has no record by design. */
+  | { status: 'unsupported'; code: 'event_unsupported' | 'recordless' }
+  /** A supported event whose payload does not name exactly one valid record. */
+  | { status: 'invalid'; code: 'source_missing' | 'source_malformed' | 'source_conflict' };
+
+/**
+ * The record a notification is about, read from the producer's server payload
+ * at the entry's `source` paths only, never from its URL or title. A UUID is
+ * lowercased; any other value is malformed, and paths naming two records
+ * conflict. A thread owned by one group is that group's record; a thread owned
+ * by several groups is a conflict. The result carries no payload value.
+ */
+export function resolveNotificationSource(eventType: string, data: EventData): NotificationSourceResult {
+  const source = getCatalogEntry(eventType)?.source;
+  if (source === undefined) return { status: 'unsupported', code: 'event_unsupported' };
+  if (source === null) return { status: 'ok', sourceKind: null, sourceId: null };
+  const values = source.paths.map((path) => get(data ?? {}, path)).filter((value) => value !== undefined && value !== null);
+  const groups = source.groupsPath ? get(data ?? {}, source.groupsPath) ?? [] : [];
+  if (!Array.isArray(groups) || groups.some((group) => typeof group !== 'string' || !UUID.test(group))) {
+    return { status: 'invalid', code: 'source_malformed' };
+  }
+  const groupIds = new Set(groups.map((group: string) => group.toLowerCase()));
+  if (source.recordless?.(data ?? {})) {
+    return values.length > 0 || groupIds.size > 0 ? { status: 'invalid', code: 'source_conflict' } : { status: 'unsupported', code: 'recordless' };
+  }
+  if (groupIds.size > 1) return { status: 'invalid', code: 'source_conflict' };
+  if (groupIds.size === 1) return { status: 'ok', sourceKind: 'group', sourceId: [...groupIds][0] };
+  if (values.length === 0) return { status: 'invalid', code: 'source_missing' };
+  const ids = new Set<string>();
+  for (const value of values) {
+    if (typeof value !== 'string' || !UUID.test(value)) return { status: 'invalid', code: 'source_malformed' };
+    ids.add(value.toLowerCase());
+  }
+  if (ids.size > 1) return { status: 'invalid', code: 'source_conflict' };
+  return { status: 'ok', sourceKind: source.kind, sourceId: [...ids][0] };
 }
 
 /** Event types a producer emits that the catalog does not map (completeness check). */

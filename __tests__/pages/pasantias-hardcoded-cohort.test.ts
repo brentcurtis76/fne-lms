@@ -2548,3 +2548,103 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
     }, 30_000);
   });
 });
+
+/* ---------------------------------------------- the January 2027 oracle (C003) */
+
+/**
+ * The rendered-content oracle for January 2027. Since 2026-10-09 the ratified
+ * `docs/plan/pasantias-january-contract.md` is the sole normative source for
+ * January facts (PLAN.md Decision Log, January 2027 amendment), so the
+ * per-program facts a January page has to print are read from it here — never
+ * from the module, which still carries October 2026 and is what everything above
+ * proves the page renders.
+ *
+ * The page has not moved to January; that is B003 (C004 dates, C005 program
+ * sections), verified again cumulatively at B006 (C011). So this renders the
+ * page as it stands and does not pretend: every contract form the page does not
+ * print is an open gate in {@link OPEN_JANUARY_RENDER_GATES}, asserted in both
+ * directions like every list in this file — a gate that starts rendering fails
+ * until its entry is deleted, and a form the page lacks fails until it is named.
+ * Containment proves a form is on the page, not that it sits in the right
+ * program's section; a school both cohorts share passes here on October's
+ * account. Per-program attribution is C005's rendered-section and browser gate.
+ */
+const JANUARY_CONTRACT_PATH = join(REPO_ROOT, 'docs', 'plan', 'pasantias-january-contract.md');
+const JANUARY_STATUS = 'RATIFIED — ACTIVE';
+
+type JanuaryContract = { status: string; facts: { program: string; field: string; value: unknown }[] };
+
+function readJanuaryContract(): JanuaryContract {
+  const block = readFileSync(JANUARY_CONTRACT_PATH, 'utf8').match(/```json\n([\s\S]*?)\n```/);
+  if (!block) throw new Error(`${JANUARY_CONTRACT_PATH}: no fenced json block`);
+  return JSON.parse(block[1]) as JanuaryContract;
+}
+
+/** Contract fields a January page prints verbatim per program; dates print as their last day, es-CL. */
+const JANUARY_PRINTED_FIELDS = ['name', 'audience', 'takeaway', 'dates', 'immersionSchools', 'visitCandidates', 'schools'];
+
+/** [key, form] for every per-program form a January page must print. Throws on an unratified contract. */
+function januaryForms(contract: JanuaryContract): [string, string][] {
+  if (contract.status !== JANUARY_STATUS) throw new Error(`January contract is ${contract.status}, not ${JANUARY_STATUS}`);
+  return contract.facts
+    .filter((fact) => fact.program !== 'cohort' && fact.program !== 'both' && JANUARY_PRINTED_FIELDS.includes(fact.field))
+    .flatMap((fact): [string, string][] => {
+      const key = `${fact.program}.${fact.field}`;
+      if (fact.field === 'dates') return [[key, dayMonthEsCl(String(fact.value).split('/')[1])]];
+      if (Array.isArray(fact.value)) return fact.value.map((item, i): [string, string] => [`${key}[${i}]`, String(item)]);
+      return [[key, String(fact.value)]];
+    });
+}
+
+const OPEN_JANUARY_RENDER_GATES: { gate: string; keys: string[] }[] = [
+  {
+    gate: 'B003 C005 — the two programs, each with its audience and takeaway, not the immersion/visit stages',
+    keys: ['inspira.name', 'inspira.audience', 'inspira.takeaway', 'mirada-profunda.name', 'mirada-profunda.audience', 'mirada-profunda.takeaway'],
+  },
+  {
+    gate: 'B003 C004 — each program\'s January dates (to 28 and 29 January) replace October\'s',
+    keys: ['inspira.dates', 'mirada-profunda.dates'],
+  },
+];
+
+/** The forms the rendered surface lacks, by key and in key order. */
+function missingForms(forms: [string, string][], surface: string): string[] {
+  return forms.filter(([, form]) => !surface.includes(form)).map(([key]) => key).sort();
+}
+
+describe('C003 — January 2027 rendered-content oracle, from the ratified contract', () => {
+  const forms = januaryForms(readJanuaryContract());
+
+  it('reads one printed form per program fact from the contract, for both programs', () => {
+    expect(new Set(forms.map(([key]) => key.split('.')[0]))).toEqual(new Set(['inspira', 'mirada-profunda']));
+    expect(forms.length).toBe(new Set(forms.map(([key]) => key)).size);
+    for (const [key, form] of forms) expect([key, form.trim().length > 0]).toEqual([key, true]);
+  });
+
+  it('names every January form the October page does not print as an open B003 gate, no more and no fewer', async () => {
+    const surface = renderedSurface(await renderPage({}));
+    expect(missingForms(forms, surface)).toEqual(OPEN_JANUARY_RENDER_GATES.flatMap((group) => group.keys).sort());
+  });
+
+  it('does not pretend the page is January: it prints October and no January date', async () => {
+    const surface = renderedSurface(await renderPage({}));
+    expect(surface).toContain('octubre');
+    expect(surface).not.toMatch(/de enero|2027-01-/);
+  });
+
+  it('refuses an unratified contract as its source', () => {
+    expect(() => januaryForms({ ...readJanuaryContract(), status: 'CANDIDATE — NOT RATIFIED — NOT ACTIVE' })).toThrow(/not RATIFIED — ACTIVE/);
+  });
+
+  it.each([['mirada-profunda.schools', 0], ['inspira.visitCandidates', 1]] as const)(
+    'fails when a printed %s form changes in the contract and nobody declares it',
+    async (key, index) => {
+      const contract = readJanuaryContract();
+      const fact = contract.facts.find((f) => `${f.program}.${f.field}` === key);
+      (fact?.value as string[])[index] = `${(fact?.value as string[])[index]} ${MUTATION_MARK}`;
+      const surface = renderedSurface(await renderPage({}));
+      expect(missingForms(forms, surface)).not.toContain(`${key}[${index}]`);
+      expect(missingForms(januaryForms(contract), surface)).toContain(`${key}[${index}]`);
+    }
+  );
+});

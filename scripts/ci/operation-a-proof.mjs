@@ -140,9 +140,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 class ProofFailure extends Error {}
 
 function assertLocal(url) {
+  const local = new Set(['127.0.0.1', 'localhost', '::1', '0.0.0.0']);
   const host = new URL(url.replace(/^postgres(ql)?:\/\//, 'http://')).hostname;
-  if (!new Set(['127.0.0.1', 'localhost', '::1', '0.0.0.0']).has(host)) {
-    throw new Error(`[${PROOF_TAG}] refusing to run against non-local database host "${host}".`);
+  // The host pg will actually connect to: its own parsing honours overrides
+  // such as `?host=` that the URL hostname does not show. Nothing connects.
+  const effective = new Client({ connectionString: url }).host;
+  for (const h of [host, effective]) {
+    if (!local.has(h)) {
+      throw new Error(`[${PROOF_TAG}] refusing to run against non-local database host "${h}".`);
+    }
   }
 }
 
@@ -1154,30 +1160,53 @@ async function withIndexOwner(fn) {
 
 /**
  * Drops the index only when it is the migration's: the migration is recorded
- * and the definition is exactly the migration's. Returns true when it did.
+ * and the definition is exactly the migration's. `owner.owned` is set BEFORE
+ * the DROP is sent, so main() restores it even when the DROP's outcome is
+ * unknown (e.g. the connection is lost after the server committed it).
  * Otherwise nothing is touched and runProof's preflight decides (refusal).
  */
-async function suspendMigrationIndex() {
-  return withIndexOwner(async (c) => {
+async function suspendMigrationIndex(owner) {
+  await withIndexOwner(async (c) => {
     const { rows } = await c.query('SELECT indexdef FROM pg_indexes WHERE schemaname = $1 AND indexname = $2', ['public', INDEX_NAME]);
-    if (rows.length === 0) return false;
+    if (rows.length === 0) return;
     const { rows: table } = await c.query(`SELECT to_regclass('supabase_migrations.schema_migrations') IS NOT NULL AS present`);
-    if (!table[0].present) return false;
+    if (!table[0].present) return;
     const { rows: mig } = await c.query('SELECT 1 FROM supabase_migrations.schema_migrations WHERE version = $1', [INDEX_MIGRATION]);
-    if (mig.length === 0 || rows[0].indexdef !== INDEX_MIGRATION_DEF) return false;
+    if (mig.length === 0 || rows[0].indexdef !== INDEX_MIGRATION_DEF) return;
+    owner.owned = true;
     await c.query(`DROP INDEX public.${INDEX_NAME}`);
-    return true;
   });
 }
 
+/**
+ * Reconciles on a fresh connection: the migration's index present → done;
+ * absent → recreate it; any other definition → error (never touched).
+ * Retries a few times so a transient connection failure does not leave the
+ * database without the index.
+ */
 async function restoreMigrationIndex() {
-  await withIndexOwner(async (c) => {
-    await c.query(INDEX_MIGRATION_DEF);
-    const { rows } = await c.query('SELECT indexdef FROM pg_indexes WHERE schemaname = $1 AND indexname = $2', ['public', INDEX_NAME]);
-    if (rows.length !== 1 || rows[0].indexdef !== INDEX_MIGRATION_DEF) {
-      throw new Error(`restored index does not match migration ${INDEX_MIGRATION}`);
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await withIndexOwner(async (c) => {
+        const current = async () => (await c.query('SELECT indexdef FROM pg_indexes WHERE schemaname = $1 AND indexname = $2', ['public', INDEX_NAME])).rows;
+        let rows = await current();
+        if (rows.length === 0) {
+          await c.query(INDEX_MIGRATION_DEF);
+          rows = await current();
+        }
+        if (rows.length !== 1 || rows[0].indexdef !== INDEX_MIGRATION_DEF) {
+          throw new ProofFailure(`index ${INDEX_NAME} does not match migration ${INDEX_MIGRATION}: ${rows[0]?.indexdef ?? 'absent'}`);
+        }
+      });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (error instanceof ProofFailure) break;
+      await sleep(1000 * attempt);
     }
-  });
+  }
+  throw lastError;
 }
 
 async function proveAndDrill() {
@@ -1202,12 +1231,13 @@ async function proveAndDrill() {
 
 async function main() {
   assertLocal(DB_URL);
-  const suspended = await suspendMigrationIndex();
-  if (suspended) console.log(`[${PROOF_TAG}] index ${INDEX_NAME} (migration ${INDEX_MIGRATION}) suspended for the run`);
+  const owner = { owned: false };
   try {
+    await suspendMigrationIndex(owner);
+    if (owner.owned) console.log(`[${PROOF_TAG}] index ${INDEX_NAME} (migration ${INDEX_MIGRATION}) suspended for the run`);
     await proveAndDrill();
   } finally {
-    if (suspended) {
+    if (owner.owned) {
       try {
         await restoreMigrationIndex();
         console.log(`✓ [${PROOF_TAG}] index ${INDEX_NAME} restored exactly as migration ${INDEX_MIGRATION} defines it`);

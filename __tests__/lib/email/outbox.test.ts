@@ -100,3 +100,41 @@ describe('when it is on', () => {
     ).not.toThrow();
   });
 });
+
+describe('the optional headers field', () => {
+  const HEADERS = {
+    'List-Unsubscribe': '<https://genera.example.org/api/notifications/unsubscribe?t=sintetico>',
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+  };
+  const read = () => readFileSync(file, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+
+  beforeEach(() => vi.stubEnv('E2E_MAIL_OUTBOX', file));
+
+  it('records the headers a caller passes, as a copy of what it held at capture time', () => {
+    const headers = { ...HEADERS };
+    captureOutboundEmail({ to: 'uno@example.com', subject: 's', html: '<a href="u">1</a>', headers });
+    headers['List-Unsubscribe'] = '<https://cambiado.example.org>';
+
+    expect(read()).toEqual([{ to: 'uno@example.com', subject: 's', html: '<a href="u">1</a>', headers: HEADERS }]);
+  });
+
+  it('a caller without headers keeps the old line, with no headers key at all', () => {
+    captureOutboundEmail({ to: 'uno@example.com', subject: 's', html: '<a href="u">1</a>' });
+    captureOutboundEmail({ to: 'dos@example.com', subject: 's', html: '<a href="u">2</a>', headers: undefined });
+
+    const raw = readFileSync(file, 'utf8').trim().split('\n');
+    expect(raw[0]).toBe('{"to":"uno@example.com","subject":"s","html":"<a href=\\"u\\">1</a>"}');
+    expect(Object.keys(JSON.parse(raw[1]))).toEqual(['to', 'subject', 'html']);
+  });
+
+  it('still refuses on a Vercel deployment, headers or not', () => {
+    vi.stubEnv('VERCEL', '1');
+    captureOutboundEmail({ to: 'uno@example.com', subject: 's', html: '<a>x</a>', headers: HEADERS });
+    expect(existsSync(file)).toBe(false);
+  });
+
+  it('never throws with headers either, even when the path is unwritable', () => {
+    vi.stubEnv('E2E_MAIL_OUTBOX', join(dir, 'no', 'such', 'dir', 'outbox.jsonl'));
+    expect(() => captureOutboundEmail({ to: 'a@example.com', subject: 's', html: '<a>x</a>', headers: HEADERS })).not.toThrow();
+  });
+});

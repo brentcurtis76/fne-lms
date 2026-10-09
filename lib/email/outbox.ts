@@ -37,6 +37,8 @@ export interface CapturedMessage {
   to: string;
   subject: string;
   html: string;
+  /** The message's own headers (the digest's RFC 8058 ones); recorded only when given. */
+  headers?: Record<string, string>;
 }
 
 /** Whether capture is active for this process. Evaluated per call, not cached. */
@@ -66,7 +68,12 @@ export function captureOutboundEmail(message: CapturedMessage): void {
   try {
     appendFileSync(
       path,
-      `${JSON.stringify({ to: message.to, subject: message.subject, html: message.html })}\n`,
+      `${JSON.stringify({
+        to: message.to,
+        subject: message.subject,
+        html: message.html,
+        ...(message.headers ? { headers: { ...message.headers } } : {}),
+      })}\n`,
       'utf8'
     );
   } catch (error) {

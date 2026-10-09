@@ -5,7 +5,11 @@ import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
 
 /**
  * GET /api/admin/transformation-assessments
- * Admin-only endpoint to fetch all transformation assessments grouped by school
+ * Transformation assessments grouped by school, for admins and consultores.
+ * An admin sees every client school plus legacy rows without a school. A
+ * consultor (not admin) sees only the client schools of their ACTIVE
+ * consultant_assignments (or where they are an active equipo_directivo), never
+ * the unscoped legacy rows; before this a consultor saw every school.
  *
  * Query params:
  *   - status: 'all' | 'completed' | 'in_progress' | 'archived' (default: 'all')
@@ -30,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Check if user is admin or consultor
   const { data: userRoles, error: rolesError } = await supabase
     .from('user_roles')
-    .select('role_type')
+    .select('role_type, school_id')
     .eq('user_id', userId)
     .eq('is_active', true);
 
@@ -62,12 +66,56 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const { status = 'all', schoolId } = req.query;
     const clientSchools = await readClientSchoolScope(supabaseAdmin);
-    const tenantFilter = clientSchools.ids.length > 0
-      ? `school_id.is.null,school_id.in.(${clientSchools.ids.join(',')})`
-      : 'school_id.is.null';
+    const isAdmin = userRoles!.some(r => r.role_type === 'admin');
+
+    // School ids this caller may see; null = no extra limit (admin).
+    let allowedSchoolIds: number[] | null = null;
+    if (!isAdmin) {
+      const { data: assignments, error: assignmentsError } = await supabaseAdmin
+        .from('consultant_assignments')
+        .select('school_id')
+        .eq('consultant_id', userId)
+        .eq('is_active', true);
+      if (assignmentsError) {
+        console.error('[admin/transformation-assessments] Error reading consultant assignments:', assignmentsError);
+        return res.status(500).json({ error: 'Error al verificar permisos' });
+      }
+      const ownSchools = new Set<number>([
+        ...(assignments || []).map(a => Number(a.school_id)),
+        ...userRoles!.filter(r => r.role_type === 'equipo_directivo' && r.school_id != null).map(r => Number(r.school_id)),
+      ]);
+      allowedSchoolIds = clientSchools.ids.filter(id => ownSchools.has(Number(id)));
+    }
+
+    let requestedSchoolId: number | null = null;
+    if (schoolId !== undefined && schoolId !== '') {
+      requestedSchoolId = typeof schoolId === 'string' && /^\d+$/.test(schoolId) ? Number(schoolId) : NaN;
+      if (!Number.isSafeInteger(requestedSchoolId) || requestedSchoolId <= 0) {
+        return res.status(400).json({ error: 'schoolId inválido' });
+      }
+      if (allowedSchoolIds && !allowedSchoolIds.includes(requestedSchoolId)) {
+        return res.status(403).json({ error: 'No tienes acceso a esta escuela' });
+      }
+    }
+
+    if (allowedSchoolIds && allowedSchoolIds.length === 0) {
+      return res.status(200).json({
+        schoolGroups: [],
+        noSchoolAssessments: [],
+        schools: [],
+        stats: { total: 0, completed: 0, in_progress: 0, archived: 0, schools_with_assessments: 0 },
+      });
+    }
+
+    const visibleSchoolIds = allowedSchoolIds ?? clientSchools.ids;
+    const tenantFilter = allowedSchoolIds
+      ? `school_id.in.(${allowedSchoolIds.join(',')})`
+      : clientSchools.ids.length > 0
+        ? `school_id.is.null,school_id.in.(${clientSchools.ids.join(',')})`
+        : 'school_id.is.null';
 
     // 1. Fetch assessments for official admin reporting. Legacy unscoped rows remain
-    // visible, while QA/operator tenants never enter this stakeholder-facing surface.
+    // visible to admins, while QA/operator tenants never enter this stakeholder-facing surface.
     let assessmentsQuery = supabaseAdmin
       .from('transformation_assessments')
       .select(`
@@ -96,8 +144,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Filter by school
-    if (schoolId) {
-      assessmentsQuery = assessmentsQuery.eq('school_id', Number(schoolId));
+    if (requestedSchoolId !== null) {
+      assessmentsQuery = assessmentsQuery.eq('school_id', requestedSchoolId);
     }
 
     const { data: assessments, error: assessmentsError } = await assessmentsQuery;
@@ -108,11 +156,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 2. Fetch all schools for filtering dropdown
-    const schoolsResult = clientSchools.ids.length > 0
+    const schoolsResult = visibleSchoolIds.length > 0
       ? await supabaseAdmin
           .from('schools')
           .select('id, name')
-          .in('id', clientSchools.ids)
+          .in('id', visibleSchoolIds)
           .order('name')
       : { data: [], error: null };
     const { data: schools, error: schoolsError } = schoolsResult;

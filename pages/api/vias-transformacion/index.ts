@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
+import { isViasStaffFor, loadViasStaffScope } from '@/lib/transformation/viasAssessmentAccess';
 import { createClient } from '@supabase/supabase-js';
 import type { ChileanGrade } from '@/types/grades';
 
@@ -66,15 +67,18 @@ async function handleGet(
       return res.status(500).json({ error: 'Error al obtener roles del usuario' });
     }
 
-    // Check if user is admin/consultor
-    const isAdminOrConsultor = userRoles?.some(r =>
-      ['admin', 'consultor'].includes(r.role_type)
-    );
+    // An admin sees every school; a consultor only the schools of their
+    // active assignments (added to the schools they belong to).
+    const staffScope = await loadViasStaffScope(supabaseAdmin, userId, userRoles);
+    const isAdmin = staffScope.isAdmin;
 
     // Get unique school IDs
-    const schoolIds = [...new Set(userRoles?.filter(r => r.school_id).map(r => r.school_id))];
+    const schoolIds = [...new Set([
+      ...(userRoles?.filter(r => r.school_id).map(r => Number(r.school_id)) || []),
+      ...staffScope.consultorSchoolIds,
+    ])];
 
-    if (schoolIds.length === 0 && !isAdminOrConsultor) {
+    if (schoolIds.length === 0 && !isAdmin) {
       console.log('[vias-transformacion/list] User has no school assigned:', userId);
       return res.status(200).json({
         assessments: [],
@@ -104,8 +108,8 @@ async function handleGet(
       `)
       .order('updated_at', { ascending: false });
 
-    // 3. Filter by school (unless admin/consultor)
-    if (!isAdminOrConsultor && schoolIds.length > 0) {
+    // 3. Filter by school (unless admin)
+    if (!isAdmin) {
       query = query.in('school_id', schoolIds);
     }
 
@@ -182,8 +186,7 @@ async function handleGet(
       const collaborators = collaboratorsByAssessment[assessment.id] || [];
       const isUserCollaborator = collaborators.some(c => c.id === userId);
       const isCreator = assessment.created_by === userId;
-      const canEdit = isUserCollaborator || isCreator ||
-        userRoles?.some(r => ['admin', 'consultor'].includes(r.role_type));
+      const canEdit = isUserCollaborator || isCreator || isViasStaffFor(staffScope, assessment.school_id);
 
       // Get creator info
       const creatorProfile = creatorProfiles[assessment.created_by];
@@ -215,7 +218,7 @@ async function handleGet(
     return res.status(200).json({
       assessments: formattedAssessments || [],
       userSchoolIds: schoolIds,
-      isAdmin: isAdminOrConsultor,
+      isAdmin,
     });
   } catch (error) {
     console.error('[vias-transformacion/list] Unexpected error:', error);
@@ -265,10 +268,10 @@ async function handlePost(
       return res.status(500).json({ error: 'Error al verificar permisos' });
     }
 
-    const isAdmin = userRoles?.some(r => ['admin', 'consultor'].includes(r.role_type));
+    const isStaff = isViasStaffFor(await loadViasStaffScope(supabaseAdmin, userId, userRoles), schoolId);
     const userSchoolIds = userRoles?.filter(r => r.school_id).map(r => r.school_id) || [];
 
-    if (!isAdmin && !userSchoolIds.includes(schoolId)) {
+    if (!isStaff && !userSchoolIds.includes(schoolId)) {
       return res.status(403).json({ error: 'No perteneces a esta escuela' });
     }
 

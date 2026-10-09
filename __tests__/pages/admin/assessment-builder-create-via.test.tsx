@@ -121,4 +121,53 @@ describe('create template — school-level vías', () => {
     await act(async () => {});
     expect(screen.getByLabelText(/Nombre del Template/)).toHaveValue(`PRO_${year}_V1`);
   });
+
+  async function suggestedName() {
+    await ready();
+    fireEvent.change(screen.getByLabelText(/Vía de Evolución/), { target: { value: 'liderazgo' } });
+    await waitFor(() => expect(pendingCounts.length).toBe(1));
+    await act(async () => pendingCounts[0].resolve(0));
+    const input = screen.getByLabelText(/Nombre del Template/) as HTMLInputElement;
+    await waitFor(() => expect(input).toHaveValue(`LID_${year}_V1`));
+    return input;
+  }
+
+  const mouseUp = (input: HTMLInputElement) => {
+    const event = new MouseEvent('mouseup', { bubbles: true, cancelable: true });
+    input.dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+
+  it('the click that focuses the suggested name selects all of it, so typing replaces it', async () => {
+    const input = await suggestedName();
+    input.setSelectionRange(input.value.length, input.value.length);
+    fireEvent.mouseDown(input);
+    input.focus();
+    expect([input.selectionStart, input.selectionEnd]).toEqual([0, input.value.length]);
+    expect(mouseUp(input)).toBe(true);
+    // A second click in the already-focused field places the caret normally.
+    fireEvent.mouseDown(input);
+    expect(mouseUp(input)).toBe(false);
+  });
+
+  it('keyboard focus selects the suggestion; after editing, a later click is never suppressed', async () => {
+    const input = await suggestedName();
+    input.setSelectionRange(0, 0);
+    input.focus();
+    expect([input.selectionStart, input.selectionEnd]).toEqual([0, input.value.length]);
+    fireEvent.change(input, { target: { value: 'Mi nombre' } });
+    fireEvent.mouseDown(input);
+    expect(mouseUp(input)).toBe(false);
+  });
+
+  it('a custom name is not selected on focus', async () => {
+    const input = await suggestedName();
+    fireEvent.change(input, { target: { value: 'Mi nombre' } });
+    input.blur();
+    input.setSelectionRange(2, 2);
+    fireEvent.mouseDown(input);
+    input.focus();
+    expect([input.selectionStart, input.selectionEnd]).toEqual([2, 2]);
+    expect(mouseUp(input)).toBe(false);
+  });
 });

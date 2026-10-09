@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
-import { canReadViasAssessment, loadViasAssessment } from '@/lib/transformation/viasAssessmentAccess';
+import { canReadViasAssessment, isViasStaffFor, loadViasAssessment, loadViasStaffScope } from '@/lib/transformation/viasAssessmentAccess';
 import { createClient } from '@supabase/supabase-js';
 
 /**
@@ -164,7 +164,7 @@ async function handlePost(
       .eq('user_id', userId)
       .eq('is_active', true);
 
-    const isAdmin = userRoles?.some(r => ['admin', 'consultor'].includes(r.role_type));
+    const isAdmin = isViasStaffFor(await loadViasStaffScope(supabaseAdmin, userId, userRoles), assessment.school_id);
     const isCreator = assessment.created_by === userId;
 
     // Check if user is an existing collaborator
@@ -282,7 +282,7 @@ async function handleDelete(
       .eq('user_id', userId)
       .eq('is_active', true);
 
-    const isAdmin = userRoles?.some(r => ['admin', 'consultor'].includes(r.role_type));
+    const isAdmin = isViasStaffFor(await loadViasStaffScope(supabaseAdmin, userId, userRoles), assessment.school_id);
     const isCreator = assessment.created_by === userId;
     const isRemovingSelf = targetUserId === userId;
 

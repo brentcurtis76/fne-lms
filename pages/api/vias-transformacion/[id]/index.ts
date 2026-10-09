@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
+import { isViasStaffFor, loadViasStaffScope } from '@/lib/transformation/viasAssessmentAccess';
 import { createClient } from '@supabase/supabase-js';
 
 /**
@@ -84,7 +85,7 @@ async function handleGet(
       .eq('user_id', userId)
       .eq('is_active', true);
 
-    const isAdmin = userRoles?.some(r => ['admin', 'consultor'].includes(r.role_type));
+    const isAdmin = isViasStaffFor(await loadViasStaffScope(supabaseAdmin, userId, userRoles), assessment.school_id);
     const userSchoolIds = userRoles?.filter(r => r.school_id).map(r => r.school_id) || [];
     const isInSchool = assessment.school_id && userSchoolIds.includes(assessment.school_id);
     const isCreator = assessment.created_by === userId;
@@ -237,7 +238,7 @@ async function handlePatch(
       .eq('user_id', userId)
       .eq('is_active', true);
 
-    const isAdmin = userRoles?.some(r => ['admin', 'consultor'].includes(r.role_type));
+    const isAdmin = isViasStaffFor(await loadViasStaffScope(supabaseAdmin, userId, userRoles), assessment.school_id);
     const isCreator = assessment.created_by === userId;
 
     // Check if user is a collaborator with edit rights

@@ -20,7 +20,8 @@
 --   every school (and for rows without a school); an active consultor only
 --   for a school of their ACTIVE consultant_assignments. Nothing else.
 --   Every policy below that granted global staff access now asks
---   transformation_school_staff(auth.uid(), <the row's school>) instead.
+--   transformation_school_staff(auth.uid(), <the row's school>) instead
+--   (ALTER POLICY: same name, command and roles; only the expressions change).
 --   Unchanged: school membership (user_school_ids), growth-community
 --   membership, creator and collaborator rights, has_transformation_access,
 --   service_role, the forced-password-change guard, and every other table's
@@ -77,9 +78,7 @@ GRANT EXECUTE ON FUNCTION public.transformation_school_staff(uuid, integer) TO a
 -- -----------------------------------------------------------------------------
 -- transformation_assessments
 -- -----------------------------------------------------------------------------
-DROP POLICY IF EXISTS "transformation_assessments_select" ON public.transformation_assessments;
-CREATE POLICY "transformation_assessments_select" ON public.transformation_assessments
-  FOR SELECT TO authenticated
+ALTER POLICY "transformation_assessments_select" ON public.transformation_assessments
   USING (
     public.transformation_school_staff(auth.uid(), school_id)
     OR school_id = ANY (public.user_school_ids(auth.uid()))
@@ -91,17 +90,13 @@ CREATE POLICY "transformation_assessments_select" ON public.transformation_asses
     OR created_by = auth.uid()
   );
 
-DROP POLICY IF EXISTS "transformation_assessments_insert" ON public.transformation_assessments;
-CREATE POLICY "transformation_assessments_insert" ON public.transformation_assessments
-  FOR INSERT TO authenticated
+ALTER POLICY "transformation_assessments_insert" ON public.transformation_assessments
   WITH CHECK (
     (school_id IS NOT NULL AND school_id = ANY (public.user_school_ids(auth.uid())))
     OR public.transformation_school_staff(auth.uid(), school_id)
   );
 
-DROP POLICY IF EXISTS "transformation_assessments_update" ON public.transformation_assessments;
-CREATE POLICY "transformation_assessments_update" ON public.transformation_assessments
-  FOR UPDATE TO authenticated
+ALTER POLICY "transformation_assessments_update" ON public.transformation_assessments
   USING (
     public.transformation_school_staff(auth.uid(), school_id)
     OR public.is_assessment_collaborator(id, auth.uid())
@@ -113,14 +108,10 @@ CREATE POLICY "transformation_assessments_update" ON public.transformation_asses
     OR public.transformation_school_staff(auth.uid(), school_id)
   );
 
-DROP POLICY IF EXISTS "transformation_assessments_delete" ON public.transformation_assessments;
-CREATE POLICY "transformation_assessments_delete" ON public.transformation_assessments
-  FOR DELETE TO authenticated
+ALTER POLICY "transformation_assessments_delete" ON public.transformation_assessments
   USING (public.transformation_school_staff(auth.uid(), school_id));
 
-DROP POLICY IF EXISTS "members_read_transformation_assessments" ON public.transformation_assessments;
-CREATE POLICY "members_read_transformation_assessments" ON public.transformation_assessments
-  FOR SELECT
+ALTER POLICY "members_read_transformation_assessments" ON public.transformation_assessments
   USING (
     public.transformation_school_staff(auth.uid(), school_id)
     OR EXISTS (
@@ -129,9 +120,7 @@ CREATE POLICY "members_read_transformation_assessments" ON public.transformation
          AND ur.community_id = transformation_assessments.growth_community_id)
   );
 
-DROP POLICY IF EXISTS "members_update_transformation_assessments" ON public.transformation_assessments;
-CREATE POLICY "members_update_transformation_assessments" ON public.transformation_assessments
-  FOR UPDATE
+ALTER POLICY "members_update_transformation_assessments" ON public.transformation_assessments
   USING (
     public.transformation_school_staff(auth.uid(), school_id)
     OR EXISTS (
@@ -150,9 +139,7 @@ CREATE POLICY "members_update_transformation_assessments" ON public.transformati
     )
   );
 
-DROP POLICY IF EXISTS "members_insert_transformation_assessments" ON public.transformation_assessments;
-CREATE POLICY "members_insert_transformation_assessments" ON public.transformation_assessments
-  FOR INSERT
+ALTER POLICY "members_insert_transformation_assessments" ON public.transformation_assessments
   WITH CHECK (
     public.has_transformation_access(growth_community_id)
     AND (
@@ -167,9 +154,7 @@ CREATE POLICY "members_insert_transformation_assessments" ON public.transformati
 -- -----------------------------------------------------------------------------
 -- transformation_assessment_collaborators
 -- -----------------------------------------------------------------------------
-DROP POLICY IF EXISTS "collaborators_select" ON public.transformation_assessment_collaborators;
-CREATE POLICY "collaborators_select" ON public.transformation_assessment_collaborators
-  FOR SELECT TO authenticated
+ALTER POLICY "collaborators_select" ON public.transformation_assessment_collaborators
   USING (EXISTS (
     SELECT 1 FROM public.transformation_assessments ta
      WHERE ta.id = transformation_assessment_collaborators.assessment_id
@@ -179,9 +164,7 @@ CREATE POLICY "collaborators_select" ON public.transformation_assessment_collabo
             OR public.is_assessment_collaborator(ta.id, auth.uid()))
   ));
 
-DROP POLICY IF EXISTS "collaborators_insert" ON public.transformation_assessment_collaborators;
-CREATE POLICY "collaborators_insert" ON public.transformation_assessment_collaborators
-  FOR INSERT TO authenticated
+ALTER POLICY "collaborators_insert" ON public.transformation_assessment_collaborators
   WITH CHECK (EXISTS (
     SELECT 1 FROM public.transformation_assessments ta
      WHERE ta.id = transformation_assessment_collaborators.assessment_id
@@ -190,9 +173,7 @@ CREATE POLICY "collaborators_insert" ON public.transformation_assessment_collabo
             OR public.is_assessment_collaborator(ta.id, auth.uid()))
   ));
 
-DROP POLICY IF EXISTS "collaborators_delete" ON public.transformation_assessment_collaborators;
-CREATE POLICY "collaborators_delete" ON public.transformation_assessment_collaborators
-  FOR DELETE TO authenticated
+ALTER POLICY "collaborators_delete" ON public.transformation_assessment_collaborators
   USING (
     user_id = auth.uid()
     OR EXISTS (
@@ -206,9 +187,7 @@ CREATE POLICY "collaborators_delete" ON public.transformation_assessment_collabo
 -- -----------------------------------------------------------------------------
 -- transformation_conversation_messages / transformation_results (read)
 -- -----------------------------------------------------------------------------
-DROP POLICY IF EXISTS "members_read_transformation_conversation_messages" ON public.transformation_conversation_messages;
-CREATE POLICY "members_read_transformation_conversation_messages" ON public.transformation_conversation_messages
-  FOR SELECT
+ALTER POLICY "members_read_transformation_conversation_messages" ON public.transformation_conversation_messages
   USING (
     EXISTS (
       SELECT 1 FROM public.transformation_assessments ta
@@ -221,9 +200,7 @@ CREATE POLICY "members_read_transformation_conversation_messages" ON public.tran
          AND public.transformation_school_staff(auth.uid(), ta.school_id))
   );
 
-DROP POLICY IF EXISTS "members_read_transformation_results" ON public.transformation_results;
-CREATE POLICY "members_read_transformation_results" ON public.transformation_results
-  FOR SELECT
+ALTER POLICY "members_read_transformation_results" ON public.transformation_results
   USING (
     EXISTS (
       SELECT 1 FROM public.transformation_assessments ta

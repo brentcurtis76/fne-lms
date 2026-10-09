@@ -30,7 +30,7 @@ NOTIF-01, 02, 03 and 05 are on main (PRs #123–#127). NOTIF-04 and 06–18 sit 
 | N4-02 | `/configuracion/notificaciones` page and `/configuracion` redirect; "Resumen diario" hidden while the outbox flag is off | blocked |  | 2026-09-26 |  |
 | N4-03 | Entry points (bell gear, `/notifications` cog, Mi Perfil, email footer links); retire the admin tab and dead preference routes | blocked |  | 2026-09-26 |  |
 | N5-01 | Digest runs table and hourly cron (dormant behind the flag) | done | NOTIF-22 | 2026-10-09 |  |
-| N5-02 | Flag-selected dual path: outbox delivery when enabled; unchanged synchronous delivery when unset; dormant worker/digest crons and production-default tests | blocked |  | 2026-09-26 |  |
+| N5-02 | Flag-selected dual path: outbox delivery when enabled; unchanged synchronous delivery when unset; dormant worker/digest crons and production-default tests | done | NOTIF-23 | 2026-10-09 |  |
 | N5-03 | Session-reminders cron | blocked |  | 2026-09-26 |  |
 | N5-04 | Rewrite due reminders on the real schema | blocked |  | 2026-09-26 |  |
 | N5-05 | Licitación deadline cron | blocked |  | 2026-09-26 |  |
@@ -142,3 +142,6 @@ NOTIF-01, 02, 03 and 05 are on main (PRs #123–#127). NOTIF-04 and 06–18 sit 
 - 2026-10-09T09:33:42-03:00 · NOTIF-22 · IN-PROGRESS · Brent requested same-unit current-main rebuild after pm-ship set aside d7f57ea41; historical acceptance preserved, new r7 validation required. · token ls-644df9a24f
 - 2026-10-09T09:37:45-03:00 · NOTIF-27 · HELD · Brent answered question62ba49d5918807ab: Keep full summary for now. Defer notice-and-link conversion; preserve current full-summary behavior. Not complete; independent approved rebuilds continue. · token ls-5a5bb97b6a
 - 2026-10-09T11:07:52-03:00 · NOTIF-22 · DONE · NOTIF-22: rebuild dormant daily notification digest on current main · token c92668bebc4c
+- 2026-10-09T15:10:44-03:00 · NOTIF-23 · IN-PROGRESS · Brent note780e250d1f1c9634: resume same-unit current-main rebuild r7 after accepted NOTIF22; preserve old review and closure · token ls-9e294fa3d8
+- 2026-10-09T15:10:44-03:00 · NOTIF-23 · IN-PROGRESS · N5-02 integrated acceptance reopens on rebuilt state; historical review retained · token ls-82eecca159
+- 2026-10-09T16:40:51-03:00 · NOTIF-23 · DONE · NOTIF-23: rebuild source-aware dispatch with group-thread access · token 0ed4ff991670

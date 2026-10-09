@@ -58,7 +58,7 @@ Converted from Mini proc-coordination-20260910/LEDGER.md + CURRENT.md + MAPA on 
 | PROC-B012 | Review authorized preparation and supervised pilot evidence | waiting |  | 2026-10-06 |  |
 | PROC-B013 | Independently review and close the real pilot | todo |  | 2026-10-06 |  |
 | PROC-B014 | Inventory calibration rules and trace synthetic result claims | done | PROC-PR104-RECOVERY-4 | 2026-10-09 |  |
-| PROC-B015 | Prepare and independently review the calibration decision pack | todo |  | 2026-10-08 |  |
+| PROC-B015 | Prepare and independently review the calibration decision pack | done | PROC-PR104-RECOVERY-5 | 2026-10-09 |  |
 
 ## Events (append-only, newest last)
 - 2026-09-10T02:10+00:00 · PM · RECORD · COORDINATED authorized by user. Claude Fable5.1 discovery01 stopped at context boundary, no edits, exit143. Discovery02 fresh restricted intake running. Independent PM portability/raw-report/trace checkpoint written; ful
@@ -389,3 +389,5 @@ Converted from Mini proc-coordination-20260910/LEDGER.md + CURRENT.md + MAPA on 
 - 2026-10-08T17:00:00-03:00 · PM · TODO · generated from planning session PS-Q-e91ec9e11596 (gen-PS-Q-e91ec9e11596-eced2408c6ac:row:PROC-B015) · token ls-66140b7593
 - 2026-10-08T17:04:19-03:00 · PROC-PR104-RECOVERY-4 · IN-PROGRESS · PROC-PR104-RECOVERY-4 r0 dispatched (pm-unit begin) · token ls-5551e9440b
 - 2026-10-09T19:10:32-03:00 · PROC-PR104-RECOVERY-4 · DONE · PROC-B014: document current calibration contract and synthetic matrix · token 9506fe6a6fed
+- 2026-10-09T19:13:48-03:00 · PROC-PR104-RECOVERY-5 · IN-PROGRESS · PROC-PR104-RECOVERY-5 r0 dispatched (pm-unit begin) · token ls-89da993ba4
+- 2026-10-09T19:56:47-03:00 · PROC-PR104-RECOVERY-5 · DONE · PROC-B015: calibration decision pack · token adfea7e1c598

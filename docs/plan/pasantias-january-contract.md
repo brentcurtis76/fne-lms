@@ -2,13 +2,15 @@
 
 Status: CANDIDATE — NOT RATIFIED — NOT ACTIVE
 
-Prepared by PASANT-B001b (PASANT-03 r0 executor, oracle tightened in r1, 2026-10-08) under approved plan PASANT rev 1. This file is the
-proposed single normative source for active January facts (PASANT-C003). **It is not normative yet.** It becomes
-active only when all three happen: (1) Brent's ratification of the brochure and of every pending field in §4 is
-recorded with dated evidence (C002, DEC-08); (2) `docs/plan/PLAN.md`'s Decision Log declares this file normative and
-supersedes Appendix A-1 through A-9 for January only (C003); (3) the cohort oracle tests switch to parse it. Until
-then no product code may import or render it, and October Appendix A stays the record of the shipped October cohort.
-Open items and their owners are in `evidence/pasant-january/b001-contract-prerequisites.md`.
+Prepared by PASANT-B001b (PASANT-03 r0 executor, oracle tightened in r1, 2026-10-08) under approved plan PASANT rev 1;
+Brent's recorded answers applied by PASANT-B001c (PASANT-04 r0, 2026-10-08). This file is the proposed single
+normative source for active January facts (PASANT-C003). **It is not normative yet.** It becomes active only when
+all three happen: (1) Brent's ratification of the whole contract (§8) is recorded with dated evidence (C002, DEC-08)
+— the field answers in `decided` are recorded but are not that ratification; (2) `docs/plan/PLAN.md`'s Decision Log
+declares this file normative and supersedes Appendix A-1 through A-9 for January only (C003); (3) the cohort oracle
+tests switch to parse it. Until then no product code may import or render it, and October Appendix A stays the
+record of the shipped October cohort. Open items and their owners are in
+`evidence/pasant-january/b001-contract-prerequisites.md`; Brent's answers are in `evidence/pasant-january/b001-brent-decisions.md`.
 
 ## 1. Provenance
 
@@ -17,9 +19,12 @@ Open items and their owners are in `evidence/pasant-january/b001-contract-prereq
 - Page text: `evidence/pasant-january/b001-source-snapshot.md` (per-page SHA-256; tied to the PDF by the PASANT-01 RUN
   validator). Fact matrix: `evidence/pasant-january/b001-fact-matrix.md`. Every fact below carries its page and a
   verbatim anchor; `__tests__/lib/pasantias/january-contract.test.ts` checks each against the snapshot, and checks
-  the fact and pending sets (no missing, duplicate or unlisted entry) and every value and page against expectations
+  the fact and decided sets (no missing, duplicate or unlisted entry) and every value and page against expectations
   pinned in the test from the source pages, not from this file. A ratified correction must change both. The page 15
   team range 1–10 (20 rows) is pinned the same way.
+- Brent, 2026-10-08 (BD-00): "The brochure is the source of truth". The brochure's hash and page text stay as
+  supplied. A recorded correction (BD-01) changes only the `decided` value; the brochure's original text stays in
+  that entry's `brochure` and `anchor`, cited by page, as provenance.
 
 ## 2. Identities (routine implementation freeze, plan rev 1 architecture)
 
@@ -28,8 +33,10 @@ are an ordinary implementation choice frozen by B001 (DEC-06), not a business de
 
 ## 3–5. Facts (machine-readable)
 
-`facts` are public, client-safe facts. `pending` are candidate fields that must not be published until the named
-decision is recorded; the `proposed` value is a proposal, not a decision. `commercial` is brochure-only (§6).
+`facts` are public, client-safe facts. `decided` are the fields that were pending in B001b, now answered by Brent:
+`value` is the answer, `brochure` the original text, `evidence`/`at` the decision row and message time (UTC) in
+`b001-brent-decisions.md`, `basis` whether Brent's words name the topic (`explicit`) or only the question order links
+them (`interpreted`). `pending` lists fields still awaiting an answer (none). `commercial` is brochure-only (§6).
 A `value` that is a list repeats brochure items verbatim; dates are ISO, ranges `start/end`.
 
 ```json
@@ -80,12 +87,13 @@ A `value` that is a list repeats brochure items verbatim; dates are ISO, ranges 
     { "program": "both", "field": "includes", "value": ["El pago de las visitas a las escuelas.", "Los talleres de la tarde con especialistas.", "Los honorarios de la dirección del programa, los relatores y el equipo de facilitadores de FNE que acompañan a los pasantes.", "Bibliografía básica recomendada para preparar el viaje, una bitácora y un sistema de registro de los aprendizajes, presentado al menos un mes antes del viaje.", "Desayuno a media mañana en las escuelas."], "page": 16, "anchor": "EL PROGRAMA INCLUYE Todo esto, cubierto" },
     { "program": "both", "field": "excludes", "value": ["Traslados colegio – aeropuerto de Santiago – colegio", "Traslados en Barcelona, incluido el transporte a El Puig y Les Vinyes", "Cenas", "Almuerzos de la segunda semana (solo en la Pasantía INSPIRA)", "Seguros", "Pasajes y alojamiento, salvo que los coordines a través de FNE"], "page": 16, "anchor": "NO INCLUYE Lo que corre por tu cuenta" }
   ],
-  "pending": [
-    { "id": "P-01", "decision": "DEC-01", "field": "inspira.host.sadako", "proposed": "Jordi Mussons", "alternative": "Jordi Musons", "page": 12, "anchor": "Jordi Mussons DIRECTOR, ESCOLA SADAKO · ANFITRIÓN" },
-    { "id": "P-02", "decision": "DEC-02", "field": "cohort.claim.rpa", "proposed": "withhold until certification evidence", "page": 2, "anchor": "Fundación Nueva Educación es Agencia Técnica Educativa certificada por RPA Mineduc." },
-    { "id": "P-03", "decision": "DEC-08", "field": "cohort.claim.trackRecord", "proposed": "publish after January ratification", "page": 2, "anchor": "400+ Pasantes han viajado con FNE 40+ Colegios participantes 12 Escuelas catalanas en la red" },
-    { "id": "P-04", "decision": "DEC-03", "field": "inspira.visits.presentation", "proposed": "show the two immersion schools plus the five candidates with the brochure's 'cuatro de estas cinco' wording; never a fixed list of four", "page": 9, "anchor": "En la Pasantía INSPIRA, las cuatro escuelas de la segunda semana se definen con el grupo" }
+  "decided": [
+    { "id": "P-01", "decision": "DEC-01", "field": "inspira.host.sadako", "value": "Jordi Musons", "brochure": "Jordi Mussons", "page": 12, "anchor": "Jordi Mussons DIRECTOR, ESCOLA SADAKO · ANFITRIÓN", "evidence": "BD-01", "at": "2026-10-09T00:39:14.785Z", "basis": "explicit" },
+    { "id": "P-02", "decision": "DEC-02", "field": "cohort.claim.rpa", "value": "Fundación Nueva Educación es Agencia Técnica Educativa certificada por RPA Mineduc.", "brochure": "Fundación Nueva Educación es Agencia Técnica Educativa certificada por RPA Mineduc.", "page": 2, "anchor": "Fundación Nueva Educación es Agencia Técnica Educativa certificada por RPA Mineduc.", "evidence": "BD-04", "at": "2026-10-09T00:39:14.785Z", "basis": "interpreted" },
+    { "id": "P-03", "decision": "DEC-08", "field": "cohort.claim.trackRecord", "value": ["400+ Pasantes han viajado con FNE", "40+ Colegios participantes", "12 Escuelas catalanas en la red"], "brochure": "400+ Pasantes han viajado con FNE 40+ Colegios participantes 12 Escuelas catalanas en la red", "page": 2, "anchor": "400+ Pasantes han viajado con FNE 40+ Colegios participantes 12 Escuelas catalanas en la red", "evidence": "BD-02", "at": "2026-10-09T00:39:14.785Z", "basis": "explicit" },
+    { "id": "P-04", "decision": "DEC-03", "field": "inspira.visits.presentation", "value": "4 visits, chosen with the group from the five candidates ('cuatro de estas cinco'); never a fixed list of four", "brochure": "En la Pasantía INSPIRA, las cuatro escuelas de la segunda semana se definen con el grupo", "page": 9, "anchor": "En la Pasantía INSPIRA, las cuatro escuelas de la segunda semana se definen con el grupo", "evidence": "BD-03", "at": "2026-10-09T00:39:14.785Z", "basis": "explicit" }
   ],
+  "pending": [],
   "commercial": {
     "exposure": "brochure-only",
     "discountCondition": "COLEGIOS CON PROGRAMA ANUAL DE ASESORÍA FNE",
@@ -127,12 +135,24 @@ times team size 1–10 (the brochure says so on page 15).
 - **Historical A9 stays historical**: January acceptance does not close A9; A2-9 PASS, A2-11 FAIL, A2-12 FAIL and
   A2-13 BLOCKED are preserved by row ID (register R-16).
 
-## 7. Packaging and publication (recommendation, not a decision)
+## 7. Packaging and publication
 
 Packaging (plan default DEC-04): one price-free two-program ficha, generated, plus the supplied designed two-program
-brochure. Publication mode (DEC-05, unresolved): **designed upload recommended**. If designed upload is selected,
-the D-05 gate is Brent-owned: Brent approves the final file hash and the exact new-version object key, uploads the
-object before the deployment that changes BROCHURE_VERSION, and verifies it; cache writes stay create-only and
-nothing relies on overwriting a generated first-request object. Local fallback: the generated brochure remains the
-data-faithful canary. If generation is selected instead, B003 must build the complete two-program CLP/EUR brochure
-with visual acceptance. An unresolved D-05 gate blocks only the release that changes BROCHURE_VERSION.
+brochure. Publication mode (DEC-05) is **designed upload** — Brent, 2026-10-08 (BD-05): "it should publish my design".
+The designed file still spells the host "Mussons" (BD-01 corrects it to "Musons"), so publishing it is a Brent-owned
+release step, not a local development blocker: Brent supplies the corrected designed file; Brent approves the final
+file hash and the exact new-version object key, uploads the object before the deployment that changes
+BROCHURE_VERSION, and verifies it; cache writes stay create-only and nothing relies on overwriting a generated first-request object.
+Local fallback: the generated brochure remains the data-faithful canary.
+An unresolved D-05 gate blocks only the release that changes BROCHURE_VERSION.
+
+## 8. Sign-off candidate (for Brent's Decide question — not an approval)
+
+Whole-contract approval: **NOT GIVEN** (BD-07). The PM puts this question to Brent with this file attached at a
+committed SHA and its SHA-256: "Ratify the January 2027 contract: brochure 2027-01-V1 facts (§3–5), your answers
+BD-00 to BD-05 (`decided`, §7), retained decisions (§6)." The question states that BD-04 is interpreted: "Confirm it"
+does not name the RPA claim.
+
+Remaining prerequisites (register): R-11 whole-contract ratification (Brent); R-08 corrected designed file, hash,
+object key and upload before the BROCHURE_VERSION deployment (Brent-owned release); R-17 production mail state
+(Brent-owned release). After ratification only: the C003 PLAN.md amendment and the oracle switch (B001).

@@ -38,11 +38,30 @@
  * as *present*: a later flipbook purge is then a deliberate act with a failing
  * test to answer, not a silent one.
  *
- * `it('the scan can see hrefs at all', …)` is the anti-vacuity check. Every
- * assertion below is of the form "no occurrence matches", which a scanner that
- * finds no occurrences at all satisfies perfectly; the sanity test pins the
- * destination hrefs this round created, so a regex that stops matching fails
- * loudly instead of going quietly green.
+ * `it('every page keeps the /pasantias links it was given', …)` is the
+ * anti-vacuity check. Every absence assertion below is of the form "no occurrence
+ * matches", which a scanner that finds no occurrences at all satisfies perfectly;
+ * the count test pins the destinations this round created, so a regex that stops
+ * matching fails loudly instead of going quietly green.
+ *
+ * ## Why the counts are per file, and exact (A9)
+ *
+ * A7a shipped with two gaps that A9 closed, and both were the same mistake in two
+ * places: an assertion that asked whether something existed *somewhere in scope*
+ * rather than *where it belongs*.
+ *
+ *  - The Directivos flipbooks were pinned site-wide, so deleting one from
+ *    `pages/programas.tsx` while `pages/index.tsx` still carried it left the guard
+ *    green. Both pages offer the brochure; both offers are the thing protected.
+ *  - The href check proved only that *at least one* `/pasantias` href survived per
+ *    file, and separately that no `#pasantias` href existed. A nav entry labelled
+ *    PASANTÍAS repointed to `/programas` passed both: no anchor appears, and the
+ *    file still holds its other `/pasantias` links. An exact per-file count is what
+ *    makes losing or repointing one of the fifteen go red.
+ *
+ * Both maps below are derived by reading the tree, never by convention. A page that
+ * legitimately gains or loses a link edits its number here and says why — which is
+ * the point: the change becomes deliberate instead of invisible.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
@@ -162,11 +181,43 @@ function hrefOccurrences(files: ScannedFile[]): HrefOccurrence[] {
 /** The retired Abril 2026 INSPIRA brochure: the iframe and its "nueva pestaña" link. */
 const INSPIRA_FLIPBOOK_IDS = ['fef3878d3c', 'fb8cf2cfb1'] as const;
 
-/** The Directivos brochure, which stays. Pinned present, not absent. */
-const DIRECTIVOS_FLIPBOOK_IDS = ['d87d80f309', '92bf9eb5ee'] as const;
+/**
+ * The Directivos brochure, which stays. Pinned present, not absent — and pinned to
+ * the file that carries it, for the reason in the header.
+ *
+ * `d87d80f309` is the iframe and is on both pages; `92bf9eb5ee` is the homepage's
+ * "nueva pestaña" link and is only there.
+ */
+const DIRECTIVOS_FLIPBOOKS: ReadonlyArray<{ path: string; ids: readonly string[] }> = [
+  { path: INDEX_PATH, ids: ['d87d80f309', '92bf9eb5ee'] },
+  { path: 'pages/programas.tsx', ids: ['d87d80f309'] },
+];
 
 /** The two homepage images A7a retired from the app; both files stay on disk. */
 const RETIRED_HOMEPAGE_IMAGES = ['/barcelona-innovation.jpg', '/barcelona-skyline.jpg'] as const;
+
+/* ---------------------------------------------------------------- the links */
+
+const PASANTIAS_HREF = '/pasantias';
+
+/**
+ * How many literal `/pasantias` hrefs each file carries — fifteen in total, which
+ * is the number A7a recorded when it rewired the site.
+ *
+ * Exact rather than "at least one", for the reason in the header. An href built
+ * from an expression is invisible to {@link hrefOccurrences} and therefore is not
+ * counted here either; that is a miss the scanner cannot avoid, and never a false
+ * positive.
+ */
+const PASANTIAS_HREF_COUNTS: ReadonlyArray<{ path: string; count: number }> = [
+  { path: INDEX_PATH, count: 3 },
+  { path: 'pages/programas.tsx', count: 3 },
+  { path: 'pages/equipo.tsx', count: 2 },
+  { path: 'pages/nosotros.tsx', count: 2 },
+  { path: 'pages/noticias.tsx', count: 2 },
+  { path: 'pages/noticias/[slug].tsx', count: 2 },
+  { path: 'components/Footer.tsx', count: 1 },
+];
 
 /* -------------------------------------------------------------------- the guard */
 
@@ -187,13 +238,26 @@ describe('A7a — the site points at /pasantias', () => {
     );
   });
 
-  it('the scan can see hrefs at all', () => {
-    const destinations = hrefOccurrences(SCOPE)
-      .filter((found) => found.href === '/pasantias')
-      .map((found) => found.path);
+  it('every page keeps the /pasantias links it was given', () => {
+    // Both the anti-vacuity check for every "no occurrence" assertion below and
+    // the guard against the failure A7a's version could not see: a PASANTÍAS nav
+    // entry quietly repointed somewhere else, in a file that still holds other
+    // /pasantias links. Compared as formatted strings so the failure names the
+    // file and both numbers instead of reporting `3 !== 2` with no address.
+    const describeCount = (path: string, found: number, expected: number) =>
+      `${path}: ${found} /pasantias href(s), expected ${expected}`;
 
-    expect(destinations).toEqual(
-      expect.arrayContaining([INDEX_PATH, 'pages/programas.tsx', 'components/Footer.tsx'])
+    const actual = PASANTIAS_HREF_COUNTS.map(({ path, count }) =>
+      describeCount(
+        path,
+        hrefOccurrences([fileInScope(path)]).filter((found) => found.href === PASANTIAS_HREF)
+          .length,
+        count
+      )
+    );
+
+    expect(actual).toEqual(
+      PASANTIAS_HREF_COUNTS.map(({ path, count }) => describeCount(path, count, count))
     );
   });
 
@@ -221,14 +285,19 @@ describe('A7a — the site points at /pasantias', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('the Directivos flipbooks are still on the site', () => {
-    const missing = DIRECTIVOS_FLIPBOOK_IDS.filter(
-      (id) => matchesIn(SCOPE, new RegExp(id, 'g')).length === 0
+  it('the Directivos flipbooks are still on each page that offers them', () => {
+    // Per file, not site-wide: the site-wide form was satisfied by any single
+    // surviving copy, so losing the offer from one of the two pages was invisible.
+    const missing = DIRECTIVOS_FLIPBOOKS.flatMap(({ path, ids }) =>
+      ids
+        .filter((id) => matchesIn([fileInScope(path)], new RegExp(id, 'g')).length === 0)
+        .map((id) => `${path} — ${id}`)
     );
 
-    expect(missing, 'a Directivos flipbook disappeared; A7a removed only the INSPIRA pair').toEqual(
-      []
-    );
+    expect(
+      missing,
+      'a Directivos flipbook left the page that carries it; A7a removed only the INSPIRA pair'
+    ).toEqual([]);
   });
 
   it('no page states the retired Abril 2026 cohort', () => {

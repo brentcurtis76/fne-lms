@@ -101,6 +101,12 @@ export const MANDATORY_SPECS = [
   // NOTIF N4-02 — the settings page: redirect and auth gates, role/scope
   // filtering, keyboard save and reload, Predeterminado, failures, phone width.
   'tests/e2e/notification-settings.spec.ts',
+  // A9 — the same lead path with nothing mocked: a real submission through the
+  // browser, read back through the admin API as a persisted row. It is the only
+  // spec that proves browser, route and database work as one thing, and the only
+  // place D-12's split consent and the auto-reply claim-and-release contract are
+  // asserted against real columns rather than a payload or a fake.
+  'tests/e2e/pasantias-flow.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

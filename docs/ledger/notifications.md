@@ -29,12 +29,12 @@ NOTIF-01, 02, 03 and 05 are on main (PRs #123–#127). NOTIF-04 and 06–18 sit 
 | N4-01 | Rewrite the preferences API (GET effective, PUT validated) | todo |  | 2026-09-30 |  |
 | N4-02 | `/configuracion/notificaciones` page and `/configuracion` redirect; "Resumen diario" hidden while the outbox flag is off | blocked |  | 2026-09-26 |  |
 | N4-03 | Entry points (bell gear, `/notifications` cog, Mi Perfil, email footer links); retire the admin tab and dead preference routes | blocked |  | 2026-09-26 |  |
-| N5-01 | Digest runs table and hourly cron (dormant behind the flag) | blocked |  | 2026-09-26 |  |
+| N5-01 | Digest runs table and hourly cron (dormant behind the flag) | done | NOTIF-22 | 2026-10-09 |  |
 | N5-02 | Flag-selected dual path: outbox delivery when enabled; unchanged synchronous delivery when unset; dormant worker/digest crons and production-default tests | blocked |  | 2026-09-26 |  |
 | N5-03 | Session-reminders cron | blocked |  | 2026-09-26 |  |
 | N5-04 | Rewrite due reminders on the real schema | blocked |  | 2026-09-26 |  |
 | N5-05 | Licitación deadline cron | blocked |  | 2026-09-26 |  |
-| N5-06 | Meeting summary on the pipeline (notice + link), truthful send result | blocked |  | 2026-09-26 |  |
+| N5-06 | Meeting summary on the pipeline (notice + link), truthful send result | held | NOTIF-27 | 2026-10-09 |  |
 | N5-07 | Production enablement: flag checklist, institutional-mailbox delivery evidence and sign-off | waiting |  | 2026-09-26 |  |
 | N5-08 | Retire the sync `sendImmediateEmail` path and the flag-off branch. Blocked on N5-07, plus Brent confirming that production has run on the outbox for at least 7 days without delivery incidents | blocked |  | 2026-09-26 |  |
 ## Events (append-only, newest last)
@@ -130,3 +130,15 @@ NOTIF-01, 02, 03 and 05 are on main (PRs #123–#127). NOTIF-04 and 06–18 sit 
 - 2026-09-30T15:09:11-03:00 · NOTIF-18 · DONE · NOTIF-18: mirror notification mail in local E2E · token 29ce02ce82cb
 - 2026-09-30T15:09:11-03:00 · PM · TODO · N4-01 is free again: N3-07 finished. · token 29ce02ce82cb-free-N4-01
 - 2026-10-02T12:00:00-03:00 · PM · NOTE · NOTIF-04 and 06–18 brought onto one branch fix/notif-line on current main (by hand, Claude); 04/06 from fix/notif06-rb, 07–18 replayed from fix/notif13-render; events from both old checkouts merged here
+
+## Preserved approved N5-02 subdivisions (rebuild management continuity)
+
+| ID | Title | Status | Unit | Updated | Notes |
+|---|---|---|---|---|---|
+| N5-02a | N5-02 prerequisite: atomic source-aware enqueue RPC and role/rollback/concurrency proof | done | NOTIF-23 | 2026-10-09 |  |
+| N5-02b | N5-02 prerequisite: catalog source mapping and authoritative producer occurrence context | done | NOTIF-23 | 2026-10-09 |  |
+| N5-02c | N5-02 implementation: flag-selected dispatch, dormant schedules and functional regressions | done | NOTIF-23 | 2026-10-09 |  |
+| N5-02d | N5-02 integrated acceptance: browser journeys, final full gates and review documentation | in-progress | NOTIF-23 | 2026-10-09 |  |
+- 2026-10-09T09:33:42-03:00 · NOTIF-22 · IN-PROGRESS · Brent requested same-unit current-main rebuild after pm-ship set aside d7f57ea41; historical acceptance preserved, new r7 validation required. · token ls-644df9a24f
+- 2026-10-09T09:37:45-03:00 · NOTIF-27 · HELD · Brent answered question62ba49d5918807ab: Keep full summary for now. Defer notice-and-link conversion; preserve current full-summary behavior. Not complete; independent approved rebuilds continue. · token ls-5a5bb97b6a
+- 2026-10-09T11:07:52-03:00 · NOTIF-22 · DONE · NOTIF-22: rebuild dormant daily notification digest on current main · token c92668bebc4c

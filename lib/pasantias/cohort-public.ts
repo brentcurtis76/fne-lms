@@ -11,6 +11,13 @@
  * normative source for cohort dates, day counts, school and expert lists and
  * claims. If this file and Appendix A ever disagree, Appendix A wins.
  *
+ * Precedence since 2026-10-09: this module still carries the October 2026
+ * cohort, and Appendix A governs that data only. The normative source for
+ * January 2027 facts is docs/plan/pasantias-january-contract.md (PLAN.md
+ * Decision Log 2026-10-09, January 2027 amendment), which supersedes Appendix
+ * A-1 through A-9 for January only. Until B003 moves this module to that
+ * contract, nothing here is a January fact, and the contract is never imported.
+ *
  * Dates are ISO `YYYY-MM-DD` and are treated as calendar dates, never as
  * instants: helpers parse them into UTC midnight so the values do not shift
  * with the runtime's timezone.

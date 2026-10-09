@@ -121,4 +121,29 @@ describe('create template — school-level vías', () => {
     await act(async () => {});
     expect(screen.getByLabelText(/Nombre del Template/)).toHaveValue(`PRO_${year}_V1`);
   });
+
+  it('focusing the suggested name selects it, so typing replaces it; a custom name is left alone', async () => {
+    await ready();
+    fireEvent.change(screen.getByLabelText(/Vía de Evolución/), { target: { value: 'liderazgo' } });
+    await waitFor(() => expect(pendingCounts.length).toBe(1));
+    await act(async () => pendingCounts[0].resolve(0));
+    const input = screen.getByLabelText(/Nombre del Template/) as HTMLInputElement;
+    await waitFor(() => expect(input).toHaveValue(`LID_${year}_V1`));
+
+    input.setSelectionRange(input.value.length, input.value.length);
+    fireEvent.focus(input);
+    expect([input.selectionStart, input.selectionEnd]).toEqual([0, input.value.length]);
+    const mouseUp = new MouseEvent('mouseup', { bubbles: true, cancelable: true });
+    input.dispatchEvent(mouseUp);
+    expect(mouseUp.defaultPrevented).toBe(true);
+
+    fireEvent.blur(input);
+    fireEvent.change(input, { target: { value: 'Mi nombre' } });
+    input.setSelectionRange(2, 2);
+    fireEvent.focus(input);
+    expect([input.selectionStart, input.selectionEnd]).toEqual([2, 2]);
+    const laterMouseUp = new MouseEvent('mouseup', { bubbles: true, cancelable: true });
+    input.dispatchEvent(laterMouseUp);
+    expect(laterMouseUp.defaultPrevented).toBe(false);
+  });
 });

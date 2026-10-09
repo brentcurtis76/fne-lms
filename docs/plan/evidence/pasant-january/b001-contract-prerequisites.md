@@ -1,8 +1,9 @@
 # PASANT-B001b — January contract prerequisite register
 
 Evidence for B001 (C001–C003), prepared 2026-10-08 by the PASANT-03 r0 executor and updated the same day by the
-PASANT-04 r0 executor (B001c) with Brent's recorded answers (`b001-brent-decisions.md`). It routes every item behind
-`docs/plan/pasantias-january-contract.md` (CANDIDATE — NOT RATIFIED — NOT ACTIVE). The register itself decides
+PASANT-04 r0 executor (B001c) with Brent's recorded answers (`b001-brent-decisions.md`), then on 2026-10-09 by the
+PASANT-06 r0 executor (B001e) with Brent's ratification (`b001-ratification.md`). It routes every item behind
+`docs/plan/pasantias-january-contract.md` (RATIFIED — ACTIVE since 2026-10-09). The register itself decides
 nothing. Parent B001 stays open until C001–C003 all pass.
 
 Classes: **SUPPLIED FACT** — stated by the pinned brochure (SHA `84d83e15…`); **HISTORICAL RECORD** — preserved
@@ -26,7 +27,7 @@ evidence (`b001-brent-decisions.md`).
 | R-08 | D-05 designed-upload gate | UNRESOLVED | PLAN D-05 and Decision Log 2026-08-02; plan rev 1 dependency: final hash, exact object key, upload before the BROCHURE_VERSION deployment; the designed file still spells "Mussons" (BD-05 note) | only the release that changes BROCHURE_VERSION | Brent-owned release: corrected designed file, final hash, object key, upload and verification; not a local development blocker |
 | R-09 | Program IDs `enero-2027`, `inspira`, `mirada-profunda` (DEC-06) | ROUTINE FREEZE | plan rev 1 architecture: "Freeze the two program IDs in B001" | — | frozen with the contract |
 | R-10 | Truthful registration and direct-access success copy (DEC-07) | PLAN DEFAULT | plan rev 1 architecture and C007: no promise that email was sent or will arrive | any later email promise needs R-17 evidence | B001 records any change |
-| R-11 | Canonical status and contract ratification (DEC-08) | UNRESOLVED | Brent 2026-10-08T21:36:27-03:00 "The brochure is the source of truth" (BD-00) settles the source only. Whole-contract approval NOT GIVEN (`b001-brent-decisions.md` BD-07): never asked as a question | contract activation: C003 PLAN amendment, oracle switch, B003 content | PM puts contract §8 to Brent as a Decide question with the contract attached; PM records the answer |
+| R-11 | Canonical status and contract ratification (DEC-08) | DECIDED | Brent 2026-10-09T09:23:35-03:00 "Approve this contract" (`b001-ratification.md`, question 6d9b56320e62019a, candidate SHA 2869bec7 at fb2d1de82). History kept: Brent 2026-10-08T21:36:27-03:00 "The brochure is the source of truth" (BD-00) settled the source only, and whole-contract approval was NOT GIVEN on 2026-10-08 (`b001-brent-decisions.md` BD-07) | — | contract active: C003 PLAN amendment and oracle transition (B001e); January runtime content is B003 |
 | R-12 | A9 writer release | DECIDED | Brent 2026-10-08T21:40:06-03:00 "handoff is confirmed" (`b001-brent-decisions.md` BD-06, explicit). Superseded PASANT-03 finding, kept: UNKNOWN in `b001-a9-snapshot.md`, `b001-reconciliation.md` §4, `docs/plan/LEDGER.md` at HEAD and at `origin/phase/a9-verify` 9008bacd | — | release recorded; R-13 ACK follows |
 | R-13 | Receiver ACK | PM RECORD | `pasant-02-pm0-2e20` ACKs the Brent-confirmed handoff, order PASANT-04 r0 be973700 under plan rev 1 (`b001-brent-decisions.md` §4); it follows R-12 and does not substitute for it | — | none; routine B001 selection, not takeover by inactivity |
 | R-14 | Selected baseline | PM RECORD | `76349909621bc07a1c7ab8242cd3c3ececaed152` selected by `pasant-02-pm0-2e20`, order PASANT-04 r0 be973700 under plan rev 1 (`b001-brent-decisions.md` §4); refreshed origin/main fetched by PASANT-01, base of `ws/pasant-as` | — | product implementation starts from `ws/pasant-as` |
@@ -43,10 +44,12 @@ Actual, dated Brent instructions found for this project:
   (`projects-v2/PASANT/draft/approval-f326716d048a-20261008-195457-e5b232b68515.md`).
 - 2026-10-08T21:36:27–21:40:06-03:00, flight deck "Ask Claude" chat: the three messages in `b001-brent-decisions.md`
   (BD-00 to BD-06). BD-04 is interpreted; the rest name their topic. Whole-contract approval was NOT GIVEN (BD-07).
+- 2026-10-09T09:23:35-03:00, flight-deck console, Decide question 6d9b56320e62019a: "Approve this contract" — the
+  whole January contract at SHA 2869bec7, with the BD-04 interpretation stated in the question (`b001-ratification.md`).
 - October-era Decision Log entries in `docs/plan/PLAN.md` (e.g. 2026-08-02 designed brochure via D-05) — historical,
   not January decisions.
 
 Agent proposals, not instructions: the PASANT brief (written by the planning agent), the fact-matrix proposals,
 reconciliation §6, the sign-off wording in contract §8 and the B001b `proposed` values those answers replaced. PM
 records (R-13 to R-15) are routine choices under plan rev 1, not Brent decisions. No January ratification by Brent
-was found.
+was found on 2026-10-08; Brent gave it on 2026-10-09 (above).

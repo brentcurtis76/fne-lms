@@ -1,16 +1,19 @@
 # Pasantías INSPIRA Barcelona — January 2027 contract
 
-Status: CANDIDATE — NOT RATIFIED — NOT ACTIVE
+Status: RATIFIED — ACTIVE
 
 Prepared by PASANT-B001b (PASANT-03 r0 executor, oracle tightened in r1, 2026-10-08) under approved plan PASANT rev 1;
-Brent's recorded answers applied by PASANT-B001c (PASANT-04 r0, 2026-10-08). This file is the proposed single
-normative source for active January facts (PASANT-C003). **It is not normative yet.** It becomes active only when
-all three happen: (1) Brent's ratification of the whole contract (§8) is recorded with dated evidence (C002, DEC-08)
-— the field answers in `decided` are recorded but are not that ratification; (2) `docs/plan/PLAN.md`'s Decision Log
-declares this file normative and supersedes Appendix A-1 through A-9 for January only (C003); (3) the cohort oracle
-tests switch to parse it. Until then no product code may import or render it, and October Appendix A stays the
-record of the shipped October cohort. Open items and their owners are in
-`evidence/pasant-january/b001-contract-prerequisites.md`; Brent's answers are in `evidence/pasant-january/b001-brent-decisions.md`.
+Brent's recorded answers applied by PASANT-B001c (PASANT-04 r0, 2026-10-08). **Ratified by Brent on
+2026-10-09T09:23:35-03:00** ("Approve this contract", question `6d9b56320e62019a`), against the candidate at commit
+`fb2d1de82` with SHA-256 `2869bec779581a417fab4ae642339acf679222034312bed6c56e7f9e2f863cee`; the record is
+`evidence/pasant-january/b001-ratification.md`. Since then only the status, this paragraph and §8 changed: the
+machine-readable block is the approved one except its `status`. This file is the **single normative source for
+active January 2027 facts** (PASANT-C003), as `docs/plan/PLAN.md`'s Decision Log (2026-10-09) and its January 2027
+amendment declare; they supersede Appendix A-1 through A-9 and the single-track assumption for January only. October
+Appendix A stays the record of the shipped October cohort, and the product still renders October until B003
+implements this contract; no product code imports or renders this file before then. Open items and their owners are
+in `evidence/pasant-january/b001-contract-prerequisites.md`; Brent's answers are in
+`evidence/pasant-january/b001-brent-decisions.md`.
 
 ## 1. Provenance
 
@@ -41,7 +44,7 @@ A `value` that is a list repeats brochure items verbatim; dates are ISO, ranges 
 
 ```json
 {
-  "status": "CANDIDATE — NOT RATIFIED — NOT ACTIVE",
+  "status": "RATIFIED — ACTIVE",
   "source": { "sha256": "84d83e153ee794a95d7a9e019359fc637237842ae0a7128f98cae332ff4efdb5", "pages": 17, "version": "2027-01-V1" },
   "ids": { "cohort": "enero-2027", "programs": ["inspira", "mirada-profunda"] },
   "facts": [
@@ -146,13 +149,18 @@ BROCHURE_VERSION, and verifies it; cache writes stay create-only and nothing rel
 Local fallback: the generated brochure remains the data-faithful canary.
 An unresolved D-05 gate blocks only the release that changes BROCHURE_VERSION.
 
-## 8. Sign-off candidate (for Brent's Decide question — not an approval)
+## 8. Ratification
 
-Whole-contract approval: **NOT GIVEN** (BD-07). The PM puts this question to Brent with this file attached at a
-committed SHA and its SHA-256: "Ratify the January 2027 contract: brochure 2027-01-V1 facts (§3–5), your answers
-BD-00 to BD-05 (`decided`, §7), retained decisions (§6)." The question states that BD-04 is interpreted: "Confirm it"
-does not name the RPA claim.
+Whole-contract approval: **GIVEN** — Brent, 2026-10-09T09:23:35-03:00, "Approve this contract" (question
+`6d9b56320e62019a`, record `evidence/pasant-january/b001-ratification.md`). The question attached this file at
+SHA-256 `2869bec779581a417fab4ae642339acf679222034312bed6c56e7f9e2f863cee` and stated that BD-04 is interpreted: it
+"interprets “Confirm it” as approval of the RPA claim".
 
-Remaining prerequisites (register): R-11 whole-contract ratification (Brent); R-08 corrected designed file, hash,
-object key and upload before the BROCHURE_VERSION deployment (Brent-owned release); R-17 production mail state
-(Brent-owned release). After ratification only: the C003 PLAN.md amendment and the oracle switch (B001).
+History kept: on 2026-10-08 whole-contract approval was **NOT GIVEN** (BD-07), and the sign-off candidate read:
+"Ratify the January 2027 contract: brochure 2027-01-V1 facts (§3–5), your answers BD-00 to BD-05 (`decided`, §7),
+retained decisions (§6)." BD-07 stays as dated in `b001-brent-decisions.md`; the ratification record is its linked
+correction.
+
+Remaining prerequisites (register): R-08 corrected designed file, hash, object key and upload before the
+BROCHURE_VERSION deployment (Brent-owned release); R-17 production mail state (Brent-owned release). R-11 is DECIDED.
+Ratification authorises no deployment, production or provider operation, or real mail.

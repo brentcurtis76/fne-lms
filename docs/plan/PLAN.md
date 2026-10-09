@@ -472,6 +472,32 @@ The v2 B11 preflight as its own evidence phase: DKIM/SPF verified; DMARC present
 | 2026-08-08 | **Binding process: every phase opens a PR before merge, and no phase closes on local gates alone.** `.github/workflows/ci.yml` triggers on `pull_request` and `push: [main]` only — so a pushed branch with no PR gets **zero** CI coverage, and merging is the first time the six checks run, on the same push that auto-deploys. CI then observes the deploy instead of gating it. The habit lapsed after PR #42 (2026-08-04): A6a, A6r and A6b were merged straight to `main`, and A8 reached a double Sol PASS with every gate green **locally and nowhere else**. Restored as of A8/PR #43. Applies to A7a at its close and to every phase after. Corollary: a PM may not write "CI gate N is the evidence" for a branch that has no PR — that sentence is only true once a run exists. | A8 close (PM finding) | Fable (PM) |
 | 2026-08-08 | **A8's PATCH becomes a compare-and-set: the validated status travels into the UPDATE (`.eq('status', currentStatus)`), and a lost race answers 409.** Without it, two admins working one `contacted` lead from the same snapshot could commit `contacted→converted` and `contacted→dismissed`, landing the table on a move out of `converted` — which D-03 gives no outgoing edges. This API boundary is the *only* place that invariant exists (D-04: the table's CHECK constrains the set of statuses, never the moves). `.eq` and never `.or`, per the binding 2026-08-03 rule. **A notes-only PATCH carries the guard too** — accepted by Sol as optimistic row locking, since guarding only when a status is present would let a stale-view notes overwrite through. Found by Sol as a non-blocking S-01 *after* its PASS; Brent elected to fix it before merge rather than defer it. | A8 Sol S-01 → r3 | Brent (owner election), Fable (PM) |
 | 2026-08-03 | **PostgREST `or`-on-UPDATE is banned for claim logic (A5 r3 finding; the repo has paid for it before).** PostgREST accepts `or=(...)` filters on SELECT but REJECTS them on UPDATE for non-PK columns, so a claim written that way passes every mocked test and fails only in production — exactly the 2026-06-12 stranded-session incident (`lib/bots/store.ts:claimSessionTransition`). Claims must be single-predicate statements or SECURITY DEFINER SQL. **Binding on B4a/B4b: `claim_campaign_sends` and `complete_campaign_if_done` stay in SQL functions (D-06) and must never be expressed as PostgREST filters.** | A5 r3 report | Fable (PM) |
+| 2026-10-09 | **January 2027 normative source (PASANT C003).** `docs/plan/pasantias-january-contract.md` is the **sole normative source for active January 2027 facts**, derived from the pinned brochure (`2027-01-V1`, SHA-256 `84d83e15…`) and Brent's recorded corrections, and ratified whole by Brent. It **supersedes Appendix A-1 through A-9 and the October single-track assumption for January only** — see [January 2027 amendment](#january-2027-amendment). Appendix A and this log stay unchanged as the October 2026 record; retained legal/consent decisions, the Correos exclusion and historical A9 are listed in the amendment. | Ratification `docs/plan/evidence/pasant-january/b001-ratification.md` (contract SHA-256 `2869bec7…` at `fb2d1de82`); PASANT plan rev 1 C003 | Brent (2026-10-09T09:23:35-03:00, "Approve this contract") |
+
+## January 2027 amendment
+
+Added 2026-10-09 through the Decision Log (PASANT plan rev 1, C003); it changes no October text above or below.
+
+- **Normative source.** [`docs/plan/pasantias-january-contract.md`](pasantias-january-contract.md) is the single
+  normative source for active January 2027 facts: dates, programs, audiences, schools and selection rules,
+  includes/excludes, claims, hosts and prices (brochure-only). Brent ratified it on 2026-10-09T09:23:35-03:00
+  (`evidence/pasant-january/b001-ratification.md`).
+- **January-only supersession.** For January 2027 it supersedes Appendix A-1 through A-9 and the single-track
+  assumption (Decision Log 2026-07-30, "October single track"): January has two programs, Pasantía INSPIRA and INSPIRA
+  Mirada Profunda, travelling together. Appendix A's supremacy rule keeps governing October 2026 facts only, and
+  October facts are not carried forward to January by default.
+- **History kept.** Appendix A, A-7 and the October Decision Log rows stay as written: they record the October 2026
+  cohort the product shipped. The product renders October until B003 implements the contract.
+- **Retained** unless a later dated amendment says otherwise: D-01 exposure split, D-02 price boundary, D-03 lead
+  transitions, D-04 access/write posture, D-11 FNE-global adult-professional tenancy, D-12 split consent evidence,
+  A-10 legal identity, A-13 privacy notice version, A-14 processing-consent and A-15 marketing opt-in sentences.
+- **Correos excluded.** Contacts, imports, composer, campaigns, sending, unsubscribe and metrics are outside January
+  scope; their unfinished backlog is preserved, not cancelled.
+- **A9 stays historical.** January acceptance does not close A9: A2-9 PASS, A2-11 FAIL, A2-12 FAIL and A2-13 BLOCKED
+  are preserved by row ID.
+- **Packaging.** One price-free two-program ficha, generated, plus Brent's designed two-program brochure. Publishing
+  the designed file is a Brent-owned D-05 release (corrected file, final hash, exact object key, upload before the
+  deployment that changes BROCHURE_VERSION); success copy promises no email until A2-11/A2-12 delivery evidence exists.
 
 ## Appendix A — Content brief (v1 — NORMATIVE for cohort facts)
 

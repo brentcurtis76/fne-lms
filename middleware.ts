@@ -327,6 +327,7 @@ export const config = {
     '/admin', '/admin/:path*',
     '/assignments', '/assignments/:path*',
     '/community', '/community/:path*',
+    '/configuracion', '/configuracion/:path*',
     '/consultor', '/consultor/:path*',
     '/contract-print', '/contract-print/:path*',
     '/contracts', '/contracts/:path*',

@@ -10,7 +10,7 @@ import { TOAST_MESSAGES } from '../constants/toastMessages';
 import MainLayout from '../components/layout/MainLayout';
 import { invalidateAvatarCache, updateAvatarCache } from '../hooks/useAvatar';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
-import { User as UserIcon, PencilIcon, Briefcase } from 'lucide-react';
+import { User as UserIcon, PencilIcon, Briefcase, Bell } from 'lucide-react';
 import { metadataHasRole } from '../utils/roleUtils';
 import PasswordChangeSection from '../components/profile/PasswordChangeSection';
 import { getExternalSchoolLabel } from '../constants/externalSchools';
@@ -738,6 +738,21 @@ export default function ProfilePage() {
 
                 {/* Password Change Section */}
                 <PasswordChangeSection userEmail={user?.email || ''} />
+
+                {/* Notification settings */}
+                <Link
+                  href="/configuracion/notificaciones"
+                  className="mb-6 px-6 py-4 flex items-center gap-3 bg-gray-50 rounded-xl border border-gray-200 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0a0a0a] transition-colors"
+                  data-testid="profile-notification-settings"
+                >
+                  <span className="w-10 h-10 shrink-0 bg-[#0a0a0a] rounded-full flex items-center justify-center">
+                    <Bell className="w-5 h-5 text-white" aria-hidden="true" />
+                  </span>
+                  <span>
+                    <span className="block text-lg font-semibold text-[#0a0a0a]">Notificaciones por correo</span>
+                    <span className="block text-sm text-gray-500">Elige qué notificaciones recibes por correo</span>
+                  </span>
+                </Link>
 
                 {/* Action Buttons */}
                 <div className="flex flex-col md:flex-row justify-end space-y-4 md:space-y-0 md:space-x-4 pt-6">

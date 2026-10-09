@@ -102,3 +102,18 @@ describe('meetingSummaryTemplate XSS hardening', () => {
     expect(html).toContain('A &amp; B');
   });
 });
+
+describe('meetingSummaryTemplate footer (N4-03)', () => {
+  it('links the owner notification settings, not the retired admin tab', () => {
+    const previous = process.env.NEXT_PUBLIC_APP_URL;
+    process.env.NEXT_PUBLIC_APP_URL = 'https://app.genera.cl';
+    try {
+      const html = meetingSummaryTemplate.generateHTML(baseData());
+      expect(html).toContain('href="https://app.genera.cl/configuracion/notificaciones"');
+      expect(html).not.toContain('/admin/configuration');
+    } finally {
+      if (previous === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+      else process.env.NEXT_PUBLIC_APP_URL = previous;
+    }
+  });
+});

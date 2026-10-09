@@ -465,6 +465,76 @@ describe('the gate fails closed when it cannot read the flag', () => {
 });
 
 // ---------------------------------------------------------------------------
+// N4-03 — /configuracion joins the gate as defence in depth. Its pages verify
+// the caller and apply the forced-change rule in getServerSideProps; the
+// middleware now applies the same rule first, and nothing else.
+// ---------------------------------------------------------------------------
+
+describe('N4-03: /configuracion and its descendants', () => {
+  const PATHS = ['/configuracion', '/configuracion/', '/configuracion/notificaciones'];
+
+  it('the predicate and the matcher agree on the prefix', async () => {
+    for (const path of PATHS) expect(isForcedChangeGatedPath(path)).toBe(true);
+    expect(isForcedChangeGatedPath('/configuracionx')).toBe(false);
+    const { config } = await import('../middleware');
+    expect(config.matcher).toContain('/configuracion');
+    expect(config.matcher).toContain('/configuracion/:path*');
+  });
+
+  it.each(PATHS)('%s: an anonymous visitor passes through to the page, which sends them to login', async (path) => {
+    expect(requiresSessionPresence(path)).toBe(false);
+    const supabase = buildSupabase({ session: null, roles: null });
+    const res = await run(path, supabase);
+    expect(res.status).toBe(200);
+    expect(isRedirect(res)).toBe(false);
+    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it('a revoked session is treated as signed out and its auth cookie expired', async () => {
+    const supabase = buildSupabase({ session: SESSION });
+    supabase.auth.getUser.mockResolvedValue({ data: { user: null }, error: { message: 'invalid JWT', status: 401 } });
+    createMiddlewareClient.mockReturnValue(supabase);
+    const { middleware } = await import('../middleware');
+    const res = await middleware(
+      new NextRequest('http://localhost/configuracion/notificaciones', {
+        headers: { cookie: 'sb-synthetic-auth-token=revoked' },
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(isRedirect(res)).toBe(false);
+    expect(res.headers.get('set-cookie')).toMatch(/sb-synthetic-auth-token=;.*Max-Age=0/);
+    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it.each(PATHS)('%s: a flagged user is sent to /change-password', async (path) => {
+    const res = await run(path, buildSupabase({ session: SESSION, mustChangePassword: true }));
+    expect(isRedirect(res)).toBe(true);
+    expect(new URL(res.headers.get('location')!).pathname).toBe(FORCED_CHANGE_PATH);
+    expect(res.headers.get('location')).not.toContain('estado=');
+  });
+
+  it('an unreadable flag fails closed with the loop-breaking marker', async () => {
+    const res = await run(
+      '/configuracion/notificaciones',
+      buildSupabase({ session: SESSION, profileError: { message: 'connection reset' } })
+    );
+    expect(isRedirect(res)).toBe(true);
+    expect(res.headers.get('location')).toContain(`${FORCED_CHANGE_PATH}?estado=no-verificado`);
+  });
+
+  it.each(ALL_ROLES)('%s: an unflagged user reaches the page with no role lookup and nothing granted', async (role) => {
+    const supabase = buildSupabase({ session: SESSION, roles: [{ role_type: role }] });
+    const res = await run('/configuracion/notificaciones', supabase);
+    expect(res.status).toBe(200);
+    expect(isRedirect(res)).toBe(false);
+    expect(supabase.rpc).toHaveBeenCalledTimes(1);
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // The matcher must actually cover what the predicate claims
 // ---------------------------------------------------------------------------
 

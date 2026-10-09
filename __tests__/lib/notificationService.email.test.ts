@@ -1258,3 +1258,24 @@ describe('local E2E mail mirror (N3-07) — the sync sender', () => {
     expect(mirrored()).toHaveLength(1);
   });
 });
+
+describe('N4-03 — the notification e-mail links the owner settings page', () => {
+  it('the sent body carries the settings link; recipient, subject, sender and key are unchanged', async () => {
+    const { client, inserted } = world({ preference: { email_enabled: true, in_app_enabled: true } });
+    const { transport, sends } = acceptingTransport();
+
+    await notificationService.createNotification(notificationData(), { client, transport });
+
+    expect(inserted).toHaveLength(1);
+    expect(sends).toHaveLength(1);
+    const [{ message, options }] = sends;
+    expect(message.to).toBe(RECIPIENT);
+    expect(message.from).toBe('Genera <notificaciones@nuevaeducacion.org>');
+    expect(message.subject).toBe('Licitación publicada');
+    expect(options).toEqual({ idempotencyKey: IDEMPOTENCY_KEY });
+    expect(message.html).toContain(`href="${BASE_URL}/licitaciones"`);
+    expect(message.html).toContain(`<a href="${BASE_URL}/configuracion/notificaciones"`);
+    expect(message.html).not.toContain('/admin/configuration');
+    expect(message.html).not.toContain('tab=preferences');
+  });
+});

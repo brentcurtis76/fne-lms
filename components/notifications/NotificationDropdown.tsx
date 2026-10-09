@@ -1,5 +1,6 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { 
   ShieldCheckIcon,
@@ -182,6 +183,18 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
             Notificaciones
           </h3>
           <div className="flex items-center space-x-2">
+            {/* Personal notification settings: reachable whatever the list's state */}
+            <Link
+              href="/configuracion/notificaciones"
+              onClick={onClose}
+              className="p-1 rounded text-gray-500 hover:text-[#0a0a0a] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#fbbf24] transition-colors duration-200"
+              aria-label="Configuración de notificaciones"
+              title="Configuración de notificaciones"
+              data-testid="notification-dropdown-settings"
+            >
+              <CogIcon className="h-4 w-4" aria-hidden="true" />
+            </Link>
+
             {/* Refresh Button */}
             <button
               onClick={onRefresh}

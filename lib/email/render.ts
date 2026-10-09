@@ -23,12 +23,20 @@ export interface EmailContent {
   ctaHref: string;
   fallbackLead: string;
   closingLine?: string;
+  /** A link at the end of the closing note, shown as its own URL: `lead` then `href`. */
+  footerLink?: { lead: string; href: string };
 }
 
 export function renderEmail(content: EmailContent): string {
   const safeHref = escapeHtml(content.ctaHref);
   const paragraphs = content.paragraphs.map((text) => escapeHtml(text)).filter(Boolean);
-  const safeClosing = escapeHtml(content.closingLine);
+  const safeFooterHref = escapeHtml(content.footerLink?.href);
+  const safeClosing = [
+    escapeHtml(content.closingLine),
+    safeFooterHref && `${escapeHtml(content.footerLink?.lead)} <a href="${safeFooterHref}" style="color:#0a0a0a;word-break:break-all;">${safeFooterHref}</a>`,
+  ]
+    .filter(Boolean)
+    .join('<br />');
 
   return `
       <!doctype html>

@@ -132,6 +132,7 @@ export const GATED_PAGE_PREFIXES: readonly string[] = [
   '/admin',
   '/assignments',
   '/community',
+  '/configuracion',
   '/consultor',
   '/contract-print',
   '/contracts',

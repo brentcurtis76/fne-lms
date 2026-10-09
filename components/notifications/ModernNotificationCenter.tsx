@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { 
@@ -443,21 +444,35 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
                 </p>
               </div>
               
-              {/* Mark All Read Button */}
-              {unreadCount > 0 && (
-                <button
-                  onClick={handleMarkAllAsRead}
-                  disabled={markingAllRead}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200 disabled:opacity-50"
+              <div className="flex items-center space-x-1">
+                {/* Mark All Read Button */}
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAllAsRead}
+                    disabled={markingAllRead}
+                    className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200 disabled:opacity-50"
+                  >
+                    {markingAllRead ? (
+                      <RefreshIcon className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckIcon className="h-4 w-4" />
+                    )}
+                    <span>Marcar todas</span>
+                  </button>
+                )}
+
+                {/* Personal notification settings: reachable whatever the list's state */}
+                <Link
+                  href="/configuracion/notificaciones"
+                  onClick={() => setIsOpen(false)}
+                  className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-white/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-colors duration-200"
+                  aria-label="Configuración de notificaciones"
+                  title="Configuración de notificaciones"
+                  data-testid="notification-center-settings"
                 >
-                  {markingAllRead ? (
-                    <RefreshIcon className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <CheckIcon className="h-4 w-4" />
-                  )}
-                  <span>Marcar todas</span>
-                </button>
-              )}
+                  <CogIcon className="h-5 w-5" aria-hidden="true" />
+                </Link>
+              </div>
             </div>
           </div>
 

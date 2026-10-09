@@ -1150,6 +1150,9 @@ const INDEX_MIGRATION_DEF =
 
 async function withIndexOwner(fn) {
   const c = new Client({ connectionString: DB_URL, application_name: 'proof-index-owner' });
+  // A lost connection also emits 'error'; unhandled, it would end the process
+  // before main()'s finally restores the index. The pending query still rejects.
+  c.on('error', () => {});
   await c.connect();
   try {
     return await fn(c);

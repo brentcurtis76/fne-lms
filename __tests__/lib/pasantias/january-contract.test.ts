@@ -149,7 +149,32 @@ const RETAINED: Array<[string, string]> = [
   // At d0bcc86d7 (B001c/B001d): BD-07 stays as dated history; b001-ratification.md is its linked correction.
   [RECORD_PATH, '3ab4ab3a4e50ee0097458fbcf8242f8e54ec7d25c4a36cde051b510723e36d35'],
   ['docs/planning/reviews/fase-pasant-b001-corrections-review-request.md', '3a4c54465c8c7247e29efea1a3ca39157f316939c62f8a1c06b4b2337bbd10c2'],
-  ['docs/planning/reviews/fase-pasant-a9-port-review-request.md', 'c516ad807f8a25ce89af838c824979145e9344c346ed08b175299a2a6dceaa5f'],
+];
+/**
+ * PASANT-B001f: the A9 port review request in its two accepted forms. At 83a8b7a46 the review path held the r0
+ * original (blob 90c6124f, accepted at a81338a95); PASANT-05 r1 replaced it there with its rebuild (accepted at
+ * 21f4aa7dc, released at 3234eb8d1). The original is archived byte-for-byte; neither form stands in for the other.
+ */
+type ReviewForm = { form: string; path: string; sha256: string; blob: string; accepted: string; binding: string };
+const A9_REVIEWS: ReviewForm[] = [
+  {
+    form: 'original', path: 'docs/plan/evidence/a9/pasant-b001d-original-review-request.md',
+    sha256: 'c516ad807f8a25ce89af838c824979145e9344c346ed08b175299a2a6dceaa5f', blob: '90c6124f38d1d69767c8694ed7dd08b3e62249ad',
+    accepted: 'a81338a95a31c6748a6c6b1bb64c658d599be234', binding: '83a8b7a469c75fd89a60b095f7334a874dda5d32',
+  },
+  {
+    form: 'rebuild', path: 'docs/planning/reviews/fase-pasant-a9-port-review-request.md',
+    sha256: 'a22f8aa0495a6cf4c869014f79b0b441fca61b281ac47aa60e1a7f0a451bb710', blob: 'e554b91bcfd92340494c0070860773ac9cd80949',
+    accepted: '21f4aa7dcc52ddacf8ac3ad4b2e0acb5c920f3d2', binding: '3234eb8d1956d2af22be29768f03745cc83afe9c',
+  },
+];
+const A9_PROVENANCE = 'docs/plan/evidence/a9/pasant-b001f-review-provenance.md';
+/** What the rebuild says about its r0 source (commit and closure), and what the provenance record must state. */
+const A9_REBUILD_LINKS = ['This rebuilds PASANT-05 r0 (`a81338a95` on', '`ws/pasant-as`, independently APPROVED, committed locally, closure `12ca52a059d1`)', "r0's review, closure and evidence are unchanged"];
+const A9_PROVENANCE_STATEMENTS = [
+  'The rebuild is a later, separate review request, not the original.',
+  'Matching the rebuild proves nothing about the original.',
+  'Both forms are unedited.',
 ];
 /** Page 15 ("Si viajan 1, 2 o 10") prices teams of 1 to 10 people: 10 sizes × 2 tiers = 20 rows. */
 const TEAM_SIZES: [number, number] = [1, 10];
@@ -334,6 +359,47 @@ function checkPlan(plan: string): string[] {
   for (const text of PLAN_AMENDMENT) if (amendment && !squash(amendment).includes(squash(text))) errors.push(`amendment: missing ${json(text)}`);
   const october = plan.split('\n').filter((l) => !l.startsWith('| 2026-10-09 |')).join('\n').replace(new RegExp(`\\n\\n${AMENDMENT}\\n[\\s\\S]*?(?=\\n\\n## )`), '');
   if (sha256(october) !== PLAN_BEFORE_SHA256) errors.push('October text changed');
+  return errors;
+}
+
+type Files = (path: string) => string;
+const gitBlob = (text: string) => createHash('sha1').update(`blob ${Buffer.byteLength(text)}\0${text}`).digest('hex');
+const tryRead = (files: Files, path: string) => {
+  try { return files(path); } catch { return undefined; }
+};
+
+/** Prior accepted evidence and review files stay byte-identical. */
+function checkRetained(files: Files): string[] {
+  const errors: string[] = [];
+  for (const [path, hash] of RETAINED) {
+    const text = tryRead(files, path);
+    if (text === undefined) errors.push(`${path}: missing`);
+    else if (sha256(text) !== hash) errors.push(`${path}: changed`);
+  }
+  return errors;
+}
+
+/** Both A9 review forms at their pinned bytes, the rebuild's own link to r0, and the provenance record's mapping. */
+function checkA9Reviews(files: Files): string[] {
+  const errors: string[] = [];
+  for (const r of A9_REVIEWS) {
+    const text = tryRead(files, r.path);
+    if (text === undefined) { errors.push(`${r.form}: ${r.path} missing`); continue; }
+    if (sha256(text) !== r.sha256) errors.push(`${r.form}: sha256 mismatch`);
+    if (gitBlob(text) !== r.blob) errors.push(`${r.form}: git blob mismatch`);
+  }
+  const rebuild = tryRead(files, A9_REVIEWS[1].path) ?? '';
+  for (const link of A9_REBUILD_LINKS) if (!rebuild.includes(link)) errors.push(`rebuild: missing link ${json(link)}`);
+  const record = tryRead(files, A9_PROVENANCE);
+  if (record === undefined) return [...errors, 'provenance: missing'];
+  const rows = record.split('\n').filter((l) => /^\| (original|rebuild) \|/.test(l)).map(cells);
+  for (const r of A9_REVIEWS) {
+    const matching = rows.filter((row) => row[0] === r.form);
+    const expected = [r.form, r.path, r.sha256, r.blob, r.accepted, r.binding].map((v, i) => (i ? `\`${v}\`` : v));
+    if (matching.length !== 1) errors.push(`provenance: ${matching.length} ${r.form} rows`);
+    else if (json(matching[0]) !== json(expected)) errors.push(`provenance: ${r.form} row differs`);
+  }
+  for (const text of A9_PROVENANCE_STATEMENTS) if (!squash(record).includes(squash(text))) errors.push(`provenance: missing ${json(text)}`);
   return errors;
 }
 
@@ -873,7 +939,46 @@ describe('D6 — portable evidence', () => {
   });
 
   it('leaves prior accepted evidence and review files byte-identical', () => {
-    for (const [path, hash] of RETAINED) expect(sha256(read(path)), path).toBe(hash);
+    expect(checkRetained(read)).toEqual([]);
+  });
+
+  it('keeps the original A9 review request archived byte-for-byte and binds the rebuild to it', () => {
+    expect(checkA9Reviews(read)).toEqual([]);
+    const [original, rebuild] = A9_REVIEWS.map((r) => read(r.path));
+    expect(original).not.toBe(rebuild);
+    expect(original).toContain('`ws/pasant-as` at HEAD `c1f498efb250cd4c5ff53bdbc6d6616ab3dac3b2`');
+    expect(rebuild).toContain('`fix/pasant05-main` at base `1e19b849674294475a9cf42410c29b5afc5b1d7e`');
+  });
+
+  const [ORIGINAL, REBUILD] = A9_REVIEWS;
+  const a9Files = (edits: Record<string, (text: string) => string | undefined>): Files => (path) => {
+    const text = edits[path] ? edits[path](read(path)) : read(path);
+    if (text === undefined) throw new Error(`${path}: ENOENT`);
+    return text;
+  };
+  const swapRow = (t: string) => t.replace(`| \`${ORIGINAL.sha256}\` |`, `| \`${REBUILD.sha256}\` |`);
+  it.each<[string, Record<string, (text: string) => string | undefined>, string]>([
+    ['a missing original archive', { [ORIGINAL.path]: () => undefined }, `original: ${ORIGINAL.path} missing`],
+    ['an edited original archive', { [ORIGINAL.path]: (t) => t.replace('B001 remains open', 'B001 is closed') }, 'original: sha256 mismatch'],
+    ['an archive holding the rebuild bytes', { [ORIGINAL.path]: () => read(REBUILD.path) }, 'original: git blob mismatch'],
+    ['the original restored over the rebuild', { [REBUILD.path]: () => read(ORIGINAL.path) }, 'rebuild: sha256 mismatch'],
+    ['a rebuild that drops its r0 link', { [REBUILD.path]: (t) => t.replace('closure `12ca52a059d1`', 'closure pending') }, `rebuild: missing link ${json(A9_REBUILD_LINKS[1])}`],
+    ['a missing provenance record', { [A9_PROVENANCE]: () => undefined }, 'provenance: missing'],
+    ['a provenance row with swapped hashes', { [A9_PROVENANCE]: swapRow }, 'provenance: original row differs'],
+    ['a provenance row with a wrong commit', { [A9_PROVENANCE]: (t) => t.replace(`| \`${REBUILD.binding}\` |`, `| \`${ORIGINAL.binding}\` |`) }, 'provenance: rebuild row differs'],
+    ['a provenance record without its rows', { [A9_PROVENANCE]: (t) => t.replace(/^\| (original|rebuild) \|.*$/gm, '') }, 'provenance: 0 original rows'],
+    ['a provenance record that treats the rebuild as the original', { [A9_PROVENANCE]: (t) => t.replace(A9_PROVENANCE_STATEMENTS[1], 'Matching the rebuild proves the original.') }, `provenance: missing ${json(A9_PROVENANCE_STATEMENTS[1])}`],
+  ])('rejects %s', (_name, edits, error) => {
+    expect(checkA9Reviews(a9Files(edits))).toContain(error);
+  });
+
+  it.each<[string, Record<string, (text: string) => string | undefined>, string]>([
+    ['an edited A9 snapshot', { [`${EVIDENCE}/b001-a9-snapshot.md`]: (t) => `${t} ` }, `${EVIDENCE}/b001-a9-snapshot.md: changed`],
+    ['a missing fact matrix', { [`${EVIDENCE}/b001-fact-matrix.md`]: () => undefined }, `${EVIDENCE}/b001-fact-matrix.md: missing`],
+    ['an edited Brent decisions record', { [RECORD_PATH]: (t) => t.replace('BD-07', 'BD-7') }, `${RECORD_PATH}: changed`],
+  ])('rejects unrelated historical corruption: %s', (_name, edits, error) => {
+    expect(checkRetained(a9Files(edits))).toEqual([error]);
+    expect(checkA9Reviews(a9Files(edits))).toEqual([]);
   });
 
   it('B001c review request names branch/base/count, risk groups, checks, 3–5 scrutiny areas and the retained full gates', () => {

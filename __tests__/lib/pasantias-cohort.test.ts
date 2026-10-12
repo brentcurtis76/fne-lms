@@ -41,9 +41,13 @@ import {
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * Appendix A-7 is the normative source for the programme's includes/excludes
- * copy, and `cohort-public.ts` is meant to be a transcription of it — not an
- * improved edit. Pinning the module against hand-written expectations proved too
+ * Appendix A-7 is the normative source for the October 2026 programme's
+ * includes/excludes copy, and `cohort-public.ts` is meant to be a transcription
+ * of it — not an improved edit. Since 2026-10-09 (PLAN.md Decision Log, January
+ * 2027 amendment) Appendix A governs October only: every October describe in this
+ * file is transitional historical coverage of the runtime, which still carries
+ * October, until B003 moves the module to January. The January oracle is the
+ * ratified contract, parsed at the end of this file. Pinning the module against hand-written expectations proved too
  * weak in round a1-repricing r1 (Sol B1: two paraphrases survived a green
  * suite), so the Appendix is re-parsed out of the plan here and compared. Drift
  * on either side now fails instead of passing.
@@ -876,4 +880,153 @@ describe('both cohort modules — the removed extension cannot return silently',
       ).not.toMatch(removedExtension);
     });
   }
+});
+
+/**
+ * The January 2027 oracle (C003). `docs/plan/pasantias-january-contract.md` is
+ * the sole normative source for January facts, so January expectations are
+ * parsed from it here — never from this module, which still carries October,
+ * and never from Appendix A. The module has no January runtime yet: every
+ * contract fact is an open B003 gate in {@link B003_RUNTIME_GATES}, asserted in
+ * both directions, and B006 (C011) re-verifies the cumulative result.
+ */
+const CONTRACT_PATH = path.join(process.cwd(), 'docs/plan/pasantias-january-contract.md');
+const RATIFIED = 'RATIFIED — ACTIVE';
+const JANUARY_PROGRAMS = ['inspira', 'mirada-profunda'] as const;
+
+type JanuaryFact = { program: string; field: string; value: unknown; page: number };
+type JanuaryContract = { status: string; ids: { cohort: string; programs: string[] }; facts: JanuaryFact[] };
+
+function readJanuaryContract(): JanuaryContract {
+  const block = readFileSync(CONTRACT_PATH, 'utf8').match(/```json\n([\s\S]*?)\n```/);
+  if (!block) throw new Error(`${CONTRACT_PATH}: no fenced json block`);
+  return JSON.parse(block[1]) as JanuaryContract;
+}
+
+const JANUARY = readJanuaryContract();
+
+/** One contract fact, or a loud failure: a missing fact must not read as `undefined` and pass a comparison. */
+function januaryFact(contract: JanuaryContract, key: string): unknown {
+  const fact = contract.facts.find((f) => `${f.program}.${f.field}` === key);
+  if (!fact) throw new Error(`January contract has no fact ${key}`);
+  return fact.value;
+}
+
+/** The ISO range a contract value starts with: "2027-01-18/2027-01-22 immersion" → both ends. */
+function isoRange(value: unknown): [string, string] {
+  const match = String(value).match(/^(\d{4}-\d{2}-\d{2})\/(\d{4}-\d{2}-\d{2})/);
+  if (!match) throw new Error(`not an ISO range: ${String(value)}`);
+  return [match[1], match[2]];
+}
+
+/** Monday-to-Friday days in an inclusive ISO range, counted on the calendar. */
+function weekdaysIn([start, end]: [string, string]): number {
+  let count = 0;
+  for (let day = utcDate(start); day <= utcDate(end); day = new Date(day.getTime() + 86_400_000)) {
+    if (day.getUTCDay() >= MONDAY && day.getUTCDay() <= FRIDAY) count += 1;
+  }
+  return count;
+}
+
+/** Per-program expectations, derived from the contract alone. Throws on an unratified contract. */
+function januaryExpectations(contract: JanuaryContract) {
+  if (contract.status !== RATIFIED) throw new Error(`January contract is ${contract.status}, not ${RATIFIED}`);
+  return JANUARY_PROGRAMS.map((program) => {
+    const get = (field: string) => januaryFact(contract, `${program}.${field}`);
+    const schools = program === 'inspira'
+      ? [...(get('immersionSchools') as string[]), ...(get('visitCandidates') as string[])]
+      : (get('schools') as string[]);
+    const visited = program === 'inspira'
+      ? (get('immersionSchools') as string[]).length + Number(get('visitCount'))
+      : schools.length;
+    return {
+      program,
+      dates: isoRange(get('dates')),
+      schoolDays: Number(get('schoolDays')),
+      calendarSchoolDays: weekdaysIn(isoRange(get('week1'))) + weekdaysIn(isoRange(get('week2'))),
+      week2End: isoRange(get('week2'))[1],
+      freeDays: isoRange(get('freeDays')),
+      schoolCount: Number(get('schoolCount')),
+      visited,
+      schools,
+      lunches: String(get('lunches')),
+    };
+  });
+}
+
+/** Contract facts by the B003 criterion that must put them on the runtime (C004 dates/offer, C005 programs). */
+const B003_RUNTIME_GATES: Record<string, string[]> = {
+  'B003 C004 — January 2027 dates and offer replace October': ['cohort.label', 'cohort.span', 'cohort.city', 'cohort.places', 'cohort.contact'],
+  'B003 C005 — two per-program sections, audiences, calendars, schools and includes/excludes': [
+    'cohort.together', 'cohort.routing',
+    ...['name', 'audience', 'dates', 'schoolDays', 'schoolCount', 'week1', 'immersionSchools', 'freeDays', 'week2', 'visitCount',
+      'visitCandidates', 'visitSelection', 'fullDayOutside', 'lunches', 'takeaway'].map((f) => `inspira.${f}`),
+    ...['name', 'audience', 'dates', 'schoolDays', 'schoolCount', 'week1', 'freeDays', 'week2', 'schools', 'orderCaveat',
+      'preparation', 'closing', 'followUp', 'lunches', 'includes', 'takeaway'].map((f) => `mirada-profunda.${f}`),
+    'both.dayStructure', 'both.includes', 'both.excludes',
+  ],
+};
+
+describe('January 2027 oracle — parsed from the ratified contract (C003)', () => {
+  const expectations = januaryExpectations(JANUARY);
+  const byProgram = Object.fromEntries(expectations.map((e) => [e.program, e]));
+
+  it('reads the ratified contract: two stable programs in one cohort', () => {
+    expect(JANUARY.status).toBe(RATIFIED);
+    expect(JANUARY.ids).toEqual({ cohort: 'enero-2027', programs: [...JANUARY_PROGRAMS] });
+    expect(readFileSync(PLAN_PATH, 'utf8')).toContain('`docs/plan/pasantias-january-contract.md` is the **sole normative source for active January 2027 facts**');
+  });
+
+  it('gives each program a calendar whose school days are its weekdays, inside the cohort span', () => {
+    const [spanStart, spanEnd] = isoRange(januaryFact(JANUARY, 'cohort.span'));
+    for (const e of expectations) {
+      expect([e.program, e.calendarSchoolDays]).toEqual([e.program, e.schoolDays]);
+      expect([e.program, e.dates[0], e.week2End]).toEqual([e.program, spanStart, e.dates[1]]);
+      expect(e.dates[1] <= spanEnd).toBe(true);
+      expect(e.freeDays.map(weekday)).toEqual([6, 0]);
+    }
+    expect([byProgram.inspira.schoolDays, byProgram['mirada-profunda'].schoolDays]).toEqual([9, 10]);
+  });
+
+  it('keeps per-program school sets: INSPIRA immersion plus four of five candidates, Mirada Profunda five', () => {
+    expect([byProgram.inspira.visited, byProgram.inspira.schoolCount]).toEqual([6, 6]);
+    expect(byProgram.inspira.schools).toHaveLength(7);
+    expect(String(januaryFact(JANUARY, 'inspira.visitSelection'))).toMatch(/^conditional/);
+    expect([byProgram['mirada-profunda'].visited, byProgram['mirada-profunda'].schoolCount]).toEqual([5, 5]);
+    expect(byProgram.inspira.lunches).not.toBe(byProgram['mirada-profunda'].lunches);
+  });
+
+  it('names every contract fact as exactly one open B003 runtime gate, no more and no fewer', () => {
+    const gated = Object.values(B003_RUNTIME_GATES).flat();
+    expect(new Set(gated).size).toBe(gated.length);
+    expect([...gated].sort()).toEqual(JANUARY.facts.map((f) => `${f.program}.${f.field}`).sort());
+  });
+
+  it('does not pretend the runtime is January: the module still carries October, so every gate stays open', () => {
+    // B003 flips this: when the module carries the contract's cohort, these
+    // assertions and the October describes above become contract comparisons.
+    expect(COHORT_ID).toBe('octubre-2026');
+    expect(COHORT_ID).not.toBe(JANUARY.ids.cohort);
+    expect(JSON.stringify(COHORT_PUBLIC)).not.toMatch(/enero|2027-01-/i);
+  });
+
+  it.each<[string, (c: JanuaryContract) => void, RegExp]>([
+    ['an unratified contract', (c) => { c.status = 'CANDIDATE — NOT RATIFIED — NOT ACTIVE'; }, /not RATIFIED — ACTIVE/],
+    ['a dropped program fact', (c) => { c.facts = c.facts.filter((f) => !(f.program === 'mirada-profunda' && f.field === 'week2')); }, /no fact mirada-profunda\.week2/],
+    ['a range that is not ISO', (c) => { (c.facts.find((f) => f.program === 'inspira' && f.field === 'dates') as JanuaryFact).value = '18 al 28 de enero'; }, /not an ISO range/],
+  ])('refuses %s', (_name, mutate, error) => {
+    const mutated = structuredClone(JANUARY);
+    mutate(mutated);
+    expect(() => januaryExpectations(mutated)).toThrow(error);
+  });
+
+  it.each<[string, string, string]>([
+    ['an INSPIRA week 2 that adds a school day', 'inspira.week2', '2027-01-25/2027-01-29 visits, one school per day'],
+    ['a Mirada Profunda week 1 that loses a school day', 'mirada-profunda.week1', '2027-01-19/2027-01-22 five school days'],
+  ])('fails the calendar check for %s', (_name, key, value) => {
+    const mutated = structuredClone(JANUARY);
+    (mutated.facts.find((f) => `${f.program}.${f.field}` === key) as JanuaryFact).value = value;
+    const e = januaryExpectations(mutated).find((x) => key.startsWith(`${x.program}.`));
+    expect(e?.calendarSchoolDays).not.toBe(e?.schoolDays);
+  });
 });

@@ -90,7 +90,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               importance: 'high',
               read_at: null,
               event_type: 'data_quality_alert',
-              idempotency_key: `enrollment_alert_${timestamp}_${admin.user_id}`
+              idempotency_key: `enrollment_alert_${timestamp}_${admin.user_id}`,
+              source_context: { occurrence: timestamp, eventData: {} }
             })
           );
 

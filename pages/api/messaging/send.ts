@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import NotificationService from '../../../lib/notificationService';
+import { THREAD_GROUP_COLUMNS, threadGroupIds } from '../../../lib/services/workspace-message-notifications';
 import {
   getApiUser,
   createServiceRoleClient,
@@ -16,6 +17,9 @@ import {
  *   * with `thread_id`: the thread exists and both users can access its
  *     thread (can_access_message_thread);
  *   * without it: both users hold an active role in the same community or school.
+ *
+ * A thread owned by an assignment group names that group (read from the
+ * persisted thread, never the request) for the outbox worker's access re-check.
  *
  * The message `context` is derived here, not taken from the caller. The
  * notification is generic and points at the saved message: the body, subject
@@ -59,10 +63,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     let context: string;
+    // The checked thread's persisted workspace and owning groups; a direct message has none.
+    let workspaceId: string | null = null;
+    let groupIds: string[] = [];
     if (threadId) {
       const { data: thread, error: threadError } = await serviceClient
         .from('message_threads')
-        .select('id, workspace_id')
+        .select(`id, workspace_id, ${THREAD_GROUP_COLUMNS}`)
         .eq('id', threadId)
         .maybeSingle();
       if (threadError) {
@@ -87,6 +94,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
       context = 'workspace_thread';
+      workspaceId = thread.workspace_id;
+      groupIds = threadGroupIds(thread);
     } else {
       const { data: roles, error: rolesError } = await serviceClient
         .from('user_roles')
@@ -150,6 +159,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         sender_name: senderName,
         content: 'Tienes un nuevo mensaje',
         context,
+        ...(workspaceId ? { workspace_id: workspaceId } : {}),
+        ...(groupIds.length > 0 ? { thread_group_ids: groupIds } : {}),
       });
       if (result.success && (result.notificationsCreated ?? 0) > 0) {
         const { error: markError } = await serviceClient

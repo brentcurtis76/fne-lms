@@ -14,6 +14,7 @@ import { getAccessibleUrl } from '../utils/notificationPermissions';
 import { getHighestRole, getUserRoles } from '../utils/roleUtils';
 import { getEventConfig, hasEventConfig } from './notificationEvents';
 import {
+  buildEmailPayload,
   buildRecordUrl,
   DEFAULT_NOTIFICATION_URL,
   getCatalogEntry,
@@ -22,6 +23,7 @@ import {
   NOTIFICATION_CATALOG,
   isSafeNotificationPath,
   isSessionRecordOpenTo,
+  resolveNotificationSource,
   type SessionRecord,
 } from './notifications/catalog';
 import { resolveEmailPreference } from './notifications/resolve-preference';
@@ -71,6 +73,18 @@ interface Recipient {
   id: string;
 }
 
+/**
+ * What the producer said about the occurrence, for the outbox enqueue (N5-02c):
+ * `resolveNotificationSource` reads `eventData`. Never written to the bell row,
+ * the mail or a log line.
+ */
+export interface NotificationSourceContext {
+  /** The occurrence the notification is about, kept apart from its hashed key. */
+  occurrence: string;
+  /** The producer's server payload. */
+  eventData: Record<string, unknown>;
+}
+
 interface NotificationData {
   user_id: string;
   title: string;
@@ -82,6 +96,7 @@ interface NotificationData {
   event_type?: string;
   idempotency_key?: string | null;
   notification_type_id?: string | null;
+  source_context?: NotificationSourceContext;
 }
 
 // Use service role key for bypassing RLS when creating notifications
@@ -345,6 +360,52 @@ function isEmailKillSwitchOff(): boolean {
 }
 
 /**
+ * `NOTIFICATION_OUTBOX_DELIVERY` set to `on`, `true` or `1`; unset or anything
+ * else keeps the synchronous path. The same reading as the worker's
+ * `isOutboxDeliveryEnabled`, kept here so the worker's runtime graph stays out
+ * of this module.
+ */
+function isOutboxDeliveryOn(): boolean {
+  const flag = process.env.NOTIFICATION_OUTBOX_DELIVERY?.trim().toLowerCase();
+  return flag === 'on' || flag === 'true' || flag === '1';
+}
+
+/** What `enqueue_notification_with_source` returns for one recipient. */
+interface EnqueueResult {
+  notification_id: string | null;
+  outbox_id: string | null;
+  idempotency_key: string;
+  in_app: boolean;
+  email_mode: 'immediate' | 'digest' | 'off';
+  email_reason: string;
+}
+
+/** One row whose channels agree with themselves: a bell id iff in-app, an outbox id iff email is on. */
+function parseEnqueueResult(data: unknown): EnqueueResult | null {
+  const row = Array.isArray(data) && data.length === 1 ? data[0] : null;
+  if (!row || typeof row !== 'object') return null;
+  const { notification_id, outbox_id, idempotency_key, in_app, email_mode, email_reason } = row as Record<string, unknown>;
+  const optionalId = (value: unknown) => value === null || (typeof value === 'string' && value !== '');
+  if (
+    !optionalId(notification_id) || !optionalId(outbox_id) ||
+    typeof idempotency_key !== 'string' || idempotency_key === '' ||
+    typeof in_app !== 'boolean' || in_app !== (notification_id !== null) ||
+    (email_mode !== 'immediate' && email_mode !== 'digest' && email_mode !== 'off') ||
+    (email_mode === 'off') !== (outbox_id === null) ||
+    typeof email_reason !== 'string'
+  ) {
+    return null;
+  }
+  return { notification_id, outbox_id, idempotency_key, in_app, email_mode, email_reason } as EnqueueResult;
+}
+
+/** A failure that names only a fixed code: no value, message or context of the notification. */
+function enqueueFailure(code: string): Error {
+  console.error('Notification enqueue failed', { status: code });
+  return Object.assign(new Error(`notification_enqueue_failed: ${code}`), { code });
+}
+
+/**
  * Log-safe context for a caught error: only a SQLSTATE or PostgREST code
  * survives. A message, details or hint can carry a credential or a recipient
  * id, so none of them is logged.
@@ -529,7 +590,8 @@ class NotificationService {
             read_at: null,
             event_type: eventType,
             idempotency_key: idempotencyKey,
-            notification_type_id: notificationTypeId
+            notification_type_id: notificationTypeId,
+            source_context: { occurrence, eventData }
           });
           notificationsCreated++;
         } catch (error) {
@@ -967,6 +1029,9 @@ class NotificationService {
    * The e-mail therefore does NOT wait on an inserted row — requiring one is
    * what made an email-only preference silently deliver nothing.
    *
+   * With `NOTIFICATION_OUTBOX_DELIVERY` on, an event the outbox worker supports
+   * goes to `enqueueNotification` instead; any other event stays on this path.
+   *
    * @param {Object} notificationData - Notification data to insert
    * @param {Object} [deps] - Injection seam for tests: `client` replaces the
    *   service-role Supabase client, `transport` replaces the e-mail provider.
@@ -978,6 +1043,16 @@ class NotificationService {
     try {
       // The title can carry a person's name, so only the event type is logged.
       console.log('📧 Creating notification', { event_type: notificationData.event_type ?? null });
+
+      if (isOutboxDeliveryOn() && notificationData.event_type) {
+        const source = resolveNotificationSource(
+          notificationData.event_type,
+          notificationData.source_context?.eventData ?? {}
+        );
+        if (source.status !== 'unsupported') {
+          return await this.enqueueNotification(client, notificationData, source);
+        }
+      }
 
       const notificationType = notificationData.event_type || notificationData.category;
       const preference = await this.getNotificationPreference(
@@ -1018,6 +1093,62 @@ class NotificationService {
       console.error('Error creating notification');
       throw error;
     }
+  }
+
+  /**
+   * Outbox delivery (N5-02, `NOTIFICATION_OUTBOX_DELIVERY` on) of an event the
+   * worker supports: one `enqueue_notification_with_source` call writes the
+   * bell and the outbox row in one transaction, deciding both channels from the
+   * recipient's preferences. Nothing is sent here and nothing is written
+   * through the synchronous path, also when this fails: a missing or invalid
+   * occurrence or source, or a failed or malformed enqueue, throws an error
+   * that names only a fixed code. `NOTIFICATION_EMAIL_ENABLED` does not apply.
+   *
+   * @returns The enqueue result, or null when the preferences turned both channels off
+   */
+  async enqueueNotification(client, notificationData, source) {
+    const eventType: string = notificationData.event_type;
+    const context = notificationData.source_context;
+    if (source.status === 'invalid') {
+      throw enqueueFailure(source.code);
+    }
+    if (
+      !context || typeof context.occurrence !== 'string' || context.occurrence.trim() === '' ||
+      !context.eventData || typeof context.eventData !== 'object' || Array.isArray(context.eventData)
+    ) {
+      throw enqueueFailure('context_missing');
+    }
+
+    const entry = getCatalogEntry(eventType);
+    let response;
+    try {
+      response = await client.rpc('enqueue_notification_with_source', {
+        p_event_type: eventType,
+        p_occurrence_id: context.occurrence,
+        p_user_id: notificationData.user_id,
+        p_category: entry.category,
+        p_email_default: entry.emailDefault,
+        p_mandatory: entry.mandatory,
+        p_title: notificationData.title,
+        p_description: notificationData.description,
+        p_related_url: notificationData.related_url,
+        p_importance: notificationData.importance || 'normal',
+        p_notification_type_id: notificationData.notification_type_id || null,
+        p_email_payload: buildEmailPayload(eventType, context.eventData),
+        p_source_kind: source.sourceKind,
+        p_source_id: source.sourceId,
+      });
+    } catch (error) {
+      throw enqueueFailure(loggableError(error).code ?? 'enqueue_error');
+    }
+    if (response?.error) {
+      throw enqueueFailure(loggableError(response.error).code ?? 'enqueue_error');
+    }
+    const result = parseEnqueueResult(response?.data);
+    if (!result) {
+      throw enqueueFailure('enqueue_malformed');
+    }
+    return result.notification_id === null && result.outbox_id === null ? null : result;
   }
 
   /**

@@ -51,13 +51,57 @@ export function resolveSender(explicit?: string): string | null {
 export type EmailTransport = (
   message: OutboundEmailMessage,
   options?: { idempotencyKey?: string }
-) => Promise<{ data?: { id?: string } | null; error?: { message?: string; statusCode?: number | null } | null }>;
+) => Promise<{
+  data?: { id?: string } | null;
+  /** `retryAfter` is the provider's raw `Retry-After` header, when it sent one; `deliverOutboundEmail` validates it. */
+  error?: { message?: string; statusCode?: number | null; retryAfter?: string | null } | null;
+}>;
+
+/** The longest wait a `Retry-After` can ask for here: a day, the ambiguity window of the outbox lifecycles. */
+export const MAX_RETRY_AFTER_SECONDS = 86400;
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const RETRY_AFTER_DATE =
+  /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun), (\d{2}) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{4}) (\d{2}):(\d{2}):(\d{2}) GMT$/;
+
+/**
+ * The instant an IMF-fixdate names, or undefined when its fields are not a real date and time: `Date.parse` would
+ * roll 30 Feb into March or 24:00 into the next day, so every field must survive the round trip, the weekday included.
+ */
+function retryAfterDate(value: string): number | undefined {
+  const match = RETRY_AFTER_DATE.exec(value);
+  if (!match) return undefined;
+  const [, weekday, day, month, year, hour, minute, second] = match;
+  const fields = [Number(year), MONTHS.indexOf(month), Number(day), Number(hour), Number(minute), Number(second)];
+  const date = new Date(Date.UTC(fields[0], fields[1], fields[2], fields[3], fields[4], fields[5]));
+  const actual = [date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds()];
+  if (WEEKDAYS[date.getUTCDay()] !== weekday || actual.some((field, i) => field !== fields[i])) return undefined;
+  return date.getTime();
+}
+
+/**
+ * Seconds to wait from a `Retry-After` value (RFC 9110 §10.2.3): delay-seconds or an IMF-fixdate HTTP-date, a past
+ * date counting as 0. Anything else, a negative, fractional, non-finite or control-character value or an impossible
+ * date or time included, is undefined. Longer waits are clamped to `MAX_RETRY_AFTER_SECONDS`.
+ */
+export function parseRetryAfter(value: unknown, now = Date.now()): number | undefined {
+  if (typeof value !== 'string') return undefined;
+  let seconds: number;
+  if (/^\d+$/.test(value)) seconds = Number(value);
+  else {
+    const at = retryAfterDate(value);
+    if (at === undefined) return undefined;
+    seconds = Math.max(0, Math.ceil((at - now) / 1000));
+  }
+  return Number.isFinite(seconds) ? Math.min(seconds, MAX_RETRY_AFTER_SECONDS) : undefined;
+}
 
 export type ProviderDelivery =
   | { status: 'provider_accepted'; providerMessageId?: string }
   /** A definite refusal. `conflict` marks HTTP 409: the provider already holds this idempotency key. */
   | { status: 'provider_rejected'; detail?: string; conflict?: true }
-  | { status: 'transport_error'; detail?: string }
+  /** `retryAfterSeconds`: a keyed 429 or 5xx carried a valid `Retry-After` (see `parseRetryAfter`). */
+  | { status: 'transport_error'; detail?: string; retryAfterSeconds?: number }
   | { status: 'not_configured'; detail?: string }
   | { status: 'suppressed_qa' }
   | { status: 'refused'; detail?: string };
@@ -82,7 +126,11 @@ function resendTransport(apiKey: string): EmailTransport {
     } | null;
     if (!response.ok) {
       if (response.status === 429 || response.status >= 500) {
-        throw new Error('transient provider failure');
+        // Ambiguous: the provider text is not kept, only the status and its Retry-After.
+        return {
+          data: null,
+          error: { message: 'transient provider failure', statusCode: response.status, retryAfter: response.headers.get('retry-after') },
+        };
       }
       return {
         data: null,
@@ -127,7 +175,12 @@ export async function deliverOutboundEmail(params: {
       const status = params.idempotencyKey ? error.statusCode : undefined;
       // 429 and 5xx leave it open whether the message was taken, like a call that threw.
       if (status === 429 || (typeof status === 'number' && status >= 500)) {
-        return { status: 'transport_error', detail: error.message };
+        const retryAfterSeconds = parseRetryAfter(error.retryAfter);
+        return {
+          status: 'transport_error',
+          detail: error.message,
+          ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }),
+        };
       }
       return {
         status: 'provider_rejected',

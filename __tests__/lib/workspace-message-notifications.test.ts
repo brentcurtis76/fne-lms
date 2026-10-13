@@ -17,6 +17,7 @@ const db = vi.hoisted(() => ({
   profiles: {} as Record<string, Record<string, any>>,
   members: new Set<string>(),
   bells: [] as Array<Record<string, any>>,
+  enqueues: [] as Array<Record<string, any>>,
   writes: [] as string[],
   faults: {} as Record<string, number>,
 }));
@@ -89,6 +90,11 @@ vi.mock('@supabase/supabase-js', () => {
       if (fn === 'can_access_message_thread') {
         return Promise.resolve({ data: args.p_thread_id === 'bbbbbbbb-0000-4000-8000-00000000000a' && db.members.has(args.p_user_id), error: null });
       }
+      if (fn === 'enqueue_notification_with_source') {
+        db.enqueues.push(args);
+        const n = db.enqueues.length;
+        return Promise.resolve({ data: [{ notification_id: `bell-${n}`, outbox_id: `outbox-${n}`, idempotency_key: `key-${n}`, in_app: true, email_mode: 'immediate', email_reason: 'catalog_default' }], error: null });
+      }
       return Promise.resolve({ data: fn === 'get_active_triggers' ? [] : null, error: null });
     },
   };
@@ -117,7 +123,7 @@ const client = createClient('http://fake', 'fake');
 let logs: ReturnType<typeof vi.spyOn>[];
 
 function seed(content = `${BODY} @Miembro_Uno @Autora_Replicada @Persona_Inactiva`) {
-  Object.assign(db, { mentions: [], bells: [], writes: [], faults: {}, members: new Set([AUTHOR, MEMBER, REPLIED]) });
+  Object.assign(db, { mentions: [], bells: [], enqueues: [], writes: [], faults: {}, members: new Set([AUTHOR, MEMBER, REPLIED]) });
   db.threads = { [THREAD]: { id: THREAD, workspace_id: WORKSPACE }, [OTHER_THREAD]: { id: OTHER_THREAD, workspace_id: WORKSPACE } };
   db.messages = {
     [PARENT]: { id: PARENT, workspace_id: WORKSPACE, thread_id: THREAD, reply_to_id: null, author_id: REPLIED, content: 'padre', is_deleted: false },
@@ -299,5 +305,36 @@ describe('private assignment audience', () => {
     db.threads[THREAD].workspace_id = null;
     const result = await notifyWorkspaceMessage(client, AUTHOR, { messageId: MESSAGE, workspaceId: null, mentionedUserIds: [MEMBER] });
     expect(result).toEqual({ status: 200, body: { success: true, notified: 2 } });
+  });
+});
+
+describe('R8 · flag on: mention and reply bells of a group thread are enqueued against the thread group', () => {
+  const GROUP = 'dddddddd-0000-4000-8000-00000000000a';
+  const OTHER_GROUP = 'dddddddd-0000-4000-8000-00000000000b';
+  const groupThread = (groups: string[], workspaceId: string | null = null) => {
+    db.threads[THREAD] = { id: THREAD, workspace_id: workspaceId, assignment_group_id: groups[0], group_assignment_discussions: groups.map((group_id) => ({ group_id })) };
+    for (const message of Object.values(db.messages)) message.workspace_id = workspaceId;
+    return notifyWorkspaceMessage(client as any, AUTHOR, { messageId: MESSAGE, workspaceId, mentionedUserIds: [MEMBER] });
+  };
+  const enqueued = () => db.enqueues.map((a) => [a.p_event_type, a.p_user_id, a.p_source_kind, a.p_source_id]);
+  beforeEach(() => vi.stubEnv('NOTIFICATION_OUTBOX_DELIVERY', 'on'));
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each([['without', null], ['with', WORKSPACE]] as const)('a group thread %s a workspace: one enqueue per recipient with source group/<id>, no synchronous bell', async (_label, workspaceId) => {
+    expect(await groupThread([GROUP], workspaceId)).toEqual({ status: 200, body: { success: true, notified: 2 } });
+    expect(enqueued()).toEqual([['message_sent', REPLIED, 'group', GROUP], ['user_mentioned', MEMBER, 'group', GROUP]]);
+    expect(db.bells).toEqual([]);
+    expect(JSON.stringify(db.enqueues)).not.toContain(BODY);
+  });
+
+  it('an ordinary workspace thread keeps the workspace source', async () => {
+    expect((await notify([MEMBER])).status).toBe(200);
+    expect(enqueued()).toEqual([['message_sent', REPLIED, 'workspace', WORKSPACE], ['user_mentioned', MEMBER, 'workspace', WORKSPACE]]);
+  });
+
+  it('a thread naming two groups fails closed: nothing enqueued or written, a generic error, no id logged', async () => {
+    expect(await groupThread([GROUP, OTHER_GROUP])).toEqual({ status: 500, body: { error: 'No se pudieron crear todas las notificaciones' } });
+    expect([db.enqueues, db.bells]).toEqual([[], []]);
+    expect(loggedText()).not.toMatch(/dddddddd|SYNTHETIC-PRIVATE-BODY/);
   });
 });

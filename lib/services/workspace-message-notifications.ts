@@ -8,7 +8,9 @@
  *     in the same thread (any other linkage notifies nobody);
  *   * a mentioned user is one already recorded in message_mentions, or a
  *     claimed user whose composer handle (`@First_Last`) is in the saved text;
- *   * every recipient, like the author, passes the saved thread’s access check.
+ *   * every recipient, like the author, passes the saved thread’s access check;
+ *   * a thread owned by an assignment group names that group, never the
+ *     workspace, as the record the outbox worker re-checks.
  *
  * The reply author gets only the reply bell, even when also mentioned, and the
  * author is never notified. Each bell is keyed by message and recipient, so a
@@ -37,6 +39,23 @@ export type WorkspaceMessageOutcome =
 type Recipient = { id: string; event: 'user_mentioned' | 'message_sent' };
 
 const fail = (status: 400 | 403 | 404 | 500, error: string): WorkspaceMessageOutcome => ({ status, body: { error } });
+
+/** The thread columns `threadGroupIds` reads: its group and its group discussion links, in one query. */
+export const THREAD_GROUP_COLUMNS = 'assignment_group_id, group_assignment_discussions(group_id)';
+
+/**
+ * The assignment groups that own a persisted thread (can_access_message_thread
+ * lets only their audience read it): its `assignment_group_id` and every group
+ * a discussion links it to. Empty for an ordinary workspace thread; more than
+ * one group never names a single record and fails closed at the outbox enqueue.
+ */
+export function threadGroupIds(thread: {
+  assignment_group_id?: string | null;
+  group_assignment_discussions?: Array<{ group_id: string }> | null;
+}): string[] {
+  const ids = [thread.assignment_group_id, ...(thread.group_assignment_discussions ?? []).map((d) => d.group_id)];
+  return [...new Set(ids.filter((id): id is string => typeof id === 'string').map((id) => id.toLowerCase()))];
+}
 
 /** The handle the messaging composer inserts for a member (MessageComposer + toMentionSuggestion). */
 function mentionHandle(profile: { first_name?: string | null; last_name?: string | null; email?: string | null }): string {
@@ -69,7 +88,7 @@ export async function notifyWorkspaceMessage(
 
   const { data: thread, error: threadError } = await client
     .from('message_threads')
-    .select('id, workspace_id')
+    .select(`id, workspace_id, ${THREAD_GROUP_COLUMNS}`)
     .eq('id', message.thread_id)
     .maybeSingle();
   if (threadError) {
@@ -169,7 +188,13 @@ export async function notifyWorkspaceMessage(
 
   const { data: author } = await client.from('profiles').select('first_name, last_name').eq('id', actorId).maybeSingle();
   const authorName = `${author?.first_name ?? ''} ${author?.last_name ?? ''}`.trim() || 'Un usuario';
-  const context = { message_id: message.id, thread_id: message.thread_id, workspace_id: message.workspace_id };
+  const groupIds = threadGroupIds(thread);
+  const context = {
+    message_id: message.id,
+    thread_id: message.thread_id,
+    workspace_id: message.workspace_id,
+    ...(groupIds.length > 0 ? { thread_group_ids: groupIds } : {}),
+  };
 
   let failed = 0;
   for (const recipient of recipients) {

@@ -1,6 +1,15 @@
 // @vitest-environment node
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+// createMeetingWithDocumentation writes through this module's client.
+vi.mock('../../../lib/supabase-wrapper', async () => {
+  const mock = await import('./meetingSupabaseMock');
+  return { supabase: mock.makeMeetingSupabaseClient() };
+});
+vi.mock('../../../utils/workspaceUtils', () => ({ logWorkspaceActivity: vi.fn() }));
+
 import { applyMeetingDiffs, syncMeetingPeople, insertMeetingRow } from '../../../components/meetings/persistMeeting';
+import { createMeetingWithDocumentation } from '../../../utils/meetingUtils';
 import {
   capturedCalls as calls,
   failingWrites,
@@ -406,5 +415,87 @@ describe('applyMeetingDiffs — every insert and update reports its failure (SM-
     expect(result.problems.map((p) => p.message)).toEqual([message]);
     // A failed insert leaves its item without an id, so the caller cannot treat it as saved.
     if (verb === 'insert') expect(result.ids[TABLES[table].key][1]).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SM-24: the direct child writers never send '' (or spaces) as a due date
+// ---------------------------------------------------------------------------
+
+const DATE_WRITES = ['insert:meeting_commitments', 'update:meeting_commitments', 'insert:meeting_tasks', 'update:meeting_tasks'];
+const sentDueDates = () => DATE_WRITES.map((key) => calls[key]?.[0]?.due_date);
+
+describe('applyMeetingDiffs — due-date write boundary (SM-24)', () => {
+  beforeEach(() => {
+    resetMeetingSupabaseMock();
+    seedRows('meeting_commitments', [{ id: 'c1', meeting_id: 'm1' }]);
+    seedRows('meeting_tasks', [{ id: 't1', meeting_id: 'm1' }]);
+  });
+
+  const commitment = (id: string | undefined, due_date: string) => ({
+    id, commitment_text: 'C', commitment_doc: null, assigned_to: 'a1', due_date,
+  });
+  // One new and one loaded row per table: covers insert and update.
+  const dated = (due_date: string) => payload({
+    commitmentsForPersist: [commitment(undefined, due_date), commitment('c1', due_date)],
+    tasksForPersist: [{ ...task(), due_date }, { ...task('t1'), due_date }],
+  });
+  const loaded = { ...none, commitments: new Set(['c1']), tasks: new Set(['t1']) };
+
+  it('sends a valid due date unchanged in every commitment and task insert and update', async () => {
+    const client = makeMeetingSupabaseClient() as any;
+    const result = await applyMeetingDiffs(client, 'm1', dated('2030-07-15'), loaded);
+    expect(result.problems).toEqual([]);
+    expect(sentDueDates()).toEqual(['2030-07-15', '2030-07-15', '2030-07-15', '2030-07-15']);
+  });
+
+  it.each([
+    ['blank', ''],
+    ['whitespace-only', '  '],
+  ])('sends a %s due date as null, never a string, in every commitment and task insert and update', async (_name, dueDate) => {
+    const client = makeMeetingSupabaseClient() as any;
+    const result = await applyMeetingDiffs(client, 'm1', dated(dueDate), loaded);
+    expect(result.problems).toEqual([]);
+    expect(sentDueDates()).toEqual([null, null, null, null]);
+  });
+
+  it('empty child arrays write no commitment or task and report nothing', async () => {
+    const client = makeMeetingSupabaseClient() as any;
+    const result = await applyMeetingDiffs(client, 'm1', payload(), none);
+    expect(result.problems).toEqual([]);
+    expect(result.ids).toEqual({ agreements: [], commitments: [], tasks: [] });
+    expect(sentDueDates()).toEqual([undefined, undefined, undefined, undefined]);
+  });
+});
+
+describe('createMeetingWithDocumentation — due-date write boundary (SM-24)', () => {
+  beforeEach(() => resetMeetingSupabaseMock());
+
+  const documentation = (dueDate: string) => buildForm({
+    commitments: [{ commitment_text: 'Compromiso', assigned_to: 'user-2', due_date: dueDate }],
+    tasks: [{ task_title: 'Tarea', assigned_to: 'user-2', due_date: dueDate, priority: 'media' as const }],
+  });
+  const insertedDueDates = () => [calls['insert:meeting_commitments']?.[0]?.due_date, calls['insert:meeting_tasks']?.[0]?.due_date];
+
+  it('sends a valid commitment and task due date unchanged', async () => {
+    const result = await createMeetingWithDocumentation('ws-1', 'user-1', documentation('2030-07-10'));
+    expect(result.success).toBe(true);
+    expect(insertedDueDates()).toEqual(['2030-07-10', '2030-07-10']);
+  });
+
+  it.each([
+    ['blank', ''],
+    ['whitespace-only', ' \t '],
+  ])('sends a %s commitment and task due date as null, never a string', async (_name, dueDate) => {
+    const result = await createMeetingWithDocumentation('ws-1', 'user-1', documentation(dueDate));
+    expect(result.success).toBe(true);
+    expect(insertedDueDates()).toEqual([null, null]);
+  });
+
+  it('a meeting without commitments or tasks is still created and writes no child row', async () => {
+    const result = await createMeetingWithDocumentation('ws-1', 'user-1', buildForm());
+    expect(result).toMatchObject({ success: true, problems: [] });
+    expect(calls['insert:community_meetings']).toHaveLength(1);
+    expect(insertedDueDates()).toEqual([undefined, undefined]);
   });
 });

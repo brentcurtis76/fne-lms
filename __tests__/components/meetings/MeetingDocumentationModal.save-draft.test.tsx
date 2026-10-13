@@ -610,3 +610,123 @@ describe('MeetingDocumentationModal — a failed child save is never reported as
     expect(utils.getByText(/Guardado hace 2 días/)).toBeDefined();
   });
 });
+
+describe('MeetingDocumentationModal — every commitment and task needs a person and a due date (SM-24)', () => {
+  const MISSING = [
+    { kind: 'commitment', field: 'assignee', testId: 'meeting-commitment-assignee-0', message: 'Elige a quién se asigna este compromiso.' },
+    { kind: 'commitment', field: 'due date', testId: 'meeting-commitment-due-0', message: 'Indica la fecha límite del compromiso.' },
+    { kind: 'task', field: 'assignee', testId: 'meeting-task-assignee-0', message: 'Elige a quién se asigna esta tarea.' },
+    { kind: 'task', field: 'due date', testId: 'meeting-task-due-0', message: 'Indica la fecha límite de la tarea.' },
+  ] as const;
+  const SAVES = [
+    { action: 'draft', button: /Guardar borrador/i },
+    { action: 'submit', button: /Crear Reunión/i },
+  ] as const;
+
+  const cases = SAVES.flatMap((save) => MISSING.map((missing) => ({ ...save, ...missing })));
+
+  it.each(cases)('$action with a $kind missing its $field: refused in es-CL, form open, nothing written', async ({ button, kind, testId, message }) => {
+    const utils = render(<MeetingDocumentationModal {...defaultProps} />);
+    await createToStep3(utils);
+    await addCompleteItems(utils);
+    fireEvent.change(utils.getByTestId(testId), { target: { value: '' } });
+
+    await click(utils.getByRole('button', { name: button }));
+
+    expect(toastError).toHaveBeenCalledWith(expect.stringContaining(message));
+    expect(utils.getByTestId(`meeting-${kind}-0-errors`).textContent).toContain(message);
+    expect(utils.getByRole('button', { name: /Agregar Compromiso/i })).toBeDefined();
+    expect(capturedCalls['insert:community_meetings']).toBeUndefined();
+    expect(capturedCalls['insert:meeting_commitments']).toBeUndefined();
+    expect(capturedCalls['insert:meeting_tasks']).toBeUndefined();
+    expect(toastSuccess).not.toHaveBeenCalled();
+    expect(defaultProps.onDraftSaved).not.toHaveBeenCalled();
+    expect(defaultProps.onSuccess).not.toHaveBeenCalled();
+  });
+
+  // A meeting saved before this rule: the commitment's person is only spaces
+  // and the task has no date.
+  const incompleteMeeting = () => ({
+    id: 'meeting-1',
+    title: 'Existing meeting',
+    meeting_date: new Date('2026-04-21T12:00:00Z').toISOString(),
+    duration_minutes: 60,
+    location: '',
+    status: 'borrador',
+    summary: 'summary text',
+    summary_doc: richDoc('summary text'),
+    notes: '',
+    notes_doc: null,
+    attendees: [{ user_id: ANA.id, role: 'participant' }],
+    agreements: [],
+    commitments: [{ id: 'c1', commitment_text: 'Enviar informe', commitment_doc: richDoc('Enviar informe'), assigned_to: '   ', due_date: '2026-05-01' }],
+    tasks: [{ id: 't1', task_title: 'Preparar deck', task_description: '', task_description_doc: null, assigned_to: ANA.id, due_date: null, priority: 'media', category: '', estimated_hours: 0 }],
+    version: 1,
+    updated_at: new Date().toISOString(),
+  });
+
+  async function openIncompleteAtStep3() {
+    mockGetMeetingDetails.mockResolvedValue(incompleteMeeting());
+    seedRows('meeting_commitments', [{ id: 'c1', meeting_id: 'meeting-1' }]);
+    seedRows('meeting_tasks', [{ id: 't1', meeting_id: 'meeting-1' }]);
+    seedRows('meeting_attendees', [{ id: 'att-ana', meeting_id: 'meeting-1', user_id: ANA.id, role: 'participant' }]);
+    const utils = render(<MeetingDocumentationModal {...defaultProps} meetingId="meeting-1" mode="edit" />);
+    await waitFor(() => {
+      const titleInput = utils.container.querySelector('input[type="text"]') as HTMLInputElement | null;
+      expect(titleInput?.value).toBe('Existing meeting');
+    });
+    await click(utils.getByRole('button', { name: /Siguiente/i }));
+    await click(utils.getByRole('button', { name: /Siguiente/i }));
+    await waitFor(() => expect(utils.getByTestId('meeting-commitment-assignee-0')).toBeDefined());
+    return utils;
+  }
+
+  const expectNothingWritten = () => {
+    expect(mockUpdateMeeting).not.toHaveBeenCalled();
+    expect(capturedCalls['update:meeting_commitments']).toBeUndefined();
+    expect(capturedCalls['update:meeting_tasks']).toBeUndefined();
+    expect(toastSuccess).not.toHaveBeenCalled();
+  };
+
+  it.each([
+    { button: /Guardar borrador/i, success: 'Borrador guardado' },
+    { button: /Guardar Cambios/i, success: 'Reunión actualizada correctamente' },
+  ])('edit: a loaded incomplete row is refused by "$button" and saves once corrected', async ({ button, success }) => {
+    const utils = await openIncompleteAtStep3();
+
+    await click(utils.getByRole('button', { name: button }));
+
+    expectNothingWritten();
+    expect(toastError).toHaveBeenCalledWith(expect.stringContaining('Elige a quién se asigna este compromiso.'));
+    expect(utils.getByTestId('meeting-commitment-0-errors').textContent).toContain('Elige a quién se asigna este compromiso.');
+    expect(utils.getByTestId('meeting-task-0-errors').textContent).toContain('Indica la fecha límite de la tarea.');
+    expect(defaultProps.onDraftSaved).not.toHaveBeenCalled();
+    expect(defaultProps.onSuccess).not.toHaveBeenCalled();
+
+    fireEvent.change(utils.getByTestId('meeting-commitment-assignee-0'), { target: { value: ANA.id } });
+    fireEvent.change(utils.getByTestId('meeting-task-due-0'), { target: { value: '2026-05-20' } });
+    await click(utils.getByRole('button', { name: button }));
+
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith(success));
+    expect(mockUpdateMeeting).toHaveBeenCalledTimes(1);
+    expect(capturedCalls['update:meeting_commitments']).toEqual([
+      expect.objectContaining({ assigned_to: ANA.id, due_date: '2026-05-01' }),
+    ]);
+    expect(capturedCalls['update:meeting_tasks']).toEqual([
+      expect.objectContaining({ assigned_to: ANA.id, due_date: '2026-05-20' }),
+    ]);
+    expect(utils.queryByTestId('meeting-commitment-0-errors')).toBeNull();
+    expect(utils.queryByTestId('meeting-task-0-errors')).toBeNull();
+  });
+
+  it('edit: "Finalizar reunión" with a loaded incomplete row writes nothing and does not open the finalize dialog', async () => {
+    const utils = await openIncompleteAtStep3();
+
+    await click(utils.getByRole('button', { name: /Finalizar reunión/i }));
+
+    expectNothingWritten();
+    expect(toastError).toHaveBeenCalledWith('Elige a quién se asigna este compromiso. (y 1 problema más)');
+    expect(utils.getByTestId('meeting-task-0-errors').textContent).toContain('Indica la fecha límite de la tarea.');
+    expect(utils.queryByRole('dialog')).toBeNull();
+  });
+});

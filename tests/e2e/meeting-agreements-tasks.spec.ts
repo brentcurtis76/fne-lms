@@ -12,7 +12,8 @@ import { loginViaUi, E2E_SCHOOL_SECONDARY, type E2eFixtureUser } from './helpers
  * historical self-grant) cannot edit. Since SM-H8 every attendee row makes its
  * user a reader, so that attendee now READS the content (owner rule).
  * SM-23 (W-B3a-02): a refused child write keeps the editor open with an es-CL
- * error and no success toast.
+ * error and no success toast. SM-24 (W-B3a-03): a commitment or task without
+ * an assignee or due date is refused before any write.
  *
  * Standalone: it creates its own synthetic community, accounts and meeting with
  * the service role, writes every row id to a manifest before removing them by
@@ -20,15 +21,15 @@ import { loginViaUi, E2E_SCHOOL_SECONDARY, type E2eFixtureUser } from './helpers
  * (sign-up, login, deletion) are collected by exact id once the accounts are
  * gone, recorded, removed by id, and any residue for the run's stamp fails the run.
  *
- * It writes only to the dedicated SM-22 stack (API 127.0.0.1:54821, DB
- * 127.0.0.1:54822). The target comes from the process environment only, never
+ * It writes only to the dedicated SM-24 stack (API 127.0.0.1:54921, DB
+ * 127.0.0.1:54922). The target comes from the process environment only, never
  * from an .env file, and is verified before any client exists: the exact pair,
  * the Docker containers of E2E_SUPABASE_STACK_ID publishing both ports, and the
  * app server's bundled Supabase URL.
  */
 
-const DEDICATED_API = 'http://127.0.0.1:54821';
-const DEDICATED_DB = '127.0.0.1:54822';
+const DEDICATED_API = 'http://127.0.0.1:54921';
+const DEDICATED_DB = '127.0.0.1:54922';
 
 type TargetEnv = Partial<Record<'NEXT_PUBLIC_SUPABASE_URL' | 'SUPABASE_DB_URL' | 'SUPABASE_SERVICE_ROLE_KEY' | 'E2E_SUPABASE_STACK_ID', string>>;
 
@@ -77,7 +78,7 @@ function stackIdentityProblem(stackId: string, portOf: (container: string, inter
  * Other loopback URLs are static literals (lib/utils/environmentMonitor.ts).
  */
 function bundleTargetProblem(bundle: string): string | null {
-  return /http:\/\/127\.0\.0\.1:54821(?!\d)/.test(bundle) ? null : `app server bundle does not target ${DEDICATED_API}`;
+  return /http:\/\/127\.0\.0\.1:54921(?!\d)/.test(bundle) ? null : `app server bundle does not target ${DEDICATED_API}`;
 }
 
 async function appBundle(): Promise<string> {
@@ -136,6 +137,7 @@ const manifest = {
   meetings: [] as string[],
   attendees: [] as string[],
   agreements: [] as string[],
+  commitments: [] as string[],
   tasks: [] as string[],
   providerAudit: [] as string[],
   cleanup: {} as Record<string, number>,
@@ -192,8 +194,9 @@ async function createMeeting(viewport: string) {
 
 async function childRows(meetingId: string) {
   const agreements = await must('agreements', (db) => db.from('meeting_agreements').select('id, agreement_text').eq('meeting_id', meetingId));
+  const commitments = await must('commitments', (db) => db.from('meeting_commitments').select('id').eq('meeting_id', meetingId));
   const tasks = await must('tasks', (db) => db.from('meeting_tasks').select('id, task_title').eq('meeting_id', meetingId));
-  return { agreements: agreements ?? [], tasks: tasks ?? [] };
+  return { agreements: agreements ?? [], commitments: commitments ?? [], tasks: tasks ?? [] };
 }
 
 async function openAgreementsStep(page: Page, title: string) {
@@ -223,7 +226,7 @@ test.describe.configure({ mode: 'serial' });
 test.describe('dedicated write-target guard', () => {
   const dedicated: TargetEnv = {
     NEXT_PUBLIC_SUPABASE_URL: DEDICATED_API, SUPABASE_DB_URL: `postgresql://postgres@${DEDICATED_DB}/postgres`,
-    SUPABASE_SERVICE_ROLE_KEY: 'synthetic', E2E_SUPABASE_STACK_ID: 'sm22-dedicated-guard',
+    SUPABASE_SERVICE_ROLE_KEY: 'synthetic', E2E_SUPABASE_STACK_ID: 'sm24-dedicated-guard',
   };
   const refusals: [string, TargetEnv, RegExp][] = [
     ['nothing set', {}, /missing NEXT_PUBLIC_SUPABASE_URL, SUPABASE_DB_URL, SUPABASE_SERVICE_ROLE_KEY, E2E_SUPABASE_STACK_ID/],
@@ -234,12 +237,16 @@ test.describe('dedicated write-target guard', () => {
       SUPABASE_DB_URL: 'postgresql://postgres@127.0.0.1:54422/postgres' }, /DB 127\.0\.0\.1:54422/],
     ['the CLI default 54321/54322', { ...dedicated,
       NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321', SUPABASE_DB_URL: 'postgresql://postgres@127.0.0.1:54322/postgres' }, /API 127\.0\.0\.1:54321/],
+    ['the former SM-22 pair 54821/54822, now another unit\'s stack', { ...dedicated,
+      NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54821', SUPABASE_DB_URL: 'postgresql://postgres@127.0.0.1:54822/postgres' }, /API 127\.0\.0\.1:54821/],
+    ['the dedicated API with the former SM-22 DB 54822', { ...dedicated,
+      SUPABASE_DB_URL: 'postgresql://postgres@127.0.0.1:54822/postgres' }, /DB 127\.0\.0\.1:54822/],
     ['a hosted project', { ...dedicated, NEXT_PUBLIC_SUPABASE_URL: 'https://abcdefghijklmnop.supabase.co' }, /API abcdefghijklmnop\.supabase\.co/],
-    ['a localhost alias of the dedicated port', { ...dedicated, NEXT_PUBLIC_SUPABASE_URL: 'http://localhost:54821' }, /API localhost:54821/],
+    ['a localhost alias of the dedicated port', { ...dedicated, NEXT_PUBLIC_SUPABASE_URL: 'http://localhost:54921' }, /API localhost:54921/],
     ['a missing stack identity', { ...dedicated, E2E_SUPABASE_STACK_ID: undefined }, /missing E2E_SUPABASE_STACK_ID/],
   ];
 
-  test('accepts only the dedicated 54821/54822 pair', () => {
+  test('accepts only the dedicated 54921/54922 pair', () => {
     expect(targetProblem(dedicated)).toBeNull();
   });
 
@@ -251,23 +258,26 @@ test.describe('dedicated write-target guard', () => {
 
   test('requires the named stack to publish both dedicated ports', () => {
     const published: Record<string, string> = {
-      'supabase_kong_sm22-dedicated-guard': '0.0.0.0:54821\n[::]:54821', 'supabase_db_sm22-dedicated-guard': '0.0.0.0:54822',
+      'supabase_kong_sm24-dedicated-guard': '0.0.0.0:54921\n[::]:54921', 'supabase_db_sm24-dedicated-guard': '0.0.0.0:54922',
       supabase_kong_proc15isolated: '0.0.0.0:54421', supabase_db_proc15isolated: '0.0.0.0:54422',
+      'supabase_kong_sm23-rebuild-guard': '0.0.0.0:54821', 'supabase_db_sm23-rebuild-guard': '0.0.0.0:54822',
     };
     const portOf = (container: string) => {
       if (!(container in published)) throw new Error('No such container');
       return published[container];
     };
-    expect(stackIdentityProblem('sm22-dedicated-guard', portOf)).toBeNull();
-    expect(stackIdentityProblem('proc15isolated', portOf)).toBe('supabase_kong_proc15isolated does not publish 54821');
+    expect(stackIdentityProblem('sm24-dedicated-guard', portOf)).toBeNull();
+    expect(stackIdentityProblem('proc15isolated', portOf)).toBe('supabase_kong_proc15isolated does not publish 54921');
+    expect(stackIdentityProblem('sm23-rebuild-guard', portOf)).toBe('supabase_kong_sm23-rebuild-guard does not publish 54921');
     expect(stackIdentityProblem('sm22-removed', portOf)).toBe('container supabase_kong_sm22-removed not found');
   });
 
   test('requires the app server bundle to carry the dedicated API URL', () => {
     const staticLiterals = '["http://127.0.0.1:54321","http://localhost:54321"]';
-    expect(bundleTargetProblem(`${staticLiterals};u="http://127.0.0.1:54821"`)).toBeNull();
+    expect(bundleTargetProblem(`${staticLiterals};u="http://127.0.0.1:54921"`)).toBeNull();
     expect(bundleTargetProblem(`${staticLiterals};u="http://127.0.0.1:54421"`)).toBe(`app server bundle does not target ${DEDICATED_API}`);
-    expect(bundleTargetProblem('u="http://127.0.0.1:548210"')).toBe(`app server bundle does not target ${DEDICATED_API}`);
+    expect(bundleTargetProblem('u="http://127.0.0.1:549210"')).toBe(`app server bundle does not target ${DEDICATED_API}`);
+    expect(bundleTargetProblem(`${staticLiterals};u="http://127.0.0.1:54821"`)).toBe(`app server bundle does not target ${DEDICATED_API}`);
   });
 
   test('starts no write before the target is verified', async () => {
@@ -310,11 +320,13 @@ test.describe('Meeting agreements and tasks on the dedicated stack', () => {
     for (const id of manifest.meetings) {
       const rows = await childRows(id);
       manifest.agreements.push(...rows.agreements.map((r) => r.id));
+      manifest.commitments.push(...rows.commitments.map((r) => r.id));
       manifest.tasks.push(...rows.tasks.map((r) => r.id));
     }
     saveManifest();
     const removals: [string, string, string[]][] = [
-      ['meeting_agreements', 'id', manifest.agreements], ['meeting_tasks', 'id', manifest.tasks],
+      ['meeting_agreements', 'id', manifest.agreements], ['meeting_commitments', 'id', manifest.commitments],
+      ['meeting_tasks', 'id', manifest.tasks],
       ['meeting_attendees', 'id', manifest.attendees], ['community_meetings', 'id', manifest.meetings],
       ['user_roles', 'id', manifest.userRoles], ['community_workspaces', 'id', manifest.workspace ? [manifest.workspace] : []],
       ['growth_communities', 'id', manifest.community ? [manifest.community] : []], ['profiles', 'id', manifest.accounts],
@@ -365,8 +377,8 @@ test.describe('Meeting agreements and tasks on the dedicated stack', () => {
         await page.locator('[contenteditable="true"]').first().fill(agreementText);
         await page.getByRole('button', { name: 'Agregar Tarea' }).click();
         await page.getByPlaceholder('Título de la tarea...').fill(taskTitle);
-        // An empty due date is sent as "" and the insert fails silently.
-        await page.locator('input[type="date"]').first().fill('2030-07-15');
+        // A task needs a due date and an assignee before it can be saved.
+        await page.getByTestId('meeting-task-due-0').fill('2030-07-15');
         // Enabled once the community members arrive from the app server.
         await expect(page.getByTestId('meeting-task-assignee-0')).toBeEnabled({ timeout: 30_000 });
         await page.getByTestId('meeting-task-assignee-0').selectOption({ label: 'Sintetico Editor SM22' });
@@ -409,6 +421,40 @@ test.describe('Meeting agreements and tasks on the dedicated stack', () => {
 
         const rows = await childRows(meeting.id);
         expect(rows.agreements.map((r) => r.agreement_text)).toEqual([agreementText]);
+        expect(rows.tasks.map((r) => r.task_title)).toEqual([taskTitle]);
+      });
+
+      test('a commitment or task missing its assignee or due date is refused before any write', async ({ page }) => {
+        test.setTimeout(120_000);
+        await loginViaUi(page, users.editor);
+        await openAgreementsStep(page, meeting.title);
+        const writes: string[] = [];
+        page.on('request', (req) => {
+          if (req.method() !== 'GET' && /\/rest\/v1\/(community_meetings|meeting_(agreements|commitments|tasks|attendees|read_grants))/.test(req.url())) {
+            writes.push(`${req.method()} ${new URL(req.url()).pathname}`);
+          }
+        });
+        // A commitment with neither field, and a task with a due date but no assignee.
+        await page.getByRole('button', { name: 'Agregar Compromiso' }).click();
+        await page.getByRole('button', { name: 'Agregar Tarea' }).click();
+        await page.getByTestId('meeting-task-title-1').fill(`Tarea incompleta SM24 ${viewport.name}`);
+        await page.getByTestId('meeting-task-due-1').fill('2030-07-20');
+
+        for (const button of ['Guardar borrador', 'Guardar Cambios']) {
+          await page.getByRole('button', { name: button }).click();
+          await expect(page.getByTestId('meeting-commitment-0-errors')).toContainText('Elige a quién se asigna este compromiso.');
+          await expect(page.getByTestId('meeting-commitment-0-errors')).toContainText('Indica la fecha límite del compromiso.');
+          await expect(page.getByTestId('meeting-task-1-errors')).toHaveText('Elige a quién se asigna esta tarea.');
+          await expect(page.getByText(/Borrador guardado|Reunión actualizada correctamente/)).toHaveCount(0);
+          await expect(page.getByRole('heading', { name: /Editar Reunión/i })).toBeVisible();
+        }
+        await page.getByTestId('meeting-task-1-errors').scrollIntoViewIfNeeded();
+        await evidence(page, `editor-incomplete-refused-${viewport.name}`);
+        expect(writes).toEqual([]);
+
+        const rows = await childRows(meeting.id);
+        expect(rows.agreements.map((r) => r.agreement_text)).toEqual([agreementText]);
+        expect(rows.commitments).toEqual([]);
         expect(rows.tasks.map((r) => r.task_title)).toEqual([taskTitle]);
       });
 

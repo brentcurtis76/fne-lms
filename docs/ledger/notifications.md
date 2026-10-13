@@ -32,7 +32,7 @@ NOTIF-01, 02, 03 and 05 are on main (PRs #123–#127). NOTIF-04 and 06–18 sit 
 | N5-01 | Digest runs table and hourly cron (dormant behind the flag) | done | NOTIF-22 | 2026-10-09 |  |
 | N5-02 | Flag-selected dual path: outbox delivery when enabled; unchanged synchronous delivery when unset; dormant worker/digest crons and production-default tests | done | NOTIF-23 | 2026-10-09 |  |
 | N5-03 | Session-reminders cron | done | NOTIF-24 | 2026-10-13 |  |
-| N5-04 | Rewrite due reminders on the real schema | blocked |  | 2026-09-26 |  |
+| N5-04 | Rewrite due reminders on the real schema | done | NOTIF-25 | 2026-10-13 |  |
 | N5-05 | Licitación deadline cron | blocked |  | 2026-09-26 |  |
 | N5-06 | Meeting summary on the pipeline (notice + link), truthful send result | held | NOTIF-27 | 2026-10-09 |  |
 | N5-07 | Production enablement: flag checklist, institutional-mailbox delivery evidence and sign-off | waiting |  | 2026-09-26 |  |
@@ -147,3 +147,5 @@ NOTIF-01, 02, 03 and 05 are on main (PRs #123–#127). NOTIF-04 and 06–18 sit 
 - 2026-10-09T16:40:51-03:00 · NOTIF-23 · DONE · NOTIF-23: rebuild source-aware dispatch with group-thread access · token 0ed4ff991670
 - 2026-10-13T00:28:09-03:00 · PM · IN-PROGRESS · rebuild of NOTIF-24 after it was set aside on publishing · token ls-c28d9d8af9
 - 2026-10-13T07:12:05-03:00 · NOTIF-24 · DONE · NOTIF-24: rebuild authenticated session reminders · token 3715bca06649
+- 2026-10-13T07:14:38-03:00 · PM · IN-PROGRESS · rebuild of NOTIF-25 after it was set aside on publishing · token ls-8146c21a1a
+- 2026-10-13T08:18:30-03:00 · NOTIF-25 · DONE · NOTIF-25: rebuild due reminders on current schema · token 89437c4fbd63

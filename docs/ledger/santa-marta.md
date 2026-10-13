@@ -19,7 +19,7 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 | W-B2b-01 | Cierre RLS grupo A: REVOKE + ENABLE en exactamente las catorce tablas legacy sin referencias en código | done |  | 2026-09-16 | Vía flujo del agente de BD (CLAUDE.md §Database Safety). CORRECCIÓN DE GOBERNANZA aprobada por Brent (2026-08-27): lockdown atómico de exactamente catorce tabla |
 | W-B2c-01 | Corrección de seguridad/RLS de rutas de aprendizaje: plantillas globales FNE, gestión exclusiva del rol literal admin, consumo por asignación | waiting |  | 2026-09-17 |  |
 | W-B3a-01 | Políticas INSERT y SELECT en meeting_agreements y meeting_tasks | done | SM-22 | 2026-09-25 |  |
-| W-B3a-02 | Propagar el error de los cuatro inserts hijos y los tres bucles de update; applyMeetingDiffs deja de devolver void | todo |  | 2026-09-16 | utils/meetingUtils.ts:347-413 (cuatro inserts), persistMeeting.ts (tres bucles), applyMeetingDiffs → Promise<{success,error}>, MeetingDocumentationModal.tsx:735 |
+| W-B3a-02 | Propagar el error de los cuatro inserts hijos y los tres bucles de update; applyMeetingDiffs deja de devolver void | done | SM-23 | 2026-10-13 |  |
 | W-B3a-03 | Exigir responsable y fecha de vencimiento en UI, API y base; coercer cadena vacía a null | todo |  | 2026-09-16 | validateStep(AGREEMENTS) hoy devuelve true incondicionalmente (plan combinado §1.3). SEPARACIÓN: raíz distinta de W-B3a-01 y W-B3a-02. Su mitad de esquema (NOT  |
 | W-B3b-01 | Ramificar sobre el resultado real del envío de correo del resumen de reunión | done | SM-25 | 2026-09-26 |  |
 | W-B3b-02 | Unificar el contrato de EMAIL_FROM_ADDRESS entre sus dos consumidores | done | SM-26 | 2026-09-26 |  |
@@ -120,6 +120,24 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 | W-B10c-01a | Verify API caller identity for privileged actions | done | SM-18 | 2026-09-25 |  |
 | W-B10c-01b | Verify middleware caller identity and browser access | todo |  | 2026-09-25 |  |
 | W-B1a-02 | Verificar Sentry con proveedor: recepción, release, alertas, ruido y decisión de privacidad/tracing | held |  | 2026-09-25 |  |
+| SM-B001 | NOT NULL sobre meeting_tasks.due_date tras backfill | done |  | 2026-10-06 |  |
+| SM-B002 | W-PC-03 read-only check preparation | done |  | 2026-10-01 |  |
+| SM-B003 | W-PC-03 authorized check and evidence | done |  | 2026-10-01 |  |
+| SM-B004 | W-PC-03 independent acceptance and ledger reconciliation | done |  | 2026-10-01 |  |
+| SM-B005 | Revision integrity and planning-ledger preparation | done |  | 2026-09-30 |  |
+| SM-B006 | W-B10a-01 evidence and gap disposition | done |  | 2026-10-01 |  |
+| SM-B007 | W-B10a-01 independent acceptance and ledger reconciliation | held |  | 2026-09-30 |  |
+| SM-B008 | W-B10c-01b middleware verified identity | done |  | 2026-10-01 |  |
+| SM-B009 | W-B10c logout and recovery authority | waiting |  | 2026-10-06 |  |
+| SM-B015 | W-B10c direct-session privileged-route inventory and disposition | done |  | 2026-10-02 |  |
+| SM-B010 | Integrated auth security review | todo |  | 2026-09-29 |  |
+| SM-B011 | W-B10c-01 gate amendment, acceptance, and reconciliation | todo |  | 2026-09-29 |  |
+| SM-B012 | W-B2c-01 repository reconciliation | done |  | 2026-10-06 |  |
+| SM-B013 | W-B2c-01 confirmed-gap disposition and separately approved repair builds | done |  | 2026-10-06 |  |
+| SM-B014 | W-B2c-01 independent acceptance and ledger reconciliation | held |  | 2026-10-06 |  |
+| SM-B016 | Final new-build boundary audit | todo |  | 2026-09-29 |  |
+| SM-B017 | W-B4a-01 workspace session card route and acceptance | todo |  | 2026-10-01 |  |
+| W-MEET-01 | Meetings: details view, delete, visible save errors, task/commitment validation, step-3 opens at top, read access = leader + participants + people editors add | done |  | 2026-10-06 |  |
 
 ## Events (append-only, newest last)
 - 2026-09-10 · PM · RECORD · Authorization and operating boundary
@@ -212,3 +230,4 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 - 2026-09-26T20:58:09-03:00 · SM-26 · DONE · SM-26: unify email sender contract · token 8ca106610aa9
 - 2026-09-26T21:15:08-03:00 · SM-27 · IN-PROGRESS · SM-27 r0 dispatched (pm-unit begin) · token ls-f61a026c90
 - 2026-09-28T20:40:08-03:00 · SM-27 · DONE · SM-27: require due dates on meeting tasks · token 33e718b68c5e
+- 2026-10-13T02:49:52-03:00 · SM-23 · DONE · SM-23: preserve truthful meeting child-save failures on current main · token 175c6e298768

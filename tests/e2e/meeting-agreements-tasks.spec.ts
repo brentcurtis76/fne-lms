@@ -11,6 +11,8 @@ import { loginViaUi, E2E_SCHOOL_SECONDARY, type E2eFixtureUser } from './helpers
  * editor; an attendee whose co_editor row has no grant provenance (a
  * historical self-grant) cannot edit. Since SM-H8 every attendee row makes its
  * user a reader, so that attendee now READS the content (owner rule).
+ * SM-23 (W-B3a-02): a refused child write keeps the editor open with an es-CL
+ * error and no success toast.
  *
  * Standalone: it creates its own synthetic community, accounts and meeting with
  * the service role, writes every row id to a manifest before removing them by
@@ -200,8 +202,11 @@ async function openAgreementsStep(page: Page, title: string) {
   const card = page.locator('div').filter({ hasText: title }).filter({ has: page.getByTitle('Editar reunión') }).last();
   await card.getByTitle('Editar reunión').click();
   await expect(page.getByRole('heading', { name: /Editar Reunión/i })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Siguiente' })).toBeEnabled();
+  // The editor loads the meeting after it opens. "Siguiente" is enabled before
+  // the title arrives, and step 1's validation refuses a click made then.
+  await expect(page.getByPlaceholder('Ej: Reunión de planificación semanal')).toHaveValue(title);
   await page.getByRole('button', { name: 'Siguiente' }).click();
+  await expect(page.getByText('Resumen de la Reunión *', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Siguiente' }).click();
   await expect(page.getByRole('button', { name: 'Agregar Acuerdo' })).toBeVisible();
   await page.waitForLoadState('networkidle');
@@ -362,7 +367,8 @@ test.describe('Meeting agreements and tasks on the dedicated stack', () => {
         await page.getByPlaceholder('Título de la tarea...').fill(taskTitle);
         // An empty due date is sent as "" and the insert fails silently.
         await page.locator('input[type="date"]').first().fill('2030-07-15');
-        await expect(page.getByTestId('meeting-task-assignee-0')).toBeEnabled();
+        // Enabled once the community members arrive from the app server.
+        await expect(page.getByTestId('meeting-task-assignee-0')).toBeEnabled({ timeout: 30_000 });
         await page.getByTestId('meeting-task-assignee-0').selectOption({ label: 'Sintetico Editor SM22' });
         await page.getByRole('button', { name: 'Guardar borrador' }).click();
         await expect(page.getByText('Borrador guardado')).toBeVisible();
@@ -377,6 +383,33 @@ test.describe('Meeting agreements and tasks on the dedicated stack', () => {
         await expect(page.getByPlaceholder('Título de la tarea...')).toHaveValue(taskTitle);
         await page.getByText(agreementText).scrollIntoViewIfNeeded();
         await evidence(page, `editor-reopen-${viewport.name}`);
+      });
+
+      test('a refused task write keeps the editor open with the es-CL error and no success toast (SM-23)', async ({ page }) => {
+        test.setTimeout(120_000);
+        const refusedTitle = `Tarea rechazada SM23 ${viewport.name}`;
+        await loginViaUi(page, users.editor);
+        await openAgreementsStep(page, meeting.title);
+        await page.getByRole('button', { name: 'Agregar Tarea' }).click();
+        await page.getByTestId('meeting-task-title-1').fill(refusedTitle);
+        await page.getByTestId('meeting-task-due-1').fill('2030-07-20');
+        await page.getByTestId('meeting-task-assignee-1').selectOption({ label: 'Sintetico Editor SM22' });
+        // The new task's insert is answered in the browser with a PostgREST
+        // error and never reaches the stack; every other request is untouched.
+        await page.route('**/rest/v1/meeting_tasks*', (route) => (route.request().method() === 'POST'
+          ? route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ code: 'XX000', message: 'forced by SM-23' }) })
+          : route.continue()));
+        await page.getByRole('button', { name: 'Guardar borrador' }).click();
+        await expect(page.getByTestId('meeting-task-1-errors')).toContainText('Tarea 2: no se pudo guardar (forced by SM-23).');
+        await expect(page.getByText('Borrador guardado')).toHaveCount(0);
+        await expect(page.getByRole('heading', { name: /Editar Reunión/i })).toBeVisible();
+        await expect(page.getByTestId('meeting-task-title-1')).toHaveValue(refusedTitle);
+        await evidence(page, `editor-child-error-${viewport.name}`);
+        await page.unroute('**/rest/v1/meeting_tasks*');
+
+        const rows = await childRows(meeting.id);
+        expect(rows.agreements.map((r) => r.agreement_text)).toEqual([agreementText]);
+        expect(rows.tasks.map((r) => r.task_title)).toEqual([taskTitle]);
       });
 
       test('unverified co_editor reads as a participant (SM-H8) but gets no edit or delete button and writes nothing', async ({ page }) => {

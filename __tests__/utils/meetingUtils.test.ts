@@ -80,7 +80,15 @@ vi.mock('../../utils/workspaceUtils', () => ({ logWorkspaceActivity: vi.fn() }))
 // test body only drains the queue if that test actually runs; skip or filter it
 // and the queue spills into whichever file the sequencer places next. See
 // tools/eslint-plugin-mock-hygiene/drain-mock-queue.js.
-import { getMeetings, getMyMeetingRights } from '../../utils/meetingUtils';
+import { getMeetings, getMyMeetingRights, createMeetingWithDocumentation } from '../../utils/meetingUtils';
+import { logWorkspaceActivity } from '../../utils/workspaceUtils';
+import {
+  capturedCalls,
+  failingWrites,
+  makeMeetingSupabaseClient,
+  resetMeetingSupabaseMock,
+} from '../components/meetings/meetingSupabaseMock';
+import type { MeetingDocumentationInput } from '../../types/meetings';
 
 describe('getMeetings — myDrafts filter', () => {
   beforeEach(() => {
@@ -227,5 +235,60 @@ describe('getMyMeetingRights (SM-H8)', () => {
     client.rpc = vi.fn();
     expect((await getMyMeetingRights([])).size).toBe(0);
     expect(client.rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe('createMeetingWithDocumentation — child writes (SM-23)', () => {
+  const client = fakeSupabase.client as any;
+  const plainFrom = client.from;
+  const documentation = (): MeetingDocumentationInput => ({
+    meeting_info: { title: 'Reunión sintética', meeting_date: '2026-05-01T14:00:00.000Z', duration_minutes: 60, attendee_ids: ['u-ana'] },
+    summary_info: { summary: 'Resumen', notes: '', status: 'borrador' },
+    agreements: [{ agreement_text: 'Acuerdo sintético' }],
+    commitments: [{ commitment_text: 'Compromiso sintético', assigned_to: 'u-ana', due_date: '2026-05-10' }],
+    tasks: [{ task_title: 'Tarea sintética', assigned_to: 'u-ana', due_date: '2026-05-12', priority: 'media' }],
+  });
+
+  beforeEach(() => {
+    resetMeetingSupabaseMock();
+    vi.mocked(logWorkspaceActivity).mockClear();
+    client.from = makeMeetingSupabaseClient().from;
+  });
+  afterEach(() => {
+    client.from = plainFrom;
+  });
+
+  it('returns success, writes every child table and logs the activity when every write succeeds', async () => {
+    const result = await createMeetingWithDocumentation('ws-1', 'user-1', documentation());
+    expect(result.success).toBe(true);
+    expect(result.problems).toEqual([]);
+    for (const table of ['meeting_attendees', 'meeting_agreements', 'meeting_commitments', 'meeting_tasks']) {
+      expect(capturedCalls[`insert:${table}`]).toHaveLength(1);
+    }
+    expect(logWorkspaceActivity).toHaveBeenCalledWith('ws-1', 'user-1', 'meeting_created', expect.objectContaining({ meeting_id: result.meetingId }));
+  });
+
+  it('returns success with no child writes when every child list is empty', async () => {
+    const empty = { ...documentation(), agreements: [], commitments: [], tasks: [] };
+    empty.meeting_info.attendee_ids = [];
+    const result = await createMeetingWithDocumentation('ws-1', 'user-1', empty);
+    expect(result).toMatchObject({ success: true, problems: [] });
+    expect(Object.keys(capturedCalls).filter((key) => key.startsWith('insert:'))).toEqual(['insert:community_meetings']);
+    expect(logWorkspaceActivity).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['meeting_attendees', 'Participantes: no tienes permiso para guardar este cambio.'],
+    ['meeting_agreements', 'Acuerdo 1: no tienes permiso para guardar este cambio.'],
+    ['meeting_commitments', 'Compromiso 1: no tienes permiso para guardar este cambio.'],
+    ['meeting_tasks', 'Tarea 1: no tienes permiso para guardar este cambio.'],
+  ])('a failed %s insert returns failure with its es-CL error and logs no activity', async (table, message) => {
+    failingWrites[`insert:${table}`] = { code: '42501', message: 'new row violates row-level security policy' };
+    const result = await createMeetingWithDocumentation('ws-1', 'user-1', documentation());
+    expect(result.success).toBe(false);
+    expect(result.error).toBe(message);
+    expect(result.problems.map((p) => p.message)).toEqual([message]);
+    expect(result.meetingId).toEqual(expect.any(String));
+    expect(logWorkspaceActivity).not.toHaveBeenCalled();
   });
 });

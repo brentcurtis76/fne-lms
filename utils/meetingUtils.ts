@@ -400,18 +400,21 @@ export async function createMeetingWithDocumentation(
     });
     const problems = [...peopleProblems, ...items.problems];
 
-    await logWorkspaceActivity(
-      workspaceId,
-      userId,
-      'meeting_created',
-      {
-        meeting_id: meetingId,
-        title: documentation.meeting_info.title,
-        agreements_count: documentation.agreements.length,
-        commitments_count: documentation.commitments.length,
-        tasks_count: documentation.tasks.length
-      }
-    );
+    // A failed child write must not be announced as a documented meeting.
+    if (problems.length === 0) {
+      await logWorkspaceActivity(
+        workspaceId,
+        userId,
+        'meeting_created',
+        {
+          meeting_id: meetingId,
+          title: documentation.meeting_info.title,
+          agreements_count: documentation.agreements.length,
+          commitments_count: documentation.commitments.length,
+          tasks_count: documentation.tasks.length
+        }
+      );
+    }
 
     return {
       success: problems.length === 0,

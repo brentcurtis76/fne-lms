@@ -516,3 +516,97 @@ describe('MeetingDocumentationModal — saving (SM-H8)', () => {
     });
   });
 });
+
+describe('MeetingDocumentationModal — a failed child save is never reported as saved (SM-23)', () => {
+  const TWO_DAYS_AGO = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+  const openEditOnStep3 = async () => {
+    mockGetMeetingDetails.mockResolvedValue({
+      id: 'meeting-1',
+      title: 'Existing meeting',
+      meeting_date: new Date('2026-04-21T12:00:00Z').toISOString(),
+      duration_minutes: 60,
+      location: '',
+      status: 'borrador',
+      summary: 'summary text',
+      summary_doc: richDoc('summary text'),
+      notes: '',
+      notes_doc: null,
+      attendees: [{ user_id: ANA.id, role: 'participant' }],
+      agreements: [],
+      commitments: [{ id: 'c1', commitment_text: 'first', commitment_doc: richDoc('first'), assigned_to: ANA.id, due_date: '2026-05-01' }],
+      tasks: [],
+      version: 1,
+      updated_at: TWO_DAYS_AGO,
+    });
+    seedRows('meeting_attendees', [{ id: 'att-ana', meeting_id: 'meeting-1', user_id: ANA.id, role: 'participant' }]);
+    seedRows('meeting_commitments', [{ id: 'c1', meeting_id: 'meeting-1', commitment_text: 'first' }]);
+    const utils = render(<MeetingDocumentationModal {...defaultProps} meetingId="meeting-1" mode="edit" />);
+    await waitFor(() => expect(utils.getByText(/Guardado hace 2 días/)).toBeDefined());
+    await click(utils.getByRole('button', { name: /Siguiente/i }));
+    await click(utils.getByRole('button', { name: /Siguiente/i }));
+    await waitFor(() => expect(utils.getByRole('button', { name: /Agregar Acuerdo/i })).toBeDefined());
+    return utils;
+  };
+  let consoleError: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => { consoleError = vi.spyOn(console, 'error').mockImplementation(() => {}); });
+  afterEach(() => { consoleError.mockRestore(); });
+
+  it('create + submit: every write succeeds, so it says so, calls onSuccess and closes', async () => {
+    const utils = render(<MeetingDocumentationModal {...defaultProps} />);
+    await createToStep3(utils);
+    await addCompleteItems(utils);
+    await click(utils.getByRole('button', { name: /Crear Reunión/i }));
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Reunión documentada correctamente'));
+    expect(defaultProps.onSuccess).toHaveBeenCalledTimes(1);
+    expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
+    expect(toastError).not.toHaveBeenCalled();
+  });
+
+  it('create + submit: a failed task insert shows the es-CL error, no success toast, and the form stays open', async () => {
+    failingWrites['insert:meeting_tasks'] = { code: '42501', message: 'new row violates row-level security policy' };
+    const utils = render(<MeetingDocumentationModal {...defaultProps} />);
+    await createToStep3(utils);
+    await addCompleteItems(utils);
+    await click(utils.getByRole('button', { name: /Crear Reunión/i }));
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith('Tarea 1: no tienes permiso para guardar este cambio.'));
+    expect(toastSuccess).not.toHaveBeenCalled();
+    expect(defaultProps.onSuccess).not.toHaveBeenCalled();
+    expect(defaultProps.onClose).not.toHaveBeenCalled();
+    expect(utils.getByTestId('meeting-task-0-errors').textContent).toContain('Tarea 1: no tienes permiso para guardar este cambio.');
+    expect((utils.getByTestId('meeting-task-title-0') as HTMLInputElement).value).toBe('Preparar deck');
+  });
+
+  it('edit + submit: every write succeeds, so it says so, calls onSuccess and closes', async () => {
+    const utils = await openEditOnStep3();
+    await click(utils.getByRole('button', { name: /Guardar Cambios/i }));
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Reunión actualizada correctamente'));
+    expect(capturedCalls['update:meeting_commitments']).toHaveLength(1);
+    expect(defaultProps.onSuccess).toHaveBeenCalledTimes(1);
+    expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('edit + draft: a failed commitment update shows the error, no success, and the last-saved time stays', async () => {
+    failingWrites['update:meeting_commitments'] = { code: 'XX000', message: 'forced' };
+    const utils = await openEditOnStep3();
+    await click(utils.getByRole('button', { name: /Guardar borrador/i }));
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith('Compromiso 1: no se pudo guardar (forced).'));
+    expect(toastSuccess).not.toHaveBeenCalled();
+    expect(defaultProps.onDraftSaved).not.toHaveBeenCalled();
+    expect(defaultProps.onClose).not.toHaveBeenCalled();
+    expect(utils.getByText(/Guardado hace 2 días/)).toBeDefined();
+  });
+
+  it('edit + submit: a failed agreement insert shows the error, no success toast, and the form stays open', async () => {
+    failingWrites['insert:meeting_agreements'] = { code: 'XX000', message: 'forced' };
+    const utils = await openEditOnStep3();
+    await click(utils.getByRole('button', { name: /Agregar Acuerdo/i }));
+    await waitFor(() => expect(editorOnChange.get('Describe el acuerdo…')).toBeDefined());
+    await act(async () => { editorOnChange.get('Describe el acuerdo…')!(richDoc('Nuevo acuerdo')); });
+    await click(utils.getByRole('button', { name: /Guardar Cambios/i }));
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith('Acuerdo 1: no se pudo guardar (forced).'));
+    expect(toastSuccess).not.toHaveBeenCalled();
+    expect(defaultProps.onSuccess).not.toHaveBeenCalled();
+    expect(defaultProps.onClose).not.toHaveBeenCalled();
+    expect(utils.getByText(/Guardado hace 2 días/)).toBeDefined();
+  });
+});

@@ -138,6 +138,7 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 | SM-B016 | Final new-build boundary audit | todo |  | 2026-09-29 |  |
 | SM-B017 | W-B4a-01 workspace session card route and acceptance | todo |  | 2026-10-01 |  |
 | W-MEET-01 | Meetings: details view, delete, visible save errors, task/commitment validation, step-3 opens at top, read access = leader + participants + people editors add | done |  | 2026-10-06 |  |
+| W-D67-DOCS | Delta 67 database Publish instruction sentence | done | SM-D67 | 2026-10-13 |  |
 
 ## Events (append-only, newest last)
 - 2026-09-10 · PM · RECORD · Authorization and operating boundary
@@ -231,3 +232,5 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 - 2026-09-26T21:15:08-03:00 · SM-27 · IN-PROGRESS · SM-27 r0 dispatched (pm-unit begin) · token ls-f61a026c90
 - 2026-09-28T20:40:08-03:00 · SM-27 · DONE · SM-27: require due dates on meeting tasks · token 33e718b68c5e
 - 2026-10-13T02:49:52-03:00 · SM-23 · DONE · SM-23: preserve truthful meeting child-save failures on current main · token 175c6e298768
+- 2026-10-13T11:33:13-03:00 · SM-D67 · IN-PROGRESS · Delta 67 docs-only item registered after main refresh; exact two-line rules addition, queue for next human Publish · token ls-1af8d3434a
+- 2026-10-13T12:24:24-03:00 · SM-D67 · DONE · SM-D67: document human-controlled database Publish · token 54f850d29135

@@ -1,104 +1,65 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from 'next';
 import NotificationService from '../../../lib/notificationService';
+import { authorizeCronRequest, isAllowedCronMethod } from '../../../lib/zoom/cron-auth';
 
 /**
- * Cron job API endpoint for processing due date reminders
- * This should be called daily (e.g., at 9 AM) by a cron service
- * 
- * Usage:
- * - Add to vercel.json: { "cron": [{ "path": "/api/cron/due-reminders", "schedule": "0 9 * * *" }] }
- * - Or call manually: curl -X POST https://your-domain.com/api/cron/due-reminders
- * - Or use external cron service like cron-job.org
+ * Hourly cron (`vercel.json`, `0 * * * *`) sending `assignment_due_soon` for the
+ * published lesson assignments due within the next 24 hours, to each recipient
+ * `NotificationService.getDueAssignments` still owes a reminder.
+ *
+ * Auth is the shared cron verifier (`lib/zoom/cron-auth.ts`): Vercel calls with GET
+ * and `Authorization: Bearer ${CRON_SECRET}`; a manual or external caller may use
+ * `x-cron-key: ${CRON_API_KEY}`. No credential is read from the body or query.
+ *
+ * A reminder is one occurrence per assignment, recipient and due instant, so the
+ * hourly repeats are absorbed by the notification idempotency key and a moved due
+ * date is a new reminder. Each recipient is triggered alone and counts only when the
+ * service reports a notification for it; one that does not is retried by the next run.
  */
+
+const WINDOW_HOURS = 24;
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (!isAllowedCronMethod(req.method)) {
+    res.setHeader('Allow', 'GET, POST');
+    return res.status(405).json({ error: 'Método no permitido' });
+  }
+
+  if (!authorizeCronRequest(req).ok) {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
+
   try {
-    // Verify this is a POST request (for security)
-    if (req.method !== 'POST') {
-      return res.status(405).json({ error: 'Method not allowed' });
-    }
+    const due = await NotificationService.getDueAssignments(WINDOW_HOURS);
+    let sent = 0;
+    let delivered = 0;
+    let failed = 0;
 
-    // Optional: Add API key verification for security
-    const cronApiKey = req.headers['x-cron-key'] || req.body.cronKey;
-    const expectedKey = process.env.CRON_API_KEY;
-    
-    if (expectedKey && cronApiKey !== expectedKey) {
-      console.log('❌ Unauthorized cron job access attempt');
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    console.log('⏰ Starting due date reminder cron job...');
-    const startTime = new Date();
-
-    // Get assignments due in the next 24 hours
-    const dueAssignments = await NotificationService.getDueAssignments(24);
-    
-    console.log(`📋 Found ${dueAssignments.length} assignments due within 24 hours`);
-
-    if (dueAssignments.length === 0) {
-      return res.status(200).json({ 
-        success: true, 
-        message: 'No due assignments found',
-        processedCount: 0,
-        executionTime: Date.now() - startTime.getTime()
-      });
-    }
-
-    let successCount = 0;
-    let errorCount = 0;
-
-    // Process each assignment
-    for (const assignment of dueAssignments) {
-      try {
-        // Format due time for notification
-        const dueDate = new Date(assignment.due_date);
-        const dueTime = dueDate.toLocaleTimeString('es-CL', { 
-          hour: '2-digit', 
-          minute: '2-digit',
-          timeZone: 'America/Santiago'
-        });
-
-        // Trigger due date reminder notification
-        await NotificationService.triggerNotification('assignment_due_soon', {
-          assignment_id: assignment.id,
-          course_id: assignment.course_id,
-          student_id: assignment.student_id,
-          assignment_name: assignment.title,
-          course_name: (assignment.courses as any)?.name || 'Curso',
-          due_time: dueTime,
-          due_date: assignment.due_date
-        });
-
-        // Mark reminder as sent to prevent duplicates
-        await NotificationService.markReminderSent(assignment.id);
-        
-        successCount++;
-        console.log(`✅ Reminder sent for assignment: ${assignment.title} (${assignment.id})`);
-
-      } catch (error) {
-        errorCount++;
-        console.error(`❌ Failed to process assignment ${assignment.id}:`, error);
+    for (const assignment of due) {
+      delivered += assignment.delivered;
+      failed += assignment.unavailable;
+      for (const eventData of assignment.reminders) {
+        const result = await NotificationService.triggerNotification('assignment_due_soon', eventData);
+        if (result.success && (result.notificationsCreated ?? 0) > 0) sent++;
+        else failed++;
       }
     }
 
-    const executionTime = Date.now() - startTime.getTime();
-    
-    console.log(`⏰ Due reminder cron job completed in ${executionTime}ms`);
-    console.log(`✅ Success: ${successCount}, ❌ Errors: ${errorCount}`);
+    if (failed > 0) {
+      console.error('[due-reminders] reminders not fully processed', { failed });
+    }
 
-    return res.status(200).json({ 
-      success: true, 
-      message: `Processed ${dueAssignments.length} due assignments`,
-      processedCount: dueAssignments.length,
-      successCount,
-      errorCount,
-      executionTime
+    return res.status(200).json({
+      success: failed === 0,
+      message: `Procesado: ${sent} recordatorios de tareas, ${failed} pendientes de reintento`,
+      sent,
+      alreadySent: delivered,
+      failed,
+      assignmentsChecked: due.length,
     });
-
-  } catch (error) {
-    console.error('❌ Due reminder cron job failed:', error);
-    return res.status(500).json({ 
-      success: false, 
-      error: 'Cron job failed: ' + error.message 
-    });
+  } catch {
+    // The exception text is not logged: it can carry an identifier or a title.
+    console.error('[due-reminders] cron failed');
+    return res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 }

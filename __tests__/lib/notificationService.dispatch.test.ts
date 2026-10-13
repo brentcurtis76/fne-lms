@@ -493,6 +493,7 @@ describe('D5 · schedules', () => {
       { path: '/api/cron/notification-emails', schedule: '* * * * *' },
       { path: '/api/cron/email-digest', schedule: '0 * * * *' },
       { path: '/api/cron/session-reminders', schedule: '0 * * * *' },
+      { path: '/api/cron/due-reminders', schedule: '0 * * * *' },
     ]);
     for (const { path: route } of crons) expect(existsSync(path.join(process.cwd(), 'pages', `${route}.ts`))).toBe(true);
   });

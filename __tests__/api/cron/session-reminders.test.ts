@@ -634,6 +634,7 @@ describe('D5 — the schedule', () => {
       { path: '/api/cron/cleanup-learning-path-sessions', schedule: '0 * * * *' },
       { path: '/api/cron/notification-emails', schedule: '* * * * *' },
       { path: '/api/cron/email-digest', schedule: '0 * * * *' },
+      { path: '/api/cron/due-reminders', schedule: '0 * * * *' },
     ]);
   });
 });

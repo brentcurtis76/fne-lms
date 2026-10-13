@@ -28,6 +28,7 @@ import {
 } from './notifications/catalog';
 import { resolveEmailPreference } from './notifications/resolve-preference';
 import { sendNotificationEmail } from './email/notifications';
+import { checkNotificationAccess } from './email/notification-access';
 import type { EmailTransport } from './email/provider';
 import { profileName } from './utils/profile-name';
 
@@ -71,6 +72,30 @@ interface CreateNotificationDeps {
 
 interface Recipient {
   id: string;
+}
+
+interface DueAssignmentRow {
+  id: string;
+  title: string;
+  due_date: string;
+  course_id: string | null;
+  assigned_to_community_id: string | null;
+  group_assignments: Array<{ members?: Array<{ user_id?: string } | null>; submission?: unknown } | null> | null;
+  courses: { title: string | null } | null;
+}
+
+/** A reminder's `assignment_due_soon` payload; `student_id` is its one recipient. */
+type DueReminderPayload = Record<string, unknown> & { student_id: string };
+
+/** One due assignment and what `getDueAssignments` found its recipients owed. */
+export interface DueAssignment {
+  assignmentId: string;
+  /** One payload per recipient still owed the reminder. */
+  reminders: DueReminderPayload[];
+  /** Recipients whose bell already holds this occurrence. */
+  delivered: number;
+  /** Recipients whose access could not be read now. */
+  unavailable: number;
 }
 
 /**
@@ -421,6 +446,19 @@ function sha256Hex(value: string): string {
 
 /** The occurrence prefix `resolveOccurrence` gives a payload the catalog identifies. */
 const IDENTIFIED_OCCURRENCE = 'record:';
+
+/**
+ * An instant's America/Santiago calendar date, at local noon with no offset, and
+ * its time there: `new Date(date)` then reads as that date in any time zone.
+ */
+function chileDueDisplay(at: Date): { date: string; time: string } {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santiago', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+      .formatToParts(at)
+      .map((part) => [part.type, part.value])
+  );
+  return { date: `${parts.year}-${parts.month}-${parts.day}T12:00:00`, time: `${parts.hour}:${parts.minute}` };
+}
 
 class NotificationService {
   
@@ -1461,58 +1499,149 @@ class NotificationService {
   }
 
   /**
-   * Get due assignments for reminder notifications
-   * @param {number} hoursAhead - How many hours ahead to check
+   * The `assignment_due_soon` reminders owed now (N5-04), one entry per published
+   * lesson assignment due in (now, now + hoursAhead].
+   *
+   * A recipient is who `/assignments` lists it for today: an `active` enrolment in
+   * its course and, when it targets a community, an active role there. The worker's
+   * own access rule must still admit them (`checkNotificationAccess`: active role and
+   * the C2 course entitlement); a failed access read is counted in `unavailable`, so
+   * it is retried, never dropped. A recipient whose latest attempt (highest
+   * `attempt_number`, as the detail page reads it) is `submitted`/`graded`, or whose
+   * group submitted, is not reminded; a draft or a returned latest attempt is.
+   *
+   * The occurrence is (assignment, recipient, due instant): `due_date` is the
+   * canonical UTC instant. A recipient whose bell already holds that key is counted
+   * in `delivered`; a failed lookup of it is no record (the key still absorbs a
+   * repeat). `assignment.due_date` is the America/Santiago calendar date at local
+   * noon, which the registry template renders as that date in any time zone.
+   *
+   * A failed read throws a fixed-code error: an empty list means nothing is due.
+   * @param hoursAhead - The window's length in hours
+   * @param now - The window's start
    */
-  async getDueAssignments(hoursAhead = 24) {
-    try {
-      const cutoffTime = new Date();
-      cutoffTime.setHours(cutoffTime.getHours() + hoursAhead);
+  async getDueAssignments(hoursAhead = 24, now = new Date()): Promise<DueAssignment[]> {
+    const read = async <T>(query: PromiseLike<{ data: unknown; error: unknown }>): Promise<T[]> => {
+      const { data, error } = await query;
+      if (error) throw new Error('due_assignments_lookup_failed');
+      return (data ?? []) as T[];
+    };
+    const until = new Date(now.getTime() + hoursAhead * 3_600_000);
+    const assignments = (
+      await read<DueAssignmentRow>(
+        supabaseServiceRole
+          .from('lesson_assignments')
+          .select('id, title, due_date, course_id, assigned_to_community_id, group_assignments, courses(title)')
+          .eq('is_published', true)
+          .gt('due_date', now.toISOString())
+          .lte('due_date', until.toISOString())
+      )
+    ).filter((a) => a.course_id && !Number.isNaN(Date.parse(a.due_date)));
+    if (assignments.length === 0) return [];
 
-      const { data: assignments, error } = await supabaseServiceRole
-        .from('lesson_assignments')
-        .select(`
-          id,
-          title,
-          due_date,
-          course_id,
-          student_id,
-          due_reminder_sent,
-          courses (name)
-        `)
-        .lte('due_date', cutoffTime.toISOString())
-        .eq('due_reminder_sent', false)
-        .eq('status', 'active');
-
-      if (error) {
-        console.error('Error fetching due assignments:', error);
-        return [];
-      }
-
-      return assignments || [];
-    } catch (error) {
-      console.error('Exception fetching due assignments:', error);
-      return [];
+    const communityIds = [...new Set(assignments.map((a) => a.assigned_to_community_id).filter(Boolean))];
+    const [enrollments, submissions, members] = await Promise.all([
+      read<{ user_id: string; course_id: string }>(
+        supabaseServiceRole
+          .from('course_enrollments')
+          .select('user_id, course_id')
+          .in('course_id', [...new Set(assignments.map((a) => a.course_id))])
+          .eq('status', 'active')
+      ),
+      read<{ assignment_id: string; student_id: string; attempt_number: number | null; status: string }>(
+        supabaseServiceRole
+          .from('lesson_assignment_submissions')
+          .select('assignment_id, student_id, attempt_number, status')
+          .in('assignment_id', assignments.map((a) => a.id))
+      ),
+      communityIds.length === 0
+        ? []
+        : read<{ user_id: string; community_id: string }>(
+            supabaseServiceRole
+              .from('user_roles')
+              .select('user_id, community_id')
+              .in('community_id', communityIds)
+              .eq('is_active', true)
+          ),
+    ]);
+    // The detail page's latest attempt: descending `attempt_number` puts NULL first.
+    const latest = new Map<string, { attempt: number; done: boolean }>();
+    for (const s of submissions) {
+      const pair = `${s.assignment_id}:${s.student_id}`;
+      const attempt = s.attempt_number ?? Infinity;
+      const done = s.status === 'submitted' || s.status === 'graded';
+      const seen = latest.get(pair);
+      if (!seen || attempt > seen.attempt || (attempt === seen.attempt && done)) latest.set(pair, { attempt, done });
     }
+    const submitted = new Set([...latest].filter(([, s]) => s.done).map(([pair]) => pair));
+    const member = new Set(members.map((m) => `${m.community_id}:${m.user_id}`));
+
+    const due: DueAssignment[] = [];
+    for (const a of assignments) {
+      const groupSubmitted = new Set(
+        (Array.isArray(a.group_assignments) ? a.group_assignments : [])
+          .filter((group) => group?.submission)
+          .flatMap((group) => (Array.isArray(group.members) ? group.members : []).map((m) => m?.user_id))
+      );
+      const dueAt = new Date(a.due_date);
+      const shown = chileDueDisplay(dueAt);
+      const payloads = [...new Set(enrollments.filter((e) => e.course_id === a.course_id).map((e) => e.user_id))]
+        .filter((userId) => !submitted.has(`${a.id}:${userId}`) && !groupSubmitted.has(userId))
+        .filter((userId) => !a.assigned_to_community_id || member.has(`${a.assigned_to_community_id}:${userId}`))
+        .map((userId): DueReminderPayload => ({
+          assignment_id: a.id,
+          course_id: a.course_id,
+          student_id: userId,
+          due_date: dueAt.toISOString(),
+          assignment: { id: a.id, title: a.title, due_date: shown.date },
+          assignment_name: a.title,
+          course_name: a.courses?.title ?? 'Curso',
+          due_time: shown.time,
+        }));
+
+      const delivered = await this.deliveredRecipients('assignment_due_soon', payloads);
+      const entry: DueAssignment = { assignmentId: a.id, reminders: [], delivered: delivered.size, unavailable: 0 };
+      for (const payload of payloads) {
+        if (delivered.has(payload.student_id)) continue;
+        const decision = await checkNotificationAccess(supabaseServiceRole, {
+          eventType: 'assignment_due_soon',
+          userId: payload.student_id,
+          sourceKind: 'assignment',
+          sourceId: a.id,
+        });
+        if (decision.access === 'allow') entry.reminders.push(payload);
+        else if (decision.access === 'unavailable') entry.unavailable++;
+      }
+      due.push(entry);
+    }
+    return due;
   }
 
   /**
-   * Mark assignment reminder as sent to prevent duplicates
-   * @param {string} assignmentId - Assignment ID
+   * The recipients whose bell already holds their payload's occurrence key (the
+   * synchronous insert and `enqueue_notification` derive the same key). A failed
+   * read is no record: the caller triggers, and the key absorbs a repeat.
    */
-  async markReminderSent(assignmentId) {
-    try {
-      const { error } = await supabaseServiceRole
-        .from('lesson_assignments')
-        .update({ due_reminder_sent: true })
-        .eq('id', assignmentId);
-
-      if (error) {
-        console.error('Error marking reminder as sent:', error);
-      }
-    } catch (error) {
-      console.error('Exception marking reminder as sent:', error);
+  async deliveredRecipients(eventType: string, payloads: DueReminderPayload[]): Promise<Set<string>> {
+    const owners = new Map<string, string>();
+    for (const payload of payloads) {
+      const key = this.generateIdempotencyKey(eventType, this.resolveOccurrence(eventType, payload), payload.student_id);
+      owners.set(key, payload.student_id);
     }
+    const delivered = new Set<string>();
+    const keys = [...owners.keys()];
+    for (let i = 0; i < keys.length; i += 50) {
+      const { data, error } = await supabaseServiceRole
+        .from('user_notifications')
+        .select('idempotency_key')
+        .in('idempotency_key', keys.slice(i, i + 50));
+      if (error) continue;
+      for (const row of (data ?? []) as Array<{ idempotency_key: string }>) {
+        const owner = owners.get(row.idempotency_key);
+        if (owner) delivered.add(owner);
+      }
+    }
+    return delivered;
   }
 }
 

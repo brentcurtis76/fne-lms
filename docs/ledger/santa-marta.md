@@ -20,7 +20,7 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 | W-B2c-01 | Corrección de seguridad/RLS de rutas de aprendizaje: plantillas globales FNE, gestión exclusiva del rol literal admin, consumo por asignación | waiting |  | 2026-09-17 |  |
 | W-B3a-01 | Políticas INSERT y SELECT en meeting_agreements y meeting_tasks | done | SM-22 | 2026-09-25 |  |
 | W-B3a-02 | Propagar el error de los cuatro inserts hijos y los tres bucles de update; applyMeetingDiffs deja de devolver void | done | SM-23 | 2026-10-13 |  |
-| W-B3a-03 | Exigir responsable y fecha de vencimiento en UI, API y base; coercer cadena vacía a null | todo |  | 2026-09-16 | validateStep(AGREEMENTS) hoy devuelve true incondicionalmente (plan combinado §1.3). SEPARACIÓN: raíz distinta de W-B3a-01 y W-B3a-02. Su mitad de esquema (NOT  |
+| W-B3a-03 | Exigir responsable y fecha de vencimiento en UI, API y base; coercer cadena vacía a null | done | SM-24 | 2026-10-13 |  |
 | W-B3b-01 | Ramificar sobre el resultado real del envío de correo del resumen de reunión | done | SM-25 | 2026-09-26 |  |
 | W-B3b-02 | Unificar el contrato de EMAIL_FROM_ADDRESS entre sus dos consumidores | done | SM-26 | 2026-09-26 |  |
 | W-B3c-01 | NOT NULL sobre meeting_tasks.due_date tras backfill | done | SM-27 | 2026-09-28 |  |
@@ -138,6 +138,7 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 | SM-B016 | Final new-build boundary audit | todo |  | 2026-09-29 |  |
 | SM-B017 | W-B4a-01 workspace session card route and acceptance | todo |  | 2026-10-01 |  |
 | W-MEET-01 | Meetings: details view, delete, visible save errors, task/commitment validation, step-3 opens at top, read access = leader + participants + people editors add | done |  | 2026-10-06 |  |
+| W-D67-DOCS | Delta 67 database Publish instruction sentence | done | SM-D67 | 2026-10-13 |  |
 
 ## Events (append-only, newest last)
 - 2026-09-10 · PM · RECORD · Authorization and operating boundary
@@ -231,3 +232,6 @@ SM-02 is fixing the double-counted school-wide hours in the PDF (A14-4-F01); its
 - 2026-09-26T21:15:08-03:00 · SM-27 · IN-PROGRESS · SM-27 r0 dispatched (pm-unit begin) · token ls-f61a026c90
 - 2026-09-28T20:40:08-03:00 · SM-27 · DONE · SM-27: require due dates on meeting tasks · token 33e718b68c5e
 - 2026-10-13T02:49:52-03:00 · SM-23 · DONE · SM-23: preserve truthful meeting child-save failures on current main · token 175c6e298768
+- 2026-10-13T11:33:13-03:00 · SM-D67 · IN-PROGRESS · Delta 67 docs-only item registered after main refresh; exact two-line rules addition, queue for next human Publish · token ls-1af8d3434a
+- 2026-10-13T12:24:24-03:00 · SM-D67 · DONE · SM-D67: document human-controlled database Publish · token 54f850d29135
+- 2026-10-13T12:45:56-03:00 · SM-24 · DONE · SM-24: normalize meeting child dates and preserve required-field regressions · token 55c80b8e6a66

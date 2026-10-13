@@ -285,7 +285,8 @@ export async function applyMeetingDiffs(
         commitment_text: c.commitment_text,
         commitment_doc: c.commitment_doc,
         assigned_to: c.assigned_to,
-        due_date: c.due_date,
+        // A blank date is "no date" for the database, never the string ''.
+        due_date: c.due_date?.trim() || null,
       }),
     );
   }
@@ -297,7 +298,7 @@ export async function applyMeetingDiffs(
         task_description: t.task_description,
         task_description_doc: t.task_description_doc,
         assigned_to: t.assigned_to,
-        due_date: t.due_date,
+        due_date: t.due_date?.trim() || null,
         priority: t.priority,
         category: t.category,
         estimated_hours: t.estimated_hours,

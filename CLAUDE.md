@@ -51,6 +51,7 @@ RED-tier. Never run `vercel`/`vercel --prod` or trigger Vercel CI. `main` auto-d
 
 ### Database Safety
 - NEVER touch the production database directly
+- Database migrations reach Production only through the workflow's Publish button; agents never hold Production write access.
 - NEVER `DROP`, `TRUNCATE`, or destructive `ALTER`; schema changes are additive only
 - DB agent owns migrations — do not hand-write migration SQL outside that flow
 - **Every table in `public` has RLS enabled.** A migration that disables RLS is blocked by a Claude Code hook (`scripts/hooks/block-rls-disable.sh` via `.claude/settings.json`) AND by CI. Do not work around them.

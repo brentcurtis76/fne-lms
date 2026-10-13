@@ -11,7 +11,7 @@ Converted from Mini proc-coordination-20260910/LEDGER.md + CURRENT.md + MAPA on 
 |---|---|---|---|---|---|
 | PROC-E2E-AUTH | Autenticación de pruebas E2E: clasificación de personas y registros corregidos | done |  | 2026-09-10 |  |
 | PROC-PROPOSAL-LIBRARIES | Bibliotecas de propuestas: páginas, guardias de carga y pruebas | done |  | 2026-09-10 |  |
-| PROC-NUMERIC-VALIDATION | Validación de valores numéricos: límites y pasos, aceptación dentro del conjunto | done | PROC-02 | 2026-10-02 | Closed by Brent's OK (decision ae66f02bb1341199); live via PRs #138, #140, #141. |
+| PROC-NUMERIC-VALIDATION | Validación de valores numéricos: límites y pasos, aceptación dentro del conjunto | done | PROC-02 | 2026-10-02 |  |
 | PROC-B5-VERSIONING | B5 versiones e historia: detección en indicadores y grados, crear/seleccionar versiones y conectar la aplicación | done | PROC-08 | 2026-09-20 |  |
 | PROC-B5-CONCURRENCY | B5: ensayo real de ediciones simultáneas (sospecha de interbloqueo) | done | PROC-B5-CONCURRENCY | 2026-09-22 |  |
 | PROC-B5-PGTAP-RENUMBER | B5: renumerar las pruebas pgTAP (081 duplicado con 081-zoom-explicit-roster.sql de main) | done | PROC-09 | 2026-09-20 |  |
@@ -22,7 +22,7 @@ Converted from Mini proc-coordination-20260910/LEDGER.md + CURRENT.md + MAPA on 
 | PROC-LIFECYCLE-ARCHIVED-LIST | Evaluaciones archivadas: listado, filtro y vista de solo consulta verificados en navegador | done | PROC-01 | 2026-09-17 | DONE LOCALLY: reviewed and committed in PROC-01; no publication. |
 | PROC-LIFECYCLE-CANCELLATION | Ciclo de vida: cancelación explícita solo por administradores, conservando versión, respuestas e historia | done | PROC-14 | 2026-09-21 |  |
 | PROC-FULL-SUITE-PUBLICATION | Integrar con main, resolver la batería completa (308/52/12), revisar y publicar el conjunto | done | PROC-B5-CONCURRENCY-3 | 2026-09-22 |  |
-| PROC-HISTORICAL-DATA | Datos históricos: corregir asignaciones antiguas inválidas sin borrar historia (decisiones de Brent pendientes) | waiting |  | 2026-10-02 | Local proof re-verified (B006) and decision pack ready (B007); waiting for Brent's decisions. No real data touched. |
+| PROC-HISTORICAL-DATA | Datos históricos: corregir asignaciones antiguas inválidas sin borrar historia (decisiones de Brent pendientes) | done |  | 2026-10-02 |  |
 | PROC-PILOT | Piloto: datos reales aprobados y prueba supervisada directivo → curso → docente → entrega → resultados | waiting |  | 2026-09-17 |  |
 | PROC-CALIBRATION | Calibración, expectativas y afirmaciones sobre resultados (aplazado por Brent) | held |  | 2026-09-10 |  |
 | PROC-NUMERIC-AUDIT-CLOSURE | Close the numeric audit evidence; feature acceptance remains open | done | PROC-03 | 2026-09-17 |  |
@@ -42,13 +42,23 @@ Converted from Mini proc-coordination-20260910/LEDGER.md + CURRENT.md + MAPA on 
 | PROC-NUMERIC-EXPECTATION-RULE | Align frequency expectation API validation with whole-number counts | done | PROC-19 | 2026-09-26 |  |
 | PROC-NUMERIC-EXPECTATION-EDITOR | Correct frequency expectation editor input and save semantics | held | PROC-20 | 2026-09-27 |  |
 | PROC-NUMERIC-EXPECTATION-EDITOR-VERIFY | Validate and commit the approved frequency expectation editor correction | done | PROC-21 | 2026-09-28 |  |
-| PROC-B001 | Correct frequency expectation editor input and save semantics | done |  | 2026-10-02 | Satisfied by PROC-20/PROC-21 (no re-execution). |
+| PROC-B001 | Correct frequency expectation editor input and save semantics | done |  | 2026-10-02 |  |
 | PROC-B002 | Validate and commit the approved frequency expectation editor correction | done | PROC-21 | 2026-09-28 |  |
 | PROC-B003 | Run isolated numeric browser acceptance | done | PROC-PR104-RECOVERY-2 | 2026-09-29 |  |
 | PROC-B004 | Resolve acceptance-proven defects or record none | done | PROC-PR104-RECOVERY-3 | 2026-09-30 |  |
 | PROC-B005 | Independently review and close the numeric-validation parent | done |  | 2026-10-02 |  |
-| PROC-F1-EXPECTATION-CROSSCHECK | Expectativas de frecuencia dentro del rango y pasos de su indicador (editor, API, publicación) | done | PROC-F1 | 2026-10-02 | PR #140. |
-| PROC-GATE-BASELINE-FOLLOWUP | Este equipo replica la compuerta E2E y el build de CI (script local); lista de 81 pruebas antiguas fuera de PROC | done | PROC-HD | 2026-10-02 | Done when this release (PROC-HD) merges: `scripts/ci/e2e-local.sh`; the 81 legacy failing specs (outside CI's mandatory set) are listed, not repaired, by Brent's choice. |
+| PROC-F1-EXPECTATION-CROSSCHECK | Expectativas de frecuencia dentro del rango y pasos de su indicador (editor, API, publicación) | done |  | 2026-10-02 |  |
+| PROC-GATE-BASELINE-FOLLOWUP | Este equipo replica la compuerta E2E y el build de CI (script local); lista de 81 pruebas antiguas fuera de PROC | done |  | 2026-10-02 |  |
+| PROC-B006 | Re-verify Operation A on an isolated synthetic target | done |  | 2026-10-06 |  |
+| PROC-B007 | Prepare the historical-data decision pack | done |  | 2026-10-06 |  |
+| PROC-B008 | Review separately authorized Operation A evidence or record the waiting gate | done |  | 2026-10-06 |  |
+| PROC-B009 | Independently review and close historical data when real steps are complete | done |  | 2026-10-06 |  |
+| PROC-B010 | Rehearse the pilot journey with synthetic data | done |  | 2026-10-06 |  |
+| PROC-B011 | Prepare approved real pilot configuration and prove its content locally | done |  | 2026-10-06 |  |
+| PROC-B012 | Review authorized preparation and supervised pilot evidence | waiting |  | 2026-10-06 |  |
+| PROC-B013 | Independently review and close the real pilot | todo |  | 2026-10-06 |  |
+| PROC-B014 | Inventory calibration rules and trace synthetic result claims | done | PROC-PR104-RECOVERY-4 | 2026-10-09 |  |
+| PROC-B015 | Prepare and independently review the calibration decision pack | done | PROC-PR104-RECOVERY-5 | 2026-10-09 |  |
 
 ## Events (append-only, newest last)
 - 2026-09-10T02:10+00:00 · PM · RECORD · COORDINATED authorized by user. Claude Fable5.1 discovery01 stopped at context boundary, no edits, exit143. Discovery02 fresh restricted intake running. Independent PM portability/raw-report/trace checkpoint written; ful
@@ -363,3 +373,21 @@ Converted from Mini proc-coordination-20260910/LEDGER.md + CURRENT.md + MAPA on 
 - 2026-10-02T09:01:42-03:00 · PROC-F1 · DONE · Frequency expectations must fit their indicator's min/max/step (editor, API, publish) shipped (PR #140) · token hand-proc-f1
 - 2026-10-02T09:40:14-03:00 · PROC-H3 · DONE · B004 numeric save feedback ported onto main shipped (PR #141); PROC-NUMERIC-VALIDATION, PROC-B001, PROC-B005 done · token hand-proc-h3
 - 2026-10-02T10:18:26-03:00 · PROC-HD · DONE · Local CI browser-gate script (PROC-GATE-BASELINE-FOLLOWUP); Operation A Step 1 verified verbatim on a fresh synthetic stack + Step 2 deadlock_timeout fix (B006); historical-data decision pack (B007). No real data touched. · token hand-proc-hd
+- 2026-10-02T09:41:08-03:00 · PM · DONE · Delivered by PROC-20 (frequency expectation editor, 28 Sep) and verified by PROC-21; row was never closed. Recorded by Claude for Brent, 2 Oct (hand work). · token ls-7e179170b5
+- 2026-10-02T09:41:08-03:00 · PM · DONE · Closed by hand 2 Oct per Brent decision 1 Oct (decision ae66f02bb1341199: 'Yes. You have my ok.'). B004 shipped as PROC-H3 (PR #141, merged 2 Oct). Brent also required both loose ends fixed: F1 expectation cross-check sh · token ls-647f67eed8
+- 2026-10-02T09:41:08-03:00 · PM · DONE · Parent closed 2 Oct: B001-B005 done; numeric UI corrections live (PR #141), expectation range/step cross-check live (PR #140). Evidence: reviews/proc-hand-20261001/. · token ls-438e5c6c0c
+- 2026-10-02T09:41:17-03:00 · PM · DONE · Shipped as PROC-F1, PR #140 merged 2 Oct (Codex r4 APPROVED). · token ls-359be5b8be
+- 2026-10-02T09:41:17-03:00 · PM · TODO · In progress by hand 2 Oct: scripts/ci/e2e-local.sh on fix/e2e-local. · token ls-066a346460
+- 2026-10-02T09:41:17-03:00 · Claude · NOTE · 2 Oct: hand-work releases — PR #138 (docente Archivadas list; consultor read-only Contexto in every school, prod policies applied by Brent 1 Oct; local test-env fixes), PR #140 (F1), PR #141 (B004 port). Records: reviews
+- 2026-10-06T13:10:10-03:00 · PM · DONE · PROC-B006 done by hand: Operation A re-verified by hand (worktree proc-opa, Codex-reviewed); shipped in PROC-HD, PR #142. · token ls-517c5b3f2a
+- 2026-10-06T13:10:10-03:00 · PM · DONE · PROC-B007 done by hand: Historical-data decisions made by Brent 2 Oct (reviews/proc-hand-20261001/DECISIONS.md). · token ls-6e57cc1941
+- 2026-10-06T13:10:10-03:00 · PM · DONE · PROC-B008 done by hand: Operation A evidence reviewed; production steps run 2 Oct; PRs #142 and #145. · token ls-a6bd68e88d
+- 2026-10-06T13:10:10-03:00 · PM · DONE · PROC-B009 done by hand: PROC-HISTORICAL-DATA closed 2 Oct (CLOSURE-PROC-HISTORICAL-DATA.md, Codex DONE_APPROVED_WITH_NOTES). · token ls-7539a86dad
+- 2026-10-06T13:10:10-03:00 · PM · DONE · PROC-B010 done by hand: Synthetic pilot rehearsal B010 shipped in PR #149 (Codex r3 APPROVED). · token ls-ead6ac6f93
+- 2026-10-06T13:10:10-03:00 · PM · DONE · PROC-B011 done by hand: Pilot prep done 3 Oct on QA Test School 257: D0-D5 decided, preflight 20/20, dress run 24/24, checklist (Codex r4 APPROVED). · token ls-ee12c9e8a5
+- 2026-10-08T17:00:00-03:00 · PM · TODO · generated from planning session PS-Q-e91ec9e11596 (gen-PS-Q-e91ec9e11596-eced2408c6ac:row:PROC-B014) · token ls-ecc4951c7a
+- 2026-10-08T17:00:00-03:00 · PM · TODO · generated from planning session PS-Q-e91ec9e11596 (gen-PS-Q-e91ec9e11596-eced2408c6ac:row:PROC-B015) · token ls-66140b7593
+- 2026-10-08T17:04:19-03:00 · PROC-PR104-RECOVERY-4 · IN-PROGRESS · PROC-PR104-RECOVERY-4 r0 dispatched (pm-unit begin) · token ls-5551e9440b
+- 2026-10-09T19:10:32-03:00 · PROC-PR104-RECOVERY-4 · DONE · PROC-B014: document current calibration contract and synthetic matrix · token 9506fe6a6fed
+- 2026-10-09T19:13:48-03:00 · PROC-PR104-RECOVERY-5 · IN-PROGRESS · PROC-PR104-RECOVERY-5 r0 dispatched (pm-unit begin) · token ls-89da993ba4
+- 2026-10-09T19:56:47-03:00 · PROC-PR104-RECOVERY-5 · DONE · PROC-B015: calibration decision pack · token adfea7e1c598

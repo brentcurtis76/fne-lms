@@ -195,6 +195,22 @@ const sessionUrl = (data: EventData, role?: string) => {
   return role && SESSION_DETAIL_ROLES.includes(role) ? `/consultor/sessions/${id}` : `/meet/session/${id}`;
 };
 
+/** An ISO 8601 instant with an explicit offset, as `Date#toISOString` writes it. */
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/;
+
+/**
+ * A session reminder is one occurrence per session and scheduled start: the
+ * cron's `session.starts_at` instant, normalized, never the Spanish display
+ * date. A payload without `starts_at` keeps the older (id, date, time) key; a
+ * malformed one names no occurrence.
+ */
+const sessionStartOccurrence = (data: EventData) => {
+  const startsAt = get(data, 'session.starts_at');
+  if (startsAt === undefined) return occurrence(data, 'session.id', 'session.date', 'session.time');
+  if (typeof startsAt !== 'string' || !ISO_INSTANT.test(startsAt) || Number.isNaN(Date.parse(startsAt))) return null;
+  return occurrence({ id: get(data, 'session.id'), start: new Date(startsAt).toISOString() }, 'id', 'start');
+};
+
 const SESSION_FIELDS = ['session.title', 'session.date', 'session.time', 'session.end_time'] as const;
 const LICITACION_FIELDS = ['numero_licitacion', 'school_name'] as const;
 
@@ -329,8 +345,8 @@ export const NOTIFICATION_CATALOG: Record<string, NotificationCatalogEntry> = {
     mandatory: true,
     mandatoryJustification: 'A cancelled session means a person shows up to nothing (plan rev 3).',
   }),
-  session_reminder_24h: session('session_participants', ['session.id', 'session.date', 'session.time']),
-  session_reminder_1h: session('session_participants', ['session.id', 'session.date', 'session.time']),
+  session_reminder_24h: session('session_participants', [], { occurrenceId: sessionStartOccurrence }),
+  session_reminder_1h: session('session_participants', [], { occurrenceId: sessionStartOccurrence }),
   // The payload has no edit-request id: two requests on one session are two occurrences.
   session_edit_request_submitted: session('admins', [], {
     emailFields: ['session.title'],

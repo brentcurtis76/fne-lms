@@ -339,3 +339,72 @@ describe('insertMeetingRow (SM-H8)', () => {
     expect(row.problem?.message).toBe('La reunión: no tienes permiso para guardar este cambio.');
   });
 });
+
+describe('applyMeetingDiffs — every insert and update reports its failure (SM-23)', () => {
+  beforeEach(() => resetMeetingSupabaseMock());
+
+  const TABLES = {
+    meeting_agreements: { prefix: 'a', key: 'agreements' },
+    meeting_commitments: { prefix: 'c', key: 'commitments' },
+    meeting_tasks: { prefix: 't', key: 'tasks' },
+  } as const;
+  const agreement = (id?: string) => ({ id, agreement_text: 'A', agreement_doc: null, category: '' });
+  const commitment = (id?: string) => ({ id, commitment_text: 'C', commitment_doc: null, assigned_to: 'a1', due_date: '2026-10-10' });
+  const loaded = () => {
+    seedRows('meeting_agreements', [{ id: 'a-old', meeting_id: 'm1' }, { id: 'a-gone', meeting_id: 'm1' }]);
+    seedRows('meeting_commitments', [{ id: 'c-old', meeting_id: 'm1' }, { id: 'c-gone', meeting_id: 'm1' }]);
+    seedRows('meeting_tasks', [{ id: 't-old', meeting_id: 'm1' }, { id: 't-gone', meeting_id: 'm1' }]);
+    return {
+      payload: payload({
+        agreementsForPersist: [agreement('a-old'), agreement()],
+        commitmentsForPersist: [commitment('c-old'), commitment()],
+        tasksForPersist: [task('t-old'), task()],
+      }),
+      originals: {
+        agreements: new Set(['a-old', 'a-gone']),
+        commitments: new Set(['c-old', 'c-gone']),
+        tasks: new Set(['t-old', 't-gone']),
+      },
+    };
+  };
+
+  it('returns no problems when every delete, insert and update succeeds', async () => {
+    const { payload: all, originals } = loaded();
+    const result = await applyMeetingDiffs(makeMeetingSupabaseClient() as any, 'm1', all, originals);
+    expect(result.problems).toEqual([]);
+    for (const [table, { prefix }] of Object.entries(TABLES)) {
+      expect(calls[`insert:${table}`]).toHaveLength(1);
+      expect(calls[`update:${table}`]).toHaveLength(1);
+      expect(tableRows[table].map((row) => row.id)).not.toContain(`${prefix}-gone`);
+    }
+    expect(result.ids.agreements[0]).toBe('a-old');
+    expect(result.ids.agreements[1]).toEqual(expect.any(String));
+    expect(result.pendingDeletes).toEqual({ agreements: [], commitments: [], tasks: [] });
+  });
+
+  it('returns no problems and writes nothing for empty lists with nothing loaded', async () => {
+    const result = await applyMeetingDiffs(makeMeetingSupabaseClient() as any, 'm1', payload(), none);
+    expect(result).toEqual({
+      problems: [],
+      ids: { agreements: [], commitments: [], tasks: [] },
+      pendingDeletes: { agreements: [], commitments: [], tasks: [] },
+    });
+    expect(calls).toEqual({});
+  });
+
+  it.each([
+    ['insert', 'meeting_agreements', 'Acuerdo 2: no se pudo guardar (forced).'],
+    ['insert', 'meeting_commitments', 'Compromiso 2: no se pudo guardar (forced).'],
+    ['insert', 'meeting_tasks', 'Tarea 2: no se pudo guardar (forced).'],
+    ['update', 'meeting_agreements', 'Acuerdo 1: no se pudo guardar (forced).'],
+    ['update', 'meeting_commitments', 'Compromiso 1: no se pudo guardar (forced).'],
+    ['update', 'meeting_tasks', 'Tarea 1: no se pudo guardar (forced).'],
+  ] as const)('a failed %s on %s comes back as a problem with its es-CL message', async (verb, table, message) => {
+    failingWrites[`${verb}:${table}`] = { code: 'XX000', message: 'forced' };
+    const { payload: all, originals } = loaded();
+    const result = await applyMeetingDiffs(makeMeetingSupabaseClient() as any, 'm1', all, originals);
+    expect(result.problems.map((p) => p.message)).toEqual([message]);
+    // A failed insert leaves its item without an id, so the caller cannot treat it as saved.
+    if (verb === 'insert') expect(result.ids[TABLES[table].key][1]).toBeUndefined();
+  });
+});

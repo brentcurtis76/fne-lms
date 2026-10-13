@@ -76,7 +76,7 @@ export default function AssignmentDetailPage() {
   const loadAssignmentAndSubmission = async (assignmentId: string, userId: string) => {
     try {
       // Load assignment
-      const assignmentData = await assignmentService.getById(assignmentId);
+      const assignmentData = await assignmentService.getById(supabase, assignmentId);
       if (!assignmentData || !assignmentData.is_published) {
         toast.error('Tarea no encontrada');
         router.push('/assignments');
@@ -86,6 +86,7 @@ export default function AssignmentDetailPage() {
 
       // Load submission
       const submissionData = await submissionService.getByAssignmentAndStudent(
+        supabase,
         assignmentId,
         userId
       );

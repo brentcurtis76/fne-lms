@@ -194,6 +194,28 @@ describe('D1 · catalog completeness and typed definitions', () => {
     expect(NOTIFICATION_CATALOG.qa_scenario_assigned.occurrenceId({ tester_id: USER_A })).toBeNull();
   });
 
+  it('N5-03: a session reminder is keyed by session and start instant, not by its Spanish display text', () => {
+    const START = '2026-10-10T13:00:00.000Z';
+    const DISPLAY = { date: 'sábado 10 de octubre', time: '10:00' };
+    for (const event of ['session_reminder_24h', 'session_reminder_1h']) {
+      const occurrenceOf = (session: Record<string, unknown>) => NOTIFICATION_CATALOG[event].occurrenceId({ session });
+      const base = occurrenceOf({ id: SESSION_ID, starts_at: START, ...DISPLAY });
+      expect(base).toBe(`${SESSION_ID}:${encodeURIComponent(START)}`);
+      // The same start: other display text, another offset spelling, an upper-case id.
+      expect(occurrenceOf({ id: SESSION_ID, starts_at: START, date: 'Sábado 10 De Octubre', time: '10:00 (hora Chile)' })).toBe(base);
+      expect(occurrenceOf({ id: SESSION_ID.toUpperCase(), starts_at: '2026-10-10T10:00:00.000-03:00', ...DISPLAY })).toBe(base);
+      // A moved time, date or year is another occurrence even when the display text did not change.
+      for (const moved of ['2026-10-10T13:30:00.000Z', '2026-10-11T13:00:00.000Z', '2027-10-10T13:00:00.000Z']) {
+        expect(occurrenceOf({ id: SESSION_ID, starts_at: moved, ...DISPLAY })).not.toBe(base);
+      }
+      // A malformed start names no occurrence; a payload without one keeps the older key.
+      for (const malformed of ['sábado 10 de octubre', '2026-10-10', '2026-10-10T13:00:00', 1760101200000, '']) {
+        expect(occurrenceOf({ id: SESSION_ID, starts_at: malformed, ...DISPLAY })).toBeNull();
+      }
+      expect(occurrenceOf({ id: SESSION_ID, date: '2026-10-01', time: '09:00' })).toBe(`${SESSION_ID}:2026-10-01:09%3A00`);
+    }
+  });
+
   it('N2-01: an entity id alone is no occurrence, and a UUID part is case-normalized', () => {
     const entityOnly = {
       course_assigned: { course: { id: 'c-1' } },

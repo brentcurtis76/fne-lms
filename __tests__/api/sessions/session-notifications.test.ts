@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
 import { NOTIFICATION_EVENTS } from '../../../lib/notificationEvents';
+import { getSessionDateTime } from '../../../lib/utils/session-timezone';
 
 // Use vi.hoisted so the mock fn is available during vi.mock hoisting
 const { mockTriggerNotification } = vi.hoisted(() => ({
@@ -73,6 +74,31 @@ const ADMIN_ID_1 = '33333333-3333-4333-8333-333333333333';
 const ADMIN_ID_2 = '44444444-4444-4444-8444-444444444444';
 const EDIT_REQUEST_ID = '55555555-5555-4555-8555-555555555555';
 const FACILITATOR_LINK_ID = '66666666-6666-4666-8666-666666666666';
+
+/**
+ * A service-role client for the reminder cron: every query method chains and the
+ * awaited query answers by table. `session_notifications` holds `markers`, the
+ * rows the cron reads to decide whether a start was already reminded.
+ */
+function reminderClient(sessions: Record<string, unknown>[], markers: Record<string, unknown>[] = []) {
+  return {
+    from: vi.fn((table: string) => {
+      const answer = { data: table === 'consultor_sessions' ? sessions : table === 'session_notifications' ? markers : [], error: null };
+      const builder: any = {
+        then: (resolve: any, reject: any) => Promise.resolve(answer).then(resolve, reject),
+        insert: vi.fn().mockResolvedValue({ error: null }),
+      };
+      for (const method of ['select', 'eq', 'in', 'gte', 'lte', 'limit', 'order']) builder[method] = vi.fn(() => builder);
+      return builder;
+    }) as any,
+  };
+}
+
+/** A reminder row already recorded for this session's current start. */
+function sentMarkerFor(session: Record<string, any>) {
+  const start = getSessionDateTime(session.session_date, session.start_time).getTime();
+  return { scheduled_for: new Date(start).toISOString(), sent_at: new Date(start - 24 * 3_600_000).toISOString() };
+}
 
 describe('Session Notifications', () => {
   beforeEach(() => {
@@ -385,7 +411,7 @@ describe('Session Notifications', () => {
       await cronHandler(req as any, res as any);
 
       expect(res._getStatusCode()).toBe(401);
-      expect(res._getJSONData()).toEqual({ error: 'Unauthorized' });
+      expect(res._getJSONData()).toEqual({ error: 'No autorizado' });
 
     });
 
@@ -409,38 +435,7 @@ describe('Session Notifications', () => {
         },
       ];
 
-      const mockSupabaseClient = {
-        from: vi.fn((table: string) => {
-          if (table === 'consultor_sessions') {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  in: vi.fn().mockReturnValue({
-                    gte: vi.fn().mockReturnValue({
-                      lte: vi.fn().mockResolvedValue({ data: mockSessions, error: null }),
-                    }),
-                  }),
-                }),
-              }),
-            };
-          }
-          if (table === 'session_notifications') {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  eq: vi.fn().mockReturnValue({
-                    in: vi.fn().mockReturnValue({
-                      limit: vi.fn().mockResolvedValue({ data: [], error: null }),
-                    }),
-                  }),
-                }),
-              }),
-              insert: vi.fn().mockResolvedValue({ error: null }),
-            };
-          }
-          return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis() };
-        }) as any,
-      };
+      const mockSupabaseClient = reminderClient(mockSessions);
 
       vi.mocked(createServiceRoleClient).mockReturnValue(mockSupabaseClient as any);
 
@@ -494,38 +489,7 @@ describe('Session Notifications', () => {
         },
       ];
 
-      const mockSupabaseClient = {
-        from: vi.fn((table: string) => {
-          if (table === 'consultor_sessions') {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  in: vi.fn().mockReturnValue({
-                    gte: vi.fn().mockReturnValue({
-                      lte: vi.fn().mockResolvedValue({ data: mockSessions, error: null }),
-                    }),
-                  }),
-                }),
-              }),
-            };
-          }
-          if (table === 'session_notifications') {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  eq: vi.fn().mockReturnValue({
-                    in: vi.fn().mockReturnValue({
-                      limit: vi.fn().mockResolvedValue({ data: [], error: null }),
-                    }),
-                  }),
-                }),
-              }),
-              insert: vi.fn().mockResolvedValue({ error: null }),
-            };
-          }
-          return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis() };
-        }) as any,
-      };
+      const mockSupabaseClient = reminderClient(mockSessions);
 
       vi.mocked(createServiceRoleClient).mockReturnValue(mockSupabaseClient as any);
 
@@ -577,38 +541,7 @@ describe('Session Notifications', () => {
         },
       ];
 
-      const mockSupabaseClient = {
-        from: vi.fn((table: string) => {
-          if (table === 'consultor_sessions') {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  in: vi.fn().mockReturnValue({
-                    gte: vi.fn().mockReturnValue({
-                      lte: vi.fn().mockResolvedValue({ data: mockSessions, error: null }),
-                    }),
-                  }),
-                }),
-              }),
-            };
-          }
-          if (table === 'session_notifications') {
-            return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  eq: vi.fn().mockReturnValue({
-                    in: vi.fn().mockReturnValue({
-                      limit: vi.fn().mockResolvedValue({ data: [{ id: 'existing-reminder' }], error: null }),
-                    }),
-                  }),
-                }),
-              }),
-              insert: vi.fn().mockResolvedValue({ error: null }),
-            };
-          }
-          return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis() };
-        }) as any,
-      };
+      const mockSupabaseClient = reminderClient(mockSessions, [sentMarkerFor(mockSessions[0])]);
 
       vi.mocked(createServiceRoleClient).mockReturnValue(mockSupabaseClient as any);
 
@@ -643,40 +576,7 @@ describe('Session Reminder Cron — managed sessions (r26 [N1]–[N4])', () => {
   /** Distinctive enough that its absence from a payload proves something. */
   const ZOOM_INTERNAL_URL = 'https://us06web.zoom.us/j/11111111111?pwd=NeVeRlEaVeSzOoMiNtErNaL';
 
-  function clientWith(sessions: Record<string, unknown>[]) {
-    return {
-      from: vi.fn((table: string) => {
-        if (table === 'consultor_sessions') {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                in: vi.fn().mockReturnValue({
-                  gte: vi.fn().mockReturnValue({
-                    lte: vi.fn().mockResolvedValue({ data: sessions, error: null }),
-                  }),
-                }),
-              }),
-            }),
-          };
-        }
-        if (table === 'session_notifications') {
-          return {
-            select: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  in: vi.fn().mockReturnValue({
-                    limit: vi.fn().mockResolvedValue({ data: [], error: null }),
-                  }),
-                }),
-              }),
-            }),
-            insert: vi.fn().mockResolvedValue({ error: null }),
-          };
-        }
-        return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis() };
-      }) as any,
-    };
-  }
+  const clientWith = (sessions: Record<string, unknown>[]) => reminderClient(sessions);
 
   async function runCron(sessions: Record<string, unknown>[]) {
     const { createServiceRoleClient } = await import('../../../lib/api-auth');

@@ -229,13 +229,20 @@ const WorkspaceSessionsTab: React.FC<WorkspaceSessionsTabProps> = ({
 
   const renderSessionCard = (session: SessionListItem) => {
     const badge = getStatusBadge(session.status);
+    const detailPath = `/community/workspace/sessions/${session.id}`;
 
     return (
       <div
-        onClick={() => router.push(`/consultor/sessions/${session.id}`)}
+        onClick={() => router.push(detailPath)}
         role="button"
         tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') router.push(`/consultor/sessions/${session.id}`); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            // Space would otherwise also scroll the page.
+            e.preventDefault();
+            router.push(detailPath);
+          }
+        }}
         aria-label={`Ver detalles de ${session.title}`}
         className="bg-white border border-gray-200 rounded-lg p-4 hover:border-brand_accent hover:shadow-sm transition-all cursor-pointer"
       >

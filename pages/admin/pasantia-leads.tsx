@@ -20,18 +20,21 @@ import { PROGRAM_IDS, programById } from '../../lib/pasantias/cohort-public';
 import { isGlobalAdmin } from '../../utils/roleUtils';
 import {
   LEAD_CSV_HEADERS,
+  LEAD_EXPORT_MESSAGES,
+  LEAD_EXPORT_TOO_LARGE_CODE,
   LEAD_STATUS_LABELS,
   LeadExportError,
   LeadProgramLabels,
   LeadStatusBadge,
   NO_PROGRAM_FILTER,
   PasantiaLeadCard,
-  collectAllMatchingLeads,
+  collectLeadExportSnapshot,
   leadCsvRow,
+  leadExportQueryString,
   leadFullName,
   leadsQueryString,
+  type LeadExportSnapshotPayload,
   type LeadListFilters,
-  type LeadPagePayload,
   type PasantiaLead,
 } from '../../components/admin/PasantiaLeadCard';
 
@@ -239,31 +242,39 @@ export default function PasantiaLeadsAdminPage() {
    * keeps `=cmd|…` out of the admin's spreadsheet.
    *
    * The CSV holds every contact matching the filters on screen, not the page on
-   * screen. The filter set is captured ONCE, before the first request, so
-   * changing a tab mid-export cannot splice two result sets together.
-   * `collectAllMatchingLeads` refuses anything partial or inconsistent; the
-   * download happens only after every page has been checked.
+   * screen, from ONE request answered from one database snapshot (C009). The
+   * filter set is captured before that request, so changing a tab mid-export
+   * cannot change what is exported. `collectLeadExportSnapshot` refuses
+   * anything partial or inconsistent; the download happens only after the
+   * whole answer has been checked.
    */
   const handleExport = async () => {
     if (exporting) return;
-    const snapshot: LeadListFilters = { ...filters };
+    const exportFilters: LeadListFilters = { ...filters };
 
     setExporting(true);
     setExportError(null);
     try {
-      const contacts = await collectAllMatchingLeads(async (exportPage, pageSize) => {
+      const contacts = await collectLeadExportSnapshot(async () => {
         const response = await fetch(
-          `/api/admin/pasantia-leads?${leadsQueryString(snapshot, exportPage, pageSize)}`
+          `/api/admin/pasantia-leads?${leadExportQueryString(exportFilters)}`
         );
-        const json = await response.json().catch(() => ({}));
         if (!response.ok) {
-          // An expired session, a held account and a page the route refused
-          // because contacts were written while it read (409) all land here: no file.
-          throw new LeadExportError(
-            `${json.error || 'No se pudo leer una página de leads'}. No se descargó ningún archivo.`
-          );
+          // An expired session, a held account, a refusal past the ceiling and
+          // a server failure all land here: no file.
+          const json = await response.json().catch(() => ({}));
+          if (response.status === 413 && json.code === LEAD_EXPORT_TOO_LARGE_CODE) {
+            throw new LeadExportError(LEAD_EXPORT_MESSAGES.tooLarge);
+          }
+          const reason = String(json.error || 'No se pudo leer la exportación de leads');
+          throw new LeadExportError(`${reason.replace(/\.$/, '')}. No se descargó ningún archivo.`);
         }
-        return json as LeadPagePayload;
+        // A body cut short (a dropped connection, a stream the server ended
+        // early) does not parse: that is an incomplete export, never a partial one.
+        const json = await response.json().catch(() => {
+          throw new LeadExportError(LEAD_EXPORT_MESSAGES.incomplete);
+        });
+        return json as LeadExportSnapshotPayload;
       });
 
       ReportExporter.exportToCSV({

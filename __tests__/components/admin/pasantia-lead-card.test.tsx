@@ -21,19 +21,21 @@ import { formatDateTime } from '../../../lib/signups';
 import { ReportExporter } from '../../../lib/exportUtils';
 import {
   LEAD_CSV_HEADERS,
-  LEAD_EXPORT_MAX_PAGES,
+  LEAD_EXPORT_MAX_CONTACTS,
   LEAD_EXPORT_MESSAGES,
+  LEAD_EXPORT_TOO_LARGE_CODE,
   LEAD_STATUS_LABELS,
   LeadExportError,
   LeadProgramLabels,
   PasantiaLeadCard,
   allowedLeadTransitions,
-  collectAllMatchingLeads,
+  collectLeadExportSnapshot,
   leadCsvRow,
+  leadExportQueryString,
   leadProgramLabels,
   leadsQueryString,
   timestampMicros,
-  type LeadPagePayload,
+  type LeadExportSnapshotPayload,
   type PasantiaLead,
 } from '../../../components/admin/PasantiaLeadCard';
 
@@ -285,18 +287,37 @@ describe('CSV export path ([A-new-3])', () => {
   it('downloads only what the complete-export check returned', () => {
     // The download is built from the collector's result and nothing else: no
     // `leads` (the page on screen) and no rows accumulated outside it.
-    expect(pageSource).toContain('const contacts = await collectAllMatchingLeads(');
+    expect(pageSource).toContain('const contacts = await collectLeadExportSnapshot(');
     expect(pageSource).toContain('data: contacts.map(leadCsvRow)');
     expect(pageSource).not.toMatch(/data:\s*leads\b/);
     // The call, not the identifier: handleExport's JSDoc names
     // `ReportExporter.exportToCSV` before the collector runs. Exactly one call,
     // so a second download path cannot hide behind the first.
-    const collectorCall = pageSource.indexOf('const contacts = await collectAllMatchingLeads(');
+    const collectorCall = pageSource.indexOf('const contacts = await collectLeadExportSnapshot(');
     const exportCall = pageSource.indexOf('ReportExporter.exportToCSV(');
     expect(pageSource.split('ReportExporter.exportToCSV(')).toHaveLength(2);
     expect(collectorCall).toBeGreaterThan(-1);
     expect(exportCall).toBeGreaterThan(-1);
     expect(collectorCall).toBeLessThan(exportCall);
+  });
+
+  it('exports from one snapshot request, and no paged walker is left (C009)', () => {
+    // The removed walker's name must not survive anywhere a caller could reach
+    // it: a stale caller fails loudly instead of quietly paging again.
+    for (const source of [pageSource, cardSource]) {
+      expect(source).not.toContain('collectAllMatchingLeads');
+      expect(source).not.toContain('LEAD_EXPORT_PAGE_SIZE');
+      expect(source).not.toContain('LEAD_EXPORT_MAX_PAGES');
+    }
+    // One export query builder call, and the screen's paged one is not used for it.
+    expect(pageSource.split('leadExportQueryString(')).toHaveLength(2);
+    const handleExport = pageSource.slice(
+      pageSource.indexOf('const handleExport = async'),
+      pageSource.indexOf('ReportExporter.exportToCSV(')
+    );
+    expect(handleExport).toContain('leadExportQueryString(exportFilters)');
+    expect(handleExport).not.toContain('leadsQueryString(');
+    expect(handleExport.split('await fetch(')).toHaveLength(2);
   });
 });
 
@@ -528,6 +549,30 @@ describe('leadsQueryString', () => {
   });
 });
 
+describe('leadExportQueryString (C009)', () => {
+  it('carries the same filters plus export=1, and never a page', () => {
+    expect(
+      leadExportQueryString({ status: 'contacted', search: 'Pérez & Co', program: 'inspira' })
+    ).toBe('status=contacted&search=P%C3%A9rez+%26+Co&program=inspira&export=1');
+    expect(leadExportQueryString({ status: null, search: '', program: 'sin-programa' })).toBe(
+      'program=sin-programa&export=1'
+    );
+    expect(leadExportQueryString({ status: null, search: '', program: null })).toBe('export=1');
+  });
+
+  it('encodes the filters exactly as the screen query does', () => {
+    const filters = { status: 'new' as const, search: 'a,b)c "x"', program: 'mirada-profunda' };
+    const screen = new URLSearchParams(leadsQueryString(filters, 1, 50));
+    const exported = new URLSearchParams(leadExportQueryString(filters));
+
+    for (const key of ['status', 'search', 'program']) {
+      expect(exported.get(key)).toBe(screen.get(key));
+    }
+    expect(exported.has('page')).toBe(false);
+    expect(exported.has('pageSize')).toBe(false);
+  });
+});
+
 /** RFC 4180, independently of the exporter: quoted fields, doubled quotes, embedded newlines. */
 function parseCsv(text: string): string[][] {
   const records: string[][] = [];
@@ -724,28 +769,27 @@ function syntheticContacts(n: number): PasantiaLead[] {
   );
 }
 
-/** A well-behaved server over a fixed table. */
-function pagedServer(rows: PasantiaLead[], watermark = '2026-10-15T00:00:00.000001+00:00') {
-  const calls: number[] = [];
-  const fetchPage = vi.fn(async (page: number, pageSize: number): Promise<LeadPagePayload> => {
-    calls.push(page);
-    return {
-      leads: rows.slice((page - 1) * pageSize, page * pageSize),
-      pagination: { page, pageSize, total: rows.length, pageCount: Math.ceil(rows.length / pageSize) },
-      watermark,
-    };
-  });
-  return { fetchPage, calls };
+/** A well-behaved snapshot answer over a fixed table, counting its calls. */
+function snapshotServer(rows: PasantiaLead[]) {
+  const fetchSnapshot = vi.fn(
+    async (): Promise<LeadExportSnapshotPayload> => ({ snapshot: true, total: rows.length, leads: rows })
+  );
+  return { fetchSnapshot };
 }
 
-describe('collectAllMatchingLeads (C009-complete-export, C009-scale unit layer)', () => {
-  it('returns every one of 1205 contacts exactly once, oldest and newest included', async () => {
+/** A fixed answer, malformed on purpose, through the collector's own type. */
+function answering(payload: unknown) {
+  return vi.fn(async () => payload as LeadExportSnapshotPayload);
+}
+
+describe('collectLeadExportSnapshot (C009 snapshot, C009-scale unit layer)', () => {
+  it('returns every one of 1205 contacts exactly once, after exactly one request', async () => {
     const rows = syntheticContacts(1205);
-    const { fetchPage, calls } = pagedServer(rows);
+    const { fetchSnapshot } = snapshotServer(rows);
 
-    const collected = await collectAllMatchingLeads(fetchPage, 500);
+    const collected = await collectLeadExportSnapshot(fetchSnapshot);
 
-    expect(calls).toEqual([1, 2, 3]);
+    expect(fetchSnapshot).toHaveBeenCalledTimes(1);
     expect(collected).toHaveLength(1205);
     expect(new Set(collected.map((lead) => lead.id)).size).toBe(1205);
     expect(collected[0].id).toBe(rows[0].id);
@@ -757,7 +801,7 @@ describe('collectAllMatchingLeads (C009-complete-export, C009-scale unit layer)'
 
   it('the 1205-contact CSV has 1205 data rows with every label kind', async () => {
     const rows = syntheticContacts(1205);
-    const collected = await collectAllMatchingLeads(pagedServer(rows).fetchPage, 500);
+    const collected = await collectLeadExportSnapshot(snapshotServer(rows).fetchSnapshot);
 
     const records = parseCsv(exportCsvText(collected));
     const programs = records.slice(1).map((record) => record[LEAD_CSV_HEADERS.indexOf('Programas')]);
@@ -770,131 +814,120 @@ describe('collectAllMatchingLeads (C009-complete-export, C009-scale unit layer)'
   });
 
   it('an empty match is an empty export, after one request', async () => {
-    const { fetchPage, calls } = pagedServer([]);
+    const { fetchSnapshot } = snapshotServer([]);
 
-    await expect(collectAllMatchingLeads(fetchPage, 500)).resolves.toEqual([]);
-    expect(calls).toEqual([1]);
+    await expect(collectLeadExportSnapshot(fetchSnapshot)).resolves.toEqual([]);
+    expect(fetchSnapshot).toHaveBeenCalledTimes(1);
   });
 
-  it('refuses when a contact arrives mid-export (total and order shift)', async () => {
-    const rows = syntheticContacts(1205);
-    const newcomer = makeLead({
-      id: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
-      created_at: '2026-10-15T00:00:00.000000+00:00',
-    });
-    let table = rows;
-    const fetchPage = vi.fn(async (page: number, pageSize: number): Promise<LeadPagePayload> => {
-      const payload = {
-        leads: table.slice((page - 1) * pageSize, page * pageSize),
-        pagination: { page, pageSize, total: table.length, pageCount: Math.ceil(table.length / pageSize) },
-        watermark: table === rows ? 'w1' : 'w2',
-      };
-      table = [newcomer, ...rows];
-      return payload;
-    });
-
-    await expect(collectAllMatchingLeads(fetchPage, 500)).rejects.toThrow(LEAD_EXPORT_MESSAGES.changed);
+  it('keeps the paged export’s 100 000-contact ceiling and the API’s 413 code', () => {
+    expect(LEAD_EXPORT_MAX_CONTACTS).toBe(100_000);
+    expect(LEAD_EXPORT_MAX_CONTACTS).toBe(500 * 200);
+    expect(LEAD_EXPORT_TOO_LARGE_CODE).toBe('LEADS_EXPORT_TOO_LARGE');
   });
 
-  it('refuses when only the watermark moves (a contact edited mid-export)', async () => {
-    const rows = syntheticContacts(1205);
-    const fetchPage = vi.fn(async (page: number, pageSize: number): Promise<LeadPagePayload> => ({
-      leads: rows.slice((page - 1) * pageSize, page * pageSize),
-      pagination: { page, pageSize, total: rows.length, pageCount: 3 },
-      watermark: page === 3 ? 'after-an-edit' : 'before',
-    }));
-
-    await expect(collectAllMatchingLeads(fetchPage, 500)).rejects.toThrow(LEAD_EXPORT_MESSAGES.changed);
-  });
-
-  it('refuses a repeated contact across a page boundary even when totals agree', async () => {
-    const rows = syntheticContacts(1205);
-    const fetchPage = vi.fn(async (page: number, pageSize: number): Promise<LeadPagePayload> => {
-      const start = (page - 1) * pageSize;
-      // Page 2 starts one row early: what an order without a tie-break does
-      // when the boundary falls inside a run of equal timestamps.
-      const leads = page === 2 ? rows.slice(start - 1, start - 1 + pageSize) : rows.slice(start, start + pageSize);
-      return { leads, pagination: { page, pageSize, total: rows.length, pageCount: 3 }, watermark: 'w' };
-    });
-
-    await expect(collectAllMatchingLeads(fetchPage, 500)).rejects.toThrow(LEAD_EXPORT_MESSAGES.changed);
-  });
-
-  it('refuses a short page instead of exporting fewer rows than announced', async () => {
-    const rows = syntheticContacts(1205);
-    const fetchPage = vi.fn(async (page: number, pageSize: number): Promise<LeadPagePayload> => ({
-      // A server-side cap below the page size would look exactly like this.
-      leads: rows.slice((page - 1) * pageSize, page * pageSize).slice(0, page === 2 ? 499 : pageSize),
-      pagination: { page, pageSize, total: rows.length, pageCount: 3 },
-      watermark: 'w',
-    }));
-
-    await expect(collectAllMatchingLeads(fetchPage, 500)).rejects.toThrow(
-      LEAD_EXPORT_MESSAGES.incomplete
+  it('accepts exactly 100 000 contacts, the ceiling itself', async () => {
+    const createdAt = '2026-10-01T12:00:00.123456+00:00';
+    const rows = Array.from({ length: 100_000 }, (_, i) =>
+      makeLead({
+        id: `00000000-0000-4000-8000-${(99_999 - i).toString(16).padStart(12, '0')}`,
+        created_at: createdAt,
+        program_interests: [],
+      })
     );
+
+    const collected = await collectLeadExportSnapshot(snapshotServer(rows).fetchSnapshot);
+
+    expect(collected).toHaveLength(100_000);
   });
 
-  it('refuses rows out of the stable order inside a page', async () => {
-    const rows = syntheticContacts(20);
-    const swapped = [...rows];
-    [swapped[3], swapped[4]] = [swapped[4], swapped[3]];
+  it('refuses 100 001 as too many, not as incomplete', async () => {
+    const fetchSnapshot = answering({ snapshot: true, total: 100_001, leads: [] });
 
-    await expect(collectAllMatchingLeads(pagedServer(swapped).fetchPage, 50)).rejects.toThrow(
-      LEAD_EXPORT_MESSAGES.changed
+    await expect(collectLeadExportSnapshot(fetchSnapshot)).rejects.toThrow(
+      LEAD_EXPORT_MESSAGES.tooLarge
     );
+    expect(fetchSnapshot).toHaveBeenCalledTimes(1);
   });
 
-  it('refuses a page that answers for a different page number', async () => {
-    const rows = syntheticContacts(1205);
-    const fetchPage = vi.fn(async (_page: number, pageSize: number): Promise<LeadPagePayload> => ({
-      leads: rows.slice(0, pageSize),
-      pagination: { page: 1, pageSize, total: rows.length, pageCount: 3 },
-      watermark: 'w',
-    }));
+  const SIX = () => syntheticContacts(6);
 
-    await expect(collectAllMatchingLeads(fetchPage, 500)).rejects.toThrow(LeadExportError);
-  });
-
-  it('propagates a failed page (an expired session) and returns nothing', async () => {
-    const rows = syntheticContacts(1205);
-    const { fetchPage } = pagedServer(rows);
-    fetchPage.mockImplementation(async (page: number, pageSize: number) => {
-      if (page === 3) throw new LeadExportError('Unauthorized. No se descargó ningún archivo.');
-      return {
-        leads: rows.slice((page - 1) * pageSize, page * pageSize),
-        pagination: { page, pageSize, total: rows.length, pageCount: 3 },
-        watermark: 'w',
-      };
-    });
-
-    await expect(collectAllMatchingLeads(fetchPage, 500)).rejects.toThrow('Unauthorized');
-  });
-
-  it('refuses a first page without a usable total', async () => {
-    const fetchPage = vi.fn(async (): Promise<LeadPagePayload> => ({
-      leads: [],
-      pagination: undefined as unknown as LeadPagePayload['pagination'],
-      watermark: null,
-    }));
-
-    await expect(collectAllMatchingLeads(fetchPage, 500)).rejects.toThrow(
-      LEAD_EXPORT_MESSAGES.incomplete
-    );
-  });
-
-  it('refuses to start an unbounded walk', async () => {
-    const fetchPage = vi.fn(async (page: number, pageSize: number): Promise<LeadPagePayload> => ({
-      leads: [],
-      pagination: {
-        page,
-        pageSize,
-        total: (LEAD_EXPORT_MAX_PAGES + 1) * pageSize,
-        pageCount: LEAD_EXPORT_MAX_PAGES + 1,
+  it.each<[string, () => unknown]>([
+    ['no payload', () => null],
+    ['an array payload', () => SIX()],
+    ['no snapshot marker', () => ({ total: 6, leads: SIX() })],
+    ['a marker that is not exactly true', () => ({ snapshot: 'true', total: 6, leads: SIX() })],
+    ['an extra key (a paged answer)', () => ({ snapshot: true, total: 6, leads: SIX(), pagination: {} })],
+    ['no total', () => ({ snapshot: true, leads: SIX(), watermark: null })],
+    ['a negative total', () => ({ snapshot: true, total: -1, leads: [] })],
+    ['a fractional total', () => ({ snapshot: true, total: 5.5, leads: SIX() })],
+    ['a string total', () => ({ snapshot: true, total: '6', leads: SIX() })],
+    ['leads not an array', () => ({ snapshot: true, total: 6, leads: {} })],
+    ['fewer rows than the total (truncated)', () => ({ snapshot: true, total: 6, leads: SIX().slice(0, 5) })],
+    ['more rows than the total', () => ({ snapshot: true, total: 5, leads: SIX() })],
+    [
+      'a repeated contact',
+      () => {
+        const rows = SIX();
+        rows[3] = rows[2];
+        return { snapshot: true, total: 6, leads: rows };
       },
-      watermark: 'w',
-    }));
+    ],
+    [
+      'an id that is not a uuid',
+      () => {
+        const rows = SIX();
+        rows[3] = { ...rows[3], id: 'not-a-uuid' };
+        return { snapshot: true, total: 6, leads: rows };
+      },
+    ],
+    [
+      'a null row',
+      () => {
+        const rows: (PasantiaLead | null)[] = SIX();
+        rows[1] = null;
+        return { snapshot: true, total: 6, leads: rows };
+      },
+    ],
+    [
+      'a row without its interests list',
+      () => {
+        const rows = SIX();
+        rows[4] = { ...rows[4], program_interests: undefined };
+        return { snapshot: true, total: 6, leads: rows };
+      },
+    ],
+    [
+      'rows out of the stable order',
+      () => {
+        const rows = SIX();
+        [rows[3], rows[4]] = [rows[4], rows[3]];
+        return { snapshot: true, total: 6, leads: rows };
+      },
+    ],
+    [
+      'an unreadable created_at',
+      () => {
+        const rows = SIX();
+        rows[2] = { ...rows[2], created_at: 'ayer' };
+        return { snapshot: true, total: 6, leads: rows };
+      },
+    ],
+  ])('refuses %s as incomplete, after one request', async (_label, payload) => {
+    const fetchSnapshot = answering(payload());
 
-    await expect(collectAllMatchingLeads(fetchPage, 500)).rejects.toThrow(LEAD_EXPORT_MESSAGES.tooLarge);
-    expect(fetchPage).toHaveBeenCalledTimes(1);
+    await expect(collectLeadExportSnapshot(fetchSnapshot)).rejects.toThrow(
+      LEAD_EXPORT_MESSAGES.incomplete
+    );
+    expect(fetchSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it('propagates a refused request (an expired session) and returns nothing', async () => {
+    const fetchSnapshot = vi.fn(async (): Promise<LeadExportSnapshotPayload> => {
+      throw new LeadExportError('Unauthorized. No se descargó ningún archivo.');
+    });
+
+    await expect(collectLeadExportSnapshot(fetchSnapshot)).rejects.toThrow('Unauthorized');
+    expect(fetchSnapshot).toHaveBeenCalledTimes(1);
   });
 });

@@ -18,8 +18,14 @@
  * PostgREST does with an aliased `!inner` embed, an embedded-null filter, or
  * `max_rows`. These tests pin what the route ASKS for. The behaviour of the real
  * server at >1000 contacts is C009-scale evidence, owed by the real-stack run.
+ *
+ * The C009 snapshot export (`GET ?export=1`, last section) is pinned the same
+ * way: the one RPC and its exact arguments, that nothing else is read, how the
+ * answer is judged, and how it is streamed. Whether that answer really comes
+ * from one snapshot is the real-stack C009 run's and pgTAP 113's to prove.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { EventEmitter } from 'node:events';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
 import {
   PASSWORD_CHANGE_REQUIRED_CODE,
@@ -61,13 +67,17 @@ vi.mock('../../../lib/api-auth', async () => {
 
 import handler, {
   LEADS_DEFAULT_PAGE_SIZE,
+  LEADS_EXPORT_MAX_CONTACTS,
+  LEADS_EXPORT_TOO_LARGE_CODE,
   LEADS_MAX_PAGE,
   LEADS_MAX_PAGE_SIZE,
+  config,
 } from '../../../pages/api/admin/pasantia-leads/index';
 import {
-  LeadExportError,
-  collectAllMatchingLeads,
-  type LeadPagePayload,
+  LEAD_EXPORT_MAX_CONTACTS,
+  LEAD_EXPORT_TOO_LARGE_CODE,
+  collectLeadExportSnapshot,
+  type LeadExportSnapshotPayload,
 } from '../../../components/admin/PasantiaLeadCard';
 
 interface QueryResult {
@@ -151,6 +161,7 @@ const GLOBAL_COUNTS = { new: 600, contacted: 300, converted: 200, dismissed: 105
  *   - HEAD + a filter          the out-of-range recount of the filtered set
  *   - `'id, status'`           the PATCH pre-transition read
  *   - anything else            the page of contacts
+ * The export's one read is `rpc`, recorded as `'rpc'` in the same `sent` order.
  */
 function createSupabase(
   options: {
@@ -160,6 +171,7 @@ function createSupabase(
     filteredCount?: QueryResult;
     current?: QueryResult;
     updated?: QueryResult;
+    rpc?: QueryResult | (() => Promise<QueryResult>);
   } = {}
 ) {
   const selects: SelectRecord[] = [];
@@ -270,7 +282,13 @@ function createSupabase(
     },
   }));
 
-  const client = { from };
+  const rpc = vi.fn(async () => {
+    sent.push('rpc');
+    const outcome = options.rpc ?? exportResult([]);
+    return typeof outcome === 'function' ? outcome() : outcome;
+  });
+
+  const client = { from, rpc };
   mockCreateServiceRoleClient.mockReturnValue(client);
 
   const listSelect = () => selects.find((select) => classify(select) === 'list');
@@ -291,18 +309,31 @@ function asDocente() {
   mockCheckIsAdmin.mockResolvedValue({ isAdmin: false, user: { id: 'docente-1' }, error: null });
 }
 
-async function run(options: {
+interface RequestOptions {
   method?: string;
   query?: Record<string, string | string[]>;
   body?: Record<string, unknown>;
   headers?: Record<string, string>;
-}) {
-  const { req, res } = createMocks({
-    method: (options.method ?? 'GET') as any,
-    query: options.query ?? {},
-    body: options.body,
-    headers: options.headers ?? {},
-  });
+}
+
+/**
+ * A real `EventEmitter` on every response, so the export's `close` / `drain`
+ * listeners are live. (The library's default emitter ignores every event.)
+ */
+function mocks(options: RequestOptions) {
+  return createMocks(
+    {
+      method: (options.method ?? 'GET') as any,
+      query: options.query ?? {},
+      body: options.body,
+      headers: options.headers ?? {},
+    },
+    { eventEmitter: EventEmitter }
+  );
+}
+
+async function run(options: RequestOptions) {
+  const { req, res } = mocks(options);
 
   await handler(req as any, res as any);
 
@@ -837,6 +868,8 @@ describe('forced password change', () => {
   const REQUESTS = [
     ['GET (screen)', { method: 'GET', query: {} }],
     ['GET (export page)', { method: 'GET', query: { page: '3', pageSize: '500' } }],
+    ['GET (snapshot export)', { method: 'GET', query: { export: '1' } }],
+    ['GET (filtered snapshot export)', { method: 'GET', query: { export: '1', status: 'new', program: 'inspira' } }],
     ['PATCH (status)', { method: 'PATCH', body: { id: LEAD_ID, status: 'contacted' } }],
     ['PATCH (notes)', { method: 'PATCH', body: { id: LEAD_ID, notes: 'Llamar' } }],
   ] as const;
@@ -856,7 +889,9 @@ describe('forced password change', () => {
 
       expect(status).toBe(403);
       expect(body.code).toBe(PASSWORD_CHANGE_REQUIRED_CODE);
+      expect(body.leads).toBeUndefined();
       expect(client.from).not.toHaveBeenCalled();
+      expect(client.rpc).not.toHaveBeenCalled();
     });
 
     it.each(REQUESTS)('fails closed on %s when the flag is unreadable', async (_label, request) => {
@@ -868,20 +903,26 @@ describe('forced password change', () => {
 
       expect(status).toBe(503);
       expect(body.code).toBe(PASSWORD_STATE_UNAVAILABLE_CODE);
+      expect(body.leads).toBeUndefined();
       expect(client.from).not.toHaveBeenCalled();
+      expect(client.rpc).not.toHaveBeenCalled();
     });
   });
 
-  it('treats a thrown flag read as unreadable, not as a pass', async () => {
+  it.each([
+    ['the screen', {}],
+    ['the snapshot export', { export: '1' }],
+  ])('treats a thrown flag read on %s as unreadable, not as a pass', async (_label, query) => {
     asAdmin();
     mockGetVerdict.mockRejectedValue(new Error('network down'));
     const { client } = createSupabase();
 
-    const { status, body } = await run({});
+    const { status, body } = await run({ query });
 
     expect(status).toBe(503);
     expect(body.code).toBe(PASSWORD_STATE_UNAVAILABLE_CODE);
     expect(client.from).not.toHaveBeenCalled();
+    expect(client.rpc).not.toHaveBeenCalled();
   });
 
   it('asks about the verified admin, on the service-role client', async () => {
@@ -1540,48 +1581,600 @@ describe('final-page consistency (B004-R1-02)', () => {
     expect(body.leads).toBeUndefined();
   });
 
-  /** The export collector walking the real route, as the page's `fetchPage` does. */
-  function routeFetchPage(status?: string) {
-    return async (page: number, pageSize: number): Promise<LeadPagePayload> => {
-      const response = await run({ query: pageQuery(page, pageSize, status) });
-      if (response.status !== 200) {
-        throw new LeadExportError(`${response.body.error}. No se descargó ningún archivo.`);
-      }
-      return response.body as LeadPagePayload;
-    };
+  // The paged export walker that used to be exercised here is gone (C009): the
+  // export is one snapshot read, pinned in the section below.
+});
+
+// ---------------------------------------------------------------------------
+// C009 snapshot fix — GET ?export=1.
+//
+// One call to `pasantias_admin_leads_export` and nothing else. The fake answers
+// are shaped exactly as migration 20261021180000 builds them: keys `total`,
+// `too_large_rows`, `too_large_bytes`, `bytes`, `leads`.
+//
+// LIMIT: no mock can show that the answer comes from one snapshot. That is the
+// real-stack C009 run's (CONSISTENT_SNAPSHOT) and the function's pgTAP 113.
+// ---------------------------------------------------------------------------
+
+const EXPORT_RPC = 'pasantias_admin_leads_export';
+
+const UNFILTERED_EXPORT_ARGS = { p_status: null, p_search: '', p_program: null, p_max_bytes: null };
+
+const REJECTED = '[pasantia-leads admin] lead export snapshot rejected: ';
+
+/** The function's answer for these rows. */
+function exportResult(rows: Record<string, unknown>[]): QueryResult {
+  return {
+    data: {
+      total: rows.length,
+      too_large_rows: false,
+      too_large_bytes: false,
+      bytes: JSON.stringify(rows).length,
+      leads: rows,
+    },
+    error: null,
+  };
+}
+
+/** 1205 full contacts, past PostgREST's `max_rows`, in the API's order (equal-timestamp runs included). */
+function exportRows(): Record<string, unknown>[] {
+  return scaleTable()
+    .sort(inListOrder)
+    .map((row) => leadRow({ ...row }));
+}
+
+function syntheticId(n: number) {
+  return `00000000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`;
+}
+
+/** Let every pending promise continuation run. Finite; no timers. */
+async function settleMicrotasks() {
+  for (let i = 0; i < 25; i += 1) {
+    await Promise.resolve();
   }
+}
 
-  it('the collector exports all 1205 through the unchanged route', async () => {
-    asAdmin();
-    const { table } = sharedTableSupabase(scaleTable());
+const ids = (rows: unknown[]) => rows.map((row) => (row as { id: unknown }).id);
 
-    const contacts = await collectAllMatchingLeads(routeFetchPage(), 500);
-
-    expect(contacts.map((lead) => lead.id)).toEqual([...table].sort(inListOrder).map((row) => row.id));
+describe('GET ?export=1 — every matching contact from one snapshot (C009)', () => {
+  let consoleError: ReturnType<typeof vi.spyOn>;
+  let consoleWarn: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    consoleError.mockRestore();
+    consoleWarn.mockRestore();
   });
 
-  it('the collector returns nothing when the route refuses the final page', async () => {
+  /** Nothing a contact typed ever reaches a log line. */
+  function expectNoRowLogged() {
+    const logged = JSON.stringify([...consoleError.mock.calls, ...consoleWarn.mock.calls]);
+    expect(logged).not.toMatch(/@example\.com/);
+    expect(logged).not.toContain('Pérez');
+  }
+
+  it('answers all 1205 contacts from exactly one RPC, and reads nothing else', async () => {
     asAdmin();
-    const shared = sharedTableSupabase(scaleTable());
-    const gate = shared.holdList(listAt(1000));
-    let collected: unknown = 'not settled';
+    const rows = exportRows();
+    const { client, sent } = createSupabase({ rpc: exportResult(rows) });
 
-    const pending = collectAllMatchingLeads(routeFetchPage(), 500).then(
-      (contacts) => {
-        collected = contacts;
+    const { status, body, res } = await run({ query: { export: '1' } });
+
+    expect(status).toBe(200);
+    expect(Object.keys(body)).toEqual(['snapshot', 'total', 'leads']);
+    expect(body.snapshot).toBe(true);
+    expect(body.total).toBe(1205);
+    expect(ids(body.leads)).toEqual(ids(rows));
+    expect(body.leads[0]).toEqual(rows[0]);
+    expect(body.leads[1204]).toEqual(rows[1204]);
+
+    expect(client.rpc).toHaveBeenCalledTimes(1);
+    expect(client.rpc).toHaveBeenCalledWith(EXPORT_RPC, UNFILTERED_EXPORT_ARGS);
+    // No list, count or watermark query, before or after: the snapshot is the only read.
+    expect(client.from).not.toHaveBeenCalled();
+    expect(sent).toEqual(['rpc']);
+
+    expect(res.getHeader('Content-Type')).toBe('application/json; charset=utf-8');
+    expect(res.getHeader('Cache-Control')).toBe('no-store');
+  });
+
+  it('answers an empty match as an empty snapshot', async () => {
+    asAdmin();
+    createSupabase({ rpc: exportResult([]) });
+
+    const { status, body } = await run({ query: { export: '1', search: 'nadie' } });
+
+    expect(status).toBe(200);
+    expect(body).toEqual({ snapshot: true, total: 0, leads: [] });
+  });
+
+  it.each<[string, Record<string, string | string[]>, Record<string, unknown>]>([
+    [
+      'status, a hostile search sanitized as the screen does, and a program',
+      { status: 'converted', search: '  a,b)c(Pérez"\\*  ', program: 'inspira' },
+      { p_status: 'converted', p_search: 'a b c Pérez', p_program: 'inspira', p_max_bytes: null },
+    ],
+    [
+      'contacts without a program',
+      { program: 'sin-programa' },
+      { ...UNFILTERED_EXPORT_ARGS, p_program: 'sin-programa' },
+    ],
+    ['the other program', { program: 'mirada-profunda' }, { ...UNFILTERED_EXPORT_ARGS, p_program: 'mirada-profunda' }],
+    ['empty filters as no filter (null, never "")', { status: '', search: '   ', program: '' }, UNFILTERED_EXPORT_ARGS],
+    [
+      'the first of a repeated status and search',
+      { status: ['contacted', 'new'], search: ['Pérez', 'otra'] },
+      { ...UNFILTERED_EXPORT_ARGS, p_status: 'contacted', p_search: 'Pérez' },
+    ],
+    ['LIKE wildcards kept, as on the screen', { search: '50%_x' }, { ...UNFILTERED_EXPORT_ARGS, p_search: '50%_x' }],
+    [
+      'a search cut at 120 characters',
+      { search: 'x'.repeat(130) },
+      { ...UNFILTERED_EXPORT_ARGS, p_search: 'x'.repeat(120) },
+    ],
+  ])('passes the screen’s filters to the RPC: %s', async (_label, filters, args) => {
+    asAdmin();
+    const { client } = createSupabase({ rpc: exportResult([]) });
+
+    const { status } = await run({ query: { export: '1', ...filters } });
+
+    expect(status).toBe(200);
+    expect(client.rpc).toHaveBeenCalledTimes(1);
+    expect(client.rpc).toHaveBeenCalledWith(EXPORT_RPC, args);
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it('passes the screen’s search term exactly as the screen’s or=() filter carries it', async () => {
+    asAdmin();
+    const search = 'x),program_match.program.eq.inspira';
+    const screen = createSupabase();
+    await run({ query: { search } });
+    const screenTerm = /^first_name\.ilike\.%(.*)%$/.exec(orFilters(screen.listSelect()?.or ?? null)[0])?.[1];
+
+    const exported = createSupabase({ rpc: exportResult([]) });
+    await run({ query: { export: '1', search } });
+
+    expect(screenTerm).toBeDefined();
+    expect(exported.client.rpc).toHaveBeenCalledWith(EXPORT_RPC, {
+      ...UNFILTERED_EXPORT_ARGS,
+      p_search: screenTerm,
+    });
+  });
+
+  it.each<[string, Record<string, string | string[]>, string]>([
+    ['export=0', { export: '0' }, 'export=1'],
+    ['an empty export', { export: '' }, 'export=1'],
+    ['export=true', { export: 'true' }, 'export=1'],
+    ['export=01', { export: '01' }, 'export=1'],
+    ['a repeated export', { export: ['1', '1'] }, 'export=1'],
+    ['export with page', { export: '1', page: '1' }, 'no se pagina'],
+    ['export with pageSize', { export: '1', pageSize: '500' }, 'no se pagina'],
+    ['export with both', { export: '1', page: '2', pageSize: '500' }, 'no se pagina'],
+    ['an unknown status', { export: '1', status: 'archivado' }, 'El estado indicado no es válido.'],
+    ['an unknown program', { export: '1', program: 'barcelona' }, 'El programa indicado no es válido.'],
+    ['a repeated program', { export: '1', program: ['inspira', 'mirada-profunda'] }, 'Indica un solo programa.'],
+  ])('refuses %s with 400 before any read', async (_label, query, message) => {
+    asAdmin();
+    const { client } = createSupabase({ rpc: exportResult(exportRows()) });
+
+    const { status, body } = await run({ query });
+
+    expect(status).toBe(400);
+    expect(body.error).toContain(message);
+    expect(body.leads).toBeUndefined();
+    expect(client.rpc).not.toHaveBeenCalled();
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it('answers 401 to an anonymous export before any client exists', async () => {
+    asAnonymous();
+    createSupabase({ rpc: exportResult(exportRows()) });
+
+    const { status, body } = await run({ query: { export: '1' } });
+
+    expect(status).toBe(401);
+    expect(body.leads).toBeUndefined();
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+    expect(mockGetVerdict).not.toHaveBeenCalled();
+  });
+
+  it('answers 403 to a non-admin export before any client exists', async () => {
+    asDocente();
+    createSupabase({ rpc: exportResult(exportRows()) });
+
+    const { status, body } = await run({ query: { export: '1' } });
+
+    expect(status).toBe(403);
+    expect(body.leads).toBeUndefined();
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+  });
+
+  it('asks the forced-password gate before the RPC', async () => {
+    asAdmin();
+    const { client, sent } = createSupabase({ rpc: exportResult([]) });
+    let rpcSeenByGate: boolean | null = null;
+    mockGetVerdict.mockImplementation(async () => {
+      rpcSeenByGate = sent.includes('rpc');
+      return 'allowed';
+    });
+
+    const { status } = await run({ query: { export: '1' } });
+
+    expect(status).toBe(200);
+    expect(rpcSeenByGate).toBe(false);
+    expect(mockGetVerdict).toHaveBeenCalledWith(client, 'admin-1');
+  });
+
+  it('the screen GET is unchanged: a page, its counts and watermark, never the RPC', async () => {
+    asAdmin();
+    const { client, sent } = createSupabase({ rpc: exportResult(exportRows()) });
+
+    const { status, body } = await run({ query: { page: '1', pageSize: '500' } });
+
+    expect(status).toBe(200);
+    expect(client.rpc).not.toHaveBeenCalled();
+    expect(sent.filter((kind) => kind === 'watermark')).toHaveLength(2);
+    expect(body.pagination).toBeDefined();
+    expect(body.counts).toEqual(GLOBAL_COUNTS);
+    expect(body.snapshot).toBeUndefined();
+  });
+
+  describe('the 100 000-contact ceiling, kept exactly', () => {
+    it('is the paged export’s 500 × 200, on both sides', () => {
+      expect(LEADS_EXPORT_MAX_CONTACTS).toBe(100_000);
+      expect(LEADS_EXPORT_MAX_CONTACTS).toBe(LEADS_MAX_PAGE_SIZE * 200);
+      expect(LEAD_EXPORT_MAX_CONTACTS).toBe(LEADS_EXPORT_MAX_CONTACTS);
+      expect(LEADS_EXPORT_TOO_LARGE_CODE).toBe('LEADS_EXPORT_TOO_LARGE');
+      expect(LEAD_EXPORT_TOO_LARGE_CODE).toBe(LEADS_EXPORT_TOO_LARGE_CODE);
+    });
+
+    it('streams exactly 100 000 contacts, the ceiling itself', async () => {
+      asAdmin();
+      const rows = Array.from({ length: 100_000 }, (_, i) => ({
+        id: syntheticId(99_999 - i),
+        created_at: STAMP_BEFORE,
+        program_interests: [],
+      }));
+      createSupabase({ rpc: exportResult(rows) });
+
+      const { status, body } = await run({ query: { export: '1' } });
+
+      expect(status).toBe(200);
+      expect(body.total).toBe(100_000);
+      expect(body.leads).toHaveLength(100_000);
+      expect(body.leads[0].id).toBe(syntheticId(99_999));
+      expect(body.leads[99_999].id).toBe(syntheticId(0));
+    });
+
+    it('answers 413 past it, with no rows', async () => {
+      asAdmin();
+      createSupabase({
+        rpc: {
+          data: { total: 100_001, too_large_rows: true, too_large_bytes: false, bytes: null, leads: [] },
+          error: null,
+        },
+      });
+
+      const { status, body } = await run({ query: { export: '1' } });
+
+      expect(status).toBe(413);
+      expect(body).toEqual({
+        error: 'Hay demasiados leads para exportar de una vez. Aplica un filtro y vuelve a intentarlo.',
+        code: 'LEADS_EXPORT_TOO_LARGE',
+      });
+    });
+  });
+
+  it.each(['PGRST202', '42883', '42P01'])(
+    'answers 503 when the function is not deployed (%s), and never falls back to pages',
+    async (code) => {
+      asAdmin();
+      const { client, sent } = createSupabase({
+        rpc: { data: null, error: { code, message: 'Could not find the function' } },
+      });
+
+      const { status, body } = await run({ query: { export: '1' } });
+
+      expect(status).toBe(503);
+      expect(body.migrationRequired).toBe(true);
+      expect(body.leads).toBeUndefined();
+      expect(sent).toEqual(['rpc']);
+      expect(client.from).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(['57014', '22023', 'XX000', ''])(
+    'answers 500 to any other RPC error (%j), logging its code only',
+    async (code) => {
+      asAdmin();
+      const { client } = createSupabase({
+        rpc: {
+          data: null,
+          error: { code, message: 'boom', details: 'ana@example.com Pérez', hint: null },
+        },
+      });
+
+      const { status, body } = await run({ query: { export: '1' } });
+
+      expect(status).toBe(500);
+      expect(body).toEqual({ error: 'Error al exportar los leads' });
+      expect(client.from).not.toHaveBeenCalled();
+      expect(consoleError).toHaveBeenCalledWith('[pasantia-leads admin] lead export failed:', { code });
+      expectNoRowLogged();
+    }
+  );
+
+  /** A valid answer for the first three of the 1205, to be broken one way per case. */
+  function validResult(rows = exportRows().slice(0, 3)) {
+    return exportResult(rows).data as Record<string, unknown>;
+  }
+
+  it.each<[string, () => unknown, string]>([
+    ['no result', () => null, 'result is not an object'],
+    ['an array result', () => [validResult()], 'result is not an object'],
+    [
+      'a missing key',
+      () => {
+        const result = validResult();
+        delete result.bytes;
+        return result;
       },
-      (error: unknown) => {
-        collected = error;
-      }
-    );
-    await gate.reached;
-    shared.write(shared.table[0].id, { status: 'contacted' });
-    gate.release();
-    await pending;
+      'result keys differ from the contract',
+    ],
+    ['an extra key', () => ({ ...validResult(), snapshot: true }), 'result keys differ from the contract'],
+    ['a negative total', () => ({ ...validResult(), total: -1 }), 'total is not a non-negative safe integer'],
+    ['a fractional total', () => ({ ...validResult(), total: 2.5 }), 'total is not a non-negative safe integer'],
+    ['a string total', () => ({ ...validResult(), total: '3' }), 'total is not a non-negative safe integer'],
+    [
+      'an unsafe total',
+      () => ({ ...validResult(), total: Number.MAX_SAFE_INTEGER + 1 }),
+      'total is not a non-negative safe integer',
+    ],
+    [
+      'a ceiling flag below the ceiling',
+      () => ({ ...validResult(), too_large_rows: true }),
+      'too_large_rows disagrees with the ceiling',
+    ],
+    [
+      'rows past the ceiling with no flag',
+      () => ({ ...validResult(), total: 100_001 }),
+      'too_large_rows disagrees with the ceiling',
+    ],
+    [
+      'a byte refusal nobody asked for',
+      () => ({ ...validResult(), too_large_bytes: true, leads: [] }),
+      'too_large_bytes is not false',
+    ],
+    ['leads not an array', () => ({ ...validResult(), leads: {} }), 'leads is not an array'],
+    [
+      'a ceiling refusal that carries rows',
+      () => ({ ...validResult(), total: 100_001, too_large_rows: true, bytes: null }),
+      'a refusal past the ceiling carries rows',
+    ],
+    ['no byte size', () => ({ ...validResult(), bytes: null }), 'bytes is not a non-negative safe integer'],
+    [
+      'fewer rows than the total (a truncated array)',
+      () => {
+        const result = validResult();
+        return { ...result, leads: (result.leads as unknown[]).slice(0, 2) };
+      },
+      'leads length differs from total',
+    ],
+    ['more rows than the total', () => ({ ...validResult(), total: 2 }), 'leads length differs from total'],
+    [
+      'a null row',
+      () => {
+        const rows = exportRows().slice(0, 3) as unknown[];
+        rows[1] = null;
+        return validResult(rows as Record<string, unknown>[]);
+      },
+      'a lead has no uuid id',
+    ],
+    [
+      'an id that is not a uuid',
+      () => {
+        const rows = exportRows().slice(0, 3);
+        rows[1] = { ...rows[1], id: 'not-a-uuid' };
+        return validResult(rows);
+      },
+      'a lead has no uuid id',
+    ],
+    [
+      'a repeated id',
+      () => {
+        const rows = exportRows().slice(0, 3);
+        rows[2] = { ...rows[2], id: rows[1].id };
+        return validResult(rows);
+      },
+      'a lead id repeats',
+    ],
+    [
+      'a row without its interests array',
+      () => {
+        const rows = exportRows().slice(0, 3);
+        const { program_interests: _dropped, ...withoutInterests } = rows[1];
+        rows[1] = withoutInterests;
+        return validResult(rows);
+      },
+      'a lead has no interests array',
+    ],
+    [
+      'an unreadable created_at',
+      () => {
+        const rows = exportRows().slice(0, 3);
+        rows[1] = { ...rows[1], created_at: 'ayer' };
+        return validResult(rows);
+      },
+      'a lead has an unreadable created_at',
+    ],
+    [
+      'ids out of order inside one timestamp',
+      () => {
+        const rows = exportRows().slice(0, 3);
+        [rows[0], rows[1]] = [rows[1], rows[0]];
+        return validResult(rows);
+      },
+      'leads are out of order',
+    ],
+    [
+      'an older contact before a newer one',
+      () => {
+        const rows = exportRows();
+        return validResult([rows[1204], rows[0]]);
+      },
+      'leads are out of order',
+    ],
+  ])('answers 500 and sends no row for %s', async (_label, data, reason) => {
+    asAdmin();
+    const { client } = createSupabase({ rpc: { data: data(), error: null } });
 
-    expect(collected).toBeInstanceOf(LeadExportError);
-    expect((collected as Error).message).toBe(
-      'Los leads cambiaron mientras se leían. No se descargó ningún archivo.'
-    );
+    const { status, body, res } = await run({ query: { export: '1' } });
+
+    expect(status).toBe(500);
+    expect(body).toEqual({ error: 'Error al exportar los leads' });
+    // The stream never started: its headers were never set.
+    expect(res.getHeader('Cache-Control')).toBeUndefined();
+    expect(client.from).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledWith(`${REJECTED}${reason}`);
+    expectNoRowLogged();
+  });
+
+  describe('streaming', () => {
+    it('declares only the route config the export needs', () => {
+      expect(config).toEqual({ api: { responseLimit: false }, maxDuration: 60 });
+    });
+
+    it('writes the body in chunks rather than as one string', async () => {
+      asAdmin();
+      createSupabase({ rpc: exportResult(exportRows()) });
+      const { req, res } = mocks({ query: { export: '1' } });
+      const write = vi.spyOn(res, 'write');
+
+      await handler(req as any, res as any);
+
+      expect(write.mock.calls.length).toBeGreaterThan(1);
+      expect(res._isEndCalled()).toBe(true);
+      expect(JSON.parse(res._getData()).leads).toHaveLength(1205);
+    });
+
+    /** Replace `res.write`: the first call answers `false` (the socket pushes back). */
+    function pushBackOnFirstWrite(res: ReturnType<typeof mocks>['res']) {
+      const original = res.write.bind(res);
+      const firstWrite = gate();
+      const counter = { writes: 0 };
+      res.write = ((chunk: string) => {
+        counter.writes += 1;
+        original(chunk);
+        if (counter.writes === 1) {
+          firstWrite.open();
+          return false;
+        }
+        return true;
+      }) as typeof res.write;
+      return { firstWrite: firstWrite.promise, counter };
+    }
+
+    it('waits for drain when the socket pushes back, then finishes the body', async () => {
+      asAdmin();
+      createSupabase({ rpc: exportResult(exportRows()) });
+      const { req, res } = mocks({ query: { export: '1' } });
+      const { firstWrite, counter } = pushBackOnFirstWrite(res);
+
+      const done = handler(req as any, res as any);
+      await firstWrite;
+      await settleMicrotasks();
+
+      // Nothing more is written until the socket drains.
+      expect(counter.writes).toBe(1);
+      expect(res._isEndCalled()).toBe(false);
+
+      res.emit('drain');
+      await done;
+
+      expect(counter.writes).toBeGreaterThan(1);
+      expect(res._isEndCalled()).toBe(true);
+      expect(ids(JSON.parse(res._getData()).leads)).toEqual(ids(exportRows()));
+    });
+
+    it('stops when the client goes away mid-body, and never closes the JSON', async () => {
+      asAdmin();
+      createSupabase({ rpc: exportResult(exportRows()) });
+      const { req, res } = mocks({ query: { export: '1' } });
+      const { firstWrite, counter } = pushBackOnFirstWrite(res);
+
+      const done = handler(req as any, res as any);
+      await firstWrite;
+      res.emit('close');
+      await done;
+
+      expect(counter.writes).toBe(1);
+      expect(res._isEndCalled()).toBe(false);
+      expect(res._getData().startsWith('{"snapshot":true,"total":1205,"leads":[')).toBe(true);
+      expect(() => JSON.parse(res._getData())).toThrow();
+      expectNoRowLogged();
+    });
+
+    it('writes nothing when the client goes away while the database reads', async () => {
+      asAdmin();
+      const reached = gate();
+      const answer = gate();
+      createSupabase({
+        rpc: async () => {
+          reached.open();
+          await answer.promise;
+          return exportResult(exportRows());
+        },
+      });
+      const { req, res } = mocks({ query: { export: '1' } });
+      const write = vi.spyOn(res, 'write');
+
+      const done = handler(req as any, res as any);
+      await reached.promise;
+      res.emit('close');
+      answer.open();
+      await done;
+
+      expect(write).not.toHaveBeenCalled();
+      expect(res._isEndCalled()).toBe(false);
+    });
+
+    it('destroys the response when a write fails mid-body, and appends nothing', async () => {
+      asAdmin();
+      createSupabase({ rpc: exportResult(exportRows()) });
+      const { req, res } = mocks({ query: { export: '1' } });
+      const original = res.write.bind(res);
+      let writes = 0;
+      res.write = ((chunk: string) => {
+        writes += 1;
+        if (writes === 2) throw new Error('socket hang up');
+        return original(chunk);
+      }) as typeof res.write;
+      const destroy = vi.spyOn(res, 'destroy').mockImplementation(() => res as any);
+
+      await handler(req as any, res as any);
+
+      expect(destroy).toHaveBeenCalledTimes(1);
+      expect(res._isEndCalled()).toBe(false);
+      expect(res.statusCode).toBe(200);
+      expect(() => JSON.parse(res._getData())).toThrow();
+      expect(consoleError).toHaveBeenCalledWith(
+        '[pasantia-leads admin] lead export stream failed:',
+        expect.any(Error)
+      );
+      expectNoRowLogged();
+    });
+  });
+
+  it('the page’s collector accepts the streamed body whole: 1205, in order', async () => {
+    asAdmin();
+    const rows = exportRows();
+    createSupabase({ rpc: exportResult(rows) });
+
+    const { body } = await run({ query: { export: '1' } });
+    const contacts = await collectLeadExportSnapshot(async () => body as LeadExportSnapshotPayload);
+
+    expect(ids(contacts)).toEqual(ids(rows));
   });
 });

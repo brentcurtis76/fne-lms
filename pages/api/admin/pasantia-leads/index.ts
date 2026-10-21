@@ -31,6 +31,13 @@
  * cookie branch, and this route reads and writes PII with a service-role
  * client. It runs after the admin decision and before ANY lead, interest or
  * count query, with the shared verdict and response helpers unchanged.
+ *
+ * C009 snapshot fix. The CSV export is `GET ?export=1`: ONE call to
+ * `pasantias_admin_leads_export` (migration 20261021180000), which returns the
+ * matching total and every matching contact with its interests from a single
+ * database snapshot. The export never walks pages and never falls back to
+ * them: separate PostgREST statements each see their own snapshot, so a write
+ * committing between them could drop a contact that matched the whole time.
  */
 import type { NextApiRequest, NextApiResponse } from 'next';
 import {
@@ -50,6 +57,19 @@ import {
   type JanuaryProgramId,
   type LeadStatus,
 } from '../../../../lib/pasantias/leads';
+
+/**
+ * Only the export needs these. It streams every matching contact in one
+ * response, up to the 100 000-contact ceiling: `responseLimit: false` lifts
+ * Next's 4 MB API response guard, and Vercel's 4.5 MB body limit does not apply
+ * to a streamed response
+ * (https://vercel.com/kb/guide/how-to-bypass-vercel-body-size-limit-serverless-functions).
+ * The screen GET and PATCH answer one page or one contact and are unaffected.
+ */
+export const config = {
+  api: { responseLimit: false },
+  maxDuration: 60,
+};
 
 const LOG_PREFIX = 'pasantia-leads admin';
 const TABLE = 'pasantias_leads';
@@ -120,13 +140,39 @@ const SEARCH_MAX_LENGTH = 120;
 /**
  * Page bounds. The maximum stays well under PostgREST's `max_rows` (1000,
  * `supabase/config.toml`): a page the server truncated would be a page that
- * LOOKS complete, which is the exact failure this unit removes. The export
- * walks pages of the maximum size; the screen uses the default.
+ * LOOKS complete, which is the exact failure this unit removes. The screen uses
+ * the default; the export does not page at all.
  */
 export const LEADS_DEFAULT_PAGE_SIZE = 50;
 export const LEADS_MAX_PAGE_SIZE = 500;
 /** 500 × 10 000 contacts is far past any cohort; a larger page number is a mistake. */
 export const LEADS_MAX_PAGE = 10_000;
+
+/** The one database read behind the export (see the file comment). */
+const EXPORT_RPC = 'pasantias_admin_leads_export';
+
+/**
+ * The export's ceiling, unchanged from the paged export (500 per page × 200
+ * pages). The function decides it inside the same snapshot; the route only
+ * checks that its answer agrees.
+ */
+export const LEADS_EXPORT_MAX_CONTACTS = 100_000;
+
+/** The 413 code of an export past the ceiling. */
+export const LEADS_EXPORT_TOO_LARGE_CODE = 'LEADS_EXPORT_TOO_LARGE';
+
+/**
+ * PostgREST errors meaning the export is not deployed: no matching function
+ * signature (`PGRST202`), or the function or a table under it missing. The
+ * `pages/api/pasantias/lead.ts` set.
+ */
+const EXPORT_RPC_UNAVAILABLE_CODES = new Set(['PGRST202', '42883', '42P01']);
+
+/** The function's result keys, exactly (migration 20261021180000). */
+const EXPORT_RESULT_KEYS = ['total', 'too_large_rows', 'too_large_bytes', 'bytes', 'leads'] as const;
+
+/** Characters buffered per write of the streamed export body. */
+const EXPORT_CHUNK_CHARS = 64 * 1024;
 
 /** A positive decimal integer, written plainly: no sign, no leading zero, no exponent. */
 const POSITIVE_INTEGER_PATTERN = /^[1-9][0-9]{0,5}$/;
@@ -318,15 +364,17 @@ function listSelect(filters: LeadFilters): string {
   return `${LEAD_COLUMNS}, ${INTERESTS_EMBED}${matchEmbed}`;
 }
 
-async function handleGet(
-  req: NextApiRequest,
-  res: NextApiResponse,
-  supabase: ReturnType<typeof createServiceRoleClient>
-) {
-  const statusParam = firstValue(req.query.status as string | string[] | undefined);
+type FiltersParse = { ok: true; filters: LeadFilters } | { ok: false; error: string };
+
+/**
+ * The status, search and program filters, read the same way for the screen and
+ * the export, so the two can never disagree about what "matching" means.
+ */
+function parseLeadFilters(query: NextApiRequest['query']): FiltersParse {
+  const statusParam = firstValue(query.status as string | string[] | undefined);
   if (statusParam !== undefined && statusParam !== '' && !isLeadStatus(statusParam)) {
     // An unknown value is a mistake worth surfacing, never a silent "all".
-    return res.status(400).json({ error: 'El estado indicado no es válido.' });
+    return { ok: false, error: 'El estado indicado no es válido.' };
   }
 
   // `program` is new with this unit, so it has no inherited first-value
@@ -334,14 +382,268 @@ async function handleGet(
   // the first would show one program's contacts to an admin who asked for two,
   // and this route offers no "either program" filter. `status` and `search`
   // keep their existing first-value reading.
-  const rawProgram = req.query.program as string | string[] | undefined;
+  const rawProgram = query.program as string | string[] | undefined;
   if (Array.isArray(rawProgram)) {
-    return res.status(400).json({ error: 'Indica un solo programa.' });
+    return { ok: false, error: 'Indica un solo programa.' };
   }
   const programParam = rawProgram;
   if (programParam !== undefined && programParam !== '' && !isProgramFilter(programParam)) {
-    return res.status(400).json({ error: 'El programa indicado no es válido.' });
+    return { ok: false, error: 'El programa indicado no es válido.' };
   }
+
+  return {
+    ok: true,
+    filters: {
+      status: isLeadStatus(statusParam) ? statusParam : null,
+      search: sanitizeSearchTerm(firstValue(query.search as string | string[] | undefined) ?? ''),
+      program: isProgramFilter(programParam) ? programParam : null,
+    },
+  };
+}
+
+/**
+ * Microseconds since the epoch for a `timestamptz` as PostgreSQL renders it in
+ * JSON, or `null`. The page's `timestampMicros` reading: `Date.parse` keeps
+ * milliseconds only, and contacts inserted together differ below that.
+ */
+function timestampMicros(value: unknown): number | null {
+  if (typeof value !== 'string') return null;
+  const match = /^(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}(?::?\d{2})?)$/.exec(
+    value
+  );
+  if (!match) return null;
+  const offset =
+    match[3] === 'Z'
+      ? 'Z'
+      : match[3].length === 3
+        ? `${match[3]}:00`
+        : `${match[3].slice(0, 3)}:${match[3].slice(-2)}`;
+  const millis = Date.parse(`${match[1].replace(' ', 'T')}${offset}`);
+  if (Number.isNaN(millis)) return null;
+  return millis * 1000 + Number((match[2] ?? '').padEnd(6, '0').slice(0, 6));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isNonNegativeSafeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+}
+
+type ExportSnapshot =
+  | { kind: 'rows'; total: number; leads: Record<string, unknown>[] }
+  | { kind: 'too_large' }
+  | { kind: 'malformed'; reason: string };
+
+/**
+ * The function's answer, checked whole before a single byte is sent. Anything
+ * short of exactly the contract is `malformed`: a 500, never a partial or
+ * repaired export. The reasons are fixed text; no row value reaches the log.
+ */
+function readExportSnapshot(data: unknown): ExportSnapshot {
+  const malformed = (reason: string): ExportSnapshot => ({ kind: 'malformed', reason });
+
+  if (!isRecord(data)) return malformed('result is not an object');
+  const keys = Object.keys(data);
+  if (
+    keys.length !== EXPORT_RESULT_KEYS.length ||
+    !EXPORT_RESULT_KEYS.every((key) => keys.includes(key))
+  ) {
+    return malformed('result keys differ from the contract');
+  }
+
+  const { total, too_large_rows: tooLargeRows, too_large_bytes: tooLargeBytes, bytes, leads } = data;
+  if (!isNonNegativeSafeInteger(total)) return malformed('total is not a non-negative safe integer');
+  if (tooLargeRows !== (total > LEADS_EXPORT_MAX_CONTACTS)) {
+    return malformed('too_large_rows disagrees with the ceiling');
+  }
+  // The route asks for no byte limit (`p_max_bytes` null), so a byte refusal
+  // cannot be a genuine answer.
+  if (tooLargeBytes !== false) return malformed('too_large_bytes is not false');
+  if (!Array.isArray(leads)) return malformed('leads is not an array');
+
+  if (tooLargeRows) {
+    return leads.length === 0 && bytes === null
+      ? { kind: 'too_large' }
+      : malformed('a refusal past the ceiling carries rows');
+  }
+
+  if (!isNonNegativeSafeInteger(bytes)) return malformed('bytes is not a non-negative safe integer');
+  if (leads.length !== total) return malformed('leads length differs from total');
+
+  const seen = new Set<string>();
+  let previous: { id: string; createdAt: number } | null = null;
+  for (const lead of leads) {
+    if (!isRecord(lead) || typeof lead.id !== 'string' || !UUID_PATTERN.test(lead.id)) {
+      return malformed('a lead has no uuid id');
+    }
+    if (seen.has(lead.id)) return malformed('a lead id repeats');
+    if (!Array.isArray(lead.program_interests)) return malformed('a lead has no interests array');
+    const createdAt = timestampMicros(lead.created_at);
+    if (createdAt === null) return malformed('a lead has an unreadable created_at');
+    // `created_at desc, id desc`, strictly: an equal pair would be a repeat.
+    if (
+      previous &&
+      !(previous.createdAt > createdAt || (previous.createdAt === createdAt && previous.id > lead.id))
+    ) {
+      return malformed('leads are out of order');
+    }
+    seen.add(lead.id);
+    previous = { id: lead.id, createdAt };
+  }
+
+  return { kind: 'rows', total, leads: leads as Record<string, unknown>[] };
+}
+
+/**
+ * One write, honouring backpressure: `false` once the client has gone, whether
+ * before the write or while waiting for the socket to drain. Waiting on `drain`
+ * alone would hang a closed connection until `maxDuration`.
+ */
+function writeExportChunk(
+  res: NextApiResponse,
+  chunk: string,
+  isClosed: () => boolean
+): Promise<boolean> {
+  if (isClosed() || res.destroyed) return Promise.resolve(false);
+  if (res.write(chunk) !== false) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const settle = (drained: boolean) => {
+      res.removeListener('drain', onDrain);
+      res.removeListener('close', onClose);
+      resolve(drained);
+    };
+    const onDrain = () => settle(true);
+    const onClose = () => settle(false);
+    res.on('drain', onDrain);
+    res.on('close', onClose);
+  });
+}
+
+/**
+ * The validated snapshot as one JSON body, `{"snapshot":true,"total":N,"leads":[…]}`,
+ * written in chunks rather than built as one string.
+ *
+ * Once the status line is out there is no honest way left to say "failed"
+ * except cutting the body: a client that goes away stops the writes, and a
+ * write that fails destroys the response. Either way the body never closes its
+ * JSON, and the page reads an unparseable body as an incomplete export.
+ */
+async function streamExport(
+  res: NextApiResponse,
+  total: number,
+  leads: Record<string, unknown>[],
+  isClosed: () => boolean
+) {
+  const closedEarly = () =>
+    console.warn(`[${LOG_PREFIX}] lead export closed by the client before it ended`);
+
+  try {
+    res.status(200);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
+
+    let buffer = `{"snapshot":true,"total":${total},"leads":[`;
+    for (let index = 0; index < leads.length; index += 1) {
+      buffer += `${index === 0 ? '' : ','}${JSON.stringify(toLeadResponse(leads[index]))}`;
+      if (buffer.length >= EXPORT_CHUNK_CHARS) {
+        if (!(await writeExportChunk(res, buffer, isClosed))) return closedEarly();
+        buffer = '';
+      }
+    }
+    if (isClosed() || res.destroyed) return closedEarly();
+    res.end(`${buffer}]}`);
+  } catch (error) {
+    console.error(`[${LOG_PREFIX}] lead export stream failed:`, error);
+    res.destroy();
+  }
+}
+
+/**
+ * `GET ?export=1`: every contact matching the filters, from one snapshot, or a
+ * refusal. Auth and the forced-password gate have already run (handler).
+ */
+async function handleExport(
+  req: NextApiRequest,
+  res: NextApiResponse,
+  supabase: ReturnType<typeof createServiceRoleClient>
+) {
+  if (req.query.export !== '1') {
+    return res.status(400).json({ error: 'La exportación se pide con export=1.' });
+  }
+  if (req.query.page !== undefined || req.query.pageSize !== undefined) {
+    return res.status(400).json({ error: 'La exportación no se pagina: quita page y pageSize.' });
+  }
+  const parsed = parseLeadFilters(req.query);
+  if (parsed.ok !== true) {
+    return res.status(400).json({ error: parsed.error });
+  }
+  const { filters } = parsed;
+
+  // Listening before the read, so a client that leaves while the database works
+  // is not answered with a body nobody will read.
+  let closed = false;
+  const onClose = () => {
+    closed = true;
+  };
+  res.on('close', onClose);
+
+  try {
+    // `p_status` and `p_program` are null when unused, never ''. `p_search` is
+    // the sanitized term, '' meaning no search. No byte limit: a streamed
+    // response keeps the full ceiling.
+    const { data, error } = await supabase.rpc(EXPORT_RPC, {
+      p_status: filters.status,
+      p_search: filters.search,
+      p_program: filters.program,
+      p_max_bytes: null,
+    });
+
+    if (error) {
+      if (EXPORT_RPC_UNAVAILABLE_CODES.has(error.code)) {
+        return res.status(503).json({
+          error: 'La exportación de leads no está disponible. Aplica la migración antes de exportar.',
+          migrationRequired: true,
+        });
+      }
+      console.error(`[${LOG_PREFIX}] lead export failed:`, { code: error.code });
+      return res.status(500).json({ error: 'Error al exportar los leads' });
+    }
+
+    const snapshot = readExportSnapshot(data);
+    if (snapshot.kind === 'too_large') {
+      return res.status(413).json({
+        error: 'Hay demasiados leads para exportar de una vez. Aplica un filtro y vuelve a intentarlo.',
+        code: LEADS_EXPORT_TOO_LARGE_CODE,
+      });
+    }
+    if (snapshot.kind === 'malformed') {
+      console.error(`[${LOG_PREFIX}] lead export snapshot rejected: ${snapshot.reason}`);
+      return res.status(500).json({ error: 'Error al exportar los leads' });
+    }
+
+    return await streamExport(res, snapshot.total, snapshot.leads, () => closed);
+  } finally {
+    res.removeListener('close', onClose);
+  }
+}
+
+async function handleGet(
+  req: NextApiRequest,
+  res: NextApiResponse,
+  supabase: ReturnType<typeof createServiceRoleClient>
+) {
+  // The export is its own read: one snapshot, no pages, no watermark.
+  if (req.query.export !== undefined) {
+    return handleExport(req, res, supabase);
+  }
+
+  const parsed = parseLeadFilters(req.query);
+  if (parsed.ok !== true) {
+    return res.status(400).json({ error: parsed.error });
+  }
+  const { filters } = parsed;
 
   const page = parsePositiveInteger(
     req.query.page as string | string[] | undefined,
@@ -359,18 +661,10 @@ async function handleGet(
     });
   }
 
-  const filters: LeadFilters = {
-    status: isLeadStatus(statusParam) ? statusParam : null,
-    search: sanitizeSearchTerm(firstValue(req.query.search as string | string[] | undefined) ?? ''),
-    program: isProgramFilter(programParam) ? programParam : null,
-  };
-
   // The watermark is read BEFORE the page and read again AFTER every data read
-  // (below); the response carries it only if both reads agree. An export then
-  // requires every page to carry page 1's watermark, so a written contact that
-  // moves it anywhere between page 1's first read and the last page's second
-  // read refuses the export. Without the second read, a write landing between
-  // the LAST page's first read and its list query went unseen.
+  // (below); the response carries it only if both reads agree, so a write the
+  // second read sees refuses the page. It is detection over `updated_at`, not
+  // a snapshot, and the export no longer relies on it (`handleExport`).
   const before = await readWatermark(supabase);
   if (before.ok !== true) {
     if (isMissingTable(before.error)) {
@@ -622,8 +916,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const supabase = createServiceRoleClient();
 
-    // Before any lead, interest or count query, for GET (screen and export
-    // pages alike) and PATCH, whichever way the caller authenticated.
+    // Before any lead, interest or count query and before the export's RPC, for
+    // GET (screen pages and the export alike) and PATCH, whichever way the
+    // caller authenticated.
     const verdict = await readForcedChangeVerdict(supabase, user.id);
     if (sendForcedPasswordChangeResponse(res, verdict)) return;
 

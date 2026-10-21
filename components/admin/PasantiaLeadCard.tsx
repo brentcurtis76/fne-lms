@@ -29,9 +29,9 @@ import { formatDateTime } from '../../lib/signups';
  *    happened the card says so rather than letting it read as corroboration.
  *
  * PASANT-B004 adds the contact's program interests and the pure pieces of the
- * page's paged CSV export (`collectAllMatchingLeads`, `leadCsvRow`) here, for
- * the same reason: the export's completeness rules are the riskiest logic on
- * the page, and they are only cheap to test away from the page's dependencies.
+ * page's CSV export (`collectLeadExportSnapshot`, `leadCsvRow`) here, for the
+ * same reason: the export's completeness rules are the riskiest logic on the
+ * page, and they are only cheap to test away from the page's dependencies.
  */
 
 /** One program a contact asked about, with that interest's own consent evidence. */
@@ -231,14 +231,26 @@ export interface LeadListFilters {
   program: string | null;
 }
 
-/** The GET query for one page of one filter set. Shared by the screen and the export. */
-export function leadsQueryString(filters: LeadListFilters, page: number, pageSize: number): string {
+function filterParams(filters: LeadListFilters): URLSearchParams {
   const params = new URLSearchParams();
   if (filters.status) params.set('status', filters.status);
   if (filters.search) params.set('search', filters.search);
   if (filters.program) params.set('program', filters.program);
+  return params;
+}
+
+/** The screen's GET query for one page of one filter set. */
+export function leadsQueryString(filters: LeadListFilters, page: number, pageSize: number): string {
+  const params = filterParams(filters);
   params.set('page', String(page));
   params.set('pageSize', String(pageSize));
+  return params.toString();
+}
+
+/** The export's GET query: the same filters, `export=1`, and never a page. */
+export function leadExportQueryString(filters: LeadListFilters): string {
+  const params = filterParams(filters);
+  params.set('export', '1');
   return params.toString();
 }
 
@@ -311,22 +323,27 @@ export function leadCsvRow(lead: PasantiaLead): LeadCsvRow {
   };
 }
 
-/** One page as `GET /api/admin/pasantia-leads` answers it. */
-export interface LeadPagePayload {
+/** The export as `GET /api/admin/pasantia-leads?export=1` answers it. */
+export interface LeadExportSnapshotPayload {
+  snapshot: true;
+  total: number;
   leads: PasantiaLead[];
-  pagination: { page: number; pageSize: number; total: number; pageCount: number };
-  watermark: string | null;
 }
 
-/** The export walks pages of the API's maximum size (`LEADS_MAX_PAGE_SIZE`). */
-export const LEAD_EXPORT_PAGE_SIZE = 500;
+/**
+ * 100 000 contacts (the paged export's 500 × 200), the API's
+ * `LEADS_EXPORT_MAX_CONTACTS`. Past this the export refuses.
+ */
+export const LEAD_EXPORT_MAX_CONTACTS = 100_000;
 
-/** 100 000 contacts. Past this the export refuses instead of running unbounded. */
-export const LEAD_EXPORT_MAX_PAGES = 200;
+/** The API's 413 code past that ceiling. Mirrors `LEADS_EXPORT_TOO_LARGE_CODE`. */
+export const LEAD_EXPORT_TOO_LARGE_CODE = 'LEADS_EXPORT_TOO_LARGE';
+
+const LEAD_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const SNAPSHOT_PAYLOAD_KEYS = ['snapshot', 'total', 'leads'];
 
 export const LEAD_EXPORT_MESSAGES = {
-  changed:
-    'Los leads cambiaron mientras se exportaban. No se descargó ningún archivo; vuelve a intentarlo.',
   incomplete:
     'La exportación quedó incompleta o inconsistente. No se descargó ningún archivo; vuelve a intentarlo.',
   tooLarge: 'Hay demasiados leads para exportar de una vez. Aplica un filtro y vuelve a intentarlo.',
@@ -368,91 +385,58 @@ function precedesInListOrder(a: PasantiaLead, b: PasantiaLead): boolean {
 }
 
 /**
- * Every contact matching ONE filter set, or a `LeadExportError` — never a
- * partial list.
+ * Every contact matching ONE filter set, from ONE database snapshot, or a
+ * `LeadExportError` — never a partial list.
  *
- * `fetchPage` must close over a filter set captured once, before the first
- * call; it must throw on any non-OK response (an expired session included).
- * The first page fixes the total and the watermark. Every later page must
- * repeat both exactly, be full (or, on the last page, hold exactly the
- * remainder), carry no id seen before and continue the newest-first order. The
- * total walked must equal the total announced. Any departure means the table
- * moved or a page went missing, and the export stops rather than guess.
- *
- * Nothing is checked after the last page here: the route answers a page only if
- * its watermark read before that page's data equals the one read after it
- * (409 otherwise, which `fetchPage` turns into a throw). That is what covers a
- * write landing inside the LAST page's read. It is detection over `updated_at`,
- * not a snapshot of the table.
+ * `fetchSnapshot` is called exactly once. It must close over a filter set
+ * captured before the call, and throw on any non-OK response (an expired
+ * session, a held account, a refusal). The route reads the total and every
+ * matching contact in one statement (C009), so nothing here waits for a second
+ * answer to compare against. What it checks is that the body it got is the
+ * whole snapshot: the snapshot marker, exactly the three keys, a usable total
+ * within the ceiling, exactly `total` rows, unique contact ids, every interest
+ * list present and the strict newest-first order. A body cut short in transit
+ * never reaches here: it does not parse.
  */
-export async function collectAllMatchingLeads(
-  fetchPage: (page: number, pageSize: number) => Promise<LeadPagePayload>,
-  pageSize: number = LEAD_EXPORT_PAGE_SIZE
+export async function collectLeadExportSnapshot(
+  fetchSnapshot: () => Promise<LeadExportSnapshotPayload>
 ): Promise<PasantiaLead[]> {
-  const first = await fetchPage(1, pageSize);
-  const total = first?.pagination?.total;
-  if (typeof total !== 'number' || !Number.isInteger(total) || total < 0) {
-    throw new LeadExportError(LEAD_EXPORT_MESSAGES.incomplete);
+  const payload: unknown = await fetchSnapshot();
+  const incomplete = () => new LeadExportError(LEAD_EXPORT_MESSAGES.incomplete);
+
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) throw incomplete();
+  const keys = Object.keys(payload);
+  if (
+    keys.length !== SNAPSHOT_PAYLOAD_KEYS.length ||
+    !SNAPSHOT_PAYLOAD_KEYS.every((key) => keys.includes(key))
+  ) {
+    throw incomplete();
   }
 
-  const pageCount = Math.ceil(total / pageSize);
-  if (pageCount > LEAD_EXPORT_MAX_PAGES) {
+  const { snapshot, total, leads } = payload as Record<string, unknown>;
+  if (snapshot !== true) throw incomplete();
+  if (typeof total !== 'number' || !Number.isSafeInteger(total) || total < 0) throw incomplete();
+  if (total > LEAD_EXPORT_MAX_CONTACTS) {
     throw new LeadExportError(LEAD_EXPORT_MESSAGES.tooLarge);
   }
+  if (!Array.isArray(leads) || leads.length !== total) throw incomplete();
 
-  const watermark = first.watermark;
-  const collected: PasantiaLead[] = [];
   const seen = new Set<string>();
-
-  const accept = (payload: LeadPagePayload, page: number) => {
-    const meta = payload?.pagination;
+  leads.forEach((lead: PasantiaLead | null, index) => {
     if (
-      !meta ||
-      meta.page !== page ||
-      meta.pageSize !== pageSize ||
-      meta.total !== total ||
-      payload.watermark !== watermark
+      !lead ||
+      typeof lead.id !== 'string' ||
+      !LEAD_ID_PATTERN.test(lead.id) ||
+      seen.has(lead.id) ||
+      !Array.isArray(lead.program_interests)
     ) {
-      throw new LeadExportError(LEAD_EXPORT_MESSAGES.changed);
+      throw incomplete();
     }
+    if (index > 0 && !precedesInListOrder(leads[index - 1], lead)) throw incomplete();
+    seen.add(lead.id);
+  });
 
-    const leads = Array.isArray(payload.leads) ? payload.leads : [];
-    const expectedRows = page < pageCount ? pageSize : total - pageSize * (pageCount - 1);
-    if (leads.length !== expectedRows) {
-      throw new LeadExportError(LEAD_EXPORT_MESSAGES.incomplete);
-    }
-
-    for (const lead of leads) {
-      if (!lead || typeof lead.id !== 'string' || seen.has(lead.id)) {
-        throw new LeadExportError(LEAD_EXPORT_MESSAGES.changed);
-      }
-      const previous = collected[collected.length - 1];
-      if (previous && !precedesInListOrder(previous, lead)) {
-        throw new LeadExportError(LEAD_EXPORT_MESSAGES.changed);
-      }
-      seen.add(lead.id);
-      collected.push(lead);
-    }
-  };
-
-  if (pageCount === 0) {
-    // An empty result is a valid export (headers only), but only if the page
-    // agrees that it is empty.
-    if (!Array.isArray(first.leads) || first.leads.length !== 0) {
-      throw new LeadExportError(LEAD_EXPORT_MESSAGES.incomplete);
-    }
-    return [];
-  }
-
-  accept(first, 1);
-  for (let page = 2; page <= pageCount; page += 1) {
-    accept(await fetchPage(page, pageSize), page);
-  }
-
-  if (collected.length !== total) {
-    throw new LeadExportError(LEAD_EXPORT_MESSAGES.incomplete);
-  }
-  return collected;
+  return leads as PasantiaLead[];
 }
 
 function Field({

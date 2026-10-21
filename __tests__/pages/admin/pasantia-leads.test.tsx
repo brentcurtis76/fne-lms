@@ -12,8 +12,10 @@
  *
  * B004-R1-01: a save started under one filter/page must not repaint the screen with
  *             that old context after the admin has moved to another one.
- * B004-R1-02: an export whose last page the API refuses must download nothing, say so,
- *             and leave the button usable for a retry.
+ * C009 snapshot (replaces the B004-R1-02 paged-export cases): the export is ONE request,
+ *             `?export=1` with the captured filters and no page; a refused, incomplete,
+ *             unparseable or aborted answer downloads nothing, says so, and leaves the
+ *             button usable for a retry.
  *
  * The fake server answers by the request's own URL. The tab counts in these answers
  * are deliberately different per context, although the real API's tab counts are
@@ -82,6 +84,10 @@ interface Call {
   version: number;
   answered: boolean;
   answer: (status: number, body: unknown) => void;
+  /** A response whose body does not parse: a stream cut short in transit. */
+  answerUnparseable: (status: number) => void;
+  /** The request itself fails: an abort or a dropped connection. */
+  fail: (error: Error) => void;
 }
 
 let calls: Call[] = [];
@@ -95,9 +101,15 @@ function installFetch() {
     vi.fn((input: unknown, init?: { method?: string; body?: unknown }) => {
       const url = String(input);
       let settle!: (response: FakeResponse) => void;
-      const promise = new Promise<FakeResponse>((resolve) => {
+      let refuse!: (error: Error) => void;
+      const promise = new Promise<FakeResponse>((resolve, reject) => {
         settle = resolve;
+        refuse = reject;
       });
+      const markAnswered = () => {
+        if (call.answered) throw new Error(`answered twice: ${url}`);
+        call.answered = true;
+      };
       const call: Call = {
         url,
         method: init?.method ?? 'GET',
@@ -106,9 +118,22 @@ function installFetch() {
         version: serverVersion,
         answered: false,
         answer: (status, body) => {
-          if (call.answered) throw new Error(`answered twice: ${url}`);
-          call.answered = true;
+          markAnswered();
           settle({ ok: status >= 200 && status < 300, status, json: async () => body });
+        },
+        answerUnparseable: (status) => {
+          markAnswered();
+          settle({
+            ok: status >= 200 && status < 300,
+            status,
+            json: async () => {
+              throw new SyntaxError('Unexpected end of JSON input');
+            },
+          });
+        },
+        fail: (error) => {
+          markAnswered();
+          refuse(error);
         },
       };
       calls.push(call);
@@ -525,10 +550,9 @@ describe('the search debounce resets the page only for a new search (BROWSER-RUN
 });
 
 // ---------------------------------------------------------------------------
-// B004-R1-02 — the export's last page refused by the API.
+// C009 snapshot — the export is one request. (The B004-R1-02 cases that drove a
+// paged export here were replaced with it: there is no page left to refuse.)
 // ---------------------------------------------------------------------------
-
-const WATERMARK = '2026-10-15T12:00:00.000001+00:00';
 
 /** 1205 contacts in the API's order, in runs of seven equal timestamps. */
 const EXPORT_ROWS = Array.from({ length: 1205 }, (_, index) => {
@@ -542,18 +566,24 @@ const EXPORT_ROWS = Array.from({ length: 1205 }, (_, index) => {
   a.created_at === b.created_at ? (a.id < b.id ? 1 : -1) : a.created_at < b.created_at ? 1 : -1
 );
 
-function exportPage(call: Call) {
-  const page = Number(call.params.get('page'));
-  const pageSize = Number(call.params.get('pageSize'));
-  return {
-    leads: EXPORT_ROWS.slice((page - 1) * pageSize, page * pageSize),
-    counts: COUNTS_A,
-    pagination: { page, pageSize, total: EXPORT_ROWS.length, pageCount: Math.ceil(1205 / pageSize) },
-    watermark: WATERMARK,
-  };
+/** The export's answer, as `GET ?export=1` gives it. */
+function snapshotBody(rows: unknown[] = EXPORT_ROWS) {
+  return { snapshot: true, total: rows.length, leads: rows };
 }
 
-describe('the export when the API refuses its last page (B004-R1-02)', () => {
+const exportCalls = () => gets().filter((call) => call.params.get('export') === '1');
+
+/** The newest unanswered screen GET (never the export's). */
+function pendingScreenGet() {
+  const pending = gets().filter((call) => !call.answered && call.params.get('export') !== '1');
+  expect(pending).toHaveLength(1);
+  return pending[0];
+}
+
+const INCOMPLETE =
+  'La exportación quedó incompleta o inconsistente. No se descargó ningún archivo; vuelve a intentarlo.';
+
+describe('the export: one snapshot request (C009)', () => {
   // jsdom has no `URL.createObjectURL`; the shared exporter needs one to download.
   const urlStatics = URL as unknown as { createObjectURL?: unknown };
   let originalCreateObjectURL: unknown;
@@ -564,8 +594,8 @@ describe('the export when the API refuses its last page (B004-R1-02)', () => {
     urlStatics.createObjectURL = originalCreateObjectURL;
   });
 
-  it('downloads nothing, says so, and a retry exports all 1205', async () => {
-    // A download is the shared exporter clicking an <a download>; count those.
+  /** A download is the shared exporter clicking an <a download>; count those. */
+  function watchDownloads() {
     const downloads: string[] = [];
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
       this: HTMLAnchorElement
@@ -575,67 +605,223 @@ describe('the export when the API refuses its last page (B004-R1-02)', () => {
     const createObjectURL = vi.fn(() => 'blob:synthetic');
     urlStatics.createObjectURL = createObjectURL;
     const exportSpy = vi.spyOn(ReportExporter, 'exportToCSV');
+    return { downloads, createObjectURL, exportSpy };
+  }
 
-    await renderLoaded(filterServer);
+  /** Click Export on a loaded page; the one request it sends. */
+  async function startExport() {
     const button = screen.getByTestId('pasantia-leads-export-csv');
-
+    const before = gets().length;
     fireEvent.click(button);
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute('aria-busy', 'true');
+    expect(gets().length - before).toBe(1);
+    return { button, call: gets()[gets().length - 1] };
+  }
 
-    for (const page of [1, 2]) {
-      const call = gets()[gets().length - 1];
-      expect(call.params.get('page')).toBe(String(page));
-      expect(call.params.get('pageSize')).toBe('500');
-      call.answer(200, exportPage(call));
-      await flush();
-    }
-    // The last page: the API saw a write inside its read (B004-R1-02) and refused.
-    const last = gets()[gets().length - 1];
-    expect(last.params.get('page')).toBe('3');
-    last.answer(409, {
-      error: 'Los leads cambiaron mientras se leían',
-      code: 'LEADS_CHANGED_DURING_READ',
-    });
+  it('asks once, with export=1 and no page, and downloads all 1205', async () => {
+    const { downloads, createObjectURL, exportSpy } = watchDownloads();
+    await renderLoaded(filterServer);
+    const screenGets = gets().length;
+
+    const { button, call } = await startExport();
+    expect(call.url).toBe('/api/admin/pasantia-leads?export=1');
+    call.answer(200, snapshotBody());
     await flush();
     await drain();
 
-    expect(exportSpy).not.toHaveBeenCalled();
-    expect(createObjectURL).not.toHaveBeenCalled();
-    expect(downloads).toEqual([]);
-    const alert = screen.getByTestId('pasantia-leads-export-error');
-    expect(alert).toHaveAttribute('role', 'alert');
-    expect(alert).toHaveTextContent(
-      'Los leads cambiaron mientras se leían. No se descargó ningún archivo.'
-    );
-    expect(toastError).toHaveBeenCalledWith(
-      'Los leads cambiaron mientras se leían. No se descargó ningún archivo.'
-    );
-    expect(toastSuccess).not.toHaveBeenCalled();
-    expect(button).not.toBeDisabled();
-    expect(button).toHaveAttribute('aria-busy', 'false');
-    // The screen itself was not touched by the failed export.
-    expect(rowShown(ALFA)).toBe(true);
-
-    // Retry through the same button: the table is still now, so it completes.
-    const before = gets().length;
-    fireEvent.click(button);
-    for (const page of [1, 2, 3]) {
-      const call = gets()[gets().length - 1];
-      expect(call.params.get('page')).toBe(String(page));
-      call.answer(200, exportPage(call));
-      await flush();
-    }
-    await drain();
-
-    expect(gets().length - before).toBe(3);
+    expect(calls.every((entry) => entry.answered)).toBe(true);
+    expect(gets()).toHaveLength(screenGets + 1);
+    expect(exportCalls()).toHaveLength(1);
     expect(exportSpy).toHaveBeenCalledTimes(1);
-    expect(exportSpy.mock.calls[0][0].data).toHaveLength(1205);
+    const data = exportSpy.mock.calls[0][0].data;
+    expect(data).toHaveLength(1205);
+    expect(data.map((row: { Email: string }) => row.Email)).toEqual(
+      EXPORT_ROWS.map((row) => row.email)
+    );
+    expect(exportSpy.mock.calls[0][0].metadata).toEqual({ totalRecords: 1205 });
     expect(createObjectURL).toHaveBeenCalledTimes(1);
     expect(downloads).toHaveLength(1);
     expect(downloads[0]).toMatch(/^pasantias-leads-\d{4}-\d{2}-\d{2}\.csv$/);
     expect(toastSuccess).toHaveBeenCalledWith('CSV exportado: 1205 contactos');
     expect(screen.queryByTestId('pasantia-leads-export-error')).toBeNull();
     expect(button).not.toBeDisabled();
+    expect(button).toHaveAttribute('aria-busy', 'false');
+  });
+
+  it('carries the filters on screen at the click, and a change mid-export alters nothing', async () => {
+    const { exportSpy } = watchDownloads();
+    await renderLoaded(filterServer);
+
+    fireEvent.click(screen.getByTestId('pasantia-leads-tab-converted'));
+    answerFrom(filterServer, pendingScreenGet());
+    await flush();
+    fireEvent.change(screen.getByTestId('pasantia-leads-program-filter'), {
+      target: { value: 'inspira' },
+    });
+    answerFrom(filterServer, pendingScreenGet());
+    await flush();
+    fireEvent.change(screen.getByTestId('pasantia-leads-search'), { target: { value: '  Lote 1 ' } });
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    answerFrom(filterServer, pendingScreenGet());
+    await flush();
+
+    const { call } = await startExport();
+    expect([...call.params.entries()]).toEqual([
+      ['status', 'converted'],
+      ['search', 'Lote 1'],
+      ['program', 'inspira'],
+      ['export', '1'],
+    ]);
+
+    // The admin moves on while the export is in flight.
+    fireEvent.click(screen.getByTestId('pasantia-leads-tab-all'));
+    answerFrom(filterServer, pendingScreenGet());
+    await flush();
+    call.answer(200, snapshotBody(EXPORT_ROWS.slice(0, 120)));
+    await flush();
+    await drain();
+
+    expect(calls.every((entry) => entry.answered)).toBe(true);
+    expect(exportCalls()).toHaveLength(1);
+    expect(exportSpy).toHaveBeenCalledTimes(1);
+    expect(exportSpy.mock.calls[0][0].data).toHaveLength(120);
+    expect(toastSuccess).toHaveBeenCalledWith('CSV exportado: 120 contactos');
+  });
+
+  it.each<[string, number, Record<string, unknown>, string]>([
+    [
+      'past the 100 000-contact ceiling (413)',
+      413,
+      {
+        error: 'Hay demasiados leads para exportar de una vez. Aplica un filtro y vuelve a intentarlo.',
+        code: 'LEADS_EXPORT_TOO_LARGE',
+      },
+      'Hay demasiados leads para exportar de una vez. Aplica un filtro y vuelve a intentarlo.',
+    ],
+    [
+      'a 413 without the ceiling code',
+      413,
+      { error: 'Payload Too Large' },
+      'Payload Too Large. No se descargó ningún archivo.',
+    ],
+    ['an expired session (401)', 401, { error: 'Unauthorized' }, 'Unauthorized. No se descargó ningún archivo.'],
+    [
+      'a held account (403)',
+      403,
+      { error: 'Debes cambiar tu contraseña', code: 'PASSWORD_CHANGE_REQUIRED' },
+      'Debes cambiar tu contraseña. No se descargó ningún archivo.',
+    ],
+    [
+      'the function not deployed (503)',
+      503,
+      {
+        error: 'La exportación de leads no está disponible. Aplica la migración antes de exportar.',
+        migrationRequired: true,
+      },
+      'La exportación de leads no está disponible. Aplica la migración antes de exportar. No se descargó ningún archivo.',
+    ],
+    [
+      'a rejected snapshot (500)',
+      500,
+      { error: 'Error al exportar los leads' },
+      'Error al exportar los leads. No se descargó ningún archivo.',
+    ],
+  ])('downloads nothing when the API refuses: %s', async (_label, status, body, message) => {
+    const { downloads, createObjectURL, exportSpy } = watchDownloads();
+    await renderLoaded(filterServer);
+
+    const { button, call } = await startExport();
+    call.answer(status, body);
+    await flush();
+    await drain();
+
+    expect(exportCalls()).toHaveLength(1);
+    expect(exportSpy).not.toHaveBeenCalled();
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(downloads).toEqual([]);
+    const alert = screen.getByTestId('pasantia-leads-export-error');
+    expect(alert).toHaveAttribute('role', 'alert');
+    expect(alert).toHaveTextContent(message);
+    expect(toastError).toHaveBeenCalledWith(message);
+    expect(toastSuccess).not.toHaveBeenCalled();
+    expect(button).not.toBeDisabled();
+    // The screen itself was not touched by the failed export.
+    expect(rowShown(ALFA)).toBe(true);
+  });
+
+  it.each<[string, (call: Call) => void]>([
+    [
+      'fewer rows than the total',
+      (call) => call.answer(200, { snapshot: true, total: 1205, leads: EXPORT_ROWS.slice(0, 1204) }),
+    ],
+    ['no snapshot marker', (call) => call.answer(200, { total: 1205, leads: EXPORT_ROWS })],
+    [
+      'a paged answer instead of a snapshot',
+      (call) =>
+        call.answer(200, {
+          leads: EXPORT_ROWS.slice(0, 500),
+          counts: COUNTS_A,
+          pagination: { page: 1, pageSize: 500, total: 1205, pageCount: 3 },
+          watermark: '2026-10-15T12:00:00.000001+00:00',
+        }),
+    ],
+    [
+      'rows out of order',
+      (call) => call.answer(200, snapshotBody([EXPORT_ROWS[1], EXPORT_ROWS[0], ...EXPORT_ROWS.slice(2)])),
+    ],
+    ['a body cut short in transit (does not parse)', (call) => call.answerUnparseable(200)],
+  ])('downloads nothing for an incomplete answer: %s', async (_label, respond) => {
+    const { downloads, createObjectURL, exportSpy } = watchDownloads();
+    await renderLoaded(filterServer);
+
+    const { button, call } = await startExport();
+    respond(call);
+    await flush();
+    await drain();
+
+    expect(exportCalls()).toHaveLength(1);
+    expect(exportSpy).not.toHaveBeenCalled();
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(downloads).toEqual([]);
+    expect(screen.getByTestId('pasantia-leads-export-error')).toHaveTextContent(INCOMPLETE);
+    expect(toastError).toHaveBeenCalledWith(INCOMPLETE);
+    expect(toastSuccess).not.toHaveBeenCalled();
+    expect(button).not.toBeDisabled();
+  });
+
+  it('downloads nothing when the request is aborted, and a retry asks exactly once more', async () => {
+    const { downloads, createObjectURL, exportSpy } = watchDownloads();
+    await renderLoaded(filterServer);
+
+    const first = await startExport();
+    first.call.fail(new DOMException('The operation was aborted.', 'AbortError'));
+    await flush();
+    await drain();
+
+    const aborted = 'No se pudo exportar el CSV. No se descargó ningún archivo; vuelve a intentarlo.';
+    expect(exportSpy).not.toHaveBeenCalled();
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(downloads).toEqual([]);
+    expect(screen.getByTestId('pasantia-leads-export-error')).toHaveTextContent(aborted);
+    expect(toastError).toHaveBeenCalledWith(aborted);
+    expect(first.button).not.toBeDisabled();
+    // No automatic retry and no fallback request.
+    expect(exportCalls()).toHaveLength(1);
+
+    const second = await startExport();
+    expect(second.call.url).toBe('/api/admin/pasantia-leads?export=1');
+    second.call.answer(200, snapshotBody());
+    await flush();
+    await drain();
+
+    expect(exportCalls()).toHaveLength(2);
+    expect(exportSpy).toHaveBeenCalledTimes(1);
+    expect(exportSpy.mock.calls[0][0].data).toHaveLength(1205);
+    expect(downloads).toHaveLength(1);
+    expect(toastSuccess).toHaveBeenCalledWith('CSV exportado: 1205 contactos');
+    expect(screen.queryByTestId('pasantia-leads-export-error')).toBeNull();
   });
 });

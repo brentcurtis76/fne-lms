@@ -6,6 +6,12 @@ check has been run on this state. Every gate below is open. Nothing here is acce
 consolidated review's three blockers (B004-R1-01, B004-R1-02, N5) are addressed in code by remediation 1 (§9) and are
 still open until independent review and execution.
 
+> **Correction (C009 snapshot fix, 2026-10-21, §10).** The browser stage showed the paged export was not a snapshot. It
+> downloaded a mixed set that missed a contact matching the whole time, and the watermark did not move. The CSV
+> description in §1, the protocol in §2 and the export part of §9.2 describe that paged export and are kept as first
+> written. The export is now one request answered from one database snapshot (§10). C009 stays **open**: nothing in §10
+> has run.
+
 - Executor: Claude Code (`claude-opus-5-5`, requested effort high, fallback NONE). `bounded-executor` was read manually as
   instructed, not natively invoked. PM: Astra (coordination only). Independent reviewer: Codex Sol 6.1.
 - Base: `fix/p02b-r1` at `85838af02a03a5289ad71852aab007fa62edbbf7`, on top of the uncommitted B002a/B002b/B003 overlay
@@ -32,6 +38,9 @@ still open until independent review and execution.
 > residual-limit paragraph overstated final-page protection. The watermark was read only BEFORE each page, so a write
 > landing between the last page's watermark read and its list query was never checked. The actual protocol now in the
 > code is §9.2. The §1 "stale-response guard" also did not cover a save's refresh (B004-R1-01, §9.1).
+>
+> **Correction (C009 snapshot fix, §10).** §9.2 did not close the gap either. The paged export it describes is
+> replaced by a single-snapshot export.
 
 1. The filter set is captured once, before the first request; tab/search/program changes during an export cannot splice two
    result sets.
@@ -193,6 +202,10 @@ Evidence (authored, NOT RUN): the new page suite renders the real page and answe
 
 ### 9.2 B004-R1-02 — the last page's mutation window: actual protocol
 
+> **Correction (C009 snapshot fix, §10).** The second watermark read below still exists on the screen GET. The export
+> no longer uses it. On the browser stage it missed exactly the case listed under "does NOT guarantee": a transaction
+> that began before the first read and committed with an older stamp. The export is now §10.
+
 Every GET (screen and export pages alike), in this order:
 1. Read the watermark `W1 = max(updated_at)` over ALL contacts.
 2. Read the page (exact count) and the five global counts, plus the filtered recount if the page is past the end.
@@ -264,3 +277,86 @@ the route offers no "either program" filter. `status` and `search` keep their in
 All NOT RUN, as in §6. Mocked unit evidence is not runtime evidence. The real 1205-contact PostgREST/browser runs, the
 real race, the four session specs loading normally and every UI journey remain owed. R-08/R-17 and the historical A9
 failures/blocked rows persist.
+
+## 10. C009 snapshot fix (application authorship only, 2026-10-21, NOT RUN)
+
+Application author: `claude-opus-5-5`, effort high, fallback NONE, in a separate session from the DB author. The order
+is `order-c009-app-author-20261021.json`, on product baseline `88a8532a7ec1ac4645e4929cbefb22457ebe376c`. This pass
+wrote no SQL. The migration `supabase/migrations/20261021180000_pasantias_admin_leads_export.sql` and pgTAP
+`supabase/tests/113-pasantias-admin-leads-export.sql` were written by the dedicated DB author, approved by an
+independent DB FINAL, and copied in unchanged.
+
+**Why.** The browser-stage C009 run (`c009-verdict.json`) exported `[X4 (Nuevo), X2, X1]`:
+- page 1 was read before two blocked edits committed, and pages 2–3 after;
+- X3 matched the whole time but was missing, and old and new rows were mixed;
+- the watermark and the total never moved.
+
+Every page was its own PostgREST statement with its own snapshot. A retry, or another check across pages, cannot fix
+that.
+
+**What changed** (seven allowlisted paths only; no library, config or SQL change except the route's own config):
+
+| Path | Change |
+| --- | --- |
+| `pages/api/admin/pasantia-leads/index.ts` | **Request.** New `GET ?export=1` branch, after the unchanged `checkIsAdmin` (401/403) and forced-password verdict (403/503). `export` must be exactly the single string `1`, and `page`/`pageSize` must be absent (otherwise 400). Status, search and program go through `parseLeadFilters`, the same helper the screen GET now uses. Its rules are unchanged: first value for `status`/`search`, a repeated `program` refused, the same `sanitizeSearchTerm`. **The read.** Exactly one `rpc('pasantias_admin_leads_export', { p_status, p_search, p_program, p_max_bytes: null })`. There is no list, count or watermark query on this path, and no fallback to pages. **Checks before any byte is sent.** The result has exactly the five keys. `total` is a non-negative safe integer. `too_large_rows` equals `total > 100000`. `too_large_bytes` is `false`. `bytes` is an integer. `leads.length === total`. Every id is a unique UUID. Every row has an interests array. The order is strictly `created_at desc, id desc`, compared at microsecond precision. **Answers.** A valid result is streamed in 64 Ki-character chunks as `{"snapshot":true,"total":N,"leads":[…]}` with `Cache-Control: no-store`. The stream honours backpressure (it waits for `drain`, and a `close` ends the wait), stops if the client leaves (including while the database reads), and destroys the response if a write fails. Past the ceiling: 413 `LEADS_EXPORT_TOO_LARGE`. Function missing (`PGRST202`/`42883`/`42P01`): 503 `migrationRequired`. Any other error or malformed result: 500. Logs carry the error code or a fixed reason only, never row data. **Route config:** `config = { api: { responseLimit: false }, maxDuration: 60 }`. Nothing else in the screen GET changed: pagination, counts, watermark and 409 are as in §9.2. PATCH is unchanged. |
+| `components/admin/PasantiaLeadCard.tsx` | `collectAllMatchingLeads`, `LeadPagePayload`, `LEAD_EXPORT_PAGE_SIZE`, `LEAD_EXPORT_MAX_PAGES` and the `changed` message are removed, so a stale caller fails loudly. The new `collectLeadExportSnapshot(fetchSnapshot)` calls `fetchSnapshot` once. It accepts only `{snapshot: true, total, leads}` with exactly those keys, a non-negative safe integer `total` of at most `LEAD_EXPORT_MAX_CONTACTS` (100 000; above that `tooLarge`), `leads.length === total`, unique UUID ids, interests present and strict order. Anything else is `incomplete`. `leadExportQueryString` builds the same filter params plus `export=1`, never a page. `leadCsvRow`, `csvText`, `LEAD_CSV_HEADERS`, `leadProgramLabels` and `timestampMicros` are unchanged. |
+| `pages/admin/pasantia-leads.tsx` | `handleExport` captures the filters, sends ONE fetch, maps 413 `LEADS_EXPORT_TOO_LARGE` to the existing `tooLarge` text and any other non-OK to "… No se descargó ningún archivo." A body that does not parse is `incomplete`; an aborted or failed request gets the existing generic message. Only a fully checked answer reaches the single, unchanged `ReportExporter.exportToCSV` call. |
+| the three unit suites | Below. |
+| this record | These linked corrections and §10. |
+
+`tests/e2e/pasantias-flow.spec.ts` is unchanged and runs in full browser CI. Its UI export of the 1205 owned contacts
+now goes through the snapshot path.
+
+**Tests authored, NOT RUN (mocked; they pin what the code asks and how it judges answers, not the snapshot):**
+- **API suite, `GET ?export=1 — every matching contact from one snapshot (C009)`:**
+  - 1205 contacts come from exactly one RPC with the exact arguments, with `from()` never called and `sent === ['rpc']`.
+  - The exact RPC arguments for seven filter shapes, plus a parity case where the export's search term equals the
+    term the screen's `or=()` filter carries.
+  - Eleven 400 refusals (`export` values, paging params, bad filters), each before any read.
+  - Anonymous 401 and non-admin 403 before any client exists. The forced-password gate is asked before the RPC, and
+    the cookie/bearer × required/unavailable matrix now includes two export requests and asserts `rpc` was not called.
+  - The screen GET never calls the RPC.
+  - Ceiling: 100 000 = 500 × 200 on both sides, exactly 100 000 streamed, and 100 001 gives 413 with no rows.
+  - 503 for each missing-function code, with no paged fallback.
+  - 500 for four other RPC errors, logging the code only.
+  - 23 malformed results, each 500 with its exact logged reason and no row data in any log line.
+  - Streaming: the route config, multi-chunk writes, a wait for `drain` under backpressure, a client close mid-body
+    and while the database reads (body never closed, nothing more written), and a failed write (response destroyed,
+    nothing appended).
+  - The page's collector accepts the streamed 1205-row body whole.
+- **Card suite:**
+  - Source guards: the walker's names are gone from the page and the card; `handleExport` has one `fetch` and uses
+    `leadExportQueryString`.
+  - Query-string cases.
+  - The collector:
+    - 1205 contacts after one request, with the 1206-record CSV and every label kind;
+    - empty;
+    - the ceiling constants, exactly 100 000 accepted, 100 001 refused as too large;
+    - 18 incomplete shapes, the truncated array and the paged answer among them;
+    - a refused request propagated.
+- **Page suite (the real page):**
+  - Exactly one request, `/api/admin/pasantia-leads?export=1`, downloading 1205 rows in order.
+  - The captured status/search/program, with a tab change mid-export changing nothing.
+  - Six refusals (413 ceiling, 413 without the code, 401, 403, 503, 500), each with no download.
+  - Five incomplete answers (short, no marker, paged shape, out of order, unparseable body), each with no download.
+  - An aborted request: no download, no automatic retry, and a manual retry that asks exactly once more.
+
+**Open limits (stated, not hidden):**
+- Nothing here has run: unit, type-check, lint, build, the stage C009 run and CI are all open.
+- Snapshot proof belongs only to the real-stack C009 run (`CONSISTENT_SNAPSHOT`) and pgTAP 113.
+- The stage changes S1 (fit both lock windows under the 8 s `statement_timeout`) and S2 (the spec must pass only on
+  `CONSISTENT_SNAPSHOT` and drive `collectLeadExportSnapshot` with `?export=1`) belong to the stage author and are not
+  in this pass. The 8 s database role timeout is unchanged.
+- That 8 s server timeout also bounds a real export. How long the function takes at large totals, up to 100 000, is
+  unmeasured and could hit it.
+- Memory: the route holds the parsed result (supabase-js parses the whole body) and streams from it. At worst-case
+  field sizes, 100 000 contacts is tens to over a hundred MB on the function, and the browser parses the same body.
+  Neither is measured.
+- Vercel: the official KB says streamed responses escape the 4.5 MB limit. Delivery of a maximum-size export within
+  `maxDuration: 60` is not proven by the docs and has not been tested. No production test is authorized.
+- The screen GET's watermark/409 no longer protects the export. It is kept unchanged, and removing it is left to a
+  later cleanup unit.
+- Ordering of deploys: if the app ships before the migration is Published, the export answers 503 and never falls back.
+
+If the single C009 runtime attempt on this fix fails, the unit STOPS with no further round. Other product criteria
+are unchanged.

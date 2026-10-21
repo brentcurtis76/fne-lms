@@ -10,6 +10,8 @@
  *     network carries no persona, so it is the cross-network negative control,
  *   - one auth user + profile + role row per entry in `e2e-fixtures.json`,
  *   - (A8) one Pasantías interest lead, for the admin triage surface,
+ *   - (PASANT-B004) 1205 OWNED synthetic Pasantías contacts and their program interests,
+ *     for the admin surface at scale, plus the one forced-password admin persona,
  *   - (Z1c, extended by Z2-S8) the Zoom domain graph — growth community, three sessions
  *     (one unprovisioned, one carrying a legacy manual meeting link, one PLATFORM-MANAGED
  *     with no link at all), their facilitators, attendees and reports — via
@@ -22,7 +24,10 @@
  * `growth_communities`, so the role rows need the zoom domain.
  *
  * Idempotent: safe to re-run against an already-seeded stack. Every write is an
- * upsert or a look-before-insert; nothing is deleted.
+ * upsert or a look-before-insert; nothing is deleted. Re-running CONVERGES the rows the
+ * fixtures own: a persona's password and profile, and (PASANT-B004) every column of the
+ * owned bulk contacts, status and notes included. It never touches the A8 lead or any
+ * contact outside the bulk fixture's id namespace.
  *
  * Ley 21.719: fixtures are 100% synthetic (RFC 2606 reserved domain, invented
  * names). This script hard-refuses any non-local Supabase URL — there is no
@@ -186,6 +191,12 @@ async function ensureRoleCommunity(supabase, fixtures) {
  * The login page checks `must_change_password` and then first/last name
  * (utils/profileCompletionCheck) before it honours the post-login destination —
  * an incomplete profile would bounce the fixture to /profile instead.
+ *
+ * PASANT-B004: `must_change_password` is true ONLY for a persona whose fixture says
+ * `mustChangePassword: true`, and `assertForcedPasswordPersona` has already pinned that
+ * to `adminForcedPassword` alone. Every other persona is written false, as before. A
+ * re-seed sets the flag back, so a password change made on a local stack cannot
+ * silently retire the persona.
  */
 async function ensureProfile(supabase, userId, fixture, schoolId, generationId) {
   const { error } = await supabase.from('profiles').upsert(
@@ -195,7 +206,7 @@ async function ensureProfile(supabase, userId, fixture, schoolId, generationId) 
       name: `${fixture.firstName} ${fixture.lastName}`,
       first_name: fixture.firstName,
       last_name: fixture.lastName,
-      must_change_password: false,
+      must_change_password: fixture.mustChangePassword === true,
       approval_status: 'approved',
       school_id: schoolId,
       generation_id: generationId,
@@ -311,6 +322,296 @@ async function ensurePasantiasLead(supabase, lead) {
 }
 
 /**
+ * PASANT-B004 — exactly one persona may carry `mustChangePassword`, it must be
+ * `adminForcedPassword`, and its value must be the boolean `true`. Checked before any
+ * client exists, like the scope values: a flag that leaked onto a second persona would
+ * hold that persona at /change-password and fail every spec that logs in as it, and a
+ * flag that fell off this one would quietly turn the denial proofs into admin successes.
+ */
+const FORCED_PASSWORD_PERSONA = 'adminForcedPassword';
+
+function assertForcedPasswordPersona(fixtures) {
+  const problems = [];
+  for (const [key, user] of Object.entries(fixtures.users ?? {})) {
+    if (!Object.prototype.hasOwnProperty.call(user, 'mustChangePassword')) continue;
+    if (key !== FORCED_PASSWORD_PERSONA) {
+      problems.push(`users.${key} carries mustChangePassword; only ${FORCED_PASSWORD_PERSONA} may`);
+    } else if (user.mustChangePassword !== true) {
+      problems.push(`users.${key}.mustChangePassword must be true`);
+    }
+  }
+  const persona = fixtures.users?.[FORCED_PASSWORD_PERSONA];
+  if (!persona || persona.mustChangePassword !== true) {
+    problems.push(`users.${FORCED_PASSWORD_PERSONA} must exist with mustChangePassword: true`);
+  } else if (persona.role !== 'admin') {
+    problems.push(`users.${FORCED_PASSWORD_PERSONA} must be an admin, or its denial proves nothing`);
+  }
+  if (problems.length > 0) {
+    throw new Error(`[e2e-fixtures] forced-password persona:\n  - ${problems.join('\n  - ')}`);
+  }
+}
+
+/**
+ * PASANT-B004 (C009) — the bulk contacts, built from `pasantiasBulk` in e2e-fixtures.json.
+ *
+ * Pure: no client, no clock, no randomness. The same descriptor always yields the same
+ * 1205 rows, ids and timestamps, which is what makes the fixture reproducible and lets
+ * the specs hold the API to exact ids rather than to counts.
+ */
+const BULK_HOSTILE_COLUMNS = new Set([
+  'first_name',
+  'institution',
+  'phone',
+  'role_title',
+  'message',
+  'notes',
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+]);
+
+const BULK_TIMESTAMP_PATTERN = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})\.(\d{6})Z$/;
+
+const BULK_WRITE_BATCH = 200;
+
+/** Kept under PostgREST max_rows and well inside a URL for `in.(...)`. */
+const BULK_READ_BATCH = 100;
+
+function pad(value, width) {
+  return String(value).padStart(width, '0');
+}
+
+function bulkTimestampMicros(value, label) {
+  const match = BULK_TIMESTAMP_PATTERN.exec(value);
+  if (!match) throw new Error(`${label}: "${value}" is not YYYY-MM-DDTHH:MM:SS.ffffffZ`);
+  return Date.parse(`${match[1]}Z`) * 1000 + Number(match[2]);
+}
+
+function bulkCreatedAt(bulk, index) {
+  const run = bulk.runs.find((candidate) => index >= candidate.from && index <= candidate.to);
+  if (!run) throw new Error(`pasantiasBulk: contact ${index} is in no run`);
+  if (!run.ladderMicros) return run.createdAt;
+
+  const match = BULK_TIMESTAMP_PATTERN.exec(run.createdAt);
+  if (!match) throw new Error(`pasantiasBulk run ${run.from}-${run.to}: bad createdAt`);
+  const micros = Number(match[2]) + (run.to - index);
+  if (micros > 999_999) throw new Error(`pasantiasBulk run ${run.from}-${run.to}: ladder leaves the second`);
+  return `${match[1]}.${pad(micros, 6)}Z`;
+}
+
+function bulkPrograms(kind) {
+  if (kind === 'both') return ['inspira', 'mirada-profunda'];
+  if (kind === 'inspira' || kind === 'mirada-profunda') return [kind];
+  if (kind === 'historical' || kind === 'unclassified') return [];
+  throw new Error(`pasantiasBulk: unknown kind "${kind}"`);
+}
+
+function buildBulkContacts(bulk) {
+  const contacts = [];
+  for (let index = 1; index <= bulk.count; index += 1) {
+    const number = pad(index, 4);
+    const kind = bulk.kinds[(index - 1) % bulk.kinds.length];
+    const status = bulk.statuses[Math.floor((index - 1) / bulk.kinds.length) % bulk.statuses.length];
+    const createdAt = bulkCreatedAt(bulk, index);
+    const email = `${bulk.emailPrefix}${number}@${bulk.emailDomain}`;
+    contacts.push({
+      index,
+      kind,
+      programs: bulkPrograms(kind),
+      lead: {
+        id: `${bulk.idPrefix}${pad(index, 12)}`,
+        cohort: kind === 'historical' ? bulk.cohorts.historical : bulk.cohorts.january,
+        first_name: bulk.firstName,
+        last_name: `${bulk.lastNamePrefix}${number}`,
+        email,
+        email_normalized: email.trim().toLowerCase(),
+        institution: bulk.institution,
+        phone: null,
+        role_title: null,
+        num_people: null,
+        message: null,
+        notes: null,
+        source_path: null,
+        utm_source: null,
+        utm_medium: null,
+        utm_campaign: null,
+        status,
+        consent_accepted_at: createdAt,
+        consent_notice_version: bulk.consentNoticeVersion,
+        marketing_opt_in: false,
+        marketing_opt_in_at: null,
+        marketing_notice_version: null,
+        brochure_sent_at: null,
+        created_at: createdAt,
+      },
+    });
+  }
+
+  const seen = new Set();
+  for (const hostile of bulk.hostile) {
+    const contact = contacts[hostile.index - 1];
+    if (!contact || seen.has(hostile.index)) {
+      throw new Error(`pasantiasBulk.hostile: index ${hostile.index} is out of range or repeated`);
+    }
+    seen.add(hostile.index);
+    for (const [column, value] of Object.entries(hostile.fields)) {
+      if (!BULK_HOSTILE_COLUMNS.has(column) || typeof value !== 'string') {
+        throw new Error(`pasantiasBulk.hostile[${hostile.index}]: ${column} may not be overridden`);
+      }
+      contact.lead[column] = value;
+    }
+  }
+  return contacts;
+}
+
+/**
+ * The generated rows against the hand-written `expected` block, before anything is
+ * written. A disagreement means the descriptor and the generator drifted apart, and a
+ * spec comparing the database with `expected` would then fail for a reason nobody seeded.
+ */
+function assertBulkMatchesExpected(bulk, contacts) {
+  const expected = bulk.expected;
+  const problems = [];
+  const check = (label, actual, wanted) => {
+    if (actual !== wanted) problems.push(`${label}: generated ${actual}, expected ${wanted}`);
+  };
+  const matchesProgram = (contact, filter) =>
+    filter === 'sin-programa' ? contact.programs.length === 0 : contact.programs.includes(filter);
+
+  check('total', contacts.length, expected.total);
+  check('distinct ids', new Set(contacts.map((c) => c.lead.id)).size, expected.total);
+  check('distinct emails', new Set(contacts.map((c) => c.lead.email_normalized)).size, expected.total);
+  for (const [kind, wanted] of Object.entries(expected.byKind)) {
+    check(`kind ${kind}`, contacts.filter((c) => c.kind === kind).length, wanted);
+  }
+  for (const [status, wanted] of Object.entries(expected.byStatus)) {
+    check(`status ${status}`, contacts.filter((c) => c.lead.status === status).length, wanted);
+  }
+  for (const [filter, wanted] of Object.entries(expected.byProgramFilter)) {
+    check(`program ${filter}`, contacts.filter((c) => matchesProgram(c, filter)).length, wanted);
+  }
+  for (const [status, byFilter] of Object.entries(expected.byStatusAndProgramFilter)) {
+    for (const [filter, wanted] of Object.entries(byFilter)) {
+      check(
+        `status ${status} x program ${filter}`,
+        contacts.filter((c) => c.lead.status === status && matchesProgram(c, filter)).length,
+        wanted
+      );
+    }
+  }
+
+  // The API's order — created_at DESC, id DESC — over the generated rows, against the
+  // declared index segments.
+  const sorted = [...contacts].sort((a, b) => {
+    const delta =
+      bulkTimestampMicros(b.lead.created_at, `contact ${b.index}`) -
+      bulkTimestampMicros(a.lead.created_at, `contact ${a.index}`);
+    return delta !== 0 ? delta : b.lead.id < a.lead.id ? -1 : 1;
+  });
+  const declared = expected.order.flatMap(({ from, to }) => {
+    const step = from <= to ? 1 : -1;
+    return Array.from({ length: Math.abs(to - from) + 1 }, (_, offset) => from + offset * step);
+  });
+  check('ordered length', declared.length, expected.total);
+  const firstMismatch = sorted.findIndex((contact, position) => contact.index !== declared[position]);
+  if (firstMismatch !== -1) problems.push(`order differs at position ${firstMismatch}`);
+  check('newest', sorted[0]?.index, expected.newestIndex);
+  check('oldest', sorted[sorted.length - 1]?.index, expected.oldestIndex);
+
+  if (problems.length > 0) {
+    throw new Error(`[e2e-fixtures] pasantiasBulk disagrees with its expected block:\n  - ${problems.join('\n  - ')}`);
+  }
+}
+
+function chunks(items, size) {
+  const out = [];
+  for (let start = 0; start < items.length; start += size) out.push(items.slice(start, start + size));
+  return out;
+}
+
+/**
+ * PASANT-B004 (C009) — the owned bulk contacts and their interests.
+ *
+ * OWNERSHIP. The fixture owns exactly the ids `idPrefix + 000000000001..count` and the
+ * interest rows of those ids. Before writing, every owned id already in the table must
+ * hold this fixture's e-mail and cohort, and every interest on an owned contact must be
+ * one the descriptor declares — otherwise the seed refuses rather than overwrite or
+ * delete. A non-owned row already holding one of the fixture's (e-mail, cohort) pairs
+ * makes the upsert fail on `pasantias_leads_email_cohort_key`, which also refuses.
+ *
+ * CONVERGENCE, disclosed: a re-run rewrites every listed column of every owned contact —
+ * status and notes included, so local triage of a BULK contact is reset, and their
+ * `updated_at` moves (trigger). Interests are upserted on (lead_id, program); their
+ * reply-claim columns are never written. Nothing is deleted, and nothing outside the
+ * namespace is read for writing — the A8 lead and journey contacts are untouched.
+ */
+async function ensurePasantiasBulk(supabase, bulk) {
+  const contacts = buildBulkContacts(bulk);
+  assertBulkMatchesExpected(bulk, contacts);
+
+  const byId = new Map(contacts.map((contact) => [contact.lead.id, contact]));
+  const ids = [...byId.keys()];
+
+  for (const batch of chunks(ids, BULK_READ_BATCH)) {
+    const { data: leads, error: leadError } = await supabase
+      .from('pasantias_leads')
+      .select('id, email_normalized, cohort')
+      .in('id', batch);
+    if (leadError) throw new Error(`pasantias bulk ownership read failed: ${leadError.message}`);
+    for (const row of leads ?? []) {
+      const owned = byId.get(row.id);
+      if (row.email_normalized !== owned.lead.email_normalized || row.cohort !== owned.lead.cohort) {
+        throw new Error(
+          `pasantias bulk: id ${row.id} already holds a contact this fixture did not write; refusing to overwrite`
+        );
+      }
+    }
+
+    const { data: interests, error: interestError } = await supabase
+      .from('pasantias_lead_program_interests')
+      .select('lead_id, program')
+      .in('lead_id', batch);
+    if (interestError) throw new Error(`pasantias bulk interest read failed: ${interestError.message}`);
+    for (const row of interests ?? []) {
+      if (!byId.get(row.lead_id).programs.includes(row.program)) {
+        throw new Error(
+          `pasantias bulk: contact ${row.lead_id} holds an undeclared ${row.program} interest; ` +
+            'refusing to delete it — recreate the local stack instead'
+        );
+      }
+    }
+  }
+
+  for (const batch of chunks(contacts, BULK_WRITE_BATCH)) {
+    const { error } = await supabase
+      .from('pasantias_leads')
+      .upsert(batch.map((contact) => contact.lead), { onConflict: 'id' });
+    if (error) throw new Error(`pasantias bulk contact upsert failed: ${error.message}`);
+  }
+
+  const interestRows = contacts.flatMap((contact) =>
+    contact.programs.map((program) => ({
+      lead_id: contact.lead.id,
+      cohort: contact.lead.cohort,
+      program,
+      consent_accepted_at: contact.lead.created_at,
+      consent_notice_version: bulk.consentNoticeVersion,
+      created_at: contact.lead.created_at,
+    }))
+  );
+  for (const batch of chunks(interestRows, BULK_WRITE_BATCH)) {
+    const { error } = await supabase
+      .from('pasantias_lead_program_interests')
+      .upsert(batch, { onConflict: 'lead_id,program' });
+    if (error) throw new Error(`pasantias bulk interest upsert failed: ${error.message}`);
+  }
+
+  console.log(
+    `[seed-e2e] pasantias bulk ready — ${contacts.length} owned contacts, ${interestRows.length} interests`
+  );
+}
+
+/**
  * A fixture's five optional scope fields — `school`, `roleScope`, `generation`,
  * `community`, `network` — plus its `inactiveRoles` entries, turned into the concrete
  * role rows to write. Defaults reproduce the pre-Z1c behaviour exactly: one active row at
@@ -360,6 +661,10 @@ async function main() {
   // silently onto the primary fixture and discovered as a mystery failure in some later
   // authorization spec.
   assertFixtureScopes(FIXTURES);
+  assertForcedPasswordPersona(FIXTURES);
+  // The bulk descriptor is checked against its own expected block here too, so a drifted
+  // fixture file fails before a client exists rather than half-way through the seed.
+  assertBulkMatchesExpected(FIXTURES.pasantiasBulk, buildBulkContacts(FIXTURES.pasantiasBulk));
 
   const supabase = createClient(url, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -425,6 +730,8 @@ async function main() {
 
   // Independent of the persona graph — the leads table has no FK to any of it.
   await ensurePasantiasLead(supabase, FIXTURES.pasantiasLead);
+  // After the A8 lead and independent of it: the bulk writes only its own id namespace.
+  await ensurePasantiasBulk(supabase, FIXTURES.pasantiasBulk);
 
   console.log('[seed-e2e] done');
 }

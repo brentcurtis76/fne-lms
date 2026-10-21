@@ -26,8 +26,11 @@ import { COHORT_ID } from '../cohort-public';
  * which the ficha prints — these two are inside `COHORT_EXPERTS.slice(0, 4)`,
  * the four the "Equipo destacado" block renders, so the ficha's text really
  * does change and a cached v1 would keep serving the old titles.
+ *
+ * `2027-01-v1` (PASANT-B003): the shared two-program January 2027 ficha. A new
+ * key, so no October object (`2026-10-v1`, `2026-10-v2`) can be served for it.
  */
-export const FICHA_VERSION = '2026-10-v2';
+export const FICHA_VERSION = '2027-01-v1';
 
 /** Download filename for the open ficha. ASCII only — see the module comment. */
 export const FICHA_FILENAME = `Ficha-Pasantias-INSPIRA-Barcelona-${COHORT_ID}-${FICHA_VERSION}.pdf`;

@@ -13,13 +13,26 @@
  * These scan through the script's own exported `scanText`, so what passes here
  * is what `npm run build && node scripts/check-price-leak.mjs` runs.
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { scanText, maximalReadings, unescapeLiterals } from '../../scripts/check-price-leak.mjs';
 import {
   generateCorpus,
+  generateJanuaryCorpus,
   sortOccurrences,
   ATTRIBUTION_ROWS,
+  HISTORICAL_PERCENTAGE_ROWS,
+  JANUARY_COMMERCIAL_COPY_ROWS,
+  JANUARY_COPY_FRAGMENTS,
+  JANUARY_COPY_SILENT_CONTROLS,
+  JANUARY_ESCAPED_COPY_ROWS,
+  JANUARY_FACTS,
+  JANUARY_PER_PERSON_CLP,
+  JANUARY_PROTECTED,
+  JANUARY_TEAM_TOTALS_CLP,
   PINNED_LIMITS,
+  PROTECTED,
   SILENT_CONTROLS,
   SOL_ROUND_4_ROWS,
   WHITESPACE_CODE_POINTS,
@@ -483,6 +496,260 @@ describe('leak guard — the band figures do not fire on ordinary output', () =>
   for (const [description, text] of clean) {
     it(`stays silent on ${description}`, () => {
       expect(checksFiring(text)).toEqual([]);
+    });
+  }
+});
+
+/**
+ * January 2027 (PASANT-B003, criterion C006). The ratified January contract
+ * prices the cohort in pesos with lodging in euros, and every one of those
+ * figures must be guarded alongside — never instead of — October's.
+ *
+ * The expected figures come from `./price-leak-corpus.mjs`, typed from the
+ * contract. Nothing here reads the scanner's lists: the facts are checked against
+ * each other (the contract's own arithmetic) and the scanner is checked against
+ * the facts.
+ */
+describe('leak guard — January 2027 figures are pinned from the contract (PASANT-B003)', () => {
+  it('derives every per-person total from the contract inputs by its own arithmetic', () => {
+    // Fee + flight + nights × lodging per night × €1 = $1.100, rounded to the
+    // nearest $100.000 — the contract's observation, recomputed here.
+    const rate = Number(JANUARY_FACTS.eurClp);
+    const rounding = Number(JANUARY_FACTS.roundingClp);
+    const flight = Number(JANUARY_FACTS.flightClp);
+    const lodging = JANUARY_FACTS.lodgingEur.doublePerPersonPerNight.map(Number);
+    const roundToUnit = (value: number) => Math.round(value / rounding) * rounding;
+    const perPerson: Record<string, Record<string, string[]>> = JANUARY_FACTS.perPersonClp;
+    const fees: Record<string, string> = JANUARY_FACTS.feeClp;
+    const nightsByProgram: Record<string, number> = JANUARY_FACTS.nights;
+
+    for (const [program, nights] of Object.entries(nightsByProgram)) {
+      for (const [price, fee] of Object.entries(fees)) {
+        const computed = lodging.map((perNight) =>
+          String(roundToUnit(Number(fee) + flight + nights * perNight * rate))
+        );
+        expect(perPerson[program][price], `${program} ${price}`).toEqual(computed);
+      }
+    }
+  });
+
+  it('lists exactly the distinct per-person totals of both programmes', () => {
+    const perPerson: Record<string, Record<string, string[]>> = JANUARY_FACTS.perPersonClp;
+    const distinct = new Set(
+      Object.values(perPerson).flatMap((prices) => Object.values(prices).flat())
+    );
+    expect([...distinct].sort()).toEqual([...JANUARY_PER_PERSON_CLP].sort());
+  });
+
+  it('lists every team total once: each per-person total times each size 1–10', () => {
+    const [smallest, largest] = JANUARY_FACTS.teamSizes;
+    const products: string[] = [];
+    for (const perPerson of JANUARY_PER_PERSON_CLP) {
+      for (let size = smallest; size <= largest; size += 1) {
+        products.push(String(Number(perPerson) * size));
+      }
+    }
+    expect(products).toHaveLength(60);
+    expect(new Set(JANUARY_TEAM_TOTALS_CLP).size).toBe(JANUARY_TEAM_TOTALS_CLP.length);
+    expect([...JANUARY_TEAM_TOTALS_CLP].sort()).toEqual([...new Set(products)].sort());
+    expect(JANUARY_TEAM_TOTALS_CLP).toHaveLength(59);
+  });
+
+  it('protects every January figure, each under exactly one expected check', () => {
+    const expected = new Map<string, string>([
+      [JANUARY_FACTS.feeClp.standard, 'january-clp-amount'],
+      [JANUARY_FACTS.feeClp.discounted, 'january-clp-amount'],
+      [JANUARY_FACTS.flightClp, 'january-clp-amount'],
+      [JANUARY_FACTS.eurClp, 'january-clp-short-amount'],
+      [JANUARY_FACTS.roundingClp, 'january-clp-short-amount'],
+      ...JANUARY_FACTS.lodgingEur.doublePerPersonPerNight.map(
+        (value: string) => [value, 'january-lodging-amount'] as [string, string]
+      ),
+      [JANUARY_FACTS.lodgingEur.singlePerNightApprox, 'january-lodging-amount'],
+      ...JANUARY_TEAM_TOTALS_CLP.map(
+        (value: string) => [value, 'january-clp-amount'] as [string, string]
+      ),
+    ]);
+    const protectedChecks = new Map<string, string>(
+      JANUARY_PROTECTED.map(
+        ({ value, check }: { value: string; check: string }) => [value, check] as [string, string]
+      )
+    );
+    expect(protectedChecks.size).toBe(JANUARY_PROTECTED.length);
+    expect(protectedChecks).toEqual(expected);
+  });
+
+  it('keeps every October figure, live or retired', () => {
+    expect(PROTECTED.map(({ value }: { value: string }) => value).sort()).toEqual(
+      ['1000', '120', '1560', '2500', '560', '70'].sort()
+    );
+  });
+
+  it('fires on every January figure in its plainest spelling', () => {
+    // A direct, unbatched statement per figure, so a figure missing from the
+    // guard surfaces by name before the cross-product below is read.
+    for (const { value, check, currency } of JANUARY_PROTECTED) {
+      const text = currency === 'CLP' ? `$${value}` : `€${value}`;
+      expect(occurrencesFiring(text), text).toEqual([`${check}:${value}`]);
+    }
+  });
+});
+
+describe('leak guard — January 2027 shapes a bundle or a person produces (PASANT-B003)', () => {
+  const leaks: ReadonlyArray<readonly [string, string, ReadonlyArray<string>]> = [
+    ['the fee as printed', 'x="$2.500.000"', ['january-clp-amount:2500000']],
+    ['the fee as a minified field', '{feeClp:25e5,currency:"CLP"}', ['january-clp-amount:2500000']],
+    [
+      'a per-person total in a JSX array split',
+      'e=[(0,r.jsx)("span",{children:["$",47e5]})]',
+      ['january-clp-amount:4700000'],
+    ],
+    [
+      'a per-person total in a template concat',
+      '"Desde $".concat(4200000," por persona")',
+      ['january-clp-amount:4200000'],
+    ],
+    [
+      'a team total printed by a template literal',
+      '`$${(51e6).toLocaleString("es-CL")}`',
+      ['january-clp-amount:51000000'],
+    ],
+    ['a team row', 'Equipo de 10: $51.000.000', ['january-clp-amount:51000000']],
+    [
+      'both fees in copy',
+      '$2.500.000 CLP y $2.000.000 CLP con programa anual',
+      ['january-clp-amount:2000000', 'january-clp-amount:2500000'],
+    ],
+    ['the flight', 'Pasaje aprox. $1.500.000', ['january-clp-amount:1500000']],
+    [
+      'the exchange rate and the rounding unit',
+      '€1 = $1.100 · redondeado a $100.000',
+      ['january-clp-short-amount:100000', 'january-clp-short-amount:1100'],
+    ],
+    [
+      'the lodging band in words',
+      'entre 50 y 75 euros por noche',
+      ['january-lodging-amount:50', 'january-lodging-amount:75'],
+    ],
+    ['single lodging as a field', '{currency:"EUR",amount:100}', ['january-lodging-amount:100']],
+    ['an escaped dollar, \\x form', unescapeLiterals('window.p="\\x245.100.000"'), ['january-clp-amount:5100000']],
+    [
+      'an escaped dollar, \\u form',
+      unescapeLiterals('window.p="\\u00244.700.000"'),
+      ['january-clp-amount:4700000'],
+    ],
+    [
+      'an escaped dollar, \\u{} form',
+      unescapeLiterals('window.p="\\u{24}1.500.000"'),
+      ['january-clp-amount:1500000'],
+    ],
+    ['an escaped euro sign', unescapeLiterals('window.p="\\u20ac50"'), ['january-lodging-amount:50']],
+  ];
+
+  for (const [description, text, expected] of leaks) {
+    it(`fires on ${description}`, () => {
+      expect(occurrencesFiring(text), JSON.stringify(text)).toEqual([...expected].sort());
+    });
+  }
+});
+
+/**
+ * The January cross-product (see `generateJanuaryCorpus`). One test per figure
+ * and spelling, asserting every context of that pair; each assertion names the
+ * full case, so a failure still says which coordinate moved. Registering the
+ * product case by case would add tens of thousands of tests for no extra
+ * information.
+ */
+describe('leak guard — generated January 2027 corpus (PASANT-B003, per occurrence)', () => {
+  const groups = new Map<string, Array<{ description: string; text: string; expected: string[] }>>();
+  for (const januaryCase of generateJanuaryCorpus()) {
+    const cases = groups.get(januaryCase.group) ?? [];
+    cases.push(januaryCase);
+    groups.set(januaryCase.group, cases);
+  }
+
+  it('plants every January figure, and plants misses as well as hits', () => {
+    const planted = new Set<string>();
+    let misses = 0;
+    for (const cases of groups.values()) {
+      for (const { expected } of cases) {
+        for (const occurrence of expected) planted.add(occurrence);
+        if (expected.length === 0) misses += 1;
+      }
+    }
+    for (const { value, check } of JANUARY_PROTECTED) {
+      expect(planted, `${check}:${value}`).toContain(`${check}:${value}`);
+    }
+    expect(misses).toBeGreaterThan(0);
+  });
+
+  for (const [group, cases] of groups) {
+    it(`fires on every context of ${group}`, () => {
+      for (const { description, text, expected } of cases) {
+        expect(occurrencesFiring(text), `${description}: ${JSON.stringify(text)}`).toEqual([
+          ...expected,
+        ]);
+      }
+    });
+  }
+});
+
+/**
+ * PASANT-B003 part 2 — the narrow guard extension. The January commercial
+ * module (`lib/pasantias/cohort-commercial.ts`) now exists, so its actual copy is
+ * guarded by literal fragment, alongside the figures part 1 added. Everything
+ * above this block is unchanged; this only adds coverage.
+ */
+describe('leak guard — January 2027 commercial copy (PASANT-B003 part 2)', () => {
+  const commercialSource = readFileSync(
+    join(process.cwd(), 'lib', 'pasantias', 'cohort-commercial.ts'),
+    'utf8'
+  );
+
+  it('guards only fragments that are verbatim substrings of the commercial module', () => {
+    for (const fragment of JANUARY_COPY_FRAGMENTS) {
+      expect([fragment, commercialSource.includes(fragment)]).toEqual([fragment, true]);
+    }
+  });
+
+  it('fires the commercial-copy check on every listed fragment, each on its own', () => {
+    for (const fragment of JANUARY_COPY_FRAGMENTS) {
+      expect([fragment, checksFiring(fragment)]).toEqual([fragment, ['commercial-copy']]);
+    }
+  });
+
+  for (const [description, text, expected] of JANUARY_COMMERCIAL_COPY_ROWS) {
+    it(`fires on ${description}`, () => {
+      expect(occurrencesFiring(text), JSON.stringify(text)).toEqual(sortOccurrences(expected));
+    });
+  }
+
+  for (const [description, text, expected] of JANUARY_ESCAPED_COPY_ROWS) {
+    it(`fires on ${description}, once unescaped as the build does`, () => {
+      expect(occurrencesFiring(unescapeLiterals(text)), JSON.stringify(text)).toEqual(
+        sortOccurrences(expected)
+      );
+      // The raw escaped text alone does not: the unescape step is load-bearing.
+      expect(occurrencesFiring(text), JSON.stringify(text)).toEqual([]);
+    });
+  }
+
+  for (const [description, text] of JANUARY_COPY_SILENT_CONTROLS) {
+    it(`stays silent on ${description}`, () => {
+      expect(occurrencesFiring(text), JSON.stringify(text)).toEqual([]);
+    });
+  }
+});
+
+/**
+ * B003-P1-N2 (part 1 review, destination PASANT-B003 part 2): the percentage
+ * exclusion is not January-only — it applies to October's figures too. Named
+ * here so the decision is a pinned verdict with its own failure message.
+ */
+describe('leak guard — B003-P1-N2: October figures written as percentages', () => {
+  for (const [description, text, expected] of HISTORICAL_PERCENTAGE_ROWS) {
+    it(`${expected.length === 0 ? 'stays silent on' : 'fires on'} ${description}`, () => {
+      expect(occurrencesFiring(text), JSON.stringify(text)).toEqual(sortOccurrences(expected));
     });
   }
 });

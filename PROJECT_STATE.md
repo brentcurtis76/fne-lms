@@ -1,3 +1,96 @@
+## PASANT-B004 admin leads completeness (C009) — authored, not validated, PARTIAL (2026-10-15)
+
+**Remediation 1 (`r1-remediation-1`), authorship only. Status: PARTIAL. Tests: NOT_RUN.** It answers the consolidated review's
+three blockers in code; all three stay open until independent review and execution.
+- B004-R1-01: a save's refresh is now issued for the filter and page on screen when the save ends, never the context it
+  began in.
+- B004-R1-02: every GET re-reads the change watermark after its data. A change answers 409 and an unreadable re-read 500,
+  so an export whose last page raced a write downloads nothing. This is detection over `updated_at`, not a snapshot.
+- N5: a `PASSWORD_HELD_PERSONAS` tier for `adminForcedPassword`. The existing session tiers are unchanged, and only the
+  zoom-join-authz partition test changed.
+- A repeated `program` param is now refused; `status`/`search` keep first-value.
+- A new rendered-page unit suite and the API interleaving cases are authored. The record's §2 is corrected by a linked
+  note, and §9 holds the actual protocol.
+- Attempts: initial 1, scope continuations 1, remediation 1; inherited counters unchanged.
+
+**Fixture continuation (`r1-fixture-continuation-1`), authorship only. Status: PARTIAL. Tests: NOT_RUN. Seed: NOT_RUN.**
+- The seed now describes 1205 OWNED synthetic Pasantías contacts. They are separate from the A8 lead and journey contacts.
+  They cover every status, both programs, both-on-one-contact, historical and unclassified, equal timestamps across page
+  boundaries, and hostile CSV/search text. All are older than any A8 lead, and only the fixture's own id namespace is
+  written. There are no deletes and no A8 reset.
+- One forced-password admin persona (`adminForcedPassword`) is added. Every existing persona is unchanged.
+- The CI fixture spec gives that persona a dedicated `/change-password` + PASANT-API-denial test. The flow spec now holds
+  the API, screen and CSV to the owned fixture's exact ids and cells. It also proves cookie and genuine-bearer denial
+  with no mutation, and reads back the same-address two-submission contact after each submission.
+- The six frozen core paths are untouched.
+- **Open, load-bearing (N5):** `tests/e2e/helpers/session-personas.ts` (not allowlisted) must classify the new persona, or
+  four session specs fail at load. Routed to the PM. (Authored in remediation 1 above.)
+- Attempts: initial 1, scope continuations 1, remediation 0; inherited counters unchanged. Record §8.
+
+`fix/p02b-r1` (base `85838af02a03`, uncommitted) now also carries B004 on top of the B002a/B002b/B003 overlay. The existing
+FNE-global screen `/admin/pasantia-leads` pages contacts (`created_at desc, id desc`, 50 per page, first/last navigation) with
+an exact matching total, and its status tabs are exact unfiltered database counts — both were silently cut at PostgREST's 1000
+rows before. Each contact shows all its program interests (INSPIRA, Mirada Profunda, both once) with per-interest consent; an
+interest-less contact is labelled historical (pre-January cohort) or unclassified, never given a program. A program filter
+keeps the contact's other interest. The CSV walks every matching contact in pages of 500 under one captured filter set and a
+change watermark, and downloads only if nothing moved, repeated or went missing. The API holds a flagged or unreadable
+forced-password account (cookie or Bearer) before any lead query; access, triage, notes and the compare-and-set PATCH are
+unchanged. No SQL, auth, RBAC or shared exporter change. Inherited B003-P2-N1 test-title hygiene applied. **No test, build or
+browser check has run** (authorship-only); every gate is open. Routed to the PM: the 1205-contact bulk fixture (seed/fixtures
+allowlist), a forced-password persona, the unchanged admin spec's page-1 dependency, and a bare-CR gap in the shared exporter
+(mitigated locally). The first two are now authored by the continuation above, and the third is met by timestamp ordering. R-08/R-17 stay Brent-owned. Attempts: initial 1, remediation 0; inherited counters unchanged. Record:
+`docs/plan/evidence/pasant-january/b004-admin-completeness.md`; review: `docs/planning/reviews/fase-pasant-admin-review-request.md`.
+
+## PASANT-B003 January content, program choice and shared documents — authored, not validated (2026-10-15)
+
+`fix/p02b-r1` (base `85838af02a03`, uncommitted) now also carries the B003 cutover on top of the B002a/B002b overlay and the
+B003-part1 guard changes. The public module is January 2027 (`enero-2027`, `Enero, 18 al 29 · 2027`) with a typed registry of
+the two programs (`inspira`, `mirada-profunda`), transcribed from the ratified contract; October experts, objectives and school
+highlights are not carried. The page, the homepage card, the price-free ficha and the generated brochure (every ratified
+commercial fact, server-only) are January's; both PDFs are shared by the two programs, with new cache keys and names
+(`2027-01-v1`). The form asks for exactly one program (both CTAs preselect it, the visitor can change it); success needs a
+stored response and links both PDFs; no copy promises mail. The January acknowledgement links both PDFs and settles `not_sent`
+when the production origin is missing. The API route, SQL, auth and RLS did not change. The price guard gained January
+commercial-copy fragments, escaped forms and the B003-P1-N2 regression; nothing was removed. **No test, scan, build or browser
+check has run** (authorship-only); every gate is open. A same-day continuation (r1-continuation-1) retargeted
+`tests/e2e/pasantias-page.spec.ts` and `pasantias-form.spec.ts` to January with literal contract expectations (F1; the form
+spec stays browser-behaviour only) and corrected three unsupported homepage teaser claims as text only (F5); both resolved in
+code, NOT RUN. The A-14 consent sentence stays verbatim (F4, no decision needed); real-database per-program interest proof is
+routed to B004/B006 (F6). R-08 (designed brochure at `pasantias/brochure-2027-01-v1.pdf` before the
+deployment) and R-17 (real mail) stay Brent-owned. Attempts: initial 1, scope continuation 1, remediation 1 (F5); inherited
+B002b 1/2 and B003-part1 1/0 unchanged. Correction to the B002b entry below
+(B002b-N1): its "Remediations are now 2 of 2" is the correct count, but under the pm-workflow AUTONOMY policy (2026-09-26) that
+number is a checkpoint, not a cap: further rounds inside the approved plan stay allowed and carry ESCALATION from round 3. The
+count and the original report are unchanged. Record: `docs/plan/evidence/pasant-january/b003-january-content.md`; review:
+`docs/planning/reviews/fase-pasant-january-review-request.md`.
+
+## PASANT-B002b January registration API — provisional local code, not validated (2026-10-15)
+
+`fix/p02b-r1` (base `85838af02a03`, uncommitted) carries the seven-path B002a overlay restored below, unchanged, plus new B002b
+code. B002b is a provisional dependency on that overlay, not a new B002a acceptance. `POST /api/pasantias/lead` now accepts
+`cohort: "enero-2027"` with exactly one `program` (`inspira` or `mirada-profunda`; arrays and other values are refused). It
+writes through one call to the accepted `pasantias_submit_program_interest`, with all 18 keys and no partial-success state.
+The same email submitted separately for each program keeps both interests. The reply acknowledgement is deduped by that
+interest's own claim and settled with its token: provider_accepted, not_sent (known: retry allowed) or ambiguous (24 h kept).
+The response is the same `200 {success:true}` and promises no mail. The January acknowledgement has no document link and only
+contract-verbatim names; January documents are B003. October is unchanged: single-track, no `program`, the same writes and
+brochure reply. `cohort-public` is not switched. No SQL, auth or RLS change. The design correction B002b-DESIGN-01 (singular
+program, one RPC per POST) was applied during authorship. Review r1 (CHANGES_REQUIRED) was then remediated. B002b-R1-01: test
+overrides no longer mutate the model, and a delayed stale-owner A / newer-claim B case was added. B002b-R1-02: an optional
+`transport` seam in `lib/pasantias/emails.ts`; production default and `lib/email/**` unchanged; real-provider tests added.
+Remediations are now 2 of 2. The PM allowed the provisional no-link January acknowledgement locally; B003 documents are still
+required before release. Tests were authored in the three focused files and **not run**. Every
+gate is open: focused, type-check, lint, unit, build, pgTAP, real PostgREST/concurrency, browser journeys (January either
+program, same-email both, repeat, invalid consent, no enumeration, October A9 4/4) and CI. Independent review comes before any
+acceptance or commit. Correction to the entry below: its "No gate has run on this base yet" is stale. The recovered combined
+baseline unit gate (525 files/13519 passed/12 inherited skips) has since passed independently (PM record). Every other
+combined-state gate stays open. Record: `docs/plan/evidence/pasant-january/b002-api-integration.md`; review:
+`docs/planning/reviews/fase-pasant-api-review-request.md`.
+
+## PASANT-B002a dormant program-interest foundation — local continuation r1, restored, not yet validated (2026-10-15)
+
+`fix/pasant09-r1` (uncommitted) recovers the accepted PASANT-09 r0 change (`3ce1339b7`, PM review APPROVED_WITH_NOTES) onto the exact accepted PASANT-02 r1 parent commit `85838af02a03`, the B001 parent rebuild below. That base is a fixed commit, not a moving main. The migration `20261013020000_pasantias_january_program_interests.sql`, pgTAP `112-pasantias-program-interests-rls.sql` and `docs/plan/evidence/pasant-january/b002-database-contract.md` are restored byte-for-byte; no SQL was authored in r1, and the DB-subagent authorship stays as in r0. The obsolete r0 edit to the B001 record is not carried, because this base already attributes C008 to B002. The two accepted PASANT-B005 docs are restored byte-for-byte from `e8f54ee0f`; B005 acceptance is not reopened. Dormant: no application caller and no API activation. **No gate has run on this base yet.** The r0 counts in the review request are history on `dd1feaa2b`. Type-check, lint, all eight unit shards, build, full pgTAP (now including main's 106), races, PostgREST smoke and the October A9 flow 4/4 are still required. Memory-limited host measurement is staged. Open: independent review and local commit; the `UNIQUE (id, cohort)` count-check manifest; B002b API integration and cumulative C008; advisory P09-A1 (B002b/DB-test owner); B003/B004/B006 and the Brent-owned R-08/R-17 releases. Review: `docs/planning/reviews/fase-pasant-db-review-request.md`.
+
 ## PASANT-B001 parent (C001–C003) — fresh-main rebuild for review (2026-10-13)
 
 `fix/p02-r1` (base main `2922e1b74`, uncommitted docs only) rebuilds the accepted parent reconciliation (historical commit `dd1feaa2b`, set aside because PROJECT_STATE changed on main). The ratified January contract stays the sole January source (PLAN.md Decision Log 2026-10-09 amendment), and the A9 flow spec, link guards and mandatory entry 24 stay ported with provenance. All 10 protected PASANT paths are blob-identical to r0, and no PASANT path changed on main since. The runtime still renders October 2026, and `cohort-public.ts` changed in comments only. Fresh on this base: full gates (525 files/13519 passed/12 skipped), 13 counterexample probes, the unmocked A9 flow 4/4 on the owned `pasant02r1` stack, and pgTAP 74/7626. Open: PM parent acceptance; C008 is B002; January runtime C004–C007 is B003; cumulative C011/CI is B006; R-08 designed-file upload and R-17 mail are Brent-owned releases. PR #46 is still open, and closing it as superseded is Brent's call. Record: `docs/plan/evidence/pasant-january/b001-parent-reconciliation.md`; review: `docs/planning/reviews/fase-pasant-parent-review-request.md`.

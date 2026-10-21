@@ -11,9 +11,37 @@
  * Validation lives here too so the public route and its tests share one
  * definition of "a well-formed lead". Nothing in this module touches the
  * database, sends mail, or imports `cohort-commercial` (D-01).
+ *
+ * Accepted cohorts (PASANT-B002b): the running public cohort (`COHORT_ID`)
+ * and January 2027, where every submission names exactly one program. Since
+ * PASANT-B003 the public cohort IS January 2027, so both names denote the same
+ * cohort and every valid submission carries a program; a stale cached form that
+ * still posts the retired October cohort gets the visible `cohortInvalid` error
+ * (no October-specific rule exists or is needed). Someone interested in both
+ * programs submits twice with the same address; the database keeps one contact
+ * with both interests. Only the identities live here — no January fact does.
  */
 import { COHORT_ID } from './cohort-public';
 import { isValidEmail, normalizeEmail, normalizeText } from '../signups';
+
+/**
+ * January 2027 identities, frozen by the ratified contract §2
+ * (`docs/plan/pasantias-january-contract.md`, DEC-06) and mirrored by the CHECK
+ * on `pasantias_lead_program_interests`. Kept here as literals rather than read
+ * from `cohort-public` on purpose: they mirror the SQL CHECK, and
+ * `__tests__/lib/pasantias-leads.test.ts` requires the public module's
+ * `COHORT_ID`/`PROGRAM_IDS` to agree with them, so neither side can drift alone.
+ */
+export const JANUARY_COHORT_ID = 'enero-2027';
+
+/** Contract order. Both programs travel together; one contact may hold both interests. */
+export const JANUARY_PROGRAM_IDS = ['inspira', 'mirada-profunda'] as const;
+
+export type JanuaryProgramId = (typeof JANUARY_PROGRAM_IDS)[number];
+
+export function isJanuaryProgramId(value: unknown): value is JanuaryProgramId {
+  return typeof value === 'string' && (JANUARY_PROGRAM_IDS as readonly string[]).includes(value);
+}
 
 /** The four statuses the table's CHECK constraint allows. */
 export const LEAD_STATUSES = ['new', 'contacted', 'converted', 'dismissed'] as const;
@@ -88,6 +116,8 @@ export interface LeadSubmissionBody {
   message?: unknown;
   consent?: unknown;
   marketingOptIn?: unknown;
+  /** January only: the ONE program ID this submission is about. */
+  program?: unknown;
   /** Where on the site the form was submitted from. Browser-reported. */
   sourcePath?: unknown;
   utmSource?: unknown;
@@ -113,6 +143,11 @@ export interface ValidatedLead {
   message: string | null;
   /** Optional and defaulting to false: a default may never assert consent. */
   marketingOptIn: boolean;
+  /**
+   * The January program this submission files an interest for; always set for
+   * `JANUARY_COHORT_ID`, always null for the single-track public cohort.
+   */
+  program: JanuaryProgramId | null;
   /** Same-site relative path, or null when absent or refused — see `sanitizeSourcePath`. */
   sourcePath: string | null;
   utmSource: string | null;
@@ -139,6 +174,8 @@ export const LEAD_VALIDATION_MESSAGES = {
   institutionRequired: 'Ingresa tu institución.',
   consentRequired: 'Debes autorizar el tratamiento de tus datos para enviar el formulario.',
   cohortInvalid: 'La cohorte indicada no corresponde a la pasantía vigente.',
+  programRequired: 'Elige un programa.',
+  programInvalid: 'El programa indicado no corresponde a la pasantía vigente.',
   numPeopleInvalid: `Indica un número de participantes entre ${LEAD_NUM_PEOPLE_MIN} y ${LEAD_NUM_PEOPLE_MAX}.`,
   tooLong: (max: number) => `Máximo ${max} caracteres.`,
 } as const;
@@ -254,10 +291,21 @@ export function validateLeadSubmission(body: LeadSubmissionBody): LeadValidation
     errors.consent = LEAD_VALIDATION_MESSAGES.consentRequired;
   }
 
-  // The cohort is pinned by the public module, so a stale cached form or a
-  // hand-crafted POST cannot file a lead against a cohort that is not running.
-  if (cohort !== COHORT_ID) {
+  // The cohort is pinned — the public module's running cohort or the ratified
+  // January identity, the same value since PASANT-B003 — so a stale cached form
+  // or a hand-crafted POST cannot file a lead against a cohort that is not open.
+  const cohortValid = cohort === COHORT_ID || cohort === JANUARY_COHORT_ID;
+  if (!cohortValid) {
     errors.cohort = LEAD_VALIDATION_MESSAGES.cohortInvalid;
+  }
+
+  // Judged only against a valid cohort: with an unknown cohort there is no
+  // program list to check against, and the cohort error already says why.
+  const program = cohortValid ? parseProgram(body.program, cohort) : null;
+  if (program === 'required') {
+    errors.program = LEAD_VALIDATION_MESSAGES.programRequired;
+  } else if (program === 'invalid') {
+    errors.program = LEAD_VALIDATION_MESSAGES.programInvalid;
   }
 
   if (phone && phone.length > LEAD_FIELD_LIMITS.phone) {
@@ -306,12 +354,39 @@ export function validateLeadSubmission(body: LeadSubmissionBody): LeadValidation
       message,
       // Optional, and false unless the person actively opted in (D-12).
       marketingOptIn: body.marketingOptIn === true,
+      program: isJanuaryProgramId(program) ? program : null,
       sourcePath,
       utmSource,
       utmMedium,
       utmCampaign,
     },
   };
+}
+
+/**
+ * The one program a submission is about, for an already-valid cohort.
+ *
+ * January: exactly one ratified program ID, as the exact string — never an
+ * array, never trimmed or re-cased. One submission is one interest and one
+ * atomic database call; a list would need several calls and could leave some of
+ * them committed when a later one fails. Interest in both programs is two
+ * submissions with the same address.
+ *
+ * A single-track public cohort has no program: absent (or null/empty) is fine,
+ * anything else is refused — a person who named a program must never be told
+ * they registered while the program was silently dropped. Not reachable while
+ * the public cohort is January (see the module comment); kept, not deleted.
+ */
+function parseProgram(value: unknown, cohort: string): JanuaryProgramId | null | 'required' | 'invalid' {
+  const absent = value === undefined || value === null || value === '';
+
+  if (cohort !== JANUARY_COHORT_ID) {
+    return absent ? null : 'invalid';
+  }
+  if (absent) {
+    return 'required';
+  }
+  return isJanuaryProgramId(value) ? value : 'invalid';
 }
 
 /**

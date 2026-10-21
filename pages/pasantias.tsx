@@ -1,60 +1,63 @@
 /**
  * `/pasantias` — the public landing page for Pasantías INSPIRA Barcelona.
  *
- * A6r ports the externally-authored redesign delivered under
- * `docs/plan/design/a6r-handoff/`. The delivered mockup has every fact inlined,
- * which is correct for a mockup and is exactly the rot this phase exists to
- * prevent: **no cohort fact is written in this file**. Dates, weeks, schools,
- * levels, highlights, experts, claims, objectives, the day structure and the
- * inclusion lists all come from `lib/pasantias/cohort-public.ts`, and
+ * A6r ported the externally-authored redesign delivered under
+ * `docs/plan/design/a6r-handoff/`; PASANT-B003 moved its content to the ratified
+ * January 2027 cohort and its two programs, keeping the same design system,
+ * sections and components. **No cohort fact is written in this file.** Dates,
+ * programs, audiences, schools, the calendar, the day structure, the claims and
+ * the inclusion lists all come from `lib/pasantias/cohort-public.ts`, which
+ * transcribes `docs/plan/pasantias-january-contract.md`, and
  * `__tests__/pages/pasantias-hardcoded-cohort.test.ts` fails on any of those
- * strings appearing as a literal here.
+ * strings appearing as a literal here — or on a fact the module holds that this
+ * page stops printing.
+ *
+ * Every module value is printed directly — no value is read only as a flag, an
+ * agreement or a length — so the guard can prove each one is on the page.
  *
  * D-01/D-02: `cohort-commercial.ts` is server-only and must never be imported
  * here — `scripts/check-price-leak.mjs` fails the build if it ever is. There are
- * no prices on this page at all; the ficha it links to carries none either.
+ * no prices on this page at all; the ficha it links to carries none either. The
+ * brochure (which does) is only ever linked.
  *
- * The `#programa` panel is still A6a's interim mailto CTA. The mockup delivered
- * a full request form; **A6b owns the form's behaviour**, so this round ports
- * the section's visual treatment only rather than shipping inputs that look live
- * and submit nowhere.
+ * The two program CTAs preselect that program in the request form
+ * (`components/pasantias/LeadForm.tsx`), where the visitor can still change it.
  */
 import React from 'react';
 import type { GetServerSideProps } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
 import Footer from '../components/Footer';
-import LeadForm from '../components/pasantias/LeadForm';
+import LeadForm, { type ProgramRequest } from '../components/pasantias/LeadForm';
 import { getAppBaseUrl } from '../lib/utils/app-url';
 import { PASANTIAS_IMAGE_PATHS } from '../lib/pasantias/image-manifest';
-import type { CohortSchool } from '../lib/pasantias/cohort-public';
+import type { CohortProgram, ProgramId } from '../lib/pasantias/cohort-public';
 import {
+  COHORT_ACCREDITATION,
+  COHORT_CITY,
   COHORT_CLAIMS,
+  COHORT_CONTACT,
   COHORT_DAY_STRUCTURE,
   COHORT_EXCLUDES,
-  COHORT_EXPERTS,
-  COHORT_FREE_DAYS,
+  COHORT_FREE_WEEKEND,
   COHORT_HEADLINE,
-  COHORT_IMMERSION_SCHOOLS,
+  COHORT_HOSTS,
   COHORT_INCLUDES,
   COHORT_LABEL,
-  COHORT_LODGING_AREA,
-  COHORT_OBJECTIVES,
-  COHORT_SCHOOLS,
-  COHORT_VISIT_DAY_COUNT,
-  COHORT_VISIT_SCHOOLS,
-  COHORT_WEEKS,
+  COHORT_PLACES,
+  COHORT_PROGRAMS,
+  COHORT_ROUTING,
+  COHORT_SPAN,
+  COHORT_TOGETHER,
 } from '../lib/pasantias/cohort-public';
-
-const CONTACT_EMAIL = 'info@nuevaeducacion.org';
 
 /**
  * es-CL writes the decimal separator as a comma. Done by hand rather than with
  * `toLocaleString` because this runs on both sides of hydration and a browser
  * without es-CL locale data would render `2.5` where the server rendered `2,5`.
  */
-function formatDays(days: number): string {
-  return String(days).replace('.', ',');
+function formatNumber(value: number): string {
+  return String(value).replace('.', ',');
 }
 
 /**
@@ -67,95 +70,49 @@ function splitClaim(claim: string): { figure: string; caption: string } {
   return { figure, caption: rest.join(' ') };
 }
 
-/**
- * The immersion tier currently gives every school the same number of days, which
- * is what lets the section head say "cada una". Derived rather than assumed: if
- * a future cohort splits the week unevenly this collapses to `null` and the
- * phrase disappears instead of quietly printing one school's figure for both.
- */
-function uniformImmersionDays(): number | null {
-  const distinct = new Set(COHORT_IMMERSION_SCHOOLS.map((school) => school.immersionDays ?? 0));
-  return distinct.size === 1 ? [...distinct][0] : null;
+/** `a, b y c` — the es-CL way to close an enumeration. */
+function joinEs(parts: readonly string[]): string {
+  if (parts.length <= 1) return parts[0] ?? '';
+  return `${parts.slice(0, -1).join(', ')} y ${parts[parts.length - 1]}`;
 }
 
 /**
- * How many weeks the itinerary section is built to render.
- *
- * The section is two cards with two different treatments — the immersion week is
- * lived in one place, the visit week moves — and {@link COHORT_WEEKS} is
- * destructured by position to build them, so a third week would render nothing
- * at all. That silent drop is the reason this is a constant rather than a
- * sentence in a comment: it is exported so
- * `__tests__/pages/pasantias-hardcoded-cohort.test.ts` can fail the moment the
- * module stops agreeing with it.
- *
- * The copy below still reads `COHORT_WEEKS.length` rather than this constant, so
- * the two cannot converge silently: the number the page prints comes from the
- * module, and this constant is what the design is allowed to render.
+ * How many school weeks each program's calendar is designed around. Exported so
+ * `__tests__/pages/pasantias-hardcoded-cohort.test.ts` can pin the module to it;
+ * the calendar itself maps every week the module has, so a third week renders a
+ * third card rather than disappearing.
  */
 export const DESIGNED_WEEK_COUNT = 2;
 
-/**
- * es-CL number words for the cardinalities this page's copy can state. The
- * sentences say "Dos semanas", not "2 semanas", so a count that appears in prose
- * reaches the reader as a word; past the list the digit is printed rather than a
- * word being invented for it.
- */
-const COUNT_WORDS_ES = ['cero', 'una', 'dos', 'tres', 'cuatro', 'cinco', 'seis'] as const;
-
-function countWord(count: number): string {
-  return COUNT_WORDS_ES[count] ?? String(count);
+/** `wa.me` wants the number with no punctuation; derived from the module's display form. */
+function whatsappHref(): string {
+  const message = `Hola, quiero información sobre las Pasantías INSPIRA Barcelona (${COHORT_LABEL}).`;
+  return `https://wa.me/${COHORT_CONTACT.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
 }
-
-/** The word a sentence starts with carries its initial capital. */
-function capitalizeWord(word: string): string {
-  return word.charAt(0).toUpperCase() + word.slice(1);
-}
-
-/**
- * How many weeks the cohort runs, as the word the copy states it with. A
- * function rather than a constant because it has to be read at render time: the
- * guard suite swaps the module underneath a render, and a value computed when
- * this file was first imported would not move with it.
- */
-function weekCountWord(): string {
-  return countWord(COHORT_WEEKS.length);
-}
-
-/** Appendix A-11. `wa.me` wants the number with no punctuation. */
-const WHATSAPP_NUMBER = '56941623577';
-const WHATSAPP_DISPLAY = '+56 9 4162 3577';
-const WHATSAPP_MESSAGE = `Hola, quiero información sobre las Pasantías INSPIRA Barcelona (${COHORT_LABEL}).`;
-const WHATSAPP_HREF = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`;
 
 const FICHA_HREF = '/api/pasantias/ficha';
 
 const PAGE_PATH = '/pasantias';
 const PAGE_TITLE = `Pasantías INSPIRA Barcelona · ${COHORT_HEADLINE} | Fundación Nueva Educación`;
+
 /**
- * The `<meta description>` and both social descriptions, which say how many
- * weeks the cohort runs before any of the page's own sections do.
- *
- * A function for the same reason {@link weekCountWord} is one, and exported for
- * a second: `next/head` contributes nothing to a static render, so this sentence
- * is invisible to a guard that reads the markup. The guard reads it from here
- * instead, which is why the metadata is covered at all.
+ * The `<meta description>` and both social descriptions. A function read at
+ * render time, and exported: `next/head` contributes nothing to a static render,
+ * so the guard reads this sentence from here instead of from the markup.
  */
 export function buildMetaDescription(): string {
-  return `${capitalizeWord(
-    weekCountWord()
-  )} semanas viviendo escuelas de vanguardia en Barcelona: ${COHORT_VISIT_DAY_COUNT} días de visitas en ${
-    COHORT_SCHOOLS.length
-  } escuelas, con inmersión completa en ${COHORT_IMMERSION_SCHOOLS.map(
-    (school) => school.name
-  ).join(' y ')}.`;
+  const [inspira, mirada] = COHORT_PROGRAMS;
+  return `${COHORT_HEADLINE}. ${inspira.name}: ${inspira.audience}, ${formatNumber(
+    inspira.schoolDays
+  )} días en escuelas. ${mirada.name}: ${mirada.audience}, ${formatNumber(
+    mirada.schoolDays
+  )} días en escuelas. ${COHORT_TOGETHER}.`;
 }
 
 /**
  * The site header, replicated so `/pasantias` reads as part of
  * nuevaeducacion.org rather than as a stray landing page. Destinations are the
- * routes this repository actually serves — the mockup pointed at `/contacto`
- * and at the platform's public hostname, neither of which resolves here.
+ * routes this repository actually serves.
  */
 const NAV_LINKS: ReadonlyArray<{ label: string; href: string; current?: boolean }> = [
   { label: 'Pasantías', href: PAGE_PATH, current: true },
@@ -168,13 +125,9 @@ const HUB_LINK = { label: 'Hub de transformación', href: '/login' };
 
 /**
  * Photography slots from the delivered design, each with the filenames that may
- * fill it, best first. The design names the photographs it wants; the repository
- * currently holds three shippable ones under their own names, so each slot lists
- * the design's name and then whatever stands in for it today. A slot that
- * resolves to nothing is not rendered at all — see {@link PhotoBreak}.
- *
- * Dropping `hero-barcelona.jpg` into `public/images/pasantias/` is therefore the
- * whole of "add the real photo": no code changes with it.
+ * fill it, best first. A slot that resolves to nothing is not rendered at all —
+ * see {@link PhotoBreak}. Dropping `hero-barcelona.jpg` into
+ * `public/images/pasantias/` is therefore the whole of "add the real photo".
  */
 const PHOTO_SLOTS = {
   hero: ['hero-barcelona', 'bcn-skyline'],
@@ -194,10 +147,16 @@ interface PasantiasPageProps {
    * guaranteed to exist — see {@link OG_IMAGE_PATH}.
    */
   ogImageUrl: string | null;
-  /** es-CL date range per week of {@link COHORT_WEEKS}, same order. */
-  weekRanges: string[];
-  /** es-CL range from the first free day of {@link COHORT_FREE_DAYS} to the last. */
-  freeDayRange: string;
+  /** es-CL range of the shared cohort span. */
+  spanRange: string;
+  /** es-CL date range per program of {@link COHORT_PROGRAMS}, same order. */
+  programRanges: string[];
+  /** es-CL date range per week, per program, same order. */
+  weekRanges: string[][];
+  /** es-CL dates of the common free weekend, first and last. */
+  freeWeekendDates: [string, string];
+  /** es-CL date of the second program's closing presentation. */
+  closingDate: string;
 }
 
 /**
@@ -216,40 +175,25 @@ function formatDayMonth(isoDate: string): string {
 }
 
 /**
- * The same two dates as one range, with the month printed once when both dates
- * share it: `10 al 12 de octubre` rather than `10 de octubre al 12 de octubre`.
- * A long weekend that straddled two months would still read `30 de octubre al 2
- * de noviembre`, so nothing is dropped that the reader needs.
- *
- * Used for the long weekend only — the finde card and the FAQ answer about it,
- * which is why the two surfaces can be read side by side without one looking
- * like an edit of the other. **The week cards are deliberately left alone.**
- * Their ranges also share a month today (`5 de octubre al 9 de octubre`), so
- * applying this there would change a third rendered surface; that was not the
- * decision taken, and a range that names its month twice is not wrong, only
- * longer.
- *
- * Both ends stay derived: this reformats the module's dates, it does not choose
- * them.
+ * Two dates as one range, each written in full — `18 de enero al 28 de enero` —
+ * so every date the page prints is a whole "día de mes" a reader (and the guard)
+ * can find on its own. Both ends stay derived: this reformats the module's
+ * dates, it does not choose them.
  */
-function formatDayMonthRange(startIsoDate: string, endIsoDate: string): string {
-  const sharesMonth = startIsoDate.slice(0, 7) === endIsoDate.slice(0, 7);
-  const start = sharesMonth
-    ? String(Number(startIsoDate.slice(8, 10)))
-    : formatDayMonth(startIsoDate);
-
-  return `${start} al ${formatDayMonth(endIsoDate)}`;
+function formatRange(startIsoDate: string, endIsoDate: string): string {
+  return `${formatDayMonth(startIsoDate)} al ${formatDayMonth(endIsoDate)}`;
 }
 
 /**
- * Portrait filenames are derived from the expert's name in the module, never
- * listed here: a lookup table keyed by name would put eight cohort strings back
- * into this file, which is the thing [A1] forbids.
+ * Portrait filenames are derived from the host's name in the module, never
+ * listed here: a lookup table keyed by name would put cohort strings back into
+ * this file, which is the thing [A1] forbids.
  */
 function portraitSlug(name: string): string {
   return name
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    // Every combining mark NFD split off (the accents), as a property escape.
+    .replace(/\p{M}/gu, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
@@ -258,21 +202,10 @@ function portraitSlug(name: string): string {
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'] as const;
 
 /**
- * Which photographs ship, decided at build time.
- *
- * r2 asked the filesystem this per request — 37 `existsSync` calls against
- * `public/` on every render. That is wrong twice over. `public/` is not in a
- * Vercel function's file trace (the clean build traces 14 files, none of them
- * images), so the probes can answer "missing" in production for photographs
- * that ship perfectly well: a page that looks right locally and renders
- * photo-less when deployed. And it is 37 syscalls to re-derive a value that
- * only changes when someone adds a file to the repository.
- *
- * `lib/pasantias/image-manifest.ts` is generated from the directory by
- * `npm run images:manifest` and committed;
- * `__tests__/lib/pasantias-image-manifest.test.ts` fails if the two ever
- * disagree. Resolution below is a `Set` lookup at module scope, so it happens
- * once per process and cannot depend on the runtime's filesystem at all.
+ * Which photographs ship, decided at build time: `lib/pasantias/image-manifest.ts`
+ * is generated from the directory by `npm run images:manifest` and committed, so
+ * resolution is a `Set` lookup that cannot depend on the runtime's filesystem
+ * (a Vercel function's file trace does not include `public/`).
  */
 const AVAILABLE_IMAGES = new Set(PASANTIAS_IMAGE_PATHS);
 
@@ -295,52 +228,40 @@ const PHOTOS = Object.fromEntries(
   ])
 ) as Record<PhotoSlot, string | null>;
 
-/** Resolved portrait URL per expert of {@link COHORT_EXPERTS}, same order. */
-const PORTRAITS: (string | null)[] = COHORT_EXPERTS.map((expert) =>
-  resolveImage('images/pasantias/equipo', [portraitSlug(expert.name)])
-);
-
 /**
- * The share image, or `null` when none is guaranteed.
- *
- * It is the hero, so the unfurl and the page can never disagree, and falls back
- * to the site-wide Barcelona asset. Both are checked against the manifest: a
- * social preview pointing at a 404 is worse than no tag, so when neither ships
- * the `og:image`/`twitter:image` tags are omitted entirely rather than guessed.
+ * The share image, or `null` when none is guaranteed. It is the hero, so the
+ * unfurl and the page can never disagree; when nothing ships the `og:image` /
+ * `twitter:image` tags are omitted rather than guessed.
  */
 const OG_IMAGE_PATH: string | null =
   PHOTOS.hero ?? resolveImage('images/pasantias', ['bcn-skyline']);
 
 /**
- * `getAppBaseUrl` is called directly and is allowed to throw.
- *
- * Round r1 wrapped it in a try/catch that rebuilt the origin from the request's
- * `Host` header, arguing that nothing durable was minted because the value only
- * fills meta tags. **That argument was wrong**, and the PM's acceptance of it
- * was withdrawn in r3: `<link rel="canonical">` and the OG URL are scraped,
- * cached and indexed by search engines and by WhatsApp, so a poisoned origin
- * outlives the request exactly the way `lib/utils/app-url.ts` warns about — the
- * artifact just happens to live in someone else's cache instead of an .ics file.
- *
- * The real problem the catch was papering over is that CI's `npm run start`
- * runs a production build with no configured origin. That is fixed where it
- * belongs: `.github/workflows/ci.yml` writes `NEXT_PUBLIC_BASE_URL` into the
- * `.env.local` it already generates for the e2e stack.
+ * `getAppBaseUrl` is called directly and is allowed to throw: the canonical and
+ * OG URLs are scraped and cached by third parties, so a Host-derived origin
+ * would outlive the request (see `lib/utils/app-url.ts`). CI configures the
+ * origin in the `.env.local` it generates for the e2e stack.
  */
 export const getServerSideProps: GetServerSideProps<PasantiasPageProps> = async (context) => {
   const origin = getAppBaseUrl(context.req);
+  const [, mirada] = COHORT_PROGRAMS;
 
   return {
     props: {
       canonicalUrl: `${origin}${PAGE_PATH}`,
       ogImageUrl: OG_IMAGE_PATH ? `${origin}${OG_IMAGE_PATH}` : null,
-      weekRanges: COHORT_WEEKS.map(
-        (week) => `${formatDayMonth(week.startDate)} al ${formatDayMonth(week.endDate)}`
+      spanRange: formatRange(COHORT_SPAN.startDate, COHORT_SPAN.endDate),
+      programRanges: COHORT_PROGRAMS.map((program) =>
+        formatRange(program.startDate, program.endDate)
       ),
-      freeDayRange: formatDayMonthRange(
-        COHORT_FREE_DAYS[0].date,
-        COHORT_FREE_DAYS[COHORT_FREE_DAYS.length - 1].date
+      weekRanges: COHORT_PROGRAMS.map((program) =>
+        program.weeks.map((week) => formatRange(week.startDate, week.endDate))
       ),
+      freeWeekendDates: [
+        formatDayMonth(COHORT_FREE_WEEKEND.startDate),
+        formatDayMonth(COHORT_FREE_WEEKEND.endDate),
+      ],
+      closingDate: formatDayMonth(mirada.closing.date),
     },
   };
 };
@@ -390,13 +311,9 @@ function SectionHeader({
 }
 
 /**
- * A full-bleed photographic break — the design's mechanism for interrupting the
- * white sections, since photography is the one place the brand permits abundant
- * colour.
- *
- * When the slot has no photograph yet it renders **nothing**. The alternative —
- * a fixed-height black band — reads as a broken image rather than as a page
- * designed with fewer photographs, which is the opposite of degrading honestly.
+ * A full-bleed photographic break. When the slot has no photograph yet it
+ * renders **nothing**: a fixed-height black band reads as a broken image rather
+ * than as a page designed with fewer photographs.
  */
 function PhotoBreak({ src, id }: { src: string | null; id: string }) {
   if (!src) return null;
@@ -407,82 +324,77 @@ function PhotoBreak({ src, id }: { src: string | null; id: string }) {
   );
 }
 
-/**
- * The levels a school teaches and the owner-approved *aspectos destacados* — the
- * part of a school card that answers "why do I care about this one". Both come
- * from `cohort-public.ts`, where the type makes them mandatory, so a school
- * cannot reach this component without them.
- *
- * The two tiers get different treatments, as delivered: the immersion cards are
- * black with an arrow list, the visit cards are white with the highlights run
- * together on one line.
- */
-function SchoolDetail({ school }: { school: CohortSchool }) {
-  const dark = school.tier === 'inmersion';
-
-  return (
-    <>
-      <p
-        className={`text-[13px] font-medium uppercase tracking-[.08em] ${
-          dark ? 'text-brand_accent' : 'text-brand_gray_medium'
-        }`}
-        data-testid="pasantias-school-levels"
-      >
-        {school.levels}
-      </p>
-      {dark ? (
-        <ul className="mt-2 space-y-2.5" data-testid="pasantias-school-highlights">
-          {school.highlights.map((highlight) => (
-            <li key={highlight} className="flex gap-2.5 text-[15px] leading-[1.5] text-white/[0.85]">
-              <span aria-hidden="true" className="text-brand_accent">
-                →
-              </span>
-              <span>{highlight}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p
-          className="mt-1.5 text-[14px] leading-[1.55] text-brand_gray_dark"
-          data-testid="pasantias-school-highlights"
-        >
-          {school.highlights.join(' · ')}
-        </p>
-      )}
-    </>
-  );
-}
-
 interface FaqItem {
   question: string;
   answer: React.ReactNode;
 }
 
+/** One program's calendar column: its weeks, each as a card. */
+function ProgramCalendar({
+  program,
+  ranges,
+}: {
+  program: CohortProgram;
+  ranges: string[];
+}) {
+  return (
+    <div className="flex flex-col gap-4" data-testid={`pasantias-calendar-${program.id}`}>
+      <h3 className="m-0 text-[20px] font-bold leading-[1.25] text-brand_primary">{program.name}</h3>
+      {program.weeks.map((week, index) => (
+        <article
+          key={week.id}
+          className={`${index === 0 ? CARD_DARK : CARD_LIGHT} flex flex-col gap-2.5`}
+          data-testid={`pasantias-week-${program.id}-${week.id}`}
+        >
+          <span className={`${EYEBROW} ${index === 0 ? 'text-brand_accent' : 'text-brand_accent_text'}`}>
+            {week.label}
+          </span>
+          <p
+            className={`m-0 text-[18px] font-bold leading-[1.3] ${
+              index === 0 ? 'text-white' : 'text-brand_primary'
+            }`}
+          >
+            {ranges[index]}
+          </p>
+          <p className={index === 0 ? 'text-white/80' : 'text-brand_gray_dark'}>{week.summary}</p>
+        </article>
+      ))}
+    </div>
+  );
+}
+
 export default function PasantiasPage({
   canonicalUrl,
   ogImageUrl,
+  spanRange,
+  programRanges,
   weekRanges,
-  freeDayRange,
+  freeWeekendDates,
+  closingDate,
 }: PasantiasPageProps) {
   const photos = PHOTOS;
-  const portraits = PORTRAITS;
-  const [immersionWeek, visitWeek] = COHORT_WEEKS;
-  const immersionDays = uniformImmersionDays();
-  const weekCount = weekCountWord();
+  const [inspira, mirada] = COHORT_PROGRAMS;
   const metaDescription = buildMetaDescription();
+  const portraits = COHORT_HOSTS.map((host) =>
+    resolveImage('images/pasantias/equipo', [portraitSlug(host.name)])
+  );
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const [programRequest, setProgramRequest] = React.useState<ProgramRequest | null>(null);
+
+  /** A program CTA: preselect it in the form. The anchor's own jump does the scrolling. */
+  const requestProgram = (program: ProgramId) =>
+    setProgramRequest((current) => ({ program, nonce: (current?.nonce ?? 0) + 1 }));
+
+  const routingSentence = COHORT_ROUTING.map((route) => `${route.question} ${route.program}.`).join(
+    ' '
+  );
 
   const faqs: FaqItem[] = [
     {
-      question: '¿Quiénes participan en la pasantía?',
+      question: '¿Qué programa me corresponde?',
       answer: (
         <>
-          Equipos directivos, docentes y líderes de comunidades educativas que están conduciendo
-          procesos de cambio en sus colegios. Si tienes dudas sobre tu caso, escríbenos a{' '}
-          <a className="underline hover:no-underline" href={`mailto:${CONTACT_EMAIL}`}>
-            {CONTACT_EMAIL}
-          </a>
-          .
+          {`${COHORT_ROUTING[0].question} ${COHORT_ROUTING[0].program}: ${inspira.audience}. ${COHORT_ROUTING[1].question} ${COHORT_ROUTING[1].program}: ${mirada.audience}.`}
         </>
       ),
     },
@@ -497,20 +409,16 @@ export default function PasantiasPage({
       ),
     },
     {
-      question: '¿Cómo es el alojamiento?',
+      question: '¿Viajan juntos los programas?',
       answer: (
-        <>
-          El alojamiento en {COHORT_LODGING_AREA} va aparte del programa y se coordina con el equipo
-          de FNE según tu preferencia. Te acompañamos en la elección y en la reserva.
-        </>
+        <>{`Sí. ${COHORT_TOGETHER}. Los programas comparten el fin de semana libre: ${COHORT_FREE_WEEKEND.label}.`}</>
       ),
     },
     {
-      question: '¿Qué pasa el fin de semana largo?',
+      question: '¿Cómo reservo mi cupo?',
       answer: (
         <>
-          El fin de semana largo suma {COHORT_FREE_DAYS.length} días libres, del {freeDayRange}:
-          tiempo para descansar, recorrer Barcelona o conocer Europa.
+          {`${COHORT_PLACES} Registra tu interés más abajo y descarga la ficha y el programa completo con los valores.`}
         </>
       ),
     },
@@ -523,19 +431,10 @@ export default function PasantiasPage({
             formulario de contacto
           </Link>{' '}
           o a{' '}
-          <a className="underline hover:no-underline" href={`mailto:${CONTACT_EMAIL}`}>
-            {CONTACT_EMAIL}
+          <a className="underline hover:no-underline" href={`mailto:${COHORT_CONTACT.email}`}>
+            {COHORT_CONTACT.email}
           </a>{' '}
           y coordinamos una propuesta para tu equipo.
-        </>
-      ),
-    },
-    {
-      question: '¿Cómo reservo mi cupo?',
-      answer: (
-        <>
-          Solicita el programa completo más abajo. El equipo de FNE te contacta con la disponibilidad
-          de la cohorte {COHORT_LABEL} y los pasos para confirmar tu participación.
         </>
       ),
     },
@@ -663,21 +562,9 @@ export default function PasantiasPage({
           )}
           {/*
             The manual's veil: black rising from the text edge, dissolving before
-            the focal point. Without a photograph behind it the section is simply
-            the brand black, which is why the hero still reads with no image.
-
-            r2 ran it at ~53 % where the eyebrow sits, which measured 2.98:1 at
-            390 px and 2.88:1 at 1440 px against the 4.5:1 that 11 px text needs.
-            axe files photo-backed text as `incomplete`, so the serious/critical
-            gate never saw it. It now reaches 85 % under the text.
-
-            Anchored from the bottom in pixels rather than in percent: the text
-            block is bottom-aligned, so the eyebrow sits ~440–460 px above the
-            hero's lower edge at every width, while its *fraction* of the hero
-            swings from 0.17 to 0.41 with the window's height. A percentage stop
-            passes at one window size and fails at another; 480 px clears the
-            eyebrow at all of them. `tests/e2e/pasantias-page.spec.ts` samples the
-            composited pixels behind the glyphs and asserts the ratio.
+            the focal point, anchored from the bottom in pixels so the eyebrow
+            clears 4.5:1 at every window height (`tests/e2e/pasantias-page.spec.ts`
+            samples the composited pixels behind the glyphs).
           */}
           <div
             aria-hidden="true"
@@ -697,13 +584,13 @@ export default function PasantiasPage({
                 {COHORT_HEADLINE}
               </span>
               <span className="text-[15px] font-medium text-white/75" data-testid="pasantias-hero-stats">
-                {COHORT_VISIT_DAY_COUNT} días de visitas · {COHORT_SCHOOLS.length} escuelas
+                {COHORT_TOGETHER}
               </span>
             </div>
 
             <div className="mt-9 flex flex-wrap gap-3">
               <a href="#programa" className={BUTTON_ACCENT} data-testid="pasantias-cta-programa">
-                Solicita el programa completo
+                Registra tu interés
               </a>
               <a href={FICHA_HREF} className={BUTTON_GHOST_DARK} data-testid="pasantias-cta-ficha">
                 Descarga la ficha
@@ -718,24 +605,32 @@ export default function PasantiasPage({
           aria-label="La red INSPIRA en cifras"
           data-testid="pasantias-claims"
         >
-          <div className={`${SHELL} grid grid-cols-2 gap-8 py-10 sm:py-14 lg:grid-cols-4 lg:gap-12`}>
-            {COHORT_CLAIMS.map((claim, index) => {
-              const { figure, caption } = splitClaim(claim);
-              return (
-                <div key={claim} data-testid={`pasantias-claim-${index}`}>
-                  <p
-                    className={`text-[clamp(30px,4vw,44px)] font-black leading-none tracking-[-.02em] ${
-                      index === 0 ? 'text-brand_accent' : 'text-white'
-                    }`}
-                  >
-                    {figure}
-                  </p>
-                  <p className="mt-2 text-[13px] font-medium uppercase tracking-[.08em] text-white/70">
-                    {caption}
-                  </p>
-                </div>
-              );
-            })}
+          <div className={`${SHELL} py-10 sm:py-14`}>
+            <div className="grid grid-cols-1 gap-8 sm:grid-cols-3 lg:gap-12">
+              {COHORT_CLAIMS.map((claim, index) => {
+                const { figure, caption } = splitClaim(claim);
+                return (
+                  <div key={claim} data-testid={`pasantias-claim-${index}`}>
+                    <p
+                      className={`text-[clamp(30px,4vw,44px)] font-black leading-none tracking-[-.02em] ${
+                        index === 0 ? 'text-brand_accent' : 'text-white'
+                      }`}
+                    >
+                      {figure}
+                    </p>
+                    <p className="mt-2 text-[13px] font-medium uppercase tracking-[.08em] text-white/70">
+                      {caption}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+            <p
+              className="mt-8 border-t border-white/20 pt-5 text-[14px] text-white/75"
+              data-testid="pasantias-accreditation"
+            >
+              {COHORT_ACCREDITATION}
+            </p>
           </div>
         </section>
 
@@ -747,7 +642,7 @@ export default function PasantiasPage({
           data-testid="pasantias-barcelona"
         >
           <SectionHeader
-            eyebrow="Por qué Barcelona"
+            eyebrow={`Por qué ${COHORT_CITY}`}
             title="Un ecosistema, no una escuela suelta"
             titleId="barcelona-title"
           />
@@ -765,91 +660,112 @@ export default function PasantiasPage({
           </div>
         </section>
 
-        {/* ============ Dos semanas, dos modos ============ */}
+        {/* ============ Los programas ============ */}
         <section
-          id="dos-semanas"
+          id="programas"
           className={`${SHELL} pb-16 md:pb-24 lg:pb-[120px]`}
-          aria-labelledby="modos-title"
-          data-testid="pasantias-modos"
+          aria-labelledby="programas-title"
+          data-testid="pasantias-programas"
         >
-          <SectionHeader
-            eyebrow="El programa"
-            title={`${capitalizeWord(weekCount)} semanas, ${weekCount} modos`}
-            titleId="modos-title"
-          />
-          <p className="mt-6 max-w-[768px] text-[17px] leading-[1.65] text-brand_gray_dark">
-            Primero te quedas. Después recorres. Ese orden es deliberado: la semana de inmersión te
-            da el tiempo suficiente para entender cómo funciona una escuela por dentro, y la semana
-            de visitas te muestra cuántas formas distintas puede tomar la misma convicción.
-          </p>
+          <SectionHeader eyebrow="Elige tu programa" title={routingSentence} titleId="programas-title" />
 
-          <div className="mt-8 grid items-stretch gap-5 lg:mt-14 lg:grid-cols-3">
-            <article
-              className={`${CARD_DARK} flex flex-col gap-3.5`}
-              data-testid={`pasantias-week-${immersionWeek.id}`}
-            >
-              <span className={`${EYEBROW} text-brand_accent`}>{immersionWeek.label}</span>
-              <h3 className="m-0 text-[20px] font-bold leading-[1.25] text-white">
-                {weekRanges[0]}
-              </h3>
-              <p className="text-white/80">{immersionWeek.summary}</p>
-              <p className="mt-auto border-t border-white/20 pt-4 text-[13px] font-medium uppercase tracking-[.08em] text-white/70">
-                {COHORT_IMMERSION_SCHOOLS.length} escuelas
-                {immersionDays !== null && (
-                  <> · {formatDays(immersionDays)} días cada una</>
-                )}
-              </p>
-            </article>
-
-            {/*
-              The free weekend is the one solid-yellow card on the page — the
-              manual's 10 % accent, spent on the thing the itinerary is most
-              often asked about. It keeps the `pasantias-finde` hook the A6a
-              suite navigates by; the standalone section it used to be is now
-              this card, in the itinerary where it belongs.
-            */}
-            <article
-              className="flex flex-col gap-3.5 rounded-2xl bg-brand_accent p-6 text-brand_primary sm:p-8"
-              data-testid="pasantias-finde"
-            >
-              <span className={`${EYEBROW} text-brand_primary`}>Fin de semana largo</span>
-              <h3 className="m-0 text-[20px] font-bold leading-[1.25] text-brand_primary">
-                {freeDayRange}
-              </h3>
-              <ul className="space-y-1.5 text-[15px] leading-[1.5] text-brand_primary">
-                {COHORT_FREE_DAYS.map((freeDay, index) => (
-                  <li key={freeDay.date} data-testid={`pasantias-free-day-${index}`}>
-                    {freeDay.label}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-auto border-t border-brand_primary/20 pt-4 text-[13px] font-semibold uppercase tracking-[.08em] text-brand_primary">
-                {COHORT_FREE_DAYS.length} días para Barcelona o Europa
-              </p>
-            </article>
-
-            <article
-              className={`${CARD_LIGHT} flex flex-col gap-3.5`}
-              data-testid={`pasantias-week-${visitWeek.id}`}
-            >
-              <span className={`${EYEBROW} text-brand_accent_text`}>{visitWeek.label}</span>
-              <h3 className="m-0 text-[20px] font-bold leading-[1.25] text-brand_primary">
-                {weekRanges[1]}
-              </h3>
-              <p className="text-brand_gray_dark">{visitWeek.summary}</p>
-              <p className="mt-auto border-t border-gray-200 pt-4 text-[13px] font-medium uppercase tracking-[.08em] text-brand_gray_medium">
-                {COHORT_VISIT_SCHOOLS.length} escuelas de visita
-              </p>
-            </article>
+          <div className="mt-8 grid items-stretch gap-5 lg:mt-14 lg:grid-cols-2">
+            {[inspira, mirada].map((program, index) => (
+              <article
+                key={program.id}
+                className={`${index === 0 ? CARD_DARK : CARD_LIGHT} flex flex-col gap-3.5`}
+                data-testid={`pasantias-program-${program.id}`}
+              >
+                <h3
+                  className={`m-0 text-[clamp(22px,2.6vw,28px)] font-extrabold tracking-[-.01em] ${
+                    index === 0 ? 'text-white' : 'text-brand_primary'
+                  }`}
+                >
+                  {program.name}
+                </h3>
+                <p
+                  className={`text-[13px] font-semibold uppercase tracking-[.08em] ${
+                    index === 0 ? 'text-brand_accent' : 'text-brand_accent_text'
+                  }`}
+                >
+                  {program.audience}
+                </p>
+                <p className={`text-[17px] font-bold ${index === 0 ? 'text-white' : 'text-brand_primary'}`}>
+                  {programRanges[index]}
+                </p>
+                <p className={index === 0 ? 'text-white/80' : 'text-brand_gray_dark'}>
+                  {`${formatNumber(program.schoolDays)} días en escuelas · ${formatNumber(
+                    program.schoolCount
+                  )} escuelas`}
+                </p>
+                <p className={index === 0 ? 'text-white/80' : 'text-brand_gray_dark'}>
+                  {program.overview}
+                </p>
+                <p
+                  className={`mt-auto border-t pt-4 text-[15px] italic ${
+                    index === 0 ? 'border-white/20 text-white/85' : 'border-gray-200 text-brand_gray_dark'
+                  }`}
+                >
+                  {program.takeaway}
+                </p>
+                <a
+                  href="#programa"
+                  onClick={() => requestProgram(program.id)}
+                  className={index === 0 ? BUTTON_ACCENT : `${BUTTON_BASE} border border-brand_primary text-brand_primary hover:bg-brand_primary hover:text-white`}
+                  data-testid={`pasantias-cta-program-${program.id}`}
+                >
+                  {`Registrar interés en ${program.name}`}
+                </a>
+              </article>
+            ))}
           </div>
         </section>
 
         <PhotoBreak id="escuela-interior" src={photos.escuelaInterior} />
 
+        {/* ============ El calendario ============ */}
+        <section
+          id="calendario"
+          className={`${SHELL} ${SECTION_PAD}`}
+          aria-labelledby="calendario-title"
+          data-testid="pasantias-calendario"
+        >
+          <SectionHeader eyebrow={COHORT_LABEL} title="El calendario" titleId="calendario-title" />
+          <p className="mt-6 max-w-[768px] text-[17px] leading-[1.65] text-brand_gray_dark">
+            {`${spanRange} · ${COHORT_TOGETHER}.`}
+          </p>
+
+          <div className="mt-8 grid items-start gap-5 lg:mt-14 lg:grid-cols-3">
+            <ProgramCalendar program={inspira} ranges={weekRanges[0]} />
+
+            {/*
+              The free weekend is the one solid-yellow card on the page — the
+              manual's 10 % accent, spent on the thing the itinerary is most
+              often asked about. Common to both programs, so it sits between
+              their calendars and keeps the `pasantias-finde` hook.
+            */}
+            <article
+              className="flex flex-col gap-3.5 rounded-2xl bg-brand_accent p-6 text-brand_primary sm:p-8 lg:self-center"
+              data-testid="pasantias-finde"
+            >
+              <span className={`${EYEBROW} text-brand_primary`}>Fin de semana libre</span>
+              <p className="m-0 text-[20px] font-bold leading-[1.25] text-brand_primary">
+                {COHORT_FREE_WEEKEND.label}
+              </p>
+              <p className="text-[14px] text-brand_primary" data-testid="pasantias-free-weekend-dates">
+                {freeWeekendDates[0]}
+              </p>
+              <p className="text-[14px] text-brand_primary">{freeWeekendDates[1]}</p>
+            </article>
+
+            <ProgramCalendar program={mirada} ranges={weekRanges[1]} />
+          </div>
+        </section>
+
         {/* ============ Cómo es un día ============ */}
         <section
           id="un-dia"
-          className={`${SHELL} ${SECTION_PAD}`}
+          className={`${SHELL} pb-16 md:pb-24 lg:pb-[120px]`}
           aria-labelledby="dia-title"
           data-testid="pasantias-dia-tipo"
         >
@@ -861,14 +777,11 @@ export default function PasantiasPage({
           <ol className="mt-8 grid gap-6 lg:mt-14 lg:grid-cols-3 lg:gap-10">
             {COHORT_DAY_STRUCTURE.map((block, index) => (
               <li
-                key={block.label}
+                key={block}
                 className="flex flex-col gap-3 border-t border-gray-200 pt-5"
                 data-testid={`pasantias-day-block-${index}`}
               >
-                <h3 className={`${EYEBROW} m-0 text-brand_accent_text`}>{block.label}</h3>
-                <p className="text-[17px] font-medium leading-[1.5] text-brand_primary">
-                  {block.description}
-                </p>
+                <p className="text-[17px] font-medium leading-[1.5] text-brand_primary">{block}</p>
               </li>
             ))}
           </ol>
@@ -884,166 +797,160 @@ export default function PasantiasPage({
           data-testid="pasantias-escuelas"
         >
           <SectionHeader
-            eyebrow={`${COHORT_LODGING_AREA} · ${COHORT_LABEL}`}
-            title={`Las ${COHORT_SCHOOLS.length} escuelas`}
+            eyebrow={`${COHORT_CITY} · ${COHORT_LABEL}`}
+            title="Las escuelas"
             titleId="escuelas-title"
           />
 
-          <h3 className="mb-5 mt-9 text-[13px] font-semibold uppercase tracking-[.15em] text-brand_primary lg:mt-14">
-            Escuelas de inmersión{' '}
-            {immersionDays !== null && (
-              <span className="font-medium text-brand_gray_medium">
-                ({formatDays(immersionDays)} días cada una)
-              </span>
-            )}
-          </h3>
-          <ul className="grid gap-5 lg:grid-cols-2">
-            {COHORT_IMMERSION_SCHOOLS.map((school, index) => (
-              <li
-                key={school.name}
-                className={`${CARD_DARK} flex flex-col gap-3`}
-                data-testid={`pasantias-school-inmersion-${index}`}
-              >
-                <h4 className="m-0 text-[clamp(22px,2.6vw,28px)] font-extrabold tracking-[-.01em] text-white">
-                  {school.name}
-                </h4>
-                <SchoolDetail school={school} />
-              </li>
-            ))}
-          </ul>
-
-          <h3 className="mb-5 mt-9 text-[13px] font-semibold uppercase tracking-[.15em] text-brand_primary lg:mt-14">
-            Escuelas de visita
-          </h3>
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {COHORT_VISIT_SCHOOLS.map((school, index) => (
-              <li
-                key={school.name}
-                className="flex flex-col gap-2.5 rounded-xl border border-gray-200 bg-white p-6"
-                data-testid={`pasantias-school-visita-${index}`}
-              >
-                <h4 className="m-0 text-[18px] font-bold text-brand_primary">{school.name}</h4>
-                {/*
-                  Only what Appendix A-5 states. The retired string here read
-                  "media jornada", which the Appendix never says: it gives
-                  1–2 escuelas por día and marks the two schools outside the city
-                  as full-day *because they are outside it*. Half a day was an
-                  inference printed to buyers as programme detail. The
-                  replacement carries the same contrast the Appendix draws and
-                  claims no duration.
-                */}
-                <p
-                  className={`text-[12px] font-semibold uppercase tracking-[.08em] ${
-                    school.fullDay ? 'text-brand_accent_text' : 'text-brand_gray_medium'
-                  }`}
-                >
-                  {school.fullDay ? 'Día completo — fuera de Barcelona' : 'Visita en Barcelona'}
-                </p>
-                <SchoolDetail school={school} />
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <PhotoBreak id="equipo-foto" src={photos.equipoConversando} />
-
-        {/* ============ El equipo ============ */}
-        <section
-          id="equipo"
-          className="border-y border-gray-200 bg-gray-50"
-          aria-labelledby="equipo-title"
-          data-testid="pasantias-equipo"
-        >
-          <div className={`${SHELL} ${SECTION_PAD}`}>
-            <SectionHeader
-              eyebrow="Quién te acompaña"
-              title="El equipo"
-              titleId="equipo-title"
-            />
-            <ul className="mt-8 grid gap-6 sm:grid-cols-2 lg:mt-14 lg:grid-cols-4 lg:gap-8">
-              {COHORT_EXPERTS.map((expert, index) => (
+          <div data-testid={`pasantias-escuelas-${inspira.id}`}>
+            <h3 className="mb-5 mt-9 text-[13px] font-semibold uppercase tracking-[.15em] text-brand_primary lg:mt-14">
+              {inspira.name}
+            </h3>
+            <ul className="grid gap-5 lg:grid-cols-2">
+              {inspira.immersionSchools.map((school, index) => (
                 <li
-                  key={expert.name}
-                  className="flex flex-col gap-3"
-                  data-testid={`pasantias-expert-${index}`}
+                  key={school.name}
+                  className={`${CARD_DARK} flex flex-col gap-3`}
+                  data-testid={`pasantias-school-inmersion-${index}`}
                 >
-                  {portraits[index] ? (
-                    <img
-                      src={portraits[index] as string}
-                      alt=""
-                      className="aspect-[4/5] w-full rounded-xl object-cover grayscale"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  ) : (
-                    /*
-                      No portrait on file. A grey rectangle reads as a failed
-                      image; the brand's black surface with the initials set in
-                      the accent reads as a card that was designed this way, and
-                      it stays legible next to the six that do have photographs.
-                    */
-                    <span
-                      aria-hidden="true"
-                      className="grid aspect-[4/5] w-full place-items-center rounded-xl bg-brand_primary text-[32px] font-black tracking-[-.02em] text-brand_accent"
-                      data-testid={`pasantias-expert-initials-${index}`}
-                    >
-                      {expert.name
-                        .split(' ')
-                        .filter((word) => word[0] === word[0].toUpperCase())
-                        .map((word) => word[0])
-                        .join('')}
-                    </span>
-                  )}
-                  <h3 className="m-0 text-[17px] font-bold leading-[1.25] text-brand_primary">
-                    {expert.name}
-                  </h3>
-                  <p className="text-[14px] leading-[1.5] text-brand_gray_medium">
-                    {expert.role}
-                    {expert.school && <>, {expert.school}</>}
-                    {expert.note && (
-                      <>
-                        {' — '}
-                        <span className="italic text-brand_accent_text">{expert.note}</span>
-                      </>
-                    )}
+                  <h4 className="m-0 text-[clamp(22px,2.6vw,28px)] font-extrabold tracking-[-.01em] text-white">
+                    {school.name}
+                  </h4>
+                  <p className="text-[13px] font-medium uppercase tracking-[.08em] text-brand_accent">
+                    {`${formatNumber(school.days)} días por pasante`}
                   </p>
                 </li>
               ))}
             </ul>
+
+            <p className="mt-8 text-[17px] font-semibold text-brand_primary" data-testid="pasantias-visit-count">
+              {`Cada cohorte visita ${formatNumber(inspira.visits.count)} de estas ${
+                inspira.visits.candidates.length
+              } escuelas.`}
+            </p>
+            <ul className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {inspira.visits.candidates.map((name, index) => (
+                <li
+                  key={name}
+                  className="flex flex-col gap-2.5 rounded-xl border border-gray-200 bg-white p-6"
+                  data-testid={`pasantias-school-visita-${index}`}
+                >
+                  <h4 className="m-0 text-[18px] font-bold text-brand_primary">{name}</h4>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-5 text-[15px] text-brand_gray_dark">{inspira.visits.selection}</p>
+            <p className="mt-2 text-[15px] text-brand_gray_dark" data-testid="pasantias-full-day">
+              {`${joinEs(inspira.visits.fullDayOutside)} están fuera de ${COHORT_CITY} y toman el día completo.`}
+            </p>
+          </div>
+
+          <div data-testid={`pasantias-escuelas-${mirada.id}`}>
+            <h3 className="mb-5 mt-12 text-[13px] font-semibold uppercase tracking-[.15em] text-brand_primary lg:mt-16">
+              {mirada.name}
+            </h3>
+            <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {mirada.schools.map((name, index) => (
+                <li
+                  key={name}
+                  className="flex flex-col gap-2.5 rounded-xl border border-gray-200 bg-white p-6"
+                  data-testid={`pasantias-school-mirada-${index}`}
+                >
+                  <h4 className="m-0 text-[18px] font-bold text-brand_primary">{name}</h4>
+                  <p className="text-[12px] font-semibold uppercase tracking-[.08em] text-brand_accent_text">
+                    {`${formatNumber(mirada.daysPerSchool)} días completos`}
+                  </p>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-5 text-[15px] text-brand_gray_dark">{mirada.orderCaveat}</p>
           </div>
         </section>
 
-        {/* ============ Qué te llevas — los objetivos ============ */}
+        {/* ============ The second program: antes, durante y después ============ */}
         <section
-          id="objetivos"
-          className={`${SHELL} ${SECTION_PAD}`}
-          aria-labelledby="objetivos-title"
-          data-testid="pasantias-objetivos"
+          id="antes-durante-despues"
+          className="border-y border-gray-200 bg-gray-50"
+          aria-labelledby="mirada-title"
+          data-testid="pasantias-mirada-extra"
         >
-          <SectionHeader
-            eyebrow="Qué te llevas"
-            title={`Los ${COHORT_OBJECTIVES.length} objetivos`}
-            titleId="objetivos-title"
-          />
-          <ol className="mt-8 grid gap-6 lg:mt-14 lg:grid-cols-2 lg:gap-x-10">
-            {COHORT_OBJECTIVES.map((objective, index) => (
-              <li
-                key={objective}
-                className="flex gap-4 border-t border-gray-200 pt-5"
-                data-testid={`pasantias-objective-${index}`}
-              >
-                <span
-                  aria-hidden="true"
-                  className="min-w-[34px] shrink-0 text-[24px] font-black leading-[1.1] tracking-[-.02em] tabular-nums text-brand_accent_text"
-                >
-                  {String(index + 1).padStart(2, '0')}
-                </span>
-                <p className="max-w-[60ch] text-[15px] leading-[1.6] text-brand_gray_dark">
-                  {objective}
+          <div className={`${SHELL} ${SECTION_PAD}`}>
+            <SectionHeader
+              eyebrow={mirada.audience}
+              title={`${mirada.name}: antes, durante y después`}
+              titleId="mirada-title"
+            />
+            <ol className="mt-8 grid gap-6 lg:mt-14 lg:grid-cols-3 lg:gap-10">
+              <li className="flex flex-col gap-3 border-t border-gray-300 pt-5">
+                <h3 className={`${EYEBROW} m-0 text-brand_accent_text`}>Antes del viaje</h3>
+                <p className="text-[17px] font-medium leading-[1.5] text-brand_primary">
+                  {mirada.preparation}
+                </p>
+              </li>
+              <li className="flex flex-col gap-3 border-t border-gray-300 pt-5">
+                <h3 className={`${EYEBROW} m-0 text-brand_accent_text`}>{`Cierre · ${closingDate}`}</h3>
+                <p className="text-[17px] font-medium leading-[1.5] text-brand_primary">
+                  {mirada.closing.text}
+                </p>
+              </li>
+              <li className="flex flex-col gap-3 border-t border-gray-300 pt-5">
+                <h3 className={`${EYEBROW} m-0 text-brand_accent_text`}>Seguimiento</h3>
+                <p className="text-[17px] font-medium leading-[1.5] text-brand_primary">
+                  {mirada.followUp}
+                </p>
+              </li>
+            </ol>
+          </div>
+        </section>
+
+        <PhotoBreak id="equipo-foto" src={photos.equipoConversando} />
+
+        {/* ============ Quién te recibe ============ */}
+        <section
+          id="equipo"
+          className={`${SHELL} ${SECTION_PAD}`}
+          aria-labelledby="equipo-title"
+          data-testid="pasantias-equipo"
+        >
+          <SectionHeader eyebrow="En las escuelas" title="Quién te recibe" titleId="equipo-title" />
+          <ul className="mt-8 grid gap-6 sm:grid-cols-2 lg:mt-14 lg:grid-cols-4 lg:gap-8">
+            {COHORT_HOSTS.map((host, index) => (
+              <li key={host.name} className="flex flex-col gap-3" data-testid={`pasantias-host-${index}`}>
+                {portraits[index] ? (
+                  <img
+                    src={portraits[index] as string}
+                    alt=""
+                    className="aspect-[4/5] w-full rounded-xl object-cover grayscale"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                ) : (
+                  /*
+                    No portrait on file: the brand's black surface with the
+                    initials set in the accent reads as a card designed this way.
+                  */
+                  <span
+                    aria-hidden="true"
+                    className="grid aspect-[4/5] w-full place-items-center rounded-xl bg-brand_primary text-[32px] font-black tracking-[-.02em] text-brand_accent"
+                    data-testid={`pasantias-host-initials-${index}`}
+                  >
+                    {host.name
+                      .split(' ')
+                      .filter((word) => word[0] === word[0].toUpperCase())
+                      .map((word) => word[0])
+                      .join('')}
+                  </span>
+                )}
+                <h3 className="m-0 text-[17px] font-bold leading-[1.25] text-brand_primary">
+                  {host.name}
+                </h3>
+                <p className="text-[14px] leading-[1.5] text-brand_gray_medium">
+                  {`${host.role}, ${host.school} — `}
+                  <span className="italic text-brand_accent_text">{host.note}</span>
                 </p>
               </li>
             ))}
-          </ol>
+          </ul>
         </section>
 
         {/* ============ Incluye / No incluye ============ */}
@@ -1064,6 +971,26 @@ export default function PasantiasPage({
                     <span>{item}</span>
                   </li>
                 ))}
+                {[inspira.lunches, mirada.lunches].map((item, index) => (
+                  <li
+                    key={item}
+                    className="flex gap-3 text-white/[0.88]"
+                    data-testid={`pasantias-lunches-${index}`}
+                  >
+                    <span aria-hidden="true" className="text-brand_accent">
+                      →
+                    </span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+                {mirada.extraIncludes.map((item) => (
+                  <li key={item} className="flex gap-3 text-white/[0.88]">
+                    <span aria-hidden="true" className="text-brand_accent">
+                      →
+                    </span>
+                    <span>{`${mirada.name}: ${item}`}</span>
+                  </li>
+                ))}
               </ul>
             </div>
             <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6 sm:p-8">
@@ -1078,21 +1005,16 @@ export default function PasantiasPage({
                   </li>
                 ))}
               </ul>
-              <p className="mt-6 border-t border-gray-200 pt-5 text-[14px] italic text-brand_gray_medium">
-                Alojamiento en {COHORT_LODGING_AREA}, coordinado con el equipo de FNE.
-              </p>
             </div>
           </div>
         </section>
 
         {/*
           ============ #programa ============
-          A6b replaced A6a's interim mailto panel with the real request form.
           `components/pasantias/LeadForm.tsx` owns everything about the
           submission; this section owns only where it sits. The `id="programa"`
-          anchor, the section boundary and the ficha CTA all survived that swap
-          — the ficha moved into the left column so it stays reachable while the
-          right column is showing the form's own confirmation.
+          anchor, the section boundary and the ficha CTA are kept, so the ficha
+          stays reachable while the right column shows the confirmation.
         */}
         <section
           id="programa"
@@ -1103,9 +1025,7 @@ export default function PasantiasPage({
           {/*
             `invert` because the lineal symbol ships as black line art on
             transparent, and the manual's watermark treatment puts it on the
-            black surface — at 12 % it is otherwise invisible, which is how the
-            mockup rendered it. Inverting gives the faint white line the manual
-            actually shows.
+            black surface.
           */}
           <img
             src="/logos/symbol-lineal.png"
@@ -1117,13 +1037,16 @@ export default function PasantiasPage({
             <div>
               <SectionHeader
                 eyebrow={COHORT_HEADLINE}
-                title="Solicita el programa completo"
+                title="Registra tu interés"
                 titleId="programa-title"
                 dark
               />
               <p className="mt-6 max-w-[44ch] text-white/80">
-                Escríbenos y te enviamos el programa detallado de la pasantía, con el itinerario de
-                las {weekCount} semanas, las escuelas y las condiciones de participación.
+                Elige el programa que te corresponde. Si te interesa más de uno, registra una
+                solicitud por cada programa con el mismo correo.
+              </p>
+              <p className="mt-4 max-w-[44ch] text-white/80" data-testid="pasantias-places">
+                {COHORT_PLACES}
               </p>
               <div className="mt-7">
                 <a href={FICHA_HREF} className={BUTTON_GHOST_DARK} data-testid="pasantias-cta-ficha-programa">
@@ -1132,7 +1055,7 @@ export default function PasantiasPage({
               </div>
             </div>
 
-            <LeadForm />
+            <LeadForm requestedProgram={programRequest} />
           </div>
         </section>
 
@@ -1202,13 +1125,13 @@ export default function PasantiasPage({
               Escríbenos por WhatsApp y te contamos cómo se prepara el viaje con tu equipo.
             </p>
             <a
-              href={WHATSAPP_HREF}
+              href={whatsappHref()}
               target="_blank"
               rel="noopener noreferrer"
               className={BUTTON_ACCENT}
               data-testid="pasantias-cta-whatsapp"
             >
-              WhatsApp {WHATSAPP_DISPLAY}
+              {`WhatsApp ${COHORT_CONTACT.whatsapp}`}
             </a>
           </div>
         </section>

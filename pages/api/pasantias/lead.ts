@@ -15,6 +15,14 @@
  * re-stamped on every submission; the marketing opt-in is optional, defaults
  * to false, and is written all-or-nothing so the table's CHECK constraint can
  * never see a half-set row.
+ *
+ * January 2027 (PASANT-B002b) takes a different write path: one submission is
+ * one program interest, written by exactly ONE call to the service-role RPC
+ * `pasantias_submit_program_interest` (contact + interest in one transaction,
+ * the same contact/consent/triage rules as below, enforced in SQL). Its reply
+ * suppression is the interest's own claim (`pasantias_claim_program_reply` /
+ * `pasantias_settle_program_reply`), never `brochure_sent_at`. See
+ * `docs/plan/evidence/pasant-january/b002-database-contract.md`.
  */
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createServiceRoleClient } from '../../../lib/api-auth';
@@ -24,6 +32,7 @@ import { PRIVACY_NOTICE_VERSION } from '../../../lib/legal/privacy-notice';
 import {
   canTransitionLead,
   validateLeadSubmission,
+  type JanuaryProgramId,
   type LeadSubmissionBody,
   type ValidatedLead,
 } from '../../../lib/pasantias/leads';
@@ -31,9 +40,12 @@ import {
   autoReplyClaimCutoff,
   buildBrochureUrl,
   canReleaseAutoReplyClaim,
+  programReplyOutcome,
   sendLeadAutoReply,
   sendLeadNotification,
+  sendLeadProgramAutoReply,
   type LeadEmailPayload,
+  type LeadEmailResult,
 } from '../../../lib/pasantias/emails';
 
 const LOG_PREFIX = 'pasantias-lead';
@@ -154,6 +166,7 @@ function toEmailPayload(lead: ValidatedLead): LeadEmailPayload {
     utmSource: lead.utmSource,
     utmMedium: lead.utmMedium,
     utmCampaign: lead.utmCampaign,
+    program: lead.program,
   };
 }
 
@@ -282,6 +295,210 @@ async function runAutoReply(
   }
 }
 
+/* ---------------------------------------------------- January (B002b) path */
+
+const SUBMIT_PROGRAM_INTEREST_RPC = 'pasantias_submit_program_interest';
+const CLAIM_PROGRAM_REPLY_RPC = 'pasantias_claim_program_reply';
+const SETTLE_PROGRAM_REPLY_RPC = 'pasantias_settle_program_reply';
+
+/**
+ * PostgREST errors meaning the January objects are not deployed: no matching
+ * function signature (`PGRST202`), or the function/table missing underneath.
+ * Same answer as the October path's missing table.
+ */
+const PROGRAM_RPC_UNAVAILABLE_CODES = new Set(['PGRST202', '42883', '42P01']);
+
+/** One row of `pasantias_submit_program_interest`. */
+interface ProgramSubmission {
+  lead_id: string;
+  interest_id: string;
+  lead_created: boolean;
+  interest_created: boolean;
+}
+
+/** One row of `pasantias_claim_program_reply`. */
+interface ProgramReplyClaim {
+  claimed: boolean;
+  claim_token: string | null;
+  claimed_at: string | null;
+}
+
+/** A set-returning RPC answers with an array; take its single row. */
+function firstRow<T>(data: unknown): T | null {
+  const row = Array.isArray(data) ? data[0] : data;
+  return (row ?? null) as T | null;
+}
+
+/**
+ * The submit RPC's body. PostgREST resolves a function by its argument NAMES,
+ * and the accepted signature has no defaults, so all eighteen keys are always
+ * sent — optional values as `null`. A missing key is not "use the default", it
+ * is PGRST202.
+ *
+ * The values are `validateLeadSubmission` output, which the SQL re-validates
+ * with the same caps and patterns; it is the second guard, not the first.
+ * Processing consent is `true` because validation refused every other value;
+ * the function refuses anything else again. The notice versions are the
+ * server's, never the caller's (D-12).
+ */
+function programSubmissionArgs(lead: ValidatedLead, program: JanuaryProgramId) {
+  return {
+    p_cohort: lead.cohort,
+    p_program: program,
+    p_first_name: lead.firstName,
+    p_last_name: lead.lastName,
+    p_email: lead.email,
+    p_institution: lead.institution,
+    p_phone: lead.phone,
+    p_role_title: lead.roleTitle,
+    p_num_people: lead.numPeople,
+    p_message: lead.message,
+    p_source_path: lead.sourcePath,
+    p_utm_source: lead.utmSource,
+    p_utm_medium: lead.utmMedium,
+    p_utm_campaign: lead.utmCampaign,
+    p_processing_consent: true,
+    p_consent_notice_version: PRIVACY_NOTICE_VERSION,
+    p_marketing_opt_in: lead.marketingOptIn,
+    p_marketing_notice_version: lead.marketingOptIn ? PRIVACY_NOTICE_VERSION : null,
+  };
+}
+
+/**
+ * The January acknowledgement for the ONE interest this request submitted,
+ * deduped by that interest's own claim.
+ *
+ * The claim is an atomic conditional UPDATE inside the RPC: of N simultaneous
+ * submissions for the same contact AND program exactly one wins a 24 h window.
+ * The other program of the same contact has its own interest row and its own
+ * window. Only the winner sends, and it settles exactly the claim it holds,
+ * identified by the token the claim returned:
+ *
+ * - provider accepted → `provider_accepted` (not a delivery stamp);
+ * - known not sent (`not_configured`, `rejected`) → `not_sent`, which restores
+ *   the pre-claim value so the next submission can try again;
+ * - anything else, a throw included → `ambiguous`: the window is kept.
+ *
+ * A settle answered `false` means the token is no longer the open one (this
+ * request's claim expired and someone else's replaced it); the RPC has changed
+ * nothing, and neither does this. A settle that errors leaves the claim open,
+ * which still suppresses for its 24 h — the conservative side.
+ *
+ * Nothing here throws into the caller, and nothing here reads or writes
+ * `pasantias_leads` — `brochure_sent_at` stays October's.
+ */
+async function runProgramAutoReply(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  interestId: string,
+  lead: ValidatedLead,
+  program: JanuaryProgramId
+): Promise<void> {
+  try {
+    const { data, error } = await supabase.rpc(CLAIM_PROGRAM_REPLY_RPC, {
+      p_interest_id: interestId,
+    });
+
+    if (error) {
+      console.error(`[${LOG_PREFIX}] program reply claim failed:`, { code: error.code });
+      return;
+    }
+
+    const claim = firstRow<ProgramReplyClaim>(data);
+    if (!claim?.claimed || !claim.claim_token) {
+      // This interest's window is held. The dedup working, not an error.
+      return;
+    }
+
+    let result: LeadEmailResult;
+    try {
+      result = await sendLeadProgramAutoReply({
+        to: lead.email,
+        firstName: lead.firstName,
+        program,
+      });
+    } catch (sendError) {
+      console.error(`[${LOG_PREFIX}] program auto-reply threw:`, sendError);
+      result = { sent: false, error: 'Error inesperado', failure: 'unknown' };
+    }
+
+    const { data: settled, error: settleError } = await supabase.rpc(SETTLE_PROGRAM_REPLY_RPC, {
+      p_interest_id: interestId,
+      p_claim_token: claim.claim_token,
+      p_outcome: programReplyOutcome(result),
+    });
+
+    if (settleError) {
+      console.error(`[${LOG_PREFIX}] program reply settle failed:`, { code: settleError.code });
+    } else if (settled !== true) {
+      console.error(`[${LOG_PREFIX}] program reply settle refused: claim no longer held`);
+    }
+  } catch (autoReplyError) {
+    console.error(`[${LOG_PREFIX}] program auto-reply step failed:`, autoReplyError);
+  }
+}
+
+/**
+ * A January submission: exactly one program interest, exactly one atomic RPC.
+ *
+ * There is no list form and no second write: either the contact and this
+ * interest are both stored or neither is, and the request answers accordingly.
+ * Interest in the other program is another submission with the same address,
+ * which lands on the same contact.
+ *
+ * Anti-enumeration holds as on the October path: `lead_created` and
+ * `interest_created` never reach the response, so a first submission, a repeat
+ * and a second program all return the identical `200 {success:true}`. The body
+ * says nothing about mail either — success means stored, not mailed.
+ */
+async function handleProgramSubmission(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  lead: ValidatedLead,
+  program: JanuaryProgramId,
+  res: NextApiResponse
+) {
+  const { data, error } = await supabase.rpc(
+    SUBMIT_PROGRAM_INTEREST_RPC,
+    programSubmissionArgs(lead, program)
+  );
+
+  if (error) {
+    if (PROGRAM_RPC_UNAVAILABLE_CODES.has(error.code)) {
+      return res.status(503).json({ error: 'Formulario temporalmente no disponible' });
+    }
+    if (error.code === '22023') {
+      // The SQL refused a value `validateLeadSubmission` accepted — the two
+      // validators drifted. Nothing was written. The reason names a field,
+      // never a value, so it is safe to log.
+      console.error(`[${LOG_PREFIX}] program submission refused:`, { message: error.message });
+      return res.status(400).json({ error: 'Revisa los datos del formulario.' });
+    }
+    console.error(`[${LOG_PREFIX}] program submission failed:`, { code: error.code });
+    return res.status(500).json({ error: 'Error al guardar la solicitud' });
+  }
+
+  const submission = firstRow<ProgramSubmission>(data);
+  if (!submission?.interest_id) {
+    // Committed or not, there is no interest to claim a reply for. Repeating
+    // the submission is safe (the RPC is idempotent), so say it failed.
+    console.error(`[${LOG_PREFIX}] program submission returned no row`);
+    return res.status(500).json({ error: 'Error al guardar la solicitud' });
+  }
+
+  // Best-effort from here: the interest is stored.
+  await runProgramAutoReply(supabase, submission.interest_id, lead, program);
+
+  try {
+    await sendLeadNotification({
+      lead: toEmailPayload(lead),
+      isNewLead: submission.lead_created === true,
+    });
+  } catch (notificationError) {
+    console.error(`[${LOG_PREFIX}] notification failed:`, notificationError);
+  }
+
+  return res.status(200).json({ success: true });
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -310,6 +527,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const lead = validation.value;
     const supabase = createServiceRoleClient();
+
+    // January: one program, one atomic RPC. Validation sets `program` exactly
+    // for the January cohort, so the October path below is unchanged.
+    if (lead.program) {
+      return await handleProgramSubmission(supabase, lead, lead.program, res);
+    }
+
     const now = new Date();
     const nowIso = now.toISOString();
 

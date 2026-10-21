@@ -278,8 +278,20 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
+      # Egress guard, `fix/p02b-r1` only (its draft PR runs this gate before review).
+      # Build, Seed and Run preload scripts/ci/egress-guard.cjs, which holds every
+      # Node process to loopback and logs each refusal to EGRESS_LOG; Chromium gets
+      # the resolver restriction in playwright.ci-egress.config.ts. It is per step,
+      # not per job, because `npm ci` and `playwright install` need the network.
+      # On every other branch NODE_OPTIONS is empty and these steps run as before.
+
       # NEXT_PUBLIC_* is inlined at build time, so the build must come after .env.local.
       - name: Build (production)
+        env:
+          NODE_OPTIONS: ${{ github.head_ref == 'fix/p02b-r1' && format('--require={0}/scripts/ci/egress-guard.cjs', github.workspace) || '' }}
+          EGRESS_LOG: ${{ runner.temp }}/egress.jsonl
+          NEXT_TELEMETRY_DISABLED: '1'
+          npm_config_update_notifier: 'false'
         run: npm run build
 
       # D-01: the Pasantías price/payment data lives in a server-only module.
@@ -289,17 +301,40 @@ jobs:
         run: node scripts/check-price-leak.mjs
 
       - name: Seed synthetic e2e fixtures
+        env:
+          NODE_OPTIONS: ${{ github.head_ref == 'fix/p02b-r1' && format('--require={0}/scripts/ci/egress-guard.cjs', github.workspace) || '' }}
+          EGRESS_LOG: ${{ runner.temp }}/egress.jsonl
+          NEXT_TELEMETRY_DISABLED: '1'
+          npm_config_update_notifier: 'false'
         run: |
           set -euo pipefail
           set -a && . ./.env.local && set +a
           node scripts/ci/seed-e2e.mjs
 
       - name: Run mandatory e2e specs
+        env:
+          NODE_OPTIONS: ${{ github.head_ref == 'fix/p02b-r1' && format('--require={0}/scripts/ci/egress-guard.cjs', github.workspace) || '' }}
+          EGRESS_LOG: ${{ runner.temp }}/egress.jsonl
+          NEXT_TELEMETRY_DISABLED: '1'
+          npm_config_update_notifier: 'false'
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           # Each Actions step has a separate shell; export the disposable stack
           # configuration here too so mandatory SQL-backed specs can collect.
           set -a; source .env.local; set +a
-          npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium
+          # Positive proof, read from the branch name rather than from NODE_OPTIONS
+          # itself, that the guard is really loaded and logging on fix/p02b-r1.
+          if [ "$HEAD_REF" = 'fix/p02b-r1' ]; then
+            node -e "require('node:net').Socket.prototype.connect.name==='guardedConnect'&&!!process.env.EGRESS_LOG||process.exit(1)"
+          fi
+          npx playwright test $(node scripts/ci/e2e-mandatory.mjs --list) --project=chromium ${{ github.head_ref == 'fix/p02b-r1' && '--config=playwright.ci-egress.config.ts' || '' }}
+
+      # Any refusal the guard logged is a finding, even when the app swallowed the
+      # resulting error and every spec passed.
+      - name: Guard — no refused egress (fix/p02b-r1)
+        if: always() && github.head_ref == 'fix/p02b-r1'
+        run: |
+          if [ -s "$RUNNER_TEMP/egress.jsonl" ]; then cat "$RUNNER_TEMP/egress.jsonl"; exit 1; fi
 
       # A skipped test reports as a success — this is what makes "green" mean "ran".
       - name: Guard — no mandatory spec may be skipped

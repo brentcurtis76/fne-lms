@@ -20,13 +20,17 @@
  *                  e-mails, `has_meeting`/`join_path` INSTEAD of the raw link, and only
  *                  `all_participants` reports.
  *   DENIED         fails canViewSession outright.
+ *   PASSWORD_HELD  never reaches canViewSession at all (PASANT-B004). The account must
+ *                  change its password first, and that hold comes BEFORE any
+ *                  authorization decision. It is a state, not a permission tier, and it
+ *                  belongs to no session matrix in this chunk.
  *
  * Every persona in the fixture file belongs to exactly one tier, and
  * `assertTierPartitionIsTotal()` enforces that at module load: a persona added to
  * e2e-fixtures.json is either classified here or it fails the suite loudly, rather than
  * quietly escaping the matrix.
  */
-import { FIXTURE_KEYS, type FixtureKey } from './auth';
+import { FIXTURE_KEYS, FORCED_PASSWORD_FIXTURE_KEY, type FixtureKey } from './auth';
 
 /**
  * Receives e-mails and the raw meeting_link — `canViewParticipantEmails` /
@@ -88,22 +92,51 @@ export const DENIED_PERSONAS: FixtureKey[] = [
 export const VIEWER_PERSONAS: FixtureKey[] = [...PRIVILEGED_PERSONAS, ...VIEW_ONLY_PERSONAS];
 
 /**
+ * Held at login, before authorization: the account carries `must_change_password` and is
+ * sent to /change-password. It is NOT in DENIED_PERSONAS. Those personas reach
+ * canViewSession and fail it; this one never gets that far, so counting it as a denial
+ * would claim a session decision nobody made. It is not in VIEWER_PERSONAS either, and
+ * no session spec iterates this tier.
+ *
+ * The evidence for the hold is elsewhere and mandatory: ci-fixture.spec.ts logs the
+ * persona in through the real UI and requires /change-password, and
+ * pasantias-flow.spec.ts requires 403 PASSWORD_CHANGE_REQUIRED on PASANT GET and PATCH,
+ * by cookie and by bearer. None of that is session-authorization coverage for this
+ * account, and nothing here claims it.
+ */
+export const PASSWORD_HELD_PERSONAS: FixtureKey[] = ['adminForcedPassword'];
+
+/**
  * The tiers must PARTITION the fixture roster: no persona in two tiers, none in none.
  *
  * Without this, a persona added to e2e-fixtures.json would be seeded, would be logged in
  * by ci-fixture.spec.ts, and would then be silently absent from every authorization
  * assertion in this chunk — covered where it is cheap and uncovered where it matters.
+ *
+ * The held tier is also pinned to the auth helper's one flagged persona. A second
+ * flagged persona, or a held tier naming anyone else, fails here rather than letting a
+ * normal persona slip out of the matrices.
  */
 function assertTierPartitionIsTotal(): void {
-  const tiered = [...PRIVILEGED_PERSONAS, ...VIEW_ONLY_PERSONAS, ...DENIED_PERSONAS];
+  const tiered = [
+    ...PRIVILEGED_PERSONAS,
+    ...VIEW_ONLY_PERSONAS,
+    ...DENIED_PERSONAS,
+    ...PASSWORD_HELD_PERSONAS,
+  ];
   const duplicated = tiered.filter((key, i) => tiered.indexOf(key) !== i);
   const unclassified = FIXTURE_KEYS.filter((key) => !tiered.includes(key));
   const unknown = tiered.filter((key) => !FIXTURE_KEYS.includes(key));
+  const heldMismatch =
+    PASSWORD_HELD_PERSONAS.length !== 1 || PASSWORD_HELD_PERSONAS[0] !== FORCED_PASSWORD_FIXTURE_KEY;
 
   const problems = [
     unclassified.length > 0 ? `classified in no tier: ${unclassified.join(', ')}` : null,
     duplicated.length > 0 ? `classified in more than one tier: ${duplicated.join(', ')}` : null,
     unknown.length > 0 ? `classified but not a seeded persona: ${unknown.join(', ')}` : null,
+    heldMismatch
+      ? `PASSWORD_HELD_PERSONAS must be exactly [${FORCED_PASSWORD_FIXTURE_KEY}], got [${PASSWORD_HELD_PERSONAS.join(', ')}]`
+      : null,
   ].filter(Boolean);
 
   if (problems.length === 0) return;

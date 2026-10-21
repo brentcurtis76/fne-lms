@@ -153,6 +153,12 @@ export async function deliverOutboundEmail(params: {
   message: Omit<OutboundEmailMessage, 'from'> & { from?: string };
   idempotencyKey?: string;
   transport?: EmailTransport;
+  /**
+   * Opt-in. An error value is then `provider_rejected` only when it carries a 4xx status other than 429: the provider
+   * answered and refused. Anything else is `transport_error`, including a value with no status at all, which is what
+   * the Resend SDK resolves (it never throws) when the request itself failed. Without it the mapping below is unchanged.
+   */
+  definiteRefusalOnly?: true;
 }): Promise<ProviderDelivery> {
   if (params.authorization.kind === 'suppressed_qa') return { status: 'suppressed_qa' };
   if (params.authorization.kind === 'refuse') {
@@ -171,10 +177,16 @@ export async function deliverOutboundEmail(params: {
       idempotencyKey: params.idempotencyKey,
     });
     if (error) {
-      // Only a keyed send reads the status: an unkeyed one keeps the plain refusal it always had.
-      const status = params.idempotencyKey ? error.statusCode : undefined;
+      // Only a keyed or opted-in send reads the status: an unkeyed one keeps the plain refusal it always had.
+      const status = params.idempotencyKey || params.definiteRefusalOnly ? error.statusCode : undefined;
+      const definiteRefusal =
+        typeof status === 'number' && Number.isInteger(status) && status >= 400 && status < 500 && status !== 429;
       // 429 and 5xx leave it open whether the message was taken, like a call that threw.
-      if (status === 429 || (typeof status === 'number' && status >= 500)) {
+      if (
+        status === 429 ||
+        (typeof status === 'number' && status >= 500) ||
+        (params.definiteRefusalOnly && !definiteRefusal)
+      ) {
         const retryAfterSeconds = parseRetryAfter(error.retryAfter);
         return {
           status: 'transport_error',
@@ -185,7 +197,7 @@ export async function deliverOutboundEmail(params: {
       return {
         status: 'provider_rejected',
         detail: error.message,
-        ...(status === 409 ? { conflict: true as const } : {}),
+        ...(params.idempotencyKey && status === 409 ? { conflict: true as const } : {}),
       };
     }
     return {

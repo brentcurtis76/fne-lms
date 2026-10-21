@@ -440,6 +440,107 @@ describe.each(DOCUMENTS)('/api/pasantias/$label', (doc) => {
   });
 });
 
+/**
+ * January 2027 (PASANT-B003, C006). The suite above reads the cache key and the
+ * filename from the same constants the routes read, so it proves the routes are
+ * consistent with themselves, not that they serve January. These cases pin the
+ * January variants as literals typed here, and prove no October object can be
+ * read for them: the shared two-program documents have new keys, so a warm
+ * October cache entry is simply never asked for.
+ */
+const JANUARY_VARIANTS = [
+  {
+    label: 'brochure',
+    handler: brochureHandler as unknown as Handler,
+    cachePath: 'pasantias/brochure-2027-01-v1.pdf',
+    filename: 'Pasantias-INSPIRA-Barcelona-enero-2027-2027-01-v1.pdf',
+    octoberPaths: [
+      'pasantias/brochure-2026-10-v1.pdf',
+      'pasantias/brochure-2026-10-v2.pdf',
+      'pasantias/brochure-2026-10-v3.pdf',
+      'pasantias/brochure-2026-10-v4.pdf',
+      'pasantias/brochure-2026-10-v5.pdf',
+    ],
+    generator: mockGenerateBrochure,
+    other: mockGenerateFicha,
+  },
+  {
+    label: 'ficha',
+    handler: fichaHandler as unknown as Handler,
+    cachePath: 'pasantias/ficha-2027-01-v1.pdf',
+    filename: 'Ficha-Pasantias-INSPIRA-Barcelona-enero-2027-2027-01-v1.pdf',
+    octoberPaths: ['pasantias/ficha-2026-10-v1.pdf', 'pasantias/ficha-2026-10-v2.pdf'],
+    generator: mockGenerateFicha,
+    other: mockGenerateBrochure,
+  },
+];
+
+describe.each(JANUARY_VARIANTS)('/api/pasantias/$label — the January 2027 variant', (variant) => {
+  it('reads exactly the January cache key, never an October one', async () => {
+    await get(variant.handler);
+
+    expect(mockDownloadFile).toHaveBeenCalledTimes(1);
+    expect(mockDownloadFile).toHaveBeenCalledWith(variant.cachePath);
+    for (const october of variant.octoberPaths) {
+      expect(mockDownloadFile).not.toHaveBeenCalledWith(october);
+    }
+  });
+
+  it('serves warm designed bytes at that key verbatim (R-08 publication path)', async () => {
+    const designed = Buffer.from('%PDF-1.7 corrected designed two-program file\n%%EOF\n', 'utf8');
+    mockDownloadFile.mockImplementation(async (path: string) => {
+      if (path === variant.cachePath) return designed;
+      throw new Error('Object not found');
+    });
+
+    const res = await get(variant.handler);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getBuffer().equals(designed)).toBe(true);
+    expect(variant.generator).not.toHaveBeenCalled();
+    expect(mockUploadFile).not.toHaveBeenCalled();
+  });
+
+  it('falls back to its own generator on a cold or failed read, and only its own', async () => {
+    mockDownloadFile.mockRejectedValue(new Error('503 upstream timeout'));
+    runningOn(undefined);
+
+    const res = await get(variant.handler);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getBuffer().equals(GENERATED_PDF)).toBe(true);
+    // Generated without the request: the bytes may be cached for every
+    // deployment, so they must not print a Host-derived origin.
+    expect(variant.generator).toHaveBeenCalledWith();
+    expect(variant.other).not.toHaveBeenCalled();
+    // Off production nothing is written to the shared bucket.
+    expect(mockUploadFile).not.toHaveBeenCalled();
+  });
+
+  it('writes create-only to the January key in production, and survives the object-exists race', async () => {
+    mockDownloadFile.mockRejectedValue(new Error('Object not found'));
+    mockUploadFile.mockRejectedValue(new StorageObjectExistsError(variant.cachePath));
+    runningOn('production');
+
+    const res = await get(variant.handler);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(mockUploadFile).toHaveBeenCalledWith(variant.cachePath, GENERATED_PDF, 'application/pdf', {
+      upsert: false,
+    });
+    expect(res._getBuffer().equals(GENERATED_PDF)).toBe(true);
+  });
+
+  it('names the download with the January filename, in both header forms', async () => {
+    const res = await get(variant.handler);
+
+    expect(res.getHeader('Content-Disposition')).toBe(
+      `inline; filename="${variant.filename}"; filename*=UTF-8''${variant.filename}`
+    );
+    expect(String(res.getHeader('Content-Disposition'))).not.toMatch(/octubre|2026-10/);
+  });
+});
+
 describe('cache paths (D-05)', () => {
   it('key each document by its own version under the pasantias prefix', () => {
     expect(pasantiasCachePath('brochure', BROCHURE_VERSION)).toBe(

@@ -107,7 +107,24 @@
     "It is a TOP-LEVEL block on purpose: a key under `users` would break",
     "assertFixtureRosterComplete() in tests/e2e/helpers/auth.ts, which requires `users` and",
     "DECLARED_FIXTURE_KEYS to be set-equal. The specs only ever READ it — the fixture is not",
-    "reset between local runs, so a spec that triaged it would pass once and fail forever after."
+    "reset between local runs, so a spec that triaged it would pass once and fail forever after.",
+    "",
+    "PASANT-B004 (C009) — `pasantiasBulk` describes 1205 OWNED synthetic contacts for the admin",
+    "leads surface at scale (PostgREST max_rows = 1000). 1205 is the BULK count only: the table",
+    "also holds the A8 lead above and every contact the journey specs submit, so no spec may",
+    "read 1205 as the table total. Bulk-only expectations are scoped by `searchToken`, which only",
+    "the owned e-mails carry. Every bulk created_at is before 2026-07-01, i.e. older than any A8",
+    "lead (the table dates from 2026-07-31), so the A8 lead's place among the newest 50 — which",
+    "tests/e2e/pasantias-leads-admin.spec.ts relies on — is unchanged. Ownership is the fixed id",
+    "namespace `idPrefix`: the seeder writes those ids and nothing else, never deletes, never",
+    "touches the A8 lead. `expected` is written out by hand; the seeder refuses to write if its",
+    "generated rows disagree with it, and the specs compare the live API with it.",
+    "",
+    "PASANT-B004 — `users.adminForcedPassword` is the one persona seeded with",
+    "must_change_password = true (`mustChangePassword`). Every other persona has no such field",
+    "and is seeded false, exactly as before. It is a real global admin held by the forced",
+    "password gate: its login lands on /change-password, and the specs prove the PASANT admin",
+    "API refuses it. Nothing may submit its change-password form — that would clear the flag."
   ],
   "school": {
     "id": 990001,
@@ -263,6 +280,169 @@
     "consentAcceptedAt": "2026-01-15T12:00:00.000Z",
     "consentNoticeVersion": "e2e-sintetico"
   },
+  "pasantiasBulk": {
+    "_comment": [
+      "Contact NNNN (index 1..count, four digits) has id idPrefix + NNNN padded to 12 digits,",
+      "e-mail emailPrefix + NNNN + '@' + emailDomain, first name firstName, last name",
+      "lastNamePrefix + NNNN and institution `institution`. Decimal digits are valid hex, so id",
+      "order is index order.",
+      "kind = kinds[(index - 1) mod 5]; status = statuses[floor((index - 1) / 5) mod 4].",
+      "Cohort is cohorts.historical for kind `historical` and cohorts.january otherwise; kinds",
+      "`historical` and `unclassified` have no interest row, `both` has inspira and",
+      "mirada-profunda, the single kinds have that one program.",
+      "created_at comes from the run holding the index: createdAt, plus (to - index)",
+      "microseconds when ladderMicros is true. consent_accepted_at and each interest's",
+      "created_at / consent_accepted_at equal the contact's created_at.",
+      "`hostile` overrides text columns of named contacts and never their identity, kind,",
+      "status, timestamps, e-mail or last name; `csv` is the cell the downloaded CSV must hold,",
+      "worked out by hand from lib/exportUtils.ts (formula prefix ', CR/CRLF -> LF, RFC 4180).",
+      "`expected` is hand-computed, never generated. The seeder checks its rows against it."
+    ],
+    "count": 1205,
+    "idPrefix": "e2eb0040-0000-4000-8000-",
+    "emailPrefix": "e2e-pasantias-lote-b004-",
+    "emailDomain": "example.com",
+    "searchToken": "lote-b004",
+    "firstName": "Contacto",
+    "lastNamePrefix": "Sintetico Lote ",
+    "institution": "Instituto Sintetico Masivo E2E",
+    "consentNoticeVersion": "e2e-sintetico-b004",
+    "kinds": ["inspira", "mirada-profunda", "both", "historical", "unclassified"],
+    "statuses": ["new", "contacted", "converted", "dismissed"],
+    "cohorts": {
+      "january": "enero-2027",
+      "historical": "octubre-2026"
+    },
+    "runs": [
+      { "from": 1, "to": 600, "createdAt": "2026-06-01T12:00:00.000000Z", "ladderMicros": false },
+      { "from": 601, "to": 1100, "createdAt": "2026-05-01T12:00:00.000000Z", "ladderMicros": true },
+      { "from": 1101, "to": 1205, "createdAt": "2026-04-01T12:00:00.000000Z", "ladderMicros": false }
+    ],
+    "hostile": [
+      {
+        "index": 7,
+        "fields": {
+          "first_name": "=cmd|' /C calc'!A0",
+          "institution": "=HYPERLINK(\"http://example.invalid/b004\",\"clic\")",
+          "phone": "=1+2"
+        },
+        "csv": {
+          "Nombre": "'=cmd|' /C calc'!A0 Sintetico Lote 0007",
+          "Institución": "'=HYPERLINK(\"http://example.invalid/b004\",\"clic\")",
+          "WhatsApp": "'=1+2"
+        }
+      },
+      {
+        "index": 8,
+        "fields": {
+          "institution": "   +SUM(1,2)",
+          "role_title": "@SUM(A1:A2)",
+          "message": "-2+3",
+          "utm_source": "-cmd"
+        },
+        "csv": {
+          "Institución": "'   +SUM(1,2)",
+          "Cargo": "'@SUM(A1:A2)",
+          "Mensaje": "'-2+3",
+          "UTM source": "'-cmd"
+        }
+      },
+      {
+        "index": 9,
+        "fields": {
+          "message": "línea uno\rlínea dos\r\nlínea tres\tcon tabulador",
+          "notes": "=SUMA(1;2) nota interna"
+        },
+        "csv": {
+          "Mensaje": "'línea uno\nlínea dos\nlínea tres\tcon tabulador",
+          "Notas": "'=SUMA(1;2) nota interna"
+        }
+      },
+      {
+        "index": 10,
+        "fields": {
+          "institution": "Colegio \"Comillas\", Sede Norte",
+          "utm_campaign": "campaña,con,comas"
+        },
+        "csv": {
+          "Institución": "Colegio \"Comillas\", Sede Norte",
+          "UTM campaign": "campaña,con,comas"
+        }
+      },
+      {
+        "index": 11,
+        "fields": {
+          "first_name": "Ñandú Ünïcödé",
+          "institution": "Escuela 学校 ✓ — مدرسة 👩‍🏫"
+        },
+        "csv": {
+          "Nombre": "Ñandú Ünïcödé Sintetico Lote 0011",
+          "Institución": "Escuela 学校 ✓ — مدرسة 👩‍🏫"
+        }
+      },
+      {
+        "index": 12,
+        "fields": {
+          "institution": "Colegio O'Higgins'; DROP TABLE pasantias_leads;--",
+          "role_title": "<script>window.__b004xss=1</script>",
+          "message": "<img src=x onerror=\"window.__b004xss=1\">"
+        },
+        "csv": {
+          "Institución": "Colegio O'Higgins'; DROP TABLE pasantias_leads;--",
+          "Cargo": "<script>window.__b004xss=1</script>",
+          "Mensaje": "<img src=x onerror=\"window.__b004xss=1\">"
+        }
+      },
+      {
+        "index": 13,
+        "fields": {
+          "first_name": "Prueba (paréntesis), \"comillas\" *estrella* \\barra"
+        },
+        "csv": {
+          "Nombre": "Prueba (paréntesis), \"comillas\" *estrella* \\barra Sintetico Lote 0013"
+        }
+      }
+    ],
+    "expected": {
+      "total": 1205,
+      "byKind": {
+        "inspira": 241,
+        "mirada-profunda": 241,
+        "both": 241,
+        "historical": 241,
+        "unclassified": 241
+      },
+      "byStatus": { "new": 305, "contacted": 300, "converted": 300, "dismissed": 300 },
+      "byProgramFilter": { "inspira": 482, "mirada-profunda": 482, "sin-programa": 482 },
+      "byStatusAndProgramFilter": {
+        "new": { "inspira": 122, "mirada-profunda": 122, "sin-programa": 122 },
+        "contacted": { "inspira": 120, "mirada-profunda": 120, "sin-programa": 120 },
+        "converted": { "inspira": 120, "mirada-profunda": 120, "sin-programa": 120 },
+        "dismissed": { "inspira": 120, "mirada-profunda": 120, "sin-programa": 120 }
+      },
+      "order": [
+        { "from": 600, "to": 1 },
+        { "from": 601, "to": 1100 },
+        { "from": 1205, "to": 1101 }
+      ],
+      "newestIndex": 600,
+      "oldestIndex": 1101,
+      "searches": [
+        { "search": "Lote 012", "status": null, "program": null, "indexes": [129, 128, 127, 126, 125, 124, 123, 122, 121, 120] },
+        { "search": "Lote 012", "status": "new", "program": "inspira", "indexes": [123, 121] },
+        { "search": "Lote 012", "status": "contacted", "program": "mirada-profunda", "indexes": [128, 127] },
+        { "search": "Lote 012", "status": "new", "program": "sin-programa", "indexes": [125, 124] },
+        { "search": "Lote 012", "status": "dismissed", "program": "sin-programa", "indexes": [120] },
+        { "search": "Lote 012", "status": "converted", "program": null, "indexes": [] },
+        { "search": "O'Higgins'; DROP", "status": null, "program": null, "indexes": [12] },
+        { "search": "Ñandú", "status": null, "program": null, "indexes": [11] },
+        { "search": "paréntesis", "status": null, "program": null, "indexes": [13] },
+        { "search": "Prueba (paréntesis)", "status": null, "program": null, "indexes": [] },
+        { "search": "x),status.eq.converted,(first_name.ilike.*", "status": null, "program": null, "indexes": [] },
+        { "search": "lote-b004-sin-coincidencia", "status": null, "program": null, "indexes": [] }
+      ]
+    }
+  },
   "users": {
     "admin": {
       "email": "e2e-admin@example.com",
@@ -375,6 +555,14 @@
           "school": "primary"
         }
       ]
+    },
+    "adminForcedPassword": {
+      "email": "e2e-admin-cambio-clave@example.com",
+      "password": "E2E-Synthetic-AdminForcedPassword-2026",
+      "firstName": "Admin",
+      "lastName": "Cambio Clave Sintetico",
+      "role": "admin",
+      "mustChangePassword": true
     }
   }
 }

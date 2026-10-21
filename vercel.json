@@ -1,4 +1,9 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "fix/p02b-r1": false
+    }
+  },
   "functions": {
     "pages/api/bots/telegram.ts": {
       "maxDuration": 60

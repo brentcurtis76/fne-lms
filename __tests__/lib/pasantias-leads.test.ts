@@ -7,9 +7,14 @@
  * the five legal edges: a helper that allows one extra move is a lead moving
  * somewhere the plan forbids, and only an exhaustive matrix catches that.
  */
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { COHORT_ID } from '../../lib/pasantias/cohort-public';
+import { COHORT_ID, COHORT_PROGRAMS, PROGRAM_IDS } from '../../lib/pasantias/cohort-public';
 import {
+  JANUARY_COHORT_ID,
+  JANUARY_PROGRAM_IDS,
+  isJanuaryProgramId,
   LEAD_FIELD_LIMITS,
   LEAD_NUM_PEOPLE_MAX,
   LEAD_NUM_PEOPLE_MIN,
@@ -36,9 +41,14 @@ function isAllowed(from: LeadStatus, to: LeadStatus): boolean {
   return ALLOWED_EDGES.some(([a, b]) => a === from && b === to);
 }
 
+/**
+ * The active fixture: what the public form posts since PASANT-B003 — the public
+ * cohort (January 2027) and exactly one program.
+ */
 function validBody(overrides: Partial<LeadSubmissionBody> = {}): LeadSubmissionBody {
   return {
     cohort: COHORT_ID,
+    program: 'inspira',
     firstName: 'Ana',
     lastName: 'Pérez',
     email: 'ana@example.com',
@@ -134,6 +144,21 @@ describe('validateLeadSubmission — required fields', () => {
     });
   });
 
+  it('with the cohort present, reports the missing program alongside the other fields', () => {
+    const result = validateLeadSubmission({ cohort: COHORT_ID });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+
+    expect(result.errors).toEqual({
+      firstName: LEAD_VALIDATION_MESSAGES.firstNameRequired,
+      lastName: LEAD_VALIDATION_MESSAGES.lastNameRequired,
+      email: LEAD_VALIDATION_MESSAGES.emailRequired,
+      institution: LEAD_VALIDATION_MESSAGES.institutionRequired,
+      consent: LEAD_VALIDATION_MESSAGES.consentRequired,
+      program: LEAD_VALIDATION_MESSAGES.programRequired,
+    });
+  });
+
   it('rejects a malformed email', () => {
     const result = validateLeadSubmission(validBody({ email: 'ana@example' }));
     expect(result.ok).toBe(false);
@@ -181,7 +206,7 @@ describe('validateLeadSubmission — consent (D-12)', () => {
 
 describe('validateLeadSubmission — cohort pinning', () => {
   it('rejects any cohort other than the public module id', () => {
-    for (const cohort of ['abril-2026', 'noviembre-2026', '', undefined]) {
+    for (const cohort of ['abril-2026', 'noviembre-2026', 'octubre-2026', 'Enero-2027', '', undefined]) {
       const result = validateLeadSubmission(validBody({ cohort }));
       expect(result.ok).toBe(false);
       if (result.ok) continue;
@@ -362,5 +387,160 @@ describe('validateLeadSubmission — sourcePath', () => {
       expect(result.value.sourcePath).toBeNull();
       expect(result.errors).toBeUndefined();
     }
+  });
+});
+
+/* ------------------------------------------------ January 2027 (PASANT-B002b) */
+
+/** The ratified contract's `ids`, read from its fenced JSON block — not from the module. */
+function contractIds(): { cohort: string; programs: string[] } {
+  const doc = readFileSync(path.join(process.cwd(), 'docs/plan/pasantias-january-contract.md'), 'utf8');
+  const block = doc.match(/```json\n([\s\S]*?)\n```/);
+  if (!block) throw new Error('contract: no fenced json block');
+  return JSON.parse(block[1]).ids;
+}
+
+function januaryBody(overrides: Partial<LeadSubmissionBody> = {}): LeadSubmissionBody {
+  return validBody({ cohort: JANUARY_COHORT_ID, program: 'inspira', ...overrides });
+}
+
+describe('January identities match the ratified contract', () => {
+  it('cohort and program IDs are exactly the contract §2 IDs, in contract order', () => {
+    expect({ cohort: JANUARY_COHORT_ID, programs: [...JANUARY_PROGRAM_IDS] }).toEqual(contractIds());
+  });
+
+  it('the public cohort IS January since B003, and validation agrees with the public registry', () => {
+    // The literals in `leads.ts` mirror the SQL CHECK; the public module is what
+    // the page renders. They must name the same cohort and the same programs.
+    expect(COHORT_ID).toBe(JANUARY_COHORT_ID);
+    expect(COHORT_ID).toBe('enero-2027');
+    expect([...PROGRAM_IDS]).toEqual([...JANUARY_PROGRAM_IDS]);
+    expect(COHORT_PROGRAMS.map((program) => program.id)).toEqual([...JANUARY_PROGRAM_IDS]);
+  });
+
+  it('isJanuaryProgramId accepts the exact IDs only', () => {
+    for (const id of JANUARY_PROGRAM_IDS) expect(isJanuaryProgramId(id)).toBe(true);
+    for (const value of ['INSPIRA', ' inspira', 'mirada profunda', '', null, undefined, ['inspira'], 1]) {
+      expect(isJanuaryProgramId(value)).toBe(false);
+    }
+  });
+});
+
+describe('validateLeadSubmission — January program (one per submission)', () => {
+  it('accepts each program alone and carries it through', () => {
+    for (const program of JANUARY_PROGRAM_IDS) {
+      const result = validateLeadSubmission(januaryBody({ program }));
+      expect(result.ok).toBe(true);
+      if (!result.ok) continue;
+      expect(result.value.cohort).toBe(JANUARY_COHORT_ID);
+      expect(result.value.program).toBe(program);
+    }
+  });
+
+  it('requires a program for January', () => {
+    for (const program of [undefined, null, '']) {
+      const result = validateLeadSubmission(januaryBody({ program }));
+      expect(result.ok).toBe(false);
+      if (result.ok) continue;
+      expect(result.errors).toEqual({ program: LEAD_VALIDATION_MESSAGES.programRequired });
+    }
+  });
+
+  // A list would mean several database calls for one POST, some of which could
+  // commit while a later one fails. Interest in both is two submissions.
+  it('refuses every list shape, including a single-element one', () => {
+    for (const program of [['inspira', 'mirada-profunda'], ['inspira'], [], ['inspira', 'inspira']]) {
+      const result = validateLeadSubmission(januaryBody({ program }));
+      expect(result.ok).toBe(false);
+      if (result.ok) continue;
+      expect(result.errors.program).toBe(LEAD_VALIDATION_MESSAGES.programInvalid);
+    }
+  });
+
+  it('refuses unknown, re-cased, padded and non-string programs instead of normalizing them', () => {
+    for (const program of ['otro', 'INSPIRA', 'Mirada-Profunda', ' inspira', 'inspira ', 1, true, {}]) {
+      const result = validateLeadSubmission(januaryBody({ program }));
+      expect(result.ok).toBe(false);
+      if (result.ok) continue;
+      expect(result.errors.program).toBe(LEAD_VALIDATION_MESSAGES.programInvalid);
+    }
+  });
+
+  it('keeps processing consent strictly required for January', () => {
+    for (const consent of [false, undefined, 'true', 1]) {
+      const result = validateLeadSubmission(januaryBody({ consent }));
+      expect(result.ok).toBe(false);
+      if (result.ok) continue;
+      expect(result.errors.consent).toBe(LEAD_VALIDATION_MESSAGES.consentRequired);
+    }
+  });
+
+  it('keeps the marketing opt-in independent of the processing consent', () => {
+    const optedOut = validateLeadSubmission(januaryBody());
+    const optedIn = validateLeadSubmission(januaryBody({ marketingOptIn: true }));
+    expect([optedOut.ok, optedIn.ok]).toEqual([true, true]);
+    if (!optedOut.ok || !optedIn.ok) return;
+    expect(optedOut.value.marketingOptIn).toBe(false);
+    expect(optedIn.value.marketingOptIn).toBe(true);
+  });
+
+  it('normalizes the email the same way for both programs, so both land on one contact', () => {
+    const first = validateLeadSubmission(januaryBody({ program: 'inspira', email: 'Ana@Example.com' }));
+    const second = validateLeadSubmission(januaryBody({ program: 'mirada-profunda', email: '  ANA@example.COM ' }));
+    expect([first.ok, second.ok]).toEqual([true, true]);
+    if (!first.ok || !second.ok) return;
+    expect(first.value.emailNormalized).toBe(second.value.emailNormalized);
+  });
+
+  it('reports only the cohort when the cohort is unknown, whatever the program says', () => {
+    const result = validateLeadSubmission(validBody({ cohort: 'enero-2026', program: 'inspira' }));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors).toEqual({ cohort: LEAD_VALIDATION_MESSAGES.cohortInvalid });
+  });
+});
+
+/**
+ * Until PASANT-B003 the public cohort was October's single-track one, and these
+ * cases pinned that it accepted a program-less form and refused a program. The
+ * public cohort is now January, so the same October form — a stale cached page
+ * still posting `octubre-2026` with no program — is the case to pin: it gets the
+ * visible cohort error (and nothing else), not a silent acceptance and not a
+ * dropped program. No October-specific rule produces this; the cohort pin does.
+ */
+describe('validateLeadSubmission — a stale October form after the January switch', () => {
+  const OCTOBER_FORM = { cohort: 'octubre-2026', program: undefined };
+
+  it('refuses the October form exactly as it used to post, with the cohort error only', () => {
+    for (const program of [undefined, null, '']) {
+      const result = validateLeadSubmission(validBody({ ...OCTOBER_FORM, program }));
+      expect(result.ok).toBe(false);
+      if (result.ok) continue;
+      expect(result.errors).toEqual({ cohort: LEAD_VALIDATION_MESSAGES.cohortInvalid });
+    }
+  });
+
+  it('refuses the October cohort even when a January program is attached', () => {
+    const result = validateLeadSubmission(validBody({ cohort: 'octubre-2026', program: 'inspira' }));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors).toEqual({ cohort: LEAD_VALIDATION_MESSAGES.cohortInvalid });
+  });
+
+  it('never accepts a program-less submission for the public cohort', () => {
+    for (const program of [undefined, null, '']) {
+      const result = validateLeadSubmission(validBody({ program }));
+      expect(result.ok).toBe(false);
+      if (result.ok) continue;
+      expect(result.errors).toEqual({ program: LEAD_VALIDATION_MESSAGES.programRequired });
+    }
+  });
+
+  it('pins the programInvalid message the retained single-track branch would return', () => {
+    // Not reachable today — the only valid cohort is January — and asserted
+    // through the message table so the branch's contract stays documented.
+    expect(LEAD_VALIDATION_MESSAGES.programInvalid).toBe(
+      'El programa indicado no corresponde a la pasantía vigente.'
+    );
   });
 });

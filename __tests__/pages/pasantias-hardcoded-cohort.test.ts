@@ -225,6 +225,34 @@
  * works: a string, a number and a short value are each pinned to their original
  * value while the module changes underneath — exactly what a hardcoded literal
  * does — and the contract is required to name that leaf.
+ *
+ * ## What PASANT-B003 changed (January 2027)
+ *
+ * The module now carries the ratified January cohort: two programs under
+ * `programs`, a shared free weekend, hosts instead of an expert list, and no
+ * objectives, levels or highlights (the January contract ratifies none). Every
+ * mechanism above is unchanged; what moved is the module-specific data it is
+ * pointed at — the leaf and collection counts, `EXPORT_BY_KEY`, and each
+ * declaration list, re-derived against the January page and re-argued one by
+ * one. Three consequences are worth stating:
+ *
+ * - **No discriminators, no flags, no agreements.** The January page prints
+ *   every leaf directly — the full-day schools are a printed list, not a boolean
+ *   per school; the half-days print per school, not through a uniformity check —
+ *   so `UNPRINTABLE_LEAVES` and `UNIFORM_LEAVES` are empty and the predicate
+ *   crossing has nothing to cross. The mechanisms stay, and the controls below
+ *   assert that emptiness instead of exercising a tier.
+ * - **The number shift moved from +7.25 to +7.3, rounded to one decimal.** With
+ *   +7.25 a 5 became `12,25` and a 2 became `9,25`, both still containing the
+ *   original digit, so "the old value lost ground" could never be shown for the
+ *   January counts 5 and 2. +7.3 lands every January figure on a value with
+ *   none of its own digits; the rounding keeps `2.5 + 7.3` printing as `9,8`.
+ * - **Weeks are per program and are not stated in words.** No sentence on the
+ *   page says how many weeks a program runs, so the week-count proof now asserts
+ *   that no count word can go stale rather than that the words follow the module.
+ *   The calendar maps every week it is given, so a third week renders a third
+ *   card; the design invariant pins the module to `DESIGNED_WEEK_COUNT` and the
+ *   grown render to one card per week.
  */
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -261,12 +289,7 @@ vi.mock('../../lib/pasantias/cohort-public', async () => {
   return mocked;
 });
 
-import {
-  COHORT_OBJECTIVES,
-  COHORT_PUBLIC,
-  COHORT_SCHOOLS,
-  COHORT_WEEKS,
-} from '../../lib/pasantias/cohort-public';
+import { COHORT_PROGRAMS, COHORT_PUBLIC } from '../../lib/pasantias/cohort-public';
 import PasantiasPage, {
   DESIGNED_WEEK_COUNT,
   buildMetaDescription,
@@ -343,7 +366,7 @@ const LEAVES = collectLeaves(COHORT_PUBLIC);
  * {@link EXPECTED_GAPS} — the new field is covered by the contract below unless
  * it is declared there with a reason.
  */
-const EXPECTED_LEAF_COUNT = 150;
+const EXPECTED_LEAF_COUNT = 106;
 
 /** Top-level `COHORT_PUBLIC` key → the export the page actually imports. */
 const EXPORT_BY_KEY: Record<string, string> = {
@@ -351,20 +374,20 @@ const EXPORT_BY_KEY: Record<string, string> = {
   label: 'COHORT_LABEL',
   headline: 'COHORT_HEADLINE',
   dateLabel: 'COHORT_DATE_LABEL',
-  weeks: 'COHORT_WEEKS',
-  freeDays: 'COHORT_FREE_DAYS',
-  visitDays: 'COHORT_VISIT_DAYS',
-  visitDayCount: 'COHORT_VISIT_DAY_COUNT',
-  immersionSchools: 'COHORT_IMMERSION_SCHOOLS',
-  visitSchools: 'COHORT_VISIT_SCHOOLS',
-  schools: 'COHORT_SCHOOLS',
-  experts: 'COHORT_EXPERTS',
+  span: 'COHORT_SPAN',
+  city: 'COHORT_CITY',
+  together: 'COHORT_TOGETHER',
+  routing: 'COHORT_ROUTING',
+  places: 'COHORT_PLACES',
+  contact: 'COHORT_CONTACT',
+  accreditation: 'COHORT_ACCREDITATION',
   claims: 'COHORT_CLAIMS',
-  objectives: 'COHORT_OBJECTIVES',
+  freeWeekend: 'COHORT_FREE_WEEKEND',
+  programs: 'COHORT_PROGRAMS',
   dayStructure: 'COHORT_DAY_STRUCTURE',
   includes: 'COHORT_INCLUDES',
   excludes: 'COHORT_EXCLUDES',
-  lodgingArea: 'COHORT_LODGING_AREA',
+  hosts: 'COHORT_HOSTS',
 };
 
 /* ------------------------------------------------------------- the source scan */
@@ -451,8 +474,19 @@ function markTokens(value: string): string {
  * How far a number moves when it is mutated or quieted. Fractional on purpose:
  * a moved number can then never land on a size the page computes, so the
  * mechanisms that read bare numbers off the page keep reading counts.
+ *
+ * +7.3 rather than October's +7.25 (PASANT-B003): a shift ending in 5 leaves
+ * the digit 5 in every moved value, so a January 5 (`12,25`) or 2 (`9,25`)
+ * still contained its original digit and "the old value lost ground" could not
+ * be shown. With +7.3 the January figures move to 9,3 · 9,8 · 11,3 · 12,3 ·
+ * 13,3 · 16,3 · 17,3 — none containing its own original.
  */
-const NUMBER_SHIFT = 7.25;
+const NUMBER_SHIFT = 7.3;
+
+/** `value` moved by {@link NUMBER_SHIFT}, rounded to one decimal so `2.5` prints `9,8`. */
+function shiftNumber(value: number): number {
+  return Math.round((value + NUMBER_SHIFT) * 10) / 10;
+}
 
 /** The last named segment of a path — `visitSchools[3].tier` → `tier`. */
 function fieldName(segments: (string | number)[]): string {
@@ -554,7 +588,7 @@ const MUTATION_DAY = (() => {
  */
 function mutateValue(leaf: CohortLeaf): Primitive {
   const { value } = leaf;
-  if (typeof value === 'number') return value + NUMBER_SHIFT;
+  if (typeof value === 'number') return shiftNumber(value);
   if (typeof value === 'boolean') return !value;
 
   // A discriminator is mutated across the boundary the page branches on, not
@@ -913,7 +947,7 @@ function collectCollections(root: unknown): CohortCollection[] {
 const COLLECTIONS = collectCollections(COHORT_PUBLIC);
 
 /** Pinned for the same reason {@link EXPECTED_LEAF_COUNT} is. */
-const EXPECTED_COLLECTION_COUNT = 21;
+const EXPECTED_COLLECTION_COUNT = 14;
 
 /**
  * The new element's version of one value: strings marked so it cannot be
@@ -991,7 +1025,7 @@ function overrideForCollection(collection: CohortCollection): Overrides {
  * `9` becomes `16,25`, never another collection's size.
  */
 function quietValue(value: Primitive): Primitive {
-  if (typeof value === 'number') return value + NUMBER_SHIFT;
+  if (typeof value === 'number') return shiftNumber(value);
   if (typeof value !== 'string') return value;
 
   return ISO_DATE.test(value)
@@ -1390,18 +1424,33 @@ function staleCardinalityWords(surface: string, count: number): string[] {
 }
 
 /**
- * The page published with the cohort grown to `weekCount` weeks, on the quiet
- * module.
+ * The page published with EVERY program grown to `weekCount` weeks, on the
+ * quiet module.
  *
- * Quiet because the module states a cardinality of its own in its prose —
- * `weeks[1].summary` says "una o dos escuelas por día" — and the count this
- * proves is the page's, not the module's.
+ * Quiet because the module states cardinalities of its own in its prose —
+ * Mirada Profunda's summaries say "Cinco jornadas", its overview "dos días
+ * completos" — and the count this proves is the page's, not the module's.
  */
 function weekCountSurface(weekCount: number): Promise<string> {
-  const weeks = COLLECTIONS.find((collection) => collection.path === 'weeks');
-  if (!weeks) throw new Error('COHORT_PUBLIC no longer has a weeks collection');
+  const weekCollections = COLLECTIONS.filter(
+    (collection) => shapeOf(collection.segments) === 'programs..weeks'
+  );
+  if (weekCollections.length !== COHORT_PROGRAMS.length) {
+    throw new Error('COHORT_PUBLIC no longer has one weeks collection per program');
+  }
 
-  return publishedSurface(quietGrowthOf(weeks, weekCount));
+  const overrides = quietModule();
+  for (const collection of weekCollections) {
+    const [key, ...rest] = collection.segments;
+    const exportName = EXPORT_BY_KEY[key as string];
+    const current = readPath(overrides[exportName], rest) as unknown[];
+    const sample = current[current.length - 1];
+    const grown = [...current];
+    while (grown.length < weekCount) grown.push(plausibleElement(sample, fieldName(collection.segments)));
+    writePath(overrides[exportName], rest, grown);
+  }
+
+  return publishedSurface(overrides);
 }
 
 /**
@@ -1554,31 +1603,12 @@ const EXPECTED_GAPS: { pathPrefix: string; reason: string }[] = [
   {
     pathPrefix: 'id',
     reason:
-      'COHORT_ID is the machine identifier for the cohort. The page shows COHORT_LABEL/COHORT_HEADLINE instead and never imports it.',
+      'COHORT_ID is the machine identifier for the cohort. The page shows COHORT_LABEL/COHORT_HEADLINE instead; the lead form reads it only into the body it posts, which a static render never reaches.',
   },
   {
     pathPrefix: 'dateLabel',
     reason:
-      'COHORT_DATE_LABEL is the span without the year. The page renders COHORT_HEADLINE, which is a separate export built from it, so overriding this one moves nothing.',
-  },
-  {
-    pathPrefix: 'visitDays',
-    reason:
-      'COHORT_VISIT_DAYS is the flat list of every visit date. The page shows the two week ranges and COHORT_VISIT_DAY_COUNT, not the individual dates.',
-  },
-  {
-    pathPrefix: 'weeks[0].visitDays',
-    reason:
-      'Same dates, per week. The itinerary prints each week as a range from startDate to endDate, both of which are covered.',
-  },
-  {
-    pathPrefix: 'weeks[1].visitDays',
-    reason: 'As weeks[0].visitDays.',
-  },
-  {
-    pathPrefix: 'freeDays[1].date',
-    reason:
-      'The long weekend is printed as a range, first free day to last, so the middle day\'s date never appears. Its label does, and is covered.',
+      'COHORT_DATE_LABEL is the span without the year. The page renders COHORT_HEADLINE, which is a separate export built from it at module load, so overriding this one moves nothing. The span itself (COHORT_SPAN) is printed in the calendar intro and is covered.',
   },
 ];
 
@@ -1594,33 +1624,12 @@ const EXPECTED_GAPS: { pathPrefix: string; reason: string }[] = [
  * stays under the containment rule.
  */
 const UNPRINTABLE_LEAVES: { pathPrefix: string; reason: string }[] = [
-  {
-    pathPrefix: 'immersionSchools[0].tier',
-    reason:
-      "A discriminator, compared and never shown: `SchoolDetail` reads `school.tier === 'inmersion'` (pages/pasantias.tsx:340) to give a card the dark treatment with its arrow list rather than the light one with the highlights run together. Crossing the predicate moves the output; no form of the new value can appear, because both sides of the enum are ordinary words the page already prints in its own copy. Until r5 this reason said tier decided which schools the immersion figure is drawn from. It does not: `uniformImmersionDays()` (pages/pasantias.tsx:75) maps COHORT_IMMERSION_SCHOOLS straight to `immersionDays` and never reads tier at all.",
-  },
-  {
-    pathPrefix: 'immersionSchools[1].tier',
-    reason: 'As immersionSchools[0].tier.',
-  },
-  {
-    pathPrefix: 'visitSchools[0].tier',
-    reason:
-      "The same discriminator on the far side of the enum, driving the same choice: a visit school fails `=== 'inmersion'` and gets the light card. Declared an EXPECTED_GAP from r4 until r5 on the strength of a mutation that could not have moved it — appending a marker leaves `visita` and `visitazzq` both `!== 'inmersion'`, so the page held still and was recorded as never asking. It asks for all five.",
-  },
-  { pathPrefix: 'visitSchools[1].tier', reason: 'As visitSchools[0].tier.' },
-  { pathPrefix: 'visitSchools[2].tier', reason: 'As visitSchools[0].tier.' },
-  { pathPrefix: 'visitSchools[3].tier', reason: 'As visitSchools[0].tier.' },
-  { pathPrefix: 'visitSchools[4].tier', reason: 'As visitSchools[0].tier.' },
-  {
-    pathPrefix: 'visitSchools[0].fullDay',
-    reason:
-      'A boolean read as a flag to pick which of two labels a visit day carries. A boolean has no printable form at all — the label it selects is the page\'s own copy, not a cohort fact.',
-  },
-  {
-    pathPrefix: 'visitSchools[4].fullDay',
-    reason: 'As visitSchools[0].fullDay.',
-  },
+  // Empty since PASANT-B003. October's ten entries were the school `tier`
+  // discriminators and the `fullDay` booleans. The January module has neither:
+  // the full-day schools are a printed list of names
+  // (`programs[0].visits.fullDayOutside`) and no card treatment is chosen by
+  // comparing a module value. `has no discriminator or flag for the weaker proof
+  // to excuse` (below) keeps it that way.
 ];
 
 /**
@@ -1630,15 +1639,10 @@ const UNPRINTABLE_LEAVES: { pathPrefix: string; reason: string }[] = [
  * establish. Declared here so the difference is on the record.
  */
 const UNIFORM_LEAVES: { pathPrefix: string; reason: string }[] = [
-  {
-    pathPrefix: 'immersionSchools[0].immersionDays',
-    reason:
-      'Read through `uniformImmersionDays()`, which returns a number only while both immersion schools agree. This is the leaf the PM used to prove r3\'s contract false-passing: changing one school alone deletes the "días cada una" clause instead of re-rendering it.',
-  },
-  {
-    pathPrefix: 'immersionSchools[1].immersionDays',
-    reason: 'As immersionSchools[0].immersionDays — the other half of the same agreement.',
-  },
+  // Empty since PASANT-B003. October's two entries were the immersion days,
+  // read through `uniformImmersionDays()`. The January page prints each
+  // school's `days` on its own card, so a single-leaf mutation is provable and
+  // the weaker sibling-group proof is not needed.
 ];
 
 /**
@@ -1652,43 +1656,57 @@ const UNIFORM_LEAVES: { pathPrefix: string; reason: string }[] = [
  */
 const UNCOUNTED_COLLECTIONS: { shape: string; reason: string }[] = [
   {
-    shape: 'weeks',
+    shape: 'programs..weeks',
     reason:
-      'The itinerary prints one named week card per week, each as a date range, and states how many there are in three places — the meta description, the section heading and the CTA paragraph. All three say it in words ("Dos semanas, dos modos"), and this mechanism counts digits, so it can only ever read the size as unpublished. Those three are the ones `states how many weeks the cohort runs by reading the module, at every site` proves, and it proves them leaf-by-leaf: grown to three weeks, no site may still say "dos" and some site must say "tres", so one pinned site fails while the others stay wired. A fourth site used to state the count as `Entre ambas semanas` and that proof could not see it — `ambas` is not a number word — which is Sol\'s r7 B1. The FAQ now anchors on the long weekend and states no week cardinality at all; `states the count in no word a number word cannot replace` is what keeps it that way, and it is a separate mechanism from the number-word proof because it has to catch a word that names no number. Cardinality of the *design* is pinned by `renders every week the cohort has, or fails rather than dropping one`, which fails a third week rather than dropping the card — but note what that does and does not do: an intentional three-card redesign updates DESIGNED_WEEK_COUNT by design, so it is not what protects any of these sentences. This exception is the limit of the digit mechanism, not permission to type the number in.',
+      'Each program\'s calendar prints one card per week, each as a date range, for both programs. Since PASANT-B003 no sentence states how many weeks a program runs — October\'s "Dos semanas, dos modos" sites are gone — so there is no count, in digits or in words, to publish. `states no week count in words, so none can go stale` proves the words half; `renders every week each program has` proves a third week becomes a third card rather than disappearing. This exception is the absence of a count, not permission to type one in.',
   },
   {
-    shape: 'weeks..visitDays',
+    shape: 'routing',
     reason:
-      'The days inside one week, which the itinerary never counts: the card prints startDate to endDate. The cohort-wide figure the page does show is COHORT_VISIT_DAY_COUNT, a number the module computes once and exports as a leaf of its own.',
+      'The "¿Primera vez? … ¿Ya viajaste? …" line is printed route by route as the programs section title, and the FAQ answers with the first two routes. Nothing counts the routes.',
   },
   {
-    shape: 'visitDays',
+    shape: 'programs',
     reason:
-      'The flat list of every visit day. Its size reaches the page only through COHORT_VISIT_DAY_COUNT, which is computed at module load from the real array, so overriding this one moves nothing at all — the same reason its leaves are an EXPECTED_GAP.',
+      'The page destructures the registry by position into its INSPIRA and Mirada Profunda treatments, and the lead form maps it into one radio per program. No copy states how many programs there are — deliberately, so no cardinality can go stale — and an appended program changes no number on the page.',
   },
   {
-    shape: 'immersionSchools..highlights',
+    shape: 'programs..immersionSchools',
     reason:
-      'The aspectos destacados of one school, rendered as an arrow list. The page prints every one of them and counts none — a fifth highlight appears, no figure moves.',
+      'One card per immersion school, each printing its own days. The number of immersion schools is never printed: the program card prints `schoolCount`, a ratified leaf of its own, and the overview sentence is module prose.',
   },
   {
-    shape: 'visitSchools..highlights',
-    reason: 'As immersionSchools..highlights, run together on one line instead of listed.',
+    shape: 'programs..visits.fullDayOutside',
+    reason:
+      'Printed as names joined into one sentence ("… y … están fuera de Barcelona y toman el día completo."). How many there are is never stated.',
   },
   {
-    shape: 'experts',
+    shape: 'programs..schools',
     reason:
-      'The team section renders a card per expert and heads the section with copy, not with a figure. An eighth or a ninth expert changes the grid and no number on the page.',
+      'Mirada Profunda\'s schools, one card each with its days. The count the page prints for that program is `schoolCount`, a leaf, not this array\'s length — so an appended school adds a card and no figure.',
+  },
+  {
+    shape: 'programs..extraIncludes',
+    reason: 'Mirada Profunda\'s extra inclusions, printed as list items. Nothing counts them.',
+  },
+  {
+    shape: 'hosts',
+    reason:
+      'One card per host. The section heads itself with copy ("Quién te recibe"), never a number. It is also the one collection of length one, which `counts no collection the per-site proof cannot read` requires to be uncounted.',
   },
   {
     shape: 'claims',
     reason:
       'The figures band prints the claims themselves — each one is already a figure with its own caption — so the number of claims is never itself printed.',
   },
+  // Counted, and therefore deliberately absent from this list:
+  // `programs[0].visits.candidates`, whose length the escuelas section prints in
+  // "Cada cohorte visita 4 de estas 5 escuelas." (P-04: four of five, never a
+  // fixed four).
   {
     shape: 'dayStructure',
     reason:
-      'The día tipo prints each block as a labelled row. Three blocks or four, the section head does not say how many.',
+      'The día tipo prints each block as a list item. Three blocks or four, the section head does not say how many.',
   },
   {
     shape: 'includes',
@@ -1718,59 +1736,48 @@ const UNCOUNTED_COLLECTIONS: { shape: string; reason: string }[] = [
  * being a stated reason and becomes whatever number made the suite green.
  */
 const EXPECTED_FRAGMENTS: { fragment: string; reason: string }[] = [
+  // Re-derived for January (PASANT-B003) against the page, the lead form and the
+  // Footer as they render on the quiet module. October's eleven entries came
+  // from objectives, highlights and FAQ copy that no longer exist.
   {
-    fragment: 'de la escuela',
+    fragment: 'Fundación Nueva Educación',
     reason:
-      'The eyebrow of the "Dentro de la escuela" section (pages/pasantias.tsx:834) — the page\'s own name for what a visit day is like. The module\'s uses are inside an objective and one school\'s highlight, both of which render in full.',
+      "The foundation's own name, from the ratified RPA claim (`accreditation`, P-02). The page renders it outside the module three times: the header logo's alt text, the lead form's two consent sentences (lib/pasantias/consent.ts, A-14/A-15, retained verbatim) and the Footer copyright line. None of those is the claim, which renders whole in the figures band.",
   },
   {
-    fragment: 'del programa',
+    fragment: 'certificada por RPA',
     reason:
-      'Two FAQ answers: "Las sesiones del programa se desarrollan en español" (pages/pasantias.tsx:469) and "va aparte del programa" (pages/pasantias.tsx:479). The module\'s use is a job title, "Directora del programa INSPIRA".',
-  },
-  {
-    fragment: 'de Barcelona',
-    reason:
-      'The visit-day label "Día completo — fuera de Barcelona" (pages/pasantias.tsx:917), which says where a school is rather than naming one. The module\'s use is inside the claim "12 escuelas de Barcelona en la red", which the figures band renders whole.',
-  },
-  {
-    fragment: 'escuelas de vanguardia en',
-    reason:
-      'The meta description, "semanas viviendo escuelas de vanguardia en Barcelona" (buildMetaDescription, pages/pasantias.tsx:152). "Escuelas de vanguardia" is the movement\'s name and the page\'s positioning sentence, not a fact about this cohort.',
-  },
-  {
-    fragment: 'escuelas de vanguardia',
-    reason: 'The same meta description sentence, one token shorter, from another objective.',
-  },
-  {
-    fragment: 'estudiantes y',
-    reason:
-      '"entrevistar a estudiantes y docentes" in the hero-adjacent programme paragraph (pages/pasantias.tsx:740) — two words of the page\'s own description of a visit day.',
-  },
-  {
-    fragment: 'las escuelas',
-    reason:
-      'Two page sentences: "En las escuelas vas a escuchar una mezcla de catalán y español" (pages/pasantias.tsx:470) and "las escuelas y las condiciones de participación" in the #programa CTA (pages/pasantias.tsx:1105). Neither names a school; the seven names come from the module and are covered leaf by leaf.',
-  },
-  {
-    fragment: 'en la autonomía y',
-    reason:
-      "The site-wide Footer mission sentence, \"una Nueva Educación basada en la autonomía y la colaboración\" (components/Footer.tsx:39). The Footer renders inside this page and is not part of A6r's scope at all.",
-  },
-  {
-    fragment: 'procesos de cambio',
-    reason:
-      'The FAQ answer describing who the pasantía is for: "que están conduciendo procesos de cambio en sus colegios" (pages/pasantias.tsx:457).',
+      'The site-wide Footer\'s "ATE certificada por RPA Mineduc" (components/Footer.tsx:152). The same credential the ratified claim states in full; the Footer predates the January page and is not part of its scope. The run stops before "Mineduc." because the module\'s token carries the sentence\'s full stop and the Footer\'s does not.',
   },
   {
     fragment: 'Nueva Educación',
     reason:
-      "The foundation's own name — the page title (pages/pasantias.tsx:139), og:site_name (:530), the logo's alt text (:557) and the Footer. It reaches the module only because two objectives name the movement the foundation is named after.",
+      'From `dayStructure[2]` ("Talleres con expertos del movimiento de Nueva Educación"): the movement\'s name, which the Footer mission sentence ("hacia una Nueva Educación basada en…", components/Footer.tsx:39) and the logo alt text also print. The whole day-structure line renders on its own.',
+  },
+  {
+    fragment: 'estudiantes y',
+    reason:
+      'From `dayStructure[1]` ("Visita guiada, entrevistas con estudiantes y educadores"): two words of the page\'s own "entrevistar a estudiantes y docentes" in the Por qué Barcelona paragraph, which describes a visit day without naming any fact.',
   },
   {
     fragment: 'y el equipo de',
     reason:
-      'The FAQ answer "y el equipo de FNE acompaña las visitas" (pages/pasantias.tsx:471). Four function words and the module\'s use is inside the honorarios inclusion, which the programme list renders whole.',
+      'From `includes[2]` (the honorarios inclusion): four function words of the catalán FAQ answer, "y el equipo de FNE acompaña las visitas". The inclusion renders whole in the Incluye list.',
+  },
+  {
+    fragment: 'las escuelas',
+    reason:
+      'From Mirada Profunda\'s `orderCaveat` ("El orden de las escuelas se confirma…"): the page\'s own "En las escuelas" — the eyebrow of the Quién te recibe section — and the catalán FAQ answer, "En las escuelas vas a escuchar…". Neither names a school; every school name comes from the module.',
+  },
+  {
+    fragment: 'días completos',
+    reason:
+      'From Mirada Profunda\'s `overview` ("…y dos días completos en cada una."): the page\'s own unit after each Mirada Profunda school\'s figure, "<daysPerSchool> días completos". The figure itself is the leaf `daysPerSchool`, printed per card and covered by the render contract; the two words are the label the design puts beside it.',
+  },
+  {
+    fragment: 'en escuelas.',
+    reason:
+      'From Mirada Profunda\'s `weeks[*].summary` ("Cinco jornadas en escuelas."): the page\'s own unit and full stop in the meta description, "<schoolDays> días en escuelas." (pages/pasantias.tsx:107, :109, buildMetaDescription). The figure there is the leaf `schoolDays`; the preposition, the common noun and the sentence\'s full stop are the meta copy\'s own. The summary itself renders whole in the program calendar (pages/pasantias.tsx:359).',
   },
 ];
 
@@ -1813,33 +1820,24 @@ const EXPECTED_FRAGMENTS: { fragment: string; reason: string }[] = [
  * someone who only edited a sentence, and that is worth knowing before it does.
  */
 const EXPECTED_RESTATEMENTS: { path: string; form: string; sites: number; reason: string }[] = [
+  // Re-derived for January (PASANT-B003). October's seven entries (the visit-day
+  // 9 in the WhatsApp number, nine "Barcelona" sites, five `visita` tiers) are
+  // gone: the WhatsApp display and every city mention now read the module, and
+  // the module has no tiers.
   {
-    path: 'visitDayCount',
-    form: '9',
+    path: 'contact.email',
+    form: 'info@nuevaeducacion.org',
     sites: 1,
     reason:
-      'The WhatsApp number the contact block prints — WHATSAPP_DISPLAY, "+56 9 4162 3577" (pages/pasantias.tsx:126, rendered at :1226), whose mobile prefix stands alone between two spaces and is a bare 9 that has nothing to do with how many visit days the cohort has. Declared as one site rather than as an excuse for the leaf: COHORT_VISIT_DAY_COUNT is printed at the hero strip (:705) and in buildMetaDescription (:152), and a 9 typed into either of them makes this two sites and fails here.',
+      'The site-wide Footer\'s contact link prints the same address as its own literal (components/Footer.tsx:109) — the foundation\'s general inbox, which the Footer carried long before the January contract named it as the cohort contact. Declared as one site rather than as an excuse for the leaf: the page prints COHORT_CONTACT.email in the delegación FAQ answer, and the address typed into that answer makes this two sites and fails here.',
   },
   {
-    path: 'lodgingArea',
-    form: 'Barcelona',
-    sites: 9,
+    path: 'programs[1].schoolCount',
+    form: '5',
+    sites: 1,
     reason:
-      'The city\'s name in the page\'s own copy, which is not the same thing as the cohort\'s lodging area even though the two strings are identical. Nine sites, each checked against the line: buildMetaDescription\'s positioning sentence "semanas viviendo escuelas de vanguardia en Barcelona" (pages/pasantias.tsx:152); the FAQ\'s "tiempo para descansar, recorrer Barcelona o conocer Europa" (:518); the section eyebrow "Por qué Barcelona" (:755); the finde card\'s "días para Barcelona o Europa" (:832); and the five visit-school cards, whose label is "Día completo — fuera de Barcelona" or "Visita en Barcelona" per card (:945, two full-day and three not). Declared as nine rather than as an excuse for the leaf: COHORT_LODGING_AREA is printed at the alojamiento FAQ answer (:508), the escuelas eyebrow (:892) and the programme card (:1087), and "Barcelona" typed into any one of those three makes this ten sites and fails here — which is what `catches the lodging area hardcoded at one site while the others stay wired` plants. The count also moves if a visit school is added or a sentence gains the word; see this list\'s note.',
+      'A different fact with the same digit: the escuelas sentence "Cada cohorte visita <count> de estas <n> escuelas." prints the LENGTH of INSPIRA\'s candidate list, which is five, and on the quiet module that length is still five while every leaf has moved. It is a count the page computes, proved by the cardinality contract (`programs[0].visits.candidates` is counted), not a restatement of Mirada Profunda\'s five schools. Declared as one site: Mirada Profunda\'s `schoolCount` is printed on its program card, and a 5 typed there makes this two sites and fails here.',
   },
-  // The five visit schools each hold `tier: 'visita'`, and each is declared on
-  // its own path at its own count. Written index by index rather than derived
-  // from COHORT_VISIT_SCHOOLS on purpose: a declaration generated from the
-  // module is satisfied by whatever the module says, which is the failure this
-  // phase keeps producing. A sixth visit school is undeclared and fails; a fifth
-  // removed leaves an orphan declaration and fails.
-  ...[0, 1, 2, 3, 4].map((index) => ({
-    path: `visitSchools[${index}].tier`,
-    form: 'visita',
-    sites: 2,
-    reason:
-      'Not the discriminator itself, but the page\'s own word for the category of school: "escuelas de visita" under the visit-week card (pages/pasantias.tsx:846) and the "Escuelas de visita" heading above the cards (:921). Both are lowercase "visita" in ordinary prose. The tier value reaches the page only as a branch — school.tier === \'inmersion\' (:426) — and is never printed, so a third site carrying the bare word is a literal and fails all five of these. The leaf keeps its stronger cover regardless: the render contract mutates a discriminator by crossing it to the other tier rather than by marking it (see predicateAlternative), so a card that stopped reading its tier is caught there.',
-  })),
 ];
 
 function matchesPrefix(path: string, pathPrefix: string): boolean {
@@ -1900,18 +1898,22 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
     it('reaches the deep leaves, not just the top level', () => {
       const paths = LEAVES.map((leaf) => leaf.path);
 
-      expect(paths).toContain('visitSchools[4].highlights[4]');
-      expect(paths).toContain('experts[7].role');
-      expect(paths).toContain('weeks[0].startDate');
-      expect(paths).toContain('visitDayCount');
+      expect(paths).toContain('programs[0].visits.candidates[4]');
+      expect(paths).toContain('programs[0].weeks[0].startDate');
+      expect(paths).toContain('programs[1].closing.date');
+      expect(paths).toContain('programs[1].daysPerSchool');
+      expect(paths).toContain('hosts[0].role');
+      expect(paths).toContain('freeWeekend.endDate');
     });
 
-    it('treats schools as the alias it is, rather than a second copy', () => {
-      // COHORT_SCHOOLS holds the same objects as the two tier arrays, so its
-      // leaves belong to those paths. The aggregate is still exercised: the page
-      // renders its length.
-      expect(COHORT_SCHOOLS[0]).toBe(COHORT_PUBLIC.immersionSchools[0]);
-      expect(LEAVES.filter((leaf) => leaf.path.startsWith('schools['))).toEqual([]);
+    it('reads each program once, through the registry the page imports', () => {
+      // The page reads `COHORT_PROGRAMS` (by position), never the per-program
+      // exports, so overriding the registry is what moves the page and every
+      // program leaf lives under `programs[…]` exactly once.
+      expect(COHORT_PROGRAMS[0]).toBe(COHORT_PUBLIC.programs[0]);
+      expect(COHORT_PROGRAMS[1]).toBe(COHORT_PUBLIC.programs[1]);
+      const paths = LEAVES.map((leaf) => leaf.path);
+      expect(new Set(paths).size).toBe(paths.length);
     });
   });
 
@@ -1938,17 +1940,24 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
     });
 
     it('names a planted school, so the check is not vacuous', () => {
-      const school = COHORT_SCHOOLS[0];
+      const school = COHORT_PROGRAMS[0].immersionSchools[0];
       const planted = `<h4 className="font-bold">${school.name}</h4>`;
 
       expect(findHardcodedCohortFacts(planted).map((leaf) => leaf.value)).toContain(school.name);
     });
 
-    it('names a planted objective, so long copy is covered too', () => {
-      const objective = COHORT_OBJECTIVES[COHORT_OBJECTIVES.length - 1];
-      const planted = `<p>${objective}</p>`;
+    it('names a planted long sentence, so long copy is covered too', () => {
+      const caveat = COHORT_PROGRAMS[1].orderCaveat;
+      const planted = `<p>${caveat}</p>`;
 
-      expect(findHardcodedCohortFacts(planted).map((leaf) => leaf.value)).toContain(objective);
+      expect(findHardcodedCohortFacts(planted).map((leaf) => leaf.value)).toContain(caveat);
+    });
+
+    it('names a planted program ID and a planted ISO date', () => {
+      expect(findHardcodedCohortFacts('data-testid="pasantias-escuelas-mirada-profunda"').map((leaf) => leaf.path)).toContain(
+        'programs[1].id'
+      );
+      expect(findHardcodedCohortFacts("const start = '2027-01-18';").length).toBeGreaterThan(0);
     });
 
     it('states what it cannot see, rather than implying it sees everything', () => {
@@ -2008,17 +2017,18 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
       expect(orphans).toEqual([]);
     });
 
-    it('collects every collection under COHORT_PUBLIC, the schools alias included', () => {
+    it('collects every collection under COHORT_PUBLIC, the nested ones included', () => {
       const paths = COLLECTIONS.map((collection) => collection.path);
 
       expect(COLLECTIONS).toHaveLength(EXPECTED_COLLECTION_COUNT);
-      // The alias contributes no *leaves* — its elements are the two tier
-      // arrays' — but its length is its own and the page prints it twice.
-      expect(paths).toContain('schools');
-      expect(paths).toContain('visitSchools[4].highlights');
-      expect(paths).toContain('weeks[1].visitDays');
-      // And not a second copy of the aliased elements' collections.
-      expect(paths.filter((path) => path.startsWith('schools['))).toEqual([]);
+      expect(paths).toContain('programs');
+      expect(paths).toContain('programs[0].visits.candidates');
+      expect(paths).toContain('programs[1].weeks');
+      expect(paths).toContain('hosts');
+      // October's collections are gone with their data (C005).
+      for (const retired of ['schools', 'experts', 'objectives', 'weeks', 'visitDays']) {
+        expect(paths).not.toContain(retired);
+      }
     });
 
     it('counts no collection the per-site proof cannot read', () => {
@@ -2137,50 +2147,51 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
   });
 
   /**
-   * Sol's B1. How many weeks the cohort runs is a cohort fact, and the page
-   * states it in words rather than digits, which is why the cardinality contract
-   * above cannot see it. Two things are required and they are different: the
-   * number the page prints has to come from the module, and the design — two
-   * cards with two treatments, built by destructuring `COHORT_WEEKS` by position
-   * — has to be a checked invariant rather than a sentence in a comment.
+   * Sol's B1. How many weeks a program runs is a cohort fact; October's page
+   * stated it in words and this block proved every word followed the module.
+   * The January page states it nowhere, so two things are required instead:
+   * that no count word appears for a grown calendar to leave stale, and that
+   * the design — two school weeks per program, mapped into cards — is a checked
+   * invariant rather than a sentence in a comment.
    */
   describe('the two-week design', () => {
-    it('renders every week the cohort has, or fails rather than dropping one', async () => {
-      expect(COHORT_WEEKS).toHaveLength(DESIGNED_WEEK_COUNT);
+    it('renders every week each program has, and a third week as a third card', async () => {
+      // The module is pinned to the design: two school weeks per program around
+      // the common free weekend (contract pages 4 and 7).
+      for (const program of COHORT_PROGRAMS) {
+        expect([program.id, program.weeks.length]).toEqual([program.id, DESIGNED_WEEK_COUNT]);
+      }
 
-      // And this is why the assertion above is not decoration. The itinerary
-      // reads `const [immersionWeek, visitWeek] = COHORT_WEEKS`, so a third week
-      // produces no third card and no error either — the page would simply stop
-      // showing part of the programme. The line above is what turns that silent
-      // drop into a red suite.
-      const grown = await renderPage(
-        overrideForCollection(
-          COLLECTIONS.find((collection) => collection.path === 'weeks') as CohortCollection
-        )
-      );
-
-      expect(grown.match(/data-testid="pasantias-week-/g) ?? []).toHaveLength(DESIGNED_WEEK_COUNT);
+      // And the calendar maps the weeks it is given, so a third week cannot
+      // silently disappear the way October's positional `[immersionWeek,
+      // visitWeek]` destructuring would have dropped it.
+      for (const [index, program] of COHORT_PROGRAMS.entries()) {
+        const grown = await renderPage(
+          overrideForCollection(
+            COLLECTIONS.find(
+              (collection) => collection.path === `programs[${index}].weeks`
+            ) as CohortCollection
+          )
+        );
+        const cards = grown.match(new RegExp(`data-testid="pasantias-week-${program.id}-`, 'g')) ?? [];
+        expect([program.id, cards.length]).toEqual([program.id, DESIGNED_WEEK_COUNT + 1]);
+      }
     }, 30_000);
 
-    it('states how many weeks the cohort runs by reading the module, at every site', async () => {
+    it('states no week count in words, so none can go stale', async () => {
+      // October stated "Dos semanas, dos modos" at four sites and this test
+      // proved each followed the module. The January page states no week count
+      // at all — per program, in no sentence — so the proof is that no count
+      // word is on the page before or after every program grows a week.
       const stale = COUNT_WORDS_ES[DESIGNED_WEEK_COUNT];
       const grown = COUNT_WORDS_ES[DESIGNED_WEEK_COUNT + 1];
 
-      // Not vacuous: the page does state the count, in words, more than once.
-      expect(
-        countWordOccurrences(await weekCountSurface(DESIGNED_WEEK_COUNT), stale)
-      ).toBeGreaterThan(0);
-
-      // And with a week added, every one of those sites has to have moved. One
-      // site left pinned to the old word fails here while the others stay wired,
-      // which is the negative control the aggregate half of the cardinality
-      // contract cannot give: `dos` is not a digit and nothing counts it.
+      const designed = await weekCountSurface(DESIGNED_WEEK_COUNT);
       const surface = await weekCountSurface(DESIGNED_WEEK_COUNT + 1);
 
+      expect([stale, countWordOccurrences(designed, stale)]).toEqual([stale, 0]);
       expect([stale, countWordOccurrences(surface, stale)]).toEqual([stale, 0]);
-      // The other direction: the sites did not merely stop saying "dos", they
-      // say the number the module now has.
-      expect([grown, countWordOccurrences(surface, grown) > 0]).toEqual([grown, true]);
+      expect([grown, countWordOccurrences(surface, grown)]).toEqual([grown, 0]);
     }, 30_000);
 
     it('states the count in no word a number word cannot replace', async () => {
@@ -2298,41 +2309,45 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
     ) => (await classifyCollections([collectionAt(path)], surfaceOf)).get(path);
 
     it('catches a hardcoded string — a school name', async () => {
-      expect(await proofFor('immersionSchools[0].name')).toEqual(['immersionSchools[0].name']);
-    }, 30_000);
-
-    it('catches a hardcoded number — the visit-day count the old scan could not see', async () => {
-      expect(await proofFor('visitDayCount')).toEqual(['visitDayCount']);
-    }, 30_000);
-
-    it('catches a hardcoded short value — nine characters, under the scan floor', async () => {
-      // `lodgingArea` is "Barcelona": too short for the source scan, and the page
-      // composes it into an eyebrow with another field, which a substring check
-      // could not see either.
-      expect(await proofFor('lodgingArea')).toEqual(['lodgingArea']);
-    }, 30_000);
-
-    /*
-     * The three below are the r4 cases: leaves the page reads through something
-     * other than a direct print. Every one of them passed r3's contract while
-     * hardcoded, because each makes the render *change* when it is mutated.
-     */
-
-    it('catches a hardcoded aggregate — the immersion days both schools must agree on', async () => {
-      // The PM's case. Mutating one school makes the two disagree, so the whole
-      // "días cada una" clause disappears: the render changes, and r3 read that
-      // as the leaf being wired while the page showed a literal `2,5`.
-      expect(await proofFor('immersionSchools[0].immersionDays')).toEqual([
-        'immersionSchools[0].immersionDays',
+      expect(await proofFor('programs[0].immersionSchools[0].name')).toEqual([
+        'programs[0].immersionSchools[0].name',
       ]);
     }, 30_000);
 
+    it('catches a hardcoded number — INSPIRA’s nine school days', async () => {
+      expect(await proofFor('programs[0].schoolDays')).toEqual(['programs[0].schoolDays']);
+    }, 30_000);
+
+    it('catches a hardcoded short value — nine characters, under the scan floor', async () => {
+      // `city` is "Barcelona": too short for the source scan, and the page
+      // composes it into eyebrows and a sentence with other fields, which a
+      // substring check could not see either.
+      expect(await proofFor('city')).toEqual(['city']);
+    }, 30_000);
+
+    /*
+     * The three below descend from the r4 cases: leaves the page reads through
+     * something other than a plain print of the whole value.
+     */
+
+    it('catches a hardcoded half-day figure — 2,5 days, printed per school', async () => {
+      // October read the immersion days through an agreement of both schools,
+      // and a literal `2,5` passed r3 that way. January prints each school's
+      // figure on its own card; a literal there must still be named.
+      expect(await proofFor('programs[0].immersionSchools[0].days')).toEqual([
+        'programs[0].immersionSchools[0].days',
+      ]);
+    }, 30_000);
+
+    it('catches a hardcoded figure printed at five sites — two days per Mirada Profunda school', async () => {
+      expect(await proofFor('programs[1].daysPerSchool')).toEqual(['programs[1].daysPerSchool']);
+    }, 30_000);
+
     it('catches a hardcoded date read through a length expression', async () => {
-      // The last free day is the far end of the long-weekend range, which the
-      // page builds from `COHORT_FREE_DAYS[COHORT_FREE_DAYS.length - 1].date`
-      // and prints at two surfaces — the finde card and the FAQ answer.
-      // Nothing about that read prints the date unless the page asks it to.
-      expect(await proofFor('freeDays[2].date')).toEqual(['freeDays[2].date']);
+      // October read the last free day through `COHORT_FREE_DAYS.length - 1`.
+      // January's free weekend has its end date as a field, formatted on the
+      // server and printed on the finde card; a literal there must be named.
+      expect(await proofFor('freeWeekend.endDate')).toEqual(['freeWeekend.endDate']);
     }, 30_000);
 
     it('catches a hardcoded claim, which the page takes apart before printing', async () => {
@@ -2347,39 +2362,37 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
      * compares rather than prints, which no suffix mutation can move.
      */
 
-    it('catches a hardcoded count — the seven schools the hero and the section title both print', async () => {
-      // Sol's B1. `{COHORT_SCHOOLS.length}` replaced by `7` passed all 21
-      // assertions this file had before r5, because adding or dropping a school
-      // changes no leaf of the module — only the shape of the array.
-      expect(await countProofFor('schools')).toBe('published');
-      expect(await countProofFor('schools', withStaleCount(collectionAt('schools')))).toBe(
+    it('catches a hardcoded count — the five INSPIRA visit candidates', async () => {
+      // Sol's B1 shape on January's one printed count. "de estas 5 escuelas"
+      // with a literal 5 would survive every leaf mutation, because adding or
+      // dropping a candidate changes no leaf — only the shape of the array.
+      const candidates = 'programs[0].visits.candidates';
+      expect(await countProofFor(candidates)).toBe('published');
+      expect(await countProofFor(candidates, withStaleCount(collectionAt(candidates)))).toBe(
         'unpublished'
       );
     }, 30_000);
 
-    it('catches a count hardcoded at one of the two sites that print it', async () => {
-      // The literal Sol actually reported: `Las 7 escuelas` in the section
-      // title, with the hero strip beside it still reading the module. The
-      // counting half passes it — a `8` appears, a `7` leaves — and it was
-      // still green on this branch when the round that closed B1 was verified.
-      // `printsStaleSize` is what fails it.
-      expect(await countProofFor('schools', withOneStaleSite(collectionAt('schools')))).toBe(
+    it('catches a count hardcoded at the first site that prints that number', async () => {
+      // `withOneStaleSite` puts the old size back at the first matching site
+      // only, leaving any later one wired — the partial hardcode `publishesCount`
+      // cannot see, which `printsStaleSize` exists for.
+      const candidates = 'programs[0].visits.candidates';
+      expect(await countProofFor(candidates, withOneStaleSite(collectionAt(candidates)))).toBe(
         'unpublished'
       );
-      expect(
-        await countProofFor('objectives', withOneStaleSite(collectionAt('objectives')))
-      ).toBe('unpublished');
     }, 30_000);
 
-    it('catches a hardcoded count the page also prints as an ordinal', async () => {
-      // The objectives list numbers its own items, so a fourteenth objective
-      // puts a `14` on the page whether or not the section title asks how many
-      // there are. It is the second half of `publishesCount` — the old size
-      // losing ground — that decides this one, which is why both are required.
-      expect(await countProofFor('objectives')).toBe('published');
-      expect(await countProofFor('objectives', withStaleCount(collectionAt('objectives')))).toBe(
-        'unpublished'
-      );
+    it('keeps no October collection for the count contract to point at (C005)', () => {
+      // October's two ordinal/count cases (`schools`, `objectives`) are gone
+      // with their data; January prints no ordinal list. Pinned so a returning
+      // October collection is a deliberate act with its own declaration.
+      const paths = COLLECTIONS.map((collection) => collection.path);
+      expect(paths).not.toContain('schools');
+      expect(paths).not.toContain('objectives');
+      expect(COUNTED_COLLECTIONS.map((collection) => collection.path)).toEqual([
+        'programs[0].visits.candidates',
+      ]);
     }, 30_000);
 
     /*
@@ -2393,7 +2406,7 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
       // here, so this control cannot drift from the value it is a fragment of,
       // and it is a *proper* fragment — the whole leaf is what the source scan
       // and the render proof already cover.
-      const leaf = leafAt('weeks[1].summary');
+      const leaf = leafAt('programs[1].orderCaveat');
       const planted = String(leaf.value).split(/\s+/).slice(1).join(' ');
 
       expect(planted).not.toEqual(leaf.value);
@@ -2404,20 +2417,15 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
       ).toContain(formatFragment({ path: leaf.path, fragment: planted }));
     }, 30_000);
 
-    it('catches a week count typed in beside the sites that read the module', async () => {
-      // Sol's B1 shape, simulated the way `withOneStaleSite` simulates a count:
-      // one site's word is put back to what it was while the rest follow the
-      // module. A page that hardcoded every site would fail the same assertion
-      // harder, so this is the weaker of the two cases and the one that matters.
+    it('catches a week count typed in as a word', async () => {
+      // Sol's B1 shape. The January page states no week count, so a typed-in
+      // one is planted onto the grown surface — October's own heading — and
+      // the word proof above must see it.
       const stale = COUNT_WORDS_ES[DESIGNED_WEEK_COUNT];
-      const grown = COUNT_WORDS_ES[DESIGNED_WEEK_COUNT + 1];
 
-      const oneSitePinned = (await weekCountSurface(DESIGNED_WEEK_COUNT + 1)).replace(
-        new RegExp(`(?<!\\p{L})${grown}(?!\\p{L})`, 'iu'),
-        stale
-      );
+      const planted = `${await weekCountSurface(DESIGNED_WEEK_COUNT + 1)}\0Dos semanas, dos modos`;
 
-      expect(countWordOccurrences(oneSitePinned, stale)).toBeGreaterThan(0);
+      expect(countWordOccurrences(planted, stale)).toBeGreaterThan(0);
     }, 30_000);
 
     it('catches a cardinality asserted as a word rather than a number', async () => {
@@ -2444,18 +2452,17 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
      */
 
     it('catches a date hardcoded at one of the two sites that print it', async () => {
-      // The PM's finding. `freeDayRange` is built from COHORT_FREE_DAYS[0].date
-      // and [2].date and printed twice — the FAQ answer (pages/pasantias.tsx:517)
-      // and the finde card (:822). Pinning *either* one to "10 al 12 de octubre"
-      // left all 38 assertions green, because `provesRendered` asks the old value
-      // to become rarer rather than to go, and the other site obliged.
+      // The PM's r8 finding, on January's equivalent: INSPIRA's last day,
+      // 28 January, is printed twice — the program card's range and week 2's
+      // card. Pinning either one while the other stays wired is what
+      // `provesRendered` alone cannot see.
       //
       // The pin is simulated by putting a real page site back onto the quiet
       // surface, one site at a time, so this control cannot drift from the page:
       // the text planted is whatever the page renders there, never a string typed
       // in here. One site restated, the other still wired — which is the case,
       // and the only one, that the counting and fragment rules cannot express.
-      const leaf = leafAt('freeDays[0].date');
+      const leaf = leafAt('programs[0].endDate');
       const form = dayMonthEsCl(String(leaf.value));
       const sites = surfaceSites(await publishedSurface({}, printedSurface)).filter((site) =>
         restatesForm(site, form)
@@ -2478,46 +2485,48 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
       }
     }, 30_000);
 
-    it('catches the lodging area hardcoded at one site while the others stay wired', async () => {
-      // Sol's r9 B1, and the reason the restatement rule no longer has a length
-      // floor. COHORT_LODGING_AREA is "Barcelona" — nine characters — and while
-      // the floor stood, replacing one of the three wired sites with the literal
-      // left all 41 assertions green: the source scan and the fragment rule
-      // share the floor, and `provesRendered` only asked the value to get rarer,
-      // which the two remaining wired sites obliged.
+    it('catches the city hardcoded at one site while the others stay wired', async () => {
+      // Sol's r9 B1, and the reason the restatement rule has no length floor.
+      // COHORT_CITY is "Barcelona" — nine characters — so the source scan and
+      // the fragment rule cannot see a literal of it, and `provesRendered`
+      // only asks the value to get rarer, which the remaining wired sites
+      // oblige.
       //
       // Pinned the way the date control above pins: a real page site is put back
       // onto the quiet surface, one at a time, so nothing here is a string typed
       // in this file. What makes it a hardcode is that the module no longer
       // holds the value while that one site still prints it.
-      const leaf = leafAt('lodgingArea');
+      const leaf = leafAt('city');
       const form = String(leaf.value);
 
       const live = surfaceSites(await publishedSurface({}, printedSurface));
       // The same page with this one export quieted and nothing else touched, so
       // every site the page writes without reading it comes out character for
       // character the same.
-      const withoutLodging = surfaceSites(
-        await publishedSurface({ COHORT_LODGING_AREA: markTokens(form) }, printedSurface)
+      const withoutCity = surfaceSites(
+        await publishedSurface({ COHORT_CITY: markTokens(form) }, printedSurface)
       );
 
-      // A wired site is therefore one that prints the value and stops being
-      // itself when the module stops holding it — precisely the three sites that
-      // read COHORT_LODGING_AREA (pages/pasantias.tsx:508, :892, :1087). The
-      // nine others are the page's own copy, print "Barcelona" either way, and
-      // are declared rather than caught.
+      // A wired site is one that prints the value and stops being itself when
+      // the module stops holding it — the three that read COHORT_CITY: the Por
+      // qué eyebrow, the escuelas eyebrow and the full-day sentence. Sites that
+      // print "Barcelona" through another leaf (`together`, an exclusion) do not
+      // change here and are not counted.
       const wired = live.filter(
-        (site) => restatesForm(site, form) && !withoutLodging.includes(site)
+        (site) => restatesForm(site, form) && !withoutCity.includes(site)
       );
       expect(wired).toHaveLength(3);
 
       const quiet = surfaceSites(await quietPrintedSurface());
 
       const declared = new Set(EXPECTED_RESTATEMENTS.map(formatRestatement));
-      // Ten, not "some": the declaration says nine, and the whole point of the
-      // count is that one site more is a failure. A page that hardcoded all
-      // three would fail this harder; one site is the weak case that got through.
-      const expected = formatRestatement({ path: leaf.path, form, sites: 9 + 1 });
+      // One more than declared, not "some": the January page has no literal
+      // "Barcelona" of its own, so the declaration count is zero and a single
+      // pinned site is already a failure.
+      const declaredSites =
+        EXPECTED_RESTATEMENTS.find((found) => found.path === leaf.path && found.form === form)
+          ?.sites ?? 0;
+      const expected = formatRestatement({ path: leaf.path, form, sites: declaredSites + 1 });
 
       for (const site of wired) {
         const pinned = `${quiet.join('\0')}\0${site}`;
@@ -2529,22 +2538,20 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
       }
     }, 30_000);
 
-    it('catches hardcoded tier handling — the dark or light card treatment', async () => {
-      // A discriminator cannot be caught the way the six cases above are:
-      // `proofFor` would name it whether the page read it or not, because it is
-      // never printed. What separates a page that asks from one that does not
-      // is the weaker proof — wired, crossing the predicate flips the card's
-      // treatment and the output moves; with the choice typed in, the page
-      // cannot move at all. Both sides of the enum, because the visit side is
-      // what r4 recorded as inert on the strength of a mutation that never
-      // crossed the boundary.
-      for (const path of ['immersionSchools[0].tier', 'visitSchools[0].tier']) {
-        expect([path, await classificationOf(path, renderPage)]).toEqual([path, 'consumed']);
-        expect([
-          path,
-          await classificationOf(path, renderWithHardcoded(leafAt(path))),
-        ]).toEqual([path, 'absent']);
-      }
+    it('has no discriminator or flag for the weaker proof to excuse', async () => {
+      // October's tier case exercised `predicateAlternative` on a school `tier`
+      // the page compared and never printed. The January module has no such
+      // field: no leaf straddles a predicate the page branches on, and no leaf is
+      // a boolean, so every leaf must reach the containment proof. Asserted, so
+      // a discriminator added later arrives with a failing test rather than a
+      // silent 'consumed'.
+      expect(LEAVES.filter((leaf) => predicateAlternative(leaf) !== null).map((leaf) => leaf.path)).toEqual([]);
+      expect(LEAVES.filter((leaf) => typeof leaf.value === 'boolean').map((leaf) => leaf.path)).toEqual([]);
+      // The mechanism itself still works when there is something to classify.
+      expect(await classificationOf('programs[0].takeaway', renderPage)).toBe('rendered');
+      expect(
+        await classificationOf('programs[0].takeaway', renderWithHardcoded(leafAt('programs[0].takeaway')))
+      ).toBe('absent');
     }, 30_000);
   });
 });
@@ -2556,18 +2563,15 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
  * `docs/plan/pasantias-january-contract.md` is the sole normative source for
  * January facts (PLAN.md Decision Log, January 2027 amendment), so the
  * per-program facts a January page has to print are read from it here — never
- * from the module, which still carries October 2026 and is what everything above
- * proves the page renders.
+ * from the module, which is what everything above proves the page renders.
  *
- * The page has not moved to January; that is B003 (C004 dates, C005 program
- * sections), verified again cumulatively at B006 (C011). So this renders the
- * page as it stands and does not pretend: every contract form the page does not
- * print is an open gate in {@link OPEN_JANUARY_RENDER_GATES}, asserted in both
- * directions like every list in this file — a gate that starts rendering fails
- * until its entry is deleted, and a form the page lacks fails until it is named.
- * Containment proves a form is on the page, not that it sits in the right
- * program's section; a school both cohorts share passes here on October's
- * account. Per-program attribution is C005's rendered-section and browser gate.
+ * PASANT-B003 moved the page to January (C004 dates, C005 program sections), so
+ * every gate that used to be open in {@link OPEN_JANUARY_RENDER_GATES} is closed
+ * and the list is empty — still asserted in both directions, so a form the page
+ * stops printing fails until it is named. Containment alone proves a form is on
+ * the page, not that it sits in the right program's section, so the
+ * per-program attribution test below reads each program's own section.
+ * Verified again cumulatively at B006 (C011).
  */
 const JANUARY_CONTRACT_PATH = join(REPO_ROOT, 'docs', 'plan', 'pasantias-january-contract.md');
 const JANUARY_STATUS = 'RATIFIED — ACTIVE';
@@ -2583,6 +2587,21 @@ function readJanuaryContract(): JanuaryContract {
 /** Contract fields a January page prints verbatim per program; dates print as their last day, es-CL. */
 const JANUARY_PRINTED_FIELDS = ['name', 'audience', 'takeaway', 'dates', 'immersionSchools', 'visitCandidates', 'schools'];
 
+/**
+ * The ISO end date of a contract range, "<start>/<end>", which the week values
+ * follow with their own annotation ("2027-01-25/2027-01-28 visits, one school
+ * per day"). Strict: any other shape, or a date that is not a real day, throws
+ * rather than formatting a wrong one.
+ */
+function contractRangeEnd(key: string, value: unknown): string {
+  const end = /^\d{4}-\d{2}-\d{2}\/(\d{4}-\d{2}-\d{2})(?=\s|$)/.exec(String(value))?.[1];
+  const time = end === undefined ? NaN : Date.parse(`${end}T00:00:00Z`);
+  if (end === undefined || Number.isNaN(time) || new Date(time).toISOString().slice(0, 10) !== end) {
+    throw new Error(`${key}: no ISO end date in contract value ${JSON.stringify(value)}`);
+  }
+  return end;
+}
+
 /** [key, form] for every per-program form a January page must print. Throws on an unratified contract. */
 function januaryForms(contract: JanuaryContract): [string, string][] {
   if (contract.status !== JANUARY_STATUS) throw new Error(`January contract is ${contract.status}, not ${JANUARY_STATUS}`);
@@ -2590,22 +2609,24 @@ function januaryForms(contract: JanuaryContract): [string, string][] {
     .filter((fact) => fact.program !== 'cohort' && fact.program !== 'both' && JANUARY_PRINTED_FIELDS.includes(fact.field))
     .flatMap((fact): [string, string][] => {
       const key = `${fact.program}.${fact.field}`;
-      if (fact.field === 'dates') return [[key, dayMonthEsCl(String(fact.value).split('/')[1])]];
+      if (fact.field === 'dates') return [[key, dayMonthEsCl(contractRangeEnd(key, fact.value))]];
       if (Array.isArray(fact.value)) return fact.value.map((item, i): [string, string] => [`${key}[${i}]`, String(item)]);
       return [[key, String(fact.value)]];
     });
 }
 
 const OPEN_JANUARY_RENDER_GATES: { gate: string; keys: string[] }[] = [
-  {
-    gate: 'B003 C005 — the two programs, each with its audience and takeaway, not the immersion/visit stages',
-    keys: ['inspira.name', 'inspira.audience', 'inspira.takeaway', 'mirada-profunda.name', 'mirada-profunda.audience', 'mirada-profunda.takeaway'],
-  },
-  {
-    gate: 'B003 C004 — each program\'s January dates (to 28 and 29 January) replace October\'s',
-    keys: ['inspira.dates', 'mirada-profunda.dates'],
-  },
+  // Closed by PASANT-B003: 'B003 C005 — the two programs, each with its
+  // audience and takeaway' and 'B003 C004 — each program's January dates'.
 ];
+
+/** The markup between two test hooks — one section of the page. */
+function sectionBetween(html: string, fromTestId: string, toTestId: string): string {
+  const start = html.indexOf(`data-testid="${fromTestId}"`);
+  const end = html.indexOf(`data-testid="${toTestId}"`, start + 1);
+  if (start === -1 || end === -1) throw new Error(`section ${fromTestId} → ${toTestId} not found`);
+  return decodeEntities(html.slice(start, end));
+}
 
 /** The forms the rendered surface lacks, by key and in key order. */
 function missingForms(forms: [string, string][], surface: string): string[] {
@@ -2621,15 +2642,62 @@ describe('C003 — January 2027 rendered-content oracle, from the ratified contr
     for (const [key, form] of forms) expect([key, form.trim().length > 0]).toEqual([key, true]);
   });
 
-  it('names every January form the October page does not print as an open B003 gate, no more and no fewer', async () => {
+  it('prints every per-program contract form — no open gate is left', async () => {
     const surface = renderedSurface(await renderPage({}));
     expect(missingForms(forms, surface)).toEqual(OPEN_JANUARY_RENDER_GATES.flatMap((group) => group.keys).sort());
+    expect(OPEN_JANUARY_RENDER_GATES).toEqual([]);
   });
 
-  it('does not pretend the page is January: it prints October and no January date', async () => {
+  it('is the January page: it prints January dates and no October one', async () => {
     const surface = renderedSurface(await renderPage({}));
-    expect(surface).toContain('octubre');
-    expect(surface).not.toMatch(/de enero|2027-01-/);
+    expect(surface).toContain('de enero');
+    expect(surface).toContain('Enero, 18 al 29 · 2027');
+    expect(surface).not.toMatch(/octubre|Octubre|2026-10-|Fiesta Nacional/);
+  });
+
+  it('attributes each program’s facts to that program’s own sections (C005)', async () => {
+    const html = await renderPage({});
+    const contract = readJanuaryContract();
+    const value = (key: string) => contract.facts.find((f) => `${f.program}.${f.field}` === key)?.value;
+    const lastDay = (key: string) => dayMonthEsCl(contractRangeEnd(key, value(key)));
+
+    // The program cards.
+    const inspiraCard = sectionBetween(html, 'pasantias-program-inspira', 'pasantias-program-mirada-profunda');
+    const miradaCard = sectionBetween(html, 'pasantias-program-mirada-profunda', 'pasantias-calendario');
+    for (const [card, own, other] of [
+      [inspiraCard, 'inspira', 'mirada-profunda'],
+      [miradaCard, 'mirada-profunda', 'inspira'],
+    ] as const) {
+      for (const field of ['name', 'audience', 'takeaway']) {
+        expect([own, field, card.includes(String(value(`${own}.${field}`)))]).toEqual([own, field, true]);
+      }
+      expect([own, card.includes(lastDay(`${own}.dates`))]).toEqual([own, true]);
+      expect([own, card.includes(String(value(`${other}.audience`)))]).toEqual([own, false]);
+    }
+
+    // The school sections: INSPIRA's candidates are never shown as Mirada
+    // Profunda schools, and the reverse.
+    const inspiraSchools = sectionBetween(html, 'pasantias-escuelas-inspira', 'pasantias-escuelas-mirada-profunda');
+    const miradaSchools = sectionBetween(html, 'pasantias-escuelas-mirada-profunda', 'pasantias-mirada-extra');
+    for (const school of [...(value('inspira.immersionSchools') as string[]), ...(value('inspira.visitCandidates') as string[])]) {
+      expect([school, inspiraSchools.includes(school)]).toEqual([school, true]);
+    }
+    for (const school of value('mirada-profunda.schools') as string[]) {
+      expect([school, miradaSchools.includes(school)]).toEqual([school, true]);
+    }
+    for (const onlyInspira of ['Escola La Maquinista', 'Escola Octavio Paz']) {
+      expect([onlyInspira, miradaSchools.includes(onlyInspira)]).toEqual([onlyInspira, false]);
+    }
+    expect(inspiraSchools).toContain('2,5 días por pasante');
+    expect(inspiraSchools).toContain('Cada cohorte visita 4 de estas 5 escuelas.');
+    expect(miradaSchools.match(/2 días completos/g)).toHaveLength(5);
+
+    // Each program's calendar ends on its own last day.
+    const inspiraCalendar = sectionBetween(html, 'pasantias-calendar-inspira', 'pasantias-finde');
+    const miradaCalendar = sectionBetween(html, 'pasantias-calendar-mirada-profunda', 'pasantias-dia-tipo');
+    expect(inspiraCalendar).toContain(lastDay('inspira.week2'));
+    expect(inspiraCalendar).not.toContain(lastDay('mirada-profunda.week2'));
+    expect(miradaCalendar).toContain(lastDay('mirada-profunda.week2'));
   });
 
   it('refuses an unratified contract as its source', () => {

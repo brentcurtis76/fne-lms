@@ -269,7 +269,7 @@ SELECT is(pg_temp.summary(pg_temp.x(NULL, 'q113zq', NULL, (j->>'bytes')::integer
   'M: p_max_bytes equal to bytes -> complete') FROM p113_q;
 SELECT is((SELECT pg_temp.summary(e) || '|' || ((e->>'bytes')::integer = (j->>'bytes')::integer) || '|' || (e->'leads')::text
              FROM pg_temp.x(NULL, 'q113zq', NULL, (j->>'bytes')::integer - 1) e),
-  '6|false|true|0|t|[]', 'M: one byte under -> too_large_bytes, bytes still reported, leads []') FROM p113_q;
+  '6|false|true|0|true|[]', 'M: one byte under -> too_large_bytes, bytes still reported, leads []') FROM p113_q;
 SELECT is(pg_temp.summary(pg_temp.x(NULL, 'q113zq', NULL, 1000000000)), '6|false|false|6', 'M: p_max_bytes 1 000 000 000 is accepted');
 
 -- V — invalid arguments -------------------------------------------------------

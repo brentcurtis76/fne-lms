@@ -7,413 +7,378 @@
  * server-side brochure generator may import, and `scripts/check-price-leak.mjs`
  * fails the build if anything from there reaches `.next/static/**`.
  *
- * Every fact below is transcribed from PLAN.md Appendix A, which is the single
- * normative source for cohort dates, day counts, school and expert lists and
- * claims. If this file and Appendix A ever disagree, Appendix A wins.
+ * Since PASANT-B003 this module carries the January 2027 cohort. Every fact
+ * below is transcribed from the `facts` and `decided` entries of the ratified
+ * contract, `docs/plan/pasantias-january-contract.md` — the single normative
+ * source for January facts (PASANT-C003). If this file and the contract ever
+ * disagree, the contract wins. The contract itself is never imported: it is a
+ * document, and the values are copied here so they can be reviewed as code.
  *
- * Precedence since 2026-10-09: this module still carries the October 2026
- * cohort, and Appendix A governs that data only. The normative source for
- * January 2027 facts is docs/plan/pasantias-january-contract.md (PLAN.md
- * Decision Log 2026-10-09, January 2027 amendment), which supersedes Appendix
- * A-1 through A-9 for January only. Until B003 moves this module to that
- * contract, nothing here is a January fact, and the contract is never imported.
+ * Spanish copy is the contract's verbatim `anchor` wherever a sentence is
+ * shown; a contract `value` written in English (a summary of the anchor) is
+ * never shown to a reader. The only ratified correction is P-01 (BD-01): the
+ * Escola Sadako host is "Jordi Musons", not the brochure's "Mussons".
+ *
+ * October 2026 facts (Appendix A) are historical and are not carried forward:
+ * no expert list, no objectives, no school levels or highlights — the January
+ * contract ratifies none of them. Appendix A stays the record of what shipped.
+ *
+ * Program identities `inspira` and `mirada-profunda` are the contract §2
+ * implementation freeze (DEC-06) and the CHECK on
+ * `pasantias_lead_program_interests`. Immersion and visits are parts of a
+ * program, never program identities.
  *
  * Dates are ISO `YYYY-MM-DD` and are treated as calendar dates, never as
  * instants: helpers parse them into UTC midnight so the values do not shift
  * with the runtime's timezone.
  */
 
-/** Appendix A-1. */
-export const COHORT_ID = 'octubre-2026';
+/** Contract §2 / `ids.cohort`. */
+export const COHORT_ID = 'enero-2027';
 
-/** Appendix A-1 — the label marketing surfaces show. */
-export const COHORT_LABEL = 'Octubre 2026';
+/** `cohort.label`, page 1: "COHORTE ENERO 2027". */
+export const COHORT_LABEL = 'Cohorte Enero 2027';
 
-export interface CohortWeek {
+export interface CohortSpan {
+  /** First day of the cohort (ISO date). */
+  startDate: string;
+  /** Last day of the cohort (ISO date). */
+  endDate: string;
+}
+
+/**
+ * `cohort.span`, page 1: "Enero, 18 al 29 · 2027". The shared span of both
+ * programs; each program has its own dates below.
+ */
+export const COHORT_SPAN: CohortSpan = {
+  startDate: '2027-01-18',
+  endDate: '2027-01-29',
+};
+
+/** `cohort.city`, page 2. */
+export const COHORT_CITY = 'Barcelona';
+
+/** `cohort.together`, page 3: both programs travel together. */
+export const COHORT_TOGETHER = 'Todos viajan juntos a Barcelona';
+
+export interface CohortRoute {
+  /** The question the brochure asks. */
+  question: string;
+  /** The program it routes to, as the brochure names it there. */
+  program: string;
+}
+
+/**
+ * `cohort.routing`, page 17: "¿Primera vez? Pasantía INSPIRA. ¿Ya viajaste?
+ * Mirada Profunda." Same order as {@link COHORT_PROGRAMS}.
+ */
+export const COHORT_ROUTING: readonly CohortRoute[] = [
+  { question: '¿Primera vez?', program: 'Pasantía INSPIRA' },
+  { question: '¿Ya viajaste?', program: 'Mirada Profunda' },
+] as const;
+
+/** `cohort.places`, page 17, verbatim. */
+export const COHORT_PLACES =
+  'Los cupos de la cohorte de enero se confirman por orden de reserva.';
+
+export interface CohortContact {
+  /** Display form, as the brochure prints it. */
+  whatsapp: string;
+  email: string;
+}
+
+/** `cohort.contact`, page 17. */
+export const COHORT_CONTACT: CohortContact = {
+  whatsapp: '+56 9 4162 3577',
+  email: 'info@nuevaeducacion.org',
+};
+
+/** P-02 (DEC-02, BD-04, interpreted and ratified), page 2, verbatim. */
+export const COHORT_ACCREDITATION =
+  'Fundación Nueva Educación es Agencia Técnica Educativa certificada por RPA Mineduc.';
+
+/**
+ * P-03 (DEC-08, BD-02), page 2: the track record, each entry "<figure> <what it
+ * counts>" exactly as the brochure prints it.
+ */
+export const COHORT_CLAIMS: readonly string[] = [
+  '400+ Pasantes han viajado con FNE',
+  '40+ Colegios participantes',
+  '12 Escuelas catalanas en la red',
+] as const;
+
+export interface CohortFreeWeekend {
+  startDate: string;
+  endDate: string;
+  /** es-CL label, page 7 verbatim. */
+  label: string;
+}
+
+/**
+ * `inspira.freeDays` and `mirada-profunda.freeDays`: the same weekend for both
+ * programs (pages 4 and 7). Common to the cohort, so it lives here once.
+ */
+export const COHORT_FREE_WEEKEND: CohortFreeWeekend = {
+  startDate: '2027-01-23',
+  endDate: '2027-01-24',
+  label: 'Sábado 23 y domingo 24 de enero',
+};
+
+export type ProgramId = 'inspira' | 'mirada-profunda';
+
+/** Contract `ids.programs`, in contract order. */
+export const PROGRAM_IDS: readonly ProgramId[] = ['inspira', 'mirada-profunda'] as const;
+
+export function isProgramId(value: unknown): value is ProgramId {
+  return typeof value === 'string' && (PROGRAM_IDS as readonly string[]).includes(value);
+}
+
+export interface ProgramWeek {
   /** Stable key for rendering; not user-facing. */
   id: string;
   /** es-CL heading for the week. */
   label: string;
-  /** First day of the week block (ISO date). */
+  /** First school day of the week (ISO date). */
   startDate: string;
-  /** Last day of the week block (ISO date). */
+  /** Last school day of the week (ISO date). */
   endDate: string;
-  /** Every day of this week on which the group visits a school (ISO dates). */
-  visitDays: readonly string[];
-  /** es-CL one-liner describing what the week is. */
+  /** es-CL one-liner, a verbatim contract anchor. */
   summary: string;
 }
 
-/**
- * Appendix A-2 / A-3. Week 1 is a full immersion week (5 visit days), week 2
- * runs Tuesday to Friday because Monday the 12th is a public holiday (A-4).
- */
-export const COHORT_WEEKS: readonly CohortWeek[] = [
-  {
-    id: 'semana-1',
-    label: 'Semana 1 — inmersión',
-    startDate: '2026-10-05',
-    endDate: '2026-10-09',
-    visitDays: ['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09'],
-    summary:
-      'Semana completa de inmersión: cada pasante vive 2,5 días en Escola Virolai y 2,5 días en Escola Sadako.',
-  },
-  {
-    id: 'semana-2',
-    label: 'Semana 2 — visitas',
-    startDate: '2026-10-13',
-    endDate: '2026-10-16',
-    visitDays: ['2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16'],
-    summary:
-      'Visitas a una o dos escuelas por día. El orden de las visitas puede variar.',
-  },
-] as const;
-
-export interface CohortFreeDay {
-  /** ISO date with no scheduled activity. */
-  date: string;
-  /** es-CL label for the day. */
-  label: string;
-}
-
-/**
- * Appendix A-4 — the long weekend between both weeks. Monday the 12th is
- * Spain's Fiesta Nacional, so schools are closed and no visit can be scheduled.
- */
-export const COHORT_FREE_DAYS: readonly CohortFreeDay[] = [
-  { date: '2026-10-10', label: 'Sábado libre' },
-  { date: '2026-10-11', label: 'Domingo libre' },
-  {
-    date: '2026-10-12',
-    label: 'Lunes libre — Fiesta Nacional de España, colegios cerrados',
-  },
-] as const;
-
-/** Every visit day of the cohort, in order. Appendix A-4: 5 + 4 = 9. */
-export const COHORT_VISIT_DAYS: readonly string[] = COHORT_WEEKS.flatMap(
-  (week) => week.visitDays
-);
-
-/**
- * Appendix A-4 — the honest day count. The old brochure's "10 días" claim is
- * retired; marketing says "dos semanas" with this calendar behind it.
- */
-export const COHORT_VISIT_DAY_COUNT = COHORT_VISIT_DAYS.length;
-
-/**
- * Appendix A-5 — the programme has two tiers of schools. Week 1 is lived inside
- * two host schools; week 2 visits five more.
- */
-export type CohortSchoolTier = 'inmersion' | 'visita';
-
-export interface CohortSchool {
-  /** School name as it is written on its own materials. */
+interface ProgramBase {
+  id: ProgramId;
+  /** `<program>.name`, page 3. */
   name: string;
-  tier: CohortSchoolTier;
-  /**
-   * Levels the school teaches, es-CL — content pack §5b, verbatim. Required, so
-   * a school cannot be added to this module without them.
-   */
-  levels: string;
-  /**
-   * The owner-approved *aspectos destacados* — what this school is known for and
-   * therefore why it is worth the trip (content pack §5b, verbatim, in the
-   * pack's order). Required for the same reason as {@link CohortSchool.levels}:
-   * the type is the guard against the next school shipping without them.
-   */
-  highlights: readonly string[];
-  /** Days each pasante spends there — immersion tier only. */
-  immersionDays?: number;
-  /** True when the visit takes a whole day because the school is outside Barcelona. */
-  fullDay?: boolean;
+  /** Who the program is for — `<program>.audience`, page 3, verbatim. */
+  audience: string;
+  /** `<program>.dates` (ISO start). */
+  startDate: string;
+  /** `<program>.dates` (ISO end). */
+  endDate: string;
+  /** `<program>.schoolDays`. */
+  schoolDays: number;
+  /** `<program>.schoolCount`. */
+  schoolCount: number;
+  /** The brochure's own one-sentence shape of the program, verbatim. */
+  overview: string;
+  /** `<program>.takeaway`, page 3, verbatim. */
+  takeaway: string;
+  /** Exactly two school weeks around the common free weekend. */
+  weeks: readonly ProgramWeek[];
+  /** `<program>.lunches`, page 16, verbatim. */
+  lunches: string;
 }
 
-/**
- * Appendix A-5, week 1: 2,5 días en cada una, por pasante. Levels and highlights
- * are content pack §5b, owner-approved 2026-08-02.
- */
-export const COHORT_IMMERSION_SCHOOLS: readonly CohortSchool[] = [
-  {
-    name: 'Escola Virolai',
-    tier: 'inmersion',
-    immersionDays: 2.5,
-    levels: 'Infantil, primaria, ESO y Bachillerato',
-    highlights: [
-      'Organización y espacios',
-      'Evaluación formativa, portfolios',
-      'Personalización y plan personal',
-      'Gestión del equipo docente',
-    ],
-  },
-  {
-    name: 'Escola Sadako',
-    tier: 'inmersion',
-    immersionDays: 2.5,
-    levels: 'Infantil, primaria y ESO',
-    highlights: [
-      'Organización y espacios',
-      'Evaluación formativa, portfolios',
-      'Secuenciación y co-docencia',
-      'Organización y participación estudiantil',
-    ],
-  },
-] as const;
-
-/**
- * Appendix A-5, week 2: one or two per day, order flexible. El Puig and Les
- * Vinyes are outside Barcelona and take the whole day. Levels and highlights are
- * content pack §5b — El Puig's and Les Vinyes' came from the canonical brochure
- * the owner approved on 2026-08-02, which is also where their levels (infantil,
- * primaria y ESO) were confirmed.
- */
-export const COHORT_VISIT_SCHOOLS: readonly CohortSchool[] = [
-  {
-    name: 'Institut Escola El Puig',
-    tier: 'visita',
-    fullDay: true,
-    levels: 'Infantil, primaria y ESO',
-    highlights: [
-      'Incorporación de la naturaleza y el arte',
-      'Gobierno estudiantil',
-      'Trabajo de estudiantes internivel',
-      'Metaprendizaje',
-    ],
-  },
-  {
-    name: 'Escola La Maquinista',
-    tier: 'visita',
-    levels: 'Infantil y primaria',
-    highlights: [
-      'Organización y espacios',
-      'Evaluación formativa, rúbricas y autoevaluación',
-      'Cajas de aprendizaje',
-      'Organización participativa de los alumnos',
-    ],
-  },
-  {
-    name: 'Escola Octavio Paz',
-    tier: 'visita',
-    levels: 'Infantil y primaria',
-    highlights: [
-      'Organización y espacios',
-      'Evaluación formativa, diarios de aprendizaje',
-      'Proyecto anual temático y cajas de aprendizaje',
-      'Trabajo por comunidades de alumnos',
-    ],
-  },
-  {
-    name: 'Institut Angeleta Ferrer',
-    tier: 'visita',
-    levels: 'ESO',
-    highlights: [
-      'Organización y espacios',
-      'Evaluación formativa, portfolios',
-      'Autonomía del alumnado',
-      'Vinculación de la escuela con la comunidad',
-    ],
-  },
-  {
-    name: 'Institut Escola Les Vinyes',
-    tier: 'visita',
-    fullDay: true,
-    levels: 'Infantil, primaria y ESO',
-    highlights: [
-      'Trabajo interdisciplinario',
-      'Aprendizaje Basado en Proyectos',
-      'Autonomía del estudiante',
-      'Coherencia escolar',
-      'Codocencia',
-    ],
-  },
-] as const;
-
-/** Appendix A-5 / A-9 — 7 escuelas en total (2 de inmersión + 5 de visita). */
-export const COHORT_SCHOOLS: readonly CohortSchool[] = [
-  ...COHORT_IMMERSION_SCHOOLS,
-  ...COHORT_VISIT_SCHOOLS,
-];
-
-export interface CohortExpert {
+export interface ImmersionSchool {
   name: string;
-  /** es-CL role description. */
-  role: string;
-  /** School the expert is associated with, when the brief names one. */
-  school?: string;
-  /** Extra standing the Appendix names, e.g. hosting one of the two weeks. */
-  note?: string;
+  /** Days each pasante spends there. */
+  days: number;
 }
 
-/**
- * Appendix A-6, whose canonical source is the brochure the owner reviewed on
- * 2026-08-02. Jordi Musons and Sandra Entrena host the week-1 immersion and run
- * many of its sessions inside their own schools.
- *
- * The four roles below `Sandra Entrena` were the placeholder `Experto invitado`
- * until 2026-08-04: the 2026-08-02 amendment reached the Appendix and never
- * reached this module, so the page rendered four people with no title. They now
- * carry the Appendix's own wording, transcribed under the same rule as
- * {@link COHORT_INCLUDES} — the Appendix writes the roles mid-sentence inside a
- * table cell, so the **only** edit is the initial capital a standalone line
- * needs. `__tests__/lib/pasantias-cohort.test.ts` fails on any placeholder or
- * empty role, so the next amendment cannot silently not-land the same way.
- *
- * The first two roles dropped A-6's `INSPIRA` suffix until 2026-08-04 — the r2
- * prompt declared them correct and they were left alone rather than quietly
- * edited. They now read exactly as A-6 writes them, and the whole eight-row
- * table is deep-equalled against a test-owned transcription of A-6, so no row
- * is unpinned any more. Where the content pack's §6 disagrees (it still calls
- * Menéndez and Quintana "Conferencista INSPIRA"), **Appendix A-6 wins**: it is
- * the normative table and its canonical source is the owner-reviewed brochure.
- */
-export const COHORT_EXPERTS: readonly CohortExpert[] = [
-  { name: 'Coral Regí', role: 'Directora del programa INSPIRA' },
-  { name: 'Mora del Fresno', role: 'Coordinadora INSPIRA' },
-  {
-    name: 'Jordi Musons',
-    role: 'Director',
-    school: 'Escola Sadako',
-    note: 'Anfitrión semana 1',
-  },
-  {
-    name: 'Sandra Entrena',
-    role: 'Encargada de Innovación',
-    school: 'Escola Virolai',
-    note: 'Anfitriona semana 1',
-  },
-  {
-    name: 'Boris Mir',
-    role: 'Ex-director adjunto, Institut Angeleta Ferrer y Escola Nova 21; fundador del Institut Angeleta Ferrer',
-  },
-  {
-    name: 'Sergi del Moral',
-    role: 'Director',
-    school: 'Institut Escola Les Vinyes',
-  },
-  { name: 'Pepe Menéndez', role: 'Consultor en transformación pedagógica' },
-  {
-    name: 'Joan Quintana',
-    role: 'Consultor en procesos de cambio, co-autor de «Educación Relacional»',
-  },
-] as const;
-
-/** Appendix A-9 — the claims the owner confirmed as correct. */
-export const COHORT_CLAIMS: readonly string[] = [
-  '400+ pasantes',
-  '40+ colegios',
-  '12 escuelas de Barcelona en la red',
-  '7 escuelas en esta cohorte',
-] as const;
-
-/**
- * Appendix A-7, the thirteen objectives, verbatim es-CL. The only edits are
- * mechanical: the list numbering is the array index, not part of the copy.
- */
-export const COHORT_OBJECTIVES: readonly string[] = [
-  'Conocer los proyectos educativos de las principales escuelas de vanguardia en Cataluña y compartir la mirada pedagógica de sus directores.',
-  'Tomar contacto con las prácticas pedagógicas en terreno y profundizar en su comprensión por medio de entrevistas con estudiantes y docentes.',
-  'Valorar el profundo peso que ha tenido la evolución del propósito del educar en las escuelas de vanguardia y en las prioridades estratégicas que surgen desde esa nueva jerarquía.',
-  'Conocer cómo ha tomado forma la evolución del proceso de aprendizaje, con foco en las metodologías activas, colaborativas y centradas en la autonomía y el propósito de los estudiantes.',
-  'Conectar con la globalización y el uso de herramientas como: cajas de aprendizaje, nubes de preguntas, integración de niveles, diversos tipos de proyectos, momentos públicos, entre muchas otras.',
-  'Visualizar cómo se organizan los procesos de evaluación, con énfasis en la evaluación formativa y formadora, por medio del uso de herramientas como: portafolios, rúbricas participativas, diarios de aprendizaje, entre otras.',
-  'Profundizar en la comprensión de los procesos de personalización y su aplicación en terreno. Tanto el uso de planes personales, proyectos de autoconocimiento, inventarios personales de aprendizaje, brújulas y otras herramientas.',
-  'Apreciar nuevos estilos de liderazgo y de organización para conducir los procesos de cambio y evolución cultural hacia el nuevo paradigma educativo.',
-  'Conocer y comprender la evolución del trabajo colaborativo docente y la constitución de equipos de alto desempeño.',
-  'Visualizar el uso del tiempo, los espacios, los materiales y el equipamiento en los diversos proyectos educativos visitados.',
-  'Comprender el nuevo rol de las familias en las escuelas de Nueva Educación y las dinámicas de crecimiento que de ello surgen.',
-  'Valorar la apertura y conexión de la escuela con su entorno, el funcionamiento en red y el poder del pensamiento sistémico para diseñar las experiencias de aprendizaje.',
-  'Comprender y apreciar el giro relacional que implica migrar hacia la Nueva Educación y los beneficios personales y societales que conlleva.',
-] as const;
-
-export interface CohortDayBlock {
-  /** es-CL label for the block, e.g. a time band. */
-  label: string;
-  /** es-CL description of what happens in it. */
-  description: string;
+export interface InspiraProgram extends ProgramBase {
+  id: 'inspira';
+  /** `inspira.immersionSchools`, page 5: 2,5 days in each, per pasante. */
+  immersionSchools: readonly ImmersionSchool[];
+  visits: {
+    /** `inspira.visitCount`, page 4: four of the five candidates. */
+    count: number;
+    /**
+     * `inspira.visitCandidates`, page 4. P-04 (BD-03): the visits are chosen
+     * with the group from these five — never presented as a fixed list of four.
+     */
+    candidates: readonly string[];
+    /** `inspira.fullDayOutside`, page 5: outside Barcelona, a full day each. */
+    fullDayOutside: readonly string[];
+    /** `inspira.visitSelection`, page 4, verbatim. */
+    selection: string;
+  };
 }
 
-/**
- * Appendix A-7 "día tipo", verbatim. The afternoon block is where the workshops
- * venue lives — the visited schools and/or the Instituto Relacional offices in
- * Eixample — so it is copy, not a separate structured field.
- */
-export const COHORT_DAY_STRUCTURE: readonly CohortDayBlock[] = [
-  {
-    label: 'Mañana 1',
-    description: 'Presentación del proyecto educativo y entrevista con la dirección.',
+export interface MiradaProfundaProgram extends ProgramBase {
+  id: 'mirada-profunda';
+  /** `mirada-profunda.schools`, page 7. */
+  schools: readonly string[];
+  /** Two full days in each school (page 3: "dos días completos en cada una"). */
+  daysPerSchool: number;
+  /** `mirada-profunda.orderCaveat`, page 7, verbatim. */
+  orderCaveat: string;
+  /** `mirada-profunda.preparation`, page 6, verbatim. */
+  preparation: string;
+  /** `mirada-profunda.closing`, page 6: the Jan 29 roadmap presentation. */
+  closing: { date: string; text: string };
+  /** `mirada-profunda.followUp`, page 6, verbatim. */
+  followUp: string;
+  /** `mirada-profunda.includes`, page 16, verbatim items. */
+  extraIncludes: readonly string[];
+}
+
+export type CohortProgram = InspiraProgram | MiradaProfundaProgram;
+
+/** Pasantía INSPIRA — first-time teams, 9 school days in 6 schools. */
+export const INSPIRA_PROGRAM: InspiraProgram = {
+  id: 'inspira',
+  name: 'Pasantía INSPIRA',
+  audience: 'Equipos que viajan por primera vez',
+  startDate: '2027-01-18',
+  endDate: '2027-01-28',
+  schoolDays: 9,
+  schoolCount: 6,
+  overview:
+    '6 escuelas: una semana de inmersión en dos escuelas y una semana de visitas a cuatro',
+  takeaway: 'Inspiración y un mapa de lo posible',
+  weeks: [
+    {
+      id: 'semana-1',
+      label: 'Semana 1 — inmersión',
+      startDate: '2027-01-18',
+      endDate: '2027-01-22',
+      summary: 'Cada pasante vive 2,5 días en Escola Virolai y 2,5 días en Escola Sadako.',
+    },
+    {
+      id: 'semana-2',
+      label: 'Semana 2 — visitas',
+      startDate: '2027-01-25',
+      endDate: '2027-01-28',
+      summary: 'Una escuela por día.',
+    },
+  ],
+  lunches:
+    'Almuerzos: en la Pasantía INSPIRA, durante la primera semana (Escola Virolai y Escola Sadako).',
+  immersionSchools: [
+    { name: 'Escola Virolai', days: 2.5 },
+    { name: 'Escola Sadako', days: 2.5 },
+  ],
+  visits: {
+    count: 4,
+    candidates: [
+      'Institut Escola El Puig',
+      'Escola La Maquinista',
+      'Escola Octavio Paz',
+      'Institut Angeleta Ferrer',
+      'Institut Escola Les Vinyes',
+    ],
+    fullDayOutside: ['Institut Escola El Puig', 'Institut Escola Les Vinyes'],
+    selection:
+      'La selección y el orden se definen con el grupo, según sus intereses y la disponibilidad de cada escuela.',
   },
-  {
-    label: 'Mañana 2',
-    description: 'Visita guiada, entrevistas con estudiantes y educadores.',
+};
+
+/** INSPIRA Mirada Profunda — previous participants, 10 days in 5 schools. */
+export const MIRADA_PROFUNDA_PROGRAM: MiradaProfundaProgram = {
+  id: 'mirada-profunda',
+  name: 'INSPIRA Mirada Profunda',
+  audience: 'Quienes ya viajaron con INSPIRA',
+  startDate: '2027-01-18',
+  endDate: '2027-01-29',
+  schoolDays: 10,
+  schoolCount: 5,
+  overview: 'Son diez días, cinco escuelas y dos días completos en cada una.',
+  takeaway: 'Cómo se hace por dentro, y una hoja de ruta para marzo',
+  weeks: [
+    {
+      id: 'semana-1',
+      label: 'Semana 1',
+      startDate: '2027-01-18',
+      endDate: '2027-01-22',
+      summary: 'Cinco jornadas en escuelas.',
+    },
+    {
+      id: 'semana-2',
+      label: 'Semana 2',
+      startDate: '2027-01-25',
+      endDate: '2027-01-29',
+      summary: 'Cinco jornadas en escuelas.',
+    },
+  ],
+  lunches: 'En Mirada Profunda, todos los días del programa.',
+  schools: [
+    'Escola Virolai',
+    'Escola Sadako',
+    'Institut Angeleta Ferrer',
+    'Institut Escola El Puig',
+    'Institut Escola Les Vinyes',
+  ],
+  daysPerSchool: 2,
+  orderCaveat:
+    'El orden de las escuelas se confirma con cada una según su disponibilidad y puede cambiar. Una de ellas puede repartir sus dos días entre el viernes 22 y el lunes 25.',
+  preparation: 'Cada participante define, con el equipo FNE, un desafío real de su colegio.',
+  closing: {
+    date: '2027-01-29',
+    text: 'El viernes 29 cada participante presenta qué va a mover en marzo y cómo.',
   },
-  {
-    label: 'Tarde',
-    description:
-      'Talleres con expertos en las temáticas centrales del movimiento de Nueva Educación, en las dependencias de las escuelas visitadas y/o en las oficinas del Instituto Relacional, barrio de Eixample, Barcelona.',
-  },
-] as const;
+  followUp: 'En abril, una sesión online para revisar qué se implementó y ajustar el rumbo.',
+  extraIncludes: [
+    'acompañamiento para definir tu pregunta antes del viaje',
+    'sesión online de seguimiento en abril',
+  ],
+};
 
 /**
- * Appendix A-7 "el programa incluye", transcribed item by item from the
- * Appendix's own sentence. The **only** edit is mechanical: the Appendix writes
- * the six items as one semicolon-separated sentence, so each item inherits an
- * initial capital when it becomes a list entry. Wording, order and punctuation
- * are the Appendix's — including phrasing a copywriter would want to smooth —
- * because the owner declared the designed brochure canonical and this module is
- * a transcription of it, not an edit of it. `__tests__/lib/pasantias-cohort.test.ts`
- * re-parses A-7 out of `docs/plan/PLAN.md` and compares both arrays against it,
- * so drift on either side fails rather than passes.
- *
- * Lodging is deliberately absent: the owner's 2026-07-31 amendment to A-8 made
- * Barcelona lodging a separately quoted per-night range rather than part of the
- * programme, so it is neither an inclusion nor public data — the band lives in
- * the commercial module only (D-01/D-02).
- *
- * A-16 was superseded on 2026-08-02: the owner's canonical brochure states the
- * meals terms exactly, so the generic phrasing is gone. Meals are now an
- * inclusion only for the first week's lunches, and the retired "comidas en los
- * días de visita y cena de cierre" line has become two exclusions. Transport to
- * El Puig and Les Vinyes moved the same way — from included to excluded — so
- * neither string may survive on this side.
+ * Both programs, in contract order — the registry every consumer reads. Typed
+ * as a pair so a consumer can destructure INSPIRA and Mirada Profunda by
+ * position without guessing.
  */
+export const COHORT_PROGRAMS: readonly [InspiraProgram, MiradaProfundaProgram] = [
+  INSPIRA_PROGRAM,
+  MIRADA_PROFUNDA_PROGRAM,
+] as const;
+
+/** One program by its stable ID, read from {@link COHORT_PROGRAMS}. */
+export function programById(id: ProgramId): CohortProgram {
+  const program = COHORT_PROGRAMS.find((candidate) => candidate.id === id);
+  if (!program) throw new Error(`Unknown program: ${id}`);
+  return program;
+}
+
+/** `both.dayStructure`, page 8: every school day follows the same order. */
+export const COHORT_DAY_STRUCTURE: readonly string[] = [
+  'Presentación del proyecto educativo y entrevista con la dirección',
+  'Visita guiada, entrevistas con estudiantes y educadores',
+  'Talleres con expertos del movimiento de Nueva Educación',
+] as const;
+
+/** `both.includes`, page 16, item by item and verbatim. */
 export const COHORT_INCLUDES: readonly string[] = [
-  'El pago de las visitas a las escuelas',
-  'Los talleres de la tarde con especialistas',
-  'Los honorarios de la dirección del programa, los relatores y el equipo de facilitadores de FNE que acompañan a los pasantes',
-  'Bibliografía básica recomendada, una bitácora y un sistema de registro de los aprendizajes, presentado al menos un mes antes del viaje',
-  'Desayuno a media mañana en las escuelas',
-  'Almuerzos de la primera semana, en Escola Virolai y Escola Sadako',
+  'El pago de las visitas a las escuelas.',
+  'Los talleres de la tarde con especialistas.',
+  'Los honorarios de la dirección del programa, los relatores y el equipo de facilitadores de FNE que acompañan a los pasantes.',
+  'Bibliografía básica recomendada para preparar el viaje, una bitácora y un sistema de registro de los aprendizajes, presentado al menos un mes antes del viaje.',
+  'Desayuno a media mañana en las escuelas.',
 ] as const;
 
-/**
- * Appendix A-7 "NO incluye", as replaced by the owner on 2026-08-02 —
- * transcribed under the same rule as {@link COHORT_INCLUDES}: initial capitals
- * only, everything else exactly as the Appendix writes it.
- */
+/** `both.excludes`, page 16, item by item and verbatim. */
 export const COHORT_EXCLUDES: readonly string[] = [
-  'Desayunos de hotel',
-  'Comidas en los días de visita de la segunda semana',
+  'Traslados colegio – aeropuerto de Santiago – colegio',
+  'Traslados en Barcelona, incluido el transporte a El Puig y Les Vinyes',
   'Cenas',
-  'Pasajes aéreos y transporte terrestre de llegada y salida',
-  'Transporte a El Puig y Les Vinyes',
+  'Almuerzos de la segunda semana (solo en la Pasantía INSPIRA)',
   'Seguros',
+  'Pasajes y alojamiento, salvo que los coordines a través de FNE',
 ] as const;
 
+export interface CohortHost {
+  name: string;
+  /** es-CL role, page 12. */
+  role: string;
+  school: string;
+  /** What the person does for the cohort. */
+  note: string;
+}
+
 /**
- * Appendix A-7 names the lodging city and nothing finer — no neighbourhood, no
- * night count (A-16 closed: participants compute their own stay) and, since the
- * A-8 amendment, no price: the per-night band is commercial data.
+ * P-01 (DEC-01, BD-01), page 12: "Jordi Mussons DIRECTOR, ESCOLA SADAKO ·
+ * ANFITRIÓN", with the ratified spelling correction to "Musons". The only person
+ * the January contract ratifies by name.
  */
-export const COHORT_LODGING_AREA = 'Barcelona';
+export const COHORT_HOSTS: readonly CohortHost[] = [
+  { name: 'Jordi Musons', role: 'Director', school: 'Escola Sadako', note: 'Anfitrión' },
+] as const;
 
 /** Parse an ISO calendar date into UTC midnight, so no timezone can shift it. */
 function toUtcDate(isoDate: string): Date {
   const [year, month, day] = isoDate.split('-').map(Number);
   return new Date(Date.UTC(year, month - 1, day));
-}
-
-/** Day of month, read in UTC to match {@link toUtcDate}. */
-function dayOfMonth(isoDate: string): number {
-  return toUtcDate(isoDate).getUTCDate();
 }
 
 const MONTH_NAMES_ES = [
@@ -437,36 +402,27 @@ function capitalizeFirst(word: string): string {
 }
 
 /**
- * The short date line every surface shows, derived from {@link COHORT_WEEKS} so
- * it can never drift from the calendar above. All weeks fall in one month, which
- * is what lets the month be named once, at the front.
- *
- * Appendix A-1, amended 2026-08-02: **one continuous span**, from the first
- * visit day of the first week to the last visit day of the last week. The two
- * ranges this used to print read as two different pasantías; the two-week
- * structure belongs to itinerary detail, never to a headline or a chip.
- *
- * The year is deliberately absent — it renders beside the span (see
- * {@link COHORT_HEADLINE}), and repeating it here would print it twice.
+ * The short date line every surface shows: one continuous span, the month named
+ * once at the front — e.g. `Enero, 18 al 29`. The span lies in one month, which
+ * is what lets the month be named once. The year renders beside it (see
+ * {@link COHORT_HEADLINE}).
  */
-export function buildCohortDateLabel(weeks: readonly CohortWeek[] = COHORT_WEEKS): string {
-  const visitDays = weeks.flatMap((week) => week.visitDays);
-  const firstDay = visitDays[0];
-  const lastDay = visitDays[visitDays.length - 1];
-  const month = MONTH_NAMES_ES[toUtcDate(firstDay).getUTCMonth()];
-  return `${capitalizeFirst(month)}, ${dayOfMonth(firstDay)} al ${dayOfMonth(lastDay)}`;
+export function buildCohortDateLabel(span: CohortSpan = COHORT_SPAN): string {
+  const start = toUtcDate(span.startDate);
+  const end = toUtcDate(span.endDate);
+  const month = MONTH_NAMES_ES[start.getUTCMonth()];
+  return `${capitalizeFirst(month)}, ${start.getUTCDate()} al ${end.getUTCDate()}`;
 }
 
-/** e.g. `Octubre, 5 al 16`. */
+/** e.g. `Enero, 18 al 29`. */
 export const COHORT_DATE_LABEL = buildCohortDateLabel();
 
-/** Read off the calendar above rather than written down a second time. */
-const COHORT_YEAR = toUtcDate(COHORT_WEEKS[0].startDate).getUTCFullYear();
+/** Read off the span rather than written down a second time. */
+const COHORT_YEAR = toUtcDate(COHORT_SPAN.startDate).getUTCFullYear();
 
 /**
- * The full headline used on the homepage card: the single span plus the year.
- * The span already names the month, so {@link COHORT_LABEL} ("Octubre 2026")
- * cannot lead it without printing "Octubre" twice — the year alone follows.
+ * The headline used on the homepage card, the page's date chip and the PDFs:
+ * the span plus the year — page 1's "Enero, 18 al 29 · 2027".
  */
 export const COHORT_HEADLINE = `${COHORT_DATE_LABEL} · ${COHORT_YEAR}`;
 
@@ -480,18 +436,18 @@ export const COHORT_PUBLIC = {
   label: COHORT_LABEL,
   headline: COHORT_HEADLINE,
   dateLabel: COHORT_DATE_LABEL,
-  weeks: COHORT_WEEKS,
-  freeDays: COHORT_FREE_DAYS,
-  visitDays: COHORT_VISIT_DAYS,
-  visitDayCount: COHORT_VISIT_DAY_COUNT,
-  immersionSchools: COHORT_IMMERSION_SCHOOLS,
-  visitSchools: COHORT_VISIT_SCHOOLS,
-  schools: COHORT_SCHOOLS,
-  experts: COHORT_EXPERTS,
+  span: COHORT_SPAN,
+  city: COHORT_CITY,
+  together: COHORT_TOGETHER,
+  routing: COHORT_ROUTING,
+  places: COHORT_PLACES,
+  contact: COHORT_CONTACT,
+  accreditation: COHORT_ACCREDITATION,
   claims: COHORT_CLAIMS,
-  objectives: COHORT_OBJECTIVES,
+  freeWeekend: COHORT_FREE_WEEKEND,
+  programs: COHORT_PROGRAMS,
   dayStructure: COHORT_DAY_STRUCTURE,
   includes: COHORT_INCLUDES,
   excludes: COHORT_EXCLUDES,
-  lodgingArea: COHORT_LODGING_AREA,
+  hosts: COHORT_HOSTS,
 } as const;

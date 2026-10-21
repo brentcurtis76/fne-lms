@@ -3,7 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import Script from 'next/script';
 import dynamic from 'next/dynamic';
-import { COHORT_HEADLINE } from '../lib/pasantias/cohort-public';
+import { COHORT_HEADLINE, COHORT_PROGRAMS } from '../lib/pasantias/cohort-public';
 
 // Lazy load heavy components
 const Footer = dynamic(() => import('../components/Footer'), { 
@@ -303,6 +303,9 @@ export default function HomePage() {
                     <div className="bg-white/10 backdrop-blur rounded-lg p-4 border border-white/20">
                       <p className="text-sm opacity-80">Próxima cohorte</p>
                       <p className="text-xl font-bold" data-testid="cohort-headline">{COHORT_HEADLINE}</p>
+                      <p className="mt-2 text-sm opacity-80" data-testid="cohort-programs">
+                        {COHORT_PROGRAMS.map((program) => program.name).join(' · ')}
+                      </p>
                     </div>
                   </div>
 
@@ -346,8 +349,8 @@ export default function HomePage() {
                           4
                         </div>
                         <div>
-                          <h4 className="font-bold text-lg mb-1">Networking Internacional</h4>
-                          <p className="text-gray-600 group-hover:text-gray-300 text-sm">Construye relaciones con líderes educativos de todo el mundo</p>
+                          <h4 className="font-bold text-lg mb-1">Intercambio con las Escuelas</h4>
+                          <p className="text-gray-600 group-hover:text-gray-300 text-sm">Conversa con los equipos directivos, educadores y estudiantes de las escuelas que te reciben</p>
                         </div>
                       </div>
 
@@ -356,8 +359,8 @@ export default function HomePage() {
                           5
                         </div>
                         <div>
-                          <h4 className="font-bold text-lg mb-1">Certificación Internacional</h4>
-                          <p className="text-gray-600 group-hover:text-gray-300 text-sm">Obtén reconocimiento oficial de tu participación y aprendizajes</p>
+                          <h4 className="font-bold text-lg mb-1">Bitácora de Aprendizajes</h4>
+                          <p className="text-gray-600 group-hover:text-gray-300 text-sm">Recibe bibliografía recomendada, una bitácora y un sistema de registro de tus aprendizajes al menos un mes antes del viaje</p>
                         </div>
                       </div>
                     </div>
@@ -388,8 +391,8 @@ export default function HomePage() {
 
                   {/* Floating Badge */}
                   <div className="absolute -top-4 -right-4 bg-black text-white rounded-full p-4 shadow-xl border-2 border-black">
-                    <p className="text-xs font-bold">¡CUPOS</p>
-                    <p className="text-xs font-bold">LIMITADOS!</p>
+                    <p className="text-xs font-bold">CUPOS POR</p>
+                    <p className="text-xs font-bold">ORDEN DE RESERVA</p>
                   </div>
 
                   {/* CTA Buttons */}

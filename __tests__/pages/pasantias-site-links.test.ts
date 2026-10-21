@@ -65,6 +65,7 @@
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
+import { COHORT_HEADLINE, COHORT_PROGRAMS } from '../../lib/pasantias/cohort-public';
 
 const REPO_ROOT = join(__dirname, '..', '..');
 const PAGES_DIR = join(REPO_ROOT, 'pages');
@@ -313,5 +314,109 @@ describe('A7a — the site points at /pasantias', () => {
     ).map(formatOccurrence);
 
     expect(offenders).toEqual([]);
+  });
+});
+
+/**
+ * PASANT-B003, C004: the homepage's cohort card promotes January 2027 and both
+ * programs, read from the public module — and no page states October 2026 as
+ * the running cohort. The expected January values are typed here from the
+ * ratified contract (page 1 headline, page 3 program names), not imported.
+ */
+describe('C004 — the homepage promotes the January 2027 cohort', () => {
+  it('prints the cohort headline and both program names from the public module', () => {
+    const { source } = fileInScope(INDEX_PATH);
+
+    expect(source).toMatch(
+      /import \{ COHORT_HEADLINE, COHORT_PROGRAMS \} from '\.\.\/lib\/pasantias\/cohort-public';/
+    );
+    expect(source).toMatch(/data-testid="cohort-headline">\{COHORT_HEADLINE\}</);
+    expect(source).toMatch(/data-testid="cohort-programs"/);
+    expect(source).toContain('COHORT_PROGRAMS.map((program) => program.name)');
+    // And never as literals in the page.
+    expect(source).not.toContain('Enero, 18 al 29');
+    expect(source).not.toContain('Pasantía INSPIRA');
+    expect(source).not.toContain('INSPIRA Mirada Profunda');
+  });
+
+  it('the module values the card prints are January’s, pinned independently', () => {
+    expect(COHORT_HEADLINE).toBe('Enero, 18 al 29 · 2027');
+    expect(COHORT_PROGRAMS.map((program) => program.name).join(' · ')).toBe(
+      'Pasantía INSPIRA · INSPIRA Mirada Profunda'
+    );
+  });
+
+  it('no page states the retired October 2026 cohort as running', () => {
+    const offenders = matchesIn(SCOPE, /Octubre 2026|octubre-2026|Octubre, 5 al 16/g).map(
+      formatOccurrence
+    );
+
+    expect(offenders).toEqual([]);
+  });
+});
+
+/**
+ * PASANT-B003 F5 (Sol copy-discovery review): three cards inside the homepage's
+ * `#pasantias` teaser, under "¿Qué incluye la experiencia?", promised benefits the
+ * ratified January contract does not support — an international certification
+ * with official recognition, networking with education leaders from all over the
+ * world, and a scarcity badge. They were corrected as text only; the card and
+ * badge markup is unchanged.
+ *
+ * The expected copy is typed here against the contract's own wording, never read
+ * from the page:
+ *  - page 16 `both.includes`: "Bibliografía básica recomendada para preparar el
+ *    viaje, una bitácora y un sistema de registro de los aprendizajes, presentado
+ *    al menos un mes antes del viaje."
+ *  - page 8 `both.dayStructure`: "Presentación del proyecto educativo y entrevista
+ *    con la dirección" and "Visita guiada, entrevistas con estudiantes y
+ *    educadores" — the exchange is with the schools that receive the group.
+ *  - page 17 `cohort.places`: "Los cupos de la cohorte de enero se confirman por
+ *    orden de reserva."
+ *
+ * Scoped to the exact retired phrases: `pages/index.tsx` uses the word
+ * "Certificación" again in an unrelated section, which this correction does not
+ * touch.
+ */
+describe('F5 — the homepage teaser claims only ratified January benefits', () => {
+  it('the three unsupported claims are gone from the homepage', () => {
+    const offenders = matchesIn(
+      [fileInScope(INDEX_PATH)],
+      /Certificación Internacional|reconocimiento oficial|Networking Internacional|líderes educativos de todo el mundo|CUPOS LIMITADOS|¡CUPOS|LIMITADOS!/g
+    ).map(formatOccurrence);
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('the learning-log card states the included bibliography, log and record system', () => {
+    const { source } = fileInScope(INDEX_PATH);
+
+    expect(source).toContain(
+      '<h4 className="font-bold text-lg mb-1">Bitácora de Aprendizajes</h4>'
+    );
+    expect(source).toContain(
+      'Recibe bibliografía recomendada, una bitácora y un sistema de registro de tus aprendizajes al menos un mes antes del viaje'
+    );
+  });
+
+  it('the exchange card is narrowed to the schools that receive the group', () => {
+    const { source } = fileInScope(INDEX_PATH);
+
+    expect(source).toContain(
+      '<h4 className="font-bold text-lg mb-1">Intercambio con las Escuelas</h4>'
+    );
+    expect(source).toContain(
+      'Conversa con los equipos directivos, educadores y estudiantes de las escuelas que te reciben'
+    );
+  });
+
+  it('the badge states the ratified booking-order rule and keeps its treatment', () => {
+    const { source } = fileInScope(INDEX_PATH);
+
+    // The badge container and both line classes are the pre-F5 markup, so a
+    // redesign fails here as surely as a reworded claim does.
+    expect(source).toMatch(
+      /<div className="absolute -top-4 -right-4 bg-black text-white rounded-full p-4 shadow-xl border-2 border-black">\s*<p className="text-xs font-bold">CUPOS POR<\/p>\s*<p className="text-xs font-bold">ORDEN DE RESERVA<\/p>\s*<\/div>/
+    );
   });
 });

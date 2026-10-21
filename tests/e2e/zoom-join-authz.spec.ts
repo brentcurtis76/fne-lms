@@ -1,7 +1,14 @@
 import { test, expect, type Page } from '@playwright/test';
-import { E2E_ZOOM, ensureStorageState, storageStatePath, type FixtureKey } from './helpers/auth';
+import {
+  E2E_ZOOM,
+  FIXTURE_KEYS,
+  ensureStorageState,
+  storageStatePath,
+  type FixtureKey,
+} from './helpers/auth';
 import {
   DENIED_PERSONAS,
+  PASSWORD_HELD_PERSONAS,
   VIEWER_PERSONAS,
   VIEW_ONLY_PERSONAS,
   PRIVILEGED_PERSONAS,
@@ -220,13 +227,26 @@ test.describe('meet interstitial — an attendee row is not view access', () => 
   });
 });
 
-test('the persona matrix covers every seeded persona', async () => {
+test('every seeded persona is classified exactly once, the password-held one included', async () => {
   // A guard on the suite itself: the tiers are asserted total at module load
   // (helpers/session-personas.ts), and this makes that visible as a test result rather
   // than as an import side effect nobody reads.
-  expect([...PRIVILEGED_PERSONAS, ...VIEW_ONLY_PERSONAS, ...DENIED_PERSONAS].length).toBe(
-    PRIVILEGED_PERSONAS.length + VIEW_ONLY_PERSONAS.length + DENIED_PERSONAS.length
+  //
+  // This is complete fixture CLASSIFICATION. It is not a claim that every persona passed
+  // the session matrix above. The password-held persona is iterated by no matrix here:
+  // its hold is proven by the mandatory ci-fixture.spec.ts login (/change-password) and
+  // by the PASANT cookie/bearer denials in pasantias-flow.spec.ts.
+  const classified = [
+    ...PRIVILEGED_PERSONAS,
+    ...VIEW_ONLY_PERSONAS,
+    ...DENIED_PERSONAS,
+    ...PASSWORD_HELD_PERSONAS,
+  ];
+  expect(new Set(classified).size, 'a persona is classified in more than one tier').toBe(
+    classified.length
   );
+  expect([...classified].sort()).toEqual([...FIXTURE_KEYS].sort());
+  expect(PASSWORD_HELD_PERSONAS).toEqual(['adminForcedPassword']);
   expect(VIEWER_PERSONAS.length).toBeGreaterThan(0);
   expect(DENIED_PERSONAS.length).toBeGreaterThan(0);
 });

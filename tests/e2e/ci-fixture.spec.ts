@@ -9,6 +9,7 @@ import {
   E2E_USERS,
   E2E_ZOOM,
   FIXTURE_KEYS,
+  FORCED_PASSWORD_FIXTURE_KEY,
   ensureStorageState,
   loginViaUi,
   storageStatePath,
@@ -35,6 +36,12 @@ import {
  * separation the later supervisor_de_red batches will use as their negative control — see
  * its own header for what that does and does not prove.
  *
+ * PASANT-B004 — `adminForcedPassword` is the one persona seeded with must_change_password,
+ * and it gets its own test in the login block instead of the dashboard/my-roles one: it
+ * must land on the change-password form and the protected PASANT admin route must refuse
+ * it. Every other persona still runs the original test, unchanged. Nothing here submits
+ * the change-password form — that would clear the flag the persona exists to carry.
+ *
  * Requires the seeded local Supabase stack — see .github/workflows/ci.yml gate 4
  * and `node scripts/ci/seed-e2e.mjs`.
  */
@@ -51,6 +58,37 @@ test.describe('CI fixtures — login', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   for (const key of FIXTURE_KEYS) {
+    if (key === FORCED_PASSWORD_FIXTURE_KEY) {
+      test(`${key} fixture logs in to the forced password change and the PASANT admin API refuses it`, async ({
+        page,
+      }) => {
+        // Asserts the landing for this exact persona: /change-password with the form's
+        // heading, which only renders once the server says the change is required.
+        await loginViaUi(page, E2E_USERS[key]);
+
+        // A real cookie session of a real global admin, held by the gate. The refusal
+        // carries the forced-change code — the route's own non-admin 403 has none — and
+        // no data.
+        // `/api/auth/my-roles` is deliberately not asserted either way: the password-flow
+        // policy may allow it; the property under test is the protected PASANT route.
+        const response = await page.request.get('/api/admin/pasantia-leads');
+        expect(response.status()).toBe(403);
+        const body = await response.json();
+        expect(body.code).toBe('PASSWORD_CHANGE_REQUIRED');
+        expect(body).not.toHaveProperty('leads');
+        expect(body).not.toHaveProperty('counts');
+        expect(body).not.toHaveProperty('pagination');
+
+        // The admin page itself sends the persona back to the form.
+        await page.goto('/admin/pasantia-leads');
+        await expect(page).toHaveURL(/\/change-password$/, { timeout: 30_000 });
+        await expect(
+          page.getByRole('heading', { name: 'Cambio de Contraseña Requerido' })
+        ).toBeVisible({ timeout: 30_000 });
+      });
+      continue;
+    }
+
     test(`${key} fixture logs in through the login form`, async ({ page }) => {
       const user = E2E_USERS[key];
       await loginViaUi(page, user);

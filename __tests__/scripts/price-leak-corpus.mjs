@@ -37,6 +37,15 @@
  * — which imports two revisions of `scripts/check-price-leak.mjs` side by side
  * and diffs their verdicts — can run it under bare `node`, on exactly the cases
  * the vitest suite runs.
+ *
+ * JANUARY 2027 (PASANT-B003, C006). The ratified January contract
+ * (`docs/plan/pasantias-january-contract.md`, `commercial`) prices the cohort in
+ * pesos with lodging in euros. Its figures are pinned below as literals typed
+ * from the contract — never read from the scanner, and never computed from
+ * anything the scanner holds — and crossed with their own currency's contexts by
+ * {@link generateJanuaryCorpus}. October's {@link PROTECTED} list and
+ * {@link generateCorpus} keep every historical case; the October contexts only
+ * gained appended entries, so the first eight are still exactly the r6 set.
  */
 
 /**
@@ -64,7 +73,80 @@ export const WINDOW = new Map([
   ['priced-amount', 120],
   ['priced-band-amount', 12],
   ['retired-short-amount', 12],
+  ['january-clp-amount', 120],
+  ['january-clp-short-amount', 12],
+  ['january-lodging-amount', 12],
 ]);
+
+/**
+ * The January 2027 commercial facts as the ratified contract states them
+ * (`commercial`, ratified 2026-10-09) — the inputs, not the scanner's lists.
+ * `__tests__/scripts/check-price-leak.test.ts` checks that the per-person totals
+ * below follow from these inputs by the contract's own arithmetic (fee + flight +
+ * nights × lodging × rate, rounded to the nearest $100.000), so a mistyped fact
+ * and a mistyped total cannot agree by accident.
+ */
+export const JANUARY_FACTS = {
+  feeClp: { standard: '2500000', discounted: '2000000' },
+  flightClp: '1500000',
+  eurClp: '1100',
+  roundingClp: '100000',
+  lodgingEur: { doublePerPersonPerNight: ['50', '75'], singlePerNightApprox: '100' },
+  nights: { inspira: 12, 'mirada-profunda': 13 },
+  perPersonClp: {
+    inspira: { standard: ['4700000', '5000000'], discounted: ['4200000', '4500000'] },
+    'mirada-profunda': { standard: ['4700000', '5100000'], discounted: ['4200000', '4600000'] },
+  },
+  teamSizes: [1, 10],
+};
+
+/** The six distinct per-person totals across both programmes and both prices (page 14). */
+export const JANUARY_PER_PERSON_CLP = ['4200000', '4500000', '4600000', '4700000', '5000000', '5100000'];
+
+/**
+ * Every page-15 team total: each per-person total times each team size 1–10,
+ * typed out rather than multiplied, one row per per-person total. Sixty products,
+ * fifty-nine values: `45000000` is both 4.500.000 × 10 and 5.000.000 × 9 and is
+ * listed once, in the first row that reaches it. The size-1 column is the
+ * per-person totals themselves.
+ */
+export const JANUARY_TEAM_TOTALS_CLP = [
+  '4200000', '8400000', '12600000', '16800000', '21000000', '25200000', '29400000', '33600000', '37800000', '42000000',
+  '4500000', '9000000', '13500000', '18000000', '22500000', '27000000', '31500000', '36000000', '40500000', '45000000',
+  '4600000', '9200000', '13800000', '18400000', '23000000', '27600000', '32200000', '36800000', '41400000', '46000000',
+  '4700000', '9400000', '14100000', '18800000', '23500000', '28200000', '32900000', '37600000', '42300000', '47000000',
+  '5000000', '10000000', '15000000', '20000000', '25000000', '30000000', '35000000', '40000000', '50000000',
+  '5100000', '10200000', '15300000', '20400000', '25500000', '30600000', '35700000', '40800000', '45900000', '51000000',
+];
+
+const JANUARY_CLP_AMOUNT = 'january-clp-amount';
+const JANUARY_CLP_SHORT_AMOUNT = 'january-clp-short-amount';
+const JANUARY_LODGING_AMOUNT = 'january-lodging-amount';
+
+/**
+ * The January figures and the check expected to guard each, with the currency
+ * whose markers the corpus plants beside it. Wide window for the distinctive
+ * peso figures; tight for the exchange rate, the rounding unit and the euro
+ * lodging figures, which are ordinary numbers in minified output.
+ */
+export const JANUARY_PROTECTED = [
+  { value: '2500000', check: JANUARY_CLP_AMOUNT, currency: 'CLP', label: 'the January programme fee' },
+  { value: '2000000', check: JANUARY_CLP_AMOUNT, currency: 'CLP', label: 'the January discounted fee' },
+  { value: '1500000', check: JANUARY_CLP_AMOUNT, currency: 'CLP', label: 'the January approximate flight' },
+  { value: '1100', check: JANUARY_CLP_SHORT_AMOUNT, currency: 'CLP', label: 'the January exchange rate' },
+  { value: '100000', check: JANUARY_CLP_SHORT_AMOUNT, currency: 'CLP', label: 'the January rounding unit' },
+  { value: '50', check: JANUARY_LODGING_AMOUNT, currency: 'EUR', label: 'the January double-room lodging minimum' },
+  { value: '75', check: JANUARY_LODGING_AMOUNT, currency: 'EUR', label: 'the January double-room lodging maximum' },
+  { value: '100', check: JANUARY_LODGING_AMOUNT, currency: 'EUR', label: 'the January single-room lodging' },
+  ...JANUARY_TEAM_TOTALS_CLP.map((value) => ({
+    value,
+    check: JANUARY_CLP_AMOUNT,
+    currency: 'CLP',
+    label: JANUARY_PER_PERSON_CLP.includes(value)
+      ? 'a January per-person total'
+      : 'a January team total',
+  })),
+];
 
 /**
  * Every code point JavaScript's `\s` matches, **derived from the engine** rather
@@ -207,6 +289,13 @@ const RETIRED_PACKAGE = { value: '560', check: 'retired-short-amount' };
 const FILLER = 'x';
 
 /**
+ * The no-break spaces design tools put between a currency marker and a figure
+ * (threat-model vector (b)), spelled by code point so a reader can see them.
+ */
+const NBSP = String.fromCharCode(0xa0);
+const NARROW_NBSP = String.fromCharCode(0x202f);
+
+/**
  * What can sit around a written amount. Each returns the full text plus **every
  * occurrence it plants**, so the expected verdict stays a statement about what
  * was put in the string rather than a reading of the output.
@@ -299,6 +388,193 @@ export const CONTEXTS = [
       occurrences: [],
     }),
   },
+  // Appended for January (PASANT-B003): the marker on the other side, in other
+  // cases, behind the NBSPs design tools emit, and as a separate object field —
+  // the shapes C006 names that the contexts above only partly crossed.
+  {
+    label: 'with the glyph after it',
+    build: (written, amount) => ({ text: `${written} €`, occurrences: [own(amount)] }),
+  },
+  {
+    label: 'with the ISO code before it',
+    build: (written, amount) => ({ text: `EUR ${written}`, occurrences: [own(amount)] }),
+  },
+  {
+    label: 'with the word shouted after it',
+    build: (written, amount) => ({ text: `${written} EUROS`, occurrences: [own(amount)] }),
+  },
+  {
+    label: 'with an NBSP between the glyph and it',
+    build: (written, amount) => ({ text: `€${NBSP}${written}`, occurrences: [own(amount)] }),
+  },
+  {
+    label: 'with a narrow NBSP before the ISO code',
+    build: (written, amount) => ({ text: `${written}${NARROW_NBSP}EUR`, occurrences: [own(amount)] }),
+  },
+  {
+    label: 'as an amount field after a currency field',
+    build: (written, amount) => ({
+      text: `{currency:"EUR",amount:${written}}`,
+      occurrences: [own(amount)],
+    }),
+  },
+  {
+    label: 'as an amount field before a currency field',
+    build: (written, amount) => ({
+      text: `{amount:${written},currency:"EUR"}`,
+      occurrences: [own(amount)],
+    }),
+  },
+];
+
+/** Figures a peso context can plant alongside the amount under test. */
+const EXCHANGE_RATE = { value: '1100', check: JANUARY_CLP_SHORT_AMOUNT };
+const FLIGHT = { value: '1500000', check: JANUARY_CLP_AMOUNT };
+const PER_PERSON_MAXIMUM = { value: '5100000', check: JANUARY_CLP_AMOUNT };
+
+/**
+ * Padding for the peso window-boundary contexts. {@link FILLER} cannot be used:
+ * a `$` followed by a letter is an identifier, not a peso sign (see
+ * `CLP_CURRENCY` in `scripts/check-price-leak.mjs`), so `$xxx…` would plant no
+ * marker at all, and every inside-the-window case would fail for a reason that
+ * has nothing to do with the window. `#` is neither a digit, a separator, a
+ * letter nor part of any marker.
+ */
+const PESO_FILLER = '#';
+
+/**
+ * The peso counterpart of {@link CONTEXTS}: the same dimensions — marker before
+ * and after, ISO code and word, stray digits, two figures with their own or a
+ * shared marker, NBSPs, object fields and the window's edges — with peso markers
+ * and peso companions. Companions stay in the amount's own currency: a peso
+ * figure beside a euro marker is a cross-currency shape, and those are pinned
+ * in {@link PINNED_LIMITS} rather than generated.
+ *
+ * The shared-marker companion is the flight, a wide-window figure, because the
+ * longest peso spellings (`51.000.000,00`) would put a tight-window companion
+ * past its 12 characters — a case that plants a figure outside its window is not
+ * a leak beside a marker.
+ */
+export const CLP_CONTEXTS = [
+  {
+    label: 'with a peso sign before it',
+    build: (written, amount) => ({ text: `$${written}`, occurrences: [own(amount)] }),
+  },
+  {
+    label: 'with the ISO code after it',
+    build: (written, amount) => ({ text: `${written} CLP`, occurrences: [own(amount)] }),
+  },
+  {
+    label: 'with the word after it',
+    build: (written, amount) => ({ text: `${written} pesos`, occurrences: [own(amount)] }),
+  },
+  {
+    label: 'with a stray digit after one space',
+    build: (written, amount) => ({ text: `$${written} 7`, occurrences: [own(amount)] }),
+  },
+  {
+    label: 'with a stray digit after a newline',
+    build: (written, amount) => ({ text: `$${written}\n45`, occurrences: [own(amount)] }),
+  },
+  {
+    label: 'inside JSX copy, with a stray digit after it',
+    build: (written, amount) => ({
+      text: `<p>Programa: $${written} 7 cupos</p>`,
+      occurrences: [own(amount)],
+    }),
+  },
+  {
+    label: 'followed by the exchange rate, with its own marker',
+    build: (written, amount) => ({
+      text: `$${written} $1.100`,
+      occurrences: [own(amount), EXCHANGE_RATE],
+    }),
+  },
+  {
+    label: 'followed by the flight, sharing one marker',
+    build: (written, amount) => ({
+      text: `$${written} 1500000`,
+      occurrences: [own(amount), FLIGHT],
+    }),
+  },
+  {
+    label: 'followed by the per-person maximum, with its own marker',
+    build: (written, amount) => ({
+      text: `$${written} $5.100.000`,
+      occurrences: [own(amount), PER_PERSON_MAXIMUM],
+    }),
+  },
+  {
+    label: 'with the ISO code before it',
+    build: (written, amount) => ({ text: `CLP ${written}`, occurrences: [own(amount)] }),
+  },
+  {
+    label: 'with the word shouted after it',
+    build: (written, amount) => ({ text: `${written} PESOS`, occurrences: [own(amount)] }),
+  },
+  {
+    label: 'with the ISO code in lower case after it',
+    build: (written, amount) => ({ text: `${written} clp`, occurrences: [own(amount)] }),
+  },
+  {
+    label: 'with an NBSP between the sign and it',
+    build: (written, amount) => ({ text: `$${NBSP}${written}`, occurrences: [own(amount)] }),
+  },
+  {
+    label: 'with a narrow NBSP before the ISO code',
+    build: (written, amount) => ({ text: `${written}${NARROW_NBSP}CLP`, occurrences: [own(amount)] }),
+  },
+  {
+    label: 'as an amount field after a currency field',
+    build: (written, amount) => ({
+      text: `{currency:"CLP",amount:${written}}`,
+      occurrences: [own(amount)],
+    }),
+  },
+  {
+    label: 'as an amount field before a currency field',
+    build: (written, amount) => ({
+      text: `{amount:${written},currency:"CLP"}`,
+      occurrences: [own(amount)],
+    }),
+  },
+  {
+    // The literal `$` of a template that prints a peso amount sits directly
+    // before an interpolation; the interpolation's own `$` is not a marker.
+    label: 'after a template literal that prints the peso sign',
+    build: (written, amount) => ({
+      text: 'x=`$${a}`;a=' + written,
+      occurrences: [own(amount)],
+    }),
+  },
+  {
+    label: 'with its marker at the far edge of the window, after it',
+    build: (written, amount) => ({
+      text: `${written}${PESO_FILLER.repeat(WINDOW.get(amount.check))}$`,
+      occurrences: [own(amount)],
+    }),
+  },
+  {
+    label: 'with its marker one character past the window, after it',
+    build: (written, amount) => ({
+      text: `${written}${PESO_FILLER.repeat(WINDOW.get(amount.check) + 1)}$`,
+      occurrences: [],
+    }),
+  },
+  {
+    label: 'with its marker at the far edge of the window, before it',
+    build: (written, amount) => ({
+      text: `$${PESO_FILLER.repeat(WINDOW.get(amount.check))}${written}`,
+      occurrences: [own(amount)],
+    }),
+  },
+  {
+    label: 'with its marker one character past the window, before it',
+    build: (written, amount) => ({
+      text: `$${PESO_FILLER.repeat(WINDOW.get(amount.check) + 1)}${written}`,
+      occurrences: [],
+    }),
+  },
 ];
 
 /**
@@ -316,6 +592,37 @@ export function generateCorpus() {
         const { text, occurrences } = context.build(written, amount);
         cases.push({
           description: `${amount.label} (${amount.value}), ${spelling}, ${context.label}`,
+          text,
+          expected: sortOccurrences(occurrences),
+        });
+      }
+    }
+  }
+  return cases;
+}
+
+/**
+ * The January cross-product: {@link JANUARY_PROTECTED} × {@link spellings} × the
+ * contexts of each figure's own currency ({@link CLP_CONTEXTS} for pesos,
+ * {@link CONTEXTS} for the euro lodging figures). Expected verdicts come from
+ * what each case plants, exactly as in {@link generateCorpus}.
+ *
+ * Every case also carries `group` — the figure and its spelling — because the
+ * product is large (sixty-odd figures, forty-odd spellings, twenty-odd contexts)
+ * and the suite asserts it one group at a time rather than registering tens of
+ * thousands of tests. A failing assertion still names its full `description`.
+ */
+export function generateJanuaryCorpus() {
+  const cases = [];
+  for (const amount of JANUARY_PROTECTED) {
+    const contexts = amount.currency === 'CLP' ? CLP_CONTEXTS : CONTEXTS;
+    for (const [spelling, written] of spellings(amount.value)) {
+      const group = `${amount.label} (${amount.value}), ${spelling}`;
+      for (const context of contexts) {
+        const { text, occurrences } = context.build(written, amount);
+        cases.push({
+          group,
+          description: `${group}, ${context.label}`,
           text,
           expected: sortOccurrences(occurrences),
         });
@@ -382,6 +689,34 @@ export const PINNED_LIMITS = [
     HOUR_TRACKING_FX_FRAGMENT,
     [{ value: '1000', check: 'priced-amount' }],
   ],
+  // January (PASANT-B003). Currencies do not cross: a figure fires only beside a
+  // marker of its own currency, which is what keeps the ubiquitous minified `$`
+  // away from October's short euro figures. The first three rows pin that
+  // decision from both sides; the fourth is the over-firing it costs.
+  ['a January peso figure beside a euro sign (expected miss)', '€2.500.000', []],
+  ['the October fee beside a peso sign (expected miss)', '$2.500', []],
+  ['a January lodging figure beside a peso sign (expected miss)', '$75', []],
+  [
+    'a peso figure ending in a 100 group beside a euro sign (expected over-firing)',
+    '$1 100 €50',
+    [
+      { value: '1100', check: JANUARY_CLP_SHORT_AMOUNT },
+      { value: '100', check: JANUARY_LODGING_AMOUNT },
+      { value: '50', check: JANUARY_LODGING_AMOUNT },
+    ],
+  ],
+  // A `$` glued to a letter is an identifier as far as the guard knows.
+  ['a dollar sign glued to a letter, as in US$ (expected miss)', 'US$2.500.000', []],
+  // The peso analogue of the doubled-space miss above.
+  ['a doubled space inside a peso figure (expected miss)', '$2  500  000', []],
+  // The tight window, pinned on the shape the contract itself prints: the rate
+  // fires beside its sign, and the same digits a dozen characters on do not.
+  ['the exchange rate beside its sign', '€1 = $1.100', [{ value: '1100', check: JANUARY_CLP_SHORT_AMOUNT }]],
+  [
+    'the exchange rate thirteen characters from a peso sign (expected miss)',
+    `$${'·'.repeat(13)}1.100`,
+    [],
+  ],
 ];
 
 /**
@@ -415,6 +750,39 @@ export const SILENT_CONTROLS = [
   // Verbatim from `lib/currency-service.ts` and `lib/expenseReportExport.ts`.
   ['the live fallback exchange rate', 'EUR: 1050, // 1 EUR ≈ 1050 CLP (approximate)'],
   ['the live formatter example', 'Locale-formatted original amount, e.g. "1.234,50" for EUR'],
+  // January (PASANT-B003). Each row puts a marker of the relevant currency
+  // within reach of numbers the January brochure is full of — dates, night
+  // counts, team sizes, percentages — or of identifiers and longer figures that
+  // contain a protected one; none of them quotes a protected price.
+  ['the January headline', 'x="Enero, 18 al 29 · 2027"'],
+  ['January dates beside a peso sign', '$ · llegada 2027-01-17, regreso 2027-01-29 o 2027-01-30'],
+  ['night counts beside a peso sign', '$ por persona · 12 noches (INSPIRA), 13 noches (Mirada Profunda)'],
+  ['team sizes beside the ISO code', 'Equipos de 1 a 10 personas, valores en CLP'],
+  ['the payment split', '50% al reservar y el 50% restante la semana antes del inicio'],
+  ['a percentage beside a euro marker', 'descuento del 50% en EUR'],
+  ['an NBSP-spaced percentage beside a euro sign', `precio en €: 75${NBSP}% del total`],
+  ['a stylesheet percentage beside a euro sign', 'content:"€";width:100%'],
+  [
+    'identifiers that contain a marker',
+    'var a$=25e5,b=jQuery$1100,useClpFormat=5e6,pesoTotal=1e5,CLPX=2e6,sobrepeso=1100;',
+  ],
+  ['template interpolation, which is not a peso sign', 'const s=`${a}/${b}`,n=1100,m=1e5;'],
+  ['a lone peso sign', 'x="$"'],
+  ['the ISO code with no figure near it', 'currency:"CLP"'],
+  ['the word with no figure near it', 'Valores en pesos chilenos'],
+  ['a larger peso amount', 'x="$12.500.000"'],
+  ['a larger peso amount containing the exchange rate', 'x="$1.100.000"'],
+  ['a larger peso amount containing the rounding unit', 'x="$100.000.000"'],
+  ['a peso amount one unit past a team total', 'x="$25.000.001"'],
+  ['a malformed peso figure', 'x="$2.500.0000"'],
+  ['a peso amount a thousand times a per-person total', 'x="$4.200.000.000"'],
+  ['the retired October fee beside a peso marker', 'Precio (CLP por noche) step="1000"'],
+  ['Europa beside a lodging figure', 'conocer Europa · 50 personas'],
+  ['a euro amount ending in a lodging figure', 'x="€150",y="€1.050",z="€7.500",w="€50.000"'],
+  ['euro cents that are a lodging figure', 'x="€0,50",y="€0.75"'],
+  ['a distant euro sign before a lodging figure', `p="€"${'z'.repeat(20)}50`],
+  ['a distant peso sign before the rounding unit', `p="$"${'z'.repeat(20)}1e5`],
+  ['a distant peso sign before the programme fee', `p="$"${'z'.repeat(130)}25e5`],
 ];
 
 /**
@@ -491,4 +859,127 @@ export const ATTRIBUTION_ROWS = [
     occurrences: [{ value: '2500', check: 'priced-amount' }, RETIRED_PACKAGE],
     spans: ['2 500', '560'],
   },
+];
+
+/* ------------------------------------------- PASANT-B003 part 2 (narrow extension) */
+
+/** What a `commercial-copy` text finding looks like as an occurrence. */
+const COMMERCIAL_COPY = { value: null, check: 'commercial-copy' };
+
+/**
+ * A backslash, built rather than typed, so the escaped spellings below are
+ * unambiguously the sequences a minifier emits (an x-escape, a four-digit
+ * u-escape, a braced u-escape) and not characters an editor or a reviewer
+ * could read as already decoded.
+ */
+const BACKSLASH = String.fromCharCode(92);
+
+/**
+ * The January commercial-copy fragments the scanner's `commercial-copy` check
+ * looks for, listed here independently of the scanner's regex. Each must be a
+ * verbatim substring of `lib/pasantias/cohort-commercial.ts` (asserted in the
+ * test), or it guards nothing.
+ */
+export const JANUARY_COPY_FRAGMENTS = [
+  'PROGRAMA ANUAL DE ASESORÍA FNE',
+  'Habitación individual: aproximadamente',
+  'tipo de cambio de referencia',
+  'el valor por persona multiplicado',
+  // October fragments the January module keeps live.
+  'Alojamiento en Barcelona: entre',
+  'por persona por noche',
+  'en base a habitación doble',
+  'Precios vigentes para la cohorte',
+  'Pasantias-INSPIRA-Barcelona',
+];
+
+/**
+ * Actual January commercial copy, in the shapes a bundle carries it: as the
+ * module writes it and inside a minified object. The last row is a pinned
+ * over-firing: the price-free ficha's download name shares the brand stem the
+ * brochure's name is guarded by, and firing on it is the safe direction (the
+ * ficha filename is not imported by any client surface either).
+ */
+export const JANUARY_COMMERCIAL_COPY_ROWS = [
+  ['the discount condition as the module writes it', 'x="COLEGIOS CON PROGRAMA ANUAL DE ASESORÍA FNE"', [COMMERCIAL_COPY]],
+  [
+    'the discount condition inside a minified object',
+    '{discountCondition:"COLEGIOS CON PROGRAMA ANUAL DE ASESORÍA FNE",currency:"CLP"}',
+    [COMMERCIAL_COPY],
+  ],
+  ['the single-room lodging line', 'Habitación individual: aproximadamente', [COMMERCIAL_COPY]],
+  ['the totals note', 'Los totales por persona suman el programa, con un tipo de cambio de referencia', [COMMERCIAL_COPY]],
+  ['the team-table note', 'Valores por equipo: el valor por persona multiplicado por el número de integrantes.', [COMMERCIAL_COPY]],
+  ['the January validity line', 'Precios vigentes para la cohorte de enero 2027.', [COMMERCIAL_COPY]],
+  ['the January lodging note opening', 'Alojamiento en Barcelona: entre', [COMMERCIAL_COPY]],
+  ['the January brochure download name', 'Pasantias-INSPIRA-Barcelona-enero-2027-2027-01-v1.pdf', [COMMERCIAL_COPY]],
+  [
+    'the price-free ficha download name (expected over-firing, safe direction)',
+    'Ficha-Pasantias-INSPIRA-Barcelona-enero-2027-2027-01-v1.pdf',
+    [COMMERCIAL_COPY],
+  ],
+];
+
+/**
+ * The same copy as a minifier emits it, accents escaped. The scanner unescapes
+ * every file before searching (`unescapeLiterals`), so these fire only through
+ * that step — and the test asserts the raw escaped text alone does not, which
+ * is what makes the step load-bearing rather than incidental.
+ */
+export const JANUARY_ESCAPED_COPY_ROWS = [
+  [
+    'the discount condition with an x-escaped Í',
+    `e="COLEGIOS CON PROGRAMA ANUAL DE ASESOR${BACKSLASH}xcdA FNE"`,
+    [COMMERCIAL_COPY],
+  ],
+  [
+    'the discount condition with a u-escaped Í',
+    `e="COLEGIOS CON PROGRAMA ANUAL DE ASESOR${BACKSLASH}u00cdA FNE"`,
+    [COMMERCIAL_COPY],
+  ],
+  [
+    'the single-room line with an x-escaped ó',
+    `e="Habitaci${BACKSLASH}xf3n individual: aproximadamente"`,
+    [COMMERCIAL_COPY],
+  ],
+  [
+    'the single-room line with a braced u-escaped ó',
+    `e="Habitaci${BACKSLASH}u{f3}n individual: aproximadamente"`,
+    [COMMERCIAL_COPY],
+  ],
+];
+
+/**
+ * Benign controls for the new fragments: public January copy and ordinary
+ * Spanish that shares words with them. None may fire.
+ */
+export const JANUARY_COPY_SILENT_CONTROLS = [
+  ['the public exclusion that mentions FNE coordination', 'Pasajes y alojamiento, salvo que los coordines a través de FNE'],
+  ['the discount wording in lower case, as ordinary prose', 'colegios con programa anual de asesoría FNE'],
+  ['an exchange rate without the commercial phrasing', 'Tipo de cambio actualizado cada hora'],
+  ['the public places sentence', 'Los cupos de la cohorte de enero se confirman por orden de reserva.'],
+  ['a single room in unrelated copy', 'Habitación individual con baño privado'],
+  ['a per-person value in unrelated copy', 'el valor por persona se informa en la cotización'],
+  ['the public routing line', '¿Primera vez? Pasantía INSPIRA. ¿Ya viajaste? Mirada Profunda.'],
+];
+
+/**
+ * B003-P1-N2 (part 1 review): the percentage exclusion added for January's
+ * lodging figures (`isPercentage`) applies to every amount check, October's
+ * included. That is a recorded decision, not an accident: `70%` beside a euro
+ * marker is a proportion, not the retired band. These rows name it, so a later
+ * change to the exclusion shows up as a named October regression; the controls
+ * prove the same figures still fire when they are not written as percentages.
+ */
+export const HISTORICAL_PERCENTAGE_ROWS = [
+  ['B003-P1-N2: the October band minimum as a percentage beside a euro sign (expected miss)', '€70%', []],
+  ['B003-P1-N2: the October band minimum with a spaced percent sign (expected miss)', '€70 %', []],
+  ['B003-P1-N2: the October band maximum as a percentage beside the ISO code (expected miss)', 'EUR 120%', []],
+  ['B003-P1-N2: the retired €560 package as a percentage (expected miss)', '€560%', []],
+  ['B003-P1-N2: the October fee as a percentage (expected miss)', '€2500 %', []],
+  ['B003-P1-N2: the retired €1.000 fee as a percentage (expected miss)', '€1.000%', []],
+  ['B003-P1-N2 control: the band minimum without the sign', '€70 ', [BAND_MINIMUM]],
+  ['B003-P1-N2 control: the October fee without the sign', '€2500 ', [{ value: '2500', check: 'priced-amount' }]],
+  ['B003-P1-N2 control: the retired package without the sign', '€560 ', [RETIRED_PACKAGE]],
+  ['B003-P1-N2 control: a sign two spaces away is not a percentage', '€70  %', [BAND_MINIMUM]],
 ];

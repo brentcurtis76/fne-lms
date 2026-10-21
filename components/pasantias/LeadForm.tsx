@@ -12,15 +12,29 @@
  * is posted as a strict boolean `true` (the route rejects `'on'`), and the
  * optional one ships unchecked and stays that way unless someone clicks it.
  *
- * No cohort fact is written here as a literal — `COHORT_ID` is imported, and
- * the copy deliberately names no date, no school and no city, because
- * `__tests__/pages/pasantias-hardcoded-cohort.test.ts` scans this directory
- * along with the page. `cohort-commercial.ts` is never imported (D-01) and
- * there is no price, amount or currency anywhere in this file (D-02).
+ * January 2027 (PASANT-B003): every submission is about exactly ONE program.
+ * The choice is a required radio group, first in the form; a page CTA may
+ * preselect it (`requestedProgram`), and the visitor can always change it.
+ * Interest in both programs is two submissions with the same address — the
+ * confirmation offers the other program for exactly that.
+ *
+ * Truthful copy (contract §6, DEC-07): nothing here says an e-mail was or will
+ * be sent. Success is shown only after the route answered that the submission
+ * was stored, and it hands over the two shared documents directly.
+ *
+ * No cohort fact is written here as a literal — `COHORT_ID` and the program
+ * registry are imported, and the copy deliberately names no date, no school and
+ * no city, because `__tests__/pages/pasantias-hardcoded-cohort.test.ts` scans
+ * this directory along with the page. `cohort-commercial.ts` is never imported
+ * (D-01) and there is no price, amount or currency anywhere in this file (D-02).
  */
 import React, { useEffect, useRef, useState } from 'react';
 
-import { COHORT_ID } from '../../lib/pasantias/cohort-public';
+import {
+  COHORT_ID,
+  COHORT_PROGRAMS,
+  type ProgramId,
+} from '../../lib/pasantias/cohort-public';
 import {
   CONSENT_MARKETING_TEXT,
   CONSENT_PROCESSING_TEXT,
@@ -36,7 +50,9 @@ import {
 import { normalizeText } from '../../lib/signups';
 
 const LEAD_ENDPOINT = '/api/pasantias/lead';
-const BROCHURE_HREF = '/api/pasantias/brochure';
+/** Both documents cover both programs; there is one of each. */
+export const FICHA_HREF = '/api/pasantias/ficha';
+export const BROCHURE_HREF = '/api/pasantias/brochure';
 
 /** Everything that is not a checkbox or the honeypot, in DOM order. */
 const TEXT_FIELDS = [
@@ -54,10 +70,10 @@ type TextField = (typeof TEXT_FIELDS)[number];
 
 /**
  * Where focus goes on a failed submit: the first invalid control in DOM order.
- * The consent checkbox is last in the form and last here, so it only takes
- * focus when every text field above it is fine.
+ * The program choice is first in the form and first here; the consent checkbox
+ * is last in both, so it only takes focus when every field above it is fine.
  */
-const FOCUS_ORDER: readonly string[] = [...TEXT_FIELDS, 'consent'];
+const FOCUS_ORDER: readonly string[] = ['program', ...TEXT_FIELDS, 'consent'];
 
 /**
  * Every validation key this form can actually SHOW. A key outside this list has
@@ -65,7 +81,12 @@ const FOCUS_ORDER: readonly string[] = [...TEXT_FIELDS, 'consent'];
  * alone would leave a visitor pressing a button that does nothing at all.
  * `hasUnrenderableError` is what stops that from being possible.
  */
-const RENDERED_ERROR_FIELDS: readonly string[] = [...TEXT_FIELDS, 'consent'];
+const RENDERED_ERROR_FIELDS: readonly string[] = ['program', ...TEXT_FIELDS, 'consent'];
+
+/** The DOM id of one program's radio button. */
+function programInputId(program: ProgramId): string {
+  return `program-${program}`;
+}
 
 /**
  * Whether these errors contain at least one key the form cannot render. True
@@ -94,6 +115,8 @@ function usableUtm(value: string): string {
 }
 
 interface FormState extends Record<TextField, string> {
+  /** The ONE program this submission is about; '' until the visitor picks one. */
+  program: ProgramId | '';
   consent: boolean;
   marketingOptIn: boolean;
   /** Honeypot. Empty for a human; the route silently drops a filled one. */
@@ -101,6 +124,9 @@ interface FormState extends Record<TextField, string> {
 }
 
 const INITIAL_FORM: FormState = {
+  // Nothing is preselected on first render: a choice is the visitor's, or a
+  // CTA's they clicked (see `requestedProgram`).
+  program: '',
   firstName: '',
   lastName: '',
   email: '',
@@ -136,6 +162,16 @@ export const GENERIC_ERROR =
 export const UNRENDERABLE_ERROR =
   'No pudimos procesar tu solicitud. Recarga la página e inténtalo nuevamente; si el problema persiste, escríbenos por WhatsApp.';
 
+/**
+ * What the form says before anything is sent. It promises what happens on this
+ * page — a registration and the documents — and nothing about e-mail.
+ */
+export const PRE_SUBMIT_COPY =
+  'Elige tu programa y completa tus datos para registrar tu interés. Al enviarlo podrás descargar de inmediato la ficha y el programa completo.';
+
+/** The confirmation's lead sentence, shown only after the route stored it. */
+export const SUCCESS_TITLE = 'Solicitud registrada';
+
 /* --------------------------------------------------------------- styling */
 /* Dark-on-brand_primary, matching the tokens `pages/pasantias.tsx` uses for
    this section. No new palette, no remote font, no CDN asset (A6r [A5]). */
@@ -149,6 +185,14 @@ function controlClasses(invalid: boolean): string {
       ? 'border-red-300 focus:border-red-300 focus:ring-red-300/[0.28]'
       : 'border-white/30 focus:border-brand_accent focus:ring-brand_accent/[0.35]'
   }`;
+}
+
+/** One program option's card: accent when chosen, red while the choice is missing. */
+function programOptionClasses(selected: boolean, invalid: boolean): string {
+  let state = 'border-white/30 bg-white/[0.08]';
+  if (selected) state = 'border-brand_accent bg-white/[0.12]';
+  else if (invalid) state = 'border-red-300 bg-white/[0.08]';
+  return `flex cursor-pointer items-start gap-3 rounded-lg border px-[14px] py-3 text-[14px] leading-[1.45] transition duration-[180ms] ${state}`;
 }
 
 const CHECKBOX_CLASSES =
@@ -224,14 +268,62 @@ function ProcessingConsentLabel() {
 
 /* ------------------------------------------------------------- component */
 
-export default function LeadForm() {
+/**
+ * A program a page CTA asked for. `nonce` changes on every click, so clicking
+ * the same CTA again re-applies it after the visitor changed the choice.
+ */
+export interface ProgramRequest {
+  program: ProgramId;
+  nonce: number;
+}
+
+export interface LeadFormProps {
+  /** The latest program a CTA on the page selected, if any. */
+  requestedProgram?: ProgramRequest | null;
+}
+
+export default function LeadForm({ requestedProgram = null }: LeadFormProps = {}) {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  /** The program of the stored submission; null while the form is showing. */
+  const [submittedProgram, setSubmittedProgram] = useState<ProgramId | null>(null);
+  const submitted = submittedProgram !== null;
   const [utm, setUtm] = useState<UtmParams>(NO_UTM);
   const successRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * Back to the form for another submission about `program`, keeping what the
+   * person typed. Both consents start over unchecked: each submission is its
+   * own consent evidence (D-12), so a tick given for the first one is never
+   * silently reused for the second.
+   */
+  const startSubmission = (program: ProgramId) => {
+    setForm((current) => ({ ...current, program, consent: false, marketingOptIn: false }));
+    setErrors({});
+    setFormError('');
+    setSubmittedProgram(null);
+  };
+
+  // A CTA on the page picked a program. Applied only when the request changes,
+  // so the visitor's own later choice stands until they click a CTA again.
+  useEffect(() => {
+    if (!requestedProgram) return;
+    if (submittedProgram !== null) {
+      startSubmission(requestedProgram.program);
+      return;
+    }
+    setForm((current) => ({ ...current, program: requestedProgram.program }));
+    setErrors((current) => {
+      if (!current.program) return current;
+      const next = { ...current };
+      delete next.program;
+      return next;
+    });
+    // Only a new request re-applies; the submitted state is read, not tracked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedProgram?.nonce, requestedProgram?.program]);
 
   // Attribution, read once on mount: `getServerSideProps` never sees the query
   // the way the browser has it after a client-side navigation.
@@ -259,9 +351,14 @@ export default function LeadForm() {
 
   const focusFirstInvalid = (fieldErrors: Record<string, string>) => {
     const first = FOCUS_ORDER.find((field) => fieldErrors[field]);
-    if (first) {
-      document.getElementById(first)?.focus();
-    }
+    if (!first) return;
+    // The program error belongs to a radio group: focus the chosen radio, or
+    // the first one when nothing is chosen yet.
+    const id =
+      first === 'program'
+        ? programInputId(form.program || COHORT_PROGRAMS[0].id)
+        : first;
+    document.getElementById(id)?.focus();
   };
 
   /**
@@ -277,6 +374,9 @@ export default function LeadForm() {
 
   const buildBody = () => ({
     cohort: COHORT_ID,
+    // Exactly one program, as the route requires; '' (nothing chosen) is what
+    // the shared validator reports as "Elige un programa."
+    program: form.program,
     firstName: form.firstName,
     lastName: form.lastName,
     email: form.email,
@@ -324,12 +424,21 @@ export default function LeadForm() {
         body: JSON.stringify(body),
       });
       const payload = (await response.json().catch(() => ({}))) as {
+        success?: boolean;
         error?: string;
         fields?: Record<string, string>;
       };
 
+      // Success means the route said it stored the submission — a 2xx alone
+      // (an empty or unexpected body) is not that, and is treated as a failure
+      // the person can retry with everything still filled in.
+      if (response.ok && payload.success === true) {
+        setSubmittedProgram(form.program || null);
+        return;
+      }
+
       if (response.ok) {
-        setSubmitted(true);
+        setFormError(GENERIC_ERROR);
         return;
       }
 
@@ -359,7 +468,10 @@ export default function LeadForm() {
     }
   }, [submitted]);
 
-  if (submitted) {
+  if (submittedProgram !== null) {
+    const chosen = COHORT_PROGRAMS.find((program) => program.id === submittedProgram);
+    const other = COHORT_PROGRAMS.find((program) => program.id !== submittedProgram);
+
     return (
       <div
         ref={successRef}
@@ -368,20 +480,43 @@ export default function LeadForm() {
         className="rounded-2xl border border-white/20 bg-brand_primary p-6 text-white sm:p-8 lg:self-start"
         data-testid="pasantias-lead-success"
       >
-        <h3 className="m-0 text-[22px] font-bold tracking-[-.01em] text-white">
-          Solicitud enviada
-        </h3>
-        <p className="mt-3 text-[15px] leading-[1.6] text-white/80">
-          Gracias. Te enviamos el programa completo al correo que indicaste y el equipo de FNE te
-          escribirá para resolver tus dudas.
-        </p>
-        <a
-          href={BROCHURE_HREF}
-          className="mt-7 inline-flex h-[52px] items-center justify-center rounded-lg border border-brand_accent bg-brand_accent px-6 text-[15px] font-semibold tracking-[.08em] text-brand_primary transition-colors duration-200 hover:border-brand_accent_hover hover:bg-brand_accent_hover"
-          data-testid="pasantias-lead-brochure"
+        <h3 className="m-0 text-[22px] font-bold tracking-[-.01em] text-white">{SUCCESS_TITLE}</h3>
+        <p
+          className="mt-3 text-[15px] leading-[1.6] text-white/80"
+          data-testid="pasantias-lead-success-program"
         >
-          Descarga el programa (PDF)
-        </a>
+          Gracias. Registramos tu interés en {chosen?.name}. Descarga ahora la información de los
+          programas:
+        </p>
+        <div className="mt-6 flex flex-col gap-3">
+          <a
+            href={FICHA_HREF}
+            className="inline-flex h-[52px] items-center justify-center rounded-lg border border-brand_accent bg-brand_accent px-6 text-[15px] font-semibold tracking-[.08em] text-brand_primary transition-colors duration-200 hover:border-brand_accent_hover hover:bg-brand_accent_hover"
+            data-testid="pasantias-lead-ficha"
+          >
+            Ficha de los programas (PDF)
+          </a>
+          <a
+            href={BROCHURE_HREF}
+            className="inline-flex h-[52px] items-center justify-center rounded-lg border border-white/50 px-6 text-[15px] font-semibold tracking-[.08em] text-white transition-colors duration-200 hover:bg-white/[0.12]"
+            data-testid="pasantias-lead-brochure"
+          >
+            Programa completo con valores (PDF)
+          </a>
+        </div>
+        {other && (
+          <p className="mt-6 text-[14px] leading-[1.6] text-white/75">
+            ¿También te interesa {other.name}? Registra otra solicitud con el mismo correo.{' '}
+            <button
+              type="button"
+              onClick={() => startSubmission(other.id)}
+              className="font-semibold text-brand_accent underline underline-offset-2"
+              data-testid="pasantias-lead-other-program"
+            >
+              Registrar interés en {other.name}
+            </button>
+          </p>
+        )}
       </div>
     );
   }
@@ -395,9 +530,62 @@ export default function LeadForm() {
       className="rounded-2xl border border-white/20 bg-brand_primary p-6 text-white sm:p-8 lg:self-start"
       data-testid="pasantias-lead-form"
     >
-      <p className="text-[15px] leading-[1.6] text-white/80">
-        Completa tus datos y te enviamos el programa detallado por correo.
+      <p className="text-[15px] leading-[1.6] text-white/80" data-testid="pasantias-lead-intro">
+        {PRE_SUBMIT_COPY}
       </p>
+
+      {/*
+        The program choice: required, one of two, never preselected by the form
+        itself. A native radio group, so arrow keys move the choice and Tab
+        enters and leaves the group as one stop. Its error is rendered under the
+        group and announced through `aria-describedby` on both radios.
+      */}
+      <fieldset
+        className="mt-6"
+        aria-describedby={describedBy('program')}
+        data-testid="pasantias-lead-program"
+      >
+        <legend className="mb-[6px] block text-[13px] font-semibold text-white/[0.88]">
+          Programa
+        </legend>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {COHORT_PROGRAMS.map((program) => (
+            <label
+              key={program.id}
+              htmlFor={programInputId(program.id)}
+              className={programOptionClasses(
+                form.program === program.id,
+                Boolean(errors.program)
+              )}
+            >
+              <input
+                id={programInputId(program.id)}
+                name="program"
+                type="radio"
+                value={program.id}
+                checked={form.program === program.id}
+                onChange={() => updateField('program', program.id)}
+                className={CHECKBOX_CLASSES}
+                aria-describedby={describedBy('program')}
+                data-testid={`pasantias-lead-program-${program.id}`}
+              />
+              <span>
+                <span className="block font-semibold text-white">{program.name}</span>
+                <span className="block text-white/70">{program.audience}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+        {errors.program && (
+          <p
+            id="program-error"
+            className="mt-[6px] text-[13px] leading-[1.45] text-red-200"
+            data-testid="pasantias-lead-error-program"
+          >
+            {errors.program}
+          </p>
+        )}
+      </fieldset>
 
       {/*
         Honeypot. Off-screen rather than `display:none` so a bot that skips
@@ -627,7 +815,7 @@ export default function LeadForm() {
           className={SUBMIT_CLASSES}
           data-testid="pasantias-lead-submit"
         >
-          {isSubmitting ? 'Enviando…' : 'Solicita el programa'}
+          {isSubmitting ? 'Enviando…' : 'Registrar mi interés'}
         </button>
       </div>
     </form>

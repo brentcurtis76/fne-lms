@@ -1,19 +1,40 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GetServerSideProps } from 'next';
 import { toast } from 'react-hot-toast';
-import { Briefcase, ChevronDown, ChevronRight, Download, Loader2, RefreshCw, Search } from 'lucide-react';
+import {
+  Briefcase,
+  ChevronDown,
+  ChevronRight,
+  Download,
+  Loader2,
+  RefreshCw,
+  Search,
+} from 'lucide-react';
 import MainLayout from '../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../components/layout/FunctionalPageHeader';
 import { createServiceRoleClient, getServerSideUser } from '../../lib/api-auth';
 import { ReportExporter } from '../../lib/exportUtils';
 import { formatDateTime } from '../../lib/signups';
 import { LEAD_STATUSES, type LeadStatus } from '../../lib/pasantias/leads';
+import { PROGRAM_IDS, programById } from '../../lib/pasantias/cohort-public';
 import { isGlobalAdmin } from '../../utils/roleUtils';
 import {
+  LEAD_CSV_HEADERS,
+  LEAD_EXPORT_MESSAGES,
+  LEAD_EXPORT_TOO_LARGE_CODE,
   LEAD_STATUS_LABELS,
+  LeadExportError,
+  LeadProgramLabels,
   LeadStatusBadge,
+  NO_PROGRAM_FILTER,
   PasantiaLeadCard,
+  collectLeadExportSnapshot,
+  leadCsvRow,
+  leadExportQueryString,
   leadFullName,
+  leadsQueryString,
+  type LeadExportSnapshotPayload,
+  type LeadListFilters,
   type PasantiaLead,
 } from '../../components/admin/PasantiaLeadCard';
 
@@ -25,6 +46,11 @@ import {
  * which is where D-03's transition graph is enforced. The page never decides
  * whether a move is legal — it only offers the moves `canTransitionLead` allows
  * (derived in `allowedLeadTransitions`) and reports what the API answers.
+ *
+ * PASANT-B004 (C009): the list is paged by contact, the tab counts and the
+ * matching total are exact database counts, every contact shows all of its
+ * program interests, and the CSV contains every contact matching the filters —
+ * not the page on screen — or nothing at all.
  */
 
 type StatusTab = 'all' | LeadStatus;
@@ -37,7 +63,20 @@ interface LeadCounts {
   total: number;
 }
 
+interface LeadPagination {
+  page: number;
+  pageSize: number;
+  total: number;
+  pageCount: number;
+}
+
 const EMPTY_COUNTS: LeadCounts = { new: 0, contacted: 0, converted: 0, dismissed: 0, total: 0 };
+
+/** The API's default page size (`LEADS_DEFAULT_PAGE_SIZE`). */
+const PAGE_SIZE = 50;
+
+const PAGER_BUTTON_CLASSES =
+  'inline-flex min-h-[40px] items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-800 transition hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#fbbf24]/70 disabled:cursor-not-allowed disabled:opacity-50';
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
   // The verified user (auth server), never the cookie's stored `user` (SM-B015).
@@ -58,50 +97,96 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
 export default function PasantiaLeadsAdminPage() {
   const [leads, setLeads] = useState<PasantiaLead[]>([]);
   const [counts, setCounts] = useState<LeadCounts>(EMPTY_COUNTS);
+  const [pagination, setPagination] = useState<LeadPagination | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const [statusTab, setStatusTab] = useState<StatusTab>('all');
+  const [programFilter, setProgramFilter] = useState('');
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   // Debounced copy of `search`: the filter runs server-side, so a keystroke
   // must not be a request.
   const [appliedSearch, setAppliedSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // Only the newest request may write the screen: a slow answer for the
+  // previous filter must not overwrite the counts of the current one.
+  const latestRequest = useRef(0);
+
+  // Bumped by a successful save; the fetch effect below depends on it. The
+  // refresh after a save is therefore built from the filters and page on screen
+  // when the save ENDS. Calling the `fetchLeads` captured when the save BEGAN
+  // would send the old context's request after the new one, and the
+  // newest-request guard above would then let it win.
+  const [reloadToken, setReloadToken] = useState(0);
+
+  // Only a changed search resets the page. On mount (and after an edit that trims
+  // back to the applied value) there is nothing to apply, so a pager click made
+  // in the first 300 ms is not undone by a timer the admin never asked for.
   useEffect(() => {
-    const timer = setTimeout(() => setAppliedSearch(search.trim()), 300);
+    const next = search.trim();
+    if (next === appliedSearch) return;
+    const timer = setTimeout(() => {
+      setAppliedSearch(next);
+      setPage(1);
+    }, 300);
     return () => clearTimeout(timer);
-  }, [search]);
+  }, [search, appliedSearch]);
+
+  const filters = useMemo<LeadListFilters>(
+    () => ({
+      status: statusTab === 'all' ? null : statusTab,
+      search: appliedSearch,
+      program: programFilter || null,
+    }),
+    [statusTab, appliedSearch, programFilter]
+  );
 
   const fetchLeads = useCallback(async () => {
+    const requestId = ++latestRequest.current;
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams();
-      if (statusTab !== 'all') params.set('status', statusTab);
-      if (appliedSearch) params.set('search', appliedSearch);
-      const query = params.toString();
-
-      const response = await fetch(`/api/admin/pasantia-leads${query ? `?${query}` : ''}`);
+      const response = await fetch(
+        `/api/admin/pasantia-leads?${leadsQueryString(filters, page, PAGE_SIZE)}`
+      );
       const json = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(json.error || 'Error al cargar los leads');
       }
+      if (requestId !== latestRequest.current) return;
+
+      const meta: LeadPagination | null = json.pagination ?? null;
+      const lastPage = Math.max(1, meta?.pageCount ?? 1);
+      if (page > lastPage) {
+        // The filter set shrank under this page (or the link was stale): step
+        // back to the last page that exists instead of showing an empty one.
+        setPage(lastPage);
+        return;
+      }
+
       setLeads(json.leads ?? []);
       setCounts({ ...EMPTY_COUNTS, ...(json.counts ?? {}) });
+      setPagination(meta);
     } catch (fetchError) {
+      if (requestId !== latestRequest.current) return;
       const message = fetchError instanceof Error ? fetchError.message : 'Error al cargar los leads';
       setError(message);
       toast.error(message);
     } finally {
-      setLoading(false);
+      if (requestId === latestRequest.current) {
+        setLoading(false);
+      }
     }
-  }, [statusTab, appliedSearch]);
+  }, [filters, page]);
 
   useEffect(() => {
     fetchLeads();
-  }, [fetchLeads]);
+  }, [fetchLeads, reloadToken]);
 
   const patchLead = useCallback(
     async (lead: PasantiaLead, patch: { status?: LeadStatus; notes?: string }) => {
@@ -124,7 +209,7 @@ export default function PasantiaLeadsAdminPage() {
           throw new Error(`${json.error || 'No se pudo guardar el cambio'}${suffix}`);
         }
         toast.success(patch.status ? 'Estado actualizado' : 'Nota guardada');
-        await fetchLeads();
+        setReloadToken((token) => token + 1);
       } catch (patchError) {
         toast.error(
           patchError instanceof Error ? patchError.message : 'No se pudo guardar el cambio'
@@ -133,7 +218,7 @@ export default function PasantiaLeadsAdminPage() {
         setSaving(false);
       }
     },
-    [fetchLeads]
+    []
   );
 
   const handleStatusChange = useCallback(
@@ -150,49 +235,66 @@ export default function PasantiaLeadsAdminPage() {
     [patchLead]
   );
 
-  const exportRows = useMemo(
-    () =>
-      leads.map((lead) => ({
-        Fecha: formatDateTime(lead.created_at),
-        Nombre: leadFullName(lead),
-        Email: lead.email,
-        WhatsApp: lead.phone ?? '',
-        Institución: lead.institution,
-        Cargo: lead.role_title ?? '',
-        Participantes: lead.num_people ?? '',
-        Estado: LEAD_STATUS_LABELS[lead.status as LeadStatus] ?? lead.status,
-        // "Programa enviado", never the ficha: `brochure_sent_at` is stamped
-        // by the auto-reply that mails the PRICED programme; the ficha is the
-        // price-free public download and is never emailed (D-02).
-        'Programa enviado': formatDateTime(lead.brochure_sent_at),
-        Mensaje: lead.message ?? '',
-        'UTM source': lead.utm_source ?? '',
-        'UTM medium': lead.utm_medium ?? '',
-        'UTM campaign': lead.utm_campaign ?? '',
-        'Ruta de origen': lead.source_path ?? '',
-        'Versión aviso consentimiento': lead.consent_notice_version ?? '',
-        Notas: lead.notes ?? '',
-      })),
-    [leads]
-  );
-
   /**
    * CSV goes through `ReportExporter.exportToCSV`, never a hand-rolled
    * `join(',')`: `institution`, `message`, `source_path` and the three `utm_*`
    * are visitor-typed, and `csvEscape` → `neutralizeSpreadsheetFormula` is what
-   * keeps `=cmd|…` out of the admin's spreadsheet. `headers` doubles as the key
-   * path into each row, which is why the row keys ARE the es-CL labels.
+   * keeps `=cmd|…` out of the admin's spreadsheet.
+   *
+   * The CSV holds every contact matching the filters on screen, not the page on
+   * screen, from ONE request answered from one database snapshot (C009). The
+   * filter set is captured before that request, so changing a tab mid-export
+   * cannot change what is exported. `collectLeadExportSnapshot` refuses
+   * anything partial or inconsistent; the download happens only after the
+   * whole answer has been checked.
    */
-  const handleExport = () => {
-    const headers = Object.keys(exportRows[0] ?? EMPTY_EXPORT_ROW);
+  const handleExport = async () => {
+    if (exporting) return;
+    const exportFilters: LeadListFilters = { ...filters };
 
-    ReportExporter.exportToCSV({
-      filename: `pasantias-leads-${leads[0]?.cohort ?? 'cohorte'}`,
-      title: 'Leads Pasantías INSPIRA',
-      headers,
-      data: exportRows,
-      metadata: { totalRecords: exportRows.length },
-    });
+    setExporting(true);
+    setExportError(null);
+    try {
+      const contacts = await collectLeadExportSnapshot(async () => {
+        const response = await fetch(
+          `/api/admin/pasantia-leads?${leadExportQueryString(exportFilters)}`
+        );
+        if (!response.ok) {
+          // An expired session, a held account, a refusal past the ceiling and
+          // a server failure all land here: no file.
+          const json = await response.json().catch(() => ({}));
+          if (response.status === 413 && json.code === LEAD_EXPORT_TOO_LARGE_CODE) {
+            throw new LeadExportError(LEAD_EXPORT_MESSAGES.tooLarge);
+          }
+          const reason = String(json.error || 'No se pudo leer la exportación de leads');
+          throw new LeadExportError(`${reason.replace(/\.$/, '')}. No se descargó ningún archivo.`);
+        }
+        // A body cut short (a dropped connection, a stream the server ended
+        // early) does not parse: that is an incomplete export, never a partial one.
+        const json = await response.json().catch(() => {
+          throw new LeadExportError(LEAD_EXPORT_MESSAGES.incomplete);
+        });
+        return json as LeadExportSnapshotPayload;
+      });
+
+      ReportExporter.exportToCSV({
+        filename: `pasantias-leads-${new Date().toISOString().slice(0, 10)}`,
+        title: 'Leads Pasantías INSPIRA',
+        headers: [...LEAD_CSV_HEADERS],
+        data: contacts.map(leadCsvRow),
+        metadata: { totalRecords: contacts.length },
+      });
+      toast.success(`CSV exportado: ${contacts.length} contactos`);
+    } catch (exportFailure) {
+      const message =
+        exportFailure instanceof LeadExportError
+          ? exportFailure.message
+          : 'No se pudo exportar el CSV. No se descargó ningún archivo; vuelve a intentarlo.';
+      setExportError(message);
+      toast.error(message);
+    } finally {
+      setExporting(false);
+    }
   };
 
   const tabs: { key: StatusTab; label: string; count: number }[] = [
@@ -203,6 +305,10 @@ export default function PasantiaLeadsAdminPage() {
       count: counts[status],
     })),
   ];
+
+  const pageCount = Math.max(1, pagination?.pageCount ?? 1);
+  const firstShown = pagination && pagination.total > 0 ? (page - 1) * PAGE_SIZE + 1 : 0;
+  const lastShown = pagination ? Math.min(page * PAGE_SIZE, pagination.total) : 0;
 
   return (
     <MainLayout currentPage="pasantia-leads" pageTitle="Pasantías">
@@ -220,17 +326,25 @@ export default function PasantiaLeadsAdminPage() {
               data-testid="pasantia-leads-refresh"
               className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
               title="Actualizar"
+              aria-label="Actualizar"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
             </button>
             <button
               type="button"
               onClick={handleExport}
+              disabled={exporting}
+              aria-busy={exporting}
               data-testid="pasantia-leads-export-csv"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 transition hover:bg-gray-50"
-              title="Exportar CSV"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+              title="Exportar CSV de todos los contactos filtrados"
+              aria-label="Exportar CSV de todos los contactos filtrados"
             >
-              <Download className="h-4 w-4" aria-hidden="true" />
+              {exporting ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <Download className="h-4 w-4" aria-hidden="true" />
+              )}
             </button>
           </div>
         </ResponsiveFunctionalPageHeader>
@@ -243,7 +357,10 @@ export default function PasantiaLeadsAdminPage() {
                 type="button"
                 role="tab"
                 aria-selected={statusTab === tab.key}
-                onClick={() => setStatusTab(tab.key)}
+                onClick={() => {
+                  setStatusTab(tab.key);
+                  setPage(1);
+                }}
                 data-testid={`pasantia-leads-tab-${tab.key}`}
                 className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition ${
                   statusTab === tab.key
@@ -263,25 +380,68 @@ export default function PasantiaLeadsAdminPage() {
             ))}
           </div>
 
-          <div className="relative max-w-md">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
-              aria-hidden="true"
-            />
-            <input
-              type="text"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar nombre, correo o institución"
-              aria-label="Buscar leads"
-              data-testid="pasantia-leads-search"
-              className="min-h-[40px] w-full rounded-md border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 outline-none transition focus:border-[#0a0a0a] focus:ring-2 focus:ring-[#fbbf24]/70"
-            />
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative w-full max-w-md">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                aria-hidden="true"
+              />
+              <input
+                type="text"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar nombre, correo o institución"
+                aria-label="Buscar leads"
+                data-testid="pasantia-leads-search"
+                className="min-h-[40px] w-full rounded-md border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 outline-none transition focus:border-[#0a0a0a] focus:ring-2 focus:ring-[#fbbf24]/70"
+              />
+            </div>
+            <select
+              value={programFilter}
+              onChange={(event) => {
+                setProgramFilter(event.target.value);
+                setPage(1);
+              }}
+              aria-label="Filtrar por programa"
+              data-testid="pasantia-leads-program-filter"
+              className="min-h-[40px] w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-[#0a0a0a] focus:ring-2 focus:ring-[#fbbf24]/70 sm:w-auto"
+            >
+              <option value="">Todos los programas</option>
+              {PROGRAM_IDS.map((programId) => (
+                <option key={programId} value={programId}>
+                  {programById(programId).name}
+                </option>
+              ))}
+              <option value={NO_PROGRAM_FILTER}>Sin programa (histórico o sin clasificar)</option>
+            </select>
           </div>
 
           {error && (
-            <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
+            <div
+              role="alert"
+              data-testid="pasantia-leads-error"
+              className="flex flex-wrap items-center justify-between gap-3 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            >
+              <span>{error}</span>
+              <button
+                type="button"
+                onClick={fetchLeads}
+                disabled={loading}
+                data-testid="pasantia-leads-retry"
+                className={PAGER_BUTTON_CLASSES}
+              >
+                Reintentar
+              </button>
+            </div>
+          )}
+
+          {exportError && (
+            <div
+              role="alert"
+              data-testid="pasantia-leads-export-error"
+              className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            >
+              {exportError}
             </div>
           )}
 
@@ -292,14 +452,14 @@ export default function PasantiaLeadsAdminPage() {
                 Cargando leads
               </div>
             </div>
-          ) : leads.length === 0 ? (
+          ) : error ? null : leads.length === 0 ? (
             <div className="flex min-h-[240px] flex-col items-center justify-center gap-2 border border-dashed border-gray-300 bg-white px-4 text-center">
               <Briefcase className="h-6 w-6 text-gray-400" aria-hidden="true" />
               <p className="text-sm text-gray-600">No hay leads que coincidan con los filtros.</p>
             </div>
           ) : (
             <>
-              {/* Desktop: one row per lead, expandable in place. */}
+              {/* Desktop: one row per contact, expandable in place. */}
               <div className="hidden overflow-x-auto border border-gray-200 bg-white shadow-sm md:block">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50">
@@ -310,6 +470,7 @@ export default function PasantiaLeadsAdminPage() {
                         'Correo',
                         'WhatsApp',
                         'Institución',
+                        'Programas',
                         'Cargo',
                         'Personas',
                         'Estado',
@@ -339,6 +500,12 @@ export default function PasantiaLeadsAdminPage() {
                           <td className="px-3 py-2 text-gray-700">{lead.email}</td>
                           <td className="px-3 py-2 text-gray-700">{lead.phone || '—'}</td>
                           <td className="px-3 py-2 text-gray-700">{lead.institution}</td>
+                          <td className="px-3 py-2">
+                            <LeadProgramLabels
+                              lead={lead}
+                              testId={`pasantia-lead-programs-${lead.id}`}
+                            />
+                          </td>
                           <td className="px-3 py-2 text-gray-700">{lead.role_title || '—'}</td>
                           <td className="px-3 py-2 text-gray-700">{lead.num_people ?? '—'}</td>
                           <td className="px-3 py-2">
@@ -368,7 +535,7 @@ export default function PasantiaLeadsAdminPage() {
                         </tr>
                         {expandedId === lead.id && (
                           <tr>
-                            <td colSpan={10} className="p-0">
+                            <td colSpan={11} className="p-0">
                               {/*
                                 Both layouts stay mounted (Tailwind only hides
                                 one with CSS), so each mount namespaces its ids
@@ -406,6 +573,10 @@ export default function PasantiaLeadsAdminPage() {
                         <LeadStatusBadge status={lead.status} />
                       </div>
                       <div className="text-sm text-gray-700">{lead.institution}</div>
+                      <LeadProgramLabels
+                        lead={lead}
+                        testId={`pasantia-lead-programs-mobile-${lead.id}`}
+                      />
                       <div className="text-xs text-gray-500">
                         {formatDateTime(lead.created_at)}
                         {lead.phone ? ` · ${lead.phone}` : ''}
@@ -441,28 +612,60 @@ export default function PasantiaLeadsAdminPage() {
               </div>
             </>
           )}
+
+          {pagination && pagination.total > 0 && !error && (
+            <nav
+              aria-label="Paginación de leads"
+              data-testid="pasantia-leads-pagination"
+              className="flex flex-wrap items-center justify-between gap-3"
+            >
+              <p className="text-sm text-gray-600" data-testid="pasantia-leads-range" aria-live="polite">
+                {`Mostrando ${firstShown}–${lastShown} de ${pagination.total} ${
+                  pagination.total === 1 ? 'contacto' : 'contactos'
+                } · Página ${page} de ${pageCount}`}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage(1)}
+                  disabled={loading || page <= 1}
+                  data-testid="pasantia-leads-page-first"
+                  className={PAGER_BUTTON_CLASSES}
+                >
+                  Primera
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  disabled={loading || page <= 1}
+                  data-testid="pasantia-leads-page-prev"
+                  className={PAGER_BUTTON_CLASSES}
+                >
+                  Anterior
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+                  disabled={loading || page >= pageCount}
+                  data-testid="pasantia-leads-page-next"
+                  className={PAGER_BUTTON_CLASSES}
+                >
+                  Siguiente
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPage(pageCount)}
+                  disabled={loading || page >= pageCount}
+                  data-testid="pasantia-leads-page-last"
+                  className={PAGER_BUTTON_CLASSES}
+                >
+                  Última
+                </button>
+              </div>
+            </nav>
+          )}
         </div>
       </div>
     </MainLayout>
   );
 }
-
-/** Column set for an empty export, so the CSV still carries its headers. */
-const EMPTY_EXPORT_ROW = {
-  Fecha: '',
-  Nombre: '',
-  Email: '',
-  WhatsApp: '',
-  Institución: '',
-  Cargo: '',
-  Participantes: '',
-  Estado: '',
-  'Programa enviado': '',
-  Mensaje: '',
-  'UTM source': '',
-  'UTM medium': '',
-  'UTM campaign': '',
-  'Ruta de origen': '',
-  'Versión aviso consentimiento': '',
-  Notas: '',
-};

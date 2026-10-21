@@ -48,7 +48,7 @@ export function formatDayShort(isoDate: string): string {
   return `${WEEKDAY_NAMES_ES[date.getUTCDay()]} ${date.getUTCDate()}`;
 }
 
-/** e.g. `lunes 5 de octubre` — the form used when the day stands alone. */
+/** e.g. `lunes 18 de enero` — the form used when the day stands alone. */
 export function formatDayLong(isoDate: string): string {
   const date = toUtcDate(isoDate);
   return `${formatDayShort(isoDate)} de ${MONTH_NAMES_ES[date.getUTCMonth()]}`;
@@ -73,4 +73,23 @@ export function formatEuro(amount: number): string {
 /** e.g. `€70 – €120`. */
 export function formatEuroRange(min: number, max: number): string {
   return `${formatEuro(min)} – ${formatEuro(max)}`;
+}
+
+/**
+ * Chilean pesos, es-CL: `$4.700.000`. Hand-grouped for the same reason as
+ * {@link formatEuro} — a runtime without full ICU would print `4,700,000`.
+ */
+export function formatClp(amount: number): string {
+  const whole = Math.trunc(Math.abs(amount)).toString();
+  let grouped = '';
+  for (let i = 0; i < whole.length; i += 1) {
+    if (i > 0 && (whole.length - i) % 3 === 0) grouped += '.';
+    grouped += whole[i];
+  }
+  return `${amount < 0 ? '-' : ''}$${grouped}`;
+}
+
+/** e.g. `$4.700.000 – $5.000.000`. */
+export function formatClpRange(min: number, max: number): string {
+  return `${formatClp(min)} – ${formatClp(max)}`;
 }

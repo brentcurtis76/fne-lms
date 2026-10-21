@@ -40,6 +40,10 @@ const DECLARED_FIXTURE_KEYS = [
   'communityManager',
   'procurementManager',
   'inactiveConsultor',
+  // PASANT-B004: a global admin seeded with must_change_password = true. See
+  // FORCED_PASSWORD_FIXTURE_KEY — it is the one persona whose login does NOT land on
+  // /dashboard.
+  'adminForcedPassword',
 ] as const;
 
 export type FixtureKey = (typeof DECLARED_FIXTURE_KEYS)[number];
@@ -73,6 +77,12 @@ export interface E2eFixtureUser {
     generation?: string;
     network?: string;
   }[];
+  /**
+   * PASANT-B004 — seeded as profiles.must_change_password = true. Carried by
+   * FORCED_PASSWORD_FIXTURE_KEY and by nothing else (asserted at module load below);
+   * absent means false, which is every other persona.
+   */
+  mustChangePassword?: boolean;
 }
 
 /**
@@ -127,6 +137,44 @@ function assertFixtureRosterComplete(): void {
 assertFixtureRosterComplete();
 
 export const E2E_USERS: Record<FixtureKey, E2eFixtureUser> = fixtures.users;
+
+/**
+ * PASANT-B004 — the forced-password admin, by name. The login helper treats THIS persona
+ * and no other as one whose login lands on /change-password: the exception is keyed on
+ * an exact fixture, never on a relaxed URL pattern, so every other persona is still held
+ * to /dashboard.
+ */
+export const FORCED_PASSWORD_FIXTURE_KEY: FixtureKey = 'adminForcedPassword';
+
+/**
+ * The flag and the name must agree, in both directions, before any spec runs: a second
+ * flagged persona would land on /change-password while the helper demanded /dashboard,
+ * and a flag that fell off this persona would turn every denial proof written against
+ * it into an admin success. scripts/ci/seed-e2e.mjs refuses the same drift before seeding.
+ */
+function assertForcedPasswordRoster(): void {
+  const outOfLine = Object.entries(E2E_USERS)
+    .filter(([key, user]) =>
+      key === FORCED_PASSWORD_FIXTURE_KEY
+        ? user.mustChangePassword !== true || user.role !== 'admin'
+        : user.mustChangePassword !== undefined
+    )
+    .map(([key]) => key);
+  if (outOfLine.length === 0) return;
+  throw new Error(
+    `[e2e-fixtures] mustChangePassword must be true on ${FORCED_PASSWORD_FIXTURE_KEY} (an admin) ` +
+      `and absent everywhere else; out of line: ${outOfLine.join(', ')}`
+  );
+}
+
+assertForcedPasswordRoster();
+
+/** Whether this login must land on /change-password: the forced-password persona only. */
+export function expectsForcedPasswordChange(user: Pick<E2eFixtureUser, 'email'>): boolean {
+  const forced = E2E_USERS[FORCED_PASSWORD_FIXTURE_KEY];
+  return user.email.trim().toLowerCase() === forced.email.trim().toLowerCase();
+}
+
 export const E2E_SCHOOL: { id: number; name: string } = fixtures.school;
 export const E2E_SCHOOL_SECONDARY: { id: number; name: string } = fixtures.schoolSecondary;
 export const E2E_GENERATION: { id: string; name: string } = fixtures.generation;
@@ -239,6 +287,21 @@ export async function loginViaUi(page: Page, user: E2eFixtureUser): Promise<void
   await page.getByPlaceholder('tu@email.com').fill(user.email);
   await page.locator('input[type="password"]').fill(user.password);
   await page.getByRole('button', { name: /iniciar sesión/i }).click();
+
+  // PASANT-B004 — the one exception, by exact persona: the forced-password admin must
+  // land on the change-password FORM. No query string is accepted, so the
+  // "state could not be verified" variant (`?estado=no-verificado`) fails here too.
+  // The heading renders only after /api/auth/password-change-state answered
+  // "required"; an unflagged account would be pushed on to /dashboard instead, so the
+  // URL alone could match for an instant and prove nothing.
+  if (expectsForcedPasswordChange(user)) {
+    await expect(page).toHaveURL(/\/change-password$/, { timeout: 30_000 });
+    await expect(
+      page.getByRole('heading', { name: 'Cambio de Contraseña Requerido' })
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(/\/change-password$/);
+    return;
+  }
 
   // The login page resolves must_change_password + profile completeness before
   // it routes; a seeded fixture has both settled, so it must land on /dashboard.

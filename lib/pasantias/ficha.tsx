@@ -1,14 +1,17 @@
 /**
  * Pasantías INSPIRA Barcelona — open ficha (D-05).
  *
- * The freely shareable one-to-two page summary. It carries NO monetary
- * information of any kind and — by construction, not by discipline — cannot:
- * this module imports `cohort-public.ts` and never `cohort-commercial.ts`, so
- * there is no price in its reach to render. The brochure is the only document
- * that quotes the investment (D-02).
+ * The freely shareable summary of the January 2027 cohort: ONE document for
+ * both programs (contract §7, DEC-04). It carries NO monetary information of
+ * any kind and — by construction, not by discipline — cannot: this module
+ * imports `cohort-public.ts` and never `cohort-commercial.ts`, so there is no
+ * price in its reach to render. The brochure is the only document that quotes
+ * the investment (D-02).
  *
  * Every fact is transcribed by reference from the public cohort module; the only
- * strings authored here are layout labels and the call to action.
+ * strings authored here are layout labels and the call to action. No page cap:
+ * the document is as long as the ratified content needs, and react-pdf wraps a
+ * page that overflows onto the next one rather than dropping content.
  */
 import React from 'react';
 import { Document, Page, StyleSheet, View, renderToBuffer } from '@react-pdf/renderer';
@@ -18,18 +21,21 @@ import { Caption, Heading } from '../propuestas/components/Typography';
 import '../propuestas/fonts';
 import { LEGAL_IDENTITY } from '../legal/privacy-notice';
 import {
+  COHORT_ACCREDITATION,
+  COHORT_CITY,
   COHORT_CLAIMS,
   COHORT_DAY_STRUCTURE,
-  COHORT_EXPERTS,
-  COHORT_FREE_DAYS,
+  COHORT_EXCLUDES,
+  COHORT_FREE_WEEKEND,
   COHORT_HEADLINE,
-  COHORT_IMMERSION_SCHOOLS,
+  COHORT_HOSTS,
+  COHORT_INCLUDES,
   COHORT_LABEL,
-  COHORT_LODGING_AREA,
-  COHORT_SCHOOLS,
-  COHORT_VISIT_DAY_COUNT,
-  COHORT_VISIT_SCHOOLS,
-  COHORT_WEEKS,
+  COHORT_PLACES,
+  COHORT_PROGRAMS,
+  COHORT_ROUTING,
+  COHORT_TOGETHER,
+  type CohortProgram,
 } from './cohort-public';
 import { Bullets, ContactBlock, Masthead, Row } from './pdf/components';
 import { FICHA_VERSION } from './pdf/filenames';
@@ -77,14 +83,29 @@ function formatDays(days: number): string {
   return String(days).replace('.', ',');
 }
 
-/**
- * The ficha has room for four names: the programme's direction and the two
- * week-1 immersion hosts, which is the order Appendix A-6 lists them in. The
- * full team is named in the caption underneath.
- */
-const featuredExperts = COHORT_EXPERTS.slice(0, 4);
+/** `lunes 18 de enero a jueves 28 de enero`. */
+function dateRange(startDate: string, endDate: string): string {
+  return `${formatDayLong(startDate)} a ${formatDayLong(endDate)}`;
+}
+
+/** One program's identity block, shared shape for both columns. */
+function ProgramSummary({ program }: { program: CohortProgram }) {
+  return (
+    <View style={styles.column}>
+      <Heading level={3}>{program.name}</Heading>
+      <Row term="Para" value={program.audience} />
+      <Row term="Fechas" value={dateRange(program.startDate, program.endDate)} />
+      <Row term="Días en escuelas" value={String(program.schoolDays)} />
+      <Row term="Escuelas" value={String(program.schoolCount)} />
+      <LightBody>{program.overview}</LightBody>
+      <Caption>{`Te llevas: ${program.takeaway}`}</Caption>
+    </View>
+  );
+}
 
 export function FichaDocument({ webUrl }: { webUrl: string }) {
+  const [inspira, mirada] = COHORT_PROGRAMS;
+
   return (
     <Document
       title={`Pasantías INSPIRA Barcelona — ficha ${COHORT_LABEL}`}
@@ -93,88 +114,117 @@ export function FichaDocument({ webUrl }: { webUrl: string }) {
     >
       <Page size="A4" style={styles.page}>
         <Masthead
-          eyebrow={`INSPIRA · ${COHORT_LODGING_AREA} · ${COHORT_LABEL}`}
+          eyebrow={`INSPIRA · ${COHORT_CITY} · ${COHORT_LABEL}`}
           title="Pasantías INSPIRA Barcelona"
-          // Appendix A-1 (amended 2026-08-02): the single span with its year,
-          // straight from the module — the detailed two-week breakdown lives in
-          // the Fechas table below, where itinerary detail belongs.
-          subtitle={`${COHORT_HEADLINE} · ${COHORT_VISIT_DAY_COUNT} días de visitas · ${COHORT_SCHOOLS.length} escuelas`}
+          subtitle={`${COHORT_LABEL} · ${COHORT_HEADLINE}`}
         />
 
         <LightBody>
-          {`Dos semanas en ${COHORT_LODGING_AREA} conociendo en terreno las escuelas de vanguardia de la red de Nueva Educación, con talleres de la tarde junto a los equipos que las dirigen.`}
+          {`${COHORT_TOGETHER}. ${COHORT_ROUTING.map((route) => `${route.question} ${route.program}.`).join(' ')}`}
         </LightBody>
 
-        <View style={styles.block}>
-          <Heading level={3}>Fechas</Heading>
-          <Row term={COHORT_WEEKS[0].label} value={`${formatDayLong(COHORT_WEEKS[0].startDate)} a ${formatDayLong(COHORT_WEEKS[0].endDate)}`} />
-          <Row
-            term="Fin de semana largo"
-            value={`${formatDayLong(COHORT_FREE_DAYS[0].date)} a ${formatDayLong(
-              COHORT_FREE_DAYS[COHORT_FREE_DAYS.length - 1].date
-            )}`}
-          />
-          <Row term={COHORT_WEEKS[1].label} value={`${formatDayLong(COHORT_WEEKS[1].startDate)} a ${formatDayLong(COHORT_WEEKS[1].endDate)}`} />
-          <Caption>{COHORT_FREE_DAYS[COHORT_FREE_DAYS.length - 1].label}</Caption>
+        <View style={styles.columns}>
+          <ProgramSummary program={inspira} />
+          <ProgramSummary program={mirada} />
         </View>
 
-        <View style={styles.columns}>
-          <View style={styles.column}>
-            <Heading level={3}>{`Semana 1 — inmersión (${COHORT_IMMERSION_SCHOOLS.length} escuelas)`}</Heading>
-            <Bullets
-              items={COHORT_IMMERSION_SCHOOLS.map(
-                (school) =>
-                  `${school.name} — ${formatDays(school.immersionDays ?? 0)} días por pasante`
-              )}
+        <View style={styles.block}>
+          <Heading level={3}>Calendario</Heading>
+          {inspira.weeks.map((week) => (
+            <Row
+              key={`inspira-${week.id}`}
+              term={`${inspira.name} · ${week.label}`}
+              value={`${dateRange(week.startDate, week.endDate)} · ${week.summary}`}
             />
-          </View>
-          <View style={styles.column}>
-            <Heading level={3}>{`Semana 2 — visitas (${COHORT_VISIT_SCHOOLS.length} escuelas)`}</Heading>
-            <Bullets
-              items={COHORT_VISIT_SCHOOLS.map((school) =>
-                school.fullDay ? `${school.name} — día completo` : school.name
-              )}
+          ))}
+          {mirada.weeks.map((week) => (
+            <Row
+              key={`mirada-${week.id}`}
+              term={`${mirada.name} · ${week.label}`}
+              value={`${dateRange(week.startDate, week.endDate)} · ${week.summary}`}
             />
-          </View>
+          ))}
+          <Row term="Fin de semana libre, ambos programas" value={COHORT_FREE_WEEKEND.label} />
         </View>
       </Page>
 
       <Page size="A4" style={styles.page}>
-        <View>
-          <Heading level={3}>Día tipo</Heading>
-          <Bullets
-            items={COHORT_DAY_STRUCTURE.map(
-              (block) => `${block.label} — ${block.description}`
-            )}
-          />
+        <View style={styles.columns}>
+          <View style={styles.column}>
+            <Heading level={3}>{`${inspira.name} — escuelas`}</Heading>
+            <Bullets
+              items={inspira.immersionSchools.map(
+                (school) => `${school.name} — ${formatDays(school.days)} días por pasante`
+              )}
+            />
+            <LightBody>
+              {`Cada cohorte visita ${inspira.visits.count} de estas ${inspira.visits.candidates.length} escuelas:`}
+            </LightBody>
+            <Bullets items={inspira.visits.candidates} />
+            <Caption>{inspira.visits.selection}</Caption>
+            <Caption>
+              {`${joinEs(inspira.visits.fullDayOutside)} están fuera de ${COHORT_CITY} y toman el día completo.`}
+            </Caption>
+          </View>
+          <View style={styles.column}>
+            <Heading level={3}>{`${mirada.name} — escuelas`}</Heading>
+            <Bullets
+              items={mirada.schools.map(
+                (school) => `${school} — ${formatDays(mirada.daysPerSchool)} días completos`
+              )}
+            />
+            <Caption>{mirada.orderCaveat}</Caption>
+            <View style={styles.block}>
+              <Heading level={3}>Antes, durante y después</Heading>
+              <Bullets
+                items={[
+                  mirada.preparation,
+                  `${formatDayLong(mirada.closing.date)}: ${mirada.closing.text}`,
+                  mirada.followUp,
+                ]}
+              />
+            </View>
+          </View>
         </View>
 
         <View style={styles.block}>
-          <Heading level={3}>Equipo destacado</Heading>
-          {featuredExperts.map((expert) => (
+          <Heading level={3}>Cómo es un día en las escuelas</Heading>
+          <Bullets items={COHORT_DAY_STRUCTURE} />
+        </View>
+
+        <View style={styles.block}>
+          <Heading level={3}>Quién te recibe</Heading>
+          {COHORT_HOSTS.map((host) => (
             <Row
-              key={expert.name}
-              term={expert.name}
-              value={expert.school ? `${expert.role} · ${expert.school}` : expert.role}
+              key={host.name}
+              term={host.name}
+              value={`${host.role}, ${host.school} · ${host.note}`}
             />
           ))}
-          <Caption>
-            {`El equipo completo son ${COHORT_EXPERTS.length} profesionales: ${joinEs(
-              COHORT_EXPERTS.map((expert) => expert.name)
-            )}.`}
-          </Caption>
+        </View>
+
+        <View style={styles.columns}>
+          <View style={styles.column}>
+            <Heading level={3}>El programa incluye</Heading>
+            <Bullets items={COHORT_INCLUDES} />
+            <Bullets items={[inspira.lunches, mirada.lunches]} />
+            <Bullets items={mirada.extraIncludes.map((item) => `${mirada.name}: ${item}`)} />
+          </View>
+          <View style={styles.column}>
+            <Heading level={3}>No incluye</Heading>
+            <Bullets items={COHORT_EXCLUDES} />
+          </View>
         </View>
 
         <View style={styles.block}>
           <Heading level={3}>La red en cifras</Heading>
           <Bullets items={COHORT_CLAIMS} />
+          <Caption>{COHORT_ACCREDITATION}</Caption>
         </View>
 
         <View style={styles.block}>
-          <Heading level={3}>Postula o resuelve tus dudas</Heading>
-          <LightBody>
-            {`Escríbenos por WhatsApp o revisa el programa completo en la web. Cupos para la cohorte ${COHORT_LABEL}.`}
-          </LightBody>
+          <Heading level={3}>Registra tu interés o resuelve tus dudas</Heading>
+          <LightBody>{`${COHORT_PLACES} Escríbenos por WhatsApp o revisa los dos programas en la web.`}</LightBody>
           <ContactBlock
             identity={LEGAL_IDENTITY}
             webUrl={webUrl}

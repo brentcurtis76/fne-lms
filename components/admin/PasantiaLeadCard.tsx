@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Loader2, Save } from 'lucide-react';
 import {
+  JANUARY_COHORT_ID,
   LEAD_STATUSES,
   canTransitionLead,
   type LeadStatus,
 } from '../../lib/pasantias/leads';
+import { isProgramId, programById } from '../../lib/pasantias/cohort-public';
 import { formatDateTime } from '../../lib/signups';
 
 /**
@@ -25,7 +27,20 @@ import { formatDateTime } from '../../lib/signups';
  *    public form posts `pathname + search`, so a visit to
  *    `/pasantias?utm_source=x` stores the same attribution twice. When that has
  *    happened the card says so rather than letting it read as corroboration.
+ *
+ * PASANT-B004 adds the contact's program interests and the pure pieces of the
+ * page's CSV export (`collectLeadExportSnapshot`, `leadCsvRow`) here, for the
+ * same reason: the export's completeness rules are the riskiest logic on the
+ * page, and they are only cheap to test away from the page's dependencies.
  */
+
+/** One program a contact asked about, with that interest's own consent evidence. */
+export interface PasantiaLeadInterest {
+  program: string;
+  consent_accepted_at: string | null;
+  consent_notice_version: string | null;
+  created_at: string | null;
+}
 
 /** The row shape `GET /api/admin/pasantia-leads` returns. */
 export interface PasantiaLead {
@@ -52,6 +67,8 @@ export interface PasantiaLead {
   brochure_sent_at: string | null;
   created_at: string;
   updated_at: string | null;
+  /** Contract order. Absent on a PATCH response, which never reads interests. */
+  program_interests?: PasantiaLeadInterest[];
 }
 
 /** es-CL labels for the four statuses. The graph itself stays in `lib/pasantias/leads`. */
@@ -135,6 +152,293 @@ export function sourcePathRepeatsUtm(lead: PasantiaLead): boolean {
   ] as const).some(([key, value]) => Boolean(value) && params.get(key) === value);
 }
 
+/** The `program` filter value for contacts with no interest row. Mirrors the API. */
+export const NO_PROGRAM_FILTER = 'sin-programa';
+
+export type LeadProgramLabelKind = 'program' | 'historical' | 'unclassified' | 'unknown';
+
+export interface LeadProgramLabel {
+  /** Stable, DOM-safe key; never the raw stored value. */
+  key: string;
+  label: string;
+  kind: LeadProgramLabelKind;
+}
+
+/**
+ * What every surface (table, mobile list, card, CSV) says about a contact's
+ * programs. Names come from `cohort-public`, the one source of program names.
+ *
+ * A contact with no interest row says so in words and never borrows a program:
+ * before January the form had no program question, so an October contact's
+ * interest is unknown, not INSPIRA. A January contact without an interest row
+ * should not exist, and is labelled unclassified rather than guessed at.
+ */
+export function leadProgramLabels(lead: PasantiaLead): LeadProgramLabel[] {
+  const interests = lead.program_interests ?? [];
+
+  if (interests.length > 0) {
+    return interests.map((interest, index): LeadProgramLabel =>
+      isProgramId(interest.program)
+        ? { key: interest.program, label: programById(interest.program).name, kind: 'program' }
+        : {
+            key: `unknown-${index}`,
+            label: `Programa no reconocido: ${interest.program}`,
+            kind: 'unknown',
+          }
+    );
+  }
+
+  if (lead.cohort !== JANUARY_COHORT_ID) {
+    return [
+      {
+        key: 'historical',
+        label: `Histórico (cohorte ${lead.cohort}) · sin programa registrado`,
+        kind: 'historical',
+      },
+    ];
+  }
+
+  return [{ key: 'unclassified', label: 'Sin clasificar · sin programa registrado', kind: 'unclassified' }];
+}
+
+const PROGRAM_LABEL_CLASSES: Record<LeadProgramLabelKind, string> = {
+  program: 'border-indigo-200 bg-indigo-50 text-indigo-800',
+  historical: 'border-gray-200 bg-gray-50 text-gray-600',
+  unclassified: 'border-amber-200 bg-amber-50 text-amber-800',
+  unknown: 'border-red-200 bg-red-50 text-red-700',
+};
+
+/** The labels as chips, for the table and the mobile list. */
+export function LeadProgramLabels({ lead, testId }: { lead: PasantiaLead; testId?: string }) {
+  return (
+    <div className="flex flex-wrap gap-1" data-testid={testId}>
+      {leadProgramLabels(lead).map((entry) => (
+        <span
+          key={entry.key}
+          className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${PROGRAM_LABEL_CLASSES[entry.kind]}`}
+        >
+          {entry.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** The filters the screen shows, captured as one value so an export can hold them still. */
+export interface LeadListFilters {
+  status: LeadStatus | null;
+  search: string;
+  program: string | null;
+}
+
+function filterParams(filters: LeadListFilters): URLSearchParams {
+  const params = new URLSearchParams();
+  if (filters.status) params.set('status', filters.status);
+  if (filters.search) params.set('search', filters.search);
+  if (filters.program) params.set('program', filters.program);
+  return params;
+}
+
+/** The screen's GET query for one page of one filter set. */
+export function leadsQueryString(filters: LeadListFilters, page: number, pageSize: number): string {
+  const params = filterParams(filters);
+  params.set('page', String(page));
+  params.set('pageSize', String(pageSize));
+  return params.toString();
+}
+
+/** The export's GET query: the same filters, `export=1`, and never a page. */
+export function leadExportQueryString(filters: LeadListFilters): string {
+  const params = filterParams(filters);
+  params.set('export', '1');
+  return params.toString();
+}
+
+/**
+ * CSV columns, in order. Each name is BOTH the printed header and the key
+ * `ReportExporter.exportToCSV` reads from the row, so `leadCsvRow` is typed
+ * against this list and a header without a value cannot compile.
+ */
+export const LEAD_CSV_HEADERS = [
+  'Fecha',
+  'Nombre',
+  'Email',
+  'WhatsApp',
+  'Institución',
+  'Cargo',
+  'Participantes',
+  'Cohorte',
+  'Programas',
+  'Estado',
+  'Programa enviado',
+  'Mensaje',
+  'UTM source',
+  'UTM medium',
+  'UTM campaign',
+  'Ruta de origen',
+  'Versión aviso consentimiento',
+  'Notas',
+] as const;
+
+export type LeadCsvRow = Record<(typeof LEAD_CSV_HEADERS)[number], string>;
+
+/**
+ * Text bound for a CSV cell. A bare CR is a row break to most spreadsheet
+ * readers, but `csvEscape` quotes only on `,` `"` `\n` — so a lone CR would end
+ * the row mid-cell. Normalizing line endings to `\n` here lets the shared
+ * exporter's own quoting (and its formula neutralization) do the rest.
+ */
+function csvText(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return '';
+  return String(value).replace(/\r\n?/g, '\n');
+}
+
+export function leadCsvRow(lead: PasantiaLead): LeadCsvRow {
+  return {
+    Fecha: formatDateTime(lead.created_at),
+    Nombre: csvText(leadFullName(lead)),
+    Email: csvText(lead.email),
+    WhatsApp: csvText(lead.phone),
+    Institución: csvText(lead.institution),
+    Cargo: csvText(lead.role_title),
+    Participantes: csvText(lead.num_people),
+    Cohorte: csvText(lead.cohort),
+    Programas: csvText(
+      leadProgramLabels(lead)
+        .map((entry) => entry.label)
+        .join('; ')
+    ),
+    Estado: isKnownLeadStatus(lead.status) ? LEAD_STATUS_LABELS[lead.status] : csvText(lead.status),
+    // "Programa enviado", never the ficha: `brochure_sent_at` is stamped by the
+    // auto-reply that mails the PRICED programme; the ficha is the price-free
+    // public download and is never emailed (D-02).
+    'Programa enviado': formatDateTime(lead.brochure_sent_at),
+    Mensaje: csvText(lead.message),
+    'UTM source': csvText(lead.utm_source),
+    'UTM medium': csvText(lead.utm_medium),
+    'UTM campaign': csvText(lead.utm_campaign),
+    'Ruta de origen': csvText(lead.source_path),
+    'Versión aviso consentimiento': csvText(lead.consent_notice_version),
+    Notas: csvText(lead.notes),
+  };
+}
+
+/** The export as `GET /api/admin/pasantia-leads?export=1` answers it. */
+export interface LeadExportSnapshotPayload {
+  snapshot: true;
+  total: number;
+  leads: PasantiaLead[];
+}
+
+/**
+ * 100 000 contacts (the paged export's 500 × 200), the API's
+ * `LEADS_EXPORT_MAX_CONTACTS`. Past this the export refuses.
+ */
+export const LEAD_EXPORT_MAX_CONTACTS = 100_000;
+
+/** The API's 413 code past that ceiling. Mirrors `LEADS_EXPORT_TOO_LARGE_CODE`. */
+export const LEAD_EXPORT_TOO_LARGE_CODE = 'LEADS_EXPORT_TOO_LARGE';
+
+const LEAD_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const SNAPSHOT_PAYLOAD_KEYS = ['snapshot', 'total', 'leads'];
+
+export const LEAD_EXPORT_MESSAGES = {
+  incomplete:
+    'La exportación quedó incompleta o inconsistente. No se descargó ningún archivo; vuelve a intentarlo.',
+  tooLarge: 'Hay demasiados leads para exportar de una vez. Aplica un filtro y vuelve a intentarlo.',
+} as const;
+
+/** A refusal to hand over a partial or inconsistent CSV. Its message is the es-CL reason. */
+export class LeadExportError extends Error {}
+
+/**
+ * Microseconds since the epoch for a PostgREST `timestamptz`. `Date.parse`
+ * keeps only milliseconds, and contacts inserted together differ below that,
+ * so the fraction is read separately. `null` for anything unrecognized.
+ */
+export function timestampMicros(value: string | null | undefined): number | null {
+  if (typeof value !== 'string') return null;
+  const match = /^(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}(?::?\d{2})?)$/.exec(
+    value
+  );
+  if (!match) return null;
+  const offset =
+    match[3] === 'Z'
+      ? 'Z'
+      : match[3].length === 3
+        ? `${match[3]}:00`
+        : `${match[3].slice(0, 3)}:${match[3].slice(-2)}`;
+  const millis = Date.parse(`${match[1].replace(' ', 'T')}${offset}`);
+  if (Number.isNaN(millis)) return null;
+  const fraction = Number((match[2] ?? '').padEnd(6, '0').slice(0, 6));
+  return millis * 1000 + fraction;
+}
+
+/** Whether `a` comes strictly before `b` in the API's order: newest first, then id descending. */
+function precedesInListOrder(a: PasantiaLead, b: PasantiaLead): boolean {
+  const aTime = timestampMicros(a.created_at);
+  const bTime = timestampMicros(b.created_at);
+  if (aTime === null || bTime === null) return false;
+  if (aTime !== bTime) return aTime > bTime;
+  return a.id > b.id;
+}
+
+/**
+ * Every contact matching ONE filter set, from ONE database snapshot, or a
+ * `LeadExportError` — never a partial list.
+ *
+ * `fetchSnapshot` is called exactly once. It must close over a filter set
+ * captured before the call, and throw on any non-OK response (an expired
+ * session, a held account, a refusal). The route reads the total and every
+ * matching contact in one statement (C009), so nothing here waits for a second
+ * answer to compare against. What it checks is that the body it got is the
+ * whole snapshot: the snapshot marker, exactly the three keys, a usable total
+ * within the ceiling, exactly `total` rows, unique contact ids, every interest
+ * list present and the strict newest-first order. A body cut short in transit
+ * never reaches here: it does not parse.
+ */
+export async function collectLeadExportSnapshot(
+  fetchSnapshot: () => Promise<LeadExportSnapshotPayload>
+): Promise<PasantiaLead[]> {
+  const payload: unknown = await fetchSnapshot();
+  const incomplete = () => new LeadExportError(LEAD_EXPORT_MESSAGES.incomplete);
+
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) throw incomplete();
+  const keys = Object.keys(payload);
+  if (
+    keys.length !== SNAPSHOT_PAYLOAD_KEYS.length ||
+    !SNAPSHOT_PAYLOAD_KEYS.every((key) => keys.includes(key))
+  ) {
+    throw incomplete();
+  }
+
+  const { snapshot, total, leads } = payload as Record<string, unknown>;
+  if (snapshot !== true) throw incomplete();
+  if (typeof total !== 'number' || !Number.isSafeInteger(total) || total < 0) throw incomplete();
+  if (total > LEAD_EXPORT_MAX_CONTACTS) {
+    throw new LeadExportError(LEAD_EXPORT_MESSAGES.tooLarge);
+  }
+  if (!Array.isArray(leads) || leads.length !== total) throw incomplete();
+
+  const seen = new Set<string>();
+  leads.forEach((lead: PasantiaLead | null, index) => {
+    if (
+      !lead ||
+      typeof lead.id !== 'string' ||
+      !LEAD_ID_PATTERN.test(lead.id) ||
+      seen.has(lead.id) ||
+      !Array.isArray(lead.program_interests)
+    ) {
+      throw incomplete();
+    }
+    if (index > 0 && !precedesInListOrder(leads[index - 1], lead)) throw incomplete();
+    seen.add(lead.id);
+  });
+
+  return leads as PasantiaLead[];
+}
+
 function Field({
   label,
   value,
@@ -185,6 +489,8 @@ export function PasantiaLeadCard({
   const dom = (name: string) => `${domPrefix}${name}-${lead.id}`;
   const transitions = allowedLeadTransitions(lead.status);
   const repeatsUtm = sourcePathRepeatsUtm(lead);
+  const interests = lead.program_interests ?? [];
+  const programLabels = leadProgramLabels(lead);
 
   return (
     <div className="space-y-4 border-t border-gray-100 bg-gray-50 p-4 text-sm">
@@ -223,6 +529,40 @@ export function PasantiaLeadCard({
           value={formatDateTime(lead.brochure_sent_at)}
           testId={dom('lead-brochure-sent')}
         />
+      </div>
+
+      <div className="border-t border-gray-200 pt-4">
+        <div className="text-xs font-semibold uppercase tracking-wide text-gray-600">
+          Programas de interés
+        </div>
+        {/*
+          Each interest carries its own consent: a person who asked about both
+          programs accepted the notice twice, possibly in different versions.
+        */}
+        <ul className="mt-3 space-y-1 text-gray-800" data-testid={dom('lead-programs')}>
+          {programLabels.map((entry, index) => {
+            const interest = interests.length > 0 ? interests[index] : null;
+            return (
+              <li key={entry.key} data-testid={dom(`lead-program-${entry.key}`)}>
+                <span className="font-medium">{entry.label}</span>
+                {interest && (
+                  <span className="text-gray-600">
+                    {' · consentimiento '}
+                    {interest.consent_accepted_at
+                      ? formatDateTime(interest.consent_accepted_at)
+                      : '—'}
+                    {` · versión ${interest.consent_notice_version ?? '—'}`}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        {interests.length === 0 && (
+          <p className="mt-1 text-xs text-gray-500">
+            Este contacto no tiene un interés por programa registrado; no se le asigna ninguno.
+          </p>
+        )}
       </div>
 
       <div className="border-t border-gray-200 pt-4">

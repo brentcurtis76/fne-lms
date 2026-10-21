@@ -22,10 +22,19 @@
  *
  * FALSE POSITIVES: bare amounts are useless as a signal — minified JS is full of
  * digits like 1000 — so numeric matching is context-scoped: an amount counts
- * only when a currency marker (`€`, `EUR`, or the words `euro`/`euros` — see
- * {@link CURRENCY}) sits nearby. A currency marker on its own is not a finding;
- * the app has unrelated euro-denominated features (consultant rates, expense
- * reports) whose bundles are full of the string `EUR`.
+ * only when a marker **of its own currency** sits nearby — `€`, `EUR`, or the
+ * words `euro`/`euros` for euro figures (see {@link CURRENCY}); `$`, `CLP`, or
+ * the words `peso`/`pesos` for peso figures (see {@link CLP_CURRENCY}). A
+ * currency marker on its own is not a finding; the app has unrelated
+ * euro-denominated features (consultant rates, expense reports) whose bundles are
+ * full of the string `EUR`, and peso-denominated ones (quotes, procurement) full
+ * of `CLP` and `$`.
+ *
+ * JANUARY 2027 (PASANT-B003, criterion C006): the ratified January contract
+ * (`docs/plan/pasantias-january-contract.md`, `commercial`) prices the cohort in
+ * pesos, with lodging in euros. Its figures are guarded by three checks of their
+ * own (see {@link JANUARY_CLP_AMOUNTS}); every October amount stays guarded
+ * exactly as before, under the permanent retired-amount rule.
  *
  * WHAT A REAL LEAK LOOKS LIKE, verified by deliberately importing the commercial
  * module into `pages/index.tsx` and building — the minifier is why the obvious
@@ -148,6 +157,57 @@ const BAND_AMOUNTS = ['70', '120'];
 const RETIRED_SHORT_AMOUNTS = ['560'];
 
 /**
+ * The January 2027 per-person totals the brochure prints (page 14): the
+ * discounted and standard ends of each programme's range, both programmes.
+ * Pinned from the ratified contract's `commercial.programs.*.perPersonClp`.
+ */
+const JANUARY_PER_PERSON_CLP = [4200000, 4500000, 4600000, 4700000, 5000000, 5100000];
+
+/** The team sizes the brochure prices (page 15): `commercial.teamSizes`, 1–10. */
+const JANUARY_TEAM_SIZES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+/**
+ * The January 2027 peso figures distinctive enough for the wide window: both
+ * programme fees (standard and discounted), the approximate flight, and every
+ * per-person total times every team size. The brochure defines the page-15 team
+ * rows as exactly that product, so it is computed here rather than typed out;
+ * `__tests__/scripts/price-leak-corpus.mjs` pins the same 59 values as literals,
+ * independently, so a slip in this product cannot hide behind itself.
+ *
+ * There is no January commercial module yet (B003 adds it), so unlike
+ * {@link PRICE_AMOUNTS} these are not kept in sync with code: the contract is
+ * the source. When a January figure is retired it stays here, for the reason
+ * given above `PRICE_AMOUNTS`.
+ */
+const JANUARY_CLP_AMOUNTS = [
+  ...new Set([
+    '2500000', // programme fee, both programmes
+    '2000000', // discounted fee (colegios con programa anual de asesoría FNE)
+    '1500000', // approximate flight
+    ...JANUARY_PER_PERSON_CLP.flatMap((perPerson) =>
+      JANUARY_TEAM_SIZES.map((size) => String(perPerson * size))
+    ),
+  ]),
+];
+
+/**
+ * The January exchange rate (`€1 = $1.100`) and rounding unit (totals rounded to
+ * $100.000). Both are commercial facts, but `1100` and `100000` (`1e5`) are
+ * ordinary numbers in minified output — the live Quotes form, a peso-denominated
+ * client surface, defaults a room price to `100000` — so they only count right
+ * beside a peso marker, like the October band.
+ */
+const JANUARY_CLP_SHORT_AMOUNTS = ['1100', '100000'];
+
+/**
+ * January lodging in euros: €50–€75 per person per night in a double room, about
+ * €100 a night single (`commercial.lodgingEur`). Two and three digits, so the
+ * tight window and euro markers only — and see {@link isPercentage}: these are
+ * also the three most common percentages there are.
+ */
+const JANUARY_LODGING_EUR_AMOUNTS = ['50', '75', '100'];
+
+/**
  * What counts as "a price is being quoted here".
  *
  * Until Sol's round-2 review this was `(?:€|EUR)` — the glyph and the ISO code,
@@ -165,6 +225,31 @@ const RETIRED_SHORT_AMOUNTS = ['560'];
  * so the word is silent while `euro`, `euros` and `EUROS` all fire.
  */
 const CURRENCY = /€|(?<![A-Za-z])[Ee][Uu][Rr](?:[Oo][Ss]?)?(?![A-Za-z])/g;
+/**
+ * What counts as "a price in pesos is being quoted here" — the January peso
+ * figures' marker, kept apart from {@link CURRENCY} on purpose.
+ *
+ * `$` is the hard character. Minified JavaScript is full of it as an identifier
+ * (`$`, `t$`, `$$typeof`) and as template interpolation (`${`), so one more
+ * alternation in {@link CURRENCY} would hand most chunks a marker and turn the
+ * October band's `70`/`120` into noise. Three rules keep it a signal:
+ *   - every amount check names the currency whose markers it accepts (see
+ *     {@link AMOUNT_CHECKS}): a peso figure needs a peso marker and a euro figure
+ *     a euro marker, so no October verdict can change because of a `$`;
+ *   - `$` counts only when it is not glued to an identifier: not preceded by a
+ *     word character or another `$`, and not followed by a letter, `_`, `$` or
+ *     `{`. The one exception is the literal dollar of `` `$${…}` `` — a `$`
+ *     directly before an interpolation — because that is how a template prints a
+ *     peso amount;
+ *   - `CLP` and `peso`/`pesos` are bounded by non-letters and matched
+ *     case-insensitively by hand, exactly like the euro words — `pesoTotal`,
+ *     `sobrepeso` and `useClpFormat` stay silent.
+ * The cost, pinned in `__tests__/scripts/price-leak-corpus.mjs`: `US$2.500.000`
+ * is a miss, because its `$` is glued to a letter. Peso prices are not written
+ * that way.
+ */
+const CLP_CURRENCY =
+  /(?<![\w$])\$(?:(?=\$\{)|(?![A-Za-z_${]))|(?<![A-Za-z])[Cc][Ll][Pp](?![A-Za-z])|(?<![A-Za-z])[Pp][Ee][Ss][Oo][Ss]?(?![A-Za-z])/g;
 /**
  * How far apart the amount and its currency marker may sit, in characters.
  * Minified output has no line breaks and packs a whole object into one run of
@@ -353,12 +438,12 @@ function whitespacePieces(text) {
 /**
  * How many whitespace-separated pieces one candidate reading may span.
  *
- * Every protected figure is at most four digits, so its whitespace-grouped
- * spelling is at most two pieces (`2 500`); four is headroom, and a cap is what
- * keeps this linear in the size of a bundle rather than quadratic. Nothing is
- * lost by capping: a reading that spans more pieces than this denotes at least
- * five digits and cannot be a protected amount, so it can neither be a finding
- * nor suppress one (see {@link candidateReadings}).
+ * The longest protected figure is eight digits (the January team total
+ * `51 000 000`), so its whitespace-grouped spelling is at most three pieces; four
+ * is headroom, and a cap is what keeps this linear in the size of a bundle rather
+ * than quadratic. Nothing is lost by capping: a well-formed reading that spans
+ * five pieces denotes at least thirteen digits and cannot be a protected amount,
+ * so it can neither be a finding nor suppress one (see {@link candidateReadings}).
  */
 const MAX_GROUPED_PIECES = 4;
 
@@ -407,7 +492,7 @@ function candidateReadings(text, offset) {
         CHECK_BY_AMOUNT.has(value)
       );
       if (amounts.length > 0) {
-        readings.push({ first, last: piece, start, end, amounts, window: widestWindow(amounts) });
+        readings.push({ first, last: piece, start, end, amounts, windows: windowsByCurrency(amounts) });
       }
     }
   }
@@ -419,34 +504,60 @@ function candidateReadings(text, offset) {
   }));
 }
 
-/** The widest window any of `amounts` is guarded by. */
-function widestWindow(amounts) {
-  let widest = 0;
+/**
+ * The widest window `amounts` are guarded by, per currency: a reading can only
+ * fire on a marker of its own amounts' currency, so a width means nothing
+ * without the currency it applies to.
+ */
+function windowsByCurrency(amounts) {
+  const windows = new Map();
   for (const amount of amounts) {
-    widest = Math.max(widest, CHECK_BY_AMOUNT.get(amount).gap);
+    const { currency, gap } = CHECK_BY_AMOUNT.get(amount);
+    windows.set(currency, Math.max(windows.get(currency) ?? 0, gap));
   }
-  return widest;
+  return windows;
+}
+
+/**
+ * A reading's windows. A reading built without currencies (`{ window }`, as the
+ * suppression tests in `__tests__/scripts/check-price-leak.test.ts` drive it) is
+ * one window under one unnamed currency.
+ */
+function windowsOf(reading) {
+  return reading.windows ?? new Map([[undefined, reading.window]]);
+}
+
+/** Whether `container` is guarded at least as widely as `inner` in every currency `inner` is. */
+function coversWindows(container, inner) {
+  const outer = windowsOf(container);
+  for (const [currency, width] of windowsOf(inner)) {
+    if (!(outer.get(currency) >= width)) return false;
+  }
+  return true;
 }
 
 /**
  * Drop every protected reading that sits inside a longer protected reading with
- * a window **at least as wide**, keeping the containers.
+ * a window **at least as wide, in the same currency**, keeping the containers.
  *
  * Suppression is what keeps `€1 560` at one finding instead of also reporting
  * the retired `560` inside it, and it is lossless — but only under a condition
  * this function now checks rather than assumes. A contained reading's span is
  * inside its container's, so it is never closer to a marker: whichever side the
  * marker is on, `innerDistance >= containerDistance`. That makes "the inner one
- * fired" imply "the container fired" **iff** the container's window is at least
- * as wide as the inner one's. Containment on its own says nothing about window
- * width.
+ * fired" imply "the container fired" **iff** the container is guarded, in the
+ * currency of the marker the inner one fired on, by a window at least as wide as
+ * the inner one's. Containment on its own says nothing about window width, and
+ * since January it says nothing about currency either.
  *
- * Today the only nesting the amount table admits is `1560 ⊃ 560`, where the
- * container's window is 120 and the inner's is 12, so the condition holds and
- * this changes no verdict. Adding a wide-window amount that can sit inside a
- * narrow-window one would have made the old unconditional version drop real
- * findings silently, which is why the condition is evaluated instead of being
- * argued for in a comment.
+ * October's only nesting is `1560 ⊃ 560` (both euro, 120 over 12). January adds
+ * same-currency nesting — `5 100 000 ⊃ 100 000`, both peso, 120 over 12, which is
+ * dropped — and cross-currency nesting: the peso `2 500 000` contains the euro
+ * `2 500`, and the peso `1 100` and `100 000` contain the euro `100`. Those inner
+ * readings are kept, because a peso container cannot fire on the euro marker
+ * the inner one would. That over-fires on a shape like `$1 100 €50` (the `100`
+ * is reported as a euro figure too) and that is the safe direction; it is pinned
+ * in the corpus.
  */
 export function maximalReadings(readings) {
   return readings.filter(
@@ -456,7 +567,7 @@ export function maximalReadings(readings) {
           other.first <= reading.first &&
           other.last >= reading.last &&
           (other.first < reading.first || other.last > reading.last) &&
-          other.window >= reading.window
+          coversWindows(other, reading)
       )
   );
 }
@@ -475,14 +586,28 @@ const TEXT_CHECKS = [
     // or it guards nothing: the optional city extension's label fragment was
     // dropped on 2026-08-02 with the extension itself, and `en base a habitación
     // doble` added with the same round's base-doble precision to the lodging note.
+    //
+    // January 2027 (PASANT-B003): the January commercial module keeps the lodging
+    // fragments live (`LODGING_NOTE`) and the validity one (`PRICE_VALIDITY`), and
+    // adds four fragments of its own — the discount condition, the single-room
+    // line, the totals note and the team-table note, each a verbatim substring of
+    // `lib/pasantias/cohort-commercial.ts`. The October-only fragments (`según el
+    // tipo de alojamiento`, `al momento del acuerdo`) stay, under the same
+    // permanent rule as retired amounts. The payment split is deliberately not
+    // added: `50% al reservar y el 50% restante…` is pinned as a silent control in
+    // `__tests__/scripts/price-leak-corpus.mjs`, and changing that verdict is out
+    // of this extension's scope.
     id: 'commercial-copy',
     description: 'a string that only exists in cohort-commercial.ts',
     pattern:
-      /Alojamiento en Barcelona: entre|por persona por noche|en base a habitación doble|según el tipo de alojamiento|Precios vigentes para la cohorte|al momento del acuerdo|Pasantias-INSPIRA-Barcelona/g,
+      /Alojamiento en Barcelona: entre|por persona por noche|en base a habitación doble|según el tipo de alojamiento|Precios vigentes para la cohorte|al momento del acuerdo|Pasantias-INSPIRA-Barcelona|PROGRAMA ANUAL DE ASESORÍA FNE|Habitación individual: aproximadamente|tipo de cambio de referencia|el valor por persona multiplicado/g,
   },
 ];
 
-/** Checks that pair a normalised amount with a nearby currency marker. */
+/**
+ * Checks that pair a normalised amount with a nearby marker of its `currency`
+ * (a key of {@link MARKERS}).
+ */
 const AMOUNT_CHECKS = [
   {
     id: 'priced-amount',
@@ -490,12 +615,14 @@ const AMOUNT_CHECKS = [
       'an Appendix A-8 programme amount, live or retired, near a currency marker',
     amounts: PRICE_AMOUNTS,
     gap: GAP,
+    currency: 'EUR',
   },
   {
     id: 'priced-band-amount',
     description: 'an Appendix A-8 lodging-band amount beside a currency marker',
     amounts: BAND_AMOUNTS,
     gap: BAND_GAP,
+    currency: 'EUR',
   },
   {
     id: 'retired-short-amount',
@@ -503,23 +630,75 @@ const AMOUNT_CHECKS = [
       'the retired Appendix A-8 lodging package (€560) beside a currency marker',
     amounts: RETIRED_SHORT_AMOUNTS,
     gap: BAND_GAP,
+    currency: 'EUR',
+  },
+  {
+    id: 'january-clp-amount',
+    description:
+      'a January 2027 programme fee, flight, per-person or team total near a peso marker',
+    amounts: JANUARY_CLP_AMOUNTS,
+    gap: GAP,
+    currency: 'CLP',
+  },
+  {
+    id: 'january-clp-short-amount',
+    description: 'the January 2027 exchange rate or rounding unit beside a peso marker',
+    amounts: JANUARY_CLP_SHORT_AMOUNTS,
+    gap: BAND_GAP,
+    currency: 'CLP',
+  },
+  {
+    id: 'january-lodging-amount',
+    description: 'a January 2027 per-night lodging figure beside a euro marker',
+    amounts: JANUARY_LODGING_EUR_AMOUNTS,
+    gap: BAND_GAP,
+    currency: 'EUR',
   },
 ];
 
-/** Canonical integer → the one check that guards it. The three lists are disjoint. */
-const CHECK_BY_AMOUNT = new Map(
-  AMOUNT_CHECKS.flatMap((check) => check.amounts.map((amount) => [amount, check]))
-);
+/** Each currency's marker pattern. */
+const MARKERS = { EUR: CURRENCY, CLP: CLP_CURRENCY };
 
-/** Every currency marker in `text`, in ascending order and never overlapping. */
-function currencyMarkers(text) {
+/**
+ * Canonical integer → the one check that guards it. The lists must be disjoint —
+ * one value, one check, one currency — and with six of them that is checked here
+ * rather than assumed: a value listed twice would silently be guarded only by
+ * whichever check came last.
+ */
+const CHECK_BY_AMOUNT = new Map();
+for (const check of AMOUNT_CHECKS) {
+  for (const amount of check.amounts) {
+    if (CHECK_BY_AMOUNT.has(amount)) {
+      throw new Error(
+        `check-price-leak: ${amount} is guarded by both ${CHECK_BY_AMOUNT.get(amount).id} and ${check.id}`
+      );
+    }
+    CHECK_BY_AMOUNT.set(amount, check);
+  }
+}
+
+/** Every match of `pattern` in `text`, in ascending order and never overlapping. */
+function currencyMarkers(text, pattern) {
   const markers = [];
-  CURRENCY.lastIndex = 0;
+  pattern.lastIndex = 0;
   let match;
-  while ((match = CURRENCY.exec(text)) !== null) {
+  while ((match = pattern.exec(text)) !== null) {
     markers.push({ start: match.index, end: match.index + match[0].length });
   }
   return markers;
+}
+
+/**
+ * Whether the reading ending at `end` is written as a percentage: the sign right
+ * after it, or after one whitespace character (Spanish typography spaces the
+ * sign, often with an NBSP). `50%`, `75 %` and `100%` are proportions, not
+ * prices — and since January's lodging figures are exactly those three numbers,
+ * and `100%` is in every stylesheet, they would otherwise fire on any of them
+ * that sits beside a euro marker.
+ */
+const PERCENT_AFTER = /^\s?%/;
+function isPercentage(text, end) {
+  return PERCENT_AFTER.test(text.slice(end, end + 2));
 }
 
 /**
@@ -550,9 +729,10 @@ function nearestMarker(markers, start, end) {
 }
 
 /**
- * Every protected amount in `text` that has a currency marker inside its
- * check's window. A file with no currency marker at all cannot contain one, and
- * most bundle chunks are that file — so the tokeniser never runs on them.
+ * Every protected amount in `text` that has a marker of its check's currency
+ * inside its check's window, and is not written as a percentage. A file with no
+ * currency marker at all cannot contain one, and most bundle chunks are that
+ * file — so the tokeniser never runs on them.
  *
  * Each finding carries the canonical `amount` it fired on and the `[start, end)`
  * span of the reading that denoted it — not just the check that guards it. Those
@@ -564,8 +744,13 @@ function nearestMarker(markers, start, end) {
  * shows the pair rather than a bare figure.
  */
 function scanAmounts(text) {
-  const markers = currencyMarkers(text);
-  if (markers.length === 0) return [];
+  const markers = {};
+  let markerCount = 0;
+  for (const [currency, pattern] of Object.entries(MARKERS)) {
+    markers[currency] = currencyMarkers(text, pattern);
+    markerCount += markers[currency].length;
+  }
+  if (markerCount === 0) return [];
 
   const found = [];
   NUMBER_TOKEN.lastIndex = 0;
@@ -576,9 +761,14 @@ function scanAmounts(text) {
     // run in the middle. Every reading a reader would see is a candidate; see
     // {@link candidateReadings}.
     for (const reading of candidateReadings(token[0], token.index)) {
+      if (isPercentage(text, reading.end)) continue;
       for (const amount of reading.amounts) {
         const check = CHECK_BY_AMOUNT.get(amount);
-        const { nearest, distance } = nearestMarker(markers, reading.start, reading.end);
+        const { nearest, distance } = nearestMarker(
+          markers[check.currency],
+          reading.start,
+          reading.end
+        );
         if (distance > check.gap) continue;
 
         const from = Math.min(reading.start, nearest.start);

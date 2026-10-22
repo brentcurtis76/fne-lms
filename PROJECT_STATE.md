@@ -1,3 +1,73 @@
+## PASANT-SCHOOL-SECTION-01 `/pasantias` "Cómo es un día" + "Las escuelas" — local runtime PASS, pending cumulative FINAL (2026-10-22)
+
+**Authorship plus one remediation. Status: local runtime PASS on the final state; pending the cumulative FINAL review.**
+- **Final local gates (PM, `final-evidence-index.json`), on the original still + "Observar y Preguntar":**
+  - type-check: PASS;
+  - lint: PASS, zero warnings;
+  - focused tests: 5 989 passed, 9 files;
+  - build plus the price guard: PASS, peak 2 715 992 064 B (2.529 GiB) under a 4.5 GiB cap and 6.5 GiB admission;
+    reserve minimum 5 676 288 KiB; no swap;
+  - browser specs: 33 passed, 0 skipped, 0 flaky;
+  - PM UI at 1866, 768, 390 and 375: PASS, with actual screenshots and the served hash matching. The heading is intact
+    and fits at 375.
+- **Baselines carried forward, not repeated:**
+  - the full unit suite, 17 651 passed across 527 files with 12 inherited skips, from before the image and literal
+    changes;
+  - static checks, from before the heading literal.
+- **The photograph** is the **unmasked original still**, by Brent's direction ("i want them readable, they're just
+  names"; "Use the original still without masks").
+  - sha256 `4c3d6546…345b`, 49 666 bytes, 1280×720.
+  - No masks and no enhancement. Seek 53.2 s; exact pts NOT_RECORDED.
+  - The independent image review approved the install.
+  - The PM verified the served bytes and `naturalWidth` 1280 at four widths, and captured screenshots.
+  - History: r1–r3 were rejected; r4 (paper-tone masks) was installed, then vacated when Brent rejected the masks. All
+    are retained in management.
+- **Step-02 heading:** "Observar" → "Observar y Preguntar", by Brent's request. Only the page string and two exact test
+  expectations changed.
+- **Source findings:** ORIG-01 and ORIG-02 are closed; ORIG-03 passed.
+- **Pending:**
+  - the cumulative independent FINAL review;
+  - human confirmation of the rendered page, if FINAL requires it (Brent's separate approval of the final render is not
+    inferred);
+  - one reviewed local commit.
+
+  No commit, push, PR or deploy.
+- **Source review:** the FINAL source review inspected the page and test source and requested no change to it. Its
+  overall verdict was CHANGES_REQUIRED, and no tests were run, so this is not an approval. Its findings SCHOOL-IMAGE-01,
+  SRC-REC-01 and SRC-REC-02 are addressed in one remediation under order revision 4.
+
+Branch `fix/pasant-schools`; base `182c2cad0cd0e8773482937c99ab7693e334964c` as the order reports it (the PR170 merge, not
+verified by the author). The changes are not committed. This entry is a follow-up to PR170. The entries below are
+history and are unedited.
+
+What was authored (order revision 2, separate Opus 5.5 author; FIRST's B1–B4 resolved by order amendments; the
+remediation is by a separate Opus 5.5 session under order revision 4):
+- **`#un-dia`:** a warm editorial band.
+  - The intro sits beside a still from the homepage video (card on glass, 53.2 s, Brent's pick). The still is never
+    cropped: native 16:9, lazy loading.
+  - The day's contract sentences, unchanged, become connected moments with gold `01`–`03` numerals on black discs and the
+    display headings Conocer / Observar y Preguntar / Profundizar.
+  - With no still on file, the section falls back to text only.
+- **`#escuelas`:** two distinct chapters.
+  - INSPIRA, black and gold: the overview verbatim; week 1 with the two immersion cards (2,5 days each); week 2 with the
+    count sentence, five identical name-only candidate cards, and the selection and full-day sentences.
+  - Mirada Profunda, cream: five names in module order, the two full days stated once, and the order caveat verbatim.
+  - No new fact and no new count.
+- **The still:** produced only by the PM, from `asset-extraction-original.json` in the unit's management directory
+  (recipe sha256 `adc3c613…5885`).
+  - ffmpeg `n9.0.2`, one thread, one frame, seek 53.2 s, exact pts NOT_RECORDED. Peak 46.5 MiB, runtime 344 ms.
+  - The only processing is the colour conversion WebP needs. Metadata is stripped.
+  - The ordinary names on the paper lists stay readable by Brent's direction and are not transcribed anywhere. Faces of
+    minors: no.
+  - Full provenance (authority, source hash, graph, output hash, run facts, r1–r4 history, student-data note) is in
+    `docs/plan/pasantias-school-section-20261022.md` §4.
+- **Tests:**
+  - the B3 like-for-like e2e replacements;
+  - new focused render checks, the WebP size and metadata check, and the four-width still and clipping checks;
+  - guard reason-text corrections (B2).
+  - One guard count (the C005 "2 días completos", 5 → 1) is ratified by order r3 amendment B2-followup.
+- Review request: `docs/planning/reviews/fase-pasant-schools-review-request.md`. Attempts: initial 1, remediation 1.
+
 ## PM validation update — 2026-10-22 (supersedes the authorship-only status below)
 
 Local implementation and validation complete; independent cumulative FINAL review pending. No publication or deployment.

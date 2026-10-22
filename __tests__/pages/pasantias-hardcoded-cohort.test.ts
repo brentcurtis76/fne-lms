@@ -264,6 +264,18 @@
  * exception. The calendar now puts the shared weekend below both programs, so
  * the C005 per-program calendar slices end at the next program and at the
  * weekend respectively.
+ *
+ * ## What PASANT-SCHOOL-SECTION-01 changed (2026-10-22)
+ *
+ * Presentation, not data and not mechanism
+ * (`docs/plan/pasantias-school-section-20261022.md`). The día tipo numbers its
+ * blocks with zero-padded ordinals and gives each a display heading by
+ * position; the INSPIRA school chapter prints the program's overview a second
+ * time; Mirada Profunda's chapter lists its schools by name only and states
+ * `daysPerSchool` once for all of them instead of once per card. Only reason
+ * text, comments and one test title moved here, plus the C005 count of the
+ * shared days statement (five per-card labels became one statement), which
+ * the PM ratified in order r3 amendment B2-followup.
  */
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -1689,7 +1701,7 @@ const UNCOUNTED_COLLECTIONS: { shape: string; reason: string }[] = [
   {
     shape: 'programs..immersionSchools',
     reason:
-      'One card per immersion school, each printing its own days. The number of immersion schools is never printed: the program card prints `schoolCount`, a ratified leaf of its own, and the overview sentence is module prose.',
+      'One card per immersion school, each printing its own days. The number of immersion schools is never printed: the program card prints `schoolCount`, a ratified leaf of its own, and the overview sentence — on the program card and again at the head of the INSPIRA school chapter — is module prose.',
   },
   {
     shape: 'programs..visits.fullDayOutside',
@@ -1699,7 +1711,7 @@ const UNCOUNTED_COLLECTIONS: { shape: string; reason: string }[] = [
   {
     shape: 'programs..schools',
     reason:
-      'Mirada Profunda\'s schools, one card each with its days. The count the page prints for that program is `schoolCount`, a leaf, not this array\'s length — so an appended school adds a card and no figure.',
+      'Mirada Profunda\'s schools, one list item each holding the name only; the days are stated once for the whole chapter from `daysPerSchool`, not per school. The count the page prints for that program is `schoolCount`, a leaf, not this array\'s length — so an appended school adds a list item and no figure.',
   },
   {
     shape: 'programs..extraIncludes',
@@ -1722,7 +1734,7 @@ const UNCOUNTED_COLLECTIONS: { shape: string; reason: string }[] = [
   {
     shape: 'dayStructure',
     reason:
-      'The día tipo prints each block as a list item. Three blocks or four, the section head does not say how many.',
+      'The día tipo prints each block as a list item, with a zero-padded position numeral (01, 02, …) and a display heading chosen by position. The numerals are ordinals and the zero padding keeps them from reading as a bare count; no sentence and no section head says how many blocks there are. Three blocks or four, nothing states the number.',
   },
   {
     shape: 'includes',
@@ -1788,7 +1800,7 @@ const EXPECTED_FRAGMENTS: { fragment: string; reason: string }[] = [
   {
     fragment: 'días completos',
     reason:
-      'From Mirada Profunda\'s `overview` ("…y dos días completos en cada una."): the page\'s own unit after each Mirada Profunda school\'s figure, "<daysPerSchool> días completos". The figure itself is the leaf `daysPerSchool`, printed per card and covered by the render contract; the two words are the label the design puts beside it.',
+      'From Mirada Profunda\'s `overview` ("…y dos días completos en cada una."): the page\'s own unit in the chapter\'s single days statement, "<daysPerSchool> días completos por escuela". The figure itself is the leaf `daysPerSchool`, printed once for the whole chapter and covered by the render contract; the words around it are the design\'s label, and they stop before "en cada una" so no longer run of the overview survives.',
   },
   {
     fragment: 'en escuelas.',
@@ -2360,7 +2372,7 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
       ]);
     }, 30_000);
 
-    it('catches a hardcoded figure printed at five sites — two days per Mirada Profunda school', async () => {
+    it('catches a hardcoded figure stated once for a whole chapter — two days per Mirada Profunda school', async () => {
       expect(await proofFor('programs[1].daysPerSchool')).toEqual(['programs[1].daysPerSchool']);
     }, 30_000);
 
@@ -2711,7 +2723,11 @@ describe('C003 — January 2027 rendered-content oracle, from the ratified contr
     }
     expect(inspiraSchools).toContain('2,5 días por pasante');
     expect(inspiraSchools).toContain('Cada cohorte visita 4 de estas 5 escuelas.');
-    expect(miradaSchools.match(/2 días completos/g)).toHaveLength(5);
+    // Once, not five times, since PASANT-SCHOOL-SECTION-01: the chapter states
+    // the two full days for all five schools in one statement (S4; ratified
+    // in order r3 amendment B2-followup).
+    // Every school name is still required in this slice above.
+    expect(miradaSchools.match(/2 días completos/g)).toHaveLength(1);
 
     // Each program's calendar ends on its own last day. Since the polish unit
     // the two calendars sit side by side and the shared weekend follows both,

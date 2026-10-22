@@ -22,6 +22,12 @@
  *
  * The two program CTAs preselect that program in the request form
  * (`components/pasantias/LeadForm.tsx`), where the visitor can still change it.
+ *
+ * PASANT-DESIGN-POLISH-01 (2026-10-22) polished the layout without changing a
+ * fact: per-photo framing, the second host and the CTA short names (both read
+ * from the module, see `docs/plan/pasantias-polish-addendum-20261022.md`), the
+ * hero's route line, the same-page shortcuts, the calendar's shared weekend
+ * below both programs and the note beside the form.
  */
 import React from 'react';
 import type { GetServerSideProps } from 'next';
@@ -122,6 +128,18 @@ const NAV_LINKS: ReadonlyArray<{ label: string; href: string; current?: boolean 
   { label: 'Contacto', href: '/#contacto' },
 ];
 const HUB_LINK = { label: 'Hub de transformación', href: '/login' };
+
+/**
+ * Same-page shortcuts, shown once under the header and never sticky: the sticky
+ * header is the only fixed chrome. Each target carries a `scroll-mt-*` at least
+ * as tall as the header (`h-20` plus its border) so its heading lands below it.
+ */
+const PAGE_SHORTCUTS: ReadonlyArray<{ label: string; href: string; testId: string }> = [
+  { label: 'Programas', href: '#programas', testId: 'pasantias-shortcut-programas' },
+  { label: 'Calendario', href: '#calendario', testId: 'pasantias-shortcut-calendario' },
+  { label: 'Qué incluye', href: '#incluye', testId: 'pasantias-shortcut-incluye' },
+  { label: 'Inscripción', href: '#programa', testId: 'pasantias-shortcut-inscripcion' },
+];
 
 /**
  * Photography slots from the delivered design, each with the filenames that may
@@ -281,10 +299,24 @@ const GOLD_RULE =
   'mt-4 block h-[var(--rule-height)] w-[var(--rule-width)] rounded-sm bg-gold-gradient';
 const CARD_LIGHT = 'rounded-2xl border border-gray-200 bg-white p-6 sm:p-8';
 const CARD_DARK = 'rounded-2xl bg-brand_primary p-6 text-white sm:p-8';
+/**
+ * The second program card: a warm surface and a gold border, so it carries the
+ * same weight as the black first card. Its own constant because `CARD_LIGHT` is
+ * shared with the calendar. `brand_accent_text` measures about 4.8:1 on
+ * amber-50, above the 4.5:1 its small uppercase audience line needs.
+ */
+const CARD_WARM = 'rounded-2xl border border-brand_accent bg-amber-50 p-6 sm:p-8';
 const BUTTON_BASE =
   'inline-flex h-[52px] items-center justify-center rounded-lg px-6 text-[15px] font-semibold tracking-[.08em] transition-colors duration-200';
 const BUTTON_ACCENT = `${BUTTON_BASE} border border-brand_accent bg-brand_accent text-brand_primary hover:border-brand_accent_hover hover:bg-brand_accent_hover`;
 const BUTTON_GHOST_DARK = `${BUTTON_BASE} border border-white/50 text-white hover:bg-white/[0.12]`;
+/**
+ * The program cards' CTA. A minimum height rather than a fixed one, centred
+ * text and tighter tracking, so the longer program label fits a 375 px card
+ * and, if a font renders wider, wraps inside the button instead of spilling.
+ */
+const BUTTON_PROGRAM_BASE =
+  'inline-flex min-h-[52px] w-full items-center justify-center rounded-lg px-4 py-3 text-center text-[15px] font-semibold leading-[1.25] tracking-[.03em] transition-colors duration-200';
 
 function SectionHeader({
   eyebrow,
@@ -311,15 +343,56 @@ function SectionHeader({
 }
 
 /**
+ * How a photographic break frames its picture. Below `lg` every break takes the
+ * photograph's own 16:9 shape, so nobody standing at the edge of a group is
+ * cropped out on a phone. From `lg` each photograph has its own frame: the
+ * default is the approved centred band, which suits a group standing in the
+ * middle of the picture.
+ */
+interface PhotoFrame {
+  box: string;
+  image: string;
+}
+
+const PHOTO_FRAME_BAND: PhotoFrame = {
+  box: 'aspect-[16/9] lg:aspect-auto lg:h-[clamp(240px,40vw,460px)]',
+  image: 'object-cover',
+};
+
+/**
+ * The library group stands with raised hands and faces in the upper half of
+ * the picture, which the centred band cut through at the shoulders. A taller
+ * box and a top-weighted focal point keep every face and most of the hands.
+ */
+const PHOTO_FRAME_TALL: PhotoFrame = {
+  box: 'aspect-[16/9] lg:aspect-[21/9] lg:max-h-[860px]',
+  image: 'object-cover lg:object-[50%_20%]',
+};
+
+/**
  * A full-bleed photographic break. When the slot has no photograph yet it
  * renders **nothing**: a fixed-height black band reads as a broken image rather
  * than as a page designed with fewer photographs.
  */
-function PhotoBreak({ src, id }: { src: string | null; id: string }) {
+function PhotoBreak({
+  src,
+  id,
+  frame = PHOTO_FRAME_BAND,
+}: {
+  src: string | null;
+  id: string;
+  frame?: PhotoFrame;
+}) {
   if (!src) return null;
   return (
-    <div id={id} className="h-[clamp(240px,40vw,460px)] w-full bg-brand_primary">
-      <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
+    <div id={id} className={`${frame.box} w-full overflow-hidden bg-brand_primary`}>
+      <img
+        src={src}
+        alt=""
+        className={`h-full w-full ${frame.image}`}
+        loading="lazy"
+        decoding="async"
+      />
     </div>
   );
 }
@@ -329,7 +402,14 @@ interface FaqItem {
   answer: React.ReactNode;
 }
 
-/** One program's calendar column: its weeks, each as a card. */
+/**
+ * One program's calendar column: its weeks, each as a card.
+ *
+ * From `lg` the column is a subgrid spanning one row for its heading and one
+ * per week, so both programs' headings and week cards line up row by row. The
+ * span is computed from the weeks, so a third week gets a row of its own rather
+ * than overlapping the second.
+ */
 function ProgramCalendar({
   program,
   ranges,
@@ -338,7 +418,11 @@ function ProgramCalendar({
   ranges: string[];
 }) {
   return (
-    <div className="flex flex-col gap-4" data-testid={`pasantias-calendar-${program.id}`}>
+    <div
+      className="flex flex-col gap-4 lg:grid lg:grid-rows-subgrid"
+      style={{ gridRow: `span ${program.weeks.length + 1}` }}
+      data-testid={`pasantias-calendar-${program.id}`}
+    >
       <h3 className="m-0 text-[20px] font-bold leading-[1.25] text-brand_primary">{program.name}</h3>
       {program.weeks.map((week, index) => (
         <article
@@ -546,6 +630,29 @@ export default function PasantiasPage({
       </header>
 
       <main className="bg-white text-brand_gray_dark">
+        {/* ============ En esta página ============ */}
+        <nav
+          aria-label="En esta página"
+          className="border-b border-gray-200 bg-white"
+          data-testid="pasantias-shortcuts"
+        >
+          <ul
+            className={`${SHELL} flex flex-wrap items-center justify-between gap-x-3 sm:justify-start sm:gap-x-7`}
+          >
+            {PAGE_SHORTCUTS.map((shortcut) => (
+              <li key={shortcut.href}>
+                <a
+                  href={shortcut.href}
+                  className="inline-flex h-10 items-center whitespace-nowrap text-[13px] font-medium text-gray-700 underline-offset-4 transition-colors duration-200 hover:text-brand_primary hover:underline"
+                  data-testid={shortcut.testId}
+                >
+                  {shortcut.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
         {/* ============ Hero ============ */}
         <section
           id="hero"
@@ -570,13 +677,20 @@ export default function PasantiasPage({
             aria-hidden="true"
             className="absolute inset-0 bg-gradient-to-t from-brand_primary/[0.92] via-brand_primary/[0.85] via-[480px] to-brand_primary/15"
           />
-          <div className={`${SHELL} relative py-12 sm:py-16 lg:py-24`}>
-            <span className={`${EYEBROW} mb-5 text-brand_accent`}>Pasantías internacionales</span>
+          {/*
+            Spacing is a little tighter than the content added below it, on
+            purpose: the content is anchored to the bottom, so every extra pixel
+            lifts the eyebrow further up the veil, whose stop is fixed in pixels.
+          */}
+          <div className={`${SHELL} relative pb-8 pt-12 sm:py-16 lg:pb-16 lg:pt-24`}>
+            <span className={`${EYEBROW} mb-4 text-brand_accent sm:mb-5`}>
+              Pasantías internacionales
+            </span>
             <h1 className="m-0 max-w-[20ch] text-[clamp(34px,7.2vw,84px)] font-black uppercase leading-[1.02] tracking-[-.02em] text-white">
               Vive una escuela por dentro, no la visites
             </h1>
 
-            <div className="mt-8 flex flex-wrap items-center gap-3.5">
+            <div className="mt-6 flex flex-wrap items-center gap-3.5 sm:mt-8">
               <span
                 className="inline-flex h-10 items-center whitespace-nowrap rounded-full bg-brand_accent px-[18px] text-[14px] font-bold text-brand_primary"
                 data-testid="pasantias-date-chip"
@@ -588,7 +702,33 @@ export default function PasantiasPage({
               </span>
             </div>
 
-            <div className="mt-9 flex flex-wrap gap-3">
+            {/*
+              Which program is whose, in the brochure's own routing words, and
+              the way down to the choice. Kept to one line of text (two on a
+              phone) and no headings or spans: the eyebrow has to stay the
+              hero's first span for the contrast test, and the heading order
+              runs h1 → h2.
+            */}
+            <div
+              className="mt-4 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-[13px] leading-[1.4] text-white/75 sm:mt-5 sm:text-[15px]"
+              data-testid="pasantias-hero-routes"
+            >
+              {COHORT_ROUTING.map((route, index) => (
+                <p key={route.program} className="m-0" data-testid={`pasantias-hero-route-${index}`}>
+                  {`${route.question} `}
+                  <strong className="font-semibold text-white">{route.program}</strong>
+                </p>
+              ))}
+              <a
+                href="#programas"
+                className="-my-1 inline-block py-1 font-semibold text-brand_accent underline underline-offset-4 hover:no-underline"
+                data-testid="pasantias-cta-programas"
+              >
+                Ver los programas
+              </a>
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-3 sm:mt-8">
               <a href="#programa" className={BUTTON_ACCENT} data-testid="pasantias-cta-programa">
                 Registra tu interés
               </a>
@@ -663,7 +803,7 @@ export default function PasantiasPage({
         {/* ============ Los programas ============ */}
         <section
           id="programas"
-          className={`${SHELL} pb-16 md:pb-24 lg:pb-[120px]`}
+          className={`${SHELL} scroll-mt-24 pb-16 md:pb-24 lg:pb-[120px]`}
           aria-labelledby="programas-title"
           data-testid="pasantias-programas"
         >
@@ -673,7 +813,7 @@ export default function PasantiasPage({
             {[inspira, mirada].map((program, index) => (
               <article
                 key={program.id}
-                className={`${index === 0 ? CARD_DARK : CARD_LIGHT} flex flex-col gap-3.5`}
+                className={`${index === 0 ? CARD_DARK : CARD_WARM} flex flex-col gap-3.5`}
                 data-testid={`pasantias-program-${program.id}`}
               >
                 <h3
@@ -703,18 +843,27 @@ export default function PasantiasPage({
                 </p>
                 <p
                   className={`mt-auto border-t pt-4 text-[15px] italic ${
-                    index === 0 ? 'border-white/20 text-white/85' : 'border-gray-200 text-brand_gray_dark'
+                    index === 0 ? 'border-white/20 text-white/85' : 'border-brand_accent/50 text-brand_gray_dark'
                   }`}
                 >
                   {program.takeaway}
                 </p>
+                {/*
+                  A link, so Enter on a focused CTA fires the same click as the
+                  mouse: it preselects the program and the anchor jumps to the
+                  form. The label is the module's display short name.
+                */}
                 <a
                   href="#programa"
                   onClick={() => requestProgram(program.id)}
-                  className={index === 0 ? BUTTON_ACCENT : `${BUTTON_BASE} border border-brand_primary text-brand_primary hover:bg-brand_primary hover:text-white`}
+                  className={`${BUTTON_PROGRAM_BASE} ${
+                    index === 0
+                      ? 'border border-brand_accent bg-brand_accent text-brand_primary hover:border-brand_accent_hover hover:bg-brand_accent_hover'
+                      : 'border border-brand_primary text-brand_primary hover:bg-brand_primary hover:text-white'
+                  }`}
                   data-testid={`pasantias-cta-program-${program.id}`}
                 >
-                  {`Registrar interés en ${program.name}`}
+                  {`Me interesa ${program.shortName}`}
                 </a>
               </article>
             ))}
@@ -726,7 +875,7 @@ export default function PasantiasPage({
         {/* ============ El calendario ============ */}
         <section
           id="calendario"
-          className={`${SHELL} ${SECTION_PAD}`}
+          className={`${SHELL} ${SECTION_PAD} scroll-mt-20`}
           aria-labelledby="calendario-title"
           data-testid="pasantias-calendario"
         >
@@ -735,30 +884,30 @@ export default function PasantiasPage({
             {`${spanRange} · ${COHORT_TOGETHER}.`}
           </p>
 
-          <div className="mt-8 grid items-start gap-5 lg:mt-14 lg:grid-cols-3">
+          <div className="mt-8 grid gap-5 lg:mt-14 lg:grid-cols-2">
             <ProgramCalendar program={inspira} ranges={weekRanges[0]} />
+            <ProgramCalendar program={mirada} ranges={weekRanges[1]} />
 
             {/*
               The free weekend is the one solid-yellow card on the page — the
               manual's 10 % accent, spent on the thing the itinerary is most
-              often asked about. Common to both programs, so it sits between
-              their calendars and keeps the `pasantias-finde` hook.
+              often asked about. Common to both programs, so it sits below both
+              calendars as one compact band and keeps the `pasantias-finde`
+              hook. Its dates are printed here once, as a derived range; the
+              brochure's own wording of the weekend is the FAQ answer's.
             */}
             <article
-              className="flex flex-col gap-3.5 rounded-2xl bg-brand_accent p-6 text-brand_primary sm:p-8 lg:self-center"
+              className="flex flex-col gap-1.5 rounded-2xl bg-brand_accent px-6 py-5 text-brand_primary sm:flex-row sm:items-baseline sm:gap-5 sm:px-8 lg:col-span-2"
               data-testid="pasantias-finde"
             >
               <span className={`${EYEBROW} text-brand_primary`}>Fin de semana libre</span>
-              <p className="m-0 text-[20px] font-bold leading-[1.25] text-brand_primary">
-                {COHORT_FREE_WEEKEND.label}
+              <p
+                className="m-0 text-[17px] font-bold leading-[1.3] text-brand_primary"
+                data-testid="pasantias-free-weekend-dates"
+              >
+                {`${freeWeekendDates[0]} al ${freeWeekendDates[1]}`}
               </p>
-              <p className="text-[14px] text-brand_primary" data-testid="pasantias-free-weekend-dates">
-                {freeWeekendDates[0]}
-              </p>
-              <p className="text-[14px] text-brand_primary">{freeWeekendDates[1]}</p>
             </article>
-
-            <ProgramCalendar program={mirada} ranges={weekRanges[1]} />
           </div>
         </section>
 
@@ -903,7 +1052,7 @@ export default function PasantiasPage({
           </div>
         </section>
 
-        <PhotoBreak id="equipo-foto" src={photos.equipoConversando} />
+        <PhotoBreak id="equipo-foto" src={photos.equipoConversando} frame={PHOTO_FRAME_TALL} />
 
         {/* ============ Quién te recibe ============ */}
         <section
@@ -913,16 +1062,26 @@ export default function PasantiasPage({
           data-testid="pasantias-equipo"
         >
           <SectionHeader eyebrow="En las escuelas" title="Quién te recibe" titleId="equipo-title" />
-          <ul className="mt-8 grid gap-6 sm:grid-cols-2 lg:mt-14 lg:grid-cols-4 lg:gap-8">
+          {/*
+            One compact card per host, each with the same square portrait box:
+            side by side from `sm`, stacked on a phone. Both hosts come from the
+            module in its order (see the polish addendum for the second one).
+          */}
+          <ul className="mt-8 grid max-w-[800px] gap-5 sm:grid-cols-2 lg:mt-14 lg:gap-8">
             {COHORT_HOSTS.map((host, index) => (
-              <li key={host.name} className="flex flex-col gap-3" data-testid={`pasantias-host-${index}`}>
+              <li
+                key={host.name}
+                className="flex items-center gap-5"
+                data-testid={`pasantias-host-${index}`}
+              >
                 {portraits[index] ? (
                   <img
                     src={portraits[index] as string}
                     alt=""
-                    className="aspect-[4/5] w-full rounded-xl object-cover grayscale"
+                    className="aspect-square w-28 shrink-0 rounded-xl object-cover grayscale sm:w-32"
                     loading="lazy"
                     decoding="async"
+                    data-testid={`pasantias-host-portrait-${index}`}
                   />
                 ) : (
                   /*
@@ -931,7 +1090,7 @@ export default function PasantiasPage({
                   */
                   <span
                     aria-hidden="true"
-                    className="grid aspect-[4/5] w-full place-items-center rounded-xl bg-brand_primary text-[32px] font-black tracking-[-.02em] text-brand_accent"
+                    className="grid aspect-square w-28 shrink-0 place-items-center rounded-xl bg-brand_primary text-[32px] font-black tracking-[-.02em] text-brand_accent sm:w-32"
                     data-testid={`pasantias-host-initials-${index}`}
                   >
                     {host.name
@@ -941,13 +1100,15 @@ export default function PasantiasPage({
                       .join('')}
                   </span>
                 )}
-                <h3 className="m-0 text-[17px] font-bold leading-[1.25] text-brand_primary">
-                  {host.name}
-                </h3>
-                <p className="text-[14px] leading-[1.5] text-brand_gray_medium">
-                  {`${host.role}, ${host.school} — `}
-                  <span className="italic text-brand_accent_text">{host.note}</span>
-                </p>
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <h3 className="m-0 text-[17px] font-bold leading-[1.25] text-brand_primary">
+                    {host.name}
+                  </h3>
+                  <p className="text-[14px] leading-[1.5] text-brand_gray_medium">
+                    {`${host.role}, ${host.school} — `}
+                    <span className="italic text-brand_accent_text">{host.note}</span>
+                  </p>
+                </div>
               </li>
             ))}
           </ul>
@@ -956,7 +1117,7 @@ export default function PasantiasPage({
         {/* ============ Incluye / No incluye ============ */}
         <section
           id="incluye"
-          className={`${SHELL} pb-16 md:pb-24 lg:pb-[120px]`}
+          className={`${SHELL} scroll-mt-24 pb-16 md:pb-24 lg:pb-[120px]`}
           data-testid="pasantias-incluye"
         >
           <div className="grid gap-5 lg:grid-cols-2">
@@ -1047,6 +1208,18 @@ export default function PasantiasPage({
               </p>
               <p className="mt-4 max-w-[44ch] text-white/80" data-testid="pasantias-places">
                 {COHORT_PLACES}
+              </p>
+              {/*
+                What the form does and does not do, beside it. No e-mail is
+                promised (contract §6 / DEC-07): the downloads are on this page,
+                as the form's own pre-submit sentence says.
+              */}
+              <p
+                className="mt-4 max-w-[44ch] border-l-2 border-brand_accent pl-3 text-[15px] text-white/80"
+                data-testid="pasantias-registration-note"
+              >
+                Registrar tu interés no reserva un cupo. Después de enviarlo puedes descargar la
+                ficha y el programa completo.
               </p>
               <div className="mt-7">
                 <a href={FICHA_HREF} className={BUTTON_GHOST_DARK} data-testid="pasantias-cta-ficha-programa">

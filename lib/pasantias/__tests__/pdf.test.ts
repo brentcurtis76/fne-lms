@@ -125,6 +125,10 @@ const SHARED_PUBLIC_CONTENT = [
   'Talleres con expertos del movimiento de Nueva Educación',
   'Jordi Musons',
   'Director, Escola Sadako · Anfitrión',
+  // Second host, from docs/plan/pasantias-polish-addendum-20261022.md (Brent,
+  // 2026-10-22; brochure pages 4 and 12), not from the contract.
+  'Sandra Entrena',
+  'Encargada de Innovación, Escola Virolai · Anfitriona',
   'Los talleres de la tarde con especialistas.',
   'Desayuno a media mañana en las escuelas.',
   'Almuerzos: en la Pasantía INSPIRA, durante la primera semana (Escola Virolai y Escola Sadako).',
@@ -146,13 +150,17 @@ const SHARED_PUBLIC_CONTENT = [
   '/pasantias',
 ];
 
-/** October 2026 content that must not reach a January document. */
+/**
+ * October 2026 content that must not reach a January document. Sandra Entrena
+ * is a January host by docs/plan/pasantias-polish-addendum-20261022.md, so her
+ * name is pinned above instead; her October note stays forbidden.
+ */
 const OCTOBER_ONLY = [
   'Octubre',
   'octubre',
   'Fiesta Nacional',
   'Coral Regí',
-  'Sandra Entrena',
+  'Anfitriona semana 1',
   'Boris Mir',
   'Pepe Menéndez',
   'Mañana 1',
@@ -196,7 +204,7 @@ describe('both documents — one shared January 2027 document each', () => {
 
   it('print their own January cache version', () => {
     expect(brochureText).toContain('Versión 2027-01-v1');
-    expect(fichaText).toContain('Versión 2027-01-v1');
+    expect(fichaText).toContain('Versión 2027-01-v2');
   });
 
   it('never mention Madrid', () => {
@@ -347,9 +355,9 @@ describe('generateFicha — open content, no prices (D-02)', () => {
 describe('download filenames and versions (A4 headers), pinned independently', () => {
   it('are the January names, typed here rather than derived', () => {
     expect(BROCHURE_VERSION).toBe('2027-01-v1');
-    expect(FICHA_VERSION).toBe('2027-01-v1');
+    expect(FICHA_VERSION).toBe('2027-01-v2');
     expect(BROCHURE_FILENAME).toBe('Pasantias-INSPIRA-Barcelona-enero-2027-2027-01-v1.pdf');
-    expect(FICHA_FILENAME).toBe('Ficha-Pasantias-INSPIRA-Barcelona-enero-2027-2027-01-v1.pdf');
+    expect(FICHA_FILENAME).toBe('Ficha-Pasantias-INSPIRA-Barcelona-enero-2027-2027-01-v2.pdf');
   });
 
   it('can never collide with an October name', () => {

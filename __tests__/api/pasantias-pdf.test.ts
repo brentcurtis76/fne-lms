@@ -467,8 +467,9 @@ const JANUARY_VARIANTS = [
   {
     label: 'ficha',
     handler: fichaHandler as unknown as Handler,
-    cachePath: 'pasantias/ficha-2027-01-v1.pdf',
-    filename: 'Ficha-Pasantias-INSPIRA-Barcelona-enero-2027-2027-01-v1.pdf',
+    // v2 since the second host (docs/plan/pasantias-polish-addendum-20261022.md).
+    cachePath: 'pasantias/ficha-2027-01-v2.pdf',
+    filename: 'Ficha-Pasantias-INSPIRA-Barcelona-enero-2027-2027-01-v2.pdf',
     octoberPaths: ['pasantias/ficha-2026-10-v1.pdf', 'pasantias/ficha-2026-10-v2.pdf'],
     generator: mockGenerateFicha,
     other: mockGenerateBrochure,

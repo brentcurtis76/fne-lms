@@ -29,8 +29,16 @@ import { COHORT_ID } from '../cohort-public';
  *
  * `2027-01-v1` (PASANT-B003): the shared two-program January 2027 ficha. A new
  * key, so no October object (`2026-10-v1`, `2026-10-v2`) can be served for it.
+ *
+ * `2027-01-v2` (2026-10-22, PASANT-DESIGN-POLISH-01): the ficha's host block
+ * gained Sandra Entrena (`COHORT_HOSTS`, recorded in
+ * `docs/plan/pasantias-polish-addendum-20261022.md`), so its text changes. The
+ * January ficha is already deployed and a generated `2027-01-v1` object may sit
+ * in the bucket, which would keep serving a ficha without her. The brochure is
+ * not bumped: `pasantias/brochure-2027-01-v1.pdf` is Brent's designed brochure
+ * (R-08), which already names her.
  */
-export const FICHA_VERSION = '2027-01-v1';
+export const FICHA_VERSION = '2027-01-v2';
 
 /** Download filename for the open ficha. ASCII only — see the module comment. */
 export const FICHA_FILENAME = `Ficha-Pasantias-INSPIRA-Barcelona-${COHORT_ID}-${FICHA_VERSION}.pdf`;

@@ -253,6 +253,17 @@
  *   The calendar maps every week it is given, so a third week renders a third
  *   card; the design invariant pins the module to `DESIGNED_WEEK_COUNT` and the
  *   grown render to one card per week.
+ *
+ * ## What PASANT-DESIGN-POLISH-01 changed (2026-10-22)
+ *
+ * Data, not mechanism. `docs/plan/pasantias-polish-addendum-20261022.md` records
+ * Brent's correction adding Sandra Entrena as the second host (brochure pages 4
+ * and 12) and a `shortName` per program for the CTA labels, so the module grew
+ * by six leaves (four host fields, two short names) and no collection. Every
+ * new leaf goes through the same contract as the rest — none is declared an
+ * exception. The calendar now puts the shared weekend below both programs, so
+ * the C005 per-program calendar slices end at the next program and at the
+ * weekend respectively.
  */
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -365,8 +376,13 @@ const LEAVES = collectLeaves(COHORT_PUBLIC);
  * field added or removed moves this number; when it does, re-read
  * {@link EXPECTED_GAPS} — the new field is covered by the contract below unless
  * it is declared there with a reason.
+ *
+ * 112 since PASANT-DESIGN-POLISH-01: 106, plus Sandra Entrena's four host
+ * fields and the two programs' `shortName` (polish addendum, 2026-10-22). All
+ * six are under the render contract, the restatement rule and — where twelve
+ * characters or longer — the source scan, like every other leaf.
  */
-const EXPECTED_LEAF_COUNT = 106;
+const EXPECTED_LEAF_COUNT = 112;
 
 /** Top-level `COHORT_PUBLIC` key → the export the page actually imports. */
 const EXPORT_BY_KEY: Record<string, string> = {
@@ -1663,7 +1679,7 @@ const UNCOUNTED_COLLECTIONS: { shape: string; reason: string }[] = [
   {
     shape: 'routing',
     reason:
-      'The "¿Primera vez? … ¿Ya viajaste? …" line is printed route by route as the programs section title, and the FAQ answers with the first two routes. Nothing counts the routes.',
+      'The "¿Primera vez? … ¿Ya viajaste? …" line is printed route by route as the programs section title, every route is printed again as its own line under the hero (question, then the program in bold), and the FAQ answers with the first two routes. Nothing counts the routes.',
   },
   {
     shape: 'programs',
@@ -1692,7 +1708,7 @@ const UNCOUNTED_COLLECTIONS: { shape: string; reason: string }[] = [
   {
     shape: 'hosts',
     reason:
-      'One card per host. The section heads itself with copy ("Quién te recibe"), never a number. It is also the one collection of length one, which `counts no collection the per-site proof cannot read` requires to be uncounted.',
+      'One card per host — Jordi Musons (P-01) and, since the 2026-10-22 polish addendum (docs/plan/pasantias-polish-addendum-20261022.md), Sandra Entrena. The section heads itself with copy ("Quién te recibe"), never a number, and no sentence says how many hosts there are, so an appended host adds a card and no figure.',
   },
   {
     shape: 'claims',
@@ -1903,6 +1919,11 @@ describe('A6r [A1] — /pasantias renders cohort data, it does not restate it', 
       expect(paths).toContain('programs[1].closing.date');
       expect(paths).toContain('programs[1].daysPerSchool');
       expect(paths).toContain('hosts[0].role');
+      // The polish addendum's leaves (2026-10-22): the second host, Jordi first,
+      // and the CTA short names.
+      expect(paths).toContain('hosts[1].note');
+      expect(paths).toContain('programs[0].shortName');
+      expect(paths).toContain('programs[1].shortName');
       expect(paths).toContain('freeWeekend.endDate');
     });
 
@@ -2692,9 +2713,12 @@ describe('C003 — January 2027 rendered-content oracle, from the ratified contr
     expect(inspiraSchools).toContain('Cada cohorte visita 4 de estas 5 escuelas.');
     expect(miradaSchools.match(/2 días completos/g)).toHaveLength(5);
 
-    // Each program's calendar ends on its own last day.
-    const inspiraCalendar = sectionBetween(html, 'pasantias-calendar-inspira', 'pasantias-finde');
-    const miradaCalendar = sectionBetween(html, 'pasantias-calendar-mirada-profunda', 'pasantias-dia-tipo');
+    // Each program's calendar ends on its own last day. Since the polish unit
+    // the two calendars sit side by side and the shared weekend follows both,
+    // so INSPIRA's slice ends where Mirada Profunda's column starts and Mirada
+    // Profunda's ends at the weekend card.
+    const inspiraCalendar = sectionBetween(html, 'pasantias-calendar-inspira', 'pasantias-calendar-mirada-profunda');
+    const miradaCalendar = sectionBetween(html, 'pasantias-calendar-mirada-profunda', 'pasantias-finde');
     expect(inspiraCalendar).toContain(lastDay('inspira.week2'));
     expect(inspiraCalendar).not.toContain(lastDay('mirada-profunda.week2'));
     expect(miradaCalendar).toContain(lastDay('mirada-profunda.week2'));

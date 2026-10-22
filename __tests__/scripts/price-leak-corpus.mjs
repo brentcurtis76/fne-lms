@@ -915,7 +915,7 @@ export const JANUARY_COMMERCIAL_COPY_ROWS = [
   ['the January brochure download name', 'Pasantias-INSPIRA-Barcelona-enero-2027-2027-01-v1.pdf', [COMMERCIAL_COPY]],
   [
     'the price-free ficha download name (expected over-firing, safe direction)',
-    'Ficha-Pasantias-INSPIRA-Barcelona-enero-2027-2027-01-v1.pdf',
+    'Ficha-Pasantias-INSPIRA-Barcelona-enero-2027-2027-01-v2.pdf',
     [COMMERCIAL_COPY],
   ],
 ];

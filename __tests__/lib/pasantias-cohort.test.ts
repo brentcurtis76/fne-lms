@@ -99,6 +99,9 @@ const [INSPIRA, MIRADA] = COHORT_PROGRAMS;
 const ORACLE_INSPIRA = {
   id: 'inspira',
   name: 'Pasantía INSPIRA',
+  // Display label for the page CTA, not a contract fact: polish addendum
+  // (docs/plan/pasantias-polish-addendum-20261022.md, P6).
+  shortName: 'INSPIRA',
   audience: 'Equipos que viajan por primera vez',
   startDate: '2027-01-18',
   endDate: '2027-01-28',
@@ -147,6 +150,8 @@ const ORACLE_INSPIRA = {
 const ORACLE_MIRADA = {
   id: 'mirada-profunda',
   name: 'INSPIRA Mirada Profunda',
+  // Display label for the page CTA, not a contract fact: polish addendum, P6.
+  shortName: 'Mirada Profunda',
   audience: 'Quienes ya viajaron con INSPIRA',
   startDate: '2027-01-18',
   endDate: '2027-01-29',
@@ -419,9 +424,19 @@ describe('public cohort module — schools per program (C005)', () => {
     expect(COHORT_EXCLUDES).toContain('Almuerzos de la segunda semana (solo en la Pasantía INSPIRA)');
   });
 
-  it('names Jordi Musons as the Escola Sadako host, with the ratified spelling (P-01)', () => {
+  it('names Jordi Musons first, with the ratified spelling (P-01), then Sandra Entrena (polish addendum)', () => {
+    // Two hosts since docs/plan/pasantias-polish-addendum-20261022.md: Brent's
+    // 2026-10-22 correction adds Sandra Entrena, verified on brochure pages 4
+    // and 12. Jordi stays first and stays the contract's P-01 host; nobody else
+    // is added.
     expect(COHORT_HOSTS.map((host) => ({ ...host }))).toEqual([
       { name: 'Jordi Musons', role: 'Director', school: 'Escola Sadako', note: 'Anfitrión' },
+      {
+        name: 'Sandra Entrena',
+        role: 'Encargada de Innovación',
+        school: 'Escola Virolai',
+        note: 'Anfitriona',
+      },
     ]);
     expect(JSON.stringify(COHORT_PUBLIC)).not.toContain('Mussons');
   });
@@ -585,11 +600,21 @@ describe('October 2026 — none of it is carried into the January module (C005)'
     }
   });
 
-  it('carries no unratified October expert, and Jordi Musons only as January’s host', () => {
-    for (const expert of OCTOBER_ORACLE_EXPERTS.filter((e) => e.name !== 'Jordi Musons')) {
+  it('carries no unratified October expert; Jordi Musons and Sandra Entrena only as January’s hosts', () => {
+    // Jordi Musons is the contract's P-01 host. Sandra Entrena is January's
+    // second host by the 2026-10-22 polish addendum
+    // (docs/plan/pasantias-polish-addendum-20261022.md, brochure pages 4 and 12)
+    // — excluded here by that citation and nothing else. Every other October
+    // expert stays prohibited, and October's "semana 1" host notes stay out.
+    const januaryHosts = ['Jordi Musons', 'Sandra Entrena'];
+    for (const expert of OCTOBER_ORACLE_EXPERTS.filter((e) => !januaryHosts.includes(e.name))) {
       expect([expert.name, serialized.includes(expert.name)]).toEqual([expert.name, false]);
     }
+    expect(OCTOBER_ORACLE_EXPERTS.filter((e) => !januaryHosts.includes(e.name))).toHaveLength(
+      OCTOBER_ORACLE_EXPERTS.length - januaryHosts.length
+    );
     expect(serialized).not.toContain('Anfitrión semana 1');
+    expect(serialized).not.toContain('Anfitriona semana 1');
   });
 
   it('carries no October school level or highlight, and no objective', () => {
@@ -975,6 +1000,8 @@ describe('January 2027 oracle — the module equals the ratified contract (C003)
 
   it('applies every decided answer: Musons, the RPA claim, the track record, four of five', () => {
     const decided = Object.fromEntries(JANUARY.decided.map((d) => [d.field, d.value]));
+    // Index 0 on purpose: the contract's decided host stays first; the
+    // addendum's second host follows it.
     expect(COHORT_HOSTS[0].name).toBe(decided['inspira.host.sadako']);
     expect(COHORT_ACCREDITATION).toBe(decided['cohort.claim.rpa']);
     expect([...COHORT_CLAIMS]).toEqual(decided['cohort.claim.trackRecord']);

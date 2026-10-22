@@ -28,8 +28,11 @@ import { test, expect, type Locator, type Page } from '@playwright/test';
  *    five conditional visit candidates, Mirada Profunda's five schools;
  *  - thirteen objectives → the three-part day structure (page 8) and the full
  *    includes/excludes lists (page 16), which are what January ratifies;
- *  - the eight experts and the "Experto invitado" prohibition → the one host the
- *    contract ratifies (P-01, "Jordi Musons") with the prohibition kept;
+ *  - the eight experts and the "Experto invitado" prohibition → the host the
+ *    contract ratifies (P-01, "Jordi Musons"), first, and — since the
+ *    2026-10-22 polish addendum (`docs/plan/pasantias-polish-addendum-20261022.md`,
+ *    brochure pages 4 and 12) — Sandra Entrena beside him, with the
+ *    prohibitions kept;
  *  - "Día completo — fuera de Barcelona" → the contract's own sentence about El
  *    Puig and Les Vinyes, and no duration for any other visit.
  *
@@ -107,7 +110,30 @@ const JANUARY = {
   host: 'Jordi Musons',
   hostBrochureSpelling: 'Jordi Mussons',
   hostSchool: 'Escola Sadako',
+  /**
+   * Polish addendum (2026-10-22, Brent's correction), brochure pages 4 and 12:
+   * the second host, after Jordi Musons.
+   */
+  secondHost: 'Sandra Entrena',
+  secondHostLine: 'Encargada de Innovación, Escola Virolai — Anfitriona',
 } as const;
+
+/**
+ * The program CTAs' labels (polish addendum, P6). Display copy, not contract
+ * facts; typed here for the same reason the facts are.
+ */
+const PROGRAM_CTA_LABELS = {
+  inspira: 'Me interesa INSPIRA',
+  'mirada-profunda': 'Me interesa Mirada Profunda',
+} as const;
+
+/** The same-page shortcuts (P7): link test ID, target hash, and the heading it must land. */
+const SHORTCUTS = [
+  { testId: 'pasantias-shortcut-programas', label: 'Programas', hash: '#programas', heading: '#programas-title' },
+  { testId: 'pasantias-shortcut-calendario', label: 'Calendario', hash: '#calendario', heading: '#calendario-title' },
+  { testId: 'pasantias-shortcut-incluye', label: 'Qué incluye', hash: '#incluye', heading: '#incluye h2' },
+  { testId: 'pasantias-shortcut-inscripcion', label: 'Inscripción', hash: '#programa', heading: '#programa-title' },
+] as const;
 
 const INSPIRA = {
   /** inspira.name / audience / takeaway, page 3. */
@@ -379,11 +405,16 @@ test.describe('pasantías landing page', () => {
     await expect(miradaWeek2).toContainText(MIRADA.weekSummary);
 
     // The free weekend, common to both programs (pages 4 and 7). Replaces the
-    // October long weekend and its Fiesta Nacional.
+    // October long weekend and its Fiesta Nacional. Since the polish unit the
+    // card sits below both calendars and prints the dates once, as a range; the
+    // brochure's own wording of the weekend is the FAQ answer's.
     const finde = page.getByTestId('pasantias-finde');
-    await expect(finde).toContainText(JANUARY.freeWeekend);
+    await expect(page.getByTestId('pasantias-free-weekend-dates')).toHaveText(
+      '23 de enero al 24 de enero'
+    );
     await expect(finde).toContainText('23 de enero');
     await expect(finde).toContainText('24 de enero');
+    await expect(page.getByTestId('pasantias-faq')).toContainText(JANUARY.freeWeekend);
 
     // How a school day runs: all three blocks, in order (page 8).
     const blocks = page.getByTestId('pasantias-dia-tipo').locator('li');
@@ -426,13 +457,17 @@ test.describe('pasantías landing page', () => {
     await expect(extra).toContainText(MIRADA.closing);
     await expect(extra).toContainText(MIRADA.followUp);
 
-    // Who receives the group. The October expert list is not carried; the one
-    // person January ratifies is the Sadako host, with BD-01's spelling.
-    // A6a r1 shipped four experts titled "Experto invitado" — the placeholder
-    // stays a prohibition.
+    // Who receives the group. The October expert list is not carried: the
+    // person January ratifies is the Sadako host, with BD-01's spelling, first;
+    // Sandra Entrena follows him by the 2026-10-22 polish addendum (brochure
+    // pages 4 and 12), and nobody else is listed. A6a r1 shipped four experts
+    // titled "Experto invitado" — the placeholder stays a prohibition.
     const equipo = page.getByTestId('pasantias-equipo');
-    await expect(equipo).toContainText(JANUARY.host);
-    await expect(equipo).toContainText(JANUARY.hostSchool);
+    await expect(equipo.getByTestId(/^pasantias-host-\d+$/)).toHaveCount(2);
+    await expect(page.getByTestId('pasantias-host-0')).toContainText(JANUARY.host);
+    await expect(page.getByTestId('pasantias-host-0')).toContainText(JANUARY.hostSchool);
+    await expect(page.getByTestId('pasantias-host-1')).toContainText(JANUARY.secondHost);
+    await expect(page.getByTestId('pasantias-host-1')).toContainText(JANUARY.secondHostLine);
     await expect(equipo).not.toContainText(JANUARY.hostBrochureSpelling);
     await expect(equipo).not.toContainText('Experto invitado');
 
@@ -549,12 +584,131 @@ test.describe('pasantías landing page', () => {
     );
 
     // January: each program card's CTA leads to the same form (which program it
-    // preselects is `pasantias-form.spec.ts`'s to prove).
-    for (const program of ['inspira', 'mirada-profunda']) {
-      await expect(page.getByTestId(`pasantias-cta-program-${program}`)).toHaveAttribute(
-        'href',
-        '#programa'
+    // preselects, by mouse and by keyboard, is `pasantias-form.spec.ts`'s to
+    // prove), under the short label of the polish addendum (P6).
+    for (const program of ['inspira', 'mirada-profunda'] as const) {
+      const cta = page.getByTestId(`pasantias-cta-program-${program}`);
+      await expect(cta).toHaveAttribute('href', '#programa');
+      await expect(cta).toHaveText(PROGRAM_CTA_LABELS[program]);
+    }
+
+    // P3: the hero names both routes and offers the way down to the choice,
+    // while the registration and ficha CTAs stay where they were.
+    const routes = page.getByTestId('pasantias-hero-routes');
+    await expect(routes).toContainText('¿Primera vez? Pasantía INSPIRA');
+    await expect(routes).toContainText('¿Ya viajaste? Mirada Profunda');
+    await expect(page.getByTestId('pasantias-cta-programas')).toHaveText('Ver los programas');
+    await expect(page.getByTestId('pasantias-cta-programas')).toHaveAttribute('href', '#programas');
+
+    // P7: the shortcuts, in order, each to its section.
+    for (const shortcut of SHORTCUTS) {
+      const link = page.getByTestId(shortcut.testId);
+      await expect(link).toHaveText(shortcut.label);
+      await expect(link).toHaveAttribute('href', shortcut.hash);
+    }
+    await expect(page.getByRole('navigation', { name: 'En esta página' })).toBeVisible();
+
+    // P8: beside the form, the registration is said not to reserve a place, and
+    // no e-mail is promised.
+    const note = page.getByTestId('pasantias-registration-note');
+    await expect(note).toContainText('no reserva un cupo');
+    await expect(note).not.toContainText(/correo|te enviamos|te enviaremos|recibirás/i);
+  });
+
+  /**
+   * PASANT-DESIGN-POLISH-01: the layout claims a phone, a tablet and a wide
+   * desktop each have to hold. Measured on the real page, not on class names.
+   */
+  for (const { label, width, height } of [
+    { label: 'phone 375', width: 375, height: 812 },
+    { label: 'phone 390', width: 390, height: 844 },
+    { label: 'tablet 768', width: 768, height: 1024 },
+    { label: 'desktop 1866', width: 1866, height: 986 },
+  ]) {
+    test(`polish layout holds at ${label}: no overflow, photos, hosts, CTAs`, async ({ page }) => {
+      await page.setViewportSize({ width, height });
+      await page.goto('/pasantias');
+
+      // No horizontal overflow anywhere on the page.
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - window.innerWidth
       );
+      expect(overflow, `the page is ${overflow}px wider than the ${label} viewport`).toBeLessThanOrEqual(0);
+
+      // P1: below lg each photograph keeps its own 16:9 shape, so nobody at the
+      // edge of a group is cropped; at desktop the library photo gets a tall
+      // frame and the Virolai photo keeps its approved band.
+      for (const id of ['escuela-interior', 'equipo-foto']) {
+        const photo = page.locator(`#${id}`);
+        await photo.scrollIntoViewIfNeeded();
+        const box = (await photo.boundingBox())!;
+        if (width < 1024) {
+          expect([id, Math.abs(box.height - (box.width * 9) / 16) <= 2]).toEqual([id, true]);
+        } else if (id === 'equipo-foto') {
+          expect([id, box.height / box.width >= 0.4]).toEqual([id, true]);
+        } else {
+          expect([id, box.height <= 461]).toEqual([id, true]);
+        }
+      }
+
+      // P2: two equally sized portraits, side by side from 640 px, stacked below.
+      const first = (await page.getByTestId('pasantias-host-0').boundingBox())!;
+      const second = (await page.getByTestId('pasantias-host-1').boundingBox())!;
+      const portraitA = (await page.getByTestId('pasantias-host-portrait-0').boundingBox())!;
+      const portraitB = (await page.getByTestId('pasantias-host-portrait-1').boundingBox())!;
+      expect(Math.abs(portraitA.width - portraitB.width)).toBeLessThanOrEqual(1);
+      expect(Math.abs(portraitA.height - portraitB.height)).toBeLessThanOrEqual(1);
+      if (width < 640) {
+        expect(second.y).toBeGreaterThanOrEqual(first.y + first.height);
+      } else {
+        expect(Math.abs(second.y - first.y)).toBeLessThanOrEqual(1);
+      }
+
+      // P6: each CTA's label fits its button and is centred.
+      for (const program of ['inspira', 'mirada-profunda']) {
+        const cta = page.getByTestId(`pasantias-cta-program-${program}`);
+        const fits = await cta.evaluate(
+          (node) =>
+            node.scrollWidth <= node.clientWidth &&
+            getComputedStyle(node).textAlign === 'center' &&
+            node.getBoundingClientRect().right <=
+              (node.closest('article') as HTMLElement).getBoundingClientRect().right
+        );
+        expect([program, fits]).toEqual([program, true]);
+      }
+
+      // P7: one non-sticky shortcut bar, no wider than the page.
+      const shortcuts = page.getByTestId('pasantias-shortcuts');
+      expect(await shortcuts.evaluate((node) => getComputedStyle(node).position)).toBe('static');
+    });
+  }
+
+  test('each shortcut, and "Ver los programas", lands its heading below the sticky header', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const header = page.getByTestId('pasantias-header');
+
+    const targets = [
+      ...SHORTCUTS.map(({ testId, hash, heading }) => ({ testId, hash, heading })),
+      { testId: 'pasantias-cta-programas', hash: '#programas', heading: '#programas-title' },
+    ];
+
+    for (const target of targets) {
+      await page.goto('/pasantias');
+      await page.getByTestId(target.testId).click();
+      await expect(page).toHaveURL(new RegExp(`${target.hash}$`));
+
+      const heading = page.locator(target.heading).first();
+      await expect(heading).toBeInViewport();
+      // Polled: a smooth scroll is still moving when the URL changes.
+      await expect
+        .poll(async () => {
+          const headerBox = (await header.boundingBox())!;
+          const headingBox = (await heading.boundingBox())!;
+          return headingBox.y >= headerBox.y + headerBox.height - 1;
+        }, { message: `${target.testId}: heading hidden under the sticky header` })
+        .toBe(true);
     }
   });
 

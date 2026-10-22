@@ -99,7 +99,7 @@ type Program = 'inspira' | 'mirada-profunda';
 
 /** The download names the two shared documents carry (C006), typed independently. */
 const JANUARY_FILENAMES: Record<string, string> = {
-  [FICHA_HREF]: 'Ficha-Pasantias-INSPIRA-Barcelona-enero-2027-2027-01-v1.pdf',
+  [FICHA_HREF]: 'Ficha-Pasantias-INSPIRA-Barcelona-enero-2027-2027-01-v2.pdf',
   [BROCHURE_HREF]: 'Pasantias-INSPIRA-Barcelona-enero-2027-2027-01-v1.pdf',
 };
 

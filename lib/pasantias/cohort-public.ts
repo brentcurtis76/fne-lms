@@ -19,6 +19,12 @@
  * never shown to a reader. The only ratified correction is P-01 (BD-01): the
  * Escola Sadako host is "Jordi Musons", not the brochure's "Mussons".
  *
+ * Two additive, user-approved display additions sit beside the contract rather
+ * than in it, both recorded in `docs/plan/pasantias-polish-addendum-20261022.md`
+ * (Brent, 2026-10-22; the contract and its JSON block are unchanged): the
+ * second host, Sandra Entrena (brochure pages 4 and 12), and each program's
+ * `shortName`, the label the page's program CTAs use.
+ *
  * October 2026 facts (Appendix A) are historical and are not carried forward:
  * no expert list, no objectives, no school levels or highlights — the January
  * contract ratifies none of them. Appendix A stays the record of what shipped.
@@ -150,6 +156,12 @@ interface ProgramBase {
   id: ProgramId;
   /** `<program>.name`, page 3. */
   name: string;
+  /**
+   * The short display label the page's program CTA uses ("Me interesa …").
+   * Not a contract fact: a display label approved in
+   * `docs/plan/pasantias-polish-addendum-20261022.md` (P6).
+   */
+  shortName: string;
   /** Who the program is for — `<program>.audience`, page 3, verbatim. */
   audience: string;
   /** `<program>.dates` (ISO start). */
@@ -219,6 +231,7 @@ export type CohortProgram = InspiraProgram | MiradaProfundaProgram;
 export const INSPIRA_PROGRAM: InspiraProgram = {
   id: 'inspira',
   name: 'Pasantía INSPIRA',
+  shortName: 'INSPIRA',
   audience: 'Equipos que viajan por primera vez',
   startDate: '2027-01-18',
   endDate: '2027-01-28',
@@ -268,6 +281,7 @@ export const INSPIRA_PROGRAM: InspiraProgram = {
 export const MIRADA_PROFUNDA_PROGRAM: MiradaProfundaProgram = {
   id: 'mirada-profunda',
   name: 'INSPIRA Mirada Profunda',
+  shortName: 'Mirada Profunda',
   audience: 'Quienes ya viajaron con INSPIRA',
   startDate: '2027-01-18',
   endDate: '2027-01-29',
@@ -367,12 +381,24 @@ export interface CohortHost {
 }
 
 /**
- * P-01 (DEC-01, BD-01), page 12: "Jordi Mussons DIRECTOR, ESCOLA SADAKO ·
- * ANFITRIÓN", with the ratified spelling correction to "Musons". The only person
- * the January contract ratifies by name.
+ * Who receives the group, Jordi Musons first.
+ *
+ * - P-01 (DEC-01, BD-01), page 12: "Jordi Mussons DIRECTOR, ESCOLA SADAKO ·
+ *   ANFITRIÓN", with the ratified spelling correction to "Musons" — the person
+ *   the January contract ratifies by name.
+ * - Sandra Entrena, brochure pages 4 and 12: "Encargada de Innovación, Escola
+ *   Virolai · Anfitriona". Added by Brent's 2026-10-22 correction ("Quién te
+ *   recibe should also include Sandra"), recorded in
+ *   `docs/plan/pasantias-polish-addendum-20261022.md`. No other host is added.
  */
 export const COHORT_HOSTS: readonly CohortHost[] = [
   { name: 'Jordi Musons', role: 'Director', school: 'Escola Sadako', note: 'Anfitrión' },
+  {
+    name: 'Sandra Entrena',
+    role: 'Encargada de Innovación',
+    school: 'Escola Virolai',
+    note: 'Anfitriona',
+  },
 ] as const;
 
 /** Parse an ISO calendar date into UTC midnight, so no timezone can shift it. */

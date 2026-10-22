@@ -1,3 +1,56 @@
+## PM validation update — 2026-10-22 (supersedes the authorship-only status below)
+
+Local implementation and validation complete; independent cumulative FINAL review pending. No publication or deployment.
+Branch `fix/pasant-polish`, base `cd08f4d07ad801780a7e23e056c3be08a47feb1c`; zero commits above base before the planned one local reviewed commit.
+
+- Focused PASANT/PDF/guard tests: 5,977 reported passes across 9 files.
+- Full unit suite: all 8 shards pass, 17,651 reported passes across 527 unique files, zero failures. Twelve inherited skipped assertions remain explicitly recorded (11 parked Zoom, one PostgreSQL-conditional); no PASANT skips or new waivers.
+- Type-check, zero-warning lint, build, 267-bundle price-leak guard, scoped interactive-testid lint and browser-boundary guard: PASS.
+- Page/form browser suite: 33 passed, one worker, zero retries; includes keyboard, four widths, contrast and accessibility. Synthetic intercepted APIs only. Unmocked `pasantias-flow.spec.ts` remains NOT_RUN locally; its filename-only update requires the later full CI gate.
+- PM Chrome visual checks: desktop 1866, tablet 768, phones 390/375. Corrected photo faces, equal Sandra/Jordi portraits, program cards/CTAs, calendar alignment, shortcuts and consent defaults accepted. No manual form submission or PDF/provider call.
+- Sequential admitted hard-capped runs, no swap, safety reserve maintained. Build peak 3.33 GiB; browser peak 1.01 GiB. Preview stopped and shared slot released. No production or other-project interference.
+- Initial D-Bus launch failure and unit-origin environment failure are retained with their successful corrected runs; neither was a product fix or test waiver. Initial Chrome capture errors resolved with a fresh tab and final screenshots.
+
+Evidence: `/home/brent/Projects/pasant-local-handover/20261015/PASANT-design-polish-20261022/evidence-index.json`, `unit-summary.json`, `ui-evidence.json`, `freeze-remediation1.json`. Author reports below remain historical. FIRST and FINAL source reviews are separate Opus 5.5 high sessions; final cumulative review must approve this evidence before local commit. R17/A9 unchanged. No new publication approval is inferred.
+
+## PASANT-DESIGN-POLISH-01 `/pasantias` polish — authored, not validated, PARTIAL (2026-10-22)
+
+**Authorship only. Status: PARTIAL. Tests, build, price guard, browser specs and UI checks: NOT_RUN, pending the PM.**
+Branch `fix/pasant-polish`, base `cd08f4d0` (as the order reports it), not committed.
+
+What was authored:
+- Brent's 2026-10-22 correction is recorded additively in `docs/plan/pasantias-polish-addendum-20261022.md`. The January
+  contract is unchanged. The addendum adds:
+  - Sandra Entrena (Encargada de Innovación, Escola Virolai · Anfitriona; brochure pp. 4/12) as the second host, after
+    Jordi Musons;
+  - a `shortName` per program for the CTA labels.
+- The page polish, P1–P9:
+  - per-photo framing, with phones at their natural 16:9;
+  - two equal host cards;
+  - hero route line and "Ver los programas";
+  - a warm Mirada card;
+  - aligned calendar columns with the shared weekend printed once below them;
+  - "Me interesa …" CTAs;
+  - non-sticky same-page shortcuts;
+  - the "no reserva un cupo" note beside the form.
+- Guard data updated with reasons: leaf count 112, `hosts` reason, C005 calendar slices. Collections stay at 14, and no
+  declaration was added.
+- Focused unit and e2e tests were added for the two hosts, the shortcuts and keyboard program selection.
+- The ficha and brochure PDFs gain a Sandra row through `COHORT_HOSTS`. Their code was not edited.
+
+Remediation 1 (order revision 3) answers the FINAL source review's F1–F4. It is authorship only; tests are NOT_RUN.
+- **F1:** `lib/pasantias/__tests__/pdf.test.ts` no longer forbids "Sandra Entrena". Both PDFs must now carry her name and
+  the exact row "Encargada de Innovación, Escola Virolai · Anfitriona", citing the addendum. Every other October
+  prohibition is kept, and "Anfitriona semana 1" is added.
+- **F2:** `FICHA_VERSION` moves `2027-01-v1` → `2027-01-v2`. PM decision: production is deployed, so a cached ficha v1 can
+  exist. The exact consumer expectations in the PDF, API, flow e2e and price-leak corpus tests move with it.
+  `BROCHURE_VERSION` and the designed brochure v1 are untouched. Production was not probed and no bucket object was
+  touched.
+- **F3:** the guard's `routing` reason now names the hero route line.
+- **F4:** the addendum §4 and the review request record F1 and F2.
+
+Review request: `docs/planning/reviews/fase-pasant-polish-review-request.md`. Attempts: initial 1, remediation 1.
+
 ## PASANT-B004 admin leads completeness (C009) — authored, not validated, PARTIAL (2026-10-15)
 
 **Remediation 1 (`r1-remediation-1`), authorship only. Status: PARTIAL. Tests: NOT_RUN.** It answers the consolidated review's

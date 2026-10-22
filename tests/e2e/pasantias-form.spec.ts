@@ -274,6 +274,50 @@ test.describe('pasantias lead form', () => {
     expect(posted[0].program).toBe(INSPIRA.id);
   });
 
+  test('each program CTA preselects its program from the keyboard too, and the choice stays changeable', async ({
+    page,
+  }) => {
+    // PASANT-DESIGN-POLISH-01 shortened the labels to "Me interesa …"; what a
+    // keyboard user gets must not change with them. Focus the CTA and press
+    // Enter — no mouse — and the form below must hold that program.
+    const posted = await interceptLead(page);
+
+    await page.goto('/pasantias');
+
+    const miradaCta = page.getByTestId(`pasantias-cta-program-${MIRADA.id}`);
+    await expect(miradaCta).toHaveText('Me interesa Mirada Profunda');
+    await miradaCta.focus();
+    await expect(miradaCta).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/#programa$/);
+    await expect(programRadio(page, MIRADA)).toBeChecked();
+    await expect(programRadio(page, INSPIRA)).not.toBeChecked();
+
+    const inspiraCta = page.getByTestId(`pasantias-cta-program-${INSPIRA.id}`);
+    await expect(inspiraCta).toHaveText('Me interesa INSPIRA');
+    await inspiraCta.focus();
+    await page.keyboard.press('Enter');
+    await expect(programRadio(page, INSPIRA)).toBeChecked();
+    await expect(programRadio(page, MIRADA)).not.toBeChecked();
+
+    // Still the visitor's choice, changed with the keyboard as well: into the
+    // radio group from the ficha CTA before the form, then the arrow key.
+    await page.getByTestId('pasantias-cta-ficha-programa').focus();
+    await page.keyboard.press('Tab');
+    await expect(programRadio(page, INSPIRA)).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(programRadio(page, MIRADA)).toBeChecked();
+    await expect(programRadio(page, INSPIRA)).not.toBeChecked();
+
+    await fillRequired(page);
+    await page.getByTestId('pasantias-consent').check();
+    await page.getByTestId('pasantias-lead-submit').click();
+
+    await expect(page.getByTestId('pasantias-lead-success')).toBeVisible();
+    expect(posted).toHaveLength(1);
+    expect(posted[0].program).toBe(MIRADA.id);
+  });
+
   test('a 500 shows one error, loses nothing the person typed, and a retry succeeds', async ({
     page,
   }) => {

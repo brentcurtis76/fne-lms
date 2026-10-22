@@ -28,6 +28,13 @@
  * from the module, see `docs/plan/pasantias-polish-addendum-20261022.md`), the
  * hero's route line, the same-page shortcuts, the calendar's shared weekend
  * below both programs and the note beside the form.
+ *
+ * PASANT-SCHOOL-SECTION-01 (2026-10-22) redesigned "Cómo es un día" and "Las
+ * escuelas", again without changing a fact: a still from the homepage video,
+ * unmasked by Brent's direction, beside the day's intro, the day's blocks as
+ * connected numbered moments, and each program's schools as a chapter of its
+ * own. Display copy and the
+ * still's provenance: `docs/plan/pasantias-school-section-20261022.md`.
  */
 import React from 'react';
 import type { GetServerSideProps } from 'next';
@@ -153,6 +160,13 @@ const PHOTO_SLOTS = {
   barcelonaCalle: ['barcelona-calle'],
   equipoConversando: ['equipo-conversando', 'educadores-biblioteca'],
   barcelonaTarde: ['barcelona-tarde'],
+  /**
+   * The day section's still from the homepage video, stored unmasked and
+   * unretouched by Brent's direction. Unlike a {@link PhotoBreak} slot, an
+   * empty one does not remove its section: the day's intro takes the full
+   * width instead.
+   */
+  unDia: ['card-on-glass'],
 } as const;
 
 type PhotoSlot = keyof typeof PHOTO_SLOTS;
@@ -317,6 +331,24 @@ const BUTTON_GHOST_DARK = `${BUTTON_BASE} border border-white/50 text-white hove
  */
 const BUTTON_PROGRAM_BASE =
   'inline-flex min-h-[52px] w-full items-center justify-center rounded-lg px-4 py-3 text-center text-[15px] font-semibold leading-[1.25] tracking-[.03em] transition-colors duration-200';
+/** A school chapter's title: one per program, the program's own name. */
+const CHAPTER_TITLE =
+  'm-0 text-[clamp(26px,3.2vw,40px)] font-extrabold leading-[1.1] tracking-[-.015em]';
+
+/**
+ * Display headings for the moments of a school day, paired by position with
+ * `COHORT_DAY_STRUCTURE`, whose sentences stay the content. Not contract facts:
+ * display copy recorded in `docs/plan/pasantias-school-section-20261022.md`. A
+ * block past the end of this list renders without a heading rather than with an
+ * invented one.
+ */
+const DAY_MOMENT_HEADINGS: readonly string[] = ['Conocer', 'Observar y Preguntar', 'Profundizar'];
+
+/**
+ * What the day section's still shows, and nothing it does not establish: no
+ * school, place or person is named, because the frame proves none of them.
+ */
+const DAY_PHOTO_ALT = 'Una mano coloca una tarjeta sobre un muro de vidrio.';
 
 function SectionHeader({
   eyebrow,
@@ -912,36 +944,125 @@ export default function PasantiasPage({
         </section>
 
         {/* ============ Cómo es un día ============ */}
+        {/*
+          An editorial spread on a warm band: the intro beside the still, then
+          the day's blocks as moments joined by a gold line — down the left on
+          a phone and a tablet, across from `lg`. The still keeps its own 16:9
+          at every width (its box is the picture's shape, never a crop), so the
+          hand and the card stay whole. With no still on file the intro takes
+          the full width and nothing else changes.
+        */}
         <section
           id="un-dia"
-          className={`${SHELL} pb-16 md:pb-24 lg:pb-[120px]`}
+          className="border-y border-amber-100 bg-amber-50/70"
           aria-labelledby="dia-title"
           data-testid="pasantias-dia-tipo"
         >
-          <SectionHeader
-            eyebrow="Dentro de la escuela"
-            title="Cómo es un día"
-            titleId="dia-title"
-          />
-          <ol className="mt-8 grid gap-6 lg:mt-14 lg:grid-cols-3 lg:gap-10">
-            {COHORT_DAY_STRUCTURE.map((block, index) => (
-              <li
-                key={block}
-                className="flex flex-col gap-3 border-t border-gray-200 pt-5"
-                data-testid={`pasantias-day-block-${index}`}
-              >
-                <p className="text-[17px] font-medium leading-[1.5] text-brand_primary">{block}</p>
-              </li>
-            ))}
-          </ol>
+          <div className={`${SHELL} py-14 md:py-20 lg:py-24`}>
+            <div
+              className={
+                photos.unDia ? 'grid items-center gap-8 md:gap-10 lg:grid-cols-12 lg:gap-14' : undefined
+              }
+            >
+              <div className={photos.unDia ? 'lg:col-span-5' : undefined}>
+                <SectionHeader
+                  eyebrow="Dentro de la escuela"
+                  title="Cómo es un día"
+                  titleId="dia-title"
+                />
+                <p
+                  className="mt-6 max-w-[24ch] text-[clamp(22px,2.4vw,30px)] font-bold leading-[1.25] tracking-[-.01em] text-brand_primary"
+                  data-testid="pasantias-dia-lead"
+                >
+                  La escuela, contada por quienes la hacen.
+                </p>
+              </div>
+              {photos.unDia && (
+                <div className="relative lg:col-span-7">
+                  {/* The manual's gold, as an offset block behind the frame; desktop only. */}
+                  <span
+                    aria-hidden="true"
+                    className="absolute -bottom-4 -left-4 hidden h-2/3 w-2/3 rounded-2xl bg-gold-gradient lg:block"
+                  />
+                  <img
+                    src={photos.unDia}
+                    alt={DAY_PHOTO_ALT}
+                    width={1280}
+                    height={720}
+                    className="relative block aspect-[16/9] h-auto w-full rounded-2xl bg-brand_primary object-cover"
+                    loading="lazy"
+                    decoding="async"
+                    data-testid="pasantias-dia-photo"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/*
+              Still an `<ol>`: the contract gives the day its order. Each block
+              is a black disc with its gold position number, the display heading
+              for that position, and the module's sentence unchanged. The
+              joining line is each item's own `::after`, hidden on the last one,
+              so it never runs past the final moment.
+            */}
+            <ol className="mt-10 grid lg:mt-16 lg:grid-cols-3 lg:gap-10">
+              {COHORT_DAY_STRUCTURE.map((block, index) => {
+                const heading: string | undefined = DAY_MOMENT_HEADINGS[index];
+                return (
+                  <li
+                    key={block}
+                    className="relative grid grid-cols-[56px_minmax(0,1fr)] gap-x-5 pb-8 after:absolute after:bottom-2 after:left-[27px] after:top-16 after:w-[2px] after:bg-gold-gradient after:content-[''] last:pb-0 last:after:hidden lg:block lg:pb-0 lg:after:-right-6 lg:after:bottom-auto lg:after:left-[72px] lg:after:top-[27px] lg:after:h-[2px] lg:after:w-auto"
+                    data-testid={`pasantias-day-block-${index}`}
+                  >
+                    <span
+                      className="grid h-14 w-14 place-items-center rounded-full bg-brand_primary text-[18px] font-black tracking-[-.02em] text-brand_accent"
+                      data-testid={`pasantias-day-block-${index}-numeral`}
+                    >
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+                    <div className="min-w-0 pt-3 lg:pt-6">
+                      {heading && (
+                        <h3 className="m-0 text-[22px] font-extrabold leading-[1.2] tracking-[-.01em] text-brand_primary lg:text-[26px]">
+                          {heading}
+                        </h3>
+                      )}
+                      <p
+                        className="mt-2 text-[17px] leading-[1.55] text-brand_gray_dark"
+                        data-testid={`pasantias-day-block-${index}-text`}
+                      >
+                        {block}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
         </section>
 
         <PhotoBreak id="barcelona-calle" src={photos.barcelonaCalle} />
 
         {/* ============ Las escuelas ============ */}
+        {/*
+          One chapter per program, each in its own colours from the program
+          cards above: black and gold for the first, warm cream with a gold
+          edge for the second.
+
+          The first chapter opens with the program's own overview sentence and
+          then splits by week, read by position from the module: the immersion
+          schools as two large cards, each with its own days, beside the visit
+          week's candidates as identical name-only cards — none marked, checked
+          or numbered, because the group chooses its visits from them. The
+          count sentence, the selection caveat and the full-day sentence stay
+          verbatim beside those cards.
+
+          The second chapter lists its schools by name, in module order, and
+          states their days once for all of them, above the order caveat. The
+          only `<li>`s in it are the schools.
+        */}
         <section
           id="escuelas"
-          className={`${SHELL} ${SECTION_PAD}`}
+          className={`${SHELL} py-16 md:py-20 lg:py-24`}
           aria-labelledby="escuelas-title"
           data-testid="pasantias-escuelas"
         >
@@ -951,68 +1072,113 @@ export default function PasantiasPage({
             titleId="escuelas-title"
           />
 
-          <div data-testid={`pasantias-escuelas-${inspira.id}`}>
-            <h3 className="mb-5 mt-9 text-[13px] font-semibold uppercase tracking-[.15em] text-brand_primary lg:mt-14">
-              {inspira.name}
-            </h3>
-            <ul className="grid gap-5 lg:grid-cols-2">
-              {inspira.immersionSchools.map((school, index) => (
-                <li
-                  key={school.name}
-                  className={`${CARD_DARK} flex flex-col gap-3`}
-                  data-testid={`pasantias-school-inmersion-${index}`}
-                >
-                  <h4 className="m-0 text-[clamp(22px,2.6vw,28px)] font-extrabold tracking-[-.01em] text-white">
-                    {school.name}
-                  </h4>
-                  <p className="text-[13px] font-medium uppercase tracking-[.08em] text-brand_accent">
-                    {`${formatNumber(school.days)} días por pasante`}
-                  </p>
-                </li>
-              ))}
-            </ul>
+          <div
+            className="mt-8 rounded-3xl bg-brand_primary p-6 text-white sm:p-10 lg:mt-12 lg:p-14"
+            data-testid={`pasantias-escuelas-${inspira.id}`}
+          >
+            <div className="max-w-[760px]">
+              <h3 className={`${CHAPTER_TITLE} text-white`}>{inspira.name}</h3>
+              <span aria-hidden="true" className={GOLD_RULE} />
+              <p className="mt-5 text-[17px] leading-[1.55] text-white/80 sm:text-[19px]">
+                {inspira.overview}
+              </p>
+            </div>
 
-            <p className="mt-8 text-[17px] font-semibold text-brand_primary" data-testid="pasantias-visit-count">
-              {`Cada cohorte visita ${formatNumber(inspira.visits.count)} de estas ${
-                inspira.visits.candidates.length
-              } escuelas.`}
-            </p>
-            <ul className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {inspira.visits.candidates.map((name, index) => (
-                <li
-                  key={name}
-                  className="flex flex-col gap-2.5 rounded-xl border border-gray-200 bg-white p-6"
-                  data-testid={`pasantias-school-visita-${index}`}
+            <div className="mt-10 grid gap-10 lg:mt-12 lg:grid-cols-12 lg:gap-0">
+              <div
+                className="lg:col-span-5 lg:pr-10"
+                data-testid={`pasantias-escuelas-${inspira.id}-${inspira.weeks[0].id}`}
+              >
+                <h4 className="m-0 text-[13px] font-bold uppercase tracking-[.15em] text-brand_accent">
+                  {inspira.weeks[0].label}
+                </h4>
+                <ul className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+                  {inspira.immersionSchools.map((school, index) => (
+                    <li
+                      key={school.name}
+                      className="flex flex-col gap-3 rounded-2xl border border-brand_accent/50 bg-white/[0.06] p-6"
+                      data-testid={`pasantias-school-inmersion-${index}`}
+                    >
+                      <h5 className="m-0 text-[clamp(22px,2.4vw,28px)] font-extrabold leading-[1.15] tracking-[-.01em] text-white">
+                        {school.name}
+                      </h5>
+                      <p className="text-[14px] font-semibold uppercase tracking-[.08em] text-brand_accent">
+                        {`${formatNumber(school.days)} días por pasante`}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div
+                className="border-t border-white/15 pt-10 lg:col-span-7 lg:border-l lg:border-t-0 lg:pl-10 lg:pt-0"
+                data-testid={`pasantias-escuelas-${inspira.id}-${inspira.weeks[1].id}`}
+              >
+                <h4 className="m-0 text-[13px] font-bold uppercase tracking-[.15em] text-brand_accent">
+                  {inspira.weeks[1].label}
+                </h4>
+                <p
+                  className="mt-5 text-[19px] font-bold leading-[1.35] text-white sm:text-[21px]"
+                  data-testid="pasantias-visit-count"
                 >
-                  <h4 className="m-0 text-[18px] font-bold text-brand_primary">{name}</h4>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-5 text-[15px] text-brand_gray_dark">{inspira.visits.selection}</p>
-            <p className="mt-2 text-[15px] text-brand_gray_dark" data-testid="pasantias-full-day">
-              {`${joinEs(inspira.visits.fullDayOutside)} están fuera de ${COHORT_CITY} y toman el día completo.`}
-            </p>
+                  {`Cada cohorte visita ${formatNumber(inspira.visits.count)} de estas ${
+                    inspira.visits.candidates.length
+                  } escuelas.`}
+                </p>
+                <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {inspira.visits.candidates.map((name, index) => (
+                    <li
+                      key={name}
+                      className="rounded-xl border border-white/20 px-5 py-4"
+                      data-testid={`pasantias-school-visita-${index}`}
+                    >
+                      <h5 className="m-0 text-[17px] font-bold leading-[1.3] text-white">{name}</h5>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-6 space-y-3 border-l-2 border-brand_accent pl-4 text-[16px] leading-[1.55] text-white/80">
+                  <p>{inspira.visits.selection}</p>
+                  <p data-testid="pasantias-full-day">
+                    {`${joinEs(inspira.visits.fullDayOutside)} están fuera de ${COHORT_CITY} y toman el día completo.`}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div data-testid={`pasantias-escuelas-${mirada.id}`}>
-            <h3 className="mb-5 mt-12 text-[13px] font-semibold uppercase tracking-[.15em] text-brand_primary lg:mt-16">
-              {mirada.name}
-            </h3>
-            <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {mirada.schools.map((name, index) => (
-                <li
-                  key={name}
-                  className="flex flex-col gap-2.5 rounded-xl border border-gray-200 bg-white p-6"
-                  data-testid={`pasantias-school-mirada-${index}`}
-                >
-                  <h4 className="m-0 text-[18px] font-bold text-brand_primary">{name}</h4>
-                  <p className="text-[12px] font-semibold uppercase tracking-[.08em] text-brand_accent_text">
-                    {`${formatNumber(mirada.daysPerSchool)} días completos`}
-                  </p>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-5 text-[15px] text-brand_gray_dark">{mirada.orderCaveat}</p>
+          <div
+            className="mt-5 grid gap-8 rounded-3xl border border-brand_accent bg-amber-50 p-6 sm:p-10 lg:mt-6 lg:grid-cols-12 lg:gap-12 lg:p-14"
+            data-testid={`pasantias-escuelas-${mirada.id}`}
+          >
+            <div className="lg:col-span-5">
+              <h3 className={`${CHAPTER_TITLE} text-brand_primary`}>{mirada.name}</h3>
+              <span aria-hidden="true" className={GOLD_RULE} />
+              {/*
+                The days, once for the whole chapter, from `daysPerSchool`. Amber
+                700 rather than the gold: it is text on cream (about 4.8:1).
+              */}
+              <p
+                className="mt-6 text-[clamp(22px,2.4vw,28px)] font-extrabold leading-[1.2] tracking-[-.01em] text-brand_accent_text"
+                data-testid="pasantias-mirada-days"
+              >
+                {`${formatNumber(mirada.daysPerSchool)} días completos por escuela`}
+              </p>
+            </div>
+            <div className="lg:col-span-7">
+              <ul className="border-t border-brand_accent/50">
+                {mirada.schools.map((name, index) => (
+                  <li
+                    key={name}
+                    className="flex items-center gap-4 border-b border-brand_accent/50 py-4"
+                    data-testid={`pasantias-school-mirada-${index}`}
+                  >
+                    <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-brand_accent_text" />
+                    <h4 className="m-0 text-[19px] font-bold leading-[1.3] text-brand_primary">{name}</h4>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-5 text-[16px] leading-[1.55] text-brand_gray_dark">{mirada.orderCaveat}</p>
+            </div>
           </div>
         </section>
 

@@ -14,6 +14,7 @@
  */
 export const PASANTIAS_IMAGE_PATHS: readonly string[] = [
   '/images/pasantias/bcn-skyline.jpg',
+  '/images/pasantias/card-on-glass.webp',
   '/images/pasantias/educadores-biblioteca.jpg',
   '/images/pasantias/equipo/boris-mir.jpg',
   '/images/pasantias/equipo/coral-regi.jpg',

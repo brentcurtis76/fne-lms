@@ -127,6 +127,17 @@ const PROGRAM_CTA_LABELS = {
   'mirada-profunda': 'Me interesa Mirada Profunda',
 } as const;
 
+/**
+ * The day's display numerals and headings, by position onto both.dayStructure
+ * (`docs/plan/pasantias-school-section-20261022.md` §3). Display copy, not
+ * contract facts; typed here for the same reason the facts are.
+ */
+const DAY_MOMENTS = [
+  { numeral: '01', heading: 'Conocer' },
+  { numeral: '02', heading: 'Observar y Preguntar' },
+  { numeral: '03', heading: 'Profundizar' },
+] as const;
+
 /** The same-page shortcuts (P7): link test ID, target hash, and the heading it must land. */
 const SHORTCUTS = [
   { testId: 'pasantias-shortcut-programas', label: 'Programas', hash: '#programas', heading: '#programas-title' },
@@ -197,6 +208,11 @@ const MIRADA = {
     'Institut Escola Les Vinyes',
   ],
   daysPerSchool: '2 días completos',
+  /**
+   * The same two full days as the chapter's one shared statement; "por escuela"
+   * is display wording (school-section plan doc §3), the figure is page 3's.
+   */
+  daysStatement: '2 días completos por escuela',
   /** mirada-profunda.orderCaveat, page 7, verbatim. */
   orderCaveat:
     'El orden de las escuelas se confirma con cada una según su disponibilidad y puede cambiar. Una de ellas puede repartir sus dos días entre el viernes 22 y el lunes 25.',
@@ -416,11 +432,18 @@ test.describe('pasantías landing page', () => {
     await expect(finde).toContainText('24 de enero');
     await expect(page.getByTestId('pasantias-faq')).toContainText(JANUARY.freeWeekend);
 
-    // How a school day runs: all three blocks, in order (page 8).
+    // How a school day runs: all three blocks, in order (page 8). Since
+    // PASANT-SCHOOL-SECTION-01 each item also carries its position numeral and a
+    // display heading, so the contract sentence is pinned exactly on its own
+    // element and the numeral/heading pair beside it (order r2 B3).
     const blocks = page.getByTestId('pasantias-dia-tipo').locator('li');
     await expect(blocks).toHaveCount(JANUARY.dayStructure.length);
     for (const [index, block] of JANUARY.dayStructure.entries()) {
-      await expect(blocks.nth(index)).toHaveText(block);
+      await expect(blocks.nth(index).getByTestId(`pasantias-day-block-${index}-text`)).toHaveText(block);
+      await expect(blocks.nth(index).getByTestId(`pasantias-day-block-${index}-numeral`)).toHaveText(
+        DAY_MOMENTS[index].numeral
+      );
+      await expect(blocks.nth(index).getByRole('heading')).toHaveText(DAY_MOMENTS[index].heading);
     }
 
     // INSPIRA's schools: two immersion schools at 2,5 days each, then four visits
@@ -439,14 +462,19 @@ test.describe('pasantías landing page', () => {
     await expect(inspiraSchools).toContainText(INSPIRA.visitSelection);
 
     // Mirada Profunda's five schools, in the brochure's order, two full days each,
-    // with the caveat that the order can still change.
+    // with the caveat that the order can still change. Since
+    // PASANT-SCHOOL-SECTION-01 the two full days are stated once for the whole
+    // chapter rather than on each card (order r2 S4/B3): each card is its name
+    // only, and the statement appears exactly once, on its own element.
     const miradaSchools = page.getByTestId('pasantias-escuelas-mirada-profunda');
     const miradaCards = miradaSchools.locator('li');
     await expect(miradaCards).toHaveCount(MIRADA.schools.length);
     for (const [index, name] of MIRADA.schools.entries()) {
       await expect(miradaCards.nth(index).getByRole('heading')).toHaveText(name);
-      await expect(miradaCards.nth(index)).toContainText(MIRADA.daysPerSchool);
+      await expect(miradaCards.nth(index)).toHaveText(name);
     }
+    await expect(page.getByTestId('pasantias-mirada-days')).toHaveText(MIRADA.daysStatement);
+    expect(((await miradaSchools.textContent()) ?? '').split(MIRADA.daysPerSchool)).toHaveLength(2);
     await expect(miradaSchools).toContainText(MIRADA.orderCaveat);
 
     // Mirada Profunda before, during and after: the challenge, the 29 January
@@ -650,6 +678,50 @@ test.describe('pasantías landing page', () => {
           expect([id, box.height <= 461]).toEqual([id, true]);
         }
       }
+
+      // PASANT-SCHOOL-SECTION-01: the day's still keeps its own 16:9 at every
+      // width, so the hand and the card are never cropped; it really loads at
+      // its natural 1280 px; and it stays inside the viewport.
+      const still = page.getByTestId('pasantias-dia-photo');
+      await still.scrollIntoViewIfNeeded();
+      await expect
+        .poll(() =>
+          still.evaluate((node) => {
+            const image = node as HTMLImageElement;
+            return image.complete ? image.naturalWidth : 0;
+          })
+        )
+        .toBe(1280);
+      const stillBox = (await still.boundingBox())!;
+      expect(Math.abs(stillBox.height - (stillBox.width * 9) / 16)).toBeLessThanOrEqual(2);
+      expect(stillBox.x).toBeGreaterThanOrEqual(0);
+      expect(stillBox.x + stillBox.width).toBeLessThanOrEqual(width);
+
+      // No text in the day's spread or the school chapters is clipped or pushed
+      // past the viewport's edge.
+      const clipped = await page
+        .locator(
+          [
+            '#dia-title',
+            '[data-testid="pasantias-dia-lead"]',
+            '[data-testid^="pasantias-day-block-"] h3',
+            '[data-testid^="pasantias-day-block-"] p',
+            '[data-testid="pasantias-escuelas"] h3',
+            '[data-testid="pasantias-escuelas"] h4',
+            '[data-testid="pasantias-escuelas"] h5',
+            '[data-testid="pasantias-escuelas"] p',
+          ].join(', ')
+        )
+        .evaluateAll((nodes) =>
+          nodes
+            .filter(
+              (node) =>
+                node.scrollWidth > node.clientWidth ||
+                node.getBoundingClientRect().right > window.innerWidth
+            )
+            .map((node) => (node.textContent ?? '').trim().slice(0, 40))
+        );
+      expect(clipped, `clipped text at ${label}`).toEqual([]);
 
       // P2: two equally sized portraits, side by side from 640 px, stacked below.
       const first = (await page.getByTestId('pasantias-host-0').boundingBox())!;

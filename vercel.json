@@ -1,7 +1,8 @@
 {
   "git": {
     "deploymentEnabled": {
-      "fix/p02b-r1": false
+      "fix/p02b-r1": false,
+      "fix/pasant-polish": false
     }
   },
   "functions": {

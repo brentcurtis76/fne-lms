@@ -168,7 +168,7 @@ describe('[N5] the workspace Sesiones tab join control', () => {
 
     fireEvent.click(screen.getByLabelText('Ver detalles de Sesión sintética'));
 
-    expect(mockPush).toHaveBeenCalledWith(`/consultor/sessions/${MANAGED_ID}`);
+    expect(mockPush).toHaveBeenCalledWith(`/community/workspace/sessions/${MANAGED_ID}`);
   });
 
   it('and clicking the control does not ALSO navigate the row', async () => {
@@ -177,5 +177,80 @@ describe('[N5] the workspace Sesiones tab join control', () => {
     fireEvent.click(screen.getByTestId('workspace-session-join'));
 
     expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('and pressing Enter on the control does not ALSO navigate the row', async () => {
+    await renderTab([sessionRow({ id: MANAGED_ID, is_zoom_managed: true })]);
+
+    const notPrevented = fireEvent.keyDown(screen.getByTestId('workspace-session-join'), { key: 'Enter' });
+
+    // Left to the browser: the link's own activation goes to /meet/session/{id}.
+    expect(notPrevented).toBe(true);
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * W-B4a-01 — the card opens the workspace's own read-only detail page, never
+ * the consultant-only one (which bounces a director or docente to /dashboard).
+ */
+describe('[W-B4a-01] the workspace Sesiones card destination', () => {
+  const DETAIL_PATH = `/community/workspace/sessions/${MANAGED_ID}`;
+
+  it('a click opens the workspace detail page', async () => {
+    await renderTab([sessionRow({ id: MANAGED_ID })]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ver detalles de Sesión sintética' }));
+
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith(DETAIL_PATH);
+  });
+
+  it('Enter opens the workspace detail page', async () => {
+    await renderTab([sessionRow({ id: MANAGED_ID })]);
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Ver detalles de Sesión sintética' }), { key: 'Enter' });
+
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith(DETAIL_PATH);
+  });
+
+  it('Space opens the workspace detail page and does not scroll the page', async () => {
+    await renderTab([sessionRow({ id: MANAGED_ID })]);
+
+    const notPrevented = fireEvent.keyDown(
+      screen.getByRole('button', { name: 'Ver detalles de Sesión sintética' }),
+      { key: ' ' }
+    );
+
+    expect(notPrevented).toBe(false);
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith(DETAIL_PATH);
+  });
+
+  it('other keys neither navigate nor swallow the event', async () => {
+    await renderTab([sessionRow({ id: MANAGED_ID })]);
+
+    const notPrevented = fireEvent.keyDown(
+      screen.getByRole('button', { name: 'Ver detalles de Sesión sintética' }),
+      { key: 'Tab' }
+    );
+
+    expect(notPrevented).toBe(true);
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('never routes to the consultant-only detail', async () => {
+    await renderTab([sessionRow({ id: MANAGED_ID })]);
+
+    const card = screen.getByRole('button', { name: 'Ver detalles de Sesión sintética' });
+    fireEvent.click(card);
+    fireEvent.keyDown(card, { key: 'Enter' });
+    fireEvent.keyDown(card, { key: ' ' });
+
+    for (const [path] of mockPush.mock.calls) {
+      expect(path).not.toMatch(/^\/consultor\//);
+      expect(path).not.toBe('/dashboard');
+    }
   });
 });

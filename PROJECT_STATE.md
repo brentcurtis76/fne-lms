@@ -1,3 +1,70 @@
+## PASANT-PARTICIPANT-INTAKE-01 school roster link (`/pasantias/nomina`) — local runtime PASS except a retained pgTAP 002 gap; UI blocked; cumulative FINAL pending (2026-10-28)
+
+**Status: local validation complete on source freeze r5.**
+- **Passed locally:** focused, full unit, type, lint, guards, build, stubbed browser, real-stack browser, and pgTAP 114.
+- **Not a full pass:** pgTAP is 76 of 77 files complete. 002 needs Supabase CLI migration history, and the full CI
+  gate is still required.
+- **Not done:** UI acceptance is `UI_BLOCKED_TOOL_DISABLED`, and the cumulative FINAL review is pending.
+- **Not claimed:** no CI run, no commit, no deployment, and not ready for human acceptance.
+
+**What it is**
+- FNE creates one private link per school and program in `/admin/pasantia-participants`.
+- The coordinator opens `/pasantias/nomina#k=<token>` with no account, enters one ficha per traveller, edits it, and
+  presses "Enviar nómina a FNE".
+- The ficha has three groups: personal data; travel and funding (Pasajes / Estadía: Costo SEP / Costo Colegio); and
+  dietary needs.
+- No e-mail is sent. "Sent" means available to the FNE admin, and an edit after sending reopens the roster.
+
+**DB-01 (frozen)**
+- Migration `20261028020000_pasantias_participant_intake.sql`, pgTAP 114 (176 checks).
+- The contract is in `docs/plan/evidence/pasant-intake/db-contract.md`.
+
+**APP-01**
+- Authentication is `Authorization: Intake <token>`; only the token's SHA-256 is stored.
+- Every write is an RPC that takes the roster lock.
+- Arrival and departure dates are computed per program, with UTC arithmetic.
+- The RUT is checked by a strict wrapper.
+- Creates are idempotent through `clientRequestId`. A replay or no-op is never reported as a new save.
+
+**Local evidence (management packet, outside the repo: `evidence-index.json`)**
+
+| Check | Result |
+|---|---|
+| Focused unit | 1 200 / 1 200 PASS |
+| Full Vitest | 17 869 passed, 0 failed, 0 pending, 536 files, 8 shards, zero skips |
+| type-check, lint (zero warnings), `guard:browser`, `guard:migrations`, `guard:secrets` | PASS |
+| `build` plus the price guard | PASS |
+| `lint:testid` on the 7 new UI files | zero-warning PASS |
+| `lint:testid` full repo | retained FAIL baseline (47 errors, 2 540 warnings, pre-existing); not a pass |
+| Stubbed browser | 33 PASS |
+| Real local API/DB browser | 96 expected, 0 skipped, 0 flaky, 0 failed (18 in `pasantias-participant-intake.spec.ts`) |
+| pgTAP 114 | 176 / 176 |
+| pgTAP all files | 76 of 77 complete; aggregate exit 1 because 002 stops at 113 of 137 without CLI migration history (none fabricated) |
+
+- Network audit PASS. The own containers are stopped, the network removed and no listeners remain; the old stack is
+  unchanged.
+- Source identity was r5 before and after.
+
+**First failures, preserved and fixed after review**
+- **focused r1, 41 failures:** both test files used a 45-character synthetic token, so the product correctly answered
+  401 and "missing link". The fixtures were corrected and guarded. Then focused r2 PASSED.
+- **type r1, 23 diagnostics:** with `strict` off, the routes' `!x.ok` checks don't narrow the result types. They became
+  explicit `=== false` / `=== true` guards. Then type r2 and r3 PASSED.
+- **unit-4 r1, 1 678 / 1 680:** the ledger inventory refuses `.from(<imported constant>)`. The admin routes now use
+  the literal table name. Then unit-4 r2 PASSED with 1 680. Shards 1–3 ran before this repair; their equivalence rests
+  on `review-app-inventory-repair-r1.md` §5 plus focused-r4 and source-scanners.
+
+**Plan and review:** `docs/plan/pasantias-participant-intake-20261027.md` and
+`docs/planning/reviews/fase-pasant-intake-review-request.md`.
+
+**Pending**
+- the CI full gate, including pgTAP 002;
+- UI acceptance at 390 and 1366 px;
+- the cumulative independent FINAL review;
+- local commit, Publish and deployment, none of which is authorized here;
+- legal wording for the notice (N5);
+- N4 (participant removal), which is out of scope.
+
 ## PASANT-SCHOOL-SECTION-01 `/pasantias` "Cómo es un día" + "Las escuelas" — local runtime PASS, pending cumulative FINAL (2026-10-22)
 
 **Authorship plus one remediation. Status: local runtime PASS on the final state; pending the cumulative FINAL review.**

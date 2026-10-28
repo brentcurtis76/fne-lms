@@ -107,6 +107,11 @@ export const MANDATORY_SPECS = [
   // place D-12's split consent and the auto-reply claim-and-release contract are
   // asserted against real columns rather than a payload or a fake.
   'tests/e2e/pasantias-flow.spec.ts',
+  // PASANT-PARTICIPANT-INTAKE — the school roster link, unmocked: admin creates the link,
+  // an anonymous coordinator saves, edits, sends and reopens; revoke/rotate; cross-roster
+  // isolation; real Promise.all races against the RPC lock; role gates; no token or PII
+  // leaving the origin; keyboard at 390/1366 px; identical date labels across time zones.
+  'tests/e2e/pasantias-participant-intake.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

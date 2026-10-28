@@ -416,6 +416,14 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
         adminOnly: true
       },
       {
+        id: 'pasantia-participants',
+        label: 'Nóminas de pasantes',
+        href: '/admin/pasantia-participants',
+        icon: BriefcaseIcon,
+        description: 'Pasantes inscritos por colegio',
+        adminOnly: true
+      },
+      {
         id: 'schools',
         label: 'Escuelas',
         href: '/admin/schools',

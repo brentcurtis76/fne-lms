@@ -21,7 +21,7 @@
 
 **APP-01**
 - Authentication is `Authorization: Intake <token>`; only the token's SHA-256 is stored.
-- Every write is an RPC that takes the roster lock.
+- Every coordinator write is an RPC that takes the roster lock.
 - Arrival and departure dates are computed per program, with UTC arithmetic.
 - The RUT is checked by a strict wrapper.
 - Creates are idempotent through `clientRequestId`. A replay or no-op is never reported as a new save.

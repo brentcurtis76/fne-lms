@@ -1,30 +1,35 @@
 /**
- * The coordinator form's draft model (browser-safe).
+ * The coordinator page's draft models (browser-safe).
  *
  * A draft holds exactly what the inputs show — strings, '' for "not chosen" —
- * so nothing is ever pre-filled: funding starts on "Selecciona…", dates and
- * focus on "Sin indicar", no dietary box ticked (FIRST §5, §6).
+ * so nothing is ever pre-filled: dates and focus start on "Sin indicar", no
+ * dietary box ticked (FIRST §5, §6). School funding (F01) has its own draft:
+ * "Selecciona…" until the school saves it, then the saved answers — never a
+ * guessed default.
  */
 import type { ProgramId } from '../cohort-public';
 import { displayRut } from './rut';
-import type {
-  DietaryCode,
-  FocusCode,
-  FundingSource,
-  IntakeParticipant,
-  ParticipantFields,
+import {
+  FUNDING_SOURCES,
+  type DietaryCode,
+  type FocusCode,
+  type FundingSource,
+  type IntakeParticipant,
+  type ParticipantFields,
+  type SchoolFunding,
 } from './types';
-import { validateParticipantFields, type FieldErrors } from './validation';
+import { MESSAGES, validateParticipantFields, type FieldErrors } from './validation';
+
+/* ------------------------------------------------------------ participant */
 
 export interface ParticipantDraft {
   firstNames: string;
   lastNames: string;
   rut: string;
   passportNumber: string;
-  flightsFunding: '' | FundingSource;
-  lodgingFunding: '' | FundingSource;
   arrivalDate: string;
   departureDate: string;
+  /** '' = Sin indicar; a level; or 'todos' (F04). */
   focus: '' | FocusCode;
   dietaryRestrictions: DietaryCode[];
   dietaryOther: string;
@@ -36,8 +41,6 @@ export function emptyDraft(): ParticipantDraft {
     lastNames: '',
     rut: '',
     passportNumber: '',
-    flightsFunding: '',
-    lodgingFunding: '',
     arrivalDate: '',
     departureDate: '',
     focus: '',
@@ -52,8 +55,6 @@ export function draftFromParticipant(participant: IntakeParticipant): Participan
     lastNames: participant.lastNames,
     rut: displayRut(participant.rut),
     passportNumber: participant.passportNumber ?? '',
-    flightsFunding: participant.flightsFunding,
-    lodgingFunding: participant.lodgingFunding,
     arrivalDate: participant.arrivalDate ?? '',
     departureDate: participant.departureDate ?? '',
     focus: participant.focus ?? '',
@@ -69,8 +70,6 @@ export function draftToRequestFields(draft: ParticipantDraft): Record<string, un
     lastNames: draft.lastNames,
     rut: draft.rut,
     passportNumber: draft.passportNumber.trim() === '' ? null : draft.passportNumber,
-    flightsFunding: draft.flightsFunding === '' ? null : draft.flightsFunding,
-    lodgingFunding: draft.lodgingFunding === '' ? null : draft.lodgingFunding,
     arrivalDate: draft.arrivalDate === '' ? null : draft.arrivalDate,
     departureDate: draft.departureDate === '' ? null : draft.departureDate,
     focus: draft.focus === '' ? null : draft.focus,
@@ -92,8 +91,6 @@ function sameFields(a: ParticipantFields, b: ParticipantFields): boolean {
     a.lastNames === b.lastNames &&
     a.rut === b.rut &&
     a.passportNumber === b.passportNumber &&
-    a.flightsFunding === b.flightsFunding &&
-    a.lodgingFunding === b.lodgingFunding &&
     a.arrivalDate === b.arrivalDate &&
     a.departureDate === b.departureDate &&
     a.focus === b.focus &&
@@ -105,7 +102,8 @@ function sameFields(a: ParticipantFields, b: ParticipantFields): boolean {
 /**
  * Whether the stored row already holds what this draft would save. Decides,
  * after a replayed create or a STALE update, whether the coordinator's intent
- * is already saved or still needs to be applied (plan r2).
+ * is already saved or still needs to be applied (plan r2). Compares the
+ * EFFECTIVE focus, so 'todos' matches a stored 'todos' (F04).
  */
 export function draftMatchesParticipant(
   draft: ParticipantDraft,
@@ -119,8 +117,6 @@ export function draftMatchesParticipant(
     lastNames: participant.lastNames,
     rut: participant.rut,
     passportNumber: participant.passportNumber,
-    flightsFunding: participant.flightsFunding,
-    lodgingFunding: participant.lodgingFunding,
     arrivalDate: participant.arrivalDate,
     departureDate: participant.departureDate,
     focus: participant.focus,
@@ -135,12 +131,51 @@ export function draftsEqual(a: ParticipantDraft, b: ParticipantDraft): boolean {
     a.lastNames === b.lastNames &&
     a.rut === b.rut &&
     a.passportNumber === b.passportNumber &&
-    a.flightsFunding === b.flightsFunding &&
-    a.lodgingFunding === b.lodgingFunding &&
     a.arrivalDate === b.arrivalDate &&
     a.departureDate === b.departureDate &&
     a.focus === b.focus &&
     a.dietaryRestrictions.join(',') === b.dietaryRestrictions.join(',') &&
     a.dietaryOther === b.dietaryOther
+  );
+}
+
+/* ------------------------------------------------------- school funding (F01) */
+
+export interface SchoolDraft {
+  /** Pasajes. '' = "Selecciona…". */
+  flightsFunding: '' | FundingSource;
+  /** Estadía. */
+  lodgingFunding: '' | FundingSource;
+}
+
+/** The saved answers, or both on "Selecciona…" when nothing is saved — never a default. */
+export function schoolDraftFromFunding(funding: SchoolFunding | null): SchoolDraft {
+  return funding
+    ? { flightsFunding: funding.flightsFunding, lodgingFunding: funding.lodgingFunding }
+    : { flightsFunding: '', lodgingFunding: '' };
+}
+
+export function schoolDraftsEqual(a: SchoolDraft, b: SchoolDraft): boolean {
+  return a.flightsFunding === b.flightsFunding && a.lodgingFunding === b.lodgingFunding;
+}
+
+/** Field errors keyed `flightsFunding` / `lodgingFunding`; empty when both are chosen. */
+export function validateSchoolDraft(draft: SchoolDraft): FieldErrors {
+  const errors: FieldErrors = {};
+  if (!(FUNDING_SOURCES as readonly string[]).includes(draft.flightsFunding)) {
+    errors.flightsFunding = MESSAGES.flightsFundingRequired;
+  }
+  if (!(FUNDING_SOURCES as readonly string[]).includes(draft.lodgingFunding)) {
+    errors.lodgingFunding = MESSAGES.lodgingFundingRequired;
+  }
+  return errors;
+}
+
+/** Whether the saved funding already holds exactly this draft (replay/STALE handling). */
+export function schoolDraftMatchesFunding(draft: SchoolDraft, funding: SchoolFunding | null): boolean {
+  return (
+    funding !== null &&
+    draft.flightsFunding === funding.flightsFunding &&
+    draft.lodgingFunding === funding.lodgingFunding
   );
 }

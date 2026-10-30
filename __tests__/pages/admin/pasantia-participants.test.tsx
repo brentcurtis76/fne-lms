@@ -54,6 +54,8 @@ const ROSTER = {
   createdAt: '2026-10-27T10:00:00.000Z',
   updatedAt: '2026-10-27T10:00:00.000Z',
   participantCount: 0,
+  // F01: not saved by the school yet.
+  schoolFunding: null as null | { flightsFunding: string; lodgingFunding: string; version: number },
 };
 const TOKEN = 'Ad' + 'm1n2T3o4k5'.repeat(4) + '_-y';
 
@@ -184,5 +186,40 @@ describe('the page', () => {
     expect(url).toBe(`/api/admin/pasantia-participants/${ROSTER.id}`);
     expect(init.method).toBe('PATCH');
     expect(JSON.parse(String(init.body))).toEqual({ action: 'revoke' });
+  });
+
+  // F01: admins read the school-level funding per roster; never guessed.
+  it('shows each roster’s school funding, or "Datos del colegio pendientes"', async () => {
+    const saved = {
+      ...ROSTER,
+      id: 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff',
+      schoolFunding: { flightsFunding: 'sep', lodgingFunding: 'colegio', version: 2 },
+    };
+    await open([ROSTER, saved]);
+    expect(screen.getByTestId(`intake-admin-funding-${ROSTER.id}`)).toHaveTextContent('Datos del colegio pendientes');
+    expect(screen.getByTestId(`intake-admin-funding-${saved.id}`)).toHaveTextContent(
+      'Pasajes: Costo SEP · Estadía: Costo Colegio'
+    );
+    replies.push({
+      status: 200,
+      body: { roster: saved, participants: [{ id: 'p1', version: 1, firstNames: 'Ana', lastNames: 'Sintetica', rut: '12345678-5', passportNumber: null, arrivalDate: null, departureDate: null, focus: 'todos', dietaryRestrictions: [], dietaryOther: null, updatedAt: '', createdAt: '', acknowledgedAt: '', noticeVersion: 'v' }] },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId(`intake-admin-view-${saved.id}`));
+    });
+    const detail = await screen.findByTestId('intake-admin-detail');
+    expect(screen.getByTestId('intake-admin-detail-school')).toHaveTextContent('Pasajes: Costo SEP · Estadía: Costo Colegio');
+    // The participant table no longer has per-person funding columns; Todos shows as such (F04).
+    expect(detail).not.toHaveTextContent('Alojamiento');
+    expect(screen.getByTestId('intake-admin-participant-p1')).toHaveTextContent('Todos');
+  });
+
+  // F02: no star; the required create fields say «Obligatorio» and carry aria-required.
+  it('marks required create fields with neutral «Obligatorio» and aria-required, no star', async () => {
+    await open();
+    expect(document.body.textContent).not.toContain('★');
+    expect(screen.getByTestId('intake-admin-school')).toHaveAttribute('aria-required', 'true');
+    expect(screen.getByTestId('intake-admin-program')).toHaveAttribute('aria-required', 'true');
+    expect(screen.getAllByTestId('intake-required-mark').map((m) => m.textContent)).toEqual(['Obligatorio', 'Obligatorio']);
   });
 });

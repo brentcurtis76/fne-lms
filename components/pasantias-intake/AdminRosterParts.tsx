@@ -10,6 +10,17 @@ import {
 import { dietarySummary } from './ParticipantList';
 import RosterStatusBadge, { formatInstant } from './RosterStatusBadge';
 
+/**
+ * F01: the roster's school-level funding as the admin reads it (read-only), or
+ * "Datos del colegio pendientes" when the school has not saved it. Never a
+ * guessed value.
+ */
+export function schoolFundingSummary(roster: Pick<AdminRoster, 'schoolFunding'>): string {
+  const funding = roster.schoolFunding;
+  if (!funding) return 'Datos del colegio pendientes';
+  return `Pasajes: ${FUNDING_LABELS[funding.flightsFunding]} · Estadía: ${FUNDING_LABELS[funding.lodgingFunding]}`;
+}
+
 const BUTTON =
   'inline-flex min-h-[40px] items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-900 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand_accent disabled:cursor-not-allowed disabled:opacity-50';
 
@@ -143,6 +154,9 @@ export function RosterTable({
                     <span className="text-gray-700">· Último envío {formatInstant(roster.lastSubmittedAt)}</span>
                   ) : null}
                 </div>
+                <p className="mt-1 text-sm text-gray-700" data-testid={`intake-admin-funding-${roster.id}`}>
+                  {schoolFundingSummary(roster)}
+                </p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <button
@@ -210,6 +224,10 @@ export function RosterDetail({
           Cerrar
         </button>
       </div>
+      <div className="mt-3 rounded-md border border-gray-200 p-3" data-testid="intake-admin-detail-school">
+        <h3 className="font-mont text-sm font-semibold">Datos del colegio</h3>
+        <p className="mt-1 text-sm text-gray-700">{schoolFundingSummary(roster)}</p>
+      </div>
       {participants.length === 0 ? (
         <p className="mt-3 text-sm text-gray-700" data-testid="intake-admin-detail-empty">
           El colegio aún no ha guardado personas.
@@ -222,8 +240,6 @@ export function RosterDetail({
                 <th scope="col" className="py-2 pr-3">Nombre</th>
                 <th scope="col" className="py-2 pr-3">RUT</th>
                 <th scope="col" className="py-2 pr-3">Pasaporte</th>
-                <th scope="col" className="py-2 pr-3">Pasajes</th>
-                <th scope="col" className="py-2 pr-3">Alojamiento</th>
                 <th scope="col" className="py-2 pr-3">Llegada</th>
                 <th scope="col" className="py-2 pr-3">Regreso</th>
                 <th scope="col" className="py-2 pr-3">Foco</th>
@@ -238,8 +254,6 @@ export function RosterDetail({
                   </td>
                   <td className="whitespace-nowrap py-2 pr-3">{displayRut(p.rut)}</td>
                   <td className="py-2 pr-3">{p.passportNumber ?? '—'}</td>
-                  <td className="py-2 pr-3">{FUNDING_LABELS[p.flightsFunding]}</td>
-                  <td className="py-2 pr-3">{FUNDING_LABELS[p.lodgingFunding]}</td>
                   <td className="py-2 pr-3">{storedDateLabel(roster.program, 'arrival', p.arrivalDate)}</td>
                   <td className="py-2 pr-3">{storedDateLabel(roster.program, 'departure', p.departureDate)}</td>
                   <td className="py-2 pr-3">{p.focus ? FOCUS_LABELS[p.focus] : 'Sin indicar'}</td>

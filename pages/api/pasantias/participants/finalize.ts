@@ -4,10 +4,18 @@
  * Sends no e-mail. "Submitted" means the roster is marked as sent and is
  * available to the FNE admin screen; nothing leaves the platform.
  *
- * Body `{expectedRosterVersion}`. One call to `pasantias_intake_finalize`,
- * which checks the link under the roster lock (FIRST-B7). It is idempotent for
- * a double click or a retry of the finalize that produced the current state,
- * and answers STALE to a view that missed later edits (db-contract §5).
+ * Body `{expectedRosterVersion}`. Order (corrections §3.6, C3):
+ * 1. the live roster for the token (401 if none);
+ * 2. the school's funding — none saved yet → 422 SCHOOL_DATA_MISSING, and the
+ *    finalize RPC is NOT called;
+ * 3. the unchanged `pasantias_intake_finalize`, which checks the link under the
+ *    roster lock (FIRST-B7). It is idempotent for a double click or a retry of
+ *    the finalize that produced the current state, and answers STALE to a view
+ *    that missed later edits — including funding changes, which bump the
+ *    roster version.
+ *
+ * The gate is race-free: a funding row can never be deleted, and every funding
+ * change bumps the roster version that finalize compares.
  */
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createServiceRoleClient } from '../../../../lib/api-auth';
@@ -18,7 +26,8 @@ import {
   findRosterByHash,
   isUnavailable,
   logIntakeFailure,
-  publicRoster,
+  readSchoolFunding,
+  rosterWithFunding,
   sendIntakeError,
 } from '../../../../lib/pasantias/participants/server';
 import { validateFinalizeBody } from '../../../../lib/pasantias/participants/validation';
@@ -36,6 +45,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (validation.ok === false) return sendIntakeError(res, 'VALIDATION', { fields: validation.errors });
 
     const supabase = createServiceRoleClient();
+
+    const live = await findLiveRoster(supabase, tokenHash);
+    if (live.ok === false) {
+      logIntakeFailure('roster lookup failed', live.error);
+      return sendIntakeError(res, isUnavailable(live.error) ? 'UNAVAILABLE' : 'INTERNAL');
+    }
+    if (!live.value) return sendIntakeError(res, 'LINK_UNAVAILABLE');
+
+    const funding = await readSchoolFunding(supabase, live.value.id);
+    if (funding.ok === false) {
+      logIntakeFailure('school funding read failed', funding.error);
+      return sendIntakeError(res, 'INTERNAL');
+    }
+    if (!funding.value) return sendIntakeError(res, 'SCHOOL_DATA_MISSING');
+
     const outcome = await callFinalize(supabase, tokenHash, validation.value.expectedRosterVersion);
 
     if (outcome.ok === false) {
@@ -47,9 +71,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         case 'stale_version': {
           const current = await findLiveRoster(supabase, tokenHash);
           if (current.ok && !current.value) return sendIntakeError(res, 'LINK_UNAVAILABLE');
-          return sendIntakeError(res, 'STALE', {
-            roster: current.ok && current.value ? publicRoster(current.value) : null,
-          });
+          const view = current.ok && current.value ? await rosterWithFunding(supabase, current.value) : null;
+          return sendIntakeError(res, 'STALE', { roster: view && view.ok ? view.value : null });
         }
         case 'invalid_argument':
           console.error('[pasantias-intake] finalize refused (caller bug):', { code: outcome.refusal });
@@ -61,8 +84,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const fresh = await findRosterByHash(supabase, tokenHash);
+    const view = fresh.ok && fresh.value ? await rosterWithFunding(supabase, fresh.value) : null;
     return res.status(200).json({
-      roster: fresh.ok && fresh.value ? publicRoster(fresh.value) : null,
+      roster: view && view.ok ? view.value : null,
       rosterStatus: outcome.row.roster_status,
       rosterVersion: outcome.row.roster_version,
       submittedAt: outcome.row.submitted_at,

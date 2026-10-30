@@ -16,6 +16,7 @@ import {
   RosterDetail,
   RosterTable,
 } from '../../components/pasantias-intake/AdminRosterParts';
+import { RequiredMark } from '../../components/pasantias-intake/ParticipantForm';
 import { createServiceRoleClient, getServerSideUser } from '../../lib/api-auth';
 import { PROGRAM_IDS, programById } from '../../lib/pasantias/cohort-public';
 import {
@@ -286,7 +287,8 @@ export default function PasantiaParticipantsAdminPage() {
             <form noValidate onSubmit={(e) => void create(e)} className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-4" data-testid="intake-admin-create-form">
               <div className="md:col-span-2">
                 <label htmlFor="intake-admin-school" className="block text-sm font-semibold">
-                  Colegio<span className="ml-0.5 text-red-700" aria-hidden="true">★</span>
+                  Colegio
+                  <RequiredMark />
                 </label>
                 <input
                   id="intake-admin-school"
@@ -299,6 +301,7 @@ export default function PasantiaParticipantsAdminPage() {
                   onChange={(e) => setSchoolName(e.target.value)}
                   aria-invalid={Boolean(formErrors.schoolName)}
                   aria-describedby={formErrors.schoolName ? 'intake-admin-school-error' : undefined}
+                  aria-required="true"
                   className={FIELD}
                 />
                 {formErrors.schoolName ? (
@@ -309,7 +312,8 @@ export default function PasantiaParticipantsAdminPage() {
               </div>
               <div>
                 <label htmlFor="intake-admin-program" className="block text-sm font-semibold">
-                  Programa<span className="ml-0.5 text-red-700" aria-hidden="true">★</span>
+                  Programa
+                  <RequiredMark />
                 </label>
                 <select
                   id="intake-admin-program"
@@ -318,6 +322,7 @@ export default function PasantiaParticipantsAdminPage() {
                   onChange={(e) => setProgram(e.target.value)}
                   aria-invalid={Boolean(formErrors.program)}
                   aria-describedby={formErrors.program ? 'intake-admin-program-error' : undefined}
+                  aria-required="true"
                   className={FIELD}
                 >
                   <option value="">Selecciona…</option>

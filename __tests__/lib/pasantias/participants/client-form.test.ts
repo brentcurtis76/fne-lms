@@ -61,8 +61,6 @@ const STORED: IntakeParticipant = {
   lastNames: 'Sintética',
   rut: '12345678-5',
   passportNumber: null,
-  flightsFunding: 'sep',
-  lodgingFunding: 'colegio',
   arrivalDate: '2027-01-17',
   departureDate: null,
   focus: 'infantil',
@@ -72,14 +70,14 @@ const STORED: IntakeParticipant = {
 };
 
 describe('draft model', () => {
-  it('starts empty: no funding, no date, no focus, nothing ticked', () => {
+  // F01: the participant draft no longer has funding at all (school-level now);
+  // "no pre-fill" for funding is asserted on the school draft below.
+  it('starts empty: no date, no focus, nothing ticked, and no funding field', () => {
     expect(emptyDraft()).toEqual({
       firstNames: '',
       lastNames: '',
       rut: '',
       passportNumber: '',
-      flightsFunding: '',
-      lodgingFunding: '',
       arrivalDate: '',
       departureDate: '',
       focus: '',
@@ -92,14 +90,23 @@ describe('draft model', () => {
     const body = draftToRequestFields({ ...emptyDraft(), dietaryOther: 'oculto' });
     expect(body).toMatchObject({
       passportNumber: null,
-      flightsFunding: null,
-      lodgingFunding: null,
       arrivalDate: null,
       departureDate: null,
       focus: null,
       dietaryRestrictions: [],
       dietaryOther: null,
     });
+    // F01: a participant request never carries funding.
+    expect(body).not.toHaveProperty('flightsFunding');
+    expect(body).not.toHaveProperty('lodgingFunding');
+  });
+
+  // F04: "Todos" round-trips through the draft and matches a stored 'todos'.
+  it('carries focus todos to the request and recognises it stored', () => {
+    const draft = { ...draftFromParticipant(STORED), focus: 'todos' as const };
+    expect(draftToRequestFields(draft).focus).toBe('todos');
+    expect(draftMatchesParticipant(draft, { ...STORED, focus: 'todos' }, 'inspira')).toBe(true);
+    expect(draftMatchesParticipant(draft, STORED, 'inspira')).toBe(false);
   });
 
   it('recognises a stored row that already holds the draft, and one that does not', () => {

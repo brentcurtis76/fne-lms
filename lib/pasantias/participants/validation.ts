@@ -32,13 +32,17 @@ export type Validation<T> =
   | { ok: true; value: T }
   | { ok: false; errors: FieldErrors; unknownKeys: boolean };
 
+/**
+ * F01: no funding key. `flightsFunding` / `lodgingFunding` in a participant
+ * body are therefore UNKNOWN keys and refuse the whole request with 422 before
+ * any RPC (FIRST corrections R4); funding is saved once per roster through
+ * `validateSchoolFundingBody` and the school route.
+ */
 export const PARTICIPANT_FIELD_KEYS: readonly (keyof ParticipantFields)[] = [
   'firstNames',
   'lastNames',
   'rut',
   'passportNumber',
-  'flightsFunding',
-  'lodgingFunding',
   'arrivalDate',
   'departureDate',
   'focus',
@@ -60,8 +64,8 @@ export const MESSAGES = {
   rutInvalid: 'RUT no válido. Revisa los números y el dígito verificador (ej.: 12.345.678-5).',
   rutDuplicate: 'Este RUT ya está en la nómina.',
   passportInvalid: 'El pasaporte debe tener entre 5 y 20 letras o números, sin símbolos.',
-  flightsFundingRequired: 'Indica quién financia los pasajes.',
-  lodgingFundingRequired: 'Indica quién financia el alojamiento.',
+  flightsFundingRequired: 'Elige quién cubre el costo de los pasajes.',
+  lodgingFundingRequired: 'Elige quién cubre el costo de la estadía.',
   arrivalInvalid: 'Elige una de las fechas de llegada propuestas o «Sin indicar».',
   departureInvalid: 'Elige una de las fechas de regreso propuestas o «Sin indicar».',
   departureOrder: 'La fecha de regreso debe ser posterior a la de llegada.',
@@ -165,12 +169,6 @@ export function validateParticipantFields(
   const passportNumber = normalizePassport(input.passportNumber);
   if (passportNumber === undefined) errors.passportNumber = MESSAGES.passportInvalid;
 
-  // Never defaulted: a missing funding answer is an error, not "colegio".
-  const flightsFunding = oneOf<FundingSource>(input.flightsFunding, FUNDING_SOURCES);
-  if (!flightsFunding) errors.flightsFunding = MESSAGES.flightsFundingRequired;
-  const lodgingFunding = oneOf<FundingSource>(input.lodgingFunding, FUNDING_SOURCES);
-  if (!lodgingFunding) errors.lodgingFunding = MESSAGES.lodgingFundingRequired;
-
   let arrivalDate: string | null = null;
   if (!isBlank(input.arrivalDate)) {
     const value = input.arrivalDate;
@@ -246,8 +244,6 @@ export function validateParticipantFields(
       lastNames: lastNames as string,
       rut: rut as string,
       passportNumber: passportNumber ?? null,
-      flightsFunding: flightsFunding as FundingSource,
-      lodgingFunding: lodgingFunding as FundingSource,
       arrivalDate,
       departureDate,
       focus,
@@ -313,6 +309,43 @@ export function validateFinalizeBody(body: unknown): Validation<{ expectedRoster
   const errors: FieldErrors = {};
   if (!isPositiveInteger(body.expectedRosterVersion)) errors.expectedRosterVersion = MESSAGES.requestInvalid;
   return finish(errors, () => ({ expectedRosterVersion: body.expectedRosterVersion as number }));
+}
+
+/* ------------------------------------------------------- school funding (F01) */
+
+export interface SchoolFundingRequest {
+  flightsFunding: FundingSource;
+  lodgingFunding: FundingSource;
+  /** null = "I expect no saved row yet"; otherwise the saved row's version. */
+  expectedFundingVersion: number | null;
+}
+
+/**
+ * `PUT /api/pasantias/participants/school` — exactly
+ * `{flightsFunding, lodgingFunding, expectedFundingVersion: number|null}`.
+ * Both answers are required and never defaulted; `expectedFundingVersion` must
+ * be present (null or a positive integer) so a first save and an edit are
+ * never confused. No acknowledgement is needed: this is the school's own data.
+ */
+export function validateSchoolFundingBody(body: unknown): Validation<SchoolFundingRequest> {
+  if (!isPlainObject(body)) return { ok: false, errors: { _form: MESSAGES.body }, unknownKeys: false };
+  if (hasUnknownKeys(body, ['flightsFunding', 'lodgingFunding', 'expectedFundingVersion'])) {
+    return { ok: false, errors: { _form: MESSAGES.unknownKeys }, unknownKeys: true };
+  }
+  const errors: FieldErrors = {};
+  const flightsFunding = oneOf<FundingSource>(body.flightsFunding, FUNDING_SOURCES);
+  if (!flightsFunding) errors.flightsFunding = MESSAGES.flightsFundingRequired;
+  const lodgingFunding = oneOf<FundingSource>(body.lodgingFunding, FUNDING_SOURCES);
+  if (!lodgingFunding) errors.lodgingFunding = MESSAGES.lodgingFundingRequired;
+  const expected = body.expectedFundingVersion;
+  if (!('expectedFundingVersion' in body) || (expected !== null && !isPositiveInteger(expected))) {
+    errors.expectedFundingVersion = MESSAGES.requestInvalid;
+  }
+  return finish(errors, () => ({
+    flightsFunding: flightsFunding as FundingSource,
+    lodgingFunding: lodgingFunding as FundingSource,
+    expectedFundingVersion: expected === null ? null : (expected as number),
+  }));
 }
 
 /* --------------------------------------------------------------- admin bodies */

@@ -59,6 +59,8 @@ function rosterRow(overrides: Record<string, unknown> = {}) {
     created_at: '2026-10-27T10:00:00.000Z',
     updated_at: '2026-10-27T10:00:00.000Z',
     participants: [{ count: 2 }],
+    // F01: the one-to-one embed of the roster's school funding.
+    school_funding: { flights_funding: 'sep', lodging_funding: 'colegio', version: 1 },
     ...overrides,
   };
 }
@@ -197,6 +199,21 @@ describe('GET /api/admin/pasantia-participants', () => {
     expect(query.options).toEqual({ count: 'exact' });
     expect(query.orders).toEqual(['created_at', 'id']);
     expect(query.limit).toBe(200);
+    // F01: school funding arrives in the same query (embed), not one query per roster.
+    expect(query.columns).toContain('school_funding:pasantias_nomina_school_funding(');
+    expect(fake.queries).toHaveLength(1);
+    expect(result.json.rosters[0].schoolFunding).toEqual({ flightsFunding: 'sep', lodgingFunding: 'colegio', version: 1 });
+  });
+
+  it('maps a roster without school data (embed null or []) to schoolFunding: null', async () => {
+    asAdmin();
+    install(() => ({
+      data: [rosterRow({ school_funding: null }), rosterRow({ id: OTHER_ROSTER_ID, school_funding: [] })],
+      error: null,
+      count: 2,
+    }));
+    const result = await call(indexHandler, { method: 'GET' });
+    expect(result.json.rosters.map((r: { schoolFunding: unknown }) => r.schoolFunding)).toEqual([null, null]);
   });
 });
 
@@ -307,6 +324,10 @@ describe('GET /api/admin/pasantia-participants/[rosterId]', () => {
     asAdmin();
     const fake = install((q) => {
       if (q.table === 'pasantias_intake_rosters') return { data: rosterRow(), error: null };
+      // F04: the focus side table says this participant is "Todos".
+      if (q.table === 'pasantias_nomina_participant_focus') {
+        return { data: [{ participant_id: '11111111-2222-4333-8444-555555555555', all_levels: true }], error: null };
+      }
       return {
         data: [
           {
@@ -316,8 +337,6 @@ describe('GET /api/admin/pasantia-participants/[rosterId]', () => {
             last_names: 'Sintetica',
             rut: '12345678-5',
             passport_number: null,
-            flights_funding: 'sep',
-            lodging_funding: 'sep',
             arrival_date: null,
             departure_date: null,
             focus: null,
@@ -337,6 +356,13 @@ describe('GET /api/admin/pasantia-participants/[rosterId]', () => {
     expect(result.json.participants[0]).toMatchObject({ firstNames: 'Ana', acknowledgedAt: '2026-10-27T11:00:00.000Z' });
     for (const q of fake.queries) expect(q.columns).not.toContain('token_hash');
     expect(fake.queries[1].eq).toEqual({ roster_id: ROSTER_ID });
+    // F01: the admin sees the school-level funding (read-only), never per person.
+    expect(result.json.roster.schoolFunding).toEqual({ flightsFunding: 'sep', lodgingFunding: 'colegio', version: 1 });
+    expect(result.json.participants[0]).not.toHaveProperty('flightsFunding');
+    expect(fake.queries[1].columns).not.toMatch(/funding/);
+    // F04: Todos round-trips to the admin view; focus read only for the listed ids.
+    expect(result.json.participants[0].focus).toBe('todos');
+    expect(fake.queries[2].in).toEqual({ participant_id: ['11111111-2222-4333-8444-555555555555'] });
   });
 
   it('an unknown roster is 404', async () => {

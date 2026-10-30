@@ -17,6 +17,8 @@ export interface RecordedQuery {
   eq: Record<string, unknown>;
   is: Record<string, unknown>;
   gt: Record<string, unknown>;
+  /** `.in(column, values)` filters (F04 focus reads). */
+  in: Record<string, unknown[]>;
   orders: string[];
   limit: number | null;
 }
@@ -55,6 +57,7 @@ export function fakeSupabase(
       eq: {},
       is: {},
       gt: {},
+      in: {},
       orders: [],
       limit: null,
     };
@@ -88,6 +91,10 @@ export function fakeSupabase(
       },
       gt(column: string, value: unknown) {
         query.gt[column] = value;
+        return builder;
+      },
+      in(column: string, values: unknown[]) {
+        query.in[column] = values;
         return builder;
       },
       order(column: string) {

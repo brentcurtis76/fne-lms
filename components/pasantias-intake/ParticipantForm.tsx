@@ -3,7 +3,7 @@ import type { ProgramId } from '../../lib/pasantias/cohort-public';
 import {
   arrivalOptions,
   departureOptions,
-  programDateRangeLabel,
+  programDatesNotice,
 } from '../../lib/pasantias/participants/dates';
 import type { ParticipantDraft } from '../../lib/pasantias/participants/form';
 import {
@@ -11,20 +11,20 @@ import {
   DIETARY_LABELS,
   FOCUS_CODES,
   FOCUS_LABELS,
-  FUNDING_LABELS,
-  FUNDING_SOURCES,
   type DietaryCode,
 } from '../../lib/pasantias/participants/types';
 import type { FieldErrors } from '../../lib/pasantias/participants/validation';
 
-/** Visual order of the fields; the first one with an error receives focus. */
+/**
+ * Visual order of the fields; the first one with an error receives focus.
+ * F01: no funding here — Pasajes and Estadía are the school's answer, saved
+ * once in "Datos del colegio" (`SchoolDataForm`).
+ */
 export const FORM_FIELD_ORDER = [
   'firstNames',
   'lastNames',
   'rut',
   'passportNumber',
-  'flightsFunding',
-  'lodgingFunding',
   'arrivalDate',
   'departureDate',
   'focus',
@@ -47,10 +47,16 @@ function inputClass(invalid: boolean): string {
   return `${INPUT} ${invalid ? 'border-red-600' : 'border-gray-300'}`;
 }
 
-function Required() {
+/**
+ * F02: the required-field marker is the word "Obligatorio" in neutral grey —
+ * visible and read by screen readers as part of the label. No red star (not
+ * part of the brand kit); functional error states (red text/borders,
+ * aria-invalid) are unchanged.
+ */
+export function RequiredMark() {
   return (
-    <span className="ml-0.5 text-red-700" aria-hidden="true">
-      ★
+    <span className="ml-2 text-xs font-medium text-gray-600" data-testid="intake-required-mark">
+      Obligatorio
     </span>
   );
 }
@@ -59,8 +65,7 @@ function Label({ htmlFor, required, children }: { htmlFor: string; required?: bo
   return (
     <label htmlFor={htmlFor} className="block text-sm font-semibold">
       {children}
-      {required ? <Required /> : null}
-      {required ? <span className="sr-only"> (obligatorio)</span> : null}
+      {required ? <RequiredMark /> : null}
     </label>
   );
 }
@@ -172,8 +177,8 @@ export default function ParticipantForm({
           {saveState}
         </span>
       </div>
-      <p className="text-sm text-gray-700">
-        Los campos con <span className="text-red-700">★</span> son obligatorios.
+      <p className="text-sm text-gray-700" data-testid="intake-required-legend">
+        Los campos marcados «Obligatorio» deben completarse.
       </p>
 
       {notice ? (
@@ -272,58 +277,9 @@ export default function ParticipantForm({
         </div>
       </Fieldset>
 
-      <Fieldset legend="Viaje y financiamiento">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <Label htmlFor={fieldId('flightsFunding')} required>
-              Pasajes
-            </Label>
-            <select
-              id={fieldId('flightsFunding')}
-              data-testid="intake-flights-funding"
-              value={draft.flightsFunding}
-              onChange={(e) => set('flightsFunding', e.target.value as ParticipantDraft['flightsFunding'])}
-              aria-invalid={Boolean(errors.flightsFunding)}
-              aria-describedby={describedBy('flightsFunding', errors)}
-              aria-required="true"
-              className={inputClass(Boolean(errors.flightsFunding))}
-            >
-              <option value="">Selecciona…</option>
-              {FUNDING_SOURCES.map((source) => (
-                <option key={source} value={source}>
-                  {FUNDING_LABELS[source]}
-                </option>
-              ))}
-            </select>
-            <FieldError name="flightsFunding" errors={errors} />
-          </div>
-          <div>
-            <Label htmlFor={fieldId('lodgingFunding')} required>
-              Estadía
-            </Label>
-            <select
-              id={fieldId('lodgingFunding')}
-              data-testid="intake-lodging-funding"
-              value={draft.lodgingFunding}
-              onChange={(e) => set('lodgingFunding', e.target.value as ParticipantDraft['lodgingFunding'])}
-              aria-invalid={Boolean(errors.lodgingFunding)}
-              aria-describedby={describedBy('lodgingFunding', errors)}
-              aria-required="true"
-              className={inputClass(Boolean(errors.lodgingFunding))}
-            >
-              <option value="">Selecciona…</option>
-              {FUNDING_SOURCES.map((source) => (
-                <option key={source} value={source}>
-                  {FUNDING_LABELS[source]}
-                </option>
-              ))}
-            </select>
-            <FieldError name="lodgingFunding" errors={errors} />
-          </div>
-        </div>
-        <p id="intake-hint-dates" className="text-sm text-gray-700">
-          El programa se realiza del {programDateRangeLabel(program)}. Las fechas de llegada y regreso son
-          opcionales: elige la que corresponda o deja «Sin indicar».
+      <Fieldset legend="Viaje y foco">
+        <p id="intake-hint-dates" data-testid="intake-hint-dates" className="text-sm text-gray-700">
+          {programDatesNotice(program)}
         </p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
@@ -378,6 +334,7 @@ export default function ParticipantForm({
               className={inputClass(Boolean(errors.focus))}
             >
               <option value="">Sin indicar</option>
+              {/* F04: the four levels, then "Todos" (all four) last. */}
               {FOCUS_CODES.map((code) => (
                 <option key={code} value={code}>
                   {FOCUS_LABELS[code]}

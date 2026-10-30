@@ -71,6 +71,11 @@ const CLIENT = {
   timezones: '198.51.100.18',
   rateLimit: '198.51.100.19',
   protocol: '198.51.100.20',
+  // 198.51.100.21 is the rate-limit describe's "other client".
+  fundingRaces: '198.51.100.22',
+  twoPrograms: '198.51.100.23',
+  copy: '198.51.100.24',
+  staleTabs: '198.51.100.25',
 } as const;
 
 function uniqueSchool(label: string): string {
@@ -89,8 +94,7 @@ function participantBody(overrides: Record<string, unknown> = {}): Record<string
     lastNames: 'Sintética',
     rut: syntheticRut(),
     passportNumber: null,
-    flightsFunding: 'sep',
-    lodgingFunding: 'colegio',
+    // F01: no per-person funding — the school saves it once (saveSchoolFunding).
     arrivalDate: null,
     departureDate: null,
     focus: null,
@@ -128,13 +132,63 @@ async function createParticipant(api: APIRequestContext, token: string, override
   });
 }
 
+interface SchoolFundingView {
+  flightsFunding: 'sep' | 'colegio';
+  lodgingFunding: 'sep' | 'colegio';
+  version: number;
+}
+
 async function listParticipants(api: APIRequestContext, token: string) {
   const response = await api.get(INTAKE_API, { headers: auth(token) });
   expect(response.status()).toBe(200);
   return (await response.json()) as {
-    roster: { status: string; version: number; schoolName: string; lastSubmittedAt: string | null };
-    participants: { id: string; version: number; rut: string; lastNames: string }[];
+    roster: {
+      status: string;
+      version: number;
+      schoolName: string;
+      lastSubmittedAt: string | null;
+      schoolFunding: SchoolFundingView | null;
+    };
+    participants: { id: string; version: number; rut: string; lastNames: string; focus: string | null }[];
   };
+}
+
+/** F01: the school's answer, through the real school route. */
+async function saveSchoolFunding(
+  api: APIRequestContext,
+  token: string,
+  flightsFunding: 'sep' | 'colegio',
+  lodgingFunding: 'sep' | 'colegio',
+  expectedFundingVersion: number | null
+): Promise<APIResponse> {
+  return api.put(`${INTAKE_API}/school`, {
+    headers: auth(token),
+    data: { flightsFunding, lodgingFunding, expectedFundingVersion },
+  });
+}
+
+/**
+ * A roster whose school has already saved "Datos del colegio" (F01) — the
+ * precondition for every participant write. The save goes through the real
+ * coordinator route under the calling describe's synthetic client identity.
+ */
+async function createFundedRoster(
+  admin: APIRequestContext,
+  baseURL: string,
+  ip: string,
+  program: Program,
+  label: string,
+  funding: { flights: 'sep' | 'colegio'; lodging: 'sep' | 'colegio' } = { flights: 'sep', lodging: 'colegio' }
+): Promise<CreatedRoster> {
+  const roster = await createRoster(admin, program, label);
+  const api = await coordinatorApi(baseURL, ip);
+  try {
+    const saved = await saveSchoolFunding(api, roster.token, funding.flights, funding.lodging, null);
+    expect(saved.status(), 'school funding first save').toBe(200);
+  } finally {
+    await api.dispose();
+  }
+  return roster;
 }
 
 async function anonymousContext(browser: Browser, ip: string, extra: Parameters<Browser['newContext']>[0] = {}) {
@@ -154,8 +208,6 @@ interface Ficha {
   firstNames: string;
   lastNames: string;
   rut: string;
-  flights: 'sep' | 'colegio';
-  lodging: 'sep' | 'colegio';
   arrival?: string;
   departure?: string;
   focus?: string;
@@ -167,13 +219,19 @@ async function fillFicha(page: Page, ficha: Ficha) {
   await page.getByTestId('intake-first-names').fill(ficha.firstNames);
   await page.getByTestId('intake-last-names').fill(ficha.lastNames);
   await page.getByTestId('intake-rut').fill(ficha.rut);
-  await page.getByTestId('intake-flights-funding').selectOption(ficha.flights);
-  await page.getByTestId('intake-lodging-funding').selectOption(ficha.lodging);
   if (ficha.arrival) await page.getByTestId('intake-arrival-date').selectOption(ficha.arrival);
   if (ficha.departure) await page.getByTestId('intake-departure-date').selectOption(ficha.departure);
   if (ficha.focus) await page.getByTestId('intake-focus').selectOption(ficha.focus);
   for (const code of ficha.dietary ?? []) await page.getByTestId(`intake-dietary-${code}`).check();
   if (ficha.other !== undefined) await page.getByTestId('intake-dietary-other').fill(ficha.other);
+}
+
+/** F01: save "Datos del colegio" through the UI. */
+async function saveSchoolViaUi(page: Page, flights: 'sep' | 'colegio', lodging: 'sep' | 'colegio') {
+  await page.getByTestId('intake-school-flights').selectOption(flights);
+  await page.getByTestId('intake-school-lodging').selectOption(lodging);
+  await page.getByTestId('intake-school-save').click();
+  await expect(page.getByTestId('intake-school-state')).toHaveAttribute('data-state', 'saved');
 }
 
 async function tickAcknowledgement(page: Page) {
@@ -240,19 +298,25 @@ test.describe('Nómina — the whole journey through the UI', () => {
       await coordinator.goto(link);
       await expect(coordinator.getByTestId('intake-school')).toHaveText(schoolName, { timeout: 30_000 });
       await expect(coordinator.getByTestId('intake-roster-status')).toHaveAttribute('data-status', 'open');
-      // An empty roster opens the ficha straight away, with nothing pre-filled.
-      await expect(coordinator.getByTestId('intake-flights-funding')).toHaveValue('');
+      // F01: "Datos del colegio" first — nothing pre-chosen, Pasantes locked until saved.
+      await expect(coordinator.getByTestId('intake-school-flights')).toHaveValue('');
+      await expect(coordinator.getByTestId('intake-school-lodging')).toHaveValue('');
+      await expect(coordinator.getByTestId('intake-add')).toBeDisabled();
+      await expect(coordinator.getByTestId('intake-finalize')).toBeDisabled();
+      await expect(coordinator.getByTestId('intake-form')).toHaveCount(0);
+      await saveSchoolViaUi(coordinator, 'sep', 'colegio');
+      // Then the empty roster opens the ficha, with nothing pre-filled and no funding field.
       await expect(coordinator.getByTestId('intake-departure-date')).toHaveValue('');
+      await expect(coordinator.getByTestId('intake-flights-funding')).toHaveCount(0);
 
+      // F04: person 1 is "Todos" (was primer_ciclo before the corrections).
       const first: Ficha = {
         firstNames: 'Valentina',
         lastNames: 'Sintética Uno',
         rut: syntheticRut(),
-        flights: 'sep',
-        lodging: 'colegio',
         arrival: '2027-01-17',
         departure: '2027-01-29',
-        focus: 'primer_ciclo',
+        focus: 'todos',
         dietary: ['vegetariano'],
       };
       await tickAcknowledgement(coordinator);
@@ -265,18 +329,20 @@ test.describe('Nómina — the whole journey through the UI', () => {
 
       // Second person.
       await coordinator.getByTestId('intake-add').click();
+      // F04: person 2 is "Infantil".
       await fillFicha(coordinator, {
         firstNames: 'Tomás',
         lastNames: 'Sintético Dos',
         rut: syntheticRut(),
-        flights: 'colegio',
-        lodging: 'colegio',
+        focus: 'infantil',
       });
       await coordinator.getByTestId('intake-save').click();
       await expect(coordinator.getByTestId('intake-count')).toHaveText('(2/60)');
       const list = coordinator.getByTestId('intake-list');
       await expect(list).toContainText('Valentina Sintética Uno');
       await expect(list).toContainText('Tomás Sintético Dos');
+      await expect(list.locator('li', { hasText: 'Sintética Uno' })).toContainText('Foco: Todos');
+      await expect(list.locator('li', { hasText: 'Sintético Dos' })).toContainText('Foco: Infantil');
       // INSPIRA's own end date (2027-01-28) + 1, labelled with its weekday.
       await expect(list).toContainText('viernes 29 de enero de 2027');
 
@@ -292,6 +358,10 @@ test.describe('Nómina — the whole journey through the UI', () => {
       await expect(coordinator).toHaveURL(/\/pasantias\/nomina#k=[A-Za-z0-9_-]{43}$/);
       await expect(coordinator.getByTestId('intake-count')).toHaveText('(2/60)', { timeout: 30_000 });
       await expect(coordinator.getByTestId('intake-list')).toContainText('Valentina Sintética Editada');
+      // F01/F04: the school's answer and Todos survive the reload.
+      await expect(coordinator.getByTestId('intake-school-flights')).toHaveValue('sep');
+      await expect(coordinator.getByTestId('intake-school-lodging')).toHaveValue('colegio');
+      await expect(coordinator.getByTestId('intake-list')).toContainText('Foco: Todos');
 
       // Send.
       await coordinator.getByTestId('intake-finalize').click();
@@ -317,6 +387,13 @@ test.describe('Nómina — the whole journey through the UI', () => {
       // Send again.
       await coordinator.getByTestId('intake-finalize').click();
       await expect(coordinator.getByTestId('intake-roster-status')).toHaveAttribute('data-status', 'submitted');
+
+      // F01: changing Estadía at school level reopens the sent roster; send once more.
+      await saveSchoolViaUi(coordinator, 'sep', 'sep');
+      await expect(coordinator.getByTestId('intake-roster-status')).toHaveAttribute('data-status', 'reopened');
+      await expect(coordinator.getByTestId('intake-live')).toContainText('La nómina volvió a edición');
+      await coordinator.getByTestId('intake-finalize').click();
+      await expect(coordinator.getByTestId('intake-roster-status')).toHaveAttribute('data-status', 'submitted');
     } finally {
       await context.close();
     }
@@ -334,25 +411,33 @@ test.describe('Nómina — the whole journey through the UI', () => {
 
     const detail = await page.request.get(`${ADMIN_API}/${roster?.id}`);
     const stored = (await detail.json()) as {
-      participants: { lastNames: string; arrivalDate: string | null; departureDate: string | null; focus: string | null; dietaryRestrictions: string[]; dietaryOther: string | null; flightsFunding: string }[];
+      roster: { schoolFunding: SchoolFundingView | null };
+      participants: Record<string, unknown>[];
     };
+    // F01: funding is the school's (latest Estadía change included), not per person.
+    expect(stored.roster.schoolFunding).toMatchObject({ flightsFunding: 'sep', lodgingFunding: 'sep' });
     const valentina = stored.participants.find((p) => p.lastNames === 'Sintética Editada');
+    // F04: was focus 'primer_ciclo' + per-person flightsFunding before the corrections.
     expect(valentina).toMatchObject({
       arrivalDate: '2027-01-17',
       departureDate: '2027-01-29',
-      focus: 'primer_ciclo',
+      focus: 'todos',
       dietaryRestrictions: ['vegetariano'],
-      flightsFunding: 'sep',
     });
+    expect(valentina).not.toHaveProperty('flightsFunding');
     const tomas = stored.participants.find((p) => p.lastNames === 'Sintético Dos');
-    expect(tomas).toMatchObject({ dietaryRestrictions: ['otra'], dietaryOther: 'Sin mariscos', arrivalDate: null, focus: null });
+    // F04: focus 'infantil' (was null before the corrections).
+    expect(tomas).toMatchObject({ dietaryRestrictions: ['otra'], dietaryOther: 'Sin mariscos', arrivalDate: null, focus: 'infantil' });
 
-    // The admin page shows it as sent and its detail.
+    // The admin page shows it as sent, the school-level funding, and the detail.
     await page.goto(ADMIN_PAGE);
     const row = page.locator(`[data-school="${schoolName}"]`);
     await expect(row).toContainText('Enviada', { timeout: 30_000 });
+    await expect(row).toContainText('Pasajes: Costo SEP · Estadía: Costo SEP');
     await row.getByRole('button', { name: 'Ver detalle' }).click();
     await expect(page.getByTestId('intake-admin-detail')).toContainText('Sintética Editada');
+    await expect(page.getByTestId('intake-admin-detail-school')).toContainText('Estadía: Costo SEP');
+    await expect(page.getByTestId('intake-admin-detail')).toContainText('Todos');
   });
 });
 
@@ -372,7 +457,7 @@ test.describe('Nómina — revoke and rotate', () => {
     browser,
     baseURL,
   }) => {
-    const roster = await createRoster(admin, 'mirada-profunda', 'Lifecycle');
+    const roster = await createFundedRoster(admin, baseURL!, CLIENT.lifecycle, 'mirada-profunda', 'Lifecycle');
     const api = await coordinatorApi(baseURL!, CLIENT.lifecycle);
     try {
       expect((await api.get(INTAKE_API, { headers: auth(roster.token) })).status()).toBe(200);
@@ -459,8 +544,8 @@ test.describe('Nómina — one roster per token', () => {
   });
 
   test('token A can neither read nor update a participant of roster B', async ({ baseURL }) => {
-    const a = await createRoster(admin, 'inspira', 'Isolation A');
-    const b = await createRoster(admin, 'inspira', 'Isolation B');
+    const a = await createFundedRoster(admin, baseURL!, CLIENT.isolation, 'inspira', 'Isolation A');
+    const b = await createFundedRoster(admin, baseURL!, CLIENT.isolation, 'inspira', 'Isolation B');
     const api = await coordinatorApi(baseURL!, CLIENT.isolation);
     try {
       const created = await createParticipant(api, b.token, { lastNames: 'De Bé' });
@@ -508,7 +593,7 @@ test.describe('Nómina — real concurrency against the roster lock', () => {
   });
 
   test('two creates with the same RUT: exactly one 201 and one 409', async ({ baseURL }) => {
-    const roster = await createRoster(admin, 'inspira', 'Race RUT');
+    const roster = await createFundedRoster(admin, baseURL!, CLIENT.races, 'inspira', 'Race RUT');
     const api = await coordinatorApi(baseURL!, CLIENT.races);
     try {
       const rut = syntheticRut();
@@ -527,7 +612,7 @@ test.describe('Nómina — real concurrency against the roster lock', () => {
   });
 
   test('two updates with the same expected version: exactly one 200 and one 409 STALE', async ({ baseURL }) => {
-    const roster = await createRoster(admin, 'inspira', 'Race Version');
+    const roster = await createFundedRoster(admin, baseURL!, CLIENT.races, 'inspira', 'Race Version');
     const api = await coordinatorApi(baseURL!, CLIENT.races);
     try {
       const rut = syntheticRut();
@@ -553,7 +638,7 @@ test.describe('Nómina — real concurrency against the roster lock', () => {
   });
 
   test('the same clientRequestId twice at once stores one row: one 201, one 200 replay', async ({ baseURL }) => {
-    const roster = await createRoster(admin, 'inspira', 'Race Replay');
+    const roster = await createFundedRoster(admin, baseURL!, CLIENT.races, 'inspira', 'Race Replay');
     const api = await coordinatorApi(baseURL!, CLIENT.races);
     try {
       const clientRequestId = randomUUID();
@@ -572,7 +657,7 @@ test.describe('Nómina — real concurrency against the roster lock', () => {
   });
 
   test('a double-click on save creates one row', async ({ browser, baseURL }) => {
-    const roster = await createRoster(admin, 'inspira', 'Race Click');
+    const roster = await createFundedRoster(admin, baseURL!, CLIENT.races, 'inspira', 'Race Click');
     const context = await anonymousContext(browser, CLIENT.races);
     const api = await coordinatorApi(baseURL!, CLIENT.races);
     try {
@@ -580,7 +665,7 @@ test.describe('Nómina — real concurrency against the roster lock', () => {
       await openNomina(page, roster.token, roster.schoolName);
       await tickAcknowledgement(page);
       const rut = syntheticRut();
-      await fillFicha(page, { firstNames: 'Doble', lastNames: 'Clic', rut, flights: 'sep', lodging: 'sep' });
+      await fillFicha(page, { firstNames: 'Doble', lastNames: 'Clic', rut });
       await page.getByTestId('intake-save').dblclick();
       await expect(page.getByTestId('intake-count')).toHaveText('(1/60)');
       const list = await listParticipants(api, roster.token);
@@ -691,6 +776,47 @@ test.describe('Nómina — admin surfaces are for the global admin only', () => 
           data: { p_token_hash: '0'.repeat(64), p_expected_roster_version: 1 },
         });
         expect([401, 403, 404], `${label} rpc`).toContain(rpc.status());
+
+        // F01/F04: the corrections tables and RPCs are just as closed.
+        for (const [table, column] of [
+          ['pasantias_nomina_school_funding', 'roster_id'],
+          ['pasantias_nomina_participant_focus', 'participant_id'],
+        ]) {
+          const read = await rest.get(`${SUPABASE_URL}/rest/v1/${table}?select=${column}&limit=1`, { headers });
+          expect([401, 403], `${label} select ${table}`).toContain(read.status());
+          const write = await rest.post(`${SUPABASE_URL}/rest/v1/${table}`, { headers, data: {} });
+          expect([401, 403], `${label} insert ${table}`).toContain(write.status());
+        }
+        const fundingRpc = await rest.post(`${SUPABASE_URL}/rest/v1/rpc/pasantias_nomina_save_school_funding`, {
+          headers,
+          data: {
+            p_token_hash: '0'.repeat(64),
+            p_expected_funding_version: null,
+            p_flights_funding: 'sep',
+            p_lodging_funding: 'sep',
+          },
+        });
+        expect([401, 403, 404], `${label} funding rpc`).toContain(fundingRpc.status());
+        const saveRpc = await rest.post(`${SUPABASE_URL}/rest/v1/rpc/pasantias_nomina_save_participant`, {
+          headers,
+          data: {
+            p_token_hash: '0'.repeat(64),
+            p_participant_id: null,
+            p_expected_version: null,
+            p_client_request_id: randomUUID(),
+            p_first_names: 'Ana',
+            p_last_names: 'Sintetica',
+            p_rut: syntheticRut(),
+            p_passport_number: null,
+            p_arrival_date: null,
+            p_departure_date: null,
+            p_focus: 'todos',
+            p_dietary_restrictions: [],
+            p_dietary_other: null,
+            p_notice_version: 'v',
+          },
+        });
+        expect([401, 403, 404], `${label} participant rpc`).toContain(saveRpc.status());
       }
     } finally {
       await rest.dispose();
@@ -745,8 +871,10 @@ test.describe('Nómina — no token or PII leaves the origin', () => {
     try {
       const page = await context.newPage();
       await openNomina(page, roster.token, roster.schoolName);
+      // F01: the school route is part of the watched traffic.
+      await saveSchoolViaUi(page, 'sep', 'sep');
       await tickAcknowledgement(page);
-      await fillFicha(page, { firstNames: 'Fuga', lastNames: 'Ninguna', rut: syntheticRut(), flights: 'sep', lodging: 'sep' });
+      await fillFicha(page, { firstNames: 'Fuga', lastNames: 'Ninguna', rut: syntheticRut() });
       await page.getByTestId('intake-save').click();
       await expect(page.getByTestId('intake-count')).toHaveText('(1/60)');
       await page.reload();
@@ -768,6 +896,7 @@ test.describe('Nómina — no token or PII leaves the origin', () => {
       const apiCalls = seen.filter((e) => !e.offsite && new URL(e.url).pathname.startsWith(INTAKE_API));
       expect(apiCalls.length).toBeGreaterThan(0);
       for (const call of apiCalls) expect(call.headers['authorization']).toBe(`Intake ${roster.token}`);
+      expect(apiCalls.some((call) => new URL(call.url).pathname === `${INTAKE_API}/school`)).toBe(true);
     } finally {
       await context.close();
     }
@@ -783,7 +912,8 @@ async function keyboardOnlyAdd(page: Page, rut: string) {
   await page.keyboard.press('Enter');
   await expect(firstNames).toBeFocused();
   await expect(firstNames).toHaveAttribute('aria-invalid', 'true');
-  await expect(page.getByTestId('intake-live')).toContainText('Revisa los 5 campos marcados.');
+  // F01: names ×2 and RUT — the funding selects left the ficha (was 5).
+  await expect(page.getByTestId('intake-live')).toContainText('Revisa los 3 campos marcados.');
 
   // The acknowledgement, by keyboard.
   await page.getByTestId('intake-ack').focus();
@@ -800,21 +930,19 @@ async function keyboardOnlyAdd(page: Page, rut: string) {
   await page.keyboard.type(rut);
   await page.keyboard.press('Tab');
   await expect(page.getByTestId('intake-passport')).toBeFocused();
+  // F01: no funding selects in the ficha any more — straight to the dates.
   await page.keyboard.press('Tab');
-  await expect(page.getByTestId('intake-flights-funding')).toBeFocused();
-  await page.keyboard.press('ArrowDown');
-  await expect(page.getByTestId('intake-flights-funding')).toHaveValue('sep');
+  await expect(page.getByTestId('intake-arrival-date')).toBeFocused();
   await page.keyboard.press('Tab');
-  await expect(page.getByTestId('intake-lodging-funding')).toBeFocused();
-  await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('ArrowDown');
-  await expect(page.getByTestId('intake-lodging-funding')).toHaveValue('colegio');
+  await expect(page.getByTestId('intake-departure-date')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByTestId('intake-focus')).toBeFocused();
+  // F04: "Todos" is the last option, after the four levels.
+  for (let i = 0; i < 5; i += 1) await page.keyboard.press('ArrowDown');
+  await expect(page.getByTestId('intake-focus')).toHaveValue('todos');
 
-  // Through the optional fields to the save button.
+  // Through the remaining optional fields to the save button.
   const stops = [
-    'intake-arrival-date',
-    'intake-departure-date',
-    'intake-focus',
     'intake-dietary-vegetariano',
     'intake-dietary-vegano',
     'intake-dietary-sin_gluten',
@@ -830,6 +958,7 @@ async function keyboardOnlyAdd(page: Page, rut: string) {
   await page.keyboard.press('Enter');
   await expect(page.getByTestId('intake-count')).toHaveText('(1/60)');
   await expect(page.getByTestId('intake-list')).toContainText('Teclado Sin Ratón');
+  await expect(page.getByTestId('intake-list')).toContainText('Foco: Todos');
 }
 
 for (const [label, viewport, ip] of [
@@ -846,12 +975,19 @@ for (const [label, viewport, ip] of [
       await admin?.dispose();
     });
 
-    test('add a person with validation and focus, no mouse', async ({ browser }) => {
-      const roster = await createRoster(admin, 'mirada-profunda', `Keyboard ${label}`);
+    test('add a person with validation and focus, no mouse', async ({ browser, baseURL }) => {
+      const roster = await createFundedRoster(admin, baseURL!, ip, 'mirada-profunda', `Keyboard ${label}`);
       const context = await anonymousContext(browser, ip, { viewport });
       try {
         const page = await context.newPage();
         await openNomina(page, roster.token, roster.schoolName);
+        // F02: no red-star markers; required fields are labelled «Obligatorio».
+        await expect(page.getByTestId('intake-form')).toBeVisible();
+        expect(await page.locator('body').innerText()).not.toContain('★');
+        await expect(page.getByTestId('intake-required-legend')).toHaveText(
+          'Los campos marcados «Obligatorio» deben completarse.'
+        );
+        await expect(page.getByTestId('intake-first-names')).toHaveAttribute('aria-required', 'true');
         await keyboardOnlyAdd(page, syntheticRut());
       } finally {
         await context.close();
@@ -872,8 +1008,9 @@ test.describe('Nómina — identical date labels in every time zone', () => {
     await admin?.dispose();
   });
 
-  test('America/Santiago and Pacific/Kiritimati show the same options', async ({ browser }) => {
-    const inspira = await createRoster(admin, 'inspira', 'TZ');
+  test('America/Santiago and Pacific/Kiritimati show the same options', async ({ browser, baseURL }) => {
+    // F01: funding saved first, so the empty roster opens its ficha.
+    const inspira = await createFundedRoster(admin, baseURL!, CLIENT.timezones, 'inspira', 'TZ');
     const labels: string[][] = [];
     for (const timezoneId of ['America/Santiago', 'Pacific/Kiritimati']) {
       const context: BrowserContext = await anonymousContext(browser, CLIENT.timezones, { timezoneId });
@@ -955,4 +1092,236 @@ test.describe('Nómina — the product rate limit still holds', () => {
       await other.dispose();
     }
   });
+});
+
+/* ================================================================ corrections F01–F04 */
+
+test.describe('Nómina — school funding races (F01)', () => {
+  let admin: APIRequestContext;
+  test.beforeAll(async ({ browser, baseURL }) => {
+    test.setTimeout(120_000);
+    admin = await apiContextFor(browser, 'admin', baseURL!);
+  });
+  test.afterAll(async () => {
+    await admin?.dispose();
+  });
+
+  test('two competing first saves with different values: exactly one 200 and one 409 STALE', async ({ baseURL }) => {
+    const roster = await createRoster(admin, 'inspira', 'Funding First Race');
+    const api = await coordinatorApi(baseURL!, CLIENT.fundingRaces);
+    try {
+      const responses = await Promise.all([
+        saveSchoolFunding(api, roster.token, 'sep', 'sep', null),
+        saveSchoolFunding(api, roster.token, 'colegio', 'colegio', null),
+      ]);
+      expect(responses.map((r) => r.status()).sort()).toEqual([200, 409]);
+      const winner = (await (responses.find((r) => r.status() === 200) as APIResponse).json()) as {
+        roster: { schoolFunding: SchoolFundingView };
+      };
+      const loser = (await (responses.find((r) => r.status() === 409) as APIResponse).json()) as {
+        code: string;
+        current: { schoolFunding: SchoolFundingView };
+      };
+      expect(loser.code).toBe('STALE');
+      expect(loser.current.schoolFunding).toEqual(winner.roster.schoolFunding);
+      expect((await listParticipants(api, roster.token)).roster.schoolFunding).toEqual(winner.roster.schoolFunding);
+    } finally {
+      await api.dispose();
+    }
+  });
+
+  test('a double save with the same values stores one answer: one write, one replay', async ({ baseURL }) => {
+    const roster = await createRoster(admin, 'inspira', 'Funding Double');
+    const api = await coordinatorApi(baseURL!, CLIENT.fundingRaces);
+    try {
+      const responses = await Promise.all([
+        saveSchoolFunding(api, roster.token, 'sep', 'colegio', null),
+        saveSchoolFunding(api, roster.token, 'sep', 'colegio', null),
+      ]);
+      expect(responses.map((r) => r.status())).toEqual([200, 200]);
+      const replayed = await Promise.all(responses.map(async (r) => ((await r.json()) as { replayed: boolean }).replayed));
+      expect(replayed.sort()).toEqual([false, true]);
+      const view = await listParticipants(api, roster.token);
+      expect(view.roster.schoolFunding).toMatchObject({ flightsFunding: 'sep', lodgingFunding: 'colegio', version: 1 });
+    } finally {
+      await api.dispose();
+    }
+  });
+
+  test('a first funding save racing a participant create: the create is 201 or SCHOOL_DATA_MISSING, never inconsistent', async ({
+    baseURL,
+  }) => {
+    const roster = await createRoster(admin, 'inspira', 'Funding vs Create');
+    const api = await coordinatorApi(baseURL!, CLIENT.fundingRaces);
+    try {
+      const [funding, create] = await Promise.all([
+        saveSchoolFunding(api, roster.token, 'colegio', 'sep', null),
+        createParticipant(api, roster.token),
+      ]);
+      expect(funding.status()).toBe(200);
+      expect([201, 422]).toContain(create.status());
+      if (create.status() === 422) {
+        expect(((await create.json()) as { code: string }).code).toBe('SCHOOL_DATA_MISSING');
+      }
+      const view = await listParticipants(api, roster.token);
+      expect(view.roster.schoolFunding).toMatchObject({ flightsFunding: 'colegio', lodgingFunding: 'sep' });
+      expect(view.participants).toHaveLength(create.status() === 201 ? 1 : 0);
+    } finally {
+      await api.dispose();
+    }
+  });
+
+  test('without school funding, participant writes and finalize are refused (422), and the school route is no-store', async ({
+    baseURL,
+  }) => {
+    const roster = await createRoster(admin, 'inspira', 'Funding Gate');
+    const api = await coordinatorApi(baseURL!, CLIENT.fundingRaces);
+    try {
+      const create = await createParticipant(api, roster.token);
+      expect(create.status()).toBe(422);
+      expect(((await create.json()) as { code: string }).code).toBe('SCHOOL_DATA_MISSING');
+      const view = await listParticipants(api, roster.token);
+      expect(view.roster.schoolFunding).toBeNull();
+      const finalize = await api.post(`${INTAKE_API}/finalize`, {
+        headers: auth(roster.token),
+        data: { expectedRosterVersion: view.roster.version },
+      });
+      expect(finalize.status()).toBe(422);
+      expect(((await finalize.json()) as { code: string }).code).toBe('SCHOOL_DATA_MISSING');
+      // Per-person funding keys are refused outright (FIRST R4).
+      const smuggled = await api.post(INTAKE_API, {
+        headers: auth(roster.token),
+        data: { ...participantBody(), flightsFunding: 'sep', clientRequestId: randomUUID(), acknowledged: true },
+      });
+      expect(smuggled.status()).toBe(422);
+      // A4: an invalid funding version is refused before the RPC; nothing is saved.
+      const badVersion = await saveSchoolFunding(api, roster.token, 'sep', 'sep', 0);
+      expect(badVersion.status()).toBe(422);
+      expect(badVersion.headers()['cache-control']).toBe('no-store');
+      expect((await listParticipants(api, roster.token)).roster.schoolFunding).toBeNull();
+    } finally {
+      await api.dispose();
+    }
+  });
+});
+
+test.describe('Nómina — one school, two programs, two answers (F01)', () => {
+  let admin: APIRequestContext;
+  test.beforeAll(async ({ browser, baseURL }) => {
+    test.setTimeout(120_000);
+    admin = await apiContextFor(browser, 'admin', baseURL!);
+  });
+  test.afterAll(async () => {
+    await admin?.dispose();
+  });
+
+  test('the same school name in INSPIRA and Mirada keeps independent funding', async ({ baseURL }) => {
+    const schoolName = uniqueSchool('Two Programs');
+    const create = async (program: Program) => {
+      const response = await admin.post(ADMIN_API, { data: { schoolName, program, validDays: 30 } });
+      expect(response.status()).toBe(201);
+      return (await response.json()) as { roster: { id: string }; token: string };
+    };
+    const inspira = await create('inspira');
+    const mirada = await create('mirada-profunda');
+    const api = await coordinatorApi(baseURL!, CLIENT.twoPrograms);
+    try {
+      expect((await saveSchoolFunding(api, inspira.token, 'sep', 'sep', null)).status()).toBe(200);
+      // Mirada's link sees no funding: nothing is shared or guessed by school name.
+      expect((await listParticipants(api, mirada.token)).roster.schoolFunding).toBeNull();
+      expect((await saveSchoolFunding(api, mirada.token, 'colegio', 'colegio', null)).status()).toBe(200);
+      expect((await listParticipants(api, inspira.token)).roster.schoolFunding).toMatchObject({
+        flightsFunding: 'sep',
+        lodgingFunding: 'sep',
+      });
+      expect((await listParticipants(api, mirada.token)).roster.schoolFunding).toMatchObject({
+        flightsFunding: 'colegio',
+        lodgingFunding: 'colegio',
+      });
+    } finally {
+      await api.dispose();
+    }
+    const detailI = (await (await admin.get(`${ADMIN_API}/${inspira.roster.id}`)).json()) as { roster: { schoolFunding: SchoolFundingView } };
+    const detailM = (await (await admin.get(`${ADMIN_API}/${mirada.roster.id}`)).json()) as { roster: { schoolFunding: SchoolFundingView } };
+    expect(detailI.roster.schoolFunding.flightsFunding).toBe('sep');
+    expect(detailM.roster.schoolFunding.flightsFunding).toBe('colegio');
+  });
+});
+
+test.describe('Nómina — a stale second tab cannot send over a funding change (F01, C4)', () => {
+  let admin: APIRequestContext;
+  test.beforeAll(async ({ browser, baseURL }) => {
+    test.setTimeout(120_000);
+    admin = await apiContextFor(browser, 'admin', baseURL!);
+  });
+  test.afterAll(async () => {
+    await admin?.dispose();
+  });
+
+  test('finalize carrying the version from before a funding change is 409 STALE', async ({ baseURL }) => {
+    const roster = await createFundedRoster(admin, baseURL!, CLIENT.staleTabs, 'inspira', 'Stale Tabs');
+    const api = await coordinatorApi(baseURL!, CLIENT.staleTabs);
+    try {
+      expect((await createParticipant(api, roster.token)).status()).toBe(201);
+      const secondTab = await listParticipants(api, roster.token);
+      const changed = await saveSchoolFunding(
+        api,
+        roster.token,
+        'sep',
+        'sep',
+        (secondTab.roster.schoolFunding as SchoolFundingView).version
+      );
+      expect(changed.status()).toBe(200);
+      const stale = await api.post(`${INTAKE_API}/finalize`, {
+        headers: auth(roster.token),
+        data: { expectedRosterVersion: secondTab.roster.version },
+      });
+      expect(stale.status()).toBe(409);
+      expect(((await stale.json()) as { code: string }).code).toBe('STALE');
+      const fresh = await listParticipants(api, roster.token);
+      const sent = await api.post(`${INTAKE_API}/finalize`, {
+        headers: auth(roster.token),
+        data: { expectedRosterVersion: fresh.roster.version },
+      });
+      expect(sent.status()).toBe(200);
+    } finally {
+      await api.dispose();
+    }
+  });
+});
+
+test.describe('Nómina — exact travel-dates notice and markers (F03, F02)', () => {
+  let admin: APIRequestContext;
+  test.beforeAll(async ({ browser, baseURL }) => {
+    test.setTimeout(120_000);
+    admin = await apiContextFor(browser, 'admin', baseURL!);
+  });
+  test.afterAll(async () => {
+    await admin?.dispose();
+  });
+
+  const tail =
+    'Las fechas de llegada y regreso pueden variar por uno o dos días, dependiendo de los pasajes disponibles y ' +
+    'sus costos. Esto se conversará con el colegio al momento de tener la disponibilidad de los vuelos a comprar.';
+
+  for (const [program, range, viewport] of [
+    ['inspira', 'lunes 18 de enero al jueves 28 de enero de 2027', { width: 1366, height: 900 }],
+    ['mirada-profunda', 'lunes 18 de enero al viernes 29 de enero de 2027', { width: 390, height: 844 }],
+  ] as const) {
+    test(`${program}: the notice is exact, dates stay optional, and no star appears`, async ({ browser, baseURL }) => {
+      const roster = await createFundedRoster(admin, baseURL!, CLIENT.copy, program, `Copy ${program}`);
+      const context = await anonymousContext(browser, CLIENT.copy, { viewport });
+      try {
+        const page = await context.newPage();
+        await openNomina(page, roster.token, roster.schoolName);
+        await expect(page.getByTestId('intake-hint-dates')).toHaveText(`El programa se realiza del ${range}. ${tail}`);
+        await expect(page.getByText('Llegada a Barcelona (opcional)')).toBeVisible();
+        await expect(page.getByTestId('intake-arrival-date')).toHaveValue('');
+        expect(await page.locator('body').innerText()).not.toContain('★');
+        await expect(page.getByTestId('intake-school-section')).toContainText('Obligatorio');
+      } finally {
+        await context.close();
+      }
+    });
+  }
 });

@@ -13,6 +13,7 @@ import {
   arrivalOptions,
   departureOptions,
   programDateRangeLabel,
+  programDatesNotice,
   storedDateLabel,
 } from '../../../../lib/pasantias/participants/dates';
 
@@ -91,6 +92,30 @@ describe('option sets', () => {
     process.env.TZ = 'Pacific/Kiritimati';
     const kiritimati = [arrivalOptions('inspira'), departureOptions('mirada-profunda')];
     expect(kiritimati).toEqual(santiago);
+  });
+});
+
+describe('programDatesNotice (F03)', () => {
+  it('INSPIRA matches Brent’s supplied text character for character', () => {
+    // human-corrections-20261030.json F03.copy, verbatim.
+    expect(programDatesNotice('inspira')).toBe(
+      'El programa se realiza del lunes 18 de enero al jueves 28 de enero de 2027. Las fechas de llegada y ' +
+        'regreso pueden variar por uno o dos días, dependiendo de los pasajes disponibles y sus costos. Esto se ' +
+        'conversará con el colegio al momento de tener la disponibilidad de los vuelos a comprar.'
+    );
+  });
+
+  it('Mirada Profunda keeps its own end date and the same wording otherwise', () => {
+    const mirada = programDatesNotice('mirada-profunda');
+    expect(mirada.startsWith('El programa se realiza del lunes 18 de enero al viernes 29 de enero de 2027. ')).toBe(true);
+    expect(mirada.slice(mirada.indexOf('. ') + 2)).toBe(
+      programDatesNotice('inspira').slice(programDatesNotice('inspira').indexOf('. ') + 2)
+    );
+  });
+
+  it('does not change the date options or their optionality', () => {
+    expect(arrivalOptions('inspira').map((o) => o.value)).toEqual(['2027-01-17', '2027-01-11']);
+    expect(departureOptions('mirada-profunda').map((o) => o.value)).toEqual(['2027-01-30', '2027-02-05', '2027-02-12']);
   });
 });
 

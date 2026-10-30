@@ -5,7 +5,6 @@ import { displayRut } from '../../lib/pasantias/participants/rut';
 import {
   DIETARY_LABELS,
   FOCUS_LABELS,
-  FUNDING_LABELS,
   type IntakeParticipant,
 } from '../../lib/pasantias/participants/types';
 
@@ -70,14 +69,7 @@ export default function ParticipantList({
               </button>
             </div>
             <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="inline text-gray-600">Pasajes: </dt>
-                <dd className="inline">{FUNDING_LABELS[participant.flightsFunding]}</dd>
-              </div>
-              <div>
-                <dt className="inline text-gray-600">Alojamiento: </dt>
-                <dd className="inline">{FUNDING_LABELS[participant.lodgingFunding]}</dd>
-              </div>
+              {/* F01: Pasajes/Estadía are the school's answer ("Datos del colegio"), not per person. */}
               <div className="sm:col-span-2">
                 <dt className="inline text-gray-600">Llegada: </dt>
                 <dd className="inline">{storedDateLabel(program, 'arrival', participant.arrivalDate)}</dd>

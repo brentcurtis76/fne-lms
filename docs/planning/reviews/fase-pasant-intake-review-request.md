@@ -1,15 +1,41 @@
 # Review request — PASANT-PARTICIPANT-INTAKE (DB-01 + APP-01)
 
+## Current release status (2026-10-30) — read this first
+
+The sections below are the historical record. Where they say otherwise, this section is current.
+
+- **Corrections F01–F04: accepted locally** on corrections source freeze r2 (PM: `LOCAL_CORRECTIONS_ACCEPTED`). The independent FINAL evidence review **APPROVED** local acceptance, and its condition E-1 (record of the scoped `lint:testid` command) is closed.
+- **Not whole-unit accepted, not release-ready.** The corrections are not committed and nothing is published. HEAD `ca27b542` is the earlier local commit of the original unit.
+- **Release authority (Brent, 2026-10-30, "let's get it into production"):** prepare a reviewed local commit, publish the feature branch and a draft PR with previews disabled, run the required CI, and prepare the supported Publish release. Production database changes go only through Publish. Brent controls the final Publish and merge. None of these steps has been performed yet.
+- **Local evidence (r2):**
+  - focused Vitest 287/287;
+  - full Vitest 17 950/17 950 across 8 shards;
+  - type-check, zero-warning lint plus guards, and build plus the price guard all PASS;
+  - scoped `lint:testid` PASS; the repo-wide baseline of 47 errors and 2 540 warnings stays FAIL_BASELINE;
+  - real-stack browser/API 104/104, with 0 unexpected, skipped or flaky;
+  - pgTAP 115 140/140 and 114 176/176, with 0 assertion failures in 8 115. The aggregate still **FAILS** because 002 ran 113 of 137 without Supabase CLI migration history; that is not a pass;
+  - manual UI by PM on the r2 build: F01–F04 PASS on desktop and in 322×728 mobile emulation. Screenshots were not saved as files, and the manual pass had no admin journey, mobile submission or finalize; the 104-test suite covers those.
+- **Migrations (both additive, Publish only):** `20261028020000_pasantias_participant_intake.sql` and `20261030120000_pasantias_nomina_school_funding_focus.sql`.
+- **C8 release prerequisite (not executed):** the query in `db-contract-corrections-01.md` §7 (participants whose roster has no school-funding row) must return 0 before any non-local release. Otherwise the release stops and PM asks Brent. No production reads or writes have been done.
+- **Notice (N5): settled.** Brent approved the purpose text on 2026-10-28 (notice version `pasant-intake-2026-10-v2`). It is a content approval, not a claim of legal sufficiency.
+- **Pending:**
+  - CI on the PR, including the normal CLI `supabase test db`;
+  - the reviewed local commit, the branch and draft PR, and Publish preparation;
+  - C8;
+  - Brent's final Publish and merge;
+  - Brent's brand judgement on F02 at preview (non-blocking).
+- **Non-blocking backlog:** DB T1 and T2; review items T-a, T-b, R-1, FX-4 and FX-5. D-1 is corrected below.
+
 ## Branch and base
 
 - **Worktree:** `/home/brent/Projects/pm-workflow/worktrees/genera-pasant-intake`.
 - **Branch:** owned by the PM; the app author ran no Git.
 - **Base:** `bd19809c29bb01f54f757c605f811d778342c915`, as stated in the order and not verified by the author.
-- **Commits:** 0, and none claimed. A local commit is pending the cumulative FINAL review.
+- **Commits:** 0, and none claimed. A local commit is pending the cumulative FINAL review. *(Superseded: HEAD `ca27b542` is the local commit of the original unit; the F01–F04 corrections are not yet committed — see "Current release status".)*
 - **Source freeze:** r5, with identical identity before and after the runtime.
-- **State:**
+- **State:** *(historical, original unit on r5 — see "Current release status")*
   - local runtime PASS, except the retained pgTAP 002 CLI-history gap;
-  - UI acceptance is `UI_BLOCKED_TOOL_DISABLED`;
+  - UI acceptance is `UI_BLOCKED_TOOL_DISABLED`; *(superseded 2026-10-30: done locally for the corrected r2 build)*
   - the cumulative FINAL review is pending;
   - no CI run, not deployed, not ready for human acceptance.
 
@@ -28,7 +54,7 @@ available to the FNE admin.
 
 **Out of scope:**
 - participant deletion (N4);
-- legal sign-off of the notice wording (N5);
+- legal sign-off of the notice wording (N5); *(the wording itself is now settled: Brent approved v2 on 2026-10-28; no legal-sufficiency claim)*
 - production, Publish and mail;
 - middleware, auth or config changes;
 - new dependencies.
@@ -90,7 +116,7 @@ nothing. The evidence lives in the management packet outside the repo: `evidence
 | Migration apply on a synthetic clone | PASS |
 | Network audit | PASS |
 | Teardown | own containers stopped, network removed, no listeners, old stack unchanged |
-| CI · cumulative FINAL · UI acceptance | NOT_RUN · pending · `UI_BLOCKED_TOOL_DISABLED` |
+| CI · cumulative FINAL · UI acceptance | NOT_RUN · pending · `UI_BLOCKED_TOOL_DISABLED` *(historical, r5; superseded 2026-10-30: FINAL approved local acceptance and manual UI done on the corrected r2 build; CI still not run — see "Current release status")* |
 
 **First failures, preserved and fixed after review (product behaviour unchanged by each)**
 1. **Focused r1: 41 failures out of 1 197.** Two test files used a 45-character synthetic token, while a real token is
@@ -142,9 +168,65 @@ node scripts/ci/e2e-mandatory.mjs --list
    in-handler check covers mocked tests and any parser bypass. Confirm Next's 413 body (not JSON with our code) is
    acceptable.
 
+## Corrections 01 (F01–F04), 2026-10-30 — authored, NOT_RUN
+
+**Base:** HEAD `ca27b542…`, as stated by PM; the app author ran no Git. **Scope:** F01 school-level funding, F02 neutral «Obligatorio», F03 exact travel-dates notice, F04 Todos. **Contracts:** FIRST corrections §§3–9 (C1–C9) and `db-contract-corrections-01.md` (frozen). Out of scope: participant deletion, new school fields, production.
+
+**Files (app):**
+- **High risk:**
+  - `lib/pasantias/participants/server.ts`: corrections RPCs, `schoolFunding`, effective focus, no reads of the copied funding columns;
+  - `pages/api/pasantias/participants/{index,[id],finalize}.ts`, plus the new `school.ts`;
+  - `pages/api/admin/pasantia-participants/[rosterId].ts`;
+  - `lib/pasantias/participants/admin.ts`: the funding embed.
+- **Medium:**
+  - `validation.ts`, `form.ts`, `types.ts`, `dates.ts`;
+  - `pages/pasantias/nomina.tsx`;
+  - `components/pasantias-intake/{ParticipantForm,ParticipantList,AdminRosterParts,SchoolDataForm}.tsx`;
+  - `pages/admin/pasantia-participants.tsx`.
+- **Tests:**
+  - `__tests__/lib/pasantias/participants/{validation,client-form,dates,school-funding}.test.ts`, plus `fake-supabase.ts` (`.in()`);
+  - `__tests__/api/{pasantias-participants,admin/pasantia-participants}.test.ts`;
+  - `__tests__/pages/{pasantias-nomina,admin/pasantia-participants}.test.tsx`;
+  - `tests/e2e/pasantias-participant-intake.spec.ts`.
+
+**Test evidence:** none; every suite is NOT_RUN. PM runs the capped validators. FIRST §8 lists the required gates; 114 must stay 176/176, and 115 is new.
+
+**Scrutinize hardest:**
+1. **School-draft sync in `nomina.tsx`.** The effect follows the saved funding unless the coordinator has unsaved choices. Check that a STALE conflict keeps what was typed, and that a reply carrying a newer roster never overwrites it.
+2. **Finalize gate ordering** (live lookup, then the funding read, then the RPC). Race-freedom rests on the DB contract: a funding row can't be deleted, and every funding change bumps the roster version.
+3. **The A1/A2 static scans.** They are text scans over the intake app roots only. They prove the absence of mentions and direct writes, but can't see a dynamic table name.
+4. **The admin embed shape.** `school_funding:` may come back as an object or an array depending on PostgREST. The mapper handles both, but only the real-stack journey proves it.
+5. **Keyboard e2e.** It now relies on ArrowDown ×5 reaching "Todos" on a closed `<select>`.
+
+### Corrections remediation round 1 (FINAL r1: FX-1, FX-2, FX-3) — authored, NOT_RUN
+
+Files: `pages/pasantias/nomina.tsx` and `__tests__/pages/pasantias-nomina.test.tsx` only.
+
+- **FX-1 (test defect).** The "first save … unlocks Pasantes" test asserted `intake-add` enabled while also expecting the automatically opened create ficha, which disables that button by design. It now asserts that:
+  - the ficha opens by itself;
+  - the school gate and the hint are lifted;
+  - "Agregar persona" is disabled only because of the open ficha, and is enabled after cancelling the clean ficha.
+
+  The automatic first ficha is unchanged, and the e2e journey depends on it.
+- **FX-2 (PM option (b)).** School save, participant save and finalize are now mutually serialized.
+  - **Handler guard:** each handler first checks `anyWriteInFlight()` (`savingRef || schoolSavingRef || finalizingRef`). Each ref is set synchronously before the first await, so a second action in the same event turn is stopped too.
+  - **Matching disabled UI:** a native `<fieldset disabled>` around the school section (while a ficha save or send is in flight) and around the ficha (while a school save or send is in flight). "Agregar persona", "Editar" and "Enviar" are disabled for any write in flight.
+  - **Unchanged:** cross-tab optimistic versions (STALE), and the two independent draft contents.
+  - **New page tests, with gated replies:**
+    - a participant save pending blocks the school save;
+    - a school save pending blocks the participant save and finalize;
+    - a finalize pending blocks the school save;
+    - two different writes in one event turn send exactly one request;
+    - a double click on the school save sends one request.
+
+    Each test asserts the disabled UI, that no request is dispatched, and that the blocked action works after the first settles. The participant-save-pending and school-save-pending tests also force a form submit; the other three do not. *(D-1 corrected 2026-10-30: this line previously said every test included a forced submit.)*
+- **FX-3.** New page tests for the draft-follow effect: a clean draft follows newer `schoolFunding` from a participant-save reply and from a finalize reply (state `stored`); a dirty draft is kept (state `unsaved`).
+
+FX-4 and FX-5 are kept as optional UI observations; no change was made.
+
 ## Known limitations
 
-- The notice wording needs human or legal review (N5) and makes no claim of legal sufficiency.
+- The notice wording needs human or legal review (N5) and makes no claim of legal sufficiency. *(Settled: Brent approved the v2 purpose text on 2026-10-28; still no legal-sufficiency claim.)*
 - No participant removal (N4).
 - `X-Forwarded-For` is honoured by the existing limiter. The e2e uses that to model distinct clients, which also shows
   the limiter can be bypassed by spoofing the header. That weakness already existed and isn't changed here.
@@ -156,6 +238,7 @@ node scripts/ci/e2e-mandatory.mjs --list
 - **Full-repo `lint:testid`** keeps its pre-existing baseline of 47 errors and 2 540 warnings. Only the 7 new UI files
   were held to zero.
 - **UI acceptance** at 390 and 1366 px hasn't been done (`UI_BLOCKED_TOOL_DISABLED`). Passing Playwright doesn't count
-  as UI acceptance.
+  as UI acceptance. *(Superseded 2026-10-30: PM's manual UI pass on the corrected r2 build covered F01–F04 on desktop
+  and in 322×728 mobile emulation — see "Current release status" for its limits.)*
 - **Optional review notes left as is:** F-2 (Next's own 413 has no `no-store`) and F-3 (admin client creation outside
   `try`). Both are Low and optional.

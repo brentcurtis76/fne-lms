@@ -13,6 +13,7 @@ import {
   validateParticipantFields,
   validateRosterCreateBody,
   validateRosterPatchBody,
+  validateSchoolFundingBody,
   validateUpdateBody,
 } from '../../../../lib/pasantias/participants/validation';
 
@@ -24,8 +25,7 @@ function fields(overrides: Record<string, unknown> = {}): Record<string, unknown
     lastNames: "O'Higgins Núñez",
     rut: '12.345.678-5',
     passportNumber: null,
-    flightsFunding: 'sep',
-    lodgingFunding: 'colegio',
+    // F01: no per-person funding — it is the school's answer (validateSchoolFundingBody).
     arrivalDate: null,
     departureDate: null,
     focus: null,
@@ -112,21 +112,47 @@ describe('RUT, passport and enums', () => {
     }
   });
 
-  it('missing funding is an error and is never defaulted', () => {
-    const { value, errors } = validateParticipantFields(
-      fields({ flightsFunding: undefined, lodgingFunding: '' }),
-      'inspira'
-    );
-    expect(value).toBeNull();
-    expect(errors.flightsFunding).toBe(MESSAGES.flightsFundingRequired);
-    expect(errors.lodgingFunding).toBe(MESSAGES.lodgingFundingRequired);
+  // F01 (replaces "missing funding is an error and is never defaulted" on the
+  // participant): the same rule now holds for the SCHOOL's answer.
+  it('missing school funding is an error and is never defaulted', () => {
+    const result = validateSchoolFundingBody({
+      flightsFunding: undefined,
+      lodgingFunding: '',
+      expectedFundingVersion: null,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok === false) {
+      expect(result.errors.flightsFunding).toBe(MESSAGES.flightsFundingRequired);
+      expect(result.errors.lodgingFunding).toBe(MESSAGES.lodgingFundingRequired);
+    }
+  });
+
+  // F01: per-person funding is no longer accepted anywhere — the keys are unknown.
+  it.each(['flightsFunding', 'lodgingFunding'])('a participant body carrying %j is refused whole', (key) => {
+    const create = validateCreateBody(createBody({ [key]: 'sep' }), 'inspira');
+    expect(create.ok).toBe(false);
+    if (create.ok === false) expect(create.unknownKeys).toBe(true);
+    const update = validateUpdateBody({ ...fields(), acknowledged: true, expectedVersion: 1, [key]: 'colegio' }, 'inspira');
+    expect(update.ok).toBe(false);
+    if (update.ok === false) expect(update.unknownKeys).toBe(true);
   });
 
   it('enum values are exact', () => {
-    expect(validateParticipantFields(fields({ flightsFunding: 'SEP' }), 'inspira').errors.flightsFunding).toBeDefined();
+    // F01: funding enum exactness now applies to the school body.
+    const school = validateSchoolFundingBody({ flightsFunding: 'SEP', lodgingFunding: 'colegio', expectedFundingVersion: null });
+    expect(school.ok === false && school.errors.flightsFunding).toBe(MESSAGES.flightsFundingRequired);
     expect(validateParticipantFields(fields({ focus: 'Infantil' }), 'inspira').errors.focus).toBe(MESSAGES.focusInvalid);
     expect(validateParticipantFields(fields({ focus: 'tercer_ciclo' }), 'inspira').value?.focus).toBe('tercer_ciclo');
     expect(validateParticipantFields(fields({ focus: '' }), 'inspira').value?.focus).toBeNull();
+  });
+
+  // F04: "Todos" is an explicit, exact, lowercase choice; blank stays optional.
+  it('focus accepts todos and refuses Todos / unknown levels', () => {
+    expect(validateParticipantFields(fields({ focus: 'todos' }), 'inspira').value?.focus).toBe('todos');
+    for (const bad of ['Todos', 'TODOS', 'media', 'all']) {
+      expect(validateParticipantFields(fields({ focus: bad }), 'inspira').errors.focus).toBe(MESSAGES.focusInvalid);
+    }
+    expect(validateParticipantFields(fields({ focus: null }), 'inspira').value?.focus).toBeNull();
   });
 });
 

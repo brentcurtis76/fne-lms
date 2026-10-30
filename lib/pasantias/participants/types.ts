@@ -15,7 +15,7 @@ export type { ProgramId };
 /** The only cohort the intake tables accept (`_identity_check`). */
 export const INTAKE_COHORT = 'enero-2027';
 
-/** Hard cap per roster, enforced by `pasantias_intake_save_participant`. */
+/** Hard cap per roster, enforced by the participant-save RPC (`roster_full`). */
 export const ROSTER_MAX_PARTICIPANTS = 60;
 
 export const FUNDING_SOURCES = ['sep', 'colegio'] as const;
@@ -26,7 +26,17 @@ export const FUNDING_LABELS: Record<FundingSource, string> = {
   colegio: 'Costo Colegio',
 };
 
-export const FOCUS_CODES = ['infantil', 'primer_ciclo', 'segundo_ciclo', 'tercer_ciclo'] as const;
+/** The four existing levels (the DB-01 `focus` column CHECK). */
+export const FOCUS_LEVELS = ['infantil', 'primer_ciclo', 'segundo_ciclo', 'tercer_ciclo'] as const;
+
+/**
+ * F04: every focus a coordinator can choose, in display order — the four
+ * levels, then `todos` ("all four levels") last. `todos` is stored as the
+ * corrections focus side table's `all_levels = true` with the DB-01 `focus`
+ * column NULL (db-contract-corrections-01 §2, invariant I2). Blank
+ * ("Sin indicar") stays optional and is `null`, never a code.
+ */
+export const FOCUS_CODES = [...FOCUS_LEVELS, 'todos'] as const;
 export type FocusCode = (typeof FOCUS_CODES)[number];
 
 export const FOCUS_LABELS: Record<FocusCode, string> = {
@@ -34,6 +44,7 @@ export const FOCUS_LABELS: Record<FocusCode, string> = {
   primer_ciclo: 'Primer Ciclo',
   segundo_ciclo: 'Segundo Ciclo',
   tercer_ciclo: 'Tercer Ciclo',
+  todos: 'Todos',
 };
 
 /**
@@ -87,15 +98,27 @@ export interface IntakeParticipant {
   /** Stored form `12345678-5`. */
   rut: string;
   passportNumber: string | null;
-  flightsFunding: FundingSource;
-  lodgingFunding: FundingSource;
   /** ISO `YYYY-MM-DD` or null ("Sin indicar"). */
   arrivalDate: string | null;
   departureDate: string | null;
+  /** Effective focus: `todos` when all four levels, a level, or null ("Sin indicar"). */
   focus: FocusCode | null;
   dietaryRestrictions: DietaryCode[];
   dietaryOther: string | null;
   updatedAt: string;
+}
+
+/**
+ * F01: funding is answered once per roster (one school × one program — what a
+ * link reaches), never per person and never shared across programs
+ * (FIRST corrections §3.0). `null` on a roster means not saved yet.
+ */
+export interface SchoolFunding {
+  /** Pasajes. */
+  flightsFunding: FundingSource;
+  /** Estadía. */
+  lodgingFunding: FundingSource;
+  version: number;
 }
 
 /** The admin detail view adds the acknowledgement evidence. */
@@ -115,6 +138,8 @@ export interface CoordinatorRoster {
   submittedAt: string | null;
   lastSubmittedAt: string | null;
   expiresAt: string;
+  /** "Datos del colegio" — present on every roster in every response (C4). */
+  schoolFunding: SchoolFunding | null;
 }
 
 /** The roster as the admin sees it. */
@@ -127,14 +152,12 @@ export interface AdminRoster extends CoordinatorRoster {
   participantCount: number;
 }
 
-/** The participant fields a save carries, in request (camelCase) form. */
+/** The participant fields a save carries, in request (camelCase) form. No funding (F01). */
 export interface ParticipantFields {
   firstNames: string;
   lastNames: string;
   rut: string;
   passportNumber: string | null;
-  flightsFunding: FundingSource;
-  lodgingFunding: FundingSource;
   arrivalDate: string | null;
   departureDate: string | null;
   focus: FocusCode | null;
@@ -151,6 +174,7 @@ export type IntakeErrorCode =
   | 'STALE'
   | 'NOT_FOUND'
   | 'EMPTY_ROSTER'
+  | 'SCHOOL_DATA_MISSING'
   | 'PAYLOAD_TOO_LARGE'
   | 'METHOD_NOT_ALLOWED'
   | 'UNAVAILABLE'

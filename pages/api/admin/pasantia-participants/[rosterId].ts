@@ -1,8 +1,9 @@
 /**
  * GET / PATCH /api/admin/pasantia-participants/[rosterId]
  *
- * GET: one roster and its participants (creation order, at most 60), with the
- * acknowledgement evidence. Never the token or its hash.
+ * GET: one roster (with its F01 `schoolFunding`, read-only for admins) and its
+ * participants (creation order, at most 60, effective focus incl. Todos), with
+ * the acknowledgement evidence. Never the token or its hash.
  *
  * PATCH `{action:'rotate', validDays}` replaces the token hash and expiry and
  * clears `revoked_at`, so the old link stops working at once; it answers the
@@ -22,10 +23,8 @@ import {
 // the ledger production-consumer inventory resolves only statically provable
 // literal targets (an imported constant carries no string value there).
 import {
-  ADMIN_PARTICIPANT_COLUMNS,
-  listParticipants,
+  listAdminParticipants,
   logIntakeFailure,
-  toAdminParticipant,
   toAdminRoster,
 } from '../../../../lib/pasantias/participants/server';
 import { isUuid, validateRosterPatchBody } from '../../../../lib/pasantias/participants/validation';
@@ -54,7 +53,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Error al cargar la nómina' });
       }
       if (!data) return res.status(404).json(NOT_FOUND);
-      const list = await listParticipants(supabase, rosterId, ADMIN_PARTICIPANT_COLUMNS);
+      // F01/F04: no participant funding columns; effective focus (incl. Todos)
+      // merged from the side table for this roster's ids only. The roster's
+      // school funding travels in ADMIN_ROSTER_SELECT's embed.
+      const list = await listAdminParticipants(supabase, rosterId);
       // Explicit `=== false` / `=== true`: tsconfig has strict off, and without
       // strictNullChecks only equality narrows a boolean discriminant both ways.
       if (list.ok === false) {
@@ -63,7 +65,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       return res.status(200).json({
         roster: toAdminRoster(data as unknown as Record<string, unknown>),
-        participants: list.value.map(toAdminParticipant),
+        participants: list.value,
       });
     }
 

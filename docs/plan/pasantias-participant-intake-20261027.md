@@ -135,6 +135,28 @@ npm run test:db          # needs Supabase CLI + Docker; pgTAP 114 is the intake 
 npx playwright test tests/e2e/pasantias-participant-intake.spec.ts   # seeded local stack, next start
 ```
 
+## Corrections 01 (2026-10-30) — F01–F04
+
+**Authority:** Brent's feedback (`human-corrections-20261030.json`). **Contract:** FIRST corrections review §§3–9 (C1–C9), adopted by PM. **DB:** `docs/plan/evidence/pasant-intake/db-contract-corrections-01.md` (frozen; migration `20261030120000`, pgTAP 115), with an independent DB source review.
+
+**Status:** authored; every check is NOT_RUN. No UI acceptance is claimed.
+
+| Id | Change | Where |
+|---|---|---|
+| F01 | Funding is answered once per roster (one school × one program — what the link reaches), in a new "Datos del colegio" section: Pasajes and Estadía, Costo SEP / Costo Colegio, never pre-chosen. Never per person, never shared between programs. Participant writes and sending wait for it (422 `SCHOOL_DATA_MISSING`). A funding change bumps the roster version and reopens a sent roster. | `PUT /api/pasantias/participants/school`; `SchoolDataForm.tsx`; `nomina.tsx`; `server.ts` (`schoolFunding` on every roster; participant reads never select the copied funding columns); admin row and detail |
+| F02 | Red ★ markers removed. Required fields show a neutral grey "Obligatorio" that is part of the label, plus `aria-required`. Error states are unchanged. | `ParticipantForm.tsx` (`RequiredMark`), `SchoolDataForm.tsx`, acknowledgement in `nomina.tsx`, admin create form |
+| F03 | The travel-dates notice is Brent's exact text, built from each program's own range (INSPIRA ends Thu 28, Mirada Fri 29). The dates stay optional and the options are unchanged. | `dates.ts` (`programDatesNotice`) |
+| F04 | Focus gains "Todos" (all four levels), shown last. Blank stays optional. It round-trips through validation, the RPC (`p_focus = 'todos'`), the side table, the API, the coordinator list and the admin view. | `types.ts`, `validation.ts`, `server.ts` (effective focus) |
+
+**Binding app-side proofs:**
+- **A1/C2:** no intake app source names the DB-01 participant save.
+- **A2:** no intake app source writes either corrections table directly; both are written only by their RPCs.
+- **A4:** an invalid `expectedFundingVersion` gets 422 before any RPC.
+
+These are static scans plus unit tests in `__tests__/lib/pasantias/participants/school-funding.test.ts`.
+
+**Release precondition (C8, not executed):** db-contract-corrections-01 §7. Every participant's roster must have a funding row before any non-local release.
+
 ## Not done here
 
 - Deleting a participant (N4).

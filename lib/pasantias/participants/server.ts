@@ -1,17 +1,30 @@
 /**
  * SERVER ONLY. Data access and HTTP plumbing shared by the intake API routes.
  *
- * Contract: `docs/plan/evidence/pasant-intake/db-contract.md` (FROZEN). Both
- * tables grant nothing to anon or authenticated — admins included — so every
- * read and write here runs on the service-role client, and every coordinator
- * WRITE goes through one of the two RPCs, which re-check the link under a
- * `FOR UPDATE` lock on the roster in the same transaction (FIRST-B7).
+ * Contracts (both FROZEN): `docs/plan/evidence/pasant-intake/db-contract.md`
+ * (DB-01) and `db-contract-corrections-01.md` (F01 school funding, F04 Todos).
+ * Every intake table grants nothing to anon or authenticated — admins
+ * included — so every read and write here runs on the service-role client,
+ * and every coordinator WRITE goes through an RPC that re-checks the link
+ * under a `FOR UPDATE` lock on the roster in the same transaction (FIRST-B7):
+ *
+ * - participant create/update → `pasantias_nomina_save_participant` (14 named
+ *   arguments, no funding). The DB-01 participant save is never called by the
+ *   app (corrections C2); a unit test scans app source for its name.
+ * - school funding → `pasantias_nomina_save_school_funding`;
+ * - finalize → the unchanged `pasantias_intake_finalize`, after the app's
+ *   school-data gate (corrections §3.6).
+ *
+ * Reads never select the participants' copied funding columns (C2): funding
+ * is read from the school row and attached to every roster as
+ * `schoolFunding`. Effective focus merges the F04 side table, read only for
+ * participant ids that came from a roster-scoped read.
  *
  * Responses never carry `token_hash`: every select lists its columns, and no
  * column list here contains it.
  *
  * Logging (Ley 21.719): only `loggableError` output or a code from the frozen
- * refusal list. Never a token, hash, RUT, name, passport, message, detail or
+ * refusal lists. Never a token, hash, RUT, name, passport, message, detail or
  * hint.
  */
 import type { NextApiRequest, NextApiResponse } from 'next';
@@ -21,6 +34,7 @@ import { rateLimit } from '../../rateLimit';
 import { isProgramId, programById, type ProgramId } from '../cohort-public';
 import { hashIntakeToken, parseIntakeAuthorization } from './token';
 import {
+  FUNDING_SOURCES,
   ROSTER_MAX_PARTICIPANTS,
   type AdminIntakeParticipant,
   type AdminRoster,
@@ -32,13 +46,17 @@ import {
   type IntakeParticipant,
   type ParticipantFields,
   type RosterStatus,
+  type SchoolFunding,
 } from './types';
 import { MESSAGES, type FieldErrors } from './validation';
 
 export const LOG_PREFIX = 'pasantias-intake';
 export const ROSTERS_TABLE = 'pasantias_intake_rosters';
 export const PARTICIPANTS_TABLE = 'pasantias_intake_participants';
-export const SAVE_RPC = 'pasantias_intake_save_participant';
+export const SCHOOL_FUNDING_TABLE = 'pasantias_nomina_school_funding';
+export const PARTICIPANT_FOCUS_TABLE = 'pasantias_nomina_participant_focus';
+export const SAVE_RPC = 'pasantias_nomina_save_participant';
+export const FUNDING_RPC = 'pasantias_nomina_save_school_funding';
 export const FINALIZE_RPC = 'pasantias_intake_finalize';
 
 /** Request bodies are tiny; anything over 8 kB is refused (FIRST §4). */
@@ -59,10 +77,13 @@ const COORDINATOR_ROSTER_COLUMNS: string =
 export const ADMIN_ROSTER_COLUMNS: string =
   'id, cohort, program, school_name, status, version, submitted_at, last_submitted_at, expires_at, revoked_at, created_at, updated_at';
 
+/** No `flights_funding` / `lodging_funding`: those participant columns are a copy nothing reads (C2). */
 export const PARTICIPANT_COLUMNS: string =
-  'id, version, first_names, last_names, rut, passport_number, flights_funding, lodging_funding, arrival_date, departure_date, focus, dietary_restrictions, dietary_other, updated_at';
+  'id, version, first_names, last_names, rut, passport_number, arrival_date, departure_date, focus, dietary_restrictions, dietary_other, updated_at';
 
 export const ADMIN_PARTICIPANT_COLUMNS: string = `${PARTICIPANT_COLUMNS}, created_at, acknowledged_at, notice_version`;
+
+export const SCHOOL_FUNDING_COLUMNS: string = 'flights_funding, lodging_funding, version';
 
 type Row = Record<string, unknown>;
 type Service = SupabaseClient;
@@ -81,7 +102,29 @@ function programName(program: string): string {
   return isProgramId(program) ? programById(program).name : program;
 }
 
-export interface CoordinatorRosterRow extends CoordinatorRoster {
+function isFundingSource(value: unknown): value is FundingSource {
+  return typeof value === 'string' && (FUNDING_SOURCES as readonly string[]).includes(value);
+}
+
+/** A school-funding row (snake_case) as the API's `schoolFunding`, or null. */
+export function toSchoolFunding(row: unknown): SchoolFunding | null {
+  if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
+  const r = row as Row;
+  if (!isFundingSource(r.flights_funding) || !isFundingSource(r.lodging_funding)) return null;
+  return { flightsFunding: r.flights_funding, lodgingFunding: r.lodging_funding, version: Number(r.version) };
+}
+
+/**
+ * The admin embed `school_funding:pasantias_nomina_school_funding(...)`.
+ * PostgREST answers a one-to-one embed as an object, older versions as a
+ * one-element array, and no row as null or `[]` — all handled.
+ */
+export function schoolFundingFromEmbed(embedded: unknown): SchoolFunding | null {
+  if (Array.isArray(embedded)) return embedded.length > 0 ? toSchoolFunding(embedded[0]) : null;
+  return toSchoolFunding(embedded);
+}
+
+export interface CoordinatorRosterRow extends Omit<CoordinatorRoster, 'schoolFunding'> {
   /** Internal; never sent to the coordinator. */
   id: string;
 }
@@ -101,8 +144,8 @@ export function toCoordinatorRoster(row: Row): CoordinatorRosterRow {
   };
 }
 
-/** The coordinator view: the internal id stays on the server. */
-export function publicRoster(roster: CoordinatorRosterRow): CoordinatorRoster {
+/** The coordinator view: the internal id stays on the server; funding always present (C4). */
+export function publicRoster(roster: CoordinatorRosterRow, schoolFunding: SchoolFunding | null): CoordinatorRoster {
   return {
     schoolName: roster.schoolName,
     program: roster.program,
@@ -112,6 +155,7 @@ export function publicRoster(roster: CoordinatorRosterRow): CoordinatorRoster {
     submittedAt: roster.submittedAt,
     lastSubmittedAt: roster.lastSubmittedAt,
     expiresAt: roster.expiresAt,
+    schoolFunding,
   };
 }
 
@@ -124,6 +168,7 @@ export function toAdminRoster(row: Row): AdminRoster {
       : 0;
   return {
     ...base,
+    schoolFunding: schoolFundingFromEmbed(row.school_funding),
     cohort: str(row.cohort),
     revokedAt: strOrNull(row.revoked_at),
     createdAt: str(row.created_at),
@@ -132,7 +177,11 @@ export function toAdminRoster(row: Row): AdminRoster {
   };
 }
 
-export function toParticipant(row: Row): IntakeParticipant {
+/**
+ * Effective focus (corrections §2): `todos` when the side table says
+ * `all_levels`, otherwise the DB-01 column (a level, or null = Sin indicar).
+ */
+export function toParticipant(row: Row, allLevels = false): IntakeParticipant {
   return {
     id: str(row.id),
     version: Number(row.version),
@@ -140,11 +189,9 @@ export function toParticipant(row: Row): IntakeParticipant {
     lastNames: str(row.last_names),
     rut: str(row.rut),
     passportNumber: strOrNull(row.passport_number),
-    flightsFunding: str(row.flights_funding) as FundingSource,
-    lodgingFunding: str(row.lodging_funding) as FundingSource,
     arrivalDate: strOrNull(row.arrival_date),
     departureDate: strOrNull(row.departure_date),
-    focus: strOrNull(row.focus) as FocusCode | null,
+    focus: allLevels ? 'todos' : (strOrNull(row.focus) as FocusCode | null),
     dietaryRestrictions: (Array.isArray(row.dietary_restrictions)
       ? row.dietary_restrictions
       : []) as DietaryCode[],
@@ -153,9 +200,9 @@ export function toParticipant(row: Row): IntakeParticipant {
   };
 }
 
-export function toAdminParticipant(row: Row): AdminIntakeParticipant {
+export function toAdminParticipant(row: Row, allLevels = false): AdminIntakeParticipant {
   return {
-    ...toParticipant(row),
+    ...toParticipant(row, allLevels),
     createdAt: str(row.created_at),
     acknowledgedAt: str(row.acknowledged_at),
     noticeVersion: str(row.notice_version),
@@ -176,6 +223,7 @@ const ERROR_MESSAGES: Record<IntakeErrorCode, string> = {
   STALE: 'Estos datos cambiaron mientras los editabas. Revisa la versión guardada.',
   NOT_FOUND: 'No encontramos esa ficha en esta nómina.',
   EMPTY_ROSTER: 'Agrega al menos una persona antes de enviar la nómina.',
+  SCHOOL_DATA_MISSING: 'Primero guarda los datos del colegio (Pasajes y Estadía).',
   PAYLOAD_TOO_LARGE: 'La solicitud es demasiado grande.',
   METHOD_NOT_ALLOWED: 'Método no permitido.',
   UNAVAILABLE: 'El formulario no está disponible por ahora. Inténtalo más tarde.',
@@ -190,6 +238,7 @@ const ERROR_STATUS: Record<IntakeErrorCode, number> = {
   STALE: 409,
   NOT_FOUND: 404,
   EMPTY_ROSTER: 422,
+  SCHOOL_DATA_MISSING: 422,
   PAYLOAD_TOO_LARGE: 413,
   METHOD_NOT_ALLOWED: 405,
   UNAVAILABLE: 503,
@@ -294,10 +343,46 @@ export async function findRosterByHash(
   return { ok: true, value: data ? toCoordinatorRoster(data as unknown as Row) : null };
 }
 
-export async function listParticipants(
+/** F01: the roster's "Datos del colegio", or null when the school has not saved them yet. */
+export async function readSchoolFunding(
+  supabase: Service,
+  rosterId: string
+): Promise<ReadResult<SchoolFunding | null>> {
+  const { data, error } = await supabase
+    .from(SCHOOL_FUNDING_TABLE)
+    .select(SCHOOL_FUNDING_COLUMNS)
+    .eq('roster_id', rosterId)
+    .maybeSingle();
+  if (error) return { ok: false, error };
+  return { ok: true, value: toSchoolFunding(data) };
+}
+
+/**
+ * F04: the ids among `participantIds` whose focus is "Todos". Callers pass
+ * only ids that came from a roster-scoped participant read, so this never
+ * reaches another roster's rows. A missing focus row counts as not-all-levels.
+ */
+export async function readAllLevelsIds(
+  supabase: Service,
+  participantIds: string[]
+): Promise<ReadResult<Set<string>>> {
+  if (participantIds.length === 0) return { ok: true, value: new Set() };
+  const { data, error } = await supabase
+    .from(PARTICIPANT_FOCUS_TABLE)
+    .select('participant_id, all_levels')
+    .in('participant_id', participantIds);
+  if (error) return { ok: false, error };
+  const ids = new Set<string>();
+  for (const row of (data ?? []) as unknown as Row[]) {
+    if (row.all_levels === true && typeof row.participant_id === 'string') ids.add(row.participant_id);
+  }
+  return { ok: true, value: ids };
+}
+
+async function listParticipantRows(
   supabase: Service,
   rosterId: string,
-  columns: string = PARTICIPANT_COLUMNS
+  columns: string
 ): Promise<ReadResult<Row[]>> {
   const { data, error } = await supabase
     .from(PARTICIPANTS_TABLE)
@@ -308,6 +393,30 @@ export async function listParticipants(
     .limit(ROSTER_MAX_PARTICIPANTS);
   if (error) return { ok: false, error };
   return { ok: true, value: (data ?? []) as unknown as Row[] };
+}
+
+/** The roster's participants (creation order, at most 60) with their effective focus. */
+export async function listParticipants(
+  supabase: Service,
+  rosterId: string
+): Promise<ReadResult<IntakeParticipant[]>> {
+  const rows = await listParticipantRows(supabase, rosterId, PARTICIPANT_COLUMNS);
+  if (rows.ok === false) return rows;
+  const todos = await readAllLevelsIds(supabase, rows.value.map((row) => str(row.id)));
+  if (todos.ok === false) return todos;
+  return { ok: true, value: rows.value.map((row) => toParticipant(row, todos.value.has(str(row.id)))) };
+}
+
+/** The admin detail list: as above plus the acknowledgement evidence. */
+export async function listAdminParticipants(
+  supabase: Service,
+  rosterId: string
+): Promise<ReadResult<AdminIntakeParticipant[]>> {
+  const rows = await listParticipantRows(supabase, rosterId, ADMIN_PARTICIPANT_COLUMNS);
+  if (rows.ok === false) return rows;
+  const todos = await readAllLevelsIds(supabase, rows.value.map((row) => str(row.id)));
+  if (todos.ok === false) return todos;
+  return { ok: true, value: rows.value.map((row) => toAdminParticipant(row, todos.value.has(str(row.id)))) };
 }
 
 /** One participant, scoped to the roster the token resolved to — never by id alone. */
@@ -323,7 +432,26 @@ export async function readParticipant(
     .eq('roster_id', rosterId)
     .maybeSingle();
   if (error) return { ok: false, error };
-  return { ok: true, value: data ? toParticipant(data as unknown as Row) : null };
+  if (!data) return { ok: true, value: null };
+  const row = data as unknown as Row;
+  // Focus only for an id the roster-scoped read just returned.
+  const todos = await readAllLevelsIds(supabase, [str(row.id)]);
+  if (todos.ok === false) return todos;
+  return { ok: true, value: toParticipant(row, todos.value.has(str(row.id))) };
+}
+
+/**
+ * The coordinator `roster` for a response: the roster plus its school funding
+ * (C4). A failed funding read fails the whole read — a roster is never sent
+ * with a guessed `schoolFunding`.
+ */
+export async function rosterWithFunding(
+  supabase: Service,
+  roster: CoordinatorRosterRow
+): Promise<ReadResult<CoordinatorRoster>> {
+  const funding = await readSchoolFunding(supabase, roster.id);
+  if (funding.ok === false) return funding;
+  return { ok: true, value: publicRoster(roster, funding.value) };
 }
 
 /* ------------------------------------------------------------------ RPCs */
@@ -334,19 +462,27 @@ const SAVE_REFUSALS = [
   'invalid_last_names',
   'invalid_rut',
   'invalid_passport_number',
-  'invalid_flights_funding',
-  'invalid_lodging_funding',
   'invalid_dates',
   'invalid_focus',
   'invalid_dietary',
   'invalid_notice_version',
   'link_unavailable',
+  'school_data_missing',
   'roster_full',
   'duplicate_rut',
   'unknown_participant',
   'stale_version',
 ] as const;
 export type SaveRefusal = (typeof SAVE_REFUSALS)[number];
+
+const FUNDING_REFUSALS = [
+  'invalid_argument',
+  'invalid_flights_funding',
+  'invalid_lodging_funding',
+  'link_unavailable',
+  'stale_version',
+] as const;
+export type FundingRefusal = (typeof FUNDING_REFUSALS)[number];
 
 const FINALIZE_REFUSALS = ['invalid_argument', 'link_unavailable', 'stale_version', 'empty_roster'] as const;
 export type FinalizeRefusal = (typeof FINALIZE_REFUSALS)[number];
@@ -388,8 +524,9 @@ function firstRow<T>(data: unknown): T | null {
 }
 
 /**
- * Every one of the sixteen named arguments, always: PostgREST resolves a
- * function by argument names, and a missing key is PGRST202, not a default.
+ * Every one of the fourteen named arguments of `pasantias_nomina_save_participant`,
+ * always: PostgREST resolves a function by argument names, and a missing key is
+ * PGRST202, not a default. No funding argument exists (F01).
  */
 export function saveArgs(
   tokenHash: string,
@@ -406,8 +543,6 @@ export function saveArgs(
     p_last_names: fields.lastNames,
     p_rut: fields.rut,
     p_passport_number: fields.passportNumber,
-    p_flights_funding: fields.flightsFunding,
-    p_lodging_funding: fields.lodgingFunding,
     p_arrival_date: fields.arrivalDate,
     p_departure_date: fields.departureDate,
     p_focus: fields.focus,
@@ -425,6 +560,32 @@ export async function callSave(
   if (error) return { ok: false, refusal: refusalCode(error, SAVE_RPC, SAVE_REFUSALS), error };
   const row = firstRow<SaveRow>(data);
   if (!row?.participant_id) return { ok: false, refusal: null, error: { code: 'EMPTY_RESULT' } };
+  return { ok: true, row };
+}
+
+export interface FundingRow {
+  funding_flights: string;
+  funding_lodging: string;
+  funding_version: number;
+  replayed: boolean;
+  roster_status: string;
+  roster_version: number;
+}
+
+export async function callSaveSchoolFunding(
+  supabase: Service,
+  tokenHash: string,
+  request: { flightsFunding: FundingSource; lodgingFunding: FundingSource; expectedFundingVersion: number | null }
+): Promise<RpcOutcome<FundingRow, FundingRefusal>> {
+  const { data, error } = await supabase.rpc(FUNDING_RPC, {
+    p_token_hash: tokenHash,
+    p_expected_funding_version: request.expectedFundingVersion,
+    p_flights_funding: request.flightsFunding,
+    p_lodging_funding: request.lodgingFunding,
+  });
+  if (error) return { ok: false, refusal: refusalCode(error, FUNDING_RPC, FUNDING_REFUSALS), error };
+  const row = firstRow<FundingRow>(data);
+  if (!row?.roster_status) return { ok: false, refusal: null, error: { code: 'EMPTY_RESULT' } };
   return { ok: true, row };
 }
 
@@ -455,16 +616,14 @@ const REFUSAL_FIELDS: Partial<Record<SaveRefusal, keyof ParticipantFields>> = {
   invalid_last_names: 'lastNames',
   invalid_rut: 'rut',
   invalid_passport_number: 'passportNumber',
-  invalid_flights_funding: 'flightsFunding',
-  invalid_lodging_funding: 'lodgingFunding',
   invalid_dates: 'departureDate',
   invalid_focus: 'focus',
   invalid_dietary: 'dietaryRestrictions',
 };
 
 /**
- * Answers a refused or failed save, except `stale_version`, which the caller
- * handles because its 409 carries the current row.
+ * Answers a refused or failed participant save, except `stale_version`, which
+ * the caller handles because its 409 carries the current row.
  */
 export function sendSaveFailure(
   res: NextApiResponse,
@@ -472,6 +631,7 @@ export function sendSaveFailure(
 ): void {
   const { refusal } = outcome;
   if (refusal === 'link_unavailable') return sendIntakeError(res, 'LINK_UNAVAILABLE');
+  if (refusal === 'school_data_missing') return sendIntakeError(res, 'SCHOOL_DATA_MISSING');
   if (refusal === 'roster_full') return sendIntakeError(res, 'ROSTER_FULL');
   if (refusal === 'duplicate_rut') {
     return sendIntakeError(res, 'DUPLICATE_RUT', { fields: { rut: MESSAGES.rutDuplicate } });
@@ -496,5 +656,32 @@ export function sendSaveFailure(
     return sendIntakeError(res, 'UNAVAILABLE');
   }
   logIntakeFailure('save failed', outcome.error);
+  return sendIntakeError(res, 'INTERNAL');
+}
+
+/**
+ * Answers a refused or failed school-funding save, except `stale_version`
+ * (its 409 carries the current roster, so the route handles it).
+ */
+export function sendFundingFailure(
+  res: NextApiResponse,
+  outcome: { refusal: FundingRefusal | null; error: unknown }
+): void {
+  const { refusal } = outcome;
+  if (refusal === 'link_unavailable') return sendIntakeError(res, 'LINK_UNAVAILABLE');
+  if (refusal === 'invalid_flights_funding' || refusal === 'invalid_lodging_funding') {
+    console.error(`[${LOG_PREFIX}] funding refused by the database:`, { code: refusal });
+    const field = refusal === 'invalid_flights_funding' ? 'flightsFunding' : 'lodgingFunding';
+    return sendIntakeError(res, 'VALIDATION', { fields: { [field]: ERROR_MESSAGES.VALIDATION } });
+  }
+  if (refusal) {
+    console.error(`[${LOG_PREFIX}] funding refused (caller bug):`, { code: refusal });
+    return sendIntakeError(res, 'INTERNAL');
+  }
+  if (isUnavailable(outcome.error)) {
+    logIntakeFailure('funding unavailable', outcome.error);
+    return sendIntakeError(res, 'UNAVAILABLE');
+  }
+  logIntakeFailure('funding failed', outcome.error);
   return sendIntakeError(res, 'INTERNAL');
 }

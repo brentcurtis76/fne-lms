@@ -2,14 +2,17 @@
  * PUT /api/pasantias/participants/[id] — the coordinator edits one participant.
  *
  * Same link authentication as the index route. The body carries every field
- * (a full replace) plus `expectedVersion`; the RPC updates only a row of the
- * token's own roster at that version.
+ * (a full replace) plus `expectedVersion`; funding keys are unknown keys (F01).
+ * `pasantias_nomina_save_participant` updates only a row of the token's own
+ * roster at that version, and refuses a real change with
+ * `school_data_missing` while the school has not saved its funding.
  *
  * - A non-UUID id is 404 without any database call; so is an id from another
  *   roster, which the RPC cannot tell from a nonexistent one.
- * - 409 STALE carries `current`: the row as stored now, read within this
- *   roster. A retry whose first response was lost also lands here, and the
- *   client compares `current` with what it meant to save (db-contract §5).
+ * - 409 STALE carries `current`: the row as stored now (effective focus
+ *   included), read within this roster. A retry whose first response was lost
+ *   also lands here, and the client compares `current` with what it meant to
+ *   save (db-contract §5).
  * - An edit that changes nothing is a no-op (200, `replayed: true`): no
  *   version bump and no reopen of a sent roster.
  */
@@ -23,8 +26,8 @@ import {
   findRosterByHash,
   isUnavailable,
   logIntakeFailure,
-  publicRoster,
   readParticipant,
+  rosterWithFunding,
   saveArgs,
   sendIntakeError,
   sendSaveFailure,
@@ -88,11 +91,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return sendIntakeError(res, 'INTERNAL');
     }
     if (!saved.value) return sendIntakeError(res, 'INTERNAL');
-    const rosterAfter = fresh.ok && fresh.value ? fresh.value : roster;
+    const view = await rosterWithFunding(supabase, fresh.ok && fresh.value ? fresh.value : roster);
+    if (view.ok === false) {
+      logIntakeFailure('school funding read failed', view.error);
+      return sendIntakeError(res, 'INTERNAL');
+    }
 
     return res.status(200).json({
       participant: saved.value,
-      roster: publicRoster(rosterAfter),
+      roster: view.value,
       replayed: outcome.row.replayed === true,
     });
   } catch (error) {

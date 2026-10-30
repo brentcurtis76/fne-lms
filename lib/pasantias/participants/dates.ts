@@ -81,6 +81,22 @@ export function programDateRangeLabel(programId: ProgramId): string {
   return `${formatDayLong(startDate)} al ${formatIntakeDate(endDate)}`;
 }
 
+/**
+ * F03: the travel-dates notice under the arrival/departure fields — Brent's
+ * exact wording (human-corrections-20261030.json), with the program's OWN date
+ * range. For INSPIRA it reproduces the supplied text character for character;
+ * Mirada Profunda ends on its own last day (viernes 29 de enero). The dates
+ * stay optional and the options are unchanged.
+ */
+export function programDatesNotice(programId: ProgramId): string {
+  return (
+    `El programa se realiza del ${programDateRangeLabel(programId)}. ` +
+    'Las fechas de llegada y regreso pueden variar por uno o dos días, dependiendo de los pasajes ' +
+    'disponibles y sus costos. Esto se conversará con el colegio al momento de tener la ' +
+    'disponibilidad de los vuelos a comprar.'
+  );
+}
+
 /** Label for a stored date: the option label when it is one, else the plain date. */
 export function storedDateLabel(
   programId: ProgramId,

@@ -29,6 +29,7 @@ vi.mock('../../lib/api-auth', async () => {
 import indexHandler from '../../pages/api/pasantias/participants/index';
 import idHandler from '../../pages/api/pasantias/participants/[id]';
 import finalizeHandler from '../../pages/api/pasantias/participants/finalize';
+import schoolHandler from '../../pages/api/pasantias/participants/school';
 import { INTAKE_NOTICE_VERSION } from '../../lib/pasantias/participants/notice';
 
 // 1 + 40 + 2 = 43 base64url characters, synthetic — the exact shape of
@@ -69,8 +70,6 @@ function participantRow(overrides: Record<string, unknown> = {}) {
     last_names: 'Sintetica',
     rut: '12345678-5',
     passport_number: 'AB12345',
-    flights_funding: 'sep',
-    lodging_funding: 'colegio',
     arrival_date: '2027-01-17',
     departure_date: '2027-01-29',
     focus: 'infantil',
@@ -87,8 +86,6 @@ function fields(overrides: Record<string, unknown> = {}) {
     lastNames: 'Sintetica',
     rut: '12.345.678-5',
     passportNumber: 'AB12345',
-    flightsFunding: 'sep',
-    lodgingFunding: 'colegio',
     arrivalDate: '2027-01-17',
     departureDate: '2027-01-29',
     focus: 'infantil',
@@ -103,22 +100,40 @@ const saveRow = (overrides: Record<string, unknown> = {}) => ({
   error: null,
 });
 
+/** F01: the routes call the corrections participant save (14 args, no funding). */
+const SAVE_FN = 'pasantias_nomina_save_participant';
+const FUNDING_FN = 'pasantias_nomina_save_school_funding';
+
 const refusal = (fn: string, code: string): Answer => ({
   data: null,
   error: { code: '22023', message: `${fn}: ${code}`, details: 'detail with 12345678-5 Valentina', hint: null },
 });
 
-/** Default world: the token names a live roster; the participant exists in it. */
+/** F01: the roster's saved "Datos del colegio" row (snake_case, as stored). */
+function fundingRow(overrides: Record<string, unknown> = {}) {
+  return { flights_funding: 'sep', lodging_funding: 'colegio', version: 1, ...overrides };
+}
+
+const SCHOOL_FUNDING = { flightsFunding: 'sep', lodgingFunding: 'colegio', version: 1 };
+
+/**
+ * Default world: the token names a live roster that HAS school funding (F01);
+ * the participant exists in it; no participant is "Todos" (F04) unless
+ * `todosIds` says so.
+ */
 function world(
   options: {
     live?: Record<string, unknown> | null;
     afterRoster?: Record<string, unknown> | null;
     participant?: Record<string, unknown> | null;
     list?: Record<string, unknown>[];
+    funding?: Record<string, unknown> | null;
+    todosIds?: string[];
     rpc?: (rpc: RecordedRpc) => Answer;
   } = {}
 ): FakeSupabase {
   const live = options.live === undefined ? rosterRow() : options.live;
+  const funding = options.funding === undefined ? fundingRow() : options.funding;
   const fake = fakeSupabase((query: RecordedQuery): Answer => {
     if (query.table === 'pasantias_intake_rosters') {
       const isLiveLookup = 'revoked_at' in query.is;
@@ -130,6 +145,16 @@ function world(
         return { data: options.participant === undefined ? participantRow() : options.participant, error: null };
       }
       return { data: options.list ?? [participantRow()], error: null };
+    }
+    if (query.table === 'pasantias_nomina_school_funding') {
+      return { data: funding, error: null };
+    }
+    if (query.table === 'pasantias_nomina_participant_focus') {
+      const ids = (query.in.participant_id ?? []) as string[];
+      return {
+        data: ids.map((id) => ({ participant_id: id, all_levels: (options.todosIds ?? []).includes(id) })),
+        error: null,
+      };
     }
     return { data: null, error: { code: 'UNEXPECTED_TABLE' } };
   }, options.rpc ?? (() => saveRow()));
@@ -208,6 +233,12 @@ describe('link authentication', () => {
     ['POST index', indexHandler, { method: 'POST', body: { ...fields(), clientRequestId: REQUEST_ID, acknowledged: true } }],
     ['PUT [id]', idHandler, { method: 'PUT', query: { id: PARTICIPANT_ID }, body: { ...fields(), expectedVersion: 1, acknowledged: true } }],
     ['POST finalize', finalizeHandler, { method: 'POST', body: { expectedRosterVersion: 3 } }],
+    // F01: the new school route follows the same FIRST §4 link rules.
+    [
+      'PUT school',
+      schoolHandler,
+      { method: 'PUT', body: { flightsFunding: 'sep', lodgingFunding: 'colegio', expectedFundingVersion: null } },
+    ],
   ];
 
   for (const [routeLabel, handler, base] of routes) {
@@ -263,6 +294,7 @@ describe('protocol', () => {
     ['index', indexHandler, 'DELETE', 'GET, POST'],
     ['[id]', idHandler, 'GET', 'PUT'],
     ['finalize', finalizeHandler, 'GET', 'POST'],
+    ['school', schoolHandler, 'POST', 'PUT'],
   ] as const)('%s answers 405 with Allow and no-store for %s', async (_label, handler, method, allow) => {
     const result = await call(handler, { method, query: { id: PARTICIPANT_ID } });
     expect(result.status).toBe(405);
@@ -328,7 +360,10 @@ describe('GET /api/pasantias/participants', () => {
       submittedAt: null,
       lastSubmittedAt: null,
       expiresAt: '2027-03-01T00:00:00.000Z',
+      // F01/C4: every roster carries the school's funding.
+      schoolFunding: SCHOOL_FUNDING,
     });
+    // F01: participants no longer carry flightsFunding / lodgingFunding.
     expect(result.json.participants).toEqual([
       {
         id: PARTICIPANT_ID,
@@ -337,8 +372,6 @@ describe('GET /api/pasantias/participants', () => {
         lastNames: 'Sintetica',
         rut: '12345678-5',
         passportNumber: 'AB12345',
-        flightsFunding: 'sep',
-        lodgingFunding: 'colegio',
         arrivalDate: '2027-01-17',
         departureDate: '2027-01-29',
         focus: 'infantil',
@@ -349,10 +382,34 @@ describe('GET /api/pasantias/participants', () => {
     ]);
     expect(result.raw).not.toContain(ROSTER_ID);
     expect(result.raw).not.toContain(HASH);
-    const list = fake.queries[1];
+    const list = fake.queries.find((q) => q.table === 'pasantias_intake_participants') as RecordedQuery;
     expect(list.eq).toEqual({ roster_id: ROSTER_ID });
     expect(list.orders).toEqual(['created_at', 'id']);
     expect(list.limit).toBe(60);
+    // C2: the copied funding columns are never selected.
+    expect(list.columns).not.toMatch(/funding/);
+    const funding = fake.queries.find((q) => q.table === 'pasantias_nomina_school_funding') as RecordedQuery;
+    expect(funding.eq).toEqual({ roster_id: ROSTER_ID });
+  });
+
+  it('a roster without saved school data answers schoolFunding: null (never a guess)', async () => {
+    world({ funding: null });
+    const result = await call(indexHandler, { method: 'GET' });
+    expect(result.status).toBe(200);
+    expect(result.json.roster.schoolFunding).toBeNull();
+  });
+
+  // F04: Todos round-trips from the side table; focus is read only for this roster's ids.
+  it('answers focus todos for an all-levels participant, reading focus only for listed ids', async () => {
+    const other = '99999999-2222-4333-8444-555555555555';
+    const fake = world({
+      list: [participantRow({ focus: null }), participantRow({ id: other, focus: 'segundo_ciclo', rut: '11111111-1' })],
+      todosIds: [PARTICIPANT_ID],
+    });
+    const result = await call(indexHandler, { method: 'GET' });
+    expect(result.json.participants.map((p: { focus: string | null }) => p.focus)).toEqual(['todos', 'segundo_ciclo']);
+    const focusRead = fake.queries.find((q) => q.table === 'pasantias_nomina_participant_focus') as RecordedQuery;
+    expect(focusRead.in).toEqual({ participant_id: [PARTICIPANT_ID, other] });
   });
 });
 
@@ -366,12 +423,14 @@ describe('POST /api/pasantias/participants', () => {
     ...overrides,
   });
 
-  it('creates through the RPC with all sixteen arguments and answers 201 with the stored row', async () => {
+  // F01: was "all sixteen arguments" on the DB-01 save; now the corrections
+  // save with fourteen — no funding argument exists.
+  it('creates through the RPC with all fourteen arguments and answers 201 with the stored row', async () => {
     const fake = world();
     const result = await call(indexHandler, { method: 'POST', body: body() });
     expect(result.status).toBe(201);
     expect(fake.rpcs).toHaveLength(1);
-    expect(fake.rpcs[0].name).toBe('pasantias_intake_save_participant');
+    expect(fake.rpcs[0].name).toBe(SAVE_FN);
     expect(fake.rpcs[0].args).toEqual({
       p_token_hash: HASH,
       p_participant_id: null,
@@ -381,8 +440,6 @@ describe('POST /api/pasantias/participants', () => {
       p_last_names: 'Sintetica',
       p_rut: '12345678-5',
       p_passport_number: 'AB12345',
-      p_flights_funding: 'sep',
-      p_lodging_funding: 'colegio',
       p_arrival_date: '2027-01-17',
       p_departure_date: '2027-01-29',
       p_focus: 'infantil',
@@ -395,7 +452,25 @@ describe('POST /api/pasantias/participants', () => {
     expect(read?.eq).toEqual({ id: PARTICIPANT_ID, roster_id: ROSTER_ID });
     expect(result.json.participant.id).toBe(PARTICIPANT_ID);
     expect(result.json.replayed).toBe(false);
+    expect(result.json.roster.schoolFunding).toEqual(SCHOOL_FUNDING);
     expect(result.raw).not.toContain(HASH);
+  });
+
+  // F04: 'todos' is sent as p_focus and answered back as the effective focus.
+  it('creates a Todos participant: p_focus todos, answered focus todos', async () => {
+    const fake = world({ participant: participantRow({ focus: null }), todosIds: [PARTICIPANT_ID] });
+    const result = await call(indexHandler, { method: 'POST', body: body({ focus: 'todos' }) });
+    expect(result.status).toBe(201);
+    expect(fake.rpcs[0].args.p_focus).toBe('todos');
+    expect(result.json.participant.focus).toBe('todos');
+  });
+
+  // F01 / C3: no participant write before the school's funding exists.
+  it('maps school_data_missing to 422 SCHOOL_DATA_MISSING', async () => {
+    world({ rpc: () => refusal(SAVE_FN, 'school_data_missing') });
+    const result = await call(indexHandler, { method: 'POST', body: body() });
+    expect(result.status).toBe(422);
+    expect(result.json.code).toBe('SCHOOL_DATA_MISSING');
   });
 
   it('a replay answers 200 with the row AS STORED, not the retried input', async () => {
@@ -427,45 +502,54 @@ describe('POST /api/pasantias/participants', () => {
     expect(fake.rpcs).toHaveLength(0);
   });
 
-  it('missing funding and a missing acknowledgement are field errors', async () => {
-    world();
-    const result = await call(indexHandler, {
-      method: 'POST',
-      body: body({ flightsFunding: null, acknowledged: false }),
-    });
+  // F01 (replaces "missing funding and a missing acknowledgement are field
+  // errors"): per-person funding keys are refused before any RPC (FIRST R4);
+  // the acknowledgement rule is unchanged.
+  it.each(['flightsFunding', 'lodgingFunding'])('a participant body carrying %j is 422 with no RPC call', async (key) => {
+    const fake = world();
+    const result = await call(indexHandler, { method: 'POST', body: body({ [key]: 'sep' }) });
     expect(result.status).toBe(422);
-    expect(Object.keys(result.json.fields).sort()).toEqual(['acknowledged', 'flightsFunding']);
+    expect(result.json.code).toBe('VALIDATION');
+    expect(fake.rpcs).toHaveLength(0);
+  });
+
+  it('a missing acknowledgement is a field error', async () => {
+    const fake = world();
+    const result = await call(indexHandler, { method: 'POST', body: body({ acknowledged: false }) });
+    expect(result.status).toBe(422);
+    expect(Object.keys(result.json.fields)).toEqual(['acknowledged']);
+    expect(fake.rpcs).toHaveLength(0);
   });
 
   it('maps duplicate_rut to 409 DUPLICATE_RUT and roster_full to 422 ROSTER_FULL', async () => {
-    world({ rpc: () => refusal('pasantias_intake_save_participant', 'duplicate_rut') });
+    world({ rpc: () => refusal(SAVE_FN,'duplicate_rut') });
     const dup = await call(indexHandler, { method: 'POST', body: body() });
     expect(dup.status).toBe(409);
     expect(dup.json.code).toBe('DUPLICATE_RUT');
     expect(dup.json.fields.rut).toBeDefined();
 
-    world({ rpc: () => refusal('pasantias_intake_save_participant', 'roster_full') });
+    world({ rpc: () => refusal(SAVE_FN,'roster_full') });
     const full = await call(indexHandler, { method: 'POST', body: body() });
     expect(full.status).toBe(422);
     expect(full.json.code).toBe('ROSTER_FULL');
   });
 
   it('a link that dies between lookup and lock answers 401 from the RPC', async () => {
-    world({ rpc: () => refusal('pasantias_intake_save_participant', 'link_unavailable') });
+    world({ rpc: () => refusal(SAVE_FN,'link_unavailable') });
     const result = await call(indexHandler, { method: 'POST', body: body() });
     expect(result.status).toBe(401);
     expect(result.json.code).toBe('LINK_UNAVAILABLE');
   });
 
   it('matches refusal codes exactly, never by prefix; anything else fails closed as 500', async () => {
-    world({ rpc: () => refusal('pasantias_intake_save_participant', 'duplicate_rut_extra') });
+    world({ rpc: () => refusal(SAVE_FN,'duplicate_rut_extra') });
     const result = await call(indexHandler, { method: 'POST', body: body() });
     expect(result.status).toBe(500);
     expect(result.json.code).toBe('INTERNAL');
   });
 
   it('a field refused by the SQL (validator drift) is a 422 on that field, logged by code only', async () => {
-    world({ rpc: () => refusal('pasantias_intake_save_participant', 'invalid_rut') });
+    world({ rpc: () => refusal(SAVE_FN,'invalid_rut') });
     const result = await call(indexHandler, { method: 'POST', body: body() });
     expect(result.status).toBe(422);
     expect(Object.keys(result.json.fields)).toEqual(['rut']);
@@ -527,7 +611,7 @@ describe('PUT /api/pasantias/participants/[id]', () => {
   });
 
   it('another roster’s participant is 404 NOT_FOUND', async () => {
-    world({ rpc: () => refusal('pasantias_intake_save_participant', 'unknown_participant') });
+    world({ rpc: () => refusal(SAVE_FN,'unknown_participant') });
     const result = await call(idHandler, { method: 'PUT', query: { id: PARTICIPANT_ID }, body: body() });
     expect(result.status).toBe(404);
     expect(result.json.code).toBe('NOT_FOUND');
@@ -535,7 +619,7 @@ describe('PUT /api/pasantias/participants/[id]', () => {
 
   it('stale_version is 409 STALE carrying the current row, read within this roster', async () => {
     const fake = world({
-      rpc: () => refusal('pasantias_intake_save_participant', 'stale_version'),
+      rpc: () => refusal(SAVE_FN,'stale_version'),
       participant: participantRow({ version: 4, first_names: 'Otra' }),
     });
     const result = await call(idHandler, { method: 'PUT', query: { id: PARTICIPANT_ID }, body: body() });
@@ -601,5 +685,145 @@ describe('POST /api/pasantias/participants/finalize', () => {
     expect((await call(finalizeHandler, { method: 'POST', body: { expectedRosterVersion: 0 } })).status).toBe(422);
     expect((await call(finalizeHandler, { method: 'POST', body: { expectedRosterVersion: 3, program: 'inspira' } })).status).toBe(422);
     expect(fake.rpcs).toHaveLength(0);
+  });
+
+  // F01 / C3: the app gate — no school funding, no finalize RPC at all.
+  it('without school funding answers 422 SCHOOL_DATA_MISSING and never calls the finalize RPC', async () => {
+    const fake = world({ funding: null });
+    const result = await call(finalizeHandler, { method: 'POST', body: { expectedRosterVersion: 3 } });
+    expect(result.status).toBe(422);
+    expect(result.json.code).toBe('SCHOOL_DATA_MISSING');
+    expect(fake.rpcs).toHaveLength(0);
+    const funding = fake.queries.find((q) => q.table === 'pasantias_nomina_school_funding') as RecordedQuery;
+    expect(funding.eq).toEqual({ roster_id: ROSTER_ID });
+  });
+
+  it('a dead link is the identical 401 from the live lookup, before the funding read', async () => {
+    const fake = world({ live: null });
+    const result = await call(finalizeHandler, { method: 'POST', body: { expectedRosterVersion: 3 } });
+    expect(result.status).toBe(401);
+    expect(result.json.code).toBe('LINK_UNAVAILABLE');
+    expect(fake.queries.map((q) => q.table)).toEqual(['pasantias_intake_rosters']);
+    expect(fake.rpcs).toHaveLength(0);
+  });
+
+  it('every roster it answers carries schoolFunding (C4)', async () => {
+    world({
+      rpc: () => ({ data: [{ roster_status: 'submitted', roster_version: 4, submitted_at: '2026-10-27T15:00:00.000Z' }], error: null }),
+      afterRoster: rosterRow({ status: 'submitted', version: 4 }),
+    });
+    const ok = await call(finalizeHandler, { method: 'POST', body: { expectedRosterVersion: 3 } });
+    expect(ok.json.roster.schoolFunding).toEqual(SCHOOL_FUNDING);
+    world({ rpc: () => refusal('pasantias_intake_finalize', 'stale_version') });
+    const stale = await call(finalizeHandler, { method: 'POST', body: { expectedRosterVersion: 2 } });
+    expect(stale.json.roster.schoolFunding).toEqual(SCHOOL_FUNDING);
+  });
+});
+
+/* ------------------------------------------------------------- school (F01) */
+
+describe('PUT /api/pasantias/participants/school', () => {
+  const body = (overrides: Record<string, unknown> = {}) => ({
+    flightsFunding: 'sep',
+    lodgingFunding: 'colegio',
+    expectedFundingVersion: null,
+    ...overrides,
+  });
+  const fundingRpcRow = (overrides: Record<string, unknown> = {}): Answer => ({
+    data: [
+      {
+        funding_flights: 'sep',
+        funding_lodging: 'colegio',
+        funding_version: 1,
+        replayed: false,
+        roster_status: 'open',
+        roster_version: 4,
+        ...overrides,
+      },
+    ],
+    error: null,
+  });
+
+  it('saves through the funding RPC with exactly the four named arguments and answers the stored roster', async () => {
+    const fake = world({ rpc: () => fundingRpcRow(), afterRoster: rosterRow({ version: 4 }) });
+    const result = await call(schoolHandler, { method: 'PUT', body: body() });
+    expect(result.status).toBe(200);
+    expect(result.res.getHeader('Cache-Control')).toBe('no-store');
+    expect(fake.rpcs).toEqual([
+      {
+        name: FUNDING_FN,
+        args: {
+          p_token_hash: HASH,
+          p_expected_funding_version: null,
+          p_flights_funding: 'sep',
+          p_lodging_funding: 'colegio',
+        },
+      },
+    ]);
+    expect(result.json.replayed).toBe(false);
+    expect(result.json.roster.version).toBe(4);
+    expect(result.json.roster.schoolFunding).toEqual(SCHOOL_FUNDING);
+    expect(result.raw).not.toContain(HASH);
+    expect(result.raw).not.toContain(ROSTER_ID);
+  });
+
+  it('a replay (same values) answers 200 replayed: true', async () => {
+    world({ rpc: () => fundingRpcRow({ replayed: true }) });
+    const result = await call(schoolHandler, { method: 'PUT', body: body({ expectedFundingVersion: 7 }) });
+    expect(result.status).toBe(200);
+    expect(result.json.replayed).toBe(true);
+  });
+
+  it('stale_version is 409 STALE carrying the current roster with its stored funding', async () => {
+    world({
+      rpc: () => refusal(FUNDING_FN, 'stale_version'),
+      funding: fundingRow({ flights_funding: 'colegio', version: 2 }),
+    });
+    const result = await call(schoolHandler, { method: 'PUT', body: body() });
+    expect(result.status).toBe(409);
+    expect(result.json.code).toBe('STALE');
+    expect(result.json.current.schoolFunding).toEqual({ flightsFunding: 'colegio', lodgingFunding: 'colegio', version: 2 });
+  });
+
+  it('a dead link (link_unavailable from the RPC) is the identical 401', async () => {
+    world({ rpc: () => refusal(FUNDING_FN, 'link_unavailable') });
+    const result = await call(schoolHandler, { method: 'PUT', body: body() });
+    expect(result.status).toBe(401);
+    expect(result.json).toEqual({ code: 'LINK_UNAVAILABLE', error: 'Enlace incompleto o no disponible — contacta a FNE.' });
+  });
+
+  // A4 + FIRST §4: refused bodies never reach the RPC.
+  it.each([
+    ['an invalid funding value', { flightsFunding: 'SEP' }],
+    ['a missing funding value', { lodgingFunding: undefined }],
+    ['expectedFundingVersion 0', { expectedFundingVersion: 0 }],
+    ['expectedFundingVersion "1"', { expectedFundingVersion: '1' }],
+    ['a missing expectedFundingVersion', { expectedFundingVersion: undefined }],
+    ['an unknown key rosterId', { rosterId: ROSTER_ID }],
+    ['an acknowledgement key', { acknowledged: true }],
+  ])('%s is 422 VALIDATION with no RPC call', async (_label, overrides) => {
+    const fake = world({ rpc: () => fundingRpcRow() });
+    const payload = body(overrides) as Record<string, unknown>;
+    for (const key of Object.keys(payload)) if (payload[key] === undefined) delete payload[key];
+    const result = await call(schoolHandler, { method: 'PUT', body: payload });
+    expect(result.status).toBe(422);
+    expect(result.json.code).toBe('VALIDATION');
+    expect(fake.rpcs).toHaveLength(0);
+  });
+
+  it('a funding value refused by the SQL (drift) is a 422 on that field; invalid_argument fails closed', async () => {
+    world({ rpc: () => refusal(FUNDING_FN, 'invalid_lodging_funding') });
+    const drift = await call(schoolHandler, { method: 'PUT', body: body() });
+    expect(drift.status).toBe(422);
+    expect(Object.keys(drift.json.fields)).toEqual(['lodgingFunding']);
+    world({ rpc: () => refusal(FUNDING_FN, 'invalid_argument') });
+    const bug = await call(schoolHandler, { method: 'PUT', body: body() });
+    expect(bug.status).toBe(500);
+  });
+
+  it('a body over 8 kB is refused with 413 before any database call', async () => {
+    const result = await call(schoolHandler, { method: 'PUT', body: body({ padding: 'x'.repeat(9000) }) });
+    expect(result.status).toBe(413);
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 });

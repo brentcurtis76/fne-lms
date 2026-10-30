@@ -1,10 +1,64 @@
+## PASANT-PARTICIPANT-INTAKE — release status: F01–F04 accepted locally; CI and Publish pending (2026-10-30)
+
+**Status:** F01–F04 corrections are **accepted locally** on corrections source freeze r2 (PM: `LOCAL_CORRECTIONS_ACCEPTED`). The independent FINAL evidence review **APPROVED** local acceptance, and its condition E-1 (record of the scoped `lint:testid` command) is closed.
+- **Not whole-unit accepted, not release-ready.** No commit of the corrections and no publication yet. HEAD is still `ca27b542`, the earlier local commit of the original unit.
+- **Release authority (Brent, 2026-10-30: "let's get it into production"):** prepare a reviewed local commit, publish the feature branch and a draft PR with previews disabled, run the required CI, and prepare the supported Publish release. Production database changes go only through Publish. Brent controls the final Publish and merge. None of these steps has been performed yet.
+
+**Local evidence** (management packet, outside the repo: `corrections-evidence-index-r1.json`, `pm-corrections-final-acceptance-r1.json`, `review-corrections-evidence-r1.md`, `corrections-ui-observations-r1.json`):
+
+| Gate | Result |
+|---|---|
+| Focused Vitest | 287 / 287 PASS |
+| Full Vitest | 17 950 / 17 950 PASS across 8 shards |
+| `type-check` · `lint` (zero warnings) plus the RLS, destructive-migration, browser-boundary and secrets guards · `build` plus the price guard | PASS · PASS · PASS |
+| `lint:testid`, scoped to the changed UI files | PASS. The repo-wide baseline of 47 errors and 2 540 warnings stays FAIL_BASELINE |
+| Real-stack browser/API | 104 / 104; 0 unexpected, skipped or flaky (6 specs) |
+| pgTAP | 115: 140/140 and 114: 176/176, with 0 assertion failures in 8 115. The aggregate still **FAILS**: 002 ran 113 of 137 because the Supabase CLI migration history is missing. **Not a pass.** |
+| Manual UI (PM, on the r2 build) | F01–F04 PASS on desktop and in 322×728 mobile emulation. Limits: performed by PM; screenshots not saved as files; no admin journey, mobile submission or finalize in the manual pass (the 104-test suite covers those) |
+
+**Migrations (both additive; they reach production only through Publish):**
+- `20261028020000_pasantias_participant_intake.sql` (DB-01);
+- `20261030120000_pasantias_nomina_school_funding_focus.sql` (corrections).
+
+**C8 release prerequisite (not executed):** before any non-local release, the query in `docs/plan/evidence/pasant-intake/db-contract-corrections-01.md` §7 must return 0. It counts participants whose roster has no school-funding row. If it doesn't return 0, the release stops and PM asks Brent. No production reads or writes have been done.
+
+**Notice (N5): settled.** Brent approved the purpose text on 2026-10-28 ("Sí, usar ese aviso"). It is stored as notice version `pasant-intake-2026-10-v2`. This is a content approval, not a claim of legal sufficiency.
+
+**Pending:**
+- CI on the PR, including the normal CLI `supabase test db`. 002 stays a failure until it runs with migration history.
+- The reviewed local commit, the feature branch and draft PR (previews disabled), and Publish preparation.
+- C8.
+- Brent's final Publish and merge.
+- Brent's brand judgement on F02 at preview (non-blocking).
+
+**Non-blocking backlog:** DB T1 and T2; review items T-a, T-b, R-1, FX-4 and FX-5. D-1 (overstated wording about forced submits) is corrected in the review request in this update.
+
+**History:** the entries below are preserved. Their stale "pending" lines about N5 and UI acceptance are marked as superseded, not removed.
+
+## PASANT-PARTICIPANT-INTAKE-CORRECTIONS-01 — F01–F04 authored, NOTHING RUN (2026-10-30)
+
+**Status:** app and DB corrections authored on top of locally committed HEAD `ca27b542`. The entry below predates that commit, and its "no commit" wording is stale. Every check for this correction is NOT_RUN, and no UI acceptance is claimed. *(Superseded 2026-10-30 by the release-status entry above: the corrections were validated and accepted locally.)*
+
+- **F01 school funding:** Pasajes and Estadía (Costo SEP / Costo Colegio) are saved once per roster in "Datos del colegio", never per person and never shared between programs. Participant writes and sending wait for it, and a change reopens a sent roster.
+- **F02:** neutral «Obligatorio» plus `aria-required` replaces the red ★.
+- **F03:** Brent's exact travel-dates notice, per program.
+- **F04:** focus "Todos" (all four levels), round-tripped through the DB, the API and both views.
+- **DB:** migration `20261030120000` plus pgTAP 115; contract `docs/plan/evidence/pasant-intake/db-contract-corrections-01.md`. Migration `20261028020000` and pgTAP 114 are unchanged.
+- **Pending:** *(superseded 2026-10-30: validation, local UI acceptance and FINAL are done — see the release-status entry above; C8 remains)*
+  - PM validation: unit, type, lint, build and guards, pgTAP 114/115, e2e;
+  - UI acceptance;
+  - FINAL;
+  - the C8 release precondition.
+
+Plan: `docs/plan/pasantias-participant-intake-20261027.md` §Corrections 01.
+
 ## PASANT-PARTICIPANT-INTAKE-01 school roster link (`/pasantias/nomina`) — local runtime PASS except a retained pgTAP 002 gap; UI blocked; cumulative FINAL pending (2026-10-28)
 
 **Status: local validation complete on source freeze r5.**
 - **Passed locally:** focused, full unit, type, lint, guards, build, stubbed browser, real-stack browser, and pgTAP 114.
 - **Not a full pass:** pgTAP is 76 of 77 files complete. 002 needs Supabase CLI migration history, and the full CI
   gate is still required.
-- **Not done:** UI acceptance is `UI_BLOCKED_TOOL_DISABLED`, and the cumulative FINAL review is pending.
+- **Not done:** UI acceptance is `UI_BLOCKED_TOOL_DISABLED`, and the cumulative FINAL review is pending. *(Superseded 2026-10-30: local UI acceptance and the independent FINAL approval were done for the corrected r2 source — see the release-status entry above.)*
 - **Not claimed:** no CI run, no commit, no deployment, and not ready for human acceptance.
 
 **What it is**
@@ -59,10 +113,10 @@
 
 **Pending**
 - the CI full gate, including pgTAP 002;
-- UI acceptance at 390 and 1366 px;
+- UI acceptance at 390 and 1366 px; *(superseded 2026-10-30: done locally on the corrected r2 build — see the release-status entry above)*
 - the cumulative independent FINAL review;
 - local commit, Publish and deployment, none of which is authorized here;
-- legal wording for the notice (N5);
+- legal wording for the notice (N5); *(settled: Brent approved the v2 purpose text on 2026-10-28; content approval, no legal-sufficiency claim)*
 - N4 (participant removal), which is out of scope.
 
 ## PASANT-SCHOOL-SECTION-01 `/pasantias` "Cómo es un día" + "Las escuelas" — local runtime PASS, pending cumulative FINAL (2026-10-22)

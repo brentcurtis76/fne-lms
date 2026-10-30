@@ -27,8 +27,15 @@ import {
 import { generateIntakeToken, hashIntakeToken } from './token';
 import type { AdminRoster, ValidDays } from './types';
 
-/** Admin roster columns plus the participant count; never `token_hash`. */
-export const ADMIN_ROSTER_SELECT: string = `${ADMIN_ROSTER_COLUMNS}, participants:pasantias_intake_participants(count)`;
+/**
+ * Admin roster columns plus the participant count and the F01 school funding,
+ * embedded in the same query (no per-roster round trip); never `token_hash`.
+ * The embed may come back as an object, a one-element array or null —
+ * `schoolFundingFromEmbed` handles all three.
+ */
+export const ADMIN_ROSTER_SELECT: string =
+  `${ADMIN_ROSTER_COLUMNS}, participants:pasantias_intake_participants(count), ` +
+  'school_funding:pasantias_nomina_school_funding(flights_funding, lodging_funding, version)';
 
 export const ROSTER_LIST_LIMIT = 200;
 

@@ -3,7 +3,8 @@
     "deploymentEnabled": {
       "fix/p02b-r1": false,
       "fix/pasant-polish": false,
-      "fix/pasant-schools": false
+      "fix/pasant-schools": false,
+      "feat/pasant-intake": false
     }
   },
   "functions": {

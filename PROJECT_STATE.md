@@ -1,3 +1,15 @@
+## PASANTÍAS PANEL — logistics panel for the January 2027 cohort: built and validated locally, not pushed (2026-11-09)
+
+**Status:** one local commit on `feat/pasant-panel` (base `b06a5b852`). Not pushed, no PR, no CI, nothing in Production. Built by a single Claude session outside the PM–Executor workflow at Brent's request (model test); independent review pending.
+
+- **What:** `/admin/pasantias-panel` — every traveller of every school in one table; FNE tracking (airfare, lodging, 50% deposit, 50% balance, notes) with quick and bulk edits and CSV; admin correction of school data; private documents; the Carta de Invitación generated as a PDF per person.
+- **DB:** migration `20261109210000_pasantias_logistics_panel.sql` (additive: four tables, three service-role functions, private bucket `pasantias-documents`) plus pgTAP 116. It reaches Production only through Publish. Intake migrations and pgTAP 114/115 are unchanged.
+- **Local evidence:** type-check, lint, guards PASS; Vitest 18 091 passed / 0 failed in 8 shards; pgTAP 79 files / 8 233 tests PASS on a from-scratch stack; Playwright `pasantias-panel` 8/8 and `pasantias-participant-intake` 26/26 on a production build.
+- **Before first use in any environment:** an admin uploads the letter's logo and signature in the panel (they are deliberately not in this public repository).
+- **Open for Brent:** real flight dates outside the school form's options; what happens when a school overwrites a correction; who may generate signed letters; retention of files and history.
+
+Review request: `docs/planning/reviews/fase-pasant-panel-review-request.md`.
+
 ## PASANT-PARTICIPANT-INTAKE — release status: F01–F04 accepted locally; CI and Publish pending (2026-10-30)
 
 **Status:** F01–F04 corrections are **accepted locally** on corrections source freeze r2 (PM: `LOCAL_CORRECTIONS_ACCEPTED`). The independent FINAL evidence review **APPROVED** local acceptance, and its condition E-1 (record of the scoped `lint:testid` command) is closed.

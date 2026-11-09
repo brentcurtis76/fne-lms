@@ -4,7 +4,8 @@
       "fix/p02b-r1": false,
       "fix/pasant-polish": false,
       "fix/pasant-schools": false,
-      "feat/pasant-intake": false
+      "feat/pasant-intake": false,
+      "feat/pasant-panel": false
     }
   },
   "functions": {

@@ -112,6 +112,11 @@ export const MANDATORY_SPECS = [
   // isolation; real Promise.all races against the RPC lock; role gates; no token or PII
   // leaving the origin; keyboard at 390/1366 px; identical date labels across time zones.
   'tests/e2e/pasantias-participant-intake.spec.ts',
+  // PASANTÍAS PANEL — FNE's logistics panel over that intake, unmocked: one table for every
+  // school, quick and bulk tracking edits, an admin correction that keeps the roster sent,
+  // the invitation letter (blocked until complete, generated as a real PDF), private
+  // documents through signed URLs only, a real two-admin race, and the role gates.
+  'tests/e2e/pasantias-panel.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

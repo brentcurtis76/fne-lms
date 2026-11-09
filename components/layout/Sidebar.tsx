@@ -424,6 +424,14 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
         adminOnly: true
       },
       {
+        id: 'pasantias-panel',
+        label: 'Panel de pasantías',
+        href: '/admin/pasantias-panel',
+        icon: ClipboardDocumentListIcon,
+        description: 'Seguimiento, documentos y cartas de la cohorte',
+        adminOnly: true
+      },
+      {
         id: 'schools',
         label: 'Escuelas',
         href: '/admin/schools',

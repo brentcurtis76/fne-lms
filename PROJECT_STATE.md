@@ -1,12 +1,20 @@
 ## PASANTÍAS PANEL — logistics panel for the January 2027 cohort: built and validated locally, not pushed (2026-11-09)
 
-**Status:** one local commit on `feat/pasant-panel` (base `b06a5b852`). Not pushed, no PR, no CI, nothing in Production. Built by a single Claude session outside the PM–Executor workflow at Brent's request (model test); independent review pending.
+**Status:** two local commits on `feat/pasant-panel` (base `b06a5b852`). Not pushed, no PR, no CI, nothing in Production. Built by a single Claude session outside the PM–Executor workflow at Brent's request (model test); the reviewer packet is a Claude doc Brent holds.
 
-- **What:** `/admin/pasantias-panel` — every traveller of every school in one table; FNE tracking (airfare, lodging, 50% deposit, 50% balance, notes) with quick and bulk edits and CSV; admin correction of school data; private documents; the Carta de Invitación generated as a PDF per person.
-- **DB:** migration `20261109210000_pasantias_logistics_panel.sql` (additive: four tables, three service-role functions, private bucket `pasantias-documents`) plus pgTAP 116. It reaches Production only through Publish. Intake migrations and pgTAP 114/115 are unchanged.
-- **Local evidence:** type-check, lint, guards PASS; Vitest 18 091 passed / 0 failed in 8 shards; pgTAP 79 files / 8 233 tests PASS on a from-scratch stack; Playwright `pasantias-panel` 8/8 and `pasantias-participant-intake` 26/26 on a production build.
-- **Before first use in any environment:** an admin uploads the letter's logo and signature in the panel (they are deliberately not in this public repository).
-- **Open for Brent:** real flight dates outside the school form's options; what happens when a school overwrites a correction; who may generate signed letters; retention of files and history.
+- **What (commit 1):** `/admin/pasantias-panel` — every traveller of every school in one table; FNE tracking (airfare, lodging, 50% deposit, 50% balance, notes) with quick and bulk edits and CSV; admin correction of school data; private documents per person; the Carta de Invitación generated as a PDF per person.
+- **What (commit 2, Brent's decisions of 2026-11-09):**
+  - four real flight dates per person (salida de SCL, llegada a BCN, salida de BCN, llegada a SCL), entered by FNE;
+  - the school form asks for each traveller's **email** (required); FNE can add or correct it;
+  - once FNE marks a person's airfare as bought, the school can no longer change that person's two dates, nor who pays the lodging for that list (FNE still can);
+  - each letter is **emailed automatically seven days before the traveller leaves Santiago** (daily job `/api/cron/pasantias-letters`), only when everything it needs exists; the panel shows who is blocked and why, and has a "send now" button;
+  - tickets, letters, other files and the panel's history are **deleted one month after the program ends** — 28 Feb 2027 for both programs (daily job `/api/cron/pasantias-retention`);
+  - a traveller whose email belongs to a GENERA account sees **Mi pasantía** (`/profile/pasantia`): program, school, flight dates, airfare/lodging state, their ticket and letter.
+- **The school form changed.** `pages/pasantias/nomina.tsx` and its API now save through two wrapper functions of the panel migration; the intake migrations, their functions and pgTAP 114/115 are untouched (176/176 and 140/140 still pass). A school that already sent its list has people without an email: the next time it edits one of them the form asks for it.
+- **DB:** one additive migration `20261109210000_pasantias_logistics_panel.sql` (five tables, eleven service-role functions, private bucket `pasantias-documents`) plus pgTAP 116 (163 tests). It reaches Production only through Publish. It was hand-written in this session, not by the DB agent.
+- **Local evidence:** see `docs/planning/reviews/fase-pasant-panel-review-request.md`.
+- **Before first use in any environment:** an admin uploads the letter's logo and signature in the panel (deliberately not in this public repository). The two daily jobs need `CRON_SECRET` (already used by the other jobs) and the letter email needs `RESEND_API_KEY`; without the latter nothing is sent and the panel says so.
+- **Open for Brent:** whether the school notice text (approved 2026-10-28, version `pasant-intake-2026-10-v2`) should mention the email and that the traveller can see their own data; who may press "send now" (any global admin today); whether a school's wrong email — which would show one person's trip to another account — needs a confirmation step.
 
 Review request: `docs/planning/reviews/fase-pasant-panel-review-request.md`.
 

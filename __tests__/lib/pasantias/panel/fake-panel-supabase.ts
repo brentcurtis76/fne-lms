@@ -17,6 +17,8 @@ export interface PanelQuery {
   eq: Record<string, unknown>;
   is: Record<string, unknown>;
   in: Record<string, unknown[]>;
+  /** `.ilike(column, pattern)` filters (the account lookup by email). */
+  ilike: Record<string, string>;
   orders: string[];
   limit: number | null;
   range: [number, number] | null;
@@ -72,6 +74,7 @@ export function fakePanel(handlers: {
       eq: {},
       is: {},
       in: {},
+      ilike: {},
       orders: [],
       limit: null,
       range: null,
@@ -105,6 +108,14 @@ export function fakePanel(handlers: {
       },
       in(column: string, values: unknown[]) {
         query.in[column] = values;
+        return builder;
+      },
+      ilike(column: string, pattern: string) {
+        query.ilike[column] = pattern;
+        return builder;
+      },
+      // Recorded nowhere: only `authorizeUserEmail` uses it, and its answer is arranged per table.
+      not() {
         return builder;
       },
       order(column: string) {

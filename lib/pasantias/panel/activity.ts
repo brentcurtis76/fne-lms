@@ -38,7 +38,21 @@ const CORRECTION_LABELS: Record<string, string> = {
   arrival_date: 'Llegada',
   departure_date: 'Regreso',
   focus: 'Foco',
+  email: 'Correo',
 };
+
+const FLIGHT_DATE_KEYS: Record<string, string> = {
+  scl_departure_date: 'Salida de SCL',
+  bcn_arrival_date: 'Llegada a BCN',
+  bcn_departure_date: 'Salida de BCN',
+  scl_arrival_date: 'Llegada a SCL',
+};
+
+/** `2027-01-10` → `10-01-2027`; anything else → `sin indicar`. */
+function plainDate(value: unknown): string {
+  const match = typeof value === 'string' ? /^(\d{4})-(\d{2})-(\d{2})/.exec(value) : null;
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : 'sin indicar';
+}
 
 function quoted(value: unknown): string {
   return value === null || value === undefined || value === '' ? 'sin indicar' : `«${String(value)}»`;
@@ -75,6 +89,8 @@ export function describeActivity(action: string, details: unknown, program: Prog
         lines.push(`Tratamiento: ${SALUTATION_LABELS[after as Salutation] ?? 'sin indicar'}`);
       } else if (key === 'notes') {
         lines.push('Notas actualizadas');
+      } else if (FLIGHT_DATE_KEYS[key]) {
+        lines.push(`${FLIGHT_DATE_KEYS[key]}: ${plainDate(before)} → ${plainDate(after)}`);
       }
     }
     if (d.bulk === true && lines.length > 0) lines[0] = `${lines[0]} (cambio masivo)`;
@@ -107,10 +123,14 @@ export function describeActivity(action: string, details: unknown, program: Prog
   if (action === 'document_uploaded') return [`Documento subido: ${kindLabel}${fileName ? ` · ${fileName}` : ''}`];
   if (action === 'document_removed') return [`Documento eliminado: ${kindLabel}${fileName ? ` · ${fileName}` : ''}`];
   if (action === 'letter_generated') return ['Carta de invitación generada'];
+  if (action === 'letter_sent') {
+    return [d.automatic === true ? 'Carta de invitación enviada por correo (envío automático)' : 'Carta de invitación enviada por correo'];
+  }
   return ['Cambio registrado'];
 }
 
-function actorDisplayName(profile: Row | undefined): string {
+function actorDisplayName(profile: Row | undefined, actorId: string): string {
+  if (!actorId) return 'Sistema';
   if (!profile) return 'Administrador';
   const full = [str(profile.first_name), str(profile.last_name)].filter(Boolean).join(' ').trim();
   return full || str(profile.name) || 'Administrador';
@@ -130,7 +150,10 @@ export function toPanelActivity(
   return rows.map((row) => ({
     id: str(row.id),
     action: str(row.action) as ActivityAction,
-    actorName: actorDisplayName(profileRows.find((profile) => str(profile.id) === str(row.actor_id))),
+    actorName: actorDisplayName(
+      profileRows.find((profile) => str(profile.id) === str(row.actor_id)),
+      str(row.actor_id)
+    ),
     createdAt: str(row.created_at),
     lines: describeActivity(str(row.action), row.details, program),
   }));

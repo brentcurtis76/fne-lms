@@ -30,6 +30,8 @@ export interface SchoolDataFormProps {
   focusRequest: number;
   onChange: (draft: SchoolDraft) => void;
   onSubmit: () => void;
+  /** FNE already bought airfare for this list: who pays the lodging can no longer change here. */
+  lodgingLocked?: boolean;
 }
 
 export default function SchoolDataForm({
@@ -45,6 +47,7 @@ export default function SchoolDataForm({
   focusRequest,
   onChange,
   onSubmit,
+  lodgingLocked = false,
 }: SchoolDataFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -73,7 +76,8 @@ export default function SchoolDataForm({
     id: string,
     testId: string,
     errorTestId: string,
-    label: string
+    label: string,
+    locked = false
   ) => {
     const errorElementId = `${id}-error`;
     return (
@@ -86,6 +90,7 @@ export default function SchoolDataForm({
           id={id}
           data-testid={testId}
           value={draft[field]}
+          disabled={locked}
           onChange={(e) => onChange({ ...draft, [field]: e.target.value as SchoolDraft[typeof field] })}
           aria-invalid={Boolean(errors[field])}
           aria-describedby={errors[field] ? errorElementId : undefined}
@@ -99,6 +104,12 @@ export default function SchoolDataForm({
             </option>
           ))}
         </select>
+        {locked ? (
+          <p data-testid={`${testId}-locked`} className="mt-1 text-xs text-gray-700">
+            Ya hay pasajes comprados para esta nómina, por eso este dato no se puede cambiar aquí. Si necesitas
+            modificarlo, escribe a la Fundación.
+          </p>
+        ) : null}
         {errors[field] ? (
           <p id={errorElementId} data-testid={errorTestId} className="mt-1 text-sm font-medium text-red-700">
             {errors[field]}
@@ -162,7 +173,7 @@ export default function SchoolDataForm({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {select('flightsFunding', 'intake-school-flights', 'intake-school-flights', 'intake-error-schoolFlightsFunding', 'Pasajes')}
-          {select('lodgingFunding', 'intake-school-lodging', 'intake-school-lodging', 'intake-error-schoolLodgingFunding', 'Estadía')}
+          {select('lodgingFunding', 'intake-school-lodging', 'intake-school-lodging', 'intake-error-schoolLodgingFunding', 'Estadía', lodgingLocked)}
         </div>
 
         <div className="flex justify-end">

@@ -53,13 +53,21 @@ export function fold(value: string): string {
   return decomposed.replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
-/** Name, RUT (with or without dots) and passport are searched; every word must match. */
+/** Name, RUT (with or without dots), passport and email are searched; every word must match. */
 export function matchesSearch(row: PanelRow, search: string): boolean {
   const words = fold(search).split(/\s+/).filter(Boolean);
   if (words.length === 0) return true;
   const p = row.participant;
   const haystack = fold(
-    [p.firstNames, p.lastNames, p.rut, p.rut.replace('-', ''), displayRut(p.rut), p.passportNumber ?? ''].join(' ')
+    [
+      p.firstNames,
+      p.lastNames,
+      p.rut,
+      p.rut.replace('-', ''),
+      displayRut(p.rut),
+      p.passportNumber ?? '',
+      p.email ?? '',
+    ].join(' ')
   );
   return words.every((word) => haystack.includes(word) || haystack.includes(word.replace(/\./g, '')));
 }
@@ -107,6 +115,10 @@ export function logisticsBody(current: Logistics, change: Partial<Logistics> = {
     balanceReceived: next.balanceReceived,
     salutation: next.salutation,
     notes: next.notes,
+    sclDepartureDate: next.sclDepartureDate,
+    bcnArrivalDate: next.bcnArrivalDate,
+    bcnDepartureDate: next.bcnDepartureDate,
+    sclArrivalDate: next.sclArrivalDate,
     expectedVersion: current.version,
   };
 }
@@ -119,8 +131,14 @@ export const PANEL_CSV_HEADERS = [
   'Apellidos',
   'RUT',
   'Pasaporte',
+  'Correo',
+  'Cuenta en GENERA',
   'Llegada',
   'Regreso',
+  'Salida de SCL',
+  'Llegada a BCN',
+  'Salida de BCN',
+  'Llegada a SCL',
   'Foco',
   'Alimentación',
   'Pasajes a cargo de',
@@ -131,6 +149,7 @@ export const PANEL_CSV_HEADERS = [
   'Saldo 50%',
   'Documentos',
   'Carta de invitación',
+  'Carta enviada',
   'Notas',
 ] as const;
 
@@ -150,8 +169,14 @@ export function panelCsvRows(
       Apellidos: p.lastNames,
       RUT: displayRut(p.rut),
       Pasaporte: p.passportNumber ?? '',
+      Correo: p.email ?? '',
+      'Cuenta en GENERA': row.hasAccount ? 'Sí' : 'No',
       Llegada: p.arrivalDate ? shortDate(p.arrivalDate) : '',
       Regreso: p.departureDate ? shortDate(p.departureDate) : '',
+      'Salida de SCL': l.sclDepartureDate ? shortDate(l.sclDepartureDate) : '',
+      'Llegada a BCN': l.bcnArrivalDate ? shortDate(l.bcnArrivalDate) : '',
+      'Salida de BCN': l.bcnDepartureDate ? shortDate(l.bcnDepartureDate) : '',
+      'Llegada a SCL': l.sclArrivalDate ? shortDate(l.sclArrivalDate) : '',
       Foco: p.focus ? FOCUS_LABELS[p.focus] : '',
       Alimentación: p.dietaryRestrictions.length > 0 ? dietaryText(p) : '',
       'Pasajes a cargo de': roster?.schoolFunding ? FUNDING_LABELS[roster.schoolFunding.flightsFunding] : '',
@@ -162,6 +187,7 @@ export function panelCsvRows(
       'Saldo 50%': l.balanceReceived ? 'Recibido' : 'Pendiente',
       Documentos: String(row.documentCount),
       'Carta de invitación': row.hasLetter ? 'Generada' : 'No',
+      'Carta enviada': l.letterSentAt ? shortDate(l.letterSentAt) : 'No',
       Notas: l.notes ?? '',
     };
   });
@@ -179,4 +205,16 @@ export function errorText(status: number, body: Record<string, unknown>, fallbac
   if (status === 401) return 'Tu sesión expiró. Vuelve a iniciar sesión.';
   if (status === 403) return typeof body.error === 'string' ? body.error : 'No tienes permiso para esta acción.';
   return typeof body.error === 'string' ? body.error : fallback;
+}
+
+/** Today's date in Chile, `YYYY-MM-DD` — the day the letter schedule is read against. */
+export function todayInChile(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Santiago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+  return `${get('year')}-${get('month')}-${get('day')}`;
 }

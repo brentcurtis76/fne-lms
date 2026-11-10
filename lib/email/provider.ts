@@ -9,6 +9,8 @@ export interface OutboundEmailMessage {
   text?: string;
   reply_to?: string;
   headers?: Record<string, string>;
+  /** Files sent with the message; `content` is the file's bytes in base64. */
+  attachments?: { filename: string; content: string }[];
 }
 
 /**

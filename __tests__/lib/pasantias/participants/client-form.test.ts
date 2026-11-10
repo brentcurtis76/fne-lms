@@ -12,8 +12,10 @@ import {
   draftToRequestFields,
   draftsEqual,
   emptyDraft,
+  validateDraft,
 } from '../../../../lib/pasantias/participants/form';
 import type { IntakeParticipant } from '../../../../lib/pasantias/participants/types';
+import { MESSAGES } from '../../../../lib/pasantias/participants/validation';
 
 const TOKEN = 'b'.repeat(40) + '_-9';
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -66,6 +68,7 @@ const STORED: IntakeParticipant = {
   focus: 'infantil',
   dietaryRestrictions: ['otra', 'vegano'],
   dietaryOther: 'Sin frutos secos',
+  email: 'ana.sintetica@example.com',
   updatedAt: '2026-10-27T12:00:00Z',
 };
 
@@ -83,7 +86,20 @@ describe('draft model', () => {
       focus: '',
       dietaryRestrictions: [],
       dietaryOther: '',
+      email: '',
     });
+  });
+
+  it('requires the email on the school form, but compares a stored person without one', () => {
+    const draft = { ...draftFromParticipant(STORED), email: '' };
+    expect(validateDraft(draft, 'inspira').errors.email).toBe(MESSAGES.emailRequired);
+    expect(validateDraft(draft, 'inspira', { emailRequired: false }).errors).toEqual({});
+    expect(draftToRequestFields(draft).email).toBeNull();
+    // A person saved before the form asked for an email still matches their own draft.
+    expect(draftMatchesParticipant(draft, { ...STORED, email: null }, 'inspira')).toBe(true);
+    expect(draftMatchesParticipant(draft, STORED, 'inspira')).toBe(false);
+    // Typed with capitals and spaces, stored lower-case: the same address.
+    expect(draftMatchesParticipant({ ...draft, email: ' Ana.Sintetica@Example.com ' }, STORED, 'inspira')).toBe(true);
   });
 
   it('sends blanks as null and never sends a detail without "Otra"', () => {

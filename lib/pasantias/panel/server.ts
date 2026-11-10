@@ -4,7 +4,7 @@
  * Every table here grants nothing to anon or authenticated (admins included),
  * so every read and write runs on the service-role client AFTER
  * `authorizeIntakeAdmin` (global admin + forced-password hold). Writes that
- * must be atomic with their activity row go through the three SQL functions of
+ * must be atomic with their activity row go through the SQL functions of
  * `20261109210000_pasantias_logistics_panel.sql`.
  *
  * Table names are written as literals at each `.from(...)`: the ledger
@@ -54,8 +54,13 @@ const ACTIVITY_LIMIT = 100;
 const ROSTER_SELECT =
   'id, program, school_name, status, last_submitted_at, ' +
   'school_funding:pasantias_nomina_school_funding(flights_funding, lodging_funding, version)';
-const LOGISTICS_COLUMNS =
-  'participant_id, flight_status, lodging_status, deposit_received, balance_received, salutation, notes, version, updated_at';
+export const LOGISTICS_COLUMNS: string =
+  'participant_id, flight_status, lodging_status, deposit_received, balance_received, salutation, notes, ' +
+  'scl_departure_date, bcn_arrival_date, bcn_departure_date, scl_arrival_date, ' +
+  'letter_sent_at, letter_sent_to, letter_send_error, version, updated_at';
+export const PLATFORM_ACCOUNTS_RPC = 'pasantias_panel_platform_accounts';
+export const CLAIM_LETTER_RPC = 'pasantias_panel_claim_letter_send';
+export const FINISH_LETTER_RPC = 'pasantias_panel_finish_letter_send';
 const DETAILS_COLUMNS = 'roster_id, letter_school_line, letter_lodging_line, version';
 const DOCUMENT_COLUMNS = 'id, participant_id, kind, description, file_name, mime_type, size_bytes, created_at';
 
@@ -78,6 +83,13 @@ export function toLogistics(row: Row | null | undefined): Logistics {
     balanceReceived: row.balance_received === true,
     salutation: strOrNull(row.salutation) as Salutation | null,
     notes: strOrNull(row.notes),
+    sclDepartureDate: strOrNull(row.scl_departure_date),
+    bcnArrivalDate: strOrNull(row.bcn_arrival_date),
+    bcnDepartureDate: strOrNull(row.bcn_departure_date),
+    sclArrivalDate: strOrNull(row.scl_arrival_date),
+    letterSentAt: strOrNull(row.letter_sent_at),
+    letterSentTo: strOrNull(row.letter_sent_to),
+    letterSendError: strOrNull(row.letter_send_error),
     version: Number(row.version),
     updatedAt: strOrNull(row.updated_at),
   };
@@ -143,7 +155,7 @@ export interface PanelData {
 
 /**
  * Everything the panel shows: every roster of the cohort and every traveller,
- * with FNE's tracking. Six reads, none per row. School name, then creation
+ * with FNE's tracking. Eight reads, none per row. School name, then creation
  * order inside a school.
  */
 export async function loadPanel(supabase: Service): Promise<ReadResult<PanelData>> {
@@ -202,6 +214,19 @@ export async function loadPanel(supabase: Service): Promise<ReadResult<PanelData
   if (logisticsRows.ok === false) return logisticsRows;
   const logisticsById = new Map(logisticsRows.value.map((row) => [str(row.participant_id), row]));
 
+  const contactRows = await fetchAll((from, to) =>
+    supabase
+      .from('pasantias_panel_contacts')
+      .select('participant_id, email')
+      .order('participant_id', { ascending: true })
+      .range(from, to)
+  );
+  if (contactRows.ok === false) return contactRows;
+  const emailById = new Map(contactRows.value.map((row) => [str(row.participant_id), strOrNull(row.email)]));
+
+  const accounts = await readPlatformAccounts(supabase);
+  if (accounts.ok === false) return accounts;
+
   const documentRows = await fetchAll((from, to) =>
     supabase
       .from('pasantias_panel_documents')
@@ -228,14 +253,26 @@ export async function loadPanel(supabase: Service): Promise<ReadResult<PanelData
     const id = str(row.id);
     buckets[index].push({
       rosterId,
-      participant: toAdminParticipant(row, allLevels.has(id)),
+      participant: toAdminParticipant(row, allLevels.has(id), {
+        email: emailById.get(id) ?? null,
+        datesLocked: false,
+      }),
       logistics: toLogistics(logisticsById.get(id)),
       documentCount: docCount.get(id) ?? 0,
       hasLetter: withLetter.has(id),
+      hasAccount: accounts.value.has(id),
     });
   }
   const rows = buckets.flat();
   return { ok: true, value: { rosters, rows } };
+}
+
+/** The ids of the travellers whose email belongs to a GENERA account. */
+export async function readPlatformAccounts(supabase: Service): Promise<ReadResult<Set<string>>> {
+  const { data, error } = await supabase.rpc(PLATFORM_ACCOUNTS_RPC);
+  if (error) return { ok: false, error };
+  const rows = (Array.isArray(data) ? data : []) as Row[];
+  return { ok: true, value: new Set(rows.map((row) => str(row.participant_id))) };
 }
 
 /** One traveller with their roster and tracking, or null when the id is unknown. */
@@ -253,7 +290,7 @@ export async function loadParticipant(
   const p = participant as unknown as Row;
   const rosterId = str(p.roster_id);
 
-  const [roster, details, focus, logistics, documents] = await Promise.all([
+  const [roster, details, focus, logistics, documents, contact] = await Promise.all([
     supabase.from('pasantias_intake_rosters').select(ROSTER_SELECT).eq('id', rosterId).maybeSingle(),
     supabase.from('pasantias_panel_roster_details').select(DETAILS_COLUMNS).eq('roster_id', rosterId).maybeSingle(),
     supabase
@@ -267,10 +304,23 @@ export async function loadParticipant(
       .select('id, participant_id, kind')
       .eq('participant_id', participantId)
       .is('removed_at', null),
+    supabase.from('pasantias_panel_contacts').select('email').eq('participant_id', participantId).maybeSingle(),
   ]);
-  const failed = [roster, details, focus, logistics, documents].find((answer) => answer.error);
+  const failed = [roster, details, focus, logistics, documents, contact].find((answer) => answer.error);
   if (failed) return { ok: false, error: failed.error };
   if (!roster.data) return { ok: true, value: null };
+
+  const email = strOrNull((contact.data as unknown as Row | null)?.email);
+  let hasAccount = false;
+  if (email) {
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .ilike('email', email.replace(/[\\%_]/g, (character) => `\\${character}`))
+      .limit(1);
+    if (profileError) return { ok: false, error: profileError };
+    hasAccount = ((profile ?? []) as unknown[]).length > 0;
+  }
 
   const docs = (documents.data ?? []) as unknown as Row[];
   return {
@@ -279,10 +329,14 @@ export async function loadParticipant(
       roster: toPanelRoster(roster.data as unknown as Row, details.data as unknown as Row | null),
       row: {
         rosterId,
-        participant: toAdminParticipant(p, (focus.data as unknown as Row | null)?.all_levels === true),
+        participant: toAdminParticipant(p, (focus.data as unknown as Row | null)?.all_levels === true, {
+          email,
+          datesLocked: false,
+        }),
         logistics: toLogistics(logistics.data as unknown as Row | null),
         documentCount: docs.length,
         hasLetter: docs.some((doc) => doc.kind === 'invitation_letter'),
+        hasAccount,
       },
     },
   };
@@ -335,7 +389,7 @@ export async function listActivity(
 /** Appends one activity row. Returns false when the write failed (the caller logs). */
 export async function recordActivity(
   supabase: Service,
-  entry: { participantId: string; actorId: string; action: ActivityAction; details: Record<string, unknown> }
+  entry: { participantId: string; actorId: string | null; action: ActivityAction; details: Record<string, unknown> }
 ): Promise<{ ok: boolean; error?: unknown }> {
   const { error } = await supabase.from('pasantias_panel_activity').insert({
     participant_id: entry.participantId,
@@ -366,6 +420,7 @@ const LOGISTICS_REFUSALS = [
   'invalid_payment',
   'invalid_salutation',
   'invalid_notes',
+  'invalid_flight_dates',
   'unknown_participant',
   'stale_version',
 ] as const;
@@ -386,6 +441,10 @@ export async function callSaveLogistics(
     p_balance_received: request.balanceReceived,
     p_salutation: request.salutation,
     p_notes: request.notes,
+    p_scl_departure_date: request.sclDepartureDate,
+    p_bcn_arrival_date: request.bcnArrivalDate,
+    p_bcn_departure_date: request.bcnDepartureDate,
+    p_scl_arrival_date: request.sclArrivalDate,
     p_actor: actorId,
   });
   if (error) return { ok: false, refusal: refusalCode(error, SAVE_LOGISTICS_RPC, LOGISTICS_REFUSALS), error };
@@ -424,6 +483,7 @@ const CORRECTION_REFUSALS = [
   'invalid_dates',
   'invalid_focus',
   'invalid_dietary',
+  'invalid_email',
   'unknown_participant',
   'stale_version',
   'duplicate_rut',
@@ -439,6 +499,7 @@ export const CORRECTION_REFUSAL_FIELDS: Partial<Record<CorrectionRefusal, keyof 
   invalid_dates: 'departureDate',
   invalid_focus: 'focus',
   invalid_dietary: 'dietaryRestrictions',
+  invalid_email: 'email',
 };
 
 export async function callSaveParticipant(
@@ -460,6 +521,7 @@ export async function callSaveParticipant(
     p_focus: fields.focus,
     p_dietary_restrictions: fields.dietaryRestrictions,
     p_dietary_other: fields.dietaryOther,
+    p_email: fields.email,
     p_actor: actorId,
   });
   if (error) return { ok: false, refusal: refusalCode(error, SAVE_PARTICIPANT_RPC, CORRECTION_REFUSALS), error };
@@ -521,4 +583,34 @@ export async function saveRosterDetails(
   if (error) return { ok: false, reason: 'failed', error };
   if (!data) return { ok: false, reason: 'stale' };
   return { ok: true, details: toRosterDetails(data as unknown as Row) };
+}
+
+/* --------------------------------------------------------------- letter email */
+
+/** True when this caller may email the letter now (see the migration's claim rules). */
+export async function claimLetterSend(
+  supabase: Service,
+  participantId: string,
+  force: boolean
+): Promise<ReadResult<boolean>> {
+  const { data, error } = await supabase.rpc(CLAIM_LETTER_RPC, { p_participant_id: participantId, p_force: force });
+  if (error) return { ok: false, error };
+  return { ok: true, value: data === true };
+}
+
+/** Records how an emailing attempt ended. `actorId` null = the automatic send. */
+export async function finishLetterSend(
+  supabase: Service,
+  participantId: string,
+  outcome: { sent: true; email: string } | { sent: false; error: string },
+  actorId: string | null
+): Promise<{ ok: boolean; error?: unknown }> {
+  const { error } = await supabase.rpc(FINISH_LETTER_RPC, {
+    p_participant_id: participantId,
+    p_sent: outcome.sent,
+    p_email: outcome.sent === true ? outcome.email : null,
+    p_error: outcome.sent === false ? outcome.error : null,
+    p_actor: actorId,
+  });
+  return error ? { ok: false, error } : { ok: true };
 }

@@ -105,6 +105,13 @@ export interface IntakeParticipant {
   focus: FocusCode | null;
   dietaryRestrictions: DietaryCode[];
   dietaryOther: string | null;
+  /** Lower-case; null only for a person saved before the form asked for it. */
+  email: string | null;
+  /**
+   * FNE marked this person's airfare as bought: the school can no longer
+   * change the two dates (the save RPC refuses with `dates_locked`).
+   */
+  datesLocked?: boolean;
   updatedAt: string;
 }
 
@@ -140,6 +147,11 @@ export interface CoordinatorRoster {
   expiresAt: string;
   /** "Datos del colegio" — present on every roster in every response (C4). */
   schoolFunding: SchoolFunding | null;
+  /**
+   * FNE marked at least one airfare of this list as bought: the school can no
+   * longer change who pays the lodging (`lodging_locked`).
+   */
+  lodgingLocked?: boolean;
 }
 
 /** The roster as the admin sees it. */
@@ -163,6 +175,8 @@ export interface ParticipantFields {
   focus: FocusCode | null;
   dietaryRestrictions: DietaryCode[];
   dietaryOther: string | null;
+  /** Required on the school form; optional when FNE corrects a person. */
+  email: string | null;
 }
 
 /** Machine codes every intake endpoint may answer with. */

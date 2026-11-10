@@ -79,6 +79,13 @@ function logistics(overrides: Record<string, unknown> = {}) {
     balanceReceived: false,
     salutation: null,
     notes: null,
+    sclDepartureDate: null,
+    bcnArrivalDate: null,
+    bcnDepartureDate: null,
+    sclArrivalDate: null,
+    letterSentAt: null,
+    letterSentTo: null,
+    letterSendError: null,
     version: null,
     updatedAt: null,
     ...overrides,
@@ -100,6 +107,7 @@ function row(id: string, rosterId: string, firstNames: string, lastNames: string
       focus: null,
       dietaryRestrictions: [],
       dietaryOther: null,
+      email: id === P1 ? 'ana.perez@example.com' : null,
       updatedAt: '2026-11-01T12:00:00.000Z',
       createdAt: '2026-11-01T12:00:00.000Z',
       acknowledgedAt: '2026-11-01T12:00:00.000Z',
@@ -108,6 +116,7 @@ function row(id: string, rosterId: string, firstNames: string, lastNames: string
     logistics: l,
     documentCount: 0,
     hasLetter: false,
+    hasAccount: id === P1,
   };
 }
 
@@ -199,6 +208,32 @@ describe('the panel', () => {
     expect(screen.getByTestId('panel-letter-images-state')).toHaveTextContent('faltan imágenes');
   });
 
+  it('shows each person\'s email, account and four flight dates, and flags whose letter cannot send itself', async () => {
+    const rows = [
+      { ...ROWS[0], logistics: logistics({ sclDepartureDate: '2027-01-16', bcnArrivalDate: '2027-01-17', version: 2 }) },
+      ROWS[1],
+      { ...ROWS[2], logistics: logistics({ letterSentAt: '2027-01-09T12:00:00Z', letterSentTo: 'carla@example.com', version: 1 }) },
+    ];
+    replies.push({ status: 200, body: { ...PANEL, rows } });
+    render(<PasantiasPanelPage />);
+    await screen.findByTestId(`panel-row-${P1}`);
+    expect(screen.getByTestId(`panel-email-${P1}`)).toHaveTextContent('ana.perez@example.com');
+    expect(screen.getByTestId(`panel-account-${P1}`)).toHaveTextContent('Con cuenta en GENERA');
+    expect(screen.getByTestId(`panel-email-${P2}`)).toHaveTextContent('Sin correo');
+    expect(screen.queryByTestId(`panel-account-${P2}`)).toBeNull();
+    const dates = screen.getByTestId(`panel-flight-dates-${P1}`);
+    expect(dates).toHaveTextContent('Salida de SCL16-01-2027');
+    expect(dates).toHaveTextContent('Llegada a BCN17-01-2027');
+    expect(dates).toHaveTextContent('Salida de BCN—');
+    expect(dates).toHaveTextContent('Llegada a SCL—');
+    // Nothing is ready (no images, no greeting): flagged, with the reason on hover.
+    const flag = screen.getByTestId(`panel-letter-send-${P1}`);
+    expect(flag).toHaveAttribute('data-state', 'blocked');
+    expect(flag).toHaveTextContent('Carta: falta información');
+    expect(flag.getAttribute('title')).toContain('el logo de la carta');
+    expect(screen.getByTestId(`panel-letter-send-${P3}`)).toHaveTextContent('Carta enviada 09-01-2027');
+  });
+
   it('says so when nobody is registered yet, and when the list cannot be loaded', async () => {
     await open({ rosters: [], rows: [], letterAssets: { logo: true, signature: true } });
     expect(screen.getByTestId('panel-empty')).toBeInTheDocument();
@@ -247,6 +282,11 @@ describe('the panel', () => {
       balanceReceived: false,
       salutation: null,
       notes: 'Nota',
+      // The four flight dates travel with every save, so a quick edit never clears them.
+      sclDepartureDate: null,
+      bcnArrivalDate: null,
+      bcnDepartureDate: null,
+      sclArrivalDate: null,
       expectedVersion: 2,
     });
     await waitFor(() => expect(screen.getByTestId(`panel-flight-${P1}`)).toHaveValue('paid'));
@@ -386,6 +426,7 @@ describe('the detail panel', () => {
     await openDrawer();
     fireEvent.change(screen.getByTestId('panel-tracking-salutation'), { target: { value: 'estimada' } });
     fireEvent.change(screen.getByTestId('panel-tracking-notes'), { target: { value: '' } });
+    fireEvent.change(screen.getByTestId('panel-tracking-sclDepartureDate'), { target: { value: '2027-01-16' } });
     expect(screen.getByTestId('panel-tracking-save')).toBeEnabled();
     const saved = { ...DETAIL, row: { ...ROWS[0], logistics: logistics({ flightStatus: 'purchased', depositReceived: true, salutation: 'estimada', version: 3 }) } };
     replies.push({ status: 200, body: { row: saved.row, roster: ROSTERS[0] } });
@@ -402,6 +443,10 @@ describe('the detail panel', () => {
       balanceReceived: false,
       salutation: 'estimada',
       notes: null,
+      sclDepartureDate: '2027-01-16',
+      bcnArrivalDate: null,
+      bcnDepartureDate: null,
+      sclArrivalDate: null,
       expectedVersion: 2,
     });
     await waitFor(() => expect(screen.getByTestId('panel-tracking-msg')).toHaveTextContent('Seguimiento guardado'));
@@ -439,12 +484,79 @@ describe('the detail panel', () => {
       focus: null,
       dietaryRestrictions: [],
       dietaryOther: null,
+      // Sent back as stored, so a correction of another field never wipes it.
+      email: 'ana.perez@example.com',
       expectedVersion: 1,
     });
     await waitFor(() => expect(screen.getByTestId('panel-data-msg')).toHaveTextContent('Datos corregidos'));
     expect(screen.getByTestId('panel-drawer-title')).toHaveTextContent('Ana Pérez Corregida');
     // The table behind the panel shows the corrected name too.
     expect(screen.getByTestId(`panel-row-${P1}`)).toHaveTextContent('Ana Pérez Corregida');
+  });
+
+  it('shows the email, whether the person has a GENERA account, and why the letter will not send itself yet', async () => {
+    await openDrawer();
+    expect(screen.getByTestId('panel-data-email')).toHaveTextContent('ana.perez@example.com');
+    expect(screen.getByTestId('panel-data-account')).toHaveAttribute('data-account', 'yes');
+    const state = screen.getByTestId('panel-letter-send-state');
+    expect(state).toHaveAttribute('data-state', 'blocked');
+    expect(state).toHaveTextContent('la fecha de salida de SCL');
+    expect(screen.getByTestId('panel-letter-send')).toBeDisabled();
+  });
+
+  const READY = {
+    ...DETAIL,
+    row: {
+      ...ROWS[0],
+      logistics: logistics({ flightStatus: 'purchased', salutation: 'estimada', sclDepartureDate: '2027-01-16', version: 2 }),
+    },
+    roster: { ...ROSTERS[0], details: { letterSchoolLine: 'del Colegio Sintético Uno', letterLodgingLine: 'la Residencia Sintética', version: 1 } },
+  };
+
+  it('once everything exists it says when the letter goes out, and "send now" posts and reports where it went', async () => {
+    replies.push({ status: 200, body: { ...PANEL, letterAssets: { logo: true, signature: true } } });
+    render(<PasantiasPanelPage />);
+    await screen.findByTestId(`panel-row-${P1}`);
+    replies.push({ status: 200, body: READY });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId(`panel-open-${P1}`));
+    });
+    await screen.findByTestId('panel-section-tracking');
+    const state = screen.getByTestId('panel-letter-send-state');
+    expect(['scheduled', 'late']).toContain(state.getAttribute('data-state'));
+    expect(screen.getByTestId('panel-letter-send')).toBeEnabled();
+
+    const sent = { ...READY, row: { ...READY.row, logistics: { ...READY.row.logistics, letterSentAt: '2027-01-09T12:00:00Z', letterSentTo: 'ana.perez@example.com' } } };
+    replies.push({ status: 200, body: { sent: true, to: 'ana.perez@example.com', stored: true } });
+    replies.push({ status: 200, body: sent });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('panel-letter-send'));
+    });
+    const post = fetchMock.mock.calls[2];
+    expect(post[0]).toBe(`/api/admin/pasantias-panel/participants/${P1}/send-letter`);
+    expect(post[1].method).toBe('POST');
+    await waitFor(() => expect(screen.getByTestId('panel-letter-msg')).toHaveTextContent('Carta enviada a ana.perez@example.com'));
+    expect(screen.getByTestId('panel-letter-send-state')).toHaveAttribute('data-state', 'sent');
+    expect(screen.getByTestId('panel-letter-send')).toHaveTextContent('Enviar de nuevo ahora');
+  });
+
+  it('a failed send shows the plain reason and what the last attempt said', async () => {
+    replies.push({ status: 200, body: { ...PANEL, letterAssets: { logo: true, signature: true } } });
+    render(<PasantiasPanelPage />);
+    await screen.findByTestId(`panel-row-${P1}`);
+    replies.push({ status: 200, body: READY });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId(`panel-open-${P1}`));
+    });
+    await screen.findByTestId('panel-section-tracking');
+    const failed = { ...READY, row: { ...READY.row, logistics: { ...READY.row.logistics, letterSendError: 'email_not_configured' } } };
+    replies.push({ status: 502, body: { code: 'SEND_FAILED', error: 'No se envió la carta: el envío de correos no está configurado.' } });
+    replies.push({ status: 200, body: failed });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('panel-letter-send'));
+    });
+    await waitFor(() => expect(screen.getByTestId('panel-letter-msg')).toHaveTextContent('el envío de correos no está configurado'));
+    expect(screen.getByTestId('panel-letter-send-error')).toHaveTextContent('el envío de correos no está configurado');
   });
 
   it('removing a document asks first', async () => {

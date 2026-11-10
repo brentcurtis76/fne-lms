@@ -806,6 +806,7 @@ export default function NominaPage() {
                 setSchoolDraft(draft);
               }}
               onSubmit={() => void saveSchool()}
+              lodgingLocked={fundingSaved && roster.lodgingLocked === true}
             />
           </fieldset>
         </section>
@@ -892,6 +893,10 @@ export default function NominaPage() {
                   }}
                   onSubmit={() => void save()}
                   onCancel={cancelEditor}
+                  datesLocked={
+                    editor.mode === 'edit' &&
+                    participants.some((person) => person.id === editor.participantId && person.datesLocked === true)
+                  }
                 />
                 </fieldset>
               </div>

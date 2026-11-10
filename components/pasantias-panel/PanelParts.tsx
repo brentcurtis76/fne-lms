@@ -10,12 +10,16 @@ import {
   type PaymentFilter,
 } from '../../lib/pasantias/panel/client';
 import {
+  FLIGHT_DATE_FIELDS,
+  FLIGHT_DATE_LABELS,
   FLIGHT_LABELS,
   FLIGHT_STATUSES,
   LODGING_LABELS,
   LODGING_STATUSES,
+  letterSendState,
   type BulkField,
   type FlightStatus,
+  type LetterAssetsState,
   type LodgingStatus,
   type Logistics,
   type PanelRoster,
@@ -102,7 +106,7 @@ export function PanelFilters({
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-6">
         <div className="md:col-span-3 lg:col-span-2">
           <label htmlFor="panel-filter-search" className="block text-xs font-semibold text-gray-700">
-            Buscar por nombre, RUT o pasaporte
+            Buscar por nombre, RUT, pasaporte o correo
           </label>
           <input
             id="panel-filter-search"
@@ -313,7 +317,12 @@ export function PanelTable({
   onToggleAll,
   onOpen,
   onQuickChange,
+  letterAssets,
+  today,
 }: {
+  /** Which letter images exist, and today's date in Chile: both decide each row's letter-email state. */
+  letterAssets: LetterAssetsState;
+  today: string;
   rows: PanelRow[];
   rosters: PanelRoster[];
   selected: Set<string>;
@@ -345,7 +354,7 @@ export function PanelTable({
             </th>
             <th scope="col" className={TH}>Persona</th>
             <th scope="col" className={TH}>Colegio</th>
-            <th scope="col" className={TH}>Viaje</th>
+            <th scope="col" className={TH}>Fechas del viaje</th>
             <th scope="col" className={TH}>Foco y alimentación</th>
             <th scope="col" className={TH}>Pasaje</th>
             <th scope="col" className={TH}>Alojamiento</th>
@@ -360,6 +369,19 @@ export function PanelTable({
             const roster = byId.get(row.rosterId);
             const busy = busyIds.has(p.id);
             const fullName = `${p.firstNames} ${p.lastNames}`;
+            const send = roster
+              ? letterSendState(p.email, l, roster.details, letterAssets, today)
+              : { kind: 'blocked' as const, missing: [] };
+            const sendText =
+              send.kind === 'sent'
+                ? `Carta enviada ${shortDate(send.at)}`
+                : send.kind === 'scheduled'
+                  ? send.on <= today
+                    ? 'Carta: sale en el próximo envío'
+                    : `Carta: se envía el ${shortDate(send.on)}`
+                  : send.kind === 'late'
+                    ? 'Carta no enviada'
+                    : 'Carta: falta información';
             return (
               <tr key={p.id} data-testid={`panel-row-${p.id}`} data-name={fullName} className={selected.has(p.id) ? 'bg-brand_accent/10' : undefined}>
                 <td className={TD}>
@@ -383,8 +405,19 @@ export function PanelTable({
                   </button>
                   <p className="whitespace-nowrap text-xs text-gray-700">RUT {displayRut(p.rut)}</p>
                   <p className="whitespace-nowrap text-xs text-gray-700">Pasaporte {p.passportNumber ?? '—'}</p>
+                  <p className="text-xs text-gray-700" data-testid={`panel-email-${p.id}`}>
+                    {p.email ?? 'Sin correo'}
+                  </p>
+                  {row.hasAccount ? (
+                    <p
+                      data-testid={`panel-account-${p.id}`}
+                      className="mt-0.5 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-800"
+                    >
+                      Con cuenta en GENERA
+                    </p>
+                  ) : null}
                 </td>
-                <td className={TD}>
+                <td className={`${TD} min-w-[11rem]`}>
                   <p className="font-medium">{roster?.schoolName ?? '—'}</p>
                   <p className="text-xs text-gray-700">{roster?.programName ?? ''}</p>
                   <p className="text-xs text-gray-700" data-testid={`panel-funding-${p.id}`}>
@@ -394,8 +427,17 @@ export function PanelTable({
                   </p>
                 </td>
                 <td className={`${TD} whitespace-nowrap text-xs`}>
-                  <p>Llegada {shortDate(p.arrivalDate)}</p>
-                  <p>Regreso {shortDate(p.departureDate)}</p>
+                  <dl data-testid={`panel-flight-dates-${p.id}`}>
+                    {FLIGHT_DATE_FIELDS.map((field) => (
+                      <div key={field} className="flex justify-between gap-3">
+                        <dt className="text-gray-700">{FLIGHT_DATE_LABELS[field]}</dt>
+                        <dd>{shortDate(l[field])}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <p className="mt-1 text-gray-700">
+                    Según el colegio: {shortDate(p.arrivalDate)} a {shortDate(p.departureDate)}
+                  </p>
                 </td>
                 <td className={`${TD} text-xs`}>
                   <p>{p.focus ? FOCUS_LABELS[p.focus] : 'Foco sin indicar'}</p>
@@ -465,6 +507,14 @@ export function PanelTable({
                   <p className="mt-1 flex items-center gap-1 text-gray-700" data-testid={`panel-letter-${p.id}`}>
                     <Mail className="h-4 w-4" aria-hidden="true" />
                     {row.hasLetter ? 'Carta generada' : 'Sin carta'}
+                  </p>
+                  <p
+                    className={`mt-1 ${send.kind === 'blocked' || send.kind === 'late' ? 'font-semibold text-brand_accent_text' : 'text-gray-700'}`}
+                    data-testid={`panel-letter-send-${p.id}`}
+                    data-state={send.kind}
+                    title={send.kind === 'blocked' ? `Falta: ${send.missing.join('; ')}` : undefined}
+                  >
+                    {sendText}
                   </p>
                 </td>
               </tr>

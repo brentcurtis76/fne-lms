@@ -12,10 +12,8 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { authorizeIntakeAdmin } from '../../../../../../lib/pasantias/participants/admin';
 import { logIntakeFailure } from '../../../../../../lib/pasantias/participants/server';
 import { isUuid } from '../../../../../../lib/pasantias/participants/validation';
-import { readLetterAsset, storeDocument } from '../../../../../../lib/pasantias/panel/documents';
-import { letterFileName, renderInvitationLetter } from '../../../../../../lib/pasantias/panel/letter';
+import { buildLetter, storeLetter } from '../../../../../../lib/pasantias/panel/letter-delivery';
 import { loadParticipant } from '../../../../../../lib/pasantias/panel/server';
-import { letterMissing } from '../../../../../../lib/pasantias/panel/types';
 
 export const config = { api: { bodyParser: { sizeLimit: '1kb' } } };
 
@@ -39,40 +37,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!found.value) return res.status(404).json(NOT_FOUND);
     const { row, roster } = found.value;
 
-    const [logo, signature] = await Promise.all([
-      readLetterAsset(supabase, 'logo'),
-      readLetterAsset(supabase, 'signature'),
-    ]);
-    const missing = letterMissing(row.logistics, roster.details, { logo: logo !== null, signature: signature !== null });
-    if (missing.length > 0 || !logo || !signature) {
-      return res.status(422).json({
-        code: 'LETTER_INCOMPLETE',
-        error: `Para generar la carta falta: ${missing.join('; ')}.`,
-        missing,
-      });
+    const letter = await buildLetter(supabase, row, roster);
+    if (letter.ok === false) {
+      if (letter.reason === 'incomplete') {
+        return res.status(422).json({
+          code: 'LETTER_INCOMPLETE',
+          error: `Para generar la carta falta: ${letter.missing.join('; ')}.`,
+          missing: letter.missing,
+        });
+      }
+      // `renderInvitationLetter` already strips its message down to the error kind.
+      logIntakeFailure('panel letter render failed', letter.error);
+      return res.status(500).json({ error: 'Error al generar la carta' });
     }
 
-    const fullName = `${row.participant.firstNames} ${row.participant.lastNames}`;
-    const pdf = await renderInvitationLetter({
-      salutation: row.logistics.salutation,
-      fullName,
-      schoolLine: roster.details.letterSchoolLine,
-      lodgingLine: roster.details.letterLodgingLine,
-      program: roster.program,
-      logo,
-      signature,
-    });
-
-    const stored = await storeDocument(supabase, {
-      participantId,
-      kind: 'invitation_letter',
-      description: null,
-      fileName: letterFileName(fullName),
-      mimeType: 'application/pdf',
-      buffer: pdf,
-      actorId: userId,
-      action: 'letter_generated',
-    });
+    const stored = await storeLetter(supabase, participantId, letter, userId);
     if (stored.ok === false) {
       logIntakeFailure(`panel letter store failed (${stored.stage})`, stored.error);
       return res.status(500).json({ error: 'Error al generar la carta' });
@@ -80,7 +59,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!stored.activityLogged) console.error('[pasantias-intake] panel letter: activity row not written');
     return res.status(201).json({ document: stored.document });
   } catch (error) {
-    // `renderInvitationLetter` already strips its message down to the error kind.
     logIntakeFailure('panel letter unexpected error', error);
     return res.status(500).json({ error: 'Error al generar la carta' });
   }

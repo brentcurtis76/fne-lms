@@ -95,10 +95,20 @@ const logisticsRow = (overrides: Record<string, unknown> = {}) => ({
   balance_received: false,
   salutation: 'estimada',
   notes: PERSON.notes,
+  scl_departure_date: '2027-01-16',
+  bcn_arrival_date: '2027-01-17',
+  bcn_departure_date: null,
+  scl_arrival_date: null,
+  letter_sent_at: null,
+  letter_sent_to: null,
+  letter_send_error: null,
   version: 3,
   updated_at: '2026-11-02T12:00:00.000Z',
   ...overrides,
 });
+
+const EMAIL = 'ana.sintetica@example.com';
+const ACCOUNT_ID = 'eeeeeeee-ffff-4000-8111-222222222222';
 
 const detailsRow = (overrides: Record<string, unknown> = {}) => ({
   roster_id: ROSTER_ID,
@@ -126,6 +136,12 @@ function storedTraveller(overrides: Partial<Record<string, unknown>> = {}) {
         return { data: has('logistics') ? overrides.logistics : logisticsRow(), error: null };
       case 'pasantias_panel_documents':
         return { data: has('documents') ? overrides.documents : [], error: null };
+      case 'pasantias_panel_contacts':
+        return { data: has('contact') ? overrides.contact : { email: EMAIL }, error: null };
+      case 'profiles':
+        // The account lookup by email (`ilike`); the activity log reads names with `in`.
+        if ('email' in query.ilike) return { data: has('account') ? overrides.account : [], error: null };
+        return null;
       default:
         return null;
     }
@@ -142,7 +158,14 @@ function install(handlers: {
   rpc?: (rpc: PanelRpc) => Answer;
   storage?: (call: StorageCall) => Answer;
 }): FakePanel {
-  const fake = fakePanel(handlers);
+  const fake = fakePanel({
+    ...handlers,
+    // The panel list always asks which travellers have an account; none unless a test says so.
+    rpc: (rpc) =>
+      rpc.name === 'pasantias_panel_platform_accounts' && !handlers.rpc
+        ? { data: [], error: null }
+        : (handlers.rpc ?? (() => ({ data: null, error: { code: 'UNEXPECTED_RPC' } })))(rpc),
+  });
   mockCreateServiceRoleClient.mockReturnValue(fake.client);
   return fake;
 }
@@ -273,6 +296,9 @@ describe('GET /api/admin/pasantias-panel', () => {
         }
         if (q.table === 'pasantias_nomina_participant_focus') return { data: [{ participant_id: DOC_ID }], error: null };
         if (q.table === 'pasantias_panel_logistics') return { data: [logisticsRow()], error: null };
+        if (q.table === 'pasantias_panel_contacts') {
+          return { data: [{ participant_id: PARTICIPANT_ID, email: EMAIL }], error: null };
+        }
         if (q.table === 'pasantias_panel_documents') {
           return {
             data: [
@@ -284,6 +310,10 @@ describe('GET /api/admin/pasantias-panel', () => {
         }
         return { data: [], error: null };
       },
+      rpc: (rpc) =>
+        rpc.name === 'pasantias_panel_platform_accounts'
+          ? { data: [{ participant_id: PARTICIPANT_ID, user_id: ACCOUNT_ID }], error: null }
+          : { data: null, error: { code: 'UNEXPECTED_RPC' } },
       storage: () => ({ data: [{ name: 'logo' }], error: null }),
     });
 
@@ -305,13 +335,20 @@ describe('GET /api/admin/pasantias-panel', () => {
       logistics: { flightStatus: 'purchased', depositReceived: true, salutation: 'estimada', version: 3 },
       documentCount: 2,
       hasLetter: true,
+      hasAccount: true,
+      participant: { email: EMAIL },
+      logistics: { sclDepartureDate: '2027-01-16', bcnArrivalDate: '2027-01-17', sclArrivalDate: null, letterSentAt: null },
     });
+    // The account id never leaves the server: the panel only needs "has one".
+    expect(out.raw).not.toContain(ACCOUNT_ID);
     // No tracking row = everything pending and version null; "Todos" comes from the side table.
     expect(out.json.rows[1]).toMatchObject({
       participant: { focus: 'todos' },
       logistics: { flightStatus: 'pending', lodgingStatus: 'pending', depositReceived: false, version: null },
       documentCount: 0,
       hasLetter: false,
+      hasAccount: false,
+      participant: { email: null },
     });
 
     const rosters = fake.queries.find((q) => q.table === 'pasantias_intake_rosters')!;
@@ -362,10 +399,14 @@ describe('PATCH /api/admin/pasantias-panel/participants/[id] — tracking', () =
     balanceReceived: true,
     salutation: 'estimada',
     notes: 'Nueva nota',
+    sclDepartureDate: '2027-01-16',
+    bcnArrivalDate: '2027-01-17',
+    bcnDepartureDate: '2027-01-29',
+    sclArrivalDate: null,
     expectedVersion: 3,
   };
 
-  it('calls the SQL function with all nine named arguments and answers the stored row', async () => {
+  it('calls the SQL function with all thirteen named arguments and answers the stored row', async () => {
     asAdmin();
     const stored = storedTraveller();
     const fake = install({
@@ -386,6 +427,10 @@ describe('PATCH /api/admin/pasantias-panel/participants/[id] — tracking', () =
           p_balance_received: true,
           p_salutation: 'estimada',
           p_notes: 'Nueva nota',
+          p_scl_departure_date: '2027-01-16',
+          p_bcn_arrival_date: '2027-01-17',
+          p_bcn_departure_date: '2027-01-29',
+          p_scl_arrival_date: null,
           p_actor: ADMIN_ID,
         },
       },
@@ -458,7 +503,7 @@ describe('PUT /api/admin/pasantias-panel/participants/[id] — correction', () =
     expectedVersion: 2,
   };
 
-  it('validates with the stored roster program and calls the function with twelve named arguments', async () => {
+  it('validates with the stored roster program and calls the function with thirteen named arguments', async () => {
     asAdmin();
     const stored = storedTraveller();
     const fake = install({
@@ -482,6 +527,8 @@ describe('PUT /api/admin/pasantias-panel/participants/[id] — correction', () =
           p_focus: 'todos',
           p_dietary_restrictions: ['vegano'],
           p_dietary_other: null,
+          // Not in this body: FNE may save a correction without knowing the email.
+          p_email: null,
           p_actor: ADMIN_ID,
         },
       },

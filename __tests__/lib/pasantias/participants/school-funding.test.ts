@@ -139,9 +139,9 @@ describe('server mappers', () => {
     expect(ADMIN_ROSTER_SELECT).not.toMatch(/token_hash/);
   });
 
-  it('the participant save is the corrections RPC with exactly fourteen named arguments, no funding', () => {
-    expect(SAVE_RPC).toBe('pasantias_nomina_save_participant');
-    expect(FUNDING_RPC).toBe('pasantias_nomina_save_school_funding');
+  it('the participant save is the panel wrapper: the corrections save\'s fourteen arguments plus the email, no funding', () => {
+    expect(SAVE_RPC).toBe('pasantias_panel_school_save_participant');
+    expect(FUNDING_RPC).toBe('pasantias_panel_school_save_funding');
     const args = saveArgs(
       'h'.repeat(64),
       { kind: 'create', clientRequestId: '0f8fad5b-d9cb-469f-a165-70867728950e' },
@@ -155,6 +155,7 @@ describe('server mappers', () => {
         focus: 'todos',
         dietaryRestrictions: [],
         dietaryOther: null,
+        email: 'ana@example.com',
       },
       'v'
     );
@@ -174,8 +175,10 @@ describe('server mappers', () => {
         'p_dietary_restrictions',
         'p_dietary_other',
         'p_notice_version',
+        'p_email',
       ].sort()
     );
+    expect(args.p_email).toBe('ana@example.com');
     expect(args.p_focus).toBe('todos');
   });
 });

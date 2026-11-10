@@ -15,6 +15,7 @@ import {
   matchesSearch,
   panelCsvRows,
   shortDate,
+  todayInChile,
 } from '../../../../lib/pasantias/panel/client';
 import {
   ACTIVITY_ACTIONS,
@@ -26,12 +27,19 @@ import {
   MAX_FILE_BYTES,
   STORED_FILE_MAX_BYTES,
   SALUTATIONS,
+  FLIGHT_DATE_FIELDS,
+  LETTER_SEND_ERRORS,
+  addDays,
   letterMissing,
+  letterSendErrorText,
+  letterSendState,
   summarize,
   type Logistics,
   type PanelRoster,
   type PanelRow,
 } from '../../../../lib/pasantias/panel/types';
+import { retentionDate } from '../../../../lib/pasantias/panel/letter-delivery';
+import { programById } from '../../../../lib/pasantias/cohort-public';
 
 const ROSTERS: PanelRoster[] = [
   {
@@ -81,6 +89,7 @@ function row(id: string, rosterId: string, names: [string, string], rut: string,
       focus: id === 'p1' ? 'todos' : null,
       dietaryRestrictions: id === 'p1' ? ['otra', 'vegano'] : [],
       dietaryOther: id === 'p1' ? '=cmd|calc' : null,
+      email: id === 'p1' ? 'ana.perez@example.com' : null,
       updatedAt: '2026-11-01T12:00:00.000Z',
       createdAt: '2026-11-01T12:00:00.000Z',
       acknowledgedAt: '2026-11-01T12:00:00.000Z',
@@ -89,6 +98,7 @@ function row(id: string, rosterId: string, names: [string, string], rut: string,
     logistics: { ...EMPTY_LOGISTICS, ...logistics },
     documentCount: id === 'p1' ? 2 : 0,
     hasLetter: id === 'p1',
+    hasAccount: id === 'p1',
   };
 }
 
@@ -99,6 +109,7 @@ const ROWS: PanelRow[] = [
     depositReceived: true,
     balanceReceived: true,
     notes: 'Viaja con\nequipaje extra',
+    sclDepartureDate: '2027-01-16',
     version: 4,
   }),
   row('p2', 'r1', ['Benjamín', 'Soto'], '22222222-2', { flightStatus: 'purchased', depositReceived: true, version: 1 }),
@@ -164,8 +175,17 @@ describe('logisticsBody', () => {
       balanceReceived: true,
       salutation: null,
       notes: 'Viaja con\nequipaje extra',
+      sclDepartureDate: '2027-01-16',
+      bcnArrivalDate: null,
+      bcnDepartureDate: null,
+      sclArrivalDate: null,
       expectedVersion: 4,
     });
+  });
+
+  it('never sends the letter-email state: the server owns it', () => {
+    const body = logisticsBody({ ...ROWS[0].logistics, letterSentAt: '2027-01-09T12:00:00Z', letterSentTo: 'a@b.cl' });
+    expect(Object.keys(body).some((key) => key.startsWith('letter'))).toBe(false);
   });
 
   it('expects no row when nothing was saved yet', () => {
@@ -191,8 +211,13 @@ describe('panelCsvRows', () => {
       Apellidos: 'Pérez Núñez',
       RUT: '11.111.111-1',
       Pasaporte: 'AB123456',
+      Correo: 'ana.perez@example.com',
+      'Cuenta en GENERA': 'Sí',
       Llegada: '17-01-2027',
       Regreso: '',
+      'Salida de SCL': '16-01-2027',
+      'Llegada a BCN': '',
+      'Carta enviada': 'No',
       Foco: 'Todos',
       'Pasajes a cargo de': 'Costo SEP',
       'Estadía a cargo de': 'Costo Colegio',
@@ -259,5 +284,102 @@ describe('value sets match the migration CHECKs', () => {
     expect(MAX_FILE_BYTES).toBeLessThanOrEqual(STORED_FILE_MAX_BYTES);
     for (const action of ACTIVITY_ACTIONS) expect(sql).toContain(`'${action}'`);
     expect(sql).toContain(`\\.(${Object.values(ALLOWED_MIME).join('|')})$`);
+  });
+});
+
+describe('search by email', () => {
+  it('finds a traveller by any part of their email', () => {
+    const search = (text: string) => ids(filterRows(ROWS, ROSTERS, { ...EMPTY_FILTERS, search: text }));
+    expect(search('ana.perez@example')).toEqual(['p1']);
+    expect(search('EXAMPLE.COM')).toEqual(['p1']);
+  });
+});
+
+describe('addDays / todayInChile', () => {
+  it('moves across months and years without a time zone', () => {
+    expect(addDays('2027-01-05', -7)).toBe('2026-12-29');
+    expect(addDays('2027-01-16', -7)).toBe('2027-01-09');
+    expect(addDays('2027-02-28', 1)).toBe('2027-03-01');
+  });
+
+  it('is the calendar day in Chile, not in UTC', () => {
+    // 02:30 UTC on 10 Jan is still 9 Jan in Santiago (UTC-3 in summer).
+    expect(todayInChile(new Date('2027-01-10T02:30:00Z'))).toBe('2027-01-09');
+    expect(todayInChile(new Date('2027-01-10T15:00:00Z'))).toBe('2027-01-10');
+  });
+});
+
+describe('letterSendState — when a letter is emailed by itself', () => {
+  const details = { letterSchoolLine: 'del Colegio X', letterLodgingLine: 'la Residencia Y' };
+  const assets = { logo: true, signature: true };
+  const ready = { salutation: 'estimada' as const, sclDepartureDate: '2027-01-16', letterSentAt: null, letterSentTo: null };
+  const email = 'ana@example.com';
+
+  it('is scheduled for seven days before leaving Santiago once everything exists', () => {
+    expect(letterSendState(email, ready, details, assets, '2027-01-02')).toEqual({ kind: 'scheduled', on: '2027-01-09' });
+    // Still "scheduled" on and after that day, up to the departure day itself: the daily job picks it up.
+    expect(letterSendState(email, ready, details, assets, '2027-01-09').kind).toBe('scheduled');
+    expect(letterSendState(email, ready, details, assets, '2027-01-16').kind).toBe('scheduled');
+  });
+
+  it('is never sent after the traveller has left', () => {
+    expect(letterSendState(email, ready, details, assets, '2027-01-17')).toEqual({ kind: 'late' });
+  });
+
+  it('is blocked, naming what is missing, without the departure date, the email or any letter data', () => {
+    const noDate = letterSendState(email, { ...ready, sclDepartureDate: null }, details, assets, '2027-01-02');
+    expect(noDate).toEqual({ kind: 'blocked', missing: ['la fecha de salida de SCL'] });
+    const noEmail = letterSendState(null, ready, details, assets, '2027-01-02');
+    expect(noEmail).toEqual({ kind: 'blocked', missing: ['el correo de la persona'] });
+    const nothing = letterSendState(
+      null,
+      { ...ready, salutation: null, sclDepartureDate: null },
+      { letterSchoolLine: null, letterLodgingLine: null },
+      { logo: false, signature: false },
+      '2027-01-02'
+    );
+    expect(nothing.kind === 'blocked' && nothing.missing).toHaveLength(7);
+  });
+
+  it('once sent, stays sent whatever changes afterwards', () => {
+    const sent = { ...ready, sclDepartureDate: null, letterSentAt: '2027-01-09T12:00:05Z', letterSentTo: email };
+    expect(letterSendState(null, sent, details, { logo: false, signature: false }, '2027-02-01')).toEqual({
+      kind: 'sent',
+      at: '2027-01-09T12:00:05Z',
+      to: email,
+    });
+  });
+});
+
+describe('letter email failures', () => {
+  it('every code fits the stored column and has a plain explanation', () => {
+    for (const code of Object.keys(LETTER_SEND_ERRORS)) {
+      expect(code).toMatch(/^[a-z_]{1,40}$/);
+      expect(letterSendErrorText(code)).toBe(LETTER_SEND_ERRORS[code as keyof typeof LETTER_SEND_ERRORS]);
+    }
+    expect(letterSendErrorText(null)).toBeNull();
+    expect(letterSendErrorText('a_code_from_the_future')).toBe('el envío falló');
+  });
+});
+
+describe('the migration agrees with the app on the new rules', () => {
+  const sql = readFileSync(
+    path.join(process.cwd(), 'supabase/migrations/20261109210000_pasantias_logistics_panel.sql'),
+    'utf8'
+  );
+
+  it('has one column per flight date and stores the letter failure as a short code', () => {
+    const snake = (field: string) => field.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+    for (const field of FLIGHT_DATE_FIELDS) expect(sql).toContain(`  ${snake(field)} date NULL,`);
+    expect(sql).toContain("letter_send_error ~ '^[a-z_]{1,40}$'");
+  });
+
+  it('deletes files and history one month after each program ends, on the dates the app computes', () => {
+    expect(retentionDate('inspira')).toBe('2027-02-28');
+    expect(retentionDate('mirada-profunda')).toBe('2027-02-28');
+    for (const program of ['inspira', 'mirada-profunda'] as const) {
+      expect(sql).toContain(`WHEN '${program}' THEN date '${programById(program).endDate}'`);
+    }
+    expect(sql).toContain("+ interval '1 month')::date");
   });
 });

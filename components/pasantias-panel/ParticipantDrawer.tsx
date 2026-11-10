@@ -13,11 +13,23 @@ import {
 } from '../../lib/pasantias/participants/form';
 import { displayRut } from '../../lib/pasantias/participants/rut';
 import { FOCUS_LABELS, FUNDING_LABELS } from '../../lib/pasantias/participants/types';
-import { PANEL_API, dietaryText, errorText, logisticsBody, readJson } from '../../lib/pasantias/panel/client';
+import {
+  PANEL_API,
+  dietaryText,
+  errorText,
+  logisticsBody,
+  readJson,
+  shortDate,
+  todayInChile,
+} from '../../lib/pasantias/panel/client';
 import {
   DESCRIPTION_MAX,
   DOCUMENT_KIND_LABELS,
   FILE_ACCEPT,
+  FLIGHT_DATE_FIELDS,
+  FLIGHT_DATE_LABELS,
+  FLIGHT_DATE_MAX,
+  FLIGHT_DATE_MIN,
   FLIGHT_LABELS,
   FLIGHT_STATUSES,
   LETTER_LINE_MAX,
@@ -29,6 +41,8 @@ import {
   SALUTATION_LABELS,
   UPLOAD_KINDS,
   letterMissing,
+  letterSendErrorText,
+  letterSendState,
   type FlightStatus,
   type LetterAssetsState,
   type LodgingStatus,
@@ -53,6 +67,11 @@ interface TrackingDraft {
   balanceReceived: boolean;
   salutation: '' | Salutation;
   notes: string;
+  /** '' = not entered yet. */
+  sclDepartureDate: string;
+  bcnArrivalDate: string;
+  bcnDepartureDate: string;
+  sclArrivalDate: string;
 }
 
 function trackingFrom(l: Logistics): TrackingDraft {
@@ -63,6 +82,10 @@ function trackingFrom(l: Logistics): TrackingDraft {
     balanceReceived: l.balanceReceived,
     salutation: l.salutation ?? '',
     notes: l.notes ?? '',
+    sclDepartureDate: l.sclDepartureDate ?? '',
+    bcnArrivalDate: l.bcnArrivalDate ?? '',
+    bcnDepartureDate: l.bcnDepartureDate ?? '',
+    sclArrivalDate: l.sclArrivalDate ?? '',
   };
 }
 
@@ -73,7 +96,8 @@ function sameTracking(a: TrackingDraft, b: TrackingDraft): boolean {
     a.depositReceived === b.depositReceived &&
     a.balanceReceived === b.balanceReceived &&
     a.salutation === b.salutation &&
-    a.notes === b.notes
+    a.notes === b.notes &&
+    FLIGHT_DATE_FIELDS.every((field) => a[field] === b[field])
   );
 }
 
@@ -143,6 +167,7 @@ export default function ParticipantDrawer({
   const [lineErrors, setLineErrors] = useState<Record<string, string>>({});
   const [linesSaving, setLinesSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [sending, setSending] = useState(false);
   const [letterMsg, setLetterMsg] = useState<Msg>(null);
 
   const [kind, setKind] = useState<UploadKind>('ticket');
@@ -212,6 +237,10 @@ export default function ParticipantDrawer({
             ...tracking,
             salutation: tracking.salutation === '' ? null : tracking.salutation,
             notes: tracking.notes.trim() === '' ? null : tracking.notes,
+            sclDepartureDate: tracking.sclDepartureDate || null,
+            bcnArrivalDate: tracking.bcnArrivalDate || null,
+            bcnDepartureDate: tracking.bcnDepartureDate || null,
+            sclArrivalDate: tracking.sclArrivalDate || null,
           })
         ),
       });
@@ -241,7 +270,8 @@ export default function ParticipantDrawer({
 
   const saveCorrection = async () => {
     if (!detail || !draft || draftSaving) return;
-    const { errors } = validateDraft(draft, detail.roster.program);
+    // FNE may correct a person whose school has not given an email yet.
+    const { errors } = validateDraft(draft, detail.roster.program, { emailRequired: false });
     setDraftErrors(errors);
     setDraftNotice(null);
     if (Object.keys(errors).length > 0) {
@@ -331,6 +361,26 @@ export default function ParticipantDrawer({
       setLetterMsg({ text: 'No pudimos conectar. Inténtalo de nuevo.', tone: 'error' });
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const sendLetterNow = async () => {
+    if (!detail || sending) return;
+    setSending(true);
+    setLetterMsg(null);
+    try {
+      const response = await fetch(`${base}/send-letter`, { method: 'POST' });
+      const body = await readJson(response);
+      await reload({});
+      if (response.ok) {
+        setLetterMsg({ text: `Carta enviada a ${typeof body.to === 'string' ? body.to : 'la persona'}.`, tone: 'info' });
+        return;
+      }
+      setLetterMsg({ text: errorText(response.status, body, 'No pudimos enviar la carta.'), tone: 'error' });
+    } catch {
+      setLetterMsg({ text: 'No pudimos conectar. Inténtalo de nuevo.', tone: 'error' });
+    } finally {
+      setSending(false);
     }
   };
 
@@ -433,6 +483,11 @@ export default function ParticipantDrawer({
         lodgingLine.trim() !== (roster.details.letterLodgingLine ?? ''))
   );
   const missing = detail ? letterMissing(detail.row.logistics, detail.roster.details, letterAssets) : [];
+  const today = todayInChile();
+  const sendState = detail
+    ? letterSendState(detail.row.participant.email, detail.row.logistics, detail.roster.details, letterAssets, today)
+    : { kind: 'blocked' as const, missing: [] };
+  const sendError = letterSendErrorText(detail?.row.logistics.letterSendError ?? null);
 
   return (
     <Dialog open onOpenChange={(open) => (!open ? onClose() : undefined)}>
@@ -474,6 +529,7 @@ export default function ParticipantDrawer({
                     notice={draftNotice}
                     focusRequest={focusRequest}
                     onChange={setDraft}
+                    emailOptional
                     onSubmit={() => void saveCorrection()}
                     onCancel={() => {
                       setEditing(false);
@@ -493,6 +549,21 @@ export default function ParticipantDrawer({
                     <div>
                       <dt className="text-xs font-semibold text-gray-600">Pasaporte</dt>
                       <dd data-testid="panel-data-passport">{p.passportNumber ?? 'Sin indicar'}</dd>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <dt className="text-xs font-semibold text-gray-600">Correo</dt>
+                      <dd data-testid="panel-data-email" className="break-all">
+                        {p.email ?? 'Sin indicar'}
+                        {p.email ? (
+                          <span
+                            data-testid="panel-data-account"
+                            data-account={detail.row.hasAccount ? 'yes' : 'no'}
+                            className="ml-2 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-800"
+                          >
+                            {detail.row.hasAccount ? 'Tiene cuenta en GENERA: ve «Mi pasantía»' : 'Sin cuenta en GENERA'}
+                          </span>
+                        ) : null}
+                      </dd>
                     </div>
                     <div>
                       <dt className="text-xs font-semibold text-gray-600">Llegada a Barcelona</dt>
@@ -582,6 +653,38 @@ export default function ParticipantDrawer({
                     ))}
                   </select>
                 </div>
+                <fieldset className="sm:col-span-2">
+                  <legend className="text-sm font-semibold">Fechas del viaje</legend>
+                  <p className="text-xs text-gray-600">
+                    Las fechas reales del pasaje. La carta de invitación se envía por correo 7 días antes de la salida de
+                    SCL.
+                  </p>
+                  <div className="mt-1 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {FLIGHT_DATE_FIELDS.map((field) => (
+                      <div key={field}>
+                        <label htmlFor={`panel-tracking-${field}`} className="block text-sm">
+                          {FLIGHT_DATE_LABELS[field]}
+                        </label>
+                        <input
+                          id={`panel-tracking-${field}`}
+                          data-testid={`panel-tracking-${field}`}
+                          type="date"
+                          min={FLIGHT_DATE_MIN}
+                          max={FLIGHT_DATE_MAX}
+                          value={tracking[field]}
+                          onChange={(e) => setTracking({ ...tracking, [field]: e.target.value })}
+                          aria-invalid={Boolean(trackingErrors[field])}
+                          className={`mt-1 ${FIELD}`}
+                        />
+                        {trackingErrors[field] ? (
+                          <p data-testid={`panel-tracking-error-${field}`} className="mt-1 text-sm text-red-700">
+                            {trackingErrors[field]}
+                          </p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </fieldset>
                 <fieldset className="sm:col-span-2">
                   <legend className="text-sm font-semibold">Pago del programa</legend>
                   <div className="mt-1 flex flex-wrap gap-4">
@@ -730,6 +833,35 @@ export default function ParticipantDrawer({
               {missing.length === 0 && (linesDirty || trackingDirty) ? (
                 <p className="text-xs text-gray-600">Guarda los cambios pendientes antes de generar la carta.</p>
               ) : null}
+
+              <div className="border-t border-gray-200 pt-3">
+                <h4 className="text-sm font-bold">Envío por correo</h4>
+                <p data-testid="panel-letter-send-state" data-state={sendState.kind} className="mt-1 text-sm text-gray-800">
+                  {sendState.kind === 'sent'
+                    ? `Enviada a ${sendState.to} el ${shortDate(sendState.at)}.`
+                    : sendState.kind === 'scheduled'
+                      ? sendState.on <= today
+                        ? 'Lista: se enviará sola en el próximo envío diario.'
+                        : `Lista: se enviará sola el ${shortDate(sendState.on)} (7 días antes de la salida de SCL).`
+                      : sendState.kind === 'late'
+                        ? 'No se envió: la fecha de salida de SCL ya pasó. Puedes enviarla ahora.'
+                        : `No se enviará sola todavía. Falta: ${sendState.missing.join('; ')}.`}
+                </p>
+                {sendError && sendState.kind !== 'sent' ? (
+                  <p data-testid="panel-letter-send-error" className="mt-1 text-sm text-red-700">
+                    El último intento falló: {sendError}.
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  data-testid="panel-letter-send"
+                  onClick={() => void sendLetterNow()}
+                  disabled={missing.length > 0 || !p.email || sending || generating || linesDirty || trackingDirty}
+                  className={`mt-2 ${SECONDARY}`}
+                >
+                  {sending ? 'Enviando…' : sendState.kind === 'sent' ? 'Enviar de nuevo ahora' : 'Enviar por correo ahora'}
+                </button>
+              </div>
             </Section>
 
             <Section id="panel-section-documents" title="Documentos">

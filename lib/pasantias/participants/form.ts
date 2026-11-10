@@ -33,6 +33,7 @@ export interface ParticipantDraft {
   focus: '' | FocusCode;
   dietaryRestrictions: DietaryCode[];
   dietaryOther: string;
+  email: string;
 }
 
 export function emptyDraft(): ParticipantDraft {
@@ -46,6 +47,7 @@ export function emptyDraft(): ParticipantDraft {
     focus: '',
     dietaryRestrictions: [],
     dietaryOther: '',
+    email: '',
   };
 }
 
@@ -60,6 +62,7 @@ export function draftFromParticipant(participant: IntakeParticipant): Participan
     focus: participant.focus ?? '',
     dietaryRestrictions: [...participant.dietaryRestrictions],
     dietaryOther: participant.dietaryOther ?? '',
+    email: participant.email ?? '',
   };
 }
 
@@ -75,14 +78,17 @@ export function draftToRequestFields(draft: ParticipantDraft): Record<string, un
     focus: draft.focus === '' ? null : draft.focus,
     dietaryRestrictions: draft.dietaryRestrictions,
     dietaryOther: draft.dietaryRestrictions.includes('otra') ? draft.dietaryOther : null,
+    email: draft.email.trim() === '' ? null : draft.email,
   };
 }
 
+/** `emailRequired` defaults to true: the school's form. FNE's correction form passes false. */
 export function validateDraft(
   draft: ParticipantDraft,
-  programId: ProgramId
+  programId: ProgramId,
+  options: { emailRequired?: boolean } = { emailRequired: true }
 ): { value: ParticipantFields | null; errors: FieldErrors } {
-  return validateParticipantFields(draftToRequestFields(draft), programId);
+  return validateParticipantFields(draftToRequestFields(draft), programId, options);
 }
 
 function sameFields(a: ParticipantFields, b: ParticipantFields): boolean {
@@ -95,7 +101,8 @@ function sameFields(a: ParticipantFields, b: ParticipantFields): boolean {
     a.departureDate === b.departureDate &&
     a.focus === b.focus &&
     a.dietaryRestrictions.join(',') === b.dietaryRestrictions.join(',') &&
-    a.dietaryOther === b.dietaryOther
+    a.dietaryOther === b.dietaryOther &&
+    a.email === b.email
   );
 }
 
@@ -110,7 +117,8 @@ export function draftMatchesParticipant(
   participant: IntakeParticipant,
   programId: ProgramId
 ): boolean {
-  const { value } = validateDraft(draft, programId);
+  // Compared without the "required" rule: a stored person may have no email yet.
+  const { value } = validateDraft(draft, programId, { emailRequired: false });
   if (!value) return false;
   return sameFields(value, {
     firstNames: participant.firstNames,
@@ -122,6 +130,7 @@ export function draftMatchesParticipant(
     focus: participant.focus,
     dietaryRestrictions: participant.dietaryRestrictions,
     dietaryOther: participant.dietaryOther,
+    email: participant.email,
   });
 }
 
@@ -135,7 +144,8 @@ export function draftsEqual(a: ParticipantDraft, b: ParticipantDraft): boolean {
     a.departureDate === b.departureDate &&
     a.focus === b.focus &&
     a.dietaryRestrictions.join(',') === b.dietaryRestrictions.join(',') &&
-    a.dietaryOther === b.dietaryOther
+    a.dietaryOther === b.dietaryOther &&
+    a.email === b.email
   );
 }
 

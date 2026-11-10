@@ -21,6 +21,10 @@ import {
   BULK_FIELDS,
   BULK_MAX,
   DESCRIPTION_MAX,
+  FLIGHT_DATE_FIELDS,
+  FLIGHT_DATE_LABELS,
+  FLIGHT_DATE_MAX,
+  FLIGHT_DATE_MIN,
   FLIGHT_STATUSES,
   LETTER_LINE_MAX,
   LODGING_STATUSES,
@@ -42,6 +46,8 @@ export const PANEL_MESSAGES = {
   lodgingInvalid: 'Elige un estado de alojamiento de la lista.',
   paymentInvalid: 'Indica si el pago fue recibido.',
   salutationInvalid: 'Elige «Estimado», «Estimada» o «Sin indicar».',
+  flightDateInvalid: 'Fecha no válida. Usa una fecha entre diciembre de 2026 y marzo de 2027.',
+  flightDateOrder: 'Las fechas del viaje deben ir en orden: salida de SCL, llegada a BCN, salida de BCN, llegada a SCL.',
   notesInvalid: `Las notas pueden tener hasta ${NOTES_MAX} caracteres, sin caracteres de control.`,
   letterLineInvalid: `Usa hasta ${LETTER_LINE_MAX} caracteres en una sola línea.`,
   bulkIdsInvalid: `Selecciona entre 1 y ${BULK_MAX} personas.`,
@@ -125,7 +131,24 @@ export interface LogisticsRequest {
   balanceReceived: boolean;
   salutation: Salutation | null;
   notes: string | null;
+  sclDepartureDate: string | null;
+  bcnArrivalDate: string | null;
+  bcnDepartureDate: string | null;
+  sclArrivalDate: string | null;
   expectedVersion: number | null;
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Blank → null; a real calendar date inside the cohort's window; otherwise `undefined`. */
+export function normalizeFlightDate(value: unknown): string | null | undefined {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value !== 'string' || !ISO_DATE.test(value)) return undefined;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  // 2027-02-30 would roll into March: the round trip must give the same day.
+  if (date.toISOString().slice(0, 10) !== value) return undefined;
+  return value >= FLIGHT_DATE_MIN && value <= FLIGHT_DATE_MAX ? value : undefined;
 }
 
 const LOGISTICS_KEYS = [
@@ -135,10 +158,11 @@ const LOGISTICS_KEYS = [
   'balanceReceived',
   'salutation',
   'notes',
+  ...FLIGHT_DATE_FIELDS,
   'expectedVersion',
 ] as const;
 
-/** `PATCH …/participants/[id]` — a full replace of the six tracking values. */
+/** `PATCH …/participants/[id]` — a full replace of the ten tracking values. */
 export function validateLogisticsBody(body: unknown): Validation<LogisticsRequest> {
   if (!isPlainObject(body)) return invalidBody();
   if (hasUnknownKeys(body, LOGISTICS_KEYS)) return invalidBody(true);
@@ -157,6 +181,20 @@ export function validateLogisticsBody(body: unknown): Validation<LogisticsReques
   }
   const notes = normalizeNotes(body.notes);
   if (notes === undefined) errors.notes = PANEL_MESSAGES.notesInvalid;
+  const dates: Record<string, string | null> = {};
+  for (const field of FLIGHT_DATE_FIELDS) {
+    const value = normalizeFlightDate(body[field]);
+    if (value === undefined) errors[field] = PANEL_MESSAGES.flightDateInvalid;
+    dates[field] = value ?? null;
+  }
+  // Each date may equal the one before (a same-day leg) but never precede it.
+  let latest: string | null = null;
+  for (const field of FLIGHT_DATE_FIELDS) {
+    const value = dates[field];
+    if (!value || errors[field]) continue;
+    if (latest && value < latest) errors[field] = `${FLIGHT_DATE_LABELS[field]}: ${PANEL_MESSAGES.flightDateOrder}`;
+    else latest = value;
+  }
   const expectedVersion = readExpectedVersion(body, errors);
   return finish(errors, () => ({
     flightStatus: flightStatus as FlightStatus,
@@ -165,6 +203,10 @@ export function validateLogisticsBody(body: unknown): Validation<LogisticsReques
     balanceReceived: body.balanceReceived as boolean,
     salutation,
     notes: notes ?? null,
+    sclDepartureDate: dates.sclDepartureDate,
+    bcnArrivalDate: dates.bcnArrivalDate,
+    bcnDepartureDate: dates.bcnDepartureDate,
+    sclArrivalDate: dates.sclArrivalDate,
     expectedVersion,
   }));
 }

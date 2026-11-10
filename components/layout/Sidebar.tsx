@@ -91,6 +91,7 @@ interface NavigationItem {
   requiresCommunity?: boolean; // If true, only show for users with community_id
   requiresQAAccess?: boolean; // If true, only show for users with can_run_qa_tests or admin
   requiresAssessments?: boolean; // If true, only show when user has assigned assessments
+  requiresPasantia?: boolean; // If true, only show when the user's email is a January pasantías traveller's
   children?: NavigationChild[];
   isExpanded?: boolean;
 }
@@ -126,6 +127,15 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: UserCircleIcon,
     href: '/profile',
     description: 'Información personal'
+  },
+  {
+    id: 'mi-pasantia',
+    label: 'Mi pasantía',
+    icon: BriefcaseIcon,
+    href: '/profile/pasantia',
+    description: 'Tu viaje a Barcelona, enero 2027',
+    // The traveller's email, not a role, decides: see /api/pasantias/mine.
+    requiresPasantia: true
   },
   {
     id: 'mi-aprendizaje',
@@ -1096,6 +1106,9 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
     userId: string;
     hasAssessments: boolean;
   } | null>(null);
+  const [pasantiaAccess, setPasantiaAccess] = useState<{ userId: string; hasPasantia: boolean } | null>(null);
+  // Same rule as the assessments check: an answer counts only for the account it was asked for.
+  const hasPasantia = !!user?.id && pasantiaAccess?.userId === user.id && pasantiaAccess.hasPasantia;
   // Never display the previous account's assignment state during a session change.
   const assessmentsCheckDone = !!user?.id && assessmentAccess?.userId === user.id;
   const hasAssessments = assessmentsCheckDone && !!assessmentAccess?.hasAssessments;
@@ -1228,6 +1241,49 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
     return () => { cancelled = true; };
   }, [userId, isAdmin, supabase]);
 
+  // "Mi pasantía" appears only for an account whose email a school registered as a traveller.
+  // The answer is kept for ten minutes per browser tab, so moving between pages does not
+  // ask the server again for every signed-in user.
+  useEffect(() => {
+    setPasantiaAccess(null);
+    if (!userId) return;
+    let cancelled = false;
+    const cacheKey = `genera:mi-pasantia:${userId}`;
+    const readCache = (): boolean | null => {
+      try {
+        const [value, at] = (window.sessionStorage.getItem(cacheKey) ?? '').split(':');
+        if ((value === '1' || value === '0') && Date.now() - Number(at) < 10 * 60_000) return value === '1';
+      } catch {
+        // Storage unavailable (private mode, blocked): fall through to asking.
+      }
+      return null;
+    };
+    const cached = readCache();
+    if (cached !== null) {
+      setPasantiaAccess({ userId, hasPasantia: cached });
+      return;
+    }
+    const checkPasantia = async () => {
+      try {
+        const response = await fetch('/api/pasantias/mine', { credentials: 'same-origin' });
+        const body = response.ok ? ((await response.json()) as { hasPasantia?: unknown }) : null;
+        const hasPasantia = body?.hasPasantia === true;
+        if (body) {
+          try {
+            window.sessionStorage.setItem(cacheKey, `${hasPasantia ? '1' : '0'}:${Date.now()}`);
+          } catch {
+            // Not kept: the next page simply asks again.
+          }
+        }
+        if (!cancelled) setPasantiaAccess({ userId, hasPasantia });
+      } catch {
+        if (!cancelled) setPasantiaAccess({ userId, hasPasantia: false });
+      }
+    };
+    void checkPasantia();
+    return () => { cancelled = true; };
+  }, [userId]);
+
   // The assignment, not a primary role, determines access to personal assessments.
   useEffect(() => {
     setAssessmentAccess(null);
@@ -1335,6 +1391,10 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
     // If href has query params, do not match nested routes based on base path
     if (href.includes('?')) return false;
 
+    // "Mi pasantía" lives under /profile only to inherit its session gate; it is its own
+    // entry, so "Mi Perfil" must not light up with it.
+    if (hrefBase === '/profile' && currentPathBase === '/profile/pasantia') return false;
+
     // Check if currentPath starts with href for nested routes
     return currentPathBase.startsWith(hrefBase + '/');
   }, []);
@@ -1368,6 +1428,8 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
         if (!assessmentsCheckDone) return false;
         if (!hasAssessments) return false;
       }
+
+      if (item.requiresPasantia && !hasPasantia) return false;
 
       if (item.adminOnly && !isAdmin) return false;
 
@@ -1414,7 +1476,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
 
       return true;
     });
-  }, [isAdmin, userRoles, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone, hasAssessments, assessmentsCheckDone]);
+  }, [isAdmin, userRoles, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone, hasAssessments, assessmentsCheckDone, hasPasantia]);
 
   return (
     <>

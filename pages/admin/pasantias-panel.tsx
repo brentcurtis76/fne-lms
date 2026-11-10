@@ -25,6 +25,7 @@ import {
   logisticsBody,
   panelCsvRows,
   readJson,
+  todayInChile,
   type PanelFilters as Filters,
 } from '../../lib/pasantias/panel/client';
 import {
@@ -426,6 +427,8 @@ export default function PasantiasPanelPage() {
               onToggleAll={toggleAll}
               onOpen={setOpenId}
               onQuickChange={(row, change) => void quickChange(row, change)}
+              letterAssets={letterAssets}
+              today={todayInChile()}
             />
           ) : null}
         </div>

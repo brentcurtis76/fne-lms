@@ -101,7 +101,8 @@ export async function storeDocument(
     fileName: string;
     mimeType: string;
     buffer: Buffer;
-    actorId: string;
+    /** null = stored by the automatic letter send. */
+    actorId: string | null;
     action: Extract<ActivityAction, 'document_uploaded' | 'letter_generated'>;
   }
 ): Promise<StoreResult> {

@@ -25,6 +25,10 @@ const TRACKING = {
   balanceReceived: false,
   salutation: 'estimada',
   notes: '  Llamar al colegio\r\nel viernes  ',
+  sclDepartureDate: '2027-01-16',
+  bcnArrivalDate: '2027-01-17',
+  bcnDepartureDate: '2027-01-29',
+  sclArrivalDate: '2027-01-30',
   expectedVersion: 3,
 };
 
@@ -80,6 +84,45 @@ describe('validateLogisticsBody', () => {
     expect(errors(validateLogisticsBody({ ...TRACKING, ...change }))[field]).toBeTruthy();
   });
 
+  it('flight dates: blank or absent means "not entered", and a same-day leg is fine', () => {
+    const { sclDepartureDate: _a, bcnArrivalDate: _b, bcnDepartureDate: _c, sclArrivalDate: _d, ...rest } = TRACKING;
+    const none = value(validateLogisticsBody({ ...rest, bcnArrivalDate: '', sclArrivalDate: null }));
+    expect([none.sclDepartureDate, none.bcnArrivalDate, none.bcnDepartureDate, none.sclArrivalDate]).toEqual([
+      null,
+      null,
+      null,
+      null,
+    ]);
+    const sameDay = value(
+      validateLogisticsBody({ ...TRACKING, bcnDepartureDate: '2027-01-29', sclArrivalDate: '2027-01-29' })
+    );
+    expect(sameDay.sclArrivalDate).toBe('2027-01-29');
+  });
+
+  it.each([
+    ['not a date', '17-01-2027'],
+    ['an impossible day', '2027-02-30'],
+    ['a date with a time', '2027-01-16T10:00:00Z'],
+    ['before the cohort window', '2026-11-30'],
+    ['after the cohort window', '2027-04-01'],
+    ['a number', 20270116],
+  ])('flight dates: refuses %s', (_label, bad) => {
+    expect(errors(validateLogisticsBody({ ...TRACKING, sclDepartureDate: bad })).sclDepartureDate).toBe(
+      PANEL_MESSAGES.flightDateInvalid
+    );
+  });
+
+  it('flight dates: refuses a date earlier than a previous leg, naming the leg, even across a gap', () => {
+    const found = errors(validateLogisticsBody({ ...TRACKING, bcnArrivalDate: '2027-01-15' }));
+    expect(found.bcnArrivalDate).toContain('Llegada a BCN');
+    expect(found.bcnArrivalDate).toContain(PANEL_MESSAGES.flightDateOrder);
+    // Only the first and last are filled, in the wrong order.
+    const gap = errors(
+      validateLogisticsBody({ ...TRACKING, bcnArrivalDate: null, bcnDepartureDate: null, sclArrivalDate: '2027-01-10' })
+    );
+    expect(Object.keys(gap)).toEqual(['sclArrivalDate']);
+  });
+
   it('requires expectedVersion to be present, so a first save and an edit are never confused', () => {
     const { expectedVersion: _e, ...rest } = TRACKING;
     expect(errors(validateLogisticsBody(rest)).expectedVersion).toBe(PANEL_MESSAGES.requestInvalid);
@@ -128,8 +171,17 @@ describe('validateCorrectionBody', () => {
         focus: 'todos',
         dietaryRestrictions: ['otra', 'vegano'],
         dietaryOther: 'Sin mariscos',
+        // FNE may correct a person whose school gave no email yet.
+        email: null,
       },
     });
+  });
+
+  it('takes an email when FNE has one, lower-cased, and refuses a malformed one', () => {
+    expect(value(validateCorrectionBody({ ...FIELDS, email: ' Ana@Example.COM ' }, 'inspira')).fields.email).toBe(
+      'ana@example.com'
+    );
+    expect(errors(validateCorrectionBody({ ...FIELDS, email: 'ana@' }, 'inspira')).email).toBeTruthy();
   });
 
   it('accepts only the dates the school form of THAT program offers', () => {

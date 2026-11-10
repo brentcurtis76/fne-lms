@@ -105,6 +105,7 @@ interface Person {
   firstNames: string;
   lastNames: string;
   rut: string;
+  email: string;
 }
 
 const intakeAuth = (token: string) => ({ Authorization: `Intake ${token}` });
@@ -127,7 +128,13 @@ async function createRoster(
   return { id: body.roster.id, token: body.token, schoolName };
 }
 
-async function addPerson(coordinator: APIRequestContext, roster: Roster, firstNames: string, tag: string): Promise<Person> {
+async function addPerson(
+  coordinator: APIRequestContext,
+  roster: Roster,
+  firstNames: string,
+  tag: string,
+  email = `${firstNames.toLowerCase()}.${tag.toLowerCase()}.${RUN}@example.com`
+): Promise<Person> {
   const lastNames = `Panel${tag} ${RUN.replace(/[0-9]/g, 'x')}`;
   const rut = syntheticRut();
   const response = await coordinator.post(INTAKE_API, {
@@ -142,13 +149,14 @@ async function addPerson(coordinator: APIRequestContext, roster: Roster, firstNa
       focus: null,
       dietaryRestrictions: [],
       dietaryOther: null,
+      email,
       clientRequestId: randomUUID(),
       acknowledged: true,
     },
   });
   expect(response.status(), 'participant create').toBe(201);
   const body = (await response.json()) as { participant: { id: string } };
-  return { id: body.participant.id, firstNames, lastNames, rut };
+  return { id: body.participant.id, firstNames, lastNames, rut, email };
 }
 
 async function finalize(coordinator: APIRequestContext, roster: Roster) {
@@ -165,8 +173,8 @@ async function coordinatorView(coordinator: APIRequestContext, roster: Roster) {
   const response = await coordinator.get(INTAKE_API, { headers: intakeAuth(roster.token) });
   expect(response.status()).toBe(200);
   return (await response.json()) as {
-    roster: { status: string; version: number };
-    participants: { id: string; lastNames: string; version: number }[];
+    roster: { status: string; version: number; lodgingLocked?: boolean; schoolFunding: { version: number } | null };
+    participants: { id: string; lastNames: string; version: number; email: string | null; datesLocked?: boolean }[];
   };
 }
 
@@ -218,7 +226,8 @@ test.describe('Panel de pasantías — the admin journey through the UI', () => 
     schoolB = await createRoster(admin, coordinator, 'mirada-profunda', 'Dos');
     ana = await addPerson(coordinator, schoolA, 'Ana', 'Alfa');
     bruno = await addPerson(coordinator, schoolA, 'Bruno', 'Beta');
-    carla = await addPerson(coordinator, schoolB, 'Carla', 'Gama');
+    // Carla's email is the docente fixture account's: she is the traveller who has a GENERA account.
+    carla = await addPerson(coordinator, schoolB, 'Carla', 'Gama', E2E_USERS.docente.email.toLowerCase());
     // School A has SENT its list: the correction below must not reopen it.
     await finalize(coordinator, schoolA);
   });
@@ -240,6 +249,12 @@ test.describe('Panel de pasantías — the admin journey through the UI', () => 
     await expect(page.getByTestId(`panel-funding-${ana.id}`)).toHaveText('Pasajes: Costo SEP · Estadía: Costo Colegio');
     await expect(page.getByTestId(`panel-flight-${ana.id}`)).toHaveValue('pending');
     await expect(page.getByTestId('panel-summary')).toBeVisible();
+    // The email each school entered, and who already has a GENERA account.
+    await expect(page.getByTestId(`panel-email-${ana.id}`)).toHaveText(ana.email);
+    await expect(page.getByTestId(`panel-account-${ana.id}`)).toHaveCount(0);
+    await expect(page.getByTestId(`panel-account-${carla.id}`)).toHaveText('Con cuenta en GENERA');
+    // Nobody's letter can send itself yet: no flight date, no greeting, no letter data.
+    await expect(page.getByTestId(`panel-letter-send-${ana.id}`)).toHaveAttribute('data-state', 'blocked');
 
     // Search narrows to this run's three people.
     await page.getByTestId('panel-filter-search').fill(RUN.replace(/[0-9]/g, 'x'));
@@ -274,6 +289,73 @@ test.describe('Panel de pasantías — the admin journey through the UI', () => 
     await expect(page.getByTestId(`panel-deposit-${bruno.id}`)).toBeChecked();
     await expect(page.getByTestId(`panel-deposit-${carla.id}`)).not.toBeChecked();
     await expect(page.getByTestId(`panel-flight-${carla.id}`)).toHaveValue('pending');
+  });
+
+  test('once the airfare is bought the school can no longer change that person\'s dates or the lodging answer', async ({
+    browser,
+    baseURL,
+  }) => {
+    // Ana's airfare was marked paid in the test above; Bruno's was not.
+    const view = await coordinatorView(coordinator, schoolA);
+    const anaRow = view.participants.find((p) => p.id === ana.id)!;
+    const brunoRow = view.participants.find((p) => p.id === bruno.id)!;
+    expect(anaRow.datesLocked).toBe(true);
+    expect(brunoRow.datesLocked).toBe(false);
+    expect(view.roster.lodgingLocked).toBe(true);
+
+    const person = (target: Person, arrivalDate: string | null) => ({
+      firstNames: target.firstNames,
+      lastNames: target.lastNames,
+      rut: target.rut,
+      passportNumber: null,
+      arrivalDate,
+      departureDate: null,
+      focus: null,
+      dietaryRestrictions: [],
+      dietaryOther: null,
+      email: target.email,
+      acknowledged: true,
+    });
+    const refused = await coordinator.put(`${INTAKE_API}/${ana.id}`, {
+      headers: intakeAuth(schoolA.token),
+      data: { ...person(ana, '2027-01-17'), expectedVersion: anaRow.version },
+    });
+    expect(refused.status()).toBe(422);
+    const refusal = (await refused.json()) as { code: string; fields: Record<string, string> };
+    expect(refusal.code).toBe('VALIDATION');
+    expect(refusal.fields.arrivalDate).toContain('ya fue comprado');
+
+    const lodging = await coordinator.put(`${INTAKE_API}/school`, {
+      headers: intakeAuth(schoolA.token),
+      data: { flightsFunding: 'sep', lodgingFunding: 'sep', expectedFundingVersion: view.roster.schoolFunding!.version },
+    });
+    expect(lodging.status()).toBe(422);
+    expect(((await lodging.json()) as { fields: Record<string, string> }).fields.lodgingFunding).toContain('pasajes comprados');
+
+    // Nothing changed, and the list is still "sent".
+    const after = await coordinatorView(coordinator, schoolA);
+    expect(after.roster.status).toBe('submitted');
+    expect(after.roster.version).toBe(view.roster.version);
+    expect(after.participants.find((p) => p.id === ana.id)!.version).toBe(anaRow.version);
+
+    // The school's own page shows the dates and the lodging answer greyed out, and says why.
+    const context = await browser.newContext({ baseURL, extraHTTPHeaders: { 'X-Forwarded-For': CLIENT_IP } });
+    try {
+      const school = await context.newPage();
+      await school.goto(`/pasantias/nomina#k=${schoolA.token}`);
+      await expect(school.getByTestId('intake-school')).toHaveText(schoolA.schoolName, { timeout: 30_000 });
+      await expect(school.getByTestId('intake-school-lodging')).toBeDisabled();
+      await expect(school.getByTestId('intake-school-lodging-locked')).toContainText('pasajes comprados');
+      await expect(school.getByTestId('intake-school-flights')).toBeEnabled();
+      await school.getByTestId(`intake-edit-${ana.id}`).click();
+      await expect(school.getByTestId('intake-dates-locked')).toContainText('ya fue comprado');
+      await expect(school.getByTestId('intake-arrival-date')).toBeDisabled();
+      await expect(school.getByTestId('intake-departure-date')).toBeDisabled();
+      await expect(school.getByTestId('intake-email')).toHaveValue(ana.email);
+      await expect(school.getByTestId('intake-email')).toBeEnabled();
+    } finally {
+      await context.close();
+    }
   });
 
   test('correcting school data keeps the roster sent, is logged, and reaches the school', async ({ page }) => {
@@ -335,8 +417,20 @@ test.describe('Panel de pasantías — the admin journey through the UI', () => 
     await expect(page.getByTestId('panel-letter-missing')).toContainText('el colegio como aparece en la carta');
     await expect(page.getByTestId('panel-letter-missing')).not.toContainText('la firma de la carta');
 
-    // Tracking: greeting + notes.
+    // Tracking: greeting, the real flight dates + notes.
+    await expect(page.getByTestId('panel-data-email')).toContainText(carla.email);
+    await expect(page.getByTestId('panel-data-account')).toHaveAttribute('data-account', 'yes');
+    await expect(page.getByTestId('panel-letter-send-state')).toContainText('la fecha de salida de SCL');
+    await expect(page.getByTestId('panel-letter-send')).toBeDisabled();
+    await page.getByTestId('panel-tracking-sclDepartureDate').fill('2027-01-16');
+    await page.getByTestId('panel-tracking-bcnArrivalDate').fill('2027-01-15');
     await page.getByTestId('panel-tracking-salutation').selectOption('estimada');
+    await page.getByTestId('panel-tracking-save').click();
+    // A date that runs backwards is refused under its own field, and nothing is saved.
+    await expect(page.getByTestId('panel-tracking-error-bcnArrivalDate')).toContainText('Llegada a BCN');
+    await page.getByTestId('panel-tracking-bcnArrivalDate').fill('2027-01-17');
+    await page.getByTestId('panel-tracking-bcnDepartureDate').fill('2027-01-30');
+    await page.getByTestId('panel-tracking-sclArrivalDate').fill('2027-01-31');
     await page.getByTestId('panel-tracking-lodging').selectOption('reserved');
     await page.getByTestId('panel-tracking-notes').fill('Llega un día antes.\nConfirmar traslado.');
     await page.getByTestId('panel-tracking-save').click();
@@ -356,13 +450,38 @@ test.describe('Panel de pasantías — the admin journey through the UI', () => 
     await expect(letterItem).toHaveCount(1);
     await expect(letterItem).toContainText(`Carta Invitación - Carla ${carla.lastNames}.pdf`);
     await expect(page.getByTestId('panel-activity-list')).toContainText('Carta de invitación generada');
+    await expect(page.getByTestId('panel-activity-list')).toContainText('Salida de SCL: sin indicar → 16-01-2027');
+
+    // Everything the letter needs now exists, so the panel says when it will email itself…
+    await expect(page.getByTestId('panel-letter-send-state')).toHaveAttribute('data-state', 'scheduled');
+    await expect(page.getByTestId('panel-letter-send-state')).toContainText('09-01-2027');
+    // …and "send now" is honest when this environment has no mail provider: nothing is sent,
+    // no second letter is stored, and the reason stays on screen.
+    await page.getByTestId('panel-letter-send').click();
+    await expect(page.getByTestId('panel-letter-msg')).toContainText('el envío de correos no está configurado', { timeout: 60_000 });
+    await expect(page.getByTestId('panel-letter-send-error')).toContainText('el envío de correos no está configurado');
+    await expect(page.getByTestId('panel-letter-send-state')).toHaveAttribute('data-state', 'scheduled');
+    await expect(page.locator('[data-testid^="panel-doc-"][data-kind="invitation_letter"]')).toHaveCount(1);
 
     // The stored letter really is a PDF, reachable only through a signed URL.
     const detail = (await (await admin.get(`${PANEL_API}/participants/${carla.id}`)).json()) as {
       documents: { id: string; kind: string; mimeType: string }[];
-      row: { hasLetter: boolean; logistics: { notes: string; lodgingStatus: string } };
+      row: {
+        hasLetter: boolean;
+        hasAccount: boolean;
+        logistics: Record<string, unknown> & { notes: string; lodgingStatus: string };
+      };
     };
     expect(detail.row.hasLetter).toBe(true);
+    expect(detail.row.hasAccount).toBe(true);
+    expect(detail.row.logistics).toMatchObject({
+      sclDepartureDate: '2027-01-16',
+      bcnArrivalDate: '2027-01-17',
+      bcnDepartureDate: '2027-01-30',
+      sclArrivalDate: '2027-01-31',
+      letterSentAt: null,
+      letterSendError: 'email_not_configured',
+    });
     expect(detail.row.logistics.notes).toBe('Llega un día antes.\nConfirmar traslado.');
     expect(detail.row.logistics.lodgingStatus).toBe('reserved');
     const letter = detail.documents.find((d) => d.kind === 'invitation_letter')!;
@@ -424,6 +543,74 @@ test.describe('Panel de pasantías — the admin journey through the UI', () => 
     await expect(page.getByTestId(`panel-letter-${carla.id}`)).toContainText('Carta generada');
     await expect(page.getByTestId(`panel-docs-${carla.id}`)).toContainText('1 documento');
     await expect(page.getByTestId(`panel-lodging-${carla.id}`)).toHaveValue('reserved');
+    await expect(page.getByTestId(`panel-flight-dates-${carla.id}`)).toContainText('16-01-2027');
+    await expect(page.getByTestId(`panel-flight-dates-${carla.id}`)).toContainText('31-01-2027');
+    await expect(page.getByTestId(`panel-letter-send-${carla.id}`)).toContainText('Carta: se envía el 09-01-2027');
+  });
+
+  test('the traveller with a GENERA account sees her own pasantía, and only hers', async ({ browser, baseURL }) => {
+    // An "other" document is FNE's: the traveller never sees it.
+    const internal = await admin.post(`${PANEL_API}/participants/${carla.id}/documents`, {
+      multipart: {
+        kind: 'other',
+        description: 'Uso interno',
+        file: { name: 'interno.pdf', mimeType: 'application/pdf', buffer: TICKET_PDF },
+      },
+    });
+    expect(internal.status()).toBe(201);
+    const internalId = ((await internal.json()) as { document: { id: string } }).document.id;
+
+    const traveller = await apiContextFor(browser, 'docente', baseURL!);
+    const context = await browser.newContext({ storageState: await ensureStorageState(browser, 'docente') });
+    try {
+      expect(((await (await traveller.get('/api/pasantias/mine')).json()) as { hasPasantia: boolean }).hasPasantia).toBe(true);
+
+      const page = await context.newPage();
+      await page.goto('/profile/pasantia');
+      await expect(page.getByRole('heading', { name: 'Mi pasantía' }).first()).toBeVisible({ timeout: 30_000 });
+      const card = page.getByTestId(`mi-pasantia-card-${carla.id}`);
+      await expect(card).toBeVisible();
+      await expect(page.getByTestId(`mi-pasantia-name-${carla.id}`)).toHaveText(`Carla ${carla.lastNames}`);
+      await expect(page.getByTestId(`mi-pasantia-school-${carla.id}`)).toHaveText(schoolB.schoolName);
+      await expect(page.getByTestId(`mi-pasantia-dates-${carla.id}`)).toContainText('entre el 18 y el 29 de enero de 2027');
+      await expect(page.getByTestId(`mi-pasantia-scl-departure-${carla.id}`)).toHaveText('16 de enero de 2027');
+      await expect(page.getByTestId(`mi-pasantia-scl-arrival-${carla.id}`)).toHaveText('31 de enero de 2027');
+      await expect(page.getByTestId(`mi-pasantia-lodging-${carla.id}`)).toHaveText('Reservado');
+      await expect(page.getByTestId(`mi-pasantia-lodging-line-${carla.id}`)).toContainText('la Residencia Sintética');
+      // Her letter is there; FNE's internal file, her RUT and FNE's notes are not.
+      await expect(card.locator('[data-testid^="mi-pasantia-doc-download-"]')).toHaveCount(1);
+      await expect(card).toContainText('Carta de invitación');
+      await expect(card).not.toContainText('interno.pdf');
+      await expect(card).not.toContainText(carla.rut.split('-')[0]);
+      await expect(card).not.toContainText('Confirmar traslado');
+      // The menu shows "Mi pasantía" to her.
+      await expect(page.getByTestId('sidebar-item-mi-pasantia').first()).toBeVisible({ timeout: 30_000 });
+
+      // The letter downloads as the PDF it is.
+      const download = page.waitForEvent('download');
+      await card.locator('[data-testid^="mi-pasantia-doc-download-"]').click();
+      expect((await download).suggestedFilename()).toBe(`Carta Invitación - Carla ${carla.lastNames}.pdf`);
+
+      // Asking for FNE's internal file, or for an id that is not a document, is the same 404.
+      expect((await traveller.get(`/api/pasantias/mine/documents/${internalId}`)).status()).toBe(404);
+      expect((await traveller.get(`/api/pasantias/mine/documents/${randomUUID()}`)).status()).toBe(404);
+    } finally {
+      await traveller.dispose();
+      await context.close();
+    }
+
+    // An account that is nobody's traveller (the admin) sees no pasantía and no menu entry.
+    expect(((await (await admin.get('/api/pasantias/mine')).json()) as { hasPasantia: boolean }).hasPasantia).toBe(false);
+    expect((await admin.get(`/api/pasantias/mine/documents/${internalId}`)).status()).toBe(404);
+    const adminContext = await browser.newContext({ storageState: storageStatePath('admin') });
+    try {
+      const page = await adminContext.newPage();
+      await page.goto('/profile/pasantia');
+      await expect(page.getByTestId('mi-pasantia-empty')).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByTestId('sidebar-item-mi-pasantia')).toHaveCount(0);
+    } finally {
+      await adminContext.close();
+    }
   });
 
   test('two admins editing the same person: the second save is refused and shows what is stored', async () => {
@@ -465,6 +652,7 @@ test.describe('Panel de pasantías — for the global admin only', () => {
     ['PATCH', `${PANEL_API}/participants/${NOBODY}`, {}],
     ['PUT', `${PANEL_API}/participants/${NOBODY}`, {}],
     ['POST', `${PANEL_API}/participants/${NOBODY}/letter`],
+    ['POST', `${PANEL_API}/participants/${NOBODY}/send-letter`],
     ['POST', `${PANEL_API}/participants/${NOBODY}/documents`],
     ['PUT', `${PANEL_API}/rosters/${NOBODY}`, {}],
     ['GET', `${PANEL_API}/documents/${NOBODY}`],
@@ -551,11 +739,24 @@ test.describe('Panel de pasantías — for the global admin only', () => {
           'pasantias_panel_roster_details',
           'pasantias_panel_documents',
           'pasantias_panel_activity',
+          'pasantias_panel_contacts',
         ]) {
           const read = await direct.get(`${SUPABASE_URL}/rest/v1/${table}?select=*&limit=1`, { headers });
           expect([401, 403, 404], `${label} read ${table}`).toContain(read.status());
         }
-        for (const fn of ['pasantias_panel_save_logistics', 'pasantias_panel_bulk_set', 'pasantias_panel_save_participant']) {
+        for (const fn of [
+          'pasantias_panel_save_logistics',
+          'pasantias_panel_bulk_set',
+          'pasantias_panel_save_participant',
+          'pasantias_panel_school_save_participant',
+          'pasantias_panel_school_save_funding',
+          'pasantias_panel_claim_letter_send',
+          'pasantias_panel_finish_letter_send',
+          'pasantias_panel_expired_document_paths',
+          'pasantias_panel_purge_expired',
+          'pasantias_panel_platform_accounts',
+          'pasantias_panel_email_ok',
+        ]) {
           const rpc = await direct.post(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, { headers, data: {} });
           expect([401, 403, 404], `${label} rpc ${fn}`).toContain(rpc.status());
         }
@@ -573,6 +774,40 @@ test.describe('Panel de pasantías — for the global admin only', () => {
       }
     } finally {
       await direct.dispose();
+    }
+  });
+  test('the traveller routes need a session; the two daily jobs need the cron secret', async ({ baseURL }) => {
+    const anon = await playwrightRequest.newContext({ baseURL });
+    const cron = await playwrightRequest.newContext({
+      baseURL,
+      // The synthetic secret of the e2e environment (scripts/ci/e2e-local.sh, ci.yml).
+      extraHTTPHeaders: {
+        Authorization: `Bearer ${process.env.CRON_SECRET ?? 'e2e-synthetic-cron-secret-not-a-real-credential'}`,
+      },
+    });
+    try {
+      expect((await anon.get('/api/pasantias/mine')).status()).toBe(401);
+      expect((await anon.get(`/api/pasantias/mine/documents/${randomUUID()}`)).status()).toBe(401);
+      for (const job of ['/api/cron/pasantias-letters', '/api/cron/pasantias-retention']) {
+        expect((await anon.get(job)).status(), `${job} without the secret`).toBe(401);
+      }
+
+      // The letter job answers counts only. Whoever it finds due, this environment has no
+      // mail provider, so nothing can be reported as sent.
+      const letters = await cron.get('/api/cron/pasantias-letters');
+      expect(letters.status()).toBe(200);
+      const counts = (await letters.json()) as Record<string, unknown>;
+      expect(Object.keys(counts).sort()).toEqual(['attempted', 'due', 'failed', 'ok', 'sent']);
+      expect(counts.sent).toBe(0);
+
+      // The retention sweep before 28 Feb 2027 deletes nothing: the journey's files are still there.
+      const sweep = await cron.get('/api/cron/pasantias-retention');
+      expect(sweep.status()).toBe(200);
+      const swept = (await sweep.json()) as { ok: boolean; files: number; rows: number };
+      if (new Date().toISOString().slice(0, 10) < '2027-02-27') expect(swept).toEqual({ ok: true, files: 0, rows: 0 });
+    } finally {
+      await anon.dispose();
+      await cron.dispose();
     }
   });
 });

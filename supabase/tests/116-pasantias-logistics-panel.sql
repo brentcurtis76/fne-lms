@@ -117,7 +117,7 @@ BEGIN
     $q$SELECT count(*)::text FROM public.pasantias_panel_finish_letter_send('99116000-0000-4000-8000-0000000000b9'::uuid, false,
        NULL::text, 'email_failed', NULL::uuid)$q$,
     $q$SELECT count(*)::text FROM public.pasantias_panel_expired_document_paths('2026-01-01'::date)$q$,
-    $q$SELECT public.pasantias_panel_purge_expired('2026-01-01'::date)::text$q$,
+    $q$SELECT count(*)::text FROM public.pasantias_panel_expired_participants('2026-01-01'::date)$q$,
     $q$SELECT (count(*) >= 0)::text FROM public.pasantias_panel_platform_accounts()$q$,
     $q$SELECT public.pasantias_panel_email_ok('acceso@example.com')::text$q$]) WITH ORDINALITY u(q, n);
   PERFORM pg_temp.unact();
@@ -447,8 +447,9 @@ SELECT is(
           FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace AND p.proname LIKE 'pasantias_panel_%' ORDER BY p.proname),
   ARRAY['pasantias_panel_bulk_set:false:search_path=""', 'pasantias_panel_claim_letter_send:false:search_path=""',
         'pasantias_panel_email_ok:false:search_path=""', 'pasantias_panel_expired_document_paths:false:search_path=""',
+        'pasantias_panel_expired_participants:false:search_path=""',
         'pasantias_panel_finish_letter_send:false:search_path=""', 'pasantias_panel_platform_accounts:false:search_path=""',
-        'pasantias_panel_purge_expired:false:search_path=""', 'pasantias_panel_save_logistics:false:search_path=""',
+        'pasantias_panel_save_logistics:false:search_path=""',
         'pasantias_panel_save_participant:false:search_path=""', 'pasantias_panel_school_save_funding:false:search_path=""',
         'pasantias_panel_school_save_participant:false:search_path=""'],
   'E2: the eleven functions are SECURITY INVOKER with an empty search_path');
@@ -460,8 +461,9 @@ SELECT is(
          ORDER BY 1),
   ARRAY['pasantias_panel_bulk_set:service_role', 'pasantias_panel_claim_letter_send:service_role',
         'pasantias_panel_email_ok:service_role', 'pasantias_panel_expired_document_paths:service_role',
+        'pasantias_panel_expired_participants:service_role',
         'pasantias_panel_finish_letter_send:service_role', 'pasantias_panel_platform_accounts:service_role',
-        'pasantias_panel_purge_expired:service_role', 'pasantias_panel_save_logistics:service_role',
+        'pasantias_panel_save_logistics:service_role',
         'pasantias_panel_save_participant:service_role', 'pasantias_panel_school_save_funding:service_role',
         'pasantias_panel_school_save_participant:service_role'],
   'E2: EXECUTE for service_role only');
@@ -938,33 +940,45 @@ CREATE TEMP TABLE p116_before AS
 SELECT ok((SELECT documents = 5 AND activity > 10 FROM p116_before), 'E4h: (baseline) five document rows and a history exist');
 SELECT is(pg_temp.sr($q$SELECT count(*)::text FROM public.pasantias_panel_expired_document_paths('2027-02-27')$q$), '0',
           'E4h: on 27 Feb 2027 no file is due');
-SELECT is(pg_temp.sr($q$SELECT public.pasantias_panel_purge_expired('2027-02-27')::text$q$), '0', 'E4h: …and the sweep deletes nothing');
-SELECT is(
-  (SELECT concat_ws('|', (SELECT count(*) FROM public.pasantias_panel_documents WHERE participant_id::text LIKE '99116000-%'),
-                    (SELECT count(*) FROM public.pasantias_panel_activity WHERE participant_id::text LIKE '99116000-%'))),
-  (SELECT concat_ws('|', documents, activity) FROM p116_before), 'E4h: every row is still there');
+SELECT is(pg_temp.sr($q$SELECT count(*)::text FROM public.pasantias_panel_expired_participants('2027-02-27')$q$), '0',
+          'E4h: …and no traveller is expired');
 SELECT is(
   pg_temp.sr($q$SELECT string_agg(right(p, 6), ',' ORDER BY p) FROM public.pasantias_panel_expired_document_paths('2027-02-28') AS p
                  WHERE p LIKE 'participants/99116000-%'$q$),
   'd1.pdf,d2.pdf,d4.pdf,e0.png',
   'E4h: on 28 Feb 2027 the files of both programs are due (29 Jan + 1 month is 28 Feb); a removed document has no file left');
-SELECT is(pg_temp.sr($q$SELECT public.pasantias_panel_purge_expired('2027-02-28')::text$q$),
-          (SELECT (documents + activity)::text FROM p116_before), 'E4h: the sweep reports every document and history row it deleted');
 SELECT is(
-  (SELECT concat_ws('|', (SELECT count(*) FROM public.pasantias_panel_documents WHERE participant_id::text LIKE '99116000-%'),
-                    (SELECT count(*) FROM public.pasantias_panel_activity WHERE participant_id::text LIKE '99116000-%'))),
-  '0|0', 'E4h: documents (removed ones included) and history are gone');
+  pg_temp.sr($q$SELECT string_agg(right(e::text, 2), ',' ORDER BY e) FROM public.pasantias_panel_expired_participants('2027-02-28') AS e
+                 WHERE e::text LIKE '99116000-%'$q$),
+  'b1,b2,b3,b4,b5,b8,b9', 'E4h: …and every traveller of both programs is expired');
+-- What the daily job then does, as the server role: remove those travellers' document rows and history rows.
+SELECT is(
+  pg_temp.sr($q$WITH gone AS (DELETE FROM public.pasantias_panel_documents d
+                               WHERE d.participant_id IN (SELECT public.pasantias_panel_expired_participants('2027-02-28'))
+                                 AND d.participant_id::text LIKE '99116000-%' RETURNING 1)
+                SELECT count(*)::text FROM gone$q$),
+  (SELECT documents::text FROM p116_before), 'E4h: the server role can remove their document rows, removed ones included');
+SELECT is(
+  pg_temp.sr($q$WITH gone AS (DELETE FROM public.pasantias_panel_activity a
+                               WHERE a.participant_id IN (SELECT public.pasantias_panel_expired_participants('2027-02-28'))
+                                 AND a.participant_id::text LIKE '99116000-%' RETURNING 1)
+                SELECT count(*)::text FROM gone$q$),
+  (SELECT activity::text FROM p116_before), 'E4h: …and their history rows');
 SELECT is(
   (SELECT concat_ws('|', (SELECT count(*) FROM public.pasantias_panel_logistics WHERE participant_id::text LIKE '99116000-%'),
                     (SELECT count(*) FROM public.pasantias_panel_contacts WHERE participant_id::text LIKE '99116000-%'),
                     (SELECT count(*) FROM public.pasantias_intake_participants WHERE id::text LIKE '99116000-%'))),
   (SELECT concat_ws('|', tracking, contacts, 7) FROM p116_before),
   'E4h: tracking, emails and the school''s own data are not touched');
-SELECT is(pg_temp.sr($q$SELECT public.pasantias_panel_purge_expired('2027-03-15')::text$q$), '0', 'E4h: running it again deletes nothing');
 SELECT is(
-  ARRAY[pg_temp.sr($q$SELECT public.pasantias_panel_purge_expired(NULL)::text$q$),
+  ARRAY[pg_temp.sr($q$SELECT count(*)::text FROM public.pasantias_panel_expired_participants(NULL)$q$),
         pg_temp.sr($q$SELECT count(*)::text FROM public.pasantias_panel_expired_document_paths(NULL)$q$)],
-  ARRAY['22023:pasantias_panel_purge_expired: invalid_argument', '0'], 'E4h: no date, no deletion');
+  ARRAY['0', '0'], 'E4h: no date, nobody expired');
+SELECT is(
+  ARRAY[left(pg_temp.sr($q$DELETE FROM public.pasantias_panel_logistics WHERE participant_id::text LIKE '99116000-%'$q$), 5),
+        left(pg_temp.sr($q$DELETE FROM public.pasantias_panel_contacts WHERE participant_id::text LIKE '99116000-%'$q$), 5),
+        left(pg_temp.sr($q$DELETE FROM public.pasantias_panel_roster_details WHERE roster_id::text LIKE '99116000-%'$q$), 5)],
+  array_fill('42501'::text, ARRAY[3]), 'E4h: the server role cannot delete tracking, emails or letter lines');
 
 SELECT * FROM finish();
 ROLLBACK;

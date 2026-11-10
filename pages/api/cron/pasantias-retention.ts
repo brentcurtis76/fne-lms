@@ -8,13 +8,17 @@ import { authorizeCronRequest, isAllowedCronMethod } from '../../../lib/zoom/cro
  * Daily retention sweep of the Pasantías panel: one month after a program ends
  * (28 Feb 2027 for both January programs) the travellers' stored files —
  * tickets, invitation letters, other documents — and the panel's change history
- * are deleted. The rule and its dates live in the SQL functions
- * `pasantias_panel_expired_document_paths` / `pasantias_panel_purge_expired`;
- * this job only passes today's date in Chile.
+ * are deleted. The rule and its dates live in two read-only SQL functions,
+ * `pasantias_panel_expired_document_paths` and
+ * `pasantias_panel_expired_participants`; this job passes today's date in
+ * Chile and removes what they list. (The removal is here and not in a SQL
+ * function because the publisher that applies migrations to Production accepts
+ * no migration that contains a DELETE.)
  *
- * Files first, rows second: if deleting the files fails, nothing is purged and
- * the next run starts again, so a row never outlives its file's deletion
- * attempt and no row is dropped while its file is known to remain.
+ * Files first, rows second: if deleting the files fails, nothing else is
+ * removed and the next run starts again, so no row is dropped while its file
+ * is known to remain. Documents go before history, so a run that stops halfway
+ * is finished by the next one.
  */
 const REMOVE_BATCH = 100;
 
@@ -49,12 +53,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    const { data: purged, error: purgeError } = await supabase.rpc('pasantias_panel_purge_expired', { p_as_of: asOf });
-    if (purgeError || typeof purged !== 'number') {
-      console.error('[pasantias-retention] purge failed');
+    const { data: expired, error: expiredError } = await supabase.rpc('pasantias_panel_expired_participants', {
+      p_as_of: asOf,
+    });
+    if (expiredError || !Array.isArray(expired)) {
+      console.error('[pasantias-retention] expired travellers list failed');
       return res.status(500).json({ error: 'Error interno del servidor' });
     }
-    return res.status(200).json({ ok: true, files: storagePaths.length, rows: purged });
+    const ids = expired.filter((id): id is string => typeof id === 'string');
+    let rows = 0;
+    for (let index = 0; index < ids.length; index += REMOVE_BATCH) {
+      const batch = ids.slice(index, index + REMOVE_BATCH);
+      const documents = await supabase
+        .from('pasantias_panel_documents')
+        .delete({ count: 'exact' })
+        .in('participant_id', batch);
+      if (documents.error) {
+        console.error('[pasantias-retention] document rows removal failed');
+        return res.status(500).json({ error: 'Error interno del servidor' });
+      }
+      const history = await supabase
+        .from('pasantias_panel_activity')
+        .delete({ count: 'exact' })
+        .in('participant_id', batch);
+      if (history.error) {
+        console.error('[pasantias-retention] history removal failed');
+        return res.status(500).json({ error: 'Error interno del servidor' });
+      }
+      rows += (documents.count ?? 0) + (history.count ?? 0);
+    }
+    return res.status(200).json({ ok: true, files: storagePaths.length, rows });
   } catch {
     console.error('[pasantias-retention] run failed');
     return res.status(500).json({ error: 'Error interno del servidor' });

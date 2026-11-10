@@ -1,6 +1,6 @@
 ## PASANTÍAS PANEL — logistics panel for the January 2027 cohort: built and validated locally, not pushed (2026-11-09)
 
-**Status:** three local commits on `feat/pasant-panel` (base `b06a5b852`). Not pushed, no PR, no CI, nothing in Production. Built by a single Claude session outside the PM–Executor workflow at Brent's request (model test); the reviewer packet is a Claude doc Brent holds.
+**Status:** four local commits on `feat/pasant-panel` (base `b06a5b852`). Not pushed, no PR, no CI, nothing in Production. Built by a single Claude session outside the PM–Executor workflow at Brent's request (model test); the reviewer packet is a Claude doc Brent holds.
 
 - **What (commit 1):** `/admin/pasantias-panel` — every traveller of every school in one table; FNE tracking (airfare, lodging, 50% deposit, 50% balance, notes) with quick and bulk edits and CSV; admin correction of school data; private documents per person; the Carta de Invitación generated as a PDF per person.
 - **What (commit 2, Brent's decisions of 2026-11-09):**
@@ -15,6 +15,7 @@
 - **Local evidence:** see `docs/planning/reviews/fase-pasant-panel-review-request.md`.
 - **Before first use in any environment:** an admin uploads the letter's logo and signature in the panel (deliberately not in this public repository). The two daily jobs need `CRON_SECRET` (already used by the other jobs) and the letter email needs `RESEND_API_KEY`; without the latter nothing is sent and the panel says so.
 - **Commit 3 (Brent's answers of 2026-11-10):** the school notice is now version `pasant-intake-2026-11-v3` (it names the email's use and the traveller's own view); the daily letter job emails FNE's global admins the letters that should be going out and have not. Brent also decided: no confirmation step for emails, and FNE fills in the emails of lists already sent.
+- **Commit 4:** the retention delete moved from a SQL function to the daily job: the Production publisher refuses any migration containing DELETE. The migration now passes the publisher's static check.
 - **Open for Brent:** who may press "send now" (any global admin today); whether emails and passport numbers should also be deleted on 28 Feb.
 
 Review request: `docs/planning/reviews/fase-pasant-panel-review-request.md`.

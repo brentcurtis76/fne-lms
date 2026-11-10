@@ -27,8 +27,9 @@
 -- RLS enabled, no permissive policy, restrictive forced_password_change_guard
 -- installed. An admin removes a document by stamping removed_at/removed_by (the
 -- API deletes the stored file); activity gets no UPDATE grant. DELETE exists
--- on documents and activity only for the retention sweep
--- (pasantias_panel_purge_expired): no route deletes rows any other way.
+-- on documents and activity only for the daily retention job, which removes the
+-- rows of the travellers pasantias_panel_expired_participants lists: no route
+-- deletes rows any other way.
 --
 -- Storage: bucket pasantias-documents is private and has NO storage.objects
 -- policy, so only the service-role API reaches it (the licitaciones precedent).
@@ -225,9 +226,9 @@ COMMENT ON TABLE public.pasantias_panel_contacts IS
 COMMENT ON TABLE public.pasantias_panel_roster_details IS
   'Per roster (school + program) wording FNE fills in for the invitation letter. No row = not defined. Service-role only.';
 COMMENT ON TABLE public.pasantias_panel_documents IS
-  'Metadata of private files (bucket pasantias-documents) FNE keeps per intake participant. removed_at set = removed (file deleted by the API). Rows are deleted one month after the program ends by pasantias_panel_purge_expired. Service-role only.';
+  'Metadata of private files (bucket pasantias-documents) FNE keeps per intake participant. removed_at set = removed (file deleted by the API). Rows are deleted one month after the program ends by the daily retention job. Service-role only.';
 COMMENT ON TABLE public.pasantias_panel_activity IS
-  'Append-only record of what FNE admins changed for an intake participant through the logistics panel (actor NULL = the automatic letter send). Rows are deleted one month after the program ends by pasantias_panel_purge_expired. Service-role only.';
+  'Append-only record of what FNE admins changed for an intake participant through the logistics panel (actor NULL = the automatic letter send). Rows are deleted one month after the program ends by the daily retention job. Service-role only.';
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES ('pasantias-documents', 'pasantias-documents', false, 10485760,
@@ -885,10 +886,12 @@ $$;
 -- caller's clock sees it (the daily job passes the date in Chile).
 --   expired_document_paths  the stored files to delete first (removed rows have
 --                           no file left and are skipped).
---   purge_expired           deletes the document rows and the activity rows of
---                           every expired participant; returns how many rows
---                           went. Tracking, contacts and the school's own data
---                           are not touched.
+--   expired_participants    the travellers whose document rows and activity
+--                           rows the job then removes, through the server
+--                           role's grant on those two tables. Tracking,
+--                           contacts and the school's own data are not touched.
+-- Both only READ: this migration removes no row, now or later. The removal is
+-- the daily job's (pages/api/cron/pasantias-retention.ts).
 -- -----------------------------------------------------------------------------
 CREATE FUNCTION public.pasantias_panel_expired_document_paths(p_as_of date)
 RETURNS SETOF text
@@ -905,43 +908,17 @@ AS $$
    ORDER BY d.storage_path;
 $$;
 
-CREATE FUNCTION public.pasantias_panel_purge_expired(p_as_of date)
-RETURNS integer
-LANGUAGE plpgsql VOLATILE SECURITY INVOKER SET search_path = ''
+CREATE FUNCTION public.pasantias_panel_expired_participants(p_as_of date)
+RETURNS SETOF uuid
+LANGUAGE sql STABLE SECURITY INVOKER SET search_path = ''
 AS $$
-#variable_conflict error
-DECLARE
-  v_documents integer;
-  v_activity integer;
-BEGIN
-  IF p_as_of IS NULL THEN
-    RAISE EXCEPTION 'pasantias_panel_purge_expired: invalid_argument' USING ERRCODE = '22023';
-  END IF;
-
-  WITH expired AS (
-    SELECT p.id
-      FROM public.pasantias_intake_participants p
-      JOIN public.pasantias_intake_rosters r ON r.id = p.roster_id
-     WHERE p_as_of >= ((CASE r.program WHEN 'inspira' THEN date '2027-01-28'
-                                       WHEN 'mirada-profunda' THEN date '2027-01-29' END) + interval '1 month')::date
-  ), gone AS (
-    DELETE FROM public.pasantias_panel_documents d USING expired e WHERE d.participant_id = e.id RETURNING 1
-  )
-  SELECT count(*)::integer INTO v_documents FROM gone;
-
-  WITH expired AS (
-    SELECT p.id
-      FROM public.pasantias_intake_participants p
-      JOIN public.pasantias_intake_rosters r ON r.id = p.roster_id
-     WHERE p_as_of >= ((CASE r.program WHEN 'inspira' THEN date '2027-01-28'
-                                       WHEN 'mirada-profunda' THEN date '2027-01-29' END) + interval '1 month')::date
-  ), gone AS (
-    DELETE FROM public.pasantias_panel_activity a USING expired e WHERE a.participant_id = e.id RETURNING 1
-  )
-  SELECT count(*)::integer INTO v_activity FROM gone;
-
-  RETURN v_documents + v_activity;
-END;
+  SELECT p.id
+    FROM public.pasantias_intake_participants p
+    JOIN public.pasantias_intake_rosters r ON r.id = p.roster_id
+   WHERE p_as_of IS NOT NULL
+     AND p_as_of >= ((CASE r.program WHEN 'inspira' THEN date '2027-01-28'
+                                     WHEN 'mirada-profunda' THEN date '2027-01-29' END) + interval '1 month')::date
+   ORDER BY p.id;
 $$;
 
 REVOKE ALL ON FUNCTION public.pasantias_panel_email_ok(text) FROM PUBLIC, anon, authenticated;
@@ -968,8 +945,8 @@ REVOKE ALL ON FUNCTION public.pasantias_panel_finish_letter_send(uuid, boolean, 
 GRANT EXECUTE ON FUNCTION public.pasantias_panel_finish_letter_send(uuid, boolean, text, text, uuid) TO service_role;
 REVOKE ALL ON FUNCTION public.pasantias_panel_expired_document_paths(date) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.pasantias_panel_expired_document_paths(date) TO service_role;
-REVOKE ALL ON FUNCTION public.pasantias_panel_purge_expired(date) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.pasantias_panel_purge_expired(date) TO service_role;
+REVOKE ALL ON FUNCTION public.pasantias_panel_expired_participants(date) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.pasantias_panel_expired_participants(date) TO service_role;
 
 -- -----------------------------------------------------------------------------
 -- Which travellers already have a GENERA account: the traveller's email equals

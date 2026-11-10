@@ -753,7 +753,7 @@ test.describe('Panel de pasantías — for the global admin only', () => {
           'pasantias_panel_claim_letter_send',
           'pasantias_panel_finish_letter_send',
           'pasantias_panel_expired_document_paths',
-          'pasantias_panel_purge_expired',
+          'pasantias_panel_expired_participants',
           'pasantias_panel_platform_accounts',
           'pasantias_panel_email_ok',
         ]) {

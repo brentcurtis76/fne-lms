@@ -246,15 +246,19 @@ describe('the daily retention sweep', () => {
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
-  it('passes today in Chile, deletes the files first (in batches) and only then the rows', async () => {
+  it('passes today in Chile, deletes the files first (in batches) and only then the rows of the expired travellers', async () => {
     const paths = Array.from({ length: 150 }, (_, i) => `participants/${P(1)}/${String(i).padStart(8, '0')}-0000-4000-8000-000000000000.pdf`);
     const order: string[] = [];
     const fake = install({
       rpc: (rpc) => {
         order.push(rpc.name);
         if (rpc.name === 'pasantias_panel_expired_document_paths') return { data: paths, error: null };
-        if (rpc.name === 'pasantias_panel_purge_expired') return { data: 412, error: null };
+        if (rpc.name === 'pasantias_panel_expired_participants') return { data: [P(1), P(2)], error: null };
         return { data: null, error: { code: 'UNEXPECTED_RPC' } };
+      },
+      query: (q) => {
+        order.push(`${q.op}:${q.table}`);
+        return { data: null, error: null, count: q.table === 'pasantias_panel_documents' ? 152 : 260 } as Answer;
       },
       storage: (c) => {
         order.push(`storage:${c.op}`);
@@ -269,34 +273,50 @@ describe('the daily retention sweep', () => {
       'pasantias_panel_expired_document_paths',
       'storage:remove',
       'storage:remove',
-      'pasantias_panel_purge_expired',
+      'pasantias_panel_expired_participants',
+      'delete:pasantias_panel_documents',
+      'delete:pasantias_panel_activity',
     ]);
     expect(fake.storage.map((c) => c.paths?.length)).toEqual([100, 50]);
     expect(fake.storage.every((c) => c.bucket === 'pasantias-documents')).toBe(true);
+    // Rows are removed only for the listed travellers, and only from those two tables.
+    const deletes = fake.queries.filter((q) => q.op === 'delete');
+    expect(deletes.map((q) => q.table)).toEqual(['pasantias_panel_documents', 'pasantias_panel_activity']);
+    for (const q of deletes) expect(q.in).toEqual({ participant_id: [P(1), P(2)] });
     // The stored paths never leave the server.
     expect(out.raw).not.toContain('participants/');
   });
 
-  it('purges no row when a file could not be deleted: the next run starts again', async () => {
+  it('removes no row when a file could not be deleted: the next run starts again', async () => {
     const fake = install({
       rpc: (rpc) =>
         rpc.name === 'pasantias_panel_expired_document_paths'
           ? { data: [`participants/${P(1)}/00000000-0000-4000-8000-000000000000.pdf`], error: null }
-          : { data: 1, error: null },
+          : { data: [P(1)], error: null },
       storage: () => ({ data: null, error: { message: 'storage down' } }),
     });
     const out = await call(retentionJob, { headers: asCron });
     expect(out.status).toBe(500);
     expect(fake.rpcs.map((rpc) => rpc.name)).toEqual(['pasantias_panel_expired_document_paths']);
+    expect(fake.queries).toHaveLength(0);
   });
 
-  it('with nothing expired it touches no file and still asks the database to purge (a no-op there)', async () => {
-    const fake = install({
-      rpc: (rpc) => (rpc.name === 'pasantias_panel_expired_document_paths' ? { data: [], error: null } : { data: 0, error: null }),
-    });
+  it('with nobody expired it touches no file and no row', async () => {
+    const fake = install({ rpc: () => ({ data: [], error: null }) });
     const out = await call(retentionJob, { headers: asCron });
     expect(out.json).toEqual({ ok: true, files: 0, rows: 0 });
     expect(fake.storage).toHaveLength(0);
+    expect(fake.queries).toHaveLength(0);
+  });
+
+  it('stops with an error, keeping the history, when the document rows cannot be removed', async () => {
+    const fake = install({
+      rpc: (rpc) => (rpc.name === 'pasantias_panel_expired_participants' ? { data: [P(1)], error: null } : { data: [], error: null }),
+      query: () => ({ data: null, error: { code: 'XX000' } }),
+    });
+    const out = await call(retentionJob, { headers: asCron });
+    expect(out.status).toBe(500);
+    expect(fake.queries.map((q) => q.table)).toEqual(['pasantias_panel_documents']);
   });
 });
 

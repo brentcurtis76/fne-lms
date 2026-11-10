@@ -11,7 +11,7 @@
 
 export interface PanelQuery {
   table: string;
-  op: 'select' | 'insert' | 'update';
+  op: 'select' | 'insert' | 'update' | 'delete';
   columns: string | null;
   payload: Record<string, unknown> | null;
   eq: Record<string, unknown>;
@@ -96,6 +96,10 @@ export function fakePanel(handlers: {
       update(payload: Record<string, unknown>) {
         query.op = 'update';
         query.payload = payload;
+        return builder;
+      },
+      delete() {
+        query.op = 'delete';
         return builder;
       },
       eq(column: string, value: unknown) {

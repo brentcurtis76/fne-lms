@@ -797,8 +797,10 @@ test.describe('Panel de pasantías — for the global admin only', () => {
       const letters = await cron.get('/api/cron/pasantias-letters');
       expect(letters.status()).toBe(200);
       const counts = (await letters.json()) as Record<string, unknown>;
-      expect(Object.keys(counts).sort()).toEqual(['attempted', 'due', 'failed', 'ok', 'sent']);
+      expect(Object.keys(counts).sort()).toEqual(['alerted', 'attempted', 'due', 'failed', 'needAttention', 'ok', 'sent']);
       expect(counts.sent).toBe(0);
+      // No provider either for the note to the admins: none can be reported as delivered.
+      expect(counts.alerted).toBe(0);
 
       // The retention sweep before 28 Feb 2027 deletes nothing: the journey's files are still there.
       const sweep = await cron.get('/api/cron/pasantias-retention');

@@ -5,7 +5,7 @@ This unit was done by one Claude session outside the PM–Executor workflow, at 
 
 ## Branch and base
 
-- Branch `feat/pasant-panel`, cut from `origin/main` at `b06a5b852` (merge of PR #173). Two commits: the panel, then the round-2 changes Brent asked for after trying it.
+- Branch `feat/pasant-panel`, cut from `origin/main` at `b06a5b852` (merge of PR #173). Three commits: the panel; the round-2 changes Brent asked for after trying it; then the school notice wording and the daily note to admins (his answers of 2026-11-10).
 - Vercel previews are disabled for the branch in `vercel.json`.
 
 ## Objective
@@ -25,10 +25,11 @@ Round 2 — Brent's decisions of 2026-11-09:
 - once FNE marks a person's airfare as bought, the school can no longer change that person's dates, nor who pays the lodging for that list;
 - each letter is emailed automatically seven days before the traveller leaves Santiago; the panel shows who is blocked and why, and has "send now";
 - stored files and the panel's history are deleted one month after the program ends (28 Feb 2027 for both programs);
-- a traveller whose email belongs to a GENERA account sees their own trip at `/profile/pasantia` ("Mi pasantía").
+- a traveller whose email belongs to a GENERA account sees their own trip at `/profile/pasantia` ("Mi pasantía");
+- (2026-11-10) the school notice now says what the email is for and that a traveller can see their own trip (version `pasant-intake-2026-11-v3`); and the daily letter job emails FNE's global admins one list of the letters that should be going out and have not, with the reason for each.
 
 **In scope:** one additive migration; nine admin API route files; two traveller API routes; two daily jobs; the admin page, the traveller page and their components; the school form's email field and locks; tests.
-**Out of scope:** any change to the intake tables or to the intake SQL functions (the school form now calls two wrappers defined in this migration); adding or deleting travellers; insurance; passport copies; changing the school notice text; Production.
+**Out of scope:** any change to the intake tables or to the intake SQL functions (the school form now calls two wrappers defined in this migration); adding or deleting travellers; insurance; passport copies; Production.
 
 ## Files, by risk
 
@@ -69,13 +70,13 @@ Round 2 — Brent's decisions of 2026-11-09:
 | Lint, zero warnings | PASS |
 | `lint:testid`, scoped to the new and changed UI files | PASS |
 | Guards: action runtimes, RLS + destructive migration, browser boundary, committed secrets | PASS |
-| Vitest, whole suite in 8 shards | 18 196 passed, 12 skipped, 0 failed (547 files). The first run had 2 failures: two existing tests pin the exact list of scheduled jobs in `vercel.json`; both were updated to include the two new jobs and their shards re-run green. |
+| Vitest, whole suite in 8 shards (re-run on the final tree) | 18 202 passed, 12 skipped, 0 failed (547 files). An earlier run had 2 failures: two existing tests pin the exact list of scheduled jobs in `vercel.json`; both were updated to include the two new jobs. |
 | pgTAP, whole suite on a from-scratch local database | 79 files, 8 302 tests, PASS; 116 contributes 163; 114 (176) and 115 (140) unchanged and passing |
 | Production build + price guard (inside the e2e run) | PASS |
-| Playwright on a fresh seeded stack, production build | `pasantias-panel` 11/11 and `pasantias-participant-intake` 26/26; 0 failed, skipped or flaky |
+| Playwright on a fresh seeded stack, production build (re-run on the final tree) | `pasantias-panel` 11/11 and `pasantias-participant-intake` 26/26; 0 failed, skipped or flaky |
 | Hands-on walkthrough (headless Chromium against `next dev`) | A school saves two people (no email → refused); the panel shows email, account badge and flight dates; dates out of order refused; letter generated; "send now" answers "el envío de correos no está configurado" and stores nothing; the school page shows dates and lodging greyed out; the docente fixture account opens Mi pasantía and downloads the letter. |
 
-After the full run, one change was made: recording a completed send is now tried three times (`letter-delivery.ts`), with two new unit tests. Type-check, lint and the affected unit files (808 tests) were re-run and pass; the browser and database suites were not re-run for it.
+pgTAP ran on the round-2 tree; the third commit changes no SQL. Type-check, lint, guards, Vitest and Playwright were re-run on the final tree.
 
 Not run: GitHub CI; the other 24 mandatory e2e specs (only the two Pasantías specs ran locally); any Production read or write; **a real email** — every test uses a stand-in transport and no environment here has a provider key.
 
@@ -105,9 +106,10 @@ Not run: GitHub CI; the other 24 mandatory e2e specs (only the two Pasantías sp
 
 ## Known limitations
 
-- The school notice text (`pasant-intake-2026-10-v2`, approved by Brent on 2026-10-28) was not changed; it mentions neither the email nor that a traveller can see their own data. A human reading is needed.
+- The two new sentences of the school notice (v3) were drafted in this session at Brent's request; he has seen the wording in the session report, not approved it line by line. It is a content change, not a claim of legal sufficiency.
 - Rosters already sent have people without an email; nobody is told.
-- Nobody is alerted when a letter cannot be sent; a bounce is not noticed.
+- The note to admins repeats every day while a letter is pending, goes to every active global admin, and names travellers and schools in the email. A bounce is still not noticed.
+- Brent decided (2026-11-10) that a mistyped email needs no confirmation step, and that FNE fills in the emails of lists already sent.
 - A school can still overwrite an admin correction of a name, RUT, passport or email.
 - After 28 Feb 2027 the history of corrections is gone.
 - The two letter lines per school are not in the activity log.

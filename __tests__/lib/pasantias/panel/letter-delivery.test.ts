@@ -8,7 +8,7 @@
  * functions really do is proven by pgTAP 116.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { letterEmail, retentionDate, sendLetter } from '../../../../lib/pasantias/panel/letter-delivery';
+import { alertAdmins, attentionEmail, letterEmail, retentionDate, sendLetter } from '../../../../lib/pasantias/panel/letter-delivery';
 import type { EmailTransport } from '../../../../lib/email/provider';
 import { fakePanel, type Answer, type FakePanel, type PanelQuery } from './fake-panel-supabase';
 import { tinyPng } from './tiny-png';
@@ -329,5 +329,72 @@ describe('retentionDate', () => {
   it('is one calendar month after the program ends, clamped to the end of February', () => {
     expect(retentionDate('inspira')).toBe('2027-02-28');
     expect(retentionDate('mirada-profunda')).toBe('2027-02-28');
+  });
+});
+
+describe('telling the admins which letters did not go out', () => {
+  const ITEMS = [
+    { fullName: 'Ana <Sintética>', schoolName: 'Colegio Sintético Uno', reason: 'falta el correo de la persona' },
+    { fullName: 'Bruno Sintético', schoolName: 'Liceo Sintético Dos', reason: 'el servicio de correo no respondió' },
+  ];
+  const ADMIN_A = '99999999-8888-4777-8666-555555555555';
+  const ADMIN_B = '99999999-8888-4777-8666-555555555556';
+
+  function admins(rows: { id: string; email: string | null }[]): FakePanel {
+    return fakePanel({
+      query: (q: PanelQuery): Answer => {
+        if (q.table === 'user_roles' && q.eq.role_type === 'admin') {
+          // The same admin holding two role rows is told once.
+          return { data: [...rows, ...rows.slice(0, 1)].map((row) => ({ user_id: row.id })), error: null };
+        }
+        if (q.table === 'profiles' && 'id' in q.in) return { data: rows, error: null };
+        if (q.table === 'profiles') return { data: { school_id: null }, error: null };
+        if (q.table === 'user_roles') return { data: [], error: null };
+        return { data: null, error: { code: 'UNEXPECTED_TABLE' } };
+      },
+    });
+  }
+
+  it('writes one plain message naming each person, their school and the reason', () => {
+    const one = attentionEmail(ITEMS.slice(0, 1), 'https://genera.example/admin/pasantias-panel');
+    expect(one.subject).toBe('Pasantías: 1 carta de invitación sin enviar');
+    const two = attentionEmail(ITEMS, null);
+    expect(two.subject).toBe('Pasantías: 2 cartas de invitación sin enviar');
+    expect(two.text).toContain('• Ana <Sintética> (Colegio Sintético Uno): falta el correo de la persona.');
+    expect(two.text).toContain('• Bruno Sintético (Liceo Sintético Dos): el servicio de correo no respondió.');
+    expect(two.text).toContain('se repite cada día');
+    expect(two.html).toContain('Ana &lt;Sintética&gt;');
+    expect(one.text).toContain('https://genera.example/admin/pasantias-panel');
+  });
+
+  it('emails each active global admin once, and only them', async () => {
+    const fake = admins([
+      { id: ADMIN_A, email: 'admin.a@example.com' },
+      { id: ADMIN_B, email: 'admin.b@example.com' },
+    ]);
+    const transport = vi.fn(accepted);
+    expect(await alertAdmins(fake.client, ITEMS, 'https://genera.example', transport)).toEqual({ ok: true, sent: 2 });
+    expect(transport.mock.calls.map((call) => call[0].to)).toEqual(['admin.a@example.com', 'admin.b@example.com']);
+    expect(transport.mock.calls[0][0].attachments).toBeUndefined();
+    const roles = fake.queries.find((q) => q.table === 'user_roles')!;
+    expect(roles.eq).toEqual({ role_type: 'admin', is_active: true });
+    expect(fake.writes()).toHaveLength(0);
+  });
+
+  it('sends nothing when there is nothing to report, and skips an admin with no address', async () => {
+    const fake = admins([{ id: ADMIN_A, email: null }, { id: ADMIN_B, email: 'admin.b@example.com' }]);
+    const transport = vi.fn(accepted);
+    expect(await alertAdmins(fake.client, [], null, transport)).toEqual({ ok: true, sent: 0 });
+    expect(fake.queries).toHaveLength(0);
+    expect(await alertAdmins(fake.client, ITEMS, null, transport)).toEqual({ ok: true, sent: 1 });
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it('counts only what the provider accepted, and reports a failed admin lookup', async () => {
+    const fake = admins([{ id: ADMIN_A, email: 'admin.a@example.com' }]);
+    const refusing: EmailTransport = async () => ({ data: null, error: { message: 'no', statusCode: 422 } });
+    expect(await alertAdmins(fake.client, ITEMS, null, refusing)).toEqual({ ok: true, sent: 0 });
+    const broken = fakePanel({ query: () => ({ data: null, error: { code: 'XX000' } }) });
+    expect((await alertAdmins(broken.client, ITEMS, null, vi.fn(accepted))).ok).toBe(false);
   });
 });

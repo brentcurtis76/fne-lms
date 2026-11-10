@@ -198,7 +198,10 @@ describe('the daily letter job', () => {
     mockSendLetter.mockResolvedValue({ status: 'sent', to: 'persona1@example.com', stored: true });
     const out = await call(lettersJob, { headers: asCron });
     expect(out.status).toBe(200);
-    expect(out.json).toEqual({ ok: true, due: 1, attempted: 1, sent: 1, failed: 0 });
+    // Two people should be getting their letter these days and lack something:
+    // nº 4 (no Estimado/Estimada, leaves on the 16th) and nº 6 (no email, leaves on the 10th).
+    // No admin exists in this arrangement, so nobody could be told.
+    expect(out.json).toEqual({ ok: true, due: 1, attempted: 1, sent: 1, failed: 0, needAttention: 2, alerted: 0 });
     expect(mockSendLetter).toHaveBeenCalledTimes(1);
     expect(mockSendLetter).toHaveBeenCalledWith(fake.client, P(1), {
       actorId: null,
@@ -214,7 +217,8 @@ describe('the daily letter job', () => {
   it('reports a failed send without stopping, and a skipped one as neither sent nor failed', async () => {
     cohort();
     mockSendLetter.mockResolvedValue({ status: 'failed', error: 'email_failed' });
-    expect((await call(lettersJob, { headers: asCron })).json).toMatchObject({ attempted: 1, sent: 0, failed: 1 });
+    // The failed send joins the two people who lack something.
+    expect((await call(lettersJob, { headers: asCron })).json).toMatchObject({ attempted: 1, sent: 0, failed: 1, needAttention: 3 });
     mockSendLetter.mockResolvedValue({ status: 'skipped', reason: 'in_progress' });
     expect((await call(lettersJob, { headers: asCron })).json).toMatchObject({ attempted: 1, sent: 0, failed: 0 });
   });

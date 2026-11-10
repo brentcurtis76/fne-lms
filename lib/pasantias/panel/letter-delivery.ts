@@ -241,3 +241,77 @@ export function retentionDate(program: PanelRoster['program']): string {
   const date = new Date(Date.UTC(year, month, Math.min(day, lastOfNext)));
   return date.toISOString().slice(0, 10);
 }
+
+/* ------------------------------------------------------- telling the admins */
+
+/** One traveller whose letter is due (or nearly) and has not gone out, and why. */
+export interface LetterAttention {
+  fullName: string;
+  schoolName: string;
+  reason: string;
+}
+
+/** The message that tells FNE's admins which letters did not go out. Pure — unit tested. */
+export function attentionEmail(items: readonly LetterAttention[], panelUrl: string | null): LetterEmailText {
+  const count = items.length;
+  const subject =
+    count === 1
+      ? 'Pasantías: 1 carta de invitación sin enviar'
+      : `Pasantías: ${count} cartas de invitación sin enviar`;
+  const lines = [
+    count === 1
+      ? 'La carta de invitación de esta persona debería salir en estos días y no se ha enviado:'
+      : 'Las cartas de invitación de estas personas deberían salir en estos días y no se han enviado:',
+    ...items.map((item) => `• ${item.fullName} (${item.schoolName}): ${item.reason}.`),
+    panelUrl
+      ? `Completa lo que falta en el Panel de pasantías y la carta saldrá en el próximo envío diario, o envíala desde allí: ${panelUrl}`
+      : 'Completa lo que falta en el Panel de pasantías y la carta saldrá en el próximo envío diario.',
+    'Este aviso se repite cada día mientras haya cartas pendientes.',
+  ];
+  return {
+    subject,
+    text: lines.join('\n\n'),
+    html: lines.map((line) => `<p>${escapeHtml(line)}</p>`).join('\n'),
+  };
+}
+
+/**
+ * Emails every active global admin the list of letters that did not go out.
+ * Each admin's message follows that admin's own school rules (a QA school
+ * receives nothing). Returns how many messages the provider accepted.
+ */
+export async function alertAdmins(
+  supabase: Service,
+  items: readonly LetterAttention[],
+  baseUrl: string | null,
+  transport?: EmailTransport
+): Promise<{ ok: true; sent: number } | { ok: false; error: unknown }> {
+  if (items.length === 0) return { ok: true, sent: 0 };
+  const { data: roles, error: rolesError } = await supabase
+    .from('user_roles')
+    .select('user_id')
+    .eq('role_type', 'admin')
+    .eq('is_active', true)
+    .limit(200);
+  if (rolesError) return { ok: false, error: rolesError };
+  const adminIds = Array.from(
+    new Set(((roles ?? []) as unknown as { user_id?: unknown }[]).map((row) => row.user_id).filter((id): id is string => typeof id === 'string'))
+  );
+  if (adminIds.length === 0) return { ok: true, sent: 0 };
+  const { data: profiles, error: profilesError } = await supabase.from('profiles').select('id, email').in('id', adminIds);
+  if (profilesError) return { ok: false, error: profilesError };
+
+  const message = attentionEmail(items, baseUrl ? `${baseUrl}/admin/pasantias-panel` : null);
+  let sent = 0;
+  for (const profile of (profiles ?? []) as unknown as { id?: unknown; email?: unknown }[]) {
+    if (typeof profile.id !== 'string' || typeof profile.email !== 'string' || !profile.email.includes('@')) continue;
+    const delivery = await deliverOutboundEmail({
+      authorization: await authorizeUserEmail(supabase, profile.id),
+      message: { to: profile.email, subject: message.subject, text: message.text, html: message.html },
+      transport,
+    });
+    if (delivery.status === 'provider_accepted') sent += 1;
+    else console.error('[pasantias-intake] letter alert not accepted:', { status: delivery.status });
+  }
+  return { ok: true, sent };
+}

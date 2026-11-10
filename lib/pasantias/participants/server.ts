@@ -55,8 +55,15 @@ export const ROSTERS_TABLE = 'pasantias_intake_rosters';
 export const PARTICIPANTS_TABLE = 'pasantias_intake_participants';
 export const SCHOOL_FUNDING_TABLE = 'pasantias_nomina_school_funding';
 export const PARTICIPANT_FOCUS_TABLE = 'pasantias_nomina_participant_focus';
-export const SAVE_RPC = 'pasantias_nomina_save_participant';
-export const FUNDING_RPC = 'pasantias_nomina_save_school_funding';
+/**
+ * The school form saves through the panel migration's wrappers: each takes the
+ * roster lock, applies the "ticket already bought" lock, then calls the
+ * unchanged `pasantias_nomina_*` function (whose refusals keep ITS name).
+ */
+export const SAVE_RPC = 'pasantias_panel_school_save_participant';
+export const SAVE_INNER_RPC = 'pasantias_nomina_save_participant';
+export const FUNDING_RPC = 'pasantias_panel_school_save_funding';
+export const FUNDING_INNER_RPC = 'pasantias_nomina_save_school_funding';
 export const FINALIZE_RPC = 'pasantias_intake_finalize';
 
 /** Request bodies are tiny; anything over 8 kB is refused (FIRST §4). */
@@ -145,8 +152,13 @@ export function toCoordinatorRoster(row: Row): CoordinatorRosterRow {
 }
 
 /** The coordinator view: the internal id stays on the server; funding always present (C4). */
-export function publicRoster(roster: CoordinatorRosterRow, schoolFunding: SchoolFunding | null): CoordinatorRoster {
+export function publicRoster(
+  roster: CoordinatorRosterRow,
+  schoolFunding: SchoolFunding | null,
+  lodgingLocked = false
+): CoordinatorRoster {
   return {
+    lodgingLocked,
     schoolName: roster.schoolName,
     program: roster.program,
     programName: roster.programName,
@@ -181,8 +193,16 @@ export function toAdminRoster(row: Row): AdminRoster {
  * Effective focus (corrections §2): `todos` when the side table says
  * `all_levels`, otherwise the DB-01 column (a level, or null = Sin indicar).
  */
-export function toParticipant(row: Row, allLevels = false): IntakeParticipant {
+export interface ParticipantExtras {
+  email: string | null;
+  /** FNE marked the airfare as purchased or paid. */
+  datesLocked: boolean;
+}
+
+export function toParticipant(row: Row, allLevels = false, extras?: ParticipantExtras): IntakeParticipant {
   return {
+    email: extras?.email ?? null,
+    datesLocked: extras?.datesLocked === true,
     id: str(row.id),
     version: Number(row.version),
     firstNames: str(row.first_names),
@@ -200,9 +220,13 @@ export function toParticipant(row: Row, allLevels = false): IntakeParticipant {
   };
 }
 
-export function toAdminParticipant(row: Row, allLevels = false): AdminIntakeParticipant {
+export function toAdminParticipant(
+  row: Row,
+  allLevels = false,
+  extras?: ParticipantExtras
+): AdminIntakeParticipant {
   return {
-    ...toParticipant(row, allLevels),
+    ...toParticipant(row, allLevels, extras),
     createdAt: str(row.created_at),
     acknowledgedAt: str(row.acknowledged_at),
     noticeVersion: str(row.notice_version),
@@ -379,6 +403,38 @@ export async function readAllLevelsIds(
   return { ok: true, value: ids };
 }
 
+/**
+ * What the panel tables add to a participant: the email (contacts) and whether
+ * FNE marked the airfare as bought (tracking). Only for ids the caller already
+ * read within its own roster.
+ */
+export async function readParticipantExtras(
+  supabase: Service,
+  participantIds: string[]
+): Promise<ReadResult<Map<string, ParticipantExtras>>> {
+  const extras = new Map<string, ParticipantExtras>();
+  if (participantIds.length === 0) return { ok: true, value: extras };
+  const [contacts, tracking] = await Promise.all([
+    supabase.from('pasantias_panel_contacts').select('participant_id, email').in('participant_id', participantIds),
+    supabase
+      .from('pasantias_panel_logistics')
+      .select('participant_id, flight_status')
+      .in('participant_id', participantIds),
+  ]);
+  if (contacts.error) return { ok: false, error: contacts.error };
+  if (tracking.error) return { ok: false, error: tracking.error };
+  for (const id of participantIds) extras.set(id, { email: null, datesLocked: false });
+  for (const row of (contacts.data ?? []) as unknown as Row[]) {
+    const entry = extras.get(str(row.participant_id));
+    if (entry) entry.email = strOrNull(row.email);
+  }
+  for (const row of (tracking.data ?? []) as unknown as Row[]) {
+    const entry = extras.get(str(row.participant_id));
+    if (entry) entry.datesLocked = row.flight_status === 'purchased' || row.flight_status === 'paid';
+  }
+  return { ok: true, value: extras };
+}
+
 async function listParticipantRows(
   supabase: Service,
   rosterId: string,
@@ -402,9 +458,17 @@ export async function listParticipants(
 ): Promise<ReadResult<IntakeParticipant[]>> {
   const rows = await listParticipantRows(supabase, rosterId, PARTICIPANT_COLUMNS);
   if (rows.ok === false) return rows;
-  const todos = await readAllLevelsIds(supabase, rows.value.map((row) => str(row.id)));
+  const ids = rows.value.map((row) => str(row.id));
+  const todos = await readAllLevelsIds(supabase, ids);
   if (todos.ok === false) return todos;
-  return { ok: true, value: rows.value.map((row) => toParticipant(row, todos.value.has(str(row.id)))) };
+  const extras = await readParticipantExtras(supabase, ids);
+  if (extras.ok === false) return extras;
+  return {
+    ok: true,
+    value: rows.value.map((row) =>
+      toParticipant(row, todos.value.has(str(row.id)), extras.value.get(str(row.id)))
+    ),
+  };
 }
 
 /** The admin detail list: as above plus the acknowledgement evidence. */
@@ -414,9 +478,17 @@ export async function listAdminParticipants(
 ): Promise<ReadResult<AdminIntakeParticipant[]>> {
   const rows = await listParticipantRows(supabase, rosterId, ADMIN_PARTICIPANT_COLUMNS);
   if (rows.ok === false) return rows;
-  const todos = await readAllLevelsIds(supabase, rows.value.map((row) => str(row.id)));
+  const ids = rows.value.map((row) => str(row.id));
+  const todos = await readAllLevelsIds(supabase, ids);
   if (todos.ok === false) return todos;
-  return { ok: true, value: rows.value.map((row) => toAdminParticipant(row, todos.value.has(str(row.id)))) };
+  const extras = await readParticipantExtras(supabase, ids);
+  if (extras.ok === false) return extras;
+  return {
+    ok: true,
+    value: rows.value.map((row) =>
+      toAdminParticipant(row, todos.value.has(str(row.id)), extras.value.get(str(row.id)))
+    ),
+  };
 }
 
 /** One participant, scoped to the roster the token resolved to — never by id alone. */
@@ -437,7 +509,9 @@ export async function readParticipant(
   // Focus only for an id the roster-scoped read just returned.
   const todos = await readAllLevelsIds(supabase, [str(row.id)]);
   if (todos.ok === false) return todos;
-  return { ok: true, value: toParticipant(row, todos.value.has(str(row.id))) };
+  const extras = await readParticipantExtras(supabase, [str(row.id)]);
+  if (extras.ok === false) return extras;
+  return { ok: true, value: toParticipant(row, todos.value.has(str(row.id)), extras.value.get(str(row.id))) };
 }
 
 /**
@@ -451,7 +525,29 @@ export async function rosterWithFunding(
 ): Promise<ReadResult<CoordinatorRoster>> {
   const funding = await readSchoolFunding(supabase, roster.id);
   if (funding.ok === false) return funding;
-  return { ok: true, value: publicRoster(roster, funding.value) };
+  const locked = await readLodgingLocked(supabase, roster.id);
+  if (locked.ok === false) return locked;
+  return { ok: true, value: publicRoster(roster, funding.value, locked.value) };
+}
+
+/** Whether FNE marked the airfare of anyone on this roster as purchased or paid. */
+export async function readLodgingLocked(supabase: Service, rosterId: string): Promise<ReadResult<boolean>> {
+  const { data: people, error } = await supabase
+    .from(PARTICIPANTS_TABLE)
+    .select('id')
+    .eq('roster_id', rosterId)
+    .limit(ROSTER_MAX_PARTICIPANTS);
+  if (error) return { ok: false, error };
+  const ids = ((people ?? []) as unknown as Row[]).map((row) => str(row.id));
+  if (ids.length === 0) return { ok: true, value: false };
+  const { data: bought, error: trackingError } = await supabase
+    .from('pasantias_panel_logistics')
+    .select('participant_id')
+    .in('participant_id', ids)
+    .in('flight_status', ['purchased', 'paid'])
+    .limit(1);
+  if (trackingError) return { ok: false, error: trackingError };
+  return { ok: true, value: ((bought ?? []) as unknown[]).length > 0 };
 }
 
 /* ------------------------------------------------------------------ RPCs */
@@ -466,6 +562,8 @@ const SAVE_REFUSALS = [
   'invalid_focus',
   'invalid_dietary',
   'invalid_notice_version',
+  'invalid_email',
+  'dates_locked',
   'link_unavailable',
   'school_data_missing',
   'roster_full',
@@ -479,6 +577,7 @@ const FUNDING_REFUSALS = [
   'invalid_argument',
   'invalid_flights_funding',
   'invalid_lodging_funding',
+  'lodging_locked',
   'link_unavailable',
   'stale_version',
 ] as const;
@@ -491,10 +590,11 @@ export type FinalizeRefusal = (typeof FINALIZE_REFUSALS)[number];
 const UNAVAILABLE_CODES = new Set(['PGRST202', '42883', '42P01']);
 
 /** The frozen refusal code, matched on the EXACT message (db-contract §4), or null. */
-function refusalCode<T extends string>(error: unknown, fn: string, codes: readonly T[]): T | null {
+function refusalCode<T extends string>(error: unknown, fn: string | readonly string[], codes: readonly T[]): T | null {
   const { code, message } = (error ?? {}) as { code?: unknown; message?: unknown };
   if (code !== '22023' || typeof message !== 'string') return null;
-  return codes.find((candidate) => message === `${fn}: ${candidate}`) ?? null;
+  const names = typeof fn === 'string' ? [fn] : fn;
+  return codes.find((candidate) => names.some((name) => message === `${name}: ${candidate}`)) ?? null;
 }
 
 export function isUnavailable(error: unknown): boolean {
@@ -524,7 +624,7 @@ function firstRow<T>(data: unknown): T | null {
 }
 
 /**
- * Every one of the fourteen named arguments of `pasantias_nomina_save_participant`,
+ * Every one of the fifteen named arguments of `pasantias_panel_school_save_participant`,
  * always: PostgREST resolves a function by argument names, and a missing key is
  * PGRST202, not a default. No funding argument exists (F01).
  */
@@ -549,6 +649,7 @@ export function saveArgs(
     p_dietary_restrictions: fields.dietaryRestrictions,
     p_dietary_other: fields.dietaryOther,
     p_notice_version: noticeVersion,
+    p_email: fields.email,
   };
 }
 
@@ -557,7 +658,7 @@ export async function callSave(
   args: Record<string, unknown>
 ): Promise<RpcOutcome<SaveRow, SaveRefusal>> {
   const { data, error } = await supabase.rpc(SAVE_RPC, args);
-  if (error) return { ok: false, refusal: refusalCode(error, SAVE_RPC, SAVE_REFUSALS), error };
+  if (error) return { ok: false, refusal: refusalCode(error, [SAVE_RPC, SAVE_INNER_RPC], SAVE_REFUSALS), error };
   const row = firstRow<SaveRow>(data);
   if (!row?.participant_id) return { ok: false, refusal: null, error: { code: 'EMPTY_RESULT' } };
   return { ok: true, row };
@@ -583,7 +684,9 @@ export async function callSaveSchoolFunding(
     p_flights_funding: request.flightsFunding,
     p_lodging_funding: request.lodgingFunding,
   });
-  if (error) return { ok: false, refusal: refusalCode(error, FUNDING_RPC, FUNDING_REFUSALS), error };
+  if (error) {
+    return { ok: false, refusal: refusalCode(error, [FUNDING_RPC, FUNDING_INNER_RPC], FUNDING_REFUSALS), error };
+  }
   const row = firstRow<FundingRow>(data);
   if (!row?.roster_status) return { ok: false, refusal: null, error: { code: 'EMPTY_RESULT' } };
   return { ok: true, row };
@@ -619,6 +722,7 @@ const REFUSAL_FIELDS: Partial<Record<SaveRefusal, keyof ParticipantFields>> = {
   invalid_dates: 'departureDate',
   invalid_focus: 'focus',
   invalid_dietary: 'dietaryRestrictions',
+  invalid_email: 'email',
 };
 
 /**
@@ -637,6 +741,10 @@ export function sendSaveFailure(
     return sendIntakeError(res, 'DUPLICATE_RUT', { fields: { rut: MESSAGES.rutDuplicate } });
   }
   if (refusal === 'unknown_participant') return sendIntakeError(res, 'NOT_FOUND');
+  if (refusal === 'dates_locked') {
+    // Not drift: FNE marked the airfare as bought after this form was opened.
+    return sendIntakeError(res, 'VALIDATION', { fields: { arrivalDate: MESSAGES.datesLocked } });
+  }
   const field = refusal ? REFUSAL_FIELDS[refusal] : undefined;
   if (field) {
     // The SQL refused a value this validator accepted: the two drifted. The
@@ -669,6 +777,9 @@ export function sendFundingFailure(
 ): void {
   const { refusal } = outcome;
   if (refusal === 'link_unavailable') return sendIntakeError(res, 'LINK_UNAVAILABLE');
+  if (refusal === 'lodging_locked') {
+    return sendIntakeError(res, 'VALIDATION', { fields: { lodgingFunding: MESSAGES.lodgingLocked } });
+  }
   if (refusal === 'invalid_flights_funding' || refusal === 'invalid_lodging_funding') {
     console.error(`[${LOG_PREFIX}] funding refused by the database:`, { code: refusal });
     const field = refusal === 'invalid_flights_funding' ? 'flightsFunding' : 'lodgingFunding';

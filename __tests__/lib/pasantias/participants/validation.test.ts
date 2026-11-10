@@ -31,6 +31,7 @@ function fields(overrides: Record<string, unknown> = {}): Record<string, unknown
     focus: null,
     dietaryRestrictions: [],
     dietaryOther: null,
+    email: 'maria.jose@example.com',
     ...overrides,
   };
 }
@@ -252,6 +253,44 @@ describe('dietary', () => {
       MESSAGES.dietaryInvalid
     );
     expect(validateParticipantFields(fields({ dietaryRestrictions: [] }), 'inspira').value?.dietaryRestrictions).toEqual([]);
+  });
+});
+
+describe('email', () => {
+  it('is trimmed and lower-cased', () => {
+    const { value, errors } = validateParticipantFields(fields({ email: '  Maria.Jose@Colegio.CL ' }), 'inspira');
+    expect(errors).toEqual({});
+    expect(value?.email).toBe('maria.jose@colegio.cl');
+  });
+
+  it.each(['sin-arroba.cl', 'a@b', 'dos@@example.com', 'con espacio@example.com', 'a@b.c;d@e.f', 'x@y.z', 42])(
+    'refuses %j',
+    (email) => {
+      expect(validateParticipantFields(fields({ email }), 'inspira').errors.email).toBe(MESSAGES.emailInvalid);
+    }
+  );
+
+  it('refuses more than 254 characters', () => {
+    const long = `${'a'.repeat(250)}@example.com`;
+    expect(validateParticipantFields(fields({ email: long }), 'inspira').errors.email).toBe(MESSAGES.emailInvalid);
+  });
+
+  it('is optional by default (an FNE correction) and required on the school form', () => {
+    for (const blank of [null, undefined, '', '   ']) {
+      const optional = validateParticipantFields(fields({ email: blank }), 'inspira');
+      expect(optional.errors).toEqual({});
+      expect(optional.value?.email).toBeNull();
+      expect(
+        validateParticipantFields(fields({ email: blank }), 'inspira', { emailRequired: true }).errors.email
+      ).toBe(MESSAGES.emailRequired);
+    }
+    // The two school bodies both require it.
+    const create = validateCreateBody(createBody({ email: null }), 'inspira');
+    expect(create.ok).toBe(false);
+    if (!create.ok) expect(create.errors.email).toBe(MESSAGES.emailRequired);
+    const update = validateUpdateBody({ ...fields({ email: '' }), acknowledged: true, expectedVersion: 1 }, 'inspira');
+    expect(update.ok).toBe(false);
+    if (!update.ok) expect(update.errors.email).toBe(MESSAGES.emailRequired);
   });
 });
 

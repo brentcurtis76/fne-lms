@@ -1,3 +1,25 @@
+## PASANTÍAS PANEL — logistics panel for the January 2027 cohort: built and validated locally, not pushed (2026-11-09)
+
+**Status:** four local commits on `feat/pasant-panel` (base `b06a5b852`). Not pushed, no PR, no CI, nothing in Production. Built by a single Claude session outside the PM–Executor workflow at Brent's request (model test); the reviewer packet is a Claude doc Brent holds.
+
+- **What (commit 1):** `/admin/pasantias-panel` — every traveller of every school in one table; FNE tracking (airfare, lodging, 50% deposit, 50% balance, notes) with quick and bulk edits and CSV; admin correction of school data; private documents per person; the Carta de Invitación generated as a PDF per person.
+- **What (commit 2, Brent's decisions of 2026-11-09):**
+  - four real flight dates per person (salida de SCL, llegada a BCN, salida de BCN, llegada a SCL), entered by FNE;
+  - the school form asks for each traveller's **email** (required); FNE can add or correct it;
+  - once FNE marks a person's airfare as bought, the school can no longer change that person's two dates, nor who pays the lodging for that list (FNE still can);
+  - each letter is **emailed automatically seven days before the traveller leaves Santiago** (daily job `/api/cron/pasantias-letters`), only when everything it needs exists; the panel shows who is blocked and why, and has a "send now" button;
+  - tickets, letters, other files and the panel's history are **deleted one month after the program ends** — 28 Feb 2027 for both programs (daily job `/api/cron/pasantias-retention`);
+  - a traveller whose email belongs to a GENERA account sees **Mi pasantía** (`/profile/pasantia`): program, school, flight dates, airfare/lodging state, their ticket and letter.
+- **The school form changed.** `pages/pasantias/nomina.tsx` and its API now save through two wrapper functions of the panel migration; the intake migrations, their functions and pgTAP 114/115 are untouched (176/176 and 140/140 still pass). A school that already sent its list has people without an email: the next time it edits one of them the form asks for it.
+- **DB:** one additive migration `20261109210000_pasantias_logistics_panel.sql` (five tables, eleven service-role functions, private bucket `pasantias-documents`) plus pgTAP 116 (163 tests). It reaches Production only through Publish. It was hand-written in this session, not by the DB agent.
+- **Local evidence:** see `docs/planning/reviews/fase-pasant-panel-review-request.md`.
+- **Before first use in any environment:** an admin uploads the letter's logo and signature in the panel (deliberately not in this public repository). The two daily jobs need `CRON_SECRET` (already used by the other jobs) and the letter email needs `RESEND_API_KEY`; without the latter nothing is sent and the panel says so.
+- **Commit 3 (Brent's answers of 2026-11-10):** the school notice is now version `pasant-intake-2026-11-v3` (it names the email's use and the traveller's own view); the daily letter job emails FNE's global admins the letters that should be going out and have not. Brent also decided: no confirmation step for emails, and FNE fills in the emails of lists already sent.
+- **Commit 4:** the retention delete moved from a SQL function to the daily job: the Production publisher refuses any migration containing DELETE. The migration now passes the publisher's static check.
+- **Open for Brent:** who may press "send now" (any global admin today); whether emails and passport numbers should also be deleted on 28 Feb.
+
+Review request: `docs/planning/reviews/fase-pasant-panel-review-request.md`.
+
 ## PASANT-PARTICIPANT-INTAKE — release status: F01–F04 accepted locally; CI and Publish pending (2026-10-30)
 
 **Status:** F01–F04 corrections are **accepted locally** on corrections source freeze r2 (PM: `LOCAL_CORRECTIONS_ACCEPTED`). The independent FINAL evidence review **APPROVED** local acceptance, and its condition E-1 (record of the scoped `lint:testid` command) is closed.

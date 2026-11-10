@@ -100,6 +100,8 @@ function participantBody(overrides: Record<string, unknown> = {}): Record<string
     focus: null,
     dietaryRestrictions: [],
     dietaryOther: null,
+    // Required since the panel emails each traveller their invitation letter.
+    email: 'valentina.sintetica@example.com',
     ...overrides,
   };
 }
@@ -213,12 +215,15 @@ interface Ficha {
   focus?: string;
   dietary?: string[];
   other?: string;
+  /** Defaults to a synthetic address: the field is required. */
+  email?: string;
 }
 
 async function fillFicha(page: Page, ficha: Ficha) {
   await page.getByTestId('intake-first-names').fill(ficha.firstNames);
   await page.getByTestId('intake-last-names').fill(ficha.lastNames);
   await page.getByTestId('intake-rut').fill(ficha.rut);
+  await page.getByTestId('intake-email').fill(ficha.email ?? 'persona.sintetica@example.com');
   if (ficha.arrival) await page.getByTestId('intake-arrival-date').selectOption(ficha.arrival);
   if (ficha.departure) await page.getByTestId('intake-departure-date').selectOption(ficha.departure);
   if (ficha.focus) await page.getByTestId('intake-focus').selectOption(ficha.focus);
@@ -912,8 +917,8 @@ async function keyboardOnlyAdd(page: Page, rut: string) {
   await page.keyboard.press('Enter');
   await expect(firstNames).toBeFocused();
   await expect(firstNames).toHaveAttribute('aria-invalid', 'true');
-  // F01: names ×2 and RUT — the funding selects left the ficha (was 5).
-  await expect(page.getByTestId('intake-live')).toContainText('Revisa los 3 campos marcados.');
+  // Names ×2, RUT and the email (the funding selects left the ficha with F01).
+  await expect(page.getByTestId('intake-live')).toContainText('Revisa los 4 campos marcados.');
 
   // The acknowledgement, by keyboard.
   await page.getByTestId('intake-ack').focus();
@@ -930,6 +935,9 @@ async function keyboardOnlyAdd(page: Page, rut: string) {
   await page.keyboard.type(rut);
   await page.keyboard.press('Tab');
   await expect(page.getByTestId('intake-passport')).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByTestId('intake-email')).toBeFocused();
+  await page.keyboard.type('teclado.sin.raton@example.com');
   // F01: no funding selects in the ficha any more — straight to the dates.
   await page.keyboard.press('Tab');
   await expect(page.getByTestId('intake-arrival-date')).toBeFocused();

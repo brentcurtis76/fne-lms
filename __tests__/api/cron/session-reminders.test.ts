@@ -635,6 +635,9 @@ describe('D5 — the schedule', () => {
       { path: '/api/cron/notification-emails', schedule: '* * * * *' },
       { path: '/api/cron/email-digest', schedule: '0 * * * *' },
       { path: '/api/cron/due-reminders', schedule: '0 * * * *' },
+      // The pasantías panel's two daily jobs (letter emails, retention).
+      { path: '/api/cron/pasantias-letters', schedule: '0 12 * * *' },
+      { path: '/api/cron/pasantias-retention', schedule: '30 12 * * *' },
     ]);
   });
 });

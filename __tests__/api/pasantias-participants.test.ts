@@ -91,18 +91,27 @@ function fields(overrides: Record<string, unknown> = {}) {
     focus: 'infantil',
     dietaryRestrictions: ['vegano', 'otra'],
     dietaryOther: 'Sin frutos secos',
+    email: ' Valentina.Sintetica@Example.com ',
     ...overrides,
   };
 }
+
+const EMAIL = 'valentina.sintetica@example.com';
 
 const saveRow = (overrides: Record<string, unknown> = {}) => ({
   data: [{ participant_id: PARTICIPANT_ID, participant_version: 1, replayed: false, roster_status: 'open', roster_version: 4, ...overrides }],
   error: null,
 });
 
-/** F01: the routes call the corrections participant save (14 args, no funding). */
-const SAVE_FN = 'pasantias_nomina_save_participant';
-const FUNDING_FN = 'pasantias_nomina_save_school_funding';
+/**
+ * The routes call the panel migration's wrappers (15 args: the corrections
+ * save plus the email). A refusal of the unchanged inner function still
+ * arrives under the inner function's own name.
+ */
+const SAVE_FN = 'pasantias_panel_school_save_participant';
+const SAVE_INNER_FN = 'pasantias_nomina_save_participant';
+const FUNDING_FN = 'pasantias_panel_school_save_funding';
+const FUNDING_INNER_FN = 'pasantias_nomina_save_school_funding';
 
 const refusal = (fn: string, code: string): Answer => ({
   data: null,
@@ -129,6 +138,10 @@ function world(
     list?: Record<string, unknown>[];
     funding?: Record<string, unknown> | null;
     todosIds?: string[];
+    /** Stored emails by participant id (the contacts table). Default: the participant has EMAIL. */
+    emails?: Record<string, string | null>;
+    /** Participant ids whose airfare FNE marked as bought (the tracking table). */
+    boughtIds?: string[];
     rpc?: (rpc: RecordedRpc) => Answer;
   } = {}
 ): FakeSupabase {
@@ -153,6 +166,23 @@ function world(
       const ids = (query.in.participant_id ?? []) as string[];
       return {
         data: ids.map((id) => ({ participant_id: id, all_levels: (options.todosIds ?? []).includes(id) })),
+        error: null,
+      };
+    }
+    if (query.table === 'pasantias_panel_contacts') {
+      const ids = (query.in.participant_id ?? []) as string[];
+      const emails = options.emails ?? { [PARTICIPANT_ID]: EMAIL };
+      return {
+        data: ids.filter((id) => id in emails).map((id) => ({ participant_id: id, email: emails[id] })),
+        error: null,
+      };
+    }
+    if (query.table === 'pasantias_panel_logistics') {
+      const ids = (query.in.participant_id ?? []) as string[];
+      return {
+        data: ids
+          .filter((id) => (options.boughtIds ?? []).includes(id))
+          .map((id) => ({ participant_id: id, flight_status: 'purchased' })),
         error: null,
       };
     }
@@ -362,6 +392,7 @@ describe('GET /api/pasantias/participants', () => {
       expiresAt: '2027-03-01T00:00:00.000Z',
       // F01/C4: every roster carries the school's funding.
       schoolFunding: SCHOOL_FUNDING,
+      lodgingLocked: false,
     });
     // F01: participants no longer carry flightsFunding / lodgingFunding.
     expect(result.json.participants).toEqual([
@@ -377,6 +408,8 @@ describe('GET /api/pasantias/participants', () => {
         focus: 'infantil',
         dietaryRestrictions: ['otra', 'vegano'],
         dietaryOther: 'Sin frutos secos',
+        email: EMAIL,
+        datesLocked: false,
         updatedAt: '2026-10-27T12:00:00.000Z',
       },
     ]);
@@ -411,6 +444,24 @@ describe('GET /api/pasantias/participants', () => {
     const focusRead = fake.queries.find((q) => q.table === 'pasantias_nomina_participant_focus') as RecordedQuery;
     expect(focusRead.in).toEqual({ participant_id: [PARTICIPANT_ID, other] });
   });
+
+  it('marks a bought ticket: that person\'s dates and the list\'s lodging answer are locked', async () => {
+    const other = '99999999-2222-4333-8444-555555555555';
+    const fake = world({
+      list: [participantRow(), participantRow({ id: other, rut: '11111111-1' })],
+      emails: { [PARTICIPANT_ID]: EMAIL },
+      boughtIds: [other],
+    });
+    const result = await call(indexHandler, { method: 'GET' });
+    expect(result.status).toBe(200);
+    expect(result.json.participants.map((p: { datesLocked: boolean }) => p.datesLocked)).toEqual([false, true]);
+    // A person saved before the form asked for an email has none.
+    expect(result.json.participants.map((p: { email: string | null }) => p.email)).toEqual([EMAIL, null]);
+    expect(result.json.roster.lodgingLocked).toBe(true);
+    // Emails and ticket state are read only for this roster's own ids.
+    const contacts = fake.queries.find((q) => q.table === 'pasantias_panel_contacts') as RecordedQuery;
+    expect(contacts.in).toEqual({ participant_id: [PARTICIPANT_ID, other] });
+  });
 });
 
 /* ------------------------------------------------------------- POST create */
@@ -423,9 +474,9 @@ describe('POST /api/pasantias/participants', () => {
     ...overrides,
   });
 
-  // F01: was "all sixteen arguments" on the DB-01 save; now the corrections
-  // save with fourteen — no funding argument exists.
-  it('creates through the RPC with all fourteen arguments and answers 201 with the stored row', async () => {
+  // The wrapper takes the corrections save's fourteen arguments plus the
+  // email — no funding argument exists (F01).
+  it('creates through the RPC with all fifteen arguments and answers 201 with the stored row', async () => {
     const fake = world();
     const result = await call(indexHandler, { method: 'POST', body: body() });
     expect(result.status).toBe(201);
@@ -446,6 +497,8 @@ describe('POST /api/pasantias/participants', () => {
       p_dietary_restrictions: ['otra', 'vegano'],
       p_dietary_other: 'Sin frutos secos',
       p_notice_version: INTAKE_NOTICE_VERSION,
+      // Trimmed and lower-cased before it reaches the database.
+      p_email: EMAIL,
     });
     // The stored row is read back within the verified roster, never by id alone.
     const read = fake.queries.find((q) => q.table === 'pasantias_intake_participants' && 'id' in q.eq);
@@ -465,9 +518,27 @@ describe('POST /api/pasantias/participants', () => {
     expect(result.json.participant.focus).toBe('todos');
   });
 
+  it('requires the email: a missing or malformed one is a field error and no RPC runs', async () => {
+    const fake = world();
+    const missing = await call(indexHandler, { method: 'POST', body: body({ email: '' }) });
+    expect(missing.status).toBe(422);
+    expect(Object.keys(missing.json.fields)).toEqual(['email']);
+    const malformed = await call(indexHandler, { method: 'POST', body: body({ email: 'valentina@sin-punto' }) });
+    expect(malformed.status).toBe(422);
+    expect(Object.keys(malformed.json.fields)).toEqual(['email']);
+    expect(fake.rpcs).toHaveLength(0);
+  });
+
+  it('a refusal of the unchanged inner function, under its own name, maps the same way', async () => {
+    world({ rpc: () => refusal(SAVE_INNER_FN, 'duplicate_rut') });
+    const result = await call(indexHandler, { method: 'POST', body: body() });
+    expect(result.status).toBe(409);
+    expect(result.json.code).toBe('DUPLICATE_RUT');
+  });
+
   // F01 / C3: no participant write before the school's funding exists.
   it('maps school_data_missing to 422 SCHOOL_DATA_MISSING', async () => {
-    world({ rpc: () => refusal(SAVE_FN, 'school_data_missing') });
+    world({ rpc: () => refusal(SAVE_INNER_FN, 'school_data_missing') });
     const result = await call(indexHandler, { method: 'POST', body: body() });
     expect(result.status).toBe(422);
     expect(result.json.code).toBe('SCHOOL_DATA_MISSING');
@@ -608,6 +679,19 @@ describe('PUT /api/pasantias/participants/[id]', () => {
     expect(result.json.participant.version).toBe(2);
     expect(result.json.roster.version).toBe(5);
     expect(result.json.roster.lastSubmittedAt).toBe('2026-10-26T10:00:00.000Z');
+  });
+
+  it('dates_locked (airfare already bought) is a 422 on the arrival date with a plain explanation', async () => {
+    world({ rpc: () => refusal(SAVE_FN, 'dates_locked') });
+    const result = await call(idHandler, {
+      method: 'PUT',
+      query: { id: PARTICIPANT_ID },
+      body: { ...fields(), expectedVersion: 1, acknowledged: true },
+    });
+    expect(result.status).toBe(422);
+    expect(result.json.code).toBe('VALIDATION');
+    expect(Object.keys(result.json.fields)).toEqual(['arrivalDate']);
+    expect(result.json.fields.arrivalDate).toMatch(/ya fue comprado/);
   });
 
   it('another roster’s participant is 404 NOT_FOUND', async () => {
@@ -783,6 +867,27 @@ describe('PUT /api/pasantias/participants/school', () => {
     expect(result.status).toBe(409);
     expect(result.json.code).toBe('STALE');
     expect(result.json.current.schoolFunding).toEqual({ flightsFunding: 'colegio', lodgingFunding: 'colegio', version: 2 });
+  });
+
+  it('lodging_locked (airfare already bought for this list) is a 422 on the lodging answer', async () => {
+    world({ rpc: () => refusal(FUNDING_FN, 'lodging_locked') });
+    const result = await call(schoolHandler, {
+      method: 'PUT',
+      body: { flightsFunding: 'sep', lodgingFunding: 'sep', expectedFundingVersion: 1 },
+    });
+    expect(result.status).toBe(422);
+    expect(result.json.code).toBe('VALIDATION');
+    expect(Object.keys(result.json.fields)).toEqual(['lodgingFunding']);
+    expect(result.json.fields.lodgingFunding).toMatch(/pasajes comprados/);
+  });
+
+  it('a refusal of the unchanged inner funding function maps the same way', async () => {
+    world({ rpc: () => refusal(FUNDING_INNER_FN, 'link_unavailable') });
+    const result = await call(schoolHandler, {
+      method: 'PUT',
+      body: { flightsFunding: 'sep', lodgingFunding: 'colegio', expectedFundingVersion: null },
+    });
+    expect(result.status).toBe(401);
   });
 
   it('a dead link (link_unavailable from the RPC) is the identical 401', async () => {

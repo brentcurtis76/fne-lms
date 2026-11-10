@@ -55,6 +55,7 @@ function participant(overrides: Record<string, unknown> = {}) {
     focus: null,
     dietaryRestrictions: [],
     dietaryOther: null,
+    email: 'valentina.sintetica@example.com',
     updatedAt: '2026-10-27T12:00:00.000Z',
     ...overrides,
   };
@@ -111,6 +112,7 @@ function fillValid() {
   fireEvent.change(screen.getByTestId('intake-first-names'), { target: { value: 'Valentina' } });
   fireEvent.change(screen.getByTestId('intake-last-names'), { target: { value: 'Sintetica' } });
   fireEvent.change(screen.getByTestId('intake-rut'), { target: { value: '12.345.678-5' } });
+  fireEvent.change(screen.getByTestId('intake-email'), { target: { value: 'valentina.sintetica@example.com' } });
   fireEvent.click(screen.getByTestId('intake-ack'));
 }
 
@@ -202,8 +204,9 @@ describe('the ficha', () => {
     expect(first).toHaveAttribute('aria-invalid', 'true');
     expect(first.getAttribute('aria-describedby')).toContain('intake-error-firstNames');
     expect(screen.getByTestId('intake-error-rut')).toBeInTheDocument();
-    // F01: names ×2 and RUT — the two funding fields left the ficha (was 5).
-    expect(screen.getByTestId('intake-live')).toHaveTextContent('Revisa los 3 campos marcados.');
+    expect(screen.getByTestId('intake-error-email')).toHaveTextContent('Ingresa el correo electrónico');
+    // Names ×2, RUT and the email (required since the panel sends each person their letter).
+    expect(screen.getByTestId('intake-live')).toHaveTextContent('Revisa los 4 campos marcados.');
     await waitFor(() => expect(document.activeElement).toBe(first));
     expect(fetchMock).toHaveBeenCalledTimes(1); // only the initial GET
   });
@@ -792,5 +795,42 @@ describe('the school draft follows the saved answer only when clean (FX-3)', () 
     expect(screen.getByTestId('intake-school-flights')).toHaveValue('colegio');
     expect(screen.getByTestId('intake-school-lodging')).toHaveValue('sep');
     expect(screen.getByTestId('intake-school-state')).toHaveAttribute('data-state', 'unsaved');
+  });
+});
+
+describe('locked after FNE buys the airfare', () => {
+  it('an edit of a person whose ticket is bought shows the dates but does not let the school change them', async () => {
+    reply({ status: 200, body: { roster: ROSTER, participants: [participant({ arrivalDate: '2027-01-17', datesLocked: true })] } });
+    render(<NominaPage />);
+    await screen.findByTestId('intake-list');
+    fireEvent.click(screen.getByTestId(`intake-edit-${participant().id}`));
+    await screen.findByTestId('intake-form');
+    expect(screen.getByTestId('intake-dates-locked')).toHaveTextContent('ya fue comprado');
+    expect(screen.getByTestId('intake-arrival-date')).toBeDisabled();
+    expect(screen.getByTestId('intake-arrival-date')).toHaveValue('2027-01-17');
+    expect(screen.getByTestId('intake-departure-date')).toBeDisabled();
+    // Everything else stays editable.
+    expect(screen.getByTestId('intake-email')).not.toBeDisabled();
+    expect(screen.getByTestId('intake-last-names')).not.toBeDisabled();
+  });
+
+  it('a person without a bought ticket keeps editable dates', async () => {
+    reply({ status: 200, body: { roster: ROSTER, participants: [participant()] } });
+    render(<NominaPage />);
+    await screen.findByTestId('intake-list');
+    fireEvent.click(screen.getByTestId(`intake-edit-${participant().id}`));
+    await screen.findByTestId('intake-form');
+    expect(screen.queryByTestId('intake-dates-locked')).toBeNull();
+    expect(screen.getByTestId('intake-arrival-date')).not.toBeDisabled();
+  });
+
+  it('once a ticket of the list is bought, who pays the lodging is shown but locked; the airfare answer is not', async () => {
+    reply({ status: 200, body: { roster: { ...ROSTER, lodgingLocked: true }, participants: [participant()] } });
+    render(<NominaPage />);
+    await screen.findByTestId('intake-school');
+    expect(screen.getByTestId('intake-school-lodging')).toBeDisabled();
+    expect(screen.getByTestId('intake-school-lodging')).toHaveValue('colegio');
+    expect(screen.getByTestId('intake-school-lodging-locked')).toHaveTextContent('pasajes comprados');
+    expect(screen.getByTestId('intake-school-flights')).not.toBeDisabled();
   });
 });

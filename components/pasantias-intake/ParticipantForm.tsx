@@ -25,6 +25,7 @@ export const FORM_FIELD_ORDER = [
   'lastNames',
   'rut',
   'passportNumber',
+  'email',
   'arrivalDate',
   'departureDate',
   'focus',
@@ -107,6 +108,10 @@ export interface ParticipantFormProps {
   onChange: (draft: ParticipantDraft) => void;
   onSubmit: () => void;
   onCancel: () => void;
+  /** FNE already bought this person's airfare: the two dates are shown but cannot be changed. */
+  datesLocked?: boolean;
+  /** FNE's correction form: the email may stay blank. The school's form requires it. */
+  emailOptional?: boolean;
 }
 
 export default function ParticipantForm({
@@ -122,6 +127,8 @@ export default function ParticipantForm({
   onChange,
   onSubmit,
   onCancel,
+  datesLocked = false,
+  emailOptional = false,
 }: ParticipantFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -274,6 +281,32 @@ export default function ParticipantForm({
             </p>
             <FieldError name="passportNumber" errors={errors} />
           </div>
+          <div>
+            <Label htmlFor={fieldId('email')} required={!emailOptional}>
+              {emailOptional ? 'Correo electrónico (opcional)' : 'Correo electrónico'}
+            </Label>
+            <input
+              id={fieldId('email')}
+              data-testid="intake-email"
+              type="email"
+              inputMode="email"
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              maxLength={254}
+              placeholder="nombre@colegio.cl"
+              value={draft.email}
+              onChange={(e) => set('email', e.target.value)}
+              aria-invalid={Boolean(errors.email)}
+              aria-describedby={describedBy('email', errors, 'intake-hint-email')}
+              aria-required={emailOptional ? undefined : 'true'}
+              className={inputClass(Boolean(errors.email))}
+            />
+            <p id="intake-hint-email" className="mt-1 text-xs text-gray-600">
+              El correo personal de quien viaja. Allí recibirá su carta de invitación.
+            </p>
+            <FieldError name="email" errors={errors} />
+          </div>
         </div>
       </Fieldset>
 
@@ -281,6 +314,12 @@ export default function ParticipantForm({
         <p id="intake-hint-dates" data-testid="intake-hint-dates" className="text-sm text-gray-700">
           {programDatesNotice(program)}
         </p>
+        {datesLocked ? (
+          <p data-testid="intake-dates-locked" className="rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-800">
+            El pasaje de esta persona ya fue comprado, por eso las fechas no se pueden cambiar aquí. Si necesitas
+            modificarlas, escribe a la Fundación.
+          </p>
+        ) : null}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor={fieldId('arrivalDate')}>Llegada a Barcelona (opcional)</Label>
@@ -288,6 +327,7 @@ export default function ParticipantForm({
               id={fieldId('arrivalDate')}
               data-testid="intake-arrival-date"
               value={draft.arrivalDate}
+              disabled={datesLocked}
               onChange={(e) => set('arrivalDate', e.target.value)}
               aria-invalid={Boolean(errors.arrivalDate)}
               aria-describedby={describedBy('arrivalDate', errors, 'intake-hint-dates')}
@@ -308,6 +348,7 @@ export default function ParticipantForm({
               id={fieldId('departureDate')}
               data-testid="intake-departure-date"
               value={draft.departureDate}
+              disabled={datesLocked}
               onChange={(e) => set('departureDate', e.target.value)}
               aria-invalid={Boolean(errors.departureDate)}
               aria-describedby={describedBy('departureDate', errors, 'intake-hint-dates')}

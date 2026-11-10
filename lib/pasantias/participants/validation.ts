@@ -48,6 +48,7 @@ export const PARTICIPANT_FIELD_KEYS: readonly (keyof ParticipantFields)[] = [
   'focus',
   'dietaryRestrictions',
   'dietaryOther',
+  'email',
 ];
 
 const CREATE_KEYS: readonly string[] = [...PARTICIPANT_FIELD_KEYS, 'clientRequestId', 'acknowledged'];
@@ -74,6 +75,12 @@ export const MESSAGES = {
   dietaryOtherRequired: 'Describe la restricción «Otra» (máximo 200 caracteres).',
   dietaryOtherWithoutOtra: 'Marca «Otra» para agregar un detalle, o borra el detalle.',
   dietaryOtherControl: 'El detalle no puede tener saltos de línea, tabulaciones ni caracteres de control.',
+  emailRequired: 'Ingresa el correo electrónico de la persona.',
+  emailInvalid: 'Correo no válido. Revisa que esté completo (ej.: nombre@colegio.cl).',
+  datesLocked:
+    'El pasaje de esta persona ya fue comprado: las fechas no se pueden cambiar aquí. Escribe a la Fundación si necesitas modificarlas.',
+  lodgingLocked:
+    'Ya hay pasajes comprados para esta nómina: quién cubre la estadía no se puede cambiar aquí. Escribe a la Fundación si necesitas modificarlo.',
   acknowledged: 'Debes confirmar la declaración antes de guardar.',
   requestInvalid: 'Solicitud inválida. Recarga la página e inténtalo de nuevo.',
   schoolNameInvalid: 'Ingresa el nombre del colegio (entre 2 y 160 caracteres).',
@@ -142,13 +149,31 @@ function oneOf<T extends string>(value: unknown, set: readonly T[]): T | undefin
   return typeof value === 'string' && (set as readonly string[]).includes(value) ? (value as T) : undefined;
 }
 
+// The same rule as `pasantias_panel_email_ok`: one @, a dot in the domain, no
+// spaces, control characters or list separators; 6 to 254 characters.
+// eslint-disable-next-line no-control-regex
+const EMAIL_PATTERN = /^[^\s\u0000-\u001F\u007F-\u009F@<>,;]+@[^\s\u0000-\u001F\u007F-\u009F@<>,;]+\.[^\s\u0000-\u001F\u007F-\u009F@<>,;]+$/;
+
+/** Blank → null; a valid address trimmed and lower-cased; otherwise `undefined`. */
+export function normalizeEmail(value: unknown): string | null | undefined {
+  if (isBlank(value)) return null;
+  if (typeof value !== 'string') return undefined;
+  const cleaned = nfc(value).trim().toLowerCase();
+  const length = charLength(cleaned);
+  if (length < 6 || length > 254 || !EMAIL_PATTERN.test(cleaned)) return undefined;
+  return cleaned;
+}
+
 /**
- * The eleven participant fields. Absent optional keys mean "Sin indicar"; a
- * save always replaces every field (PUT is a full replace).
+ * The participant fields. Absent optional keys mean "Sin indicar"; a save
+ * always replaces every field (PUT is a full replace). The email is required
+ * on the school's form (`emailRequired`) and optional when FNE corrects a
+ * person the school saved before the form asked for it.
  */
 export function validateParticipantFields(
   input: Record<string, unknown>,
-  programId: ProgramId
+  programId: ProgramId,
+  options: { emailRequired?: boolean } = {}
 ): { value: ParticipantFields | null; errors: FieldErrors } {
   const errors: FieldErrors = {};
 
@@ -237,6 +262,10 @@ export function validateParticipantFields(
     }
   }
 
+  const email = normalizeEmail(input.email);
+  if (email === undefined) errors.email = MESSAGES.emailInvalid;
+  else if (email === null && options.emailRequired) errors.email = MESSAGES.emailRequired;
+
   if (Object.keys(errors).length > 0) return { value: null, errors };
   return {
     value: {
@@ -249,6 +278,7 @@ export function validateParticipantFields(
       focus,
       dietaryRestrictions,
       dietaryOther,
+      email: email ?? null,
     },
     errors,
   };
@@ -269,7 +299,7 @@ export function validateCreateBody(body: unknown, programId: ProgramId): Validat
   if (hasUnknownKeys(body, CREATE_KEYS)) {
     return { ok: false, errors: { _form: MESSAGES.unknownKeys }, unknownKeys: true };
   }
-  const { value, errors } = validateParticipantFields(body, programId);
+  const { value, errors } = validateParticipantFields(body, programId, { emailRequired: true });
   if (body.acknowledged !== true) errors.acknowledged = MESSAGES.acknowledged;
   if (!isUuid(body.clientRequestId)) errors.clientRequestId = MESSAGES.requestInvalid;
   return finish(errors, () => ({
@@ -292,7 +322,7 @@ export function validateUpdateBody(body: unknown, programId: ProgramId): Validat
   if (hasUnknownKeys(body, UPDATE_KEYS)) {
     return { ok: false, errors: { _form: MESSAGES.unknownKeys }, unknownKeys: true };
   }
-  const { value, errors } = validateParticipantFields(body, programId);
+  const { value, errors } = validateParticipantFields(body, programId, { emailRequired: true });
   if (body.acknowledged !== true) errors.acknowledged = MESSAGES.acknowledged;
   if (!isPositiveInteger(body.expectedVersion)) errors.expectedVersion = MESSAGES.requestInvalid;
   return finish(errors, () => ({

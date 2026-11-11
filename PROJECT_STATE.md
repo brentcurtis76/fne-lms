@@ -1,6 +1,6 @@
-## CONTACT-BOTS — bot screening on the public forms: built and checked locally, not pushed (2026-11-11)
+## CONTACT-BOTS — bot screening on the public forms: release requested, push and merge are Brent's (2026-11-11)
 
-**Status:** one local commit on `fix/contact-bots` (base `cef7e8e5c`). Not pushed, no PR, no CI, nothing in Production. No migration, no new table, no new environment variable, no outside service. Built by a single Claude session outside the PM–Executor workflow at Brent's request.
+**Status:** two commits on `fix/contact-bots` (base `cef7e8e5c`). Brent asked for the release on 2026-11-11 ("let's get this into production"): Vercel previews are disabled for the branch in `vercel.json`. Still to do, all by Brent: push the branch, open the PR so CI runs, and merge — the merge to `main` is the deploy. Nothing is in Production until then. No migration, no new table, no new environment variable, no outside service. Built by a single Claude session outside the PM–Executor workflow at Brent's request.
 
 - **Why:** the homepage contact form delivered 23 bot messages in 60 days and one real one. Every bot had random mixed-case letters as Nombre and Institución and a Gmail address with scattered dots; they arrive hours apart, so the 5-per-minute limit never fires.
 - **What:** `lib/formSpamGuard.ts` scores each submission — trap field filled, sent in under 3 seconds, a typed field that is random letters (strong signs); no timing mark, Gmail with three or more dots (weak signs).

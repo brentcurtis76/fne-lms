@@ -1,11 +1,11 @@
 # Review request — CONTACT-BOTS (bot screening on the public forms)
 
-**Status (2026-11-11): built and checked locally on `fix/contact-bots`; not pushed, no PR, no CI run, nothing in Production.**
+**Status (2026-11-11): built and checked locally on `fix/contact-bots`; Brent asked for the release the same day. Push, PR and merge are his; nothing is in Production until he merges.**
 Done by one Claude session at Brent's request, outside the PM–Executor workflow.
 
 ## Branch and base
 
-- Branch `fix/contact-bots`, cut from `main` at `cef7e8e5c` (merge of PR #174). One commit.
+- Branch `fix/contact-bots`, cut from `main` at `cef7e8e5c` (merge of PR #174). Two commits: the fix, then the release bookkeeping (Vercel previews disabled for the branch in `vercel.json`, status lines).
 - No migration, no new table, no new environment variable, no outside service.
 
 ## Objective

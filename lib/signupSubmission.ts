@@ -5,12 +5,20 @@
  * validation, dedup semantics (including re-opening dismissed signups),
  * silent 23505 success, consent timestamp — lives here exactly once.
  *
+ * Bot screening (lib/formSpamGuard.ts) is REFUSE-ONLY here: two signs of
+ * automation in the typed fields and the address, at least one of them
+ * strong, answer 422 with a visible message. There is
+ * no "possible spam" mark because there is nowhere to put one (no notification
+ * mail, no column), and none is needed: every signup already waits for an
+ * admin's review before it grants anything.
+ *
  * Server-only: imports lib/api-auth. Do not import from page components
  * (pages import the pure helpers in lib/signups.ts instead).
  */
 import type { NextApiRequest, NextApiResponse } from 'next';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServiceRoleClient, isValidSchoolIdInput } from './api-auth';
+import { assessFormSubmission } from './formSpamGuard';
 import {
   SignupSource,
   isTractorSignupRole,
@@ -19,6 +27,10 @@ import {
   normalizeEmail,
   normalizeText,
 } from './signups';
+
+/** A visible error with another way in — never a fake success for this case. */
+export const SIGNUP_BLOCKED_MESSAGE =
+  'No pudimos procesar tu registro desde este formulario. Por favor escríbenos a info@nuevaeducacion.org.';
 
 export const SIGNUP_FIELD_LIMITS = {
   firstName: 80,
@@ -124,6 +136,24 @@ export async function handleSignupSubmission(
 
     if (!isValidSchoolIdInput(body.schoolId)) {
       return res.status(400).json({ error: 'Colegio inválido' });
+    }
+
+    // Timing is not part of these forms' payload, so it is not judged.
+    const spam = assessFormSubmission({
+      email,
+      textFields: [
+        { label: 'Nombre', value: firstName },
+        { label: 'Apellido', value: lastName },
+        { label: 'Profesión', value: profession },
+      ],
+    });
+    if (spam.verdict === 'blocked') {
+      // Signals only — no name or address reaches the log.
+      console.warn(`[${config.logPrefix}] submission refused as automated:`, {
+        signals: spam.reasons.map((reason) => reason.signal),
+        score: spam.score,
+      });
+      return res.status(422).json({ error: SIGNUP_BLOCKED_MESSAGE });
     }
 
     const schoolId = Number(body.schoolId);

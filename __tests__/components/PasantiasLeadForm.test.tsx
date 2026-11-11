@@ -386,6 +386,24 @@ describe('PasantiasLeadForm', () => {
     expect(postedBody(fetchMock)).toHaveProperty('website', '');
   });
 
+  // Bot screening (lib/formSpamGuard.ts): the route reads how long the form
+  // had been on screen. A number, never a string — the route ignores anything else.
+  it('posts how long the form had been on screen, in milliseconds', async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch(jsonResponse(200, { success: true }));
+    const mountedAt = Date.now();
+    render(<LeadForm />);
+
+    await fillRequired(user);
+    await user.click(screen.getByTestId('pasantias-lead-submit'));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const { elapsedMs } = postedBody(fetchMock);
+    expect(typeof elapsedMs).toBe('number');
+    expect(elapsedMs).toBeGreaterThanOrEqual(0);
+    expect(elapsedMs).toBeLessThanOrEqual(Date.now() - mountedAt);
+  });
+
   /* --------------------------------------------- truthful copy and success (C007) */
 
   it('promises the registration and the documents before submitting, never an e-mail', () => {

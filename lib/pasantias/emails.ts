@@ -31,6 +31,7 @@ import { PASANTIAS_WHATSAPP } from './pdf/contact';
 import type { JanuaryProgramId } from './leads';
 import { deliverOutboundEmail, type EmailTransport } from '../email/provider';
 import { PUBLIC_OUTBOUND_EMAIL } from '../email/outbound-policy';
+import { SPAM_SUBJECT_TAG } from '../formSpamGuard';
 
 /**
  * Optional dependencies of the senders below. Production passes none, and
@@ -362,8 +363,11 @@ function detailRow(label: string, value: string | null): string {
 export function renderLeadNotificationHtml(params: {
   lead: LeadEmailPayload;
   isNewLead: boolean;
+  /** Bot-screening reasons for a delivered-but-doubtful lead; see `sendLeadNotification`. */
+  possibleSpamReasons?: readonly string[];
 }): string {
   const { lead, isNewLead } = params;
+  const spamReasons = params.possibleSpamReasons ?? [];
   const program = lead.program ?? null;
 
   const rows = [
@@ -388,7 +392,18 @@ export function renderLeadNotificationHtml(params: {
                 ).replace(/\n/g, '<br />')}</div>`
     : '';
 
-  const content = `
+  const spamBlock =
+    spamReasons.length > 0
+      ? `
+                <div style="margin:0 0 18px;padding:12px;background:#fff4d6;border-left:3px solid #b7791f;">
+                  <strong>Posible spam.</strong> La solicitud se guardó igual, por si es de una persona real. Motivo:
+                  <ul style="margin:6px 0 0;padding-left:20px;">${spamReasons
+                    .map((reason) => `<li>${escapeHtml(reason)}</li>`)
+                    .join('')}</ul>
+                </div>`
+      : '';
+
+  const content = `${spamBlock}
                 <p style="margin:0 0 18px;font-weight:700;">
                   ${isNewLead ? 'Nueva solicitud de pasantía' : 'Solicitud actualizada (contacto ya registrado)'}
                 </p>
@@ -510,11 +525,19 @@ export async function sendLeadProgramAutoReply(
   );
 }
 
-/** Internal notification. Never deduped — FNE wants every submission. */
+/**
+ * Internal notification. Never deduped — FNE wants every submission.
+ *
+ * `possibleSpamReasons` (lib/formSpamGuard.ts, verdict `flagged`) marks a lead
+ * that showed a sign of being automated but was stored anyway: the subject
+ * gains `SPAM_SUBJECT_TAG` and the body lists why. Absent or empty changes
+ * nothing.
+ */
 export async function sendLeadNotification(
   params: {
     lead: LeadEmailPayload;
     isNewLead: boolean;
+    possibleSpamReasons?: readonly string[];
   },
   deps?: LeadEmailDependencies
 ): Promise<LeadEmailResult> {
@@ -530,7 +553,7 @@ export async function sendLeadNotification(
     {
       to: LEAD_NOTIFICATION_RECIPIENT,
       replyTo: lead.email,
-      subject: `[${tag}] ${who} — ${where}`,
+      subject: `${params.possibleSpamReasons?.length ? `${SPAM_SUBJECT_TAG} ` : ''}[${tag}] ${who} — ${where}`,
       html: renderLeadNotificationHtml(params),
     },
     deps

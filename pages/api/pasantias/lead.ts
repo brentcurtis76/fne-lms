@@ -23,11 +23,20 @@
  * suppression is the interest's own claim (`pasantias_claim_program_reply` /
  * `pasantias_settle_program_reply`), never `brochure_sent_at`. See
  * `docs/plan/evidence/pasant-january/b002-database-contract.md`.
+ *
+ * Bot screening (`lib/formSpamGuard.ts`) runs on a VALID submission, before
+ * anything is read or written. Two signs of automation, at least one of them
+ * strong, refuse it with a 422 the form renders as its generic error (which
+ * points to WhatsApp) — nothing is stored and, above all, no acknowledgement is
+ * mailed to an address a bot made up. One strong sign on its own stores and
+ * answers it as usual and marks FNE's notification as possible spam. The verdict depends only on the content sent, never on whether
+ * the address is on file, so anti-enumeration is unaffected.
  */
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createServiceRoleClient } from '../../../lib/api-auth';
 import { rateLimit } from '../../../lib/rateLimit';
 import { normalizeText } from '../../../lib/signups';
+import { assessFormSubmission } from '../../../lib/formSpamGuard';
 import { PRIVACY_NOTICE_VERSION } from '../../../lib/legal/privacy-notice';
 import {
   canTransitionLead,
@@ -454,6 +463,7 @@ async function handleProgramSubmission(
   supabase: ReturnType<typeof createServiceRoleClient>,
   lead: ValidatedLead,
   program: JanuaryProgramId,
+  possibleSpamReasons: string[],
   res: NextApiResponse
 ) {
   const { data, error } = await supabase.rpc(
@@ -491,6 +501,7 @@ async function handleProgramSubmission(
     await sendLeadNotification({
       lead: toEmailPayload(lead),
       isNewLead: submission.lead_created === true,
+      possibleSpamReasons,
     });
   } catch (notificationError) {
     console.error(`[${LOG_PREFIX}] notification failed:`, notificationError);
@@ -526,12 +537,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const lead = validation.value;
+
+    // Bot screening. The honeypot is not passed in: it was answered above, and
+    // that path (fake success, nothing stored) is unchanged.
+    const spam = assessFormSubmission({
+      elapsedMs: body.elapsedMs,
+      expectTiming: true,
+      email: lead.email,
+      textFields: [
+        { label: 'Nombre', value: lead.firstName },
+        { label: 'Apellido', value: lead.lastName },
+        { label: 'Institución', value: lead.institution },
+        { label: 'Mensaje', value: lead.message, freeText: true },
+      ],
+    });
+
+    if (spam.verdict === 'blocked') {
+      // Signals only — no name, address or institution reaches the log.
+      console.warn(`[${LOG_PREFIX}] submission refused as automated:`, {
+        signals: spam.reasons.map((reason) => reason.signal),
+        score: spam.score,
+      });
+      return res.status(422).json({ error: 'No pudimos procesar tu solicitud.' });
+    }
+
+    const possibleSpamReasons =
+      spam.verdict === 'flagged' ? spam.reasons.map((reason) => reason.detail) : [];
+
     const supabase = createServiceRoleClient();
 
     // January: one program, one atomic RPC. Validation sets `program` exactly
     // for the January cohort, so the October path below is unchanged.
     if (lead.program) {
-      return await handleProgramSubmission(supabase, lead, lead.program, res);
+      return await handleProgramSubmission(supabase, lead, lead.program, possibleSpamReasons, res);
     }
 
     const now = new Date();
@@ -631,7 +669,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-      await sendLeadNotification({ lead: toEmailPayload(lead), isNewLead });
+      await sendLeadNotification({ lead: toEmailPayload(lead), isNewLead, possibleSpamReasons });
     } catch (notificationError) {
       console.error(`[${LOG_PREFIX}] notification failed:`, notificationError);
     }

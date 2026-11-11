@@ -259,6 +259,67 @@ describe('renderLeadNotificationHtml — program-aware without changing October'
  * message leaves the process. Sender and key are synthetic and restored after
  * each case.
  */
+describe('possible-spam marking of the internal notification (lib/formSpamGuard.ts)', () => {
+  const lead: LeadEmailPayload = {
+    firstName: 'Ana',
+    lastName: 'Pérez',
+    email: 'ana@example.com',
+    institution: 'Colegio Uno',
+    phone: null,
+    roleTitle: null,
+    numPeople: null,
+    message: null,
+    marketingOptIn: false,
+    utmSource: null,
+    utmMedium: null,
+    utmCampaign: null,
+    program: 'inspira',
+  };
+
+  function capturing() {
+    const sent: Array<Record<string, unknown>> = [];
+    const transport: EmailTransport = async (message) => {
+      sent.push(message as unknown as Record<string, unknown>);
+      return { data: { id: 'email-1' }, error: null };
+    };
+    return { sent, transport };
+  }
+
+  it('no reasons, or an empty list: the markup and the subject are exactly as before', async () => {
+    const plain = renderLeadNotificationHtml({ lead, isNewLead: true });
+    expect(renderLeadNotificationHtml({ lead, isNewLead: true, possibleSpamReasons: [] })).toBe(plain);
+    expect(plain).not.toContain('Posible spam');
+
+    const { sent, transport } = capturing();
+    await sendLeadNotification({ lead, isNewLead: true, possibleSpamReasons: [] }, { transport });
+    expect(sent[0].subject).toBe(`[Pasantías INSPIRA · ${JANUARY_COHORT_LABEL}] Ana Pérez — Colegio Uno`);
+  });
+
+  it('with reasons: the subject is tagged and the body lists them, escaped', async () => {
+    const reasons = ['El formulario se envió en menos de 3 segundos.', 'El campo «<b>Nombre</b>» parece letras al azar.'];
+    const html = renderLeadNotificationHtml({ lead, isNewLead: true, possibleSpamReasons: reasons });
+
+    expect(html).toContain('Posible spam');
+    expect(html).toContain('<li>El formulario se envió en menos de 3 segundos.</li>');
+    expect(html).toContain('&lt;b&gt;Nombre&lt;/b&gt;');
+    expect(html).not.toContain('<b>Nombre</b>');
+    // The lead itself is all still there.
+    expect(html).toContain('Colegio Uno');
+    expect(html).toContain('Nueva solicitud de pasantía');
+
+    const { sent, transport } = capturing();
+    const result = await sendLeadNotification(
+      { lead, isNewLead: true, possibleSpamReasons: reasons },
+      { transport }
+    );
+    expect(result).toEqual({ sent: true });
+    expect(sent[0].subject).toBe(
+      `[POSIBLE SPAM] [Pasantías INSPIRA · ${JANUARY_COHORT_LABEL}] Ana Pérez — Colegio Uno`
+    );
+    expect(sent[0].to).toBe(LEAD_NOTIFICATION_RECIPIENT);
+  });
+});
+
 describe('senders through the real provider with an injected transport', () => {
   const SENDER = 'Pasantías Sintéticas <pasantias@example.org>';
   const TO = 'ana@example.org';

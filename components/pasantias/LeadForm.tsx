@@ -292,6 +292,14 @@ export default function LeadForm({ requestedProgram = null }: LeadFormProps = {}
   const submitted = submittedProgram !== null;
   const [utm, setUtm] = useState<UtmParams>(NO_UTM);
   const successRef = useRef<HTMLDivElement | null>(null);
+  // When the form became usable. The route uses the time to submission to tell
+  // a person from a script; it is counted from the first mount on purpose, so a
+  // quick second submission about the other program is never "too fast".
+  const mountedAt = useRef<number | null>(null);
+
+  useEffect(() => {
+    mountedAt.current = Date.now();
+  }, []);
 
   /**
    * Back to the form for another submission about `program`, keeping what the
@@ -397,6 +405,8 @@ export default function LeadForm({ requestedProgram = null }: LeadFormProps = {}
     utmMedium: utm.utmMedium,
     utmCampaign: utm.utmCampaign,
     website: form.website,
+    // Absent (not 0) when the mount time is unknown: JSON drops `undefined`.
+    elapsedMs: mountedAt.current === null ? undefined : Date.now() - mountedAt.current,
   });
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {

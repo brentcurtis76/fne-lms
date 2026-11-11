@@ -125,6 +125,11 @@ export interface LeadSubmissionBody {
   utmCampaign?: unknown;
   /** Honeypot. Handled by the route before validation ever runs. */
   website?: unknown;
+  /**
+   * Milliseconds between the form mounting and this submission. Bot screening
+   * only (lib/formSpamGuard.ts): read by the route, never validated or stored.
+   */
+  elapsedMs?: unknown;
 }
 
 /** A submission that passed validation. Ready to become column values. */

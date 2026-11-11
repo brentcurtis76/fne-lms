@@ -8,6 +8,11 @@
  * RESEND_API_KEY is absent. The real lib/rateLimit limiter is exercised here
  * (not stubbed), so every case that must not be throttled uses its own
  * synthetic client IP.
+ *
+ * Also covers the bot screening (lib/formSpamGuard.ts, run for real): the
+ * observed bot pattern is refused with a visible error, a single uncertain
+ * sign is still delivered with "[POSIBLE SPAM]" in the subject, and a
+ * real-looking message is delivered untouched. All fixtures are synthetic.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
@@ -72,6 +77,7 @@ beforeEach(() => {
   vi.stubEnv('EMAIL_FROM_ADDRESS', '');
   vi.spyOn(console, 'log').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -290,5 +296,150 @@ describe('api/contact — soft fail', () => {
     expect(res._getStatusCode()).toBe(200);
     expect(res._getJSONData().emailSent).toBe(false);
     expect(console.error).toHaveBeenCalled();
+  });
+});
+
+describe('api/contact — bot screening', () => {
+  // The pattern seen on the live form: random mixed-case letters as name and
+  // institution, a Gmail address with scattered dots, the first interest
+  // option, no cargo.
+  function botBody(overrides: Record<string, unknown> = {}) {
+    return {
+      nombre: 'lFtYkmFHIyiDfcJHdZvKYzl',
+      email: 'bot.x.prueba9.1@gmail.com',
+      institucion: 'KrxBTJRJOwmoiZzpcmwoazP',
+      cargo: '',
+      interes: 'inspira',
+      mensaje: 'pWqLzRtYmNbVcXsDfGhJk',
+      website: '',
+      elapsedMs: 41000,
+      ...overrides,
+    };
+  }
+
+  // The SHAPE of the one real message of the period — a full name, a school
+  // address, a school's name — with invented values, as the page posts it.
+  function personBody(overrides: Record<string, unknown> = {}) {
+    return {
+      nombre: 'Carolina Muñoz Sepúlveda',
+      email: 'direccion@colegio-los-aromos.example',
+      institucion: 'Colegio Los Aromos de Ejemplo',
+      cargo: 'Directora',
+      interes: 'inspira',
+      mensaje: 'Somos un colegio de Temuco y queremos saber más sobre la pasantía.',
+      website: '',
+      elapsedMs: 95000,
+      ...overrides,
+    };
+  }
+
+  const BLOCKED_ERROR =
+    'No pudimos enviar tu mensaje desde este formulario. Por favor escríbenos directamente a info@nuevaeducacion.org.';
+
+  it('the observed bot pattern → 422 with a visible error, nothing sent', async () => {
+    const { res } = await run(botBody());
+    expect(res._getStatusCode()).toBe(422);
+    expect(res._getJSONData()).toEqual({ error: BLOCKED_ERROR });
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('a refused submission is never reported as a success', async () => {
+    const { res } = await run(botBody());
+    expect(res._getJSONData()).not.toHaveProperty('success');
+  });
+
+  it('a refused submission leaves a trace in the server log', async () => {
+    await run(botBody());
+    expect(console.warn).toHaveBeenCalledWith(
+      '[contact] submission refused as automated:',
+      expect.objectContaining({
+        email: 'bot.x.prueba9.1@gmail.com',
+        signals: ['random_text', 'random_text', 'random_text', 'gmail_dots'],
+      })
+    );
+  });
+
+  it('the same bot with an ordinary address and message is still refused', async () => {
+    const { res } = await run(
+      botBody({ email: 'alguien@example.com', mensaje: 'Hello, I want information.' })
+    );
+    expect(res._getStatusCode()).toBe(422);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('trap field filled and sent instantly → 422, nothing sent', async () => {
+    const { res } = await run(personBody({ website: 'https://spam.example', elapsedMs: 120 }));
+    expect(res._getStatusCode()).toBe(422);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('a real-looking message is delivered untouched', async () => {
+    const { res } = await run(personBody());
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getJSONData()).toEqual({
+      success: true,
+      message: 'Mensaje enviado exitosamente. Te responderemos pronto.',
+      emailSent: true,
+    });
+    const payload = sentPayload();
+    expect(payload.subject).toBe(
+      '[Contacto Web FNE] Carolina Muñoz Sepúlveda - Colegio Los Aromos de Ejemplo (Inspira (Pasantía en Barcelona))'
+    );
+    expect(payload.reply_to).toBe('direccion@colegio-los-aromos.example');
+    expect(payload.html).not.toContain('Posible spam');
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  it('a page cached from before the fix (no trap field, no timing) is delivered untouched', async () => {
+    const { website: _website, elapsedMs: _elapsedMs, ...oldPageBody } = personBody();
+    const { res } = await run(oldPageBody);
+    expect(res._getStatusCode()).toBe(200);
+    const payload = sentPayload();
+    expect(payload.subject.startsWith('[Contacto Web FNE] ')).toBe(true);
+    expect(payload.html).not.toContain('Posible spam');
+  });
+
+  it.each([
+    ['sent in under three seconds', { elapsedMs: 800 }, 'El formulario se envió en menos de 3 segundos.'],
+    [
+      'trap field filled, nothing else odd',
+      { website: 'relleno automático' },
+      'Se completó un campo oculto que las personas no ven.',
+    ],
+    [
+      'a random-letter name with a real institution',
+      { nombre: 'lFtYkmFHIyiDfcJHdZvKYzl' },
+      'El campo «Nombre» parece letras al azar.',
+    ],
+  ])('one uncertain sign (%s) → delivered, marked as possible spam', async (_label, overrides, reason) => {
+    const { res } = await run(personBody(overrides));
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getJSONData().success).toBe(true);
+
+    const payload = sentPayload();
+    expect(payload.to).toBe('info@nuevaeducacion.org');
+    expect(payload.subject.startsWith('[POSIBLE SPAM] [Contacto Web FNE] ')).toBe(true);
+    expect(payload.html).toContain('Posible spam');
+    expect(payload.html).toContain(reason);
+    // The message itself is all there.
+    expect(payload.html).toContain('Somos un colegio de Temuco');
+    expect(console.log).toHaveBeenCalledWith(
+      '✅ Contact form submission processed:',
+      expect.objectContaining({ possibleSpam: true })
+    );
+  });
+
+  it('a pasted link with a random-looking ID inside a real message is not a sign', async () => {
+    const { res } = await run(
+      personBody({ mensaje: 'Les dejo nuestro proyecto: KrxBTJRJOwmoiZzpcmwoazP. Saludos.' })
+    );
+    expect(res._getStatusCode()).toBe(200);
+    expect(sentPayload().subject.startsWith('[Contacto Web FNE] ')).toBe(true);
+  });
+
+  it('validation still answers first: a bot body with no message is a 400, not a 422', async () => {
+    const { res } = await run(botBody({ mensaje: '' }));
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData().error).toBe('Faltan campos obligatorios');
   });
 });

@@ -171,11 +171,26 @@ async function handleGet(
         const profileClient = createServiceRoleClient();
         const { data: docenteProfiles } = await profileClient
           .from('profiles')
-          .select('id, name, email')
+          .select('id, name, first_name, last_name, email')
           .in('id', docenteIds);
 
+        // `profiles.name` is empty for many accounts (bulk-imported staff
+        // carry only first_name/last_name), and the page falls back to the
+        // raw docente_id. Resolve the display name the same way
+        // ./docentes.ts does, so a teacher always shows as a person.
         const profilesMap = Object.fromEntries(
-          (docenteProfiles || []).map((p: any) => [p.id, p])
+          (docenteProfiles || []).map((p: any) => [
+            p.id,
+            {
+              id: p.id,
+              email: p.email,
+              name:
+                p.name?.trim() ||
+                `${p.first_name || ''} ${p.last_name || ''}`.trim() ||
+                p.email ||
+                null,
+            },
+          ])
         );
 
         // Attach profiles to assignments

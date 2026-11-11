@@ -543,6 +543,7 @@ beforeEach(() => {
   vi.stubEnv('EMAIL_FROM_ADDRESS', '');
   vi.spyOn(console, 'log').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -1921,5 +1922,163 @@ describe('after the January switch, the active form is January [B003]', () => {
     expect(submits.map((call) => call.args.p_program)).toEqual(['inspira', 'mirada-profunda']);
     expect(new Set([...supabase.interests.values()].map((interest) => interest.leadId)).size).toBe(1);
     expect(supabase.interests.size).toBe(2);
+  });
+});
+
+/*
+ * Bot screening (lib/formSpamGuard.ts, run for real). Synthetic fixtures: the
+ * bot-shaped ones reproduce the pattern seen on the homepage contact form
+ * (random mixed-case letters, a Gmail address with scattered dots); the
+ * person-shaped ones are the default fixture plus what the page now posts.
+ */
+const BOT_LEAD = {
+  firstName: 'lFtYkmFHIyiDfcJHdZvKYzl',
+  lastName: 'pWqLzRtYmNbVcXsDfGhJk',
+  institution: 'KrxBTJRJOwmoiZzpcmwoazP',
+  email: 'bot.x.prueba9.1@gmail.com',
+  elapsedMs: 41000,
+};
+
+describe('bot screening: the observed pattern is refused before anything is stored or mailed', () => {
+  it('January: 422, no client, no RPC, no acknowledgement to the made-up address', async () => {
+    const supabase = createSupabase();
+    const { res } = await run(januaryBody(BOT_LEAD));
+
+    expect(res._getStatusCode()).toBe(422);
+    expect(res._getJSONData()).toEqual({ error: 'No pudimos procesar tu solicitud.' });
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+    expect(supabase.rpcCalls).toHaveLength(0);
+    expect(supabase.inserts).toHaveLength(0);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('the refusal is logged by its signals only — no name, address or institution', async () => {
+    createSupabase();
+    await run(januaryBody(BOT_LEAD));
+
+    expect(console.warn).toHaveBeenCalledTimes(1);
+    expect(console.warn).toHaveBeenCalledWith('[pasantias-lead] submission refused as automated:', {
+      signals: ['random_text', 'random_text', 'random_text', 'gmail_dots'],
+      score: 7,
+    });
+  });
+
+  it('a random-letter name sent instantly is refused even with an ordinary address', async () => {
+    const supabase = createSupabase();
+    const { res } = await run(
+      januaryBody({ firstName: BOT_LEAD.firstName, elapsedMs: 200 })
+    );
+
+    expect(res._getStatusCode()).toBe(422);
+    expect(supabase.rpcCalls).toHaveLength(0);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('validation still answers first: a bot body without consent gets the field error', async () => {
+    createSupabase();
+    const { res } = await run(januaryBody({ ...BOT_LEAD, consent: false }));
+
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData().fields).toEqual({ consent: LEAD_VALIDATION_MESSAGES.consentRequired });
+  });
+
+  describe('single-track branch', () => {
+    useLegacySingleTrack();
+
+    it('422, and the table is never read or written', async () => {
+      const supabase = createSupabase();
+      const { res } = await run(validBody(BOT_LEAD));
+
+      expect(res._getStatusCode()).toBe(422);
+      expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+      expect(supabase.inserts).toHaveLength(0);
+      expect(mockSend).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe('bot screening: a real person is stored and answered as before', () => {
+  it('what the page posts today (timing included) is clean: unmarked notification', async () => {
+    const supabase = createSupabase();
+    const { res } = await run(januaryBody({ elapsedMs: 95000, website: '' }));
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getJSONData()).toEqual({ success: true });
+    expect(callsTo(supabase, SUBMIT_RPC)).toHaveLength(1);
+    expect(januaryAcks()).toHaveLength(1);
+
+    const notification = mailTo(LEAD_NOTIFICATION_RECIPIENT);
+    expect(notification?.subject).toBe(
+      `[Pasantías INSPIRA · ${JANUARY_COHORT_LABEL}] Ana Pérez — Colegio Uno`
+    );
+    expect(notification?.html).not.toContain('Posible spam');
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  it('a page cached from before the fix (no timing) is clean too', async () => {
+    createSupabase();
+    const { res } = await run(januaryBody());
+
+    expect(res._getStatusCode()).toBe(200);
+    const notification = mailTo(LEAD_NOTIFICATION_RECIPIENT);
+    expect(notification?.subject.startsWith('[Pasantías INSPIRA')).toBe(true);
+    expect(notification?.html).not.toContain('Posible spam');
+  });
+
+  it('`elapsedMs` never reaches the database', async () => {
+    const supabase = createSupabase();
+    await run(januaryBody({ elapsedMs: 95000 }));
+
+    expect(Object.keys(callsTo(supabase, SUBMIT_RPC)[0].args).sort()).toEqual(
+      [...SUBMIT_RPC_KEYS].sort()
+    );
+  });
+});
+
+describe('bot screening: one uncertain sign is stored, answered and marked', () => {
+  it('January, sent in under three seconds: stored, acknowledged, notification marked', async () => {
+    const supabase = createSupabase();
+    const { res } = await run(januaryBody({ elapsedMs: 700 }));
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getJSONData()).toEqual({ success: true });
+    expect(callsTo(supabase, SUBMIT_RPC)).toHaveLength(1);
+    // Uncertain means treated as a person: they still get their acknowledgement.
+    expect(januaryAcks()).toHaveLength(1);
+
+    const notification = mailTo(LEAD_NOTIFICATION_RECIPIENT);
+    expect(notification?.subject).toBe(
+      `[POSIBLE SPAM] [Pasantías INSPIRA · ${JANUARY_COHORT_LABEL}] Ana Pérez — Colegio Uno`
+    );
+    expect(notification?.html).toContain('Posible spam');
+    expect(notification?.html).toContain('El formulario se envió en menos de 3 segundos.');
+    expect(notification?.html).toContain('Colegio Uno');
+  });
+
+  it('a random-letter institution with everything else ordinary is marked, not refused', async () => {
+    const supabase = createSupabase();
+    const { res } = await run(januaryBody({ institution: BOT_LEAD.institution, elapsedMs: 95000 }));
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(callsTo(supabase, SUBMIT_RPC)).toHaveLength(1);
+    const notification = mailTo(LEAD_NOTIFICATION_RECIPIENT);
+    expect(notification?.subject.startsWith('[POSIBLE SPAM] ')).toBe(true);
+    expect(notification?.html).toContain('El campo «Institución» parece letras al azar.');
+  });
+
+  describe('single-track branch', () => {
+    useLegacySingleTrack();
+
+    it('stored, auto-replied, notification marked', async () => {
+      const supabase = createSupabase();
+      const { res } = await run(validBody({ elapsedMs: 700 }));
+
+      expect(res._getStatusCode()).toBe(200);
+      expect(supabase.inserts).toHaveLength(1);
+      expect(mailTo('Ana@Example.com')).toBeDefined();
+      const notification = mailTo(LEAD_NOTIFICATION_RECIPIENT);
+      expect(notification?.subject).toBe('[POSIBLE SPAM] [Pasantías INSPIRA] Ana Pérez — Colegio Uno');
+      expect(notification?.html).toContain('Posible spam');
+    });
   });
 });

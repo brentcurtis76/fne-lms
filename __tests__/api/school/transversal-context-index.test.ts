@@ -505,6 +505,31 @@ describe('GET — reads with the user client (RLS decides)', () => {
     expect(clients.serviceClient.from).toHaveBeenCalledWith('profiles');
   });
 
+  it('names each assigned docente from first/last name when profiles.name is empty, else email — never the raw id', async () => {
+    const DOCENTE_B = '00000000-0000-4000-8000-00000000d0cb';
+    const DOCENTE_C = '00000000-0000-4000-8000-00000000d0cc';
+    const assignment = (id: string, docenteId: string) => ({ id, docente_id: docenteId, is_active: true, assigned_at: null });
+    const clients = arrange({
+      contexts: [contextRow()],
+      courses: [
+        { ...courseRow(COURSE_A, '1 BASICO A'), school_course_docente_assignments: [assignment('as-1', DOCENTE_ID)] },
+        { ...courseRow(COURSE_B, '1 BASICO B'), school_course_docente_assignments: [assignment('as-2', DOCENTE_B), assignment('as-3', DOCENTE_C)] },
+      ],
+    });
+    clients.serviceTables.profiles = recordingTable({
+      rows: [
+        { id: DOCENTE_ID, name: 'Ana Pérez', first_name: 'Otra', last_name: 'Cosa', email: 'ana@example.test' },
+        { id: DOCENTE_B, name: null, first_name: 'Bruno', last_name: 'Soto', email: 'bruno@example.test' },
+        { id: DOCENTE_C, name: '  ', first_name: null, last_name: null, email: 'carla@example.test' },
+      ],
+    });
+    const { status, json } = await get({ school_id: String(SCHOOL_ID) });
+    expect(status).toBe(200);
+    const names = json.courseStructure.flatMap((c: any) =>
+      c.school_course_docente_assignments.map((a: any) => a.profiles?.name));
+    expect(names).toEqual(['Ana Pérez', 'Bruno Soto', 'carla@example.test']);
+  });
+
   it('answers 500 when the course structure read fails (no silent empty list)', async () => {
     arrange({ courseSpec: { readError: { message: 'boom' } } });
     const { status } = await get({ school_id: String(SCHOOL_ID) });

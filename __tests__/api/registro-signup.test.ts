@@ -7,7 +7,7 @@
  * lib/signupSubmission.ts, so this suite also covers the shared contract
  * (honeypot, dedup incl. dismissed re-open, silent 23505 success).
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
 import {
   TableResult,
@@ -325,5 +325,72 @@ describe('api/registro-signup — dedup and insert failures', () => {
       happyTables({ tractor_signups: [{ data: null }, { error: { code: 'XX000', message: 'boom' } }] })
     );
     expect(res._getStatusCode()).toBe(500);
+  });
+});
+
+// Shared contract (lib/signupSubmission.ts): refuse-only bot screening. The
+// bot-shaped fixture reproduces the pattern seen on the homepage contact form;
+// every value is synthetic.
+describe('api/registro-signup — bot screening', () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  const BLOCKED_ERROR =
+    'No pudimos procesar tu registro desde este formulario. Por favor escríbenos a info@nuevaeducacion.org.';
+
+  it('random-letter first and last name → 422 with a visible error, database untouched', async () => {
+    const { res, tracker } = await run(
+      validBody({ firstName: 'lFtYkmFHIyiDfcJHdZvKYzl', lastName: 'KrxBTJRJOwmoiZzpcmwoazP' }),
+      happyTables()
+    );
+    expect(res._getStatusCode()).toBe(422);
+    expect(res._getJSONData()).toEqual({ error: BLOCKED_ERROR });
+    expect(tracker.fromCalls).toHaveLength(0);
+    expect(console.warn).toHaveBeenCalledWith('[registro-signup] submission refused as automated:', {
+      signals: ['random_text', 'random_text'],
+      score: 4,
+    });
+  });
+
+  it('one random-letter name plus a dotted Gmail address → 422', async () => {
+    const { res, tracker } = await run(
+      validBody({ firstName: 'lFtYkmFHIyiDfcJHdZvKYzl', email: 'bot.x.prueba9.1@gmail.com' }),
+      happyTables()
+    );
+    expect(res._getStatusCode()).toBe(422);
+    expect(tracker.fromCalls).toHaveLength(0);
+  });
+
+  it('a single uncertain sign is let through to the admin review, as before', async () => {
+    const { res, tracker } = await run(
+      validBody({ firstName: 'lFtYkmFHIyiDfcJHdZvKYzl' }),
+      happyTables()
+    );
+    expect(res._getStatusCode()).toBe(200);
+    expect(res._getJSONData()).toEqual({ success: true });
+    expect(countInserts(tracker, 'tractor_signups')).toBe(1);
+  });
+
+  it('a real-looking signup is stored: compound surname, Gmail address with two dots', async () => {
+    const { res, tracker } = await run(
+      validBody({
+        firstName: 'María José',
+        lastName: 'Fernández-Valenzuela McDonald',
+        email: 'maria.jose.fernandez@gmail.com',
+        profession: 'Profesora de Educación General Básica',
+      }),
+      happyTables()
+    );
+    expect(res._getStatusCode()).toBe(200);
+    expect(countInserts(tracker, 'tractor_signups')).toBe(1);
+    expect(console.warn).not.toHaveBeenCalled();
   });
 });

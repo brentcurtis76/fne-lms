@@ -15,6 +15,13 @@ export default function HomePage() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitMessage, setSubmitMessage] = React.useState('');
   const [submitError, setSubmitError] = React.useState('');
+  // When the contact form became usable, so /api/contact can tell a person
+  // from a script that submits the instant the page loads.
+  const contactFormReadyAt = React.useRef<number | null>(null);
+
+  useEffect(() => {
+    contactFormReadyAt.current = Date.now();
+  }, []);
 
   const handleContactSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -30,6 +37,10 @@ export default function HomePage() {
       cargo: formData.get('cargo') as string,
       interes: formData.get('interes') as string,
       mensaje: formData.get('mensaje') as string,
+      // Bot screening, both read by /api/contact (lib/formSpamGuard.ts).
+      website: (formData.get('website') as string) || '',
+      elapsedMs:
+        contactFormReadyAt.current === null ? undefined : Date.now() - contactFormReadyAt.current,
     };
 
     try {
@@ -990,6 +1001,27 @@ export default function HomePage() {
                           className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none transition-colors resize-none"
                           placeholder="Cuéntanos sobre tu institución y cómo podemos ayudarte a transformar la educación..."
                         ></textarea>
+                      </div>
+
+                      {/*
+                        Trap field for bots. Off-screen rather than `display:none`
+                        so a script that skips hidden inputs still fills it, and
+                        out of the tab order and the accessibility tree so nobody
+                        filling the form honestly can reach it. Kept away from
+                        the first position so the form's `space-y-6` rhythm is
+                        unchanged.
+                      */}
+                      <div aria-hidden="true" className="absolute left-[-9999px] top-auto h-px w-px overflow-hidden">
+                        <label htmlFor="website">Sitio web</label>
+                        <input
+                          type="text"
+                          id="website"
+                          name="website"
+                          tabIndex={-1}
+                          autoComplete="off"
+                          defaultValue=""
+                          data-testid="contact-website"
+                        />
                       </div>
 
                       <button

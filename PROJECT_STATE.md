@@ -1,3 +1,34 @@
+## CONTACT-BOTS — bot screening on the public forms: built and checked locally, not pushed (2026-11-11)
+
+**Status:** one local commit on `fix/contact-bots` (base `cef7e8e5c`). Not pushed, no PR, no CI, nothing in Production. No migration, no new table, no new environment variable, no outside service. Built by a single Claude session outside the PM–Executor workflow at Brent's request.
+
+- **Why:** the homepage contact form delivered 23 bot messages in 60 days and one real one. Every bot had random mixed-case letters as Nombre and Institución and a Gmail address with scattered dots; they arrive hours apart, so the 5-per-minute limit never fires.
+- **What:** `lib/formSpamGuard.ts` scores each submission — trap field filled, sent in under 3 seconds, a typed field that is random letters (strong signs); no timing mark, Gmail with three or more dots (weak signs).
+  - Two signs with at least one strong → **refused** with a visible error that names another way to write. Never a fake success.
+  - One strong sign alone → **delivered, with `[POSIBLE SPAM]` in the subject** and the reasons in the body.
+  - Anything else → delivered untouched, including a page cached from before this shipped.
+- **Where:**
+  - homepage contact (`pages/index.tsx`, `pages/api/contact.ts`): refuse and mark; new off-screen trap field and timing;
+  - Pasantías lead (`LeadForm`, `pages/api/pasantias/lead.ts`, `lib/pasantias/emails.ts`): refuse before anything is stored or mailed, and mark FNE's notification; its older trap-field path is unchanged;
+  - signups (`lib/signupSubmission.ts`, both routes): refuse only — nowhere to put a mark, and an admin reviews every signup.
+- **Local evidence (final code):**
+
+| Gate | Result |
+|---|---|
+| `type-check` | PASS |
+| `lint` (zero warnings) | PASS |
+| Vitest, full run | 549 files; 18 322 passed, 12 skipped (the skips are not new), 0 failed |
+| Vitest, the 19 files that touch these forms | 6 722 / 6 722 |
+| `guard:browser` · `guard:secrets` · `guard:migrations` | PASS · PASS · PASS |
+| `build` | PASS (149 static pages), with placeholder local Supabase settings passed on the command line. Without them the build compiles and then stops collecting page data, because this working copy has no `.env.local` |
+| `lint:testid` on the two changed UI files | no new finding; the baseline findings on `pages/index.tsx` and the config error on `LeadForm.tsx` are older |
+| pgTAP | NOT RUN — no database change |
+| Playwright e2e | NOT RUN — needs the Supabase stack, which this session was told not to touch. The four specs that drive these forms were read: none asserts a posted body or a notification subject, and none uses a fixture that would be refused |
+
+- **Open for Brent:** whether refused contact submissions should keep name and address in the server log (they do today, as delivered ones already did); whether to add an outside challenge if bots start typing plausible names.
+
+Review request: `docs/planning/reviews/fase-contact-bots-review-request.md`.
+
 ## PASANTÍAS PANEL — logistics panel for the January 2027 cohort: built and validated locally, not pushed (2026-11-09)
 
 **Status:** four local commits on `feat/pasant-panel` (base `b06a5b852`). Not pushed, no PR, no CI, nothing in Production. Built by a single Claude session outside the PM–Executor workflow at Brent's request (model test); the reviewer packet is a Claude doc Brent holds.

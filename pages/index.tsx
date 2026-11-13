@@ -110,7 +110,7 @@ export default function HomePage() {
             ))}
           </h1>
           <div className="mano tag fade" style={{ ['--i' as string]: 1 }}>
-            educación relacional
+            La nueva educación es relacional
           </div>
           <p className="lead fade" style={{ ['--i' as string]: 2 }}>
             Acompañamos a comunidades educativas en un cambio cultural profundo. Empieza donde empieza todo

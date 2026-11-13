@@ -1,3 +1,12 @@
+## WEB-REDESIGN — public site redesign: built and checked locally, not pushed (2026-11-12)
+
+Branch `feat/web-redesign` from `631771416`. Brent asked for it in conversation; no itinerary phase. Record and reviewer notes: `docs/planning/reviews/fase-web-redesign-review-request.md`.
+
+- **What changed:** `/`, `/programas`, `/nosotros`, `/equipo`, `/noticias`, `/noticias/[slug]` and the look of `/pasantias` now share one shell (`components/site/SiteLayout`) and one stylesheet (`styles/sitio.css`, scoped under `.ne`). Pasantías keeps its facts, hooks and form; its shortcut bar was removed. Boris Mir and Andrea Lagos left the team pages; Boris Mir also left the proposals' advisor list.
+- **No** migration, API route or dependency change.
+- **Checked locally:** type-check, lint, production build, price-leak and browser-boundary guards, the Pasantías/proposals/home-form unit suites, scripted browser checks.
+- **Not run locally:** Playwright e2e (CI is its first run on this branch); the full Vitest suite after the last rounds.
+
 ## CONTACT-BOTS — bot screening on the public forms: built and checked locally, not pushed (2026-11-11)
 
 **Status:** one local commit on `fix/contact-bots` (base `cef7e8e5c`). Not pushed, no PR, no CI, nothing in Production. No migration, no new table, no new environment variable, no outside service. Built by a single Claude session outside the PM–Executor workflow at Brent's request.

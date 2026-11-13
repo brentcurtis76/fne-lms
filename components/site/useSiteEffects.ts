@@ -29,18 +29,11 @@ export function useSiteEffects(root: RefObject<HTMLDivElement>) {
 
     const reduce = prefersReducedMotion();
     const fine = !!window.matchMedia?.('(hover:hover) and (pointer:fine)').matches;
-    const cleanups: Array<() => void> = [() => html.classList.remove('ne-html')];
-    const on = <K extends keyof WindowEventMap>(
-      type: K,
-      handler: (event: WindowEventMap[K]) => void,
-      options?: AddEventListenerOptions
-    ) => {
-      window.addEventListener(type, handler, options);
-      cleanups.push(() => window.removeEventListener(type, handler, options));
-    };
+    // Every listener below is registered with this signal, so one abort removes them all.
+    const listeners = new AbortController();
+    const { signal } = listeners;
 
     const readyTimer = window.setTimeout(() => el.classList.add('ready'), 80);
-    cleanups.push(() => window.clearTimeout(readyTimer));
 
     /* reveal + count-up; content that arrives later (news) is picked up by the MutationObserver */
     const seen = new WeakSet<Element>();
@@ -86,7 +79,7 @@ export function useSiteEffects(root: RefObject<HTMLDivElement>) {
       : null;
 
     const watch = () => {
-      el.querySelectorAll('.rv,.clip').forEach((node) => {
+      el.querySelectorAll('.rv,.clip,.mv').forEach((node) => {
         if (seen.has(node)) return;
         seen.add(node);
         if (reveal) reveal.observe(node);
@@ -99,15 +92,8 @@ export function useSiteEffects(root: RefObject<HTMLDivElement>) {
       });
     };
     watch();
-    if ('MutationObserver' in window) {
-      const mutations = new MutationObserver(watch);
-      mutations.observe(el, { childList: true, subtree: true });
-      cleanups.push(() => mutations.disconnect());
-    }
-    cleanups.push(() => {
-      reveal?.disconnect();
-      counter?.disconnect();
-    });
+    const mutations = 'MutationObserver' in window ? new MutationObserver(watch) : null;
+    mutations?.observe(el, { childList: true, subtree: true });
 
     /* nav, progress bar, parallax */
     const nav = el.querySelector<HTMLElement>('.nav');
@@ -137,7 +123,7 @@ export function useSiteEffects(root: RefObject<HTMLDivElement>) {
       }
     };
     let queued = false;
-    on(
+    window.addEventListener(
       'scroll',
       () => {
         if (queued) return;
@@ -147,65 +133,78 @@ export function useSiteEffects(root: RefObject<HTMLDivElement>) {
           queued = false;
         });
       },
-      { passive: true }
+      { passive: true, signal }
     );
-    on('resize', onScroll);
+    window.addEventListener('resize', onScroll, { signal });
     onScroll();
 
     /* magnetic buttons + cursor ring: only with a real pointer */
+    let cursorFrame = 0;
     if (fine && !reduce) {
-      const magnetMove = (event: MouseEvent) => {
-        const button = (event.target as Element).closest<HTMLElement>('.mag');
-        if (!button) return;
-        const rect = button.getBoundingClientRect();
-        button.style.transform = `translate(${(event.clientX - rect.left - rect.width / 2) * 0.22}px,${
-          (event.clientY - rect.top - rect.height / 2) * 0.35
-        }px)`;
-      };
-      const magnetOut = (event: MouseEvent) => {
-        const button = (event.target as Element).closest<HTMLElement>('.mag');
-        if (button && !button.contains(event.relatedTarget as Node | null)) button.style.transform = '';
-      };
-      el.addEventListener('mousemove', magnetMove);
-      el.addEventListener('mouseout', magnetOut);
-      cleanups.push(() => {
-        el.removeEventListener('mousemove', magnetMove);
-        el.removeEventListener('mouseout', magnetOut);
-      });
+      el.addEventListener(
+        'mousemove',
+        (event) => {
+          const button = (event.target as Element).closest<HTMLElement>('.mag');
+          if (!button) return;
+          const rect = button.getBoundingClientRect();
+          button.style.transform = `translate(${(event.clientX - rect.left - rect.width / 2) * 0.22}px,${
+            (event.clientY - rect.top - rect.height / 2) * 0.35
+          }px)`;
+        },
+        { signal }
+      );
+      el.addEventListener(
+        'mouseout',
+        (event) => {
+          const button = (event.target as Element).closest<HTMLElement>('.mag');
+          if (button && !button.contains(event.relatedTarget as Node | null)) button.style.transform = '';
+        },
+        { signal }
+      );
 
       const cursor = el.querySelector<HTMLElement>('.cur');
-      const iso = el.querySelector<HTMLElement>('.hero .iso, .phero .iso');
+      const iso = el.querySelector<HTMLElement>('.hero .iso, .phero .iso, .pas-hero .iso');
       if (cursor) {
         let x = 0;
         let y = 0;
         let targetX = 0;
         let targetY = 0;
-        let frame = 0;
-        on('mousemove', (event) => {
-          targetX = event.clientX;
-          targetY = event.clientY;
-          cursor.style.opacity = '1';
-          cursor.classList.toggle(
-            'act',
-            !!(event.target as Element).closest?.('a,button,.door,figure,.eje li')
-          );
-          if (iso) {
-            iso.style.translate = `${(event.clientX / window.innerWidth - 0.5) * -40}px ${
-              (event.clientY / window.innerHeight - 0.5) * -30
-            }px`;
-          }
-        });
+        window.addEventListener(
+          'mousemove',
+          (event) => {
+            targetX = event.clientX;
+            targetY = event.clientY;
+            cursor.style.opacity = '1';
+            cursor.classList.toggle(
+              'act',
+              !!(event.target as Element).closest?.('a,button,.door,figure,.eje li,summary')
+            );
+            if (iso) {
+              iso.style.translate = `${(event.clientX / window.innerWidth - 0.5) * -40}px ${
+                (event.clientY / window.innerHeight - 0.5) * -30
+              }px`;
+            }
+          },
+          { signal }
+        );
         const follow = () => {
           x += (targetX - x) * 0.2;
           y += (targetY - y) * 0.2;
           cursor.style.transform = `translate(${x}px,${y}px)`;
-          frame = requestAnimationFrame(follow);
+          cursorFrame = requestAnimationFrame(follow);
         };
-        frame = requestAnimationFrame(follow);
-        cleanups.push(() => cancelAnimationFrame(frame));
+        cursorFrame = requestAnimationFrame(follow);
       }
     }
 
-    return () => cleanups.forEach((cleanup) => cleanup());
+    return () => {
+      listeners.abort();
+      window.clearTimeout(readyTimer);
+      cancelAnimationFrame(cursorFrame);
+      mutations?.disconnect();
+      reveal?.disconnect();
+      counter?.disconnect();
+      html.classList.remove('ne-html');
+    };
   }, []);
 }

@@ -4,7 +4,8 @@
  * The page is rendered once, server-side, against the real public cohort
  * module. That the page is *wired* to the module (no fact typed into it) is
  * `pasantias-hardcoded-cohort.test.ts`'s job; this file pins the polish itself:
- * the two hosts in their order, the same-page shortcuts and their anchors, the
+ * the two hosts in their order, the anchors the page jumps to (its shortcut bar
+ * was removed with the November 2026 redesign), the
  * short CTA labels, the hero's routes, the weekend printed once and the note
  * beside the form. Layout, scrolling and keyboard behaviour in a real browser
  * are `tests/e2e/pasantias-page.spec.ts` and `tests/e2e/pasantias-form.spec.ts`.
@@ -140,43 +141,18 @@ describe('/pasantias polish (PASANT-DESIGN-POLISH-01)', () => {
     });
   });
 
-  describe('P7 — the same-page shortcuts', () => {
-    const SHORTCUTS = [
-      ['pasantias-shortcut-programas', 'Programas', 'programas'],
-      ['pasantias-shortcut-calendario', 'Calendario', 'calendario'],
-      ['pasantias-shortcut-incluye', 'Qué incluye', 'incluye'],
-      ['pasantias-shortcut-inscripcion', 'Inscripción', 'programa'],
-    ] as const;
-
-    it('lists the four shortcuts in order, in a labelled, non-sticky nav before the hero', () => {
-      const nav = opening(html, 'pasantias-shortcuts');
-      expect(nav).toMatch(/^<nav /);
-      expect(nav).toContain('aria-label="En esta página"');
-      expect(classOf(html, 'data-testid="pasantias-shortcuts"')).not.toMatch(/\b(?:sticky|fixed)\b/);
-
-      // Outside the sticky header, ahead of the hero.
-      const headerEnd = html.indexOf('</header>');
-      const navAt = html.indexOf('data-testid="pasantias-shortcuts"');
-      expect(navAt).toBeGreaterThan(headerEnd);
-      expect(navAt).toBeLessThan(html.indexOf('data-testid="pasantias-hero"'));
-
-      const positions = SHORTCUTS.map(([testId]) => html.indexOf(`data-testid="${testId}"`));
-      expect(positions.every((at) => at > -1)).toBe(true);
-      expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+  describe('P7 — no same-page shortcut bar', () => {
+    // The bar under the header was removed on Brent's direction with the
+    // November 2026 redesign: the site header is the only navigation above the
+    // hero. The sections it pointed at stay addressable, because the hero and
+    // the program CTAs still jump to them.
+    it('renders no shortcut bar and no shortcut link', () => {
+      expect(html).not.toContain('data-testid="pasantias-shortcuts"');
+      expect(html).not.toContain('aria-label="En esta página"');
+      expect(html).not.toMatch(/data-testid="pasantias-shortcut-/);
     });
 
-    const shortcutCases: [string, string, string][] = SHORTCUTS.map(
-      ([testId, label, id]) => [testId, label, id]
-    );
-
-    it.each(shortcutCases)('%s reads "%s" and points at a section that exists', (testId, label, id) => {
-      const link = opening(html, testId);
-      expect(link).toContain(`href="#${id}"`);
-      expect(linkText(html, testId)).toBe(label);
-      expect(html).toContain(`id="${id}"`);
-    });
-
-    it('offsets every target by at least the sticky header (h-20 plus its border)', () => {
+    it('offsets every anchor target by at least the fixed header', () => {
       for (const id of ['programas', 'calendario', 'incluye', 'programa']) {
         expect([id, classOf(html, `id="${id}"`)]).toEqual([
           id,

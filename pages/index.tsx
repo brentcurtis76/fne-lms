@@ -238,24 +238,21 @@ export default function HomePage() {
                 <span>niños y niñas</span>
               </div>
             </div>
+            <p className="celdas-t rv">Características de un Aula Generativa</p>
             <div className="celdas">
               <div className="rv" style={{ ['--d' as string]: 0 }}>
-                <span className="k">Aula Generativa</span>
                 <h3>Motivación compartida</h3>
                 <p>Estudiantes y profesores altamente motivados trabajando juntos.</p>
               </div>
               <div className="rv" style={{ ['--d' as string]: 1 }}>
-                <span className="k">Aula Generativa</span>
                 <h3>Convivencia como motor</h3>
                 <p>Las relaciones saludables impulsan el aprendizaje significativo.</p>
               </div>
               <div className="rv" style={{ ['--d' as string]: 2 }}>
-                <span className="k">Aula Generativa</span>
                 <h3>Identidad colectiva</h3>
                 <p>Cultura de curso fortalecida, con una identidad positiva compartida.</p>
               </div>
               <div className="rv" style={{ ['--d' as string]: 3 }}>
-                <span className="k">Aula Generativa</span>
                 <h3>Aprendizaje cooperativo</h3>
                 <p>Los estudiantes enseñan, explican y reflexionan entre pares.</p>
               </div>

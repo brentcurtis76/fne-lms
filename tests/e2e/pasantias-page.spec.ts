@@ -138,12 +138,14 @@ const DAY_MOMENTS = [
   { numeral: '03', heading: 'Profundizar' },
 ] as const;
 
-/** The same-page shortcuts (P7): link test ID, target hash, and the heading it must land. */
-const SHORTCUTS = [
-  { testId: 'pasantias-shortcut-programas', label: 'Programas', hash: '#programas', heading: '#programas-title' },
-  { testId: 'pasantias-shortcut-calendario', label: 'Calendario', hash: '#calendario', heading: '#calendario-title' },
-  { testId: 'pasantias-shortcut-incluye', label: 'Qué incluye', hash: '#incluye', heading: '#incluye h2' },
-  { testId: 'pasantias-shortcut-inscripcion', label: 'Inscripción', hash: '#programa', heading: '#programa-title' },
+/**
+ * The same-page jumps: link test ID, target hash, and the heading it must land.
+ * The shortcut bar (P7) was removed on Brent's direction with the November 2026
+ * redesign; the hero's own links are what still jumps within the page.
+ */
+const PAGE_JUMPS = [
+  { testId: 'pasantias-cta-programas', hash: '#programas', heading: '#programas-title' },
+  { testId: 'pasantias-cta-programa', hash: '#programa', heading: '#programa-title' },
 ] as const;
 
 const INSPIRA = {
@@ -628,13 +630,9 @@ test.describe('pasantías landing page', () => {
     await expect(page.getByTestId('pasantias-cta-programas')).toHaveText('Ver los programas');
     await expect(page.getByTestId('pasantias-cta-programas')).toHaveAttribute('href', '#programas');
 
-    // P7: the shortcuts, in order, each to its section.
-    for (const shortcut of SHORTCUTS) {
-      const link = page.getByTestId(shortcut.testId);
-      await expect(link).toHaveText(shortcut.label);
-      await expect(link).toHaveAttribute('href', shortcut.hash);
-    }
-    await expect(page.getByRole('navigation', { name: 'En esta página' })).toBeVisible();
+    // P7: the shortcut bar is gone (November 2026 redesign).
+    await expect(page.getByTestId('pasantias-shortcuts')).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: 'En esta página' })).toHaveCount(0);
 
     // P8: beside the form, the registration is said not to reserve a place, and
     // no e-mail is promised.
@@ -748,25 +746,19 @@ test.describe('pasantías landing page', () => {
         );
         expect([program, fits]).toEqual([program, true]);
       }
-
-      // P7: one non-sticky shortcut bar, no wider than the page.
-      const shortcuts = page.getByTestId('pasantias-shortcuts');
-      expect(await shortcuts.evaluate((node) => getComputedStyle(node).position)).toBe('static');
     });
   }
 
-  test('each shortcut, and "Ver los programas", lands its heading below the sticky header', async ({
+  test('each same-page jump lands its heading below the fixed header', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    const header = page.getByTestId('pasantias-header');
+    // Since the November 2026 redesign the page uses the site's shared header
+    // (`components/site/SiteLayout`): fixed, and slid out of view while the
+    // page scrolls down. Out of view or not, no heading may land beneath it.
+    const header = page.getByTestId('site-header');
 
-    const targets = [
-      ...SHORTCUTS.map(({ testId, hash, heading }) => ({ testId, hash, heading })),
-      { testId: 'pasantias-cta-programas', hash: '#programas', heading: '#programas-title' },
-    ];
-
-    for (const target of targets) {
+    for (const target of PAGE_JUMPS) {
       await page.goto('/pasantias');
       await page.getByTestId(target.testId).click();
       await expect(page).toHaveURL(new RegExp(`${target.hash}$`));

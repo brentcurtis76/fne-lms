@@ -70,6 +70,15 @@ import { COHORT_HEADLINE, COHORT_PROGRAMS } from '../../lib/pasantias/cohort-pub
 const REPO_ROOT = join(__dirname, '..', '..');
 const PAGES_DIR = join(REPO_ROOT, 'pages');
 const FOOTER_PATH = join(REPO_ROOT, 'components', 'Footer.tsx');
+/**
+ * The redesigned public site (November 2026) renders its nav and footer from one
+ * shared shell instead of a copy per page, so the PASANTÍAS links those pages
+ * used to carry now live under `components/site/`. The directory is walked for
+ * the same reason `pages/` is: a component added there later is in scope the day
+ * it is written.
+ */
+const SITE_DIR = join(REPO_ROOT, 'components', 'site');
+const SITE_LAYOUT_PATH = 'components/site/SiteLayout.tsx';
 
 /* ------------------------------------------------------------------ the scope */
 
@@ -108,7 +117,7 @@ function readAll(paths: string[]): ScannedFile[] {
   }));
 }
 
-const SCOPE = readAll([...walkTsx(PAGES_DIR), FOOTER_PATH]);
+const SCOPE = readAll([...walkTsx(PAGES_DIR), ...walkTsx(SITE_DIR), FOOTER_PATH]);
 
 const INDEX_PATH = 'pages/index.tsx';
 
@@ -211,12 +220,18 @@ const PASANTIAS_HREF = '/pasantias';
  * positive.
  */
 const PASANTIAS_HREF_COUNTS: ReadonlyArray<{ path: string; count: number }> = [
-  { path: INDEX_PATH, count: 3 },
-  { path: 'pages/programas.tsx', count: 3 },
-  { path: 'pages/equipo.tsx', count: 2 },
-  { path: 'pages/nosotros.tsx', count: 2 },
-  { path: 'pages/noticias.tsx', count: 2 },
-  { path: 'pages/noticias/[slug].tsx', count: 2 },
+  // Redesign, November 2026: each page lost the two nav links it used to repeat
+  // (desktop and mobile). What stays in a page is its own call to action: the
+  // homepage teaser's and the INSPIRA sheet's on /programas. The nav entry and
+  // the footer link moved to the shared shell: the footer one is an href literal
+  // counted here, the nav one is data and has its own assertion below.
+  { path: INDEX_PATH, count: 1 },
+  { path: 'pages/programas.tsx', count: 1 },
+  { path: 'pages/equipo.tsx', count: 0 },
+  { path: 'pages/nosotros.tsx', count: 0 },
+  { path: 'pages/noticias.tsx', count: 0 },
+  { path: 'pages/noticias/[slug].tsx', count: 0 },
+  { path: SITE_LAYOUT_PATH, count: 1 },
   { path: 'components/Footer.tsx', count: 1 },
 ];
 
@@ -234,8 +249,18 @@ describe('A7a — the site points at /pasantias', () => {
         'pages/equipo.tsx',
         'pages/noticias.tsx',
         'pages/noticias/[slug].tsx',
+        SITE_LAYOUT_PATH,
         'components/Footer.tsx',
       ])
+    );
+  });
+
+  it('the shared nav sends PASANTÍAS to the page', () => {
+    // The shell builds its nav from a list, so this link is not an href literal
+    // the count below can see. Pinned as written: repointing the entry, or
+    // renaming it away from the label the e2e suite clicks, goes red here.
+    expect(fileInScope(SITE_LAYOUT_PATH).source).toContain(
+      "{ id: 'pasantias', label: 'Pasantías', href: '/pasantias' }"
     );
   });
 
@@ -360,8 +385,9 @@ describe('C004 — the homepage promotes the January 2027 cohort', () => {
  * `#pasantias` teaser, under "¿Qué incluye la experiencia?", promised benefits the
  * ratified January contract does not support — an international certification
  * with official recognition, networking with education leaders from all over the
- * world, and a scarcity badge. They were corrected as text only; the card and
- * badge markup is unchanged.
+ * world, and a scarcity badge. They were corrected as text only. (The teaser's
+ * markup was replaced by the November 2026 redesign; the copy below was carried
+ * over word for word, and is still what these assertions protect.)
  *
  * The expected copy is typed here against the contract's own wording, never read
  * from the page:
@@ -391,9 +417,7 @@ describe('F5 — the homepage teaser claims only ratified January benefits', () 
   it('the learning-log card states the included bibliography, log and record system', () => {
     const { source } = fileInScope(INDEX_PATH);
 
-    expect(source).toContain(
-      '<h4 className="font-bold text-lg mb-1">Bitácora de Aprendizajes</h4>'
-    );
+    expect(source).toContain('<h4>Bitácora de Aprendizajes</h4>');
     expect(source).toContain(
       'Recibe bibliografía recomendada, una bitácora y un sistema de registro de tus aprendizajes al menos un mes antes del viaje'
     );
@@ -402,21 +426,19 @@ describe('F5 — the homepage teaser claims only ratified January benefits', () 
   it('the exchange card is narrowed to the schools that receive the group', () => {
     const { source } = fileInScope(INDEX_PATH);
 
-    expect(source).toContain(
-      '<h4 className="font-bold text-lg mb-1">Intercambio con las Escuelas</h4>'
-    );
+    expect(source).toContain('<h4>Intercambio con las Escuelas</h4>');
     expect(source).toContain(
       'Conversa con los equipos directivos, educadores y estudiantes de las escuelas que te reciben'
     );
   });
 
-  it('the badge states the ratified booking-order rule and keeps its treatment', () => {
+  it('the badge states the ratified booking-order rule', () => {
+    // The badge was restyled with the November 2026 redesign (a gold seal on the
+    // cohort card); its two lines of ratified copy are what is protected.
     const { source } = fileInScope(INDEX_PATH);
 
-    // The badge container and both line classes are the pre-F5 markup, so a
-    // redesign fails here as surely as a reworded claim does.
     expect(source).toMatch(
-      /<div className="absolute -top-4 -right-4 bg-black text-white rounded-full p-4 shadow-xl border-2 border-black">\s*<p className="text-xs font-bold">CUPOS POR<\/p>\s*<p className="text-xs font-bold">ORDEN DE RESERVA<\/p>\s*<\/div>/
+      /<div className="sello">\s*<p>CUPOS POR<\/p>\s*<p>ORDEN DE RESERVA<\/p>\s*<\/div>/
     );
   });
 });

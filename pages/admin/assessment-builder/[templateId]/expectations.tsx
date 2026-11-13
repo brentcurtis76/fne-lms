@@ -1096,7 +1096,7 @@ const ExpectationsEditor: React.FC = () => {
                 <li><strong>Profundidad (0-4):</strong> Selecciona el nivel de madurez esperado para cada año de transformación</li>
                 <li><strong>Cobertura:</strong> Marca si se espera que el indicador esté implementado en ese año</li>
                 <li><strong>Frecuencia:</strong> Ingresa el valor mínimo esperado (ej: 4 veces por semestre)</li>
-                <li><strong>Traspaso:</strong> Marca si se espera que el evaluador adjunte evidencia y sugerencias de mejora ese año</li>
+                <li><strong>Traspaso:</strong> Marca si se espera que el evaluador adjunte registros y sugerencias de mejora ese año</li>
                 <li><strong>Detalle:</strong> Marca si se espera que el evaluador responda la selección múltiple ese año</li>
                 <li><strong>Tolerancia:</strong> Define cuántos niveles por debajo de lo esperado se considera &quot;en camino&quot; (0-2)</li>
                 <li>Deja en blanco (-) si no hay expectativa definida para ese año</li>
@@ -1797,7 +1797,7 @@ const ExpectationsEditor: React.FC = () => {
               </div>
               <div className="flex items-center gap-2">
                 <span className="px-2 py-0.5 rounded-full bg-gray-200 text-brand_gray_dark text-xs font-medium">Tras</span>
-                <span className="text-gray-600">Traspaso (Se espera evidencia y mejoras ese ano)</span>
+                <span className="text-gray-600">Traspaso (Se esperan registros y mejoras ese ano)</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="px-2 py-0.5 rounded-full bg-gray-100 text-brand_gray_medium border border-gray-300 text-xs font-medium">Det</span>

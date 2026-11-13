@@ -171,11 +171,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           try {
             const parsed = new URL(linkStr);
             if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-              errors.push(`Indicador ${response.indicator_id}: enlace de evidencia debe usar https:// o http://`);
+              errors.push(`Indicador ${response.indicator_id}: enlace de registro debe usar https:// o http://`);
               continue;
             }
           } catch {
-            errors.push(`Indicador ${response.indicator_id}: enlace de evidencia debe ser una URL válida`);
+            errors.push(`Indicador ${response.indicator_id}: enlace de registro debe ser una URL válida`);
             continue;
           }
         }

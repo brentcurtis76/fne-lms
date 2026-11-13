@@ -29,6 +29,11 @@
  * hero's route line, the same-page shortcuts, the calendar's shared weekend
  * below both programs and the note beside the form.
  *
+ * The November 2026 site redesign moved the page onto the public site's shared
+ * shell (`components/site/SiteLayout`: header, footer, fonts) and palette, again
+ * without changing a fact, a section, a hook or the form. See the design-system
+ * note above the class constants.
+ *
  * PASANT-SCHOOL-SECTION-01 (2026-10-22) redesigned "Cómo es un día" and "Las
  * escuelas", again without changing a fact: a still from the homepage video,
  * unmasked by Brent's direction, beside the day's intro, the day's blocks as
@@ -38,9 +43,8 @@
  */
 import React from 'react';
 import type { GetServerSideProps } from 'next';
-import Head from 'next/head';
 import Link from 'next/link';
-import Footer from '../components/Footer';
+import SiteLayout from '../components/site/SiteLayout';
 import LeadForm, { type ProgramRequest } from '../components/pasantias/LeadForm';
 import { getAppBaseUrl } from '../lib/utils/app-url';
 import { PASANTIAS_IMAGE_PATHS } from '../lib/pasantias/image-manifest';
@@ -122,24 +126,12 @@ export function buildMetaDescription(): string {
   )} días en escuelas. ${COHORT_TOGETHER}.`;
 }
 
-/**
- * The site header, replicated so `/pasantias` reads as part of
- * nuevaeducacion.org rather than as a stray landing page. Destinations are the
- * routes this repository actually serves.
- */
-const NAV_LINKS: ReadonlyArray<{ label: string; href: string; current?: boolean }> = [
-  { label: 'Pasantías', href: PAGE_PATH, current: true },
-  { label: 'Programas', href: '/programas' },
-  { label: 'Noticias y eventos', href: '/noticias' },
-  { label: 'Nosotros', href: '/nosotros' },
-  { label: 'Contacto', href: '/#contacto' },
-];
-const HUB_LINK = { label: 'Hub de transformación', href: '/login' };
 
 /**
- * Same-page shortcuts, shown once under the header and never sticky: the sticky
- * header is the only fixed chrome. Each target carries a `scroll-mt-*` at least
- * as tall as the header (`h-20` plus its border) so its heading lands below it.
+ * Same-page shortcuts, shown once under the site header and never sticky: the
+ * shared header (`components/site/SiteLayout`) is the only fixed chrome. Each
+ * target carries a `scroll-mt-*` taller than that header so its heading lands
+ * below it.
  */
 const PAGE_SHORTCUTS: ReadonlyArray<{ label: string; href: string; testId: string }> = [
   { label: 'Programas', href: '#programas', testId: 'pasantias-shortcut-programas' },
@@ -299,16 +291,16 @@ export const getServerSideProps: GetServerSideProps<PasantiasPageProps> = async 
 };
 
 /* ---------------------------------------------------------------- design system
-   Class strings for the grammar the handoff repeats on every section: a 1280 px
-   shell, an eyebrow, an extra-bold title and the manual's filete dorado. Sizes
-   and tracking come from `styles/fne-tokens.css`; the two rule dimensions are
-   read as custom properties so the token file stays the single source. */
-
-const SHELL = 'mx-auto w-full max-w-[1280px] px-5 sm:px-6 lg:px-8';
+   The page wears the public site's look (`styles/sitio.css`, scope `.ne .pas`):
+   azul and gold, Mont capitals for titles, the serif for running text. Layout
+   is still written with Tailwind utilities here; inside `.pas` the platform's
+   black-and-yellow colour tokens (`brand_primary`, `brand_accent`, ...) are
+   remapped to the site's palette, so a class such as `bg-brand_primary` paints
+   the site's deep blue on this page. */
+const SHELL = 'wrap w-full';
 const SECTION_PAD = 'py-16 md:py-24 lg:py-[120px]';
-const EYEBROW = 'block text-[11px] font-semibold uppercase tracking-[.15em]';
-const SECTION_TITLE =
-  'm-0 text-[clamp(28px,4.4vw,44px)] font-extrabold leading-[1.1] tracking-[-.015em]';
+const EYEBROW = 'pas-k block';
+const SECTION_TITLE = 'pas-t';
 const GOLD_RULE =
   'mt-4 block h-[var(--rule-height)] w-[var(--rule-width)] rounded-sm bg-gold-gradient';
 const CARD_LIGHT = 'rounded-2xl border border-gray-200 bg-white p-6 sm:p-8';
@@ -320,17 +312,14 @@ const CARD_DARK = 'rounded-2xl bg-brand_primary p-6 text-white sm:p-8';
  * amber-50, above the 4.5:1 its small uppercase audience line needs.
  */
 const CARD_WARM = 'rounded-2xl border border-brand_accent bg-amber-50 p-6 sm:p-8';
-const BUTTON_BASE =
-  'inline-flex h-[52px] items-center justify-center rounded-lg px-6 text-[15px] font-semibold tracking-[.08em] transition-colors duration-200';
-const BUTTON_ACCENT = `${BUTTON_BASE} border border-brand_accent bg-brand_accent text-brand_primary hover:border-brand_accent_hover hover:bg-brand_accent_hover`;
-const BUTTON_GHOST_DARK = `${BUTTON_BASE} border border-white/50 text-white hover:bg-white/[0.12]`;
+const BUTTON_ACCENT = 'btn mag';
+const BUTTON_GHOST_DARK = 'btn ghost';
 /**
  * The program cards' CTA. A minimum height rather than a fixed one, centred
  * text and tighter tracking, so the longer program label fits a 375 px card
  * and, if a font renders wider, wraps inside the button instead of spilling.
  */
-const BUTTON_PROGRAM_BASE =
-  'inline-flex min-h-[52px] w-full items-center justify-center rounded-lg px-4 py-3 text-center text-[15px] font-semibold leading-[1.25] tracking-[.03em] transition-colors duration-200';
+const BUTTON_PROGRAM_BASE = 'btn min-h-[52px] w-full justify-center text-center';
 /** A school chapter's title: one per program, the program's own name. */
 const CHAPTER_TITLE =
   'm-0 text-[clamp(26px,3.2vw,40px)] font-extrabold leading-[1.1] tracking-[-.015em]';
@@ -362,14 +351,13 @@ function SectionHeader({
   dark?: boolean;
 }) {
   return (
-    <div className="max-w-[768px]">
-      <span className={`${EYEBROW} mb-2.5 ${dark ? 'text-brand_accent' : 'text-brand_gray_medium'}`}>
+    <div className="pas-head">
+      <span className={`eyebrow ${dark ? 'text-brand_accent' : 'text-brand_gray_medium'}`}>
         {eyebrow}
       </span>
       <h2 id={titleId} className={`${SECTION_TITLE} ${dark ? 'text-white' : 'text-brand_primary'}`}>
         {title}
       </h2>
-      <span aria-hidden="true" className={GOLD_RULE} />
     </div>
   );
 }
@@ -494,7 +482,6 @@ export default function PasantiasPage({
   const portraits = COHORT_HOSTS.map((host) =>
     resolveImage('images/pasantias/equipo', [portraitSlug(host.name)])
   );
-  const [menuOpen, setMenuOpen] = React.useState(false);
   const [programRequest, setProgramRequest] = React.useState<ProgramRequest | null>(null);
 
   /** A program CTA: preselect it in the form. The anchor's own jump does the scrolling. */
@@ -557,127 +544,39 @@ export default function PasantiasPage({
   ];
 
   return (
-    <>
-      <Head>
-        <title>{PAGE_TITLE}</title>
-        <meta name="description" content={metaDescription} />
-        <meta name="theme-color" content="#0a0a0a" />
-        <link rel="canonical" href={canonicalUrl} />
+    <SiteLayout
+      active="pasantias"
+      title={PAGE_TITLE}
+      description={metaDescription}
+      image={ogImageUrl ?? undefined}
+      head={
+        <>
+            <link rel="canonical" href={canonicalUrl} />
 
-        <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="Fundación Nueva Educación" />
-        <meta property="og:locale" content="es_CL" />
-        <meta property="og:title" content={PAGE_TITLE} />
-        <meta property="og:description" content={metaDescription} />
-        <meta property="og:url" content={canonicalUrl} />
-        {/* Omitted rather than guessed when no share image is guaranteed to
-            ship — an unfurl pointing at a 404 is worse than no image at all. */}
-        {ogImageUrl && (
-          <>
-            <meta property="og:image" content={ogImageUrl} />
-            <meta property="og:image:alt" content="Barcelona, sede de las Pasantías INSPIRA" />
-          </>
-        )}
+            <meta property="og:type" content="website" />
+            <meta property="og:site_name" content="Fundación Nueva Educación" />
+            <meta property="og:locale" content="es_CL" />
+            <meta property="og:url" content={canonicalUrl} />
+            {/* Omitted rather than guessed when no share image is guaranteed to
+                ship — an unfurl pointing at a 404 is worse than no image at all. */}
+            {ogImageUrl && (
+              <meta property="og:image:alt" content="Barcelona, sede de las Pasantías INSPIRA" />
+            )}
 
-        <meta name="twitter:card" content={ogImageUrl ? 'summary_large_image' : 'summary'} />
-        <meta name="twitter:title" content={PAGE_TITLE} />
-        <meta name="twitter:description" content={metaDescription} />
-        {ogImageUrl && <meta name="twitter:image" content={ogImageUrl} />}
-      </Head>
-
-      {/* ============ Site header ============ */}
-      <header
-        className="sticky top-0 z-50 border-b border-gray-200 bg-white"
-        data-testid="pasantias-header"
-      >
-        <div className={`${SHELL} flex h-20 items-center gap-6`}>
-          <Link href="/" className="flex shrink-0 items-center" data-testid="pasantias-home-link">
-            <img src="/Logo BW.png?v=3" alt="Fundación Nueva Educación" className="h-9 w-auto" />
-          </Link>
-
-          <nav aria-label="Principal" className="ml-auto hidden items-center gap-5 lg:flex xl:gap-7">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                aria-current={link.current ? 'page' : undefined}
-                className={`whitespace-nowrap text-[13px] uppercase tracking-[.08em] transition-colors duration-200 ${
-                  link.current
-                    ? 'border-b-2 border-brand_accent pb-[3px] font-semibold text-brand_primary'
-                    : 'font-medium text-gray-700 hover:text-brand_primary'
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
-            <Link
-              href={HUB_LINK.href}
-              className="ml-2 inline-flex h-10 items-center whitespace-nowrap rounded-full border border-brand_primary px-4 text-[11px] font-semibold uppercase tracking-[.08em] text-brand_primary transition-colors duration-200 hover:bg-brand_primary hover:text-white"
-            >
-              {HUB_LINK.label}
-            </Link>
-          </nav>
-
-          <button
-            type="button"
-            onClick={() => setMenuOpen((open) => !open)}
-            aria-expanded={menuOpen}
-            aria-label={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
-            className="ml-auto grid h-11 w-11 place-items-center rounded-lg border border-gray-300 lg:hidden"
-            data-testid="pasantias-menu-toggle"
-          >
-            <span
-              aria-hidden="true"
-              className="block h-[11px] w-[18px] border-y-2 border-brand_primary"
-            />
-          </button>
-        </div>
-
-        {menuOpen && (
-          <div className="border-t border-gray-200 bg-white lg:hidden" data-testid="pasantias-menu">
-            <div className={`${SHELL} flex flex-col gap-1 py-4`}>
-              {NAV_LINKS.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  aria-current={link.current ? 'page' : undefined}
-                  className={`py-3 text-[14px] uppercase tracking-[.08em] ${
-                    link.current
-                      ? 'font-semibold text-brand_primary'
-                      : 'font-medium text-gray-700'
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              ))}
-              <Link
-                href={HUB_LINK.href}
-                className="mt-2 inline-flex h-12 items-center justify-center rounded-full border border-brand_primary px-5 text-[12px] font-semibold uppercase tracking-[.08em] text-brand_primary"
-              >
-                {HUB_LINK.label}
-              </Link>
-            </div>
-          </div>
-        )}
-      </header>
-
-      <main className="bg-white text-brand_gray_dark">
+            <meta name="twitter:card" content={ogImageUrl ? 'summary_large_image' : 'summary'} />
+            <meta name="twitter:title" content={PAGE_TITLE} />
+            <meta name="twitter:description" content={metaDescription} />
+            {ogImageUrl && <meta name="twitter:image" content={ogImageUrl} />}
+        </>
+      }
+    >
+      <div className="pas">
         {/* ============ En esta página ============ */}
-        <nav
-          aria-label="En esta página"
-          className="border-b border-gray-200 bg-white"
-          data-testid="pasantias-shortcuts"
-        >
-          <ul
-            className={`${SHELL} flex flex-wrap items-center justify-between gap-x-3 sm:justify-start sm:gap-x-7`}
-          >
+        <nav aria-label="En esta página" className="pas-atajos" data-testid="pasantias-shortcuts">
+          <ul className={SHELL}>
             {PAGE_SHORTCUTS.map((shortcut) => (
               <li key={shortcut.href}>
-                <a
-                  href={shortcut.href}
-                  className="inline-flex h-10 items-center whitespace-nowrap text-[13px] font-medium text-gray-700 underline-offset-4 transition-colors duration-200 hover:text-brand_primary hover:underline"
-                  data-testid={shortcut.testId}
-                >
+                <a href={shortcut.href} data-testid={shortcut.testId}>
                   {shortcut.label}
                 </a>
               </li>
@@ -686,47 +585,32 @@ export default function PasantiasPage({
         </nav>
 
         {/* ============ Hero ============ */}
-        <section
-          id="hero"
-          className="relative flex min-h-[clamp(560px,86vh,820px)] items-end bg-brand_primary"
-          data-testid="pasantias-hero"
-        >
+        <section id="hero" className="pas-hero" data-testid="pasantias-hero">
           {photos.hero && (
             <img
               src={photos.hero}
               alt="Barcelona, sede de las Pasantías INSPIRA"
-              className="absolute inset-0 h-full w-full object-cover"
+              className="foto"
               decoding="async"
             />
           )}
           {/*
-            The manual's veil: black rising from the text edge, dissolving before
-            the focal point, anchored from the bottom in pixels so the eyebrow
-            clears 4.5:1 at every window height (`tests/e2e/pasantias-page.spec.ts`
+            The veil: the site's deep blue multiplied over the photograph, then a
+            gradient that darkens towards the text edge, so the eyebrow clears
+            4.5:1 at every window height (`tests/e2e/pasantias-page.spec.ts`
             samples the composited pixels behind the glyphs).
           */}
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 bg-gradient-to-t from-brand_primary/[0.92] via-brand_primary/[0.85] via-[480px] to-brand_primary/15"
-          />
-          {/*
-            Spacing is a little tighter than the content added below it, on
-            purpose: the content is anchored to the bottom, so every extra pixel
-            lifts the eyebrow further up the veil, whose stop is fixed in pixels.
-          */}
-          <div className={`${SHELL} relative pb-8 pt-12 sm:py-16 lg:pb-16 lg:pt-24`}>
-            <span className={`${EYEBROW} mb-4 text-brand_accent sm:mb-5`}>
-              Pasantías internacionales
-            </span>
-            <h1 className="m-0 max-w-[20ch] text-[clamp(34px,7.2vw,84px)] font-black uppercase leading-[1.02] tracking-[-.02em] text-white">
-              Vive una escuela por dentro, no la visites
-            </h1>
+          <div aria-hidden="true" className="velo" />
+          <div className="iso" aria-hidden="true">
+            <i className="mark line spin" />
+          </div>
+          <div className={`${SHELL} relative pb-10 pt-12 sm:py-16 lg:pb-20 lg:pt-24`}>
+            {/* A `span`, and the hero's first: the contrast test finds the eyebrow that way. */}
+            <span className="eyebrow text-brand_accent">Pasantías internacionales</span>
+            <h1>Vive una escuela por dentro, no la visites</h1>
 
             <div className="mt-6 flex flex-wrap items-center gap-3.5 sm:mt-8">
-              <span
-                className="inline-flex h-10 items-center whitespace-nowrap rounded-full bg-brand_accent px-[18px] text-[14px] font-bold text-brand_primary"
-                data-testid="pasantias-date-chip"
-              >
+              <span className="pas-chip" data-testid="pasantias-date-chip">
                 {COHORT_HEADLINE}
               </span>
               <span className="text-[15px] font-medium text-white/75" data-testid="pasantias-hero-stats">
@@ -773,7 +657,7 @@ export default function PasantiasPage({
 
         {/* ============ Los números ============ */}
         <section
-          className="border-t-4 border-transparent bg-brand_primary [border-image:var(--fne-gold-gradient)_1]"
+          className="pas-cifras"
           aria-label="La red INSPIRA en cifras"
           data-testid="pasantias-claims"
         >
@@ -783,16 +667,8 @@ export default function PasantiasPage({
                 const { figure, caption } = splitClaim(claim);
                 return (
                   <div key={claim} data-testid={`pasantias-claim-${index}`}>
-                    <p
-                      className={`text-[clamp(30px,4vw,44px)] font-black leading-none tracking-[-.02em] ${
-                        index === 0 ? 'text-brand_accent' : 'text-white'
-                      }`}
-                    >
-                      {figure}
-                    </p>
-                    <p className="mt-2 text-[13px] font-medium uppercase tracking-[.08em] text-white/70">
-                      {caption}
-                    </p>
+                    <p className={`n ${index === 0 ? 'text-brand_accent' : 'text-white'}`}>{figure}</p>
+                    <p className="c">{caption}</p>
                   </div>
                 );
               })}
@@ -888,11 +764,7 @@ export default function PasantiasPage({
                 <a
                   href="#programa"
                   onClick={() => requestProgram(program.id)}
-                  className={`${BUTTON_PROGRAM_BASE} ${
-                    index === 0
-                      ? 'border border-brand_accent bg-brand_accent text-brand_primary hover:border-brand_accent_hover hover:bg-brand_accent_hover'
-                      : 'border border-brand_primary text-brand_primary hover:bg-brand_primary hover:text-white'
-                  }`}
+                  className={`${BUTTON_PROGRAM_BASE}${index === 0 ? '' : ' marino'}`}
                   data-testid={`pasantias-cta-program-${program.id}`}
                 >
                   {`Me interesa ${program.shortName}`}
@@ -1349,17 +1221,7 @@ export default function PasantiasPage({
           aria-labelledby="programa-title"
           data-testid="pasantias-programa"
         >
-          {/*
-            `invert` because the lineal symbol ships as black line art on
-            transparent, and the manual's watermark treatment puts it on the
-            black surface.
-          */}
-          <img
-            src="/logos/symbol-lineal.png"
-            alt=""
-            aria-hidden="true"
-            className="pointer-events-none absolute -right-20 -top-16 w-[min(520px,60vw)] invert opacity-[var(--watermark-opacity)]"
-          />
+          <i className="mark line deco spin" aria-hidden="true" />
           <div className={`${SHELL} ${SECTION_PAD} relative grid gap-10 lg:grid-cols-2 lg:gap-16`}>
             <div>
               <SectionHeader
@@ -1438,45 +1300,43 @@ export default function PasantiasPage({
         {/* ============ Cierre ============ */}
         <section
           id="cierre"
-          className="relative bg-brand_primary"
+          className={`pas-cierre${photos.barcelonaTarde ? ' foto' : ''}`}
           aria-labelledby="cierre-title"
           data-testid="pasantias-cierre"
         >
           {photos.barcelonaTarde && (
-            <img
-              src={photos.barcelonaTarde}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-              loading="lazy"
-              decoding="async"
-            />
+            <>
+              <img
+                src={photos.barcelonaTarde}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+              />
+              <div aria-hidden="true" className="absolute inset-0 bg-brand_primary/70" />
+            </>
           )}
-          <div aria-hidden="true" className="absolute inset-0 bg-brand_primary/70" />
+          <i className="mark line deco spin" aria-hidden="true" />
           <div className={`${SHELL} ${SECTION_PAD} relative flex flex-col items-start gap-6`}>
-            <img src="/logos/symbol-gold.png" alt="" aria-hidden="true" className="h-auto w-14" />
-            <h2
-              id="cierre-title"
-              className="m-0 max-w-[22ch] text-[clamp(26px,4vw,40px)] font-black uppercase leading-[1.08] tracking-[-.02em] text-white"
-            >
+            <i className="mark" aria-hidden="true" />
+            <h2 id="cierre-title" className="pas-t">
               Conversemos antes de que se cierre la cohorte
             </h2>
-            <p className="max-w-[52ch] text-white/80">
+            <p className="max-w-[52ch]">
               Escríbenos por WhatsApp y te contamos cómo se prepara el viaje con tu equipo.
             </p>
             <a
               href={whatsappHref()}
               target="_blank"
               rel="noopener noreferrer"
-              className={BUTTON_ACCENT}
+              className={photos.barcelonaTarde ? BUTTON_ACCENT : 'btn marino mag'}
               data-testid="pasantias-cta-whatsapp"
             >
               {`WhatsApp ${COHORT_CONTACT.whatsapp}`}
             </a>
           </div>
         </section>
-      </main>
-
-      <Footer />
-    </>
+      </div>
+    </SiteLayout>
   );
 }

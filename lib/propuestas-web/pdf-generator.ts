@@ -7,7 +7,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { ProposalSnapshot } from './snapshot';
-import { INTERNATIONAL_ADVISORS } from './constants';
+import { INTERNATIONAL_ADVISORS, isRetiredAdvisor } from './constants';
 import { normalizeText, significantWords } from './text-utils';
 
 // ─── Color palette (restrained — print-friendly) ────────────────────
@@ -503,9 +503,11 @@ function buildProposalPdf(snapshot: ProposalSnapshot): jsPDF {
   Y = M;
   recordTOC('Equipo de Consultoría');
 
-  sectionHead('Equipo de Consultoría', `${snapshot.consultants.length} profesionales asignados`);
+  // An older snapshot may still name someone who has since left the network.
+  const consultants = snapshot.consultants.filter((c) => !isRetiredAdvisor(c.nombre));
+  sectionHead('Equipo de Consultoría', `${consultants.length} profesionales asignados`);
 
-  for (const c of snapshot.consultants) {
+  for (const c of consultants) {
     renderPerson(
       c,
       c.especialidades?.length ? 24 : 0,

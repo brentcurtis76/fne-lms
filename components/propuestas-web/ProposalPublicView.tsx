@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import type { ProposalSnapshot } from '@/lib/propuestas-web/snapshot';
 import { generateProposalPDF } from '@/lib/propuestas-web/pdf-generator';
-import { FNE_CONTACT_EMAIL, INTERNATIONAL_ADVISORS } from '@/lib/propuestas-web/constants';
+import { FNE_CONTACT_EMAIL, INTERNATIONAL_ADVISORS, isRetiredAdvisor } from '@/lib/propuestas-web/constants';
 import ConsultantCard from './ConsultantCard';
 import ContentBlockSection from './ContentBlockSection';
 import BucketDistribution from './BucketDistribution';
@@ -65,7 +65,7 @@ const REFERENCE_SCHOOLS = [
   { src: '/images/schools/les-vinyes.png', name: 'IE Les Vinyes', leader: 'Sergi Del Moral · Betlem Cuesta' },
   { src: '/images/schools/el-puig.png', name: 'Escola El Puig', leader: 'Carol Giralt' },
   { src: '/images/schools/octavio-paz.png', name: 'Escola Octavio Paz', leader: 'Ana Vicálvaro' },
-  { src: '/images/schools/angeleta-ferrer.png', name: 'Institut Angeleta Ferrer', leader: 'Boris Mir · Abraham De La Fuente' },
+  { src: '/images/schools/angeleta-ferrer.png', name: 'Institut Angeleta Ferrer', leader: 'Abraham De La Fuente' },
 ];
 
 function findConsultantPhoto(name: string): string | null {
@@ -105,7 +105,8 @@ export default function ProposalPublicView({
     .filter(
       (consultant) =>
         consultant.categoria !== 'asesor_internacional' &&
-        !advisorNames.has(consultant.nombre.toLowerCase())
+        !advisorNames.has(consultant.nombre.toLowerCase()) &&
+        !isRetiredAdvisor(consultant.nombre)
     )
     .map((consultant) => ({
       ...consultant,

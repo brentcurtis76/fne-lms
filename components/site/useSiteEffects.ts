@@ -1,6 +1,4 @@
-import { RefObject, useEffect, useLayoutEffect } from 'react';
-
-const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+import { RefObject, useEffect } from 'react';
 
 export const clamp = (value: number, min = 0, max = 1) => Math.min(max, Math.max(min, value));
 
@@ -18,21 +16,20 @@ export function prefersReducedMotion(): boolean {
  * inline transforms, so they never cause a React render.
  */
 export function useSiteEffects(root: RefObject<HTMLDivElement>) {
-  // Before paint, so content that should start hidden never flashes visible on
-  // a client-side navigation. (A first load is covered by the inline script in
-  // SiteLayout.)
-  useIsomorphicLayoutEffect(() => {
-    document.documentElement.classList.add('ne-html', 'ne-js');
-    return () => document.documentElement.classList.remove('ne-html', 'ne-js');
-  }, []);
-
   useEffect(() => {
     const el = root.current;
     if (!el) return;
 
+    // `ne-js` gates the styles that hide content until it is revealed. On a
+    // first load SiteLayout's inline script has already set it before paint; it
+    // is left in place on unmount (it only affects `.ne` descendants) so moving
+    // between the site's pages never flashes content in and out.
+    const html = document.documentElement;
+    html.classList.add('ne-html', 'ne-js');
+
     const reduce = prefersReducedMotion();
     const fine = !!window.matchMedia?.('(hover:hover) and (pointer:fine)').matches;
-    const cleanups: Array<() => void> = [];
+    const cleanups: Array<() => void> = [() => html.classList.remove('ne-html')];
     const on = <K extends keyof WindowEventMap>(
       type: K,
       handler: (event: WindowEventMap[K]) => void,

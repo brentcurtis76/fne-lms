@@ -44,8 +44,8 @@ export const INTERNATIONAL_ADVISORS = [
   },
   {
     nombre: 'Sandra Entrena',
-    titulo: 'Comité Internacional — Directora Escola Virolai',
-    bio: 'Directora de Escola Virolai, una de las escuelas líderes del cambio hacia el nuevo paradigma educativo en Europa. Educadora de larga trayectoria como formadora de profesores en Barcelona. Pilar formativo de Escola Nova 21. Diseñó programas en metodologías activas, evaluación formativa e innovación. Lideró proyecto finalista Wise Awards 2017.',
+    titulo: 'Comité Internacional — Encargada de Innovación, Escola Virolai',
+    bio: 'Encargada de Innovación de Escola Virolai, una de las escuelas líderes del cambio hacia el nuevo paradigma educativo en Europa. Educadora de larga trayectoria como formadora de profesores en Barcelona. Pilar formativo de Escola Nova 21. Diseñó programas en metodologías activas, evaluación formativa e innovación. Lideró proyecto finalista Wise Awards 2017.',
     fotoPath: '/images/consultants/sandra-entrena-circle.png',
     formacion: null,
     experiencia: null,

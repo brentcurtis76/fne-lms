@@ -2399,7 +2399,7 @@ const TemplateEditor: React.FC = () => {
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    Guía detallada para el evaluador. Aparece en un recuadro azul al expandir la sección. Explica qué evidencia buscar y cómo evaluar los indicadores.
+                    Guía detallada para el evaluador. Aparece en un recuadro azul al expandir la sección. Explica qué registros buscar y cómo evaluar los indicadores.
                   </p>
                 </div>
 
@@ -2518,7 +2518,7 @@ const TemplateEditor: React.FC = () => {
                     <option value="cobertura">Cobertura (Sí/No)</option>
                     <option value="frecuencia">Frecuencia (Número)</option>
                     <option value="profundidad">Profundidad (Niveles 0-4)</option>
-                    <option value="traspaso">Traspaso (Evidencia + Sugerencias)</option>
+                    <option value="traspaso">Traspaso (Registro + Sugerencias)</option>
                     {!isFirstIndicatorLocked && (
                       <option value="detalle">Detalle (Selección múltiple)</option>
                     )}
@@ -2664,7 +2664,7 @@ const TemplateEditor: React.FC = () => {
                     <div className="space-y-3 bg-gray-50 p-3 rounded-lg">
                       <div>
                         <label className="block text-xs font-medium text-gray-600 mb-1">
-                          Enlace de Evidencia (URL)
+                          Enlace de Registro (URL)
                         </label>
                         <input
                           type="text"
@@ -3059,7 +3059,7 @@ const TemplateEditor: React.FC = () => {
                                     <div className="space-y-3">
                                       <div>
                                         <label className="block text-sm font-medium text-gray-600 mb-1">
-                                          Adjunte link a carpeta con evidencia de sus respuestas
+                                          Adjunte link a carpeta con registros de sus respuestas
                                         </label>
                                         <input type="url" disabled placeholder="https://..." className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" />
                                         <p className="text-xs text-gray-400 mt-0.5">El archivo enlazado debe ser accesible para cualquier persona con el link</p>

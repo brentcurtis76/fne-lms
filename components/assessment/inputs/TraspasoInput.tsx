@@ -11,7 +11,7 @@ const TraspasoInput: React.FC<TraspasoInputProps> = ({ indicatorId, value, onCha
   <div className="space-y-4">
     <div>
       <label htmlFor={`evidence-link-${indicatorId}`} className="block text-xs font-semibold text-brand_primary/50 uppercase tracking-wider mb-1.5">
-        Link a carpeta con evidencia
+        Link a carpeta con registros
       </label>
       <input
         id={`evidence-link-${indicatorId}`}

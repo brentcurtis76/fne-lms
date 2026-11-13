@@ -113,7 +113,7 @@ export const CATEGORY_DESCRIPTIONS: Record<IndicatorCategory, string> = {
   cobertura: 'Respuesta binaria (Sí/No)',
   frecuencia: 'Valor cuantitativo (número, porcentaje)',
   profundidad: 'Nivel de rúbrica (0-4)',
-  traspaso: 'Evidencia y sugerencias de mejora',
+  traspaso: 'Registro y sugerencias de mejora',
   detalle: 'Selección múltiple — elige todas las que aplican',
 };
 

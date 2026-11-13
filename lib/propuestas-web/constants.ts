@@ -8,6 +8,17 @@ export const FNE_ORG_NAME = 'Fundación Nueva Educación';
 export const FNE_TAGLINE = 'Transformando comunidades educativas';
 
 /**
+ * People who are no longer part of the network. They are never shown, even
+ * where an older proposal snapshot still names them as a consultant or advisor.
+ */
+export const RETIRED_ADVISOR_NAMES: readonly string[] = ['Boris Mir'];
+
+/** Lower-cased for comparison against a snapshot's `nombre`. */
+export function isRetiredAdvisor(nombre: string): boolean {
+  return RETIRED_ADVISOR_NAMES.some((retired) => retired.toLowerCase() === nombre.trim().toLowerCase());
+}
+
+/**
  * International advisors — FNE's fixed advisory network.
  * Rendered in the "Asesores Internacionales" section.
  * Future: make configurable per-proposal via snapshot.
@@ -32,18 +43,9 @@ export const INTERNATIONAL_ADVISORS = [
     especialidades: null,
   },
   {
-    nombre: 'Boris Mir',
-    titulo: 'Comité Internacional — Director Adjunto Institut Angeleta Ferrer',
-    bio: 'Profesor de educación secundaria experto en aprendizaje y en transformación educativa. Fundador y director del Instituto Angeleta Ferrer. Promotor del Instituto-Escuela Les Vinyes. Director adjunto del Programa Escola Nova 21 (UNESCO). Impulsor de proyectos en evaluación formativa, estrategias de aprendizaje y creatividad.',
-    fotoPath: '/images/consultants/boris-mir-circle.png',
-    formacion: null,
-    experiencia: null,
-    especialidades: null,
-  },
-  {
     nombre: 'Sandra Entrena',
-    titulo: 'Comité Internacional — Directora Escola Virolai',
-    bio: 'Directora de Escola Virolai, una de las escuelas líderes del cambio hacia el nuevo paradigma educativo en Europa. Educadora de larga trayectoria como formadora de profesores en Barcelona. Pilar formativo de Escola Nova 21. Diseñó programas en metodologías activas, evaluación formativa e innovación. Lideró proyecto finalista Wise Awards 2017.',
+    titulo: 'Comité Internacional — Encargada de Innovación, Escola Virolai',
+    bio: 'Encargada de Innovación de Escola Virolai, una de las escuelas líderes del cambio hacia el nuevo paradigma educativo en Europa. Educadora de larga trayectoria como formadora de profesores en Barcelona. Pilar formativo de Escola Nova 21. Diseñó programas en metodologías activas, evaluación formativa e innovación. Lideró proyecto finalista Wise Awards 2017.',
     fotoPath: '/images/consultants/sandra-entrena-circle.png',
     formacion: null,
     experiencia: null,

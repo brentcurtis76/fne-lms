@@ -254,8 +254,9 @@ export interface TeamGroup {
   members: string[];
 }
 
+/** Order within a group is the order on the page; it was set by hand with Brent (rows of six on a wide screen). */
 export const TEAM_GROUPS: TeamGroup[] = [
   { id: 'comite', title: 'Comité Internacional', members: ['joan-quintana', 'arnoldo-cisternas', 'coral-regi', 'pepe-menendez', 'jordi-mussons', 'sandra-entrena', 'anna-comas', 'marcelo-ruiz'] },
   { id: 'equipo-fne', title: 'Equipo FNE', members: ['gabriela-naranjo', 'mora-del-fresno', 'ignacio-pavez', 'brent-curtis', 'marcela-molina', 'andres-bustamante', 'joaquin-aguirre'] },
-  { id: 'asesores', title: 'Asesores Internacionales', members: ['sergi-del-moral', 'abraham-de-la-fuente', 'ana-vicalvaro', 'raul-martinez', 'jorge-parra', 'juan-jose-flores', 'betlem-cuesta', 'carlo-de-britos', 'marta-cardenas', 'begonya-folch', 'laura-carmona', 'maite-pino', 'claudia-lopez', 'enrique-vergara', 'laia-garces', 'marta-ortega', 'cristina-montes', 'estefania-del-ramon', 'gemma-pariente', 'maria-latre', 'andreu-basoli', 'neus-colomer', 'cristina-romanos'] },
+  { id: 'asesores', title: 'Asesores Internacionales', members: ['sergi-del-moral', 'abraham-de-la-fuente', 'ana-vicalvaro', 'raul-martinez', 'maite-pino', 'enrique-vergara', 'betlem-cuesta', 'carlo-de-britos', 'begonya-folch', 'laura-carmona', 'jorge-parra', 'juan-jose-flores', 'marta-cardenas', 'claudia-lopez', 'laia-garces', 'marta-ortega', 'cristina-montes', 'estefania-del-ramon', 'gemma-pariente', 'maria-latre', 'andreu-basoli', 'neus-colomer', 'cristina-romanos'] },
 ];

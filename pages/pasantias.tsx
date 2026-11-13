@@ -45,6 +45,7 @@ import React from 'react';
 import type { GetServerSideProps } from 'next';
 import Link from 'next/link';
 import SiteLayout from '../components/site/SiteLayout';
+import Ecosistema from '../components/site/Ecosistema';
 import LeadForm, { type ProgramRequest } from '../components/pasantias/LeadForm';
 import { getAppBaseUrl } from '../lib/utils/app-url';
 import { PASANTIAS_IMAGE_PATHS } from '../lib/pasantias/image-manifest';
@@ -127,18 +128,6 @@ export function buildMetaDescription(): string {
 }
 
 
-/**
- * Same-page shortcuts, shown once under the site header and never sticky: the
- * shared header (`components/site/SiteLayout`) is the only fixed chrome. Each
- * target carries a `scroll-mt-*` taller than that header so its heading lands
- * below it.
- */
-const PAGE_SHORTCUTS: ReadonlyArray<{ label: string; href: string; testId: string }> = [
-  { label: 'Programas', href: '#programas', testId: 'pasantias-shortcut-programas' },
-  { label: 'Calendario', href: '#calendario', testId: 'pasantias-shortcut-calendario' },
-  { label: 'Qué incluye', href: '#incluye', testId: 'pasantias-shortcut-incluye' },
-  { label: 'Inscripción', href: '#programa', testId: 'pasantias-shortcut-inscripcion' },
-];
 
 /**
  * Photography slots from the delivered design, each with the filenames that may
@@ -337,6 +326,8 @@ const DAY_MOMENT_HEADINGS: readonly string[] = ['Conocer', 'Observar y Preguntar
  * What the day section's still shows, and nothing it does not establish: no
  * school, place or person is named, because the frame proves none of them.
  */
+/** Line illustration behind each program card, by position. Decoration, not a fact. */
+const PROGRAM_ART: readonly string[] = ['/sitio/linea-castellier.png', '/sitio/linea-children-on-ladder.png'];
 const DAY_PHOTO_ALT = 'Una mano coloca una tarjeta sobre un muro de vidrio.';
 
 function SectionHeader({
@@ -351,7 +342,7 @@ function SectionHeader({
   dark?: boolean;
 }) {
   return (
-    <div className="pas-head">
+    <div className="pas-head mv">
       <span className={`eyebrow ${dark ? 'text-brand_accent' : 'text-brand_gray_medium'}`}>
         {eyebrow}
       </span>
@@ -409,7 +400,8 @@ function PhotoBreak({
       <img
         src={src}
         alt=""
-        className={`h-full w-full ${frame.image}`}
+        className={`foto-par h-full w-full ${frame.image}`}
+        data-img-par="1"
         loading="lazy"
         decoding="async"
       />
@@ -447,7 +439,8 @@ function ProgramCalendar({
       {program.weeks.map((week, index) => (
         <article
           key={week.id}
-          className={`${index === 0 ? CARD_DARK : CARD_LIGHT} flex flex-col gap-2.5`}
+          className={`${index === 0 ? CARD_DARK : CARD_LIGHT} pas-sem mv flex flex-col gap-2.5`}
+          style={{ ['--d' as string]: index }}
           data-testid={`pasantias-week-${program.id}-${week.id}`}
         >
           <span className={`${EYEBROW} ${index === 0 ? 'text-brand_accent' : 'text-brand_accent_text'}`}>
@@ -571,18 +564,6 @@ export default function PasantiasPage({
       }
     >
       <div className="pas">
-        {/* ============ En esta página ============ */}
-        <nav aria-label="En esta página" className="pas-atajos" data-testid="pasantias-shortcuts">
-          <ul className={SHELL}>
-            {PAGE_SHORTCUTS.map((shortcut) => (
-              <li key={shortcut.href}>
-                <a href={shortcut.href} data-testid={shortcut.testId}>
-                  {shortcut.label}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
 
         {/* ============ Hero ============ */}
         <section id="hero" className="pas-hero" data-testid="pasantias-hero">
@@ -666,7 +647,12 @@ export default function PasantiasPage({
               {COHORT_CLAIMS.map((claim, index) => {
                 const { figure, caption } = splitClaim(claim);
                 return (
-                  <div key={claim} data-testid={`pasantias-claim-${index}`}>
+                  <div
+                    key={claim}
+                    className="mv"
+                    style={{ ['--d' as string]: index }}
+                    data-testid={`pasantias-claim-${index}`}
+                  >
                     <p className={`n ${index === 0 ? 'text-brand_accent' : 'text-white'}`}>{figure}</p>
                     <p className="c">{caption}</p>
                   </div>
@@ -685,33 +671,42 @@ export default function PasantiasPage({
         {/* ============ Por qué Barcelona ============ */}
         <section
           id="barcelona"
-          className={`${SHELL} ${SECTION_PAD}`}
+          className="pas-bcn"
           aria-labelledby="barcelona-title"
           data-testid="pasantias-barcelona"
         >
-          <SectionHeader
-            eyebrow={`Por qué ${COHORT_CITY}`}
-            title="Un ecosistema, no una escuela suelta"
-            titleId="barcelona-title"
-          />
-          <div className="mt-8 grid gap-6 text-[17px] leading-[1.65] text-brand_gray_dark lg:mt-14 lg:grid-cols-2 lg:gap-12">
-            <p>
-              Cataluña lleva años sosteniendo una transformación educativa en red: escuelas muy
-              distintas entre sí que comparten preguntas, herramientas y una manera de mirar al
-              estudiante. Por eso la pasantía no es un tour por un colegio ejemplar, sino un
-              recorrido por un ecosistema que se explica a sí mismo.
-            </p>
-            <p>
-              Vas a entrar a las aulas, conversar con los equipos directivos, entrevistar a
-              estudiantes y docentes, y cerrar cada día con un taller que ordena lo que viste.
-            </p>
+          <div className={`${SHELL} ${SECTION_PAD} grid items-center gap-10 lg:grid-cols-[1.05fr_.95fr] lg:gap-16`}>
+            <div>
+              <SectionHeader
+                eyebrow={`Por qué ${COHORT_CITY}`}
+                title={
+                  <>
+                    <span className="oro">Un ecosistema,</span>{' '}
+                    <span className="l">no una escuela suelta</span>
+                  </>
+                }
+                titleId="barcelona-title"
+              />
+              <p className="big mt-8 text-brand_primary">
+                Cataluña lleva años sosteniendo una transformación educativa en red: escuelas muy
+                distintas entre sí que comparten preguntas, herramientas y una manera de mirar al
+                estudiante. Por eso la pasantía no es un tour por un colegio ejemplar, sino un
+                recorrido por un ecosistema que se explica a sí mismo.
+              </p>
+              <p className="mt-5 text-[17px] leading-[1.65] text-brand_gray_dark">
+                Vas a entrar a las aulas, conversar con los equipos directivos, entrevistar a
+                estudiantes y docentes, y cerrar cada día con un taller que ordena lo que viste.
+              </p>
+            </div>
+            <Ecosistema />
           </div>
+          <i className="sky" aria-hidden="true" />
         </section>
 
         {/* ============ Los programas ============ */}
         <section
           id="programas"
-          className={`${SHELL} scroll-mt-24 pb-16 md:pb-24 lg:pb-[120px]`}
+          className={`${SHELL} scroll-mt-24 pb-16 pt-14 md:pb-24 md:pt-20 lg:pb-[120px]`}
           aria-labelledby="programas-title"
           data-testid="pasantias-programas"
         >
@@ -721,9 +716,15 @@ export default function PasantiasPage({
             {[inspira, mirada].map((program, index) => (
               <article
                 key={program.id}
-                className={`${index === 0 ? CARD_DARK : CARD_WARM} flex flex-col gap-3.5`}
+                className={`${index === 0 ? CARD_DARK : CARD_WARM} pas-prog mv flex flex-col gap-3.5`}
+                style={{ ['--d' as string]: index }}
                 data-testid={`pasantias-program-${program.id}`}
               >
+                <i
+                  className="art"
+                  aria-hidden="true"
+                  style={{ ['--m' as string]: `url(${PROGRAM_ART[index] ?? PROGRAM_ART[0]})` }}
+                />
                 <h3
                   className={`m-0 text-[clamp(22px,2.6vw,28px)] font-extrabold tracking-[-.01em] ${
                     index === 0 ? 'text-white' : 'text-brand_primary'
@@ -783,6 +784,7 @@ export default function PasantiasPage({
           aria-labelledby="calendario-title"
           data-testid="pasantias-calendario"
         >
+          <i className="art deco" aria-hidden="true" style={{ ['--m' as string]: 'url(/images/sagrada-familia-line.png)' }} />
           <SectionHeader eyebrow={COHORT_LABEL} title="El calendario" titleId="calendario-title" />
           <p className="mt-6 max-w-[768px] text-[17px] leading-[1.65] text-brand_gray_dark">
             {`${spanRange} · ${COHORT_TOGETHER}.`}
@@ -804,6 +806,7 @@ export default function PasantiasPage({
               className="flex flex-col gap-1.5 rounded-2xl bg-brand_accent px-6 py-5 text-brand_primary sm:flex-row sm:items-baseline sm:gap-5 sm:px-8 lg:col-span-2"
               data-testid="pasantias-finde"
             >
+              <i className="mark spin" aria-hidden="true" />
               <span className={`${EYEBROW} text-brand_primary`}>Fin de semana libre</span>
               <p
                 className="m-0 text-[17px] font-bold leading-[1.3] text-brand_primary"
@@ -883,7 +886,8 @@ export default function PasantiasPage({
                 return (
                   <li
                     key={block}
-                    className="relative grid grid-cols-[56px_minmax(0,1fr)] gap-x-5 pb-8 after:absolute after:bottom-2 after:left-[27px] after:top-16 after:w-[2px] after:bg-gold-gradient after:content-[''] last:pb-0 last:after:hidden lg:block lg:pb-0 lg:after:-right-6 lg:after:bottom-auto lg:after:left-[72px] lg:after:top-[27px] lg:after:h-[2px] lg:after:w-auto"
+                    className="pas-mom mv relative grid grid-cols-[56px_minmax(0,1fr)] gap-x-5 pb-8 after:absolute after:bottom-2 after:left-[27px] after:top-16 after:w-[2px] after:bg-gold-gradient after:content-[''] last:pb-0 last:after:hidden lg:block lg:pb-0 lg:after:-right-6 lg:after:bottom-auto lg:after:left-[72px] lg:after:top-[27px] lg:after:h-[2px] lg:after:w-auto"
+                    style={{ ['--d' as string]: index }}
                     data-testid={`pasantias-day-block-${index}`}
                   >
                     <span
@@ -945,9 +949,10 @@ export default function PasantiasPage({
           />
 
           <div
-            className="mt-8 rounded-3xl bg-brand_primary p-6 text-white sm:p-10 lg:mt-12 lg:p-14"
+            className="pas-cap mv mt-8 rounded-3xl bg-brand_primary p-6 text-white sm:p-10 lg:mt-12 lg:p-14"
             data-testid={`pasantias-escuelas-${inspira.id}`}
           >
+            <i className="art" aria-hidden="true" style={{ ['--m' as string]: 'url(/sitio/linea-collaborative.png)' }} />
             <div className="max-w-[760px]">
               <h3 className={`${CHAPTER_TITLE} text-white`}>{inspira.name}</h3>
               <span aria-hidden="true" className={GOLD_RULE} />
@@ -968,7 +973,7 @@ export default function PasantiasPage({
                   {inspira.immersionSchools.map((school, index) => (
                     <li
                       key={school.name}
-                      className="flex flex-col gap-3 rounded-2xl border border-brand_accent/50 bg-white/[0.06] p-6"
+                      className="pas-esc flex flex-col gap-3 rounded-2xl border border-brand_accent/50 bg-white/[0.06] p-6"
                       data-testid={`pasantias-school-inmersion-${index}`}
                     >
                       <h5 className="m-0 text-[clamp(22px,2.4vw,28px)] font-extrabold leading-[1.15] tracking-[-.01em] text-white">
@@ -1001,7 +1006,7 @@ export default function PasantiasPage({
                   {inspira.visits.candidates.map((name, index) => (
                     <li
                       key={name}
-                      className="rounded-xl border border-white/20 px-5 py-4"
+                      className="pas-esc rounded-xl border border-white/20 px-5 py-4"
                       data-testid={`pasantias-school-visita-${index}`}
                     >
                       <h5 className="m-0 text-[17px] font-bold leading-[1.3] text-white">{name}</h5>
@@ -1019,7 +1024,7 @@ export default function PasantiasPage({
           </div>
 
           <div
-            className="mt-5 grid gap-8 rounded-3xl border border-brand_accent bg-amber-50 p-6 sm:p-10 lg:mt-6 lg:grid-cols-12 lg:gap-12 lg:p-14"
+            className="pas-cap claro mv mt-5 grid gap-8 rounded-3xl border border-brand_accent bg-amber-50 p-6 sm:p-10 lg:mt-6 lg:grid-cols-12 lg:gap-12 lg:p-14"
             data-testid={`pasantias-escuelas-${mirada.id}`}
           >
             <div className="lg:col-span-5">
@@ -1068,19 +1073,19 @@ export default function PasantiasPage({
               titleId="mirada-title"
             />
             <ol className="mt-8 grid gap-6 lg:mt-14 lg:grid-cols-3 lg:gap-10">
-              <li className="flex flex-col gap-3 border-t border-gray-300 pt-5">
+              <li className="pas-paso mv flex flex-col gap-3 border-t border-gray-300 pt-5">
                 <h3 className={`${EYEBROW} m-0 text-brand_accent_text`}>Antes del viaje</h3>
                 <p className="text-[17px] font-medium leading-[1.5] text-brand_primary">
                   {mirada.preparation}
                 </p>
               </li>
-              <li className="flex flex-col gap-3 border-t border-gray-300 pt-5">
+              <li className="pas-paso mv flex flex-col gap-3 border-t border-gray-300 pt-5">
                 <h3 className={`${EYEBROW} m-0 text-brand_accent_text`}>{`Cierre · ${closingDate}`}</h3>
                 <p className="text-[17px] font-medium leading-[1.5] text-brand_primary">
                   {mirada.closing.text}
                 </p>
               </li>
-              <li className="flex flex-col gap-3 border-t border-gray-300 pt-5">
+              <li className="pas-paso mv flex flex-col gap-3 border-t border-gray-300 pt-5">
                 <h3 className={`${EYEBROW} m-0 text-brand_accent_text`}>Seguimiento</h3>
                 <p className="text-[17px] font-medium leading-[1.5] text-brand_primary">
                   {mirada.followUp}
@@ -1099,6 +1104,7 @@ export default function PasantiasPage({
           aria-labelledby="equipo-title"
           data-testid="pasantias-equipo"
         >
+          <i className="art deco" aria-hidden="true" style={{ ['--m' as string]: 'url(/images/faces.png)' }} />
           <SectionHeader eyebrow="En las escuelas" title="Quién te recibe" titleId="equipo-title" />
           {/*
             One compact card per host, each with the same square portrait box:
@@ -1159,7 +1165,7 @@ export default function PasantiasPage({
           data-testid="pasantias-incluye"
         >
           <div className="grid gap-5 lg:grid-cols-2">
-            <div className={CARD_DARK}>
+            <div className={`${CARD_DARK} mv`}>
               <h2 className={`${EYEBROW} mb-5 text-brand_accent`}>Incluye</h2>
               <ul className="space-y-3.5">
                 {COHORT_INCLUDES.map((item) => (
@@ -1192,7 +1198,7 @@ export default function PasantiasPage({
                 ))}
               </ul>
             </div>
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6 sm:p-8">
+            <div className="mv rounded-2xl border border-gray-200 bg-gray-50 p-6 sm:p-8" style={{ ['--d' as string]: 1 }}>
               <h2 className={`${EYEBROW} mb-5 text-brand_gray_medium`}>No incluye</h2>
               <ul className="space-y-3.5">
                 {COHORT_EXCLUDES.map((item) => (
@@ -1267,6 +1273,7 @@ export default function PasantiasPage({
           aria-labelledby="faq-title"
           data-testid="pasantias-faq"
         >
+          <i className="mark line deco spin" aria-hidden="true" />
           <SectionHeader
             eyebrow="Antes de decidir"
             title="Preguntas frecuentes"

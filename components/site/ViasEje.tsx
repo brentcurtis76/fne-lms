@@ -4,7 +4,7 @@ import { clamp, prefersReducedMotion } from './useSiteEffects';
 /** The seven vías of the transformation, each read through the relational axis. */
 const VIAS = [
   { name: 'Propósito', says: 'Un para qué compartido, construido entre todos.' },
-  { name: 'Personalización', says: 'Cada estudiante es conocido, mirado y acompañado.' },
+  { name: 'Crecimiento', says: 'Cada estudiante es conocido, mirado y acompañado.' },
   { name: 'Aprendizaje', says: 'Se aprende con otros: cooperando, explicando, creando.' },
   { name: 'Evaluación', says: 'Una conversación que ayuda a crecer, no un veredicto.' },
   { name: 'Liderazgo', says: 'Distribuido: líderes que cuidan los vínculos de su equipo.' },

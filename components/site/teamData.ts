@@ -58,9 +58,9 @@ export const TEAM_MEMBERS: Record<string, TeamMember> = {
   },
   'sandra-entrena': {
     name: 'Sandra Entrena',
-    role: 'Directora Escola Virolai',
+    role: 'Encargada de Innovación, Escola Virolai',
     image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Sandra%20Entrena%202.jpeg',
-    description: 'Directora de la Escuela Virolai, una de las escuelas líderes del cambio hacia el nuevo paradigma educativo en Europa. Es una educadora de larga trayectoria como formadora de las nuevas generaciones de profesores en Barcelona. Ha sido uno de los pilares formativos del proyecto Escola Nova 21 y ha participado diseñando y ejecutando programas de formación en metodologías activas para el aprendizaje, evaluación formativa y formadora, innovación y liderazgo de procesos de cambio. El 2017 lideró uno de los proyectos finalistas en los Wise Awards, instancia británica que reconoce a proyectos innovadores que involucran y empoderan a mujeres en el ámbito de las ciencias y la tecnología en el Reino Unido y el resto de Europa.'
+    description: 'Encargada de Innovación de la Escuela Virolai, una de las escuelas líderes del cambio hacia el nuevo paradigma educativo en Europa. Es una educadora de larga trayectoria como formadora de las nuevas generaciones de profesores en Barcelona. Ha sido uno de los pilares formativos del proyecto Escola Nova 21 y ha participado diseñando y ejecutando programas de formación en metodologías activas para el aprendizaje, evaluación formativa y formadora, innovación y liderazgo de procesos de cambio. El 2017 lideró uno de los proyectos finalistas en los Wise Awards, instancia británica que reconoce a proyectos innovadores que involucran y empoderan a mujeres en el ámbito de las ciencias y la tecnología en el Reino Unido y el resto de Europa.'
   },
   'pepe-menendez': {
     name: 'Pepe Menéndez',

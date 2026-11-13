@@ -62,12 +62,6 @@ export const TEAM_MEMBERS: Record<string, TeamMember> = {
     image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Sandra%20Entrena%202.jpeg',
     description: 'Directora de la Escuela Virolai, una de las escuelas líderes del cambio hacia el nuevo paradigma educativo en Europa. Es una educadora de larga trayectoria como formadora de las nuevas generaciones de profesores en Barcelona. Ha sido uno de los pilares formativos del proyecto Escola Nova 21 y ha participado diseñando y ejecutando programas de formación en metodologías activas para el aprendizaje, evaluación formativa y formadora, innovación y liderazgo de procesos de cambio. El 2017 lideró uno de los proyectos finalistas en los Wise Awards, instancia británica que reconoce a proyectos innovadores que involucran y empoderan a mujeres en el ámbito de las ciencias y la tecnología en el Reino Unido y el resto de Europa.'
   },
-  'boris-mir': {
-    name: 'Boris Mir',
-    role: 'Director Adjunto Institut Angeleta Ferrer',
-    image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Boris%20Mir.jpg',
-    description: 'Profesor de educación secundaria experto en aprendizaje y en transformación educativa. Fundador y director del Instituto Angelta Ferrer, colegio para la formación del profesorado de vanguardia en Cataluña. Promotor del Instituto-Escuela Les Vinyes de Castellbisbal, un centro de la red de institutos innovadores de la Universidad Autónoma de Barcelona. Fue director adjunto del Programa Escola Nova 21, una alianza de centros educativos y entidades para un sistema educativo avanzado, que responde a la llamada de la UNESCO para la participación de todos los sectores en un proceso inclusivo de mejora de la educación. Se creó en enero de 2016 mediante un convenio entre el Centro UNESCO de Catalunya, la Fundació Jaume Bofill y la Universitat Oberta de Catalunya, al que se sumaron la Fundació La Caixa y la Diputació de Barcelona. Ha impulsado proyectos de innovación educativa en torno a la evaluación formativa, las estrategias de aprendizaje y la creatividad en el aula. Es formador en diferentes universidades y consultor en organizaciones educativas sobre gestión del cambio y liderazgo.'
-  },
   'pepe-menendez': {
     name: 'Pepe Menéndez',
     role: 'Ex-Director Adjunto Jesuitas Educació',
@@ -111,12 +105,6 @@ export const TEAM_MEMBERS: Record<string, TeamMember> = {
     role: 'Investigadora',
     image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Marcela%20Molina.jpeg',
     description: 'Candidata a Doctora y Magíster en Economía de Negocios de la Universidad del Desarrollo. Socióloga de la Pontificia Universidad Católica de Chile. Su investigación doctoral se enfoca en la medición de impactos económicos y sociales de los procesos de transformación educativa en colegios que están en procesos de cambio cultural hacia la Nueva Educación. Combina su formación sociológica con herramientas de análisis económico para evaluar los cambios sistémicos que ocurren en las comunidades educativas durante su transición hacia modelos pedagógicos centrados en el estudiante. Su enfoque interdisciplinario aporta una perspectiva única al análisis costo-beneficio de las intervenciones educativas y al desarrollo de métricas de impacto social. Su investigación contribuye a generar evidencia empírica sobre la efectividad y sostenibilidad de las intervenciones de la FNE, desarrollando instrumentos de evaluación que permiten medir tanto el progreso pedagógico como el retorno social de la inversión en transformación educativa.'
-  },
-  'andrea-lagos': {
-    name: 'Andrea Lagos',
-    role: 'Encargada de Comunicaciones & Relaciones Institucionales',
-    image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Andrea%20Lagos.png',
-    description: 'Periodista parte del equipo fundador del The Clinic en 1998. Durante diez años escribió las entrevistas principales del periódico y fue editora del Suplemento de Cultura, "Caldo de Cultivo". Luego escribió artículos y entrevistas para la Revista Paula, la mítica Revista Fibra y recientemente para América Futura del Diario El País. Durante la última década fue editora del Suplemento de cultura www.suplementoku.cl de los Medios Regionales de El Mercurio. Actualmente desarrolla contenido audiovisual y comunicacional para Fundación Nueva Educación y Los Pellines.'
   },
   'andres-bustamante': {
     name: 'Andrés Bustamante',
@@ -267,7 +255,7 @@ export interface TeamGroup {
 }
 
 export const TEAM_GROUPS: TeamGroup[] = [
-  { id: 'comite', title: 'Comité Internacional', members: ['joan-quintana', 'arnoldo-cisternas', 'coral-regi', 'boris-mir', 'pepe-menendez', 'jordi-mussons', 'sandra-entrena', 'anna-comas', 'marcelo-ruiz'] },
-  { id: 'equipo-fne', title: 'Equipo FNE', members: ['gabriela-naranjo', 'mora-del-fresno', 'ignacio-pavez', 'brent-curtis', 'andrea-lagos', 'marcela-molina', 'andres-bustamante', 'joaquin-aguirre'] },
+  { id: 'comite', title: 'Comité Internacional', members: ['joan-quintana', 'arnoldo-cisternas', 'coral-regi', 'pepe-menendez', 'jordi-mussons', 'sandra-entrena', 'anna-comas', 'marcelo-ruiz'] },
+  { id: 'equipo-fne', title: 'Equipo FNE', members: ['gabriela-naranjo', 'mora-del-fresno', 'ignacio-pavez', 'brent-curtis', 'marcela-molina', 'andres-bustamante', 'joaquin-aguirre'] },
   { id: 'asesores', title: 'Asesores Internacionales', members: ['sergi-del-moral', 'abraham-de-la-fuente', 'ana-vicalvaro', 'raul-martinez', 'jorge-parra', 'juan-jose-flores', 'betlem-cuesta', 'carlo-de-britos', 'marta-cardenas', 'begonya-folch', 'laura-carmona', 'maite-pino', 'claudia-lopez', 'enrique-vergara', 'laia-garces', 'marta-ortega', 'cristina-montes', 'estefania-del-ramon', 'gemma-pariente', 'maria-latre', 'andreu-basoli', 'neus-colomer', 'cristina-romanos'] },
 ];

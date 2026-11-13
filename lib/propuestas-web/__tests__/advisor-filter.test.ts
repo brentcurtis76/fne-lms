@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { INTERNATIONAL_ADVISORS } from '../constants';
+import { INTERNATIONAL_ADVISORS, isRetiredAdvisor } from '../constants';
 import type { SnapshotConsultant } from '../snapshot';
 
 // Replicate the exact filter logic from ProposalPublicView.tsx:73-79
@@ -23,7 +23,8 @@ function filterFneConsultants(consultants: SnapshotConsultant[]): SnapshotConsul
   return consultants.filter(
     (c) =>
       c.categoria !== 'asesor_internacional' &&
-      !advisorNames.has(c.nombre.toLowerCase())
+      !advisorNames.has(c.nombre.toLowerCase()) &&
+      !isRetiredAdvisor(c.nombre)
   );
 }
 
@@ -92,5 +93,17 @@ describe('Advisor exclusion filter', () => {
     const result = filterFneConsultants(mixed);
     expect(result).toHaveLength(2);
     expect(result.map((c) => c.nombre)).toEqual(['Arnoldo Cisternas', 'Gabriela Naranjo']);
+  });
+
+  it('keeps a retired advisor out even when an old snapshot lists them without categoria', () => {
+    // Boris Mir left the fixed advisor list in November 2026, so his name no longer
+    // matches it; older snapshots that carry him as a plain consultant must not
+    // bring him back into the consultant team.
+    expect(INTERNATIONAL_ADVISORS.map((a) => a.nombre)).not.toContain('Boris Mir');
+    const result = filterFneConsultants([
+      fneConsultant,
+      { ...fneConsultant, nombre: 'Boris Mir', categoria: undefined },
+    ]);
+    expect(result.map((c) => c.nombre)).toEqual(['Arnoldo Cisternas']);
   });
 });

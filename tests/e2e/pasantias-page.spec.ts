@@ -759,7 +759,10 @@ test.describe('pasantías landing page', () => {
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    const header = page.getByTestId('pasantias-header');
+    // Since the November 2026 redesign the page uses the site's shared header
+    // (`components/site/SiteLayout`): fixed, and slid out of view while the
+    // page scrolls down. Out of view or not, no heading may land beneath it.
+    const header = page.getByTestId('site-header');
 
     const targets = [
       ...SHORTCUTS.map(({ testId, hash, heading }) => ({ testId, hash, heading })),

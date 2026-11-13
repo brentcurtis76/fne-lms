@@ -8,6 +8,17 @@ export const FNE_ORG_NAME = 'Fundación Nueva Educación';
 export const FNE_TAGLINE = 'Transformando comunidades educativas';
 
 /**
+ * People who are no longer part of the network. They are never shown, even
+ * where an older proposal snapshot still names them as a consultant or advisor.
+ */
+export const RETIRED_ADVISOR_NAMES: readonly string[] = ['Boris Mir'];
+
+/** Lower-cased for comparison against a snapshot's `nombre`. */
+export function isRetiredAdvisor(nombre: string): boolean {
+  return RETIRED_ADVISOR_NAMES.some((retired) => retired.toLowerCase() === nombre.trim().toLowerCase());
+}
+
+/**
  * International advisors — FNE's fixed advisory network.
  * Rendered in the "Asesores Internacionales" section.
  * Future: make configurable per-proposal via snapshot.
@@ -27,15 +38,6 @@ export const INTERNATIONAL_ADVISORS = [
     titulo: 'Comité Internacional — Director Escola Sadako',
     bio: 'Maestro y director de Escola Sadako de Barcelona desde 2006, institución referente en innovación educativa a nivel internacional. Estudió Biología y encontró en el escultismo la clave para educar desde la responsabilidad y el compromiso sostenible y social. Miembro de la junta directiva de AEC.',
     fotoPath: '/images/consultants/jordi-mussons-circle.png',
-    formacion: null,
-    experiencia: null,
-    especialidades: null,
-  },
-  {
-    nombre: 'Boris Mir',
-    titulo: 'Comité Internacional — Director Adjunto Institut Angeleta Ferrer',
-    bio: 'Profesor de educación secundaria experto en aprendizaje y en transformación educativa. Fundador y director del Instituto Angeleta Ferrer. Promotor del Instituto-Escuela Les Vinyes. Director adjunto del Programa Escola Nova 21 (UNESCO). Impulsor de proyectos en evaluación formativa, estrategias de aprendizaje y creatividad.',
-    fotoPath: '/images/consultants/boris-mir-circle.png',
     formacion: null,
     experiencia: null,
     especialidades: null,

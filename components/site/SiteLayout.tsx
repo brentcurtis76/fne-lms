@@ -14,6 +14,8 @@ interface SiteLayoutProps {
   description: string;
   /** Optional social-preview image (absolute URL). */
   image?: string;
+  /** Extra tags for this page's <head> (canonical, twitter card, ...). */
+  head?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -57,7 +59,7 @@ function Logo({ onClick }: { onClick?: () => void }) {
  * effects. Everything it renders sits inside `.ne`, the scope of
  * `styles/sitio.css`.
  */
-export default function SiteLayout({ active, title, description, image, children }: SiteLayoutProps) {
+export default function SiteLayout({ active, title, description, image, head, children }: SiteLayoutProps) {
   const root = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -94,6 +96,7 @@ export default function SiteLayout({ active, title, description, image, children
           href="https://fonts.googleapis.com/css2?family=Besley:ital,wght@0,400;0,500;1,400&family=Kristi&display=swap"
           rel="stylesheet"
         />
+        {head}
       </Head>
       {/* First load only: hide what animates in before the browser paints it. */}
       <script
@@ -102,7 +105,7 @@ export default function SiteLayout({ active, title, description, image, children
       <div className="prog" aria-hidden="true" />
       <div className="cur" aria-hidden="true" />
 
-      <header className="nav">
+      <header className="nav" data-testid="site-header">
         <Logo onClick={closeMenu} />
         <ul className="links">
           {NAV.map((item) => (

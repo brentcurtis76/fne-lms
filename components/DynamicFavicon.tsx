@@ -28,7 +28,6 @@ const GENERA_ROUTES = [
   '/notifications',
   '/assessments',
   '/transformation',
-  '/brand-preview',
   '/mi-aprendizaje',
   '/my-paths',
   '/student',

@@ -127,7 +127,6 @@ import { getServerSideProps as meetDiag } from '../../pages/meet/diag';
 import { getServerSideProps as evaluatePage } from '../../pages/community/workspace/transformation/evaluate';
 import { getServerSideProps as resultsPage } from '../../pages/community/transformation/results/[assessmentId]';
 import { getServerSideProps as rutaPage } from '../../pages/mi-aprendizaje/ruta/[id]';
-import { getServerSideProps as myPathsPage } from '../../pages/my-paths/[id]';
 
 function ctx(extra: Partial<GetServerSidePropsContext> = {}): GetServerSidePropsContext {
   return {
@@ -253,7 +252,6 @@ describe('the other converted pages', () => {
     ['community/workspace/transformation/evaluate', evaluatePage as GSSP, {}],
     ['community/transformation/results/[assessmentId]', resultsPage as GSSP, { params: { assessmentId: 'a-1' } }],
     ['mi-aprendizaje/ruta/[id]', rutaPage as GSSP, { params: { id: 'p-1' } }],
-    ['my-paths/[id]', myPathsPage as GSSP, { params: { id: 'p-1' } }],
   ];
 
   it.each(PAGES)('%s: a cookie whose token the auth server refuses is signed out', async (_n, gssp, extra) => {

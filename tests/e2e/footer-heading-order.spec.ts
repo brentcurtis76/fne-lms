@@ -1,7 +1,8 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+import { ensureStorageState } from './helpers/auth';
 
 /**
- * `components/Footer.tsx` is shared by every public marketing page. A6a r3
+ * `components/Footer.tsx` was shared by every public marketing page. A6a r3
  * changed its two section headings from `h4` to `h2`: on `/pasantias` the
  * document read `… h2 (last section) → h4 (footer)` and axe reported
  * `heading-order`, which the r2 spec had hidden by scoping its own check to
@@ -9,15 +10,22 @@ import { test, expect } from '@playwright/test';
  * leaves the others at least as correct, so this spec checks the Footer's
  * headings on every page that renders it.
  *
+ * Redesign phase 4c retired `/brand-preview`, which until then was the only
+ * page in this list that drew `components/Footer.tsx` itself: since the public
+ * site moved to `components/site/SiteLayout.tsx` (12 Nov 2026) the five public
+ * pages below draw that layout's own footer, with the same two `h2` headings.
+ * `components/Footer.tsx` is now drawn by `components/layout/MainLayout.tsx`,
+ * that is on every signed-in platform screen, so the signed-in `/dashboard` of
+ * the seeded docente fixture takes the place of `/brand-preview` here.
+ *
  * WHAT IS ASSERTED, and why it is narrow: only the transition **into** the
- * footer and the transitions **inside** it. Three of these pages carry
+ * footer and the transitions **inside** it. Two of these pages carry
  * pre-existing `heading-order` violations in their own bodies, all of them an
  * `h1 → h3` or `h2 → h4` jump far above the footer and none of them this
  * phase's to fix (raised as a finding in the A6a r3 ledger entry):
  *
  *   /nosotros      h1 "SOMOS UNA RED…"  → h3 "Transformar"
  *   /programas     h1 "PROGRAMAS…"      → h3 "AULA GENERATIVA"
- *   /brand-preview h2 "4. Cards"        → h4 "Liderazgo Transformacional"
  *
  * Asserting the whole document here would mean either adopting that debt or
  * weakening the assertion until it proves nothing. `/pasantias` — the page this
@@ -37,12 +45,10 @@ const PAGES_RENDERING_FOOTER = [
   '/nosotros',
   '/equipo',
   '/programas',
-  '/brand-preview',
   '/pasantias',
 ] as const;
 
-for (const path of PAGES_RENDERING_FOOTER) {
-  test(`the shared Footer does not break heading order on ${path}`, async ({ page }) => {
+async function expectFooterHeadingOrder(page: Page, path: string) {
     await page.goto(path);
     await expect(page.locator('footer')).toBeVisible();
 
@@ -67,5 +73,19 @@ for (const path of PAGES_RENDERING_FOOTER) {
         } after "${headings[i - 1].text}"`
       ).toBeLessThanOrEqual(1);
     }
+}
+
+for (const path of PAGES_RENDERING_FOOTER) {
+  test(`the shared Footer does not break heading order on ${path}`, async ({ page }) => {
+    await expectFooterHeadingOrder(page, path);
   });
 }
+
+test('the shared Footer does not break heading order on /dashboard (signed in, MainLayout)', async ({ browser }) => {
+  const context = await browser.newContext({ storageState: await ensureStorageState(browser, 'docente') });
+  try {
+    await expectFooterHeadingOrder(await context.newPage(), '/dashboard');
+  } finally {
+    await context.close();
+  }
+});

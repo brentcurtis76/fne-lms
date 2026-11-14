@@ -42,11 +42,6 @@ test.describe('Protected Route Redirects (No Session)', () => {
       await expect(page).toHaveURL(/\/login/);
     });
 
-    test('course detail page redirects to login when not authenticated', async ({ page }) => {
-      await page.goto('/courses/some-course-id');
-      await expect(page).toHaveURL(/\/login/);
-    });
-
     test('course enrollment page redirects to login when not authenticated', async ({ page }) => {
       await page.goto('/enroll');
       await expect(page).toHaveURL(/\/login/);

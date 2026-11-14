@@ -75,7 +75,9 @@ beforeEach(() => {
 describe('/api/user/look', () => {
   it('only PUT exists', async () => {
     for (const method of ['GET', 'POST', 'PATCH', 'DELETE'] as RequestMethod[]) {
-      expect((await call(method, { look: 'nuevo' })).status).toBe(405);
+      const res = await call(method, { look: 'nuevo' });
+      expect(res.status).toBe(405);
+      expect(res.headers['cache-control']).toBe('no-store');
     }
     expect(state.calls).toEqual([]);
   });
@@ -117,6 +119,7 @@ describe('/api/user/look', () => {
     const res = await call('PUT', { look: 'nuevo' });
     expect(res.status).toBe(403);
     expect(res.body.code).toBe('not_offered');
+    expect(res.headers['cache-control']).toBe('no-store');
     expect(writes()).toEqual([]);
     expect(state.row.learning_preferences).toEqual({});
   });

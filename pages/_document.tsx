@@ -1,15 +1,10 @@
 import { Html, Head, Main, NextScript } from 'next/document';
-import { EARLY_LOOK_SCRIPT } from '../lib/look';
 
 export default function Document() {
   return (
     <Html lang="es">
       <Head>
         <meta charSet="UTF-8" />
-
-        {/* The account's look (lib/look.ts), before the first paint. Does nothing unless this
-            browser last showed the redesign's look. */}
-        <script dangerouslySetInnerHTML={{ __html: EARLY_LOOK_SCRIPT }} />
         
         {/* Preconnect to external domains for faster resource loading */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />

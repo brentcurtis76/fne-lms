@@ -21,8 +21,6 @@ export type Look = 'clasico' | 'nuevo';
 export const LOOK_PREFERENCE_KEY = 'ui_look';
 /** The attribute on `<html>`; present (with the value "nuevo") only for the new look. */
 export const LOOK_ATTRIBUTE = 'data-look';
-/** The browser's copy of the last look applied, so a full page load can paint it at once. */
-export const LOOK_STORAGE_KEY = 'genera.look';
 
 export const isLook = (value: unknown): value is Look => value === 'clasico' || value === 'nuevo';
 
@@ -46,7 +44,15 @@ export function preferencesWithLook(preferences: unknown, look: Look): Record<st
   return kept;
 }
 
-/** Puts a look on the page: the attribute on `<html>` and the browser's copy. Browser only. */
+/**
+ * Puts a look on the page: the attribute on `<html>`. Browser only.
+ *
+ * Nothing is kept in the browser. The look is applied once the account's profile has loaded,
+ * so on a full page load a person with the new look sees today's look for a moment first. That
+ * is on purpose while the new look is offered to a few accounts: a copy kept in the browser
+ * would belong to the computer, not the account, and on a shared school computer the next
+ * person would get a flash of a look that is not theirs.
+ */
 export function applyLook(look: Look): void {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
@@ -55,28 +61,23 @@ export function applyLook(look: Look): void {
   } else if (root.hasAttribute(LOOK_ATTRIBUTE)) {
     root.removeAttribute(LOOK_ATTRIBUTE);
   }
-  try {
-    if (look === 'nuevo') window.localStorage.setItem(LOOK_STORAGE_KEY, 'nuevo');
-    else window.localStorage.removeItem(LOOK_STORAGE_KEY);
-  } catch {
-    // Storage can be blocked (private mode, a full disk): the attribute is what matters.
-  }
 }
-
-/**
- * Runs in `<head>` before anything is painted (pages/_document.tsx): if this browser last showed
- * the new look, show it from the first frame instead of flashing today's look until the profile
- * has loaded. The profile stays the truth: LookContext corrects the page as soon as it knows.
- * Written out as text because it must not wait for any script bundle.
- */
-export const EARLY_LOOK_SCRIPT = `try{if(localStorage.getItem('${LOOK_STORAGE_KEY}')==='nuevo')document.documentElement.setAttribute('${LOOK_ATTRIBUTE}','nuevo')}catch(e){}`;
 
 /**
  * Who is offered the choice while the redesign is being built: accounts marked as QA tester
  * (`profiles.can_run_qa_tests`, the «Tester QA» switch an admin sets on a user in Usuarios).
- * Everyone else never sees «Apariencia» and cannot save a look. When the new look becomes
+ * Everyone else never sees «Apariencia», cannot save a look through the route, and is not
+ * shown the new look even if their profile holds the key (`lookOfAccount`): an account that
+ * stops being a tester goes back to today's look by itself. When the new look becomes
  * everyone's (the redesign's launch) this rule and the switch go away.
  */
 export function mayChooseLook(profile: { can_run_qa_tests?: boolean | null } | null | undefined): boolean {
   return profile?.can_run_qa_tests === true;
+}
+
+/** The look an account is shown: its stored choice, and only while it is offered the choice. */
+export function lookOfAccount(
+  profile: { can_run_qa_tests?: boolean | null; learning_preferences?: unknown } | null | undefined
+): Look {
+  return mayChooseLook(profile) ? lookFromPreferences(profile?.learning_preferences) : 'clasico';
 }

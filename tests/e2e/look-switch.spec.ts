@@ -9,9 +9,10 @@ import { randomBytes } from 'node:crypto';
  * The promise: an account that is not offered the choice, or never made one, gets exactly
  * the page it had — no `data-look` on <html>, no «Apariencia» anywhere, no way to save one.
  * A (QA tester, docente) is offered it, switches to the new look and back, and the choice
- * is the profile's: it survives a reload, another key of `learning_preferences` is kept, and
- * signing out returns the browser to today's look. B (docente, not a tester) sees nothing of
- * it and is refused by the API; the API never takes a user id from the request.
+ * is the profile's: it survives a reload, another key of `learning_preferences` is kept,
+ * nothing is kept in the browser, and an ended session or a withdrawn tester mark returns the
+ * page to today's look. B (docente, not a tester) sees nothing of it, is refused by the API,
+ * and is not shown the new look even with the key written into B's own profile row.
  *
  * Synthetic *@qa.local.test users on a local database only, deleted by exact id in afterAll.
  */
@@ -57,7 +58,19 @@ async function signedIn(browser: Browser, user: User) {
 }
 
 const lookOf = (page: Page) => page.evaluate(() => document.documentElement.getAttribute('data-look'));
-const storedCopy = (page: Page) => page.evaluate(() => window.localStorage.getItem('genera.look'));
+/** Everything this origin keeps in the browser's storage that mentions the look: there must be nothing. */
+const keptInBrowser = (page: Page) =>
+  page.evaluate(() =>
+    [window.localStorage, window.sessionStorage].flatMap((store) =>
+      Object.keys(store).filter((key) => /look/i.test(key) || /ui_look|nuevo/.test(store.getItem(key) ?? ''))
+    )
+  );
+
+async function panel(page: Page) {
+  await page.goto('/dashboard');
+  // The greeting renders once the client session and the profile have loaded: the look is decided by then.
+  await expect(page.getByRole('heading', { name: /^¡Hola, Persona!/ })).toBeVisible({ timeout: 60_000 });
+}
 
 async function openSettings(page: Page) {
   await page.goto(SETTINGS);
@@ -131,9 +144,13 @@ test.describe('the look switch (redesign 4d)', () => {
     expect(await preferences(users.b)).toEqual({ ritmo: 'sintetico' });
     expect(await preferences(users.a)).toEqual({ ritmo: 'sintetico' });
 
-    await page.reload();
+    // Even with the key in B's own row (a person can write their own profile row), B is not shown the new look.
+    must('key by hand', await service.from('profiles').update({ learning_preferences: { ritmo: 'sintetico', ui_look: 'nuevo' } }).eq('id', users.b.id));
+    await panel(page);
     expect(await lookOf(page)).toBeNull();
-    expect(await storedCopy(page)).toBeNull();
+    must('key removed', await service.from('profiles').update({ learning_preferences: { ritmo: 'sintetico' } }).eq('id', users.b.id));
+
+    expect(await keptInBrowser(page)).toEqual([]);
     expect(problems).toEqual([]);
     await context.close();
   });
@@ -174,17 +191,16 @@ test.describe('the look switch (redesign 4d)', () => {
     await save.click();
     await expect(page.getByTestId('look-saved')).toHaveText('Tu apariencia se guardó.');
     expect(await lookOf(page)).toBe('nuevo');
-    expect(await storedCopy(page)).toBe('nuevo');
+    expect(await keptInBrowser(page)).toEqual([]);
     expect(await preferences(users.a)).toEqual({ ritmo: 'sintetico', ui_look: 'nuevo' });
     expect(await preferences(users.b)).toEqual({ ritmo: 'sintetico' });
 
     // It is the profile's: a full reload, and another page, show it again.
     await page.reload();
     await expect(next).toBeChecked({ timeout: 60_000 });
-    expect(await lookOf(page)).toBe('nuevo');
-    await page.goto('/dashboard');
-    await expect(page.getByRole('heading', { name: /^¡Hola, Persona!/ })).toBeVisible({ timeout: 60_000 });
-    expect(await lookOf(page)).toBe('nuevo');
+    await expect.poll(() => lookOf(page), { timeout: 60_000 }).toBe('nuevo');
+    await panel(page);
+    await expect.poll(() => lookOf(page), { timeout: 60_000 }).toBe('nuevo');
 
     // Back to today's look: the attribute and the browser's copy go, the key goes, the other key stays.
     await page.goto(LOOK_PAGE);
@@ -193,25 +209,36 @@ test.describe('the look switch (redesign 4d)', () => {
     await save.click();
     await expect(page.getByTestId('look-saved')).toBeVisible();
     expect(await lookOf(page)).toBeNull();
-    expect(await storedCopy(page)).toBeNull();
+    expect(await keptInBrowser(page)).toEqual([]);
     expect(await preferences(users.a)).toEqual({ ritmo: 'sintetico' });
 
     expect(problems).toEqual([]);
     await context.close();
   });
 
-  test('signing out returns the browser to today\'s look', async ({ browser }) => {
+  test('an ended session, or a withdrawn tester mark, returns the page to today\'s look', async ({ browser }) => {
     must('stored look', await service.from('profiles').update({ learning_preferences: { ritmo: 'sintetico', ui_look: 'nuevo' } }).eq('id', users.a.id));
     const { context, page } = await signedIn(browser, users.a);
     await expect.poll(() => lookOf(page), { timeout: 60_000 }).toBe('nuevo');
-    expect(await storedCopy(page)).toBe('nuevo');
 
-    // The session ends (its cookies are gone) while the browser still holds the copy of the look.
+    // An admin withdraws «Tester QA»: the account keeps its stored key but is shown today's look, with no screen to visit.
+    must('mark withdrawn', await service.from('profiles').update({ can_run_qa_tests: false }).eq('id', users.a.id));
+    await panel(page);
+    expect(await lookOf(page)).toBeNull();
+    await page.goto(LOOK_PAGE);
+    await expect(page).toHaveURL(new RegExp(`${SETTINGS}$`));
+    must('mark back', await service.from('profiles').update({ can_run_qa_tests: true }).eq('id', users.a.id));
+    await panel(page);
+    await expect.poll(() => lookOf(page), { timeout: 60_000 }).toBe('nuevo');
+
+    // The session ends (its cookies are gone): the sign-in screen has today's look from its first frame,
+    // because nothing in the browser remembers the look.
     await context.clearCookies();
     await page.goto('/login');
+    expect(await lookOf(page)).toBeNull();
     await expect(page.getByPlaceholder('tu@email.com')).toBeVisible({ timeout: 60_000 });
-    await expect.poll(() => lookOf(page), { timeout: 60_000 }).toBeNull();
-    expect(await storedCopy(page)).toBeNull();
+    expect(await lookOf(page)).toBeNull();
+    expect(await keptInBrowser(page)).toEqual([]);
     await context.close();
   });
 });

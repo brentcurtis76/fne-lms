@@ -26,7 +26,7 @@ const LOGIN_AGAIN = `/login?next=${encodeURIComponent('/configuracion/apariencia
 const SAVE_ERROR = 'No pudimos guardar tu apariencia. Intenta nuevamente.';
 
 const OPTIONS: ReadonlyArray<{ value: Look; label: string; detail: string }> = [
-  { value: 'clasico', label: 'Diseño actual', detail: 'La plataforma como la ven hoy todas las cuentas.' },
+  { value: 'clasico', label: 'Diseño actual', detail: 'La plataforma tal como se ve hoy.' },
   {
     value: 'nuevo',
     label: 'Diseño nuevo (en construcción)',
@@ -131,8 +131,9 @@ export default function AparienciaPage({ storedLook }: AparienciaProps) {
                       name="look"
                       value={option.value}
                       checked={choice === option.value}
-                      disabled={saving}
                       onChange={() => {
+                        // Not disabled while saving (focus would be lost); a change then is ignored.
+                        if (saving) return;
                         setChoice(option.value);
                         setNotice(null);
                       }}

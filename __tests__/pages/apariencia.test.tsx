@@ -134,6 +134,7 @@ describe('the page', () => {
     expect(option('clasico').checked).toBe(true);
     expect(option('nuevo').checked).toBe(false);
     expect(screen.getByLabelText(/Diseño actual/)).toBe(option('clasico'));
+    expect(screen.getByText('La plataforma tal como se ve hoy.')).toBeInTheDocument();
     expect(screen.getByLabelText(/Diseño nuevo \(en construcción\)/)).toBe(option('nuevo'));
     expect(save()).toBeDisabled();
     expect(screen.getByTestId('look-to-notifications')).toHaveAttribute('href', '/configuracion/notificaciones');
@@ -200,6 +201,10 @@ describe('the page', () => {
     await user.click(save());
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(save()).toBeDisabled();
+    // While it saves the options keep the focus they have (they are not disabled) and ignore a change.
+    expect(option('clasico')).not.toBeDisabled();
+    await user.click(option('clasico'));
+    expect(option('nuevo').checked).toBe(true);
     release(json(500, {}));
     await waitFor(() => expect(screen.getByTestId('look-save-error')).toHaveTextContent('No pudimos guardar tu apariencia. Intenta nuevamente.'));
   });

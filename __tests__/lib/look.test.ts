@@ -2,12 +2,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   applyLook,
-  EARLY_LOOK_SCRIPT,
   isLook,
   LOOK_ATTRIBUTE,
   LOOK_PREFERENCE_KEY,
-  LOOK_STORAGE_KEY,
   lookFromPreferences,
+  lookOfAccount,
   mayChooseLook,
   preferencesWithLook,
 } from '../../lib/look';
@@ -15,7 +14,8 @@ import {
 /**
  * Redesign 4d — the one rule of what an account's look is, and how it reaches the page.
  * The promise this file guards: an account that never chose is exactly as before — no
- * attribute on <html>, nothing stored.
+ * attribute on <html>, and nothing is ever kept in the browser (a copy there would belong
+ * to the computer, not the account).
  */
 
 const root = () => document.documentElement;
@@ -27,10 +27,9 @@ afterEach(() => {
 });
 
 describe('the stored choice', () => {
-  it('names: the profile key, the attribute, the browser copy', () => {
+  it('names: the profile key and the attribute', () => {
     expect(LOOK_PREFERENCE_KEY).toBe('ui_look');
     expect(LOOK_ATTRIBUTE).toBe('data-look');
-    expect(LOOK_STORAGE_KEY).toBe('genera.look');
   });
 
   it('only the exact value "nuevo" is the new look; everything else is today\'s', () => {
@@ -61,61 +60,40 @@ describe('the stored choice', () => {
       expect(mayChooseLook(profile)).toBe(false);
     }
   });
+
+  it('an account is shown its stored look only while it is offered the choice', () => {
+    expect(lookOfAccount({ can_run_qa_tests: true, learning_preferences: { ui_look: 'nuevo' } })).toBe('nuevo');
+    expect(lookOfAccount({ can_run_qa_tests: true, learning_preferences: {} })).toBe('clasico');
+    // No longer a tester, or never one (a person who wrote the key into their own row by hand).
+    expect(lookOfAccount({ can_run_qa_tests: false, learning_preferences: { ui_look: 'nuevo' } })).toBe('clasico');
+    expect(lookOfAccount({ learning_preferences: { ui_look: 'nuevo' } })).toBe('clasico');
+    expect(lookOfAccount(null)).toBe('clasico');
+    expect(lookOfAccount(undefined)).toBe('clasico');
+  });
 });
 
 describe('the look on the page', () => {
-  it('today\'s look leaves <html> without the attribute and stores nothing', () => {
+  it('today\'s look leaves <html> without the attribute', () => {
     applyLook('clasico');
     expect(root().hasAttribute(LOOK_ATTRIBUTE)).toBe(false);
-    expect(window.localStorage.length).toBe(0);
   });
 
-  it('the new look sets the attribute and the browser copy; going back removes both', () => {
+  it('the new look sets the attribute; going back removes it', () => {
     applyLook('nuevo');
     expect(root().getAttribute(LOOK_ATTRIBUTE)).toBe('nuevo');
-    expect(window.localStorage.getItem(LOOK_STORAGE_KEY)).toBe('nuevo');
+    applyLook('nuevo');
+    expect(root().getAttribute(LOOK_ATTRIBUTE)).toBe('nuevo');
     applyLook('clasico');
     expect(root().hasAttribute(LOOK_ATTRIBUTE)).toBe(false);
-    expect(window.localStorage.getItem(LOOK_STORAGE_KEY)).toBeNull();
   });
 
-  it('blocked storage does not stop the attribute', () => {
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new Error('blocked');
-    });
-    expect(() => applyLook('nuevo')).not.toThrow();
-    expect(root().getAttribute(LOOK_ATTRIBUTE)).toBe('nuevo');
-  });
-});
-
-describe('the early script of <head>', () => {
-  const run = () => new Function(EARLY_LOOK_SCRIPT)();
-
-  it('does nothing in a browser that never showed the new look', () => {
-    run();
-    expect(root().hasAttribute(LOOK_ATTRIBUTE)).toBe(false);
-    window.localStorage.setItem(LOOK_STORAGE_KEY, 'clasico');
-    run();
-    expect(root().hasAttribute(LOOK_ATTRIBUTE)).toBe(false);
-  });
-
-  it('applies the new look when this browser showed it last', () => {
-    window.localStorage.setItem(LOOK_STORAGE_KEY, 'nuevo');
-    run();
-    expect(root().getAttribute(LOOK_ATTRIBUTE)).toBe('nuevo');
-  });
-
-  it('never throws, even with storage blocked', () => {
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
-      throw new Error('blocked');
-    });
-    expect(run).not.toThrow();
-    expect(root().hasAttribute(LOOK_ATTRIBUTE)).toBe(false);
-  });
-
-  it('is plain text with no tag in it (it is written into the page as is)', () => {
-    expect(EARLY_LOOK_SCRIPT).not.toMatch(/[<>]/);
-    expect(EARLY_LOOK_SCRIPT).toContain(LOOK_STORAGE_KEY);
-    expect(EARLY_LOOK_SCRIPT).toContain(LOOK_ATTRIBUTE);
+  it('nothing is kept in the browser, whatever the look', () => {
+    const setItem = vi.spyOn(Storage.prototype, 'setItem');
+    applyLook('nuevo');
+    applyLook('clasico');
+    expect(setItem).not.toHaveBeenCalled();
+    expect(window.localStorage.length).toBe(0);
+    expect(window.sessionStorage.length).toBe(0);
+    expect(document.cookie).toBe('');
   });
 });

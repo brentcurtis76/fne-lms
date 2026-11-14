@@ -18,6 +18,7 @@ const READ_FAILED = 'No pudimos leer tu apariencia. Inténtalo nuevamente.';
 const WRITE_FAILED = 'No pudimos guardar tu apariencia. Inténtalo nuevamente.';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'PUT') return handleMethodNotAllowed(res, ['PUT']);
 
   try {
@@ -54,7 +55,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: WRITE_FAILED, code: 'write_failed' });
     }
 
-    res.setHeader('Cache-Control', 'no-store');
     return res.status(200).json({ look: lookFromPreferences(written.data.learning_preferences) });
   } catch (error) {
     console.error('[look] failed', loggableError(error));

@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
-  "date": "2026-11-12T23:31:39-03:00"
+  "commit": "6246844772d423e70ba32f8ed9b50a5f73e8c6b2",
+  "date": "2026-11-13T23:43:33-03:00"
  },
  "screens": [
   {
@@ -77,7 +77,7 @@
     "linkedFrom": [
      "pages/admin/assessment-builder/[templateId]/index.tsx:1567",
      "pages/admin/assessment-builder/[templateId]/index.tsx:1704",
-     "pages/api/qa/seed-codebase-index.ts:222"
+     "pages/api/qa/seed-codebase-index.ts:200"
     ],
     "qaScenarios": {},
     "tests": {
@@ -1570,7 +1570,7 @@
      "pages/admin/assessment-builder/create.tsx:218",
      "pages/admin/assessment-builder/index.tsx:335",
      "pages/admin/assessment-builder/index.tsx:608",
-     "pages/api/qa/seed-codebase-index.ts:217"
+     "pages/api/qa/seed-codebase-index.ts:195"
     ],
     "qaScenarios": {},
     "tests": {
@@ -4757,7 +4757,7 @@
     "linkedFrom": [
      "pages/admin/assessment-builder/index.tsx:494",
      "pages/admin/assessment-builder/index.tsx:533",
-     "pages/api/qa/seed-codebase-index.ts:212"
+     "pages/api/qa/seed-codebase-index.ts:190"
     ],
     "qaScenarios": {},
     "tests": {
@@ -5285,7 +5285,7 @@
      "pages/admin/assessment-builder/create.tsx:288",
      "pages/admin/assessment-builder/create.tsx:428",
      "pages/admin/assessment-builder/create.tsx:74",
-     "pages/api/qa/seed-codebase-index.ts:201"
+     "pages/api/qa/seed-codebase-index.ts:179"
     ],
     "qaScenarios": {},
     "tests": {

@@ -1,11 +1,11 @@
 # Marco (the frame around every screen)
 
 Area `00-marco`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `58b8d169f` (2026-11-12).
+Read from commit `624684477` (2026-11-13).
 
 The app shell, the menu, the top bar, the bell, the footer and the feedback button. Its pieces are listed here once and not repeated under each screen.
 
-3 screen files, 1 API files, 25 pieces.
+2 screen files, 1 API files, 25 pieces.
 
 ## Approved changes (decided by Brent with the mock-ups; not losses)
 
@@ -40,39 +40,8 @@ The app shell, the menu, the top bar, the bell, the footer and the feedback butt
 
 | Address | File | Lines | Menu | Marks |
 |---|---|---|---|---|
-| `/_app 2` | `pages/_app 2.tsx` | 6 | — | Leftover (on the list for Brent) |
 | — | `pages/_app.tsx` | 62 | — |  |
 | — | `pages/_document.tsx` | 44 | — |  |
-
-## /_app 2
-
-File `pages/_app 2.tsx` · 6 lines · frame: none
-
-**Leftover (on the list for Brent)** — A six-line stray copy of the app shell. Next.js serves it at the address «/_app 2» as an empty page.
-
-### Who reaches it
-
-- Menu: no entry.
-- Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
-- In the page: no access check found by the script.
-- Linked from: nothing in the code (reached by typing the address, or from outside)
-- Tests: no browser test that CI runs.
-
-| Role | Sees it in the menu | Middleware |
-|---|---|---|
-| admin | — | pass |
-| consultor | — | pass |
-| equipo_directivo | — | pass |
-| lider_generacion | — | pass |
-| lider_comunidad | — | pass |
-| supervisor_de_red | — | pass |
-| community_manager | — | pass |
-| docente | — | pass |
-| encargado_licitacion | — | pass |
-
-### What the page file itself draws
-
-Nothing found by the script.
 
 ## pages/_app.tsx
 

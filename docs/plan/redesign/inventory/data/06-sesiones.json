@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
-  "date": "2026-11-12T23:31:39-03:00"
+  "commit": "6246844772d423e70ba32f8ed9b50a5f73e8c6b2",
+  "date": "2026-11-13T23:43:33-03:00"
  },
  "screens": [
   {
@@ -5383,149 +5383,6 @@
      ]
     }
    ]
-  },
-  {
-   "file": "pages/admin/test-session.tsx",
-   "route": "/admin/test-session",
-   "lines": 25,
-   "marks": {
-    "leftover": "Dumps the session as raw data. Admin only.",
-    "recommend": "retire",
-    "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-   },
-   "frame": "none",
-   "server": "none",
-   "reach": {
-    "menu": [],
-    "middleware": {
-     "rule": "the /admin rule",
-     "signedOut": "sent to /login",
-     "passwordChangeHold": true
-    },
-    "roles": {
-     "admin": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "consultor": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "equipo_directivo": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "lider_generacion": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "lider_comunidad": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "supervisor_de_red": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "community_manager": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "docente": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "encargado_licitacion": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     }
-    },
-    "inPage": [],
-    "linkedFrom": [],
-    "qaScenarios": {},
-    "tests": {
-     "e2eCi": [],
-     "e2e": [],
-     "unit": []
-    }
-   },
-   "rows": [
-    {
-     "kind": "heading",
-     "line": 8,
-     "in": "TestSessionPage",
-     "text": "Supabase Session Test Page",
-     "level": 1
-    },
-    {
-     "kind": "heading",
-     "line": 9,
-     "in": "TestSessionPage",
-     "text": "Session Status (from useSession hook):",
-     "level": 2
-    },
-    {
-     "kind": "text",
-     "line": 10,
-     "in": "TestSessionPage",
-     "when": "session === undefined",
-     "text": "Loading session..."
-    },
-    {
-     "kind": "text",
-     "line": 11,
-     "in": "TestSessionPage",
-     "when": "session === null",
-     "text": "No active session."
-    },
-    {
-     "kind": "heading",
-     "line": 14,
-     "in": "TestSessionPage",
-     "when": "session",
-     "text": "User Info:",
-     "level": 2
-    },
-    {
-     "kind": "text",
-     "line": 15,
-     "in": "TestSessionPage",
-     "when": "session",
-     "text": "User ID: {session.user.id}"
-    },
-    {
-     "kind": "text",
-     "line": 16,
-     "in": "TestSessionPage",
-     "when": "session",
-     "text": "Email: {session.user.email}"
-    },
-    {
-     "kind": "text",
-     "line": 17,
-     "in": "TestSessionPage",
-     "when": "session",
-     "text": "Last Signed In: {new Date(session.user.last_sign_in_…} / N/A"
-    },
-    {
-     "kind": "heading",
-     "line": 18,
-     "in": "TestSessionPage",
-     "when": "session",
-     "text": "Full Session Object:",
-     "level": 2
-    },
-    {
-     "kind": "value",
-     "line": 19,
-     "in": "TestSessionPage",
-     "when": "session",
-     "text": "{JSON.stringify(session, null, 2)}"
-    }
-   ],
-   "db": [],
-   "pieces": [],
-   "api": []
   },
   {
    "file": "pages/consultor/sessions/[id].tsx",
@@ -14571,7 +14428,6 @@
     "getUserRoles"
    ],
    "calledBy": [
-    "/admin/new-reporting",
     "/admin/sessions",
     "/admin/sessions/create",
     "/community/workspace",

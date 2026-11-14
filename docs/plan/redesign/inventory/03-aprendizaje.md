@@ -1,23 +1,21 @@
 # Mi Aprendizaje (the learner's courses, lessons and routes)
 
 Area `03-aprendizaje`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `58b8d169f` (2026-11-12).
+Read from commit `624684477` (2026-11-13).
 
 Course system: the Course Review session owns this area's structure and its own checklist (docs/planning/courses/inventory.md, not yet on main). This file is the redesign's list of what is on screen today.
 
-9 screen files, 1 API files, 24 pieces.
+7 screen files, 1 API files, 23 pieces.
 
 ## Screens
 
 | Address | File | Lines | Menu | Marks |
 |---|---|---|---|---|
 | `/course-manager` | `pages/course-manager.tsx` | 22 | — | Looks like a leftover but is in use |
-| `/courses/[id]` | `pages/courses/[id].tsx` | 115 | — | Leftover (on the list for Brent) |
 | `/mi-aprendizaje` | `pages/mi-aprendizaje.tsx` | 526 | Mi Aprendizaje; Mi Aprendizaje › Mis Cursos |  |
 | `/mi-aprendizaje/ruta/[id]` | `pages/mi-aprendizaje/ruta/[id].tsx` | 549 | — |  |
 | `/mi-aprendizaje/tareas` | `pages/mi-aprendizaje/tareas.tsx` | 612 | Mi Aprendizaje › Mis Tareas |  |
 | `/my-paths` | `pages/my-paths.tsx` | 22 | — | Looks like a leftover but is in use |
-| `/my-paths/[id]` | `pages/my-paths/[id].tsx` | 549 | — | Leftover (on the list for Brent) |
 | `/student/course/[courseId]` | `pages/student/course/[courseId].tsx` | 708 | — |  |
 | `/student/lesson/[lessonId]` | `pages/student/lesson/[lessonId].tsx` | 970 | — |  |
 
@@ -59,67 +57,6 @@ File `pages/course-manager.tsx` · 22 lines · frame: none
 
 - «Redirigiendo a Mi Aprendizaje...» — CourseManagerRedirect · l.18
 
-## /courses/[id]
-
-File `pages/courses/[id].tsx` · 115 lines · frame: none · getServerSideProps
-
-**Leftover (on the list for Brent)** — An unstyled course page in English with no frame. A QA test that CI skips names it (tests/qa/auth-redirects.spec.ts).
-
-### Who reaches it
-
-- Menu: no entry.
-- Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
-- In the page: no access check found by the script.
-- Linked from: `middleware.ts:335`, `pages/api/qa/seed-codebase-index.ts:133`
-- Tests: no browser test that CI runs; browser tests CI skips: `tests/qa/auth-redirects.spec.ts`.
-
-| Role | Sees it in the menu | Middleware |
-|---|---|---|
-| admin | — | pass |
-| consultor | — | pass |
-| equipo_directivo | — | pass |
-| lider_generacion | — | pass |
-| lider_comunidad | — | pass |
-| supervisor_de_red | — | pass |
-| community_manager | — | pass |
-| docente | — | pass |
-| encargado_licitacion | — | pass |
-
-### What the page file itself draws
-
-**Titles** (7)
-
-| Text | Level | Shown when | Where |
-|---|---|---|---|
-| «Course Not Found» | h1 | `!course` | CourseDetailPage · l.31 |
-| «{course.title}» | h1 |  | CourseDetailPage · l.46 |
-| «Instructor» | h2 |  | CourseDetailPage · l.51 |
-| «Description» | h2 |  | CourseDetailPage · l.56 |
-| «Category» | h3 |  | CourseDetailPage · l.62 |
-| «Duration» | h3 |  | CourseDetailPage · l.66 |
-| «Level» | h3 |  | CourseDetailPage · l.70 |
-
-**Values shown from data** (6)
-
-- `{courseId}` — CourseDetailPage · l.35, when `!course`
-- `{course.instructor_name}` — CourseDetailPage · l.52
-- `{course.description}` — CourseDetailPage · l.57
-- `{course.category}` — CourseDetailPage · l.63
-- `{course.difficulty_level}` — CourseDetailPage · l.71
-- `{course.id}` — CourseDetailPage · l.76
-
-**Other texts on screen** (5)
-
-- «The course with ID» — CourseDetailPage · l.35, when `!course`
-- «was not found or is not published.» — CourseDetailPage · l.35, when `!course`
-- «{course.duration_hours} hours» — CourseDetailPage · l.67
-- «Course ID:» — CourseDetailPage · l.76
-- «Created: {new Date(course.created_at).toLocal…}» — CourseDetailPage · l.77
-
-### Pieces it uses (each is listed once, under "Pieces" below)
-
-- `lib/services/coursesService.ts`
-
 ## /mi-aprendizaje
 
 File `pages/mi-aprendizaje.tsx` · 526 lines · frame: MainLayout
@@ -134,7 +71,7 @@ File `pages/mi-aprendizaje.tsx` · 526 lines · frame: MainLayout
   - l.292 `role = await getUserPrimaryRole(session.user.id)`
   - l.347 `router.push → /login`
   - l.377 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:32`, `components/layout/Sidebar.tsx:144`, `components/layout/Sidebar.tsx:150`, `components/notifications/ModernNotificationCenter.tsx:299`, `components/notifications/ModernNotificationCenter.tsx:309`, `lib/auth/forced-password-change.ts:152`, `lib/notificationEvents.ts:248`, `lib/notificationEvents.ts:262`, `lib/notificationEvents.ts:275`, `lib/notificationEvents.ts:293`, `lib/notifications/catalog.ts:283`, `lib/notifications/catalog.ts:284` and 13 more
+- Linked from: `components/DynamicFavicon.tsx:31`, `components/layout/Sidebar.tsx:144`, `components/layout/Sidebar.tsx:150`, `components/notifications/ModernNotificationCenter.tsx:299`, `components/notifications/ModernNotificationCenter.tsx:309`, `lib/auth/forced-password-change.ts:152`, `lib/notificationEvents.ts:248`, `lib/notificationEvents.ts:262`, `lib/notificationEvents.ts:275`, `lib/notificationEvents.ts:293`, `lib/notifications/catalog.ts:283`, `lib/notifications/catalog.ts:284` and 12 more
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/notification-dispatch.spec.ts`, `tests/e2e/notification-mail-mirror.spec.ts`, `tests/e2e/panel-pin.spec.ts`.
 - QA scenarios that name this address: admin 4, community_manager 2, consultor 1, equipo_directivo 1, lider_comunidad 1, lider_generacion 1, supervisor_de_red 1.
 
@@ -269,7 +206,7 @@ File `pages/mi-aprendizaje/ruta/[id].tsx` · 549 lines · frame: MainLayout · g
   - l.506 `server redirect → /auth/signin  (when !user)`
   - l.521 `server redirect → /auth/signin  (when !profileData)`
   - l.538 `isAdmin = userRoles?.some(role => role.role_type === 'admin') \|\| false`
-- Linked from: `pages/api/qa/seed-codebase-index.ts:290`, `pages/dashboard.tsx:1039`, `pages/mi-aprendizaje.tsx:498`
+- Linked from: `pages/api/qa/seed-codebase-index.ts:268`, `pages/dashboard.tsx:1039`, `pages/mi-aprendizaje.tsx:498`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/panel-pin.spec.ts`; unit tests of the page: `__tests__/lib/api-auth.server-side-user.test.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -554,7 +491,7 @@ File `pages/my-paths.tsx` · 22 lines · frame: none
 - Menu: no entry.
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `components/DynamicFavicon.tsx:33`, `lib/auth/forced-password-change.ts:154`, `middleware.ts:349`, `pages/mi-aprendizaje/ruta/[id].tsx:231`, `pages/my-paths/[id].tsx:231`
+- Linked from: `components/DynamicFavicon.tsx:32`, `lib/auth/forced-password-change.ts:154`, `middleware.ts:349`, `pages/mi-aprendizaje/ruta/[id].tsx:231`
 - Tests: no browser test that CI runs.
 
 | Role | Sees it in the menu | Middleware |
@@ -581,147 +518,6 @@ File `pages/my-paths.tsx` · 22 lines · frame: none
 
 - «Redirigiendo a Mi Aprendizaje...» — MyPathsRedirect · l.18
 
-## /my-paths/[id]
-
-File `pages/my-paths/[id].tsx` · 549 lines · frame: MainLayout · getServerSideProps
-
-**Leftover (on the list for Brent)** — A copy of the learning-route page; the live one is /mi-aprendizaje/ruta/[id]. Nothing links to this copy.
-
-### Who reaches it
-
-- Menu: no entry.
-- Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
-- In the page:
-  - l.506 `server redirect → /auth/signin  (when !user)`
-  - l.521 `server redirect → /auth/signin  (when !profileData)`
-  - l.538 `isAdmin = userRoles?.some(role => role.role_type === 'admin') \|\| false`
-- Linked from: `middleware.ts:349`
-- Tests: no browser test that CI runs; unit tests of the page: `__tests__/lib/api-auth.server-side-user.test.ts`.
-
-| Role | Sees it in the menu | Middleware |
-|---|---|---|
-| admin | — | pass |
-| consultor | — | pass |
-| equipo_directivo | — | pass |
-| lider_generacion | — | pass |
-| lider_comunidad | — | pass |
-| supervisor_de_red | — | pass |
-| community_manager | — | pass |
-| docente | — | pass |
-| encargado_licitacion | — | pass |
-
-### What the page file itself draws
-
-**Titles** (3)
-
-| Text | Level | Shown when | Where |
-|---|---|---|---|
-| «{pathDetails.name}» | h1 |  | PathDetailsPage · l.262 |
-| «Cursos en esta ruta ( {pathDetails.courses.length} )» | h2 |  | PathDetailsPage · l.354 |
-| «{course.title}» | h3 | `each pathDetails.courses` | PathDetailsPage · l.380 |
-
-**Buttons** (5)
-
-| Text | Does | Shown when | Disabled when | Hook | Where |
-|---|---|---|---|---|---|
-| «Volver a Mis Rutas» | `{() => router.push('/my-paths')}` | `error \|\| !pathDetails` |  |  | PathDetailsPage · l.228 |
-| «Volver a Mi Aprendizaje» | `{() => router.push('/mi-aprendizaje')}` |  |  |  | PathDetailsPage · l.250 |
-| «Vista Básica / Vista Inteligente» | `{() => setShowEnhancedView(!showEnhancedView)}` | `enhancedProgress && !loadingEnhanced` |  |  | PathDetailsPage · l.267 |
-| «{course.buttonText}» |  | `each pathDetails.courses && course.buttonDisabled` | `true` |  | PathDetailsPage · l.462 |
-| «{course.buttonText}» | `{() => { if (course.buttonTargetCourseId) { updateActivity('course_start', cours…}` | `each pathDetails.courses && !(course.buttonDisabled)` |  |  | PathDetailsPage · l.472 |
-
-**Links** (1)
-
-| Text | Goes to | Shown when | Hook | Where |
-|---|---|---|---|---|
-| «{course.buttonText}» | `{course.buttonHref}` | `each pathDetails.courses && !(course.buttonDisabled)` |  | PathDetailsPage · l.471 |
-
-**Messages set on the page** (2)
-
-| Text | Set by | When | Where |
-|---|---|---|---|
-| «Error al cargar los detalles de la ruta» | `throw (shown by whoever catches it)` | `!response.ok` | fetchPathDetails · l.105 |
-| «Error al cargar los detalles de la ruta» | `setError` |  | fetchPathDetails · l.112 |
-
-**Moves to another page from code** (4)
-
-| Goes to | How | When | Where |
-|---|---|---|---|
-| `/my-paths` | `router.push` | `error \|\| !pathDetails` | PathDetailsPage · l.231 |
-| `/mi-aprendizaje` | `router.push` |  | PathDetailsPage · l.253 |
-| `/auth/signin` | `server redirect` | `!user` | getServerSideProps · l.506 |
-| `/auth/signin` | `server redirect` | `!profileData` | getServerSideProps · l.521 |
-
-**Access checks in the code** (1)
-
-| Line of code | Where |
-|---|---|
-| `isAdmin = userRoles?.some(role => role.role_type === 'admin') \|\| false` | getServerSideProps · l.538 |
-
-**Pieces placed here, with the texts and settings handed to them** (4)
-
-| Piece | Texts and settings | Shown when | Hook | Where |
-|---|---|---|---|---|
-| `MainLayout` |  | `loading` |  | PathDetailsPage · l.199 |
-| `MainLayout` |  | `error \|\| !pathDetails` |  | PathDetailsPage · l.217 |
-| `MainLayout` |  |  |  | PathDetailsPage · l.242 |
-| `EnhancedProgressIndicators` |  | `showEnhancedView && enhancedProgress && !loadingEnhanced` |  | PathDetailsPage · l.331 |
-
-**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
-
-| Name | Texts | Where |
-|---|---|---|
-| `levels` | «Principiante», «Intermedio», «Avanzado» | getDifficultyBadge · l.181 |
-
-**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
-
-| Kind | What | Where |
-|---|---|---|
-| address value | `[id] (part of the address)` | l.1 |
-
-**Values shown from data** (4)
-
-- `{pathDetails.description}` — PathDetailsPage · l.280
-- `{course.sequence}` — PathDetailsPage · l.367, when `each pathDetails.courses`
-- `{course.description}` — PathDetailsPage · l.383, when `each pathDetails.courses`
-- `{course.completion_rate} %` — PathDetailsPage · l.413, when `each pathDetails.courses && course.status !== 'not_started' && course.completion_rate > 0`
-
-**Other texts on screen** (18)
-
-- «Completado» — getStatusBadge · l.153, when `status === 'completed'`
-- «En progreso (» — getStatusBadge · l.160, when `status === 'in_progress'`
-- «Inscrito» — getStatusBadge · l.167, when `status === 'enrolled'`
-- «No iniciado» — getStatusBadge · l.174
-- «Cargando detalles de la ruta...» — PathDetailsPage · l.208, when `loading`
-- «{error} / Ruta de aprendizaje no encontrada» — PathDetailsPage · l.225, when `error \|\| !pathDetails`
-- «Progreso general» — PathDetailsPage · l.285
-- «Sesión activa» — PathDetailsPage · l.290, when `getCurrentSession()`
-- «{pathDetails.progress.completed_cour…} de {pathDetails.progress.total_courses} cursos completados» — PathDetailsPage · l.293
-- «{pathDetails.progress.progress_perce…} % completado» — PathDetailsPage · l.306
-- «{Math.floor(pathDetails.timeTracking…} h {pathDetails.timeTracking.totalTimeS…} min invertidos» — PathDetailsPage · l.312, when `pathDetails.timeTracking && pathDetails.timeTracking.totalTimeSpent > 0`
-- «¡Ruta completada!» — PathDetailsPage · l.321, when `pathDetails.progress.progress_percentage === 100`
-- «Cargando análisis inteligente...» — PathDetailsPage · l.345, when `showEnhancedView && loadingEnhanced`
-- «{course.duration_hours} horas» — PathDetailsPage · l.394, when `each pathDetails.courses`
-- «Último acceso {formatDistanceToNow(new Date(course…}» — PathDetailsPage · l.398, when `each pathDetails.courses && course.last_accessed`
-- «Progreso del curso» — PathDetailsPage · l.412, when `each pathDetails.courses && course.status !== 'not_started' && course.completion_rate > 0`
-- «Curso actual - Continúa tu progreso» — PathDetailsPage · l.439, when `each pathDetails.courses && showEnhancedView && enhancedProgress && enhancedProgress.insights && course.sequence === pathDetails.progress.completed_courses + 1 && course.status === 'in_progress'`
-- «Próximo paso - ¡Empezar ahora!» — PathDetailsPage · l.451, when `each pathDetails.courses && showEnhancedView && enhancedProgress && enhancedProgress.insights && course.status === 'not_started' && course.sequence === pathDetails.progress.completed_courses + 1`
-
-**Reads and writes the database directly:** `table:profiles` (select), `table:user_roles` (select)
-
-### Pieces it uses (each is listed once, under "Pieces" below)
-
-- `components/learning-paths/EnhancedProgressIndicators.tsx`
-- `components/ui/button.tsx`
-- `lib/services/learningPathSessionTracker.ts`
-
-### API addresses it calls
-
-| Address | Method | Called from |
-|---|---|---|
-| `/api/learning-paths/[id]` | GET | `lib/services/learningPathSessionTracker.ts:38`, `pages/my-paths/[id].tsx:102` |
-| `/api/learning-paths/[id]/enhanced-progress` | GET | `pages/my-paths/[id].tsx:122` |
-
 ## /student/course/[courseId]
 
 File `pages/student/course/[courseId].tsx` · 708 lines · frame: MainLayout
@@ -735,7 +531,7 @@ File `pages/student/course/[courseId].tsx` · 708 lines · frame: MainLayout
   - l.83 `adminInMetadata = metadataHasRole(session.user?.user_metadata, 'admin')`
   - l.94 `userRole = await getUserPrimaryRole(session.user.id)`
   - l.391 `router.push → /login`
-- Linked from: `components/student/LessonSidebar.tsx:138`, `components/student/LessonSidebar.tsx:139`, `lib/services/learningPathsService.ts:705`, `lib/services/learningPathsService.ts:771`, `lib/services/learningPathsService.ts:777`, `lib/services/learningPathsService.ts:784`, `lib/services/learningPathsService.ts:796`, `lib/services/learningPathsService.ts:801`, `lib/services/learningPathsService.ts:806`, `pages/admin/course-builder/index.tsx:614`, `pages/api/qa/seed-codebase-index.ts:273`, `pages/api/qa/seed-codebase-index.ts:305` and 4 more
+- Linked from: `components/student/LessonSidebar.tsx:138`, `components/student/LessonSidebar.tsx:139`, `lib/services/learningPathsService.ts:705`, `lib/services/learningPathsService.ts:771`, `lib/services/learningPathsService.ts:777`, `lib/services/learningPathsService.ts:784`, `lib/services/learningPathsService.ts:796`, `lib/services/learningPathsService.ts:801`, `lib/services/learningPathsService.ts:806`, `pages/admin/course-builder/index.tsx:614`, `pages/api/qa/seed-codebase-index.ts:251`, `pages/api/qa/seed-codebase-index.ts:283` and 4 more
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/panel-pin.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -1391,7 +1187,7 @@ Used by: `/mi-aprendizaje`, `/mi-aprendizaje/tareas`, `/student/course/[courseId
 
 ### components/learning-paths/EnhancedProgressIndicators.tsx
 
-Used by: `/mi-aprendizaje/ruta/[id]`, `/my-paths/[id]`
+Used by: `/mi-aprendizaje/ruta/[id]`
 
 **Titles** (7)
 
@@ -1833,7 +1629,7 @@ Used by: `/mi-aprendizaje`
 
 ### components/ui/button.tsx
 
-Used by: `/mi-aprendizaje/ruta/[id]`, `/my-paths/[id]`
+Used by: `/mi-aprendizaje/ruta/[id]`
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
@@ -1866,27 +1662,6 @@ Used by: `/student/lesson/[lessonId]`
 | lookup | `querySelectorAll(iframe)` | filterUnsafeIframes · l.147 |
 | lookup | `querySelectorAll(a)` | postProcessLinks · l.212 |
 
-### lib/services/coursesService.ts
-
-Used by: `/courses/[id]`
-
-**Messages set on the page** (4)
-
-| Text | Set by | When | Where |
-|---|---|---|---|
-| «Failed to fetch course: {error.message}» | `throw (shown by whoever catches it)` |  | getCourseById · l.75 |
-| «Failed to fetch courses: {error.message}» | `throw (shown by whoever catches it)` |  | getAllCourses · l.107 |
-| «Failed to fetch courses by instructor: {error.message}» | `throw (shown by whoever catches it)` |  | getCoursesByInstructor · l.140 |
-| «Failed to fetch courses by category: {error.message}» | `throw (shown by whoever catches it)` |  | getCoursesByCategory · l.174 |
-
-**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
-
-| Name | Texts | Where |
-|---|---|---|
-| `courseWithInstructor` | «Unknown Instructor» | getCourseById · l.64 |
-
-**Reads and writes the database directly:** `table:courses` (select)
-
 ### lib/services/groupAssignmentsV2.js
 
 Used by: `/mi-aprendizaje/tareas`
@@ -1916,7 +1691,7 @@ Used by: `/mi-aprendizaje/tareas`
 
 ### lib/services/learningPathSessionTracker.ts
 
-Used by: `/mi-aprendizaje/ruta/[id]`, `/my-paths/[id]`
+Used by: `/mi-aprendizaje/ruta/[id]`
 
 **Messages set on the page** (1)
 

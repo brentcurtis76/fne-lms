@@ -1,6 +1,6 @@
 # Charts on the platform
 
-Written by `scripts/redesign/inventory.mjs` from commit `58b8d169f`. For the later proposal of chart colours: the approved look fixes colours for one series only (DESIGN.md section 6).
+Written by `scripts/redesign/inventory.mjs` from commit `624684477`. For the later proposal of chart colours: the approved look fixes colours for one series only (DESIGN.md section 6).
 
 A series is one set of bars, one line, one area or one shape. A pie has one series and several slices.
 

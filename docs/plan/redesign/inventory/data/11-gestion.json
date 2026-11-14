@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
-  "date": "2026-11-12T23:31:39-03:00"
+  "commit": "6246844772d423e70ba32f8ed9b50a5f73e8c6b2",
+  "date": "2026-11-13T23:43:33-03:00"
  },
  "screens": [
   {
@@ -2244,7 +2244,7 @@
      }
     ],
     "linkedFrom": [
-     "components/DynamicFavicon.tsx:40",
+     "components/DynamicFavicon.tsx:39",
      "components/layout/Sidebar.tsx:560",
      "components/licitaciones/Step7Contrato.tsx:165",
      "components/licitaciones/Step7Contrato.tsx:220",

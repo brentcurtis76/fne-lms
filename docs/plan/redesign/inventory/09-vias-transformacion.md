@@ -1,7 +1,7 @@
 # Vías de Transformación (to be deleted)
 
 Area `09-vias-transformacion`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `58b8d169f` (2026-11-12).
+Read from commit `624684477` (2026-11-13).
 
 Brent, 13 Nov 2026: Vías de Transformación is going to be deleted from the platform. Its screens are listed with their address and who reaches them, and nothing else. Which files go is confirmed with him on the leftover list.
 
@@ -341,7 +341,7 @@ File `pages/vias-transformacion/index.tsx` · 532 lines · frame: MainLayout
   - l.27 `ALLOWED_ROLES = ['admin']`
   - l.244 `Solo administradores pueden acceder a las Vías de Transformación.`
   - l.247 `router.push → /  (when hasPermission === false)`
-- Linked from: `components/DynamicFavicon.tsx:43`, `components/layout/Sidebar.tsx:331`, `components/layout/Sidebar.tsx:338`, `pages/vias-transformacion/[id].tsx:594`, `pages/vias-transformacion/[id].tsx:626`
+- Linked from: `components/DynamicFavicon.tsx:42`, `components/layout/Sidebar.tsx:331`, `components/layout/Sidebar.tsx:338`, `pages/vias-transformacion/[id].tsx:594`, `pages/vias-transformacion/[id].tsx:626`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 5, community_manager 1, equipo_directivo 2.
 

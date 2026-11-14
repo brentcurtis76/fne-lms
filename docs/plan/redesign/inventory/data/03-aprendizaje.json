@@ -4,8 +4,8 @@
  "note": "Course system: the Course Review session owns this area's structure and its own checklist (docs/planning/courses/inventory.md, not yet on main). This file is the redesign's list of what is on screen today.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
-  "date": "2026-11-12T23:31:39-03:00"
+  "commit": "6246844772d423e70ba32f8ed9b50a5f73e8c6b2",
+  "date": "2026-11-13T23:43:33-03:00"
  },
  "screens": [
   {
@@ -93,203 +93,6 @@
    ],
    "db": [],
    "pieces": [],
-   "api": []
-  },
-  {
-   "file": "pages/courses/[id].tsx",
-   "route": "/courses/[id]",
-   "lines": 115,
-   "marks": {
-    "leftover": "An unstyled course page in English with no frame. A QA test that CI skips names it (tests/qa/auth-redirects.spec.ts).",
-    "recommend": "retire",
-    "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-   },
-   "frame": "none",
-   "server": "getServerSideProps",
-   "reach": {
-    "menu": [],
-    "middleware": {
-     "rule": "no role rule",
-     "signedOut": "not stopped by the middleware",
-     "passwordChangeHold": true
-    },
-    "roles": {
-     "admin": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "consultor": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "equipo_directivo": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "lider_generacion": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "lider_comunidad": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "supervisor_de_red": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "community_manager": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "docente": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "encargado_licitacion": {
-      "menu": "—",
-      "middleware": "pass"
-     }
-    },
-    "inPage": [],
-    "linkedFrom": [
-     "middleware.ts:335",
-     "pages/api/qa/seed-codebase-index.ts:133"
-    ],
-    "qaScenarios": {},
-    "tests": {
-     "e2eCi": [],
-     "e2e": [
-      "tests/qa/auth-redirects.spec.ts"
-     ],
-     "unit": []
-    }
-   },
-   "rows": [
-    {
-     "kind": "heading",
-     "line": 31,
-     "in": "CourseDetailPage",
-     "when": "!course",
-     "text": "Course Not Found",
-     "level": 1
-    },
-    {
-     "kind": "text",
-     "line": 35,
-     "in": "CourseDetailPage",
-     "when": "!course",
-     "text": "The course with ID"
-    },
-    {
-     "kind": "value",
-     "line": 35,
-     "in": "CourseDetailPage",
-     "when": "!course",
-     "text": "{courseId}"
-    },
-    {
-     "kind": "text",
-     "line": 35,
-     "in": "CourseDetailPage",
-     "when": "!course",
-     "text": "was not found or is not published."
-    },
-    {
-     "kind": "heading",
-     "line": 46,
-     "in": "CourseDetailPage",
-     "text": "{course.title}",
-     "level": 1
-    },
-    {
-     "kind": "heading",
-     "line": 51,
-     "in": "CourseDetailPage",
-     "text": "Instructor",
-     "level": 2
-    },
-    {
-     "kind": "value",
-     "line": 52,
-     "in": "CourseDetailPage",
-     "text": "{course.instructor_name}"
-    },
-    {
-     "kind": "heading",
-     "line": 56,
-     "in": "CourseDetailPage",
-     "text": "Description",
-     "level": 2
-    },
-    {
-     "kind": "value",
-     "line": 57,
-     "in": "CourseDetailPage",
-     "text": "{course.description}"
-    },
-    {
-     "kind": "heading",
-     "line": 62,
-     "in": "CourseDetailPage",
-     "text": "Category",
-     "level": 3
-    },
-    {
-     "kind": "value",
-     "line": 63,
-     "in": "CourseDetailPage",
-     "text": "{course.category}"
-    },
-    {
-     "kind": "heading",
-     "line": 66,
-     "in": "CourseDetailPage",
-     "text": "Duration",
-     "level": 3
-    },
-    {
-     "kind": "text",
-     "line": 67,
-     "in": "CourseDetailPage",
-     "text": "{course.duration_hours} hours"
-    },
-    {
-     "kind": "heading",
-     "line": 70,
-     "in": "CourseDetailPage",
-     "text": "Level",
-     "level": 3
-    },
-    {
-     "kind": "value",
-     "line": 71,
-     "in": "CourseDetailPage",
-     "text": "{course.difficulty_level}"
-    },
-    {
-     "kind": "text",
-     "line": 76,
-     "in": "CourseDetailPage",
-     "text": "Course ID:"
-    },
-    {
-     "kind": "value",
-     "line": 76,
-     "in": "CourseDetailPage",
-     "text": "{course.id}"
-    },
-    {
-     "kind": "text",
-     "line": 77,
-     "in": "CourseDetailPage",
-     "text": "Created: {new Date(course.created_at).toLocal…}"
-    }
-   ],
-   "db": [],
-   "pieces": [
-    "lib/services/coursesService.ts"
-   ],
    "api": []
   },
   {
@@ -381,7 +184,7 @@
      }
     ],
     "linkedFrom": [
-     "components/DynamicFavicon.tsx:32",
+     "components/DynamicFavicon.tsx:31",
      "components/layout/Sidebar.tsx:144",
      "components/layout/Sidebar.tsx:150",
      "components/notifications/ModernNotificationCenter.tsx:299",
@@ -397,13 +200,12 @@
      "lib/notifications/catalog.ts:286",
      "lib/notifications/catalog.ts:317",
      "middleware.ts:347",
-     "pages/api/qa/seed-codebase-index.ts:253",
+     "pages/api/qa/seed-codebase-index.ts:231",
      "pages/course-manager.tsx:10",
      "pages/dashboard.tsx:1016",
      "pages/dashboard.tsx:1017",
      "pages/mi-aprendizaje/ruta/[id].tsx:253",
      "pages/my-paths.tsx:10",
-     "pages/my-paths/[id].tsx:253",
      "pages/notifications.tsx:267",
      "pages/notifications.tsx:277"
     ],
@@ -825,7 +627,7 @@
      }
     ],
     "linkedFrom": [
-     "pages/api/qa/seed-codebase-index.ts:290",
+     "pages/api/qa/seed-codebase-index.ts:268",
      "pages/dashboard.tsx:1039",
      "pages/mi-aprendizaje.tsx:498"
     ],
@@ -1789,11 +1591,10 @@
     },
     "inPage": [],
     "linkedFrom": [
-     "components/DynamicFavicon.tsx:33",
+     "components/DynamicFavicon.tsx:32",
      "lib/auth/forced-password-change.ts:154",
      "middleware.ts:349",
-     "pages/mi-aprendizaje/ruta/[id].tsx:231",
-     "pages/my-paths/[id].tsx:231"
+     "pages/mi-aprendizaje/ruta/[id].tsx:231"
     ],
     "qaScenarios": {},
     "tests": {
@@ -1820,452 +1621,6 @@
    "db": [],
    "pieces": [],
    "api": []
-  },
-  {
-   "file": "pages/my-paths/[id].tsx",
-   "route": "/my-paths/[id]",
-   "lines": 549,
-   "marks": {
-    "leftover": "A copy of the learning-route page; the live one is /mi-aprendizaje/ruta/[id]. Nothing links to this copy.",
-    "recommend": "retire",
-    "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-   },
-   "frame": "MainLayout",
-   "server": "getServerSideProps",
-   "reach": {
-    "menu": [],
-    "middleware": {
-     "rule": "no role rule",
-     "signedOut": "not stopped by the middleware",
-     "passwordChangeHold": true
-    },
-    "roles": {
-     "admin": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "consultor": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "equipo_directivo": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "lider_generacion": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "lider_comunidad": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "supervisor_de_red": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "community_manager": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "docente": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "encargado_licitacion": {
-      "menu": "—",
-      "middleware": "pass"
-     }
-    },
-    "inPage": [
-     {
-      "line": 506,
-      "text": "server redirect → /auth/signin  (when !user)"
-     },
-     {
-      "line": 521,
-      "text": "server redirect → /auth/signin  (when !profileData)"
-     },
-     {
-      "line": 538,
-      "text": "isAdmin = userRoles?.some(role => role.role_type === 'admin') || false"
-     }
-    ],
-    "linkedFrom": [
-     "middleware.ts:349"
-    ],
-    "qaScenarios": {},
-    "tests": {
-     "e2eCi": [],
-     "e2e": [],
-     "unit": [
-      "__tests__/lib/api-auth.server-side-user.test.ts"
-     ]
-    }
-   },
-   "rows": [
-    {
-     "kind": "message",
-     "line": 105,
-     "in": "fetchPathDetails",
-     "when": "!response.ok",
-     "text": "Error al cargar los detalles de la ruta",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "message",
-     "line": 112,
-     "in": "fetchPathDetails",
-     "text": "Error al cargar los detalles de la ruta",
-     "via": "setError"
-    },
-    {
-     "kind": "text",
-     "line": 153,
-     "in": "getStatusBadge",
-     "when": "status === 'completed'",
-     "text": "Completado"
-    },
-    {
-     "kind": "text",
-     "line": 160,
-     "in": "getStatusBadge",
-     "when": "status === 'in_progress'",
-     "text": "En progreso ("
-    },
-    {
-     "kind": "text",
-     "line": 167,
-     "in": "getStatusBadge",
-     "when": "status === 'enrolled'",
-     "text": "Inscrito"
-    },
-    {
-     "kind": "text",
-     "line": 174,
-     "in": "getStatusBadge",
-     "text": "No iniciado"
-    },
-    {
-     "kind": "list",
-     "line": 181,
-     "in": "getDifficultyBadge",
-     "text": "levels",
-     "items": [
-      "Principiante",
-      "Intermedio",
-      "Avanzado"
-     ]
-    },
-    {
-     "kind": "piece",
-     "line": 199,
-     "in": "PathDetailsPage",
-     "when": "loading",
-     "text": "",
-     "tag": "MainLayout"
-    },
-    {
-     "kind": "text",
-     "line": 208,
-     "in": "PathDetailsPage",
-     "when": "loading",
-     "text": "Cargando detalles de la ruta..."
-    },
-    {
-     "kind": "piece",
-     "line": 217,
-     "in": "PathDetailsPage",
-     "when": "error || !pathDetails",
-     "text": "",
-     "tag": "MainLayout"
-    },
-    {
-     "kind": "text",
-     "line": 225,
-     "in": "PathDetailsPage",
-     "when": "error || !pathDetails",
-     "text": "{error} / Ruta de aprendizaje no encontrada"
-    },
-    {
-     "kind": "button",
-     "line": 228,
-     "in": "PathDetailsPage",
-     "when": "error || !pathDetails",
-     "text": "Volver a Mis Rutas",
-     "action": "{() => router.push('/my-paths')}"
-    },
-    {
-     "kind": "nav",
-     "line": 231,
-     "in": "PathDetailsPage",
-     "when": "error || !pathDetails",
-     "text": "/my-paths",
-     "via": "router.push"
-    },
-    {
-     "kind": "piece",
-     "line": 242,
-     "in": "PathDetailsPage",
-     "text": "",
-     "tag": "MainLayout"
-    },
-    {
-     "kind": "button",
-     "line": 250,
-     "in": "PathDetailsPage",
-     "text": "Volver a Mi Aprendizaje",
-     "action": "{() => router.push('/mi-aprendizaje')}"
-    },
-    {
-     "kind": "nav",
-     "line": 253,
-     "in": "PathDetailsPage",
-     "text": "/mi-aprendizaje",
-     "via": "router.push"
-    },
-    {
-     "kind": "heading",
-     "line": 262,
-     "in": "PathDetailsPage",
-     "text": "{pathDetails.name}",
-     "level": 1
-    },
-    {
-     "kind": "button",
-     "line": 267,
-     "in": "PathDetailsPage",
-     "when": "enhancedProgress && !loadingEnhanced",
-     "text": "Vista Básica / Vista Inteligente",
-     "action": "{() => setShowEnhancedView(!showEnhancedView)}"
-    },
-    {
-     "kind": "value",
-     "line": 280,
-     "in": "PathDetailsPage",
-     "text": "{pathDetails.description}"
-    },
-    {
-     "kind": "text",
-     "line": 285,
-     "in": "PathDetailsPage",
-     "text": "Progreso general"
-    },
-    {
-     "kind": "text",
-     "line": 290,
-     "in": "PathDetailsPage",
-     "when": "getCurrentSession()",
-     "text": "Sesión activa"
-    },
-    {
-     "kind": "text",
-     "line": 293,
-     "in": "PathDetailsPage",
-     "text": "{pathDetails.progress.completed_cour…} de {pathDetails.progress.total_courses} cursos completados"
-    },
-    {
-     "kind": "text",
-     "line": 306,
-     "in": "PathDetailsPage",
-     "text": "{pathDetails.progress.progress_perce…} % completado"
-    },
-    {
-     "kind": "text",
-     "line": 312,
-     "in": "PathDetailsPage",
-     "when": "pathDetails.timeTracking && pathDetails.timeTracking.totalTimeSpent > 0",
-     "text": "{Math.floor(pathDetails.timeTracking…} h {pathDetails.timeTracking.totalTimeS…} min invertidos"
-    },
-    {
-     "kind": "text",
-     "line": 321,
-     "in": "PathDetailsPage",
-     "when": "pathDetails.progress.progress_percentage === 100",
-     "text": "¡Ruta completada!"
-    },
-    {
-     "kind": "piece",
-     "line": 331,
-     "in": "PathDetailsPage",
-     "when": "showEnhancedView && enhancedProgress && !loadingEnhanced",
-     "text": "",
-     "tag": "EnhancedProgressIndicators"
-    },
-    {
-     "kind": "text",
-     "line": 345,
-     "in": "PathDetailsPage",
-     "when": "showEnhancedView && loadingEnhanced",
-     "text": "Cargando análisis inteligente..."
-    },
-    {
-     "kind": "heading",
-     "line": 354,
-     "in": "PathDetailsPage",
-     "text": "Cursos en esta ruta ( {pathDetails.courses.length} )",
-     "level": 2
-    },
-    {
-     "kind": "value",
-     "line": 367,
-     "in": "PathDetailsPage",
-     "when": "each pathDetails.courses",
-     "text": "{course.sequence}"
-    },
-    {
-     "kind": "heading",
-     "line": 380,
-     "in": "PathDetailsPage",
-     "when": "each pathDetails.courses",
-     "text": "{course.title}",
-     "level": 3
-    },
-    {
-     "kind": "value",
-     "line": 383,
-     "in": "PathDetailsPage",
-     "when": "each pathDetails.courses",
-     "text": "{course.description}"
-    },
-    {
-     "kind": "text",
-     "line": 394,
-     "in": "PathDetailsPage",
-     "when": "each pathDetails.courses",
-     "text": "{course.duration_hours} horas"
-    },
-    {
-     "kind": "text",
-     "line": 398,
-     "in": "PathDetailsPage",
-     "when": "each pathDetails.courses && course.last_accessed",
-     "text": "Último acceso {formatDistanceToNow(new Date(course…}"
-    },
-    {
-     "kind": "text",
-     "line": 412,
-     "in": "PathDetailsPage",
-     "when": "each pathDetails.courses && course.status !== 'not_started' && course.completion_rate > 0",
-     "text": "Progreso del curso"
-    },
-    {
-     "kind": "value",
-     "line": 413,
-     "in": "PathDetailsPage",
-     "when": "each pathDetails.courses && course.status !== 'not_started' && course.completion_rate > 0",
-     "text": "{course.completion_rate} %"
-    },
-    {
-     "kind": "text",
-     "line": 439,
-     "in": "PathDetailsPage",
-     "when": "each pathDetails.courses && showEnhancedView && enhancedProgress && enhancedProgress.insights && course.sequence === pathDetails.progress.completed_courses + 1 && course.status === 'in_progress'",
-     "text": "Curso actual - Continúa tu progreso"
-    },
-    {
-     "kind": "text",
-     "line": 451,
-     "in": "PathDetailsPage",
-     "when": "each pathDetails.courses && showEnhancedView && enhancedProgress && enhancedProgress.insights && course.status === 'not_started' && course.sequence === pathDetails.progress.completed_courses + 1",
-     "text": "Próximo paso - ¡Empezar ahora!"
-    },
-    {
-     "kind": "button",
-     "line": 462,
-     "in": "PathDetailsPage",
-     "when": "each pathDetails.courses && course.buttonDisabled",
-     "text": "{course.buttonText}",
-     "disabled": "true"
-    },
-    {
-     "kind": "link",
-     "line": 471,
-     "in": "PathDetailsPage",
-     "when": "each pathDetails.courses && !(course.buttonDisabled)",
-     "text": "{course.buttonText}",
-     "target": "{course.buttonHref}"
-    },
-    {
-     "kind": "button",
-     "line": 472,
-     "in": "PathDetailsPage",
-     "when": "each pathDetails.courses && !(course.buttonDisabled)",
-     "text": "{course.buttonText}",
-     "action": "{() => { if (course.buttonTargetCourseId) { updateActivity('course_start', cours…}"
-    },
-    {
-     "kind": "nav",
-     "line": 506,
-     "in": "getServerSideProps",
-     "when": "!user",
-     "text": "/auth/signin",
-     "via": "server redirect"
-    },
-    {
-     "kind": "nav",
-     "line": 521,
-     "in": "getServerSideProps",
-     "when": "!profileData",
-     "text": "/auth/signin",
-     "via": "server redirect"
-    },
-    {
-     "kind": "access",
-     "line": 538,
-     "in": "getServerSideProps",
-     "text": "isAdmin = userRoles?.some(role => role.role_type === 'admin') || false",
-     "via": "declaration"
-    },
-    {
-     "kind": "hook",
-     "line": 1,
-     "text": "[id] (part of the address)",
-     "type": "address value"
-    }
-   ],
-   "db": [
-    {
-     "what": "table:profiles",
-     "ops": [
-      "select"
-     ]
-    },
-    {
-     "what": "table:user_roles",
-     "ops": [
-      "select"
-     ]
-    }
-   ],
-   "pieces": [
-    "components/learning-paths/EnhancedProgressIndicators.tsx",
-    "components/ui/button.tsx",
-    "lib/services/learningPathSessionTracker.ts"
-   ],
-   "api": [
-    {
-     "file": "pages/api/learning-paths/[id].ts",
-     "route": "/api/learning-paths/[id]",
-     "methods": [
-      "GET"
-     ],
-     "from": [
-      "lib/services/learningPathSessionTracker.ts:38",
-      "pages/my-paths/[id].tsx:102"
-     ]
-    },
-    {
-     "file": "pages/api/learning-paths/[id]/enhanced-progress.ts",
-     "route": "/api/learning-paths/[id]/enhanced-progress",
-     "methods": [
-      "GET"
-     ],
-     "from": [
-      "pages/my-paths/[id].tsx:122"
-     ]
-    }
-   ]
   },
   {
    "file": "pages/student/course/[courseId].tsx",
@@ -2348,8 +1703,8 @@
      "lib/services/learningPathsService.ts:801",
      "lib/services/learningPathsService.ts:806",
      "pages/admin/course-builder/index.tsx:614",
-     "pages/api/qa/seed-codebase-index.ts:273",
-     "pages/api/qa/seed-codebase-index.ts:305",
+     "pages/api/qa/seed-codebase-index.ts:251",
+     "pages/api/qa/seed-codebase-index.ts:283",
      "pages/dashboard.tsx:1007",
      "pages/dashboard.tsx:1052",
      "pages/mi-aprendizaje.tsx:516",
@@ -4464,8 +3819,7 @@
   },
   "components/learning-paths/EnhancedProgressIndicators.tsx": {
    "usedBy": [
-    "/mi-aprendizaje/ruta/[id]",
-    "/my-paths/[id]"
+    "/mi-aprendizaje/ruta/[id]"
    ],
    "lines": 374,
    "rows": [
@@ -6185,8 +5539,7 @@
   },
   "components/ui/button.tsx": {
    "usedBy": [
-    "/mi-aprendizaje/ruta/[id]",
-    "/my-paths/[id]"
+    "/mi-aprendizaje/ruta/[id]"
    ],
    "lines": 57,
    "rows": [
@@ -6246,59 +5599,6 @@
     }
    ],
    "db": []
-  },
-  "lib/services/coursesService.ts": {
-   "usedBy": [
-    "/courses/[id]"
-   ],
-   "lines": 206,
-   "rows": [
-    {
-     "kind": "list",
-     "line": 64,
-     "in": "getCourseById",
-     "text": "courseWithInstructor",
-     "items": [
-      "Unknown Instructor"
-     ]
-    },
-    {
-     "kind": "message",
-     "line": 75,
-     "in": "getCourseById",
-     "text": "Failed to fetch course: {error.message}",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "message",
-     "line": 107,
-     "in": "getAllCourses",
-     "text": "Failed to fetch courses: {error.message}",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "message",
-     "line": 140,
-     "in": "getCoursesByInstructor",
-     "text": "Failed to fetch courses by instructor: {error.message}",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "message",
-     "line": 174,
-     "in": "getCoursesByCategory",
-     "text": "Failed to fetch courses by category: {error.message}",
-     "via": "throw (shown by whoever catches it)"
-    }
-   ],
-   "db": [
-    {
-     "what": "table:courses",
-     "ops": [
-      "select"
-     ]
-    }
-   ]
   },
   "lib/services/groupAssignmentsV2.js": {
    "usedBy": [
@@ -6449,8 +5749,7 @@
   },
   "lib/services/learningPathSessionTracker.ts": {
    "usedBy": [
-    "/mi-aprendizaje/ruta/[id]",
-    "/my-paths/[id]"
+    "/mi-aprendizaje/ruta/[id]"
    ],
    "lines": 410,
    "rows": [

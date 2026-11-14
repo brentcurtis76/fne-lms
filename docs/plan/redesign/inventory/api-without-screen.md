@@ -1,6 +1,6 @@
 # API files that no screen calls
 
-Written by `scripts/redesign/inventory.mjs` from commit `58b8d169f`. An API file is listed here when no screen, and no piece a screen draws, names its address. "Named in" shows where else the address appears (scheduled jobs in `vercel.json`, server code, tests). Nothing here is a verdict: an address can be called from outside the platform (a webhook, a link in an email).
+Written by `scripts/redesign/inventory.mjs` from commit `624684477`. An API file is listed here when no screen, and no piece a screen draws, names its address. "Named in" shows where else the address appears (scheduled jobs in `vercel.json`, server code, tests). Nothing here is a verdict: an address can be called from outside the platform (a webhook, a link in an email).
 
 ## Marco (the frame around every screen)
 
@@ -8,11 +8,18 @@ Written by `scripts/redesign/inventory.mjs` from commit `58b8d169f`. An API file
 |---|---|---|---|
 | `/api/feedback/notify-admins` | `pages/api/feedback/notify-admins.ts` | POST | `__tests__/api/feedback/notify-admins.test.ts`, `components/feedback/FeedbackModal.tsx`, `tests/e2e/feedback-notify-admins.spec.ts` |
 
+## Acceso (sign-in, sign-up, passwords)
+
+| Address | File | Methods | Named in |
+|---|---|---|---|
+| `/api/auth/logout` | `pages/api/auth/logout.ts` | POST | `__tests__/middleware.forced-password-change.test.ts`, `lib/auth/forced-password-change.ts` |
+
 ## Panel (Mi Panel)
 
 | Address | File | Methods | Named in |
 |---|---|---|---|
 | `/api/badges/award-and-announce` | `pages/api/badges/award-and-announce.ts` | POST | **nothing** |
+| `/api/dashboard/unified` | `pages/api/dashboard/unified.ts` | GET | `components/dashboard/unified/UnifiedDashboard.tsx` |
 
 ## Cursos (course builder, upcoming courses, learning paths, assignment matrix)
 
@@ -107,6 +114,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `58b8d169f`. An API file
 |---|---|---|---|
 | `/api/admin/apply-supervisor-migration` | `pages/api/admin/apply-supervisor-migration.ts` | POST | `__tests__/api/admin/apply-supervisor-migration.test.ts` |
 | `/api/admin/check-permissions` | `pages/api/admin/check-permissions.ts` | GET | `__tests__/api/forged-session-sweep.test.ts` |
+| `/api/admin/init-supervisor-tables` | `pages/api/admin/init-supervisor-tables.ts` | POST | **nothing** |
 | `/api/admin/networks/all-schools` | `pages/api/admin/networks/all-schools.ts` | GET | **nothing** |
 | `/api/admin/networks/available-schools` | `pages/api/admin/networks/available-schools.ts` | GET | `__tests__/api/admin/admin-forged-session.test.ts` |
 | `/api/admin/networks/test-schools` | `pages/api/admin/networks/test-schools.ts` | GET | **nothing** |
@@ -146,6 +154,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `58b8d169f`. An API file
 |---|---|---|---|
 | `/api/admin/check-rls-policies` | `pages/api/admin/check-rls-policies.ts` | GET | **nothing** |
 | `/api/admin/emergency-restore` | `pages/api/admin/emergency-restore.ts` |  | **nothing** |
+| `/api/admin/form-usage-stats` | `pages/api/admin/form-usage-stats.ts` | GET | **nothing** |
 | `/api/admin/system-updates` | `pages/api/admin/system-updates.ts` | POST | **nothing** |
 | `/api/bots/telegram` | `pages/api/bots/telegram.ts` | POST | `__tests__/api/bots/telegram.test.ts` |
 | `/api/check-env` | `pages/api/check-env.js` |  | **nothing** |
@@ -169,7 +178,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `58b8d169f`. An API file
 | `/api/test-bucket` | `pages/api/test-bucket.js` |  | **nothing** |
 | `/api/test/notification-triggers` | `pages/api/test/notification-triggers.ts` |  | **nothing** |
 
-82 of 364 API files.
+86 of 364 API files.
 
 ## Addresses the code names that have no file
 

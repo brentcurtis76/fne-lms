@@ -1,16 +1,15 @@
 # Personas (users, schools, networks, roles, profile)
 
 Area `14-personas`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `58b8d169f` (2026-11-12).
+Read from commit `624684477` (2026-11-13).
 
-8 screen files, 33 API files, 24 pieces.
+7 screen files, 33 API files, 24 pieces.
 
 ## Screens
 
 | Address | File | Lines | Menu | Marks |
 |---|---|---|---|---|
-| `/admin/apply-network-migration` | `pages/admin/apply-network-migration.tsx` | 201 | — | Leftover (on the list for Brent) |
-| `/admin/network-management` | `pages/admin/network-management.tsx` | 1187 | Personas › Redes de Colegios |  |
+| `/admin/network-management` | `pages/admin/network-management.tsx` | 1179 | Personas › Redes de Colegios |  |
 | `/admin/role-management` | `pages/admin/role-management.tsx` | 675 | Sistema › Roles y Permisos |  |
 | `/admin/school-users` | `pages/admin/school-users.tsx` | 821 | Usuarios del Colegio |  |
 | `/admin/schools` | `pages/admin/schools.tsx` | 1544 | Personas › Escuelas |  |
@@ -18,121 +17,9 @@ Read from commit `58b8d169f` (2026-11-12).
 | `/admin/user-management` | `pages/admin/user-management.tsx` | 1088 | Personas › Usuarios |  |
 | `/profile` | `pages/profile.tsx` | 816 | Mi Perfil |  |
 
-## /admin/apply-network-migration
-
-File `pages/admin/apply-network-migration.tsx` · 201 lines · frame: MainLayout
-
-**Leftover (on the list for Brent)** — Instructions and a button to create the «Supervisor de Red» tables. The tables exist today (they are in the baseline migration). Linked from Redes de Colegios. Admin only.
-
-### Who reaches it
-
-- Menu: no entry.
-- Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
-- In the page:
-  - l.58 `router.push → /login`
-- Linked from: `pages/admin/network-management.tsx:666`, `pages/admin/network-management.tsx:667`
-- Tests: no browser test that CI runs.
-
-| Role | Sees it in the menu | Middleware |
-|---|---|---|
-| admin | — | pass |
-| consultor | — | sent to /dashboard |
-| equipo_directivo | — | sent to /dashboard |
-| lider_generacion | — | sent to /dashboard |
-| lider_comunidad | — | sent to /dashboard |
-| supervisor_de_red | — | sent to /dashboard |
-| community_manager | — | sent to /dashboard |
-| docente | — | sent to /dashboard |
-| encargado_licitacion | — | sent to /dashboard |
-
-### What the page file itself draws
-
-**Titles** (4)
-
-| Text | Level | Shown when | Where |
-|---|---|---|---|
-| «Migración de Base de Datos - Supervisor de Red» | h1 |  | ApplyNetworkMigration · l.77 |
-| «Estado de la Migración» | h2 |  | ApplyNetworkMigration · l.83 |
-| «Instrucciones para Aplicar la Migración» | h2 |  | ApplyNetworkMigration · l.105 |
-| «¿Qué crea esta migración?» | h3 |  | ApplyNetworkMigration · l.177 |
-
-**Buttons** (2)
-
-| Text | Does | Shown when | Disabled when | Hook | Where |
-|---|---|---|---|---|---|
-| «Verificando... / Verificar Estado de Migración» | `{checkMigrationStatus}` |  | `{checking}` |  | ApplyNetworkMigration · l.95 |
-| «Volver a Gestión de Redes» | `{() => router.push('/admin/network-management')}` |  |  |  | ApplyNetworkMigration · l.188 |
-
-**Toasts** (4)
-
-| Kind | Text | When | Where |
-|---|---|---|---|
-| error | «Error de autenticación» | `!session?.access_token` | checkMigrationStatus · l.24 |
-| success | «¡Las tablas están configuradas correctamente!» | `data.success` | checkMigrationStatus · l.44 |
-| error | «{data.message}» | `!(data.success)` | checkMigrationStatus · l.46 |
-| error | «Error al verificar el estado de la migración» |  | checkMigrationStatus · l.50 |
-
-**Moves to another page from code** (2)
-
-| Goes to | How | When | Where |
-|---|---|---|---|
-| `/login` | `router.push` |  | handleLogout · l.58 |
-| `/admin/network-management` | `router.push` |  | ApplyNetworkMigration · l.189 |
-
-**Pieces placed here, with the texts and settings handed to them** (1)
-
-| Piece | Texts and settings | Shown when | Hook | Where |
-|---|---|---|---|---|
-| `MainLayout` | pageTitle: Aplicar Migración de Red · breadcrumbs: Inicio / Aplicar Migración |  |  | ApplyNetworkMigration · l.62 |
-
-**Other texts written in the code (safety net: not tied to an element by the script)** (1)
-
-| Text | Where |
-|---|---|
-| «Bearer {session.access_token}» | ApplyNetworkMigration · l.31 |
-
-**Values shown from data** (1)
-
-- `{migrationStatus.message}` — ApplyNetworkMigration · l.91, when `migrationStatus`
-
-**Other texts on screen** (26)
-
-- «Accede al Dashboard de Supabase» — ApplyNetworkMigration · l.116
-- «Ve a tu proyecto de Supabase y navega a la sección &quot;SQL Editor&quot;» — ApplyNetworkMigration · l.118
-- «Copia el SQL de Migración» — ApplyNetworkMigration · l.128
-- «Abre el archivo:» — ApplyNetworkMigration · l.130
-- «/database/add-supervisor-de-red-role-fixed.sql» — ApplyNetworkMigration · l.131
-- «Copia todo el contenido del archivo» — ApplyNetworkMigration · l.135
-- «Ejecuta la Migración en DOS PASOS» — ApplyNetworkMigration · l.145
-- «PASO 1:» — ApplyNetworkMigration · l.147
-- «Ejecuta SOLO la primera parte (hasta &quot;COMMIT the enum change&quot;)» — ApplyNetworkMigration · l.147
-- «PASO 2:» — ApplyNetworkMigration · l.150
-- «Después ejecuta el resto (desde &quot;BEGIN;&quot;)» — ApplyNetworkMigration · l.150
-- «Esto evita el error &quot;unsafe use of new value of enum type&quot;» — ApplyNetworkMigration · l.153
-- «Verifica la Instalación» — ApplyNetworkMigration · l.163
-- «Haz clic en &quot;Verificar Estado de Migración&quot; arriba para confirmar» — ApplyNetworkMigration · l.165
-- «Una vez verificado, podrás usar la gestión de redes» — ApplyNetworkMigration · l.168
-- «• Tabla» — ApplyNetworkMigration · l.179
-- «redes_de_colegios» — ApplyNetworkMigration · l.179
-- «- Para almacenar información de redes» — ApplyNetworkMigration · l.179
-- «• Tabla» — ApplyNetworkMigration · l.180
-- «red_escuelas» — ApplyNetworkMigration · l.180
-- «- Para vincular escuelas a redes» — ApplyNetworkMigration · l.180
-- «• Rol» — ApplyNetworkMigration · l.181
-- «supervisor_de_red» — ApplyNetworkMigration · l.181
-- «- Nuevo tipo de rol de usuario» — ApplyNetworkMigration · l.181
-- «• Políticas RLS - Para acceso seguro a datos» — ApplyNetworkMigration · l.182
-- «• Funciones auxiliares - Para gestión de permisos» — ApplyNetworkMigration · l.183
-
-### API addresses it calls
-
-| Address | Method | Called from |
-|---|---|---|
-| `/api/admin/init-supervisor-tables` | POST | `pages/admin/apply-network-migration.tsx:28` |
-
 ## /admin/network-management
 
-File `pages/admin/network-management.tsx` · 1187 lines · frame: MainLayout
+File `pages/admin/network-management.tsx` · 1179 lines · frame: MainLayout
 
 ### Who reaches it
 
@@ -144,7 +31,7 @@ File `pages/admin/network-management.tsx` · 1187 lines · frame: MainLayout
   - l.143 `router.push → /dashboard  (when profileData && role !== 'admin')`
   - l.153 `router.push → /login`
   - l.579 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:455`, `pages/admin/apply-network-migration.tsx:189`
+- Linked from: `components/layout/Sidebar.tsx:455`
 - Tests: browser tests that CI runs: `tests/e2e/network-supervisors.spec.ts`.
 - QA scenarios that name this address: admin 1, community_manager 1, consultor 1, equipo_directivo 1, lider_comunidad 1, supervisor_de_red 1.
 
@@ -167,66 +54,60 @@ File `pages/admin/network-management.tsx` · 1187 lines · frame: MainLayout
 | Text | Level | Shown when | Where |
 |---|---|---|---|
 | «Migración de Base de Datos Requerida» | h3 | `migrationError` | NetworkManagementPage · l.653 |
-| «{network.name}» | h3 | `each filteredNetworks` | NetworkManagementPage · l.742 |
-| «No hay redes» | h3 | `filteredNetworks.length === 0` | NetworkManagementPage · l.851 |
-| «Crear Nueva Red» | h3 | `showCreateModal` | NetworkManagementPage · l.874 |
-| «Editar Red» | h3 | `showEditModal && selectedNetwork` | NetworkManagementPage · l.929 |
-| «Asignar Escuelas a &quot; {selectedNetwork.name} &quot;» | h3 | `showSchoolModal && selectedNetwork` | NetworkManagementPage · l.983 |
-| «No hay escuelas» | h3 | `showSchoolModal && selectedNetwork && !(availableSchools.length > 0)` | NetworkManagementPage · l.1049 |
-| «Asignar Supervisor a &quot; {selectedNetwork.name} &quot;» | h3 | `showSupervisorModal && selectedNetwork` | NetworkManagementPage · l.1083 |
-| «No hay usuarios disponibles» | h3 | `showSupervisorModal && selectedNetwork && !(availableUsers.length > 0)` | NetworkManagementPage · l.1110 |
-| «Confirmar Eliminación» | h3 | `showDeleteConfirm && selectedNetwork` | NetworkManagementPage · l.1146 |
+| «{network.name}» | h3 | `each filteredNetworks` | NetworkManagementPage · l.734 |
+| «No hay redes» | h3 | `filteredNetworks.length === 0` | NetworkManagementPage · l.843 |
+| «Crear Nueva Red» | h3 | `showCreateModal` | NetworkManagementPage · l.866 |
+| «Editar Red» | h3 | `showEditModal && selectedNetwork` | NetworkManagementPage · l.921 |
+| «Asignar Escuelas a &quot; {selectedNetwork.name} &quot;» | h3 | `showSchoolModal && selectedNetwork` | NetworkManagementPage · l.975 |
+| «No hay escuelas» | h3 | `showSchoolModal && selectedNetwork && !(availableSchools.length > 0)` | NetworkManagementPage · l.1041 |
+| «Asignar Supervisor a &quot; {selectedNetwork.name} &quot;» | h3 | `showSupervisorModal && selectedNetwork` | NetworkManagementPage · l.1075 |
+| «No hay usuarios disponibles» | h3 | `showSupervisorModal && selectedNetwork && !(availableUsers.length > 0)` | NetworkManagementPage · l.1102 |
+| «Confirmar Eliminación» | h3 | `showDeleteConfirm && selectedNetwork` | NetworkManagementPage · l.1138 |
 
 **Buttons** (18)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
 | «Nueva Red» | `{() => setShowCreateModal(true)}` |  |  |  | NetworkManagementPage · l.632 |
-| «[icon Edit3]» · tooltip «Editar red» | `{() => openEditModal(network)}` | `each filteredNetworks` |  |  | NetworkManagementPage · l.748 |
-| «[icon Trash2]» · tooltip «Eliminar red» | `{() => openDeleteConfirm(network)}` | `each filteredNetworks` |  |  | NetworkManagementPage · l.755 |
-| «[icon X]» · tooltip «Remover escuela» | `{() => handleRemoveSchool(school.id)}` | `each filteredNetworks && network.schools.length > 0 && each network.schools.slice(0, 3)` |  |  | NetworkManagementPage · l.785 |
-| «[icon X]» · tooltip «Remover supervisor» | `{() => handleRemoveSupervisor(supervisor.user_id)}` | `each filteredNetworks && network.supervisors.length > 0 && each network.supervisors` |  |  | NetworkManagementPage · l.813 |
-| «Escuelas» | `{() => openSchoolModal(network)}` | `each filteredNetworks` |  |  | NetworkManagementPage · l.828 |
-| «Supervisores» | `{() => openSupervisorModal(network)}` | `each filteredNetworks` |  |  | NetworkManagementPage · l.835 |
-| «Nueva Red» | `{() => setShowCreateModal(true)}` | `filteredNetworks.length === 0 && !searchQuery` |  |  | NetworkManagementPage · l.857 |
-| «Cancelar» | `{() => { setShowCreateModal(false); setNetworkForm({ name: '', description: '' }…}` | `showCreateModal` |  |  | NetworkManagementPage · l.905 |
-| «Crear Red» | `{handleCreateNetwork}` | `showCreateModal` |  |  | NetworkManagementPage · l.914 |
-| «Cancelar» | `{() => { setShowEditModal(false); setNetworkForm({ name: '', description: '' });…}` | `showEditModal && selectedNetwork` |  |  | NetworkManagementPage · l.958 |
-| «Actualizar» | `{handleUpdateNetwork}` | `showEditModal && selectedNetwork` |  |  | NetworkManagementPage · l.968 |
-| «Cancelar» | `{() => { setShowSchoolModal(false); setSelectedSchools([]); setSelectedNetwork(n…}` | `showSchoolModal && selectedNetwork` |  |  | NetworkManagementPage · l.1057 |
-| «Guardar Cambios ( {selectedSchools.length} )» | `{handleAssignSchools}` | `showSchoolModal && selectedNetwork` | `{selectedSchools.length === 0}` |  | NetworkManagementPage · l.1067 |
-| «Cancelar» | `{() => { setShowSupervisorModal(false); setSelectedUser(''); setSelectedNetwork(…}` | `showSupervisorModal && selectedNetwork` |  |  | NetworkManagementPage · l.1118 |
-| «Asignar Supervisor» | `{handleAssignSupervisor}` | `showSupervisorModal && selectedNetwork` | `{!selectedUser}` |  | NetworkManagementPage · l.1128 |
-| «Cancelar» | `{() => { setShowDeleteConfirm(false); setSelectedNetwork(null); }}` | `showDeleteConfirm && selectedNetwork` |  |  | NetworkManagementPage · l.1163 |
-| «Eliminar Red» | `{handleDeleteNetwork}` | `showDeleteConfirm && selectedNetwork` | `{selectedNetwork.supervisor_count > 0}` |  | NetworkManagementPage · l.1172 |
-
-**Links** (1)
-
-| Text | Goes to | Shown when | Hook | Where |
-|---|---|---|---|---|
-| «Ver instrucciones detalladas →» | `/admin/apply-network-migration` | `migrationError` |  | NetworkManagementPage · l.666 |
+| «[icon Edit3]» · tooltip «Editar red» | `{() => openEditModal(network)}` | `each filteredNetworks` |  |  | NetworkManagementPage · l.740 |
+| «[icon Trash2]» · tooltip «Eliminar red» | `{() => openDeleteConfirm(network)}` | `each filteredNetworks` |  |  | NetworkManagementPage · l.747 |
+| «[icon X]» · tooltip «Remover escuela» | `{() => handleRemoveSchool(school.id)}` | `each filteredNetworks && network.schools.length > 0 && each network.schools.slice(0, 3)` |  |  | NetworkManagementPage · l.777 |
+| «[icon X]» · tooltip «Remover supervisor» | `{() => handleRemoveSupervisor(supervisor.user_id)}` | `each filteredNetworks && network.supervisors.length > 0 && each network.supervisors` |  |  | NetworkManagementPage · l.805 |
+| «Escuelas» | `{() => openSchoolModal(network)}` | `each filteredNetworks` |  |  | NetworkManagementPage · l.820 |
+| «Supervisores» | `{() => openSupervisorModal(network)}` | `each filteredNetworks` |  |  | NetworkManagementPage · l.827 |
+| «Nueva Red» | `{() => setShowCreateModal(true)}` | `filteredNetworks.length === 0 && !searchQuery` |  |  | NetworkManagementPage · l.849 |
+| «Cancelar» | `{() => { setShowCreateModal(false); setNetworkForm({ name: '', description: '' }…}` | `showCreateModal` |  |  | NetworkManagementPage · l.897 |
+| «Crear Red» | `{handleCreateNetwork}` | `showCreateModal` |  |  | NetworkManagementPage · l.906 |
+| «Cancelar» | `{() => { setShowEditModal(false); setNetworkForm({ name: '', description: '' });…}` | `showEditModal && selectedNetwork` |  |  | NetworkManagementPage · l.950 |
+| «Actualizar» | `{handleUpdateNetwork}` | `showEditModal && selectedNetwork` |  |  | NetworkManagementPage · l.960 |
+| «Cancelar» | `{() => { setShowSchoolModal(false); setSelectedSchools([]); setSelectedNetwork(n…}` | `showSchoolModal && selectedNetwork` |  |  | NetworkManagementPage · l.1049 |
+| «Guardar Cambios ( {selectedSchools.length} )» | `{handleAssignSchools}` | `showSchoolModal && selectedNetwork` | `{selectedSchools.length === 0}` |  | NetworkManagementPage · l.1059 |
+| «Cancelar» | `{() => { setShowSupervisorModal(false); setSelectedUser(''); setSelectedNetwork(…}` | `showSupervisorModal && selectedNetwork` |  |  | NetworkManagementPage · l.1110 |
+| «Asignar Supervisor» | `{handleAssignSupervisor}` | `showSupervisorModal && selectedNetwork` | `{!selectedUser}` |  | NetworkManagementPage · l.1120 |
+| «Cancelar» | `{() => { setShowDeleteConfirm(false); setSelectedNetwork(null); }}` | `showDeleteConfirm && selectedNetwork` |  |  | NetworkManagementPage · l.1155 |
+| «Eliminar Red» | `{handleDeleteNetwork}` | `showDeleteConfirm && selectedNetwork` | `{selectedNetwork.supervisor_count > 0}` |  | NetworkManagementPage · l.1164 |
 
 **Fields** (7)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
 |  | select |  | «Todas las redes», «Con supervisores», «Sin supervisores» |  |  | NetworkManagementPage · l.622 |
-| «Nombre de la Red *» | text | «Ej: Red Norte, Red Metropolitana» |  | `showCreateModal` |  | NetworkManagementPage · l.881 |
-| «Descripción» | textarea | «Descripción opcional de la red» |  | `showCreateModal` |  | NetworkManagementPage · l.894 |
-| «Nombre de la Red *» | text |  |  | `showEditModal && selectedNetwork` |  | NetworkManagementPage · l.936 |
-| «Descripción» | textarea |  |  | `showEditModal && selectedNetwork` |  | NetworkManagementPage · l.948 |
-| «{school.name} [En esta red] [Asignado a: {school.current_network.name}]» | checkbox | disabled: `{isDisabled}` |  | `showSchoolModal && selectedNetwork && availableSchools.length > 0 && each availableSchools` |  | NetworkManagementPage · l.1014 |
-| «Seleccionar Usuario» | select |  | «Selecciona un usuario...», «(lista) {user.full_name} ( {user.email} )» | `showSupervisorModal && selectedNetwork && availableUsers.length > 0` |  | NetworkManagementPage · l.1093 |
+| «Nombre de la Red *» | text | «Ej: Red Norte, Red Metropolitana» |  | `showCreateModal` |  | NetworkManagementPage · l.873 |
+| «Descripción» | textarea | «Descripción opcional de la red» |  | `showCreateModal` |  | NetworkManagementPage · l.886 |
+| «Nombre de la Red *» | text |  |  | `showEditModal && selectedNetwork` |  | NetworkManagementPage · l.928 |
+| «Descripción» | textarea |  |  | `showEditModal && selectedNetwork` |  | NetworkManagementPage · l.940 |
+| «{school.name} [En esta red] [Asignado a: {school.current_network.name}]» | checkbox | disabled: `{isDisabled}` |  | `showSchoolModal && selectedNetwork && availableSchools.length > 0 && each availableSchools` |  | NetworkManagementPage · l.1006 |
+| «Seleccionar Usuario» | select |  | «Selecciona un usuario...», «(lista) {user.full_name} ( {user.email} )» | `showSupervisorModal && selectedNetwork && availableUsers.length > 0` |  | NetworkManagementPage · l.1085 |
 
 **Pop-ups** (5)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Crear Nueva Red» | written in this file | `showCreateModal` |  | NetworkManagementPage · l.872 |
-| «Editar Red» | written in this file | `showEditModal && selectedNetwork` |  | NetworkManagementPage · l.927 |
-| «Asignar Escuelas a &quot; {selectedNetwork.name} &quot;» | written in this file | `showSchoolModal && selectedNetwork` |  | NetworkManagementPage · l.981 |
-| «Asignar Supervisor a &quot; {selectedNetwork.name} &quot;» | written in this file | `showSupervisorModal && selectedNetwork` |  | NetworkManagementPage · l.1081 |
-| «Confirmar Eliminación» | written in this file | `showDeleteConfirm && selectedNetwork` |  | NetworkManagementPage · l.1142 |
+| «Crear Nueva Red» | written in this file | `showCreateModal` |  | NetworkManagementPage · l.864 |
+| «Editar Red» | written in this file | `showEditModal && selectedNetwork` |  | NetworkManagementPage · l.919 |
+| «Asignar Escuelas a &quot; {selectedNetwork.name} &quot;» | written in this file | `showSchoolModal && selectedNetwork` |  | NetworkManagementPage · l.973 |
+| «Asignar Supervisor a &quot; {selectedNetwork.name} &quot;» | written in this file | `showSupervisorModal && selectedNetwork` |  | NetworkManagementPage · l.1073 |
+| «Confirmar Eliminación» | written in this file | `showDeleteConfirm && selectedNetwork` |  | NetworkManagementPage · l.1134 |
 
 **Toasts** (40)
 
@@ -316,16 +197,16 @@ File `pages/admin/network-management.tsx` · 1187 lines · frame: MainLayout
 
 **Values shown from data** (10)
 
-- `{networks.length}` — NetworkManagementPage · l.685
-- `{networks.reduce((sum, n) => sum + n…}` — NetworkManagementPage · l.697
-- `{networks.reduce((sum, n) => sum + n…}` — NetworkManagementPage · l.711
-- `{networks.filter(n => n.supervisor_c…}` — NetworkManagementPage · l.725
-- `{network.description}` — NetworkManagementPage · l.744, when `each filteredNetworks && network.description`
-- `{network.school_count}` — NetworkManagementPage · l.768, when `each filteredNetworks`
-- `{network.supervisor_count}` — NetworkManagementPage · l.772, when `each filteredNetworks`
-- `{school.name}` — NetworkManagementPage · l.784, when `each filteredNetworks && network.schools.length > 0 && each network.schools.slice(0, 3)`
-- `{supervisor.first_name} {supervisor.last_name}` — NetworkManagementPage · l.810, when `each filteredNetworks && network.supervisors.length > 0 && each network.supervisors`
-- `{selectedSchools.length}` — NetworkManagementPage · l.996, when `showSchoolModal && selectedNetwork && selectedSchools.length > 0`
+- `{networks.length}` — NetworkManagementPage · l.677
+- `{networks.reduce((sum, n) => sum + n…}` — NetworkManagementPage · l.689
+- `{networks.reduce((sum, n) => sum + n…}` — NetworkManagementPage · l.703
+- `{networks.filter(n => n.supervisor_c…}` — NetworkManagementPage · l.717
+- `{network.description}` — NetworkManagementPage · l.736, when `each filteredNetworks && network.description`
+- `{network.school_count}` — NetworkManagementPage · l.760, when `each filteredNetworks`
+- `{network.supervisor_count}` — NetworkManagementPage · l.764, when `each filteredNetworks`
+- `{school.name}` — NetworkManagementPage · l.776, when `each filteredNetworks && network.schools.length > 0 && each network.schools.slice(0, 3)`
+- `{supervisor.first_name} {supervisor.last_name}` — NetworkManagementPage · l.802, when `each filteredNetworks && network.supervisors.length > 0 && each network.supervisors`
+- `{selectedSchools.length}` — NetworkManagementPage · l.988, when `showSchoolModal && selectedNetwork && selectedSchools.length > 0`
 
 **Other texts on screen** (34)
 
@@ -335,34 +216,34 @@ File `pages/admin/network-management.tsx` · 1187 lines · frame: MainLayout
 - «/database/add-supervisor-de-red-role-fixed.sql» — NetworkManagementPage · l.660, when `migrationError`
 - «Ejecuta el SQL en DOS PASOS (ver archivo para instrucciones)» — NetworkManagementPage · l.661, when `migrationError`
 - «Recarga esta página» — NetworkManagementPage · l.662, when `migrationError`
-- «Total Redes» — NetworkManagementPage · l.686
-- «Escuelas Asignadas» — NetworkManagementPage · l.700
-- «Supervisores Activos» — NetworkManagementPage · l.714
-- «Sin Supervisores» — NetworkManagementPage · l.728
-- «Escuelas» — NetworkManagementPage · l.769, when `each filteredNetworks`
-- «Supervisores» — NetworkManagementPage · l.773, when `each filteredNetworks`
-- «Escuelas Asignadas:» — NetworkManagementPage · l.780, when `each filteredNetworks && network.schools.length > 0`
-- «+ {network.schools.length - 3} más» — NetworkManagementPage · l.795, when `each filteredNetworks && network.schools.length > 0 && network.schools.length > 3`
-- «Supervisores:» — NetworkManagementPage · l.806, when `each filteredNetworks && network.supervisors.length > 0`
-- «No se encontraron redes que coincidan con tu búsqueda. / Comienza creando tu primera red de colegios.» — NetworkManagementPage · l.852, when `filteredNetworks.length === 0`
-- «Nombre de la Red *» (label) — NetworkManagementPage · l.878, when `showCreateModal`
-- «Descripción» (label) — NetworkManagementPage · l.891, when `showCreateModal`
-- «Nombre de la Red *» (label) — NetworkManagementPage · l.933, when `showEditModal && selectedNetwork`
-- «Descripción» (label) — NetworkManagementPage · l.945, when `showEditModal && selectedNetwork`
-- «Nota:» — NetworkManagementPage · l.989, when `showSchoolModal && selectedNetwork`
-- «Las escuelas que ya pertenecen a otra red aparecen deshabilitadas y muestran a qué red están asignadas. Solo puedes seleccionar escuelas disponibles o las que ya están en esta red.» — NetworkManagementPage · l.989, when `showSchoolModal && selectedNetwork`
-- «escuela» — NetworkManagementPage · l.996, when `showSchoolModal && selectedNetwork && selectedSchools.length > 0`
-- «s» — NetworkManagementPage · l.996, when `showSchoolModal && selectedNetwork && selectedSchools.length > 0`
-- «seleccionada» — NetworkManagementPage · l.996, when `showSchoolModal && selectedNetwork && selectedSchools.length > 0`
-- «s» — NetworkManagementPage · l.996, when `showSchoolModal && selectedNetwork && selectedSchools.length > 0`
-- «{school.name} [En esta red] [Asignado a: {school.current_network.name}]» (label) — NetworkManagementPage · l.1008, when `showSchoolModal && selectedNetwork && availableSchools.length > 0 && each availableSchools`
-- «No se encontraron escuelas en el sistema.» — NetworkManagementPage · l.1051, when `showSchoolModal && selectedNetwork && !(availableSchools.length > 0)`
-- «Seleccionar Usuario» (label) — NetworkManagementPage · l.1090, when `showSupervisorModal && selectedNetwork && availableUsers.length > 0`
-- «Todos los usuarios ya tienen roles de supervisor asignados.» — NetworkManagementPage · l.1112, when `showSupervisorModal && selectedNetwork && !(availableUsers.length > 0)`
-- «¿Estás seguro de que quieres eliminar la red &quot; {selectedNetwork.name} &quot;?» — NetworkManagementPage · l.1149, when `showDeleteConfirm && selectedNetwork`
-- «Advertencia:» — NetworkManagementPage · l.1156, when `showDeleteConfirm && selectedNetwork && selectedNetwork.supervisor_count > 0`
-- «Esta red tiene» — NetworkManagementPage · l.1156, when `showDeleteConfirm && selectedNetwork && selectedNetwork.supervisor_count > 0`
-- «supervisor(es) activo(s). Primero debes remover todos los supervisores antes de eliminar la red.» — NetworkManagementPage · l.1156, when `showDeleteConfirm && selectedNetwork && selectedNetwork.supervisor_count > 0`
+- «Total Redes» — NetworkManagementPage · l.678
+- «Escuelas Asignadas» — NetworkManagementPage · l.692
+- «Supervisores Activos» — NetworkManagementPage · l.706
+- «Sin Supervisores» — NetworkManagementPage · l.720
+- «Escuelas» — NetworkManagementPage · l.761, when `each filteredNetworks`
+- «Supervisores» — NetworkManagementPage · l.765, when `each filteredNetworks`
+- «Escuelas Asignadas:» — NetworkManagementPage · l.772, when `each filteredNetworks && network.schools.length > 0`
+- «+ {network.schools.length - 3} más» — NetworkManagementPage · l.787, when `each filteredNetworks && network.schools.length > 0 && network.schools.length > 3`
+- «Supervisores:» — NetworkManagementPage · l.798, when `each filteredNetworks && network.supervisors.length > 0`
+- «No se encontraron redes que coincidan con tu búsqueda. / Comienza creando tu primera red de colegios.» — NetworkManagementPage · l.844, when `filteredNetworks.length === 0`
+- «Nombre de la Red *» (label) — NetworkManagementPage · l.870, when `showCreateModal`
+- «Descripción» (label) — NetworkManagementPage · l.883, when `showCreateModal`
+- «Nombre de la Red *» (label) — NetworkManagementPage · l.925, when `showEditModal && selectedNetwork`
+- «Descripción» (label) — NetworkManagementPage · l.937, when `showEditModal && selectedNetwork`
+- «Nota:» — NetworkManagementPage · l.981, when `showSchoolModal && selectedNetwork`
+- «Las escuelas que ya pertenecen a otra red aparecen deshabilitadas y muestran a qué red están asignadas. Solo puedes seleccionar escuelas disponibles o las que ya están en esta red.» — NetworkManagementPage · l.981, when `showSchoolModal && selectedNetwork`
+- «escuela» — NetworkManagementPage · l.988, when `showSchoolModal && selectedNetwork && selectedSchools.length > 0`
+- «s» — NetworkManagementPage · l.988, when `showSchoolModal && selectedNetwork && selectedSchools.length > 0`
+- «seleccionada» — NetworkManagementPage · l.988, when `showSchoolModal && selectedNetwork && selectedSchools.length > 0`
+- «s» — NetworkManagementPage · l.988, when `showSchoolModal && selectedNetwork && selectedSchools.length > 0`
+- «{school.name} [En esta red] [Asignado a: {school.current_network.name}]» (label) — NetworkManagementPage · l.1000, when `showSchoolModal && selectedNetwork && availableSchools.length > 0 && each availableSchools`
+- «No se encontraron escuelas en el sistema.» — NetworkManagementPage · l.1043, when `showSchoolModal && selectedNetwork && !(availableSchools.length > 0)`
+- «Seleccionar Usuario» (label) — NetworkManagementPage · l.1082, when `showSupervisorModal && selectedNetwork && availableUsers.length > 0`
+- «Todos los usuarios ya tienen roles de supervisor asignados.» — NetworkManagementPage · l.1104, when `showSupervisorModal && selectedNetwork && !(availableUsers.length > 0)`
+- «¿Estás seguro de que quieres eliminar la red &quot; {selectedNetwork.name} &quot;?» — NetworkManagementPage · l.1141, when `showDeleteConfirm && selectedNetwork`
+- «Advertencia:» — NetworkManagementPage · l.1148, when `showDeleteConfirm && selectedNetwork && selectedNetwork.supervisor_count > 0`
+- «Esta red tiene» — NetworkManagementPage · l.1148, when `showDeleteConfirm && selectedNetwork && selectedNetwork.supervisor_count > 0`
+- «supervisor(es) activo(s). Primero debes remover todos los supervisores antes de eliminar la red.» — NetworkManagementPage · l.1148, when `showDeleteConfirm && selectedNetwork && selectedNetwork.supervisor_count > 0`
 
 **Reads and writes the database directly:** `table:profiles` (select)
 
@@ -396,7 +277,7 @@ File `pages/admin/role-management.tsx` · 675 lines · frame: MainLayout
   - l.236 `router.push → /dashboard  (when !response.ok)`
   - l.247 `router.push → /dashboard  (when !(data.is_superadmin))`
   - l.251 `router.push → /dashboard`
-- Linked from: `components/layout/Sidebar.tsx:743`, `pages/test-rbac.tsx:49`
+- Linked from: `components/layout/Sidebar.tsx:743`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 1, community_manager 1.
 
@@ -744,7 +625,7 @@ File `pages/admin/schools.tsx` · 1544 lines · frame: MainLayout
   - l.167 `userRole = await getUserPrimaryRole(user.id)`
   - l.170 `router.push → /dashboard  (when userRole !== 'admin')`
   - l.178 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:447`, `pages/api/qa/seed-codebase-index.ts:155`
+- Linked from: `components/layout/Sidebar.tsx:447`, `pages/api/qa/seed-codebase-index.ts:133`
 - Tests: browser tests that CI runs: `tests/e2e/ci-fixture.spec.ts`; browser tests CI skips: `tests/qa/auth-redirects.spec.ts`.
 - QA scenarios that name this address: admin 3, community_manager 1, consultor 1, equipo_directivo 1, lider_comunidad 1, lider_generacion 1, supervisor_de_red 1.
 
@@ -2892,7 +2773,7 @@ Used by: `/admin/school-users`, `/admin/user-management`, `/profile`
 | `/api/admin/check-permissions` | `pages/api/admin/check-permissions.ts` | GET | **no screen** | `__tests__/api/forged-session-sweep.test.ts` |
 | `/api/admin/create-user` | `pages/api/admin/create-user.ts` | POST | `/admin/school-users`, `/admin/user-management` | `__tests__/api/admin/create-user.test.ts`, `__tests__/pages/admin/school-users.test.tsx`, `pages/admin/school-users.tsx`, `pages/admin/user-management.tsx`, `tests/e2e/network-supervisors.spec.ts` |
 | `/api/admin/delete-user` | `pages/api/admin/delete-user.ts` | POST | `/admin/school-users`, `/admin/user-management` | `__tests__/api/admin/delete-user.test.ts`, `pages/admin/school-users.tsx`, `pages/admin/user-management.tsx` |
-| `/api/admin/init-supervisor-tables` | `pages/api/admin/init-supervisor-tables.ts` | POST | `/admin/apply-network-migration` | `pages/admin/apply-network-migration.tsx` |
+| `/api/admin/init-supervisor-tables` | `pages/api/admin/init-supervisor-tables.ts` | POST | **no screen** |  |
 | `/api/admin/networks/all-schools-simple` | `pages/api/admin/networks/all-schools-simple.ts` | GET | `/admin/network-management` | `pages/admin/network-management.tsx` |
 | `/api/admin/networks/all-schools` | `pages/api/admin/networks/all-schools.ts` | GET | **no screen** |  |
 | `/api/admin/networks/available-schools` | `pages/api/admin/networks/available-schools.ts` | GET | **no screen** | `__tests__/api/admin/admin-forged-session.test.ts` |

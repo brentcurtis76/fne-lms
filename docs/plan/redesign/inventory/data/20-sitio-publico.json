@@ -4,8 +4,8 @@
  "note": "Redesigned separately and live since 12 Nov 2026. Listed so that every file under pages/ has a place.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
-  "date": "2026-11-12T23:31:39-03:00"
+  "commit": "6246844772d423e70ba32f8ed9b50a5f73e8c6b2",
+  "date": "2026-11-13T23:43:33-03:00"
  },
  "screens": [
   {
@@ -62,7 +62,7 @@
     },
     "inPage": [],
     "linkedFrom": [
-     "components/DynamicFavicon.tsx:39",
+     "components/DynamicFavicon.tsx:38",
      "components/Footer.tsx:95",
      "components/site/SiteLayout.tsx:176",
      "lib/auth/forced-password-change.ts:148",
@@ -197,18 +197,9 @@
      "components/site/SiteLayout.tsx:47",
      "pages/403.tsx:21",
      "pages/admin/course-builder/new.tsx:49",
-     "pages/admin/debug/course-module-ids.tsx:14",
-     "pages/admin/debug/course-module-ids.tsx:19",
-     "pages/admin/debug/ids.tsx:101",
-     "pages/admin/form-usage.tsx:36",
-     "pages/admin/form-usage.tsx:41",
      "pages/admin/news.tsx:312",
      "pages/admin/transformation.tsx:60",
      "pages/admin/transformation/assessments.tsx:118",
-     "pages/creador-de-cursos.tsx:24",
-     "pages/creador-de-cursos.tsx:35",
-     "pages/creador-de-cursos.tsx:53",
-     "pages/creador-de-cursos.tsx:64",
      "pages/directivo/assessments/dashboard.tsx:162",
      "pages/login.tsx:371",
      "pages/login.tsx:390",

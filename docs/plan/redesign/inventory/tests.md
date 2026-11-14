@@ -1,20 +1,18 @@
 # Screens and their tests
 
-Written by `scripts/redesign/inventory.mjs` from commit `58b8d169f`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 26 of 67 browser test files (`scripts/ci/e2e-mandatory.mjs`).
+Written by `scripts/redesign/inventory.mjs` from commit `624684477`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 26 of 67 browser test files (`scripts/ci/e2e-mandatory.mjs`).
 
-- 174 screens with an address.
-- 30 are named by a browser test that CI runs.
-- 52 are named only by tests CI skips, or have only unit tests.
-- 92 have no test at all.
+- 149 screens with an address.
+- 28 are named by a browser test that CI runs.
+- 50 are named only by tests CI skips, or have only unit tests.
+- 71 have no test at all.
 
 ## No test at all
 
 | Area | Address | File |
 |---|---|---|
-| 00-marco | `/_app 2` | `pages/_app 2.tsx` (Leftover (on the list for Brent)) |
 | 01-acceso | `/pending-approval` | `pages/pending-approval.tsx` |
 | 01-acceso | `/registro-tractor` | `pages/registro-tractor.tsx` (Looks like a leftover but is in use) |
-| 02-panel | `/admin/new-reporting` | `pages/admin/new-reporting.tsx` (Leftover (on the list for Brent)) |
 | 03-aprendizaje | `/course-manager` | `pages/course-manager.tsx` (Looks like a leftover but is in use) |
 | 03-aprendizaje | `/mi-aprendizaje/tareas` | `pages/mi-aprendizaje/tareas.tsx` |
 | 03-aprendizaje | `/my-paths` | `pages/my-paths.tsx` (Looks like a leftover but is in use) |
@@ -26,13 +24,11 @@ Written by `scripts/redesign/inventory.mjs` from commit `58b8d169f`. For phase 3
 | 04-cursos | `/admin/course-builder` | `pages/admin/course-builder/index.tsx` |
 | 04-cursos | `/admin/course-builder/new` | `pages/admin/course-builder/new.tsx` |
 | 04-cursos | `/admin/courses/[id]/assign` | `pages/admin/courses/[id]/assign.tsx` |
-| 04-cursos | `/admin/create-course` | `pages/admin/create-course.tsx` (Leftover (on the list for Brent)) |
 | 04-cursos | `/admin/learning-paths` | `pages/admin/learning-paths.tsx` |
 | 04-cursos | `/admin/learning-paths/[id]/assign` | `pages/admin/learning-paths/[id]/assign.tsx` |
 | 04-cursos | `/admin/learning-paths/[id]/edit` | `pages/admin/learning-paths/[id]/edit.tsx` |
 | 04-cursos | `/admin/learning-paths/new` | `pages/admin/learning-paths/new.tsx` |
 | 04-cursos | `/admin/upcoming-courses` | `pages/admin/upcoming-courses/index.tsx` |
-| 04-cursos | `/creador-de-cursos` | `pages/creador-de-cursos.tsx` (Leftover (on the list for Brent)) |
 | 05-tareas | `/admin/assignment-overview` | `pages/admin/assignment-overview.tsx` |
 | 05-tareas | `/admin/assignment-review/[id]` | `pages/admin/assignment-review/[id].tsx` |
 | 05-tareas | `/assignments/[id]/submissions` | `pages/assignments/[id]/submissions.tsx` |
@@ -42,7 +38,6 @@ Written by `scripts/redesign/inventory.mjs` from commit `58b8d169f`. For phase 3
 | 06-sesiones | `/admin/sessions/[id]` | `pages/admin/sessions/[id].tsx` |
 | 06-sesiones | `/admin/sessions/approvals` | `pages/admin/sessions/approvals.tsx` |
 | 06-sesiones | `/admin/sessions` | `pages/admin/sessions/index.tsx` |
-| 06-sesiones | `/admin/test-session` | `pages/admin/test-session.tsx` (Leftover (on the list for Brent)) |
 | 06-sesiones | `/consultor/sessions/reports` | `pages/consultor/sessions/reports.tsx` |
 | 08-gestor-de-cambio | `/admin/assessment-builder` | `pages/admin/assessment-builder/index.tsx` |
 | 08-gestor-de-cambio | `/demo/assessments/[templateId]` | `pages/demo/assessments/[templateId]/index.tsx` (Looks like a leftover but is in use) |
@@ -69,10 +64,8 @@ Written by `scripts/redesign/inventory.mjs` from commit `58b8d169f`. For phase 3
 | 11-gestion | `/quote/[id]` | `pages/quote/[id].tsx` |
 | 13-reportes | `/detailed-reports` | `pages/detailed-reports.tsx` |
 | 13-reportes | `/reporte-horas` | `pages/reporte-horas.tsx` |
-| 14-personas | `/admin/apply-network-migration` | `pages/admin/apply-network-migration.tsx` (Leftover (on the list for Brent)) |
 | 14-personas | `/admin/role-management` | `pages/admin/role-management.tsx` |
 | 15-comunicacion | `/admin/events` | `pages/admin/events.tsx` |
-| 15-comunicacion | `/admin/setup-news` | `pages/admin/setup-news.tsx` (Leftover (on the list for Brent)) |
 | 17-horas-gastos | `/admin/consultant-earnings` | `pages/admin/consultant-earnings.tsx` |
 | 17-horas-gastos | `/admin/consultant-rates` | `pages/admin/consultant-rates.tsx` |
 | 17-horas-gastos | `/expense-reports` | `pages/expense-reports.tsx` |
@@ -87,21 +80,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `58b8d169f`. For phase 3
 | 18-qa | `/admin/qa/load-tests` | `pages/admin/qa/load-tests.tsx` |
 | 18-qa | `/admin/qa/runs/[runId]` | `pages/admin/qa/runs/[runId].tsx` |
 | 18-qa | `/admin/qa/time-tracking` | `pages/admin/qa/time-tracking.tsx` |
-| 19-sistema | `/admin/bucket-test` | `pages/admin/bucket-test.tsx` (Leftover (on the list for Brent)) |
-| 19-sistema | `/admin/debug/course-module-ids` | `pages/admin/debug/course-module-ids.tsx` (Leftover (on the list for Brent)) |
-| 19-sistema | `/admin/debug/ids` | `pages/admin/debug/ids.tsx` (Leftover (on the list for Brent)) |
-| 19-sistema | `/admin/form-usage` | `pages/admin/form-usage.tsx` (Leftover (on the list for Brent)) |
 | 19-sistema | `/admin/roadmap` | `pages/admin/roadmap.tsx` |
-| 19-sistema | `/admin/test-spanish-input` | `pages/admin/test-spanish-input.tsx` (Leftover (on the list for Brent)) |
-| 19-sistema | `/debug-feedback-permissions` | `pages/debug-feedback-permissions.tsx` (Leftover (on the list for Brent)) |
-| 19-sistema | `/email-showcase` | `pages/email-showcase.tsx` (Leftover (on the list for Brent)) |
-| 19-sistema | `/test-logout` | `pages/test-logout.tsx` (Leftover (on the list for Brent)) |
-| 19-sistema | `/test-rbac` | `pages/test-rbac.tsx` (Leftover (on the list for Brent)) |
-| 19-sistema | `/test-sentry` | `pages/test-sentry.tsx` (Leftover (on the list for Brent)) |
-| 19-sistema | `/test-sidebar-role` | `pages/test-sidebar-role.tsx` (Leftover (on the list for Brent)) |
-| 19-sistema | `/test-toast` | `pages/test-toast.tsx` (Leftover (on the list for Brent)) |
-| 19-sistema | `/test-user-role` | `pages/test-user-role.tsx` (Leftover (on the list for Brent)) |
-| 19-sistema | `/test` | `pages/test.tsx` (Leftover (on the list for Brent)) |
 | 20-sitio-publico | `/privacidad` | `pages/privacidad.tsx` |
 
 ## No browser test that CI runs
@@ -111,10 +90,8 @@ Written by `scripts/redesign/inventory.mjs` from commit `58b8d169f`. For phase 3
 | 01-acceso | `/403` | `e2e/assessment-frequency-validation.spec.ts`, `e2e/notification-unsubscribe.spec.ts` | — |
 | 01-acceso | `/change-password` | — | 1 |
 | 01-acceso | `/registro` | `e2e/registro.spec.ts` | 1 |
-| 03-aprendizaje | `/courses/[id]` | `qa/auth-redirects.spec.ts` | — |
 | 03-aprendizaje | `/mi-aprendizaje` | `e2e/notification-dispatch.spec.ts`, `e2e/notification-mail-mirror.spec.ts`, `e2e/panel-pin.spec.ts` | — |
 | 03-aprendizaje | `/mi-aprendizaje/ruta/[id]` | `e2e/panel-pin.spec.ts` | 1 |
-| 03-aprendizaje | `/my-paths/[id]` | — | 1 |
 | 03-aprendizaje | `/student/course/[courseId]` | `e2e/panel-pin.spec.ts` | — |
 | 03-aprendizaje | `/student/lesson/[lessonId]` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | — |
 | 04-cursos | `/admin/course-builder/[courseId]/[moduleId]/[lessonId]` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | — |
@@ -167,8 +144,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `58b8d169f`. For phase 3
 |---|---|---|
 | 01-acceso | `/login` | `e2e/auth-cookie-identity.spec.ts`, `e2e/auth-lifecycle.spec.ts`, `e2e/login-resilience.spec.ts`, `e2e/notification-preferences-api.spec.ts`, `e2e/notification-settings.spec.ts`, `e2e/pasantias-leads-admin.spec.ts`, `e2e/smoke.spec.ts` |
 | 01-acceso | `/reset-password` | `e2e/auth-lifecycle.spec.ts` |
-| 02-panel | `/dashboard-old` | `e2e/notification-settings.spec.ts` |
-| 02-panel | `/dashboard` | `e2e/auth-lifecycle.spec.ts`, `e2e/ci-fixture.spec.ts`, `e2e/notification-settings.spec.ts`, `e2e/pasantias-leads-admin.spec.ts` |
+| 02-panel | `/dashboard` | `e2e/auth-lifecycle.spec.ts`, `e2e/ci-fixture.spec.ts`, `e2e/footer-heading-order.spec.ts`, `e2e/notification-settings.spec.ts`, `e2e/pasantias-leads-admin.spec.ts` |
 | 05-tareas | `/community/workspace/assignments/[id]/discussion` | `e2e/finance-messaging-access.spec.ts` |
 | 06-sesiones | `/meet/session/[id]` | `e2e/session-disclosure.spec.ts`, `e2e/session-ical.spec.ts`, `e2e/zoom-join-authz.spec.ts`, `e2e/zoom-managed-join.spec.ts` |
 | 07-espacio-colaborativo | `/community/workspace` | `e2e/auth-lifecycle.spec.ts`, `e2e/community-document-links.spec.ts`, `e2e/meeting-create-and-access.spec.ts` |
@@ -188,7 +164,6 @@ Written by `scripts/redesign/inventory.mjs` from commit `58b8d169f`. For phase 3
 | 16-notificaciones | `/configuracion/notificaciones` | `e2e/notification-settings.spec.ts` |
 | 16-notificaciones | `/notifications` | `e2e/notification-settings.spec.ts` |
 | 19-sistema | `/admin/configuration` | `e2e/notification-settings.spec.ts` |
-| 19-sistema | `/brand-preview` | `e2e/footer-heading-order.spec.ts` |
 | 20-sitio-publico | `/equipo` | `e2e/footer-heading-order.spec.ts` |
 | 20-sitio-publico | `/nosotros` | `e2e/footer-heading-order.spec.ts` |
 | 20-sitio-publico | `/noticias` | `e2e/footer-heading-order.spec.ts` |

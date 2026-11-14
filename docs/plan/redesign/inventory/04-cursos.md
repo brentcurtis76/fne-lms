@@ -1,11 +1,11 @@
 # Cursos (course builder, upcoming courses, learning paths, assignment matrix)
 
 Area `04-cursos`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `58b8d169f` (2026-11-12).
+Read from commit `624684477` (2026-11-13).
 
 Course system: see the note on 03-aprendizaje.
 
-17 screen files, 30 API files, 48 pieces.
+15 screen files, 30 API files, 45 pieces.
 
 ## Screens
 
@@ -21,13 +21,11 @@ Course system: see the note on 03-aprendizaje.
 | `/admin/course-builder` | `pages/admin/course-builder/index.tsx` | 637 | Cursos › Constructor de Cursos |  |
 | `/admin/course-builder/new` | `pages/admin/course-builder/new.tsx` | 390 | — |  |
 | `/admin/courses/[id]/assign` | `pages/admin/courses/[id]/assign.tsx` | 929 | — |  |
-| `/admin/create-course` | `pages/admin/create-course.tsx` | 176 | — | Leftover (on the list for Brent) |
 | `/admin/learning-paths` | `pages/admin/learning-paths.tsx` | 306 | Cursos › Rutas de Aprendizaje |  |
 | `/admin/learning-paths/[id]/assign` | `pages/admin/learning-paths/[id]/assign.tsx` | 857 | — |  |
 | `/admin/learning-paths/[id]/edit` | `pages/admin/learning-paths/[id]/edit.tsx` | 479 | — |  |
 | `/admin/learning-paths/new` | `pages/admin/learning-paths/new.tsx` | 456 | — |  |
 | `/admin/upcoming-courses` | `pages/admin/upcoming-courses/index.tsx` | 588 | Cursos › Próximos Cursos |  |
-| `/creador-de-cursos` | `pages/creador-de-cursos.tsx` | 144 | — | Leftover (on the list for Brent) |
 
 ## /admin/assignment-matrix
 
@@ -148,7 +146,7 @@ File `pages/admin/course-builder/[courseId]/[moduleId]/[lessonId].tsx` · 1313 l
 - In the page:
   - l.86 `router.push → /login`
   - l.97 `adminInMetadata = metadataHasRole(session.user?.user_metadata, 'admin')`
-- Linked from: `pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:248`, `pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:291`, `pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:547`, `pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:587`, `pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:588`, `pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:595`, `pages/admin/debug/course-module-ids.tsx:229`, `pages/admin/debug/course-module-ids.tsx:237`, `pages/admin/debug/ids.tsx:169`, `pages/admin/debug/ids.tsx:177`, `pages/student/lesson/[lessonId].tsx:663`, `pages/student/lesson/[lessonId].tsx:665`
+- Linked from: `pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:248`, `pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:291`, `pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:547`, `pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:587`, `pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:588`, `pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:595`, `pages/student/lesson/[lessonId].tsx:663`, `pages/student/lesson/[lessonId].tsx:665`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -341,7 +339,7 @@ File `pages/admin/course-builder/[courseId]/[moduleId]/index.tsx` · 666 lines �
   - l.97 `userRole = await getUserPrimaryRole(session.user.id)`
   - l.107 `router.push → /dashboard  (when !adminFromMetadata && !adminFromProfile)`
   - l.112 `router.push → /login`
-- Linked from: `components/LessonBreadcrumb.tsx:122`, `components/LessonBreadcrumb.tsx:223`, `components/LessonBreadcrumb.tsx:224`, `pages/admin/course-builder/[courseId]/[moduleId]/[lessonId].tsx:862`, `pages/admin/course-builder/[courseId]/index.tsx:681`, `pages/admin/debug/course-module-ids.tsx:251`, `pages/admin/debug/ids.tsx:191`
+- Linked from: `components/LessonBreadcrumb.tsx:122`, `components/LessonBreadcrumb.tsx:223`, `components/LessonBreadcrumb.tsx:224`, `pages/admin/course-builder/[courseId]/[moduleId]/[lessonId].tsx:862`, `pages/admin/course-builder/[courseId]/index.tsx:681`
 - Tests: no browser test that CI runs.
 
 | Role | Sees it in the menu | Middleware |
@@ -694,7 +692,7 @@ File `pages/admin/course-builder/[courseId]/index.tsx` · 738 lines · frame: Ma
   - l.97 `adminFromMetadata = metadataHasRole(session.user.user_metadata, 'admin')`
   - l.98 `userRole = await getUserPrimaryRole(session.user.id)`
   - l.109 `router.push → /login`
-- Linked from: `components/LessonBreadcrumb.tsx:117`, `pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:473`, `pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:503`, `pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:540`, `pages/admin/course-builder/[courseId]/edit.tsx:235`, `pages/admin/course-builder/[courseId]/edit.tsx:444`, `pages/admin/course-builder/[courseId]/edit.tsx:456`, `pages/admin/course-builder/[courseId]/edit.tsx:648`, `pages/admin/course-builder/[courseId]/lesson/[lessonId].tsx:436`, `pages/admin/course-builder/[courseId]/lesson/[lessonId].tsx:439`, `pages/admin/course-builder/[courseId]/lesson/[lessonId].tsx:570`, `pages/admin/course-builder/index.tsx:613` and 3 more
+- Linked from: `components/LessonBreadcrumb.tsx:117`, `pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:473`, `pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:503`, `pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:540`, `pages/admin/course-builder/[courseId]/edit.tsx:235`, `pages/admin/course-builder/[courseId]/edit.tsx:444`, `pages/admin/course-builder/[courseId]/edit.tsx:456`, `pages/admin/course-builder/[courseId]/edit.tsx:648`, `pages/admin/course-builder/[courseId]/lesson/[lessonId].tsx:436`, `pages/admin/course-builder/[courseId]/lesson/[lessonId].tsx:439`, `pages/admin/course-builder/[courseId]/lesson/[lessonId].tsx:570`, `pages/admin/course-builder/index.tsx:613` and 2 more
 - Tests: no browser test that CI runs.
 
 | Role | Sees it in the menu | Middleware |
@@ -1009,7 +1007,7 @@ File `pages/admin/course-builder/index.tsx` · 637 lines · frame: MainLayout
   - l.109 `isAdmin = adminInMetadata \|\| hasAdminRoleInDB`
   - l.420 `router.push → /login`
   - l.452 `No tienes permiso para acceder a esta página.`
-- Linked from: `components/layout/Sidebar.tsx:249`, `lib/notifications/catalog.ts:380`, `pages/admin/bucket-test.tsx:106`, `pages/admin/course-builder/[courseId]/edit.tsx:427`, `pages/admin/course-builder/[courseId]/edit.tsx:443`, `pages/admin/course-builder/[courseId]/index.tsx:435`, `pages/admin/course-builder/[courseId]/index.tsx:487`, `pages/admin/course-builder/[courseId]/lesson/[lessonId].tsx:569`, `pages/admin/course-builder/new.tsx:205`, `pages/admin/course-builder/new.tsx:243`, `pages/admin/courses/[id]/assign.tsx:199`, `pages/admin/courses/[id]/assign.tsx:509` and 8 more
+- Linked from: `components/layout/Sidebar.tsx:249`, `lib/notifications/catalog.ts:380`, `pages/admin/course-builder/[courseId]/edit.tsx:427`, `pages/admin/course-builder/[courseId]/edit.tsx:443`, `pages/admin/course-builder/[courseId]/index.tsx:435`, `pages/admin/course-builder/[courseId]/index.tsx:487`, `pages/admin/course-builder/[courseId]/lesson/[lessonId].tsx:569`, `pages/admin/course-builder/new.tsx:205`, `pages/admin/course-builder/new.tsx:243`, `pages/admin/courses/[id]/assign.tsx:199`, `pages/admin/courses/[id]/assign.tsx:509`, `pages/admin/courses/[id]/assign.tsx:527` and 2 more
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 1.
 
@@ -1175,7 +1173,7 @@ File `pages/admin/course-builder/new.tsx` · 390 lines · frame: MainLayout
   - l.75 `router.push → /dashboard  (when !adminRole && !adminFromProfile)`
   - l.89 `router.push → /login`
   - l.223 `router.push → /login`
-- Linked from: `pages/admin/course-builder/index.tsx:578`, `pages/api/qa/seed-codebase-index.ts:97`, `pages/creador-de-cursos.tsx:108`
+- Linked from: `pages/admin/course-builder/index.tsx:578`, `pages/api/qa/seed-codebase-index.ts:97`
 - Tests: no browser test that CI runs.
 
 | Role | Sees it in the menu | Middleware |
@@ -1488,127 +1486,6 @@ File `pages/admin/courses/[id]/assign.tsx` · 929 lines · frame: MainLayout
 | `/api/courses/batch-assign` | POST | `pages/admin/courses/[id]/assign.tsx:303` |
 | `/api/courses/search-assignees` | POST | `pages/admin/courses/[id]/assign.tsx:213` |
 | `/api/courses/unassign` | DELETE | `pages/admin/courses/[id]/assign.tsx:362` |
-
-## /admin/create-course
-
-File `pages/admin/create-course.tsx` · 176 lines · frame: old Header
-
-**Leftover (on the list for Brent)** — An old form that writes a course and its modules straight into the database, with the old header. Admin only. The course builder replaced it.
-
-### Who reaches it
-
-- Menu: no entry.
-- Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
-- In the page: no access check found by the script.
-- Linked from: nothing in the code (reached by typing the address, or from outside)
-- Tests: no browser test that CI runs.
-
-| Role | Sees it in the menu | Middleware |
-|---|---|---|
-| admin | — | pass |
-| consultor | — | sent to /dashboard |
-| equipo_directivo | — | sent to /dashboard |
-| lider_generacion | — | sent to /dashboard |
-| lider_comunidad | — | sent to /dashboard |
-| supervisor_de_red | — | sent to /dashboard |
-| community_manager | — | sent to /dashboard |
-| docente | — | sent to /dashboard |
-| encargado_licitacion | — | sent to /dashboard |
-
-### What the page file itself draws
-
-**Titles** (1)
-
-| Text | Level | Shown when | Where |
-|---|---|---|---|
-| «Crear Nuevo Curso» | h1 |  | CreateCoursePage · l.101 |
-
-**Buttons** (1)
-
-| Text | Does | Shown when | Disabled when | Hook | Where |
-|---|---|---|---|---|---|
-| «Creando Curso... / Crear Curso» (submits the form) |  |  | `{isSubmitting}` |  | CreateCoursePage · l.160 |
-
-**Links** (2)
-
-| Text | Goes to | Shown when | Hook | Where |
-|---|---|---|---|---|
-| «Cancelar» | `/admin/course-builder` |  |  | CreateCoursePage · l.155 |
-| «Cancelar» |  |  |  | CreateCoursePage · l.156 |
-
-**Fields** (3)
-
-| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
-|---|---|---|---|---|---|---|
-| «Título del Curso *» | text | `title` · required |  |  | `id=title (id used by code)` | CreateCoursePage · l.108 |
-| «Descripción del Curso *» | textarea | `description` · required |  |  | `id=description (id used by code)` | CreateCoursePage · l.123 |
-| «Estado» | select | `status` | «Borrador (Draft)», «Publicado (Published)» |  | `id=status (id used by code)` | CreateCoursePage · l.138 |
-
-**Forms** (1)
-
-| On submit | Shown when | Where |
-|---|---|---|
-| `{handleSubmit}` |  | CreateCoursePage · l.103 |
-
-**Toasts** (3)
-
-| Kind | Text | When | Where |
-|---|---|---|---|
-| error | «Curso creado, pero falló la creación de módulos: {modulesError.message}» | `modulesError` | handleSubmit · l.78 |
-| success | «¡Curso y módulos iniciales creados exitosamente!» | `!(modulesError)` | handleSubmit · l.81 |
-| error | «Ocurrió un error al crear el curso.» |  | handleSubmit · l.90 |
-
-**Messages set on the page** (3)
-
-| Text | Set by | When | Where |
-|---|---|---|---|
-| «El título y la descripción son obligatorios.» | `setError` | `!title.trim() \|\| !description.trim()` | handleSubmit · l.24 |
-| «No se pudo crear el curso.» | `throw (shown by whoever catches it)` | `!courseData` | handleSubmit · l.52 |
-| «Ocurrió un error al crear el curso.» | `setError` |  | handleSubmit · l.89 |
-
-**Moves to another page from code** (1)
-
-| Goes to | How | When | Where |
-|---|---|---|---|
-| `/admin/course-builder/[*]` | `router.push` |  | handleSubmit · l.85 |
-
-**Pieces placed here, with the texts and settings handed to them** (1)
-
-| Piece | Texts and settings | Shown when | Hook | Where |
-|---|---|---|---|---|
-| `Header` |  |  |  | CreateCoursePage · l.98 |
-
-**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
-
-| Name | Texts | Where |
-|---|---|---|
-| `modulesToCreate` | «Módulo 1: Introducción», «Descripción inicial del Módulo 1.», «Módulo 2: Contenido Principal», «Descripción inicial del Módulo 2.» | handleSubmit · l.56 |
-
-**Values shown from data** (1)
-
-- `{error}` — CreateCoursePage · l.151, when `error`
-
-**Other texts on screen** (3)
-
-- «Título del Curso *» (label) — CreateCoursePage · l.105
-- «Descripción del Curso *» (label) — CreateCoursePage · l.120
-- «Estado» (label) — CreateCoursePage · l.135
-
-**Reads and writes the database directly:** `table:courses` (insert, select), `table:modules` (insert)
-
-### Pieces it uses (each is listed once, under "Pieces" below)
-
-- `components/layout/Header.tsx`
-- `components/notifications/NotificationBell.tsx`
-- `components/notifications/NotificationDropdown.tsx`
-
-### API addresses it calls
-
-| Address | Method | Called from |
-|---|---|---|
-| `/api/notifications` | GET | `components/notifications/NotificationBell.tsx:41` |
-| `/api/notifications/[id]/read` | POST | `components/notifications/NotificationBell.tsx:85` |
-| `/api/notifications/mark-all-read` | POST | `components/notifications/NotificationBell.tsx:113` |
 
 ## /admin/learning-paths
 
@@ -2394,105 +2271,6 @@ File `pages/admin/upcoming-courses/index.tsx` · 588 lines · frame: MainLayout
 | `/api/upcoming-courses` | POST | `pages/admin/upcoming-courses/index.tsx:149` |
 | `/api/upcoming-courses/[id]` | DELETE, PUT | `pages/admin/upcoming-courses/index.tsx:143`, `pages/admin/upcoming-courses/index.tsx:177`, `pages/admin/upcoming-courses/index.tsx:193` |
 | `/api/upcoming-courses/admin` | GET | `pages/admin/upcoming-courses/index.tsx:42` |
-
-## /creador-de-cursos
-
-File `pages/creador-de-cursos.tsx` · 144 lines · frame: old Header
-
-**Leftover (on the list for Brent)** — An old «Panel de Creador de Cursos» with the old header; its buttons lead nowhere useful.
-
-### Who reaches it
-
-- Menu: no entry.
-- Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
-- In the page:
-  - l.24 `router.push → /  (when !session?.user)`
-  - l.35 `router.push → /  (when userError)`
-  - l.40 `adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin')`
-  - l.53 `router.push → /  (when !adminRole && (profileError \|\| profileData?.role !== 'admin'))`
-  - l.64 `router.push → /`
-- Linked from: `lib/auth/forced-password-change.ts:141`, `middleware.ts:336`
-- Tests: no browser test that CI runs.
-
-| Role | Sees it in the menu | Middleware |
-|---|---|---|
-| admin | — | pass |
-| consultor | — | pass |
-| equipo_directivo | — | pass |
-| lider_generacion | — | pass |
-| lider_comunidad | — | pass |
-| supervisor_de_red | — | pass |
-| community_manager | — | pass |
-| docente | — | pass |
-| encargado_licitacion | — | pass |
-
-### What the page file itself draws
-
-**Titles** (4)
-
-| Text | Level | Shown when | Where |
-|---|---|---|---|
-| «Panel de Creador de Cursos» | h1 |  | CreadorDeCursos · l.96 |
-| «Crear Nuevo Curso» | h3 |  | CreadorDeCursos · l.105 |
-| «Gestionar Cursos» | h3 |  | CreadorDeCursos · l.116 |
-| «Estadísticas» | h3 |  | CreadorDeCursos · l.127 |
-
-**Buttons** (3)
-
-| Text | Does | Shown when | Disabled when | Hook | Where |
-|---|---|---|---|---|---|
-| «Crear Curso» | `{() => router.push('/admin/course-builder/new')}` |  |  |  | CreadorDeCursos · l.107 |
-| «Ver Cursos» | `{() => router.push('/admin/course-builder')}` |  |  |  | CreadorDeCursos · l.118 |
-| «Próximamente» |  |  | `true` |  | CreadorDeCursos · l.129 |
-
-**Moves to another page from code** (6)
-
-| Goes to | How | When | Where |
-|---|---|---|---|
-| `/` | `router.push` | `!session?.user` | checkAdminAccess · l.24 |
-| `/` | `router.push` | `userError` | checkAdminAccess · l.35 |
-| `/` | `router.push` | `!adminRole && (profileError \|\| profileData?.role !== 'admin')` | checkAdminAccess · l.53 |
-| `/` | `router.push` |  | checkAdminAccess · l.64 |
-| `/admin/course-builder/new` | `router.push` |  | CreadorDeCursos · l.108 |
-| `/admin/course-builder` | `router.push` |  | CreadorDeCursos · l.119 |
-
-**Access checks in the code** (1)
-
-| Line of code | Where |
-|---|---|
-| `adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin')` | checkAdminAccess · l.40 |
-
-**Pieces placed here, with the texts and settings handed to them** (1)
-
-| Piece | Texts and settings | Shown when | Hook | Where |
-|---|---|---|---|---|
-| `Header` |  |  |  | CreadorDeCursos · l.89 |
-
-**Other texts on screen** (6)
-
-- «Verificando permisos...» — CreadorDeCursos · l.76, when `loading`
-- «Cursos - Genera» — CreadorDeCursos · l.85
-- «Bienvenido al panel de creador de cursos. Desde aquí podrás crear, editar y gestionar los cursos de la plataforma.» — CreadorDeCursos · l.100
-- «Crea un nuevo curso desde cero con todos los detalles necesarios.» — CreadorDeCursos · l.106
-- «Edita, actualiza o elimina cursos existentes en la plataforma.» — CreadorDeCursos · l.117
-- «Visualiza estadísticas sobre los cursos y su uso en la plataforma.» — CreadorDeCursos · l.128
-
-**Reads and writes the database directly:** `table:profiles` (select)
-
-### Pieces it uses (each is listed once, under "Pieces" below)
-
-- `components/layout/Header.tsx`
-- `components/notifications/NotificationBell.tsx`
-- `components/notifications/NotificationDropdown.tsx`
-- `types/roles.ts`
-
-### API addresses it calls
-
-| Address | Method | Called from |
-|---|---|---|
-| `/api/notifications` | GET | `components/notifications/NotificationBell.tsx:41` |
-| `/api/notifications/[id]/read` | POST | `components/notifications/NotificationBell.tsx:85` |
-| `/api/notifications/mark-all-read` | POST | `components/notifications/NotificationBell.tsx:113` |
 
 ## Pieces
 
@@ -4430,144 +4208,6 @@ Used by: `/admin/course-builder/[courseId]/[moduleId]/[lessonId]`, `/admin/cours
 - `{children}` — MobileFunctionalPageHeader · l.159, when `children`
 - `{subtitle}` — MobileFunctionalPageHeader · l.168, when `subtitle`
 
-### components/layout/Header.tsx
-
-Used by: `/admin/create-course`, `/creador-de-cursos`
-
-**Links** (4)
-
-| Text | Goes to | Shown when | Hook | Where |
-|---|---|---|---|---|
-| «Hub de Transformación» | `/` |  |  | Header · l.62 |
-| «Hub de Transformación» |  |  |  | Header · l.63 |
-| «Iniciar Sesión» | `/login` | `!(isLoggedIn)` |  | Header · l.96 |
-| «Iniciar Sesión» |  | `!(isLoggedIn)` |  | Header · l.97 |
-
-**Pieces placed here, with the texts and settings handed to them** (1)
-
-| Piece | Texts and settings | Shown when | Hook | Where |
-|---|---|---|---|---|
-| `NotificationBell` |  | `isLoggedIn` |  | Header · l.85 |
-
-**Other texts on screen** (3)
-
-- «Sin colegio» (title) — Header · l.71, screen size: `hidden sm:flex`
-- «{schoolName} / Sin colegio» — Header · l.71, screen size: `hidden sm:flex`
-- «{localUser?.email?.substring(0, 2).t…} / US» — Header · l.89, when `isLoggedIn`
-
-**Reads and writes the database directly:** `table:profiles` (select)
-
-### components/notifications/NotificationBell.tsx
-
-Used by: `/admin/create-course`, `/creador-de-cursos`
-
-**Buttons** (1)
-
-| Text | Does | Shown when | Disabled when | Hook | Where |
-|---|---|---|---|---|---|
-| «[99+ / {unreadCount}]» · aria «{`Notificaciones${unreadCount > 0 ? ` (${unreadCount} ${unreadCount === 1 ? 'no …}» | `{handleBellClick}` |  |  |  | NotificationBell · l.180 |
-
-**Pieces placed here, with the texts and settings handed to them** (1)
-
-| Piece | Texts and settings | Shown when | Hook | Where |
-|---|---|---|---|---|
-| `NotificationDropdown` |  | `isOpen` |  | NotificationBell · l.223 |
-
-**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
-
-| Name | Texts | Where |
-|---|---|---|
-| `LOAD_ERROR` | «No se pudieron cargar las notificaciones» | l.9 |
-
-**Other texts written in the code (safety net: not tied to an element by the script)** (4)
-
-| Text | Where |
-|---|---|
-| «Bearer {session.access_token}» | NotificationBell · l.43 |
-| «{LOAD_ERROR} (código {response.status}).» | NotificationBell · l.50 |
-| «no leída» | NotificationBell · l.192 |
-| «no leídas» | NotificationBell · l.192 |
-
-**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (3)
-
-| Kind | What | Where |
-|---|---|---|
-| timer | `setTimeout(…, 2000)` | fetchNotifications · l.62 |
-| listener | `document.addEventListener('mousedown')` | NotificationBell · l.149 |
-| timer | `setInterval(…, REFRESH_INTERVAL)` | NotificationBell · l.161 |
-
-### components/notifications/NotificationDropdown.tsx
-
-Used by: `/admin/create-course`, `/creador-de-cursos`
-
-**Titles** (1)
-
-| Text | Level | Shown when | Where |
-|---|---|---|---|
-| «Notificaciones» | h3 |  | NotificationDropdown · l.182 |
-
-**Buttons** (4)
-
-| Text | Does | Shown when | Disabled when | Hook | Where |
-|---|---|---|---|---|---|
-| «[icon RefreshIcon]» · tooltip «Actualizar» | `{onRefresh}` |  | `{loading}` |  | NotificationDropdown · l.199 |
-| «Marcar todas como leídas» | `{onMarkAllAsRead}` | `unreadCount > 0` |  |  | NotificationDropdown · l.210 |
-| «Intentar de nuevo» | `{onRefresh}` | `error` |  |  | NotificationDropdown · l.244 |
-| «Ver todas las notificaciones» | `{handleViewAll}` | `notifications.length > 0` |  |  | NotificationDropdown · l.357 |
-
-**Links** (1)
-
-| Text | Goes to | Shown when | Hook | Where |
-|---|---|---|---|---|
-| «[icon CogIcon]» · aria «Configuración de notificaciones» | `/configuracion/notificaciones` |  | `testid=notification-dropdown-settings` | NotificationDropdown · l.187 |
-
-**Other things that react to a click** (1)
-
-| Element | Text | Does | Shown when | Where |
-|---|---|---|---|---|
-| `div` | «{notification.title} [{notification.description}] {getRelativeTime(notification.create…} [[Admin] [Tareas] [Cursos] [Me…» | `{() => handleNotificationClick(notification)}` | `!loading && !error && notifications.length > 0 && each notifications` | NotificationDropdown · l.268 |
-
-**Toasts** (1)
-
-| Kind | Text | When | Where |
-|---|---|---|---|
-| error | «Sesión no válida» | `notification.related_url && !session?.user` | handleNotificationClick · l.106 |
-
-**Moves to another page from code** (4)
-
-| Goes to | How | When | Where |
-|---|---|---|---|
-| `{notification.related_url!}` | `router.push` | `notification.related_url` | handleNotificationClick · l.116 |
-| `{notification.related_url}` | `router.push` | `notification.related_url && notification.related_url` | handleNotificationClick · l.126 |
-| `{fallbackUrl}` | `router.push` | `!(notification.related_url)` | handleNotificationClick · l.166 |
-| `/notifications` | `router.push` |  | handleViewAll · l.174 |
-
-**Pieces placed here, with the texts and settings handed to them** (1)
-
-| Piece | Texts and settings | Shown when | Hook | Where |
-|---|---|---|---|---|
-| `CogIcon` | aria-hidden: true |  |  | NotificationDropdown · l.195 |
-
-**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
-
-| Name | Texts | Where |
-|---|---|---|
-| `getRelativeTime()` | «ahora mismo», «hace {minutes} min», «hace {hours}h», «hace {days}d» | getRelativeTime · l.82 |
-
-**Values shown from data** (4)
-
-- `{error}` — NotificationDropdown · l.243, when `error`
-- `{notification.title}` — NotificationDropdown · l.295, when `!loading && !error && notifications.length > 0 && each notifications`
-- `{notification.description}` — NotificationDropdown · l.303, when `!loading && !error && notifications.length > 0 && each notifications && notification.description`
-- `{getRelativeTime(notification.create…}` — NotificationDropdown · l.312, when `!loading && !error && notifications.length > 0 && each notifications`
-
-**Other texts on screen** (4)
-
-- «{unreadCount} notificación es sin leer» — NotificationDropdown · l.223, when `unreadCount > 0`
-- «Cargando notificaciones...» — NotificationDropdown · l.235, when `loading && notifications.length === 0`
-- «No tienes notificaciones» — NotificationDropdown · l.257, when `!loading && !error && notifications.length === 0`
-- «[Admin] [Tareas] [Cursos] [Mensajes] [Social] [Feedback] [Sistema] [Workspace]» — NotificationDropdown · l.318, when `!loading && !error && notifications.length > 0 && each notifications && notification.notification_type`
-
 ### components/ui/button.tsx
 
 Used by: `/admin/course-builder/[courseId]/[moduleId]/[lessonId]`, `/admin/course-builder/[courseId]/lesson/[lessonId]`
@@ -4735,7 +4375,7 @@ Used by: `/admin/course-builder/[courseId]/[moduleId]/[lessonId]`, `/admin/cours
 
 ### types/roles.ts
 
-Used by: `/admin/assignment-matrix`, `/admin/course-builder/[courseId]/[moduleId]/[lessonId]`, `/admin/course-builder/[courseId]/[moduleId]`, `/admin/course-builder/[courseId]/edit`, `/admin/course-builder/[courseId]`, `/admin/course-builder/[courseId]/lesson/[lessonId]`, `/admin/course-builder`, `/admin/course-builder/new`, `/admin/courses/[id]/assign`, `/admin/learning-paths`, `/admin/learning-paths/[id]/assign`, `/admin/learning-paths/[id]/edit`, `/admin/learning-paths/new`, `/admin/upcoming-courses`, `/creador-de-cursos`
+Used by: `/admin/assignment-matrix`, `/admin/course-builder/[courseId]/[moduleId]/[lessonId]`, `/admin/course-builder/[courseId]/[moduleId]`, `/admin/course-builder/[courseId]/edit`, `/admin/course-builder/[courseId]`, `/admin/course-builder/[courseId]/lesson/[lessonId]`, `/admin/course-builder`, `/admin/course-builder/new`, `/admin/courses/[id]/assign`, `/admin/learning-paths`, `/admin/learning-paths/[id]/assign`, `/admin/learning-paths/[id]/edit`, `/admin/learning-paths/new`, `/admin/upcoming-courses`
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (3)
 
@@ -4806,8 +4446,8 @@ Used by: `/admin/course-builder/[courseId]/[moduleId]/[lessonId]`, `/admin/cours
 | `/api/courses/complete` | `pages/api/courses/complete.ts` | POST | **no screen** |  |
 | `/api/courses/search-assignees` | `pages/api/courses/search-assignees.ts` | POST | `/admin/assignment-matrix`, `/admin/courses/[id]/assign` | `components/admin/assignment-matrix/BatchAssignModal.tsx`, `pages/admin/courses/[id]/assign.tsx` |
 | `/api/courses/unassign` | `pages/api/courses/unassign.ts` | DELETE | `/admin/assignment-matrix`, `/admin/courses/[id]/assign` | `components/admin/assignment-matrix/hooks/useAssignmentMatrix.ts`, `pages/admin/courses/[id]/assign.tsx` |
-| `/api/learning-paths/[id]` | `pages/api/learning-paths/[id].ts` | DELETE, GET, PUT | `/admin/learning-paths`, `/admin/learning-paths/[id]/assign`, `/admin/learning-paths/[id]/edit`, `/mi-aprendizaje/ruta/[id]`, `/my-paths/[id]` | `__tests__/api/learning-paths/governance-boundary.test.ts`, `__tests__/api/learning-paths/management-routes-boundary.test.ts`, `lib/services/learningPathSessionTracker.ts`, `pages/admin/learning-paths.tsx`, `pages/admin/learning-paths/[id]/assign.tsx` +5 |
-| `/api/learning-paths/[id]/enhanced-progress` | `pages/api/learning-paths/[id]/enhanced-progress.ts` | GET | `/mi-aprendizaje/ruta/[id]`, `/my-paths/[id]` | `__tests__/api/learning-paths/enhanced-progress.test.ts`, `pages/mi-aprendizaje/ruta/[id].tsx`, `pages/my-paths/[id].tsx`, `tests/e2e/learning-path-governance.spec.ts` |
+| `/api/learning-paths/[id]` | `pages/api/learning-paths/[id].ts` | DELETE, GET, PUT | `/admin/learning-paths`, `/admin/learning-paths/[id]/assign`, `/admin/learning-paths/[id]/edit`, `/mi-aprendizaje/ruta/[id]` | `__tests__/api/learning-paths/governance-boundary.test.ts`, `__tests__/api/learning-paths/management-routes-boundary.test.ts`, `lib/services/learningPathSessionTracker.ts`, `pages/admin/learning-paths.tsx`, `pages/admin/learning-paths/[id]/assign.tsx` +4 |
+| `/api/learning-paths/[id]/enhanced-progress` | `pages/api/learning-paths/[id]/enhanced-progress.ts` | GET | `/mi-aprendizaje/ruta/[id]` | `__tests__/api/learning-paths/enhanced-progress.test.ts`, `pages/mi-aprendizaje/ruta/[id].tsx`, `tests/e2e/learning-path-governance.spec.ts` |
 | `/api/learning-paths/analytics` | `pages/api/learning-paths/analytics.ts` | GET | `/reports` | `__tests__/api/learning-paths/analytics-contract.test.ts`, `__tests__/api/learning-paths/governance-boundary.test.ts`, `components/reports/LearningPathAnalytics.tsx`, `tests/e2e/learning-path-governance.spec.ts` |
 | `/api/learning-paths/assign` | `pages/api/learning-paths/assign.ts` | POST | **no screen** | `__tests__/api/learning-paths/governance-boundary.test.ts`, `tests/e2e/learning-path-governance.spec.ts` |
 | `/api/learning-paths/assignments/[id]` | `pages/api/learning-paths/assignments/[id].ts` | DELETE, GET | **no screen** | `__tests__/api/learning-paths/management-routes-boundary.test.ts` |

@@ -1,0 +1,1346 @@
+{
+ "area": "09-vias-transformacion",
+ "name": "Vías de Transformación (to be deleted)",
+ "note": "Brent, 13 Nov 2026: Vías de Transformación is going to be deleted from the platform. Its screens are listed with their address and who reaches them, and nothing else. Which files go is confirmed with him on the leftover list.",
+ "routesOnly": true,
+ "readFrom": {
+  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
+  "date": "2026-11-12T23:31:39-03:00"
+ },
+ "screens": [
+  {
+   "file": "pages/admin/transformation.tsx",
+   "route": "/admin/transformation",
+   "lines": 462,
+   "marks": {
+    "toDelete": "Part of Vías de Transformación.",
+    "decision": "Goes with Vías (Brent, 13 Nov 2026)"
+   },
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "the /admin rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     }
+    },
+    "inPage": [
+     {
+      "line": 45,
+      "text": "router.push → /login  (when !session)"
+     },
+     {
+      "line": 60,
+      "text": "router.push → /  (when !hasAdminRole)"
+     }
+    ],
+    "linkedFrom": [],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "api": []
+  },
+  {
+   "file": "pages/admin/transformation/assessments.tsx",
+   "route": "/admin/transformation/assessments",
+   "lines": 550,
+   "marks": {
+    "toDelete": "Part of Vías de Transformación.",
+    "decision": "Goes with Vías (Brent, 13 Nov 2026)"
+   },
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [
+     {
+      "id": "vias-admin-todas",
+      "label": "Todas las Evaluaciones",
+      "group": "Vías de Transformación",
+      "href": "/admin/transformation/assessments",
+      "gates": "admin only",
+      "groupGates": "admin only",
+      "line": 349
+     }
+    ],
+    "middleware": {
+     "rule": "the /admin rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "equipo_directivo": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "community_manager": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "docente": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     }
+    },
+    "inPage": [
+     {
+      "line": 102,
+      "text": "router.push → /login  (when !session)"
+     },
+     {
+      "line": 118,
+      "text": "router.push → /  (when !hasAdminRole)"
+     }
+    ],
+    "linkedFrom": [
+     "components/layout/Sidebar.tsx:351"
+    ],
+    "qaScenarios": {
+     "admin": [
+      "SV-43: Admin ve Todas las Evaluaciones en sidebar"
+     ]
+    },
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "api": [
+    {
+     "file": "pages/api/admin/transformation-assessments.ts",
+     "route": "/api/admin/transformation-assessments",
+     "methods": [],
+     "from": [
+      "pages/admin/transformation/assessments.tsx:129"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/admin/transformation/metrics.tsx",
+   "route": "/admin/transformation/metrics",
+   "lines": 346,
+   "marks": {
+    "toDelete": "Part of Vías de Transformación.",
+    "decision": "Goes with Vías (Brent, 13 Nov 2026)"
+   },
+   "frame": "none",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "the /admin rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     }
+    },
+    "inPage": [
+     {
+      "line": 45,
+      "text": "server redirect → /auth/login?redirect=/admin/transformation/metrics  (when !user)"
+     },
+     {
+      "line": 61,
+      "text": "isAdmin = roles.has('admin') || roles.has('consultor')"
+     },
+     {
+      "line": 70,
+      "text": "server redirect → /403  (when !isAdmin && !(env !== 'production'))"
+     }
+    ],
+    "linkedFrom": [
+     "pages/community/workspace/transformation/evaluate.tsx:481",
+     "pages/community/workspace/transformation/evaluate.tsx:482"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": [
+      "__tests__/lib/api-auth.server-side-user.test.ts"
+     ]
+    }
+   },
+   "api": [
+    {
+     "file": "pages/api/transformation/assessments.ts",
+     "route": "/api/transformation/assessments",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "pages/admin/transformation/metrics.tsx:147"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/community/transformation/assessment.tsx",
+   "route": "/community/transformation/assessment",
+   "lines": 1255,
+   "marks": {
+    "toDelete": "Part of Vías de Transformación.",
+    "decision": "Goes with Vías (Brent, 13 Nov 2026)"
+   },
+   "frame": "none",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 168,
+      "text": "router.push → /login  (when !authLoading && !user)"
+     }
+    ],
+    "linkedFrom": [
+     "pages/community/transformation/report.tsx:145",
+     "pages/community/transformation/report.tsx:62",
+     "pages/community/transformation/results/[assessmentId].tsx:166"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "api": [
+    {
+     "file": "pages/api/transformation/area-questions.ts",
+     "route": "/api/transformation/area-questions",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/transformation/SequentialQuestions.tsx:98"
+     ]
+    },
+    {
+     "file": "pages/api/transformation/assessments.ts",
+     "route": "/api/transformation/assessments",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "pages/community/transformation/assessment.tsx:332"
+     ]
+    },
+    {
+     "file": "pages/api/transformation/assessments/[id].ts",
+     "route": "/api/transformation/assessments/[id]",
+     "methods": [
+      "PATCH"
+     ],
+     "from": [
+      "components/transformation/SequentialQuestions.tsx:225",
+      "pages/community/transformation/assessment.tsx:568"
+     ]
+    },
+    {
+     "file": "pages/api/transformation/assessments/[id]/evaluate.ts",
+     "route": "/api/transformation/assessments/[id]/evaluate",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "pages/community/transformation/assessment.tsx:712"
+     ]
+    },
+    {
+     "file": "pages/api/transformation/assessments/[id]/evaluate-objective.ts",
+     "route": "/api/transformation/assessments/[id]/evaluate-objective",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "components/transformation/SequentialQuestions.tsx:282"
+     ]
+    },
+    {
+     "file": "pages/api/transformation/assessments/[id]/finalize.ts",
+     "route": "/api/transformation/assessments/[id]/finalize",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "components/transformation/SequentialQuestions.tsx:503",
+      "pages/community/transformation/assessment.tsx:768"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/community/transformation/report.tsx",
+   "route": "/community/transformation/report",
+   "lines": 334,
+   "marks": {
+    "toDelete": "Part of Vías de Transformación.",
+    "decision": "Goes with Vías (Brent, 13 Nov 2026)"
+   },
+   "frame": "none",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "api": []
+  },
+  {
+   "file": "pages/community/transformation/results/[assessmentId].tsx",
+   "route": "/community/transformation/results/[assessmentId]",
+   "lines": 698,
+   "marks": {
+    "toDelete": "Part of Vías de Transformación.",
+    "decision": "Goes with Vías (Brent, 13 Nov 2026)"
+   },
+   "frame": "none",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 101,
+      "text": "server redirect → /login?redirect=/community/transformation/results/[*]  (when !user)"
+     }
+    ],
+    "linkedFrom": [],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": [
+      "__tests__/lib/api-auth.server-side-user.test.ts"
+     ]
+    }
+   },
+   "api": [
+    {
+     "file": "pages/api/transformation/assessments/[id]/evaluate.ts",
+     "route": "/api/transformation/assessments/[id]/evaluate",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "pages/community/transformation/results/[assessmentId].tsx:262"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/community/workspace/transformation/evaluate.tsx",
+   "route": "/community/workspace/transformation/evaluate",
+   "lines": 498,
+   "marks": {
+    "toDelete": "Part of Vías de Transformación.",
+    "decision": "Goes with Vías (Brent, 13 Nov 2026)"
+   },
+   "frame": "none",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "the workspace rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     }
+    },
+    "inPage": [
+     {
+      "line": 51,
+      "text": "server redirect → /auth/login?redirect=/community/workspace/transformation/evaluate  (when !user)"
+     }
+    ],
+    "linkedFrom": [
+     "pages/admin/transformation/metrics.tsx:157"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": [
+      "__tests__/lib/api-auth.server-side-user.test.ts"
+     ]
+    }
+   },
+   "api": [
+    {
+     "file": "pages/api/transformation/chat.ts",
+     "route": "/api/transformation/chat",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "hooks/useTransformationChat.ts:134",
+      "hooks/useTransformationChat.ts:74"
+     ]
+    },
+    {
+     "file": "pages/api/transformation/history.ts",
+     "route": "/api/transformation/history",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/community/workspace/transformation/evaluate.tsx:153"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/test/sequential-questions.tsx",
+   "route": "/test/sequential-questions",
+   "lines": 41,
+   "marks": {
+    "toDelete": "A test page for the Vías question flow.",
+    "decision": "Goes with Vías (Brent, 13 Nov 2026)"
+   },
+   "frame": "none",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "not covered",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": false
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "api": [
+    {
+     "file": "pages/api/transformation/area-questions.ts",
+     "route": "/api/transformation/area-questions",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/transformation/SequentialQuestions.tsx:98"
+     ]
+    },
+    {
+     "file": "pages/api/transformation/assessments/[id].ts",
+     "route": "/api/transformation/assessments/[id]",
+     "methods": [
+      "PATCH"
+     ],
+     "from": [
+      "components/transformation/SequentialQuestions.tsx:225"
+     ]
+    },
+    {
+     "file": "pages/api/transformation/assessments/[id]/evaluate-objective.ts",
+     "route": "/api/transformation/assessments/[id]/evaluate-objective",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "components/transformation/SequentialQuestions.tsx:282"
+     ]
+    },
+    {
+     "file": "pages/api/transformation/assessments/[id]/finalize.ts",
+     "route": "/api/transformation/assessments/[id]/finalize",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "components/transformation/SequentialQuestions.tsx:503"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/vias-transformacion/[id].tsx",
+   "route": "/vias-transformacion/[id]",
+   "lines": 957,
+   "marks": {
+    "toDelete": "Part of Vías de Transformación.",
+    "decision": "Goes with Vías (Brent, 13 Nov 2026)"
+   },
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "not covered",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": false
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 190,
+      "text": "router.push → /login  (when !authLoading && !user)"
+     }
+    ],
+    "linkedFrom": [
+     "pages/admin/transformation/assessments.tsx:409",
+     "pages/admin/transformation/assessments.tsx:436",
+     "pages/vias-transformacion/index.tsx:168",
+     "pages/vias-transformacion/index.tsx:365",
+     "pages/vias-transformacion/index.tsx:389"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "api": [
+    {
+     "file": "pages/api/transformation/area-questions.ts",
+     "route": "/api/transformation/area-questions",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/transformation/SequentialQuestions.tsx:98"
+     ]
+    },
+    {
+     "file": "pages/api/transformation/assessments/[id].ts",
+     "route": "/api/transformation/assessments/[id]",
+     "methods": [
+      "PATCH"
+     ],
+     "from": [
+      "components/transformation/SequentialQuestions.tsx:225"
+     ]
+    },
+    {
+     "file": "pages/api/transformation/assessments/[id]/evaluate.ts",
+     "route": "/api/transformation/assessments/[id]/evaluate",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "pages/vias-transformacion/[id].tsx:382"
+     ]
+    },
+    {
+     "file": "pages/api/transformation/assessments/[id]/evaluate-objective.ts",
+     "route": "/api/transformation/assessments/[id]/evaluate-objective",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "components/transformation/SequentialQuestions.tsx:282"
+     ]
+    },
+    {
+     "file": "pages/api/transformation/assessments/[id]/finalize.ts",
+     "route": "/api/transformation/assessments/[id]/finalize",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "components/transformation/SequentialQuestions.tsx:503",
+      "pages/vias-transformacion/[id].tsx:426"
+     ]
+    },
+    {
+     "file": "pages/api/vias-transformacion/[id]/index.ts",
+     "route": "/api/vias-transformacion/[id]",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/vias-transformacion/[id].tsx:213",
+      "pages/vias-transformacion/[id].tsx:458"
+     ]
+    },
+    {
+     "file": "pages/api/vias-transformacion/[id]/collaborators.ts",
+     "route": "/api/vias-transformacion/[id]/collaborators",
+     "methods": [
+      "DELETE",
+      "POST"
+     ],
+     "from": [
+      "pages/vias-transformacion/[id].tsx:497",
+      "pages/vias-transformacion/[id].tsx:530"
+     ]
+    },
+    {
+     "file": "pages/api/vias-transformacion/eligible-collaborators.ts",
+     "route": "/api/vias-transformacion/eligible-collaborators",
+     "methods": [],
+     "from": [
+      "components/transformation/CollaboratorSelector.tsx:45"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/vias-transformacion/index.tsx",
+   "route": "/vias-transformacion",
+   "lines": 532,
+   "marks": {
+    "toDelete": "Part of Vías de Transformación.",
+    "decision": "Goes with Vías (Brent, 13 Nov 2026)"
+   },
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [
+     {
+      "id": "vias-transformacion",
+      "label": "Vías de Transformación",
+      "group": null,
+      "href": "/vias-transformacion",
+      "gates": "admin only",
+      "line": 328
+     },
+     {
+      "id": "vias-mis-evaluaciones",
+      "label": "Mis Evaluaciones",
+      "group": "Vías de Transformación",
+      "href": "/vias-transformacion",
+      "gates": "everyone signed in",
+      "groupGates": "admin only",
+      "line": 336
+     }
+    ],
+    "middleware": {
+     "rule": "not covered",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": false
+    },
+    "roles": {
+     "admin": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "no",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 27,
+      "text": "ALLOWED_ROLES = ['admin']"
+     },
+     {
+      "line": 244,
+      "text": "Solo administradores pueden acceder a las Vías de Transformación."
+     },
+     {
+      "line": 247,
+      "text": "router.push → /  (when hasPermission === false)"
+     }
+    ],
+    "linkedFrom": [
+     "components/DynamicFavicon.tsx:43",
+     "components/layout/Sidebar.tsx:331",
+     "components/layout/Sidebar.tsx:338",
+     "pages/vias-transformacion/[id].tsx:594",
+     "pages/vias-transformacion/[id].tsx:626"
+    ],
+    "qaScenarios": {
+     "admin": [
+      "SV-39: Admin ve Vías de Transformación (parent) en sidebar",
+      "SV-40: Admin ve Mis Evaluaciones en sidebar",
+      "SV-41: Admin ve Contexto Transversal (Vías) en sidebar",
+      "SV-42: Admin ve Panel de Resultados en sidebar",
+      "SV-43: Admin ve Todas las Evaluaciones en sidebar"
+     ],
+     "community_manager": [
+      "CM no puede acceder Vías Transformación"
+     ],
+     "equipo_directivo": [
+      "CA-11: Equipo Directivo visualiza dashboard de resultados escolares",
+      "SV-26: Equipo Directivo puede acceder a páginas por URL directa sin link en sidebar"
+     ]
+    },
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "api": [
+    {
+     "file": "pages/api/vias-transformacion/index.ts",
+     "route": "/api/vias-transformacion",
+     "methods": [
+      "GET",
+      "POST"
+     ],
+     "from": [
+      "components/transformation/AssessmentSetupModal.tsx:70",
+      "pages/vias-transformacion/index.tsx:110"
+     ]
+    },
+    {
+     "file": "pages/api/vias-transformacion/eligible-collaborators.ts",
+     "route": "/api/vias-transformacion/eligible-collaborators",
+     "methods": [],
+     "from": [
+      "components/transformation/CollaboratorSelector.tsx:45"
+     ]
+    }
+   ]
+  }
+ ],
+ "pieces": {},
+ "api": [
+  {
+   "file": "pages/api/admin/transformation-assessments.ts",
+   "route": "/api/admin/transformation-assessments",
+   "methods": [
+    "GET"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/admin/transformation/assessments"
+   ],
+   "referencedIn": [
+    "__tests__/api/admin/transformation-assessments.test.ts",
+    "__tests__/api/forged-session-sweep.test.ts",
+    "pages/admin/transformation/assessments.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/admin/transformation/assign-access.ts",
+   "route": "/api/admin/transformation/assign-access",
+   "methods": [
+    "POST"
+   ],
+   "guards": [],
+   "calledBy": [],
+   "referencedIn": [
+    "__tests__/api/forged-session-sweep.test.ts"
+   ]
+  },
+  {
+   "file": "pages/api/admin/transformation/revoke-access.ts",
+   "route": "/api/admin/transformation/revoke-access",
+   "methods": [
+    "POST"
+   ],
+   "guards": [],
+   "calledBy": [],
+   "referencedIn": [
+    "__tests__/api/forged-session-sweep.test.ts"
+   ]
+  },
+  {
+   "file": "pages/api/transformation/area-questions.ts",
+   "route": "/api/transformation/area-questions",
+   "methods": [
+    "GET"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/community/transformation/assessment",
+    "/test/sequential-questions",
+    "/vias-transformacion/[id]"
+   ],
+   "referencedIn": [
+    "components/transformation/SequentialQuestions.tsx",
+    "pages/api/transformation/personalizacion-questions.ts"
+   ]
+  },
+  {
+   "file": "pages/api/transformation/assessments.ts",
+   "route": "/api/transformation/assessments",
+   "methods": [
+    "POST"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/admin/transformation/metrics",
+    "/community/transformation/assessment"
+   ],
+   "referencedIn": [
+    "__tests__/api/forged-session-sweep.test.ts",
+    "pages/admin/transformation/metrics.tsx",
+    "pages/community/transformation/assessment.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/transformation/assessments/[id].ts",
+   "route": "/api/transformation/assessments/[id]",
+   "methods": [
+    "PATCH"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/community/transformation/assessment",
+    "/test/sequential-questions",
+    "/vias-transformacion/[id]"
+   ],
+   "referencedIn": [
+    "__tests__/api/forged-session-sweep.test.ts",
+    "components/transformation/SequentialQuestions.tsx",
+    "pages/community/transformation/assessment.tsx",
+    "supabase/migrations/20261009120000_transformation_school_scope.sql"
+   ]
+  },
+  {
+   "file": "pages/api/transformation/assessments/[id]/evaluate-objective.ts",
+   "route": "/api/transformation/assessments/[id]/evaluate-objective",
+   "methods": [
+    "POST"
+   ],
+   "guards": [
+    "auth.getUser"
+   ],
+   "calledBy": [
+    "/community/transformation/assessment",
+    "/test/sequential-questions",
+    "/vias-transformacion/[id]"
+   ],
+   "referencedIn": [
+    "__tests__/api/transformation/assessment-verified-identity.test.ts",
+    "components/transformation/SequentialQuestions.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/transformation/assessments/[id]/evaluate.ts",
+   "route": "/api/transformation/assessments/[id]/evaluate",
+   "methods": [
+    "POST"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/community/transformation/assessment",
+    "/community/transformation/results/[assessmentId]",
+    "/vias-transformacion/[id]"
+   ],
+   "referencedIn": [
+    "__tests__/api/forged-session-sweep.test.ts",
+    "pages/community/transformation/assessment.tsx",
+    "pages/community/transformation/results/[assessmentId].tsx",
+    "pages/vias-transformacion/[id].tsx"
+   ]
+  },
+  {
+   "file": "pages/api/transformation/assessments/[id]/finalize.ts",
+   "route": "/api/transformation/assessments/[id]/finalize",
+   "methods": [
+    "POST"
+   ],
+   "guards": [
+    "auth.getUser"
+   ],
+   "calledBy": [
+    "/community/transformation/assessment",
+    "/test/sequential-questions",
+    "/vias-transformacion/[id]"
+   ],
+   "referencedIn": [
+    "__tests__/api/transformation/assessment-verified-identity.test.ts",
+    "components/transformation/SequentialQuestions.tsx",
+    "pages/community/transformation/assessment.tsx",
+    "pages/vias-transformacion/[id].tsx"
+   ]
+  },
+  {
+   "file": "pages/api/transformation/assessments/[id]/responses.ts",
+   "route": "/api/transformation/assessments/[id]/responses",
+   "methods": [
+    "GET",
+    "PUT"
+   ],
+   "guards": [],
+   "calledBy": [],
+   "referencedIn": [
+    "__tests__/api/forged-session-sweep.test.ts"
+   ]
+  },
+  {
+   "file": "pages/api/transformation/chat.ts",
+   "route": "/api/transformation/chat",
+   "methods": [
+    "POST"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/community/workspace/transformation/evaluate"
+   ],
+   "referencedIn": [
+    "__tests__/api/transformation/forged-session.test.ts",
+    "hooks/useTransformationChat.ts"
+   ]
+  },
+  {
+   "file": "pages/api/transformation/history.ts",
+   "route": "/api/transformation/history",
+   "methods": [
+    "GET"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/community/workspace/transformation/evaluate"
+   ],
+   "referencedIn": [
+    "__tests__/api/forged-session-sweep.test.ts",
+    "pages/community/workspace/transformation/evaluate.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/transformation/personalizacion-questions.ts",
+   "route": "/api/transformation/personalizacion-questions",
+   "methods": [
+    "GET"
+   ],
+   "guards": [],
+   "calledBy": [],
+   "referencedIn": []
+  },
+  {
+   "file": "pages/api/vias-transformacion/[id]/collaborators.ts",
+   "route": "/api/vias-transformacion/[id]/collaborators",
+   "methods": [
+    "DELETE",
+    "GET",
+    "POST"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/vias-transformacion/[id]"
+   ],
+   "referencedIn": [
+    "__tests__/api/transformation/forged-session.test.ts",
+    "pages/vias-transformacion/[id].tsx"
+   ]
+  },
+  {
+   "file": "pages/api/vias-transformacion/[id]/index.ts",
+   "route": "/api/vias-transformacion/[id]",
+   "methods": [
+    "GET",
+    "PATCH"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/vias-transformacion/[id]"
+   ],
+   "referencedIn": [
+    "__tests__/api/transformation/forged-session.test.ts",
+    "pages/vias-transformacion/[id].tsx"
+   ]
+  },
+  {
+   "file": "pages/api/vias-transformacion/eligible-collaborators.ts",
+   "route": "/api/vias-transformacion/eligible-collaborators",
+   "methods": [
+    "GET"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/vias-transformacion",
+    "/vias-transformacion/[id]"
+   ],
+   "referencedIn": [
+    "__tests__/api/transformation/forged-session.test.ts",
+    "components/transformation/CollaboratorSelector.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/vias-transformacion/index.ts",
+   "route": "/api/vias-transformacion",
+   "methods": [
+    "GET",
+    "POST"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/vias-transformacion"
+   ],
+   "referencedIn": [
+    "components/transformation/AssessmentSetupModal.tsx",
+    "pages/vias-transformacion/index.tsx"
+   ]
+  }
+ ]
+}

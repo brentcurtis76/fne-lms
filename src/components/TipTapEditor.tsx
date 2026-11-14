@@ -54,14 +54,20 @@ interface MenuBarProps {
   onToggleFullscreen?: () => void;
 }
 
-// h-9 always (36px) for a comfortable touch hit area. On md+ we collapse to 36×36 icon-only;
-// below md the visible label sits beside the icon so actions are discoverable without hover.
+// h-9 always (36px) for a comfortable touch hit area; the visible label sits beside the icon.
+// Redesign groundwork (phase 3): this file once asked for more than it got. Tailwind did not read `src/`, so some
+// classes written here were never generated and never applied: icon-only toolbar buttons with hidden labels from the
+// md width up, an amber focus ring on buttons and on the box, a margin and padding between button groups, and larger
+// prose sizes on wide screens. They were taken out when `src/` joined Tailwind's `content`, so that the editor keeps
+// looking exactly as it did (Brent, 13 Nov 2026). The exact class names are in the git history of this line and in
+// docs/plan/redesign/harness/README.md; they are not repeated here because Tailwind would generate them from a comment.
+// Whoever rebuilds the editor decides anew.
 const buttonBase =
-  'inline-flex items-center justify-center h-9 gap-1.5 px-2 md:w-9 md:px-0 md:gap-0 rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-1';
+  'inline-flex items-center justify-center h-9 gap-1.5 px-2 rounded-md transition-colors focus:outline-none focus-visible:ring-2';
 const buttonInactive = 'text-slate-600 hover:bg-slate-100 hover:text-slate-900';
 const buttonActive = 'bg-amber-100 text-amber-900 hover:bg-amber-100';
 const buttonDisabled = 'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none';
-const buttonLabel = 'text-xs font-medium md:sr-only';
+const buttonLabel = 'text-xs font-medium';
 
 const MenuBar: React.FC<MenuBarProps> = ({ editor, toolbarGroups, expandable, isFullscreen, onToggleFullscreen }) => {
   if (!editor) {
@@ -107,7 +113,7 @@ const MenuBar: React.FC<MenuBarProps> = ({ editor, toolbarGroups, expandable, is
       {toolbarGroups.map((group, idx) => (
         <div
           key={group.id}
-          className={`flex items-center gap-0.5 ${idx > 0 ? 'ml-1.5 pl-1.5 border-l border-slate-200' : ''}`}
+          className={`flex items-center gap-0.5 ${idx > 0 ? 'border-l border-slate-200' : ''}`}
         >
           {group.buttons.map(renderButton)}
         </div>
@@ -163,7 +169,7 @@ const TipTapEditor: React.FC<TipTapEditorProps> = ({
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm sm:prose lg:prose-xl focus:outline-none px-4 py-3 w-full',
+        class: 'prose prose-sm focus:outline-none px-4 py-3 w-full',
       },
     },
     immediatelyRender: false,
@@ -349,7 +355,7 @@ const TipTapEditor: React.FC<TipTapEditorProps> = ({
   };
 
   const inlineEditor = (
-    <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden transition-shadow focus-within:border-amber-300 focus-within:ring-2 focus-within:ring-amber-400/40">
+    <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden transition-shadow">
       <MenuBar
         editor={editor}
         toolbarGroups={toolbarGroups}
@@ -360,7 +366,7 @@ const TipTapEditor: React.FC<TipTapEditorProps> = ({
       <EditorContent
         editor={editor}
         style={contentStyle}
-        className="prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none focus:outline-none w-full tiptap-editor"
+        className="prose prose-sm max-w-none focus:outline-none w-full tiptap-editor"
       />
     </div>
   );
@@ -394,7 +400,7 @@ const TipTapEditor: React.FC<TipTapEditorProps> = ({
       />
       <EditorContent
         editor={editor}
-        className="prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none focus:outline-none w-full tiptap-editor flex-1 overflow-y-auto"
+        className="prose prose-sm max-w-none focus:outline-none w-full tiptap-editor flex-1 overflow-y-auto"
       />
     </div>
   );

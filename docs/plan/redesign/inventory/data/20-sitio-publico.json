@@ -1,0 +1,7628 @@
+{
+ "area": "20-sitio-publico",
+ "name": "Sitio público (nuevaeducacion.org pages; not part of the platform redesign)",
+ "note": "Redesigned separately and live since 12 Nov 2026. Listed so that every file under pages/ has a place.",
+ "routesOnly": false,
+ "readFrom": {
+  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
+  "date": "2026-11-12T23:31:39-03:00"
+ },
+ "screens": [
+  {
+   "file": "pages/equipo.tsx",
+   "route": "/equipo",
+   "lines": 36,
+   "marks": {},
+   "frame": "none",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "components/DynamicFavicon.tsx:39",
+     "components/Footer.tsx:95",
+     "components/site/SiteLayout.tsx:176",
+     "lib/auth/forced-password-change.ts:148",
+     "middleware.ts:343"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/footer-heading-order.spec.ts"
+     ],
+     "e2e": [
+      "tests/e2e/urgent-anonymous-boundaries.spec.ts",
+      "tests/e2e/urgent-anonymous-current.spec.ts"
+     ],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 8,
+     "in": "EquipoPage",
+     "text": "active: nosotros · title: Equipo · Fundación Nueva Educación · description: El equipo de la Fundación Nueva Educación: comité internacional, equipo FNE y asesores internacionales.",
+     "tag": "SiteLayout"
+    },
+    {
+     "kind": "text",
+     "line": 19,
+     "in": "EquipoPage",
+     "text": "Equipo"
+    },
+    {
+     "kind": "heading",
+     "line": 20,
+     "in": "EquipoPage",
+     "text": "Una red de personas que cambian la escuela",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 24,
+     "in": "EquipoPage",
+     "text": "Educadores, directivos e investigadores de Chile y Catalunya que acompañan a cada comunidad educativa en su proceso de transformación."
+    },
+    {
+     "kind": "link",
+     "line": 27,
+     "in": "EquipoPage",
+     "text": "← Conoce la fundación",
+     "target": "/nosotros",
+     "hook": {
+      "testid": "equipo-nosotros"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 32,
+     "in": "EquipoPage",
+     "text": "",
+     "tag": "TeamSection"
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "components/PrivacyPolicyContent.tsx",
+    "components/PrivacyPolicyModal.tsx",
+    "components/TermsOfUseModal.tsx",
+    "components/site/SiteLayout.tsx",
+    "components/site/TeamSection.tsx",
+    "components/site/teamData.ts",
+    "components/site/useSiteEffects.ts",
+    "lib/legal/privacy-notice.ts"
+   ],
+   "api": []
+  },
+  {
+   "file": "pages/index.tsx",
+   "route": "/",
+   "lines": 479,
+   "marks": {},
+   "frame": "none",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "not covered",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": false
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "components/Footer.tsx:96",
+     "components/layout/Header.tsx:62",
+     "components/site/SiteLayout.tsx:47",
+     "pages/403.tsx:21",
+     "pages/admin/course-builder/new.tsx:49",
+     "pages/admin/debug/course-module-ids.tsx:14",
+     "pages/admin/debug/course-module-ids.tsx:19",
+     "pages/admin/debug/ids.tsx:101",
+     "pages/admin/form-usage.tsx:36",
+     "pages/admin/form-usage.tsx:41",
+     "pages/admin/news.tsx:312",
+     "pages/admin/transformation.tsx:60",
+     "pages/admin/transformation/assessments.tsx:118",
+     "pages/creador-de-cursos.tsx:24",
+     "pages/creador-de-cursos.tsx:35",
+     "pages/creador-de-cursos.tsx:53",
+     "pages/creador-de-cursos.tsx:64",
+     "pages/directivo/assessments/dashboard.tsx:162",
+     "pages/login.tsx:371",
+     "pages/login.tsx:390",
+     "pages/login.tsx:612",
+     "pages/nosotros.tsx:103",
+     "pages/noticias/[slug].tsx:133",
+     "pages/pasantias.tsx:526",
+     "pages/programas.tsx:167",
+     "pages/programas.tsx:189",
+     "pages/propuesta/[slug].tsx:155",
+     "pages/quote/[id].tsx:80",
+     "pages/reset-password.tsx:440",
+     "pages/reset-password.tsx:509",
+     "pages/reset-password.tsx:544",
+     "pages/vias-transformacion/index.tsx:247"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": [
+      "__tests__/pages/home-contact-form.test.tsx"
+     ]
+    }
+   },
+   "rows": [
+    {
+     "kind": "list",
+     "line": 19,
+     "text": "HERO_WORDS",
+     "items": [
+      "La"
+     ]
+    },
+    {
+     "kind": "message",
+     "line": 69,
+     "in": "handleContactSubmit",
+     "when": "response.ok",
+     "text": "¡Mensaje enviado exitosamente! Te responderemos pronto.",
+     "via": "setSubmitMessage"
+    },
+    {
+     "kind": "message",
+     "line": 73,
+     "in": "handleContactSubmit",
+     "when": "!(response.ok)",
+     "text": "Error al enviar el mensaje. Por favor intenta nuevamente.",
+     "via": "setSubmitError"
+    },
+    {
+     "kind": "message",
+     "line": 77,
+     "in": "handleContactSubmit",
+     "text": "Error de conexión. Por favor verifica tu conexión a internet e intenta nuevamente.",
+     "via": "setSubmitError"
+    },
+    {
+     "kind": "piece",
+     "line": 86,
+     "in": "HomePage",
+     "text": "active: inicio · title: Fundación Nueva Educación · Educación relacional para transformar la escuela · description: Acompañamos a comunidades educativas en un cambio cultural profundo, desde la calidad de sus relaciones. Programas Inicia, Inspira, Evoluciona y Aula Generativa. ATE certificada por RPA Mineduc.",
+     "tag": "SiteLayout"
+    },
+    {
+     "kind": "hook",
+     "line": 92,
+     "in": "HomePage",
+     "text": "id=inicio",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "media",
+     "line": 93,
+     "in": "HomePage",
+     "text": "video · /sitio/hero.mp4"
+    },
+    {
+     "kind": "text",
+     "line": 99,
+     "in": "HomePage",
+     "text": "Fundación Nueva Educación · ATE certificada por RPA Mineduc"
+    },
+    {
+     "kind": "heading",
+     "line": 101,
+     "in": "HomePage",
+     "text": "{word.text}",
+     "level": 1,
+     "aria": "La escuela se transforma desde sus vínculos."
+    },
+    {
+     "kind": "text",
+     "line": 113,
+     "in": "HomePage",
+     "text": "La nueva educación es relacional"
+    },
+    {
+     "kind": "text",
+     "line": 116,
+     "in": "HomePage",
+     "text": "Acompañamos a comunidades educativas en un cambio cultural profundo. Empieza donde empieza todo aprendizaje: en la calidad de las relaciones entre estudiantes, docentes, directivos y familias."
+    },
+    {
+     "kind": "link",
+     "line": 120,
+     "in": "HomePage",
+     "text": "Conversemos tu escuela →",
+     "target": "#contacto",
+     "hook": {
+      "testid": "hero-cta-contacto"
+     }
+    },
+    {
+     "kind": "link",
+     "line": 123,
+     "in": "HomePage",
+     "text": "Ver los programas",
+     "target": "/programas",
+     "hook": {
+      "testid": "hero-cta-programas"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 131,
+     "in": "HomePage",
+     "text": "Colegios en programas de transformación"
+    },
+    {
+     "kind": "text",
+     "line": 135,
+     "in": "HomePage",
+     "text": "Ciudades de Chile, de Iquique a Osorno"
+    },
+    {
+     "kind": "text",
+     "line": 139,
+     "in": "HomePage",
+     "text": "Pasantes internacionales en Barcelona"
+    },
+    {
+     "kind": "text",
+     "line": 143,
+     "in": "HomePage",
+     "text": "Escuelas colaboradoras en Barcelona"
+    },
+    {
+     "kind": "piece",
+     "line": 148,
+     "in": "HomePage",
+     "text": "",
+     "tag": "RedAliada"
+    },
+    {
+     "kind": "hook",
+     "line": 151,
+     "in": "HomePage",
+     "text": "id=relacional",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "text",
+     "line": 154,
+     "in": "HomePage",
+     "text": "Por qué relacional"
+    },
+    {
+     "kind": "heading",
+     "line": 155,
+     "in": "HomePage",
+     "text": "Nadie aprende solo.",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 159,
+     "in": "HomePage",
+     "text": "Se aprende con otros, de otros y para otros. Por eso una escuela no cambia de verdad cuando cambia sus horarios, sus muebles o su tecnología. Cambia cuando cambia la manera en que sus personas se relacionan."
+    },
+    {
+     "kind": "text",
+     "line": 164,
+     "in": "HomePage",
+     "text": "A eso lo llamamos Educación Relacional: poner la calidad de los vínculos en el centro del proyecto educativo y dejar que desde ahí se ordenen el aprendizaje, la evaluación, el liderazgo y la relación con las familias."
+    },
+    {
+     "kind": "text",
+     "line": 171,
+     "in": "HomePage",
+     "text": "Entre"
+    },
+    {
+     "kind": "text",
+     "line": 171,
+     "in": "HomePage",
+     "text": "estudiantes"
+    },
+    {
+     "kind": "text",
+     "line": 171,
+     "in": "HomePage",
+     "text": ": pares que se cuidan y aprenden juntos"
+    },
+    {
+     "kind": "text",
+     "line": 175,
+     "in": "HomePage",
+     "text": "Entre"
+    },
+    {
+     "kind": "text",
+     "line": 175,
+     "in": "HomePage",
+     "text": "estudiantes y docentes"
+    },
+    {
+     "kind": "text",
+     "line": 175,
+     "in": "HomePage",
+     "text": ": confianza para atreverse"
+    },
+    {
+     "kind": "text",
+     "line": 179,
+     "in": "HomePage",
+     "text": "Entre"
+    },
+    {
+     "kind": "text",
+     "line": 179,
+     "in": "HomePage",
+     "text": "docentes"
+    },
+    {
+     "kind": "text",
+     "line": 179,
+     "in": "HomePage",
+     "text": ": equipos que crean en vez de trabajar a solas"
+    },
+    {
+     "kind": "text",
+     "line": 183,
+     "in": "HomePage",
+     "text": "Entre"
+    },
+    {
+     "kind": "text",
+     "line": 183,
+     "in": "HomePage",
+     "text": "la escuela y sus familias"
+    },
+    {
+     "kind": "text",
+     "line": 183,
+     "in": "HomePage",
+     "text": ": aliadas del proyecto educativo"
+    },
+    {
+     "kind": "media",
+     "line": 190,
+     "in": "HomePage",
+     "text": "img · alt Cinco estudiantes abrazados en círculo, vistos desde arriba · /sitio/abrazo.jpg"
+    },
+    {
+     "kind": "text",
+     "line": 201,
+     "in": "HomePage",
+     "text": "en relación"
+    },
+    {
+     "kind": "piece",
+     "line": 206,
+     "in": "HomePage",
+     "text": "",
+     "tag": "Sociograma"
+    },
+    {
+     "kind": "hook",
+     "line": 209,
+     "in": "HomePage",
+     "text": "id=origen",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "media",
+     "line": 212,
+     "in": "HomePage",
+     "text": "img · alt Estudiantes juegan al aire libre durante una actividad de Aula Generativa · /aula-generativa-activity.jpg"
+    },
+    {
+     "kind": "text",
+     "line": 219,
+     "in": "HomePage",
+     "text": "el espíritu de Los Pellines"
+    },
+    {
+     "kind": "text",
+     "line": 222,
+     "in": "HomePage",
+     "text": "De dónde venimos"
+    },
+    {
+     "kind": "heading",
+     "line": 223,
+     "in": "HomePage",
+     "text": "Treinta años cuidando vínculos",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 227,
+     "in": "HomePage",
+     "text": "En Los Pellines nos hemos dedicado por más de 30 años al cuidado y fortalecimiento de la calidad de las relaciones. Hoy llevamos ese espíritu a la sala de clases con el Aula Generativa, una propuesta que pone en el centro el Aprendizaje con Sentido."
+    },
+    {
+     "kind": "text",
+     "line": 234,
+     "in": "HomePage",
+     "text": "años de experiencia"
+    },
+    {
+     "kind": "text",
+     "line": 238,
+     "in": "HomePage",
+     "text": "niños y niñas"
+    },
+    {
+     "kind": "text",
+     "line": 241,
+     "in": "HomePage",
+     "text": "Características de un Aula Generativa"
+    },
+    {
+     "kind": "heading",
+     "line": 244,
+     "in": "HomePage",
+     "text": "Motivación compartida",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 245,
+     "in": "HomePage",
+     "text": "Estudiantes y profesores altamente motivados trabajando juntos."
+    },
+    {
+     "kind": "heading",
+     "line": 248,
+     "in": "HomePage",
+     "text": "Convivencia como motor",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 249,
+     "in": "HomePage",
+     "text": "Las relaciones saludables impulsan el aprendizaje significativo."
+    },
+    {
+     "kind": "heading",
+     "line": 252,
+     "in": "HomePage",
+     "text": "Identidad colectiva",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 253,
+     "in": "HomePage",
+     "text": "Cultura de curso fortalecida, con una identidad positiva compartida."
+    },
+    {
+     "kind": "heading",
+     "line": 256,
+     "in": "HomePage",
+     "text": "Aprendizaje cooperativo",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 257,
+     "in": "HomePage",
+     "text": "Los estudiantes enseñan, explican y reflexionan entre pares."
+    },
+    {
+     "kind": "piece",
+     "line": 264,
+     "in": "HomePage",
+     "text": "",
+     "tag": "ViasEje"
+    },
+    {
+     "kind": "piece",
+     "line": 266,
+     "in": "HomePage",
+     "text": "",
+     "tag": "Puertas"
+    },
+    {
+     "kind": "hook",
+     "line": 270,
+     "in": "HomePage",
+     "text": "id=pasantias",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "text",
+     "line": 274,
+     "in": "HomePage",
+     "text": "Programa Inspira"
+    },
+    {
+     "kind": "heading",
+     "line": 275,
+     "in": "HomePage",
+     "text": "Pasantías en Barcelona",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 279,
+     "in": "HomePage",
+     "text": "Transforma tu visión educativa con una experiencia única de innovación en el corazón de Europa"
+    },
+    {
+     "kind": "text",
+     "line": 284,
+     "in": "HomePage",
+     "text": "CUPOS POR"
+    },
+    {
+     "kind": "text",
+     "line": 285,
+     "in": "HomePage",
+     "text": "ORDEN DE RESERVA"
+    },
+    {
+     "kind": "heading",
+     "line": 287,
+     "in": "HomePage",
+     "text": "Próximas Expediciones",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 288,
+     "in": "HomePage",
+     "text": "Próxima cohorte"
+    },
+    {
+     "kind": "hook",
+     "line": 289,
+     "in": "HomePage",
+     "text": "testid=cohort-headline",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "value",
+     "line": 289,
+     "in": "HomePage",
+     "text": "{COHORT_HEADLINE}"
+    },
+    {
+     "kind": "hook",
+     "line": 290,
+     "in": "HomePage",
+     "text": "testid=cohort-programs",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "value",
+     "line": 290,
+     "in": "HomePage",
+     "text": "{COHORT_PROGRAMS.map((program) => pr…}"
+    },
+    {
+     "kind": "heading",
+     "line": 296,
+     "in": "HomePage",
+     "text": "¿Qué incluye la experiencia?",
+     "level": 3
+    },
+    {
+     "kind": "heading",
+     "line": 301,
+     "in": "HomePage",
+     "text": "Codocencia en Aulas",
+     "level": 4
+    },
+    {
+     "kind": "text",
+     "line": 302,
+     "in": "HomePage",
+     "text": "Participa activamente en aulas de Nueva Educación como co-docente"
+    },
+    {
+     "kind": "heading",
+     "line": 308,
+     "in": "HomePage",
+     "text": "Visitas a Escuelas Innovadoras",
+     "level": 4
+    },
+    {
+     "kind": "text",
+     "line": 309,
+     "in": "HomePage",
+     "text": "Conoce de primera mano las metodologías más vanguardistas de Europa"
+    },
+    {
+     "kind": "heading",
+     "line": 315,
+     "in": "HomePage",
+     "text": "Talleres Especializados",
+     "level": 4
+    },
+    {
+     "kind": "text",
+     "line": 316,
+     "in": "HomePage",
+     "text": "Participa en workshops con expertos internacionales en educación"
+    },
+    {
+     "kind": "heading",
+     "line": 322,
+     "in": "HomePage",
+     "text": "Intercambio con las Escuelas",
+     "level": 4
+    },
+    {
+     "kind": "text",
+     "line": 323,
+     "in": "HomePage",
+     "text": "Conversa con los equipos directivos, educadores y estudiantes de las escuelas que te reciben"
+    },
+    {
+     "kind": "heading",
+     "line": 329,
+     "in": "HomePage",
+     "text": "Bitácora de Aprendizajes",
+     "level": 4
+    },
+    {
+     "kind": "text",
+     "line": 330,
+     "in": "HomePage",
+     "text": "Recibe bibliografía recomendada, una bitácora y un sistema de registro de tus aprendizajes al menos un mes antes del viaje"
+    },
+    {
+     "kind": "link",
+     "line": 337,
+     "in": "HomePage",
+     "text": "Conoce las Pasantías en Barcelona",
+     "target": "/pasantias",
+     "hook": {
+      "testid": "inspira-pasantias-cta"
+     }
+    },
+    {
+     "kind": "media",
+     "line": 345,
+     "in": "HomePage",
+     "text": "img · alt Grupo de pasantes frente a la Escola Virolai, en Barcelona · /images/pasantias/pasantes-virolai.jpg"
+    },
+    {
+     "kind": "media",
+     "line": 348,
+     "in": "HomePage",
+     "text": "img · alt Educadoras chilenas en la biblioteca de una escuela de Barcelona · /images/pasantias/educadores-biblioteca.jpg"
+    },
+    {
+     "kind": "media",
+     "line": 351,
+     "in": "HomePage",
+     "text": "img · alt Niños observan con microscopios en un aula de Barcelona · /sitio/bcn-microscopios.jpg"
+    },
+    {
+     "kind": "media",
+     "line": 354,
+     "in": "HomePage",
+     "text": "img · alt Vista aérea de Barcelona · /images/pasantias/bcn-skyline.jpg"
+    },
+    {
+     "kind": "media",
+     "line": 357,
+     "in": "HomePage",
+     "text": "img · alt Aula de aprendizaje con trabajo por ambientes · /sitio/bcn-ambientes.jpg"
+    },
+    {
+     "kind": "piece",
+     "line": 363,
+     "in": "HomePage",
+     "text": "",
+     "tag": "Novedades"
+    },
+    {
+     "kind": "piece",
+     "line": 365,
+     "in": "HomePage",
+     "text": "",
+     "tag": "MapaChile"
+    },
+    {
+     "kind": "hook",
+     "line": 368,
+     "in": "HomePage",
+     "text": "id=contacto",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "text",
+     "line": 372,
+     "in": "HomePage",
+     "text": "Contáctanos"
+    },
+    {
+     "kind": "heading",
+     "line": 373,
+     "in": "HomePage",
+     "text": "Empecemos por una conversación.",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 377,
+     "in": "HomePage",
+     "text": "¿Listo para transformar tu institución educativa? Conversemos sobre cómo podemos acompañar tu proceso de transformación."
+    },
+    {
+     "kind": "link",
+     "line": 381,
+     "in": "HomePage",
+     "text": "info@nuevaeducacion.org",
+     "target": "mailto:info@nuevaeducacion.org"
+    },
+    {
+     "kind": "text",
+     "line": 382,
+     "in": "HomePage",
+     "text": "Santiago, Chile"
+    },
+    {
+     "kind": "text",
+     "line": 383,
+     "in": "HomePage",
+     "text": "ATE certificada por RPA Mineduc"
+    },
+    {
+     "kind": "heading",
+     "line": 388,
+     "in": "HomePage",
+     "text": "Cuéntanos sobre tu proyecto",
+     "level": 3
+    },
+    {
+     "kind": "hook",
+     "line": 391,
+     "in": "HomePage",
+     "when": "submitMessage",
+     "text": "role=status",
+     "type": "role",
+     "tag": "p"
+    },
+    {
+     "kind": "value",
+     "line": 392,
+     "in": "HomePage",
+     "when": "submitMessage",
+     "text": "{submitMessage}"
+    },
+    {
+     "kind": "hook",
+     "line": 396,
+     "in": "HomePage",
+     "when": "submitError",
+     "text": "role=alert",
+     "type": "role",
+     "tag": "p"
+    },
+    {
+     "kind": "value",
+     "line": 397,
+     "in": "HomePage",
+     "when": "submitError",
+     "text": "{submitError}"
+    },
+    {
+     "kind": "form",
+     "line": 401,
+     "in": "HomePage",
+     "text": "{handleContactSubmit}"
+    },
+    {
+     "kind": "label",
+     "line": 403,
+     "in": "HomePage",
+     "text": "Nombre *",
+     "for": "nombre"
+    },
+    {
+     "kind": "field",
+     "line": 404,
+     "in": "HomePage",
+     "text": "Nombre *",
+     "type": "text",
+     "name": "nombre",
+     "placeholder": "Tu nombre completo",
+     "required": "true",
+     "hook": {
+      "id": "nombre",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "label",
+     "line": 407,
+     "in": "HomePage",
+     "text": "Email *",
+     "for": "email"
+    },
+    {
+     "kind": "field",
+     "line": 408,
+     "in": "HomePage",
+     "text": "Email *",
+     "type": "email",
+     "name": "email",
+     "placeholder": "tu@email.com",
+     "required": "true",
+     "hook": {
+      "id": "email",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "label",
+     "line": 411,
+     "in": "HomePage",
+     "text": "Institución *",
+     "for": "institucion"
+    },
+    {
+     "kind": "field",
+     "line": 412,
+     "in": "HomePage",
+     "text": "Institución *",
+     "type": "text",
+     "name": "institucion",
+     "placeholder": "Nombre de tu institución",
+     "required": "true",
+     "hook": {
+      "id": "institucion",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "label",
+     "line": 415,
+     "in": "HomePage",
+     "text": "Cargo",
+     "for": "cargo"
+    },
+    {
+     "kind": "field",
+     "line": 416,
+     "in": "HomePage",
+     "text": "Cargo",
+     "type": "text",
+     "name": "cargo",
+     "placeholder": "Tu cargo o función",
+     "hook": {
+      "id": "cargo",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "label",
+     "line": 419,
+     "in": "HomePage",
+     "text": "¿Qué te interesa? *",
+     "for": "interes"
+    },
+    {
+     "kind": "field",
+     "line": 420,
+     "in": "HomePage",
+     "text": "¿Qué te interesa? *",
+     "type": "select",
+     "name": "interes",
+     "required": "true",
+     "options": [
+      "Selecciona una opción",
+      "Inspira (Pasantía en Barcelona)",
+      "Inicia",
+      "Evoluciona",
+      "Aula Generativa",
+      "Otro Proyecto"
+     ],
+     "hook": {
+      "id": "interes",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "label",
+     "line": 430,
+     "in": "HomePage",
+     "text": "Mensaje *",
+     "for": "mensaje"
+    },
+    {
+     "kind": "field",
+     "line": 431,
+     "in": "HomePage",
+     "text": "Mensaje *",
+     "type": "textarea",
+     "name": "mensaje",
+     "placeholder": "Cuéntanos sobre tu institución y cómo podemos ayudarte a transformar la educación...",
+     "required": "true",
+     "limits": "",
+     "hook": {
+      "id": "mensaje",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "label",
+     "line": 448,
+     "in": "HomePage",
+     "text": "Sitio web",
+     "for": "website"
+    },
+    {
+     "kind": "field",
+     "line": 449,
+     "in": "HomePage",
+     "text": "Sitio web",
+     "type": "text",
+     "name": "website",
+     "hook": {
+      "testid": "contact-website",
+      "id": "website",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "button",
+     "line": 460,
+     "in": "HomePage",
+     "text": "Enviando... / Enviar Mensaje [→]",
+     "submit": true,
+     "disabled": "{isSubmitting}",
+     "hook": {
+      "testid": "contact-submit"
+     }
+    },
+    {
+     "kind": "popup",
+     "line": 469,
+     "in": "HomePage",
+     "text": "FlipbookDialog",
+     "how": "component",
+     "open": "{showDirectivesFlipbook}",
+     "props": "title: Programa Estratégico Para Directivos"
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "components/PrivacyPolicyContent.tsx",
+    "components/PrivacyPolicyModal.tsx",
+    "components/TermsOfUseModal.tsx",
+    "components/site/FlipbookDialog.tsx",
+    "components/site/MapaChile.tsx",
+    "components/site/NewsCard.tsx",
+    "components/site/Novedades.tsx",
+    "components/site/Puertas.tsx",
+    "components/site/RedAliada.tsx",
+    "components/site/SiteLayout.tsx",
+    "components/site/Sociograma.tsx",
+    "components/site/ViasEje.tsx",
+    "components/site/chilePath.ts",
+    "components/site/news.ts",
+    "components/site/programsData.ts",
+    "components/site/useSiteEffects.ts",
+    "lib/legal/privacy-notice.ts",
+    "lib/pasantias/cohort-public.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/contact.ts",
+     "route": "/api/contact",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "pages/index.tsx:58"
+     ]
+    },
+    {
+     "file": "pages/api/news/index.ts",
+     "route": "/api/news",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/site/news.ts:55"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/nosotros.tsx",
+   "route": "/nosotros",
+   "lines": 115,
+   "marks": {},
+   "frame": "none",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "not covered",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": false
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "components/Footer.tsx:94",
+     "components/site/SiteLayout.tsx:175",
+     "components/site/SiteLayout.tsx:26",
+     "pages/equipo.tsx:27"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/footer-heading-order.spec.ts"
+     ],
+     "e2e": [
+      "tests/e2e/urgent-anonymous-boundaries.spec.ts",
+      "tests/e2e/urgent-anonymous-current.spec.ts"
+     ],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "list",
+     "line": 6,
+     "text": "VERBS",
+     "items": [
+      "Transformar",
+      "Acompañamos a las comunidades educativas en procesos profundos de transformación cultural, facilitando el cambio desde adentro. Trabajamos codo a codo con dire…",
+      "Conectar",
+      "Sinergizamos redes vivas de colaboración entre escuelas innovadoras de Chile, España y América Latina. Estas redes permiten que las comunidades educativas comp…",
+      "Innovar",
+      "Desarrollamos herramientas e instrumentos propios para implementar, medir y ejecutar procesos de transformación educativa. Creamos metodologías de diagnóstico,…"
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 26,
+     "in": "NosotrosPage",
+     "text": "active: nosotros · title: Nosotros · Fundación Nueva Educación · description: Somos una red que reflexiona y crea soluciones para la educación del siglo XXI: un equipo multidisciplinario experto en procesos de cambio cultural en el mundo de la educación.",
+     "tag": "SiteLayout"
+    },
+    {
+     "kind": "text",
+     "line": 37,
+     "in": "NosotrosPage",
+     "text": "Nosotros"
+    },
+    {
+     "kind": "heading",
+     "line": 38,
+     "in": "NosotrosPage",
+     "text": "Somos una red que reflexiona y crea soluciones para la educación del siglo XXI",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 42,
+     "in": "NosotrosPage",
+     "text": "Un equipo multidisciplinario de expertos en facilitar procesos de Cambio Cultural en el mundo de la educación, pioneros en la aplicación de los principios de la Nueva Educación en programas de formación para estudiantes y programas de cambio en equipos directivos y docentes."
+    },
+    {
+     "kind": "hook",
+     "line": 49,
+     "in": "NosotrosPage",
+     "text": "id=que-hacemos",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "heading",
+     "line": 51,
+     "in": "NosotrosPage",
+     "text": "Lo que hacemos",
+     "level": 2
+    },
+    {
+     "kind": "value",
+     "line": 55,
+     "in": "NosotrosPage",
+     "when": "each VERBS",
+     "text": "{String(index + 1).padStart(2, '0')}"
+    },
+    {
+     "kind": "heading",
+     "line": 56,
+     "in": "NosotrosPage",
+     "when": "each VERBS",
+     "text": "{verb.name}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 57,
+     "in": "NosotrosPage",
+     "when": "each VERBS",
+     "text": "{verb.text}"
+    },
+    {
+     "kind": "hook",
+     "line": 65,
+     "in": "NosotrosPage",
+     "text": "id=impacto",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "text",
+     "line": 68,
+     "in": "NosotrosPage",
+     "text": "Nuestro impacto"
+    },
+    {
+     "kind": "heading",
+     "line": 69,
+     "in": "NosotrosPage",
+     "text": "Una red que ya está cambiando escuelas",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 75,
+     "in": "NosotrosPage",
+     "text": "Escuelas de vanguardia colaboradoras en Barcelona"
+    },
+    {
+     "kind": "text",
+     "line": 79,
+     "in": "NosotrosPage",
+     "text": "Colegios han pasado por nuestros programas de transformación"
+    },
+    {
+     "kind": "text",
+     "line": 83,
+     "in": "NosotrosPage",
+     "text": "Pasantes internacionales a Barcelona"
+    },
+    {
+     "kind": "text",
+     "line": 87,
+     "in": "NosotrosPage",
+     "text": "Colegios han confiado en nuestros programas de pasantías internacionales"
+    },
+    {
+     "kind": "piece",
+     "line": 93,
+     "in": "NosotrosPage",
+     "text": "",
+     "tag": "TeamSection"
+    },
+    {
+     "kind": "heading",
+     "line": 98,
+     "in": "NosotrosPage",
+     "text": "La escuela se transforma desde sus vínculos",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 101,
+     "in": "NosotrosPage",
+     "text": "Conversemos sobre cómo podemos acompañar a tu comunidad educativa."
+    },
+    {
+     "kind": "link",
+     "line": 103,
+     "in": "NosotrosPage",
+     "text": "Conversemos →",
+     "target": "/#contacto",
+     "hook": {
+      "testid": "nosotros-cierre-contacto"
+     }
+    },
+    {
+     "kind": "link",
+     "line": 106,
+     "in": "NosotrosPage",
+     "text": "Ver los programas",
+     "target": "/programas",
+     "hook": {
+      "testid": "nosotros-cierre-programas"
+     }
+    },
+    {
+     "kind": "string",
+     "line": 10,
+     "in": "VERBS",
+     "text": "Acompañamos a las comunidades educativas en procesos profundos de transformación cultural, facilitando el cambio desde adentro. Trabajamos codo a codo con directivos, docentes, estudiantes y familias para co-crear una nueva cultura escolar centrada en el desarrollo integral y el bienestar de toda l…"
+    },
+    {
+     "kind": "string",
+     "line": 15,
+     "in": "VERBS",
+     "text": "Sinergizamos redes vivas de colaboración entre escuelas innovadoras de Chile, España y América Latina. Estas redes permiten que las comunidades educativas compartan sus experiencias, aprendan unas de otras y co-construyan soluciones a desafíos comunes. A través de pasantías internacionales, encuent…"
+    },
+    {
+     "kind": "string",
+     "line": 20,
+     "in": "VERBS",
+     "text": "Desarrollamos herramientas e instrumentos propios para implementar, medir y ejecutar procesos de transformación educativa. Creamos metodologías de diagnóstico, matrices de evaluación, protocolos de implementación y sistemas de seguimiento que permiten a las escuelas gestionar su cambio de manera si…"
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "components/PrivacyPolicyContent.tsx",
+    "components/PrivacyPolicyModal.tsx",
+    "components/TermsOfUseModal.tsx",
+    "components/site/SiteLayout.tsx",
+    "components/site/TeamSection.tsx",
+    "components/site/teamData.ts",
+    "components/site/useSiteEffects.ts",
+    "lib/legal/privacy-notice.ts"
+   ],
+   "api": []
+  },
+  {
+   "file": "pages/noticias.tsx",
+   "route": "/noticias",
+   "lines": 254,
+   "marks": {},
+   "frame": "none",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "not covered",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": false
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "components/Footer.tsx:93",
+     "components/site/Novedades.tsx:35",
+     "components/site/SiteLayout.tsx:174",
+     "components/site/SiteLayout.tsx:25",
+     "pages/dashboard.tsx:725",
+     "pages/dashboard.tsx:726",
+     "pages/noticias/[slug].tsx:103",
+     "pages/noticias/[slug].tsx:126",
+     "pages/noticias/[slug].tsx:76"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/footer-heading-order.spec.ts"
+     ],
+     "e2e": [
+      "tests/e2e/panel-pin.spec.ts",
+      "tests/e2e/urgent-anonymous-boundaries.spec.ts",
+      "tests/e2e/urgent-anonymous-current.spec.ts"
+     ],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "list",
+     "line": 15,
+     "text": "SHORT_MONTHS",
+     "items": [
+      "ENE",
+      "FEB",
+      "MAR",
+      "ABR",
+      "MAY",
+      "JUN",
+      "JUL",
+      "AGO",
+      "SEP",
+      "OCT",
+      "NOV",
+      "DIC"
+     ]
+    },
+    {
+     "kind": "value",
+     "line": 42,
+     "in": "EventText",
+     "text": "{text}"
+    },
+    {
+     "kind": "button",
+     "line": 44,
+     "in": "EventText",
+     "when": "long",
+     "text": "Leer menos / Leer más",
+     "action": "{() => setOpen((value) => !value)}",
+     "hook": {
+      "testid": "evento-leer-mas"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 64,
+     "in": "fetchArticles",
+     "text": "setTimeout(…, 10000)",
+     "type": "timer"
+    },
+    {
+     "kind": "message",
+     "line": 71,
+     "in": "fetchArticles",
+     "when": "caught instanceof Error && caught.name === 'AbortError'",
+     "text": "La solicitud tardó demasiado en responder. Por favor, intenta nuevamente.",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 73,
+     "in": "fetchArticles",
+     "when": "!(caught instanceof Error && caught.name === 'AbortError')",
+     "text": "No pudimos cargar las noticias. Por favor, intenta nuevamente.",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 85,
+     "in": "fetchEvents",
+     "when": "!response.ok",
+     "text": "Error loading events",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "piece",
+     "line": 113,
+     "in": "NewsPage",
+     "text": "active: noticias · title: Noticias y eventos · Fundación Nueva Educación · description: Mantente informado sobre las últimas actividades y eventos de la Fundación Nueva Educación",
+     "tag": "SiteLayout"
+    },
+    {
+     "kind": "text",
+     "line": 124,
+     "in": "NewsPage",
+     "text": "Noticias y eventos"
+    },
+    {
+     "kind": "heading",
+     "line": 125,
+     "in": "NewsPage",
+     "text": "Lo que está pasando en la Nueva Educación",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 129,
+     "in": "NewsPage",
+     "text": "Mantente informado sobre las últimas actividades, eventos y transformaciones que estamos impulsando en el mundo de la educación. Historias de cambio, innovación pedagógica y el impacto de nuestros programas en comunidades educativas."
+    },
+    {
+     "kind": "heading",
+     "line": 140,
+     "in": "NewsPage",
+     "when": "upcoming.length > 0",
+     "text": "Próximos eventos",
+     "level": 2,
+     "hook": {
+      "testid": "eventos-proximos"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 145,
+     "in": "NewsPage",
+     "when": "upcoming.length > 0 && each upcoming",
+     "text": "{eventDays(event)}"
+    },
+    {
+     "kind": "value",
+     "line": 146,
+     "in": "NewsPage",
+     "when": "upcoming.length > 0 && each upcoming",
+     "text": "{eventMonth(event)}"
+    },
+    {
+     "kind": "heading",
+     "line": 149,
+     "in": "NewsPage",
+     "when": "upcoming.length > 0 && each upcoming",
+     "text": "{event.title}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 150,
+     "in": "NewsPage",
+     "when": "upcoming.length > 0 && each upcoming",
+     "text": "{event.location} · {event.time}"
+    },
+    {
+     "kind": "link",
+     "line": 156,
+     "in": "NewsPage",
+     "when": "upcoming.length > 0 && each upcoming && event.link_url",
+     "text": "{event.link_display} / Más información →",
+     "target": "{event.link_url}",
+     "newTab": true
+    },
+    {
+     "kind": "heading",
+     "line": 167,
+     "in": "NewsPage",
+     "text": "Noticias",
+     "level": 2,
+     "hook": {
+      "testid": "noticias-titulo"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 169,
+     "in": "NewsPage",
+     "when": "loading",
+     "text": "role=status",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 171,
+     "in": "NewsPage",
+     "when": "loading",
+     "text": "Cargando noticias…"
+    },
+    {
+     "kind": "hook",
+     "line": 174,
+     "in": "NewsPage",
+     "when": "!(loading) && error",
+     "text": "role=alert",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "value",
+     "line": 176,
+     "in": "NewsPage",
+     "when": "!(loading) && error",
+     "text": "{error}"
+    },
+    {
+     "kind": "button",
+     "line": 177,
+     "in": "NewsPage",
+     "when": "!(loading) && error",
+     "text": "Intentar nuevamente",
+     "action": "{() => { setLoading(true); fetchArticles(); }}",
+     "hook": {
+      "testid": "noticias-reintentar"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 192,
+     "in": "NewsPage",
+     "when": "!(loading) && !(error) && articles.length === 0",
+     "text": "Pronto publicaremos nuestras primeras noticias."
+    },
+    {
+     "kind": "link",
+     "line": 196,
+     "in": "NewsPage",
+     "when": "!(loading) && !(error) && !(articles.length === 0)",
+     "text": "{articleDate(lead)} {lead.title} {excerpt(lead.content_html, 220)} Leer la noticia →",
+     "target": "/noticias/[*]",
+     "hook": {
+      "testid": "noticia-{lead.slug}"
+     }
+    },
+    {
+     "kind": "media",
+     "line": 198,
+     "in": "NewsPage",
+     "when": "!(loading) && !(error) && !(articles.length === 0) && lead.featured_image",
+     "text": "img · alt {lead.title} · {lead.featured_image}"
+    },
+    {
+     "kind": "heading",
+     "line": 203,
+     "in": "NewsPage",
+     "when": "!(loading) && !(error) && !(articles.length === 0)",
+     "text": "{lead.title}",
+     "level": 2
+    },
+    {
+     "kind": "piece",
+     "line": 212,
+     "in": "NewsPage",
+     "when": "!(loading) && !(error) && !(articles.length === 0) && each rest",
+     "text": "",
+     "tag": "NewsCard"
+    },
+    {
+     "kind": "heading",
+     "line": 220,
+     "in": "NewsPage",
+     "when": "events.pastEvents.length > 0",
+     "text": "Eventos anteriores",
+     "level": 2,
+     "hook": {
+      "testid": "eventos-anteriores"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 224,
+     "in": "NewsPage",
+     "when": "events.pastEvents.length > 0 && each events.pastEvents.slice(0, pastShown)",
+     "text": "{eventRange(event)} · {event.location}"
+    },
+    {
+     "kind": "heading",
+     "line": 227,
+     "in": "NewsPage",
+     "when": "events.pastEvents.length > 0 && each events.pastEvents.slice(0, pastShown)",
+     "text": "{event.title}",
+     "level": 3
+    },
+    {
+     "kind": "link",
+     "line": 230,
+     "in": "NewsPage",
+     "when": "events.pastEvents.length > 0 && each events.pastEvents.slice(0, pastShown) && event.link_url",
+     "text": "{event.link_display} / Más información →",
+     "target": "{event.link_url}",
+     "newTab": true
+    },
+    {
+     "kind": "button",
+     "line": 238,
+     "in": "NewsPage",
+     "when": "events.pastEvents.length > 0 && events.pastEvents.length > pastShown",
+     "text": "Ver más eventos",
+     "action": "{() => setPastShown((count) => count + PAST_EVENTS_STEP)}",
+     "hook": {
+      "testid": "eventos-ver-mas"
+     }
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "components/PrivacyPolicyContent.tsx",
+    "components/PrivacyPolicyModal.tsx",
+    "components/TermsOfUseModal.tsx",
+    "components/site/NewsCard.tsx",
+    "components/site/SiteLayout.tsx",
+    "components/site/news.ts",
+    "components/site/useSiteEffects.ts",
+    "lib/legal/privacy-notice.ts",
+    "utils/dateUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/news/index.ts",
+     "route": "/api/news",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/site/news.ts:55"
+     ]
+    },
+    {
+     "file": "pages/api/public/events.ts",
+     "route": "/api/public/events",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/noticias.tsx:84"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/noticias/[slug].tsx",
+   "route": "/noticias/[slug]",
+   "lines": 157,
+   "marks": {},
+   "frame": "none",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "not covered",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": false
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "components/NewsSlider.tsx:169",
+     "components/NewsSlider.tsx:194",
+     "components/NewsSlider.tsx:213",
+     "components/NewsSlider.tsx:214",
+     "components/site/NewsCard.tsx:15",
+     "components/site/NewsCard.tsx:17",
+     "pages/dashboard.tsx:746",
+     "pages/dashboard.tsx:748",
+     "pages/noticias.tsx:196"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/footer-heading-order.spec.ts"
+     ],
+     "e2e": [
+      "tests/e2e/panel-pin.spec.ts"
+     ],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 19,
+     "in": "ArticlePage",
+     "text": "!slug"
+    },
+    {
+     "kind": "gate",
+     "line": 25,
+     "in": "ArticlePage",
+     "text": "cancelled"
+    },
+    {
+     "kind": "message",
+     "line": 29,
+     "in": "ArticlePage",
+     "when": "!found",
+     "text": "Artículo no encontrado",
+     "via": "setError"
+    },
+    {
+     "kind": "gate",
+     "line": 36,
+     "in": "ArticlePage",
+     "text": "cancelled"
+    },
+    {
+     "kind": "message",
+     "line": 38,
+     "in": "ArticlePage",
+     "text": "Error al cargar el artículo",
+     "via": "setError"
+    },
+    {
+     "kind": "hook",
+     "line": 52,
+     "in": "copyLink",
+     "text": "setTimeout(…, 2500)",
+     "type": "timer"
+    },
+    {
+     "kind": "piece",
+     "line": 60,
+     "in": "ArticlePage",
+     "when": "loading || error || !article",
+     "text": "active: noticias · title: {loading ? 'Cargando artícul…} · Fundación Nueva Educación · description: Noticias de la Fundación Nueva Educación",
+     "tag": "SiteLayout"
+    },
+    {
+     "kind": "hook",
+     "line": 71,
+     "in": "ArticlePage",
+     "when": "(loading || error || !article) && loading",
+     "text": "role=status",
+     "type": "role",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 71,
+     "in": "ArticlePage",
+     "when": "(loading || error || !article) && loading",
+     "text": "Cargando artículo…"
+    },
+    {
+     "kind": "heading",
+     "line": 74,
+     "in": "ArticlePage",
+     "when": "(loading || error || !article) && !(loading)",
+     "text": "{error} / Artículo no encontrado",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 75,
+     "in": "ArticlePage",
+     "when": "(loading || error || !article) && !(loading)",
+     "text": "El artículo que buscas no existe o ya no está disponible."
+    },
+    {
+     "kind": "link",
+     "line": 76,
+     "in": "ArticlePage",
+     "when": "(loading || error || !article) && !(loading)",
+     "text": "← Volver a noticias",
+     "target": "/noticias",
+     "hook": {
+      "testid": "articulo-volver"
+     }
+    },
+    {
+     "kind": "list",
+     "line": 87,
+     "in": "ArticlePage",
+     "text": "author",
+     "items": [
+      "Equipo FNE"
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 92,
+     "in": "ArticlePage",
+     "text": "active: noticias · title: {article.title} · Fundación Nueva Educación",
+     "tag": "SiteLayout"
+    },
+    {
+     "kind": "link",
+     "line": 103,
+     "in": "ArticlePage",
+     "text": "← Noticias",
+     "target": "/noticias",
+     "hook": {
+      "testid": "articulo-volver"
+     }
+    },
+    {
+     "kind": "heading",
+     "line": 106,
+     "in": "ArticlePage",
+     "text": "{article.title}",
+     "level": 1
+    },
+    {
+     "kind": "value",
+     "line": 108,
+     "in": "ArticlePage",
+     "text": "{articleDate(article)}"
+    },
+    {
+     "kind": "text",
+     "line": 109,
+     "in": "ArticlePage",
+     "when": "author",
+     "text": "Por {author}"
+    },
+    {
+     "kind": "media",
+     "line": 117,
+     "in": "ArticlePage",
+     "when": "article.featured_image",
+     "text": "img · alt {article.title} · {article.featured_image}"
+    },
+    {
+     "kind": "piece",
+     "line": 123,
+     "in": "ArticlePage",
+     "text": "",
+     "tag": "ArticleContent"
+    },
+    {
+     "kind": "link",
+     "line": 126,
+     "in": "ArticlePage",
+     "text": "← Ver todas las noticias",
+     "target": "/noticias",
+     "hook": {
+      "testid": "articulo-todas"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 130,
+     "in": "ArticlePage",
+     "text": "Enlace copiado / Copiar enlace",
+     "action": "{copyLink}",
+     "hook": {
+      "testid": "articulo-copiar"
+     }
+    },
+    {
+     "kind": "link",
+     "line": 133,
+     "in": "ArticlePage",
+     "text": "Contactar con FNE",
+     "target": "/#contacto",
+     "hook": {
+      "testid": "articulo-contacto"
+     }
+    },
+    {
+     "kind": "heading",
+     "line": 143,
+     "in": "ArticlePage",
+     "when": "others.length > 0",
+     "text": "Más historias de transformación",
+     "level": 2
+    },
+    {
+     "kind": "piece",
+     "line": 148,
+     "in": "ArticlePage",
+     "when": "others.length > 0 && each others",
+     "text": "",
+     "tag": "NewsCard"
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "[slug] (part of the address)",
+     "type": "address value"
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "components/ArticleContent.tsx",
+    "components/PrivacyPolicyContent.tsx",
+    "components/PrivacyPolicyModal.tsx",
+    "components/TermsOfUseModal.tsx",
+    "components/site/NewsCard.tsx",
+    "components/site/SiteLayout.tsx",
+    "components/site/news.ts",
+    "components/site/useSiteEffects.ts",
+    "lib/legal/privacy-notice.ts",
+    "lib/sanitize.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/news/index.ts",
+     "route": "/api/news",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/site/news.ts:55"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/pasantias.tsx",
+   "route": "/pasantias",
+   "lines": 1350,
+   "marks": {},
+   "frame": "none",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "not covered",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": false
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "components/Footer.tsx:91",
+     "components/site/SiteLayout.tsx:172",
+     "components/site/SiteLayout.tsx:23",
+     "lib/pasantias/pdf/contact.ts:22",
+     "pages/index.tsx:337",
+     "pages/programas.tsx:163"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/footer-heading-order.spec.ts",
+      "tests/e2e/pasantias-flow.spec.ts",
+      "tests/e2e/pasantias-form.spec.ts",
+      "tests/e2e/pasantias-page.spec.ts"
+     ],
+     "e2e": [],
+     "unit": [
+      "__tests__/pages/pasantias-hardcoded-cohort.test.ts",
+      "__tests__/pages/pasantias.test.tsx"
+     ]
+    }
+   },
+   "rows": [
+    {
+     "kind": "list",
+     "line": 107,
+     "in": "whatsappHref",
+     "text": "message",
+     "items": [
+      "Hola, quiero información sobre las Pasantías INSPIRA Barcelona ({COHORT_LABEL})."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 114,
+     "text": "PAGE_TITLE",
+     "items": [
+      "Pasantías INSPIRA Barcelona · {COHORT_HEADLINE} | Fundación Nueva Educación"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 289,
+     "text": "SHELL",
+     "items": [
+      "wrap w-full"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 291,
+     "text": "EYEBROW",
+     "items": [
+      "pas-k block"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 304,
+     "text": "BUTTON_ACCENT",
+     "items": [
+      "btn mag"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 305,
+     "text": "BUTTON_GHOST_DARK",
+     "items": [
+      "btn ghost"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 323,
+     "text": "DAY_MOMENT_HEADINGS",
+     "items": [
+      "Conocer",
+      "Observar y Preguntar",
+      "Profundizar"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 331,
+     "text": "DAY_PHOTO_ALT",
+     "items": [
+      "Una mano coloca una tarjeta sobre un muro de vidrio."
+     ]
+    },
+    {
+     "kind": "value",
+     "line": 346,
+     "in": "SectionHeader",
+     "text": "{eyebrow}"
+    },
+    {
+     "kind": "heading",
+     "line": 349,
+     "in": "SectionHeader",
+     "text": "{title}",
+     "level": 2
+    },
+    {
+     "kind": "gate",
+     "line": 397,
+     "in": "PhotoBreak",
+     "text": "!src"
+    },
+    {
+     "kind": "media",
+     "line": 400,
+     "in": "PhotoBreak",
+     "text": "img · {src}"
+    },
+    {
+     "kind": "hook",
+     "line": 433,
+     "in": "ProgramCalendar",
+     "screen": "lg:grid",
+     "text": "testid=pasantias-calendar-{program.id}",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "heading",
+     "line": 438,
+     "in": "ProgramCalendar",
+     "screen": "lg:grid",
+     "text": "{program.name}",
+     "level": 3
+    },
+    {
+     "kind": "hook",
+     "line": 440,
+     "in": "ProgramCalendar",
+     "when": "each program.weeks",
+     "screen": "lg:grid",
+     "text": "testid=pasantias-week-{program.id}-{week.id}",
+     "type": "mark",
+     "tag": "article"
+    },
+    {
+     "kind": "value",
+     "line": 446,
+     "in": "ProgramCalendar",
+     "when": "each program.weeks",
+     "screen": "lg:grid",
+     "text": "{week.label}"
+    },
+    {
+     "kind": "value",
+     "line": 449,
+     "in": "ProgramCalendar",
+     "when": "each program.weeks",
+     "screen": "lg:grid",
+     "text": "{ranges[index]}"
+    },
+    {
+     "kind": "value",
+     "line": 456,
+     "in": "ProgramCalendar",
+     "when": "each program.weeks",
+     "screen": "lg:grid",
+     "text": "{week.summary}"
+    },
+    {
+     "kind": "list",
+     "line": 488,
+     "in": "PasantiasPage",
+     "text": "faqs",
+     "items": [
+      "¿Qué programa me corresponde?",
+      "¿Necesito hablar catalán?",
+      "¿Viajan juntos los programas?",
+      "¿Cómo reservo mi cupo?",
+      "¿Podemos ir como delegación de un colegio?"
+     ]
+    },
+    {
+     "kind": "text",
+     "line": 493,
+     "in": "PasantiasPage",
+     "text": "{COHORT_ROUTING[0].question} {COHORT_ROUTING[0].program}: {inspira.audience}. {COHORT_ROUTING[1].question} {COHORT_ROUTING[1].program}: {mirada.audience}."
+    },
+    {
+     "kind": "text",
+     "line": 501,
+     "in": "PasantiasPage",
+     "text": "No. Las sesiones del programa se desarrollan en español: las presentaciones, las entrevistas y los talleres. En las escuelas vas a escuchar una mezcla de catalán y español, y el equipo de FNE acompaña las visitas."
+    },
+    {
+     "kind": "text",
+     "line": 510,
+     "in": "PasantiasPage",
+     "text": "Sí. {COHORT_TOGETHER}. Los programas comparten el fin de semana libre: {COHORT_FREE_WEEKEND.label}."
+    },
+    {
+     "kind": "text",
+     "line": 517,
+     "in": "PasantiasPage",
+     "text": "{COHORT_PLACES} Registra tu interés más abajo y descarga la ficha y el programa completo con los valores."
+    },
+    {
+     "kind": "text",
+     "line": 525,
+     "in": "PasantiasPage",
+     "text": "Sí. Para cotizaciones grupales escríbenos por el"
+    },
+    {
+     "kind": "link",
+     "line": 526,
+     "in": "PasantiasPage",
+     "text": "formulario de contacto",
+     "target": "/#contacto"
+    },
+    {
+     "kind": "text",
+     "line": 529,
+     "in": "PasantiasPage",
+     "text": "o a"
+    },
+    {
+     "kind": "link",
+     "line": 530,
+     "in": "PasantiasPage",
+     "text": "{COHORT_CONTACT.email}",
+     "target": "mailto:[*]"
+    },
+    {
+     "kind": "text",
+     "line": 533,
+     "in": "PasantiasPage",
+     "text": "y coordinamos una propuesta para tu equipo."
+    },
+    {
+     "kind": "piece",
+     "line": 540,
+     "in": "PasantiasPage",
+     "text": "active: pasantias",
+     "tag": "SiteLayout"
+    },
+    {
+     "kind": "hook",
+     "line": 569,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-hero id=hero",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "media",
+     "line": 571,
+     "in": "PasantiasPage",
+     "when": "photos.hero",
+     "text": "img · alt Barcelona, sede de las Pasantías INSPIRA · {photos.hero}"
+    },
+    {
+     "kind": "text",
+     "line": 590,
+     "in": "PasantiasPage",
+     "text": "Pasantías internacionales"
+    },
+    {
+     "kind": "heading",
+     "line": 591,
+     "in": "PasantiasPage",
+     "text": "Vive una escuela por dentro, no la visites",
+     "level": 1
+    },
+    {
+     "kind": "hook",
+     "line": 594,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-date-chip",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "value",
+     "line": 594,
+     "in": "PasantiasPage",
+     "text": "{COHORT_HEADLINE}"
+    },
+    {
+     "kind": "hook",
+     "line": 597,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-hero-stats",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "value",
+     "line": 597,
+     "in": "PasantiasPage",
+     "text": "{COHORT_TOGETHER}"
+    },
+    {
+     "kind": "hook",
+     "line": 609,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-hero-routes",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "hook",
+     "line": 614,
+     "in": "PasantiasPage",
+     "when": "each COHORT_ROUTING",
+     "text": "testid=pasantias-hero-route-{index}",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 615,
+     "in": "PasantiasPage",
+     "when": "each COHORT_ROUTING",
+     "text": "{route.question}"
+    },
+    {
+     "kind": "value",
+     "line": 616,
+     "in": "PasantiasPage",
+     "when": "each COHORT_ROUTING",
+     "text": "{route.program}"
+    },
+    {
+     "kind": "link",
+     "line": 619,
+     "in": "PasantiasPage",
+     "text": "Ver los programas",
+     "target": "#programas",
+     "hook": {
+      "testid": "pasantias-cta-programas"
+     }
+    },
+    {
+     "kind": "link",
+     "line": 629,
+     "in": "PasantiasPage",
+     "text": "Registra tu interés",
+     "target": "#programa",
+     "hook": {
+      "testid": "pasantias-cta-programa"
+     }
+    },
+    {
+     "kind": "link",
+     "line": 632,
+     "in": "PasantiasPage",
+     "text": "Descarga la ficha",
+     "target": "{FICHA_HREF}",
+     "hook": {
+      "testid": "pasantias-cta-ficha"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 640,
+     "in": "PasantiasPage",
+     "text": "La red INSPIRA en cifras",
+     "attr": "aria-label"
+    },
+    {
+     "kind": "hook",
+     "line": 640,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-claims",
+     "type": "mark",
+     "tag": "section",
+     "aria": "La red INSPIRA en cifras"
+    },
+    {
+     "kind": "hook",
+     "line": 650,
+     "in": "PasantiasPage",
+     "when": "each COHORT_CLAIMS",
+     "text": "testid=pasantias-claim-{index}",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "value",
+     "line": 656,
+     "in": "PasantiasPage",
+     "when": "each COHORT_CLAIMS",
+     "text": "{figure}"
+    },
+    {
+     "kind": "value",
+     "line": 657,
+     "in": "PasantiasPage",
+     "when": "each COHORT_CLAIMS",
+     "text": "{caption}"
+    },
+    {
+     "kind": "hook",
+     "line": 662,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-accreditation",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "value",
+     "line": 662,
+     "in": "PasantiasPage",
+     "text": "{COHORT_ACCREDITATION}"
+    },
+    {
+     "kind": "hook",
+     "line": 672,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-barcelona id=barcelona",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "piece",
+     "line": 680,
+     "in": "PasantiasPage",
+     "text": "eyebrow: Por qué {COHORT_CITY} · titleId: barcelona-title",
+     "tag": "SectionHeader"
+    },
+    {
+     "kind": "text",
+     "line": 684,
+     "in": "PasantiasPage",
+     "text": "Un ecosistema,"
+    },
+    {
+     "kind": "text",
+     "line": 685,
+     "in": "PasantiasPage",
+     "text": "no una escuela suelta"
+    },
+    {
+     "kind": "text",
+     "line": 691,
+     "in": "PasantiasPage",
+     "text": "Cataluña lleva años sosteniendo una transformación educativa en red: escuelas muy distintas entre sí que comparten preguntas, herramientas y una manera de mirar al estudiante. Por eso la pasantía no es un tour por un colegio ejemplar, sino un recorrido por un ecosistema que se explica a sí mismo."
+    },
+    {
+     "kind": "text",
+     "line": 697,
+     "in": "PasantiasPage",
+     "text": "Vas a entrar a las aulas, conversar con los equipos directivos, entrevistar a estudiantes y docentes, y cerrar cada día con un taller que ordena lo que viste."
+    },
+    {
+     "kind": "piece",
+     "line": 701,
+     "in": "PasantiasPage",
+     "text": "",
+     "tag": "Ecosistema"
+    },
+    {
+     "kind": "hook",
+     "line": 707,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-programas id=programas",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "piece",
+     "line": 713,
+     "in": "PasantiasPage",
+     "text": "eyebrow: Elige tu programa · titleId: programas-title",
+     "tag": "SectionHeader"
+    },
+    {
+     "kind": "hook",
+     "line": 717,
+     "in": "PasantiasPage",
+     "when": "each [inspira, mirada]",
+     "text": "testid=pasantias-program-{program.id}",
+     "type": "mark",
+     "tag": "article"
+    },
+    {
+     "kind": "heading",
+     "line": 728,
+     "in": "PasantiasPage",
+     "when": "each [inspira, mirada]",
+     "text": "{program.name}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 735,
+     "in": "PasantiasPage",
+     "when": "each [inspira, mirada]",
+     "text": "{program.audience}"
+    },
+    {
+     "kind": "value",
+     "line": 742,
+     "in": "PasantiasPage",
+     "when": "each [inspira, mirada]",
+     "text": "{programRanges[index]}"
+    },
+    {
+     "kind": "text",
+     "line": 745,
+     "in": "PasantiasPage",
+     "when": "each [inspira, mirada]",
+     "text": "{formatNumber(program.school…} días en escuelas · {formatNumber( program.schoo…} escuelas"
+    },
+    {
+     "kind": "value",
+     "line": 750,
+     "in": "PasantiasPage",
+     "when": "each [inspira, mirada]",
+     "text": "{program.overview}"
+    },
+    {
+     "kind": "value",
+     "line": 753,
+     "in": "PasantiasPage",
+     "when": "each [inspira, mirada]",
+     "text": "{program.takeaway}"
+    },
+    {
+     "kind": "link",
+     "line": 765,
+     "in": "PasantiasPage",
+     "when": "each [inspira, mirada]",
+     "text": "Me interesa {program.shortName}",
+     "target": "#programa",
+     "action": "{() => requestProgram(program.id)}",
+     "hook": {
+      "testid": "pasantias-cta-program-{program.id}"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 778,
+     "in": "PasantiasPage",
+     "text": "id=escuela-interior",
+     "type": "mark",
+     "tag": "PhotoBreak"
+    },
+    {
+     "kind": "hook",
+     "line": 781,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-calendario id=calendario",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "piece",
+     "line": 788,
+     "in": "PasantiasPage",
+     "text": "title: El calendario · titleId: calendario-title",
+     "tag": "SectionHeader"
+    },
+    {
+     "kind": "value",
+     "line": 789,
+     "in": "PasantiasPage",
+     "text": "{spanRange} · {COHORT_TOGETHER}."
+    },
+    {
+     "kind": "hook",
+     "line": 805,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-finde",
+     "type": "mark",
+     "tag": "article"
+    },
+    {
+     "kind": "text",
+     "line": 810,
+     "in": "PasantiasPage",
+     "text": "Fin de semana libre"
+    },
+    {
+     "kind": "hook",
+     "line": 811,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-free-weekend-dates",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 811,
+     "in": "PasantiasPage",
+     "text": "{freeWeekendDates[0]} al {freeWeekendDates[1]}"
+    },
+    {
+     "kind": "hook",
+     "line": 830,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-dia-tipo id=un-dia",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "piece",
+     "line": 843,
+     "in": "PasantiasPage",
+     "text": "eyebrow: Dentro de la escuela · title: Cómo es un día · titleId: dia-title",
+     "tag": "SectionHeader"
+    },
+    {
+     "kind": "hook",
+     "line": 848,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-dia-lead",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 852,
+     "in": "PasantiasPage",
+     "text": "La escuela, contada por quienes la hacen."
+    },
+    {
+     "kind": "media",
+     "line": 862,
+     "in": "PasantiasPage",
+     "when": "photos.unDia",
+     "text": "img · alt {DAY_PHOTO_ALT} · {photos.unDia}",
+     "hook": {
+      "testid": "pasantias-dia-photo"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 887,
+     "in": "PasantiasPage",
+     "when": "each COHORT_DAY_STRUCTURE",
+     "screen": "lg:block",
+     "text": "testid=pasantias-day-block-{index}",
+     "type": "mark",
+     "tag": "li"
+    },
+    {
+     "kind": "hook",
+     "line": 893,
+     "in": "PasantiasPage",
+     "when": "each COHORT_DAY_STRUCTURE",
+     "screen": "lg:block",
+     "text": "testid=pasantias-day-block-{index}-numeral",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "value",
+     "line": 893,
+     "in": "PasantiasPage",
+     "when": "each COHORT_DAY_STRUCTURE",
+     "screen": "lg:block",
+     "text": "{String(index + 1).padStart(2, '0')}"
+    },
+    {
+     "kind": "heading",
+     "line": 901,
+     "in": "PasantiasPage",
+     "when": "each COHORT_DAY_STRUCTURE && heading",
+     "screen": "lg:block",
+     "text": "{heading}",
+     "level": 3
+    },
+    {
+     "kind": "hook",
+     "line": 905,
+     "in": "PasantiasPage",
+     "when": "each COHORT_DAY_STRUCTURE",
+     "screen": "lg:block",
+     "text": "testid=pasantias-day-block-{index}-text",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "value",
+     "line": 905,
+     "in": "PasantiasPage",
+     "when": "each COHORT_DAY_STRUCTURE",
+     "screen": "lg:block",
+     "text": "{block}"
+    },
+    {
+     "kind": "hook",
+     "line": 919,
+     "in": "PasantiasPage",
+     "text": "id=barcelona-calle",
+     "type": "mark",
+     "tag": "PhotoBreak"
+    },
+    {
+     "kind": "hook",
+     "line": 939,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-escuelas id=escuelas",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "piece",
+     "line": 945,
+     "in": "PasantiasPage",
+     "text": "eyebrow: {COHORT_CITY} · {COHORT_LABEL} · title: Las escuelas · titleId: escuelas-title",
+     "tag": "SectionHeader"
+    },
+    {
+     "kind": "hook",
+     "line": 951,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-escuelas-{inspira.id}",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "heading",
+     "line": 957,
+     "in": "PasantiasPage",
+     "text": "{inspira.name}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 959,
+     "in": "PasantiasPage",
+     "text": "{inspira.overview}"
+    },
+    {
+     "kind": "hook",
+     "line": 965,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-escuelas-{inspira.id}-{inspira.weeks[0].id}",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "heading",
+     "line": 969,
+     "in": "PasantiasPage",
+     "text": "{inspira.weeks[0].label}",
+     "level": 4
+    },
+    {
+     "kind": "hook",
+     "line": 974,
+     "in": "PasantiasPage",
+     "when": "each inspira.immersionSchools",
+     "text": "testid=pasantias-school-inmersion-{index}",
+     "type": "mark",
+     "tag": "li"
+    },
+    {
+     "kind": "heading",
+     "line": 979,
+     "in": "PasantiasPage",
+     "when": "each inspira.immersionSchools",
+     "text": "{school.name}",
+     "level": 5
+    },
+    {
+     "kind": "text",
+     "line": 982,
+     "in": "PasantiasPage",
+     "when": "each inspira.immersionSchools",
+     "text": "{formatNumber(school.days)} días por pasante"
+    },
+    {
+     "kind": "hook",
+     "line": 990,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-escuelas-{inspira.id}-{inspira.weeks[1].id}",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "heading",
+     "line": 994,
+     "in": "PasantiasPage",
+     "text": "{inspira.weeks[1].label}",
+     "level": 4
+    },
+    {
+     "kind": "hook",
+     "line": 997,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-visit-count",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 997,
+     "in": "PasantiasPage",
+     "text": "Cada cohorte visita {formatNumber(inspira.visits…} de estas {inspira.visits.candidates.l…} escuelas."
+    },
+    {
+     "kind": "hook",
+     "line": 1007,
+     "in": "PasantiasPage",
+     "when": "each inspira.visits.candidates",
+     "text": "testid=pasantias-school-visita-{index}",
+     "type": "mark",
+     "tag": "li"
+    },
+    {
+     "kind": "heading",
+     "line": 1012,
+     "in": "PasantiasPage",
+     "when": "each inspira.visits.candidates",
+     "text": "{name}",
+     "level": 5
+    },
+    {
+     "kind": "value",
+     "line": 1017,
+     "in": "PasantiasPage",
+     "text": "{inspira.visits.selection}"
+    },
+    {
+     "kind": "hook",
+     "line": 1018,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-full-day",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 1018,
+     "in": "PasantiasPage",
+     "text": "{joinEs(inspira.visits.fullD…} están fuera de {COHORT_CITY} y toman el día completo."
+    },
+    {
+     "kind": "hook",
+     "line": 1026,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-escuelas-{mirada.id}",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "heading",
+     "line": 1031,
+     "in": "PasantiasPage",
+     "text": "{mirada.name}",
+     "level": 3
+    },
+    {
+     "kind": "hook",
+     "line": 1037,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-mirada-days",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 1037,
+     "in": "PasantiasPage",
+     "text": "{formatNumber(mirada.daysPer…} días completos por escuela"
+    },
+    {
+     "kind": "hook",
+     "line": 1047,
+     "in": "PasantiasPage",
+     "when": "each mirada.schools",
+     "text": "testid=pasantias-school-mirada-{index}",
+     "type": "mark",
+     "tag": "li"
+    },
+    {
+     "kind": "heading",
+     "line": 1053,
+     "in": "PasantiasPage",
+     "when": "each mirada.schools",
+     "text": "{name}",
+     "level": 4
+    },
+    {
+     "kind": "value",
+     "line": 1057,
+     "in": "PasantiasPage",
+     "text": "{mirada.orderCaveat}"
+    },
+    {
+     "kind": "hook",
+     "line": 1063,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-mirada-extra id=antes-durante-despues",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "piece",
+     "line": 1070,
+     "in": "PasantiasPage",
+     "text": "title: {mirada.name}: antes, durante y después · titleId: mirada-title",
+     "tag": "SectionHeader"
+    },
+    {
+     "kind": "heading",
+     "line": 1077,
+     "in": "PasantiasPage",
+     "text": "Antes del viaje",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 1078,
+     "in": "PasantiasPage",
+     "text": "{mirada.preparation}"
+    },
+    {
+     "kind": "heading",
+     "line": 1083,
+     "in": "PasantiasPage",
+     "text": "Cierre · {closingDate}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 1084,
+     "in": "PasantiasPage",
+     "text": "{mirada.closing.text}"
+    },
+    {
+     "kind": "heading",
+     "line": 1089,
+     "in": "PasantiasPage",
+     "text": "Seguimiento",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 1090,
+     "in": "PasantiasPage",
+     "text": "{mirada.followUp}"
+    },
+    {
+     "kind": "hook",
+     "line": 1098,
+     "in": "PasantiasPage",
+     "text": "id=equipo-foto",
+     "type": "mark",
+     "tag": "PhotoBreak"
+    },
+    {
+     "kind": "hook",
+     "line": 1101,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-equipo id=equipo",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "piece",
+     "line": 1108,
+     "in": "PasantiasPage",
+     "text": "eyebrow: En las escuelas · title: Quién te recibe · titleId: equipo-title",
+     "tag": "SectionHeader"
+    },
+    {
+     "kind": "hook",
+     "line": 1116,
+     "in": "PasantiasPage",
+     "when": "each COHORT_HOSTS",
+     "text": "testid=pasantias-host-{index}",
+     "type": "mark",
+     "tag": "li"
+    },
+    {
+     "kind": "media",
+     "line": 1122,
+     "in": "PasantiasPage",
+     "when": "each COHORT_HOSTS && portraits[index]",
+     "text": "img · {portraits[index] as string}",
+     "hook": {
+      "testid": "pasantias-host-portrait-{index}"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 1135,
+     "in": "PasantiasPage",
+     "when": "each COHORT_HOSTS && !(portraits[index])",
+     "text": "testid=pasantias-host-initials-{index}",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "value",
+     "line": 1135,
+     "in": "PasantiasPage",
+     "when": "each COHORT_HOSTS && !(portraits[index])",
+     "text": "{host.name .split(' ') .filter((word…}"
+    },
+    {
+     "kind": "heading",
+     "line": 1148,
+     "in": "PasantiasPage",
+     "when": "each COHORT_HOSTS",
+     "text": "{host.name}",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 1152,
+     "in": "PasantiasPage",
+     "when": "each COHORT_HOSTS",
+     "text": "{host.role}, {host.school} —"
+    },
+    {
+     "kind": "value",
+     "line": 1153,
+     "in": "PasantiasPage",
+     "when": "each COHORT_HOSTS",
+     "text": "{host.note}"
+    },
+    {
+     "kind": "hook",
+     "line": 1162,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-incluye id=incluye",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "heading",
+     "line": 1169,
+     "in": "PasantiasPage",
+     "text": "Incluye",
+     "level": 2
+    },
+    {
+     "kind": "value",
+     "line": 1176,
+     "in": "PasantiasPage",
+     "when": "each COHORT_INCLUDES",
+     "text": "{item}"
+    },
+    {
+     "kind": "hook",
+     "line": 1180,
+     "in": "PasantiasPage",
+     "when": "each [inspira.lunches, mirada.lunches]",
+     "text": "testid=pasantias-lunches-{index}",
+     "type": "mark",
+     "tag": "li"
+    },
+    {
+     "kind": "value",
+     "line": 1188,
+     "in": "PasantiasPage",
+     "when": "each [inspira.lunches, mirada.lunches]",
+     "text": "{item}"
+    },
+    {
+     "kind": "value",
+     "line": 1196,
+     "in": "PasantiasPage",
+     "when": "each mirada.extraIncludes",
+     "text": "{mirada.name}: {item}"
+    },
+    {
+     "kind": "heading",
+     "line": 1202,
+     "in": "PasantiasPage",
+     "text": "No incluye",
+     "level": 2
+    },
+    {
+     "kind": "value",
+     "line": 1209,
+     "in": "PasantiasPage",
+     "when": "each COHORT_EXCLUDES",
+     "text": "{item}"
+    },
+    {
+     "kind": "hook",
+     "line": 1224,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-programa id=programa",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "piece",
+     "line": 1233,
+     "in": "PasantiasPage",
+     "text": "title: Registra tu interés · titleId: programa-title",
+     "tag": "SectionHeader"
+    },
+    {
+     "kind": "text",
+     "line": 1240,
+     "in": "PasantiasPage",
+     "text": "Elige el programa que te corresponde. Si te interesa más de uno, registra una solicitud por cada programa con el mismo correo."
+    },
+    {
+     "kind": "hook",
+     "line": 1243,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-places",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "value",
+     "line": 1243,
+     "in": "PasantiasPage",
+     "text": "{COHORT_PLACES}"
+    },
+    {
+     "kind": "hook",
+     "line": 1251,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-registration-note",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 1255,
+     "in": "PasantiasPage",
+     "text": "Registrar tu interés no reserva un cupo. Después de enviarlo puedes descargar la ficha y el programa completo."
+    },
+    {
+     "kind": "link",
+     "line": 1259,
+     "in": "PasantiasPage",
+     "text": "Descarga la ficha (PDF)",
+     "target": "{FICHA_HREF}",
+     "hook": {
+      "testid": "pasantias-cta-ficha-programa"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 1265,
+     "in": "PasantiasPage",
+     "text": "",
+     "tag": "LeadForm"
+    },
+    {
+     "kind": "hook",
+     "line": 1270,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-faq id=faq",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "piece",
+     "line": 1277,
+     "in": "PasantiasPage",
+     "text": "eyebrow: Antes de decidir · title: Preguntas frecuentes · titleId: faq-title",
+     "tag": "SectionHeader"
+    },
+    {
+     "kind": "hook",
+     "line": 1284,
+     "in": "PasantiasPage",
+     "when": "each faqs",
+     "text": "testid=pasantias-faq-{index}",
+     "type": "mark",
+     "tag": "details"
+    },
+    {
+     "kind": "label",
+     "line": 1290,
+     "in": "PasantiasPage",
+     "when": "each faqs",
+     "text": "{faq.question} +"
+    },
+    {
+     "kind": "value",
+     "line": 1299,
+     "in": "PasantiasPage",
+     "when": "each faqs",
+     "text": "{faq.answer}"
+    },
+    {
+     "kind": "hook",
+     "line": 1308,
+     "in": "PasantiasPage",
+     "text": "testid=pasantias-cierre id=cierre",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "media",
+     "line": 1316,
+     "in": "PasantiasPage",
+     "when": "photos.barcelonaTarde",
+     "text": "img · {photos.barcelonaTarde}"
+    },
+    {
+     "kind": "heading",
+     "line": 1329,
+     "in": "PasantiasPage",
+     "text": "Conversemos antes de que se cierre la cohorte",
+     "level": 2,
+     "hook": {
+      "id": "cierre-title",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "text",
+     "line": 1333,
+     "in": "PasantiasPage",
+     "text": "Escríbenos por WhatsApp y te contamos cómo se prepara el viaje con tu equipo."
+    },
+    {
+     "kind": "link",
+     "line": 1335,
+     "in": "PasantiasPage",
+     "text": "WhatsApp {COHORT_CONTACT.whatsapp}",
+     "target": "{whatsappHref()}",
+     "newTab": true,
+     "hook": {
+      "testid": "pasantias-cta-whatsapp"
+     }
+    },
+    {
+     "kind": "string",
+     "line": 123,
+     "in": "buildMetaDescription",
+     "text": "{COHORT_HEADLINE}. {inspira.name}: {inspira.audience}, {formatNumber( inspira.schoo…} días en escuelas. {mirada.name}: {mirada.audience}, {formatNumber( mirada.school…} días en escuelas. {COHORT_TOGETHER}."
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "components/PrivacyPolicyContent.tsx",
+    "components/PrivacyPolicyModal.tsx",
+    "components/TermsOfUseModal.tsx",
+    "components/pasantias/LeadForm.tsx",
+    "components/site/Ecosistema.tsx",
+    "components/site/SiteLayout.tsx",
+    "components/site/useSiteEffects.ts",
+    "lib/legal/privacy-notice.ts",
+    "lib/pasantias/cohort-public.ts",
+    "lib/pasantias/consent.ts",
+    "lib/pasantias/leads.ts",
+    "lib/utils/app-url.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/pasantias/brochure.ts",
+     "route": "/api/pasantias/brochure",
+     "methods": [],
+     "from": [
+      "components/pasantias/LeadForm.tsx:55"
+     ]
+    },
+    {
+     "file": "pages/api/pasantias/ficha.ts",
+     "route": "/api/pasantias/ficha",
+     "methods": [],
+     "from": [
+      "components/pasantias/LeadForm.tsx:54",
+      "pages/pasantias.tsx:111"
+     ]
+    },
+    {
+     "file": "pages/api/pasantias/lead.ts",
+     "route": "/api/pasantias/lead",
+     "methods": [],
+     "from": [
+      "components/pasantias/LeadForm.tsx:52"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/privacidad.tsx",
+   "route": "/privacidad",
+   "lines": 46,
+   "marks": {},
+   "frame": "none",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "not covered",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": false
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "lib/pasantias/consent.ts:28",
+     "pages/registro-tractor.tsx:400",
+     "pages/registro-tractor.tsx:401",
+     "pages/registro.tsx:485",
+     "pages/registro.tsx:486"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "text",
+     "line": 14,
+     "in": "PrivacidadPage",
+     "text": "Política de Privacidad · Genera"
+    },
+    {
+     "kind": "media",
+     "line": 25,
+     "in": "PrivacidadPage",
+     "text": "img · alt Genera · Hub de Transformación · /genera/logo-horizontal-on-dark.svg"
+    },
+    {
+     "kind": "heading",
+     "line": 33,
+     "in": "PrivacidadPage",
+     "text": "Política de Privacidad",
+     "level": 1
+    },
+    {
+     "kind": "piece",
+     "line": 36,
+     "in": "PrivacidadPage",
+     "text": "",
+     "tag": "PrivacyPolicyContent"
+    },
+    {
+     "kind": "text",
+     "line": 40,
+     "in": "PrivacidadPage",
+     "text": "© 2026 Fundación Nueva Educación · Santiago, Chile"
+    },
+    {
+     "kind": "string",
+     "line": 17,
+     "in": "PrivacidadPage",
+     "text": "Política de privacidad de la plataforma Genera de la Fundación Nueva Educación (Ley 21.719)."
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "components/PrivacyPolicyContent.tsx",
+    "lib/legal/privacy-notice.ts"
+   ],
+   "api": []
+  },
+  {
+   "file": "pages/programas.tsx",
+   "route": "/programas",
+   "lines": 208,
+   "marks": {},
+   "frame": "none",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "not covered",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": false
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "components/Footer.tsx:92",
+     "components/site/Puertas.tsx:30",
+     "components/site/Puertas.tsx:33",
+     "components/site/SiteLayout.tsx:173",
+     "components/site/SiteLayout.tsx:24",
+     "pages/index.tsx:123",
+     "pages/nosotros.tsx:106"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/footer-heading-order.spec.ts",
+      "tests/e2e/pasantias-page.spec.ts"
+     ],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "list",
+     "line": 10,
+     "text": "TAB_LABELS",
+     "items": [
+      "Objetivos",
+      "Actividades",
+      "Resultados"
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 33,
+     "in": "fromHash",
+     "text": "fichaRef.current.scrollIntoView()",
+     "type": "scroll"
+    },
+    {
+     "kind": "hook",
+     "line": 36,
+     "in": "ProgramasPage",
+     "text": "window.addEventListener('hashchange')",
+     "type": "listener"
+    },
+    {
+     "kind": "gate",
+     "line": 42,
+     "in": "ProgramasPage",
+     "text": "current === shown"
+    },
+    {
+     "kind": "piece",
+     "line": 58,
+     "in": "ProgramasPage",
+     "text": "active: programas · title: Programas · Fundación Nueva Educación · description: Inicia, Inspira, Aula Generativa y Evoluciona: cuatro programas que se combinan para acompañar a cada comunidad educativa en su viaje hacia una educación de vanguardia.",
+     "tag": "SiteLayout"
+    },
+    {
+     "kind": "text",
+     "line": 69,
+     "in": "ProgramasPage",
+     "text": "Programas"
+    },
+    {
+     "kind": "heading",
+     "line": 70,
+     "in": "ProgramasPage",
+     "text": "Programas de evolución educativa",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 74,
+     "in": "ProgramasPage",
+     "text": "Descubre nuestros programas, diseñados para acompañar a las comunidades educativas en su viaje hacia una educación de vanguardia."
+    },
+    {
+     "kind": "text",
+     "line": 84,
+     "in": "ProgramasPage",
+     "text": "La evolución de la cultura de una escuela se basa en la conservación de su identidad, en la elevación de sus fortalezas y en la creación colectiva de una nueva mirada y nuevas habilidades."
+    },
+    {
+     "kind": "hook",
+     "line": 90,
+     "in": "ProgramasPage",
+     "text": "id=viaje",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "text",
+     "line": 94,
+     "in": "ProgramasPage",
+     "text": "El viaje de evolución"
+    },
+    {
+     "kind": "heading",
+     "line": 95,
+     "in": "ProgramasPage",
+     "text": "Un modelo para armar tu propio viaje",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 100,
+     "in": "ProgramasPage",
+     "text": "Estos programas son autónomos y pueden combinarse según las necesidades de tu institución. Te presentamos un orden sugerido para iniciar y profundizar el cambio educativo."
+    },
+    {
+     "kind": "text",
+     "line": 105,
+     "in": "ProgramasPage",
+     "text": "Programas",
+     "attr": "aria-label"
+    },
+    {
+     "kind": "hook",
+     "line": 105,
+     "in": "ProgramasPage",
+     "text": "role=tablist",
+     "type": "role",
+     "tag": "div",
+     "aria": "Programas"
+    },
+    {
+     "kind": "tab",
+     "line": 108,
+     "in": "ProgramasPage",
+     "when": "each JOURNEY",
+     "text": "{item.name} {item.stage} · {item.detail}",
+     "action": "{() => setCurrent(index)}",
+     "hook": {
+      "testid": "programa-{item.id}"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 130,
+     "in": "ProgramasPage",
+     "text": "Programas de {step.stage.toLowerCase()} · {program.duration}"
+    },
+    {
+     "kind": "heading",
+     "line": 134,
+     "in": "ProgramasPage",
+     "text": "{step.name}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 135,
+     "in": "ProgramasPage",
+     "text": "{program.subtitle}"
+    },
+    {
+     "kind": "value",
+     "line": 139,
+     "in": "ProgramasPage",
+     "text": "{program.description}"
+    },
+    {
+     "kind": "hook",
+     "line": 140,
+     "in": "ProgramasPage",
+     "text": "role=tablist",
+     "type": "role",
+     "tag": "div",
+     "aria": "{`Detalle de ${step.name}`}"
+    },
+    {
+     "kind": "tab",
+     "line": 142,
+     "in": "ProgramasPage",
+     "when": "each tabs",
+     "text": "{TAB_LABELS[key]}",
+     "action": "{() => setTab(key)}",
+     "hook": {
+      "testid": "programa-tab-{key}"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 157,
+     "in": "ProgramasPage",
+     "when": "each items",
+     "text": "{item}"
+    },
+    {
+     "kind": "link",
+     "line": 163,
+     "in": "ProgramasPage",
+     "when": "step.id === 'inspira'",
+     "text": "Conoce las Pasantías en Barcelona",
+     "target": "/pasantias",
+     "hook": {
+      "testid": "inspira-pasantias-cta"
+     }
+    },
+    {
+     "kind": "link",
+     "line": 167,
+     "in": "ProgramasPage",
+     "text": "Contáctanos →",
+     "target": "/#contacto",
+     "hook": {
+      "testid": "programa-contacto"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 170,
+     "in": "ProgramasPage",
+     "text": "Programa Estratégico para Directivos →",
+     "action": "{() => setShowFlipbook(true)}",
+     "hook": {
+      "testid": "directivos-flipbook-cta"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 183,
+     "in": "ProgramasPage",
+     "text": "El primer paso"
+    },
+    {
+     "kind": "heading",
+     "line": 184,
+     "in": "ProgramasPage",
+     "text": "¿Listo para iniciar este viaje de evolución?",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 187,
+     "in": "ProgramasPage",
+     "text": "Comienza hoy el camino hacia una educación de vanguardia para tu institución."
+    },
+    {
+     "kind": "link",
+     "line": 189,
+     "in": "ProgramasPage",
+     "text": "Contáctanos →",
+     "target": "/#contacto",
+     "hook": {
+      "testid": "programas-cierre-contacto"
+     }
+    },
+    {
+     "kind": "link",
+     "line": 192,
+     "in": "ProgramasPage",
+     "text": "Accede a la plataforma",
+     "target": "/login",
+     "hook": {
+      "testid": "programas-cierre-plataforma"
+     }
+    },
+    {
+     "kind": "popup",
+     "line": 199,
+     "in": "ProgramasPage",
+     "text": "FlipbookDialog",
+     "how": "component",
+     "open": "{showFlipbook}",
+     "props": "title: Programa Estratégico Para Directivos"
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "components/PrivacyPolicyContent.tsx",
+    "components/PrivacyPolicyModal.tsx",
+    "components/TermsOfUseModal.tsx",
+    "components/site/FlipbookDialog.tsx",
+    "components/site/SiteLayout.tsx",
+    "components/site/programsData.ts",
+    "components/site/useSiteEffects.ts",
+    "lib/legal/privacy-notice.ts"
+   ],
+   "api": []
+  }
+ ],
+ "pieces": {
+  "components/ArticleContent.tsx": {
+   "usedBy": [
+    "/noticias/[slug]"
+   ],
+   "lines": 280,
+   "rows": [
+    {
+     "kind": "media",
+     "line": 18,
+     "in": "VideoPlayer",
+     "when": "!isPlaying",
+     "text": "img · alt {title || \"Video thumbnail\"} · {thumbnailUrl}"
+    },
+    {
+     "kind": "button",
+     "line": 31,
+     "in": "VideoPlayer",
+     "when": "!isPlaying",
+     "text": "Play video",
+     "action": "{() => setIsPlaying(true)}",
+     "aria": "Play video"
+    },
+    {
+     "kind": "text",
+     "line": 58,
+     "in": "VideoPlayer",
+     "when": "!isPlaying",
+     "text": "YouTube"
+    },
+    {
+     "kind": "media",
+     "line": 69,
+     "in": "VideoPlayer",
+     "text": "iframe · {title || \"YouTube video\"} · {`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`}",
+     "title": "{title || \"YouTube video\"}"
+    },
+    {
+     "kind": "text",
+     "line": 187,
+     "in": "ArticleContent",
+     "text": ".article-content { line-height: 1.8; } .article-content p { margin-bottom: 1.5rem; color: #374151; text-indent: 2rem; } .article-content h1, .article-content h2, .article-content h3, .article-content h4, .article-content h5, .article-conte…"
+    }
+   ],
+   "db": []
+  },
+  "components/PrivacyPolicyContent.tsx": {
+   "usedBy": [
+    "/equipo",
+    "/",
+    "/nosotros",
+    "/noticias",
+    "/noticias/[slug]",
+    "/pasantias",
+    "/privacidad",
+    "/programas"
+   ],
+   "lines": 141,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 26,
+     "in": "PrivacyPolicyContent",
+     "text": "testid=privacy-notice-version",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 26,
+     "in": "PrivacyPolicyContent",
+     "text": "Última actualización: {PRIVACY_NOTICE_UPDATED_LABEL} · Versión {PRIVACY_NOTICE_VERSION}"
+    },
+    {
+     "kind": "hook",
+     "line": 30,
+     "in": "PrivacyPolicyContent",
+     "text": "testid=privacy-controller-identity",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 30,
+     "in": "PrivacyPolicyContent",
+     "text": "El responsable del tratamiento de sus datos personales es {LEGAL_IDENTITY.brandName} (razón social: {LEGAL_IDENTITY.legalName} , {LEGAL_IDENTITY.taxId} ), con domicilio en {LEGAL_IDENTITY.streetAddress} , {LEGAL_IDENTITY.city} , {LEGAL_IDE…"
+    },
+    {
+     "kind": "heading",
+     "line": 37,
+     "in": "PrivacyPolicyContent",
+     "text": "1. Información que Recopilamos",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 39,
+     "in": "PrivacyPolicyContent",
+     "text": "En FNE recopilamos información que usted nos proporciona directamente, tales como:"
+    },
+    {
+     "kind": "text",
+     "line": 42,
+     "in": "PrivacyPolicyContent",
+     "text": "Nombre y apellidos"
+    },
+    {
+     "kind": "text",
+     "line": 43,
+     "in": "PrivacyPolicyContent",
+     "text": "Dirección de correo electrónico"
+    },
+    {
+     "kind": "text",
+     "line": 44,
+     "in": "PrivacyPolicyContent",
+     "text": "Institución educativa a la que pertenece"
+    },
+    {
+     "kind": "text",
+     "line": 45,
+     "in": "PrivacyPolicyContent",
+     "text": "Cargo o rol dentro de la institución"
+    },
+    {
+     "kind": "text",
+     "line": 46,
+     "in": "PrivacyPolicyContent",
+     "text": "Información de contacto profesional"
+    },
+    {
+     "kind": "text",
+     "line": 47,
+     "in": "PrivacyPolicyContent",
+     "text": "Contenido de mensajes y consultas enviadas a través de nuestros formularios"
+    },
+    {
+     "kind": "heading",
+     "line": 50,
+     "in": "PrivacyPolicyContent",
+     "text": "2. Uso de la Información",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 52,
+     "in": "PrivacyPolicyContent",
+     "text": "Utilizamos la información recopilada para los siguientes propósitos:"
+    },
+    {
+     "kind": "text",
+     "line": 55,
+     "in": "PrivacyPolicyContent",
+     "text": "Responder a sus consultas y solicitudes de información"
+    },
+    {
+     "kind": "text",
+     "line": 56,
+     "in": "PrivacyPolicyContent",
+     "text": "Proporcionar acceso a nuestra plataforma educativa"
+    },
+    {
+     "kind": "text",
+     "line": 57,
+     "in": "PrivacyPolicyContent",
+     "text": "Enviar comunicaciones sobre nuestros programas y servicios educativos"
+    },
+    {
+     "kind": "text",
+     "line": 58,
+     "in": "PrivacyPolicyContent",
+     "text": "Mejorar nuestros servicios y desarrollar nuevos programas"
+    },
+    {
+     "kind": "text",
+     "line": 59,
+     "in": "PrivacyPolicyContent",
+     "text": "Cumplir con obligaciones legales y regulatorias"
+    },
+    {
+     "kind": "text",
+     "line": 60,
+     "in": "PrivacyPolicyContent",
+     "text": "Generar estadísticas agregadas sobre el uso de nuestros servicios"
+    },
+    {
+     "kind": "heading",
+     "line": 63,
+     "in": "PrivacyPolicyContent",
+     "text": "3. Protección de Datos",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 65,
+     "in": "PrivacyPolicyContent",
+     "text": "Implementamos medidas de seguridad técnicas y organizativas apropiadas para proteger su información personal contra acceso no autorizado, alteración, divulgación o destrucción. Estas medidas incluyen:",
+     "access": true
+    },
+    {
+     "kind": "text",
+     "line": 68,
+     "in": "PrivacyPolicyContent",
+     "text": "Encriptación de datos en tránsito y en reposo"
+    },
+    {
+     "kind": "text",
+     "line": 69,
+     "in": "PrivacyPolicyContent",
+     "text": "Acceso restringido a información personal",
+     "access": true
+    },
+    {
+     "kind": "text",
+     "line": 70,
+     "in": "PrivacyPolicyContent",
+     "text": "Monitoreo regular de nuestros sistemas"
+    },
+    {
+     "kind": "text",
+     "line": 71,
+     "in": "PrivacyPolicyContent",
+     "text": "Capacitación del personal en protección de datos"
+    },
+    {
+     "kind": "heading",
+     "line": 74,
+     "in": "PrivacyPolicyContent",
+     "text": "4. Compartir Información",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 76,
+     "in": "PrivacyPolicyContent",
+     "text": "No vendemos, alquilamos ni compartimos su información personal con terceros, excepto en los siguientes casos:"
+    },
+    {
+     "kind": "text",
+     "line": 79,
+     "in": "PrivacyPolicyContent",
+     "text": "Con su consentimiento explícito"
+    },
+    {
+     "kind": "text",
+     "line": 80,
+     "in": "PrivacyPolicyContent",
+     "text": "Para cumplir con requerimientos legales"
+    },
+    {
+     "kind": "text",
+     "line": 81,
+     "in": "PrivacyPolicyContent",
+     "text": "Con proveedores de servicios que nos ayudan a operar nuestra plataforma (bajo acuerdos de confidencialidad)"
+    },
+    {
+     "kind": "text",
+     "line": 82,
+     "in": "PrivacyPolicyContent",
+     "text": "Para proteger los derechos y seguridad de FNE, nuestros usuarios o el público"
+    },
+    {
+     "kind": "heading",
+     "line": 85,
+     "in": "PrivacyPolicyContent",
+     "text": "5. Retención de Datos",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 87,
+     "in": "PrivacyPolicyContent",
+     "text": "Conservamos su información personal durante el tiempo necesario para cumplir con los propósitos descritos en esta política, a menos que la ley requiera o permita un período de retención más largo."
+    },
+    {
+     "kind": "heading",
+     "line": 90,
+     "in": "PrivacyPolicyContent",
+     "text": "6. Sus Derechos",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 92,
+     "in": "PrivacyPolicyContent",
+     "text": "Usted tiene derecho a:"
+    },
+    {
+     "kind": "text",
+     "line": 95,
+     "in": "PrivacyPolicyContent",
+     "text": "Acceder a su información personal"
+    },
+    {
+     "kind": "text",
+     "line": 96,
+     "in": "PrivacyPolicyContent",
+     "text": "Corregir datos inexactos o incompletos"
+    },
+    {
+     "kind": "text",
+     "line": 97,
+     "in": "PrivacyPolicyContent",
+     "text": "Solicitar la eliminación de sus datos"
+    },
+    {
+     "kind": "text",
+     "line": 98,
+     "in": "PrivacyPolicyContent",
+     "text": "Oponerse al procesamiento de sus datos"
+    },
+    {
+     "kind": "text",
+     "line": 99,
+     "in": "PrivacyPolicyContent",
+     "text": "Solicitar la portabilidad de sus datos"
+    },
+    {
+     "kind": "text",
+     "line": 100,
+     "in": "PrivacyPolicyContent",
+     "text": "Retirar su consentimiento en cualquier momento"
+    },
+    {
+     "kind": "heading",
+     "line": 103,
+     "in": "PrivacyPolicyContent",
+     "text": "7. Cookies y Tecnologías Similares",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 105,
+     "in": "PrivacyPolicyContent",
+     "text": "Utilizamos cookies y tecnologías similares para mejorar su experiencia en nuestro sitio web, analizar el tráfico y personalizar el contenido. Puede configurar su navegador para rechazar cookies, aunque esto podría afectar algunas funcionalidades del sitio."
+    },
+    {
+     "kind": "heading",
+     "line": 108,
+     "in": "PrivacyPolicyContent",
+     "text": "8. Menores de Edad",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 110,
+     "in": "PrivacyPolicyContent",
+     "text": "Nuestros servicios están dirigidos a profesionales de la educación. No recopilamos intencionalmente información personal de menores de 18 años sin el consentimiento de sus padres o tutores."
+    },
+    {
+     "kind": "heading",
+     "line": 113,
+     "in": "PrivacyPolicyContent",
+     "text": "9. Cambios a esta Política",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 115,
+     "in": "PrivacyPolicyContent",
+     "text": "Podemos actualizar esta política de privacidad periódicamente. Le notificaremos sobre cambios significativos publicando la nueva política en nuestro sitio web y actualizando la fecha de &quot;última actualización&quot;."
+    },
+    {
+     "kind": "heading",
+     "line": 118,
+     "in": "PrivacyPolicyContent",
+     "text": "10. Contacto",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 120,
+     "in": "PrivacyPolicyContent",
+     "text": "Si tiene preguntas sobre esta política de privacidad o sobre el tratamiento de sus datos personales, puede contactarnos en:"
+    },
+    {
+     "kind": "hook",
+     "line": 122,
+     "in": "PrivacyPolicyContent",
+     "text": "testid=privacy-contact-block",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "value",
+     "line": 123,
+     "in": "PrivacyPolicyContent",
+     "text": "{LEGAL_IDENTITY.brandName}"
+    },
+    {
+     "kind": "text",
+     "line": 124,
+     "in": "PrivacyPolicyContent",
+     "text": "Razón social: {LEGAL_IDENTITY.legalName} · {LEGAL_IDENTITY.taxId}"
+    },
+    {
+     "kind": "text",
+     "line": 126,
+     "in": "PrivacyPolicyContent",
+     "text": "Email:"
+    },
+    {
+     "kind": "link",
+     "line": 127,
+     "in": "PrivacyPolicyContent",
+     "text": "{LEGAL_IDENTITY.contactEmail}",
+     "target": "mailto:[*]"
+    },
+    {
+     "kind": "text",
+     "line": 134,
+     "in": "PrivacyPolicyContent",
+     "text": "Dirección: {LEGAL_IDENTITY.streetAddress} , {LEGAL_IDENTITY.city} , {LEGAL_IDENTITY.country}"
+    }
+   ],
+   "db": []
+  },
+  "components/PrivacyPolicyModal.tsx": {
+   "usedBy": [
+    "/equipo",
+    "/",
+    "/nosotros",
+    "/noticias",
+    "/noticias/[slug]",
+    "/pasantias",
+    "/programas"
+   ],
+   "lines": 45,
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 10,
+     "in": "PrivacyPolicyModal",
+     "text": "!isOpen"
+    },
+    {
+     "kind": "popup",
+     "line": 13,
+     "in": "PrivacyPolicyModal",
+     "text": "Política de Privacidad",
+     "how": "written in this file"
+    },
+    {
+     "kind": "clickable",
+     "line": 15,
+     "in": "PrivacyPolicyModal",
+     "text": "",
+     "tag": "div",
+     "action": "{onClose}"
+    },
+    {
+     "kind": "heading",
+     "line": 25,
+     "in": "PrivacyPolicyModal",
+     "text": "Política de Privacidad",
+     "level": 2
+    },
+    {
+     "kind": "button",
+     "line": 26,
+     "in": "PrivacyPolicyModal",
+     "text": "",
+     "action": "{onClose}"
+    },
+    {
+     "kind": "piece",
+     "line": 38,
+     "in": "PrivacyPolicyModal",
+     "text": "",
+     "tag": "PrivacyPolicyContent"
+    }
+   ],
+   "db": []
+  },
+  "components/TermsOfUseModal.tsx": {
+   "usedBy": [
+    "/equipo",
+    "/",
+    "/nosotros",
+    "/noticias",
+    "/noticias/[slug]",
+    "/pasantias",
+    "/programas"
+   ],
+   "lines": 158,
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 9,
+     "in": "TermsOfUseModal",
+     "text": "!isOpen"
+    },
+    {
+     "kind": "popup",
+     "line": 12,
+     "in": "TermsOfUseModal",
+     "text": "Términos de Uso",
+     "how": "written in this file"
+    },
+    {
+     "kind": "clickable",
+     "line": 14,
+     "in": "TermsOfUseModal",
+     "text": "",
+     "tag": "div",
+     "action": "{onClose}"
+    },
+    {
+     "kind": "heading",
+     "line": 24,
+     "in": "TermsOfUseModal",
+     "text": "Términos de Uso",
+     "level": 2
+    },
+    {
+     "kind": "button",
+     "line": 25,
+     "in": "TermsOfUseModal",
+     "text": "",
+     "action": "{onClose}"
+    },
+    {
+     "kind": "text",
+     "line": 38,
+     "in": "TermsOfUseModal",
+     "text": "Última actualización: {new Date().toLocaleDateString('es-C…}"
+    },
+    {
+     "kind": "heading",
+     "line": 40,
+     "in": "TermsOfUseModal",
+     "text": "1. Aceptación de los Términos",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 42,
+     "in": "TermsOfUseModal",
+     "text": "Al acceder y utilizar el sitio web de Fundación Nueva Educación (FNE) y su Hub de Transformación, usted acepta y se compromete a cumplir con estos Términos de Uso. Si no está de acuerdo con estos términos, no debe utilizar nuestros servicios."
+    },
+    {
+     "kind": "heading",
+     "line": 45,
+     "in": "TermsOfUseModal",
+     "text": "2. Descripción del Servicio",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 47,
+     "in": "TermsOfUseModal",
+     "text": "FNE proporciona una plataforma educativa digital y servicios de acompañamiento para la transformación educativa, incluyendo:"
+    },
+    {
+     "kind": "text",
+     "line": 50,
+     "in": "TermsOfUseModal",
+     "text": "Acceso a recursos educativos y materiales de formación"
+    },
+    {
+     "kind": "text",
+     "line": 51,
+     "in": "TermsOfUseModal",
+     "text": "Herramientas de colaboración para comunidades educativas"
+    },
+    {
+     "kind": "text",
+     "line": 52,
+     "in": "TermsOfUseModal",
+     "text": "Cursos y rutas de aprendizaje personalizadas"
+    },
+    {
+     "kind": "text",
+     "line": 53,
+     "in": "TermsOfUseModal",
+     "text": "Espacios de trabajo colaborativo"
+    },
+    {
+     "kind": "text",
+     "line": 54,
+     "in": "TermsOfUseModal",
+     "text": "Sistemas de evaluación y seguimiento del progreso"
+    },
+    {
+     "kind": "heading",
+     "line": 57,
+     "in": "TermsOfUseModal",
+     "text": "3. Registro y Cuenta de Usuario",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 59,
+     "in": "TermsOfUseModal",
+     "text": "Para acceder a ciertas funcionalidades de la plataforma, debe crear una cuenta proporcionando información precisa y completa. Usted es responsable de:"
+    },
+    {
+     "kind": "text",
+     "line": 62,
+     "in": "TermsOfUseModal",
+     "text": "Mantener la confidencialidad de su contraseña"
+    },
+    {
+     "kind": "text",
+     "line": 63,
+     "in": "TermsOfUseModal",
+     "text": "Todas las actividades que ocurran bajo su cuenta"
+    },
+    {
+     "kind": "text",
+     "line": 64,
+     "in": "TermsOfUseModal",
+     "text": "Notificar inmediatamente cualquier uso no autorizado",
+     "access": true
+    },
+    {
+     "kind": "text",
+     "line": 65,
+     "in": "TermsOfUseModal",
+     "text": "Actualizar su información cuando sea necesario"
+    },
+    {
+     "kind": "heading",
+     "line": 68,
+     "in": "TermsOfUseModal",
+     "text": "4. Uso Apropiado",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 70,
+     "in": "TermsOfUseModal",
+     "text": "Usted se compromete a utilizar nuestros servicios de manera responsable y no deberá:"
+    },
+    {
+     "kind": "text",
+     "line": 73,
+     "in": "TermsOfUseModal",
+     "text": "Violar leyes locales, nacionales o internacionales"
+    },
+    {
+     "kind": "text",
+     "line": 74,
+     "in": "TermsOfUseModal",
+     "text": "Transmitir contenido ilegal, ofensivo, difamatorio o discriminatorio"
+    },
+    {
+     "kind": "text",
+     "line": 75,
+     "in": "TermsOfUseModal",
+     "text": "Intentar acceder sin autorización a otros sistemas o cuentas",
+     "access": true
+    },
+    {
+     "kind": "text",
+     "line": 76,
+     "in": "TermsOfUseModal",
+     "text": "Interferir con el funcionamiento normal de la plataforma"
+    },
+    {
+     "kind": "text",
+     "line": 77,
+     "in": "TermsOfUseModal",
+     "text": "Usar la plataforma para enviar spam o contenido no solicitado"
+    },
+    {
+     "kind": "text",
+     "line": 78,
+     "in": "TermsOfUseModal",
+     "text": "Compartir credenciales de acceso con terceros no autorizados",
+     "access": true
+    },
+    {
+     "kind": "text",
+     "line": 79,
+     "in": "TermsOfUseModal",
+     "text": "Realizar ingeniería inversa o intentar extraer el código fuente"
+    },
+    {
+     "kind": "heading",
+     "line": 82,
+     "in": "TermsOfUseModal",
+     "text": "5. Propiedad Intelectual",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 84,
+     "in": "TermsOfUseModal",
+     "text": "Todo el contenido presente en la plataforma, incluyendo textos, gráficos, logos, imágenes, videos, y software, es propiedad de FNE o de sus licenciantes y está protegido por las leyes de propiedad intelectual."
+    },
+    {
+     "kind": "text",
+     "line": 87,
+     "in": "TermsOfUseModal",
+     "text": "Usted puede descargar y utilizar los materiales educativos proporcionados únicamente para fines educativos no comerciales, respetando siempre la atribución correspondiente."
+    },
+    {
+     "kind": "heading",
+     "line": 90,
+     "in": "TermsOfUseModal",
+     "text": "6. Contenido del Usuario",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 92,
+     "in": "TermsOfUseModal",
+     "text": "Al publicar contenido en nuestra plataforma, usted:"
+    },
+    {
+     "kind": "text",
+     "line": 95,
+     "in": "TermsOfUseModal",
+     "text": "Conserva sus derechos de propiedad intelectual"
+    },
+    {
+     "kind": "text",
+     "line": 96,
+     "in": "TermsOfUseModal",
+     "text": "Otorga a FNE una licencia no exclusiva para usar, reproducir y distribuir dicho contenido dentro de la plataforma"
+    },
+    {
+     "kind": "text",
+     "line": 97,
+     "in": "TermsOfUseModal",
+     "text": "Garantiza que tiene los derechos necesarios sobre el contenido que comparte"
+    },
+    {
+     "kind": "text",
+     "line": 98,
+     "in": "TermsOfUseModal",
+     "text": "Acepta que FNE puede moderar o eliminar contenido que viole estos términos"
+    },
+    {
+     "kind": "heading",
+     "line": 101,
+     "in": "TermsOfUseModal",
+     "text": "7. Privacidad y Protección de Datos",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 103,
+     "in": "TermsOfUseModal",
+     "text": "El tratamiento de sus datos personales se rige por nuestra Política de Privacidad. Al usar nuestros servicios, acepta las prácticas descritas en dicha política."
+    },
+    {
+     "kind": "heading",
+     "line": 106,
+     "in": "TermsOfUseModal",
+     "text": "8. Limitación de Responsabilidad",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 108,
+     "in": "TermsOfUseModal",
+     "text": "FNE proporciona la plataforma &quot;tal como está&quot; y no garantiza que el servicio sea ininterrumpido o libre de errores. En la máxima medida permitida por la ley, FNE no será responsable por:"
+    },
+    {
+     "kind": "text",
+     "line": 111,
+     "in": "TermsOfUseModal",
+     "text": "Daños indirectos, incidentales o consecuentes"
+    },
+    {
+     "kind": "text",
+     "line": 112,
+     "in": "TermsOfUseModal",
+     "text": "Pérdida de datos o información"
+    },
+    {
+     "kind": "text",
+     "line": 113,
+     "in": "TermsOfUseModal",
+     "text": "Interrupciones del servicio"
+    },
+    {
+     "kind": "text",
+     "line": 114,
+     "in": "TermsOfUseModal",
+     "text": "Contenido de terceros accesible a través de la plataforma"
+    },
+    {
+     "kind": "heading",
+     "line": 117,
+     "in": "TermsOfUseModal",
+     "text": "9. Indemnización",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 119,
+     "in": "TermsOfUseModal",
+     "text": "Usted acepta indemnizar y mantener indemne a FNE, sus directores, empleados y colaboradores de cualquier reclamo, daño o gasto derivado de su uso de la plataforma o violación de estos términos."
+    },
+    {
+     "kind": "heading",
+     "line": 122,
+     "in": "TermsOfUseModal",
+     "text": "10. Modificaciones del Servicio",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 124,
+     "in": "TermsOfUseModal",
+     "text": "FNE se reserva el derecho de modificar, suspender o discontinuar cualquier aspecto del servicio en cualquier momento, con o sin previo aviso."
+    },
+    {
+     "kind": "heading",
+     "line": 127,
+     "in": "TermsOfUseModal",
+     "text": "11. Terminación",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 129,
+     "in": "TermsOfUseModal",
+     "text": "FNE puede suspender o terminar su acceso a la plataforma si viola estos términos o por cualquier otra razón a nuestra discreción. Usted puede cancelar su cuenta en cualquier momento contactándonos."
+    },
+    {
+     "kind": "heading",
+     "line": 132,
+     "in": "TermsOfUseModal",
+     "text": "12. Ley Aplicable y Jurisdicción",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 134,
+     "in": "TermsOfUseModal",
+     "text": "Estos términos se rigen por las leyes de la República de Chile. Cualquier disputa será resuelta en los tribunales competentes de Santiago, Chile."
+    },
+    {
+     "kind": "heading",
+     "line": 137,
+     "in": "TermsOfUseModal",
+     "text": "13. Disposiciones Generales",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 139,
+     "in": "TermsOfUseModal",
+     "text": "Si alguna disposición de estos términos es declarada inválida o inaplicable, las demás disposiciones continuarán en pleno vigor. Estos términos constituyen el acuerdo completo entre usted y FNE respecto al uso de nuestros servicios."
+    },
+    {
+     "kind": "heading",
+     "line": 142,
+     "in": "TermsOfUseModal",
+     "text": "14. Contacto",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 144,
+     "in": "TermsOfUseModal",
+     "text": "Para consultas sobre estos Términos de Uso, puede contactarnos en:"
+    },
+    {
+     "kind": "text",
+     "line": 147,
+     "in": "TermsOfUseModal",
+     "text": "Fundación Nueva Educación"
+    },
+    {
+     "kind": "text",
+     "line": 148,
+     "in": "TermsOfUseModal",
+     "text": "Email:"
+    },
+    {
+     "kind": "link",
+     "line": 148,
+     "in": "TermsOfUseModal",
+     "text": "info@nuevaeducacion.org",
+     "target": "mailto:info@nuevaeducacion.org"
+    },
+    {
+     "kind": "text",
+     "line": 149,
+     "in": "TermsOfUseModal",
+     "text": "Dirección: Santiago, Chile"
+    },
+    {
+     "kind": "text",
+     "line": 150,
+     "in": "TermsOfUseModal",
+     "text": "ATE certificada por RPA Mineduc"
+    }
+   ],
+   "db": []
+  },
+  "components/pasantias/LeadForm.tsx": {
+   "usedBy": [
+    "/pasantias"
+   ],
+   "lines": 834,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 154,
+     "text": "GENERIC_ERROR",
+     "items": [
+      "No pudimos enviar tu solicitud. Intenta nuevamente en unos minutos o escríbenos por WhatsApp."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 162,
+     "text": "UNRENDERABLE_ERROR",
+     "items": [
+      "No pudimos procesar tu solicitud. Recarga la página e inténtalo nuevamente; si el problema persiste, escríbenos por WhatsApp."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 169,
+     "text": "PRE_SUBMIT_COPY",
+     "items": [
+      "Elige tu programa y completa tus datos para registrar tu interés. Al enviarlo podrás descargar de inmediato la ficha y el programa completo."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 173,
+     "text": "SUCCESS_TITLE",
+     "items": [
+      "Solicitud registrada"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 223,
+     "in": "Field",
+     "text": "{label} [(opcional)]",
+     "for": "{id}"
+    },
+    {
+     "kind": "hook",
+     "line": 229,
+     "in": "Field",
+     "when": "error",
+     "text": "testid=pasantias-lead-error-{id} id={id}-error",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "value",
+     "line": 229,
+     "in": "Field",
+     "when": "error",
+     "text": "{error}"
+    },
+    {
+     "kind": "link",
+     "line": 255,
+     "in": "ProcessingConsentLabel",
+     "text": "{PRIVACY_POLICY_LINK_LABEL}",
+     "target": "{PRIVACY_POLICY_PATH}",
+     "newTab": true,
+     "hook": {
+      "testid": "pasantias-consent-privacy-link"
+     }
+    },
+    {
+     "kind": "gate",
+     "line": 320,
+     "in": "LeadForm",
+     "text": "!requestedProgram"
+    },
+    {
+     "kind": "gate",
+     "line": 339,
+     "in": "LeadForm",
+     "text": "typeof window === 'undefined'"
+    },
+    {
+     "kind": "hook",
+     "line": 369,
+     "in": "focusFirstInvalid",
+     "text": "document.getElementById(id).focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 477,
+     "in": "LeadForm",
+     "when": "submitted",
+     "text": "successRef.current.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 486,
+     "in": "LeadForm",
+     "when": "submittedProgram !== null",
+     "text": "role=status",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "hook",
+     "line": 486,
+     "in": "LeadForm",
+     "when": "submittedProgram !== null",
+     "text": "testid=pasantias-lead-success",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "heading",
+     "line": 493,
+     "in": "LeadForm",
+     "when": "submittedProgram !== null",
+     "text": "{SUCCESS_TITLE}",
+     "level": 3
+    },
+    {
+     "kind": "hook",
+     "line": 494,
+     "in": "LeadForm",
+     "when": "submittedProgram !== null",
+     "text": "testid=pasantias-lead-success-program",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 494,
+     "in": "LeadForm",
+     "when": "submittedProgram !== null",
+     "text": "Gracias. Registramos tu interés en {chosen?.name} . Descarga ahora la información de los programas:"
+    },
+    {
+     "kind": "link",
+     "line": 502,
+     "in": "LeadForm",
+     "when": "submittedProgram !== null",
+     "text": "Ficha de los programas (PDF)",
+     "target": "{FICHA_HREF}",
+     "hook": {
+      "testid": "pasantias-lead-ficha"
+     }
+    },
+    {
+     "kind": "link",
+     "line": 509,
+     "in": "LeadForm",
+     "when": "submittedProgram !== null",
+     "text": "Programa completo con valores (PDF)",
+     "target": "{BROCHURE_HREF}",
+     "hook": {
+      "testid": "pasantias-lead-brochure"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 519,
+     "in": "LeadForm",
+     "when": "submittedProgram !== null && other",
+     "text": "¿También te interesa"
+    },
+    {
+     "kind": "text",
+     "line": 519,
+     "in": "LeadForm",
+     "when": "submittedProgram !== null && other",
+     "text": "? Registra otra solicitud con el mismo correo."
+    },
+    {
+     "kind": "button",
+     "line": 520,
+     "in": "LeadForm",
+     "when": "submittedProgram !== null && other",
+     "text": "Registrar interés en {other.name}",
+     "action": "{() => startSubmission(other.id)}",
+     "hook": {
+      "testid": "pasantias-lead-other-program"
+     }
+    },
+    {
+     "kind": "form",
+     "line": 537,
+     "in": "LeadForm",
+     "text": "{handleSubmit}",
+     "hook": {
+      "testid": "pasantias-lead-form"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 543,
+     "in": "LeadForm",
+     "text": "testid=pasantias-lead-intro",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "value",
+     "line": 543,
+     "in": "LeadForm",
+     "text": "{PRE_SUBMIT_COPY}"
+    },
+    {
+     "kind": "hook",
+     "line": 553,
+     "in": "LeadForm",
+     "text": "testid=pasantias-lead-program",
+     "type": "mark",
+     "tag": "fieldset"
+    },
+    {
+     "kind": "label",
+     "line": 558,
+     "in": "LeadForm",
+     "text": "Programa"
+    },
+    {
+     "kind": "label",
+     "line": 563,
+     "in": "LeadForm",
+     "when": "each COHORT_PROGRAMS",
+     "text": "{program.name} {program.audience}",
+     "for": "{programInputId(program.id)}"
+    },
+    {
+     "kind": "field",
+     "line": 571,
+     "in": "LeadForm",
+     "when": "each COHORT_PROGRAMS",
+     "text": "{program.name} {program.audience}",
+     "type": "radio",
+     "name": "program",
+     "action": "{() => updateField('program', program.id)}",
+     "hook": {
+      "testid": "pasantias-lead-program-{program.id}"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 590,
+     "in": "LeadForm",
+     "when": "errors.program",
+     "text": "testid=pasantias-lead-error-program id=program-error",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "value",
+     "line": 590,
+     "in": "LeadForm",
+     "when": "errors.program",
+     "text": "{errors.program}"
+    },
+    {
+     "kind": "label",
+     "line": 607,
+     "in": "LeadForm",
+     "text": "Sitio web",
+     "for": "website"
+    },
+    {
+     "kind": "field",
+     "line": 608,
+     "in": "LeadForm",
+     "text": "Sitio web",
+     "type": "text",
+     "name": "website",
+     "action": "{(event) => updateField('website', event.target.value)}",
+     "hook": {
+      "testid": "pasantias-lead-website",
+      "id": "website",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 621,
+     "in": "LeadForm",
+     "text": "label: Nombre",
+     "tag": "Field",
+     "hook": {
+      "id": "firstName"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 622,
+     "in": "LeadForm",
+     "text": "firstName",
+     "type": "text",
+     "name": "firstName",
+     "limits": "maxLength={LEAD_FIELD_LIMITS.firstName}",
+     "action": "{(event) => updateField('firstName', event.target.value)}",
+     "hook": {
+      "testid": "pasantias-lead-first-name",
+      "id": "firstName"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 637,
+     "in": "LeadForm",
+     "text": "label: Apellido",
+     "tag": "Field",
+     "hook": {
+      "id": "lastName"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 638,
+     "in": "LeadForm",
+     "text": "lastName",
+     "type": "text",
+     "name": "lastName",
+     "limits": "maxLength={LEAD_FIELD_LIMITS.lastName}",
+     "action": "{(event) => updateField('lastName', event.target.value)}",
+     "hook": {
+      "testid": "pasantias-lead-last-name",
+      "id": "lastName"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 653,
+     "in": "LeadForm",
+     "text": "label: Correo electrónico",
+     "tag": "Field",
+     "hook": {
+      "id": "email"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 654,
+     "in": "LeadForm",
+     "text": "email",
+     "type": "email",
+     "name": "email",
+     "limits": "maxLength={LEAD_FIELD_LIMITS.email}",
+     "action": "{(event) => updateField('email', event.target.value)}",
+     "hook": {
+      "testid": "pasantias-lead-email",
+      "id": "email"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 669,
+     "in": "LeadForm",
+     "text": "label: Colegio o institución",
+     "tag": "Field",
+     "hook": {
+      "id": "institution"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 670,
+     "in": "LeadForm",
+     "text": "institution",
+     "type": "text",
+     "name": "institution",
+     "limits": "maxLength={LEAD_FIELD_LIMITS.institution}",
+     "action": "{(event) => updateField('institution', event.target.value)}",
+     "hook": {
+      "testid": "pasantias-lead-institution",
+      "id": "institution"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 685,
+     "in": "LeadForm",
+     "text": "label: Cargo",
+     "tag": "Field",
+     "hook": {
+      "id": "roleTitle"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 686,
+     "in": "LeadForm",
+     "text": "roleTitle",
+     "type": "text",
+     "name": "roleTitle",
+     "limits": "maxLength={LEAD_FIELD_LIMITS.roleTitle}",
+     "action": "{(event) => updateField('roleTitle', event.target.value)}",
+     "hook": {
+      "testid": "pasantias-lead-role-title",
+      "id": "roleTitle"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 701,
+     "in": "LeadForm",
+     "text": "label: Teléfono",
+     "tag": "Field",
+     "hook": {
+      "id": "phone"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 702,
+     "in": "LeadForm",
+     "text": "phone",
+     "type": "tel",
+     "name": "phone",
+     "limits": "maxLength={LEAD_FIELD_LIMITS.phone}",
+     "action": "{(event) => updateField('phone', event.target.value)}",
+     "hook": {
+      "testid": "pasantias-lead-phone",
+      "id": "phone"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 717,
+     "in": "LeadForm",
+     "text": "label: Personas que viajarían",
+     "tag": "Field",
+     "hook": {
+      "id": "numPeople"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 718,
+     "in": "LeadForm",
+     "text": "numPeople",
+     "type": "number",
+     "name": "numPeople",
+     "limits": "min={LEAD_NUM_PEOPLE_MIN} max={LEAD_NUM_PEOPLE_MAX}",
+     "action": "{(event) => updateField('numPeople', event.target.value)}",
+     "hook": {
+      "testid": "pasantias-lead-num-people",
+      "id": "numPeople"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 734,
+     "in": "LeadForm",
+     "text": "label: Mensaje",
+     "tag": "Field",
+     "hook": {
+      "id": "message"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 746,
+     "in": "LeadForm",
+     "text": "message",
+     "type": "textarea",
+     "name": "message",
+     "limits": "",
+     "action": "{(event) => updateField('message', event.target.value)}",
+     "hook": {
+      "testid": "pasantias-lead-message",
+      "id": "message"
+     }
+    },
+    {
+     "kind": "label",
+     "line": 763,
+     "in": "LeadForm",
+     "text": "[icon ProcessingConsentLabel]",
+     "for": "consent"
+    },
+    {
+     "kind": "field",
+     "line": 767,
+     "in": "LeadForm",
+     "text": "[icon ProcessingConsentLabel]",
+     "type": "checkbox",
+     "name": "consent",
+     "action": "{(event) => updateField('consent', event.target.checked)}",
+     "hook": {
+      "testid": "pasantias-consent",
+      "id": "consent",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 783,
+     "in": "LeadForm",
+     "when": "errors.consent",
+     "text": "testid=pasantias-lead-error-consent id=consent-error",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "value",
+     "line": 783,
+     "in": "LeadForm",
+     "when": "errors.consent",
+     "text": "{errors.consent}"
+    },
+    {
+     "kind": "label",
+     "line": 793,
+     "in": "LeadForm",
+     "text": "{CONSENT_MARKETING_TEXT}",
+     "for": "marketingOptIn"
+    },
+    {
+     "kind": "field",
+     "line": 797,
+     "in": "LeadForm",
+     "text": "{CONSENT_MARKETING_TEXT}",
+     "type": "checkbox",
+     "name": "marketingOptIn",
+     "action": "{(event) => updateField('marketingOptIn', event.target.checked)}",
+     "hook": {
+      "testid": "pasantias-marketing-optin",
+      "id": "marketingOptIn",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 811,
+     "in": "LeadForm",
+     "when": "formError",
+     "text": "role=alert",
+     "type": "role",
+     "tag": "p"
+    },
+    {
+     "kind": "hook",
+     "line": 811,
+     "in": "LeadForm",
+     "when": "formError",
+     "text": "testid=pasantias-lead-form-error",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "value",
+     "line": 811,
+     "in": "LeadForm",
+     "when": "formError",
+     "text": "{formError}"
+    },
+    {
+     "kind": "button",
+     "line": 821,
+     "in": "LeadForm",
+     "text": "Enviando… / Registrar mi interés",
+     "submit": true,
+     "disabled": "{isSubmitting}",
+     "hook": {
+      "testid": "pasantias-lead-submit"
+     }
+    }
+   ],
+   "db": []
+  },
+  "components/site/Ecosistema.tsx": {
+   "usedBy": [
+    "/pasantias"
+   ],
+   "lines": 80,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 20,
+     "text": "ROUTE_PATH",
+     "items": [
+      "M{ROUTE.map((index) => NODES[…}"
+     ]
+    },
+    {
+     "kind": "text",
+     "line": 76,
+     "in": "Ecosistema",
+     "text": "en red"
+    }
+   ],
+   "db": []
+  },
+  "components/site/FlipbookDialog.tsx": {
+   "usedBy": [
+    "/",
+    "/programas"
+   ],
+   "lines": 59,
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 24,
+     "in": "FlipbookDialog",
+     "text": "!dialog"
+    },
+    {
+     "kind": "clickable",
+     "line": 34,
+     "in": "FlipbookDialog",
+     "text": "[[Abrir en nueva pestaña →] Cerrar ✕]",
+     "tag": "dialog",
+     "action": "{(event) => { if (event.target === ref.current) onClose(); }}",
+     "aria": "{title}"
+    },
+    {
+     "kind": "link",
+     "line": 46,
+     "in": "FlipbookDialog",
+     "when": "open && externalHref",
+     "text": "Abrir en nueva pestaña →",
+     "target": "{externalHref}",
+     "newTab": true
+    },
+    {
+     "kind": "button",
+     "line": 50,
+     "in": "FlipbookDialog",
+     "when": "open",
+     "text": "Cerrar ✕",
+     "action": "{onClose}",
+     "hook": {
+      "testid": "flipbook-cerrar"
+     }
+    },
+    {
+     "kind": "media",
+     "line": 53,
+     "in": "FlipbookDialog",
+     "when": "open",
+     "text": "iframe · {title} · {src}",
+     "title": "{title}"
+    }
+   ],
+   "db": []
+  },
+  "components/site/MapaChile.tsx": {
+   "usedBy": [
+    "/"
+   ],
+   "lines": 372,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 26,
+     "text": "CITIES",
+     "items": [
+      "Iquique",
+      "Región de Tarapacá",
+      "Norte",
+      "Alto Hospicio",
+      "Vallenar",
+      "Región de Atacama",
+      "Coquimbo",
+      "Región de Coquimbo",
+      "Valparaíso",
+      "Región de Valparaíso",
+      "Centro",
+      "Santiago",
+      "Región Metropolitana",
+      "Llolleo",
+      "Quinta de Tilcoco",
+      "Región de O’Higgins",
+      "Curicó",
+      "Región del Maule",
+      "Talca",
+      "Chillán",
+      "Región de Ñuble",
+      "Sur",
+      "Valdivia",
+      "Región de Los Ríos",
+      "Osorno",
+      "Región de Los Lagos"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 42,
+     "text": "ZONES",
+     "items": [
+      "Norte",
+      "Centro",
+      "Sur"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 45,
+     "text": "ROUTE",
+     "items": [
+      "M{CITIES.map((city) => `${cit…}"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 47,
+     "text": "IDLE_HINT",
+     "items": [
+      "Pasa por una ciudad para ubicarla en el mapa."
+     ]
+    },
+    {
+     "kind": "gate",
+     "line": 58,
+     "in": "MapaChile",
+     "text": "!section || typeof IntersectionObserver === 'undefined'"
+    },
+    {
+     "kind": "hook",
+     "line": 59,
+     "in": "MapaChile",
+     "text": "querySelector(.mapbox)",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 60,
+     "in": "MapaChile",
+     "text": "querySelector(svg.m)",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 61,
+     "in": "MapaChile",
+     "text": "querySelector(.zonas)",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 62,
+     "in": "MapaChile",
+     "text": "querySelector(.det)",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 63,
+     "in": "MapaChile",
+     "text": "querySelector(.again)",
+     "type": "lookup"
+    },
+    {
+     "kind": "gate",
+     "line": 64,
+     "in": "MapaChile",
+     "text": "!box || !svg || !list"
+    },
+    {
+     "kind": "hook",
+     "line": 68,
+     "in": "MapaChile",
+     "text": "querySelector([data-c=\"ciudades\"])",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 69,
+     "in": "MapaChile",
+     "text": "querySelector([data-c=\"regiones\"])",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 70,
+     "in": "MapaChile",
+     "text": "querySelector([data-c=\"km\"])",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 74,
+     "in": "each",
+     "text": "querySelectorAll([data-city=\"{id}\"])",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 95,
+     "in": "layout",
+     "text": "querySelectorAll([data-parallel])",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 113,
+     "in": "later",
+     "text": "setTimeout(…, ms)",
+     "type": "timer"
+    },
+    {
+     "kind": "hook",
+     "line": 122,
+     "in": "reset",
+     "text": "querySelectorAll([data-city].in)",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 178,
+     "in": "replay",
+     "text": "box.scrollIntoView()",
+     "type": "scroll"
+    },
+    {
+     "kind": "gate",
+     "line": 192,
+     "in": "MapaChile",
+     "when": "!(reduce)",
+     "text": "!entries[0].isIntersecting"
+    },
+    {
+     "kind": "hook",
+     "line": 199,
+     "in": "MapaChile",
+     "when": "!(reduce)",
+     "text": "again.addEventListener('click')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 207,
+     "in": "MapaChile",
+     "text": "window.addEventListener('resize')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 212,
+     "in": "highlight",
+     "text": "querySelectorAll([data-city].on)",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 223,
+     "in": "MapaChile",
+     "text": "querySelector(.cities)",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 225,
+     "in": "MapaChile",
+     "text": "layer.addEventListener('pointerover')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 226,
+     "in": "MapaChile",
+     "text": "layer.addEventListener('pointerleave')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 227,
+     "in": "MapaChile",
+     "text": "layer.addEventListener('click')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 229,
+     "in": "MapaChile",
+     "text": "list.addEventListener('focusin')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 230,
+     "in": "MapaChile",
+     "text": "list.addEventListener('focusout')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 250,
+     "in": "MapaChile",
+     "text": "id=mapa",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "text",
+     "line": 253,
+     "in": "MapaChile",
+     "text": "Dónde está pasando"
+    },
+    {
+     "kind": "heading",
+     "line": 254,
+     "in": "MapaChile",
+     "text": "De Iquique a Osorno",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 258,
+     "in": "MapaChile",
+     "text": "Trece ciudades tienen hoy escuelas que forman parte de la transformación. Una red que recorre Chile de norte a sur y que aprende junto a las escuelas de vanguardia de Barcelona."
+    },
+    {
+     "kind": "value",
+     "line": 263,
+     "in": "MapaChile",
+     "text": "{CITIES.length}"
+    },
+    {
+     "kind": "text",
+     "line": 264,
+     "in": "MapaChile",
+     "text": "ciudades"
+    },
+    {
+     "kind": "value",
+     "line": 267,
+     "in": "MapaChile",
+     "text": "{REGION_COUNT}"
+    },
+    {
+     "kind": "text",
+     "line": 268,
+     "in": "MapaChile",
+     "text": "regiones"
+    },
+    {
+     "kind": "value",
+     "line": 271,
+     "in": "MapaChile",
+     "text": "{SPAN_KM.toLocaleString('es-CL')}"
+    },
+    {
+     "kind": "text",
+     "line": 272,
+     "in": "MapaChile",
+     "text": "km de norte a sur"
+    },
+    {
+     "kind": "value",
+     "line": 278,
+     "in": "MapaChile",
+     "when": "each ZONES",
+     "text": "{zone}"
+    },
+    {
+     "kind": "button",
+     "line": 281,
+     "in": "MapaChile",
+     "when": "each ZONES && each CITIES.filter((city) => city.zone === zone)",
+     "text": "{city.name}",
+     "hook": {
+      "testid": "mapa-ciudad-{city.id}"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 295,
+     "in": "MapaChile",
+     "text": "{IDLE_HINT}"
+    },
+    {
+     "kind": "link",
+     "line": 299,
+     "in": "MapaChile",
+     "text": "¿Tu escuela es la próxima? →",
+     "target": "#contacto",
+     "hook": {
+      "testid": "mapa-cta"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 302,
+     "in": "MapaChile",
+     "text": "↻ Ver de nuevo",
+     "hook": {
+      "testid": "mapa-ver-de-nuevo"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 308,
+     "in": "MapaChile",
+     "text": "role=img",
+     "type": "role",
+     "tag": "svg",
+     "aria": "{`Mapa de Chile con las ${CITIES.length} ciudades donde hay escuelas que forman …}"
+    },
+    {
+     "kind": "value",
+     "line": 322,
+     "in": "MapaChile",
+     "when": "each PARALLELS",
+     "text": "{parallel}° S"
+    },
+    {
+     "kind": "value",
+     "line": 354,
+     "in": "MapaChile",
+     "when": "each CITIES",
+     "text": "{city.name}"
+    },
+    {
+     "kind": "string",
+     "line": 311,
+     "in": "MapaChile",
+     "text": "Mapa de Chile con las {CITIES.length} ciudades donde hay escuelas que forman parte de la transformación: {CITIES.map((city) => city.n…}"
+    }
+   ],
+   "db": []
+  },
+  "components/site/NewsCard.tsx": {
+   "usedBy": [
+    "/",
+    "/noticias",
+    "/noticias/[slug]"
+   ],
+   "lines": 37,
+   "rows": [
+    {
+     "kind": "link",
+     "line": 15,
+     "in": "NewsCard",
+     "text": "{articleDate(article)} {article.title} [{summary}] Leer →",
+     "target": "/noticias/[*]",
+     "hook": {
+      "testid": "noticia-{article.slug}"
+     }
+    },
+    {
+     "kind": "media",
+     "line": 23,
+     "in": "NewsCard",
+     "when": "article.featured_image",
+     "text": "img · alt {article.title} · {article.featured_image}"
+    },
+    {
+     "kind": "heading",
+     "line": 30,
+     "in": "NewsCard",
+     "text": "{article.title}",
+     "level": 3
+    }
+   ],
+   "db": []
+  },
+  "components/site/Novedades.tsx": {
+   "usedBy": [
+    "/"
+   ],
+   "lines": 48,
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 23,
+     "in": "Novedades",
+     "text": "articles.length === 0"
+    },
+    {
+     "kind": "hook",
+     "line": 26,
+     "in": "Novedades",
+     "text": "id=noticias",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "text",
+     "line": 30,
+     "in": "Novedades",
+     "text": "Noticias"
+    },
+    {
+     "kind": "heading",
+     "line": 31,
+     "in": "Novedades",
+     "text": "Lo que está pasando",
+     "level": 2
+    },
+    {
+     "kind": "link",
+     "line": 35,
+     "in": "Novedades",
+     "text": "Todas las noticias y eventos →",
+     "target": "/noticias",
+     "hook": {
+      "testid": "novedades-todas"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 41,
+     "in": "Novedades",
+     "when": "each articles",
+     "text": "",
+     "tag": "NewsCard"
+    }
+   ],
+   "db": []
+  },
+  "components/site/Puertas.tsx": {
+   "usedBy": [
+    "/"
+   ],
+   "lines": 78,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 15,
+     "in": "Puertas",
+     "text": "id=programas",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "text",
+     "line": 18,
+     "in": "Puertas",
+     "text": "Programas"
+    },
+    {
+     "kind": "heading",
+     "line": 19,
+     "in": "Puertas",
+     "text": "Arma tu propio viaje de evolución",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 24,
+     "in": "Puertas",
+     "text": "Cuatro programas autónomos que se combinan según las necesidades de cada institución. Este es el orden que sugerimos para iniciar y profundizar el cambio."
+    },
+    {
+     "kind": "link",
+     "line": 30,
+     "in": "Puertas",
+     "when": "each JOURNEY",
+     "text": "{String(index + 1).padStart(2, '0')} {step.stage} · {step.detail} {step.name} {step.summary} Ver el programa →",
+     "target": "/programas#[*]",
+     "hook": {
+      "testid": "puerta-{step.id}"
+     },
+     "also": "onMouseEnter={() => setOpen(index)} · onFocus={() => setOpen(index)}"
+    },
+    {
+     "kind": "heading",
+     "line": 45,
+     "in": "Puertas",
+     "when": "each JOURNEY",
+     "text": "{step.name}",
+     "level": 3
+    },
+    {
+     "kind": "button",
+     "line": 58,
+     "in": "Puertas",
+     "text": "Programa Estratégico para Directivos Hojea el programa completo. →",
+     "action": "{onOpenDirectivos}",
+     "hook": {
+      "testid": "directivos-flipbook-cta"
+     }
+    },
+    {
+     "kind": "heading",
+     "line": 61,
+     "in": "Puertas",
+     "text": "Programa Estratégico para Directivos",
+     "level": 3
+    },
+    {
+     "kind": "link",
+     "line": 66,
+     "in": "Puertas",
+     "text": "Hub de Transformación La plataforma donde cada escuela conduce su proceso de cambio. →",
+     "target": "/login",
+     "hook": {
+      "testid": "puertas-hub"
+     }
+    },
+    {
+     "kind": "heading",
+     "line": 69,
+     "in": "Puertas",
+     "text": "Hub de Transformación",
+     "level": 3
+    }
+   ],
+   "db": []
+  },
+  "components/site/RedAliada.tsx": {
+   "usedBy": [
+    "/"
+   ],
+   "lines": 54,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 6,
+     "text": "ALLIES",
+     "items": [
+      "Instituto Relacional",
+      "Escola Virolai",
+      "International Positive Education Network",
+      "Los Pellines",
+      "Escola Sadako",
+      "David L. Cooperrider Center for Appreciative Inquiry",
+      "Relaciona Consultores",
+      "Institut Angeleta Ferrer",
+      "Els Futurs de l’Educació",
+      "Conserva Tu Bosque",
+      "Institut Escola Les Vinyes",
+      "Fundació Jaume Bofill",
+      "Lodge Los Pellines",
+      "Escola Octavio Paz",
+      "STEAM Conference Barcelona",
+      "Escola La Maquinista",
+      "Innovamat",
+      "Escola El Puig"
+     ]
+    },
+    {
+     "kind": "text",
+     "line": 30,
+     "in": "RedAliada",
+     "text": "Nuestra red",
+     "attr": "aria-label"
+    },
+    {
+     "kind": "text",
+     "line": 31,
+     "in": "RedAliada",
+     "text": "Una red que piensa la escuela con nosotros"
+    },
+    {
+     "kind": "link",
+     "line": 36,
+     "in": "RedAliada",
+     "when": "each [0, 1] && each ALLIES",
+     "text": "{ally.name}",
+     "target": "{ally.href}",
+     "newTab": true
+    },
+    {
+     "kind": "media",
+     "line": 45,
+     "in": "RedAliada",
+     "when": "each [0, 1] && each ALLIES",
+     "text": "img · alt {copy === 0 ? ally.name : ''} · {ally.logo}"
+    }
+   ],
+   "db": []
+  },
+  "components/site/SiteLayout.tsx": {
+   "usedBy": [
+    "/equipo",
+    "/",
+    "/nosotros",
+    "/noticias",
+    "/noticias/[slug]",
+    "/pasantias",
+    "/programas"
+   ],
+   "lines": 227,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 22,
+     "text": "NAV",
+     "items": [
+      "Pasantías",
+      "Programas",
+      "Noticias",
+      "Nosotros"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 29,
+     "text": "SOCIAL",
+     "items": [
+      "Instagram",
+      "Facebook"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 37,
+     "text": "FAMILY",
+     "items": [
+      "Los Pellines",
+      "Nueva Educación",
+      "Lodge",
+      "Summer Camp",
+      "Empresa",
+      "Relaciona",
+      "Consultores"
+     ]
+    },
+    {
+     "kind": "link",
+     "line": 47,
+     "in": "Logo",
+     "text": "Fundación Nueva Educación",
+     "target": "/",
+     "action": "{onClick}",
+     "aria": "Fundación Nueva Educación, inicio"
+    },
+    {
+     "kind": "gate",
+     "line": 70,
+     "in": "SiteLayout",
+     "text": "!menuOpen"
+    },
+    {
+     "kind": "hook",
+     "line": 74,
+     "in": "SiteLayout",
+     "text": "window.addEventListener('keydown')",
+     "type": "listener"
+    },
+    {
+     "kind": "value",
+     "line": 85,
+     "in": "SiteLayout",
+     "text": "{title}"
+    },
+    {
+     "kind": "hook",
+     "line": 108,
+     "in": "SiteLayout",
+     "text": "testid=site-header",
+     "type": "mark",
+     "tag": "header"
+    },
+    {
+     "kind": "clickable",
+     "line": 109,
+     "in": "SiteLayout",
+     "text": "",
+     "tag": "Logo",
+     "action": "{closeMenu}"
+    },
+    {
+     "kind": "link",
+     "line": 113,
+     "in": "SiteLayout",
+     "when": "each NAV",
+     "text": "{item.label}",
+     "target": "{item.href}",
+     "action": "{closeMenu}",
+     "hook": {
+      "testid": "site-nav-{item.id}"
+     }
+    },
+    {
+     "kind": "link",
+     "line": 124,
+     "in": "SiteLayout",
+     "text": "Contacto",
+     "target": "{contactHref}",
+     "action": "{closeMenu}",
+     "hook": {
+      "testid": "site-nav-contacto"
+     }
+    },
+    {
+     "kind": "link",
+     "line": 129,
+     "in": "SiteLayout",
+     "text": "Hub de Transformación →",
+     "target": "/login",
+     "action": "{closeMenu}",
+     "hook": {
+      "testid": "site-nav-hub-movil"
+     }
+    },
+    {
+     "kind": "link",
+     "line": 134,
+     "in": "SiteLayout",
+     "text": "Hub de Transformación →",
+     "target": "/login",
+     "hook": {
+      "testid": "site-nav-hub"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 137,
+     "in": "SiteLayout",
+     "text": "{menuOpen ? 'Cerrar menú' : 'Abrir menú'}",
+     "action": "{() => setMenuOpen((open) => !open)}",
+     "aria": "{menuOpen ? 'Cerrar menú' : 'Abrir menú'}",
+     "hook": {
+      "testid": "site-nav-burger"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 150,
+     "in": "SiteLayout",
+     "text": "{children}"
+    },
+    {
+     "kind": "text",
+     "line": 158,
+     "in": "SiteLayout",
+     "text": "Acompañamos a las comunidades educativas a dar el salto hacia una Nueva Educación basada en la autonomía y la colaboración, para la expresión plena del potencial de cada estudiante."
+    },
+    {
+     "kind": "text",
+     "line": 161,
+     "in": "SiteLayout",
+     "text": "Redes sociales",
+     "attr": "aria-label"
+    },
+    {
+     "kind": "link",
+     "line": 163,
+     "in": "SiteLayout",
+     "when": "each SOCIAL",
+     "text": "{network.label}",
+     "target": "{network.href}",
+     "newTab": true
+    },
+    {
+     "kind": "heading",
+     "line": 170,
+     "in": "SiteLayout",
+     "text": "Navegación",
+     "level": 2
+    },
+    {
+     "kind": "link",
+     "line": 172,
+     "in": "SiteLayout",
+     "text": "Pasantías",
+     "target": "/pasantias"
+    },
+    {
+     "kind": "link",
+     "line": 173,
+     "in": "SiteLayout",
+     "text": "Programas",
+     "target": "/programas"
+    },
+    {
+     "kind": "link",
+     "line": 174,
+     "in": "SiteLayout",
+     "text": "Noticias y Eventos",
+     "target": "/noticias"
+    },
+    {
+     "kind": "link",
+     "line": 175,
+     "in": "SiteLayout",
+     "text": "Nosotros",
+     "target": "/nosotros"
+    },
+    {
+     "kind": "link",
+     "line": 176,
+     "in": "SiteLayout",
+     "text": "Equipo",
+     "target": "/equipo"
+    },
+    {
+     "kind": "link",
+     "line": 177,
+     "in": "SiteLayout",
+     "text": "Contacto",
+     "target": "{contactHref}"
+    },
+    {
+     "kind": "heading",
+     "line": 181,
+     "in": "SiteLayout",
+     "text": "Contacto",
+     "level": 2
+    },
+    {
+     "kind": "link",
+     "line": 183,
+     "in": "SiteLayout",
+     "text": "info@nuevaeducacion.org",
+     "target": "mailto:info@nuevaeducacion.org"
+    },
+    {
+     "kind": "text",
+     "line": 184,
+     "in": "SiteLayout",
+     "text": "Santiago, Chile"
+    },
+    {
+     "kind": "text",
+     "line": 185,
+     "in": "SiteLayout",
+     "text": "ATE certificada por RPA Mineduc"
+    },
+    {
+     "kind": "link",
+     "line": 186,
+     "in": "SiteLayout",
+     "text": "Hub de Transformación",
+     "target": "/login"
+    },
+    {
+     "kind": "text",
+     "line": 190,
+     "in": "SiteLayout",
+     "text": "Grupo Nueva Educación",
+     "attr": "aria-label"
+    },
+    {
+     "kind": "text",
+     "line": 194,
+     "in": "SiteLayout",
+     "text": "Fundación"
+    },
+    {
+     "kind": "text",
+     "line": 194,
+     "in": "SiteLayout",
+     "text": "Nueva Educación"
+    },
+    {
+     "kind": "value",
+     "line": 201,
+     "in": "SiteLayout",
+     "when": "each FAMILY",
+     "text": "{member.strong}"
+    },
+    {
+     "kind": "text",
+     "line": 208,
+     "in": "SiteLayout",
+     "text": "© {new Date().getFullYear()} Fundación Nueva Educación. Todos los derechos reservados."
+    },
+    {
+     "kind": "button",
+     "line": 210,
+     "in": "SiteLayout",
+     "text": "Política de Privacidad",
+     "action": "{() => setShowPrivacy(true)}",
+     "hook": {
+      "testid": "site-footer-privacidad"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 213,
+     "in": "SiteLayout",
+     "text": "Términos de Uso",
+     "action": "{() => setShowTerms(true)}",
+     "hook": {
+      "testid": "site-footer-terminos"
+     }
+    },
+    {
+     "kind": "popup",
+     "line": 222,
+     "in": "SiteLayout",
+     "text": "PrivacyPolicyModal",
+     "how": "component",
+     "open": "{showPrivacy}"
+    },
+    {
+     "kind": "popup",
+     "line": 223,
+     "in": "SiteLayout",
+     "text": "TermsOfUseModal",
+     "how": "component",
+     "open": "{showTerms}"
+    }
+   ],
+   "db": []
+  },
+  "components/site/Sociograma.tsx": {
+   "usedBy": [
+    "/"
+   ],
+   "lines": 454,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 5,
+     "text": "STEPS",
+     "items": [
+      "El punto de partida",
+      "La escuela que heredamos",
+      "Filas mirando al frente. Cada docente a solas con su curso. La dirección arriba y las familias afuera. Los vínculos existen, pero corren en una sola dirección.",
+      "En el aula",
+      "El aula se vuelve generativa",
+      "Las filas se abren. Los estudiantes se explican, se preguntan y se cuidan entre pares. La convivencia deja de competir con el aprendizaje y se convierte en su …",
+      "En el equipo",
+      "Nadie enseña solo",
+      "Los docentes salen de su sala y forman comunidades de crecimiento. El liderazgo se distribuye y la dirección acompaña en vez de controlar.",
+      "En la comunidad",
+      "Una comunidad que aprende",
+      "Las familias entran al proyecto educativo. La escuela completa funciona como un ecosistema de relaciones saludables, capaz de sostener su propio cambio."
+     ]
+    },
+    {
+     "kind": "gate",
+     "line": 226,
+     "in": "Sociograma",
+     "text": "!canvas || !stage || !stepsBox || typeof IntersectionObserver === 'undefined'"
+    },
+    {
+     "kind": "gate",
+     "line": 228,
+     "in": "Sociograma",
+     "text": "!ctx"
+    },
+    {
+     "kind": "hook",
+     "line": 232,
+     "in": "Sociograma",
+     "text": "querySelectorAll(.paso)",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 390,
+     "in": "Sociograma",
+     "text": "window.addEventListener('scroll')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 391,
+     "in": "Sociograma",
+     "text": "window.addEventListener('resize')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 403,
+     "in": "Sociograma",
+     "text": "id=escuela",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "text",
+     "line": 405,
+     "in": "Sociograma",
+     "text": "Leemos la escuela como un sistema de relaciones"
+    },
+    {
+     "kind": "heading",
+     "line": 406,
+     "in": "Sociograma",
+     "text": "Así cambia una escuela",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 410,
+     "in": "Sociograma",
+     "text": "Cada punto es una persona. Cada línea, un vínculo. Sigue bajando y mira lo que pasa cuando una comunidad educativa pone sus relaciones en el centro."
+    },
+    {
+     "kind": "media",
+     "line": 416,
+     "in": "Sociograma",
+     "text": "canvas",
+     "aria": "Animación: los vínculos de una escuela pasan de filas que miran al frente a una comunidad completa conectada"
+    },
+    {
+     "kind": "value",
+     "line": 422,
+     "in": "Sociograma",
+     "text": "{STEPS[0].title}"
+    },
+    {
+     "kind": "text",
+     "line": 424,
+     "in": "Sociograma",
+     "text": "vínculos activos"
+    },
+    {
+     "kind": "text",
+     "line": 425,
+     "in": "Sociograma",
+     "text": "Ilustración del modelo. No son datos de una escuela real."
+    },
+    {
+     "kind": "text",
+     "line": 428,
+     "in": "Sociograma",
+     "text": "Estudiantes"
+    },
+    {
+     "kind": "text",
+     "line": 429,
+     "in": "Sociograma",
+     "text": "Docentes"
+    },
+    {
+     "kind": "text",
+     "line": 430,
+     "in": "Sociograma",
+     "text": "Dirección"
+    },
+    {
+     "kind": "text",
+     "line": 431,
+     "in": "Sociograma",
+     "text": "Familias"
+    },
+    {
+     "kind": "value",
+     "line": 437,
+     "in": "Sociograma",
+     "when": "each STEPS",
+     "text": "{step.when}"
+    },
+    {
+     "kind": "heading",
+     "line": 438,
+     "in": "Sociograma",
+     "when": "each STEPS",
+     "text": "{step.title}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 439,
+     "in": "Sociograma",
+     "when": "each STEPS",
+     "text": "{step.text}"
+    },
+    {
+     "kind": "link",
+     "line": 442,
+     "in": "Sociograma",
+     "when": "each STEPS && index === STEPS.length - 1",
+     "text": "Quiero esto para mi escuela →",
+     "target": "#contacto",
+     "hook": {
+      "testid": "sociograma-cta"
+     }
+    },
+    {
+     "kind": "string",
+     "line": 14,
+     "in": "STEPS",
+     "text": "Las filas se abren. Los estudiantes se explican, se preguntan y se cuidan entre pares. La convivencia deja de competir con el aprendizaje y se convierte en su motor."
+    }
+   ],
+   "db": []
+  },
+  "components/site/TeamSection.tsx": {
+   "usedBy": [
+    "/equipo",
+    "/nosotros"
+   ],
+   "lines": 122,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 14,
+     "in": "Portrait",
+     "when": "failed || !member.image",
+     "text": "role=img",
+     "type": "role",
+     "tag": "span",
+     "aria": "{member.name}"
+    },
+    {
+     "kind": "value",
+     "line": 14,
+     "in": "Portrait",
+     "when": "failed || !member.image",
+     "text": "{initials}"
+    },
+    {
+     "kind": "media",
+     "line": 19,
+     "in": "Portrait",
+     "text": "img · alt {member.name} · {member.image}"
+    },
+    {
+     "kind": "gate",
+     "line": 29,
+     "in": "TeamSection",
+     "text": "!dialog"
+    },
+    {
+     "kind": "hook",
+     "line": 39,
+     "in": "TeamSection",
+     "text": "id=equipo",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "text",
+     "line": 41,
+     "in": "TeamSection",
+     "text": "Nuestro equipo"
+    },
+    {
+     "kind": "heading",
+     "line": 42,
+     "in": "TeamSection",
+     "text": "Las personas detrás del cambio",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 46,
+     "in": "TeamSection",
+     "text": "Expertos comprometidos con la innovación educativa y el desarrollo de metodologías que potencian el crecimiento de cada estudiante."
+    },
+    {
+     "kind": "heading",
+     "line": 52,
+     "in": "TeamSection",
+     "when": "each TEAM_GROUPS",
+     "text": "{group.title} {String(group.members.length).padSta…}",
+     "level": 3
+    },
+    {
+     "kind": "gate",
+     "line": 58,
+     "in": "TeamSection",
+     "when": "each TEAM_GROUPS && each group.members",
+     "text": "!member"
+    },
+    {
+     "kind": "text",
+     "line": 63,
+     "in": "TeamSection",
+     "when": "each TEAM_GROUPS && each group.members && member.description",
+     "text": "Ver más"
+    },
+    {
+     "kind": "value",
+     "line": 65,
+     "in": "TeamSection",
+     "when": "each TEAM_GROUPS && each group.members",
+     "text": "{member.name}"
+    },
+    {
+     "kind": "value",
+     "line": 66,
+     "in": "TeamSection",
+     "when": "each TEAM_GROUPS && each group.members",
+     "text": "{member.role}"
+    },
+    {
+     "kind": "button",
+     "line": 71,
+     "in": "TeamSection",
+     "when": "each TEAM_GROUPS && each group.members && member.description",
+     "text": "{portrait}",
+     "action": "{() => setSelected(member)}",
+     "hook": {
+      "testid": "equipo-{key}"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 82,
+     "in": "TeamSection",
+     "when": "each TEAM_GROUPS && each group.members && !(member.description)",
+     "text": "{portrait}"
+    },
+    {
+     "kind": "clickable",
+     "line": 92,
+     "in": "TeamSection",
+     "text": "[Cerrar ✕ {selected.role} {selected.name} {selected.description}]",
+     "tag": "dialog",
+     "action": "{(event) => { if (event.target === dialogRef.current) setSelected(null); }}",
+     "aria": "{selected ? selected.name : 'Biografía'}"
+    },
+    {
+     "kind": "button",
+     "line": 103,
+     "in": "TeamSection",
+     "when": "selected",
+     "text": "Cerrar ✕",
+     "action": "{() => setSelected(null)}",
+     "hook": {
+      "testid": "equipo-bio-cerrar"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 111,
+     "in": "TeamSection",
+     "when": "selected",
+     "text": "{selected.role}"
+    },
+    {
+     "kind": "heading",
+     "line": 112,
+     "in": "TeamSection",
+     "when": "selected",
+     "text": "{selected.name}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 113,
+     "in": "TeamSection",
+     "when": "selected",
+     "text": "{selected.description}"
+    }
+   ],
+   "db": []
+  },
+  "components/site/ViasEje.tsx": {
+   "usedBy": [
+    "/"
+   ],
+   "lines": 100,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 5,
+     "text": "VIAS",
+     "items": [
+      "Propósito",
+      "Un para qué compartido, construido entre todos.",
+      "Crecimiento",
+      "Cada estudiante es conocido, mirado y acompañado.",
+      "Aprendizaje",
+      "Se aprende con otros: cooperando, explicando, creando.",
+      "Evaluación",
+      "Una conversación que ayuda a crecer, no un veredicto.",
+      "Liderazgo",
+      "Distribuido: líderes que cuidan los vínculos de su equipo.",
+      "Familias",
+      "Aliadas del proyecto educativo, no espectadoras.",
+      "Trabajo docente",
+      "En equipo y por etapas, nunca en soledad."
+     ]
+    },
+    {
+     "kind": "gate",
+     "line": 25,
+     "in": "ViasEje",
+     "text": "!list"
+    },
+    {
+     "kind": "hook",
+     "line": 26,
+     "in": "ViasEje",
+     "text": "querySelectorAll(li)",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 52,
+     "in": "ViasEje",
+     "text": "window.addEventListener('scroll')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 53,
+     "in": "ViasEje",
+     "text": "window.addEventListener('resize')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 62,
+     "in": "ViasEje",
+     "text": "id=vias",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "text",
+     "line": 68,
+     "in": "ViasEje",
+     "text": "El mapa del cambio"
+    },
+    {
+     "kind": "heading",
+     "line": 69,
+     "in": "ViasEje",
+     "text": "Siete vías, un mismo eje",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 73,
+     "in": "ViasEje",
+     "text": "La transformación de una escuela avanza por siete vías a la vez. Lo que las mantiene unidas es el eje relacional: en cada una, cambiar significa relacionarse de otra manera."
+    },
+    {
+     "kind": "text",
+     "line": 79,
+     "in": "ViasEje",
+     "text": "Eje relacional"
+    },
+    {
+     "kind": "value",
+     "line": 84,
+     "in": "ViasEje",
+     "when": "each VIAS",
+     "text": "{String(index + 1).padStart(2, '0')}"
+    },
+    {
+     "kind": "heading",
+     "line": 85,
+     "in": "ViasEje",
+     "when": "each VIAS",
+     "text": "{via.name}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 88,
+     "in": "ViasEje",
+     "when": "each VIAS",
+     "text": "{via.says}"
+    },
+    {
+     "kind": "text",
+     "line": 94,
+     "in": "ViasEje",
+     "text": "primero el vínculo"
+    }
+   ],
+   "db": []
+  },
+  "components/site/chilePath.ts": {
+   "usedBy": [
+    "/"
+   ],
+   "lines": 10,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 5,
+     "text": "CHILE_MAIN",
+     "items": [
+      "M541 31L542 42L555 61L558 78L561 76L570 83L575 82L576 84L575 88L570 94L574 103L576 120L580 128L580 145L586 167L583 175L590 187L597 191L610 207L623 218L627 223L622 227L607 252L607 255L618 264L620 272L616 286L611 285L599 291L600 293L605 295L604 303L609 313L602 316L601 322L608 332L624 342L617 354L618 …"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 8,
+     "text": "CHILE_ISLANDS",
+     "items": [
+      "M611 3760L610 3769L588 3758L585 3758L592 3761L604 3770L600 3772L577 3775L530 3762L528 3759L532 3756L532 3749L528 3756L525 3749L523 3760L520 3759L520 3752L517 3761L509 3762L504 3758L504 3748L502 3753L502 3764L494 3765L495 3758L493 3761L490 3760L488 3765L482 3766L477 3764L475 3760L482 3751L483 3750L4…"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "components/site/news.ts": {
+   "usedBy": [
+    "/",
+    "/noticias",
+    "/noticias/[slug]"
+   ],
+   "lines": 66,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 60,
+     "in": "fetchNews",
+     "when": "!response.ok",
+     "text": "Error loading news: {response.status}",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 63,
+     "in": "fetchNews",
+     "when": "!Array.isArray(articles)",
+     "text": "Invalid response format - articles is not an array",
+     "via": "throw (shown by whoever catches it)"
+    }
+   ],
+   "db": []
+  },
+  "components/site/programsData.ts": {
+   "usedBy": [
+    "/",
+    "/programas"
+   ],
+   "lines": 200,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 19,
+     "text": "PROGRAMS",
+     "items": [
+      "AULA GENERATIVA",
+      "Ecosistema de relaciones saludables para el crecimiento",
+      "El aula generativa busca optimizar los procesos y elevar los resultados en el crecimiento y aprendizaje de cada estudiante, fortaleciendo la calidad de los vín…",
+      "Construcción de ecosistema de relaciones saludables en el aula",
+      "Desarrollo de autonomía, interdependencia y trabajo colaborativo",
+      "Orientación al crecimiento individual y colectivo",
+      "Desarrollo de mentalidad de crecimiento y valores",
+      "Programa de educación relacional",
+      "Programa de innovación pedagógica en el aula",
+      "Programa de crecimiento personal",
+      "Programa de prácticas generativas",
+      "Programa de comunidades de crecimiento",
+      "Calidad de vida para educadores con aulas con motor propio",
+      "Vínculos seguros y prosociales entre pares",
+      "Conexión positiva con las familias",
+      "Superación de la dicotomía Convivencia/Aprendizaje",
+      "Síntesis hacia la mirada generativa",
+      "INSPIRA",
+      "Viaja y sumérgete en una escuela de vanguardia educativa",
+      "2 semanas",
+      "INSPIRA es una experiencia diseñada para ampliar la mirada pedagógica y entregar respuestas concretas sobre cómo alcanzar paso a paso una educación de vanguard…",
+      "Visitas Pedagógicas: Jornadas en colegios de vanguardia para conocer el proyecto educativo",
+      "Estadia Pedagógica: Trabajo pedagógico en aula junto a un educador de vanguardia",
+      "Conversatorios con Expertos: Sesiones de diálogo con expertos en educación de Cataluña",
+      "Talleres de síntesis: Síntesis de aprendizajes y recursos compartidos",
+      "Plataforma de registro: Bitácora de viaje compartida con documentación del cambio",
+      "Jornadas de visitas a colegios de vanguardia",
+      "Trabajo pedagógico directo en aula",
+      "Diálogos con expertos educativos",
+      "Síntesis de aprendizajes y desafíos",
+      "Registro multimedia del viaje",
+      "INICIA",
+      "Introducción a la Nueva Educación",
+      "40-80 horas",
+      "Programa diseñado para establecimientos educacionales que desean conocer y discernir el inicio de un largo y profundo proceso de transformación de su cultura e…",
+      "Asesorar y formar al director y su equipo en liderazgo del cambio",
+      "Acompañamiento al equipo de gestión para el proceso cultural",
+      "Favorecer la emergencia de un sentido de urgencia compartido",
+      "Visualizar un horizonte de transformación compartido",
+      "Construir una línea base participativa rápida",
+      "Identificar necesidades para implementación futura",
+      "Asesoría Directiva y al equipo de gestión",
+      "Talleres de formación con líderes de base",
+      "Visitas internacionales a la escuela",
+      "Plataforma de formación con cursos introductorios",
+      "Creación colectiva de proyecto de transformación",
+      "Construcción de línea base de cambio",
+      "Diseño de plan general para el primer año",
+      "Elección de personas para INSPIRA en BCN",
+      "EVOLUCIONA",
+      "Hacia una transformación profunda de la cultura educativa",
+      "5 años",
+      "Programa de evolución progresiva, estimado en 5 años de duración. Se deberá considerar el tamaño de la comunidad educativa, la velocidad de implementación y la…",
+      "Transformar la mirada pedagógica y generar un alto sentido de urgencia respecto de la imperiosa necesidad de una educación nueva",
+      "Visualizar y ambicionar juntos un nuevo horizonte pedagógico",
+      "Construir y recorrer una ruta de evolución cultural que en las 7 vías de evolución declaradas: Propósito, Personalización, Aprendizaje, Evaluación, Liderazgo, …",
+      "Alcanzar un diseño a la medida, progresivo y basado en victorias tempranas",
+      "Evolucionar a partir de las fortalezas preexistentes",
+      "Formar líderes capaces de conducir el cambio",
+      "Comunicar el proceso interna y externamente",
+      "Construir equipos de cambio misionarios y de alto desempeño",
+      "Soñar, diseñar, implementar, evaluar y rediseñar junto a los equipos de terreno",
+      "Institucionalizar los cambios y arraigar la nueva cultura",
+      "Asesoría directiva para diseñar y liderar el cambio",
+      "Visitas de asesores internacionales en terreno",
+      "Asesoría técnica para la implementación de prácticas",
+      "Plataforma de formación asincrónica, individual y en equipos",
+      "Formación de líderes de base",
+      "Formación de Comunidades de Crecimiento",
+      "Implementación de Hub de Transformación",
+      "Migración completa de pre-kinder a 4 medio en nivel de profundidad diverso",
+      "Amplia y apropiada implementación de nuevas prácticas y proceso pedagógicos",
+      "Estudiantes autónomos, colaborativos y generativos",
+      "Convivencia prosocial elevada",
+      "Familias integradas al proyecto educativo, disposición creativa y de apoyo constante",
+      "Una organización que ha hecho propio su proceso de cambio",
+      "Líderes de base potentes movilizando la evolución constante",
+      "Profesoras, profesores, profesionales y asistentes formados, integrados en equipos sinérgicos por etapas del desarrollo",
+      "Clima laboral lleno de sentido, empuje y auto realización",
+      "Procesos y recursos pedagógicos optimizados"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 152,
+     "text": "JOURNEY",
+     "items": [
+      "Inicia",
+      "Despegue",
+      "40 a 80 horas",
+      "Introducción a la Nueva Educación. Para establecimientos que quieren conocer y discernir el inicio de un proceso profundo de transformación de su cultura educa…",
+      "Inspira",
+      "2 semanas en Barcelona",
+      "Viaja y sumérgete en una escuela de vanguardia. Una experiencia para ampliar la mirada pedagógica, con respuestas concretas para Chile.",
+      "Aula Generativa",
+      "Cambio cultural",
+      "En la sala de clases",
+      "Un ecosistema de relaciones saludables que eleva el crecimiento y el aprendizaje de cada estudiante, fortaleciendo la calidad de los vínculos entre pares.",
+      "Evoluciona",
+      "5 años",
+      "Una transformación profunda de la cultura educativa: una ruta por las siete vías, a la medida, progresiva y basada en victorias tempranas."
+     ]
+    },
+    {
+     "kind": "message",
+     "line": 197,
+     "in": "programById",
+     "when": "!found",
+     "text": "Unknown program: {id}",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "string",
+     "line": 24,
+     "in": "PROGRAMS",
+     "text": "El aula generativa busca optimizar los procesos y elevar los resultados en el crecimiento y aprendizaje de cada estudiante, fortaleciendo la calidad de los vínculos entre pares."
+    },
+    {
+     "kind": "string",
+     "line": 51,
+     "in": "PROGRAMS",
+     "text": "INSPIRA es una experiencia diseñada para ampliar la mirada pedagógica y entregar respuestas concretas sobre cómo alcanzar paso a paso una educación de vanguardia para Chile."
+    },
+    {
+     "kind": "string",
+     "line": 72,
+     "in": "PROGRAMS",
+     "text": "Programa diseñado para establecimientos educacionales que desean conocer y discernir el inicio de un largo y profundo proceso de transformación de su cultura educativa."
+    },
+    {
+     "kind": "string",
+     "line": 99,
+     "in": "PROGRAMS",
+     "text": "Programa de evolución progresiva, estimado en 5 años de duración. Se deberá considerar el tamaño de la comunidad educativa, la velocidad de implementación y la claridad política del centro para avanzar."
+    },
+    {
+     "kind": "string",
+     "line": 103,
+     "in": "PROGRAMS",
+     "text": "Construir y recorrer una ruta de evolución cultural que en las 7 vías de evolución declaradas: Propósito, Personalización, Aprendizaje, Evaluación, Liderazgo, Familias y Trabajo Docente"
+    },
+    {
+     "kind": "string",
+     "line": 159,
+     "in": "JOURNEY",
+     "text": "Introducción a la Nueva Educación. Para establecimientos que quieren conocer y discernir el inicio de un proceso profundo de transformación de su cultura educativa."
+    }
+   ],
+   "db": []
+  },
+  "components/site/teamData.ts": {
+   "usedBy": [
+    "/equipo",
+    "/nosotros"
+   ],
+   "lines": 263,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 13,
+     "text": "TEAM_MEMBERS",
+     "items": [
+      "Arnoldo Cisternas",
+      "Psicólogo dedicado al diseño y gestión de procesos de evolución cultural. Es asesor directivo para el fortalecimiento de lideres y equipos en organizaciones qu…",
+      "Joan Quintana",
+      "Psicólogo especializado en Comportamiento y Desarrollo Organizacional y en Coaching Relacional, aplicándolo en las organizaciones públicas y privadas, en la ed…",
+      "Mora Del Fresno",
+      "Dirige las operaciones de la Fundación en Barcelona y Chile. Es licenciada y profesora en Ciencias de la Educación (Universidad de San Andrés, Argentina), Mást…",
+      "Gabriela Naranjo",
+      "Es la directora de la Fundación Nueva Educación, conduce el equipo de trabajo en Chile para alcanzar los objetivos estratégicos de la FNE. Es psicóloga clínica…",
+      "Brent Curtis",
+      "Brent es Teólogo y está a cargo del diseño y la elaboración de los instrumentos tecnológicos que usamos para implementar nuestros procesos de cambio. Lidera la…",
+      "Coral Regí",
+      "Ha sido directora de la Escuela Virolai y actualmente es asesora internacional para la impulsar el desarrollo de escuelas de vanguardia en España y América Lat…",
+      "Anna Comas",
+      "Fue la directora de la escuela de La Maquinista un proyecto educativo innovador que se ha transformado en un referente de cambio. Formó parte de los centros im…",
+      "Sandra Entrena",
+      "Encargada de Innovación de la Escuela Virolai, una de las escuelas líderes del cambio hacia el nuevo paradigma educativo en Europa. Es una educadora de larga t…",
+      "Pepe Menéndez",
+      "Fue director adjunto de Jesuitas Educació y ha promovido la experiencia del proyecto Horizonte 2020, para la transformación profunda de la educación de las esc…",
+      "Sergi Del Moral",
+      "Licenciado en matemáticas y, desde el 2024, director del Institut-Escola Les Vinyes (Castellbisbal), un centro deliberadamente innovador cuya trayectoria ha si…",
+      "Betlem Cuesta",
+      "Es coordinadora pedagógica del Institut Escola Les Vinyes, un centro deliberadamente innovador reconocido por el Departament d'Educació, ha recibido los premio…",
+      "Jordi Mussons",
+      "Jordi es maestro y director de la escuela Sadako de Barcelona, institución referente en innovación educativa a nivel internacional. Su tenacidad, perseverancia…",
+      "Marcelo Ruiz",
+      "Licenciado en Educación con mención en Educación Física y Diplomado en Habilidades Directivas. Fundador y Director de Los Pellines, un centro de educación rela…",
+      "Ignacio Pavéz",
+      "PhD en Comportamiento Organizacional por Case Western Reserve University (USA) e Ingeniero Civil de la Pontificia Universidad Católica de Chile. Profesor del D…",
+      "Marcela Molina",
+      "Candidata a Doctora y Magíster en Economía de Negocios de la Universidad del Desarrollo. Socióloga de la Pontificia Universidad Católica de Chile. Su investiga…",
+      "Andrés Bustamante",
+      "Psicólogo Social y Coach relacional especializado en habilidades relacionales y gestión de equipos. Fundador de www.cruzadasur.cl, con más de 15 años de experi…",
+      "Joaquín Aguirre",
+      "Doctor en Ciencias de la Educación con 54 años de experiencia en el Ministerio de Educación como Supervisor Técnico Pedagógico. Especializado en Diseño Curricu…",
+      "Abraham de la Fuente",
+      "Doctor en Didáctica de las Matemáticas e investigador sobre la formación del profesorado. Es director adjunto de investigación educativa en el Institut Angelet…",
+      "Ana Vicálvaro",
+      "Directora de la Escola Octavio Paz de Barcelona, una escuela pública emblemática del barrio de Navas que lidera procesos de transformación educativa. Graduada …",
+      "Raúl Martínez",
+      "Director de la Escola La Maquinista de Barcelona desde 2020, donde lidera procesos de innovación educativa centrados en el aprendizaje del alumnado. Graduado c…",
+      "Jorge Parra",
+      "Profesor de Educación Física y Magíster en Educación. Miembro del equipo de formación y gestión en el Centro de Experiencias de Aprendizaje Los Pellines, con m…",
+      "Juan José Flores",
+      "Profesor de Educación Física y Salud, Licenciado en Educación, actualmente cursando el Magíster en Ciencias de la Educación en la Universidad Católica de la Sa…",
+      "Carol de Britos",
+      "Es profesora de Primaria en Escola Virolai, donde además he sido coordinadora pedagógica, y actualmente ejerce de Jefa de Estudios de la etapa. Su ámbito es el…",
+      "Marta Cárdenas",
+      "Es coordinadora de la etapa de Educación Infantil en Virolai Reina Elisenda. Es educadora especializada en el trabajo con niños y niñas con necesidades educati…",
+      "Maite Pino",
+      "Es coordinadora de la Escola Virolai Reina Elisenda y maestra. Se formó como Maestra de Educación Infantil en la UAB y ha trabajado en distintos centros públic…",
+      "Claudia López de Lamadrid",
+      "Es coordinadora y responsable pedagógica de la escuela infantil de Virolai (Virolai Petit), donde trabaja desde 2003. Ha sido maestra de inglés y tutora en Edu…",
+      "Enrique Vergara",
+      "Es educador y coordinador pedagógico en la Escola Virolai, donde forma parte del equipo desde 2018. Licenciado en Ciencias Ambientales por la UAB, ha combinado…",
+      "Laia Garcés",
+      "Es coordinadora de la etapa de primaria en la Escuela Sadako de Barcelona, donde también ha sido tutora, es especialista de inglés y ha formado parte del equip…",
+      "Marta Ortega",
+      "Cristina Montes",
+      "Profesora y tutora de primaria en la Escuela La Maquinista en Barcelona desde el año 2016. Es graduada en Magisterio de Educación Física, en Magisterio de Educ…",
+      "Estefanía del Ramón",
+      "Es profesora de la Escuela Octavio Paz de Barcelona, una de las escuelas públicas más reconocidas y valoradas en Cataluña por su capacidad de innovación y camb…",
+      "Gemma Pariente",
+      "María Latre",
+      "Coordinadora de la etapa de Primaria en la Escola Virolai Reina Elisenda, donde trabaja desde hace más de una década. Graduada en Educación Primaria por UNIR y…",
+      "Andreu Basolí",
+      "Maestro de Educación Primaria en la Escola Sadako de Barcelona, donde ejerce como tutor con una pedagogía centrada en el acompañamiento activo y la educación e…",
+      "Neus Colomer",
+      "Miembro del equipo directivo de la Escola Sadako de Barcelona, donde también ejerce como maestra de Educación Primaria. Graduada en Educación Primaria con menc…",
+      "Begonya Folch",
+      "Profesora de Educación Secundaria y formadora del Departamento de Educación de Catalunya, comprometida con la transformación del sistema educativo. Experta en …",
+      "Laura Carmona",
+      "Coordinadora del equipo docente y profesora de secundaria en el Institut Angeleta Ferrer, centro público de referencia en formación e investigación docente. Li…",
+      "Cristina Romanos",
+      "Coordinadora pedagógica de Virolai Grimm, el centro del ecosistema Virolai dedicado exclusivamente a Educación Infantil. Lidera procesos pedagógicos centrados …"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 258,
+     "text": "TEAM_GROUPS",
+     "items": [
+      "Comité Internacional",
+      "Equipo FNE",
+      "Asesores Internacionales"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "components/site/useSiteEffects.ts": {
+   "usedBy": [
+    "/equipo",
+    "/",
+    "/nosotros",
+    "/noticias",
+    "/noticias/[slug]",
+    "/pasantias",
+    "/programas"
+   ],
+   "lines": 211,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 82,
+     "in": "watch",
+     "text": "querySelectorAll(.rv,.clip,.mv)",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 88,
+     "in": "watch",
+     "text": "querySelectorAll([data-n])",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 99,
+     "in": "useSiteEffects",
+     "text": "querySelector(.nav)",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 100,
+     "in": "useSiteEffects",
+     "text": "querySelector(.prog)",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 115,
+     "in": "onScroll",
+     "when": "!reduce",
+     "text": "querySelectorAll([data-img-par])",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 126,
+     "in": "useSiteEffects",
+     "text": "window.addEventListener('scroll')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 138,
+     "in": "useSiteEffects",
+     "text": "window.addEventListener('resize')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 144,
+     "in": "useSiteEffects",
+     "when": "fine && !reduce",
+     "text": "el.addEventListener('mousemove')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 156,
+     "in": "useSiteEffects",
+     "when": "fine && !reduce",
+     "text": "el.addEventListener('mouseout')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 165,
+     "in": "useSiteEffects",
+     "when": "fine && !reduce",
+     "text": "querySelector(.cur)",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 166,
+     "in": "useSiteEffects",
+     "when": "fine && !reduce",
+     "text": "querySelector(.hero .iso, .phero .iso, .pas-hero .iso)",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 172,
+     "in": "useSiteEffects",
+     "when": "fine && !reduce && cursor",
+     "text": "window.addEventListener('mousemove')",
+     "type": "listener"
+    }
+   ],
+   "db": []
+  },
+  "lib/legal/privacy-notice.ts": {
+   "usedBy": [
+    "/equipo",
+    "/",
+    "/nosotros",
+    "/noticias",
+    "/noticias/[slug]",
+    "/pasantias",
+    "/privacidad",
+    "/programas"
+   ],
+   "lines": 55,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 46,
+     "text": "LEGAL_IDENTITY",
+     "items": [
+      "Fundación Nueva Educación",
+      "Fundación Instituto Relacional",
+      "RUT 65.166.503-5",
+      "Carlos Silva Vildósola 10448",
+      "La Reina, Santiago",
+      "Chile"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "lib/pasantias/cohort-public.ts": {
+   "usedBy": [
+    "/",
+    "/pasantias"
+   ],
+   "lines": 480,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 46,
+     "text": "COHORT_LABEL",
+     "items": [
+      "Cohorte Enero 2027"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 68,
+     "text": "COHORT_TOGETHER",
+     "items": [
+      "Todos viajan juntos a Barcelona"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 81,
+     "text": "COHORT_ROUTING",
+     "items": [
+      "¿Primera vez?",
+      "Pasantía INSPIRA",
+      "¿Ya viajaste?",
+      "Mirada Profunda"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 87,
+     "text": "COHORT_PLACES",
+     "items": [
+      "Los cupos de la cohorte de enero se confirman por orden de reserva."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 103,
+     "text": "COHORT_ACCREDITATION",
+     "items": [
+      "Fundación Nueva Educación es Agencia Técnica Educativa certificada por RPA Mineduc."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 110,
+     "text": "COHORT_CLAIMS",
+     "items": [
+      "400+ Pasantes han viajado con FNE",
+      "40+ Colegios participantes",
+      "12 Escuelas catalanas en la red"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 127,
+     "text": "COHORT_FREE_WEEKEND",
+     "items": [
+      "Sábado 23 y domingo 24 de enero"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 231,
+     "text": "INSPIRA_PROGRAM",
+     "items": [
+      "Pasantía INSPIRA",
+      "INSPIRA",
+      "Equipos que viajan por primera vez",
+      "6 escuelas: una semana de inmersión en dos escuelas y una semana de visitas a cuatro",
+      "Inspiración y un mapa de lo posible",
+      "Semana 1 — inmersión",
+      "Cada pasante vive 2,5 días en Escola Virolai y 2,5 días en Escola Sadako.",
+      "Semana 2 — visitas",
+      "Una escuela por día.",
+      "Almuerzos: en la Pasantía INSPIRA, durante la primera semana (Escola Virolai y Escola Sadako).",
+      "Escola Virolai",
+      "Escola Sadako",
+      "Institut Escola El Puig",
+      "Escola La Maquinista",
+      "Escola Octavio Paz",
+      "Institut Angeleta Ferrer",
+      "Institut Escola Les Vinyes",
+      "La selección y el orden se definen con el grupo, según sus intereses y la disponibilidad de cada escuela."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 281,
+     "text": "MIRADA_PROFUNDA_PROGRAM",
+     "items": [
+      "INSPIRA Mirada Profunda",
+      "Mirada Profunda",
+      "Quienes ya viajaron con INSPIRA",
+      "Son diez días, cinco escuelas y dos días completos en cada una.",
+      "Cómo se hace por dentro, y una hoja de ruta para marzo",
+      "Semana 1",
+      "Cinco jornadas en escuelas.",
+      "Semana 2",
+      "En Mirada Profunda, todos los días del programa.",
+      "Escola Virolai",
+      "Escola Sadako",
+      "Institut Angeleta Ferrer",
+      "Institut Escola El Puig",
+      "Institut Escola Les Vinyes",
+      "El orden de las escuelas se confirma con cada una según su disponibilidad y puede cambiar. Una de ellas puede repartir sus dos días entre el viernes 22 y el lu…",
+      "Cada participante define, con el equipo FNE, un desafío real de su colegio.",
+      "El viernes 29 cada participante presenta qué va a mover en marzo y cómo.",
+      "En abril, una sesión online para revisar qué se implementó y ajustar el rumbo.",
+      "acompañamiento para definir tu pregunta antes del viaje",
+      "sesión online de seguimiento en abril"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 349,
+     "text": "COHORT_DAY_STRUCTURE",
+     "items": [
+      "Presentación del proyecto educativo y entrevista con la dirección",
+      "Visita guiada, entrevistas con estudiantes y educadores",
+      "Talleres con expertos del movimiento de Nueva Educación"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 356,
+     "text": "COHORT_INCLUDES",
+     "items": [
+      "El pago de las visitas a las escuelas.",
+      "Los talleres de la tarde con especialistas.",
+      "Los honorarios de la dirección del programa, los relatores y el equipo de facilitadores de FNE que acompañan a los pasantes.",
+      "Bibliografía básica recomendada para preparar el viaje, una bitácora y un sistema de registro de los aprendizajes, presentado al menos un mes antes del viaje.",
+      "Desayuno a media mañana en las escuelas."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 365,
+     "text": "COHORT_EXCLUDES",
+     "items": [
+      "Traslados colegio – aeropuerto de Santiago – colegio",
+      "Traslados en Barcelona, incluido el transporte a El Puig y Les Vinyes",
+      "Cenas",
+      "Almuerzos de la segunda semana (solo en la Pasantía INSPIRA)",
+      "Seguros",
+      "Pasajes y alojamiento, salvo que los coordines a través de FNE"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 394,
+     "text": "COHORT_HOSTS",
+     "items": [
+      "Jordi Musons",
+      "Escola Sadako",
+      "Anfitrión",
+      "Sandra Entrena",
+      "Escola Virolai",
+      "Anfitriona"
+     ]
+    },
+    {
+     "kind": "string",
+     "line": 318,
+     "in": "MIRADA_PROFUNDA_PROGRAM",
+     "text": "El orden de las escuelas se confirma con cada una según su disponibilidad y puede cambiar. Una de ellas puede repartir sus dos días entre el viernes 22 y el lunes 25."
+    }
+   ],
+   "db": []
+  },
+  "lib/pasantias/consent.ts": {
+   "usedBy": [
+    "/pasantias"
+   ],
+   "lines": 32,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 31,
+     "text": "PRIVACY_POLICY_LINK_LABEL",
+     "items": [
+      "Política de Privacidad"
+     ]
+    },
+    {
+     "kind": "string",
+     "line": 19,
+     "in": "CONSENT_PROCESSING_TEXT",
+     "text": "Autorizo a Fundación Nueva Educación a tratar mis datos personales para responder a esta"
+    },
+    {
+     "kind": "string",
+     "line": 20,
+     "in": "CONSENT_PROCESSING_TEXT",
+     "text": "solicitud y enviarme el programa completo de la pasantía. He leído la Política de Privacidad."
+    },
+    {
+     "kind": "string",
+     "line": 24,
+     "in": "CONSENT_MARKETING_TEXT",
+     "text": "(Opcional) Quiero recibir novedades de Fundación Nueva Educación sobre sus programas y"
+    },
+    {
+     "kind": "string",
+     "line": 25,
+     "in": "CONSENT_MARKETING_TEXT",
+     "text": "contenidos educativos por correo electrónico. Puedo darme de baja cuando quiera."
+    }
+   ],
+   "db": []
+  },
+  "lib/pasantias/leads.ts": {
+   "usedBy": [
+    "/pasantias"
+   ],
+   "lines": 416,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 174,
+     "text": "LEAD_VALIDATION_MESSAGES",
+     "items": [
+      "Ingresa tu nombre.",
+      "Ingresa tu apellido.",
+      "Ingresa tu correo electrónico.",
+      "El formato del correo electrónico no es válido.",
+      "Ingresa tu institución.",
+      "Debes autorizar el tratamiento de tus datos para enviar el formulario.",
+      "La cohorte indicada no corresponde a la pasantía vigente.",
+      "Elige un programa.",
+      "El programa indicado no corresponde a la pasantía vigente.",
+      "Indica un número de participantes entre {LEAD_NUM_PEOPLE_MIN} y {LEAD_NUM_PEOPLE_MAX}."
+     ]
+    },
+    {
+     "kind": "string",
+     "line": 185,
+     "in": "LEAD_VALIDATION_MESSAGES",
+     "text": "Máximo {max} caracteres."
+    }
+   ],
+   "db": []
+  },
+  "lib/sanitize.ts": {
+   "usedBy": [
+    "/noticias/[slug]"
+   ],
+   "lines": 270,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 147,
+     "in": "filterUnsafeIframes",
+     "when": "typeof window !== 'undefined' && window.DOMParser",
+     "text": "querySelectorAll(iframe)",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 212,
+     "in": "postProcessLinks",
+     "when": "typeof window !== 'undefined' && window.DOMParser",
+     "text": "querySelectorAll(a)",
+     "type": "lookup"
+    },
+    {
+     "kind": "list",
+     "line": 234,
+     "in": "postProcessLinks",
+     "text": "postProcessLinks()",
+     "items": [
+      "<a {attrs}>"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "lib/utils/app-url.ts": {
+   "usedBy": [
+    "/pasantias"
+   ],
+   "lines": 124,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 97,
+     "in": "getAppBaseUrl",
+     "when": "isProduction()",
+     "text": "No se puede resolver la URL pública de la aplicación en producción. / Configure NEXT_PUBLIC_BASE_URL (o NEXT_PUBLIC_SITE_URL / NEXT_PUBLIC_APP_URL) / con una URL http(s) válida. El encabezado Host no se usa en producción / porque lo controla el cliente.",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "list",
+     "line": 113,
+     "in": "getAppBaseUrl",
+     "text": "protocol",
+     "items": [
+      "http / https"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "utils/dateUtils.ts": {
+   "usedBy": [
+    "/noticias"
+   ],
+   "lines": 74,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 35,
+     "in": "formatEventDate",
+     "text": "months",
+     "items": [
+      "ENE",
+      "FEB",
+      "MAR",
+      "ABR",
+      "MAY",
+      "JUN",
+      "JUL",
+      "AGO",
+      "SEP",
+      "OCT",
+      "NOV",
+      "DIC"
+     ]
+    }
+   ],
+   "db": []
+  }
+ },
+ "api": [
+  {
+   "file": "pages/api/contact.ts",
+   "route": "/api/contact",
+   "methods": [
+    "POST"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/"
+   ],
+   "referencedIn": [
+    "__tests__/api/contact.test.ts",
+    "__tests__/pages/home-contact-form.test.tsx",
+    "pages/index.tsx"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,2615 @@
+{
+ "area": "16-notificaciones",
+ "name": "Notificaciones",
+ "note": "",
+ "routesOnly": false,
+ "readFrom": {
+  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
+  "date": "2026-11-12T23:31:39-03:00"
+ },
+ "screens": [
+  {
+   "file": "pages/configuracion/index.tsx",
+   "route": "/configuracion",
+   "lines": 11,
+   "marks": {},
+   "frame": "none",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "lib/auth/forced-password-change.ts:135",
+     "middleware.ts:330"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/notification-settings.spec.ts"
+     ],
+     "e2e": [],
+     "unit": [
+      "__tests__/pages/notification-settings.test.tsx"
+     ]
+    }
+   },
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 5,
+     "in": "getServerSideProps",
+     "text": "/configuracion/notificaciones",
+     "via": "server redirect"
+    }
+   ],
+   "db": [],
+   "pieces": [],
+   "api": []
+  },
+  {
+   "file": "pages/configuracion/notificaciones.tsx",
+   "route": "/configuracion/notificaciones",
+   "lines": 439,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 117,
+      "text": "server redirect → /login?next=[*]  (when !viewer)"
+     }
+    ],
+    "linkedFrom": [
+     "components/notifications/ModernNotificationCenter.tsx:465",
+     "components/notifications/ModernNotificationCenter.tsx:466",
+     "components/notifications/NotificationDropdown.tsx:187",
+     "components/notifications/NotificationDropdown.tsx:188",
+     "lib/email/notifications.ts:30",
+     "pages/admin/configuration.tsx:396",
+     "pages/admin/configuration.tsx:397",
+     "pages/configuracion/index.tsx:5",
+     "pages/notifications.tsx:381",
+     "pages/profile.tsx:743",
+     "pages/profile.tsx:744"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/notification-settings.spec.ts"
+     ],
+     "e2e": [],
+     "unit": [
+      "__tests__/pages/notification-settings.test.tsx"
+     ]
+    }
+   },
+   "rows": [
+    {
+     "kind": "list",
+     "line": 85,
+     "text": "PRODUCER_EVENT_LABELS",
+     "items": [
+      "Invitación a un grupo",
+      "Entrega de tarea grupal",
+      "Quiz pendiente de revisión",
+      "Quiz revisado",
+      "Alerta de calidad de datos"
+     ]
+    },
+    {
+     "kind": "nav",
+     "line": 117,
+     "in": "getServerSideProps",
+     "when": "!viewer",
+     "text": "/login?next=[*]",
+     "via": "server redirect"
+    },
+    {
+     "kind": "nav",
+     "line": 123,
+     "in": "getServerSideProps",
+     "when": "verdict !== 'allowed'",
+     "text": "{forcedChangeRedirectPath(verdict)}",
+     "via": "server redirect"
+    },
+    {
+     "kind": "list",
+     "line": 144,
+     "text": "READ_ERROR",
+     "items": [
+      "No pudimos cargar tus preferencias."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 145,
+     "text": "SAVE_ERROR",
+     "items": [
+      "No pudimos guardar tus preferencias. Intenta nuevamente."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 147,
+     "text": "MODE_LABELS",
+     "items": [
+      "Predeterminado",
+      "Inmediato",
+      "Resumen diario",
+      "Desactivado"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 155,
+     "text": "STORED_UNAVAILABLE",
+     "items": [
+      "Opción anterior (se envía de inmediato)"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 157,
+     "text": "DELIVERY_LABELS",
+     "items": [
+      "Se envía de inmediato",
+      "Va en el resumen diario",
+      "No se envía"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 163,
+     "text": "ADDRESS_NOTICES",
+     "items": [
+      "No podemos enviarte correos: tu dirección rechazó mensajes anteriores. Escribe a soporte para revisarla; mientras tanto no recibirás avisos por correo.",
+      "Tu dirección de correo recibe nuestros avisos con normalidad.",
+      "No pudimos comprobar si tu dirección de correo recibe nuestros avisos."
+     ]
+    },
+    {
+     "kind": "gate",
+     "line": 207,
+     "in": "NotificationSettingsPage",
+     "text": "id !== request.current"
+    },
+    {
+     "kind": "gate",
+     "line": 224,
+     "in": "NotificationSettingsPage",
+     "text": "sessionLoading || sessionError || sessionUserId === ownerId"
+    },
+    {
+     "kind": "message",
+     "line": 259,
+     "in": "save",
+     "text": "saved / Tus preferencias se guardaron.",
+     "via": "setNotice"
+    },
+    {
+     "kind": "hook",
+     "line": 270,
+     "in": "NotificationSettingsPage",
+     "when": "status === 'session_changed'",
+     "text": "role=alert",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "hook",
+     "line": 270,
+     "in": "NotificationSettingsPage",
+     "when": "status === 'session_changed'",
+     "text": "testid=ns-session-changed",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 271,
+     "in": "NotificationSettingsPage",
+     "when": "status === 'session_changed'",
+     "text": "Tu sesión cambió en otra pestaña. Recarga la página para ver tus preferencias."
+    },
+    {
+     "kind": "button",
+     "line": 272,
+     "in": "NotificationSettingsPage",
+     "when": "status === 'session_changed'",
+     "text": "Recargar",
+     "action": "{() => window.location.reload()}",
+     "hook": {
+      "testid": "ns-reload"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 279,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'session_changed') && status === 'expired'",
+     "text": "role=alert",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "hook",
+     "line": 279,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'session_changed') && status === 'expired'",
+     "text": "testid=ns-expired",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 280,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'session_changed') && status === 'expired'",
+     "text": "Tu sesión terminó."
+    },
+    {
+     "kind": "link",
+     "line": 281,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'session_changed') && status === 'expired'",
+     "text": "Inicia sesión nuevamente",
+     "target": "{LOGIN_AGAIN}"
+    },
+    {
+     "kind": "hook",
+     "line": 288,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'session_changed') && !(status === 'expired') && status === 'error'",
+     "text": "role=alert",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "hook",
+     "line": 288,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'session_changed') && !(status === 'expired') && status === 'error'",
+     "text": "testid=ns-error",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "value",
+     "line": 289,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'session_changed') && !(status === 'expired') && status === 'error'",
+     "text": "{READ_ERROR}"
+    },
+    {
+     "kind": "button",
+     "line": 290,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'session_changed') && !(status === 'expired') && status === 'error'",
+     "text": "Reintentar",
+     "action": "{() => (categories ? void load() : window.location.reload())}",
+     "hook": {
+      "testid": "ns-retry"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 302,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'session_changed') && !(status === 'expired') && !(status === 'error') && (status === 'loading' || !view)",
+     "text": "role=status",
+     "type": "role",
+     "tag": "p"
+    },
+    {
+     "kind": "hook",
+     "line": 302,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'session_changed') && !(status === 'expired') && !(status === 'error') && (status === 'loading' || !view)",
+     "text": "testid=ns-loading",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 303,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'session_changed') && !(status === 'expired') && !(status === 'error') && (status === 'loading' || !view)",
+     "text": "Cargando tus preferencias…"
+    },
+    {
+     "kind": "hook",
+     "line": 308,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && shown.length === 0",
+     "text": "testid=ns-empty",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 309,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && shown.length === 0",
+     "text": "Tu cuenta no tiene avisos por correo que configurar."
+    },
+    {
+     "kind": "form",
+     "line": 320,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
+     "text": "{(event) => { event.preventDefault(); void save(); }}"
+    },
+    {
+     "kind": "hook",
+     "line": 326,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
+     "text": "testid=ns-address-{view.address_suppression}",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "value",
+     "line": 326,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
+     "text": "{ADDRESS_NOTICES[view.address_suppre…}"
+    },
+    {
+     "kind": "hook",
+     "line": 329,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
+     "text": "testid=ns-digest-note",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 329,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
+     "text": "Resumen diario: los avisos se agrupan en un correo al día. Por ahora no puedes elegir la hora de envío. / El resumen diario todavía no está disponible: los avisos que irían en un resumen se envían de inmediato."
+    },
+    {
+     "kind": "hook",
+     "line": 335,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && mandatory.length > 0",
+     "text": "testid=ns-mandatory",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 336,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && mandatory.length > 0",
+     "text": "Estos avisos se envían siempre, aunque desactives su categoría:"
+    },
+    {
+     "kind": "value",
+     "line": 339,
+     "in": "NotificationSettingsPage",
+     "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && mandatory.length > 0 && each mandatory",
+     "text": "{labelOf(e.event_type)}"
+    },
+    {
+     "kind": "hook",
+     "line": 350,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && each shown",
+     "text": "testid=ns-category-{section.category}",
+     "type": "mark",
+     "tag": "fieldset"
+    },
+    {
+     "kind": "label",
+     "line": 352,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && each shown",
+     "text": "{saved.label}",
+     "for": "{selectId}"
+    },
+    {
+     "kind": "field",
+     "line": 355,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && each shown",
+     "text": "{saved.label}",
+     "type": "select",
+     "disabled": "{saving}",
+     "action": "{(event) => { setDraft({ ...draft, [section.category]: event.target.value as Cat…}",
+     "options": [
+      "{MODE_LABELS.default}",
+      "{MODE_LABELS.immediate}",
+      "{MODE_LABELS.digest}",
+      "{STORED_UNAVAILABLE}",
+      "{MODE_LABELS.off}"
+     ],
+     "hook": {
+      "testid": "ns-mode-{section.category}",
+      "id": "ns-mode-{section.category}"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 378,
+     "in": "NotificationSettingsPage",
+     "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && !digest && saved.email_mode === 'digest'",
+     "text": "testid=ns-stored-digest-{section.category}",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 379,
+     "in": "NotificationSettingsPage",
+     "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && !digest && saved.email_mode === 'digest'",
+     "text": "Elegiste Resumen diario antes. Mientras no esté disponible, estos avisos se envían de inmediato."
+    },
+    {
+     "kind": "text",
+     "line": 384,
+     "in": "NotificationSettingsPage",
+     "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && legacy",
+     "text": "Con Predeterminado se mantienen apagados los avisos que desactivaste antes."
+    },
+    {
+     "kind": "gate",
+     "line": 390,
+     "in": "NotificationSettingsPage",
+     "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && each section.events",
+     "text": "!event"
+    },
+    {
+     "kind": "hook",
+     "line": 392,
+     "in": "NotificationSettingsPage",
+     "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && each section.events",
+     "text": "testid=ns-event-{event.event_type}",
+     "type": "mark",
+     "tag": "li"
+    },
+    {
+     "kind": "value",
+     "line": 393,
+     "in": "NotificationSettingsPage",
+     "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && each section.events",
+     "text": "{applicable.label}"
+    },
+    {
+     "kind": "text",
+     "line": 395,
+     "in": "NotificationSettingsPage",
+     "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && each section.events",
+     "text": "Se envía siempre"
+    },
+    {
+     "kind": "hook",
+     "line": 397,
+     "in": "NotificationSettingsPage",
+     "when": "!(shown.length === 0) && each shown && each section.events && event.reason === 'legacy_suppressed'",
+     "text": "testid=ns-legacy-{event.event_type}",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "text",
+     "line": 397,
+     "in": "NotificationSettingsPage",
+     "when": "!(shown.length === 0) && each shown && each section.events && event.reason === 'legacy_suppressed'",
+     "text": "· desactivado por una preferencia anterior"
+    },
+    {
+     "kind": "button",
+     "line": 409,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
+     "text": "Guardando… / Guardar cambios",
+     "submit": true,
+     "disabled": "{saving || changes.length === 0}",
+     "hook": {
+      "testid": "ns-save"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 412,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
+     "text": "role=status aria-live=polite",
+     "type": "role",
+     "tag": "p"
+    },
+    {
+     "kind": "hook",
+     "line": 414,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && notice",
+     "text": "testid={notice.kind === 'saved' ? 'ns-saved' : 'ns-save-error'}",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "value",
+     "line": 414,
+     "in": "NotificationSettingsPage",
+     "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && notice",
+     "text": "{notice.text}"
+    },
+    {
+     "kind": "hook",
+     "line": 418,
+     "in": "NotificationSettingsPage",
+     "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && !(notice) && changes.length > 0",
+     "text": "testid=ns-unsaved",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "text",
+     "line": 419,
+     "in": "NotificationSettingsPage",
+     "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && !(notice) && changes.length > 0",
+     "text": "Tienes cambios sin guardar."
+    },
+    {
+     "kind": "piece",
+     "line": 429,
+     "in": "NotificationSettingsPage",
+     "text": "pageTitle: Notificaciones por correo · breadcrumbs: Configuración / Notificaciones",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "hook",
+     "line": 430,
+     "in": "NotificationSettingsPage",
+     "text": "testid=notification-settings",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 432,
+     "in": "NotificationSettingsPage",
+     "text": "Elige cómo recibir por correo los avisos de cada tema. Los avisos dentro de la plataforma no cambian."
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "lib/api-auth.ts",
+    "lib/auth/forced-password-change.ts",
+    "lib/notificationEvents.ts",
+    "lib/notifications/catalog.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/user/notification-preferences.ts",
+     "route": "/api/user/notification-preferences",
+     "methods": [],
+     "from": [
+      "pages/configuracion/notificaciones.tsx:142"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/notificaciones/baja.tsx",
+   "route": "/notificaciones/baja",
+   "lines": 192,
+   "marks": {},
+   "frame": "none",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "not covered",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": false
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "lib/email/notification-unsubscribe.ts:30"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [
+      "tests/e2e/notification-unsubscribe.spec.ts"
+     ],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "list",
+     "line": 30,
+     "text": "MESSAGES",
+     "items": [
+      "Este enlace ya no está vigente",
+      "Cambiaste tus preferencias de notificaciones después de recibir este correo, así que no hicimos ningún cambio.",
+      "Este enlace venció",
+      "No hicimos ningún cambio. Usa el enlace de un correo más reciente para dejar de recibir estas notificaciones.",
+      "Este enlace no es válido",
+      "No hicimos ningún cambio. Revisa que hayas abierto el enlace completo desde el correo que recibiste.",
+      "No pudimos procesar tu solicitud",
+      "No hicimos ningún cambio. Inténtalo de nuevo en unos minutos."
+     ]
+    },
+    {
+     "kind": "gate",
+     "line": 67,
+     "in": "NotificationUnsubscribePage",
+     "text": "!token"
+    },
+    {
+     "kind": "gate",
+     "line": 71,
+     "in": "NotificationUnsubscribePage",
+     "text": "!current"
+    },
+    {
+     "kind": "hook",
+     "line": 84,
+     "in": "NotificationUnsubscribePage",
+     "when": "answered",
+     "text": "heading.current.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "text",
+     "line": 117,
+     "in": "NotificationUnsubscribePage",
+     "text": "Dejar de recibir correos · Genera"
+    },
+    {
+     "kind": "text",
+     "line": 123,
+     "in": "NotificationUnsubscribePage",
+     "text": "Genera · Notificaciones por correo"
+    },
+    {
+     "kind": "hook",
+     "line": 126,
+     "in": "NotificationUnsubscribePage",
+     "when": "view.state === 'loading'",
+     "text": "role=status",
+     "type": "role",
+     "tag": "p"
+    },
+    {
+     "kind": "hook",
+     "line": 126,
+     "in": "NotificationUnsubscribePage",
+     "when": "view.state === 'loading'",
+     "text": "testid=unsubscribe-loading",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 127,
+     "in": "NotificationUnsubscribePage",
+     "when": "view.state === 'loading'",
+     "text": "Verificando el enlace…"
+    },
+    {
+     "kind": "hook",
+     "line": 130,
+     "in": "NotificationUnsubscribePage",
+     "when": "!(view.state === 'loading') && failure",
+     "text": "role=alert",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "hook",
+     "line": 130,
+     "in": "NotificationUnsubscribePage",
+     "when": "!(view.state === 'loading') && failure",
+     "text": "testid=unsubscribe-error",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "heading",
+     "line": 131,
+     "in": "NotificationUnsubscribePage",
+     "when": "!(view.state === 'loading') && failure",
+     "text": "{failure.title}",
+     "level": 1
+    },
+    {
+     "kind": "value",
+     "line": 134,
+     "in": "NotificationUnsubscribePage",
+     "when": "!(view.state === 'loading') && failure",
+     "text": "{failure.body}"
+    },
+    {
+     "kind": "button",
+     "line": 136,
+     "in": "NotificationUnsubscribePage",
+     "when": "!(view.state === 'loading') && failure && view.state === 'failed'",
+     "text": "Intentar de nuevo",
+     "action": "{confirm}",
+     "hook": {
+      "testid": "unsubscribe-retry"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 147,
+     "in": "NotificationUnsubscribePage",
+     "when": "!(view.state === 'loading') && !(failure) && view.state === 'done'",
+     "text": "role=status",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "hook",
+     "line": 147,
+     "in": "NotificationUnsubscribePage",
+     "when": "!(view.state === 'loading') && !(failure) && view.state === 'done'",
+     "text": "testid=unsubscribe-done",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "heading",
+     "line": 148,
+     "in": "NotificationUnsubscribePage",
+     "when": "!(view.state === 'loading') && !(failure) && view.state === 'done'",
+     "text": "Listo: ya no recibirás estos correos",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 152,
+     "in": "NotificationUnsubscribePage",
+     "when": "!(view.state === 'loading') && !(failure) && view.state === 'done'",
+     "text": "Seguirás viendo estas notificaciones dentro de Genera y recibiendo los avisos obligatorios."
+    },
+    {
+     "kind": "hook",
+     "line": 155,
+     "in": "NotificationUnsubscribePage",
+     "when": "!(view.state === 'loading') && !(failure) && view.state === 'done' && view.unchanged.length > 0",
+     "text": "testid=unsubscribe-unchanged",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 155,
+     "in": "NotificationUnsubscribePage",
+     "when": "!(view.state === 'loading') && !(failure) && view.state === 'done' && view.unchanged.length > 0",
+     "text": "No cambiamos {view.unchanged.join(', ')} : modificaste esa preferencia después de recibir este correo."
+    },
+    {
+     "kind": "heading",
+     "line": 163,
+     "in": "NotificationUnsubscribePage",
+     "when": "!(view.state === 'loading') && !(failure) && !(view.state === 'done') && ((view.state === 'confirm' || view.state === 'sending'))",
+     "text": "¿Quieres dejar de recibir el resumen diario por correo? / ¿Quieres dejar de recibir estos correos?",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 166,
+     "in": "NotificationUnsubscribePage",
+     "when": "!(view.state === 'loading') && !(failure) && !(view.state === 'done') && ((view.state === 'confirm' || view.state === 'sending'))",
+     "text": "Dejaremos de enviarte por correo las notificaciones de:"
+    },
+    {
+     "kind": "hook",
+     "line": 167,
+     "in": "NotificationUnsubscribePage",
+     "when": "!(view.state === 'loading') && !(failure) && !(view.state === 'done') && ((view.state === 'confirm' || view.state === 'sending'))",
+     "text": "testid=unsubscribe-categories",
+     "type": "mark",
+     "tag": "ul"
+    },
+    {
+     "kind": "value",
+     "line": 169,
+     "in": "NotificationUnsubscribePage",
+     "when": "!(failure) && !(view.state === 'done') && ((view.state === 'confirm' || view.state === 'sending')) && each view.categories",
+     "text": "{category.label}"
+    },
+    {
+     "kind": "text",
+     "line": 173,
+     "in": "NotificationUnsubscribePage",
+     "when": "!(view.state === 'loading') && !(failure) && !(view.state === 'done') && ((view.state === 'confirm' || view.state === 'sending'))",
+     "text": "Seguirás viéndolas dentro de Genera y recibiendo los avisos obligatorios. Todavía no hemos cambiado nada."
+    },
+    {
+     "kind": "button",
+     "line": 175,
+     "in": "NotificationUnsubscribePage",
+     "when": "!(view.state === 'loading') && !(failure) && !(view.state === 'done') && ((view.state === 'confirm' || view.state === 'sending'))",
+     "text": "Procesando… / Sí, dejar de recibir estos correos",
+     "action": "{confirm}",
+     "disabled": "{view.state === 'sending'}",
+     "hook": {
+      "testid": "unsubscribe-confirm"
+     }
+    }
+   ],
+   "db": [],
+   "pieces": [],
+   "api": [
+    {
+     "file": "pages/api/notifications/unsubscribe.ts",
+     "route": "/api/notifications/unsubscribe",
+     "methods": [],
+     "from": [
+      "pages/notificaciones/baja.tsx:11"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/notifications.tsx",
+   "route": "/notifications",
+   "lines": 653,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 112,
+      "text": "userRole = await getUserPrimaryRole(session.user.id)"
+     },
+     {
+      "line": 129,
+      "text": "router.push → /login  (when !(session) && session === null)"
+     },
+     {
+      "line": 257,
+      "text": "router.push → /dashboard  (when notification.related_url)"
+     }
+    ],
+    "linkedFrom": [
+     "components/DynamicFavicon.tsx:28",
+     "components/notifications/ModernNotificationCenter.tsx:594",
+     "components/notifications/NotificationDropdown.tsx:174",
+     "lib/auth/forced-password-change.ts:155",
+     "lib/email/notifications.ts:27",
+     "middleware.ts:350"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/notification-settings.spec.ts"
+     ],
+     "e2e": [
+      "tests/e2e/messaging-notifications.spec.ts"
+     ],
+     "unit": [
+      "__tests__/notifications/entry-points.test.tsx"
+     ]
+    }
+   },
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 76,
+     "in": "NotificationsPage",
+     "text": "!session"
+    },
+    {
+     "kind": "toast",
+     "line": 95,
+     "in": "NotificationsPage",
+     "text": "Error al cargar notificaciones.",
+     "variant": "error"
+    },
+    {
+     "kind": "gate",
+     "line": 102,
+     "in": "NotificationsPage",
+     "text": "!session"
+    },
+    {
+     "kind": "access",
+     "line": 112,
+     "in": "NotificationsPage",
+     "when": "profileData",
+     "text": "userRole = await getUserPrimaryRole(session.user.id)",
+     "via": "getUserPrimaryRole"
+    },
+    {
+     "kind": "toast",
+     "line": 119,
+     "in": "NotificationsPage",
+     "text": "Error al cargar los datos iniciales.",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 129,
+     "in": "NotificationsPage",
+     "when": "!(session) && session === null",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 192,
+     "in": "handleMarkAsRead",
+     "text": "{notificationIds.length} notificación(es) marcada(s) como leída(s)",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 195,
+     "in": "handleMarkAsRead",
+     "text": "Error al marcar como leído",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 210,
+     "in": "handleMarkAsUnread",
+     "text": "{notificationIds.length} notificación(es) marcada(s) como no leída(s)",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 213,
+     "in": "handleMarkAsUnread",
+     "text": "Error al marcar como no leído",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 231,
+     "in": "handleDeleteConfirm",
+     "text": "{deleteTargetIds.length} notificación(es) eliminada(s)",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 234,
+     "in": "handleDeleteConfirm",
+     "text": "Error al eliminar notificaciones",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 254,
+     "in": "handleNotificationClick",
+     "when": "notification.related_url",
+     "text": "{notification.related_url}",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 257,
+     "in": "handleNotificationClick",
+     "when": "notification.related_url",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 291,
+     "in": "handleNotificationClick",
+     "when": "!(notification.related_url)",
+     "text": "{fallbackUrl}",
+     "via": "router.push"
+    },
+    {
+     "kind": "list",
+     "line": 328,
+     "in": "getCategoryName",
+     "text": "nameMap",
+     "items": [
+      "Administración",
+      "Tareas",
+      "Cursos",
+      "Mensajes",
+      "Social",
+      "Feedback",
+      "Sistema",
+      "Workspace"
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 360,
+     "in": "NotificationsPage",
+     "when": "loading",
+     "text": "pageTitle: Notificaciones",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "piece",
+     "line": 369,
+     "in": "NotificationsPage",
+     "text": "pageTitle: Notificaciones",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "heading",
+     "line": 375,
+     "in": "NotificationsPage",
+     "text": "Todas las Notificaciones",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 376,
+     "in": "NotificationsPage",
+     "text": "{filteredNotifications.length} notificación(es) • {filteredNotifications.filter(n => !…} sin leer"
+    },
+    {
+     "kind": "link",
+     "line": 381,
+     "in": "NotificationsPage",
+     "text": "[icon CogIcon]",
+     "target": "/configuracion/notificaciones",
+     "hook": {
+      "testid": "notifications-page-settings"
+     },
+     "aria": "Configuración de notificaciones"
+    },
+    {
+     "kind": "piece",
+     "line": 382,
+     "in": "NotificationsPage",
+     "text": "aria-hidden: true",
+     "tag": "CogIcon"
+    },
+    {
+     "kind": "button",
+     "line": 384,
+     "in": "NotificationsPage",
+     "text": "[icon RefreshIcon]",
+     "action": "{handleRefresh}",
+     "disabled": "{refreshing}",
+     "title": "Refrescar"
+    },
+    {
+     "kind": "button",
+     "line": 387,
+     "in": "NotificationsPage",
+     "text": "[icon FilterIcon]",
+     "action": "{() => setShowFilters(!showFilters)}",
+     "title": "Filtros"
+    },
+    {
+     "kind": "field",
+     "line": 400,
+     "in": "NotificationsPage",
+     "when": "showFilters",
+     "text": "Buscar notificaciones...",
+     "type": "text",
+     "placeholder": "Buscar notificaciones...",
+     "action": "{(e) => setFilters({ ...filters, search: e.target.value })}"
+    },
+    {
+     "kind": "field",
+     "line": 408,
+     "in": "NotificationsPage",
+     "when": "showFilters",
+     "text": "",
+     "type": "select",
+     "action": "{(e) => setFilters({ ...filters, category: e.target.value })}",
+     "options": [
+      "Todas las categorías",
+      "Administración",
+      "Tareas",
+      "Cursos",
+      "Mensajes",
+      "Social",
+      "Feedback",
+      "Sistema",
+      "Workspace"
+     ]
+    },
+    {
+     "kind": "field",
+     "line": 423,
+     "in": "NotificationsPage",
+     "when": "showFilters",
+     "text": "",
+     "type": "select",
+     "action": "{(e) => setFilters({ ...filters, status: e.target.value as 'all' | 'read' | 'unr…}",
+     "options": [
+      "Todas",
+      "No leídas",
+      "Leídas"
+     ]
+    },
+    {
+     "kind": "field",
+     "line": 432,
+     "in": "NotificationsPage",
+     "when": "showFilters",
+     "text": "",
+     "type": "select",
+     "action": "{(e) => setFilters({ ...filters, dateRange: e.target.value as 'all' | 'today' | …}",
+     "options": [
+      "Todo el tiempo",
+      "Hoy",
+      "Última semana",
+      "Último mes"
+     ]
+    },
+    {
+     "kind": "text",
+     "line": 449,
+     "in": "NotificationsPage",
+     "when": "selectedNotifications.size > 0",
+     "text": "{selectedNotifications.size} notificación(es) seleccionada(s)"
+    },
+    {
+     "kind": "button",
+     "line": 453,
+     "in": "NotificationsPage",
+     "when": "selectedNotifications.size > 0",
+     "text": "Marcar como leídas",
+     "action": "{() => handleMarkAsRead(Array.from(selectedNotifications))}"
+    },
+    {
+     "kind": "button",
+     "line": 460,
+     "in": "NotificationsPage",
+     "when": "selectedNotifications.size > 0",
+     "text": "Marcar como no leídas",
+     "action": "{() => handleMarkAsUnread(Array.from(selectedNotifications))}"
+    },
+    {
+     "kind": "button",
+     "line": 467,
+     "in": "NotificationsPage",
+     "when": "selectedNotifications.size > 0",
+     "text": "Eliminar",
+     "action": "{() => handleDeleteClick(Array.from(selectedNotifications))}"
+    },
+    {
+     "kind": "heading",
+     "line": 483,
+     "in": "NotificationsPage",
+     "when": "paginatedNotifications.length === 0",
+     "text": "No hay notificaciones",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 486,
+     "in": "NotificationsPage",
+     "when": "paginatedNotifications.length === 0",
+     "text": "No se encontraron notificaciones con los filtros aplicados / No tienes notificaciones en este momento"
+    },
+    {
+     "kind": "label",
+     "line": 497,
+     "in": "NotificationsPage",
+     "when": "!(paginatedNotifications.length === 0)",
+     "text": "Seleccionar todas"
+    },
+    {
+     "kind": "field",
+     "line": 498,
+     "in": "NotificationsPage",
+     "when": "!(paginatedNotifications.length === 0)",
+     "text": "Seleccionar todas",
+     "type": "checkbox",
+     "action": "{toggleSelectAll}"
+    },
+    {
+     "kind": "field",
+     "line": 528,
+     "in": "NotificationsPage",
+     "when": "!(paginatedNotifications.length === 0) && each paginatedNotifications",
+     "text": "",
+     "type": "checkbox",
+     "action": "{() => toggleSelectNotification(notification.id)}"
+    },
+    {
+     "kind": "clickable",
+     "line": 548,
+     "in": "NotificationsPage",
+     "when": "!(paginatedNotifications.length === 0) && each paginatedNotifications",
+     "text": "{notification.title} [{notification.description}] {getRelativeTime(notification.create…} [{getCategoryName(notification…",
+     "tag": "div",
+     "action": "{() => handleNotificationClick(notification)}"
+    },
+    {
+     "kind": "value",
+     "line": 554,
+     "in": "NotificationsPage",
+     "when": "!(paginatedNotifications.length === 0) && each paginatedNotifications",
+     "text": "{notification.title}"
+    },
+    {
+     "kind": "value",
+     "line": 562,
+     "in": "NotificationsPage",
+     "when": "!(paginatedNotifications.length === 0) && each paginatedNotifications && notification.description",
+     "text": "{notification.description}"
+    },
+    {
+     "kind": "value",
+     "line": 578,
+     "in": "NotificationsPage",
+     "when": "!(paginatedNotifications.length === 0) && each paginatedNotifications && notification.notification_type",
+     "text": "{getCategoryName(notification.notifi…}"
+    },
+    {
+     "kind": "button",
+     "line": 614,
+     "in": "NotificationsPage",
+     "when": "!(paginatedNotifications.length === 0) && totalPages > 1",
+     "text": "Anterior",
+     "action": "{() => setCurrentPage(prev => Math.max(1, prev - 1))}",
+     "disabled": "{currentPage === 1}"
+    },
+    {
+     "kind": "text",
+     "line": 622,
+     "in": "NotificationsPage",
+     "when": "!(paginatedNotifications.length === 0) && totalPages > 1",
+     "text": "Página {currentPage} de {totalPages}"
+    },
+    {
+     "kind": "button",
+     "line": 626,
+     "in": "NotificationsPage",
+     "when": "!(paginatedNotifications.length === 0) && totalPages > 1",
+     "text": "Siguiente",
+     "action": "{() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}",
+     "disabled": "{currentPage === totalPages}"
+    },
+    {
+     "kind": "popup",
+     "line": 642,
+     "in": "NotificationsPage",
+     "text": "NotificationDeleteModal",
+     "how": "component",
+     "open": "{showDeleteModal}"
+    },
+    {
+     "kind": "string",
+     "line": 352,
+     "in": "NotificationsPage",
+     "text": "hace {days} día(s)"
+    },
+    {
+     "kind": "list",
+     "line": 351,
+     "in": "getRelativeTime",
+     "text": "getRelativeTime()",
+     "items": [
+      "hace {Math.floor(days / 30)} mes(es)",
+      "hace {days} día(s)",
+      "hace {hours} hora(s)",
+      "hace {minutes} minuto(s)",
+      "justo ahora"
+     ]
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_notifications",
+     "ops": [
+      "delete",
+      "select",
+      "update"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/notifications/NotificationDeleteModal.tsx",
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": []
+  }
+ ],
+ "pieces": {
+  "components/notifications/NotificationDeleteModal.tsx": {
+   "usedBy": [
+    "/notifications"
+   ],
+   "lines": 75,
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 17,
+     "in": "NotificationDeleteModal",
+     "text": "!isOpen"
+    },
+    {
+     "kind": "popup",
+     "line": 20,
+     "in": "NotificationDeleteModal",
+     "text": "Eliminar notificaciones",
+     "how": "written in this file"
+    },
+    {
+     "kind": "popup",
+     "line": 23,
+     "in": "NotificationDeleteModal",
+     "screen": "sm:block",
+     "text": "(sin título)",
+     "how": "written in this file"
+    },
+    {
+     "kind": "piece",
+     "line": 37,
+     "in": "NotificationDeleteModal",
+     "screen": "sm:block sm:flex",
+     "text": "aria-hidden: true",
+     "tag": "ExclamationIcon"
+    },
+    {
+     "kind": "heading",
+     "line": 40,
+     "in": "NotificationDeleteModal",
+     "screen": "sm:block sm:flex",
+     "text": "Eliminar notificaciones",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 44,
+     "in": "NotificationDeleteModal",
+     "screen": "sm:block sm:flex",
+     "text": "¿Estás seguro de que deseas eliminar {count} notificación es ? Esta acción no se puede deshacer."
+    },
+    {
+     "kind": "button",
+     "line": 53,
+     "in": "NotificationDeleteModal",
+     "screen": "sm:block sm:flex",
+     "text": "Eliminar",
+     "action": "{onConfirm}"
+    },
+    {
+     "kind": "button",
+     "line": 61,
+     "in": "NotificationDeleteModal",
+     "screen": "sm:block sm:flex",
+     "text": "Cancelar",
+     "action": "{onClose}"
+    }
+   ],
+   "db": []
+  },
+  "lib/api-auth.ts": {
+   "usedBy": [
+    "/configuracion/notificaciones"
+   ],
+   "lines": 551,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 113,
+     "in": "createServiceRoleClient",
+     "when": "!supabaseUrl || !serviceRoleKey",
+     "text": "Server configuration error",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 125,
+     "in": "createServiceRoleClient",
+     "text": "Failed to initialize admin connection",
+     "via": "throw (shown by whoever catches it)"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "lib/auth/forced-password-change.ts": {
+   "usedBy": [
+    "/configuracion/notificaciones"
+   ],
+   "lines": 279,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 249,
+     "in": "verdictFromProfile",
+     "text": "verdictFromProfile()",
+     "items": [
+      "required / allowed"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "lib/notificationEvents.ts": {
+   "usedBy": [
+    "/configuracion/notificaciones"
+   ],
+   "lines": 867,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 272,
+     "text": "courseName",
+     "items": [
+      "del curso \"{d.course.name}\""
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 309,
+     "text": "dueDate",
+     "items": [
+      "Fecha límite: {new Date(d.assignment.due_d…}."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 426,
+     "text": "step",
+     "items": [
+      "Paso {d.step_index} / Un paso"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 427,
+     "text": "tester",
+     "items": [
+      "(probado por {d.tester_email})"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 445,
+     "text": "dueDate",
+     "items": [
+      "Fecha límite: {new Date(d.due_date as stri…}."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 475,
+     "text": "when",
+     "items": [
+      "el {date}{time ? ` a las ${time}` : ''} / en una fecha por confirmar"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 532,
+     "text": "when",
+     "items": [
+      "del {date}{time ? ` a las ${time}` : ''}"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 564,
+     "text": "fieldList",
+     "items": [
+      "los campos solicitados"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 565,
+     "text": "notes",
+     "items": [
+      "Nota: {d.review_notes}"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 579,
+     "text": "notes",
+     "items": [
+      "Motivo: {d.review_notes}"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 608,
+     "text": "link",
+     "items": [
+      "El enlace de reunión está disponible en la sesión."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 758,
+     "text": "winner",
+     "items": [
+      "ATE ganadora: {d.ganador_nombre}."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 772,
+     "text": "winner",
+     "items": [
+      "ATE seleccionada: {d.ganador_nombre}."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 803,
+     "text": "who",
+     "items": [
+      "por {finalizer}"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 804,
+     "text": "audience",
+     "items": [
+      "Enviada a quienes asistieron. / Enviada a la Comunidad de Crecimiento."
+     ]
+    },
+    {
+     "kind": "string",
+     "line": 242,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Nuevo curso asignado: {d.course.name}"
+    },
+    {
+     "kind": "string",
+     "line": 243,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Nuevo curso asignado"
+    },
+    {
+     "kind": "string",
+     "line": 246,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Se te ha asignado el curso \"{d.course.name}\". Haz clic para comenzar tu aprendizaje."
+    },
+    {
+     "kind": "string",
+     "line": 256,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "¡Curso completado!: {d.course.name}"
+    },
+    {
+     "kind": "string",
+     "line": 257,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "¡Curso completado!"
+    },
+    {
+     "kind": "string",
+     "line": 260,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Has completado exitosamente el curso \"{d.course.name}\". ¡Felicitaciones!"
+    },
+    {
+     "kind": "string",
+     "line": 261,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Has completado un curso exitosamente."
+    },
+    {
+     "kind": "string",
+     "line": 269,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Módulo completado: {d.module.name}"
+    },
+    {
+     "kind": "string",
+     "line": 269,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Módulo completado"
+    },
+    {
+     "kind": "string",
+     "line": 271,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "el módulo"
+    },
+    {
+     "kind": "string",
+     "line": 273,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Has completado {moduleName}{courseName}."
+    },
+    {
+     "kind": "string",
+     "line": 287,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Nueva ruta asignada: {d.learning_path.name}"
+    },
+    {
+     "kind": "string",
+     "line": 288,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Nueva ruta de aprendizaje asignada"
+    },
+    {
+     "kind": "string",
+     "line": 305,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Nueva tarea: {d.assignment.title}"
+    },
+    {
+     "kind": "string",
+     "line": 306,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Nueva tarea asignada"
+    },
+    {
+     "kind": "string",
+     "line": 312,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Tienes asignada la tarea \"{title}\".{dueDate}"
+    },
+    {
+     "kind": "string",
+     "line": 322,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Retroalimentación recibida: {d.assignment.title}"
+    },
+    {
+     "kind": "string",
+     "line": 323,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Has recibido retroalimentación"
+    },
+    {
+     "kind": "string",
+     "line": 327,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Una de tus tareas ha sido revisada."
+    },
+    {
+     "kind": "string",
+     "line": 336,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Tarea próxima a vencer: {d.assignment.title}"
+    },
+    {
+     "kind": "string",
+     "line": 337,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Tarea próxima a vencer"
+    },
+    {
+     "kind": "string",
+     "line": 357,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Mensaje de {name}"
+    },
+    {
+     "kind": "string",
+     "line": 357,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Nuevo mensaje"
+    },
+    {
+     "kind": "string",
+     "line": 362,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Has recibido un nuevo mensaje."
+    },
+    {
+     "kind": "string",
+     "line": 377,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Has sido mencionado en una conversación{workspace ? ` en \"${workspa…}."
+    },
+    {
+     "kind": "string",
+     "line": 391,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Nuevo feedback: {school}"
+    },
+    {
+     "kind": "string",
+     "line": 391,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Nuevo feedback recibido"
+    },
+    {
+     "kind": "string",
+     "line": 405,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Nuevo consultor asignado: {d.consultant.name}"
+    },
+    {
+     "kind": "string",
+     "line": 406,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Consultor asignado"
+    },
+    {
+     "kind": "string",
+     "line": 423,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "QA Fallo: {d.scenario_name}"
+    },
+    {
+     "kind": "string",
+     "line": 424,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Fallo en prueba QA"
+    },
+    {
+     "kind": "string",
+     "line": 428,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "{step} falló: \"{d.step_instruction || 'Sin …}\"{tester}"
+    },
+    {
+     "kind": "string",
+     "line": 428,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Sin descripción"
+    },
+    {
+     "kind": "string",
+     "line": 440,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Nuevo escenario QA asignado"
+    },
+    {
+     "kind": "string",
+     "line": 470,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Sesión agendada: {d.session.title}"
+    },
+    {
+     "kind": "string",
+     "line": 471,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Nueva sesión agendada"
+    },
+    {
+     "kind": "string",
+     "line": 478,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Su sesión quedó agendada para {when}."
+    },
+    {
+     "kind": "string",
+     "line": 490,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Sesión reprogramada: {d.session.title}"
+    },
+    {
+     "kind": "string",
+     "line": 491,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Sesión reprogramada"
+    },
+    {
+     "kind": "string",
+     "line": 515,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Su sesión cambió. Antes: {before}. Ahora: {after}. Actualice su calendario."
+    },
+    {
+     "kind": "string",
+     "line": 527,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Sesión cancelada: {d.session.title}"
+    },
+    {
+     "kind": "string",
+     "line": 528,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Sesión cancelada"
+    },
+    {
+     "kind": "string",
+     "line": 533,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Su sesión{when} fue cancelada. No necesita conectarse."
+    },
+    {
+     "kind": "string",
+     "line": 545,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Solicitud de cambio: {d.session.title}"
+    },
+    {
+     "kind": "string",
+     "line": 546,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Nueva solicitud de cambio en sesión"
+    },
+    {
+     "kind": "string",
+     "line": 560,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Cambios aprobados: {d.session.title}"
+    },
+    {
+     "kind": "string",
+     "line": 561,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Solicitud de cambio aprobada"
+    },
+    {
+     "kind": "string",
+     "line": 566,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Los cambios en {fieldList} han sido aprobados.{notes}"
+    },
+    {
+     "kind": "string",
+     "line": 576,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Cambios rechazados: {d.session.title}"
+    },
+    {
+     "kind": "string",
+     "line": 577,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Solicitud de cambio rechazada"
+    },
+    {
+     "kind": "string",
+     "line": 590,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Recordatorio: {d.session.title} mañana"
+    },
+    {
+     "kind": "string",
+     "line": 591,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Sesión programada para mañana"
+    },
+    {
+     "kind": "string",
+     "line": 595,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Tiene una sesión programada para {date}{time ? ' a las ' + time : ''}."
+    },
+    {
+     "kind": "string",
+     "line": 606,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Sesión comienza en 1 hora"
+    },
+    {
+     "kind": "string",
+     "line": 609,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Su sesión está por comenzar.{link}"
+    },
+    {
+     "kind": "string",
+     "line": 623,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Nueva licitacion: {d.numero_licitacion}"
+    },
+    {
+     "kind": "string",
+     "line": 624,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Nueva licitacion creada"
+    },
+    {
+     "kind": "string",
+     "line": 635,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Publicacion registrada: {d.numero_licitacion}"
+    },
+    {
+     "kind": "string",
+     "line": 636,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Publicacion registrada"
+    },
+    {
+     "kind": "string",
+     "line": 647,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Manana vence plazo de bases: {d.numero_licitacion}"
+    },
+    {
+     "kind": "string",
+     "line": 648,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Manana vence plazo de solicitud de bases"
+    },
+    {
+     "kind": "string",
+     "line": 659,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Hoy vence plazo de bases: {d.numero_licitacion}"
+    },
+    {
+     "kind": "string",
+     "line": 660,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Hoy vence plazo de solicitud de bases"
+    },
+    {
+     "kind": "string",
+     "line": 671,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Manana vence plazo de consultas: {d.numero_licitacion}"
+    },
+    {
+     "kind": "string",
+     "line": 672,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Manana vence plazo de consultas"
+    },
+    {
+     "kind": "string",
+     "line": 683,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Hoy vence plazo de consultas: {d.numero_licitacion}"
+    },
+    {
+     "kind": "string",
+     "line": 684,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Hoy vence plazo de consultas"
+    },
+    {
+     "kind": "string",
+     "line": 695,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Ventana de propuestas abierta: {d.numero_licitacion}"
+    },
+    {
+     "kind": "string",
+     "line": 696,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Ventana de propuestas abierta"
+    },
+    {
+     "kind": "string",
+     "line": 707,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Manana vence plazo de propuestas: {d.numero_licitacion}"
+    },
+    {
+     "kind": "string",
+     "line": 708,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Manana vence plazo de propuestas"
+    },
+    {
+     "kind": "string",
+     "line": 719,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Hoy vence plazo de propuestas: {d.numero_licitacion}"
+    },
+    {
+     "kind": "string",
+     "line": 720,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Hoy vence plazo de propuestas"
+    },
+    {
+     "kind": "string",
+     "line": 731,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Evaluacion iniciada: {d.numero_licitacion}"
+    },
+    {
+     "kind": "string",
+     "line": 732,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Periodo de evaluacion iniciado"
+    },
+    {
+     "kind": "string",
+     "line": 743,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Manana vence plazo de evaluacion: {d.numero_licitacion}"
+    },
+    {
+     "kind": "string",
+     "line": 744,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Manana vence plazo de evaluacion"
+    },
+    {
+     "kind": "string",
+     "line": 755,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Evaluacion completada: {d.numero_licitacion}"
+    },
+    {
+     "kind": "string",
+     "line": 756,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Evaluacion completada"
+    },
+    {
+     "kind": "string",
+     "line": 769,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Licitacion adjudicada: {d.numero_licitacion}"
+    },
+    {
+     "kind": "string",
+     "line": 770,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Licitacion adjudicada"
+    },
+    {
+     "kind": "string",
+     "line": 783,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Contrato generado: {d.numero_licitacion}"
+    },
+    {
+     "kind": "string",
+     "line": 784,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Contrato generado"
+    },
+    {
+     "kind": "string",
+     "line": 799,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Reunión finalizada: {title}"
+    },
+    {
+     "kind": "string",
+     "line": 799,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Reunión finalizada"
+    },
+    {
+     "kind": "string",
+     "line": 808,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "La reunión \"{bounded(d.title, PREVIEW_MA…}\" fue finalizada{who}.{audience}"
+    },
+    {
+     "kind": "string",
+     "line": 808,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "sin título"
+    },
+    {
+     "kind": "string",
+     "line": 820,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Actualización del sistema"
+    },
+    {
+     "kind": "string",
+     "line": 822,
+     "in": "NOTIFICATION_EVENTS",
+     "text": "Hay una nueva actualización disponible en la plataforma."
+    }
+   ],
+   "db": []
+  },
+  "lib/notifications/catalog.ts": {
+   "usedBy": [
+    "/configuracion/notificaciones"
+   ],
+   "lines": 552,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 29,
+     "text": "CATEGORY_LABELS",
+     "items": [
+      "Cursos y aprendizaje",
+      "Tareas y evaluaciones",
+      "Comunidad y menciones",
+      "Sesiones de consultoría",
+      "Asesoría",
+      "Licitaciones",
+      "QA y soporte",
+      "Sistema"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "types/roles.ts": {
+   "usedBy": [
+    "/notifications"
+   ],
+   "lines": 515,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 305,
+     "text": "ROLE_NAMES",
+     "items": [
+      "Administrador Global",
+      "Consultor FNE",
+      "Equipo Directivo",
+      "Líder de Generación",
+      "Líder de Comunidad",
+      "Supervisor de Red",
+      "Community Manager",
+      "Docente",
+      "Encargado de Licitacion"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 318,
+     "text": "ROLE_DESCRIPTIONS",
+     "items": [
+      "Staff de FNE con control total de la plataforma. Pueden pertenecer a comunidades para colaboración.",
+      "Consultores FNE asignados a colegios específicos. Pueden pertenecer a comunidades para colaboración.",
+      "Administradores a nivel de colegio. Pueden pertenecer a comunidades para colaboración.",
+      "Líderes de generaciones Tractor/Innova. Pueden pertenecer a comunidades para colaboración.",
+      "Líderes de Comunidades de Crecimiento (2-16 miembros). Crean automáticamente su propia comunidad.",
+      "Supervisores con acceso limitado a reportes de una red específica de colegios. Pueden inscribirse en cursos como estudiantes.",
+      "Gestores de comunidad con acceso a panel, perfil, aprendizaje, cursos y rendición de gastos.",
+      "Docentes participantes en cursos. Pueden pertenecer a comunidades para colaboración.",
+      "Encargados de procesos de licitacion en establecimientos educacionales. Gestionan el proceso de contratacion de ATEs bajo Ley SEP."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 342,
+     "text": "ROLE_ORGANIZATIONAL_REQUIREMENTS",
+     "items": [
+      "Global role - no organizational scope required",
+      "Must be assigned to a specific school",
+      "Must be assigned to a specific school and generation",
+      "Must be assigned to a school (community auto-created)",
+      "Network-level role - no specific school required",
+      "Content management role - no organizational scope required",
+      "Must be assigned to a specific school for procurement management"
+     ]
+    },
+    {
+     "kind": "string",
+     "line": 413,
+     "in": "validateRoleAssignment",
+     "text": "Unknown role type: {roleType}"
+    },
+    {
+     "kind": "string",
+     "line": 421,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a school assignment"
+    },
+    {
+     "kind": "string",
+     "line": 429,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a generation assignment"
+    },
+    {
+     "kind": "string",
+     "line": 437,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a community assignment"
+    }
+   ],
+   "db": []
+  },
+  "utils/roleUtils.ts": {
+   "usedBy": [
+    "/notifications"
+   ],
+   "lines": 1605,
+   "rows": [
+    {
+     "kind": "access",
+     "line": 1186,
+     "in": "getUserPrimaryRole",
+     "text": "userRoles = await getUserRoles(supabase, userId)",
+     "via": "getUserRoles"
+    },
+    {
+     "kind": "access",
+     "line": 1187,
+     "in": "getUserPrimaryRole",
+     "text": "highestRole = getHighestRole(userRoles)",
+     "via": "getHighestRole"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:generations",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:growth_communities",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:schools",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles_cache",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  }
+ },
+ "api": [
+  {
+   "file": "pages/api/admin/notification-analytics.ts",
+   "route": "/api/admin/notification-analytics",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "auth.getUser"
+   ],
+   "calledBy": [],
+   "referencedIn": []
+  },
+  {
+   "file": "pages/api/admin/notification-types.ts",
+   "route": "/api/admin/notification-types",
+   "methods": [
+    "GET"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/admin/configuration"
+   ],
+   "referencedIn": [
+    "__tests__/notifications/entry-points.test.tsx",
+    "pages/admin/configuration.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/notifications/[id]/read.ts",
+   "route": "/api/notifications/[id]/read",
+   "methods": [
+    "POST"
+   ],
+   "guards": [
+    "auth.getUser"
+   ],
+   "calledBy": [
+    "/admin/bucket-test",
+    "/admin/create-course",
+    "/admin/test-spanish-input",
+    "/creador-de-cursos",
+    "/dashboard-old",
+    "/pending-approval",
+    "/test-user-role"
+   ],
+   "referencedIn": [
+    "__tests__/components/layout/Header.notification-bell.test.tsx",
+    "components/notifications/NotificationBell.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/notifications/index.ts",
+   "route": "/api/notifications",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "auth.getUser"
+   ],
+   "calledBy": [
+    "/admin/bucket-test",
+    "/admin/create-course",
+    "/admin/test-spanish-input",
+    "/creador-de-cursos",
+    "/dashboard-old",
+    "/pending-approval",
+    "/test-user-role"
+   ],
+   "referencedIn": [
+    "__tests__/components/layout/Header.notification-bell.test.tsx",
+    "components/notifications/NotificationBell.tsx",
+    "tests/e2e/notification-settings.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/notifications/mark-all-read.ts",
+   "route": "/api/notifications/mark-all-read",
+   "methods": [
+    "POST"
+   ],
+   "guards": [
+    "auth.getUser"
+   ],
+   "calledBy": [
+    "/admin/bucket-test",
+    "/admin/create-course",
+    "/admin/test-spanish-input",
+    "/creador-de-cursos",
+    "/dashboard-old",
+    "/pending-approval",
+    "/test-user-role"
+   ],
+   "referencedIn": [
+    "__tests__/components/layout/Header.notification-bell.test.tsx",
+    "components/notifications/NotificationBell.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/notifications/mark-read.ts",
+   "route": "/api/notifications/mark-read",
+   "methods": [
+    "POST"
+   ],
+   "guards": [
+    "auth.getUser"
+   ],
+   "calledBy": [],
+   "referencedIn": []
+  },
+  {
+   "file": "pages/api/notifications/unsubscribe.ts",
+   "route": "/api/notifications/unsubscribe",
+   "methods": [
+    "GET",
+    "POST"
+   ],
+   "guards": [
+    "createServiceRoleClient"
+   ],
+   "calledBy": [
+    "/notificaciones/baja"
+   ],
+   "referencedIn": [
+    "__tests__/api/notifications/unsubscribe.test.ts",
+    "__tests__/lib/email/notification-unsubscribe.test.ts",
+    "__tests__/lib/email/outbox.test.ts",
+    "lib/email/notification-unsubscribe.ts",
+    "pages/notificaciones/baja.tsx",
+    "tests/e2e/notification-unsubscribe.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/user/notification-preferences.ts",
+   "route": "/api/user/notification-preferences",
+   "methods": [
+    "GET",
+    "PUT"
+   ],
+   "guards": [
+    "createServiceRoleClient"
+   ],
+   "calledBy": [
+    "/configuracion/notificaciones"
+   ],
+   "referencedIn": [
+    "__tests__/api/notification-preferences.test.ts",
+    "__tests__/notifications/entry-points.test.tsx",
+    "__tests__/pages/notification-settings.test.tsx",
+    "pages/configuracion/notificaciones.tsx",
+    "tests/e2e/notification-preferences-api.spec.ts",
+    "tests/e2e/notification-settings.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/webhooks/resend.ts",
+   "route": "/api/webhooks/resend",
+   "methods": [
+    "POST"
+   ],
+   "guards": [
+    "createServiceRoleClient"
+   ],
+   "calledBy": [],
+   "referencedIn": [
+    "__tests__/api/webhooks/resend.test.ts",
+    "tests/e2e/notification-bounce.spec.ts"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,6471 @@
+{
+ "area": "13-reportes",
+ "name": "Reportes",
+ "note": "",
+ "routesOnly": false,
+ "readFrom": {
+  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
+  "date": "2026-11-12T23:31:39-03:00"
+ },
+ "screens": [
+  {
+   "file": "pages/detailed-reports.tsx",
+   "route": "/detailed-reports",
+   "lines": 816,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [
+     {
+      "id": "reports",
+      "label": "Reportes",
+      "group": "Reportes",
+      "href": "/detailed-reports",
+      "gates": "roles: admin, consultor, equipo_directivo, lider_generacion, lider_comunidad, supervisor_de_red",
+      "groupGates": "everyone signed in",
+      "line": 630
+     }
+    ],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "no",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 148,
+      "text": "router.push → /login  (when !session?.user)"
+     },
+     {
+      "line": 154,
+      "text": "userRoles = await getUserRoles(supabase, session.user.id)"
+     },
+     {
+      "line": 155,
+      "text": "highestRole = getHighestRole(userRoles)"
+     },
+     {
+      "line": 172,
+      "text": "router.push → /dashboard  (when highestRole && effectiveRole === 'docente')"
+     },
+     {
+      "line": 178,
+      "text": "router.push → /dashboard  (when highestRole && !hasReportingAccess(effectiveRole))"
+     },
+     {
+      "line": 200,
+      "text": "router.push → /login"
+     },
+     {
+      "line": 262,
+      "text": "router.push → /login"
+     }
+    ],
+    "linkedFrom": [
+     "components/DynamicFavicon.tsx:38",
+     "components/layout/Sidebar.tsx:632",
+     "lib/auth/forced-password-change.ts:145",
+     "middleware.ts:340",
+     "pages/api/qa/seed-codebase-index.ts:321"
+    ],
+    "qaScenarios": {
+     "admin": [
+      "HT-A-19: Admin verifica ítems de navegación de Control de Horas",
+      "CA-22: Admin ve reportes detallados con alcance global",
+      "SV-31: Admin ve Reportes en sidebar",
+      "CS-A-21: Admin verifica ítems de navegación en sidebar",
+      "CS-A-27: Admin ve la página de analíticas con datos globales"
+     ],
+     "community_manager": [
+      "CM no puede acceder Reportes"
+     ],
+     "consultor": [
+      "CA-7: Consultor visualiza reportes detallados",
+      "SS-1: Consultor visualiza reportes solo de escuela asignada",
+      "SS-2: Consultor intenta ver reportes de otra escuela (manipulación de URL)",
+      "CS-C-32: Consultor ve analíticas de sus propias sesiones"
+     ],
+     "equipo_directivo": [
+      "CA-7: Equipo Directivo visualiza reportes detallados",
+      "SS-1: Equipo Directivo visualiza reportes solo de escuela asignada",
+      "SS-2: Equipo Directivo intenta ver reportes de otra escuela (manipulación de URL)",
+      "SV-26: Equipo Directivo puede acceder a páginas por URL directa sin link en sidebar",
+      "EC-1: Equipo Directivo sin escuela asignada intenta acceder a reportes",
+      "EC-6: Sesión del Equipo Directivo expira en página de reportes"
+     ],
+     "lider_comunidad": [
+      "CA-7: Lider de Comunidad visualiza reportes detallados"
+     ],
+     "lider_generacion": [
+      "CA-4: Lider Generacion visualiza reportes detallados",
+      "GS-1: Reportes solo muestran datos de generación asignada",
+      "EC-4: Acceso directo a API bypass de sidebar",
+      "EC-6: Expiración de sesión en página de reportes"
+     ],
+     "supervisor_de_red": [
+      "CA-4: Supervisor visualiza reportes detallados",
+      "NS-1: Reportes solo muestran colegios de la red asignada",
+      "NS-2: Supervisor sin asignación de red (red_id es null)",
+      "NS-6: Red con cero colegios asignados",
+      "EC-3: Red con cero colegios asignados",
+      "EC-5: Sesión del supervisor expira en página de reportes"
+     ]
+    },
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 121,
+     "in": "DetailedReports",
+     "text": "window.addEventListener('resize')",
+     "type": "listener"
+    },
+    {
+     "kind": "nav",
+     "line": 148,
+     "in": "initializeAuth",
+     "when": "!session?.user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 154,
+     "in": "initializeAuth",
+     "text": "userRoles = await getUserRoles(supabase, session.user.id)",
+     "via": "getUserRoles"
+    },
+    {
+     "kind": "access",
+     "line": 155,
+     "in": "initializeAuth",
+     "text": "highestRole = getHighestRole(userRoles)",
+     "via": "getHighestRole"
+    },
+    {
+     "kind": "nav",
+     "line": 172,
+     "in": "initializeAuth",
+     "when": "highestRole && effectiveRole === 'docente'",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 177,
+     "in": "initializeAuth",
+     "when": "highestRole && !hasReportingAccess(effectiveRole)",
+     "text": "No tienes permisos para acceder a los reportes.",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 178,
+     "in": "initializeAuth",
+     "when": "highestRole && !hasReportingAccess(effectiveRole)",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 200,
+     "in": "initializeAuth",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "message",
+     "line": 235,
+     "in": "fetchDetailedProgress",
+     "when": "!response.ok",
+     "text": "Failed to fetch report data",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 247,
+     "in": "fetchDetailedProgress",
+     "text": "Failed to load report: {error.message}",
+     "variant": "error"
+    },
+    {
+     "kind": "hook",
+     "line": 260,
+     "in": "handleLogout",
+     "text": "localStorage: rememberMe",
+     "type": "storage"
+    },
+    {
+     "kind": "hook",
+     "line": 261,
+     "in": "handleLogout",
+     "text": "sessionStorage: sessionOnly",
+     "type": "storage"
+    },
+    {
+     "kind": "nav",
+     "line": 262,
+     "in": "handleLogout",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "piece",
+     "line": 320,
+     "in": "DetailedReports",
+     "when": "loading && users.length === 0",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "piece",
+     "line": 330,
+     "in": "DetailedReports",
+     "when": "loading && users.length === 0",
+     "text": "",
+     "tag": "LoadingSkeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 331,
+     "in": "DetailedReports",
+     "when": "loading && users.length === 0",
+     "text": "",
+     "tag": "LoadingSkeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 334,
+     "in": "DetailedReports",
+     "when": "loading && users.length === 0 && each Array.from({ length: 5 })",
+     "text": "",
+     "tag": "LoadingSkeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 337,
+     "in": "DetailedReports",
+     "when": "loading && users.length === 0",
+     "text": "",
+     "tag": "LoadingSkeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 344,
+     "in": "DetailedReports",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "piece",
+     "line": 354,
+     "in": "DetailedReports",
+     "text": "title: Reportes Detallados de Progreso · searchPlaceholder: Buscar usuarios, escuelas, comunidades...",
+     "tag": "ResponsiveFunctionalPageHeader"
+    },
+    {
+     "kind": "heading",
+     "line": 374,
+     "in": "DetailedReports",
+     "when": "pagination?.is_smart_default && userRole === 'admin'",
+     "text": "Vista Inteligente: Top 10 Usuarios Más Activos",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 378,
+     "in": "DetailedReports",
+     "when": "pagination?.is_smart_default && userRole === 'admin'",
+     "text": "Mostrando los usuarios con mayor actividad basado en lecciones completadas, tiempo dedicado y participación reciente."
+    },
+    {
+     "kind": "button",
+     "line": 382,
+     "in": "DetailedReports",
+     "when": "pagination?.is_smart_default && userRole === 'admin'",
+     "text": "Ver todos los usuarios",
+     "action": "{() => { setSortBy('last_activity_date'); setSortOrder('desc'); setCurrentPage(1…}"
+    },
+    {
+     "kind": "heading",
+     "line": 408,
+     "in": "DetailedReports",
+     "when": "userRole && userRole !== 'admin'",
+     "text": "Datos Filtrados por Rol",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 412,
+     "in": "DetailedReports",
+     "when": "userRole && userRole !== 'admin'",
+     "text": "Como"
+    },
+    {
+     "kind": "text",
+     "line": 412,
+     "in": "DetailedReports",
+     "when": "userRole && userRole !== 'admin'",
+     "text": "Consultor / Equipo Directivo / Líder de Generación / Líder de Comunidad / {userRole}"
+    },
+    {
+     "kind": "text",
+     "line": 415,
+     "in": "DetailedReports",
+     "when": "userRole && userRole !== 'admin'",
+     "text": ", solo puedes ver datos de"
+    },
+    {
+     "kind": "button",
+     "line": 428,
+     "in": "DetailedReports",
+     "text": "Resumen General",
+     "action": "{() => setActiveTab('overview')}"
+    },
+    {
+     "kind": "button",
+     "line": 438,
+     "in": "DetailedReports",
+     "text": "Progreso Detallado",
+     "action": "{() => setActiveTab('detailed')}"
+    },
+    {
+     "kind": "piece",
+     "line": 466,
+     "in": "DetailedReports",
+     "when": "(activeTab === 'overview' || activeTab === 'detailed')",
+     "text": "",
+     "tag": "AdvancedFilters"
+    },
+    {
+     "kind": "value",
+     "line": 483,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary",
+     "text": "{summary.total_users}"
+    },
+    {
+     "kind": "text",
+     "line": 484,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary",
+     "text": "Total Usuarios"
+    },
+    {
+     "kind": "text",
+     "line": 491,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary",
+     "text": "Usuarios en el sistema"
+    },
+    {
+     "kind": "value",
+     "line": 499,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary",
+     "text": "{summary.active_users}"
+    },
+    {
+     "kind": "text",
+     "line": 500,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary",
+     "text": "Usuarios Activos"
+    },
+    {
+     "kind": "text",
+     "line": 507,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary",
+     "text": "Activos últimos 30 días"
+    },
+    {
+     "kind": "value",
+     "line": 515,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary",
+     "text": "{summary.average_completion} %"
+    },
+    {
+     "kind": "text",
+     "line": 516,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary",
+     "text": "Progreso Promedio"
+    },
+    {
+     "kind": "value",
+     "line": 536,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary",
+     "text": "{formatTime(summary.total_time_spent)}"
+    },
+    {
+     "kind": "text",
+     "line": 537,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary",
+     "text": "Tiempo Total"
+    },
+    {
+     "kind": "text",
+     "line": 544,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary",
+     "text": "Tiempo de estudio acumulado"
+    },
+    {
+     "kind": "value",
+     "line": 553,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary && summary.average_quiz_score",
+     "text": "{summary.average_quiz_score} %"
+    },
+    {
+     "kind": "text",
+     "line": 554,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary && summary.average_quiz_score",
+     "text": "Quiz Promedio"
+    },
+    {
+     "kind": "heading",
+     "line": 576,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary && users.length > 0",
+     "text": "Top 10 Usuarios Más Activos / Usuarios",
+     "level": 3
+    },
+    {
+     "kind": "column",
+     "line": 584,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary && users.length > 0",
+     "text": "Usuario"
+    },
+    {
+     "kind": "column",
+     "line": 585,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary && users.length > 0",
+     "text": "Escuela"
+    },
+    {
+     "kind": "column",
+     "line": 586,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary && users.length > 0",
+     "text": "Progreso"
+    },
+    {
+     "kind": "column",
+     "line": 587,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary && users.length > 0",
+     "text": "Tareas"
+    },
+    {
+     "kind": "column",
+     "line": 588,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary && users.length > 0",
+     "text": "Lecciones"
+    },
+    {
+     "kind": "column",
+     "line": 589,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary && users.length > 0",
+     "text": "Tiempo"
+    },
+    {
+     "kind": "value",
+     "line": 596,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary && users.length > 0 && each users.slice(0, 10)",
+     "text": "{userData.user_name}"
+    },
+    {
+     "kind": "value",
+     "line": 597,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary && users.length > 0 && each users.slice(0, 10)",
+     "text": "{userData.user_email}"
+    },
+    {
+     "kind": "text",
+     "line": 599,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary && users.length > 0 && each users.slice(0, 10)",
+     "text": "{userData.school_name} / Sin escuela"
+    },
+    {
+     "kind": "value",
+     "line": 610,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary && users.length > 0 && each users.slice(0, 10)",
+     "text": "{userData.completion_percentage} %"
+    },
+    {
+     "kind": "value",
+     "line": 613,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary && users.length > 0 && each users.slice(0, 10)",
+     "text": "{userData.assignments_submit…}/{userData.assignments_total} / -"
+    },
+    {
+     "kind": "value",
+     "line": 618,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary && users.length > 0 && each users.slice(0, 10)",
+     "text": "{userData.total_lessons_completed}"
+    },
+    {
+     "kind": "value",
+     "line": 621,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary && users.length > 0 && each users.slice(0, 10)",
+     "text": "{formatTime(userData.total_time_spen…}"
+    },
+    {
+     "kind": "button",
+     "line": 631,
+     "in": "DetailedReports",
+     "when": "activeTab === 'overview' && summary && users.length > 0 && users.length > 10",
+     "text": "Ver todos los usuarios →",
+     "action": "{() => setActiveTab('detailed')}"
+    },
+    {
+     "kind": "piece",
+     "line": 646,
+     "in": "DetailedReports",
+     "when": "activeTab === 'analytics' && user",
+     "text": "",
+     "tag": "AnalyticsDashboard"
+    },
+    {
+     "kind": "piece",
+     "line": 665,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && isMobile && each filterUsersBySearch(users)",
+     "text": "",
+     "tag": "MobileUserCard"
+    },
+    {
+     "kind": "heading",
+     "line": 678,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile)",
+     "text": "Progreso Detallado",
+     "level": 3
+    },
+    {
+     "kind": "column",
+     "line": 684,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile)",
+     "text": "Usuario"
+    },
+    {
+     "kind": "column",
+     "line": 687,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile)",
+     "text": "Organización"
+    },
+    {
+     "kind": "column",
+     "line": 690,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile)",
+     "text": "Progreso [↑ / ↓]"
+    },
+    {
+     "kind": "column",
+     "line": 697,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile)",
+     "text": "Tareas"
+    },
+    {
+     "kind": "column",
+     "line": 700,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile)",
+     "text": "Cursos"
+    },
+    {
+     "kind": "column",
+     "line": 703,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile)",
+     "text": "Tiempo"
+    },
+    {
+     "kind": "column",
+     "line": 706,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile)",
+     "text": "Quiz"
+    },
+    {
+     "kind": "column",
+     "line": 709,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile)",
+     "text": "Última Actividad"
+    },
+    {
+     "kind": "column",
+     "line": 712,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile)",
+     "text": "Acciones"
+    },
+    {
+     "kind": "value",
+     "line": 722,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile) && each filterUsersBySearch(users)",
+     "text": "{userData.user_name}"
+    },
+    {
+     "kind": "value",
+     "line": 723,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile) && each filterUsersBySearch(users)",
+     "text": "{userData.user_email}"
+    },
+    {
+     "kind": "value",
+     "line": 724,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile) && each filterUsersBySearch(users)",
+     "text": "{userData.user_role}"
+    },
+    {
+     "kind": "value",
+     "line": 732,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile) && each filterUsersBySearch(users) && userData.school_name",
+     "text": "{userData.school_name}"
+    },
+    {
+     "kind": "value",
+     "line": 738,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile) && each filterUsersBySearch(users) && userData.generation_name",
+     "text": "{userData.generation_name}"
+    },
+    {
+     "kind": "value",
+     "line": 744,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile) && each filterUsersBySearch(users) && userData.community_name",
+     "text": "{userData.community_name}"
+    },
+    {
+     "kind": "value",
+     "line": 757,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile) && each filterUsersBySearch(users)",
+     "text": "{userData.completion_percentage} %"
+    },
+    {
+     "kind": "text",
+     "line": 759,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile) && each filterUsersBySearch(users)",
+     "text": "{userData.total_lessons_completed} lecciones"
+    },
+    {
+     "kind": "value",
+     "line": 763,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile) && each filterUsersBySearch(users)",
+     "text": "{userData.assignments_submit…}/{userData.assignments_total} / -"
+    },
+    {
+     "kind": "text",
+     "line": 769,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile) && each filterUsersBySearch(users)",
+     "text": "{userData.total_courses_enrolled} inscritos"
+    },
+    {
+     "kind": "text",
+     "line": 772,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile) && each filterUsersBySearch(users)",
+     "text": "{userData.completed_courses} completados • {userData.courses_in_progress} en progreso"
+    },
+    {
+     "kind": "value",
+     "line": 776,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile) && each filterUsersBySearch(users)",
+     "text": "{formatTime(userData.total_time_spen…}"
+    },
+    {
+     "kind": "value",
+     "line": 779,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile) && each filterUsersBySearch(users)",
+     "text": "{userData.average_quiz_score}% / N/A"
+    },
+    {
+     "kind": "value",
+     "line": 782,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile) && each filterUsersBySearch(users)",
+     "text": "{formatDate(userData.last_activity_d…}"
+    },
+    {
+     "kind": "button",
+     "line": 786,
+     "in": "DetailedReports",
+     "when": "activeTab === 'detailed' && !(isMobile) && each filterUsersBySearch(users)",
+     "text": "Ver Detalles",
+     "action": "{() => handleUserClick(userData.user_id)}"
+    },
+    {
+     "kind": "popup",
+     "line": 805,
+     "in": "DetailedReports",
+     "text": "UserDetailModal",
+     "how": "component",
+     "open": "{showUserModal}"
+    },
+    {
+     "kind": "string",
+     "line": 297,
+     "in": "DetailedReports",
+     "text": "Nunca"
+    },
+    {
+     "kind": "list",
+     "line": 297,
+     "in": "formatDate",
+     "text": "formatDate()",
+     "items": [
+      "Nunca"
+     ]
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/layout/FunctionalPageHeader.tsx",
+    "components/reports/AdvancedFilters.tsx",
+    "components/reports/AnalyticsDashboard.tsx",
+    "components/reports/CollapsibleSection.tsx",
+    "components/reports/MobileUserCard.tsx",
+    "components/reports/UserDetailModal.tsx",
+    "hooks/useDebounce.ts",
+    "types/roles.ts",
+    "utils/reportFilters.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/reports/analytics-data.ts",
+     "route": "/api/reports/analytics-data",
+     "methods": [],
+     "from": [
+      "components/reports/AnalyticsDashboard.tsx:149"
+     ]
+    },
+    {
+     "file": "pages/api/reports/detailed.ts",
+     "route": "/api/reports/detailed",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "pages/detailed-reports.tsx:219"
+     ]
+    },
+    {
+     "file": "pages/api/reports/filter-options.ts",
+     "route": "/api/reports/filter-options",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/reports/AdvancedFilters.tsx:48"
+     ]
+    },
+    {
+     "file": "pages/api/reports/user-details.ts",
+     "route": "/api/reports/user-details",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/reports/UserDetailModal.tsx:141"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/reporte-horas.tsx",
+   "route": "/reporte-horas",
+   "lines": 196,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [
+     {
+      "id": "reporte-horas",
+      "label": "Reporte de Horas",
+      "group": "Reportes",
+      "href": "/reporte-horas",
+      "gates": "roles: admin, equipo_directivo",
+      "groupGates": "everyone signed in",
+      "line": 658
+     }
+    ],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "no",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 53,
+      "text": "router.push → /login  (when !session?.user)"
+     },
+     {
+      "line": 70,
+      "text": "userRole = await getUserPrimaryRole(session.user.id)"
+     },
+     {
+      "line": 76,
+      "text": "router.push → /dashboard  (when !isAdminUser && userRole !== 'equipo_directivo')"
+     },
+     {
+      "line": 106,
+      "text": "router.push → /dashboard  (when !(isAdminUser) && !(roleData && roleData.length > 0))"
+     },
+     {
+      "line": 111,
+      "text": "router.push → /login"
+     }
+    ],
+    "linkedFrom": [
+     "components/layout/Sidebar.tsx:660",
+     "lib/auth/forced-password-change.ts:159",
+     "middleware.ts:354"
+    ],
+    "qaScenarios": {
+     "admin": [
+      "HT-A-11: Admin ve el reporte de horas por escuela"
+     ],
+     "equipo_directivo": [
+      "HT-D-01: Directivo ve el reporte de horas de su escuela",
+      "HT-D-02: Directivo verifica contenido del reporte de horas",
+      "HT-D-03: Directivo verifica colores de alerta en barras de progreso",
+      "HT-D-04: Directivo exporta reporte de horas a PDF",
+      "HT-D-05: Directivo no puede ver datos de otros colegios",
+      "HT-D-08: Directivo verifica navegación en sidebar"
+     ]
+    },
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 41,
+     "in": "ReporteHorasPage",
+     "text": "!router.isReady"
+    },
+    {
+     "kind": "nav",
+     "line": 53,
+     "in": "initializeAuth",
+     "when": "!session?.user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 70,
+     "in": "initializeAuth",
+     "text": "userRole = await getUserPrimaryRole(session.user.id)",
+     "via": "getUserPrimaryRole"
+    },
+    {
+     "kind": "nav",
+     "line": 76,
+     "in": "initializeAuth",
+     "when": "!isAdminUser && userRole !== 'equipo_directivo'",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 106,
+     "in": "initializeAuth",
+     "when": "!(isAdminUser) && !(roleData && roleData.length > 0)",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 111,
+     "in": "initializeAuth",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "text",
+     "line": 121,
+     "in": "ReporteHorasPage",
+     "when": "loading",
+     "text": "Cargando..."
+    },
+    {
+     "kind": "gate",
+     "line": 126,
+     "in": "ReporteHorasPage",
+     "text": "!user"
+    },
+    {
+     "kind": "piece",
+     "line": 135,
+     "in": "ReporteHorasPage",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "heading",
+     "line": 148,
+     "in": "ReporteHorasPage",
+     "text": "Reporte de Horas",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 150,
+     "in": "ReporteHorasPage",
+     "text": "Seguimiento del uso de horas contratadas por escuela."
+    },
+    {
+     "kind": "label",
+     "line": 159,
+     "in": "ReporteHorasPage",
+     "when": "isAdmin",
+     "text": "Escuela:",
+     "for": "school-selector"
+    },
+    {
+     "kind": "field",
+     "line": 160,
+     "in": "ReporteHorasPage",
+     "when": "isAdmin",
+     "text": "Escuela:",
+     "type": "select",
+     "action": "{(e) => setSelectedSchoolId(Number(e.target.value))}",
+     "options": [
+      "(lista) {s.name}"
+     ],
+     "hook": {
+      "id": "school-selector",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 178,
+     "in": "ReporteHorasPage",
+     "when": "effectiveSchoolId !== null",
+     "text": "",
+     "tag": "SchoolHoursReport"
+    },
+    {
+     "kind": "text",
+     "line": 184,
+     "in": "ReporteHorasPage",
+     "when": "!(effectiveSchoolId !== null)",
+     "text": "Seleccione una escuela para ver el reporte. / No se encontró una escuela asignada a su cuenta."
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:schools",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/hours/SchoolHoursReport.tsx",
+    "lib/exportUtils.ts",
+    "lib/types/hour-tracking.types.ts",
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/school-hours-report/[school_id]/index.ts",
+     "route": "/api/school-hours-report/[school_id]",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/hours/SchoolHoursReport.tsx:445"
+     ]
+    },
+    {
+     "file": "pages/api/school-hours-report/[school_id]/pdf.ts",
+     "route": "/api/school-hours-report/[school_id]/pdf",
+     "methods": [],
+     "from": [
+      "components/hours/SchoolHoursReport.tsx:599"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/reports.tsx",
+   "route": "/reports",
+   "lines": 900,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [
+     {
+      "id": "learning-path-reports",
+      "label": "Rutas de Aprendizaje",
+      "group": "Reportes",
+      "href": "/reports?tab=learning-paths",
+      "gates": "roles: admin, consultor, equipo_directivo",
+      "groupGates": "everyone signed in",
+      "line": 641
+     }
+    ],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "no",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 157,
+      "text": "router.push → /login  (when !session?.user)"
+     },
+     {
+      "line": 169,
+      "text": "role = await getUserPrimaryRole(session.user.id)"
+     },
+     {
+      "line": 186,
+      "text": "router.push → /dashboard  (when profileData && !reportingRoles.includes(role))"
+     },
+     {
+      "line": 211,
+      "text": "router.push → /login"
+     },
+     {
+      "line": 221,
+      "text": "router.push → /login"
+     }
+    ],
+    "linkedFrom": [
+     "components/DynamicFavicon.tsx:37",
+     "components/layout/Sidebar.tsx:643",
+     "lib/auth/forced-password-change.ts:160",
+     "middleware.ts:355",
+     "pages/admin/new-reporting.tsx:119",
+     "pages/api/qa/seed-codebase-index.ts:357"
+    ],
+    "qaScenarios": {
+     "admin": [
+      "CA-33: Admin crea ruta de aprendizaje",
+      "CA-34: Admin asigna ruta de aprendizaje",
+      "SV-17: Admin ve Rutas de Aprendizaje en sidebar"
+     ],
+     "community_manager": [
+      "CM no puede gestionar Rutas Aprendizaje"
+     ],
+     "equipo_directivo": [
+      "SV-26: Equipo Directivo puede acceder a páginas por URL directa sin link en sidebar"
+     ]
+    },
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/learning-path-governance.spec.ts"
+     ],
+     "e2e": [
+      "tests/e2e/urgent-anonymous-boundaries.spec.ts",
+      "tests/e2e/urgent-anonymous-current.spec.ts",
+      "tests/qa/auth-redirects.spec.ts"
+     ],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 157,
+     "in": "initializeAuth",
+     "when": "!session?.user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 169,
+     "in": "initializeAuth",
+     "when": "profileData",
+     "text": "role = await getUserPrimaryRole(session.user.id)",
+     "via": "getUserPrimaryRole"
+    },
+    {
+     "kind": "nav",
+     "line": 186,
+     "in": "initializeAuth",
+     "when": "profileData && !reportingRoles.includes(role)",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 211,
+     "in": "initializeAuth",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "hook",
+     "line": 219,
+     "in": "handleLogout",
+     "text": "localStorage: rememberMe",
+     "type": "storage"
+    },
+    {
+     "kind": "hook",
+     "line": 220,
+     "in": "handleLogout",
+     "text": "sessionStorage: sessionOnly",
+     "type": "storage"
+    },
+    {
+     "kind": "nav",
+     "line": 221,
+     "in": "handleLogout",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "message",
+     "line": 233,
+     "in": "fetchReportingData",
+     "when": "sessionError || !session?.access_token",
+     "text": "Error de autenticación. Por favor, inicia sesión nuevamente.",
+     "via": "setFetchError"
+    },
+    {
+     "kind": "list",
+     "line": 238,
+     "in": "fetchReportingData",
+     "text": "headers",
+     "items": [
+      "Bearer {session.access_token}"
+     ]
+    },
+    {
+     "kind": "message",
+     "line": 256,
+     "in": "fetchReportingData",
+     "when": "activeTab === 'overview' && !(response.ok)",
+     "text": "No se pudieron cargar los reportes.",
+     "via": "setFetchError"
+    },
+    {
+     "kind": "message",
+     "line": 265,
+     "in": "fetchReportingData",
+     "when": "!(activeTab === 'overview') && activeTab === 'community' && !(response.ok)",
+     "text": "No se pudieron cargar los datos de comunidades.",
+     "via": "setFetchError"
+    },
+    {
+     "kind": "message",
+     "line": 274,
+     "in": "fetchReportingData",
+     "when": "!(activeTab === 'overview') && !(activeTab === 'community') && activeTab === 'school' && !(response.ok)",
+     "text": "No se pudieron cargar los datos de escuelas.",
+     "via": "setFetchError"
+    },
+    {
+     "kind": "message",
+     "line": 283,
+     "in": "fetchReportingData",
+     "when": "!(activeTab === 'community') && !(activeTab === 'school') && activeTab === 'courses' && !(response.ok)",
+     "text": "No se pudieron cargar los datos de cursos.",
+     "via": "setFetchError"
+    },
+    {
+     "kind": "message",
+     "line": 288,
+     "in": "fetchReportingData",
+     "text": "Error de conexión al cargar datos de reportes.",
+     "via": "setFetchError"
+    },
+    {
+     "kind": "piece",
+     "line": 357,
+     "in": "ReportsPage",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "piece",
+     "line": 366,
+     "in": "ReportsPage",
+     "text": "title: Dashboard de Reportes · subtitle: Reportes de progreso y analytics • {userScope} · searchPlaceholder: Buscar usuarios, cursos, comunidades...",
+     "tag": "ResponsiveFunctionalPageHeader"
+    },
+    {
+     "kind": "field",
+     "line": 377,
+     "in": "ReportsPage",
+     "text": "",
+     "type": "select",
+     "action": "{(e) => setDateRange(e.target.value)}",
+     "options": [
+      "Últimos 7 días",
+      "Últimos 30 días",
+      "Últimos 90 días",
+      "Último año"
+     ]
+    },
+    {
+     "kind": "button",
+     "line": 404,
+     "in": "ReportsPage",
+     "when": "each [ { id: 'overview', label: 'Resumen General', ico…",
+     "text": "{tab.icon} {tab.label}",
+     "action": "{() => setActiveTab(tab.id)}"
+    },
+    {
+     "kind": "text",
+     "line": 423,
+     "in": "ReportsPage",
+     "when": "warnings.length > 0",
+     "text": "Algunos datos pueden estar incompletos: {warnings.join(', ')}"
+    },
+    {
+     "kind": "text",
+     "line": 433,
+     "in": "ReportsPage",
+     "when": "dataLoading",
+     "text": "Cargando datos..."
+    },
+    {
+     "kind": "value",
+     "line": 445,
+     "in": "ReportsPage",
+     "when": "fetchError && !dataLoading",
+     "text": "{fetchError}"
+    },
+    {
+     "kind": "button",
+     "line": 446,
+     "in": "ReportsPage",
+     "when": "fetchError && !dataLoading",
+     "text": "Intentar de nuevo",
+     "action": "{fetchReportingData}"
+    },
+    {
+     "kind": "text",
+     "line": 463,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users === 0 && !dataLoading && !fetchError",
+     "text": "No hay datos disponibles para tu nivel de acceso."
+    },
+    {
+     "kind": "text",
+     "line": 464,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users === 0 && !dataLoading && !fetchError",
+     "text": "Contacta al administrador si crees que deberías ver reportes aquí."
+    },
+    {
+     "kind": "value",
+     "line": 474,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users > 0 && !dataLoading && !fetchError",
+     "text": "{overviewData.summary.total_users}"
+    },
+    {
+     "kind": "text",
+     "line": 477,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users > 0 && !dataLoading && !fetchError",
+     "text": "Total Usuarios"
+    },
+    {
+     "kind": "value",
+     "line": 480,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users > 0 && !dataLoading && !fetchError",
+     "text": "{overviewData.summary.active_users}"
+    },
+    {
+     "kind": "text",
+     "line": 483,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users > 0 && !dataLoading && !fetchError",
+     "text": "Usuarios Activos"
+    },
+    {
+     "kind": "value",
+     "line": 486,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users > 0 && !dataLoading && !fetchError",
+     "text": "{overviewData.summary.total_courses}"
+    },
+    {
+     "kind": "text",
+     "line": 489,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users > 0 && !dataLoading && !fetchError",
+     "text": "Total Cursos"
+    },
+    {
+     "kind": "value",
+     "line": 492,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users > 0 && !dataLoading && !fetchError",
+     "text": "{formatPercentage(overviewData.summa…}"
+    },
+    {
+     "kind": "text",
+     "line": 495,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users > 0 && !dataLoading && !fetchError",
+     "text": "Tasa Promedio"
+    },
+    {
+     "kind": "value",
+     "line": 498,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users > 0 && !dataLoading && !fetchError",
+     "text": "{formatTime(overviewData.summary.tot…}"
+    },
+    {
+     "kind": "text",
+     "line": 501,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users > 0 && !dataLoading && !fetchError",
+     "text": "Tiempo Total"
+    },
+    {
+     "kind": "heading",
+     "line": 508,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users > 0 && !dataLoading && !fetchError",
+     "text": "Progreso de Usuarios",
+     "level": 3
+    },
+    {
+     "kind": "piece",
+     "line": 509,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users > 0 && !dataLoading && !fetchError",
+     "text": "tabName: Progreso-Usuarios · metadata: Últimos {dateRange} días",
+     "tag": "ExportDropdown"
+    },
+    {
+     "kind": "piece",
+     "line": 519,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users > 0 && !dataLoading && !fetchError",
+     "text": "columns: Usuario / Rol / Cursos / Completados / Tasa / Tiempo / Última Actividad / Consultor · searchPlaceholder: Buscar por nombre, email o rol...",
+     "tag": "EnhancedTable"
+    },
+    {
+     "kind": "button",
+     "line": 527,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users > 0 && !dataLoading && !fetchError",
+     "text": "{user.first_name} {user.last_name}",
+     "action": "{(e) => { e.stopPropagation(); handleUserClick(user.id); }}"
+    },
+    {
+     "kind": "value",
+     "line": 536,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users > 0 && !dataLoading && !fetchError",
+     "text": "{user.email}"
+    },
+    {
+     "kind": "value",
+     "line": 544,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users > 0 && !dataLoading && !fetchError",
+     "text": "{role}"
+    },
+    {
+     "kind": "piece",
+     "line": 563,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users > 0 && !dataLoading && !fetchError",
+     "text": "",
+     "tag": "StatusBadge"
+    },
+    {
+     "kind": "text",
+     "line": 579,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users > 0 && !dataLoading && !fetchError",
+     "text": "{new Date(activity).toLocaleDateStri…} / Nunca"
+    },
+    {
+     "kind": "piece",
+     "line": 589,
+     "in": "ReportsPage",
+     "when": "activeTab === 'overview' && overviewData && overviewData.summary.total_users > 0 && !dataLoading && !fetchError",
+     "text": "",
+     "tag": "ConsultantIndicator"
+    },
+    {
+     "kind": "heading",
+     "line": 614,
+     "in": "ReportsPage",
+     "when": "activeTab === 'analytics' && !dataLoading && !fetchError",
+     "text": "Configuración de Analytics",
+     "level": 3
+    },
+    {
+     "kind": "label",
+     "line": 617,
+     "in": "ReportsPage",
+     "when": "activeTab === 'analytics' && !dataLoading && !fetchError",
+     "text": "Período de Tiempo"
+    },
+    {
+     "kind": "field",
+     "line": 620,
+     "in": "ReportsPage",
+     "when": "activeTab === 'analytics' && !dataLoading && !fetchError",
+     "text": "Período de Tiempo",
+     "type": "select",
+     "action": "{(e) => setDateRange(e.target.value)}",
+     "options": [
+      "Últimos 7 días",
+      "Últimos 30 días",
+      "Últimos 90 días",
+      "Último año"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 632,
+     "in": "ReportsPage",
+     "when": "activeTab === 'analytics' && !dataLoading && !fetchError",
+     "text": "Agrupar por"
+    },
+    {
+     "kind": "field",
+     "line": 635,
+     "in": "ReportsPage",
+     "when": "activeTab === 'analytics' && !dataLoading && !fetchError",
+     "text": "Agrupar por",
+     "type": "select",
+     "action": "{(e) => setGroupBy(e.target.value)}",
+     "options": [
+      "Día",
+      "Semana",
+      "Mes"
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 650,
+     "in": "ReportsPage",
+     "when": "activeTab === 'analytics' && !dataLoading && !fetchError",
+     "text": "",
+     "tag": "AdvancedFilters"
+    },
+    {
+     "kind": "piece",
+     "line": 666,
+     "in": "ReportsPage",
+     "when": "activeTab === 'analytics' && !dataLoading && !fetchError",
+     "text": "",
+     "tag": "AnalyticsVisualization"
+    },
+    {
+     "kind": "heading",
+     "line": 684,
+     "in": "ReportsPage",
+     "when": "activeTab === 'community' && !dataLoading && !fetchError",
+     "text": "Análisis por Comunidades",
+     "level": 3
+    },
+    {
+     "kind": "piece",
+     "line": 685,
+     "in": "ReportsPage",
+     "when": "activeTab === 'community' && !dataLoading && !fetchError",
+     "text": "tabName: Analisis-Comunidades · metadata: Últimos {dateRange} días",
+     "tag": "ExportDropdown"
+    },
+    {
+     "kind": "heading",
+     "line": 697,
+     "in": "ReportsPage",
+     "when": "activeTab === 'community' && !dataLoading && !fetchError && each filterDataBySearch(communityData, ['community_nam…",
+     "text": "{community.community_name}",
+     "level": 4
+    },
+    {
+     "kind": "text",
+     "line": 700,
+     "in": "ReportsPage",
+     "when": "activeTab === 'community' && !dataLoading && !fetchError && each filterDataBySearch(communityData, ['community_nam…",
+     "text": "Total Usuarios:"
+    },
+    {
+     "kind": "value",
+     "line": 701,
+     "in": "ReportsPage",
+     "when": "activeTab === 'community' && !dataLoading && !fetchError && each filterDataBySearch(communityData, ['community_nam…",
+     "text": "{community.total_users}"
+    },
+    {
+     "kind": "text",
+     "line": 704,
+     "in": "ReportsPage",
+     "when": "activeTab === 'community' && !dataLoading && !fetchError && each filterDataBySearch(communityData, ['community_nam…",
+     "text": "Usuarios Activos:"
+    },
+    {
+     "kind": "value",
+     "line": 705,
+     "in": "ReportsPage",
+     "when": "activeTab === 'community' && !dataLoading && !fetchError && each filterDataBySearch(communityData, ['community_nam…",
+     "text": "{community.active_users}"
+    },
+    {
+     "kind": "text",
+     "line": 708,
+     "in": "ReportsPage",
+     "when": "activeTab === 'community' && !dataLoading && !fetchError && each filterDataBySearch(communityData, ['community_nam…",
+     "text": "Tasa Completación:"
+    },
+    {
+     "kind": "piece",
+     "line": 709,
+     "in": "ReportsPage",
+     "when": "activeTab === 'community' && !dataLoading && !fetchError && each filterDataBySearch(communityData, ['community_nam…",
+     "text": "",
+     "tag": "StatusBadge"
+    },
+    {
+     "kind": "text",
+     "line": 716,
+     "in": "ReportsPage",
+     "when": "activeTab === 'community' && !dataLoading && !fetchError && each filterDataBySearch(communityData, ['community_nam…",
+     "text": "Engagement:"
+    },
+    {
+     "kind": "value",
+     "line": 717,
+     "in": "ReportsPage",
+     "when": "activeTab === 'community' && !dataLoading && !fetchError && each filterDataBySearch(communityData, ['community_nam…",
+     "text": "{Math.round(community.engagement_sco…} /100"
+    },
+    {
+     "kind": "heading",
+     "line": 730,
+     "in": "ReportsPage",
+     "when": "activeTab === 'school' && !dataLoading && !fetchError",
+     "text": "Análisis por Escuelas",
+     "level": 3
+    },
+    {
+     "kind": "piece",
+     "line": 731,
+     "in": "ReportsPage",
+     "when": "activeTab === 'school' && !dataLoading && !fetchError",
+     "text": "tabName: Analisis-Escuelas · metadata: Últimos {dateRange} días",
+     "tag": "ExportDropdown"
+    },
+    {
+     "kind": "heading",
+     "line": 743,
+     "in": "ReportsPage",
+     "when": "activeTab === 'school' && !dataLoading && !fetchError && each filterDataBySearch(schoolData, ['school_name'])",
+     "text": "{school.school_name}",
+     "level": 4
+    },
+    {
+     "kind": "value",
+     "line": 746,
+     "in": "ReportsPage",
+     "when": "activeTab === 'school' && !dataLoading && !fetchError && each filterDataBySearch(schoolData, ['school_name'])",
+     "text": "{school.total_teachers}"
+    },
+    {
+     "kind": "text",
+     "line": 747,
+     "in": "ReportsPage",
+     "when": "activeTab === 'school' && !dataLoading && !fetchError && each filterDataBySearch(schoolData, ['school_name'])",
+     "text": "Total Docentes"
+    },
+    {
+     "kind": "value",
+     "line": 750,
+     "in": "ReportsPage",
+     "when": "activeTab === 'school' && !dataLoading && !fetchError && each filterDataBySearch(schoolData, ['school_name'])",
+     "text": "{school.active_teachers}"
+    },
+    {
+     "kind": "text",
+     "line": 751,
+     "in": "ReportsPage",
+     "when": "activeTab === 'school' && !dataLoading && !fetchError && each filterDataBySearch(schoolData, ['school_name'])",
+     "text": "Docentes Activos"
+    },
+    {
+     "kind": "value",
+     "line": 754,
+     "in": "ReportsPage",
+     "when": "activeTab === 'school' && !dataLoading && !fetchError && each filterDataBySearch(schoolData, ['school_name'])",
+     "text": "{formatPercentage(school.avg_lesson_…}"
+    },
+    {
+     "kind": "text",
+     "line": 757,
+     "in": "ReportsPage",
+     "when": "activeTab === 'school' && !dataLoading && !fetchError && each filterDataBySearch(schoolData, ['school_name'])",
+     "text": "Lecciones Completadas"
+    },
+    {
+     "kind": "value",
+     "line": 760,
+     "in": "ReportsPage",
+     "when": "activeTab === 'school' && !dataLoading && !fetchError && each filterDataBySearch(schoolData, ['school_name'])",
+     "text": "{Math.round(school.avg_assessment_sc…} %"
+    },
+    {
+     "kind": "text",
+     "line": 763,
+     "in": "ReportsPage",
+     "when": "activeTab === 'school' && !dataLoading && !fetchError && each filterDataBySearch(schoolData, ['school_name'])",
+     "text": "Puntaje Evaluaciones"
+    },
+    {
+     "kind": "heading",
+     "line": 768,
+     "in": "ReportsPage",
+     "when": "activeTab === 'school' && !dataLoading && !fetchError && each filterDataBySearch(schoolData, ['school_name']) && school.communities.length > 0",
+     "text": "Comunidades:",
+     "level": 5
+    },
+    {
+     "kind": "value",
+     "line": 771,
+     "in": "ReportsPage",
+     "when": "activeTab === 'school' && !dataLoading && !fetchError && each filterDataBySearch(schoolData, ['school_name']) && school.communities.length > 0 && each school.communities",
+     "text": "{community.name} ( {community.user_count} )"
+    },
+    {
+     "kind": "hook",
+     "line": 793,
+     "in": "ReportsPage",
+     "when": "activeTab === 'learning-paths' && !dataLoading && !fetchError",
+     "text": "testid=reports-learning-paths-tab",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "heading",
+     "line": 795,
+     "in": "ReportsPage",
+     "when": "activeTab === 'learning-paths' && !dataLoading && !fetchError",
+     "text": "Análisis de Rutas de Aprendizaje",
+     "level": 3
+    },
+    {
+     "kind": "hook",
+     "line": 800,
+     "in": "ReportsPage",
+     "when": "activeTab === 'learning-paths' && !dataLoading && !fetchError && lpReportScope !== null && lpReportScope === 'school'",
+     "text": "testid=lp-analytics-scope-hint",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 801,
+     "in": "ReportsPage",
+     "when": "activeTab === 'learning-paths' && !dataLoading && !fetchError && lpReportScope !== null && lpReportScope === 'school'",
+     "text": "Nivel escuela: solo ves a las personas de tu escuela."
+    },
+    {
+     "kind": "piece",
+     "line": 804,
+     "in": "ReportsPage",
+     "when": "activeTab === 'learning-paths' && !dataLoading && !fetchError && lpReportScope !== null",
+     "text": "",
+     "tag": "LearningPathAnalytics"
+    },
+    {
+     "kind": "hook",
+     "line": 809,
+     "in": "ReportsPage",
+     "when": "activeTab === 'learning-paths' && !dataLoading && !fetchError && !(lpReportScope !== null)",
+     "text": "testid=lp-analytics-not-available",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 810,
+     "in": "ReportsPage",
+     "when": "activeTab === 'learning-paths' && !dataLoading && !fetchError && !(lpReportScope !== null)",
+     "text": "Las analíticas de rutas de aprendizaje están disponibles solo para administración, consultores y equipo directivo."
+    },
+    {
+     "kind": "heading",
+     "line": 820,
+     "in": "ReportsPage",
+     "when": "activeTab === 'courses' && !dataLoading && !fetchError",
+     "text": "Análisis de Cursos",
+     "level": 3
+    },
+    {
+     "kind": "piece",
+     "line": 821,
+     "in": "ReportsPage",
+     "when": "activeTab === 'courses' && !dataLoading && !fetchError",
+     "text": "tabName: Analisis-Cursos · metadata: Últimos {dateRange} días",
+     "tag": "ExportDropdown"
+    },
+    {
+     "kind": "piece",
+     "line": 830,
+     "in": "ReportsPage",
+     "when": "activeTab === 'courses' && !dataLoading && !fetchError",
+     "text": "columns: Curso / Categoría / Inscritos / Tasa Completación / Tiempo Promedio / Engagement / Ranking · searchPlaceholder: Buscar por curso o categoría...",
+     "tag": "EnhancedTable"
+    },
+    {
+     "kind": "value",
+     "line": 837,
+     "in": "ReportsPage",
+     "when": "activeTab === 'courses' && !dataLoading && !fetchError",
+     "text": "{title}"
+    },
+    {
+     "kind": "value",
+     "line": 844,
+     "in": "ReportsPage",
+     "when": "activeTab === 'courses' && !dataLoading && !fetchError",
+     "text": "{category}"
+    },
+    {
+     "kind": "piece",
+     "line": 857,
+     "in": "ReportsPage",
+     "when": "activeTab === 'courses' && !dataLoading && !fetchError",
+     "text": "",
+     "tag": "StatusBadge"
+    },
+    {
+     "kind": "popup",
+     "line": 890,
+     "in": "ReportsPage",
+     "text": "UserDetailModal",
+     "how": "component",
+     "open": "{userDetailModalOpen}"
+    },
+    {
+     "kind": "string",
+     "line": 192,
+     "in": "ReportsPage",
+     "text": "Acceso Global"
+    },
+    {
+     "kind": "string",
+     "line": 194,
+     "in": "ReportsPage",
+     "text": "Nivel Escuela"
+    },
+    {
+     "kind": "string",
+     "line": 196,
+     "in": "ReportsPage",
+     "text": "Nivel Generación"
+    },
+    {
+     "kind": "string",
+     "line": 198,
+     "in": "ReportsPage",
+     "text": "Nivel Comunidad"
+    },
+    {
+     "kind": "string",
+     "line": 200,
+     "in": "ReportsPage",
+     "text": "Estudiantes Asignados"
+    },
+    {
+     "kind": "string",
+     "line": 202,
+     "in": "ReportsPage",
+     "text": "Acceso Nivel Red"
+    },
+    {
+     "kind": "string",
+     "line": 397,
+     "in": "ReportsPage",
+     "text": "Resumen General"
+    },
+    {
+     "kind": "list",
+     "line": 296,
+     "in": "formatTime",
+     "text": "formatTime()",
+     "items": [
+      "No disponible",
+      "0h 0m"
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "?tab",
+     "type": "address value"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/layout/FunctionalPageHeader.tsx",
+    "components/reports/AdvancedFilters.tsx",
+    "components/reports/AnalyticsVisualization.tsx",
+    "components/reports/ConsultantIndicator.tsx",
+    "components/reports/EnhancedTable.tsx",
+    "components/reports/ExportDropdown.tsx",
+    "components/reports/LearningPathAnalytics.tsx",
+    "components/reports/StatusBadge.tsx",
+    "components/reports/UserDetailModal.tsx",
+    "lib/exportUtils.ts",
+    "types/roles.ts",
+    "utils/insightGenerator.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/learning-paths/analytics.ts",
+     "route": "/api/learning-paths/analytics",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/reports/LearningPathAnalytics.tsx:84"
+     ]
+    },
+    {
+     "file": "pages/api/reports/analytics-data.ts",
+     "route": "/api/reports/analytics-data",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/reports/AnalyticsVisualization.tsx:106"
+     ]
+    },
+    {
+     "file": "pages/api/reports/community.ts",
+     "route": "/api/reports/community",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/reports.tsx:259"
+     ]
+    },
+    {
+     "file": "pages/api/reports/course-analytics.ts",
+     "route": "/api/reports/course-analytics",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/reports.tsx:277"
+     ]
+    },
+    {
+     "file": "pages/api/reports/filter-options.ts",
+     "route": "/api/reports/filter-options",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/reports/AdvancedFilters.tsx:48"
+     ]
+    },
+    {
+     "file": "pages/api/reports/overview.ts",
+     "route": "/api/reports/overview",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/reports.tsx:250"
+     ]
+    },
+    {
+     "file": "pages/api/reports/school.ts",
+     "route": "/api/reports/school",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/reports.tsx:268"
+     ]
+    },
+    {
+     "file": "pages/api/reports/user-details.ts",
+     "route": "/api/reports/user-details",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/reports/UserDetailModal.tsx:141"
+     ]
+    }
+   ]
+  }
+ ],
+ "pieces": {
+  "components/hours/SchoolHoursReport.tsx": {
+   "usedBy": [
+    "/reporte-horas"
+   ],
+   "lines": 693,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 50,
+     "text": "STATUS_BADGE",
+     "items": [
+      "Consumida",
+      "Reservada",
+      "Penalizada",
+      "Devuelta",
+      "Sin registro de horas"
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 85,
+     "in": "RingChart",
+     "text": "role=img",
+     "type": "role",
+     "tag": "div",
+     "aria": "{`Distribución de horas: ${consumed.toFixed(1)} consumidas, ${reserved.toFixed(1…}"
+    },
+    {
+     "kind": "piece",
+     "line": 90,
+     "in": "RingChart",
+     "text": "",
+     "tag": "ResponsiveContainer"
+    },
+    {
+     "kind": "chart",
+     "line": 91,
+     "in": "RingChart",
+     "text": "PieChart",
+     "series": [
+      {
+       "tag": "Pie",
+       "dataKey": "value",
+       "mapped": false,
+       "cells": "one colour per data row"
+      }
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 92,
+     "in": "RingChart",
+     "text": "cx: 50% · cy: 50%",
+     "tag": "Pie"
+    },
+    {
+     "kind": "piece",
+     "line": 102,
+     "in": "RingChart",
+     "when": "each data",
+     "text": "",
+     "tag": "Cell"
+    },
+    {
+     "kind": "piece",
+     "line": 105,
+     "in": "RingChart",
+     "text": "",
+     "tag": "Tooltip"
+    },
+    {
+     "kind": "value",
+     "line": 112,
+     "in": "RingChart",
+     "text": "{total.toFixed(0)}"
+    },
+    {
+     "kind": "text",
+     "line": 113,
+     "in": "RingChart",
+     "text": "horas"
+    },
+    {
+     "kind": "gate",
+     "line": 134,
+     "in": "ProgressBar",
+     "text": "allocated <= 0"
+    },
+    {
+     "kind": "heading",
+     "line": 175,
+     "in": "BucketCard",
+     "text": "{bucket.display_name}",
+     "level": 4
+    },
+    {
+     "kind": "text",
+     "line": 178,
+     "in": "BucketCard",
+     "when": "warningLevel === 'exhausted'",
+     "text": "Agotado"
+    },
+    {
+     "kind": "text",
+     "line": 183,
+     "in": "BucketCard",
+     "when": "bucket.annex_hours > 0",
+     "text": "+ {bucket.annex_hours.toFixed(1)} h Anexo"
+    },
+    {
+     "kind": "value",
+     "line": 201,
+     "in": "BucketCard",
+     "text": "{bucket.consumed.toFixed(1)}"
+    },
+    {
+     "kind": "text",
+     "line": 202,
+     "in": "BucketCard",
+     "text": "Consumidas"
+    },
+    {
+     "kind": "value",
+     "line": 205,
+     "in": "BucketCard",
+     "text": "{bucket.reserved.toFixed(1)}"
+    },
+    {
+     "kind": "text",
+     "line": 206,
+     "in": "BucketCard",
+     "text": "Reservadas"
+    },
+    {
+     "kind": "value",
+     "line": 209,
+     "in": "BucketCard",
+     "text": "{bucket.available.toFixed(1)}"
+    },
+    {
+     "kind": "text",
+     "line": 210,
+     "in": "BucketCard",
+     "text": "Disponibles"
+    },
+    {
+     "kind": "text",
+     "line": 214,
+     "in": "BucketCard",
+     "text": "{bucket.consumed.toFixed(1)} / {bucket.allocated.toFixed(1)} horas"
+    },
+    {
+     "kind": "hook",
+     "line": 221,
+     "in": "BucketCard",
+     "when": "bucket.sessions_truncated",
+     "text": "testid=bucket-partial-detail-notice",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 225,
+     "in": "BucketCard",
+     "when": "bucket.sessions_truncated",
+     "text": "aria-hidden: true",
+     "tag": "AlertTriangle"
+    },
+    {
+     "kind": "value",
+     "line": 226,
+     "in": "BucketCard",
+     "when": "bucket.sessions_truncated",
+     "text": "{PARTIAL_SESSION_DETAIL_NOTICE}"
+    },
+    {
+     "kind": "button",
+     "line": 231,
+     "in": "BucketCard",
+     "when": "bucket.sessions.length > 0",
+     "text": "Ocultar / Ver Detalle ( {bucket.sessions.length} sesiones)",
+     "action": "{() => setExpanded((v) => !v)}"
+    },
+    {
+     "kind": "column",
+     "line": 245,
+     "in": "BucketCard",
+     "when": "expanded",
+     "text": "Fecha"
+    },
+    {
+     "kind": "column",
+     "line": 246,
+     "in": "BucketCard",
+     "when": "expanded",
+     "text": "Consultor"
+    },
+    {
+     "kind": "column",
+     "line": 247,
+     "in": "BucketCard",
+     "when": "expanded",
+     "text": "Título"
+    },
+    {
+     "kind": "column",
+     "line": 248,
+     "in": "BucketCard",
+     "when": "expanded",
+     "text": "Horas"
+    },
+    {
+     "kind": "column",
+     "line": 249,
+     "in": "BucketCard",
+     "when": "expanded",
+     "text": "Estado"
+    },
+    {
+     "kind": "column",
+     "line": 250,
+     "in": "BucketCard",
+     "when": "expanded",
+     "text": "Asistencia"
+    },
+    {
+     "kind": "value",
+     "line": 258,
+     "in": "BucketCard",
+     "when": "expanded && each bucket.sessions",
+     "text": "{format(new Date(session.date + 'T00…} / —"
+    },
+    {
+     "kind": "value",
+     "line": 263,
+     "in": "BucketCard",
+     "when": "expanded && each bucket.sessions",
+     "text": "{session.consultant_name}"
+    },
+    {
+     "kind": "value",
+     "line": 264,
+     "in": "BucketCard",
+     "when": "expanded && each bucket.sessions",
+     "text": "{session.title}"
+    },
+    {
+     "kind": "value",
+     "line": 265,
+     "in": "BucketCard",
+     "when": "expanded && each bucket.sessions",
+     "text": "{session.hours.toFixed(2)}"
+    },
+    {
+     "kind": "value",
+     "line": 268,
+     "in": "BucketCard",
+     "when": "expanded && each bucket.sessions",
+     "text": "{badge.label}"
+    },
+    {
+     "kind": "text",
+     "line": 273,
+     "in": "BucketCard",
+     "when": "expanded && each bucket.sessions && session.is_over_budget",
+     "text": "Sobre presupuesto"
+    },
+    {
+     "kind": "text",
+     "line": 279,
+     "in": "BucketCard",
+     "when": "expanded && each bucket.sessions && session.status === 'sin_registro'",
+     "text": "Horas programadas"
+    },
+    {
+     "kind": "value",
+     "line": 283,
+     "in": "BucketCard",
+     "when": "expanded && each bucket.sessions",
+     "text": "{session.attendance.attended}/{session.attendance.expected} / —"
+    },
+    {
+     "kind": "text",
+     "line": 295,
+     "in": "BucketCard",
+     "when": "expanded && bucket.sessions.length === 0",
+     "text": "No hay sesiones registradas en esta categoría"
+    },
+    {
+     "kind": "text",
+     "line": 320,
+     "in": "ProgramView",
+     "when": "!selectedContract",
+     "text": "Este programa no tiene contratos activos"
+    },
+    {
+     "kind": "label",
+     "line": 330,
+     "in": "ProgramView",
+     "when": "program.contracts.length > 1",
+     "text": "Contrato:",
+     "for": "contract-selector"
+    },
+    {
+     "kind": "field",
+     "line": 331,
+     "in": "ProgramView",
+     "when": "program.contracts.length > 1",
+     "text": "Contrato:",
+     "type": "select",
+     "action": "{(e) => onSelectContract(e.target.value)}",
+     "options": [
+      "(lista) {c.numero_contrato} (Anexo)"
+     ],
+     "hook": {
+      "id": "contract-selector",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "heading",
+     "line": 360,
+     "in": "ProgramView",
+     "text": "{selectedContract.numero_contrato}",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 365,
+     "in": "ProgramView",
+     "text": "Consumidas:"
+    },
+    {
+     "kind": "text",
+     "line": 366,
+     "in": "ProgramView",
+     "text": "{selectedContract.total_consumed.toF…} h"
+    },
+    {
+     "kind": "text",
+     "line": 370,
+     "in": "ProgramView",
+     "text": "Reservadas:"
+    },
+    {
+     "kind": "text",
+     "line": 371,
+     "in": "ProgramView",
+     "text": "{selectedContract.total_reserved.toF…} h"
+    },
+    {
+     "kind": "text",
+     "line": 375,
+     "in": "ProgramView",
+     "text": "Disponibles:"
+    },
+    {
+     "kind": "text",
+     "line": 376,
+     "in": "ProgramView",
+     "text": "{selectedContract.total_available.to…} h"
+    },
+    {
+     "kind": "text",
+     "line": 380,
+     "in": "ProgramView",
+     "text": "Contratadas:"
+    },
+    {
+     "kind": "text",
+     "line": 381,
+     "in": "ProgramView",
+     "text": "{selectedContract.total_contracted_h…} h"
+    },
+    {
+     "kind": "text",
+     "line": 391,
+     "in": "ProgramView",
+     "when": "selectedContract.buckets.length === 0",
+     "text": "No hay categorías de horas para este contrato."
+    },
+    {
+     "kind": "gate",
+     "line": 447,
+     "in": "SchoolHoursReport",
+     "text": "requestId !== requestSeqRef.current"
+    },
+    {
+     "kind": "message",
+     "line": 449,
+     "in": "SchoolHoursReport",
+     "when": "!res.ok",
+     "text": "Error al cargar el reporte",
+     "via": "setError"
+    },
+    {
+     "kind": "gate",
+     "line": 458,
+     "in": "SchoolHoursReport",
+     "text": "requestId !== requestSeqRef.current"
+    },
+    {
+     "kind": "message",
+     "line": 459,
+     "in": "SchoolHoursReport",
+     "text": "Error de red al cargar el reporte.",
+     "via": "setError"
+    },
+    {
+     "kind": "toast",
+     "line": 480,
+     "in": "handleExportCSV",
+     "when": "!data || !activeProgData || !selectedContract",
+     "text": "No hay un contrato seleccionado para exportar.",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 585,
+     "in": "handleExportCSV",
+     "text": "No se pudo generar el CSV.",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 589,
+     "in": "handleExportCSV",
+     "text": "CSV descargado correctamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 595,
+     "in": "handleDownloadPDF",
+     "when": "!selectedContract",
+     "text": "No hay un contrato seleccionado para descargar.",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 599,
+     "in": "handleDownloadPDF",
+     "text": "/api/school-hours-report/[*]/pdf[*]",
+     "via": "window.open"
+    },
+    {
+     "kind": "piece",
+     "line": 609,
+     "in": "SchoolHoursReport",
+     "when": "error",
+     "text": "aria-hidden: true",
+     "tag": "AlertTriangle"
+    },
+    {
+     "kind": "text",
+     "line": 611,
+     "in": "SchoolHoursReport",
+     "when": "error",
+     "text": "Error al cargar el reporte"
+    },
+    {
+     "kind": "value",
+     "line": 612,
+     "in": "SchoolHoursReport",
+     "when": "error",
+     "text": "{error}"
+    },
+    {
+     "kind": "heading",
+     "line": 622,
+     "in": "SchoolHoursReport",
+     "text": "{schoolDisplayName}",
+     "level": 1
+    },
+    {
+     "kind": "button",
+     "line": 626,
+     "in": "SchoolHoursReport",
+     "when": "selectedContract",
+     "text": "Descargar Reporte PDF",
+     "action": "{handleDownloadPDF}"
+    },
+    {
+     "kind": "piece",
+     "line": 630,
+     "in": "SchoolHoursReport",
+     "when": "selectedContract",
+     "text": "aria-hidden: true",
+     "tag": "FileText"
+    },
+    {
+     "kind": "button",
+     "line": 633,
+     "in": "SchoolHoursReport",
+     "when": "selectedContract",
+     "text": "Descargar CSV",
+     "action": "{handleExportCSV}"
+    },
+    {
+     "kind": "piece",
+     "line": 637,
+     "in": "SchoolHoursReport",
+     "when": "selectedContract",
+     "text": "aria-hidden: true",
+     "tag": "Download"
+    },
+    {
+     "kind": "text",
+     "line": 648,
+     "in": "SchoolHoursReport",
+     "when": "!data || data.programs.length === 0",
+     "text": "Esta escuela no tiene programas activos"
+    },
+    {
+     "kind": "button",
+     "line": 657,
+     "in": "SchoolHoursReport",
+     "when": "(!(!data || data.programs.length === 0)) && data.programs.length > 1 && each data.programs",
+     "text": "{prog.programa_name}",
+     "action": "{() => { setActiveProgram(prog.programa_id); setSelectedContractId(null); }}"
+    },
+    {
+     "kind": "text",
+     "line": 685,
+     "in": "SchoolHoursReport",
+     "when": "(!(!data || data.programs.length === 0)) && !(activeProgData)",
+     "text": "Seleccione un programa para ver el detalle"
+    },
+    {
+     "kind": "string",
+     "line": 82,
+     "in": "RingChart",
+     "text": "Sin datos"
+    },
+    {
+     "kind": "string",
+     "line": 517,
+     "in": "SchoolHoursReport",
+     "text": "Resumen del contrato"
+    },
+    {
+     "kind": "string",
+     "line": 529,
+     "in": "SchoolHoursReport",
+     "text": "Contrato sin categorías"
+    },
+    {
+     "kind": "string",
+     "line": 534,
+     "in": "SchoolHoursReport",
+     "text": "Categoría sin sesiones"
+    },
+    {
+     "kind": "string",
+     "line": 545,
+     "in": "SchoolHoursReport",
+     "text": "Aviso de detalle parcial"
+    },
+    {
+     "kind": "string",
+     "line": 561,
+     "in": "SchoolHoursReport",
+     "text": "Sin registro de horas (horas programadas)"
+    },
+    {
+     "kind": "string",
+     "line": 565,
+     "in": "SchoolHoursReport",
+     "text": "Sesión"
+    },
+    {
+     "kind": "string",
+     "line": 579,
+     "in": "SchoolHoursReport",
+     "text": "Reporte de Horas — {data.school_name} · {activeProgData.programa_name} · Contrato {selectedContract.numero_con…} ({dateStr})"
+    },
+    {
+     "kind": "string",
+     "line": 580,
+     "in": "SchoolHoursReport",
+     "text": "Programa"
+    },
+    {
+     "kind": "string",
+     "line": 580,
+     "in": "SchoolHoursReport",
+     "text": "Categoría"
+    },
+    {
+     "kind": "string",
+     "line": 580,
+     "in": "SchoolHoursReport",
+     "text": "Horas de sesión"
+    },
+    {
+     "kind": "string",
+     "line": 580,
+     "in": "SchoolHoursReport",
+     "text": "Sobre Presupuesto"
+    },
+    {
+     "kind": "string",
+     "line": 580,
+     "in": "SchoolHoursReport",
+     "text": "Asistencia Esperada"
+    },
+    {
+     "kind": "string",
+     "line": 580,
+     "in": "SchoolHoursReport",
+     "text": "Asistencia Real"
+    },
+    {
+     "kind": "string",
+     "line": 580,
+     "in": "SchoolHoursReport",
+     "text": "Tipo de fila"
+    },
+    {
+     "kind": "string",
+     "line": 580,
+     "in": "SchoolHoursReport",
+     "text": "Horas contratadas"
+    },
+    {
+     "kind": "string",
+     "line": 580,
+     "in": "SchoolHoursReport",
+     "text": "Horas consumidas"
+    },
+    {
+     "kind": "string",
+     "line": 580,
+     "in": "SchoolHoursReport",
+     "text": "Horas reservadas"
+    },
+    {
+     "kind": "string",
+     "line": 580,
+     "in": "SchoolHoursReport",
+     "text": "Horas disponibles"
+    },
+    {
+     "kind": "string",
+     "line": 580,
+     "in": "SchoolHoursReport",
+     "text": "Tipo de contrato"
+    },
+    {
+     "kind": "string",
+     "line": 602,
+     "in": "SchoolHoursReport",
+     "text": "Escuela"
+    }
+   ],
+   "db": []
+  },
+  "components/layout/FunctionalPageHeader.tsx": {
+   "usedBy": [
+    "/detailed-reports",
+    "/reports"
+   ],
+   "lines": 191,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 44,
+     "in": "FunctionalPageHeader",
+     "text": "{icon}"
+    },
+    {
+     "kind": "heading",
+     "line": 47,
+     "in": "FunctionalPageHeader",
+     "text": "{title}",
+     "level": 1
+    },
+    {
+     "kind": "field",
+     "line": 60,
+     "in": "FunctionalPageHeader",
+     "when": "onSearchChange",
+     "text": "{searchPlaceholder}",
+     "type": "text",
+     "placeholder": "{searchPlaceholder}",
+     "action": "{(e) => onSearchChange(e.target.value)}"
+    },
+    {
+     "kind": "button",
+     "line": 75,
+     "in": "FunctionalPageHeader",
+     "when": "primaryAction",
+     "text": "[{primaryAction.icon}] {primaryAction.label}",
+     "action": "{primaryAction.onClick}"
+    },
+    {
+     "kind": "value",
+     "line": 92,
+     "in": "FunctionalPageHeader",
+     "when": "subtitle",
+     "text": "{subtitle}"
+    },
+    {
+     "kind": "value",
+     "line": 119,
+     "in": "MobileFunctionalPageHeader",
+     "text": "{icon}"
+    },
+    {
+     "kind": "heading",
+     "line": 122,
+     "in": "MobileFunctionalPageHeader",
+     "text": "{title}",
+     "level": 1
+    },
+    {
+     "kind": "button",
+     "line": 128,
+     "in": "MobileFunctionalPageHeader",
+     "when": "primaryAction",
+     "text": "[{primaryAction.icon}] {primaryAction.label} +",
+     "action": "{primaryAction.onClick}"
+    },
+    {
+     "kind": "field",
+     "line": 147,
+     "in": "MobileFunctionalPageHeader",
+     "when": "onSearchChange",
+     "text": "{searchPlaceholder}",
+     "type": "text",
+     "placeholder": "{searchPlaceholder}",
+     "action": "{(e) => onSearchChange(e.target.value)}"
+    },
+    {
+     "kind": "value",
+     "line": 159,
+     "in": "MobileFunctionalPageHeader",
+     "when": "children",
+     "text": "{children}"
+    },
+    {
+     "kind": "value",
+     "line": 168,
+     "in": "MobileFunctionalPageHeader",
+     "when": "subtitle",
+     "text": "{subtitle}"
+    },
+    {
+     "kind": "string",
+     "line": 32,
+     "in": "FunctionalPageHeader",
+     "text": "Buscar..."
+    }
+   ],
+   "db": []
+  },
+  "components/reports/AdvancedFilters.tsx": {
+   "usedBy": [
+    "/detailed-reports",
+    "/reports"
+   ],
+   "lines": 362,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 42,
+     "in": "AdvancedFilters",
+     "text": "window.addEventListener('resize')",
+     "type": "listener"
+    },
+    {
+     "kind": "message",
+     "line": 57,
+     "in": "fetchFilterData",
+     "when": "!response.ok",
+     "text": "Failed to fetch filter options",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "heading",
+     "line": 117,
+     "in": "AdvancedFilters",
+     "text": "Filtros de Búsqueda",
+     "level": 3
+    },
+    {
+     "kind": "button",
+     "line": 120,
+     "in": "AdvancedFilters",
+     "when": "hasActiveFilters",
+     "text": "Limpiar Filtros",
+     "action": "{clearAllFilters}"
+    },
+    {
+     "kind": "button",
+     "line": 127,
+     "in": "AdvancedFilters",
+     "text": "Ocultar / Mostrar Filtros Avanzados",
+     "action": "{() => setShowAdvanced(!showAdvanced)}"
+    },
+    {
+     "kind": "label",
+     "line": 149,
+     "in": "AdvancedFilters",
+     "when": "(isAdmin || userRole === 'consultor')",
+     "text": "🏫 Escuela"
+    },
+    {
+     "kind": "field",
+     "line": 152,
+     "in": "AdvancedFilters",
+     "when": "(isAdmin || userRole === 'consultor')",
+     "text": "🏫 Escuela",
+     "type": "select",
+     "action": "{(e) => handleFilterChange('school_id', e.target.value)}",
+     "options": [
+      "Todas las escuelas",
+      "(lista) {school.name}"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 170,
+     "in": "AdvancedFilters",
+     "when": "(isAdmin || ['equipo_directivo'].includes(userRole))",
+     "text": "👥 Generación"
+    },
+    {
+     "kind": "field",
+     "line": 173,
+     "in": "AdvancedFilters",
+     "when": "(isAdmin || ['equipo_directivo'].includes(userRole))",
+     "text": "👥 Generación",
+     "type": "select",
+     "disabled": "{filteredGenerations.length === 0}",
+     "action": "{(e) => handleFilterChange('generation_id', e.target.value)}",
+     "options": [
+      "Todas las generaciones",
+      "(lista) {generation.name}"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 192,
+     "in": "AdvancedFilters",
+     "when": "(isAdmin || ['equipo_directivo', 'lider_generacion'].includes(userRole))",
+     "text": "👥 Comunidad"
+    },
+    {
+     "kind": "field",
+     "line": 195,
+     "in": "AdvancedFilters",
+     "when": "(isAdmin || ['equipo_directivo', 'lider_generacion'].includes(userRole))",
+     "text": "👥 Comunidad",
+     "type": "select",
+     "disabled": "{filteredCommunities.length === 0}",
+     "action": "{(e) => handleFilterChange('community_id', e.target.value)}",
+     "options": [
+      "Todas las comunidades",
+      "(lista) {community.name}"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 212,
+     "in": "AdvancedFilters",
+     "text": "📊 Estado del Usuario"
+    },
+    {
+     "kind": "field",
+     "line": 215,
+     "in": "AdvancedFilters",
+     "text": "📊 Estado del Usuario",
+     "type": "select",
+     "action": "{(e) => handleFilterChange('status', e.target.value)}",
+     "options": [
+      "Todos los estados",
+      "Activos (estudiando)",
+      "Completados",
+      "Inactivos (30+ días)"
+     ]
+    },
+    {
+     "kind": "text",
+     "line": 232,
+     "in": "AdvancedFilters",
+     "when": "hasActiveFilters",
+     "text": "Filtros aplicados:"
+    },
+    {
+     "kind": "text",
+     "line": 237,
+     "in": "AdvancedFilters",
+     "when": "hasActiveFilters && filters.search",
+     "text": "🔍 &quot;"
+    },
+    {
+     "kind": "text",
+     "line": 237,
+     "in": "AdvancedFilters",
+     "when": "hasActiveFilters && filters.search",
+     "text": "&quot;"
+    },
+    {
+     "kind": "button",
+     "line": 238,
+     "in": "AdvancedFilters",
+     "when": "hasActiveFilters && filters.search",
+     "text": "×",
+     "action": "{() => handleFilterChange('search', '')}"
+    },
+    {
+     "kind": "text",
+     "line": 250,
+     "in": "AdvancedFilters",
+     "when": "hasActiveFilters && filters.school_id !== 'all'",
+     "text": "Escuela seleccionada"
+    },
+    {
+     "kind": "button",
+     "line": 251,
+     "in": "AdvancedFilters",
+     "when": "hasActiveFilters && filters.school_id !== 'all'",
+     "text": "×",
+     "action": "{() => handleFilterChange('school_id', 'all')}"
+    },
+    {
+     "kind": "text",
+     "line": 263,
+     "in": "AdvancedFilters",
+     "when": "hasActiveFilters && filters.generation_id !== 'all'",
+     "text": "Generación seleccionada"
+    },
+    {
+     "kind": "button",
+     "line": 264,
+     "in": "AdvancedFilters",
+     "when": "hasActiveFilters && filters.generation_id !== 'all'",
+     "text": "×",
+     "action": "{() => handleFilterChange('generation_id', 'all')}"
+    },
+    {
+     "kind": "text",
+     "line": 276,
+     "in": "AdvancedFilters",
+     "when": "hasActiveFilters && filters.community_id !== 'all'",
+     "text": "Comunidad seleccionada"
+    },
+    {
+     "kind": "button",
+     "line": 277,
+     "in": "AdvancedFilters",
+     "when": "hasActiveFilters && filters.community_id !== 'all'",
+     "text": "×",
+     "action": "{() => handleFilterChange('community_id', 'all')}"
+    },
+    {
+     "kind": "text",
+     "line": 289,
+     "in": "AdvancedFilters",
+     "when": "hasActiveFilters && filters.status !== 'all'",
+     "text": "Activos / Completados / Inactivos"
+    },
+    {
+     "kind": "button",
+     "line": 292,
+     "in": "AdvancedFilters",
+     "when": "hasActiveFilters && filters.status !== 'all'",
+     "text": "×",
+     "action": "{() => handleFilterChange('status', 'all')}"
+    },
+    {
+     "kind": "button",
+     "line": 305,
+     "in": "AdvancedFilters",
+     "when": "hasActiveFilters && ((filters.date_from || filters.date_to))",
+     "text": "×",
+     "action": "{() => { handleFilterChange('date_from', ''); handleFilterChange('date_to', '');…}"
+    },
+    {
+     "kind": "button",
+     "line": 318,
+     "in": "AdvancedFilters",
+     "when": "hasActiveFilters",
+     "text": "🗑️ Limpiar todos",
+     "action": "{clearAllFilters}"
+    },
+    {
+     "kind": "heading",
+     "line": 331,
+     "in": "AdvancedFilters",
+     "when": "showAdvanced",
+     "text": "Filtros por Fecha",
+     "level": 4
+    },
+    {
+     "kind": "label",
+     "line": 335,
+     "in": "AdvancedFilters",
+     "when": "showAdvanced",
+     "text": "📅 Fecha Desde"
+    },
+    {
+     "kind": "field",
+     "line": 338,
+     "in": "AdvancedFilters",
+     "when": "showAdvanced",
+     "text": "📅 Fecha Desde",
+     "type": "date",
+     "action": "{(e) => handleFilterChange('date_from', e.target.value)}"
+    },
+    {
+     "kind": "label",
+     "line": 347,
+     "in": "AdvancedFilters",
+     "when": "showAdvanced",
+     "text": "📅 Fecha Hasta"
+    },
+    {
+     "kind": "field",
+     "line": 350,
+     "in": "AdvancedFilters",
+     "when": "showAdvanced",
+     "text": "📅 Fecha Hasta",
+     "type": "date",
+     "action": "{(e) => handleFilterChange('date_to', e.target.value)}"
+    }
+   ],
+   "db": []
+  },
+  "components/reports/AnalyticsDashboard.tsx": {
+   "usedBy": [
+    "/detailed-reports"
+   ],
+   "lines": 456,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 82,
+     "in": "KPICard",
+     "text": "{title}"
+    },
+    {
+     "kind": "value",
+     "line": 84,
+     "in": "KPICard",
+     "text": "{value}"
+    },
+    {
+     "kind": "value",
+     "line": 86,
+     "in": "KPICard",
+     "when": "trend",
+     "text": "↑ / ↓ {Math.abs(trend.value)} %"
+    },
+    {
+     "kind": "value",
+     "line": 91,
+     "in": "KPICard",
+     "when": "subtitle",
+     "text": "{subtitle}"
+    },
+    {
+     "kind": "value",
+     "line": 94,
+     "in": "KPICard",
+     "text": "{icon}"
+    },
+    {
+     "kind": "hook",
+     "line": 134,
+     "in": "AnalyticsDashboard",
+     "text": "window.addEventListener('resize')",
+     "type": "listener"
+    },
+    {
+     "kind": "toast",
+     "line": 183,
+     "in": "fetchAnalyticsData",
+     "when": "!(response.ok)",
+     "text": "Error cargando datos analíticos",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 187,
+     "in": "fetchAnalyticsData",
+     "text": "Error cargando datos analíticos",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 196,
+     "in": "exportChart",
+     "text": "Funcionalidad de exportación para {chartType} próximamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 198,
+     "in": "exportChart",
+     "text": "Error exportando gráfico",
+     "variant": "error"
+    },
+    {
+     "kind": "piece",
+     "line": 205,
+     "in": "AnalyticsDashboard",
+     "when": "loading",
+     "text": "",
+     "tag": "LoadingSkeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 208,
+     "in": "AnalyticsDashboard",
+     "when": "loading && each Array.from({ length: 4 })",
+     "text": "",
+     "tag": "LoadingSkeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 213,
+     "in": "AnalyticsDashboard",
+     "when": "loading && each Array.from({ length: 4 })",
+     "text": "",
+     "tag": "LoadingSkeleton"
+    },
+    {
+     "kind": "text",
+     "line": 223,
+     "in": "AnalyticsDashboard",
+     "when": "!analyticsData",
+     "text": "No se pudieron cargar los datos analíticos"
+    },
+    {
+     "kind": "value",
+     "line": 232,
+     "in": "CustomTooltip",
+     "when": "active && payload && payload.length",
+     "text": "{label}"
+    },
+    {
+     "kind": "value",
+     "line": 234,
+     "in": "CustomTooltip",
+     "when": "active && payload && payload.length && each payload",
+     "text": "{entry.name} : {entry.value}"
+    },
+    {
+     "kind": "label",
+     "line": 251,
+     "in": "AnalyticsDashboard",
+     "text": "Período de Tiempo"
+    },
+    {
+     "kind": "field",
+     "line": 254,
+     "in": "AnalyticsDashboard",
+     "text": "Período de Tiempo",
+     "type": "select",
+     "action": "{(e) => setTimePeriod(e.target.value)}",
+     "options": [
+      "Última semana",
+      "Últimos 30 días",
+      "Últimos 3 meses",
+      "Último año"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 267,
+     "in": "AnalyticsDashboard",
+     "text": "Agrupar por"
+    },
+    {
+     "kind": "field",
+     "line": 270,
+     "in": "AnalyticsDashboard",
+     "text": "Agrupar por",
+     "type": "select",
+     "action": "{(e) => setGroupBy(e.target.value)}",
+     "options": [
+      "Día",
+      "Semana",
+      "Mes"
+     ]
+    },
+    {
+     "kind": "text",
+     "line": 282,
+     "in": "AnalyticsDashboard",
+     "text": "Datos de {analyticsData.metadata?.total_users} usuarios"
+    },
+    {
+     "kind": "heading",
+     "line": 297,
+     "in": "AnalyticsDashboard",
+     "text": "Vista Previa del Dashboard Analítico",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 301,
+     "in": "AnalyticsDashboard",
+     "text": "Este dashboard está listo para mostrar datos reales una vez que se implemente la API de analytics correspondiente."
+    },
+    {
+     "kind": "piece",
+     "line": 308,
+     "in": "AnalyticsDashboard",
+     "text": "title: Métricas Clave",
+     "tag": "CollapsibleSection"
+    },
+    {
+     "kind": "piece",
+     "line": 314,
+     "in": "AnalyticsDashboard",
+     "text": "title: Usuarios Activos · subtitle: de 200 totales",
+     "tag": "KPICard"
+    },
+    {
+     "kind": "piece",
+     "line": 326,
+     "in": "AnalyticsDashboard",
+     "text": "title: Tasa de Finalización · subtitle: de cursos completados",
+     "tag": "KPICard"
+    },
+    {
+     "kind": "piece",
+     "line": 338,
+     "in": "AnalyticsDashboard",
+     "text": "title: Progreso Promedio · subtitle: de avance general",
+     "tag": "KPICard"
+    },
+    {
+     "kind": "piece",
+     "line": 350,
+     "in": "AnalyticsDashboard",
+     "text": "title: Tiempo Promedio · subtitle: por usuario",
+     "tag": "KPICard"
+    },
+    {
+     "kind": "piece",
+     "line": 365,
+     "in": "AnalyticsDashboard",
+     "text": "title: Gráficos de Análisis",
+     "tag": "CollapsibleSection"
+    },
+    {
+     "kind": "heading",
+     "line": 374,
+     "in": "AnalyticsDashboard",
+     "text": "Tendencia de Progreso",
+     "level": 3
+    },
+    {
+     "kind": "button",
+     "line": 375,
+     "in": "AnalyticsDashboard",
+     "text": "Exportar",
+     "action": "{() => exportChart('progress-trends')}"
+    },
+    {
+     "kind": "chart",
+     "line": 383,
+     "in": "AnalyticsDashboard",
+     "text": "LineChart",
+     "series": [
+      {
+       "tag": "Line",
+       "dataKey": "lessons_completed",
+       "name": "Lecciones Completadas",
+       "fill": "{FNE_COLORS.primary}",
+       "mapped": false
+      },
+      {
+       "tag": "Line",
+       "dataKey": "unique_users",
+       "name": "Usuarios Activos",
+       "fill": "{FNE_COLORS.secondary}",
+       "mapped": false
+      }
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 389,
+     "in": "AnalyticsDashboard",
+     "text": "strokeDasharray: 3 3",
+     "tag": "CartesianGrid"
+    },
+    {
+     "kind": "heading",
+     "line": 415,
+     "in": "AnalyticsDashboard",
+     "text": "Tiempo de Estudio",
+     "level": 3
+    },
+    {
+     "kind": "button",
+     "line": 416,
+     "in": "AnalyticsDashboard",
+     "text": "Exportar",
+     "action": "{() => exportChart('time-trends')}"
+    },
+    {
+     "kind": "chart",
+     "line": 424,
+     "in": "AnalyticsDashboard",
+     "text": "AreaChart",
+     "series": [
+      {
+       "tag": "Area",
+       "dataKey": "total_time_hours",
+       "name": "Total Horas",
+       "fill": "{`${FNE_COLORS.success}30`}",
+       "mapped": false
+      },
+      {
+       "tag": "Area",
+       "dataKey": "avg_time_per_user",
+       "name": "Promedio por Usuario",
+       "fill": "{`${FNE_COLORS.info}30`}",
+       "mapped": false
+      }
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 430,
+     "in": "AnalyticsDashboard",
+     "text": "strokeDasharray: 3 3",
+     "tag": "CartesianGrid"
+    },
+    {
+     "kind": "string",
+     "line": 384,
+     "in": "AnalyticsDashboard",
+     "text": "Sem 1"
+    },
+    {
+     "kind": "string",
+     "line": 385,
+     "in": "AnalyticsDashboard",
+     "text": "Sem 2"
+    },
+    {
+     "kind": "string",
+     "line": 386,
+     "in": "AnalyticsDashboard",
+     "text": "Sem 3"
+    },
+    {
+     "kind": "string",
+     "line": 387,
+     "in": "AnalyticsDashboard",
+     "text": "Sem 4"
+    }
+   ],
+   "db": []
+  },
+  "components/reports/AnalyticsVisualization.tsx": {
+   "usedBy": [
+    "/reports"
+   ],
+   "lines": 547,
+   "rows": [
+    {
+     "kind": "toast",
+     "line": 94,
+     "in": "fetchAnalyticsData",
+     "when": "!session?.access_token",
+     "text": "Error de autenticación",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 122,
+     "in": "fetchAnalyticsData",
+     "when": "!(response.ok)",
+     "text": "Error al cargar datos analíticos",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 126,
+     "in": "fetchAnalyticsData",
+     "text": "Error al cargar datos analíticos",
+     "variant": "error"
+    },
+    {
+     "kind": "value",
+     "line": 136,
+     "in": "CustomTooltip",
+     "when": "active && payload && payload.length",
+     "text": "{label}"
+    },
+    {
+     "kind": "value",
+     "line": 138,
+     "in": "CustomTooltip",
+     "when": "active && payload && payload.length && each payload",
+     "text": "{entry.name} : {formatter(entry.value)} / {entry.value}"
+    },
+    {
+     "kind": "piece",
+     "line": 156,
+     "in": "AnalyticsVisualization",
+     "when": "loading && each Array.from({ length: 4 })",
+     "text": "",
+     "tag": "LoadingSkeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 161,
+     "in": "AnalyticsVisualization",
+     "when": "loading && each Array.from({ length: 4 })",
+     "text": "",
+     "tag": "LoadingSkeleton"
+    },
+    {
+     "kind": "text",
+     "line": 171,
+     "in": "AnalyticsVisualization",
+     "when": "!analyticsData",
+     "text": "No se pudieron cargar los datos analíticos"
+    },
+    {
+     "kind": "label",
+     "line": 183,
+     "in": "AnalyticsVisualization",
+     "text": "Vista"
+    },
+    {
+     "kind": "field",
+     "line": 186,
+     "in": "AnalyticsVisualization",
+     "text": "Vista",
+     "type": "select",
+     "action": "{(e) => setComparisonMode(e.target.value === 'comparison')}",
+     "options": [
+      "Período Actual",
+      "Comparación Períodos"
+     ]
+    },
+    {
+     "kind": "text",
+     "line": 197,
+     "in": "AnalyticsVisualization",
+     "text": "Datos de {analyticsData.metadata?.timeRange} días • {analyticsData.kpiData.current.total…} usuarios"
+    },
+    {
+     "kind": "value",
+     "line": 234,
+     "in": "AnalyticsVisualization",
+     "when": "each [ { title: 'Usuarios Activos', current: analytics…",
+     "text": "{kpi.title}"
+    },
+    {
+     "kind": "value",
+     "line": 238,
+     "in": "AnalyticsVisualization",
+     "when": "each [ { title: 'Usuarios Activos', current: analytics… && kpi.total",
+     "text": "/ {kpi.total}"
+    },
+    {
+     "kind": "value",
+     "line": 240,
+     "in": "AnalyticsVisualization",
+     "when": "each [ { title: 'Usuarios Activos', current: analytics…",
+     "text": "↗ / ↘ {Math.abs(kpi.trend).toFixed(1)} %"
+    },
+    {
+     "kind": "value",
+     "line": 246,
+     "in": "AnalyticsVisualization",
+     "when": "each [ { title: 'Usuarios Activos', current: analytics…",
+     "text": "{kpi.icon}"
+    },
+    {
+     "kind": "heading",
+     "line": 259,
+     "in": "AnalyticsVisualization",
+     "text": "Tendencias de Progreso",
+     "level": 3
+    },
+    {
+     "kind": "piece",
+     "line": 260,
+     "in": "AnalyticsVisualization",
+     "text": "tabName: Tendencias-Progreso",
+     "tag": "ExportDropdown"
+    },
+    {
+     "kind": "chart",
+     "line": 268,
+     "in": "AnalyticsVisualization",
+     "text": "LineChart",
+     "series": [
+      {
+       "tag": "Line",
+       "dataKey": "completedLessons",
+       "name": "Lecciones Completadas",
+       "fill": "{FNE_COLORS.primary}",
+       "mapped": false
+      },
+      {
+       "tag": "Line",
+       "dataKey": "activeUsers",
+       "name": "Usuarios Activos",
+       "fill": "{FNE_COLORS.secondary}",
+       "mapped": false
+      }
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 269,
+     "in": "AnalyticsVisualization",
+     "text": "strokeDasharray: 3 3",
+     "tag": "CartesianGrid"
+    },
+    {
+     "kind": "heading",
+     "line": 301,
+     "in": "AnalyticsVisualization",
+     "text": "Tasas por Escuela",
+     "level": 3
+    },
+    {
+     "kind": "piece",
+     "line": 302,
+     "in": "AnalyticsVisualization",
+     "text": "tabName: Tasas-Escuela",
+     "tag": "ExportDropdown"
+    },
+    {
+     "kind": "chart",
+     "line": 310,
+     "in": "AnalyticsVisualization",
+     "text": "BarChart",
+     "series": [
+      {
+       "tag": "Bar",
+       "dataKey": "completionRate",
+       "name": "Tasa de Completación (%)",
+       "fill": "{FNE_COLORS.success}",
+       "mapped": false
+      }
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 311,
+     "in": "AnalyticsVisualization",
+     "text": "strokeDasharray: 3 3",
+     "tag": "CartesianGrid"
+    },
+    {
+     "kind": "piece",
+     "line": 312,
+     "in": "AnalyticsVisualization",
+     "text": "textAnchor: end",
+     "tag": "XAxis"
+    },
+    {
+     "kind": "heading",
+     "line": 334,
+     "in": "AnalyticsVisualization",
+     "text": "Distribución de Rendimiento",
+     "level": 3
+    },
+    {
+     "kind": "piece",
+     "line": 335,
+     "in": "AnalyticsVisualization",
+     "text": "tabName: Distribucion-Rendimiento",
+     "tag": "ExportDropdown"
+    },
+    {
+     "kind": "chart",
+     "line": 343,
+     "in": "AnalyticsVisualization",
+     "text": "BarChart",
+     "series": [
+      {
+       "tag": "Bar",
+       "dataKey": "count",
+       "name": "Número de Estudiantes",
+       "fill": "{FNE_COLORS.info}",
+       "mapped": false
+      }
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 344,
+     "in": "AnalyticsVisualization",
+     "text": "strokeDasharray: 3 3",
+     "tag": "CartesianGrid"
+    },
+    {
+     "kind": "heading",
+     "line": 361,
+     "in": "AnalyticsVisualization",
+     "text": "Tendencias de Tiempo",
+     "level": 3
+    },
+    {
+     "kind": "piece",
+     "line": 362,
+     "in": "AnalyticsVisualization",
+     "text": "tabName: Tendencias-Tiempo",
+     "tag": "ExportDropdown"
+    },
+    {
+     "kind": "chart",
+     "line": 370,
+     "in": "AnalyticsVisualization",
+     "text": "AreaChart",
+     "series": [
+      {
+       "tag": "Area",
+       "dataKey": "totalHours",
+       "name": "Total Horas",
+       "fill": "{`${FNE_COLORS.primary}80`}",
+       "stackId": "1",
+       "mapped": false
+      },
+      {
+       "tag": "Area",
+       "dataKey": "avgHoursPerUser",
+       "name": "Promedio por Usuario",
+       "fill": "{`${FNE_COLORS.secondary}80`}",
+       "stackId": "2",
+       "mapped": false
+      }
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 371,
+     "in": "AnalyticsVisualization",
+     "text": "strokeDasharray: 3 3",
+     "tag": "CartesianGrid"
+    },
+    {
+     "kind": "heading",
+     "line": 403,
+     "in": "AnalyticsVisualization",
+     "text": "Análisis de Rendimiento en Evaluaciones",
+     "level": 3
+    },
+    {
+     "kind": "piece",
+     "line": 404,
+     "in": "AnalyticsVisualization",
+     "text": "tabName: Rendimiento-Evaluaciones",
+     "tag": "ExportDropdown"
+    },
+    {
+     "kind": "chart",
+     "line": 412,
+     "in": "AnalyticsVisualization",
+     "text": "ScatterChart",
+     "series": [
+      {
+       "tag": "Scatter",
+       "dataKey": "avgScore",
+       "fill": "{FNE_COLORS.success}",
+       "mapped": false
+      }
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 413,
+     "in": "AnalyticsVisualization",
+     "text": "strokeDasharray: 3 3",
+     "tag": "CartesianGrid"
+    },
+    {
+     "kind": "text",
+     "line": 431,
+     "in": "AnalyticsVisualization",
+     "when": "active && payload && payload.length",
+     "text": "Usuario: {data.userId}"
+    },
+    {
+     "kind": "text",
+     "line": 432,
+     "in": "AnalyticsVisualization",
+     "when": "active && payload && payload.length",
+     "text": "Evaluaciones: {data.quizzesCompleted}"
+    },
+    {
+     "kind": "text",
+     "line": 433,
+     "in": "AnalyticsVisualization",
+     "when": "active && payload && payload.length",
+     "text": "Puntaje Promedio: {data.avgScore} %"
+    },
+    {
+     "kind": "text",
+     "line": 434,
+     "in": "AnalyticsVisualization",
+     "when": "active && payload && payload.length",
+     "text": "Tiempo Promedio: {data.timeSpent} min"
+    },
+    {
+     "kind": "text",
+     "line": 435,
+     "in": "AnalyticsVisualization",
+     "when": "active && payload && payload.length",
+     "text": "Tendencia: + {data.improvementTrend} %"
+    },
+    {
+     "kind": "heading",
+     "line": 452,
+     "in": "AnalyticsVisualization",
+     "text": "Insights Automáticos",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 508,
+     "in": "AnalyticsVisualization",
+     "when": "automaticInsights.length > 0 && each automaticInsights",
+     "text": "{iconSvgs[insight.type]}"
+    },
+    {
+     "kind": "heading",
+     "line": 514,
+     "in": "AnalyticsVisualization",
+     "when": "automaticInsights.length > 0 && each automaticInsights",
+     "text": "{insight.title}",
+     "level": 4
+    },
+    {
+     "kind": "value",
+     "line": 516,
+     "in": "AnalyticsVisualization",
+     "when": "automaticInsights.length > 0 && each automaticInsights && insight.metric !== undefined && insight.metric !== null",
+     "text": "{insight.metric.toFixed(1)} %"
+    },
+    {
+     "kind": "value",
+     "line": 521,
+     "in": "AnalyticsVisualization",
+     "when": "automaticInsights.length > 0 && each automaticInsights",
+     "text": "{insight.message}"
+    },
+    {
+     "kind": "value",
+     "line": 525,
+     "in": "AnalyticsVisualization",
+     "when": "automaticInsights.length > 0 && each automaticInsights && insight.recommendation",
+     "text": "💡 {insight.recommendation}"
+    },
+    {
+     "kind": "text",
+     "line": 540,
+     "in": "AnalyticsVisualization",
+     "when": "!(automaticInsights.length > 0)",
+     "text": "Generando insights basados en datos..."
+    },
+    {
+     "kind": "text",
+     "line": 541,
+     "in": "AnalyticsVisualization",
+     "when": "!(automaticInsights.length > 0)",
+     "text": "Los insights aparecerán cuando haya suficientes datos"
+    },
+    {
+     "kind": "string",
+     "line": 108,
+     "in": "AnalyticsVisualization",
+     "text": "Bearer {session.access_token}"
+    },
+    {
+     "kind": "string",
+     "line": 207,
+     "in": "AnalyticsVisualization",
+     "text": "Usuarios Activos"
+    },
+    {
+     "kind": "string",
+     "line": 215,
+     "in": "AnalyticsVisualization",
+     "text": "Tasa Completación"
+    },
+    {
+     "kind": "string",
+     "line": 223,
+     "in": "AnalyticsVisualization",
+     "text": "Tiempo Total"
+    }
+   ],
+   "db": []
+  },
+  "components/reports/CollapsibleSection.tsx": {
+   "usedBy": [
+    "/detailed-reports"
+   ],
+   "lines": 81,
+   "rows": [
+    {
+     "kind": "clickable",
+     "line": 32,
+     "in": "CollapsibleSection",
+     "text": "[{icon}] {title} [{badge}]",
+     "tag": "motion.button",
+     "action": "{onToggle}"
+    },
+    {
+     "kind": "value",
+     "line": 39,
+     "in": "CollapsibleSection",
+     "when": "icon",
+     "text": "{icon}"
+    },
+    {
+     "kind": "heading",
+     "line": 43,
+     "in": "CollapsibleSection",
+     "text": "{title}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 45,
+     "in": "CollapsibleSection",
+     "when": "badge",
+     "text": "{badge}"
+    },
+    {
+     "kind": "value",
+     "line": 71,
+     "in": "CollapsibleSection",
+     "when": "isExpanded",
+     "text": "{children}"
+    }
+   ],
+   "db": []
+  },
+  "components/reports/ConsultantIndicator.tsx": {
+   "usedBy": [
+    "/reports"
+   ],
+   "lines": 87,
+   "rows": [
+    {
+     "kind": "text",
+     "line": 29,
+     "in": "ConsultantIndicator",
+     "when": "!hasConsultant",
+     "text": "Sin Consultor"
+    },
+    {
+     "kind": "value",
+     "line": 79,
+     "in": "ConsultantIndicator",
+     "text": "{typeConfig.icon}"
+    },
+    {
+     "kind": "text",
+     "line": 83,
+     "in": "ConsultantIndicator",
+     "when": "!isActive",
+     "text": "(Inactivo)"
+    },
+    {
+     "kind": "string",
+     "line": 39,
+     "in": "ConsultantIndicator",
+     "text": "Monitoreo"
+    },
+    {
+     "kind": "string",
+     "line": 45,
+     "in": "ConsultantIndicator",
+     "text": "Mentoría"
+    },
+    {
+     "kind": "string",
+     "line": 51,
+     "in": "ConsultantIndicator",
+     "text": "Evaluación"
+    },
+    {
+     "kind": "string",
+     "line": 57,
+     "in": "ConsultantIndicator",
+     "text": "Apoyo"
+    },
+    {
+     "kind": "string",
+     "line": 63,
+     "in": "ConsultantIndicator",
+     "text": "Consultoría"
+    }
+   ],
+   "db": []
+  },
+  "components/reports/EnhancedTable.tsx": {
+   "usedBy": [
+    "/reports"
+   ],
+   "lines": 296,
+   "rows": [
+    {
+     "kind": "field",
+     "line": 141,
+     "in": "EnhancedTable",
+     "when": "searchable",
+     "text": "{searchPlaceholder}",
+     "type": "text",
+     "placeholder": "{searchPlaceholder}",
+     "action": "{(e) => handleSearch(e.target.value)}"
+    },
+    {
+     "kind": "text",
+     "line": 150,
+     "in": "EnhancedTable",
+     "when": "searchable && searchTerm",
+     "text": "Mostrando {sortedData.length} de {data.length} registros"
+    },
+    {
+     "kind": "column",
+     "line": 163,
+     "in": "EnhancedTable",
+     "when": "each columns",
+     "text": "{column.label} [{getSortIcon(column.key)}]"
+    },
+    {
+     "kind": "clickable",
+     "line": 181,
+     "in": "EnhancedTable",
+     "when": "paginatedData.length > 0 && each paginatedData",
+     "text": "{column.render(getNestedValue(row, c…} / {String(getNestedValue(row, column.k…}",
+     "tag": "tr",
+     "action": "{() => onRowClick?.(row)}"
+    },
+    {
+     "kind": "value",
+     "line": 189,
+     "in": "EnhancedTable",
+     "when": "paginatedData.length > 0 && each paginatedData && each columns",
+     "text": "{column.render(getNestedValue(row, c…} / {String(getNestedValue(row, column.k…}"
+    },
+    {
+     "kind": "text",
+     "line": 199,
+     "in": "EnhancedTable",
+     "when": "!(paginatedData.length > 0)",
+     "text": "No se encontraron resultados / No hay datos disponibles"
+    },
+    {
+     "kind": "button",
+     "line": 213,
+     "in": "EnhancedTable",
+     "when": "totalPages > 1",
+     "screen": "sm:hidden",
+     "text": "Anterior",
+     "action": "{() => goToPage(currentPage - 1)}",
+     "disabled": "{currentPage === 1}"
+    },
+    {
+     "kind": "button",
+     "line": 220,
+     "in": "EnhancedTable",
+     "when": "totalPages > 1",
+     "screen": "sm:hidden",
+     "text": "Siguiente",
+     "action": "{() => goToPage(currentPage + 1)}",
+     "disabled": "{currentPage === totalPages}"
+    },
+    {
+     "kind": "text",
+     "line": 231,
+     "in": "EnhancedTable",
+     "when": "totalPages > 1",
+     "screen": "hidden sm:flex",
+     "text": "Mostrando"
+    },
+    {
+     "kind": "value",
+     "line": 232,
+     "in": "EnhancedTable",
+     "when": "totalPages > 1",
+     "screen": "hidden sm:flex",
+     "text": "{(currentPage - 1) * pageSize + 1}"
+    },
+    {
+     "kind": "text",
+     "line": 232,
+     "in": "EnhancedTable",
+     "when": "totalPages > 1",
+     "screen": "hidden sm:flex",
+     "text": "a"
+    },
+    {
+     "kind": "value",
+     "line": 233,
+     "in": "EnhancedTable",
+     "when": "totalPages > 1",
+     "screen": "hidden sm:flex",
+     "text": "{Math.min(currentPage * pageSize, so…}"
+    },
+    {
+     "kind": "text",
+     "line": 236,
+     "in": "EnhancedTable",
+     "when": "totalPages > 1",
+     "screen": "hidden sm:flex",
+     "text": "de"
+    },
+    {
+     "kind": "value",
+     "line": 236,
+     "in": "EnhancedTable",
+     "when": "totalPages > 1",
+     "screen": "hidden sm:flex",
+     "text": "{sortedData.length}"
+    },
+    {
+     "kind": "text",
+     "line": 236,
+     "in": "EnhancedTable",
+     "when": "totalPages > 1",
+     "screen": "hidden sm:flex",
+     "text": "resultados"
+    },
+    {
+     "kind": "button",
+     "line": 241,
+     "in": "EnhancedTable",
+     "when": "totalPages > 1",
+     "screen": "hidden sm:flex",
+     "text": "",
+     "action": "{() => goToPage(currentPage - 1)}",
+     "disabled": "{currentPage === 1}"
+    },
+    {
+     "kind": "button",
+     "line": 265,
+     "in": "EnhancedTable",
+     "when": "totalPages > 1",
+     "screen": "hidden sm:flex",
+     "text": "{page}",
+     "action": "{() => goToPage(page)}"
+    },
+    {
+     "kind": "button",
+     "line": 279,
+     "in": "EnhancedTable",
+     "when": "totalPages > 1",
+     "screen": "hidden sm:flex",
+     "text": "",
+     "action": "{() => goToPage(currentPage + 1)}",
+     "disabled": "{currentPage === totalPages}"
+    },
+    {
+     "kind": "string",
+     "line": 25,
+     "in": "EnhancedTable",
+     "text": "Buscar..."
+    }
+   ],
+   "db": []
+  },
+  "components/reports/ExportDropdown.tsx": {
+   "usedBy": [
+    "/reports"
+   ],
+   "lines": 150,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 34,
+     "in": "ExportDropdown",
+     "text": "document.addEventListener('mousedown')",
+     "type": "listener"
+    },
+    {
+     "kind": "toast",
+     "line": 42,
+     "in": "handleExport",
+     "when": "data.length === 0",
+     "text": "No hay datos para exportar",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 59,
+     "in": "handleExport",
+     "when": "result.success",
+     "text": "{result.message}",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 61,
+     "in": "handleExport",
+     "when": "!(result.success)",
+     "text": "{result.message}",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 65,
+     "in": "handleExport",
+     "text": "Error al exportar reporte",
+     "variant": "error"
+    },
+    {
+     "kind": "button",
+     "line": 73,
+     "in": "ExportDropdown",
+     "text": "Exportando... / Exportar",
+     "action": "{() => setIsOpen(!isOpen)}",
+     "disabled": "{exporting !== null}"
+    },
+    {
+     "kind": "hook",
+     "line": 102,
+     "in": "ExportDropdown",
+     "when": "isOpen",
+     "text": "role=menu",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 103,
+     "in": "ExportDropdown",
+     "when": "isOpen",
+     "text": "{data.length} registros disponibles"
+    },
+    {
+     "kind": "button",
+     "line": 107,
+     "in": "ExportDropdown",
+     "when": "isOpen",
+     "text": "Exportar como CSV .csv",
+     "action": "{() => handleExport('csv')}",
+     "disabled": "{exporting !== null}"
+    },
+    {
+     "kind": "button",
+     "line": 120,
+     "in": "ExportDropdown",
+     "when": "isOpen",
+     "text": "Exportar como Excel .xls",
+     "action": "{() => handleExport('excel')}",
+     "disabled": "{exporting !== null}"
+    },
+    {
+     "kind": "button",
+     "line": 133,
+     "in": "ExportDropdown",
+     "when": "isOpen",
+     "text": "Exportar como PDF .pdf",
+     "action": "{() => handleExport('pdf')}",
+     "disabled": "{exporting !== null}"
+    }
+   ],
+   "db": []
+  },
+  "components/reports/LearningPathAnalytics.tsx": {
+   "usedBy": [
+    "/reports"
+   ],
+   "lines": 371,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 56,
+     "text": "UNAVAILABLE",
+     "items": [
+      "No disponible"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 57,
+     "text": "AT_RISK_HINT",
+     "items": [
+      "Sin actividad en 14 días y sin terminar la ruta"
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 123,
+     "in": "LearningPathAnalytics",
+     "when": "state.kind === 'loading'",
+     "text": "testid=lp-analytics-loading",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "hook",
+     "line": 132,
+     "in": "LearningPathAnalytics",
+     "when": "state.kind === 'denied'",
+     "text": "testid=lp-analytics-denied",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 135,
+     "in": "LearningPathAnalytics",
+     "when": "state.kind === 'denied'",
+     "text": "Las analíticas de rutas de aprendizaje están disponibles solo para administración, consultores y equipo directivo."
+    },
+    {
+     "kind": "hook",
+     "line": 143,
+     "in": "LearningPathAnalytics",
+     "when": "state.kind === 'error'",
+     "text": "testid=lp-analytics-error",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 147,
+     "in": "LearningPathAnalytics",
+     "when": "state.kind === 'error'",
+     "text": "Error al cargar analíticas: {state.message}"
+    },
+    {
+     "kind": "text",
+     "line": 148,
+     "in": "LearningPathAnalytics",
+     "when": "state.kind === 'error' && state.relation",
+     "text": "(consulta fallida:"
+    },
+    {
+     "kind": "value",
+     "line": 148,
+     "in": "LearningPathAnalytics",
+     "when": "state.kind === 'error' && state.relation",
+     "text": "{state.relation}"
+    },
+    {
+     "kind": "hook",
+     "line": 166,
+     "in": "LearningPathAnalytics",
+     "text": "testid=lp-analytics-summary",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 167,
+     "in": "LearningPathAnalytics",
+     "text": "title: Rutas Totales",
+     "tag": "SummaryCard"
+    },
+    {
+     "kind": "piece",
+     "line": 168,
+     "in": "LearningPathAnalytics",
+     "text": "title: Usuarios Asignados",
+     "tag": "SummaryCard"
+    },
+    {
+     "kind": "piece",
+     "line": 169,
+     "in": "LearningPathAnalytics",
+     "text": "title: Completados",
+     "tag": "SummaryCard"
+    },
+    {
+     "kind": "piece",
+     "line": 170,
+     "in": "LearningPathAnalytics",
+     "text": "title: Tasa Promedio",
+     "tag": "SummaryCard"
+    },
+    {
+     "kind": "piece",
+     "line": 178,
+     "in": "LearningPathAnalytics",
+     "text": "title: Tiempo Total",
+     "tag": "SummaryCard"
+    },
+    {
+     "kind": "piece",
+     "line": 185,
+     "in": "LearningPathAnalytics",
+     "text": "title: En riesgo",
+     "tag": "SummaryCard"
+    },
+    {
+     "kind": "hook",
+     "line": 197,
+     "in": "LearningPathAnalytics",
+     "when": "data.summary.totalPaths === 0",
+     "text": "testid=lp-analytics-empty",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 200,
+     "in": "LearningPathAnalytics",
+     "when": "data.summary.totalPaths === 0",
+     "text": "Sin rutas de aprendizaje registradas: no hay datos que analizar en este período."
+    },
+    {
+     "kind": "hook",
+     "line": 205,
+     "in": "LearningPathAnalytics",
+     "when": "data.summary.totalPaths > 0 && data.summary.averageCompletionRate === null",
+     "text": "testid=lp-analytics-empty",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 208,
+     "in": "LearningPathAnalytics",
+     "when": "data.summary.totalPaths > 0 && data.summary.averageCompletionRate === null",
+     "text": "Tasa promedio no disponible: ninguna ruta tiene usuarios asignados todavía."
+    },
+    {
+     "kind": "hook",
+     "line": 215,
+     "in": "LearningPathAnalytics",
+     "when": "ratedPaths.length > 0",
+     "text": "testid=lp-analytics-performance-chart",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "heading",
+     "line": 216,
+     "in": "LearningPathAnalytics",
+     "when": "ratedPaths.length > 0",
+     "text": "Rendimiento por Ruta de Aprendizaje",
+     "level": 3
+    },
+    {
+     "kind": "chart",
+     "line": 220,
+     "in": "LearningPathAnalytics",
+     "when": "ratedPaths.length > 0",
+     "text": "BarChart",
+     "series": [
+      {
+       "tag": "Bar",
+       "dataKey": "completionRate",
+       "name": "Tasa de Completación (%)",
+       "fill": "#3b82f6",
+       "mapped": false
+      }
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 221,
+     "in": "LearningPathAnalytics",
+     "when": "ratedPaths.length > 0",
+     "text": "strokeDasharray: 3 3",
+     "tag": "CartesianGrid"
+    },
+    {
+     "kind": "piece",
+     "line": 224,
+     "in": "LearningPathAnalytics",
+     "when": "ratedPaths.length > 0",
+     "text": "textAnchor: end",
+     "tag": "XAxis"
+    },
+    {
+     "kind": "piece",
+     "line": 232,
+     "in": "LearningPathAnalytics",
+     "when": "ratedPaths.length > 0",
+     "text": "verticalAlign: top",
+     "tag": "Legend"
+    },
+    {
+     "kind": "hook",
+     "line": 240,
+     "in": "LearningPathAnalytics",
+     "when": "unratedPaths.length > 0",
+     "text": "testid=lp-analytics-unrated",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "heading",
+     "line": 241,
+     "in": "LearningPathAnalytics",
+     "when": "unratedPaths.length > 0",
+     "text": "Rutas sin población asignada",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 243,
+     "in": "LearningPathAnalytics",
+     "when": "unratedPaths.length > 0",
+     "text": "La tasa de completación no está definida para una ruta sin usuarios asignados; no se muestra como 0."
+    },
+    {
+     "kind": "value",
+     "line": 248,
+     "in": "LearningPathAnalytics",
+     "when": "unratedPaths.length > 0 && each unratedPaths",
+     "text": "{p.pathName}"
+    },
+    {
+     "kind": "text",
+     "line": 248,
+     "in": "LearningPathAnalytics",
+     "when": "unratedPaths.length > 0 && each unratedPaths",
+     "text": "(sin población asignada)"
+    },
+    {
+     "kind": "hook",
+     "line": 257,
+     "in": "LearningPathAnalytics",
+     "when": "data.completionTrends.length > 0",
+     "text": "testid=lp-analytics-trends",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "heading",
+     "line": 258,
+     "in": "LearningPathAnalytics",
+     "when": "data.completionTrends.length > 0",
+     "text": "Tendencias de Completación (Últimos {dateRange} días)",
+     "level": 3
+    },
+    {
+     "kind": "chart",
+     "line": 262,
+     "in": "LearningPathAnalytics",
+     "when": "data.completionTrends.length > 0",
+     "text": "LineChart",
+     "series": [
+      {
+       "tag": "Line",
+       "dataKey": "completions",
+       "name": "Completaciones de curso",
+       "fill": "#3b82f6",
+       "mapped": false
+      },
+      {
+       "tag": "Line",
+       "dataKey": "enrollments",
+       "name": "Nuevas asignaciones",
+       "fill": "#10b981",
+       "mapped": false
+      }
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 263,
+     "in": "LearningPathAnalytics",
+     "when": "data.completionTrends.length > 0",
+     "text": "strokeDasharray: 3 3",
+     "tag": "CartesianGrid"
+    },
+    {
+     "kind": "hook",
+     "line": 277,
+     "in": "LearningPathAnalytics",
+     "when": "data.lowPerformingPaths.length > 0",
+     "text": "testid=lp-analytics-low-performing",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "heading",
+     "line": 281,
+     "in": "LearningPathAnalytics",
+     "when": "data.lowPerformingPaths.length > 0",
+     "text": "Rutas con Bajo Rendimiento",
+     "level": 4
+    },
+    {
+     "kind": "text",
+     "line": 283,
+     "in": "LearningPathAnalytics",
+     "when": "data.lowPerformingPaths.length > 0",
+     "text": "Las siguientes rutas tienen tasas de completación inferiores al 40%:"
+    },
+    {
+     "kind": "value",
+     "line": 288,
+     "in": "LearningPathAnalytics",
+     "when": "data.lowPerformingPaths.length > 0 && each data.lowPerformingPaths",
+     "text": "{path.pathName}"
+    },
+    {
+     "kind": "text",
+     "line": 288,
+     "in": "LearningPathAnalytics",
+     "when": "data.lowPerformingPaths.length > 0 && each data.lowPerformingPaths",
+     "text": "completación ("
+    },
+    {
+     "kind": "text",
+     "line": 288,
+     "in": "LearningPathAnalytics",
+     "when": "data.lowPerformingPaths.length > 0 && each data.lowPerformingPaths",
+     "text": "usuarios asignados)"
+    },
+    {
+     "kind": "hook",
+     "line": 303,
+     "in": "PathSpecificView",
+     "text": "testid=lp-analytics-path",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "hook",
+     "line": 304,
+     "in": "PathSpecificView",
+     "text": "testid=lp-analytics-summary",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 305,
+     "in": "PathSpecificView",
+     "text": "title: Usuarios Asignados",
+     "tag": "SummaryCard"
+    },
+    {
+     "kind": "piece",
+     "line": 306,
+     "in": "PathSpecificView",
+     "text": "title: Completados",
+     "tag": "SummaryCard"
+    },
+    {
+     "kind": "piece",
+     "line": 307,
+     "in": "PathSpecificView",
+     "text": "title: Tasa de Completación",
+     "tag": "SummaryCard"
+    },
+    {
+     "kind": "piece",
+     "line": 315,
+     "in": "PathSpecificView",
+     "text": "title: Tiempo Promedio",
+     "tag": "SummaryCard"
+    },
+    {
+     "kind": "piece",
+     "line": 316,
+     "in": "PathSpecificView",
+     "text": "title: En riesgo",
+     "tag": "SummaryCard"
+    },
+    {
+     "kind": "hook",
+     "line": 326,
+     "in": "PathSpecificView",
+     "when": "data.pathInfo.totalAssignedUsers === 0",
+     "text": "testid=lp-analytics-empty",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 327,
+     "in": "PathSpecificView",
+     "when": "data.pathInfo.totalAssignedUsers === 0",
+     "text": "Esta ruta no tiene usuarios asignados: las tasas no están disponibles."
+    },
+    {
+     "kind": "heading",
+     "line": 332,
+     "in": "PathSpecificView",
+     "when": "data.courseProgression.length > 0",
+     "text": "Progresión por Curso",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 336,
+     "in": "PathSpecificView",
+     "when": "data.courseProgression.length > 0 && each data.courseProgression",
+     "text": "{c.courseName} / Curso sin título"
+    },
+    {
+     "kind": "text",
+     "line": 336,
+     "in": "PathSpecificView",
+     "when": "data.courseProgression.length > 0 && each data.courseProgression",
+     "text": "usuarios alcanzados · alcance"
+    },
+    {
+     "kind": "value",
+     "line": 362,
+     "in": "SummaryCard",
+     "text": "{title}"
+    },
+    {
+     "kind": "hook",
+     "line": 363,
+     "in": "SummaryCard",
+     "text": "testid={testId}",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "value",
+     "line": 363,
+     "in": "SummaryCard",
+     "text": "{value}"
+    },
+    {
+     "kind": "hook",
+     "line": 364,
+     "in": "SummaryCard",
+     "when": "hint",
+     "text": "testid={testId ? `${testId}-hint` : undefined}",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "value",
+     "line": 364,
+     "in": "SummaryCard",
+     "when": "hint",
+     "text": "{hint}"
+    },
+    {
+     "kind": "value",
+     "line": 366,
+     "in": "SummaryCard",
+     "text": "{icon}"
+    },
+    {
+     "kind": "string",
+     "line": 98,
+     "in": "LearningPathAnalytics",
+     "text": "Las analíticas de rutas de aprendizaje están temporalmente no disponibles."
+    },
+    {
+     "kind": "string",
+     "line": 113,
+     "in": "LearningPathAnalytics",
+     "text": "Error de conexión"
+    }
+   ],
+   "db": []
+  },
+  "components/reports/MobileUserCard.tsx": {
+   "usedBy": [
+    "/detailed-reports"
+   ],
+   "lines": 147,
+   "rows": [
+    {
+     "kind": "heading",
+     "line": 47,
+     "in": "MobileUserCard",
+     "text": "{user.user_name}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 48,
+     "in": "MobileUserCard",
+     "text": "{user.user_email}"
+    },
+    {
+     "kind": "value",
+     "line": 49,
+     "in": "MobileUserCard",
+     "text": "{user.user_role}"
+    },
+    {
+     "kind": "button",
+     "line": 53,
+     "in": "MobileUserCard",
+     "text": "Ver Detalles",
+     "action": "{() => onUserClick(user.user_id)}"
+    },
+    {
+     "kind": "value",
+     "line": 67,
+     "in": "MobileUserCard",
+     "when": "((user.school_name || user.generation_name || user.community_name)) && user.school_name",
+     "text": "{user.school_name}"
+    },
+    {
+     "kind": "value",
+     "line": 73,
+     "in": "MobileUserCard",
+     "when": "((user.school_name || user.generation_name || user.community_name)) && user.generation_name",
+     "text": "{user.generation_name}"
+    },
+    {
+     "kind": "value",
+     "line": 79,
+     "in": "MobileUserCard",
+     "when": "((user.school_name || user.generation_name || user.community_name)) && user.community_name",
+     "text": "{user.community_name}"
+    },
+    {
+     "kind": "text",
+     "line": 88,
+     "in": "MobileUserCard",
+     "text": "Progreso General"
+    },
+    {
+     "kind": "value",
+     "line": 89,
+     "in": "MobileUserCard",
+     "text": "{user.completion_percentage} %"
+    },
+    {
+     "kind": "text",
+     "line": 98,
+     "in": "MobileUserCard",
+     "text": "{user.total_lessons_completed} lecciones completadas"
+    },
+    {
+     "kind": "text",
+     "line": 104,
+     "in": "MobileUserCard",
+     "when": "user.engagement_quality === 'passive'",
+     "text": "⚠️ Revisar"
+    },
+    {
+     "kind": "text",
+     "line": 109,
+     "in": "MobileUserCard",
+     "when": "user.engagement_quality === 'high'",
+     "text": "✓ Activo"
+    },
+    {
+     "kind": "value",
+     "line": 118,
+     "in": "MobileUserCard",
+     "text": "{user.total_courses_enrolled}"
+    },
+    {
+     "kind": "text",
+     "line": 119,
+     "in": "MobileUserCard",
+     "text": "Cursos Inscritos"
+    },
+    {
+     "kind": "text",
+     "line": 120,
+     "in": "MobileUserCard",
+     "text": "{user.completed_courses} completados • {user.courses_in_progress} en progreso"
+    },
+    {
+     "kind": "value",
+     "line": 126,
+     "in": "MobileUserCard",
+     "text": "{formatTime(user.total_time_spent_mi…}"
+    },
+    {
+     "kind": "text",
+     "line": 129,
+     "in": "MobileUserCard",
+     "text": "Tiempo Total"
+    },
+    {
+     "kind": "text",
+     "line": 131,
+     "in": "MobileUserCard",
+     "when": "user.average_quiz_score",
+     "text": "Quiz: {user.average_quiz_score} %"
+    },
+    {
+     "kind": "text",
+     "line": 140,
+     "in": "MobileUserCard",
+     "text": "Última actividad:"
+    },
+    {
+     "kind": "value",
+     "line": 141,
+     "in": "MobileUserCard",
+     "text": "{formatDate(user.last_activity_date)}"
+    }
+   ],
+   "db": []
+  },
+  "components/reports/StatusBadge.tsx": {
+   "usedBy": [
+    "/reports"
+   ],
+   "lines": 90,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 68,
+     "in": "StatusBadge",
+     "when": "showProgress",
+     "text": "{config.icon}"
+    },
+    {
+     "kind": "value",
+     "line": 69,
+     "in": "StatusBadge",
+     "when": "showProgress",
+     "text": "{percentage} %"
+    },
+    {
+     "kind": "value",
+     "line": 86,
+     "in": "StatusBadge",
+     "text": "{config.icon}"
+    },
+    {
+     "kind": "string",
+     "line": 24,
+     "in": "StatusBadge",
+     "text": "Excelente"
+    },
+    {
+     "kind": "string",
+     "line": 31,
+     "in": "StatusBadge",
+     "text": "Bueno"
+    },
+    {
+     "kind": "string",
+     "line": 38,
+     "in": "StatusBadge",
+     "text": "Regular"
+    },
+    {
+     "kind": "string",
+     "line": 45,
+     "in": "StatusBadge",
+     "text": "Bajo"
+    }
+   ],
+   "db": []
+  },
+  "components/reports/UserDetailModal.tsx": {
+   "usedBy": [
+    "/detailed-reports",
+    "/reports"
+   ],
+   "lines": 645,
+   "rows": [
+    {
+     "kind": "toast",
+     "line": 152,
+     "in": "fetchUserDetails",
+     "when": "!(response.ok)",
+     "text": "Error al cargar detalles del usuario",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 156,
+     "in": "fetchUserDetails",
+     "text": "Error al cargar detalles del usuario",
+     "variant": "error"
+    },
+    {
+     "kind": "list",
+     "line": 180,
+     "in": "getRoleDisplayName",
+     "text": "roleMap",
+     "items": [
+      "Administrador",
+      "Equipo Directivo",
+      "Líder de Generación",
+      "Líder de Comunidad",
+      "Consultor",
+      "Docente"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 192,
+     "in": "getAssignmentTypeDisplayName",
+     "text": "typeMap",
+     "items": [
+      "Monitoreo",
+      "Mentoría",
+      "Evaluación",
+      "Apoyo"
+     ]
+    },
+    {
+     "kind": "gate",
+     "line": 201,
+     "in": "UserDetailModal",
+     "text": "!isOpen"
+    },
+    {
+     "kind": "popup",
+     "line": 204,
+     "in": "UserDetailModal",
+     "text": "{userDetails.basic_info.firs…} {userDetails.basic_info.last…} / Detalles del Usuario",
+     "how": "written in this file"
+    },
+    {
+     "kind": "heading",
+     "line": 210,
+     "in": "UserDetailModal",
+     "text": "{userDetails.basic_info.firs…} {userDetails.basic_info.last…} / Detalles del Usuario",
+     "level": 2
+    },
+    {
+     "kind": "value",
+     "line": 217,
+     "in": "UserDetailModal",
+     "when": "userDetails?.basic_info",
+     "text": "{getRoleDisplayName(userDetails.basi…} • {userDetails.basic_info.email}"
+    },
+    {
+     "kind": "button",
+     "line": 222,
+     "in": "UserDetailModal",
+     "text": "",
+     "action": "{onClose}"
+    },
+    {
+     "kind": "piece",
+     "line": 239,
+     "in": "UserDetailModal",
+     "when": "loading && each Array.from({ length: 4 })",
+     "text": "",
+     "tag": "LoadingSkeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 242,
+     "in": "UserDetailModal",
+     "when": "loading",
+     "text": "",
+     "tag": "LoadingSkeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 243,
+     "in": "UserDetailModal",
+     "when": "loading",
+     "text": "",
+     "tag": "LoadingSkeleton"
+    },
+    {
+     "kind": "value",
+     "line": 251,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails",
+     "text": "{userDetails.summary.total_courses}"
+    },
+    {
+     "kind": "text",
+     "line": 254,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails",
+     "text": "Cursos Inscritos"
+    },
+    {
+     "kind": "value",
+     "line": 257,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails",
+     "text": "{userDetails.summary.completed_cours…}"
+    },
+    {
+     "kind": "text",
+     "line": 260,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails",
+     "text": "Cursos Completados"
+    },
+    {
+     "kind": "value",
+     "line": 263,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails",
+     "text": "{formatPercentage(userDetails.summar…}"
+    },
+    {
+     "kind": "text",
+     "line": 266,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails",
+     "text": "Tasa Promedio"
+    },
+    {
+     "kind": "value",
+     "line": 269,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails",
+     "text": "{formatTime(userDetails.summary.tota…}"
+    },
+    {
+     "kind": "text",
+     "line": 272,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails",
+     "text": "Tiempo Total"
+    },
+    {
+     "kind": "button",
+     "line": 286,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && each [ { id: 'overview', label: 'Resumen', icon: '📊' …",
+     "text": "{tab.icon} {tab.label}",
+     "action": "{() => setActiveTab(tab.id)}"
+    },
+    {
+     "kind": "heading",
+     "line": 309,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'overview'",
+     "text": "Información Personal",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 312,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'overview'",
+     "text": "Nombre Completo:"
+    },
+    {
+     "kind": "value",
+     "line": 313,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'overview'",
+     "text": "{userDetails.basic_info.first_name} {userDetails.basic_info.last_name}"
+    },
+    {
+     "kind": "text",
+     "line": 316,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'overview'",
+     "text": "Email:"
+    },
+    {
+     "kind": "value",
+     "line": 317,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'overview'",
+     "text": "{userDetails.basic_info.email}"
+    },
+    {
+     "kind": "text",
+     "line": 320,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'overview'",
+     "text": "Rol:"
+    },
+    {
+     "kind": "value",
+     "line": 321,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'overview'",
+     "text": "{getRoleDisplayName(userDetails.basi…}"
+    },
+    {
+     "kind": "text",
+     "line": 325,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'overview' && userDetails.basic_info.phone",
+     "text": "Teléfono:"
+    },
+    {
+     "kind": "value",
+     "line": 326,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'overview' && userDetails.basic_info.phone",
+     "text": "{userDetails.basic_info.phone}"
+    },
+    {
+     "kind": "text",
+     "line": 331,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'overview' && userDetails.basic_info.schools",
+     "text": "Escuela:"
+    },
+    {
+     "kind": "value",
+     "line": 332,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'overview' && userDetails.basic_info.schools",
+     "text": "{userDetails.basic_info.schools.name}"
+    },
+    {
+     "kind": "text",
+     "line": 337,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'overview' && userDetails.basic_info.generations",
+     "text": "Generación:"
+    },
+    {
+     "kind": "value",
+     "line": 338,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'overview' && userDetails.basic_info.generations",
+     "text": "{userDetails.basic_info.generations.…}"
+    },
+    {
+     "kind": "text",
+     "line": 343,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'overview' && userDetails.basic_info.growth_communities",
+     "text": "Comunidad:"
+    },
+    {
+     "kind": "value",
+     "line": 344,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'overview' && userDetails.basic_info.growth_communities",
+     "text": "{userDetails.basic_info.growth_commu…}"
+    },
+    {
+     "kind": "heading",
+     "line": 352,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'overview'",
+     "text": "Actividad Reciente",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 357,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'overview' && each userDetails.recent_activity.slice(0, 5)",
+     "text": "{activity.description}"
+    },
+    {
+     "kind": "value",
+     "line": 358,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'overview' && each userDetails.recent_activity.slice(0, 5)",
+     "text": "{new Date(activity.completed_at || a…}"
+    },
+    {
+     "kind": "text",
+     "line": 362,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'overview' && each userDetails.recent_activity.slice(0, 5)",
+     "text": "Lección / Quiz"
+    },
+    {
+     "kind": "heading",
+     "line": 381,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'courses'",
+     "text": "Progreso de Cursos",
+     "level": 3
+    },
+    {
+     "kind": "column",
+     "line": 387,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'courses'",
+     "text": "Curso"
+    },
+    {
+     "kind": "column",
+     "line": 388,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'courses'",
+     "text": "Nivel"
+    },
+    {
+     "kind": "column",
+     "line": 389,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'courses'",
+     "text": "Progreso"
+    },
+    {
+     "kind": "column",
+     "line": 390,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'courses'",
+     "text": "Última Visita"
+    },
+    {
+     "kind": "column",
+     "line": 391,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'courses'",
+     "text": "Inscrito"
+    },
+    {
+     "kind": "text",
+     "line": 398,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'courses' && each userDetails.course_progress",
+     "text": "{course.courses?.title} / Curso no encontrado"
+    },
+    {
+     "kind": "text",
+     "line": 401,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'courses' && each userDetails.course_progress",
+     "text": "{course.courses?.difficulty_level} / Sin nivel"
+    },
+    {
+     "kind": "value",
+     "line": 413,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'courses' && each userDetails.course_progress",
+     "text": "{formatPercentage(course.completion_…}"
+    },
+    {
+     "kind": "text",
+     "line": 418,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'courses' && each userDetails.course_progress",
+     "text": "{new Date(course.last_accessed).toLo…} / Nunca"
+    },
+    {
+     "kind": "value",
+     "line": 421,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'courses' && each userDetails.course_progress",
+     "text": "{new Date(course.enrolled_at).toLoca…}"
+    },
+    {
+     "kind": "heading",
+     "line": 435,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'courses' && userDetails.quiz_results.length > 0",
+     "text": "Resultados de Evaluaciones",
+     "level": 3
+    },
+    {
+     "kind": "column",
+     "line": 441,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'courses' && userDetails.quiz_results.length > 0",
+     "text": "Lección"
+    },
+    {
+     "kind": "column",
+     "line": 442,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'courses' && userDetails.quiz_results.length > 0",
+     "text": "Curso"
+    },
+    {
+     "kind": "column",
+     "line": 443,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'courses' && userDetails.quiz_results.length > 0",
+     "text": "Puntaje"
+    },
+    {
+     "kind": "column",
+     "line": 444,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'courses' && userDetails.quiz_results.length > 0",
+     "text": "Porcentaje"
+    },
+    {
+     "kind": "column",
+     "line": 445,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'courses' && userDetails.quiz_results.length > 0",
+     "text": "Fecha"
+    },
+    {
+     "kind": "text",
+     "line": 452,
+     "in": "UserDetailModal",
+     "when": "userDetails && activeTab === 'courses' && userDetails.quiz_results.length > 0 && each userDetails.quiz_results.slice(0, 10)",
+     "text": "{quiz.lessons?.title} / Lección no encontrada"
+    },
+    {
+     "kind": "text",
+     "line": 453,
+     "in": "UserDetailModal",
+     "when": "userDetails && activeTab === 'courses' && userDetails.quiz_results.length > 0 && each userDetails.quiz_results.slice(0, 10)",
+     "text": "{quiz.lessons?.modules?.title} / Módulo no encontrado"
+    },
+    {
+     "kind": "text",
+     "line": 455,
+     "in": "UserDetailModal",
+     "when": "userDetails && activeTab === 'courses' && userDetails.quiz_results.length > 0 && each userDetails.quiz_results.slice(0, 10)",
+     "text": "{quiz.lessons?.modules?.courses?.tit…} / Curso no encontrado"
+    },
+    {
+     "kind": "value",
+     "line": 458,
+     "in": "UserDetailModal",
+     "when": "userDetails && activeTab === 'courses' && userDetails.quiz_results.length > 0 && each userDetails.quiz_results.slice(0, 10)",
+     "text": "{quiz.score} / {quiz.max_score}"
+    },
+    {
+     "kind": "value",
+     "line": 462,
+     "in": "UserDetailModal",
+     "when": "userDetails && activeTab === 'courses' && userDetails.quiz_results.length > 0 && each userDetails.quiz_results.slice(0, 10)",
+     "text": "{formatPercentage(quiz.percentage_sc…}"
+    },
+    {
+     "kind": "value",
+     "line": 466,
+     "in": "UserDetailModal",
+     "when": "userDetails && activeTab === 'courses' && userDetails.quiz_results.length > 0 && each userDetails.quiz_results.slice(0, 10)",
+     "text": "{new Date(quiz.attempted_at).toLocal…}"
+    },
+    {
+     "kind": "heading",
+     "line": 484,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'activity'",
+     "text": "Historial de Actividad",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 490,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'activity' && each userDetails.recent_activity",
+     "text": "✓ / ?"
+    },
+    {
+     "kind": "value",
+     "line": 498,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'activity' && each userDetails.recent_activity",
+     "text": "{activity.description}"
+    },
+    {
+     "kind": "value",
+     "line": 499,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'activity' && each userDetails.recent_activity",
+     "text": "{new Date(activity.completed_at || a…}"
+    },
+    {
+     "kind": "heading",
+     "line": 513,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'activity' && userDetails.lesson_completions.length > 0",
+     "text": "Lecciones Completadas",
+     "level": 3
+    },
+    {
+     "kind": "column",
+     "line": 519,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'activity' && userDetails.lesson_completions.length > 0",
+     "text": "Lección"
+    },
+    {
+     "kind": "column",
+     "line": 520,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'activity' && userDetails.lesson_completions.length > 0",
+     "text": "Curso"
+    },
+    {
+     "kind": "column",
+     "line": 521,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'activity' && userDetails.lesson_completions.length > 0",
+     "text": "Tiempo"
+    },
+    {
+     "kind": "column",
+     "line": 522,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'activity' && userDetails.lesson_completions.length > 0",
+     "text": "Completado"
+    },
+    {
+     "kind": "text",
+     "line": 529,
+     "in": "UserDetailModal",
+     "when": "userDetails && activeTab === 'activity' && userDetails.lesson_completions.length > 0 && each userDetails.lesson_completions.slice(0, 10)",
+     "text": "{lesson.lessons?.title} / Lección no encontrada"
+    },
+    {
+     "kind": "text",
+     "line": 530,
+     "in": "UserDetailModal",
+     "when": "userDetails && activeTab === 'activity' && userDetails.lesson_completions.length > 0 && each userDetails.lesson_completions.slice(0, 10)",
+     "text": "Orden: {lesson.lessons?.order_index} / N/A"
+    },
+    {
+     "kind": "text",
+     "line": 532,
+     "in": "UserDetailModal",
+     "when": "userDetails && activeTab === 'activity' && userDetails.lesson_completions.length > 0 && each userDetails.lesson_completions.slice(0, 10)",
+     "text": "{lesson.lessons?.modules?.courses?.t…} / Curso no encontrado"
+    },
+    {
+     "kind": "value",
+     "line": 535,
+     "in": "UserDetailModal",
+     "when": "userDetails && activeTab === 'activity' && userDetails.lesson_completions.length > 0 && each userDetails.lesson_completions.slice(0, 10)",
+     "text": "{formatTime(lesson.time_spent_minute…}"
+    },
+    {
+     "kind": "value",
+     "line": 538,
+     "in": "UserDetailModal",
+     "when": "userDetails && activeTab === 'activity' && userDetails.lesson_completions.length > 0 && each userDetails.lesson_completions.slice(0, 10)",
+     "text": "{new Date(lesson.completed_at).toLoc…}"
+    },
+    {
+     "kind": "heading",
+     "line": 557,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'consultants' && userDetails.consultant_assignments.length > 0",
+     "text": "Asignaciones de Consultoría",
+     "level": 3
+    },
+    {
+     "kind": "heading",
+     "line": 565,
+     "in": "UserDetailModal",
+     "when": "userDetails && activeTab === 'consultants' && userDetails.consultant_assignments.length > 0 && each userDetails.consultant_assignments",
+     "text": "{assignment.consultant.first_name} {assignment.consultant.last_name}",
+     "level": 4
+    },
+    {
+     "kind": "value",
+     "line": 568,
+     "in": "UserDetailModal",
+     "when": "userDetails && activeTab === 'consultants' && userDetails.consultant_assignments.length > 0 && each userDetails.consultant_assignments",
+     "text": "{assignment.consultant.email}"
+    },
+    {
+     "kind": "text",
+     "line": 570,
+     "in": "UserDetailModal",
+     "when": "userDetails && activeTab === 'consultants' && userDetails.consultant_assignments.length > 0 && each userDetails.consultant_assignments",
+     "text": "Activo / Inactivo"
+    },
+    {
+     "kind": "text",
+     "line": 580,
+     "in": "UserDetailModal",
+     "when": "userDetails && activeTab === 'consultants' && userDetails.consultant_assignments.length > 0 && each userDetails.consultant_assignments",
+     "text": "Tipo:"
+    },
+    {
+     "kind": "value",
+     "line": 581,
+     "in": "UserDetailModal",
+     "when": "userDetails && activeTab === 'consultants' && userDetails.consultant_assignments.length > 0 && each userDetails.consultant_assignments",
+     "text": "{getAssignmentTypeDisplayName(assign…}"
+    },
+    {
+     "kind": "text",
+     "line": 584,
+     "in": "UserDetailModal",
+     "when": "userDetails && activeTab === 'consultants' && userDetails.consultant_assignments.length > 0 && each userDetails.consultant_assignments",
+     "text": "Inicio:"
+    },
+    {
+     "kind": "value",
+     "line": 585,
+     "in": "UserDetailModal",
+     "when": "userDetails && activeTab === 'consultants' && userDetails.consultant_assignments.length > 0 && each userDetails.consultant_assignments",
+     "text": "{new Date(assignment.start_date).toL…}"
+    },
+    {
+     "kind": "text",
+     "line": 588,
+     "in": "UserDetailModal",
+     "when": "userDetails && activeTab === 'consultants' && userDetails.consultant_assignments.length > 0 && each userDetails.consultant_assignments",
+     "text": "Fin:"
+    },
+    {
+     "kind": "value",
+     "line": 589,
+     "in": "UserDetailModal",
+     "when": "userDetails && activeTab === 'consultants' && userDetails.consultant_assignments.length > 0 && each userDetails.consultant_assignments",
+     "text": "{new Date(assignment.end_date).toLoc…}"
+    },
+    {
+     "kind": "value",
+     "line": 594,
+     "in": "UserDetailModal",
+     "when": "activeTab === 'consultants' && userDetails.consultant_assignments.length > 0 && each userDetails.consultant_assignments && assignment.notes",
+     "text": "{assignment.notes}"
+    },
+    {
+     "kind": "heading",
+     "line": 609,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'consultants' && !(userDetails.consultant_assignments.length > 0)",
+     "text": "Sin Asignaciones de Consultoría",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 610,
+     "in": "UserDetailModal",
+     "when": "!(loading) && userDetails && activeTab === 'consultants' && !(userDetails.consultant_assignments.length > 0)",
+     "text": "Este usuario no tiene consultores asignados actualmente."
+    },
+    {
+     "kind": "heading",
+     "line": 624,
+     "in": "UserDetailModal",
+     "when": "!(loading) && !(userDetails)",
+     "text": "Error al Cargar Datos",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 625,
+     "in": "UserDetailModal",
+     "when": "!(loading) && !(userDetails)",
+     "text": "No se pudieron cargar los detalles del usuario."
+    },
+    {
+     "kind": "button",
+     "line": 633,
+     "in": "UserDetailModal",
+     "text": "Cerrar",
+     "action": "{onClose}"
+    },
+    {
+     "kind": "string",
+     "line": 281,
+     "in": "UserDetailModal",
+     "text": "Resumen"
+    },
+    {
+     "kind": "string",
+     "line": 284,
+     "in": "UserDetailModal",
+     "text": "Consultorías"
+    },
+    {
+     "kind": "list",
+     "line": 163,
+     "in": "formatTime",
+     "text": "formatTime()",
+     "items": [
+      "0h 0m"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "hooks/useDebounce.ts": {
+   "usedBy": [
+    "/detailed-reports"
+   ],
+   "lines": 19,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 7,
+     "in": "useDebounce",
+     "text": "setTimeout(…, delay)",
+     "type": "timer"
+    }
+   ],
+   "db": []
+  },
+  "lib/exportUtils.ts": {
+   "usedBy": [
+    "/reporte-horas",
+    "/reports"
+   ],
+   "lines": 240,
+   "rows": [
+    {
+     "kind": "download",
+     "line": 71,
+     "in": "exportToCSV",
+     "text": "URL.createObjectURL()",
+     "how": "createObjectURL"
+    },
+    {
+     "kind": "download",
+     "line": 101,
+     "in": "exportToExcel",
+     "text": "URL.createObjectURL()",
+     "how": "createObjectURL"
+    },
+    {
+     "kind": "message",
+     "line": 110,
+     "in": "exportToExcel",
+     "text": "Error al exportar a Excel",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "download",
+     "line": 178,
+     "in": "exportToPDF",
+     "text": "doc.save()",
+     "how": "save"
+    },
+    {
+     "kind": "message",
+     "line": 181,
+     "in": "exportToPDF",
+     "text": "Error al exportar a PDF",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "list",
+     "line": 203,
+     "in": "exportReport",
+     "text": "exportData",
+     "items": [
+      "Reporte FNE - {tabName}",
+      "Sistema Genera"
+     ]
+    },
+    {
+     "kind": "message",
+     "line": 227,
+     "in": "exportReport",
+     "text": "Tipo de exportación no soportado",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "string",
+     "line": 132,
+     "in": "ReportExporter",
+     "text": "Período: {metadata.dateRange}"
+    },
+    {
+     "kind": "string",
+     "line": 137,
+     "in": "ReportExporter",
+     "text": "Generado por: {metadata.generatedBy}"
+    },
+    {
+     "kind": "string",
+     "line": 142,
+     "in": "ReportExporter",
+     "text": "Total de registros: {metadata.totalRecords}"
+    },
+    {
+     "kind": "string",
+     "line": 146,
+     "in": "ReportExporter",
+     "text": "Fecha de generación: {new Date().toLocaleDateStri…}"
+    },
+    {
+     "kind": "string",
+     "line": 230,
+     "in": "ReportExporter",
+     "text": "Reporte exportado como {type.toUpperCase()}"
+    },
+    {
+     "kind": "string",
+     "line": 235,
+     "in": "ReportExporter",
+     "text": "Error al exportar reporte"
+    },
+    {
+     "kind": "list",
+     "line": 30,
+     "in": "csvEscape",
+     "text": "csvEscape()",
+     "items": [
+      "\"{safeValue.replace(/\"/g, '\"\"…}\""
+     ]
+    }
+   ],
+   "db": []
+  },
+  "lib/types/hour-tracking.types.ts": {
+   "usedBy": [
+    "/reporte-horas"
+   ],
+   "lines": 387,
+   "rows": [
+    {
+     "kind": "string",
+     "line": 338,
+     "in": "PARTIAL_SESSION_DETAIL_NOTICE",
+     "text": "Detalle parcial: se muestran las 500 sesiones más recientes de esta categoría."
+    },
+    {
+     "kind": "string",
+     "line": 339,
+     "in": "PARTIAL_SESSION_DETAIL_NOTICE",
+     "text": "Hay sesiones anteriores no incluidas. Los totales de horas corresponden al registro"
+    }
+   ],
+   "db": []
+  },
+  "types/roles.ts": {
+   "usedBy": [
+    "/detailed-reports",
+    "/reporte-horas",
+    "/reports"
+   ],
+   "lines": 515,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 305,
+     "text": "ROLE_NAMES",
+     "items": [
+      "Administrador Global",
+      "Consultor FNE",
+      "Equipo Directivo",
+      "Líder de Generación",
+      "Líder de Comunidad",
+      "Supervisor de Red",
+      "Community Manager",
+      "Docente",
+      "Encargado de Licitacion"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 318,
+     "text": "ROLE_DESCRIPTIONS",
+     "items": [
+      "Staff de FNE con control total de la plataforma. Pueden pertenecer a comunidades para colaboración.",
+      "Consultores FNE asignados a colegios específicos. Pueden pertenecer a comunidades para colaboración.",
+      "Administradores a nivel de colegio. Pueden pertenecer a comunidades para colaboración.",
+      "Líderes de generaciones Tractor/Innova. Pueden pertenecer a comunidades para colaboración.",
+      "Líderes de Comunidades de Crecimiento (2-16 miembros). Crean automáticamente su propia comunidad.",
+      "Supervisores con acceso limitado a reportes de una red específica de colegios. Pueden inscribirse en cursos como estudiantes.",
+      "Gestores de comunidad con acceso a panel, perfil, aprendizaje, cursos y rendición de gastos.",
+      "Docentes participantes en cursos. Pueden pertenecer a comunidades para colaboración.",
+      "Encargados de procesos de licitacion en establecimientos educacionales. Gestionan el proceso de contratacion de ATEs bajo Ley SEP."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 342,
+     "text": "ROLE_ORGANIZATIONAL_REQUIREMENTS",
+     "items": [
+      "Global role - no organizational scope required",
+      "Must be assigned to a specific school",
+      "Must be assigned to a specific school and generation",
+      "Must be assigned to a school (community auto-created)",
+      "Network-level role - no specific school required",
+      "Content management role - no organizational scope required",
+      "Must be assigned to a specific school for procurement management"
+     ]
+    },
+    {
+     "kind": "string",
+     "line": 413,
+     "in": "validateRoleAssignment",
+     "text": "Unknown role type: {roleType}"
+    },
+    {
+     "kind": "string",
+     "line": 421,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a school assignment"
+    },
+    {
+     "kind": "string",
+     "line": 429,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a generation assignment"
+    },
+    {
+     "kind": "string",
+     "line": 437,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a community assignment"
+    }
+   ],
+   "db": []
+  },
+  "utils/insightGenerator.ts": {
+   "usedBy": [
+    "/reports"
+   ],
+   "lines": 354,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 114,
+     "in": "generateTrendInsights",
+     "when": "kpiData?.trends && (activeUsers > 5 || avgCompletionRate > 5)",
+     "text": "mainTrend",
+     "items": [
+      "participación / completación"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 127,
+     "in": "generateTrendInsights",
+     "when": "kpiData?.trends && (activeUsers < -10 || avgCompletionRate < -10)",
+     "text": "problemArea",
+     "items": [
+      "participación / completación"
+     ]
+    },
+    {
+     "kind": "string",
+     "line": 67,
+     "in": "InsightGenerator",
+     "text": "Excelente Rendimiento"
+    },
+    {
+     "kind": "string",
+     "line": 76,
+     "in": "InsightGenerator",
+     "text": "Buen Rendimiento"
+    },
+    {
+     "kind": "string",
+     "line": 79,
+     "in": "InsightGenerator",
+     "text": "Continuar con estrategias actuales y apoyar a usuarios con menor rendimiento"
+    },
+    {
+     "kind": "string",
+     "line": 93,
+     "in": "InsightGenerator",
+     "text": "Rendimiento Requiere Atención"
+    },
+    {
+     "kind": "string",
+     "line": 96,
+     "in": "InsightGenerator",
+     "text": "Implementar sesiones de apoyo y seguimiento personalizado"
+    },
+    {
+     "kind": "string",
+     "line": 119,
+     "in": "InsightGenerator",
+     "text": "Tendencia Positiva"
+    },
+    {
+     "kind": "string",
+     "line": 120,
+     "in": "InsightGenerator",
+     "text": "La {mainTrend} muestra una mejora del {trendValue.toFixed(1)}% respecto al período anterior"
+    },
+    {
+     "kind": "string",
+     "line": 132,
+     "in": "InsightGenerator",
+     "text": "Tendencia Decreciente"
+    },
+    {
+     "kind": "string",
+     "line": 133,
+     "in": "InsightGenerator",
+     "text": "La {problemArea} ha disminuido {Math.abs(trendValue).toFixe…}% en las últimas semanas"
+    },
+    {
+     "kind": "string",
+     "line": 135,
+     "in": "InsightGenerator",
+     "text": "Investigar causas de la disminución en {problemArea} y tomar acciones correctivas"
+    },
+    {
+     "kind": "string",
+     "line": 143,
+     "in": "InsightGenerator",
+     "text": "Mejora en Engagement"
+    },
+    {
+     "kind": "string",
+     "line": 162,
+     "in": "InsightGenerator",
+     "text": "Aceleración en Completación"
+    },
+    {
+     "kind": "string",
+     "line": 163,
+     "in": "InsightGenerator",
+     "text": "Las completaciones de lecciones han aumentado significativamente en las últimas semanas"
+    },
+    {
+     "kind": "string",
+     "line": 187,
+     "in": "InsightGenerator",
+     "text": "Alta Participación"
+    },
+    {
+     "kind": "string",
+     "line": 194,
+     "in": "InsightGenerator",
+     "text": "Baja Participación"
+    },
+    {
+     "kind": "string",
+     "line": 195,
+     "in": "InsightGenerator",
+     "text": "Solo {engagementRate.toFixed(1)}% de usuarios han estado activos"
+    },
+    {
+     "kind": "string",
+     "line": 197,
+     "in": "InsightGenerator",
+     "text": "Implementar estrategias de reactivación y comunicación directa"
+    },
+    {
+     "kind": "string",
+     "line": 205,
+     "in": "InsightGenerator",
+     "text": "Excelente Tasa de Completación"
+    },
+    {
+     "kind": "string",
+     "line": 206,
+     "in": "InsightGenerator",
+     "text": "La tasa promedio de completación es del {avgCompletionRate.toFixed(1)}%"
+    },
+    {
+     "kind": "string",
+     "line": 212,
+     "in": "InsightGenerator",
+     "text": "Completación Crítica"
+    },
+    {
+     "kind": "string",
+     "line": 213,
+     "in": "InsightGenerator",
+     "text": "La tasa de completación promedio es solo del {avgCompletionRate.toFixed(1)}%"
+    },
+    {
+     "kind": "string",
+     "line": 215,
+     "in": "InsightGenerator",
+     "text": "Revisar dificultad del contenido y proporcionar más apoyo"
+    },
+    {
+     "kind": "string",
+     "line": 234,
+     "in": "InsightGenerator",
+     "text": "Dedicación de Tiempo Adecuada"
+    },
+    {
+     "kind": "string",
+     "line": 235,
+     "in": "InsightGenerator",
+     "text": "Los usuarios dedican en promedio {avgTimePerUser.toFixed(1)} horas por período"
+    },
+    {
+     "kind": "string",
+     "line": 241,
+     "in": "InsightGenerator",
+     "text": "Tiempo de Estudio Insuficiente"
+    },
+    {
+     "kind": "string",
+     "line": 244,
+     "in": "InsightGenerator",
+     "text": "Motivar mayor dedicación de tiempo y facilitar acceso a contenidos"
+    },
+    {
+     "kind": "string",
+     "line": 259,
+     "in": "InsightGenerator",
+     "text": "Incremento en Tiempo de Estudio"
+    },
+    {
+     "kind": "string",
+     "line": 260,
+     "in": "InsightGenerator",
+     "text": "El tiempo total de estudio aumentó {timeChange.toFixed(1)}% esta semana"
+    },
+    {
+     "kind": "string",
+     "line": 266,
+     "in": "InsightGenerator",
+     "text": "Disminución en Tiempo de Estudio"
+    },
+    {
+     "kind": "string",
+     "line": 267,
+     "in": "InsightGenerator",
+     "text": "El tiempo de estudio disminuyó {Math.abs(timeChange).toFixe…}% esta semana"
+    },
+    {
+     "kind": "string",
+     "line": 269,
+     "in": "InsightGenerator",
+     "text": "Investigar barreras y proporcionar flexibilidad en horarios"
+    },
+    {
+     "kind": "string",
+     "line": 299,
+     "in": "InsightGenerator",
+     "text": "Escuela Destacada"
+    },
+    {
+     "kind": "string",
+     "line": 300,
+     "in": "InsightGenerator",
+     "text": "{topSchool.name} lidera con {topSchool.completionRate}% de completación"
+    },
+    {
+     "kind": "string",
+     "line": 302,
+     "in": "InsightGenerator",
+     "text": "Analizar y replicar mejores prácticas de esta escuela"
+    },
+    {
+     "kind": "string",
+     "line": 310,
+     "in": "InsightGenerator",
+     "text": "Escuela Requiere Apoyo"
+    },
+    {
+     "kind": "string",
+     "line": 311,
+     "in": "InsightGenerator",
+     "text": "{bottomSchool.name} tiene solo {bottomSchool.completionRate}% de completación"
+    },
+    {
+     "kind": "string",
+     "line": 313,
+     "in": "InsightGenerator",
+     "text": "Proporcionar apoyo especializado y recursos adicionales"
+    },
+    {
+     "kind": "string",
+     "line": 325,
+     "in": "InsightGenerator",
+     "text": "Disparidad Entre Escuelas"
+    },
+    {
+     "kind": "string",
+     "line": 326,
+     "in": "InsightGenerator",
+     "text": "Existe una brecha de {gap.toFixed(1)}% entre la mejor y peor escuela"
+    },
+    {
+     "kind": "string",
+     "line": 328,
+     "in": "InsightGenerator",
+     "text": "Implementar programa de nivelación y intercambio de experiencias"
+    }
+   ],
+   "db": []
+  },
+  "utils/reportFilters.ts": {
+   "usedBy": [
+    "/detailed-reports"
+   ],
+   "lines": 155,
+   "rows": [
+    {
+     "kind": "string",
+     "line": 141,
+     "in": "getReportScopeDescription",
+     "text": "Vista global de toda la plataforma"
+    },
+    {
+     "kind": "string",
+     "line": 143,
+     "in": "getReportScopeDescription",
+     "text": "Estudiantes bajo tu supervisión"
+    },
+    {
+     "kind": "string",
+     "line": 145,
+     "in": "getReportScopeDescription",
+     "text": "Escuelas de tu red asignada"
+    },
+    {
+     "kind": "string",
+     "line": 147,
+     "in": "getReportScopeDescription",
+     "text": "Todos los usuarios de tu escuela"
+    },
+    {
+     "kind": "string",
+     "line": 149,
+     "in": "getReportScopeDescription",
+     "text": "Usuarios de tu generación"
+    },
+    {
+     "kind": "string",
+     "line": 151,
+     "in": "getReportScopeDescription",
+     "text": "Miembros de tu comunidad de crecimiento"
+    },
+    {
+     "kind": "string",
+     "line": 153,
+     "in": "getReportScopeDescription",
+     "text": "Sin acceso a reportes"
+    },
+    {
+     "kind": "list",
+     "line": 141,
+     "in": "getReportScopeDescription",
+     "text": "getReportScopeDescription()",
+     "items": [
+      "Vista global de toda la plataforma",
+      "Estudiantes bajo tu supervisión",
+      "Escuelas de tu red asignada",
+      "Todos los usuarios de tu escuela",
+      "Usuarios de tu generación",
+      "Miembros de tu comunidad de crecimiento",
+      "Sin acceso a reportes"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "utils/roleUtils.ts": {
+   "usedBy": [
+    "/detailed-reports",
+    "/reporte-horas",
+    "/reports"
+   ],
+   "lines": 1605,
+   "rows": [
+    {
+     "kind": "access",
+     "line": 1186,
+     "in": "getUserPrimaryRole",
+     "text": "userRoles = await getUserRoles(supabase, userId)",
+     "via": "getUserRoles"
+    },
+    {
+     "kind": "access",
+     "line": 1187,
+     "in": "getUserPrimaryRole",
+     "text": "highestRole = getHighestRole(userRoles)",
+     "via": "getHighestRole"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:generations",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:growth_communities",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:schools",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles_cache",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  }
+ },
+ "api": [
+  {
+   "file": "pages/api/reports/analytics-data.ts",
+   "route": "/api/reports/analytics-data",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "auth.getUser"
+   ],
+   "calledBy": [
+    "/detailed-reports",
+    "/reports"
+   ],
+   "referencedIn": [
+    "components/reports/AnalyticsDashboard.tsx",
+    "components/reports/AnalyticsVisualization.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/reports/community.ts",
+   "route": "/api/reports/community",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "auth.getUser"
+   ],
+   "calledBy": [
+    "/reports"
+   ],
+   "referencedIn": [
+    "pages/reports.tsx",
+    "tests/e2e/urgent-anonymous-boundaries.spec.ts",
+    "tests/e2e/urgent-anonymous-current.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/reports/course-analytics.ts",
+   "route": "/api/reports/course-analytics",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "auth.getUser"
+   ],
+   "calledBy": [
+    "/reports"
+   ],
+   "referencedIn": [
+    "pages/reports.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/reports/detailed.ts",
+   "route": "/api/reports/detailed",
+   "methods": [
+    "POST"
+   ],
+   "guards": [
+    "getUserRoles"
+   ],
+   "calledBy": [
+    "/detailed-reports"
+   ],
+   "referencedIn": [
+    "__tests__/api/reports/forged-session.test.ts",
+    "pages/detailed-reports.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/reports/filter-options.ts",
+   "route": "/api/reports/filter-options",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "getUserRoles"
+   ],
+   "calledBy": [
+    "/admin/assignment-matrix",
+    "/detailed-reports",
+    "/reports"
+   ],
+   "referencedIn": [
+    "__tests__/api/reports/forged-session.test.ts",
+    "components/admin/assignment-matrix/BatchAssignModal.tsx",
+    "components/admin/assignment-matrix/hooks/useAssignmentMatrix.ts",
+    "components/reports/AdvancedFilters.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/reports/overview.ts",
+   "route": "/api/reports/overview",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "getApiUser"
+   ],
+   "calledBy": [
+    "/reports"
+   ],
+   "referencedIn": [
+    "__tests__/api/reports/overview-learning-path-gate.test.ts",
+    "pages/reports.tsx",
+    "tests/e2e/learning-path-governance.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/reports/school.ts",
+   "route": "/api/reports/school",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "auth.getUser"
+   ],
+   "calledBy": [
+    "/reports"
+   ],
+   "referencedIn": [
+    "pages/reports.tsx",
+    "tests/e2e/urgent-anonymous-boundaries.spec.ts",
+    "tests/e2e/urgent-anonymous-current.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/reports/user-details.ts",
+   "route": "/api/reports/user-details",
+   "methods": [
+    "GET"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/detailed-reports",
+    "/reports"
+   ],
+   "referencedIn": [
+    "__tests__/api/reports/forged-session.test.ts",
+    "components/reports/UserDetailModal.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/school-hours-report/[school_id]/index.ts",
+   "route": "/api/school-hours-report/[school_id]",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "createServiceRoleClient",
+    "getApiUser",
+    "getUserRoles"
+   ],
+   "calledBy": [
+    "/reporte-horas"
+   ],
+   "referencedIn": [
+    "__tests__/api/hour-tracking/school-report.test.ts",
+    "__tests__/components/hours/SchoolHoursReport.export-scope.test.tsx",
+    "components/hours/SchoolHoursReport.tsx",
+    "tests/e2e/finance-messaging-access.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/school-hours-report/[school_id]/pdf.ts",
+   "route": "/api/school-hours-report/[school_id]/pdf",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "createServiceRoleClient",
+    "getApiUser",
+    "getUserRoles"
+   ],
+   "calledBy": [
+    "/reporte-horas"
+   ],
+   "referencedIn": [
+    "__tests__/api/hour-tracking/school-report-contract-export.test.ts",
+    "__tests__/api/hour-tracking/school-report-pdf.test.ts",
+    "__tests__/api/hour-tracking/school-report-totals.test.ts",
+    "__tests__/components/hours/SchoolHoursReport.export-scope.test.tsx",
+    "components/hours/SchoolHoursReport.tsx",
+    "tests/e2e/finance-messaging-access.spec.ts"
+   ]
+  }
+ ]
+}

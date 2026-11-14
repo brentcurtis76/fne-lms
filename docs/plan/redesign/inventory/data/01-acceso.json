@@ -1,0 +1,4106 @@
+{
+ "area": "01-acceso",
+ "name": "Acceso (sign-in, sign-up, passwords)",
+ "note": "",
+ "routesOnly": false,
+ "readFrom": {
+  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
+  "date": "2026-11-12T23:31:39-03:00"
+ },
+ "screens": [
+  {
+   "file": "pages/403.tsx",
+   "route": "/403",
+   "lines": 39,
+   "marks": {},
+   "frame": "none",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "not covered",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": false
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 8,
+      "text": "403 · Acceso restringido"
+     },
+     {
+      "line": 12,
+      "text": "403 · Acceso restringido"
+     }
+    ],
+    "linkedFrom": [
+     "pages/admin/transformation/metrics.tsx:70"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [
+      "tests/e2e/assessment-frequency-validation.spec.ts",
+      "tests/e2e/notification-unsubscribe.spec.ts"
+     ],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "text",
+     "line": 8,
+     "in": "ForbiddenPage",
+     "text": "403 · Acceso restringido",
+     "access": true
+    },
+    {
+     "kind": "text",
+     "line": 12,
+     "in": "ForbiddenPage",
+     "text": "403 · Acceso restringido",
+     "access": true
+    },
+    {
+     "kind": "heading",
+     "line": 13,
+     "in": "ForbiddenPage",
+     "text": "No tienes permisos para acceder a esta sección.",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 17,
+     "in": "ForbiddenPage",
+     "text": "Si necesitabas revisar las métricas de Vías de Transformación u otra vista administrativa, solicita a un administrador que habilite tu rol (admin o consultor)."
+    },
+    {
+     "kind": "link",
+     "line": 21,
+     "in": "ForbiddenPage",
+     "text": "Volver al inicio",
+     "target": "/"
+    },
+    {
+     "kind": "link",
+     "line": 27,
+     "in": "ForbiddenPage",
+     "text": "Contactar soporte",
+     "target": "mailto:soporte@nuevaeducacion.org?subject=Acceso%20V%C3%ADas%20de%20Transformaci%C3%B3n"
+    }
+   ],
+   "db": [],
+   "pieces": [],
+   "api": []
+  },
+  {
+   "file": "pages/change-password.tsx",
+   "route": "/change-password",
+   "lines": 385,
+   "marks": {},
+   "frame": "none",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "not covered",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": false
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 63,
+      "text": "router.push → /login  (when !session?.user)"
+     },
+     {
+      "line": 74,
+      "text": "router.push → /login  (when response.status === 401)"
+     },
+     {
+      "line": 103,
+      "text": "router.push → /dashboard  (when !state.mustChangePassword)"
+     },
+     {
+      "line": 120,
+      "text": "router.push → /login"
+     },
+     {
+      "line": 192,
+      "text": "router.push → /login"
+     },
+     {
+      "line": 236,
+      "text": "router.replace → /dashboard  (when verificationUnavailable)"
+     }
+    ],
+    "linkedFrom": [
+     "components/DynamicFavicon.tsx:16",
+     "lib/auth/forced-password-change.ts:34",
+     "pages/dashboard.tsx:325",
+     "pages/login.tsx:127"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": [
+      "__tests__/components/ChangePasswordPage.forcedCompletion.test.tsx"
+     ]
+    }
+   },
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 63,
+     "in": "checkAuth",
+     "when": "!session?.user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 74,
+     "in": "checkAuth",
+     "when": "response.status === 401",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 103,
+     "in": "checkAuth",
+     "when": "!state.mustChangePassword",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 120,
+     "in": "handleLogout",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 129,
+     "in": "handlePasswordChange",
+     "when": "newPassword !== confirmPassword",
+     "text": "Las contraseñas no coinciden",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 135,
+     "in": "handlePasswordChange",
+     "when": "validationError",
+     "text": "{validationError}",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 166,
+     "in": "handlePasswordChange",
+     "when": "!response.ok && result?.passwordChanged",
+     "text": "Tu contraseña se actualizó, pero no pudimos completar el proceso.",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 168,
+     "in": "handlePasswordChange",
+     "when": "!response.ok && !(result?.passwordChanged)",
+     "text": "Error al actualizar la contraseña. Por favor intenta nuevamente.",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 187,
+     "in": "handlePasswordChange",
+     "text": "Contraseña actualizada exitosamente. Inicia sesión con tu nueva contraseña.",
+     "variant": "success"
+    },
+    {
+     "kind": "hook",
+     "line": 191,
+     "in": "handlePasswordChange",
+     "text": "setTimeout(…, 1000)",
+     "type": "timer"
+    },
+    {
+     "kind": "nav",
+     "line": 192,
+     "in": "handlePasswordChange",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 199,
+     "in": "handlePasswordChange",
+     "text": "Error al actualizar la contraseña. Por favor intenta nuevamente.",
+     "variant": "error"
+    },
+    {
+     "kind": "text",
+     "line": 217,
+     "in": "ChangePasswordPage",
+     "when": "verificationUnavailable",
+     "text": "Cambiar Contraseña - Genera"
+    },
+    {
+     "kind": "heading",
+     "line": 226,
+     "in": "ChangePasswordPage",
+     "when": "verificationUnavailable",
+     "text": "No pudimos verificar tu cuenta",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 230,
+     "in": "ChangePasswordPage",
+     "when": "verificationUnavailable",
+     "text": "No pudimos comprobar si necesitas cambiar tu contraseña. Es un problema temporal de conexión, no de tu cuenta."
+    },
+    {
+     "kind": "button",
+     "line": 234,
+     "in": "ChangePasswordPage",
+     "when": "verificationUnavailable",
+     "text": "Reintentar",
+     "action": "{() => router.replace('/dashboard')}",
+     "hook": {
+      "testid": "forced-change-retry"
+     }
+    },
+    {
+     "kind": "nav",
+     "line": 236,
+     "in": "ChangePasswordPage",
+     "when": "verificationUnavailable",
+     "text": "/dashboard",
+     "via": "router.replace"
+    },
+    {
+     "kind": "button",
+     "line": 242,
+     "in": "ChangePasswordPage",
+     "when": "verificationUnavailable",
+     "text": "Cerrar sesión",
+     "action": "{handleLogout}",
+     "hook": {
+      "testid": "forced-change-logout"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 260,
+     "in": "ChangePasswordPage",
+     "text": "Cambiar Contraseña - Genera"
+    },
+    {
+     "kind": "button",
+     "line": 266,
+     "in": "ChangePasswordPage",
+     "text": "Cerrar Sesión",
+     "action": "{handleLogout}"
+    },
+    {
+     "kind": "heading",
+     "line": 281,
+     "in": "ChangePasswordPage",
+     "text": "Cambio de Contraseña Requerido",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 287,
+     "in": "ChangePasswordPage",
+     "text": "El administrador ha restablecido tu contraseña. Por seguridad, debes crear una nueva. / Por seguridad, debes cambiar tu contraseña en el primer inicio de sesión"
+    },
+    {
+     "kind": "form",
+     "line": 299,
+     "in": "ChangePasswordPage",
+     "text": "{handlePasswordChange}"
+    },
+    {
+     "kind": "label",
+     "line": 301,
+     "in": "ChangePasswordPage",
+     "text": "Nueva Contraseña",
+     "for": "new-password"
+    },
+    {
+     "kind": "field",
+     "line": 305,
+     "in": "ChangePasswordPage",
+     "text": "Nueva Contraseña",
+     "type": "{showPasswords ? \"text\" : \"password\"}",
+     "name": "new-password",
+     "required": "true",
+     "action": "{(e) => setNewPassword(e.target.value)}",
+     "hook": {
+      "id": "new-password",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "label",
+     "line": 319,
+     "in": "ChangePasswordPage",
+     "text": "Confirmar Nueva Contraseña",
+     "for": "confirm-password"
+    },
+    {
+     "kind": "field",
+     "line": 323,
+     "in": "ChangePasswordPage",
+     "text": "Confirmar Nueva Contraseña",
+     "type": "{showPasswords ? \"text\" : \"password\"}",
+     "name": "confirm-password",
+     "required": "true",
+     "action": "{(e) => setConfirmPassword(e.target.value)}",
+     "hook": {
+      "id": "confirm-password",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "field",
+     "line": 337,
+     "in": "ChangePasswordPage",
+     "text": "Mostrar contraseñas",
+     "type": "checkbox",
+     "name": "show-password",
+     "action": "{(e) => setShowPasswords(e.target.checked)}",
+     "hook": {
+      "id": "show-password",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "label",
+     "line": 345,
+     "in": "ChangePasswordPage",
+     "text": "Mostrar contraseñas",
+     "for": "show-password"
+    },
+    {
+     "kind": "text",
+     "line": 352,
+     "in": "ChangePasswordPage",
+     "text": "Requisitos de la contraseña:"
+    },
+    {
+     "kind": "value",
+     "line": 362,
+     "in": "ChangePasswordPage",
+     "when": "each PASSWORD_RULES",
+     "text": "✓ / •"
+    },
+    {
+     "kind": "button",
+     "line": 371,
+     "in": "ChangePasswordPage",
+     "text": "Actualizando... / Cambiar Contraseña",
+     "submit": true,
+     "disabled": "{updating || !newPassword || !confirmPassword}"
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "lib/auth/password-policy.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/auth/force-password-change.ts",
+     "route": "/api/auth/force-password-change",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "pages/change-password.tsx:152"
+     ]
+    },
+    {
+     "file": "pages/api/auth/password-change-state.ts",
+     "route": "/api/auth/password-change-state",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/change-password.tsx:69"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/login.tsx",
+   "route": "/login",
+   "lines": 627,
+   "marks": {},
+   "frame": "none",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "not covered",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": false
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "components/DynamicFavicon.tsx:13",
+     "components/Footer.tsx:122",
+     "components/auth/AuthWrapper.tsx:133",
+     "components/auth/AuthWrapper.tsx:19",
+     "components/auth/ProtectedRoute.tsx:31",
+     "components/layout/Header.tsx:96",
+     "components/layout/MainLayout.tsx:294",
+     "components/qa/QAFloatingWidget.tsx:137",
+     "components/qa/QAFloatingWidget.tsx:832",
+     "components/sessions/JoinMeetingButton.tsx:377",
+     "components/site/Puertas.tsx:66",
+     "components/site/SiteLayout.tsx:129",
+     "components/site/SiteLayout.tsx:134",
+     "components/site/SiteLayout.tsx:186",
+     "contexts/AuthContext.tsx:241",
+     "hooks/useAuthEnhanced.ts:408",
+     "lib/auth/forced-password-change.ts:109",
+     "lib/frontend-auth-utils.ts:100",
+     "lib/frontend-auth-utils.ts:401",
+     "lib/frontend-auth-utils.ts:405",
+     "middleware.ts:127",
+     "pages/admin/apply-network-migration.tsx:58",
+     "pages/admin/assessment-builder/[templateId]/expectations.tsx:180",
+     "pages/admin/assessment-builder/[templateId]/expectations.tsx:801",
+     "pages/admin/assessment-builder/[templateId]/index.tsx:1305",
+     "pages/admin/assessment-builder/[templateId]/index.tsx:276",
+     "pages/admin/assessment-builder/create.tsx:231",
+     "pages/admin/assessment-builder/create.tsx:46",
+     "pages/admin/assessment-builder/index.tsx:348",
+     "pages/admin/assessment-builder/index.tsx:64",
+     "pages/admin/assignment-matrix.tsx:30",
+     "pages/admin/assignment-matrix.tsx:61",
+     "pages/admin/assignment-overview.tsx:113",
+     "pages/admin/assignment-overview.tsx:148",
+     "pages/admin/assignment-overview.tsx:283",
+     "pages/admin/assignment-review/[id].tsx:73",
+     "pages/admin/assignment-review/[id].tsx:89",
+     "pages/admin/bulk-tag-sessions.tsx:104",
+     "pages/admin/bulk-tag-sessions.tsx:116",
+     "pages/admin/bulk-tag-sessions.tsx:157",
+     "pages/admin/clients.tsx:126",
+     "pages/admin/clients.tsx:99",
+     "pages/admin/configuration.tsx:109",
+     "pages/admin/configuration.tsx:66",
+     "pages/admin/consultant-assignments.tsx:110",
+     "pages/admin/consultant-assignments.tsx:137",
+     "pages/admin/consultant-assignments.tsx:147",
+     "pages/admin/consultant-earnings.tsx:41",
+     "pages/admin/consultant-earnings.tsx:69",
+     "pages/admin/consultant-rates.tsx:31",
+     "pages/admin/consultant-rates.tsx:56",
+     "pages/admin/context-questions/index.tsx:110",
+     "pages/admin/context-questions/index.tsx:158",
+     "pages/admin/context-questions/overview.tsx:156",
+     "pages/admin/context-questions/overview.tsx:196",
+     "pages/admin/context-questions/overview.tsx:206",
+     "pages/admin/course-builder/[courseId]/[moduleId]/[lessonId].tsx:86",
+     "pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:112",
+     "pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:70",
+     "pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:83",
+     "pages/admin/course-builder/[courseId]/edit.tsx:157",
+     "pages/admin/course-builder/[courseId]/edit.tsx:401",
+     "pages/admin/course-builder/[courseId]/edit.tsx:69",
+     "pages/admin/course-builder/[courseId]/index.tsx:109",
+     "pages/admin/course-builder/[courseId]/index.tsx:75",
+     "pages/admin/course-builder/[courseId]/index.tsx:84",
+     "pages/admin/course-builder/[courseId]/lesson/[lessonId].tsx:240",
+     "pages/admin/course-builder/index.tsx:420",
+     "pages/admin/course-builder/index.tsx:75",
+     "pages/admin/course-builder/new.tsx:223",
+     "pages/admin/course-builder/new.tsx:38",
+     "pages/admin/course-builder/new.tsx:89",
+     "pages/admin/courses/[id]/assign.tsx:153",
+     "pages/admin/courses/[id]/assign.tsx:459",
+     "pages/admin/debug/course-module-ids.tsx:113",
+     "pages/admin/debug/course-module-ids.tsx:154",
+     "pages/admin/debug/course-module-ids.tsx:71",
+     "pages/admin/debug/ids.tsx:24",
+     "pages/admin/debug/ids.tsx:36",
+     "pages/admin/debug/ids.tsx:77",
+     "pages/admin/events.tsx:61",
+     "pages/admin/feedback.tsx:320",
+     "pages/admin/feedback.tsx:89",
+     "pages/admin/growth-communities/[id]/members.tsx:247",
+     "pages/admin/growth-communities/[id]/members.tsx:77",
+     "pages/admin/growth-communities/index.tsx:256",
+     "pages/admin/growth-communities/index.tsx:67",
+     "pages/admin/learning-paths.tsx:139",
+     "pages/admin/learning-paths.tsx:44",
+     "pages/admin/learning-paths.tsx:77",
+     "pages/admin/learning-paths/[id]/assign.tsx:146",
+     "pages/admin/learning-paths/[id]/assign.tsx:437",
+     "pages/admin/learning-paths/[id]/edit.tsx:239",
+     "pages/admin/learning-paths/[id]/edit.tsx:72",
+     "pages/admin/learning-paths/new.tsx:218",
+     "pages/admin/learning-paths/new.tsx:70",
+     "pages/admin/licitaciones/consultores.tsx:132",
+     "pages/admin/licitaciones/consultores.tsx:153",
+     "pages/admin/licitaciones/criterios.tsx:115",
+     "pages/admin/licitaciones/criterios.tsx:93",
+     "pages/admin/licitaciones/documentos-propuesta.tsx:146",
+     "pages/admin/licitaciones/documentos-propuesta.tsx:167",
+     "pages/admin/licitaciones/feriados.tsx:119",
+     "pages/admin/licitaciones/feriados.tsx:97",
+     "pages/admin/licitaciones/templates.tsx:237",
+     "pages/admin/licitaciones/templates.tsx:257",
+     "pages/admin/network-management.tsx:125",
+     "pages/admin/network-management.tsx:153",
+     "pages/admin/network-management.tsx:579",
+     "pages/admin/new-reporting.tsx:22",
+     "pages/admin/pasantia-leads.tsx:85",
+     "pages/admin/pasantia-participants.tsx:48",
+     "pages/admin/pasantias-panel.tsx:59",
+     "pages/admin/qa/assignments.tsx:367",
+     "pages/admin/qa/assignments.tsx:85",
+     "pages/admin/qa/confirm.tsx:272",
+     "pages/admin/qa/confirm.tsx:55",
+     "pages/admin/qa/coverage.tsx:288",
+     "pages/admin/qa/coverage.tsx:94",
+     "pages/admin/qa/feature-checklist.tsx:287",
+     "pages/admin/qa/feature-checklist.tsx:74",
+     "pages/admin/qa/generate.tsx:149",
+     "pages/admin/qa/generate.tsx:170",
+     "pages/admin/qa/generate.tsx:243",
+     "pages/admin/qa/generate.tsx:339",
+     "pages/admin/qa/generate.tsx:437",
+     "pages/admin/qa/import-markdown.tsx:109",
+     "pages/admin/qa/import-markdown.tsx:227",
+     "pages/admin/qa/import.tsx:198",
+     "pages/admin/qa/import.tsx:85",
+     "pages/admin/qa/index.tsx:129",
+     "pages/admin/qa/index.tsx:436",
+     "pages/admin/qa/lighthouse.tsx:145",
+     "pages/admin/qa/lighthouse.tsx:343",
+     "pages/admin/qa/load-tests.tsx:101",
+     "pages/admin/qa/load-tests.tsx:321",
+     "pages/admin/qa/runs/[runId].tsx:149",
+     "pages/admin/qa/runs/[runId].tsx:54",
+     "pages/admin/qa/runs/index.tsx:113",
+     "pages/admin/qa/runs/index.tsx:42",
+     "pages/admin/qa/scenarios.tsx:84",
+     "pages/admin/qa/time-tracking.tsx:247",
+     "pages/admin/qa/time-tracking.tsx:92",
+     "pages/admin/roadmap.tsx:33",
+     "pages/admin/roadmap.tsx:61",
+     "pages/admin/role-management.tsx:217",
+     "pages/admin/role-management.tsx:222",
+     "pages/admin/school-users.tsx:268",
+     "pages/admin/school-users.tsx:49",
+     "pages/admin/schools.tsx:151",
+     "pages/admin/schools.tsx:178",
+     "pages/admin/sessions/[id].tsx:240",
+     "pages/admin/sessions/[id].tsx:255",
+     "pages/admin/sessions/[id].tsx:413",
+     "pages/admin/sessions/approvals.tsx:117",
+     "pages/admin/sessions/approvals.tsx:64",
+     "pages/admin/sessions/approvals.tsx:79",
+     "pages/admin/sessions/create.tsx:184",
+     "pages/admin/sessions/create.tsx:199",
+     "pages/admin/sessions/create.tsx:730",
+     "pages/admin/sessions/index.tsx:162",
+     "pages/admin/sessions/index.tsx:177",
+     "pages/admin/sessions/index.tsx:403",
+     "pages/admin/tractor-signups.tsx:65",
+     "pages/admin/transformation.tsx:45",
+     "pages/admin/transformation/assessments.tsx:102",
+     "pages/admin/user-management.tsx:339",
+     "pages/admin/user-management.tsx:736",
+     "pages/assignments.tsx:115",
+     "pages/assignments.tsx:138",
+     "pages/assignments/[id]/index.tsx:139",
+     "pages/assignments/[id]/index.tsx:38",
+     "pages/assignments/[id]/submissions.tsx:175",
+     "pages/assignments/[id]/submissions.tsx:286",
+     "pages/change-password.tsx:120",
+     "pages/change-password.tsx:192",
+     "pages/change-password.tsx:63",
+     "pages/change-password.tsx:74",
+     "pages/community/transformation/assessment.tsx:168",
+     "pages/community/transformation/results/[assessmentId].tsx:101",
+     "pages/community/workspace.tsx:332",
+     "pages/community/workspace.tsx:336",
+     "pages/community/workspace/assignments/[id]/discussion.tsx:33",
+     "pages/community/workspace/assignments/[id]/groups.tsx:28",
+     "pages/configuracion/notificaciones.tsx:117",
+     "pages/configuracion/notificaciones.tsx:143",
+     "pages/consultor/sessions/[id].tsx:109",
+     "pages/consultor/sessions/[id].tsx:131",
+     "pages/consultor/sessions/[id].tsx:159",
+     "pages/consultor/sessions/[id].tsx:228",
+     "pages/consultor/sessions/[id].tsx:283",
+     "pages/consultor/sessions/index.tsx:137",
+     "pages/consultor/sessions/index.tsx:152",
+     "pages/consultor/sessions/index.tsx:211",
+     "pages/consultor/sessions/reports.tsx:272",
+     "pages/contracts.tsx:156",
+     "pages/contracts.tsx:240",
+     "pages/contracts.tsx:315",
+     "pages/dashboard-old.tsx:25",
+     "pages/dashboard-old.tsx:65",
+     "pages/dashboard-old.tsx:74",
+     "pages/dashboard.tsx:276",
+     "pages/dashboard.tsx:446",
+     "pages/dashboard.tsx:457",
+     "pages/debug-feedback-permissions.tsx:22",
+     "pages/demo/assessments/[templateId]/index.tsx:232",
+     "pages/demo/assessments/[templateId]/index.tsx:57",
+     "pages/demo/assessments/[templateId]/results.tsx:152",
+     "pages/demo/assessments/[templateId]/results.tsx:224",
+     "pages/demo/assessments/index.tsx:48",
+     "pages/demo/assessments/index.tsx:97",
+     "pages/detailed-reports.tsx:148",
+     "pages/detailed-reports.tsx:200",
+     "pages/detailed-reports.tsx:262",
+     "pages/directivo/assessments/dashboard.tsx:144",
+     "pages/directivo/assessments/dashboard.tsx:242",
+     "pages/docente/assessments/[instanceId]/index.tsx:158",
+     "pages/docente/assessments/[instanceId]/index.tsx:411",
+     "pages/docente/assessments/[instanceId]/results.tsx:37",
+     "pages/docente/assessments/[instanceId]/results.tsx:92",
+     "pages/docente/assessments/index.tsx:143",
+     "pages/docente/assessments/index.tsx:91",
+     "pages/expense-reports.tsx:110",
+     "pages/expense-reports.tsx:161",
+     "pages/expense-reports.tsx:210",
+     "pages/licitaciones/[id].tsx:241",
+     "pages/licitaciones/[id].tsx:263",
+     "pages/licitaciones/[id]/evaluacion.tsx:236",
+     "pages/licitaciones/[id]/evaluacion.tsx:262",
+     "pages/licitaciones/importar.tsx:134",
+     "pages/licitaciones/importar.tsx:88",
+     "pages/licitaciones/index.tsx:176",
+     "pages/licitaciones/index.tsx:222",
+     "pages/licitaciones/nueva.tsx:117",
+     "pages/licitaciones/nueva.tsx:138",
+     "pages/meet/diag.tsx:1026",
+     "pages/meet/session/[id].tsx:179",
+     "pages/mi-aprendizaje.tsx:278",
+     "pages/mi-aprendizaje.tsx:347",
+     "pages/mi-aprendizaje.tsx:377",
+     "pages/mis-horas.tsx:33",
+     "pages/mis-horas.tsx:63",
+     "pages/notifications.tsx:129",
+     "pages/pending-approval.tsx:20",
+     "pages/pending-approval.tsx:54",
+     "pages/profile.tsx:472",
+     "pages/profile.tsx:500",
+     "pages/profile.tsx:80",
+     "pages/profile/pasantia.tsx:29",
+     "pages/programas.tsx:192",
+     "pages/qa/index.tsx:96",
+     "pages/qa/run/[scenarioId].tsx:229",
+     "pages/qa/run/[scenarioId].tsx:70",
+     "pages/quiz-reviews.tsx:23",
+     "pages/quiz-reviews/[id].tsx:35",
+     "pages/quiz-reviews/[id].tsx:92",
+     "pages/reporte-horas.tsx:111",
+     "pages/reporte-horas.tsx:53",
+     "pages/reports.tsx:157",
+     "pages/reports.tsx:211",
+     "pages/reports.tsx:221",
+     "pages/reset-password.tsx:391",
+     "pages/reset-password.tsx:463",
+     "pages/reset-password.tsx:680",
+     "pages/school/migration-plan/index.tsx:343",
+     "pages/school/migration-plan/index.tsx:75",
+     "pages/school/transversal-context/edit.tsx:408",
+     "pages/school/transversal-context/edit.tsx:84",
+     "pages/school/transversal-context/index.tsx:164",
+     "pages/school/transversal-context/index.tsx:406",
+     "pages/student/course/[courseId].tsx:391",
+     "pages/student/course/[courseId].tsx:76",
+     "pages/student/lesson/[lessonId].tsx:575",
+     "pages/test-logout.tsx:28",
+     "pages/test-logout.tsx:67",
+     "pages/test-user-role.tsx:39",
+     "pages/user/[userId].tsx:165",
+     "pages/user/[userId].tsx:32",
+     "pages/user/[userId].tsx:68",
+     "pages/vias-transformacion/[id].tsx:190"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/auth-cookie-identity.spec.ts",
+      "tests/e2e/auth-lifecycle.spec.ts",
+      "tests/e2e/login-resilience.spec.ts",
+      "tests/e2e/notification-preferences-api.spec.ts",
+      "tests/e2e/notification-settings.spec.ts",
+      "tests/e2e/pasantias-leads-admin.spec.ts",
+      "tests/e2e/smoke.spec.ts"
+     ],
+     "e2e": [
+      "tests/e2e/assessment-frequency-validation.spec.ts",
+      "tests/e2e/context-questions/admin-ui.spec.ts",
+      "tests/e2e/due-reminders.spec.ts",
+      "tests/e2e/feedback-notify-admins.spec.ts",
+      "tests/e2e/flows/proposal-admin-visibility.spec.ts",
+      "tests/e2e/flows/proposal-buckets.spec.ts",
+      "tests/e2e/flows/proposal-config.spec.ts",
+      "tests/e2e/flows/proposal-consultant-crud.spec.ts",
+      "tests/e2e/flows/proposal-document-library.spec.ts",
+      "tests/e2e/flows/proposal-versioning.spec.ts",
+      "tests/e2e/meeting-agreements-tasks.spec.ts",
+      "tests/e2e/meeting-finalize-email-outcome.spec.ts",
+      "tests/e2e/messaging-notifications.spec.ts",
+      "tests/e2e/notification-bounce.spec.ts",
+      "tests/e2e/notification-catalog-links.spec.ts",
+      "tests/e2e/notification-dispatch.spec.ts",
+      "tests/e2e/notification-insert-boundary.spec.ts",
+      "tests/e2e/notification-mail-mirror.spec.ts",
+      "tests/e2e/notification-occurrence-idempotency.spec.ts",
+      "tests/e2e/notification-preference-compat.spec.ts",
+      "tests/e2e/proc-pilot-journey.spec.ts",
+      "tests/e2e/reservation.spec.ts",
+      "tests/e2e/sentry-replay-disabled.spec.ts",
+      "tests/e2e/session-reminders.spec.ts",
+      "tests/qa/auth-redirects.spec.ts",
+      "tests/qa/mobile-sidebar.spec.ts",
+      "tests/qa/qa-system.spec.ts"
+     ],
+     "unit": [
+      "__tests__/components/LoginPage.passwordRecovery.test.tsx",
+      "__tests__/components/LoginPage.sessionProvider.test.tsx",
+      "__tests__/components/LoginPage.signIn.test.tsx"
+     ]
+    }
+   },
+   "rows": [
+    {
+     "kind": "list",
+     "line": 18,
+     "text": "LOGIN_RETRY_MESSAGE",
+     "items": [
+      "No pudimos completar el inicio de sesión. Revisa tu conexión y vuelve a intentarlo."
+     ]
+    },
+    {
+     "kind": "gate",
+     "line": 53,
+     "in": "LoginPage",
+     "text": "activeAttempt.current || reloadRequired.current"
+    },
+    {
+     "kind": "list",
+     "line": 60,
+     "in": "LoginPage",
+     "text": "stage",
+     "items": [
+      "authentication / session-verification"
+     ]
+    },
+    {
+     "kind": "message",
+     "line": 65,
+     "in": "assertCurrent",
+     "when": "activeAttempt.current !== attempt",
+     "text": "Inactive login attempt",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 85,
+     "in": "complete",
+     "when": "credentials && error",
+     "text": "Sign-in unavailable",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 87,
+     "in": "complete",
+     "when": "credentials && !data.user",
+     "text": "Missing authenticated user",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 100,
+     "in": "complete",
+     "when": "!(credentials) && (error || !data.user) && !expiredSession",
+     "text": "Session verification unavailable",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 107,
+     "in": "complete",
+     "when": "!(credentials) && (error || !data.user) && signOutError",
+     "text": "Session cleanup unavailable",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 124,
+     "in": "complete",
+     "when": "flagError || typeof mustChangePassword !== 'boolean'",
+     "text": "Password state unavailable",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "hook",
+     "line": 145,
+     "in": "LoginPage",
+     "text": "setTimeout(…, LOGIN_TIMEOUT_MS)",
+     "type": "timer"
+    },
+    {
+     "kind": "nav",
+     "line": 162,
+     "in": "LoginPage",
+     "when": "!('message' in result)",
+     "text": "{result.destination}",
+     "via": "router.push"
+    },
+    {
+     "kind": "message",
+     "line": 166,
+     "in": "LoginPage",
+     "when": "!('message' in result) && (!navigated || window.location.pathname.replace(/\\/$/, '') === '/login')",
+     "text": "Login navigation incomplete",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "gate",
+     "line": 170,
+     "in": "LoginPage",
+     "text": "activeAttempt.current !== attempt"
+    },
+    {
+     "kind": "gate",
+     "line": 197,
+     "in": "LoginPage",
+     "text": "reloadRequired.current || activeAttempt.current"
+    },
+    {
+     "kind": "hook",
+     "line": 207,
+     "in": "LoginPage",
+     "when": "sessionLoading || !router.isReady",
+     "text": "setTimeout(…, Math.max(0, LOGIN_TIMEOUT_MS …)",
+     "type": "timer"
+    },
+    {
+     "kind": "message",
+     "line": 226,
+     "in": "handleSignIn",
+     "when": "!email.trim() || !password",
+     "text": "Por favor ingresa tu correo y contraseña",
+     "via": "setMessage"
+    },
+    {
+     "kind": "message",
+     "line": 265,
+     "in": "handlePasswordReset",
+     "when": "!normalizedEmail",
+     "text": "Por favor ingresa tu correo electrónico",
+     "via": "setMessage"
+    },
+    {
+     "kind": "text",
+     "line": 310,
+     "in": "LoginPage",
+     "when": "requiresReload",
+     "text": "Iniciar sesión | Genera"
+    },
+    {
+     "kind": "heading",
+     "line": 313,
+     "in": "LoginPage",
+     "when": "requiresReload",
+     "text": "No pudimos iniciar sesión",
+     "level": 1
+    },
+    {
+     "kind": "hook",
+     "line": 314,
+     "in": "LoginPage",
+     "when": "requiresReload",
+     "text": "role=alert",
+     "type": "role",
+     "tag": "p"
+    },
+    {
+     "kind": "value",
+     "line": 314,
+     "in": "LoginPage",
+     "when": "requiresReload",
+     "text": "{message}"
+    },
+    {
+     "kind": "button",
+     "line": 315,
+     "in": "LoginPage",
+     "when": "requiresReload",
+     "text": "Reintentar",
+     "action": "{() => window.location.reload()}",
+     "hook": {
+      "testid": "login-retry"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 334,
+     "in": "LoginPage",
+     "when": "isLoading",
+     "text": "Inicia sesión en tu cuenta | Genera"
+    },
+    {
+     "kind": "text",
+     "line": 339,
+     "in": "LoginPage",
+     "when": "isLoading",
+     "text": "Tu sesión está lista. Estamos cargando la página... / Verificando sesión..."
+    },
+    {
+     "kind": "text",
+     "line": 349,
+     "in": "LoginPage",
+     "text": "Inicia sesión en tu cuenta | Genera"
+    },
+    {
+     "kind": "link",
+     "line": 371,
+     "in": "LoginPage",
+     "screen": "hidden lg:flex",
+     "text": "[img: Genera - Hub de Transformación]",
+     "target": "/"
+    },
+    {
+     "kind": "media",
+     "line": 372,
+     "in": "LoginPage",
+     "screen": "hidden lg:flex",
+     "text": "img · alt Genera - Hub de Transformación · /genera/logo-full-transparent.svg"
+    },
+    {
+     "kind": "link",
+     "line": 390,
+     "in": "LoginPage",
+     "screen": "lg:hidden",
+     "text": "[img: Genera]",
+     "target": "/"
+    },
+    {
+     "kind": "media",
+     "line": 391,
+     "in": "LoginPage",
+     "screen": "lg:hidden",
+     "text": "img · alt Genera · /genera/logo-horizontal-on-light.svg"
+    },
+    {
+     "kind": "heading",
+     "line": 402,
+     "in": "LoginPage",
+     "text": "Recuperar contraseña / ¡Bienvenido de vuelta!",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 405,
+     "in": "LoginPage",
+     "text": "Te ayudaremos a recuperar el acceso / Ingresa a tu cuenta para continuar"
+    },
+    {
+     "kind": "form",
+     "line": 410,
+     "in": "LoginPage",
+     "text": "{(e) => { e.preventDefault(); if (!isResetMode) { handleSignIn(); } else { handl…}"
+    },
+    {
+     "kind": "label",
+     "line": 421,
+     "in": "LoginPage",
+     "text": "Correo electrónico",
+     "for": "login-email"
+    },
+    {
+     "kind": "field",
+     "line": 428,
+     "in": "LoginPage",
+     "text": "Correo electrónico",
+     "type": "email",
+     "placeholder": "tu@email.com",
+     "action": "{e => setEmail(e.target.value)}",
+     "hook": {
+      "testid": "login-email",
+      "id": "login-email",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "label",
+     "line": 444,
+     "in": "LoginPage",
+     "when": "!isResetMode",
+     "text": "Contraseña",
+     "for": "login-password"
+    },
+    {
+     "kind": "field",
+     "line": 451,
+     "in": "LoginPage",
+     "when": "!isResetMode",
+     "text": "Contraseña",
+     "type": "password",
+     "placeholder": "••••••••",
+     "action": "{e => setPassword(e.target.value)}",
+     "hook": {
+      "testid": "login-password",
+      "id": "login-password",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "text",
+     "line": 472,
+     "in": "LoginPage",
+     "when": "isResetMode",
+     "text": "Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña."
+    },
+    {
+     "kind": "button",
+     "line": 481,
+     "in": "LoginPage",
+     "when": "!isResetMode",
+     "text": "¿Olvidaste tu contraseña?",
+     "action": "{() => setIsResetMode(true)}",
+     "disabled": "{isSigningIn}",
+     "hook": {
+      "testid": "login-forgot-password"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 500,
+     "in": "LoginPage",
+     "when": "isResetMode",
+     "text": "Volver",
+     "action": "{() => setIsResetMode(false)}",
+     "disabled": "{isSendingReset}",
+     "hook": {
+      "testid": "login-reset-back"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 512,
+     "in": "LoginPage",
+     "when": "isResetMode",
+     "text": "Enviando... / Enviar enlace",
+     "action": "{handlePasswordReset}",
+     "disabled": "{isSendingReset}",
+     "hook": {
+      "testid": "login-reset-submit"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 543,
+     "in": "LoginPage",
+     "when": "!(isResetMode)",
+     "text": "Iniciando sesión... / Iniciar Sesión",
+     "submit": true,
+     "disabled": "{isSigningIn}",
+     "hook": {
+      "testid": "login-submit"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 575,
+     "in": "LoginPage",
+     "when": "message",
+     "text": "testid=login-message",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "value",
+     "line": 591,
+     "in": "LoginPage",
+     "when": "message",
+     "text": "{message}"
+    },
+    {
+     "kind": "text",
+     "line": 604,
+     "in": "LoginPage",
+     "text": "¿Necesitas ayuda?"
+    },
+    {
+     "kind": "link",
+     "line": 605,
+     "in": "LoginPage",
+     "text": "Contacta soporte",
+     "target": "mailto:soporte@nuevaeducacion.org"
+    },
+    {
+     "kind": "link",
+     "line": 612,
+     "in": "LoginPage",
+     "text": "[img: Fundación Nueva Educación]",
+     "target": "/"
+    },
+    {
+     "kind": "media",
+     "line": 613,
+     "in": "LoginPage",
+     "text": "img · alt Fundación Nueva Educación · /Logo BW.png?v=3"
+    },
+    {
+     "kind": "string",
+     "line": 77,
+     "in": "LoginPage",
+     "text": "Correo o contraseña incorrectos"
+    },
+    {
+     "kind": "string",
+     "line": 82,
+     "in": "LoginPage",
+     "text": "Por favor confirma tu correo electrónico antes de iniciar sesión"
+    },
+    {
+     "kind": "string",
+     "line": 109,
+     "in": "LoginPage",
+     "text": "Tu sesión venció. Inicia sesión con tu nueva contraseña."
+    },
+    {
+     "kind": "string",
+     "line": 256,
+     "in": "LoginPage",
+     "text": "Si existe una cuenta con ese correo, te enviamos un enlace para restablecer tu contraseña."
+    },
+    {
+     "kind": "string",
+     "line": 257,
+     "in": "LoginPage",
+     "text": "Revisa tu bandeja de entrada y la carpeta de spam."
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "?next",
+     "type": "address value"
+    }
+   ],
+   "db": [
+    {
+     "what": "rpc:current_password_change_state",
+     "ops": []
+    }
+   ],
+   "pieces": [
+    "utils/profileCompletionCheck.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/auth/recovery-request.ts",
+     "route": "/api/auth/recovery-request",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "pages/login.tsx:285"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/pending-approval.tsx",
+   "route": "/pending-approval",
+   "lines": 172,
+   "marks": {},
+   "frame": "old Header",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "not covered",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": false
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 20,
+      "text": "router.push → /login  (when !session?.user)"
+     },
+     {
+      "line": 37,
+      "text": "router.push → /dashboard  (when profileData?.approval_status === 'approved')"
+     },
+     {
+      "line": 54,
+      "text": "router.push → /login"
+     }
+    ],
+    "linkedFrom": [
+     "components/auth/ProtectedRoute.tsx:37",
+     "lib/frontend-auth-utils.ts:143",
+     "lib/frontend-auth-utils.ts:149",
+     "pages/profile.tsx:460"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 20,
+     "in": "checkUser",
+     "when": "!session?.user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 37,
+     "in": "checkUser",
+     "when": "profileData?.approval_status === 'approved'",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 54,
+     "in": "handleSignOut",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "text",
+     "line": 62,
+     "in": "PendingApprovalPage",
+     "when": "loading",
+     "text": "Cargando..."
+    },
+    {
+     "kind": "text",
+     "line": 73,
+     "in": "PendingApprovalPage",
+     "text": "Estado de Cuenta | Genera"
+    },
+    {
+     "kind": "piece",
+     "line": 75,
+     "in": "PendingApprovalPage",
+     "text": "",
+     "tag": "Header"
+    },
+    {
+     "kind": "heading",
+     "line": 89,
+     "in": "PendingApprovalPage",
+     "when": "isRejected",
+     "text": "Acceso Denegado",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 94,
+     "in": "PendingApprovalPage",
+     "when": "isRejected",
+     "text": "Tu solicitud de acceso a la plataforma ha sido revisada y no ha sido aprobada. Esto puede deberse a que tu institución educativa no forma parte de nuestros programas de capacitación actuales."
+    },
+    {
+     "kind": "text",
+     "line": 100,
+     "in": "PendingApprovalPage",
+     "when": "isRejected",
+     "text": "Si crees que esto es un error o tienes preguntas sobre nuestros programas, puedes contactarnos a través de nuestro sitio web."
+    },
+    {
+     "kind": "button",
+     "line": 105,
+     "in": "PendingApprovalPage",
+     "when": "isRejected",
+     "text": "Cerrar Sesión",
+     "action": "{handleSignOut}"
+    },
+    {
+     "kind": "link",
+     "line": 111,
+     "in": "PendingApprovalPage",
+     "when": "isRejected",
+     "text": "Contactar FNE",
+     "target": "https://nuevaeducacion.org/contacto",
+     "newTab": true
+    },
+    {
+     "kind": "heading",
+     "line": 130,
+     "in": "PendingApprovalPage",
+     "when": "!(isRejected)",
+     "text": "Cuenta en Revisión",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 135,
+     "in": "PendingApprovalPage",
+     "when": "!(isRejected)",
+     "text": "¡Gracias por registrarte en la plataforma de Fundación Nueva Educación!"
+    },
+    {
+     "kind": "text",
+     "line": 139,
+     "in": "PendingApprovalPage",
+     "when": "!(isRejected)",
+     "text": "Tu cuenta está siendo revisada por nuestro equipo administrativo para verificar que tu institución educativa forma parte de nuestros programas de capacitación."
+    },
+    {
+     "kind": "heading",
+     "line": 144,
+     "in": "PendingApprovalPage",
+     "when": "!(isRejected)",
+     "text": "Información de tu perfil:",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 146,
+     "in": "PendingApprovalPage",
+     "when": "!(isRejected)",
+     "text": "Nombre:"
+    },
+    {
+     "kind": "text",
+     "line": 147,
+     "in": "PendingApprovalPage",
+     "when": "!(isRejected)",
+     "text": "Email:"
+    },
+    {
+     "kind": "text",
+     "line": 148,
+     "in": "PendingApprovalPage",
+     "when": "!(isRejected)",
+     "text": "Institución:"
+    },
+    {
+     "kind": "text",
+     "line": 153,
+     "in": "PendingApprovalPage",
+     "when": "!(isRejected)",
+     "text": "Te notificaremos por correo electrónico una vez que tu cuenta sea aprobada. Este proceso generalmente toma 1-2 días hábiles."
+    },
+    {
+     "kind": "button",
+     "line": 158,
+     "in": "PendingApprovalPage",
+     "when": "!(isRejected)",
+     "text": "Cerrar Sesión",
+     "action": "{handleSignOut}"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/layout/Header.tsx",
+    "components/notifications/NotificationBell.tsx",
+    "components/notifications/NotificationDropdown.tsx"
+   ],
+   "api": [
+    {
+     "file": "pages/api/notifications/index.ts",
+     "route": "/api/notifications",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/notifications/NotificationBell.tsx:41"
+     ]
+    },
+    {
+     "file": "pages/api/notifications/[id]/read.ts",
+     "route": "/api/notifications/[id]/read",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "components/notifications/NotificationBell.tsx:85"
+     ]
+    },
+    {
+     "file": "pages/api/notifications/mark-all-read.ts",
+     "route": "/api/notifications/mark-all-read",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "components/notifications/NotificationBell.tsx:113"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/registro-tractor.tsx",
+   "route": "/registro-tractor",
+   "lines": 534,
+   "marks": {
+    "keep": "Sign-up form reached from outside (a link people receive)."
+   },
+   "frame": "none",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "not covered",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": false
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "list",
+     "line": 57,
+     "text": "ERROR_MESSAGES",
+     "items": [
+      "Ingresa tu nombre.",
+      "Ingresa tu apellido.",
+      "Selecciona tu colegio.",
+      "Ingresa un correo válido.",
+      "Ingresa tu fecha de nacimiento.",
+      "Ingresa tu profesión."
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 140,
+     "in": "handleSubmit",
+     "when": "Object.values(nextErrors).some(Boolean) && firstInvalid",
+     "text": "document.getElementById(firstInvalid).focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "message",
+     "line": 155,
+     "in": "handleSubmit",
+     "when": "!response.ok",
+     "text": "No pudimos enviar tu registro. Intenta nuevamente.",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 160,
+     "in": "handleSubmit",
+     "text": "No pudimos enviar tu registro. Intenta nuevamente.",
+     "variant": "error"
+    },
+    {
+     "kind": "text",
+     "line": 174,
+     "in": "RegistroTractorPage",
+     "text": "Líderes de la Generación Tractor · Registro | Genera"
+    },
+    {
+     "kind": "media",
+     "line": 188,
+     "in": "RegistroTractorPage",
+     "text": "img · alt Genera · Hub de Transformación · /genera/logo-horizontal-on-dark.svg"
+    },
+    {
+     "kind": "text",
+     "line": 196,
+     "in": "RegistroTractorPage",
+     "text": "Red Santa Marta · Retiro docente"
+    },
+    {
+     "kind": "heading",
+     "line": 198,
+     "in": "RegistroTractorPage",
+     "text": "Líderes de la Generación Tractor",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 206,
+     "in": "RegistroTractorPage",
+     "text": "Tu registro abre el acceso a la comunidad de líderes que está transformando la educación."
+    },
+    {
+     "kind": "text",
+     "line": 211,
+     "in": "RegistroTractorPage",
+     "screen": "hidden",
+     "text": "© 2026 Fundación Nueva Educación · Santiago, Chile"
+    },
+    {
+     "kind": "hook",
+     "line": 219,
+     "in": "RegistroTractorPage",
+     "when": "submitted",
+     "text": "role=status aria-live=polite",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 221,
+     "in": "RegistroTractorPage",
+     "when": "submitted",
+     "text": "aria-hidden: true",
+     "tag": "Check"
+    },
+    {
+     "kind": "heading",
+     "line": 223,
+     "in": "RegistroTractorPage",
+     "when": "submitted",
+     "text": "Registro enviado",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 227,
+     "in": "RegistroTractorPage",
+     "when": "submitted",
+     "text": "Gracias,"
+    },
+    {
+     "kind": "value",
+     "line": 227,
+     "in": "RegistroTractorPage",
+     "when": "submitted",
+     "text": "{successName}"
+    },
+    {
+     "kind": "text",
+     "line": 227,
+     "in": "RegistroTractorPage",
+     "when": "submitted",
+     "text": ". Tu registro quedó en revisión. Te escribiremos a"
+    },
+    {
+     "kind": "value",
+     "line": 229,
+     "in": "RegistroTractorPage",
+     "when": "submitted",
+     "text": "{successEmail}"
+    },
+    {
+     "kind": "text",
+     "line": 229,
+     "in": "RegistroTractorPage",
+     "when": "submitted",
+     "text": "en cuanto tu acceso a Genera esté habilitado."
+    },
+    {
+     "kind": "form",
+     "line": 234,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "{handleSubmit}"
+    },
+    {
+     "kind": "text",
+     "line": 236,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "Registro privado"
+    },
+    {
+     "kind": "heading",
+     "line": 238,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "Completa tu registro",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 242,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "Estos datos permiten al equipo administrativo revisar y habilitar tu acceso."
+    },
+    {
+     "kind": "text",
+     "line": 247,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted) && !schoolsAvailable",
+     "text": "No se pudo cargar la lista de colegios. Intenta nuevamente más tarde."
+    },
+    {
+     "kind": "label",
+     "line": 253,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "screen": "hidden",
+     "text": "Sitio web",
+     "for": "website"
+    },
+    {
+     "kind": "field",
+     "line": 254,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "screen": "hidden",
+     "text": "Sitio web",
+     "type": "text",
+     "action": "{(event) => updateField('website', event.target.value)}",
+     "hook": {
+      "id": "website",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 265,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "label: Nombre",
+     "tag": "Field",
+     "hook": {
+      "id": "firstName"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 266,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "Acepto el tratamiento de mis datos personales conforme a la Ley 21.719 .",
+     "type": "text",
+     "name": "firstName",
+     "placeholder": "Tu nombre",
+     "required": "true",
+     "limits": "maxLength={80}",
+     "action": "{(event) => updateField('firstName', event.target.value)}",
+     "hook": {
+      "id": "firstName"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 280,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "label: Apellido",
+     "tag": "Field",
+     "hook": {
+      "id": "lastName"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 281,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "Acepto el tratamiento de mis datos personales conforme a la Ley 21.719 .",
+     "type": "text",
+     "name": "lastName",
+     "placeholder": "Tu apellido",
+     "required": "true",
+     "limits": "maxLength={80}",
+     "action": "{(event) => updateField('lastName', event.target.value)}",
+     "hook": {
+      "id": "lastName"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 295,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "label: Colegio",
+     "tag": "Field",
+     "hook": {
+      "id": "schoolId"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 296,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "Acepto el tratamiento de mis datos personales conforme a la Ley 21.719 .",
+     "type": "select",
+     "name": "schoolId",
+     "required": "true",
+     "disabled": "{!schoolsAvailable}",
+     "action": "{(event) => updateField('schoolId', event.target.value)}",
+     "options": [
+      "Selecciona tu colegio",
+      "(lista) {school.name}"
+     ],
+     "hook": {
+      "id": "schoolId"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 314,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "label: Correo electrónico",
+     "tag": "Field",
+     "hook": {
+      "id": "email"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 315,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "Acepto el tratamiento de mis datos personales conforme a la Ley 21.719 .",
+     "type": "email",
+     "name": "email",
+     "placeholder": "nombre@colegio.cl",
+     "required": "true",
+     "action": "{(event) => updateField('email', event.target.value)}",
+     "hook": {
+      "id": "email"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 328,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "label: Fecha de nacimiento",
+     "tag": "Field",
+     "hook": {
+      "id": "birthDate"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 334,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "Acepto el tratamiento de mis datos personales conforme a la Ley 21.719 .",
+     "type": "date",
+     "name": "birthDate",
+     "required": "true",
+     "limits": "min=1900-01-01 max={today}",
+     "action": "{(event) => updateField('birthDate', event.target.value)}",
+     "hook": {
+      "id": "birthDate"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 347,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "label: Profesión",
+     "tag": "Field",
+     "hook": {
+      "id": "profession"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 353,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "Acepto el tratamiento de mis datos personales conforme a la Ley 21.719 .",
+     "type": "text",
+     "name": "profession",
+     "placeholder": "Ej. Profesora de Historia",
+     "required": "true",
+     "limits": "maxLength={140}",
+     "action": "{(event) => updateField('profession', event.target.value)}",
+     "hook": {
+      "id": "profession"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 366,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "label: Rol",
+     "tag": "Field",
+     "hook": {
+      "id": "role"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 367,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "Acepto el tratamiento de mis datos personales conforme a la Ley 21.719 .",
+     "type": "select",
+     "name": "role",
+     "required": "true",
+     "action": "{(event) => updateField('role', event.target.value as TractorSignupRole)}",
+     "options": [
+      "Selecciona tu rol",
+      "(lista) {TRACTOR_ROLE_LABELS[role]}"
+     ],
+     "hook": {
+      "id": "role"
+     }
+    },
+    {
+     "kind": "label",
+     "line": 385,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "Acepto el tratamiento de mis datos personales conforme a la Ley 21.719 ."
+    },
+    {
+     "kind": "field",
+     "line": 390,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "Acepto el tratamiento de mis datos personales conforme a la Ley 21.719 .",
+     "type": "checkbox",
+     "required": "true",
+     "action": "{(event) => updateField('consentAccepted', event.target.checked)}",
+     "hook": {
+      "id": "acepto"
+     }
+    },
+    {
+     "kind": "link",
+     "line": 400,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "Ley 21.719",
+     "target": "/privacidad",
+     "newTab": true
+    },
+    {
+     "kind": "piece",
+     "line": 414,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "aria-hidden: true",
+     "tag": "ShieldCheck"
+    },
+    {
+     "kind": "text",
+     "line": 421,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "Revisamos cada registro y te avisamos por correo al activar tu acceso."
+    },
+    {
+     "kind": "button",
+     "line": 424,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted)",
+     "text": "Enviando… / Enviar registro",
+     "submit": true,
+     "disabled": "{isSubmitting || !schoolsAvailable}"
+    },
+    {
+     "kind": "piece",
+     "line": 431,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted) && isSubmitting",
+     "text": "aria-hidden: true",
+     "tag": "Loader2"
+    },
+    {
+     "kind": "piece",
+     "line": 438,
+     "in": "RegistroTractorPage",
+     "when": "!(submitted) && !(isSubmitting)",
+     "text": "aria-hidden: true",
+     "tag": "ArrowRight"
+    },
+    {
+     "kind": "text",
+     "line": 450,
+     "in": "RegistroTractorPage",
+     "text": "/* The single approved Genera decorative background: a tiled G-hub mark. */ .rt-pattern { background-image: url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='34' height='34' viewBox='0 0 34 34'><circle cx='17' cy=…"
+    },
+    {
+     "kind": "label",
+     "line": 525,
+     "in": "Field",
+     "text": "{label} [*]",
+     "for": "{id}"
+    },
+    {
+     "kind": "value",
+     "line": 530,
+     "in": "Field",
+     "when": "error",
+     "text": "{error}"
+    },
+    {
+     "kind": "string",
+     "line": 177,
+     "in": "RegistroTractorPage",
+     "text": "Registro para participantes del retiro docente Líderes de la Generación Tractor."
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "lib/api-auth.ts",
+    "lib/signups.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/tractor-signup.ts",
+     "route": "/api/tractor-signup",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "pages/registro-tractor.tsx:147"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/registro.tsx",
+   "route": "/registro",
+   "lines": 627,
+   "marks": {
+    "keep": "Sign-up form reached from outside (a link people receive). The sign-in screen does not link to it."
+   },
+   "frame": "none",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "not covered",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": false
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [
+      "tests/e2e/registro.spec.ts"
+     ],
+     "unit": [
+      "__tests__/components/RegistroPage.generation.test.tsx"
+     ]
+    }
+   },
+   "rows": [
+    {
+     "kind": "list",
+     "line": 62,
+     "text": "ERROR_MESSAGES",
+     "items": [
+      "Ingresa tu nombre.",
+      "Ingresa tu apellido.",
+      "Selecciona tu colegio.",
+      "Ingresa un correo válido.",
+      "Ingresa tu fecha de nacimiento.",
+      "Ingresa tu profesión."
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 193,
+     "in": "handleSubmit",
+     "when": "Object.values(nextErrors).some(Boolean) && firstInvalid",
+     "text": "document.getElementById(firstInvalid).focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "message",
+     "line": 208,
+     "in": "handleSubmit",
+     "when": "!response.ok",
+     "text": "No pudimos enviar tu registro. Intenta nuevamente.",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 213,
+     "in": "handleSubmit",
+     "text": "No pudimos enviar tu registro. Intenta nuevamente.",
+     "variant": "error"
+    },
+    {
+     "kind": "text",
+     "line": 227,
+     "in": "RegistroPage",
+     "text": "Registro · Genera"
+    },
+    {
+     "kind": "media",
+     "line": 241,
+     "in": "RegistroPage",
+     "text": "img · alt Genera · Hub de Transformación · /genera/logo-horizontal-on-dark.svg"
+    },
+    {
+     "kind": "text",
+     "line": 249,
+     "in": "RegistroPage",
+     "text": "Fundación Nueva Educación"
+    },
+    {
+     "kind": "heading",
+     "line": 251,
+     "in": "RegistroPage",
+     "text": "Súmate a Genera",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 257,
+     "in": "RegistroPage",
+     "text": "Tu registro abre el acceso a la comunidad que está transformando la educación."
+    },
+    {
+     "kind": "text",
+     "line": 262,
+     "in": "RegistroPage",
+     "screen": "hidden",
+     "text": "© 2026 Fundación Nueva Educación · Santiago, Chile"
+    },
+    {
+     "kind": "hook",
+     "line": 270,
+     "in": "RegistroPage",
+     "when": "submitted",
+     "text": "role=status aria-live=polite",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 272,
+     "in": "RegistroPage",
+     "when": "submitted",
+     "text": "aria-hidden: true",
+     "tag": "Check"
+    },
+    {
+     "kind": "heading",
+     "line": 274,
+     "in": "RegistroPage",
+     "when": "submitted",
+     "text": "Registro enviado",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 278,
+     "in": "RegistroPage",
+     "when": "submitted",
+     "text": "Gracias,"
+    },
+    {
+     "kind": "value",
+     "line": 278,
+     "in": "RegistroPage",
+     "when": "submitted",
+     "text": "{successName}"
+    },
+    {
+     "kind": "text",
+     "line": 278,
+     "in": "RegistroPage",
+     "when": "submitted",
+     "text": ". Tu registro quedó en revisión. Te escribiremos a"
+    },
+    {
+     "kind": "value",
+     "line": 280,
+     "in": "RegistroPage",
+     "when": "submitted",
+     "text": "{successEmail}"
+    },
+    {
+     "kind": "text",
+     "line": 280,
+     "in": "RegistroPage",
+     "when": "submitted",
+     "text": "en cuanto tu acceso a Genera esté habilitado."
+    },
+    {
+     "kind": "form",
+     "line": 285,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "{handleSubmit}"
+    },
+    {
+     "kind": "text",
+     "line": 287,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "Registro"
+    },
+    {
+     "kind": "heading",
+     "line": 289,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "Completa tu registro",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 293,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "Estos datos permiten al equipo administrativo revisar y habilitar tu acceso."
+    },
+    {
+     "kind": "text",
+     "line": 298,
+     "in": "RegistroPage",
+     "when": "!(submitted) && !schoolsAvailable",
+     "text": "No se pudo cargar la lista de colegios. Intenta nuevamente más tarde."
+    },
+    {
+     "kind": "label",
+     "line": 304,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "screen": "hidden",
+     "text": "Sitio web",
+     "for": "website"
+    },
+    {
+     "kind": "field",
+     "line": 305,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "screen": "hidden",
+     "text": "Sitio web",
+     "type": "text",
+     "action": "{(event) => updateField('website', event.target.value)}",
+     "hook": {
+      "testid": "registro-website",
+      "id": "website",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 317,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "label: Nombre",
+     "tag": "Field",
+     "hook": {
+      "id": "firstName"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 318,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "Acepto el tratamiento de mis datos personales conforme a la Ley 21.719 .",
+     "type": "text",
+     "name": "firstName",
+     "placeholder": "Tu nombre",
+     "required": "true",
+     "limits": "maxLength={80}",
+     "action": "{(event) => updateField('firstName', event.target.value)}",
+     "hook": {
+      "testid": "registro-first-name",
+      "id": "firstName"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 333,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "label: Apellido",
+     "tag": "Field",
+     "hook": {
+      "id": "lastName"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 334,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "Acepto el tratamiento de mis datos personales conforme a la Ley 21.719 .",
+     "type": "text",
+     "name": "lastName",
+     "placeholder": "Tu apellido",
+     "required": "true",
+     "limits": "maxLength={80}",
+     "action": "{(event) => updateField('lastName', event.target.value)}",
+     "hook": {
+      "testid": "registro-last-name",
+      "id": "lastName"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 349,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "label: Colegio",
+     "tag": "Field",
+     "hook": {
+      "id": "schoolId"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 350,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "Acepto el tratamiento de mis datos personales conforme a la Ley 21.719 .",
+     "type": "select",
+     "name": "schoolId",
+     "required": "true",
+     "disabled": "{!schoolsAvailable}",
+     "action": "{(event) => updateField('schoolId', event.target.value)}",
+     "options": [
+      "Selecciona tu colegio",
+      "(lista) {school.name}"
+     ],
+     "hook": {
+      "testid": "registro-school",
+      "id": "schoolId"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 370,
+     "in": "RegistroPage",
+     "when": "!(submitted) && selectedGenerations.length > 0",
+     "text": "label: Generación · hint: Opcional — si no conoces tu generación, puedes dejarlo en blanco.",
+     "tag": "Field",
+     "hook": {
+      "id": "generationId"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 376,
+     "in": "RegistroPage",
+     "when": "!(submitted) && selectedGenerations.length > 0",
+     "text": "Acepto el tratamiento de mis datos personales conforme a la Ley 21.719 .",
+     "type": "select",
+     "name": "generationId",
+     "action": "{(event) => updateField('generationId', event.target.value)}",
+     "options": [
+      "Aún no lo sé",
+      "(lista) {generation.name}"
+     ],
+     "hook": {
+      "testid": "registro-generation",
+      "id": "generationId"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 394,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "label: Correo electrónico",
+     "tag": "Field",
+     "hook": {
+      "id": "email"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 395,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "Acepto el tratamiento de mis datos personales conforme a la Ley 21.719 .",
+     "type": "email",
+     "name": "email",
+     "placeholder": "nombre@colegio.cl",
+     "required": "true",
+     "action": "{(event) => updateField('email', event.target.value)}",
+     "hook": {
+      "testid": "registro-email",
+      "id": "email"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 409,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "label: Fecha de nacimiento",
+     "tag": "Field",
+     "hook": {
+      "id": "birthDate"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 415,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "Acepto el tratamiento de mis datos personales conforme a la Ley 21.719 .",
+     "type": "date",
+     "name": "birthDate",
+     "required": "true",
+     "limits": "min=1900-01-01 max={today}",
+     "action": "{(event) => updateField('birthDate', event.target.value)}",
+     "hook": {
+      "testid": "registro-birth-date",
+      "id": "birthDate"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 429,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "label: Profesión",
+     "tag": "Field",
+     "hook": {
+      "id": "profession"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 435,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "Acepto el tratamiento de mis datos personales conforme a la Ley 21.719 .",
+     "type": "text",
+     "name": "profession",
+     "placeholder": "Ej. Profesora de Historia",
+     "required": "true",
+     "limits": "maxLength={140}",
+     "action": "{(event) => updateField('profession', event.target.value)}",
+     "hook": {
+      "testid": "registro-profession",
+      "id": "profession"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 449,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "label: Rol",
+     "tag": "Field",
+     "hook": {
+      "id": "role"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 450,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "Acepto el tratamiento de mis datos personales conforme a la Ley 21.719 .",
+     "type": "select",
+     "name": "role",
+     "required": "true",
+     "action": "{(event) => updateField('role', event.target.value as TractorSignupRole)}",
+     "options": [
+      "Selecciona tu rol",
+      "(lista) {TRACTOR_ROLE_LABELS[role]}"
+     ],
+     "hook": {
+      "testid": "registro-role",
+      "id": "role"
+     }
+    },
+    {
+     "kind": "label",
+     "line": 469,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "Acepto el tratamiento de mis datos personales conforme a la Ley 21.719 ."
+    },
+    {
+     "kind": "field",
+     "line": 474,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "Acepto el tratamiento de mis datos personales conforme a la Ley 21.719 .",
+     "type": "checkbox",
+     "required": "true",
+     "action": "{(event) => updateField('consentAccepted', event.target.checked)}",
+     "hook": {
+      "testid": "registro-consent",
+      "id": "acepto"
+     }
+    },
+    {
+     "kind": "link",
+     "line": 485,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "Ley 21.719",
+     "target": "/privacidad",
+     "newTab": true
+    },
+    {
+     "kind": "piece",
+     "line": 499,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "aria-hidden: true",
+     "tag": "ShieldCheck"
+    },
+    {
+     "kind": "text",
+     "line": 506,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "Revisamos cada registro y te avisamos por correo al activar tu acceso."
+    },
+    {
+     "kind": "button",
+     "line": 509,
+     "in": "RegistroPage",
+     "when": "!(submitted)",
+     "text": "Enviando… / Enviar registro",
+     "submit": true,
+     "disabled": "{isSubmitting || !schoolsAvailable}",
+     "hook": {
+      "testid": "registro-submit"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 517,
+     "in": "RegistroPage",
+     "when": "!(submitted) && isSubmitting",
+     "text": "aria-hidden: true",
+     "tag": "Loader2"
+    },
+    {
+     "kind": "piece",
+     "line": 524,
+     "in": "RegistroPage",
+     "when": "!(submitted) && !(isSubmitting)",
+     "text": "aria-hidden: true",
+     "tag": "ArrowRight"
+    },
+    {
+     "kind": "text",
+     "line": 536,
+     "in": "RegistroPage",
+     "text": "/* The single approved Genera decorative background: a tiled G-hub mark. */ .rt-pattern { background-image: url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='34' height='34' viewBox='0 0 34 34'><circle cx='17' cy=…"
+    },
+    {
+     "kind": "label",
+     "line": 613,
+     "in": "Field",
+     "text": "{label} [*]",
+     "for": "{id}"
+    },
+    {
+     "kind": "hook",
+     "line": 619,
+     "in": "Field",
+     "when": "error",
+     "text": "role=alert",
+     "type": "role",
+     "tag": "span"
+    },
+    {
+     "kind": "hook",
+     "line": 619,
+     "in": "Field",
+     "when": "error",
+     "text": "testid=error-{id}",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "value",
+     "line": 619,
+     "in": "Field",
+     "when": "error",
+     "text": "{error}"
+    },
+    {
+     "kind": "value",
+     "line": 623,
+     "in": "Field",
+     "when": "!error && hint",
+     "text": "{hint}"
+    },
+    {
+     "kind": "string",
+     "line": 230,
+     "in": "RegistroPage",
+     "text": "Registro para acceder a Genera, la plataforma de la Fundación Nueva Educación."
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "lib/api-auth.ts",
+    "lib/signups.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/registro-signup.ts",
+     "route": "/api/registro-signup",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "pages/registro.tsx:200"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/reset-password.tsx",
+   "route": "/reset-password",
+   "lines": 735,
+   "marks": {},
+   "frame": "none",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "not covered",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": false
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 391,
+      "text": "router.push → /login"
+     },
+     {
+      "line": 463,
+      "text": "router.push → /login  (when phase === 'invalid')"
+     },
+     {
+      "line": 680,
+      "text": "router.push → /login"
+     }
+    ],
+    "linkedFrom": [
+     "components/DynamicFavicon.tsx:15",
+     "pages/login.tsx:134"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/auth-lifecycle.spec.ts"
+     ],
+     "e2e": [],
+     "unit": [
+      "__tests__/components/ResetPasswordPage.recoveryProof.test.tsx",
+      "__tests__/security/auth-endpoint-localization.test.ts"
+     ]
+    }
+   },
+   "rows": [
+    {
+     "kind": "list",
+     "line": 98,
+     "text": "RECOVERY_MESSAGES",
+     "items": [
+      "El enlace de recuperación no es válido o ya expiró. Solicita uno nuevo desde la página de inicio de sesión.",
+      "Este enlace no es válido. Para cambiar tu contraseña, solicita un enlace de recuperación desde la página de inicio de sesión.",
+      "El enlace no contiene la información necesaria. Solicita un enlace de recuperación nuevo desde la página de inicio de sesión.",
+      "Este enlace no sirve para cambiar la contraseña. Solicita un enlace de recuperación desde la página de inicio de sesión.",
+      "Este enlace usa un formato que ya no aceptamos por seguridad. Solicita un enlace de recuperación nuevo desde la página de inicio de sesión.",
+      "No pudimos cerrar la sesión anterior de forma segura, así que no abrimos el formulario. Cierra sesión e intenta con el enlace nuevamente.",
+      "Las contraseñas no coinciden",
+      "La nueva contraseña debe ser diferente a la anterior",
+      "La contraseña no cumple con los requisitos de seguridad del sistema",
+      "No se pudo actualizar la contraseña. Inténtalo nuevamente.",
+      "No pudimos preparar la recuperación. Inténtalo nuevamente en unos momentos.",
+      "Contraseña actualizada exitosamente"
+     ]
+    },
+    {
+     "kind": "gate",
+     "line": 232,
+     "in": "ResetPasswordPage",
+     "text": "typeof window === 'undefined'"
+    },
+    {
+     "kind": "gate",
+     "line": 242,
+     "in": "ResetPasswordPage",
+     "text": "judgedRef.current"
+    },
+    {
+     "kind": "hook",
+     "line": 390,
+     "in": "handlePasswordUpdate",
+     "text": "setTimeout(…, 2000)",
+     "type": "timer"
+    },
+    {
+     "kind": "nav",
+     "line": 391,
+     "in": "handlePasswordUpdate",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "text",
+     "line": 416,
+     "in": "ResetPasswordPage",
+     "when": "isValidatingToken",
+     "text": "Restablecer Contraseña | Genera"
+    },
+    {
+     "kind": "hook",
+     "line": 419,
+     "in": "ResetPasswordPage",
+     "when": "isValidatingToken",
+     "text": "testid=reset-validating",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 421,
+     "in": "ResetPasswordPage",
+     "when": "isValidatingToken",
+     "text": "Validando enlace de recuperación..."
+    },
+    {
+     "kind": "text",
+     "line": 436,
+     "in": "ResetPasswordPage",
+     "when": "phase === 'invalid'",
+     "text": "Restablecer Contraseña | Genera"
+    },
+    {
+     "kind": "hook",
+     "line": 439,
+     "in": "ResetPasswordPage",
+     "when": "phase === 'invalid'",
+     "text": "testid=reset-invalid-link",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "link",
+     "line": 440,
+     "in": "ResetPasswordPage",
+     "when": "phase === 'invalid'",
+     "text": "[img: Fundación Nueva Educación]",
+     "target": "/"
+    },
+    {
+     "kind": "media",
+     "line": 441,
+     "in": "ResetPasswordPage",
+     "when": "phase === 'invalid'",
+     "text": "img · alt Fundación Nueva Educación · /images/logo.png"
+    },
+    {
+     "kind": "heading",
+     "line": 454,
+     "in": "ResetPasswordPage",
+     "when": "phase === 'invalid'",
+     "text": "Enlace no válido",
+     "level": 1
+    },
+    {
+     "kind": "value",
+     "line": 457,
+     "in": "ResetPasswordPage",
+     "when": "phase === 'invalid'",
+     "text": "{message} / {RECOVERY_MESSAGES.missing}"
+    },
+    {
+     "kind": "button",
+     "line": 461,
+     "in": "ResetPasswordPage",
+     "when": "phase === 'invalid'",
+     "text": "Ir a iniciar sesión",
+     "action": "{() => router.push('/login')}",
+     "hook": {
+      "testid": "reset-invalid-back-to-login"
+     }
+    },
+    {
+     "kind": "nav",
+     "line": 463,
+     "in": "ResetPasswordPage",
+     "when": "phase === 'invalid'",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "text",
+     "line": 471,
+     "in": "ResetPasswordPage",
+     "when": "phase === 'invalid'",
+     "text": "¿Necesitas ayuda?"
+    },
+    {
+     "kind": "link",
+     "line": 472,
+     "in": "ResetPasswordPage",
+     "when": "phase === 'invalid'",
+     "text": "Contacta soporte",
+     "target": "mailto:soporte@nuevaeducacion.org"
+    },
+    {
+     "kind": "text",
+     "line": 488,
+     "in": "ResetPasswordPage",
+     "text": "Restablecer Contraseña | Genera"
+    },
+    {
+     "kind": "link",
+     "line": 509,
+     "in": "ResetPasswordPage",
+     "screen": "hidden lg:flex",
+     "text": "[img: Fundación Nueva Educación]",
+     "target": "/"
+    },
+    {
+     "kind": "media",
+     "line": 510,
+     "in": "ResetPasswordPage",
+     "screen": "hidden lg:flex",
+     "text": "img · alt Fundación Nueva Educación · /images/logo.png"
+    },
+    {
+     "kind": "heading",
+     "line": 519,
+     "in": "ResetPasswordPage",
+     "screen": "hidden lg:flex",
+     "text": "Plataforma de Crecimiento",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 525,
+     "in": "ResetPasswordPage",
+     "screen": "hidden lg:flex",
+     "text": "Fundación Nueva Educación"
+    },
+    {
+     "kind": "text",
+     "line": 530,
+     "in": "ResetPasswordPage",
+     "screen": "hidden lg:flex",
+     "text": "Transformando la educación a través de herramientas innovadoras y colaborativas"
+    },
+    {
+     "kind": "link",
+     "line": 544,
+     "in": "ResetPasswordPage",
+     "screen": "lg:hidden",
+     "text": "[img: Fundación Nueva Educación]",
+     "target": "/"
+    },
+    {
+     "kind": "media",
+     "line": 545,
+     "in": "ResetPasswordPage",
+     "screen": "lg:hidden",
+     "text": "img · alt Fundación Nueva Educación · /images/logo.png"
+    },
+    {
+     "kind": "heading",
+     "line": 556,
+     "in": "ResetPasswordPage",
+     "text": "Restablecer Contraseña",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 560,
+     "in": "ResetPasswordPage",
+     "text": "Ingresa tu nueva contraseña para continuar"
+    },
+    {
+     "kind": "form",
+     "line": 564,
+     "in": "ResetPasswordPage",
+     "text": "{(e) => { e.preventDefault(); handlePasswordUpdate(); }}",
+     "hook": {
+      "testid": "reset-password-form"
+     }
+    },
+    {
+     "kind": "label",
+     "line": 573,
+     "in": "ResetPasswordPage",
+     "text": "Nueva Contraseña"
+    },
+    {
+     "kind": "field",
+     "line": 580,
+     "in": "ResetPasswordPage",
+     "text": "Nueva Contraseña",
+     "type": "password",
+     "placeholder": "••••••••",
+     "action": "{e => setPassword(e.target.value)}",
+     "hook": {
+      "testid": "reset-new-password"
+     }
+    },
+    {
+     "kind": "label",
+     "line": 594,
+     "in": "ResetPasswordPage",
+     "text": "Confirmar Contraseña"
+    },
+    {
+     "kind": "field",
+     "line": 601,
+     "in": "ResetPasswordPage",
+     "text": "Confirmar Contraseña",
+     "type": "password",
+     "placeholder": "••••••••",
+     "action": "{e => setConfirmPassword(e.target.value)}",
+     "hook": {
+      "testid": "reset-confirm-password"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 617,
+     "in": "ResetPasswordPage",
+     "text": "Requisitos de la contraseña:"
+    },
+    {
+     "kind": "value",
+     "line": 627,
+     "in": "ResetPasswordPage",
+     "when": "each PASSWORD_RULES",
+     "text": "✓ / •"
+    },
+    {
+     "kind": "button",
+     "line": 637,
+     "in": "ResetPasswordPage",
+     "text": "Actualizando... / Actualizar Contraseña",
+     "submit": true,
+     "disabled": "{loading || phase === 'updated'}",
+     "hook": {
+      "testid": "reset-submit"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 670,
+     "in": "ResetPasswordPage",
+     "text": "Volver al inicio de sesión",
+     "action": "{async () => { if (phase === 'ready') { try { await fetch('/api/auth/recovery/in…}"
+    },
+    {
+     "kind": "nav",
+     "line": 680,
+     "in": "ResetPasswordPage",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "hook",
+     "line": 693,
+     "in": "ResetPasswordPage",
+     "when": "message",
+     "text": "testid=reset-message",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "value",
+     "line": 709,
+     "in": "ResetPasswordPage",
+     "when": "message",
+     "text": "{message}"
+    },
+    {
+     "kind": "text",
+     "line": 723,
+     "in": "ResetPasswordPage",
+     "text": "¿Necesitas ayuda?"
+    },
+    {
+     "kind": "link",
+     "line": 724,
+     "in": "ResetPasswordPage",
+     "text": "Contacta soporte",
+     "target": "mailto:soporte@nuevaeducacion.org"
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "lib/auth/password-policy.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/auth/recovery/complete.ts",
+     "route": "/api/auth/recovery/complete",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "pages/reset-password.tsx:356"
+     ]
+    },
+    {
+     "file": "pages/api/auth/recovery/context.ts",
+     "route": "/api/auth/recovery/context",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/reset-password.tsx:257"
+     ]
+    },
+    {
+     "file": "pages/api/auth/recovery/exchange.ts",
+     "route": "/api/auth/recovery/exchange",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "pages/reset-password.tsx:298"
+     ]
+    },
+    {
+     "file": "pages/api/auth/recovery/invalidate.ts",
+     "route": "/api/auth/recovery/invalidate",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "pages/reset-password.tsx:675"
+     ]
+    }
+   ]
+  }
+ ],
+ "pieces": {
+  "components/layout/Header.tsx": {
+   "usedBy": [
+    "/pending-approval"
+   ],
+   "lines": 110,
+   "rows": [
+    {
+     "kind": "link",
+     "line": 62,
+     "in": "Header",
+     "text": "Hub de Transformación",
+     "target": "/"
+    },
+    {
+     "kind": "link",
+     "line": 63,
+     "in": "Header",
+     "text": "Hub de Transformación",
+     "target": ""
+    },
+    {
+     "kind": "text",
+     "line": 71,
+     "in": "Header",
+     "screen": "hidden sm:flex",
+     "text": "Sin colegio",
+     "attr": "title"
+    },
+    {
+     "kind": "text",
+     "line": 71,
+     "in": "Header",
+     "screen": "hidden sm:flex",
+     "text": "{schoolName} / Sin colegio"
+    },
+    {
+     "kind": "piece",
+     "line": 85,
+     "in": "Header",
+     "when": "isLoggedIn",
+     "text": "",
+     "tag": "NotificationBell"
+    },
+    {
+     "kind": "text",
+     "line": 89,
+     "in": "Header",
+     "when": "isLoggedIn",
+     "text": "{localUser?.email?.substring(0, 2).t…} / US"
+    },
+    {
+     "kind": "link",
+     "line": 96,
+     "in": "Header",
+     "when": "!(isLoggedIn)",
+     "text": "Iniciar Sesión",
+     "target": "/login"
+    },
+    {
+     "kind": "link",
+     "line": 97,
+     "in": "Header",
+     "when": "!(isLoggedIn)",
+     "text": "Iniciar Sesión",
+     "target": ""
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "components/notifications/NotificationBell.tsx": {
+   "usedBy": [
+    "/pending-approval"
+   ],
+   "lines": 239,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 9,
+     "text": "LOAD_ERROR",
+     "items": [
+      "No se pudieron cargar las notificaciones"
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 62,
+     "in": "fetchNotifications",
+     "when": "result.success && newUnreadCount > unreadCount && unreadCount > 0",
+     "text": "setTimeout(…, 2000)",
+     "type": "timer"
+    },
+    {
+     "kind": "hook",
+     "line": 149,
+     "in": "NotificationBell",
+     "when": "isOpen",
+     "text": "document.addEventListener('mousedown')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 161,
+     "in": "NotificationBell",
+     "text": "setInterval(…, REFRESH_INTERVAL)",
+     "type": "timer"
+    },
+    {
+     "kind": "button",
+     "line": 180,
+     "in": "NotificationBell",
+     "text": "[99+ / {unreadCount}]",
+     "action": "{handleBellClick}",
+     "aria": "{`Notificaciones${unreadCount > 0 ? ` (${unreadCount} ${unreadCount === 1 ? 'no …}"
+    },
+    {
+     "kind": "piece",
+     "line": 223,
+     "in": "NotificationBell",
+     "when": "isOpen",
+     "text": "",
+     "tag": "NotificationDropdown"
+    },
+    {
+     "kind": "string",
+     "line": 43,
+     "in": "NotificationBell",
+     "text": "Bearer {session.access_token}"
+    },
+    {
+     "kind": "string",
+     "line": 50,
+     "in": "NotificationBell",
+     "text": "{LOAD_ERROR} (código {response.status})."
+    },
+    {
+     "kind": "string",
+     "line": 192,
+     "in": "NotificationBell",
+     "text": "no leída"
+    },
+    {
+     "kind": "string",
+     "line": 192,
+     "in": "NotificationBell",
+     "text": "no leídas"
+    }
+   ],
+   "db": []
+  },
+  "components/notifications/NotificationDropdown.tsx": {
+   "usedBy": [
+    "/pending-approval"
+   ],
+   "lines": 370,
+   "rows": [
+    {
+     "kind": "toast",
+     "line": 106,
+     "in": "handleNotificationClick",
+     "when": "notification.related_url && !session?.user",
+     "text": "Sesión no válida",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 116,
+     "in": "handleNotificationClick",
+     "when": "notification.related_url",
+     "text": "{notification.related_url!}",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 126,
+     "in": "handleNotificationClick",
+     "when": "notification.related_url && notification.related_url",
+     "text": "{notification.related_url}",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 166,
+     "in": "handleNotificationClick",
+     "when": "!(notification.related_url)",
+     "text": "{fallbackUrl}",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 174,
+     "in": "handleViewAll",
+     "text": "/notifications",
+     "via": "router.push"
+    },
+    {
+     "kind": "heading",
+     "line": 182,
+     "in": "NotificationDropdown",
+     "text": "Notificaciones",
+     "level": 3
+    },
+    {
+     "kind": "link",
+     "line": 187,
+     "in": "NotificationDropdown",
+     "text": "[icon CogIcon]",
+     "target": "/configuracion/notificaciones",
+     "action": "{onClose}",
+     "hook": {
+      "testid": "notification-dropdown-settings"
+     },
+     "aria": "Configuración de notificaciones"
+    },
+    {
+     "kind": "piece",
+     "line": 195,
+     "in": "NotificationDropdown",
+     "text": "aria-hidden: true",
+     "tag": "CogIcon"
+    },
+    {
+     "kind": "button",
+     "line": 199,
+     "in": "NotificationDropdown",
+     "text": "[icon RefreshIcon]",
+     "action": "{onRefresh}",
+     "disabled": "{loading}",
+     "title": "Actualizar"
+    },
+    {
+     "kind": "button",
+     "line": 210,
+     "in": "NotificationDropdown",
+     "when": "unreadCount > 0",
+     "text": "Marcar todas como leídas",
+     "action": "{onMarkAllAsRead}",
+     "title": "Marcar todas como leídas"
+    },
+    {
+     "kind": "text",
+     "line": 223,
+     "in": "NotificationDropdown",
+     "when": "unreadCount > 0",
+     "text": "{unreadCount} notificación es sin leer"
+    },
+    {
+     "kind": "text",
+     "line": 235,
+     "in": "NotificationDropdown",
+     "when": "loading && notifications.length === 0",
+     "text": "Cargando notificaciones..."
+    },
+    {
+     "kind": "value",
+     "line": 243,
+     "in": "NotificationDropdown",
+     "when": "error",
+     "text": "{error}"
+    },
+    {
+     "kind": "button",
+     "line": 244,
+     "in": "NotificationDropdown",
+     "when": "error",
+     "text": "Intentar de nuevo",
+     "action": "{onRefresh}"
+    },
+    {
+     "kind": "text",
+     "line": 257,
+     "in": "NotificationDropdown",
+     "when": "!loading && !error && notifications.length === 0",
+     "text": "No tienes notificaciones"
+    },
+    {
+     "kind": "clickable",
+     "line": 268,
+     "in": "NotificationDropdown",
+     "when": "!loading && !error && notifications.length > 0 && each notifications",
+     "text": "{notification.title} [{notification.description}] {getRelativeTime(notification.create…} [[Admin] [Tareas] [Cursos] [Me…",
+     "tag": "div",
+     "action": "{() => handleNotificationClick(notification)}"
+    },
+    {
+     "kind": "value",
+     "line": 295,
+     "in": "NotificationDropdown",
+     "when": "!loading && !error && notifications.length > 0 && each notifications",
+     "text": "{notification.title}"
+    },
+    {
+     "kind": "value",
+     "line": 303,
+     "in": "NotificationDropdown",
+     "when": "!loading && !error && notifications.length > 0 && each notifications && notification.description",
+     "text": "{notification.description}"
+    },
+    {
+     "kind": "value",
+     "line": 312,
+     "in": "NotificationDropdown",
+     "when": "!loading && !error && notifications.length > 0 && each notifications",
+     "text": "{getRelativeTime(notification.create…}"
+    },
+    {
+     "kind": "text",
+     "line": 318,
+     "in": "NotificationDropdown",
+     "when": "!loading && !error && notifications.length > 0 && each notifications && notification.notification_type",
+     "text": "[Admin] [Tareas] [Cursos] [Mensajes] [Social] [Feedback] [Sistema] [Workspace]"
+    },
+    {
+     "kind": "button",
+     "line": 357,
+     "in": "NotificationDropdown",
+     "when": "notifications.length > 0",
+     "text": "Ver todas las notificaciones",
+     "action": "{handleViewAll}"
+    },
+    {
+     "kind": "list",
+     "line": 82,
+     "in": "getRelativeTime",
+     "text": "getRelativeTime()",
+     "items": [
+      "ahora mismo",
+      "hace {minutes} min",
+      "hace {hours}h",
+      "hace {days}d"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "lib/api-auth.ts": {
+   "usedBy": [
+    "/registro-tractor",
+    "/registro"
+   ],
+   "lines": 551,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 113,
+     "in": "createServiceRoleClient",
+     "when": "!supabaseUrl || !serviceRoleKey",
+     "text": "Server configuration error",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 125,
+     "in": "createServiceRoleClient",
+     "text": "Failed to initialize admin connection",
+     "via": "throw (shown by whoever catches it)"
+    }
+   ],
+   "db": []
+  },
+  "lib/auth/password-policy.ts": {
+   "usedBy": [
+    "/change-password",
+    "/reset-password"
+   ],
+   "lines": 141,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 104,
+     "in": "validatePasswordPolicy",
+     "when": "password.length < PASSWORD_POLICY.minLength",
+     "text": "La contraseña debe tener al menos {PASSWORD_POLICY.minLength} caracteres",
+     "via": "errors.push"
+    },
+    {
+     "kind": "message",
+     "line": 108,
+     "in": "validatePasswordPolicy",
+     "when": "password.length > PASSWORD_POLICY.maxLength",
+     "text": "La contraseña no puede superar los {PASSWORD_POLICY.maxLength} caracteres",
+     "via": "errors.push"
+    },
+    {
+     "kind": "message",
+     "line": 112,
+     "in": "validatePasswordPolicy",
+     "when": "PASSWORD_POLICY.requireUppercase && !/[A-Z]/.test(password)",
+     "text": "La contraseña debe contener al menos una letra mayúscula",
+     "via": "errors.push"
+    },
+    {
+     "kind": "message",
+     "line": 116,
+     "in": "validatePasswordPolicy",
+     "when": "PASSWORD_POLICY.requireLowercase && !/[a-z]/.test(password)",
+     "text": "La contraseña debe contener al menos una letra minúscula",
+     "via": "errors.push"
+    },
+    {
+     "kind": "message",
+     "line": 120,
+     "in": "validatePasswordPolicy",
+     "when": "PASSWORD_POLICY.requireNumber && !/[0-9]/.test(password)",
+     "text": "La contraseña debe contener al menos un número",
+     "via": "errors.push"
+    },
+    {
+     "kind": "string",
+     "line": 68,
+     "in": "PASSWORD_RULES",
+     "text": "Al menos una letra mayúscula"
+    },
+    {
+     "kind": "string",
+     "line": 73,
+     "in": "PASSWORD_RULES",
+     "text": "Al menos una letra minúscula"
+    },
+    {
+     "kind": "string",
+     "line": 78,
+     "in": "PASSWORD_RULES",
+     "text": "Al menos un número"
+    },
+    {
+     "kind": "string",
+     "line": 100,
+     "in": "validatePasswordPolicy",
+     "text": "La contraseña es obligatoria"
+    }
+   ],
+   "db": []
+  },
+  "lib/signups.ts": {
+   "usedBy": [
+    "/registro-tractor",
+    "/registro"
+   ],
+   "lines": 345,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 6,
+     "text": "SANTA_MARTA_NETWORK_NAME",
+     "items": [
+      "Santa Marta"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 11,
+     "text": "SIGNUP_SOURCE_LABELS",
+     "items": [
+      "Líderes Tractor",
+      "Registro general"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 18,
+     "text": "SIGNUP_SOURCE_INVITE_BODY",
+     "items": [
+      "Ya puedes activar tu cuenta para ingresar a la plataforma Genera como parte de Líderes de la Generación Tractor.",
+      "Ya puedes activar tu cuenta para ingresar a la plataforma Genera."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 36,
+     "text": "TRACTOR_ROLE_LABELS",
+     "items": [
+      "Docente",
+      "Equipo Directivo"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 41,
+     "text": "TRACTOR_STATUS_LABELS",
+     "items": [
+      "Pendiente",
+      "Acceso otorgado",
+      "Descartado"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 226,
+     "text": "GENERATION_WARNINGS",
+     "items": [
+      "La generación del registro ya no corresponde al colegio; se otorgó sin generación.",
+      "La generación no se aplicó porque el perfil pertenece a otro colegio.",
+      "El perfil ya tiene otra generación asignada; no se modificó."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 313,
+     "text": "ROLE_LABEL_BY_TYPE",
+     "items": [
+      "Admin",
+      "Consultor",
+      "Equipo Directivo",
+      "Líder Generación",
+      "Líder Comunidad",
+      "Community Manager",
+      "Docente",
+      "Supervisor de Red",
+      "Encargado Licitación"
+     ]
+    }
+   ],
+   "db": [
+    {
+     "what": "table:generations",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:red_escuelas",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:redes_de_colegios",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:schools",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "utils/profileCompletionCheck.ts": {
+   "usedBy": [
+    "/login"
+   ],
+   "lines": 92,
+   "rows": [],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  }
+ },
+ "api": [
+  {
+   "file": "pages/api/auth/change-password.ts",
+   "route": "/api/auth/change-password",
+   "methods": [
+    "POST"
+   ],
+   "guards": [
+    "createServiceRoleClient"
+   ],
+   "calledBy": [
+    "/profile"
+   ],
+   "referencedIn": [
+    "__tests__/middleware.forced-password-change.test.ts",
+    "components/profile/PasswordChangeSection.tsx",
+    "lib/auth/forced-password-change.ts"
+   ]
+  },
+  {
+   "file": "pages/api/auth/force-password-change.ts",
+   "route": "/api/auth/force-password-change",
+   "methods": [
+    "POST"
+   ],
+   "guards": [
+    "createServiceRoleClient"
+   ],
+   "calledBy": [
+    "/change-password"
+   ],
+   "referencedIn": [
+    "__tests__/api/auth/force-password-change.test.ts",
+    "__tests__/components/ChangePasswordPage.forcedCompletion.test.tsx",
+    "__tests__/middleware.forced-password-change.test.ts",
+    "__tests__/security/__boundary_fixtures__/clean-browser-module.tsx",
+    "__tests__/security/no-browser-password-mutation.test.ts",
+    "lib/auth/forced-password-change.ts",
+    "pages/change-password.tsx",
+    "supabase/tests/053-forced-password-change-data-layer.sql",
+    "tests/e2e/learning-path-governance.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/auth/logout.ts",
+   "route": "/api/auth/logout",
+   "methods": [
+    "POST"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/test-logout"
+   ],
+   "referencedIn": [
+    "__tests__/middleware.forced-password-change.test.ts",
+    "lib/auth/forced-password-change.ts",
+    "pages/test-logout.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/auth/my-roles.ts",
+   "route": "/api/auth/my-roles",
+   "methods": [
+    "GET"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/admin/licitaciones/consultores",
+    "/admin/licitaciones/criterios",
+    "/admin/licitaciones/documentos-propuesta",
+    "/admin/licitaciones/feriados",
+    "/admin/licitaciones/templates",
+    "/licitaciones",
+    "/licitaciones/[id]",
+    "/licitaciones/[id]/evaluacion",
+    "/licitaciones/importar",
+    "/licitaciones/nueva"
+   ],
+   "referencedIn": [
+    "__tests__/api/forged-session-sweep.test.ts",
+    "__tests__/api/group-quiz-notifications.test.ts",
+    "contexts/AuthContext.tsx",
+    "pages/admin/licitaciones/consultores.tsx",
+    "pages/admin/licitaciones/criterios.tsx",
+    "pages/admin/licitaciones/documentos-propuesta.tsx",
+    "pages/admin/licitaciones/feriados.tsx",
+    "pages/admin/licitaciones/templates.tsx",
+    "pages/licitaciones/[id].tsx",
+    "pages/licitaciones/[id]/evaluacion.tsx",
+    "pages/licitaciones/importar.tsx",
+    "pages/licitaciones/index.tsx",
+    "pages/licitaciones/nueva.tsx",
+    "tests/e2e/auth-lifecycle.spec.ts",
+    "tests/e2e/ci-fixture.spec.ts",
+    "tests/e2e/meeting-finalize-email-outcome.spec.ts",
+    "tests/e2e/network-supervisors.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/auth/password-change-state.ts",
+   "route": "/api/auth/password-change-state",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "auth.getUser",
+    "createServiceRoleClient"
+   ],
+   "calledBy": [
+    "/change-password"
+   ],
+   "referencedIn": [
+    "__tests__/api/auth/password-change-state.availability.test.ts",
+    "__tests__/components/ChangePasswordPage.forcedCompletion.test.tsx",
+    "__tests__/middleware.forced-password-change.test.ts",
+    "lib/auth/forced-password-change.ts",
+    "pages/change-password.tsx",
+    "tests/e2e/helpers/auth.ts"
+   ]
+  },
+  {
+   "file": "pages/api/auth/recovery-request.ts",
+   "route": "/api/auth/recovery-request",
+   "methods": [
+    "POST"
+   ],
+   "guards": [
+    "createServiceRoleClient"
+   ],
+   "calledBy": [
+    "/login"
+   ],
+   "referencedIn": [
+    "__tests__/api/auth/recovery-request.test.ts",
+    "__tests__/components/LoginPage.passwordRecovery.test.tsx",
+    "pages/login.tsx",
+    "tests/e2e/auth-lifecycle.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/auth/recovery/complete.ts",
+   "route": "/api/auth/recovery/complete",
+   "methods": [
+    "POST"
+   ],
+   "guards": [
+    "auth.getUser",
+    "createServiceRoleClient"
+   ],
+   "calledBy": [
+    "/reset-password"
+   ],
+   "referencedIn": [
+    "__tests__/api/auth/recovery/complete.test.ts",
+    "__tests__/components/ResetPasswordPage.recoveryProof.test.tsx",
+    "__tests__/middleware.forced-password-change.test.ts",
+    "__tests__/security/no-browser-password-mutation.test.ts",
+    "lib/auth/forced-password-change.ts",
+    "pages/reset-password.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/auth/recovery/context.ts",
+   "route": "/api/auth/recovery/context",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "createServiceRoleClient"
+   ],
+   "calledBy": [
+    "/reset-password"
+   ],
+   "referencedIn": [
+    "__tests__/api/auth/recovery/context.test.ts",
+    "__tests__/components/ResetPasswordPage.recoveryProof.test.tsx",
+    "__tests__/middleware.forced-password-change.test.ts",
+    "lib/auth/forced-password-change.ts",
+    "pages/reset-password.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/auth/recovery/exchange.ts",
+   "route": "/api/auth/recovery/exchange",
+   "methods": [
+    "POST"
+   ],
+   "guards": [
+    "createServiceRoleClient"
+   ],
+   "calledBy": [
+    "/reset-password"
+   ],
+   "referencedIn": [
+    "__tests__/api/auth/recovery/exchange.test.ts",
+    "__tests__/components/ResetPasswordPage.recoveryProof.test.tsx",
+    "__tests__/middleware.forced-password-change.test.ts",
+    "lib/auth/forced-password-change.ts",
+    "pages/reset-password.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/auth/recovery/invalidate.ts",
+   "route": "/api/auth/recovery/invalidate",
+   "methods": [
+    "POST"
+   ],
+   "guards": [
+    "createServiceRoleClient"
+   ],
+   "calledBy": [
+    "/reset-password"
+   ],
+   "referencedIn": [
+    "__tests__/api/auth/recovery/invalidate.test.ts",
+    "__tests__/components/ResetPasswordPage.recoveryProof.test.tsx",
+    "__tests__/middleware.forced-password-change.test.ts",
+    "lib/auth/forced-password-change.ts",
+    "pages/reset-password.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/auth/session.ts",
+   "route": "/api/auth/session",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "getApiUser"
+   ],
+   "calledBy": [
+    "/admin/news",
+    "/admin/upcoming-courses"
+   ],
+   "referencedIn": [
+    "__tests__/api/forged-session-sweep.test.ts",
+    "__tests__/middleware.forced-password-change.test.ts",
+    "lib/auth/forced-password-change.ts",
+    "scripts/redesign/harness/seed/60-personas-pasantias-qa.mjs",
+    "tests/e2e/messaging-notifications.spec.ts",
+    "utils/authHelpers.ts"
+   ]
+  },
+  {
+   "file": "pages/api/registro-signup.ts",
+   "route": "/api/registro-signup",
+   "methods": [],
+   "guards": [],
+   "calledBy": [
+    "/registro"
+   ],
+   "referencedIn": [
+    "__tests__/api/registro-signup.test.ts",
+    "__tests__/middleware.forced-password-change.test.ts",
+    "pages/registro.tsx",
+    "tests/e2e/auth-lifecycle.spec.ts",
+    "tests/e2e/registro.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/tractor-signup.ts",
+   "route": "/api/tractor-signup",
+   "methods": [],
+   "guards": [],
+   "calledBy": [
+    "/registro-tractor"
+   ],
+   "referencedIn": [
+    "pages/registro-tractor.tsx"
+   ]
+  }
+ ]
+}

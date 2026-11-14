@@ -1,0 +1,554 @@
+{
+ "files": {
+  "tests/e2e/assessment-builder-expectations-editor.spec.ts": {
+   "tests": {
+    "Expectations editor frequency counts @ 1366x768 › D1: a fractional count stays visible, shows the es-CL error and sends no PUT": "passed",
+    "Expectations editor frequency counts @ 1366x768 › D2: a count with the visible default period saves that pair and reloads it": "passed",
+    "Expectations editor frequency counts @ 1366x768 › D3: 1000 reaches the PUT unchanged and a cleared count saves as null": "passed",
+    "Expectations editor frequency counts @ 1366x768 › D4: a server error is shown and the edit stays unsaved": "passed",
+    "Expectations editor frequency counts @ 390x844 › D1: a fractional count stays visible, shows the es-CL error and sends no PUT": "passed",
+    "Expectations editor frequency counts @ 390x844 › D2: a count with the visible default period saves that pair and reloads it": "passed",
+    "Expectations editor frequency counts @ 390x844 › D3: 1000 reaches the PUT unchanged and a cleared count saves as null": "passed",
+    "Expectations editor frequency counts @ 390x844 › D4: a server error is shown and the edit stays unsaved": "passed",
+    "Expectations editor access @ 1366x768 › denied role › a docente is redirected to the dashboard and sends no expectations request": "passed",
+    "Expectations editor access @ 1366x768 › without a session the editor redirects to login and sends no expectations request": "passed",
+    "Expectations editor access @ 390x844 › denied role › a docente is redirected to the dashboard and sends no expectations request": "passed",
+    "Expectations editor access @ 390x844 › without a session the editor redirects to login and sends no expectations request": "passed"
+   },
+   "note": null,
+   "seconds": 14
+  },
+  "tests/e2e/assessment-frequency-validation.spec.ts": {
+   "tests": {
+    "PROC-B003 default frequency @ 1366x768 › D3/UI1 docente: intercepted API refuses per validateFrequencyResponse; Save, reload, errors and submit": "passed",
+    "PROC-B003 default frequency @ 1366x768 › D3/UI2 admin: real editor validation; intercepted publish refuses per validateFrequencyConfig": "passed",
+    "PROC-B003 default frequency @ 390x844 › D3/UI1 docente: intercepted API refuses per validateFrequencyResponse; Save, reload, errors and submit": "passed",
+    "PROC-B003 default frequency @ 390x844 › D3/UI2 admin: real editor validation; intercepted publish refuses per validateFrequencyConfig": "passed"
+   },
+   "note": null,
+   "seconds": 24
+  },
+  "tests/e2e/assessment-results.spec.ts": {
+   "tests": {
+    "Assessment results with a gate-closed practice (desktop) › closed gate: the practice shows 0% at full weight and stale answers do not reach the total": "passed",
+    "Assessment results with a gate-closed practice (desktop) › counterexample, open gate: the same downstream answers now count and the total rises to 85%": "passed",
+    "Assessment results with a gate-closed practice (desktop) › unassigned caller: the real results route denies access and no score is shown": "passed",
+    "Assessment results with a gate-closed practice (mobile) › closed gate: the practice shows 0% at full weight and stale answers do not reach the total": "passed",
+    "Assessment results with a gate-closed practice (mobile) › counterexample, open gate: the same downstream answers now count and the total rises to 85%": "passed",
+    "Assessment results with a gate-closed practice (mobile) › unassigned caller: the real results route denies access and no score is shown": "passed"
+   },
+   "note": null,
+   "seconds": 6
+  },
+  "tests/e2e/cancellation-override.spec.ts": {
+   "tests": {
+    "Hour Tracking — Admin Cancellation Override › QA-6: Admin can change penalizada → devuelta with reason": "skipped"
+   },
+   "note": null,
+   "seconds": 2
+  },
+  "tests/e2e/cancellation.spec.ts": {
+   "tests": {
+    "Hour Tracking — Cancellation › QA-3: Online session cancelled < 48h by school → clause_2 (penalizada)": "skipped",
+    "Hour Tracking — Cancellation › QA-4: Online session cancelled >= 48h by school → clause_1 (devuelta)": "skipped",
+    "Hour Tracking — Cancellation › QA-5: Presencial session cancelled < 2 weeks by school → clause_4 (penalizada)": "skipped",
+    "Hour Tracking — Cancellation › QA-7: Force majeure cancellation → clause_5 (devuelta, no penalty)": "skipped"
+   },
+   "note": null,
+   "seconds": 2
+  },
+  "tests/e2e/completion.spec.ts": {
+   "tests": {
+    "Hour Tracking — Session Completion › QA-2: Finalizing a session consumes hours in the ledger": "skipped"
+   },
+   "note": null,
+   "seconds": 2
+  },
+  "tests/e2e/context-questions/admin-crud.spec.ts": {
+   "tests": {
+    "Context Questions — Admin CRUD via API › POST creates a new text question": "skipped",
+    "Context Questions — Admin CRUD via API › GET lists questions and includes the new one": "skipped",
+    "Context Questions — Admin CRUD via API › POST rejects empty question_text": "skipped",
+    "Context Questions — Admin CRUD via API › POST rejects select type without options": "skipped",
+    "Context Questions — Admin CRUD via API › POST rejects invalid question_type": "skipped",
+    "Context Questions — Admin CRUD via API › PUT updates the question": "skipped",
+    "Context Questions — Admin CRUD via API › PUT returns 404 for non-existent question": "skipped",
+    "Context Questions — Admin CRUD via API › DELETE soft-deletes the question (is_active=false)": "skipped",
+    "Context Questions — Admin CRUD via API › DELETE on already-deactivated question returns 400": "skipped",
+    "Context Questions — Admin CRUD via API › PUT can re-activate a deactivated question": "skipped"
+   },
+   "note": null,
+   "seconds": 2
+  },
+  "tests/e2e/context-questions/admin-ui.spec.ts": {
+   "tests": {
+    "Admin Context Questions — Page Access › unauthenticated user is redirected to /login from question management": "passed",
+    "Admin Context Questions — Page Access › unauthenticated user is redirected to /login from overview": "passed",
+    "Admin Context Questions — Management Page › admin can access question management page": "skipped",
+    "Admin Context Questions — Management Page › add question form opens and has required fields": "skipped",
+    "Admin Context Questions — Overview Page › admin can access overview page": "skipped",
+    "Admin Context Questions — Overview Page › overview page shows school count stats": "skipped",
+    "Admin Context Questions — Overview Page › overview page has link to manage questions": "skipped"
+   },
+   "note": null,
+   "seconds": 2
+  },
+  "tests/e2e/context-questions/api-security.spec.ts": {
+   "tests": {
+    "Context Questions API — Auth Guards › GET /api/admin/context-questions returns 401 without session": "failed",
+    "Context Questions API — Auth Guards › POST /api/admin/context-questions returns 401 without session": "failed",
+    "Context Questions API — Auth Guards › PUT /api/admin/context-questions/[id] returns 401 without session": "failed",
+    "Context Questions API — Auth Guards › DELETE /api/admin/context-questions/[id] returns 401 without session": "failed",
+    "Context Questions API — Auth Guards › GET /api/admin/context-questions/overview returns 401 without session": "failed",
+    "Context Questions API — Auth Guards › GET /api/school/transversal-context/questions returns 401 without session": "failed",
+    "Context Questions API — Auth Guards › GET /api/school/transversal-context/custom-responses returns 401 without session": "failed",
+    "Context Questions API — Auth Guards › POST /api/school/transversal-context/custom-responses returns 401 without session": "failed",
+    "Context Questions API — Input Validation (no auth needed for 400s) › [id] route rejects non-UUID id with 400": "failed",
+    "Context Questions API — Input Validation (no auth needed for 400s) › [id] route rejects SQL injection attempt in id": "failed",
+    "Context Questions API — Method Not Allowed › PATCH on admin questions index returns 405": "failed",
+    "Context Questions API — Method Not Allowed › POST on public questions returns 405": "failed",
+    "Context Questions API — Method Not Allowed › DELETE on custom-responses returns 401 or 405": "failed"
+   },
+   "note": null,
+   "seconds": 13
+  },
+  "tests/e2e/due-reminders.spec.ts": {
+   "tests": {
+    "due reminders cron (N5-04), outbox delivery off › desktop: refused calls create nothing; the authorized run reminds the docente who has not submitted, once, by the selected path": "timedOut",
+    "due reminders cron (N5-04), outbox delivery off › mobile: the same single reminder across reloads, and its links open the assignment": "timedOut"
+   },
+   "note": null,
+   "seconds": 75
+  },
+  "tests/e2e/feedback-notify-admins.spec.ts": {
+   "tests": {
+    "feedback modal → notify-admins (N0-01) › UI1: desktop creator submits feedback; the notify request carries only the id": "passed",
+    "feedback modal → notify-admins (N0-01) › UI2: mobile anonymous and tampered attempts are refused; the modal stays usable": "passed"
+   },
+   "note": null,
+   "seconds": 9
+  },
+  "tests/e2e/flows/proposal-admin-visibility.spec.ts": {
+   "tests": {
+    "Admin can see ProposalConfigPanel on licitación detail @flow @proposal": "failed",
+    "Non-admin (docente) cannot see ProposalConfigPanel @flow @proposal": "failed",
+    "Admin can toggle ProposalConfigPanel open and closed @flow @proposal": "failed"
+   },
+   "note": null,
+   "seconds": 50
+  },
+  "tests/e2e/flows/proposal-buckets.spec.ts": {
+   "tests": {
+    "Proposal Bucket Configuration @flow @proposal @buckets › Distribución de Actividades section is visible and collapsible": "failed",
+    "Proposal Bucket Configuration @flow @proposal @buckets › Toggling a bucket on shows hours input, toggling off hides it": "failed",
+    "Proposal Bucket Configuration @flow @proposal @buckets › Adding a custom bucket shows it in the list": "failed",
+    "Proposal Bucket Configuration @flow @proposal @buckets › Enabling multiple buckets shows correct summary totals": "failed",
+    "Proposal Web View — Buckets & Dynamic Fields @flow @proposal @buckets › Web proposal without buckets does not show bucket section": "skipped",
+    "Proposal Web View — Buckets & Dynamic Fields @flow @proposal @buckets › Web proposal shows Módulos y Horas section with aggregate hours": "skipped",
+    "Proposal Web View — Buckets & Dynamic Fields @flow @proposal @buckets › Web proposal footer shows ficha metadata": "skipped"
+   },
+   "note": null,
+   "seconds": 67
+  },
+  "tests/e2e/flows/proposal-config.spec.ts": {
+   "tests": {
+    "Proposal Config Panel @flow @proposal › Selecting a plantilla loads its default hours": "failed",
+    "Proposal Config Panel @flow @proposal › Changing hours updates MINEDUC validation status live": "failed",
+    "Proposal Config Panel @flow @proposal › Non-compliant hours disable the generate button": "failed",
+    "Proposal Config Panel @flow @proposal › Selecting an expired certificate shows blocking warning": "failed",
+    "Proposal Config Panel @flow @proposal › Vista Previa button is visible when plantilla and ficha are selected": "failed",
+    "Proposal Config Panel @flow @proposal › Valid config: generate succeeds and download link appears in history": "failed"
+   },
+   "note": null,
+   "seconds": 98
+  },
+  "tests/e2e/flows/proposal-consultant-crud.spec.ts": {
+   "tests": {
+    "Consultant CRUD @flow @proposal › Admin can navigate to consultant library page": "failed",
+    "Consultant CRUD @flow @proposal › Admin can create a new consultant": "failed",
+    "Consultant CRUD @flow @proposal › Admin can edit a consultant titulo": "failed",
+    "Consultant CRUD @flow @proposal › Admin can soft-delete a consultant and it disappears from active list": "failed"
+   },
+   "note": null,
+   "seconds": 66
+  },
+  "tests/e2e/flows/proposal-document-library.spec.ts": {
+   "tests": {
+    "Document Library CRUD @flow @proposal › Admin can navigate to document library page": "failed",
+    "Document Library CRUD @flow @proposal › Admin can upload a supporting document": "failed",
+    "Document Library CRUD @flow @proposal › Expiry warning is shown for expired or near-expiry documents": "failed",
+    "Document Library CRUD @flow @proposal › Admin can soft-delete an uploaded document": "failed"
+   },
+   "note": null,
+   "seconds": 66
+  },
+  "tests/e2e/flows/proposal-versioning.spec.ts": {
+   "tests": {
+    "Proposal Versioning @flow @proposal › Generating twice creates v1 and v2 in history": "failed",
+    "Proposal Versioning @flow @proposal › Both v1 and v2 have individual download links": "failed"
+   },
+   "note": null,
+   "seconds": 34
+  },
+  "tests/e2e/flows/proposal-web-view.spec.ts": {
+   "tests": {
+    "Proposal Web View @flow @proposal @web-view › Shows unlock screen and accepts valid access code": "failed",
+    "Proposal Web View @flow @proposal @web-view › Full proposal renders all major sections": "failed",
+    "Proposal Web View @flow @proposal @web-view › Old proposal without buckets does NOT show bucket section": "failed",
+    "Proposal Web View @flow @proposal @web-view › Aggregate hours (presencial/sincrónica/asincrónica) render in donut chart": "failed",
+    "Proposal Web View @flow @proposal @web-view › Contact email is consistent (info@nuevaeducacion.org)": "failed",
+    "Proposal Web View @flow @proposal @web-view › Footer shows ficha metadata (nombre_servicio, dimension, folio)": "failed",
+    "Proposal Web View @flow @proposal @web-view › Invalid slug returns 404 or error page": "passed"
+   },
+   "note": null,
+   "seconds": 68
+  },
+  "tests/e2e/fx-rates.spec.ts": {
+   "tests": {
+    "Hour Tracking — FX Rates API › GET /api/fx-rates/latest returns a rate for authenticated users": "skipped",
+    "Hour Tracking — FX Rates API › POST /api/fx-rates/refresh returns 403 for non-admin users": "skipped"
+   },
+   "note": null,
+   "seconds": 2
+  },
+  "tests/e2e/meeting-agreements-tasks.spec.ts": {
+   "tests": {
+    "dedicated write-target guard › accepts only the dedicated 54921/54922 pair": "passed",
+    "dedicated write-target guard › refuses nothing set": "passed",
+    "dedicated write-target guard › refuses the .env.development.local default (shared 54421/54422)": "passed",
+    "dedicated write-target guard › refuses the shared API 54421 with the dedicated DB": "passed",
+    "dedicated write-target guard › refuses the dedicated API with the shared DB 54422": "passed",
+    "dedicated write-target guard › refuses the CLI default 54321/54322": "passed",
+    "dedicated write-target guard › refuses the former SM-22 pair 54821/54822, now another unit's stack": "passed",
+    "dedicated write-target guard › refuses the dedicated API with the former SM-22 DB 54822": "passed",
+    "dedicated write-target guard › refuses a hosted project": "passed",
+    "dedicated write-target guard › refuses a localhost alias of the dedicated port": "passed",
+    "dedicated write-target guard › refuses a missing stack identity": "passed",
+    "dedicated write-target guard › requires the named stack to publish both dedicated ports": "passed",
+    "dedicated write-target guard › requires the app server bundle to carry the dedicated API URL": "passed",
+    "dedicated write-target guard › starts no write before the target is verified": "passed",
+    "Meeting agreements and tasks on the dedicated stack › Meeting agreements and tasks (desktop) › verified editor saves an agreement and a task, and both reopen": "failed",
+    "Meeting agreements and tasks on the dedicated stack › Meeting agreements and tasks (desktop) › a refused task write keeps the editor open with the es-CL error and no success toast (SM-23)": "skipped",
+    "Meeting agreements and tasks on the dedicated stack › Meeting agreements and tasks (desktop) › a commitment or task missing its assignee or due date is refused before any write": "skipped",
+    "Meeting agreements and tasks on the dedicated stack › Meeting agreements and tasks (desktop) › unverified co_editor reads as a participant (SM-H8) but gets no edit or delete button and writes nothing": "skipped",
+    "Meeting agreements and tasks on the dedicated stack › Meeting agreements and tasks (mobile) › verified editor saves an agreement and a task, and both reopen": "skipped",
+    "Meeting agreements and tasks on the dedicated stack › Meeting agreements and tasks (mobile) › a refused task write keeps the editor open with the es-CL error and no success toast (SM-23)": "skipped",
+    "Meeting agreements and tasks on the dedicated stack › Meeting agreements and tasks (mobile) › a commitment or task missing its assignee or due date is refused before any write": "skipped",
+    "Meeting agreements and tasks on the dedicated stack › Meeting agreements and tasks (mobile) › unverified co_editor reads as a participant (SM-H8) but gets no edit or delete button and writes nothing": "skipped"
+   },
+   "note": null,
+   "seconds": 2
+  },
+  "tests/e2e/meeting-finalize-email-outcome.spec.ts": {
+   "tests": {
+    "Finalize dialog reports the summary-email outcome › desktop 1366x768 › all-accepted: shows the actual email outcome, closes, and posts finalize once": "failed",
+    "Finalize dialog reports the summary-email outcome › desktop 1366x768 › partial-failure: shows the actual email outcome, closes, and posts finalize once": "skipped",
+    "Finalize dialog reports the summary-email outcome › desktop 1366x768 › total-failure: shows the actual email outcome, closes, and posts finalize once": "skipped",
+    "Finalize dialog reports the summary-email outcome › mobile 390x844 › all-accepted: shows the actual email outcome, closes, and posts finalize once": "skipped",
+    "Finalize dialog reports the summary-email outcome › mobile 390x844 › partial-failure: shows the actual email outcome, closes, and posts finalize once": "skipped",
+    "Finalize dialog reports the summary-email outcome › mobile 390x844 › total-failure: shows the actual email outcome, closes, and posts finalize once": "skipped"
+   },
+   "note": null,
+   "seconds": 2
+  },
+  "tests/e2e/messaging-notifications.spec.ts": {
+   "tests": {
+    "community post mention → messaging/mention (N0-02) › UI1: desktop member mentions a member; one generic notification despite a tampered request": "failed",
+    "community post mention → messaging/mention (N0-02) › UI2: mobile nonmember and forged targets are denied without a notification": "skipped",
+    "message and mention bells render the persisted payloads (N2-02) › D1/D2: the real send route stores the author name, generic copy, catalog category and only an existing type id": "skipped",
+    "message and mention bells render the persisted payloads (N2-02) › D6 desktop: the recipient sees both bells and the message opens messaging; the outsider sees neither": "skipped",
+    "message and mention bells render the persisted payloads (N2-02) › D6 mobile: the recipient sees both bells and the message opens messaging; the outsider sees neither": "skipped",
+    "meeting_finalized bells through the real finalize route (N2-02) › D2/D3: the real POST finalizes once, 403s an outsider and a repeat, 409s the race loser, and bells the audience whatever their email": "skipped",
+    "meeting_finalized bells through the real finalize route (N2-02) › D5 desktop: the email-off attendee's bell opens the meetings page; the absent member has only the community meeting": "skipped",
+    "meeting_finalized bells through the real finalize route (N2-02) › D5 mobile: the email-off attendee's bell opens the meetings page; the absent member has only the community meeting": "skipped",
+    "workspace message mentions and replies (N2-03) › D1/D3 desktop: the real reply with a mention stays sent when its notification fails, and each repeat fills the bells once": "skipped",
+    "workspace message mentions and replies (N2-03) › D2: anonymous, outsider and forged requests are refused without a bell": "skipped",
+    "workspace message mentions and replies (N2-03) › D6 desktop (r1 D1/D3): the replied-to member of two communities opens their bell straight into the thread of its own community; the outsider has none": "skipped",
+    "workspace message mentions and replies (N2-03) › r2 D1/D2 desktop: on one mounted page the same bell reopens its thread after the thread is closed and after another section is visited": "skipped",
+    "workspace message mentions and replies (N2-03) › D6 mobile (r1 D2): the mentioned member's bell opens the thread directly and they reply; the author gets one reply bell and the outsider none": "skipped",
+    "workspace message mentions and replies (N2-03) › r1 D4: a foreign, missing or malformed thread link opens no thread and keeps each user in their own community": "skipped"
+   },
+   "note": null,
+   "seconds": 13
+  },
+  "tests/e2e/notification-bounce.spec.ts": {
+   "tests": {
+    "notification bounce suppression (N3-06) › desktop: a forged bounce changes nothing; a signed one stops mail to that address and to no other": "failed",
+    "notification bounce suppression (N3-06) › mobile: the suppression holds; a bounce that outran the provider id is applied when the id commits": "skipped"
+   },
+   "note": null,
+   "seconds": 2
+  },
+  "tests/e2e/notification-catalog-links.spec.ts": {
+   "tests": {
+    "notification catalog links (N1-01) › UI1 desktop: facilitator follows the bell to the session; an outsider cannot open it": "failed",
+    "notification catalog links (N1-01) › R1 desktop and mobile: a docente attendee reaches the session; a docente from another school cannot": "skipped",
+    "notification catalog links (N1-01) › D7 desktop and mobile: a listed attendee outside the community lands on the dashboard, not the meet page 404": "skipped",
+    "notification catalog links (N1-01) › UI2 mobile: links without a usable record go to safe existing pages": "skipped"
+   },
+   "note": null,
+   "seconds": 2
+  },
+  "tests/e2e/notification-dispatch.spec.ts": {
+   "tests": {
+    "flag-selected notification delivery (N5-02), outbox delivery off › desktop: an assignment reaches the recipient once, by the selected path, and the bell and the link agree": "timedOut",
+    "flag-selected notification delivery (N5-02), outbox delivery off › mobile: repeat, email-off and digest recipients keep their channels; a digest waits for the digest route": "timedOut"
+   },
+   "note": null,
+   "seconds": 82
+  },
+  "tests/e2e/notification-insert-boundary.spec.ts": {
+   "tests": {
+    "notification insert boundary (N0-03) › D6 desktop: owner reads own notifications, marks one read, browser inserts are refused": "passed",
+    "notification insert boundary (N0-03) › D6 mobile: owner marks all read from the bell": "passed",
+    "notification insert boundary (N0-03) › D6 mobile: empty and error states stay usable": "passed"
+   },
+   "note": null,
+   "seconds": 12
+  },
+  "tests/e2e/notification-mail-mirror.spec.ts": {
+   "tests": {
+    "notification email in the local mail mirror (N3-07) › desktop: an assignment mails the recipient once through the mirror, and the bell and the link agree": "passed",
+    "notification email in the local mail mirror (N3-07) › mobile: a repeated assignment and an opted-out recipient add no mail; the bell still shows each notification": "passed"
+   },
+   "note": null,
+   "seconds": 16
+  },
+  "tests/e2e/notification-occurrence-idempotency.spec.ts": {
+   "tests": {
+    "notification occurrence idempotency (N2-01) › D6 capture: two occurrences and a retry give two rows, keys [first, second, first], and a payload-free audit": "failed",
+    "notification occurrence idempotency (N2-01) › D6 desktop: the bell shows exactly the two occurrences, none for the retry": "skipped",
+    "notification occurrence idempotency (N2-01) › D6 mobile: the bell shows exactly the two occurrences, none for the retry": "skipped"
+   },
+   "note": null,
+   "seconds": 2
+  },
+  "tests/e2e/notification-preference-compat.spec.ts": {
+   "tests": {
+    "notification preference compat (N1-03) › D5 empty: before any event the recipient sees the empty bell": "failed",
+    "notification preference compat (N1-03) › D5 events: all four go through the producer path and each writes one bell row": "skipped",
+    "notification preference compat (N1-03) › D5 capture: off and default+legacy suppress, compat digest and the mandatory event send once": "skipped",
+    "notification preference compat (N1-03) › D5 desktop: the recipient sees all four notifications in the bell, emailed or not": "skipped",
+    "notification preference compat (N1-03) › D5 mobile: the recipient sees all four notifications in the bell, emailed or not": "skipped"
+   },
+   "note": null,
+   "seconds": 2
+  },
+  "tests/e2e/notification-unsubscribe.spec.ts": {
+   "tests": {
+    "notification unsubscribe link (N3-05) › desktop: opening, reloading and previewing change nothing; the keyboard confirms; a replay is harmless": "failed",
+    "notification unsubscribe link (N3-05) › mobile: a user with no preference row unsubscribes with a tap; a later choice, or deleting the row, makes the old link stale": "skipped",
+    "notification unsubscribe link (N3-05) › desktop: an invalid, expired or missing token shows an error and no button": "skipped",
+    "notification unsubscribe link (N3-05) › mobile: an invalid, expired or missing token shows an error and no button": "skipped",
+    "notification unsubscribe link (N3-05) › a mailbox provider's one-click POST (multipart, no browser) unsubscribes that user only": "skipped",
+    "notification unsubscribe link (N3-05) › mobile: a failed request says nothing changed, and the retry button finishes it": "skipped"
+   },
+   "note": null,
+   "seconds": 3
+  },
+  "tests/e2e/panel-pin.spec.ts": {
+   "tests": {
+    "panel — desktop › as docente (docente) › sections and their content": "passed",
+    "panel — desktop › as docente (docente) › «Mi Perfil» goes to /profile": "passed",
+    "panel — desktop › as docente (docente) › news: «Ver todas» goes to /noticias; a card opens the article in a new tab": "passed",
+    "panel — desktop › as docente (docente) › videos: «Ver canal» and each video card open YouTube in a new tab": "passed",
+    "panel — desktop › as docente (docente) › badges: «Ver todos» points at /mi-aprendizaje/logros, which does not exist": "passed",
+    "panel — desktop › as docente (docente) › course cards: hovering shows the action; «Continuar» opens the course": "passed",
+    "panel — desktop › as docente (docente) › route card opens the route; «Ver todas» points at /mi-aprendizaje": "passed",
+    "panel — desktop › as docente (docente) › upcoming course cards show the release month on hover and lead nowhere": "passed",
+    "panel — desktop › as docente (docente) › API addresses called on load": "passed",
+    "panel — desktop › as docente (docente) › menu: shows, without the community and QA entries; «Mi pasantía» and «Mis Registros» follow their checks": "passed",
+    "panel — desktop › as admin (admin) › sections and their content": "passed",
+    "panel — desktop › as admin (admin) › course proposals: «Nueva Propuesta» and «Crear Propuesta» open the form, «Cancelar» closes it": "passed",
+    "panel — desktop › as admin (admin) › course row arrows scroll sideways": "passed",
+    "panel — desktop › as admin (admin) › a course card of «Mis Cursos Abiertos» offers «Comenzar» and opens the course": "passed",
+    "panel — desktop › as admin (admin) › API addresses called on load": "passed",
+    "panel — desktop › as admin (admin) › menu: shows with «Espacio Colaborativo» and «QA Testing»": "passed",
+    "panel — desktop › as consultorAssigned (consultor) › sections and their content": "passed",
+    "panel — desktop › as consultorAssigned (consultor) › API addresses called on load": "passed",
+    "panel — desktop › as consultorAssigned (consultor) › menu: shows with «Espacio Colaborativo» (consultors see it without a community), without «QA Testing»": "passed",
+    "panel — desktop › as directivo (equipo_directivo) › sections and their content": "passed",
+    "panel — desktop › as directivo (equipo_directivo) › menu: shows without «Espacio Colaborativo» and «QA Testing»": "passed",
+    "panel — desktop › as gcLeader (lider_comunidad) › sections and their content": "passed",
+    "panel — desktop › as gcLeader (lider_comunidad) › community section: opens and closes, lists the members, links to the workspace": "passed",
+    "panel — desktop › as gcLeader (lider_comunidad) › community section: a member opens the profile pop-up": "passed",
+    "panel — desktop › as gcLeader (lider_comunidad) › community section: the gear opens the workspace settings pop-up, «Cancelar» closes it": "passed",
+    "panel — desktop › as gcLeader (lider_comunidad) › API addresses called on load": "passed",
+    "panel — desktop › as gcLeader (lider_comunidad) › menu: shows with «Espacio Colaborativo», without «QA Testing»": "passed",
+    "panel — desktop › as communityManager (community_manager) › sections and their content": "passed",
+    "panel — desktop › as generationLeader (lider_generacion) › sections and their content": "passed",
+    "panel — desktop › as networkSupervisor (supervisor_de_red) › sections and their content": "passed",
+    "panel — desktop › as procurementManager (encargado_licitacion) › sections and their content": "passed",
+    "panel — phone (390 px) › as docente (docente) › «Mi Perfil» is hidden; the menu opens from the header button and closes on the backdrop": "passed",
+    "panel — phone (390 px) › as docente (docente) › course card: the first tap opens it, the second tap opens the course": "passed",
+    "panel — phone (390 px) › as admin (admin) › «Nueva Propuesta» loses its text (icon only) but still opens the form": "passed"
+   },
+   "note": null,
+   "seconds": 48
+  },
+  "tests/e2e/proc-pilot-journey.spec.ts": {
+   "tests": {
+    "[LOCAL SYNTHETIC / NOT REAL PILOT EVIDENCE] pilot journey — desktop 1280×800 › director fills the Contexto Transversal and gets the course": "passed",
+    "[LOCAL SYNTHETIC / NOT REAL PILOT EVIDENCE] pilot journey — desktop 1280×800 › director assigns the docente; the product creates the instance": "passed",
+    "[LOCAL SYNTHETIC / NOT REAL PILOT EVIDENCE] pilot journey — desktop 1280×800 › docente finds the right evaluation, answers, saves, and the answers survive a reload": "passed",
+    "[LOCAL SYNTHETIC / NOT REAL PILOT EVIDENCE] pilot journey — desktop 1280×800 › docente submits; results reflect exactly the answers": "passed",
+    "[LOCAL SYNTHETIC / NOT REAL PILOT EVIDENCE] pilot journey — desktop 1280×800 › director dashboard shows the result": "passed",
+    "[LOCAL SYNTHETIC / NOT REAL PILOT EVIDENCE] pilot journey — mobile 375×667 › director fills the Contexto Transversal and gets the course": "passed",
+    "[LOCAL SYNTHETIC / NOT REAL PILOT EVIDENCE] pilot journey — mobile 375×667 › director assigns the docente; the product creates the instance": "passed",
+    "[LOCAL SYNTHETIC / NOT REAL PILOT EVIDENCE] pilot journey — mobile 375×667 › docente finds the right evaluation, answers, saves, and the answers survive a reload": "passed",
+    "[LOCAL SYNTHETIC / NOT REAL PILOT EVIDENCE] pilot journey — mobile 375×667 › docente submits; results reflect exactly the answers": "passed",
+    "[LOCAL SYNTHETIC / NOT REAL PILOT EVIDENCE] pilot journey — mobile 375×667 › director dashboard shows the result": "passed"
+   },
+   "note": null,
+   "seconds": 27
+  },
+  "tests/e2e/registro.spec.ts": {
+   "tests": {
+    "registro (public generic signup) › page responds and renders the form": "passed",
+    "registro (public generic signup) › empty submit shows validation errors and focuses the first invalid field": "passed",
+    "registro (public generic signup) › valid submission (mocked API) shows the success panel": "passed"
+   },
+   "note": null,
+   "seconds": 3
+  },
+  "tests/e2e/reservation.spec.ts": {
+   "tests": {
+    "Hour Tracking — Session Reservation › QA-1: Creating and scheduling a session reserves hours in the ledger": "failed",
+    "Hour Tracking — Session Reservation › QA-9: Legacy session (no hour_type_key) continues to work normally": "failed"
+   },
+   "note": null,
+   "seconds": 34
+  },
+  "tests/e2e/sentry-replay-disabled.spec.ts": {
+   "tests": {
+    "Sentry replay disabled — desktop › without a DSN the SDK stays off and no telemetry is sent": "passed",
+    "Sentry replay disabled — desktop › with a synthetic loopback DSN no replay is recorded or sent": "skipped",
+    "Sentry replay disabled — mobile › without a DSN the SDK stays off and no telemetry is sent": "passed",
+    "Sentry replay disabled — mobile › with a synthetic loopback DSN no replay is recorded or sent": "skipped"
+   },
+   "note": null,
+   "seconds": 4
+  },
+  "tests/e2e/session-reminders.spec.ts": {
+   "tests": {
+    "session reminders cron (N5-03), outbox delivery off › desktop: refused calls create nothing; the authorized run reminds each participant once by the selected path": "timedOut",
+    "session reminders cron (N5-03), outbox delivery off › mobile: the facilitator sees the same single reminder across reloads and its links open the session": "timedOut"
+   },
+   "note": null,
+   "seconds": 76
+  },
+  "tests/e2e/urgent-anonymous-boundaries.spec.ts": {
+   "tests": {},
+   "note": "Error: No tests found.",
+   "seconds": 1
+  },
+  "tests/e2e/urgent-anonymous-current.spec.ts": {
+   "tests": {
+    "FNE-ANON-01 signed-in and public journeys › 1a admin: contract invoice upload, open, reload, delete": "passed",
+    "FNE-ANON-01 signed-in and public journeys › 1b admin: Cash Flow invoice upload": "passed",
+    "FNE-ANON-01 signed-in and public journeys › 2 admin: lesson editor image and file blocks survive save and reload": "passed",
+    "FNE-ANON-01 signed-in and public journeys › 3 docente: text, quiz with open answer, image, file download; progress survives reload": "passed",
+    "FNE-ANON-01 signed-in and public journeys › 4 docente: dashboard shows the earned badge": "passed",
+    "FNE-ANON-01 signed-in and public journeys › 5a consultor: pending quiz review list shows the assigned student answer": "passed",
+    "FNE-ANON-01 signed-in and public journeys › 5b admin: opens and grades the seeded pending open answer": "passed",
+    "FNE-ANON-01 signed-in and public journeys › 6 community leader: group discussion opens for a group member": "passed",
+    "FNE-ANON-01 signed-in and public journeys › 7a admin: school report": "passed",
+    "FNE-ANON-01 signed-in and public journeys › 7a2 admin: school report lists the synthetic school — BASELINE_FAILURE": "passed",
+    "FNE-ANON-01 signed-in and public journeys › 7b admin: community report — BASELINE_FAILURE": "passed",
+    "FNE-ANON-01 signed-in and public journeys › 8 gcLeader: workspace document upload": "passed",
+    "FNE-ANON-01 signed-in and public journeys › 8 consultorAssigned: workspace document upload": "passed",
+    "FNE-ANON-01 signed-in and public journeys › 8c workspace document preview/download — repaired acceptance": "passed",
+    "FNE-ANON-01 signed-in and public journeys › 9 community_manager: news image; signed out: published image and public pages": "passed"
+   },
+   "note": null,
+   "seconds": 52
+  },
+  "tests/qa/auth-redirects.spec.ts": {
+   "tests": {
+    "Protected Route Redirects (No Session) › Core Application Routes › dashboard redirects to login when not authenticated": "passed",
+    "Protected Route Redirects (No Session) › Core Application Routes › profile page redirects to login when not authenticated": "passed",
+    "Protected Route Redirects (No Session) › Core Application Routes › workspace redirects to login when not authenticated": "failed",
+    "Protected Route Redirects (No Session) › Core Application Routes › messages page redirects to login when not authenticated": "failed",
+    "Protected Route Redirects (No Session) › Course Routes › courses list redirects to login when not authenticated": "failed",
+    "Protected Route Redirects (No Session) › Course Routes › course detail page redirects to login when not authenticated": "failed",
+    "Protected Route Redirects (No Session) › Course Routes › course enrollment page redirects to login when not authenticated": "failed",
+    "Protected Route Redirects (No Session) › Assessment Routes › evaluaciones redirects to login when not authenticated": "failed",
+    "Protected Route Redirects (No Session) › Assessment Routes › quiz page redirects to login when not authenticated": "failed",
+    "Protected Route Redirects (No Session) › Reporting Routes › reports page redirects to login when not authenticated": "passed",
+    "Protected Route Redirects (No Session) › Reporting Routes › analytics page redirects to login when not authenticated": "failed",
+    "Protected Route Redirects (No Session) › QA System Routes › QA scenarios list redirects to login when not authenticated": "passed",
+    "Protected Route Redirects (No Session) › QA System Routes › QA test run page redirects to login when not authenticated": "passed",
+    "Protected Route Redirects (No Session) › Admin Routes › admin dashboard redirects to login when not authenticated": "passed",
+    "Protected Route Redirects (No Session) › Admin Routes › admin users page redirects to login when not authenticated": "passed",
+    "Protected Route Redirects (No Session) › Admin Routes › admin schools page redirects to login when not authenticated": "passed",
+    "Protected Route Redirects (No Session) › Admin Routes › admin courses page redirects to login when not authenticated": "passed",
+    "Protected Route Redirects (No Session) › Admin Routes › admin QA dashboard redirects to login when not authenticated": "passed",
+    "Protected Route Redirects (No Session) › Admin Routes › admin QA scenarios redirects to login when not authenticated": "passed",
+    "Protected Route Redirects (No Session) › Admin Routes › admin QA import redirects to login when not authenticated": "passed",
+    "Protected Route Redirects (No Session) › Admin Routes › admin networks page redirects to login when not authenticated": "passed",
+    "Protected Route Redirects (No Session) › Consultant Routes › consultor overview redirects to login when not authenticated": "passed",
+    "Protected Route Redirects (No Session) › Consultant Routes › consultor schools redirects to login when not authenticated": "passed",
+    "Protected Route Redirects (No Session) › Supervisor Routes › supervisor de red dashboard redirects to login when not authenticated": "failed",
+    "Public Routes (Should NOT Redirect) › login page is accessible without authentication": "passed",
+    "Public Routes (Should NOT Redirect) › password reset page is accessible without authentication": "passed",
+    "Public Routes (Should NOT Redirect) › home page behavior": "passed",
+    "API Endpoint Auth (401 Responses) › API scenarios endpoint returns 401 without auth": "passed",
+    "API Endpoint Auth (401 Responses) › API test runs endpoint returns 401 without auth": "passed",
+    "API Endpoint Auth (401 Responses) › API import endpoint returns 401 without auth": "passed",
+    "API Endpoint Auth (401 Responses) › API users endpoint returns 401 without auth": "failed",
+    "API Endpoint Auth (401 Responses) › API schools endpoint returns 401 without auth": "failed",
+    "API Endpoint Auth (401 Responses) › API courses endpoint returns 401 without auth": "failed",
+    "API Endpoint Auth (401 Responses) › API networks endpoint returns 401 without auth": "failed",
+    "Login Page Functionality › login page shows error for invalid credentials": "passed",
+    "Login Page Functionality › login page validates required fields": "passed",
+    "Login Page Functionality › remember me checkbox exists": "passed"
+   },
+   "note": null,
+   "seconds": 66
+  },
+  "tests/qa/mobile-sidebar.spec.ts": {
+   "tests": {
+    "Mobile Sidebar Navigation › opens from mobile header trigger and closes after navigation": "skipped"
+   },
+   "note": null,
+   "seconds": 2
+  },
+  "tests/qa/qa-system.spec.ts": {
+   "tests": {
+    "QA Tester Interface › should show QA scenarios list page": "timedOut",
+    "QA Tester Interface › should require authentication for QA pages": "passed",
+    "QA Admin Dashboard › should show admin QA dashboard": "timedOut",
+    "QA Admin Dashboard › should navigate to scenarios management": "timedOut",
+    "QA Admin Dashboard › should navigate to import page": "timedOut",
+    "QA Admin Dashboard › should deny access to non-admin users": "timedOut",
+    "QA Scenarios Management › should display scenarios list": "timedOut",
+    "QA Scenarios Management › should filter scenarios by feature area": "timedOut",
+    "QA Scenarios Management › should show scenario creation form": "timedOut",
+    "QA Import Functionality › should display import page": "timedOut",
+    "QA Import Functionality › should load sample JSON": "timedOut",
+    "QA Import Functionality › should validate JSON input": "timedOut",
+    "QA Import Functionality › should show error for invalid JSON": "timedOut",
+    "QA Import Functionality › should show error for empty scenarios array": "timedOut",
+    "QA Test Runs › should display test run details page": "timedOut",
+    "QA API Endpoints › should return scenarios list via API": "passed",
+    "QA API Endpoints › should return 401 for unauthenticated import": "passed",
+    "Accessibility › QA dashboard should have no accessibility violations": "timedOut",
+    "Accessibility › Import page form should be accessible": "timedOut"
+   },
+   "note": null,
+   "seconds": 493
+  }
+ },
+ "ran": "2026-11-13T22:18:25.302Z",
+ "commit": "f526421fb3d62e5e6f31fb057294a00b2b17a06a",
+ "builtCommit": "74a3174c79a1b26e5e58e51a4d6d058f71555dff",
+ "how": "each file alone, on the plain seeded database (snapshot seed), CI=1, no retries, one worker",
+ "totals": {
+  "passed": 137,
+  "failed": 65,
+  "timedOut": 22,
+  "skipped": 69,
+  "unsteady": 0
+ },
+ "rerunOfFailures": "2026-11-13T22:40:45.548Z"
+}

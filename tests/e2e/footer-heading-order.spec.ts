@@ -48,9 +48,12 @@ const PAGES_RENDERING_FOOTER = [
   '/pasantias',
 ] as const;
 
-async function expectFooterHeadingOrder(page: Page, path: string) {
+async function expectFooterHeadingOrder(page: Page, path: string, settled?: (page: Page) => Promise<void>) {
     await page.goto(path);
     await expect(page.locator('footer')).toBeVisible();
+    // A page that draws its frame before its content: wait for the content, or the heading
+    // before the footer would be read before it exists.
+    if (settled) await settled(page);
 
     const headings = await page
       .locator(':is(h1, h2, h3, h4, h5, h6)')
@@ -82,9 +85,15 @@ for (const path of PAGES_RENDERING_FOOTER) {
 }
 
 test('the shared Footer does not break heading order on /dashboard (signed in, MainLayout)', async ({ browser }) => {
+  // Signing in through the login form can take most of the default 30 s on its own.
+  test.setTimeout(120_000);
   const context = await browser.newContext({ storageState: await ensureStorageState(browser, 'docente') });
   try {
-    await expectFooterHeadingOrder(await context.newPage(), '/dashboard');
+    await expectFooterHeadingOrder(await context.newPage(), '/dashboard', async (page) => {
+      // The panel itself, not a page it bounced to; its greeting is drawn once the profile has loaded.
+      await expect(page.getByRole('heading', { name: /^¡Hola, / })).toBeVisible({ timeout: 60_000 });
+      await expect(page).toHaveURL(/\/dashboard$/);
+    });
   } finally {
     await context.close();
   }

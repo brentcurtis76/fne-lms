@@ -1,3 +1,12 @@
+## RD-0 — platform redesign, release 0: the safety net (2026-11-14, built and proven locally, not pushed)
+
+Branch `chore/rd-net` from `58b8d169f`. First release of the platform redesign Brent asked for on 2026-11-12; it changes nothing anyone can see. Record and reviewer notes: `docs/planning/reviews/fase-rd-0-review-request.md`.
+
+- **What every user receives:** `tailwind.config.js` now also reads class names from `src/`, `lib/`, `types/`, `config/` and `utils/`; `src/components/TipTapEditor.tsx` loses 15 class names that were never generated, so that the editor keeps its look.
+- **What the application does not use:** `docs/plan/redesign/inventory/` (what every screen offers today; `node scripts/redesign/inventory.mjs build|check|diff`), `scripts/redesign/harness/` with `docs/plan/redesign/harness/README.md` (a private local copy with invented content, a picture of every address per role, a comparison of two runs), `tests/e2e/panel-pin.spec.ts` (34 tests of today's panel; not in CI's mandatory list: they need a plain seeded database).
+- **Rule that came out of it:** the repository is public, so notes on where the platform is weak are kept outside it; the redesign's scripts refuse them here.
+- **Proof:** before/after pictures on one local stack, 3,499 of 3,500 the same (the one difference is a clock with seconds on a leftover page); two runs of the same build identical.
+
 ## WEB-REDESIGN — public site redesign: built and checked locally, not pushed (2026-11-12)
 
 Branch `feat/web-redesign` from `631771416`. Brent asked for it in conversation; no itinerary phase. Record and reviewer notes: `docs/planning/reviews/fase-web-redesign-review-request.md`.

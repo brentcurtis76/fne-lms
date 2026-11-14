@@ -119,6 +119,11 @@ export const MANDATORY_SPECS = [
   // the invitation letter (blocked until complete, generated as a real PDF), private
   // documents through signed URLs only, a real two-admin race, and the role gates.
   'tests/e2e/pasantias-panel.spec.ts',
+  // REDESIGN 4d — the per-account look switch against the real policies: an account that is
+  // not offered the choice sees nothing of it and is refused by the API; a QA tester switches
+  // to the new look and back and the profile holds it; signing out returns to today's look.
+  // Everything the redesign later hangs on `data-look` depends on exactly this.
+  'tests/e2e/look-switch.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

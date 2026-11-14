@@ -1,7 +1,7 @@
 # Gestor de Cambio (registros, context, migration plan, results)
 
 Area `08-gestor-de-cambio`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `624684477` (2026-11-13).
+Read from commit `f22b2fcba` (2026-11-14).
 
 16 screen files, 40 API files, 30 pieces.
 

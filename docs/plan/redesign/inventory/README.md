@@ -2,7 +2,7 @@
 
 What every screen of the platform offers today, so the redesign can prove that nothing is lost (PLAN.md, "The no-loss rules": the inventory is the contract).
 
-Read from commit `6246844772d423e70ba32f8ed9b50a5f73e8c6b2` (2026-11-13).
+Read from commit `f22b2fcba5c30c58d51357d5c260821ad4c71641` (2026-11-14).
 
 ## How to use it
 

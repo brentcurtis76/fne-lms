@@ -1,7 +1,7 @@
 # Acceso (sign-in, sign-up, passwords)
 
 Area `01-acceso`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `624684477` (2026-11-13).
+Read from commit `f22b2fcba` (2026-11-14).
 
 7 screen files, 13 API files, 7 pieces.
 

@@ -1,3 +1,11 @@
+## RD-4a — platform redesign, step 4a: named values (2026-11-14, built and proven locally, not pushed)
+
+Branch `feat/rd-tokens` on top of RD-0. Record and reviewer notes: `docs/planning/reviews/fase-rd-4a-review-request.md`; the names and rules: `docs/plan/redesign/tokens.md`.
+
+- **What changed:** `tailwind.config.js` reads the brand colours, the gray, yellow, amber, red, green and blue families, the font families and the `rounded-*` radii from CSS variables declared once in `styles/fne-tokens.css` (colours as RGB triplets, `rgb(var(--color-x) / <alpha-value>)`). The values are exactly the ones the platform had. No page or component changed.
+- **Rules that hold from now on:** one declaration of each value, on `:root`, in `fne-tokens.css` (a second look overrides the names in a file of its own); a value there is the platform for everyone and is pinned by `__tests__/styles/brand-tokens.test.ts`; `styles/globals.css` must keep its import of the token file.
+- **Proof:** the compiled stylesheet is equivalent rule by rule (`scripts/redesign/tokens-check.mjs`, 4,034 declarations); in pictures every landing is the same and 3,460 of 3,500 pictures are identical; 40 differ by one shade of 255, because Next no longer rounds the see-through colours when it shrinks the stylesheet (the review request explains it).
+
 ## RD-0 — platform redesign, release 0: the safety net (2026-11-14, built and proven locally, not pushed)
 
 Branch `chore/rd-net` from `58b8d169f`. First release of the platform redesign Brent asked for on 2026-11-12; it changes nothing anyone can see. Record and reviewer notes: `docs/planning/reviews/fase-rd-0-review-request.md`.

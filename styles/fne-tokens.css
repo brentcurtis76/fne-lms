@@ -8,19 +8,28 @@
  * set of `@font-face` rules pointing at a different path would double-load the
  * family.
  *
- * RELATIONSHIP TO `tailwind.config.js`. The config already carries the same
- * palette under the same names (`brand_primary`, `brand_accent`, …) and is used
- * by every other surface in the app, so it stays the source Tailwind reads.
- * Rewriting those entries as `var(--fne-*)` would silently break every existing
- * `bg-brand_primary/40`-style opacity modifier, which is not an A6r-sized risk.
- * Instead the two are pinned to each other by
- * `__tests__/styles/brand-tokens.test.ts`, which fails if either side drifts.
+ * RELATIONSHIP TO `tailwind.config.js`. Since the platform redesign's groundwork
+ * (phase 4a) this file is the ONE place that holds the platform's values, and
+ * the config reads them: every brand colour, the grey, yellow, amber, red, green
+ * and blue families, the font families and the corner radii are declared in the
+ * second `:root` block below, colours as RGB triplets (`10 10 10`), and the
+ * config names them as `rgb(var(--color-x) / <alpha-value>)`. The triplet form
+ * is what keeps every `bg-brand_primary/40`-style opacity modifier working.
+ * The values are exactly the ones the platform had before (the brand palette,
+ * and Tailwind's own defaults for the families, fonts and radii), so nothing
+ * changes on screen; `__tests__/styles/brand-tokens.test.ts` pins that.
+ *
+ * The hex tokens of the first block (`--fne-black` …) are older whole colours.
+ * The config reads the three gold ones (`bg-gold-gradient`, used on /pasantias);
+ * the others are read only by the semantic aliases of that block, which no
+ * screen uses yet. They stay as they are, and the same test pins each brand one
+ * to its triplet.
  *
  * The gold gradient and its two stops are NEW — the config has no equivalent, so
  * they are declared here once and read by the config through `var()`.
  */
 :root {
-  /* Primary — mirrored in tailwind.config.js, pinned by the token test. */
+  /* Primary. Whole colours; each equals its triplet below (pinned by the token test). */
   --fne-black: #0a0a0a;
   --fne-yellow: #fbbf24;
   --fne-white: #ffffff;
@@ -30,7 +39,7 @@
   --fne-gold-dark: #b47410;
   --fne-gold-gradient: linear-gradient(135deg, var(--fne-gold-light) 0%, var(--fne-gold-dark) 100%);
 
-  /* Support — mirrored in tailwind.config.js, pinned by the token test. */
+  /* Support. Whole colours; each equals its triplet below (pinned by the token test). */
   --fne-amber: #f59e0b;
   --fne-yellow-light: #fcd34d;
   --fne-gray-dark: #1f1f1f;
@@ -128,6 +137,127 @@
   --duration-fast: 150ms;
   --duration-base: 200ms;
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/**
+ * The values `tailwind.config.js` reads (platform redesign, phase 4a).
+ *
+ * Colours are RGB triplets without `rgb()`, because the config wraps them as
+ * `rgb(var(--color-x) / <alpha-value>)` and Tailwind fills in the opacity.
+ * To use one outside a Tailwind class: `rgb(var(--color-gray-200))`, or with
+ * an opacity `rgb(var(--color-gray-200) / 0.5)`.
+ *
+ * Each value is declared ONCE, here. A second look (the redesign's
+ * `[data-look="nuevo"]`) overrides these names in a file of its own; it never
+ * adds a second declaration to this file (the token test counts them).
+ */
+:root {
+  /* Brand. `brand_blue`, `brand_yellow` and `brand_beige` are older names of
+     primary, accent and light in the config and read the same three values. */
+  --color-brand-primary:      10 10 10;      /* #0a0a0a  = --fne-black */
+  --color-brand-accent:       251 191 36;    /* #fbbf24  = --fne-yellow */
+  --color-brand-accent-hover: 245 158 11;    /* #f59e0b  = --fne-amber */
+  --color-brand-accent-light: 252 211 77;    /* #fcd34d  = --fne-yellow-light */
+  --color-brand-accent-text:  180 83 9;      /* #b45309  = --fne-amber-text */
+  --color-brand-light:        255 255 255;   /* #ffffff  = --fne-white */
+  --color-brand-gray-dark:    31 31 31;      /* #1f1f1f  = --fne-gray-dark */
+  --color-brand-gray-medium:  107 114 128;   /* #6b7280  = --fne-gray-medium */
+
+  /* Gray (Tailwind's default gray today). */
+  --color-gray-50:       249 250 251;   /* #f9fafb */
+  --color-gray-100:      243 244 246;   /* #f3f4f6 */
+  --color-gray-200:      229 231 235;   /* #e5e7eb */
+  --color-gray-300:      209 213 219;   /* #d1d5db */
+  --color-gray-400:      156 163 175;   /* #9ca3af */
+  --color-gray-500:      107 114 128;   /* #6b7280 */
+  --color-gray-600:      75 85 99;      /* #4b5563 */
+  --color-gray-700:      55 65 81;      /* #374151 */
+  --color-gray-800:      31 41 55;      /* #1f2937 */
+  --color-gray-900:      17 24 39;      /* #111827 */
+  --color-gray-950:      3 7 18;        /* #030712 */
+
+  /* Yellow (Tailwind's default yellow today). */
+  --color-yellow-50:     254 252 232;   /* #fefce8 */
+  --color-yellow-100:    254 249 195;   /* #fef9c3 */
+  --color-yellow-200:    254 240 138;   /* #fef08a */
+  --color-yellow-300:    253 224 71;    /* #fde047 */
+  --color-yellow-400:    250 204 21;    /* #facc15 */
+  --color-yellow-500:    234 179 8;     /* #eab308 */
+  --color-yellow-600:    202 138 4;     /* #ca8a04 */
+  --color-yellow-700:    161 98 7;      /* #a16207 */
+  --color-yellow-800:    133 77 14;     /* #854d0e */
+  --color-yellow-900:    113 63 18;     /* #713f12 */
+  --color-yellow-950:    66 32 6;       /* #422006 */
+
+  /* Amber (Tailwind's default amber today). */
+  --color-amber-50:      255 251 235;   /* #fffbeb */
+  --color-amber-100:     254 243 199;   /* #fef3c7 */
+  --color-amber-200:     253 230 138;   /* #fde68a */
+  --color-amber-300:     252 211 77;    /* #fcd34d */
+  --color-amber-400:     251 191 36;    /* #fbbf24 */
+  --color-amber-500:     245 158 11;    /* #f59e0b */
+  --color-amber-600:     217 119 6;     /* #d97706 */
+  --color-amber-700:     180 83 9;      /* #b45309 */
+  --color-amber-800:     146 64 14;     /* #92400e */
+  --color-amber-900:     120 53 15;     /* #78350f */
+  --color-amber-950:     69 26 3;       /* #451a03 */
+
+  /* Red (Tailwind's default red today). */
+  --color-red-50:        254 242 242;   /* #fef2f2 */
+  --color-red-100:       254 226 226;   /* #fee2e2 */
+  --color-red-200:       254 202 202;   /* #fecaca */
+  --color-red-300:       252 165 165;   /* #fca5a5 */
+  --color-red-400:       248 113 113;   /* #f87171 */
+  --color-red-500:       239 68 68;     /* #ef4444 */
+  --color-red-600:       220 38 38;     /* #dc2626 */
+  --color-red-700:       185 28 28;     /* #b91c1c */
+  --color-red-800:       153 27 27;     /* #991b1b */
+  --color-red-900:       127 29 29;     /* #7f1d1d */
+  --color-red-950:       69 10 10;      /* #450a0a */
+
+  /* Green (Tailwind's default green today). */
+  --color-green-50:      240 253 244;   /* #f0fdf4 */
+  --color-green-100:     220 252 231;   /* #dcfce7 */
+  --color-green-200:     187 247 208;   /* #bbf7d0 */
+  --color-green-300:     134 239 172;   /* #86efac */
+  --color-green-400:     74 222 128;    /* #4ade80 */
+  --color-green-500:     34 197 94;     /* #22c55e */
+  --color-green-600:     22 163 74;     /* #16a34a */
+  --color-green-700:     21 128 61;     /* #15803d */
+  --color-green-800:     22 101 52;     /* #166534 */
+  --color-green-900:     20 83 45;      /* #14532d */
+  --color-green-950:     5 46 22;       /* #052e16 */
+
+  /* Blue (Tailwind's default blue today). */
+  --color-blue-50:       239 246 255;   /* #eff6ff */
+  --color-blue-100:      219 234 254;   /* #dbeafe */
+  --color-blue-200:      191 219 254;   /* #bfdbfe */
+  --color-blue-300:      147 197 253;   /* #93c5fd */
+  --color-blue-400:      96 165 250;    /* #60a5fa */
+  --color-blue-500:      59 130 246;    /* #3b82f6 */
+  --color-blue-600:      37 99 235;     /* #2563eb */
+  --color-blue-700:      29 78 216;     /* #1d4ed8 */
+  --color-blue-800:      30 64 175;     /* #1e40af */
+  --color-blue-900:      30 58 138;     /* #1e3a8a */
+  --color-blue-950:      23 37 84;      /* #172554 */
+
+  /* Font families (`font-sans` is also the page's default face). */
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-mont: Mont, sans-serif;
+  --font-eames: Eames Century Modern, serif;
+
+  /* Corner radii of the `rounded-*` classes (Tailwind's defaults today).
+     `rounded-none` and `rounded-full` are not values of a look and stay fixed.
+     Not to be confused with `--radius-*` above, the A6r surface tokens. */
+  --rounded-sm:  0.125rem;
+  --rounded:     0.25rem;
+  --rounded-md:  0.375rem;
+  --rounded-lg:  0.5rem;
+  --rounded-xl:  0.75rem;
+  --rounded-2xl: 1rem;
+  --rounded-3xl: 1.5rem;
 }
 
 @media (prefers-reduced-motion: reduce) {

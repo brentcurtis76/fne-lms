@@ -93,23 +93,25 @@ describe('session-ui-helpers', () => {
 
     it('should return correct hex color for cancelada status', () => {
       const color = getStatusColor('cancelada');
-      expect(color).toBe('#EF4444');
+      // Red 500, read from its named value since the redesign's phase 4b.
+      expect(color).toBe('rgb(var(--color-red-500))');
     });
 
-    it('should handle all valid session statuses with valid hex', () => {
-      const statuses: SessionStatus[] = [
-        'borrador',
-        'pendiente_aprobacion',
-        'programada',
-        'en_progreso',
-        'pendiente_informe',
-        'completada',
-        'cancelada',
-      ];
+    it('should handle all valid session statuses with their exact hex or named colour', () => {
+      // The brand kit stays hex; amber 600 (#D97706) and red 500 (#EF4444)
+      // read their named values since the redesign's phase 4b.
+      const expected: Record<SessionStatus, string> = {
+        borrador: '#6B7280',
+        pendiente_aprobacion: '#F59E0B',
+        programada: '#1f1f1f',
+        en_progreso: '#F59E0B',
+        pendiente_informe: 'rgb(var(--color-amber-600))',
+        completada: '#0a0a0a',
+        cancelada: 'rgb(var(--color-red-500))',
+      };
 
-      statuses.forEach((status) => {
-        const color = getStatusColor(status);
-        expect(color).toMatch(/^#[0-9A-Fa-f]{6}$/);
+      (Object.keys(expected) as SessionStatus[]).forEach((status) => {
+        expect(getStatusColor(status)).toBe(expected[status]);
       });
     });
 

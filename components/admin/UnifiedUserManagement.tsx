@@ -263,7 +263,7 @@ export default function UnifiedUserManagement({
             )}
             <button
               onClick={onAddUser}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-[#0a0a0a] hover:bg-[#002844] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a] transition-colors"
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-[#0a0a0a] hover:bg-legacy-002844 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a] transition-colors"
             >
               <UserPlus className="w-4 h-4 mr-2" />
               Nuevo Usuario
@@ -356,7 +356,7 @@ export default function UnifiedUserManagement({
           <div className="flex items-center gap-2">
             <button
               type="submit"
-              className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#0a0a0a] text-white text-sm font-medium hover:bg-[#002844] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#0a0a0a] text-white text-sm font-medium hover:bg-legacy-002844 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               disabled={isLoading}
             >
               {isLoading ? (

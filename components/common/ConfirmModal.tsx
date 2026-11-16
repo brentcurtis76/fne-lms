@@ -52,7 +52,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             <div className="flex items-center space-x-3">
               {isDangerous && (
                 <div className="flex-shrink-0">
-                  <AlertTriangle className="h-6 w-6 text-[#ef4044]" />
+                  <AlertTriangle className="h-6 w-6 text-legacy-ef4044" />
                 </div>
               )}
               <h3 className="text-lg font-semibold text-gray-900">
@@ -86,7 +86,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
               onClick={handleConfirm}
               className={`px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors ${
                 isDangerous
-                  ? 'bg-[#ef4044] hover:bg-[#ef4044]/90 focus:ring-[#ef4044]'
+                  ? 'bg-legacy-ef4044 hover:bg-legacy-ef4044/90 focus:ring-legacy-ef4044'
                   : 'bg-[#0a0a0a] hover:bg-[#0a0a0a]/90 focus:ring-[#0a0a0a]'
               }`}
             >

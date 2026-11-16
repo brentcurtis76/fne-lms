@@ -462,7 +462,7 @@ export default function ResetPasswordPage() {
               type="button"
               onClick={() => router.push('/login')}
               data-testid="reset-invalid-back-to-login"
-              className="w-full bg-gradient-to-r from-[#0a0a0a] to-[#002844] hover:from-[#002844] hover:to-[#0a0a0a] text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-lg"
+              className="w-full bg-gradient-to-r from-[#0a0a0a] to-legacy-002844 hover:from-legacy-002844 hover:to-[#0a0a0a] text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 shadow-lg"
             >
               Ir a iniciar sesión
             </button>
@@ -490,7 +490,7 @@ export default function ResetPasswordPage() {
 
       <div className="min-h-screen flex relative overflow-hidden">
         {/* Left Side - Hero Section */}
-        <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-[#0a0a0a] via-[#0a0a0a] to-[#002844]">
+        <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-[#0a0a0a] via-[#0a0a0a] to-legacy-002844">
           {/* Animated Background Pattern */}
           <div className="absolute inset-0 opacity-10">
             <div className="absolute inset-0" style={{
@@ -641,7 +641,7 @@ export default function ResetPasswordPage() {
                   className={`w-full font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform text-white shadow-lg
                     ${loading || phase === 'updated'
                       ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-[#0a0a0a] to-[#002844] hover:from-[#002844] hover:to-[#0a0a0a] hover:scale-[1.02] hover:shadow-xl'
+                      : 'bg-gradient-to-r from-[#0a0a0a] to-legacy-002844 hover:from-legacy-002844 hover:to-[#0a0a0a] hover:scale-[1.02] hover:shadow-xl'
                     }`}
                 >
                   {loading ? (
@@ -702,14 +702,14 @@ export default function ResetPasswordPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   ) : (
-                    <svg className="h-5 w-5 text-[#b8860b] mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-5 w-5 text-legacy-b8860b mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   )}
                   <p className={`text-sm ${
                     isErrorMessage
                       ? 'text-red-700'
-                      : 'text-[#8b6914]'
+                      : 'text-legacy-8b6914'
                   }`}>
                     {message}
                   </p>

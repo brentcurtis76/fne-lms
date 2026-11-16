@@ -42,6 +42,7 @@ import {
   canUserDeleteDocument,
 } from '../../utils/documentUtils';
 import { formatFileSize } from '../../lib/utils/file-format';
+import { withAlpha } from '../../lib/colorAlpha';
 
 interface DocumentGridProps {
   documents: DocumentWithDetails[];
@@ -272,7 +273,7 @@ export default function DocumentGrid({
             ) : (
               <div
                 className="w-16 h-16 rounded-lg flex items-center justify-center"
-                style={{ backgroundColor: `${fileColor}20` }}
+                style={{ backgroundColor: withAlpha(fileColor, '20') }}
               >
                 <div style={{ color: fileColor }}>
                   {getFileIcon(document.mime_type)}

@@ -153,7 +153,7 @@ export default function PasswordResetModal({
                 type="button"
                 onClick={generateRandomPassword}
                 data-testid="reset-generate-password"
-                className="mt-2 text-sm text-[#0a0a0a] hover:text-[#002844] font-medium"
+                className="mt-2 text-sm text-[#0a0a0a] hover:text-legacy-002844 font-medium"
               >
                 Generar contraseña segura
               </button>
@@ -204,7 +204,7 @@ export default function PasswordResetModal({
             <button
               type="submit"
               disabled={isResetting}
-              className="px-4 py-2 text-sm font-medium text-white bg-[#0a0a0a] border border-transparent rounded-md hover:bg-[#002844] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a] disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium text-white bg-[#0a0a0a] border border-transparent rounded-md hover:bg-legacy-002844 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a] disabled:opacity-50"
             >
               {isResetting ? 'Restableciendo...' : 'Restablecer Contraseña'}
             </button>

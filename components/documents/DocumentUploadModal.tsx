@@ -310,7 +310,7 @@ export default function DocumentUploadModal({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="bg-[#0a0a0a] text-white px-6 py-2 rounded-lg hover:bg-[#004a7c] transition-colors disabled:opacity-50"
+              className="bg-[#0a0a0a] text-white px-6 py-2 rounded-lg hover:bg-legacy-004a7c transition-colors disabled:opacity-50"
             >
               Seleccionar Archivos
             </button>
@@ -421,7 +421,7 @@ export default function DocumentUploadModal({
                   <button
                     onClick={handleCreateFolder}
                     disabled={creatingFolder || !newFolderName.trim()}
-                    className="bg-[#fbbf24] text-white px-4 py-2 rounded-lg hover:bg-[#e6a429] transition-colors disabled:opacity-50"
+                    className="bg-[#fbbf24] text-white px-4 py-2 rounded-lg hover:bg-legacy-e6a429 transition-colors disabled:opacity-50"
                   >
                     {creatingFolder ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Crear'}
                   </button>
@@ -516,7 +516,7 @@ export default function DocumentUploadModal({
             <button
               onClick={handleUpload}
               disabled={uploading || formData.files.length === 0 || !formData.title.trim()}
-              className="bg-[#0a0a0a] text-white px-6 py-2 rounded-lg hover:bg-[#004a7c] transition-colors disabled:opacity-50 flex items-center space-x-2"
+              className="bg-[#0a0a0a] text-white px-6 py-2 rounded-lg hover:bg-legacy-004a7c transition-colors disabled:opacity-50 flex items-center space-x-2"
             >
               {uploading ? (
                 <>

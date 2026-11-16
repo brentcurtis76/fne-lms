@@ -838,7 +838,7 @@ export default function SchoolsManagement() {
           </div>
           <button
             onClick={handleAddSchool}
-            className="flex items-center px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
+            className="flex items-center px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-legacy-e6a42e transition-colors"
           >
             <Plus size={20} className="mr-2" />
             Nueva Escuela
@@ -1040,7 +1040,7 @@ export default function SchoolsManagement() {
               </button>
               <button
                 onClick={handleSaveSchool}
-                className="px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
+                className="px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-legacy-e6a42e transition-colors"
               >
                 {editingSchool ? 'Actualizar' : 'Crear'} Escuela
               </button>
@@ -1178,7 +1178,7 @@ export default function SchoolsManagement() {
               </button>
               <button
                 onClick={handleSaveGeneration}
-                className="px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
+                className="px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-legacy-e6a42e transition-colors"
               >
                 {editingGeneration ? 'Actualizar' : 'Crear'} Generación
               </button>
@@ -1220,7 +1220,7 @@ export default function SchoolsManagement() {
               </button>
               <button
                 onClick={() => confirmationModal.onConfirm()}
-                className="px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
+                className="px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-legacy-e6a42e transition-colors"
               >
                 OK
               </button>
@@ -1531,7 +1531,7 @@ export default function SchoolsManagement() {
               </button>
               <button
                 onClick={handleSaveCliente}
-                className="px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
+                className="px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-legacy-e6a42e transition-colors"
               >
                 Guardar Cambios
               </button>

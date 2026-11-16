@@ -9,11 +9,11 @@ import { ToastOptions } from 'react-hot-toast';
 const COLORS = {
   primary: '#0a0a0a',        // Genera Black
   accent: '#fbbf24',         // Genera Yellow
-  errorRed: '#ef4044',
+  errorRed: 'rgb(var(--color-legacy-ef4044))',
   white: '#ffffff',
   darkGray: '#1f1f1f',
   lightGray: '#f3f4f6',
-  successGreen: '#10b981',
+  successGreen: 'rgb(var(--color-legacy-10b981))',
 };
 
 // Base toast style

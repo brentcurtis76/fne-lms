@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "3cf1440a5fd1dbe5d85b3cbb2db9c4ee61d25dea",
-  "date": "2026-11-16T15:25:18-03:00"
+  "commit": "007807e90467f7aa64736d0a234ad0d7009cfc83",
+  "date": "2026-11-16T16:10:07-03:00"
  },
  "screens": [
   {
@@ -3753,6 +3753,7 @@
     "components/ui/dialog.tsx",
     "components/workspace/WorkspaceSessionsTab.tsx",
     "components/workspace/WorkspaceTabNavigation.tsx",
+    "lib/colorAlpha.ts",
     "lib/community/fetchCommunityMembers.ts",
     "lib/meetings/audience-labels.ts",
     "lib/meetings/constants.ts",
@@ -4782,45 +4783,45 @@
    "usedBy": [
     "/community/workspace"
    ],
-   "lines": 647,
+   "lines": 648,
    "rows": [
     {
      "kind": "hook",
-     "line": 78,
+     "line": 79,
      "in": "DocumentGrid",
      "text": "document.addEventListener('click')",
      "type": "listener"
     },
     {
      "kind": "media",
-     "line": 90,
+     "line": 91,
      "in": "getFileIcon",
      "text": "Image"
     },
     {
      "kind": "access",
-     "line": 117,
+     "line": 118,
      "in": "DocumentActionsDropdown",
      "text": "canEdit = canUserEditDocument(document, userId, permissions)",
      "via": "declaration"
     },
     {
      "kind": "button",
-     "line": 122,
+     "line": 123,
      "in": "DocumentActionsDropdown",
      "text": "Ver",
      "action": "{() => { onDocumentAction('view', document); setActiveDropdown(null); }}"
     },
     {
      "kind": "button",
-     "line": 133,
+     "line": 134,
      "in": "DocumentActionsDropdown",
      "text": "Descargar",
      "action": "{() => { onDocumentAction('download', document); setActiveDropdown(null); }}"
     },
     {
      "kind": "button",
-     "line": 145,
+     "line": 146,
      "in": "DocumentActionsDropdown",
      "when": "permissions.can_share",
      "text": "Compartir",
@@ -4828,7 +4829,7 @@
     },
     {
      "kind": "button",
-     "line": 158,
+     "line": 159,
      "in": "DocumentActionsDropdown",
      "when": "canEdit",
      "text": "Editar",
@@ -4836,14 +4837,14 @@
     },
     {
      "kind": "button",
-     "line": 170,
+     "line": 171,
      "in": "DocumentActionsDropdown",
      "text": "Mover",
      "action": "{() => { onDocumentAction('move', document); setActiveDropdown(null); }}"
     },
     {
      "kind": "button",
-     "line": 184,
+     "line": 185,
      "in": "DocumentActionsDropdown",
      "when": "canDelete",
      "text": "Eliminar",
@@ -4851,7 +4852,7 @@
     },
     {
      "kind": "clickable",
-     "line": 202,
+     "line": 203,
      "in": "FolderCard",
      "text": "{folder.folder_name} {folder.document_count} documentos {folder.subfolder_count} subcarpetas",
      "tag": "div",
@@ -4859,26 +4860,26 @@
     },
     {
      "kind": "heading",
-     "line": 211,
+     "line": 212,
      "in": "FolderCard",
      "text": "{folder.folder_name}",
      "level": 3
     },
     {
      "kind": "text",
-     "line": 215,
+     "line": 216,
      "in": "FolderCard",
      "text": "{folder.document_count} documentos"
     },
     {
      "kind": "text",
-     "line": 216,
+     "line": 217,
      "in": "FolderCard",
      "text": "{folder.subfolder_count} subcarpetas"
     },
     {
      "kind": "field",
-     "line": 237,
+     "line": 238,
      "in": "DocumentCard",
      "text": "",
      "type": "checkbox",
@@ -4886,14 +4887,14 @@
     },
     {
      "kind": "button",
-     "line": 247,
+     "line": 248,
      "in": "DocumentCard",
      "text": "[icon MoreVertical]",
      "action": "{(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === document.id …}"
     },
     {
      "kind": "clickable",
-     "line": 260,
+     "line": 261,
      "in": "DocumentCard",
      "text": "{getFileIcon(document.mime_type)} {document.title} {document.description} / Sin descripción [{tag} [+ {document.tags.le…",
      "tag": "div",
@@ -4901,72 +4902,72 @@
     },
     {
      "kind": "media",
-     "line": 267,
+     "line": 268,
      "in": "DocumentCard",
      "when": "document.thumbnail_url",
      "text": "img · alt {document.title} · {document.thumbnail_url}"
     },
     {
      "kind": "value",
-     "line": 277,
+     "line": 278,
      "in": "DocumentCard",
      "when": "!(document.thumbnail_url)",
      "text": "{getFileIcon(document.mime_type)}"
     },
     {
      "kind": "heading",
-     "line": 286,
+     "line": 287,
      "in": "DocumentCard",
      "text": "{document.title}",
      "level": 3
     },
     {
      "kind": "text",
-     "line": 289,
+     "line": 290,
      "in": "DocumentCard",
      "text": "{document.description} / Sin descripción"
     },
     {
      "kind": "value",
-     "line": 297,
+     "line": 298,
      "in": "DocumentCard",
      "when": "document.tags.length > 0 && each document.tags.slice(0, 2)",
      "text": "{tag}"
     },
     {
      "kind": "value",
-     "line": 305,
+     "line": 306,
      "in": "DocumentCard",
      "when": "document.tags.length > 0 && document.tags.length > 2",
      "text": "+ {document.tags.length - 2}"
     },
     {
      "kind": "value",
-     "line": 312,
+     "line": 313,
      "in": "DocumentCard",
      "text": "{document.formatted_size}"
     },
     {
      "kind": "value",
-     "line": 313,
+     "line": 314,
      "in": "DocumentCard",
      "text": "{document.relative_time}"
     },
     {
      "kind": "value",
-     "line": 320,
+     "line": 321,
      "in": "DocumentCard",
      "text": "{document.view_count}"
     },
     {
      "kind": "value",
-     "line": 324,
+     "line": 325,
      "in": "DocumentCard",
      "text": "{document.download_count}"
     },
     {
      "kind": "field",
-     "line": 346,
+     "line": 347,
      "in": "DocumentRow",
      "text": "",
      "type": "checkbox",
@@ -4974,7 +4975,7 @@
     },
     {
      "kind": "clickable",
-     "line": 356,
+     "line": 357,
      "in": "DocumentRow",
      "text": "{getFileIcon(document.mime_type)} {document.title} {document.file_name}",
      "tag": "div",
@@ -4982,104 +4983,104 @@
     },
     {
      "kind": "value",
-     "line": 360,
+     "line": 361,
      "in": "DocumentRow",
      "text": "{getFileIcon(document.mime_type)}"
     },
     {
      "kind": "value",
-     "line": 364,
+     "line": 365,
      "in": "DocumentRow",
      "text": "{document.title}"
     },
     {
      "kind": "value",
-     "line": 367,
+     "line": 368,
      "in": "DocumentRow",
      "text": "{document.file_name}"
     },
     {
      "kind": "value",
-     "line": 375,
+     "line": 376,
      "in": "DocumentRow",
      "text": "{document.formatted_size}"
     },
     {
      "kind": "value",
-     "line": 383,
+     "line": 384,
      "in": "DocumentRow",
      "text": "{document.uploader_name}"
     },
     {
      "kind": "value",
-     "line": 391,
+     "line": 392,
      "in": "DocumentRow",
      "text": "{document.relative_time}"
     },
     {
      "kind": "value",
-     "line": 400,
+     "line": 401,
      "in": "DocumentRow",
      "text": "{document.view_count}"
     },
     {
      "kind": "value",
-     "line": 404,
+     "line": 405,
      "in": "DocumentRow",
      "text": "{document.download_count}"
     },
     {
      "kind": "button",
-     "line": 412,
+     "line": 413,
      "in": "DocumentRow",
      "text": "[icon MoreVertical]",
      "action": "{(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === document.id …}"
     },
     {
      "kind": "column",
-     "line": 459,
+     "line": 460,
      "in": "DocumentGrid",
      "when": "loading",
      "text": "Documento"
     },
     {
      "kind": "column",
-     "line": 462,
+     "line": 463,
      "in": "DocumentGrid",
      "when": "loading",
      "text": "Tamaño"
     },
     {
      "kind": "column",
-     "line": 465,
+     "line": 466,
      "in": "DocumentGrid",
      "when": "loading",
      "text": "Subido por"
     },
     {
      "kind": "column",
-     "line": 468,
+     "line": 469,
      "in": "DocumentGrid",
      "when": "loading",
      "text": "Fecha"
     },
     {
      "kind": "column",
-     "line": 471,
+     "line": 472,
      "in": "DocumentGrid",
      "when": "loading",
      "text": "Estadísticas"
     },
     {
      "kind": "column",
-     "line": 474,
+     "line": 475,
      "in": "DocumentGrid",
      "when": "loading",
      "text": "Acciones"
     },
     {
      "kind": "heading",
-     "line": 525,
+     "line": 526,
      "in": "DocumentGrid",
      "when": "folders.length === 0 && documents.length === 0",
      "text": "No hay documentos",
@@ -5087,14 +5088,14 @@
     },
     {
      "kind": "text",
-     "line": 529,
+     "line": 530,
      "in": "DocumentGrid",
      "when": "folders.length === 0 && documents.length === 0",
      "text": "Comienza subiendo tu primer documento o creando una carpeta."
     },
     {
      "kind": "heading",
-     "line": 542,
+     "line": 543,
      "in": "DocumentGrid",
      "when": "viewMode === 'grid' && folders.length > 0",
      "text": "Carpetas",
@@ -5102,7 +5103,7 @@
     },
     {
      "kind": "heading",
-     "line": 555,
+     "line": 556,
      "in": "DocumentGrid",
      "when": "viewMode === 'grid' && documents.length > 0",
      "text": "Documentos ( {documents.length} )",
@@ -5110,14 +5111,14 @@
     },
     {
      "kind": "text",
-     "line": 559,
+     "line": 560,
      "in": "DocumentGrid",
      "when": "viewMode === 'grid' && documents.length > 0 && selectedDocuments.length > 0",
      "text": "{selectedDocuments.length} seleccionados"
     },
     {
      "kind": "heading",
-     "line": 581,
+     "line": 582,
      "in": "DocumentGrid",
      "when": "folders.length > 0",
      "text": "Carpetas",
@@ -5125,7 +5126,7 @@
     },
     {
      "kind": "heading",
-     "line": 594,
+     "line": 595,
      "in": "DocumentGrid",
      "when": "documents.length > 0",
      "text": "Documentos ( {documents.length} )",
@@ -5133,14 +5134,14 @@
     },
     {
      "kind": "text",
-     "line": 598,
+     "line": 599,
      "in": "DocumentGrid",
      "when": "documents.length > 0 && selectedDocuments.length > 0",
      "text": "{selectedDocuments.length} seleccionados"
     },
     {
      "kind": "field",
-     "line": 609,
+     "line": 610,
      "in": "DocumentGrid",
      "when": "documents.length > 0",
      "text": "",
@@ -5149,42 +5150,42 @@
     },
     {
      "kind": "column",
-     "line": 616,
+     "line": 617,
      "in": "DocumentGrid",
      "when": "documents.length > 0",
      "text": "Documento"
     },
     {
      "kind": "column",
-     "line": 619,
+     "line": 620,
      "in": "DocumentGrid",
      "when": "documents.length > 0",
      "text": "Tamaño"
     },
     {
      "kind": "column",
-     "line": 622,
+     "line": 623,
      "in": "DocumentGrid",
      "when": "documents.length > 0",
      "text": "Subido por"
     },
     {
      "kind": "column",
-     "line": 625,
+     "line": 626,
      "in": "DocumentGrid",
      "when": "documents.length > 0",
      "text": "Fecha"
     },
     {
      "kind": "column",
-     "line": 628,
+     "line": 629,
      "in": "DocumentGrid",
      "when": "documents.length > 0",
      "text": "Estadísticas"
     },
     {
      "kind": "column",
-     "line": 631,
+     "line": 632,
      "in": "DocumentGrid",
      "when": "documents.length > 0",
      "text": "Acciones"
@@ -12643,6 +12644,32 @@
      "in": "createServiceRoleClient",
      "text": "Failed to initialize admin connection",
      "via": "throw (shown by whoever catches it)"
+    }
+   ],
+   "db": []
+  },
+  "lib/colorAlpha.ts": {
+   "usedBy": [
+    "/community/workspace"
+   ],
+   "lines": 25,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 15,
+     "in": "alphaFromHex",
+     "when": "!TWO_HEX.test(hh)",
+     "text": "withAlpha expects two hex characters, got \"{hh}\"",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "list",
+     "line": 22,
+     "in": "withAlpha",
+     "text": "withAlpha()",
+     "items": [
+      "rgb(var({named[1]}) / {alpha})"
+     ]
     }
    ],
    "db": []

@@ -32,11 +32,11 @@ const ResponsiveContainer = dynamic(() => import('recharts').then((mod) => ({ de
 // Constants
 // ============================================================
 
-const COLOR_CONSUMED = '#003A5B';
-const COLOR_RESERVED = '#0066A4';
-const COLOR_AVAILABLE = '#E0F0FF';
-const COLOR_AVAILABLE_WARNING = '#FEF3C7'; // yellow-100
-const COLOR_AVAILABLE_EXHAUSTED = '#FEE2E2'; // red-100
+const COLOR_CONSUMED = 'rgb(var(--color-legacy-003a5b))';
+const COLOR_RESERVED = 'rgb(var(--color-legacy-0066a4))';
+const COLOR_AVAILABLE = 'rgb(var(--color-legacy-e0f0ff))';
+const COLOR_AVAILABLE_WARNING = 'rgb(var(--color-amber-100))'; // yellow-100
+const COLOR_AVAILABLE_EXHAUSTED = 'rgb(var(--color-red-100))'; // red-100
 
 // ============================================================
 // Warning level helper (shared threshold: <25% = warning, 0 = exhausted)
@@ -79,7 +79,7 @@ function RingChart({ consumed, reserved, available }: { consumed: number; reserv
         { name: 'Reservadas', value: reserved, color: COLOR_RESERVED },
         { name: 'Disponibles', value: available, color: COLOR_AVAILABLE },
       ]
-    : [{ name: 'Sin datos', value: 1, color: '#e5e7eb' }];
+    : [{ name: 'Sin datos', value: 1, color: 'rgb(var(--color-gray-200))' }];
 
   return (
     <div

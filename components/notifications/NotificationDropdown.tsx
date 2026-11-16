@@ -209,7 +209,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
             {unreadCount > 0 && (
               <button
                 onClick={onMarkAllAsRead}
-                className="text-xs font-medium text-[#0a0a0a] hover:text-[#004a7a] transition-colors duration-200"
+                className="text-xs font-medium text-[#0a0a0a] hover:text-legacy-004a7a transition-colors duration-200"
                 title="Marcar todas como leídas"
               >
                 Marcar todas como leídas
@@ -243,7 +243,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
             <p className="text-sm text-red-600 mb-3">{error}</p>
             <button
               onClick={onRefresh}
-              className="text-xs font-medium text-[#0a0a0a] hover:text-[#004a7a] transition-colors duration-200"
+              className="text-xs font-medium text-[#0a0a0a] hover:text-legacy-004a7a transition-colors duration-200"
             >
               Intentar de nuevo
             </button>
@@ -356,7 +356,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg">
           <button
             onClick={handleViewAll}
-            className="w-full text-sm font-medium text-[#0a0a0a] hover:text-[#004a7a] transition-colors duration-200 flex items-center justify-center space-x-1"
+            className="w-full text-sm font-medium text-[#0a0a0a] hover:text-legacy-004a7a transition-colors duration-200 flex items-center justify-center space-x-1"
           >
             <EyeIcon className="h-4 w-4" />
             <span>Ver todas las notificaciones</span>

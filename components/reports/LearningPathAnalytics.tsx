@@ -230,7 +230,7 @@ export default function LearningPathAnalytics({ selectedPath, dateRange = 30 }: 
                 }}
               />
               <Legend verticalAlign="top" height={32} />
-              <Bar dataKey="completionRate" fill="#3b82f6" name="Tasa de Completación (%)" />
+              <Bar dataKey="completionRate" fill="rgb(var(--color-blue-500))" name="Tasa de Completación (%)" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -265,8 +265,8 @@ export default function LearningPathAnalytics({ selectedPath, dateRange = 30 }: 
               <YAxis allowDecimals={false} />
               <Tooltip />
               <Legend />
-              <Line type="monotone" dataKey="completions" stroke="#3b82f6" strokeWidth={2} name="Completaciones de curso" />
-              <Line type="monotone" dataKey="enrollments" stroke="#10b981" strokeWidth={2} name="Nuevas asignaciones" />
+              <Line type="monotone" dataKey="completions" stroke="rgb(var(--color-blue-500))" strokeWidth={2} name="Completaciones de curso" />
+              <Line type="monotone" dataKey="enrollments" stroke="rgb(var(--color-legacy-10b981))" strokeWidth={2} name="Nuevas asignaciones" />
             </LineChart>
           </ResponsiveContainer>
         </div>

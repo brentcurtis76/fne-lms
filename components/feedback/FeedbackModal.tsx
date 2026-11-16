@@ -217,7 +217,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                 reset();
                 onClose();
               }}
-              className="mt-6 px-4 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-[#00243a] transition-colors"
+              className="mt-6 px-4 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-legacy-00243a transition-colors"
             >
               ✓ Cerrar
             </button>
@@ -347,7 +347,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting || !description.trim()}
-                className="flex-1 px-4 py-2 bg-[#fbbf24] text-[#0a0a0a] rounded-lg hover:bg-[#fca311] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                className="flex-1 px-4 py-2 bg-[#fbbf24] text-[#0a0a0a] rounded-lg hover:bg-legacy-fca311 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
               >
                 {isSubmitting ? 'Enviando...' : 'Enviar →'}
               </button>

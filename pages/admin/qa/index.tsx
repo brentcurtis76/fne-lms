@@ -692,7 +692,7 @@ const QAAdminDashboard: React.FC = () => {
                       <stop offset="95%" stopColor="#6b7280" stopOpacity={0.1}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--color-gray-200))" />
                   <XAxis
                     dataKey="date"
                     tick={{ fontSize: 12 }}

@@ -158,8 +158,8 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
       toast(`${result.invalid.length} usuarios con errores no serán importados`, {
         icon: '⚠️',
         style: {
-          background: '#FEF3C7',
-          color: '#92400E',
+          background: 'rgb(var(--color-amber-100))',
+          color: 'rgb(var(--color-amber-800))',
         },
       });
     }
@@ -213,7 +213,7 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
       if (data.audited === false) {
         toast('La importación se registró, pero no se pudo escribir la auditoría.', {
           icon: '⚠️',
-          style: { background: '#FEF3C7', color: '#92400E' },
+          style: { background: 'rgb(var(--color-amber-100))', color: 'rgb(var(--color-amber-800))' },
         });
       }
 
@@ -226,8 +226,8 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
         toast(`${succeeded} usuarios importados, ${failed} fallaron`, {
           icon: '⚠️',
           style: {
-            background: '#FEF3C7',
-            color: '#92400E',
+            background: 'rgb(var(--color-amber-100))',
+            color: 'rgb(var(--color-amber-800))',
           },
         });
       }
@@ -799,7 +799,7 @@ usuario3@ejemplo.cl,Pedro,Soto,consultor`}
               <button
                 onClick={handleParse}
                 disabled={!globalSchoolId || loadingOrgData}
-                className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#002844] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-legacy-002844 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Continuar
               </button>
@@ -817,7 +817,7 @@ usuario3@ejemplo.cl,Pedro,Soto,consultor`}
               <button
                 onClick={handleImport}
                 disabled={isImporting || parsedUsers.length === 0}
-                className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#002844] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-legacy-002844 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isImporting ? (
                   <>
@@ -844,7 +844,7 @@ usuario3@ejemplo.cl,Pedro,Soto,consultor`}
               </button>
               <button
                 onClick={handleClose}
-                className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#002844] transition"
+                className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-legacy-002844 transition"
               >
                 Cerrar
               </button>

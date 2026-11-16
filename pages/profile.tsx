@@ -565,18 +565,18 @@ export default function ProfilePage() {
                     <img
                       id="avatar-preview"
                       src={previewUrl}
-                      className="w-full h-full rounded-full object-cover border-4 border-[#e8e5e2]"
+                      className="w-full h-full rounded-full object-cover border-4 border-legacy-e8e5e2"
                       alt="Profile avatar"
                     />
                   ) : avatarUrl ? (
                     <img
                       id="avatar-preview"
                       src={avatarUrl}
-                      className="w-full h-full rounded-full object-cover border-4 border-[#e8e5e2]"
+                      className="w-full h-full rounded-full object-cover border-4 border-legacy-e8e5e2"
                       alt="Profile avatar"
                     />
                   ) : (
-                    <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center border-4 border-[#e8e5e2]">
+                    <div className="w-full h-full rounded-full bg-gray-200 flex items-center justify-center border-4 border-legacy-e8e5e2">
                       <i className="fa-solid fa-user text-gray-400 text-4xl"></i>
                     </div>
                   )}

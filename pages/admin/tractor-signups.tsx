@@ -211,7 +211,7 @@ export default function TractorSignupsAdminPage() {
             'Puedes reenviar la invitación desde este mismo panel.', {
             icon: '⚠️',
             duration: 8000,
-            style: { background: '#FEF3C7', color: '#92400E' },
+            style: { background: 'rgb(var(--color-amber-100))', color: 'rgb(var(--color-amber-800))' },
           });
         } else {
           toast.success('Acceso otorgado');
@@ -227,7 +227,7 @@ export default function TractorSignupsAdminPage() {
           toast(json.message || 'No se pudo enviar el correo', {
             icon: '⚠️',
             duration: 8000,
-            style: { background: '#FEF3C7', color: '#92400E' },
+            style: { background: 'rgb(var(--color-amber-100))', color: 'rgb(var(--color-amber-800))' },
           });
         }
       } else if (action === 'dismiss') {

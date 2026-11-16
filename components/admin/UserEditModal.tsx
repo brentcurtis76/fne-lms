@@ -297,7 +297,7 @@ export default function UserEditModal({ isOpen, onClose, user, onUserUpdated, di
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-[#0a0a0a] text-white px-4 py-2 rounded-md hover:bg-[#002a4a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              className="flex-1 bg-[#0a0a0a] text-white px-4 py-2 rounded-md hover:bg-legacy-002a4a transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             >
               {loading ? (
                 <>

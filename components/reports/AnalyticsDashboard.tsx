@@ -19,6 +19,7 @@ import {
 import LoadingSkeleton from '../common/LoadingSkeleton';
 import CollapsibleSection from './CollapsibleSection';
 import { apiCache } from '../../utils/cache';
+import { withAlpha } from '../../lib/colorAlpha';
 import toast from 'react-hot-toast';
 
 interface AnalyticsDashboardProps {
@@ -58,10 +59,10 @@ interface KPICardProps {
 const FNE_COLORS = {
   primary: '#0a0a0a',
   secondary: '#fbbf24',
-  success: '#10b981',
+  success: 'rgb(var(--color-legacy-10b981))',
   warning: '#f59e0b',
   error: '#ef4444',
-  info: '#3b82f6',
+  info: 'rgb(var(--color-blue-500))',
   gray: '#6b7280'
 };
 
@@ -90,7 +91,7 @@ function KPICard({ title, value, subtitle, icon, color, trend }: KPICardProps) {
           </div>
           {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
         </div>
-        <div className="p-3 rounded-full" style={{ backgroundColor: `${color}20` }}>
+        <div className="p-3 rounded-full" style={{ backgroundColor: withAlpha(color, '20') }}>
           <div style={{ color }}>{icon}</div>
         </div>
       </div>
@@ -436,14 +437,14 @@ export default function AnalyticsDashboard({ userId, userRole, isAdmin, filters 
                 type="monotone"
                 dataKey="total_time_hours"
                 stroke={FNE_COLORS.success}
-                fill={`${FNE_COLORS.success}30`}
+                fill={withAlpha(FNE_COLORS.success, '30')}
                 name="Total Horas"
               />
               <Area
                 type="monotone"
                 dataKey="avg_time_per_user"
                 stroke={FNE_COLORS.info}
-                fill={`${FNE_COLORS.info}30`}
+                fill={withAlpha(FNE_COLORS.info, '30')}
                 name="Promedio por Usuario"
               />
             </AreaChart>

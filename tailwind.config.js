@@ -5,6 +5,13 @@ const token = (name) => `rgb(var(--color-${name}) / <alpha-value>)`;
 // One of Tailwind's stock colour families, every step read from the token file.
 const STEPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
 const family = (name) => Object.fromEntries(STEPS.map((step) => [step, token(`${name}-${step}`)]));
+// The platform's other hand-typed colours (phase 4b), each named by its own six hex digits: `bg-legacy-002844`
+// reads `--color-legacy-002844`, which holds exactly #002844. ONE list; `styles/fne-tokens.css` declares each once.
+const LEGACY = [
+  '00243a', '002844', '00293f', '002a47', '002a4a', '003a5b', '004080', '004170', '004a7a', '004a7c',
+  '0066a4', '06b6d4', '10b981', '6366f1', '8b5cf6', '8b6914', 'b8860b', 'e0f0ff', 'e6a429', 'e6a42d',
+  'e6a42e', 'e6a530', 'e8e5e2', 'ea580c', 'ec4899', 'ef4044', 'f5a623', 'f5b927', 'f97316', 'fca311',
+];
 
 module.exports = {
   // Every folder that holds class names. src/, lib/, types/, config/ and utils/ joined in the redesign's groundwork
@@ -60,6 +67,8 @@ module.exports = {
         red: family('red'),
         green: family('green'),
         blue: family('blue'),
+        // Hand-typed colours that are neither the brand kit nor a step above (phase 4b).
+        legacy: Object.fromEntries(LEGACY.map((hex) => [hex, token(`legacy-${hex}`)])),
       },
       ringColor: {
         // The colour of a `ring` that names none (most focus rings): Tailwind's default,

@@ -224,7 +224,7 @@ export default function WorkspaceSettingsModal({
           <button
             onClick={handleSave}
             disabled={isLoading || (!customName.trim() && !imageFile && !imageUrl)}
-            className="px-4 py-2 text-sm font-medium text-white bg-[#0a0a0a] rounded-md hover:bg-[#00293f] disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            className="px-4 py-2 text-sm font-medium text-white bg-[#0a0a0a] rounded-md hover:bg-legacy-00293f disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
           >
             {isLoading ? (
               <>

@@ -1,6 +1,6 @@
 # Leftover pages — for Brent to decide
 
-Written by `scripts/redesign/inventory.mjs` from commit `3cf1440a5`. The marks are in `areas.json`. Brent's answers are recorded in the redesign ledger and, once given, in the column "Decision".
+Written by `scripts/redesign/inventory.mjs` from commit `007807e90`. The marks are in `areas.json`. Brent's answers are recorded in the redesign ledger and, once given, in the column "Decision".
 
 ## Vías de Transformación (to be deleted)
 

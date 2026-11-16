@@ -2,7 +2,7 @@
 
 What every screen of the platform offers today, so the redesign can prove that nothing is lost (PLAN.md, "The no-loss rules": the inventory is the contract).
 
-Read from commit `3cf1440a5fd1dbe5d85b3cbb2db9c4ee61d25dea` (2026-11-16).
+Read from commit `007807e90467f7aa64736d0a234ad0d7009cfc83` (2026-11-16).
 
 ## How to use it
 
@@ -35,14 +35,14 @@ What reading the code cannot see is added by the walk by sight and kept in `anno
 | [Mi Aprendizaje (the learner's courses, lessons and routes)](03-aprendizaje.md) | 7 | 1 | 23 | 632 |
 | [Cursos (course builder, upcoming courses, learning paths, assignment matrix)](04-cursos.md) | 15 | 30 | 45 | 1546 |
 | [Tareas y quizzes (assignments, group work, quiz review)](05-tareas.md) | 9 | 14 | 18 | 577 |
-| [Sesiones y consultorías (sessions, approvals, video meetings)](06-sesiones.md) | 11 | 34 | 30 | 1486 |
-| [Espacio Colaborativo y comunidades](07-espacio-colaborativo.md) | 4 | 18 | 66 | 1590 |
+| [Sesiones y consultorías (sessions, approvals, video meetings)](06-sesiones.md) | 11 | 34 | 31 | 1488 |
+| [Espacio Colaborativo y comunidades](07-espacio-colaborativo.md) | 4 | 18 | 67 | 1592 |
 | [Gestor de Cambio (registros, context, migration plan, results)](08-gestor-de-cambio.md) | 16 | 40 | 30 | 1649 |
 | [Vías de Transformación (to be deleted)](09-vias-transformacion.md) | 10 | 17 | 0 | 0 |
 | [Licitaciones (processes, templates, proposals)](10-licitaciones.md) | 11 | 42 | 28 | 1586 |
 | [Gestión (clients, contracts, quotes)](11-gestion.md) | 7 | 14 | 20 | 1193 |
 | [Pasantías (leads, travellers, panel, my trip)](12-pasantias.md) | 5 | 21 | 25 | 889 |
-| [Reportes](13-reportes.md) | 3 | 10 | 20 | 734 |
+| [Reportes](13-reportes.md) | 3 | 10 | 21 | 736 |
 | [Personas (users, schools, networks, roles, profile)](14-personas.md) | 7 | 33 | 24 | 1242 |
 | [Comunicación (news and events)](15-comunicacion.md) | 2 | 4 | 6 | 174 |
 | [Notificaciones](16-notificaciones.md) | 5 | 10 | 8 | 285 |
@@ -50,7 +50,7 @@ What reading the code cannot see is added by the walk by sight and kept in `anno
 | [QA (the platform's own test tool)](18-qa.md) | 16 | 21 | 13 | 1237 |
 | [Sistema (configuration, support, roadmap, test and debug pages, scheduled jobs)](19-sistema.md) | 3 | 27 | 6 | 257 |
 | [Sitio público (nuevaeducacion.org pages; not part of the platform redesign)](20-sitio-publico.md) | 8 | 1 | 28 | 825 |
-| **Total** | **153** | **366** | | **17481** |
+| **Total** | **153** | **366** | | **17487** |
 
 The menu has 18 entries at the top level and 61 children (`NAVIGATION_ITEMS` in `components/layout/Sidebar.tsx`).
 

@@ -559,7 +559,7 @@ const MigrationPlanPage: React.FC = () => {
                             stroke="none"
                           >
                             <Cell fill="#fbbf24" />
-                            <Cell fill="#e5e7eb" />
+                            <Cell fill="rgb(var(--color-gray-200))" />
                           </Pie>
                         </PieChart>
                       </ResponsiveContainer>

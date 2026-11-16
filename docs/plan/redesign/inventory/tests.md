@@ -1,6 +1,6 @@
 # Screens and their tests
 
-Written by `scripts/redesign/inventory.mjs` from commit `3cf1440a5`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 28 of 69 browser test files (`scripts/ci/e2e-mandatory.mjs`).
+Written by `scripts/redesign/inventory.mjs` from commit `007807e90`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 28 of 69 browser test files (`scripts/ci/e2e-mandatory.mjs`).
 
 - 150 screens with an address.
 - 30 are named by a browser test that CI runs.

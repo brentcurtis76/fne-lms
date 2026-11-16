@@ -203,7 +203,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Get all indicators from source modules and track ID mapping
-    const indicatorIdMap: Record<string, string> = {};
+    const indicatorIdMap = new Map<string, string>();
 
     if (Object.keys(moduleIdMap).length > 0) {
       const sourceModuleIds = Object.keys(moduleIdMap);
@@ -222,7 +222,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Copy indicators and track ID mapping
-      const withCondition: Array<{ sourceId: string; condition: unknown }> = [];
+      const withCondition: Array<{ copyId: string; condition: unknown }> = [];
       for (const sourceIndicator of sourceIndicators || []) {
         const newModuleId = moduleIdMap[sourceIndicator.module_id];
         if (!newModuleId) continue;
@@ -254,12 +254,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         if (newIndicatorError || !newIndicator) {
           console.error('Error copying indicator:', newIndicatorError);
-          // Continue - don't fail entire operation for one indicator
-        } else {
-          indicatorIdMap[sourceIndicator.id] = newIndicator.id;
-          if (sourceIndicator.visibility_condition != null) {
-            withCondition.push({ sourceId: sourceIndicator.id, condition: sourceIndicator.visibility_condition });
-          }
+          // A copy is all or nothing as far as its indicators go: remove the
+          // half-made copy as for a práctica that cannot be copied (indicators
+          // go with their modules by cascade).
+          await supabaseClient.from('assessment_modules').delete().eq('template_id', newTemplate.id);
+          await supabaseClient.from('assessment_objectives').delete().eq('template_id', newTemplate.id);
+          await supabaseClient.from('assessment_templates').delete().eq('id', newTemplate.id);
+          return res.status(500).json({ error: INCOMPLETE_COPY_MESSAGE });
+        }
+        indicatorIdMap.set(sourceIndicator.id, newIndicator.id);
+        if (sourceIndicator.visibility_condition != null) {
+          withCondition.push({ copyId: newIndicator.id, condition: sourceIndicator.visibility_condition });
         }
       }
 
@@ -267,24 +272,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // a condition may name another indicator of this instrument by id
       // (before or after it, in any práctica), and in the copy that reference
       // must point at the copy's own indicator.
-      for (const { sourceId, condition } of withCondition) {
+      for (const { copyId, condition } of withCondition) {
         const { error: conditionError } = await supabaseClient
           .from('assessment_indicators')
           .update({ visibility_condition: remapIndicatorIds(condition, indicatorIdMap) })
-          .eq('id', indicatorIdMap[sourceId]);
+          .eq('id', copyId);
 
         if (conditionError) {
           console.error('Error copying visibility condition:', conditionError);
+          await supabaseClient.from('assessment_modules').delete().eq('template_id', newTemplate.id);
+          await supabaseClient.from('assessment_objectives').delete().eq('template_id', newTemplate.id);
           await supabaseClient.from('assessment_templates').delete().eq('id', newTemplate.id);
-          return res.status(500).json({ error: 'Error al copiar condiciones de visibilidad' });
+          return res.status(500).json({ error: INCOMPLETE_COPY_MESSAGE });
         }
       }
     }
 
     // Copy expectations for all indicators
     let expectationCount = 0;
-    if (Object.keys(indicatorIdMap).length > 0) {
-      const sourceIndicatorIds = Object.keys(indicatorIdMap);
+    if (indicatorIdMap.size > 0) {
+      const sourceIndicatorIds = Array.from(indicatorIdMap.keys());
       const { data: sourceExpectations, error: expectationsError } = await supabaseClient
         .from('assessment_year_expectations')
         .select('*')
@@ -295,7 +302,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Don't fail - expectations are optional
       } else if (sourceExpectations && sourceExpectations.length > 0) {
         for (const sourceExpectation of sourceExpectations) {
-          const newIndicatorId = indicatorIdMap[sourceExpectation.indicator_id];
+          const newIndicatorId = indicatorIdMap.get(sourceExpectation.indicator_id);
           if (!newIndicatorId) continue;
 
           const { error: newExpectationError } = await supabaseClient
@@ -346,7 +353,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } else if (sw.entity_type === 'module') {
           newEntityId = moduleIdMap[sw.entity_id];
         } else if (sw.entity_type === 'indicator') {
-          newEntityId = indicatorIdMap[sw.entity_id];
+          newEntityId = indicatorIdMap.get(sw.entity_id);
         }
         if (!newEntityId) continue;
 
@@ -416,26 +423,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
+/** Answer for a copy whose indicators or their conditions could not all be written. */
+const INCOMPLETE_COPY_MESSAGE = 'No se pudo copiar el instrumento completo. Inténtalo de nuevo.';
+
 /**
  * A copy of a visibility condition with every source indicator id replaced by
- * the copy's id. Any string value is translated wherever it sits (a rule's
- * `field`, its `value`, an element of an `in` list, or a nested group), and
- * an id inside a longer string is replaced too: an indicator id is a UUID, so
- * it cannot stand for anything else. Ids of indicators outside this instrument
- * are left as they are.
+ * the copy's id. Any string is translated wherever it sits, as a value (a
+ * rule's `field`, its `value`, an element of an `in` list) or as an object key,
+ * at any depth (arrays, nested objects); an id inside a longer string is
+ * replaced too: an indicator id is a UUID, so it cannot stand for anything
+ * else. The lookup is a Map, so text such as "constructor" or "__proto__" is
+ * ordinary text and is copied unchanged. Ids of indicators outside this
+ * instrument are left as they are.
  */
-export function remapIndicatorIds(condition: unknown, idMap: Record<string, string>): unknown {
-  const ids = Object.keys(idMap);
+export function remapIndicatorIds(condition: unknown, idMap: ReadonlyMap<string, string>): unknown {
+  const ids = Array.from(idMap.keys());
+  const translateText = (text: string): string => {
+    const direct = idMap.get(text);
+    if (direct !== undefined) return direct;
+    let out = text;
+    for (const id of ids) if (out.includes(id)) out = out.split(id).join(idMap.get(id) as string);
+    return out;
+  };
   const translate = (value: unknown): unknown => {
-    if (typeof value === 'string') {
-      if (idMap[value]) return idMap[value];
-      let out = value;
-      for (const id of ids) if (out.includes(id)) out = out.split(id).join(idMap[id]);
-      return out;
-    }
+    if (typeof value === 'string') return translateText(value);
     if (Array.isArray(value)) return value.map(translate);
     if (value && typeof value === 'object') {
-      return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, translate(v)]));
+      return Object.fromEntries(
+        Object.entries(value as Record<string, unknown>).map(([k, v]) => [translateText(k), translate(v)]),
+      );
     }
     return value;
   };

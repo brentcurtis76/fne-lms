@@ -247,6 +247,7 @@ const MigrationPlanPage: React.FC = () => {
   // Handle cell toggle
   const toggleCell = (yearNumber: number, gradeId: number, isLocked: boolean) => {
     if (isLocked) return; // Cannot toggle locked grades
+    if (!canWritePlan) return; // F8 send-back 1: a consultor reads the plan, cells are read-only
 
     setPlanGrid(prev => {
       const newGrid = { ...prev };
@@ -751,10 +752,10 @@ const MigrationPlanPage: React.FC = () => {
                         >
                           <button
                             onClick={() => toggleCell(year, grade.id, isLocked)}
-                            disabled={isLocked}
+                            disabled={isLocked || !canWritePlan}
                             className={`
                               inline-flex items-center justify-center w-12 h-8 rounded font-medium text-sm transition-all
-                              ${isLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:scale-105'}
+                              ${isLocked ? 'cursor-not-allowed opacity-60' : canWritePlan ? 'cursor-pointer hover:scale-105' : 'cursor-default'}
                               ${isGT
                                 ? 'bg-brand_accent text-brand_primary border border-brand_accent'
                                 : 'bg-brand_primary/10 text-brand_primary border-2 border-dashed border-brand_primary/30'
@@ -778,6 +779,8 @@ const MigrationPlanPage: React.FC = () => {
             <div className="text-sm">
               {hasChanges ? (
                 <span className="text-amber-600 font-medium">Tienes cambios sin guardar</span>
+              ) : entries.length === 0 ? (
+                <span className="text-brand_primary/60">Plan sin guardar: se muestra lo que el sistema aplica hoy</span>
               ) : (
                 <span className="text-brand_primary/60">Todos los cambios guardados</span>
               )}

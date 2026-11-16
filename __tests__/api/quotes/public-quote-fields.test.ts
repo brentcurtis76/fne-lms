@@ -20,6 +20,8 @@ const OWNER = '12200000-0000-4000-8000-0000000000b2';
 const OTHER_CONSULTOR = '12200000-0000-4000-8000-0000000000b3';
 const DOCENTE = '12200000-0000-4000-8000-0000000000b4';
 const COMMUNITY_MANAGER_OWNER = '12200000-0000-4000-8000-0000000000b5';
+const ADMIN_MUST_CHANGE = '12200000-0000-4000-8000-0000000000b6';
+const ADMIN_UNCONFIRMED = '12200000-0000-4000-8000-0000000000b7';
 const SERVICE_KEY = 'synthetic-service-key';
 const COOKIE_TOKEN = 'synthetic-cookie-token';
 
@@ -29,6 +31,8 @@ const ROLES: Array<{ user_id: string; role_type: string; is_active: boolean }> =
   { user_id: OTHER_CONSULTOR, role_type: 'consultor', is_active: true },
   { user_id: DOCENTE, role_type: 'docente', is_active: true },
   { user_id: COMMUNITY_MANAGER_OWNER, role_type: 'community_manager', is_active: true },
+  { user_id: ADMIN_MUST_CHANGE, role_type: 'admin', is_active: true },
+  { user_id: ADMIN_UNCONFIRMED, role_type: 'admin', is_active: true },
 ];
 
 const PUBLIC_FIELDS = [
@@ -104,7 +108,13 @@ function answer(table: string, ops: Op[]) {
       error: null,
     };
   }
-  if (table === 'profiles') return { data: { must_change_password: false }, error: null };
+  if (table === 'profiles') {
+    // The password-change flag the real getForcedPasswordChangeVerdict reads:
+    // ADMIN_MUST_CHANGE -> 'required', ADMIN_UNCONFIRMED -> 'unavailable'.
+    const uid = eqValue(ops, 'id');
+    if (uid === ADMIN_UNCONFIRMED) return { data: null, error: { code: '57014', message: 'unreadable' } };
+    return { data: { must_change_password: uid === ADMIN_MUST_CHANGE }, error: null };
+  }
   return { data: null, error: null };
 }
 
@@ -271,6 +281,33 @@ describe('signed in without full view', () => {
     const res = await get('q-sent');
     expect(res.statusCode).toBe(200);
     expectPublicView(res.body);
+  });
+});
+
+describe('F7 send-back 1 (GES-1.1d)', () => {
+  it.each([
+    ['who must change their password', ADMIN_MUST_CHANGE],
+    ['whose status cannot be confirmed', ADMIN_UNCONFIRMED],
+  ])('an admin %s gets the visitor view, not the full one', async (_n, who) => {
+    signedIn = who;
+    const res = await get('q-sent');
+    expect(res.statusCode).toBe(200);
+    expectPublicView(res.body);
+  });
+
+  it('a signed-in docente opening a sent quote does not mark it as seen', async () => {
+    signedIn = DOCENTE;
+    await get('q-sent');
+    expect(updates()).toEqual([]);
+  });
+
+  it('a visitor marks it as seen only where it is still sent and unseen', async () => {
+    await get('q-sent');
+    const u = updates();
+    expect(u).toHaveLength(1);
+    expect(eqValue(u[0].ops, 'id')).toBe('q-sent');
+    expect(eqValue(u[0].ops, 'status')).toBe('sent');
+    expect(u[0].ops).toContainEqual(['is', 'viewed_at', null]);
   });
 });
 

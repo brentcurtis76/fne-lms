@@ -5,6 +5,8 @@
 --            quote; an active consultor sees and changes only their own; a group follows its quote.
 --   N20      stored role summary (user_roles_cache): no direct access for visitors or signed-in people;
 --            support-ticket counters (feedback_stats): run with the caller's rights; visitors lose access.
+--   GES-1.2b signed-in people lose TRUNCATE, REFERENCES and TRIGGER on programas, pasantias_quotes and
+--            pasantias_quote_groups (TRUNCATE is not limited by row rules; as the 6 Oct finance migration decided).
 -- Statements: ALTER POLICY, CREATE POLICY, REVOKE (table and sequence privileges), ALTER VIEW ... SET (security_invoker).
 -- Test: supabase/tests/122-gestion-visitor-access.sql
 
@@ -50,3 +52,6 @@ REVOKE ALL ON SEQUENCE public.pasantias_quote_number_seq FROM anon;
 REVOKE ALL ON public.user_roles_cache FROM anon, authenticated;
 ALTER VIEW public.feedback_stats SET (security_invoker = true);
 REVOKE ALL ON public.feedback_stats FROM anon;
+
+-- GES-1.2b --------------------------------------------------------------------
+REVOKE TRUNCATE, REFERENCES, TRIGGER ON public.programas, public.pasantias_quotes, public.pasantias_quote_groups FROM authenticated;

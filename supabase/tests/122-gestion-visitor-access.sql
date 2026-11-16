@@ -3,7 +3,7 @@
 -- visitors; quotes are the admin's or their own consultor's.
 -- Migration 20261116170000_gestion_close_visitor_access.sql. Synthetic-only, rollback.
 BEGIN;
-SELECT plan(67);
+SELECT plan(88);
 CREATE FUNCTION pg_temp.uid(k text) RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER AS $$ SELECT tests.get_supabase_uid(k) $$;
 CREATE FUNCTION pg_temp.affected(stmt text) RETURNS integer LANGUAGE plpgsql AS $$ DECLARE n int; BEGIN EXECUTE stmt; GET DIAGNOSTICS n=ROW_COUNT; RETURN n; END $$;
 CREATE FUNCTION pg_temp.all_feedback() RETURNS integer LANGUAGE sql STABLE SECURITY DEFINER AS $$ SELECT count(*)::int FROM public.platform_feedback $$;
@@ -153,6 +153,27 @@ SELECT is((SELECT count(*)::int FROM public.programas WHERE id::text LIKE '12200
 RESET ROLE;
 SELECT set_config('request.jwt.claims',NULL,true);
 SELECT ok(NOT has_table_privilege('anon','public.programas','SELECT'),'catalog: anon holds no privilege on programas');
+SELECT ok(NOT has_table_privilege('authenticated','public.programas','TRUNCATE'),'catalog: authenticated holds no TRUNCATE on programas');
+SELECT ok(NOT has_table_privilege('authenticated','public.programas','REFERENCES'),'catalog: authenticated holds no REFERENCES on programas');
+SELECT ok(NOT has_table_privilege('authenticated','public.programas','TRIGGER'),'catalog: authenticated holds no TRIGGER on programas');
+SELECT ok(has_table_privilege('authenticated','public.programas','SELECT'),'catalog: authenticated still holds SELECT on programas');
+SELECT ok(has_table_privilege('authenticated','public.programas','INSERT'),'catalog: authenticated still holds INSERT on programas');
+SELECT ok(has_table_privilege('authenticated','public.programas','UPDATE'),'catalog: authenticated still holds UPDATE on programas');
+SELECT ok(has_table_privilege('authenticated','public.programas','DELETE'),'catalog: authenticated still holds DELETE on programas');
+SELECT ok(NOT has_table_privilege('authenticated','public.pasantias_quotes','TRUNCATE'),'catalog: authenticated holds no TRUNCATE on pasantias_quotes');
+SELECT ok(NOT has_table_privilege('authenticated','public.pasantias_quotes','REFERENCES'),'catalog: authenticated holds no REFERENCES on pasantias_quotes');
+SELECT ok(NOT has_table_privilege('authenticated','public.pasantias_quotes','TRIGGER'),'catalog: authenticated holds no TRIGGER on pasantias_quotes');
+SELECT ok(has_table_privilege('authenticated','public.pasantias_quotes','SELECT'),'catalog: authenticated still holds SELECT on pasantias_quotes');
+SELECT ok(has_table_privilege('authenticated','public.pasantias_quotes','INSERT'),'catalog: authenticated still holds INSERT on pasantias_quotes');
+SELECT ok(has_table_privilege('authenticated','public.pasantias_quotes','UPDATE'),'catalog: authenticated still holds UPDATE on pasantias_quotes');
+SELECT ok(has_table_privilege('authenticated','public.pasantias_quotes','DELETE'),'catalog: authenticated still holds DELETE on pasantias_quotes');
+SELECT ok(NOT has_table_privilege('authenticated','public.pasantias_quote_groups','TRUNCATE'),'catalog: authenticated holds no TRUNCATE on pasantias_quote_groups');
+SELECT ok(NOT has_table_privilege('authenticated','public.pasantias_quote_groups','REFERENCES'),'catalog: authenticated holds no REFERENCES on pasantias_quote_groups');
+SELECT ok(NOT has_table_privilege('authenticated','public.pasantias_quote_groups','TRIGGER'),'catalog: authenticated holds no TRIGGER on pasantias_quote_groups');
+SELECT ok(has_table_privilege('authenticated','public.pasantias_quote_groups','SELECT'),'catalog: authenticated still holds SELECT on pasantias_quote_groups');
+SELECT ok(has_table_privilege('authenticated','public.pasantias_quote_groups','INSERT'),'catalog: authenticated still holds INSERT on pasantias_quote_groups');
+SELECT ok(has_table_privilege('authenticated','public.pasantias_quote_groups','UPDATE'),'catalog: authenticated still holds UPDATE on pasantias_quote_groups');
+SELECT ok(has_table_privilege('authenticated','public.pasantias_quote_groups','DELETE'),'catalog: authenticated still holds DELETE on pasantias_quote_groups');
 SELECT is((SELECT reloptions::text FROM pg_class WHERE oid='public.feedback_stats'::regclass),'{security_invoker=true}','catalog: feedback_stats runs with the caller''s rights');
 SELECT * FROM finish();
 ROLLBACK;

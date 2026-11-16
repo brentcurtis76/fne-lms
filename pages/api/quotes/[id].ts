@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
-import { createApiSupabaseClient, createServiceRoleClient, getApiUser, requireVerifiedCaller } from '../../../lib/api-auth';
+import { createApiSupabaseClient, createServiceRoleClient, getApiUser, getForcedPasswordChangeVerdict, requireVerifiedCaller } from '../../../lib/api-auth';
 
 const EDITABLE_QUOTE_FIELDS = [
   'client_name', 'client_email', 'client_phone', 'client_institution',
@@ -80,10 +80,12 @@ async function handleGet(_supabase: any, id: string, req: NextApiRequest, res: N
 
     // Who is asking: staff with full view are an active admin, or an active
     // consultor / community manager who made the quote (the PUT rule).
-    // A visitor simply has no user.
+    // A visitor simply has no user. A signed-in person who must change their
+    // password, or whose status cannot be confirmed, gets the visitor's view
+    // (no 403/503 here: the public link must keep working).
     let fullView = false;
     const { user } = await getApiUser(req, res);
-    if (user) {
+    if (user && (await getForcedPasswordChangeVerdict(serviceSupabase, user.id)) === 'allowed') {
       const { data: userRoles } = await serviceSupabase
         .from('user_roles')
         .select('role_type')
@@ -110,16 +112,19 @@ async function handleGet(_supabase: any, id: string, req: NextApiRequest, res: N
       programs = programData || [];
     }
 
-    // Mark as viewed the first time someone other than staff opens it (the
-    // school's public view); staff opening the editor do not mark it.
-    if (!fullView && quote.status === 'sent' && !quote.viewed_at) {
+    // Mark as viewed the first time a visitor (nobody signed in: the school's
+    // public link) opens it; nobody signed in changes it. The filters keep two
+    // visits at the same moment from both rewriting it.
+    if (!user && quote.status === 'sent' && !quote.viewed_at) {
       await serviceSupabase
         .from('pasantias_quotes')
         .update({ 
           viewed_at: new Date().toISOString(),
           status: 'viewed'
         })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('status', 'sent')
+        .is('viewed_at', null);
     }
 
     if (!fullView) {

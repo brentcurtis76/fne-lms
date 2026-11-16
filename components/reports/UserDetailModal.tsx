@@ -632,7 +632,7 @@ export default function UserDetailModal({
           <div className="flex justify-end">
             <button
               onClick={onClose}
-              className="px-6 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#004170] transition-colors"
+              className="px-6 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-legacy-004170 transition-colors"
             >
               Cerrar
             </button>

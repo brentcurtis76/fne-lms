@@ -774,7 +774,7 @@ export default function GroupSubmissionModalV2({
                             type="button"
                             onClick={handleAddClassmates}
                             disabled={selectedClassmates.size === 0 || loadingClassmates}
-                            className="px-4 py-2 bg-[#0a0a0a] text-white text-sm rounded-lg hover:bg-[#004a7a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                            className="px-4 py-2 bg-[#0a0a0a] text-white text-sm rounded-lg hover:bg-legacy-004a7a disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                           >
                             <UserPlus className="h-4 w-4" />
                             {loadingClassmates ? 'Procesando...' : (activeGroup?.id ? 'Agregar al Grupo' : 'Crear Grupo')}
@@ -953,7 +953,7 @@ export default function GroupSubmissionModalV2({
           <button
             onClick={handleSubmit}
             disabled={loading || uploadingFile}
-            className="px-4 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-[#004a7a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-legacy-004a7a disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {uploadingFile
               ? 'Subiendo archivo...'

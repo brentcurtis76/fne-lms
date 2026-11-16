@@ -461,7 +461,7 @@ export default function ClientsManagement() {
           </div>
           <button
             onClick={handleAddCliente}
-            className="flex items-center px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
+            className="flex items-center px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-legacy-e6a42e transition-colors"
           >
             <Plus size={20} className="mr-2" />
             Nuevo Cliente
@@ -547,7 +547,7 @@ export default function ClientsManagement() {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         onClick={() => handleEditCliente(cliente.id)}
-                        className="text-[#fbbf24] hover:text-[#e6a42e] mr-3 inline-flex items-center"
+                        className="text-[#fbbf24] hover:text-legacy-e6a42e mr-3 inline-flex items-center"
                         title="Editar"
                       >
                         <Edit2 size={18} className="mr-1" />
@@ -832,7 +832,7 @@ export default function ClientsManagement() {
               </button>
               <button
                 onClick={handleSaveCliente}
-                className="px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
+                className="px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-legacy-e6a42e transition-colors"
               >
                 {editingCliente ? 'Guardar Cambios' : 'Crear Cliente'}
               </button>

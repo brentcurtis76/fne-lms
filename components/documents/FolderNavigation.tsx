@@ -228,7 +228,7 @@ export default function FolderNavigation({
             <button
               onClick={() => setShowCreateFolder(!showCreateFolder)}
               disabled={loading}
-              className="flex items-center space-x-2 text-sm text-[#0a0a0a] hover:text-[#004a7c] transition-colors disabled:opacity-50"
+              className="flex items-center space-x-2 text-sm text-[#0a0a0a] hover:text-legacy-004a7c transition-colors disabled:opacity-50"
             >
               <FolderPlus className="w-4 h-4" />
               <span>Nueva Carpeta</span>
@@ -258,7 +258,7 @@ export default function FolderNavigation({
             <button
               onClick={handleCreateFolder}
               disabled={creatingFolder || !newFolderName.trim()}
-              className="bg-[#0a0a0a] text-white px-4 py-2 text-sm rounded-lg hover:bg-[#004a7c] transition-colors disabled:opacity-50"
+              className="bg-[#0a0a0a] text-white px-4 py-2 text-sm rounded-lg hover:bg-legacy-004a7c transition-colors disabled:opacity-50"
             >
               {creatingFolder ? 'Creando...' : 'Crear'}
             </button>

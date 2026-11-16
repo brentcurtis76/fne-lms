@@ -370,7 +370,7 @@ const ConsultantAssignmentsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#e8e5e2] flex justify-center items-center">
+      <div className="min-h-screen bg-legacy-e8e5e2 flex justify-center items-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0a0a0a]"></div>
       </div>
     );
@@ -378,7 +378,7 @@ const ConsultantAssignmentsPage: React.FC = () => {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-[#e8e5e2] flex justify-center items-center">
+      <div className="min-h-screen bg-legacy-e8e5e2 flex justify-center items-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-[#0a0a0a] mb-4">Acceso Denegado</h1>
           <p className="text-gray-600">No tiene permisos para acceder a esta página.</p>

@@ -295,7 +295,7 @@
 
 /* Priority-based animations */
 .notification-priority-high {
-  border-left-color: #ef4444;
+  border-left-color: rgb(var(--color-red-500));
   animation: highPriorityPulse 2s infinite;
 }
 

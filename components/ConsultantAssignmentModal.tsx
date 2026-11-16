@@ -497,7 +497,7 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
                       toast.dismiss(t.id);
                       resolve(true);
                     }}
-                    className="px-4 py-2 text-sm font-medium text-white bg-[#0a0a0a] rounded-md hover:bg-[#002a47]"
+                    className="px-4 py-2 text-sm font-medium text-white bg-[#0a0a0a] rounded-md hover:bg-legacy-002a47"
                   >
                     Confirmar
                   </button>
@@ -1000,7 +1000,7 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-[#e6a42e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-legacy-e6a42e transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? 'Guardando...' : editingAssignment ? 'Actualizar Asignación' : 'Crear Asignación'}
                 </button>

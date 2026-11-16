@@ -578,7 +578,7 @@ export default function RoleAssignmentModal({
                     <p className="text-gray-600 mb-4">Este usuario no tiene roles asignados</p>
                     <button
                       onClick={handleStartNewRole}
-                      className="bg-[#fbbf24] text-white px-4 py-2 rounded-lg hover:bg-[#e6a530] transition-colors"
+                      className="bg-[#fbbf24] text-white px-4 py-2 rounded-lg hover:bg-legacy-e6a530 transition-colors"
                     >
                       + Asignar Primer Rol
                     </button>
@@ -607,7 +607,7 @@ export default function RoleAssignmentModal({
                       {(isViewing || isEditing) && (
                         <button
                           onClick={handleStartNewRole}
-                          className="text-sm bg-[#fbbf24] text-white px-3 py-1 rounded-lg hover:bg-[#e6a530] transition-colors"
+                          className="text-sm bg-[#fbbf24] text-white px-3 py-1 rounded-lg hover:bg-legacy-e6a530 transition-colors"
                         >
                           + Nuevo Rol
                         </button>
@@ -921,7 +921,7 @@ export default function RoleAssignmentModal({
                               <button
                                 onClick={handleUpdateRole}
                                 disabled={loading || filteredAvailableRoles.length === 0 || (selectedRole === 'lider_comunidad' && liderCommunityMode === 'existing' && !selectedCommunity)}
-                                className="w-full bg-[#fbbf24] text-white py-3 px-4 rounded-lg hover:bg-[#e6a530] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                                className="w-full bg-[#fbbf24] text-white py-3 px-4 rounded-lg hover:bg-legacy-e6a530 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                                 title={filteredAvailableRoles.length === 0 ? 'No hay roles disponibles para asignar con los permisos actuales.' : ''}
                               >
                                 {loading ? 'Actualizando...' : 'Actualizar Rol'}
@@ -961,7 +961,7 @@ export default function RoleAssignmentModal({
                                   className={`w-full py-3 px-4 rounded-lg transition-colors font-medium ${
                                     isFormInvalid
                                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                      : 'bg-[#fbbf24] text-white hover:bg-[#e6a530] disabled:opacity-50 disabled:cursor-not-allowed'
+                                      : 'bg-[#fbbf24] text-white hover:bg-legacy-e6a530 disabled:opacity-50 disabled:cursor-not-allowed'
                                   }`}
                                   title={invalidTitle}
                                   aria-label={noAllowedRoles ? 'Asignar Rol (sin roles disponibles)' : 'Asignar Rol'}

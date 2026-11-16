@@ -666,7 +666,7 @@ Set last_indexed to NOW().`;
             <button
               onClick={handleGenerate}
               disabled={!selectedFeatureArea || generating}
-              className="flex items-center justify-center gap-2 w-full md:w-auto px-6 py-3 bg-[#fbbf24] text-[#0a0a0a] font-semibold rounded-lg hover:bg-[#e6a42e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-center gap-2 w-full md:w-auto px-6 py-3 bg-[#fbbf24] text-[#0a0a0a] font-semibold rounded-lg hover:bg-legacy-e6a42e transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {generating ? (
                 <>

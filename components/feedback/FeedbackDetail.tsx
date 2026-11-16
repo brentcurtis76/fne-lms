@@ -436,7 +436,7 @@ ${feedback.resolution_notes ? `\nResolution Notes: ${feedback.resolution_notes}`
                       <button
                         onClick={addComment}
                         disabled={isSubmitting || !newComment.trim()}
-                        className="px-3 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-[#00243a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-legacy-00243a transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         data-testid="send-comment-button"
                         aria-label="Send comment"
                       >

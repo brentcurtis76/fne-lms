@@ -33,6 +33,11 @@
  *     and a `ring` that names no colour must stay blue 500 at half strength —
  *     Tailwind cannot work that default out from a named value and falls back
  *     to a lighter blue without saying so (found by `scripts/redesign/tokens-check.mjs`).
+ *  6. THE STRAYS (phase 4b). Hand-typed colours that are neither the brand kit
+ *     nor a step above read a name of their own, `--color-legacy-<hex>`, which
+ *     holds exactly the colour in its name and is offered as `legacy.<hex>`. The
+ *     config's list and the token file's declarations are the same set, and every
+ *     name is used by the platform's code (and every use has a name).
  *
  * The gold gradient was never copied: the config reads it straight from the
  * token file as a whole colour. The last case keeps it that way.
@@ -70,6 +75,14 @@ const BRAND: ReadonlyArray<readonly [string, string, string, string]> = [
 
 const FAMILIES = ['gray', 'yellow', 'amber', 'red', 'green', 'blue'] as const;
 const STEPS = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950'] as const;
+
+/** The six hex digits of every `--color-legacy-*` the token file declares (phase 4b). */
+const LEGACY_DECLARED: string[] = [
+  ...new Set(
+    [...TOKENS_CSS.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/--color-legacy-([0-9a-f]{6})\s*:/g)].map((match) => match[1])
+  ),
+].sort();
+const BRAND_KIT = ['0a0a0a', 'fbbf24', 'ffffff', 'f59e0b', 'fcd34d', '1f1f1f', '6b7280'];
 
 /** Font key → the list of faces it had before 4a, as Tailwind wrote it into the stylesheet. */
 const FONTS: Readonly<Record<string, string>> = {
@@ -162,9 +175,9 @@ describe('FNE brand tokens', () => {
     };
     collect(extend);
 
-    // 8 brand colours, 6 families of 11 steps, 5 font families, 7 radii, and the
-    // three gold tokens the config reads as whole colours.
-    expect(read.size).toBe(8 + 6 * 11 + 5 + 7 + 3);
+    // 8 brand colours, 6 families of 11 steps, the 20 legacy colours of phase 4b,
+    // 5 font families, 7 radii, and the three gold tokens the config reads as whole colours.
+    expect(read.size).toBe(8 + 6 * 11 + 20 + 5 + 7 + 3);
     for (const variable of read) {
       const count = declarations(variable).length;
       expect(count, `${variable} is declared ${count} times in styles/fne-tokens.css`).toBe(1);
@@ -178,6 +191,7 @@ describe('FNE brand tokens', () => {
     for (const family of FAMILIES) for (const step of STEPS) read.add(`--color-${family}-${step}`);
     for (const key of Object.keys(FONTS)) read.add(`--font-${key}`);
     for (const variable of Object.values(RADII)) read.add(variable);
+    for (const hex of LEGACY_DECLARED) read.add(`--color-legacy-${hex}`);
 
     // On :root itself: not inside a class, a media query or any other rule.
     const onRoot = new Set<string>();
@@ -197,6 +211,50 @@ describe('FNE brand tokens', () => {
         expect(read.has(decl.prop), `${decl.prop} is declared again in styles/${file}`).toBe(false);
       });
     }
+  });
+
+  it('names each stray colour by its own value, once, and offers it as legacy.<hex>', () => {
+    const legacy = colours.legacy as Record<string, string>;
+    expect(Object.keys(legacy).sort(), 'the config\'s list and the token file\'s declarations differ').toEqual(LEGACY_DECLARED);
+    expect(LEGACY_DECLARED).toHaveLength(20);
+    const named = new Set<string>();
+    for (const [, variable] of BRAND) named.add(readToken(variable) as string);
+    for (const family of FAMILIES) for (const step of STEPS) named.add(triplet(stockColours[family][step]));
+    for (const hex of LEGACY_DECLARED) {
+      const variable = `--color-legacy-${hex}`;
+      expect(legacy[hex]).toBe(colourReading(variable));
+      expect(declarations(variable), `${variable} must be declared exactly once`).toHaveLength(1);
+      expect(readToken(variable), `${variable} must hold #${hex}`).toBe(triplet(`#${hex}`));
+      // Never a second name for a colour that already has one, and never the brand kit.
+      expect(named.has(triplet(`#${hex}`)), `#${hex} already has a name; read that one`).toBe(false);
+      expect(BRAND_KIT).not.toContain(hex);
+    }
+  });
+
+  it('uses every legacy name in the platform\'s code, and names every legacy colour it uses', () => {
+    const { readdirSync, statSync } = require('node:fs');
+    const SOURCE_DIRS = ['pages', 'components', 'src', 'lib', 'utils', 'constants', 'config', 'types', 'hooks', 'contexts'];
+    const files: string[] = [join(REPO_ROOT, 'styles', 'notifications.css'), join(REPO_ROOT, 'styles', 'tour.css')];
+    const walk = (dir: string): void => {
+      for (const name of readdirSync(dir) as string[]) {
+        if (name === 'node_modules' || name === '__tests__') continue;
+        const full = join(dir, name);
+        if (statSync(full).isDirectory()) walk(full);
+        else if (/\.(tsx?|jsx?|css)$/.test(name) && !/\.(test|spec)\./.test(name)) files.push(full);
+      }
+    };
+    for (const dir of SOURCE_DIRS) {
+      try {
+        walk(join(REPO_ROOT, dir));
+      } catch {
+        // a folder the repository does not have
+      }
+    }
+    const used = new Set<string>();
+    for (const file of files) {
+      for (const match of readFileSync(file, 'utf8').matchAll(/(?:--color-)?legacy-([0-9a-fA-F]{6})(?![0-9a-zA-Z])/g)) used.add(match[1]);
+    }
+    expect([...used].sort()).toEqual(LEGACY_DECLARED);
   });
 
   it('declares each older hex token exactly once', () => {

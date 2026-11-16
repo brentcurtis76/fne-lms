@@ -74,7 +74,7 @@ export default function FunctionalPageHeader({
             {primaryAction && (
               <button
                 onClick={primaryAction.onClick}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#fbbf24] hover:bg-[#f5a623] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#fbbf24] transition-colors"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#fbbf24] hover:bg-legacy-f5a623 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#fbbf24] transition-colors"
               >
                 {primaryAction.icon && (
                   <span className="mr-2">{primaryAction.icon}</span>
@@ -127,7 +127,7 @@ export function MobileFunctionalPageHeader({
           {primaryAction && (
             <button
               onClick={primaryAction.onClick}
-              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-[#fbbf24] hover:bg-[#f5a623] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#fbbf24]"
+              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-[#fbbf24] hover:bg-legacy-f5a623 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#fbbf24]"
             >
               {primaryAction.icon && (
                 <span className="mr-1">{primaryAction.icon}</span>

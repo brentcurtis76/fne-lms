@@ -594,7 +594,7 @@ const NetworkManagementPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#e8e5e2] flex justify-center items-center">
+      <div className="min-h-screen bg-legacy-e8e5e2 flex justify-center items-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0a0a0a]"></div>
       </div>
     );

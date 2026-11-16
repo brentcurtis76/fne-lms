@@ -276,7 +276,7 @@ export default function Configuration() {
                     fetchNotificationTypes();
                   }}
                   disabled={notificationsLoading}
-                  className="flex items-center space-x-2 px-3 py-2 bg-[#0a0a0a] text-white rounded hover:bg-[#004a7a] disabled:opacity-50"
+                  className="flex items-center space-x-2 px-3 py-2 bg-[#0a0a0a] text-white rounded hover:bg-legacy-004a7a disabled:opacity-50"
                 >
                   <RefreshCw className={`w-4 h-4 ${notificationsLoading ? 'animate-spin' : ''}`} />
                   <span>Actualizar</span>

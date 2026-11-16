@@ -80,7 +80,7 @@ export function PermissionGuard({
           </p>
           <button
             onClick={() => router.back()}
-            className="bg-[#0a0a0a] text-white px-6 py-2 rounded-md hover:bg-[#004080] transition"
+            className="bg-[#0a0a0a] text-white px-6 py-2 rounded-md hover:bg-legacy-004080 transition"
           >
             Volver
           </button>

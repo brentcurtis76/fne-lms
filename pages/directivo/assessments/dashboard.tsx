@@ -1,5 +1,5 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
@@ -171,10 +171,6 @@ const DirectivoDashboard: React.FC = () => {
       const picksSchool = roleTypes.includes('admin') || roleTypes.includes('consultor');
       setChoosesSchool(picksSchool);
       if (picksSchool) {
-        const querySchoolId = router.query.school_id;
-        if (typeof querySchoolId === 'string' && /^\d+$/.test(querySchoolId)) {
-          setSelectedSchoolId(Number(querySchoolId));
-        }
         // Same school list as the Plan de Migración picker (a consultor: assigned schools only).
         fetch('/api/school/transversal-context/schools?scope=assigned')
           .then((response) => (response.ok ? response.json() : null))
@@ -200,7 +196,22 @@ const DirectivoDashboard: React.FC = () => {
     checkAuth();
   }, [supabase, router]);
 
+  // F8 send-back 1: for an admin or consultor the chosen school follows the
+  // address. No school in it (first arrival, browser Back, a link) → the
+  // chooser and no results of an earlier school; a school → that school.
+  const addressSchool = router.query.school_id;
+  const addressSchoolId = typeof addressSchool === 'string' && /^\d+$/.test(addressSchool) ? Number(addressSchool) : null;
+  useEffect(() => {
+    if (!choosesSchool) return;
+    setSchoolResults(null);
+    setCourseResults(null);
+    setSelectedSchoolId(addressSchoolId);
+  }, [choosesSchool, addressSchoolId]);
+
   const schoolQuery = choosesSchool && selectedSchoolId ? `?school_id=${selectedSchoolId}` : '';
+  // An answer for a school that is no longer the chosen one is dropped.
+  const currentSchoolQuery = useRef(schoolQuery);
+  currentSchoolQuery.current = schoolQuery;
 
   // Fetch school results
   const fetchSchoolResults = useCallback(async () => {
@@ -214,6 +225,7 @@ const DirectivoDashboard: React.FC = () => {
       }
 
       const data = await response.json();
+      if (currentSchoolQuery.current !== schoolQuery) return;
       setSchoolResults(data);
     } catch (error: any) {
       console.error('Error fetching school results:', error);
@@ -233,6 +245,7 @@ const DirectivoDashboard: React.FC = () => {
       }
 
       const data = await response.json();
+      if (currentSchoolQuery.current !== schoolQuery) return;
       setCourseResults(data);
     } catch (error: any) {
       console.error('Error fetching course results:', error);
@@ -269,11 +282,13 @@ const DirectivoDashboard: React.FC = () => {
     router.push('/login');
   };
 
+  // The address is the one source of the chosen school (see the effect above).
   const handleSchoolSelect = (schoolId: number) => {
-    setSchoolResults(null);
-    setCourseResults(null);
-    setSelectedSchoolId(schoolId);
     router.push(`/directivo/assessments/dashboard?school_id=${schoolId}`, undefined, { shallow: true });
+  };
+
+  const handleChangeSchool = () => {
+    router.push('/directivo/assessments/dashboard', undefined, { shallow: true });
   };
 
   // Loading state
@@ -373,7 +388,17 @@ const DirectivoDashboard: React.FC = () => {
         icon={<BarChart3 />}
         title="Panel de Resultados"
         subtitle={schoolResults?.school?.name || 'Escuela'}
-      />
+      >
+        {choosesSchool && (
+          <button
+            onClick={handleChangeSchool}
+            data-testid="results-change-school"
+            className="inline-flex items-center px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          >
+            Cambiar colegio
+          </button>
+        )}
+      </ResponsiveFunctionalPageHeader>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header with refresh */}

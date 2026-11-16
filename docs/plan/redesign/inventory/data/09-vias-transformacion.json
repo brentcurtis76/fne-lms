@@ -4,8 +4,8 @@
  "note": "Brent, 13 Nov 2026: Vías de Transformación is going to be deleted from the platform. Its screens are listed with their address and who reaches them, and nothing else. Which files go is confirmed with him on the leftover list.",
  "routesOnly": true,
  "readFrom": {
-  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
-  "date": "2026-11-12T23:31:39-03:00"
+  "commit": "c4375a0850d8e791dac1bf7d350fcf350509a90f",
+  "date": "2026-11-16T11:16:44-03:00"
  },
  "screens": [
   {
@@ -1018,7 +1018,7 @@
      }
     ],
     "linkedFrom": [
-     "components/DynamicFavicon.tsx:43",
+     "components/DynamicFavicon.tsx:42",
      "components/layout/Sidebar.tsx:331",
      "components/layout/Sidebar.tsx:338",
      "pages/vias-transformacion/[id].tsx:594",

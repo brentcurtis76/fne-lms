@@ -1,7 +1,7 @@
 # Sitio público (nuevaeducacion.org pages; not part of the platform redesign)
 
 Area `20-sitio-publico`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `58b8d169f` (2026-11-12).
+Read from commit `c4375a085` (2026-11-16).
 
 Redesigned separately and live since 12 Nov 2026. Listed so that every file under pages/ has a place.
 
@@ -29,7 +29,7 @@ File `pages/equipo.tsx` · 36 lines · frame: none
 - Menu: no entry.
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `components/DynamicFavicon.tsx:39`, `components/Footer.tsx:95`, `components/site/SiteLayout.tsx:176`, `lib/auth/forced-password-change.ts:148`, `middleware.ts:343`
+- Linked from: `components/DynamicFavicon.tsx:38`, `components/Footer.tsx:95`, `components/site/SiteLayout.tsx:176`, `lib/auth/forced-password-change.ts:148`, `middleware.ts:343`
 - Tests: browser tests that CI runs: `tests/e2e/footer-heading-order.spec.ts`; browser tests CI skips: `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -90,7 +90,7 @@ File `pages/index.tsx` · 479 lines · frame: none
 - Menu: no entry.
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page: no access check found by the script.
-- Linked from: `components/Footer.tsx:96`, `components/layout/Header.tsx:62`, `components/site/SiteLayout.tsx:47`, `pages/403.tsx:21`, `pages/admin/course-builder/new.tsx:49`, `pages/admin/debug/course-module-ids.tsx:14`, `pages/admin/debug/course-module-ids.tsx:19`, `pages/admin/debug/ids.tsx:101`, `pages/admin/form-usage.tsx:36`, `pages/admin/form-usage.tsx:41`, `pages/admin/news.tsx:312`, `pages/admin/transformation.tsx:60` and 20 more
+- Linked from: `components/Footer.tsx:96`, `components/layout/Header.tsx:62`, `components/site/SiteLayout.tsx:47`, `pages/403.tsx:21`, `pages/admin/course-builder/new.tsx:49`, `pages/admin/news.tsx:312`, `pages/admin/transformation.tsx:60`, `pages/admin/transformation/assessments.tsx:118`, `pages/directivo/assessments/dashboard.tsx:162`, `pages/login.tsx:371`, `pages/login.tsx:390`, `pages/login.tsx:612` and 11 more
 - Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/home-contact-form.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |

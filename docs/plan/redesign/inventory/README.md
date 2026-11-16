@@ -2,7 +2,7 @@
 
 What every screen of the platform offers today, so the redesign can prove that nothing is lost (PLAN.md, "The no-loss rules": the inventory is the contract).
 
-Read from commit `58b8d169faeb9395c6cff9309b6898de8df0e6af` (2026-11-12).
+Read from commit `c4375a0850d8e791dac1bf7d350fcf350509a90f` (2026-11-16).
 
 ## How to use it
 
@@ -29,13 +29,13 @@ What reading the code cannot see is added by the walk by sight and kept in `anno
 
 | Area | Screens | API files | Pieces | Rows |
 |---|---|---|---|---|
-| [Marco (the frame around every screen)](00-marco.md) | 3 | 1 | 25 | 478 |
+| [Marco (the frame around every screen)](00-marco.md) | 2 | 1 | 25 | 478 |
 | [Acceso (sign-in, sign-up, passwords)](01-acceso.md) | 7 | 13 | 7 | 318 |
-| [Panel (Mi Panel)](02-panel.md) | 3 | 6 | 36 | 658 |
-| [Mi Aprendizaje (the learner's courses, lessons and routes)](03-aprendizaje.md) | 9 | 1 | 24 | 699 |
-| [Cursos (course builder, upcoming courses, learning paths, assignment matrix)](04-cursos.md) | 17 | 30 | 48 | 1628 |
+| [Panel (Mi Panel)](02-panel.md) | 1 | 6 | 24 | 338 |
+| [Mi Aprendizaje (the learner's courses, lessons and routes)](03-aprendizaje.md) | 7 | 1 | 23 | 632 |
+| [Cursos (course builder, upcoming courses, learning paths, assignment matrix)](04-cursos.md) | 15 | 30 | 45 | 1546 |
 | [Tareas y quizzes (assignments, group work, quiz review)](05-tareas.md) | 9 | 14 | 18 | 577 |
-| [Sesiones y consultorías (sessions, approvals, video meetings)](06-sesiones.md) | 12 | 34 | 30 | 1496 |
+| [Sesiones y consultorías (sessions, approvals, video meetings)](06-sesiones.md) | 11 | 34 | 30 | 1486 |
 | [Espacio Colaborativo y comunidades](07-espacio-colaborativo.md) | 4 | 18 | 66 | 1590 |
 | [Gestor de Cambio (registros, context, migration plan, results)](08-gestor-de-cambio.md) | 16 | 40 | 30 | 1649 |
 | [Vías de Transformación (to be deleted)](09-vias-transformacion.md) | 10 | 17 | 0 | 0 |
@@ -43,14 +43,14 @@ What reading the code cannot see is added by the walk by sight and kept in `anno
 | [Gestión (clients, contracts, quotes)](11-gestion.md) | 7 | 14 | 20 | 1193 |
 | [Pasantías (leads, travellers, panel, my trip)](12-pasantias.md) | 5 | 21 | 25 | 889 |
 | [Reportes](13-reportes.md) | 3 | 10 | 20 | 734 |
-| [Personas (users, schools, networks, roles, profile)](14-personas.md) | 8 | 33 | 24 | 1284 |
-| [Comunicación (news and events)](15-comunicacion.md) | 3 | 4 | 6 | 189 |
+| [Personas (users, schools, networks, roles, profile)](14-personas.md) | 7 | 33 | 24 | 1242 |
+| [Comunicación (news and events)](15-comunicacion.md) | 2 | 4 | 6 | 174 |
 | [Notificaciones](16-notificaciones.md) | 4 | 9 | 7 | 257 |
 | [Horas, tarifas y gastos](17-horas-gastos.md) | 4 | 9 | 15 | 441 |
 | [QA (the platform's own test tool)](18-qa.md) | 16 | 21 | 13 | 1237 |
-| [Sistema (configuration, support, roadmap, test and debug pages, scheduled jobs)](19-sistema.md) | 18 | 26 | 18 | 1095 |
+| [Sistema (configuration, support, roadmap, test and debug pages, scheduled jobs)](19-sistema.md) | 3 | 26 | 6 | 257 |
 | [Sitio público (nuevaeducacion.org pages; not part of the platform redesign)](20-sitio-publico.md) | 8 | 1 | 28 | 825 |
-| **Total** | **177** | **364** | | **18823** |
+| **Total** | **152** | **364** | | **17449** |
 
 The menu has 18 entries at the top level and 61 children (`NAVIGATION_ITEMS` in `components/layout/Sidebar.tsx`).
 

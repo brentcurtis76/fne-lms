@@ -10,8 +10,7 @@
       "note": "The app shell, the menu, the top bar, the bell, the footer and the feedback button. Its pieces are listed here once and not repeated under each screen.",
       "pages": [
         "pages/_app.tsx",
-        "pages/_document.tsx",
-        "pages/_app 2.tsx"
+        "pages/_document.tsx"
       ],
       "api": [
         "pages/api/feedback/**"
@@ -42,9 +41,7 @@
       "id": "02-panel",
       "name": "Panel (Mi Panel)",
       "pages": [
-        "pages/dashboard.tsx",
-        "pages/dashboard-old.tsx",
-        "pages/admin/new-reporting.tsx"
+        "pages/dashboard.tsx"
       ],
       "api": [
         "pages/api/dashboard/**",
@@ -61,9 +58,7 @@
         "pages/mi-aprendizaje.tsx",
         "pages/mi-aprendizaje/**",
         "pages/my-paths.tsx",
-        "pages/my-paths/**",
         "pages/course-manager.tsx",
-        "pages/courses/**",
         "pages/student/**"
       ],
       "api": [
@@ -80,9 +75,7 @@
         "pages/admin/upcoming-courses/**",
         "pages/admin/learning-paths.tsx",
         "pages/admin/learning-paths/**",
-        "pages/admin/assignment-matrix.tsx",
-        "pages/admin/create-course.tsx",
-        "pages/creador-de-cursos.tsx"
+        "pages/admin/assignment-matrix.tsx"
       ],
       "api": [
         "pages/api/courses/**",
@@ -119,7 +112,6 @@
         "pages/admin/sessions/**",
         "pages/admin/bulk-tag-sessions.tsx",
         "pages/admin/consultant-assignments.tsx",
-        "pages/admin/test-session.tsx",
         "pages/meet/**"
       ],
       "api": [
@@ -258,7 +250,6 @@
         "pages/admin/tractor-signups.tsx",
         "pages/admin/schools.tsx",
         "pages/admin/network-management.tsx",
-        "pages/admin/apply-network-migration.tsx",
         "pages/admin/role-management.tsx",
         "pages/profile.tsx"
       ],
@@ -292,8 +283,7 @@
       "name": "Comunicación (news and events)",
       "pages": [
         "pages/admin/news.tsx",
-        "pages/admin/events.tsx",
-        "pages/admin/setup-news.tsx"
+        "pages/admin/events.tsx"
       ],
       "api": [
         "pages/api/news/**",
@@ -354,21 +344,7 @@
       "pages": [
         "pages/admin/configuration.tsx",
         "pages/admin/feedback.tsx",
-        "pages/admin/roadmap.tsx",
-        "pages/admin/form-usage.tsx",
-        "pages/admin/bucket-test.tsx",
-        "pages/admin/debug/**",
-        "pages/debug-feedback-permissions.tsx",
-        "pages/admin/test-spanish-input.tsx",
-        "pages/brand-preview.tsx",
-        "pages/email-showcase.tsx",
-        "pages/test.tsx",
-        "pages/test-logout.tsx",
-        "pages/test-rbac.tsx",
-        "pages/test-sentry.tsx",
-        "pages/test-sidebar-role.tsx",
-        "pages/test-toast.tsx",
-        "pages/test-user-role.tsx"
+        "pages/admin/roadmap.tsx"
       ],
       "api": [
         "pages/api/cron/**",
@@ -407,134 +383,9 @@
     "pages/admin/course-builder/[id].tsx.broken": {
       "dead": "Not a screen: the ending .broken keeps Next.js from serving it."
     },
-    "pages/_app 2.tsx": {
-      "leftover": "A six-line stray copy of the app shell. Next.js serves it at the address «/_app 2» as an empty page.",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/test.tsx": {
-      "leftover": "Shows the words «Test Page Works».",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/test-logout.tsx": {
-      "leftover": "Shows whether there is a session and offers sign-out buttons.",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/test-rbac.tsx": {
-      "leftover": "Prints the role-system settings of the site (public settings only).",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/test-sentry.tsx": {
-      "leftover": "A button that sends a test error to Sentry.",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/test-sidebar-role.tsx": {
-      "leftover": "Draws the menu with the signed-in person's role values next to it.",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/test-toast.tsx": {
-      "leftover": "A demonstration of every toast message.",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/test-user-role.tsx": {
-      "leftover": "Shows the session's user and role, with the old header.",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/debug-feedback-permissions.tsx": {
-      "leftover": "Shows the signed-in person's role and whether they count as admin.",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/email-showcase.tsx": {
-      "leftover": "Previews of the e-mail templates, built into the site as a page. Still shows the old blue.",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/brand-preview.tsx": {
-      "leftover": "A 1,580-line internal brand guide and audit page. A browser test that CI runs visits it (footer-heading-order.spec.ts): the test must change in the same release that retires the page.",
-      "recommend": "retire, with its test",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/dashboard-old.tsx": {
-      "leftover": "The old panel with the old header. A browser test that CI runs uses its notification bell (notification-settings.spec.ts): the test must change in the same release.",
-      "recommend": "retire, with its test",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/admin/bucket-test.tsx": {
-      "leftover": "Lists the file-storage buckets and can ask the database to create one. Admin only.",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/admin/debug/ids.tsx": {
-      "leftover": "Lists course and module ids. Admin only.",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/admin/debug/course-module-ids.tsx": {
-      "leftover": "Lists course and module ids (a second copy). Admin only.",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/admin/setup-news.tsx": {
-      "leftover": "A one-time set-up page for the news table: it asks the database to create it. Admin only.",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/admin/test-session.tsx": {
-      "leftover": "Dumps the session as raw data. Admin only.",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/admin/test-spanish-input.tsx": {
-      "leftover": "A test of typing accents and ñ into a field. Admin only.",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/creador-de-cursos.tsx": {
-      "leftover": "An old «Panel de Creador de Cursos» with the old header; its buttons lead nowhere useful.",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/admin/create-course.tsx": {
-      "leftover": "An old form that writes a course and its modules straight into the database, with the old header. Admin only. The course builder replaced it.",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/courses/[id].tsx": {
-      "leftover": "An unstyled course page in English with no frame. A QA test that CI skips names it (tests/qa/auth-redirects.spec.ts).",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/my-paths/[id].tsx": {
-      "leftover": "A copy of the learning-route page; the live one is /mi-aprendizaje/ruta/[id]. Nothing links to this copy.",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/admin/new-reporting.tsx": {
-      "leftover": "«Vista Previa: Nuevo Dashboard de Reportes»: a preview of a reports dashboard that was never linked. The only user of components/dashboard/unified. Admin only.",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
-    "pages/admin/form-usage.tsx": {
-      "leftover": "«Uso del Formulario de Contacto»: counts contact-form sends against a free Formspree plan of 50 a month. Nothing on the site records a send any more (only this page reads the counter), so it always shows old numbers. Nothing links to it. Admin only.",
-      "recommend": "retire",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-    },
     "pages/admin/licitaciones/criterios.tsx": {
       "keep": "«Criterios de Evaluación Técnica»: a working editor of evaluation criteria per template. Nothing links to it (also finding D10 of the Licitaciones review of 13 Nov). Admin only. Brent, 13 Nov 2026: it stays and is redesigned with Licitaciones.",
       "decision": "Stays (Brent, 13 Nov 2026)"
-    },
-    "pages/admin/apply-network-migration.tsx": {
-      "leftover": "Instructions and a button to create the «Supervisor de Red» tables. The tables exist today (they are in the baseline migration). Linked from Redes de Colegios. Admin only.",
-      "recommend": "retire, with its link",
-      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
     },
     "pages/course-manager.tsx": {
       "keep": "A redirect to /mi-aprendizaje. Old notifications still point at it (components/notifications/NotificationDropdown.tsx)."
@@ -619,7 +470,7 @@
     },
     {
       "file": "components/layout/Header.tsx",
-      "what": "The old header. Still used by pending-approval (a live screen) and by six leftover pages; it can go once those are retired and pending-approval is restyled."
+      "what": "The old header. Still used by pending-approval (a live screen); the six leftover pages that also drew it were retired in phase 4c. It can go once pending-approval is restyled."
     },
     {
       "file": "Menu group «Vías de Transformación» (components/layout/Sidebar.tsx)",

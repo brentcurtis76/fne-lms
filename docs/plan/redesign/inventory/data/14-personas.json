@@ -4,368 +4,14 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
-  "date": "2026-11-12T23:31:39-03:00"
+  "commit": "c4375a0850d8e791dac1bf7d350fcf350509a90f",
+  "date": "2026-11-16T11:16:44-03:00"
  },
  "screens": [
   {
-   "file": "pages/admin/apply-network-migration.tsx",
-   "route": "/admin/apply-network-migration",
-   "lines": 201,
-   "marks": {
-    "leftover": "Instructions and a button to create the «Supervisor de Red» tables. The tables exist today (they are in the baseline migration). Linked from Redes de Colegios. Admin only.",
-    "recommend": "retire, with its link",
-    "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-   },
-   "frame": "MainLayout",
-   "server": "none",
-   "reach": {
-    "menu": [],
-    "middleware": {
-     "rule": "the /admin rule",
-     "signedOut": "sent to /login",
-     "passwordChangeHold": true
-    },
-    "roles": {
-     "admin": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "consultor": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "equipo_directivo": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "lider_generacion": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "lider_comunidad": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "supervisor_de_red": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "community_manager": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "docente": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "encargado_licitacion": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     }
-    },
-    "inPage": [
-     {
-      "line": 58,
-      "text": "router.push → /login"
-     }
-    ],
-    "linkedFrom": [
-     "pages/admin/network-management.tsx:666",
-     "pages/admin/network-management.tsx:667"
-    ],
-    "qaScenarios": {},
-    "tests": {
-     "e2eCi": [],
-     "e2e": [],
-     "unit": []
-    }
-   },
-   "rows": [
-    {
-     "kind": "toast",
-     "line": 24,
-     "in": "checkMigrationStatus",
-     "when": "!session?.access_token",
-     "text": "Error de autenticación",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 44,
-     "in": "checkMigrationStatus",
-     "when": "data.success",
-     "text": "¡Las tablas están configuradas correctamente!",
-     "variant": "success"
-    },
-    {
-     "kind": "toast",
-     "line": 46,
-     "in": "checkMigrationStatus",
-     "when": "!(data.success)",
-     "text": "{data.message}",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 50,
-     "in": "checkMigrationStatus",
-     "text": "Error al verificar el estado de la migración",
-     "variant": "error"
-    },
-    {
-     "kind": "nav",
-     "line": 58,
-     "in": "handleLogout",
-     "text": "/login",
-     "via": "router.push"
-    },
-    {
-     "kind": "piece",
-     "line": 62,
-     "in": "ApplyNetworkMigration",
-     "text": "pageTitle: Aplicar Migración de Red · breadcrumbs: Inicio / Aplicar Migración",
-     "tag": "MainLayout"
-    },
-    {
-     "kind": "heading",
-     "line": 77,
-     "in": "ApplyNetworkMigration",
-     "text": "Migración de Base de Datos - Supervisor de Red",
-     "level": 1
-    },
-    {
-     "kind": "heading",
-     "line": 83,
-     "in": "ApplyNetworkMigration",
-     "text": "Estado de la Migración",
-     "level": 2
-    },
-    {
-     "kind": "value",
-     "line": 91,
-     "in": "ApplyNetworkMigration",
-     "when": "migrationStatus",
-     "text": "{migrationStatus.message}"
-    },
-    {
-     "kind": "button",
-     "line": 95,
-     "in": "ApplyNetworkMigration",
-     "text": "Verificando... / Verificar Estado de Migración",
-     "action": "{checkMigrationStatus}",
-     "disabled": "{checking}"
-    },
-    {
-     "kind": "heading",
-     "line": 105,
-     "in": "ApplyNetworkMigration",
-     "text": "Instrucciones para Aplicar la Migración",
-     "level": 2
-    },
-    {
-     "kind": "text",
-     "line": 116,
-     "in": "ApplyNetworkMigration",
-     "text": "Accede al Dashboard de Supabase"
-    },
-    {
-     "kind": "text",
-     "line": 118,
-     "in": "ApplyNetworkMigration",
-     "text": "Ve a tu proyecto de Supabase y navega a la sección &quot;SQL Editor&quot;"
-    },
-    {
-     "kind": "text",
-     "line": 128,
-     "in": "ApplyNetworkMigration",
-     "text": "Copia el SQL de Migración"
-    },
-    {
-     "kind": "text",
-     "line": 130,
-     "in": "ApplyNetworkMigration",
-     "text": "Abre el archivo:"
-    },
-    {
-     "kind": "text",
-     "line": 131,
-     "in": "ApplyNetworkMigration",
-     "text": "/database/add-supervisor-de-red-role-fixed.sql"
-    },
-    {
-     "kind": "text",
-     "line": 135,
-     "in": "ApplyNetworkMigration",
-     "text": "Copia todo el contenido del archivo"
-    },
-    {
-     "kind": "text",
-     "line": 145,
-     "in": "ApplyNetworkMigration",
-     "text": "Ejecuta la Migración en DOS PASOS"
-    },
-    {
-     "kind": "text",
-     "line": 147,
-     "in": "ApplyNetworkMigration",
-     "text": "PASO 1:"
-    },
-    {
-     "kind": "text",
-     "line": 147,
-     "in": "ApplyNetworkMigration",
-     "text": "Ejecuta SOLO la primera parte (hasta &quot;COMMIT the enum change&quot;)"
-    },
-    {
-     "kind": "text",
-     "line": 150,
-     "in": "ApplyNetworkMigration",
-     "text": "PASO 2:"
-    },
-    {
-     "kind": "text",
-     "line": 150,
-     "in": "ApplyNetworkMigration",
-     "text": "Después ejecuta el resto (desde &quot;BEGIN;&quot;)"
-    },
-    {
-     "kind": "text",
-     "line": 153,
-     "in": "ApplyNetworkMigration",
-     "text": "Esto evita el error &quot;unsafe use of new value of enum type&quot;"
-    },
-    {
-     "kind": "text",
-     "line": 163,
-     "in": "ApplyNetworkMigration",
-     "text": "Verifica la Instalación"
-    },
-    {
-     "kind": "text",
-     "line": 165,
-     "in": "ApplyNetworkMigration",
-     "text": "Haz clic en &quot;Verificar Estado de Migración&quot; arriba para confirmar"
-    },
-    {
-     "kind": "text",
-     "line": 168,
-     "in": "ApplyNetworkMigration",
-     "text": "Una vez verificado, podrás usar la gestión de redes"
-    },
-    {
-     "kind": "heading",
-     "line": 177,
-     "in": "ApplyNetworkMigration",
-     "text": "¿Qué crea esta migración?",
-     "level": 3
-    },
-    {
-     "kind": "text",
-     "line": 179,
-     "in": "ApplyNetworkMigration",
-     "text": "• Tabla"
-    },
-    {
-     "kind": "text",
-     "line": 179,
-     "in": "ApplyNetworkMigration",
-     "text": "redes_de_colegios"
-    },
-    {
-     "kind": "text",
-     "line": 179,
-     "in": "ApplyNetworkMigration",
-     "text": "- Para almacenar información de redes"
-    },
-    {
-     "kind": "text",
-     "line": 180,
-     "in": "ApplyNetworkMigration",
-     "text": "• Tabla"
-    },
-    {
-     "kind": "text",
-     "line": 180,
-     "in": "ApplyNetworkMigration",
-     "text": "red_escuelas"
-    },
-    {
-     "kind": "text",
-     "line": 180,
-     "in": "ApplyNetworkMigration",
-     "text": "- Para vincular escuelas a redes"
-    },
-    {
-     "kind": "text",
-     "line": 181,
-     "in": "ApplyNetworkMigration",
-     "text": "• Rol"
-    },
-    {
-     "kind": "text",
-     "line": 181,
-     "in": "ApplyNetworkMigration",
-     "text": "supervisor_de_red"
-    },
-    {
-     "kind": "text",
-     "line": 181,
-     "in": "ApplyNetworkMigration",
-     "text": "- Nuevo tipo de rol de usuario"
-    },
-    {
-     "kind": "text",
-     "line": 182,
-     "in": "ApplyNetworkMigration",
-     "text": "• Políticas RLS - Para acceso seguro a datos"
-    },
-    {
-     "kind": "text",
-     "line": 183,
-     "in": "ApplyNetworkMigration",
-     "text": "• Funciones auxiliares - Para gestión de permisos"
-    },
-    {
-     "kind": "button",
-     "line": 188,
-     "in": "ApplyNetworkMigration",
-     "text": "Volver a Gestión de Redes",
-     "action": "{() => router.push('/admin/network-management')}"
-    },
-    {
-     "kind": "nav",
-     "line": 189,
-     "in": "ApplyNetworkMigration",
-     "text": "/admin/network-management",
-     "via": "router.push"
-    },
-    {
-     "kind": "string",
-     "line": 31,
-     "in": "ApplyNetworkMigration",
-     "text": "Bearer {session.access_token}"
-    }
-   ],
-   "db": [],
-   "pieces": [],
-   "api": [
-    {
-     "file": "pages/api/admin/init-supervisor-tables.ts",
-     "route": "/api/admin/init-supervisor-tables",
-     "methods": [
-      "POST"
-     ],
-     "from": [
-      "pages/admin/apply-network-migration.tsx:28"
-     ]
-    }
-   ]
-  },
-  {
    "file": "pages/admin/network-management.tsx",
    "route": "/admin/network-management",
-   "lines": 1187,
+   "lines": 1179,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -447,8 +93,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:455",
-     "pages/admin/apply-network-migration.tsx:189"
+     "components/layout/Sidebar.tsx:455"
     ],
     "qaScenarios": {
      "admin": [
@@ -936,64 +581,56 @@
      "text": "Recarga esta página"
     },
     {
-     "kind": "link",
-     "line": 666,
-     "in": "NetworkManagementPage",
-     "when": "migrationError",
-     "text": "Ver instrucciones detalladas →",
-     "target": "/admin/apply-network-migration"
-    },
-    {
      "kind": "value",
-     "line": 685,
+     "line": 677,
      "in": "NetworkManagementPage",
      "text": "{networks.length}"
     },
     {
      "kind": "text",
-     "line": 686,
+     "line": 678,
      "in": "NetworkManagementPage",
      "text": "Total Redes"
     },
     {
      "kind": "value",
-     "line": 697,
+     "line": 689,
      "in": "NetworkManagementPage",
      "text": "{networks.reduce((sum, n) => sum + n…}"
     },
     {
      "kind": "text",
-     "line": 700,
+     "line": 692,
      "in": "NetworkManagementPage",
      "text": "Escuelas Asignadas"
     },
     {
      "kind": "value",
-     "line": 711,
+     "line": 703,
      "in": "NetworkManagementPage",
      "text": "{networks.reduce((sum, n) => sum + n…}"
     },
     {
      "kind": "text",
-     "line": 714,
+     "line": 706,
      "in": "NetworkManagementPage",
      "text": "Supervisores Activos"
     },
     {
      "kind": "value",
-     "line": 725,
+     "line": 717,
      "in": "NetworkManagementPage",
      "text": "{networks.filter(n => n.supervisor_c…}"
     },
     {
      "kind": "text",
-     "line": 728,
+     "line": 720,
      "in": "NetworkManagementPage",
      "text": "Sin Supervisores"
     },
     {
      "kind": "heading",
-     "line": 742,
+     "line": 734,
      "in": "NetworkManagementPage",
      "when": "each filteredNetworks",
      "text": "{network.name}",
@@ -1001,14 +638,14 @@
     },
     {
      "kind": "value",
-     "line": 744,
+     "line": 736,
      "in": "NetworkManagementPage",
      "when": "each filteredNetworks && network.description",
      "text": "{network.description}"
     },
     {
      "kind": "button",
-     "line": 748,
+     "line": 740,
      "in": "NetworkManagementPage",
      "when": "each filteredNetworks",
      "text": "[icon Edit3]",
@@ -1017,7 +654,7 @@
     },
     {
      "kind": "button",
-     "line": 755,
+     "line": 747,
      "in": "NetworkManagementPage",
      "when": "each filteredNetworks",
      "text": "[icon Trash2]",
@@ -1026,49 +663,49 @@
     },
     {
      "kind": "value",
-     "line": 768,
+     "line": 760,
      "in": "NetworkManagementPage",
      "when": "each filteredNetworks",
      "text": "{network.school_count}"
     },
     {
      "kind": "text",
-     "line": 769,
+     "line": 761,
      "in": "NetworkManagementPage",
      "when": "each filteredNetworks",
      "text": "Escuelas"
     },
     {
      "kind": "value",
-     "line": 772,
+     "line": 764,
      "in": "NetworkManagementPage",
      "when": "each filteredNetworks",
      "text": "{network.supervisor_count}"
     },
     {
      "kind": "text",
-     "line": 773,
+     "line": 765,
      "in": "NetworkManagementPage",
      "when": "each filteredNetworks",
      "text": "Supervisores"
     },
     {
      "kind": "text",
-     "line": 780,
+     "line": 772,
      "in": "NetworkManagementPage",
      "when": "each filteredNetworks && network.schools.length > 0",
      "text": "Escuelas Asignadas:"
     },
     {
      "kind": "value",
-     "line": 784,
+     "line": 776,
      "in": "NetworkManagementPage",
      "when": "each filteredNetworks && network.schools.length > 0 && each network.schools.slice(0, 3)",
      "text": "{school.name}"
     },
     {
      "kind": "button",
-     "line": 785,
+     "line": 777,
      "in": "NetworkManagementPage",
      "when": "each filteredNetworks && network.schools.length > 0 && each network.schools.slice(0, 3)",
      "text": "[icon X]",
@@ -1077,28 +714,28 @@
     },
     {
      "kind": "text",
-     "line": 795,
+     "line": 787,
      "in": "NetworkManagementPage",
      "when": "each filteredNetworks && network.schools.length > 0 && network.schools.length > 3",
      "text": "+ {network.schools.length - 3} más"
     },
     {
      "kind": "text",
-     "line": 806,
+     "line": 798,
      "in": "NetworkManagementPage",
      "when": "each filteredNetworks && network.supervisors.length > 0",
      "text": "Supervisores:"
     },
     {
      "kind": "value",
-     "line": 810,
+     "line": 802,
      "in": "NetworkManagementPage",
      "when": "each filteredNetworks && network.supervisors.length > 0 && each network.supervisors",
      "text": "{supervisor.first_name} {supervisor.last_name}"
     },
     {
      "kind": "button",
-     "line": 813,
+     "line": 805,
      "in": "NetworkManagementPage",
      "when": "each filteredNetworks && network.supervisors.length > 0 && each network.supervisors",
      "text": "[icon X]",
@@ -1107,7 +744,7 @@
     },
     {
      "kind": "button",
-     "line": 828,
+     "line": 820,
      "in": "NetworkManagementPage",
      "when": "each filteredNetworks",
      "text": "Escuelas",
@@ -1115,7 +752,7 @@
     },
     {
      "kind": "button",
-     "line": 835,
+     "line": 827,
      "in": "NetworkManagementPage",
      "when": "each filteredNetworks",
      "text": "Supervisores",
@@ -1123,7 +760,7 @@
     },
     {
      "kind": "heading",
-     "line": 851,
+     "line": 843,
      "in": "NetworkManagementPage",
      "when": "filteredNetworks.length === 0",
      "text": "No hay redes",
@@ -1131,14 +768,14 @@
     },
     {
      "kind": "text",
-     "line": 852,
+     "line": 844,
      "in": "NetworkManagementPage",
      "when": "filteredNetworks.length === 0",
      "text": "No se encontraron redes que coincidan con tu búsqueda. / Comienza creando tu primera red de colegios."
     },
     {
      "kind": "button",
-     "line": 857,
+     "line": 849,
      "in": "NetworkManagementPage",
      "when": "filteredNetworks.length === 0 && !searchQuery",
      "text": "Nueva Red",
@@ -1146,7 +783,7 @@
     },
     {
      "kind": "popup",
-     "line": 872,
+     "line": 864,
      "in": "NetworkManagementPage",
      "when": "showCreateModal",
      "text": "Crear Nueva Red",
@@ -1154,7 +791,7 @@
     },
     {
      "kind": "heading",
-     "line": 874,
+     "line": 866,
      "in": "NetworkManagementPage",
      "when": "showCreateModal",
      "text": "Crear Nueva Red",
@@ -1162,14 +799,14 @@
     },
     {
      "kind": "label",
-     "line": 878,
+     "line": 870,
      "in": "NetworkManagementPage",
      "when": "showCreateModal",
      "text": "Nombre de la Red *"
     },
     {
      "kind": "field",
-     "line": 881,
+     "line": 873,
      "in": "NetworkManagementPage",
      "when": "showCreateModal",
      "text": "Nombre de la Red *",
@@ -1179,14 +816,14 @@
     },
     {
      "kind": "label",
-     "line": 891,
+     "line": 883,
      "in": "NetworkManagementPage",
      "when": "showCreateModal",
      "text": "Descripción"
     },
     {
      "kind": "field",
-     "line": 894,
+     "line": 886,
      "in": "NetworkManagementPage",
      "when": "showCreateModal",
      "text": "Descripción",
@@ -1197,7 +834,7 @@
     },
     {
      "kind": "button",
-     "line": 905,
+     "line": 897,
      "in": "NetworkManagementPage",
      "when": "showCreateModal",
      "text": "Cancelar",
@@ -1205,7 +842,7 @@
     },
     {
      "kind": "button",
-     "line": 914,
+     "line": 906,
      "in": "NetworkManagementPage",
      "when": "showCreateModal",
      "text": "Crear Red",
@@ -1213,7 +850,7 @@
     },
     {
      "kind": "popup",
-     "line": 927,
+     "line": 919,
      "in": "NetworkManagementPage",
      "when": "showEditModal && selectedNetwork",
      "text": "Editar Red",
@@ -1221,7 +858,7 @@
     },
     {
      "kind": "heading",
-     "line": 929,
+     "line": 921,
      "in": "NetworkManagementPage",
      "when": "showEditModal && selectedNetwork",
      "text": "Editar Red",
@@ -1229,14 +866,14 @@
     },
     {
      "kind": "label",
-     "line": 933,
+     "line": 925,
      "in": "NetworkManagementPage",
      "when": "showEditModal && selectedNetwork",
      "text": "Nombre de la Red *"
     },
     {
      "kind": "field",
-     "line": 936,
+     "line": 928,
      "in": "NetworkManagementPage",
      "when": "showEditModal && selectedNetwork",
      "text": "Nombre de la Red *",
@@ -1245,14 +882,14 @@
     },
     {
      "kind": "label",
-     "line": 945,
+     "line": 937,
      "in": "NetworkManagementPage",
      "when": "showEditModal && selectedNetwork",
      "text": "Descripción"
     },
     {
      "kind": "field",
-     "line": 948,
+     "line": 940,
      "in": "NetworkManagementPage",
      "when": "showEditModal && selectedNetwork",
      "text": "Descripción",
@@ -1262,7 +899,7 @@
     },
     {
      "kind": "button",
-     "line": 958,
+     "line": 950,
      "in": "NetworkManagementPage",
      "when": "showEditModal && selectedNetwork",
      "text": "Cancelar",
@@ -1270,7 +907,7 @@
     },
     {
      "kind": "button",
-     "line": 968,
+     "line": 960,
      "in": "NetworkManagementPage",
      "when": "showEditModal && selectedNetwork",
      "text": "Actualizar",
@@ -1278,7 +915,7 @@
     },
     {
      "kind": "popup",
-     "line": 981,
+     "line": 973,
      "in": "NetworkManagementPage",
      "when": "showSchoolModal && selectedNetwork",
      "text": "Asignar Escuelas a &quot; {selectedNetwork.name} &quot;",
@@ -1286,7 +923,7 @@
     },
     {
      "kind": "heading",
-     "line": 983,
+     "line": 975,
      "in": "NetworkManagementPage",
      "when": "showSchoolModal && selectedNetwork",
      "text": "Asignar Escuelas a &quot; {selectedNetwork.name} &quot;",
@@ -1294,63 +931,63 @@
     },
     {
      "kind": "text",
-     "line": 989,
+     "line": 981,
      "in": "NetworkManagementPage",
      "when": "showSchoolModal && selectedNetwork",
      "text": "Nota:"
     },
     {
      "kind": "text",
-     "line": 989,
+     "line": 981,
      "in": "NetworkManagementPage",
      "when": "showSchoolModal && selectedNetwork",
      "text": "Las escuelas que ya pertenecen a otra red aparecen deshabilitadas y muestran a qué red están asignadas. Solo puedes seleccionar escuelas disponibles o las que ya están en esta red."
     },
     {
      "kind": "value",
-     "line": 996,
+     "line": 988,
      "in": "NetworkManagementPage",
      "when": "showSchoolModal && selectedNetwork && selectedSchools.length > 0",
      "text": "{selectedSchools.length}"
     },
     {
      "kind": "text",
-     "line": 996,
+     "line": 988,
      "in": "NetworkManagementPage",
      "when": "showSchoolModal && selectedNetwork && selectedSchools.length > 0",
      "text": "escuela"
     },
     {
      "kind": "text",
-     "line": 996,
+     "line": 988,
      "in": "NetworkManagementPage",
      "when": "showSchoolModal && selectedNetwork && selectedSchools.length > 0",
      "text": "s"
     },
     {
      "kind": "text",
-     "line": 996,
+     "line": 988,
      "in": "NetworkManagementPage",
      "when": "showSchoolModal && selectedNetwork && selectedSchools.length > 0",
      "text": "seleccionada"
     },
     {
      "kind": "text",
-     "line": 996,
+     "line": 988,
      "in": "NetworkManagementPage",
      "when": "showSchoolModal && selectedNetwork && selectedSchools.length > 0",
      "text": "s"
     },
     {
      "kind": "label",
-     "line": 1008,
+     "line": 1000,
      "in": "NetworkManagementPage",
      "when": "showSchoolModal && selectedNetwork && availableSchools.length > 0 && each availableSchools",
      "text": "{school.name} [En esta red] [Asignado a: {school.current_network.name}]"
     },
     {
      "kind": "field",
-     "line": 1014,
+     "line": 1006,
      "in": "NetworkManagementPage",
      "when": "showSchoolModal && selectedNetwork && availableSchools.length > 0 && each availableSchools",
      "text": "{school.name} [En esta red] [Asignado a: {school.current_network.name}]",
@@ -1360,7 +997,7 @@
     },
     {
      "kind": "heading",
-     "line": 1049,
+     "line": 1041,
      "in": "NetworkManagementPage",
      "when": "showSchoolModal && selectedNetwork && !(availableSchools.length > 0)",
      "text": "No hay escuelas",
@@ -1368,14 +1005,14 @@
     },
     {
      "kind": "text",
-     "line": 1051,
+     "line": 1043,
      "in": "NetworkManagementPage",
      "when": "showSchoolModal && selectedNetwork && !(availableSchools.length > 0)",
      "text": "No se encontraron escuelas en el sistema."
     },
     {
      "kind": "button",
-     "line": 1057,
+     "line": 1049,
      "in": "NetworkManagementPage",
      "when": "showSchoolModal && selectedNetwork",
      "text": "Cancelar",
@@ -1383,7 +1020,7 @@
     },
     {
      "kind": "button",
-     "line": 1067,
+     "line": 1059,
      "in": "NetworkManagementPage",
      "when": "showSchoolModal && selectedNetwork",
      "text": "Guardar Cambios ( {selectedSchools.length} )",
@@ -1392,7 +1029,7 @@
     },
     {
      "kind": "popup",
-     "line": 1081,
+     "line": 1073,
      "in": "NetworkManagementPage",
      "when": "showSupervisorModal && selectedNetwork",
      "text": "Asignar Supervisor a &quot; {selectedNetwork.name} &quot;",
@@ -1400,7 +1037,7 @@
     },
     {
      "kind": "heading",
-     "line": 1083,
+     "line": 1075,
      "in": "NetworkManagementPage",
      "when": "showSupervisorModal && selectedNetwork",
      "text": "Asignar Supervisor a &quot; {selectedNetwork.name} &quot;",
@@ -1408,14 +1045,14 @@
     },
     {
      "kind": "label",
-     "line": 1090,
+     "line": 1082,
      "in": "NetworkManagementPage",
      "when": "showSupervisorModal && selectedNetwork && availableUsers.length > 0",
      "text": "Seleccionar Usuario"
     },
     {
      "kind": "field",
-     "line": 1093,
+     "line": 1085,
      "in": "NetworkManagementPage",
      "when": "showSupervisorModal && selectedNetwork && availableUsers.length > 0",
      "text": "Seleccionar Usuario",
@@ -1428,7 +1065,7 @@
     },
     {
      "kind": "heading",
-     "line": 1110,
+     "line": 1102,
      "in": "NetworkManagementPage",
      "when": "showSupervisorModal && selectedNetwork && !(availableUsers.length > 0)",
      "text": "No hay usuarios disponibles",
@@ -1436,14 +1073,14 @@
     },
     {
      "kind": "text",
-     "line": 1112,
+     "line": 1104,
      "in": "NetworkManagementPage",
      "when": "showSupervisorModal && selectedNetwork && !(availableUsers.length > 0)",
      "text": "Todos los usuarios ya tienen roles de supervisor asignados."
     },
     {
      "kind": "button",
-     "line": 1118,
+     "line": 1110,
      "in": "NetworkManagementPage",
      "when": "showSupervisorModal && selectedNetwork",
      "text": "Cancelar",
@@ -1451,7 +1088,7 @@
     },
     {
      "kind": "button",
-     "line": 1128,
+     "line": 1120,
      "in": "NetworkManagementPage",
      "when": "showSupervisorModal && selectedNetwork",
      "text": "Asignar Supervisor",
@@ -1460,7 +1097,7 @@
     },
     {
      "kind": "popup",
-     "line": 1142,
+     "line": 1134,
      "in": "NetworkManagementPage",
      "when": "showDeleteConfirm && selectedNetwork",
      "text": "Confirmar Eliminación",
@@ -1468,7 +1105,7 @@
     },
     {
      "kind": "heading",
-     "line": 1146,
+     "line": 1138,
      "in": "NetworkManagementPage",
      "when": "showDeleteConfirm && selectedNetwork",
      "text": "Confirmar Eliminación",
@@ -1476,35 +1113,35 @@
     },
     {
      "kind": "text",
-     "line": 1149,
+     "line": 1141,
      "in": "NetworkManagementPage",
      "when": "showDeleteConfirm && selectedNetwork",
      "text": "¿Estás seguro de que quieres eliminar la red &quot; {selectedNetwork.name} &quot;?"
     },
     {
      "kind": "text",
-     "line": 1156,
+     "line": 1148,
      "in": "NetworkManagementPage",
      "when": "showDeleteConfirm && selectedNetwork && selectedNetwork.supervisor_count > 0",
      "text": "Advertencia:"
     },
     {
      "kind": "text",
-     "line": 1156,
+     "line": 1148,
      "in": "NetworkManagementPage",
      "when": "showDeleteConfirm && selectedNetwork && selectedNetwork.supervisor_count > 0",
      "text": "Esta red tiene"
     },
     {
      "kind": "text",
-     "line": 1156,
+     "line": 1148,
      "in": "NetworkManagementPage",
      "when": "showDeleteConfirm && selectedNetwork && selectedNetwork.supervisor_count > 0",
      "text": "supervisor(es) activo(s). Primero debes remover todos los supervisores antes de eliminar la red."
     },
     {
      "kind": "button",
-     "line": 1163,
+     "line": 1155,
      "in": "NetworkManagementPage",
      "when": "showDeleteConfirm && selectedNetwork",
      "text": "Cancelar",
@@ -1512,7 +1149,7 @@
     },
     {
      "kind": "button",
-     "line": 1172,
+     "line": 1164,
      "in": "NetworkManagementPage",
      "when": "showDeleteConfirm && selectedNetwork",
      "text": "Eliminar Red",
@@ -1695,8 +1332,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:743",
-     "pages/test-rbac.tsx:49"
+     "components/layout/Sidebar.tsx:743"
     ],
     "qaScenarios": {
      "admin": [
@@ -2959,7 +2595,7 @@
     ],
     "linkedFrom": [
      "components/layout/Sidebar.tsx:447",
-     "pages/api/qa/seed-codebase-index.ts:155"
+     "pages/api/qa/seed-codebase-index.ts:133"
     ],
     "qaScenarios": {
      "admin": [
@@ -12064,12 +11700,8 @@
     "checkIsAdmin",
     "createServiceRoleClient"
    ],
-   "calledBy": [
-    "/admin/apply-network-migration"
-   ],
-   "referencedIn": [
-    "pages/admin/apply-network-migration.tsx"
-   ]
+   "calledBy": [],
+   "referencedIn": []
   },
   {
    "file": "pages/api/admin/networks/all-schools-simple.ts",

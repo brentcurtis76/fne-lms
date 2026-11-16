@@ -5,80 +5,10 @@
  "routesOnly": false,
  "frame": true,
  "readFrom": {
-  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
-  "date": "2026-11-12T23:31:39-03:00"
+  "commit": "c4375a0850d8e791dac1bf7d350fcf350509a90f",
+  "date": "2026-11-16T11:16:44-03:00"
  },
  "screens": [
-  {
-   "file": "pages/_app 2.tsx",
-   "route": "/_app 2",
-   "lines": 6,
-   "marks": {
-    "leftover": "A six-line stray copy of the app shell. Next.js serves it at the address «/_app 2» as an empty page.",
-    "recommend": "retire",
-    "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-   },
-   "frame": "none",
-   "server": "none",
-   "reach": {
-    "menu": [],
-    "middleware": {
-     "rule": "not covered",
-     "signedOut": "not stopped by the middleware",
-     "passwordChangeHold": false
-    },
-    "roles": {
-     "admin": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "consultor": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "equipo_directivo": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "lider_generacion": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "lider_comunidad": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "supervisor_de_red": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "community_manager": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "docente": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "encargado_licitacion": {
-      "menu": "—",
-      "middleware": "pass"
-     }
-    },
-    "inPage": [],
-    "linkedFrom": [],
-    "qaScenarios": {},
-    "tests": {
-     "e2eCi": [],
-     "e2e": [],
-     "unit": []
-    }
-   },
-   "rows": [],
-   "db": [],
-   "pieces": [],
-   "api": []
-  },
   {
    "file": "pages/_app.tsx",
    "route": null,

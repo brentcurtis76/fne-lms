@@ -129,28 +129,6 @@ const CODEBASE_INDEX_DATA = [
     }
   },
   {
-    feature_area: 'course_management',
-    route: '/courses/[id]',
-    file_path: 'pages/courses/[id].tsx',
-    roles_allowed: ['*'],
-    component_summary: 'Public course detail page. Shows course info, instructor, category, duration, difficulty. Server-side rendered for SEO.',
-    key_behaviors: {
-      view_course: {
-        description: 'Display course details via SSR',
-        service: 'CoursesService.getCourseById()',
-        displays: ['title', 'description', 'instructor', 'category', 'duration', 'difficulty']
-      }
-    },
-    expected_outcomes: {
-      success: {
-        view_course: 'Full course details displayed'
-      },
-      failure: {
-        not_found: 'Returns 404 page'
-      }
-    }
-  },
-  {
     feature_area: 'school_management',
     route: '/admin/schools',
     file_path: 'pages/admin/schools.tsx',

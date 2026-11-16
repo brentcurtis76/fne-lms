@@ -1,7 +1,7 @@
 # Reportes
 
 Area `13-reportes`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `58b8d169f` (2026-11-12).
+Read from commit `c4375a085` (2026-11-16).
 
 3 screen files, 10 API files, 20 pieces.
 
@@ -29,7 +29,7 @@ File `pages/detailed-reports.tsx` · 816 lines · frame: MainLayout
   - l.178 `router.push → /dashboard  (when highestRole && !hasReportingAccess(effectiveRole))`
   - l.200 `router.push → /login`
   - l.262 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:38`, `components/layout/Sidebar.tsx:632`, `lib/auth/forced-password-change.ts:145`, `middleware.ts:340`, `pages/api/qa/seed-codebase-index.ts:321`
+- Linked from: `components/DynamicFavicon.tsx:37`, `components/layout/Sidebar.tsx:632`, `lib/auth/forced-password-change.ts:145`, `middleware.ts:340`, `pages/api/qa/seed-codebase-index.ts:299`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 5, community_manager 1, consultor 4, equipo_directivo 6, lider_comunidad 1, lider_generacion 4, supervisor_de_red 6.
 
@@ -336,7 +336,7 @@ File `pages/reports.tsx` · 900 lines · frame: MainLayout
   - l.186 `router.push → /dashboard  (when profileData && !reportingRoles.includes(role))`
   - l.211 `router.push → /login`
   - l.221 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:37`, `components/layout/Sidebar.tsx:643`, `lib/auth/forced-password-change.ts:160`, `middleware.ts:355`, `pages/admin/new-reporting.tsx:119`, `pages/api/qa/seed-codebase-index.ts:357`
+- Linked from: `components/DynamicFavicon.tsx:36`, `components/layout/Sidebar.tsx:643`, `lib/auth/forced-password-change.ts:160`, `middleware.ts:355`, `pages/api/qa/seed-codebase-index.ts:335`
 - Tests: browser tests that CI runs: `tests/e2e/learning-path-governance.spec.ts`; browser tests CI skips: `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`, `tests/qa/auth-redirects.spec.ts`.
 - QA scenarios that name this address: admin 3, community_manager 1, equipo_directivo 1.
 

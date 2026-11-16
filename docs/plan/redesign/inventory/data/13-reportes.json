@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
-  "date": "2026-11-12T23:31:39-03:00"
+  "commit": "c4375a0850d8e791dac1bf7d350fcf350509a90f",
+  "date": "2026-11-16T11:16:44-03:00"
  },
  "screens": [
   {
@@ -101,11 +101,11 @@
      }
     ],
     "linkedFrom": [
-     "components/DynamicFavicon.tsx:38",
+     "components/DynamicFavicon.tsx:37",
      "components/layout/Sidebar.tsx:632",
      "lib/auth/forced-password-change.ts:145",
      "middleware.ts:340",
-     "pages/api/qa/seed-codebase-index.ts:321"
+     "pages/api/qa/seed-codebase-index.ts:299"
     ],
     "qaScenarios": {
      "admin": [
@@ -1216,12 +1216,11 @@
      }
     ],
     "linkedFrom": [
-     "components/DynamicFavicon.tsx:37",
+     "components/DynamicFavicon.tsx:36",
      "components/layout/Sidebar.tsx:643",
      "lib/auth/forced-password-change.ts:160",
      "middleware.ts:355",
-     "pages/admin/new-reporting.tsx:119",
-     "pages/api/qa/seed-codebase-index.ts:357"
+     "pages/api/qa/seed-codebase-index.ts:335"
     ],
     "qaScenarios": {
      "admin": [

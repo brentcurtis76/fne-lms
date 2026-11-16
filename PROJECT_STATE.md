@@ -1,3 +1,12 @@
+## RD-4c — platform redesign, step 4c: 25 leftover pages retired (2026-11-14, built and proven locally, not pushed)
+
+Branch `feat/rd-retire` on top of RD-4a. Record and reviewer notes: `docs/planning/reviews/fase-rd-4c-review-request.md`.
+
+- **Gone:** 25 test, debug and old pages Brent confirmed on 2026-11-13 (`/test*`, `/email-showcase`, `/brand-preview`, `/dashboard-old`, `/creador-de-cursos`, `/courses/[id]`, `/my-paths/[id]`, `/debug-feedback-permissions`, ten under `/admin/`, and the stray `pages/_app 2.tsx`). With them: the link to the retired instructions page in the notice of `pages/admin/network-management.tsx`, one entry of `components/DynamicFavicon.tsx`, retired paths in two lists of the QA tool.
+- **Not touched on purpose:** `middleware.ts` and `lib/auth/forced-password-change.ts` still list some of those addresses (they answer "not found" after the same checks); components and API routes only those pages used are left for a later clean-up (listed in the review request).
+- **Tests:** `tests/e2e/footer-heading-order.spec.ts` now checks `components/Footer.tsx` on the signed-in `/dashboard`; `tests/e2e/notification-settings.spec.ts` no longer follows the old header's bell, which has no browser test now (it is drawn only on `/pending-approval`).
+- **Proof:** pictures before and after on one local stack: those 25 addresses gone, all 3,000 other visitor × width × address the same.
+
 ## RD-4a — platform redesign, step 4a: named values (2026-11-14, built and proven locally, not pushed)
 
 Branch `feat/rd-tokens` on top of RD-0. Record and reviewer notes: `docs/planning/reviews/fase-rd-4a-review-request.md`; the names and rules: `docs/plan/redesign/tokens.md`.

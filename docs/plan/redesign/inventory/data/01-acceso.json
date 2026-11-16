@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
-  "date": "2026-11-12T23:31:39-03:00"
+  "commit": "c4375a0850d8e791dac1bf7d350fcf350509a90f",
+  "date": "2026-11-16T11:16:44-03:00"
  },
  "screens": [
   {
@@ -585,7 +585,6 @@
      "lib/frontend-auth-utils.ts:401",
      "lib/frontend-auth-utils.ts:405",
      "middleware.ts:127",
-     "pages/admin/apply-network-migration.tsx:58",
      "pages/admin/assessment-builder/[templateId]/expectations.tsx:180",
      "pages/admin/assessment-builder/[templateId]/expectations.tsx:801",
      "pages/admin/assessment-builder/[templateId]/index.tsx:1305",
@@ -638,12 +637,6 @@
      "pages/admin/course-builder/new.tsx:89",
      "pages/admin/courses/[id]/assign.tsx:153",
      "pages/admin/courses/[id]/assign.tsx:459",
-     "pages/admin/debug/course-module-ids.tsx:113",
-     "pages/admin/debug/course-module-ids.tsx:154",
-     "pages/admin/debug/course-module-ids.tsx:71",
-     "pages/admin/debug/ids.tsx:24",
-     "pages/admin/debug/ids.tsx:36",
-     "pages/admin/debug/ids.tsx:77",
      "pages/admin/events.tsx:61",
      "pages/admin/feedback.tsx:320",
      "pages/admin/feedback.tsx:89",
@@ -673,7 +666,6 @@
      "pages/admin/network-management.tsx:125",
      "pages/admin/network-management.tsx:153",
      "pages/admin/network-management.tsx:579",
-     "pages/admin/new-reporting.tsx:22",
      "pages/admin/pasantia-leads.tsx:85",
      "pages/admin/pasantia-participants.tsx:48",
      "pages/admin/pasantias-panel.tsx:59",
@@ -762,13 +754,9 @@
      "pages/contracts.tsx:156",
      "pages/contracts.tsx:240",
      "pages/contracts.tsx:315",
-     "pages/dashboard-old.tsx:25",
-     "pages/dashboard-old.tsx:65",
-     "pages/dashboard-old.tsx:74",
      "pages/dashboard.tsx:276",
      "pages/dashboard.tsx:446",
      "pages/dashboard.tsx:457",
-     "pages/debug-feedback-permissions.tsx:22",
      "pages/demo/assessments/[templateId]/index.tsx:232",
      "pages/demo/assessments/[templateId]/index.tsx:57",
      "pages/demo/assessments/[templateId]/results.tsx:152",
@@ -837,9 +825,6 @@
      "pages/student/course/[courseId].tsx:391",
      "pages/student/course/[courseId].tsx:76",
      "pages/student/lesson/[lessonId].tsx:575",
-     "pages/test-logout.tsx:28",
-     "pages/test-logout.tsx:67",
-     "pages/test-user-role.tsx:39",
      "pages/user/[userId].tsx:165",
      "pages/user/[userId].tsx:32",
      "pages/user/[userId].tsx:68",
@@ -3881,13 +3866,10 @@
     "POST"
    ],
    "guards": [],
-   "calledBy": [
-    "/test-logout"
-   ],
+   "calledBy": [],
    "referencedIn": [
     "__tests__/middleware.forced-password-change.test.ts",
-    "lib/auth/forced-password-change.ts",
-    "pages/test-logout.tsx"
+    "lib/auth/forced-password-change.ts"
    ]
   },
   {

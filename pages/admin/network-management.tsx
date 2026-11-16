@@ -662,14 +662,6 @@ const NetworkManagementPage: React.FC = () => {
                     <li>Recarga esta página</li>
                   </ol>
                 </div>
-                <div className="mt-4">
-                  <a
-                    href="/admin/apply-network-migration"
-                    className="text-sm font-medium text-yellow-800 hover:text-yellow-900 underline"
-                  >
-                    Ver instrucciones detalladas →
-                  </a>
-                </div>
               </div>
             </div>
           </div>

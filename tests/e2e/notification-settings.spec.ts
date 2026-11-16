@@ -17,7 +17,7 @@ import { join } from 'node:path';
  * phone-sized screen, and a cookie that names A with B's token shows nothing of
  * A's. C (equipo directivo of the school) is offered the pending-quiz event
  * that reaches assigned reviewers, but not group submissions. N4-03: D (admin) and B reach the page from the gear of the
- * active sidebar bell on /dashboard and of the legacy header bell (empty and failed list, keyboard, modified click), the
+ * active sidebar bell on /dashboard (empty and failed list, keyboard, modified click), the
  * /notifications cog and Mi Perfil on desktop and phone; the admin preferences tab and the dead preference routes are gone. Every fixture is deleted by exact id in afterAll and the manifest is
  * written next to the screenshots. Synthetic *@qa.local.test users on a local
  * database only; no email is sent and no producer runs.
@@ -92,7 +92,6 @@ async function openSettings(page: Page, path = PAGE) {
 
 const mode = (page: Page, category: string) => page.getByTestId(`ns-mode-${category}`);
 const fitsWidth = (page: Page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
-const BELL_LIST = '**/api/notifications?limit=10';
 /** The active sidebar bell reads Supabase directly from the browser. */
 const CENTER_LIST = (url: URL) => url.pathname.endsWith('/rest/v1/user_notifications');
 const isPhone = (page: Page) => (page.viewportSize()?.width ?? DESKTOP.width) < 640;
@@ -164,41 +163,12 @@ async function followActiveBell(page: Page, label: string, bell: 'empty' | 'erro
 }
 
 /**
- * N4-03: the personal entry points, each followed to the real settings page: the active sidebar bell, the legacy header
- * bell (`/dashboard-old`), the /notifications cog and Mi Perfil. `bell` decides both bells' list state: 'empty' as the
- * data answers, 'error' when the browser's read fails.
+ * N4-03: the personal entry points, each followed to the real settings page: the active sidebar bell, the /notifications
+ * cog and Mi Perfil. `bell` decides the bell's list state: 'empty' as the data answers, 'error' when the browser's read
+ * fails. (The legacy header bell was followed here on /dashboard-old until that page was retired in redesign phase 4c.)
  */
 async function followEntryPoints(page: Page, label: string, bell: 'empty' | 'error', keyboard: boolean, modifiedClick = false) {
   await followActiveBell(page, label, bell, keyboard, modifiedClick);
-  if (bell === 'error') {
-    await page.route(BELL_LIST, (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{"success":false,"error":"x"}' }));
-  }
-  await page.goto('/dashboard-old');
-  const bellButton = page.getByRole('button', { name: /^Notificaciones/ });
-  await expect(bellButton).toBeVisible({ timeout: 60_000 });
-  if (keyboard) {
-    await bellButton.focus();
-    await page.keyboard.press('Enter');
-  } else {
-    await bellButton.click();
-  }
-  await expect(page.getByText(bell === 'empty' ? 'No tienes notificaciones' : 'Intentar de nuevo')).toBeVisible({ timeout: 60_000 });
-  const gear = page.getByRole('link', { name: 'Configuración de notificaciones' });
-  await expect(gear).toBeInViewport();
-  await shot(page, `${label}-1-bell-${bell}`);
-  if (keyboard) {
-    await page.keyboard.press('Tab');
-    await expect(gear).toBeFocused();
-    await page.keyboard.press('Enter');
-  } else {
-    await gear.click();
-  }
-  await expectSettings(page);
-  if (bell === 'error') await page.unroute(BELL_LIST);
-  // Back returns to the page the bell was on, with the menu closed.
-  await page.goBack();
-  await expect(page).toHaveURL(/\/dashboard-old$/);
-  await expect(page.getByTestId('notification-dropdown-settings')).toHaveCount(0);
 
   // /notifications and /profile are reached in-app: a cold load of either renders before the client session exists and
   // bounces through /login to /dashboard, as before N4-03. /notifications (the bell's "Ver todas", shown only with notices)

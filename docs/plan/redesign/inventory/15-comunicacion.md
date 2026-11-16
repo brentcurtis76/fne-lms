@@ -1,9 +1,9 @@
 # Comunicación (news and events)
 
 Area `15-comunicacion`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `58b8d169f` (2026-11-12).
+Read from commit `c4375a085` (2026-11-16).
 
-3 screen files, 4 API files, 6 pieces.
+2 screen files, 4 API files, 6 pieces.
 
 ## Screens
 
@@ -11,7 +11,6 @@ Read from commit `58b8d169f` (2026-11-12).
 |---|---|---|---|---|
 | `/admin/events` | `pages/admin/events.tsx` | 580 | Comunicación › Eventos |  |
 | `/admin/news` | `pages/admin/news.tsx` | 655 | Comunicación › Noticias |  |
-| `/admin/setup-news` | `pages/admin/setup-news.tsx` | 131 | — | Leftover (on the list for Brent) |
 
 ## /admin/events
 
@@ -360,77 +359,6 @@ File `pages/admin/news.tsx` · 655 lines · frame: MainLayout
 |---|---|---|
 | `/api/admin/news` | DELETE, GET, PUT | `pages/admin/news.tsx:143`, `pages/admin/news.tsx:170`, `pages/admin/news.tsx:186`, `pages/admin/news.tsx:213` +1 |
 | `/api/auth/session` | GET | `utils/authHelpers.ts:71` |
-
-## /admin/setup-news
-
-File `pages/admin/setup-news.tsx` · 131 lines · frame: none
-
-**Leftover (on the list for Brent)** — A one-time set-up page for the news table: it asks the database to create it. Admin only.
-
-### Who reaches it
-
-- Menu: no entry.
-- Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
-- In the page: no access check found by the script.
-- Linked from: nothing in the code (reached by typing the address, or from outside)
-- Tests: no browser test that CI runs.
-
-| Role | Sees it in the menu | Middleware |
-|---|---|---|
-| admin | — | pass |
-| consultor | — | sent to /dashboard |
-| equipo_directivo | — | sent to /dashboard |
-| lider_generacion | — | sent to /dashboard |
-| lider_comunidad | — | sent to /dashboard |
-| supervisor_de_red | — | sent to /dashboard |
-| community_manager | — | sent to /dashboard |
-| docente | — | sent to /dashboard |
-| encargado_licitacion | — | sent to /dashboard |
-
-### What the page file itself draws
-
-**Titles** (1)
-
-| Text | Level | Shown when | Where |
-|---|---|---|---|
-| «News System Setup» | h1 |  | SetupNews · l.66 |
-
-**Buttons** (2)
-
-| Text | Does | Shown when | Disabled when | Hook | Where |
-|---|---|---|---|---|---|
-| «Test News Table» | `{testConnection}` |  |  |  | SetupNews · l.69 |
-| «Setting up... / Setup News System» | `{createNewsTable}` |  | `{creating}` |  | SetupNews · l.76 |
-
-**Toasts** (3)
-
-| Kind | Text | When | Where |
-|---|---|---|---|
-| success | «News table is ready!» | `tableError && existing !== null` | createNewsTable · l.30 |
-| success | «News system is ready to use!» |  | createNewsTable · l.36 |
-| error | «Failed to setup news system» |  | createNewsTable · l.41 |
-
-**Other texts written in the code (safety net: not tied to an element by the script)** (6)
-
-| Text | Where |
-|---|---|
-| «Creating news_articles table...» | SetupNews · l.12 |
-| «✅ Table already exists and is accessible» | SetupNews · l.29 |
-| «✅ News table created successfully» | SetupNews · l.35 |
-| «❌ Error: {error.message}» | SetupNews · l.40 |
-| «❌ Table not found: {error.message}» | SetupNews · l.55 |
-| «✅ Table exists and accessible. Found {data.length} articles.» | SetupNews · l.57 |
-
-**Values shown from data** (1)
-
-- `{status}` — SetupNews · l.86, when `status`
-
-**Other texts on screen** (2)
-
-- «Manual SQL for Supabase Dashboard:» — SetupNews · l.91
-- «-- Create news_articles table CREATE TABLE IF NOT EXISTS news_articles ( id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), title TEXT NOT NULL, slug TEXT UNIQUE NOT NULL, content JSONB NOT NULL, content_html TEXT NOT NULL, featured_image TEX…» — SetupNews · l.92
-
-**Reads and writes the database directly:** `rpc:create_news_table`, `table:news_articles` (select)
 
 ## Pieces
 

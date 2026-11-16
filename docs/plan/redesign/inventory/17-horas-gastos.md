@@ -1,7 +1,7 @@
 # Horas, tarifas y gastos
 
 Area `17-horas-gastos`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `58b8d169f` (2026-11-12).
+Read from commit `c4375a085` (2026-11-16).
 
 4 screen files, 9 API files, 15 pieces.
 
@@ -212,7 +212,7 @@ File `pages/expense-reports.tsx` · 778 lines · frame: MainLayout
   - l.148 `router.push → /dashboard  (when !hasAccess)`
   - l.161 `router.push → /login`
   - l.210 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:41`, `components/layout/Sidebar.tsx:580`, `lib/auth/forced-password-change.ts:149`, `middleware.ts:344`
+- Linked from: `components/DynamicFavicon.tsx:40`, `components/layout/Sidebar.tsx:580`, `lib/auth/forced-password-change.ts:149`, `middleware.ts:344`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 1, community_manager 1.
 

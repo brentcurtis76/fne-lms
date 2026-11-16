@@ -4,8 +4,8 @@
  "note": "Course system: see the note on 03-aprendizaje.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
-  "date": "2026-11-12T23:31:39-03:00"
+  "commit": "c4375a0850d8e791dac1bf7d350fcf350509a90f",
+  "date": "2026-11-16T11:16:44-03:00"
  },
  "screens": [
   {
@@ -423,10 +423,6 @@
      "pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:587",
      "pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:588",
      "pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:595",
-     "pages/admin/debug/course-module-ids.tsx:229",
-     "pages/admin/debug/course-module-ids.tsx:237",
-     "pages/admin/debug/ids.tsx:169",
-     "pages/admin/debug/ids.tsx:177",
      "pages/student/lesson/[lessonId].tsx:663",
      "pages/student/lesson/[lessonId].tsx:665"
     ],
@@ -1039,9 +1035,7 @@
      "components/LessonBreadcrumb.tsx:223",
      "components/LessonBreadcrumb.tsx:224",
      "pages/admin/course-builder/[courseId]/[moduleId]/[lessonId].tsx:862",
-     "pages/admin/course-builder/[courseId]/index.tsx:681",
-     "pages/admin/debug/course-module-ids.tsx:251",
-     "pages/admin/debug/ids.tsx:191"
+     "pages/admin/course-builder/[courseId]/index.tsx:681"
     ],
     "qaScenarios": {},
     "tests": {
@@ -2338,7 +2332,6 @@
      "pages/admin/course-builder/[courseId]/lesson/[lessonId].tsx:439",
      "pages/admin/course-builder/[courseId]/lesson/[lessonId].tsx:570",
      "pages/admin/course-builder/index.tsx:613",
-     "pages/admin/create-course.tsx:85",
      "pages/api/qa/seed-codebase-index.ts:107",
      "pages/api/qa/seed-codebase-index.ts:111"
     ],
@@ -3406,7 +3399,6 @@
     "linkedFrom": [
      "components/layout/Sidebar.tsx:249",
      "lib/notifications/catalog.ts:380",
-     "pages/admin/bucket-test.tsx:106",
      "pages/admin/course-builder/[courseId]/edit.tsx:427",
      "pages/admin/course-builder/[courseId]/edit.tsx:443",
      "pages/admin/course-builder/[courseId]/index.tsx:435",
@@ -3418,12 +3410,7 @@
      "pages/admin/courses/[id]/assign.tsx:509",
      "pages/admin/courses/[id]/assign.tsx:527",
      "pages/admin/courses/[id]/assign.tsx:916",
-     "pages/admin/create-course.tsx:155",
-     "pages/admin/debug/course-module-ids.tsx:196",
-     "pages/admin/debug/course-module-ids.tsx:22",
-     "pages/admin/debug/ids.tsx:136",
-     "pages/api/qa/seed-codebase-index.ts:84",
-     "pages/creador-de-cursos.tsx:119"
+     "pages/api/qa/seed-codebase-index.ts:84"
     ],
     "qaScenarios": {
      "admin": [
@@ -3933,8 +3920,7 @@
     ],
     "linkedFrom": [
      "pages/admin/course-builder/index.tsx:578",
-     "pages/api/qa/seed-codebase-index.ts:97",
-     "pages/creador-de-cursos.tsx:108"
+     "pages/api/qa/seed-codebase-index.ts:97"
     ],
     "qaScenarios": {},
     "tests": {
@@ -5021,307 +5007,6 @@
      ],
      "from": [
       "pages/admin/courses/[id]/assign.tsx:362"
-     ]
-    }
-   ]
-  },
-  {
-   "file": "pages/admin/create-course.tsx",
-   "route": "/admin/create-course",
-   "lines": 176,
-   "marks": {
-    "leftover": "An old form that writes a course and its modules straight into the database, with the old header. Admin only. The course builder replaced it.",
-    "recommend": "retire",
-    "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-   },
-   "frame": "old Header",
-   "server": "none",
-   "reach": {
-    "menu": [],
-    "middleware": {
-     "rule": "the /admin rule",
-     "signedOut": "sent to /login",
-     "passwordChangeHold": true
-    },
-    "roles": {
-     "admin": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "consultor": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "equipo_directivo": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "lider_generacion": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "lider_comunidad": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "supervisor_de_red": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "community_manager": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "docente": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     },
-     "encargado_licitacion": {
-      "menu": "—",
-      "middleware": "sent to /dashboard"
-     }
-    },
-    "inPage": [],
-    "linkedFrom": [],
-    "qaScenarios": {},
-    "tests": {
-     "e2eCi": [],
-     "e2e": [],
-     "unit": []
-    }
-   },
-   "rows": [
-    {
-     "kind": "message",
-     "line": 24,
-     "in": "handleSubmit",
-     "when": "!title.trim() || !description.trim()",
-     "text": "El título y la descripción son obligatorios.",
-     "via": "setError"
-    },
-    {
-     "kind": "message",
-     "line": 52,
-     "in": "handleSubmit",
-     "when": "!courseData",
-     "text": "No se pudo crear el curso.",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "list",
-     "line": 56,
-     "in": "handleSubmit",
-     "text": "modulesToCreate",
-     "items": [
-      "Módulo 1: Introducción",
-      "Descripción inicial del Módulo 1.",
-      "Módulo 2: Contenido Principal",
-      "Descripción inicial del Módulo 2."
-     ]
-    },
-    {
-     "kind": "toast",
-     "line": 78,
-     "in": "handleSubmit",
-     "when": "modulesError",
-     "text": "Curso creado, pero falló la creación de módulos: {modulesError.message}",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 81,
-     "in": "handleSubmit",
-     "when": "!(modulesError)",
-     "text": "¡Curso y módulos iniciales creados exitosamente!",
-     "variant": "success"
-    },
-    {
-     "kind": "nav",
-     "line": 85,
-     "in": "handleSubmit",
-     "text": "/admin/course-builder/[*]",
-     "via": "router.push"
-    },
-    {
-     "kind": "message",
-     "line": 89,
-     "in": "handleSubmit",
-     "text": "Ocurrió un error al crear el curso.",
-     "via": "setError"
-    },
-    {
-     "kind": "toast",
-     "line": 90,
-     "in": "handleSubmit",
-     "text": "Ocurrió un error al crear el curso.",
-     "variant": "error"
-    },
-    {
-     "kind": "piece",
-     "line": 98,
-     "in": "CreateCoursePage",
-     "text": "",
-     "tag": "Header"
-    },
-    {
-     "kind": "heading",
-     "line": 101,
-     "in": "CreateCoursePage",
-     "text": "Crear Nuevo Curso",
-     "level": 1
-    },
-    {
-     "kind": "form",
-     "line": 103,
-     "in": "CreateCoursePage",
-     "text": "{handleSubmit}"
-    },
-    {
-     "kind": "label",
-     "line": 105,
-     "in": "CreateCoursePage",
-     "text": "Título del Curso *",
-     "for": "title"
-    },
-    {
-     "kind": "field",
-     "line": 108,
-     "in": "CreateCoursePage",
-     "text": "Título del Curso *",
-     "type": "text",
-     "name": "title",
-     "required": "true",
-     "action": "{(e) => setTitle(e.target.value)}",
-     "hook": {
-      "id": "title",
-      "idUsed": true
-     }
-    },
-    {
-     "kind": "label",
-     "line": 120,
-     "in": "CreateCoursePage",
-     "text": "Descripción del Curso *",
-     "for": "description"
-    },
-    {
-     "kind": "field",
-     "line": 123,
-     "in": "CreateCoursePage",
-     "text": "Descripción del Curso *",
-     "type": "textarea",
-     "name": "description",
-     "required": "true",
-     "limits": "",
-     "action": "{(e) => setDescription(e.target.value)}",
-     "hook": {
-      "id": "description",
-      "idUsed": true
-     }
-    },
-    {
-     "kind": "label",
-     "line": 135,
-     "in": "CreateCoursePage",
-     "text": "Estado",
-     "for": "status"
-    },
-    {
-     "kind": "field",
-     "line": 138,
-     "in": "CreateCoursePage",
-     "text": "Estado",
-     "type": "select",
-     "name": "status",
-     "action": "{(e) => setStatus(e.target.value as 'draft' | 'published')}",
-     "options": [
-      "Borrador (Draft)",
-      "Publicado (Published)"
-     ],
-     "hook": {
-      "id": "status",
-      "idUsed": true
-     }
-    },
-    {
-     "kind": "value",
-     "line": 151,
-     "in": "CreateCoursePage",
-     "when": "error",
-     "text": "{error}"
-    },
-    {
-     "kind": "link",
-     "line": 155,
-     "in": "CreateCoursePage",
-     "text": "Cancelar",
-     "target": "/admin/course-builder"
-    },
-    {
-     "kind": "link",
-     "line": 156,
-     "in": "CreateCoursePage",
-     "text": "Cancelar",
-     "target": ""
-    },
-    {
-     "kind": "button",
-     "line": 160,
-     "in": "CreateCoursePage",
-     "text": "Creando Curso... / Crear Curso",
-     "submit": true,
-     "disabled": "{isSubmitting}"
-    }
-   ],
-   "db": [
-    {
-     "what": "table:courses",
-     "ops": [
-      "insert",
-      "select"
-     ]
-    },
-    {
-     "what": "table:modules",
-     "ops": [
-      "insert"
-     ]
-    }
-   ],
-   "pieces": [
-    "components/layout/Header.tsx",
-    "components/notifications/NotificationBell.tsx",
-    "components/notifications/NotificationDropdown.tsx"
-   ],
-   "api": [
-    {
-     "file": "pages/api/notifications/index.ts",
-     "route": "/api/notifications",
-     "methods": [
-      "GET"
-     ],
-     "from": [
-      "components/notifications/NotificationBell.tsx:41"
-     ]
-    },
-    {
-     "file": "pages/api/notifications/[id]/read.ts",
-     "route": "/api/notifications/[id]/read",
-     "methods": [
-      "POST"
-     ],
-     "from": [
-      "components/notifications/NotificationBell.tsx:85"
-     ]
-    },
-    {
-     "file": "pages/api/notifications/mark-all-read.ts",
-     "route": "/api/notifications/mark-all-read",
-     "methods": [
-      "POST"
-     ],
-     "from": [
-      "components/notifications/NotificationBell.tsx:113"
      ]
     }
    ]
@@ -8033,289 +7718,6 @@
      ],
      "from": [
       "pages/admin/upcoming-courses/index.tsx:42"
-     ]
-    }
-   ]
-  },
-  {
-   "file": "pages/creador-de-cursos.tsx",
-   "route": "/creador-de-cursos",
-   "lines": 144,
-   "marks": {
-    "leftover": "An old «Panel de Creador de Cursos» with the old header; its buttons lead nowhere useful.",
-    "recommend": "retire",
-    "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
-   },
-   "frame": "old Header",
-   "server": "none",
-   "reach": {
-    "menu": [],
-    "middleware": {
-     "rule": "no role rule",
-     "signedOut": "not stopped by the middleware",
-     "passwordChangeHold": true
-    },
-    "roles": {
-     "admin": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "consultor": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "equipo_directivo": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "lider_generacion": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "lider_comunidad": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "supervisor_de_red": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "community_manager": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "docente": {
-      "menu": "—",
-      "middleware": "pass"
-     },
-     "encargado_licitacion": {
-      "menu": "—",
-      "middleware": "pass"
-     }
-    },
-    "inPage": [
-     {
-      "line": 24,
-      "text": "router.push → /  (when !session?.user)"
-     },
-     {
-      "line": 35,
-      "text": "router.push → /  (when userError)"
-     },
-     {
-      "line": 40,
-      "text": "adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin')"
-     },
-     {
-      "line": 53,
-      "text": "router.push → /  (when !adminRole && (profileError || profileData?.role !== 'admin'))"
-     },
-     {
-      "line": 64,
-      "text": "router.push → /"
-     }
-    ],
-    "linkedFrom": [
-     "lib/auth/forced-password-change.ts:141",
-     "middleware.ts:336"
-    ],
-    "qaScenarios": {},
-    "tests": {
-     "e2eCi": [],
-     "e2e": [],
-     "unit": []
-    }
-   },
-   "rows": [
-    {
-     "kind": "nav",
-     "line": 24,
-     "in": "checkAdminAccess",
-     "when": "!session?.user",
-     "text": "/",
-     "via": "router.push"
-    },
-    {
-     "kind": "nav",
-     "line": 35,
-     "in": "checkAdminAccess",
-     "when": "userError",
-     "text": "/",
-     "via": "router.push"
-    },
-    {
-     "kind": "access",
-     "line": 40,
-     "in": "checkAdminAccess",
-     "text": "adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin')",
-     "via": "metadataHasRole"
-    },
-    {
-     "kind": "nav",
-     "line": 53,
-     "in": "checkAdminAccess",
-     "when": "!adminRole && (profileError || profileData?.role !== 'admin')",
-     "text": "/",
-     "via": "router.push"
-    },
-    {
-     "kind": "nav",
-     "line": 64,
-     "in": "checkAdminAccess",
-     "text": "/",
-     "via": "router.push"
-    },
-    {
-     "kind": "text",
-     "line": 76,
-     "in": "CreadorDeCursos",
-     "when": "loading",
-     "text": "Verificando permisos..."
-    },
-    {
-     "kind": "text",
-     "line": 85,
-     "in": "CreadorDeCursos",
-     "text": "Cursos - Genera"
-    },
-    {
-     "kind": "piece",
-     "line": 89,
-     "in": "CreadorDeCursos",
-     "text": "",
-     "tag": "Header"
-    },
-    {
-     "kind": "heading",
-     "line": 96,
-     "in": "CreadorDeCursos",
-     "text": "Panel de Creador de Cursos",
-     "level": 1
-    },
-    {
-     "kind": "text",
-     "line": 100,
-     "in": "CreadorDeCursos",
-     "text": "Bienvenido al panel de creador de cursos. Desde aquí podrás crear, editar y gestionar los cursos de la plataforma."
-    },
-    {
-     "kind": "heading",
-     "line": 105,
-     "in": "CreadorDeCursos",
-     "text": "Crear Nuevo Curso",
-     "level": 3
-    },
-    {
-     "kind": "text",
-     "line": 106,
-     "in": "CreadorDeCursos",
-     "text": "Crea un nuevo curso desde cero con todos los detalles necesarios."
-    },
-    {
-     "kind": "button",
-     "line": 107,
-     "in": "CreadorDeCursos",
-     "text": "Crear Curso",
-     "action": "{() => router.push('/admin/course-builder/new')}"
-    },
-    {
-     "kind": "nav",
-     "line": 108,
-     "in": "CreadorDeCursos",
-     "text": "/admin/course-builder/new",
-     "via": "router.push"
-    },
-    {
-     "kind": "heading",
-     "line": 116,
-     "in": "CreadorDeCursos",
-     "text": "Gestionar Cursos",
-     "level": 3
-    },
-    {
-     "kind": "text",
-     "line": 117,
-     "in": "CreadorDeCursos",
-     "text": "Edita, actualiza o elimina cursos existentes en la plataforma."
-    },
-    {
-     "kind": "button",
-     "line": 118,
-     "in": "CreadorDeCursos",
-     "text": "Ver Cursos",
-     "action": "{() => router.push('/admin/course-builder')}"
-    },
-    {
-     "kind": "nav",
-     "line": 119,
-     "in": "CreadorDeCursos",
-     "text": "/admin/course-builder",
-     "via": "router.push"
-    },
-    {
-     "kind": "heading",
-     "line": 127,
-     "in": "CreadorDeCursos",
-     "text": "Estadísticas",
-     "level": 3
-    },
-    {
-     "kind": "text",
-     "line": 128,
-     "in": "CreadorDeCursos",
-     "text": "Visualiza estadísticas sobre los cursos y su uso en la plataforma."
-    },
-    {
-     "kind": "button",
-     "line": 129,
-     "in": "CreadorDeCursos",
-     "text": "Próximamente",
-     "disabled": "true"
-    }
-   ],
-   "db": [
-    {
-     "what": "table:profiles",
-     "ops": [
-      "select"
-     ]
-    }
-   ],
-   "pieces": [
-    "components/layout/Header.tsx",
-    "components/notifications/NotificationBell.tsx",
-    "components/notifications/NotificationDropdown.tsx",
-    "types/roles.ts"
-   ],
-   "api": [
-    {
-     "file": "pages/api/notifications/index.ts",
-     "route": "/api/notifications",
-     "methods": [
-      "GET"
-     ],
-     "from": [
-      "components/notifications/NotificationBell.tsx:41"
-     ]
-    },
-    {
-     "file": "pages/api/notifications/[id]/read.ts",
-     "route": "/api/notifications/[id]/read",
-     "methods": [
-      "POST"
-     ],
-     "from": [
-      "components/notifications/NotificationBell.tsx:85"
-     ]
-    },
-    {
-     "file": "pages/api/notifications/mark-all-read.ts",
-     "route": "/api/notifications/mark-all-read",
-     "methods": [
-      "POST"
-     ],
-     "from": [
-      "components/notifications/NotificationBell.tsx:113"
      ]
     }
    ]
@@ -14339,350 +13741,6 @@
    ],
    "db": []
   },
-  "components/layout/Header.tsx": {
-   "usedBy": [
-    "/admin/create-course",
-    "/creador-de-cursos"
-   ],
-   "lines": 110,
-   "rows": [
-    {
-     "kind": "link",
-     "line": 62,
-     "in": "Header",
-     "text": "Hub de Transformación",
-     "target": "/"
-    },
-    {
-     "kind": "link",
-     "line": 63,
-     "in": "Header",
-     "text": "Hub de Transformación",
-     "target": ""
-    },
-    {
-     "kind": "text",
-     "line": 71,
-     "in": "Header",
-     "screen": "hidden sm:flex",
-     "text": "Sin colegio",
-     "attr": "title"
-    },
-    {
-     "kind": "text",
-     "line": 71,
-     "in": "Header",
-     "screen": "hidden sm:flex",
-     "text": "{schoolName} / Sin colegio"
-    },
-    {
-     "kind": "piece",
-     "line": 85,
-     "in": "Header",
-     "when": "isLoggedIn",
-     "text": "",
-     "tag": "NotificationBell"
-    },
-    {
-     "kind": "text",
-     "line": 89,
-     "in": "Header",
-     "when": "isLoggedIn",
-     "text": "{localUser?.email?.substring(0, 2).t…} / US"
-    },
-    {
-     "kind": "link",
-     "line": 96,
-     "in": "Header",
-     "when": "!(isLoggedIn)",
-     "text": "Iniciar Sesión",
-     "target": "/login"
-    },
-    {
-     "kind": "link",
-     "line": 97,
-     "in": "Header",
-     "when": "!(isLoggedIn)",
-     "text": "Iniciar Sesión",
-     "target": ""
-    }
-   ],
-   "db": [
-    {
-     "what": "table:profiles",
-     "ops": [
-      "select"
-     ]
-    }
-   ]
-  },
-  "components/notifications/NotificationBell.tsx": {
-   "usedBy": [
-    "/admin/create-course",
-    "/creador-de-cursos"
-   ],
-   "lines": 239,
-   "rows": [
-    {
-     "kind": "list",
-     "line": 9,
-     "text": "LOAD_ERROR",
-     "items": [
-      "No se pudieron cargar las notificaciones"
-     ]
-    },
-    {
-     "kind": "hook",
-     "line": 62,
-     "in": "fetchNotifications",
-     "when": "result.success && newUnreadCount > unreadCount && unreadCount > 0",
-     "text": "setTimeout(…, 2000)",
-     "type": "timer"
-    },
-    {
-     "kind": "hook",
-     "line": 149,
-     "in": "NotificationBell",
-     "when": "isOpen",
-     "text": "document.addEventListener('mousedown')",
-     "type": "listener"
-    },
-    {
-     "kind": "hook",
-     "line": 161,
-     "in": "NotificationBell",
-     "text": "setInterval(…, REFRESH_INTERVAL)",
-     "type": "timer"
-    },
-    {
-     "kind": "button",
-     "line": 180,
-     "in": "NotificationBell",
-     "text": "[99+ / {unreadCount}]",
-     "action": "{handleBellClick}",
-     "aria": "{`Notificaciones${unreadCount > 0 ? ` (${unreadCount} ${unreadCount === 1 ? 'no …}"
-    },
-    {
-     "kind": "piece",
-     "line": 223,
-     "in": "NotificationBell",
-     "when": "isOpen",
-     "text": "",
-     "tag": "NotificationDropdown"
-    },
-    {
-     "kind": "string",
-     "line": 43,
-     "in": "NotificationBell",
-     "text": "Bearer {session.access_token}"
-    },
-    {
-     "kind": "string",
-     "line": 50,
-     "in": "NotificationBell",
-     "text": "{LOAD_ERROR} (código {response.status})."
-    },
-    {
-     "kind": "string",
-     "line": 192,
-     "in": "NotificationBell",
-     "text": "no leída"
-    },
-    {
-     "kind": "string",
-     "line": 192,
-     "in": "NotificationBell",
-     "text": "no leídas"
-    }
-   ],
-   "db": []
-  },
-  "components/notifications/NotificationDropdown.tsx": {
-   "usedBy": [
-    "/admin/create-course",
-    "/creador-de-cursos"
-   ],
-   "lines": 370,
-   "rows": [
-    {
-     "kind": "toast",
-     "line": 106,
-     "in": "handleNotificationClick",
-     "when": "notification.related_url && !session?.user",
-     "text": "Sesión no válida",
-     "variant": "error"
-    },
-    {
-     "kind": "nav",
-     "line": 116,
-     "in": "handleNotificationClick",
-     "when": "notification.related_url",
-     "text": "{notification.related_url!}",
-     "via": "router.push"
-    },
-    {
-     "kind": "nav",
-     "line": 126,
-     "in": "handleNotificationClick",
-     "when": "notification.related_url && notification.related_url",
-     "text": "{notification.related_url}",
-     "via": "router.push"
-    },
-    {
-     "kind": "nav",
-     "line": 166,
-     "in": "handleNotificationClick",
-     "when": "!(notification.related_url)",
-     "text": "{fallbackUrl}",
-     "via": "router.push"
-    },
-    {
-     "kind": "nav",
-     "line": 174,
-     "in": "handleViewAll",
-     "text": "/notifications",
-     "via": "router.push"
-    },
-    {
-     "kind": "heading",
-     "line": 182,
-     "in": "NotificationDropdown",
-     "text": "Notificaciones",
-     "level": 3
-    },
-    {
-     "kind": "link",
-     "line": 187,
-     "in": "NotificationDropdown",
-     "text": "[icon CogIcon]",
-     "target": "/configuracion/notificaciones",
-     "action": "{onClose}",
-     "hook": {
-      "testid": "notification-dropdown-settings"
-     },
-     "aria": "Configuración de notificaciones"
-    },
-    {
-     "kind": "piece",
-     "line": 195,
-     "in": "NotificationDropdown",
-     "text": "aria-hidden: true",
-     "tag": "CogIcon"
-    },
-    {
-     "kind": "button",
-     "line": 199,
-     "in": "NotificationDropdown",
-     "text": "[icon RefreshIcon]",
-     "action": "{onRefresh}",
-     "disabled": "{loading}",
-     "title": "Actualizar"
-    },
-    {
-     "kind": "button",
-     "line": 210,
-     "in": "NotificationDropdown",
-     "when": "unreadCount > 0",
-     "text": "Marcar todas como leídas",
-     "action": "{onMarkAllAsRead}",
-     "title": "Marcar todas como leídas"
-    },
-    {
-     "kind": "text",
-     "line": 223,
-     "in": "NotificationDropdown",
-     "when": "unreadCount > 0",
-     "text": "{unreadCount} notificación es sin leer"
-    },
-    {
-     "kind": "text",
-     "line": 235,
-     "in": "NotificationDropdown",
-     "when": "loading && notifications.length === 0",
-     "text": "Cargando notificaciones..."
-    },
-    {
-     "kind": "value",
-     "line": 243,
-     "in": "NotificationDropdown",
-     "when": "error",
-     "text": "{error}"
-    },
-    {
-     "kind": "button",
-     "line": 244,
-     "in": "NotificationDropdown",
-     "when": "error",
-     "text": "Intentar de nuevo",
-     "action": "{onRefresh}"
-    },
-    {
-     "kind": "text",
-     "line": 257,
-     "in": "NotificationDropdown",
-     "when": "!loading && !error && notifications.length === 0",
-     "text": "No tienes notificaciones"
-    },
-    {
-     "kind": "clickable",
-     "line": 268,
-     "in": "NotificationDropdown",
-     "when": "!loading && !error && notifications.length > 0 && each notifications",
-     "text": "{notification.title} [{notification.description}] {getRelativeTime(notification.create…} [[Admin] [Tareas] [Cursos] [Me…",
-     "tag": "div",
-     "action": "{() => handleNotificationClick(notification)}"
-    },
-    {
-     "kind": "value",
-     "line": 295,
-     "in": "NotificationDropdown",
-     "when": "!loading && !error && notifications.length > 0 && each notifications",
-     "text": "{notification.title}"
-    },
-    {
-     "kind": "value",
-     "line": 303,
-     "in": "NotificationDropdown",
-     "when": "!loading && !error && notifications.length > 0 && each notifications && notification.description",
-     "text": "{notification.description}"
-    },
-    {
-     "kind": "value",
-     "line": 312,
-     "in": "NotificationDropdown",
-     "when": "!loading && !error && notifications.length > 0 && each notifications",
-     "text": "{getRelativeTime(notification.create…}"
-    },
-    {
-     "kind": "text",
-     "line": 318,
-     "in": "NotificationDropdown",
-     "when": "!loading && !error && notifications.length > 0 && each notifications && notification.notification_type",
-     "text": "[Admin] [Tareas] [Cursos] [Mensajes] [Social] [Feedback] [Sistema] [Workspace]"
-    },
-    {
-     "kind": "button",
-     "line": 357,
-     "in": "NotificationDropdown",
-     "when": "notifications.length > 0",
-     "text": "Ver todas las notificaciones",
-     "action": "{handleViewAll}"
-    },
-    {
-     "kind": "list",
-     "line": 82,
-     "in": "getRelativeTime",
-     "text": "getRelativeTime()",
-     "items": [
-      "ahora mismo",
-      "hace {minutes} min",
-      "hace {hours}h",
-      "hace {days}d"
-     ]
-    }
-   ],
-   "db": []
-  },
   "components/ui/button.tsx": {
    "usedBy": [
     "/admin/course-builder/[courseId]/[moduleId]/[lessonId]",
@@ -15275,8 +14333,7 @@
     "/admin/learning-paths/[id]/assign",
     "/admin/learning-paths/[id]/edit",
     "/admin/learning-paths/new",
-    "/admin/upcoming-courses",
-    "/creador-de-cursos"
+    "/admin/upcoming-courses"
    ],
    "lines": 515,
    "rows": [
@@ -15745,8 +14802,7 @@
     "/admin/learning-paths",
     "/admin/learning-paths/[id]/assign",
     "/admin/learning-paths/[id]/edit",
-    "/mi-aprendizaje/ruta/[id]",
-    "/my-paths/[id]"
+    "/mi-aprendizaje/ruta/[id]"
    ],
    "referencedIn": [
     "__tests__/api/learning-paths/governance-boundary.test.ts",
@@ -15756,7 +14812,6 @@
     "pages/admin/learning-paths/[id]/assign.tsx",
     "pages/admin/learning-paths/[id]/edit.tsx",
     "pages/mi-aprendizaje/ruta/[id].tsx",
-    "pages/my-paths/[id].tsx",
     "supabase/migrations/20261002120000_lp_reporting_scope.sql",
     "tests/e2e/learning-path-governance.spec.ts"
    ]
@@ -15771,13 +14826,11 @@
     "getApiUser"
    ],
    "calledBy": [
-    "/mi-aprendizaje/ruta/[id]",
-    "/my-paths/[id]"
+    "/mi-aprendizaje/ruta/[id]"
    ],
    "referencedIn": [
     "__tests__/api/learning-paths/enhanced-progress.test.ts",
     "pages/mi-aprendizaje/ruta/[id].tsx",
-    "pages/my-paths/[id].tsx",
     "tests/e2e/learning-path-governance.spec.ts"
    ]
   },

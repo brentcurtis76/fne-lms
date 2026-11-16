@@ -1,9 +1,9 @@
 # Sesiones y consultorías (sessions, approvals, video meetings)
 
 Area `06-sesiones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `58b8d169f` (2026-11-12).
+Read from commit `c4375a085` (2026-11-16).
 
-12 screen files, 34 API files, 30 pieces.
+11 screen files, 34 API files, 30 pieces.
 
 ## Screens
 
@@ -15,7 +15,6 @@ Read from commit `58b8d169f` (2026-11-12).
 | `/admin/sessions/approvals` | `pages/admin/sessions/approvals.tsx` | 487 | Consultorías › Aprobaciones |  |
 | `/admin/sessions/create` | `pages/admin/sessions/create.tsx` | 1445 | — |  |
 | `/admin/sessions` | `pages/admin/sessions/index.tsx` | 1175 | Consultorías › Sesiones |  |
-| `/admin/test-session` | `pages/admin/test-session.tsx` | 25 | — | Leftover (on the list for Brent) |
 | `/consultor/sessions/[id]` | `pages/consultor/sessions/[id].tsx` | 1539 | — |  |
 | `/consultor/sessions` | `pages/consultor/sessions/index.tsx` | 557 | Mi Trabajo › Mis Sesiones |  |
 | `/consultor/sessions/reports` | `pages/consultor/sessions/reports.tsx` | 889 | Mi Trabajo › Mis Reportes; Consultorías › Reportes |  |
@@ -1328,55 +1327,6 @@ File `pages/admin/sessions/index.tsx` · 1175 lines · frame: MainLayout
 | `/api/sessions/[id]/cancel` | POST | `pages/admin/sessions/index.tsx:373` |
 | `/api/sessions/ical` | ? | `pages/admin/sessions/index.tsx:581` |
 | `/api/sessions/stats` | GET | `pages/admin/sessions/index.tsx:240` |
-
-## /admin/test-session
-
-File `pages/admin/test-session.tsx` · 25 lines · frame: none
-
-**Leftover (on the list for Brent)** — Dumps the session as raw data. Admin only.
-
-### Who reaches it
-
-- Menu: no entry.
-- Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
-- In the page: no access check found by the script.
-- Linked from: nothing in the code (reached by typing the address, or from outside)
-- Tests: no browser test that CI runs.
-
-| Role | Sees it in the menu | Middleware |
-|---|---|---|
-| admin | — | pass |
-| consultor | — | sent to /dashboard |
-| equipo_directivo | — | sent to /dashboard |
-| lider_generacion | — | sent to /dashboard |
-| lider_comunidad | — | sent to /dashboard |
-| supervisor_de_red | — | sent to /dashboard |
-| community_manager | — | sent to /dashboard |
-| docente | — | sent to /dashboard |
-| encargado_licitacion | — | sent to /dashboard |
-
-### What the page file itself draws
-
-**Titles** (4)
-
-| Text | Level | Shown when | Where |
-|---|---|---|---|
-| «Supabase Session Test Page» | h1 |  | TestSessionPage · l.8 |
-| «Session Status (from useSession hook):» | h2 |  | TestSessionPage · l.9 |
-| «User Info:» | h2 | `session` | TestSessionPage · l.14 |
-| «Full Session Object:» | h2 | `session` | TestSessionPage · l.18 |
-
-**Values shown from data** (1)
-
-- `{JSON.stringify(session, null, 2)}` — TestSessionPage · l.19, when `session`
-
-**Other texts on screen** (5)
-
-- «Loading session...» — TestSessionPage · l.10, when `session === undefined`
-- «No active session.» — TestSessionPage · l.11, when `session === null`
-- «User ID: {session.user.id}» — TestSessionPage · l.15, when `session`
-- «Email: {session.user.email}» — TestSessionPage · l.16, when `session`
-- «Last Signed In: {new Date(session.user.last_sign_in_…} / N/A» — TestSessionPage · l.17, when `session`
 
 ## /consultor/sessions/[id]
 
@@ -3730,7 +3680,7 @@ Used by: `/admin/bulk-tag-sessions`, `/admin/consultant-assignments`, `/admin/se
 | `/api/sessions/edit-requests/[eid]` | `pages/api/sessions/edit-requests/[eid].ts` | GET, PUT | `/admin/sessions/approvals` | `__tests__/api/sessions/edit-requests-detail.test.ts`, `__tests__/api/sessions/reschedule-hours-sync.test.ts`, `__tests__/api/sessions/session-lifecycle-notifications.test.ts`, `__tests__/api/sessions/session-notifications.test.ts`, `__tests__/api/sessions/session-reschedule-zoom-sync.test.ts` +3 |
 | `/api/sessions/edit-requests` | `pages/api/sessions/edit-requests/index.ts` | GET | `/admin/sessions/approvals` | `pages/admin/sessions/approvals.tsx` |
 | `/api/sessions/ical` | `pages/api/sessions/ical.ts` | GET | `/admin/sessions`, `/consultor/sessions` | `__tests__/api/sessions/cached-roles-never-authorize.test.ts`, `__tests__/api/sessions/ical-attendee-disclosure.test.ts`, `__tests__/api/sessions/ical-scope-union.test.ts`, `__tests__/api/sessions/ical-sequence.test.ts`, `__tests__/api/sessions/session-ical-export.test.ts` +4 |
-| `/api/sessions` | `pages/api/sessions/index.ts` | GET, POST | `/admin/new-reporting`, `/admin/sessions`, `/admin/sessions/create`, `/community/workspace`, `/consultor/sessions` | `__tests__/api/sessions/role-revocation-fail-closed.test.ts`, `__tests__/api/sessions/session-create-facilitators.test.ts`, `__tests__/api/sessions/session-detail-disclosure.test.ts`, `__tests__/api/sessions/session-managed-intent-create.test.ts`, `__tests__/api/sessions/session-operator-creation.test.ts` +15 |
+| `/api/sessions` | `pages/api/sessions/index.ts` | GET, POST | `/admin/sessions`, `/admin/sessions/create`, `/community/workspace`, `/consultor/sessions` | `__tests__/api/sessions/role-revocation-fail-closed.test.ts`, `__tests__/api/sessions/session-create-facilitators.test.ts`, `__tests__/api/sessions/session-detail-disclosure.test.ts`, `__tests__/api/sessions/session-managed-intent-create.test.ts`, `__tests__/api/sessions/session-operator-creation.test.ts` +15 |
 | `/api/sessions/reports/analytics` | `pages/api/sessions/reports/analytics.ts` | GET | `/consultor/sessions/reports` | `__tests__/api/sessions/session-reports-analytics.test.ts`, `pages/consultor/sessions/reports.tsx` |
 | `/api/sessions/series/[groupId]` | `pages/api/sessions/series/[groupId].ts` | GET | `/admin/sessions/[id]` | `__tests__/api/sessions/session-series.test.ts`, `pages/admin/sessions/[id].tsx` |
 | `/api/sessions/series/[groupId]/cancel` | `pages/api/sessions/series/[groupId]/cancel.ts` | POST | `/admin/sessions/[id]` | `__tests__/api/sessions/session-cancel-zoom-delete.test.ts`, `__tests__/api/sessions/session-lifecycle-notifications.test.ts`, `__tests__/api/sessions/session-series.test.ts`, `pages/admin/sessions/[id].tsx` |

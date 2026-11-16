@@ -1,7 +1,7 @@
 # Gestor de Cambio (registros, context, migration plan, results)
 
 Area `08-gestor-de-cambio`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `58b8d169f` (2026-11-12).
+Read from commit `c4375a085` (2026-11-16).
 
 16 screen files, 40 API files, 30 pieces.
 
@@ -38,7 +38,7 @@ File `pages/admin/assessment-builder/[templateId]/expectations.tsx` · 1836 line
   - l.180 `router.push → /login  (when !session?.user)`
   - l.801 `router.push → /login`
   - l.1001 `No tienes permiso para editar expectativas.`
-- Linked from: `pages/admin/assessment-builder/[templateId]/index.tsx:1567`, `pages/admin/assessment-builder/[templateId]/index.tsx:1704`, `pages/api/qa/seed-codebase-index.ts:222`
+- Linked from: `pages/admin/assessment-builder/[templateId]/index.tsx:1567`, `pages/admin/assessment-builder/[templateId]/index.tsx:1704`, `pages/api/qa/seed-codebase-index.ts:200`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/assessment-builder-expectations-editor.spec.ts`; unit tests of the page: `__tests__/pages/admin/assessment-builder-expectations-editor.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -335,7 +335,7 @@ File `pages/admin/assessment-builder/[templateId]/index.tsx` · 3175 lines · fr
   - l.1305 `router.push → /login`
   - l.1353 `No tienes permiso para editar templates de registro.`
   - l.1394 `canEdit = !isArchived && isAdmin`
-- Linked from: `pages/admin/assessment-builder/[templateId]/expectations.tsx:1060`, `pages/admin/assessment-builder/[templateId]/expectations.tsx:1562`, `pages/admin/assessment-builder/create.tsx:218`, `pages/admin/assessment-builder/index.tsx:335`, `pages/admin/assessment-builder/index.tsx:608`, `pages/api/qa/seed-codebase-index.ts:217`
+- Linked from: `pages/admin/assessment-builder/[templateId]/expectations.tsx:1060`, `pages/admin/assessment-builder/[templateId]/expectations.tsx:1562`, `pages/admin/assessment-builder/create.tsx:218`, `pages/admin/assessment-builder/index.tsx:335`, `pages/admin/assessment-builder/index.tsx:608`, `pages/api/qa/seed-codebase-index.ts:195`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/assessment-frequency-validation.spec.ts`; unit tests of the page: `__tests__/pages/admin/assessment-builder-frequency.test.tsx`, `__tests__/pages/admin/assessment-builder-publish.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -833,7 +833,7 @@ File `pages/admin/assessment-builder/create.tsx` · 459 lines · frame: MainLayo
   - l.69 `isAdmin = roles?.some((r: any) => r.role_type === 'admin') \|\| false`
   - l.231 `router.push → /login`
   - l.258 `No tienes permiso para crear templates de registro.`
-- Linked from: `pages/admin/assessment-builder/index.tsx:494`, `pages/admin/assessment-builder/index.tsx:533`, `pages/api/qa/seed-codebase-index.ts:212`
+- Linked from: `pages/admin/assessment-builder/index.tsx:494`, `pages/admin/assessment-builder/index.tsx:533`, `pages/api/qa/seed-codebase-index.ts:190`
 - Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/admin/assessment-builder-create-via.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |

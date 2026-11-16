@@ -50,7 +50,6 @@ const FEATURE_FILE_MAP: Record<FeatureArea, string[]> = {
   course_management: [
     'pages/admin/course-builder/*',
     'pages/api/admin/courses/*',
-    'pages/courses/[id].tsx',
   ],
   assessment_builder: [
     'pages/admin/assessment-builder/*',
@@ -62,13 +61,11 @@ const FEATURE_FILE_MAP: Record<FeatureArea, string[]> = {
     'lib/transformation/*',
   ],
   quiz_submission: [
-    'pages/courses/[id].tsx',
     'pages/api/quiz/*',
     'components/quiz/*',
   ],
   reporting: [
     'pages/reports.tsx',
-    'pages/admin/new-reporting.tsx',
   ],
   network_management: [
     'pages/admin/network-management.tsx',

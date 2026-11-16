@@ -1,7 +1,7 @@
 # Notificaciones
 
 Area `16-notificaciones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `58b8d169f` (2026-11-12).
+Read from commit `c4375a085` (2026-11-16).
 
 4 screen files, 9 API files, 7 pieces.
 
@@ -681,9 +681,9 @@ Used by: `/notifications`
 |---|---|---|---|---|
 | `/api/admin/notification-analytics` | `pages/api/admin/notification-analytics.ts` | GET | **no screen** |  |
 | `/api/admin/notification-types` | `pages/api/admin/notification-types.ts` | GET | `/admin/configuration` | `__tests__/notifications/entry-points.test.tsx`, `pages/admin/configuration.tsx` |
-| `/api/notifications/[id]/read` | `pages/api/notifications/[id]/read.ts` | POST | `/admin/bucket-test`, `/admin/create-course`, `/admin/test-spanish-input`, `/creador-de-cursos`, `/dashboard-old`, `/pending-approval`, `/test-user-role` | `__tests__/components/layout/Header.notification-bell.test.tsx`, `components/notifications/NotificationBell.tsx` |
-| `/api/notifications` | `pages/api/notifications/index.ts` | GET | `/admin/bucket-test`, `/admin/create-course`, `/admin/test-spanish-input`, `/creador-de-cursos`, `/dashboard-old`, `/pending-approval`, `/test-user-role` | `__tests__/components/layout/Header.notification-bell.test.tsx`, `components/notifications/NotificationBell.tsx`, `tests/e2e/notification-settings.spec.ts` |
-| `/api/notifications/mark-all-read` | `pages/api/notifications/mark-all-read.ts` | POST | `/admin/bucket-test`, `/admin/create-course`, `/admin/test-spanish-input`, `/creador-de-cursos`, `/dashboard-old`, `/pending-approval`, `/test-user-role` | `__tests__/components/layout/Header.notification-bell.test.tsx`, `components/notifications/NotificationBell.tsx` |
+| `/api/notifications/[id]/read` | `pages/api/notifications/[id]/read.ts` | POST | `/pending-approval` | `__tests__/components/layout/Header.notification-bell.test.tsx`, `components/notifications/NotificationBell.tsx` |
+| `/api/notifications` | `pages/api/notifications/index.ts` | GET | `/pending-approval` | `__tests__/components/layout/Header.notification-bell.test.tsx`, `components/notifications/NotificationBell.tsx` |
+| `/api/notifications/mark-all-read` | `pages/api/notifications/mark-all-read.ts` | POST | `/pending-approval` | `__tests__/components/layout/Header.notification-bell.test.tsx`, `components/notifications/NotificationBell.tsx` |
 | `/api/notifications/mark-read` | `pages/api/notifications/mark-read.ts` | POST | **no screen** |  |
 | `/api/notifications/unsubscribe` | `pages/api/notifications/unsubscribe.ts` | GET, POST | `/notificaciones/baja` | `__tests__/api/notifications/unsubscribe.test.ts`, `__tests__/lib/email/notification-unsubscribe.test.ts`, `__tests__/lib/email/outbox.test.ts`, `lib/email/notification-unsubscribe.ts`, `pages/notificaciones/baja.tsx` +1 |
 | `/api/user/notification-preferences` | `pages/api/user/notification-preferences.ts` | GET, PUT | `/configuracion/notificaciones` | `__tests__/api/notification-preferences.test.ts`, `__tests__/notifications/entry-points.test.tsx`, `__tests__/pages/notification-settings.test.tsx`, `pages/configuracion/notificaciones.tsx`, `tests/e2e/notification-preferences-api.spec.ts` +1 |

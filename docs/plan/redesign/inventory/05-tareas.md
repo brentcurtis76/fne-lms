@@ -1,7 +1,7 @@
 # Tareas y quizzes (assignments, group work, quiz review)
 
 Area `05-tareas`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `58b8d169f` (2026-11-12).
+Read from commit `c4375a085` (2026-11-16).
 
 9 screen files, 14 API files, 18 pieces.
 
@@ -346,7 +346,7 @@ File `pages/assignments.tsx` · 360 lines · frame: MainLayout
   - l.97 `role = await getUserPrimaryRole(session.user.id)`
   - l.115 `router.push → /login  (when !(session) && session === null)`
   - l.138 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:36`, `components/notifications/ModernNotificationCenter.tsx:301`, `components/notifications/ModernNotificationCenter.tsx:312`, `components/notifications/NotificationDropdown.tsx:140`, `components/notifications/NotificationDropdown.tsx:151`, `lib/auth/forced-password-change.ts:133`, `lib/notificationEvents.ts:314`, `lib/notificationEvents.ts:328`, `lib/notificationEvents.ts:345`, `lib/notifications/catalog.ts:279`, `lib/notifications/catalog.ts:288`, `lib/notifications/catalog.ts:290` and 15 more
+- Linked from: `components/DynamicFavicon.tsx:35`, `components/notifications/ModernNotificationCenter.tsx:301`, `components/notifications/ModernNotificationCenter.tsx:312`, `components/notifications/NotificationDropdown.tsx:140`, `components/notifications/NotificationDropdown.tsx:151`, `lib/auth/forced-password-change.ts:133`, `lib/notificationEvents.ts:314`, `lib/notificationEvents.ts:328`, `lib/notificationEvents.ts:345`, `lib/notifications/catalog.ts:279`, `lib/notifications/catalog.ts:288`, `lib/notifications/catalog.ts:290` and 15 more
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/notification-catalog-links.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -781,7 +781,7 @@ File `pages/community/workspace/assignments/[id]/discussion.tsx` · 405 lines ·
 - Middleware: the workspace rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.33 `router.push → /login  (when !(!authLoading && user && assignmentId) && !authLoading && !user)`
-- Linked from: `pages/api/qa/seed-codebase-index.ts:533`
+- Linked from: `pages/api/qa/seed-codebase-index.ts:511`
 - Tests: browser tests that CI runs: `tests/e2e/finance-messaging-access.spec.ts`; browser tests CI skips: `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -911,7 +911,7 @@ File `pages/community/workspace/assignments/[id]/groups.tsx` · 296 lines · fra
 - Middleware: the workspace rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.28 `router.push → /login  (when !(!authLoading && user && assignmentId) && !authLoading && !user)`
-- Linked from: `pages/api/qa/seed-codebase-index.ts:493`
+- Linked from: `pages/api/qa/seed-codebase-index.ts:471`
 - Tests: no browser test that CI runs.
 
 | Role | Sees it in the menu | Middleware |
@@ -1033,7 +1033,7 @@ File `pages/quiz-reviews.tsx` · 239 lines · frame: MainLayout
   - l.28 `if (!hasRole('admin') && !hasRole('consultor') && !hasRole('equipo_directivo')) { toast.error('No tienes permisos para acceder a esta página'); route…`
   - l.30 `router.push → /dashboard  (when !hasRole('admin') && !hasRole('consultor') && !hasRole('equipo_directivo'))`
   - l.111 `getHighestRole(userRoles) \|\| ''`
-- Linked from: `components/DynamicFavicon.tsx:35`, `components/layout/Sidebar.tsx:205`, `lib/auth/forced-password-change.ts:158`, `lib/notifications/catalog.ts:310`, `middleware.ts:353`, `pages/quiz-reviews/[id].tsx:59`, `pages/quiz-reviews/[id].tsx:73`, `pages/quiz-reviews/[id].tsx:81`, `pages/quiz-reviews/[id].tsx:97`
+- Linked from: `components/DynamicFavicon.tsx:34`, `components/layout/Sidebar.tsx:205`, `lib/auth/forced-password-change.ts:158`, `lib/notifications/catalog.ts:310`, `middleware.ts:353`, `pages/quiz-reviews/[id].tsx:59`, `pages/quiz-reviews/[id].tsx:73`, `pages/quiz-reviews/[id].tsx:81`, `pages/quiz-reviews/[id].tsx:97`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`.
 - QA scenarios that name this address: admin 3, community_manager 1, consultor 2, equipo_directivo 4, lider_comunidad 1, lider_generacion 1, supervisor_de_red 1.
 

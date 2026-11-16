@@ -66,3 +66,58 @@ describe('EC-S5 mentions of names with accents, hyphens and dots', () => {
     expect(onRequestMentions).toHaveBeenLastCalledWith('Marí');
   });
 });
+
+describe('EC-M2 Enter in the message box', () => {
+  it('Enter sends the message', async () => {
+    const { textarea, type, onSendMessage } = setup({ mentionSuggestions: [] });
+    type('Hola a todos');
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+    await waitFor(() => expect(onSendMessage).toHaveBeenCalledTimes(1));
+    expect(onSendMessage.mock.calls[0][0]).toMatchObject({ content: 'Hola a todos', thread_id: 'thread-1' });
+    await waitFor(() => expect(textarea.value).toBe(''));
+  });
+
+  it('Shift+Enter does not send (it makes a new line)', () => {
+    const { textarea, type, onSendMessage } = setup({ mentionSuggestions: [] });
+    type('Hola');
+    fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: true });
+    expect(onSendMessage).not.toHaveBeenCalled();
+  });
+
+  it('Enter on an empty box sends nothing', () => {
+    const { textarea, type, onSendMessage } = setup({ mentionSuggestions: [] });
+    type('   ');
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+    expect(onSendMessage).not.toHaveBeenCalled();
+  });
+
+  it('Enter with only an attachment sends it', async () => {
+    const { textarea, container, onSendMessage } = setup({ mentionSuggestions: [] });
+    const file = new File(['%PDF-1.4'], 'acta.pdf', { type: 'application/pdf' });
+    fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [file] } });
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+    await waitFor(() => expect(onSendMessage).toHaveBeenCalledTimes(1));
+    expect((onSendMessage.mock.calls[0][0] as any).attachments).toEqual([file]);
+  });
+
+  it('a second Enter while the message is being sent does not send it twice', async () => {
+    let release: () => void = () => undefined;
+    const onSendMessage = vi.fn(() => new Promise<void>((resolve) => { release = resolve; }));
+    const { textarea, type } = setup({ mentionSuggestions: [], onSendMessage });
+    type('Hola');
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+    await waitFor(() => expect(onSendMessage).toHaveBeenCalledTimes(1));
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+    release();
+    await waitFor(() => expect(textarea.value).toBe(''));
+    expect(onSendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('Enter while the mention list is open chooses the mention and does not send', () => {
+    const { textarea, type, onSendMessage } = setup();
+    type('Hola @Mar');
+    fireEvent.keyDown(textarea, { key: 'Enter' });
+    expect(textarea.value).toBe('Hola @María-José_Núñez ');
+    expect(onSendMessage).not.toHaveBeenCalled();
+  });
+});

@@ -8,9 +8,10 @@ import { opArgs, type RecordedRequest } from '../helpers/recordingSupabase';
  * EC-S5 (GENERA fixes F11): a person's page (/user/[userId]).
  * A viewer who is neither an admin nor the person cannot read the person's
  * profile row (that rule stays); the page then shows the person's card (name,
- * picture) and what the viewer's own session can read (school, roles,
- * courses), never contact data, and never «Usuario no encontrado» for a
- * co-member. An admin and the person themself see the page as before.
+ * picture) and nothing else, making no other request about that person
+ * (send-back 1, item 6: not even /api/users/<id>/school), and never «Usuario
+ * no encontrado» for a co-member. An admin and the person themself see the
+ * page as before.
  */
 
 const fake = vi.hoisted(() => ({ ref: null as any, role: 'docente', query: { userId: 'user-a2' } as Record<string, string> }));
@@ -29,9 +30,13 @@ vi.mock('../../components/layout/MainLayout', () => ({
 vi.mock('../../components/layout/FunctionalPageHeader', () => ({
   ResponsiveFunctionalPageHeader: ({ title }: { title?: string }) => <div data-testid="header">{title}</div>,
 }));
+const getUserRoles = vi.hoisted(() => ({ calls: [] as unknown[][] }));
 vi.mock('../../utils/roleUtils', () => ({
   getUserPrimaryRole: async () => fake.role,
-  getUserRoles: async () => [{ id: 'role-1', role_type: 'docente' }],
+  getUserRoles: async (...args: unknown[]) => {
+    getUserRoles.calls.push(args);
+    return [{ id: 'role-1', role_type: 'docente' }];
+  },
 }));
 
 // The page uses JSX without importing React (Next's automatic runtime).
@@ -78,6 +83,7 @@ function database({ admin, cardKnown = true }: { admin: boolean; cardKnown?: boo
 
 beforeEach(() => {
   h.requests.length = 0;
+  getUserRoles.calls.length = 0;
   h.userId = VIEWER;
   fake.query.userId = PERSON.id;
   fake.role = 'docente';
@@ -86,17 +92,28 @@ beforeEach(() => {
 });
 
 describe('EC-S5 a person\'s page', () => {
-  it('a co-member sees the name, picture, school, roles and courses — no e-mail, no «Usuario no encontrado»', async () => {
+  it('a co-member sees the card (name, picture) and nothing else; no other request about the person', async () => {
     database({ admin: false });
     render(<UserProfileView />);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('María-José Núñez'));
     expect(screen.queryByText('Usuario no encontrado')).toBeNull();
     expect(screen.getByAltText('María-José Núñez').getAttribute('src')).toBe(PERSON.avatar_url);
-    expect(screen.getByText('Escuela F11')).toBeTruthy();
-    expect(screen.getByText('Docente')).toBeTruthy();
-    expect(screen.getByText('Curso de prueba')).toBeTruthy();
-    expect(document.body.textContent).not.toContain('a2@f11.test.local');
-    expect(document.body.textContent).not.toContain('Email:');
+
+    // Requests about the person: one rpc call for the card, nothing else.
+    const cardCalls = h.requests.filter((r) => r.kind === 'rpc');
+    expect(cardCalls).toHaveLength(1);
+    expect(cardCalls[0].target).toBe('get_profile_cards');
+    expect(cardCalls[0].args).toEqual({ p_ids: [PERSON.id] });
+    expect(h.requests.filter((r) => r.kind === 'from' && r.target !== 'profiles')).toEqual([]);
+    expect(h.requests.filter((r) => r.kind === 'from' && r.target === 'profiles').map((r) => opArgs(r, 'eq'))).toEqual([['id', VIEWER]]);
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(getUserRoles.calls.filter((args) => args[1] === PERSON.id)).toEqual([]);
+
+    // Rendered about the person: name and picture only.
+    const text = document.body.textContent ?? '';
+    for (const hidden of ['Escuela F11', 'Docente', 'Curso de prueba', 'Profesora de ciencias', 'a2@f11.test.local', 'Email:', 'Institución', 'Roles', 'Sin roles asignados', 'Cursos Asignados']) {
+      expect(text).not.toContain(hidden);
+    }
   });
 
   it('a person the viewer may not know is still «Usuario no encontrado»', async () => {
@@ -112,6 +129,10 @@ describe('EC-S5 a person\'s page', () => {
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('María-José Núñez'));
     expect(screen.getAllByText(/a2@f11\.test\.local/).length).toBeGreaterThan(0);
     expect(screen.getByText('Profesora de ciencias')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('Curso de prueba')).toBeTruthy());
+    expect(screen.getByText('Escuela F11')).toBeTruthy();
+    expect(screen.getByText('Docente')).toBeTruthy();
+    expect(String((global.fetch as any).mock.calls[0][0])).toBe(`/api/users/${PERSON.id}/school`);
   });
 
   it('a person\'s own page is unchanged', async () => {
@@ -121,5 +142,8 @@ describe('EC-S5 a person\'s page', () => {
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Ana Uno'));
     expect(screen.getAllByText(/a1@f11\.test\.local/).length).toBeGreaterThan(0);
     expect(h.requests.some((r) => r.kind === 'rpc')).toBe(false);
+    await waitFor(() => expect(screen.getByText('Curso de prueba')).toBeTruthy());
+    expect(screen.getByText('Escuela F11')).toBeTruthy();
+    expect(String((global.fetch as any).mock.calls[0][0])).toBe(`/api/users/${VIEWER}/school`);
   });
 });

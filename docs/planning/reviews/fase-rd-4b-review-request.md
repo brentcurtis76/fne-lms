@@ -1,6 +1,6 @@
 # RD-4b — platform redesign, step 4b: the stray colours get names. Review request
 
-- **Branch:** `feat/rd-strays` · **Base:** step 4d of the redesign (`feat/rd-switch`; main once that is published) · **Commits:** 6 (a helper; classes and stylesheets; strings; tests from the review; the inventory rebuilt; this record)
+- **Branch:** `feat/rd-strays` · **Base:** step 4d of the redesign (`feat/rd-switch`; main once that is published) · **Commits:** 6 (a helper; classes and stylesheets; strings; tests from the review; this record; the inventory rebuilt)
 - **Part of the platform redesign** (plan phase 4, "invisible groundwork"). The last release of that phase.
 - **Built the new way** (since 16 Nov): a builder agent from a written brief, an independent code read (Sol), a blind test (Astra) and a test by sight from a list of scenarios written without the code; the lead session wrote no product code.
 
@@ -41,8 +41,7 @@ New: `__tests__/lib/colorAlpha.test.ts` (8); `__tests__/styles/stray-colours.tes
 - **Blind test** (Astra, a different model family, from a list of 18 screens and click-states, the two builds side by side on the same data, her own scripts): every computed colour the same in about 70,000 element-and-state comparisons, at rest and with the pointer on things, charts included. She reported six small pixel differences; the two that repeated are two renderings of the page header that BOTH builds show from one load to the next (checked separately), the others are one to three shades on a rounded edge or did not repeat.
 - **By sight** (an Opus agent in a real browser, the same list, two tabs): no difference in the 16 items it could compare, plus six more screens.
 - **Independent code read** (Sol): values, mappings, class renames, the helper and the absence of any named colour reaching saving, parsing or a file export found fine; one finding (the tests proved neither completeness nor which name replaced which colour) fixed in the fourth commit, which also shows each new test can fail.
-- **Gates on this branch:** see the last line of this section, filled when the branch was moved onto main.
-- GATES_LINE
+- **Gates on this branch, on main's tip** (main at `46b5787f3`, 16 Nov): `npm run type-check` clean; `npm run lint` clean; `npm test` 556 files, 18,417 tests passed, 12 skipped. The production build passed when the picture harness built the branch (before main's last two releases, which touch no screen).
 
 ## Where to look hardest
 

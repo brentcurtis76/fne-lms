@@ -1,9 +1,9 @@
 # Reportes
 
 Area `13-reportes`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3cf1440a5` (2026-11-16).
+Read from commit `007807e90` (2026-11-16).
 
-3 screen files, 10 API files, 20 pieces.
+3 screen files, 10 API files, 21 pieces.
 
 ## Screens
 
@@ -212,6 +212,7 @@ File `pages/detailed-reports.tsx` · 816 lines · frame: MainLayout
 - `components/reports/MobileUserCard.tsx`
 - `components/reports/UserDetailModal.tsx`
 - `hooks/useDebounce.ts`
+- `lib/colorAlpha.ts`
 - `types/roles.ts`
 - `utils/reportFilters.ts`
 - `utils/roleUtils.ts`
@@ -220,7 +221,7 @@ File `pages/detailed-reports.tsx` · 816 lines · frame: MainLayout
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/reports/analytics-data` | ? | `components/reports/AnalyticsDashboard.tsx:149` |
+| `/api/reports/analytics-data` | ? | `components/reports/AnalyticsDashboard.tsx:150` |
 | `/api/reports/detailed` | POST | `pages/detailed-reports.tsx:219` |
 | `/api/reports/filter-options` | GET | `components/reports/AdvancedFilters.tsx:48` |
 | `/api/reports/user-details` | GET | `components/reports/UserDetailModal.tsx:141` |
@@ -525,6 +526,7 @@ File `pages/reports.tsx` · 900 lines · frame: MainLayout
 - `components/reports/LearningPathAnalytics.tsx`
 - `components/reports/StatusBadge.tsx`
 - `components/reports/UserDetailModal.tsx`
+- `lib/colorAlpha.ts`
 - `lib/exportUtils.ts`
 - `types/roles.ts`
 - `utils/insightGenerator.ts`
@@ -535,7 +537,7 @@ File `pages/reports.tsx` · 900 lines · frame: MainLayout
 | Address | Method | Called from |
 |---|---|---|
 | `/api/learning-paths/analytics` | GET | `components/reports/LearningPathAnalytics.tsx:84` |
-| `/api/reports/analytics-data` | GET | `components/reports/AnalyticsVisualization.tsx:106` |
+| `/api/reports/analytics-data` | GET | `components/reports/AnalyticsVisualization.tsx:107` |
 | `/api/reports/community` | GET | `pages/reports.tsx:259` |
 | `/api/reports/course-analytics` | GET | `pages/reports.tsx:277` |
 | `/api/reports/filter-options` | GET | `components/reports/AdvancedFilters.tsx:48` |
@@ -826,88 +828,88 @@ Used by: `/detailed-reports`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Vista Previa del Dashboard Analítico» | h3 |  | AnalyticsDashboard · l.297 |
-| «Tendencia de Progreso» | h3 |  | AnalyticsDashboard · l.374 |
-| «Tiempo de Estudio» | h3 |  | AnalyticsDashboard · l.415 |
+| «Vista Previa del Dashboard Analítico» | h3 |  | AnalyticsDashboard · l.298 |
+| «Tendencia de Progreso» | h3 |  | AnalyticsDashboard · l.375 |
+| «Tiempo de Estudio» | h3 |  | AnalyticsDashboard · l.416 |
 
 **Buttons** (2)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Exportar» | `{() => exportChart('progress-trends')}` |  |  |  | AnalyticsDashboard · l.375 |
-| «Exportar» | `{() => exportChart('time-trends')}` |  |  |  | AnalyticsDashboard · l.416 |
+| «Exportar» | `{() => exportChart('progress-trends')}` |  |  |  | AnalyticsDashboard · l.376 |
+| «Exportar» | `{() => exportChart('time-trends')}` |  |  |  | AnalyticsDashboard · l.417 |
 
 **Fields** (2)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Período de Tiempo» | select |  | «Última semana», «Últimos 30 días», «Últimos 3 meses», «Último año» |  |  | AnalyticsDashboard · l.254 |
-| «Agrupar por» | select |  | «Día», «Semana», «Mes» |  |  | AnalyticsDashboard · l.270 |
+| «Período de Tiempo» | select |  | «Última semana», «Últimos 30 días», «Últimos 3 meses», «Último año» |  |  | AnalyticsDashboard · l.255 |
+| «Agrupar por» | select |  | «Día», «Semana», «Mes» |  |  | AnalyticsDashboard · l.271 |
 
 **Toasts** (4)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error cargando datos analíticos» | `!(response.ok)` | fetchAnalyticsData · l.183 |
-| error | «Error cargando datos analíticos» |  | fetchAnalyticsData · l.187 |
-| success | «Funcionalidad de exportación para {chartType} próximamente» |  | exportChart · l.196 |
-| error | «Error exportando gráfico» |  | exportChart · l.198 |
+| error | «Error cargando datos analíticos» | `!(response.ok)` | fetchAnalyticsData · l.184 |
+| error | «Error cargando datos analíticos» |  | fetchAnalyticsData · l.188 |
+| success | «Funcionalidad de exportación para {chartType} próximamente» |  | exportChart · l.197 |
+| error | «Error exportando gráfico» |  | exportChart · l.199 |
 
 **Charts** (2)
 
 | Chart | Series | Shown when | Where |
 |---|---|---|---|
-| LineChart | Line `lessons_completed` «Lecciones Completadas»; Line `unique_users` «Usuarios Activos» |  | AnalyticsDashboard · l.383 |
-| AreaChart | Area `total_time_hours` «Total Horas»; Area `avg_time_per_user` «Promedio por Usuario» |  | AnalyticsDashboard · l.424 |
+| LineChart | Line `lessons_completed` «Lecciones Completadas»; Line `unique_users` «Usuarios Activos» |  | AnalyticsDashboard · l.384 |
+| AreaChart | Area `total_time_hours` «Total Horas»; Area `avg_time_per_user` «Promedio por Usuario» |  | AnalyticsDashboard · l.425 |
 
 **Pieces placed here, with the texts and settings handed to them** (11)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `LoadingSkeleton` |  | `loading` |  | AnalyticsDashboard · l.205 |
-| `LoadingSkeleton` |  | `loading && each Array.from({ length: 4 })` |  | AnalyticsDashboard · l.208 |
-| `LoadingSkeleton` |  | `loading && each Array.from({ length: 4 })` |  | AnalyticsDashboard · l.213 |
-| `CollapsibleSection` | title: Métricas Clave |  |  | AnalyticsDashboard · l.308 |
-| `KPICard` | title: Usuarios Activos · subtitle: de 200 totales |  |  | AnalyticsDashboard · l.314 |
-| `KPICard` | title: Tasa de Finalización · subtitle: de cursos completados |  |  | AnalyticsDashboard · l.326 |
-| `KPICard` | title: Progreso Promedio · subtitle: de avance general |  |  | AnalyticsDashboard · l.338 |
-| `KPICard` | title: Tiempo Promedio · subtitle: por usuario |  |  | AnalyticsDashboard · l.350 |
-| `CollapsibleSection` | title: Gráficos de Análisis |  |  | AnalyticsDashboard · l.365 |
-| `CartesianGrid` | strokeDasharray: 3 3 |  |  | AnalyticsDashboard · l.389 |
-| `CartesianGrid` | strokeDasharray: 3 3 |  |  | AnalyticsDashboard · l.430 |
+| `LoadingSkeleton` |  | `loading` |  | AnalyticsDashboard · l.206 |
+| `LoadingSkeleton` |  | `loading && each Array.from({ length: 4 })` |  | AnalyticsDashboard · l.209 |
+| `LoadingSkeleton` |  | `loading && each Array.from({ length: 4 })` |  | AnalyticsDashboard · l.214 |
+| `CollapsibleSection` | title: Métricas Clave |  |  | AnalyticsDashboard · l.309 |
+| `KPICard` | title: Usuarios Activos · subtitle: de 200 totales |  |  | AnalyticsDashboard · l.315 |
+| `KPICard` | title: Tasa de Finalización · subtitle: de cursos completados |  |  | AnalyticsDashboard · l.327 |
+| `KPICard` | title: Progreso Promedio · subtitle: de avance general |  |  | AnalyticsDashboard · l.339 |
+| `KPICard` | title: Tiempo Promedio · subtitle: por usuario |  |  | AnalyticsDashboard · l.351 |
+| `CollapsibleSection` | title: Gráficos de Análisis |  |  | AnalyticsDashboard · l.366 |
+| `CartesianGrid` | strokeDasharray: 3 3 |  |  | AnalyticsDashboard · l.390 |
+| `CartesianGrid` | strokeDasharray: 3 3 |  |  | AnalyticsDashboard · l.431 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (4)
 
 | Text | Where |
 |---|---|
-| «Sem 1» | AnalyticsDashboard · l.384 |
-| «Sem 2» | AnalyticsDashboard · l.385 |
-| «Sem 3» | AnalyticsDashboard · l.386 |
-| «Sem 4» | AnalyticsDashboard · l.387 |
+| «Sem 1» | AnalyticsDashboard · l.385 |
+| «Sem 2» | AnalyticsDashboard · l.386 |
+| «Sem 3» | AnalyticsDashboard · l.387 |
+| «Sem 4» | AnalyticsDashboard · l.388 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
 
 | Kind | What | Where |
 |---|---|---|
-| listener | `window.addEventListener('resize')` | AnalyticsDashboard · l.134 |
+| listener | `window.addEventListener('resize')` | AnalyticsDashboard · l.135 |
 
 **Values shown from data** (7)
 
-- `{title}` — KPICard · l.82
-- `{value}` — KPICard · l.84
-- `↑ / ↓ {Math.abs(trend.value)} %` — KPICard · l.86, when `trend`
-- `{subtitle}` — KPICard · l.91, when `subtitle`
-- `{icon}` — KPICard · l.94
-- `{label}` — CustomTooltip · l.232, when `active && payload && payload.length`
-- `{entry.name} : {entry.value}` — CustomTooltip · l.234, when `active && payload && payload.length && each payload`
+- `{title}` — KPICard · l.83
+- `{value}` — KPICard · l.85
+- `↑ / ↓ {Math.abs(trend.value)} %` — KPICard · l.87, when `trend`
+- `{subtitle}` — KPICard · l.92, when `subtitle`
+- `{icon}` — KPICard · l.95
+- `{label}` — CustomTooltip · l.233, when `active && payload && payload.length`
+- `{entry.name} : {entry.value}` — CustomTooltip · l.235, when `active && payload && payload.length && each payload`
 
 **Other texts on screen** (5)
 
-- «No se pudieron cargar los datos analíticos» — AnalyticsDashboard · l.223, when `!analyticsData`
-- «Período de Tiempo» (label) — AnalyticsDashboard · l.251
-- «Agrupar por» (label) — AnalyticsDashboard · l.267
-- «Datos de {analyticsData.metadata?.total_users} usuarios» — AnalyticsDashboard · l.282
-- «Este dashboard está listo para mostrar datos reales una vez que se implemente la API de analytics correspondiente.» — AnalyticsDashboard · l.301
+- «No se pudieron cargar los datos analíticos» — AnalyticsDashboard · l.224, when `!analyticsData`
+- «Período de Tiempo» (label) — AnalyticsDashboard · l.252
+- «Agrupar por» (label) — AnalyticsDashboard · l.268
+- «Datos de {analyticsData.metadata?.total_users} usuarios» — AnalyticsDashboard · l.283
+- «Este dashboard está listo para mostrar datos reales una vez que se implemente la API de analytics correspondiente.» — AnalyticsDashboard · l.302
 
 ### components/reports/AnalyticsVisualization.tsx
 
@@ -917,90 +919,90 @@ Used by: `/reports`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Tendencias de Progreso» | h3 |  | AnalyticsVisualization · l.259 |
-| «Tasas por Escuela» | h3 |  | AnalyticsVisualization · l.301 |
-| «Distribución de Rendimiento» | h3 |  | AnalyticsVisualization · l.334 |
-| «Tendencias de Tiempo» | h3 |  | AnalyticsVisualization · l.361 |
-| «Análisis de Rendimiento en Evaluaciones» | h3 |  | AnalyticsVisualization · l.403 |
-| «Insights Automáticos» | h3 |  | AnalyticsVisualization · l.452 |
-| «{insight.title}» | h4 | `automaticInsights.length > 0 && each automaticInsights` | AnalyticsVisualization · l.514 |
+| «Tendencias de Progreso» | h3 |  | AnalyticsVisualization · l.260 |
+| «Tasas por Escuela» | h3 |  | AnalyticsVisualization · l.302 |
+| «Distribución de Rendimiento» | h3 |  | AnalyticsVisualization · l.335 |
+| «Tendencias de Tiempo» | h3 |  | AnalyticsVisualization · l.362 |
+| «Análisis de Rendimiento en Evaluaciones» | h3 |  | AnalyticsVisualization · l.404 |
+| «Insights Automáticos» | h3 |  | AnalyticsVisualization · l.453 |
+| «{insight.title}» | h4 | `automaticInsights.length > 0 && each automaticInsights` | AnalyticsVisualization · l.515 |
 
 **Fields** (1)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Vista» | select |  | «Período Actual», «Comparación Períodos» |  |  | AnalyticsVisualization · l.186 |
+| «Vista» | select |  | «Período Actual», «Comparación Períodos» |  |  | AnalyticsVisualization · l.187 |
 
 **Toasts** (3)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error de autenticación» | `!session?.access_token` | fetchAnalyticsData · l.94 |
-| error | «Error al cargar datos analíticos» | `!(response.ok)` | fetchAnalyticsData · l.122 |
-| error | «Error al cargar datos analíticos» |  | fetchAnalyticsData · l.126 |
+| error | «Error de autenticación» | `!session?.access_token` | fetchAnalyticsData · l.95 |
+| error | «Error al cargar datos analíticos» | `!(response.ok)` | fetchAnalyticsData · l.123 |
+| error | «Error al cargar datos analíticos» |  | fetchAnalyticsData · l.127 |
 
 **Charts** (5)
 
 | Chart | Series | Shown when | Where |
 |---|---|---|---|
-| LineChart | Line `completedLessons` «Lecciones Completadas»; Line `activeUsers` «Usuarios Activos» |  | AnalyticsVisualization · l.268 |
-| BarChart | Bar `completionRate` «Tasa de Completación (%)» |  | AnalyticsVisualization · l.310 |
-| BarChart | Bar `count` «Número de Estudiantes» |  | AnalyticsVisualization · l.343 |
-| AreaChart | Area `totalHours` «Total Horas»; Area `avgHoursPerUser` «Promedio por Usuario» |  | AnalyticsVisualization · l.370 |
-| ScatterChart | Scatter `avgScore` |  | AnalyticsVisualization · l.412 |
+| LineChart | Line `completedLessons` «Lecciones Completadas»; Line `activeUsers` «Usuarios Activos» |  | AnalyticsVisualization · l.269 |
+| BarChart | Bar `completionRate` «Tasa de Completación (%)» |  | AnalyticsVisualization · l.311 |
+| BarChart | Bar `count` «Número de Estudiantes» |  | AnalyticsVisualization · l.344 |
+| AreaChart | Area `totalHours` «Total Horas»; Area `avgHoursPerUser` «Promedio por Usuario» |  | AnalyticsVisualization · l.371 |
+| ScatterChart | Scatter `avgScore` |  | AnalyticsVisualization · l.413 |
 
 **Pieces placed here, with the texts and settings handed to them** (13)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `LoadingSkeleton` |  | `loading && each Array.from({ length: 4 })` |  | AnalyticsVisualization · l.156 |
-| `LoadingSkeleton` |  | `loading && each Array.from({ length: 4 })` |  | AnalyticsVisualization · l.161 |
-| `ExportDropdown` | tabName: Tendencias-Progreso |  |  | AnalyticsVisualization · l.260 |
-| `CartesianGrid` | strokeDasharray: 3 3 |  |  | AnalyticsVisualization · l.269 |
-| `ExportDropdown` | tabName: Tasas-Escuela |  |  | AnalyticsVisualization · l.302 |
-| `CartesianGrid` | strokeDasharray: 3 3 |  |  | AnalyticsVisualization · l.311 |
-| `XAxis` | textAnchor: end |  |  | AnalyticsVisualization · l.312 |
-| `ExportDropdown` | tabName: Distribucion-Rendimiento |  |  | AnalyticsVisualization · l.335 |
-| `CartesianGrid` | strokeDasharray: 3 3 |  |  | AnalyticsVisualization · l.344 |
-| `ExportDropdown` | tabName: Tendencias-Tiempo |  |  | AnalyticsVisualization · l.362 |
-| `CartesianGrid` | strokeDasharray: 3 3 |  |  | AnalyticsVisualization · l.371 |
-| `ExportDropdown` | tabName: Rendimiento-Evaluaciones |  |  | AnalyticsVisualization · l.404 |
-| `CartesianGrid` | strokeDasharray: 3 3 |  |  | AnalyticsVisualization · l.413 |
+| `LoadingSkeleton` |  | `loading && each Array.from({ length: 4 })` |  | AnalyticsVisualization · l.157 |
+| `LoadingSkeleton` |  | `loading && each Array.from({ length: 4 })` |  | AnalyticsVisualization · l.162 |
+| `ExportDropdown` | tabName: Tendencias-Progreso |  |  | AnalyticsVisualization · l.261 |
+| `CartesianGrid` | strokeDasharray: 3 3 |  |  | AnalyticsVisualization · l.270 |
+| `ExportDropdown` | tabName: Tasas-Escuela |  |  | AnalyticsVisualization · l.303 |
+| `CartesianGrid` | strokeDasharray: 3 3 |  |  | AnalyticsVisualization · l.312 |
+| `XAxis` | textAnchor: end |  |  | AnalyticsVisualization · l.313 |
+| `ExportDropdown` | tabName: Distribucion-Rendimiento |  |  | AnalyticsVisualization · l.336 |
+| `CartesianGrid` | strokeDasharray: 3 3 |  |  | AnalyticsVisualization · l.345 |
+| `ExportDropdown` | tabName: Tendencias-Tiempo |  |  | AnalyticsVisualization · l.363 |
+| `CartesianGrid` | strokeDasharray: 3 3 |  |  | AnalyticsVisualization · l.372 |
+| `ExportDropdown` | tabName: Rendimiento-Evaluaciones |  |  | AnalyticsVisualization · l.405 |
+| `CartesianGrid` | strokeDasharray: 3 3 |  |  | AnalyticsVisualization · l.414 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (4)
 
 | Text | Where |
 |---|---|
-| «Bearer {session.access_token}» | AnalyticsVisualization · l.108 |
-| «Usuarios Activos» | AnalyticsVisualization · l.207 |
-| «Tasa Completación» | AnalyticsVisualization · l.215 |
-| «Tiempo Total» | AnalyticsVisualization · l.223 |
+| «Bearer {session.access_token}» | AnalyticsVisualization · l.109 |
+| «Usuarios Activos» | AnalyticsVisualization · l.208 |
+| «Tasa Completación» | AnalyticsVisualization · l.216 |
+| «Tiempo Total» | AnalyticsVisualization · l.224 |
 
 **Values shown from data** (10)
 
-- `{label}` — CustomTooltip · l.136, when `active && payload && payload.length`
-- `{entry.name} : {formatter(entry.value)} / {entry.value}` — CustomTooltip · l.138, when `active && payload && payload.length && each payload`
-- `{kpi.title}` — AnalyticsVisualization · l.234, when `each [ { title: 'Usuarios Activos', current: analytics…`
-- `/ {kpi.total}` — AnalyticsVisualization · l.238, when `each [ { title: 'Usuarios Activos', current: analytics… && kpi.total`
-- `↗ / ↘ {Math.abs(kpi.trend).toFixed(1)} %` — AnalyticsVisualization · l.240, when `each [ { title: 'Usuarios Activos', current: analytics…`
-- `{kpi.icon}` — AnalyticsVisualization · l.246, when `each [ { title: 'Usuarios Activos', current: analytics…`
-- `{iconSvgs[insight.type]}` — AnalyticsVisualization · l.508, when `automaticInsights.length > 0 && each automaticInsights`
-- `{insight.metric.toFixed(1)} %` — AnalyticsVisualization · l.516, when `automaticInsights.length > 0 && each automaticInsights && insight.metric !== undefined && insight.metric !== null`
-- `{insight.message}` — AnalyticsVisualization · l.521, when `automaticInsights.length > 0 && each automaticInsights`
-- `💡 {insight.recommendation}` — AnalyticsVisualization · l.525, when `automaticInsights.length > 0 && each automaticInsights && insight.recommendation`
+- `{label}` — CustomTooltip · l.137, when `active && payload && payload.length`
+- `{entry.name} : {formatter(entry.value)} / {entry.value}` — CustomTooltip · l.139, when `active && payload && payload.length && each payload`
+- `{kpi.title}` — AnalyticsVisualization · l.235, when `each [ { title: 'Usuarios Activos', current: analytics…`
+- `/ {kpi.total}` — AnalyticsVisualization · l.239, when `each [ { title: 'Usuarios Activos', current: analytics… && kpi.total`
+- `↗ / ↘ {Math.abs(kpi.trend).toFixed(1)} %` — AnalyticsVisualization · l.241, when `each [ { title: 'Usuarios Activos', current: analytics…`
+- `{kpi.icon}` — AnalyticsVisualization · l.247, when `each [ { title: 'Usuarios Activos', current: analytics…`
+- `{iconSvgs[insight.type]}` — AnalyticsVisualization · l.509, when `automaticInsights.length > 0 && each automaticInsights`
+- `{insight.metric.toFixed(1)} %` — AnalyticsVisualization · l.517, when `automaticInsights.length > 0 && each automaticInsights && insight.metric !== undefined && insight.metric !== null`
+- `{insight.message}` — AnalyticsVisualization · l.522, when `automaticInsights.length > 0 && each automaticInsights`
+- `💡 {insight.recommendation}` — AnalyticsVisualization · l.526, when `automaticInsights.length > 0 && each automaticInsights && insight.recommendation`
 
 **Other texts on screen** (10)
 
-- «No se pudieron cargar los datos analíticos» — AnalyticsVisualization · l.171, when `!analyticsData`
-- «Vista» (label) — AnalyticsVisualization · l.183
-- «Datos de {analyticsData.metadata?.timeRange} días • {analyticsData.kpiData.current.total…} usuarios» — AnalyticsVisualization · l.197
-- «Usuario: {data.userId}» — AnalyticsVisualization · l.431, when `active && payload && payload.length`
-- «Evaluaciones: {data.quizzesCompleted}» — AnalyticsVisualization · l.432, when `active && payload && payload.length`
-- «Puntaje Promedio: {data.avgScore} %» — AnalyticsVisualization · l.433, when `active && payload && payload.length`
-- «Tiempo Promedio: {data.timeSpent} min» — AnalyticsVisualization · l.434, when `active && payload && payload.length`
-- «Tendencia: + {data.improvementTrend} %» — AnalyticsVisualization · l.435, when `active && payload && payload.length`
-- «Generando insights basados en datos...» — AnalyticsVisualization · l.540, when `!(automaticInsights.length > 0)`
-- «Los insights aparecerán cuando haya suficientes datos» — AnalyticsVisualization · l.541, when `!(automaticInsights.length > 0)`
+- «No se pudieron cargar los datos analíticos» — AnalyticsVisualization · l.172, when `!analyticsData`
+- «Vista» (label) — AnalyticsVisualization · l.184
+- «Datos de {analyticsData.metadata?.timeRange} días • {analyticsData.kpiData.current.total…} usuarios» — AnalyticsVisualization · l.198
+- «Usuario: {data.userId}» — AnalyticsVisualization · l.432, when `active && payload && payload.length`
+- «Evaluaciones: {data.quizzesCompleted}» — AnalyticsVisualization · l.433, when `active && payload && payload.length`
+- «Puntaje Promedio: {data.avgScore} %» — AnalyticsVisualization · l.434, when `active && payload && payload.length`
+- «Tiempo Promedio: {data.timeSpent} min» — AnalyticsVisualization · l.435, when `active && payload && payload.length`
+- «Tendencia: + {data.improvementTrend} %» — AnalyticsVisualization · l.436, when `active && payload && payload.length`
+- «Generando insights basados en datos...» — AnalyticsVisualization · l.541, when `!(automaticInsights.length > 0)`
+- «Los insights aparecerán cuando haya suficientes datos» — AnalyticsVisualization · l.542, when `!(automaticInsights.length > 0)`
 
 ### components/reports/CollapsibleSection.tsx
 
@@ -1454,6 +1456,22 @@ Used by: `/detailed-reports`
 | Kind | What | Where |
 |---|---|---|
 | timer | `setTimeout(…, delay)` | useDebounce · l.7 |
+
+### lib/colorAlpha.ts
+
+Used by: `/detailed-reports`, `/reports`
+
+**Messages set on the page** (1)
+
+| Text | Set by | When | Where |
+|---|---|---|---|
+| «withAlpha expects two hex characters, got "{hh}"» | `throw (shown by whoever catches it)` | `!TWO_HEX.test(hh)` | alphaFromHex · l.15 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `withAlpha()` | «rgb(var({named[1]}) / {alpha})» | withAlpha · l.22 |
 
 ### lib/exportUtils.ts
 

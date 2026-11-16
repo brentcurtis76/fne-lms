@@ -1,6 +1,6 @@
 # Charts on the platform
 
-Written by `scripts/redesign/inventory.mjs` from commit `3cf1440a5`. For the later proposal of chart colours: the approved look fixes colours for one series only (DESIGN.md section 6).
+Written by `scripts/redesign/inventory.mjs` from commit `007807e90`. For the later proposal of chart colours: the approved look fixes colours for one series only (DESIGN.md section 6).
 
 A series is one set of bars, one line, one area or one shape. A pie has one series and several slices.
 
@@ -14,28 +14,28 @@ A series is one set of bars, one line, one area or one shape. A pie has one seri
 | /admin/qa/load-tests | `pages/admin/qa/load-tests.tsx` l.672 | LineChart | Line `response_time_p95`; Line `response_time_p99`; Line `error_rate` | 3 | `#fbbf24`, `#f59e0b`, `#6b7280` | `!(loading) && stats && stats.total_tests > 0 && trends.length > 1` |
 | /community/transformation/report (to be deleted) | `pages/community/transformation/report.tsx` l.179 | RadarChart | Radar `level` «Nivel Promedio» | 1 | `{COLORS.brand_blue}` |  |
 | /community/transformation/report (to be deleted) | `pages/community/transformation/report.tsx` l.206 | BarChart | Bar `level` (slices: one colour per data row) | 1 | per slice |  |
-| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.619 | BarChart | Bar `completed` «Completadas»; Bar `cancelled` «Canceladas»; Bar `other` «Otras» | 3 | `#10B981`, `#EF4444`, `#9CA3AF` |  |
-| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.636 | PieChart | Pie `count` (slices: one colour per data row) | 1 | per slice |  |
-| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.661 | PieChart | Pie `count` (slices: one colour per data row) | 1 | per slice |  |
-| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.686 | AreaChart | Area `avg_attendance_rate` «Asistencia (%)» | 1 | `{FNE_COLORS.brand_accent_light}` |  |
-| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.707 | BarChart | Bar `total` «Total»; Bar `completed` «Completadas» | 2 | `#3B82F6`, `#10B981` | `isAdmin && analyticsData.sessions_by_school.length > 0` |
-| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.734 | BarChart | Bar `sessions_led` «Sesiones dirigidas» | 1 | `{FNE_COLORS.brand_accent}` | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |
+| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.620 | BarChart | Bar `completed` «Completadas»; Bar `cancelled` «Canceladas»; Bar `other` «Otras» | 3 | `rgb(var(--color-legacy-10b981))`, `rgb(var(--color-red-500))`, `rgb(var(--color-gray-400))` |  |
+| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.637 | PieChart | Pie `count` (slices: one colour per data row) | 1 | per slice |  |
+| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.662 | PieChart | Pie `count` (slices: one colour per data row) | 1 | per slice |  |
+| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.687 | AreaChart | Area `avg_attendance_rate` «Asistencia (%)» | 1 | `{FNE_COLORS.brand_accent_light}` |  |
+| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.708 | BarChart | Bar `total` «Total»; Bar `completed` «Completadas» | 2 | `rgb(var(--color-blue-500))`, `rgb(var(--color-legacy-10b981))` | `isAdmin && analyticsData.sessions_by_school.length > 0` |
+| /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.735 | BarChart | Bar `sessions_led` «Sesiones dirigidas» | 1 | `{FNE_COLORS.brand_accent}` | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |
 | /directivo/assessments/dashboard | `pages/directivo/assessments/dashboard.tsx` l.453 | BarChart | Bar `score` (slices: one colour per data row) | 1 | per slice | `!(!hasResults) && activeTab === 'overview'` |
-| /directivo/assessments/dashboard | `pages/directivo/assessments/dashboard.tsx` l.484 | RadarChart | Radar `score` «Promedio» | 1 | `#2563eb` | `!(!hasResults) && activeTab === 'overview' && radarData.length >= 3` |
+| /directivo/assessments/dashboard | `pages/directivo/assessments/dashboard.tsx` l.484 | RadarChart | Radar `score` «Promedio» | 1 | `rgb(var(--color-blue-600))` | `!(!hasResults) && activeTab === 'overview' && radarData.length >= 3` |
 | /directivo/assessments/dashboard | `pages/directivo/assessments/dashboard.tsx` l.547 | PieChart | Pie `value` (slices: one colour per data row) | 1 | per slice | `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0` |
 | /school/migration-plan | `pages/school/migration-plan/index.tsx` l.546 | PieChart | Pie `value` (slices: 2) | 1 | `none` | `grades.length > 0 && each [1, 2, 3, 4, 5]` |
 | /demo/assessments/[templateId]/results, /docente/assessments/[instanceId]/results | `components/assessment/results/ResultsCharts.tsx` l.44 | BarChart | Bar `score` | 1 | `#fbbf24` |  |
 | /demo/assessments/[templateId]/results, /docente/assessments/[instanceId]/results | `components/assessment/results/ResultsCharts.tsx` l.67 | RadarChart | Radar `score` «Puntuación» | 1 | `#fbbf24` | `moduleScores.length >= 3` |
 | /reporte-horas | `components/hours/SchoolHoursReport.tsx` l.91 | PieChart | Pie `value` (slices: one colour per data row) | 1 | per slice |  |
-| /detailed-reports | `components/reports/AnalyticsDashboard.tsx` l.383 | LineChart | Line `lessons_completed` «Lecciones Completadas»; Line `unique_users` «Usuarios Activos» | 2 | `{FNE_COLORS.primary}`, `{FNE_COLORS.secondary}` |  |
-| /detailed-reports | `components/reports/AnalyticsDashboard.tsx` l.424 | AreaChart | Area `total_time_hours` «Total Horas»; Area `avg_time_per_user` «Promedio por Usuario» | 2 | `{'${FNE_COLORS.success}30'}`, `{'${FNE_COLORS.info}30'}` |  |
-| /reports | `components/reports/AnalyticsVisualization.tsx` l.268 | LineChart | Line `completedLessons` «Lecciones Completadas»; Line `activeUsers` «Usuarios Activos» | 2 | `{FNE_COLORS.primary}`, `{FNE_COLORS.secondary}` |  |
-| /reports | `components/reports/AnalyticsVisualization.tsx` l.310 | BarChart | Bar `completionRate` «Tasa de Completación (%)» | 1 | `{FNE_COLORS.success}` |  |
-| /reports | `components/reports/AnalyticsVisualization.tsx` l.343 | BarChart | Bar `count` «Número de Estudiantes» | 1 | `{FNE_COLORS.info}` |  |
-| /reports | `components/reports/AnalyticsVisualization.tsx` l.370 | AreaChart | Area `totalHours` «Total Horas»; Area `avgHoursPerUser` «Promedio por Usuario» | 2 | `{'${FNE_COLORS.primary}80'}`, `{'${FNE_COLORS.secondary}80'}` |  |
-| /reports | `components/reports/AnalyticsVisualization.tsx` l.412 | ScatterChart | Scatter `avgScore` | 1 | `{FNE_COLORS.success}` |  |
-| /reports | `components/reports/LearningPathAnalytics.tsx` l.220 | BarChart | Bar `completionRate` «Tasa de Completación (%)» | 1 | `#3b82f6` | `ratedPaths.length > 0` |
-| /reports | `components/reports/LearningPathAnalytics.tsx` l.262 | LineChart | Line `completions` «Completaciones de curso»; Line `enrollments` «Nuevas asignaciones» | 2 | `#3b82f6`, `#10b981` | `data.completionTrends.length > 0` |
+| /detailed-reports | `components/reports/AnalyticsDashboard.tsx` l.384 | LineChart | Line `lessons_completed` «Lecciones Completadas»; Line `unique_users` «Usuarios Activos» | 2 | `{FNE_COLORS.primary}`, `{FNE_COLORS.secondary}` |  |
+| /detailed-reports | `components/reports/AnalyticsDashboard.tsx` l.425 | AreaChart | Area `total_time_hours` «Total Horas»; Area `avg_time_per_user` «Promedio por Usuario» | 2 | `{withAlpha(FNE_COLORS.success, '30')}`, `{withAlpha(FNE_COLORS.info, '30')}` |  |
+| /reports | `components/reports/AnalyticsVisualization.tsx` l.269 | LineChart | Line `completedLessons` «Lecciones Completadas»; Line `activeUsers` «Usuarios Activos» | 2 | `{FNE_COLORS.primary}`, `{FNE_COLORS.secondary}` |  |
+| /reports | `components/reports/AnalyticsVisualization.tsx` l.311 | BarChart | Bar `completionRate` «Tasa de Completación (%)» | 1 | `{FNE_COLORS.success}` |  |
+| /reports | `components/reports/AnalyticsVisualization.tsx` l.344 | BarChart | Bar `count` «Número de Estudiantes» | 1 | `{FNE_COLORS.info}` |  |
+| /reports | `components/reports/AnalyticsVisualization.tsx` l.371 | AreaChart | Area `totalHours` «Total Horas»; Area `avgHoursPerUser` «Promedio por Usuario» | 2 | `{'${FNE_COLORS.primary}80'}`, `{'${FNE_COLORS.secondary}80'}` |  |
+| /reports | `components/reports/AnalyticsVisualization.tsx` l.413 | ScatterChart | Scatter `avgScore` | 1 | `{FNE_COLORS.success}` |  |
+| /reports | `components/reports/LearningPathAnalytics.tsx` l.220 | BarChart | Bar `completionRate` «Tasa de Completación (%)» | 1 | `rgb(var(--color-blue-500))` | `ratedPaths.length > 0` |
+| /reports | `components/reports/LearningPathAnalytics.tsx` l.262 | LineChart | Line `completions` «Completaciones de curso»; Line `enrollments` «Nuevas asignaciones» | 2 | `rgb(var(--color-blue-500))`, `rgb(var(--color-legacy-10b981))` | `data.completionTrends.length > 0` |
 | no screen uses this file | `components/reports/ResponsiveChart.tsx` l.118 | LineChart | Line `{key}` (one per item of a list) | varies (one per item of a list) | `{colors[index % colors.length]}` | `type === 'line'` |
 | no screen uses this file | `components/reports/ResponsiveChart.tsx` l.140 | AreaChart | Area `{key}` (one per item of a list) | varies (one per item of a list) | `{'${colors[index % colors.length]}30'}` | `type === 'area'` |
 | no screen uses this file | `components/reports/ResponsiveChart.tsx` l.161 | BarChart | Bar `{key}` (one per item of a list) | varies (one per item of a list) | `{colors[index % colors.length]}` | `type === 'bar'` |

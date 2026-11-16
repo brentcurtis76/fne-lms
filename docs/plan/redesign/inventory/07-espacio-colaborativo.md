@@ -1,9 +1,9 @@
 # Espacio Colaborativo y comunidades
 
 Area `07-espacio-colaborativo`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3cf1440a5` (2026-11-16).
+Read from commit `007807e90` (2026-11-16).
 
-4 screen files, 18 API files, 66 pieces.
+4 screen files, 18 API files, 67 pieces.
 
 ## Screens
 
@@ -817,6 +817,7 @@ File `pages/community/workspace.tsx` · 2684 lines · frame: MainLayout
 - `components/ui/dialog.tsx`
 - `components/workspace/WorkspaceSessionsTab.tsx`
 - `components/workspace/WorkspaceTabNavigation.tsx`
+- `lib/colorAlpha.ts`
 - `lib/community/fetchCommunityMembers.ts`
 - `lib/meetings/audience-labels.ts`
 - `lib/meetings/constants.ts`
@@ -1156,105 +1157,105 @@ Used by: `/community/workspace`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «{folder.folder_name}» | h3 |  | FolderCard · l.211 |
-| «{document.title}» | h3 |  | DocumentCard · l.286 |
-| «No hay documentos» | h3 | `folders.length === 0 && documents.length === 0` | DocumentGrid · l.525 |
-| «Carpetas» | h3 | `viewMode === 'grid' && folders.length > 0` | DocumentGrid · l.542 |
-| «Documentos ( {documents.length} )» | h3 | `viewMode === 'grid' && documents.length > 0` | DocumentGrid · l.555 |
-| «Carpetas» | h3 | `folders.length > 0` | DocumentGrid · l.581 |
-| «Documentos ( {documents.length} )» | h3 | `documents.length > 0` | DocumentGrid · l.594 |
+| «{folder.folder_name}» | h3 |  | FolderCard · l.212 |
+| «{document.title}» | h3 |  | DocumentCard · l.287 |
+| «No hay documentos» | h3 | `folders.length === 0 && documents.length === 0` | DocumentGrid · l.526 |
+| «Carpetas» | h3 | `viewMode === 'grid' && folders.length > 0` | DocumentGrid · l.543 |
+| «Documentos ( {documents.length} )» | h3 | `viewMode === 'grid' && documents.length > 0` | DocumentGrid · l.556 |
+| «Carpetas» | h3 | `folders.length > 0` | DocumentGrid · l.582 |
+| «Documentos ( {documents.length} )» | h3 | `documents.length > 0` | DocumentGrid · l.595 |
 
 **Buttons** (8)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Ver» | `{() => { onDocumentAction('view', document); setActiveDropdown(null); }}` |  |  |  | DocumentActionsDropdown · l.122 |
-| «Descargar» | `{() => { onDocumentAction('download', document); setActiveDropdown(null); }}` |  |  |  | DocumentActionsDropdown · l.133 |
-| «Compartir» | `{() => { onDocumentAction('share', document); setActiveDropdown(null); }}` | `permissions.can_share` |  |  | DocumentActionsDropdown · l.145 |
-| «Editar» | `{() => { onDocumentAction('edit', document); setActiveDropdown(null); }}` | `canEdit` |  |  | DocumentActionsDropdown · l.158 |
-| «Mover» | `{() => { onDocumentAction('move', document); setActiveDropdown(null); }}` |  |  |  | DocumentActionsDropdown · l.170 |
-| «Eliminar» | `{() => { onDocumentAction('delete', document); setActiveDropdown(null); }}` | `canDelete` |  |  | DocumentActionsDropdown · l.184 |
-| «[icon MoreVertical]» | `{(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === document.id …}` |  |  |  | DocumentCard · l.247 |
-| «[icon MoreVertical]» | `{(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === document.id …}` |  |  |  | DocumentRow · l.412 |
+| «Ver» | `{() => { onDocumentAction('view', document); setActiveDropdown(null); }}` |  |  |  | DocumentActionsDropdown · l.123 |
+| «Descargar» | `{() => { onDocumentAction('download', document); setActiveDropdown(null); }}` |  |  |  | DocumentActionsDropdown · l.134 |
+| «Compartir» | `{() => { onDocumentAction('share', document); setActiveDropdown(null); }}` | `permissions.can_share` |  |  | DocumentActionsDropdown · l.146 |
+| «Editar» | `{() => { onDocumentAction('edit', document); setActiveDropdown(null); }}` | `canEdit` |  |  | DocumentActionsDropdown · l.159 |
+| «Mover» | `{() => { onDocumentAction('move', document); setActiveDropdown(null); }}` |  |  |  | DocumentActionsDropdown · l.171 |
+| «Eliminar» | `{() => { onDocumentAction('delete', document); setActiveDropdown(null); }}` | `canDelete` |  |  | DocumentActionsDropdown · l.185 |
+| «[icon MoreVertical]» | `{(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === document.id …}` |  |  |  | DocumentCard · l.248 |
+| «[icon MoreVertical]» | `{(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === document.id …}` |  |  |  | DocumentRow · l.413 |
 
 **Other things that react to a click** (3)
 
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
-| `div` | «{folder.folder_name} {folder.document_count} documentos {folder.subfolder_count} subcarpetas» | `{() => onFolderClick(folder)}` |  | FolderCard · l.202 |
-| `div` | «{getFileIcon(document.mime_type)} {document.title} {document.description} / Sin descripción [{tag} [+ {document.tags.le…» | `{() => onDocumentClick(document)}` |  | DocumentCard · l.260 |
-| `div` | «{getFileIcon(document.mime_type)} {document.title} {document.file_name}» | `{() => onDocumentClick(document)}` |  | DocumentRow · l.356 |
+| `div` | «{folder.folder_name} {folder.document_count} documentos {folder.subfolder_count} subcarpetas» | `{() => onFolderClick(folder)}` |  | FolderCard · l.203 |
+| `div` | «{getFileIcon(document.mime_type)} {document.title} {document.description} / Sin descripción [{tag} [+ {document.tags.le…» | `{() => onDocumentClick(document)}` |  | DocumentCard · l.261 |
+| `div` | «{getFileIcon(document.mime_type)} {document.title} {document.file_name}» | `{() => onDocumentClick(document)}` |  | DocumentRow · l.357 |
 
 **Fields** (3)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-|  | checkbox |  |  |  |  | DocumentCard · l.237 |
-|  | checkbox |  |  |  |  | DocumentRow · l.346 |
-|  | checkbox |  |  | `documents.length > 0` |  | DocumentGrid · l.609 |
+|  | checkbox |  |  |  |  | DocumentCard · l.238 |
+|  | checkbox |  |  |  |  | DocumentRow · l.347 |
+|  | checkbox |  |  | `documents.length > 0` |  | DocumentGrid · l.610 |
 
 **Embedded media** (2)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| Image |  |  | getFileIcon · l.90 |
-| img · alt {document.title} · {document.thumbnail_url} | `document.thumbnail_url` |  | DocumentCard · l.267 |
+| Image |  |  | getFileIcon · l.91 |
+| img · alt {document.title} · {document.thumbnail_url} | `document.thumbnail_url` |  | DocumentCard · l.268 |
 
 **Table columns** (12)
 
 | Text | Shown when | Where |
 |---|---|---|
-| «Documento» | `loading` | DocumentGrid · l.459 |
-| «Tamaño» | `loading` | DocumentGrid · l.462 |
-| «Subido por» | `loading` | DocumentGrid · l.465 |
-| «Fecha» | `loading` | DocumentGrid · l.468 |
-| «Estadísticas» | `loading` | DocumentGrid · l.471 |
-| «Acciones» | `loading` | DocumentGrid · l.474 |
-| «Documento» | `documents.length > 0` | DocumentGrid · l.616 |
-| «Tamaño» | `documents.length > 0` | DocumentGrid · l.619 |
-| «Subido por» | `documents.length > 0` | DocumentGrid · l.622 |
-| «Fecha» | `documents.length > 0` | DocumentGrid · l.625 |
-| «Estadísticas» | `documents.length > 0` | DocumentGrid · l.628 |
-| «Acciones» | `documents.length > 0` | DocumentGrid · l.631 |
+| «Documento» | `loading` | DocumentGrid · l.460 |
+| «Tamaño» | `loading` | DocumentGrid · l.463 |
+| «Subido por» | `loading` | DocumentGrid · l.466 |
+| «Fecha» | `loading` | DocumentGrid · l.469 |
+| «Estadísticas» | `loading` | DocumentGrid · l.472 |
+| «Acciones» | `loading` | DocumentGrid · l.475 |
+| «Documento» | `documents.length > 0` | DocumentGrid · l.617 |
+| «Tamaño» | `documents.length > 0` | DocumentGrid · l.620 |
+| «Subido por» | `documents.length > 0` | DocumentGrid · l.623 |
+| «Fecha» | `documents.length > 0` | DocumentGrid · l.626 |
+| «Estadísticas» | `documents.length > 0` | DocumentGrid · l.629 |
+| «Acciones» | `documents.length > 0` | DocumentGrid · l.632 |
 
 **Access checks in the code** (1)
 
 | Line of code | Where |
 |---|---|
-| `canEdit = canUserEditDocument(document, userId, permissions)` | DocumentActionsDropdown · l.117 |
+| `canEdit = canUserEditDocument(document, userId, permissions)` | DocumentActionsDropdown · l.118 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
 
 | Kind | What | Where |
 |---|---|---|
-| listener | `document.addEventListener('click')` | DocumentGrid · l.78 |
+| listener | `document.addEventListener('click')` | DocumentGrid · l.79 |
 
 **Values shown from data** (15)
 
-- `{getFileIcon(document.mime_type)}` — DocumentCard · l.277, when `!(document.thumbnail_url)`
-- `{tag}` — DocumentCard · l.297, when `document.tags.length > 0 && each document.tags.slice(0, 2)`
-- `+ {document.tags.length - 2}` — DocumentCard · l.305, when `document.tags.length > 0 && document.tags.length > 2`
-- `{document.formatted_size}` — DocumentCard · l.312
-- `{document.relative_time}` — DocumentCard · l.313
-- `{document.view_count}` — DocumentCard · l.320
-- `{document.download_count}` — DocumentCard · l.324
-- `{getFileIcon(document.mime_type)}` — DocumentRow · l.360
-- `{document.title}` — DocumentRow · l.364
-- `{document.file_name}` — DocumentRow · l.367
-- `{document.formatted_size}` — DocumentRow · l.375
-- `{document.uploader_name}` — DocumentRow · l.383
-- `{document.relative_time}` — DocumentRow · l.391
-- `{document.view_count}` — DocumentRow · l.400
-- `{document.download_count}` — DocumentRow · l.404
+- `{getFileIcon(document.mime_type)}` — DocumentCard · l.278, when `!(document.thumbnail_url)`
+- `{tag}` — DocumentCard · l.298, when `document.tags.length > 0 && each document.tags.slice(0, 2)`
+- `+ {document.tags.length - 2}` — DocumentCard · l.306, when `document.tags.length > 0 && document.tags.length > 2`
+- `{document.formatted_size}` — DocumentCard · l.313
+- `{document.relative_time}` — DocumentCard · l.314
+- `{document.view_count}` — DocumentCard · l.321
+- `{document.download_count}` — DocumentCard · l.325
+- `{getFileIcon(document.mime_type)}` — DocumentRow · l.361
+- `{document.title}` — DocumentRow · l.365
+- `{document.file_name}` — DocumentRow · l.368
+- `{document.formatted_size}` — DocumentRow · l.376
+- `{document.uploader_name}` — DocumentRow · l.384
+- `{document.relative_time}` — DocumentRow · l.392
+- `{document.view_count}` — DocumentRow · l.401
+- `{document.download_count}` — DocumentRow · l.405
 
 **Other texts on screen** (6)
 
-- «{folder.document_count} documentos» — FolderCard · l.215
-- «{folder.subfolder_count} subcarpetas» — FolderCard · l.216
-- «{document.description} / Sin descripción» — DocumentCard · l.289
-- «Comienza subiendo tu primer documento o creando una carpeta.» — DocumentGrid · l.529, when `folders.length === 0 && documents.length === 0`
-- «{selectedDocuments.length} seleccionados» — DocumentGrid · l.559, when `viewMode === 'grid' && documents.length > 0 && selectedDocuments.length > 0`
-- «{selectedDocuments.length} seleccionados» — DocumentGrid · l.598, when `documents.length > 0 && selectedDocuments.length > 0`
+- «{folder.document_count} documentos» — FolderCard · l.216
+- «{folder.subfolder_count} subcarpetas» — FolderCard · l.217
+- «{document.description} / Sin descripción» — DocumentCard · l.290
+- «Comienza subiendo tu primer documento o creando una carpeta.» — DocumentGrid · l.530, when `folders.length === 0 && documents.length === 0`
+- «{selectedDocuments.length} seleccionados» — DocumentGrid · l.560, when `viewMode === 'grid' && documents.length > 0 && selectedDocuments.length > 0`
+- «{selectedDocuments.length} seleccionados» — DocumentGrid · l.599, when `documents.length > 0 && selectedDocuments.length > 0`
 
 ### components/documents/DocumentPreview.tsx
 
@@ -3398,6 +3399,22 @@ Used by: `/admin/growth-communities/[id]/members`, `/admin/growth-communities`
 |---|---|---|---|
 | «Server configuration error» | `throw (shown by whoever catches it)` | `!supabaseUrl \|\| !serviceRoleKey` | createServiceRoleClient · l.113 |
 | «Failed to initialize admin connection» | `throw (shown by whoever catches it)` |  | createServiceRoleClient · l.125 |
+
+### lib/colorAlpha.ts
+
+Used by: `/community/workspace`
+
+**Messages set on the page** (1)
+
+| Text | Set by | When | Where |
+|---|---|---|---|
+| «withAlpha expects two hex characters, got "{hh}"» | `throw (shown by whoever catches it)` | `!TWO_HEX.test(hh)` | alphaFromHex · l.15 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `withAlpha()` | «rgb(var({named[1]}) / {alpha})» | withAlpha · l.22 |
 
 ### lib/community/fetchCommunityMembers.ts
 

@@ -1,9 +1,9 @@
 # Sesiones y consultorías (sessions, approvals, video meetings)
 
 Area `06-sesiones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3cf1440a5` (2026-11-16).
+Read from commit `007807e90` (2026-11-16).
 
-11 screen files, 34 API files, 30 pieces.
+11 screen files, 34 API files, 31 pieces.
 
 ## Screens
 
@@ -17,7 +17,7 @@ Read from commit `3cf1440a5` (2026-11-16).
 | `/admin/sessions` | `pages/admin/sessions/index.tsx` | 1175 | Consultorías › Sesiones |  |
 | `/consultor/sessions/[id]` | `pages/consultor/sessions/[id].tsx` | 1539 | — |  |
 | `/consultor/sessions` | `pages/consultor/sessions/index.tsx` | 557 | Mi Trabajo › Mis Sesiones |  |
-| `/consultor/sessions/reports` | `pages/consultor/sessions/reports.tsx` | 889 | Mi Trabajo › Mis Reportes; Consultorías › Reportes |  |
+| `/consultor/sessions/reports` | `pages/consultor/sessions/reports.tsx` | 890 | Mi Trabajo › Mis Reportes; Consultorías › Reportes |  |
 | `/meet/diag` | `pages/meet/diag.tsx` | 1038 | — | Looks like a leftover but is in use |
 | `/meet/session/[id]` | `pages/meet/session/[id].tsx` | 193 | — |  |
 
@@ -1346,7 +1346,7 @@ File `pages/consultor/sessions/[id].tsx` · 1539 lines · frame: MainLayout
   - l.283 `router.push → /login`
   - l.621 `canEdit = isFacilitator \|\| userRole === 'admin'`
   - l.626 `isReadOnly = session.status === 'completada' \|\| session.status === 'cancelada'`
-- Linked from: `components/dashboard/unified/UpcomingSessionsCard.tsx:77`, `components/workspace/WorkspaceSessionsTab.tsx:235`, `components/workspace/WorkspaceSessionsTab.tsx:238`, `lib/notifications/catalog.ts:195`, `pages/consultor/sessions/index.tsx:319`, `pages/consultor/sessions/reports.tsx:816`, `pages/consultor/sessions/reports.tsx:820`
+- Linked from: `components/dashboard/unified/UpcomingSessionsCard.tsx:77`, `components/workspace/WorkspaceSessionsTab.tsx:235`, `components/workspace/WorkspaceSessionsTab.tsx:238`, `lib/notifications/catalog.ts:195`, `pages/consultor/sessions/index.tsx:319`, `pages/consultor/sessions/reports.tsx:817`, `pages/consultor/sessions/reports.tsx:821`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/session-reminders.spec.ts`; unit tests of the page: `__tests__/pages/consultor/sessions/detail.test.tsx`.
 - QA scenarios that name this address: lider_comunidad 1.
 
@@ -1894,7 +1894,7 @@ File `pages/consultor/sessions/index.tsx` · 557 lines · frame: MainLayout
 
 ## /consultor/sessions/reports
 
-File `pages/consultor/sessions/reports.tsx` · 889 lines · frame: MainLayout
+File `pages/consultor/sessions/reports.tsx` · 890 lines · frame: MainLayout
 
 ### Who reaches it
 
@@ -1902,11 +1902,11 @@ File `pages/consultor/sessions/reports.tsx` · 889 lines · frame: MainLayout
 - Menu: Consultorías › «Reportes» → `/consultor/sessions/reports` — admin only; the group: admin or consultor (`Sidebar.tsx` l.509)
 - Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
-  - l.272 `router.push → /login  (when !session?.user)`
-  - l.276 `role = await getUserPrimaryRole(session.user.id)`
-  - l.278 `router.push → /dashboard  (when !role \|\| !['admin', 'consultor'].includes(role))`
-  - l.338 `isAdmin = userRole === 'admin'`
-  - l.379 `router.push → /dashboard  (when error)`
+  - l.273 `router.push → /login  (when !session?.user)`
+  - l.277 `role = await getUserPrimaryRole(session.user.id)`
+  - l.279 `router.push → /dashboard  (when !role \|\| !['admin', 'consultor'].includes(role))`
+  - l.339 `isAdmin = userRole === 'admin'`
+  - l.380 `router.push → /dashboard  (when error)`
 - Linked from: `components/layout/Sidebar.tsx:189`, `components/layout/Sidebar.tsx:511`, `lib/notifications/catalog.ts:182`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 5, community_manager 1, consultor 7, equipo_directivo 6, lider_comunidad 2, lider_generacion 3, supervisor_de_red 6.
@@ -1929,203 +1929,203 @@ File `pages/consultor/sessions/reports.tsx` · 889 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Acceso Denegado» | h2 | `error` | SessionReportsPage · l.374 |
-| «Reportes de Sesiones» | h1 |  | renderHeader · l.429 |
-| «Filtros» | h3 |  | renderFilters · l.454 |
-| «Sesiones por Mes» | h3 |  | renderCharts · l.617 |
-| «Distribución por Estado» | h3 |  | renderCharts · l.634 |
-| «Distribución por Modalidad» | h3 |  | renderCharts · l.659 |
-| «Tendencia de Asistencia» | h3 |  | renderCharts · l.684 |
-| «Sesiones por Escuela» | h3 | `isAdmin && analyticsData.sessions_by_school.length > 0` | renderCharts · l.705 |
-| «Top Consultores» | h3 | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` | renderCharts · l.732 |
-| «Sesiones Recientes» | h3 |  | renderRecentSessionsTable · l.776 |
+| «Acceso Denegado» | h2 | `error` | SessionReportsPage · l.375 |
+| «Reportes de Sesiones» | h1 |  | renderHeader · l.430 |
+| «Filtros» | h3 |  | renderFilters · l.455 |
+| «Sesiones por Mes» | h3 |  | renderCharts · l.618 |
+| «Distribución por Estado» | h3 |  | renderCharts · l.635 |
+| «Distribución por Modalidad» | h3 |  | renderCharts · l.660 |
+| «Tendencia de Asistencia» | h3 |  | renderCharts · l.685 |
+| «Sesiones por Escuela» | h3 | `isAdmin && analyticsData.sessions_by_school.length > 0` | renderCharts · l.706 |
+| «Top Consultores» | h3 | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` | renderCharts · l.733 |
+| «Sesiones Recientes» | h3 |  | renderRecentSessionsTable · l.777 |
 
 **Buttons** (1)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Volver al Dashboard» | `{() => router.push('/dashboard')}` | `error` |  |  | SessionReportsPage · l.378 |
+| «Volver al Dashboard» | `{() => router.push('/dashboard')}` | `error` |  |  | SessionReportsPage · l.379 |
 
 **Other things that react to a click** (1)
 
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
-| `tr` | «{format(parseISO(session.session_dat…} {session.title} {session.school_name} {session.gc_name} {badge.label} {session.a…» · also `onKeyDown={(e) => { if (e.key === 'Enter' \|\| e.key === ' ') { e.preventDefault(); router.p…}` | `{() => router.push('/consultor/sessions/${session.id}')}` | `each analyticsData.recent_sessions` | renderRecentSessionsTable · l.811 |
+| `tr` | «{format(parseISO(session.session_dat…} {session.title} {session.school_name} {session.gc_name} {badge.label} {session.a…» · also `onKeyDown={(e) => { if (e.key === 'Enter' \|\| e.key === ' ') { e.preventDefault(); router.p…}` | `{() => router.push('/consultor/sessions/${session.id}')}` | `each analyticsData.recent_sessions` | renderRecentSessionsTable · l.812 |
 
 **Fields** (4)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Desde» | date |  |  |  | `id=date-from (id used by code)` | renderFilters · l.459 |
-| «Hasta» | date |  |  |  | `id=date-to (id used by code)` | renderFilters · l.469 |
-| «Escuela» | select |  | «Todas», «(lista) {s.school_name}» |  | `id=school-filter (id used by code)` | renderFilters · l.479 |
-| «Consultor» | select |  | «Todos», «(lista) {c.name}» | `isAdmin && consultants.length > 0` | `id=consultant-filter (id used by code)` | renderFilters · l.496 |
+| «Desde» | date |  |  |  | `id=date-from (id used by code)` | renderFilters · l.460 |
+| «Hasta» | date |  |  |  | `id=date-to (id used by code)` | renderFilters · l.470 |
+| «Escuela» | select |  | «Todas», «(lista) {s.school_name}» |  | `id=school-filter (id used by code)` | renderFilters · l.480 |
+| «Consultor» | select |  | «Todos», «(lista) {c.name}» | `isAdmin && consultants.length > 0` | `id=consultant-filter (id used by code)` | renderFilters · l.497 |
 
 **Table columns** (6)
 
 | Text | Shown when | Where |
 |---|---|---|
-| «Fecha» |  | renderRecentSessionsTable · l.787 |
-| «Título» |  | renderRecentSessionsTable · l.790 |
-| «Escuela» |  | renderRecentSessionsTable · l.793 |
-| «Comunidad» |  | renderRecentSessionsTable · l.796 |
-| «Estado» |  | renderRecentSessionsTable · l.799 |
-| «Asistencia» |  | renderRecentSessionsTable · l.802 |
+| «Fecha» |  | renderRecentSessionsTable · l.788 |
+| «Título» |  | renderRecentSessionsTable · l.791 |
+| «Escuela» |  | renderRecentSessionsTable · l.794 |
+| «Comunidad» |  | renderRecentSessionsTable · l.797 |
+| «Estado» |  | renderRecentSessionsTable · l.800 |
+| «Asistencia» |  | renderRecentSessionsTable · l.803 |
 
 **Toasts** (2)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error cargando datos» | `!response.ok` | fetchAnalytics · l.325 |
-| error | «Error al cargar datos de reportes» |  | fetchAnalytics · l.332 |
+| error | «Error cargando datos» | `!response.ok` | fetchAnalytics · l.326 |
+| error | «Error al cargar datos de reportes» |  | fetchAnalytics · l.333 |
 
 **Messages set on the page** (1)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Error al cargar los datos del usuario» | `setError` |  | initAuth · l.285 |
+| «Error al cargar los datos del usuario» | `setError` |  | initAuth · l.286 |
 
 **Charts** (6)
 
 | Chart | Series | Shown when | Where |
 |---|---|---|---|
-| BarChart | Bar `completed` «Completadas»; Bar `cancelled` «Canceladas»; Bar `other` «Otras» |  | renderCharts · l.619 |
-| PieChart | Pie `count` (slices: one colour per data row) |  | renderCharts · l.636 |
-| PieChart | Pie `count` (slices: one colour per data row) |  | renderCharts · l.661 |
-| AreaChart | Area `avg_attendance_rate` «Asistencia (%)» |  | renderCharts · l.686 |
-| BarChart | Bar `total` «Total»; Bar `completed` «Completadas» | `isAdmin && analyticsData.sessions_by_school.length > 0` | renderCharts · l.707 |
-| BarChart | Bar `sessions_led` «Sesiones dirigidas» | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` | renderCharts · l.734 |
+| BarChart | Bar `completed` «Completadas»; Bar `cancelled` «Canceladas»; Bar `other` «Otras» |  | renderCharts · l.620 |
+| PieChart | Pie `count` (slices: one colour per data row) |  | renderCharts · l.637 |
+| PieChart | Pie `count` (slices: one colour per data row) |  | renderCharts · l.662 |
+| AreaChart | Area `avg_attendance_rate` «Asistencia (%)» |  | renderCharts · l.687 |
+| BarChart | Bar `total` «Total»; Bar `completed` «Completadas» | `isAdmin && analyticsData.sessions_by_school.length > 0` | renderCharts · l.708 |
+| BarChart | Bar `sessions_led` «Sesiones dirigidas» | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` | renderCharts · l.735 |
 
 **Moves to another page from code** (5)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login` | `router.push` | `!session?.user` | initAuth · l.272 |
-| `/dashboard` | `router.push` | `!role \|\| !['admin', 'consultor'].includes(role)` | initAuth · l.278 |
-| `/dashboard` | `router.push` | `error` | SessionReportsPage · l.379 |
-| `/consultor/sessions/[*]` | `router.push` | `each analyticsData.recent_sessions` | renderRecentSessionsTable · l.816 |
-| `/consultor/sessions/[*]` | `router.push` | `each analyticsData.recent_sessions && (e.key === 'Enter' \|\| e.key === ' ')` | renderRecentSessionsTable · l.820 |
+| `/login` | `router.push` | `!session?.user` | initAuth · l.273 |
+| `/dashboard` | `router.push` | `!role \|\| !['admin', 'consultor'].includes(role)` | initAuth · l.279 |
+| `/dashboard` | `router.push` | `error` | SessionReportsPage · l.380 |
+| `/consultor/sessions/[*]` | `router.push` | `each analyticsData.recent_sessions` | renderRecentSessionsTable · l.817 |
+| `/consultor/sessions/[*]` | `router.push` | `each analyticsData.recent_sessions && (e.key === 'Enter' \|\| e.key === ' ')` | renderRecentSessionsTable · l.821 |
 
 **Access checks in the code** (2)
 
 | Line of code | Where |
 |---|---|
-| `role = await getUserPrimaryRole(session.user.id)` | initAuth · l.276 |
-| `isAdmin = userRole === 'admin'` | SessionReportsPage · l.338 |
+| `role = await getUserPrimaryRole(session.user.id)` | initAuth · l.277 |
+| `isAdmin = userRole === 'admin'` | SessionReportsPage · l.339 |
 
 **Draws nothing when** (2)
 
 | Condition | Where |
 |---|---|
-| `!router.isReady` | SessionReportsPage · l.264 |
-| `!userRole` | SessionReportsPage · l.295 |
+| `!router.isReady` | SessionReportsPage · l.265 |
+| `!userRole` | SessionReportsPage · l.296 |
 
 **Pieces placed here, with the texts and settings handed to them** (58)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` |  | `loading` |  | SessionReportsPage · l.345 |
-| `LoadingSkeleton` |  | `loading` |  | SessionReportsPage · l.348 |
-| `LoadingSkeleton` |  | `loading && each Array.from({ length: 4 })` |  | SessionReportsPage · l.351 |
-| `LoadingSkeleton` |  | `loading && each Array.from({ length: 4 })` |  | SessionReportsPage · l.356 |
-| `MainLayout` |  | `error` |  | SessionReportsPage · l.370 |
-| `MainLayout` |  | `!dataLoading && analyticsData && analyticsData.kpis.total_sessions === 0` |  | SessionReportsPage · l.396 |
-| `HelpButton` | sectionId: mis-reportes |  |  | renderHeader · l.430 |
-| `KPICard` | title: Total Sesiones |  |  | renderKPICards · l.527 |
-| `KPICard` | title: Tasa de Completación |  |  | renderKPICards · l.533 |
-| `KPICard` | title: Horas Programadas |  |  | renderKPICards · l.539 |
-| `KPICard` | title: Asistencia Promedio |  |  | renderKPICards · l.545 |
-| `KPICard` | title: Pendientes de Informe |  |  | renderKPICards · l.555 |
-| `KPICard` | title: Próximas Sesiones |  |  | renderKPICards · l.561 |
-| `KPICard` | title: Sesiones Canceladas |  |  | renderKPICards · l.567 |
-| `ResponsiveContainer` |  |  |  | renderCharts · l.618 |
-| `CartesianGrid` | strokeDasharray: 3 3 |  |  | renderCharts · l.620 |
-| `XAxis` |  |  |  | renderCharts · l.621 |
-| `YAxis` |  |  |  | renderCharts · l.622 |
-| `Tooltip` |  |  |  | renderCharts · l.623 |
-| `Legend` |  |  |  | renderCharts · l.624 |
-| `Bar` |  |  |  | renderCharts · l.625 |
+| `MainLayout` |  | `loading` |  | SessionReportsPage · l.346 |
+| `LoadingSkeleton` |  | `loading` |  | SessionReportsPage · l.349 |
+| `LoadingSkeleton` |  | `loading && each Array.from({ length: 4 })` |  | SessionReportsPage · l.352 |
+| `LoadingSkeleton` |  | `loading && each Array.from({ length: 4 })` |  | SessionReportsPage · l.357 |
+| `MainLayout` |  | `error` |  | SessionReportsPage · l.371 |
+| `MainLayout` |  | `!dataLoading && analyticsData && analyticsData.kpis.total_sessions === 0` |  | SessionReportsPage · l.397 |
+| `HelpButton` | sectionId: mis-reportes |  |  | renderHeader · l.431 |
+| `KPICard` | title: Total Sesiones |  |  | renderKPICards · l.528 |
+| `KPICard` | title: Tasa de Completación |  |  | renderKPICards · l.534 |
+| `KPICard` | title: Horas Programadas |  |  | renderKPICards · l.540 |
+| `KPICard` | title: Asistencia Promedio |  |  | renderKPICards · l.546 |
+| `KPICard` | title: Pendientes de Informe |  |  | renderKPICards · l.556 |
+| `KPICard` | title: Próximas Sesiones |  |  | renderKPICards · l.562 |
+| `KPICard` | title: Sesiones Canceladas |  |  | renderKPICards · l.568 |
+| `ResponsiveContainer` |  |  |  | renderCharts · l.619 |
+| `CartesianGrid` | strokeDasharray: 3 3 |  |  | renderCharts · l.621 |
+| `XAxis` |  |  |  | renderCharts · l.622 |
+| `YAxis` |  |  |  | renderCharts · l.623 |
+| `Tooltip` |  |  |  | renderCharts · l.624 |
+| `Legend` |  |  |  | renderCharts · l.625 |
 | `Bar` |  |  |  | renderCharts · l.626 |
 | `Bar` |  |  |  | renderCharts · l.627 |
-| `ResponsiveContainer` |  |  |  | renderCharts · l.635 |
-| `Pie` | cx: 50% · cy: 50% |  |  | renderCharts · l.637 |
-| `Cell` |  | `each statusData` |  | renderCharts · l.648 |
-| `Tooltip` |  |  |  | renderCharts · l.651 |
-| `Legend` |  |  |  | renderCharts · l.652 |
-| `ResponsiveContainer` |  |  |  | renderCharts · l.660 |
-| `Pie` | cx: 50% · cy: 50% |  |  | renderCharts · l.662 |
-| `Cell` |  | `each modalityData` |  | renderCharts · l.673 |
-| `Tooltip` |  |  |  | renderCharts · l.676 |
-| `Legend` |  |  |  | renderCharts · l.677 |
-| `ResponsiveContainer` |  |  |  | renderCharts · l.685 |
-| `CartesianGrid` | strokeDasharray: 3 3 |  |  | renderCharts · l.687 |
-| `XAxis` |  |  |  | renderCharts · l.688 |
-| `YAxis` | unit: % |  |  | renderCharts · l.689 |
-| `Tooltip` |  |  |  | renderCharts · l.690 |
-| `Area` |  |  |  | renderCharts · l.691 |
-| `ResponsiveContainer` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.706 |
-| `CartesianGrid` | strokeDasharray: 3 3 | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.712 |
-| `XAxis` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.713 |
-| `YAxis` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.714 |
-| `Tooltip` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.720 |
-| `Legend` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.721 |
-| `Bar` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.722 |
+| `Bar` |  |  |  | renderCharts · l.628 |
+| `ResponsiveContainer` |  |  |  | renderCharts · l.636 |
+| `Pie` | cx: 50% · cy: 50% |  |  | renderCharts · l.638 |
+| `Cell` |  | `each statusData` |  | renderCharts · l.649 |
+| `Tooltip` |  |  |  | renderCharts · l.652 |
+| `Legend` |  |  |  | renderCharts · l.653 |
+| `ResponsiveContainer` |  |  |  | renderCharts · l.661 |
+| `Pie` | cx: 50% · cy: 50% |  |  | renderCharts · l.663 |
+| `Cell` |  | `each modalityData` |  | renderCharts · l.674 |
+| `Tooltip` |  |  |  | renderCharts · l.677 |
+| `Legend` |  |  |  | renderCharts · l.678 |
+| `ResponsiveContainer` |  |  |  | renderCharts · l.686 |
+| `CartesianGrid` | strokeDasharray: 3 3 |  |  | renderCharts · l.688 |
+| `XAxis` |  |  |  | renderCharts · l.689 |
+| `YAxis` | unit: % |  |  | renderCharts · l.690 |
+| `Tooltip` |  |  |  | renderCharts · l.691 |
+| `Area` |  |  |  | renderCharts · l.692 |
+| `ResponsiveContainer` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.707 |
+| `CartesianGrid` | strokeDasharray: 3 3 | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.713 |
+| `XAxis` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.714 |
+| `YAxis` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.715 |
+| `Tooltip` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.721 |
+| `Legend` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.722 |
 | `Bar` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.723 |
-| `ResponsiveContainer` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.733 |
-| `CartesianGrid` | strokeDasharray: 3 3 | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.739 |
-| `XAxis` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.740 |
-| `YAxis` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.741 |
-| `Tooltip` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.747 |
-| `Legend` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.748 |
-| `Bar` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.749 |
-| `ExportDropdown` | tabName: Sesiones Recientes · headers: Fecha / Título / Escuela / Comunidad / Estado / Asistencia |  |  | renderRecentSessionsTable · l.777 |
-| `MainLayout` |  |  |  | SessionReportsPage · l.858 |
-| `LoadingSkeleton` |  | `dataLoading && each Array.from({ length: 4 })` |  | SessionReportsPage · l.867 |
-| `LoadingSkeleton` |  | `dataLoading && each Array.from({ length: 4 })` |  | SessionReportsPage · l.872 |
+| `Bar` |  | `isAdmin && analyticsData.sessions_by_school.length > 0` |  | renderCharts · l.724 |
+| `ResponsiveContainer` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.734 |
+| `CartesianGrid` | strokeDasharray: 3 3 | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.740 |
+| `XAxis` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.741 |
+| `YAxis` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.742 |
+| `Tooltip` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.748 |
+| `Legend` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.749 |
+| `Bar` |  | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |  | renderCharts · l.750 |
+| `ExportDropdown` | tabName: Sesiones Recientes · headers: Fecha / Título / Escuela / Comunidad / Estado / Asistencia |  |  | renderRecentSessionsTable · l.778 |
+| `MainLayout` |  |  |  | SessionReportsPage · l.859 |
+| `LoadingSkeleton` |  | `dataLoading && each Array.from({ length: 4 })` |  | SessionReportsPage · l.868 |
+| `LoadingSkeleton` |  | `dataLoading && each Array.from({ length: 4 })` |  | SessionReportsPage · l.873 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
 |---|---|
-| «Bearer {session.access_token}» | SessionReportsPage · l.319 |
+| «Bearer {session.access_token}» | SessionReportsPage · l.320 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
 
 | Kind | What | Where |
 |---|---|---|
-| listener | `window.addEventListener('resize')` | SessionReportsPage · l.258 |
+| listener | `window.addEventListener('resize')` | SessionReportsPage · l.259 |
 
 **Values shown from data** (13)
 
-- `{title}` — KPICard · l.157
-- `{value}` — KPICard · l.158
-- `{icon}` — KPICard · l.161
-- `{label}` — CustomChartTooltip · l.188, when `active && payload && payload.length`
-- `{entry.name} : {entry.value}` — CustomChartTooltip · l.190, when `active && payload && payload.length && each payload`
-- `{(percent * 100).toFixed(0)}%` — renderPieLabel · l.222
-- `{error}` — SessionReportsPage · l.377, when `error`
-- `{format(parseISO(session.session_dat…}` — renderRecentSessionsTable · l.824, when `each analyticsData.recent_sessions`
-- `{session.title}` — renderRecentSessionsTable · l.827, when `each analyticsData.recent_sessions`
-- `{session.school_name}` — renderRecentSessionsTable · l.830, when `each analyticsData.recent_sessions`
-- `{session.gc_name}` — renderRecentSessionsTable · l.833, when `each analyticsData.recent_sessions`
-- `{badge.label}` — renderRecentSessionsTable · l.837, when `each analyticsData.recent_sessions`
-- `{session.attendance_rate}% / -` — renderRecentSessionsTable · l.841, when `each analyticsData.recent_sessions`
+- `{title}` — KPICard · l.158
+- `{value}` — KPICard · l.159
+- `{icon}` — KPICard · l.162
+- `{label}` — CustomChartTooltip · l.189, when `active && payload && payload.length`
+- `{entry.name} : {entry.value}` — CustomChartTooltip · l.191, when `active && payload && payload.length && each payload`
+- `{(percent * 100).toFixed(0)}%` — renderPieLabel · l.223
+- `{error}` — SessionReportsPage · l.378, when `error`
+- `{format(parseISO(session.session_dat…}` — renderRecentSessionsTable · l.825, when `each analyticsData.recent_sessions`
+- `{session.title}` — renderRecentSessionsTable · l.828, when `each analyticsData.recent_sessions`
+- `{session.school_name}` — renderRecentSessionsTable · l.831, when `each analyticsData.recent_sessions`
+- `{session.gc_name}` — renderRecentSessionsTable · l.834, when `each analyticsData.recent_sessions`
+- `{badge.label}` — renderRecentSessionsTable · l.838, when `each analyticsData.recent_sessions`
+- `{session.attendance_rate}% / -` — renderRecentSessionsTable · l.842, when `each analyticsData.recent_sessions`
 
 **Other texts on screen** (13)
 
-- «No hay sesiones en el período seleccionado» — SessionReportsPage · l.402, when `!dataLoading && analyticsData && analyticsData.kpis.total_sessions === 0`
-- «No hay sesiones que coincidan con los filtros seleccionados. Intenta ajustar los filtros para ver más resultados.» — SessionReportsPage · l.403, when `!dataLoading && analyticsData && analyticsData.kpis.total_sessions === 0`
-- «Estadísticas y métricas de todas las sesiones de consultoría / Estadísticas y métricas de tus sesiones de consultoría» — renderHeader · l.432
-- «Desde» (label) — renderFilters · l.458
-- «Hasta» (label) — renderFilters · l.468
-- «Escuela» (label) — renderFilters · l.478
-- «Consultor» (label) — renderFilters · l.495, when `isAdmin && consultants.length > 0`
-- «Sesiones por Mes - Gráfico de barras» (aria-label) — renderCharts · l.616
-- «Distribución por Estado - Gráfico circular» (aria-label) — renderCharts · l.633
-- «Distribución por Modalidad - Gráfico circular» (aria-label) — renderCharts · l.658
-- «Tendencia de Asistencia - Gráfico de área» (aria-label) — renderCharts · l.683
-- «Sesiones por Escuela - Gráfico de barras horizontal» (aria-label) — renderCharts · l.704, when `isAdmin && analyticsData.sessions_by_school.length > 0`
-- «Top Consultores - Gráfico de barras horizontal» (aria-label) — renderCharts · l.731, when `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0`
+- «No hay sesiones en el período seleccionado» — SessionReportsPage · l.403, when `!dataLoading && analyticsData && analyticsData.kpis.total_sessions === 0`
+- «No hay sesiones que coincidan con los filtros seleccionados. Intenta ajustar los filtros para ver más resultados.» — SessionReportsPage · l.404, when `!dataLoading && analyticsData && analyticsData.kpis.total_sessions === 0`
+- «Estadísticas y métricas de todas las sesiones de consultoría / Estadísticas y métricas de tus sesiones de consultoría» — renderHeader · l.433
+- «Desde» (label) — renderFilters · l.459
+- «Hasta» (label) — renderFilters · l.469
+- «Escuela» (label) — renderFilters · l.479
+- «Consultor» (label) — renderFilters · l.496, when `isAdmin && consultants.length > 0`
+- «Sesiones por Mes - Gráfico de barras» (aria-label) — renderCharts · l.617
+- «Distribución por Estado - Gráfico circular» (aria-label) — renderCharts · l.634
+- «Distribución por Modalidad - Gráfico circular» (aria-label) — renderCharts · l.659
+- «Tendencia de Asistencia - Gráfico de área» (aria-label) — renderCharts · l.684
+- «Sesiones por Escuela - Gráfico de barras horizontal» (aria-label) — renderCharts · l.705, when `isAdmin && analyticsData.sessions_by_school.length > 0`
+- «Top Consultores - Gráfico de barras horizontal» (aria-label) — renderCharts · l.732, when `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0`
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
@@ -2134,6 +2134,7 @@ File `pages/consultor/sessions/reports.tsx` · 889 lines · frame: MainLayout
 - `components/tutorials/HelpDrawer.tsx`
 - `components/tutorials/VimeoEmbed.tsx`
 - `components/ui/dialog.tsx`
+- `lib/colorAlpha.ts`
 - `lib/exportUtils.ts`
 - `lib/tutorials/content.ts`
 - `lib/utils/session-ui-helpers.tsx`
@@ -2144,7 +2145,7 @@ File `pages/consultor/sessions/reports.tsx` · 889 lines · frame: MainLayout
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/sessions/reports/analytics` | GET | `pages/consultor/sessions/reports.tsx:317` |
+| `/api/sessions/reports/analytics` | GET | `pages/consultor/sessions/reports.tsx:318` |
 
 ## /meet/diag
 
@@ -3367,6 +3368,22 @@ Used by: `/meet/session/[id]`
 |---|---|---|---|
 | «Server configuration error» | `throw (shown by whoever catches it)` | `!supabaseUrl \|\| !serviceRoleKey` | createServiceRoleClient · l.113 |
 | «Failed to initialize admin connection» | `throw (shown by whoever catches it)` |  | createServiceRoleClient · l.125 |
+
+### lib/colorAlpha.ts
+
+Used by: `/consultor/sessions/reports`
+
+**Messages set on the page** (1)
+
+| Text | Set by | When | Where |
+|---|---|---|---|
+| «withAlpha expects two hex characters, got "{hh}"» | `throw (shown by whoever catches it)` | `!TWO_HEX.test(hh)` | alphaFromHex · l.15 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `withAlpha()` | «rgb(var({named[1]}) / {alpha})» | withAlpha · l.22 |
 
 ### lib/exportUtils.ts
 

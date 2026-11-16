@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "3cf1440a5fd1dbe5d85b3cbb2db9c4ee61d25dea",
-  "date": "2026-11-16T15:25:18-03:00"
+  "commit": "007807e90467f7aa64736d0a234ad0d7009cfc83",
+  "date": "2026-11-16T16:10:07-03:00"
  },
  "screens": [
   {
@@ -812,6 +812,7 @@
     "components/reports/MobileUserCard.tsx",
     "components/reports/UserDetailModal.tsx",
     "hooks/useDebounce.ts",
+    "lib/colorAlpha.ts",
     "types/roles.ts",
     "utils/reportFilters.ts",
     "utils/roleUtils.ts"
@@ -822,7 +823,7 @@
      "route": "/api/reports/analytics-data",
      "methods": [],
      "from": [
-      "components/reports/AnalyticsDashboard.tsx:149"
+      "components/reports/AnalyticsDashboard.tsx:150"
      ]
     },
     {
@@ -2011,6 +2012,7 @@
     "components/reports/LearningPathAnalytics.tsx",
     "components/reports/StatusBadge.tsx",
     "components/reports/UserDetailModal.tsx",
+    "lib/colorAlpha.ts",
     "lib/exportUtils.ts",
     "types/roles.ts",
     "utils/insightGenerator.ts",
@@ -2034,7 +2036,7 @@
       "GET"
      ],
      "from": [
-      "components/reports/AnalyticsVisualization.tsx:106"
+      "components/reports/AnalyticsVisualization.tsx:107"
      ]
     },
     {
@@ -3135,50 +3137,50 @@
    "usedBy": [
     "/detailed-reports"
    ],
-   "lines": 456,
+   "lines": 457,
    "rows": [
     {
      "kind": "value",
-     "line": 82,
+     "line": 83,
      "in": "KPICard",
      "text": "{title}"
     },
     {
      "kind": "value",
-     "line": 84,
+     "line": 85,
      "in": "KPICard",
      "text": "{value}"
     },
     {
      "kind": "value",
-     "line": 86,
+     "line": 87,
      "in": "KPICard",
      "when": "trend",
      "text": "↑ / ↓ {Math.abs(trend.value)} %"
     },
     {
      "kind": "value",
-     "line": 91,
+     "line": 92,
      "in": "KPICard",
      "when": "subtitle",
      "text": "{subtitle}"
     },
     {
      "kind": "value",
-     "line": 94,
+     "line": 95,
      "in": "KPICard",
      "text": "{icon}"
     },
     {
      "kind": "hook",
-     "line": 134,
+     "line": 135,
      "in": "AnalyticsDashboard",
      "text": "window.addEventListener('resize')",
      "type": "listener"
     },
     {
      "kind": "toast",
-     "line": 183,
+     "line": 184,
      "in": "fetchAnalyticsData",
      "when": "!(response.ok)",
      "text": "Error cargando datos analíticos",
@@ -3186,28 +3188,28 @@
     },
     {
      "kind": "toast",
-     "line": 187,
+     "line": 188,
      "in": "fetchAnalyticsData",
      "text": "Error cargando datos analíticos",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 196,
+     "line": 197,
      "in": "exportChart",
      "text": "Funcionalidad de exportación para {chartType} próximamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 198,
+     "line": 199,
      "in": "exportChart",
      "text": "Error exportando gráfico",
      "variant": "error"
     },
     {
      "kind": "piece",
-     "line": 205,
+     "line": 206,
      "in": "AnalyticsDashboard",
      "when": "loading",
      "text": "",
@@ -3215,7 +3217,7 @@
     },
     {
      "kind": "piece",
-     "line": 208,
+     "line": 209,
      "in": "AnalyticsDashboard",
      "when": "loading && each Array.from({ length: 4 })",
      "text": "",
@@ -3223,7 +3225,7 @@
     },
     {
      "kind": "piece",
-     "line": 213,
+     "line": 214,
      "in": "AnalyticsDashboard",
      "when": "loading && each Array.from({ length: 4 })",
      "text": "",
@@ -3231,34 +3233,34 @@
     },
     {
      "kind": "text",
-     "line": 223,
+     "line": 224,
      "in": "AnalyticsDashboard",
      "when": "!analyticsData",
      "text": "No se pudieron cargar los datos analíticos"
     },
     {
      "kind": "value",
-     "line": 232,
+     "line": 233,
      "in": "CustomTooltip",
      "when": "active && payload && payload.length",
      "text": "{label}"
     },
     {
      "kind": "value",
-     "line": 234,
+     "line": 235,
      "in": "CustomTooltip",
      "when": "active && payload && payload.length && each payload",
      "text": "{entry.name} : {entry.value}"
     },
     {
      "kind": "label",
-     "line": 251,
+     "line": 252,
      "in": "AnalyticsDashboard",
      "text": "Período de Tiempo"
     },
     {
      "kind": "field",
-     "line": 254,
+     "line": 255,
      "in": "AnalyticsDashboard",
      "text": "Período de Tiempo",
      "type": "select",
@@ -3272,13 +3274,13 @@
     },
     {
      "kind": "label",
-     "line": 267,
+     "line": 268,
      "in": "AnalyticsDashboard",
      "text": "Agrupar por"
     },
     {
      "kind": "field",
-     "line": 270,
+     "line": 271,
      "in": "AnalyticsDashboard",
      "text": "Agrupar por",
      "type": "select",
@@ -3291,82 +3293,82 @@
     },
     {
      "kind": "text",
-     "line": 282,
+     "line": 283,
      "in": "AnalyticsDashboard",
      "text": "Datos de {analyticsData.metadata?.total_users} usuarios"
     },
     {
      "kind": "heading",
-     "line": 297,
+     "line": 298,
      "in": "AnalyticsDashboard",
      "text": "Vista Previa del Dashboard Analítico",
      "level": 3
     },
     {
      "kind": "text",
-     "line": 301,
+     "line": 302,
      "in": "AnalyticsDashboard",
      "text": "Este dashboard está listo para mostrar datos reales una vez que se implemente la API de analytics correspondiente."
     },
     {
      "kind": "piece",
-     "line": 308,
+     "line": 309,
      "in": "AnalyticsDashboard",
      "text": "title: Métricas Clave",
      "tag": "CollapsibleSection"
     },
     {
      "kind": "piece",
-     "line": 314,
+     "line": 315,
      "in": "AnalyticsDashboard",
      "text": "title: Usuarios Activos · subtitle: de 200 totales",
      "tag": "KPICard"
     },
     {
      "kind": "piece",
-     "line": 326,
+     "line": 327,
      "in": "AnalyticsDashboard",
      "text": "title: Tasa de Finalización · subtitle: de cursos completados",
      "tag": "KPICard"
     },
     {
      "kind": "piece",
-     "line": 338,
+     "line": 339,
      "in": "AnalyticsDashboard",
      "text": "title: Progreso Promedio · subtitle: de avance general",
      "tag": "KPICard"
     },
     {
      "kind": "piece",
-     "line": 350,
+     "line": 351,
      "in": "AnalyticsDashboard",
      "text": "title: Tiempo Promedio · subtitle: por usuario",
      "tag": "KPICard"
     },
     {
      "kind": "piece",
-     "line": 365,
+     "line": 366,
      "in": "AnalyticsDashboard",
      "text": "title: Gráficos de Análisis",
      "tag": "CollapsibleSection"
     },
     {
      "kind": "heading",
-     "line": 374,
+     "line": 375,
      "in": "AnalyticsDashboard",
      "text": "Tendencia de Progreso",
      "level": 3
     },
     {
      "kind": "button",
-     "line": 375,
+     "line": 376,
      "in": "AnalyticsDashboard",
      "text": "Exportar",
      "action": "{() => exportChart('progress-trends')}"
     },
     {
      "kind": "chart",
-     "line": 383,
+     "line": 384,
      "in": "AnalyticsDashboard",
      "text": "LineChart",
      "series": [
@@ -3388,28 +3390,28 @@
     },
     {
      "kind": "piece",
-     "line": 389,
+     "line": 390,
      "in": "AnalyticsDashboard",
      "text": "strokeDasharray: 3 3",
      "tag": "CartesianGrid"
     },
     {
      "kind": "heading",
-     "line": 415,
+     "line": 416,
      "in": "AnalyticsDashboard",
      "text": "Tiempo de Estudio",
      "level": 3
     },
     {
      "kind": "button",
-     "line": 416,
+     "line": 417,
      "in": "AnalyticsDashboard",
      "text": "Exportar",
      "action": "{() => exportChart('time-trends')}"
     },
     {
      "kind": "chart",
-     "line": 424,
+     "line": 425,
      "in": "AnalyticsDashboard",
      "text": "AreaChart",
      "series": [
@@ -3417,46 +3419,46 @@
        "tag": "Area",
        "dataKey": "total_time_hours",
        "name": "Total Horas",
-       "fill": "{`${FNE_COLORS.success}30`}",
+       "fill": "{withAlpha(FNE_COLORS.success, '30')}",
        "mapped": false
       },
       {
        "tag": "Area",
        "dataKey": "avg_time_per_user",
        "name": "Promedio por Usuario",
-       "fill": "{`${FNE_COLORS.info}30`}",
+       "fill": "{withAlpha(FNE_COLORS.info, '30')}",
        "mapped": false
       }
      ]
     },
     {
      "kind": "piece",
-     "line": 430,
+     "line": 431,
      "in": "AnalyticsDashboard",
      "text": "strokeDasharray: 3 3",
      "tag": "CartesianGrid"
     },
     {
      "kind": "string",
-     "line": 384,
+     "line": 385,
      "in": "AnalyticsDashboard",
      "text": "Sem 1"
     },
     {
      "kind": "string",
-     "line": 385,
+     "line": 386,
      "in": "AnalyticsDashboard",
      "text": "Sem 2"
     },
     {
      "kind": "string",
-     "line": 386,
+     "line": 387,
      "in": "AnalyticsDashboard",
      "text": "Sem 3"
     },
     {
      "kind": "string",
-     "line": 387,
+     "line": 388,
      "in": "AnalyticsDashboard",
      "text": "Sem 4"
     }
@@ -3467,11 +3469,11 @@
    "usedBy": [
     "/reports"
    ],
-   "lines": 547,
+   "lines": 548,
    "rows": [
     {
      "kind": "toast",
-     "line": 94,
+     "line": 95,
      "in": "fetchAnalyticsData",
      "when": "!session?.access_token",
      "text": "Error de autenticación",
@@ -3479,7 +3481,7 @@
     },
     {
      "kind": "toast",
-     "line": 122,
+     "line": 123,
      "in": "fetchAnalyticsData",
      "when": "!(response.ok)",
      "text": "Error al cargar datos analíticos",
@@ -3487,28 +3489,28 @@
     },
     {
      "kind": "toast",
-     "line": 126,
+     "line": 127,
      "in": "fetchAnalyticsData",
      "text": "Error al cargar datos analíticos",
      "variant": "error"
     },
     {
      "kind": "value",
-     "line": 136,
+     "line": 137,
      "in": "CustomTooltip",
      "when": "active && payload && payload.length",
      "text": "{label}"
     },
     {
      "kind": "value",
-     "line": 138,
+     "line": 139,
      "in": "CustomTooltip",
      "when": "active && payload && payload.length && each payload",
      "text": "{entry.name} : {formatter(entry.value)} / {entry.value}"
     },
     {
      "kind": "piece",
-     "line": 156,
+     "line": 157,
      "in": "AnalyticsVisualization",
      "when": "loading && each Array.from({ length: 4 })",
      "text": "",
@@ -3516,7 +3518,7 @@
     },
     {
      "kind": "piece",
-     "line": 161,
+     "line": 162,
      "in": "AnalyticsVisualization",
      "when": "loading && each Array.from({ length: 4 })",
      "text": "",
@@ -3524,20 +3526,20 @@
     },
     {
      "kind": "text",
-     "line": 171,
+     "line": 172,
      "in": "AnalyticsVisualization",
      "when": "!analyticsData",
      "text": "No se pudieron cargar los datos analíticos"
     },
     {
      "kind": "label",
-     "line": 183,
+     "line": 184,
      "in": "AnalyticsVisualization",
      "text": "Vista"
     },
     {
      "kind": "field",
-     "line": 186,
+     "line": 187,
      "in": "AnalyticsVisualization",
      "text": "Vista",
      "type": "select",
@@ -3549,55 +3551,55 @@
     },
     {
      "kind": "text",
-     "line": 197,
+     "line": 198,
      "in": "AnalyticsVisualization",
      "text": "Datos de {analyticsData.metadata?.timeRange} días • {analyticsData.kpiData.current.total…} usuarios"
     },
     {
      "kind": "value",
-     "line": 234,
+     "line": 235,
      "in": "AnalyticsVisualization",
      "when": "each [ { title: 'Usuarios Activos', current: analytics…",
      "text": "{kpi.title}"
     },
     {
      "kind": "value",
-     "line": 238,
+     "line": 239,
      "in": "AnalyticsVisualization",
      "when": "each [ { title: 'Usuarios Activos', current: analytics… && kpi.total",
      "text": "/ {kpi.total}"
     },
     {
      "kind": "value",
-     "line": 240,
+     "line": 241,
      "in": "AnalyticsVisualization",
      "when": "each [ { title: 'Usuarios Activos', current: analytics…",
      "text": "↗ / ↘ {Math.abs(kpi.trend).toFixed(1)} %"
     },
     {
      "kind": "value",
-     "line": 246,
+     "line": 247,
      "in": "AnalyticsVisualization",
      "when": "each [ { title: 'Usuarios Activos', current: analytics…",
      "text": "{kpi.icon}"
     },
     {
      "kind": "heading",
-     "line": 259,
+     "line": 260,
      "in": "AnalyticsVisualization",
      "text": "Tendencias de Progreso",
      "level": 3
     },
     {
      "kind": "piece",
-     "line": 260,
+     "line": 261,
      "in": "AnalyticsVisualization",
      "text": "tabName: Tendencias-Progreso",
      "tag": "ExportDropdown"
     },
     {
      "kind": "chart",
-     "line": 268,
+     "line": 269,
      "in": "AnalyticsVisualization",
      "text": "LineChart",
      "series": [
@@ -3619,28 +3621,28 @@
     },
     {
      "kind": "piece",
-     "line": 269,
+     "line": 270,
      "in": "AnalyticsVisualization",
      "text": "strokeDasharray: 3 3",
      "tag": "CartesianGrid"
     },
     {
      "kind": "heading",
-     "line": 301,
+     "line": 302,
      "in": "AnalyticsVisualization",
      "text": "Tasas por Escuela",
      "level": 3
     },
     {
      "kind": "piece",
-     "line": 302,
+     "line": 303,
      "in": "AnalyticsVisualization",
      "text": "tabName: Tasas-Escuela",
      "tag": "ExportDropdown"
     },
     {
      "kind": "chart",
-     "line": 310,
+     "line": 311,
      "in": "AnalyticsVisualization",
      "text": "BarChart",
      "series": [
@@ -3655,35 +3657,35 @@
     },
     {
      "kind": "piece",
-     "line": 311,
+     "line": 312,
      "in": "AnalyticsVisualization",
      "text": "strokeDasharray: 3 3",
      "tag": "CartesianGrid"
     },
     {
      "kind": "piece",
-     "line": 312,
+     "line": 313,
      "in": "AnalyticsVisualization",
      "text": "textAnchor: end",
      "tag": "XAxis"
     },
     {
      "kind": "heading",
-     "line": 334,
+     "line": 335,
      "in": "AnalyticsVisualization",
      "text": "Distribución de Rendimiento",
      "level": 3
     },
     {
      "kind": "piece",
-     "line": 335,
+     "line": 336,
      "in": "AnalyticsVisualization",
      "text": "tabName: Distribucion-Rendimiento",
      "tag": "ExportDropdown"
     },
     {
      "kind": "chart",
-     "line": 343,
+     "line": 344,
      "in": "AnalyticsVisualization",
      "text": "BarChart",
      "series": [
@@ -3698,28 +3700,28 @@
     },
     {
      "kind": "piece",
-     "line": 344,
+     "line": 345,
      "in": "AnalyticsVisualization",
      "text": "strokeDasharray: 3 3",
      "tag": "CartesianGrid"
     },
     {
      "kind": "heading",
-     "line": 361,
+     "line": 362,
      "in": "AnalyticsVisualization",
      "text": "Tendencias de Tiempo",
      "level": 3
     },
     {
      "kind": "piece",
-     "line": 362,
+     "line": 363,
      "in": "AnalyticsVisualization",
      "text": "tabName: Tendencias-Tiempo",
      "tag": "ExportDropdown"
     },
     {
      "kind": "chart",
-     "line": 370,
+     "line": 371,
      "in": "AnalyticsVisualization",
      "text": "AreaChart",
      "series": [
@@ -3743,28 +3745,28 @@
     },
     {
      "kind": "piece",
-     "line": 371,
+     "line": 372,
      "in": "AnalyticsVisualization",
      "text": "strokeDasharray: 3 3",
      "tag": "CartesianGrid"
     },
     {
      "kind": "heading",
-     "line": 403,
+     "line": 404,
      "in": "AnalyticsVisualization",
      "text": "Análisis de Rendimiento en Evaluaciones",
      "level": 3
     },
     {
      "kind": "piece",
-     "line": 404,
+     "line": 405,
      "in": "AnalyticsVisualization",
      "text": "tabName: Rendimiento-Evaluaciones",
      "tag": "ExportDropdown"
     },
     {
      "kind": "chart",
-     "line": 412,
+     "line": 413,
      "in": "AnalyticsVisualization",
      "text": "ScatterChart",
      "series": [
@@ -3778,63 +3780,63 @@
     },
     {
      "kind": "piece",
-     "line": 413,
+     "line": 414,
      "in": "AnalyticsVisualization",
      "text": "strokeDasharray: 3 3",
      "tag": "CartesianGrid"
     },
     {
      "kind": "text",
-     "line": 431,
+     "line": 432,
      "in": "AnalyticsVisualization",
      "when": "active && payload && payload.length",
      "text": "Usuario: {data.userId}"
     },
     {
      "kind": "text",
-     "line": 432,
+     "line": 433,
      "in": "AnalyticsVisualization",
      "when": "active && payload && payload.length",
      "text": "Evaluaciones: {data.quizzesCompleted}"
     },
     {
      "kind": "text",
-     "line": 433,
+     "line": 434,
      "in": "AnalyticsVisualization",
      "when": "active && payload && payload.length",
      "text": "Puntaje Promedio: {data.avgScore} %"
     },
     {
      "kind": "text",
-     "line": 434,
+     "line": 435,
      "in": "AnalyticsVisualization",
      "when": "active && payload && payload.length",
      "text": "Tiempo Promedio: {data.timeSpent} min"
     },
     {
      "kind": "text",
-     "line": 435,
+     "line": 436,
      "in": "AnalyticsVisualization",
      "when": "active && payload && payload.length",
      "text": "Tendencia: + {data.improvementTrend} %"
     },
     {
      "kind": "heading",
-     "line": 452,
+     "line": 453,
      "in": "AnalyticsVisualization",
      "text": "Insights Automáticos",
      "level": 3
     },
     {
      "kind": "value",
-     "line": 508,
+     "line": 509,
      "in": "AnalyticsVisualization",
      "when": "automaticInsights.length > 0 && each automaticInsights",
      "text": "{iconSvgs[insight.type]}"
     },
     {
      "kind": "heading",
-     "line": 514,
+     "line": 515,
      "in": "AnalyticsVisualization",
      "when": "automaticInsights.length > 0 && each automaticInsights",
      "text": "{insight.title}",
@@ -3842,60 +3844,60 @@
     },
     {
      "kind": "value",
-     "line": 516,
+     "line": 517,
      "in": "AnalyticsVisualization",
      "when": "automaticInsights.length > 0 && each automaticInsights && insight.metric !== undefined && insight.metric !== null",
      "text": "{insight.metric.toFixed(1)} %"
     },
     {
      "kind": "value",
-     "line": 521,
+     "line": 522,
      "in": "AnalyticsVisualization",
      "when": "automaticInsights.length > 0 && each automaticInsights",
      "text": "{insight.message}"
     },
     {
      "kind": "value",
-     "line": 525,
+     "line": 526,
      "in": "AnalyticsVisualization",
      "when": "automaticInsights.length > 0 && each automaticInsights && insight.recommendation",
      "text": "💡 {insight.recommendation}"
     },
     {
      "kind": "text",
-     "line": 540,
+     "line": 541,
      "in": "AnalyticsVisualization",
      "when": "!(automaticInsights.length > 0)",
      "text": "Generando insights basados en datos..."
     },
     {
      "kind": "text",
-     "line": 541,
+     "line": 542,
      "in": "AnalyticsVisualization",
      "when": "!(automaticInsights.length > 0)",
      "text": "Los insights aparecerán cuando haya suficientes datos"
     },
     {
      "kind": "string",
-     "line": 108,
+     "line": 109,
      "in": "AnalyticsVisualization",
      "text": "Bearer {session.access_token}"
     },
     {
      "kind": "string",
-     "line": 207,
+     "line": 208,
      "in": "AnalyticsVisualization",
      "text": "Usuarios Activos"
     },
     {
      "kind": "string",
-     "line": 215,
+     "line": 216,
      "in": "AnalyticsVisualization",
      "text": "Tasa Completación"
     },
     {
      "kind": "string",
-     "line": 223,
+     "line": 224,
      "in": "AnalyticsVisualization",
      "text": "Tiempo Total"
     }
@@ -4458,7 +4460,7 @@
        "tag": "Bar",
        "dataKey": "completionRate",
        "name": "Tasa de Completación (%)",
-       "fill": "#3b82f6",
+       "fill": "rgb(var(--color-blue-500))",
        "mapped": false
       }
      ]
@@ -4553,14 +4555,14 @@
        "tag": "Line",
        "dataKey": "completions",
        "name": "Completaciones de curso",
-       "fill": "#3b82f6",
+       "fill": "rgb(var(--color-blue-500))",
        "mapped": false
       },
       {
        "tag": "Line",
        "dataKey": "enrollments",
        "name": "Nuevas asignaciones",
-       "fill": "#10b981",
+       "fill": "rgb(var(--color-legacy-10b981))",
        "mapped": false
       }
      ]
@@ -5674,6 +5676,33 @@
      "in": "useDebounce",
      "text": "setTimeout(…, delay)",
      "type": "timer"
+    }
+   ],
+   "db": []
+  },
+  "lib/colorAlpha.ts": {
+   "usedBy": [
+    "/detailed-reports",
+    "/reports"
+   ],
+   "lines": 25,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 15,
+     "in": "alphaFromHex",
+     "when": "!TWO_HEX.test(hh)",
+     "text": "withAlpha expects two hex characters, got \"{hh}\"",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "list",
+     "line": 22,
+     "in": "withAlpha",
+     "text": "withAlpha()",
+     "items": [
+      "rgb(var({named[1]}) / {alpha})"
+     ]
     }
    ],
    "db": []

@@ -1,7 +1,7 @@
 # Notificaciones
 
 Area `16-notificaciones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `d5d93151e` (2026-11-16).
+Read from commit `c30585b2f` (2026-11-16).
 
 5 screen files, 10 API files, 8 pieces.
 
@@ -72,7 +72,7 @@ File `pages/configuracion/apariencia.tsx` · 191 lines · frame: MainLayout · g
 | Text | Set by | When | Where |
 |---|---|---|---|
 | «expired / Tu sesión terminó.» | `setNotice` | `res.status === 401` | save · l.92 |
-| «saved / Tu apariencia se guardó.» | `setNotice` | `!(res.status === 401) && (!(!res.ok \|\| !isLook(body?.look)))` | save · l.99 |
+| «saved / Tu preferencia se guardó.» | `setNotice` | `!(res.status === 401) && (!(!res.ok \|\| !isLook(body?.look)))` | save · l.99 |
 
 **Moves to another page from code** (3)
 

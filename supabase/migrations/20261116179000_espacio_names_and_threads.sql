@@ -9,7 +9,9 @@
 --   * the foundation's staff (an active 'admin' or 'consultor' role);
 --   * for a consultor caller: a person with an active role in a school the
 --     consultor is assigned to (active consultant_assignments, as
---     lib/permissions/resultsSchoolScope.ts reads them).
+--     lib/permissions/resultsSchoolScope.ts reads them, that have not ended:
+--     ends_at null or in the future, the condition of the baseline helper
+--     get_reportable_users_enhanced).
 -- At most the first 200 ids of a call are looked at. An id the caller may not
 -- know gives no row. Add-only: no rule, table or existing function changes.
 
@@ -42,6 +44,10 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
          SELECT 1 FROM public.consultant_assignments ca JOIN public.user_roles theirs
              ON theirs.school_id = ca.school_id
           WHERE ca.consultant_id = c.uid AND ca.is_active = true
+            -- Inside the assignment's dates, as the database's own consultor
+            -- helper (get_reportable_users_enhanced) counts it: active and
+            -- not ended; it does not look at starts_at (send-back 1, 4).
+            AND (ca.ends_at IS NULL OR ca.ends_at > now())
             AND theirs.user_id = p.id AND theirs.is_active = true
             AND EXISTS (SELECT 1 FROM public.user_roles me
                          WHERE me.user_id = c.uid AND me.is_active = true AND me.role_type = 'consultor'))

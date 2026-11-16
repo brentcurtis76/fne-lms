@@ -2,6 +2,8 @@
 -- 127-espacio-names-and-threads.sql — GENERA fixes F11 (16 Nov 2026):
 -- Espacio Colaborativo conversations and people's names.
 --
+--   send-back 1 (16 Nov): (4) a consultor's assignment counts only inside its
+--          dates
 --   EC-S4  a member creates a conversation with a plain INSERT and reads it
 --          back in a second request; INSERT … RETURNING on message_threads
 --          is refused by the RESTRICTIVE read rule messaging_read_boundary
@@ -213,6 +215,48 @@ SELECT is((SELECT count(*)::int FROM information_schema.columns WHERE table_sche
 SELECT is((SELECT count(*)::int FROM information_schema.columns WHERE table_schema = 'public'
             AND table_name = 'community_messages' AND column_name IN ('relevance', 'thread_activity')),
   0, 'EC-M10 catalog: community_messages has no relevance or thread_activity column');
+
+-- ----------------------------------------------------------------------------
+-- Send-back 1, item 4: a consultor's assignment counts only inside its dates,
+-- as the baseline helper get_reportable_users_enhanced counts it
+-- (is_active and ends_at null or in the future; it does not look at starts_at)
+-- ----------------------------------------------------------------------------
+RESET ROLE;
+SELECT tests.create_supabase_user('f11_cons_ended');   -- consultor of 9274, assignment to 9272 ended yesterday
+SELECT tests.create_supabase_user('f11_cons_ends');    -- consultor of 9274, assignment to 9272 ends tomorrow
+SELECT tests.create_supabase_user('f11_cons_later');   -- consultor of 9274, assignment to 9272 starts tomorrow
+INSERT INTO public.profiles (id, email, name, first_name, last_name, approval_status)
+SELECT pg_temp.uid(k), k || '@f11.test.local', k, 'Consultor', k, 'approved'
+  FROM unnest(ARRAY['f11_cons_ended', 'f11_cons_ends', 'f11_cons_later']) k
+ON CONFLICT (id) DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, approval_status = 'approved';
+INSERT INTO public.user_roles (user_id, role_type, school_id, community_id, is_active)
+SELECT pg_temp.uid(k), 'consultor', 9274, NULL, true
+  FROM unnest(ARRAY['f11_cons_ended', 'f11_cons_ends', 'f11_cons_later']) k;
+INSERT INTO public.consultant_assignments (consultant_id, school_id, is_active, assignment_type, starts_at, ends_at) VALUES
+  (pg_temp.uid('f11_cons_ended'), 9272, true, 'monitoring', now() - interval '30 days', now() - interval '1 day'),
+  (pg_temp.uid('f11_cons_ends'),  9272, true, 'monitoring', now() - interval '30 days', now() + interval '1 day'),
+  (pg_temp.uid('f11_cons_later'), 9272, true, 'monitoring', now() + interval '1 day', NULL);
+
+SELECT tests.authenticate_as('f11_cons_ended');
+SELECT is(pg_temp.cards(ARRAY['f11_c']), '',
+  'send-back 1 (4) consultor: an assignment that ended yesterday gives no card of the school''s people');
+RESET ROLE;
+SELECT tests.authenticate_as('f11_cons_ends');
+SELECT is(pg_temp.cards(ARRAY['f11_c']), 'Carla Tres',
+  'send-back 1 (4) consultor: an assignment that ends tomorrow gives the card');
+RESET ROLE;
+SELECT tests.authenticate_as('f11_cons2');
+SELECT is(pg_temp.cards(ARRAY['f11_c']), 'Carla Tres',
+  'send-back 1 (4) consultor: an assignment with no end gives the card');
+RESET ROLE;
+SELECT tests.authenticate_as('f11_cons_later');
+SELECT is(pg_temp.cards(ARRAY['f11_c']), 'Carla Tres',
+  'send-back 1 (4) consultor: an assignment that starts tomorrow gives the card (the helper does not look at starts_at)');
+RESET ROLE;
+UPDATE public.consultant_assignments SET is_active = false WHERE consultant_id = pg_temp.uid('f11_cons_ends');
+SELECT tests.authenticate_as('f11_cons_ends');
+SELECT is(pg_temp.cards(ARRAY['f11_c']), '',
+  'send-back 1 (4) consultor: an assignment marked inactive gives no card');
 
 RESET ROLE;
 SELECT set_config('role', 'anon', true);

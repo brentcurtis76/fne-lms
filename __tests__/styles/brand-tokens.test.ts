@@ -73,7 +73,10 @@ const BRAND: ReadonlyArray<readonly [string, string, string, string]> = [
   ['brand_beige', '--color-brand-light', '--fne-white', '#ffffff'],
 ];
 
-const FAMILIES = ['gray', 'yellow', 'amber', 'red', 'green', 'blue'] as const;
+// The six families of 4a, and the ten more the platform uses that phase 5a named the same way.
+const FAMILIES_4A = ['gray', 'yellow', 'amber', 'red', 'green', 'blue'] as const;
+const FAMILIES_5A = ['slate', 'orange', 'sky', 'emerald', 'rose', 'purple', 'teal', 'indigo', 'pink', 'cyan'] as const;
+const FAMILIES = [...FAMILIES_4A, ...FAMILIES_5A] as const;
 const STEPS = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950'] as const;
 
 /** The six hex digits of every `--color-legacy-*` the token file declares (phase 4b). */
@@ -144,6 +147,19 @@ describe('FNE brand tokens', () => {
     }
   });
 
+  it('leaves the stock families the platform does not use, and black and white, as Tailwind has them', () => {
+    for (const unused of ['zinc', 'neutral', 'stone', 'lime', 'violet', 'fuchsia', 'black', 'white']) {
+      expect(colours[unused], `${unused} is not a named family`).toBeUndefined();
+    }
+  });
+
+  it('leaves the shadow steps literal (phase 5a: a named shadow loses its coloured form)', () => {
+    // Tailwind builds `--tw-shadow-colored` (what `shadow-<colour>` classes use) by parsing the shadow's
+    // value; `var(--shadow-…)` cannot be parsed, so every `shadow-*` rule would change. Step 1 of 5a
+    // must change nothing, so the steps stay Tailwind's own until another way is chosen.
+    expect(extend.boxShadow).toBeUndefined();
+  });
+
   it('the font families read their variables, and they hold the faces the platform had', () => {
     expect(Object.keys(extend.fontFamily).sort()).toEqual(Object.keys(FONTS).sort());
     for (const [key, faces] of Object.entries(FONTS)) {
@@ -175,9 +191,9 @@ describe('FNE brand tokens', () => {
     };
     collect(extend);
 
-    // 8 brand colours, 6 families of 11 steps, the 30 legacy colours of phase 4b,
-    // 5 font families, 7 radii, and the three gold tokens the config reads as whole colours.
-    expect(read.size).toBe(8 + 6 * 11 + 30 + 5 + 7 + 3);
+    // 8 brand colours, 6 families of 11 steps (4a) and 10 more (5a), the 30 legacy colours of
+    // phase 4b, 5 font families, 7 radii, and the three gold tokens the config reads as whole colours.
+    expect(read.size).toBe(8 + (6 + 10) * 11 + 30 + 5 + 7 + 3);
     for (const variable of read) {
       const count = declarations(variable).length;
       expect(count, `${variable} is declared ${count} times in styles/fne-tokens.css`).toBe(1);
@@ -219,7 +235,10 @@ describe('FNE brand tokens', () => {
     expect(LEGACY_DECLARED).toHaveLength(30);
     const named = new Set<string>();
     for (const [, variable] of BRAND) named.add(readToken(variable) as string);
-    for (const family of FAMILIES) for (const step of STEPS) named.add(triplet(stockColours[family][step]));
+    // Against the 4a families only: the legacy names were given in 4b, before 5a named orange, indigo,
+    // pink, cyan and emerald, and several of them hold one of those steps (#f97316 is orange 500). They
+    // stay separate names on purpose: the new look gives them values of their own.
+    for (const family of FAMILIES_4A) for (const step of STEPS) named.add(triplet(stockColours[family][step]));
     for (const hex of LEGACY_DECLARED) {
       const variable = `--color-legacy-${hex}`;
       expect(legacy[hex]).toBe(colourReading(variable));

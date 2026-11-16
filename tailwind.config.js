@@ -67,6 +67,17 @@ module.exports = {
         red: family('red'),
         green: family('green'),
         blue: family('blue'),
+        // Phase 5a: the other stock families the platform uses, the same way.
+        slate: family('slate'),
+        orange: family('orange'),
+        sky: family('sky'),
+        emerald: family('emerald'),
+        rose: family('rose'),
+        purple: family('purple'),
+        teal: family('teal'),
+        indigo: family('indigo'),
+        pink: family('pink'),
+        cyan: family('cyan'),
         // Hand-typed colours that are neither the brand kit nor a step above (phase 4b).
         legacy: Object.fromEntries(LEGACY.map((hex) => [hex, token(`legacy-${hex}`)])),
       },

@@ -18,7 +18,12 @@ import { createMocks } from 'node-mocks-http';
 import { randomUUID } from 'node:crypto';
 
 const { store, mockGetApiUser } = vi.hoisted(() => ({
-  store: { tables: {} as Record<string, any[]> },
+  store: {
+    tables: {} as Record<string, any[]>,
+    /** Test hook: answer an error instead of writing (table, payload, how many writes of that kind came before). */
+    fail: null as null | ((op: 'insert' | 'update', table: string, payload: any, n: number) => boolean),
+    writes: {} as Record<string, number>,
+  },
   mockGetApiUser: vi.fn(),
 }));
 
@@ -76,6 +81,13 @@ function memoryClient() {
       then: (resolve: (v: unknown) => void, reject?: (e: unknown) => void) => {
         try {
           const now = new Date().toISOString();
+          if (op === 'insert' || op === 'update') {
+            const key = `${op}:${table}`;
+            const n = (store.writes[key] = (store.writes[key] ?? 0) + 1) - 1;
+            if (store.fail?.(op, table, payload, n)) {
+              return resolve({ data: null, error: { message: `synthetic ${op} failure` } });
+            }
+          }
           if (op === 'insert') {
             const list = (Array.isArray(payload) ? payload : [payload]).map((p: any) => ({
               id: randomUUID(),
@@ -221,6 +233,8 @@ async function duplicate() {
 
 beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {});
+  store.fail = null;
+  store.writes = {};
   seed();
 });
 
@@ -290,5 +304,90 @@ describe('T2 duplicate keeps every content column', () => {
     const src = t.assessment_templates.find((x) => x.id === SRC)!;
     const copy = t.assessment_templates.find((x) => x.id === copyId)!;
     for (const col of ['description', 'area', 'scoring_config']) expect(copy[col]).toEqual(src[col]);
+  });
+});
+
+const OTHER_INSTRUMENT_IND = '00000000-0000-4000-8000-0000000f8c99';
+const setCondition = (id: string, condition: unknown) => {
+  store.tables.assessment_indicators.find((i) => i.id === id)!.visibility_condition = condition;
+};
+const copyIndicators = (copyId: string) => {
+  const mods = store.tables.assessment_modules.filter((m) => m.template_id === copyId).map((m) => m.id);
+  return store.tables.assessment_indicators.filter((i) => mods.includes(i.module_id));
+};
+/** What the database stores: the condition as JSON. */
+const asJson = (v: unknown) => JSON.parse(JSON.stringify(v ?? null));
+
+describe('send-back 5, V1: inherited property names are ordinary text', () => {
+  it('values "constructor", "__proto__", "toString", "hasOwnProperty" are copied unchanged', async () => {
+    const condition = {
+      logic: 'or',
+      conditions: [
+        { field: 'modalidad', operator: 'equals', value: 'constructor' },
+        { field: 'modalidad', operator: 'equals', value: '__proto__' },
+        { field: 'toString', operator: 'in', value: ['toString', 'hasOwnProperty'] },
+      ],
+    };
+    setCondition(IND_LATER, condition);
+    const r = await duplicate();
+    expect(r.status).toBe(201);
+    const copy = copyIndicators(r.body.template.id).find((i) => i.code === 'C-3')!;
+    expect(asJson(copy.visibility_condition)).toEqual(condition);
+  });
+});
+
+describe('send-back 5, V2: source indicator ids as object keys are translated', () => {
+  it('at depth 1, at depth 3 and inside an array of objects; other instruments\' ids unchanged', async () => {
+    setCondition(IND_LATER, {
+      [IND_GATE]: true,
+      a: { b: { [IND_DEPENDENT]: { equals: IND_GATE } } },
+      list: [{ [IND_GATE]: 1 }, { otro: 2, [IND_LATER]: 'x' }],
+      [OTHER_INSTRUMENT_IND]: OTHER_INSTRUMENT_IND,
+    });
+    const r = await duplicate();
+    expect(r.status).toBe(201);
+    const inds = copyIndicators(r.body.template.id);
+    const idOf = (code: string) => inds.find((i) => i.code === code)!.id;
+    const copy = inds.find((i) => i.code === 'C-3')!;
+    expect(asJson(copy.visibility_condition)).toEqual({
+      [idOf('C-1')]: true,
+      a: { b: { [idOf('C-2')]: { equals: idOf('C-1') } } },
+      list: [{ [idOf('C-1')]: 1 }, { otro: 2, [idOf('C-3')]: 'x' }],
+      [OTHER_INSTRUMENT_IND]: OTHER_INSTRUMENT_IND,
+    });
+  });
+});
+
+describe('send-back 5, V3: a copy that cannot be completed is not reported as made', () => {
+  const MESSAGE = 'No se pudo copiar el instrumento completo. Inténtalo de nuevo.';
+  const copyRows = () => {
+    const copy = store.tables.assessment_templates.filter((t) => t.id !== SRC);
+    const ids = copy.map((t) => t.id);
+    return {
+      templates: copy,
+      objectives: store.tables.assessment_objectives.filter((o) => ids.includes(o.template_id)),
+      modules: store.tables.assessment_modules.filter((m) => ids.includes(m.template_id)),
+    };
+  };
+
+  it('the second indicator\'s insert fails → 500 with the message, the half-made copy is removed', async () => {
+    store.fail = (op, table, _p, n) => op === 'insert' && table === 'assessment_indicators' && n === 1;
+    const r = await duplicate();
+    expect(r.status).toBe(500);
+    expect(r.body).toEqual({ error: MESSAGE });
+    // The route removes its half-made copy the same way it does when a práctica cannot be copied
+    // (modules, objectives, template; in the database the indicators go with their modules by cascade).
+    expect(copyRows()).toEqual({ templates: [], objectives: [], modules: [] });
+    // The source is untouched.
+    expect(store.tables.assessment_templates.map((t) => t.id)).toEqual([SRC]);
+    expect(store.tables.assessment_modules.filter((m) => m.template_id === SRC)).toHaveLength(2);
+  });
+
+  it('writing the conditions fails → 500 with the message, the half-made copy is removed', async () => {
+    store.fail = (op, table) => op === 'update' && table === 'assessment_indicators';
+    const r = await duplicate();
+    expect(r.status).toBe(500);
+    expect(r.body).toEqual({ error: MESSAGE });
+    expect(copyRows()).toEqual({ templates: [], objectives: [], modules: [] });
   });
 });

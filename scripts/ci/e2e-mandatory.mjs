@@ -124,6 +124,10 @@ export const MANDATORY_SPECS = [
   // to the new look and back and the profile holds it; signing out returns to today's look.
   // Everything the redesign later hangs on `data-look` depends on exactly this.
   'tests/e2e/look-switch.spec.ts',
+  // REDESIGN 5b — the new look's frame: a tester gets the black sidebar and the bell in the top
+  // bar with exactly today's menu entries, a group opens and navigates, the phone drawer opens and
+  // closes, and «Diseño actual» brings today's frame back.
+  'tests/e2e/look-frame.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

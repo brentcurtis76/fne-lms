@@ -282,3 +282,44 @@ describe('EC-M3 reactions on messages', () => {
     expect(cardCalls()).toHaveLength(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// EC-M10: every sort the page offers orders by a column that exists
+// ---------------------------------------------------------------------------
+
+// Columns of the tables in the local database (\d public.community_messages, \d public.message_threads).
+const MESSAGE_COLUMNS = ['id', 'workspace_id', 'thread_id', 'reply_to_id', 'author_id', 'content', 'content_html', 'is_edited',
+  'is_deleted', 'edited_at', 'created_at', 'updated_at', 'message_type'];
+const THREAD_COLUMNS = ['id', 'workspace_id', 'thread_title', 'description', 'created_by', 'is_pinned', 'is_locked', 'is_archived',
+  'last_message_at', 'message_count', 'participant_count', 'created_at', 'updated_at', 'custom_category_name', 'category',
+  'assignment_group_id'];
+// The options of «Ordenar por» in components/messaging/MessageFilters.tsx.
+const MESSAGE_SORT_OPTIONS = ['created_at', 'relevance', 'thread_activity'] as const;
+const THREAD_SORT_OPTIONS = ['last_message_at', 'created_at', 'message_count', 'participant_count', 'thread_title'] as const;
+
+describe('EC-M10 sorting a conversation', () => {
+  it.each(MESSAGE_SORT_OPTIONS)('messages sorted by «%s» order by an existing column', async (sortBy) => {
+    memberReads({ community_messages: [] });
+    await getWorkspaceMessages(WS, { thread_id: 't1', sort_by: sortBy, sort_order: 'asc' });
+    const query = h.requests.find((r) => r.target === 'community_messages')!;
+    const order = opArgs(query, 'order')!;
+    expect(MESSAGE_COLUMNS).toContain(order[0]);
+    expect(order[1]).toEqual({ ascending: true });
+  });
+
+  it('«Relevancia» and «Actividad del hilo» keep the default order (by date)', async () => {
+    for (const sortBy of ['relevance', 'thread_activity'] as const) {
+      h.requests.length = 0;
+      memberReads({ community_messages: [] });
+      await getWorkspaceMessages(WS, { thread_id: 't1', sort_by: sortBy });
+      expect(opArgs(h.requests.find((r) => r.target === 'community_messages')!, 'order')).toEqual(['created_at', { ascending: false }]);
+    }
+  });
+
+  it.each(THREAD_SORT_OPTIONS)('conversations sorted by «%s» order by an existing column', async (sortBy) => {
+    memberReads({ message_threads: [] });
+    await getWorkspaceThreads(WS, { sort_by: sortBy });
+    const order = opArgs(h.requests.find((r) => r.target === 'message_threads')!, 'order')!;
+    expect(THREAD_COLUMNS).toContain(order[0]);
+  });
+});

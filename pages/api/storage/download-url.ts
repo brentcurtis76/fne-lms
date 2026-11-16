@@ -1,5 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import { requireVerifiedCaller, createApiSupabaseClient } from '../../../lib/api-auth';
+import { authorizeStorageDownload } from '../../../lib/storage/download-authorization';
 
 // Use service role to bypass RLS for storage operations
 const supabaseService = createClient(
@@ -13,22 +15,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Verify authentication
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ error: 'No authorization header' });
+    // Verify authentication (also holds a caller who must change their password)
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
-
-    const token = authHeader.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: authError } = await supabaseService.auth.getUser(token);
-
-    if (authError || !user) {
-      return res.status(401).json({ error: 'Invalid authentication' });
-    }
+    const user = caller.user;
 
     const { fileUrl, bucket = 'resources' } = req.body;
 
@@ -36,8 +28,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'File URL is required' });
     }
 
-    // Extract the file path from the public URL
+    // Extract the bucket and file path; every branch only sets them, and the
+    // single decision below is taken before anything is signed (EC-S1).
     // Public URLs have format: https://xxx.supabase.co/storage/v1/object/public/bucket/path
+    let targetBucket = bucket;
     let filePath = '';
 
     try {
@@ -53,17 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         // Use the bucket from URL if it differs
         if (bucketFromUrl && bucketFromUrl !== bucket) {
-          // Generate signed URL with the correct bucket
-          const { data, error } = await supabaseService.storage
-            .from(bucketFromUrl)
-            .createSignedUrl(filePath, 3600); // 1 hour expiry
-
-          if (error) {
-            console.error('Error creating signed URL:', error);
-            return res.status(500).json({ error: 'Failed to generate download URL', details: error.message });
-          }
-
-          return res.status(200).json({ signedUrl: data.signedUrl });
+          targetBucket = bucketFromUrl;
         }
       }
 
@@ -71,19 +55,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!filePath) {
         const match = fileUrl.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)/);
         if (match) {
-          const bucketFromUrl = match[1];
+          targetBucket = match[1];
           filePath = match[2];
-
-          const { data, error } = await supabaseService.storage
-            .from(bucketFromUrl)
-            .createSignedUrl(filePath, 3600);
-
-          if (error) {
-            console.error('Error creating signed URL:', error);
-            return res.status(500).json({ error: 'Failed to generate download URL', details: error.message });
-          }
-
-          return res.status(200).json({ signedUrl: data.signedUrl });
         }
       }
     } catch (parseError) {
@@ -96,9 +69,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       filePath = fileUrl;
     }
 
+    // Decode once; the decoded path is both what is checked and what is signed
+    let decodedPath: string;
+    try {
+      decodedPath = decodeURIComponent(String(filePath));
+    } catch {
+      return res.status(400).json({ error: 'Ruta de archivo no válida' });
+    }
+
+    const userClient = await createApiSupabaseClient(req, res);
+    const decision = await authorizeStorageDownload(
+      userClient,
+      user.id,
+      typeof targetBucket === 'string' ? targetBucket : '',
+      decodedPath,
+      typeof fileUrl === 'string' ? fileUrl : undefined
+    );
+    if (decision.allowed === false) {
+      return res.status(decision.status).json({ error: decision.error });
+    }
+
     const { data, error } = await supabaseService.storage
-      .from(bucket)
-      .createSignedUrl(filePath, 3600); // 1 hour expiry
+      .from(targetBucket)
+      .createSignedUrl(decodedPath, 3600); // 1 hour expiry
 
     if (error) {
       console.error('Error creating signed URL:', error);

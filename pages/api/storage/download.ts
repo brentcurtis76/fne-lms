@@ -1,5 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import { requireVerifiedCaller, createApiSupabaseClient } from '../../../lib/api-auth';
+import { authorizeStorageDownload } from '../../../lib/storage/download-authorization';
 
 // Use service role to bypass RLS for storage operations
 const supabaseService = createClient(
@@ -13,22 +15,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Verify authentication
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ error: 'No authorization header' });
+    // Verify authentication (also holds a caller who must change their password)
+    const caller = await requireVerifiedCaller(req, res);
+    if (!caller.user) {
+      return res.status(caller.status).json(caller.body);
     }
-
-    const token = authHeader.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: authError } = await supabaseService.auth.getUser(token);
-
-    if (authError || !user) {
-      return res.status(401).json({ error: 'Invalid authentication' });
-    }
+    const user = caller.user;
 
     const { url, filename } = req.query;
 
@@ -71,6 +63,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     console.log('[Download API] Bucket:', bucketName, 'Path:', filePath);
+
+    // Only a file the caller may see is read with the service key (EC-S1)
+    const userClient = await createApiSupabaseClient(req, res);
+    const decision = await authorizeStorageDownload(userClient, user.id, bucketName, filePath, fileUrl);
+    if (decision.allowed === false) {
+      return res.status(decision.status).json({ error: decision.error });
+    }
 
     // Download the file from Supabase Storage
     const { data, error } = await supabaseService.storage

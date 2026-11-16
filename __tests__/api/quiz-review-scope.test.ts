@@ -62,6 +62,7 @@ const { db, fakeClient, mockDeliverRecordBells } = vi.hoisted(() => {
         eq: (c: string, v: unknown) => (q.filters.push((r: any) => r[c] === v), b),
         in: (c: string, v: unknown[]) => (q.filters.push((r: any) => v.includes(r[c])), b),
         is: (c: string, v: null) => (q.filters.push((r: any) => r[c] == v), b),
+        order: () => b,
         single: () => run(table, q, 'single'),
         maybeSingle: () => run(table, q, 'maybe'),
         then: (res: any, rej: any) => run(table, q, 'many').then(res, rej),
@@ -83,6 +84,7 @@ vi.mock('../../pages/api/quiz-reviews/notify-pending', async (importOriginal) =>
 
 import submitReview from '../../pages/api/quiz-reviews/submit-review';
 import quizReview from '../../pages/api/quiz-reviews/[id]';
+import pendingReviews from '../../pages/api/quiz-reviews/pending';
 
 type Handler = (req: any, res: any) => Promise<unknown>;
 async function send(handler: Handler, actor: string | null, method: 'GET' | 'POST', opts: { body?: unknown; query?: Record<string, string> }) {
@@ -184,6 +186,85 @@ describe('CUR-S6e · the scope is decided by looking the learner up, not by list
     const res = await open(CONS_SCHOOL);
     expect(res.status).toBe(200);
     expect(res.body.data.id).toBe(SUB);
+  });
+});
+
+describe('CUR-S6c · GET /api/quiz-reviews/pending lists only the reviews the caller may open', () => {
+  const THIRD_SCHOOL = 303;
+  const [THIRD_LEARNER, TWO_ROLES, CONS_EMPTY] = [u(12), u(13), u(14)];
+  const REVIEW_A = 'a0000000-0000-4000-8000-0000000007b1'; // learner of SCHOOL
+  const REVIEW_B = 'a0000000-0000-4000-8000-0000000007b2'; // learner of OTHER_SCHOOL
+  const REVIEW_C = 'a0000000-0000-4000-8000-0000000007b3'; // learner of THIRD_SCHOOL
+  const list = (actor: string) => send(pendingReviews, actor, 'GET', {});
+  const ids = (res: { body: any }) => res.body.data.map((r: any) => r.id);
+  const logLines = () => vi.mocked(console.log).mock.calls.map((args) => args.join(' '));
+
+  beforeEach(() => {
+    db.tables.user_roles.push(
+      { user_id: THIRD_LEARNER, role_type: 'docente', is_active: true, school_id: THIRD_SCHOOL, generation_id: null, community_id: null },
+      { user_id: TWO_ROLES, role_type: 'consultor', is_active: true, school_id: null, generation_id: null, community_id: null },
+      { user_id: TWO_ROLES, role_type: 'equipo_directivo', is_active: true, school_id: SCHOOL, generation_id: null, community_id: null },
+      { user_id: CONS_EMPTY, role_type: 'consultor', is_active: true, school_id: null, generation_id: null, community_id: null },
+    );
+    db.tables.consultant_assignments.push(
+      { consultant_id: TWO_ROLES, student_id: THIRD_LEARNER, school_id: null, generation_id: null, community_id: null, is_active: true, assignment_data: {} },
+    );
+    db.tables.pending_quiz_reviews = [
+      { id: REVIEW_A, student_id: LEARNER, submitted_at: '2026-11-01T10:00:00Z' },
+      { id: REVIEW_B, student_id: OTHER_LEARNER, submitted_at: '2026-11-02T10:00:00Z' },
+      { id: REVIEW_C, student_id: THIRD_LEARNER, submitted_at: '2026-11-03T10:00:00Z' },
+    ];
+  });
+
+  it('an admin sees every waiting review', async () => {
+    const res = await list(ADMIN);
+    expect(res.status).toBe(200);
+    expect(ids(res)).toEqual([REVIEW_A, REVIEW_B, REVIEW_C]);
+  });
+
+  it.each([
+    ['an individual', CONS_INDIV],
+    ['a school', CONS_SCHOOL],
+    ['a generation', CONS_GEN],
+    ['a community', CONS_COMM],
+  ])('a consultor with %s assignment sees only the learner it covers', async (_scope, actor) => {
+    const res = await list(actor);
+    expect(res.status).toBe(200);
+    expect(ids(res)).toEqual([REVIEW_A]);
+  });
+
+  it('a consultor with no assignment gets an empty list', async () => {
+    expect(await list(CONS_EMPTY)).toEqual({ status: 200, body: { data: [] } });
+  });
+
+  it('a directivo of school A sees only school A’s reviews', async () => {
+    const res = await list(DIR_OWN);
+    expect(res.status).toBe(200);
+    expect(ids(res)).toEqual([REVIEW_A]);
+  });
+
+  it('a person who is consultor of one learner and directivo of school A sees the union', async () => {
+    const res = await list(TWO_ROLES);
+    expect(res.status).toBe(200);
+    expect(ids(res)).toEqual([REVIEW_A, REVIEW_C]);
+  });
+
+  it('a learner gets 403 from the role gate, as today', async () => {
+    expect(await list(LEARNER)).toEqual({ status: 403, body: { error: 'No permission to access quiz reviews' } });
+  });
+
+  it('a failed scope lookup answers 500 Failed to verify access', async () => {
+    db.faults['consultant_assignments.select'] = { code: 'XX000', message: 'synthetic' };
+    expect(await list(CONS_INDIV)).toEqual({ status: 500, body: { error: 'Failed to verify access' } });
+  });
+
+  it('a non-admin caller’s log holds the role and counts only', async () => {
+    expect((await list(DIR_OWN)).status).toBe(200);
+    expect(logLines()).toEqual([
+      '[API pending] Role: equipo_directivo',
+      '[API pending] All reviews count: 3',
+      '[API pending] Filtered reviews: 1',
+    ]);
   });
 });
 

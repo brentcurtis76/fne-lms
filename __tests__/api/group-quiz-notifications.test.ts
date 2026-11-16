@@ -1141,18 +1141,11 @@ describe('R4-F1/F2/F3 · the group and quiz journey’s auth and sibling routes 
         '[API assignments] Allowed students: 0',
         '[API pending] Role: consultor',
         '[API pending] All reviews count: 1',
-        '[API pending] Assignments found: 1',
-        '[API pending] Processing scope: school',
-        '[API pending] Users in school: 5',
-        '[API pending] Allowed student IDs: 5',
         '[API pending] Filtered reviews: 1',
         '[API pending] Role: admin',
         '[API pending] All reviews count: 1',
         '[API pending] Role: consultor',
         '[API pending] All reviews count: 1',
-        '[API pending] Assignments found: 1',
-        '[API pending] Processing scope: individual',
-        '[API pending] Allowed student IDs: 0',
         '[API pending] Filtered reviews: 0',
       ]);
     });
@@ -1235,9 +1228,6 @@ describe('R4-F1/F2/F3 · the group and quiz journey’s auth and sibling routes 
         expect(logs).toEqual([
           '[API pending] Role: consultor',
           '[API pending] All reviews count: 1',
-          '[API pending] Assignments found: 1',
-          '[API pending] Processing scope: unknown',
-          '[API pending] Allowed student IDs: 0',
           '[API pending] Filtered reviews: 0',
         ]);
         expect(logs.join('\n')).not.toMatch(/School|nombre/);
@@ -1250,10 +1240,6 @@ describe('R4-F1/F2/F3 · the group and quiz journey’s auth and sibling routes 
         expect(logs).toEqual([
           '[API pending] Role: consultor',
           '[API pending] All reviews count: 1',
-          '[API pending] Assignments found: 2',
-          '[API pending] Processing scope: unknown',
-          '[API pending] Processing scope: individual',
-          '[API pending] Allowed student IDs: 1',
           '[API pending] Filtered reviews: 1',
         ]);
       });

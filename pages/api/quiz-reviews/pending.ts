@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { loggableError } from '../../../lib/api-auth';
+import { canReviewSubmission } from '../../../lib/quiz-reviews/review-scope';
 
 // Use service role to bypass RLS
 const supabaseService = createClient(
@@ -73,85 +74,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log('[API pending] All reviews count:', allReviews?.length);
 
+    // Every active role type of the caller: a person with several roles gets the union.
+    const activeRoleTypes = (userRoles || []).map(r => r.role_type);
+
     // If admin, return all reviews
-    if (userRole === 'admin') {
+    if (activeRoleTypes.includes('admin')) {
       return res.status(200).json({ data: allReviews });
     }
 
-    // For consultors, filter by their assigned users
-    if (userRole === 'consultor') {
-      // Get consultant's assignments using service role (bypasses RLS)
-      const { data: assignments, error: assignmentsError } = await supabaseService
-        .from('consultant_assignments')
-        .select('student_id, school_id, generation_id, community_id, assignment_data')
-        .eq('consultant_id', user.id)
-        .eq('is_active', true);
-
-      console.log('[API pending] Assignments found:', assignments?.length);
-
-      if (assignmentsError) {
-        console.error('Error fetching consultant assignments:', loggableError(assignmentsError));
-        return res.status(500).json({ error: 'Failed to fetch assignments' });
+    // Everyone else: only the reviews whose learner the caller may open (the same rule
+    // as GET /api/quiz-reviews/[id] and POST /api/quiz-reviews/submit-review), decided
+    // once per learner.
+    const allowedByStudent = new Map<string, boolean>();
+    try {
+      for (const review of (allReviews || [])) {
+        const studentId = review.student_id;
+        if (allowedByStudent.has(studentId)) continue;
+        allowedByStudent.set(studentId, await canReviewSubmission(supabaseService, user.id, activeRoleTypes, studentId));
       }
-
-      if (!assignments || assignments.length === 0) {
-        return res.status(200).json({ data: [] });
-      }
-
-      // Build list of allowed student IDs based on assignment scopes
-      const allowedStudentIds = new Set<string>();
-
-      for (const assignment of assignments) {
-        const scope = assignment.assignment_data?.assignment_scope || 'individual';
-        // The stored scope is free JSON: only a known label is logged.
-        console.log('[API pending] Processing scope:', ['individual', 'school', 'generation', 'community'].includes(scope) ? scope : 'unknown');
-
-        if (scope === 'individual' && assignment.student_id) {
-          allowedStudentIds.add(assignment.student_id);
-        } else if (scope === 'school' && assignment.school_id) {
-          const { data: schoolUsers } = await supabaseService
-            .from('user_roles')
-            .select('user_id')
-            .eq('school_id', assignment.school_id)
-            .eq('is_active', true);
-          console.log('[API pending] Users in school:', schoolUsers?.length);
-          if (schoolUsers) {
-            schoolUsers.forEach(u => allowedStudentIds.add(u.user_id));
-          }
-        } else if (scope === 'generation' && assignment.generation_id) {
-          const { data: genUsers } = await supabaseService
-            .from('user_roles')
-            .select('user_id')
-            .eq('generation_id', assignment.generation_id)
-            .eq('is_active', true);
-          if (genUsers) {
-            genUsers.forEach(u => allowedStudentIds.add(u.user_id));
-          }
-        } else if (scope === 'community' && assignment.community_id) {
-          const { data: communityUsers } = await supabaseService
-            .from('user_roles')
-            .select('user_id')
-            .eq('community_id', assignment.community_id)
-            .eq('is_active', true);
-          if (communityUsers) {
-            communityUsers.forEach(u => allowedStudentIds.add(u.user_id));
-          }
-        }
-      }
-
-      console.log('[API pending] Allowed student IDs:', allowedStudentIds.size);
-
-      // Filter reviews
-      const filteredReviews = allReviews?.filter(review =>
-        allowedStudentIds.has(review.student_id)
-      ) || [];
-
-      console.log('[API pending] Filtered reviews:', filteredReviews.length);
-      return res.status(200).json({ data: filteredReviews });
+    } catch {
+      return res.status(500).json({ error: 'Failed to verify access' });
     }
 
-    // For equipo_directivo or other roles, return all for now
-    return res.status(200).json({ data: allReviews });
+    const filteredReviews = (allReviews || []).filter(review => allowedByStudent.get(review.student_id) === true);
+
+    console.log('[API pending] Filtered reviews:', filteredReviews.length);
+    return res.status(200).json({ data: filteredReviews });
 
   } catch (error) {
     console.error('Quiz reviews API error:', loggableError(error));

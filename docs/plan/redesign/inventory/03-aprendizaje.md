@@ -1,7 +1,7 @@
 # Mi Aprendizaje (the learner's courses, lessons and routes)
 
 Area `03-aprendizaje`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c30585b2f` (2026-11-16).
+Read from commit `3cf1440a5` (2026-11-16).
 
 Course system: the Course Review session owns this area's structure and its own checklist (docs/planning/courses/inventory.md, not yet on main). This file is the redesign's list of what is on screen today.
 

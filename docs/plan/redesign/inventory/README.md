@@ -2,7 +2,7 @@
 
 What every screen of the platform offers today, so the redesign can prove that nothing is lost (PLAN.md, "The no-loss rules": the inventory is the contract).
 
-Read from commit `c30585b2f08aa7fcf45c544bc6d90d2ce2ae4dc9` (2026-11-16).
+Read from commit `3cf1440a5fd1dbe5d85b3cbb2db9c4ee61d25dea` (2026-11-16).
 
 ## How to use it
 
@@ -48,9 +48,9 @@ What reading the code cannot see is added by the walk by sight and kept in `anno
 | [Notificaciones](16-notificaciones.md) | 5 | 10 | 8 | 285 |
 | [Horas, tarifas y gastos](17-horas-gastos.md) | 4 | 9 | 15 | 441 |
 | [QA (the platform's own test tool)](18-qa.md) | 16 | 21 | 13 | 1237 |
-| [Sistema (configuration, support, roadmap, test and debug pages, scheduled jobs)](19-sistema.md) | 3 | 26 | 6 | 257 |
+| [Sistema (configuration, support, roadmap, test and debug pages, scheduled jobs)](19-sistema.md) | 3 | 27 | 6 | 257 |
 | [Sitio público (nuevaeducacion.org pages; not part of the platform redesign)](20-sitio-publico.md) | 8 | 1 | 28 | 825 |
-| **Total** | **153** | **365** | | **17481** |
+| **Total** | **153** | **366** | | **17481** |
 
 The menu has 18 entries at the top level and 61 children (`NAVIGATION_ITEMS` in `components/layout/Sidebar.tsx`).
 

@@ -1,10 +1,10 @@
 # Screens and their tests
 
-Written by `scripts/redesign/inventory.mjs` from commit `c30585b2f`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 27 of 68 browser test files (`scripts/ci/e2e-mandatory.mjs`).
+Written by `scripts/redesign/inventory.mjs` from commit `3cf1440a5`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 28 of 69 browser test files (`scripts/ci/e2e-mandatory.mjs`).
 
 - 150 screens with an address.
-- 29 are named by a browser test that CI runs.
-- 50 are named only by tests CI skips, or have only unit tests.
+- 30 are named by a browser test that CI runs.
+- 49 are named only by tests CI skips, or have only unit tests.
 - 71 have no test at all.
 
 ## No test at all
@@ -114,7 +114,6 @@ Written by `scripts/redesign/inventory.mjs` from commit `c30585b2f`. For phase 3
 | 08-gestor-de-cambio | `/demo/assessments/[templateId]/results` | — | 1 |
 | 08-gestor-de-cambio | `/directivo/assessments/dashboard` | `e2e/proc-pilot-journey.spec.ts` | 1 |
 | 08-gestor-de-cambio | `/docente/assessments/[instanceId]/results` | `e2e/assessment-results.spec.ts`, `e2e/proc-pilot-journey.spec.ts` | — |
-| 08-gestor-de-cambio | `/docente/assessments` | `e2e/proc-pilot-journey.spec.ts` | 1 |
 | 08-gestor-de-cambio | `/school/migration-plan` | — | 1 |
 | 08-gestor-de-cambio | `/school/transversal-context/edit` | `e2e/proc-pilot-journey.spec.ts` | 1 |
 | 08-gestor-de-cambio | `/school/transversal-context` | `e2e/proc-pilot-journey.spec.ts` | 2 |
@@ -149,6 +148,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `c30585b2f`. For phase 3
 | 06-sesiones | `/meet/session/[id]` | `e2e/session-disclosure.spec.ts`, `e2e/session-ical.spec.ts`, `e2e/zoom-join-authz.spec.ts`, `e2e/zoom-managed-join.spec.ts` |
 | 07-espacio-colaborativo | `/community/workspace` | `e2e/auth-lifecycle.spec.ts`, `e2e/community-document-links.spec.ts`, `e2e/meeting-create-and-access.spec.ts` |
 | 08-gestor-de-cambio | `/docente/assessments/[instanceId]` | `e2e/assessment-draft.spec.ts` |
+| 08-gestor-de-cambio | `/docente/assessments` | `e2e/assessment-delivery.spec.ts` |
 | 12-pasantias | `/admin/pasantia-leads` | `e2e/ci-fixture.spec.ts`, `e2e/pasantias-flow.spec.ts`, `e2e/pasantias-leads-admin.spec.ts` |
 | 12-pasantias | `/admin/pasantia-participants` | `e2e/pasantias-participant-intake.spec.ts` |
 | 12-pasantias | `/admin/pasantias-panel` | `e2e/pasantias-panel.spec.ts` |

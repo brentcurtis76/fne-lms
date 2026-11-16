@@ -1,7 +1,7 @@
 # Gestor de Cambio (registros, context, migration plan, results)
 
 Area `08-gestor-de-cambio`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c30585b2f` (2026-11-16).
+Read from commit `3cf1440a5` (2026-11-16).
 
 16 screen files, 40 API files, 30 pieces.
 
@@ -2421,7 +2421,7 @@ File `pages/docente/assessments/index.tsx` · 407 lines · frame: MainLayout
   - l.91 `router.push → /login  (when !session?.user)`
   - l.143 `router.push → /login`
 - Linked from: `components/layout/Sidebar.tsx:164`, `components/layout/Sidebar.tsx:319`, `pages/docente/assessments/[instanceId]/index.tsx:43`, `pages/docente/assessments/[instanceId]/results.tsx:146`, `pages/docente/assessments/[instanceId]/results.tsx:78`
-- Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/proc-pilot-journey.spec.ts`; unit tests of the page: `__tests__/pages/docente/assessments-list-cards.test.tsx`.
+- Tests: browser tests that CI runs: `tests/e2e/assessment-delivery.spec.ts`; browser tests CI skips: `tests/e2e/proc-pilot-journey.spec.ts`; unit tests of the page: `__tests__/pages/docente/assessments-list-cards.test.tsx`.
 - QA scenarios that name this address: admin 1, consultor 1, lider_generacion 1.
 
 | Role | Sees it in the menu | Middleware |
@@ -4008,7 +4008,7 @@ Used by: `/admin/context-questions`, `/admin/context-questions/overview`
 | `/api/docente/assessments/[instanceId]/responses` | `pages/api/docente/assessments/[instanceId]/responses.ts` | PUT | `/docente/assessments/[instanceId]` | `__tests__/api/assessment-builder/traspaso.test.ts`, `__tests__/api/docente/assessments/responses.test.ts`, `__tests__/pages/docente/assessment-form-autosave.test.tsx`, `__tests__/pages/docente/assessment-frequency.test.tsx`, `lib/services/assessment-builder/responseDraft.ts` +1 |
 | `/api/docente/assessments/[instanceId]/results` | `pages/api/docente/assessments/[instanceId]/results.ts` | GET | `/docente/assessments/[instanceId]/results` | `pages/docente/assessments/[instanceId]/results.tsx`, `tests/e2e/assessment-results.spec.ts` |
 | `/api/docente/assessments/[instanceId]/submit` | `pages/api/docente/assessments/[instanceId]/submit.ts` | POST | `/docente/assessments/[instanceId]` | `__tests__/api/docente/assessments/submit.test.ts`, `__tests__/pages/docente/assessment-form-autosave.test.tsx`, `pages/docente/assessments/[instanceId]/index.tsx`, `tests/e2e/assessment-draft.spec.ts` |
-| `/api/docente/assessments` | `pages/api/docente/assessments/index.ts` | GET | `/docente/assessments` | `__tests__/api/assessment-builder/docente-assessments.test.ts`, `__tests__/pages/docente/assessments-list-cards.test.tsx`, `pages/docente/assessments/index.tsx` |
+| `/api/docente/assessments` | `pages/api/docente/assessments/index.ts` | GET | `/docente/assessments` | `__tests__/api/assessment-builder/docente-assessments.test.ts`, `__tests__/pages/docente/assessments-list-cards.test.tsx`, `pages/docente/assessments/index.tsx`, `tests/e2e/assessment-delivery.spec.ts` |
 | `/api/school/change-history` | `pages/api/school/change-history/index.ts` | GET | `/school/migration-plan`, `/school/transversal-context`, `/school/transversal-context/edit` | `__tests__/api/school/change-history.test.ts`, `__tests__/pages/school/transversal-context-assign.test.tsx`, `components/school/ChangeHistorySection.tsx` |
 | `/api/school/completion-status` | `pages/api/school/completion-status/index.ts` | GET | `/school/migration-plan`, `/school/transversal-context` | `__tests__/api/school/completion-status.test.ts`, `__tests__/pages/school/migration-plan-denied-state.test.tsx`, `__tests__/pages/school/transversal-context-assign.test.tsx`, `__tests__/pages/school/transversal-context-replace.test.tsx`, `pages/school/migration-plan/index.tsx` +1 |
 | `/api/school/migration-plan` | `pages/api/school/migration-plan/index.ts` | GET, PUT | `/school/migration-plan` | `__tests__/api/school/migration-plan-assignment-auth.test.ts`, `__tests__/pages/school/migration-plan-denied-state.test.tsx`, `pages/school/migration-plan/index.tsx` |

@@ -30,11 +30,14 @@
 --                     community-images/<workspaceId>-… and the caller is an active
 --                     community_manager of that workspace's community (the rule
 --                     community_workspaces itself has for saving a new picture)
---   boletas           insert: unchanged; select, delete: admin, owner, or a row of
---                     public.expense_receipt_files (written only by the server)
---                     that gives the file to the caller; update: admin or owner.
---                     Text a filer can write (expense_items.receipt_url) is never
---                     proof: a filer writes that column with their own session.
+--   boletas           insert: unchanged; select, delete: admin, owner, or (no
+--                     owner and a row of public.expense_receipt_files for THIS
+--                     object's id that gives it to the caller); update (which a
+--                     move into boletas also is): admin, or owner with
+--                     expense_report_access.can_submit (what Production asks of
+--                     an upload). Text a filer can write
+--                     (expense_items.receipt_url) is never proof: a filer writes
+--                     that column with their own session.
 --   course-materials, course-assets, instructor-photos, contracts
 --                     insert / update / delete: admin; select: unchanged
 --   every other bucket unchanged for signed-in people
@@ -42,31 +45,78 @@
 -- an error.
 --
 -- public.expense_receipt_files: which person a receipt stored by the server
--- belongs to. The expense assistant uploads receipts with the service key (so
--- the file has no owner in the store) and records them here after the expense
--- is saved; public.backfill_expense_receipt_files() records the assistant's
--- earlier files that exactly one filer's expenses name as 'boletas/<name>'.
--- Only the service role and file_store_allows (SECURITY DEFINER) read it.
+-- belongs to, tied to the file's identity (storage.objects.id, never used
+-- again) and not to its name (a name can be freed and taken by a new file).
+-- The expense assistant uploads receipts with the service key (so the file has
+-- no owner in the store) and, after the expense is saved, records them through
+-- public.record_expense_receipt_file(name, person) — the only writer (service
+-- role only). The service role may read and delete rows, never insert or
+-- update them directly. There is no backfill: receipts the assistant stored
+-- before this migration have no record and stay readable by admins only
+-- (expense text is writable by filers and is no proof of whose a file is).
 -- The person is referenced as public.profiles(id), as the other server-only
 -- tables of this repository do (e.g. notification_digest_runs).
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS public.expense_receipt_files (
-  object_name text PRIMARY KEY,                -- the file's name in the boletas bucket, exactly
+  object_id   uuid PRIMARY KEY,                -- storage.objects.id of the file; an id is never used again
+  object_name text NOT NULL,                   -- its name when recorded, for people reading the table; never used to decide
   user_id     uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   recorded_at timestamptz NOT NULL DEFAULT now(),
-  source      text NOT NULL                    -- 'assistant' or 'backfill'
+  source      text NOT NULL                    -- 'assistant'
 );
 ALTER TABLE public.expense_receipt_files ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.expense_receipt_files FROM PUBLIC, anon, authenticated, service_role;
-GRANT SELECT, INSERT, DELETE ON TABLE public.expense_receipt_files TO service_role;
+GRANT SELECT, DELETE ON TABLE public.expense_receipt_files TO service_role;
 -- The repository's boundary for every row-secured table in public (test 053's
 -- catalog invariant): a RESTRICTIVE rule that gives nothing to anyone.
 SELECT public.apply_forced_password_change_guard('public', 'expense_receipt_files');
 COMMENT ON TABLE public.expense_receipt_files IS
-  'F2b send-back 1 (2026-11-16): receipts in the boletas bucket stored by the server (no owner), and the person each belongs to. Written only with the service key (lib/bots/expense-service.ts) and by backfill_expense_receipt_files(); read by file_store_allows. Row security on, no rule: no one else reads or writes it.';
+  'F2b (2026-11-16): receipts in the boletas bucket stored by the server (no owner), by object id, and the person each belongs to. Written only by record_expense_receipt_file() (service role; lib/bots/expense-service.ts); read by file_store_allows. Row security on, no rule: no one else reads or writes it.';
 
-CREATE OR REPLACE FUNCTION public.file_store_allows(p_bucket text, p_name text, p_owner uuid, p_action text)
+-- The only writer of expense_receipt_files. Records that the ownerless boletas
+-- object with exactly this name belongs to this person. FALSE, writing
+-- nothing, when there is no such object (none, or it has an owner), or the
+-- person is null or has no profile. If the object is already recorded:
+-- changes nothing; TRUE only when it is recorded for the same person.
+CREATE OR REPLACE FUNCTION public.record_expense_receipt_file(p_object_name text, p_user_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_id   uuid;
+  v_user uuid;
+BEGIN
+  IF p_object_name IS NULL OR p_user_id IS NULL
+     OR NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = p_user_id) THEN
+    RETURN false;
+  END IF;
+  SELECT o.id INTO v_id
+    FROM storage.objects o
+   WHERE o.bucket_id = 'boletas' AND o.name = p_object_name AND o.owner IS NULL;
+  IF v_id IS NULL THEN
+    RETURN false;
+  END IF;
+  INSERT INTO public.expense_receipt_files (object_id, object_name, user_id, source)
+  VALUES (v_id, p_object_name, p_user_id, 'assistant')
+  ON CONFLICT (object_id) DO NOTHING;
+  IF FOUND THEN
+    RETURN true;
+  END IF;
+  SELECT f.user_id INTO v_user FROM public.expense_receipt_files f WHERE f.object_id = v_id;
+  RETURN coalesce(v_user = p_user_id, false);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.record_expense_receipt_file(text, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.record_expense_receipt_file(text, uuid) TO service_role;
+
+COMMENT ON FUNCTION public.record_expense_receipt_file(text, uuid) IS
+  'F2b (2026-11-16): records in expense_receipt_files that the ownerless boletas object with this exact name (by its object id) belongs to this person. FALSE and nothing written if there is no such object or person; for an object already recorded, TRUE only for the same person, never a change. Service role only.';
+
+CREATE OR REPLACE FUNCTION public.file_store_allows(p_bucket text, p_name text, p_owner uuid, p_action text, p_id uuid)
 RETURNS boolean
 LANGUAGE plpgsql
 STABLE
@@ -155,16 +205,25 @@ BEGIN
     IF v_uid IS NULL THEN
       RETURN false;
     END IF;
-    IF public.auth_is_admin() OR (p_owner IS NOT NULL AND p_owner = v_uid) THEN
+    IF public.auth_is_admin() THEN
       RETURN true;
     END IF;
-    IF p_action = 'update' OR v_name = '' THEN
+    IF p_action = 'update' THEN
+      -- also a move into boletas: the new row is checked here
+      RETURN p_owner IS NOT NULL AND p_owner = v_uid
+         AND EXISTS (SELECT 1 FROM public.expense_report_access a
+                      WHERE a.user_id = v_uid AND a.can_submit = true);
+    END IF;
+    IF p_owner IS NOT NULL THEN
+      RETURN p_owner = v_uid;
+    END IF;
+    IF p_id IS NULL THEN
       RETURN false;
     END IF;
     RETURN EXISTS (
       SELECT 1
         FROM public.expense_receipt_files f
-       WHERE f.object_name = v_name
+       WHERE f.object_id = p_id
          AND f.user_id = v_uid);
 
   WHEN 'course-materials', 'course-assets', 'instructor-photos', 'contracts' THEN
@@ -180,59 +239,22 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.file_store_allows(text, text, uuid, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.file_store_allows(text, text, uuid, text) TO anon, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.file_store_allows(text, text, uuid, text, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.file_store_allows(text, text, uuid, text, uuid) TO anon, authenticated, service_role;
 
-COMMENT ON FUNCTION public.file_store_allows(text, text, uuid, text) IS
+COMMENT ON FUNCTION public.file_store_allows(text, text, uuid, text, uuid) IS
   'F2b (2026-11-16): whether the caller may select/insert/update/delete this storage object. TRUE for buckets and actions F2b does not govern; FALSE (never an error) for a path without the expected shape. Used only by the four RESTRICTIVE file_stores_boundary_* rules on storage.objects.';
 
 CREATE POLICY "file_stores_boundary_select" ON storage.objects
   AS RESTRICTIVE FOR SELECT TO public
-  USING (public.file_store_allows(bucket_id, name, owner, 'select'));
+  USING (public.file_store_allows(bucket_id, name, owner, 'select', id));
 CREATE POLICY "file_stores_boundary_insert" ON storage.objects
   AS RESTRICTIVE FOR INSERT TO public
-  WITH CHECK (public.file_store_allows(bucket_id, name, owner, 'insert'));
+  WITH CHECK (public.file_store_allows(bucket_id, name, owner, 'insert', id));
 CREATE POLICY "file_stores_boundary_update" ON storage.objects
   AS RESTRICTIVE FOR UPDATE TO public
-  USING (public.file_store_allows(bucket_id, name, owner, 'update'))
-  WITH CHECK (public.file_store_allows(bucket_id, name, owner, 'update'));
+  USING (public.file_store_allows(bucket_id, name, owner, 'update', id))
+  WITH CHECK (public.file_store_allows(bucket_id, name, owner, 'update', id));
 CREATE POLICY "file_stores_boundary_delete" ON storage.objects
   AS RESTRICTIVE FOR DELETE TO public
-  USING (public.file_store_allows(bucket_id, name, owner, 'delete'));
-
--- The assistant's receipts stored before this migration: one row per ownerless
--- boletas object named EXACTLY 'boletas/' || name (the shape the assistant
--- stores) by the expenses of one and only one filer. A name two filers' expenses
--- reference gets no row (it stays admin-only). Idempotent.
-CREATE OR REPLACE FUNCTION public.backfill_expense_receipt_files()
-RETURNS integer
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
-DECLARE
-  v_n integer;
-BEGIN
-  INSERT INTO public.expense_receipt_files (object_name, user_id, source)
-  SELECT o.name, (array_agg(DISTINCT er.submitted_by))[1], 'backfill'
-    FROM storage.objects o
-    JOIN public.expense_items ei ON ei.receipt_url = 'boletas/' || o.name
-    JOIN public.expense_reports er ON er.id = ei.report_id
-   WHERE o.bucket_id = 'boletas'
-     AND o.owner IS NULL
-     AND er.submitted_by IS NOT NULL
-   GROUP BY o.name
-  HAVING count(DISTINCT er.submitted_by) = 1
-  ON CONFLICT (object_name) DO NOTHING;
-  GET DIAGNOSTICS v_n = ROW_COUNT;
-  RETURN v_n;
-END;
-$$;
-
-REVOKE ALL ON FUNCTION public.backfill_expense_receipt_files() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.backfill_expense_receipt_files() TO service_role;
-
-COMMENT ON FUNCTION public.backfill_expense_receipt_files() IS
-  'F2b send-back 1 (2026-11-16): records in expense_receipt_files the ownerless boletas files that exactly one filer''s expenses name as boletas/<name>; returns the number of rows inserted. Service role only.';
-
-SELECT public.backfill_expense_receipt_files();
+  USING (public.file_store_allows(bucket_id, name, owner, 'delete', id));

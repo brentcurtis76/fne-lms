@@ -44,6 +44,9 @@ function buildClient(resultsByTable: Record<string, TableResult[]>) {
   const tableCalls: Array<{ table: string; op: string; args: unknown[] }> = [];
   let uploadResult: { error: unknown } = { error: null };
   const rpcResults: Array<{ data?: unknown; error?: unknown }> = [];
+  // The receipt record's answers, separate from the save RPC's queue
+  // (default: recorded).
+  const recordResults: Array<{ data?: unknown; error?: unknown }> = [];
 
   const client = {
     from: vi.fn((table: string) => {
@@ -70,6 +73,9 @@ function buildClient(resultsByTable: Record<string, TableResult[]>) {
     }),
     rpc: vi.fn((fn: string, args: Record<string, unknown>) => {
       rpcCalls.push({ fn, args });
+      if (fn === 'record_expense_receipt_file') {
+        return Promise.resolve(recordResults.shift() ?? { data: true, error: null });
+      }
       return Promise.resolve(rpcResults.shift() ?? { data: REPORT_ID, error: null });
     }),
     storage: {
@@ -92,7 +98,8 @@ function buildClient(resultsByTable: Record<string, TableResult[]>) {
     storageCalls,
     tableCalls,
     setUploadResult: (r: { error: unknown }) => { uploadResult = r; },
-    queueRpcResult: (r: { data?: unknown; error?: unknown }) => { rpcResults.push(r); }
+    queueRpcResult: (r: { data?: unknown; error?: unknown }) => { rpcResults.push(r); },
+    queueRecordResult: (r: { data?: unknown; error?: unknown }) => { recordResults.push(r); }
   };
 }
 
@@ -298,9 +305,10 @@ describe('saveExpenseItem', () => {
     expect(fake.rpcCalls).toHaveLength(0);
   });
 
-  // F2b send-back 1: the store's rule for boletas trusts only the server's record.
-  const receiptInserts = (fake: ReturnType<typeof buildClient>) =>
-    fake.tableCalls.filter((c) => c.table === 'expense_receipt_files' && c.op === 'insert');
+  // F2b: the store's rule for boletas trusts only the server's record, written
+  // only by record_expense_receipt_file (tied to the file's identity).
+  const recordCalls = (fake: ReturnType<typeof buildClient>) =>
+    fake.rpcCalls.filter((c) => c.fn === 'record_expense_receipt_file');
 
   it('records the uploaded file for the user after a successful save', async () => {
     const fake = buildClient({
@@ -312,13 +320,13 @@ describe('saveExpenseItem', () => {
     await service.saveExpenseItem(saveInput);
 
     const uploadedName = fake.storageCalls[0].args[0] as string;
-    const inserts = receiptInserts(fake);
-    expect(inserts).toHaveLength(1);
-    expect(inserts[0].args[0]).toEqual({ object_name: uploadedName, user_id: USER_ID, source: 'assistant' });
+    const calls = recordCalls(fake);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].args).toEqual({ p_object_name: uploadedName, p_user_id: USER_ID });
+    expect(fake.rpcCalls.map((c) => c.fn)).toEqual(['bot_save_expense_item', 'record_expense_receipt_file']);
     expect(fake.rpcCalls[0].args.p_receipt_url).toBe(`boletas/${uploadedName}`);
-    // recorded after the RPC: the record's table is touched before the report read-back
-    const order = fake.client.from.mock.calls.map((c) => c[0]);
-    expect(order.indexOf('expense_receipt_files')).toBeLessThan(order.indexOf('expense_reports'));
+    // no direct write to the table
+    expect(fake.tableCalls.some((c) => c.table === 'expense_receipt_files')).toBe(false);
   });
 
   it('does not record the file when the upload fails', async () => {
@@ -326,30 +334,33 @@ describe('saveExpenseItem', () => {
     fake.setUploadResult({ error: { message: 'storage down' } });
     const service = new ExpenseService(fake.client as never);
     await expect(service.saveExpenseItem(saveInput)).rejects.toMatchObject({ code: 'UPLOAD_FAILED' });
-    expect(receiptInserts(fake)).toHaveLength(0);
+    expect(recordCalls(fake)).toHaveLength(0);
   });
 
-  it('does not record the file when the RPC fails', async () => {
+  it('does not record the file when the save RPC fails', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
       const fake = buildClient({});
       fake.queueRpcResult({ data: null, error: { message: 'boom' } });
       const service = new ExpenseService(fake.client as never);
       await expect(service.saveExpenseItem(saveInput)).rejects.toMatchObject({ code: 'SAVE_FAILED' });
-      expect(receiptInserts(fake)).toHaveLength(0);
+      expect(recordCalls(fake)).toHaveLength(0);
     } finally {
       errorSpy.mockRestore();
     }
   });
 
-  it('a failing record does not fail the save, and its log carries no file name', async () => {
+  it('a failing record call does not fail the save, and its log carries no file name', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
       const fake = buildClient({
-        expense_receipt_files: [{ error: { code: '23505', message: 'duplicate key value violates unique constraint', details: 'Key (object_name)=(receipt_x.jpg) already exists.' } }],
         expense_reports: [
           { data: { report_name: 'Gastos junio 2026', total_amount: 12990, expense_items: [{ count: 1 }] } }
         ]
+      });
+      fake.queueRecordResult({
+        data: null,
+        error: { code: 'PGRST202', message: 'Could not find the function', details: 'receipt_x.jpg' }
       });
       const service = new ExpenseService(fake.client as never);
       const result = await service.saveExpenseItem(saveInput);
@@ -359,10 +370,51 @@ describe('saveExpenseItem', () => {
       const logged = errorSpy.mock.calls.find((c) => c[0] === '[Bot] save failure');
       expect(logged).toBeTruthy();
       const record = JSON.parse(logged![1] as string);
-      expect(record).toMatchObject({ stage: 'receipt_record', code: '23505', details: null, itemId: ITEM_ID });
+      expect(record).toMatchObject({ stage: 'receipt_record', code: 'PGRST202', details: null, itemId: ITEM_ID });
       const uploadedName = fake.storageCalls[0].args[0] as string;
       expect(logged!.join(' ')).not.toContain(uploadedName);
       expect(logged!.join(' ')).not.toContain('receipt_x.jpg');
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('a false answer from the record call does not fail the save, and its log carries no file name', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const fake = buildClient({
+        expense_reports: [
+          { data: { report_name: 'Gastos junio 2026', total_amount: 12990, expense_items: [{ count: 1 }] } }
+        ]
+      });
+      fake.queueRecordResult({ data: false, error: null });
+      const service = new ExpenseService(fake.client as never);
+      const result = await service.saveExpenseItem(saveInput);
+      expect(result).toMatchObject({ reportId: REPORT_ID, reportName: 'Gastos junio 2026', itemCount: 1 });
+      expect(fake.storageCalls.some((c) => c.op === 'remove')).toBe(false);
+
+      const logged = errorSpy.mock.calls.find((c) => c[0] === '[Bot] save failure');
+      expect(logged).toBeTruthy();
+      const record = JSON.parse(logged![1] as string);
+      expect(record).toMatchObject({ stage: 'receipt_record', code: 'NOT_RECORDED', details: null, itemId: ITEM_ID });
+      const uploadedName = fake.storageCalls[0].args[0] as string;
+      expect(logged!.join(' ')).not.toContain(uploadedName);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('a successful record logs nothing', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const fake = buildClient({
+        expense_reports: [
+          { data: { report_name: 'Gastos junio 2026', total_amount: 12990, expense_items: [{ count: 1 }] } }
+        ]
+      });
+      const service = new ExpenseService(fake.client as never);
+      await service.saveExpenseItem(saveInput);
+      expect(errorSpy).not.toHaveBeenCalled();
     } finally {
       errorSpy.mockRestore();
     }

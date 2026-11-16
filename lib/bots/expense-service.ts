@@ -320,17 +320,23 @@ export class ExpenseService {
 
     // Record whose receipt this is: the file was uploaded with the service key,
     // so it has no owner in the store, and the store's rule for boletas trusts
-    // only this server-written record (never text a filer can write). A failed
-    // record does not fail the save: the expense is saved and an admin can
-    // still open the receipt.
-    const { error: recordError } = await this.supabase
-      .from('expense_receipt_files')
-      .insert({ object_name: fileName, user_id: input.userId, source: 'assistant' });
-    if (recordError) {
-      // Same whitelisted record as logStageFailure, without `details` (a
-      // duplicate-key detail would carry the file name).
+    // only this server-written record, tied to the file's identity (never text
+    // a filer can write). record_expense_receipt_file is its only writer and
+    // answers false when it records nothing. A failed record does not fail the
+    // save: the expense is saved and an admin can still open the receipt.
+    const { data: recorded, error: recordError } = await this.supabase.rpc('record_expense_receipt_file', {
+      p_object_name: fileName,
+      p_user_id: input.userId
+    });
+    if (recordError || recorded !== true) {
+      // Same whitelisted record as logStageFailure, without `details` (an
+      // error detail could carry the file name).
       console.error('[Bot] save failure', JSON.stringify({
-        ...buildFailureLog('rpc', recordError, { currency: input.currency, itemId: input.itemId }),
+        ...buildFailureLog(
+          'rpc',
+          recordError ?? { code: 'NOT_RECORDED', message: 'record_expense_receipt_file returned false' },
+          { currency: input.currency, itemId: input.itemId }
+        ),
         stage: 'receipt_record',
         details: null
       }));

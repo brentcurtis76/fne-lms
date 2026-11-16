@@ -2,7 +2,7 @@
 -- 126-file-stores-boundaries.sql — GENERA fixes F2b (GES-1.4, EC-S3, N17):
 -- migration 20261116178000_file_stores_boundaries.sql.
 --
--- One function, public.file_store_allows(bucket, name, owner, action), and four
+-- One function, public.file_store_allows(bucket, name, owner, action, id), and four
 -- RESTRICTIVE rules TO public on storage.objects narrow what Production's
 -- permissive storage rules allow:
 --   all buckets       a visitor never inserts, updates or deletes
@@ -13,8 +13,10 @@
 --   assignments       select: admin or owner; insert unchanged; update, delete: admin
 --   community-images  select, insert unchanged; update, delete: admin or a person
 --                     of the workspace named in community-images/<ws>-…
---   boletas           insert unchanged; select, delete: admin, owner, or the
---                     receipt of an expense the caller filed; update: admin or owner
+--   boletas           insert unchanged; select, delete: admin, owner, or (no owner
+--                     and a server record of THIS object id for the caller,
+--                     written only by record_expense_receipt_file); update (and a
+--                     move into boletas): admin, or owner with can_submit
 --   course-materials, course-assets, instructor-photos, contracts:
 --                     insert / update / delete admin only; select unchanged
 --   other buckets     unchanged for signed-in people
@@ -31,45 +33,54 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(147);
+SELECT plan(180);
 
 -- ---------------------------------------------------------------------------
 -- 1. Catalog
 -- ---------------------------------------------------------------------------
 SELECT ok(EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                    WHERE n.nspname = 'public' AND p.proname = 'file_store_allows'
-                     AND pg_get_function_identity_arguments(p.oid) = 'p_bucket text, p_name text, p_owner uuid, p_action text'
+                     AND pg_get_function_identity_arguments(p.oid) = 'p_bucket text, p_name text, p_owner uuid, p_action text, p_id uuid'
                      AND p.prorettype = 'boolean'::regtype),
-  'public.file_store_allows(text, text, uuid, text) returns boolean');
+  'public.file_store_allows(text, text, uuid, text, uuid) returns boolean');
+SELECT is(to_regprocedure('public.file_store_allows(text, text, uuid, text)'), NULL,
+  'no four-argument file_store_allows is left behind');
 SELECT ok((SELECT prosecdef AND provolatile = 's' AND prolang = (SELECT oid FROM pg_language WHERE lanname = 'plpgsql')
-             FROM pg_proc WHERE oid = 'public.file_store_allows(text, text, uuid, text)'::regprocedure),
+             FROM pg_proc WHERE oid = 'public.file_store_allows(text, text, uuid, text, uuid)'::regprocedure),
   'file_store_allows is plpgsql, STABLE, SECURITY DEFINER');
-SELECT is((SELECT proconfig FROM pg_proc WHERE oid = 'public.file_store_allows(text, text, uuid, text)'::regprocedure),
+SELECT is((SELECT proconfig FROM pg_proc WHERE oid = 'public.file_store_allows(text, text, uuid, text, uuid)'::regprocedure),
   ARRAY['search_path=public, pg_temp'], 'file_store_allows pins search_path = public, pg_temp');
-SELECT ok(has_function_privilege('anon', 'public.file_store_allows(text, text, uuid, text)', 'EXECUTE'), 'anon may execute file_store_allows');
-SELECT ok(has_function_privilege('authenticated', 'public.file_store_allows(text, text, uuid, text)', 'EXECUTE'), 'authenticated may execute file_store_allows');
-SELECT ok(has_function_privilege('service_role', 'public.file_store_allows(text, text, uuid, text)', 'EXECUTE'), 'service_role may execute file_store_allows');
+SELECT ok(has_function_privilege('anon', 'public.file_store_allows(text, text, uuid, text, uuid)', 'EXECUTE'), 'anon may execute file_store_allows');
+SELECT ok(has_function_privilege('authenticated', 'public.file_store_allows(text, text, uuid, text, uuid)', 'EXECUTE'), 'authenticated may execute file_store_allows');
+SELECT ok(has_function_privilege('service_role', 'public.file_store_allows(text, text, uuid, text, uuid)', 'EXECUTE'), 'service_role may execute file_store_allows');
 SELECT is((SELECT count(*)::int FROM pg_proc p, aclexplode(p.proacl) a
-            WHERE p.oid = 'public.file_store_allows(text, text, uuid, text)'::regprocedure AND a.grantee = 0), 0,
+            WHERE p.oid = 'public.file_store_allows(text, text, uuid, text, uuid)'::regprocedure AND a.grantee = 0), 0,
   'PUBLIC holds no EXECUTE on file_store_allows');
 SELECT ok(EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects'
                    AND policyname = 'file_stores_boundary_select' AND permissive = 'RESTRICTIVE'
-                   AND roles = ARRAY['public']::name[] AND cmd = 'SELECT' AND qual LIKE '%file_store_allows%'),
+                   AND roles = ARRAY['public']::name[] AND cmd = 'SELECT' AND qual LIKE '%file_store_allows(%, id)%'),
   'file_stores_boundary_select: RESTRICTIVE, TO public, FOR SELECT');
 SELECT ok(EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects'
                    AND policyname = 'file_stores_boundary_insert' AND permissive = 'RESTRICTIVE'
-                   AND roles = ARRAY['public']::name[] AND cmd = 'INSERT' AND with_check LIKE '%file_store_allows%'),
+                   AND roles = ARRAY['public']::name[] AND cmd = 'INSERT' AND with_check LIKE '%file_store_allows(%, id)%'),
   'file_stores_boundary_insert: RESTRICTIVE, TO public, FOR INSERT');
 SELECT ok(EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects'
                    AND policyname = 'file_stores_boundary_update' AND permissive = 'RESTRICTIVE'
                    AND roles = ARRAY['public']::name[] AND cmd = 'UPDATE'
-                   AND qual LIKE '%file_store_allows%' AND with_check LIKE '%file_store_allows%'),
+                   AND qual LIKE '%file_store_allows(%, id)%' AND with_check LIKE '%file_store_allows(%, id)%'),
   'file_stores_boundary_update: RESTRICTIVE, TO public, FOR UPDATE (USING and WITH CHECK)');
 SELECT ok(EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects'
                    AND policyname = 'file_stores_boundary_delete' AND permissive = 'RESTRICTIVE'
-                   AND roles = ARRAY['public']::name[] AND cmd = 'DELETE' AND qual LIKE '%file_store_allows%'),
+                   AND roles = ARRAY['public']::name[] AND cmd = 'DELETE' AND qual LIKE '%file_store_allows(%, id)%'),
   'file_stores_boundary_delete: RESTRICTIVE, TO public, FOR DELETE');
--- The server-only record of receipts (send-back 1)
+-- The server-only record of receipts (send-back 1, by object id since send-back 2)
+SELECT is((SELECT array_agg(a.attname::text || ':' || format_type(a.atttypid, a.atttypmod) ORDER BY a.attnum)::text
+             FROM pg_attribute a WHERE a.attrelid = to_regclass('public.expense_receipt_files') AND a.attnum > 0 AND NOT a.attisdropped),
+  '{object_id:uuid,object_name:text,user_id:uuid,"recorded_at:timestamp with time zone",source:text}',
+  'expense_receipt_files columns: object_id, object_name, user_id, recorded_at, source');
+SELECT is((SELECT array_agg(a.attname::text)::text FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey)
+            WHERE i.indrelid = to_regclass('public.expense_receipt_files') AND i.indisprimary),
+  '{object_id}', 'expense_receipt_files primary key is object_id (the file''s identity, not its name)');
 SELECT ok(coalesce((SELECT relrowsecurity FROM pg_class WHERE oid = to_regclass('public.expense_receipt_files')), false),
   'public.expense_receipt_files exists with row security enabled');
 SELECT is((SELECT array_agg(policyname || ':' || permissive ORDER BY policyname)::text FROM pg_policies
@@ -85,20 +96,23 @@ SELECT ok(to_regclass('public.expense_receipt_files') IS NOT NULL
   'PUBLIC holds no privilege on expense_receipt_files');
 SELECT ok(to_regclass('public.expense_receipt_files') IS NOT NULL
           AND has_table_privilege('service_role', 'public.expense_receipt_files', 'SELECT')
-          AND has_table_privilege('service_role', 'public.expense_receipt_files', 'INSERT')
           AND has_table_privilege('service_role', 'public.expense_receipt_files', 'DELETE')
+          AND NOT has_table_privilege('service_role', 'public.expense_receipt_files', 'INSERT')
           AND NOT has_table_privilege('service_role', 'public.expense_receipt_files', 'UPDATE'),
-  'service_role holds SELECT, INSERT, DELETE (not UPDATE) on expense_receipt_files');
-SELECT ok(coalesce((SELECT p.prosecdef AND p.proconfig = ARRAY['search_path=public, pg_temp'] AND p.prorettype = 'integer'::regtype
-                      FROM pg_proc p WHERE p.oid = to_regprocedure('public.backfill_expense_receipt_files()')), false),
-  'backfill_expense_receipt_files() returns integer, SECURITY DEFINER, search_path pinned');
-SELECT ok(to_regprocedure('public.backfill_expense_receipt_files()') IS NOT NULL
-          AND NOT has_function_privilege('anon', to_regprocedure('public.backfill_expense_receipt_files()'), 'EXECUTE')
-          AND NOT has_function_privilege('authenticated', to_regprocedure('public.backfill_expense_receipt_files()'), 'EXECUTE')
-          AND has_function_privilege('service_role', to_regprocedure('public.backfill_expense_receipt_files()'), 'EXECUTE')
+  'service_role holds SELECT, DELETE (not INSERT, not UPDATE) on expense_receipt_files');
+SELECT ok(coalesce((SELECT p.prosecdef AND p.proconfig = ARRAY['search_path=public, pg_temp'] AND p.prorettype = 'boolean'::regtype
+                      FROM pg_proc p WHERE p.oid = to_regprocedure('public.record_expense_receipt_file(text, uuid)')), false),
+  'record_expense_receipt_file(text, uuid) returns boolean, SECURITY DEFINER, search_path pinned');
+SELECT ok(to_regprocedure('public.record_expense_receipt_file(text, uuid)') IS NOT NULL
+          AND NOT has_function_privilege('anon', to_regprocedure('public.record_expense_receipt_file(text, uuid)'), 'EXECUTE')
+          AND NOT has_function_privilege('authenticated', to_regprocedure('public.record_expense_receipt_file(text, uuid)'), 'EXECUTE')
+          AND has_function_privilege('service_role', to_regprocedure('public.record_expense_receipt_file(text, uuid)'), 'EXECUTE')
           AND (SELECT count(*) FROM pg_proc p, aclexplode(p.proacl) a
-                WHERE p.oid = to_regprocedure('public.backfill_expense_receipt_files()') AND a.grantee = 0) = 0,
-  'backfill_expense_receipt_files: EXECUTE for service_role only (not PUBLIC, anon, authenticated)');
+                WHERE p.oid = to_regprocedure('public.record_expense_receipt_file(text, uuid)') AND a.grantee = 0) = 0,
+  'record_expense_receipt_file: EXECUTE for service_role only (not PUBLIC, anon, authenticated)');
+SELECT ok(NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                       WHERE n.nspname = 'public' AND p.proname = 'backfill_expense_receipt_files'),
+  'there is no backfill: public.backfill_expense_receipt_files does not exist');
 
 -- ---------------------------------------------------------------------------
 -- Fixtures (postgres, synthetic)
@@ -181,12 +195,13 @@ SELECT tests.create_supabase_user('f2b126_learner_b');
 SELECT tests.create_supabase_user('f2b126_filer');
 SELECT tests.create_supabase_user('f2b126_access2');
 SELECT tests.create_supabase_user('f2b126_cm2');
+SELECT tests.create_supabase_user('f2b126_nosubmit');
 CREATE OR REPLACE FUNCTION pg_temp.uid(k text) RETURNS uuid LANGUAGE sql AS $$ SELECT tests.get_supabase_uid(k) $$;
 
 INSERT INTO public.profiles (id, email, name, approval_status, must_change_password)
 SELECT pg_temp.uid(k), k || '@f2b126.test.local', k, 'approved', false
   FROM unnest(ARRAY['f2b126_admin','f2b126_cm','f2b126_member','f2b126_member2','f2b126_out',
-                    'f2b126_learner_a','f2b126_learner_b','f2b126_filer','f2b126_access2','f2b126_cm2']) k
+                    'f2b126_learner_a','f2b126_learner_b','f2b126_filer','f2b126_access2','f2b126_cm2','f2b126_nosubmit']) k
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.schools (id, name) VALUES
@@ -207,26 +222,20 @@ INSERT INTO public.user_roles (user_id, role_type, school_id, community_id, is_a
   (pg_temp.uid('f2b126_learner_a'), 'docente',           912601, NULL, true),
   (pg_temp.uid('f2b126_learner_b'), 'docente',           912601, NULL, true),
   (pg_temp.uid('f2b126_filer'),     'docente',           912601, NULL, true),
-  (pg_temp.uid('f2b126_access2'),   'docente',           912601, NULL, true);
+  (pg_temp.uid('f2b126_access2'),   'docente',           912601, NULL, true),
+  (pg_temp.uid('f2b126_nosubmit'),  'docente',           912601, NULL, true);
 INSERT INTO public.expense_report_access (user_id, can_submit, granted_by, notes) VALUES
   (pg_temp.uid('f2b126_filer'),   true, pg_temp.uid('f2b126_admin'), 'F2b 126 sintetico'),
-  (pg_temp.uid('f2b126_access2'), true, pg_temp.uid('f2b126_admin'), 'F2b 126 sintetico')
-ON CONFLICT (user_id) DO UPDATE SET can_submit = true;
+  (pg_temp.uid('f2b126_access2'), true, pg_temp.uid('f2b126_admin'), 'F2b 126 sintetico'),
+  (pg_temp.uid('f2b126_nosubmit'), false, pg_temp.uid('f2b126_admin'), 'F2b 126 sintetico (sin can_submit)')
+ON CONFLICT (user_id) DO UPDATE SET can_submit = EXCLUDED.can_submit;
 INSERT INTO public.expense_reports (id, report_name, start_date, end_date, submitted_by, status) VALUES
   ('12600000-0000-4000-8000-0000000000e1', 'F2b 126 rendicion sintetica', '2027-02-01', '2027-02-02', pg_temp.uid('f2b126_filer'), 'draft'),
   ('12600000-0000-4000-8000-0000000000e2', 'F2b 126 rendicion sintetica B', '2027-02-01', '2027-02-02', pg_temp.uid('f2b126_access2'), 'draft');
 INSERT INTO public.expense_items (report_id, description, amount, expense_date, receipt_url) VALUES
   ('12600000-0000-4000-8000-0000000000e1', 'F2b 126 gasto (lugar)', 1000, '2027-02-01', 'boletas/f2b126_svc.pdf'),
   ('12600000-0000-4000-8000-0000000000e1', 'F2b 126 gasto (enlace)', 2000, '2027-02-02',
-   'http://127.0.0.1:54321/storage/v1/object/sign/boletas/f2b126_link.pdf?token=sintetico'),
-  -- backfill fixtures: referenced exactly by one filer / by two filers / only by an old link / by a different name / owned
-  ('12600000-0000-4000-8000-0000000000e1', 'F2b 126 relleno uno', 100, '2027-02-01', 'boletas/f2b126_bf_one.pdf'),
-  ('12600000-0000-4000-8000-0000000000e1', 'F2b 126 relleno dos A', 100, '2027-02-01', 'boletas/f2b126_bf_two.pdf'),
-  ('12600000-0000-4000-8000-0000000000e2', 'F2b 126 relleno dos B', 100, '2027-02-01', 'boletas/f2b126_bf_two.pdf'),
-  ('12600000-0000-4000-8000-0000000000e1', 'F2b 126 relleno enlace', 100, '2027-02-01',
-   'http://127.0.0.1:54321/storage/v1/object/sign/boletas/f2b126_bf_link.pdf?token=sintetico'),
-  ('12600000-0000-4000-8000-0000000000e1', 'F2b 126 relleno otro', 100, '2027-02-01', 'boletas/f2b126_bf_otherX.pdf'),
-  ('12600000-0000-4000-8000-0000000000e1', 'F2b 126 relleno propio', 100, '2027-02-01', 'boletas/f2b126_bf_owned.pdf');
+   'http://127.0.0.1:54321/storage/v1/object/sign/boletas/f2b126_link.pdf?token=sintetico');
 
 INSERT INTO storage.objects (bucket_id, name, owner) VALUES
   ('facturas', 'invoice_f2b126_1.pdf', NULL),
@@ -249,11 +258,13 @@ INSERT INTO storage.objects (bucket_id, name, owner) VALUES
   ('boletas', 'f2b126_scan.pdf', pg_temp.uid('f2b126_filer')),
   ('boletas', 'f2b126_q.pdf', pg_temp.uid('f2b126_filer')),
   ('boletas', 'f2b126_rec.pdf', NULL),
-  ('boletas', 'f2b126_bf_one.pdf', NULL),
-  ('boletas', 'f2b126_bf_two.pdf', NULL),
-  ('boletas', 'f2b126_bf_link.pdf', NULL),
-  ('boletas', 'f2b126_bf_other.pdf', NULL),
-  ('boletas', 'f2b126_bf_owned.pdf', pg_temp.uid('f2b126_filer')),
+  ('boletas', 'f2b126_rf1.pdf', NULL),
+  ('boletas', 'f2b126_rf2.pdf', NULL),
+  ('boletas', 'f2b126_ns.pdf', pg_temp.uid('f2b126_nosubmit')),
+  ('f2b126-other', 'f2b126_rf_other.pdf', NULL),
+  ('boletas', 'f2b126_reuse.pdf', NULL),
+  ('boletas', 'f2b126_reuse2.pdf', NULL),
+  ('f2b126-other', 'f2b126/mine.png', pg_temp.uid('f2b126_learner_a')),
   ('course-materials', 'bibliography/f2b126/guia.pdf', NULL),
   ('course-assets', 'thumbnails/f2b126.png', NULL),
   ('instructor-photos', 'f2b126.png', NULL),
@@ -268,15 +279,16 @@ GRANT EXECUTE ON FUNCTION pg_temp.n(text, text) TO anon, authenticated, service_
 CREATE OR REPLACE FUNCTION pg_temp.try_int(q text) RETURNS int LANGUAGE plpgsql AS
   $$ DECLARE r int; BEGIN EXECUTE q INTO r; RETURN r; EXCEPTION WHEN others THEN RETURN NULL; END $$;
 GRANT EXECUTE ON FUNCTION pg_temp.try_int(text) TO anon, authenticated, service_role;
--- The server's record of who a receipt the assistant stored belongs to
--- (written with the service key, as lib/bots/expense-service.ts does).
-DO $r$ BEGIN
-  IF to_regclass('public.expense_receipt_files') IS NOT NULL THEN
-    EXECUTE $q$INSERT INTO public.expense_receipt_files (object_name, user_id, source) VALUES
-      ('f2b126_svc.pdf', tests.get_supabase_uid('f2b126_filer'), 'assistant'),
-      ('f2b126_rec.pdf', tests.get_supabase_uid('f2b126_filer'), 'assistant')$q$;
-  END IF;
-END $r$;
+-- The server's record of who a receipt the assistant stored belongs to,
+-- written through its only writer (as lib/bots/expense-service.ts does with
+-- the service key).
+SELECT ok(public.record_expense_receipt_file('f2b126_svc.pdf', pg_temp.uid('f2b126_filer'))
+          AND public.record_expense_receipt_file('f2b126_rec.pdf', pg_temp.uid('f2b126_filer'))
+          AND public.record_expense_receipt_file('f2b126_reuse.pdf', pg_temp.uid('f2b126_filer'))
+          AND public.record_expense_receipt_file('f2b126_reuse2.pdf', pg_temp.uid('f2b126_filer')),
+  'fixtures: four ownerless receipts recorded for the filer');
+SELECT set_config('f2b126.filer', pg_temp.uid('f2b126_filer')::text, true);
+SELECT set_config('f2b126.access2', pg_temp.uid('f2b126_access2')::text, true);
 
 -- ---------------------------------------------------------------------------
 -- 2. Visitor (anon, no claims)
@@ -299,7 +311,7 @@ WITH u AS (UPDATE storage.objects SET metadata = '{}'::jsonb WHERE bucket_id = '
 SELECT is(count(*)::int, 0, 'visitor cannot update in an ungoverned bucket') FROM u;
 WITH d AS (DELETE FROM storage.objects WHERE bucket_id = 'f2b126-other' RETURNING 1)
 SELECT is(count(*)::int, 0, 'visitor cannot delete in an ungoverned bucket') FROM d;
-SELECT is(public.file_store_allows('community-images', 'community-images/x.png', NULL, 'select'), true,
+SELECT is(public.file_store_allows('community-images', 'community-images/x.png', NULL, 'select', NULL), true,
   'visitor: community-images select stays TRUE');
 RESET ROLE;
 
@@ -354,15 +366,15 @@ SELECT throws_ok($$INSERT INTO storage.objects (bucket_id, name, owner) VALUES (
   '42501', NULL, 'non-admin cannot upload a lesson image');
 SELECT throws_ok($$INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('resources', 'news-images/m.png', auth.uid())$$,
   '42501', NULL, 'a workspace member who is not a community manager cannot upload a news picture');
-SELECT lives_ok($$SELECT public.file_store_allows('resources', 'documents/no-es-uuid/root/x.pdf', NULL, 'select')$$,
+SELECT lives_ok($$SELECT public.file_store_allows('resources', 'documents/no-es-uuid/root/x.pdf', NULL, 'select', NULL)$$,
   'malformed documents/ path: no error');
-SELECT is(public.file_store_allows('resources', 'documents/no-es-uuid/root/x.pdf', NULL, 'insert'), false,
+SELECT is(public.file_store_allows('resources', 'documents/no-es-uuid/root/x.pdf', NULL, 'insert', NULL), false,
   'malformed documents/ path gives FALSE');
-SELECT is(public.file_store_allows('resources', 'documents', NULL, 'select'), false, 'bare documents name gives FALSE');
-SELECT is(public.file_store_allows('community-images', 'community-images/zz-1.png', NULL, 'update'), false,
+SELECT is(public.file_store_allows('resources', 'documents', NULL, 'select', NULL), false, 'bare documents name gives FALSE');
+SELECT is(public.file_store_allows('community-images', 'community-images/zz-1.png', NULL, 'update', NULL), false,
   'malformed community-images key gives FALSE');
-SELECT is(public.file_store_allows('resources', 'images/x.png', NULL, 'bogus'), false, 'unknown action gives FALSE');
-SELECT is(public.file_store_allows(NULL, NULL, NULL, 'select'), true, 'NULL bucket is not governed: TRUE');
+SELECT is(public.file_store_allows('resources', 'images/x.png', NULL, 'bogus', NULL), false, 'unknown action gives FALSE');
+SELECT is(public.file_store_allows(NULL, NULL, NULL, 'select', NULL), true, 'NULL bucket is not governed: TRUE');
 RESET ROLE;
 SELECT tests.clear_authentication();
 
@@ -509,7 +521,11 @@ SELECT is(pg_temp.n('boletas', 'f2b126_unlinked.pdf'), 0, 'filer cannot read a r
 SELECT lives_ok($$INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('boletas', 'f2b126_new.pdf', auth.uid())$$,
   'filer uploads a receipt');
 WITH u AS (UPDATE storage.objects SET metadata = '{}'::jsonb WHERE bucket_id = 'boletas' AND name = 'f2b126_new.pdf' RETURNING 1)
-SELECT is(count(*)::int, 1, 'filer updates their own upload') FROM u;
+SELECT is(count(*)::int, 1, 'filer (owner, can_submit) updates their own upload') FROM u;
+WITH u AS (UPDATE storage.objects SET name = 'f2b126_new2.pdf' WHERE bucket_id = 'boletas' AND name = 'f2b126_new.pdf' RETURNING 1)
+SELECT is(count(*)::int, 1, 'move: filer with can_submit renames their own receipt within boletas') FROM u;
+WITH u AS (UPDATE storage.objects SET name = 'f2b126_new.pdf' WHERE bucket_id = 'boletas' AND name = 'f2b126_new2.pdf' RETURNING 1)
+SELECT is(count(*)::int, 1, 'move: and renames it back') FROM u;
 WITH u AS (UPDATE storage.objects SET metadata = '{}'::jsonb WHERE bucket_id = 'boletas' AND name = 'f2b126_svc.pdf' RETURNING 1)
 SELECT is(count(*)::int, 0, 'filer cannot update a linked receipt they did not upload') FROM u;
 WITH d AS (DELETE FROM storage.objects WHERE bucket_id = 'boletas' AND name = 'f2b126_new.pdf' RETURNING 1)
@@ -558,12 +574,13 @@ SELECT is((SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'boletas'
 -- The record: nobody but the service role reads or writes it.
 SET LOCAL ROLE anon;
 SELECT throws_ok($$SELECT count(*) FROM public.expense_receipt_files$$, '42501', NULL, 'visitor cannot read expense_receipt_files');
-SELECT throws_ok($$INSERT INTO public.expense_receipt_files (object_name, user_id, source) VALUES ('x.pdf', gen_random_uuid(), 'assistant')$$,
+SELECT throws_ok($$INSERT INTO public.expense_receipt_files (object_id, object_name, user_id, source) VALUES (gen_random_uuid(), 'x.pdf', gen_random_uuid(), 'assistant')$$,
   '42501', NULL, 'visitor cannot write expense_receipt_files');
 RESET ROLE;
 SELECT tests.authenticate_as('f2b126_filer');
 SELECT throws_ok($$SELECT count(*) FROM public.expense_receipt_files$$, '42501', NULL, 'signed-in person cannot read expense_receipt_files');
-SELECT throws_ok($$INSERT INTO public.expense_receipt_files (object_name, user_id, source) VALUES ('f2b126_a_secret.pdf', auth.uid(), 'assistant')$$,
+SELECT throws_ok($$INSERT INTO public.expense_receipt_files (object_id, object_name, user_id, source)
+                   SELECT gen_random_uuid(), 'f2b126_a_secret.pdf', auth.uid(), 'assistant'$$,
   '42501', NULL, 'signed-in person cannot record a file for themselves');
 SELECT throws_ok($$DELETE FROM public.expense_receipt_files$$, '42501', NULL, 'signed-in person cannot delete from expense_receipt_files');
 SELECT throws_ok($$UPDATE public.expense_receipt_files SET user_id = auth.uid()$$, '42501', NULL, 'signed-in person cannot update expense_receipt_files');
@@ -575,29 +592,77 @@ WITH d AS (DELETE FROM storage.objects WHERE bucket_id = 'boletas' AND name = 'f
 SELECT is(count(*)::int, 1, 'A deletes the ownerless receipt the server recorded for A') FROM d;
 RESET ROLE;
 SELECT tests.clear_authentication();
-SET LOCAL ROLE service_role;
-SELECT is(pg_temp.try_int($$SELECT count(*)::int FROM public.expense_receipt_files WHERE object_name = 'f2b126_svc.pdf'$$), 1,
-  'service_role reads expense_receipt_files');
-RESET ROLE;
-
--- The backfill (run as the migration and the service role would).
-SELECT is(pg_temp.try_int('SELECT public.backfill_expense_receipt_files()'), 1,
-  'backfill records exactly one file (ownerless, referenced exactly by one filer)');
-SELECT is(pg_temp.try_int($$SELECT count(*)::int FROM public.expense_receipt_files
-                            WHERE object_name = 'f2b126_bf_one.pdf' AND user_id = tests.get_supabase_uid('f2b126_filer') AND source = 'backfill'$$), 1,
-  'backfill: a file referenced as boletas/<name> by one filer gets a row for that filer');
-SELECT is(pg_temp.try_int($$SELECT count(*)::int FROM public.expense_receipt_files
-                            WHERE object_name IN ('f2b126_bf_two.pdf', 'f2b126_bf_link.pdf', 'f2b126_bf_other.pdf', 'f2b126_bf_owned.pdf',
-                                                  'f2b126_link.pdf', 'f2b126_a_secret.pdf', 'f2b126_unlinked.pdf')$$), 0,
-  'backfill: two filers, an old-link shape, a different name, an owned file: no row');
-SELECT is(pg_temp.try_int('SELECT public.backfill_expense_receipt_files()'), 0, 'backfill run twice inserts nothing more');
-SET LOCAL ROLE service_role;
-SELECT is(pg_temp.try_int('SELECT public.backfill_expense_receipt_files()'), 0, 'service_role may run the backfill');
+-- The recording function: the only writer of expense_receipt_files.
+SET LOCAL ROLE anon;
+SELECT throws_ok($$SELECT public.record_expense_receipt_file('f2b126_rf1.pdf', gen_random_uuid())$$, '42501', NULL,
+  'visitor cannot call record_expense_receipt_file');
 RESET ROLE;
 SELECT tests.authenticate_as('f2b126_filer');
-SELECT throws_ok($$SELECT public.backfill_expense_receipt_files()$$, '42501', NULL, 'a signed-in person cannot run the backfill');
+SELECT throws_ok($$SELECT public.record_expense_receipt_file('f2b126_rf1.pdf', auth.uid())$$, '42501', NULL,
+  'a signed-in person cannot call record_expense_receipt_file (not even for themselves)');
 RESET ROLE;
 SELECT tests.clear_authentication();
+SET LOCAL ROLE service_role;
+SELECT is(public.record_expense_receipt_file('f2b126_rf1.pdf', current_setting('f2b126.filer')::uuid), true,
+  'record: an ownerless boletas object -> true');
+SELECT is((SELECT count(*)::int FROM public.expense_receipt_files f JOIN storage.objects o ON o.id = f.object_id
+            WHERE o.bucket_id = 'boletas' AND o.name = 'f2b126_rf1.pdf' AND f.object_name = 'f2b126_rf1.pdf'
+              AND f.user_id = current_setting('f2b126.filer')::uuid AND f.source = 'assistant'), 1,
+  'record: one row, with that object''s id, for that person, source assistant');
+SELECT is(public.record_expense_receipt_file('f2b126_nope.pdf', current_setting('f2b126.filer')::uuid), false,
+  'record: a name that does not exist -> false');
+SELECT is((SELECT count(*)::int FROM public.expense_receipt_files WHERE object_name = 'f2b126_nope.pdf'), 0,
+  'record: no row for a name that does not exist');
+SELECT is(public.record_expense_receipt_file('f2b126_own.pdf', current_setting('f2b126.filer')::uuid), false,
+  'record: an object that HAS an owner -> false');
+SELECT is(public.record_expense_receipt_file('f2b126_rf_other.pdf', current_setting('f2b126.filer')::uuid), false,
+  'record: an ownerless object of that name in ANOTHER bucket -> false');
+SELECT is((SELECT count(*)::int FROM public.expense_receipt_files WHERE object_name IN ('f2b126_own.pdf', 'f2b126_rf_other.pdf')), 0,
+  'record: no row for an owned object or another bucket''s object');
+SELECT is(public.record_expense_receipt_file('f2b126_rf1.pdf', current_setting('f2b126.filer')::uuid), true,
+  'record: a second call for the same object and person -> true');
+SELECT is(public.record_expense_receipt_file('f2b126_rf1.pdf', current_setting('f2b126.access2')::uuid), false,
+  'record: the same object for ANOTHER person -> false');
+SELECT is((SELECT array_agg(user_id)::text FROM public.expense_receipt_files WHERE object_name = 'f2b126_rf1.pdf'),
+  ARRAY[current_setting('f2b126.filer')::uuid]::text,
+  'record: still one row, still the first person');
+SELECT is(public.record_expense_receipt_file('f2b126_rf2.pdf', NULL), false, 'record: a null person -> false');
+SELECT is(public.record_expense_receipt_file('f2b126_rf2.pdf', gen_random_uuid()), false, 'record: a person with no profile -> false');
+SELECT is((SELECT count(*)::int FROM public.expense_receipt_files WHERE object_name = 'f2b126_rf2.pdf'), 0,
+  'record: no row for a null or unknown person');
+-- The table, for the service role: SELECT and DELETE, never INSERT or UPDATE.
+SELECT throws_ok($$INSERT INTO public.expense_receipt_files (object_id, object_name, user_id, source)
+                   SELECT id, name, current_setting('f2b126.access2')::uuid, 'assistant' FROM storage.objects
+                    WHERE bucket_id = 'boletas' AND name = 'f2b126_rf2.pdf'$$, '42501', NULL,
+  'service_role cannot INSERT into expense_receipt_files directly');
+SELECT throws_ok($$UPDATE public.expense_receipt_files SET user_id = current_setting('f2b126.access2')::uuid$$, '42501', NULL,
+  'service_role cannot UPDATE expense_receipt_files');
+SELECT is(pg_temp.try_int($$SELECT count(*)::int FROM public.expense_receipt_files WHERE object_name = 'f2b126_svc.pdf'$$), 1,
+  'service_role reads expense_receipt_files');
+SELECT ok(public.record_expense_receipt_file('f2b126_rf2.pdf', current_setting('f2b126.filer')::uuid), 'record: rf2 for the filer');
+WITH d AS (DELETE FROM public.expense_receipt_files WHERE object_name = 'f2b126_rf2.pdf' RETURNING 1)
+SELECT is(count(*)::int, 1, 'service_role deletes a row of expense_receipt_files') FROM d;
+RESET ROLE;
+SELECT tests.authenticate_as('f2b126_filer');
+SELECT is(pg_temp.n('boletas', 'f2b126_rf1.pdf'), 1, 'the recorded person sees (and so may sign) their recorded ownerless file');
+SELECT is(pg_temp.n('boletas', 'f2b126_rf2.pdf'), 0, 'a deleted record gives nothing');
+RESET ROLE;
+SELECT tests.clear_authentication();
+SELECT tests.authenticate_as('f2b126_access2');
+SELECT is(pg_temp.n('boletas', 'f2b126_rf1.pdf'), 0, 'another person with expense access sees nothing of it');
+WITH d AS (DELETE FROM storage.objects WHERE bucket_id = 'boletas' AND name = 'f2b126_rf1.pdf' RETURNING 1)
+SELECT is(count(*)::int, 0, 'another person with expense access cannot delete it') FROM d;
+RESET ROLE;
+SELECT tests.clear_authentication();
+
+-- can_submit = false: owns a receipt, may read it, may not move or update it.
+SELECT tests.authenticate_as('f2b126_nosubmit');
+SELECT is(pg_temp.n('boletas', 'f2b126_ns.pdf'), 1, 'owner without can_submit still reads their own receipt');
+WITH u AS (UPDATE storage.objects SET name = 'f2b126_ns2.pdf' WHERE bucket_id = 'boletas' AND name = 'f2b126_ns.pdf' RETURNING 1)
+SELECT is(count(*)::int, 0, 'move: owner whose expense access has can_submit = false cannot rename within boletas') FROM u;
+RESET ROLE;
+SELECT tests.clear_authentication();
+SELECT is(pg_temp.n('boletas', 'f2b126_ns.pdf'), 1, 'move: that receipt keeps its name');
 
 SELECT tests.authenticate_as('f2b126_out');
 SELECT throws_ok($$INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('boletas', 'f2b126_out.pdf', auth.uid())$$,
@@ -609,10 +674,41 @@ SELECT set_config('f2b126.boletas_n', (SELECT count(*) FROM storage.objects WHER
 SELECT tests.authenticate_as('f2b126_admin');
 SELECT is((SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'boletas'), current_setting('f2b126.boletas_n')::int,
   'admin lists every receipt');
+SELECT is(pg_temp.n('boletas', 'f2b126_link.pdf'), 1, 'an ownerless receipt with no record is visible to the admin');
 WITH d AS (DELETE FROM storage.objects WHERE bucket_id = 'boletas' AND name = 'f2b126_unlinked.pdf' RETURNING 1)
 SELECT is(count(*)::int, 1, 'admin deletes a receipt') FROM d;
 RESET ROLE;
 SELECT tests.clear_authentication();
+
+-- ---------------------------------------------------------------------------
+-- 7b. Send-back 2: a record belongs to the file itself, not to its name (b);
+--     a move into boletas needs expense access (c)
+-- ---------------------------------------------------------------------------
+-- (b) A's two recorded ownerless receipts are deleted; new files take the
+-- same names: one uploaded by B (owner B), one ownerless.
+DELETE FROM storage.objects WHERE bucket_id = 'boletas' AND name IN ('f2b126_reuse.pdf', 'f2b126_reuse2.pdf');
+INSERT INTO storage.objects (bucket_id, name, owner) VALUES
+  ('boletas', 'f2b126_reuse.pdf', pg_temp.uid('f2b126_access2')),
+  ('boletas', 'f2b126_reuse2.pdf', NULL);
+SELECT tests.authenticate_as('f2b126_filer');
+SELECT is((SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'boletas' AND name IN ('f2b126_reuse.pdf', 'f2b126_reuse2.pdf')), 0,
+  'name reuse: A sees neither new file that took the name of A''s deleted recorded receipt');
+WITH d AS (DELETE FROM storage.objects WHERE bucket_id = 'boletas' AND name IN ('f2b126_reuse.pdf', 'f2b126_reuse2.pdf') RETURNING 1)
+SELECT is(count(*)::int, 0, 'name reuse: A deletes neither new file') FROM d;
+RESET ROLE;
+SELECT tests.clear_authentication();
+SELECT is((SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'boletas' AND name IN ('f2b126_reuse.pdf', 'f2b126_reuse2.pdf')), 2,
+  'name reuse: both new files are still there');
+-- (c) a person with NO expense access moves a file they own into boletas
+SELECT tests.authenticate_as('f2b126_learner_a');
+SELECT is(coalesce(pg_temp.try_int($$WITH u AS (UPDATE storage.objects SET bucket_id = 'boletas', name = 'f2b126_moved.png'
+                                            WHERE bucket_id = 'f2b126-other' AND name = 'f2b126/mine.png' RETURNING 1)
+                                     SELECT count(*)::int FROM u$$), 0), 0,
+  'move: a person with no expense access cannot move their own file into boletas (0 rows or 42501)');
+RESET ROLE;
+SELECT tests.clear_authentication();
+SELECT ok(pg_temp.n('f2b126-other', 'f2b126/mine.png') = 1 AND pg_temp.n('boletas', 'f2b126_moved.png') = 0,
+  'move: the file is still where it was, nothing in boletas');
 
 -- ---------------------------------------------------------------------------
 -- 8. course-materials, course-assets, instructor-photos, contracts
@@ -625,8 +721,8 @@ SELECT throws_ok($$INSERT INTO storage.objects (bucket_id, name, owner) VALUES (
   '42501', NULL, 'non-admin cannot upload course assets');
 SELECT throws_ok($$INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('instructor-photos', 'l.png', auth.uid())$$,
   '42501', NULL, 'non-admin cannot upload instructor photos');
-SELECT is(public.file_store_allows('contracts', 'X_1.pdf', NULL, 'insert'), false, 'non-admin: contracts insert FALSE');
-SELECT is(public.file_store_allows('contracts', 'X_1.pdf', NULL, 'select'), true, 'non-admin: contracts select unchanged');
+SELECT is(public.file_store_allows('contracts', 'X_1.pdf', NULL, 'insert', NULL), false, 'non-admin: contracts insert FALSE');
+SELECT is(public.file_store_allows('contracts', 'X_1.pdf', NULL, 'select', NULL), true, 'non-admin: contracts select unchanged');
 RESET ROLE;
 SELECT tests.clear_authentication();
 
@@ -637,7 +733,7 @@ SELECT lives_ok($$INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('
   'admin uploads course assets');
 SELECT lives_ok($$INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('instructor-photos', 'a.png', auth.uid())$$,
   'admin uploads instructor photos');
-SELECT is(public.file_store_allows('contracts', 'X_1.pdf', NULL, 'delete'), true, 'admin: contracts delete TRUE');
+SELECT is(public.file_store_allows('contracts', 'X_1.pdf', NULL, 'delete', NULL), true, 'admin: contracts delete TRUE');
 RESET ROLE;
 SELECT tests.clear_authentication();
 

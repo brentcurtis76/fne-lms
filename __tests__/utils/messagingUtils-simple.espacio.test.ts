@@ -25,6 +25,7 @@ import {
   ThreadCreationIncompleteError,
   getWorkspaceThreads,
   getWorkspaceMessages,
+  getWorkspaceMessage,
   subscribeToWorkspaceMessages,
 } from '../../utils/messagingUtils-simple';
 
@@ -422,5 +423,34 @@ describe('EC-M10 sorting a conversation', () => {
     await getWorkspaceThreads(WS, { sort_by: sortBy });
     const order = opArgs(h.requests.find((r) => r.target === 'message_threads')!, 'order')!;
     expect(THREAD_COLUMNS).toContain(order[0]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Send-back 1, item 3: one message read again with its attachments
+// ---------------------------------------------------------------------------
+
+describe('send-back 1 (3) getWorkspaceMessage', () => {
+  it('reads that one message with its attachments and its author\'s name', async () => {
+    memberReads({
+      community_messages: [
+        { id: 'm-live', workspace_id: WS, thread_id: 't1', author_id: COMEMBER, content: 'Informe', reply_to_id: null, created_at: '2026-11-16T12:00:00Z' },
+      ],
+      message_attachments: [{ id: 'att-1', message_id: 'm-live', file_name: 'informe.pdf', is_active: true }],
+    });
+    const message = await getWorkspaceMessage(WS, 'm-live');
+    const read = h.requests.find((r) => r.target === 'community_messages')!;
+    expect(read.ops.filter((op) => op.method === 'eq').map((op) => op.args)).toEqual([
+      ['workspace_id', WS],
+      ['id', 'm-live'],
+      ['is_deleted', false],
+    ]);
+    expect(message?.attachments.map((a) => a.file_name)).toEqual(['informe.pdf']);
+    expect(message?.author_name).toBe('María-José Núñez');
+  });
+
+  it('is null when the message is not readable', async () => {
+    memberReads({ community_messages: [] });
+    expect(await getWorkspaceMessage(WS, 'm-gone')).toBeNull();
   });
 });

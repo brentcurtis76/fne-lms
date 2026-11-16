@@ -1,7 +1,7 @@
 # Comunicación (news and events)
 
 Area `15-comunicacion`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `f22b2fcba` (2026-11-14).
+Read from commit `c4375a085` (2026-11-16).
 
 2 screen files, 4 API files, 6 pieces.
 

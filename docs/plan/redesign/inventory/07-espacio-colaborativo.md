@@ -1,7 +1,7 @@
 # Espacio Colaborativo y comunidades
 
 Area `07-espacio-colaborativo`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `f22b2fcba` (2026-11-14).
+Read from commit `c4375a085` (2026-11-16).
 
 4 screen files, 18 API files, 66 pieces.
 

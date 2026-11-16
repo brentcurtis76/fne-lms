@@ -11,12 +11,17 @@
 --     and the publication succeeds; a snapshot an instance refers to and the
 --     snapshot of a published template are never touched;
 --   * a refusal of the vía-rule guard rolls the snapshot back with the flip.
+-- And, send-back 4 (T3, owner's decision 16 Nov 2026), public.auth_is_assigned_consultor and the read rule
+-- "ab_migration_plan_select": a consultor reads the Plan de Migración of
+-- schools with a current assignment only (assigned school: rows; other school,
+-- ended or inactive assignment, inactive consultor role: 0 rows); directivo,
+-- admin and anon as before; the helper says only yes/no about the caller.
 -- Synthetic fixtures (grade 128001, uuids 12800000-…); everything rolls back.
 -- =============================================================================
 
 BEGIN;
 
-SELECT plan(45);
+SELECT plan(70);
 
 -- -----------------------------------------------------------------------------
 -- Structure and grants
@@ -267,6 +272,150 @@ SELECT is((SELECT v->>'version' FROM r128 WHERE k = 'skip'), '1.6.0',
 SELECT is((SELECT count(*)::int FROM public.assessment_templates
             WHERE area = 'evaluacion' AND grade_id = 128001 AND status = 'published'), 4,
   'four published templates in the scope, no collision');
+
+-- -----------------------------------------------------------------------------
+-- T3 (send-back 4): the Plan de Migración read rule, straight from the database
+-- -----------------------------------------------------------------------------
+INSERT INTO public.schools (id, name) VALUES
+  (128101, 'F8-128 Colegio A'),
+  (128102, 'F8-128 Colegio B')
+ON CONFLICT (id) DO NOTHING;
+
+SELECT tests.create_supabase_user(x) FROM unnest(ARRAY[
+  'gc128_cons', 'gc128_cons_future', 'gc128_cons_ended', 'gc128_cons_inact',
+  'gc128_cons_roleoff', 'gc128_dir', 'gc128_doc']) AS x;
+INSERT INTO public.profiles (id, email, name, approval_status, must_change_password)
+SELECT tests.get_supabase_uid(x), x || '@test.local', x, 'approved', false
+  FROM unnest(ARRAY['gc128_cons', 'gc128_cons_future', 'gc128_cons_ended', 'gc128_cons_inact',
+                    'gc128_cons_roleoff', 'gc128_dir', 'gc128_doc']) AS x
+ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.user_roles (user_id, role_type, school_id, is_active) VALUES
+  (tests.get_supabase_uid('gc128_cons'),         'consultor',        NULL,   true),
+  (tests.get_supabase_uid('gc128_cons_future'),  'consultor',        NULL,   true),
+  (tests.get_supabase_uid('gc128_cons_ended'),   'consultor',        NULL,   true),
+  (tests.get_supabase_uid('gc128_cons_inact'),   'consultor',        NULL,   true),
+  (tests.get_supabase_uid('gc128_cons_roleoff'), 'consultor',        NULL,   false),
+  (tests.get_supabase_uid('gc128_dir'),          'equipo_directivo', 128101, true),
+  (tests.get_supabase_uid('gc128_doc'),          'docente',          128101, true);
+-- Every consultor is assigned to school A only, each in a different state.
+INSERT INTO public.consultant_assignments (consultant_id, school_id, is_active, starts_at, ends_at, assignment_type) VALUES
+  (tests.get_supabase_uid('gc128_cons'),         128101, true,  now() - interval '10 days', NULL,                      'monitoring'),
+  (tests.get_supabase_uid('gc128_cons_future'),  128101, true,  now() - interval '10 days', now() + interval '1 day',  'monitoring'),
+  (tests.get_supabase_uid('gc128_cons_ended'),   128101, true,  now() - interval '10 days', now() - interval '1 day',  'monitoring'),
+  (tests.get_supabase_uid('gc128_cons_inact'),   128101, false, now() - interval '10 days', NULL,                      'monitoring'),
+  (tests.get_supabase_uid('gc128_cons_roleoff'), 128101, true,  now() - interval '10 days', NULL,                      'monitoring');
+INSERT INTO public.ab_migration_plan (school_id, year_number, grade_id, generation_type) VALUES
+  (128101, 1, 128001, 'GT'), (128101, 2, 128001, 'GI'),
+  (128102, 1, 128001, 'GT'), (128102, 2, 128001, 'GI');
+
+SELECT tests.authenticate_as('gc128_cons');
+SELECT is((SELECT count(*)::int FROM public.ab_migration_plan WHERE school_id = 128102), 0,
+  'T3: a consultor assigned to school A reads 0 plan rows of school B');
+SELECT is((SELECT count(*)::int FROM public.ab_migration_plan WHERE school_id = 128101), 2,
+  'T3: and reads the plan of school A (assignment with no end date)');
+RESET ROLE;
+SELECT tests.clear_authentication();
+
+SELECT tests.authenticate_as('gc128_cons_future');
+SELECT is((SELECT count(*)::int FROM public.ab_migration_plan WHERE school_id = 128101), 2,
+  'T3: an assignment that ends tomorrow still reads school A');
+RESET ROLE;
+SELECT tests.clear_authentication();
+
+SELECT tests.authenticate_as('gc128_cons_ended');
+SELECT is((SELECT count(*)::int FROM public.ab_migration_plan WHERE school_id IN (128101, 128102)), 0,
+  'T3: an assignment that ended yesterday reads 0 plan rows of school A');
+RESET ROLE;
+SELECT tests.clear_authentication();
+
+SELECT tests.authenticate_as('gc128_cons_inact');
+SELECT is((SELECT count(*)::int FROM public.ab_migration_plan WHERE school_id IN (128101, 128102)), 0,
+  'T3: an assignment marked inactive reads 0 plan rows of school A');
+RESET ROLE;
+SELECT tests.clear_authentication();
+
+SELECT tests.authenticate_as('gc128_cons_roleoff');
+SELECT is((SELECT count(*)::int FROM public.ab_migration_plan WHERE school_id IN (128101, 128102)), 0,
+  'T3: an inactive consultor role reads 0 plan rows of school A');
+RESET ROLE;
+SELECT tests.clear_authentication();
+
+SELECT tests.authenticate_as('gc128_dir');
+SELECT is((SELECT count(*)::int FROM public.ab_migration_plan WHERE school_id = 128101), 2,
+  'T3: the directivo of school A reads its plan (as before)');
+SELECT is((SELECT count(*)::int FROM public.ab_migration_plan WHERE school_id = 128102), 0,
+  'T3: the directivo of school A reads 0 rows of school B (as before)');
+RESET ROLE;
+SELECT tests.clear_authentication();
+
+SELECT tests.authenticate_as('gc128_doc');
+SELECT is((SELECT count(*)::int FROM public.ab_migration_plan WHERE school_id IN (128101, 128102)), 0,
+  'T3: a docente of school A reads no plan rows (as before)');
+RESET ROLE;
+SELECT tests.clear_authentication();
+
+SELECT tests.authenticate_as('gc128_admin');
+SELECT is((SELECT count(*)::int FROM public.ab_migration_plan WHERE school_id IN (128101, 128102)), 4,
+  'T3: the admin reads the plans of both schools (as before)');
+RESET ROLE;
+SELECT tests.clear_authentication();
+
+SET LOCAL ROLE anon;
+SELECT is((SELECT count(*)::int FROM public.ab_migration_plan WHERE school_id IN (128101, 128102)), 0,
+  'T3: a visitor reads no plan rows (as before)');
+RESET ROLE;
+
+SELECT ok(
+  (SELECT qual FROM pg_policies WHERE schemaname = 'public' AND tablename = 'ab_migration_plan'
+      AND policyname = 'ab_migration_plan_select') LIKE '%auth_is_assigned_consultor(school_id)%',
+  'T3: the read rule asks auth_is_assigned_consultor for the row''s school');
+SELECT is(
+  (SELECT roles::text FROM pg_policies WHERE schemaname = 'public' AND tablename = 'ab_migration_plan'
+      AND policyname = 'ab_migration_plan_select'), '{authenticated}',
+  'T3: the read rule applies to signed-in people only');
+
+
+-- The helper itself
+SELECT has_function('public', 'auth_is_assigned_consultor', ARRAY['integer']::name[],
+  'auth_is_assigned_consultor(integer) exists');
+SELECT is_definer('public', 'auth_is_assigned_consultor', ARRAY['integer']::name[],
+  'it is SECURITY DEFINER');
+SELECT ok(
+  EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace, unnest(p.proconfig) AS cfg
+           WHERE n.nspname = 'public' AND p.proname = 'auth_is_assigned_consultor'
+             AND cfg = 'search_path=public, pg_temp'),
+  'it pins search_path = public, pg_temp');
+SELECT function_privs_are('public', 'auth_is_assigned_consultor', ARRAY['integer']::name[],
+  'anon', ARRAY[]::name[], 'anon cannot execute it');
+SELECT function_privs_are('public', 'auth_is_assigned_consultor', ARRAY['integer']::name[],
+  'authenticated', ARRAY['EXECUTE']::name[], 'authenticated can execute it');
+SELECT function_privs_are('public', 'auth_is_assigned_consultor', ARRAY['integer']::name[],
+  'service_role', ARRAY['EXECUTE']::name[], 'service_role can execute it');
+
+SET LOCAL ROLE anon;
+SELECT throws_ok($$SELECT public.auth_is_assigned_consultor(128101)$$,
+  '42501', NULL, 'the helper called by a visitor: permission denied');
+RESET ROLE;
+
+SELECT tests.authenticate_as('gc128_doc');
+SELECT is(public.auth_is_assigned_consultor(128101), false, 'the helper called by a docente: false');
+RESET ROLE;
+SELECT tests.clear_authentication();
+
+SELECT tests.authenticate_as('gc128_cons_ended');
+SELECT is(public.auth_is_assigned_consultor(128101), false, 'the helper for an ended assignment: false');
+RESET ROLE;
+SELECT tests.clear_authentication();
+
+SELECT tests.authenticate_as('gc128_cons');
+SELECT is(public.auth_is_assigned_consultor(128101), true, 'the helper for the assigned school: true');
+SELECT is(public.auth_is_assigned_consultor(128102), false, 'the helper for another school: false');
+RESET ROLE;
+SELECT tests.clear_authentication();
+
+SELECT ok(
+  NOT has_function_privilege('public', 'public.auth_is_assigned_consultor(integer)', 'EXECUTE'),
+  'PUBLIC cannot execute it');
 
 SELECT * FROM finish();
 ROLLBACK;

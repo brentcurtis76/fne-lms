@@ -80,6 +80,22 @@ type ObjectiveWithModules = AssessmentObjective & {
 }
 
 /**
+ * Publish refusal for an instrument without indicators, or null. A práctica
+ * whose indicators were loaded into the page counts those (edits made in the
+ * page included); one never opened counts the indicator_count the modules
+ * list carries. The publish route refuses the same case with the same message.
+ */
+export function publishIndicatorBlocker(
+  modules: Array<{ indicator_count?: number | null; indicators?: unknown[]; indicatorsLoaded?: boolean }>
+): string | null {
+  const total = modules.reduce((sum, m) => {
+    const loaded = m.indicators?.length ?? 0;
+    return sum + (m.indicatorsLoaded ? loaded : Math.max(loaded, Number(m.indicator_count) || 0));
+  }, 0);
+  return total === 0 ? 'El template debe tener al menos un indicador para ser publicado' : null;
+}
+
+/**
  * Body for the duplicate route (which requires a name). «Duplicar» on a live
  * instrument makes a copy: «<name> (copia)». «Editar (Nueva Versión)» on an
  * archived instrument keeps the name: the route numbers the new draft in the
@@ -923,21 +939,14 @@ const TemplateEditor: React.FC = () => {
   const handlePublish = async () => {
     if (!template) return;
 
-    // Count total indicators
-    let totalIndicators = 0;
-    for (const module of modules) {
-      if (module.indicators) {
-        totalIndicators += module.indicators.length;
-      }
-    }
-
     if (modules.length === 0) {
       toast.error(`El template debe tener al menos una ${ENTITY_LABELS.module.toLowerCase()} para ser publicado`);
       return;
     }
 
-    if (totalIndicators === 0) {
-      toast.error('El template debe tener al menos un indicador para ser publicado');
+    const indicatorBlocker = publishIndicatorBlocker(modules);
+    if (indicatorBlocker) {
+      toast.error(indicatorBlocker);
       return;
     }
 

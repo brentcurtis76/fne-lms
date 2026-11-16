@@ -7,7 +7,8 @@
  * attribute sits on `<html>` (the same element as `:root`) and this selector is more specific than `:root`,
  * its values win there and every element inherits them. Without the attribute nothing in this file
  * matches anything: every rule below starts with `[data-look="nuevo"]` (pinned by
- * __tests__/styles/look-nuevo.test.ts, and proved by `scripts/redesign/tokens-check.mjs`).
+ * __tests__/styles/look-nuevo.test.ts, and proved by `scripts/redesign/tokens-check.mjs`), also the
+ * ones inside the one kind of at-rule allowed here, a `@media (min-width: …)` breakpoint.
  *
  * Old school hardware: no color-mix, no :has, no nesting, no container queries, no backdrop blur.
  *
@@ -331,6 +332,60 @@ html[data-look="nuevo"] :focus-visible {
   outline: 2px solid rgb(10 10 10);
   outline-offset: 2px;
   box-shadow: 0 0 0 2px rgb(255 255 255);
+}
+
+/* Shadows: three of the look's own, on Tailwind's shadow steps. Only the two names those classes
+   read are set (`--tw-shadow`, and `--tw-shadow-colored` for a shadow with a colour class), never
+   box-shadow itself, so the platform's rings keep composing with the shadows. Specificity: a resting
+   rule here (0,2,1) beats the plain class (0,1,0); a hover rule here (0,3,1) beats the resting rules
+   here, as the hover class beats the plain one today. Pinned in __tests__/styles/look-nuevo.test.ts,
+   which also lists the shadow classes left alone (the inner shadow, arbitrary shadows). */
+/* Small: shadow-sm and shadow. */
+html[data-look="nuevo"] .shadow-sm,
+html[data-look="nuevo"] .shadow {
+  --tw-shadow: 0 1px 2px rgb(10 10 10 / 0.08);
+  --tw-shadow-colored: 0 1px 2px var(--tw-shadow-color);
+}
+/* Medium: shadow-md and shadow-lg. */
+html[data-look="nuevo"] .shadow-md,
+html[data-look="nuevo"] .shadow-lg {
+  --tw-shadow: 0 1px 2px rgb(10 10 10 / 0.06), 0 10px 24px -14px rgb(10 10 10 / 0.3);
+  --tw-shadow-colored: 0 1px 2px var(--tw-shadow-color), 0 10px 24px -14px var(--tw-shadow-color);
+}
+/* Large: shadow-xl and shadow-2xl. */
+html[data-look="nuevo"] .shadow-xl,
+html[data-look="nuevo"] .shadow-2xl {
+  --tw-shadow: 0 24px 64px -24px rgb(10 10 10 / 0.55);
+  --tw-shadow-colored: 0 24px 64px -24px var(--tw-shadow-color);
+}
+/* A shadow colour class on the same element (one arbitrary colour in the platform today) points
+   `--tw-shadow` at the coloured shape, as it does without the look; it comes after the steps above,
+   with the same specificity, so it still wins over them exactly as it wins over the plain classes. */
+html[data-look="nuevo"] .shadow-\[\#FFC107\]\/20 {
+  --tw-shadow: var(--tw-shadow-colored);
+}
+/* The same steps on hover. */
+html[data-look="nuevo"] .hover\:shadow-sm:hover {
+  --tw-shadow: 0 1px 2px rgb(10 10 10 / 0.08);
+  --tw-shadow-colored: 0 1px 2px var(--tw-shadow-color);
+}
+html[data-look="nuevo"] .hover\:shadow-md:hover,
+html[data-look="nuevo"] .hover\:shadow-lg:hover {
+  --tw-shadow: 0 1px 2px rgb(10 10 10 / 0.06), 0 10px 24px -14px rgb(10 10 10 / 0.3);
+  --tw-shadow-colored: 0 1px 2px var(--tw-shadow-color), 0 10px 24px -14px var(--tw-shadow-color);
+}
+html[data-look="nuevo"] .hover\:shadow-xl:hover,
+html[data-look="nuevo"] .hover\:shadow-2xl:hover {
+  --tw-shadow: 0 24px 64px -24px rgb(10 10 10 / 0.55);
+  --tw-shadow-colored: 0 24px 64px -24px var(--tw-shadow-color);
+}
+/* "No shadow from the large breakpoint on" must still win over the look's resting steps above, as it
+   wins over the plain classes today: the same rule inside the same breakpoint, after them. */
+@media (min-width: 1024px) {
+  html[data-look="nuevo"] .lg\:shadow-none {
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-colored: 0 0 #0000;
+  }
 }
 
 /* Titles in Mont. Weights and sizes stay what the classes say. */

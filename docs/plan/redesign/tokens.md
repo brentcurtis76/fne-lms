@@ -30,7 +30,8 @@ modifiers (`bg-brand_primary/40`) working. Outside a class: `rgb(var(--color-gra
   (`slate: family('slate')`), eleven lines in the token file and one word in the test.
 - **The shadows** (`shadow-sm` … `shadow-2xl`): Tailwind's literal values. Tailwind builds the coloured form of a
   shadow (what `shadow-red-500/20` uses) by reading the shadow's value; a name cannot be read that way, so naming
-  them changed every `shadow-*` rule. 5a left them literal (see below).
+  them changed every `shadow-*` rule. They stay literal with today's look; the new look gives them its own
+  values by rules of its own (see below).
 - **`rounded-none` and `rounded-full`:** not values of a look.
 - **Tailwind's typography plugin (`prose`)** takes its greys from Tailwind's palette directly, not from the theme. A
   look that changes the greys must also set the plugin's `--tw-prose-*` variables.
@@ -77,7 +78,8 @@ with its reason.
 
 `styles/look-nuevo.css`, imported by `globals.css` right after `fne-tokens.css`. It holds one block,
 `[data-look="nuevo"] { … }`, that gives existing names the approved values (DESIGN.md), and a few rules; every
-rule of the file starts with `[data-look="nuevo"]`, so a page without the attribute is exactly today's page.
+rule of the file starts with `[data-look="nuevo"]` (also inside the one kind of at-rule it may hold, a
+`@media (min-width: …)` breakpoint), so a page without the attribute is exactly today's page.
 
 - **Colours: five scales.** GRIS for `gray` and `slate`; NEUTRO for `blue`, `sky`, `indigo`, `purple`, `pink`, `cyan`,
   `teal` (the palette has no blue and no colour per category); ÉXITO for `green` and `emerald`; ERROR for `red` and
@@ -94,6 +96,17 @@ rule of the file starts with `[data-look="nuevo"]`, so a page without the attrib
   `:focus-visible` matches fields on a click too) the white ring REPLACES the element's own `box-shadow`, so a
   focus ring of the platform's classes or a resting shadow gives way to the look's ring while the element is
   focused, and comes back when it loses the focus.
+- **Shadows:** three, on Tailwind's shadow steps: `shadow-sm` and `shadow` → `0 1px 2px rgb(10 10 10 / 0.08)`;
+  `shadow-md` and `shadow-lg` → `0 1px 2px rgb(10 10 10 / 0.06), 0 10px 24px -14px rgb(10 10 10 / 0.3)`;
+  `shadow-xl` and `shadow-2xl` → `0 24px 64px -24px rgb(10 10 10 / 0.55)`. The rules under the look set only the
+  two names the classes read (`--tw-shadow`, and `--tw-shadow-colored` with the same shapes in
+  `var(--tw-shadow-color)`), never `box-shadow`, so rings keep composing with shadows. A resting rule of the look
+  (`html[data-look="nuevo"] .shadow-md`, 0,2,1) beats the plain class; its `hover:` rule (0,3,1) beats the
+  resting ones. Every shadow class the compiled stylesheet holds is covered, its `hover:` forms too; two more get
+  a rule only so they keep winning over the look's steps as they win over the plain classes today: the large
+  breakpoint's no-shadow class (inside the same `@media`) and the one shadow colour class (an arbitrary colour,
+  on the events timeline). The inner shadow and arbitrary shadows are left alone. The list is pinned in
+  `look-nuevo.test.ts`: a shadow class new to the platform is not covered until it is added there and here.
 - **Titles:** `h1`, `h2`, `h3` in Mont; `h1` in capitals, spaced, with a line-height of 1.25. Headings inside written
   content (`.prose`, `.tiptap-editor`, `.ProseMirror`) keep their own face and case.
 - **Names that exist only under the look**, so that today's look reads a fallback: `--color-serie-1` … `-5` (charts

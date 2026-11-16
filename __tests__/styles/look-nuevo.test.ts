@@ -7,7 +7,9 @@
  *     ancestor (or on `<html>` itself), so a page without the attribute is exactly today's page.
  *     `scripts/redesign/tokens-check.mjs` proves the same on the compiled stylesheet.
  *  2. OLD SCHOOL HARDWARE. No color-mix, no :has, no nesting, no container queries, no backdrop
- *     blur, no :not() with a complex selector inside, no at-rules.
+ *     blur, no :not() with a complex selector inside, no at-rules but `@media (min-width: …)`
+ *     breakpoints (5a send-back 1: a breakpoint variant of a shadow class needs its look rule inside
+ *     the same breakpoint), whose every rule still starts with the look.
  *  3. THE VALUES ARE THE APPROVED ONES. Each family takes its scale, step for step; the brand accent
  *     text, the 30 legacy names and the radii take the values of the brief; nothing else is
  *     redeclared (the other seven brand names, the fonts: Besley is not loaded by the platform).
@@ -110,13 +112,18 @@ describe('the new look: nothing applies without the attribute', () => {
 
   it('every rule requires data-look="nuevo" on <html> or an ancestor', () => {
     const problems: string[] = [];
-    postcss.parse(LOOK_CSS).walkRules((rule: { selector: string; parent: { type: string } }) => {
-      if (rule.parent.type !== 'root') problems.push(`nested rule: ${rule.selector}`);
+    type Node = { type: string; name?: string; params?: string; parent?: Node };
+    const isBreakpoint = (node: Node | undefined) =>
+      node?.type === 'atrule' && node.name === 'media' && /^\(min-width: \d+px\)$/.test(node.params ?? '') && node.parent?.type === 'root';
+    postcss.parse(LOOK_CSS).walkRules((rule: { selector: string; parent: Node }) => {
+      if (rule.parent.type !== 'root' && !isBreakpoint(rule.parent)) problems.push(`nested rule: ${rule.selector}`);
       for (const part of rule.selector.split(',').map((s) => s.trim())) {
         if (!/^(html)?\[data-look="nuevo"\](\s|$)/.test(part)) problems.push(`does not start with the look: ${part}`);
       }
     });
-    postcss.parse(LOOK_CSS).walkAtRules((at: { name: string }) => problems.push(`at-rule @${at.name}`));
+    postcss.parse(LOOK_CSS).walkAtRules((at: Node) => {
+      if (!isBreakpoint(at)) problems.push(`at-rule @${at.name} ${at.params}`);
+    });
     expect(problems).toEqual([]);
   });
 
@@ -276,5 +283,97 @@ describe('the new look: the usual pairs stay readable', () => {
 
   it('checks a sensible number of pairs', () => {
     expect(PAIRS.length).toBe(FAMILIES.length * 9 + 5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Shadows (5a send-back 1): the look's three shadows on Tailwind's shadow steps.
+// ---------------------------------------------------------------------------
+
+const SMALL = '0 1px 2px rgb(10 10 10 / 0.08)';
+const MEDIUM = '0 1px 2px rgb(10 10 10 / 0.06), 0 10px 24px -14px rgb(10 10 10 / 0.3)';
+const LARGE = '0 24px 64px -24px rgb(10 10 10 / 0.55)';
+const colored = (shadow: string) => shadow.replace(/rgb\(10 10 10 \/ [\d.]+\)/g, 'var(--tw-shadow-color)');
+
+/**
+ * Every selector of the compiled stylesheet that sets `--tw-shadow` (the base `*` rules aside), and
+ * what the look does with it. Compared with a freshly compiled stylesheet by a one-off script in the
+ * send-back's report; a class added to the platform later is not covered until it is added here.
+ */
+const SHADOW_STEPS: Readonly<Record<string, string>> = {
+  '.shadow-sm': SMALL,
+  '.shadow': SMALL,
+  '.shadow-md': MEDIUM,
+  '.shadow-lg': MEDIUM,
+  '.shadow-xl': LARGE,
+  '.shadow-2xl': LARGE,
+  '.hover\\:shadow-sm:hover': SMALL,
+  '.hover\\:shadow-md:hover': MEDIUM,
+  '.hover\\:shadow-lg:hover': MEDIUM,
+  '.hover\\:shadow-xl:hover': LARGE,
+  '.hover\\:shadow-2xl:hover': LARGE,
+};
+/** Kept as they are without the look, against the steps above: no shadow from the large breakpoint on, and a shadow colour. */
+const SHADOW_KEPT: Readonly<Record<string, { media: string | null; shadow: string; colored?: string }>> = {
+  '.lg\\:shadow-none': { media: '(min-width: 1024px)', shadow: '0 0 #0000', colored: '0 0 #0000' },
+  '.shadow-\\[\\#FFC107\\]\\/20': { media: null, shadow: 'var(--tw-shadow-colored)' },
+};
+/** Left alone (not in the compiled stylesheet today): the plain no-shadow class, the inner shadow, arbitrary shadows. */
+
+type ShadowRule = { selector: string; media: string | null; decls: Record<string, string>; order: number };
+function shadowRules(): ShadowRule[] {
+  const rules: ShadowRule[] = [];
+  let order = 0;
+  postcss.parse(LOOK_CSS).walkRules((rule: { selector: string; parent: { type: string; params?: string }; walkDecls: (fn: (d: Decl) => void) => void }) => {
+    order++;
+    const decls: Record<string, string> = {};
+    rule.walkDecls((d) => (decls[d.prop] = d.value.trim().replace(/\s+/g, ' ')));
+    if (!('--tw-shadow' in decls) && !('--tw-shadow-colored' in decls)) return;
+    const media = rule.parent.type === 'atrule' ? rule.parent.params ?? null : null;
+    for (const part of rule.selector.split(',').map((s) => s.trim())) rules.push({ selector: part, media, decls, order });
+  });
+  return rules;
+}
+
+describe('the new look: shadows', () => {
+  const rules = shadowRules();
+  const bySelector = (selector: string) => rules.filter((r) => r.selector === `html[data-look="nuevo"] ${selector}`);
+
+  it('covers exactly the pinned shadow selectors, and nothing else', () => {
+    const covered = rules.map((r) => r.selector.replace(/^html\[data-look="nuevo"\] /, '')).sort();
+    expect(covered).toEqual([...Object.keys(SHADOW_STEPS), ...Object.keys(SHADOW_KEPT)].sort());
+  });
+
+  it.each(Object.entries(SHADOW_STEPS))('%s takes the look\'s shadow, and the same shape for a colour', (selector, shadow) => {
+    const [rule, ...more] = bySelector(selector);
+    expect(more).toEqual([]);
+    expect(rule.media).toBeNull();
+    expect(rule.decls).toEqual({ '--tw-shadow': shadow, '--tw-shadow-colored': colored(shadow) });
+  });
+
+  it('never sets box-shadow itself, so the rings keep composing with the shadows', () => {
+    for (const r of rules) expect(Object.keys(r.decls), r.selector).not.toContain('box-shadow');
+  });
+
+  it('keeps no-shadow-from-lg and the shadow colour winning over the steps, as without the look', () => {
+    const lastStep = Math.max(...Object.keys(SHADOW_STEPS).filter((s) => !s.includes(':hover')).map((s) => bySelector(s)[0].order));
+    for (const [selector, kept] of Object.entries(SHADOW_KEPT)) {
+      const [rule] = bySelector(selector);
+      expect(rule.media, selector).toBe(kept.media);
+      expect(rule.decls['--tw-shadow'], selector).toBe(kept.shadow);
+      expect(rule.decls['--tw-shadow-colored'], selector).toBe(kept.colored);
+      // Same specificity as the resting steps (0,2,1), so it must come after them.
+      expect(rule.order, selector).toBeGreaterThan(lastStep);
+    }
+  });
+
+  it('a hover rule of the look is more specific than a resting rule of the look', () => {
+    for (const selector of Object.keys(SHADOW_STEPS).filter((s) => s.endsWith(':hover'))) {
+      // `html[data-look="nuevo"] .x:hover` is (0,3,1); `html[data-look="nuevo"] .y` is (0,2,1).
+      expect(bySelector(selector)[0].selector).toMatch(/^html\[data-look="nuevo"\] \.[^ ]+:hover$/);
+    }
+    for (const selector of Object.keys(SHADOW_STEPS).filter((s) => !s.endsWith(':hover'))) {
+      expect(bySelector(selector)[0].selector).toMatch(/^html\[data-look="nuevo"\] \.[^ :]+$/);
+    }
   });
 });

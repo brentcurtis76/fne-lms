@@ -42,9 +42,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(403).json({ error: 'No tienes permisos para gestionar cotizaciones' });
   }
 
-  // Changing a quote's groups follows the quote's own rule (quotes/[id] PUT):
-  // its creator or an admin.
-  if (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') {
+  // Reading or changing a quote's groups follows the quote's own rule
+  // (quotes/[id] PUT): its creator or an admin.
+  if (req.method === 'GET' || req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') {
     const { data: quote, error: quoteError } = await serviceSupabase
       .from('pasantias_quotes')
       .select('id, created_by')
@@ -64,8 +64,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   switch (req.method) {
     case 'GET':
-      // Get all groups for a quote
-      const { data: groups, error: getError } = await supabase
+      // Get all groups for a quote (owner check above has passed)
+      const { data: groups, error: getError } = await serviceSupabase
         .from('pasantias_quote_groups')
         .select('*')
         .eq('quote_id', id)

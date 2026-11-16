@@ -57,12 +57,41 @@ and take a new snapshot after running the seed again.
 | `seed.mjs`, `seed/*.mjs` | Invented sample content (the seeded local copy holds accounts and almost nothing else). One file per group of areas; fixed ids, fixed dates; safe to run twice. Each file also offers the ids for addresses with a changing part (`params`) and further states worth a picture (`variants`: a contract's detail, a draft, an early step of a licitación). |
 | `walk.mjs` | Takes the pictures. |
 | `compare.mjs` | Compares two runs. |
+| `looks.mjs` | Phase 5: compares what two LOOKS show, not pixels: the same landing, sidebar entries, headings and text for every visitor, width and address in a run walked in today's look and one walked in the new look. |
 | `landings.mjs` | From a run: where each role really lands on each address, set against the inventory's role table. Writes `landings.md` into the private folder beside the redesign's ledger, not here: the repository is public and that page says which addresses open without signing in. |
 | `rules.mjs` | The hand-kept rules, each with its reason: POST requests that are reads and may pass, outside hosts that are kept and replayed, query strings some roles need, values hidden because they change by nature. |
 | `clock.mjs`, `server-clock.cjs` | The browser's clock and the app server's clock while pictures are taken. |
 | `specs-baseline.mjs` | Runs the browser test files CI skips, each alone on the plain seeded database, and keeps what passes in `specs-baseline.json` here. `--compare` lists what got WORSE than the kept list. |
 | `../tokens-check.mjs` | Not pictures: compares two compiled stylesheets once every named value is replaced by what it holds (`EQUIVALENT` or the list). The proof for what a picture cannot show: hover, focus, pop-ups. See `../tokens.md`. |
 | `probe.mjs`, `_flicker.mjs`, `_open.mjs`, `_px.mjs` | A session's tools: evaluate an expression on one address as one account; find where a page keeps changing; click one visible text and list what appears; say which pixels differ between two pictures, from which colour to which, and save that part of both enlarged. |
+
+## The new look (phase 5)
+
+None of the made-up visitors is marked «Tester QA», so an ordinary run is the platform with the switch off, and
+that is the proof "switch off = nothing changed" (before/after, as above).
+
+For the switch ON, `stack.sh look nuevo|clasico` marks every made-up account «Tester QA» and chooses that look
+for it. Two more snapshots, differing only in the look:
+
+```
+$H/stack.sh restore content none && $H/stack.sh look clasico && $H/stack.sh snapshot content-testers
+$H/stack.sh restore content none && $H/stack.sh look nuevo   && $H/stack.sh snapshot content-nuevo
+$H/stack.sh restore content pictures
+
+node $H/walk.mjs testers --snapshot content-testers    # today's look, tester marks on
+node $H/walk.mjs nuevo   --snapshot content-nuevo      # the new look
+node $H/looks.mjs testers nuevo                        # NOTHING LOST (exit 0) or what differs (exit 1)
+```
+
+`looks.mjs` does not compare pixels (they differ on purpose). It checks that each visitor lands on the same
+address, gets the same sidebar entries, the same headings and the same text in the page's own content, letter
+case aside, in both looks; and it lists the signed-in pictures of the second run that were not taken in the new
+look, which must be exactly the pages the look leaves alone. With `--frame` it compares the whole page's text,
+frame included. Every record carries the look the page really had (`look`: the `data-look` attribute at that
+moment) and the text of the page's own content (`mainText`).
+
+A later release's new look is compared with this one's the ordinary way: `compare.mjs nuevo nuevo-next`, both
+walked from `content-nuevo` on the same stack.
 
 ## What a run records
 

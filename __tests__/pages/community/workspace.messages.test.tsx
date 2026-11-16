@@ -47,6 +47,12 @@ const h = vi.hoisted(() => ({
   messages: [] as any[],
   /** Every realtime subscription the page made, with its callbacks. */
   subscriptions: [] as Array<{ workspaceId: string; callbacks: any; unsubscribe: ReturnType<typeof vi.fn> }>,
+  /** The props the page last gave the conversation-creation modal (null when it is not shown). */
+  modal: null as null | { onCreateThread: (data: any) => Promise<void>; onClose: () => void },
+  /** The props the page last gave the message box. */
+  composer: null as null | { onSendMessage: (data: any) => Promise<void> },
+  createThread: vi.fn(),
+  sendMessage: vi.fn(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -215,8 +221,8 @@ vi.mock('../../../utils/messagingUtils-simple', () => ({
   getWorkspaceMessages: async (_workspaceId: string, filters: { thread_id?: string }) =>
     h.messages.filter((message) => message.thread_id === filters.thread_id),
   getUserMessagingPermissions: async () => PERMISSIONS,
-  createThread: vi.fn(),
-  sendMessage: vi.fn(),
+  createThread: (...args: unknown[]) => h.createThread(...args),
+  sendMessage: (...args: unknown[]) => h.sendMessage(...args),
   subscribeToWorkspaceMessages: (workspaceId: string, callbacks: any) => {
     const subscription = { workspaceId, callbacks, unsubscribe: vi.fn() };
     h.subscriptions.push(subscription);
@@ -268,7 +274,14 @@ vi.mock('../../../components/messaging/MessageCard', () => ({
   ),
 }));
 vi.mock('../../../components/messaging/AttachmentPreview', () => ({ default: () => null }));
-vi.mock('../../../components/messaging/ThreadCreationModal', () => ({ default: () => null }));
+// The conversation-creation modal stub: records the page's callbacks so the
+// test can press «Crear Hilo» the way the real modal does.
+vi.mock('../../../components/messaging/ThreadCreationModal', () => ({
+  default: (props: any) => {
+    h.modal = props;
+    return <div data-testid="thread-modal" />;
+  },
+}));
 vi.mock('../../../components/activity/ActivityFeed', () => ({ default: () => null }));
 vi.mock('../../../components/activity/ActivitySummary', () => ({ default: () => null }));
 vi.mock('../../../components/activity/ActivityNotifications', () => ({ default: () => null }));
@@ -279,7 +292,12 @@ vi.mock('../../../components/workspace/WorkspaceTabNavigation', () => ({ default
 vi.mock('../../../components/workspace/WorkspaceSessionsTab', () => ({ default: () => null }));
 
 
-vi.mock('../../../components/messaging/MessageComposer', () => ({ default: () => <div data-testid="composer" /> }));
+vi.mock('../../../components/messaging/MessageComposer', () => ({
+  default: (props: any) => {
+    h.composer = props;
+    return <div data-testid="composer" />;
+  },
+}));
 
 import CommunityWorkspacePage from '../../../pages/community/workspace';
 
@@ -329,6 +347,10 @@ beforeEach(() => {
   h.threadLoads.length = 0;
   h.subscriptions.length = 0;
   h.messages = [];
+  h.modal = null;
+  h.composer = null;
+  h.createThread = vi.fn();
+  h.sendMessage = vi.fn();
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
   global.fetch = vi.fn(async () => new Response(JSON.stringify({ members: [] }), { status: 200 })) as any;
 });
@@ -411,5 +433,77 @@ describe('EC-M5 live messages in the open conversation', () => {
     await waitFor(() => expect(h.subscriptions.some((s) => s.workspaceId === 'ws-B')).toBe(true));
     expect(first.every((s) => s.unsubscribe.mock.calls.length === 1)).toBe(true);
     expect(h.subscriptions.filter((s) => s.unsubscribe.mock.calls.length === 0).map((s) => s.workspaceId)).toEqual(['ws-B']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Send-back 1, item 1: a conversation whose first message fails does not look
+// created; the modal keeps the text; the retry passes the thread row's id back
+// ---------------------------------------------------------------------------
+
+describe('send-back 1 (1) creating a conversation whose first message fails', () => {
+  const DATA = { thread_title: 'Planificación', category: 'general', initial_message: 'Mi texto de planificación' };
+
+  async function openModal(utils: RenderResult) {
+    await utils.findByText(THREAD_A.thread_title);
+    await act(async () => {
+      fireEvent.click(utils.getByText('Nuevo Hilo'));
+    });
+    await utils.findByTestId('thread-modal');
+  }
+
+  it('says it failed, keeps the modal open, and the next press passes the same id back', async () => {
+    const { toast } = await import('react-hot-toast');
+    vi.mocked(toast.error).mockClear();
+    vi.mocked(toast.success).mockClear();
+    const incomplete = Object.assign(new Error('first message failed'), { threadId: 'thread-new' });
+    h.createThread = vi
+      .fn()
+      .mockRejectedValueOnce(incomplete)
+      .mockResolvedValueOnce({ ...THREAD_A, id: 'thread-new', thread_title: 'Planificación' });
+
+    const utils = render(<CommunityWorkspacePage />);
+    await openModal(utils);
+
+    // The modal is told it failed (it keeps everything typed only when its call rejects).
+    let outcome: unknown = 'resolved';
+    await act(async () => {
+      outcome = await h.modal!.onCreateThread(DATA).then(() => 'resolved', () => 'rejected');
+    });
+    expect(outcome).toBe('rejected');
+    expect(toast.error).toHaveBeenCalledWith('No se pudo crear la conversación. Tu texto sigue aquí; inténtalo de nuevo.');
+    expect(toast.success).not.toHaveBeenCalledWith('Hilo de conversación creado exitosamente');
+    expect(utils.queryByTestId('thread-modal')).not.toBeNull();
+    expect(h.createThread.mock.calls[0][3]).toBeUndefined();
+
+    // The next press passes the id of the thread row already created.
+    await act(async () => {
+      outcome = await h.modal!.onCreateThread(DATA).then(() => 'resolved', () => 'rejected');
+    });
+    expect(outcome).toBe('resolved');
+    expect(h.createThread).toHaveBeenCalledTimes(2);
+    expect(h.createThread.mock.calls[1][3]).toBe('thread-new');
+    expect(toast.success).toHaveBeenCalledWith('Hilo de conversación creado exitosamente');
+    expect(utils.queryByTestId('thread-modal')).toBeNull();
+  });
+
+  it('a conversation started afresh after closing the modal gets no old id', async () => {
+    h.createThread = vi.fn().mockRejectedValueOnce(Object.assign(new Error('x'), { threadId: 'thread-new' }));
+    const utils = render(<CommunityWorkspacePage />);
+    await openModal(utils);
+    await act(async () => {
+      await h.modal!.onCreateThread(DATA).catch(() => undefined);
+    });
+    await act(async () => {
+      h.modal!.onClose();
+    });
+    expect(utils.queryByTestId('thread-modal')).toBeNull();
+
+    h.createThread = vi.fn().mockResolvedValue({ ...THREAD_A, id: 'thread-other' });
+    await openModal(utils);
+    await act(async () => {
+      await h.modal!.onCreateThread(DATA);
+    });
+    expect(h.createThread.mock.calls[0][3]).toBeUndefined();
   });
 });

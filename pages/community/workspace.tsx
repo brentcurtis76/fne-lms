@@ -2132,20 +2132,39 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     setActiveView('messages');
   };
 
+  // The thread row of an attempt whose first message failed, passed back on
+  // the next press so the conversation is not inserted twice (send-back 1, 1).
+  const pendingThreadRef = useRef<{ workspaceId: string; threadId: string } | null>(null);
+
+  const closeThreadCreationModal = () => {
+    pendingThreadRef.current = null;
+    setShowThreadCreationModal(false);
+  };
+
   const handleThreadCreate = async (threadData: any) => {
     if (!workspace || !user) return;
 
+    const pending = pendingThreadRef.current?.workspaceId === workspace.id ? pendingThreadRef.current.threadId : undefined;
     try {
-      const newThread = await createThread(workspace.id, threadData, user.id);
-      setThreads(prev => [newThread, ...prev]);
+      const newThread = await createThread(workspace.id, threadData, user.id, pending);
+      pendingThreadRef.current = null;
+      // A retry's thread row may already be listed (its live event came with the first attempt).
+      setThreads(prev => [newThread, ...prev.filter(thread => thread.id !== newThread.id)]);
       setSelectedThread(newThread);
       setActiveView('messages');
       setShowThreadCreationModal(false);
       toast.success('Hilo de conversación creado exitosamente');
     } catch (error: any) {
       console.error('Error creating thread:', error);
-      console.error('Error details:', error.message);
-      toast.error(`Error al crear el hilo: ${error.message || 'Error desconocido'}`);
+      if (typeof error?.threadId === 'string') {
+        // The thread row exists but its first message does not: not created.
+        pendingThreadRef.current = { workspaceId: workspace.id, threadId: error.threadId };
+        toast.error('No se pudo crear la conversación. Tu texto sigue aquí; inténtalo de nuevo.');
+      } else {
+        toast.error(`Error al crear el hilo: ${error?.message || 'Error desconocido'}`);
+      }
+      // Rejecting keeps the modal open with everything the person typed.
+      throw error;
     }
   };
 
@@ -2666,7 +2685,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
       {showThreadCreationModal && (
         <ThreadCreationModal
           isOpen={showThreadCreationModal}
-          onClose={() => setShowThreadCreationModal(false)}
+          onClose={closeThreadCreationModal}
           onCreateThread={handleThreadCreate}
           loading={loading}
         />

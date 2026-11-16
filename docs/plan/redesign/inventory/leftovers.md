@@ -1,6 +1,6 @@
 # Leftover pages — for Brent to decide
 
-Written by `scripts/redesign/inventory.mjs` from commit `c4375a085`. The marks are in `areas.json`. Brent's answers are recorded in the redesign ledger and, once given, in the column "Decision".
+Written by `scripts/redesign/inventory.mjs` from commit `3cf1440a5`. The marks are in `areas.json`. Brent's answers are recorded in the redesign ledger and, once given, in the column "Decision".
 
 ## Vías de Transformación (to be deleted)
 
@@ -63,7 +63,7 @@ Found by following imports. 16 files are used by these screens only and can go w
 
 **Shared with screens that stay (do not delete)**
 
-- `lib/api-auth.ts` — also used by 14 other screens, for example `/admin/growth-communities/[id]/members`, `/admin/growth-communities`, `/admin/pasantia-leads`
+- `lib/api-auth.ts` — also used by 15 other screens, for example `/admin/growth-communities/[id]/members`, `/admin/growth-communities`, `/admin/pasantia-leads`
 
 **API files of the area**
 

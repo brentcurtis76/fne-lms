@@ -1,9 +1,9 @@
 # Sistema (configuration, support, roadmap, test and debug pages, scheduled jobs)
 
 Area `19-sistema`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c4375a085` (2026-11-16).
+Read from commit `3cf1440a5` (2026-11-16).
 
-3 screen files, 26 API files, 6 pieces.
+3 screen files, 27 API files, 6 pieces.
 
 ## Screens
 
@@ -763,7 +763,8 @@ Used by: `/admin/feedback`, `/admin/roadmap`
 | `/api/bots/link-code` | `pages/api/bots/link-code.ts` | POST | `/expense-reports` | `pages/expense-reports.tsx` |
 | `/api/bots/telegram` | `pages/api/bots/telegram.ts` | POST | **no screen** | `__tests__/api/bots/telegram.test.ts` |
 | `/api/check-env` | `pages/api/check-env.js` |  | **no screen** |  |
-| `/api/cron/auth-retention` | `pages/api/cron/auth-retention.ts` |  | **no screen** | `__tests__/api/cron/auth-retention.test.ts`, `__tests__/api/cron/session-reminders.test.ts`, `__tests__/lib/notificationService.dispatch.test.ts`, `tests/e2e/due-reminders.spec.ts`, `tests/e2e/notification-dispatch.spec.ts` +2 |
+| `/api/cron/assessment-delivery` | `pages/api/cron/assessment-delivery.ts` |  | **no screen** | `__tests__/api/cron/assessment-delivery.test.ts`, `__tests__/api/cron/session-reminders.test.ts`, `__tests__/lib/notificationService.dispatch.test.ts`, `tests/e2e/assessment-delivery.spec.ts`, `tests/e2e/due-reminders.spec.ts` +3 |
+| `/api/cron/auth-retention` | `pages/api/cron/auth-retention.ts` |  | **no screen** | `__tests__/api/cron/auth-retention.test.ts`, `__tests__/api/cron/session-reminders.test.ts`, `__tests__/lib/notificationService.dispatch.test.ts`, `vercel.json` |
 | `/api/cron/cleanup-learning-path-sessions` | `pages/api/cron/cleanup-learning-path-sessions.ts` | GET, POST | **no screen** | `__tests__/api/cron/cleanup-learning-path-sessions.test.ts`, `__tests__/api/cron/session-reminders.test.ts`, `__tests__/api/cron/update-learning-path-summaries.test.ts`, `__tests__/lib/notificationService.dispatch.test.ts`, `pages/api/cron/update-learning-path-summaries.ts` +2 |
 | `/api/cron/due-reminders` | `pages/api/cron/due-reminders.ts` |  | **no screen** | `__tests__/api/cron/due-reminders.test.ts`, `__tests__/api/cron/session-reminders.test.ts`, `__tests__/lib/notificationService.dispatch.test.ts`, `vercel.json` |
 | `/api/cron/email-digest` | `pages/api/cron/email-digest.ts` |  | **no screen** | `__tests__/api/cron/email-digest.test.ts`, `__tests__/api/cron/session-reminders.test.ts`, `__tests__/lib/notificationService.dispatch.test.ts`, `tests/e2e/notification-dispatch.spec.ts`, `vercel.json` |

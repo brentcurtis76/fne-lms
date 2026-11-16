@@ -1,3 +1,11 @@
+## RD-4d — platform redesign, step 4d: the look switch (2026-11-14, built and proven locally, not pushed)
+
+Branch `feat/rd-switch` on top of RD-4c. Record and reviewer notes: `docs/planning/reviews/fase-rd-4d-review-request.md`.
+
+- **What it is:** a switch per account between today's look and the redesign's. `profiles.learning_preferences.ui_look = "nuevo"` puts `data-look="nuevo"` on `<html>` (`lib/look.ts` holds the whole rule; `contexts/LookContext.tsx` applies it; components ask `useLook()`). Nothing reads the attribute yet. No migration.
+- **Who is offered it:** accounts marked «Tester QA» (`profiles.can_run_qa_tests`). They reach «Apariencia» (`/configuracion/apariencia`, saved through `PUT /api/user/look`) from a link on the notification settings that nobody else gets. An account that is not offered it is never shown the new look, whatever its profile holds.
+- **Rules that hold from now on:** one switch for the whole platform (the course screens' rebuild uses the same one); nothing about the look is kept in the browser; `tests/e2e/look-switch.spec.ts` is in CI's mandatory list.
+- **Proof:** pictures before and after on one local stack: one new address, all 3,000 others the same.
 ## Registro delivery — urgent late-publication repair (2026-11-16)
 
 Branch `fix/registro-deliver`, based on production `c8741ba18`. An authenticated

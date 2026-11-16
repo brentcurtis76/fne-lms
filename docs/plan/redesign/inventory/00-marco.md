@@ -1,11 +1,11 @@
 # Marco (the frame around every screen)
 
 Area `00-marco`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c4375a085` (2026-11-16).
+Read from commit `3cf1440a5` (2026-11-16).
 
 The app shell, the menu, the top bar, the bell, the footer and the feedback button. Its pieces are listed here once and not repeated under each screen.
 
-2 screen files, 1 API files, 25 pieces.
+2 screen files, 1 API files, 27 pieces.
 
 ## Approved changes (decided by Brent with the mock-ups; not losses)
 
@@ -40,33 +40,34 @@ The app shell, the menu, the top bar, the bell, the footer and the feedback butt
 
 | Address | File | Lines | Menu | Marks |
 |---|---|---|---|---|
-| — | `pages/_app.tsx` | 62 | — |  |
+| — | `pages/_app.tsx` | 65 | — |  |
 | — | `pages/_document.tsx` | 44 | — |  |
 
 ## pages/_app.tsx
 
-File `pages/_app.tsx` · 62 lines · frame: none
+File `pages/_app.tsx` · 65 lines · frame: none
 
 ### What the page file itself draws
 
-**Pieces placed here, with the texts and settings handed to them** (4)
+**Pieces placed here, with the texts and settings handed to them** (5)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `AuthProvider` |  |  |  | MyApp · l.32 |
-| `PermissionProvider` |  |  |  | MyApp · l.33 |
-| `DynamicFavicon` |  |  |  | MyApp · l.44 |
-| `QASessionProvider` |  |  |  | MyApp · l.45 |
+| `AuthProvider` |  |  |  | MyApp · l.33 |
+| `LookProvider` |  |  |  | MyApp · l.34 |
+| `PermissionProvider` |  |  |  | MyApp · l.35 |
+| `DynamicFavicon` |  |  |  | MyApp · l.46 |
+| `QASessionProvider` |  |  |  | MyApp · l.47 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
 |---|---|
-| «Hub de Transformación Educativa - Genera» | MyApp · l.40 |
+| «Hub de Transformación Educativa - Genera» | MyApp · l.42 |
 
 **Other texts on screen** (1)
 
-- «Genera» — MyApp · l.35
+- «Genera» — MyApp · l.37
 
 ## pages/_document.tsx
 
@@ -1069,6 +1070,20 @@ Used by: `(the frame)`
 
 **Reads and writes the database directly:** `table:profiles` (select)
 
+### contexts/LookContext.tsx
+
+Used by: `(the frame)`
+
+**Draws nothing when** (1)
+
+| Condition | Where |
+|---|---|
+| `loading` | LookProvider · l.36 |
+
+**Values shown from data** (1)
+
+- `{children}` — LookProvider · l.47
+
 ### contexts/PermissionContext.tsx
 
 Used by: `(the frame)`
@@ -1133,6 +1148,16 @@ Used by: `(the frame)`
 | Name | Texts | Where |
 |---|---|---|
 | `LEGAL_IDENTITY` | «Fundación Nueva Educación», «Fundación Instituto Relacional», «RUT 65.166.503-5», «Carlos Silva Vildósola 10448», «La Reina, Santiago», «Chile» | l.46 |
+
+### lib/look.ts
+
+Used by: `(the frame)`
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `lookFromPreferences()` | «nuevo / clasico» | lookFromPreferences · l.30 |
 
 ### lib/qa/screenshotCapture.ts
 

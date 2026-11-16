@@ -1,7 +1,7 @@
 # Cursos (course builder, upcoming courses, learning paths, assignment matrix)
 
 Area `04-cursos`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c4375a085` (2026-11-16).
+Read from commit `3cf1440a5` (2026-11-16).
 
 Course system: see the note on 03-aprendizaje.
 

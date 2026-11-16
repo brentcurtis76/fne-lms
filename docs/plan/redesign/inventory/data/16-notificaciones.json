@@ -4,14 +4,327 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "c4375a0850d8e791dac1bf7d350fcf350509a90f",
-  "date": "2026-11-16T11:16:44-03:00"
+  "commit": "3cf1440a5fd1dbe5d85b3cbb2db9c4ee61d25dea",
+  "date": "2026-11-16T15:25:18-03:00"
  },
  "screens": [
   {
+   "file": "pages/configuracion/apariencia.tsx",
+   "route": "/configuracion/apariencia",
+   "lines": 191,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 41,
+      "text": "server redirect → /login?next=[*]  (when !viewer)"
+     }
+    ],
+    "linkedFrom": [
+     "pages/configuracion/notificaciones.tsx:442"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/look-switch.spec.ts"
+     ],
+     "e2e": [],
+     "unit": [
+      "__tests__/pages/apariencia.test.tsx"
+     ]
+    }
+   },
+   "rows": [
+    {
+     "kind": "list",
+     "line": 26,
+     "text": "SAVE_ERROR",
+     "items": [
+      "No pudimos guardar tu apariencia. Intenta nuevamente."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 28,
+     "text": "OPTIONS",
+     "items": [
+      "Diseño actual",
+      "La plataforma tal como se ve hoy.",
+      "Diseño nuevo (en construcción)",
+      "El rediseño de la plataforma. Se irá activando por partes; mientras tanto puede verse igual al actual."
+     ]
+    },
+    {
+     "kind": "nav",
+     "line": 41,
+     "in": "getServerSideProps",
+     "when": "!viewer",
+     "text": "/login?next=[*]",
+     "via": "server redirect"
+    },
+    {
+     "kind": "nav",
+     "line": 47,
+     "in": "getServerSideProps",
+     "when": "verdict !== 'allowed'",
+     "text": "{forcedChangeRedirectPath(verdict)}",
+     "via": "server redirect"
+    },
+    {
+     "kind": "nav",
+     "line": 57,
+     "in": "getServerSideProps",
+     "when": "profile.error || !mayChooseLook(profile.data)",
+     "text": "{SETTINGS}",
+     "via": "server redirect"
+    },
+    {
+     "kind": "message",
+     "line": 92,
+     "in": "save",
+     "when": "res.status === 401",
+     "text": "expired / Tu sesión terminó.",
+     "via": "setNotice"
+    },
+    {
+     "kind": "message",
+     "line": 99,
+     "in": "save",
+     "when": "!(res.status === 401) && (!(!res.ok || !isLook(body?.look)))",
+     "text": "saved / Tu preferencia se guardó.",
+     "via": "setNotice"
+    },
+    {
+     "kind": "piece",
+     "line": 109,
+     "in": "AparienciaPage",
+     "text": "pageTitle: Apariencia · breadcrumbs: Configuración / Apariencia",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "hook",
+     "line": 110,
+     "in": "AparienciaPage",
+     "text": "testid=look-settings",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 112,
+     "in": "AparienciaPage",
+     "text": "Elige cómo se ve la plataforma para tu cuenta. El cambio solo te afecta a ti y puedes volver atrás cuando quieras."
+    },
+    {
+     "kind": "form",
+     "line": 114,
+     "in": "AparienciaPage",
+     "text": "{(event) => { event.preventDefault(); void save(); }}"
+    },
+    {
+     "kind": "label",
+     "line": 121,
+     "in": "AparienciaPage",
+     "text": "Diseño de la plataforma"
+    },
+    {
+     "kind": "field",
+     "line": 127,
+     "in": "AparienciaPage",
+     "when": "each OPTIONS",
+     "text": "{option.label} {option.detail}",
+     "type": "radio",
+     "name": "look",
+     "action": "{() => { // Not disabled while saving (focus would be lost); a change then is ig…}",
+     "hook": {
+      "testid": "look-option-{option.value}",
+      "id": "look-option-{option.value}"
+     }
+    },
+    {
+     "kind": "gate",
+     "line": 136,
+     "in": "AparienciaPage",
+     "when": "each OPTIONS",
+     "text": "saving"
+    },
+    {
+     "kind": "label",
+     "line": 142,
+     "in": "AparienciaPage",
+     "when": "each OPTIONS",
+     "text": "{option.label} {option.detail}",
+     "for": "{id}"
+    },
+    {
+     "kind": "button",
+     "line": 152,
+     "in": "AparienciaPage",
+     "text": "Guardando… / Guardar cambios",
+     "submit": true,
+     "disabled": "{saving || choice === saved}",
+     "hook": {
+      "testid": "look-save"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 155,
+     "in": "AparienciaPage",
+     "text": "role=status aria-live=polite",
+     "type": "role",
+     "tag": "p"
+    },
+    {
+     "kind": "hook",
+     "line": 157,
+     "in": "AparienciaPage",
+     "when": "notice?.kind === 'saved'",
+     "text": "testid=look-saved",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "value",
+     "line": 157,
+     "in": "AparienciaPage",
+     "when": "notice?.kind === 'saved'",
+     "text": "{notice.text}"
+    },
+    {
+     "kind": "hook",
+     "line": 162,
+     "in": "AparienciaPage",
+     "when": "notice?.kind === 'error'",
+     "text": "testid=look-save-error",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "value",
+     "line": 162,
+     "in": "AparienciaPage",
+     "when": "notice?.kind === 'error'",
+     "text": "{notice.text}"
+    },
+    {
+     "kind": "hook",
+     "line": 167,
+     "in": "AparienciaPage",
+     "when": "notice?.kind === 'expired'",
+     "text": "testid=look-expired",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "link",
+     "line": 169,
+     "in": "AparienciaPage",
+     "when": "notice?.kind === 'expired'",
+     "text": "Inicia sesión nuevamente",
+     "target": "{LOGIN_AGAIN}"
+    },
+    {
+     "kind": "hook",
+     "line": 175,
+     "in": "AparienciaPage",
+     "when": "!notice && choice !== saved",
+     "text": "testid=look-unsaved",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "text",
+     "line": 176,
+     "in": "AparienciaPage",
+     "when": "!notice && choice !== saved",
+     "text": "Tienes cambios sin guardar."
+    },
+    {
+     "kind": "link",
+     "line": 183,
+     "in": "AparienciaPage",
+     "text": "Notificaciones por correo",
+     "target": "{SETTINGS}",
+     "hook": {
+      "testid": "look-to-notifications"
+     }
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "lib/api-auth.ts",
+    "lib/auth/forced-password-change.ts",
+    "lib/look.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/user/look.ts",
+     "route": "/api/user/look",
+     "methods": [],
+     "from": [
+      "pages/configuracion/apariencia.tsx:23"
+     ]
+    }
+   ]
+  },
+  {
    "file": "pages/configuracion/index.tsx",
    "route": "/configuracion",
-   "lines": 11,
+   "lines": 14,
    "marks": {},
    "frame": "none",
    "server": "getServerSideProps",
@@ -68,6 +381,7 @@
     "qaScenarios": {},
     "tests": {
      "e2eCi": [
+      "tests/e2e/look-switch.spec.ts",
       "tests/e2e/notification-settings.spec.ts"
      ],
      "e2e": [],
@@ -79,7 +393,7 @@
    "rows": [
     {
      "kind": "nav",
-     "line": 5,
+     "line": 8,
      "in": "getServerSideProps",
      "text": "/configuracion/notificaciones",
      "via": "server redirect"
@@ -92,7 +406,7 @@
   {
    "file": "pages/configuracion/notificaciones.tsx",
    "route": "/configuracion/notificaciones",
-   "lines": 439,
+   "lines": 451,
    "marks": {},
    "frame": "MainLayout",
    "server": "getServerSideProps",
@@ -143,7 +457,7 @@
     },
     "inPage": [
      {
-      "line": 117,
+      "line": 121,
       "text": "server redirect → /login?next=[*]  (when !viewer)"
      }
     ],
@@ -155,7 +469,8 @@
      "lib/email/notifications.ts:30",
      "pages/admin/configuration.tsx:396",
      "pages/admin/configuration.tsx:397",
-     "pages/configuracion/index.tsx:5",
+     "pages/configuracion/apariencia.tsx:24",
+     "pages/configuracion/index.tsx:8",
      "pages/notifications.tsx:381",
      "pages/profile.tsx:743",
      "pages/profile.tsx:744"
@@ -163,6 +478,7 @@
     "qaScenarios": {},
     "tests": {
      "e2eCi": [
+      "tests/e2e/look-switch.spec.ts",
       "tests/e2e/notification-settings.spec.ts"
      ],
      "e2e": [],
@@ -174,7 +490,7 @@
    "rows": [
     {
      "kind": "list",
-     "line": 85,
+     "line": 89,
      "text": "PRODUCER_EVENT_LABELS",
      "items": [
       "Invitación a un grupo",
@@ -186,7 +502,7 @@
     },
     {
      "kind": "nav",
-     "line": 117,
+     "line": 121,
      "in": "getServerSideProps",
      "when": "!viewer",
      "text": "/login?next=[*]",
@@ -194,7 +510,7 @@
     },
     {
      "kind": "nav",
-     "line": 123,
+     "line": 127,
      "in": "getServerSideProps",
      "when": "verdict !== 'allowed'",
      "text": "{forcedChangeRedirectPath(verdict)}",
@@ -202,7 +518,7 @@
     },
     {
      "kind": "list",
-     "line": 144,
+     "line": 149,
      "text": "READ_ERROR",
      "items": [
       "No pudimos cargar tus preferencias."
@@ -210,7 +526,7 @@
     },
     {
      "kind": "list",
-     "line": 145,
+     "line": 150,
      "text": "SAVE_ERROR",
      "items": [
       "No pudimos guardar tus preferencias. Intenta nuevamente."
@@ -218,7 +534,7 @@
     },
     {
      "kind": "list",
-     "line": 147,
+     "line": 152,
      "text": "MODE_LABELS",
      "items": [
       "Predeterminado",
@@ -229,7 +545,7 @@
     },
     {
      "kind": "list",
-     "line": 155,
+     "line": 160,
      "text": "STORED_UNAVAILABLE",
      "items": [
       "Opción anterior (se envía de inmediato)"
@@ -237,7 +553,7 @@
     },
     {
      "kind": "list",
-     "line": 157,
+     "line": 162,
      "text": "DELIVERY_LABELS",
      "items": [
       "Se envía de inmediato",
@@ -247,7 +563,7 @@
     },
     {
      "kind": "list",
-     "line": 163,
+     "line": 168,
      "text": "ADDRESS_NOTICES",
      "items": [
       "No podemos enviarte correos: tu dirección rechazó mensajes anteriores. Escribe a soporte para revisarla; mientras tanto no recibirás avisos por correo.",
@@ -257,26 +573,26 @@
     },
     {
      "kind": "gate",
-     "line": 207,
+     "line": 212,
      "in": "NotificationSettingsPage",
      "text": "id !== request.current"
     },
     {
      "kind": "gate",
-     "line": 224,
+     "line": 229,
      "in": "NotificationSettingsPage",
      "text": "sessionLoading || sessionError || sessionUserId === ownerId"
     },
     {
      "kind": "message",
-     "line": 259,
+     "line": 264,
      "in": "save",
      "text": "saved / Tus preferencias se guardaron.",
      "via": "setNotice"
     },
     {
      "kind": "hook",
-     "line": 270,
+     "line": 275,
      "in": "NotificationSettingsPage",
      "when": "status === 'session_changed'",
      "text": "role=alert",
@@ -285,7 +601,7 @@
     },
     {
      "kind": "hook",
-     "line": 270,
+     "line": 275,
      "in": "NotificationSettingsPage",
      "when": "status === 'session_changed'",
      "text": "testid=ns-session-changed",
@@ -294,14 +610,14 @@
     },
     {
      "kind": "text",
-     "line": 271,
+     "line": 276,
      "in": "NotificationSettingsPage",
      "when": "status === 'session_changed'",
      "text": "Tu sesión cambió en otra pestaña. Recarga la página para ver tus preferencias."
     },
     {
      "kind": "button",
-     "line": 272,
+     "line": 277,
      "in": "NotificationSettingsPage",
      "when": "status === 'session_changed'",
      "text": "Recargar",
@@ -312,7 +628,7 @@
     },
     {
      "kind": "hook",
-     "line": 279,
+     "line": 284,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && status === 'expired'",
      "text": "role=alert",
@@ -321,7 +637,7 @@
     },
     {
      "kind": "hook",
-     "line": 279,
+     "line": 284,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && status === 'expired'",
      "text": "testid=ns-expired",
@@ -330,14 +646,14 @@
     },
     {
      "kind": "text",
-     "line": 280,
+     "line": 285,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && status === 'expired'",
      "text": "Tu sesión terminó."
     },
     {
      "kind": "link",
-     "line": 281,
+     "line": 286,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && status === 'expired'",
      "text": "Inicia sesión nuevamente",
@@ -345,7 +661,7 @@
     },
     {
      "kind": "hook",
-     "line": 288,
+     "line": 293,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && !(status === 'expired') && status === 'error'",
      "text": "role=alert",
@@ -354,7 +670,7 @@
     },
     {
      "kind": "hook",
-     "line": 288,
+     "line": 293,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && !(status === 'expired') && status === 'error'",
      "text": "testid=ns-error",
@@ -363,14 +679,14 @@
     },
     {
      "kind": "value",
-     "line": 289,
+     "line": 294,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && !(status === 'expired') && status === 'error'",
      "text": "{READ_ERROR}"
     },
     {
      "kind": "button",
-     "line": 290,
+     "line": 295,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && !(status === 'expired') && status === 'error'",
      "text": "Reintentar",
@@ -381,7 +697,7 @@
     },
     {
      "kind": "hook",
-     "line": 302,
+     "line": 307,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && !(status === 'expired') && !(status === 'error') && (status === 'loading' || !view)",
      "text": "role=status",
@@ -390,7 +706,7 @@
     },
     {
      "kind": "hook",
-     "line": 302,
+     "line": 307,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && !(status === 'expired') && !(status === 'error') && (status === 'loading' || !view)",
      "text": "testid=ns-loading",
@@ -399,14 +715,14 @@
     },
     {
      "kind": "text",
-     "line": 303,
+     "line": 308,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'session_changed') && !(status === 'expired') && !(status === 'error') && (status === 'loading' || !view)",
      "text": "Cargando tus preferencias…"
     },
     {
      "kind": "hook",
-     "line": 308,
+     "line": 313,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && shown.length === 0",
      "text": "testid=ns-empty",
@@ -415,21 +731,21 @@
     },
     {
      "kind": "text",
-     "line": 309,
+     "line": 314,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && shown.length === 0",
      "text": "Tu cuenta no tiene avisos por correo que configurar."
     },
     {
      "kind": "form",
-     "line": 320,
+     "line": 325,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
      "text": "{(event) => { event.preventDefault(); void save(); }}"
     },
     {
      "kind": "hook",
-     "line": 326,
+     "line": 331,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
      "text": "testid=ns-address-{view.address_suppression}",
@@ -438,14 +754,14 @@
     },
     {
      "kind": "value",
-     "line": 326,
+     "line": 331,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
      "text": "{ADDRESS_NOTICES[view.address_suppre…}"
     },
     {
      "kind": "hook",
-     "line": 329,
+     "line": 334,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
      "text": "testid=ns-digest-note",
@@ -454,14 +770,14 @@
     },
     {
      "kind": "text",
-     "line": 329,
+     "line": 334,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
      "text": "Resumen diario: los avisos se agrupan en un correo al día. Por ahora no puedes elegir la hora de envío. / El resumen diario todavía no está disponible: los avisos que irían en un resumen se envían de inmediato."
     },
     {
      "kind": "hook",
-     "line": 335,
+     "line": 340,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && mandatory.length > 0",
      "text": "testid=ns-mandatory",
@@ -470,21 +786,21 @@
     },
     {
      "kind": "text",
-     "line": 336,
+     "line": 341,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && mandatory.length > 0",
      "text": "Estos avisos se envían siempre, aunque desactives su categoría:"
     },
     {
      "kind": "value",
-     "line": 339,
+     "line": 344,
      "in": "NotificationSettingsPage",
      "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && mandatory.length > 0 && each mandatory",
      "text": "{labelOf(e.event_type)}"
     },
     {
      "kind": "hook",
-     "line": 350,
+     "line": 355,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && each shown",
      "text": "testid=ns-category-{section.category}",
@@ -493,7 +809,7 @@
     },
     {
      "kind": "label",
-     "line": 352,
+     "line": 357,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && each shown",
      "text": "{saved.label}",
@@ -501,7 +817,7 @@
     },
     {
      "kind": "field",
-     "line": 355,
+     "line": 360,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && each shown",
      "text": "{saved.label}",
@@ -522,7 +838,7 @@
     },
     {
      "kind": "hook",
-     "line": 378,
+     "line": 383,
      "in": "NotificationSettingsPage",
      "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && !digest && saved.email_mode === 'digest'",
      "text": "testid=ns-stored-digest-{section.category}",
@@ -531,28 +847,28 @@
     },
     {
      "kind": "text",
-     "line": 379,
+     "line": 384,
      "in": "NotificationSettingsPage",
      "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && !digest && saved.email_mode === 'digest'",
      "text": "Elegiste Resumen diario antes. Mientras no esté disponible, estos avisos se envían de inmediato."
     },
     {
      "kind": "text",
-     "line": 384,
+     "line": 389,
      "in": "NotificationSettingsPage",
      "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && legacy",
      "text": "Con Predeterminado se mantienen apagados los avisos que desactivaste antes."
     },
     {
      "kind": "gate",
-     "line": 390,
+     "line": 395,
      "in": "NotificationSettingsPage",
      "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && each section.events",
      "text": "!event"
     },
     {
      "kind": "hook",
-     "line": 392,
+     "line": 397,
      "in": "NotificationSettingsPage",
      "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && each section.events",
      "text": "testid=ns-event-{event.event_type}",
@@ -561,21 +877,21 @@
     },
     {
      "kind": "value",
-     "line": 393,
+     "line": 398,
      "in": "NotificationSettingsPage",
      "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && each section.events",
      "text": "{applicable.label}"
     },
     {
      "kind": "text",
-     "line": 395,
+     "line": 400,
      "in": "NotificationSettingsPage",
      "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && each shown && each section.events",
      "text": "Se envía siempre"
     },
     {
      "kind": "hook",
-     "line": 397,
+     "line": 402,
      "in": "NotificationSettingsPage",
      "when": "!(shown.length === 0) && each shown && each section.events && event.reason === 'legacy_suppressed'",
      "text": "testid=ns-legacy-{event.event_type}",
@@ -584,14 +900,14 @@
     },
     {
      "kind": "text",
-     "line": 397,
+     "line": 402,
      "in": "NotificationSettingsPage",
      "when": "!(shown.length === 0) && each shown && each section.events && event.reason === 'legacy_suppressed'",
      "text": "· desactivado por una preferencia anterior"
     },
     {
      "kind": "button",
-     "line": 409,
+     "line": 414,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
      "text": "Guardando… / Guardar cambios",
@@ -603,7 +919,7 @@
     },
     {
      "kind": "hook",
-     "line": 412,
+     "line": 417,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'expired') && !(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0)",
      "text": "role=status aria-live=polite",
@@ -612,7 +928,7 @@
     },
     {
      "kind": "hook",
-     "line": 414,
+     "line": 419,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && notice",
      "text": "testid={notice.kind === 'saved' ? 'ns-saved' : 'ns-save-error'}",
@@ -621,14 +937,14 @@
     },
     {
      "kind": "value",
-     "line": 414,
+     "line": 419,
      "in": "NotificationSettingsPage",
      "when": "!(status === 'error') && (!(status === 'loading' || !view)) && !(shown.length === 0) && notice",
      "text": "{notice.text}"
     },
     {
      "kind": "hook",
-     "line": 418,
+     "line": 423,
      "in": "NotificationSettingsPage",
      "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && !(notice) && changes.length > 0",
      "text": "testid=ns-unsaved",
@@ -637,21 +953,21 @@
     },
     {
      "kind": "text",
-     "line": 419,
+     "line": 424,
      "in": "NotificationSettingsPage",
      "when": "(!(status === 'loading' || !view)) && !(shown.length === 0) && !(notice) && changes.length > 0",
      "text": "Tienes cambios sin guardar."
     },
     {
      "kind": "piece",
-     "line": 429,
+     "line": 434,
      "in": "NotificationSettingsPage",
      "text": "pageTitle: Notificaciones por correo · breadcrumbs: Configuración / Notificaciones",
      "tag": "MainLayout"
     },
     {
      "kind": "hook",
-     "line": 430,
+     "line": 435,
      "in": "NotificationSettingsPage",
      "text": "testid=notification-settings",
      "type": "mark",
@@ -659,9 +975,20 @@
     },
     {
      "kind": "text",
-     "line": 432,
+     "line": 437,
      "in": "NotificationSettingsPage",
      "text": "Elige cómo recibir por correo los avisos de cada tema. Los avisos dentro de la plataforma no cambian."
+    },
+    {
+     "kind": "link",
+     "line": 442,
+     "in": "NotificationSettingsPage",
+     "when": "canChooseLook",
+     "text": "Apariencia",
+     "target": "/configuracion/apariencia",
+     "hook": {
+      "testid": "ns-to-look"
+     }
     }
    ],
    "db": [
@@ -690,7 +1017,7 @@
      "route": "/api/user/notification-preferences",
      "methods": [],
      "from": [
-      "pages/configuracion/notificaciones.tsx:142"
+      "pages/configuracion/notificaciones.tsx:147"
      ]
     }
    ]
@@ -1574,6 +1901,7 @@
   },
   "lib/api-auth.ts": {
    "usedBy": [
+    "/configuracion/apariencia",
     "/configuracion/notificaciones"
    ],
    "lines": 551,
@@ -1605,6 +1933,7 @@
   },
   "lib/auth/forced-password-change.ts": {
    "usedBy": [
+    "/configuracion/apariencia",
     "/configuracion/notificaciones"
    ],
    "lines": 279,
@@ -1616,6 +1945,24 @@
      "text": "verdictFromProfile()",
      "items": [
       "required / allowed"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "lib/look.ts": {
+   "usedBy": [
+    "/configuracion/apariencia"
+   ],
+   "lines": 84,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 30,
+     "in": "lookFromPreferences",
+     "text": "lookFromPreferences()",
+     "items": [
+      "nuevo / clasico"
      ]
     }
    ],
@@ -2553,6 +2900,23 @@
     "lib/email/notification-unsubscribe.ts",
     "pages/notificaciones/baja.tsx",
     "tests/e2e/notification-unsubscribe.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/user/look.ts",
+   "route": "/api/user/look",
+   "methods": [
+    "PUT"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/configuracion/apariencia"
+   ],
+   "referencedIn": [
+    "__tests__/api/user-look.test.ts",
+    "__tests__/pages/apariencia.test.tsx",
+    "pages/configuracion/apariencia.tsx",
+    "tests/e2e/look-switch.spec.ts"
    ]
   },
   {

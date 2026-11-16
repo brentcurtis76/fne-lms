@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { GetServerSideProps } from 'next';
+import Link from 'next/link';
 import { useSessionContext } from '@supabase/auth-helpers-react';
 import MainLayout from '../../components/layout/MainLayout';
 import { createServiceRoleClient, getForcedPasswordChangeVerdict, getServerSideUser } from '../../lib/api-auth';
 import { forcedChangeRedirectPath } from '../../lib/auth/forced-password-change';
+import { mayChooseLook } from '../../lib/look';
 import { CATEGORY_LABELS, NOTIFICATION_CATALOG, type Audience, type NotificationCategory } from '../../lib/notifications/catalog';
 import { NOTIFICATION_EVENTS } from '../../lib/notificationEvents';
 import type { CategoryEmailMode } from '../../lib/notifications/resolve-preference';
@@ -33,6 +35,8 @@ interface SettingsProps {
   ownerId: string;
   /** null when the caller's roles could not be read. */
   categories: ApplicableCategory[] | null;
+  /** Whether this account is offered «Apariencia» (lib/look.ts); false for everyone else. */
+  canChooseLook: boolean;
 }
 
 interface Scope {
@@ -127,7 +131,7 @@ export const getServerSideProps: GetServerSideProps<SettingsProps> = async (cont
     service.from('user_roles').select('role_type, school_id, community_id').eq('user_id', viewer.id).eq('is_active', true),
     service.from('profiles').select('can_run_qa_tests').eq('id', viewer.id).maybeSingle(),
   ]);
-  if (roles.error || profile.error) return { props: { ownerId: viewer.id, categories: null } };
+  if (roles.error || profile.error) return { props: { ownerId: viewer.id, categories: null, canChooseLook: false } };
   const rows = (roles.data ?? []) as RoleRow[];
   const scope: Scope = {
     roles: rows.map((row) => row.role_type),
@@ -136,7 +140,8 @@ export const getServerSideProps: GetServerSideProps<SettingsProps> = async (cont
     encargadoSchool: rows.some((row) => row.role_type === 'encargado_licitacion' && row.school_id != null),
     tester: (profile.data as { can_run_qa_tests?: boolean | null } | null)?.can_run_qa_tests === true,
   };
-  return { props: { ownerId: viewer.id, categories: applicableCategories(scope) } };
+  const canChooseLook = mayChooseLook(profile.data as { can_run_qa_tests?: boolean | null } | null);
+  return { props: { ownerId: viewer.id, categories: applicableCategories(scope), canChooseLook } };
 };
 
 const ROUTE = '/api/user/notification-preferences';
@@ -182,7 +187,7 @@ const panel = 'rounded-lg border p-4 text-sm';
 const button =
   'rounded-md px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50';
 
-export default function NotificationSettingsPage({ ownerId, categories }: SettingsProps) {
+export default function NotificationSettingsPage({ ownerId, categories, canChooseLook }: SettingsProps) {
   const { isLoading: sessionLoading, session, error: sessionError } = useSessionContext();
   const [status, setStatus] = useState<Status>(categories ? 'loading' : 'error');
   const [view, setView] = useState<PreferencesView | null>(null);
@@ -432,6 +437,13 @@ export default function NotificationSettingsPage({ ownerId, categories }: Settin
           Elige cómo recibir por correo los avisos de cada tema. Los avisos dentro de la plataforma no cambian.
         </p>
         {content}
+        {canChooseLook && (
+          <p className="mt-8 text-sm">
+            <Link href="/configuracion/apariencia" data-testid="ns-to-look" className="font-medium text-gray-700 underline">
+              Apariencia
+            </Link>
+          </p>
+        )}
       </div>
     </MainLayout>
   );

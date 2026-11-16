@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "c4375a0850d8e791dac1bf7d350fcf350509a90f",
-  "date": "2026-11-16T11:16:44-03:00"
+  "commit": "3cf1440a5fd1dbe5d85b3cbb2db9c4ee61d25dea",
+  "date": "2026-11-16T15:25:18-03:00"
  },
  "screens": [
   {
@@ -10015,7 +10015,9 @@
      ]
     },
     "tests": {
-     "e2eCi": [],
+     "e2eCi": [
+      "tests/e2e/assessment-delivery.spec.ts"
+     ],
      "e2e": [
       "tests/e2e/proc-pilot-journey.spec.ts"
      ],
@@ -16219,7 +16221,8 @@
    "referencedIn": [
     "__tests__/api/assessment-builder/docente-assessments.test.ts",
     "__tests__/pages/docente/assessments-list-cards.test.tsx",
-    "pages/docente/assessments/index.tsx"
+    "pages/docente/assessments/index.tsx",
+    "tests/e2e/assessment-delivery.spec.ts"
    ]
   },
   {

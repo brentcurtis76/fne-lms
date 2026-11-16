@@ -302,6 +302,7 @@
       "api": [
         "pages/api/notifications/**",
         "pages/api/user/notification-preferences.ts",
+        "pages/api/user/look.ts",
         "pages/api/admin/notification-types.ts",
         "pages/api/admin/notification-analytics.ts",
         "pages/api/webhooks/**"

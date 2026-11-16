@@ -87,7 +87,11 @@ vi.mock('../../components/layout/MainLayout', () => ({
 import Page, { getServerSideProps } from '../../pages/configuracion/notificaciones';
 import { getServerSideProps as indexProps } from '../../pages/configuracion';
 
-type Props = { ownerId: string; categories: Array<{ category: string; events: Array<{ event_type: string; label: string }> }> | null };
+type Props = {
+  ownerId: string;
+  categories: Array<{ category: string; events: Array<{ event_type: string; label: string }> }> | null;
+  canChooseLook: boolean;
+};
 
 const context = () =>
   ({ req: { headers: {} }, res: {}, query: {}, resolvedUrl: '/configuracion/notificaciones' }) as unknown as GetServerSidePropsContext;
@@ -229,7 +233,14 @@ describe('D2 — applicable categories follow active roles and their school/comm
     signedIn();
     db.rolesError = true;
     const result = await getServerSideProps(context());
-    expect('props' in result && (await result.props)).toEqual({ ownerId: OWNER, categories: null });
+    expect('props' in result && (await result.props)).toEqual({ ownerId: OWNER, categories: null, canChooseLook: false });
+  });
+
+  // Redesign 4d: «Apariencia» is offered to QA testers only (lib/look.ts); the flag was already read here.
+  it('the QA tester flag, and nothing else, offers «Apariencia»', async () => {
+    expect((await propsFor([{ role_type: 'admin' }])).canChooseLook).toBe(false);
+    expect((await propsFor([{ role_type: 'docente' }], true)).canChooseLook).toBe(true);
+    expect(db.reads.filter((read) => read.table === 'profiles').length).toBe(4); // two per call: password state, tester flag
   });
 });
 
@@ -274,7 +285,7 @@ const MEMBER = [
 ];
 
 function renderPage(categories: Props['categories'] = MEMBER) {
-  return render(<Page ownerId={OWNER} categories={categories as any} />);
+  return render(<Page ownerId={OWNER} categories={categories as any} canChooseLook={false} />);
 }
 
 const modeSelect = (label: string) => screen.getByLabelText(label) as HTMLSelectElement;
@@ -287,6 +298,19 @@ describe('D2/D3/D4 — the page', () => {
     vi.stubGlobal('fetch', vi.fn(fakeRoute));
   });
   afterEach(() => vi.unstubAllGlobals());
+
+  // Redesign 4d: the link to «Apariencia» exists only for accounts that are offered it.
+  it('the link to «Apariencia» shows only when the account is offered it', async () => {
+    const { unmount } = renderPage();
+    await loaded();
+    expect(screen.queryByTestId('ns-to-look')).toBeNull();
+    expect(screen.queryByText('Apariencia')).toBeNull();
+    unmount();
+    render(<Page ownerId={OWNER} categories={MEMBER as any} canChooseLook />);
+    await loaded();
+    expect(screen.getByTestId('ns-to-look')).toHaveAttribute('href', '/configuracion/apariencia');
+    expect(screen.getByTestId('ns-to-look')).toHaveTextContent('Apariencia');
+  });
 
   it('D2: hidden categories stay hidden; mandatory, legacy and address notices are shown', async () => {
     api.legacy = [{ notification_type: 'assignment_created', email_enabled: false }];

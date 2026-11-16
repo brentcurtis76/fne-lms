@@ -1,7 +1,7 @@
 # Panel (Mi Panel)
 
 Area `02-panel`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c4375a085` (2026-11-16).
+Read from commit `3cf1440a5` (2026-11-16).
 
 1 screen files, 6 API files, 24 pieces.
 
@@ -30,7 +30,7 @@ File `pages/dashboard.tsx` · 1094 lines · frame: MainLayout
   - l.990 `metadataHasRole(session?.user?.user_metadata, 'admin') \|\| metadataHasRole(session?.user?.user_metadata, 'consultor')`
   - l.991 `metadataHasRole(session?.user?.user_metadata, 'admin') \|\| metadataHasRole(session?.user?.user_metadata, 'consultor')`
 - Linked from: `components/DynamicFavicon.tsx:17`, `components/LessonBreadcrumb.tsx:112`, `components/auth/AuthWrapper.tsx:54`, `components/auth/AuthWrapper.tsx:67`, `components/auth/ProtectedRoute.tsx:43`, `components/layout/Sidebar.tsx:121`, `components/notifications/ModernNotificationCenter.tsx:293`, `components/notifications/ModernNotificationCenter.tsx:318`, `components/notifications/NotificationDropdown.tsx:132`, `components/notifications/NotificationDropdown.tsx:157`, `components/workspace/WorkspaceSidebar.tsx:172`, `lib/auth/forced-password-change.ts:142` and 120 more
-- Tests: browser tests that CI runs: `tests/e2e/auth-lifecycle.spec.ts`, `tests/e2e/ci-fixture.spec.ts`, `tests/e2e/footer-heading-order.spec.ts`, `tests/e2e/notification-settings.spec.ts`, `tests/e2e/pasantias-leads-admin.spec.ts`; browser tests CI skips: `tests/e2e/notification-bounce.spec.ts`, `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/notification-insert-boundary.spec.ts`, `tests/e2e/panel-pin.spec.ts`, `tests/qa/auth-redirects.spec.ts`.
+- Tests: browser tests that CI runs: `tests/e2e/auth-lifecycle.spec.ts`, `tests/e2e/ci-fixture.spec.ts`, `tests/e2e/footer-heading-order.spec.ts`, `tests/e2e/look-switch.spec.ts`, `tests/e2e/notification-settings.spec.ts`, `tests/e2e/pasantias-leads-admin.spec.ts`; browser tests CI skips: `tests/e2e/notification-bounce.spec.ts`, `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/notification-insert-boundary.spec.ts`, `tests/e2e/panel-pin.spec.ts`, `tests/qa/auth-redirects.spec.ts`.
 - QA scenarios that name this address: admin 1, community_manager 2.
 
 | Role | Sees it in the menu | Middleware |

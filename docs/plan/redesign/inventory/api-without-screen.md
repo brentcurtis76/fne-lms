@@ -1,6 +1,6 @@
 # API files that no screen calls
 
-Written by `scripts/redesign/inventory.mjs` from commit `c4375a085`. An API file is listed here when no screen, and no piece a screen draws, names its address. "Named in" shows where else the address appears (scheduled jobs in `vercel.json`, server code, tests). Nothing here is a verdict: an address can be called from outside the platform (a webhook, a link in an email).
+Written by `scripts/redesign/inventory.mjs` from commit `3cf1440a5`. An API file is listed here when no screen, and no piece a screen draws, names its address. "Named in" shows where else the address appears (scheduled jobs in `vercel.json`, server code, tests). Nothing here is a verdict: an address can be called from outside the platform (a webhook, a link in an email).
 
 ## Marco (the frame around every screen)
 
@@ -158,7 +158,8 @@ Written by `scripts/redesign/inventory.mjs` from commit `c4375a085`. An API file
 | `/api/admin/system-updates` | `pages/api/admin/system-updates.ts` | POST | **nothing** |
 | `/api/bots/telegram` | `pages/api/bots/telegram.ts` | POST | `__tests__/api/bots/telegram.test.ts` |
 | `/api/check-env` | `pages/api/check-env.js` |  | **nothing** |
-| `/api/cron/auth-retention` | `pages/api/cron/auth-retention.ts` |  | `__tests__/api/cron/auth-retention.test.ts`, `__tests__/api/cron/session-reminders.test.ts`, `__tests__/lib/notificationService.dispatch.test.ts`, `tests/e2e/due-reminders.spec.ts`, `tests/e2e/notification-dispatch.spec.ts`, `tests/e2e/session-reminders.spec.ts` +1 |
+| `/api/cron/assessment-delivery` | `pages/api/cron/assessment-delivery.ts` |  | `__tests__/api/cron/assessment-delivery.test.ts`, `__tests__/api/cron/session-reminders.test.ts`, `__tests__/lib/notificationService.dispatch.test.ts`, `tests/e2e/assessment-delivery.spec.ts`, `tests/e2e/due-reminders.spec.ts`, `tests/e2e/notification-dispatch.spec.ts` +2 |
+| `/api/cron/auth-retention` | `pages/api/cron/auth-retention.ts` |  | `__tests__/api/cron/auth-retention.test.ts`, `__tests__/api/cron/session-reminders.test.ts`, `__tests__/lib/notificationService.dispatch.test.ts`, `vercel.json` |
 | `/api/cron/cleanup-learning-path-sessions` | `pages/api/cron/cleanup-learning-path-sessions.ts` | GET, POST | `__tests__/api/cron/cleanup-learning-path-sessions.test.ts`, `__tests__/api/cron/session-reminders.test.ts`, `__tests__/api/cron/update-learning-path-summaries.test.ts`, `__tests__/lib/notificationService.dispatch.test.ts`, `pages/api/cron/update-learning-path-summaries.ts`, `tests/e2e/learning-path-governance.spec.ts` +1 |
 | `/api/cron/due-reminders` | `pages/api/cron/due-reminders.ts` |  | `__tests__/api/cron/due-reminders.test.ts`, `__tests__/api/cron/session-reminders.test.ts`, `__tests__/lib/notificationService.dispatch.test.ts`, `vercel.json` |
 | `/api/cron/email-digest` | `pages/api/cron/email-digest.ts` |  | `__tests__/api/cron/email-digest.test.ts`, `__tests__/api/cron/session-reminders.test.ts`, `__tests__/lib/notificationService.dispatch.test.ts`, `tests/e2e/notification-dispatch.spec.ts`, `vercel.json` |
@@ -178,7 +179,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `c4375a085`. An API file
 | `/api/test-bucket` | `pages/api/test-bucket.js` |  | **nothing** |
 | `/api/test/notification-triggers` | `pages/api/test/notification-triggers.ts` |  | **nothing** |
 
-86 of 364 API files.
+87 of 366 API files.
 
 ## Addresses the code names that have no file
 

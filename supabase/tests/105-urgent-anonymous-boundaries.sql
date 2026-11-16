@@ -65,8 +65,11 @@ SELECT is((SELECT count(*)::int FROM pg_class c, aclexplode(c.relacl) a
             WHERE c.oid = format('public.%I', r.relname)::regclass AND a.grantee = 0), 0,
           'PUBLIC holds no privilege on public.' || r.relname)
   FROM rels r ORDER BY r.relname;
-SELECT is(pg_temp.privs('authenticated', relname), 'DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE',
-          'authenticated privileges unchanged on public.' || relname)
+-- pending_quiz_reviews: authenticated lost its privileges in 20261116140000 (CUR-S6d).
+SELECT is(pg_temp.privs('authenticated', relname),
+          CASE WHEN relname = 'pending_quiz_reviews' THEN '' ELSE 'DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE' END,
+          CASE WHEN relname = 'pending_quiz_reviews' THEN 'authenticated holds no privilege on public.' || relname
+               ELSE 'authenticated privileges unchanged on public.' || relname END)
   FROM rels ORDER BY relname;
 SELECT is(pg_temp.privs('service_role', relname), 'DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE',
           'service_role privileges unchanged on public.' || relname)
@@ -132,7 +135,10 @@ WITH u AS (UPDATE public.lesson_completion_summary SET progress_percentage = 20
             WHERE id = 'f0a10105-0000-4000-8000-000000000004' RETURNING 1)
 SELECT is(count(*)::int, 1, 'signed-in docente still updates lesson_completion_summary') FROM u;
 SELECT lives_ok(format('SELECT count(*) FROM public.%I', relname), 'signed-in user still reads public.' || relname)
-  FROM rels WHERE relname <> 'lesson_completion_summary' ORDER BY relname;
+  FROM rels WHERE relname NOT IN ('lesson_completion_summary', 'pending_quiz_reviews') ORDER BY relname;
+-- pending_quiz_reviews: signed-in people lost access in 20261116140000 (CUR-S6d).
+SELECT throws_ok($$SELECT count(*) FROM public.pending_quiz_reviews$$,
+  '42501', NULL, 'signed-in user cannot read public.pending_quiz_reviews');
 RESET ROLE;
 SELECT tests.clear_authentication();
 

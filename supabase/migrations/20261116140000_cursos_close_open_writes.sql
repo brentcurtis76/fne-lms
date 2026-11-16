@@ -7,9 +7,15 @@
 --           auth_is_course_teacher now answers true for admins only.
 --   CUR-S1  any signed-in person could insert, update or delete any block;
 --           the five unconditioned block write rules now require an admin.
+--   CUR-S6d any signed-in person could read every waiting quiz submission
+--           (learner name, e-mail and answers) from the view
+--           public.pending_quiz_reviews, which runs with its owner's rights;
+--           authenticated loses its privileges on it (anon and PUBLIC lost
+--           theirs in 20261006180000). The service role keeps reading it.
 --
--- Statements: one CREATE OR REPLACE FUNCTION (same signature, no grant change)
--- and five ALTER POLICY on public.blocks. Additive only; RLS stays enabled.
+-- Statements: one CREATE OR REPLACE FUNCTION (same signature, no grant change),
+-- five ALTER POLICY on public.blocks and one REVOKE on the view
+-- public.pending_quiz_reviews. Additive only; RLS stays enabled.
 -- =============================================================================
 
 -- CUR-S5
@@ -31,3 +37,6 @@ ALTER POLICY "blocks_delete_policy" ON public.blocks USING (public.auth_is_admin
 ALTER POLICY "blocks_insert_policy" ON public.blocks WITH CHECK (public.auth_is_admin());
 ALTER POLICY "blocks_update_policy" ON public.blocks
   USING (public.auth_is_admin()) WITH CHECK (public.auth_is_admin());
+
+-- CUR-S6d
+REVOKE ALL ON public.pending_quiz_reviews FROM authenticated;

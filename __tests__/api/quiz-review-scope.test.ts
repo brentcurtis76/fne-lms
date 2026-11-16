@@ -30,6 +30,7 @@ const { db, fakeClient, mockDeliverRecordBells } = vi.hoisted(() => {
     actor: null as string | null,
     faults: {} as Record<string, unknown>,
     writes: [] as string[],
+    rowCap: null as number | null,
   };
   const run = (table: string, q: any, mode: 'many' | 'single' | 'maybe') => {
     const fault = db.faults[`${table}.${q.op}`];
@@ -44,7 +45,7 @@ const { db, fakeClient, mockDeliverRecordBells } = vi.hoisted(() => {
     } else {
       out = rows.filter(match);
     }
-    if (mode === 'many') return Promise.resolve({ data: out, error: null });
+    if (mode === 'many') return Promise.resolve({ data: db.rowCap === null ? out : out.slice(0, db.rowCap), error: null });
     if (mode === 'single' && out.length !== 1) return Promise.resolve({ data: null, error: { code: 'PGRST116' } });
     return Promise.resolve({ data: out[0] ?? null, error: null });
   };
@@ -127,6 +128,7 @@ beforeEach(() => {
   seed();
   db.faults = {};
   db.writes = [];
+  db.rowCap = null;
   mockDeliverRecordBells.mockReset().mockResolvedValue(0);
   vi.spyOn(console, 'log').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -164,6 +166,24 @@ describe('CUR-S6b · GET /api/quiz-reviews/[id]', () => {
   it('a failed scope lookup answers 500 Failed to verify access', async () => {
     db.faults['consultant_assignments.select'] = { code: 'XX000', message: 'synthetic' };
     expect(await open(CONS_INDIV)).toEqual({ status: 500, body: { error: 'Failed to verify access' } });
+  });
+});
+
+describe('CUR-S6e · the scope is decided by looking the learner up, not by listing a school', () => {
+  it('a consultor with a school assignment opens the review of the last of 1,001 active role rows of the school', async () => {
+    // The database service returns at most 1,000 rows per query (supabase/config.toml max_rows).
+    db.rowCap = 1000;
+    const learnerRow = db.tables.user_roles.findIndex((r) => r.user_id === LEARNER);
+    const filler = Array.from({ length: 1000 - db.tables.user_roles.filter((r) => r.school_id === SCHOOL).length + 1 }, (_, i) => ({
+      user_id: `00000000-0000-4000-9000-${String(i).padStart(12, '0')}`, role_type: 'docente', is_active: true, school_id: SCHOOL, generation_id: null, community_id: null,
+    }));
+    db.tables.user_roles.splice(learnerRow, 0, ...filler);
+    const schoolRows = db.tables.user_roles.filter((r) => r.school_id === SCHOOL && r.is_active);
+    expect(schoolRows).toHaveLength(1001);
+    expect(schoolRows[1000].user_id).toBe(LEARNER);
+    const res = await open(CONS_SCHOOL);
+    expect(res.status).toBe(200);
+    expect(res.body.data.id).toBe(SUB);
   });
 });
 

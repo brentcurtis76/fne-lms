@@ -8,6 +8,9 @@
 --           progress or quiz submissions. Their own reads and progress stay.
 --   CUR-S1: blocks are inserted / updated / deleted by admins only; every
 --           signed-in persona still reads them.
+--   CUR-S6d: signed-in people no longer read the view pending_quiz_reviews
+--           (learner name, e-mail and answers of every waiting submission);
+--           the service role still does.
 --
 -- Personas: anon; admin; learner A and learner B (both given course 1 through
 -- batch_assign_courses: assignment + enrolment); an outsider (signed in,
@@ -18,7 +21,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(62);
+SELECT plan(67);
 
 CREATE OR REPLACE FUNCTION pg_temp.set_anon() RETURNS void AS $$
 BEGIN
@@ -107,9 +110,13 @@ INSERT INTO public.quiz_submissions (id, lesson_id, block_id, student_id, course
    pg_temp.uid('cur119_lrn_a'), '11900000-0000-4000-8000-000000000c01', 10, 5, 5, '{}'),
   ('11900000-0000-4000-8000-0000000000ab', '11900000-0000-4000-8000-00000000ee01', '11900000-0000-4000-8000-0000000000b2',
    pg_temp.uid('cur119_lrn_b'), '11900000-0000-4000-8000-000000000c01', 10, 5, 5, '{}');
+-- Learner A's submission waits for review as the view pending_quiz_reviews defines it
+-- (review_status 'pending' and a non-empty open_responses array).
+UPDATE public.quiz_submissions SET open_responses = '[{"question_id": "q1", "response": "synthetic answer"}]'
+ WHERE id = '11900000-0000-4000-8000-0000000000aa';
 
 -- ----------------------------------------------------------------------------
--- 0. Fixture sanity (2)
+-- 0. Fixture sanity (3)
 -- ----------------------------------------------------------------------------
 SELECT is((SELECT count(*)::int FROM public.course_assignments WHERE course_id = '11900000-0000-4000-8000-000000000c01'
             AND teacher_id IN (pg_temp.uid('cur119_lrn_a'), pg_temp.uid('cur119_lrn_b'))), 2,
@@ -117,6 +124,8 @@ SELECT is((SELECT count(*)::int FROM public.course_assignments WHERE course_id =
 SELECT is((SELECT count(*)::int FROM public.course_enrollments WHERE course_id = '11900000-0000-4000-8000-000000000c01'
             AND user_id IN (pg_temp.uid('cur119_lrn_a'), pg_temp.uid('cur119_lrn_b'))), 2,
   'fixture: A and B each hold a course_enrollments row for course 1');
+SELECT is((SELECT count(*)::int FROM public.pending_quiz_reviews WHERE id = '11900000-0000-4000-8000-0000000000aa'), 1,
+  'fixture: learner A''s submission is waiting in pending_quiz_reviews');
 
 -- ----------------------------------------------------------------------------
 -- 1. CUR-S5 — learner A is not a course teacher (11)
@@ -284,7 +293,28 @@ SELECT is(pg_temp.rows_affected($$DELETE FROM public.quiz_submissions WHERE id =
 RESET ROLE;
 
 -- ----------------------------------------------------------------------------
--- 7. Catalog: the helper keeps its shape (3)
+-- 7. CUR-S6d — pending_quiz_reviews: closed to signed-in people and anon, open to the service role (4)
+-- ----------------------------------------------------------------------------
+SELECT tests.authenticate_as('cur119_lrn_a');
+SELECT throws_ok($$SELECT count(*) FROM public.pending_quiz_reviews$$,
+  '42501', NULL, 'CUR-S6d: learner A cannot read pending_quiz_reviews');
+RESET ROLE;
+SELECT tests.authenticate_as('cur119_outsider');
+SELECT throws_ok($$SELECT count(*) FROM public.pending_quiz_reviews$$,
+  '42501', NULL, 'CUR-S6d: the outsider cannot read pending_quiz_reviews');
+RESET ROLE;
+SELECT tests.clear_authentication();
+SELECT pg_temp.set_anon();
+SELECT throws_ok($$SELECT count(*) FROM public.pending_quiz_reviews$$,
+  '42501', NULL, 'CUR-S6d: anon cannot read pending_quiz_reviews');
+RESET ROLE;
+SELECT set_config('role', 'service_role', true);
+SELECT is((SELECT count(*)::int FROM public.pending_quiz_reviews WHERE id = '11900000-0000-4000-8000-0000000000aa'), 1,
+  'still works: the service role reads learner A''s waiting submission from pending_quiz_reviews');
+RESET ROLE;
+
+-- ----------------------------------------------------------------------------
+-- 8. Catalog: the helper keeps its shape (3)
 -- ----------------------------------------------------------------------------
 SELECT ok((SELECT prosecdef FROM pg_proc WHERE oid = 'public.auth_is_course_teacher(uuid)'::regprocedure),
   'auth_is_course_teacher stays SECURITY DEFINER');

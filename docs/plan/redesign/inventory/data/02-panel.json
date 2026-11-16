@@ -1,0 +1,6057 @@
+{
+ "area": "02-panel",
+ "name": "Panel (Mi Panel)",
+ "note": "",
+ "routesOnly": false,
+ "readFrom": {
+  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
+  "date": "2026-11-12T23:31:39-03:00"
+ },
+ "screens": [
+  {
+   "file": "pages/admin/new-reporting.tsx",
+   "route": "/admin/new-reporting",
+   "lines": 205,
+   "marks": {
+    "leftover": "«Vista Previa: Nuevo Dashboard de Reportes»: a preview of a reports dashboard that was never linked. The only user of components/dashboard/unified. Admin only.",
+    "recommend": "retire",
+    "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+   },
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "the /admin rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     }
+    },
+    "inPage": [
+     {
+      "line": 22,
+      "text": "router.push → /login  (when !user)"
+     },
+     {
+      "line": 27,
+      "text": "role = await getUserPrimaryRole(user.id)"
+     },
+     {
+      "line": 30,
+      "text": "allowedRoles = ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red']"
+     },
+     {
+      "line": 87,
+      "text": "router.push → /dashboard  (when error)"
+     }
+    ],
+    "linkedFrom": [],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 22,
+     "in": "loadUserData",
+     "when": "!user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 27,
+     "in": "loadUserData",
+     "text": "role = await getUserPrimaryRole(user.id)",
+     "via": "getUserPrimaryRole"
+    },
+    {
+     "kind": "access",
+     "line": 30,
+     "in": "loadUserData",
+     "text": "allowedRoles = ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red']",
+     "via": "declaration"
+    },
+    {
+     "kind": "message",
+     "line": 32,
+     "in": "loadUserData",
+     "when": "!role || !allowedRoles.includes(role)",
+     "text": "No tienes permisos para acceder a los reportes",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 39,
+     "in": "loadUserData",
+     "text": "Error al cargar los datos del usuario",
+     "via": "setError"
+    },
+    {
+     "kind": "piece",
+     "line": 51,
+     "in": "NewReportingPreview",
+     "when": "loading",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "piece",
+     "line": 55,
+     "in": "NewReportingPreview",
+     "when": "loading",
+     "text": "",
+     "tag": "LoadingSkeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 56,
+     "in": "NewReportingPreview",
+     "when": "loading",
+     "text": "",
+     "tag": "LoadingSkeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 61,
+     "in": "NewReportingPreview",
+     "when": "loading && each Array.from({ length: 6 })",
+     "text": "",
+     "tag": "LoadingSkeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 76,
+     "in": "NewReportingPreview",
+     "when": "error",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "heading",
+     "line": 80,
+     "in": "NewReportingPreview",
+     "when": "error",
+     "text": "Acceso Denegado",
+     "level": 2
+    },
+    {
+     "kind": "value",
+     "line": 83,
+     "in": "NewReportingPreview",
+     "when": "error",
+     "text": "{error}"
+    },
+    {
+     "kind": "button",
+     "line": 86,
+     "in": "NewReportingPreview",
+     "when": "error",
+     "text": "Volver al Dashboard",
+     "action": "{() => router.push('/dashboard')}"
+    },
+    {
+     "kind": "nav",
+     "line": 87,
+     "in": "NewReportingPreview",
+     "when": "error",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "piece",
+     "line": 100,
+     "in": "NewReportingPreview",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "heading",
+     "line": 106,
+     "in": "NewReportingPreview",
+     "text": "Vista Previa: Nuevo Dashboard de Reportes",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 110,
+     "in": "NewReportingPreview",
+     "text": "Esta es una vista previa del sistema de reportes rediseñado. Incluye analytics colaborativos y diseño basado en tarjetas modulares."
+    },
+    {
+     "kind": "text",
+     "line": 115,
+     "in": "NewReportingPreview",
+     "text": "Rol: {userRole}"
+    },
+    {
+     "kind": "button",
+     "line": 118,
+     "in": "NewReportingPreview",
+     "text": "Ver reportes actuales",
+     "action": "{() => router.push('/reports')}"
+    },
+    {
+     "kind": "nav",
+     "line": 119,
+     "in": "NewReportingPreview",
+     "text": "/reports",
+     "via": "router.push"
+    },
+    {
+     "kind": "piece",
+     "line": 129,
+     "in": "NewReportingPreview",
+     "text": "",
+     "tag": "UnifiedDashboard"
+    },
+    {
+     "kind": "text",
+     "line": 143,
+     "in": "NewReportingPreview",
+     "text": "Características implementadas:"
+    },
+    {
+     "kind": "text",
+     "line": 145,
+     "in": "NewReportingPreview",
+     "text": "• Dashboard unificado con API consolidada"
+    },
+    {
+     "kind": "text",
+     "line": 146,
+     "in": "NewReportingPreview",
+     "text": "• Tarjetas modulares con divulgación progresiva"
+    },
+    {
+     "kind": "text",
+     "line": 147,
+     "in": "NewReportingPreview",
+     "text": "• Analytics de espacios colaborativos en tiempo real"
+    },
+    {
+     "kind": "text",
+     "line": 148,
+     "in": "NewReportingPreview",
+     "text": "• Filtros avanzados con sugerencias inteligentes"
+    },
+    {
+     "kind": "text",
+     "line": 149,
+     "in": "NewReportingPreview",
+     "text": "• Diseño responsivo optimizado para móviles"
+    },
+    {
+     "kind": "text",
+     "line": 150,
+     "in": "NewReportingPreview",
+     "text": "• Personalización basada en roles de usuario"
+    },
+    {
+     "kind": "text",
+     "line": 154,
+     "in": "NewReportingPreview",
+     "text": "Rendimiento objetivo:"
+    },
+    {
+     "kind": "text",
+     "line": 156,
+     "in": "NewReportingPreview",
+     "text": "• Comprensión en 5 segundos ✅"
+    },
+    {
+     "kind": "text",
+     "line": 157,
+     "in": "NewReportingPreview",
+     "text": "• Carga de tarjetas KPI: &lt;100ms ✅"
+    },
+    {
+     "kind": "text",
+     "line": 158,
+     "in": "NewReportingPreview",
+     "text": "• Dashboard completo: &lt;500ms ✅"
+    },
+    {
+     "kind": "text",
+     "line": 159,
+     "in": "NewReportingPreview",
+     "text": "• Diseño móvil responsivo ✅"
+    },
+    {
+     "kind": "label",
+     "line": 167,
+     "in": "NewReportingPreview",
+     "text": "📋 Notas de Desarrollo (Click para ver)"
+    },
+    {
+     "kind": "text",
+     "line": 171,
+     "in": "NewReportingPreview",
+     "text": "Estado de implementación:"
+    },
+    {
+     "kind": "text",
+     "line": 173,
+     "in": "NewReportingPreview",
+     "text": "✅ API unificada funcionando con datos reales"
+    },
+    {
+     "kind": "text",
+     "line": 174,
+     "in": "NewReportingPreview",
+     "text": "✅ Componentes de tarjetas completamente implementados"
+    },
+    {
+     "kind": "text",
+     "line": 175,
+     "in": "NewReportingPreview",
+     "text": "✅ Integración con tablas activity_feed para analytics colaborativos"
+    },
+    {
+     "kind": "text",
+     "line": 176,
+     "in": "NewReportingPreview",
+     "text": "✅ Sistema de filtros avanzados con búsqueda inteligente"
+    },
+    {
+     "kind": "text",
+     "line": 177,
+     "in": "NewReportingPreview",
+     "text": "✅ Puntuación de salud de comunidades con insights automáticos"
+    },
+    {
+     "kind": "text",
+     "line": 178,
+     "in": "NewReportingPreview",
+     "text": "⏳ Scripts de generación de datos de prueba (próximo)"
+    },
+    {
+     "kind": "text",
+     "line": 179,
+     "in": "NewReportingPreview",
+     "text": "⏳ Integración WebSocket en tiempo real (fase futura)"
+    },
+    {
+     "kind": "text",
+     "line": 182,
+     "in": "NewReportingPreview",
+     "text": "Datos mostrados:"
+    },
+    {
+     "kind": "text",
+     "line": 184,
+     "in": "NewReportingPreview",
+     "text": "• KPIs: Datos reales de usuarios, cursos y progreso"
+    },
+    {
+     "kind": "text",
+     "line": 185,
+     "in": "NewReportingPreview",
+     "text": "• Salud de comunidades: Cálculo basado en participación real"
+    },
+    {
+     "kind": "text",
+     "line": 186,
+     "in": "NewReportingPreview",
+     "text": "• Actividad de espacios: Datos de activity_feed cuando disponibles"
+    },
+    {
+     "kind": "text",
+     "line": 187,
+     "in": "NewReportingPreview",
+     "text": "• Filtros: Escuelas, generaciones y comunidades reales del sistema"
+    },
+    {
+     "kind": "text",
+     "line": 190,
+     "in": "NewReportingPreview",
+     "text": "Próximos pasos:"
+    },
+    {
+     "kind": "text",
+     "line": 192,
+     "in": "NewReportingPreview",
+     "text": "1. Revisión y aprobación de esta vista previa"
+    },
+    {
+     "kind": "text",
+     "line": 193,
+     "in": "NewReportingPreview",
+     "text": "2. Generación de datos de prueba para testing completo"
+    },
+    {
+     "kind": "text",
+     "line": 194,
+     "in": "NewReportingPreview",
+     "text": "3. Pruebas de usuario con diferentes roles"
+    },
+    {
+     "kind": "text",
+     "line": 195,
+     "in": "NewReportingPreview",
+     "text": "4. Optimizaciones de rendimiento si es necesario"
+    },
+    {
+     "kind": "text",
+     "line": 196,
+     "in": "NewReportingPreview",
+     "text": "5. Migración gradual desde reportes actuales"
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "components/dashboard/unified/AdvancedFilters.tsx",
+    "components/dashboard/unified/CommunityHealthCard.tsx",
+    "components/dashboard/unified/DashboardCard.tsx",
+    "components/dashboard/unified/KPISummaryCard.tsx",
+    "components/dashboard/unified/UnifiedDashboard.tsx",
+    "components/dashboard/unified/UpcomingSessionsCard.tsx",
+    "components/dashboard/unified/WorkspaceActivityCard.tsx",
+    "lib/utils/session-ui-helpers.tsx",
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/dashboard/unified.ts",
+     "route": "/api/dashboard/unified",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/dashboard/unified/UnifiedDashboard.tsx:107"
+     ]
+    },
+    {
+     "file": "pages/api/sessions/index.ts",
+     "route": "/api/sessions",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/dashboard/unified/UpcomingSessionsCard.tsx:44"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/dashboard-old.tsx",
+   "route": "/dashboard-old",
+   "lines": 115,
+   "marks": {
+    "leftover": "The old panel with the old header. A browser test that CI runs uses its notification bell (notification-settings.spec.ts): the test must change in the same release.",
+    "recommend": "retire, with its test",
+    "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+   },
+   "frame": "old Header",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 25,
+      "text": "router.push → /login  (when !session?.user)"
+     },
+     {
+      "line": 38,
+      "text": "adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin')"
+     },
+     {
+      "line": 65,
+      "text": "router.push → /login"
+     },
+     {
+      "line": 74,
+      "text": "router.push → /login"
+     }
+    ],
+    "linkedFrom": [
+     "lib/auth/forced-password-change.ts:143",
+     "middleware.ts:338"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/notification-settings.spec.ts"
+     ],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 25,
+     "in": "checkSession",
+     "when": "!session?.user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 38,
+     "in": "checkSession",
+     "when": "!(userError)",
+     "text": "adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin')",
+     "via": "metadataHasRole"
+    },
+    {
+     "kind": "nav",
+     "line": 65,
+     "in": "checkSession",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 74,
+     "in": "handleLogout",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "text",
+     "line": 82,
+     "in": "Dashboard",
+     "when": "loading",
+     "text": "Cargando..."
+    },
+    {
+     "kind": "text",
+     "line": 91,
+     "in": "Dashboard",
+     "text": "Dashboard - Genera"
+    },
+    {
+     "kind": "piece",
+     "line": 95,
+     "in": "Dashboard",
+     "text": "",
+     "tag": "Header"
+    },
+    {
+     "kind": "heading",
+     "line": 103,
+     "in": "Dashboard",
+     "text": "Bienvenido a tu Dashboard",
+     "level": 1
+    },
+    {
+     "kind": "heading",
+     "line": 106,
+     "in": "Dashboard",
+     "text": "Información de Usuario",
+     "level": 2
+    },
+    {
+     "kind": "piece",
+     "line": 107,
+     "in": "Dashboard",
+     "text": "",
+     "tag": "CheckUserRole"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/layout/Header.tsx",
+    "components/notifications/NotificationBell.tsx",
+    "components/notifications/NotificationDropdown.tsx",
+    "src/components/CheckUserRole.tsx",
+    "types/roles.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/notifications/index.ts",
+     "route": "/api/notifications",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/notifications/NotificationBell.tsx:41"
+     ]
+    },
+    {
+     "file": "pages/api/notifications/[id]/read.ts",
+     "route": "/api/notifications/[id]/read",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "components/notifications/NotificationBell.tsx:85"
+     ]
+    },
+    {
+     "file": "pages/api/notifications/mark-all-read.ts",
+     "route": "/api/notifications/mark-all-read",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "components/notifications/NotificationBell.tsx:113"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/dashboard.tsx",
+   "route": "/dashboard",
+   "lines": 1094,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [
+     {
+      "id": "dashboard",
+      "label": "Mi Panel",
+      "group": null,
+      "href": "/dashboard",
+      "gates": "everyone signed in",
+      "line": 118
+     }
+    ],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "yes",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 276,
+      "text": "router.push → /login  (when !session?.user)"
+     },
+     {
+      "line": 285,
+      "text": "adminRole = metadataHasRole(userData.user.user_metadata, 'admin')"
+     },
+     {
+      "line": 325,
+      "text": "router.push → /change-password  (when !userError && userData?.user && profileData.must_change_password === true)"
+     },
+     {
+      "line": 331,
+      "text": "{ effectiveRole, isAdmin: isAdminUser } = await getEffectiveRoleAndStatus(supabase, userData.user.id)"
+     },
+     {
+      "line": 345,
+      "text": "roles = await getUserRoles(supabase, userData.user.id)"
+     },
+     {
+      "line": 446,
+      "text": "router.push → /login"
+     },
+     {
+      "line": 457,
+      "text": "router.push → /login"
+     },
+     {
+      "line": 990,
+      "text": "metadataHasRole(session?.user?.user_metadata, 'admin') || metadataHasRole(session?.user?.user_metadata, 'consultor')"
+     },
+     {
+      "line": 991,
+      "text": "metadataHasRole(session?.user?.user_metadata, 'admin') || metadataHasRole(session?.user?.user_metadata, 'consultor')"
+     }
+    ],
+    "linkedFrom": [
+     "components/DynamicFavicon.tsx:17",
+     "components/LessonBreadcrumb.tsx:112",
+     "components/auth/AuthWrapper.tsx:54",
+     "components/auth/AuthWrapper.tsx:67",
+     "components/auth/ProtectedRoute.tsx:43",
+     "components/layout/Sidebar.tsx:121",
+     "components/notifications/ModernNotificationCenter.tsx:293",
+     "components/notifications/ModernNotificationCenter.tsx:318",
+     "components/notifications/NotificationDropdown.tsx:132",
+     "components/notifications/NotificationDropdown.tsx:157",
+     "components/workspace/WorkspaceSidebar.tsx:172",
+     "lib/auth/forced-password-change.ts:142",
+     "lib/frontend-auth-utils.ts:155",
+     "lib/notificationEvents.ts:823",
+     "lib/notificationEvents.ts:840",
+     "lib/notifications/catalog.ts:111",
+     "middleware.ts:243",
+     "middleware.ts:264",
+     "middleware.ts:299",
+     "middleware.ts:337",
+     "pages/admin/apply-network-migration.tsx:67",
+     "pages/admin/assessment-builder/[templateId]/expectations.tsx:1002",
+     "pages/admin/assessment-builder/[templateId]/index.tsx:1354",
+     "pages/admin/assessment-builder/create.tsx:259",
+     "pages/admin/assessment-builder/index.tsx:376",
+     "pages/admin/assignment-matrix.tsx:41",
+     "pages/admin/assignment-overview.tsx:132",
+     "pages/admin/assignment-review/[id].tsx:82",
+     "pages/admin/bulk-tag-sessions.tsx:111",
+     "pages/admin/clients.tsx:111",
+     "pages/admin/clients.tsx:118",
+     "pages/admin/configuration.tsx:94",
+     "pages/admin/consultant-assignments.tsx:127",
+     "pages/admin/consultant-earnings.tsx:62",
+     "pages/admin/consultant-rates.tsx:52",
+     "pages/admin/context-questions/index.tsx:114",
+     "pages/admin/context-questions/overview.tsx:189",
+     "pages/admin/course-builder/[courseId]/[moduleId]/index.tsx:107",
+     "pages/admin/course-builder/[courseId]/edit.tsx:94",
+     "pages/admin/course-builder/index.tsx:453",
+     "pages/admin/course-builder/new.tsx:75",
+     "pages/admin/courses/[id]/assign.tsx:171",
+     "pages/admin/courses/[id]/assign.tsx:508",
+     "pages/admin/debug/course-module-ids.tsx:100",
+     "pages/admin/debug/course-module-ids.tsx:20",
+     "pages/admin/events.tsx:67",
+     "pages/admin/feedback.tsx:103",
+     "pages/admin/feedback.tsx:350",
+     "pages/admin/growth-communities/[id]/members.tsx:106",
+     "pages/admin/growth-communities/[id]/members.tsx:112",
+     "pages/admin/growth-communities/[id]/members.tsx:146",
+     "pages/admin/growth-communities/index.tsx:93",
+     "pages/admin/growth-communities/index.tsx:99",
+     "pages/admin/learning-paths.tsx:169",
+     "pages/admin/learning-paths.tsx:62",
+     "pages/admin/learning-paths/[id]/assign.tsx:164",
+     "pages/admin/learning-paths/[id]/assign.tsx:460",
+     "pages/admin/learning-paths/[id]/edit.tsx:259",
+     "pages/admin/learning-paths/[id]/edit.tsx:90",
+     "pages/admin/learning-paths/new.tsx:238",
+     "pages/admin/learning-paths/new.tsx:88",
+     "pages/admin/licitaciones/consultores.tsx:144",
+     "pages/admin/licitaciones/criterios.tsx:107",
+     "pages/admin/licitaciones/documentos-propuesta.tsx:158",
+     "pages/admin/licitaciones/feriados.tsx:111",
+     "pages/admin/licitaciones/templates.tsx:248",
+     "pages/admin/network-management.tsx:143",
+     "pages/admin/new-reporting.tsx:87",
+     "pages/admin/pasantia-leads.tsx:91",
+     "pages/admin/pasantia-participants.tsx:53",
+     "pages/admin/pasantias-panel.tsx:64",
+     "pages/admin/roadmap.tsx:54",
+     "pages/admin/role-management.tsx:236",
+     "pages/admin/role-management.tsx:247",
+     "pages/admin/role-management.tsx:251",
+     "pages/admin/school-users.tsx:60",
+     "pages/admin/schools.tsx:163",
+     "pages/admin/schools.tsx:170",
+     "pages/admin/sessions/[id].tsx:250",
+     "pages/admin/sessions/approvals.tsx:74",
+     "pages/admin/sessions/create.tsx:194",
+     "pages/admin/sessions/index.tsx:172",
+     "pages/admin/tractor-signups.tsx:71",
+     "pages/admin/user-management.tsx:358",
+     "pages/change-password.tsx:103",
+     "pages/change-password.tsx:236",
+     "pages/community/workspace.tsx:865",
+     "pages/consultor/sessions/[id].tsx:123",
+     "pages/consultor/sessions/index.tsx:147",
+     "pages/consultor/sessions/reports.tsx:278",
+     "pages/consultor/sessions/reports.tsx:379",
+     "pages/contracts.tsx:171",
+     "pages/detailed-reports.tsx:172",
+     "pages/detailed-reports.tsx:178",
+     "pages/expense-reports.tsx:148",
+     "pages/licitaciones/[id].tsx:253",
+     "pages/licitaciones/[id]/evaluacion.tsx:253",
+     "pages/licitaciones/index.tsx:185",
+     "pages/licitaciones/index.tsx:198",
+     "pages/login.tsx:136",
+     "pages/meet/diag.tsx:994",
+     "pages/meet/diag.tsx:995",
+     "pages/meet/session/[id].tsx:147",
+     "pages/meet/session/[id].tsx:148",
+     "pages/mis-horas.tsx:59",
+     "pages/notifications.tsx:257",
+     "pages/notifications.tsx:261",
+     "pages/notifications.tsx:286",
+     "pages/pending-approval.tsx:37",
+     "pages/qa/index.tsx:362",
+     "pages/qa/index.tsx:363",
+     "pages/qa/run/[scenarioId].tsx:150",
+     "pages/qa/run/[scenarioId].tsx:215",
+     "pages/qa/run/[scenarioId].tsx:260",
+     "pages/qa/run/[scenarioId].tsx:261",
+     "pages/quiz-reviews.tsx:30",
+     "pages/quiz-reviews/[id].tsx:53",
+     "pages/reporte-horas.tsx:106",
+     "pages/reporte-horas.tsx:76",
+     "pages/reports.tsx:186",
+     "pages/school/migration-plan/index.tsx:379",
+     "pages/school/migration-plan/index.tsx:444",
+     "pages/school/transversal-context/edit.tsx:950",
+     "pages/school/transversal-context/index.tsx:221",
+     "pages/school/transversal-context/index.tsx:678",
+     "pages/student/lesson/[lessonId].tsx:838",
+     "pages/student/lesson/[lessonId].tsx:862",
+     "pages/student/lesson/[lessonId].tsx:872",
+     "pages/test-logout.tsx:75",
+     "pages/test-rbac.tsx:55",
+     "pages/user/[userId].tsx:204",
+     "pages/user/[userId].tsx:205",
+     "pages/user/[userId].tsx:239",
+     "pages/user/[userId].tsx:240",
+     "utils/notificationPermissions.ts:117",
+     "utils/notificationPermissions.ts:165",
+     "utils/notificationPermissions.ts:169",
+     "utils/notificationPermissions.ts:172"
+    ],
+    "qaScenarios": {
+     "admin": [
+      "SV-1: Admin ve Mi Panel en sidebar"
+     ],
+     "community_manager": [
+      "CM puede ver su dashboard",
+      "CM ve Mi Panel en sidebar"
+     ]
+    },
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/auth-lifecycle.spec.ts",
+      "tests/e2e/ci-fixture.spec.ts",
+      "tests/e2e/notification-settings.spec.ts",
+      "tests/e2e/pasantias-leads-admin.spec.ts"
+     ],
+     "e2e": [
+      "tests/e2e/notification-bounce.spec.ts",
+      "tests/e2e/notification-catalog-links.spec.ts",
+      "tests/e2e/notification-insert-boundary.spec.ts",
+      "tests/e2e/panel-pin.spec.ts",
+      "tests/qa/auth-redirects.spec.ts"
+     ],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 184,
+     "in": "Dashboard",
+     "text": "sessionStorage: fne-password-change-success",
+     "type": "storage"
+    },
+    {
+     "kind": "toast",
+     "line": 187,
+     "in": "Dashboard",
+     "when": "passwordChangeSuccess === 'true'",
+     "text": "Contraseña actualizada exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "nav",
+     "line": 276,
+     "in": "checkSession",
+     "when": "!session?.user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 285,
+     "in": "checkSession",
+     "when": "!userError && userData?.user",
+     "text": "adminRole = metadataHasRole(userData.user.user_metadata, 'admin')",
+     "via": "metadataHasRole"
+    },
+    {
+     "kind": "hook",
+     "line": 290,
+     "in": "checkSession",
+     "when": "!userError && userData?.user",
+     "text": "sessionStorage: fne-avatar-cache",
+     "type": "storage"
+    },
+    {
+     "kind": "nav",
+     "line": 320,
+     "in": "checkSession",
+     "when": "!userError && userData?.user && !profileData",
+     "text": "/profile?from=dashboard&error=profile-fetch-failed",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 325,
+     "in": "checkSession",
+     "when": "!userError && userData?.user && profileData.must_change_password === true",
+     "text": "/change-password",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 331,
+     "in": "checkSession",
+     "when": "!userError && userData?.user",
+     "text": "{ effectiveRole, isAdmin: isAdminUser } = await getEffectiveRoleAndStatus(supabase, userData.user.id)",
+     "via": "getEffectiveRoleAndStatus"
+    },
+    {
+     "kind": "access",
+     "line": 345,
+     "in": "checkSession",
+     "when": "!userError && userData?.user",
+     "text": "roles = await getUserRoles(supabase, userData.user.id)",
+     "via": "getUserRoles"
+    },
+    {
+     "kind": "nav",
+     "line": 446,
+     "in": "checkSession",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "hook",
+     "line": 455,
+     "in": "handleLogout",
+     "text": "localStorage: rememberMe",
+     "type": "storage"
+    },
+    {
+     "kind": "hook",
+     "line": 456,
+     "in": "handleLogout",
+     "text": "sessionStorage: sessionOnly",
+     "type": "storage"
+    },
+    {
+     "kind": "nav",
+     "line": 457,
+     "in": "handleLogout",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "piece",
+     "line": 462,
+     "in": "Dashboard",
+     "when": "loading",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "text",
+     "line": 475,
+     "in": "Dashboard",
+     "when": "loading",
+     "text": "Cargando..."
+    },
+    {
+     "kind": "piece",
+     "line": 483,
+     "in": "Dashboard",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "piece",
+     "line": 498,
+     "in": "Dashboard",
+     "text": "",
+     "tag": "Avatar"
+    },
+    {
+     "kind": "heading",
+     "line": 505,
+     "in": "Dashboard",
+     "text": "¡Hola, {profileName?.split(' ')[0]} / Usuario !",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 509,
+     "in": "Dashboard",
+     "text": "Bienvenido de vuelta al hub de transformación de tu colegio"
+    },
+    {
+     "kind": "value",
+     "line": 514,
+     "in": "Dashboard",
+     "when": "userRole === 'consultor' && profileData?.external_school_affiliation",
+     "text": "{getExternalSchoolLabel(profileData.…}"
+    },
+    {
+     "kind": "link",
+     "line": 519,
+     "in": "Dashboard",
+     "screen": "hidden sm:flex",
+     "text": "Mi Perfil",
+     "target": "/profile"
+    },
+    {
+     "kind": "gate",
+     "line": 543,
+     "in": "Dashboard",
+     "when": "userRoles.some(role => role.community_id)",
+     "text": "!selectedRole || !selectedRole.community"
+    },
+    {
+     "kind": "button",
+     "line": 552,
+     "in": "Dashboard",
+     "when": "userRoles.some(role => role.community_id)",
+     "text": "Mi Comunidad de Crecimiento {selectedRole.school?.name} / {selectedRole.community!.name} • {members.length} miembros {member.first_name?.charAt(0)} / U [+ {members.length - 4}]",
+     "action": "{() => setCommunityExpanded(!communityExpanded)}"
+    },
+    {
+     "kind": "media",
+     "line": 558,
+     "in": "Dashboard",
+     "when": "userRoles.some(role => role.community_id) && workspace?.image_url",
+     "text": "img · alt {workspace.custom_name || selectedRole.community!.name} · {workspace.image_url}"
+    },
+    {
+     "kind": "heading",
+     "line": 569,
+     "in": "Dashboard",
+     "when": "userRoles.some(role => role.community_id)",
+     "text": "Mi Comunidad de Crecimiento",
+     "level": 2
+    },
+    {
+     "kind": "media",
+     "line": 582,
+     "in": "Dashboard",
+     "when": "userRoles.some(role => role.community_id) && each members.slice(0, 4) && member.avatar_url",
+     "text": "img · {member.avatar_url}"
+    },
+    {
+     "kind": "text",
+     "line": 616,
+     "in": "Dashboard",
+     "when": "userRoles.some(role => role.community_id) && communityExpanded && userCommunities.length > 1",
+     "text": "Seleccionar comunidad:"
+    },
+    {
+     "kind": "button",
+     "line": 619,
+     "in": "Dashboard",
+     "when": "userRoles.some(role => role.community_id) && communityExpanded && userCommunities.length > 1 && each userCommunities",
+     "text": "{comm.school?.name} / {comm.community?.name}",
+     "action": "{(e) => { e.stopPropagation(); setSelectedCommunityId(comm.community_id!); }}"
+    },
+    {
+     "kind": "heading",
+     "line": 639,
+     "in": "Dashboard",
+     "when": "userRoles.some(role => role.community_id) && communityExpanded",
+     "text": "{selectedRole.school?.name} / {selectedRole.community!.name}",
+     "level": 3
+    },
+    {
+     "kind": "button",
+     "line": 643,
+     "in": "Dashboard",
+     "when": "userRoles.some(role => role.community_id) && communityExpanded",
+     "text": "[icon Settings]",
+     "action": "{(e) => { e.stopPropagation(); setSelectedWorkspace(workspace); setShowWorkspace…}",
+     "title": "Configuración"
+    },
+    {
+     "kind": "link",
+     "line": 654,
+     "in": "Dashboard",
+     "when": "userRoles.some(role => role.community_id) && communityExpanded",
+     "text": "Ver Espacio Completo →",
+     "target": "/community/workspace"
+    },
+    {
+     "kind": "button",
+     "line": 668,
+     "in": "Dashboard",
+     "when": "userRoles.some(role => role.community_id) && communityExpanded && each members",
+     "text": "{member.first_name?.charAt(0)} / U {[member.first_name, member.last_nam…} / {(member as any).name} / Usuario [{roleLabel}] [{getExternalSchoolLabel(member.exter…}] [Tú]",
+     "action": "{() => { setSelectedMember(member); setShowMemberProfile(true); }}"
+    },
+    {
+     "kind": "media",
+     "line": 677,
+     "in": "Dashboard",
+     "when": "userRoles.some(role => role.community_id) && communityExpanded && each members && member.avatar_url",
+     "text": "img · {member.avatar_url}"
+    },
+    {
+     "kind": "heading",
+     "line": 723,
+     "in": "Dashboard",
+     "text": "Últimas Noticias",
+     "level": 2
+    },
+    {
+     "kind": "link",
+     "line": 725,
+     "in": "Dashboard",
+     "text": "Ver todas",
+     "target": "/noticias"
+    },
+    {
+     "kind": "link",
+     "line": 746,
+     "in": "Dashboard",
+     "when": "!(loadingNews) && newsArticles.length > 0 && each newsArticles",
+     "text": "{formatTimeAgo(article.display_date …} {article.title} {getExcerpt(article.content_html)}",
+     "target": "/noticias/[*]",
+     "newTab": true
+    },
+    {
+     "kind": "media",
+     "line": 757,
+     "in": "Dashboard",
+     "when": "!(loadingNews) && newsArticles.length > 0 && each newsArticles && article.featured_image",
+     "text": "img · alt {article.title} · {article.featured_image}"
+    },
+    {
+     "kind": "heading",
+     "line": 768,
+     "in": "Dashboard",
+     "when": "!(loadingNews) && newsArticles.length > 0 && each newsArticles",
+     "text": "{article.title}",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 780,
+     "in": "Dashboard",
+     "when": "!(loadingNews) && !(newsArticles.length > 0)",
+     "text": "No hay noticias disponibles"
+    },
+    {
+     "kind": "heading",
+     "line": 792,
+     "in": "Dashboard",
+     "text": "Videos Recientes",
+     "level": 2
+    },
+    {
+     "kind": "link",
+     "line": 794,
+     "in": "Dashboard",
+     "text": "Ver canal",
+     "target": "https://www.youtube.com/@NuevaEducacionFundacion",
+     "newTab": true
+    },
+    {
+     "kind": "link",
+     "line": 816,
+     "in": "Dashboard",
+     "when": "!(loadingVideos) && youtubeVideos.length > 0 && each youtubeVideos",
+     "text": "{video.title} {formatTimeAgo(video.publishedAt)}",
+     "target": "https://www.youtube.com/watch?v=[*]",
+     "newTab": true
+    },
+    {
+     "kind": "media",
+     "line": 824,
+     "in": "Dashboard",
+     "when": "!(loadingVideos) && youtubeVideos.length > 0 && each youtubeVideos",
+     "text": "img · alt {video.title} · {video.thumbnail}"
+    },
+    {
+     "kind": "heading",
+     "line": 836,
+     "in": "Dashboard",
+     "when": "!(loadingVideos) && youtubeVideos.length > 0 && each youtubeVideos",
+     "text": "{video.title}",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 848,
+     "in": "Dashboard",
+     "when": "!(loadingVideos) && !(youtubeVideos.length > 0)",
+     "text": "No hay videos disponibles"
+    },
+    {
+     "kind": "heading",
+     "line": 855,
+     "in": "Dashboard",
+     "text": "{dashboardStats?.statsLabel} / Estadísticas de la Plataforma",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 860,
+     "in": "Dashboard",
+     "text": "Educadores Activos"
+    },
+    {
+     "kind": "text",
+     "line": 868,
+     "in": "Dashboard",
+     "text": "en tu alcance"
+    },
+    {
+     "kind": "text",
+     "line": 873,
+     "in": "Dashboard",
+     "text": "Curso Más Completado"
+    },
+    {
+     "kind": "heading",
+     "line": 881,
+     "in": "Dashboard",
+     "when": "!(loadingStats) && dashboardStats?.mostCompletedCourse",
+     "text": "{dashboardStats.mostCompletedCourse.…}",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 885,
+     "in": "Dashboard",
+     "when": "!(loadingStats) && dashboardStats?.mostCompletedCourse && dashboardStats.mostCompletedCourse.instructor_name",
+     "text": "Relator: {dashboardStats.mostCompletedCourse.…}"
+    },
+    {
+     "kind": "value",
+     "line": 890,
+     "in": "Dashboard",
+     "when": "!(loadingStats) && dashboardStats?.mostCompletedCourse",
+     "text": "{dashboardStats.mostCompletedCourse.…}"
+    },
+    {
+     "kind": "text",
+     "line": 893,
+     "in": "Dashboard",
+     "when": "!(loadingStats) && dashboardStats?.mostCompletedCourse",
+     "text": "completaciones"
+    },
+    {
+     "kind": "text",
+     "line": 897,
+     "in": "Dashboard",
+     "when": "!(loadingStats) && !(dashboardStats?.mostCompletedCourse)",
+     "text": "Sin datos disponibles"
+    },
+    {
+     "kind": "text",
+     "line": 903,
+     "in": "Dashboard",
+     "text": "Usuario Destacado"
+    },
+    {
+     "kind": "media",
+     "line": 918,
+     "in": "Dashboard",
+     "when": "!(loadingStats) && dashboardStats?.topLearner && dashboardStats.topLearner.avatar_url",
+     "text": "img · {dashboardStats.topLearner.avatar_url}"
+    },
+    {
+     "kind": "value",
+     "line": 925,
+     "in": "Dashboard",
+     "when": "!(loadingStats) && dashboardStats?.topLearner && !(dashboardStats.topLearner.avatar_url)",
+     "text": "{dashboardStats.topLearner.name.char…}"
+    },
+    {
+     "kind": "heading",
+     "line": 931,
+     "in": "Dashboard",
+     "when": "!(loadingStats) && dashboardStats?.topLearner",
+     "text": "{dashboardStats.topLearner.name}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 935,
+     "in": "Dashboard",
+     "when": "!(loadingStats) && dashboardStats?.topLearner && dashboardStats.topLearner.role",
+     "text": "{dashboardStats.topLearner.role}"
+    },
+    {
+     "kind": "value",
+     "line": 940,
+     "in": "Dashboard",
+     "when": "!(loadingStats) && dashboardStats?.topLearner && dashboardStats.topLearner.school_name",
+     "text": "{dashboardStats.topLearner.school_na…}"
+    },
+    {
+     "kind": "value",
+     "line": 945,
+     "in": "Dashboard",
+     "when": "!(loadingStats) && dashboardStats?.topLearner",
+     "text": "{dashboardStats.topLearner.completed…}"
+    },
+    {
+     "kind": "text",
+     "line": 948,
+     "in": "Dashboard",
+     "when": "!(loadingStats) && dashboardStats?.topLearner",
+     "text": "cursos completados"
+    },
+    {
+     "kind": "text",
+     "line": 954,
+     "in": "Dashboard",
+     "when": "!(loadingStats) && !(dashboardStats?.topLearner)",
+     "text": "Sin datos disponibles"
+    },
+    {
+     "kind": "heading",
+     "line": 968,
+     "in": "Dashboard",
+     "when": "!loadingUpcoming && upcomingCourses.length > 0",
+     "text": "Próximos Cursos",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 969,
+     "in": "Dashboard",
+     "when": "!loadingUpcoming && upcomingCourses.length > 0",
+     "text": "Cursos que podrás tomar próximamente"
+    },
+    {
+     "kind": "piece",
+     "line": 981,
+     "in": "Dashboard",
+     "when": "!loadingUpcoming && upcomingCourses.length > 0 && each upcomingCourses",
+     "text": "",
+     "tag": "UpcomingCourseCard"
+    },
+    {
+     "kind": "access",
+     "line": 990,
+     "in": "Dashboard",
+     "text": "metadataHasRole(session?.user?.user_metadata, 'admin') || metadataHasRole(session?.user?.user_metadata, 'consultor')",
+     "via": "metadataHasRole"
+    },
+    {
+     "kind": "access",
+     "line": 991,
+     "in": "Dashboard",
+     "text": "metadataHasRole(session?.user?.user_metadata, 'admin') || metadataHasRole(session?.user?.user_metadata, 'consultor')",
+     "via": "metadataHasRole"
+    },
+    {
+     "kind": "piece",
+     "line": 993,
+     "in": "Dashboard",
+     "when": "(metadataHasRole(session?.user?.user_metadata, 'admin') || metadataHasRole(session?.user?.user_metadata, 'consultor') || userRoles.some(r => r.role_type === 'admin' || r…",
+     "text": "",
+     "tag": "CourseProposalSection"
+    },
+    {
+     "kind": "piece",
+     "line": 998,
+     "in": "Dashboard",
+     "when": "user?.id",
+     "text": "",
+     "tag": "BadgesSection"
+    },
+    {
+     "kind": "piece",
+     "line": 1003,
+     "in": "Dashboard",
+     "when": "inProgressCourses.length > 0",
+     "text": "title: Continuar Aprendiendo · emptyMessage: No tienes cursos en progreso",
+     "tag": "NetflixCourseRow"
+    },
+    {
+     "kind": "nav",
+     "line": 1007,
+     "in": "Dashboard",
+     "when": "inProgressCourses.length > 0",
+     "text": "/student/course/[*]",
+     "via": "router.push"
+    },
+    {
+     "kind": "heading",
+     "line": 1015,
+     "in": "Dashboard",
+     "when": "learningPaths.length > 0",
+     "text": "Mis Rutas de Aprendizaje",
+     "level": 2
+    },
+    {
+     "kind": "link",
+     "line": 1016,
+     "in": "Dashboard",
+     "when": "learningPaths.length > 0",
+     "text": "Ver todas",
+     "target": "/mi-aprendizaje"
+    },
+    {
+     "kind": "clickable",
+     "line": 1026,
+     "in": "Dashboard",
+     "when": "learningPaths.length > 0 && each learningPaths.slice(0, 3)",
+     "text": "",
+     "tag": "LearningPathCard",
+     "action": "{() => router.push(`/mi-aprendizaje/ruta/${path.id}`)}"
+    },
+    {
+     "kind": "piece",
+     "line": 1026,
+     "in": "Dashboard",
+     "when": "learningPaths.length > 0 && each learningPaths.slice(0, 3)",
+     "text": "",
+     "tag": "LearningPathCard"
+    },
+    {
+     "kind": "nav",
+     "line": 1039,
+     "in": "Dashboard",
+     "when": "learningPaths.length > 0 && each learningPaths.slice(0, 3)",
+     "text": "/mi-aprendizaje/ruta/[*]",
+     "via": "router.push"
+    },
+    {
+     "kind": "piece",
+     "line": 1048,
+     "in": "Dashboard",
+     "when": "openCourses.length > 0",
+     "text": "title: Mis Cursos Abiertos · emptyMessage: No tienes cursos asignados",
+     "tag": "NetflixCourseRow"
+    },
+    {
+     "kind": "nav",
+     "line": 1052,
+     "in": "Dashboard",
+     "when": "openCourses.length > 0",
+     "text": "/student/course/[*]",
+     "via": "router.push"
+    },
+    {
+     "kind": "popup",
+     "line": 1060,
+     "in": "Dashboard",
+     "when": "selectedWorkspace",
+     "text": "WorkspaceSettingsModal",
+     "how": "component",
+     "open": "{showWorkspaceSettings}"
+    },
+    {
+     "kind": "popup",
+     "line": 1082,
+     "in": "Dashboard",
+     "text": "MemberProfileModal",
+     "how": "component",
+     "open": "{showMemberProfile}"
+    },
+    {
+     "kind": "string",
+     "line": 88,
+     "in": "formatTimeAgo",
+     "text": "Hoy"
+    },
+    {
+     "kind": "string",
+     "line": 89,
+     "in": "formatTimeAgo",
+     "text": "Ayer"
+    },
+    {
+     "kind": "string",
+     "line": 90,
+     "in": "formatTimeAgo",
+     "text": "Hace {diffDays} días"
+    },
+    {
+     "kind": "string",
+     "line": 91,
+     "in": "formatTimeAgo",
+     "text": "Hace {Math.floor(diffDays / 7)} semanas"
+    },
+    {
+     "kind": "string",
+     "line": 237,
+     "in": "Dashboard",
+     "text": "Bearer {statsSession.access_token}"
+    },
+    {
+     "kind": "string",
+     "line": 378,
+     "in": "Dashboard",
+     "text": "Sin instructor"
+    },
+    {
+     "kind": "list",
+     "line": 88,
+     "in": "formatTimeAgo",
+     "text": "formatTimeAgo()",
+     "items": [
+      "Hoy",
+      "Ayer",
+      "Hace {diffDays} días",
+      "Hace {Math.floor(diffDays / 7)} semanas"
+     ]
+    }
+   ],
+   "db": [
+    {
+     "what": "table:course_assignments",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:course_enrollments",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:courses",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/badges/BadgeCard.tsx",
+    "components/badges/BadgeIcon.tsx",
+    "components/badges/BadgesSection.tsx",
+    "components/common/Avatar.tsx",
+    "components/community/MemberProfileModal.tsx",
+    "components/community/WorkspaceSettingsModal.tsx",
+    "components/course-proposals/ConfirmDialog.tsx",
+    "components/course-proposals/CourseProposalCard.tsx",
+    "components/course-proposals/CourseProposalModal.tsx",
+    "components/course-proposals/CourseProposalSection.tsx",
+    "components/courses/CourseThumbnail.tsx",
+    "components/courses/NetflixCourseCard.tsx",
+    "components/courses/NetflixCourseRow.tsx",
+    "components/courses/UpcomingCourseCard.tsx",
+    "components/learning-paths/LearningPathCard.tsx",
+    "components/ui/dialog.tsx",
+    "constants/externalSchools.ts",
+    "constants/toastStyles.ts",
+    "lib/services/badgeService.ts",
+    "lib/services/communityWorkspace.js",
+    "types/roles.ts",
+    "utils/roleUtils.ts",
+    "utils/toastUtils.ts",
+    "utils/workspaceUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/community/ensure-workspace.ts",
+     "route": "/api/community/ensure-workspace",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "utils/workspaceUtils.ts:386"
+     ]
+    },
+    {
+     "file": "pages/api/community/members.ts",
+     "route": "/api/community/members",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "utils/roleUtils.ts:1015"
+     ]
+    },
+    {
+     "file": "pages/api/course-proposals/index.ts",
+     "route": "/api/course-proposals",
+     "methods": [
+      "GET",
+      "POST"
+     ],
+     "from": [
+      "components/course-proposals/CourseProposalSection.tsx:27",
+      "components/course-proposals/CourseProposalSection.tsx:72"
+     ]
+    },
+    {
+     "file": "pages/api/course-proposals/[id].ts",
+     "route": "/api/course-proposals/[id]",
+     "methods": [
+      "DELETE",
+      "PUT"
+     ],
+     "from": [
+      "components/course-proposals/CourseProposalSection.tsx:108",
+      "components/course-proposals/CourseProposalSection.tsx:50"
+     ]
+    },
+    {
+     "file": "pages/api/dashboard/stats.ts",
+     "route": "/api/dashboard/stats",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/dashboard.tsx:239"
+     ]
+    },
+    {
+     "file": "pages/api/learning-paths/my-paths.ts",
+     "route": "/api/learning-paths/my-paths",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/dashboard.tsx:432"
+     ]
+    },
+    {
+     "file": "pages/api/news/index.ts",
+     "route": "/api/news",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/dashboard.tsx:198"
+     ]
+    },
+    {
+     "file": "pages/api/upcoming-courses/index.ts",
+     "route": "/api/upcoming-courses",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/dashboard.tsx:257"
+     ]
+    },
+    {
+     "file": "pages/api/youtube/latest.ts",
+     "route": "/api/youtube/latest",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/dashboard.tsx:216"
+     ]
+    }
+   ]
+  }
+ ],
+ "pieces": {
+  "components/badges/BadgeCard.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 115,
+   "rows": [
+    {
+     "kind": "clickable",
+     "line": 61,
+     "in": "BadgeCard",
+     "text": "{badge.badge_name} [{courseName}] {formatDate(badge.earned_at)} [+ {badge.points_value}]",
+     "tag": "div",
+     "action": "{onClick}"
+    },
+    {
+     "kind": "piece",
+     "line": 74,
+     "in": "BadgeCard",
+     "text": "",
+     "tag": "GeneraBadgeIcon"
+    },
+    {
+     "kind": "heading",
+     "line": 84,
+     "in": "BadgeCard",
+     "text": "{badge.badge_name}",
+     "level": 4
+    },
+    {
+     "kind": "value",
+     "line": 90,
+     "in": "BadgeCard",
+     "when": "showCourseName && courseName",
+     "text": "{courseName}"
+    },
+    {
+     "kind": "value",
+     "line": 96,
+     "in": "BadgeCard",
+     "text": "{formatDate(badge.earned_at)}"
+    },
+    {
+     "kind": "value",
+     "line": 104,
+     "in": "BadgeCard",
+     "when": "badge.points_value > 0 && size !== 'sm'",
+     "text": "+ {badge.points_value}"
+    }
+   ],
+   "db": []
+  },
+  "components/badges/BadgeIcon.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 107,
+   "rows": [
+    {
+     "kind": "text",
+     "line": 23,
+     "in": "GeneraBadgeIcon",
+     "text": "Genera Badge",
+     "attr": "aria-label"
+    }
+   ],
+   "db": []
+  },
+  "components/badges/BadgesSection.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 160,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 47,
+     "in": "fetchBadges",
+     "text": "Error al cargar los logros",
+     "via": "setError"
+    },
+    {
+     "kind": "gate",
+     "line": 57,
+     "in": "BadgesSection",
+     "text": "!loading && badges.length === 0"
+    },
+    {
+     "kind": "heading",
+     "line": 73,
+     "in": "BadgesSection",
+     "text": "Mis Logros",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 74,
+     "in": "BadgesSection",
+     "text": "{badges.length} insignia obtenida / insignias obtenidas [· {totalPoints} puntos]"
+    },
+    {
+     "kind": "link",
+     "line": 82,
+     "in": "BadgesSection",
+     "when": "showViewAll && badges.length > 0",
+     "text": "Ver todos",
+     "target": "/mi-aprendizaje/logros"
+    },
+    {
+     "kind": "value",
+     "line": 105,
+     "in": "BadgesSection",
+     "when": "error",
+     "text": "{error}"
+    },
+    {
+     "kind": "piece",
+     "line": 119,
+     "in": "BadgesSection",
+     "when": "!loading && !error && badges.length > 0 && each displayedBadges",
+     "text": "",
+     "tag": "BadgeCard"
+    },
+    {
+     "kind": "link",
+     "line": 125,
+     "in": "BadgesSection",
+     "when": "!loading && !error && badges.length > 0 && hasMore && showViewAll",
+     "text": "+ {badges.length - maxDisplay} más",
+     "target": "/mi-aprendizaje/logros"
+    },
+    {
+     "kind": "piece",
+     "line": 146,
+     "in": "BadgesSection",
+     "when": "!loading && !error && badges.length === 0",
+     "text": "",
+     "tag": "GeneraBadgeIcon"
+    },
+    {
+     "kind": "heading",
+     "line": 147,
+     "in": "BadgesSection",
+     "when": "!loading && !error && badges.length === 0",
+     "text": "Tus logros aparecerán aquí",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 151,
+     "in": "BadgesSection",
+     "when": "!loading && !error && badges.length === 0",
+     "text": "Completa cursos para ganar insignias y reconocimientos"
+    }
+   ],
+   "db": []
+  },
+  "components/common/Avatar.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 190,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 56,
+     "in": "generateLocalAvatar",
+     "text": "backgroundColor",
+     "items": [
+      "hsl({hue}, 70%, 40%)"
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 88,
+     "in": "Avatar",
+     "text": "sessionStorage: fne-avatar-cache",
+     "type": "storage"
+    },
+    {
+     "kind": "value",
+     "line": 159,
+     "in": "Avatar",
+     "when": "!user || (hasError && !isLoading) || (!imageUrl && !isLoading && !propAvatarUrl)",
+     "text": "{initials}"
+    },
+    {
+     "kind": "media",
+     "line": 179,
+     "in": "Avatar",
+     "text": "img · alt Avatar · {imageUrl}"
+    }
+   ],
+   "db": []
+  },
+  "components/community/MemberProfileModal.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 179,
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 28,
+     "in": "MemberProfileModal",
+     "text": "!member"
+    },
+    {
+     "kind": "list",
+     "line": 31,
+     "in": "MemberProfileModal",
+     "text": "roleLabel",
+     "items": [
+      "Sin rol asignado"
+     ]
+    },
+    {
+     "kind": "popup",
+     "line": 43,
+     "in": "MemberProfileModal",
+     "text": "Dialog",
+     "how": "component",
+     "open": "{isOpen}"
+    },
+    {
+     "kind": "piece",
+     "line": 44,
+     "in": "MemberProfileModal",
+     "text": "",
+     "tag": "DialogContent"
+    },
+    {
+     "kind": "media",
+     "line": 48,
+     "in": "MemberProfileModal",
+     "when": "member.avatar_url",
+     "text": "img · alt {fullName} · {member.avatar_url}"
+    },
+    {
+     "kind": "value",
+     "line": 55,
+     "in": "MemberProfileModal",
+     "when": "!(member.avatar_url)",
+     "text": "{initials}"
+    },
+    {
+     "kind": "heading",
+     "line": 60,
+     "in": "MemberProfileModal",
+     "text": "{fullName} [(Tú)]",
+     "level": 2
+    },
+    {
+     "kind": "value",
+     "line": 66,
+     "in": "MemberProfileModal",
+     "text": "{roleLabel}"
+    },
+    {
+     "kind": "text",
+     "line": 80,
+     "in": "MemberProfileModal",
+     "when": "member.email",
+     "text": "Correo electrónico"
+    },
+    {
+     "kind": "value",
+     "line": 81,
+     "in": "MemberProfileModal",
+     "when": "member.email",
+     "text": "{member.email}"
+    },
+    {
+     "kind": "text",
+     "line": 93,
+     "in": "MemberProfileModal",
+     "when": "member.school",
+     "text": "Colegio"
+    },
+    {
+     "kind": "value",
+     "line": 94,
+     "in": "MemberProfileModal",
+     "when": "member.school",
+     "text": "{member.school.name}"
+    },
+    {
+     "kind": "text",
+     "line": 106,
+     "in": "MemberProfileModal",
+     "when": "memberRole === 'consultor' && member.external_school_affiliation",
+     "text": "Escuela externa"
+    },
+    {
+     "kind": "value",
+     "line": 107,
+     "in": "MemberProfileModal",
+     "when": "memberRole === 'consultor' && member.external_school_affiliation",
+     "text": "{getExternalSchoolLabel(member.exter…}"
+    },
+    {
+     "kind": "text",
+     "line": 121,
+     "in": "MemberProfileModal",
+     "when": "member.generation",
+     "text": "Generación"
+    },
+    {
+     "kind": "value",
+     "line": 122,
+     "in": "MemberProfileModal",
+     "when": "member.generation",
+     "text": "{member.generation.name}"
+    },
+    {
+     "kind": "text",
+     "line": 134,
+     "in": "MemberProfileModal",
+     "when": "member.community",
+     "text": "Comunidad"
+    },
+    {
+     "kind": "value",
+     "line": 135,
+     "in": "MemberProfileModal",
+     "when": "member.community",
+     "text": "{member.community.name}"
+    },
+    {
+     "kind": "text",
+     "line": 147,
+     "in": "MemberProfileModal",
+     "when": "member.created_at",
+     "text": "Miembro desde"
+    },
+    {
+     "kind": "value",
+     "line": 148,
+     "in": "MemberProfileModal",
+     "when": "member.created_at",
+     "text": "{formatDate(member.created_at)}"
+    },
+    {
+     "kind": "button",
+     "line": 157,
+     "in": "MemberProfileModal",
+     "text": "Cerrar",
+     "action": "{onClose}"
+    },
+    {
+     "kind": "link",
+     "line": 163,
+     "in": "MemberProfileModal",
+     "text": "Ver Perfil Completo",
+     "target": "/user/[*]",
+     "action": "{onClose}"
+    },
+    {
+     "kind": "string",
+     "line": 32,
+     "in": "MemberProfileModal",
+     "text": "Usuario"
+    },
+    {
+     "kind": "list",
+     "line": 36,
+     "in": "formatDate",
+     "text": "formatDate()",
+     "items": [
+      "No disponible"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "components/community/WorkspaceSettingsModal.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 242,
+   "rows": [
+    {
+     "kind": "toast",
+     "line": 42,
+     "in": "handleImageSelect",
+     "when": "file.size > 5 * 1024 * 1024",
+     "text": "La imagen debe ser menor a 5MB",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 49,
+     "in": "handleImageSelect",
+     "when": "!allowedTypes.includes(file.type)",
+     "text": "Solo se permiten imágenes (JPEG, PNG, WebP)",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 99,
+     "in": "handleSave",
+     "text": "Configuración actualizada exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 107,
+     "in": "handleSave",
+     "text": "Error al guardar la configuración",
+     "variant": "error"
+    },
+    {
+     "kind": "gate",
+     "line": 122,
+     "in": "WorkspaceSettingsModal",
+     "text": "!isOpen"
+    },
+    {
+     "kind": "popup",
+     "line": 125,
+     "in": "WorkspaceSettingsModal",
+     "text": "Configuración de la Comunidad",
+     "how": "written in this file"
+    },
+    {
+     "kind": "heading",
+     "line": 128,
+     "in": "WorkspaceSettingsModal",
+     "text": "Configuración de la Comunidad",
+     "level": 3
+    },
+    {
+     "kind": "button",
+     "line": 131,
+     "in": "WorkspaceSettingsModal",
+     "text": "[icon X]",
+     "action": "{onClose}",
+     "disabled": "{isLoading}"
+    },
+    {
+     "kind": "label",
+     "line": 143,
+     "in": "WorkspaceSettingsModal",
+     "text": "Nombre de la Comunidad"
+    },
+    {
+     "kind": "field",
+     "line": 146,
+     "in": "WorkspaceSettingsModal",
+     "text": "Nombre de la Comunidad",
+     "type": "text",
+     "placeholder": "Ingresa un nombre personalizado",
+     "limits": "maxLength={100}",
+     "action": "{(e) => setCustomName(e.target.value)}"
+    },
+    {
+     "kind": "text",
+     "line": 155,
+     "in": "WorkspaceSettingsModal",
+     "text": "Cualquier miembro puede cambiar el nombre del grupo"
+    },
+    {
+     "kind": "label",
+     "line": 161,
+     "in": "WorkspaceSettingsModal",
+     "text": "Imagen de la Comunidad"
+    },
+    {
+     "kind": "media",
+     "line": 170,
+     "in": "WorkspaceSettingsModal",
+     "when": "imagePreview",
+     "text": "img · alt Vista previa · {imagePreview}"
+    },
+    {
+     "kind": "button",
+     "line": 175,
+     "in": "WorkspaceSettingsModal",
+     "when": "imagePreview",
+     "text": "[icon X]",
+     "action": "{handleRemoveImage}"
+    },
+    {
+     "kind": "field",
+     "line": 192,
+     "in": "WorkspaceSettingsModal",
+     "screen": "hidden",
+     "text": "Subir imagen",
+     "type": "file",
+     "accept": "image/jpeg,image/jpg,image/png,image/webp",
+     "action": "{handleImageSelect}",
+     "hook": {
+      "id": "community-image-upload",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "label",
+     "line": 200,
+     "in": "WorkspaceSettingsModal",
+     "text": "Subir imagen",
+     "for": "community-image-upload"
+    },
+    {
+     "kind": "text",
+     "line": 208,
+     "in": "WorkspaceSettingsModal",
+     "text": "Máx. 5MB (JPEG, PNG, WebP)"
+    },
+    {
+     "kind": "button",
+     "line": 217,
+     "in": "WorkspaceSettingsModal",
+     "text": "Cancelar",
+     "action": "{onClose}",
+     "disabled": "{isLoading}"
+    },
+    {
+     "kind": "button",
+     "line": 224,
+     "in": "WorkspaceSettingsModal",
+     "text": "Guardando... / Guardar cambios",
+     "action": "{handleSave}",
+     "disabled": "{isLoading || (!customName.trim() && !imageFile && !imageUrl)}"
+    }
+   ],
+   "db": []
+  },
+  "components/course-proposals/ConfirmDialog.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 113,
+   "rows": [
+    {
+     "kind": "popup",
+     "line": 43,
+     "in": "ConfirmDialog",
+     "text": "Dialog",
+     "how": "component",
+     "open": "{isOpen}"
+    },
+    {
+     "kind": "piece",
+     "line": 44,
+     "in": "ConfirmDialog",
+     "text": "",
+     "tag": "DialogContent"
+    },
+    {
+     "kind": "piece",
+     "line": 45,
+     "in": "ConfirmDialog",
+     "text": "",
+     "tag": "DialogHeader"
+    },
+    {
+     "kind": "piece",
+     "line": 54,
+     "in": "ConfirmDialog",
+     "text": "",
+     "tag": "DialogTitle"
+    },
+    {
+     "kind": "value",
+     "line": 54,
+     "in": "ConfirmDialog",
+     "text": "{title}"
+    },
+    {
+     "kind": "piece",
+     "line": 58,
+     "in": "ConfirmDialog",
+     "text": "",
+     "tag": "DialogDescription"
+    },
+    {
+     "kind": "value",
+     "line": 58,
+     "in": "ConfirmDialog",
+     "text": "{description}"
+    },
+    {
+     "kind": "piece",
+     "line": 63,
+     "in": "ConfirmDialog",
+     "text": "",
+     "tag": "DialogFooter"
+    },
+    {
+     "kind": "button",
+     "line": 64,
+     "in": "ConfirmDialog",
+     "text": "{cancelText}",
+     "action": "{onClose}",
+     "disabled": "{isLoading}"
+    },
+    {
+     "kind": "button",
+     "line": 72,
+     "in": "ConfirmDialog",
+     "text": "Eliminando... / {confirmText}",
+     "action": "{handleConfirm}",
+     "disabled": "{isLoading}"
+    },
+    {
+     "kind": "string",
+     "line": 30,
+     "in": "ConfirmDialog",
+     "text": "¿Estás seguro?"
+    },
+    {
+     "kind": "string",
+     "line": 31,
+     "in": "ConfirmDialog",
+     "text": "Esta acción no se puede deshacer."
+    },
+    {
+     "kind": "string",
+     "line": 32,
+     "in": "ConfirmDialog",
+     "text": "Confirmar"
+    },
+    {
+     "kind": "string",
+     "line": 33,
+     "in": "ConfirmDialog",
+     "text": "Cancelar"
+    }
+   ],
+   "db": []
+  },
+  "components/course-proposals/CourseProposalCard.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 139,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 21,
+     "in": "getStatusBadge",
+     "text": "statusConfig",
+     "items": [
+      "Pendiente",
+      "En Revisión",
+      "Aprobada",
+      "Rechazada"
+     ]
+    },
+    {
+     "kind": "value",
+     "line": 55,
+     "in": "CourseProposalCard",
+     "text": "{statusBadge.label}"
+    },
+    {
+     "kind": "button",
+     "line": 64,
+     "in": "CourseProposalCard",
+     "when": "isOwner",
+     "text": "[icon Pencil]",
+     "action": "{handleEdit}",
+     "title": "Editar propuesta"
+    },
+    {
+     "kind": "button",
+     "line": 71,
+     "in": "CourseProposalCard",
+     "when": "isOwner",
+     "text": "[icon Trash2]",
+     "action": "{handleDelete}",
+     "title": "Eliminar propuesta"
+    },
+    {
+     "kind": "heading",
+     "line": 81,
+     "in": "CourseProposalCard",
+     "text": "{proposal.titulo}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 89,
+     "in": "CourseProposalCard",
+     "text": "{proposal.descripcion_corta}"
+    },
+    {
+     "kind": "value",
+     "line": 96,
+     "in": "CourseProposalCard",
+     "text": "{proposal.competencias_desarrollar}"
+    },
+    {
+     "kind": "value",
+     "line": 104,
+     "in": "CourseProposalCard",
+     "text": "{proposal.tiempo_requerido_desarrollo}"
+    },
+    {
+     "kind": "text",
+     "line": 114,
+     "in": "CourseProposalCard",
+     "when": "proposal.necesita_ayuda_diseno_instruccional",
+     "text": "Solicita ayuda con diseño instruccional"
+    },
+    {
+     "kind": "value",
+     "line": 126,
+     "in": "CourseProposalCard",
+     "text": "{creatorName}"
+    },
+    {
+     "kind": "value",
+     "line": 130,
+     "in": "CourseProposalCard",
+     "text": "{formatDate(proposal.created_at)}"
+    },
+    {
+     "kind": "string",
+     "line": 34,
+     "in": "CourseProposalCard",
+     "text": "Usuario"
+    }
+   ],
+   "db": []
+  },
+  "components/course-proposals/CourseProposalModal.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 275,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 67,
+     "in": "handleSubmit",
+     "when": "!formData.titulo.trim()",
+     "text": "El título es requerido",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 71,
+     "in": "handleSubmit",
+     "when": "!formData.descripcion_corta.trim()",
+     "text": "La descripción es requerida",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 75,
+     "in": "handleSubmit",
+     "when": "!formData.competencias_desarrollar.trim()",
+     "text": "Las competencias a desarrollar son requeridas",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 79,
+     "in": "handleSubmit",
+     "when": "!formData.tiempo_requerido_desarrollo.trim()",
+     "text": "El tiempo requerido es requerido",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 90,
+     "in": "handleSubmit",
+     "text": "Error al actualizar la propuesta / Error al crear la propuesta",
+     "via": "setError"
+    },
+    {
+     "kind": "popup",
+     "line": 105,
+     "in": "CourseProposalModal",
+     "text": "Dialog",
+     "how": "component",
+     "open": "{isOpen}"
+    },
+    {
+     "kind": "piece",
+     "line": 106,
+     "in": "CourseProposalModal",
+     "text": "",
+     "tag": "DialogContent"
+    },
+    {
+     "kind": "piece",
+     "line": 107,
+     "in": "CourseProposalModal",
+     "text": "",
+     "tag": "DialogHeader"
+    },
+    {
+     "kind": "piece",
+     "line": 108,
+     "in": "CourseProposalModal",
+     "text": "",
+     "tag": "DialogTitle"
+    },
+    {
+     "kind": "text",
+     "line": 108,
+     "in": "CourseProposalModal",
+     "text": "Editar Propuesta de Curso / Nueva Propuesta de Curso"
+    },
+    {
+     "kind": "piece",
+     "line": 111,
+     "in": "CourseProposalModal",
+     "text": "",
+     "tag": "DialogDescription"
+    },
+    {
+     "kind": "text",
+     "line": 111,
+     "in": "CourseProposalModal",
+     "text": "Modifica los detalles de tu propuesta de curso. / Comparte tu idea para un nuevo curso que beneficiaría a la plataforma."
+    },
+    {
+     "kind": "form",
+     "line": 118,
+     "in": "CourseProposalModal",
+     "text": "{handleSubmit}"
+    },
+    {
+     "kind": "value",
+     "line": 121,
+     "in": "CourseProposalModal",
+     "when": "error",
+     "text": "{error}"
+    },
+    {
+     "kind": "label",
+     "line": 128,
+     "in": "CourseProposalModal",
+     "text": "Título del curso *",
+     "for": "titulo"
+    },
+    {
+     "kind": "field",
+     "line": 134,
+     "in": "CourseProposalModal",
+     "text": "Título del curso *",
+     "type": "text",
+     "name": "titulo",
+     "placeholder": "Ej: Estrategias de Aprendizaje Colaborativo",
+     "disabled": "{isSubmitting}",
+     "action": "{handleChange}",
+     "hook": {
+      "id": "titulo",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "label",
+     "line": 148,
+     "in": "CourseProposalModal",
+     "text": "Descripción corta *",
+     "for": "descripcion_corta"
+    },
+    {
+     "kind": "field",
+     "line": 154,
+     "in": "CourseProposalModal",
+     "text": "Descripción corta *",
+     "type": "textarea",
+     "name": "descripcion_corta",
+     "placeholder": "Describe brevemente de qué se trataría el curso...",
+     "disabled": "{isSubmitting}",
+     "limits": "",
+     "action": "{handleChange}",
+     "hook": {
+      "id": "descripcion_corta",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "label",
+     "line": 168,
+     "in": "CourseProposalModal",
+     "text": "Competencias a desarrollar *",
+     "for": "competencias_desarrollar"
+    },
+    {
+     "kind": "field",
+     "line": 174,
+     "in": "CourseProposalModal",
+     "text": "Competencias a desarrollar *",
+     "type": "textarea",
+     "name": "competencias_desarrollar",
+     "placeholder": "¿Qué habilidades o competencias desarrollarían los participantes?",
+     "disabled": "{isSubmitting}",
+     "limits": "",
+     "action": "{handleChange}",
+     "hook": {
+      "id": "competencias_desarrollar",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "label",
+     "line": 188,
+     "in": "CourseProposalModal",
+     "text": "Tiempo requerido para desarrollar el contenido *",
+     "for": "tiempo_requerido_desarrollo"
+    },
+    {
+     "kind": "field",
+     "line": 194,
+     "in": "CourseProposalModal",
+     "text": "Tiempo requerido para desarrollar el contenido *",
+     "type": "text",
+     "name": "tiempo_requerido_desarrollo",
+     "placeholder": "Ej: 2 semanas, 1 mes, 3 meses",
+     "disabled": "{isSubmitting}",
+     "action": "{handleChange}",
+     "hook": {
+      "id": "tiempo_requerido_desarrollo",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "field",
+     "line": 208,
+     "in": "CourseProposalModal",
+     "text": "¿Necesita ayuda con el diseño instruccional? Marque esta opción si requiere apoyo de nuestro equipo para estructurar el contenido del curso.",
+     "type": "checkbox",
+     "name": "necesita_ayuda_diseno_instruccional",
+     "disabled": "{isSubmitting}",
+     "action": "{handleChange}",
+     "hook": {
+      "id": "necesita_ayuda_diseno_instruccional",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "label",
+     "line": 217,
+     "in": "CourseProposalModal",
+     "text": "¿Necesita ayuda con el diseño instruccional? Marque esta opción si requiere apoyo de nuestro equipo para estructurar el contenido del curso.",
+     "for": "necesita_ayuda_diseno_instruccional"
+    },
+    {
+     "kind": "button",
+     "line": 230,
+     "in": "CourseProposalModal",
+     "text": "Cancelar",
+     "action": "{handleClose}",
+     "disabled": "{isSubmitting}"
+    },
+    {
+     "kind": "button",
+     "line": 238,
+     "in": "CourseProposalModal",
+     "text": "Guardando... / Guardar Cambios / Enviar Propuesta",
+     "submit": true,
+     "disabled": "{isSubmitting}"
+    }
+   ],
+   "db": []
+  },
+  "components/course-proposals/CourseProposalSection.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 289,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 31,
+     "in": "CourseProposalSection",
+     "when": "!response.ok",
+     "text": "Error al cargar propuestas",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 37,
+     "in": "CourseProposalSection",
+     "text": "Error al cargar propuestas",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 61,
+     "in": "handleSubmitProposal",
+     "when": "editingProposal && !response.ok",
+     "text": "Error al actualizar propuesta",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 83,
+     "in": "handleSubmitProposal",
+     "when": "!(editingProposal) && !response.ok",
+     "text": "Error al crear propuesta",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 115,
+     "in": "handleConfirmDelete",
+     "when": "!response.ok",
+     "text": "Error al eliminar propuesta",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "alert",
+     "line": 124,
+     "in": "handleConfirmDelete",
+     "text": "Error al eliminar propuesta"
+    },
+    {
+     "kind": "heading",
+     "line": 150,
+     "in": "CourseProposalSection",
+     "when": "loading",
+     "text": "Propuestas de Cursos",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 151,
+     "in": "CourseProposalSection",
+     "when": "loading",
+     "text": "Me gustaría realizar un curso en la plataforma"
+    },
+    {
+     "kind": "heading",
+     "line": 177,
+     "in": "CourseProposalSection",
+     "when": "error",
+     "text": "Propuestas de Cursos",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 178,
+     "in": "CourseProposalSection",
+     "when": "error",
+     "text": "Me gustaría realizar un curso en la plataforma"
+    },
+    {
+     "kind": "value",
+     "line": 184,
+     "in": "CourseProposalSection",
+     "when": "error",
+     "text": "{error}"
+    },
+    {
+     "kind": "button",
+     "line": 185,
+     "in": "CourseProposalSection",
+     "when": "error",
+     "text": "Reintentar",
+     "action": "{fetchProposals}"
+    },
+    {
+     "kind": "heading",
+     "line": 205,
+     "in": "CourseProposalSection",
+     "text": "Propuestas de Cursos",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 206,
+     "in": "CourseProposalSection",
+     "text": "Me gustaría realizar un curso en la plataforma"
+    },
+    {
+     "kind": "button",
+     "line": 211,
+     "in": "CourseProposalSection",
+     "text": "Nueva Propuesta",
+     "action": "{() => { setEditingProposal(null); setIsModalOpen(true); }}"
+    },
+    {
+     "kind": "piece",
+     "line": 232,
+     "in": "CourseProposalSection",
+     "when": "proposals.length > 0 && each proposals",
+     "text": "",
+     "tag": "CourseProposalCard"
+    },
+    {
+     "kind": "heading",
+     "line": 245,
+     "in": "CourseProposalSection",
+     "when": "!(proposals.length > 0)",
+     "text": "Sin propuestas aún",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 249,
+     "in": "CourseProposalSection",
+     "when": "!(proposals.length > 0)",
+     "text": "Sé el primero en proponer un nuevo curso"
+    },
+    {
+     "kind": "button",
+     "line": 251,
+     "in": "CourseProposalSection",
+     "when": "!(proposals.length > 0)",
+     "text": "Crear Propuesta",
+     "action": "{() => { setEditingProposal(null); setIsModalOpen(true); }}"
+    },
+    {
+     "kind": "popup",
+     "line": 265,
+     "in": "CourseProposalSection",
+     "text": "CourseProposalModal",
+     "how": "component",
+     "open": "{isModalOpen}"
+    },
+    {
+     "kind": "popup",
+     "line": 273,
+     "in": "CourseProposalSection",
+     "text": "ConfirmDialog",
+     "how": "component",
+     "open": "{deleteConfirmOpen}",
+     "props": "title: Eliminar Propuesta · description: ¿Estás seguro de que deseas eliminar esta propuesta? Esta acción no se puede deshacer. · confirmText: Eliminar · cancelText: Cancelar"
+    }
+   ],
+   "db": []
+  },
+  "components/courses/CourseThumbnail.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 138,
+   "rows": [
+    {
+     "kind": "heading",
+     "line": 88,
+     "in": "CourseThumbnail",
+     "text": "{truncateTitle(title)}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 92,
+     "in": "CourseThumbnail",
+     "when": "instructorName",
+     "text": "{instructorName}"
+    },
+    {
+     "kind": "media",
+     "line": 103,
+     "in": "CourseThumbnail",
+     "when": "instructorName && instructorPhotoUrl",
+     "text": "img · alt {instructorName} · {instructorPhotoUrl}"
+    },
+    {
+     "kind": "value",
+     "line": 110,
+     "in": "CourseThumbnail",
+     "when": "instructorName && !(instructorPhotoUrl)",
+     "text": "{getInitials(instructorName)}"
+    },
+    {
+     "kind": "value",
+     "line": 123,
+     "in": "CourseThumbnail",
+     "when": "difficultyLevel && getDifficultyLabel(difficultyLevel)",
+     "text": "{getDifficultyLabel(difficultyLevel)}"
+    },
+    {
+     "kind": "string",
+     "line": 44,
+     "in": "CourseThumbnail",
+     "text": "Principiante"
+    },
+    {
+     "kind": "string",
+     "line": 46,
+     "in": "CourseThumbnail",
+     "text": "Intermedio"
+    },
+    {
+     "kind": "string",
+     "line": 48,
+     "in": "CourseThumbnail",
+     "text": "Avanzado"
+    },
+    {
+     "kind": "list",
+     "line": 44,
+     "in": "getDifficultyLabel",
+     "text": "getDifficultyLabel()",
+     "items": [
+      "Principiante",
+      "Intermedio",
+      "Avanzado"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "components/courses/NetflixCourseCard.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 430,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 29,
+     "in": "NetflixCourseCard",
+     "text": "window.addEventListener('resize')",
+     "type": "listener"
+    },
+    {
+     "kind": "gate",
+     "line": 35,
+     "in": "NetflixCourseCard",
+     "text": "!isMobile || !isExpanded"
+    },
+    {
+     "kind": "hook",
+     "line": 43,
+     "in": "NetflixCourseCard",
+     "text": "document.addEventListener('mousedown')",
+     "type": "listener"
+    },
+    {
+     "kind": "gate",
+     "line": 49,
+     "in": "NetflixCourseCard",
+     "text": "isMobile"
+    },
+    {
+     "kind": "gate",
+     "line": 57,
+     "in": "NetflixCourseCard",
+     "text": "isMobile"
+    },
+    {
+     "kind": "gate",
+     "line": 66,
+     "in": "NetflixCourseCard",
+     "text": "!isMobile"
+    },
+    {
+     "kind": "clickable",
+     "line": 156,
+     "in": "NetflixCourseCard",
+     "text": "[Aprobado] [Completado] [{course.title} [{course.instructor.full_name}]] [{course.title} [{course.instructor.full_name}…",
+     "tag": "motion.div",
+     "action": "{handleTap}",
+     "also": "onMouseEnter={handleMouseEnter} · onMouseLeave={handleMouseLeave}"
+    },
+    {
+     "kind": "media",
+     "line": 176,
+     "in": "NetflixCourseCard",
+     "when": "course.instructor?.photo_url",
+     "text": "img · alt {course.instructor.full_name} · {course.instructor.photo_url}"
+    },
+    {
+     "kind": "media",
+     "line": 185,
+     "in": "NetflixCourseCard",
+     "when": "!(course.instructor?.photo_url) && course.thumbnail_url",
+     "text": "img · alt {course.title} · {course.thumbnail_url}"
+    },
+    {
+     "kind": "piece",
+     "line": 193,
+     "in": "NetflixCourseCard",
+     "when": "!(course.instructor?.photo_url) && !(course.thumbnail_url)",
+     "text": "",
+     "tag": "CourseThumbnail"
+    },
+    {
+     "kind": "text",
+     "line": 209,
+     "in": "NetflixCourseCard",
+     "when": "enrollment?.completion_status === 'aprobado'",
+     "text": "Aprobado"
+    },
+    {
+     "kind": "text",
+     "line": 217,
+     "in": "NetflixCourseCard",
+     "when": "enrollment?.completion_status === 'completado'",
+     "text": "Completado"
+    },
+    {
+     "kind": "heading",
+     "line": 225,
+     "in": "NetflixCourseCard",
+     "when": "!isExpanded",
+     "text": "{course.title}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 229,
+     "in": "NetflixCourseCard",
+     "when": "!isExpanded && course.instructor",
+     "text": "{course.instructor.full_name}"
+    },
+    {
+     "kind": "heading",
+     "line": 267,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded",
+     "text": "{course.title}",
+     "level": 3
+    },
+    {
+     "kind": "media",
+     "line": 275,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && course.instructor && course.instructor.photo_url",
+     "text": "img · alt {course.instructor.full_name} · {course.instructor.photo_url}"
+    },
+    {
+     "kind": "value",
+     "line": 285,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && course.instructor",
+     "text": "{course.instructor.full_name}"
+    },
+    {
+     "kind": "text",
+     "line": 315,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && enrollment && enrollment.total_lessons && enrollment.total_lessons > 0",
+     "text": "lecciones"
+    },
+    {
+     "kind": "text",
+     "line": 324,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && enrollment && enrollment.total_lessons && enrollment.total_lessons > 0",
+     "text": "{enrollment.lessons_completed} de {enrollment.total_lessons} lecciones"
+    },
+    {
+     "kind": "value",
+     "line": 327,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && enrollment && enrollment.total_lessons && enrollment.total_lessons > 0",
+     "text": "{enrollment.progress_percentage} %"
+    },
+    {
+     "kind": "text",
+     "line": 356,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && enrollment && enrollment.assignments_total != null && enrollment.assignments_total > 0",
+     "text": "Tareas: {enrollment.assignments_submitted} / {enrollment.assignments_total}"
+    },
+    {
+     "kind": "text",
+     "line": 365,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && enrollment?.completion_status === 'aprobado'",
+     "text": "Curso Aprobado"
+    },
+    {
+     "kind": "text",
+     "line": 368,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && enrollment?.completion_status === 'aprobado'",
+     "text": "Has completado todas las lecciones y tareas."
+    },
+    {
+     "kind": "text",
+     "line": 376,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && enrollment?.completion_status === 'completado'",
+     "text": "Completa tus tareas pendientes para obtener la insignia."
+    },
+    {
+     "kind": "value",
+     "line": 382,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && course.description",
+     "text": "{course.description}"
+    },
+    {
+     "kind": "text",
+     "line": 392,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && course.learning_objectives && course.learning_objectives.length > 0",
+     "text": "Objetivos de aprendizaje"
+    },
+    {
+     "kind": "value",
+     "line": 396,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && course.learning_objectives && course.learning_objectives.length > 0 && each course.learning_objectives.slice(0, 4)",
+     "text": "{objective}"
+    },
+    {
+     "kind": "text",
+     "line": 404,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && course.learning_objectives && course.learning_objectives.length > 0 && course.learning_objectives.length > 4",
+     "text": "+ {course.learning_objectives.length -…} más..."
+    },
+    {
+     "kind": "button",
+     "line": 413,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded",
+     "text": "{getCTAText()}",
+     "action": "{handleCTAClick}"
+    },
+    {
+     "kind": "string",
+     "line": 83,
+     "in": "NetflixCourseCard",
+     "text": "Ver Detalles"
+    },
+    {
+     "kind": "string",
+     "line": 84,
+     "in": "NetflixCourseCard",
+     "text": "Repasar"
+    },
+    {
+     "kind": "string",
+     "line": 85,
+     "in": "NetflixCourseCard",
+     "text": "Continuar"
+    },
+    {
+     "kind": "string",
+     "line": 87,
+     "in": "NetflixCourseCard",
+     "text": "Comenzar"
+    },
+    {
+     "kind": "string",
+     "line": 108,
+     "in": "NetflixCourseCard",
+     "text": "Principiante"
+    },
+    {
+     "kind": "string",
+     "line": 110,
+     "in": "NetflixCourseCard",
+     "text": "Intermedio"
+    },
+    {
+     "kind": "string",
+     "line": 112,
+     "in": "NetflixCourseCard",
+     "text": "Avanzado"
+    },
+    {
+     "kind": "list",
+     "line": 83,
+     "in": "getCTAText",
+     "text": "getCTAText()",
+     "items": [
+      "Ver Detalles",
+      "Repasar",
+      "Continuar",
+      "Comenzar"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 108,
+     "in": "getDifficultyLabel",
+     "text": "getDifficultyLabel()",
+     "items": [
+      "Principiante",
+      "Intermedio",
+      "Avanzado"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "components/courses/NetflixCourseRow.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 169,
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 26,
+     "in": "NetflixCourseRow",
+     "text": "!container"
+    },
+    {
+     "kind": "hook",
+     "line": 38,
+     "in": "NetflixCourseRow",
+     "when": "container",
+     "text": "container.addEventListener('scroll')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 39,
+     "in": "NetflixCourseRow",
+     "when": "container",
+     "text": "window.addEventListener('resize')",
+     "type": "listener"
+    },
+    {
+     "kind": "gate",
+     "line": 52,
+     "in": "NetflixCourseRow",
+     "text": "!container"
+    },
+    {
+     "kind": "hook",
+     "line": 59,
+     "in": "NetflixCourseRow",
+     "text": "container.scrollTo()",
+     "type": "scroll"
+    },
+    {
+     "kind": "heading",
+     "line": 69,
+     "in": "NetflixCourseRow",
+     "when": "!courses || courses.length === 0",
+     "text": "{title}",
+     "level": 2
+    },
+    {
+     "kind": "value",
+     "line": 74,
+     "in": "NetflixCourseRow",
+     "when": "!courses || courses.length === 0",
+     "text": "{emptyMessage}"
+    },
+    {
+     "kind": "gesture",
+     "line": 82,
+     "in": "NetflixCourseRow",
+     "text": "onMouseEnter={() => setIsHovering(true)} · onMouseLeave={() => setIsHovering(false)}",
+     "tag": "section"
+    },
+    {
+     "kind": "heading",
+     "line": 88,
+     "in": "NetflixCourseRow",
+     "text": "{title}",
+     "level": 2
+    },
+    {
+     "kind": "button",
+     "line": 95,
+     "in": "NetflixCourseRow",
+     "text": "[icon ChevronLeft]",
+     "action": "{() => handleScroll('left')}",
+     "aria": "Desplazar izquierda"
+    },
+    {
+     "kind": "piece",
+     "line": 122,
+     "in": "NetflixCourseRow",
+     "when": "each courses",
+     "text": "",
+     "tag": "NetflixCourseCard"
+    },
+    {
+     "kind": "button",
+     "line": 152,
+     "in": "NetflixCourseRow",
+     "text": "[icon ChevronRight]",
+     "action": "{() => handleScroll('right')}",
+     "aria": "Desplazar derecha"
+    }
+   ],
+   "db": []
+  },
+  "components/courses/UpcomingCourseCard.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 280,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 43,
+     "in": "UpcomingCourseCard",
+     "text": "window.addEventListener('resize')",
+     "type": "listener"
+    },
+    {
+     "kind": "gate",
+     "line": 49,
+     "in": "UpcomingCourseCard",
+     "text": "!isMobile || !isExpanded"
+    },
+    {
+     "kind": "hook",
+     "line": 57,
+     "in": "UpcomingCourseCard",
+     "text": "document.addEventListener('mousedown')",
+     "type": "listener"
+    },
+    {
+     "kind": "gate",
+     "line": 63,
+     "in": "UpcomingCourseCard",
+     "text": "isMobile"
+    },
+    {
+     "kind": "gate",
+     "line": 71,
+     "in": "UpcomingCourseCard",
+     "text": "isMobile"
+    },
+    {
+     "kind": "gate",
+     "line": 80,
+     "in": "UpcomingCourseCard",
+     "text": "!isMobile"
+    },
+    {
+     "kind": "clickable",
+     "line": 132,
+     "in": "UpcomingCourseCard",
+     "text": "Próximamente [{course.title} [{course.instructor.full_name}]] [{course.title} [{course.instructor.full_name}] [{course.…",
+     "tag": "motion.div",
+     "action": "{handleTap}",
+     "also": "onMouseEnter={handleMouseEnter} · onMouseLeave={handleMouseLeave}"
+    },
+    {
+     "kind": "media",
+     "line": 152,
+     "in": "UpcomingCourseCard",
+     "when": "course.thumbnail_url",
+     "text": "img · alt {course.title} · {course.thumbnail_url}"
+    },
+    {
+     "kind": "text",
+     "line": 174,
+     "in": "UpcomingCourseCard",
+     "text": "Próximamente"
+    },
+    {
+     "kind": "heading",
+     "line": 181,
+     "in": "UpcomingCourseCard",
+     "when": "!isExpanded",
+     "text": "{course.title}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 189,
+     "in": "UpcomingCourseCard",
+     "when": "!isExpanded && course.instructor",
+     "text": "{course.instructor.full_name}"
+    },
+    {
+     "kind": "heading",
+     "line": 210,
+     "in": "UpcomingCourseCard",
+     "when": "isExpanded",
+     "text": "{course.title}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 220,
+     "in": "UpcomingCourseCard",
+     "when": "isExpanded && course.instructor",
+     "text": "{course.instructor.full_name}"
+    },
+    {
+     "kind": "value",
+     "line": 228,
+     "in": "UpcomingCourseCard",
+     "when": "isExpanded && course.description",
+     "text": "{course.description}"
+    },
+    {
+     "kind": "text",
+     "line": 237,
+     "in": "UpcomingCourseCard",
+     "when": "isExpanded && formattedDate",
+     "text": "Disponible en {formattedDate}"
+    },
+    {
+     "kind": "text",
+     "line": 245,
+     "in": "UpcomingCourseCard",
+     "when": "isExpanded && !(formattedDate)",
+     "text": "Fecha por confirmar"
+    },
+    {
+     "kind": "value",
+     "line": 260,
+     "in": "UpcomingCourseCard",
+     "when": "!isExpanded && formattedDate",
+     "text": "{formattedDate}"
+    },
+    {
+     "kind": "text",
+     "line": 268,
+     "in": "UpcomingCourseCard",
+     "when": "!isExpanded && !(formattedDate)",
+     "text": "Fecha por confirmar"
+    }
+   ],
+   "db": []
+  },
+  "components/dashboard/unified/AdvancedFilters.tsx": {
+   "usedBy": [
+    "/admin/new-reporting"
+   ],
+   "lines": 521,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 53,
+     "in": "AdvancedFilters",
+     "text": "timeRangeOptions",
+     "items": [
+      "Últimos 7 días",
+      "Últimos 30 días",
+      "Últimos 3 meses",
+      "Último año",
+      "Rango personalizado"
+     ]
+    },
+    {
+     "kind": "gate",
+     "line": 66,
+     "in": "AdvancedFilters",
+     "text": "!session"
+    },
+    {
+     "kind": "list",
+     "line": 164,
+     "in": "AdvancedFilters",
+     "text": "commonPatterns",
+     "items": [
+      "usuarios activos",
+      "cursos completados",
+      "actividad reciente",
+      "progreso bajo",
+      "colaboración alta"
+     ]
+    },
+    {
+     "kind": "button",
+     "line": 248,
+     "in": "AdvancedFilters",
+     "when": "!isOpen",
+     "text": "Filtros [{activeFiltersCount}]",
+     "action": "{onToggle}"
+    },
+    {
+     "kind": "heading",
+     "line": 272,
+     "in": "AdvancedFilters",
+     "text": "Filtros Avanzados",
+     "level": 3
+    },
+    {
+     "kind": "button",
+     "line": 277,
+     "in": "AdvancedFilters",
+     "when": "activeFiltersCount > 0",
+     "text": "Limpiar filtros",
+     "action": "{clearFilters}"
+    },
+    {
+     "kind": "button",
+     "line": 284,
+     "in": "AdvancedFilters",
+     "text": "[icon X]",
+     "action": "{onToggle}"
+    },
+    {
+     "kind": "label",
+     "line": 296,
+     "in": "AdvancedFilters",
+     "text": "Búsqueda"
+    },
+    {
+     "kind": "field",
+     "line": 303,
+     "in": "AdvancedFilters",
+     "text": "Búsqueda",
+     "type": "text",
+     "placeholder": "Buscar usuarios, cursos, comunidades...",
+     "action": "{(e) => handleSearchChange(e.target.value)}",
+     "also": "onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} · onFocus={() => setShowSuggestions(true)}"
+    },
+    {
+     "kind": "button",
+     "line": 318,
+     "in": "AdvancedFilters",
+     "when": "showSuggestions && searchSuggestions.length > 0 && each searchSuggestions",
+     "text": "{suggestion}",
+     "action": "{() => handleSuggestionSelect(suggestion)}"
+    },
+    {
+     "kind": "label",
+     "line": 332,
+     "in": "AdvancedFilters",
+     "text": "Período de Tiempo"
+    },
+    {
+     "kind": "field",
+     "line": 335,
+     "in": "AdvancedFilters",
+     "text": "Período de Tiempo",
+     "type": "select",
+     "action": "{(e) => handleFilterChange('timeRange', e.target.value)}",
+     "options": [
+      "(lista) {option.label}"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 352,
+     "in": "AdvancedFilters",
+     "when": "filters.timeRange === 'custom'",
+     "text": "Fecha Inicio"
+    },
+    {
+     "kind": "field",
+     "line": 355,
+     "in": "AdvancedFilters",
+     "when": "filters.timeRange === 'custom'",
+     "text": "Fecha Inicio",
+     "type": "date",
+     "action": "{(e) => handleFilterChange('startDate', e.target.value)}"
+    },
+    {
+     "kind": "label",
+     "line": 363,
+     "in": "AdvancedFilters",
+     "when": "filters.timeRange === 'custom'",
+     "text": "Fecha Fin"
+    },
+    {
+     "kind": "field",
+     "line": 366,
+     "in": "AdvancedFilters",
+     "when": "filters.timeRange === 'custom'",
+     "text": "Fecha Fin",
+     "type": "date",
+     "action": "{(e) => handleFilterChange('endDate', e.target.value)}"
+    },
+    {
+     "kind": "label",
+     "line": 381,
+     "in": "AdvancedFilters",
+     "when": "filterOptions.schools.length > 0",
+     "text": "Escuela"
+    },
+    {
+     "kind": "field",
+     "line": 385,
+     "in": "AdvancedFilters",
+     "when": "filterOptions.schools.length > 0",
+     "text": "Escuela",
+     "type": "select",
+     "disabled": "{loading}",
+     "action": "{(e) => handleFilterChange('schoolId', e.target.value || undefined)}",
+     "options": [
+      "Todas las escuelas",
+      "(lista) {school.name}"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 404,
+     "in": "AdvancedFilters",
+     "when": "filterOptions.generations.length > 0",
+     "text": "Generación"
+    },
+    {
+     "kind": "field",
+     "line": 408,
+     "in": "AdvancedFilters",
+     "when": "filterOptions.generations.length > 0",
+     "text": "Generación",
+     "type": "select",
+     "disabled": "{loading}",
+     "action": "{(e) => handleFilterChange('generationId', e.target.value || undefined)}",
+     "options": [
+      "Todas las generaciones",
+      "(lista) {generation.name}"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 427,
+     "in": "AdvancedFilters",
+     "when": "filterOptions.communities.length > 0",
+     "text": "Comunidad"
+    },
+    {
+     "kind": "field",
+     "line": 431,
+     "in": "AdvancedFilters",
+     "when": "filterOptions.communities.length > 0",
+     "text": "Comunidad",
+     "type": "select",
+     "disabled": "{loading}",
+     "action": "{(e) => handleFilterChange('communityId', e.target.value || undefined)}",
+     "options": [
+      "Todas las comunidades",
+      "(lista) {community.name}"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 450,
+     "in": "AdvancedFilters",
+     "when": "filterOptions.courses.length > 0",
+     "text": "Curso"
+    },
+    {
+     "kind": "field",
+     "line": 454,
+     "in": "AdvancedFilters",
+     "when": "filterOptions.courses.length > 0",
+     "text": "Curso",
+     "type": "select",
+     "disabled": "{loading}",
+     "action": "{(e) => handleFilterChange('courseId', e.target.value || undefined)}",
+     "options": [
+      "Todos los cursos",
+      "(lista) {course.title}"
+     ]
+    },
+    {
+     "kind": "heading",
+     "line": 474,
+     "in": "AdvancedFilters",
+     "when": "activeFiltersCount > 0",
+     "text": "Filtros Activos ( {activeFiltersCount} )",
+     "level": 4
+    },
+    {
+     "kind": "gate",
+     "line": 479,
+     "in": "AdvancedFilters",
+     "when": "activeFiltersCount > 0 && each Object.entries(filters)",
+     "text": "key === 'timeRange' || !value"
+    },
+    {
+     "kind": "button",
+     "line": 504,
+     "in": "AdvancedFilters",
+     "when": "activeFiltersCount > 0 && each Object.entries(filters)",
+     "text": "[icon X]",
+     "action": "{() => handleFilterChange(key as keyof DashboardFilters, undefined)}"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:courses",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:generations",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:growth_communities",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:schools",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "components/dashboard/unified/CommunityHealthCard.tsx": {
+   "usedBy": [
+    "/admin/new-reporting"
+   ],
+   "lines": 344,
+   "rows": [
+    {
+     "kind": "clickable",
+     "line": 92,
+     "in": "CommunityRow",
+     "text": "{community.name} {getTrendIcon(community.trendDirecti…} {community.activeMembers} de {community.memberCount} miembros a…",
+     "tag": "div",
+     "action": "{() => { setSelectedCommunity(isSelected ? null : community.id); onCommunityClic…}"
+    },
+    {
+     "kind": "heading",
+     "line": 105,
+     "in": "CommunityRow",
+     "text": "{community.name}",
+     "level": 4
+    },
+    {
+     "kind": "text",
+     "line": 110,
+     "in": "CommunityRow",
+     "text": "{community.activeMembers} de {community.memberCount} miembros activos"
+    },
+    {
+     "kind": "value",
+     "line": 117,
+     "in": "CommunityRow",
+     "text": "{community.healthScore}"
+    },
+    {
+     "kind": "text",
+     "line": 143,
+     "in": "CommunityRow",
+     "when": "isSelected",
+     "text": "Actividad Reciente:"
+    },
+    {
+     "kind": "text",
+     "line": 144,
+     "in": "CommunityRow",
+     "when": "isSelected",
+     "text": "{community.recentActivity} acciones"
+    },
+    {
+     "kind": "text",
+     "line": 147,
+     "in": "CommunityRow",
+     "when": "isSelected",
+     "text": "Índice de Colaboración:"
+    },
+    {
+     "kind": "value",
+     "line": 148,
+     "in": "CommunityRow",
+     "when": "isSelected",
+     "text": "{community.collaborationIndex} %"
+    },
+    {
+     "kind": "value",
+     "line": 159,
+     "in": "CommunityRow",
+     "when": "isSelected && each insights .filter(insight => insight.communityId =…",
+     "text": "{insight.message}"
+    },
+    {
+     "kind": "value",
+     "line": 161,
+     "in": "CommunityRow",
+     "when": "isSelected && each insights .filter(insight => insight.communityId =… && insight.actionSuggestion",
+     "text": "{insight.actionSuggestion}"
+    },
+    {
+     "kind": "heading",
+     "line": 185,
+     "in": "CommunityHealthCard",
+     "text": "Salud General de Comunidades",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 189,
+     "in": "CommunityHealthCard",
+     "text": "Puntuación basada en actividad, colaboración y participación"
+    },
+    {
+     "kind": "value",
+     "line": 193,
+     "in": "CommunityHealthCard",
+     "text": "{data.overallScore}"
+    },
+    {
+     "kind": "value",
+     "line": 196,
+     "in": "CommunityHealthCard",
+     "text": "{overallHealth.label}"
+    },
+    {
+     "kind": "heading",
+     "line": 205,
+     "in": "CommunityHealthCard",
+     "text": "Comunidades ( {data.communities.length} )",
+     "level": 4
+    },
+    {
+     "kind": "heading",
+     "line": 219,
+     "in": "CommunityHealthCard",
+     "when": "insights.filter(insight => !insight.communityId).length > 0",
+     "text": "Observaciones Generales",
+     "level": 4
+    },
+    {
+     "kind": "value",
+     "line": 229,
+     "in": "CommunityHealthCard",
+     "when": "insights.filter(insight => !insight.communityId).length > 0 && each insights .filter(insight => !insight.communityId)",
+     "text": "{insight.message}"
+    },
+    {
+     "kind": "value",
+     "line": 231,
+     "in": "CommunityHealthCard",
+     "when": "insights.filter(insight => !insight.communityId).length > 0 && each insights .filter(insight => !insight.communityId) && insight.actionSuggestion",
+     "text": "💡 {insight.actionSuggestion}"
+    },
+    {
+     "kind": "heading",
+     "line": 247,
+     "in": "CommunityHealthCard",
+     "text": "Análisis Detallado",
+     "level": 4
+    },
+    {
+     "kind": "heading",
+     "line": 251,
+     "in": "CommunityHealthCard",
+     "text": "Tendencias de Salud (Últimos 30 días)",
+     "level": 5
+    },
+    {
+     "kind": "text",
+     "line": 257,
+     "in": "CommunityHealthCard",
+     "text": "Gráfico de tendencias disponible próximamente"
+    },
+    {
+     "kind": "text",
+     "line": 258,
+     "in": "CommunityHealthCard",
+     "text": "Datos de {chartData.healthTrends.length} puntos de medición"
+    },
+    {
+     "kind": "heading",
+     "line": 268,
+     "in": "CommunityHealthCard",
+     "text": "Métricas de Colaboración",
+     "level": 5
+    },
+    {
+     "kind": "text",
+     "line": 273,
+     "in": "CommunityHealthCard",
+     "text": "Promedio de Participación:"
+    },
+    {
+     "kind": "value",
+     "line": 274,
+     "in": "CommunityHealthCard",
+     "text": "{Math.round(data.communities.reduce(…} %"
+    },
+    {
+     "kind": "text",
+     "line": 279,
+     "in": "CommunityHealthCard",
+     "text": "Comunidades Activas:"
+    },
+    {
+     "kind": "text",
+     "line": 280,
+     "in": "CommunityHealthCard",
+     "text": "{data.communities.filter(c => c.heal…} de {data.communities.length}"
+    },
+    {
+     "kind": "text",
+     "line": 285,
+     "in": "CommunityHealthCard",
+     "text": "Índice de Colaboración Promedio:"
+    },
+    {
+     "kind": "value",
+     "line": 286,
+     "in": "CommunityHealthCard",
+     "text": "{Math.round(data.communities.reduce(…} %"
+    },
+    {
+     "kind": "heading",
+     "line": 294,
+     "in": "CommunityHealthCard",
+     "text": "Recomendaciones de Mejora",
+     "level": 5
+    },
+    {
+     "kind": "text",
+     "line": 301,
+     "in": "CommunityHealthCard",
+     "text": "Fomentar actividades colaborativas en comunidades con bajo puntaje"
+    },
+    {
+     "kind": "text",
+     "line": 307,
+     "in": "CommunityHealthCard",
+     "text": "Reconocer y destacar comunidades con alto rendimiento"
+    },
+    {
+     "kind": "text",
+     "line": 313,
+     "in": "CommunityHealthCard",
+     "text": "Implementar programas de mentorización entre comunidades"
+    },
+    {
+     "kind": "piece",
+     "line": 323,
+     "in": "CommunityHealthCard",
+     "text": "title: Salud de Comunidades · subtitle: {data.communities.length} comunidades monitoreadas · priority: medium · ariaLabel: Community health dashboard card showing collaboration metrics",
+     "tag": "DashboardCard",
+     "hook": {
+      "id": "community-health"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 323,
+     "in": "CommunityHealthCard",
+     "text": "{mainContent}"
+    },
+    {
+     "kind": "string",
+     "line": 55,
+     "in": "CommunityHealthCard",
+     "text": "Excelente"
+    },
+    {
+     "kind": "string",
+     "line": 56,
+     "in": "CommunityHealthCard",
+     "text": "Bueno"
+    },
+    {
+     "kind": "string",
+     "line": 57,
+     "in": "CommunityHealthCard",
+     "text": "Regular"
+    },
+    {
+     "kind": "string",
+     "line": 58,
+     "in": "CommunityHealthCard",
+     "text": "Necesita Atención"
+    }
+   ],
+   "db": []
+  },
+  "components/dashboard/unified/DashboardCard.tsx": {
+   "usedBy": [
+    "/admin/new-reporting"
+   ],
+   "lines": 260,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 91,
+     "in": "DashboardCard",
+     "when": "error && cardRef.current",
+     "text": "cardRef.current.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "text",
+     "line": 119,
+     "in": "DashboardCard",
+     "text": "{title} dashboard card",
+     "attr": "aria-label"
+    },
+    {
+     "kind": "heading",
+     "line": 140,
+     "in": "DashboardCard",
+     "text": "{title}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 144,
+     "in": "DashboardCard",
+     "when": "subtitle",
+     "text": "{subtitle}"
+    },
+    {
+     "kind": "button",
+     "line": 153,
+     "in": "DashboardCard",
+     "when": "onRefresh",
+     "text": "[icon RefreshCw]",
+     "action": "{handleRefresh}",
+     "disabled": "{isRefreshing || loading}",
+     "aria": "{`Refresh ${title} data`}",
+     "title": "Refresh data"
+    },
+    {
+     "kind": "button",
+     "line": 169,
+     "in": "DashboardCard",
+     "when": "expandable",
+     "text": "[icon ChevronUp]",
+     "action": "{handleToggleExpand}",
+     "aria": "{`${isExpanded ? 'Collapse' : 'Expand'} ${title}`}"
+    },
+    {
+     "kind": "button",
+     "line": 185,
+     "in": "DashboardCard",
+     "when": "onMenuAction",
+     "text": "[icon MoreHorizontal]",
+     "action": "{() => onMenuAction('menu')}",
+     "aria": "{`${title} options menu`}"
+    },
+    {
+     "kind": "piece",
+     "line": 200,
+     "in": "DashboardCard",
+     "when": "loading",
+     "text": "",
+     "tag": "LoadingSkeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 201,
+     "in": "DashboardCard",
+     "when": "loading",
+     "text": "",
+     "tag": "LoadingSkeleton"
+    },
+    {
+     "kind": "text",
+     "line": 207,
+     "in": "DashboardCard",
+     "when": "!(loading) && error",
+     "text": "Error loading data"
+    },
+    {
+     "kind": "value",
+     "line": 208,
+     "in": "DashboardCard",
+     "when": "!(loading) && error",
+     "text": "{error}"
+    },
+    {
+     "kind": "button",
+     "line": 210,
+     "in": "DashboardCard",
+     "when": "!(loading) && error && onRefresh",
+     "text": "Try again",
+     "action": "{handleRefresh}"
+    },
+    {
+     "kind": "text",
+     "line": 222,
+     "in": "DashboardCard",
+     "when": "!(loading) && !(error) && isEmpty",
+     "text": "No data available"
+    },
+    {
+     "kind": "text",
+     "line": 224,
+     "in": "DashboardCard",
+     "when": "!(loading) && !(error) && isEmpty",
+     "text": "Check your filters or try refreshing"
+    },
+    {
+     "kind": "value",
+     "line": 234,
+     "in": "DashboardCard",
+     "when": "!(loading) && !(error) && !(isEmpty) && expandable && isExpanded && expandedContent",
+     "text": "{expandedContent}"
+    },
+    {
+     "kind": "text",
+     "line": 247,
+     "in": "DashboardCard",
+     "when": "((lastUpdated || updateFrequency)) && lastUpdated",
+     "text": "Last updated: {new Date(lastUpdated).toLocaleStrin…}"
+    },
+    {
+     "kind": "text",
+     "line": 250,
+     "in": "DashboardCard",
+     "when": "((lastUpdated || updateFrequency)) && updateFrequency",
+     "text": "Updates {updateFrequency}"
+    }
+   ],
+   "db": []
+  },
+  "components/dashboard/unified/KPISummaryCard.tsx": {
+   "usedBy": [
+    "/admin/new-reporting"
+   ],
+   "lines": 283,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 73,
+     "in": "getTrendIndicator",
+     "text": "{Math.abs(change)} %"
+    },
+    {
+     "kind": "value",
+     "line": 138,
+     "in": "KPIMetricComponent",
+     "text": "{formatValue(metric.value, metric.fo…}"
+    },
+    {
+     "kind": "value",
+     "line": 141,
+     "in": "KPIMetricComponent",
+     "text": "{metric.label}"
+    },
+    {
+     "kind": "piece",
+     "line": 153,
+     "in": "KPISummaryCard",
+     "text": "configKey: totalUsers",
+     "tag": "KPIMetricComponent"
+    },
+    {
+     "kind": "piece",
+     "line": 154,
+     "in": "KPISummaryCard",
+     "text": "configKey: activeUsers",
+     "tag": "KPIMetricComponent"
+    },
+    {
+     "kind": "piece",
+     "line": 155,
+     "in": "KPISummaryCard",
+     "text": "configKey: avgCompletionRate",
+     "tag": "KPIMetricComponent"
+    },
+    {
+     "kind": "piece",
+     "line": 156,
+     "in": "KPISummaryCard",
+     "text": "configKey: totalTimeSpent",
+     "tag": "KPIMetricComponent"
+    },
+    {
+     "kind": "piece",
+     "line": 157,
+     "in": "KPISummaryCard",
+     "text": "configKey: coursesInProgress",
+     "tag": "KPIMetricComponent"
+    },
+    {
+     "kind": "piece",
+     "line": 158,
+     "in": "KPISummaryCard",
+     "text": "configKey: atRiskUsers",
+     "tag": "KPIMetricComponent"
+    },
+    {
+     "kind": "heading",
+     "line": 163,
+     "in": "KPISummaryCard",
+     "text": "Resumen del Período ( {trends.period} )",
+     "level": 4
+    },
+    {
+     "kind": "text",
+     "line": 169,
+     "in": "KPISummaryCard",
+     "text": "Usuarios Activos:"
+    },
+    {
+     "kind": "text",
+     "line": 170,
+     "in": "KPISummaryCard",
+     "text": "{data.activeUsers.value} de {data.totalUsers.value}"
+    },
+    {
+     "kind": "text",
+     "line": 175,
+     "in": "KPISummaryCard",
+     "text": "Tasa de Finalización:"
+    },
+    {
+     "kind": "value",
+     "line": 176,
+     "in": "KPISummaryCard",
+     "text": "{formatValue(data.avgCompletionRate.…}"
+    },
+    {
+     "kind": "text",
+     "line": 183,
+     "in": "KPISummaryCard",
+     "text": "Tiempo Promedio:"
+    },
+    {
+     "kind": "value",
+     "line": 184,
+     "in": "KPISummaryCard",
+     "text": "{formatValue(data.totalTimeSpent.val…}"
+    },
+    {
+     "kind": "text",
+     "line": 189,
+     "in": "KPISummaryCard",
+     "text": "Usuarios en Riesgo:"
+    },
+    {
+     "kind": "value",
+     "line": 190,
+     "in": "KPISummaryCard",
+     "text": "{data.atRiskUsers.value}"
+    },
+    {
+     "kind": "heading",
+     "line": 204,
+     "in": "KPISummaryCard",
+     "text": "Análisis Detallado",
+     "level": 4
+    },
+    {
+     "kind": "heading",
+     "line": 209,
+     "in": "KPISummaryCard",
+     "text": "Tendencias de Cambio",
+     "level": 5
+    },
+    {
+     "kind": "value",
+     "line": 213,
+     "in": "KPISummaryCard",
+     "when": "each Object.entries(trends.percentageChanges)",
+     "text": "{key.replace(/([A-Z])/g, ' $1').toLo…} :"
+    },
+    {
+     "kind": "value",
+     "line": 222,
+     "in": "KPISummaryCard",
+     "when": "each Object.entries(trends.percentageChanges)",
+     "text": "+ {change} %"
+    },
+    {
+     "kind": "heading",
+     "line": 235,
+     "in": "KPISummaryCard",
+     "text": "Alertas y Recomendaciones",
+     "level": 5
+    },
+    {
+     "kind": "text",
+     "line": 240,
+     "in": "KPISummaryCard",
+     "when": "data.atRiskUsers.value > 5",
+     "text": "Alto número de usuarios en riesgo requiere atención"
+    },
+    {
+     "kind": "text",
+     "line": 246,
+     "in": "KPISummaryCard",
+     "when": "data.avgCompletionRate.value < 60",
+     "text": "Tasa de finalización por debajo del objetivo (60%)"
+    },
+    {
+     "kind": "text",
+     "line": 252,
+     "in": "KPISummaryCard",
+     "when": "data.activeUsers.change > 10",
+     "text": "Excelente crecimiento en usuarios activos"
+    },
+    {
+     "kind": "piece",
+     "line": 262,
+     "in": "KPISummaryCard",
+     "text": "title: Indicadores Clave de Rendimiento · subtitle: Resumen general del período: {trends.period} · priority: high · ariaLabel: KPI summary dashboard card with key performance indicators",
+     "tag": "DashboardCard",
+     "hook": {
+      "id": "kpi-summary"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 262,
+     "in": "KPISummaryCard",
+     "text": "{mainContent}"
+    }
+   ],
+   "db": []
+  },
+  "components/dashboard/unified/UnifiedDashboard.tsx": {
+   "usedBy": [
+    "/admin/new-reporting"
+   ],
+   "lines": 361,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 91,
+     "in": "UnifiedDashboard",
+     "when": "!session",
+     "text": "No authentication session",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 116,
+     "in": "UnifiedDashboard",
+     "when": "!response.ok",
+     "text": "HTTP {response.status}: {response.statusText}",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 134,
+     "in": "UnifiedDashboard",
+     "when": "!showLoading && isRefreshing",
+     "text": "Dashboard actualizado correctamente",
+     "variant": "success"
+    },
+    {
+     "kind": "list",
+     "line": 139,
+     "in": "UnifiedDashboard",
+     "text": "errorMessage",
+     "items": [
+      "Error al cargar el dashboard"
+     ]
+    },
+    {
+     "kind": "toast",
+     "line": 141,
+     "in": "UnifiedDashboard",
+     "text": "{errorMessage}",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 171,
+     "in": "UnifiedDashboard",
+     "text": "/communities/[*]",
+     "via": "router.push"
+    },
+    {
+     "kind": "hook",
+     "line": 181,
+     "in": "UnifiedDashboard",
+     "text": "setInterval(…, 5 * 60 * 1000)",
+     "type": "timer"
+    },
+    {
+     "kind": "heading",
+     "line": 194,
+     "in": "UnifiedDashboard",
+     "when": "loading && !data.metadata",
+     "text": "Dashboard",
+     "level": 1
+    },
+    {
+     "kind": "heading",
+     "line": 212,
+     "in": "UnifiedDashboard",
+     "text": "Dashboard de Reportes",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 216,
+     "in": "UnifiedDashboard",
+     "text": "Última actualización:"
+    },
+    {
+     "kind": "text",
+     "line": 218,
+     "in": "UnifiedDashboard",
+     "when": "data.metadata?.loadTimeMs",
+     "text": "( {data.metadata.loadTimeMs} ms)"
+    },
+    {
+     "kind": "button",
+     "line": 226,
+     "in": "UnifiedDashboard",
+     "text": "Actualizar",
+     "action": "{handleRefresh}",
+     "disabled": "{isRefreshing}"
+    },
+    {
+     "kind": "popup",
+     "line": 239,
+     "in": "UnifiedDashboard",
+     "text": "AdvancedFilters",
+     "how": "component",
+     "open": "{showFilters}"
+    },
+    {
+     "kind": "button",
+     "line": 248,
+     "in": "UnifiedDashboard",
+     "text": "Exportar"
+    },
+    {
+     "kind": "button",
+     "line": 253,
+     "in": "UnifiedDashboard",
+     "text": "[icon Settings]"
+    },
+    {
+     "kind": "text",
+     "line": 264,
+     "in": "UnifiedDashboard",
+     "when": "error",
+     "text": "Error:"
+    },
+    {
+     "kind": "button",
+     "line": 266,
+     "in": "UnifiedDashboard",
+     "when": "error",
+     "text": "Reintentar",
+     "action": "{handleRefresh}"
+    },
+    {
+     "kind": "piece",
+     "line": 280,
+     "in": "UnifiedDashboard",
+     "when": "cardConfiguration.includes('kpiSummary') && data.kpiSummary",
+     "text": "",
+     "tag": "KPISummaryCard"
+    },
+    {
+     "kind": "piece",
+     "line": 292,
+     "in": "UnifiedDashboard",
+     "when": "cardConfiguration.includes('communityHealth') && data.communityHealth",
+     "text": "",
+     "tag": "CommunityHealthCard"
+    },
+    {
+     "kind": "piece",
+     "line": 306,
+     "in": "UnifiedDashboard",
+     "when": "cardConfiguration.includes('workspaceActivity') && data.workspaceActivity",
+     "text": "",
+     "tag": "WorkspaceActivityCard"
+    },
+    {
+     "kind": "nav",
+     "line": 314,
+     "in": "UnifiedDashboard",
+     "when": "cardConfiguration.includes('workspaceActivity') && data.workspaceActivity",
+     "text": "/workspaces/[*]",
+     "via": "router.push"
+    },
+    {
+     "kind": "piece",
+     "line": 322,
+     "in": "UnifiedDashboard",
+     "when": "cardConfiguration.includes('learningPaths')",
+     "text": "title: Rutas de Aprendizaje · subtitle: Progreso en rutas de aprendizaje personalizadas · priority: medium · error: Próximamente disponible",
+     "tag": "DashboardCard",
+     "hook": {
+      "id": "learning-paths"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 336,
+     "in": "UnifiedDashboard",
+     "when": "cardConfiguration.includes('learningPaths')",
+     "text": "Integración disponible próximamente"
+    },
+    {
+     "kind": "piece",
+     "line": 344,
+     "in": "UnifiedDashboard",
+     "when": "cardConfiguration.includes('upcomingSessions')",
+     "text": "",
+     "tag": "UpcomingSessionsCard"
+    },
+    {
+     "kind": "text",
+     "line": 350,
+     "in": "UnifiedDashboard",
+     "when": "data.metadata",
+     "text": "Carga: {data.metadata.loadTimeMs} ms | Filtros: {Object.keys(data.metadata.appliedFi…} | Permisos: {data.metadata.permissions.join(', ')}"
+    },
+    {
+     "kind": "string",
+     "line": 109,
+     "in": "UnifiedDashboard",
+     "text": "Bearer {session.access_token}"
+    }
+   ],
+   "db": []
+  },
+  "components/dashboard/unified/UpcomingSessionsCard.tsx": {
+   "usedBy": [
+    "/admin/new-reporting"
+   ],
+   "lines": 191,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 40,
+     "in": "UpcomingSessionsCard",
+     "when": "!authSession?.access_token",
+     "text": "No hay sesión de autenticación",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 54,
+     "in": "UpcomingSessionsCard",
+     "when": "!response.ok",
+     "text": "Error al cargar sesiones",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 62,
+     "in": "UpcomingSessionsCard",
+     "text": "Error al cargar sesiones",
+     "via": "setError"
+    },
+    {
+     "kind": "nav",
+     "line": 77,
+     "in": "handleSessionClick",
+     "text": "/consultor/sessions/[*]",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 81,
+     "in": "handleViewAll",
+     "text": "/consultor/sessions",
+     "via": "router.push"
+    },
+    {
+     "kind": "text",
+     "line": 92,
+     "in": "UpcomingSessionsCard",
+     "when": "isEmpty",
+     "text": "No tiene sesiones próximas programadas"
+    },
+    {
+     "kind": "text",
+     "line": 97,
+     "in": "UpcomingSessionsCard",
+     "when": "!(isEmpty)",
+     "text": "Lista de próximas sesiones",
+     "attr": "aria-label"
+    },
+    {
+     "kind": "hook",
+     "line": 97,
+     "in": "UpcomingSessionsCard",
+     "when": "!(isEmpty)",
+     "text": "role=list",
+     "type": "role",
+     "tag": "ul",
+     "aria": "Lista de próximas sesiones"
+    },
+    {
+     "kind": "clickable",
+     "line": 103,
+     "in": "UpcomingSessionsCard",
+     "when": "!(isEmpty) && each sessions",
+     "text": "{session.title} [# {session.session_number}] {format(parseISO(session.session_dat…} {formatTime(session.start_time)} - …",
+     "tag": "li",
+     "action": "{() => handleSessionClick(session.id)}",
+     "aria": "{`Ver detalles de ${session.title}`}"
+    },
+    {
+     "kind": "heading",
+     "line": 112,
+     "in": "UpcomingSessionsCard",
+     "when": "!(isEmpty) && each sessions",
+     "text": "{session.title}",
+     "level": 4
+    },
+    {
+     "kind": "value",
+     "line": 116,
+     "in": "UpcomingSessionsCard",
+     "when": "!(isEmpty) && each sessions && session.recurrence_group_id && session.session_number",
+     "text": "# {session.session_number}"
+    },
+    {
+     "kind": "value",
+     "line": 123,
+     "in": "UpcomingSessionsCard",
+     "when": "!(isEmpty) && each sessions",
+     "text": "{format(parseISO(session.session_dat…}"
+    },
+    {
+     "kind": "value",
+     "line": 127,
+     "in": "UpcomingSessionsCard",
+     "when": "!(isEmpty) && each sessions",
+     "text": "{formatTime(session.start_time)} - {formatTime(session.end_time)}"
+    },
+    {
+     "kind": "value",
+     "line": 134,
+     "in": "UpcomingSessionsCard",
+     "when": "!(isEmpty) && each sessions",
+     "text": "{badge.label}"
+    },
+    {
+     "kind": "text",
+     "line": 149,
+     "in": "UpcomingSessionsCard",
+     "when": "!(isEmpty) && each sessions && isPendingReport",
+     "text": "⚠️ Informe pendiente"
+    },
+    {
+     "kind": "button",
+     "line": 157,
+     "in": "UpcomingSessionsCard",
+     "when": "!(isEmpty)",
+     "text": "Ver todas las sesiones",
+     "action": "{handleViewAll}"
+    },
+    {
+     "kind": "piece",
+     "line": 171,
+     "in": "UpcomingSessionsCard",
+     "text": "title: Próximas Sesiones · subtitle: Sesiones programadas y en progreso · priority: high · ariaLabel: Tarjeta de próximas sesiones de consultoría",
+     "tag": "DashboardCard",
+     "hook": {
+      "id": "upcoming-sessions"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 171,
+     "in": "UpcomingSessionsCard",
+     "text": "{mainContent}"
+    },
+    {
+     "kind": "string",
+     "line": 47,
+     "in": "UpcomingSessionsCard",
+     "text": "Bearer {authSession.access_token}"
+    }
+   ],
+   "db": []
+  },
+  "components/dashboard/unified/WorkspaceActivityCard.tsx": {
+   "usedBy": [
+    "/admin/new-reporting"
+   ],
+   "lines": 448,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 60,
+     "in": "WorkspaceActivityCard",
+     "text": "activityTypeConfig",
+     "items": [
+      "Mensajes",
+      "Documentos",
+      "Reuniones",
+      "Menciones",
+      "Colaboraciones"
+     ]
+    },
+    {
+     "kind": "value",
+     "line": 124,
+     "in": "EngagementMetric",
+     "text": "{value}% / {value.toLocaleString()}"
+    },
+    {
+     "kind": "value",
+     "line": 127,
+     "in": "EngagementMetric",
+     "text": "{label}"
+    },
+    {
+     "kind": "clickable",
+     "line": 138,
+     "in": "WorkspaceRow",
+     "text": "{workspace.workspaceName} {workspace.uniqueParticipants} participantes activos {totalActivities} actividades [{activity…",
+     "tag": "div",
+     "action": "{() => { setShowDetails(!showDetails); onWorkspaceClick?.(workspace.workspaceId)…}"
+    },
+    {
+     "kind": "heading",
+     "line": 147,
+     "in": "WorkspaceRow",
+     "text": "{workspace.workspaceName}",
+     "level": 4
+    },
+    {
+     "kind": "text",
+     "line": 150,
+     "in": "WorkspaceRow",
+     "text": "{workspace.uniqueParticipants} participantes activos"
+    },
+    {
+     "kind": "value",
+     "line": 156,
+     "in": "WorkspaceRow",
+     "text": "{totalActivities}"
+    },
+    {
+     "kind": "text",
+     "line": 159,
+     "in": "WorkspaceRow",
+     "text": "actividades"
+    },
+    {
+     "kind": "heading",
+     "line": 180,
+     "in": "WorkspaceRow",
+     "when": "showDetails",
+     "text": "Tipos de Actividad",
+     "level": 5
+    },
+    {
+     "kind": "gate",
+     "line": 186,
+     "in": "WorkspaceRow",
+     "when": "showDetails && each Object.entries(workspace.activityTypes)",
+     "text": "!config || count === 0"
+    },
+    {
+     "kind": "value",
+     "line": 192,
+     "in": "WorkspaceRow",
+     "when": "showDetails && each Object.entries(workspace.activityTypes)",
+     "text": "{config.label} :"
+    },
+    {
+     "kind": "value",
+     "line": 193,
+     "in": "WorkspaceRow",
+     "when": "showDetails && each Object.entries(workspace.activityTypes)",
+     "text": "{count}"
+    },
+    {
+     "kind": "heading",
+     "line": 202,
+     "in": "WorkspaceRow",
+     "when": "showDetails && workspace.recentActivity && workspace.recentActivity.length > 0",
+     "text": "Actividad Reciente",
+     "level": 5
+    },
+    {
+     "kind": "value",
+     "line": 209,
+     "in": "WorkspaceRow",
+     "when": "showDetails && workspace.recentActivity && workspace.recentActivity.length > 0 && each workspace.recentActivity.slice(0, 3)",
+     "text": "{activity.userName}"
+    },
+    {
+     "kind": "value",
+     "line": 211,
+     "in": "WorkspaceRow",
+     "when": "showDetails && workspace.recentActivity && workspace.recentActivity.length > 0 && each workspace.recentActivity.slice(0, 3)",
+     "text": "{new Date(activity.timestamp).toLoca…}"
+    },
+    {
+     "kind": "heading",
+     "line": 234,
+     "in": "WorkspaceActivityCard",
+     "text": "Actividad Colaborativa",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 238,
+     "in": "WorkspaceActivityCard",
+     "when": "isLiveMode",
+     "text": "En vivo"
+    },
+    {
+     "kind": "field",
+     "line": 244,
+     "in": "WorkspaceActivityCard",
+     "text": "",
+     "type": "select",
+     "action": "{(e) => setSelectedTimeframe(e.target.value as any)}",
+     "options": [
+      "24 horas",
+      "7 días",
+      "30 días"
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 258,
+     "in": "WorkspaceActivityCard",
+     "text": "label: Total de Actividades",
+     "tag": "EngagementMetric"
+    },
+    {
+     "kind": "piece",
+     "line": 264,
+     "in": "WorkspaceActivityCard",
+     "text": "label: Este Período",
+     "tag": "EngagementMetric"
+    },
+    {
+     "kind": "piece",
+     "line": 270,
+     "in": "WorkspaceActivityCard",
+     "text": "label: Promedio Participantes",
+     "tag": "EngagementMetric"
+    },
+    {
+     "kind": "piece",
+     "line": 277,
+     "in": "WorkspaceActivityCard",
+     "text": "label: Volumen de Mensajes",
+     "tag": "EngagementMetric"
+    },
+    {
+     "kind": "heading",
+     "line": 287,
+     "in": "WorkspaceActivityCard",
+     "text": "Espacios Más Activos ( {data.mostActiveWorkspaces.length} )",
+     "level": 4
+    },
+    {
+     "kind": "text",
+     "line": 299,
+     "in": "WorkspaceActivityCard",
+     "when": "!(data.mostActiveWorkspaces.length > 0)",
+     "text": "No hay actividad colaborativa registrada"
+    },
+    {
+     "kind": "text",
+     "line": 301,
+     "in": "WorkspaceActivityCard",
+     "when": "!(data.mostActiveWorkspaces.length > 0)",
+     "text": "Los espacios colaborativos aparecerán aquí cuando haya actividad"
+    },
+    {
+     "kind": "heading",
+     "line": 312,
+     "in": "WorkspaceActivityCard",
+     "text": "Análisis Detallado de Actividad",
+     "level": 4
+    },
+    {
+     "kind": "heading",
+     "line": 316,
+     "in": "WorkspaceActivityCard",
+     "text": "Línea de Tiempo de Actividad",
+     "level": 5
+    },
+    {
+     "kind": "text",
+     "line": 322,
+     "in": "WorkspaceActivityCard",
+     "text": "Gráfico de actividad disponible próximamente"
+    },
+    {
+     "kind": "text",
+     "line": 323,
+     "in": "WorkspaceActivityCard",
+     "text": "{data.activityTimeline.length} puntos de datos disponibles"
+    },
+    {
+     "kind": "heading",
+     "line": 333,
+     "in": "WorkspaceActivityCard",
+     "text": "Métricas de Participación",
+     "level": 5
+    },
+    {
+     "kind": "piece",
+     "line": 337,
+     "in": "WorkspaceActivityCard",
+     "text": "label: Mensajes Enviados",
+     "tag": "EngagementMetric"
+    },
+    {
+     "kind": "piece",
+     "line": 343,
+     "in": "WorkspaceActivityCard",
+     "text": "label: Documentos Compartidos",
+     "tag": "EngagementMetric"
+    },
+    {
+     "kind": "piece",
+     "line": 349,
+     "in": "WorkspaceActivityCard",
+     "text": "label: Asistencia a Reuniones",
+     "tag": "EngagementMetric"
+    },
+    {
+     "kind": "heading",
+     "line": 360,
+     "in": "WorkspaceActivityCard",
+     "text": "Patrones de Colaboración",
+     "level": 5
+    },
+    {
+     "kind": "text",
+     "line": 365,
+     "in": "WorkspaceActivityCard",
+     "text": "Espacios Activos:"
+    },
+    {
+     "kind": "value",
+     "line": 366,
+     "in": "WorkspaceActivityCard",
+     "text": "{data.mostActiveWorkspaces.length}"
+    },
+    {
+     "kind": "text",
+     "line": 371,
+     "in": "WorkspaceActivityCard",
+     "text": "Promedio Actividades/Espacio:"
+    },
+    {
+     "kind": "value",
+     "line": 372,
+     "in": "WorkspaceActivityCard",
+     "text": "{Math.round(data.totalActivities / d…}"
+    },
+    {
+     "kind": "text",
+     "line": 380,
+     "in": "WorkspaceActivityCard",
+     "text": "Participación Promedio:"
+    },
+    {
+     "kind": "value",
+     "line": 381,
+     "in": "WorkspaceActivityCard",
+     "text": "{data.engagementMetrics.averageParti…}"
+    },
+    {
+     "kind": "text",
+     "line": 387,
+     "in": "WorkspaceActivityCard",
+     "when": "activityTrend",
+     "text": "Tendencia:"
+    },
+    {
+     "kind": "heading",
+     "line": 406,
+     "in": "WorkspaceActivityCard",
+     "text": "💡 Recomendaciones para Mejorar la Colaboración",
+     "level": 5
+    },
+    {
+     "kind": "text",
+     "line": 411,
+     "in": "WorkspaceActivityCard",
+     "when": "data.engagementMetrics.averageParticipantsPerActivity < 3",
+     "text": "• Considerar actividades que fomenten la participación grupal"
+    },
+    {
+     "kind": "text",
+     "line": 414,
+     "in": "WorkspaceActivityCard",
+     "when": "data.engagementMetrics.documentShares < 10",
+     "text": "• Promover el intercambio de recursos y documentos entre usuarios"
+    },
+    {
+     "kind": "text",
+     "line": 417,
+     "in": "WorkspaceActivityCard",
+     "when": "data.mostActiveWorkspaces.length < 3",
+     "text": "• Crear más espacios colaborativos temáticos para aumentar la participación"
+    },
+    {
+     "kind": "text",
+     "line": 419,
+     "in": "WorkspaceActivityCard",
+     "text": "• Reconocer y destacar las comunidades más activas como ejemplo"
+    },
+    {
+     "kind": "piece",
+     "line": 426,
+     "in": "WorkspaceActivityCard",
+     "text": "title: Actividad en Espacios Colaborativos · subtitle: {data.totalActivities} actividades registradas · priority: medium · ariaLabel: Workspace activity dashboard card showing collaborative engagement metrics",
+     "tag": "DashboardCard",
+     "hook": {
+      "id": "workspace-activity"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 426,
+     "in": "WorkspaceActivityCard",
+     "text": "{mainContent}"
+    }
+   ],
+   "db": []
+  },
+  "components/layout/Header.tsx": {
+   "usedBy": [
+    "/dashboard-old"
+   ],
+   "lines": 110,
+   "rows": [
+    {
+     "kind": "link",
+     "line": 62,
+     "in": "Header",
+     "text": "Hub de Transformación",
+     "target": "/"
+    },
+    {
+     "kind": "link",
+     "line": 63,
+     "in": "Header",
+     "text": "Hub de Transformación",
+     "target": ""
+    },
+    {
+     "kind": "text",
+     "line": 71,
+     "in": "Header",
+     "screen": "hidden sm:flex",
+     "text": "Sin colegio",
+     "attr": "title"
+    },
+    {
+     "kind": "text",
+     "line": 71,
+     "in": "Header",
+     "screen": "hidden sm:flex",
+     "text": "{schoolName} / Sin colegio"
+    },
+    {
+     "kind": "piece",
+     "line": 85,
+     "in": "Header",
+     "when": "isLoggedIn",
+     "text": "",
+     "tag": "NotificationBell"
+    },
+    {
+     "kind": "text",
+     "line": 89,
+     "in": "Header",
+     "when": "isLoggedIn",
+     "text": "{localUser?.email?.substring(0, 2).t…} / US"
+    },
+    {
+     "kind": "link",
+     "line": 96,
+     "in": "Header",
+     "when": "!(isLoggedIn)",
+     "text": "Iniciar Sesión",
+     "target": "/login"
+    },
+    {
+     "kind": "link",
+     "line": 97,
+     "in": "Header",
+     "when": "!(isLoggedIn)",
+     "text": "Iniciar Sesión",
+     "target": ""
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "components/learning-paths/LearningPathCard.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 196,
+   "rows": [
+    {
+     "kind": "clickable",
+     "line": 72,
+     "in": "LearningPathCard",
+     "text": "Nivel 2 / 1 [Completado] {name} [{description}] Progreso {Math.round(progressPercentage)} % {completedCourses} de {tota…",
+     "tag": "div",
+     "action": "{onClick}"
+    },
+    {
+     "kind": "text",
+     "line": 92,
+     "in": "LearningPathCard",
+     "text": "Nivel 2 / 1"
+    },
+    {
+     "kind": "text",
+     "line": 105,
+     "in": "LearningPathCard",
+     "when": "isCompleted",
+     "text": "Completado"
+    },
+    {
+     "kind": "heading",
+     "line": 111,
+     "in": "LearningPathCard",
+     "text": "{name}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 117,
+     "in": "LearningPathCard",
+     "when": "description",
+     "text": "{description}"
+    },
+    {
+     "kind": "text",
+     "line": 131,
+     "in": "LearningPathCard",
+     "text": "Progreso"
+    },
+    {
+     "kind": "value",
+     "line": 133,
+     "in": "LearningPathCard",
+     "text": "{Math.round(progressPercentage)} %"
+    },
+    {
+     "kind": "text",
+     "line": 161,
+     "in": "LearningPathCard",
+     "text": "{completedCourses} de {totalCourses} cursos"
+    },
+    {
+     "kind": "value",
+     "line": 165,
+     "in": "LearningPathCard",
+     "text": "{formatDistanceToNow(new Date(assign…}"
+    },
+    {
+     "kind": "text",
+     "line": 185,
+     "in": "LearningPathCard",
+     "when": "!isCompleted",
+     "text": "Continuar aprendiendo / Comenzar ruta"
+    }
+   ],
+   "db": []
+  },
+  "components/notifications/NotificationBell.tsx": {
+   "usedBy": [
+    "/dashboard-old"
+   ],
+   "lines": 239,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 9,
+     "text": "LOAD_ERROR",
+     "items": [
+      "No se pudieron cargar las notificaciones"
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 62,
+     "in": "fetchNotifications",
+     "when": "result.success && newUnreadCount > unreadCount && unreadCount > 0",
+     "text": "setTimeout(…, 2000)",
+     "type": "timer"
+    },
+    {
+     "kind": "hook",
+     "line": 149,
+     "in": "NotificationBell",
+     "when": "isOpen",
+     "text": "document.addEventListener('mousedown')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 161,
+     "in": "NotificationBell",
+     "text": "setInterval(…, REFRESH_INTERVAL)",
+     "type": "timer"
+    },
+    {
+     "kind": "button",
+     "line": 180,
+     "in": "NotificationBell",
+     "text": "[99+ / {unreadCount}]",
+     "action": "{handleBellClick}",
+     "aria": "{`Notificaciones${unreadCount > 0 ? ` (${unreadCount} ${unreadCount === 1 ? 'no …}"
+    },
+    {
+     "kind": "piece",
+     "line": 223,
+     "in": "NotificationBell",
+     "when": "isOpen",
+     "text": "",
+     "tag": "NotificationDropdown"
+    },
+    {
+     "kind": "string",
+     "line": 43,
+     "in": "NotificationBell",
+     "text": "Bearer {session.access_token}"
+    },
+    {
+     "kind": "string",
+     "line": 50,
+     "in": "NotificationBell",
+     "text": "{LOAD_ERROR} (código {response.status})."
+    },
+    {
+     "kind": "string",
+     "line": 192,
+     "in": "NotificationBell",
+     "text": "no leída"
+    },
+    {
+     "kind": "string",
+     "line": 192,
+     "in": "NotificationBell",
+     "text": "no leídas"
+    }
+   ],
+   "db": []
+  },
+  "components/notifications/NotificationDropdown.tsx": {
+   "usedBy": [
+    "/dashboard-old"
+   ],
+   "lines": 370,
+   "rows": [
+    {
+     "kind": "toast",
+     "line": 106,
+     "in": "handleNotificationClick",
+     "when": "notification.related_url && !session?.user",
+     "text": "Sesión no válida",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 116,
+     "in": "handleNotificationClick",
+     "when": "notification.related_url",
+     "text": "{notification.related_url!}",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 126,
+     "in": "handleNotificationClick",
+     "when": "notification.related_url && notification.related_url",
+     "text": "{notification.related_url}",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 166,
+     "in": "handleNotificationClick",
+     "when": "!(notification.related_url)",
+     "text": "{fallbackUrl}",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 174,
+     "in": "handleViewAll",
+     "text": "/notifications",
+     "via": "router.push"
+    },
+    {
+     "kind": "heading",
+     "line": 182,
+     "in": "NotificationDropdown",
+     "text": "Notificaciones",
+     "level": 3
+    },
+    {
+     "kind": "link",
+     "line": 187,
+     "in": "NotificationDropdown",
+     "text": "[icon CogIcon]",
+     "target": "/configuracion/notificaciones",
+     "action": "{onClose}",
+     "hook": {
+      "testid": "notification-dropdown-settings"
+     },
+     "aria": "Configuración de notificaciones"
+    },
+    {
+     "kind": "piece",
+     "line": 195,
+     "in": "NotificationDropdown",
+     "text": "aria-hidden: true",
+     "tag": "CogIcon"
+    },
+    {
+     "kind": "button",
+     "line": 199,
+     "in": "NotificationDropdown",
+     "text": "[icon RefreshIcon]",
+     "action": "{onRefresh}",
+     "disabled": "{loading}",
+     "title": "Actualizar"
+    },
+    {
+     "kind": "button",
+     "line": 210,
+     "in": "NotificationDropdown",
+     "when": "unreadCount > 0",
+     "text": "Marcar todas como leídas",
+     "action": "{onMarkAllAsRead}",
+     "title": "Marcar todas como leídas"
+    },
+    {
+     "kind": "text",
+     "line": 223,
+     "in": "NotificationDropdown",
+     "when": "unreadCount > 0",
+     "text": "{unreadCount} notificación es sin leer"
+    },
+    {
+     "kind": "text",
+     "line": 235,
+     "in": "NotificationDropdown",
+     "when": "loading && notifications.length === 0",
+     "text": "Cargando notificaciones..."
+    },
+    {
+     "kind": "value",
+     "line": 243,
+     "in": "NotificationDropdown",
+     "when": "error",
+     "text": "{error}"
+    },
+    {
+     "kind": "button",
+     "line": 244,
+     "in": "NotificationDropdown",
+     "when": "error",
+     "text": "Intentar de nuevo",
+     "action": "{onRefresh}"
+    },
+    {
+     "kind": "text",
+     "line": 257,
+     "in": "NotificationDropdown",
+     "when": "!loading && !error && notifications.length === 0",
+     "text": "No tienes notificaciones"
+    },
+    {
+     "kind": "clickable",
+     "line": 268,
+     "in": "NotificationDropdown",
+     "when": "!loading && !error && notifications.length > 0 && each notifications",
+     "text": "{notification.title} [{notification.description}] {getRelativeTime(notification.create…} [[Admin] [Tareas] [Cursos] [Me…",
+     "tag": "div",
+     "action": "{() => handleNotificationClick(notification)}"
+    },
+    {
+     "kind": "value",
+     "line": 295,
+     "in": "NotificationDropdown",
+     "when": "!loading && !error && notifications.length > 0 && each notifications",
+     "text": "{notification.title}"
+    },
+    {
+     "kind": "value",
+     "line": 303,
+     "in": "NotificationDropdown",
+     "when": "!loading && !error && notifications.length > 0 && each notifications && notification.description",
+     "text": "{notification.description}"
+    },
+    {
+     "kind": "value",
+     "line": 312,
+     "in": "NotificationDropdown",
+     "when": "!loading && !error && notifications.length > 0 && each notifications",
+     "text": "{getRelativeTime(notification.create…}"
+    },
+    {
+     "kind": "text",
+     "line": 318,
+     "in": "NotificationDropdown",
+     "when": "!loading && !error && notifications.length > 0 && each notifications && notification.notification_type",
+     "text": "[Admin] [Tareas] [Cursos] [Mensajes] [Social] [Feedback] [Sistema] [Workspace]"
+    },
+    {
+     "kind": "button",
+     "line": 357,
+     "in": "NotificationDropdown",
+     "when": "notifications.length > 0",
+     "text": "Ver todas las notificaciones",
+     "action": "{handleViewAll}"
+    },
+    {
+     "kind": "list",
+     "line": 82,
+     "in": "getRelativeTime",
+     "text": "getRelativeTime()",
+     "items": [
+      "ahora mismo",
+      "hace {minutes} min",
+      "hace {hours}h",
+      "hace {days}d"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "components/ui/dialog.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 121,
+   "rows": [
+    {
+     "kind": "text",
+     "line": 47,
+     "screen": "sr-only",
+     "text": "Close"
+    }
+   ],
+   "db": []
+  },
+  "constants/externalSchools.ts": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 28,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 7,
+     "text": "EXTERNAL_SCHOOLS",
+     "items": [
+      "Escola Virolai",
+      "Escola Sadako",
+      "Institut Angeleta Ferrer",
+      "Institut Escola Les Vinyes",
+      "Escola La Maquinista",
+      "Institut Escola El Puig",
+      "Escola Octavio Paz"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "constants/toastStyles.ts": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 99,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 20,
+     "text": "baseStyle",
+     "items": [
+      "0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08)",
+      "Inter, system-ui, -apple-system, sans-serif"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "lib/services/badgeService.ts": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 136,
+   "rows": [
+    {
+     "kind": "string",
+     "line": 60,
+     "in": "BadgeService",
+     "text": "Badge system not configured"
+    },
+    {
+     "kind": "string",
+     "line": 69,
+     "in": "BadgeService",
+     "text": "Badge already awarded"
+    },
+    {
+     "kind": "string",
+     "line": 77,
+     "in": "BadgeService",
+     "text": "Badge awarded successfully"
+    },
+    {
+     "kind": "string",
+     "line": 83,
+     "in": "BadgeService",
+     "text": "Failed to award badge"
+    }
+   ],
+   "db": [
+    {
+     "what": "rpc:award_course_completion_badge",
+     "ops": []
+    },
+    {
+     "what": "table:user_badges",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_badges_with_details",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "lib/services/communityWorkspace.js": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 166,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 3,
+     "text": "communityWorkspaceService",
+     "items": [
+      "No se proporcionó ningún archivo",
+      "El archivo debe ser menor a 5MB",
+      "Solo se permiten imágenes (JPEG, PNG, WebP)",
+      "Error al subir la imagen"
+     ]
+    },
+    {
+     "kind": "message",
+     "line": 36,
+     "in": "uploadCommunityImage",
+     "when": "!file",
+     "text": "No se proporcionó ningún archivo",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 42,
+     "in": "uploadCommunityImage",
+     "when": "file.size > maxSize",
+     "text": "El archivo debe ser menor a 5MB",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 48,
+     "in": "uploadCommunityImage",
+     "when": "!allowedTypes.includes(file.type)",
+     "text": "Solo se permiten imágenes (JPEG, PNG, WebP)",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "access",
+     "line": 155,
+     "in": "canEditWorkspace",
+     "text": "canEdit = roles.some(role => role.role_type === 'admin' || role.community_id === workspace.community_id )",
+     "via": "declaration"
+    }
+   ],
+   "db": [
+    {
+     "what": "bucket:community-images",
+     "ops": [
+      "getPublicUrl",
+      "remove",
+      "upload"
+     ]
+    },
+    {
+     "what": "table:community_workspaces",
+     "ops": [
+      "select",
+      "update"
+     ]
+    },
+    {
+     "what": "table:user_roles",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "lib/utils/session-ui-helpers.tsx": {
+   "usedBy": [
+    "/admin/new-reporting"
+   ],
+   "lines": 122,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 23,
+     "in": "getStatusBadge",
+     "text": "badges",
+     "items": [
+      "Borrador",
+      "Pendiente Aprobación",
+      "Programada",
+      "En Progreso",
+      "Pendiente Informe",
+      "Completada",
+      "Cancelada"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "src/components/CheckUserRole.tsx": {
+   "usedBy": [
+    "/dashboard-old"
+   ],
+   "lines": 73,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 21,
+     "in": "checkUserRole",
+     "when": "!session?.user",
+     "text": "No authenticated user found",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 40,
+     "in": "checkUserRole",
+     "when": "!(user)",
+     "text": "User data not found",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 43,
+     "in": "checkUserRole",
+     "text": "An unknown error occurred",
+     "via": "setError"
+    },
+    {
+     "kind": "text",
+     "line": 54,
+     "in": "CheckUserRole",
+     "when": "loading",
+     "text": "Checking user role..."
+    },
+    {
+     "kind": "text",
+     "line": 58,
+     "in": "CheckUserRole",
+     "when": "error",
+     "text": "Error: {error}"
+    },
+    {
+     "kind": "heading",
+     "line": 63,
+     "in": "CheckUserRole",
+     "text": "User Information",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 65,
+     "in": "CheckUserRole",
+     "text": "Email:"
+    },
+    {
+     "kind": "text",
+     "line": 65,
+     "in": "CheckUserRole",
+     "text": "Not available"
+    },
+    {
+     "kind": "text",
+     "line": 66,
+     "in": "CheckUserRole",
+     "text": "Role:"
+    },
+    {
+     "kind": "text",
+     "line": 66,
+     "in": "CheckUserRole",
+     "text": "Not available"
+    }
+   ],
+   "db": []
+  },
+  "types/roles.ts": {
+   "usedBy": [
+    "/admin/new-reporting",
+    "/dashboard-old",
+    "/dashboard"
+   ],
+   "lines": 515,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 305,
+     "text": "ROLE_NAMES",
+     "items": [
+      "Administrador Global",
+      "Consultor FNE",
+      "Equipo Directivo",
+      "Líder de Generación",
+      "Líder de Comunidad",
+      "Supervisor de Red",
+      "Community Manager",
+      "Docente",
+      "Encargado de Licitacion"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 318,
+     "text": "ROLE_DESCRIPTIONS",
+     "items": [
+      "Staff de FNE con control total de la plataforma. Pueden pertenecer a comunidades para colaboración.",
+      "Consultores FNE asignados a colegios específicos. Pueden pertenecer a comunidades para colaboración.",
+      "Administradores a nivel de colegio. Pueden pertenecer a comunidades para colaboración.",
+      "Líderes de generaciones Tractor/Innova. Pueden pertenecer a comunidades para colaboración.",
+      "Líderes de Comunidades de Crecimiento (2-16 miembros). Crean automáticamente su propia comunidad.",
+      "Supervisores con acceso limitado a reportes de una red específica de colegios. Pueden inscribirse en cursos como estudiantes.",
+      "Gestores de comunidad con acceso a panel, perfil, aprendizaje, cursos y rendición de gastos.",
+      "Docentes participantes en cursos. Pueden pertenecer a comunidades para colaboración.",
+      "Encargados de procesos de licitacion en establecimientos educacionales. Gestionan el proceso de contratacion de ATEs bajo Ley SEP."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 342,
+     "text": "ROLE_ORGANIZATIONAL_REQUIREMENTS",
+     "items": [
+      "Global role - no organizational scope required",
+      "Must be assigned to a specific school",
+      "Must be assigned to a specific school and generation",
+      "Must be assigned to a school (community auto-created)",
+      "Network-level role - no specific school required",
+      "Content management role - no organizational scope required",
+      "Must be assigned to a specific school for procurement management"
+     ]
+    },
+    {
+     "kind": "string",
+     "line": 413,
+     "in": "validateRoleAssignment",
+     "text": "Unknown role type: {roleType}"
+    },
+    {
+     "kind": "string",
+     "line": 421,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a school assignment"
+    },
+    {
+     "kind": "string",
+     "line": 429,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a generation assignment"
+    },
+    {
+     "kind": "string",
+     "line": 437,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a community assignment"
+    }
+   ],
+   "db": []
+  },
+  "utils/roleUtils.ts": {
+   "usedBy": [
+    "/admin/new-reporting",
+    "/dashboard"
+   ],
+   "lines": 1605,
+   "rows": [
+    {
+     "kind": "access",
+     "line": 161,
+     "in": "hasAdminPrivileges",
+     "text": "return await isGlobalAdmin(supabase, userId);",
+     "via": "isGlobalAdmin"
+    },
+    {
+     "kind": "access",
+     "line": 1151,
+     "in": "getEffectiveRoleAndStatus",
+     "text": "userRoles = await getUserRoles(supabase, userId)",
+     "via": "getUserRoles"
+    },
+    {
+     "kind": "access",
+     "line": 1152,
+     "in": "getEffectiveRoleAndStatus",
+     "text": "highestRole = getHighestRole(userRoles)",
+     "via": "getHighestRole"
+    },
+    {
+     "kind": "access",
+     "line": 1158,
+     "in": "getEffectiveRoleAndStatus",
+     "text": "isAdmin = await hasAdminPrivileges(supabase, userId)",
+     "via": "declaration"
+    },
+    {
+     "kind": "access",
+     "line": 1158,
+     "in": "getEffectiveRoleAndStatus",
+     "text": "isAdmin = await hasAdminPrivileges(supabase, userId)",
+     "via": "hasAdminPrivileges"
+    },
+    {
+     "kind": "access",
+     "line": 1186,
+     "in": "getUserPrimaryRole",
+     "text": "userRoles = await getUserRoles(supabase, userId)",
+     "via": "getUserRoles"
+    },
+    {
+     "kind": "access",
+     "line": 1187,
+     "in": "getUserPrimaryRole",
+     "text": "highestRole = getHighestRole(userRoles)",
+     "via": "getHighestRole"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:generations",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:growth_communities",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:schools",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles_cache",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "utils/toastUtils.ts": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 235,
+   "rows": [
+    {
+     "kind": "toast",
+     "line": 36,
+     "in": "toastSuccess",
+     "text": "{message}",
+     "variant": "success"
+    }
+   ],
+   "db": []
+  },
+  "utils/workspaceUtils.ts": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 493,
+   "rows": [],
+   "db": [
+    {
+     "what": "table:community_workspaces",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  }
+ },
+ "api": [
+  {
+   "file": "pages/api/badges/award-and-announce.ts",
+   "route": "/api/badges/award-and-announce",
+   "methods": [
+    "POST"
+   ],
+   "guards": [
+    "auth.getUser"
+   ],
+   "calledBy": [],
+   "referencedIn": []
+  },
+  {
+   "file": "pages/api/course-proposals/[id].ts",
+   "route": "/api/course-proposals/[id]",
+   "methods": [
+    "DELETE",
+    "PUT"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/dashboard"
+   ],
+   "referencedIn": [
+    "__tests__/api/upcoming-courses/metadata-authority.test.ts",
+    "components/course-proposals/CourseProposalSection.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/course-proposals/index.ts",
+   "route": "/api/course-proposals",
+   "methods": [
+    "GET",
+    "POST"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/dashboard"
+   ],
+   "referencedIn": [
+    "__tests__/api/upcoming-courses/metadata-authority.test.ts",
+    "components/course-proposals/CourseProposalSection.tsx",
+    "tests/e2e/panel-pin.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/dashboard/stats.ts",
+   "route": "/api/dashboard/stats",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "auth.getUser"
+   ],
+   "calledBy": [
+    "/dashboard"
+   ],
+   "referencedIn": [
+    "pages/dashboard.tsx",
+    "tests/e2e/meeting-finalize-email-outcome.spec.ts",
+    "tests/e2e/panel-pin.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/dashboard/unified.ts",
+   "route": "/api/dashboard/unified",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "auth.getUser"
+   ],
+   "calledBy": [
+    "/admin/new-reporting"
+   ],
+   "referencedIn": [
+    "components/dashboard/unified/UnifiedDashboard.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/youtube/latest.ts",
+   "route": "/api/youtube/latest",
+   "methods": [
+    "GET"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/dashboard"
+   ],
+   "referencedIn": [
+    "pages/dashboard.tsx",
+    "tests/e2e/meeting-finalize-email-outcome.spec.ts",
+    "tests/e2e/panel-pin.spec.ts"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,1000 @@
+{
+ "about": "Hand-written notes that the script merges into the area pages and never overwrites. kind: approved-change (decided by Brent with the mock-ups; not a loss), note (must not be lost). screen: an address of the inventory, or (frame). The repository is public: behaviour problems and what was seen on a walk by sight are NOT kept here but in a private folder (see the head of scripts/redesign/inventory.mjs); the script refuses a note of those kinds in this file.",
+ "notes": [
+  {
+   "screen": "(frame)",
+   "kind": "approved-change",
+   "text": "Sidebar head: today an icon with «GENERA» / «Hub de Transformación» / «by FNE» (Sidebar.tsx l.1505-1533), icon only when collapsed. Mock-up: G mark + «Genera» + «Hub de Transformación · by FNE»; when collapsed the head is hidden and only the toggle shows.",
+   "source": "marco.md, Sidebar table, row 'Logo block'; LEDGER Choices, Phase 1 Frame; frame approved by Brent 13 Nov 2026 00:50"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "approved-change",
+   "text": "The notification bell moves from the sidebar head (shown only when the menu is expanded, Sidebar.tsx l.1537) to the top bar, always visible.",
+   "source": "marco.md, Sidebar table, row 'Notification bell'; LEDGER Choices, Phase 1 Frame; frame approved by Brent 13 Nov 2026 00:50"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "note",
+   "text": "The mock-up uses the same NAVIGATION_ITEMS array, ids and test ids, but simplifies the 9 visibility gates (Sidebar.tsx l.1414-1479, childVisibility.ts) for 4 sample users only. The real gates must survive the build.",
+   "source": "marco.md, Sidebar table, row 'Menu entries'"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "approved-change",
+   "text": "Menu entries keep one line. Today's second line (the entry description) becomes a tooltip on hover when expanded, and stays in the flyout header and child lines when collapsed.",
+   "source": "marco.md, Sidebar table, row 'Entry description'; LEDGER Choices, Phase 1 Frame; frame approved by Brent 13 Nov 2026 00:50"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "approved-change",
+   "text": "Active entry look: today black fill + yellow bar (child: grey fill); mock-up: bar + lighter fill + coloured icon, child the same. The notes say gold; the colours were later changed to the brand kit (13 Nov 2026 09:13).",
+   "source": "marco.md, Sidebar table, row 'Active entry'; frame approved by Brent 13 Nov 2026 00:50"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "approved-change",
+   "text": "The count of new support reports on «Gestión» and «Soporte Técnico» (Sidebar.tsx l.928, 1006, 1051) changes from a red pill to a gold pill, same two places.",
+   "source": "marco.md, Sidebar table, row 'Count of new support reports'; frame approved by Brent 13 Nov 2026 00:50"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "approved-change",
+   "text": "Collapsed menu: the number of children on a yellow dot on each group icon (Sidebar.tsx l.948) is dropped.",
+   "source": "marco.md, Sidebar table, row 'Collapsed: number of children'; LEDGER Choices, Phase 1 Frame; frame approved by Brent 13 Nov 2026 00:50"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "approved-change",
+   "text": "The empty footer strip of the sidebar (Sidebar.tsx l.1587) gets a new line «Fundación Nueva Educación».",
+   "source": "marco.md, Sidebar table, row 'Empty footer strip'; frame approved by Brent 13 Nov 2026 00:50"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "approved-change",
+   "text": "Top bar: today a black bar 80 px high (MainLayout.tsx l.333-384); mock-up: a white bar 56 px high with a hairline.",
+   "source": "marco.md, Top bar table, row 'Black bar 80 px'; frame approved by Brent 13 Nov 2026 00:50"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "approved-change",
+   "text": "The QA simulation banner keeps its text and hooks («QA INTERNO — DATOS SINTÉTICOS EN PRODUCCIÓN — NO ES PILOTO REAL», qa-simulation-banner) but is drawn in warning colours.",
+   "source": "marco.md, Under the bar table, row 'QA simulation banner'; frame approved by Brent 13 Nov 2026 00:50"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "approved-change",
+   "text": "Breadcrumbs (breadcrumbs prop, 109 call sites) move from a white strip under the bar into the top bar; on phones only the last crumb shows.",
+   "source": "marco.md, Under the bar table, row 'Breadcrumbs'; LEDGER Choices, Phase 1 Frame; frame approved by Brent 13 Nov 2026 00:50"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "approved-change",
+   "text": "The page title h1 (pageTitle prop, 57 real titles) becomes a page header with eyebrow, title in Mont, subtitle and actions.",
+   "source": "marco.md, Under the bar table, row 'Page title h1'; frame approved by Brent 13 Nov 2026 00:50"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "approved-change",
+   "text": "FunctionalPageHeader's slots (icon, title, subtitle, search box, primary action, children) move into the new page header; the primary action becomes an azul pill, or gold with azul-profundo text (colours since changed to the brand kit, 13 Nov 2026 09:13).",
+   "source": "marco.md, Under the bar table, row 'FunctionalPageHeader'; frame approved by Brent 13 Nov 2026 00:50"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "note",
+   "text": "Notification loading, empty and error states («Cargando notificaciones...», «Sin notificaciones» + «Te notificaremos cuando tengas algo nuevo», «Error al cargar») use the foundations' empty and loading pieces; not all are drawn in the frame, but they must survive.",
+   "source": "marco.md, Notifications table, row 'Loading / empty / error'"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "approved-change",
+   "text": "The public site's big footer under every platform page loses its logo, mission paragraph and «Síguenos» social links (LinkedIn, Instagram, Facebook, X, YouTube).",
+   "source": "marco.md, Footer table, row 'Logo, mission paragraph'; LEDGER Choices, Phase 1 Frame; frame approved by Brent 13 Nov 2026 00:50"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "approved-change",
+   "text": "The footer becomes one line holding the same six «Navegación» links (Pasantías, Programas, Noticias y Eventos, Nosotros, Equipo, Contacto) and the same three items «Política de Privacidad», «Términos de Uso», «ATE certificada por RPA Mineduc».",
+   "source": "marco.md, Footer table, rows 'Navegación' and 'Política de Privacidad'; frame approved by Brent 13 Nov 2026 00:50"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "approved-change",
+   "text": "Footer «Contacto»: «Santiago, Chile» is kept; the address info@nuevaeducacion.org and the «Hub de Transformación» button to /login are dropped (the user is already signed in).",
+   "source": "marco.md, Footer table, row 'Contacto'; frame approved by Brent 13 Nov 2026 00:50"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "approved-change",
+   "text": "The floating feedback button keeps its place and labels («¿Encontraste un problema? ¡Cuéntanos!», «Enviar feedback») but is azul and no longer pulses.",
+   "source": "marco.md, Feedback button table, row 'Floating round button'; frame approved by Brent 13 Nov 2026 00:50"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "approved-change",
+   "text": "Feedback messages («La imagen no puede superar 5MB», «Por favor describe el problema o sugerencia», «Error al enviar el feedback») use the shared error toast piece.",
+   "source": "marco.md, Feedback button table, row 'Messages'; frame approved by Brent 13 Nov 2026 00:50"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "approved-change",
+   "text": "Toasts sit above the feedback button instead of covering it.",
+   "source": "marco.md, Feedback button table, row 'Shares the corner with the toasts'; frame approved by Brent 13 Nov 2026 00:50"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "note",
+   "text": "Not drawn, must survive the build: QAFloatingWidget (lazy, during a QA test run) and the driver.js tours on the five admin/qa pages (styles/tour.css).",
+   "source": "marco.md, 'Not drawn, must survive the build', bullet 1"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "note",
+   "text": "Not drawn, must survive the build: DynamicFavicon and the theme-color meta (#0a0a0a today).",
+   "source": "marco.md, 'Not drawn, must survive the build', bullet 2"
+  },
+  {
+   "screen": "(frame)",
+   "kind": "note",
+   "text": "Not drawn, must survive the build: the school name fetch, the avatar cache (sessionStorage['fne-avatar-cache']) and the support-count poll.",
+   "source": "marco.md, 'Not drawn, must survive the build', bullet 3"
+  },
+  {
+   "screen": "/dashboard",
+   "kind": "approved-change",
+   "text": "New layout: a main column with what the person is doing, then a side column (under it on narrow screens) with the community card, the three statistics cards, «Últimas Noticias» (three compact rows) and «Videos Recientes» (two cards). Nothing was removed.",
+   "source": "panel.md §8, 'rethink in one line' and table rows 1.2, 1.5, 1.3, 1.4; approved by Brent 13 Nov 2026 01:02"
+  },
+  {
+   "screen": "/dashboard",
+   "kind": "approved-change",
+   "text": "Order of sections changed: main column «Continuar Aprendiendo» (was 9th), «Mis Rutas de Aprendizaje», «Mis Cursos Abiertos», «Próximos Cursos», «Propuestas de Cursos», «Mis Logros». Conditions for showing each section are unchanged.",
+   "source": "panel.md §8 table and behaviour change 5; approved by Brent 13 Nov 2026 01:02"
+  },
+  {
+   "screen": "/dashboard",
+   "kind": "approved-change",
+   "text": "The welcome band becomes an azul band (colours since changed to the brand kit) with avatar, «¡Hola, {nombre}!», subtitle, the consultor's partner-school line and «Mi Perfil»; «Mi Perfil» now also shows on phones.",
+   "source": "panel.md §8 table row 1.1 and behaviour change 4; approved by Brent 13 Nov 2026 01:02"
+  },
+  {
+   "screen": "/dashboard",
+   "kind": "approved-change",
+   "text": "Course and upcoming cards no longer open on hover. Progress and the action («Continuar» / «Comenzar») are always visible; the description, pills, «Objetivos de aprendizaje» and «Disponible en {fecha}» open with a new button. New text: «Detalles».",
+   "source": "panel.md §8 behaviour change 1 and table row 1.6; approved by Brent 13 Nov 2026 01:02"
+  },
+  {
+   "screen": "/dashboard",
+   "kind": "approved-change",
+   "text": "Every row that scrolls sideways shows the arrows «Desplazar izquierda» / «Desplazar derecha» whenever there is more, not only on hover and not only on the two course rows.",
+   "source": "panel.md §8 behaviour change 2; approved by Brent 13 Nov 2026 01:02"
+  },
+  {
+   "screen": "/dashboard",
+   "kind": "approved-change",
+   "text": "The course card's picture is a link to the course (today a click on the card body does nothing on desktop).",
+   "source": "panel.md §8 behaviour change 3; approved by Brent 13 Nov 2026 01:02"
+  },
+  {
+   "screen": "/dashboard",
+   "kind": "approved-change",
+   "text": "«Mis Rutas de Aprendizaje» shows up to 3 cards and the whole card is a link, with «Ver todas».",
+   "source": "panel.md §8 table row 1.10; approved by Brent 13 Nov 2026 01:02"
+  },
+  {
+   "screen": "/dashboard",
+   "kind": "note",
+   "text": "The proposals section's empty, loading and error states are not drawn; they use the foundations' empty state, skeleton and error notice with «Reintentar».",
+   "source": "panel.md §8 table row 1.7"
+  },
+  {
+   "screen": "/dashboard",
+   "kind": "approved-change",
+   "text": "MemberProfileModal: the three rows that never fill in today («Colegio», «Generación», «Comunidad») are not drawn.",
+   "source": "panel.md §8 table row 3.2; approved by Brent 13 Nov 2026 01:02"
+  },
+  {
+   "screen": "/dashboard",
+   "kind": "approved-change",
+   "text": "Proposal delete uses the shared confirmation («Eliminar Propuesta», same question, «Cancelar» / «Eliminar»); the browser alert() on failure becomes an error toast.",
+   "source": "panel.md §8 table row 3.4; approved by Brent 13 Nov 2026 01:02"
+  },
+  {
+   "screen": "/dashboard",
+   "kind": "approved-change",
+   "text": "The full-page «Cargando...» before the screen renders becomes skeletons inside the frame (foundations sheet; not drawn on this page).",
+   "source": "panel.md §8 table row 0; approved by Brent 13 Nov 2026 01:02"
+  },
+  {
+   "screen": "/dashboard",
+   "kind": "note",
+   "text": "The arrival toast «Contraseña actualizada exitosamente» becomes the shared success toast; it is not triggered in the mock-up but must survive.",
+   "source": "panel.md §8 table, row 'Arrival toast'"
+  },
+  {
+   "screen": "/student/course/[courseId]",
+   "kind": "approved-change",
+   "text": "Header becomes a band with «Volver», an eyebrow with the instructor, title, description and the «Progreso:» bar and %. The «Continuar Aprendiendo» card sits inside the band on the right (under the header on phones), its button the screen's one main action; still hidden when every lesson is complete.",
+   "source": "cursos.md §8.1 rows A1.3 and A1.4; approved by Brent 13 Nov 2026 09:23"
+  },
+  {
+   "screen": "/student/course/[courseId]",
+   "kind": "approved-change",
+   "text": "Lessons are rows instead of a card grid, for both simple and module courses; each row keeps the same seven things (status icon, «Lección n», «Reciente», title, «{n} bloques», «{N}% completado», bar), is a link and is never locked.",
+   "source": "cursos.md §8.1 rows A1.5 and 'Lesson card'; LEDGER Choices, Phase 1 Courses; approved by Brent 13 Nov 2026 09:23"
+  },
+  {
+   "screen": "/student/course/[courseId]",
+   "kind": "approved-change",
+   "text": "New completion screen with certificate (/maqueta/curso-completado), opened from a new button «Ver certificado» added to the «¡Curso Completado!» box: certificate preview, download, badge earned, next course of the route. New texts: «Certificado de aprobación», «Tu certificado», «Descargar certificado (PDF)», «Se otorga a», «por haber aprobado el curso», «Insignia obtenida», «Sigue con tu ruta», «Ver certificado»; counts «lecciones», «bloques», «de estudio», «quizzes aprobados». Certificate wording, signature, which courses and whether hours show are still open (course plan, phase 5).",
+   "source": "cursos.md §8.1 row A1.6 and §8.3 row 'Completion screen with certificate'; approved by Brent 13 Nov 2026 09:23 (wording shown as the session's proposal, no notes from him)"
+  },
+  {
+   "screen": "/student/course/[courseId]",
+   "kind": "approved-change",
+   "text": "Loading «Cargando curso...», failure «No se pudo cargar el curso» + «Volver» and the toast «Error cargando el curso» become skeleton rows inside the frame, the foundations' error notice and the shared error toast (not drawn).",
+   "source": "cursos.md §8.1 row A1.1-2; approved by Brent 13 Nov 2026 09:23"
+  },
+  {
+   "screen": "/student/lesson/[lessonId]",
+   "kind": "approved-change",
+   "text": "The header becomes a white strip that stays under the top bar, on two lines: list button, «Módulo n · Lección n», title, «ADMIN», admin jump list, «Volver» / «Volver al Editor»; then «Bloque X de N» / «Lección completada», the two arrows, one segment per piece (done, current, to come) and «Progreso: N%». For an admin the segments are also buttons that jump.",
+   "source": "cursos.md §8.2 row B1.5; LEDGER Choices, Phase 1 Courses; approved by Brent 13 Nov 2026 09:23"
+  },
+  {
+   "screen": "/student/lesson/[lessonId]",
+   "kind": "approved-change",
+   "text": "The lesson sidebar keeps its contents and behaviour (closed by default, left column on wide screens, drawer on phones), but its close button now has a label.",
+   "source": "cursos.md §8.2 row B1.6 + B-S; approved by Brent 13 Nov 2026 09:23"
+  },
+  {
+   "screen": "/student/lesson/[lessonId]",
+   "kind": "approved-change",
+   "text": "Same piece-by-piece rules, but «Anterior» and «Siguiente» / «Finalizar» sit under the piece, and «Siguiente» turns gold (now yellow) once the piece is completed.",
+   "source": "cursos.md §8.2 row B2; approved by Brent 13 Nov 2026 09:23"
+  },
+  {
+   "screen": "/student/lesson/[lessonId]",
+   "kind": "approved-change",
+   "text": "Each piece keeps its own completion control and 'done' text, now in a closing strip at the foot of the piece (text, video, gallery, files, links, bibliography, group work, quiz; admin «Continuar (Admin)»), all with today's texts.",
+   "source": "cursos.md §8.2 row B4; approved by Brent 13 Nov 2026 09:23"
+  },
+  {
+   "screen": "/student/lesson/[lessonId]",
+   "kind": "note",
+   "text": "Not drawn but must survive: the direct-file video with «Progreso del video» and the «Instrucción:» note, the single-image block, each block's empty text («No hay contenido disponible» …), the unknown-type block, the two quiz warnings for missing ids / no questions. They use the same closing strip.",
+   "source": "cursos.md §8.2 row 'B4 not drawn'"
+  },
+  {
+   "screen": "/student/lesson/[lessonId]",
+   "kind": "note",
+   "text": "The quiz player is drawn as today with both review rounds, but its «Descripción» box is not drawn; it must survive.",
+   "source": "cursos.md §8.2 row B5"
+  },
+  {
+   "screen": "/student/lesson/[lessonId]",
+   "kind": "note",
+   "text": "The lesson completion screen is drawn as a dark card with today's texts, but only one variant (a lesson in the middle of the course); the other variants must survive.",
+   "source": "cursos.md §8.2 row B3"
+  },
+  {
+   "screen": "/student/lesson/[lessonId]",
+   "kind": "approved-change",
+   "text": "Loading, not-found and no-content states become a skeleton inside the frame and the foundations' empty state with «Volver al Curso» (not drawn).",
+   "source": "cursos.md §8.2 row B1.1-4; approved by Brent 13 Nov 2026 09:23"
+  },
+  {
+   "screen": "/student/lesson/[lessonId]",
+   "kind": "approved-change",
+   "text": "New quiz results screen for learners (/maqueta/quiz-resultados), opened from a new button «Ver mis resultados» on the completed quiz card and later from the «quiz revisado» notification; two states, just sent and reviewed. It reuses today's unreachable result texts. New texts: «Resultados del quiz», «Puntaje parcial», «Puntaje final», «1 correcta», «1 incorrecta», «1 pendiente de revisión», «1 revisada por tu profesor», «Retroalimentación de tu profesor», «{n} / {m} pts», «Volver a la lección», «Ver mis resultados».",
+   "source": "cursos.md §8.2 row 'B4 quiz completed card' and §8.3 row 'Quiz results for learners'; approved by Brent 13 Nov 2026 09:23 (wording shown as the session's proposal, no notes from him)"
+  },
+  {
+   "screen": "/admin/course-builder",
+   "kind": "note",
+   "text": "«Crear Nuevo Curso» links to /admin/course-builder/new, which exists as pages/admin/course-builder/new.tsx but was not read for these notes.",
+   "source": "cursos.md §7 item 14"
+  },
+  {
+   "screen": "/admin/course-builder",
+   "kind": "approved-change",
+   "text": "New «Duplicar» on each course card. New texts: «Duplicar», «¿Duplicar este curso?», «Copia de {título}», «Sin publicar», «Duplicando curso...», «Curso duplicado. La copia queda sin asignar y sin publicar.», «{n} docentes con avance», «Sin asignar».",
+   "source": "cursos.md §8.3 row 'Course list with «Duplicar»'; approved by Brent 13 Nov 2026 09:25"
+  },
+  {
+   "screen": "/admin/course-builder",
+   "kind": "approved-change",
+   "text": "Course cards no longer open on hover: badge, title, instructor, description and the actions «Editar», «Ver», «Asignar», «Eliminar» are always visible, plus «Duplicar» and a line with the number of learners.",
+   "source": "cursos.md §8.4 row 'Course card'; approved by Brent 13 Nov 2026 09:25"
+  },
+  {
+   "screen": "/admin/course-builder",
+   "kind": "approved-change",
+   "text": "The delete pop-up adds a warning with the number of learners; the rule that the button wakes only when 'Eliminar' is typed stays.",
+   "source": "cursos.md §8.4 row 'Delete modal'; approved by Brent 13 Nov 2026 09:25"
+  },
+  {
+   "screen": "/admin/course-builder",
+   "kind": "approved-change",
+   "text": "Delete pop-up wording: «…se moverán a tablas de respaldo.» becomes «Esta acción no se puede deshacer. Se eliminan el curso, sus módulos, lecciones y bloques.»",
+   "source": "cursos.md §8.4 row 'Delete modal'; LEDGER Brent's decisions, approved by Brent 13 Nov 2026 09:25 (the reworded sentence was told to him)"
+  },
+  {
+   "screen": "/admin/course-builder",
+   "kind": "note",
+   "text": "«No hay cursos todavía», «Acceso Denegado» … «Ir al Panel» and «Cargando...» use the foundations' empty state, notice and skeleton (not drawn); «No se encontraron cursos» is drawn.",
+   "source": "cursos.md §8.4 row 'Empty …'"
+  },
+  {
+   "screen": "/admin/course-builder/[courseId]/[moduleId]/[lessonId]",
+   "kind": "approved-change",
+   "text": "One lesson editor for both kinds of course: it replaces this module editor and the simple-course editor /admin/course-builder/[courseId]/lesson/[lessonId].",
+   "source": "cursos.md §8.3 row 'Lesson editor' and §8.5; approved by Brent 13 Nov 2026 09:25"
+  },
+  {
+   "screen": "/admin/course-builder/[courseId]/[moduleId]/[lessonId]",
+   "kind": "approved-change",
+   "text": "The editor saves a draft by itself and has «Publicar» in place of «Guardar Cambios» / «Guardado» / «Guardar»; the save state line sits under the title. New texts: «Publicar», «Guardando borrador...», «Borrador guardado · {n} cambios sin publicar», «Publicada · sin cambios pendientes», «Hay cambios sin publicar. Los docentes siguen viendo la versión publicada hasta que presiones «Publicar».», «Descartar borrador», «¿Publicar la lección?», «Los docentes verán esta versión de inmediato.», «¿Descartar el borrador?», «{n} docentes ya completaron este bloque.», «Vista previa del borrador», «Abrir como docente».",
+   "source": "cursos.md §8.3 row 'Lesson editor with autosaved draft' and §8.5 first row; approved by Brent 13 Nov 2026 09:25"
+  },
+  {
+   "screen": "/admin/course-builder/[courseId]/[moduleId]/[lessonId]",
+   "kind": "approved-change",
+   "text": "«Vista Previa» opens in the page, not a new tab, and records nothing.",
+   "source": "cursos.md §8.5 first row; approved by Brent 13 Nov 2026 09:25"
+  },
+  {
+   "screen": "/admin/course-builder/[courseId]/[moduleId]/[lessonId]",
+   "kind": "approved-change",
+   "text": "The amber «Hay cambios sin guardar», the floating «Tienes cambios sin guardar» and confirm('Tienes cambios sin guardar. ¿Deseas salir de todos modos?') are replaced by the unpublished-changes notice; leaving never loses work because the draft saves itself.",
+   "source": "cursos.md §8.5 row 'Amber «Hay cambios sin guardar»'; approved by Brent 13 Nov 2026 09:25"
+  },
+  {
+   "screen": "/admin/course-builder/[courseId]/[moduleId]/[lessonId]",
+   "kind": "approved-change",
+   "text": "The eye that collapsed a block moves from the left column to the block itself; each block card has «Colapsar» / «Expandir».",
+   "source": "cursos.md §8.5 rows 'Left column' and 'Bloques de la Lección'; approved by Brent 13 Nov 2026 09:25"
+  },
+  {
+   "screen": "/admin/course-builder/[courseId]/[moduleId]/[lessonId]",
+   "kind": "approved-change",
+   "text": "The per-block save buttons «Guardar Bloque», «Guardar Quiz», «Guardar Enlaces», «Guardar Tarea», «Guardar Bibliografía» go away: every change saves itself to the draft. Applies to the block editors shared with the simple editor.",
+   "source": "cursos.md §8.5 row 'Bloques de la Lección'; LEDGER Brent's decisions, approved by Brent 13 Nov 2026 09:25 (told to him)"
+  },
+  {
+   "screen": "/admin/course-builder/[courseId]/[moduleId]/[lessonId]",
+   "kind": "approved-change",
+   "text": "Block delete: today a browser confirm('¿Estás seguro de que deseas eliminar este bloque? Esta acción no se puede deshacer.') in the module editor and no question in the simple editor; mock-up: the shared confirmation with the same question plus the learner-count warning, and nothing is erased until «Publicar».",
+   "source": "cursos.md §8.5 row 'Block delete'; approved by Brent 13 Nov 2026 09:25"
+  },
+  {
+   "screen": "/admin/course-builder/[courseId]/[moduleId]/[lessonId]",
+   "kind": "approved-change",
+   "text": "Save toasts (English messages today) become shared toasts in Spanish; the three quiz validations move to «Publicar» (not drawn).",
+   "source": "cursos.md §8.5 row 'Save toasts'; approved by Brent 13 Nov 2026 09:25"
+  },
+  {
+   "screen": "/docente/assessments/[instanceId]",
+   "kind": "approved-change",
+   "text": "The loading and load-error states («cargando», «no cargó») now sit inside the frame; texts and retry-assessment-load kept.",
+   "source": "gestor.md 'Where it sits', Screen A table row 'A1 §1 load error, §2 loading'; approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/docente/assessments/[instanceId]",
+   "kind": "approved-change",
+   "text": "A sticky strip under the top bar carries progress («Progreso», «N de M indicadores (X%)», bar), the save status with «Último guardado: HH:MM:SS», «Volver a registros», «Guardar» and «Enviar», so they stay in view down a long registro (today they scroll away). The save error, refusal list and 'draft in this browser' line become a red notice at the top of the body; «Registro completado» becomes a green notice there. All testids kept.",
+   "source": "gestor.md Screen A 'Changed on purpose' bullet 1 and table rows A1 §5, §9, §11; approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/docente/assessments/[instanceId]",
+   "kind": "approved-change",
+   "text": "New left index (desktop only) lists every práctica with how many indicators are answered and jumps to it. New texts: «X de Y respondidos», «No impl.», «Sin prácticas», aria-label «Índice del registro».",
+   "source": "gestor.md Screen A 'Changed on purpose' bullet 2 and 'New texts' bullet 4; approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/docente/assessments/[instanceId]",
+   "kind": "approved-change",
+   "text": "A new line under the strip says why «Enviar» is grey. New texts: «Para enviar faltan N indicadores por responder.» / «Para enviar falta 1 indicador por responder.»",
+   "source": "gestor.md Screen A 'Changed on purpose' bullet 3 and 'New texts' bullet 1; approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/docente/assessments/[instanceId]",
+   "kind": "approved-change",
+   "text": "Read-only and archived registros say so in a notice (today only faded fields), and an archived registro no longer shows «Sin autorización para enviar». New texts: «Solo lectura: puedes ver las respuestas, pero no modificarlas.», «Este registro está archivado: puedes ver las respuestas, pero no modificarlas.»",
+   "source": "gestor.md Screen A 'Changed on purpose' bullet 4 and 'New texts' bullets 2-3; approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/docente/assessments/[instanceId]",
+   "kind": "approved-change",
+   "text": "One level mark for the whole product (four small bars filled up to the level, plus the level's name) replaces today's three colour codes; on this form it replaces the coloured left border of the Profundidad choices. The results dashboard uses the same mark.",
+   "source": "gestor.md Screen A 'Changed on purpose' bullet 5 and table row A2.5; LEDGER Brent's decisions, decision (1) approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/docente/assessments/[instanceId]",
+   "kind": "approved-change",
+   "text": "Each práctica header also says «X de Y respondidos», counted like the progress.",
+   "source": "gestor.md Screen A 'Changed on purpose' bullet 6; approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/docente/assessments/[instanceId]",
+   "kind": "approved-change",
+   "text": "«Estado» in the context card is a badge.",
+   "source": "gestor.md Screen A table row 'A1 §7 context card'; approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/docente/assessments/[instanceId]",
+   "kind": "approved-change",
+   "text": "The browser confirm() when leaving with unsaved changes has no place in the mock-up; in the build it becomes a pop-up of the shared kind with today's text.",
+   "source": "gestor.md Screen A table row 'A3 leaving with unsaved changes'; approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/docente/assessments/[instanceId]",
+   "kind": "approved-change",
+   "text": "The hand-built submit dialog becomes the shared pop-up, with the same title, body, buttons and testids.",
+   "source": "gestor.md Screen A table row 'A4 §1 submit dialog'; approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/directivo/assessments/dashboard",
+   "kind": "approved-change",
+   "text": "Without permission (as a docente) the page shows the message in place; today it is a toast and a redirect.",
+   "source": "gestor.md Screen B table row 'B1 §0 no permission'; approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/directivo/assessments/dashboard",
+   "kind": "approved-change",
+   "text": "«Actualizar» moves to the header and dims the page while keeping it in place (today the page blanks); toast «Datos actualizados». «(Nivel esperado: …)» in the year line is hidden when there are no results.",
+   "source": "gestor.md Screen B table rows 'B1 §1 loading' and 'B1 §4 year line'; approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/directivo/assessments/dashboard",
+   "kind": "approved-change",
+   "text": "Admin and consultor get a school picker in the header (today the page cannot work for them). New text: select label «Colegio».",
+   "source": "gestor.md Screen B 'Changed on purpose' bullet 1 and 'New texts' bullet 4; LEDGER Choices, Phase 1 Gestor; approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/directivo/assessments/dashboard",
+   "kind": "approved-change",
+   "text": "«Promedio por Vía de Transformación» becomes horizontal bars on a 0–100 axis with the value at the end and hover text «58% · Puntuación (12 registros)»; «Resumen por Curso» becomes one bar per course with its percentage and sign, hover giving grade and generation.",
+   "source": "gestor.md Screen B table rows 'b. bar chart' and 'a. «Resumen por Curso»'; approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/directivo/assessments/dashboard",
+   "kind": "approved-change",
+   "text": "The radar «Perfil de Transformación» prints its values at each point (today no tooltip at all); still only with three areas or more.",
+   "source": "gestor.md Screen B table row 'b. radar'; approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/directivo/assessments/dashboard",
+   "kind": "approved-change",
+   "text": "The expected level is drawn as a dashed line on both bar charts (today it is only words in the year line). New chart keys: «Puntuación, de 0 a 100», «Promedio del curso, de 0 a 100», «Nivel esperado: …».",
+   "source": "gestor.md Screen B 'Changed on purpose' bullet 2 and 'New texts' bullet 3; approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/directivo/assessments/dashboard",
+   "kind": "approved-change",
+   "text": "One colour for the bars: the seven area colours are gone and the area is named in words on every bar, card and column.",
+   "source": "gestor.md Screen B 'Changed on purpose' bullet 3; LEDGER Brent's decisions, decision (2) approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/directivo/assessments/dashboard",
+   "kind": "approved-change",
+   "text": "The two-slice donut «Cumplimiento de Expectativas» becomes one split bar («Cumplen», «En desarrollo») with the two counts under it.",
+   "source": "gestor.md Screen B 'Changed on purpose' bullet 4 and table row 'Por Curso a. donut'; approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/directivo/assessments/dashboard",
+   "kind": "approved-change",
+   "text": "The per-course cards «Detalle por Curso» become a table (course and grade, GT/GI badge, one column per area, average, level, expectation) that stacks on a phone. New table heads: «Curso», «Generación», «Promedio», «Nivel», «Expectativa».",
+   "source": "gestor.md Screen B 'Changed on purpose' bullet 4, table row 'b. «Detalle por Curso»' and 'New texts' bullet 4; approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/directivo/assessments/dashboard",
+   "kind": "approved-change",
+   "text": "Whether the average meets the expectation is said in words with a sign (today only the colour of the level text). New texts: «Cumple el nivel esperado» / «Bajo el nivel esperado»; «Cumple» in the table column «Expectativa».",
+   "source": "gestor.md Screen B 'Changed on purpose' bullet 5 and 'New texts' bullet 1; approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/directivo/assessments/dashboard",
+   "kind": "approved-change",
+   "text": "Courses without registros are no longer counted in «Cumplen Expectativa» or in the split bar (today they count as 0%). This changes a number; the notes say the build must confirm it.",
+   "source": "gestor.md Screen B 'Changed on purpose' bullet 6; LEDGER Brent's decisions, decision (3) approved by Brent 13 Nov 2026 10:00 (he was told it changes a number)"
+  },
+  {
+   "screen": "/directivo/assessments/dashboard",
+   "kind": "approved-change",
+   "text": "New text: «De N cursos con resultado. Nivel esperado: …»",
+   "source": "gestor.md Screen B 'New texts' bullet 2; approved by Brent 13 Nov 2026 10:00"
+  },
+  {
+   "screen": "/directivo/assessments/dashboard",
+   "kind": "note",
+   "text": "The dark strip «Maqueta · ver como» at the foot of the Gestor mock-ups (/maqueta/registro, /maqueta/resultados) switches sample states and is not part of the design.",
+   "source": "gestor.md 'Where it sits in the mock-up', opening paragraph"
+  },
+  {
+   "screen": "/consultor/sessions",
+   "kind": "note",
+   "text": "screen-map.md C4 lists consultor/sessions/reports.tsx, but no link to it was found from the list or the detail screen; it has no place in these mock-ups.",
+   "source": "sesiones.md 'Odd things' item 18"
+  },
+  {
+   "screen": "/consultor/sessions",
+   "kind": "approved-change",
+   "text": "The two columns become two tabs «Mis Sesiones» / «Otras Sesiones en Mis Colegios», each with its count; each list has the full width.",
+   "source": "sesiones.md 'Changed on purpose', A bullet 1; approved by Brent 13 Nov 2026 10:02"
+  },
+  {
+   "screen": "/consultor/sessions",
+   "kind": "approved-change",
+   "text": "Sessions are agenda rows (date block with weekday, day, month, start time) instead of cards, and rows are real links reachable by keyboard. New text: «Hoy» in the date block of today's rows.",
+   "source": "sesiones.md 'Changed on purpose', A bullet 2 and 'New texts' A; approved by Brent 13 Nov 2026 10:02"
+  },
+  {
+   "screen": "/consultor/sessions",
+   "kind": "approved-change",
+   "text": "Grouping changes from one heading per date, newest first (e.g. «jueves, 13 noviembre 2026») to «Esta semana» (ascending), «Próximas» (ascending), «Pasadas» (newest first). New texts: «Esta semana», «Próximas», «Pasadas».",
+   "source": "sesiones.md 'Changed on purpose', A bullet 3 and 'New texts' A; approved by Brent 13 Nov 2026 10:02"
+  },
+  {
+   "screen": "/consultor/sessions",
+   "kind": "approved-change",
+   "text": "«Otras Sesiones…» rows are no longer dimmed.",
+   "source": "sesiones.md 'Changed on purpose', A bullet 4; approved by Brent 13 Nov 2026 10:02"
+  },
+  {
+   "screen": "/consultor/sessions",
+   "kind": "approved-change",
+   "text": "«Pendiente Informe» and «En Progreso» rows in «Mis Sesiones» say what the session needs, using today's status helper words.",
+   "source": "sesiones.md 'Changed on purpose', A bullet 5; approved by Brent 13 Nov 2026 10:02"
+  },
+  {
+   "screen": "/consultor/sessions",
+   "kind": "approved-change",
+   "text": "«Exportar Calendario» moves from the filter card to the page header as a secondary button; «Cargar más» becomes an outline button (yellow kept for one main action, and the list has none).",
+   "source": "sesiones.md 'Changed on purpose', A bullet 6; approved by Brent 13 Nov 2026 10:02"
+  },
+  {
+   "screen": "/consultor/sessions",
+   "kind": "note",
+   "text": "Mock-up-only text, not for the build: toast «Maqueta: aquí se descarga el archivo .ics con las sesiones filtradas.»",
+   "source": "sesiones.md 'New texts', A bullet"
+  },
+  {
+   "screen": "/consultor/sessions",
+   "kind": "note",
+   "text": "The dark Variantes strips («Maqueta · …») on both session mock-ups are mock-up tools, not design.",
+   "source": "sesiones.md 'New texts', 'Both' bullet"
+  },
+  {
+   "screen": "/consultor/sessions/[id]",
+   "kind": "approved-change",
+   "text": "«Finalizar Sesión» is the one yellow button, inside a visible checklist card; missing conditions are always shown instead of a hover box. The card and its disabled button also appear while the session is «En Progreso» (today only at «Pendiente Informe»). New texts: «Para finalizar la sesión», «Condiciones faltantes: {n}», met-condition lines «Sesión en estado \"Pendiente de Informe\"», «Informe de sesión creado», «Asistencia marcada para todos».",
+   "source": "sesiones.md 'Changed on purpose', B bullet 1 and 'New texts' B bullet 1; LEDGER Brent's decisions, approved by Brent 13 Nov 2026 10:02 (the «En Progreso» card was told to him)"
+  },
+  {
+   "screen": "/consultor/sessions/[id]",
+   "kind": "approved-change",
+   "text": "The reason «Solicitar Cambios» is disabled while a request is pending («Ya existe una solicitud de cambio pendiente para esta sesión.») is visible text under the button, not a hover box.",
+   "source": "sesiones.md 'Changed on purpose', B bullet 2; approved by Brent 13 Nov 2026 10:02"
+  },
+  {
+   "screen": "/consultor/sessions/[id]",
+   "kind": "approved-change",
+   "text": "The edit-request history moves from above the tabs into the «Actividad» tab. New text: heading «Actividad» over the activity list when the history is shown above it.",
+   "source": "sesiones.md 'Changed on purpose', B bullet 3 and 'New texts' B bullet 4; approved by Brent 13 Nov 2026 10:02"
+  },
+  {
+   "screen": "/consultor/sessions/[id]",
+   "kind": "approved-change",
+   "text": "New breadcrumbs «Mi Trabajo › Mis Sesiones › {title}» give a way back to the list.",
+   "source": "sesiones.md 'Changed on purpose', B bullet 4; approved by Brent 13 Nov 2026 10:02"
+  },
+  {
+   "screen": "/consultor/sessions/[id]",
+   "kind": "approved-change",
+   "text": "Header Spain time: «13:00 (hora España) - 14:00 (hora España)» becomes the modal's shorter line, e.g. «En España: 13:30 a 15:00 (hora España)».",
+   "source": "sesiones.md 'Changed on purpose', B bullet 5; approved by Brent 13 Nov 2026 10:02"
+  },
+  {
+   "screen": "/consultor/sessions/[id]",
+   "kind": "approved-change",
+   "text": "Arrival status in read mode is in Spanish: «On time» becomes «A tiempo», plus «Tarde», «Salió temprano».",
+   "source": "sesiones.md 'Changed on purpose', B bullet 6; approved by Brent 13 Nov 2026 10:02"
+  },
+  {
+   "screen": "/consultor/sessions/[id]",
+   "kind": "approved-change",
+   "text": "Modality «Hibrida» becomes «Híbrida».",
+   "source": "sesiones.md 'Changed on purpose', B bullet 6; approved by Brent 13 Nov 2026 10:02"
+  },
+  {
+   "screen": "/consultor/sessions/[id]",
+   "kind": "approved-change",
+   "text": "Edit-request history values are formatted (dates «13 noviembre 2026», times HH:MM, modality words) instead of raw values.",
+   "source": "sesiones.md 'Changed on purpose', B bullet 6; approved by Brent 13 Nov 2026 10:02"
+  },
+  {
+   "screen": "/consultor/sessions/[id]",
+   "kind": "approved-change",
+   "text": "Activity actions in Spanish instead of raw English (e.g. «Status changed»). New texts: «Sesión creada», «Sesión vista», «Sesión editada», «Cambio de estado», «Material subido», «Material eliminado», «Informe registrado», «Informe actualizado», «Asistencia registrada», «Asistencia actualizada», «Comunicación agregada», «Cambio solicitado», «Cambio aprobado», «Cambio rechazado», «Aprobación de cambio bloqueada», «Facilitadores actualizados», «Sesión cancelada», «Sesión finalizada».",
+   "source": "sesiones.md 'Changed on purpose', B bullet 6 and 'New texts' B bullet 3; approved by Brent 13 Nov 2026 10:02"
+  },
+  {
+   "screen": "/consultor/sessions/[id]",
+   "kind": "approved-change",
+   "text": "«Guardar asistencia», «Subir material», «Crear» / «Actualizar» are black, not yellow; «Finalizar» in its pop-up is yellow (green today). Status colours follow the palette: no green, orange or blue buttons.",
+   "source": "sesiones.md 'Changed on purpose', B bullet 7; approved by Brent 13 Nov 2026 10:02"
+  },
+  {
+   "screen": "/consultor/sessions/[id]",
+   "kind": "approved-change",
+   "text": "The materials table stacks on phones and icon buttons have labels. New aria-labels / titles: «Abrir {archivo}», «Eliminar {archivo}», «Asistió: {nombre}», «Estado de llegada: {nombre}», «Notas: {nombre}», screen-reader «Sí» / «No».",
+   "source": "sesiones.md 'Changed on purpose', B bullet 8 and 'New texts' B bullet 2 (labels); approved by Brent 13 Nov 2026 10:02"
+  },
+  {
+   "screen": "/consultor/sessions/[id]",
+   "kind": "approved-change",
+   "text": "The material delete confirm() «¿Está seguro que desea eliminar \"{file_name}\"?» becomes a pop-up with that text as title and a new button «Eliminar». The Finalize pop-up closes with Escape and has a close X.",
+   "source": "sesiones.md 'Changed on purpose', B bullet 9 and 'New texts' B bullet 2 («Eliminar»); approved by Brent 13 Nov 2026 10:02"
+  },
+  {
+   "screen": "/consultor/sessions/[id]",
+   "kind": "note",
+   "text": "«Planificación» and «Comunicaciones» stay empty placeholders as today; Brent was told so when approving.",
+   "source": "LEDGER Brent's decisions, 13 Nov 2026 10:02"
+  },
+  {
+   "screen": "/consultor/sessions/[id]",
+   "kind": "note",
+   "text": "Mock-up-only texts, not for the build: sample server message «No se pudo transcribir el archivo de prueba.»; toasts «Maqueta: aquí se abre la página para unirse a la sesión.», «Maqueta: aquí se descarga el archivo .ics de esta sesión.», «Maqueta: aquí se abre el archivo en otra pestaña.»",
+   "source": "sesiones.md 'New texts', B bullet 5"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "note",
+   "text": "In bulk import an empty role cell becomes docente.",
+   "source": "usuarios.md §6 item 11, last sentence"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "note",
+   "text": "The same user list component (UUM) also runs /admin/school-users, with props hideBulkImport, hideExpenseAccess, lockedSchoolId, hideCommunityFilter, hideApprove, hideReject, hideAssign (UUM:80-86); the edit pop-up has disableSchoolEdit and hideQaTesterToggle. These switches must survive (the mock-up shows them with «Maqueta · pantalla»).",
+   "source": "usuarios.md §6 item 18"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "approved-change",
+   "text": "The list becomes a table with columns «Usuario», «Colegio», «Roles», «Estado», «Acciones»; a row expands (one at a time) to show the details, «Reportes de gastos» and «Asignaciones». New texts: column heads «Usuario», «Colegio», «Roles», «Estado».",
+   "source": "usuarios.md 'Changed on purpose', Layout and 'New texts' bullet 1; approved by Brent 13 Nov 2026 10:19"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "approved-change",
+   "text": "Action buttons move from the expanded panel into the row, by status: pending «Aprobar Usuario», «Rechazar Usuario»; approved «Gestionar Roles» + pencil «Editar Usuario»; rejected «Eliminar Usuario»; the rest in a «more» menu.",
+   "source": "usuarios.md 'Changed on purpose', Layout; approved by Brent 13 Nov 2026 10:19"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "approved-change",
+   "text": "All of a user's roles show as badges in the row.",
+   "source": "usuarios.md 'Changed on purpose', Layout; LEDGER Brent's decisions, approved by Brent 13 Nov 2026 10:19"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "approved-change",
+   "text": "Loading shows skeleton rows inside the table with «Cargando usuarios...» in the pagination line; no full-page spinner, the list no longer disappears.",
+   "source": "usuarios.md 'Changed on purpose', Loading; approved by Brent 13 Nov 2026 10:19"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "approved-change",
+   "text": "The «Gestión de Roles» pop-up keeps its content while saving.",
+   "source": "usuarios.md 'Changed on purpose', Loading; approved by Brent 13 Nov 2026 10:19"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "approved-change",
+   "text": "Delete (behaviour): one confirmation instead of two, and the false early toast «Usuario eliminado exitosamente» is gone. The second pop-up's title «Confirmar Eliminación» is dropped here (still used by the role delete).",
+   "source": "usuarios.md 'Changed on purpose', Delete; LEDGER Brent's decisions, approved by Brent 13 Nov 2026 10:19 (told it changes behaviour)"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "approved-change",
+   "text": "Consultant assignment (behaviour): the clicked consultant is the consultant, not the student. The pop-up title and button change from «Editar Asignación de Consultor» / «Actualizar Asignación» to «Nueva Asignación de Consultor» / «Crear Asignación».",
+   "source": "usuarios.md 'Changed on purpose', Consultant assignment; 'Where it sits', 'Odd things, as handled' item 3; LEDGER Brent's decisions, approved by Brent 13 Nov 2026 10:19 (told it changes behaviour)"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "approved-change",
+   "text": "The bulk assignment confirmation is a small pop-up (question, explanation, «Cancelar», «Confirmar») instead of a toast with buttons.",
+   "source": "usuarios.md 'Changed on purpose', Consultant assignment; approved by Brent 13 Nov 2026 10:19"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "approved-change",
+   "text": "Search (behaviour) really includes the school name, as the placeholder says.",
+   "source": "usuarios.md 'Changed on purpose', Search; LEDGER Brent's decisions, approved by Brent 13 Nov 2026 10:19 (told it changes behaviour)"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "approved-change",
+   "text": "The community filter lists communities of the chosen school from the whole list, not only the current page.",
+   "source": "usuarios.md 'Changed on purpose', Community filter; approved by Brent 13 Nov 2026 10:19"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "approved-change",
+   "text": "A community without generation shows in the role scope line.",
+   "source": "usuarios.md 'Changed on purpose', Other; approved by Brent 13 Nov 2026 10:19"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "approved-change",
+   "text": "The «Red: {network}» line shows for supervisors.",
+   "source": "usuarios.md 'Changed on purpose', Other; approved by Brent 13 Nov 2026 10:19"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "approved-change",
+   "text": "The «Tester QA» label is linked to its switch (id qa_tester); the switch still saves on click.",
+   "source": "usuarios.md 'Changed on purpose', Other; approved by Brent 13 Nov 2026 10:19"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "approved-change",
+   "text": "Bulk import accepts every role the screen lists (including community_manager) plus encargado_licitacion.",
+   "source": "usuarios.md 'Changed on purpose', Other; approved by Brent 13 Nov 2026 10:19"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "approved-change",
+   "text": "In «Crear Nuevo Usuario» the password rule is help text under the field instead of the placeholder.",
+   "source": "usuarios.md 'Changed on purpose', Other; approved by Brent 13 Nov 2026 10:19"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "approved-change",
+   "text": "The tab title is «Gestión de Usuarios» in every state (today the main state shows «Genera - Hub de Transformación»).",
+   "source": "usuarios.md 'Changed on purpose', Other; approved by Brent 13 Nov 2026 10:19"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "approved-change",
+   "text": "The assignments badge says «1 asignación» in the singular (today always «asignaciones»); on wide screens the table has fixed column widths so a row stays on one or two lines.",
+   "source": "usuarios.md 'Where it sits', 'Corrections by the phase 1 session (13 Nov 2026)'; mock-up approved by Brent 13 Nov 2026 10:19"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "approved-change",
+   "text": "New labels for assistive technology: «Más acciones para {name}» / «Más acciones», «Filtrar por estado», «Buscar», «Mostrar contraseñas» / «Ocultar contraseñas», «Pasos», «Exitoso» / «Fallido».",
+   "source": "usuarios.md 'New texts' bullet 2; approved by Brent 13 Nov 2026 10:19"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "approved-change",
+   "text": "New pop-up eyebrow «Gestión de Usuarios».",
+   "source": "usuarios.md 'New texts' bullet 3; approved by Brent 13 Nov 2026 10:19"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "note",
+   "text": "Sample-only texts, not for the build: the invented error reasons, «Red QA Cordillera», community names.",
+   "source": "usuarios.md 'New texts' bullet 4"
+  },
+  {
+   "screen": "/admin/user-management",
+   "kind": "note",
+   "text": "No place in the mock-up, must survive: sign-in redirects and «No hay sesión activa»; server-load messages («Error al cargar datos organizacionales», «Error de autenticación», «Error al cargar datos de asignación», «Cargando datos...», the audit warning); the English server messages of roles; import «RUT inválido», the password-policy row error and «Debe seleccionar un colegio antes de continuar» (unreachable today too); the texts for editing an existing consultant assignment (the page never does); «Rol actualizado a {role}» (dead code today).",
+   "source": "usuarios.md 'No place in the mock-up'"
+  },
+  {
+   "screen": "/admin/sessions/create",
+   "kind": "approved-change",
+   "text": "New shape: six numbered cards. New section titles «Colegio y consultores», «Datos de la sesión», «Fecha y hora», «Horas y contrato» («Tipo de sesión» with the series box and «Modalidad» are today's).",
+   "source": "crear-sesion.md 'Changed on purpose', Shape and 'New texts' bullet 1; approved by Brent 13 Nov 2026 10:32"
+  },
+  {
+   "screen": "/admin/sessions/create",
+   "kind": "approved-change",
+   "text": "New «Resumen» card holding the buttons, in view on the right from 1024 px and last on a phone. New texts: «Resumen», «Colegio», «Comunidad», «Consultores», «Fecha» / «Fechas», «Sesiones», «Horario», «Modalidad», «Horas», «· principal», «· Zoom», «{k} en fin de semana», «Sin seguimiento de horas».",
+   "source": "crear-sesion.md 'Changed on purpose', Shape and 'New texts' bullet 5; approved by Brent 13 Nov 2026 10:32"
+  },
+  {
+   "screen": "/admin/sessions/create",
+   "kind": "approved-change",
+   "text": "Checks: all 12 show next to their field and together in a red box at the top with links to each field; none is a toast any more, and all failures show at once (today only the first). New text: «Revise lo siguiente antes de continuar:».",
+   "source": "crear-sesion.md 'Changed on purpose', Checks and 'New texts' bullet 3; approved by Brent 13 Nov 2026 10:32"
+  },
+  {
+   "screen": "/admin/sessions/create",
+   "kind": "approved-change",
+   "text": "Type and contract: choosing only one is still refused with today's message, now also shown under the two selects, and section 6 says the rule up front. New text: «Elija ambos para registrar las horas, o deje los dos vacíos.»",
+   "source": "crear-sesion.md 'Changed on purpose', Type and contract and 'New texts' bullet 2; approved by Brent 13 Nov 2026 10:32"
+  },
+  {
+   "screen": "/admin/sessions/create",
+   "kind": "approved-change",
+   "text": "The browser confirm() becomes a pop-up: title = the question of today's text, body «Se notificará a los participantes.» plus a short summary; its main button carries the same label as the page's.",
+   "source": "crear-sesion.md 'Changed on purpose', Confirmation; approved by Brent 13 Nov 2026 10:32"
+  },
+  {
+   "screen": "/admin/sessions/create",
+   "kind": "approved-change",
+   "text": "The page is a real form: Enter opens the confirmation.",
+   "source": "crear-sesion.md 'Changed on purpose', Behaviour; approved by Brent 13 Nov 2026 10:32"
+  },
+  {
+   "screen": "/admin/sessions/create",
+   "kind": "approved-change",
+   "text": "Changing the school also clears the community (today it stays and the server refuses it).",
+   "source": "crear-sesion.md 'Changed on purpose', Behaviour; LEDGER Brent's decisions, approved by Brent 13 Nov 2026 10:32 (told it changes behaviour)"
+  },
+  {
+   "screen": "/admin/sessions/create",
+   "kind": "approved-change",
+   "text": "The earliest allowed date is today in Chile, not the UTC date.",
+   "source": "crear-sesion.md 'Changed on purpose', Behaviour; LEDGER Brent's decisions, approved by Brent 13 Nov 2026 10:32 (told it changes behaviour)"
+  },
+  {
+   "screen": "/admin/sessions/create",
+   "kind": "approved-change",
+   "text": "«Consultor principal» is a radio: exactly one consultant can be lead and unticking is impossible. Removing the lead still leaves none.",
+   "source": "crear-sesion.md 'Changed on purpose', Behaviour; LEDGER Brent's decisions, approved by Brent 13 Nov 2026 10:32 (told it changes behaviour)"
+  },
+  {
+   "screen": "/admin/sessions/create",
+   "kind": "approved-change",
+   "text": "The bare «Externo» / «Interno» toggle becomes a labelled two-option switch. New screen-reader labels: «Tipo de consultor de {nombre}», and «Fecha {n}» for custom date rows.",
+   "source": "crear-sesion.md 'Changed on purpose', Behaviour and 'New texts' bullet 6; approved by Brent 13 Nov 2026 10:32"
+  },
+  {
+   "screen": "/admin/sessions/create",
+   "kind": "approved-change",
+   "text": "Modality label «Hibrida» becomes «Híbrida».",
+   "source": "crear-sesion.md 'Changed on purpose', Wording and look; LEDGER Brent's decisions, approved by Brent 13 Nov 2026 10:32"
+  },
+  {
+   "screen": "/admin/sessions/create",
+   "kind": "approved-change",
+   "text": "Hour numbers use a decimal comma (42,5) instead of a dot.",
+   "source": "crear-sesion.md 'Changed on purpose', Wording and look; approved by Brent 13 Nov 2026 10:32"
+  },
+  {
+   "screen": "/admin/sessions/create",
+   "kind": "approved-change",
+   "text": "The hours chip and the series box become the shared notice pieces (the series box no longer blue: grey with a black left border).",
+   "source": "crear-sesion.md 'Changed on purpose', Wording and look; approved by Brent 13 Nov 2026 10:32"
+  },
+  {
+   "screen": "/admin/sessions/create",
+   "kind": "approved-change",
+   "text": "New breadcrumbs «Sesiones › Programar Sesión» (today none).",
+   "source": "crear-sesion.md 'Changed on purpose', Frame; approved by Brent 13 Nov 2026 10:32"
+  },
+  {
+   "screen": "/admin/sessions/create",
+   "kind": "approved-change",
+   "text": "New small «Cancelar» under the two save buttons (today there is none).",
+   "source": "crear-sesion.md 'Changed on purpose', Frame and 'New texts' bullet 6; approved by Brent 13 Nov 2026 10:32"
+  },
+  {
+   "screen": "/admin/sessions/create",
+   "kind": "approved-change",
+   "text": "Loading and access denied are shown inside the frame (skeleton cards; «Acceso Denegado» in an empty-state card).",
+   "source": "crear-sesion.md 'Changed on purpose', Frame; approved by Brent 13 Nov 2026 10:32"
+  },
+  {
+   "screen": "/admin/sessions/create",
+   "kind": "approved-change",
+   "text": "The summary shows the hours of one session and the series total, with a warning when the total exceeds the hours available. New texts: «{h} h por sesión · {total} h en total», «Más de lo disponible en este tipo ({n} h)».",
+   "source": "crear-sesion.md 'Changed on purpose', Summary hours and 'New texts' bullet 5; approved by Brent 13 Nov 2026 10:32"
+  },
+  {
+   "screen": "/admin/sessions/create",
+   "kind": "approved-change",
+   "text": "If creating works but approving fails, a notice says the drafts already exist. New texts: «Las sesiones quedaron guardadas como borrador. Revise la lista de sesiones antes de volver a programar, para no crearlas dos veces.» / «La sesión quedó guardada como borrador. Revise la lista de sesiones antes de volver a programar, para no crearla dos veces.»",
+   "source": "crear-sesion.md 'Changed on purpose', Approval failure and 'New texts' bullet 4; approved by Brent 13 Nov 2026 10:32"
+  },
+  {
+   "screen": "/admin/sessions/create",
+   "kind": "note",
+   "text": "The eight sample-state strips are folded into one closed block «Maqueta · estados de muestra» at the foot; a mock-up tool, not design.",
+   "source": "crear-sesion.md 'Changed on purpose', 'By the phase 1 session'"
+  },
+  {
+   "screen": "/admin/sessions/create",
+   "kind": "note",
+   "text": "No place in the mock-up, must survive: the redirects to /login and /dashboard, the request body, and the fields the form never sends (program_enrollment_id, attendees).",
+   "source": "crear-sesion.md 'No place in the mock-up'"
+  },
+  {
+   "screen": "/login",
+   "kind": "note",
+   "text": "There is no «Recordarme», no show-password and no sign-up link; adding them would be new features («Recordarme» has no backing logic today).",
+   "source": "login.md §9 item 9"
+  },
+  {
+   "screen": "/login",
+   "kind": "approved-change",
+   "text": "Layout: on desktop a black half with the G mark, «Genera» / «Hub de Transformación» and the line isotype, and a white half with the form; on a phone a short black band with the logo (in flow, no overlap), then the form. Today's gradient, pulsing circles, bouncing dots and hover-grow are gone. New texts on the black half: eyebrow «Fundación Nueva Educación» and «La plataforma de aprendizaje y transformación de tu comunidad educativa.»",
+   "source": "login.md 'Changed on purpose', Layout and 'New texts'; approved by Brent 13 Nov 2026 10:40"
+  },
+  {
+   "screen": "/login",
+   "kind": "approved-change",
+   "text": "Each message has a set kind instead of a colour guessed from its words: «Correo o contraseña incorrectos» is a red notice, the reset answer a success notice, the others (empty fields, session expired, confirm e-mail, empty e-mail in forgot mode) neutral notices.",
+   "source": "login.md 'Changed on purpose', Message colours; approved by Brent 13 Nov 2026 10:40"
+  },
+  {
+   "screen": "/login",
+   "kind": "approved-change",
+   "text": "Buttons: «Iniciar Sesión» and «Enviar enlace» yellow with black text, «Volver» outline, the forgot link black underlined.",
+   "source": "login.md 'Changed on purpose', Buttons; approved by Brent 13 Nov 2026 10:40"
+  },
+  {
+   "screen": "/login",
+   "kind": "approved-change",
+   "text": "«¡Bienvenido de vuelta!» becomes the page's H1 (today an H2 and the page has no H1).",
+   "source": "login.md 'Changed on purpose', Heading; approved by Brent 13 Nov 2026 10:40"
+  },
+  {
+   "screen": "/login",
+   "kind": "approved-change",
+   "text": "Help line wording: «¿Necesitas ayuda?Contacta soporte» becomes «¿Necesitas ayuda? Contacta soporte» (missing space fixed).",
+   "source": "login.md 'Changed on purpose', Small things; approved by Brent 13 Nov 2026 10:40"
+  },
+  {
+   "screen": "/login",
+   "kind": "approved-change",
+   "text": "Messages sit inside an aria-live area.",
+   "source": "login.md 'Changed on purpose', Small things; approved by Brent 13 Nov 2026 10:40"
+  },
+  {
+   "screen": "/login",
+   "kind": "approved-change",
+   "text": "The loading screen has role=status.",
+   "source": "login.md 'Changed on purpose', Small things; approved by Brent 13 Nov 2026 10:40"
+  },
+  {
+   "screen": "/login",
+   "kind": "approved-change",
+   "text": "The password field gets aria-invalid while the red error shows.",
+   "source": "login.md 'Changed on purpose', Small things; approved by Brent 13 Nov 2026 10:40"
+  },
+  {
+   "screen": "/login",
+   "kind": "approved-change",
+   "text": "The phone logo's accessible name changes from «Genera» to «Genera - Hub de Transformación».",
+   "source": "login.md 'Changed on purpose', Small things; approved by Brent 13 Nov 2026 10:40"
+  },
+  {
+   "screen": "/login",
+   "kind": "approved-change",
+   "text": "The foundation's logo at the foot of the form is centred under a thin rule (it sat at the left); Brent asked for this change before approving.",
+   "source": "LEDGER Brent's decisions, 13 Nov 2026 10:40"
+  },
+  {
+   "screen": "/login",
+   "kind": "note",
+   "text": "Kept exactly: every id, data-testid, autocomplete value, label, placeholder (tu@email.com) and «Iniciar Sesión»; both tab titles.",
+   "source": "login.md 'Changed on purpose', Kept exactly"
+  },
+  {
+   "screen": "/login",
+   "kind": "note",
+   "text": "The sample-state strip sits at the foot of the mock-up, not at the top; a mock-up tool, not design.",
+   "source": "login.md 'Changed on purpose', 'By the phase 1 session'"
+  },
+  {
+   "screen": "/login",
+   "kind": "note",
+   "text": "No place in the mock-up, must survive: «Por favor confirma tu correo electrónico antes de iniciar sesión» (needs an unconfirmed account), where each user is sent after signing in, the 15-second limit, and the check for an already signed-in session.",
+   "source": "login.md 'No place in the mock-up'"
+  }
+ ],
+ "charts": [
+  "No chart drawn without recharts was found on a platform screen (searched for hand-drawn SVG shapes and conic gradients on 13 Nov 2026). Progress bars and progress rings are not counted as charts.",
+  "components/propuestas-web/ModuleTimeline.tsx draws a timeline for the public proposal page (a document surface, outside the redesign).",
+  "components/reports/ResponsiveChart.tsx can draw a line, area, bar or pie chart with one series per key, but no screen uses it."
+ ]
+}

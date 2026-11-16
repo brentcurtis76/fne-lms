@@ -1,0 +1,6770 @@
+{
+ "area": "03-aprendizaje",
+ "name": "Mi Aprendizaje (the learner's courses, lessons and routes)",
+ "note": "Course system: the Course Review session owns this area's structure and its own checklist (docs/planning/courses/inventory.md, not yet on main). This file is the redesign's list of what is on screen today.",
+ "routesOnly": false,
+ "readFrom": {
+  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
+  "date": "2026-11-12T23:31:39-03:00"
+ },
+ "screens": [
+  {
+   "file": "pages/course-manager.tsx",
+   "route": "/course-manager",
+   "lines": 22,
+   "marks": {
+    "keep": "A redirect to /mi-aprendizaje. Old notifications still point at it (components/notifications/NotificationDropdown.tsx)."
+   },
+   "frame": "none",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "components/notifications/NotificationDropdown.tsx:138",
+     "components/notifications/NotificationDropdown.tsx:148",
+     "lib/auth/forced-password-change.ts:139",
+     "middleware.ts:334"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 10,
+     "in": "CourseManagerRedirect",
+     "text": "/mi-aprendizaje",
+     "via": "router.replace"
+    },
+    {
+     "kind": "text",
+     "line": 18,
+     "in": "CourseManagerRedirect",
+     "text": "Redirigiendo a Mi Aprendizaje..."
+    }
+   ],
+   "db": [],
+   "pieces": [],
+   "api": []
+  },
+  {
+   "file": "pages/courses/[id].tsx",
+   "route": "/courses/[id]",
+   "lines": 115,
+   "marks": {
+    "leftover": "An unstyled course page in English with no frame. A QA test that CI skips names it (tests/qa/auth-redirects.spec.ts).",
+    "recommend": "retire",
+    "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+   },
+   "frame": "none",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "middleware.ts:335",
+     "pages/api/qa/seed-codebase-index.ts:133"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [
+      "tests/qa/auth-redirects.spec.ts"
+     ],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "heading",
+     "line": 31,
+     "in": "CourseDetailPage",
+     "when": "!course",
+     "text": "Course Not Found",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 35,
+     "in": "CourseDetailPage",
+     "when": "!course",
+     "text": "The course with ID"
+    },
+    {
+     "kind": "value",
+     "line": 35,
+     "in": "CourseDetailPage",
+     "when": "!course",
+     "text": "{courseId}"
+    },
+    {
+     "kind": "text",
+     "line": 35,
+     "in": "CourseDetailPage",
+     "when": "!course",
+     "text": "was not found or is not published."
+    },
+    {
+     "kind": "heading",
+     "line": 46,
+     "in": "CourseDetailPage",
+     "text": "{course.title}",
+     "level": 1
+    },
+    {
+     "kind": "heading",
+     "line": 51,
+     "in": "CourseDetailPage",
+     "text": "Instructor",
+     "level": 2
+    },
+    {
+     "kind": "value",
+     "line": 52,
+     "in": "CourseDetailPage",
+     "text": "{course.instructor_name}"
+    },
+    {
+     "kind": "heading",
+     "line": 56,
+     "in": "CourseDetailPage",
+     "text": "Description",
+     "level": 2
+    },
+    {
+     "kind": "value",
+     "line": 57,
+     "in": "CourseDetailPage",
+     "text": "{course.description}"
+    },
+    {
+     "kind": "heading",
+     "line": 62,
+     "in": "CourseDetailPage",
+     "text": "Category",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 63,
+     "in": "CourseDetailPage",
+     "text": "{course.category}"
+    },
+    {
+     "kind": "heading",
+     "line": 66,
+     "in": "CourseDetailPage",
+     "text": "Duration",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 67,
+     "in": "CourseDetailPage",
+     "text": "{course.duration_hours} hours"
+    },
+    {
+     "kind": "heading",
+     "line": 70,
+     "in": "CourseDetailPage",
+     "text": "Level",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 71,
+     "in": "CourseDetailPage",
+     "text": "{course.difficulty_level}"
+    },
+    {
+     "kind": "text",
+     "line": 76,
+     "in": "CourseDetailPage",
+     "text": "Course ID:"
+    },
+    {
+     "kind": "value",
+     "line": 76,
+     "in": "CourseDetailPage",
+     "text": "{course.id}"
+    },
+    {
+     "kind": "text",
+     "line": 77,
+     "in": "CourseDetailPage",
+     "text": "Created: {new Date(course.created_at).toLocal…}"
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "lib/services/coursesService.ts"
+   ],
+   "api": []
+  },
+  {
+   "file": "pages/mi-aprendizaje.tsx",
+   "route": "/mi-aprendizaje",
+   "lines": 526,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [
+     {
+      "id": "mi-aprendizaje",
+      "label": "Mi Aprendizaje",
+      "group": null,
+      "href": "/mi-aprendizaje",
+      "gates": "everyone signed in",
+      "line": 141
+     },
+     {
+      "id": "my-courses",
+      "label": "Mis Cursos",
+      "group": "Mi Aprendizaje",
+      "href": "/mi-aprendizaje?tab=cursos",
+      "gates": "everyone signed in",
+      "groupGates": "everyone signed in",
+      "line": 148
+     }
+    ],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "yes",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 278,
+      "text": "router.push → /login  (when !session?.user)"
+     },
+     {
+      "line": 292,
+      "text": "role = await getUserPrimaryRole(session.user.id)"
+     },
+     {
+      "line": 347,
+      "text": "router.push → /login"
+     },
+     {
+      "line": 377,
+      "text": "router.push → /login"
+     }
+    ],
+    "linkedFrom": [
+     "components/DynamicFavicon.tsx:32",
+     "components/layout/Sidebar.tsx:144",
+     "components/layout/Sidebar.tsx:150",
+     "components/notifications/ModernNotificationCenter.tsx:299",
+     "components/notifications/ModernNotificationCenter.tsx:309",
+     "lib/auth/forced-password-change.ts:152",
+     "lib/notificationEvents.ts:248",
+     "lib/notificationEvents.ts:262",
+     "lib/notificationEvents.ts:275",
+     "lib/notificationEvents.ts:293",
+     "lib/notifications/catalog.ts:283",
+     "lib/notifications/catalog.ts:284",
+     "lib/notifications/catalog.ts:285",
+     "lib/notifications/catalog.ts:286",
+     "lib/notifications/catalog.ts:317",
+     "middleware.ts:347",
+     "pages/api/qa/seed-codebase-index.ts:253",
+     "pages/course-manager.tsx:10",
+     "pages/dashboard.tsx:1016",
+     "pages/dashboard.tsx:1017",
+     "pages/mi-aprendizaje/ruta/[id].tsx:253",
+     "pages/my-paths.tsx:10",
+     "pages/my-paths/[id].tsx:253",
+     "pages/notifications.tsx:267",
+     "pages/notifications.tsx:277"
+    ],
+    "qaScenarios": {
+     "admin": [
+      "CA-3: Admin accede a Mi Aprendizaje",
+      "SV-3: Admin ve Mi Aprendizaje (parent) en sidebar",
+      "SV-4: Admin ve Mis Cursos en sidebar",
+      "SV-5: Admin ve Mis Tareas en sidebar"
+     ],
+     "community_manager": [
+      "CM puede ver Mi Aprendizaje",
+      "CM ve Mi Aprendizaje en sidebar"
+     ],
+     "consultor": [
+      "CA-3: Consultor visualiza Mi Aprendizaje"
+     ],
+     "equipo_directivo": [
+      "CA-3: Equipo Directivo visualiza Mi Aprendizaje"
+     ],
+     "lider_comunidad": [
+      "CA-3: Lider de Comunidad visualiza Mi Aprendizaje"
+     ],
+     "lider_generacion": [
+      "CA-3: Lider Generacion visualiza Mi Aprendizaje"
+     ],
+     "supervisor_de_red": [
+      "CA-3: Supervisor visualiza Mi Aprendizaje (comportamiento dual)"
+     ]
+    },
+    "tests": {
+     "e2eCi": [],
+     "e2e": [
+      "tests/e2e/notification-dispatch.spec.ts",
+      "tests/e2e/notification-mail-mirror.spec.ts",
+      "tests/e2e/panel-pin.spec.ts"
+     ],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "text",
+     "line": 134,
+     "in": "NetflixCoursesView",
+     "when": "loading",
+     "text": "Cargando tus cursos..."
+    },
+    {
+     "kind": "value",
+     "line": 144,
+     "in": "NetflixCoursesView",
+     "when": "error",
+     "text": "{error}"
+    },
+    {
+     "kind": "button",
+     "line": 145,
+     "in": "NetflixCoursesView",
+     "when": "error",
+     "text": "Recargar página",
+     "action": "{() => window.location.reload()}"
+    },
+    {
+     "kind": "text",
+     "line": 161,
+     "in": "NetflixCoursesView",
+     "when": "courses.length === 0",
+     "text": "No tienes cursos asignados."
+    },
+    {
+     "kind": "text",
+     "line": 163,
+     "in": "NetflixCoursesView",
+     "when": "courses.length === 0",
+     "text": "Cuando te inscribas en cursos, aparecerán aquí."
+    },
+    {
+     "kind": "piece",
+     "line": 174,
+     "in": "NetflixCoursesView",
+     "when": "inProgressCourses.length > 0",
+     "text": "title: Continuar Aprendiendo · emptyMessage: No hay cursos en progreso",
+     "tag": "NetflixCourseRow"
+    },
+    {
+     "kind": "piece",
+     "line": 184,
+     "in": "NetflixCoursesView",
+     "when": "notStartedCourses.length > 0",
+     "text": "title: Comenzar · emptyMessage: No hay cursos pendientes",
+     "tag": "NetflixCourseRow"
+    },
+    {
+     "kind": "piece",
+     "line": 194,
+     "in": "NetflixCoursesView",
+     "when": "inProgressCourses.length === 0 && notStartedCourses.length === 0 && completedCourses.length === 0",
+     "text": "title: Todos Mis Cursos · emptyMessage: No hay cursos que coincidan con tu búsqueda",
+     "tag": "NetflixCourseRow"
+    },
+    {
+     "kind": "piece",
+     "line": 204,
+     "in": "NetflixCoursesView",
+     "when": "completedCourses.length > 0",
+     "text": "title: Completados · emptyMessage: No has completado ningún curso aún",
+     "tag": "NetflixCourseRow"
+    },
+    {
+     "kind": "message",
+     "line": 257,
+     "in": "fetchMyCourses",
+     "when": "!(response.ok)",
+     "text": "No se pudieron cargar tus cursos. Por favor, intenta de nuevo más tarde.",
+     "via": "setCoursesError"
+    },
+    {
+     "kind": "message",
+     "line": 261,
+     "in": "fetchMyCourses",
+     "text": "Ocurrió un error al cargar tus cursos.",
+     "via": "setCoursesError"
+    },
+    {
+     "kind": "nav",
+     "line": 278,
+     "in": "checkAuth",
+     "when": "!session?.user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 292,
+     "in": "checkAuth",
+     "when": "profileData",
+     "text": "role = await getUserPrimaryRole(session.user.id)",
+     "via": "getUserPrimaryRole"
+    },
+    {
+     "kind": "nav",
+     "line": 347,
+     "in": "checkAuth",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "message",
+     "line": 362,
+     "in": "fetchLearningPaths",
+     "when": "!response.ok",
+     "text": "Error al cargar las rutas de aprendizaje",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "nav",
+     "line": 377,
+     "in": "handleLogout",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "piece",
+     "line": 382,
+     "in": "MiAprendizajePage",
+     "when": "loading",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "text",
+     "line": 394,
+     "in": "MiAprendizajePage",
+     "when": "loading",
+     "text": "Cargando..."
+    },
+    {
+     "kind": "piece",
+     "line": 402,
+     "in": "MiAprendizajePage",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "piece",
+     "line": 411,
+     "in": "MiAprendizajePage",
+     "text": "title: Mi Aprendizaje · subtitle: Rutas de aprendizaje y cursos asignados · searchPlaceholder: Buscar en rutas y cursos...",
+     "tag": "ResponsiveFunctionalPageHeader"
+    },
+    {
+     "kind": "piece",
+     "line": 419,
+     "in": "MiAprendizajePage",
+     "text": "sectionId: mi-aprendizaje",
+     "tag": "HelpButton"
+    },
+    {
+     "kind": "button",
+     "line": 427,
+     "in": "MiAprendizajePage",
+     "text": "Mis Rutas de Aprendizaje",
+     "action": "{() => { setActiveTab('rutas'); router.push('/mi-aprendizaje?tab=rutas', undefin…}"
+    },
+    {
+     "kind": "nav",
+     "line": 435,
+     "in": "MiAprendizajePage",
+     "text": "/mi-aprendizaje?tab=rutas",
+     "via": "router.push"
+    },
+    {
+     "kind": "button",
+     "line": 440,
+     "in": "MiAprendizajePage",
+     "text": "Mis Cursos",
+     "action": "{() => { setActiveTab('cursos'); router.push('/mi-aprendizaje?tab=cursos', undef…}"
+    },
+    {
+     "kind": "nav",
+     "line": 448,
+     "in": "MiAprendizajePage",
+     "text": "/mi-aprendizaje?tab=cursos",
+     "via": "router.push"
+    },
+    {
+     "kind": "heading",
+     "line": 460,
+     "in": "MiAprendizajePage",
+     "when": "activeTab === 'rutas'",
+     "text": "Mis Rutas de Aprendizaje",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 464,
+     "in": "MiAprendizajePage",
+     "when": "activeTab === 'rutas'",
+     "text": "Rutas de aprendizaje estructuradas asignadas a ti"
+    },
+    {
+     "kind": "text",
+     "line": 472,
+     "in": "MiAprendizajePage",
+     "when": "activeTab === 'rutas' && pathsLoading",
+     "text": "Cargando rutas de aprendizaje..."
+    },
+    {
+     "kind": "text",
+     "line": 477,
+     "in": "MiAprendizajePage",
+     "when": "activeTab === 'rutas' && !(pathsLoading) && learningPaths.length === 0",
+     "text": "No tienes rutas de aprendizaje asignadas aún."
+    },
+    {
+     "kind": "text",
+     "line": 479,
+     "in": "MiAprendizajePage",
+     "when": "activeTab === 'rutas' && !(pathsLoading) && learningPaths.length === 0",
+     "text": "Las rutas de aprendizaje organizan múltiples cursos en secuencias estructuradas."
+    },
+    {
+     "kind": "clickable",
+     "line": 491,
+     "in": "MiAprendizajePage",
+     "when": "activeTab === 'rutas' && !(pathsLoading) && !(learningPaths.length === 0) && (each learningPaths .filter(path => !searchQuery || pat…)",
+     "text": "",
+     "tag": "LearningPathCard",
+     "action": "{() => router.push(`/mi-aprendizaje/ruta/${path.id}`)}"
+    },
+    {
+     "kind": "piece",
+     "line": 491,
+     "in": "MiAprendizajePage",
+     "when": "activeTab === 'rutas' && !(pathsLoading) && !(learningPaths.length === 0) && (each learningPaths .filter(path => !searchQuery || pat…)",
+     "text": "",
+     "tag": "LearningPathCard"
+    },
+    {
+     "kind": "nav",
+     "line": 498,
+     "in": "MiAprendizajePage",
+     "when": "activeTab === 'rutas' && !(pathsLoading) && !(learningPaths.length === 0) && (each learningPaths .filter(path => !searchQuery || pat…)",
+     "text": "/mi-aprendizaje/ruta/[*]",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 516,
+     "in": "MiAprendizajePage",
+     "when": "activeTab === 'cursos'",
+     "text": "/student/course/[*]",
+     "via": "router.push"
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "?tab",
+     "type": "address value"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:course_assignments",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/courses/CourseThumbnail.tsx",
+    "components/courses/NetflixCourseCard.tsx",
+    "components/courses/NetflixCourseRow.tsx",
+    "components/layout/FunctionalPageHeader.tsx",
+    "components/learning-paths/LearningPathCard.tsx",
+    "components/tutorials/HelpButton.tsx",
+    "components/tutorials/HelpDrawer.tsx",
+    "components/tutorials/VimeoEmbed.tsx",
+    "components/ui/dialog.tsx",
+    "lib/tutorials/content.ts",
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/learning-paths/my-paths.ts",
+     "route": "/api/learning-paths/my-paths",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/mi-aprendizaje.tsx:359"
+     ]
+    },
+    {
+     "file": "pages/api/my-courses.ts",
+     "route": "/api/my-courses",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/mi-aprendizaje.tsx:252",
+      "pages/mi-aprendizaje.tsx:328"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/mi-aprendizaje/ruta/[id].tsx",
+   "route": "/mi-aprendizaje/ruta/[id]",
+   "lines": 549,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 506,
+      "text": "server redirect → /auth/signin  (when !user)"
+     },
+     {
+      "line": 521,
+      "text": "server redirect → /auth/signin  (when !profileData)"
+     },
+     {
+      "line": 538,
+      "text": "isAdmin = userRoles?.some(role => role.role_type === 'admin') || false"
+     }
+    ],
+    "linkedFrom": [
+     "pages/api/qa/seed-codebase-index.ts:290",
+     "pages/dashboard.tsx:1039",
+     "pages/mi-aprendizaje.tsx:498"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [
+      "tests/e2e/panel-pin.spec.ts"
+     ],
+     "unit": [
+      "__tests__/lib/api-auth.server-side-user.test.ts"
+     ]
+    }
+   },
+   "rows": [
+    {
+     "kind": "message",
+     "line": 105,
+     "in": "fetchPathDetails",
+     "when": "!response.ok",
+     "text": "Error al cargar los detalles de la ruta",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 112,
+     "in": "fetchPathDetails",
+     "text": "Error al cargar los detalles de la ruta",
+     "via": "setError"
+    },
+    {
+     "kind": "text",
+     "line": 153,
+     "in": "getStatusBadge",
+     "when": "status === 'completed'",
+     "text": "Completado"
+    },
+    {
+     "kind": "text",
+     "line": 160,
+     "in": "getStatusBadge",
+     "when": "status === 'in_progress'",
+     "text": "En progreso ("
+    },
+    {
+     "kind": "text",
+     "line": 167,
+     "in": "getStatusBadge",
+     "when": "status === 'enrolled'",
+     "text": "Inscrito"
+    },
+    {
+     "kind": "text",
+     "line": 174,
+     "in": "getStatusBadge",
+     "text": "No iniciado"
+    },
+    {
+     "kind": "list",
+     "line": 181,
+     "in": "getDifficultyBadge",
+     "text": "levels",
+     "items": [
+      "Principiante",
+      "Intermedio",
+      "Avanzado"
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 199,
+     "in": "PathDetailsPage",
+     "when": "loading",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "text",
+     "line": 208,
+     "in": "PathDetailsPage",
+     "when": "loading",
+     "text": "Cargando detalles de la ruta..."
+    },
+    {
+     "kind": "piece",
+     "line": 217,
+     "in": "PathDetailsPage",
+     "when": "error || !pathDetails",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "text",
+     "line": 225,
+     "in": "PathDetailsPage",
+     "when": "error || !pathDetails",
+     "text": "{error} / Ruta de aprendizaje no encontrada"
+    },
+    {
+     "kind": "button",
+     "line": 228,
+     "in": "PathDetailsPage",
+     "when": "error || !pathDetails",
+     "text": "Volver a Mis Rutas",
+     "action": "{() => router.push('/my-paths')}"
+    },
+    {
+     "kind": "nav",
+     "line": 231,
+     "in": "PathDetailsPage",
+     "when": "error || !pathDetails",
+     "text": "/my-paths",
+     "via": "router.push"
+    },
+    {
+     "kind": "piece",
+     "line": 242,
+     "in": "PathDetailsPage",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "button",
+     "line": 250,
+     "in": "PathDetailsPage",
+     "text": "Volver a Mi Aprendizaje",
+     "action": "{() => router.push('/mi-aprendizaje')}"
+    },
+    {
+     "kind": "nav",
+     "line": 253,
+     "in": "PathDetailsPage",
+     "text": "/mi-aprendizaje",
+     "via": "router.push"
+    },
+    {
+     "kind": "heading",
+     "line": 262,
+     "in": "PathDetailsPage",
+     "text": "{pathDetails.name}",
+     "level": 1
+    },
+    {
+     "kind": "button",
+     "line": 267,
+     "in": "PathDetailsPage",
+     "when": "enhancedProgress && !loadingEnhanced",
+     "text": "Vista Básica / Vista Inteligente",
+     "action": "{() => setShowEnhancedView(!showEnhancedView)}"
+    },
+    {
+     "kind": "value",
+     "line": 280,
+     "in": "PathDetailsPage",
+     "text": "{pathDetails.description}"
+    },
+    {
+     "kind": "text",
+     "line": 285,
+     "in": "PathDetailsPage",
+     "text": "Progreso general"
+    },
+    {
+     "kind": "text",
+     "line": 290,
+     "in": "PathDetailsPage",
+     "when": "getCurrentSession()",
+     "text": "Sesión activa"
+    },
+    {
+     "kind": "text",
+     "line": 293,
+     "in": "PathDetailsPage",
+     "text": "{pathDetails.progress.completed_cour…} de {pathDetails.progress.total_courses} cursos completados"
+    },
+    {
+     "kind": "text",
+     "line": 306,
+     "in": "PathDetailsPage",
+     "text": "{pathDetails.progress.progress_perce…} % completado"
+    },
+    {
+     "kind": "text",
+     "line": 312,
+     "in": "PathDetailsPage",
+     "when": "pathDetails.timeTracking && pathDetails.timeTracking.totalTimeSpent > 0",
+     "text": "{Math.floor(pathDetails.timeTracking…} h {pathDetails.timeTracking.totalTimeS…} min invertidos"
+    },
+    {
+     "kind": "text",
+     "line": 321,
+     "in": "PathDetailsPage",
+     "when": "pathDetails.progress.progress_percentage === 100",
+     "text": "¡Ruta completada!"
+    },
+    {
+     "kind": "piece",
+     "line": 331,
+     "in": "PathDetailsPage",
+     "when": "showEnhancedView && enhancedProgress && !loadingEnhanced",
+     "text": "",
+     "tag": "EnhancedProgressIndicators"
+    },
+    {
+     "kind": "text",
+     "line": 345,
+     "in": "PathDetailsPage",
+     "when": "showEnhancedView && loadingEnhanced",
+     "text": "Cargando análisis inteligente..."
+    },
+    {
+     "kind": "heading",
+     "line": 354,
+     "in": "PathDetailsPage",
+     "text": "Cursos en esta ruta ( {pathDetails.courses.length} )",
+     "level": 2
+    },
+    {
+     "kind": "value",
+     "line": 367,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses",
+     "text": "{course.sequence}"
+    },
+    {
+     "kind": "heading",
+     "line": 380,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses",
+     "text": "{course.title}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 383,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses",
+     "text": "{course.description}"
+    },
+    {
+     "kind": "text",
+     "line": 394,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses",
+     "text": "{course.duration_hours} horas"
+    },
+    {
+     "kind": "text",
+     "line": 398,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses && course.last_accessed",
+     "text": "Último acceso {formatDistanceToNow(new Date(course…}"
+    },
+    {
+     "kind": "text",
+     "line": 412,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses && course.status !== 'not_started' && course.completion_rate > 0",
+     "text": "Progreso del curso"
+    },
+    {
+     "kind": "value",
+     "line": 413,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses && course.status !== 'not_started' && course.completion_rate > 0",
+     "text": "{course.completion_rate} %"
+    },
+    {
+     "kind": "text",
+     "line": 439,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses && showEnhancedView && enhancedProgress && enhancedProgress.insights && course.sequence === pathDetails.progress.completed_courses + 1 && course.status === 'in_progress'",
+     "text": "Curso actual - Continúa tu progreso"
+    },
+    {
+     "kind": "text",
+     "line": 451,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses && showEnhancedView && enhancedProgress && enhancedProgress.insights && course.status === 'not_started' && course.sequence === pathDetails.progress.completed_courses + 1",
+     "text": "Próximo paso - ¡Empezar ahora!"
+    },
+    {
+     "kind": "button",
+     "line": 462,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses && course.buttonDisabled",
+     "text": "{course.buttonText}",
+     "disabled": "true"
+    },
+    {
+     "kind": "link",
+     "line": 471,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses && !(course.buttonDisabled)",
+     "text": "{course.buttonText}",
+     "target": "{course.buttonHref}"
+    },
+    {
+     "kind": "button",
+     "line": 472,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses && !(course.buttonDisabled)",
+     "text": "{course.buttonText}",
+     "action": "{() => { if (course.buttonTargetCourseId) { updateActivity('course_start', cours…}"
+    },
+    {
+     "kind": "nav",
+     "line": 506,
+     "in": "getServerSideProps",
+     "when": "!user",
+     "text": "/auth/signin",
+     "via": "server redirect"
+    },
+    {
+     "kind": "nav",
+     "line": 521,
+     "in": "getServerSideProps",
+     "when": "!profileData",
+     "text": "/auth/signin",
+     "via": "server redirect"
+    },
+    {
+     "kind": "access",
+     "line": 538,
+     "in": "getServerSideProps",
+     "text": "isAdmin = userRoles?.some(role => role.role_type === 'admin') || false",
+     "via": "declaration"
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "[id] (part of the address)",
+     "type": "address value"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/learning-paths/EnhancedProgressIndicators.tsx",
+    "components/ui/button.tsx",
+    "lib/services/learningPathSessionTracker.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/learning-paths/[id].ts",
+     "route": "/api/learning-paths/[id]",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "lib/services/learningPathSessionTracker.ts:38",
+      "pages/mi-aprendizaje/ruta/[id].tsx:102"
+     ]
+    },
+    {
+     "file": "pages/api/learning-paths/[id]/enhanced-progress.ts",
+     "route": "/api/learning-paths/[id]/enhanced-progress",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/mi-aprendizaje/ruta/[id].tsx:122"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/mi-aprendizaje/tareas.tsx",
+   "route": "/mi-aprendizaje/tareas",
+   "lines": 612,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [
+     {
+      "id": "my-assignments",
+      "label": "Mis Tareas",
+      "group": "Mi Aprendizaje",
+      "href": "/mi-aprendizaje/tareas",
+      "gates": "everyone signed in",
+      "groupGates": "everyone signed in",
+      "line": 155
+     }
+    ],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "yes",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "components/layout/Sidebar.tsx:157",
+     "lib/notifications/catalog.ts:296",
+     "pages/api/assignments/collaborative-submit.ts:126",
+     "pages/community/workspace.tsx:268",
+     "pages/community/workspace/assignments/[id]/discussion.tsx:150",
+     "pages/community/workspace/assignments/[id]/discussion.tsx:279",
+     "pages/community/workspace/assignments/[id]/discussion.tsx:289",
+     "pages/community/workspace/assignments/[id]/groups.tsx:154",
+     "pages/community/workspace/assignments/[id]/groups.tsx:164"
+    ],
+    "qaScenarios": {
+     "admin": [
+      "SV-5: Admin ve Mis Tareas en sidebar"
+     ]
+    },
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 54,
+     "in": "checkOnboardingStatus",
+     "text": "localStorage: tareas_onboarding_seen",
+     "type": "storage"
+    },
+    {
+     "kind": "toast",
+     "line": 71,
+     "in": "loadAssignments",
+     "when": "error",
+     "text": "Error al cargar las tareas",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 101,
+     "in": "loadAssignments",
+     "text": "Error al cargar las tareas",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 176,
+     "in": "handleSubmitAssignment",
+     "text": "Cargando detalles de la tarea...",
+     "variant": "loading"
+    },
+    {
+     "kind": "toast",
+     "line": 185,
+     "in": "handleSubmitAssignment",
+     "when": "assignmentError || !fullAssignment",
+     "text": "Error al cargar los detalles de la tarea",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 200,
+     "in": "handleSubmitAssignment",
+     "when": "!contentType || !contentType.includes('application/json')",
+     "text": "Error al cargar el grupo ({groupResponse.status})",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 209,
+     "in": "handleSubmitAssignment",
+     "when": "!groupResponse.ok",
+     "text": "Error al cargar el grupo: {groupData.error || groupRes…}",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 218,
+     "in": "handleSubmitAssignment",
+     "text": "Error al cargar el grupo",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 235,
+     "in": "handleSubmitAssignment",
+     "text": "Error al preparar la entrega",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 244,
+     "in": "handleSubmissionSuccess",
+     "text": "¡Trabajo enviado exitosamente!",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 249,
+     "in": "handleGroupSubmit",
+     "when": "!user || !selectedAssignment",
+     "text": "Error: usuario o tarea no encontrados",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 257,
+     "in": "handleGroupSubmit",
+     "when": "!groupToUse?.id",
+     "text": "Debes crear un grupo antes de entregar",
+     "variant": "error"
+    },
+    {
+     "kind": "list",
+     "line": 269,
+     "in": "handleGroupSubmit",
+     "when": "result.error",
+     "text": "errorMessage",
+     "items": [
+      "Error al enviar el trabajo"
+     ]
+    },
+    {
+     "kind": "toast",
+     "line": 273,
+     "in": "handleGroupSubmit",
+     "when": "result.error",
+     "text": "{errorMessage}",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 280,
+     "in": "handleGroupSubmit",
+     "text": "Error al enviar el trabajo",
+     "variant": "error"
+    },
+    {
+     "kind": "text",
+     "line": 292,
+     "in": "formatDueDate",
+     "when": "diffDays < 0",
+     "text": "Venció hace {Math.abs(diffDays)} día s"
+    },
+    {
+     "kind": "text",
+     "line": 297,
+     "in": "formatDueDate",
+     "when": "!(diffDays < 0) && diffDays === 0",
+     "text": "Vence hoy"
+    },
+    {
+     "kind": "text",
+     "line": 299,
+     "in": "formatDueDate",
+     "when": "!(diffDays < 0) && !(diffDays === 0) && diffDays === 1",
+     "text": "Vence mañana"
+    },
+    {
+     "kind": "text",
+     "line": 302,
+     "in": "formatDueDate",
+     "when": "!(diffDays < 0) && !(diffDays === 0) && !(diffDays === 1) && diffDays <= 7",
+     "text": "Vence en {diffDays} días"
+    },
+    {
+     "kind": "value",
+     "line": 308,
+     "in": "formatDueDate",
+     "text": "{date.toLocaleDateString('es-ES', { …}"
+    },
+    {
+     "kind": "list",
+     "line": 333,
+     "in": "TareasPage",
+     "text": "tabs",
+     "items": [
+      "Pendientes",
+      "Entregadas",
+      "Calificadas"
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 340,
+     "in": "TareasPage",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "piece",
+     "line": 345,
+     "in": "TareasPage",
+     "text": "title: Mi Aprendizaje · subtitle: Mis Tareas - Tareas de todos tus cursos",
+     "tag": "ResponsiveFunctionalPageHeader"
+    },
+    {
+     "kind": "button",
+     "line": 351,
+     "in": "TareasPage",
+     "when": "router.query.from === 'workspace'",
+     "text": "← Volver al Espacio Colaborativo",
+     "action": "{() => router.back()}"
+    },
+    {
+     "kind": "button",
+     "line": 365,
+     "in": "TareasPage",
+     "when": "showOnboarding",
+     "text": "×",
+     "action": "{() => setShowOnboarding(false)}"
+    },
+    {
+     "kind": "heading",
+     "line": 371,
+     "in": "TareasPage",
+     "when": "showOnboarding",
+     "text": "¡Bienvenido a Mis Tareas! 🎉",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 375,
+     "in": "TareasPage",
+     "when": "showOnboarding",
+     "text": "Aquí puedes ver todas tus tareas grupales de todos tus cursos en un solo lugar."
+    },
+    {
+     "kind": "text",
+     "line": 377,
+     "in": "TareasPage",
+     "when": "showOnboarding",
+     "text": "Envía tus trabajos directamente desde esta página."
+    },
+    {
+     "kind": "button",
+     "line": 395,
+     "in": "TareasPage",
+     "when": "each tabs",
+     "text": "{tab.label} {count}",
+     "action": "{() => setActiveTab(tab.id)}"
+    },
+    {
+     "kind": "field",
+     "line": 424,
+     "in": "TareasPage",
+     "text": "Buscar tareas...",
+     "type": "text",
+     "placeholder": "Buscar tareas...",
+     "action": "{(e) => setSearchQuery(e.target.value)}"
+    },
+    {
+     "kind": "label",
+     "line": 436,
+     "in": "TareasPage",
+     "when": "courses.length > 1",
+     "text": "Filtrar por Curso"
+    },
+    {
+     "kind": "button",
+     "line": 442,
+     "in": "TareasPage",
+     "when": "courses.length > 1 && each courses",
+     "text": "{course.name}",
+     "action": "{() => handleToggleCommunity(course.id)}"
+    },
+    {
+     "kind": "heading",
+     "line": 467,
+     "in": "TareasPage",
+     "when": "!(loading) && filteredAssignments.length === 0",
+     "text": "No hay tareas pendientes / entregadas / calificadas",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 470,
+     "in": "TareasPage",
+     "when": "!(loading) && filteredAssignments.length === 0",
+     "text": "Intenta cambiar los filtros / Las tareas aparecerán aquí cuando sean asignadas"
+    },
+    {
+     "kind": "text",
+     "line": 486,
+     "in": "TareasPage",
+     "when": "!(loading) && !(filteredAssignments.length === 0) && each filteredAssignments",
+     "text": "Curso: {assignment.course_title}"
+    },
+    {
+     "kind": "text",
+     "line": 490,
+     "in": "TareasPage",
+     "when": "!(loading) && !(filteredAssignments.length === 0) && each filteredAssignments && (assignment as any).learning_path_title",
+     "text": "Ruta de aprendizaje: {(assignment as any).learning_path_t…}"
+    },
+    {
+     "kind": "heading",
+     "line": 497,
+     "in": "TareasPage",
+     "when": "!(loading) && !(filteredAssignments.length === 0) && each filteredAssignments",
+     "text": "{assignment.title}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 505,
+     "in": "TareasPage",
+     "when": "!(loading) && !(filteredAssignments.length === 0) && each filteredAssignments && assignment.description",
+     "text": "{assignment.description}"
+    },
+    {
+     "kind": "text",
+     "line": 527,
+     "in": "TareasPage",
+     "when": "!(loading) && !(filteredAssignments.length === 0) && each filteredAssignments && assignment.status === 'submitted'",
+     "text": "Trabajo enviado"
+    },
+    {
+     "kind": "text",
+     "line": 529,
+     "in": "TareasPage",
+     "when": "!(filteredAssignments.length === 0) && each filteredAssignments && assignment.status === 'submitted' && !assignment.is_original && assignment.submitter_name",
+     "text": "Compartido por {assignment.submitter_name}"
+    },
+    {
+     "kind": "text",
+     "line": 534,
+     "in": "TareasPage",
+     "when": "!(filteredAssignments.length === 0) && each filteredAssignments && assignment.status === 'submitted' && formatSubmissionTimestamp(assignment.submitted_at)",
+     "text": "Última entrega: {formatSubmissionTimestamp(assignmen…}"
+    },
+    {
+     "kind": "text",
+     "line": 548,
+     "in": "TareasPage",
+     "when": "!(loading) && !(filteredAssignments.length === 0) && each filteredAssignments && assignment.status === 'graded'",
+     "text": "Calificado"
+    },
+    {
+     "kind": "value",
+     "line": 550,
+     "in": "TareasPage",
+     "when": "!(loading) && !(filteredAssignments.length === 0) && each filteredAssignments && assignment.status === 'graded'",
+     "text": "{assignment.score} / {assignment.points}"
+    },
+    {
+     "kind": "value",
+     "line": 555,
+     "in": "TareasPage",
+     "when": "!(filteredAssignments.length === 0) && each filteredAssignments && assignment.status === 'graded' && assignment.feedback",
+     "text": "{assignment.feedback}"
+    },
+    {
+     "kind": "text",
+     "line": 560,
+     "in": "TareasPage",
+     "when": "!(filteredAssignments.length === 0) && each filteredAssignments && assignment.status === 'graded' && formatSubmissionTimestamp(assignment.submitted_at)",
+     "text": "Última actualización: {formatSubmissionTimestamp(assignmen…}"
+    },
+    {
+     "kind": "button",
+     "line": 570,
+     "in": "TareasPage",
+     "when": "!(loading) && !(filteredAssignments.length === 0) && each filteredAssignments",
+     "text": "Ver Detalles / Editar Entrega",
+     "action": "{() => handleSubmitAssignment(assignment)}"
+    },
+    {
+     "kind": "link",
+     "line": 578,
+     "in": "TareasPage",
+     "when": "!(loading) && !(filteredAssignments.length === 0) && each filteredAssignments && ((assignment.status === 'submitted' || assignment.status === 'graded') && assignment.file_url)",
+     "text": "Ver Trabajo",
+     "target": "{assignment.file_url}",
+     "newTab": true
+    },
+    {
+     "kind": "popup",
+     "line": 596,
+     "in": "TareasPage",
+     "when": "showSubmissionModal && selectedAssignment",
+     "text": "GroupSubmissionModalV2",
+     "how": "component"
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "?communityId",
+     "type": "address value"
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "?from",
+     "type": "address value"
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "components/assignments/GroupSubmissionModalV2.tsx",
+    "components/layout/FunctionalPageHeader.tsx",
+    "lib/services/groupAssignmentsV2.js",
+    "lib/services/userAssignments.ts",
+    "types/roles.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/assignments/add-classmates.ts",
+     "route": "/api/assignments/add-classmates",
+     "methods": [],
+     "from": [
+      "components/assignments/GroupSubmissionModalV2.tsx:307"
+     ]
+    },
+    {
+     "file": "pages/api/assignments/create-group.ts",
+     "route": "/api/assignments/create-group",
+     "methods": [],
+     "from": [
+      "components/assignments/GroupSubmissionModalV2.tsx:306"
+     ]
+    },
+    {
+     "file": "pages/api/assignments/eligible-classmates.ts",
+     "route": "/api/assignments/eligible-classmates",
+     "methods": [],
+     "from": [
+      "components/assignments/GroupSubmissionModalV2.tsx:170",
+      "components/assignments/GroupSubmissionModalV2.tsx:171"
+     ]
+    },
+    {
+     "file": "pages/api/assignments/group-members.ts",
+     "route": "/api/assignments/group-members",
+     "methods": [
+      "DELETE",
+      "GET"
+     ],
+     "from": [
+      "components/assignments/GroupSubmissionModalV2.tsx:381",
+      "components/assignments/GroupSubmissionModalV2.tsx:90"
+     ]
+    },
+    {
+     "file": "pages/api/assignments/submit-group.ts",
+     "route": "/api/assignments/submit-group",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "lib/services/groupAssignmentsV2.js:429"
+     ]
+    },
+    {
+     "file": "pages/api/assignments/user-group.ts",
+     "route": "/api/assignments/user-group",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/mi-aprendizaje/tareas.tsx:193"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/my-paths.tsx",
+   "route": "/my-paths",
+   "lines": 22,
+   "marks": {
+    "keep": "A redirect to /mi-aprendizaje. The route page sends people to it."
+   },
+   "frame": "none",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [
+     "components/DynamicFavicon.tsx:33",
+     "lib/auth/forced-password-change.ts:154",
+     "middleware.ts:349",
+     "pages/mi-aprendizaje/ruta/[id].tsx:231",
+     "pages/my-paths/[id].tsx:231"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 10,
+     "in": "MyPathsRedirect",
+     "text": "/mi-aprendizaje",
+     "via": "router.replace"
+    },
+    {
+     "kind": "text",
+     "line": 18,
+     "in": "MyPathsRedirect",
+     "text": "Redirigiendo a Mi Aprendizaje..."
+    }
+   ],
+   "db": [],
+   "pieces": [],
+   "api": []
+  },
+  {
+   "file": "pages/my-paths/[id].tsx",
+   "route": "/my-paths/[id]",
+   "lines": 549,
+   "marks": {
+    "leftover": "A copy of the learning-route page; the live one is /mi-aprendizaje/ruta/[id]. Nothing links to this copy.",
+    "recommend": "retire",
+    "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+   },
+   "frame": "MainLayout",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 506,
+      "text": "server redirect → /auth/signin  (when !user)"
+     },
+     {
+      "line": 521,
+      "text": "server redirect → /auth/signin  (when !profileData)"
+     },
+     {
+      "line": 538,
+      "text": "isAdmin = userRoles?.some(role => role.role_type === 'admin') || false"
+     }
+    ],
+    "linkedFrom": [
+     "middleware.ts:349"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": [
+      "__tests__/lib/api-auth.server-side-user.test.ts"
+     ]
+    }
+   },
+   "rows": [
+    {
+     "kind": "message",
+     "line": 105,
+     "in": "fetchPathDetails",
+     "when": "!response.ok",
+     "text": "Error al cargar los detalles de la ruta",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 112,
+     "in": "fetchPathDetails",
+     "text": "Error al cargar los detalles de la ruta",
+     "via": "setError"
+    },
+    {
+     "kind": "text",
+     "line": 153,
+     "in": "getStatusBadge",
+     "when": "status === 'completed'",
+     "text": "Completado"
+    },
+    {
+     "kind": "text",
+     "line": 160,
+     "in": "getStatusBadge",
+     "when": "status === 'in_progress'",
+     "text": "En progreso ("
+    },
+    {
+     "kind": "text",
+     "line": 167,
+     "in": "getStatusBadge",
+     "when": "status === 'enrolled'",
+     "text": "Inscrito"
+    },
+    {
+     "kind": "text",
+     "line": 174,
+     "in": "getStatusBadge",
+     "text": "No iniciado"
+    },
+    {
+     "kind": "list",
+     "line": 181,
+     "in": "getDifficultyBadge",
+     "text": "levels",
+     "items": [
+      "Principiante",
+      "Intermedio",
+      "Avanzado"
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 199,
+     "in": "PathDetailsPage",
+     "when": "loading",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "text",
+     "line": 208,
+     "in": "PathDetailsPage",
+     "when": "loading",
+     "text": "Cargando detalles de la ruta..."
+    },
+    {
+     "kind": "piece",
+     "line": 217,
+     "in": "PathDetailsPage",
+     "when": "error || !pathDetails",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "text",
+     "line": 225,
+     "in": "PathDetailsPage",
+     "when": "error || !pathDetails",
+     "text": "{error} / Ruta de aprendizaje no encontrada"
+    },
+    {
+     "kind": "button",
+     "line": 228,
+     "in": "PathDetailsPage",
+     "when": "error || !pathDetails",
+     "text": "Volver a Mis Rutas",
+     "action": "{() => router.push('/my-paths')}"
+    },
+    {
+     "kind": "nav",
+     "line": 231,
+     "in": "PathDetailsPage",
+     "when": "error || !pathDetails",
+     "text": "/my-paths",
+     "via": "router.push"
+    },
+    {
+     "kind": "piece",
+     "line": 242,
+     "in": "PathDetailsPage",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "button",
+     "line": 250,
+     "in": "PathDetailsPage",
+     "text": "Volver a Mi Aprendizaje",
+     "action": "{() => router.push('/mi-aprendizaje')}"
+    },
+    {
+     "kind": "nav",
+     "line": 253,
+     "in": "PathDetailsPage",
+     "text": "/mi-aprendizaje",
+     "via": "router.push"
+    },
+    {
+     "kind": "heading",
+     "line": 262,
+     "in": "PathDetailsPage",
+     "text": "{pathDetails.name}",
+     "level": 1
+    },
+    {
+     "kind": "button",
+     "line": 267,
+     "in": "PathDetailsPage",
+     "when": "enhancedProgress && !loadingEnhanced",
+     "text": "Vista Básica / Vista Inteligente",
+     "action": "{() => setShowEnhancedView(!showEnhancedView)}"
+    },
+    {
+     "kind": "value",
+     "line": 280,
+     "in": "PathDetailsPage",
+     "text": "{pathDetails.description}"
+    },
+    {
+     "kind": "text",
+     "line": 285,
+     "in": "PathDetailsPage",
+     "text": "Progreso general"
+    },
+    {
+     "kind": "text",
+     "line": 290,
+     "in": "PathDetailsPage",
+     "when": "getCurrentSession()",
+     "text": "Sesión activa"
+    },
+    {
+     "kind": "text",
+     "line": 293,
+     "in": "PathDetailsPage",
+     "text": "{pathDetails.progress.completed_cour…} de {pathDetails.progress.total_courses} cursos completados"
+    },
+    {
+     "kind": "text",
+     "line": 306,
+     "in": "PathDetailsPage",
+     "text": "{pathDetails.progress.progress_perce…} % completado"
+    },
+    {
+     "kind": "text",
+     "line": 312,
+     "in": "PathDetailsPage",
+     "when": "pathDetails.timeTracking && pathDetails.timeTracking.totalTimeSpent > 0",
+     "text": "{Math.floor(pathDetails.timeTracking…} h {pathDetails.timeTracking.totalTimeS…} min invertidos"
+    },
+    {
+     "kind": "text",
+     "line": 321,
+     "in": "PathDetailsPage",
+     "when": "pathDetails.progress.progress_percentage === 100",
+     "text": "¡Ruta completada!"
+    },
+    {
+     "kind": "piece",
+     "line": 331,
+     "in": "PathDetailsPage",
+     "when": "showEnhancedView && enhancedProgress && !loadingEnhanced",
+     "text": "",
+     "tag": "EnhancedProgressIndicators"
+    },
+    {
+     "kind": "text",
+     "line": 345,
+     "in": "PathDetailsPage",
+     "when": "showEnhancedView && loadingEnhanced",
+     "text": "Cargando análisis inteligente..."
+    },
+    {
+     "kind": "heading",
+     "line": 354,
+     "in": "PathDetailsPage",
+     "text": "Cursos en esta ruta ( {pathDetails.courses.length} )",
+     "level": 2
+    },
+    {
+     "kind": "value",
+     "line": 367,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses",
+     "text": "{course.sequence}"
+    },
+    {
+     "kind": "heading",
+     "line": 380,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses",
+     "text": "{course.title}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 383,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses",
+     "text": "{course.description}"
+    },
+    {
+     "kind": "text",
+     "line": 394,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses",
+     "text": "{course.duration_hours} horas"
+    },
+    {
+     "kind": "text",
+     "line": 398,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses && course.last_accessed",
+     "text": "Último acceso {formatDistanceToNow(new Date(course…}"
+    },
+    {
+     "kind": "text",
+     "line": 412,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses && course.status !== 'not_started' && course.completion_rate > 0",
+     "text": "Progreso del curso"
+    },
+    {
+     "kind": "value",
+     "line": 413,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses && course.status !== 'not_started' && course.completion_rate > 0",
+     "text": "{course.completion_rate} %"
+    },
+    {
+     "kind": "text",
+     "line": 439,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses && showEnhancedView && enhancedProgress && enhancedProgress.insights && course.sequence === pathDetails.progress.completed_courses + 1 && course.status === 'in_progress'",
+     "text": "Curso actual - Continúa tu progreso"
+    },
+    {
+     "kind": "text",
+     "line": 451,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses && showEnhancedView && enhancedProgress && enhancedProgress.insights && course.status === 'not_started' && course.sequence === pathDetails.progress.completed_courses + 1",
+     "text": "Próximo paso - ¡Empezar ahora!"
+    },
+    {
+     "kind": "button",
+     "line": 462,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses && course.buttonDisabled",
+     "text": "{course.buttonText}",
+     "disabled": "true"
+    },
+    {
+     "kind": "link",
+     "line": 471,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses && !(course.buttonDisabled)",
+     "text": "{course.buttonText}",
+     "target": "{course.buttonHref}"
+    },
+    {
+     "kind": "button",
+     "line": 472,
+     "in": "PathDetailsPage",
+     "when": "each pathDetails.courses && !(course.buttonDisabled)",
+     "text": "{course.buttonText}",
+     "action": "{() => { if (course.buttonTargetCourseId) { updateActivity('course_start', cours…}"
+    },
+    {
+     "kind": "nav",
+     "line": 506,
+     "in": "getServerSideProps",
+     "when": "!user",
+     "text": "/auth/signin",
+     "via": "server redirect"
+    },
+    {
+     "kind": "nav",
+     "line": 521,
+     "in": "getServerSideProps",
+     "when": "!profileData",
+     "text": "/auth/signin",
+     "via": "server redirect"
+    },
+    {
+     "kind": "access",
+     "line": 538,
+     "in": "getServerSideProps",
+     "text": "isAdmin = userRoles?.some(role => role.role_type === 'admin') || false",
+     "via": "declaration"
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "[id] (part of the address)",
+     "type": "address value"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/learning-paths/EnhancedProgressIndicators.tsx",
+    "components/ui/button.tsx",
+    "lib/services/learningPathSessionTracker.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/learning-paths/[id].ts",
+     "route": "/api/learning-paths/[id]",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "lib/services/learningPathSessionTracker.ts:38",
+      "pages/my-paths/[id].tsx:102"
+     ]
+    },
+    {
+     "file": "pages/api/learning-paths/[id]/enhanced-progress.ts",
+     "route": "/api/learning-paths/[id]/enhanced-progress",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/my-paths/[id].tsx:122"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/student/course/[courseId].tsx",
+   "route": "/student/course/[courseId]",
+   "lines": 708,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 76,
+      "text": "router.push → /login  (when !session?.user)"
+     },
+     {
+      "line": 83,
+      "text": "adminInMetadata = metadataHasRole(session.user?.user_metadata, 'admin')"
+     },
+     {
+      "line": 94,
+      "text": "userRole = await getUserPrimaryRole(session.user.id)"
+     },
+     {
+      "line": 391,
+      "text": "router.push → /login"
+     }
+    ],
+    "linkedFrom": [
+     "components/student/LessonSidebar.tsx:138",
+     "components/student/LessonSidebar.tsx:139",
+     "lib/services/learningPathsService.ts:705",
+     "lib/services/learningPathsService.ts:771",
+     "lib/services/learningPathsService.ts:777",
+     "lib/services/learningPathsService.ts:784",
+     "lib/services/learningPathsService.ts:796",
+     "lib/services/learningPathsService.ts:801",
+     "lib/services/learningPathsService.ts:806",
+     "pages/admin/course-builder/index.tsx:614",
+     "pages/api/qa/seed-codebase-index.ts:273",
+     "pages/api/qa/seed-codebase-index.ts:305",
+     "pages/dashboard.tsx:1007",
+     "pages/dashboard.tsx:1052",
+     "pages/mi-aprendizaje.tsx:516",
+     "pages/student/lesson/[lessonId].tsx:860"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [
+      "tests/e2e/panel-pin.spec.ts"
+     ],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 76,
+     "in": "initializeCourseViewer",
+     "when": "!session?.user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 83,
+     "in": "initializeCourseViewer",
+     "text": "adminInMetadata = metadataHasRole(session.user?.user_metadata, 'admin')",
+     "via": "metadataHasRole"
+    },
+    {
+     "kind": "access",
+     "line": 94,
+     "in": "initializeCourseViewer",
+     "when": "!(adminInMetadata) && profileData",
+     "text": "userRole = await getUserPrimaryRole(session.user.id)",
+     "via": "getUserPrimaryRole"
+    },
+    {
+     "kind": "toast",
+     "line": 323,
+     "in": "initializeCourseViewer",
+     "text": "Error cargando el curso",
+     "variant": "error"
+    },
+    {
+     "kind": "hook",
+     "line": 389,
+     "in": "handleLogout",
+     "text": "localStorage: rememberMe",
+     "type": "storage"
+    },
+    {
+     "kind": "hook",
+     "line": 390,
+     "in": "handleLogout",
+     "text": "sessionStorage: sessionOnly",
+     "type": "storage"
+    },
+    {
+     "kind": "nav",
+     "line": 391,
+     "in": "handleLogout",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "text",
+     "line": 399,
+     "in": "StudentCourseViewer",
+     "when": "loading",
+     "text": "Cargando curso..."
+    },
+    {
+     "kind": "text",
+     "line": 409,
+     "in": "StudentCourseViewer",
+     "when": "!course",
+     "text": "No se pudo cargar el curso"
+    },
+    {
+     "kind": "button",
+     "line": 410,
+     "in": "StudentCourseViewer",
+     "when": "!course",
+     "text": "Volver",
+     "action": "{() => router.back()}"
+    },
+    {
+     "kind": "piece",
+     "line": 432,
+     "in": "StudentCourseViewer",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "piece",
+     "line": 441,
+     "in": "StudentCourseViewer",
+     "text": "",
+     "tag": "ResponsiveFunctionalPageHeader"
+    },
+    {
+     "kind": "button",
+     "line": 446,
+     "in": "StudentCourseViewer",
+     "text": "Volver",
+     "action": "{() => router.back()}"
+    },
+    {
+     "kind": "text",
+     "line": 456,
+     "in": "StudentCourseViewer",
+     "text": "Progreso:"
+    },
+    {
+     "kind": "value",
+     "line": 464,
+     "in": "StudentCourseViewer",
+     "text": "{getCourseProgressPercentage()} %"
+    },
+    {
+     "kind": "heading",
+     "line": 480,
+     "in": "StudentCourseViewer",
+     "when": "nextLesson",
+     "text": "Continuar Aprendiendo",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 482,
+     "in": "StudentCourseViewer",
+     "when": "nextLesson && nextLesson.module",
+     "text": "Módulo {nextLesson.module.order_number} : {nextLesson.module.title}"
+    },
+    {
+     "kind": "text",
+     "line": 486,
+     "in": "StudentCourseViewer",
+     "when": "nextLesson",
+     "text": "Lección {nextLesson.lesson.order_number} : {nextLesson.lesson.title}"
+    },
+    {
+     "kind": "text",
+     "line": 490,
+     "in": "StudentCourseViewer",
+     "when": "nextLesson",
+     "text": "Progreso: {getLessonProgressPercentage(nextLes…} %"
+    },
+    {
+     "kind": "link",
+     "line": 501,
+     "in": "StudentCourseViewer",
+     "when": "nextLesson",
+     "text": "Continuar Lección",
+     "target": "/student/lesson/[*]",
+     "action": "{() => { console.log('DEBUG: Navigating to lesson ID:', nextLesson.lesson.id); c…}"
+    },
+    {
+     "kind": "heading",
+     "line": 524,
+     "in": "StudentCourseViewer",
+     "when": "course?.structure_type === 'simple'",
+     "text": "Lecciones del Curso",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 527,
+     "in": "StudentCourseViewer",
+     "when": "course?.structure_type === 'simple'",
+     "text": "Este curso tiene {directLessons.length} lección / lecciones"
+    },
+    {
+     "kind": "text",
+     "line": 532,
+     "in": "StudentCourseViewer",
+     "when": "course?.structure_type === 'simple'",
+     "text": "{directLessons.filter(l => progress[…} / {directLessons.length} completadas"
+    },
+    {
+     "kind": "link",
+     "line": 548,
+     "in": "StudentCourseViewer",
+     "when": "course?.structure_type === 'simple' && each directLessons",
+     "text": "Lección {lesson.order_number} [Reciente] {lesson.title} {lessonProgress?.totalBlocks} bloques {progressPercentage} % completado",
+     "target": "/student/lesson/[*]"
+    },
+    {
+     "kind": "heading",
+     "line": 577,
+     "in": "StudentCourseViewer",
+     "when": "course?.structure_type === 'simple' && each directLessons",
+     "text": "{lesson.title}",
+     "level": 4
+    },
+    {
+     "kind": "heading",
+     "line": 609,
+     "in": "StudentCourseViewer",
+     "when": "!(course?.structure_type === 'simple') && each modules",
+     "text": "Módulo {module.order_number} : {module.title}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 613,
+     "in": "StudentCourseViewer",
+     "when": "!(course?.structure_type === 'simple') && each modules && module.description",
+     "text": "{module.description}"
+    },
+    {
+     "kind": "text",
+     "line": 617,
+     "in": "StudentCourseViewer",
+     "when": "!(course?.structure_type === 'simple') && each modules",
+     "text": "{module.lessons.filter(l => progress…} / {module.lessons.length} lecciones"
+    },
+    {
+     "kind": "link",
+     "line": 633,
+     "in": "StudentCourseViewer",
+     "when": "!(course?.structure_type === 'simple') && each modules && each module.lessons",
+     "text": "Lección {lesson.order_number} [Reciente] {lesson.title} {lessonProgress?.totalBlocks} bloques {progressPercentage} % completado",
+     "target": "/student/lesson/[*]"
+    },
+    {
+     "kind": "heading",
+     "line": 662,
+     "in": "StudentCourseViewer",
+     "when": "!(course?.structure_type === 'simple') && each modules && each module.lessons",
+     "text": "{lesson.title}",
+     "level": 4
+    },
+    {
+     "kind": "heading",
+     "line": 695,
+     "in": "StudentCourseViewer",
+     "when": "getCourseProgressPercentage() === 100",
+     "text": "¡Curso Completado!",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 699,
+     "in": "StudentCourseViewer",
+     "when": "getCourseProgressPercentage() === 100",
+     "text": "Has completado todas las lecciones de este curso. ¡Felicitaciones!"
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "[courseId] (part of the address)",
+     "type": "address value"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:blocks",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:courses",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:lesson_progress",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:lessons",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:modules",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/layout/FunctionalPageHeader.tsx",
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": []
+  },
+  {
+   "file": "pages/student/lesson/[lessonId].tsx",
+   "route": "/student/lesson/[lessonId]",
+   "lines": 970,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 106,
+      "text": "router.push → /auth/login  (when !session?.user)"
+     },
+     {
+      "line": 120,
+      "text": "userRole = await getUserPrimaryRole(session.user.id)"
+     },
+     {
+      "line": 575,
+      "text": "router.push → /login"
+     },
+     {
+      "line": 838,
+      "text": "router.push → /dashboard  (when showCompletionPage && !(previousLesson))"
+     },
+     {
+      "line": 862,
+      "text": "router.push → /dashboard  (when showCompletionPage && !(nextLesson) && courseCompleted && !(courseId))"
+     },
+     {
+      "line": 872,
+      "text": "router.push → /dashboard  (when showCompletionPage && !(nextLesson) && !(courseCompleted))"
+     }
+    ],
+    "linkedFrom": [
+     "components/student/LessonSidebar.tsx:88",
+     "components/student/LessonSidebar.tsx:90",
+     "pages/admin/course-builder/[courseId]/[moduleId]/[lessonId].tsx:873",
+     "pages/admin/course-builder/[courseId]/[moduleId]/[lessonId].tsx:876",
+     "pages/admin/course-builder/[courseId]/lesson/[lessonId].tsx:429",
+     "pages/student/course/[courseId].tsx:428",
+     "pages/student/course/[courseId].tsx:501",
+     "pages/student/course/[courseId].tsx:502",
+     "pages/student/course/[courseId].tsx:548",
+     "pages/student/course/[courseId].tsx:550",
+     "pages/student/course/[courseId].tsx:633",
+     "pages/student/course/[courseId].tsx:635"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [
+      "tests/e2e/urgent-anonymous-boundaries.spec.ts",
+      "tests/e2e/urgent-anonymous-current.spec.ts"
+     ],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 106,
+     "in": "initializeViewer",
+     "when": "!session?.user",
+     "text": "/auth/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 120,
+     "in": "initializeViewer",
+     "when": "profileData",
+     "text": "userRole = await getUserPrimaryRole(session.user.id)",
+     "via": "getUserPrimaryRole"
+    },
+    {
+     "kind": "toast",
+     "line": 451,
+     "in": "initializeViewer",
+     "text": "Error cargando la lección: {error.message}",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 504,
+     "in": "updateProgress",
+     "text": "Error guardando progreso",
+     "variant": "error"
+    },
+    {
+     "kind": "hook",
+     "line": 573,
+     "in": "handleLogout",
+     "text": "localStorage: rememberMe",
+     "type": "storage"
+    },
+    {
+     "kind": "hook",
+     "line": 574,
+     "in": "handleLogout",
+     "text": "sessionStorage: sessionOnly",
+     "type": "storage"
+    },
+    {
+     "kind": "nav",
+     "line": 575,
+     "in": "handleLogout",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "text",
+     "line": 583,
+     "in": "StudentLessonViewer",
+     "when": "loading",
+     "text": "Cargando lección..."
+    },
+    {
+     "kind": "text",
+     "line": 593,
+     "in": "StudentLessonViewer",
+     "when": "!lesson",
+     "text": "No se pudo cargar la lección"
+    },
+    {
+     "kind": "button",
+     "line": 594,
+     "in": "StudentLessonViewer",
+     "when": "!lesson",
+     "text": "Volver",
+     "action": "{() => router.back()}"
+    },
+    {
+     "kind": "text",
+     "line": 609,
+     "in": "StudentLessonViewer",
+     "when": "blocks.length === 0",
+     "text": "Esta lección no tiene contenido aún"
+    },
+    {
+     "kind": "text",
+     "line": 610,
+     "in": "StudentLessonViewer",
+     "when": "blocks.length === 0",
+     "text": "La lección está en construcción"
+    },
+    {
+     "kind": "button",
+     "line": 611,
+     "in": "StudentLessonViewer",
+     "when": "blocks.length === 0",
+     "text": "Volver al Curso",
+     "action": "{() => router.back()}"
+    },
+    {
+     "kind": "text",
+     "line": 630,
+     "in": "StudentLessonViewer",
+     "when": "!showCompletionPage && (!blocks.length || !currentBlock)",
+     "text": "Cargando lección..."
+    },
+    {
+     "kind": "piece",
+     "line": 637,
+     "in": "StudentLessonViewer",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "piece",
+     "line": 646,
+     "in": "StudentLessonViewer",
+     "text": "subtitle: Lección completada / Bloque {currentBlockIndex + 1} de {blocks.length}",
+     "tag": "ResponsiveFunctionalPageHeader"
+    },
+    {
+     "kind": "button",
+     "line": 652,
+     "in": "StudentLessonViewer",
+     "text": "[icon List]",
+     "action": "{() => setShowSidebar(!showSidebar)}",
+     "title": "Ver lista de lecciones"
+    },
+    {
+     "kind": "button",
+     "line": 660,
+     "in": "StudentLessonViewer",
+     "text": "Volver al Editor / Volver",
+     "action": "{() => { if (isAdmin && lesson?.module?.course_id && lesson?.module?.id) { route…}"
+    },
+    {
+     "kind": "nav",
+     "line": 663,
+     "in": "StudentLessonViewer",
+     "when": "isAdmin && lesson?.module?.course_id && lesson?.module?.id",
+     "text": "/admin/course-builder/[*]/[*]/[*]",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 665,
+     "in": "StudentLessonViewer",
+     "when": "!(isAdmin && lesson?.module?.course_id && lesson?.module?.id) && isAdmin && lesson?.module_id && lesson?.module?.course_id",
+     "text": "/admin/course-builder/[*]/[*]/[*]",
+     "via": "router.push"
+    },
+    {
+     "kind": "field",
+     "line": 678,
+     "in": "StudentLessonViewer",
+     "when": "!showCompletionPage && isAdmin",
+     "text": "",
+     "type": "select",
+     "action": "{(e) => setCurrentBlockIndex(parseInt(e.target.value))}",
+     "options": [
+      "(lista) Bloque {index + 1} : {block.type}"
+     ]
+    },
+    {
+     "kind": "text",
+     "line": 692,
+     "in": "StudentLessonViewer",
+     "text": "Progreso:"
+    },
+    {
+     "kind": "value",
+     "line": 700,
+     "in": "StudentLessonViewer",
+     "text": "{getProgressPercentage()} %"
+    },
+    {
+     "kind": "button",
+     "line": 708,
+     "in": "StudentLessonViewer",
+     "when": "!showCompletionPage",
+     "text": "[icon ChevronLeft]",
+     "action": "{goToPreviousBlock}",
+     "disabled": "{currentBlockIndex === 0}",
+     "title": "Bloque anterior"
+    },
+    {
+     "kind": "button",
+     "line": 716,
+     "in": "StudentLessonViewer",
+     "when": "!showCompletionPage",
+     "text": "[icon ChevronRight]",
+     "action": "{goToNextBlock}",
+     "disabled": "{!canProceedToNext()}",
+     "title": "Siguiente bloque"
+    },
+    {
+     "kind": "text",
+     "line": 729,
+     "in": "StudentLessonViewer",
+     "when": "isAdmin",
+     "text": "ADMIN"
+    },
+    {
+     "kind": "popup",
+     "line": 736,
+     "in": "StudentLessonViewer",
+     "when": "showSidebar",
+     "text": "(sin título)",
+     "how": "written in this file"
+    },
+    {
+     "kind": "clickable",
+     "line": 738,
+     "in": "StudentLessonViewer",
+     "when": "showSidebar",
+     "screen": "lg:hidden",
+     "text": "",
+     "tag": "div",
+     "action": "{() => setShowSidebar(false)}"
+    },
+    {
+     "kind": "button",
+     "line": 746,
+     "in": "StudentLessonViewer",
+     "when": "showSidebar",
+     "screen": "lg:hidden",
+     "text": "[icon X]",
+     "action": "{() => setShowSidebar(false)}"
+    },
+    {
+     "kind": "piece",
+     "line": 753,
+     "in": "StudentLessonViewer",
+     "when": "showSidebar",
+     "text": "",
+     "tag": "LessonSidebar"
+    },
+    {
+     "kind": "heading",
+     "line": 797,
+     "in": "StudentLessonViewer",
+     "when": "showCompletionPage",
+     "text": "¡Felicidades!",
+     "level": 2
+    },
+    {
+     "kind": "heading",
+     "line": 801,
+     "in": "StudentLessonViewer",
+     "when": "showCompletionPage",
+     "text": "Has completado la lección",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 805,
+     "in": "StudentLessonViewer",
+     "when": "showCompletionPage",
+     "text": "{lesson?.title}"
+    },
+    {
+     "kind": "text",
+     "line": 813,
+     "in": "StudentLessonViewer",
+     "when": "showCompletionPage",
+     "text": "{blocks.length} bloques completados"
+    },
+    {
+     "kind": "text",
+     "line": 817,
+     "in": "StudentLessonViewer",
+     "when": "showCompletionPage",
+     "text": "{Math.floor( Object.values(progress)…} min total"
+    },
+    {
+     "kind": "button",
+     "line": 829,
+     "in": "StudentLessonViewer",
+     "when": "showCompletionPage && previousLesson",
+     "text": "Lección Anterior",
+     "action": "{() => router.push(`/student/lesson/${previousLesson.id}`)}"
+    },
+    {
+     "kind": "nav",
+     "line": 830,
+     "in": "StudentLessonViewer",
+     "when": "showCompletionPage && previousLesson",
+     "text": "/student/lesson/[*]",
+     "via": "router.push"
+    },
+    {
+     "kind": "button",
+     "line": 837,
+     "in": "StudentLessonViewer",
+     "when": "showCompletionPage && !(previousLesson)",
+     "text": "Volver a mi Panel",
+     "action": "{() => router.push('/dashboard')}"
+    },
+    {
+     "kind": "nav",
+     "line": 838,
+     "in": "StudentLessonViewer",
+     "when": "showCompletionPage && !(previousLesson)",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "button",
+     "line": 848,
+     "in": "StudentLessonViewer",
+     "when": "showCompletionPage && nextLesson",
+     "text": "Siguiente Lección",
+     "action": "{() => router.push(`/student/lesson/${nextLesson.id}`)}"
+    },
+    {
+     "kind": "nav",
+     "line": 849,
+     "in": "StudentLessonViewer",
+     "when": "showCompletionPage && nextLesson",
+     "text": "/student/lesson/[*]",
+     "via": "router.push"
+    },
+    {
+     "kind": "button",
+     "line": 856,
+     "in": "StudentLessonViewer",
+     "when": "showCompletionPage && !(nextLesson) && courseCompleted",
+     "text": "Ver Curso Completado",
+     "action": "{() => { const courseId = lesson?.module?.course_id || lesson?.course_id; if (co…}"
+    },
+    {
+     "kind": "nav",
+     "line": 860,
+     "in": "StudentLessonViewer",
+     "when": "showCompletionPage && !(nextLesson) && courseCompleted && courseId",
+     "text": "/student/course/[*]",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 862,
+     "in": "StudentLessonViewer",
+     "when": "showCompletionPage && !(nextLesson) && courseCompleted && !(courseId)",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "button",
+     "line": 871,
+     "in": "StudentLessonViewer",
+     "when": "showCompletionPage && !(nextLesson) && !(courseCompleted)",
+     "text": "Ir al Dashboard",
+     "action": "{() => router.push('/dashboard')}"
+    },
+    {
+     "kind": "nav",
+     "line": 872,
+     "in": "StudentLessonViewer",
+     "when": "showCompletionPage && !(nextLesson) && !(courseCompleted)",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "text",
+     "line": 881,
+     "in": "StudentLessonViewer",
+     "when": "showCompletionPage",
+     "text": "¡Sigue así! Próxima lección: \"{nextLesson.title}\" / ¡Felicidades! Has completado todo el curso. / ¡Sigue así! Tu progreso ha sido guardado automáticamente."
+    },
+    {
+     "kind": "button",
+     "line": 894,
+     "in": "StudentLessonViewer",
+     "when": "showCompletionPage",
+     "text": "Anterior",
+     "action": "{goToPreviousBlock}"
+    },
+    {
+     "kind": "piece",
+     "line": 910,
+     "in": "StudentLessonViewer",
+     "when": "!(showCompletionPage) && currentBlock",
+     "text": "",
+     "tag": "StudentBlockRenderer"
+    },
+    {
+     "kind": "text",
+     "line": 925,
+     "in": "StudentLessonViewer",
+     "when": "!(showCompletionPage) && !(currentBlock)",
+     "text": "Cargando bloque..."
+    },
+    {
+     "kind": "button",
+     "line": 931,
+     "in": "StudentLessonViewer",
+     "when": "!(showCompletionPage)",
+     "text": "Anterior",
+     "action": "{goToPreviousBlock}",
+     "disabled": "{currentBlockIndex === 0}"
+    },
+    {
+     "kind": "button",
+     "line": 948,
+     "in": "StudentLessonViewer",
+     "when": "!(showCompletionPage)",
+     "text": "Finalizar (Admin) / Finalizar / Siguiente (Admin) / Siguiente",
+     "action": "{goToNextBlock}",
+     "disabled": "{!isAdmin && !canProceedToNext()}"
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "[lessonId] (part of the address)",
+     "type": "address value"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:blocks",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:courses",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:lesson_progress",
+     "ops": [
+      "select",
+      "upsert"
+     ]
+    },
+    {
+     "what": "table:lessons",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:modules",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/layout/FunctionalPageHeader.tsx",
+    "components/quiz/LearningQuizTaker.tsx",
+    "components/student/LessonSidebar.tsx",
+    "components/student/StudentBlockRenderer.tsx",
+    "lib/sanitize.ts",
+    "lib/services/quizSubmissions.js",
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/quiz-reviews/notify-pending.ts",
+     "route": "/api/quiz-reviews/notify-pending",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "lib/services/quizSubmissions.js:22"
+     ]
+    },
+    {
+     "file": "pages/api/storage/download.ts",
+     "route": "/api/storage/download",
+     "methods": [],
+     "from": [
+      "components/student/StudentBlockRenderer.tsx:752"
+     ]
+    }
+   ]
+  }
+ ],
+ "pieces": {
+  "components/assignments/GroupSubmissionModalV2.tsx": {
+   "usedBy": [
+    "/mi-aprendizaje/tareas"
+   ],
+   "lines": 969,
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 74,
+     "in": "GroupSubmissionModalV2",
+     "text": "!user?.id"
+    },
+    {
+     "kind": "toast",
+     "line": 109,
+     "in": "loadGroupData",
+     "when": "activeGroup?.id && !(membersResponse.ok)",
+     "text": "Error al cargar miembros del grupo",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 113,
+     "in": "loadGroupData",
+     "when": "activeGroup?.id",
+     "text": "Error al cargar miembros del grupo",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 179,
+     "in": "loadGroupData",
+     "when": "!isManaged && user?.id && !(response.ok)",
+     "text": "Error al cargar compañeros",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 183,
+     "in": "loadGroupData",
+     "when": "!isManaged && user?.id",
+     "text": "Error al cargar compañeros",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 201,
+     "in": "handleFileUpload",
+     "when": "file.size > 10 * 1024 * 1024",
+     "text": "El archivo no debe superar los 10MB",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 229,
+     "in": "handleFileUpload",
+     "text": "Archivo subido exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 232,
+     "in": "handleFileUpload",
+     "text": "Error al subir el archivo",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 242,
+     "in": "handleSubmit",
+     "when": "!activeGroup?.id",
+     "text": "Debes crear un grupo antes de entregar",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 250,
+     "in": "handleSubmit",
+     "when": "isNewSubmission && !fileUrl",
+     "text": "Debes incluir un archivo en tu primera entrega",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 260,
+     "in": "handleSubmit",
+     "when": "!hasText && !hasFile",
+     "text": "Debes incluir al menos texto o un archivo en tu entrega",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 291,
+     "in": "handleAddClassmates",
+     "when": "!user?.id",
+     "text": "Usuario no autenticado",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 297,
+     "in": "handleAddClassmates",
+     "when": "selectedClassmates.size === 0",
+     "text": "Selecciona al menos un compañero",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 342,
+     "in": "handleAddClassmates",
+     "when": "!response.ok",
+     "text": "{errorMsg}",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 347,
+     "in": "handleAddClassmates",
+     "when": "isCreatingGroup",
+     "text": "Grupo creado exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 356,
+     "in": "handleAddClassmates",
+     "when": "!(isCreatingGroup)",
+     "text": "{data.count || 0} compañero(s) agregado(s) al grupo",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 364,
+     "in": "handleAddClassmates",
+     "text": "Error al agregar compañeros. Intenta nuevamente.",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 372,
+     "in": "handleRemoveMember",
+     "when": "!user?.id",
+     "text": "Usuario no autenticado",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 396,
+     "in": "handleRemoveMember",
+     "when": "!response.ok",
+     "text": "Error al remover al miembro",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 400,
+     "in": "handleRemoveMember",
+     "text": "Miembro removido del grupo",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 404,
+     "in": "handleRemoveMember",
+     "text": "Error al remover al miembro. Intenta nuevamente.",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 449,
+     "in": "handleResourceClick",
+     "when": "!normalizedUrl && resource?.type === 'document'",
+     "text": "Este recurso no tiene un archivo disponible. Solicita al instructor que vuelva a cargarlo.",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 451,
+     "in": "handleResourceClick",
+     "when": "!normalizedUrl && !(resource?.type === 'document')",
+     "text": "El recurso no tiene un enlace disponible",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 456,
+     "in": "handleResourceClick",
+     "text": "{normalizedUrl}",
+     "via": "window.open"
+    },
+    {
+     "kind": "popup",
+     "line": 467,
+     "in": "GroupSubmissionModalV2",
+     "text": "Ver Entrega Grupal / Entregar Tarea Grupal",
+     "how": "written in this file"
+    },
+    {
+     "kind": "clickable",
+     "line": 471,
+     "in": "GroupSubmissionModalV2",
+     "text": "Ver Entrega Grupal / Entregar Tarea Grupal {assignment.title} Detalles de la Tarea {assignment.description} [Instruccio…",
+     "tag": "div",
+     "action": "{(e) => e.stopPropagation()}"
+    },
+    {
+     "kind": "heading",
+     "line": 478,
+     "in": "GroupSubmissionModalV2",
+     "text": "Ver Entrega Grupal / Entregar Tarea Grupal",
+     "level": 2
+    },
+    {
+     "kind": "value",
+     "line": 481,
+     "in": "GroupSubmissionModalV2",
+     "text": "{assignment.title}"
+    },
+    {
+     "kind": "button",
+     "line": 483,
+     "in": "GroupSubmissionModalV2",
+     "text": "[icon X]",
+     "action": "{onClose}"
+    },
+    {
+     "kind": "heading",
+     "line": 502,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading)",
+     "text": "Detalles de la Tarea",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 503,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading)",
+     "text": "{assignment.description}"
+    },
+    {
+     "kind": "heading",
+     "line": 506,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && assignment.instructions",
+     "text": "Instrucciones:",
+     "level": 4
+    },
+    {
+     "kind": "gate",
+     "line": 514,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && assignment.instructions",
+     "text": "!trimmed"
+    },
+    {
+     "kind": "value",
+     "line": 550,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && assignment.instructions && each steps && step.number",
+     "text": "{step.number} ."
+    },
+    {
+     "kind": "value",
+     "line": 553,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && assignment.instructions && each steps && !(step.number)",
+     "text": "{step.content}"
+    },
+    {
+     "kind": "heading",
+     "line": 563,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && assignment.resources && assignment.resources.length > 0",
+     "text": "Recursos:",
+     "level": 4
+    },
+    {
+     "kind": "button",
+     "line": 568,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && assignment.resources && assignment.resources.length > 0 && each assignment.resources .filter((resource: any) => n…",
+     "text": "{resource.title} / Sin título [{resource.description}]",
+     "action": "{(e) => handleResourceClick(e, resource)}"
+    },
+    {
+     "kind": "text",
+     "line": 594,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && assignment.resources && assignment.resources.length > 0 && assignment.resources.filter((resource: any) => normalizeUrl(resource.url)).length === 0",
+     "text": "No hay recursos disponibles actualmente."
+    },
+    {
+     "kind": "heading",
+     "line": 601,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && groupMembers.length > 0",
+     "text": "Miembros del grupo",
+     "level": 4
+    },
+    {
+     "kind": "value",
+     "line": 614,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && groupMembers.length > 0 && each groupMembers",
+     "text": "{member.user?.first_name?.[0]} / {member.user?.last_name?.[0]} / U"
+    },
+    {
+     "kind": "text",
+     "line": 618,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && groupMembers.length > 0 && each groupMembers",
+     "text": "Tú / {member.user?.full_name} / Usuario"
+    },
+    {
+     "kind": "text",
+     "line": 621,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && groupMembers.length > 0 && each groupMembers",
+     "text": "Miembro actual / Líder del grupo / Miembro"
+    },
+    {
+     "kind": "text",
+     "line": 629,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && groupMembers.length > 0 && each groupMembers && isCurrentUser",
+     "text": "Tú"
+    },
+    {
+     "kind": "button",
+     "line": 633,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && groupMembers.length > 0 && each groupMembers && !isConsultantManaged && !isCurrentUser",
+     "text": "Removiendo... / Remover",
+     "action": "{() => handleRemoveMember(member.user_id)}",
+     "disabled": "{removingMemberId === member.user_id}"
+    },
+    {
+     "kind": "heading",
+     "line": 655,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && !isConsultantManaged",
+     "text": "Invitar Compañeros",
+     "level": 3
+    },
+    {
+     "kind": "field",
+     "line": 663,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && !isConsultantManaged",
+     "text": "Buscar compañeros de clase...",
+     "type": "text",
+     "placeholder": "Buscar compañeros de clase...",
+     "action": "{(e) => setClassmateSearchQuery(e.target.value)}"
+    },
+    {
+     "kind": "button",
+     "line": 693,
+     "in": "renderPeer",
+     "text": "{classmate.full_name?.charAt(0).toUp…} / ? {classmate.full_name} / Usuario desconocido",
+     "action": "{() => handleToggleClassmate(classmate.id)}"
+    },
+    {
+     "kind": "field",
+     "line": 702,
+     "in": "renderPeer",
+     "text": "",
+     "type": "checkbox",
+     "action": "{() => { }}"
+    },
+    {
+     "kind": "media",
+     "line": 709,
+     "in": "renderPeer",
+     "when": "classmate.avatar_url",
+     "text": "img · alt {classmate.full_name || 'User'} · {classmate.avatar_url}"
+    },
+    {
+     "kind": "heading",
+     "line": 733,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && !isConsultantManaged && !(loadingClassmates) && hasCommunitySection",
+     "text": "Tu comunidad",
+     "level": 4
+    },
+    {
+     "kind": "value",
+     "line": 737,
+     "in": "GroupSubmissionModalV2",
+     "when": "!isConsultantManaged && !(loadingClassmates) && hasCommunitySection && communityPeers.length > 0",
+     "text": "{communityPeers.map(renderPeer)}"
+    },
+    {
+     "kind": "text",
+     "line": 741,
+     "in": "GroupSubmissionModalV2",
+     "when": "!isConsultantManaged && !(loadingClassmates) && hasCommunitySection && !(communityPeers.length > 0)",
+     "text": "Sin coincidencias"
+    },
+    {
+     "kind": "heading",
+     "line": 746,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && !isConsultantManaged && !(loadingClassmates)",
+     "text": "Tu escuela",
+     "level": 4
+    },
+    {
+     "kind": "value",
+     "line": 750,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && !isConsultantManaged && !(loadingClassmates) && schoolPeers.length > 0",
+     "text": "{schoolPeers.map(renderPeer)}"
+    },
+    {
+     "kind": "text",
+     "line": 754,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && !isConsultantManaged && !(loadingClassmates) && !(schoolPeers.length > 0)",
+     "text": "Sin coincidencias"
+    },
+    {
+     "kind": "text",
+     "line": 763,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && !isConsultantManaged && !(loadingClassmates) && eligibleClassmates.length === 0",
+     "text": "No hay compañeros disponibles para invitar"
+    },
+    {
+     "kind": "text",
+     "line": 770,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && !isConsultantManaged && !(loadingClassmates) && eligibleClassmates.length > 0",
+     "text": "{selectedClassmates.size} seleccionado s"
+    },
+    {
+     "kind": "button",
+     "line": 773,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && !isConsultantManaged && !(loadingClassmates) && eligibleClassmates.length > 0",
+     "text": "Procesando... / Agregar al Grupo / Crear Grupo",
+     "action": "{handleAddClassmates}",
+     "disabled": "{selectedClassmates.size === 0 || loadingClassmates}"
+    },
+    {
+     "kind": "text",
+     "line": 795,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && isSubmitted && existingSubmission",
+     "text": "Tarea entregada"
+    },
+    {
+     "kind": "text",
+     "line": 797,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && isSubmitted && existingSubmission && formattedSubmissionTimestamp",
+     "text": "Última entrega: {formattedSubmissionTimestamp}"
+    },
+    {
+     "kind": "text",
+     "line": 802,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && isSubmitted && existingSubmission",
+     "text": "Puedes actualizar la entrega y volver a enviarla cuando lo necesites."
+    },
+    {
+     "kind": "heading",
+     "line": 809,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && isSubmitted && existingSubmission && existingSubmission.content",
+     "text": "Respuesta actual:",
+     "level": 4
+    },
+    {
+     "kind": "text",
+     "line": 811,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && isSubmitted && existingSubmission && existingSubmission.content",
+     "text": "Edita el campo de comentarios para actualizarla."
+    },
+    {
+     "kind": "heading",
+     "line": 818,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && isSubmitted && existingSubmission && existingSubmission.file_url",
+     "text": "Archivo actual:",
+     "level": 4
+    },
+    {
+     "kind": "button",
+     "line": 819,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && isSubmitted && existingSubmission && existingSubmission.file_url",
+     "text": "Ver archivo adjunto",
+     "action": "{(e) => handleResourceClick(e, { url: existingSubmission.file_url, type: 'docume…}"
+    },
+    {
+     "kind": "heading",
+     "line": 840,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && isSubmitted && existingSubmission && existingSubmission.grade",
+     "text": "Calificación:",
+     "level": 4
+    },
+    {
+     "kind": "value",
+     "line": 841,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && isSubmitted && existingSubmission && existingSubmission.grade",
+     "text": "{existingSubmission.grade} %"
+    },
+    {
+     "kind": "heading",
+     "line": 844,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && isSubmitted && existingSubmission && existingSubmission.grade && existingSubmission.feedback",
+     "text": "Retroalimentación:",
+     "level": 5
+    },
+    {
+     "kind": "value",
+     "line": 845,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && isSubmitted && existingSubmission && existingSubmission.grade && existingSubmission.feedback",
+     "text": "{existingSubmission.feedback}"
+    },
+    {
+     "kind": "label",
+     "line": 856,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading)",
+     "text": "Comentarios o Notas (opcional)"
+    },
+    {
+     "kind": "field",
+     "line": 859,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading)",
+     "text": "Comentarios o Notas (opcional)",
+     "type": "textarea",
+     "placeholder": "Agrega comentarios adicionales sobre tu entrega (opcional)...",
+     "limits": "",
+     "action": "{(e) => setSubmissionText(e.target.value)}"
+    },
+    {
+     "kind": "label",
+     "line": 869,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading)",
+     "text": "Archivo Adjunto (opcional para reediciones) / * Solo se permite un archivo"
+    },
+    {
+     "kind": "text",
+     "line": 882,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && uploadingFile",
+     "text": "Subiendo archivo..."
+    },
+    {
+     "kind": "value",
+     "line": 884,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && uploadingFile && uploadedFileName",
+     "text": "{uploadedFileName}"
+    },
+    {
+     "kind": "text",
+     "line": 894,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && !(uploadingFile) && fileUrl",
+     "text": "Archivo cargado exitosamente"
+    },
+    {
+     "kind": "value",
+     "line": 896,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && !(uploadingFile) && fileUrl && uploadedFileName",
+     "text": "{uploadedFileName}"
+    },
+    {
+     "kind": "button",
+     "line": 901,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && !(uploadingFile) && fileUrl",
+     "text": "Eliminar archivo",
+     "action": "{() => { setFileUrl(''); setUploadedFileName(''); }}"
+    },
+    {
+     "kind": "text",
+     "line": 915,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && !(uploadingFile) && !(fileUrl)",
+     "text": "Arrastra un archivo aquí o haz clic para seleccionar"
+    },
+    {
+     "kind": "field",
+     "line": 917,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && !(uploadingFile) && !(fileUrl)",
+     "screen": "hidden",
+     "text": "Archivo Adjunto (opcional para reediciones) / * Solo se permite un archivo",
+     "type": "file",
+     "disabled": "{uploadingFile}",
+     "accept": ".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png",
+     "action": "{handleFileUpload}",
+     "hook": {
+      "id": "file-upload",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "button",
+     "line": 925,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && !(uploadingFile) && !(fileUrl)",
+     "text": "Seleccionar archivo",
+     "action": "{() => document.getElementById('file-upload')?.click()}",
+     "disabled": "{uploadingFile}"
+    },
+    {
+     "kind": "hook",
+     "line": 927,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && !(uploadingFile) && !(fileUrl)",
+     "text": "getElementById('file-upload')",
+     "type": "lookup"
+    },
+    {
+     "kind": "text",
+     "line": 934,
+     "in": "GroupSubmissionModalV2",
+     "when": "!(loading) && !(uploadingFile) && !(fileUrl)",
+     "text": "PDF, DOC, DOCX, TXT, JPG, PNG (máx. 10MB)"
+    },
+    {
+     "kind": "button",
+     "line": 947,
+     "in": "GroupSubmissionModalV2",
+     "text": "Cancelar",
+     "action": "{onClose}"
+    },
+    {
+     "kind": "button",
+     "line": 953,
+     "in": "GroupSubmissionModalV2",
+     "text": "Subiendo archivo... / Actualizar Entrega / Entregar Tarea",
+     "action": "{handleSubmit}",
+     "disabled": "{loading || uploadingFile}"
+    }
+   ],
+   "db": [
+    {
+     "what": "bucket:assignments",
+     "ops": [
+      "getPublicUrl",
+      "upload"
+     ]
+    },
+    {
+     "what": "table:group_assignment_groups",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:group_assignment_submissions",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "components/courses/CourseThumbnail.tsx": {
+   "usedBy": [
+    "/mi-aprendizaje"
+   ],
+   "lines": 138,
+   "rows": [
+    {
+     "kind": "heading",
+     "line": 88,
+     "in": "CourseThumbnail",
+     "text": "{truncateTitle(title)}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 92,
+     "in": "CourseThumbnail",
+     "when": "instructorName",
+     "text": "{instructorName}"
+    },
+    {
+     "kind": "media",
+     "line": 103,
+     "in": "CourseThumbnail",
+     "when": "instructorName && instructorPhotoUrl",
+     "text": "img · alt {instructorName} · {instructorPhotoUrl}"
+    },
+    {
+     "kind": "value",
+     "line": 110,
+     "in": "CourseThumbnail",
+     "when": "instructorName && !(instructorPhotoUrl)",
+     "text": "{getInitials(instructorName)}"
+    },
+    {
+     "kind": "value",
+     "line": 123,
+     "in": "CourseThumbnail",
+     "when": "difficultyLevel && getDifficultyLabel(difficultyLevel)",
+     "text": "{getDifficultyLabel(difficultyLevel)}"
+    },
+    {
+     "kind": "string",
+     "line": 44,
+     "in": "CourseThumbnail",
+     "text": "Principiante"
+    },
+    {
+     "kind": "string",
+     "line": 46,
+     "in": "CourseThumbnail",
+     "text": "Intermedio"
+    },
+    {
+     "kind": "string",
+     "line": 48,
+     "in": "CourseThumbnail",
+     "text": "Avanzado"
+    },
+    {
+     "kind": "list",
+     "line": 44,
+     "in": "getDifficultyLabel",
+     "text": "getDifficultyLabel()",
+     "items": [
+      "Principiante",
+      "Intermedio",
+      "Avanzado"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "components/courses/NetflixCourseCard.tsx": {
+   "usedBy": [
+    "/mi-aprendizaje"
+   ],
+   "lines": 430,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 29,
+     "in": "NetflixCourseCard",
+     "text": "window.addEventListener('resize')",
+     "type": "listener"
+    },
+    {
+     "kind": "gate",
+     "line": 35,
+     "in": "NetflixCourseCard",
+     "text": "!isMobile || !isExpanded"
+    },
+    {
+     "kind": "hook",
+     "line": 43,
+     "in": "NetflixCourseCard",
+     "text": "document.addEventListener('mousedown')",
+     "type": "listener"
+    },
+    {
+     "kind": "gate",
+     "line": 49,
+     "in": "NetflixCourseCard",
+     "text": "isMobile"
+    },
+    {
+     "kind": "gate",
+     "line": 57,
+     "in": "NetflixCourseCard",
+     "text": "isMobile"
+    },
+    {
+     "kind": "gate",
+     "line": 66,
+     "in": "NetflixCourseCard",
+     "text": "!isMobile"
+    },
+    {
+     "kind": "clickable",
+     "line": 156,
+     "in": "NetflixCourseCard",
+     "text": "[Aprobado] [Completado] [{course.title} [{course.instructor.full_name}]] [{course.title} [{course.instructor.full_name}…",
+     "tag": "motion.div",
+     "action": "{handleTap}",
+     "also": "onMouseEnter={handleMouseEnter} · onMouseLeave={handleMouseLeave}"
+    },
+    {
+     "kind": "media",
+     "line": 176,
+     "in": "NetflixCourseCard",
+     "when": "course.instructor?.photo_url",
+     "text": "img · alt {course.instructor.full_name} · {course.instructor.photo_url}"
+    },
+    {
+     "kind": "media",
+     "line": 185,
+     "in": "NetflixCourseCard",
+     "when": "!(course.instructor?.photo_url) && course.thumbnail_url",
+     "text": "img · alt {course.title} · {course.thumbnail_url}"
+    },
+    {
+     "kind": "piece",
+     "line": 193,
+     "in": "NetflixCourseCard",
+     "when": "!(course.instructor?.photo_url) && !(course.thumbnail_url)",
+     "text": "",
+     "tag": "CourseThumbnail"
+    },
+    {
+     "kind": "text",
+     "line": 209,
+     "in": "NetflixCourseCard",
+     "when": "enrollment?.completion_status === 'aprobado'",
+     "text": "Aprobado"
+    },
+    {
+     "kind": "text",
+     "line": 217,
+     "in": "NetflixCourseCard",
+     "when": "enrollment?.completion_status === 'completado'",
+     "text": "Completado"
+    },
+    {
+     "kind": "heading",
+     "line": 225,
+     "in": "NetflixCourseCard",
+     "when": "!isExpanded",
+     "text": "{course.title}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 229,
+     "in": "NetflixCourseCard",
+     "when": "!isExpanded && course.instructor",
+     "text": "{course.instructor.full_name}"
+    },
+    {
+     "kind": "heading",
+     "line": 267,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded",
+     "text": "{course.title}",
+     "level": 3
+    },
+    {
+     "kind": "media",
+     "line": 275,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && course.instructor && course.instructor.photo_url",
+     "text": "img · alt {course.instructor.full_name} · {course.instructor.photo_url}"
+    },
+    {
+     "kind": "value",
+     "line": 285,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && course.instructor",
+     "text": "{course.instructor.full_name}"
+    },
+    {
+     "kind": "text",
+     "line": 315,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && enrollment && enrollment.total_lessons && enrollment.total_lessons > 0",
+     "text": "lecciones"
+    },
+    {
+     "kind": "text",
+     "line": 324,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && enrollment && enrollment.total_lessons && enrollment.total_lessons > 0",
+     "text": "{enrollment.lessons_completed} de {enrollment.total_lessons} lecciones"
+    },
+    {
+     "kind": "value",
+     "line": 327,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && enrollment && enrollment.total_lessons && enrollment.total_lessons > 0",
+     "text": "{enrollment.progress_percentage} %"
+    },
+    {
+     "kind": "text",
+     "line": 356,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && enrollment && enrollment.assignments_total != null && enrollment.assignments_total > 0",
+     "text": "Tareas: {enrollment.assignments_submitted} / {enrollment.assignments_total}"
+    },
+    {
+     "kind": "text",
+     "line": 365,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && enrollment?.completion_status === 'aprobado'",
+     "text": "Curso Aprobado"
+    },
+    {
+     "kind": "text",
+     "line": 368,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && enrollment?.completion_status === 'aprobado'",
+     "text": "Has completado todas las lecciones y tareas."
+    },
+    {
+     "kind": "text",
+     "line": 376,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && enrollment?.completion_status === 'completado'",
+     "text": "Completa tus tareas pendientes para obtener la insignia."
+    },
+    {
+     "kind": "value",
+     "line": 382,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && course.description",
+     "text": "{course.description}"
+    },
+    {
+     "kind": "text",
+     "line": 392,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && course.learning_objectives && course.learning_objectives.length > 0",
+     "text": "Objetivos de aprendizaje"
+    },
+    {
+     "kind": "value",
+     "line": 396,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && course.learning_objectives && course.learning_objectives.length > 0 && each course.learning_objectives.slice(0, 4)",
+     "text": "{objective}"
+    },
+    {
+     "kind": "text",
+     "line": 404,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded && course.learning_objectives && course.learning_objectives.length > 0 && course.learning_objectives.length > 4",
+     "text": "+ {course.learning_objectives.length -…} más..."
+    },
+    {
+     "kind": "button",
+     "line": 413,
+     "in": "NetflixCourseCard",
+     "when": "isExpanded",
+     "text": "{getCTAText()}",
+     "action": "{handleCTAClick}"
+    },
+    {
+     "kind": "string",
+     "line": 83,
+     "in": "NetflixCourseCard",
+     "text": "Ver Detalles"
+    },
+    {
+     "kind": "string",
+     "line": 84,
+     "in": "NetflixCourseCard",
+     "text": "Repasar"
+    },
+    {
+     "kind": "string",
+     "line": 85,
+     "in": "NetflixCourseCard",
+     "text": "Continuar"
+    },
+    {
+     "kind": "string",
+     "line": 87,
+     "in": "NetflixCourseCard",
+     "text": "Comenzar"
+    },
+    {
+     "kind": "string",
+     "line": 108,
+     "in": "NetflixCourseCard",
+     "text": "Principiante"
+    },
+    {
+     "kind": "string",
+     "line": 110,
+     "in": "NetflixCourseCard",
+     "text": "Intermedio"
+    },
+    {
+     "kind": "string",
+     "line": 112,
+     "in": "NetflixCourseCard",
+     "text": "Avanzado"
+    },
+    {
+     "kind": "list",
+     "line": 83,
+     "in": "getCTAText",
+     "text": "getCTAText()",
+     "items": [
+      "Ver Detalles",
+      "Repasar",
+      "Continuar",
+      "Comenzar"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 108,
+     "in": "getDifficultyLabel",
+     "text": "getDifficultyLabel()",
+     "items": [
+      "Principiante",
+      "Intermedio",
+      "Avanzado"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "components/courses/NetflixCourseRow.tsx": {
+   "usedBy": [
+    "/mi-aprendizaje"
+   ],
+   "lines": 169,
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 26,
+     "in": "NetflixCourseRow",
+     "text": "!container"
+    },
+    {
+     "kind": "hook",
+     "line": 38,
+     "in": "NetflixCourseRow",
+     "when": "container",
+     "text": "container.addEventListener('scroll')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 39,
+     "in": "NetflixCourseRow",
+     "when": "container",
+     "text": "window.addEventListener('resize')",
+     "type": "listener"
+    },
+    {
+     "kind": "gate",
+     "line": 52,
+     "in": "NetflixCourseRow",
+     "text": "!container"
+    },
+    {
+     "kind": "hook",
+     "line": 59,
+     "in": "NetflixCourseRow",
+     "text": "container.scrollTo()",
+     "type": "scroll"
+    },
+    {
+     "kind": "heading",
+     "line": 69,
+     "in": "NetflixCourseRow",
+     "when": "!courses || courses.length === 0",
+     "text": "{title}",
+     "level": 2
+    },
+    {
+     "kind": "value",
+     "line": 74,
+     "in": "NetflixCourseRow",
+     "when": "!courses || courses.length === 0",
+     "text": "{emptyMessage}"
+    },
+    {
+     "kind": "gesture",
+     "line": 82,
+     "in": "NetflixCourseRow",
+     "text": "onMouseEnter={() => setIsHovering(true)} · onMouseLeave={() => setIsHovering(false)}",
+     "tag": "section"
+    },
+    {
+     "kind": "heading",
+     "line": 88,
+     "in": "NetflixCourseRow",
+     "text": "{title}",
+     "level": 2
+    },
+    {
+     "kind": "button",
+     "line": 95,
+     "in": "NetflixCourseRow",
+     "text": "[icon ChevronLeft]",
+     "action": "{() => handleScroll('left')}",
+     "aria": "Desplazar izquierda"
+    },
+    {
+     "kind": "piece",
+     "line": 122,
+     "in": "NetflixCourseRow",
+     "when": "each courses",
+     "text": "",
+     "tag": "NetflixCourseCard"
+    },
+    {
+     "kind": "button",
+     "line": 152,
+     "in": "NetflixCourseRow",
+     "text": "[icon ChevronRight]",
+     "action": "{() => handleScroll('right')}",
+     "aria": "Desplazar derecha"
+    }
+   ],
+   "db": []
+  },
+  "components/layout/FunctionalPageHeader.tsx": {
+   "usedBy": [
+    "/mi-aprendizaje",
+    "/mi-aprendizaje/tareas",
+    "/student/course/[courseId]",
+    "/student/lesson/[lessonId]"
+   ],
+   "lines": 191,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 44,
+     "in": "FunctionalPageHeader",
+     "text": "{icon}"
+    },
+    {
+     "kind": "heading",
+     "line": 47,
+     "in": "FunctionalPageHeader",
+     "text": "{title}",
+     "level": 1
+    },
+    {
+     "kind": "field",
+     "line": 60,
+     "in": "FunctionalPageHeader",
+     "when": "onSearchChange",
+     "text": "{searchPlaceholder}",
+     "type": "text",
+     "placeholder": "{searchPlaceholder}",
+     "action": "{(e) => onSearchChange(e.target.value)}"
+    },
+    {
+     "kind": "button",
+     "line": 75,
+     "in": "FunctionalPageHeader",
+     "when": "primaryAction",
+     "text": "[{primaryAction.icon}] {primaryAction.label}",
+     "action": "{primaryAction.onClick}"
+    },
+    {
+     "kind": "value",
+     "line": 92,
+     "in": "FunctionalPageHeader",
+     "when": "subtitle",
+     "text": "{subtitle}"
+    },
+    {
+     "kind": "value",
+     "line": 119,
+     "in": "MobileFunctionalPageHeader",
+     "text": "{icon}"
+    },
+    {
+     "kind": "heading",
+     "line": 122,
+     "in": "MobileFunctionalPageHeader",
+     "text": "{title}",
+     "level": 1
+    },
+    {
+     "kind": "button",
+     "line": 128,
+     "in": "MobileFunctionalPageHeader",
+     "when": "primaryAction",
+     "text": "[{primaryAction.icon}] {primaryAction.label} +",
+     "action": "{primaryAction.onClick}"
+    },
+    {
+     "kind": "field",
+     "line": 147,
+     "in": "MobileFunctionalPageHeader",
+     "when": "onSearchChange",
+     "text": "{searchPlaceholder}",
+     "type": "text",
+     "placeholder": "{searchPlaceholder}",
+     "action": "{(e) => onSearchChange(e.target.value)}"
+    },
+    {
+     "kind": "value",
+     "line": 159,
+     "in": "MobileFunctionalPageHeader",
+     "when": "children",
+     "text": "{children}"
+    },
+    {
+     "kind": "value",
+     "line": 168,
+     "in": "MobileFunctionalPageHeader",
+     "when": "subtitle",
+     "text": "{subtitle}"
+    },
+    {
+     "kind": "string",
+     "line": 32,
+     "in": "FunctionalPageHeader",
+     "text": "Buscar..."
+    }
+   ],
+   "db": []
+  },
+  "components/learning-paths/EnhancedProgressIndicators.tsx": {
+   "usedBy": [
+    "/mi-aprendizaje/ruta/[id]",
+    "/my-paths/[id]"
+   ],
+   "lines": 374,
+   "rows": [
+    {
+     "kind": "heading",
+     "line": 66,
+     "in": "EnhancedProgressIndicators",
+     "text": "Tu Progreso Inteligente",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 73,
+     "in": "EnhancedProgressIndicators",
+     "when": "userProgress.isAtRisk === true",
+     "text": "Sin actividad en 14 días"
+    },
+    {
+     "kind": "text",
+     "line": 83,
+     "in": "EnhancedProgressIndicators",
+     "text": "Ritmo de Aprendizaje"
+    },
+    {
+     "kind": "value",
+     "line": 85,
+     "in": "EnhancedProgressIndicators",
+     "text": "{insights.paceAnalysis.message}"
+    },
+    {
+     "kind": "text",
+     "line": 91,
+     "in": "EnhancedProgressIndicators",
+     "when": "insights.paceAnalysis.status !== 'insufficient_data'",
+     "text": "Progreso esperado"
+    },
+    {
+     "kind": "value",
+     "line": 92,
+     "in": "EnhancedProgressIndicators",
+     "when": "insights.paceAnalysis.status !== 'insufficient_data'",
+     "text": "{insights.paceAnalysis.expectedProgr…} %"
+    },
+    {
+     "kind": "text",
+     "line": 108,
+     "in": "EnhancedProgressIndicators",
+     "text": "Predicción"
+    },
+    {
+     "kind": "text",
+     "line": 112,
+     "in": "EnhancedProgressIndicators",
+     "when": "insights.timeForecasting.estimatedDaysRemaining",
+     "text": "{insights.timeForecasting.estimatedD…} días restantes"
+    },
+    {
+     "kind": "text",
+     "line": 115,
+     "in": "EnhancedProgressIndicators",
+     "when": "insights.timeForecasting.estimatedDaysRemaining",
+     "text": "Finalización: {new Date(insights.timeForecasting.e…}"
+    },
+    {
+     "kind": "value",
+     "line": 120,
+     "in": "EnhancedProgressIndicators",
+     "when": "!(insights.timeForecasting.estimatedDaysRemaining)",
+     "text": "{insights.timeForecasting.message}"
+    },
+    {
+     "kind": "heading",
+     "line": 130,
+     "in": "EnhancedProgressIndicators",
+     "text": "Logros y Hitos",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 145,
+     "in": "EnhancedProgressIndicators",
+     "when": "each insights.milestones.milestones",
+     "text": "{milestone.icon}"
+    },
+    {
+     "kind": "value",
+     "line": 146,
+     "in": "EnhancedProgressIndicators",
+     "when": "each insights.milestones.milestones",
+     "text": "{milestone.title}"
+    },
+    {
+     "kind": "value",
+     "line": 149,
+     "in": "EnhancedProgressIndicators",
+     "when": "each insights.milestones.milestones",
+     "text": "{milestone.threshold} %"
+    },
+    {
+     "kind": "text",
+     "line": 161,
+     "in": "EnhancedProgressIndicators",
+     "when": "insights.milestones.nextMilestone",
+     "text": "Próximo hito: {insights.milestones.nextMilestone.t…}"
+    },
+    {
+     "kind": "text",
+     "line": 167,
+     "in": "EnhancedProgressIndicators",
+     "when": "insights.milestones.nextMilestone",
+     "text": "Progreso actual"
+    },
+    {
+     "kind": "value",
+     "line": 168,
+     "in": "EnhancedProgressIndicators",
+     "when": "insights.milestones.nextMilestone",
+     "text": "{userProgress.overallProgress} % / {insights.milestones.nextMilestone.t…} %"
+    },
+    {
+     "kind": "heading",
+     "line": 185,
+     "in": "EnhancedProgressIndicators",
+     "text": "Patrón de Estudio",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 192,
+     "in": "EnhancedProgressIndicators",
+     "text": "Consistencia"
+    },
+    {
+     "kind": "text",
+     "line": 193,
+     "in": "EnhancedProgressIndicators",
+     "text": "Excelente / Buena / Calculando... / Irregular"
+    },
+    {
+     "kind": "text",
+     "line": 205,
+     "in": "EnhancedProgressIndicators",
+     "when": "insights.sessionPattern.preferredDay",
+     "text": "Día preferido"
+    },
+    {
+     "kind": "value",
+     "line": 206,
+     "in": "EnhancedProgressIndicators",
+     "when": "insights.sessionPattern.preferredDay",
+     "text": "{insights.sessionPattern.preferredDay}"
+    },
+    {
+     "kind": "text",
+     "line": 213,
+     "in": "EnhancedProgressIndicators",
+     "text": "Sesiones recientes"
+    },
+    {
+     "kind": "value",
+     "line": 214,
+     "in": "EnhancedProgressIndicators",
+     "text": "{insights.sessionPattern.totalSessio…}"
+    },
+    {
+     "kind": "value",
+     "line": 219,
+     "in": "EnhancedProgressIndicators",
+     "text": "{insights.sessionPattern.message}"
+    },
+    {
+     "kind": "heading",
+     "line": 227,
+     "in": "EnhancedProgressIndicators",
+     "text": "Estadísticas Motivacionales",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 235,
+     "in": "EnhancedProgressIndicators",
+     "text": "{insights.motivationalMetrics.totalT…} h"
+    },
+    {
+     "kind": "text",
+     "line": 238,
+     "in": "EnhancedProgressIndicators",
+     "text": "Tiempo total"
+    },
+    {
+     "kind": "value",
+     "line": 243,
+     "in": "EnhancedProgressIndicators",
+     "text": "{insights.motivationalMetrics.booksE…}"
+    },
+    {
+     "kind": "text",
+     "line": 246,
+     "in": "EnhancedProgressIndicators",
+     "text": "Libros equivalentes"
+    },
+    {
+     "kind": "value",
+     "line": 251,
+     "in": "EnhancedProgressIndicators",
+     "text": "{insights.motivationalMetrics.coffee…}"
+    },
+    {
+     "kind": "text",
+     "line": 254,
+     "in": "EnhancedProgressIndicators",
+     "text": "Pausas de café"
+    },
+    {
+     "kind": "text",
+     "line": 259,
+     "in": "EnhancedProgressIndicators",
+     "text": "{Math.round(insights.motivationalMet…} min"
+    },
+    {
+     "kind": "text",
+     "line": 262,
+     "in": "EnhancedProgressIndicators",
+     "text": "Sesión más larga"
+    },
+    {
+     "kind": "text",
+     "line": 270,
+     "in": "EnhancedProgressIndicators",
+     "when": "userProgress.completionStreak > 0",
+     "text": "¡Racha de {userProgress.completionStreak} días!"
+    },
+    {
+     "kind": "text",
+     "line": 275,
+     "in": "EnhancedProgressIndicators",
+     "when": "userProgress.completionStreak > 0",
+     "text": "¡Mantén el impulso para seguir creciendo!"
+    },
+    {
+     "kind": "heading",
+     "line": 285,
+     "in": "EnhancedProgressIndicators",
+     "when": "insights.peerComparison && pathBenchmarks",
+     "text": "Comparación con Otros Estudiantes",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 292,
+     "in": "EnhancedProgressIndicators",
+     "when": "insights.peerComparison && pathBenchmarks",
+     "text": "{insights.peerComparison.totalPeers}"
+    },
+    {
+     "kind": "text",
+     "line": 295,
+     "in": "EnhancedProgressIndicators",
+     "when": "insights.peerComparison && pathBenchmarks",
+     "text": "Estudiantes totales"
+    },
+    {
+     "kind": "value",
+     "line": 299,
+     "in": "EnhancedProgressIndicators",
+     "when": "insights.peerComparison && pathBenchmarks",
+     "text": "{insights.peerComparison.pathAvgComp…} %"
+    },
+    {
+     "kind": "text",
+     "line": 302,
+     "in": "EnhancedProgressIndicators",
+     "when": "insights.peerComparison && pathBenchmarks",
+     "text": "Promedio de finalización"
+    },
+    {
+     "kind": "value",
+     "line": 306,
+     "in": "EnhancedProgressIndicators",
+     "when": "insights.peerComparison && pathBenchmarks",
+     "text": "{insights.peerComparison.completedPe…}"
+    },
+    {
+     "kind": "text",
+     "line": 309,
+     "in": "EnhancedProgressIndicators",
+     "when": "insights.peerComparison && pathBenchmarks",
+     "text": "Han completado la ruta"
+    },
+    {
+     "kind": "value",
+     "line": 314,
+     "in": "EnhancedProgressIndicators",
+     "when": "insights.peerComparison && pathBenchmarks",
+     "text": "{insights.peerComparison.message}"
+    },
+    {
+     "kind": "heading",
+     "line": 324,
+     "in": "EnhancedProgressIndicators",
+     "when": "insights.recommendations.length > 0",
+     "text": "Recomendaciones Personalizadas",
+     "level": 3
+    },
+    {
+     "kind": "heading",
+     "line": 351,
+     "in": "EnhancedProgressIndicators",
+     "when": "insights.recommendations.length > 0 && each insights.recommendations.slice(0, 3)",
+     "text": "{rec.title}",
+     "level": 4
+    },
+    {
+     "kind": "value",
+     "line": 358,
+     "in": "EnhancedProgressIndicators",
+     "when": "insights.recommendations.length > 0 && each insights.recommendations.slice(0, 3)",
+     "text": "{rec.message}"
+    }
+   ],
+   "db": []
+  },
+  "components/learning-paths/LearningPathCard.tsx": {
+   "usedBy": [
+    "/mi-aprendizaje"
+   ],
+   "lines": 196,
+   "rows": [
+    {
+     "kind": "clickable",
+     "line": 72,
+     "in": "LearningPathCard",
+     "text": "Nivel 2 / 1 [Completado] {name} [{description}] Progreso {Math.round(progressPercentage)} % {completedCourses} de {tota…",
+     "tag": "div",
+     "action": "{onClick}"
+    },
+    {
+     "kind": "text",
+     "line": 92,
+     "in": "LearningPathCard",
+     "text": "Nivel 2 / 1"
+    },
+    {
+     "kind": "text",
+     "line": 105,
+     "in": "LearningPathCard",
+     "when": "isCompleted",
+     "text": "Completado"
+    },
+    {
+     "kind": "heading",
+     "line": 111,
+     "in": "LearningPathCard",
+     "text": "{name}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 117,
+     "in": "LearningPathCard",
+     "when": "description",
+     "text": "{description}"
+    },
+    {
+     "kind": "text",
+     "line": 131,
+     "in": "LearningPathCard",
+     "text": "Progreso"
+    },
+    {
+     "kind": "value",
+     "line": 133,
+     "in": "LearningPathCard",
+     "text": "{Math.round(progressPercentage)} %"
+    },
+    {
+     "kind": "text",
+     "line": 161,
+     "in": "LearningPathCard",
+     "text": "{completedCourses} de {totalCourses} cursos"
+    },
+    {
+     "kind": "value",
+     "line": 165,
+     "in": "LearningPathCard",
+     "text": "{formatDistanceToNow(new Date(assign…}"
+    },
+    {
+     "kind": "text",
+     "line": 185,
+     "in": "LearningPathCard",
+     "when": "!isCompleted",
+     "text": "Continuar aprendiendo / Comenzar ruta"
+    }
+   ],
+   "db": []
+  },
+  "components/quiz/LearningQuizTaker.tsx": {
+   "usedBy": [
+    "/student/lesson/[lessonId]"
+   ],
+   "lines": 554,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 54,
+     "in": "LearningQuizTaker",
+     "text": "setInterval(…, 1000)",
+     "type": "timer"
+    },
+    {
+     "kind": "toast",
+     "line": 119,
+     "in": "handleSubmit",
+     "when": "unansweredQuestions.length > 0",
+     "text": "Por favor responde todas las preguntas. Faltan {unansweredQuestions.length} preguntas.",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 173,
+     "in": "handleSubmit",
+     "when": "openEndedQuestions.length > 0",
+     "text": "¡Quiz completado! Las preguntas abiertas serán revisadas por tu profesor.",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 175,
+     "in": "handleSubmit",
+     "when": "!(openEndedQuestions.length > 0)",
+     "text": "¡Excelente! Has completado el quiz correctamente.",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 179,
+     "in": "handleSubmit",
+     "text": "Error al enviar el quiz. Por favor intenta de nuevo.",
+     "variant": "error"
+    },
+    {
+     "kind": "value",
+     "line": 205,
+     "in": "renderQuestion",
+     "text": "{currentQuestionIndex + 1}"
+    },
+    {
+     "kind": "heading",
+     "line": 209,
+     "in": "renderQuestion",
+     "text": "{question.question}",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 215,
+     "in": "renderQuestion",
+     "when": "showError",
+     "text": "Por favor revisa esta pregunta"
+    },
+    {
+     "kind": "field",
+     "line": 223,
+     "in": "renderQuestion",
+     "when": "question.type === 'open-ended'",
+     "text": "Escribe tu respuesta aquí...",
+     "type": "textarea",
+     "placeholder": "Escribe tu respuesta aquí...",
+     "disabled": "{false}",
+     "limits": "maxLength={question.characterLimit || 5000}",
+     "action": "{(e) => handleTextAnswer(question.id, e.target.value)}"
+    },
+    {
+     "kind": "text",
+     "line": 234,
+     "in": "renderQuestion",
+     "when": "question.type === 'open-ended' && question.characterLimit",
+     "text": "{answer?.text?.length} / {question.characterLimit} caracteres"
+    },
+    {
+     "kind": "label",
+     "line": 242,
+     "in": "renderQuestion",
+     "when": "!(question.type === 'open-ended') && each options",
+     "text": "{option.text}"
+    },
+    {
+     "kind": "field",
+     "line": 252,
+     "in": "renderQuestion",
+     "when": "!(question.type === 'open-ended') && each options",
+     "screen": "sr-only",
+     "text": "{option.text}",
+     "type": "radio",
+     "name": "{`question-${question.id}`}",
+     "disabled": "{attemptStage !== 'answering'}",
+     "action": "{() => handleOptionSelect(question.id, option.id)}"
+    },
+    {
+     "kind": "heading",
+     "line": 290,
+     "in": "renderFeedback",
+     "when": "attemptStage === 'tier1-feedback'",
+     "text": "Revisa tus respuestas",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 294,
+     "in": "renderFeedback",
+     "when": "attemptStage === 'tier1-feedback'",
+     "text": "Algunas respuestas necesitan revisión. Te recomendamos revisar el material de la lección y volver a intentar las preguntas. El aprendizaje es un proceso, ¡sigue adelante!"
+    },
+    {
+     "kind": "button",
+     "line": 297,
+     "in": "renderFeedback",
+     "when": "attemptStage === 'tier1-feedback'",
+     "text": "Revisar respuestas",
+     "action": "{handleRetry}"
+    },
+    {
+     "kind": "heading",
+     "line": 316,
+     "in": "renderFeedback",
+     "when": "attemptStage === 'tier2-feedback'",
+     "text": "Preguntas marcadas para revisión",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 320,
+     "in": "renderFeedback",
+     "when": "attemptStage === 'tier2-feedback'",
+     "text": "Hemos marcado las preguntas que necesitan más atención. Tómate tu tiempo para revisar estas preguntas específicas. Puedes continuar cuando estés listo."
+    },
+    {
+     "kind": "button",
+     "line": 324,
+     "in": "renderFeedback",
+     "when": "attemptStage === 'tier2-feedback'",
+     "text": "Intentar de nuevo",
+     "action": "{handleRetry}"
+    },
+    {
+     "kind": "button",
+     "line": 331,
+     "in": "renderFeedback",
+     "when": "attemptStage === 'tier2-feedback'",
+     "text": "Enviar como está",
+     "action": "{handleSubmit}"
+    },
+    {
+     "kind": "heading",
+     "line": 369,
+     "in": "renderCompleted",
+     "text": "¡Felicitaciones!",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 373,
+     "in": "renderCompleted",
+     "text": "Has completado el quiz exitosamente."
+    },
+    {
+     "kind": "text",
+     "line": 378,
+     "in": "renderCompleted",
+     "when": "openEndedQuestions.length > 0",
+     "text": "Las preguntas abiertas serán revisadas por tu profesor. Recibirás retroalimentación pronto."
+    },
+    {
+     "kind": "heading",
+     "line": 387,
+     "in": "renderCompleted",
+     "text": "Detalle por pregunta",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 404,
+     "in": "renderCompleted",
+     "when": "each questionResults",
+     "text": "{index + 1} . {result.question.question}"
+    },
+    {
+     "kind": "text",
+     "line": 408,
+     "in": "renderCompleted",
+     "when": "each questionResults",
+     "text": "Tu respuesta:"
+    },
+    {
+     "kind": "text",
+     "line": 408,
+     "in": "renderCompleted",
+     "when": "each questionResults",
+     "text": "{result.studentAnswer} / (sin respuesta)"
+    },
+    {
+     "kind": "text",
+     "line": 412,
+     "in": "renderCompleted",
+     "when": "each questionResults && result.isCorrect === false && result.correctAnswer",
+     "text": "Respuesta correcta:"
+    },
+    {
+     "kind": "value",
+     "line": 412,
+     "in": "renderCompleted",
+     "when": "each questionResults && result.isCorrect === false && result.correctAnswer",
+     "text": "{result.correctAnswer}"
+    },
+    {
+     "kind": "text",
+     "line": 417,
+     "in": "renderCompleted",
+     "when": "each questionResults && result.isCorrect === null",
+     "text": "Pendiente de revisión por el profesor"
+    },
+    {
+     "kind": "value",
+     "line": 421,
+     "in": "renderCompleted",
+     "when": "each questionResults && result.question.explanation && result.isCorrect !== null",
+     "text": "{result.question.explanation}"
+    },
+    {
+     "kind": "button",
+     "line": 432,
+     "in": "renderCompleted",
+     "text": "Continuar con la lección",
+     "action": "{() => window.location.reload()}"
+    },
+    {
+     "kind": "heading",
+     "line": 453,
+     "in": "LearningQuizTaker",
+     "text": "{quiz.title}",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 454,
+     "in": "LearningQuizTaker",
+     "text": "Pregunta {currentQuestionIndex + 1} de {questions.length}"
+    },
+    {
+     "kind": "value",
+     "line": 460,
+     "in": "LearningQuizTaker",
+     "text": "{Math.floor(timeSpent / 60)} : {(timeSpent % 60).toString().padStar…}"
+    },
+    {
+     "kind": "heading",
+     "line": 469,
+     "in": "LearningQuizTaker",
+     "when": "quiz.description",
+     "text": "Descripción",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 470,
+     "in": "LearningQuizTaker",
+     "when": "quiz.description",
+     "text": "{quiz.description}"
+    },
+    {
+     "kind": "heading",
+     "line": 481,
+     "in": "LearningQuizTaker",
+     "when": "quiz.instructions",
+     "text": "Instrucciones",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 482,
+     "in": "LearningQuizTaker",
+     "when": "quiz.instructions",
+     "text": "{quiz.instructions}"
+    },
+    {
+     "kind": "value",
+     "line": 489,
+     "in": "LearningQuizTaker",
+     "text": "{renderFeedback()}"
+    },
+    {
+     "kind": "value",
+     "line": 494,
+     "in": "LearningQuizTaker",
+     "text": "{renderQuestion(currentQuestion)}"
+    },
+    {
+     "kind": "button",
+     "line": 500,
+     "in": "LearningQuizTaker",
+     "text": "Anterior",
+     "action": "{handlePrevious}",
+     "disabled": "{currentQuestionIndex === 0}"
+    },
+    {
+     "kind": "button",
+     "line": 510,
+     "in": "LearningQuizTaker",
+     "when": "each questions",
+     "text": "{index + 1}",
+     "action": "{() => setCurrentQuestionIndex(index)}"
+    },
+    {
+     "kind": "button",
+     "line": 529,
+     "in": "LearningQuizTaker",
+     "when": "isLastQuestion",
+     "text": "Enviando... / Enviar Quiz",
+     "action": "{handleSubmit}",
+     "disabled": "{isSubmitting || attemptStage !== 'answering'}"
+    },
+    {
+     "kind": "button",
+     "line": 544,
+     "in": "LearningQuizTaker",
+     "when": "!(isLastQuestion)",
+     "text": "Siguiente",
+     "action": "{handleNext}"
+    }
+   ],
+   "db": []
+  },
+  "components/student/LessonSidebar.tsx": {
+   "usedBy": [
+    "/student/lesson/[lessonId]"
+   ],
+   "lines": 221,
+   "rows": [
+    {
+     "kind": "link",
+     "line": 88,
+     "in": "renderLessonItem",
+     "text": "{lesson.order_number} . {lesson.title}",
+     "target": "/student/lesson/[*]",
+     "action": "{onClose}"
+    },
+    {
+     "kind": "link",
+     "line": 138,
+     "in": "LessonSidebar",
+     "text": "← Volver al curso",
+     "target": "/student/course/[*]"
+    },
+    {
+     "kind": "heading",
+     "line": 144,
+     "in": "LessonSidebar",
+     "text": "{courseTitle}",
+     "level": 2
+    },
+    {
+     "kind": "value",
+     "line": 153,
+     "in": "LessonSidebar",
+     "when": "structureType === 'simple'",
+     "text": "{directLessons.map(lesson => renderL…}"
+    },
+    {
+     "kind": "button",
+     "line": 162,
+     "in": "LessonSidebar",
+     "when": "!(structureType === 'simple') && each modules",
+     "text": "M {module.order_number} : {module.title} {module.lessons.filter(l => getLesso…} / {module.lessons.length}",
+     "action": "{() => toggleModule(module.id)}"
+    },
+    {
+     "kind": "value",
+     "line": 181,
+     "in": "LessonSidebar",
+     "when": "!(structureType === 'simple') && each modules && expandedModules[module.id]",
+     "text": "{module.lessons.map(lesson => render…}"
+    },
+    {
+     "kind": "text",
+     "line": 193,
+     "in": "LessonSidebar",
+     "text": "Progreso del curso"
+    },
+    {
+     "kind": "value",
+     "line": 208,
+     "in": "LessonSidebar",
+     "text": "{(() => { const allLessons = structu…}"
+    }
+   ],
+   "db": []
+  },
+  "components/student/StudentBlockRenderer.tsx": {
+   "usedBy": [
+    "/student/lesson/[lessonId]"
+   ],
+   "lines": 1182,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 113,
+     "in": "StudentBlockRenderer",
+     "text": "setInterval(…, 1000)",
+     "type": "timer"
+    },
+    {
+     "kind": "label",
+     "line": 151,
+     "in": "renderTextBlock",
+     "when": "!isCompleted && !isAdmin",
+     "text": "He leído este contenido"
+    },
+    {
+     "kind": "field",
+     "line": 152,
+     "in": "renderTextBlock",
+     "when": "!isCompleted && !isAdmin",
+     "text": "He leído este contenido",
+     "type": "checkbox",
+     "action": "{(e) => setHasRead(e.target.checked)}"
+    },
+    {
+     "kind": "button",
+     "line": 162,
+     "in": "renderTextBlock",
+     "when": "!isCompleted",
+     "text": "Continuar (Admin) / Continuar",
+     "action": "{() => onComplete({ timeSpent, hasRead: isAdmin || hasRead })}",
+     "disabled": "{!isAdmin && !hasRead}"
+    },
+    {
+     "kind": "text",
+     "line": 180,
+     "in": "renderTextBlock",
+     "when": "isCompleted",
+     "text": "Contenido leído"
+    },
+    {
+     "kind": "heading",
+     "line": 237,
+     "in": "renderVideoBlock",
+     "text": "{block.payload?.title} / Video de la lección",
+     "level": 3
+    },
+    {
+     "kind": "media",
+     "line": 246,
+     "in": "renderVideoBlock",
+     "when": "videoUrl && videoUrl !== '' && isEmbedVideo",
+     "text": "iframe · {block.payload?.title || 'Video de la lección'} · {embedUrl}",
+     "title": "{block.payload?.title || 'Video de la lección'}"
+    },
+    {
+     "kind": "media",
+     "line": 265,
+     "in": "renderVideoBlock",
+     "when": "videoUrl && videoUrl !== '' && !(isEmbedVideo)",
+     "text": "video · {videoUrl}"
+    },
+    {
+     "kind": "text",
+     "line": 274,
+     "in": "renderVideoBlock",
+     "when": "videoUrl && videoUrl !== '' && !(isEmbedVideo)",
+     "text": "Tu navegador no soporta el elemento de video."
+    },
+    {
+     "kind": "text",
+     "line": 286,
+     "in": "renderVideoBlock",
+     "when": "videoUrl && videoUrl !== '' && isEmbedVideo && !isAdmin",
+     "text": "Video marcado como completado / Confirma cuando hayas visto todo el video"
+    },
+    {
+     "kind": "button",
+     "line": 291,
+     "in": "renderVideoBlock",
+     "when": "videoUrl && videoUrl !== '' && isEmbedVideo && !isAdmin && !videoWatched",
+     "text": "Marcar como visto",
+     "action": "{() => setVideoWatched(true)}"
+    },
+    {
+     "kind": "text",
+     "line": 305,
+     "in": "renderVideoBlock",
+     "when": "videoUrl && videoUrl !== '' && !(isEmbedVideo)",
+     "text": "Progreso del video"
+    },
+    {
+     "kind": "value",
+     "line": 306,
+     "in": "renderVideoBlock",
+     "when": "videoUrl && videoUrl !== '' && !(isEmbedVideo)",
+     "text": "{Math.round(videoProgress)} %"
+    },
+    {
+     "kind": "text",
+     "line": 319,
+     "in": "renderVideoBlock",
+     "when": "!(videoUrl && videoUrl !== '')",
+     "text": "No hay URL de video configurada"
+    },
+    {
+     "kind": "button",
+     "line": 325,
+     "in": "renderVideoBlock",
+     "when": "!isCompleted && (videoWatched || isAdmin)",
+     "text": "Continuar (Admin) / Video Completado - Continuar",
+     "action": "{() => onComplete({ videoProgress, watchedComplete: isAdmin || videoWatched, tim…}"
+    },
+    {
+     "kind": "text",
+     "line": 341,
+     "in": "renderVideoBlock",
+     "when": "!isCompleted && !videoWatched && !isAdmin",
+     "text": "Instrucción:"
+    },
+    {
+     "kind": "text",
+     "line": 341,
+     "in": "renderVideoBlock",
+     "when": "!isCompleted && !videoWatched && !isAdmin",
+     "text": "Debes ver el video completo para continuar con la siguiente parte de la lección."
+    },
+    {
+     "kind": "text",
+     "line": 349,
+     "in": "renderVideoBlock",
+     "when": "isCompleted",
+     "text": "Video completado"
+    },
+    {
+     "kind": "heading",
+     "line": 383,
+     "in": "renderImageBlock",
+     "text": "{block.payload?.title} / Galería de Imágenes [( {currentImageIndex + 1} de {allImages.length} )]",
+     "level": 3
+    },
+    {
+     "kind": "media",
+     "line": 396,
+     "in": "renderImageBlock",
+     "when": "allImages.length > 0",
+     "text": "img · alt {allImages[currentImageIndex].alt || `Imagen ${currentImageIndex + 1}`} · {allImages[currentImageIndex].src}"
+    },
+    {
+     "kind": "button",
+     "line": 406,
+     "in": "renderImageBlock",
+     "when": "allImages.length > 0 && allImages.length > 1",
+     "text": "",
+     "action": "{prevImage}"
+    },
+    {
+     "kind": "button",
+     "line": 414,
+     "in": "renderImageBlock",
+     "when": "allImages.length > 0 && allImages.length > 1",
+     "text": "",
+     "action": "{nextImage}"
+    },
+    {
+     "kind": "value",
+     "line": 429,
+     "in": "renderImageBlock",
+     "when": "allImages.length > 0 && allImages[currentImageIndex].caption",
+     "text": "{allImages[currentImageIndex].caption}"
+    },
+    {
+     "kind": "button",
+     "line": 440,
+     "in": "renderImageBlock",
+     "when": "allImages.length > 0 && allImages.length > 1 && each allImages",
+     "text": "",
+     "action": "{() => goToImage(index)}"
+    },
+    {
+     "kind": "media",
+     "line": 449,
+     "in": "renderImageBlock",
+     "when": "allImages.length > 0 && allImages.length > 1 && each allImages",
+     "text": "img · alt {image.alt || `Miniatura ${index + 1}`} · {image.src}"
+    },
+    {
+     "kind": "button",
+     "line": 465,
+     "in": "renderImageBlock",
+     "when": "allImages.length > 0 && allImages.length > 1 && each allImages",
+     "text": "",
+     "action": "{() => goToImage(index)}"
+    },
+    {
+     "kind": "text",
+     "line": 481,
+     "in": "renderImageBlock",
+     "when": "!(allImages.length > 0)",
+     "text": "No hay imágenes configuradas"
+    },
+    {
+     "kind": "button",
+     "line": 487,
+     "in": "renderImageBlock",
+     "when": "!isCompleted && (hasViewed || isAdmin)",
+     "text": "Continuar (Admin) / He revisado las imágenes - Continuar / He revisado esta imagen - Continuar",
+     "action": "{() => onComplete({ hasViewed: true, timeSpent, totalImages: allImages.length, c…}"
+    },
+    {
+     "kind": "text",
+     "line": 504,
+     "in": "renderImageBlock",
+     "when": "isCompleted",
+     "text": "Galería revisada / Imagen revisada"
+    },
+    {
+     "kind": "heading",
+     "line": 519,
+     "in": "renderQuizBlock",
+     "when": "!lessonId || !courseId || !studentId",
+     "text": "{block.payload?.title} / Quiz Interactivo",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 523,
+     "in": "renderQuizBlock",
+     "when": "!lessonId || !courseId || !studentId",
+     "text": "El sistema de quiz está siendo actualizado. Por favor, contacta a tu profesor si necesitas completar este quiz."
+    },
+    {
+     "kind": "heading",
+     "line": 538,
+     "in": "renderQuizBlock",
+     "when": "!Array.isArray(quizQuestions) || quizQuestions.length === 0",
+     "text": "{block.payload?.title} / Quiz Interactivo",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 542,
+     "in": "renderQuizBlock",
+     "when": "!Array.isArray(quizQuestions) || quizQuestions.length === 0",
+     "text": "Este quiz aún no tiene preguntas. Por favor, contacta a tu profesor."
+    },
+    {
+     "kind": "button",
+     "line": 545,
+     "in": "renderQuizBlock",
+     "when": "(!Array.isArray(quizQuestions) || quizQuestions.length === 0) && !isCompleted",
+     "text": "Continuar",
+     "action": "{() => onComplete()}"
+    },
+    {
+     "kind": "heading",
+     "line": 564,
+     "in": "renderQuizBlock",
+     "when": "isCompleted",
+     "text": "{block.payload?.title} / Quiz Interactivo - Completado",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 568,
+     "in": "renderQuizBlock",
+     "when": "isCompleted",
+     "text": "¡Has completado este quiz exitosamente!"
+    },
+    {
+     "kind": "text",
+     "line": 571,
+     "in": "renderQuizBlock",
+     "when": "isCompleted && block.payload?.totalPoints",
+     "text": "Puntos totales del quiz: {block.payload.totalPoints}"
+    },
+    {
+     "kind": "text",
+     "line": 576,
+     "in": "renderQuizBlock",
+     "when": "isCompleted",
+     "text": "Puedes continuar con el siguiente contenido de la lección."
+    },
+    {
+     "kind": "piece",
+     "line": 585,
+     "in": "renderQuizBlock",
+     "text": "",
+     "tag": "LearningQuizTaker"
+    },
+    {
+     "kind": "heading",
+     "line": 611,
+     "in": "renderExternalLinkBlock",
+     "text": "{title}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 613,
+     "in": "renderExternalLinkBlock",
+     "when": "description",
+     "text": "{description}"
+    },
+    {
+     "kind": "media",
+     "line": 623,
+     "in": "renderExternalLinkBlock",
+     "when": "links.length > 0 && each links && isSafeForIframe(link.url)",
+     "text": "iframe · Vista previa del enlace · {link.url}",
+     "title": "Vista previa del enlace"
+    },
+    {
+     "kind": "text",
+     "line": 635,
+     "in": "renderExternalLinkBlock",
+     "when": "links.length > 0 && each links && !(isSafeForIframe(link.url))",
+     "text": "Vista previa no disponible para este enlace."
+    },
+    {
+     "kind": "text",
+     "line": 638,
+     "in": "renderExternalLinkBlock",
+     "when": "links.length > 0 && each links && !(isSafeForIframe(link.url))",
+     "text": "Haz clic en &quot;Visitar enlace&quot; para ver el contenido."
+    },
+    {
+     "kind": "heading",
+     "line": 646,
+     "in": "renderExternalLinkBlock",
+     "when": "links.length > 0 && each links",
+     "text": "{link.title} / Enlace",
+     "level": 4
+    },
+    {
+     "kind": "value",
+     "line": 648,
+     "in": "renderExternalLinkBlock",
+     "when": "links.length > 0 && each links && link.description",
+     "text": "{link.description}"
+    },
+    {
+     "kind": "value",
+     "line": 652,
+     "in": "renderExternalLinkBlock",
+     "when": "links.length > 0 && each links",
+     "text": "{link.url}"
+    },
+    {
+     "kind": "link",
+     "line": 656,
+     "in": "renderExternalLinkBlock",
+     "when": "links.length > 0 && each links && isExternalUrl(link.url)",
+     "text": "Visitar enlace",
+     "target": "{link.url}",
+     "action": "{() => setHasVisited(true)}",
+     "newTab": true
+    },
+    {
+     "kind": "text",
+     "line": 669,
+     "in": "renderExternalLinkBlock",
+     "when": "links.length > 0 && each links && !(isExternalUrl(link.url))",
+     "text": "Enlace no válido"
+    },
+    {
+     "kind": "text",
+     "line": 679,
+     "in": "renderExternalLinkBlock",
+     "when": "!(links.length > 0)",
+     "text": "No hay enlaces disponibles"
+    },
+    {
+     "kind": "button",
+     "line": 685,
+     "in": "renderExternalLinkBlock",
+     "when": "!isCompleted && (hasVisited || isAdmin)",
+     "text": "Continuar (Admin) / He visitado los enlaces - Continuar",
+     "action": "{() => onComplete({ hasVisited: true, timeSpent })}"
+    },
+    {
+     "kind": "text",
+     "line": 697,
+     "in": "renderExternalLinkBlock",
+     "when": "isCompleted",
+     "text": "Enlaces visitados"
+    },
+    {
+     "kind": "heading",
+     "line": 713,
+     "in": "renderDefaultBlock",
+     "text": "Bloque {block.type}",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 714,
+     "in": "renderDefaultBlock",
+     "text": "Tipo de bloque no implementado en vista de estudiante"
+    },
+    {
+     "kind": "value",
+     "line": 715,
+     "in": "renderDefaultBlock",
+     "text": "{JSON.stringify(block.payload, null,…}"
+    },
+    {
+     "kind": "button",
+     "line": 721,
+     "in": "renderDefaultBlock",
+     "when": "!isCompleted",
+     "text": "Marcar como completado",
+     "action": "{() => onComplete({ timeSpent })}"
+    },
+    {
+     "kind": "nav",
+     "line": 747,
+     "in": "handleDownload",
+     "when": "!session?.access_token",
+     "text": "{file.url}",
+     "via": "window.open"
+    },
+    {
+     "kind": "nav",
+     "line": 764,
+     "in": "handleDownload",
+     "when": "!response.ok",
+     "text": "{file.url}",
+     "via": "window.open"
+    },
+    {
+     "kind": "download",
+     "line": 770,
+     "in": "handleDownload",
+     "text": "window.URL.createObjectURL()",
+     "how": "createObjectURL"
+    },
+    {
+     "kind": "download",
+     "line": 774,
+     "in": "handleDownload",
+     "text": "archivo: {filename}",
+     "how": "a.download"
+    },
+    {
+     "kind": "nav",
+     "line": 785,
+     "in": "handleDownload",
+     "text": "{file.url}",
+     "via": "window.open"
+    },
+    {
+     "kind": "heading",
+     "line": 794,
+     "in": "renderDownloadBlock",
+     "text": "{title}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 796,
+     "in": "renderDownloadBlock",
+     "when": "description",
+     "text": "{description}"
+    },
+    {
+     "kind": "text",
+     "line": 806,
+     "in": "renderDownloadBlock",
+     "when": "files.length > 0 && each files",
+     "text": "{file.name} / {file.originalName} / Archivo"
+    },
+    {
+     "kind": "text",
+     "line": 807,
+     "in": "renderDownloadBlock",
+     "when": "files.length > 0 && each files",
+     "text": "{(file.size / 1024 / 1024).t…} MB • {file.type}"
+    },
+    {
+     "kind": "button",
+     "line": 812,
+     "in": "renderDownloadBlock",
+     "when": "files.length > 0 && each files",
+     "text": "Descargando... / Descargar",
+     "action": "{() => handleDownload(file)}",
+     "disabled": "{downloadingFile === (file.id || file.url)}"
+    },
+    {
+     "kind": "text",
+     "line": 826,
+     "in": "renderDownloadBlock",
+     "when": "!(files.length > 0)",
+     "text": "No hay archivos disponibles para descargar"
+    },
+    {
+     "kind": "button",
+     "line": 832,
+     "in": "renderDownloadBlock",
+     "when": "!isCompleted",
+     "text": "Continuar (Admin) / Marcar como Completado",
+     "action": "{() => onComplete({ filesAccessed: files.length > 0, timeSpent })}"
+    },
+    {
+     "kind": "text",
+     "line": 847,
+     "in": "renderDownloadBlock",
+     "when": "isCompleted",
+     "text": "Archivos revisados"
+    },
+    {
+     "kind": "heading",
+     "line": 869,
+     "in": "renderGroupAssignmentBlock",
+     "text": "Tarea Grupal: {title} / Tarea Grupal",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 874,
+     "in": "renderGroupAssignmentBlock",
+     "when": "description",
+     "text": "{description}"
+    },
+    {
+     "kind": "heading",
+     "line": 879,
+     "in": "renderGroupAssignmentBlock",
+     "when": "instructions",
+     "text": "Instrucciones:",
+     "level": 4
+    },
+    {
+     "kind": "value",
+     "line": 880,
+     "in": "renderGroupAssignmentBlock",
+     "when": "instructions",
+     "text": "{instructions}"
+    },
+    {
+     "kind": "text",
+     "line": 891,
+     "in": "renderGroupAssignmentBlock",
+     "text": "Esta es una tarea grupal que debes completar con tu equipo."
+    },
+    {
+     "kind": "text",
+     "line": 894,
+     "in": "renderGroupAssignmentBlock",
+     "text": "Para trabajar en esta tarea, dirígete a tu"
+    },
+    {
+     "kind": "text",
+     "line": 894,
+     "in": "renderGroupAssignmentBlock",
+     "text": "Espacio Colaborativo"
+    },
+    {
+     "kind": "text",
+     "line": 894,
+     "in": "renderGroupAssignmentBlock",
+     "text": "donde encontrarás:"
+    },
+    {
+     "kind": "text",
+     "line": 899,
+     "in": "renderGroupAssignmentBlock",
+     "text": "Los detalles completos de la tarea"
+    },
+    {
+     "kind": "text",
+     "line": 903,
+     "in": "renderGroupAssignmentBlock",
+     "text": "Tu grupo asignado y compañeros de equipo"
+    },
+    {
+     "kind": "text",
+     "line": 907,
+     "in": "renderGroupAssignmentBlock",
+     "text": "El espacio de discusión grupal"
+    },
+    {
+     "kind": "text",
+     "line": 911,
+     "in": "renderGroupAssignmentBlock",
+     "text": "La opción para entregar el trabajo"
+    },
+    {
+     "kind": "text",
+     "line": 919,
+     "in": "renderGroupAssignmentBlock",
+     "text": "Nota:"
+    },
+    {
+     "kind": "text",
+     "line": 919,
+     "in": "renderGroupAssignmentBlock",
+     "text": "Completar esta tarea grupal no es requisito para continuar con la siguiente lección. Sin embargo, es importante realizarla para tu aprendizaje y evaluación del curso."
+    },
+    {
+     "kind": "button",
+     "line": 927,
+     "in": "renderGroupAssignmentBlock",
+     "when": "!isCompleted",
+     "text": "Entendido - Continuar con la lección",
+     "action": "{() => onComplete({ acknowledged: true, timeSpent })}"
+    },
+    {
+     "kind": "text",
+     "line": 939,
+     "in": "renderGroupAssignmentBlock",
+     "when": "isCompleted",
+     "text": "Información de tarea grupal revisada"
+    },
+    {
+     "kind": "heading",
+     "line": 991,
+     "in": "renderBibliographyBlock",
+     "text": "{title}",
+     "level": 2
+    },
+    {
+     "kind": "value",
+     "line": 993,
+     "in": "renderBibliographyBlock",
+     "when": "description",
+     "text": "{description}"
+    },
+    {
+     "kind": "heading",
+     "line": 1000,
+     "in": "renderBibliographyBlock",
+     "when": "each groupedItems && group.category",
+     "text": "{group.category}",
+     "level": 3
+    },
+    {
+     "kind": "link",
+     "line": 1008,
+     "in": "renderBibliographyBlock",
+     "when": "each groupedItems && each group.items",
+     "text": "{item.title} / Sin título [[{item.author}] [•] [{item.year}]] [{item.description}] [📎 {(() => { // Use filename if availab…} [• {(item.filesize / 1024 / 102…} MB]] PDF Descargar / Imagen / Enlace",
+     "target": "{item.url}",
+     "action": "{(e) => { // For PDFs, ensure they open properly if (item.type === 'pdf' && item…}",
+     "newTab": true
+    },
+    {
+     "kind": "nav",
+     "line": 1018,
+     "in": "renderBibliographyBlock",
+     "when": "each groupedItems && each group.items && item.type === 'pdf' && item.url",
+     "text": "{item.url}",
+     "via": "window.open"
+    },
+    {
+     "kind": "media",
+     "line": 1027,
+     "in": "renderBibliographyBlock",
+     "when": "each groupedItems && each group.items && !(item.type === 'pdf') && item.type === 'image'",
+     "text": "Image"
+    },
+    {
+     "kind": "heading",
+     "line": 1033,
+     "in": "renderBibliographyBlock",
+     "when": "each groupedItems && each group.items",
+     "text": "{item.title} / Sin título",
+     "level": 4
+    },
+    {
+     "kind": "media",
+     "line": 1081,
+     "in": "renderBibliographyBlock",
+     "when": "each groupedItems && each group.items && item.type === 'image' && item.url",
+     "text": "img · alt {item.title || 'Imagen de bibliografía'} · {item.url}"
+    },
+    {
+     "kind": "link",
+     "line": 1103,
+     "in": "renderBibliographyBlock",
+     "when": "each groupedItems && each group.items && item.type === 'pdf'",
+     "text": "Descargar",
+     "target": "{item.url}",
+     "action": "{(e) => e.stopPropagation()}",
+     "download": true,
+     "title": "Descargar PDF"
+    },
+    {
+     "kind": "download",
+     "line": 1103,
+     "in": "renderBibliographyBlock",
+     "when": "each groupedItems && each group.items && item.type === 'pdf'",
+     "text": "<a download> Descargar",
+     "how": "link with download"
+    },
+    {
+     "kind": "text",
+     "line": 1135,
+     "in": "renderBibliographyBlock",
+     "when": "items.length === 0",
+     "text": "No hay recursos disponibles"
+    },
+    {
+     "kind": "button",
+     "line": 1140,
+     "in": "renderBibliographyBlock",
+     "when": "!isCompleted",
+     "text": "He revisado los recursos - Continuar",
+     "action": "{() => onComplete({ timeSpent, resourcesViewed: items.length })}"
+    },
+    {
+     "kind": "text",
+     "line": 1152,
+     "in": "renderBibliographyBlock",
+     "when": "isCompleted",
+     "text": "Recursos bibliográficos revisados"
+    },
+    {
+     "kind": "string",
+     "line": 605,
+     "in": "StudentBlockRenderer",
+     "text": "Enlaces Externos"
+    },
+    {
+     "kind": "string",
+     "line": 735,
+     "in": "StudentBlockRenderer",
+     "text": "Archivos para descargar"
+    },
+    {
+     "kind": "string",
+     "line": 757,
+     "in": "StudentBlockRenderer",
+     "text": "Bearer {session.access_token}"
+    },
+    {
+     "kind": "string",
+     "line": 947,
+     "in": "StudentBlockRenderer",
+     "text": "Bibliografía & Recursos"
+    },
+    {
+     "kind": "string",
+     "line": 977,
+     "in": "StudentBlockRenderer",
+     "text": "Sin categoría"
+    },
+    {
+     "kind": "string",
+     "line": 1069,
+     "in": "StudentBlockRenderer",
+     "text": "Archivo cargado"
+    },
+    {
+     "kind": "list",
+     "line": 1071,
+     "in": "renderBibliographyBlock",
+     "text": "renderBibliographyBlock()",
+     "items": [
+      "Archivo cargado"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "components/tutorials/HelpButton.tsx": {
+   "usedBy": [
+    "/mi-aprendizaje"
+   ],
+   "lines": 27,
+   "rows": [
+    {
+     "kind": "button",
+     "line": 15,
+     "in": "HelpButton",
+     "text": "[icon HelpCircle]",
+     "action": "{() => setOpen(true)}",
+     "aria": "Ayuda y tutoriales"
+    },
+    {
+     "kind": "popup",
+     "line": 23,
+     "in": "HelpButton",
+     "text": "HelpDrawer",
+     "how": "component",
+     "open": "{open}"
+    }
+   ],
+   "db": []
+  },
+  "components/tutorials/HelpDrawer.tsx": {
+   "usedBy": [
+    "/mi-aprendizaje"
+   ],
+   "lines": 74,
+   "rows": [
+    {
+     "kind": "popup",
+     "line": 23,
+     "in": "HelpDrawer",
+     "text": "Dialog",
+     "how": "component",
+     "open": "{open}"
+    },
+    {
+     "kind": "piece",
+     "line": 24,
+     "in": "HelpDrawer",
+     "text": "",
+     "tag": "DialogContent"
+    },
+    {
+     "kind": "piece",
+     "line": 25,
+     "in": "HelpDrawer",
+     "text": "",
+     "tag": "DialogHeader"
+    },
+    {
+     "kind": "piece",
+     "line": 26,
+     "in": "HelpDrawer",
+     "text": "",
+     "tag": "DialogTitle"
+    },
+    {
+     "kind": "text",
+     "line": 26,
+     "in": "HelpDrawer",
+     "text": "Ayuda — {section.title}"
+    },
+    {
+     "kind": "piece",
+     "line": 27,
+     "in": "HelpDrawer",
+     "text": "",
+     "tag": "DialogDescription"
+    },
+    {
+     "kind": "text",
+     "line": 27,
+     "in": "HelpDrawer",
+     "text": "Videos y guías para {section.title.toLowerCase()}"
+    },
+    {
+     "kind": "heading",
+     "line": 32,
+     "in": "HelpDrawer",
+     "text": "{section.overview.title} ( {section.overview.durationMin} min)",
+     "level": 3
+    },
+    {
+     "kind": "piece",
+     "line": 38,
+     "in": "HelpDrawer",
+     "text": "",
+     "tag": "VimeoEmbed"
+    },
+    {
+     "kind": "heading",
+     "line": 43,
+     "in": "HelpDrawer",
+     "when": "section.deepDives.length > 0",
+     "text": "Otros videos cortos",
+     "level": 3
+    },
+    {
+     "kind": "label",
+     "line": 47,
+     "in": "HelpDrawer",
+     "when": "section.deepDives.length > 0 && each section.deepDives",
+     "text": "{dive.title} {dive.durationMin} min"
+    },
+    {
+     "kind": "piece",
+     "line": 55,
+     "in": "HelpDrawer",
+     "when": "section.deepDives.length > 0 && each section.deepDives",
+     "text": "",
+     "tag": "VimeoEmbed"
+    },
+    {
+     "kind": "value",
+     "line": 59,
+     "in": "HelpDrawer",
+     "when": "section.deepDives.length > 0 && each section.deepDives && dive.textSteps && dive.textSteps.length > 0 && each dive.textSteps",
+     "text": "{step}"
+    }
+   ],
+   "db": []
+  },
+  "components/tutorials/VimeoEmbed.tsx": {
+   "usedBy": [
+    "/mi-aprendizaje"
+   ],
+   "lines": 31,
+   "rows": [
+    {
+     "kind": "text",
+     "line": 13,
+     "in": "VimeoEmbed",
+     "when": "!vimeoId",
+     "text": "Video próximamente"
+    },
+    {
+     "kind": "media",
+     "line": 21,
+     "in": "VimeoEmbed",
+     "text": "iframe · {title} · {`https://player.vimeo.com/video/${vimeoId}?dnt=1`}",
+     "title": "{title}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/button.tsx": {
+   "usedBy": [
+    "/mi-aprendizaje/ruta/[id]",
+    "/my-paths/[id]"
+   ],
+   "lines": 57,
+   "rows": [
+    {
+     "kind": "string",
+     "line": 54,
+     "text": "Button"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/dialog.tsx": {
+   "usedBy": [
+    "/mi-aprendizaje"
+   ],
+   "lines": 121,
+   "rows": [
+    {
+     "kind": "text",
+     "line": 47,
+     "screen": "sr-only",
+     "text": "Close"
+    }
+   ],
+   "db": []
+  },
+  "lib/sanitize.ts": {
+   "usedBy": [
+    "/student/lesson/[lessonId]"
+   ],
+   "lines": 270,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 147,
+     "in": "filterUnsafeIframes",
+     "when": "typeof window !== 'undefined' && window.DOMParser",
+     "text": "querySelectorAll(iframe)",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 212,
+     "in": "postProcessLinks",
+     "when": "typeof window !== 'undefined' && window.DOMParser",
+     "text": "querySelectorAll(a)",
+     "type": "lookup"
+    },
+    {
+     "kind": "list",
+     "line": 234,
+     "in": "postProcessLinks",
+     "text": "postProcessLinks()",
+     "items": [
+      "<a {attrs}>"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "lib/services/coursesService.ts": {
+   "usedBy": [
+    "/courses/[id]"
+   ],
+   "lines": 206,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 64,
+     "in": "getCourseById",
+     "text": "courseWithInstructor",
+     "items": [
+      "Unknown Instructor"
+     ]
+    },
+    {
+     "kind": "message",
+     "line": 75,
+     "in": "getCourseById",
+     "text": "Failed to fetch course: {error.message}",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 107,
+     "in": "getAllCourses",
+     "text": "Failed to fetch courses: {error.message}",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 140,
+     "in": "getCoursesByInstructor",
+     "text": "Failed to fetch courses by instructor: {error.message}",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 174,
+     "in": "getCoursesByCategory",
+     "text": "Failed to fetch courses by category: {error.message}",
+     "via": "throw (shown by whoever catches it)"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:courses",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "lib/services/groupAssignmentsV2.js": {
+   "usedBy": [
+    "/mi-aprendizaje/tareas"
+   ],
+   "lines": 1245,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 280,
+     "in": "getGroupAssignment",
+     "when": "!blockRecord",
+     "text": "Group assignment block not found",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 284,
+     "in": "getGroupAssignment",
+     "when": "blockRecord.type !== 'group-assignment' && blockRecord.type !== 'group_assignment'",
+     "text": "Requested block is not a group assignment",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "access",
+     "line": 493,
+     "in": "getAllAssignmentsForAdmin",
+     "text": "isAdmin = roles.includes('admin')",
+     "via": "declaration"
+    },
+    {
+     "kind": "string",
+     "line": 196,
+     "in": "GroupAssignmentsV2Service",
+     "text": "Tarea Grupal Sin Título"
+    },
+    {
+     "kind": "string",
+     "line": 403,
+     "in": "GroupAssignmentsV2Service",
+     "text": "Usuario desconocido"
+    },
+    {
+     "kind": "string",
+     "line": 444,
+     "in": "GroupAssignmentsV2Service",
+     "text": "Error al enviar el trabajo"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:blocks",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:community_messages",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:consultant_assignments",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:course_assignments",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:course_enrollments",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:courses",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:group_assignment_discussions",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:group_assignment_groups",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:group_assignment_members",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:group_assignment_settings",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:group_assignment_submissions",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:growth_communities",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:learning_path_courses",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:lessons",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "lib/services/learningPathSessionTracker.ts": {
+   "usedBy": [
+    "/mi-aprendizaje/ruta/[id]",
+    "/my-paths/[id]"
+   ],
+   "lines": 410,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 74,
+     "in": "startSession",
+     "when": "!response.ok",
+     "text": "Failed to start session: {response.status}",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "hook",
+     "line": 266,
+     "in": "startHeartbeat",
+     "text": "setInterval(…, this.config.heartbeatInterval)",
+     "type": "timer"
+    },
+    {
+     "kind": "hook",
+     "line": 310,
+     "in": "resetInactivityTimer",
+     "text": "setTimeout(…, this.config.inactivityThresho…)",
+     "type": "timer"
+    },
+    {
+     "kind": "hook",
+     "line": 352,
+     "in": "throttle",
+     "when": "!inThrottle",
+     "text": "setTimeout(…, limit)",
+     "type": "timer"
+    }
+   ],
+   "db": []
+  },
+  "lib/services/quizSubmissions.js": {
+   "usedBy": [
+    "/student/lesson/[lessonId]"
+   ],
+   "lines": 290,
+   "rows": [
+    {
+     "kind": "string",
+     "line": 26,
+     "in": "requestPendingReviewNotification",
+     "text": "Bearer {session.access_token}"
+    }
+   ],
+   "db": [
+    {
+     "what": "rpc:submit_quiz",
+     "ops": []
+    },
+    {
+     "what": "table:quiz_submissions",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "lib/services/userAssignments.ts": {
+   "usedBy": [
+    "/mi-aprendizaje/tareas"
+   ],
+   "lines": 587,
+   "rows": [
+    {
+     "kind": "string",
+     "line": 527,
+     "in": "UserAssignmentsService",
+     "text": "Error desconocido"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:assignment_submission_shares",
+     "ops": [
+      "insert"
+     ]
+    },
+    {
+     "what": "table:course_enrollments",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:lesson_assignment_submissions",
+     "ops": [
+      "insert",
+      "select",
+      "update"
+     ]
+    },
+    {
+     "what": "table:lesson_assignments",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "lib/tutorials/content.ts": {
+   "usedBy": [
+    "/mi-aprendizaje"
+   ],
+   "lines": 150,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 23,
+     "text": "TUTORIALS",
+     "items": [
+      "Mi Aprendizaje",
+      "Cómo encontrar y retomar tus cursos",
+      "Qué significa cada estado: Comenzar / Continuar / Completado",
+      "Mis Sesiones",
+      "Tu día a día en Mis Sesiones",
+      "Las 6 pestañas de una sesión",
+      "Exportar sesiones a tu calendario (iCal)",
+      "Mis Reportes",
+      "Leer tus reportes de sesiones",
+      "Mis Horas",
+      "Revisar tus horas y exportarlas",
+      "Por qué mis horas ejecutadas vs. penalizadas difieren",
+      "Proceso de Cambio",
+      "Cómo completar un Proceso de Cambio de principio a fin",
+      "Entender la jerarquía: Objetivos, Acciones e Indicadores",
+      "Los 5 tipos de indicador",
+      "Cobertura como gate",
+      "Guardado automático, progreso y envío",
+      "Ver tus resultados",
+      "Espacio Colaborativo",
+      "Tu comunidad de crecimiento",
+      "Documentos: subir, carpetas, permisos",
+      "Mensajería: hilos, menciones, adjuntos",
+      "Reuniones: crear acta"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "types/roles.ts": {
+   "usedBy": [
+    "/mi-aprendizaje",
+    "/mi-aprendizaje/tareas",
+    "/student/course/[courseId]",
+    "/student/lesson/[lessonId]"
+   ],
+   "lines": 515,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 305,
+     "text": "ROLE_NAMES",
+     "items": [
+      "Administrador Global",
+      "Consultor FNE",
+      "Equipo Directivo",
+      "Líder de Generación",
+      "Líder de Comunidad",
+      "Supervisor de Red",
+      "Community Manager",
+      "Docente",
+      "Encargado de Licitacion"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 318,
+     "text": "ROLE_DESCRIPTIONS",
+     "items": [
+      "Staff de FNE con control total de la plataforma. Pueden pertenecer a comunidades para colaboración.",
+      "Consultores FNE asignados a colegios específicos. Pueden pertenecer a comunidades para colaboración.",
+      "Administradores a nivel de colegio. Pueden pertenecer a comunidades para colaboración.",
+      "Líderes de generaciones Tractor/Innova. Pueden pertenecer a comunidades para colaboración.",
+      "Líderes de Comunidades de Crecimiento (2-16 miembros). Crean automáticamente su propia comunidad.",
+      "Supervisores con acceso limitado a reportes de una red específica de colegios. Pueden inscribirse en cursos como estudiantes.",
+      "Gestores de comunidad con acceso a panel, perfil, aprendizaje, cursos y rendición de gastos.",
+      "Docentes participantes en cursos. Pueden pertenecer a comunidades para colaboración.",
+      "Encargados de procesos de licitacion en establecimientos educacionales. Gestionan el proceso de contratacion de ATEs bajo Ley SEP."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 342,
+     "text": "ROLE_ORGANIZATIONAL_REQUIREMENTS",
+     "items": [
+      "Global role - no organizational scope required",
+      "Must be assigned to a specific school",
+      "Must be assigned to a specific school and generation",
+      "Must be assigned to a school (community auto-created)",
+      "Network-level role - no specific school required",
+      "Content management role - no organizational scope required",
+      "Must be assigned to a specific school for procurement management"
+     ]
+    },
+    {
+     "kind": "string",
+     "line": 413,
+     "in": "validateRoleAssignment",
+     "text": "Unknown role type: {roleType}"
+    },
+    {
+     "kind": "string",
+     "line": 421,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a school assignment"
+    },
+    {
+     "kind": "string",
+     "line": 429,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a generation assignment"
+    },
+    {
+     "kind": "string",
+     "line": 437,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a community assignment"
+    }
+   ],
+   "db": []
+  },
+  "utils/roleUtils.ts": {
+   "usedBy": [
+    "/mi-aprendizaje",
+    "/student/course/[courseId]",
+    "/student/lesson/[lessonId]"
+   ],
+   "lines": 1605,
+   "rows": [
+    {
+     "kind": "access",
+     "line": 1186,
+     "in": "getUserPrimaryRole",
+     "text": "userRoles = await getUserRoles(supabase, userId)",
+     "via": "getUserRoles"
+    },
+    {
+     "kind": "access",
+     "line": 1187,
+     "in": "getUserPrimaryRole",
+     "text": "highestRole = getHighestRole(userRoles)",
+     "via": "getHighestRole"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:generations",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:growth_communities",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:schools",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles_cache",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  }
+ },
+ "api": [
+  {
+   "file": "pages/api/my-courses.ts",
+   "route": "/api/my-courses",
+   "methods": [
+    "GET"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/mi-aprendizaje"
+   ],
+   "referencedIn": [
+    "__tests__/api/forged-session-sweep.test.ts",
+    "pages/mi-aprendizaje.tsx",
+    "scripts/seed-qa-phase2-final.js",
+    "scripts/seed-qa-phase2-retest.js",
+    "scripts/seed-qa-phase2.js",
+    "tests/e2e/learning-path-governance.spec.ts"
+   ]
+  }
+ ]
+}

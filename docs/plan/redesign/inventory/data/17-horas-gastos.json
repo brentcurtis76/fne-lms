@@ -1,0 +1,4394 @@
+{
+ "area": "17-horas-gastos",
+ "name": "Horas, tarifas y gastos",
+ "note": "",
+ "routesOnly": false,
+ "readFrom": {
+  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
+  "date": "2026-11-12T23:31:39-03:00"
+ },
+ "screens": [
+  {
+   "file": "pages/admin/consultant-earnings.tsx",
+   "route": "/admin/consultant-earnings",
+   "lines": 169,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [
+     {
+      "id": "consultant-earnings",
+      "label": "Ganancias",
+      "group": "Consultorías",
+      "href": "/admin/consultant-earnings",
+      "gates": "admin only",
+      "groupGates": "admin or consultor",
+      "line": 525
+     }
+    ],
+    "middleware": {
+     "rule": "the /admin rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "equipo_directivo": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "community_manager": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "docente": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     }
+    },
+    "inPage": [
+     {
+      "line": 41,
+      "text": "router.push → /login  (when !session?.user)"
+     },
+     {
+      "line": 57,
+      "text": "userRole = await getUserPrimaryRole(session.user.id)"
+     },
+     {
+      "line": 62,
+      "text": "router.push → /dashboard  (when !isAdminUser)"
+     },
+     {
+      "line": 69,
+      "text": "router.push → /login"
+     }
+    ],
+    "linkedFrom": [
+     "components/layout/Sidebar.tsx:527"
+    ],
+    "qaScenarios": {
+     "admin": [
+      "HT-A-19: Admin verifica ítems de navegación de Control de Horas"
+     ],
+     "consultor": [
+      "HT-C-09: Consultor no puede acceder a Ganancias de admin"
+     ],
+     "equipo_directivo": [
+      "HT-D-08: Directivo verifica navegación en sidebar"
+     ]
+    },
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 30,
+     "in": "ConsultantEarningsPage",
+     "text": "!router.isReady"
+    },
+    {
+     "kind": "nav",
+     "line": 41,
+     "in": "initializeAuth",
+     "when": "!session?.user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 57,
+     "in": "initializeAuth",
+     "text": "userRole = await getUserPrimaryRole(session.user.id)",
+     "via": "getUserPrimaryRole"
+    },
+    {
+     "kind": "nav",
+     "line": 62,
+     "in": "initializeAuth",
+     "when": "!isAdminUser",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 69,
+     "in": "initializeAuth",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "text",
+     "line": 103,
+     "in": "ConsultantEarningsPage",
+     "when": "loading",
+     "text": "Cargando..."
+    },
+    {
+     "kind": "gate",
+     "line": 108,
+     "in": "ConsultantEarningsPage",
+     "text": "!user || !isAdmin"
+    },
+    {
+     "kind": "piece",
+     "line": 113,
+     "in": "ConsultantEarningsPage",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "heading",
+     "line": 126,
+     "in": "ConsultantEarningsPage",
+     "text": "Ganancias de Consultores",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 128,
+     "in": "ConsultantEarningsPage",
+     "text": "Visualice las ganancias en EUR y CLP por consultor y período."
+    },
+    {
+     "kind": "label",
+     "line": 135,
+     "in": "ConsultantEarningsPage",
+     "text": "Seleccionar Consultor"
+    },
+    {
+     "kind": "field",
+     "line": 138,
+     "in": "ConsultantEarningsPage",
+     "text": "Seleccionar Consultor",
+     "type": "select",
+     "action": "{(e) => handleConsultantChange(e.target.value)}",
+     "options": [
+      "Seleccionar consultor...",
+      "(lista) {c.first_name} {c.last_name}"
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 154,
+     "in": "ConsultantEarningsPage",
+     "when": "selectedConsultantId",
+     "text": "",
+     "tag": "ConsultantEarningsDashboard"
+    },
+    {
+     "kind": "text",
+     "line": 160,
+     "in": "ConsultantEarningsPage",
+     "when": "!(selectedConsultantId)",
+     "text": "Seleccione un consultor para ver sus ganancias."
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/hours/ConsultantEarningsDashboard.tsx",
+    "lib/exportUtils.ts",
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/admin/consultant-assignment-users.ts",
+     "route": "/api/admin/consultant-assignment-users",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/admin/consultant-earnings.tsx:77"
+     ]
+    },
+    {
+     "file": "pages/api/consultant-earnings/[consultant_id].ts",
+     "route": "/api/consultant-earnings/[consultant_id]",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/hours/ConsultantEarningsDashboard.tsx:156"
+     ]
+    },
+    {
+     "file": "pages/api/consultant-earnings/[consultant_id]/pdf.ts",
+     "route": "/api/consultant-earnings/[consultant_id]/pdf",
+     "methods": [],
+     "from": [
+      "components/hours/ConsultantEarningsDashboard.tsx:286"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/admin/consultant-rates.tsx",
+   "route": "/admin/consultant-rates",
+   "lines": 102,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [
+     {
+      "id": "consultant-rates",
+      "label": "Tarifas",
+      "group": "Consultorías",
+      "href": "/admin/consultant-rates",
+      "gates": "admin only",
+      "groupGates": "admin or consultor",
+      "line": 517
+     }
+    ],
+    "middleware": {
+     "rule": "the /admin rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "equipo_directivo": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "community_manager": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "docente": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     }
+    },
+    "inPage": [
+     {
+      "line": 31,
+      "text": "router.push → /login  (when !session?.user)"
+     },
+     {
+      "line": 47,
+      "text": "userRole = await getUserPrimaryRole(session.user.id)"
+     },
+     {
+      "line": 52,
+      "text": "router.push → /dashboard  (when !isAdminUser)"
+     },
+     {
+      "line": 56,
+      "text": "router.push → /login"
+     }
+    ],
+    "linkedFrom": [
+     "components/layout/Sidebar.tsx:519"
+    ],
+    "qaScenarios": {
+     "admin": [
+      "HT-A-19: Admin verifica ítems de navegación de Control de Horas"
+     ],
+     "consultor": [
+      "HT-C-07: Consultor no puede acceder a Tarifas de admin"
+     ],
+     "equipo_directivo": [
+      "HT-D-06: Directivo no puede acceder a Tarifas de consultores",
+      "HT-D-08: Directivo verifica navegación en sidebar"
+     ]
+    },
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 20,
+     "in": "ConsultantRatesPage",
+     "text": "!router.isReady"
+    },
+    {
+     "kind": "nav",
+     "line": 31,
+     "in": "initializeAuth",
+     "when": "!session?.user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 47,
+     "in": "initializeAuth",
+     "text": "userRole = await getUserPrimaryRole(session.user.id)",
+     "via": "getUserPrimaryRole"
+    },
+    {
+     "kind": "nav",
+     "line": 52,
+     "in": "initializeAuth",
+     "when": "!isAdminUser",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 56,
+     "in": "initializeAuth",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "text",
+     "line": 65,
+     "in": "ConsultantRatesPage",
+     "when": "loading",
+     "text": "Cargando..."
+    },
+    {
+     "kind": "gate",
+     "line": 70,
+     "in": "ConsultantRatesPage",
+     "text": "!user || !isAdmin"
+    },
+    {
+     "kind": "piece",
+     "line": 75,
+     "in": "ConsultantRatesPage",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "heading",
+     "line": 88,
+     "in": "ConsultantRatesPage",
+     "text": "Tarifas de Consultores",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 90,
+     "in": "ConsultantRatesPage",
+     "text": "Gestione las tarifas por hora en EUR para cada consultor y tipo de servicio."
+    },
+    {
+     "kind": "piece",
+     "line": 95,
+     "in": "ConsultantRatesPage",
+     "text": "",
+     "tag": "ConsultantRateManager"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/admin/ConsultantRateManager.tsx",
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/admin/consultant-assignment-users.ts",
+     "route": "/api/admin/consultant-assignment-users",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/admin/ConsultantRateManager.tsx:142"
+     ]
+    },
+    {
+     "file": "pages/api/admin/consultant-rates/index.ts",
+     "route": "/api/admin/consultant-rates",
+     "methods": [
+      "GET",
+      "POST"
+     ],
+     "from": [
+      "components/admin/ConsultantRateManager.tsx:124",
+      "components/admin/ConsultantRateManager.tsx:272"
+     ]
+    },
+    {
+     "file": "pages/api/admin/consultant-rates/[id].ts",
+     "route": "/api/admin/consultant-rates/[id]",
+     "methods": [
+      "DELETE",
+      "PATCH"
+     ],
+     "from": [
+      "components/admin/ConsultantRateManager.tsx:236",
+      "components/admin/ConsultantRateManager.tsx:302"
+     ]
+    },
+    {
+     "file": "pages/api/admin/consultant-rates/csv.ts",
+     "route": "/api/admin/consultant-rates/csv",
+     "methods": [],
+     "from": [
+      "components/admin/ConsultantRateManager.tsx:372"
+     ]
+    },
+    {
+     "file": "pages/api/hour-types/index.ts",
+     "route": "/api/hour-types",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/admin/ConsultantRateManager.tsx:155"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/expense-reports.tsx",
+   "route": "/expense-reports",
+   "lines": 778,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [
+     {
+      "id": "expense-reports",
+      "label": "Rendición de Gastos",
+      "group": "Gestión",
+      "href": "/expense-reports",
+      "gates": "permission: view_expense_reports_all or view_expense_reports_school or view_expense_reports_own",
+      "groupGates": "roles: admin, community_manager, encargado_licitacion",
+      "line": 578
+     }
+    ],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "if permission view_expense_reports_all or view_expense_reports_school or view_expense_reports_own",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "if permission view_expense_reports_all or view_expense_reports_school or view_expense_reports_own",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 110,
+      "text": "router.push → /login  (when !session?.user)"
+     },
+     {
+      "line": 123,
+      "text": "hasAccess = false"
+     },
+     {
+      "line": 126,
+      "text": "userRole = await getUserPrimaryRole(session.user.id)"
+     },
+     {
+      "line": 148,
+      "text": "router.push → /dashboard  (when !hasAccess)"
+     },
+     {
+      "line": 161,
+      "text": "router.push → /login"
+     },
+     {
+      "line": 210,
+      "text": "router.push → /login"
+     }
+    ],
+    "linkedFrom": [
+     "components/DynamicFavicon.tsx:41",
+     "components/layout/Sidebar.tsx:580",
+     "lib/auth/forced-password-change.ts:149",
+     "middleware.ts:344"
+    ],
+    "qaScenarios": {
+     "admin": [
+      "SV-29: Admin ve Rendición de Gastos en sidebar"
+     ],
+     "community_manager": [
+      "CM puede acceder rendiciones de gasto"
+     ]
+    },
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "message",
+     "line": 93,
+     "in": "handleConnectTelegram",
+     "when": "!response.ok",
+     "text": "link-code request failed: {response.status}",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 99,
+     "in": "handleConnectTelegram",
+     "text": "No se pudo generar el código. Inténtalo de nuevo.",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 110,
+     "in": "checkSession",
+     "when": "!session?.user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 123,
+     "in": "checkSession",
+     "text": "hasAccess = false",
+     "via": "declaration"
+    },
+    {
+     "kind": "access",
+     "line": 126,
+     "in": "checkSession",
+     "when": "profile",
+     "text": "userRole = await getUserPrimaryRole(session.user.id)",
+     "via": "getUserPrimaryRole"
+    },
+    {
+     "kind": "nav",
+     "line": 148,
+     "in": "checkSession",
+     "when": "!hasAccess",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 161,
+     "in": "checkSession",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 186,
+     "in": "loadExpenseReports",
+     "text": "Error al cargar los reportes de gastos",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 202,
+     "in": "loadCategories",
+     "text": "Error al cargar las categorías",
+     "variant": "error"
+    },
+    {
+     "kind": "hook",
+     "line": 208,
+     "in": "handleLogout",
+     "text": "localStorage: rememberMe",
+     "type": "storage"
+    },
+    {
+     "kind": "hook",
+     "line": 209,
+     "in": "handleLogout",
+     "text": "sessionStorage: sessionOnly",
+     "type": "storage"
+    },
+    {
+     "kind": "nav",
+     "line": 210,
+     "in": "handleLogout",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 279,
+     "in": "handleDeleteReport",
+     "text": "Reporte eliminado exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 283,
+     "in": "handleDeleteReport",
+     "text": "Error al eliminar el reporte:",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 303,
+     "in": "handleSubmitReport",
+     "text": "Reporte enviado para revisión",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 307,
+     "in": "handleSubmitReport",
+     "text": "Error al enviar el reporte:",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 335,
+     "in": "handleApproveReport",
+     "text": "Reporte aprobado",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 339,
+     "in": "handleApproveReport",
+     "text": "Error al aprobar el reporte:",
+     "variant": "error"
+    },
+    {
+     "kind": "prompt",
+     "line": 344,
+     "in": "handleRejectReport",
+     "text": "Comentarios de rechazo (opcional):"
+    },
+    {
+     "kind": "toast",
+     "line": 370,
+     "in": "handleRejectReport",
+     "text": "Reporte rechazado",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 374,
+     "in": "handleRejectReport",
+     "text": "Error al rechazar el reporte:",
+     "variant": "error"
+    },
+    {
+     "kind": "text",
+     "line": 383,
+     "in": "ExpenseReportsPage",
+     "when": "loading",
+     "text": "Cargando..."
+    },
+    {
+     "kind": "piece",
+     "line": 390,
+     "in": "ExpenseReportsPage",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "piece",
+     "line": 400,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista'",
+     "text": "title: Rendición de Gastos · subtitle: Gestión de reportes de gastos y reembolsos · searchPlaceholder: Buscar por nombre, descripción... · primaryAction: Nuevo Reporte",
+     "tag": "ResponsiveFunctionalPageHeader"
+    },
+    {
+     "kind": "button",
+     "line": 413,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista'",
+     "text": "Generando… / Conectar Telegram",
+     "action": "{handleConnectTelegram}",
+     "disabled": "{generatingTelegramCode}",
+     "title": "Vincular tu Telegram para enviar boletas desde el celular"
+    },
+    {
+     "kind": "button",
+     "line": 425,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0",
+     "text": "PDF",
+     "action": "{async () => { try { await ExpenseReportExporter.exportMultipleReportsToPDF(expe…}",
+     "title": "Exportar todos los reportes como PDF"
+    },
+    {
+     "kind": "toast",
+     "line": 429,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0",
+     "text": "Resumen exportado como PDF",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 431,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0",
+     "text": "Error al exportar PDF",
+     "variant": "error"
+    },
+    {
+     "kind": "button",
+     "line": 441,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0",
+     "text": "Excel",
+     "action": "{async () => { try { await ExpenseReportExporter.exportMultipleReportsToExcel(ex…}",
+     "title": "Exportar todos los reportes como Excel"
+    },
+    {
+     "kind": "toast",
+     "line": 445,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0",
+     "text": "Resumen exportado como Excel",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 447,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0",
+     "text": "Error al exportar Excel",
+     "variant": "error"
+    },
+    {
+     "kind": "button",
+     "line": 469,
+     "in": "ExpenseReportsPage",
+     "when": "(activeTab === 'nuevo' || activeTab === 'editar')",
+     "text": "Volver a Reportes",
+     "action": "{() => setActiveTab('lista')}"
+    },
+    {
+     "kind": "heading",
+     "line": 477,
+     "in": "ExpenseReportsPage",
+     "when": "(activeTab === 'nuevo' || activeTab === 'editar')",
+     "text": "Crear Nuevo Reporte / Editar Reporte",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 489,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista'",
+     "text": "{expenseReports.length} reporte / reportes"
+    },
+    {
+     "kind": "column",
+     "line": 499,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0",
+     "text": "Nombre"
+    },
+    {
+     "kind": "column",
+     "line": 500,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0",
+     "text": "Período"
+    },
+    {
+     "kind": "column",
+     "line": 501,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0",
+     "text": "Total"
+    },
+    {
+     "kind": "column",
+     "line": 502,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0",
+     "text": "Estado"
+    },
+    {
+     "kind": "column",
+     "line": 503,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0",
+     "text": "Enviado por"
+    },
+    {
+     "kind": "column",
+     "line": 504,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0",
+     "text": "Acciones"
+    },
+    {
+     "kind": "value",
+     "line": 523,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue…",
+     "text": "{report.report_name}"
+    },
+    {
+     "kind": "value",
+     "line": 525,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue… && report.description",
+     "text": "{report.description}"
+    },
+    {
+     "kind": "value",
+     "line": 530,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue…",
+     "text": "{formatDate(report.start_date)} - {formatDate(report.end_date)}"
+    },
+    {
+     "kind": "value",
+     "line": 535,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue…",
+     "text": "{formatCurrency(report.total_amount)}"
+    },
+    {
+     "kind": "value",
+     "line": 540,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue…",
+     "text": "{getStatusText(report.status)}"
+    },
+    {
+     "kind": "value",
+     "line": 545,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue…",
+     "text": "{report.profiles?.first_name} {report.profiles?.last_name}"
+    },
+    {
+     "kind": "button",
+     "line": 551,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue…",
+     "text": "[icon Eye]",
+     "action": "{() => setSelectedReport(report)}",
+     "title": "Ver detalles"
+    },
+    {
+     "kind": "button",
+     "line": 561,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue… && report.status === 'draft' && report.submitted_by === currentUser.id",
+     "text": "[icon Edit]",
+     "action": "{() => { setEditingReport(report); setActiveTab('editar'); }}",
+     "title": "Editar reporte"
+    },
+    {
+     "kind": "button",
+     "line": 571,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue… && report.status === 'draft' && report.submitted_by === currentUser.id",
+     "text": "[icon Send]",
+     "action": "{() => handleSubmitReport(report.id)}",
+     "title": "Enviar para revisión"
+    },
+    {
+     "kind": "button",
+     "line": 583,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue… && isDesignatedApprover() && report.status === 'submitted'",
+     "text": "[icon Check]",
+     "action": "{() => handleApproveReport(report.id)}",
+     "title": "Aprobar reporte"
+    },
+    {
+     "kind": "button",
+     "line": 590,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue… && isDesignatedApprover() && report.status === 'submitted'",
+     "text": "[icon X]",
+     "action": "{() => handleRejectReport(report.id)}",
+     "title": "Rechazar reporte"
+    },
+    {
+     "kind": "button",
+     "line": 601,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && expenseReports.length > 0 && each expenseReports .filter(report => { if (!searchQue… && (((report.submitted_by === currentUser.id && report.status === 'draft') || isAdmin))",
+     "text": "[icon Trash2]",
+     "action": "{() => setDeleteModalReport(report)}",
+     "title": "Eliminar reporte"
+    },
+    {
+     "kind": "heading",
+     "line": 619,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && !(expenseReports.length > 0)",
+     "text": "No hay reportes de gastos",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 620,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && !(expenseReports.length > 0)",
+     "text": "Comienza creando tu primer reporte de gastos"
+    },
+    {
+     "kind": "button",
+     "line": 621,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'lista' && !(expenseReports.length > 0)",
+     "text": "Crear Primer Reporte",
+     "action": "{() => setActiveTab('nuevo')}"
+    },
+    {
+     "kind": "piece",
+     "line": 634,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'nuevo'",
+     "text": "",
+     "tag": "ExpenseReportForm"
+    },
+    {
+     "kind": "piece",
+     "line": 645,
+     "in": "ExpenseReportsPage",
+     "when": "activeTab === 'editar' && editingReport",
+     "text": "",
+     "tag": "ExpenseReportForm"
+    },
+    {
+     "kind": "popup",
+     "line": 662,
+     "in": "ExpenseReportsPage",
+     "when": "deleteModalReport",
+     "text": "Eliminar Reporte",
+     "how": "written in this file"
+    },
+    {
+     "kind": "heading",
+     "line": 670,
+     "in": "ExpenseReportsPage",
+     "when": "deleteModalReport",
+     "text": "Eliminar Reporte",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 671,
+     "in": "ExpenseReportsPage",
+     "when": "deleteModalReport",
+     "text": "Esta acción no se puede deshacer"
+    },
+    {
+     "kind": "text",
+     "line": 677,
+     "in": "ExpenseReportsPage",
+     "when": "deleteModalReport",
+     "text": "¿Estás seguro de que deseas eliminar el reporte"
+    },
+    {
+     "kind": "value",
+     "line": 678,
+     "in": "ExpenseReportsPage",
+     "when": "deleteModalReport",
+     "text": "{deleteModalReport.report_name}"
+    },
+    {
+     "kind": "text",
+     "line": 681,
+     "in": "ExpenseReportsPage",
+     "when": "deleteModalReport",
+     "text": "Se eliminarán también todos los gastos asociados a este reporte."
+    },
+    {
+     "kind": "button",
+     "line": 686,
+     "in": "ExpenseReportsPage",
+     "when": "deleteModalReport",
+     "text": "Cancelar",
+     "action": "{() => setDeleteModalReport(null)}"
+    },
+    {
+     "kind": "button",
+     "line": 692,
+     "in": "ExpenseReportsPage",
+     "when": "deleteModalReport",
+     "text": "Eliminar Reporte",
+     "action": "{() => handleDeleteReport(deleteModalReport)}"
+    },
+    {
+     "kind": "popup",
+     "line": 706,
+     "in": "ExpenseReportsPage",
+     "when": "telegramLink",
+     "text": "Conectar Telegram",
+     "how": "written in this file"
+    },
+    {
+     "kind": "heading",
+     "line": 714,
+     "in": "ExpenseReportsPage",
+     "when": "telegramLink",
+     "text": "Conectar Telegram",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 715,
+     "in": "ExpenseReportsPage",
+     "when": "telegramLink",
+     "text": "Envía boletas desde tu celular"
+    },
+    {
+     "kind": "text",
+     "line": 721,
+     "in": "ExpenseReportsPage",
+     "when": "telegramLink",
+     "text": "Abre Telegram y envíale este código al bot, o toca el enlace directo:"
+    },
+    {
+     "kind": "value",
+     "line": 724,
+     "in": "ExpenseReportsPage",
+     "when": "telegramLink",
+     "text": "{telegramLink.code}"
+    },
+    {
+     "kind": "link",
+     "line": 729,
+     "in": "ExpenseReportsPage",
+     "when": "telegramLink && telegramLink.deepLink",
+     "text": "Abrir Telegram",
+     "target": "{telegramLink.deepLink}",
+     "newTab": true
+    },
+    {
+     "kind": "text",
+     "line": 739,
+     "in": "ExpenseReportsPage",
+     "when": "telegramLink",
+     "text": "El código vence en 15 minutos. Luego solo envía una foto de tu boleta al bot."
+    },
+    {
+     "kind": "button",
+     "line": 744,
+     "in": "ExpenseReportsPage",
+     "when": "telegramLink",
+     "text": "Cerrar",
+     "action": "{() => setTelegramLink(null)}"
+    },
+    {
+     "kind": "popup",
+     "line": 757,
+     "in": "ExpenseReportsPage",
+     "text": "ExpenseReportDetails",
+     "how": "component",
+     "open": "{!!selectedReport}"
+    },
+    {
+     "kind": "string",
+     "line": 90,
+     "in": "ExpenseReportsPage",
+     "text": "Bearer {session.access_token}"
+    },
+    {
+     "kind": "string",
+     "line": 260,
+     "in": "ExpenseReportsPage",
+     "text": "Borrador"
+    },
+    {
+     "kind": "string",
+     "line": 262,
+     "in": "ExpenseReportsPage",
+     "text": "Aprobado"
+    },
+    {
+     "kind": "string",
+     "line": 263,
+     "in": "ExpenseReportsPage",
+     "text": "Rechazado"
+    },
+    {
+     "kind": "list",
+     "line": 260,
+     "in": "getStatusText",
+     "text": "getStatusText()",
+     "items": [
+      "Borrador",
+      "Enviado",
+      "Aprobado",
+      "Rechazado"
+     ]
+    }
+   ],
+   "db": [
+    {
+     "what": "table:expense_categories",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:expense_report_access",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:expense_reports",
+     "ops": [
+      "delete",
+      "select",
+      "update"
+     ]
+    },
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/expenses/ExpenseReportDetails.tsx",
+    "components/expenses/ExpenseReportForm.tsx",
+    "components/layout/FunctionalPageHeader.tsx",
+    "lib/currency-service.ts",
+    "lib/expenseReportExport.ts",
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/bots/link-code.ts",
+     "route": "/api/bots/link-code",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "pages/expense-reports.tsx:88"
+     ]
+    },
+    {
+     "file": "pages/api/expense-reports/[id]/notify.ts",
+     "route": "/api/expense-reports/[id]/notify",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "pages/expense-reports.tsx:228"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/mis-horas.tsx",
+   "route": "/mis-horas",
+   "lines": 113,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [
+     {
+      "id": "mis-horas",
+      "label": "Mis Horas",
+      "group": "Mi Trabajo",
+      "href": "/mis-horas",
+      "gates": "admin or consultor",
+      "groupGates": "admin or consultor",
+      "line": 195
+     }
+    ],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "no",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 33,
+      "text": "router.push → /login  (when !session?.user)"
+     },
+     {
+      "line": 52,
+      "text": "userRole = await getUserPrimaryRole(session.user.id)"
+     },
+     {
+      "line": 59,
+      "text": "router.push → /dashboard  (when !isAdminUser && !isConsultor)"
+     },
+     {
+      "line": 63,
+      "text": "router.push → /login"
+     }
+    ],
+    "linkedFrom": [
+     "components/layout/Sidebar.tsx:197",
+     "lib/auth/forced-password-change.ts:153",
+     "middleware.ts:348"
+    ],
+    "qaScenarios": {
+     "consultor": [
+      "HT-C-01: Consultor ve su dashboard de ganancias",
+      "HT-C-02: Consultor filtra ganancias por rango de fechas",
+      "HT-C-03: Consultor exporta sus ganancias a PDF",
+      "HT-C-04: Consultor solo ve sus propios datos",
+      "HT-C-06: Consultor ve 'Mis Horas' en el sidebar"
+     ]
+    },
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 22,
+     "in": "MisHorasPage",
+     "text": "!router.isReady"
+    },
+    {
+     "kind": "nav",
+     "line": 33,
+     "in": "initializeAuth",
+     "when": "!session?.user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 52,
+     "in": "initializeAuth",
+     "text": "userRole = await getUserPrimaryRole(session.user.id)",
+     "via": "getUserPrimaryRole"
+    },
+    {
+     "kind": "nav",
+     "line": 59,
+     "in": "initializeAuth",
+     "when": "!isAdminUser && !isConsultor",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 63,
+     "in": "initializeAuth",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "text",
+     "line": 72,
+     "in": "MisHorasPage",
+     "when": "loading",
+     "text": "Cargando..."
+    },
+    {
+     "kind": "gate",
+     "line": 77,
+     "in": "MisHorasPage",
+     "text": "!user"
+    },
+    {
+     "kind": "piece",
+     "line": 82,
+     "in": "MisHorasPage",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "heading",
+     "line": 95,
+     "in": "MisHorasPage",
+     "text": "Mis Horas",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 97,
+     "in": "MisHorasPage",
+     "text": "Consulte sus ganancias en EUR y CLP por período de tiempo."
+    },
+    {
+     "kind": "piece",
+     "line": 100,
+     "in": "MisHorasPage",
+     "text": "sectionId: mis-horas",
+     "tag": "HelpButton"
+    },
+    {
+     "kind": "piece",
+     "line": 103,
+     "in": "MisHorasPage",
+     "text": "",
+     "tag": "ConsultantEarningsDashboard"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/hours/ConsultantEarningsDashboard.tsx",
+    "components/tutorials/HelpButton.tsx",
+    "components/tutorials/HelpDrawer.tsx",
+    "components/tutorials/VimeoEmbed.tsx",
+    "components/ui/dialog.tsx",
+    "lib/exportUtils.ts",
+    "lib/tutorials/content.ts",
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/consultant-earnings/[consultant_id].ts",
+     "route": "/api/consultant-earnings/[consultant_id]",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "components/hours/ConsultantEarningsDashboard.tsx:156"
+     ]
+    },
+    {
+     "file": "pages/api/consultant-earnings/[consultant_id]/pdf.ts",
+     "route": "/api/consultant-earnings/[consultant_id]/pdf",
+     "methods": [],
+     "from": [
+      "components/hours/ConsultantEarningsDashboard.tsx:286"
+     ]
+    }
+   ]
+  }
+ ],
+ "pieces": {
+  "components/admin/ConsultantRateManager.tsx": {
+   "usedBy": [
+    "/admin/consultant-rates"
+   ],
+   "lines": 645,
+   "rows": [
+    {
+     "kind": "toast",
+     "line": 128,
+     "in": "ConsultantRateManager",
+     "when": "!response.ok",
+     "text": "Error al cargar tarifas",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 134,
+     "in": "ConsultantRateManager",
+     "text": "Error de red al cargar tarifas",
+     "variant": "error"
+    },
+    {
+     "kind": "gate",
+     "line": 143,
+     "in": "ConsultantRateManager",
+     "text": "!response.ok"
+    },
+    {
+     "kind": "gate",
+     "line": 156,
+     "in": "ConsultantRateManager",
+     "text": "!response.ok"
+    },
+    {
+     "kind": "hook",
+     "line": 183,
+     "in": "openAddModal",
+     "text": "modalRef.current.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 197,
+     "in": "openEditModal",
+     "text": "modalRef.current.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "message",
+     "line": 220,
+     "in": "handleSave",
+     "when": "isNaN(rateEur) || rateEur < 0",
+     "text": "La tarifa EUR debe ser un número válido mayor o igual a 0.",
+     "via": "setFormError"
+    },
+    {
+     "kind": "message",
+     "line": 244,
+     "in": "handleSave",
+     "when": "editingRate && !response.ok",
+     "text": "Error al actualizar tarifa",
+     "via": "setFormError"
+    },
+    {
+     "kind": "toast",
+     "line": 248,
+     "in": "handleSave",
+     "when": "editingRate",
+     "text": "Tarifa actualizada correctamente",
+     "variant": "success"
+    },
+    {
+     "kind": "message",
+     "line": 260,
+     "in": "handleSave",
+     "when": "!(editingRate) && !payload.consultant_id",
+     "text": "Debe seleccionar un consultor.",
+     "via": "setFormError"
+    },
+    {
+     "kind": "message",
+     "line": 264,
+     "in": "handleSave",
+     "when": "!(editingRate) && !payload.hour_type_key",
+     "text": "Debe seleccionar un tipo de hora.",
+     "via": "setFormError"
+    },
+    {
+     "kind": "message",
+     "line": 268,
+     "in": "handleSave",
+     "when": "!(editingRate) && !payload.effective_from",
+     "text": "La fecha de inicio es requerida.",
+     "via": "setFormError"
+    },
+    {
+     "kind": "message",
+     "line": 280,
+     "in": "handleSave",
+     "when": "!(editingRate) && !response.ok",
+     "text": "Error al crear tarifa",
+     "via": "setFormError"
+    },
+    {
+     "kind": "toast",
+     "line": 284,
+     "in": "handleSave",
+     "when": "!(editingRate)",
+     "text": "Tarifa creada correctamente",
+     "variant": "success"
+    },
+    {
+     "kind": "message",
+     "line": 290,
+     "in": "handleSave",
+     "text": "Error de red. Intente nuevamente.",
+     "via": "setFormError"
+    },
+    {
+     "kind": "toast",
+     "line": 308,
+     "in": "handleDeactivate",
+     "when": "!response.ok",
+     "text": "Error al desactivar tarifa",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 312,
+     "in": "handleDeactivate",
+     "text": "Tarifa desactivada correctamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 315,
+     "in": "handleDeactivate",
+     "text": "Error de red al desactivar tarifa",
+     "variant": "error"
+    },
+    {
+     "kind": "field",
+     "line": 329,
+     "in": "ConsultantRateManager",
+     "text": "Solo activas",
+     "type": "select",
+     "action": "{(e) => setFilterConsultant(e.target.value)}",
+     "options": [
+      "Todos los consultores",
+      "(lista) {c.first_name} {c.last_name}"
+     ]
+    },
+    {
+     "kind": "field",
+     "line": 343,
+     "in": "ConsultantRateManager",
+     "text": "Solo activas",
+     "type": "select",
+     "action": "{(e) => setFilterHourType(e.target.value)}",
+     "options": [
+      "Todos los tipos de hora",
+      "(lista) {ht.display_name}"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 357,
+     "in": "ConsultantRateManager",
+     "text": "Solo activas"
+    },
+    {
+     "kind": "field",
+     "line": 358,
+     "in": "ConsultantRateManager",
+     "text": "Solo activas",
+     "type": "checkbox",
+     "action": "{(e) => setFilterActiveOnly(e.target.checked)}"
+    },
+    {
+     "kind": "link",
+     "line": 371,
+     "in": "ConsultantRateManager",
+     "text": "Exportar CSV",
+     "target": "/api/admin/consultant-rates/csv",
+     "download": true
+    },
+    {
+     "kind": "download",
+     "line": 371,
+     "in": "ConsultantRateManager",
+     "text": "<a download> Exportar CSV",
+     "how": "link with download"
+    },
+    {
+     "kind": "button",
+     "line": 381,
+     "in": "ConsultantRateManager",
+     "text": "Agregar Tarifa",
+     "action": "{openAddModal}"
+    },
+    {
+     "kind": "text",
+     "line": 394,
+     "in": "ConsultantRateManager",
+     "when": "loading",
+     "text": "Cargando tarifas..."
+    },
+    {
+     "kind": "text",
+     "line": 397,
+     "in": "ConsultantRateManager",
+     "when": "!(loading) && rates.length === 0",
+     "text": "No se encontraron tarifas con los filtros seleccionados."
+    },
+    {
+     "kind": "column",
+     "line": 404,
+     "in": "ConsultantRateManager",
+     "when": "!(loading) && !(rates.length === 0)",
+     "text": "Consultor"
+    },
+    {
+     "kind": "column",
+     "line": 405,
+     "in": "ConsultantRateManager",
+     "when": "!(loading) && !(rates.length === 0)",
+     "text": "Tipo de Hora"
+    },
+    {
+     "kind": "column",
+     "line": 406,
+     "in": "ConsultantRateManager",
+     "when": "!(loading) && !(rates.length === 0)",
+     "text": "Tarifa EUR"
+    },
+    {
+     "kind": "column",
+     "line": 407,
+     "in": "ConsultantRateManager",
+     "when": "!(loading) && !(rates.length === 0)",
+     "text": "Vigente Desde"
+    },
+    {
+     "kind": "column",
+     "line": 408,
+     "in": "ConsultantRateManager",
+     "when": "!(loading) && !(rates.length === 0)",
+     "text": "Vigente Hasta"
+    },
+    {
+     "kind": "column",
+     "line": 409,
+     "in": "ConsultantRateManager",
+     "when": "!(loading) && !(rates.length === 0)",
+     "text": "Estado"
+    },
+    {
+     "kind": "column",
+     "line": 410,
+     "in": "ConsultantRateManager",
+     "when": "!(loading) && !(rates.length === 0)",
+     "text": "Acciones"
+    },
+    {
+     "kind": "value",
+     "line": 418,
+     "in": "ConsultantRateManager",
+     "when": "!(loading) && !(rates.length === 0) && each rates",
+     "text": "{rate.profiles.first_name} {rate.profiles.last_name} / —"
+    },
+    {
+     "kind": "value",
+     "line": 433,
+     "in": "ConsultantRateManager",
+     "when": "!(loading) && !(rates.length === 0) && each rates",
+     "text": "{formatEur(rate.rate_eur)}"
+    },
+    {
+     "kind": "value",
+     "line": 436,
+     "in": "ConsultantRateManager",
+     "when": "!(loading) && !(rates.length === 0) && each rates",
+     "text": "{formatDate(rate.effective_from)}"
+    },
+    {
+     "kind": "value",
+     "line": 437,
+     "in": "ConsultantRateManager",
+     "when": "!(loading) && !(rates.length === 0) && each rates",
+     "text": "{formatDate(rate.effective_to)}"
+    },
+    {
+     "kind": "text",
+     "line": 439,
+     "in": "ConsultantRateManager",
+     "when": "!(loading) && !(rates.length === 0) && each rates",
+     "text": "Activa / Inactiva"
+    },
+    {
+     "kind": "button",
+     "line": 451,
+     "in": "ConsultantRateManager",
+     "when": "!(loading) && !(rates.length === 0) && each rates",
+     "text": "[icon Edit2]",
+     "action": "{() => openEditModal(rate)}",
+     "aria": "{`Editar tarifa de ${rate.profiles?.first_name ?? 'consultor'}`}"
+    },
+    {
+     "kind": "button",
+     "line": 460,
+     "in": "ConsultantRateManager",
+     "when": "!(loading) && !(rates.length === 0) && each rates && active && confirmDeactivate?.id === rate.id",
+     "text": "Confirmar",
+     "action": "{() => { handleDeactivate(rate); setConfirmDeactivate(null); }}"
+    },
+    {
+     "kind": "button",
+     "line": 469,
+     "in": "ConsultantRateManager",
+     "when": "!(loading) && !(rates.length === 0) && each rates && active && confirmDeactivate?.id === rate.id",
+     "text": "No",
+     "action": "{() => setConfirmDeactivate(null)}"
+    },
+    {
+     "kind": "button",
+     "line": 477,
+     "in": "ConsultantRateManager",
+     "when": "!(rates.length === 0) && each rates && !(active && confirmDeactivate?.id === rate.id) && active",
+     "text": "[icon X]",
+     "action": "{() => setConfirmDeactivate(rate)}",
+     "aria": "{`Desactivar tarifa de ${rate.profiles?.first_name ?? 'consultor'}`}"
+    },
+    {
+     "kind": "popup",
+     "line": 498,
+     "in": "ConsultantRateManager",
+     "when": "showModal",
+     "text": "Editar Tarifa / Agregar Tarifa",
+     "how": "written in this file",
+     "labelledby": "rate-modal-title"
+    },
+    {
+     "kind": "heading",
+     "line": 506,
+     "in": "ConsultantRateManager",
+     "when": "showModal",
+     "text": "Editar Tarifa / Agregar Tarifa",
+     "level": 2,
+     "hook": {
+      "id": "rate-modal-title",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "button",
+     "line": 510,
+     "in": "ConsultantRateManager",
+     "when": "showModal",
+     "text": "[icon X]",
+     "action": "{closeModal}",
+     "aria": "Cerrar dialogo"
+    },
+    {
+     "kind": "value",
+     "line": 523,
+     "in": "ConsultantRateManager",
+     "when": "showModal && formError",
+     "text": "{formError}"
+    },
+    {
+     "kind": "label",
+     "line": 532,
+     "in": "ConsultantRateManager",
+     "when": "showModal && !editingRate",
+     "text": "Consultor *"
+    },
+    {
+     "kind": "field",
+     "line": 535,
+     "in": "ConsultantRateManager",
+     "when": "showModal && !editingRate",
+     "text": "Consultor *",
+     "type": "select",
+     "action": "{(e) => handleFormChange('consultant_id', e.target.value)}",
+     "options": [
+      "Seleccionar consultor...",
+      "(lista) {c.first_name} {c.last_name}"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 553,
+     "in": "ConsultantRateManager",
+     "when": "showModal && !editingRate",
+     "text": "Tipo de Hora *"
+    },
+    {
+     "kind": "field",
+     "line": 556,
+     "in": "ConsultantRateManager",
+     "when": "showModal && !editingRate",
+     "text": "Tipo de Hora *",
+     "type": "select",
+     "action": "{(e) => handleFormChange('hour_type_key', e.target.value)}",
+     "options": [
+      "Seleccionar tipo de hora...",
+      "(lista) {ht.display_name}"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 573,
+     "in": "ConsultantRateManager",
+     "when": "showModal",
+     "text": "Tarifa (EUR/hora) *"
+    },
+    {
+     "kind": "field",
+     "line": 580,
+     "in": "ConsultantRateManager",
+     "when": "showModal",
+     "text": "Tarifa (EUR/hora) *",
+     "type": "number",
+     "placeholder": "0.00",
+     "limits": "min=0 step=0.01",
+     "action": "{(e) => handleFormChange('rate_eur', e.target.value)}"
+    },
+    {
+     "kind": "label",
+     "line": 595,
+     "in": "ConsultantRateManager",
+     "when": "showModal && !editingRate",
+     "text": "Vigente Desde *"
+    },
+    {
+     "kind": "field",
+     "line": 598,
+     "in": "ConsultantRateManager",
+     "when": "showModal && !editingRate",
+     "text": "Vigente Desde *",
+     "type": "date",
+     "action": "{(e) => handleFormChange('effective_from', e.target.value)}"
+    },
+    {
+     "kind": "label",
+     "line": 609,
+     "in": "ConsultantRateManager",
+     "when": "showModal",
+     "text": "Vigente Hasta (vacío = sin fecha de término)"
+    },
+    {
+     "kind": "field",
+     "line": 613,
+     "in": "ConsultantRateManager",
+     "when": "showModal",
+     "text": "Vigente Hasta (vacío = sin fecha de término)",
+     "type": "date",
+     "action": "{(e) => handleFormChange('effective_to', e.target.value)}"
+    },
+    {
+     "kind": "button",
+     "line": 624,
+     "in": "ConsultantRateManager",
+     "when": "showModal",
+     "text": "Cancelar",
+     "action": "{closeModal}",
+     "disabled": "{saving}"
+    },
+    {
+     "kind": "button",
+     "line": 631,
+     "in": "ConsultantRateManager",
+     "when": "showModal",
+     "text": "Guardando... / Actualizar / Crear Tarifa",
+     "action": "{handleSave}",
+     "disabled": "{saving}"
+    }
+   ],
+   "db": []
+  },
+  "components/expenses/ExpenseReportDetails.tsx": {
+   "usedBy": [
+    "/expense-reports"
+   ],
+   "lines": 533,
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 80,
+     "in": "ExpenseReportDetails",
+     "text": "!isOpen || !report"
+    },
+    {
+     "kind": "nav",
+     "line": 165,
+     "in": "handleReceiptClick",
+     "when": "url",
+     "text": "{url}",
+     "via": "window.open"
+    },
+    {
+     "kind": "button",
+     "line": 182,
+     "in": "ReceiptCell",
+     "when": "hasReceipt",
+     "text": "[icon Eye]",
+     "action": "{() => handleReceiptClick(item)}",
+     "title": "{`Ver boleta: ${item.receipt_filename || 'archivo'}`}"
+    },
+    {
+     "kind": "button",
+     "line": 189,
+     "in": "ReceiptCell",
+     "when": "hasReceipt",
+     "text": "[icon Download]",
+     "action": "{async () => { try { let url = ''; if (item.receipt_url) { url = await getReceip…}",
+     "title": "Descargar boleta"
+    },
+    {
+     "kind": "download",
+     "line": 221,
+     "in": "ReceiptCell",
+     "when": "hasReceipt && url",
+     "text": "archivo: receipt.pdf",
+     "how": "a.download"
+    },
+    {
+     "kind": "text",
+     "line": 233,
+     "in": "ReceiptCell",
+     "when": "hasReceipt",
+     "text": "Boleta disponible",
+     "attr": "title"
+    },
+    {
+     "kind": "text",
+     "line": 240,
+     "in": "ReceiptCell",
+     "text": "Sin boleta"
+    },
+    {
+     "kind": "popup",
+     "line": 244,
+     "in": "ExpenseReportDetails",
+     "text": "{report.report_name}",
+     "how": "written in this file"
+    },
+    {
+     "kind": "heading",
+     "line": 250,
+     "in": "ExpenseReportDetails",
+     "text": "{report.report_name}",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 251,
+     "in": "ExpenseReportDetails",
+     "text": "Detalles del Reporte de Gastos"
+    },
+    {
+     "kind": "button",
+     "line": 253,
+     "in": "ExpenseReportDetails",
+     "text": "[icon X]",
+     "action": "{onClose}"
+    },
+    {
+     "kind": "value",
+     "line": 266,
+     "in": "ExpenseReportDetails",
+     "text": "{getStatusText(report.status)}"
+    },
+    {
+     "kind": "text",
+     "line": 270,
+     "in": "ExpenseReportDetails",
+     "text": "Total:"
+    },
+    {
+     "kind": "button",
+     "line": 275,
+     "in": "ExpenseReportDetails",
+     "text": "PDF",
+     "action": "{async () => { try { console.log('ExpenseReportExporter:', ExpenseReportExporter…}",
+     "title": "Descargar como PDF"
+    },
+    {
+     "kind": "toast",
+     "line": 284,
+     "in": "ExpenseReportDetails",
+     "when": "ExpenseReportExporter && typeof ExpenseReportExporter.exportToPDF === 'function'",
+     "text": "Reporte exportado como PDF",
+     "variant": "success"
+    },
+    {
+     "kind": "message",
+     "line": 286,
+     "in": "ExpenseReportDetails",
+     "when": "!(ExpenseReportExporter && typeof ExpenseReportExporter.exportToPDF === 'function')",
+     "text": "exportToPDF is not a function",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 289,
+     "in": "ExpenseReportDetails",
+     "text": "Error al exportar PDF",
+     "variant": "error"
+    },
+    {
+     "kind": "button",
+     "line": 299,
+     "in": "ExpenseReportDetails",
+     "text": "Excel",
+     "action": "{async () => { try { await ExpenseReportExporter.exportToExcel(report); toast.su…}",
+     "title": "Descargar como Excel"
+    },
+    {
+     "kind": "toast",
+     "line": 303,
+     "in": "ExpenseReportDetails",
+     "text": "Reporte exportado como Excel",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 305,
+     "in": "ExpenseReportDetails",
+     "text": "Error al exportar Excel",
+     "variant": "error"
+    },
+    {
+     "kind": "button",
+     "line": 317,
+     "in": "ExpenseReportDetails",
+     "when": "(isAdmin || (currentUser && report.submitted_by === currentUser.id) || report.status === 'draft')",
+     "text": "Editar",
+     "action": "{() => onEdit(report)}",
+     "title": "{report.status !== 'draft' ? 'Editar como autor del reporte' : 'Editar reporte'}"
+    },
+    {
+     "kind": "button",
+     "line": 326,
+     "in": "ExpenseReportDetails",
+     "text": "Eliminar",
+     "action": "{() => onDelete(report)}"
+    },
+    {
+     "kind": "heading",
+     "line": 339,
+     "in": "ExpenseReportDetails",
+     "text": "Información General",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 343,
+     "in": "ExpenseReportDetails",
+     "text": "Período"
+    },
+    {
+     "kind": "text",
+     "line": 352,
+     "in": "ExpenseReportDetails",
+     "when": "report.description",
+     "text": "Descripción"
+    },
+    {
+     "kind": "value",
+     "line": 353,
+     "in": "ExpenseReportDetails",
+     "when": "report.description",
+     "text": "{report.description}"
+    },
+    {
+     "kind": "text",
+     "line": 358,
+     "in": "ExpenseReportDetails",
+     "text": "Enviado por"
+    },
+    {
+     "kind": "value",
+     "line": 361,
+     "in": "ExpenseReportDetails",
+     "text": "{report.profiles?.email}"
+    },
+    {
+     "kind": "heading",
+     "line": 368,
+     "in": "ExpenseReportDetails",
+     "text": "Estado y Fechas",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 372,
+     "in": "ExpenseReportDetails",
+     "text": "Creado"
+    },
+    {
+     "kind": "value",
+     "line": 373,
+     "in": "ExpenseReportDetails",
+     "text": "{formatDate(report.created_at)}"
+    },
+    {
+     "kind": "text",
+     "line": 378,
+     "in": "ExpenseReportDetails",
+     "when": "report.submitted_at",
+     "text": "Enviado"
+    },
+    {
+     "kind": "value",
+     "line": 379,
+     "in": "ExpenseReportDetails",
+     "when": "report.submitted_at",
+     "text": "{formatDate(report.submitted_at)}"
+    },
+    {
+     "kind": "text",
+     "line": 385,
+     "in": "ExpenseReportDetails",
+     "when": "report.reviewed_at",
+     "text": "Revisado"
+    },
+    {
+     "kind": "value",
+     "line": 386,
+     "in": "ExpenseReportDetails",
+     "when": "report.reviewed_at",
+     "text": "{formatDate(report.reviewed_at)}"
+    },
+    {
+     "kind": "text",
+     "line": 392,
+     "in": "ExpenseReportDetails",
+     "when": "report.review_comments",
+     "text": "Comentarios de Revisión"
+    },
+    {
+     "kind": "value",
+     "line": 393,
+     "in": "ExpenseReportDetails",
+     "when": "report.review_comments",
+     "text": "{report.review_comments}"
+    },
+    {
+     "kind": "heading",
+     "line": 405,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0",
+     "text": "Gastos Detallados ( {report.expense_items.length} )",
+     "level": 3
+    },
+    {
+     "kind": "column",
+     "line": 413,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0",
+     "text": "Fecha"
+    },
+    {
+     "kind": "column",
+     "line": 414,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0",
+     "text": "Categoría"
+    },
+    {
+     "kind": "column",
+     "line": 415,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0",
+     "text": "Descripción"
+    },
+    {
+     "kind": "column",
+     "line": 416,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0",
+     "text": "Proveedor"
+    },
+    {
+     "kind": "column",
+     "line": 417,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0",
+     "text": "N° Factura/Boleta"
+    },
+    {
+     "kind": "column",
+     "line": 418,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0",
+     "text": "Monto"
+    },
+    {
+     "kind": "column",
+     "line": 419,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0",
+     "text": "Boleta"
+    },
+    {
+     "kind": "value",
+     "line": 425,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0 && each report.expense_items",
+     "text": "{formatDate(item.expense_date)}"
+    },
+    {
+     "kind": "text",
+     "line": 434,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0 && each report.expense_items",
+     "text": "{item.expense_categories?.name} / Sin categoría"
+    },
+    {
+     "kind": "value",
+     "line": 440,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0 && each report.expense_items",
+     "text": "{item.description}"
+    },
+    {
+     "kind": "value",
+     "line": 442,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0 && each report.expense_items && item.notes",
+     "text": "{item.notes}"
+    },
+    {
+     "kind": "value",
+     "line": 445,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0 && each report.expense_items",
+     "text": "{item.vendor} / -"
+    },
+    {
+     "kind": "value",
+     "line": 448,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0 && each report.expense_items",
+     "text": "{item.expense_number} / -"
+    },
+    {
+     "kind": "value",
+     "line": 455,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0 && each report.expense_items && item.currency && item.currency !== 'CLP' && item.original_amount",
+     "text": "{formatCurrencyWithSymbol(item.origi…}"
+    },
+    {
+     "kind": "text",
+     "line": 458,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0 && each report.expense_items && item.currency && item.currency !== 'CLP' && item.original_amount",
+     "text": "≈ $ {item.amount.toLocaleString('es-CL')} CLP"
+    },
+    {
+     "kind": "value",
+     "line": 463,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0 && each report.expense_items && !(item.currency && item.currency !== 'CLP' && item.original_amount)",
+     "text": "$ {item.amount.toLocaleString('es-CL')}"
+    },
+    {
+     "kind": "text",
+     "line": 476,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0",
+     "text": "Total:"
+    },
+    {
+     "kind": "value",
+     "line": 478,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0",
+     "text": "{formatCurrency(report.total_amount)}"
+    },
+    {
+     "kind": "heading",
+     "line": 492,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0",
+     "text": "Resumen por Categoría",
+     "level": 3
+    },
+    {
+     "kind": "heading",
+     "line": 516,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0 && each Object.entries( report.expense_items.reduce((acc,…",
+     "text": "{category}",
+     "level": 4
+    },
+    {
+     "kind": "text",
+     "line": 518,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0 && each Object.entries( report.expense_items.reduce((acc,…",
+     "text": "{data.count} gasto s"
+    },
+    {
+     "kind": "value",
+     "line": 521,
+     "in": "ExpenseReportDetails",
+     "when": "report.expense_items && report.expense_items.length > 0 && each Object.entries( report.expense_items.reduce((acc,…",
+     "text": "{formatCurrency(data.total)}"
+    },
+    {
+     "kind": "string",
+     "line": 102,
+     "in": "ExpenseReportDetails",
+     "text": "Borrador"
+    },
+    {
+     "kind": "string",
+     "line": 104,
+     "in": "ExpenseReportDetails",
+     "text": "Aprobado"
+    },
+    {
+     "kind": "string",
+     "line": 105,
+     "in": "ExpenseReportDetails",
+     "text": "Rechazado"
+    },
+    {
+     "kind": "list",
+     "line": 102,
+     "in": "getStatusText",
+     "text": "getStatusText()",
+     "items": [
+      "Borrador",
+      "Enviado",
+      "Aprobado",
+      "Rechazado"
+     ]
+    }
+   ],
+   "db": [
+    {
+     "what": "bucket:{RECEIPTS_BUCKET}",
+     "ops": [
+      "createSignedUrl",
+      "list"
+     ]
+    }
+   ]
+  },
+  "components/expenses/ExpenseReportForm.tsx": {
+   "usedBy": [
+    "/expense-reports"
+   ],
+   "lines": 858,
+   "rows": [
+    {
+     "kind": "toast",
+     "line": 171,
+     "in": "updateExpenseItem",
+     "when": "(field === 'currency' || field === 'amount') && sourceAmount > 0 && item.currency",
+     "text": "Error al convertir moneda",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 225,
+     "in": "handleReceiptUpload",
+     "text": "✅ Boleta subida exitosamente: {file.name}",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 229,
+     "in": "handleReceiptUpload",
+     "text": "Error al subir la boleta:",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 261,
+     "in": "handleReceiptDelete",
+     "when": "deleteError",
+     "text": "Error al eliminar la boleta del servidor:",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 279,
+     "in": "handleReceiptDelete",
+     "when": "item.id && dbError",
+     "text": "Error al actualizar la base de datos",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 312,
+     "in": "handleReceiptDelete",
+     "text": "Boleta eliminada",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 316,
+     "in": "handleReceiptDelete",
+     "text": "Error al eliminar la boleta",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 329,
+     "in": "handleSaveReport",
+     "when": "!reportForm.report_name.trim()",
+     "text": "El nombre del reporte es obligatorio",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 334,
+     "in": "handleSaveReport",
+     "when": "!reportForm.start_date || !reportForm.end_date",
+     "text": "Las fechas de inicio y fin son obligatorias",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 339,
+     "in": "handleSaveReport",
+     "when": "new Date(reportForm.start_date) > new Date(reportForm.end_date)",
+     "text": "La fecha de inicio no puede ser posterior a la fecha de fin",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 348,
+     "in": "handleSaveReport",
+     "when": "validItems.length === 0",
+     "text": "Debe agregar al menos un gasto válido",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 409,
+     "in": "handleSaveReport",
+     "when": "editingReport",
+     "text": "Reporte actualizado exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "message",
+     "line": 414,
+     "in": "handleSaveReport",
+     "when": "!(editingReport) && !user",
+     "text": "Usuario no autenticado",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 463,
+     "in": "handleSaveReport",
+     "when": "!(editingReport)",
+     "text": "Reporte creado exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 469,
+     "in": "handleSaveReport",
+     "text": "Error al guardar el reporte:",
+     "variant": "error"
+    },
+    {
+     "kind": "heading",
+     "line": 478,
+     "in": "ExpenseReportForm",
+     "text": "Editar Reporte de Gastos / Nuevo Reporte de Gastos",
+     "level": 2
+    },
+    {
+     "kind": "heading",
+     "line": 486,
+     "in": "ExpenseReportForm",
+     "text": "Información del Reporte",
+     "level": 3
+    },
+    {
+     "kind": "label",
+     "line": 490,
+     "in": "ExpenseReportForm",
+     "text": "Nombre del Reporte *"
+    },
+    {
+     "kind": "field",
+     "line": 493,
+     "in": "ExpenseReportForm",
+     "text": "Nombre del Reporte *",
+     "type": "text",
+     "placeholder": "Ej: Gastos Marzo 2025",
+     "action": "{(e) => setReportForm({ ...reportForm, report_name: e.target.value })}"
+    },
+    {
+     "kind": "label",
+     "line": 503,
+     "in": "ExpenseReportForm",
+     "text": "Descripción"
+    },
+    {
+     "kind": "field",
+     "line": 506,
+     "in": "ExpenseReportForm",
+     "text": "Descripción",
+     "type": "text",
+     "placeholder": "Descripción opcional del reporte",
+     "action": "{(e) => setReportForm({ ...reportForm, description: e.target.value })}"
+    },
+    {
+     "kind": "label",
+     "line": 516,
+     "in": "ExpenseReportForm",
+     "text": "Fecha de Inicio *"
+    },
+    {
+     "kind": "field",
+     "line": 519,
+     "in": "ExpenseReportForm",
+     "text": "Fecha de Inicio *",
+     "type": "date",
+     "action": "{(e) => setReportForm({ ...reportForm, start_date: e.target.value })}"
+    },
+    {
+     "kind": "label",
+     "line": 528,
+     "in": "ExpenseReportForm",
+     "text": "Fecha de Fin *"
+    },
+    {
+     "kind": "field",
+     "line": 531,
+     "in": "ExpenseReportForm",
+     "text": "Fecha de Fin *",
+     "type": "date",
+     "limits": "min={reportForm.start_date}",
+     "action": "{(e) => setReportForm({ ...reportForm, end_date: e.target.value })}"
+    },
+    {
+     "kind": "heading",
+     "line": 545,
+     "in": "ExpenseReportForm",
+     "text": "Gastos",
+     "level": 3
+    },
+    {
+     "kind": "button",
+     "line": 546,
+     "in": "ExpenseReportForm",
+     "text": "Agregar Gasto",
+     "action": "{addExpenseItem}"
+    },
+    {
+     "kind": "text",
+     "line": 558,
+     "in": "ExpenseReportForm",
+     "text": "Total del Reporte:"
+    },
+    {
+     "kind": "heading",
+     "line": 566,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems",
+     "text": "Gasto {index + 1}",
+     "level": 4
+    },
+    {
+     "kind": "button",
+     "line": 568,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems && expenseItems.length > 1",
+     "text": "[icon Trash2]",
+     "action": "{() => removeExpenseItem(index)}",
+     "title": "Eliminar gasto"
+    },
+    {
+     "kind": "label",
+     "line": 581,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems",
+     "text": "Categoría *"
+    },
+    {
+     "kind": "field",
+     "line": 584,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems",
+     "text": "Categoría *",
+     "type": "select",
+     "action": "{(e) => updateExpenseItem(index, 'category_id', e.target.value)}",
+     "options": [
+      "Seleccionar categoría",
+      "(lista) {category.name}"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 599,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems",
+     "text": "Descripción *"
+    },
+    {
+     "kind": "field",
+     "line": 602,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems",
+     "text": "Descripción *",
+     "type": "text",
+     "placeholder": "Descripción del gasto",
+     "action": "{(e) => updateExpenseItem(index, 'description', e.target.value)}"
+    },
+    {
+     "kind": "label",
+     "line": 612,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems",
+     "text": "💰 Moneda *"
+    },
+    {
+     "kind": "field",
+     "line": 615,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems",
+     "text": "💰 Moneda *",
+     "type": "select",
+     "action": "{(e) => updateExpenseItem(index, 'currency', e.target.value as 'CLP' | 'USD' | '…}",
+     "options": [
+      "(lista) {currency.symbol} {currency.code} - {currency.name}"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 629,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems",
+     "text": "💵 Monto ( {item.currency} ) *"
+    },
+    {
+     "kind": "field",
+     "line": 633,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems",
+     "text": "💵 Monto ( {item.currency} ) *",
+     "type": "number",
+     "placeholder": "0.00",
+     "limits": "min=0 step={(item.currency === 'CLP' || !item.currency) ? '1' : '0.01'}",
+     "action": "{(e) => { const value = parseFloat(e.target.value) || 0; if (item.currency === '…}"
+    },
+    {
+     "kind": "text",
+     "line": 651,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems && item.currency !== 'CLP' && item.conversion_rate && item.original_amount",
+     "text": "CLP"
+    },
+    {
+     "kind": "text",
+     "line": 652,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems && item.currency !== 'CLP' && item.conversion_rate && item.original_amount",
+     "text": "Tasa: {item.conversion_rate?.toFixed(2)}"
+    },
+    {
+     "kind": "label",
+     "line": 659,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems",
+     "text": "Fecha del Gasto *"
+    },
+    {
+     "kind": "field",
+     "line": 662,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems",
+     "text": "Fecha del Gasto *",
+     "type": "date",
+     "action": "{(e) => updateExpenseItem(index, 'expense_date', e.target.value)}"
+    },
+    {
+     "kind": "label",
+     "line": 671,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems",
+     "text": "Proveedor"
+    },
+    {
+     "kind": "field",
+     "line": 674,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems",
+     "text": "Proveedor",
+     "type": "text",
+     "placeholder": "Nombre del proveedor",
+     "action": "{(e) => updateExpenseItem(index, 'vendor', e.target.value)}"
+    },
+    {
+     "kind": "label",
+     "line": 684,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems",
+     "text": "Número de Factura/Boleta"
+    },
+    {
+     "kind": "field",
+     "line": 687,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems",
+     "text": "Número de Factura/Boleta",
+     "type": "text",
+     "placeholder": "Ej: 12345, B-001, F-4567",
+     "action": "{(e) => updateExpenseItem(index, 'expense_number', e.target.value)}"
+    },
+    {
+     "kind": "label",
+     "line": 700,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems",
+     "text": "📄 Boleta/Recibo"
+    },
+    {
+     "kind": "text",
+     "line": 709,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems && ((item.receipt_url || item.receipt_filename))",
+     "text": "✅ {item.receipt_filename} / Archivo subido"
+    },
+    {
+     "kind": "text",
+     "line": 712,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems && ((item.receipt_url || item.receipt_filename))",
+     "text": "Boleta subida correctamente"
+    },
+    {
+     "kind": "button",
+     "line": 718,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems && ((item.receipt_url || item.receipt_filename))",
+     "text": "Ver Boleta",
+     "action": "{async () => { try { let url = ''; if (item.receipt_url) { url = item.receipt_ur…}",
+     "title": "Ver boleta"
+    },
+    {
+     "kind": "nav",
+     "line": 749,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems && ((item.receipt_url || item.receipt_filename)) && url",
+     "text": "{url}",
+     "via": "window.open"
+    },
+    {
+     "kind": "toast",
+     "line": 751,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems && ((item.receipt_url || item.receipt_filename)) && !(url)",
+     "text": "No se pudo abrir la boleta",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 755,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems && ((item.receipt_url || item.receipt_filename))",
+     "text": "Error al abrir la boleta",
+     "variant": "error"
+    },
+    {
+     "kind": "button",
+     "line": 764,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems && ((item.receipt_url || item.receipt_filename))",
+     "text": "Eliminar",
+     "action": "{() => handleReceiptDelete(index)}",
+     "title": "Eliminar y reemplazar"
+    },
+    {
+     "kind": "label",
+     "line": 776,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems && (!((item.receipt_url || item.receipt_filename)))",
+     "text": "Subiendo archivo... / Hacer clic para subir boleta PDF, JPG, PNG (máx. 50MB)"
+    },
+    {
+     "kind": "field",
+     "line": 777,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems && (!((item.receipt_url || item.receipt_filename)))",
+     "screen": "hidden",
+     "text": "Subiendo archivo... / Hacer clic para subir boleta PDF, JPG, PNG (máx. 50MB)",
+     "type": "file",
+     "accept": ".pdf,.jpg,.jpeg,.png,.gif,.webp",
+     "action": "{(e) => { const file = e.target.files?.[0]; if (file) handleReceiptUpload(index,…}"
+    },
+    {
+     "kind": "label",
+     "line": 809,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems",
+     "text": "Notas"
+    },
+    {
+     "kind": "field",
+     "line": 812,
+     "in": "ExpenseReportForm",
+     "when": "each expenseItems",
+     "text": "Notas",
+     "type": "textarea",
+     "placeholder": "Notas adicionales sobre este gasto",
+     "limits": "",
+     "action": "{(e) => updateExpenseItem(index, 'notes', e.target.value)}"
+    },
+    {
+     "kind": "button",
+     "line": 828,
+     "in": "ExpenseReportForm",
+     "text": "Cancelar",
+     "action": "{onCancel}"
+    },
+    {
+     "kind": "button",
+     "line": 836,
+     "in": "ExpenseReportForm",
+     "text": "Guardando... / Actualizar Reporte / Guardar Reporte",
+     "action": "{handleSaveReport}",
+     "disabled": "{loading}"
+    }
+   ],
+   "db": [
+    {
+     "what": "bucket:{RECEIPTS_BUCKET}",
+     "ops": [
+      "createSignedUrl",
+      "list",
+      "remove",
+      "upload"
+     ]
+    },
+    {
+     "what": "rpc:recompute_expense_report_total",
+     "ops": []
+    },
+    {
+     "what": "table:expense_items",
+     "ops": [
+      "delete",
+      "insert",
+      "update"
+     ]
+    },
+    {
+     "what": "table:expense_reports",
+     "ops": [
+      "insert",
+      "select",
+      "update"
+     ]
+    }
+   ]
+  },
+  "components/hours/ConsultantEarningsDashboard.tsx": {
+   "usedBy": [
+    "/admin/consultant-earnings",
+    "/mis-horas"
+   ],
+   "lines": 480,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 109,
+     "in": "KPICard",
+     "text": "{title}"
+    },
+    {
+     "kind": "value",
+     "line": 110,
+     "in": "KPICard",
+     "text": "{value}"
+    },
+    {
+     "kind": "value",
+     "line": 111,
+     "in": "KPICard",
+     "when": "subtitle",
+     "text": "{subtitle}"
+    },
+    {
+     "kind": "value",
+     "line": 117,
+     "in": "KPICard",
+     "text": "{icon}"
+    },
+    {
+     "kind": "gate",
+     "line": 144,
+     "in": "ConsultantEarningsDashboard",
+     "text": "!from || !to"
+    },
+    {
+     "kind": "message",
+     "line": 146,
+     "in": "ConsultantEarningsDashboard",
+     "when": "from > to",
+     "text": "La fecha de inicio no puede ser posterior a la fecha de término.",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 161,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!response.ok",
+     "text": "Error al cargar ganancias",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 167,
+     "in": "ConsultantEarningsDashboard",
+     "text": "Error de red al cargar ganancias.",
+     "via": "setError"
+    },
+    {
+     "kind": "toast",
+     "line": 185,
+     "in": "handleExportCSV",
+     "when": "!data || data.by_hour_type.length === 0",
+     "text": "No hay datos para exportar.",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 232,
+     "in": "handleExportCSV",
+     "text": "CSV descargado correctamente",
+     "variant": "success"
+    },
+    {
+     "kind": "label",
+     "line": 248,
+     "in": "ConsultantEarningsDashboard",
+     "text": "Desde"
+    },
+    {
+     "kind": "field",
+     "line": 249,
+     "in": "ConsultantEarningsDashboard",
+     "text": "Desde",
+     "type": "date",
+     "action": "{(e) => setFrom(e.target.value)}"
+    },
+    {
+     "kind": "label",
+     "line": 257,
+     "in": "ConsultantEarningsDashboard",
+     "text": "Hasta"
+    },
+    {
+     "kind": "field",
+     "line": 258,
+     "in": "ConsultantEarningsDashboard",
+     "text": "Hasta",
+     "type": "date",
+     "action": "{(e) => setTo(e.target.value)}"
+    },
+    {
+     "kind": "button",
+     "line": 265,
+     "in": "ConsultantEarningsDashboard",
+     "text": "Actualizar",
+     "action": "{loadEarnings}",
+     "disabled": "{loading}"
+    },
+    {
+     "kind": "button",
+     "line": 276,
+     "in": "ConsultantEarningsDashboard",
+     "when": "data && data.by_hour_type.length > 0",
+     "text": "Exportar CSV",
+     "action": "{handleExportCSV}"
+    },
+    {
+     "kind": "piece",
+     "line": 280,
+     "in": "ConsultantEarningsDashboard",
+     "when": "data && data.by_hour_type.length > 0",
+     "text": "aria-hidden: true",
+     "tag": "Download"
+    },
+    {
+     "kind": "button",
+     "line": 283,
+     "in": "ConsultantEarningsDashboard",
+     "when": "data && data.by_hour_type.length > 0",
+     "text": "Descargar PDF",
+     "action": "{() => { window.open( `/api/consultant-earnings/${consultantId}/pdf?from=${from}…}"
+    },
+    {
+     "kind": "nav",
+     "line": 285,
+     "in": "ConsultantEarningsDashboard",
+     "when": "data && data.by_hour_type.length > 0",
+     "text": "/api/consultant-earnings/[*]/pdf?from=[*]&to=[*]",
+     "via": "window.open"
+    },
+    {
+     "kind": "piece",
+     "line": 292,
+     "in": "ConsultantEarningsDashboard",
+     "when": "data && data.by_hour_type.length > 0",
+     "text": "aria-hidden: true",
+     "tag": "FileText"
+    },
+    {
+     "kind": "value",
+     "line": 304,
+     "in": "ConsultantEarningsDashboard",
+     "when": "error",
+     "text": "{error}"
+    },
+    {
+     "kind": "text",
+     "line": 311,
+     "in": "ConsultantEarningsDashboard",
+     "when": "loading",
+     "text": "Cargando ganancias..."
+    },
+    {
+     "kind": "text",
+     "line": 329,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && fxRate",
+     "text": "Tipo de cambio:"
+    },
+    {
+     "kind": "text",
+     "line": 329,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && fxRate",
+     "text": "1 EUR = {fxRate.rate_clp_per_eur.toLocaleStr…} CLP"
+    },
+    {
+     "kind": "text",
+     "line": 331,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && fxRate",
+     "text": "(actualizado:"
+    },
+    {
+     "kind": "text",
+     "line": 334,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && fxRate && fxRate.is_stale",
+     "text": "— Advertencia: este tipo de cambio puede estar desactualizado."
+    },
+    {
+     "kind": "piece",
+     "line": 343,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data",
+     "text": "title: Total Horas · subtitle: Ejecutadas + Penalizadas",
+     "tag": "KPICard"
+    },
+    {
+     "kind": "piece",
+     "line": 350,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data",
+     "text": "title: Total EUR · subtitle: Según tarifas vigentes",
+     "tag": "KPICard"
+    },
+    {
+     "kind": "piece",
+     "line": 357,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data",
+     "text": "title: Total CLP · subtitle: TC: {fxRate.rate_clp_per_eur.toL…} CLP/EUR",
+     "tag": "KPICard"
+    },
+    {
+     "kind": "text",
+     "line": 373,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && data.by_hour_type.length === 0",
+     "text": "No hay horas consumidas o penalizadas en el período seleccionado."
+    },
+    {
+     "kind": "heading",
+     "line": 378,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0)",
+     "text": "Desglose por Tipo de Hora",
+     "level": 3
+    },
+    {
+     "kind": "column",
+     "line": 386,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0)",
+     "text": "Tipo de Hora"
+    },
+    {
+     "kind": "column",
+     "line": 389,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0)",
+     "text": "Hs. Ejecutadas"
+    },
+    {
+     "kind": "column",
+     "line": 392,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0)",
+     "text": "Hs. Penalizadas"
+    },
+    {
+     "kind": "column",
+     "line": 395,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0)",
+     "text": "Total Horas"
+    },
+    {
+     "kind": "column",
+     "line": 398,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0)",
+     "text": "Tarifa EUR/h"
+    },
+    {
+     "kind": "column",
+     "line": 401,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0)",
+     "text": "Total EUR"
+    },
+    {
+     "kind": "column",
+     "line": 404,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0)",
+     "text": "Total CLP"
+    },
+    {
+     "kind": "value",
+     "line": 412,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0) && each data.by_hour_type",
+     "text": "{row.display_name}"
+    },
+    {
+     "kind": "value",
+     "line": 415,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0) && each data.by_hour_type",
+     "text": "{row.executed_hours.toFixed(2)}"
+    },
+    {
+     "kind": "value",
+     "line": 418,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0) && each data.by_hour_type",
+     "text": "{row.penalized_hours.toFixed(2)}"
+    },
+    {
+     "kind": "value",
+     "line": 421,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0) && each data.by_hour_type",
+     "text": "{row.total_hours.toFixed(2)}"
+    },
+    {
+     "kind": "text",
+     "line": 426,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0) && each data.by_hour_type && !(row.rate_eur !== null)",
+     "text": "Sin tarifa"
+    },
+    {
+     "kind": "value",
+     "line": 429,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0) && each data.by_hour_type",
+     "text": "{formatEur(row.total_eur)}"
+    },
+    {
+     "kind": "value",
+     "line": 432,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0) && each data.by_hour_type",
+     "text": "{formatClp(row.total_clp)}"
+    },
+    {
+     "kind": "text",
+     "line": 441,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0)",
+     "text": "Total"
+    },
+    {
+     "kind": "value",
+     "line": 442,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0)",
+     "text": "{data.by_hour_type .reduce((s, r) =>…}"
+    },
+    {
+     "kind": "value",
+     "line": 447,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0)",
+     "text": "{data.by_hour_type .reduce((s, r) =>…}"
+    },
+    {
+     "kind": "value",
+     "line": 452,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0)",
+     "text": "{totals?.total_hours.toFixed(2)}"
+    },
+    {
+     "kind": "value",
+     "line": 456,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0)",
+     "text": "{formatEur(totals?.total_eur ?? 0)}"
+    },
+    {
+     "kind": "value",
+     "line": 459,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && data && !(data.by_hour_type.length === 0)",
+     "text": "{formatClp(totals?.total_clp ?? null)}"
+    },
+    {
+     "kind": "text",
+     "line": 474,
+     "in": "ConsultantEarningsDashboard",
+     "when": "!loading && !data && !error",
+     "text": "Seleccione un período y haga clic en Actualizar para ver las ganancias."
+    },
+    {
+     "kind": "string",
+     "line": 215,
+     "in": "ConsultantEarningsDashboard",
+     "text": "Ganancias — {consultantName ?? 'Consulto…} ({data.period.from} a {data.period.to})"
+    },
+    {
+     "kind": "string",
+     "line": 215,
+     "in": "ConsultantEarningsDashboard",
+     "text": "Consultor"
+    },
+    {
+     "kind": "string",
+     "line": 218,
+     "in": "ConsultantEarningsDashboard",
+     "text": "Horas Totales"
+    },
+    {
+     "kind": "string",
+     "line": 219,
+     "in": "ConsultantEarningsDashboard",
+     "text": "Horas Ejecutadas"
+    },
+    {
+     "kind": "string",
+     "line": 220,
+     "in": "ConsultantEarningsDashboard",
+     "text": "Horas Penalizadas"
+    }
+   ],
+   "db": []
+  },
+  "components/layout/FunctionalPageHeader.tsx": {
+   "usedBy": [
+    "/expense-reports"
+   ],
+   "lines": 191,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 44,
+     "in": "FunctionalPageHeader",
+     "text": "{icon}"
+    },
+    {
+     "kind": "heading",
+     "line": 47,
+     "in": "FunctionalPageHeader",
+     "text": "{title}",
+     "level": 1
+    },
+    {
+     "kind": "field",
+     "line": 60,
+     "in": "FunctionalPageHeader",
+     "when": "onSearchChange",
+     "text": "{searchPlaceholder}",
+     "type": "text",
+     "placeholder": "{searchPlaceholder}",
+     "action": "{(e) => onSearchChange(e.target.value)}"
+    },
+    {
+     "kind": "button",
+     "line": 75,
+     "in": "FunctionalPageHeader",
+     "when": "primaryAction",
+     "text": "[{primaryAction.icon}] {primaryAction.label}",
+     "action": "{primaryAction.onClick}"
+    },
+    {
+     "kind": "value",
+     "line": 92,
+     "in": "FunctionalPageHeader",
+     "when": "subtitle",
+     "text": "{subtitle}"
+    },
+    {
+     "kind": "value",
+     "line": 119,
+     "in": "MobileFunctionalPageHeader",
+     "text": "{icon}"
+    },
+    {
+     "kind": "heading",
+     "line": 122,
+     "in": "MobileFunctionalPageHeader",
+     "text": "{title}",
+     "level": 1
+    },
+    {
+     "kind": "button",
+     "line": 128,
+     "in": "MobileFunctionalPageHeader",
+     "when": "primaryAction",
+     "text": "[{primaryAction.icon}] {primaryAction.label} +",
+     "action": "{primaryAction.onClick}"
+    },
+    {
+     "kind": "field",
+     "line": 147,
+     "in": "MobileFunctionalPageHeader",
+     "when": "onSearchChange",
+     "text": "{searchPlaceholder}",
+     "type": "text",
+     "placeholder": "{searchPlaceholder}",
+     "action": "{(e) => onSearchChange(e.target.value)}"
+    },
+    {
+     "kind": "value",
+     "line": 159,
+     "in": "MobileFunctionalPageHeader",
+     "when": "children",
+     "text": "{children}"
+    },
+    {
+     "kind": "value",
+     "line": 168,
+     "in": "MobileFunctionalPageHeader",
+     "when": "subtitle",
+     "text": "{subtitle}"
+    },
+    {
+     "kind": "string",
+     "line": 32,
+     "in": "FunctionalPageHeader",
+     "text": "Buscar..."
+    }
+   ],
+   "db": []
+  },
+  "components/tutorials/HelpButton.tsx": {
+   "usedBy": [
+    "/mis-horas"
+   ],
+   "lines": 27,
+   "rows": [
+    {
+     "kind": "button",
+     "line": 15,
+     "in": "HelpButton",
+     "text": "[icon HelpCircle]",
+     "action": "{() => setOpen(true)}",
+     "aria": "Ayuda y tutoriales"
+    },
+    {
+     "kind": "popup",
+     "line": 23,
+     "in": "HelpButton",
+     "text": "HelpDrawer",
+     "how": "component",
+     "open": "{open}"
+    }
+   ],
+   "db": []
+  },
+  "components/tutorials/HelpDrawer.tsx": {
+   "usedBy": [
+    "/mis-horas"
+   ],
+   "lines": 74,
+   "rows": [
+    {
+     "kind": "popup",
+     "line": 23,
+     "in": "HelpDrawer",
+     "text": "Dialog",
+     "how": "component",
+     "open": "{open}"
+    },
+    {
+     "kind": "piece",
+     "line": 24,
+     "in": "HelpDrawer",
+     "text": "",
+     "tag": "DialogContent"
+    },
+    {
+     "kind": "piece",
+     "line": 25,
+     "in": "HelpDrawer",
+     "text": "",
+     "tag": "DialogHeader"
+    },
+    {
+     "kind": "piece",
+     "line": 26,
+     "in": "HelpDrawer",
+     "text": "",
+     "tag": "DialogTitle"
+    },
+    {
+     "kind": "text",
+     "line": 26,
+     "in": "HelpDrawer",
+     "text": "Ayuda — {section.title}"
+    },
+    {
+     "kind": "piece",
+     "line": 27,
+     "in": "HelpDrawer",
+     "text": "",
+     "tag": "DialogDescription"
+    },
+    {
+     "kind": "text",
+     "line": 27,
+     "in": "HelpDrawer",
+     "text": "Videos y guías para {section.title.toLowerCase()}"
+    },
+    {
+     "kind": "heading",
+     "line": 32,
+     "in": "HelpDrawer",
+     "text": "{section.overview.title} ( {section.overview.durationMin} min)",
+     "level": 3
+    },
+    {
+     "kind": "piece",
+     "line": 38,
+     "in": "HelpDrawer",
+     "text": "",
+     "tag": "VimeoEmbed"
+    },
+    {
+     "kind": "heading",
+     "line": 43,
+     "in": "HelpDrawer",
+     "when": "section.deepDives.length > 0",
+     "text": "Otros videos cortos",
+     "level": 3
+    },
+    {
+     "kind": "label",
+     "line": 47,
+     "in": "HelpDrawer",
+     "when": "section.deepDives.length > 0 && each section.deepDives",
+     "text": "{dive.title} {dive.durationMin} min"
+    },
+    {
+     "kind": "piece",
+     "line": 55,
+     "in": "HelpDrawer",
+     "when": "section.deepDives.length > 0 && each section.deepDives",
+     "text": "",
+     "tag": "VimeoEmbed"
+    },
+    {
+     "kind": "value",
+     "line": 59,
+     "in": "HelpDrawer",
+     "when": "section.deepDives.length > 0 && each section.deepDives && dive.textSteps && dive.textSteps.length > 0 && each dive.textSteps",
+     "text": "{step}"
+    }
+   ],
+   "db": []
+  },
+  "components/tutorials/VimeoEmbed.tsx": {
+   "usedBy": [
+    "/mis-horas"
+   ],
+   "lines": 31,
+   "rows": [
+    {
+     "kind": "text",
+     "line": 13,
+     "in": "VimeoEmbed",
+     "when": "!vimeoId",
+     "text": "Video próximamente"
+    },
+    {
+     "kind": "media",
+     "line": 21,
+     "in": "VimeoEmbed",
+     "text": "iframe · {title} · {`https://player.vimeo.com/video/${vimeoId}?dnt=1`}",
+     "title": "{title}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/dialog.tsx": {
+   "usedBy": [
+    "/mis-horas"
+   ],
+   "lines": 121,
+   "rows": [
+    {
+     "kind": "text",
+     "line": 47,
+     "screen": "sr-only",
+     "text": "Close"
+    }
+   ],
+   "db": []
+  },
+  "lib/currency-service.ts": {
+   "usedBy": [
+    "/expense-reports"
+   ],
+   "lines": 223,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 65,
+     "in": "fetchExchangeRates",
+     "when": "!response.ok",
+     "text": "Exchange rate API error",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "list",
+     "line": 150,
+     "in": "formatCurrency",
+     "text": "formatters",
+     "items": [
+      "USD",
+      "EUR",
+      "GBP",
+      "CLP"
+     ]
+    },
+    {
+     "kind": "string",
+     "line": 187,
+     "in": "getAvailableCurrencies",
+     "text": "Peso Chileno"
+    },
+    {
+     "kind": "string",
+     "line": 188,
+     "in": "getAvailableCurrencies",
+     "text": "Dólar Estadounidense"
+    },
+    {
+     "kind": "string",
+     "line": 189,
+     "in": "getAvailableCurrencies",
+     "text": "Euro"
+    },
+    {
+     "kind": "string",
+     "line": 190,
+     "in": "getAvailableCurrencies",
+     "text": "Libra Esterlina"
+    }
+   ],
+   "db": []
+  },
+  "lib/expenseReportExport.ts": {
+   "usedBy": [
+    "/expense-reports"
+   ],
+   "lines": 618,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 314,
+     "in": "exportToPDF",
+     "text": "filename",
+     "items": [
+      "Reporte_Gastos_{report.report_name.replace(…}_{new Date().toISOString().sl…}.pdf"
+     ]
+    },
+    {
+     "kind": "download",
+     "line": 315,
+     "in": "exportToPDF",
+     "text": "doc.save()",
+     "how": "save"
+    },
+    {
+     "kind": "list",
+     "line": 323,
+     "in": "exportToExcel",
+     "text": "summaryData",
+     "items": [
+      "REPORTE DE GASTOS",
+      "Información General",
+      "Nombre del Reporte:",
+      "Estado:",
+      "Período:",
+      "{this.formatDate(report.star…} - {this.formatDate(report.end_…}",
+      "Total:",
+      "Descripción:",
+      "Información del Solicitante",
+      "Nombre:",
+      "{report.profiles?.first_name} {report.profiles?.last_name}",
+      "Email:",
+      "Fecha de Creación:",
+      "Fecha de Envío:"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 357,
+     "in": "exportToExcel",
+     "when": "report.expense_items && report.expense_items.length > 0",
+     "text": "itemsData",
+     "items": [
+      "Fecha",
+      "Categoría",
+      "Descripción",
+      "Proveedor",
+      "N° Factura/Boleta",
+      "Monto (CLP)",
+      "Moneda",
+      "Monto Original",
+      "Tasa de Cambio",
+      "Tiene Boleta",
+      "Notas"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 423,
+     "in": "exportToExcel",
+     "when": "report.expense_items && report.expense_items.length > 0",
+     "text": "categoryData",
+     "items": [
+      "Resumen por Categoría",
+      "Categoría",
+      "Cantidad de Gastos",
+      "Total (CLP)"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 461,
+     "in": "exportToExcel",
+     "text": "filename",
+     "items": [
+      "Reporte_Gastos_{report.report_name.replace(…}_{new Date().toISOString().sl…}.xlsx"
+     ]
+    },
+    {
+     "kind": "download",
+     "line": 462,
+     "in": "exportToExcel",
+     "text": "XLSX.writeFile()",
+     "how": "writeFile"
+    },
+    {
+     "kind": "list",
+     "line": 556,
+     "in": "exportMultipleReportsToPDF",
+     "text": "filename",
+     "items": [
+      "Resumen_Reportes_Gastos_{new Date().toISOString().sl…}.pdf"
+     ]
+    },
+    {
+     "kind": "download",
+     "line": 557,
+     "in": "exportMultipleReportsToPDF",
+     "text": "doc.save()",
+     "how": "save"
+    },
+    {
+     "kind": "list",
+     "line": 565,
+     "in": "exportMultipleReportsToExcel",
+     "text": "summaryData",
+     "items": [
+      "RESUMEN DE REPORTES DE GASTOS",
+      "Total de reportes:",
+      "Monto total:",
+      "Fecha de generación:",
+      "Nombre del Reporte",
+      "Período",
+      "Estado",
+      "Enviado por",
+      "Email",
+      "Total (CLP)"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 615,
+     "in": "exportMultipleReportsToExcel",
+     "text": "filename",
+     "items": [
+      "Resumen_Reportes_Gastos_{new Date().toISOString().sl…}.xlsx"
+     ]
+    },
+    {
+     "kind": "download",
+     "line": 616,
+     "in": "exportMultipleReportsToExcel",
+     "text": "XLSX.writeFile()",
+     "how": "writeFile"
+    },
+    {
+     "kind": "string",
+     "line": 119,
+     "in": "ExpenseReportExporter",
+     "text": "Borrador"
+    },
+    {
+     "kind": "string",
+     "line": 121,
+     "in": "ExpenseReportExporter",
+     "text": "Aprobado"
+    },
+    {
+     "kind": "string",
+     "line": 122,
+     "in": "ExpenseReportExporter",
+     "text": "Rechazado"
+    },
+    {
+     "kind": "string",
+     "line": 161,
+     "in": "ExpenseReportExporter",
+     "text": "Información del Reporte"
+    },
+    {
+     "kind": "string",
+     "line": 178,
+     "in": "ExpenseReportExporter",
+     "text": "Enviado por: {report.profiles?.first_name} {report.profiles?.last_name}"
+    },
+    {
+     "kind": "string",
+     "line": 182,
+     "in": "ExpenseReportExporter",
+     "text": "Fecha de creación: {this.formatDate(report.crea…}"
+    },
+    {
+     "kind": "string",
+     "line": 185,
+     "in": "ExpenseReportExporter",
+     "text": "Fecha de envío: {this.formatDate(report.subm…}"
+    },
+    {
+     "kind": "string",
+     "line": 196,
+     "in": "ExpenseReportExporter",
+     "text": "Detalle de Gastos"
+    },
+    {
+     "kind": "string",
+     "line": 201,
+     "in": "ExpenseReportExporter",
+     "text": "Sin categoría"
+    },
+    {
+     "kind": "string",
+     "line": 306,
+     "in": "ExpenseReportExporter",
+     "text": "Página {i} de {pageCount} - Generado el {new Date().toLocaleString('…}"
+    },
+    {
+     "kind": "string",
+     "line": 410,
+     "in": "ExpenseReportExporter",
+     "text": "Gastos Detallados"
+    },
+    {
+     "kind": "string",
+     "line": 457,
+     "in": "ExpenseReportExporter",
+     "text": "Resumen Categorías"
+    },
+    {
+     "kind": "list",
+     "line": 119,
+     "in": "getStatusText",
+     "text": "getStatusText()",
+     "items": [
+      "Borrador",
+      "Enviado",
+      "Aprobado",
+      "Rechazado"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "lib/exportUtils.ts": {
+   "usedBy": [
+    "/admin/consultant-earnings",
+    "/mis-horas"
+   ],
+   "lines": 240,
+   "rows": [
+    {
+     "kind": "download",
+     "line": 71,
+     "in": "exportToCSV",
+     "text": "URL.createObjectURL()",
+     "how": "createObjectURL"
+    },
+    {
+     "kind": "download",
+     "line": 101,
+     "in": "exportToExcel",
+     "text": "URL.createObjectURL()",
+     "how": "createObjectURL"
+    },
+    {
+     "kind": "message",
+     "line": 110,
+     "in": "exportToExcel",
+     "text": "Error al exportar a Excel",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "download",
+     "line": 178,
+     "in": "exportToPDF",
+     "text": "doc.save()",
+     "how": "save"
+    },
+    {
+     "kind": "message",
+     "line": 181,
+     "in": "exportToPDF",
+     "text": "Error al exportar a PDF",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "list",
+     "line": 203,
+     "in": "exportReport",
+     "text": "exportData",
+     "items": [
+      "Reporte FNE - {tabName}",
+      "Sistema Genera"
+     ]
+    },
+    {
+     "kind": "message",
+     "line": 227,
+     "in": "exportReport",
+     "text": "Tipo de exportación no soportado",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "string",
+     "line": 132,
+     "in": "ReportExporter",
+     "text": "Período: {metadata.dateRange}"
+    },
+    {
+     "kind": "string",
+     "line": 137,
+     "in": "ReportExporter",
+     "text": "Generado por: {metadata.generatedBy}"
+    },
+    {
+     "kind": "string",
+     "line": 142,
+     "in": "ReportExporter",
+     "text": "Total de registros: {metadata.totalRecords}"
+    },
+    {
+     "kind": "string",
+     "line": 146,
+     "in": "ReportExporter",
+     "text": "Fecha de generación: {new Date().toLocaleDateStri…}"
+    },
+    {
+     "kind": "string",
+     "line": 230,
+     "in": "ReportExporter",
+     "text": "Reporte exportado como {type.toUpperCase()}"
+    },
+    {
+     "kind": "string",
+     "line": 235,
+     "in": "ReportExporter",
+     "text": "Error al exportar reporte"
+    },
+    {
+     "kind": "list",
+     "line": 30,
+     "in": "csvEscape",
+     "text": "csvEscape()",
+     "items": [
+      "\"{safeValue.replace(/\"/g, '\"\"…}\""
+     ]
+    }
+   ],
+   "db": []
+  },
+  "lib/tutorials/content.ts": {
+   "usedBy": [
+    "/mis-horas"
+   ],
+   "lines": 150,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 23,
+     "text": "TUTORIALS",
+     "items": [
+      "Mi Aprendizaje",
+      "Cómo encontrar y retomar tus cursos",
+      "Qué significa cada estado: Comenzar / Continuar / Completado",
+      "Mis Sesiones",
+      "Tu día a día en Mis Sesiones",
+      "Las 6 pestañas de una sesión",
+      "Exportar sesiones a tu calendario (iCal)",
+      "Mis Reportes",
+      "Leer tus reportes de sesiones",
+      "Mis Horas",
+      "Revisar tus horas y exportarlas",
+      "Por qué mis horas ejecutadas vs. penalizadas difieren",
+      "Proceso de Cambio",
+      "Cómo completar un Proceso de Cambio de principio a fin",
+      "Entender la jerarquía: Objetivos, Acciones e Indicadores",
+      "Los 5 tipos de indicador",
+      "Cobertura como gate",
+      "Guardado automático, progreso y envío",
+      "Ver tus resultados",
+      "Espacio Colaborativo",
+      "Tu comunidad de crecimiento",
+      "Documentos: subir, carpetas, permisos",
+      "Mensajería: hilos, menciones, adjuntos",
+      "Reuniones: crear acta"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "types/roles.ts": {
+   "usedBy": [
+    "/admin/consultant-earnings",
+    "/admin/consultant-rates",
+    "/expense-reports",
+    "/mis-horas"
+   ],
+   "lines": 515,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 305,
+     "text": "ROLE_NAMES",
+     "items": [
+      "Administrador Global",
+      "Consultor FNE",
+      "Equipo Directivo",
+      "Líder de Generación",
+      "Líder de Comunidad",
+      "Supervisor de Red",
+      "Community Manager",
+      "Docente",
+      "Encargado de Licitacion"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 318,
+     "text": "ROLE_DESCRIPTIONS",
+     "items": [
+      "Staff de FNE con control total de la plataforma. Pueden pertenecer a comunidades para colaboración.",
+      "Consultores FNE asignados a colegios específicos. Pueden pertenecer a comunidades para colaboración.",
+      "Administradores a nivel de colegio. Pueden pertenecer a comunidades para colaboración.",
+      "Líderes de generaciones Tractor/Innova. Pueden pertenecer a comunidades para colaboración.",
+      "Líderes de Comunidades de Crecimiento (2-16 miembros). Crean automáticamente su propia comunidad.",
+      "Supervisores con acceso limitado a reportes de una red específica de colegios. Pueden inscribirse en cursos como estudiantes.",
+      "Gestores de comunidad con acceso a panel, perfil, aprendizaje, cursos y rendición de gastos.",
+      "Docentes participantes en cursos. Pueden pertenecer a comunidades para colaboración.",
+      "Encargados de procesos de licitacion en establecimientos educacionales. Gestionan el proceso de contratacion de ATEs bajo Ley SEP."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 342,
+     "text": "ROLE_ORGANIZATIONAL_REQUIREMENTS",
+     "items": [
+      "Global role - no organizational scope required",
+      "Must be assigned to a specific school",
+      "Must be assigned to a specific school and generation",
+      "Must be assigned to a school (community auto-created)",
+      "Network-level role - no specific school required",
+      "Content management role - no organizational scope required",
+      "Must be assigned to a specific school for procurement management"
+     ]
+    },
+    {
+     "kind": "string",
+     "line": 413,
+     "in": "validateRoleAssignment",
+     "text": "Unknown role type: {roleType}"
+    },
+    {
+     "kind": "string",
+     "line": 421,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a school assignment"
+    },
+    {
+     "kind": "string",
+     "line": 429,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a generation assignment"
+    },
+    {
+     "kind": "string",
+     "line": 437,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a community assignment"
+    }
+   ],
+   "db": []
+  },
+  "utils/roleUtils.ts": {
+   "usedBy": [
+    "/admin/consultant-earnings",
+    "/admin/consultant-rates",
+    "/expense-reports",
+    "/mis-horas"
+   ],
+   "lines": 1605,
+   "rows": [
+    {
+     "kind": "access",
+     "line": 1186,
+     "in": "getUserPrimaryRole",
+     "text": "userRoles = await getUserRoles(supabase, userId)",
+     "via": "getUserRoles"
+    },
+    {
+     "kind": "access",
+     "line": 1187,
+     "in": "getUserPrimaryRole",
+     "text": "highestRole = getHighestRole(userRoles)",
+     "via": "getHighestRole"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:generations",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:growth_communities",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:schools",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles_cache",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  }
+ },
+ "api": [
+  {
+   "file": "pages/api/admin/consultant-rates/[id].ts",
+   "route": "/api/admin/consultant-rates/[id]",
+   "methods": [
+    "DELETE",
+    "GET",
+    "PATCH"
+   ],
+   "guards": [
+    "createServiceRoleClient",
+    "getApiUser",
+    "getUserRoles"
+   ],
+   "calledBy": [
+    "/admin/consultant-rates"
+   ],
+   "referencedIn": [
+    "__tests__/api/hour-tracking/consultant-rates.test.ts",
+    "__tests__/lib/services/ledger-hours-reader-inventory.test.ts",
+    "components/admin/ConsultantRateManager.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/admin/consultant-rates/csv.ts",
+   "route": "/api/admin/consultant-rates/csv",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "createServiceRoleClient",
+    "getApiUser",
+    "getUserRoles"
+   ],
+   "calledBy": [
+    "/admin/consultant-rates"
+   ],
+   "referencedIn": [
+    "__tests__/api/hour-tracking/rates-csv.test.ts",
+    "components/admin/ConsultantRateManager.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/admin/consultant-rates/index.ts",
+   "route": "/api/admin/consultant-rates",
+   "methods": [
+    "GET",
+    "POST"
+   ],
+   "guards": [
+    "createServiceRoleClient",
+    "getApiUser",
+    "getUserRoles"
+   ],
+   "calledBy": [
+    "/admin/consultant-rates"
+   ],
+   "referencedIn": [
+    "__tests__/api/hour-tracking/consultant-rates.test.ts",
+    "components/admin/ConsultantRateManager.tsx",
+    "scripts/redesign/harness/seed/30-sesiones-horas.mjs"
+   ]
+  },
+  {
+   "file": "pages/api/consultant-earnings/[consultant_id].ts",
+   "route": "/api/consultant-earnings/[consultant_id]",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "createServiceRoleClient",
+    "getApiUser",
+    "getUserRoles"
+   ],
+   "calledBy": [
+    "/admin/consultant-earnings",
+    "/mis-horas"
+   ],
+   "referencedIn": [
+    "__tests__/api/hour-tracking/earnings.test.ts",
+    "__tests__/lib/services/ledger-hours-reader-inventory.test.ts",
+    "components/hours/ConsultantEarningsDashboard.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/consultant-earnings/[consultant_id]/pdf.ts",
+   "route": "/api/consultant-earnings/[consultant_id]/pdf",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "createServiceRoleClient",
+    "getApiUser",
+    "getUserRoles"
+   ],
+   "calledBy": [
+    "/admin/consultant-earnings",
+    "/mis-horas"
+   ],
+   "referencedIn": [
+    "__tests__/api/hour-tracking/earnings-pdf.test.ts",
+    "components/hours/ConsultantEarningsDashboard.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/expense-reports/[id]/notify.ts",
+   "route": "/api/expense-reports/[id]/notify",
+   "methods": [
+    "POST"
+   ],
+   "guards": [
+    "createServiceRoleClient",
+    "getApiUser",
+    "hasAdminPrivileges"
+   ],
+   "calledBy": [
+    "/expense-reports"
+   ],
+   "referencedIn": [
+    "__tests__/api/expense-reports/notify.test.ts",
+    "pages/expense-reports.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/fx-rates/latest.ts",
+   "route": "/api/fx-rates/latest",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "createServiceRoleClient",
+    "getApiUser"
+   ],
+   "calledBy": [],
+   "referencedIn": [
+    "__tests__/api/hour-tracking/fx-rates.test.ts",
+    "tests/e2e/fx-rates.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/fx-rates/refresh.ts",
+   "route": "/api/fx-rates/refresh",
+   "methods": [
+    "POST"
+   ],
+   "guards": [
+    "checkIsAdmin",
+    "createServiceRoleClient"
+   ],
+   "calledBy": [],
+   "referencedIn": [
+    "__tests__/api/hour-tracking/fx-rates.test.ts",
+    "tests/e2e/fx-rates.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/hour-types/index.ts",
+   "route": "/api/hour-types",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "createServiceRoleClient",
+    "getApiUser"
+   ],
+   "calledBy": [
+    "/admin/bulk-tag-sessions",
+    "/admin/consultant-rates",
+    "/admin/sessions/create"
+   ],
+   "referencedIn": [
+    "__tests__/pages/admin/sessions/create-timezone.test.tsx",
+    "__tests__/pages/admin/sessions/create-zoom-managed.test.tsx",
+    "components/admin/ConsultantRateManager.tsx",
+    "pages/admin/bulk-tag-sessions.tsx",
+    "pages/admin/sessions/create.tsx"
+   ]
+  }
+ ]
+}

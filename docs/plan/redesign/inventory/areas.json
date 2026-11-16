@@ -1,0 +1,629 @@
+{
+  "about": "Which file belongs to which area. Read by scripts/redesign/inventory.mjs. A pattern is a path under the repository; ** matches any depth, * matches inside one folder. Every file under pages/ must match exactly one area or the check fails.",
+  "frameEntries": [
+    "components/layout/MainLayout.tsx"
+  ],
+  "areas": [
+    {
+      "id": "00-marco",
+      "name": "Marco (the frame around every screen)",
+      "note": "The app shell, the menu, the top bar, the bell, the footer and the feedback button. Its pieces are listed here once and not repeated under each screen.",
+      "pages": [
+        "pages/_app.tsx",
+        "pages/_document.tsx",
+        "pages/_app 2.tsx"
+      ],
+      "api": [
+        "pages/api/feedback/**"
+      ],
+      "extraPieces": [
+        "components/layout/MainLayout.tsx"
+      ]
+    },
+    {
+      "id": "01-acceso",
+      "name": "Acceso (sign-in, sign-up, passwords)",
+      "pages": [
+        "pages/login.tsx",
+        "pages/registro.tsx",
+        "pages/registro-tractor.tsx",
+        "pages/reset-password.tsx",
+        "pages/change-password.tsx",
+        "pages/pending-approval.tsx",
+        "pages/403.tsx"
+      ],
+      "api": [
+        "pages/api/auth/**",
+        "pages/api/registro-signup.ts",
+        "pages/api/tractor-signup.ts"
+      ]
+    },
+    {
+      "id": "02-panel",
+      "name": "Panel (Mi Panel)",
+      "pages": [
+        "pages/dashboard.tsx",
+        "pages/dashboard-old.tsx",
+        "pages/admin/new-reporting.tsx"
+      ],
+      "api": [
+        "pages/api/dashboard/**",
+        "pages/api/badges/**",
+        "pages/api/course-proposals/**",
+        "pages/api/youtube/**"
+      ]
+    },
+    {
+      "id": "03-aprendizaje",
+      "name": "Mi Aprendizaje (the learner's courses, lessons and routes)",
+      "note": "Course system: the Course Review session owns this area's structure and its own checklist (docs/planning/courses/inventory.md, not yet on main). This file is the redesign's list of what is on screen today.",
+      "pages": [
+        "pages/mi-aprendizaje.tsx",
+        "pages/mi-aprendizaje/**",
+        "pages/my-paths.tsx",
+        "pages/my-paths/**",
+        "pages/course-manager.tsx",
+        "pages/courses/**",
+        "pages/student/**"
+      ],
+      "api": [
+        "pages/api/my-courses.ts"
+      ]
+    },
+    {
+      "id": "04-cursos",
+      "name": "Cursos (course builder, upcoming courses, learning paths, assignment matrix)",
+      "note": "Course system: see the note on 03-aprendizaje.",
+      "pages": [
+        "pages/admin/course-builder/**",
+        "pages/admin/courses/**",
+        "pages/admin/upcoming-courses/**",
+        "pages/admin/learning-paths.tsx",
+        "pages/admin/learning-paths/**",
+        "pages/admin/assignment-matrix.tsx",
+        "pages/admin/create-course.tsx",
+        "pages/creador-de-cursos.tsx"
+      ],
+      "api": [
+        "pages/api/courses/**",
+        "pages/api/learning-paths/**",
+        "pages/api/upcoming-courses/**",
+        "pages/api/admin/assignment-matrix/**",
+        "pages/api/admin/course-assignments.ts",
+        "pages/api/admin/courses/**",
+        "pages/api/admin/get-instructors.ts"
+      ]
+    },
+    {
+      "id": "05-tareas",
+      "name": "Tareas y quizzes (assignments, group work, quiz review)",
+      "pages": [
+        "pages/assignments.tsx",
+        "pages/assignments/**",
+        "pages/admin/assignment-overview.tsx",
+        "pages/admin/assignment-review/**",
+        "pages/quiz-reviews.tsx",
+        "pages/quiz-reviews/**",
+        "pages/community/workspace/assignments/**"
+      ],
+      "api": [
+        "pages/api/assignments/**",
+        "pages/api/quiz-reviews/**"
+      ]
+    },
+    {
+      "id": "06-sesiones",
+      "name": "Sesiones y consultorías (sessions, approvals, video meetings)",
+      "pages": [
+        "pages/consultor/**",
+        "pages/admin/sessions/**",
+        "pages/admin/bulk-tag-sessions.tsx",
+        "pages/admin/consultant-assignments.tsx",
+        "pages/admin/test-session.tsx",
+        "pages/meet/**"
+      ],
+      "api": [
+        "pages/api/sessions/**",
+        "pages/api/meet/**",
+        "pages/api/zoom/**",
+        "pages/api/admin/sessions/**",
+        "pages/api/admin/bulk-tag-sessions.ts",
+        "pages/api/admin/consultant-assignments.ts",
+        "pages/api/admin/consultant-assignment-users.ts",
+        "pages/api/admin/consultants.ts"
+      ]
+    },
+    {
+      "id": "07-espacio-colaborativo",
+      "name": "Espacio Colaborativo y comunidades",
+      "pages": [
+        "pages/community/workspace.tsx",
+        "pages/admin/growth-communities/**",
+        "pages/user/**"
+      ],
+      "api": [
+        "pages/api/community/**",
+        "pages/api/meetings/**",
+        "pages/api/messaging/**",
+        "pages/api/storage/**",
+        "pages/api/admin/growth-communities/**"
+      ]
+    },
+    {
+      "id": "08-gestor-de-cambio",
+      "name": "Gestor de Cambio (registros, context, migration plan, results)",
+      "pages": [
+        "pages/admin/assessment-builder/**",
+        "pages/school/**",
+        "pages/admin/context-questions/**",
+        "pages/docente/**",
+        "pages/directivo/**",
+        "pages/demo/**"
+      ],
+      "api": [
+        "pages/api/admin/assessment-builder/**",
+        "pages/api/admin/context-questions/**",
+        "pages/api/school/**",
+        "pages/api/docente/**",
+        "pages/api/directivo/**",
+        "pages/api/demo/**"
+      ]
+    },
+    {
+      "id": "09-vias-transformacion",
+      "name": "Vías de Transformación (to be deleted)",
+      "note": "Brent, 13 Nov 2026: Vías de Transformación is going to be deleted from the platform. Its screens are listed with their address and who reaches them, and nothing else. Which files go is confirmed with him on the leftover list.",
+      "routesOnly": true,
+      "pages": [
+        "pages/vias-transformacion/**",
+        "pages/admin/transformation.tsx",
+        "pages/admin/transformation/**",
+        "pages/community/transformation/**",
+        "pages/community/workspace/transformation/**",
+        "pages/test/sequential-questions.tsx"
+      ],
+      "api": [
+        "pages/api/transformation/**",
+        "pages/api/vias-transformacion/**",
+        "pages/api/admin/transformation/**",
+        "pages/api/admin/transformation-assessments.ts"
+      ]
+    },
+    {
+      "id": "10-licitaciones",
+      "name": "Licitaciones (processes, templates, proposals)",
+      "pages": [
+        "pages/licitaciones/**",
+        "pages/admin/licitaciones/**",
+        "pages/propuesta/**"
+      ],
+      "api": [
+        "pages/api/licitaciones/**",
+        "pages/api/propuestas/**",
+        "pages/api/admin/licitaciones/**"
+      ]
+    },
+    {
+      "id": "11-gestion",
+      "name": "Gestión (clients, contracts, quotes)",
+      "pages": [
+        "pages/contracts.tsx",
+        "pages/contract-print/**",
+        "pages/admin/clients.tsx",
+        "pages/admin/quotes/**",
+        "pages/quote/**"
+      ],
+      "api": [
+        "pages/api/contracts/**",
+        "pages/api/quotes/**",
+        "pages/api/uf-value.ts"
+      ]
+    },
+    {
+      "id": "12-pasantias",
+      "name": "Pasantías (leads, travellers, panel, my trip)",
+      "pages": [
+        "pages/admin/pasantia-leads.tsx",
+        "pages/admin/pasantia-participants.tsx",
+        "pages/admin/pasantias-panel.tsx",
+        "pages/profile/pasantia.tsx",
+        "pages/pasantias/**"
+      ],
+      "api": [
+        "pages/api/pasantias/**",
+        "pages/api/admin/pasantia-leads/**",
+        "pages/api/admin/pasantia-participants/**",
+        "pages/api/admin/pasantias-panel/**"
+      ]
+    },
+    {
+      "id": "13-reportes",
+      "name": "Reportes",
+      "pages": [
+        "pages/detailed-reports.tsx",
+        "pages/reports.tsx",
+        "pages/reporte-horas.tsx"
+      ],
+      "api": [
+        "pages/api/reports/**",
+        "pages/api/school-hours-report/**"
+      ]
+    },
+    {
+      "id": "14-personas",
+      "name": "Personas (users, schools, networks, roles, profile)",
+      "pages": [
+        "pages/admin/user-management.tsx",
+        "pages/admin/school-users.tsx",
+        "pages/admin/tractor-signups.tsx",
+        "pages/admin/schools.tsx",
+        "pages/admin/network-management.tsx",
+        "pages/admin/apply-network-migration.tsx",
+        "pages/admin/role-management.tsx",
+        "pages/profile.tsx"
+      ],
+      "api": [
+        "pages/api/user/onboarding-state.ts",
+        "pages/api/users/**",
+        "pages/api/admin/apply-supervisor-migration.ts",
+        "pages/api/admin/init-supervisor-tables.ts",
+        "pages/api/admin/networks/**",
+        "pages/api/admin/approve-user.ts",
+        "pages/api/admin/assign-role.ts",
+        "pages/api/admin/bulk-create-users.ts",
+        "pages/api/admin/check-permissions.ts",
+        "pages/api/admin/create-user.ts",
+        "pages/api/admin/delete-user.ts",
+        "pages/api/admin/remove-role.ts",
+        "pages/api/admin/reset-password.ts",
+        "pages/api/admin/roles/**",
+        "pages/api/admin/schools.ts",
+        "pages/api/admin/update-role.ts",
+        "pages/api/admin/update-user.ts",
+        "pages/api/admin/user-roles.ts",
+        "pages/api/admin/users/**",
+        "pages/api/admin/users.ts",
+        "pages/api/admin/tractor-signups/**",
+        "pages/api/admin/auth/**"
+      ]
+    },
+    {
+      "id": "15-comunicacion",
+      "name": "Comunicación (news and events)",
+      "pages": [
+        "pages/admin/news.tsx",
+        "pages/admin/events.tsx",
+        "pages/admin/setup-news.tsx"
+      ],
+      "api": [
+        "pages/api/news/**",
+        "pages/api/admin/news.ts",
+        "pages/api/public/**"
+      ]
+    },
+    {
+      "id": "16-notificaciones",
+      "name": "Notificaciones",
+      "pages": [
+        "pages/notifications.tsx",
+        "pages/configuracion/**",
+        "pages/notificaciones/**"
+      ],
+      "api": [
+        "pages/api/notifications/**",
+        "pages/api/user/notification-preferences.ts",
+        "pages/api/admin/notification-types.ts",
+        "pages/api/admin/notification-analytics.ts",
+        "pages/api/webhooks/**"
+      ]
+    },
+    {
+      "id": "17-horas-gastos",
+      "name": "Horas, tarifas y gastos",
+      "pages": [
+        "pages/mis-horas.tsx",
+        "pages/expense-reports.tsx",
+        "pages/admin/consultant-rates.tsx",
+        "pages/admin/consultant-earnings.tsx"
+      ],
+      "api": [
+        "pages/api/consultant-earnings/**",
+        "pages/api/expense-reports/**",
+        "pages/api/fx-rates/**",
+        "pages/api/hour-types/**",
+        "pages/api/admin/consultant-rates/**"
+      ]
+    },
+    {
+      "id": "18-qa",
+      "name": "QA (the platform's own test tool)",
+      "note": "Gets the new values only, no individual redesign work (PLAN.md, phase 6). Its tours hang on data-tour marks.",
+      "pages": [
+        "pages/qa/**",
+        "pages/admin/qa/**"
+      ],
+      "api": [
+        "pages/api/qa/**",
+        "pages/api/admin/test-runs/**",
+        "pages/api/admin/update-qa-tester-status.ts"
+      ]
+    },
+    {
+      "id": "19-sistema",
+      "name": "Sistema (configuration, support, roadmap, test and debug pages, scheduled jobs)",
+      "pages": [
+        "pages/admin/configuration.tsx",
+        "pages/admin/feedback.tsx",
+        "pages/admin/roadmap.tsx",
+        "pages/admin/form-usage.tsx",
+        "pages/admin/bucket-test.tsx",
+        "pages/admin/debug/**",
+        "pages/debug-feedback-permissions.tsx",
+        "pages/admin/test-spanish-input.tsx",
+        "pages/brand-preview.tsx",
+        "pages/email-showcase.tsx",
+        "pages/test.tsx",
+        "pages/test-logout.tsx",
+        "pages/test-rbac.tsx",
+        "pages/test-sentry.tsx",
+        "pages/test-sidebar-role.tsx",
+        "pages/test-toast.tsx",
+        "pages/test-user-role.tsx"
+      ],
+      "api": [
+        "pages/api/cron/**",
+        "pages/api/check-env.js",
+        "pages/api/debug/**",
+        "pages/api/test/**",
+        "pages/api/test-bucket.js",
+        "pages/api/monitoring/**",
+        "pages/api/bots/**",
+        "pages/api/admin/check-rls-policies.ts",
+        "pages/api/admin/emergency-restore.ts",
+        "pages/api/admin/form-usage-stats.ts",
+        "pages/api/admin/system-updates.ts"
+      ]
+    },
+    {
+      "id": "20-sitio-publico",
+      "name": "Sitio público (nuevaeducacion.org pages; not part of the platform redesign)",
+      "note": "Redesigned separately and live since 12 Nov 2026. Listed so that every file under pages/ has a place.",
+      "pages": [
+        "pages/index.tsx",
+        "pages/nosotros.tsx",
+        "pages/noticias.tsx",
+        "pages/noticias/**",
+        "pages/pasantias.tsx",
+        "pages/programas.tsx",
+        "pages/privacidad.tsx",
+        "pages/equipo.tsx"
+      ],
+      "api": [
+        "pages/api/contact.ts"
+      ]
+    }
+  ],
+  "marks": {
+    "pages/admin/course-builder/[id].tsx.broken": {
+      "dead": "Not a screen: the ending .broken keeps Next.js from serving it."
+    },
+    "pages/_app 2.tsx": {
+      "leftover": "A six-line stray copy of the app shell. Next.js serves it at the address «/_app 2» as an empty page.",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/test.tsx": {
+      "leftover": "Shows the words «Test Page Works».",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/test-logout.tsx": {
+      "leftover": "Shows whether there is a session and offers sign-out buttons.",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/test-rbac.tsx": {
+      "leftover": "Prints the role-system settings of the site (public settings only).",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/test-sentry.tsx": {
+      "leftover": "A button that sends a test error to Sentry.",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/test-sidebar-role.tsx": {
+      "leftover": "Draws the menu with the signed-in person's role values next to it.",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/test-toast.tsx": {
+      "leftover": "A demonstration of every toast message.",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/test-user-role.tsx": {
+      "leftover": "Shows the session's user and role, with the old header.",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/debug-feedback-permissions.tsx": {
+      "leftover": "Shows the signed-in person's role and whether they count as admin.",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/email-showcase.tsx": {
+      "leftover": "Previews of the e-mail templates, built into the site as a page. Still shows the old blue.",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/brand-preview.tsx": {
+      "leftover": "A 1,580-line internal brand guide and audit page. A browser test that CI runs visits it (footer-heading-order.spec.ts): the test must change in the same release that retires the page.",
+      "recommend": "retire, with its test",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/dashboard-old.tsx": {
+      "leftover": "The old panel with the old header. A browser test that CI runs uses its notification bell (notification-settings.spec.ts): the test must change in the same release.",
+      "recommend": "retire, with its test",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/admin/bucket-test.tsx": {
+      "leftover": "Lists the file-storage buckets and can ask the database to create one. Admin only.",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/admin/debug/ids.tsx": {
+      "leftover": "Lists course and module ids. Admin only.",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/admin/debug/course-module-ids.tsx": {
+      "leftover": "Lists course and module ids (a second copy). Admin only.",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/admin/setup-news.tsx": {
+      "leftover": "A one-time set-up page for the news table: it asks the database to create it. Admin only.",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/admin/test-session.tsx": {
+      "leftover": "Dumps the session as raw data. Admin only.",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/admin/test-spanish-input.tsx": {
+      "leftover": "A test of typing accents and ñ into a field. Admin only.",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/creador-de-cursos.tsx": {
+      "leftover": "An old «Panel de Creador de Cursos» with the old header; its buttons lead nowhere useful.",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/admin/create-course.tsx": {
+      "leftover": "An old form that writes a course and its modules straight into the database, with the old header. Admin only. The course builder replaced it.",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/courses/[id].tsx": {
+      "leftover": "An unstyled course page in English with no frame. A QA test that CI skips names it (tests/qa/auth-redirects.spec.ts).",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/my-paths/[id].tsx": {
+      "leftover": "A copy of the learning-route page; the live one is /mi-aprendizaje/ruta/[id]. Nothing links to this copy.",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/admin/new-reporting.tsx": {
+      "leftover": "«Vista Previa: Nuevo Dashboard de Reportes»: a preview of a reports dashboard that was never linked. The only user of components/dashboard/unified. Admin only.",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/admin/form-usage.tsx": {
+      "leftover": "«Uso del Formulario de Contacto»: counts contact-form sends against a free Formspree plan of 50 a month. Nothing on the site records a send any more (only this page reads the counter), so it always shows old numbers. Nothing links to it. Admin only.",
+      "recommend": "retire",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/admin/licitaciones/criterios.tsx": {
+      "keep": "«Criterios de Evaluación Técnica»: a working editor of evaluation criteria per template. Nothing links to it (also finding D10 of the Licitaciones review of 13 Nov). Admin only. Brent, 13 Nov 2026: it stays and is redesigned with Licitaciones.",
+      "decision": "Stays (Brent, 13 Nov 2026)"
+    },
+    "pages/admin/apply-network-migration.tsx": {
+      "leftover": "Instructions and a button to create the «Supervisor de Red» tables. The tables exist today (they are in the baseline migration). Linked from Redes de Colegios. Admin only.",
+      "recommend": "retire, with its link",
+      "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+    },
+    "pages/course-manager.tsx": {
+      "keep": "A redirect to /mi-aprendizaje. Old notifications still point at it (components/notifications/NotificationDropdown.tsx)."
+    },
+    "pages/my-paths.tsx": {
+      "keep": "A redirect to /mi-aprendizaje. The route page sends people to it."
+    },
+    "pages/demo/assessments/index.tsx": {
+      "keep": "Practice mode of Gestor de Cambio: a live feature, opened from the registro template editor."
+    },
+    "pages/demo/assessments/[templateId]/index.tsx": {
+      "keep": "Practice mode of Gestor de Cambio: a live feature."
+    },
+    "pages/demo/assessments/[templateId]/results.tsx": {
+      "keep": "Practice mode of Gestor de Cambio: a live feature."
+    },
+    "pages/meet/diag.tsx": {
+      "keep": "«Diagnóstico del equipo»: camera, microphone and connection test for video sessions. No link inside the platform; it has four unit tests and is given to people as an address."
+    },
+    "pages/registro.tsx": {
+      "keep": "Sign-up form reached from outside (a link people receive). The sign-in screen does not link to it."
+    },
+    "pages/registro-tractor.tsx": {
+      "keep": "Sign-up form reached from outside (a link people receive)."
+    },
+    "pages/pasantias/nomina.tsx": {
+      "keep": "The travellers' list form, opened with a personal link generated in Nóminas de pasantes."
+    },
+    "pages/vias-transformacion/index.tsx": {
+      "toDelete": "Part of Vías de Transformación.",
+      "decision": "Goes with Vías (Brent, 13 Nov 2026)"
+    },
+    "pages/vias-transformacion/[id].tsx": {
+      "toDelete": "Part of Vías de Transformación.",
+      "decision": "Goes with Vías (Brent, 13 Nov 2026)"
+    },
+    "pages/admin/transformation.tsx": {
+      "toDelete": "Part of Vías de Transformación.",
+      "decision": "Goes with Vías (Brent, 13 Nov 2026)"
+    },
+    "pages/admin/transformation/assessments.tsx": {
+      "toDelete": "Part of Vías de Transformación.",
+      "decision": "Goes with Vías (Brent, 13 Nov 2026)"
+    },
+    "pages/admin/transformation/metrics.tsx": {
+      "toDelete": "Part of Vías de Transformación.",
+      "decision": "Goes with Vías (Brent, 13 Nov 2026)"
+    },
+    "pages/community/transformation/assessment.tsx": {
+      "toDelete": "Part of Vías de Transformación.",
+      "decision": "Goes with Vías (Brent, 13 Nov 2026)"
+    },
+    "pages/community/transformation/report.tsx": {
+      "toDelete": "Part of Vías de Transformación.",
+      "decision": "Goes with Vías (Brent, 13 Nov 2026)"
+    },
+    "pages/community/transformation/results/[assessmentId].tsx": {
+      "toDelete": "Part of Vías de Transformación.",
+      "decision": "Goes with Vías (Brent, 13 Nov 2026)"
+    },
+    "pages/community/workspace/transformation/evaluate.tsx": {
+      "toDelete": "Part of Vías de Transformación.",
+      "decision": "Goes with Vías (Brent, 13 Nov 2026)"
+    },
+    "pages/test/sequential-questions.tsx": {
+      "toDelete": "A test page for the Vías question flow.",
+      "decision": "Goes with Vías (Brent, 13 Nov 2026)"
+    }
+  },
+  "otherLeftovers": [
+    {
+      "file": "src/pages/test-course-timeline.tsx",
+      "what": "Not served: Next.js uses the pages/ folder at the root and ignores src/pages. Dead code."
+    },
+    {
+      "file": "src/pages/admin/course-builder.tsx",
+      "what": "Not served, for the same reason. Dead code."
+    },
+    {
+      "file": "components/layout/Header-backup.tsx",
+      "what": "A 28-byte file holding one comment."
+    },
+    {
+      "file": "components/layout/Header.tsx",
+      "what": "The old header. Still used by pending-approval (a live screen) and by six leftover pages; it can go once those are retired and pending-approval is restyled."
+    },
+    {
+      "file": "Menu group «Vías de Transformación» (components/layout/Sidebar.tsx)",
+      "what": "Goes with Vías. Its entry «Contexto Transversal» opens /school/transversal-context, which belongs to Gestor de Cambio and stays; the same page is already in the Gestor de Cambio group."
+    }
+  ]
+}

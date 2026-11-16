@@ -1,0 +1,6054 @@
+{
+ "area": "05-tareas",
+ "name": "Tareas y quizzes (assignments, group work, quiz review)",
+ "note": "",
+ "routesOnly": false,
+ "readFrom": {
+  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
+  "date": "2026-11-12T23:31:39-03:00"
+ },
+ "screens": [
+  {
+   "file": "pages/admin/assignment-overview.tsx",
+   "route": "/admin/assignment-overview",
+   "lines": 619,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [
+     {
+      "id": "assignment-overview",
+      "label": "Vista de Tareas",
+      "group": "Consultorías",
+      "href": "/admin/assignment-overview",
+      "gates": "everyone signed in",
+      "groupGates": "admin or consultor",
+      "line": 486
+     }
+    ],
+    "middleware": {
+     "rule": "the /admin rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "community_manager": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "docente": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     }
+    },
+    "inPage": [
+     {
+      "line": 113,
+      "text": "router.push → /login  (when !authUser)"
+     },
+     {
+      "line": 129,
+      "text": "role = await getUserPrimaryRole(authUser.id)"
+     },
+     {
+      "line": 132,
+      "text": "router.push → /dashboard  (when role !== 'admin' && role !== 'consultor')"
+     },
+     {
+      "line": 148,
+      "text": "router.push → /login"
+     },
+     {
+      "line": 283,
+      "text": "router.push → /login"
+     }
+    ],
+    "linkedFrom": [
+     "components/layout/Sidebar.tsx:488",
+     "lib/notifications/catalog.ts:304",
+     "middleware.ts:223",
+     "pages/admin/assignment-review/[id].tsx:348"
+    ],
+    "qaScenarios": {
+     "admin": [
+      "CA-29: Admin ve vista de tareas grupales",
+      "SV-24: Admin ve Vista de Tareas en sidebar",
+      "CS-A-21: Admin verifica ítems de navegación en sidebar"
+     ],
+     "consultor": [
+      "CA-10: Consultor visualiza Vista de Tareas"
+     ]
+    },
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 113,
+     "in": "checkAuth",
+     "when": "!authUser",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 129,
+     "in": "checkAuth",
+     "text": "role = await getUserPrimaryRole(authUser.id)",
+     "via": "getUserPrimaryRole"
+    },
+    {
+     "kind": "toast",
+     "line": 131,
+     "in": "checkAuth",
+     "when": "role !== 'admin' && role !== 'consultor'",
+     "text": "No tienes permisos para acceder a esta página",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 132,
+     "in": "checkAuth",
+     "when": "role !== 'admin' && role !== 'consultor'",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 148,
+     "in": "checkAuth",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 162,
+     "in": "loadInitialData",
+     "text": "Error al cargar los datos",
+     "variant": "error"
+    },
+    {
+     "kind": "message",
+     "line": 183,
+     "in": "loadAssignments",
+     "when": "!session?.access_token",
+     "text": "No session token",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 205,
+     "in": "loadAssignments",
+     "when": "!response.ok",
+     "text": "Failed to fetch assignments",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 220,
+     "in": "loadAssignments",
+     "text": "Error al cargar las tareas",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 283,
+     "in": "handleLogout",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 294,
+     "in": "handleViewDetails",
+     "text": "/admin/assignment-review/[*]",
+     "via": "router.push"
+    },
+    {
+     "kind": "piece",
+     "line": 323,
+     "in": "AssignmentOverview",
+     "text": "pageTitle: Vista de Tareas Grupales",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "text",
+     "line": 338,
+     "in": "AssignmentOverview",
+     "text": "Monitorea todas las tareas grupales de la plataforma / Monitorea las tareas grupales de tus estudiantes asignados"
+    },
+    {
+     "kind": "text",
+     "line": 355,
+     "in": "AssignmentOverview",
+     "text": "Total Tareas"
+    },
+    {
+     "kind": "value",
+     "line": 356,
+     "in": "AssignmentOverview",
+     "text": "{totalAssignments}"
+    },
+    {
+     "kind": "text",
+     "line": 365,
+     "in": "AssignmentOverview",
+     "text": "Grupos Formados"
+    },
+    {
+     "kind": "value",
+     "line": 366,
+     "in": "AssignmentOverview",
+     "text": "{totalGroups}"
+    },
+    {
+     "kind": "text",
+     "line": 375,
+     "in": "AssignmentOverview",
+     "text": "Estudiantes"
+    },
+    {
+     "kind": "value",
+     "line": 376,
+     "in": "AssignmentOverview",
+     "text": "{totalStudents}"
+    },
+    {
+     "kind": "text",
+     "line": 385,
+     "in": "AssignmentOverview",
+     "text": "Tasa de Entrega"
+    },
+    {
+     "kind": "value",
+     "line": 386,
+     "in": "AssignmentOverview",
+     "text": "{overallSubmissionRate} %"
+    },
+    {
+     "kind": "heading",
+     "line": 396,
+     "in": "AssignmentOverview",
+     "text": "Filtros",
+     "level": 2
+    },
+    {
+     "kind": "button",
+     "line": 398,
+     "in": "AssignmentOverview",
+     "when": "activeFilterCount > 0",
+     "text": "Limpiar filtros ( {activeFilterCount} )",
+     "action": "{handleClearFilters}"
+    },
+    {
+     "kind": "label",
+     "line": 411,
+     "in": "AssignmentOverview",
+     "text": "Escuela"
+    },
+    {
+     "kind": "field",
+     "line": 414,
+     "in": "AssignmentOverview",
+     "text": "Escuela",
+     "type": "select",
+     "action": "{(e) => handleFilterChange('school_id', e.target.value || null)}",
+     "options": [
+      "Todas las escuelas",
+      "(lista) {school.name}"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 431,
+     "in": "AssignmentOverview",
+     "text": "Comunidad"
+    },
+    {
+     "kind": "field",
+     "line": 434,
+     "in": "AssignmentOverview",
+     "text": "Comunidad",
+     "type": "select",
+     "disabled": "{loadingCommunities}",
+     "action": "{(e) => handleFilterChange('community_id', e.target.value || null)}",
+     "options": [
+      "Todas las comunidades",
+      "(lista) {community.name}"
+     ]
+    },
+    {
+     "kind": "label",
+     "line": 456,
+     "in": "AssignmentOverview",
+     "text": "Generación"
+    },
+    {
+     "kind": "field",
+     "line": 459,
+     "in": "AssignmentOverview",
+     "text": "Generación",
+     "type": "select",
+     "disabled": "{!filters.school_id || loadingGenerations || generations.length === 0}",
+     "action": "{(e) => handleFilterChange('generation_id', e.target.value || null)}",
+     "options": [
+      "Selecciona una escuela primero / Sin generaciones / Todas las generaciones",
+      "(lista) {generation.name}"
+     ]
+    },
+    {
+     "kind": "heading",
+     "line": 495,
+     "in": "AssignmentOverview",
+     "when": "!(loading) && assignments.length === 0",
+     "text": "No se encontraron tareas",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 496,
+     "in": "AssignmentOverview",
+     "when": "!(loading) && assignments.length === 0",
+     "text": "No hay tareas que coincidan con los filtros seleccionados. / No hay tareas grupales creadas aún."
+    },
+    {
+     "kind": "heading",
+     "line": 512,
+     "in": "AssignmentOverview",
+     "when": "!(loading) && !(assignments.length === 0) && each assignments",
+     "text": "{assignment.title}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 515,
+     "in": "AssignmentOverview",
+     "when": "!(loading) && !(assignments.length === 0) && each assignments",
+     "text": "{assignment.course_title} - {assignment.lesson_title}"
+    },
+    {
+     "kind": "value",
+     "line": 522,
+     "in": "AssignmentOverview",
+     "when": "!(loading) && !(assignments.length === 0) && each assignments && assignment.description",
+     "text": "{assignment.description}"
+    },
+    {
+     "kind": "value",
+     "line": 532,
+     "in": "AssignmentOverview",
+     "when": "!(loading) && !(assignments.length === 0) && each assignments && assignment.community",
+     "text": "{assignment.community.school.name}"
+    },
+    {
+     "kind": "value",
+     "line": 534,
+     "in": "AssignmentOverview",
+     "when": "!(loading) && !(assignments.length === 0) && each assignments && assignment.community",
+     "text": "{assignment.community.name}"
+    },
+    {
+     "kind": "value",
+     "line": 538,
+     "in": "AssignmentOverview",
+     "when": "!(assignments.length === 0) && each assignments && assignment.community && assignment.community.generation",
+     "text": "{assignment.community.generation.name}"
+    },
+    {
+     "kind": "value",
+     "line": 548,
+     "in": "AssignmentOverview",
+     "when": "!(loading) && !(assignments.length === 0) && each assignments",
+     "text": "{assignment.groups_count}"
+    },
+    {
+     "kind": "text",
+     "line": 549,
+     "in": "AssignmentOverview",
+     "when": "!(loading) && !(assignments.length === 0) && each assignments",
+     "text": "Grupos"
+    },
+    {
+     "kind": "value",
+     "line": 552,
+     "in": "AssignmentOverview",
+     "when": "!(loading) && !(assignments.length === 0) && each assignments",
+     "text": "{assignment.students_count}"
+    },
+    {
+     "kind": "text",
+     "line": 553,
+     "in": "AssignmentOverview",
+     "when": "!(loading) && !(assignments.length === 0) && each assignments",
+     "text": "Estudiantes"
+    },
+    {
+     "kind": "value",
+     "line": 556,
+     "in": "AssignmentOverview",
+     "when": "!(loading) && !(assignments.length === 0) && each assignments",
+     "text": "{assignment.submission_rate} %"
+    },
+    {
+     "kind": "text",
+     "line": 557,
+     "in": "AssignmentOverview",
+     "when": "!(loading) && !(assignments.length === 0) && each assignments",
+     "text": "Entregado"
+    },
+    {
+     "kind": "text",
+     "line": 564,
+     "in": "AssignmentOverview",
+     "when": "!(loading) && !(assignments.length === 0) && each assignments",
+     "text": "Progreso de entregas"
+    },
+    {
+     "kind": "text",
+     "line": 565,
+     "in": "AssignmentOverview",
+     "when": "!(loading) && !(assignments.length === 0) && each assignments",
+     "text": "{assignment.submitted_count} de {assignment.students_count}"
+    },
+    {
+     "kind": "text",
+     "line": 577,
+     "in": "AssignmentOverview",
+     "when": "!(loading) && !(assignments.length === 0) && each assignments",
+     "text": "Creada {formatDate(assignment.created_at)}"
+    },
+    {
+     "kind": "button",
+     "line": 578,
+     "in": "AssignmentOverview",
+     "when": "!(loading) && !(assignments.length === 0) && each assignments",
+     "text": "Ver detalles →",
+     "action": "{() => handleViewDetails(assignment.id)}"
+    },
+    {
+     "kind": "button",
+     "line": 592,
+     "in": "AssignmentOverview",
+     "when": "!(loading) && !(assignments.length === 0) && hasMore",
+     "text": "Cargando... / Cargar más ( {assignments.length} de {totalAssignments} )",
+     "action": "{handleLoadMore}",
+     "disabled": "{loadingMore}"
+    },
+    {
+     "kind": "string",
+     "line": 199,
+     "in": "AssignmentOverview",
+     "text": "Bearer {session.access_token}"
+    }
+   ],
+   "db": [
+    {
+     "what": "bucket:avatars",
+     "ops": [
+      "getPublicUrl"
+     ]
+    },
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "types/roles.ts",
+    "utils/assignmentFilters.js",
+    "utils/roleUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/assignments/admin-overview.ts",
+     "route": "/api/assignments/admin-overview",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/admin/assignment-overview.tsx:195"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/admin/assignment-review/[id].tsx",
+   "route": "/admin/assignment-review/[id]",
+   "lines": 607,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "the /admin rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     }
+    },
+    "inPage": [
+     {
+      "line": 73,
+      "text": "router.push → /login  (when !(!authLoading && user && assignmentId) && !authLoading && !user)"
+     },
+     {
+      "line": 79,
+      "text": "role = await getUserPrimaryRole(user!.id)"
+     },
+     {
+      "line": 82,
+      "text": "router.push → /dashboard  (when role !== 'admin' && role !== 'consultor')"
+     },
+     {
+      "line": 89,
+      "text": "router.push → /login"
+     }
+    ],
+    "linkedFrom": [
+     "pages/admin/assignment-overview.tsx:294"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 73,
+     "in": "AssignmentReviewPage",
+     "when": "!(!authLoading && user && assignmentId) && !authLoading && !user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 79,
+     "in": "checkAuth",
+     "text": "role = await getUserPrimaryRole(user!.id)",
+     "via": "getUserPrimaryRole"
+    },
+    {
+     "kind": "toast",
+     "line": 81,
+     "in": "checkAuth",
+     "when": "role !== 'admin' && role !== 'consultor'",
+     "text": "No tienes permisos para acceder a esta página",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 82,
+     "in": "checkAuth",
+     "when": "role !== 'admin' && role !== 'consultor'",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 89,
+     "in": "checkAuth",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "list",
+     "line": 194,
+     "in": "loadAssignmentData",
+     "text": "assignmentDetails",
+     "items": [
+      "Tarea Grupal"
+     ]
+    },
+    {
+     "kind": "toast",
+     "line": 245,
+     "in": "loadAssignmentData",
+     "text": "Error al cargar los datos de la tarea",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 276,
+     "in": "handleGradeSubmission",
+     "text": "Calificación guardada exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 280,
+     "in": "handleGradeSubmission",
+     "text": "Error al guardar la calificación",
+     "variant": "error"
+    },
+    {
+     "kind": "piece",
+     "line": 330,
+     "in": "AssignmentReviewPage",
+     "when": "authLoading || loading",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "gate",
+     "line": 338,
+     "in": "AssignmentReviewPage",
+     "text": "!assignment"
+    },
+    {
+     "kind": "piece",
+     "line": 343,
+     "in": "AssignmentReviewPage",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "button",
+     "line": 347,
+     "in": "AssignmentReviewPage",
+     "text": "Volver a Vista de Tareas",
+     "action": "{() => router.push('/admin/assignment-overview')}"
+    },
+    {
+     "kind": "nav",
+     "line": 348,
+     "in": "AssignmentReviewPage",
+     "text": "/admin/assignment-overview",
+     "via": "router.push"
+    },
+    {
+     "kind": "heading",
+     "line": 356,
+     "in": "AssignmentReviewPage",
+     "text": "{assignment.title}",
+     "level": 1
+    },
+    {
+     "kind": "value",
+     "line": 357,
+     "in": "AssignmentReviewPage",
+     "text": "{assignment.course_title} - {assignment.lesson_title}"
+    },
+    {
+     "kind": "value",
+     "line": 362,
+     "in": "AssignmentReviewPage",
+     "when": "assignment.description",
+     "text": "{assignment.description}"
+    },
+    {
+     "kind": "heading",
+     "line": 366,
+     "in": "AssignmentReviewPage",
+     "text": "Instrucciones:",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 367,
+     "in": "AssignmentReviewPage",
+     "text": "{assignment.instructions}"
+    },
+    {
+     "kind": "value",
+     "line": 373,
+     "in": "AssignmentReviewPage",
+     "text": "{assignment.total_groups}"
+    },
+    {
+     "kind": "text",
+     "line": 374,
+     "in": "AssignmentReviewPage",
+     "text": "Grupos totales"
+    },
+    {
+     "kind": "value",
+     "line": 377,
+     "in": "AssignmentReviewPage",
+     "text": "{assignment.submitted_groups}"
+    },
+    {
+     "kind": "text",
+     "line": 378,
+     "in": "AssignmentReviewPage",
+     "text": "Entregados"
+    },
+    {
+     "kind": "value",
+     "line": 381,
+     "in": "AssignmentReviewPage",
+     "text": "{assignment.pending_groups}"
+    },
+    {
+     "kind": "text",
+     "line": 382,
+     "in": "AssignmentReviewPage",
+     "text": "Pendientes"
+    },
+    {
+     "kind": "value",
+     "line": 385,
+     "in": "AssignmentReviewPage",
+     "text": "{assignment.reviewed_groups}"
+    },
+    {
+     "kind": "text",
+     "line": 386,
+     "in": "AssignmentReviewPage",
+     "text": "Revisados"
+    },
+    {
+     "kind": "label",
+     "line": 394,
+     "in": "AssignmentReviewPage",
+     "text": "Filtrar por estado:"
+    },
+    {
+     "kind": "field",
+     "line": 397,
+     "in": "AssignmentReviewPage",
+     "text": "Filtrar por estado:",
+     "type": "select",
+     "action": "{(e) => setFilterStatus(e.target.value)}",
+     "options": [
+      "Todos los grupos",
+      "Pendientes",
+      "Entregados",
+      "Revisados",
+      "Devueltos"
+     ]
+    },
+    {
+     "kind": "heading",
+     "line": 415,
+     "in": "AssignmentReviewPage",
+     "when": "filteredSubmissions.length === 0",
+     "text": "No hay grupos que mostrar",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 419,
+     "in": "AssignmentReviewPage",
+     "when": "filteredSubmissions.length === 0",
+     "text": "No se encontraron grupos con el estado seleccionado."
+    },
+    {
+     "kind": "clickable",
+     "line": 429,
+     "in": "AssignmentReviewPage",
+     "when": "!(filteredSubmissions.length === 0) && each filteredSubmissions",
+     "text": "{submission.group_name} {submission.members.length} miembros {getStatusIcon(submission.status)} {getStatusLabel(submiss…",
+     "tag": "div",
+     "action": "{() => toggleGroupExpanded(submission.id)}"
+    },
+    {
+     "kind": "heading",
+     "line": 437,
+     "in": "AssignmentReviewPage",
+     "when": "!(filteredSubmissions.length === 0) && each filteredSubmissions",
+     "text": "{submission.group_name}",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 440,
+     "in": "AssignmentReviewPage",
+     "when": "!(filteredSubmissions.length === 0) && each filteredSubmissions",
+     "text": "{submission.members.length} miembros"
+    },
+    {
+     "kind": "value",
+     "line": 449,
+     "in": "AssignmentReviewPage",
+     "when": "!(filteredSubmissions.length === 0) && each filteredSubmissions",
+     "text": "{getStatusLabel(submission.status)}"
+    },
+    {
+     "kind": "heading",
+     "line": 465,
+     "in": "AssignmentReviewPage",
+     "when": "!(filteredSubmissions.length === 0) && each filteredSubmissions && expandedGroups.has(submission.id)",
+     "text": "Miembros del grupo:",
+     "level": 4
+    },
+    {
+     "kind": "value",
+     "line": 470,
+     "in": "AssignmentReviewPage",
+     "when": "!(filteredSubmissions.length === 0) && each filteredSubmissions && expandedGroups.has(submission.id) && each submission.members",
+     "text": "{member.name}"
+    },
+    {
+     "kind": "text",
+     "line": 472,
+     "in": "AssignmentReviewPage",
+     "when": "each filteredSubmissions && expandedGroups.has(submission.id) && each submission.members && member.role === 'leader'",
+     "text": "(Líder)"
+    },
+    {
+     "kind": "heading",
+     "line": 483,
+     "in": "AssignmentReviewPage",
+     "when": "!(filteredSubmissions.length === 0) && each filteredSubmissions && expandedGroups.has(submission.id) && submission.status !== 'pending'",
+     "text": "Contenido de la entrega:",
+     "level": 4
+    },
+    {
+     "kind": "text",
+     "line": 485,
+     "in": "AssignmentReviewPage",
+     "when": "!(filteredSubmissions.length === 0) && each filteredSubmissions && expandedGroups.has(submission.id) && submission.status !== 'pending'",
+     "text": "{submission.submission_content} / Sin contenido de texto"
+    },
+    {
+     "kind": "heading",
+     "line": 494,
+     "in": "AssignmentReviewPage",
+     "when": "each filteredSubmissions && expandedGroups.has(submission.id) && submission.status !== 'pending' && submission.file_urls.length > 0",
+     "text": "Archivos adjuntos:",
+     "level": 4
+    },
+    {
+     "kind": "link",
+     "line": 497,
+     "in": "AssignmentReviewPage",
+     "when": "expandedGroups.has(submission.id) && submission.status !== 'pending' && submission.file_urls.length > 0 && each submission.file_urls",
+     "text": "Archivo {index + 1}",
+     "target": "{url}",
+     "newTab": true
+    },
+    {
+     "kind": "heading",
+     "line": 514,
+     "in": "AssignmentReviewPage",
+     "when": "!(filteredSubmissions.length === 0) && each filteredSubmissions && expandedGroups.has(submission.id) && submission.status !== 'pending'",
+     "text": "Calificación y retroalimentación:",
+     "level": 4
+    },
+    {
+     "kind": "text",
+     "line": 518,
+     "in": "AssignmentReviewPage",
+     "when": "each filteredSubmissions && expandedGroups.has(submission.id) && submission.status !== 'pending' && submission.status === 'reviewed'",
+     "text": "Calificado por: {submission.reviewed_by} el {new Date(submission.reviewed_at!).t…}"
+    },
+    {
+     "kind": "text",
+     "line": 521,
+     "in": "AssignmentReviewPage",
+     "when": "each filteredSubmissions && expandedGroups.has(submission.id) && submission.status !== 'pending' && submission.status === 'reviewed'",
+     "text": "Nota: {submission.grade} /100"
+    },
+    {
+     "kind": "value",
+     "line": 525,
+     "in": "AssignmentReviewPage",
+     "when": "expandedGroups.has(submission.id) && submission.status !== 'pending' && submission.status === 'reviewed' && submission.feedback",
+     "text": "{submission.feedback}"
+    },
+    {
+     "kind": "text",
+     "line": 541,
+     "in": "AssignmentReviewPage",
+     "when": "!(filteredSubmissions.length === 0) && each filteredSubmissions && expandedGroups.has(submission.id) && submission.status === 'pending'",
+     "text": "Este grupo aún no ha entregado su trabajo"
+    },
+    {
+     "kind": "form",
+     "line": 570,
+     "in": "GradeForm",
+     "text": "{handleSubmit}"
+    },
+    {
+     "kind": "label",
+     "line": 572,
+     "in": "GradeForm",
+     "text": "Calificación (0-100)"
+    },
+    {
+     "kind": "field",
+     "line": 575,
+     "in": "GradeForm",
+     "text": "Calificación (0-100)",
+     "type": "number",
+     "required": "true",
+     "limits": "min=0 max=100",
+     "action": "{(e) => setGrade(Number(e.target.value))}"
+    },
+    {
+     "kind": "label",
+     "line": 587,
+     "in": "GradeForm",
+     "text": "Retroalimentación"
+    },
+    {
+     "kind": "field",
+     "line": 590,
+     "in": "GradeForm",
+     "text": "Retroalimentación",
+     "type": "textarea",
+     "placeholder": "Escribe comentarios para el grupo...",
+     "limits": "",
+     "action": "{(e) => setFeedback(e.target.value)}"
+    },
+    {
+     "kind": "button",
+     "line": 599,
+     "in": "GradeForm",
+     "text": "Guardar calificación",
+     "submit": true
+    },
+    {
+     "kind": "string",
+     "line": 225,
+     "in": "AssignmentReviewPage",
+     "text": "Sin nombre"
+    },
+    {
+     "kind": "list",
+     "line": 318,
+     "in": "getStatusLabel",
+     "text": "getStatusLabel()",
+     "items": [
+      "Entregado",
+      "Revisado",
+      "Devuelto",
+      "Pendiente"
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "[id] (part of the address)",
+     "type": "address value"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:blocks",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:group_assignment_groups",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:group_assignment_members",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:group_assignment_submissions",
+     "ops": [
+      "select",
+      "update"
+     ]
+    },
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": []
+  },
+  {
+   "file": "pages/assignments.tsx",
+   "route": "/assignments",
+   "lines": 360,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 97,
+      "text": "role = await getUserPrimaryRole(session.user.id)"
+     },
+     {
+      "line": 115,
+      "text": "router.push → /login  (when !(session) && session === null)"
+     },
+     {
+      "line": 138,
+      "text": "router.push → /login"
+     }
+    ],
+    "linkedFrom": [
+     "components/DynamicFavicon.tsx:36",
+     "components/notifications/ModernNotificationCenter.tsx:301",
+     "components/notifications/ModernNotificationCenter.tsx:312",
+     "components/notifications/NotificationDropdown.tsx:140",
+     "components/notifications/NotificationDropdown.tsx:151",
+     "lib/auth/forced-password-change.ts:133",
+     "lib/notificationEvents.ts:314",
+     "lib/notificationEvents.ts:328",
+     "lib/notificationEvents.ts:345",
+     "lib/notifications/catalog.ts:279",
+     "lib/notifications/catalog.ts:288",
+     "lib/notifications/catalog.ts:290",
+     "lib/notifications/catalog.ts:291",
+     "middleware.ts:328",
+     "pages/assignments/[id]/index.tsx:170",
+     "pages/assignments/[id]/index.tsx:171",
+     "pages/assignments/[id]/index.tsx:59",
+     "pages/assignments/[id]/index.tsx:69",
+     "pages/assignments/[id]/index.tsx:82",
+     "pages/assignments/[id]/submissions.tsx:196",
+     "pages/assignments/[id]/submissions.tsx:206",
+     "pages/assignments/[id]/submissions.tsx:219",
+     "pages/assignments/[id]/submissions.tsx:226",
+     "pages/assignments/[id]/submissions.tsx:327",
+     "pages/assignments/[id]/submissions.tsx:328",
+     "pages/notifications.tsx:269",
+     "pages/notifications.tsx:280"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [
+      "tests/e2e/notification-catalog-links.spec.ts"
+     ],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 39,
+     "in": "AssignmentsPage",
+     "text": "!supabase"
+    },
+    {
+     "kind": "toast",
+     "line": 78,
+     "in": "AssignmentsPage",
+     "text": "Error al cargar las tareas:",
+     "variant": "error"
+    },
+    {
+     "kind": "access",
+     "line": 97,
+     "in": "loadData",
+     "when": "session && profile",
+     "text": "role = await getUserPrimaryRole(session.user.id)",
+     "via": "getUserPrimaryRole"
+    },
+    {
+     "kind": "toast",
+     "line": 103,
+     "in": "loadData",
+     "when": "session && !(profile)",
+     "text": "No se pudo encontrar el perfil del usuario.",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 110,
+     "in": "loadData",
+     "when": "session",
+     "text": "Error al cargar los datos:",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 115,
+     "in": "loadData",
+     "when": "!(session) && session === null",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "confirm",
+     "line": 123,
+     "in": "handleDeleteAssignment",
+     "text": "¿Estás seguro de que quieres eliminar esta tarea?"
+    },
+    {
+     "kind": "toast",
+     "line": 126,
+     "in": "handleDeleteAssignment",
+     "when": "window.confirm('¿Estás seguro de que quieres eliminar esta tarea?')",
+     "text": "Tarea eliminada con éxito",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 131,
+     "in": "handleDeleteAssignment",
+     "when": "window.confirm('¿Estás seguro de que quieres eliminar esta tarea?')",
+     "text": "Error al eliminar la tarea:",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 138,
+     "in": "handleLogout",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "text",
+     "line": 148,
+     "in": "AssignmentsPage",
+     "when": "loading",
+     "text": "Cargando..."
+    },
+    {
+     "kind": "text",
+     "line": 152,
+     "in": "AssignmentsPage",
+     "when": "error",
+     "text": "Error: {error}"
+    },
+    {
+     "kind": "text",
+     "line": 158,
+     "in": "AssignmentsPage",
+     "text": "Tareas - FNE"
+    },
+    {
+     "kind": "piece",
+     "line": 160,
+     "in": "AssignmentsPage",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "piece",
+     "line": 168,
+     "in": "AssignmentsPage",
+     "text": "title: Mis Tareas · subtitle: Bienvenido de vuelta, {profileName} · primaryAction: Nueva Tarea",
+     "tag": "ResponsiveFunctionalPageHeader"
+    },
+    {
+     "kind": "nav",
+     "line": 174,
+     "in": "AssignmentsPage",
+     "when": "isTeacher",
+     "text": "/assignments/new",
+     "via": "router.push"
+    },
+    {
+     "kind": "heading",
+     "line": 182,
+     "in": "AssignmentsPage",
+     "when": "isTeacher",
+     "text": "Total de Tareas",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 183,
+     "in": "AssignmentsPage",
+     "when": "isTeacher",
+     "text": "{workStats.total}"
+    },
+    {
+     "kind": "heading",
+     "line": 186,
+     "in": "AssignmentsPage",
+     "when": "isTeacher",
+     "text": "Activas",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 187,
+     "in": "AssignmentsPage",
+     "when": "isTeacher",
+     "text": "{workStats.active}"
+    },
+    {
+     "kind": "heading",
+     "line": 190,
+     "in": "AssignmentsPage",
+     "when": "isTeacher",
+     "text": "Borradores",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 191,
+     "in": "AssignmentsPage",
+     "when": "isTeacher",
+     "text": "{workStats.drafts}"
+    },
+    {
+     "kind": "field",
+     "line": 197,
+     "in": "AssignmentsPage",
+     "text": "Buscar tareas...",
+     "type": "text",
+     "placeholder": "Buscar tareas...",
+     "action": "{(e) => setSearchQuery(e.target.value)}"
+    },
+    {
+     "kind": "field",
+     "line": 205,
+     "in": "AssignmentsPage",
+     "text": "",
+     "type": "select",
+     "action": "{(e) => setFilterType(e.target.value)}",
+     "options": [
+      "Todos los tipos",
+      "Tarea",
+      "Cuestionario",
+      "Proyecto"
+     ]
+    },
+    {
+     "kind": "button",
+     "line": 216,
+     "in": "AssignmentsPage",
+     "text": "Lista",
+     "action": "{() => setActiveTab('list')}"
+    },
+    {
+     "kind": "button",
+     "line": 217,
+     "in": "AssignmentsPage",
+     "text": "Cuadrícula",
+     "action": "{() => setActiveTab('grid')}"
+    },
+    {
+     "kind": "text",
+     "line": 225,
+     "in": "AssignmentsPage",
+     "when": "activeTab === 'list' && filteredAssignments.length === 0",
+     "text": "No se encontraron tareas."
+    },
+    {
+     "kind": "heading",
+     "line": 236,
+     "in": "AssignmentsPage",
+     "when": "activeTab === 'list' && !(filteredAssignments.length === 0) && each filteredAssignments",
+     "text": "{assignment.title}",
+     "level": 4
+    },
+    {
+     "kind": "nav",
+     "line": 236,
+     "in": "AssignmentsPage",
+     "when": "activeTab === 'list' && !(filteredAssignments.length === 0) && each filteredAssignments",
+     "text": "/assignments/[*]",
+     "via": "router.push"
+    },
+    {
+     "kind": "value",
+     "line": 237,
+     "in": "AssignmentsPage",
+     "when": "activeTab === 'list' && !(filteredAssignments.length === 0) && each filteredAssignments",
+     "text": "{assignment.courses.title}"
+    },
+    {
+     "kind": "text",
+     "line": 241,
+     "in": "AssignmentsPage",
+     "when": "activeTab === 'list' && !(filteredAssignments.length === 0) && each filteredAssignments",
+     "text": "Vence: {new Date(assignment.due_date).toLoc…}"
+    },
+    {
+     "kind": "text",
+     "line": 244,
+     "in": "AssignmentsPage",
+     "when": "activeTab === 'list' && !(filteredAssignments.length === 0) && each filteredAssignments",
+     "text": "Entregado ({submission.status}) / Pendiente"
+    },
+    {
+     "kind": "button",
+     "line": 250,
+     "in": "AssignmentsPage",
+     "when": "activeTab === 'list' && !(filteredAssignments.length === 0) && each filteredAssignments && isTeacher",
+     "text": "Editar",
+     "action": "{() => router.push(`/assignments/${assignment.id}/edit`)}"
+    },
+    {
+     "kind": "nav",
+     "line": 250,
+     "in": "AssignmentsPage",
+     "when": "activeTab === 'list' && !(filteredAssignments.length === 0) && each filteredAssignments && isTeacher",
+     "text": "/assignments/[*]/edit",
+     "via": "router.push"
+    },
+    {
+     "kind": "button",
+     "line": 251,
+     "in": "AssignmentsPage",
+     "when": "activeTab === 'list' && !(filteredAssignments.length === 0) && each filteredAssignments && isTeacher",
+     "text": "Eliminar",
+     "action": "{() => handleDeleteAssignment(assignment.id)}"
+    },
+    {
+     "kind": "text",
+     "line": 264,
+     "in": "AssignmentsPage",
+     "when": "activeTab === 'grid' && filteredAssignments.length === 0",
+     "text": "No se encontraron tareas."
+    },
+    {
+     "kind": "heading",
+     "line": 274,
+     "in": "AssignmentsPage",
+     "when": "activeTab === 'grid' && !(filteredAssignments.length === 0) && each filteredAssignments",
+     "text": "{assignment.title}",
+     "level": 3
+    },
+    {
+     "kind": "nav",
+     "line": 276,
+     "in": "AssignmentsPage",
+     "when": "activeTab === 'grid' && !(filteredAssignments.length === 0) && each filteredAssignments",
+     "text": "/assignments/[*]",
+     "via": "router.push"
+    },
+    {
+     "kind": "text",
+     "line": 280,
+     "in": "AssignmentsPage",
+     "when": "activeTab === 'grid' && !(filteredAssignments.length === 0) && each filteredAssignments",
+     "text": "Publicado / Borrador"
+    },
+    {
+     "kind": "value",
+     "line": 284,
+     "in": "AssignmentsPage",
+     "when": "activeTab === 'grid' && !(filteredAssignments.length === 0) && each filteredAssignments",
+     "text": "{assignment.courses.title}"
+    },
+    {
+     "kind": "text",
+     "line": 289,
+     "in": "AssignmentsPage",
+     "when": "activeTab === 'grid' && !(filteredAssignments.length === 0) && each filteredAssignments && assignment.assignment_type === 'group' && assignment.student_group && isStudent",
+     "text": "Trabajo en grupo: {assignment.student_group.name}"
+    },
+    {
+     "kind": "value",
+     "line": 292,
+     "in": "AssignmentsPage",
+     "when": "!(filteredAssignments.length === 0) && each filteredAssignments && assignment.assignment_type === 'group' && assignment.student_group && isStudent && each assignment.student_group.members",
+     "text": "{member.full_name}"
+    },
+    {
+     "kind": "text",
+     "line": 303,
+     "in": "AssignmentsPage",
+     "when": "activeTab === 'grid' && !(filteredAssignments.length === 0) && each filteredAssignments && assignment.assignment_type === 'group' && !assignment.student_group && isStudent",
+     "text": "⚠️ No estás asignado a ningún grupo para esta tarea. Contacta a tu profesor."
+    },
+    {
+     "kind": "text",
+     "line": 310,
+     "in": "AssignmentsPage",
+     "when": "activeTab === 'grid' && !(filteredAssignments.length === 0) && each filteredAssignments",
+     "text": "{assignment.points} puntos"
+    },
+    {
+     "kind": "text",
+     "line": 312,
+     "in": "AssignmentsPage",
+     "when": "activeTab === 'grid' && !(filteredAssignments.length === 0) && each filteredAssignments && assignment.due_date",
+     "text": "Venció: / Vence: {new Date(assignment.due_date).toLoc…}"
+    },
+    {
+     "kind": "text",
+     "line": 326,
+     "in": "AssignmentsPage",
+     "when": "activeTab === 'grid' && !(filteredAssignments.length === 0) && each filteredAssignments && isStudent && submission",
+     "text": "[Enviado: {new Date(submission.submitt…}]"
+    },
+    {
+     "kind": "text",
+     "line": 336,
+     "in": "AssignmentsPage",
+     "when": "!(filteredAssignments.length === 0) && each filteredAssignments && isStudent && submission && submission.score !== null",
+     "text": "Nota: {submission.score} / {assignment.points}"
+    },
+    {
+     "kind": "string",
+     "line": 99,
+     "in": "AssignmentsPage",
+     "text": "Usuario"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:lesson_assignment_submissions",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/layout/FunctionalPageHeader.tsx",
+    "hooks/useAvatar.ts",
+    "lib/services/assignments.js",
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": []
+  },
+  {
+   "file": "pages/assignments/[id]/index.tsx",
+   "route": "/assignments/[id]",
+   "lines": 360,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 38,
+      "text": "router.push → /login  (when !session?.user)"
+     },
+     {
+      "line": 52,
+      "text": "role = await getUserPrimaryRole(session.user.id)"
+     },
+     {
+      "line": 139,
+      "text": "router.push → /login"
+     }
+    ],
+    "linkedFrom": [
+     "components/assignments/AssignmentCard.tsx:116",
+     "components/assignments/AssignmentCard.tsx:117",
+     "middleware.ts:328",
+     "pages/api/assignments/collaborative-submit.ts:155",
+     "pages/assignments.tsx:174",
+     "pages/assignments.tsx:236",
+     "pages/assignments.tsx:276"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [
+      "tests/e2e/assessment-frequency-validation.spec.ts",
+      "tests/e2e/due-reminders.spec.ts"
+     ],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 32,
+     "in": "AssignmentDetailPage",
+     "text": "!id"
+    },
+    {
+     "kind": "nav",
+     "line": 38,
+     "in": "checkSessionAndLoadData",
+     "when": "!session?.user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 52,
+     "in": "checkSessionAndLoadData",
+     "when": "profile",
+     "text": "role = await getUserPrimaryRole(session.user.id)",
+     "via": "getUserPrimaryRole"
+    },
+    {
+     "kind": "toast",
+     "line": 58,
+     "in": "checkSessionAndLoadData",
+     "when": "profile && !['lider_comunidad', 'docente'].includes(role)",
+     "text": "No tienes permisos para ver esta página",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 59,
+     "in": "checkSessionAndLoadData",
+     "when": "profile && !['lider_comunidad', 'docente'].includes(role)",
+     "text": "/assignments",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 68,
+     "in": "checkSessionAndLoadData",
+     "text": "Error al cargar los datos",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 69,
+     "in": "checkSessionAndLoadData",
+     "text": "/assignments",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 81,
+     "in": "loadAssignmentAndSubmission",
+     "when": "!assignmentData || !assignmentData.is_published",
+     "text": "Tarea no encontrada",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 82,
+     "in": "loadAssignmentAndSubmission",
+     "when": "!assignmentData || !assignmentData.is_published",
+     "text": "/assignments",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 101,
+     "in": "loadAssignmentAndSubmission",
+     "text": "Error al cargar la tarea",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 128,
+     "in": "handleSubmitAssignment",
+     "text": "Borrador guardado / Tarea enviada exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 133,
+     "in": "handleSubmitAssignment",
+     "text": "Error al enviar la tarea",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 139,
+     "in": "handleLogout",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "gate",
+     "line": 150,
+     "in": "AssignmentDetailPage",
+     "text": "!assignment"
+    },
+    {
+     "kind": "text",
+     "line": 157,
+     "in": "AssignmentDetailPage",
+     "text": "{assignment.title} - Genera"
+    },
+    {
+     "kind": "piece",
+     "line": 160,
+     "in": "AssignmentDetailPage",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "link",
+     "line": 170,
+     "in": "AssignmentDetailPage",
+     "text": "Volver a Mis Tareas",
+     "target": "/assignments"
+    },
+    {
+     "kind": "piece",
+     "line": 179,
+     "in": "AssignmentDetailPage",
+     "text": "subtitle: {assignmentUtils.getTypeLabe…} - {assignment.course?.title ||…}",
+     "tag": "ResponsiveFunctionalPageHeader"
+    },
+    {
+     "kind": "text",
+     "line": 194,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing",
+     "text": "Fecha límite"
+    },
+    {
+     "kind": "text",
+     "line": 195,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing",
+     "text": "{assignmentUtils.formatDueDate(assig…} / Sin fecha límite"
+    },
+    {
+     "kind": "text",
+     "line": 206,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing",
+     "text": "Puntos"
+    },
+    {
+     "kind": "text",
+     "line": 207,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing",
+     "text": "{assignment.points} puntos"
+    },
+    {
+     "kind": "text",
+     "line": 218,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing",
+     "text": "Estado"
+    },
+    {
+     "kind": "text",
+     "line": 219,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing",
+     "text": "Sin entregar / Borrador / Enviado / Calificado: {submission.score}/{assignment.points} / Devuelto para revisión / Desconocido"
+    },
+    {
+     "kind": "heading",
+     "line": 237,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing && ((assignment.description || assignment.instructions)) && assignment.description",
+     "text": "Descripción",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 238,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing && ((assignment.description || assignment.instructions)) && assignment.description",
+     "text": "{assignment.description}"
+    },
+    {
+     "kind": "heading",
+     "line": 243,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing && ((assignment.description || assignment.instructions)) && assignment.instructions",
+     "text": "Instrucciones",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 244,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing && ((assignment.description || assignment.instructions)) && assignment.instructions",
+     "text": "{assignment.instructions}"
+    },
+    {
+     "kind": "heading",
+     "line": 255,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing && assignment.resources && assignment.resources.length > 0",
+     "text": "Recursos",
+     "level": 3
+    },
+    {
+     "kind": "link",
+     "line": 258,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing && assignment.resources && assignment.resources.length > 0 && each assignment.resources",
+     "text": "{resource.title}",
+     "target": "{resource.url}",
+     "newTab": true
+    },
+    {
+     "kind": "heading",
+     "line": 278,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing && submission",
+     "text": "Tu entrega",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 282,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing && submission && submission.content",
+     "text": "Respuesta:"
+    },
+    {
+     "kind": "value",
+     "line": 284,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing && submission && submission.content",
+     "text": "{submission.content}"
+    },
+    {
+     "kind": "text",
+     "line": 291,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing && submission && submission.attachment_urls && submission.attachment_urls.length > 0",
+     "text": "Archivos adjuntos:"
+    },
+    {
+     "kind": "link",
+     "line": 294,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing && submission && submission.attachment_urls && submission.attachment_urls.length > 0 && each submission.attachment_urls",
+     "text": "Archivo {index + 1}",
+     "target": "{url}",
+     "newTab": true
+    },
+    {
+     "kind": "text",
+     "line": 311,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing && submission && submission.feedback",
+     "text": "Retroalimentación del profesor:"
+    },
+    {
+     "kind": "value",
+     "line": 314,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing && submission && submission.feedback",
+     "text": "{submission.feedback}"
+    },
+    {
+     "kind": "button",
+     "line": 322,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing && submission && ((submission.status === 'draft' || submission.status === 'returned'))",
+     "text": "Editar entrega",
+     "action": "{() => setIsEditing(true)}"
+    },
+    {
+     "kind": "button",
+     "line": 336,
+     "in": "AssignmentDetailPage",
+     "when": "!isEditing && !submission && !isEditing",
+     "text": "Comenzar tarea",
+     "action": "{() => setIsEditing(true)}"
+    },
+    {
+     "kind": "piece",
+     "line": 349,
+     "in": "AssignmentDetailPage",
+     "when": "isEditing",
+     "text": "",
+     "tag": "SubmissionForm"
+    },
+    {
+     "kind": "string",
+     "line": 182,
+     "in": "AssignmentDetailPage",
+     "text": "Sin curso"
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "[id] (part of the address)",
+     "type": "address value"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/assignments/SubmissionForm.tsx",
+    "components/layout/FunctionalPageHeader.tsx",
+    "lib/services/assignments.js",
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": []
+  },
+  {
+   "file": "pages/assignments/[id]/submissions.tsx",
+   "route": "/assignments/[id]/submissions",
+   "lines": 421,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 175,
+      "text": "router.push → /login  (when !session?.user)"
+     },
+     {
+      "line": 189,
+      "text": "role = await getUserPrimaryRole(session.user.id)"
+     },
+     {
+      "line": 286,
+      "text": "router.push → /login"
+     }
+    ],
+    "linkedFrom": [
+     "components/assignments/AssignmentCard.tsx:117"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "popup",
+     "line": 36,
+     "in": "GradeModal",
+     "text": "Calificar entrega de {submission.student?.name}",
+     "how": "written in this file"
+    },
+    {
+     "kind": "heading",
+     "line": 38,
+     "in": "GradeModal",
+     "text": "Calificar entrega de {submission.student?.name}",
+     "level": 3
+    },
+    {
+     "kind": "form",
+     "line": 42,
+     "in": "GradeModal",
+     "text": "{handleSubmit}"
+    },
+    {
+     "kind": "label",
+     "line": 44,
+     "in": "GradeModal",
+     "text": "Puntaje (máximo: {assignment.points} )"
+    },
+    {
+     "kind": "field",
+     "line": 47,
+     "in": "GradeModal",
+     "text": "Puntaje (máximo: {assignment.points} )",
+     "type": "number",
+     "required": "true",
+     "limits": "min=0 max={assignment.points} step=0.5",
+     "action": "{(e) => setScore(Number(e.target.value))}"
+    },
+    {
+     "kind": "label",
+     "line": 60,
+     "in": "GradeModal",
+     "text": "Retroalimentación"
+    },
+    {
+     "kind": "field",
+     "line": 63,
+     "in": "GradeModal",
+     "text": "Retroalimentación",
+     "type": "textarea",
+     "placeholder": "Escribe comentarios para el estudiante...",
+     "limits": "",
+     "action": "{(e) => setFeedback(e.target.value)}"
+    },
+    {
+     "kind": "button",
+     "line": 73,
+     "in": "GradeModal",
+     "text": "Cancelar",
+     "action": "{onClose}"
+    },
+    {
+     "kind": "button",
+     "line": 80,
+     "in": "GradeModal",
+     "text": "Guardar calificación",
+     "submit": true
+    },
+    {
+     "kind": "toast",
+     "line": 105,
+     "in": "handleSubmit",
+     "when": "!feedback.trim()",
+     "text": "Por favor proporciona retroalimentación",
+     "variant": "error"
+    },
+    {
+     "kind": "popup",
+     "line": 112,
+     "in": "ReturnModal",
+     "text": "Devolver tarea a {submission.student?.name}",
+     "how": "written in this file"
+    },
+    {
+     "kind": "heading",
+     "line": 114,
+     "in": "ReturnModal",
+     "text": "Devolver tarea a {submission.student?.name}",
+     "level": 3
+    },
+    {
+     "kind": "form",
+     "line": 118,
+     "in": "ReturnModal",
+     "text": "{handleSubmit}"
+    },
+    {
+     "kind": "label",
+     "line": 120,
+     "in": "ReturnModal",
+     "text": "Retroalimentación para revisión *"
+    },
+    {
+     "kind": "field",
+     "line": 123,
+     "in": "ReturnModal",
+     "text": "Retroalimentación para revisión *",
+     "type": "textarea",
+     "placeholder": "Explica qué debe mejorar el estudiante...",
+     "required": "true",
+     "limits": "",
+     "action": "{(e) => setFeedback(e.target.value)}"
+    },
+    {
+     "kind": "button",
+     "line": 134,
+     "in": "ReturnModal",
+     "text": "Cancelar",
+     "action": "{onClose}"
+    },
+    {
+     "kind": "button",
+     "line": 141,
+     "in": "ReturnModal",
+     "text": "Devolver para revisión",
+     "submit": true
+    },
+    {
+     "kind": "gate",
+     "line": 169,
+     "in": "SubmissionsPage",
+     "text": "!id"
+    },
+    {
+     "kind": "nav",
+     "line": 175,
+     "in": "checkSessionAndLoadData",
+     "when": "!session?.user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 189,
+     "in": "checkSessionAndLoadData",
+     "when": "profile",
+     "text": "role = await getUserPrimaryRole(session.user.id)",
+     "via": "getUserPrimaryRole"
+    },
+    {
+     "kind": "toast",
+     "line": 195,
+     "in": "checkSessionAndLoadData",
+     "when": "profile && !['admin', 'consultor', 'equipo_directivo', 'lider_generacion'].includes(role)",
+     "text": "No tienes permisos para ver esta página",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 196,
+     "in": "checkSessionAndLoadData",
+     "when": "profile && !['admin', 'consultor', 'equipo_directivo', 'lider_generacion'].includes(role)",
+     "text": "/assignments",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 205,
+     "in": "checkSessionAndLoadData",
+     "text": "Error al cargar los datos",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 206,
+     "in": "checkSessionAndLoadData",
+     "text": "/assignments",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 218,
+     "in": "loadAssignmentAndSubmissions",
+     "when": "!assignmentData",
+     "text": "Tarea no encontrada",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 219,
+     "in": "loadAssignmentAndSubmissions",
+     "when": "!assignmentData",
+     "text": "/assignments",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 225,
+     "in": "loadAssignmentAndSubmissions",
+     "when": "assignmentData.created_by !== userId && userRole !== 'admin'",
+     "text": "No tienes permisos para ver estas entregas",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 226,
+     "in": "loadAssignmentAndSubmissions",
+     "when": "assignmentData.created_by !== userId && userRole !== 'admin'",
+     "text": "/assignments",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 239,
+     "in": "loadAssignmentAndSubmissions",
+     "text": "Error al cargar las entregas",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 248,
+     "in": "handleGradeSubmission",
+     "text": "Calificación guardada exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 257,
+     "in": "handleGradeSubmission",
+     "text": "Error al guardar la calificación",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 266,
+     "in": "handleReturnSubmission",
+     "text": "Tarea devuelta para revisión",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 275,
+     "in": "handleReturnSubmission",
+     "text": "Error al devolver la tarea",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 281,
+     "in": "handleExportSubmissions",
+     "text": "Función de exportación próximamente",
+     "variant": "success"
+    },
+    {
+     "kind": "nav",
+     "line": 286,
+     "in": "handleLogout",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "gate",
+     "line": 307,
+     "in": "SubmissionsPage",
+     "text": "!assignment"
+    },
+    {
+     "kind": "text",
+     "line": 314,
+     "in": "SubmissionsPage",
+     "text": "Entregas - {assignment.title} - Genera"
+    },
+    {
+     "kind": "piece",
+     "line": 317,
+     "in": "SubmissionsPage",
+     "text": "pageTitle: Entregas",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "link",
+     "line": 327,
+     "in": "SubmissionsPage",
+     "text": "Volver a Mis Tareas",
+     "target": "/assignments"
+    },
+    {
+     "kind": "piece",
+     "line": 336,
+     "in": "SubmissionsPage",
+     "text": "title: Entregas: {assignment.title} · subtitle: {submissions.length} entrega(s) recibida(s) · searchPlaceholder: Buscar por estudiante... · primaryAction: Exportar",
+     "tag": "ResponsiveFunctionalPageHeader"
+    },
+    {
+     "kind": "text",
+     "line": 354,
+     "in": "SubmissionsPage",
+     "text": "Fecha límite:"
+    },
+    {
+     "kind": "text",
+     "line": 355,
+     "in": "SubmissionsPage",
+     "text": "{new Date(assignment.due_date).toLoc…} / Sin fecha límite"
+    },
+    {
+     "kind": "text",
+     "line": 363,
+     "in": "SubmissionsPage",
+     "text": "Puntos:"
+    },
+    {
+     "kind": "value",
+     "line": 364,
+     "in": "SubmissionsPage",
+     "text": "{assignment.points}"
+    },
+    {
+     "kind": "text",
+     "line": 367,
+     "in": "SubmissionsPage",
+     "text": "Enviadas:"
+    },
+    {
+     "kind": "value",
+     "line": 368,
+     "in": "SubmissionsPage",
+     "text": "{submissions.filter(s => s.status !=…}"
+    },
+    {
+     "kind": "text",
+     "line": 373,
+     "in": "SubmissionsPage",
+     "text": "Calificadas:"
+    },
+    {
+     "kind": "value",
+     "line": 374,
+     "in": "SubmissionsPage",
+     "text": "{submissions.filter(s => s.status ==…}"
+    },
+    {
+     "kind": "piece",
+     "line": 382,
+     "in": "SubmissionsPage",
+     "text": "",
+     "tag": "SubmissionList"
+    },
+    {
+     "kind": "popup",
+     "line": 397,
+     "in": "SubmissionsPage",
+     "when": "gradeModal",
+     "text": "GradeModal",
+     "how": "component"
+    },
+    {
+     "kind": "popup",
+     "line": 409,
+     "in": "SubmissionsPage",
+     "when": "returnModal",
+     "text": "ReturnModal",
+     "how": "component"
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "[id] (part of the address)",
+     "type": "address value"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/assignments/SubmissionList.tsx",
+    "components/layout/FunctionalPageHeader.tsx",
+    "lib/services/assignments.js",
+    "types/roles.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": []
+  },
+  {
+   "file": "pages/community/workspace/assignments/[id]/discussion.tsx",
+   "route": "/community/workspace/assignments/[id]/discussion",
+   "lines": 405,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "the workspace rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     }
+    },
+    "inPage": [
+     {
+      "line": 33,
+      "text": "router.push → /login  (when !(!authLoading && user && assignmentId) && !authLoading && !user)"
+     }
+    ],
+    "linkedFrom": [
+     "pages/api/qa/seed-codebase-index.ts:533"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/finance-messaging-access.spec.ts"
+     ],
+     "e2e": [
+      "tests/e2e/urgent-anonymous-boundaries.spec.ts",
+      "tests/e2e/urgent-anonymous-current.spec.ts"
+     ],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 33,
+     "in": "GroupDiscussionPage",
+     "when": "!(!authLoading && user && assignmentId) && !authLoading && !user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "gate",
+     "line": 38,
+     "in": "GroupDiscussionPage",
+     "text": "!thread"
+    },
+    {
+     "kind": "message",
+     "line": 79,
+     "in": "loadData",
+     "when": "blockData.type !== 'group-assignment' && blockData.type !== 'group_assignment'",
+     "text": "This is not a group assignment",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 149,
+     "in": "loadData",
+     "when": "membershipError || !userGroupData",
+     "text": "No eres parte de ningún grupo para esta tarea",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 150,
+     "in": "loadData",
+     "when": "membershipError || !userGroupData",
+     "text": "/mi-aprendizaje/tareas",
+     "via": "router.push"
+    },
+    {
+     "kind": "message",
+     "line": 159,
+     "in": "loadData",
+     "when": "groupError || !group",
+     "text": "No se pudo verificar el grupo",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 168,
+     "in": "loadData",
+     "when": "group.community_id && (error || !data)",
+     "text": "No se pudo abrir el espacio del grupo",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 204,
+     "in": "loadData",
+     "text": "Error al cargar los datos",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 222,
+     "in": "handleSendMessage",
+     "text": "Error al enviar el mensaje",
+     "variant": "error"
+    },
+    {
+     "kind": "piece",
+     "line": 248,
+     "in": "GroupDiscussionPage",
+     "when": "authLoading || loading",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "gate",
+     "line": 264,
+     "in": "GroupDiscussionPage",
+     "text": "!assignment || !thread"
+    },
+    {
+     "kind": "text",
+     "line": 271,
+     "in": "GroupDiscussionPage",
+     "text": "Discusión - {assignment.title} - Genera"
+    },
+    {
+     "kind": "piece",
+     "line": 274,
+     "in": "GroupDiscussionPage",
+     "text": "pageTitle: Discusión del Grupo · breadcrumbs: Mis Tareas",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "button",
+     "line": 288,
+     "in": "GroupDiscussionPage",
+     "text": "Volver a Tareas Grupales",
+     "action": "{() => router.push('/mi-aprendizaje/tareas')}"
+    },
+    {
+     "kind": "nav",
+     "line": 289,
+     "in": "GroupDiscussionPage",
+     "text": "/mi-aprendizaje/tareas",
+     "via": "router.push"
+    },
+    {
+     "kind": "heading",
+     "line": 300,
+     "in": "GroupDiscussionPage",
+     "text": "Discusión: {assignment.title}",
+     "level": 1
+    },
+    {
+     "kind": "value",
+     "line": 303,
+     "in": "GroupDiscussionPage",
+     "text": "{assignment.course?.title} - {assignment.lesson?.title}"
+    },
+    {
+     "kind": "heading",
+     "line": 313,
+     "in": "GroupDiscussionPage",
+     "text": "Miembros del grupo ( {groupMembers.length} )",
+     "level": 3
+    },
+    {
+     "kind": "media",
+     "line": 323,
+     "in": "GroupDiscussionPage",
+     "when": "each groupMembers && member.user?.avatar_url",
+     "text": "img · alt {member.user.name} · {member.user.avatar_url}"
+    },
+    {
+     "kind": "text",
+     "line": 334,
+     "in": "GroupDiscussionPage",
+     "when": "each groupMembers && member.role === 'leader'",
+     "text": "(Líder)"
+    },
+    {
+     "kind": "text",
+     "line": 350,
+     "in": "GroupDiscussionPage",
+     "when": "messages.length === 0",
+     "text": "No hay mensajes aún. ¡Inicia la conversación!"
+    },
+    {
+     "kind": "piece",
+     "line": 355,
+     "in": "GroupDiscussionPage",
+     "when": "!(messages.length === 0) && each messages",
+     "text": "message: Usuario",
+     "tag": "MessageCard"
+    },
+    {
+     "kind": "piece",
+     "line": 390,
+     "in": "GroupDiscussionPage",
+     "text": "",
+     "tag": "MessageComposer"
+    },
+    {
+     "kind": "string",
+     "line": 126,
+     "in": "GroupDiscussionPage",
+     "text": "Tarea Grupal"
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "[id] (part of the address)",
+     "type": "address value"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:blocks",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:community_messages",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:community_workspaces",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:courses",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:group_assignment_groups",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:group_assignment_members",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:group_assignments_with_status",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:growth_communities",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/messaging/MentionPicker.tsx",
+    "components/messaging/MessageCard.tsx",
+    "components/messaging/MessageComposer.tsx",
+    "lib/services/groupAssignments.js",
+    "lib/services/groupAssignmentsV2.js",
+    "lib/utils/file-format.ts",
+    "types/messaging.ts",
+    "types/roles.ts",
+    "utils/messagingUtils-simple.ts",
+    "utils/messagingUtils.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/assignments/submit-group.ts",
+     "route": "/api/assignments/submit-group",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "lib/services/groupAssignmentsV2.js:429"
+     ]
+    },
+    {
+     "file": "pages/api/community/workspace-message-notifications.ts",
+     "route": "/api/community/workspace-message-notifications",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "utils/messagingUtils-simple.ts:816"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/community/workspace/assignments/[id]/groups.tsx",
+   "route": "/community/workspace/assignments/[id]/groups",
+   "lines": 296,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "the workspace rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass if has a community, else /dashboard"
+     }
+    },
+    "inPage": [
+     {
+      "line": 28,
+      "text": "router.push → /login  (when !(!authLoading && user && assignmentId) && !authLoading && !user)"
+     }
+    ],
+    "linkedFrom": [
+     "pages/api/qa/seed-codebase-index.ts:493"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 28,
+     "in": "AssignmentGroupsPage",
+     "when": "!(!authLoading && user && assignmentId) && !authLoading && !user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 83,
+     "in": "loadData",
+     "text": "Error al cargar los datos",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 100,
+     "in": "handleJoinGroup",
+     "text": "Te has unido al grupo exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 104,
+     "in": "handleJoinGroup",
+     "text": "Error al unirse al grupo",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 113,
+     "in": "handleLeaveGroup",
+     "text": "Has salido del grupo",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 117,
+     "in": "handleLeaveGroup",
+     "text": "Error al salir del grupo",
+     "variant": "error"
+    },
+    {
+     "kind": "piece",
+     "line": 123,
+     "in": "AssignmentGroupsPage",
+     "when": "authLoading || loading",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "gate",
+     "line": 139,
+     "in": "AssignmentGroupsPage",
+     "text": "!assignment"
+    },
+    {
+     "kind": "text",
+     "line": 146,
+     "in": "AssignmentGroupsPage",
+     "text": "Grupos - {assignment.title} - Genera"
+    },
+    {
+     "kind": "piece",
+     "line": 149,
+     "in": "AssignmentGroupsPage",
+     "text": "pageTitle: Grupos de Trabajo · breadcrumbs: Mis Tareas",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "button",
+     "line": 163,
+     "in": "AssignmentGroupsPage",
+     "text": "Volver a Tareas Grupales",
+     "action": "{() => router.push('/mi-aprendizaje/tareas')}"
+    },
+    {
+     "kind": "nav",
+     "line": 164,
+     "in": "AssignmentGroupsPage",
+     "text": "/mi-aprendizaje/tareas",
+     "via": "router.push"
+    },
+    {
+     "kind": "heading",
+     "line": 175,
+     "in": "AssignmentGroupsPage",
+     "text": "{assignment.title}",
+     "level": 1
+    },
+    {
+     "kind": "value",
+     "line": 176,
+     "in": "AssignmentGroupsPage",
+     "text": "{assignment.courses?.title} - {assignment.lessons?.title}"
+    },
+    {
+     "kind": "text",
+     "line": 180,
+     "in": "AssignmentGroupsPage",
+     "text": "Comunidad: {assignment.community?.name}"
+    },
+    {
+     "kind": "text",
+     "line": 182,
+     "in": "AssignmentGroupsPage",
+     "text": "Grupos: {assignment.min_group_size} - {assignment.max_group_size} miembros"
+    },
+    {
+     "kind": "text",
+     "line": 195,
+     "in": "AssignmentGroupsPage",
+     "when": "userGroup",
+     "text": "Ya eres parte de un grupo ( {userGroup.members.length} miembros)"
+    },
+    {
+     "kind": "button",
+     "line": 199,
+     "in": "AssignmentGroupsPage",
+     "when": "userGroup",
+     "text": "Salir del grupo",
+     "action": "{handleLeaveGroup}"
+    },
+    {
+     "kind": "heading",
+     "line": 214,
+     "in": "AssignmentGroupsPage",
+     "when": "groups.length === 0",
+     "text": "No hay grupos formados aún",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 218,
+     "in": "AssignmentGroupsPage",
+     "when": "groups.length === 0",
+     "text": "Sé el primero en crear un grupo para esta tarea."
+    },
+    {
+     "kind": "heading",
+     "line": 231,
+     "in": "AssignmentGroupsPage",
+     "when": "!(groups.length === 0) && each groups",
+     "text": "Grupo {index + 1}",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 234,
+     "in": "AssignmentGroupsPage",
+     "when": "!(groups.length === 0) && each groups",
+     "text": "{group.members.length} de {assignment.max_group_size} miembros"
+    },
+    {
+     "kind": "text",
+     "line": 240,
+     "in": "AssignmentGroupsPage",
+     "when": "!(groups.length === 0) && each groups && isMyGroup",
+     "text": "Tu grupo"
+    },
+    {
+     "kind": "text",
+     "line": 245,
+     "in": "AssignmentGroupsPage",
+     "when": "!(groups.length === 0) && each groups && isFull && !isMyGroup",
+     "text": "Completo"
+    },
+    {
+     "kind": "media",
+     "line": 255,
+     "in": "AssignmentGroupsPage",
+     "when": "!(groups.length === 0) && each groups && each group.members && member.user?.avatar_url",
+     "text": "img · alt {member.user.name} · {member.user.avatar_url}"
+    },
+    {
+     "kind": "text",
+     "line": 267,
+     "in": "AssignmentGroupsPage",
+     "when": "!(groups.length === 0) && each groups && each group.members",
+     "text": "Usuario"
+    },
+    {
+     "kind": "text",
+     "line": 269,
+     "in": "AssignmentGroupsPage",
+     "when": "!(groups.length === 0) && each groups && each group.members && member.role === 'leader'",
+     "text": "Líder"
+    },
+    {
+     "kind": "value",
+     "line": 272,
+     "in": "AssignmentGroupsPage",
+     "when": "!(groups.length === 0) && each groups && each group.members",
+     "text": "{member.user?.email}"
+    },
+    {
+     "kind": "button",
+     "line": 280,
+     "in": "AssignmentGroupsPage",
+     "when": "!(groups.length === 0) && each groups && canJoin",
+     "text": "Unirse a este grupo",
+     "action": "{() => handleJoinGroup(group.id)}"
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "[id] (part of the address)",
+     "type": "address value"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:community_workspaces",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:lesson_assignments",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "lib/services/groupAssignments.js",
+    "lib/services/groupAssignmentsV2.js",
+    "types/roles.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/assignments/submit-group.ts",
+     "route": "/api/assignments/submit-group",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "lib/services/groupAssignmentsV2.js:429"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/quiz-reviews.tsx",
+   "route": "/quiz-reviews",
+   "lines": 239,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [
+     {
+      "id": "quiz-reviews",
+      "label": "Revisión de Quizzes",
+      "group": "Mi Trabajo",
+      "href": "/quiz-reviews",
+      "gates": "admin or consultor",
+      "groupGates": "admin or consultor",
+      "line": 203
+     }
+    ],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "no",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "no",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 23,
+      "text": "router.push → /login  (when !user)"
+     },
+     {
+      "line": 28,
+      "text": "if (!hasRole('admin') && !hasRole('consultor') && !hasRole('equipo_directivo')) { toast.error('No tienes permisos para acceder a esta página'); route…"
+     },
+     {
+      "line": 28,
+      "text": "if (!hasRole('admin') && !hasRole('consultor') && !hasRole('equipo_directivo')) { toast.error('No tienes permisos para acceder a esta página'); route…"
+     },
+     {
+      "line": 28,
+      "text": "if (!hasRole('admin') && !hasRole('consultor') && !hasRole('equipo_directivo')) { toast.error('No tienes permisos para acceder a esta página'); route…"
+     },
+     {
+      "line": 30,
+      "text": "router.push → /dashboard  (when !hasRole('admin') && !hasRole('consultor') && !hasRole('equipo_directivo'))"
+     },
+     {
+      "line": 111,
+      "text": "getHighestRole(userRoles) || ''"
+     }
+    ],
+    "linkedFrom": [
+     "components/DynamicFavicon.tsx:35",
+     "components/layout/Sidebar.tsx:205",
+     "lib/auth/forced-password-change.ts:158",
+     "lib/notifications/catalog.ts:310",
+     "middleware.ts:353",
+     "pages/quiz-reviews/[id].tsx:59",
+     "pages/quiz-reviews/[id].tsx:73",
+     "pages/quiz-reviews/[id].tsx:81",
+     "pages/quiz-reviews/[id].tsx:97"
+    ],
+    "qaScenarios": {
+     "admin": [
+      "CA-20: Admin accede a revisión de quizzes",
+      "SV-7: Admin ve Revisión de Quizzes en sidebar",
+      "GS-6: Admin ve quizzes pendientes de todas las escuelas"
+     ],
+     "community_manager": [
+      "CM no puede revisar quizzes"
+     ],
+     "consultor": [
+      "CA-5: Consultor accede a página de revisión de quizzes",
+      "CA-6: Consultor califica una pregunta de quiz abierta"
+     ],
+     "equipo_directivo": [
+      "CA-4: Equipo Directivo accede a página de revisión de quizzes",
+      "CA-5: Equipo Directivo califica una pregunta de quiz abierta",
+      "SS-6: Equipo Directivo ve revisiones de quizzes limitadas a su contexto",
+      "SV-26: Equipo Directivo puede acceder a páginas por URL directa sin link en sidebar"
+     ],
+     "lider_comunidad": [
+      "PB-9: Lider de Comunidad intenta acceder a revisión de quizzes"
+     ],
+     "lider_generacion": [
+      "PB-9: Lider Generacion intenta acceder a revisión de quizzes"
+     ],
+     "supervisor_de_red": [
+      "PB-8: Supervisor intenta acceder a página de revisión de quizzes"
+     ]
+    },
+    "tests": {
+     "e2eCi": [],
+     "e2e": [
+      "tests/e2e/urgent-anonymous-boundaries.spec.ts",
+      "tests/e2e/urgent-anonymous-current.spec.ts"
+     ],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 23,
+     "in": "initializePage",
+     "when": "!user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 28,
+     "in": "initializePage",
+     "text": "if (!hasRole('admin') && !hasRole('consultor') && !hasRole('equipo_directivo')) { toast.error('No tienes permisos para acceder a esta página'); route…",
+     "via": "hasRole"
+    },
+    {
+     "kind": "access",
+     "line": 28,
+     "in": "initializePage",
+     "text": "if (!hasRole('admin') && !hasRole('consultor') && !hasRole('equipo_directivo')) { toast.error('No tienes permisos para acceder a esta página'); route…",
+     "via": "hasRole"
+    },
+    {
+     "kind": "access",
+     "line": 28,
+     "in": "initializePage",
+     "text": "if (!hasRole('admin') && !hasRole('consultor') && !hasRole('equipo_directivo')) { toast.error('No tienes permisos para acceder a esta página'); route…",
+     "via": "hasRole"
+    },
+    {
+     "kind": "toast",
+     "line": 29,
+     "in": "initializePage",
+     "when": "!hasRole('admin') && !hasRole('consultor') && !hasRole('equipo_directivo')",
+     "text": "No tienes permisos para acceder a esta página",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 30,
+     "in": "initializePage",
+     "when": "!hasRole('admin') && !hasRole('consultor') && !hasRole('equipo_directivo')",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "message",
+     "line": 48,
+     "in": "loadPendingReviews",
+     "when": "!session?.access_token",
+     "text": "No session token",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 64,
+     "in": "loadPendingReviews",
+     "when": "!response.ok",
+     "text": "Failed to fetch reviews",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 73,
+     "in": "loadPendingReviews",
+     "text": "Error al cargar las revisiones pendientes",
+     "variant": "error"
+    },
+    {
+     "kind": "text",
+     "line": 103,
+     "in": "QuizReviewsPage",
+     "text": "Revisión de Quizzes - Genera"
+    },
+    {
+     "kind": "piece",
+     "line": 106,
+     "in": "QuizReviewsPage",
+     "text": "pageTitle: Revisión de Quizzes",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "access",
+     "line": 111,
+     "in": "QuizReviewsPage",
+     "text": "getHighestRole(userRoles) || ''",
+     "via": "getHighestRole"
+    },
+    {
+     "kind": "text",
+     "line": 121,
+     "in": "QuizReviewsPage",
+     "text": "Pendientes de revisión"
+    },
+    {
+     "kind": "value",
+     "line": 122,
+     "in": "QuizReviewsPage",
+     "text": "{pendingReviews.length}"
+    },
+    {
+     "kind": "text",
+     "line": 131,
+     "in": "QuizReviewsPage",
+     "text": "Tiempo promedio"
+    },
+    {
+     "kind": "text",
+     "line": 132,
+     "in": "QuizReviewsPage",
+     "text": "~15 min"
+    },
+    {
+     "kind": "text",
+     "line": 141,
+     "in": "QuizReviewsPage",
+     "text": "Revisados hoy"
+    },
+    {
+     "kind": "button",
+     "line": 151,
+     "in": "QuizReviewsPage",
+     "text": "Mis cursos",
+     "action": "{() => setFilter('my_courses')}"
+    },
+    {
+     "kind": "button",
+     "line": 162,
+     "in": "QuizReviewsPage",
+     "when": "isAdmin",
+     "text": "Todos los cursos",
+     "action": "{() => setFilter('all')}"
+    },
+    {
+     "kind": "heading",
+     "line": 178,
+     "in": "QuizReviewsPage",
+     "text": "Quizzes pendientes de revisión",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 180,
+     "in": "QuizReviewsPage",
+     "text": "Estos quizzes contienen preguntas abiertas que requieren calificación manual"
+    },
+    {
+     "kind": "text",
+     "line": 188,
+     "in": "QuizReviewsPage",
+     "when": "pendingReviews.length === 0",
+     "text": "No hay quizzes pendientes de revisión"
+    },
+    {
+     "kind": "text",
+     "line": 190,
+     "in": "QuizReviewsPage",
+     "when": "pendingReviews.length === 0",
+     "text": "Los quizzes con preguntas abiertas aparecerán aquí cuando los estudiantes los completen"
+    },
+    {
+     "kind": "heading",
+     "line": 199,
+     "in": "QuizReviewsPage",
+     "when": "!(pendingReviews.length === 0) && each pendingReviews",
+     "text": "{review.student_name}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 201,
+     "in": "QuizReviewsPage",
+     "when": "!(pendingReviews.length === 0) && each pendingReviews",
+     "text": "{review.student_email}"
+    },
+    {
+     "kind": "text",
+     "line": 205,
+     "in": "QuizReviewsPage",
+     "when": "!(pendingReviews.length === 0) && each pendingReviews",
+     "text": "Curso:"
+    },
+    {
+     "kind": "value",
+     "line": 205,
+     "in": "QuizReviewsPage",
+     "when": "!(pendingReviews.length === 0) && each pendingReviews",
+     "text": "{review.course_title}"
+    },
+    {
+     "kind": "text",
+     "line": 206,
+     "in": "QuizReviewsPage",
+     "when": "!(pendingReviews.length === 0) && each pendingReviews",
+     "text": "Lección:"
+    },
+    {
+     "kind": "value",
+     "line": 206,
+     "in": "QuizReviewsPage",
+     "when": "!(pendingReviews.length === 0) && each pendingReviews",
+     "text": "{review.lesson_title}"
+    },
+    {
+     "kind": "text",
+     "line": 207,
+     "in": "QuizReviewsPage",
+     "when": "!(pendingReviews.length === 0) && each pendingReviews",
+     "text": "Preguntas abiertas:"
+    },
+    {
+     "kind": "value",
+     "line": 207,
+     "in": "QuizReviewsPage",
+     "when": "!(pendingReviews.length === 0) && each pendingReviews",
+     "text": "{review.open_responses?.length}"
+    },
+    {
+     "kind": "text",
+     "line": 213,
+     "in": "QuizReviewsPage",
+     "when": "!(pendingReviews.length === 0) && each pendingReviews",
+     "text": "Enviado"
+    },
+    {
+     "kind": "text",
+     "line": 217,
+     "in": "QuizReviewsPage",
+     "when": "!(pendingReviews.length === 0) && each pendingReviews && review.reviewer_workload > 5",
+     "text": "Alta carga de trabajo"
+    },
+    {
+     "kind": "link",
+     "line": 223,
+     "in": "QuizReviewsPage",
+     "when": "!(pendingReviews.length === 0) && each pendingReviews",
+     "text": "Revisar",
+     "target": "/quiz-reviews/[*]"
+    },
+    {
+     "kind": "string",
+     "line": 58,
+     "in": "QuizReviewsPage",
+     "text": "Bearer {session.access_token}"
+    },
+    {
+     "kind": "string",
+     "line": 86,
+     "in": "QuizReviewsPage",
+     "text": "hace {diffDays} {diffDays === 1 ? 'día' : 'd…}"
+    },
+    {
+     "kind": "list",
+     "line": 86,
+     "in": "getTimeAgo",
+     "text": "getTimeAgo()",
+     "items": [
+      "hace {diffDays} {diffDays === 1 ? 'día' : 'd…}",
+      "hace {diffHours} {diffHours === 1 ? 'hora' : …}",
+      "hace {diffMins} {diffMins === 1 ? 'minuto' :…}",
+      "hace un momento"
+     ]
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "types/roles.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/quiz-reviews/pending.ts",
+     "route": "/api/quiz-reviews/pending",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/quiz-reviews.tsx:54"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/quiz-reviews/[id].tsx",
+   "route": "/quiz-reviews/[id]",
+   "lines": 135,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 35,
+      "text": "router.push → /login  (when !currentSession?.access_token)"
+     },
+     {
+      "line": 53,
+      "text": "router.push → /dashboard  (when !response.ok && response.status === 403)"
+     },
+     {
+      "line": 92,
+      "text": "router.push → /login"
+     }
+    ],
+    "linkedFrom": [
+     "middleware.ts:353",
+     "pages/quiz-reviews.tsx:223",
+     "pages/quiz-reviews.tsx:224"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [
+      "tests/e2e/urgent-anonymous-boundaries.spec.ts",
+      "tests/e2e/urgent-anonymous-current.spec.ts"
+     ],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 25,
+     "in": "QuizReviewDetailPage",
+     "text": "!id || !session"
+    },
+    {
+     "kind": "toast",
+     "line": 34,
+     "in": "loadData",
+     "when": "!currentSession?.access_token",
+     "text": "Sesión no válida",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 35,
+     "in": "loadData",
+     "when": "!currentSession?.access_token",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 52,
+     "in": "loadData",
+     "when": "!response.ok && response.status === 403",
+     "text": "No tienes permisos para acceder a esta página",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 53,
+     "in": "loadData",
+     "when": "!response.ok && response.status === 403",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 58,
+     "in": "loadData",
+     "when": "!response.ok && response.status === 404",
+     "text": "Quiz no encontrado",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 59,
+     "in": "loadData",
+     "when": "!response.ok && response.status === 404",
+     "text": "/quiz-reviews",
+     "via": "router.push"
+    },
+    {
+     "kind": "message",
+     "line": 63,
+     "in": "loadData",
+     "when": "!response.ok",
+     "text": "Failed to fetch quiz",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 72,
+     "in": "loadData",
+     "when": "submissionData.review_status && submissionData.review_status !== 'pending'",
+     "text": "Este quiz ya ha sido revisado",
+     "variant": "plain"
+    },
+    {
+     "kind": "nav",
+     "line": 73,
+     "in": "loadData",
+     "when": "submissionData.review_status && submissionData.review_status !== 'pending'",
+     "text": "/quiz-reviews",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 80,
+     "in": "loadData",
+     "text": "Error al cargar los datos",
+     "variant": "error"
+    },
+    {
+     "kind": "nav",
+     "line": 81,
+     "in": "loadData",
+     "text": "/quiz-reviews",
+     "via": "router.push"
+    },
+    {
+     "kind": "nav",
+     "line": 92,
+     "in": "handleLogout",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 96,
+     "in": "handleGradingComplete",
+     "text": "Quiz calificado exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "nav",
+     "line": 97,
+     "in": "handleGradingComplete",
+     "text": "/quiz-reviews",
+     "via": "router.push"
+    },
+    {
+     "kind": "text",
+     "line": 111,
+     "in": "QuizReviewDetailPage",
+     "text": "Revisar Quiz - Genera"
+    },
+    {
+     "kind": "piece",
+     "line": 114,
+     "in": "QuizReviewDetailPage",
+     "text": "pageTitle: Revisar Quiz",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "piece",
+     "line": 125,
+     "in": "QuizReviewDetailPage",
+     "when": "submission",
+     "text": "",
+     "tag": "QuizReviewPanel"
+    },
+    {
+     "kind": "string",
+     "line": 44,
+     "in": "QuizReviewDetailPage",
+     "text": "Bearer {currentSession.access_token}"
+    },
+    {
+     "kind": "hook",
+     "line": 1,
+     "text": "[id] (part of the address)",
+     "type": "address value"
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "components/quiz/QuizReviewPanel.tsx",
+    "hooks/useAvatar.ts"
+   ],
+   "api": [
+    {
+     "file": "pages/api/quiz-reviews/[id].ts",
+     "route": "/api/quiz-reviews/[id]",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "pages/quiz-reviews/[id].tsx:40"
+     ]
+    },
+    {
+     "file": "pages/api/quiz-reviews/submit-review.ts",
+     "route": "/api/quiz-reviews/submit-review",
+     "methods": [
+      "POST"
+     ],
+     "from": [
+      "components/quiz/QuizReviewPanel.tsx:60"
+     ]
+    }
+   ]
+  }
+ ],
+ "pieces": {
+  "components/assignments/SubmissionForm.tsx": {
+   "usedBy": [
+    "/assignments/[id]"
+   ],
+   "lines": 233,
+   "rows": [
+    {
+     "kind": "form",
+     "line": 60,
+     "in": "SubmissionForm",
+     "text": "{(e) => handleSubmit(e, false)}"
+    },
+    {
+     "kind": "heading",
+     "line": 63,
+     "in": "SubmissionForm",
+     "text": "{assignment.title}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 65,
+     "in": "SubmissionForm",
+     "when": "assignment.instructions",
+     "text": "{assignment.instructions}"
+    },
+    {
+     "kind": "text",
+     "line": 70,
+     "in": "SubmissionForm",
+     "text": "{assignment.points} puntos"
+    },
+    {
+     "kind": "text",
+     "line": 72,
+     "in": "SubmissionForm",
+     "when": "assignment.due_date",
+     "text": "Fecha límite: {new Date(assignment.due_date).toLoc…}"
+    },
+    {
+     "kind": "heading",
+     "line": 79,
+     "in": "SubmissionForm",
+     "text": "Tu respuesta",
+     "level": 3
+    },
+    {
+     "kind": "label",
+     "line": 83,
+     "in": "SubmissionForm",
+     "text": "Contenido de la entrega"
+    },
+    {
+     "kind": "field",
+     "line": 86,
+     "in": "SubmissionForm",
+     "text": "Contenido de la entrega",
+     "type": "textarea",
+     "placeholder": "Escribe tu respuesta aquí...",
+     "limits": "",
+     "action": "{handleContentChange}"
+    },
+    {
+     "kind": "label",
+     "line": 97,
+     "in": "SubmissionForm",
+     "text": "Archivos adjuntos"
+    },
+    {
+     "kind": "value",
+     "line": 106,
+     "in": "SubmissionForm",
+     "when": "formData.attachment_urls && formData.attachment_urls.length > 0 && each formData.attachment_urls",
+     "text": "{url}"
+    },
+    {
+     "kind": "button",
+     "line": 107,
+     "in": "SubmissionForm",
+     "when": "formData.attachment_urls && formData.attachment_urls.length > 0 && each formData.attachment_urls",
+     "text": "[icon X]",
+     "action": "{() => handleRemoveAttachment(index)}"
+    },
+    {
+     "kind": "field",
+     "line": 120,
+     "in": "SubmissionForm",
+     "text": "Archivos adjuntos",
+     "type": "url",
+     "placeholder": "URL del archivo adjunto",
+     "action": "{(e) => setAttachmentInput(e.target.value)}",
+     "also": "onKeyPress={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddAttachment(); } }}"
+    },
+    {
+     "kind": "button",
+     "line": 133,
+     "in": "SubmissionForm",
+     "text": "[icon Upload]",
+     "action": "{handleAddAttachment}",
+     "disabled": "{!attachmentInput.trim()}"
+    },
+    {
+     "kind": "text",
+     "line": 143,
+     "in": "SubmissionForm",
+     "text": "Pega la URL de tu archivo (Google Drive, Dropbox, etc.)"
+    },
+    {
+     "kind": "text",
+     "line": 159,
+     "in": "SubmissionForm",
+     "when": "submission?.status",
+     "text": "Estado: Borrador / Enviado / Calificado / Devuelto para revisión / {submission.status}"
+    },
+    {
+     "kind": "text",
+     "line": 169,
+     "in": "SubmissionForm",
+     "when": "submission?.status && submission.score !== undefined && submission.score !== null",
+     "text": "Calificación: {submission.score} / {assignment.points}"
+    },
+    {
+     "kind": "text",
+     "line": 177,
+     "in": "SubmissionForm",
+     "when": "submission?.status && submission.feedback",
+     "text": "Retroalimentación:"
+    },
+    {
+     "kind": "value",
+     "line": 178,
+     "in": "SubmissionForm",
+     "when": "submission?.status && submission.feedback",
+     "text": "{submission.feedback}"
+    },
+    {
+     "kind": "button",
+     "line": 186,
+     "in": "SubmissionForm",
+     "text": "Cancelar",
+     "action": "{onCancel}"
+    },
+    {
+     "kind": "button",
+     "line": 197,
+     "in": "SubmissionForm",
+     "when": "(!submission?.status || submission.status === 'draft' || submission.status === 'returned')",
+     "text": "Guardar borrador",
+     "action": "{(e) => handleSubmit(e, true)}",
+     "disabled": "{isLoading || !canSubmit}"
+    },
+    {
+     "kind": "button",
+     "line": 207,
+     "in": "SubmissionForm",
+     "when": "(!submission?.status || submission.status === 'draft' || submission.status === 'returned')",
+     "text": "Enviar tarea",
+     "submit": true,
+     "disabled": "{isLoading || !canSubmit}"
+    },
+    {
+     "kind": "text",
+     "line": 220,
+     "in": "SubmissionForm",
+     "when": "submission?.status === 'submitted'",
+     "text": "Tarea enviada - esperando calificación"
+    },
+    {
+     "kind": "text",
+     "line": 226,
+     "in": "SubmissionForm",
+     "when": "submission?.status === 'graded'",
+     "text": "Tarea calificada"
+    }
+   ],
+   "db": []
+  },
+  "components/assignments/SubmissionList.tsx": {
+   "usedBy": [
+    "/assignments/[id]/submissions"
+   ],
+   "lines": 229,
+   "rows": [
+    {
+     "kind": "text",
+     "line": 26,
+     "in": "getStatusBadge",
+     "when": "status === 'submitted'",
+     "text": "Enviado"
+    },
+    {
+     "kind": "text",
+     "line": 29,
+     "in": "getStatusBadge",
+     "when": "status === 'graded'",
+     "text": "Calificado [({score}/{assignment.points})]"
+    },
+    {
+     "kind": "text",
+     "line": 34,
+     "in": "getStatusBadge",
+     "when": "status === 'returned'",
+     "text": "Devuelto"
+    },
+    {
+     "kind": "text",
+     "line": 36,
+     "in": "getStatusBadge",
+     "when": "status === 'draft'",
+     "text": "Borrador"
+    },
+    {
+     "kind": "text",
+     "line": 55,
+     "in": "SubmissionList",
+     "when": "submissions.length === 0",
+     "text": "No hay entregas para esta tarea aún."
+    },
+    {
+     "kind": "column",
+     "line": 66,
+     "in": "SubmissionList",
+     "text": "Estudiante"
+    },
+    {
+     "kind": "column",
+     "line": 67,
+     "in": "SubmissionList",
+     "text": "Estado"
+    },
+    {
+     "kind": "column",
+     "line": 68,
+     "in": "SubmissionList",
+     "text": "Fecha de entrega"
+    },
+    {
+     "kind": "column",
+     "line": 69,
+     "in": "SubmissionList",
+     "text": "Tardía"
+    },
+    {
+     "kind": "column",
+     "line": 70,
+     "in": "SubmissionList",
+     "text": "Archivos"
+    },
+    {
+     "kind": "column",
+     "line": 71,
+     "in": "SubmissionList",
+     "text": "Acciones"
+    },
+    {
+     "kind": "clickable",
+     "line": 77,
+     "in": "SubmissionList",
+     "when": "each submissions",
+     "text": "{submission.student?.name?.charAt(0)…} / U {submission.student?.name} / Usuario {submission.student?.email} {getStatusB…",
+     "tag": "tr",
+     "action": "{() => setSelectedSubmission( selectedSubmission === submission.id ? null : subm…}"
+    },
+    {
+     "kind": "value",
+     "line": 85,
+     "in": "SubmissionList",
+     "when": "each submissions",
+     "text": "{submission.student?.name?.charAt(0)…} / U"
+    },
+    {
+     "kind": "text",
+     "line": 89,
+     "in": "SubmissionList",
+     "when": "each submissions",
+     "text": "{submission.student?.name} / Usuario"
+    },
+    {
+     "kind": "value",
+     "line": 92,
+     "in": "SubmissionList",
+     "when": "each submissions",
+     "text": "{submission.student?.email}"
+    },
+    {
+     "kind": "value",
+     "line": 98,
+     "in": "SubmissionList",
+     "when": "each submissions",
+     "text": "{getStatusBadge(submission.status, s…}"
+    },
+    {
+     "kind": "value",
+     "line": 101,
+     "in": "SubmissionList",
+     "when": "each submissions",
+     "text": "{formatDate(submission.submitted_at)} / -"
+    },
+    {
+     "kind": "text",
+     "line": 106,
+     "in": "SubmissionList",
+     "when": "each submissions && submission.is_late",
+     "text": "Sí"
+    },
+    {
+     "kind": "text",
+     "line": 108,
+     "in": "SubmissionList",
+     "when": "each submissions && !(submission.is_late)",
+     "text": "No"
+    },
+    {
+     "kind": "text",
+     "line": 112,
+     "in": "SubmissionList",
+     "when": "each submissions",
+     "text": "{submission.attachment_urls?.length} archivo(s)"
+    },
+    {
+     "kind": "button",
+     "line": 120,
+     "in": "SubmissionList",
+     "when": "each submissions && submission.status === 'submitted'",
+     "text": "[icon Check]",
+     "action": "{(e) => { e.stopPropagation(); onGrade(submission.id); }}",
+     "title": "Calificar"
+    },
+    {
+     "kind": "button",
+     "line": 130,
+     "in": "SubmissionList",
+     "when": "each submissions && submission.status === 'submitted'",
+     "text": "[icon X]",
+     "action": "{(e) => { e.stopPropagation(); onReturn(submission.id); }}",
+     "title": "Devolver para revisión"
+    },
+    {
+     "kind": "button",
+     "line": 143,
+     "in": "SubmissionList",
+     "when": "each submissions && submission.status === 'graded'",
+     "text": "[icon MessageSquare]",
+     "action": "{(e) => { e.stopPropagation(); onGrade(submission.id); }}",
+     "title": "Editar calificación"
+    },
+    {
+     "kind": "heading",
+     "line": 165,
+     "in": "SubmissionList",
+     "when": "each submissions && selectedSubmission === submission.id && submission.content",
+     "text": "Respuesta:",
+     "level": 4
+    },
+    {
+     "kind": "value",
+     "line": 167,
+     "in": "SubmissionList",
+     "when": "each submissions && selectedSubmission === submission.id && submission.content",
+     "text": "{submission.content}"
+    },
+    {
+     "kind": "heading",
+     "line": 174,
+     "in": "SubmissionList",
+     "when": "each submissions && selectedSubmission === submission.id && submission.attachment_urls && submission.attachment_urls.length > 0",
+     "text": "Archivos adjuntos:",
+     "level": 4
+    },
+    {
+     "kind": "link",
+     "line": 177,
+     "in": "SubmissionList",
+     "when": "each submissions && selectedSubmission === submission.id && submission.attachment_urls && submission.attachment_urls.length > 0 && each submission.attachment_urls",
+     "text": "Archivo {index + 1} : {url}",
+     "target": "{url}",
+     "newTab": true
+    },
+    {
+     "kind": "heading",
+     "line": 193,
+     "in": "SubmissionList",
+     "when": "each submissions && selectedSubmission === submission.id && submission.feedback",
+     "text": "Retroalimentación:",
+     "level": 4
+    },
+    {
+     "kind": "value",
+     "line": 195,
+     "in": "SubmissionList",
+     "when": "each submissions && selectedSubmission === submission.id && submission.feedback",
+     "text": "{submission.feedback}"
+    },
+    {
+     "kind": "text",
+     "line": 203,
+     "in": "SubmissionList",
+     "when": "each submissions && selectedSubmission === submission.id",
+     "text": "Creado:"
+    },
+    {
+     "kind": "text",
+     "line": 208,
+     "in": "SubmissionList",
+     "when": "each submissions && selectedSubmission === submission.id && submission.graded_at",
+     "text": "Calificado:"
+    },
+    {
+     "kind": "text",
+     "line": 214,
+     "in": "SubmissionList",
+     "when": "each submissions && selectedSubmission === submission.id && submission.grader",
+     "text": "Por:"
+    }
+   ],
+   "db": []
+  },
+  "components/layout/FunctionalPageHeader.tsx": {
+   "usedBy": [
+    "/assignments",
+    "/assignments/[id]",
+    "/assignments/[id]/submissions"
+   ],
+   "lines": 191,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 44,
+     "in": "FunctionalPageHeader",
+     "text": "{icon}"
+    },
+    {
+     "kind": "heading",
+     "line": 47,
+     "in": "FunctionalPageHeader",
+     "text": "{title}",
+     "level": 1
+    },
+    {
+     "kind": "field",
+     "line": 60,
+     "in": "FunctionalPageHeader",
+     "when": "onSearchChange",
+     "text": "{searchPlaceholder}",
+     "type": "text",
+     "placeholder": "{searchPlaceholder}",
+     "action": "{(e) => onSearchChange(e.target.value)}"
+    },
+    {
+     "kind": "button",
+     "line": 75,
+     "in": "FunctionalPageHeader",
+     "when": "primaryAction",
+     "text": "[{primaryAction.icon}] {primaryAction.label}",
+     "action": "{primaryAction.onClick}"
+    },
+    {
+     "kind": "value",
+     "line": 92,
+     "in": "FunctionalPageHeader",
+     "when": "subtitle",
+     "text": "{subtitle}"
+    },
+    {
+     "kind": "value",
+     "line": 119,
+     "in": "MobileFunctionalPageHeader",
+     "text": "{icon}"
+    },
+    {
+     "kind": "heading",
+     "line": 122,
+     "in": "MobileFunctionalPageHeader",
+     "text": "{title}",
+     "level": 1
+    },
+    {
+     "kind": "button",
+     "line": 128,
+     "in": "MobileFunctionalPageHeader",
+     "when": "primaryAction",
+     "text": "[{primaryAction.icon}] {primaryAction.label} +",
+     "action": "{primaryAction.onClick}"
+    },
+    {
+     "kind": "field",
+     "line": 147,
+     "in": "MobileFunctionalPageHeader",
+     "when": "onSearchChange",
+     "text": "{searchPlaceholder}",
+     "type": "text",
+     "placeholder": "{searchPlaceholder}",
+     "action": "{(e) => onSearchChange(e.target.value)}"
+    },
+    {
+     "kind": "value",
+     "line": 159,
+     "in": "MobileFunctionalPageHeader",
+     "when": "children",
+     "text": "{children}"
+    },
+    {
+     "kind": "value",
+     "line": 168,
+     "in": "MobileFunctionalPageHeader",
+     "when": "subtitle",
+     "text": "{subtitle}"
+    },
+    {
+     "kind": "string",
+     "line": 32,
+     "in": "FunctionalPageHeader",
+     "text": "Buscar..."
+    }
+   ],
+   "db": []
+  },
+  "components/messaging/MentionPicker.tsx": {
+   "usedBy": [
+    "/community/workspace/assignments/[id]/discussion"
+   ],
+   "lines": 276,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 47,
+     "in": "MentionPicker",
+     "when": "isVisible",
+     "text": "document.addEventListener('mousedown')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 63,
+     "in": "MentionPicker",
+     "text": "document.addEventListener('keydown')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 72,
+     "in": "MentionPicker",
+     "when": "isVisible && containerRef.current && selectedElement",
+     "text": "selectedElement.scrollIntoView()",
+     "type": "scroll"
+    },
+    {
+     "kind": "gate",
+     "line": 116,
+     "in": "MentionPicker",
+     "text": "!isVisible || filteredSuggestions.length === 0"
+    },
+    {
+     "kind": "text",
+     "line": 139,
+     "in": "MentionPicker",
+     "text": "Mencionar usuario"
+    },
+    {
+     "kind": "text",
+     "line": 141,
+     "in": "MentionPicker",
+     "when": "query",
+     "text": "buscando &quot; {query} &quot;"
+    },
+    {
+     "kind": "button",
+     "line": 151,
+     "in": "MentionPicker",
+     "when": "each filteredSuggestions",
+     "text": "{getRoleIcon(suggestion.role)} {suggestion.display_name} [{getRoleLabel(suggestion.role)}] [{suggestion.email}] [@todos] [@ {suggestion.role}]",
+     "action": "{() => onSelect(suggestion)}"
+    },
+    {
+     "kind": "media",
+     "line": 161,
+     "in": "MentionPicker",
+     "when": "each filteredSuggestions && suggestion.avatar",
+     "text": "img · alt {suggestion.display_name} · {suggestion.avatar}"
+    },
+    {
+     "kind": "text",
+     "line": 213,
+     "in": "MentionPicker",
+     "when": "query === ''",
+     "text": "Menciones especiales"
+    },
+    {
+     "kind": "button",
+     "line": 216,
+     "in": "MentionPicker",
+     "when": "query === ''",
+     "text": "@todos Mencionar a todos en la comunidad Especial",
+     "action": "{() => onSelect({ type: 'all' as MentionType, id: 'all', display_name: 'todos', …}"
+    },
+    {
+     "kind": "button",
+     "line": 237,
+     "in": "MentionPicker",
+     "when": "query === ''",
+     "text": "@lideres Mencionar a los líderes de comunidad Rol",
+     "action": "{() => onSelect({ type: 'role' as MentionType, id: 'lider_comunidad', display_na…}"
+    },
+    {
+     "kind": "text",
+     "line": 266,
+     "in": "MentionPicker",
+     "text": "↑↓ navegar"
+    },
+    {
+     "kind": "text",
+     "line": 267,
+     "in": "MentionPicker",
+     "text": "Enter seleccionar"
+    },
+    {
+     "kind": "text",
+     "line": 268,
+     "in": "MentionPicker",
+     "text": "Esc cerrar"
+    },
+    {
+     "kind": "string",
+     "line": 98,
+     "in": "MentionPicker",
+     "text": "Administrador"
+    },
+    {
+     "kind": "string",
+     "line": 100,
+     "in": "MentionPicker",
+     "text": "Líder de Comunidad"
+    },
+    {
+     "kind": "string",
+     "line": 102,
+     "in": "MentionPicker",
+     "text": "Consultor"
+    },
+    {
+     "kind": "string",
+     "line": 104,
+     "in": "MentionPicker",
+     "text": "Docente"
+    },
+    {
+     "kind": "list",
+     "line": 98,
+     "in": "getRoleLabel",
+     "text": "getRoleLabel()",
+     "items": [
+      "Administrador",
+      "Líder de Comunidad",
+      "Consultor",
+      "Docente"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "components/messaging/MessageCard.tsx": {
+   "usedBy": [
+    "/community/workspace/assignments/[id]/discussion"
+   ],
+   "lines": 396,
+   "rows": [
+    {
+     "kind": "media",
+     "line": 95,
+     "in": "getFileIcon",
+     "when": "mimeType.startsWith('image/')",
+     "text": "Image"
+    },
+    {
+     "kind": "button",
+     "line": 119,
+     "in": "renderContent",
+     "when": "each parts && index % 2 === 1",
+     "text": "@ {displayName}",
+     "action": "{() => onMentionClick && onMentionClick(part)}"
+    },
+    {
+     "kind": "button",
+     "line": 140,
+     "in": "renderReactionButton",
+     "text": "{emoji} [{count}] [{reactionSummary.users.slice(0, 5).m…} [y {reactionSummary.users.lengt…} más]]",
+     "action": "{() => handleReactionToggle(reactionType)}",
+     "title": "{getReactionLabel(reactionType)}",
+     "also": "onMouseEnter={() => setExpandedReactions(prev => ({ ...prev, [reactionType]: true }))} · onMouseLeave={() => setExpandedReactions(prev => ({ ...prev, [reactionType]: false }))}"
+    },
+    {
+     "kind": "gesture",
+     "line": 167,
+     "in": "MessageCard",
+     "text": "onMouseEnter={() => setShowActions(true)} · onMouseLeave={() => setShowActions(false)}",
+     "tag": "div"
+    },
+    {
+     "kind": "value",
+     "line": 179,
+     "in": "MessageCard",
+     "when": "message.reply_to_message && showReplyThread",
+     "text": "{message.reply_to_message.author_name}"
+    },
+    {
+     "kind": "value",
+     "line": 180,
+     "in": "MessageCard",
+     "when": "message.reply_to_message && showReplyThread",
+     "text": "{formatRelativeTime(message.reply_to…}"
+    },
+    {
+     "kind": "value",
+     "line": 182,
+     "in": "MessageCard",
+     "when": "message.reply_to_message && showReplyThread",
+     "text": "{message.reply_to_message.content.su…} ..."
+    },
+    {
+     "kind": "media",
+     "line": 192,
+     "in": "MessageCard",
+     "when": "message.author_avatar",
+     "text": "img · alt {message.author_name} · {message.author_avatar}"
+    },
+    {
+     "kind": "button",
+     "line": 208,
+     "in": "MessageCard",
+     "text": "{message.author_name}",
+     "action": "{() => onUserClick && onUserClick(message.author_id)}"
+    },
+    {
+     "kind": "value",
+     "line": 214,
+     "in": "MessageCard",
+     "text": "{formatRelativeTime(message.created_…}"
+    },
+    {
+     "kind": "text",
+     "line": 216,
+     "in": "MessageCard",
+     "when": "message.is_edited",
+     "text": "(editado)"
+    },
+    {
+     "kind": "text",
+     "line": 220,
+     "in": "MessageCard",
+     "when": "message.message_type === 'system'",
+     "text": "Sistema"
+    },
+    {
+     "kind": "text",
+     "line": 225,
+     "in": "MessageCard",
+     "when": "message.message_type === 'announcement'",
+     "text": "Anuncio"
+    },
+    {
+     "kind": "value",
+     "line": 231,
+     "in": "MessageCard",
+     "text": "{renderContent(message.content)}"
+    },
+    {
+     "kind": "media",
+     "line": 245,
+     "in": "MessageCard",
+     "when": "message.attachments.length > 0 && message.attachments.filter(att => att.mime_type && att.mime_type.startsWith('image/')).length > 0 && each message.attachments .filter(att => att.mime_type …",
+     "text": "img · alt {attachment.file_name} · {attachment.storage_path}"
+    },
+    {
+     "kind": "button",
+     "line": 252,
+     "in": "MessageCard",
+     "when": "message.attachments.length > 0 && message.attachments.filter(att => att.mime_type && att.mime_type.startsWith('image/')).length > 0 && each message.attachments .filter(att => att.mime_type …",
+     "text": "[icon Download]",
+     "action": "{(e) => { e.stopPropagation(); onDownloadAttachment && onDownloadAttachment(atta…}",
+     "title": "Descargar"
+    },
+    {
+     "kind": "value",
+     "line": 274,
+     "in": "MessageCard",
+     "when": "message.attachments.length > 0 && each message.attachments.filter(att => !att.mime_type …",
+     "text": "{getFileIcon(attachment.mime_type ||…}"
+    },
+    {
+     "kind": "value",
+     "line": 278,
+     "in": "MessageCard",
+     "when": "message.attachments.length > 0 && each message.attachments.filter(att => !att.mime_type …",
+     "text": "{attachment.file_name}"
+    },
+    {
+     "kind": "value",
+     "line": 281,
+     "in": "MessageCard",
+     "when": "message.attachments.length > 0 && each message.attachments.filter(att => !att.mime_type …",
+     "text": "{formatFileSize(attachment.file_size…}"
+    },
+    {
+     "kind": "button",
+     "line": 287,
+     "in": "MessageCard",
+     "when": "message.attachments.length > 0 && each message.attachments.filter(att => !att.mime_type … && onDownloadAttachment",
+     "text": "[icon Download]",
+     "action": "{() => onDownloadAttachment(attachment)}",
+     "title": "Descargar"
+    },
+    {
+     "kind": "value",
+     "line": 303,
+     "in": "MessageCard",
+     "when": "message.reactions.length > 0",
+     "text": "{message.reactions.map((reactionSumm…}"
+    },
+    {
+     "kind": "button",
+     "line": 316,
+     "in": "MessageCard",
+     "text": "😊",
+     "action": "{() => setShowReactions(!showReactions)}",
+     "title": "Reaccionar"
+    },
+    {
+     "kind": "button",
+     "line": 328,
+     "in": "MessageCard",
+     "when": "showReactions && each REACTION_TYPES",
+     "text": "{reaction.emoji}",
+     "action": "{() => handleReactionToggle(reaction.type)}",
+     "title": "{reaction.label}"
+    },
+    {
+     "kind": "button",
+     "line": 343,
+     "in": "MessageCard",
+     "when": "permissions.can_send_messages && onReply",
+     "text": "Responder",
+     "action": "{() => onReply(message)}",
+     "title": "Responder"
+    },
+    {
+     "kind": "button",
+     "line": 355,
+     "in": "MessageCard",
+     "when": "isOwnMessage && permissions.can_edit_own_messages && onEdit",
+     "text": "Editar",
+     "action": "{() => onEdit(message)}",
+     "title": "Editar"
+    },
+    {
+     "kind": "button",
+     "line": 367,
+     "in": "MessageCard",
+     "when": "(isOwnMessage && permissions.can_delete_own_messages) || permissions.can_moderate_messages",
+     "text": "Eliminar",
+     "action": "{() => onDelete && onDelete(message.id)}",
+     "title": "Eliminar"
+    },
+    {
+     "kind": "button",
+     "line": 378,
+     "in": "MessageCard",
+     "text": "[icon MoreHorizontal]",
+     "title": "Más opciones"
+    }
+   ],
+   "db": []
+  },
+  "components/messaging/MessageComposer.tsx": {
+   "usedBy": [
+    "/community/workspace/assignments/[id]/discussion"
+   ],
+   "lines": 591,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 105,
+     "in": "MessageComposer",
+     "when": "editingMessage && textareaRef.current",
+     "text": "textareaRef.current.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "gate",
+     "line": 179,
+     "in": "MessageComposer",
+     "text": "!mentionPosition"
+    },
+    {
+     "kind": "hook",
+     "line": 202,
+     "in": "MessageComposer",
+     "when": "textareaRef.current",
+     "text": "textareaRef.current.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "alert",
+     "line": 214,
+     "in": "MessageComposer",
+     "when": "!isValidAttachment(file)",
+     "text": "Archivo no válido: {file.name}"
+    },
+    {
+     "kind": "alert",
+     "line": 221,
+     "in": "MessageComposer",
+     "when": "attachments.length + validFiles.length > DEFAULT_MESSAGING_CONFIG.max_attachments_per_message",
+     "text": "No se pueden adjuntar más de {DEFAULT_MESSAGING_CONFIG.ma…} archivos"
+    },
+    {
+     "kind": "gate",
+     "line": 258,
+     "in": "MessageComposer",
+     "text": "!content.trim() && attachments.length === 0"
+    },
+    {
+     "kind": "gate",
+     "line": 259,
+     "in": "MessageComposer",
+     "text": "isSubmitting || disabled"
+    },
+    {
+     "kind": "alert",
+     "line": 283,
+     "in": "MessageComposer",
+     "when": "!validationResult.is_valid",
+     "text": "{validationResult.errors.join('\\n')}"
+    },
+    {
+     "kind": "alert",
+     "line": 305,
+     "in": "MessageComposer",
+     "text": "Error al enviar el mensaje. Inténtalo de nuevo."
+    },
+    {
+     "kind": "hook",
+     "line": 327,
+     "in": "MessageComposer",
+     "text": "document.addEventListener('mousedown')",
+     "type": "listener"
+    },
+    {
+     "kind": "text",
+     "line": 343,
+     "in": "MessageComposer",
+     "when": "((replyToMessage || editingMessage)) && replyToMessage",
+     "text": "Respondiendo a"
+    },
+    {
+     "kind": "value",
+     "line": 343,
+     "in": "MessageComposer",
+     "when": "((replyToMessage || editingMessage)) && replyToMessage",
+     "text": "{replyToMessage.author_name}"
+    },
+    {
+     "kind": "value",
+     "line": 344,
+     "in": "MessageComposer",
+     "when": "((replyToMessage || editingMessage)) && replyToMessage",
+     "text": "{replyToMessage.content.substring(0,…} ..."
+    },
+    {
+     "kind": "text",
+     "line": 352,
+     "in": "MessageComposer",
+     "when": "((replyToMessage || editingMessage)) && editingMessage",
+     "text": "Editando mensaje"
+    },
+    {
+     "kind": "button",
+     "line": 356,
+     "in": "MessageComposer",
+     "when": "(replyToMessage || editingMessage)",
+     "text": "[icon X]",
+     "action": "{editingMessage ? onCancelEdit : onCancelReply}"
+    },
+    {
+     "kind": "gesture",
+     "line": 366,
+     "in": "MessageComposer",
+     "text": "onDrop={handleDrop} · onDragOver={handleDragOver}",
+     "tag": "div"
+    },
+    {
+     "kind": "field",
+     "line": 372,
+     "in": "MessageComposer",
+     "text": "{placeholder}",
+     "type": "textarea",
+     "placeholder": "{placeholder}",
+     "disabled": "{disabled || isSubmitting}",
+     "limits": "maxLength={maxLength}",
+     "action": "{handleContentChange}",
+     "also": "onKeyDown={handleKeyPress}"
+    },
+    {
+     "kind": "value",
+     "line": 385,
+     "in": "MessageComposer",
+     "text": "{content.length} / {maxLength}"
+    },
+    {
+     "kind": "button",
+     "line": 390,
+     "in": "MessageComposer",
+     "text": "[icon Loader2]",
+     "action": "{handleSubmit}",
+     "disabled": "{(!content.trim() && attachments.length === 0) || isSubmitting || disabled}"
+    },
+    {
+     "kind": "popup",
+     "line": 409,
+     "in": "MessageComposer",
+     "when": "showMentionPicker && mentionSuggestions.length > 0",
+     "text": "MentionPicker",
+     "how": "component",
+     "open": "{showMentionPicker}",
+     "also": "onKeyDown={(e) => { if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedMentionInd…}"
+    },
+    {
+     "kind": "media",
+     "line": 445,
+     "in": "MessageComposer",
+     "when": "attachments.length > 0 && each attachments && file.type.startsWith('image/')",
+     "text": "Image"
+    },
+    {
+     "kind": "value",
+     "line": 449,
+     "in": "MessageComposer",
+     "when": "attachments.length > 0 && each attachments",
+     "text": "{file.name}"
+    },
+    {
+     "kind": "value",
+     "line": 450,
+     "in": "MessageComposer",
+     "when": "attachments.length > 0 && each attachments",
+     "text": "( {formatFileSize(file.size)} )"
+    },
+    {
+     "kind": "button",
+     "line": 452,
+     "in": "MessageComposer",
+     "when": "attachments.length > 0 && each attachments",
+     "text": "[icon X]",
+     "action": "{() => removeAttachment(index)}"
+    },
+    {
+     "kind": "value",
+     "line": 470,
+     "in": "MessageComposer",
+     "when": "validation && !validation.is_valid && each validation.errors",
+     "text": "{error}"
+    },
+    {
+     "kind": "button",
+     "line": 483,
+     "in": "MessageComposer",
+     "when": "allowAttachments",
+     "text": "[icon Paperclip]",
+     "action": "{() => fileInputRef.current?.click()}",
+     "disabled": "{disabled || isSubmitting}",
+     "title": "Adjuntar archivo"
+    },
+    {
+     "kind": "field",
+     "line": 491,
+     "in": "MessageComposer",
+     "when": "allowAttachments",
+     "screen": "hidden",
+     "text": "",
+     "type": "file",
+     "accept": "{DEFAULT_MESSAGING_CONFIG.allowed_attachment_types.join(',')}",
+     "limits": "multiple=true",
+     "action": "{handleFileSelect}"
+    },
+    {
+     "kind": "button",
+     "line": 504,
+     "in": "MessageComposer",
+     "text": "[icon Smile]",
+     "action": "{() => setShowEmojiPicker(!showEmojiPicker)}",
+     "disabled": "{disabled || isSubmitting}",
+     "title": "Agregar emoji"
+    },
+    {
+     "kind": "button",
+     "line": 520,
+     "in": "MessageComposer",
+     "when": "showEmojiPicker && each quickEmojis",
+     "text": "{emoji}",
+     "action": "{() => { setContent(prev => prev + emoji); setShowEmojiPicker(false); }}"
+    },
+    {
+     "kind": "button",
+     "line": 537,
+     "in": "MessageComposer",
+     "when": "allowMentions",
+     "text": "[icon AtSign]",
+     "action": "{() => { if (textareaRef.current) { const cursorPosition = textareaRef.current.s…}",
+     "disabled": "{disabled || isSubmitting}",
+     "title": "Mencionar usuario"
+    },
+    {
+     "kind": "hook",
+     "line": 543,
+     "in": "MessageComposer",
+     "when": "allowMentions && textareaRef.current",
+     "text": "textareaRef.current.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "button",
+     "line": 561,
+     "in": "MessageComposer",
+     "when": "(replyToMessage || editingMessage)",
+     "text": "Cancelar",
+     "action": "{editingMessage ? onCancelEdit : onCancelReply}",
+     "disabled": "{isSubmitting}"
+    },
+    {
+     "kind": "button",
+     "line": 569,
+     "in": "MessageComposer",
+     "text": "Enviando... / Guardar cambios / Enviar mensaje",
+     "action": "{handleSubmit}",
+     "disabled": "{(!content.trim() && attachments.length === 0) || isSubmitting || disabled}"
+    },
+    {
+     "kind": "string",
+     "line": 63,
+     "in": "MessageComposer",
+     "text": "Escribe un mensaje..."
+    }
+   ],
+   "db": []
+  },
+  "components/quiz/QuizReviewPanel.tsx": {
+   "usedBy": [
+    "/quiz-reviews/[id]"
+   ],
+   "lines": 267,
+   "rows": [
+    {
+     "kind": "toast",
+     "line": 37,
+     "in": "handleSubmitReview",
+     "when": "!generalFeedback.trim() && reviewStatus === 'needs_review'",
+     "text": "Por favor proporciona retroalimentación general cuando el estudiante necesita revisar",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 55,
+     "in": "handleSubmitReview",
+     "when": "!session?.access_token",
+     "text": "Sesión no válida",
+     "variant": "error"
+    },
+    {
+     "kind": "message",
+     "line": 76,
+     "in": "handleSubmitReview",
+     "when": "!response.ok",
+     "text": "Failed to save review",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 79,
+     "in": "handleSubmitReview",
+     "text": "Revisión guardada exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 86,
+     "in": "handleSubmitReview",
+     "text": "Error al guardar la revisión",
+     "variant": "error"
+    },
+    {
+     "kind": "heading",
+     "line": 98,
+     "in": "QuizReviewPanel",
+     "text": "Revisión de Quiz",
+     "level": 2
+    },
+    {
+     "kind": "text",
+     "line": 100,
+     "in": "QuizReviewPanel",
+     "text": "Estudiante:"
+    },
+    {
+     "kind": "value",
+     "line": 100,
+     "in": "QuizReviewPanel",
+     "text": "{submission.student?.name}"
+    },
+    {
+     "kind": "text",
+     "line": 101,
+     "in": "QuizReviewPanel",
+     "text": "Curso:"
+    },
+    {
+     "kind": "value",
+     "line": 101,
+     "in": "QuizReviewPanel",
+     "text": "{submission.course?.title}"
+    },
+    {
+     "kind": "text",
+     "line": 102,
+     "in": "QuizReviewPanel",
+     "text": "Lección:"
+    },
+    {
+     "kind": "value",
+     "line": 102,
+     "in": "QuizReviewPanel",
+     "text": "{submission.lesson?.title}"
+    },
+    {
+     "kind": "text",
+     "line": 103,
+     "in": "QuizReviewPanel",
+     "text": "Enviado:"
+    },
+    {
+     "kind": "value",
+     "line": 103,
+     "in": "QuizReviewPanel",
+     "text": "{new Date(submission.submitted_at).t…}"
+    },
+    {
+     "kind": "text",
+     "line": 116,
+     "in": "QuizReviewPanel",
+     "text": "Enfoque en el aprendizaje"
+    },
+    {
+     "kind": "text",
+     "line": 117,
+     "in": "QuizReviewPanel",
+     "text": "Revisa las respuestas del estudiante y proporciona retroalimentación constructiva. El objetivo es ayudar al estudiante a mejorar su comprensión del tema."
+    },
+    {
+     "kind": "value",
+     "line": 130,
+     "in": "QuizReviewPanel",
+     "when": "each submission.open_responses",
+     "text": "{index + 1}"
+    },
+    {
+     "kind": "heading",
+     "line": 133,
+     "in": "QuizReviewPanel",
+     "when": "each submission.open_responses",
+     "text": "{response.question}",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 140,
+     "in": "QuizReviewPanel",
+     "when": "each submission.open_responses",
+     "text": "Respuesta del estudiante:"
+    },
+    {
+     "kind": "text",
+     "line": 141,
+     "in": "QuizReviewPanel",
+     "when": "each submission.open_responses",
+     "text": "{response.response} / (Sin respuesta)"
+    },
+    {
+     "kind": "text",
+     "line": 149,
+     "in": "QuizReviewPanel",
+     "when": "each submission.open_responses && ((response.expectedAnswer || response.gradingGuidelines)) && response.expectedAnswer",
+     "text": "Respuesta esperada:"
+    },
+    {
+     "kind": "value",
+     "line": 150,
+     "in": "QuizReviewPanel",
+     "when": "each submission.open_responses && ((response.expectedAnswer || response.gradingGuidelines)) && response.expectedAnswer",
+     "text": "{response.expectedAnswer}"
+    },
+    {
+     "kind": "text",
+     "line": 155,
+     "in": "QuizReviewPanel",
+     "when": "each submission.open_responses && ((response.expectedAnswer || response.gradingGuidelines)) && response.gradingGuidelines",
+     "text": "Guía de evaluación:"
+    },
+    {
+     "kind": "value",
+     "line": 156,
+     "in": "QuizReviewPanel",
+     "when": "each submission.open_responses && ((response.expectedAnswer || response.gradingGuidelines)) && response.gradingGuidelines",
+     "text": "{response.gradingGuidelines}"
+    },
+    {
+     "kind": "label",
+     "line": 164,
+     "in": "QuizReviewPanel",
+     "when": "each submission.open_responses",
+     "text": "Retroalimentación para esta pregunta (opcional)"
+    },
+    {
+     "kind": "field",
+     "line": 167,
+     "in": "QuizReviewPanel",
+     "when": "each submission.open_responses",
+     "text": "Retroalimentación para esta pregunta (opcional)",
+     "type": "textarea",
+     "placeholder": "Proporciona retroalimentación específica sobre esta respuesta...",
+     "limits": "",
+     "action": "{(e) => handleFeedbackChange(response.question_id, e.target.value)}"
+    },
+    {
+     "kind": "heading",
+     "line": 182,
+     "in": "QuizReviewPanel",
+     "text": "Evaluación general",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 186,
+     "in": "QuizReviewPanel",
+     "text": "Estado de la revisión"
+    },
+    {
+     "kind": "label",
+     "line": 188,
+     "in": "QuizReviewPanel",
+     "text": "Aprobado El estudiante demuestra comprensión adecuada"
+    },
+    {
+     "kind": "field",
+     "line": 189,
+     "in": "QuizReviewPanel",
+     "text": "Aprobado El estudiante demuestra comprensión adecuada",
+     "type": "radio",
+     "name": "reviewStatus",
+     "action": "{() => setReviewStatus('pass')}"
+    },
+    {
+     "kind": "label",
+     "line": 204,
+     "in": "QuizReviewPanel",
+     "text": "Necesita revisar El estudiante debe revisar el material"
+    },
+    {
+     "kind": "field",
+     "line": 205,
+     "in": "QuizReviewPanel",
+     "text": "Necesita revisar El estudiante debe revisar el material",
+     "type": "radio",
+     "name": "reviewStatus",
+     "action": "{() => setReviewStatus('needs_review')}"
+    },
+    {
+     "kind": "label",
+     "line": 224,
+     "in": "QuizReviewPanel",
+     "text": "Retroalimentación general [*]"
+    },
+    {
+     "kind": "field",
+     "line": 227,
+     "in": "QuizReviewPanel",
+     "text": "Retroalimentación general [*]",
+     "type": "textarea",
+     "placeholder": "{reviewStatus === 'pass' ? \"Comentarios adicionales para el estudiante (opcional…}",
+     "limits": "",
+     "action": "{(e) => setGeneralFeedback(e.target.value)}"
+    },
+    {
+     "kind": "button",
+     "line": 241,
+     "in": "QuizReviewPanel",
+     "text": "Cancelar",
+     "action": "{() => window.history.back()}"
+    },
+    {
+     "kind": "button",
+     "line": 247,
+     "in": "QuizReviewPanel",
+     "text": "Guardando... / Guardar revisión",
+     "action": "{handleSubmitReview}",
+     "disabled": "{isSaving}"
+    },
+    {
+     "kind": "string",
+     "line": 64,
+     "in": "QuizReviewPanel",
+     "text": "Bearer {session.access_token}"
+    },
+    {
+     "kind": "string",
+     "line": 232,
+     "in": "QuizReviewPanel",
+     "text": "Comentarios adicionales para el estudiante (opcional)..."
+    },
+    {
+     "kind": "string",
+     "line": 233,
+     "in": "QuizReviewPanel",
+     "text": "Explica qué áreas necesita revisar el estudiante y proporciona orientación..."
+    }
+   ],
+   "db": []
+  },
+  "hooks/useAvatar.ts": {
+   "usedBy": [
+    "/assignments",
+    "/quiz-reviews/[id]"
+   ],
+   "lines": 90,
+   "rows": [],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "lib/services/assignments.js": {
+   "usedBy": [
+    "/assignments",
+    "/assignments/[id]",
+    "/assignments/[id]/submissions"
+   ],
+   "lines": 485,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 421,
+     "text": "assignmentUtils",
+     "items": [
+      "Sin fecha límite",
+      "Vencido hace {Math.abs(diffDays)} días",
+      "Vence hoy",
+      "Vence mañana",
+      "Vence en {diffDays} días",
+      "Tarea",
+      "Cuestionario",
+      "Proyecto",
+      "Ensayo",
+      "Presentación"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 476,
+     "in": "getTypeLabel",
+     "text": "labels",
+     "items": [
+      "Tarea",
+      "Cuestionario",
+      "Proyecto",
+      "Ensayo",
+      "Presentación"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 440,
+     "in": "formatDueDate",
+     "text": "formatDueDate()",
+     "items": [
+      "Sin fecha límite",
+      "Vencido hace {Math.abs(diffDays)} días",
+      "Vence hoy",
+      "Vence mañana",
+      "Vence en {diffDays} días"
+     ]
+    }
+   ],
+   "db": [
+    {
+     "what": "table:course_enrollments",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:lesson_assignment_submissions",
+     "ops": [
+      "insert",
+      "select",
+      "update"
+     ]
+    },
+    {
+     "what": "table:lesson_assignments",
+     "ops": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+     ]
+    }
+   ]
+  },
+  "lib/services/groupAssignments.js": {
+   "usedBy": [
+    "/community/workspace/assignments/[id]/discussion",
+    "/community/workspace/assignments/[id]/groups"
+   ],
+   "lines": 260,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 4,
+     "text": "groupAssignmentService",
+     "items": [
+      "Tarea Grupal",
+      "Discusión grupal para {assignmentTitle} ({courseTitle}) [if courseTitle]",
+      "Hilo de discusión para coordinar el trabajo grupal [if not courseTitle]",
+      "No se pudo abrir la discusión del grupo"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 208,
+     "in": "getOrCreateDiscussion",
+     "text": "assignmentTitle",
+     "items": [
+      "Tarea Grupal"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 221,
+     "in": "getOrCreateDiscussion",
+     "text": "threadDescription",
+     "items": [
+      "Discusión grupal para {assignmentTitle} ({courseTitle}) / Hilo de discusión para coordinar el trabajo grupal"
+     ]
+    },
+    {
+     "kind": "message",
+     "line": 236,
+     "in": "getOrCreateDiscussion",
+     "when": "!thread",
+     "text": "No se pudo abrir la discusión del grupo",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "string",
+     "line": 231,
+     "in": "groupAssignmentService",
+     "text": "Discusión: {assignmentTitle}"
+    }
+   ],
+   "db": [
+    {
+     "what": "rpc:get_or_create_group_discussion",
+     "ops": []
+    },
+    {
+     "what": "table:group_assignment_members",
+     "ops": [
+      "delete",
+      "insert",
+      "select"
+     ]
+    },
+    {
+     "what": "table:group_assignment_submissions",
+     "ops": [
+      "insert",
+      "select",
+      "update"
+     ]
+    },
+    {
+     "what": "table:lesson_assignments",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "lib/services/groupAssignmentsV2.js": {
+   "usedBy": [
+    "/community/workspace/assignments/[id]/discussion",
+    "/community/workspace/assignments/[id]/groups"
+   ],
+   "lines": 1245,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 280,
+     "in": "getGroupAssignment",
+     "when": "!blockRecord",
+     "text": "Group assignment block not found",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 284,
+     "in": "getGroupAssignment",
+     "when": "blockRecord.type !== 'group-assignment' && blockRecord.type !== 'group_assignment'",
+     "text": "Requested block is not a group assignment",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "access",
+     "line": 493,
+     "in": "getAllAssignmentsForAdmin",
+     "text": "isAdmin = roles.includes('admin')",
+     "via": "declaration"
+    },
+    {
+     "kind": "string",
+     "line": 196,
+     "in": "GroupAssignmentsV2Service",
+     "text": "Tarea Grupal Sin Título"
+    },
+    {
+     "kind": "string",
+     "line": 403,
+     "in": "GroupAssignmentsV2Service",
+     "text": "Usuario desconocido"
+    },
+    {
+     "kind": "string",
+     "line": 444,
+     "in": "GroupAssignmentsV2Service",
+     "text": "Error al enviar el trabajo"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:blocks",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:community_messages",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:consultant_assignments",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:course_assignments",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:course_enrollments",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:courses",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:group_assignment_discussions",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:group_assignment_groups",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:group_assignment_members",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:group_assignment_settings",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:group_assignment_submissions",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:growth_communities",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:learning_path_courses",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:lessons",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "lib/utils/file-format.ts": {
+   "usedBy": [
+    "/community/workspace/assignments/[id]/discussion"
+   ],
+   "lines": 46,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 25,
+     "in": "formatFileSize",
+     "text": "sizes",
+     "items": [
+      "Bytes",
+      "KB",
+      "MB",
+      "GB"
+     ]
+    },
+    {
+     "kind": "string",
+     "line": 22,
+     "in": "formatFileSize",
+     "text": "0 Bytes"
+    },
+    {
+     "kind": "list",
+     "line": 22,
+     "in": "formatFileSize",
+     "text": "formatFileSize()",
+     "items": [
+      "0 Bytes"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "types/messaging.ts": {
+   "usedBy": [
+    "/community/workspace/assignments/[id]/discussion"
+   ],
+   "lines": 527,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 25,
+     "text": "REACTION_TYPES",
+     "items": [
+      "Me gusta",
+      "Me encanta",
+      "Buena idea",
+      "Excelente",
+      "Interesante",
+      "Tengo dudas"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 43,
+     "text": "THREAD_CATEGORIES",
+     "items": [
+      "General",
+      "Conversaciones generales",
+      "Recursos",
+      "Compartir recursos y materiales",
+      "Preguntas",
+      "Preguntas y respuestas",
+      "Proyectos",
+      "Colaboración en proyectos",
+      "Ideas",
+      "Compartir ideas y propuestas",
+      "Tareas y trabajos asignados"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "types/roles.ts": {
+   "usedBy": [
+    "/admin/assignment-overview",
+    "/admin/assignment-review/[id]",
+    "/assignments",
+    "/assignments/[id]",
+    "/assignments/[id]/submissions",
+    "/community/workspace/assignments/[id]/discussion",
+    "/community/workspace/assignments/[id]/groups",
+    "/quiz-reviews"
+   ],
+   "lines": 515,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 305,
+     "text": "ROLE_NAMES",
+     "items": [
+      "Administrador Global",
+      "Consultor FNE",
+      "Equipo Directivo",
+      "Líder de Generación",
+      "Líder de Comunidad",
+      "Supervisor de Red",
+      "Community Manager",
+      "Docente",
+      "Encargado de Licitacion"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 318,
+     "text": "ROLE_DESCRIPTIONS",
+     "items": [
+      "Staff de FNE con control total de la plataforma. Pueden pertenecer a comunidades para colaboración.",
+      "Consultores FNE asignados a colegios específicos. Pueden pertenecer a comunidades para colaboración.",
+      "Administradores a nivel de colegio. Pueden pertenecer a comunidades para colaboración.",
+      "Líderes de generaciones Tractor/Innova. Pueden pertenecer a comunidades para colaboración.",
+      "Líderes de Comunidades de Crecimiento (2-16 miembros). Crean automáticamente su propia comunidad.",
+      "Supervisores con acceso limitado a reportes de una red específica de colegios. Pueden inscribirse en cursos como estudiantes.",
+      "Gestores de comunidad con acceso a panel, perfil, aprendizaje, cursos y rendición de gastos.",
+      "Docentes participantes en cursos. Pueden pertenecer a comunidades para colaboración.",
+      "Encargados de procesos de licitacion en establecimientos educacionales. Gestionan el proceso de contratacion de ATEs bajo Ley SEP."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 342,
+     "text": "ROLE_ORGANIZATIONAL_REQUIREMENTS",
+     "items": [
+      "Global role - no organizational scope required",
+      "Must be assigned to a specific school",
+      "Must be assigned to a specific school and generation",
+      "Must be assigned to a school (community auto-created)",
+      "Network-level role - no specific school required",
+      "Content management role - no organizational scope required",
+      "Must be assigned to a specific school for procurement management"
+     ]
+    },
+    {
+     "kind": "string",
+     "line": 413,
+     "in": "validateRoleAssignment",
+     "text": "Unknown role type: {roleType}"
+    },
+    {
+     "kind": "string",
+     "line": 421,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a school assignment"
+    },
+    {
+     "kind": "string",
+     "line": 429,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a generation assignment"
+    },
+    {
+     "kind": "string",
+     "line": 437,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a community assignment"
+    }
+   ],
+   "db": []
+  },
+  "utils/assignmentFilters.js": {
+   "usedBy": [
+    "/admin/assignment-overview"
+   ],
+   "lines": 205,
+   "rows": [],
+   "db": [
+    {
+     "what": "table:consultant_assignments",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:generations",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:growth_communities",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:schools",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "utils/messagingUtils-simple.ts": {
+   "usedBy": [
+    "/community/workspace/assignments/[id]/discussion"
+   ],
+   "lines": 831,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 529,
+     "in": "sendMessage",
+     "when": "error && (error?.code === '42P01' || error?.message?.includes('does not exist'))",
+     "text": "Messaging feature not yet implemented",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "string",
+     "line": 820,
+     "in": "requestMessageNotifications",
+     "text": "Bearer {session.access_token}"
+    }
+   ],
+   "db": [
+    {
+     "what": "bucket:message-attachments",
+     "ops": [
+      "getPublicUrl",
+      "upload"
+     ]
+    },
+    {
+     "what": "table:community_messages",
+     "ops": [
+      "insert",
+      "select"
+     ]
+    },
+    {
+     "what": "table:message_attachments",
+     "ops": [
+      "insert",
+      "select"
+     ]
+    },
+    {
+     "what": "table:message_threads",
+     "ops": [
+      "update"
+     ]
+    },
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "utils/messagingUtils.ts": {
+   "usedBy": [
+    "/community/workspace/assignments/[id]/discussion"
+   ],
+   "lines": 110,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 41,
+     "in": "getReactionLabel",
+     "text": "labels",
+     "items": [
+      "Me gusta",
+      "Me encanta",
+      "Buena idea",
+      "Excelente",
+      "Interesante",
+      "Tengo dudas"
+     ]
+    },
+    {
+     "kind": "string",
+     "line": 49,
+     "in": "getReactionLabel",
+     "text": "Reacción"
+    }
+   ],
+   "db": []
+  },
+  "utils/roleUtils.ts": {
+   "usedBy": [
+    "/admin/assignment-overview",
+    "/admin/assignment-review/[id]",
+    "/assignments",
+    "/assignments/[id]",
+    "/assignments/[id]/submissions"
+   ],
+   "lines": 1605,
+   "rows": [
+    {
+     "kind": "access",
+     "line": 1186,
+     "in": "getUserPrimaryRole",
+     "text": "userRoles = await getUserRoles(supabase, userId)",
+     "via": "getUserRoles"
+    },
+    {
+     "kind": "access",
+     "line": 1187,
+     "in": "getUserPrimaryRole",
+     "text": "highestRole = getHighestRole(userRoles)",
+     "via": "getHighestRole"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:generations",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:growth_communities",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:schools",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles_cache",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  }
+ },
+ "api": [
+  {
+   "file": "pages/api/assignments/add-classmates.ts",
+   "route": "/api/assignments/add-classmates",
+   "methods": [
+    "POST"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/mi-aprendizaje/tareas"
+   ],
+   "referencedIn": [
+    "__tests__/api/assignments/forged-session.test.ts",
+    "__tests__/api/group-quiz-notifications.test.ts",
+    "components/assignments/GroupSubmissionModalV2.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/assignments/admin-overview.ts",
+   "route": "/api/assignments/admin-overview",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "auth.getUser"
+   ],
+   "calledBy": [
+    "/admin/assignment-overview"
+   ],
+   "referencedIn": [
+    "__tests__/api/group-quiz-notifications.test.ts",
+    "pages/admin/assignment-overview.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/assignments/collaborative-submit.ts",
+   "route": "/api/assignments/collaborative-submit",
+   "methods": [
+    "POST"
+   ],
+   "guards": [],
+   "calledBy": [],
+   "referencedIn": [
+    "__tests__/api/forged-session-sweep.test.ts",
+    "components/assignments/CollaborativeSubmissionModal.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/assignments/create-group.ts",
+   "route": "/api/assignments/create-group",
+   "methods": [
+    "POST"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/mi-aprendizaje/tareas"
+   ],
+   "referencedIn": [
+    "__tests__/api/assignments/forged-session.test.ts",
+    "__tests__/api/group-quiz-notifications.test.ts",
+    "components/assignments/GroupSubmissionModalV2.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/assignments/eligible-classmates.ts",
+   "route": "/api/assignments/eligible-classmates",
+   "methods": [
+    "GET"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/mi-aprendizaje/tareas"
+   ],
+   "referencedIn": [
+    "__tests__/api/assignments/forged-session.test.ts",
+    "__tests__/api/group-quiz-notifications.test.ts",
+    "components/assignments/GroupSubmissionModalV2.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/assignments/feedback.ts",
+   "route": "/api/assignments/feedback",
+   "methods": [
+    "POST"
+   ],
+   "guards": [
+    "auth.getUser"
+   ],
+   "calledBy": [],
+   "referencedIn": []
+  },
+  {
+   "file": "pages/api/assignments/group-members.ts",
+   "route": "/api/assignments/group-members",
+   "methods": [
+    "DELETE",
+    "GET"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/mi-aprendizaje/tareas"
+   ],
+   "referencedIn": [
+    "__tests__/api/assignments/forged-session.test.ts",
+    "__tests__/api/group-quiz-notifications.test.ts",
+    "components/assignments/GroupSubmissionModalV2.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/assignments/shareable-members.ts",
+   "route": "/api/assignments/shareable-members",
+   "methods": [
+    "GET"
+   ],
+   "guards": [],
+   "calledBy": [],
+   "referencedIn": [
+    "__tests__/api/assignments/forged-session.test.ts",
+    "components/assignments/CollaborativeSubmissionModal.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/assignments/submit-group.ts",
+   "route": "/api/assignments/submit-group",
+   "methods": [
+    "POST"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/community/workspace/assignments/[id]/discussion",
+    "/community/workspace/assignments/[id]/groups",
+    "/mi-aprendizaje/tareas"
+   ],
+   "referencedIn": [
+    "__tests__/api/assignments/forged-session.test.ts",
+    "__tests__/api/group-quiz-notifications.test.ts",
+    "lib/services/groupAssignmentsV2.js"
+   ]
+  },
+  {
+   "file": "pages/api/assignments/user-group.ts",
+   "route": "/api/assignments/user-group",
+   "methods": [
+    "GET"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/mi-aprendizaje/tareas"
+   ],
+   "referencedIn": [
+    "__tests__/api/assignments/forged-session.test.ts",
+    "__tests__/api/group-quiz-notifications.test.ts",
+    "pages/mi-aprendizaje/tareas.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/quiz-reviews/[id].ts",
+   "route": "/api/quiz-reviews/[id]",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "auth.getUser"
+   ],
+   "calledBy": [
+    "/quiz-reviews/[id]"
+   ],
+   "referencedIn": [
+    "__tests__/api/group-quiz-notifications.test.ts",
+    "pages/quiz-reviews/[id].tsx"
+   ]
+  },
+  {
+   "file": "pages/api/quiz-reviews/notify-pending.ts",
+   "route": "/api/quiz-reviews/notify-pending",
+   "methods": [
+    "POST"
+   ],
+   "guards": [
+    "createServiceRoleClient",
+    "getApiUser"
+   ],
+   "calledBy": [
+    "/student/lesson/[lessonId]"
+   ],
+   "referencedIn": [
+    "__tests__/api/group-quiz-notifications.test.ts",
+    "__tests__/lib/notificationService.dispatch.test.ts",
+    "__tests__/lib/notificationService.source-context.test.ts",
+    "lib/services/quizSubmissions.js"
+   ]
+  },
+  {
+   "file": "pages/api/quiz-reviews/pending.ts",
+   "route": "/api/quiz-reviews/pending",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "auth.getUser"
+   ],
+   "calledBy": [
+    "/quiz-reviews"
+   ],
+   "referencedIn": [
+    "__tests__/api/group-quiz-notifications.test.ts",
+    "pages/quiz-reviews.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/quiz-reviews/submit-review.ts",
+   "route": "/api/quiz-reviews/submit-review",
+   "methods": [
+    "POST"
+   ],
+   "guards": [
+    "auth.getUser",
+    "hasPermission"
+   ],
+   "calledBy": [
+    "/quiz-reviews/[id]"
+   ],
+   "referencedIn": [
+    "__tests__/api/group-quiz-notifications.test.ts",
+    "components/quiz/QuizReviewPanel.tsx"
+   ]
+  }
+ ]
+}

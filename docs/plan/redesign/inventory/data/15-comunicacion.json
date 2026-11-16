@@ -1,0 +1,2045 @@
+{
+ "area": "15-comunicacion",
+ "name": "Comunicación (news and events)",
+ "note": "",
+ "routesOnly": false,
+ "readFrom": {
+  "commit": "58b8d169faeb9395c6cff9309b6898de8df0e6af",
+  "date": "2026-11-12T23:31:39-03:00"
+ },
+ "screens": [
+  {
+   "file": "pages/admin/events.tsx",
+   "route": "/admin/events",
+   "lines": 580,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [
+     {
+      "id": "events",
+      "label": "Eventos",
+      "group": "Comunicación",
+      "href": "/admin/events",
+      "gates": "roles: admin, community_manager",
+      "groupGates": "everyone signed in",
+      "line": 372
+     }
+    ],
+    "middleware": {
+     "rule": "the /admin rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "equipo_directivo": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "community_manager": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     }
+    },
+    "inPage": [
+     {
+      "line": 61,
+      "text": "router.push → /login  (when !user)"
+     },
+     {
+      "line": 65,
+      "text": "primaryRole = await getUserPrimaryRole(user.id)"
+     },
+     {
+      "line": 67,
+      "text": "router.push → /dashboard  (when !['admin', 'community_manager'].includes(primaryRole))"
+     }
+    ],
+    "linkedFrom": [
+     "components/layout/Sidebar.tsx:374",
+     "middleware.ts:217"
+    ],
+    "qaScenarios": {
+     "admin": [
+      "CA-32: Admin crea evento",
+      "SV-16: Admin ve Eventos en sidebar"
+     ],
+     "community_manager": [
+      "CM puede acceder a Eventos",
+      "CM puede crear eventos",
+      "CM crea eventos sin contexto organizacional",
+      "CM ve Eventos en sidebar",
+      "CM asignado con school_id (inconsistencia)"
+     ],
+     "consultor": [
+      "PB-9: Consultor intenta crear o editar eventos"
+     ],
+     "equipo_directivo": [
+      "PB-10: Equipo Directivo intenta crear o editar eventos"
+     ],
+     "lider_comunidad": [
+      "PB-11: Lider de Comunidad intenta crear/editar eventos"
+     ],
+     "supervisor_de_red": [
+      "PB-13: Supervisor intenta crear o editar eventos"
+     ]
+    },
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 61,
+     "in": "checkAuthorization",
+     "when": "!user",
+     "text": "/login",
+     "via": "router.push"
+    },
+    {
+     "kind": "access",
+     "line": 65,
+     "in": "checkAuthorization",
+     "text": "primaryRole = await getUserPrimaryRole(user.id)",
+     "via": "getUserPrimaryRole"
+    },
+    {
+     "kind": "nav",
+     "line": 67,
+     "in": "checkAuthorization",
+     "when": "!['admin', 'community_manager'].includes(primaryRole)",
+     "text": "/dashboard",
+     "via": "router.push"
+    },
+    {
+     "kind": "toast",
+     "line": 96,
+     "in": "handleSubmit",
+     "when": "!formData.title || !formData.location || !formData.date_start",
+     "text": "Por favor completa todos los campos requeridos",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 144,
+     "in": "handleSubmit",
+     "when": "editingEvent?.id",
+     "text": "Evento actualizado exitosamente. La línea de tiempo se actualizará automáticamente.",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 168,
+     "in": "handleSubmit",
+     "when": "!(editingEvent?.id)",
+     "text": "Evento creado exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 182,
+     "in": "handleSubmit",
+     "text": "{errorMessage}",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 218,
+     "in": "confirmDelete",
+     "text": "Evento eliminado exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 222,
+     "in": "confirmDelete",
+     "text": "Error al eliminar el evento",
+     "variant": "error"
+    },
+    {
+     "kind": "piece",
+     "line": 252,
+     "in": "EventsManagement",
+     "when": "!isAuthorized || loading",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "text",
+     "line": 261,
+     "in": "EventsManagement",
+     "when": "!isAuthorized || loading",
+     "text": "Cargando..."
+    },
+    {
+     "kind": "piece",
+     "line": 269,
+     "in": "EventsManagement",
+     "text": "",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "heading",
+     "line": 278,
+     "in": "EventsManagement",
+     "text": "Gestión de Eventos",
+     "level": 1
+    },
+    {
+     "kind": "button",
+     "line": 279,
+     "in": "EventsManagement",
+     "text": "+ Nuevo Evento",
+     "action": "{() => { resetForm(); setShowModal(true); }}"
+    },
+    {
+     "kind": "column",
+     "line": 295,
+     "in": "EventsManagement",
+     "text": "Fecha"
+    },
+    {
+     "kind": "column",
+     "line": 298,
+     "in": "EventsManagement",
+     "text": "Título"
+    },
+    {
+     "kind": "column",
+     "line": 301,
+     "in": "EventsManagement",
+     "text": "Ubicación"
+    },
+    {
+     "kind": "column",
+     "line": 304,
+     "in": "EventsManagement",
+     "text": "Estado"
+    },
+    {
+     "kind": "column",
+     "line": 307,
+     "in": "EventsManagement",
+     "text": "Acciones"
+    },
+    {
+     "kind": "value",
+     "line": 316,
+     "in": "EventsManagement",
+     "when": "each events",
+     "text": "{formatEventDate(event.date_start)} [- {formatEventDate(event.date_…}]"
+    },
+    {
+     "kind": "value",
+     "line": 321,
+     "in": "EventsManagement",
+     "when": "each events && event.time",
+     "text": "{event.time}"
+    },
+    {
+     "kind": "value",
+     "line": 325,
+     "in": "EventsManagement",
+     "when": "each events",
+     "text": "{event.title}"
+    },
+    {
+     "kind": "value",
+     "line": 327,
+     "in": "EventsManagement",
+     "when": "each events && event.description",
+     "text": "{event.description}"
+    },
+    {
+     "kind": "value",
+     "line": 333,
+     "in": "EventsManagement",
+     "when": "each events",
+     "text": "{event.location}"
+    },
+    {
+     "kind": "text",
+     "line": 336,
+     "in": "EventsManagement",
+     "when": "each events",
+     "text": "Publicado / Borrador"
+    },
+    {
+     "kind": "button",
+     "line": 345,
+     "in": "EventsManagement",
+     "when": "each events",
+     "text": "Editar",
+     "action": "{() => handleEdit(event)}"
+    },
+    {
+     "kind": "button",
+     "line": 351,
+     "in": "EventsManagement",
+     "when": "each events",
+     "text": "Eliminar",
+     "action": "{() => handleDelete(event.id!)}"
+    },
+    {
+     "kind": "popup",
+     "line": 367,
+     "in": "EventsManagement",
+     "when": "showDeleteConfirm",
+     "text": "Eliminar Evento",
+     "how": "written in this file"
+    },
+    {
+     "kind": "heading",
+     "line": 375,
+     "in": "EventsManagement",
+     "when": "showDeleteConfirm",
+     "text": "Eliminar Evento",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 380,
+     "in": "EventsManagement",
+     "when": "showDeleteConfirm",
+     "text": "¿Estás seguro de que quieres eliminar este evento?"
+    },
+    {
+     "kind": "text",
+     "line": 383,
+     "in": "EventsManagement",
+     "when": "showDeleteConfirm && deletingEventId && events.find(e => e.id === deletingEventId)",
+     "text": "&quot; {events.find(e => e.id === deletingE…} &quot;"
+    },
+    {
+     "kind": "text",
+     "line": 388,
+     "in": "EventsManagement",
+     "when": "showDeleteConfirm",
+     "text": "Esta acción no se puede deshacer."
+    },
+    {
+     "kind": "button",
+     "line": 392,
+     "in": "EventsManagement",
+     "when": "showDeleteConfirm",
+     "text": "Eliminar",
+     "action": "{confirmDelete}"
+    },
+    {
+     "kind": "button",
+     "line": 398,
+     "in": "EventsManagement",
+     "when": "showDeleteConfirm",
+     "text": "Cancelar",
+     "action": "{cancelDelete}"
+    },
+    {
+     "kind": "popup",
+     "line": 412,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "Editar Evento / Nuevo Evento",
+     "how": "written in this file"
+    },
+    {
+     "kind": "heading",
+     "line": 415,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "Editar Evento / Nuevo Evento",
+     "level": 3
+    },
+    {
+     "kind": "form",
+     "line": 419,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "{handleSubmit}"
+    },
+    {
+     "kind": "label",
+     "line": 423,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "Título *"
+    },
+    {
+     "kind": "field",
+     "line": 426,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "Título *",
+     "type": "text",
+     "required": "true",
+     "action": "{(e) => setFormData({ ...formData, title: e.target.value })}"
+    },
+    {
+     "kind": "label",
+     "line": 437,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "Ubicación *"
+    },
+    {
+     "kind": "field",
+     "line": 440,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "Ubicación *",
+     "type": "text",
+     "placeholder": "ej: Santiago, Chile o Virtual",
+     "required": "true",
+     "action": "{(e) => setFormData({ ...formData, location: e.target.value })}"
+    },
+    {
+     "kind": "label",
+     "line": 453,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "Fecha Inicio *"
+    },
+    {
+     "kind": "field",
+     "line": 456,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "Fecha Inicio *",
+     "type": "date",
+     "required": "true",
+     "action": "{(e) => setFormData({ ...formData, date_start: e.target.value })}"
+    },
+    {
+     "kind": "label",
+     "line": 465,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "Fecha Fin (opcional)"
+    },
+    {
+     "kind": "field",
+     "line": 468,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "Fecha Fin (opcional)",
+     "type": "date",
+     "action": "{(e) => setFormData({ ...formData, date_end: e.target.value })}"
+    },
+    {
+     "kind": "label",
+     "line": 479,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "Hora (opcional)"
+    },
+    {
+     "kind": "field",
+     "line": 482,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "Hora (opcional)",
+     "type": "text",
+     "placeholder": "ej: 10:00 - 12:00",
+     "action": "{(e) => setFormData({ ...formData, time: e.target.value })}"
+    },
+    {
+     "kind": "label",
+     "line": 493,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "Descripción"
+    },
+    {
+     "kind": "field",
+     "line": 496,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "Descripción",
+     "type": "textarea",
+     "limits": "",
+     "action": "{(e) => setFormData({ ...formData, description: e.target.value })}"
+    },
+    {
+     "kind": "label",
+     "line": 507,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "URL del Enlace"
+    },
+    {
+     "kind": "field",
+     "line": 510,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "URL del Enlace",
+     "type": "text",
+     "placeholder": "ejemplo.com o https://ejemplo.com",
+     "action": "{(e) => { let url = e.target.value; // Auto-add https:// if user enters a URL wi…}"
+    },
+    {
+     "kind": "label",
+     "line": 526,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "Texto del Enlace"
+    },
+    {
+     "kind": "field",
+     "line": 529,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "Texto del Enlace",
+     "type": "text",
+     "placeholder": "ej: Inscríbete aquí",
+     "action": "{(e) => setFormData({ ...formData, link_display: e.target.value })}"
+    },
+    {
+     "kind": "label",
+     "line": 541,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "Publicado"
+    },
+    {
+     "kind": "field",
+     "line": 542,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "Publicado",
+     "type": "checkbox",
+     "action": "{(e) => setFormData({ ...formData, is_published: e.target.checked })}"
+    },
+    {
+     "kind": "button",
+     "line": 555,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "Cancelar",
+     "action": "{() => { setShowModal(false); resetForm(); }}"
+    },
+    {
+     "kind": "button",
+     "line": 565,
+     "in": "EventsManagement",
+     "when": "showModal",
+     "text": "Actualizar / Crear Evento",
+     "submit": true
+    },
+    {
+     "kind": "string",
+     "line": 181,
+     "in": "EventsManagement",
+     "text": "Error al guardar el evento"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:events",
+     "ops": [
+      "delete",
+      "insert",
+      "select",
+      "update"
+     ]
+    }
+   ],
+   "pieces": [
+    "types/roles.ts",
+    "utils/dateUtils.ts",
+    "utils/roleUtils.ts"
+   ],
+   "api": []
+  },
+  {
+   "file": "pages/admin/news.tsx",
+   "route": "/admin/news",
+   "lines": 655,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "none",
+   "reach": {
+    "menu": [
+     {
+      "id": "news",
+      "label": "Noticias",
+      "group": "Comunicación",
+      "href": "/admin/news",
+      "gates": "roles: admin, community_manager",
+      "groupGates": "everyone signed in",
+      "line": 364
+     }
+    ],
+    "middleware": {
+     "rule": "the /admin rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "equipo_directivo": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "community_manager": {
+      "menu": "yes",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "no",
+      "middleware": "sent to /dashboard"
+     }
+    },
+    "inPage": [
+     {
+      "line": 12,
+      "text": "ALLOWED_ROLES = ['admin', 'community_manager']"
+     },
+     {
+      "line": 309,
+      "text": "Solo administradores y community managers pueden acceder a la gestión de noticias."
+     },
+     {
+      "line": 312,
+      "text": "router.push → /  (when hasPermission === false)"
+     }
+    ],
+    "linkedFrom": [
+     "components/layout/Sidebar.tsx:366",
+     "middleware.ts:217"
+    ],
+    "qaScenarios": {
+     "admin": [
+      "CA-30: Admin crea artículo de noticias",
+      "SV-15: Admin ve Noticias en sidebar"
+     ],
+     "community_manager": [
+      "CM puede acceder a Noticias",
+      "CM puede crear noticias",
+      "CM puede editar noticias",
+      "CM puede eliminar noticias",
+      "CM ve todas las noticias (sin filtro)",
+      "CM crea noticias sin restricción de escuela",
+      "CM ve Noticias en sidebar",
+      "CM sesión expira durante edición",
+      "CM asignado con school_id (inconsistencia)"
+     ],
+     "consultor": [
+      "PB-8: Consultor intenta crear o editar noticias"
+     ],
+     "equipo_directivo": [
+      "PB-9: Equipo Directivo intenta crear o editar noticias"
+     ],
+     "lider_comunidad": [
+      "PB-10: Lider de Comunidad intenta crear/editar noticias"
+     ],
+     "supervisor_de_red": [
+      "PB-12: Supervisor intenta crear o editar noticias"
+     ]
+    },
+    "tests": {
+     "e2eCi": [],
+     "e2e": [
+      "tests/e2e/urgent-anonymous-boundaries.spec.ts",
+      "tests/e2e/urgent-anonymous-current.spec.ts"
+     ],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "access",
+     "line": 12,
+     "text": "ALLOWED_ROLES = ['admin', 'community_manager']",
+     "via": "declaration"
+    },
+    {
+     "kind": "message",
+     "line": 94,
+     "in": "fetchArticles",
+     "when": "!response.ok",
+     "text": "Error al cargar noticias",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 100,
+     "in": "fetchArticles",
+     "text": "Error al cargar las noticias",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 120,
+     "in": "handleImageUpload",
+     "when": "url",
+     "text": "Imagen subida exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 124,
+     "in": "handleImageUpload",
+     "text": "Error al subir la imagen",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 132,
+     "in": "handleSave",
+     "when": "!title || !content",
+     "text": "El título y contenido son requeridos",
+     "variant": "error"
+    },
+    {
+     "kind": "list",
+     "line": 138,
+     "in": "handleSave",
+     "text": "method",
+     "items": [
+      "PUT / POST"
+     ]
+    },
+    {
+     "kind": "message",
+     "line": 151,
+     "in": "handleSave",
+     "when": "!response.ok",
+     "text": "Error al guardar",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 154,
+     "in": "handleSave",
+     "text": "Artículo actualizado / Artículo creado",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 160,
+     "in": "handleSave",
+     "text": "Error al guardar el artículo",
+     "variant": "error"
+    },
+    {
+     "kind": "confirm",
+     "line": 167,
+     "in": "handleDelete",
+     "text": "¿Estás seguro de eliminar este artículo?"
+    },
+    {
+     "kind": "message",
+     "line": 174,
+     "in": "handleDelete",
+     "when": "!response.ok",
+     "text": "Error al eliminar",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 176,
+     "in": "handleDelete",
+     "text": "Artículo eliminado",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 180,
+     "in": "handleDelete",
+     "text": "Error al eliminar el artículo",
+     "variant": "error"
+    },
+    {
+     "kind": "message",
+     "line": 195,
+     "in": "handleTogglePublish",
+     "when": "!response.ok",
+     "text": "Error al actualizar",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 197,
+     "in": "handleTogglePublish",
+     "text": "Artículo despublicado / Artículo publicado",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 201,
+     "in": "handleTogglePublish",
+     "text": "Error al cambiar el estado de publicación",
+     "variant": "error"
+    },
+    {
+     "kind": "message",
+     "line": 222,
+     "in": "handleQuickDateSave",
+     "when": "!response.ok",
+     "text": "Error al actualizar fecha",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 224,
+     "in": "handleQuickDateSave",
+     "text": "Fecha actualizada",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 230,
+     "in": "handleQuickDateSave",
+     "text": "Error al actualizar la fecha",
+     "variant": "error"
+    },
+    {
+     "kind": "piece",
+     "line": 273,
+     "in": "NewsAdmin",
+     "when": "hasPermission === null",
+     "text": "pageTitle: Gestión de Noticias",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "text",
+     "line": 282,
+     "in": "NewsAdmin",
+     "when": "hasPermission === null",
+     "text": "Verificando permisos..."
+    },
+    {
+     "kind": "piece",
+     "line": 291,
+     "in": "NewsAdmin",
+     "when": "hasPermission === false",
+     "text": "pageTitle: Acceso Denegado",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "heading",
+     "line": 305,
+     "in": "NewsAdmin",
+     "when": "hasPermission === false",
+     "text": "Acceso Denegado",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 309,
+     "in": "NewsAdmin",
+     "when": "hasPermission === false",
+     "text": "Solo administradores y community managers pueden acceder a la gestión de noticias.",
+     "access": true
+    },
+    {
+     "kind": "button",
+     "line": 311,
+     "in": "NewsAdmin",
+     "when": "hasPermission === false",
+     "text": "Volver al Inicio",
+     "action": "{() => router.push('/')}"
+    },
+    {
+     "kind": "nav",
+     "line": 312,
+     "in": "NewsAdmin",
+     "when": "hasPermission === false",
+     "text": "/",
+     "via": "router.push"
+    },
+    {
+     "kind": "piece",
+     "line": 324,
+     "in": "NewsAdmin",
+     "text": "pageTitle: Gestión de Noticias",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "heading",
+     "line": 336,
+     "in": "NewsAdmin",
+     "text": "Gestión de Noticias",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 338,
+     "in": "NewsAdmin",
+     "text": "Crea y administra las noticias del sitio"
+    },
+    {
+     "kind": "button",
+     "line": 341,
+     "in": "NewsAdmin",
+     "text": "Nueva Noticia",
+     "action": "{() => { resetForm(); setShowModal(true); }}"
+    },
+    {
+     "kind": "text",
+     "line": 359,
+     "in": "NewsAdmin",
+     "when": "loading",
+     "text": "Cargando noticias..."
+    },
+    {
+     "kind": "text",
+     "line": 363,
+     "in": "NewsAdmin",
+     "when": "!(loading) && articles.length === 0",
+     "text": "No hay noticias aún"
+    },
+    {
+     "kind": "button",
+     "line": 364,
+     "in": "NewsAdmin",
+     "when": "!(loading) && articles.length === 0",
+     "text": "Crear primera noticia",
+     "action": "{() => { resetForm(); setShowModal(true); }}"
+    },
+    {
+     "kind": "column",
+     "line": 380,
+     "in": "NewsAdmin",
+     "when": "!(loading) && !(articles.length === 0)",
+     "text": "Título"
+    },
+    {
+     "kind": "column",
+     "line": 383,
+     "in": "NewsAdmin",
+     "when": "!(loading) && !(articles.length === 0)",
+     "text": "Autor"
+    },
+    {
+     "kind": "column",
+     "line": 386,
+     "in": "NewsAdmin",
+     "when": "!(loading) && !(articles.length === 0)",
+     "text": "Estado"
+    },
+    {
+     "kind": "column",
+     "line": 389,
+     "in": "NewsAdmin",
+     "when": "!(loading) && !(articles.length === 0)",
+     "text": "Fecha"
+    },
+    {
+     "kind": "column",
+     "line": 392,
+     "in": "NewsAdmin",
+     "when": "!(loading) && !(articles.length === 0)",
+     "text": "Acciones"
+    },
+    {
+     "kind": "media",
+     "line": 403,
+     "in": "NewsAdmin",
+     "when": "!(loading) && !(articles.length === 0) && each articles && article.featured_image",
+     "text": "img · {article.featured_image}"
+    },
+    {
+     "kind": "value",
+     "line": 410,
+     "in": "NewsAdmin",
+     "when": "!(loading) && !(articles.length === 0) && each articles",
+     "text": "{article.title}"
+    },
+    {
+     "kind": "text",
+     "line": 413,
+     "in": "NewsAdmin",
+     "when": "!(loading) && !(articles.length === 0) && each articles",
+     "text": "/noticias/ {article.slug}"
+    },
+    {
+     "kind": "text",
+     "line": 420,
+     "in": "NewsAdmin",
+     "when": "!(loading) && !(articles.length === 0) && each articles",
+     "text": "{`${article.author.first_name || ''}…} / Sin autor / Sin autor"
+    },
+    {
+     "kind": "text",
+     "line": 428,
+     "in": "NewsAdmin",
+     "when": "!(loading) && !(articles.length === 0) && each articles",
+     "text": "Publicado / Borrador"
+    },
+    {
+     "kind": "field",
+     "line": 439,
+     "in": "NewsAdmin",
+     "when": "!(loading) && !(articles.length === 0) && each articles && editingDateId === article.id",
+     "text": "",
+     "type": "date",
+     "action": "{(e) => setTempDate(e.target.value)}",
+     "also": "onKeyDown={(e) => { if (e.key === 'Enter') { handleQuickDateSave(article.id); } else if (e…}"
+    },
+    {
+     "kind": "button",
+     "line": 453,
+     "in": "NewsAdmin",
+     "when": "!(loading) && !(articles.length === 0) && each articles && editingDateId === article.id",
+     "text": "Guardar",
+     "action": "{() => handleQuickDateSave(article.id)}",
+     "title": "Guardar"
+    },
+    {
+     "kind": "button",
+     "line": 462,
+     "in": "NewsAdmin",
+     "when": "!(loading) && !(articles.length === 0) && each articles && editingDateId === article.id",
+     "text": "Cancelar",
+     "action": "{handleQuickDateCancel}",
+     "title": "Cancelar"
+    },
+    {
+     "kind": "clickable",
+     "line": 473,
+     "in": "NewsAdmin",
+     "when": "!(loading) && !(articles.length === 0) && each articles && !(editingDateId === article.id)",
+     "text": "{formatDate(article.display_date || …}",
+     "tag": "div",
+     "action": "{() => handleQuickDateEdit(article)}",
+     "title": "Click para editar fecha"
+    },
+    {
+     "kind": "value",
+     "line": 478,
+     "in": "NewsAdmin",
+     "when": "!(loading) && !(articles.length === 0) && each articles && !(editingDateId === article.id)",
+     "text": "{formatDate(article.display_date || …}"
+    },
+    {
+     "kind": "button",
+     "line": 487,
+     "in": "NewsAdmin",
+     "when": "!(loading) && !(articles.length === 0) && each articles",
+     "text": "[icon EyeOffIcon]",
+     "action": "{() => handleTogglePublish(article)}",
+     "title": "{article.is_published ? 'Despublicar' : 'Publicar'}"
+    },
+    {
+     "kind": "button",
+     "line": 498,
+     "in": "NewsAdmin",
+     "when": "!(loading) && !(articles.length === 0) && each articles",
+     "text": "[icon PencilIcon]",
+     "action": "{() => openEditModal(article)}",
+     "title": "Editar"
+    },
+    {
+     "kind": "button",
+     "line": 505,
+     "in": "NewsAdmin",
+     "when": "!(loading) && !(articles.length === 0) && each articles",
+     "text": "[icon TrashIcon]",
+     "action": "{() => handleDelete(article.id)}",
+     "title": "Eliminar"
+    },
+    {
+     "kind": "popup",
+     "line": 524,
+     "in": "NewsAdmin",
+     "when": "showModal",
+     "text": "Editar Noticia / Nueva Noticia",
+     "how": "written in this file"
+    },
+    {
+     "kind": "popup",
+     "line": 526,
+     "in": "NewsAdmin",
+     "when": "showModal",
+     "screen": "sm:block",
+     "text": "(sin título)",
+     "how": "written in this file"
+    },
+    {
+     "kind": "heading",
+     "line": 533,
+     "in": "NewsAdmin",
+     "when": "showModal",
+     "screen": "sm:block",
+     "text": "Editar Noticia / Nueva Noticia",
+     "level": 3
+    },
+    {
+     "kind": "label",
+     "line": 541,
+     "in": "NewsAdmin",
+     "when": "showModal",
+     "screen": "sm:block",
+     "text": "Título"
+    },
+    {
+     "kind": "field",
+     "line": 544,
+     "in": "NewsAdmin",
+     "when": "showModal",
+     "screen": "sm:block",
+     "text": "Título",
+     "type": "text",
+     "placeholder": "Título de la noticia",
+     "action": "{(e) => setTitle(e.target.value)}"
+    },
+    {
+     "kind": "label",
+     "line": 555,
+     "in": "NewsAdmin",
+     "when": "showModal",
+     "screen": "sm:block",
+     "text": "Imagen Destacada"
+    },
+    {
+     "kind": "field",
+     "line": 559,
+     "in": "NewsAdmin",
+     "when": "showModal",
+     "screen": "sm:block",
+     "text": "Imagen Destacada",
+     "type": "file",
+     "disabled": "{uploading}",
+     "accept": "image/*",
+     "action": "{handleImageUpload}"
+    },
+    {
+     "kind": "media",
+     "line": 572,
+     "in": "NewsAdmin",
+     "when": "showModal && featuredImage",
+     "screen": "sm:block",
+     "text": "img · alt Preview · {featuredImage}"
+    },
+    {
+     "kind": "label",
+     "line": 583,
+     "in": "NewsAdmin",
+     "when": "showModal",
+     "screen": "sm:block",
+     "text": "Fecha de Publicación"
+    },
+    {
+     "kind": "field",
+     "line": 586,
+     "in": "NewsAdmin",
+     "when": "showModal",
+     "screen": "sm:block",
+     "text": "Fecha de Publicación",
+     "type": "date",
+     "action": "{(e) => setDisplayDate(e.target.value)}",
+     "title": "Selecciona la fecha que aparecerá en el artículo"
+    },
+    {
+     "kind": "text",
+     "line": 594,
+     "in": "NewsAdmin",
+     "when": "showModal",
+     "screen": "sm:block",
+     "text": "Esta es la fecha que se mostrará en el artículo. Útil para artículos migrados o programados."
+    },
+    {
+     "kind": "label",
+     "line": 600,
+     "in": "NewsAdmin",
+     "when": "showModal",
+     "screen": "sm:block",
+     "text": "Contenido"
+    },
+    {
+     "kind": "piece",
+     "line": 603,
+     "in": "NewsAdmin",
+     "when": "showModal",
+     "screen": "sm:block",
+     "text": "",
+     "tag": "TipTapEditor"
+    },
+    {
+     "kind": "text",
+     "line": 608,
+     "in": "NewsAdmin",
+     "when": "showModal",
+     "screen": "sm:block",
+     "text": "💡 Tip: Puedes pegar enlaces de YouTube directamente en el contenido y se mostrarán como videos reproducibles."
+    },
+    {
+     "kind": "field",
+     "line": 614,
+     "in": "NewsAdmin",
+     "when": "showModal",
+     "screen": "sm:block",
+     "text": "Publicar ahora",
+     "type": "checkbox",
+     "action": "{(e) => setIsPublished(e.target.checked)}",
+     "hook": {
+      "id": "is_published",
+      "idUsed": true
+     }
+    },
+    {
+     "kind": "label",
+     "line": 621,
+     "in": "NewsAdmin",
+     "when": "showModal",
+     "screen": "sm:block",
+     "text": "Publicar ahora",
+     "for": "is_published"
+    },
+    {
+     "kind": "button",
+     "line": 629,
+     "in": "NewsAdmin",
+     "when": "showModal",
+     "screen": "sm:block sm:flex",
+     "text": "Guardando... / Actualizar / Crear",
+     "action": "{handleSave}",
+     "disabled": "{saving}"
+    },
+    {
+     "kind": "button",
+     "line": 637,
+     "in": "NewsAdmin",
+     "when": "showModal",
+     "screen": "sm:block sm:flex",
+     "text": "Cancelar",
+     "action": "{() => { setShowModal(false); resetForm(); }}"
+    }
+   ],
+   "db": [],
+   "pieces": [
+    "src/components/TipTapEditor.tsx",
+    "types/roles.ts",
+    "utils/authHelpers.ts",
+    "utils/roleUtils.ts",
+    "utils/storage.js"
+   ],
+   "api": [
+    {
+     "file": "pages/api/admin/news.ts",
+     "route": "/api/admin/news",
+     "methods": [
+      "DELETE",
+      "GET",
+      "PUT"
+     ],
+     "from": [
+      "pages/admin/news.tsx:143",
+      "pages/admin/news.tsx:170",
+      "pages/admin/news.tsx:186",
+      "pages/admin/news.tsx:213",
+      "pages/admin/news.tsx:93"
+     ]
+    },
+    {
+     "file": "pages/api/auth/session.ts",
+     "route": "/api/auth/session",
+     "methods": [
+      "GET"
+     ],
+     "from": [
+      "utils/authHelpers.ts:71"
+     ]
+    }
+   ]
+  },
+  {
+   "file": "pages/admin/setup-news.tsx",
+   "route": "/admin/setup-news",
+   "lines": 131,
+   "marks": {
+    "leftover": "A one-time set-up page for the news table: it asks the database to create it. Admin only.",
+    "recommend": "retire",
+    "decision": "Retire in phase 4 (Brent, 13 Nov 2026)"
+   },
+   "frame": "none",
+   "server": "none",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "the /admin rule",
+     "signedOut": "sent to /login",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "sent to /dashboard"
+     }
+    },
+    "inPage": [],
+    "linkedFrom": [],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [],
+     "e2e": [],
+     "unit": []
+    }
+   },
+   "rows": [
+    {
+     "kind": "toast",
+     "line": 30,
+     "in": "createNewsTable",
+     "when": "tableError && existing !== null",
+     "text": "News table is ready!",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 36,
+     "in": "createNewsTable",
+     "text": "News system is ready to use!",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 41,
+     "in": "createNewsTable",
+     "text": "Failed to setup news system",
+     "variant": "error"
+    },
+    {
+     "kind": "heading",
+     "line": 66,
+     "in": "SetupNews",
+     "text": "News System Setup",
+     "level": 1
+    },
+    {
+     "kind": "button",
+     "line": 69,
+     "in": "SetupNews",
+     "text": "Test News Table",
+     "action": "{testConnection}"
+    },
+    {
+     "kind": "button",
+     "line": 76,
+     "in": "SetupNews",
+     "text": "Setting up... / Setup News System",
+     "action": "{createNewsTable}",
+     "disabled": "{creating}"
+    },
+    {
+     "kind": "value",
+     "line": 86,
+     "in": "SetupNews",
+     "when": "status",
+     "text": "{status}"
+    },
+    {
+     "kind": "text",
+     "line": 91,
+     "in": "SetupNews",
+     "text": "Manual SQL for Supabase Dashboard:"
+    },
+    {
+     "kind": "text",
+     "line": 92,
+     "in": "SetupNews",
+     "text": "-- Create news_articles table CREATE TABLE IF NOT EXISTS news_articles ( id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), title TEXT NOT NULL, slug TEXT UNIQUE NOT NULL, content JSONB NOT NULL, content_html TEXT NOT NULL, featured_image TEX…"
+    },
+    {
+     "kind": "string",
+     "line": 12,
+     "in": "SetupNews",
+     "text": "Creating news_articles table..."
+    },
+    {
+     "kind": "string",
+     "line": 29,
+     "in": "SetupNews",
+     "text": "✅ Table already exists and is accessible"
+    },
+    {
+     "kind": "string",
+     "line": 35,
+     "in": "SetupNews",
+     "text": "✅ News table created successfully"
+    },
+    {
+     "kind": "string",
+     "line": 40,
+     "in": "SetupNews",
+     "text": "❌ Error: {error.message}"
+    },
+    {
+     "kind": "string",
+     "line": 55,
+     "in": "SetupNews",
+     "text": "❌ Table not found: {error.message}"
+    },
+    {
+     "kind": "string",
+     "line": 57,
+     "in": "SetupNews",
+     "text": "✅ Table exists and accessible. Found {data.length} articles."
+    }
+   ],
+   "db": [
+    {
+     "what": "rpc:create_news_table",
+     "ops": []
+    },
+    {
+     "what": "table:news_articles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [],
+   "api": []
+  }
+ ],
+ "pieces": {
+  "src/components/TipTapEditor.tsx": {
+   "usedBy": [
+    "/admin/news"
+   ],
+   "lines": 419,
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 73,
+     "in": "MenuBar",
+     "text": "!editor"
+    },
+    {
+     "kind": "button",
+     "line": 91,
+     "in": "renderButton",
+     "text": "{item.label}",
+     "action": "{item.action}",
+     "disabled": "{!isEnabled}",
+     "aria": "{item.ariaLabel}",
+     "title": "{item.title}"
+    },
+    {
+     "kind": "piece",
+     "line": 101,
+     "in": "renderButton",
+     "text": "aria-hidden: true",
+     "tag": "Icon"
+    },
+    {
+     "kind": "text",
+     "line": 108,
+     "in": "MenuBar",
+     "text": "Formato de texto",
+     "attr": "aria-label"
+    },
+    {
+     "kind": "hook",
+     "line": 108,
+     "in": "MenuBar",
+     "text": "role=toolbar",
+     "type": "role",
+     "tag": "div",
+     "aria": "Formato de texto"
+    },
+    {
+     "kind": "value",
+     "line": 114,
+     "in": "MenuBar",
+     "when": "each toolbarGroups",
+     "text": "{group.buttons.map(renderButton)}"
+    },
+    {
+     "kind": "button",
+     "line": 122,
+     "in": "MenuBar",
+     "when": "expandable && onToggleFullscreen",
+     "text": "Reducir / Expandir",
+     "action": "{onToggleFullscreen}",
+     "aria": "{isFullscreen ? 'Minimizar editor' : 'Maximizar editor'}",
+     "title": "{isFullscreen ? 'Minimizar (Esc)' : 'Maximizar'}"
+    },
+    {
+     "kind": "piece",
+     "line": 130,
+     "in": "MenuBar",
+     "when": "expandable && onToggleFullscreen && isFullscreen",
+     "text": "aria-hidden: true",
+     "tag": "Minimize2Icon"
+    },
+    {
+     "kind": "piece",
+     "line": 132,
+     "in": "MenuBar",
+     "when": "expandable && onToggleFullscreen && !(isFullscreen)",
+     "text": "aria-hidden: true",
+     "tag": "Maximize2Icon"
+    },
+    {
+     "kind": "gate",
+     "line": 185,
+     "in": "TipTapEditor",
+     "text": "!editor || editor.isFocused"
+    },
+    {
+     "kind": "gate",
+     "line": 188,
+     "in": "TipTapEditor",
+     "text": "current === next"
+    },
+    {
+     "kind": "gate",
+     "line": 193,
+     "in": "TipTapEditor",
+     "text": "!isFullscreen"
+    },
+    {
+     "kind": "hook",
+     "line": 197,
+     "in": "TipTapEditor",
+     "text": "window.addEventListener('keydown')",
+     "type": "listener"
+    },
+    {
+     "kind": "list",
+     "line": 206,
+     "in": "TipTapEditor",
+     "text": "toolbarGroups",
+     "items": [
+      "Negrita",
+      "Negrita (Ctrl+B)",
+      "Cursiva",
+      "Cursiva (Ctrl+I)",
+      "Subrayado",
+      "Subrayar",
+      "Subrayado (Ctrl+U)",
+      "Encabezado nivel 2",
+      "Título 2",
+      "Encabezado 2 (Ctrl+Alt+2)",
+      "Encabezado nivel 3",
+      "Título 3",
+      "Encabezado 3 (Ctrl+Alt+3)",
+      "Lista con viñetas",
+      "Viñetas",
+      "Lista con viñetas (Ctrl+Shift+8)",
+      "Lista numerada",
+      "Números",
+      "Lista numerada (Ctrl+Shift+7)",
+      "Deshacer",
+      "Deshacer (Ctrl+Z)",
+      "Rehacer",
+      "Rehacer (Ctrl+Shift+Z)"
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 213,
+     "in": "TipTapEditor",
+     "when": "editor && editor.isEditable",
+     "text": "editor.chain().focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 226,
+     "in": "TipTapEditor",
+     "when": "editor && editor.isEditable",
+     "text": "editor.chain().focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 239,
+     "in": "TipTapEditor",
+     "when": "editor && editor.isEditable",
+     "text": "editor.chain().focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 257,
+     "in": "TipTapEditor",
+     "when": "editor && editor.isEditable",
+     "text": "editor.chain().focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 271,
+     "in": "TipTapEditor",
+     "when": "editor && editor.isEditable",
+     "text": "editor.chain().focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 290,
+     "in": "TipTapEditor",
+     "when": "editor && editor.isEditable",
+     "text": "editor.chain().focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 303,
+     "in": "TipTapEditor",
+     "when": "editor && editor.isEditable",
+     "text": "editor.chain().focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 321,
+     "in": "TipTapEditor",
+     "when": "editor && editor.isEditable && editor.can().undo()",
+     "text": "editor.chain().focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 334,
+     "in": "TipTapEditor",
+     "when": "editor && editor.isEditable && editor.can().redo()",
+     "text": "editor.chain().focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "gate",
+     "line": 348,
+     "in": "TipTapEditor",
+     "text": "!editor"
+    },
+    {
+     "kind": "popup",
+     "line": 375,
+     "in": "TipTapEditor",
+     "text": "Editor en pantalla completa",
+     "how": "written in this file"
+    },
+    {
+     "kind": "text",
+     "line": 382,
+     "in": "TipTapEditor",
+     "text": "Editor"
+    },
+    {
+     "kind": "button",
+     "line": 383,
+     "in": "TipTapEditor",
+     "text": "Cerrar",
+     "action": "{() => setIsFullscreen(false)}",
+     "aria": "Cerrar pantalla completa",
+     "title": "Cerrar (Esc)"
+    },
+    {
+     "kind": "piece",
+     "line": 390,
+     "in": "TipTapEditor",
+     "text": "aria-hidden: true",
+     "tag": "XIcon"
+    }
+   ],
+   "db": []
+  },
+  "types/roles.ts": {
+   "usedBy": [
+    "/admin/events",
+    "/admin/news"
+   ],
+   "lines": 515,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 305,
+     "text": "ROLE_NAMES",
+     "items": [
+      "Administrador Global",
+      "Consultor FNE",
+      "Equipo Directivo",
+      "Líder de Generación",
+      "Líder de Comunidad",
+      "Supervisor de Red",
+      "Community Manager",
+      "Docente",
+      "Encargado de Licitacion"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 318,
+     "text": "ROLE_DESCRIPTIONS",
+     "items": [
+      "Staff de FNE con control total de la plataforma. Pueden pertenecer a comunidades para colaboración.",
+      "Consultores FNE asignados a colegios específicos. Pueden pertenecer a comunidades para colaboración.",
+      "Administradores a nivel de colegio. Pueden pertenecer a comunidades para colaboración.",
+      "Líderes de generaciones Tractor/Innova. Pueden pertenecer a comunidades para colaboración.",
+      "Líderes de Comunidades de Crecimiento (2-16 miembros). Crean automáticamente su propia comunidad.",
+      "Supervisores con acceso limitado a reportes de una red específica de colegios. Pueden inscribirse en cursos como estudiantes.",
+      "Gestores de comunidad con acceso a panel, perfil, aprendizaje, cursos y rendición de gastos.",
+      "Docentes participantes en cursos. Pueden pertenecer a comunidades para colaboración.",
+      "Encargados de procesos de licitacion en establecimientos educacionales. Gestionan el proceso de contratacion de ATEs bajo Ley SEP."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 342,
+     "text": "ROLE_ORGANIZATIONAL_REQUIREMENTS",
+     "items": [
+      "Global role - no organizational scope required",
+      "Must be assigned to a specific school",
+      "Must be assigned to a specific school and generation",
+      "Must be assigned to a school (community auto-created)",
+      "Network-level role - no specific school required",
+      "Content management role - no organizational scope required",
+      "Must be assigned to a specific school for procurement management"
+     ]
+    },
+    {
+     "kind": "string",
+     "line": 413,
+     "in": "validateRoleAssignment",
+     "text": "Unknown role type: {roleType}"
+    },
+    {
+     "kind": "string",
+     "line": 421,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a school assignment"
+    },
+    {
+     "kind": "string",
+     "line": 429,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a generation assignment"
+    },
+    {
+     "kind": "string",
+     "line": 437,
+     "in": "validateRoleAssignment",
+     "text": "Role \"{ROLE_NAMES[roleType]}\" requires a community assignment"
+    }
+   ],
+   "db": []
+  },
+  "utils/authHelpers.ts": {
+   "usedBy": [
+    "/admin/news"
+   ],
+   "lines": 106,
+   "rows": [
+    {
+     "kind": "access",
+     "line": 32,
+     "in": "getEnhancedUserInfo",
+     "when": "contextUser",
+     "text": "{ effectiveRole, isAdmin } = await getEffectiveRoleAndStatus(supabase, contextUser.id)",
+     "via": "getEffectiveRoleAndStatus"
+    },
+    {
+     "kind": "access",
+     "line": 52,
+     "in": "getEnhancedUserInfo",
+     "when": "!(sessionError) && session?.user",
+     "text": "{ effectiveRole, isAdmin } = await getEffectiveRoleAndStatus(supabase, session.user.id)",
+     "via": "getEffectiveRoleAndStatus"
+    },
+    {
+     "kind": "access",
+     "line": 76,
+     "in": "getEnhancedUserInfo",
+     "when": "typeof window !== 'undefined' && response.ok && sessionData.user && sessionData.user.id",
+     "text": "{ effectiveRole, isAdmin } = await getEffectiveRoleAndStatus(supabase, sessionData.user.id)",
+     "via": "getEffectiveRoleAndStatus"
+    }
+   ],
+   "db": []
+  },
+  "utils/dateUtils.ts": {
+   "usedBy": [
+    "/admin/events"
+   ],
+   "lines": 74,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 35,
+     "in": "formatEventDate",
+     "text": "months",
+     "items": [
+      "ENE",
+      "FEB",
+      "MAR",
+      "ABR",
+      "MAY",
+      "JUN",
+      "JUL",
+      "AGO",
+      "SEP",
+      "OCT",
+      "NOV",
+      "DIC"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "utils/roleUtils.ts": {
+   "usedBy": [
+    "/admin/events",
+    "/admin/news"
+   ],
+   "lines": 1605,
+   "rows": [
+    {
+     "kind": "access",
+     "line": 161,
+     "in": "hasAdminPrivileges",
+     "text": "return await isGlobalAdmin(supabase, userId);",
+     "via": "isGlobalAdmin"
+    },
+    {
+     "kind": "access",
+     "line": 1151,
+     "in": "getEffectiveRoleAndStatus",
+     "text": "userRoles = await getUserRoles(supabase, userId)",
+     "via": "getUserRoles"
+    },
+    {
+     "kind": "access",
+     "line": 1152,
+     "in": "getEffectiveRoleAndStatus",
+     "text": "highestRole = getHighestRole(userRoles)",
+     "via": "getHighestRole"
+    },
+    {
+     "kind": "access",
+     "line": 1158,
+     "in": "getEffectiveRoleAndStatus",
+     "text": "isAdmin = await hasAdminPrivileges(supabase, userId)",
+     "via": "declaration"
+    },
+    {
+     "kind": "access",
+     "line": 1158,
+     "in": "getEffectiveRoleAndStatus",
+     "text": "isAdmin = await hasAdminPrivileges(supabase, userId)",
+     "via": "hasAdminPrivileges"
+    },
+    {
+     "kind": "access",
+     "line": 1186,
+     "in": "getUserPrimaryRole",
+     "text": "userRoles = await getUserRoles(supabase, userId)",
+     "via": "getUserRoles"
+    },
+    {
+     "kind": "access",
+     "line": 1187,
+     "in": "getUserPrimaryRole",
+     "text": "highestRole = getHighestRole(userRoles)",
+     "via": "getHighestRole"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:generations",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:growth_communities",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:schools",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles",
+     "ops": [
+      "select"
+     ]
+    },
+    {
+     "what": "table:user_roles_cache",
+     "ops": [
+      "select"
+     ]
+    }
+   ]
+  },
+  "utils/storage.js": {
+   "usedBy": [
+    "/admin/news"
+   ],
+   "lines": 73,
+   "rows": [],
+   "db": [
+    {
+     "what": "bucket:{bucketName}",
+     "ops": [
+      "getPublicUrl",
+      "list",
+      "upload"
+     ]
+    }
+   ]
+  }
+ },
+ "api": [
+  {
+   "file": "pages/api/admin/news.ts",
+   "route": "/api/admin/news",
+   "methods": [
+    "DELETE",
+    "GET",
+    "POST",
+    "PUT"
+   ],
+   "guards": [
+    "auth.getUser"
+   ],
+   "calledBy": [
+    "/admin/news"
+   ],
+   "referencedIn": [
+    "pages/admin/news.tsx"
+   ]
+  },
+  {
+   "file": "pages/api/news/[slug].ts",
+   "route": "/api/news/[slug]",
+   "methods": [
+    "GET"
+   ],
+   "guards": [
+    "auth.getUser"
+   ],
+   "calledBy": [],
+   "referencedIn": []
+  },
+  {
+   "file": "pages/api/news/index.ts",
+   "route": "/api/news",
+   "methods": [
+    "GET"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/",
+    "/dashboard",
+    "/noticias",
+    "/noticias/[slug]"
+   ],
+   "referencedIn": [
+    "components/site/news.ts",
+    "pages/dashboard.tsx",
+    "tests/e2e/meeting-finalize-email-outcome.spec.ts",
+    "tests/e2e/panel-pin.spec.ts"
+   ]
+  },
+  {
+   "file": "pages/api/public/events.ts",
+   "route": "/api/public/events",
+   "methods": [
+    "GET"
+   ],
+   "guards": [],
+   "calledBy": [
+    "/noticias"
+   ],
+   "referencedIn": [
+    "pages/noticias.tsx"
+   ]
+  }
+ ]
+}

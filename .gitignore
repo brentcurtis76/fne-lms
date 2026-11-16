@@ -199,3 +199,11 @@ tests/e2e/.auth/
 # Production env backups (never commit — see santa-marta-release-protocol)
 .env.local.prod-backup-*
 .env*.backup*
+
+# Redesign inventory (docs/plan/redesign/inventory): its data files are part of the record.
+# Overrides the *.json rule above. Keep each exception on a line of its own, with no comment after it.
+!docs/plan/redesign/inventory/*.json
+!docs/plan/redesign/inventory/**/*.json
+
+# Redesign picture harness (docs/plan/redesign/harness): the kept list of browser-test results is part of the record.
+!docs/plan/redesign/harness/*.json

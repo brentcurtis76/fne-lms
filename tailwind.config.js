@@ -1,6 +1,17 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ['./pages/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './app/**/*.{ts,tsx}'],
+  // Every folder that holds class names. src/, lib/, types/, config/ and utils/ joined in the redesign's groundwork
+  // (phase 3): before that, a class written only there was silently never generated.
+  content: [
+    './pages/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
+    './app/**/*.{ts,tsx}',
+    './src/**/*.{ts,tsx}',
+    './lib/**/*.{ts,tsx}',
+    './types/**/*.{ts,tsx}',
+    './config/**/*.{ts,tsx}',
+    './utils/**/*.{ts,tsx}',
+  ],
   theme: {
     extend: {
       colors: {

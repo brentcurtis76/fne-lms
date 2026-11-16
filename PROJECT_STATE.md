@@ -1,3 +1,7 @@
+## Publisher bootstrap prerequisite — 2026-11-16
+
+Branch `fix/pub-setup`, based on production main `1deb9b782cfa8d2ce6e5baad9502e4340f027df7`. The urgent Registro-delivery release passed publisher rehearsal but production lacks `pm_publish.pending`. This separate prerequisite copies the installed publisher's infrastructure SQL byte for byte into one migration; no application code or application records change. SHA-256 `815e151651fa9ee7179dab3aa3c1acae09721b6838885f4dbea38de33efa1f65` matches the installed source. Local transactional application twice and twelve privilege/RLS/synthetic-count assertions passed; remote CI and controlled publication remain pending. Review: `docs/planning/reviews/fase-publisher-bootstrap-review-request.md`. Re-propose the Registro-delivery release after publishing this prerequisite.
+
 ## RD-4c — platform redesign, step 4c: 25 leftover pages retired (2026-11-14, built and proven locally, not pushed)
 
 Branch `feat/rd-retire` on top of RD-4a. Record and reviewer notes: `docs/planning/reviews/fase-rd-4c-review-request.md`.

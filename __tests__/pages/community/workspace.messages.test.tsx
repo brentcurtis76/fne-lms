@@ -366,3 +366,50 @@ describe('EC-M7 attachments of a message can be opened or downloaded', () => {
     expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toMatch(/^\/api\/storage\/download\?url=.*&filename=acta\.pdf$/);
   });
 });
+
+describe('EC-M5 live messages in the open conversation', () => {
+  it('a new message of another member appears once in the open conversation; one of another conversation does not', async () => {
+    h.messages = [message('m1', THREAD_A.id)];
+    const utils = render(<CommunityWorkspacePage />);
+    await openThread(utils, COMMUNITY_A);
+    await waitFor(() => expect(cardIds(utils)).toEqual(['m1']));
+
+    await deliver(message('m2', THREAD_A.id));
+    expect(cardIds(utils)).toEqual(['m1', 'm2']);
+
+    // The same event again (or the sender's own message already shown) is not added twice.
+    await deliver(message('m2', THREAD_A.id));
+    expect(cardIds(utils)).toEqual(['m1', 'm2']);
+
+    await deliver(message('m3', 'thread-other'));
+    expect(cardIds(utils)).toEqual(['m1', 'm2']);
+  });
+
+  it('the live connection is closed when the page is left, and only one is open at a time', async () => {
+    const utils = render(<CommunityWorkspacePage />);
+    await openThread(utils, COMMUNITY_A);
+    await waitFor(() => expect(h.subscriptions.length).toBeGreaterThanOrEqual(1));
+    expect(h.subscriptions.filter((s) => s.unsubscribe.mock.calls.length === 0)).toHaveLength(1);
+
+    utils.unmount();
+    expect(h.subscriptions.every((s) => s.unsubscribe.mock.calls.length === 1)).toBe(true);
+  });
+
+  it('the live connection of a community is closed when another community is opened', async () => {
+    const utils = render(<CommunityWorkspacePage />);
+    await openThread(utils, COMMUNITY_A);
+    const first = h.subscriptions.filter((s) => s.workspaceId === 'ws-A');
+    expect(first.length).toBeGreaterThanOrEqual(1);
+
+    const [current] = utils.getAllByText('Comunidad A');
+    await act(async () => {
+      fireEvent.click(current.closest('button') as HTMLElement);
+    });
+    await act(async () => {
+      fireEvent.click(utils.getByText('Comunidad B').closest('button') as HTMLElement);
+    });
+    await waitFor(() => expect(h.subscriptions.some((s) => s.workspaceId === 'ws-B')).toBe(true));
+    expect(first.every((s) => s.unsubscribe.mock.calls.length === 1)).toBe(true);
+    expect(h.subscriptions.filter((s) => s.unsubscribe.mock.calls.length === 0).map((s) => s.workspaceId)).toEqual(['ws-B']);
+  });
+});

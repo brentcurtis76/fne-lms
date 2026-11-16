@@ -1894,15 +1894,23 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
   // Available data for filters
   const [availableAuthors, setAvailableAuthors] = useState<Array<{ id: string; name: string }>>([]);
 
+  // The open conversation, read by the live-message handler: the handler is
+  // made once per subscription, so reading `selectedThread` there saw only the
+  // conversation open when it was made (none) and dropped every message (EC-M5).
+  const openThreadIdRef = useRef<string | null>(null);
+  openThreadIdRef.current = selectedThread?.id ?? null;
+
   useEffect(() => {
+    let subscription: { unsubscribe: () => void } | undefined;
     if (workspace && user) {
       loadMessagingData();
       loadPermissions();
-      setupRealtimeSubscription();
+      subscription = setupRealtimeSubscription();
     }
 
     return () => {
-      // Cleanup realtime subscription
+      // Close the live connection when the page or the community is left (EC-M5)
+      subscription?.unsubscribe();
     };
   }, [workspace, user?.id]);
 
@@ -2076,8 +2084,9 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     try {
       const subscription = subscribeToWorkspaceMessages(workspace.id, {
         onMessage: (message) => {
-          if (selectedThread && message.thread_id === selectedThread.id) {
-            setMessages(prev => [...prev, message]);
+          if (message.thread_id === openThreadIdRef.current) {
+            // Once only: the sender's own message is already shown by handleMessageSend
+            setMessages(prev => (prev.some(existing => existing.id === message.id) ? prev : [...prev, message]));
           }
           // Update thread last message
           setThreads(prev => prev.map(thread => 

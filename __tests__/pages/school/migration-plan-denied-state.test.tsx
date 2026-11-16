@@ -205,6 +205,32 @@ describe('migration-plan page denied state (PROC-11)', () => {
     expect(screen.getByText('Todos los cambios guardados')).toBeInTheDocument();
   });
 
+  it('T4: an assigned consultor\'s read-only cells say «Solo lectura», never «Clic para cambiar…»', async () => {
+    installSupabase(ASSIGNED_CONSULTOR);
+    installFetch(OK_PLAN);
+
+    render(<MigrationPlanPage />);
+
+    expect(await screen.findByText('Matriz de Migración')).toBeInTheDocument();
+    const cells = [...screen.getAllByRole('button', { name: 'GI' }), ...screen.getAllByRole('button', { name: 'GT' })];
+    for (const cell of cells) expect(cell.getAttribute('title') ?? '').not.toMatch(/Clic para cambiar/);
+    // Grade 7 can change for those who may write; for the consultor it is read-only.
+    for (const cell of screen.getAllByRole('button', { name: 'GI' })) expect(cell).toHaveAttribute('title', 'Solo lectura');
+    // An always-GT grade keeps saying why it is locked.
+    expect(screen.getAllByTitle('Este nivel es siempre GT')).toHaveLength(5);
+  });
+
+  it('T4: a directivo\'s editable cells keep «Clic para cambiar…»', async () => {
+    installSupabase(DIRECTIVO);
+    installFetch(OK_PLAN);
+    setRouter({});
+
+    render(<MigrationPlanPage />);
+
+    expect(await screen.findByText('Matriz de Migración')).toBeInTheDocument();
+    for (const cell of screen.getAllByRole('button', { name: 'GI' })) expect(cell).toHaveAttribute('title', 'Clic para cambiar a GT');
+  });
+
   it('P4: with no saved plan the footer says the plan is not saved, not «Todos los cambios guardados»', async () => {
     installSupabase(DIRECTIVO);
     installFetch({ status: 200, body: { grades: GRADES, entries: [], transformation_year: 2 } });

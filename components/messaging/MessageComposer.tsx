@@ -148,32 +148,6 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
     }
   }, [threadId, attachments, allowMentions, onRequestMentions]);
 
-  // Handle key press
-  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
-    if (showMentionPicker) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedMentionIndex(prev => Math.min(prev + 1, mentionSuggestions.length - 1));
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedMentionIndex(prev => Math.max(prev - 1, 0));
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        if (mentionSuggestions[selectedMentionIndex]) {
-          insertMention(mentionSuggestions[selectedMentionIndex]);
-        }
-      } else if (e.key === 'Escape') {
-        setShowMentionPicker(false);
-      }
-      return;
-    }
-
-    if (e.key === 'Enter' && !e.shiftKey && !disabled) {
-      e.preventDefault();
-      handleSubmit();
-    }
-  }, [showMentionPicker, selectedMentionIndex, mentionSuggestions, disabled]);
-
   // Insert mention
   const insertMention = useCallback((mention: MentionSuggestion) => {
     if (!mentionPosition) return;
@@ -309,6 +283,35 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
       setIsSubmitting(false);
     }
   }, [content, attachments, threadId, replyToMessage, editingMessage, isSubmitting, disabled, onSendMessage, onSaveEdit, onCancelReply, onCancelEdit, mentionedUsers]);
+
+  // Handle key press. Defined after handleSubmit and depending on it: the
+  // earlier version kept the first render's handleSubmit (empty content), so
+  // Enter never sent (EC-M2). The mention keys apply only while the list is
+  // actually shown.
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
+    if (showMentionPicker && mentionSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedMentionIndex(prev => Math.min(prev + 1, mentionSuggestions.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedMentionIndex(prev => Math.max(prev - 1, 0));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (mentionSuggestions[selectedMentionIndex]) {
+          insertMention(mentionSuggestions[selectedMentionIndex]);
+        }
+      } else if (e.key === 'Escape') {
+        setShowMentionPicker(false);
+      }
+      return;
+    }
+
+    if (e.key === 'Enter' && !e.shiftKey && !disabled) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  }, [showMentionPicker, selectedMentionIndex, mentionSuggestions, disabled, handleSubmit, insertMention]);
 
   // Update textarea height when content changes
   useEffect(() => {

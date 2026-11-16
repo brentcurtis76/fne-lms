@@ -454,3 +454,45 @@ describe('send-back 1 (3) getWorkspaceMessage', () => {
     expect(await getWorkspaceMessage(WS, 'm-gone')).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Send-back 1, item 7: a custom category is shown by its name, not «General»
+// ---------------------------------------------------------------------------
+
+describe('send-back 1 (7) custom categories', () => {
+  it('the list of conversations shows the custom category name, with the look of the other categories', async () => {
+    memberReads({
+      message_threads: [
+        { id: 't1', workspace_id: WS, thread_title: 'Uno', created_by: COMEMBER, category: 'custom', custom_category_name: 'Convivencia' },
+        { id: 't2', workspace_id: WS, thread_title: 'Dos', created_by: COMEMBER, category: 'ideas', custom_category_name: null },
+      ],
+    });
+    const [custom, ideas] = await getWorkspaceThreads(WS);
+    expect(custom.category_config.label).toBe('Convivencia');
+    expect(ideas.category_config.label).toBe('Ideas');
+    // No new colour or icon: those of the default category.
+    expect(custom.category_config.color).toBe('#6b7280');
+    expect(custom.category_config.icon).toBe('MessageCircle');
+  });
+
+  it('a conversation just created under a custom category shows its name', async () => {
+    memberDatabase();
+    const thread = await createThread(
+      WS,
+      { thread_title: 'T', category: 'custom', custom_category_name: 'Convivencia', initial_message: 'Hola' },
+      'user-a1'
+    );
+    expect(thread.category_config.label).toBe('Convivencia');
+  });
+
+  it('a conversation that arrives live shows its custom category name', async () => {
+    memberReads({});
+    const created: any[] = [];
+    subscribeToWorkspaceMessages(WS, { onThread: (t) => created.push(t) });
+    const threads = h.channels.filter((c) => c.name.startsWith('workspace-threads-')).pop()!;
+    await threads.handlers[0].handler({
+      new: { id: 't9', workspace_id: WS, thread_title: 'Nuevo', created_by: COMEMBER, category: 'custom', custom_category_name: 'Convivencia' },
+    });
+    expect(created[0].category_config.label).toBe('Convivencia');
+  });
+});

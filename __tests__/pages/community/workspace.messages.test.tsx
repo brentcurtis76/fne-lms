@@ -53,8 +53,10 @@ const h = vi.hoisted(() => ({
   composer: null as null | { onSendMessage: (data: any) => Promise<void> },
   createThread: vi.fn(),
   sendMessage: vi.fn(),
-  /** The delayed read of one live message (send-back 1, 3). */
-  getWorkspaceMessage: vi.fn(),
+  /** The delayed reads of a live message's attachment records (send-back 2, A). */
+  getMessageAttachments: vi.fn(),
+  /** The props the page last gave the filters bar (its «Hilos» / messages toggle). */
+  filters: null as null | { onViewChange: (view: 'messages' | 'threads') => void },
 }));
 
 // ---------------------------------------------------------------------------
@@ -162,7 +164,11 @@ function recordingClient() {
     is: () => chain,
     order: () => chain,
     limit: () => chain,
+    update: () => chain,
+    insert: () => chain,
+    delete: () => chain,
     single: () => Promise.resolve({ data: null, error: null }),
+    maybeSingle: () => Promise.resolve({ data: null, error: null }),
     then: (resolve: (value: unknown) => void) => resolve(empty),
   };
   return {
@@ -223,7 +229,7 @@ vi.mock('../../../utils/messagingUtils-simple', () => ({
   getWorkspaceMessages: async (_workspaceId: string, filters: { thread_id?: string }) =>
     h.messages.filter((message) => message.thread_id === filters.thread_id),
   getUserMessagingPermissions: async () => PERMISSIONS,
-  getWorkspaceMessage: (...args: unknown[]) => h.getWorkspaceMessage(...args),
+  getMessageAttachments: (...args: unknown[]) => h.getMessageAttachments(...args),
   createThread: (...args: unknown[]) => h.createThread(...args),
   sendMessage: (...args: unknown[]) => h.sendMessage(...args),
   subscribeToWorkspaceMessages: (workspaceId: string, callbacks: any) => {
@@ -260,14 +266,23 @@ vi.mock('../../../components/documents/DocumentGrid', () => ({ default: () => nu
 vi.mock('../../../components/documents/FolderNavigation', () => ({ default: () => null }));
 vi.mock('../../../components/documents/DocumentPreview', () => ({ default: () => null }));
 vi.mock('../../../components/documents/DocumentFilters', () => ({ default: () => null }));
-vi.mock('../../../components/messaging/MessageFilters', () => ({ default: () => null }));
+vi.mock('../../../components/messaging/MessageFilters', () => ({
+  default: (props: any) => {
+    h.filters = props;
+    return null;
+  },
+}));
 vi.mock('../../../components/messaging/MessageThread', () => ({ default: () => null }));
 // The message card stub: shows the message and whether the page handed it the
 // attachment download action, and lets the test press that action.
 vi.mock('../../../components/messaging/MessageCard', () => ({
-  default: ({ message, onDownloadAttachment }: { message: any; onDownloadAttachment?: (attachment: any) => void }) => (
+  default: ({ message, onDownloadAttachment, onReaction }: { message: any; onDownloadAttachment?: (attachment: any) => void; onReaction?: (id: string, type: string) => void }) => (
     <div data-testid="message-card" data-message-id={message.id} data-can-download={onDownloadAttachment ? 'yes' : 'no'}>
-      {message.content}
+      <span data-testid={`content-${message.id}`} data-edited={message.is_edited ? 'yes' : 'no'}>{message.content}</span>
+      <span data-testid={`reactions-${message.id}`}>
+        {(message.reactions ?? []).map((reaction: any) => `${reaction.reaction_type}:${reaction.count}`).join(',')}
+      </span>
+      <button type="button" data-testid={`react-${message.id}`} onClick={() => onReaction?.(message.id, 'like')}>like</button>
       {(message.attachments ?? []).map((attachment: any) => (
         <button key={attachment.id} type="button" data-testid={`download-${attachment.id}`} onClick={() => onDownloadAttachment?.(attachment)}>
           {attachment.file_name}
@@ -354,7 +369,8 @@ beforeEach(() => {
   h.composer = null;
   h.createThread = vi.fn();
   h.sendMessage = vi.fn();
-  h.getWorkspaceMessage = vi.fn(async () => null);
+  h.getMessageAttachments = vi.fn(async () => []);
+  h.filters = null;
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
   global.fetch = vi.fn(async () => new Response(JSON.stringify({ members: [] }), { status: 200 })) as any;
 });
@@ -556,12 +572,15 @@ describe('send-back 1 (2) the sender\'s own message', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Send-back 1, item 3: a live message from someone else gets its attachments
-// (stored a moment after the message) by one delayed read of that message
+// Send-back 2, A: a live message of another person gets its attachments by up
+// to three reads of its ATTACHMENT records (about 3, 10 and 30 s after the
+// event). Only the `attachments` field of that entry is replaced; edits,
+// reactions and everything else the person changed meanwhile stay.
 // ---------------------------------------------------------------------------
 
-describe('send-back 1 (3) attachments of a live message', () => {
+describe('send-back 2 (A) attachments of a live message', () => {
   const PDF = { id: 'att-live', message_id: 'm-live', file_name: 'informe.pdf', mime_type: 'application/pdf', file_size: 10, storage_path: 'https://example.invalid/informe.pdf' };
+  const XLS = { id: 'att-live-2', message_id: 'm-live', file_name: 'notas.xlsx', mime_type: 'application/vnd.ms-excel', file_size: 10, storage_path: 'https://example.invalid/notas.xlsx' };
 
   async function renderOpen() {
     const utils = render(<CommunityWorkspacePage />);
@@ -569,46 +588,116 @@ describe('send-back 1 (3) attachments of a live message', () => {
     return utils;
   }
 
+  /** The attachment records the database holds `ms` after the event. */
+  function storedOverTime(start: number, plan: Array<[number, any[]]>) {
+    h.getMessageAttachments = vi.fn(async () => {
+      const elapsed = Date.now() - start;
+      let rows: any[] = [];
+      for (const [at, records] of plan) if (elapsed >= at) rows = records;
+      return rows;
+    });
+  }
+
+  const advance = async (ms: number) => {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+    });
+  };
+  const attachmentNames = (utils: RenderResult) =>
+    utils.queryAllByTestId(/^download-/).map((button) => button.textContent);
+
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it('reads the message again with its attachments about 3 seconds later, once, and merges it by id', async () => {
+  it('a record stored 8 s after the event is shown after the second read; one stored at 20 s after the third', async () => {
     const utils = await renderOpen();
     vi.useFakeTimers();
-    h.getWorkspaceMessage = vi.fn(async () => message('m-live', THREAD_A.id, { attachments: [PDF] }));
+    storedOverTime(Date.now(), [[8000, [PDF]], [20000, [PDF, XLS]]]);
 
     await deliver(message('m-live', THREAD_A.id, { attachments: [] }));
     await deliver(message('m-live', THREAD_A.id, { attachments: [] }));
     expect(cardIds(utils)).toEqual(['m-live']);
-    expect(utils.queryByTestId('download-att-live')).toBeNull();
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(2900);
-    });
-    expect(h.getWorkspaceMessage).not.toHaveBeenCalled();
+    await advance(3100);
+    expect(h.getMessageAttachments).toHaveBeenCalledTimes(1);
+    expect(h.getMessageAttachments).toHaveBeenCalledWith('m-live');
+    expect(attachmentNames(utils)).toEqual([]);
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(200);
-    });
-    expect(h.getWorkspaceMessage).toHaveBeenCalledTimes(1);
-    expect(h.getWorkspaceMessage).toHaveBeenCalledWith('ws-A', 'm-live');
+    await advance(7000); // ~10 s
+    expect(h.getMessageAttachments).toHaveBeenCalledTimes(2);
+    expect(attachmentNames(utils)).toEqual(['informe.pdf']);
+
+    await advance(20000); // ~30 s
+    expect(h.getMessageAttachments).toHaveBeenCalledTimes(3);
+    expect(attachmentNames(utils)).toEqual(['informe.pdf', 'notas.xlsx']);
     expect(cardIds(utils)).toEqual(['m-live']);
-    expect(utils.getByTestId('download-att-live').textContent).toBe('informe.pdf');
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(10000);
-    });
-    expect(h.getWorkspaceMessage).toHaveBeenCalledTimes(1);
+    await advance(60000);
+    expect(h.getMessageAttachments).toHaveBeenCalledTimes(3);
   });
 
-  it('is cancelled when the conversation is left', async () => {
+  it('a read that resolves after an edit and a reaction keeps both and adds only the attachments', async () => {
     const utils = await renderOpen();
     vi.useFakeTimers();
-    h.getWorkspaceMessage = vi.fn(async () => message('m-live', THREAD_A.id, { attachments: [PDF] }));
-    await deliver(message('m-live', THREAD_A.id, { attachments: [] }));
+    let finishRead: (rows: any[]) => void = () => undefined;
+    h.getMessageAttachments = vi.fn(() => new Promise((resolve) => { finishRead = resolve; }));
 
-    // Another community is opened: the open conversation is left.
+    await deliver(message('m-live', THREAD_A.id, { attachments: [], reactions: [] }));
+    await advance(3100);
+    expect(h.getMessageAttachments).toHaveBeenCalledTimes(1);
+
+    // While the read is pending the person edits the message and reacts to it.
+    await act(async () => {
+      await (h.composer as any).onSaveEdit('m-live', 'Texto corregido');
+    });
+    await act(async () => {
+      fireEvent.click(utils.getByTestId('react-m-live'));
+    });
+    await advance(0);
+    expect(utils.getByTestId('content-m-live').textContent).toBe('Texto corregido');
+    expect(utils.getByTestId('reactions-m-live').textContent).toBe('like:1');
+
+    await act(async () => {
+      finishRead([PDF]);
+    });
+    await advance(0);
+    expect(utils.getByTestId('content-m-live').textContent).toBe('Texto corregido');
+    expect(utils.getByTestId('content-m-live').getAttribute('data-edited')).toBe('yes');
+    expect(utils.getByTestId('reactions-m-live').textContent).toBe('like:1');
+    expect(attachmentNames(utils)).toEqual(['informe.pdf']);
+  });
+
+  it('choosing the «Hilos» view cancels every pending read of the conversation', async () => {
+    await renderOpen();
+    vi.useFakeTimers();
+    await deliver(message('m-live', THREAD_A.id, { attachments: [] }));
+    await advance(3100);
+    expect(h.getMessageAttachments).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      h.filters!.onViewChange('threads');
+    });
+    await advance(60000);
+    expect(h.getMessageAttachments).toHaveBeenCalledTimes(1);
+  });
+
+  it('closing the conversation cancels every pending read', async () => {
+    const utils = await renderOpen();
+    vi.useFakeTimers();
+    await deliver(message('m-live', THREAD_A.id, { attachments: [] }));
+    const close = utils.getByText(THREAD_A.thread_title).parentElement!.parentElement!.querySelector('button')!;
+    await act(async () => {
+      fireEvent.click(close);
+    });
+    await advance(60000);
+    expect(h.getMessageAttachments).not.toHaveBeenCalled();
+  });
+
+  it('opening another community cancels every pending read', async () => {
+    const utils = await renderOpen();
+    vi.useFakeTimers();
+    await deliver(message('m-live', THREAD_A.id, { attachments: [] }));
     const [current] = utils.getAllByText('Comunidad A');
     await act(async () => {
       fireEvent.click(current.closest('button') as HTMLElement);
@@ -616,30 +705,32 @@ describe('send-back 1 (3) attachments of a live message', () => {
     await act(async () => {
       fireEvent.click(utils.getByText('Comunidad B').closest('button') as HTMLElement);
     });
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(5000);
-    });
-    expect(h.getWorkspaceMessage).not.toHaveBeenCalled();
+    await advance(60000);
+    expect(h.getMessageAttachments).not.toHaveBeenCalled();
   });
 
-  it('is cancelled when the page is left', async () => {
+  it('leaving the page cancels every pending read', async () => {
     const utils = await renderOpen();
     vi.useFakeTimers();
     await deliver(message('m-live', THREAD_A.id, { attachments: [] }));
     utils.unmount();
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(5000);
-    });
-    expect(h.getWorkspaceMessage).not.toHaveBeenCalled();
+    await advance(60000);
+    expect(h.getMessageAttachments).not.toHaveBeenCalled();
   });
 
-  it('a message of another conversation is not read again', async () => {
+  it('the person\'s own send triggers no read', async () => {
+    await renderOpen();
+    vi.useFakeTimers();
+    await deliver(message('m-own', THREAD_A.id, { author_id: 'user-1', attachments: [] }));
+    await advance(60000);
+    expect(h.getMessageAttachments).not.toHaveBeenCalled();
+  });
+
+  it('a message of another conversation is not read', async () => {
     await renderOpen();
     vi.useFakeTimers();
     await deliver(message('m-other', 'thread-other'));
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(5000);
-    });
-    expect(h.getWorkspaceMessage).not.toHaveBeenCalled();
+    await advance(60000);
+    expect(h.getMessageAttachments).not.toHaveBeenCalled();
   });
 });

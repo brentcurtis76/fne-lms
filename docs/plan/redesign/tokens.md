@@ -14,7 +14,7 @@ values.
 | Names | How many | Read by | Today's value |
 |---|---|---|---|
 | `--color-brand-primary`, `-accent`, `-accent-hover`, `-accent-light`, `-accent-text`, `-light`, `-gray-dark`, `-gray-medium` | 8 | `brand_primary`, `brand_accent`, … (and the older names `brand_blue`, `brand_yellow`, `brand_beige`, which read primary, accent and light) | the brand palette: `#0a0a0a`, `#fbbf24`, `#f59e0b`, `#fcd34d`, `#b45309`, `#ffffff`, `#1f1f1f`, `#6b7280` |
-| `--color-gray-50` … `--color-gray-950`, and the same for `yellow`, `amber`, `red`, `green`, `blue` | 66 | the stock classes `bg-gray-100`, `text-red-600`, … | Tailwind's default palette |
+| `--color-gray-50` … `--color-gray-950`, and the same for `yellow`, `amber`, `red`, `green`, `blue` (4a) and `slate`, `orange`, `sky`, `emerald`, `rose`, `purple`, `teal`, `indigo`, `pink`, `cyan` (5a) | 176 | the stock classes `bg-gray-100`, `text-red-600`, … | Tailwind's default palette |
 | `--font-sans`, `--font-serif`, `--font-mono`, `--font-mont`, `--font-eames` | 5 | `font-sans` (also the page's default face), `font-serif`, `font-mono`, `font-mont`, `font-eames` | Inter and its fallbacks; Tailwind's serif and mono lists; Mont; Eames |
 | `--rounded-sm`, `--rounded`, `--rounded-md`, `--rounded-lg`, `--rounded-xl`, `--rounded-2xl`, `--rounded-3xl` | 7 | `rounded-sm`, `rounded`, `rounded-md`, … | Tailwind's defaults (0.125 to 1.5 rem) |
 
@@ -25,10 +25,12 @@ modifiers (`bg-brand_primary/40`) working. Outside a class: `rgb(var(--color-gra
 
 ## What does not read a name (yet, or on purpose)
 
-- **Other stock families.** `slate`, `orange`, `sky`, `emerald`, `rose`, `purple`, `indigo`, `teal`, `pink`, `violet`,
-  `cyan`, `fuchsia` and Tailwind's `black` and `white` keep Tailwind's literal values (about 930 class uses of the
-  first twelve, half of them `slate`). Adding a family is one line in the config (`slate: family('slate')`), eleven
-  lines in the token file and one word in the test.
+- **The stock families the platform does not use** (`zinc`, `neutral`, `stone`, `lime`, `violet`, `fuchsia`) and
+  Tailwind's `black` and `white` keep Tailwind's literal values. Adding a family is one line in the config
+  (`slate: family('slate')`), eleven lines in the token file and one word in the test.
+- **The shadows** (`shadow-sm` … `shadow-2xl`): Tailwind's literal values. Tailwind builds the coloured form of a
+  shadow (what `shadow-red-500/20` uses) by reading the shadow's value; a name cannot be read that way, so naming
+  them changed every `shadow-*` rule. 5a left them literal (see below).
 - **`rounded-none` and `rounded-full`:** not values of a look.
 - **Tailwind's typography plugin (`prose`)** takes its greys from Tailwind's palette directly, not from the theme. A
   look that changes the greys must also set the plugin's `--tw-prose-*` variables.
@@ -70,6 +72,39 @@ triplet of its own hex, is offered by the config, and is used) and `__tests__/st
 stray in the platform's files outside an explicit list of exceptions; the changed colour lists pinned value by
 value). **Typing a new hex colour in a platform file fails the second test:** use a name, or add the exception
 with its reason.
+
+## The new look's values (phase 5a)
+
+`styles/look-nuevo.css`, imported by `globals.css` right after `fne-tokens.css`. It holds one block,
+`[data-look="nuevo"] { … }`, that gives existing names the approved values (DESIGN.md), and a few rules; every
+rule of the file starts with `[data-look="nuevo"]`, so a page without the attribute is exactly today's page.
+
+- **Colours: five scales.** GRIS for `gray` and `slate`; NEUTRO for `blue`, `sky`, `indigo`, `purple`, `pink`, `cyan`,
+  `teal` (the palette has no blue and no colour per category); ÉXITO for `green` and `emerald`; ERROR for `red` and
+  `rose`; ÁMBAR for `amber`, `yellow` and `orange`. The brand's accent text becomes ámbar texto `#92400e` under both
+  of its names (`--color-brand-accent-text`, `--fne-amber-text`); the other brand names keep their values. Each of
+  the 30 legacy names gets the value its use asks for (old navy hovers → gris oscuro, old gold hovers → amarillo
+  intenso, the chart colours → the kit's tones).
+- **Radii:** 3, 4 and 6 px. **Fonts:** unchanged (Besley is not loaded by the platform's own stylesheets).
+- **The typography plugin** (`prose`) is told its greys in GRIS, on `.prose` itself (it declares them there).
+- **Focus:** a black 2 px outline on keyboard focus only (`:focus-visible`), one step more specific than
+  `focus:outline-none`. The focus rings stay.
+- **Titles:** `h1`, `h2`, `h3` in Mont; `h1` in capitals, spaced, with a line-height of 1.25. Headings inside written
+  content (`.prose`, `.tiptap-editor`, `.ProseMirror`) keep their own face and case.
+- **Names that exist only under the look**, so that today's look reads a fallback: `--color-serie-1` … `-5` (charts
+  with several series: black, amarillo intenso, gris medio, ámbar texto, light grey; written
+  `rgb(var(--color-serie-1, var(--color-blue-500)))`, the fallback being the colour the chart had) and
+  `--toast-…` (the toasts: `var(--toast-radius, 8px)` in `constants/toastStyles.ts`). A colour that means good or
+  bad keeps reading the green and red names.
+- **Pages the look never touches** (`PAGES_WITHOUT_THE_LOOK` in `lib/look.ts`): the sign-in family, the public site,
+  documents for a client and the error pages. There the attribute is removed whatever the account chose.
+
+Tests: `__tests__/styles/look-nuevo.test.ts` (every rule needs the attribute, the values, the contrast of the usual
+pairs), `chart-series.test.ts` (every fallback is the old colour), `__tests__/constants/toastStyles.test.ts`.
+
+With `--look nuevo`, `scripts/redesign/tokens-check.mjs` resolves every `:root` value of both files (the look
+overrides names 4a and 4b already had), lists the look's own rules apart, and prints each change with how many
+declarations it touches.
 
 ## Rules
 

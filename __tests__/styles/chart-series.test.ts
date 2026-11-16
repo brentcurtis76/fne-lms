@@ -61,7 +61,7 @@ const PINS: Record<string, Pin[]> = {
   'components/hours/SchoolHoursReport.tsx': [
     { line: "const COLOR_CONSUMED = 'rgb(var(--color-serie-1, var(--color-legacy-003a5b)))';", count: 1, serie: 1, before: 'rgb(var(--color-legacy-003a5b))', hex4b: '#003A5B' },
     { line: "const COLOR_RESERVED = 'rgb(var(--color-serie-2, var(--color-legacy-0066a4)))';", count: 1, serie: 2, before: 'rgb(var(--color-legacy-0066a4))', hex4b: '#0066A4' },
-    { line: "const COLOR_AVAILABLE = 'rgb(var(--color-serie-3, var(--color-legacy-e0f0ff)))';", count: 1, serie: 3, before: 'rgb(var(--color-legacy-e0f0ff))', hex4b: '#E0F0FF' },
+    { line: "const COLOR_AVAILABLE = 'rgb(var(--color-serie-5, var(--color-legacy-e0f0ff)))';", count: 1, serie: 5, before: 'rgb(var(--color-legacy-e0f0ff))', hex4b: '#E0F0FF' },
   ],
   // Two lines (lessons, users) and two areas (hours). FNE_COLORS in the file: primary #0a0a0a,
   // secondary #fbbf24, success legacy-10b981, info blue-500 (pinned below).

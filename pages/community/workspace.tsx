@@ -2602,6 +2602,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
                     onDelete={handleDeleteMessage}
                     onReaction={handleReaction}
                     onPreviewAttachment={handleAttachmentPreview}
+                    onDownloadAttachment={handleAttachmentDownload}
                     permissions={permissions}
                   />
                 ))

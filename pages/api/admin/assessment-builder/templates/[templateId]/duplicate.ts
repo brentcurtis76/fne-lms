@@ -15,6 +15,8 @@ import {
  * 2. Copies all modules (new IDs, same sort_order)
  * 3. Copies all indicators under each module (new IDs)
  * 4. Copies all expectations for each indicator (new IDs, linked to new indicator)
+ *    and each indicator's visibility condition, with references to this
+ *    instrument's indicators pointed at their copies
  *
  * Request body: { name: string, grade_id: number | null }
  * (grade_id is null for a template of a school-level vía; 20261008120000)
@@ -220,6 +222,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Copy indicators and track ID mapping
+      const withCondition: Array<{ sourceId: string; condition: unknown }> = [];
       for (const sourceIndicator of sourceIndicators || []) {
         const newModuleId = moduleIdMap[sourceIndicator.module_id];
         if (!newModuleId) continue;
@@ -243,6 +246,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             weight: sourceIndicator.weight,
             detalle_options: sourceIndicator.detalle_options,
             evaluation_guidance: sourceIndicator.evaluation_guidance,
+            // Written below, once every copied indicator has its id.
+            visibility_condition: null,
           })
           .select('id')
           .single();
@@ -252,6 +257,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           // Continue - don't fail entire operation for one indicator
         } else {
           indicatorIdMap[sourceIndicator.id] = newIndicator.id;
+          if (sourceIndicator.visibility_condition != null) {
+            withCondition.push({ sourceId: sourceIndicator.id, condition: sourceIndicator.visibility_condition });
+          }
+        }
+      }
+
+      // Visibility conditions are written once every indicator has its new id:
+      // a condition may name another indicator of this instrument by id
+      // (before or after it, in any práctica), and in the copy that reference
+      // must point at the copy's own indicator.
+      for (const { sourceId, condition } of withCondition) {
+        const { error: conditionError } = await supabaseClient
+          .from('assessment_indicators')
+          .update({ visibility_condition: remapIndicatorIds(condition, indicatorIdMap) })
+          .eq('id', indicatorIdMap[sourceId]);
+
+        if (conditionError) {
+          console.error('Error copying visibility condition:', conditionError);
+          await supabaseClient.from('assessment_templates').delete().eq('id', newTemplate.id);
+          return res.status(500).json({ error: 'Error al copiar condiciones de visibilidad' });
         }
       }
     }
@@ -389,4 +414,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.error('Unexpected error duplicating template:', err);
     return res.status(500).json({ error: err.message || 'Error al duplicar template' });
   }
+}
+
+/**
+ * A copy of a visibility condition with every source indicator id replaced by
+ * the copy's id. Any string value is translated wherever it sits (a rule's
+ * `field`, its `value`, an element of an `in` list, or a nested group), and
+ * an id inside a longer string is replaced too: an indicator id is a UUID, so
+ * it cannot stand for anything else. Ids of indicators outside this instrument
+ * are left as they are.
+ */
+export function remapIndicatorIds(condition: unknown, idMap: Record<string, string>): unknown {
+  const ids = Object.keys(idMap);
+  const translate = (value: unknown): unknown => {
+    if (typeof value === 'string') {
+      if (idMap[value]) return idMap[value];
+      let out = value;
+      for (const id of ids) if (out.includes(id)) out = out.split(id).join(idMap[id]);
+      return out;
+    }
+    if (Array.isArray(value)) return value.map(translate);
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, translate(v)]));
+    }
+    return value;
+  };
+  return translate(condition);
 }

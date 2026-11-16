@@ -12,6 +12,8 @@
 --             admin, the row's own person and the community's consultor), not
 --             by every active role of the community; signed-in people lose
 --             four summary views (the service role keeps them).
+--   T-WRITES-b: tasks (lesson_assignments) are inserted and changed directly
+--             by admins only; their creators can still delete them.
 --
 -- Personas: anon; admin; learners A and C (school 9231, community d1, course 1,
 -- members of group 1 on task block 1); learner B (same school, community and
@@ -25,7 +27,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(121);
+SELECT plan(138);
 
 CREATE OR REPLACE FUNCTION pg_temp.set_anon() RETURNS void AS $$
 BEGIN
@@ -404,6 +406,76 @@ SELECT lives_ok($q$INSERT INTO public.group_assignment_members (group_id, assign
                    VALUES ('12300000-0000-4000-8000-0000000000a2', '12300000-0000-4000-8000-0000000000b2', pg_temp.uid('tar123_lrn_b'), 'member')$q$,
   'still works: the service role inserts group_assignment_members');
 RESET ROLE;
+
+-- ----------------------------------------------------------------------------
+-- 8. T-WRITES-b — lesson_assignments: created and changed by admins only;
+--    creators keep deleting their own (pages/assignments.tsx:125) (17)
+-- ----------------------------------------------------------------------------
+-- One task row per non-admin creator, inserted as the superuser.
+INSERT INTO public.lesson_assignments (id, title, created_by, course_id, lesson_id, assignment_for, is_published) VALUES
+  ('12300000-0000-4000-8000-0000000001b1', 'TAR123 task by A',         pg_temp.uid('tar123_lrn_a'),     '12300000-0000-4000-8000-000000000c01', '12300000-0000-4000-8000-00000000ee01', 'individual', false),
+  ('12300000-0000-4000-8000-0000000001b2', 'TAR123 task by consultor', pg_temp.uid('tar123_consultor'), '12300000-0000-4000-8000-000000000c01', '12300000-0000-4000-8000-00000000ee01', 'individual', false),
+  ('12300000-0000-4000-8000-0000000001b3', 'TAR123 task by directivo', pg_temp.uid('tar123_directivo'), '12300000-0000-4000-8000-000000000c01', '12300000-0000-4000-8000-00000000ee01', 'individual', false);
+
+SELECT tests.authenticate_as('tar123_lrn_a');
+SELECT is((SELECT count(*)::int FROM public.lesson_assignments WHERE id = '12300000-0000-4000-8000-0000000001a1'), 1,
+  'still works: learner A reads the published task of their course');
+SELECT throws_ok($q$INSERT INTO public.lesson_assignments (title, created_by, course_id, lesson_id, assignment_for, is_published)
+                    VALUES ('Synthetic forged task', auth.uid(), '12300000-0000-4000-8000-000000000c01', '12300000-0000-4000-8000-00000000ee01', 'individual', true)$q$,
+  '42501', NULL, 'T-WRITES-b: learner A cannot publish a task in the course directly');
+SELECT is(pg_temp.affected($q$UPDATE public.lesson_assignments SET title = 'Synthetic renamed task' WHERE id = '12300000-0000-4000-8000-0000000001b1'$q$), 0,
+  'T-WRITES-b: learner A cannot change the title of a task they created');
+RESET ROLE;
+SELECT is((SELECT title::text FROM public.lesson_assignments WHERE id = '12300000-0000-4000-8000-0000000001b1'), 'TAR123 task by A',
+  'T-WRITES-b: the title of A''s task is unchanged');
+
+SELECT tests.authenticate_as('tar123_consultor');
+SELECT throws_ok($q$INSERT INTO public.lesson_assignments (title, created_by, course_id, lesson_id, assignment_for, is_published)
+                    VALUES ('Synthetic forged task', auth.uid(), '12300000-0000-4000-8000-000000000c01', '12300000-0000-4000-8000-00000000ee01', 'individual', true)$q$,
+  '42501', NULL, 'T-WRITES-b: the consultor cannot insert a task directly');
+SELECT is(pg_temp.affected($q$UPDATE public.lesson_assignments SET title = 'Synthetic renamed task' WHERE id = '12300000-0000-4000-8000-0000000001b2'$q$), 0,
+  'T-WRITES-b: the consultor cannot change the title of a task they created');
+RESET ROLE;
+SELECT is((SELECT title::text FROM public.lesson_assignments WHERE id = '12300000-0000-4000-8000-0000000001b2'), 'TAR123 task by consultor',
+  'T-WRITES-b: the title of the consultor''s task is unchanged');
+SELECT tests.authenticate_as('tar123_consultor');
+-- lib/services/assignments.js:200-206 as called by pages/assignments.tsx:125
+SELECT is(pg_temp.affected($q$DELETE FROM public.lesson_assignments WHERE id = '12300000-0000-4000-8000-0000000001b2'$q$), 1,
+  'still works: the consultor deletes a task they created (the tasks page''s own action)');
+RESET ROLE;
+SELECT is((SELECT count(*)::int FROM public.lesson_assignments WHERE id = '12300000-0000-4000-8000-0000000001b2'), 0,
+  'still works: the consultor''s deleted task is gone');
+
+SELECT tests.authenticate_as('tar123_directivo');
+SELECT throws_ok($q$INSERT INTO public.lesson_assignments (title, created_by, course_id, lesson_id, assignment_for, is_published)
+                    VALUES ('Synthetic forged task', auth.uid(), '12300000-0000-4000-8000-000000000c01', '12300000-0000-4000-8000-00000000ee01', 'individual', true)$q$,
+  '42501', NULL, 'T-WRITES-b: the other school''s directivo cannot insert a task directly');
+SELECT is(pg_temp.affected($q$UPDATE public.lesson_assignments SET title = 'Synthetic renamed task' WHERE id = '12300000-0000-4000-8000-0000000001b3'$q$), 0,
+  'T-WRITES-b: the other school''s directivo cannot change the title of a task they created');
+RESET ROLE;
+SELECT is((SELECT title::text FROM public.lesson_assignments WHERE id = '12300000-0000-4000-8000-0000000001b3'), 'TAR123 task by directivo',
+  'T-WRITES-b: the title of the directivo''s task is unchanged');
+SELECT tests.clear_authentication();
+
+SELECT pg_temp.set_anon();
+SELECT throws_ok($q$INSERT INTO public.lesson_assignments (title, created_by, course_id, lesson_id, assignment_for, is_published)
+                    VALUES ('Synthetic forged task', pg_temp.uid('tar123_lrn_a'), '12300000-0000-4000-8000-000000000c01', '12300000-0000-4000-8000-00000000ee01', 'individual', true)$q$,
+  '42501', NULL, 'T-WRITES-b: anon cannot insert a task');
+SELECT is(pg_temp.affected($q$UPDATE public.lesson_assignments SET title = 'Synthetic renamed task'
+                              WHERE id IN ('12300000-0000-4000-8000-0000000001a1', '12300000-0000-4000-8000-0000000001b1')$q$), 0,
+  'T-WRITES-b: anon cannot change a task');
+RESET ROLE;
+
+SELECT tests.authenticate_as('tar123_admin');
+SELECT lives_ok($q$INSERT INTO public.lesson_assignments (id, title, created_by, course_id, lesson_id, assignment_for, is_published)
+                   VALUES ('12300000-0000-4000-8000-0000000001b4', 'Synthetic admin task', auth.uid(), '12300000-0000-4000-8000-000000000c01', '12300000-0000-4000-8000-00000000ee01', 'individual', true)$q$,
+  'still works: the admin inserts a task');
+SELECT is(pg_temp.affected($q$UPDATE public.lesson_assignments SET title = 'Synthetic admin rename' WHERE id = '12300000-0000-4000-8000-0000000001b4'$q$), 1,
+  'still works: the admin updates a task');
+SELECT is(pg_temp.affected($q$DELETE FROM public.lesson_assignments WHERE id = '12300000-0000-4000-8000-0000000001b4'$q$), 1,
+  'still works: the admin deletes a task');
+RESET ROLE;
+SELECT tests.clear_authentication();
 
 SELECT * FROM finish();
 ROLLBACK;

@@ -11,8 +11,7 @@
 --             one directly. Every person's write goes through the
 --             application's server routes, which write as the service role;
 --             direct writes to these tables now require an admin.
---             (public.lesson_assignments is left as it is: see the build
---             record, a live screen deletes it with a non-admin session.)
+--   T-WRITES-b  tasks (lesson_assignments): direct insert / update now admin only; creators keep deleting their own.
 --   T-READS   every active consultor / admin / equipo_directivo /
 --             lider_generacion read every lesson task answer and every answer
 --             share of every school; any active role of a group's community
@@ -21,7 +20,8 @@
 --             rights (visitors lost them in 20261006180000).
 --
 -- Statements: CREATE POLICY ... AS RESTRICTIVE (insert / update / delete,
--- admin only) on eight tables and an insert one on course_completions; four
+-- admin only) on eight tables, insert / update on lesson_assignments and an
+-- insert one on course_completions; four
 -- ALTER POLICY; one REVOKE on four views. Additive only; RLS stays enabled.
 -- public.auth_is_admin() is executable by anon, authenticated and
 -- service_role (baseline grants), so the new rules carry no role clause.
@@ -116,3 +116,11 @@ ALTER POLICY "Users can view submissions based on role" ON public.group_assignme
 
 REVOKE ALL ON public.group_assignments_with_status, public.quiz_statistics,
   public.school_progress_report, public.community_progress_report FROM authenticated;
+
+-- T-WRITES-b: tasks are created and changed directly by admins only (no screen
+-- does it with a non-admin session); deletes are not touched, the tasks page
+-- (pages/assignments.tsx:125) lets creators delete their own.
+CREATE POLICY "lesson_assignments_direct_insert_admin_only" ON public.lesson_assignments
+  AS RESTRICTIVE FOR INSERT WITH CHECK (public.auth_is_admin());
+CREATE POLICY "lesson_assignments_direct_update_admin_only" ON public.lesson_assignments
+  AS RESTRICTIVE FOR UPDATE USING (public.auth_is_admin()) WITH CHECK (public.auth_is_admin());

@@ -425,3 +425,27 @@ html[data-look="nuevo"] .hover\:shadow-2xl:hover {
   text-transform: inherit;
   letter-spacing: inherit;
 }
+
+/* ── Redesign 5b: the frame (components/layout/SidebarNuevo.tsx, TopBarNuevo.tsx). ── */
+/* Keyboard focus inside the black sidebar: a yellow outline with a black ring, above the general
+   focus rule (`html[data-look="nuevo"] :focus-visible`, one attribute fewer). Its floating list
+   is white, so there the outline is black again with a white ring. */
+html[data-look="nuevo"] [data-frame="sidebar"] :focus-visible {
+  outline: 2px solid rgb(251 191 36);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px rgb(10 10 10);
+}
+html[data-look="nuevo"] [data-frame="sidebar"] [data-frame="flyout"] :focus-visible {
+  outline: 2px solid rgb(10 10 10);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px rgb(255 255 255);
+}
+/* The bell (components/notifications/ModernNotificationCenter.tsx) is drawn for a black band; in
+   the white top bar its icon is black and its resting fill a light tint of black. */
+html[data-look="nuevo"] [data-frame="topbar"] button[aria-label^="Notificaciones"] {
+  color: rgb(10 10 10);
+  background-color: transparent;
+}
+html[data-look="nuevo"] [data-frame="topbar"] button[aria-label^="Notificaciones"]:hover {
+  background-color: rgb(10 10 10 / 0.06);
+}

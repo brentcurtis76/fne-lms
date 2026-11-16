@@ -42,9 +42,11 @@ import { CalendarIcon } from '@heroicons/react/solid';
 import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
 import { navigationManager } from '../../utils/navigationManager';
 import { usePermissions } from '../../contexts/PermissionContext';
+import { useLook } from '../../contexts/LookContext';
 // The entry's own logic (children shown, click, floating list) and the superadmin flag: one copy,
-// used by today's entry below (redesign 5b).
+// used by today's entry below and by the new look's entry (redesign 5b).
 import { useSidebarItem, FEATURE_SUPERADMIN_RBAC_ENABLED } from './useSidebarItem';
+import SidebarNuevo from './SidebarNuevo';
 
 interface SidebarProps {
   user: User | null;
@@ -1388,6 +1390,46 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
       return true;
     });
   }, [isAdmin, userRoles, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone, hasAssessments, assessmentsCheckDone, hasPasantia]);
+
+  // The new look (redesign 5b) draws the same filtered list, with the same values each entry gets
+  // below, in its own markup. Everything above runs once whichever frame is drawn.
+  const { look } = useLook();
+  if (look === 'nuevo') {
+    return (
+      <SidebarNuevo
+        items={filteredNavigationItems}
+        itemProps={{
+          isCollapsed,
+          expandedItems,
+          isAdmin,
+          userRole,
+          userRoles,
+          hasPermission,
+          hasAnyPermission,
+          hasAllPermissions,
+          permissionsLoading,
+          isSuperadmin,
+          superadminCheckDone,
+          hasCommunity,
+          communityCheckDone,
+          canRunQATests,
+          qaCheckDone,
+          hasAssessments,
+          assessmentsCheckDone,
+          newFeedbackCount,
+          isItemActive,
+          toggleExpanded,
+          routerAsPath: router.asPath,
+        }}
+        isDesktop={isDesktop}
+        isCollapsed={isCollapsed}
+        isMobileOpen={isMobileOpen}
+        onDesktopToggle={onDesktopToggle}
+        onMobileClose={onMobileClose}
+        className={className}
+      />
+    );
+  }
 
   return (
     <>

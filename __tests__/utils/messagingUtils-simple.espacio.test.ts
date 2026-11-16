@@ -25,7 +25,6 @@ import {
   ThreadCreationIncompleteError,
   getWorkspaceThreads,
   getWorkspaceMessages,
-  getMessageAttachments,
   subscribeToWorkspaceMessages,
 } from '../../utils/messagingUtils-simple';
 
@@ -434,36 +433,6 @@ describe('EC-M10 sorting a conversation', () => {
     await getWorkspaceThreads(WS, { sort_by: sortBy });
     const order = opArgs(h.requests.find((r) => r.target === 'message_threads')!, 'order')!;
     expect(THREAD_COLUMNS).toContain(order[0]);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Send-back 2, A: a live message's attachments are read alone (the message
-// itself is not read again), with the query the conversation's loading uses
-// ---------------------------------------------------------------------------
-
-describe('send-back 2 (A) getMessageAttachments', () => {
-  it('reads only the attachment records of that message, the way the conversation loads them', async () => {
-    memberReads({
-      community_messages: [
-        { id: 'm-live', workspace_id: WS, thread_id: 't1', author_id: COMEMBER, content: 'Informe', reply_to_id: null, created_at: '2026-11-16T12:00:00Z' },
-      ],
-      message_attachments: [{ id: 'att-1', message_id: 'm-live', file_name: 'informe.pdf', is_active: true }],
-    });
-    const attachments = await getMessageAttachments('m-live');
-    expect(h.requests.map((r) => `${r.kind}:${r.target}`)).toEqual(['from:message_attachments']);
-    const [read] = h.requests;
-    expect(read.ops.map((op) => [op.method, op.args])).toEqual([
-      ['select', ['*']],
-      ['in', ['message_id', ['m-live']]],
-      ['eq', ['is_active', true]],
-    ]);
-    expect(attachments?.map((a) => a.file_name)).toEqual(['informe.pdf']);
-  });
-
-  it('is null when the read fails (the entry is then left as it is)', async () => {
-    h.respond = () => ({ data: null, error: { code: '42501', message: 'denied' } });
-    expect(await getMessageAttachments('m-live')).toBeNull();
   });
 });
 

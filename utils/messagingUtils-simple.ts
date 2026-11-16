@@ -9,7 +9,6 @@ import { fetchProfileCards, cardName } from '../lib/profile-cards';
 import {
   ThreadWithDetails,
   MessageWithDetails,
-  MessageAttachment,
   MessageFilters,
   ThreadFilters,
   MessagingPermissions,
@@ -235,20 +234,6 @@ async function readMessageAttachments(messageIds: string[]): Promise<any[] | nul
     .in('message_id', messageIds)
     .eq('is_active', true);
   return error ? null : attachments ?? [];
-}
-
-/**
- * The attachment records of one message, or null when they cannot be read.
- * Used to fill in a live message whose attachments are stored after it: only
- * its attachments are read, never the message again (send-back 2, A).
- */
-export async function getMessageAttachments(messageId: string): Promise<MessageAttachment[] | null> {
-  try {
-    return await readMessageAttachments([messageId]);
-  } catch {
-    console.error('Error in getMessageAttachments');
-    return null;
-  }
 }
 
 /** Attachments, reactions, replied messages and names for message rows. */

@@ -205,141 +205,171 @@ export async function getWorkspaceMessages(
       return [];
     }
 
-    // Get attachments for all messages
-    const messageIds = (data || []).map(msg => msg.id);
-    let attachmentsByMessage: Record<string, any[]> = {};
-
-    if (messageIds.length > 0) {
-      const { data: attachments } = await supabase
-        .from('message_attachments')
-        .select('*')
-        .in('message_id', messageIds)
-        .eq('is_active', true);
-
-      if (attachments) {
-        attachmentsByMessage = attachments.reduce((acc, att) => {
-          if (!acc[att.message_id]) {
-            acc[att.message_id] = [];
-          }
-          acc[att.message_id].push(att);
-          return acc;
-        }, {} as Record<string, any[]>);
-      }
-    }
-
-    // Get current user for reaction tracking
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-    const currentUserId = currentUser?.id;
-
-    // Get reactions for all messages. message_reactions.user_id references
-    // auth.users, not profiles, so a `profiles:user_id` embed fails (PGRST200)
-    // and every reaction vanished on reload (EC-M3); the names of the people
-    // who reacted come from the profile cards below.
-    let reactionsByMessage: Record<string, any[]> = {};
-
-    if (messageIds.length > 0) {
-      const { data: reactions, error: reactionsError } = await supabase
-        .from('message_reactions')
-        .select('id, message_id, user_id, reaction_type, created_at')
-        .in('message_id', messageIds);
-
-      if (reactionsError) {
-        console.warn('[getWorkspaceMessages] Error fetching reactions:', reactionsError);
-      } else if (reactions) {
-        // Group reactions by message_id and reaction_type
-        reactions.forEach(reaction => {
-          if (!reactionsByMessage[reaction.message_id]) {
-            reactionsByMessage[reaction.message_id] = [];
-          }
-
-          // Find existing reaction type group or create new
-          let reactionGroup = reactionsByMessage[reaction.message_id].find(
-            (r: any) => r.reaction_type === reaction.reaction_type
-          );
-
-          if (!reactionGroup) {
-            reactionGroup = {
-              reaction_type: reaction.reaction_type,
-              count: 0,
-              user_reacted: false,
-              users: []
-            };
-            reactionsByMessage[reaction.message_id].push(reactionGroup);
-          }
-
-          // Add to count and users list (names are filled in from the cards)
-          reactionGroup.count++;
-          reactionGroup.users.push({ user_id: reaction.user_id, user_name: 'Usuario' });
-
-          // Check if current user reacted
-          if (reaction.user_id === currentUserId) {
-            reactionGroup.user_reacted = true;
-          }
-        });
-      }
-    }
-
-    // Get reply_to messages if any messages have reply_to_id
-    const replyToIds = (data || [])
-      .map(msg => msg.reply_to_id)
-      .filter(id => id != null);
-    let replyToMessages: Record<string, any> = {};
-
-    if (replyToIds.length > 0) {
-      const { data: replyTos } = await supabase
-        .from('community_messages')
-        .select('id, content, author_id, created_at')
-        .in('id', replyToIds);
-
-      if (replyTos) {
-        replyTos.forEach(reply => {
-          replyToMessages[reply.id] = {
-            id: reply.id,
-            content: reply.content,
-            author_id: reply.author_id,
-            created_at: reply.created_at
-          };
-        });
-      }
-    }
-
-    // Names of authors, replied authors and reactors through the profile cards (EC-S5),
-    // in one call: other people's profile rows are not readable by members.
-    const authors = await fetchProfileCards(supabase, [
-      ...(data || []).map(message => message.author_id),
-      ...Object.values(replyToMessages).map(reply => reply.author_id),
-      ...Object.values(reactionsByMessage).flat().flatMap(group => group.users.map((u: any) => u.user_id)),
-    ]);
-    Object.values(reactionsByMessage).flat().forEach(group => {
-      group.users.forEach((u: any) => { u.user_name = cardName(authors.get(u.user_id)); });
-    });
-    Object.values(replyToMessages).forEach(reply => {
-      reply.author_name = cardName(authors.get(reply.author_id));
-      delete reply.author_id;
-    });
-
-    // Transform to MessageWithDetails format
-    return (data || []).map(message => {
-      const author = authors.get(message.author_id);
-
-      return {
-        ...message,
-        author_name: cardName(author),
-        author_email: '',
-        author_avatar: author?.avatar_url || null,
-        reply_to_message: message.reply_to_id ? replyToMessages[message.reply_to_id] || null : null,
-        reactions: reactionsByMessage[message.id] || [],
-        attachments: attachmentsByMessage[message.id] || [],
-        mentions: message.mentions || [],
-        user_reaction: undefined,
-        is_mentioned: false
-      };
-    });
+    return await withMessageDetails(data || []);
 
   } catch (error) {
     console.error('Error in getWorkspaceMessages:', error);
     return [];
   }
+}
+
+/**
+ * One message of a workspace with its attachments, reactions, reply and names,
+ * or null when it is not readable (or was deleted). Used to fill in a live
+ * message whose attachments are stored a moment after it (send-back 1, 3).
+ */
+export async function getWorkspaceMessage(
+  workspaceId: string,
+  messageId: string
+): Promise<MessageWithDetails | null> {
+  try {
+    const { data, error } = await supabase
+      .from('community_messages')
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .eq('id', messageId)
+      .eq('is_deleted', false);
+    if (error || !data || data.length === 0) return null;
+    const [message] = await withMessageDetails(data);
+    return message ?? null;
+  } catch {
+    console.error('Error in getWorkspaceMessage');
+    return null;
+  }
+}
+
+/** Attachments, reactions, replied messages and names for message rows. */
+async function withMessageDetails(data: any[]): Promise<MessageWithDetails[]> {
+  // Get attachments for all messages
+  const messageIds = (data || []).map(msg => msg.id);
+  let attachmentsByMessage: Record<string, any[]> = {};
+
+  if (messageIds.length > 0) {
+    const { data: attachments } = await supabase
+      .from('message_attachments')
+      .select('*')
+      .in('message_id', messageIds)
+      .eq('is_active', true);
+
+    if (attachments) {
+      attachmentsByMessage = attachments.reduce((acc, att) => {
+        if (!acc[att.message_id]) {
+          acc[att.message_id] = [];
+        }
+        acc[att.message_id].push(att);
+        return acc;
+      }, {} as Record<string, any[]>);
+    }
+  }
+
+  // Get current user for reaction tracking
+  const { data: { user: currentUser } } = await supabase.auth.getUser();
+  const currentUserId = currentUser?.id;
+
+  // Get reactions for all messages. message_reactions.user_id references
+  // auth.users, not profiles, so a `profiles:user_id` embed fails (PGRST200)
+  // and every reaction vanished on reload (EC-M3); the names of the people
+  // who reacted come from the profile cards below.
+  let reactionsByMessage: Record<string, any[]> = {};
+
+  if (messageIds.length > 0) {
+    const { data: reactions, error: reactionsError } = await supabase
+      .from('message_reactions')
+      .select('id, message_id, user_id, reaction_type, created_at')
+      .in('message_id', messageIds);
+
+    if (reactionsError) {
+      console.warn('[getWorkspaceMessages] Error fetching reactions:', reactionsError);
+    } else if (reactions) {
+      // Group reactions by message_id and reaction_type
+      reactions.forEach(reaction => {
+        if (!reactionsByMessage[reaction.message_id]) {
+          reactionsByMessage[reaction.message_id] = [];
+        }
+
+        // Find existing reaction type group or create new
+        let reactionGroup = reactionsByMessage[reaction.message_id].find(
+          (r: any) => r.reaction_type === reaction.reaction_type
+        );
+
+        if (!reactionGroup) {
+          reactionGroup = {
+            reaction_type: reaction.reaction_type,
+            count: 0,
+            user_reacted: false,
+            users: []
+          };
+          reactionsByMessage[reaction.message_id].push(reactionGroup);
+        }
+
+        // Add to count and users list (names are filled in from the cards)
+        reactionGroup.count++;
+        reactionGroup.users.push({ user_id: reaction.user_id, user_name: 'Usuario' });
+
+        // Check if current user reacted
+        if (reaction.user_id === currentUserId) {
+          reactionGroup.user_reacted = true;
+        }
+      });
+    }
+  }
+
+  // Get reply_to messages if any messages have reply_to_id
+  const replyToIds = (data || [])
+    .map(msg => msg.reply_to_id)
+    .filter(id => id != null);
+  let replyToMessages: Record<string, any> = {};
+
+  if (replyToIds.length > 0) {
+    const { data: replyTos } = await supabase
+      .from('community_messages')
+      .select('id, content, author_id, created_at')
+      .in('id', replyToIds);
+
+    if (replyTos) {
+      replyTos.forEach(reply => {
+        replyToMessages[reply.id] = {
+          id: reply.id,
+          content: reply.content,
+          author_id: reply.author_id,
+          created_at: reply.created_at
+        };
+      });
+    }
+  }
+
+  // Names of authors, replied authors and reactors through the profile cards (EC-S5),
+  // in one call: other people's profile rows are not readable by members.
+  const authors = await fetchProfileCards(supabase, [
+    ...(data || []).map(message => message.author_id),
+    ...Object.values(replyToMessages).map(reply => reply.author_id),
+    ...Object.values(reactionsByMessage).flat().flatMap(group => group.users.map((u: any) => u.user_id)),
+  ]);
+  Object.values(reactionsByMessage).flat().forEach(group => {
+    group.users.forEach((u: any) => { u.user_name = cardName(authors.get(u.user_id)); });
+  });
+  Object.values(replyToMessages).forEach(reply => {
+    reply.author_name = cardName(authors.get(reply.author_id));
+    delete reply.author_id;
+  });
+
+  // Transform to MessageWithDetails format
+  return (data || []).map(message => {
+    const author = authors.get(message.author_id);
+
+    return {
+      ...message,
+      author_name: cardName(author),
+      author_email: '',
+      author_avatar: author?.avatar_url || null,
+      reply_to_message: message.reply_to_id ? replyToMessages[message.reply_to_id] || null : null,
+      reactions: reactionsByMessage[message.id] || [],
+      attachments: attachmentsByMessage[message.id] || [],
+      mentions: message.mentions || [],
+      user_reaction: undefined,
+      is_mentioned: false
+    };
+  });
 }
 
 /**

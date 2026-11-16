@@ -174,3 +174,61 @@ REVOKE ALL ON FUNCTION public.publish_assessment_template(uuid, text, jsonb) FRO
 REVOKE ALL ON FUNCTION public.publish_assessment_template(uuid, text, jsonb) FROM anon;
 REVOKE ALL ON FUNCTION public.publish_assessment_template(uuid, text, jsonb) FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.publish_assessment_template(uuid, text, jsonb) TO service_role;
+
+-- =============================================================================
+-- Send-back 4 (T3; owner's decision 16 Nov 2026): a consultor reads the Plan
+-- de Migración of the schools they are assigned to only, also straight from
+-- the database.
+--
+-- Before: "ab_migration_plan_select" (20261116170000_gestor_close_open_rules.sql)
+-- let ANY active consultor read every school's plan. Testing the assignment
+-- inside the rule does not work: the rule runs with the consultor's own rights
+-- and public.consultant_assignments is readable by global admins only, so the
+-- consultor would see no assignment at all. The helper below answers the one
+-- question with its owner's rights and reveals only yes/no about the caller.
+--
+-- The condition is the one the application uses (lib/permissions/directivo.ts
+-- hasDirectivoPermission, lib/permissions/resultsSchoolScope.ts): an active
+-- consultor role, and a consultant_assignments row with consultant_id = caller,
+-- school_id = that school, is_active, and ends_at null or in the future. Like
+-- the application, only assignments naming the school itself count (rows that
+-- name only a generation_id or community_id do not).
+-- =============================================================================
+
+CREATE FUNCTION public.auth_is_assigned_consultor(p_school_id integer)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT auth.uid() IS NOT NULL
+     AND EXISTS (
+           SELECT 1 FROM public.user_roles ur
+            WHERE ur.user_id = auth.uid()
+              AND ur.role_type = 'consultor'::public.user_role_type
+              AND ur.is_active IS TRUE)
+     AND EXISTS (
+           SELECT 1 FROM public.consultant_assignments ca
+            WHERE ca.consultant_id = auth.uid()
+              AND ca.school_id = p_school_id
+              AND ca.is_active IS TRUE
+              AND (ca.ends_at IS NULL OR ca.ends_at > now()));
+$$;
+
+COMMENT ON FUNCTION public.auth_is_assigned_consultor(integer) IS
+  'T3 (F8 send-back 4): true when the caller holds an active consultor role and a current '
+  '(is_active, ends_at null or future) consultant_assignments row for that school. '
+  'Answers only about the caller; used by row rules that run with the caller''s rights.';
+
+REVOKE ALL ON FUNCTION public.auth_is_assigned_consultor(integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.auth_is_assigned_consultor(integer) FROM anon;
+GRANT EXECUTE ON FUNCTION public.auth_is_assigned_consultor(integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.auth_is_assigned_consultor(integer) TO service_role;
+
+ALTER POLICY "ab_migration_plan_select" ON public.ab_migration_plan TO authenticated
+  USING (
+    public.auth_is_assessment_admin()
+    OR public.auth_is_school_directivo(school_id)
+    OR public.auth_is_assigned_consultor(school_id)
+  );

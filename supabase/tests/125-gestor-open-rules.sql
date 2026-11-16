@@ -13,11 +13,14 @@
 --           in_progress, may move it pending -> in_progress -> completed and
 --           nothing else; admin unchanged.
 --   [C-11]  ab_migration_plan: readable by an admin, the school's equipo
---           directivo and active consultores only (not anon, not others).
+--           directivo and active consultores with a current assignment to
+--           that school only (not anon, not others)
+--           (owner's decision 16 Nov 2026: a consultor reads the plan of assigned schools only).
 --
 -- Personas: anon; docente (assignee of registros A, B and C, can_edit and
 -- can_submit); docente of school 2 assigned to nothing; equipo_directivo of
--- school 1; equipo_directivo of school 2; active consultor; admin; second
+-- school 1; equipo_directivo of school 2; active consultor (assigned to
+-- school 1); admin; second
 -- docente (assignee of B and C, can_edit); docente assigned to C without edit
 -- rights (can_edit false).
 -- Synthetic fixtures (schools -1170xx, uuids 11700000-…); everything rolls back.
@@ -25,7 +28,7 @@
 
 BEGIN;
 
-SELECT plan(84);
+SELECT plan(85);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures (postgres)
@@ -112,9 +115,14 @@ INSERT INTO public.assessment_responses (id, instance_id, indicator_id, coverage
   ('11700000-0000-4000-8000-000000000306', '11700000-0000-4000-8000-000000000103',
    '11700000-0000-4000-8000-0000000000c1', true, tests.get_supabase_uid('gc117_docente'));
 
--- C-11: one migration-plan row for school 1.
+-- C-11: one migration-plan row for school 1, one for school 2; the consultor is
+-- assigned (active, no end date) to school 1 only
+-- (owner's decision 16 Nov 2026: a consultor reads the plan of assigned schools only).
 INSERT INTO public.ab_migration_plan (id, school_id, year_number, grade_id, generation_type) VALUES
-  (-117101, -117001, 1, -117011, 'GT');
+  (-117101, -117001, 1, -117011, 'GT'),
+  (-117102, -117002, 1, -117011, 'GT');
+INSERT INTO public.consultant_assignments (consultant_id, school_id, is_active, assignment_type) VALUES
+  (tests.get_supabase_uid('gc117_cons'), -117001, true, 'monitoring');
 
 -- -----------------------------------------------------------------------------
 -- [GC-19] anon reads none of the four tables
@@ -430,7 +438,7 @@ SELECT is((SELECT count(*)::int FROM u), 1, 'GC-18 admin: archiving registro B c
 RESET ROLE;
 
 -- -----------------------------------------------------------------------------
--- [C-11] migration plan: only admin, the school's directivo and active consultores read it
+-- [C-11] migration plan: only admin, the school's directivo and consultores assigned to it read it
 -- -----------------------------------------------------------------------------
 SELECT tests.clear_authentication();
 SELECT set_config('role', 'anon', true);
@@ -453,7 +461,9 @@ RESET ROLE;
 
 SELECT tests.authenticate_as('gc117_cons');
 SELECT is((SELECT count(*)::int FROM public.ab_migration_plan WHERE id = -117101), 1,
-  'C-11 active consultor: reads the migration plan of school 1');
+  'C-11 active consultor assigned to school 1: reads the migration plan of school 1');
+SELECT is((SELECT count(*)::int FROM public.ab_migration_plan WHERE id = -117102), 0,
+  'C-11 active consultor assigned to school 1: reads 0 rows of the migration plan of school 2 (not assigned)');
 RESET ROLE;
 
 SELECT tests.authenticate_as('gc117_admin');

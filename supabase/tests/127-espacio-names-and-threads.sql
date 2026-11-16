@@ -3,7 +3,8 @@
 -- Espacio Colaborativo conversations and people's names.
 --
 --   send-back 1 (16 Nov): (4) a consultor's assignment counts only inside its
---          dates
+--          dates; (9) at most 200 distinct ids are looked at, whatever the
+--          array's shape
 --   EC-S4  a member creates a conversation with a plain INSERT and reads it
 --          back in a second request; INSERT … RETURNING on message_threads
 --          is refused by the RESTRICTIVE read rule messaging_read_boundary
@@ -257,6 +258,34 @@ UPDATE public.consultant_assignments SET is_active = false WHERE consultant_id =
 SELECT tests.authenticate_as('f11_cons_ends');
 SELECT is(pg_temp.cards(ARRAY['f11_c']), '',
   'send-back 1 (4) consultor: an assignment marked inactive gives no card');
+
+-- ----------------------------------------------------------------------------
+-- Send-back 1, item 9: at most 200 distinct ids are looked at, whatever the
+-- shape of the array (a uuid[] may have two dimensions)
+-- ----------------------------------------------------------------------------
+RESET ROLE;
+SELECT tests.create_supabase_user('f11_bulk_' || g) FROM generate_series(1, 400) g;
+INSERT INTO public.profiles (id, email, name, first_name, last_name, approval_status)
+SELECT pg_temp.uid('f11_bulk_' || g), 'f11_bulk_' || g || '@f11.test.local', 'f11_bulk_' || g, 'Bulk', g::text, 'approved'
+  FROM generate_series(1, 400) g
+ON CONFLICT (id) DO NOTHING;
+CREATE TEMP TABLE f11_bulk ON COMMIT DROP AS
+SELECT ARRAY[
+  ARRAY(SELECT pg_temp.uid('f11_bulk_' || g) FROM generate_series(1, 200) g ORDER BY g),
+  ARRAY(SELECT pg_temp.uid('f11_bulk_' || g) FROM generate_series(201, 400) g ORDER BY g)
+] AS ids;
+GRANT SELECT ON f11_bulk TO authenticated;
+SELECT is((SELECT array_dims(ids) FROM f11_bulk), '[1:2][1:200]', 'send-back 1 (9) fixture: a two-dimensional array of 2 × 200 ids');
+SELECT is((SELECT count(*)::int FROM public.profiles WHERE id = ANY ((SELECT ids FROM f11_bulk)::uuid[])), 400,
+  'send-back 1 (9) fixture: all 400 ids are existing profiles');
+SELECT tests.authenticate_as('f11_admin');
+SELECT cmp_ok((SELECT count(*)::int FROM public.get_profile_cards((SELECT ids FROM f11_bulk))), '<=', 200,
+  'send-back 1 (9) admin: a two-dimensional array of 2 × 200 existing ids gives at most 200 rows');
+SELECT is((SELECT count(*)::int FROM public.get_profile_cards((SELECT ids FROM f11_bulk))), 200,
+  'send-back 1 (9) admin: exactly the first 200 are looked at');
+SELECT is((SELECT count(*)::int FROM public.get_profile_cards((SELECT ids FROM f11_bulk))
+            WHERE id = pg_temp.uid('f11_bulk_201')), 0,
+  'send-back 1 (9) admin: the first id of the second row (place 201) is not looked at');
 
 RESET ROLE;
 SELECT set_config('role', 'anon', true);

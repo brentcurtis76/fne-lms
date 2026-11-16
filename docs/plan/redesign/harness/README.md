@@ -61,7 +61,8 @@ and take a new snapshot after running the seed again.
 | `rules.mjs` | The hand-kept rules, each with its reason: POST requests that are reads and may pass, outside hosts that are kept and replayed, query strings some roles need, values hidden because they change by nature. |
 | `clock.mjs`, `server-clock.cjs` | The browser's clock and the app server's clock while pictures are taken. |
 | `specs-baseline.mjs` | Runs the browser test files CI skips, each alone on the plain seeded database, and keeps what passes in `specs-baseline.json` here. `--compare` lists what got WORSE than the kept list. |
-| `probe.mjs`, `_flicker.mjs`, `_open.mjs` | A session's tools: evaluate an expression on one address as one account; find where a page keeps changing; click one visible text and list what appears. |
+| `../tokens-check.mjs` | Not pictures: compares two compiled stylesheets once every named value is replaced by what it holds (`EQUIVALENT` or the list). The proof for what a picture cannot show: hover, focus, pop-ups. See `../tokens.md`. |
+| `probe.mjs`, `_flicker.mjs`, `_open.mjs`, `_px.mjs` | A session's tools: evaluate an expression on one address as one account; find where a page keeps changing; click one visible text and list what appears; say which pixels differ between two pictures, from which colour to which, and save that part of both enlarged. |
 
 ## What a run records
 

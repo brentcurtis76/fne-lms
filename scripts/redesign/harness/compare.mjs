@@ -134,7 +134,14 @@ for (const w of warnings) lines.push(`WARNING: ${w}`);
 if (total === 0) lines.push(`IDENTICAL: ${same} the same, 0 different.`);
 else {
   lines.push(`DIFFERENT: ${total} differ, ${same} the same.`);
-  if (diffs.pixels.length) { lines.push(`\nPictures that changed (${diffs.pixels.length}):`); for (const d of diffs.pixels) lines.push(`  ${d.k}${d.pixels !== undefined ? ` — ${d.pixels} pixels, ${d.sizes}${d.box ? `, ${d.box}` : ''}` : ''}`); }
+  if (diffs.pixels.length) {
+    // How far apart the changed pixels are says what kind of change it is: 255 is a different thing drawn, 1 or 2 is
+    // the same thing drawn from a value that was rounded differently (see docs/plan/redesign/tokens.md).
+    const measured = diffs.pixels.filter((d) => d.strongest !== undefined);
+    const strongest = measured.reduce((m, d) => Math.max(m, d.strongest), 0);
+    lines.push(`\nPictures that changed (${diffs.pixels.length})${measured.length ? `; the largest difference of any pixel in them: ${strongest} of 255 shades` : ''}:`);
+    for (const d of diffs.pixels) lines.push(`  ${d.k}${d.pixels !== undefined ? ` — ${d.pixels} pixels, at most ${d.strongest} shades apart, ${d.sizes}${d.box ? `, ${d.box}` : ''}` : ''}`);
+  }
   if (diffs.landed.length) { lines.push(`\nLands somewhere else (${diffs.landed.length}):`); for (const x of diffs.landed) lines.push(`  ${x}`); }
   if (diffs.state.length) { lines.push(`\nOutcome changed (${diffs.state.length}):`); for (const x of diffs.state) lines.push(`  ${x}`); }
   if (diffs.onlyA.length) { lines.push(`\nOnly in ${names[0]} (${diffs.onlyA.length}):`); for (const x of diffs.onlyA) lines.push(`  ${x}`); }

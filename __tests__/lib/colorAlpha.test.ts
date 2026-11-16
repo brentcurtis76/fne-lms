@@ -29,6 +29,23 @@ describe('withAlpha', () => {
     expect(withAlpha('rgb(var(--color-blue-500))', hh)).toBe(`rgb(var(--color-blue-500) / ${alpha})`);
   });
 
+  it.each(PAIRS_IN_USE)('puts the opacity for "%s" inside a named value with a fallback (5a chart series)', (hh, alpha) => {
+    expect(withAlpha('rgb(var(--color-serie-1, var(--color-legacy-10b981)))', hh)).toBe(
+      `rgb(var(--color-serie-1, var(--color-legacy-10b981)) / ${alpha})`
+    );
+    expect(withAlpha('rgb(var(--color-serie-2, 251 191 36))', hh)).toBe(`rgb(var(--color-serie-2, 251 191 36) / ${alpha})`);
+  });
+
+  it('turns "80" into 0.502 for the series of the new look (it used to be glued onto a brand hex)', () => {
+    expect(withAlpha('rgb(var(--color-serie-1, 10 10 10))', '80')).toBe('rgb(var(--color-serie-1, 10 10 10) / 0.502)');
+    expect(Math.round(0.502 * 255)).toBe(0x80);
+  });
+
+  it('leaves anything else as the gluing did, as before', () => {
+    expect(withAlpha('rgb(10 10 10)', '20')).toBe('rgb(10 10 10)20');
+    expect(withAlpha('rgb(var(--a, red))', '20')).toBe('rgb(var(--a, red))20');
+  });
+
   it('rounds back to the same 8-bit value for every pair of hex characters', () => {
     for (let n = 0; n < 256; n += 1) {
       const hh = n.toString(16).padStart(2, '0');

@@ -32,9 +32,9 @@ const ResponsiveContainer = dynamic(() => import('recharts').then((mod) => ({ de
 // Constants
 // ============================================================
 
-const COLOR_CONSUMED = 'rgb(var(--color-legacy-003a5b))';
-const COLOR_RESERVED = 'rgb(var(--color-legacy-0066a4))';
-const COLOR_AVAILABLE = 'rgb(var(--color-legacy-e0f0ff))';
+const COLOR_CONSUMED = 'rgb(var(--color-serie-1, var(--color-legacy-003a5b)))';
+const COLOR_RESERVED = 'rgb(var(--color-serie-2, var(--color-legacy-0066a4)))';
+const COLOR_AVAILABLE = 'rgb(var(--color-serie-3, var(--color-legacy-e0f0ff)))';
 const COLOR_AVAILABLE_WARNING = 'rgb(var(--color-amber-100))'; // yellow-100
 const COLOR_AVAILABLE_EXHAUSTED = 'rgb(var(--color-red-100))'; // red-100
 

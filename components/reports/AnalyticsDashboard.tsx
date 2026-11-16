@@ -395,14 +395,14 @@ export default function AnalyticsDashboard({ userId, userRole, isAdmin, filters 
               <Line
                 type="monotone"
                 dataKey="lessons_completed"
-                stroke={FNE_COLORS.primary}
+                stroke="rgb(var(--color-serie-1, 10 10 10))"
                 strokeWidth={2}
                 name="Lecciones Completadas"
               />
               <Line
                 type="monotone"
                 dataKey="unique_users"
-                stroke={FNE_COLORS.secondary}
+                stroke="rgb(var(--color-serie-2, 251 191 36))"
                 strokeWidth={2}
                 name="Usuarios Activos"
               />
@@ -436,15 +436,15 @@ export default function AnalyticsDashboard({ userId, userRole, isAdmin, filters 
               <Area
                 type="monotone"
                 dataKey="total_time_hours"
-                stroke={FNE_COLORS.success}
-                fill={withAlpha(FNE_COLORS.success, '30')}
+                stroke="rgb(var(--color-serie-1, var(--color-legacy-10b981)))"
+                fill={withAlpha('rgb(var(--color-serie-1, var(--color-legacy-10b981)))', '30')}
                 name="Total Horas"
               />
               <Area
                 type="monotone"
                 dataKey="avg_time_per_user"
-                stroke={FNE_COLORS.info}
-                fill={withAlpha(FNE_COLORS.info, '30')}
+                stroke="rgb(var(--color-serie-2, var(--color-blue-500)))"
+                fill={withAlpha('rgb(var(--color-serie-2, var(--color-blue-500)))', '30')}
                 name="Promedio por Usuario"
               />
             </AreaChart>

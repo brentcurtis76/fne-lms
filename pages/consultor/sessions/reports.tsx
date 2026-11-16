@@ -131,9 +131,9 @@ const FNE_COLORS = {
 };
 
 const MODALITY_COLORS: Record<string, string> = {
-  presencial: 'rgb(var(--color-blue-500))',
-  online: 'rgb(var(--color-legacy-10b981))',
-  hibrida: '#F59E0B',
+  presencial: 'rgb(var(--color-serie-1, var(--color-blue-500)))',
+  online: 'rgb(var(--color-serie-2, var(--color-legacy-10b981)))',
+  hibrida: 'rgb(var(--color-serie-3, 245 158 11))',
 };
 
 // ============================================================
@@ -720,8 +720,8 @@ const SessionReportsPage: React.FC = () => {
                 />
                 <Tooltip content={<CustomChartTooltip />} />
                 <Legend />
-                <Bar dataKey="total" fill="rgb(var(--color-blue-500))" name="Total" />
-                <Bar dataKey="completed" fill="rgb(var(--color-legacy-10b981))" name="Completadas" />
+                <Bar dataKey="total" fill="rgb(var(--color-serie-1, var(--color-blue-500)))" name="Total" />
+                <Bar dataKey="completed" fill="rgb(var(--color-serie-2, var(--color-legacy-10b981)))" name="Completadas" />
               </BarChart>
             </ResponsiveContainer>
           </div>

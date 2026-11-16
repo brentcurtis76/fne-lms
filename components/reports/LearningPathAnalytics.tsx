@@ -265,8 +265,8 @@ export default function LearningPathAnalytics({ selectedPath, dateRange = 30 }: 
               <YAxis allowDecimals={false} />
               <Tooltip />
               <Legend />
-              <Line type="monotone" dataKey="completions" stroke="rgb(var(--color-blue-500))" strokeWidth={2} name="Completaciones de curso" />
-              <Line type="monotone" dataKey="enrollments" stroke="rgb(var(--color-legacy-10b981))" strokeWidth={2} name="Nuevas asignaciones" />
+              <Line type="monotone" dataKey="completions" stroke="rgb(var(--color-serie-1, var(--color-blue-500)))" strokeWidth={2} name="Completaciones de curso" />
+              <Line type="monotone" dataKey="enrollments" stroke="rgb(var(--color-serie-2, var(--color-legacy-10b981)))" strokeWidth={2} name="Nuevas asignaciones" />
             </LineChart>
           </ResponsiveContainer>
         </div>

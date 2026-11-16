@@ -5,6 +5,7 @@
  */
 
 import { supabase } from '../lib/supabase-wrapper';
+import { fetchProfileCards, cardName } from '../lib/profile-cards';
 import {
   ThreadWithDetails,
   MessageWithDetails,
@@ -79,30 +80,13 @@ export async function getWorkspaceThreads(
       return [];
     }
 
-    // Get creator information for all threads
-    const creatorIds = Array.from(new Set((data || []).map(thread => thread.created_by)));
-    let creators: Record<string, any> = {};
-    
-    if (creatorIds.length > 0) {
-      const { data: creatorData } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, email')
-        .in('id', creatorIds);
-      
-      if (creatorData) {
-        creators = creatorData.reduce((acc, profile) => {
-          acc[profile.id] = profile;
-          return acc;
-        }, {} as Record<string, any>);
-      }
-    }
+    // Creators' names through the profile cards (EC-S5): other people's
+    // profile rows are not readable by members.
+    const creators = await fetchProfileCards(supabase, (data || []).map(thread => thread.created_by));
 
     // Transform to ThreadWithDetails format
     return (data || []).map(thread => {
-      const creator = creators[thread.created_by] || {};
-      const creatorName = creator.first_name && creator.last_name 
-        ? `${creator.first_name} ${creator.last_name}`
-        : creator.email || 'Usuario';
+      const creatorName = cardName(creators.get(thread.created_by));
       
       // Handle custom category
       let categoryConfig = THREAD_CATEGORIES.find(cat => cat.type === thread.category);
@@ -114,7 +98,7 @@ export async function getWorkspaceThreads(
       return {
         ...thread,
         creator_name: creatorName,
-        creator_email: creator.email || '',
+        creator_email: '',
         latest_message: null, // Will be populated separately if needed
         participants: [],
         unread_count: 0,
@@ -211,24 +195,6 @@ export async function getWorkspaceMessages(
         console.error('Error fetching messages:', error);
       }
       return [];
-    }
-
-    // Get author information for all messages
-    const authorIds = Array.from(new Set((data || []).map(message => message.author_id)));
-    let authors: Record<string, any> = {};
-    
-    if (authorIds.length > 0) {
-      const { data: authorData } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, email, avatar_url')
-        .in('id', authorIds);
-      
-      if (authorData) {
-        authors = authorData.reduce((acc, profile) => {
-          acc[profile.id] = profile;
-          return acc;
-        }, {} as Record<string, any>);
-      }
     }
 
     // Get attachments for all messages
@@ -329,51 +295,37 @@ export async function getWorkspaceMessages(
         .in('id', replyToIds);
 
       if (replyTos) {
-        // Get author info for reply messages
-        const replyAuthorIds = Array.from(new Set(replyTos.map(r => r.author_id)));
-        let replyAuthors: Record<string, any> = {};
-
-        if (replyAuthorIds.length > 0) {
-          const { data: replyAuthorData } = await supabase
-            .from('profiles')
-            .select('id, first_name, last_name')
-            .in('id', replyAuthorIds);
-
-          if (replyAuthorData) {
-            replyAuthors = replyAuthorData.reduce((acc, p) => {
-              acc[p.id] = p;
-              return acc;
-            }, {} as Record<string, any>);
-          }
-        }
-
         replyTos.forEach(reply => {
-          const replyAuthor = replyAuthors[reply.author_id] || {};
-          const replyAuthorName = replyAuthor.first_name && replyAuthor.last_name
-            ? `${replyAuthor.first_name} ${replyAuthor.last_name}`
-            : 'Usuario';
           replyToMessages[reply.id] = {
             id: reply.id,
             content: reply.content,
-            author_name: replyAuthorName,
+            author_id: reply.author_id,
             created_at: reply.created_at
           };
         });
       }
     }
 
+    // Names of authors and replied authors through the profile cards (EC-S5),
+    // in one call: other people's profile rows are not readable by members.
+    const authors = await fetchProfileCards(supabase, [
+      ...(data || []).map(message => message.author_id),
+      ...Object.values(replyToMessages).map(reply => reply.author_id),
+    ]);
+    Object.values(replyToMessages).forEach(reply => {
+      reply.author_name = cardName(authors.get(reply.author_id));
+      delete reply.author_id;
+    });
+
     // Transform to MessageWithDetails format
     return (data || []).map(message => {
-      const author = authors[message.author_id] || {};
-      const authorName = author.first_name && author.last_name
-        ? `${author.first_name} ${author.last_name}`
-        : author.email || 'Usuario';
+      const author = authors.get(message.author_id);
 
       return {
         ...message,
-        author_name: authorName,
-        author_email: author.email || '',
-        author_avatar: author.avatar_url || null,
+        author_name: cardName(author),
+        author_email: '',
+        author_avatar: author?.avatar_url || null,
         reply_to_message: message.reply_to_id ? replyToMessages[message.reply_to_id] || null : null,
         reactions: reactionsByMessage[message.id] || [],
         attachments: attachmentsByMessage[message.id] || [],
@@ -712,23 +664,13 @@ export function subscribeToWorkspaceMessages(
             // Fetch author profile for the new message
             const authorId = payload.new.author_id;
             let authorName = 'Usuario';
-            let authorEmail = '';
+            const authorEmail = '';
             let authorAvatar = null;
 
             if (authorId) {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('first_name, last_name, email, avatar_url')
-                .eq('id', authorId)
-                .single();
-
-              if (profile) {
-                authorName = profile.first_name && profile.last_name
-                  ? `${profile.first_name} ${profile.last_name}`
-                  : profile.email || 'Usuario';
-                authorEmail = profile.email || '';
-                authorAvatar = profile.avatar_url || null;
-              }
+              const card = (await fetchProfileCards(supabase, [authorId])).get(authorId);
+              authorName = cardName(card);
+              authorAvatar = card?.avatar_url || null;
             }
 
             // Transform payload to MessageWithDetails format
@@ -766,21 +708,10 @@ export function subscribeToWorkspaceMessages(
             // Fetch creator profile for the new thread
             const creatorId = payload.new.created_by;
             let creatorName = 'Usuario';
-            let creatorEmail = '';
+            const creatorEmail = '';
 
             if (creatorId) {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('first_name, last_name, email')
-                .eq('id', creatorId)
-                .single();
-
-              if (profile) {
-                creatorName = profile.first_name && profile.last_name
-                  ? `${profile.first_name} ${profile.last_name}`
-                  : profile.email || 'Usuario';
-                creatorEmail = profile.email || '';
-              }
+              creatorName = cardName((await fetchProfileCards(supabase, [creatorId])).get(creatorId));
             }
 
             // Transform payload to ThreadWithDetails format

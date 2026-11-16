@@ -338,3 +338,18 @@ describe('R8 · flag on: mention and reply bells of a group thread are enqueued 
     expect(loggedText()).not.toMatch(/dddddddd|SYNTHETIC-PRIVATE-BODY/);
   });
 });
+
+describe('EC-S5 · names with accents, hyphens and dots (GENERA fixes F11)', () => {
+  it('a mention of «María-José Núñez» or «J. Pérez» is recognised, also at the end of a sentence', async () => {
+    db.profiles[MEMBER] = { first_name: 'María-José', last_name: 'Núñez', email: 'mj@qa.local.test' };
+    db.profiles[UNMENTIONED] = { first_name: 'J.', last_name: 'Pérez', email: 'jp@qa.local.test' };
+    db.members.add(UNMENTIONED);
+    db.messages[MESSAGE].content = `${BODY} hola @María-José_Núñez. y @J._Pérez, gracias`;
+
+    expect(await notify([MEMBER, UNMENTIONED])).toEqual({ status: 200, body: { success: true, notified: 3 } });
+    expect(db.mentions.map((m) => [m.mentioned_user_id, m.mention_text])).toEqual([
+      [MEMBER, '@María-José_Núñez'],
+      [UNMENTIONED, '@J._Pérez'],
+    ]);
+  });
+});

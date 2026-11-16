@@ -23,7 +23,19 @@ import NotificationService from '../notificationService';
 export const MENTION_COPY = 'Te mencionaron en un mensaje del espacio de trabajo';
 export const REPLY_COPY = 'Respondieron a tu mensaje en el espacio de trabajo';
 
-const HANDLE = /@([a-zA-Z0-9_]+)/g;
+// A handle is `@` + the member's name with spaces as `_`: letters with
+// accents, digits, `_`, `-` and `.` (EC-S5: «@María-José_Núñez», «@J._Pérez»).
+const HANDLE = /@([\p{L}\p{M}\p{N}_.-]+)/gu;
+
+/** The handles a text names; a sentence's closing `.` or `-` is also tried without. */
+function handlesIn(text: string): Set<string> {
+  const handles = new Set<string>();
+  for (const match of text.matchAll(HANDLE)) {
+    handles.add(match[1]);
+    handles.add(match[1].replace(/[.-]+$/, ''));
+  }
+  return handles;
+}
 const LOG = '[workspace-message-notifications]';
 
 export interface WorkspaceMessageInput {
@@ -151,7 +163,7 @@ export async function notifyWorkspaceMessage(
       console.error(`${LOG} mentioned profile lookup failed`);
       return fail(500, 'No se pudo verificar las menciones');
     }
-    const handles = new Set([...String(message.content ?? '').matchAll(HANDLE)].map((match) => match[1]));
+    const handles = handlesIn(String(message.content ?? ''));
     for (const profile of profiles ?? []) {
       const handle = mentionHandle(profile);
       if (handles.has(handle)) newMentions.push({ id: profile.id, handle });

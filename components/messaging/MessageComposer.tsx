@@ -129,7 +129,7 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
     if (allowMentions && onRequestMentions) {
       const cursorPosition = e.target.selectionStart;
       const textBeforeCursor = newContent.substring(0, cursorPosition);
-      const mentionMatch = textBeforeCursor.match(/@([a-zA-Z0-9._-]*)$/);
+      const mentionMatch = textBeforeCursor.match(/@([\p{L}\p{M}\p{N}._-]*)$/u);
       
       if (mentionMatch) {
         const query = mentionMatch[1];
@@ -260,11 +260,13 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
 
     // Extract mentioned user IDs from content (handles @First_Last format with underscores)
     const mentionedUserIds: string[] = [];
-    const mentionRegex = /@([a-zA-Z0-9_]+)/g;
+    // Names may carry accents, hyphens and dots («@María-José_Núñez», «@J._Pérez»);
+    // a sentence's closing `.` or `-` after a handle is tried without (EC-S5).
+    const mentionRegex = /@([\p{L}\p{M}\p{N}_.-]+)/gu;
     let match;
     while ((match = mentionRegex.exec(content)) !== null) {
       const mentionHandle = match[1]; // This will be "Bob_Dylan" format
-      const userId = mentionedUsers.get(mentionHandle);
+      const userId = mentionedUsers.get(mentionHandle) ?? mentionedUsers.get(mentionHandle.replace(/[.-]+$/, ''));
       if (userId) {
         mentionedUserIds.push(userId);
       }

@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { deliverRecordBells, loggableError } from './notify-pending';
+import { canReviewSubmission } from '../../../lib/quiz-reviews/review-scope';
 
 // Use service role to bypass RLS
 const supabaseService = createClient(
@@ -63,6 +64,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (!reviewStatus || !['pass', 'needs_review'].includes(reviewStatus)) {
       return res.status(400).json({ error: 'Valid review status required (pass or needs_review)' });
+    }
+
+    // Same rule as GET /api/quiz-reviews/[id] (lib/quiz-reviews/review-scope.ts), checked
+    // on its own small read before the submission is read for the compare-and-set below.
+    const { data: scopeRow, error: scopeRowError } = await supabaseService
+      .from('quiz_submissions')
+      .select('student_id')
+      .eq('id', submissionId)
+      .single();
+    if (scopeRowError || !scopeRow) {
+      return res.status(404).json({ error: 'Submission not found' });
+    }
+    let canReview: boolean;
+    try {
+      canReview = await canReviewSubmission(
+        supabaseService,
+        user.id,
+        (userRoles || []).map(r => r.role_type),
+        scopeRow.student_id
+      );
+    } catch {
+      return res.status(500).json({ error: 'Failed to verify access' });
+    }
+    if (!canReview) {
+      return res.status(403).json({ error: 'No tienes acceso a este quiz' });
     }
 
     console.log('[API submit-review] Saving review');

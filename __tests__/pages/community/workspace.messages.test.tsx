@@ -507,3 +507,46 @@ describe('send-back 1 (1) creating a conversation whose first message fails', ()
     expect(h.createThread.mock.calls[0][3]).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Send-back 1, item 2: a person's own message appears once even when its live
+// event arrives before the send finishes
+// ---------------------------------------------------------------------------
+
+describe('send-back 1 (2) the sender\'s own message', () => {
+  const PDF = { id: 'att-own', message_id: 'm-own', file_name: 'acta.pdf', mime_type: 'application/pdf', file_size: 10, storage_path: 'https://example.invalid/acta.pdf' };
+
+  it('live event first, then send completion: one message, with its attachments', async () => {
+    let finishSend: (value: unknown) => void = () => undefined;
+    h.sendMessage = vi.fn(() => new Promise((resolve) => { finishSend = resolve; }));
+    const utils = render(<CommunityWorkspacePage />);
+    await openThread(utils, COMMUNITY_A);
+
+    let sending: Promise<void> = Promise.resolve();
+    await act(async () => {
+      sending = h.composer!.onSendMessage({ content: 'Mensaje m-own', attachments: [new File(['%PDF'], 'acta.pdf')] });
+    });
+    // The live event of the stored message arrives while the attachment is still being stored.
+    await deliver(message('m-own', THREAD_A.id, { author_id: 'user-1', attachments: [] }));
+    expect(cardIds(utils)).toEqual(['m-own']);
+
+    await act(async () => {
+      finishSend(message('m-own', THREAD_A.id, { author_id: 'user-1', attachments: [PDF] }));
+      await sending;
+    });
+    expect(cardIds(utils)).toEqual(['m-own']);
+    expect(utils.getByTestId('download-att-own').textContent).toBe('acta.pdf');
+  });
+
+  it('send completion first, then the live event: still one message, attachments kept', async () => {
+    h.sendMessage = vi.fn(async () => message('m-own', THREAD_A.id, { author_id: 'user-1', attachments: [PDF] }));
+    const utils = render(<CommunityWorkspacePage />);
+    await openThread(utils, COMMUNITY_A);
+    await act(async () => {
+      await h.composer!.onSendMessage({ content: 'Mensaje m-own' });
+    });
+    await deliver(message('m-own', THREAD_A.id, { author_id: 'user-1', attachments: [] }));
+    expect(cardIds(utils)).toEqual(['m-own']);
+    expect(utils.getByTestId('download-att-own').textContent).toBe('acta.pdf');
+  });
+});

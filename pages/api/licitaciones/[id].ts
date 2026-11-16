@@ -2,6 +2,8 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import {
   getApiUser,
   createServiceRoleClient,
+  getForcedPasswordChangeVerdict,
+  sendForcedPasswordChangeResponse,
   createApiSupabaseClient,
   sendAuthError,
   sendApiResponse,
@@ -75,6 +77,7 @@ async function handlePatch(req: NextApiRequest, res: NextApiResponse, licitacion
 
   try {
     const serviceClient = createServiceRoleClient();
+    if (sendForcedPasswordChangeResponse(res, await getForcedPasswordChangeVerdict(serviceClient, user.id))) return;
     const userRoles = await getUserRoles(serviceClient, user.id);
     const roleTypes = userRoles.map(r => r.role_type);
     const isAdmin = roleTypes.includes('admin');
@@ -133,8 +136,16 @@ async function handlePatch(req: NextApiRequest, res: NextApiResponse, licitacion
 
     // Encargados have no direct write rule on licitaciones: check their school here,
     // then write the one allowed field with the service client. Admins keep their own session.
+    // Only a confirmed, active role row counts (never one from the fallback cache).
+    const confirmedEncargadoRoles = userRoles.filter(
+      r => r.role_type === 'encargado_licitacion' && r.is_active === true && !r.from_cache
+    );
+    const isConfirmedEncargado = confirmedEncargadoRoles.length > 0;
     let writeClient = serviceClient;
-    if (!isAdmin && isEncargado) {
+    if (!isAdmin) {
+      if (!isConfirmedEncargado) {
+        return sendAuthError(res, 'No tiene permisos para esta licitacion', 403);
+      }
       const { data: licitacion, error: licitError } = await serviceClient
         .from('licitaciones')
         .select('school_id')
@@ -145,9 +156,11 @@ async function handlePatch(req: NextApiRequest, res: NextApiResponse, licitacion
         return sendAuthError(res, 'Licitacion no encontrada', 404);
       }
 
-      const encargadoRole = userRoles.find(r => r.role_type === 'encargado_licitacion');
-      const encargadoSchoolId = encargadoRole?.school_id != null ? Number(encargadoRole.school_id) : null;
-      if (!encargadoRole || encargadoSchoolId !== licitacion.school_id) {
+      // Any of the person's confirmed encargado roles may match the tender's school.
+      const hasSchoolRole = confirmedEncargadoRoles.some(
+        r => r.school_id != null && Number(r.school_id) === licitacion.school_id
+      );
+      if (!hasSchoolRole) {
         return sendAuthError(res, 'No tiene permisos para esta licitacion', 403);
       }
     } else {

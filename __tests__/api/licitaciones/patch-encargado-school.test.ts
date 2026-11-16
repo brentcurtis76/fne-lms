@@ -15,8 +15,9 @@ type Call = { client: 'service' | 'user'; table: string; op: string; args: unkno
 
 const { state, calls, makeClient, createApiSupabaseClient, getUserRoles, updateTimelineDates } = vi.hoisted(() => {
   const state = {
-    roles: [] as Array<{ role_type: string; school_id: number | null; is_active: boolean }>,
+    roles: [] as Array<{ role_type: string; school_id: number | null; is_active: boolean | null; from_cache?: boolean }>,
     tender: { id: '', school_id: 1 } as { id: string; school_id: number } | null,
+    verdict: 'allowed' as string,
   };
   const calls: Call[] = [];
   const makeClient = (name: 'service' | 'user') => ({
@@ -50,6 +51,12 @@ vi.mock('@/lib/api-auth', () => ({
   getApiUser: async () => ({ user: { id: '11111111-1111-4111-8111-111111111111' }, error: null }),
   createServiceRoleClient: () => makeClient('service'),
   createApiSupabaseClient,
+  getForcedPasswordChangeVerdict: async () => state.verdict,
+  sendForcedPasswordChangeResponse: (res: any, verdict: string) => {
+    if (verdict === 'allowed') return false;
+    res.status(403).json({ error: 'password_change_required' });
+    return true;
+  },
   sendAuthError: (res: any, error: string, status: number) => res.status(status).json({ error }),
   sendApiResponse: (res: any, data: unknown, status = 200) => res.status(status).json({ data }),
   logApiRequest: vi.fn(),
@@ -78,6 +85,7 @@ beforeEach(() => {
   calls.length = 0;
   state.roles = [];
   state.tender = { id: TENDER_ID, school_id: 1 };
+  state.verdict = 'allowed';
   vi.clearAllMocks();
 });
 
@@ -181,6 +189,53 @@ describe('PATCH /api/licitaciones/[id] — must still work', () => {
     state.roles = [{ role_type: 'docente', school_id: 1, is_active: true }];
     const res = await patch({ publicacion_imagen_url: IMAGE });
     expect(res._getStatusCode()).toBe(403);
+    expect(updates()).toEqual([]);
+  });
+});
+
+describe('PATCH /api/licitaciones/[id] — confirmed encargado role of the tender school (LIC-C2c)', () => {
+  const role = (school: number) => ({ role_type: 'encargado_licitacion', school_id: school, is_active: true });
+
+  it('accepts any active encargado role matching the tender school (roles 1 then 2, tender of school 2)', async () => {
+    state.roles = [role(1), role(2)];
+    state.tender = { id: TENDER_ID, school_id: 2 };
+    const res = await patch({ publicacion_imagen_url: IMAGE });
+    expect(res._getStatusCode()).toBe(200);
+    expect(updates()).toEqual([
+      { client: 'service', table: 'licitaciones', op: 'update', args: [{ publicacion_imagen_url: IMAGE }] },
+    ]);
+  });
+
+  it('accepts any active encargado role matching the tender school (roles 2 then 1, tender of school 2)', async () => {
+    state.roles = [role(2), role(1)];
+    state.tender = { id: TENDER_ID, school_id: 2 };
+    const res = await patch({ publicacion_imagen_url: IMAGE });
+    expect(res._getStatusCode()).toBe(200);
+    expect(updates()).toHaveLength(1);
+  });
+
+  it('refuses a role row that came from the fallback cache (from_cache true, is_active null), with no write', async () => {
+    state.roles = [{ role_type: 'encargado_licitacion', school_id: 1, is_active: null, from_cache: true }];
+    const res = await patch({ publicacion_imagen_url: IMAGE });
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toEqual({ error: 'No tiene permisos para esta licitacion' });
+    expect(updates()).toEqual([]);
+  });
+
+  it('refuses an encargado role row with is_active false, with no write', async () => {
+    state.roles = [{ role_type: 'encargado_licitacion', school_id: 1, is_active: false }];
+    const res = await patch({ publicacion_imagen_url: IMAGE });
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toEqual({ error: 'No tiene permisos para esta licitacion' });
+    expect(updates()).toEqual([]);
+  });
+
+  it('holds a person who must change their password with the forced-change answer, with no write', async () => {
+    state.roles = encargado(1);
+    state.verdict = 'required';
+    const res = await patch({ publicacion_imagen_url: IMAGE });
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toEqual({ error: 'password_change_required' });
     expect(updates()).toEqual([]);
   });
 });

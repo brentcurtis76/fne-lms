@@ -2189,7 +2189,14 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
         }
       } : newMessage;
 
-      setMessages(prev => [...prev, messageWithReply]);
+      // By id: the live event of this same message may have arrived while the
+      // send was still storing attachments. The completed entry (attachments,
+      // reply) replaces it instead of being added a second time.
+      setMessages(prev =>
+        prev.some(existing => existing.id === messageWithReply.id)
+          ? prev.map(existing => (existing.id === messageWithReply.id ? { ...existing, ...messageWithReply } : existing))
+          : [...prev, messageWithReply]
+      );
       setReplyToMessage(null); // Clear reply state after sending
       toast.success('Mensaje enviado');
     } catch (error) {

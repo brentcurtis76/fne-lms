@@ -1,6 +1,7 @@
 {
   "git": {
     "deploymentEnabled": {
+      "fix/registro-deliver": false,
       "fix/p02b-r1": false,
       "fix/pasant-polish": false,
       "fix/pasant-schools": false,
@@ -11,6 +12,9 @@
     }
   },
   "functions": {
+    "pages/api/cron/assessment-delivery.ts": {
+      "maxDuration": 60
+    },
     "pages/api/bots/telegram.ts": {
       "maxDuration": 60
     }
@@ -59,6 +63,10 @@
     {
       "path": "/api/cron/pasantias-retention",
       "schedule": "30 12 * * *"
+    },
+    {
+      "path": "/api/cron/assessment-delivery",
+      "schedule": "* * * * *"
     }
   ]
 }

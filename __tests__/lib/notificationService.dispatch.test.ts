@@ -497,6 +497,7 @@ describe('D5 · schedules', () => {
       // The pasantías panel's two daily jobs (letter emails, retention).
       { path: '/api/cron/pasantias-letters', schedule: '0 12 * * *' },
       { path: '/api/cron/pasantias-retention', schedule: '30 12 * * *' },
+      { path: '/api/cron/assessment-delivery', schedule: '* * * * *' },
     ]);
     for (const { path: route } of crons) expect(existsSync(path.join(process.cwd(), 'pages', `${route}.ts`))).toBe(true);
   });

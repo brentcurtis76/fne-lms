@@ -1,6 +1,22 @@
+## Registro delivery — urgent late-publication repair (2026-11-16)
+
+Branch `fix/registro-deliver`, based on production `c8741ba18`. An authenticated
+minute cron now delivers missing published Registros to existing eligible course
+teachers and school vía responsables. Stable template identity preserves all
+existing versions, statuses, responses and grants. New templates are delivered;
+republication never replaces existing work. A service-only database function uses
+the assignment locks, a bounded batch and durable cursor to retry gaps safely.
+
+Owner authorized the global catch-up and urgent production release, and accepted
+preserving pending work too. Independent Opus review requested and performed.
+Review, evidence and operational limits:
+`docs/planning/reviews/fase-registro-delivery-review-request.md`.
+This entry records implementation; production completion requires the controlled
+publisher and verification of the affected recipient's new assignment.
+
 ## Publisher bootstrap prerequisite — 2026-11-16
 
-Branch `fix/pub-setup`, based on production main `1deb9b782cfa8d2ce6e5baad9502e4340f027df7`. The urgent Registro-delivery release passed publisher rehearsal but production lacks `pm_publish.pending`. This separate prerequisite copies the installed publisher's infrastructure SQL byte for byte into one migration; no application code or application records change. SHA-256 `815e151651fa9ee7179dab3aa3c1acae09721b6838885f4dbea38de33efa1f65` matches the installed source. Local transactional application twice and twelve privilege/RLS/synthetic-count assertions passed; remote CI and controlled publication remain pending. Review: `docs/planning/reviews/fase-publisher-bootstrap-review-request.md`. Re-propose the Registro-delivery release after publishing this prerequisite.
+Branch `fix/pub-setup`, based on production main `1deb9b782cfa8d2ce6e5baad9502e4340f027df7`. The urgent Registro-delivery release passed publisher rehearsal but production lacks `pm_publish.pending`. This separate prerequisite copies the installed publisher's infrastructure SQL byte for byte into one migration; no application code or application records change. SHA-256 `815e151651fa9ee7179dab3aa3c1acae09721b6838885f4dbea38de33efa1f65` matches the installed source. Local transactional application twice and twelve privilege/RLS/synthetic-count assertions passed; remote CI and publisher rehearsal passed; controlled publication completed through PR #185 on 2026-11-16 at 17:33 UTC. Review: `docs/planning/reviews/fase-publisher-bootstrap-review-request.md`. Re-propose the Registro-delivery release after publishing this prerequisite.
 
 ## RD-4c — platform redesign, step 4c: 25 leftover pages retired (2026-11-14, built and proven locally, not pushed)
 

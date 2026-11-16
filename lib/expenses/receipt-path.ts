@@ -57,3 +57,14 @@ export function receiptPathFromStored(value: unknown): string | null {
   if (value.startsWith(prefix)) return safeName(value.slice(prefix.length));
   return safeName(value);
 }
+
+// GES-1.5e: the extension the web form gives a new receipt's stored name — the
+// part after the last dot of the uploaded file's name, lower-cased, letters a–z
+// and digits only, at most 10 characters; `bin` when there is none.
+export function receiptExtensionFromFileName(name: unknown): string {
+  if (typeof name !== 'string') return 'bin';
+  const dot = name.lastIndexOf('.');
+  if (dot === -1) return 'bin';
+  const ext = name.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10);
+  return ext || 'bin';
+}

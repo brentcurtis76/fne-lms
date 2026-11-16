@@ -5,7 +5,7 @@ import { Plus, Trash2, Save, Calendar, DollarSign, Upload, X, Eye, FileText } fr
 import { toast } from 'react-hot-toast';
 import { convertToCLP, formatCurrency, getAvailableCurrencies } from '../../lib/currency-service';
 import { RECEIPTS_BUCKET } from '../../utils/expenseConfig';
-import { receiptPathFromStored } from '../../lib/expenses/receipt-path';
+import { receiptPathFromStored, receiptExtensionFromFileName } from '../../lib/expenses/receipt-path';
 
 interface ExpenseCategory {
   id: string;
@@ -185,7 +185,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
 
     try {
       // Upload file to Supabase Storage
-      const fileExt = file.name.split('.').pop();
+      const fileExt = receiptExtensionFromFileName(file.name);
       const fileName = `receipt_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
       
       const { error: uploadError } = await supabase.storage

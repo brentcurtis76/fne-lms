@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { receiptPathFromStored } from '../../../lib/expenses/receipt-path';
+import { receiptPathFromStored, receiptExtensionFromFileName } from '../../../lib/expenses/receipt-path';
 
 // GES-1.5a: a stored receipt value becomes a bare file name inside the receipts
 // store, or null. All hosts, tokens and file names are invented.
@@ -141,5 +141,40 @@ describe('receiptPathFromStored — refusals', () => {
     expect(receiptPathFromStored(undefined)).toBeNull();
     expect(receiptPathFromStored(42)).toBeNull();
     expect(receiptPathFromStored({ path: 'boletas/x.pdf' })).toBeNull();
+  });
+});
+
+// GES-1.5e: the web form names a new receipt `receipt_<time>_<random>.<ext>`,
+// the extension taken from the uploaded file's name. Invented file names.
+describe('receiptExtensionFromFileName — the form always stores a place the helper accepts', () => {
+  const cases: Array<[string, string]> = [
+    ['scan.png ', 'png'],
+    ['foto', 'bin'],
+    ['a.b?c', 'bc'],
+    ['informe.final.PDF', 'pdf'],
+    ['boleta.a\u00f1o', 'ao'],
+    ['x.', 'bin'],
+    ['.hidden', 'hidden'],
+  ];
+
+  it('the old rule (name.split(".").pop()) gives places the helper refuses', () => {
+    const oldPlace = (name: string) => `boletas/receipt_1_ab.${name.split('.').pop()}`;
+    expect(receiptPathFromStored(oldPlace('scan.png '))).toBeNull();
+    expect(receiptPathFromStored(oldPlace('a.b?c'))).toBeNull();
+    // `foto` has no dot: the whole name becomes the "extension" — accepted by
+    // the helper, but not a real extension.
+    expect(oldPlace('foto')).toBe('boletas/receipt_1_ab.foto');
+  });
+
+  it.each(cases)('%j gives the extension %j and a place the helper accepts', (name, ext) => {
+    expect(receiptExtensionFromFileName(name)).toBe(ext);
+    const fileName = `receipt_1_ab.${receiptExtensionFromFileName(name)}`;
+    expect(receiptPathFromStored(`boletas/${fileName}`)).toBe(fileName);
+  });
+
+  it('cuts the extension to 10 characters; a non-string gives bin', () => {
+    expect(receiptExtensionFromFileName('a.abcdefghijklmnop')).toBe('abcdefghij');
+    expect(receiptExtensionFromFileName(undefined)).toBe('bin');
+    expect(receiptExtensionFromFileName(42)).toBe('bin');
   });
 });

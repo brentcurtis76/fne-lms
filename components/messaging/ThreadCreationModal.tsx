@@ -65,8 +65,9 @@ export default function ThreadCreationModal({
       setShowCustomCategory(false);
       onClose();
     } catch (error) {
+      // Nothing is cleared and the modal stays open: the person's text is
+      // kept for the next press. The page says what happened.
       console.error('Error creating thread:', error);
-      toast.error('Error al crear el hilo de conversación');
     } finally {
       setSubmitting(false);
     }

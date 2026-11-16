@@ -343,12 +343,46 @@ export async function getWorkspaceMessages(
 }
 
 /**
+ * The thread row was stored but the conversation is not complete (its first
+ * message, or the read-back, failed). `threadId` is the id of that row: pass it
+ * back to createThread to store only the first message. Nothing is deleted.
+ */
+export class ThreadCreationIncompleteError extends Error {
+  readonly threadId: string;
+  readonly reason: unknown;
+
+  constructor(threadId: string, reason: unknown) {
+    super('No se pudo crear la conversación');
+    this.name = 'ThreadCreationIncompleteError';
+    this.threadId = threadId;
+    this.reason = reason;
+  }
+}
+
+/** Whether a thread with this id, created by this person in this workspace, exists. */
+async function ownThreadExists(threadId: string, workspaceId: string, userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('message_threads')
+    .select('id')
+    .eq('id', threadId)
+    .eq('workspace_id', workspaceId)
+    .eq('created_by', userId)
+    .maybeSingle();
+  return !error && Boolean(data);
+}
+
+/**
  * Create a new thread (simplified)
+ *
+ * `existingThreadId`: the id a previous, incomplete attempt returned (see
+ * ThreadCreationIncompleteError). When that person's thread already exists in
+ * this workspace it is not inserted again; only the first message is stored.
  */
 export async function createThread(
   workspaceId: string,
   threadData: ThreadCreationData,
-  userId: string
+  userId: string,
+  existingThreadId?: string
 ): Promise<ThreadWithDetails> {
   try {
     // First get the user's profile to get their name
@@ -366,10 +400,11 @@ export async function createThread(
     // the same request: the read rule messaging_read_boundary looks the thread
     // up by id and cannot see the row being inserted, so INSERT … RETURNING is
     // refused for members (EC-S4). The row is read by its id right after.
-    const threadId = crypto.randomUUID();
+    const threadId = existingThreadId || crypto.randomUUID();
     const customCategoryName =
       threadData.category === 'custom' ? threadData.custom_category_name?.trim() || null : null;
-    const { error: threadError } = await supabase
+    const alreadyThere = existingThreadId ? await ownThreadExists(threadId, workspaceId, userId) : false;
+    const { error: insertError } = alreadyThere ? { error: null } : await supabase
       .from('message_threads')
       .insert({
         id: threadId,
@@ -386,6 +421,14 @@ export async function createThread(
         message_count: 1,
         participant_count: 1
       });
+
+    // A retry whose read missed the thread: a duplicate key on the person's own
+    // thread means it is already there.
+    const threadError =
+      insertError && existingThreadId && (insertError as { code?: string }).code === '23505' &&
+      (await ownThreadExists(threadId, workspaceId, userId))
+        ? null
+        : insertError;
 
     if (threadError) {
       console.error('Thread creation error:', threadError);
@@ -413,10 +456,11 @@ export async function createThread(
 
     if (readError || !thread) {
       console.error('Thread read-back error:', readError);
-      throw readError || new Error('No se pudo leer el hilo creado');
+      throw new ThreadCreationIncompleteError(threadId, readError);
     }
 
-    // Create initial message
+    // Create initial message. If it cannot be stored the conversation is not
+    // created: the caller keeps the text and retries with this thread's id.
     const { error: messageError } = await supabase
       .from('community_messages')
       .insert({
@@ -431,6 +475,7 @@ export async function createThread(
 
     if (messageError) {
       console.error('Error creating initial message:', messageError);
+      throw new ThreadCreationIncompleteError(threadId, messageError);
     }
 
     // Handle custom category

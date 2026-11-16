@@ -131,9 +131,31 @@ async function handlePatch(req: NextApiRequest, res: NextApiResponse, licitacion
       return sendAuthError(res, 'Sin campos válidos para actualizar', 400);
     }
 
-    // Use user-scoped client so RLS enforces access
-    const supabaseClient = await createApiSupabaseClient(req, res);
-    const { data: updated, error: updateError } = await supabaseClient
+    // Encargados have no direct write rule on licitaciones: check their school here,
+    // then write the one allowed field with the service client. Admins keep their own session.
+    let writeClient = serviceClient;
+    if (!isAdmin && isEncargado) {
+      const { data: licitacion, error: licitError } = await serviceClient
+        .from('licitaciones')
+        .select('school_id')
+        .eq('id', licitacionId)
+        .single();
+
+      if (licitError || !licitacion) {
+        return sendAuthError(res, 'Licitacion no encontrada', 404);
+      }
+
+      const encargadoRole = userRoles.find(r => r.role_type === 'encargado_licitacion');
+      const encargadoSchoolId = encargadoRole?.school_id != null ? Number(encargadoRole.school_id) : null;
+      if (!encargadoRole || encargadoSchoolId !== licitacion.school_id) {
+        return sendAuthError(res, 'No tiene permisos para esta licitacion', 403);
+      }
+    } else {
+      // Admin: user-scoped client so RLS enforces access
+      writeClient = await createApiSupabaseClient(req, res);
+    }
+
+    const { data: updated, error: updateError } = await writeClient
       .from('licitaciones')
       .update(updatePayload)
       .eq('id', licitacionId)

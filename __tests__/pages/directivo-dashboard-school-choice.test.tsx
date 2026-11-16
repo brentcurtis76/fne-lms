@@ -7,16 +7,40 @@
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { buildChainableQuery } from '../api/assessment-builder/_helpers';
 
-const { supabaseHolder, routerMock } = vi.hoisted(() => ({
-  supabaseHolder: { current: null as any },
-  routerMock: { push: vi.fn(), replace: vi.fn(), pathname: '/directivo/assessments/dashboard', query: {} as Record<string, string>, isReady: true },
-}));
+const { supabaseHolder, routerMock, routerStore } = vi.hoisted(() => {
+  // Like Next's router: a shallow push changes the address (router.query) and
+  // re-renders the page; the router object itself stays the same.
+  const routerStore = { version: 0, listeners: new Set<() => void>() };
+  const routerMock = {
+    push: vi.fn(), replace: vi.fn(), back: vi.fn(),
+    pathname: '/directivo/assessments/dashboard', query: {} as Record<string, string>, isReady: true,
+  };
+  const go = (url: string) => {
+    const q = new URL(url, 'http://local').searchParams;
+    routerMock.query = Object.fromEntries(q.entries());
+    routerStore.version += 1;
+    routerStore.listeners.forEach((l) => l());
+  };
+  routerMock.push.mockImplementation(async (url: string) => { go(url); return true; });
+  return { supabaseHolder: { current: null as any }, routerMock, routerStore: Object.assign(routerStore, { go }) };
+});
 
-vi.mock('next/router', () => ({ useRouter: () => routerMock }));
+vi.mock('next/router', async () => {
+  const ReactActual = await vi.importActual<typeof import('react')>('react');
+  return {
+    useRouter: () => {
+      ReactActual.useSyncExternalStore(
+        (l: () => void) => { routerStore.listeners.add(l); return () => routerStore.listeners.delete(l); },
+        () => routerStore.version
+      );
+      return routerMock;
+    },
+  };
+});
 vi.mock('next/link', () => ({ default: ({ children, href }: any) => <a href={href}>{children}</a> }));
 vi.mock('@supabase/auth-helpers-react', () => ({ useSupabaseClient: () => supabaseHolder.current }));
 vi.mock('react-hot-toast', () => {
@@ -25,8 +49,8 @@ vi.mock('react-hot-toast', () => {
 });
 vi.mock('../../components/layout/MainLayout', () => ({ default: ({ children }: any) => <div>{children}</div> }));
 vi.mock('../../components/layout/FunctionalPageHeader', () => ({
-  ResponsiveFunctionalPageHeader: ({ title, subtitle }: { title: string; subtitle?: string }) => (
-    <div><h1>{title}</h1>{subtitle ? <p>{subtitle}</p> : null}</div>
+  ResponsiveFunctionalPageHeader: ({ title, subtitle, children }: { title: string; subtitle?: string; children?: React.ReactNode }) => (
+    <div><h1>{title}</h1>{subtitle ? <p>{subtitle}</p> : null}{children}</div>
   ),
 }));
 vi.mock('recharts', () => {
@@ -73,6 +97,8 @@ beforeEach(() => {
   routerMock.query = {};
 });
 
+const schoolResultCalls = () => urls.filter((u) => u.includes('/school-results'));
+
 describe('GC-7 results panel school choice', () => {
   it.each(['admin', 'consultor'])('%s without a school sees the picker and the request to choose, not the empty-results message', async (role) => {
     mount(role);
@@ -112,5 +138,42 @@ describe('GC-7 results panel school choice', () => {
     );
     expect(screen.queryByTestId('results-choose-school')).not.toBeInTheDocument();
     expect(urls.some((u) => u.includes('/transversal-context/schools'))).toBe(false);
+  });
+
+  it('P3: with a school in the address its results show with «Cambiar colegio»; when the address names no school (Back) the chooser returns and those results are gone', async () => {
+    routerMock.query = { school_id: '701' };
+    mount('admin');
+    expect(await screen.findByText('Colegio 701')).toBeInTheDocument();
+    expect(screen.getByTestId('results-change-school')).toHaveTextContent('Cambiar colegio');
+
+    // Browser Back to the address without a school.
+    act(() => routerStore.go('/directivo/assessments/dashboard'));
+    expect(await screen.findByTestId('results-choose-school')).toBeInTheDocument();
+    expect(screen.queryByText('Colegio 701')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('results-change-school')).not.toBeInTheDocument();
+
+    // Choosing another school shows that school, never the earlier one.
+    fireEvent.click(await screen.findByText('Colegio Sintético Dos'));
+    expect(await screen.findByText('Colegio 702')).toBeInTheDocument();
+    expect(screen.queryByText('Colegio 701')).not.toBeInTheDocument();
+    expect(schoolResultCalls()).toEqual([
+      '/api/directivo/assessments/school-results?school_id=701',
+      '/api/directivo/assessments/school-results?school_id=702',
+    ]);
+  });
+
+  it('P3: «Cambiar colegio» goes back to the chooser', async () => {
+    routerMock.query = { school_id: '702' };
+    mount('consultor');
+    fireEvent.click(await screen.findByTestId('results-change-school'));
+    expect(routerMock.push).toHaveBeenCalledWith('/directivo/assessments/dashboard', undefined, { shallow: true });
+    expect(await screen.findByTestId('results-choose-school')).toBeInTheDocument();
+    expect(screen.queryByText('Colegio 702')).not.toBeInTheDocument();
+  });
+
+  it('P3: a directivo has no «Cambiar colegio»', async () => {
+    mount('equipo_directivo');
+    await waitFor(() => expect(resultCalls()).toHaveLength(2));
+    expect(screen.queryByTestId('results-change-school')).not.toBeInTheDocument();
   });
 });

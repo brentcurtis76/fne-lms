@@ -60,6 +60,7 @@ export default function Step6Adjudicacion({
   const [saving, setSaving] = useState(false);
   const [generatingCarta, setGeneratingCarta] = useState(false);
   const [cartaUrl, setCartaUrl] = useState<string | null>(null);
+  const [cartaGenerated, setCartaGenerated] = useState(false);
   const [uploadingCarta, setUploadingCarta] = useState(false);
   const [cartaSigned, setCartaSigned] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -169,6 +170,7 @@ export default function Step6Adjudicacion({
       }
 
       setCartaUrl(json.data.url);
+      setCartaGenerated(true);
       toast.success('Carta de Adjudicacion generada exitosamente');
 
       if (json.data.url) {
@@ -292,6 +294,9 @@ export default function Step6Adjudicacion({
       </div>
     );
   }
+
+  // An award to the foundation needs the generated Carta (the contract step checks it).
+  const cartaReady = !!licitacion.carta_adjudicacion_url || cartaGenerated;
 
   const sortedAtes = [...ates].sort(
     (a, b) => (Number(b.puntaje_total) || 0) - (Number(a.puntaje_total) || 0)
@@ -520,7 +525,7 @@ export default function Step6Adjudicacion({
         <div className="flex flex-wrap gap-3">
           <button
             onClick={() => handleConfirm(true)}
-            disabled={confirming || !selectedAteId}
+            disabled={confirming || !selectedAteId || !cartaReady}
             className="px-5 py-3 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {confirming ? 'Procesando...' : 'Si — Proveedor FNE (genera Contrato)'}
@@ -533,6 +538,11 @@ export default function Step6Adjudicacion({
             {confirming ? 'Procesando...' : 'No — Proveedor Externo (cerrar proceso)'}
           </button>
         </div>
+        {!cartaReady && (
+          <p className="text-xs text-gray-500 mt-2">
+            Genere la Carta de adjudicación antes de confirmar la adjudicación.
+          </p>
+        )}
       </div>
     </div>
   );

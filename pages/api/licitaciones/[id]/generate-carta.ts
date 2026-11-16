@@ -3,7 +3,9 @@
  * GET /api/licitaciones/[id]/generate-carta
  *
  * Generates a Carta de Adjudicacion .docx and stores it in Supabase storage.
- * State must be adjudicacion_pendiente and ganador_ate_id must be set.
+ * State must be adjudicacion_pendiente and ganador_ate_id must be set. A tender
+ * already in contrato_pendiente (foundation winner) without a generated Carta
+ * may also generate it, so it can reach the contract step.
  */
 
 import { NextApiRequest, NextApiResponse } from 'next';
@@ -62,7 +64,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // State check
-    if (licitacion.estado !== 'adjudicacion_pendiente') {
+    const stuckWithoutCarta =
+      licitacion.estado === 'contrato_pendiente' &&
+      licitacion.ganador_es_fne === true &&
+      !licitacion.carta_adjudicacion_url &&
+      !licitacion.contrato_id;
+    if (licitacion.estado !== 'adjudicacion_pendiente' && !stuckWithoutCarta) {
       return sendAuthError(
         res,
         `La Carta de Adjudicacion solo puede generarse en estado "adjudicacion_pendiente". Estado actual: "${licitacion.estado}".`,

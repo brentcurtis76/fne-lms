@@ -50,6 +50,9 @@ const WS_MEMBER = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const WS_OTHER = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const COURSE_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const PUBLIC = `${SUPABASE_URL}/storage/v1/object/public`;
+const MSG_A = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'; // a message the caller can read (community A)
+const MSG_B = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'; // a message of community B
+const MSG_OTHER = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
 const BYTES = new Uint8Array([37, 80, 68, 70, 45, 49, 46, 55]);
 
 /** User-bound client: rpc('can_access_workspace') and from('message_attachments'). */
@@ -57,13 +60,30 @@ let rpcCalls: Array<[string, unknown]>;
 let inCalls: Array<[string, unknown[]]>;
 let likeCalls: unknown[];
 let workspaceAccess: Record<string, boolean>;
-let attachmentRows: unknown[];
+let eqCalls: Array<[string, unknown]>;
+let attachmentRows: Array<Record<string, unknown>>;
 
+/**
+ * The mocked message_attachments query honours its filters: a stored row is
+ * returned only when every .eq() and .in() filter matches it. A row that does
+ * not carry a filtered column at all is not excluded by that filter.
+ */
 function makeUserClient() {
+  const eqFilters: Array<[string, unknown]> = [];
+  const inFilters: Array<[string, unknown[]]> = [];
+  const matches = (row: Record<string, unknown>) =>
+    eqFilters.every(([c, v]) => !(c in row) || row[c] === v) &&
+    inFilters.every(([c, vs]) => !(c in row) || vs.includes(row[c]));
   const chain: any = {
     select: () => chain,
+    eq: (column: string, value: unknown) => {
+      eqCalls.push([column, value]);
+      eqFilters.push([column, value]);
+      return chain;
+    },
     in: (column: string, values: unknown[]) => {
       inCalls.push([column, values]);
+      inFilters.push([column, values]);
       return chain;
     },
     like: (...args: unknown[]) => {
@@ -75,7 +95,7 @@ function makeUserClient() {
       return chain;
     },
     limit: () => chain,
-    then: (resolve: (v: unknown) => void) => resolve({ data: attachmentRows, error: null }),
+    then: (resolve: (v: unknown) => void) => resolve({ data: attachmentRows.filter(matches), error: null }),
   };
   return {
     rpc: vi.fn(async (fn: string, args: { p_workspace_id: string }) => {
@@ -115,6 +135,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   rpcCalls = [];
   inCalls = [];
+  eqCalls = [];
   likeCalls = [];
   workspaceAccess = { [WS_MEMBER]: true };
   attachmentRows = [];
@@ -219,14 +240,14 @@ describe('download.ts still serves the real callers', () => {
   });
 
   it('a message attachment the caller can read → 200, exact stored URL among the candidates, no like filter', async () => {
-    const stored = `${PUBLIC}/message-attachments/thread-1/Informe%20final.pdf`;
-    attachmentRows = [{ id: 'att-1' }];
+    const stored = `${PUBLIC}/message-attachments/${WS_MEMBER}/${MSG_A}/Informe%20de%20reuni%C3%B3n.pdf`;
+    attachmentRows = [{ id: 'att-1', message_id: MSG_A, storage_path: stored }];
     const res = await callDownload(stored);
-    await expectServed(res, 'message-attachments', 'thread-1/Informe final.pdf');
+    await expectServed(res, 'message-attachments', `${WS_MEMBER}/${MSG_A}/Informe de reunión.pdf`);
     expect(inCalls).toHaveLength(1);
     expect(inCalls[0][0]).toBe('storage_path');
     expect(inCalls[0][1]).toContain(stored);
-    expect(inCalls[0][1]).toContain(`${PUBLIC}/message-attachments/thread-1/Informe final.pdf`);
+    expect(inCalls[0][1]).toContain(`${PUBLIC}/message-attachments/${WS_MEMBER}/${MSG_A}/Informe de reunión.pdf`);
     expect(likeCalls).toEqual([]);
   });
 
@@ -303,11 +324,11 @@ describe('download-url.ts still signs allowed files, with the decoded path', () 
   });
 
   it('a readable message attachment → 200 in its own store', async () => {
-    attachmentRows = [{ id: 'att-1' }];
-    const res = await callDownloadUrl(`${PUBLIC}/message-attachments/thread-1/foto.png`);
+    attachmentRows = [{ id: 'att-1', message_id: MSG_A, storage_path: `${PUBLIC}/message-attachments/${WS_MEMBER}/${MSG_A}/foto.png` }];
+    const res = await callDownloadUrl(`${PUBLIC}/message-attachments/${WS_MEMBER}/${MSG_A}/foto.png`);
     expect(res._getStatusCode()).toBe(200);
     expect(mockStorageFrom).toHaveBeenCalledWith('message-attachments');
-    expect(inCalls[0][1]).toContain(`${PUBLIC}/message-attachments/thread-1/foto.png`);
+    expect(inCalls[0][1]).toContain(`${PUBLIC}/message-attachments/${WS_MEMBER}/${MSG_A}/foto.png`);
   });
 
   it('a raw lesson path → 200', async () => {
@@ -392,12 +413,12 @@ describe('authorizeStorageDownload', () => {
   });
 
   it('message attachment candidates are exact values, duplicates removed, original URL included', async () => {
-    attachmentRows = [{ id: 'att-1' }];
-    const original = `${PUBLIC}/message-attachments/t/a%20b.pdf`;
-    const decision = await authorizeStorageDownload(makeUserClient() as any, USER_ID, 'message-attachments', 't/a b.pdf', original);
+    const original = `${PUBLIC}/message-attachments/${WS_MEMBER}/${MSG_A}/a%20b.pdf`;
+    attachmentRows = [{ id: 'att-1', message_id: MSG_A, storage_path: original }];
+    const decision = await authorizeStorageDownload(makeUserClient() as any, USER_ID, 'message-attachments', `${WS_MEMBER}/${MSG_A}/a b.pdf`, original);
     expect(decision).toEqual({ allowed: true });
     expect(inCalls).toEqual([
-      ['storage_path', [`${PUBLIC}/message-attachments/t/a b.pdf`, `${PUBLIC}/message-attachments/t/a%20b.pdf`]],
+      ['storage_path', [`${PUBLIC}/message-attachments/${WS_MEMBER}/${MSG_A}/a b.pdf`, `${PUBLIC}/message-attachments/${WS_MEMBER}/${MSG_A}/a%20b.pdf`]],
     ]);
     expect(likeCalls).toEqual([]);
   });
@@ -454,6 +475,53 @@ describe('malformed requests → 400 (EC-S1d)', () => {
     const res = await rawDownloadUrl({ fileUrl: `downloads/${COURSE_ID}/f.pdf`, bucket });
     expect(res._getStatusCode()).toBe(400);
     expect(res._getJSONData()).toEqual({ error: 'Ruta de archivo no válida' });
+    expect(storageWasTouched()).toBe(false);
+  });
+});
+
+// EC-S1c: a message_attachments row is written by the uploader, so its address
+// alone proves nothing. The route binds the file to the message id in the
+// file's own path (<workspace or thread>/<message id>/<file>).
+describe('message attachments are served by the message in their path (EC-S1c)', () => {
+  const MA = `${PUBLIC}/message-attachments`;
+
+  it.each(['download', 'download-url'])('a forged row on a readable message pointing at B\'s file → 403 via %s, storage never called', async (route) => {
+    const target = `${MA}/${WS_OTHER}/${MSG_B}/secret.pdf`;
+    attachmentRows = [{ id: 'forged', message_id: MSG_A, storage_path: target }];
+    const res = route === 'download' ? await callDownload(target) : await callDownloadUrl(target);
+    expect(res._getStatusCode()).toBe(403);
+    expect(storageWasTouched()).toBe(false);
+  });
+
+  it.each(['download', 'download-url'])('a real attachment of a readable message → 200 via %s', async (route) => {
+    const stored = `${MA}/${WS_MEMBER}/${MSG_A}/informe.pdf`;
+    attachmentRows = [{ id: 'real', message_id: MSG_A, storage_path: stored }];
+    const res = route === 'download' ? await callDownload(stored) : await callDownloadUrl(stored);
+    expect(res._getStatusCode()).toBe(200);
+    expect(mockStorageFrom).toHaveBeenCalledWith('message-attachments');
+    if (route === 'download') expect(mockDownload).toHaveBeenCalledWith(`${WS_MEMBER}/${MSG_A}/informe.pdf`);
+    else expect(mockCreateSignedUrl).toHaveBeenCalledWith(`${WS_MEMBER}/${MSG_A}/informe.pdf`, 3600);
+    expect(eqCalls).toEqual([['message_id', MSG_A]]);
+  });
+
+  it.each([
+    ['two segments', `${WS_MEMBER}/informe.pdf`],
+    ['four segments', `${WS_MEMBER}/${MSG_A}/sub/informe.pdf`],
+    ['a second segment that is not a uuid', `${WS_MEMBER}/not-a-uuid/informe.pdf`],
+    ['an upper-case uuid as second segment', `${WS_MEMBER}/${MSG_A.toUpperCase()}/informe.pdf`],
+  ])('%s → 403 even with a row at that address, storage never called', async (_label, path) => {
+    const stored = `${MA}/${path}`;
+    attachmentRows = [{ id: 'row', storage_path: stored }];
+    const res = await callDownload(stored);
+    expect(res._getStatusCode()).toBe(403);
+    expect(storageWasTouched()).toBe(false);
+  });
+
+  it('a row with the right address but another message_id → 403', async () => {
+    const stored = `${MA}/${WS_MEMBER}/${MSG_A}/informe.pdf`;
+    attachmentRows = [{ id: 'row', message_id: MSG_OTHER, storage_path: stored }];
+    const res = await callDownload(stored);
+    expect(res._getStatusCode()).toBe(403);
     expect(storageWasTouched()).toBe(false);
   });
 });

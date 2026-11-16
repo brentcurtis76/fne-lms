@@ -16,7 +16,7 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(61);
+SELECT plan(63);
 
 CREATE OR REPLACE FUNCTION pg_temp.uid(k text) RETURNS uuid
 LANGUAGE sql STABLE SECURITY DEFINER AS $$ SELECT tests.get_supabase_uid(k) $$;
@@ -92,9 +92,11 @@ INSERT INTO public.workspace_activities (id, workspace_id, user_id, activity_typ
   ('11800000-0000-4000-8000-000000000201', '11800000-0000-4000-8000-0000000000b1', pg_temp.uid('f3_a'), 'workspace_accessed'),
   ('11800000-0000-4000-8000-000000000202', '11800000-0000-4000-8000-0000000000b2', pg_temp.uid('f3_b'), 'workspace_accessed');
 INSERT INTO public.message_threads (id, workspace_id, thread_title, created_by) VALUES
-  ('11800000-0000-4000-8000-000000000301', '11800000-0000-4000-8000-0000000000b1', 'F3 thread A', pg_temp.uid('f3_a'));
+  ('11800000-0000-4000-8000-000000000301', '11800000-0000-4000-8000-0000000000b1', 'F3 thread A', pg_temp.uid('f3_a')),
+  ('11800000-0000-4000-8000-000000000302', '11800000-0000-4000-8000-0000000000b2', 'F3 thread B', pg_temp.uid('f3_b'));
 INSERT INTO public.community_messages (id, workspace_id, thread_id, author_id, content) VALUES
-  ('11800000-0000-4000-8000-000000000401', '11800000-0000-4000-8000-0000000000b1', '11800000-0000-4000-8000-000000000301', pg_temp.uid('f3_a'), 'F3 message A');
+  ('11800000-0000-4000-8000-000000000401', '11800000-0000-4000-8000-0000000000b1', '11800000-0000-4000-8000-000000000301', pg_temp.uid('f3_a'), 'F3 message A'),
+  ('11800000-0000-4000-8000-000000000402', '11800000-0000-4000-8000-0000000000b2', '11800000-0000-4000-8000-000000000302', pg_temp.uid('f3_b'), 'F3 message B');
 INSERT INTO public.message_reactions (id, message_id, user_id, reaction_type) VALUES
   ('11800000-0000-4000-8000-000000000501', '11800000-0000-4000-8000-000000000401', pg_temp.uid('f3_cons'), 'thumbs_up');
 
@@ -162,6 +164,13 @@ SELECT is((SELECT count(*)::int FROM public.message_reactions WHERE id = '118000
   1, 'EC-SMALL member A: A''s message reaction readable');
 SELECT is((SELECT count(*)::int FROM public.post_hashtags WHERE id = '11800000-0000-4000-8000-000000000601'),
   1, 'EC-SMALL member A: A''s post hashtag readable');
+SELECT throws_ok($q$INSERT INTO public.message_attachments (message_id, file_name, file_size, mime_type, storage_path, uploaded_by) VALUES ('11800000-0000-4000-8000-000000000402', 'f3.pdf', 1, 'application/pdf', 'f3-any-address', auth.uid())$q$,
+  '42501', NULL, 'EC-S1c member A: attachment row on B''s message (unreachable) refused');
+-- For the record: the uploader chooses storage_path, so a row on a message the
+-- person CAN reach may point anywhere. This is why the download route binds a
+-- file to the message id in the file's own path, not to the row's address.
+SELECT lives_ok($q$INSERT INTO public.message_attachments (message_id, file_name, file_size, mime_type, storage_path, uploaded_by) VALUES ('11800000-0000-4000-8000-000000000401', 'f3.pdf', 1, 'application/pdf', 'http://127.0.0.1:54321/storage/v1/object/public/message-attachments/11800000-0000-4000-8000-0000000000b2/11800000-0000-4000-8000-000000000402/secret.pdf', auth.uid())$q$,
+  'EC-S1c member A: attachment row on A''s own message with an arbitrary storage_path is accepted');
 SELECT lives_ok($q$INSERT INTO public.workspace_activities (workspace_id, user_id, activity_type) VALUES ('11800000-0000-4000-8000-0000000000b1', auth.uid(), 'section_changed')$q$,
   'EC-SMALL member A: activity insert into own workspace');
 SELECT lives_ok($q$INSERT INTO public.post_reactions (post_id, user_id, reaction_type) VALUES ('11800000-0000-4000-8000-0000000000a1', auth.uid(), 'love')$q$,

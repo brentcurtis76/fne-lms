@@ -19,6 +19,7 @@ import ChangeHistorySection from '@/components/school/ChangeHistorySection';
 import CompletionStatusBadge from '@/components/school/CompletionStatusBadge';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import type { Grade, MigrationPlanEntry, GenerationType } from '@/types/assessment-builder';
+import { effectiveGenerationType } from '@/lib/services/assessment-builder/migrationPlanRule';
 
 // Default GI transformation percentages at the end of each year
 const DEFAULT_GI_PERCENTAGES: Record<number, number> = {
@@ -28,6 +29,35 @@ const DEFAULT_GI_PERCENTAGES: Record<number, number> = {
   4: 75,
   5: 100,
 };
+
+/**
+ * The grid the page starts from: every grade and year shows what registros
+ * are created with today (effectiveGenerationType: GT unless the saved plan
+ * says otherwise for a grade that is not always GT), then the saved entries.
+ */
+export function buildInitialPlanGrid(
+  gradeList: Pick<Grade, 'id' | 'is_always_gt'>[],
+  entryList: Pick<MigrationPlanEntry, 'year_number' | 'grade_id' | 'generation_type'>[]
+): Record<number, Record<number, GenerationType>> {
+  const grid: Record<number, Record<number, GenerationType>> = {};
+  for (let year = 1; year <= 5; year++) {
+    grid[year] = {};
+    for (const grade of gradeList) {
+      grid[year][grade.id] = effectiveGenerationType(grade.is_always_gt, null);
+    }
+  }
+  for (const entry of entryList) {
+    if (grid[entry.year_number]) {
+      grid[entry.year_number][entry.grade_id] = entry.generation_type;
+    }
+  }
+  return grid;
+}
+
+/** «Guardar Plan» is enabled when there are changes, or when no plan has been saved yet (so the plan shown can be saved). */
+export function isMigrationPlanSaveEnabled(state: { saving: boolean; hasChanges: boolean; savedEntryCount: number }): boolean {
+  return !state.saving && (state.hasChanges || state.savedEntryCount === 0);
+}
 
 const MigrationPlanPage: React.FC = () => {
   const router = useRouter();
@@ -207,25 +237,7 @@ const MigrationPlanPage: React.FC = () => {
 
   // Initialize plan grid from existing entries or defaults
   const initializePlanGrid = (gradeList: Grade[], entryList: MigrationPlanEntry[]) => {
-    const grid: Record<number, Record<number, GenerationType>> = {};
-
-    // Initialize all years and grades
-    for (let year = 1; year <= 5; year++) {
-      grid[year] = {};
-      for (const grade of gradeList) {
-        // Default: GT for always-GT grades, GI for others
-        grid[year][grade.id] = grade.is_always_gt ? 'GT' : 'GI';
-      }
-    }
-
-    // Overwrite with existing entries
-    for (const entry of entryList) {
-      if (grid[entry.year_number]) {
-        grid[entry.year_number][entry.grade_id] = entry.generation_type;
-      }
-    }
-
-    setPlanGrid(grid);
+    setPlanGrid(buildInitialPlanGrid(gradeList, entryList));
     setHasChanges(false);
   };
 
@@ -256,7 +268,7 @@ const MigrationPlanPage: React.FC = () => {
 
       for (let year = 1; year <= 5; year++) {
         for (const grade of grades) {
-          const genType = planGrid[year]?.[grade.id] || (grade.is_always_gt ? 'GT' : 'GI');
+          const genType = planGrid[year]?.[grade.id] || effectiveGenerationType(grade.is_always_gt, null);
           entriesToSave.push({
             year_number: year as 1 | 2 | 3 | 4 | 5,
             grade_id: grade.id,
@@ -296,6 +308,8 @@ const MigrationPlanPage: React.FC = () => {
     }
   };
 
+  const saveEnabled = isMigrationPlanSaveEnabled({ saving, hasChanges, savedEntryCount: entries.length });
+
   // Check if Year 5 has any GI grades
   const hasYear5GI = () => {
     for (const grade of grades) {
@@ -313,7 +327,7 @@ const MigrationPlanPage: React.FC = () => {
     let totalPercentage = 0;
 
     for (const grade of grades) {
-      const genType = planGrid[year]?.[grade.id] || (grade.is_always_gt ? 'GT' : 'GI');
+      const genType = planGrid[year]?.[grade.id] || effectiveGenerationType(grade.is_always_gt, null);
 
       if (genType === 'GT') {
         totalPercentage += 100;
@@ -721,7 +735,7 @@ const MigrationPlanPage: React.FC = () => {
                     </td>
                     {[1, 2, 3, 4, 5].map((year) => {
                       const isLocked = grade.is_always_gt;
-                      const genType = planGrid[year]?.[grade.id] || (isLocked ? 'GT' : 'GI');
+                      const genType = planGrid[year]?.[grade.id] || effectiveGenerationType(isLocked, null);
                       const isGT = genType === 'GT';
                       const isCurrentYear = year === transformationYear;
 
@@ -766,11 +780,12 @@ const MigrationPlanPage: React.FC = () => {
               )}
             </div>
             <button
+              data-testid="migration-plan-save"
               onClick={handleSave}
-              disabled={saving || !hasChanges}
+              disabled={!saveEnabled}
               className={`
                 inline-flex items-center px-4 py-2 rounded-lg font-medium text-sm transition-colors
-                ${hasChanges
+                ${saveEnabled
                   ? 'bg-brand_accent text-brand_primary hover:bg-brand_accent_hover'
                   : 'bg-gray-200 text-gray-500 cursor-not-allowed'
                 }

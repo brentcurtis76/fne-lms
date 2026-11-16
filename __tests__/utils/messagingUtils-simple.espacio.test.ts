@@ -230,3 +230,55 @@ describe('EC-S5 names in conversations', () => {
     expect(otherProfileReads()).toHaveLength(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// EC-M3: reactions survive a reload
+// ---------------------------------------------------------------------------
+
+describe('EC-M3 reactions on messages', () => {
+  it('reads reactions without the missing profiles relation and names the people who reacted', async () => {
+    memberReads({
+      community_messages: [
+        { id: 'm1', workspace_id: WS, thread_id: 't1', author_id: COMEMBER, content: 'Hola', reply_to_id: null, created_at: '2026-11-16T12:00:00Z' },
+      ],
+    });
+    const base = h.respond;
+    h.respond = (req, terminal) => {
+      if (req.target === 'message_reactions') {
+        // PostgREST: message_reactions.user_id references auth.users, not profiles (PGRST200).
+        if (selects(req).some((columns) => columns.includes('profiles'))) {
+          return { data: null, error: { code: 'PGRST200', message: "Could not find a relationship between 'message_reactions' and 'user_id' in the schema cache" } };
+        }
+        return {
+          data: [
+            { id: 'r1', message_id: 'm1', user_id: SELF, reaction_type: 'heart', created_at: '2026-11-16T12:01:00Z' },
+            { id: 'r2', message_id: 'm1', user_id: COMEMBER, reaction_type: 'heart', created_at: '2026-11-16T12:02:00Z' },
+            { id: 'r3', message_id: 'm1', user_id: SAME_SCHOOL, reaction_type: 'eyes', created_at: '2026-11-16T12:03:00Z' },
+          ],
+          error: null,
+        };
+      }
+      return base(req, terminal);
+    };
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const [message] = await getWorkspaceMessages(WS, { thread_id: 't1' });
+
+    const reactionQuery = h.requests.find((r) => r.target === 'message_reactions')!;
+    expect(selects(reactionQuery).join(',')).not.toContain('profiles');
+    expect(message.reactions).toEqual([
+      {
+        reaction_type: 'heart',
+        count: 2,
+        user_reacted: true,
+        users: [
+          { user_id: SELF, user_name: 'Ana Uno' },
+          { user_id: COMEMBER, user_name: 'María-José Núñez' },
+        ],
+      },
+      { reaction_type: 'eyes', count: 1, user_reacted: false, users: [{ user_id: SAME_SCHOOL, user_name: 'Bruno Dos' }] },
+    ]);
+    // Names of authors and reactors come from one cards call.
+    expect(cardCalls()).toHaveLength(1);
+  });
+});

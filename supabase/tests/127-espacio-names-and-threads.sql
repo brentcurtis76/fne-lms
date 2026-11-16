@@ -182,6 +182,26 @@ SELECT tests.authenticate_as('f11_admin');
 SELECT is(pg_temp.cards(ARRAY['f11_a1', 'f11_a2', 'f11_b', 'f11_c', 'f11_cons2']), 'Ana Uno, Bruno Dos, Carla Tres, Ciro Asesor, María-José Núñez',
   'EC-S5 admin: any id');
 
+-- ----------------------------------------------------------------------------
+-- EC-M3: the reactions query the page now sends works for a member
+-- ----------------------------------------------------------------------------
+RESET ROLE;
+INSERT INTO public.message_reactions (id, message_id, user_id, reaction_type) VALUES
+  ('12700000-0000-4000-8000-000000000501', '12700000-0000-4000-8000-000000000401', pg_temp.uid('f11_a1'), 'heart'),
+  ('12700000-0000-4000-8000-000000000502', '12700000-0000-4000-8000-000000000401', pg_temp.uid('f11_a2'), 'heart');
+SELECT tests.authenticate_as('f11_a2');
+SELECT is((SELECT array_agg(user_id ORDER BY id)::text FROM (
+             SELECT id, message_id, user_id, reaction_type, created_at FROM public.message_reactions
+              WHERE message_id IN ('12700000-0000-4000-8000-000000000401')) r),
+  (SELECT ARRAY[pg_temp.uid('f11_a1'), pg_temp.uid('f11_a2')]::text),
+  'EC-M3 member: the reactions of a message of the community are read back after a reload');
+SELECT is((SELECT count(*)::int FROM public.get_profile_cards(ARRAY[pg_temp.uid('f11_a1'), pg_temp.uid('f11_a2')])),
+  2, 'EC-M3 member: and the names of the people who reacted come from their cards');
+RESET ROLE;
+SELECT tests.authenticate_as('f11_c');
+SELECT is((SELECT count(*)::int FROM public.message_reactions WHERE message_id IN ('12700000-0000-4000-8000-000000000401')),
+  0, 'EC-M3 outsider: no reactions of community A''s messages');
+
 RESET ROLE;
 SELECT set_config('role', 'anon', true);
 SELECT set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);

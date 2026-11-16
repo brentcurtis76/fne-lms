@@ -223,23 +223,16 @@ export async function getWorkspaceMessages(
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     const currentUserId = currentUser?.id;
 
-    // Get reactions for all messages with user profile info
+    // Get reactions for all messages. message_reactions.user_id references
+    // auth.users, not profiles, so a `profiles:user_id` embed fails (PGRST200)
+    // and every reaction vanished on reload (EC-M3); the names of the people
+    // who reacted come from the profile cards below.
     let reactionsByMessage: Record<string, any[]> = {};
 
     if (messageIds.length > 0) {
       const { data: reactions, error: reactionsError } = await supabase
         .from('message_reactions')
-        .select(`
-          id,
-          message_id,
-          user_id,
-          reaction_type,
-          created_at,
-          profiles:user_id (
-            first_name,
-            last_name
-          )
-        `)
+        .select('id, message_id, user_id, reaction_type, created_at')
         .in('message_id', messageIds);
 
       if (reactionsError) {
@@ -266,13 +259,9 @@ export async function getWorkspaceMessages(
             reactionsByMessage[reaction.message_id].push(reactionGroup);
           }
 
-          // Add to count and users list
+          // Add to count and users list (names are filled in from the cards)
           reactionGroup.count++;
-          const profile = reaction.profiles as any;
-          const userName = profile?.first_name && profile?.last_name
-            ? `${profile.first_name} ${profile.last_name}`
-            : 'Usuario';
-          reactionGroup.users.push({ user_id: reaction.user_id, user_name: userName });
+          reactionGroup.users.push({ user_id: reaction.user_id, user_name: 'Usuario' });
 
           // Check if current user reacted
           if (reaction.user_id === currentUserId) {
@@ -306,12 +295,16 @@ export async function getWorkspaceMessages(
       }
     }
 
-    // Names of authors and replied authors through the profile cards (EC-S5),
+    // Names of authors, replied authors and reactors through the profile cards (EC-S5),
     // in one call: other people's profile rows are not readable by members.
     const authors = await fetchProfileCards(supabase, [
       ...(data || []).map(message => message.author_id),
       ...Object.values(replyToMessages).map(reply => reply.author_id),
+      ...Object.values(reactionsByMessage).flat().flatMap(group => group.users.map((u: any) => u.user_id)),
     ]);
+    Object.values(reactionsByMessage).flat().forEach(group => {
+      group.users.forEach((u: any) => { u.user_name = cardName(authors.get(u.user_id)); });
+    });
     Object.values(replyToMessages).forEach(reply => {
       reply.author_name = cardName(authors.get(reply.author_id));
       delete reply.author_id;

@@ -189,6 +189,48 @@ describe('migration-plan page denied state (PROC-11)', () => {
     expect(mockToastSuccess).not.toHaveBeenCalled();
   });
 
+  it('P4: an assigned consultor sees the cells read-only, so «Tienes cambios sin guardar» never appears', async () => {
+    installSupabase(ASSIGNED_CONSULTOR);
+    installFetch(OK_PLAN);
+
+    render(<MigrationPlanPage />);
+
+    expect(await screen.findByText('Matriz de Migración')).toBeInTheDocument();
+    const cells = [...screen.getAllByRole('button', { name: 'GI' }), ...screen.getAllByRole('button', { name: 'GT' })];
+    expect(cells.length).toBe(10);
+    for (const cell of cells) expect(cell).toBeDisabled();
+    fireEvent.click(screen.getAllByRole('button', { name: 'GI' })[0]);
+    expect(screen.getAllByRole('button', { name: 'GI' })).toHaveLength(5); // nothing toggled
+    expect(screen.queryByText('Tienes cambios sin guardar')).toBeNull();
+    expect(screen.getByText('Todos los cambios guardados')).toBeInTheDocument();
+  });
+
+  it('P4: with no saved plan the footer says the plan is not saved, not «Todos los cambios guardados»', async () => {
+    installSupabase(DIRECTIVO);
+    installFetch({ status: 200, body: { grades: GRADES, entries: [], transformation_year: 2 } });
+    setRouter({});
+
+    render(<MigrationPlanPage />);
+
+    expect(await screen.findByText('Matriz de Migración')).toBeInTheDocument();
+    expect(screen.getByText('Plan sin guardar: se muestra lo que el sistema aplica hoy')).toBeInTheDocument();
+    expect(screen.queryByText('Todos los cambios guardados')).toBeNull();
+    // A directivo can still change cells; then the unsaved-changes line shows.
+    fireEvent.click(screen.getAllByRole('button', { name: 'GT' })[5]);
+    expect(await screen.findByText('Tienes cambios sin guardar')).toBeInTheDocument();
+  });
+
+  it('P4: with a saved plan and no change the footer still says «Todos los cambios guardados»', async () => {
+    installSupabase(DIRECTIVO);
+    installFetch(OK_PLAN);
+    setRouter({});
+
+    render(<MigrationPlanPage />);
+
+    expect(await screen.findByText('Todos los cambios guardados')).toBeInTheDocument();
+    expect(screen.queryByText('Plan sin guardar: se muestra lo que el sistema aplica hoy')).toBeNull();
+  });
+
   it('D3: an admin keeps the editable plan surface and the save control', async () => {
     installSupabase(ADMIN);
     installFetch(OK_PLAN);

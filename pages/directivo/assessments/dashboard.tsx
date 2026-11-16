@@ -113,13 +113,13 @@ interface CourseResultsData {
 }
 
 const AREA_COLORS: Record<string, string> = {
-  personalizacion: '#3b82f6',
-  aprendizaje: '#10b981',
+  personalizacion: 'rgb(var(--color-blue-500))',
+  aprendizaje: 'rgb(var(--color-legacy-10b981))',
   evaluacion: '#f59e0b',
-  proposito: '#8b5cf6',
-  familias: '#ec4899',
-  trabajo_docente: '#06b6d4',
-  liderazgo: '#f97316',
+  proposito: 'rgb(var(--color-legacy-8b5cf6))',
+  familias: 'rgb(var(--color-legacy-ec4899))',
+  trabajo_docente: 'rgb(var(--color-legacy-06b6d4))',
+  liderazgo: 'rgb(var(--color-legacy-f97316))',
 };
 
 const DirectivoDashboard: React.FC = () => {
@@ -282,7 +282,7 @@ const DirectivoDashboard: React.FC = () => {
     { name: 'Cumplen', value: coursesMetExpectations },
     { name: 'En desarrollo', value: coursesNotMet },
   ];
-  const PIE_COLORS = ['#10b981', '#f59e0b'];
+  const PIE_COLORS = ['rgb(var(--color-legacy-10b981))', '#f59e0b'];
 
   return (
     <MainLayout
@@ -488,8 +488,8 @@ const DirectivoDashboard: React.FC = () => {
                             <Radar
                               name="Promedio"
                               dataKey="score"
-                              stroke="#2563eb"
-                              fill="#2563eb"
+                              stroke="rgb(var(--color-blue-600))"
+                              fill="rgb(var(--color-blue-600))"
                               fillOpacity={0.3}
                             />
                             <Legend />

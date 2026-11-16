@@ -43,6 +43,7 @@ import { format, parseISO, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getStatusBadge, getStatusColor } from '../../../lib/utils/session-ui-helpers';
 import { SessionStatus } from '../../../lib/types/consultor-sessions.types';
+import { withAlpha } from '../../../lib/colorAlpha';
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -126,12 +127,12 @@ interface AnalyticsData {
 const FNE_COLORS = {
   brand_primary: '#0a0a0a',
   brand_accent: '#fbbf24',
-  brand_accent_light: '#fef3c7',
+  brand_accent_light: 'rgb(var(--color-amber-100))',
 };
 
 const MODALITY_COLORS: Record<string, string> = {
-  presencial: '#3B82F6',
-  online: '#10B981',
+  presencial: 'rgb(var(--color-blue-500))',
+  online: 'rgb(var(--color-legacy-10b981))',
   hibrida: '#F59E0B',
 };
 
@@ -157,7 +158,7 @@ function KPICard({ title, value, icon, color }: KPICardProps) {
           <p className="text-sm font-medium text-gray-600">{title}</p>
           <p className="text-2xl font-bold text-gray-900">{value}</p>
         </div>
-        <div className="p-3 rounded-full" style={{ backgroundColor: `${color}20` }}>
+        <div className="p-3 rounded-full" style={{ backgroundColor: withAlpha(color, '20') }}>
           <div style={{ color }}>{icon}</div>
         </div>
       </div>
@@ -534,13 +535,13 @@ const SessionReportsPage: React.FC = () => {
             title="Tasa de Completación"
             value={`${kpis.completion_rate}%`}
             icon={<CheckCircle className="w-6 h-6" />}
-            color="#10B981"
+            color="rgb(var(--color-legacy-10b981))"
           />
           <KPICard
             title="Horas Programadas"
             value={`${kpis.total_hours_scheduled}h`}
             icon={<Clock className="w-6 h-6" />}
-            color="#3B82F6"
+            color="rgb(var(--color-blue-500))"
           />
           <KPICard
             title="Asistencia Promedio"
@@ -556,19 +557,19 @@ const SessionReportsPage: React.FC = () => {
             title="Pendientes de Informe"
             value={kpis.sessions_pending_report}
             icon={<FileText className="w-6 h-6" />}
-            color="#F97316"
+            color="rgb(var(--color-legacy-f97316))"
           />
           <KPICard
             title="Próximas Sesiones"
             value={kpis.upcoming_sessions}
             icon={<CalendarClock className="w-6 h-6" />}
-            color="#6366F1"
+            color="rgb(var(--color-legacy-6366f1))"
           />
           <KPICard
             title="Sesiones Canceladas"
             value={kpis.cancelled_sessions}
             icon={<XCircle className="w-6 h-6" />}
-            color="#EF4444"
+            color="rgb(var(--color-red-500))"
           />
         </div>
       </div>
@@ -622,9 +623,9 @@ const SessionReportsPage: React.FC = () => {
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip content={<CustomChartTooltip />} />
               <Legend />
-              <Bar dataKey="completed" stackId="a" fill="#10B981" name="Completadas" />
-              <Bar dataKey="cancelled" stackId="a" fill="#EF4444" name="Canceladas" />
-              <Bar dataKey="other" stackId="a" fill="#9CA3AF" name="Otras" />
+              <Bar dataKey="completed" stackId="a" fill="rgb(var(--color-legacy-10b981))" name="Completadas" />
+              <Bar dataKey="cancelled" stackId="a" fill="rgb(var(--color-red-500))" name="Canceladas" />
+              <Bar dataKey="other" stackId="a" fill="rgb(var(--color-gray-400))" name="Otras" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -719,8 +720,8 @@ const SessionReportsPage: React.FC = () => {
                 />
                 <Tooltip content={<CustomChartTooltip />} />
                 <Legend />
-                <Bar dataKey="total" fill="#3B82F6" name="Total" />
-                <Bar dataKey="completed" fill="#10B981" name="Completadas" />
+                <Bar dataKey="total" fill="rgb(var(--color-blue-500))" name="Total" />
+                <Bar dataKey="completed" fill="rgb(var(--color-legacy-10b981))" name="Completadas" />
               </BarChart>
             </ResponsiveContainer>
           </div>

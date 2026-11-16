@@ -43,9 +43,9 @@ export function getStatusColor(status: SessionStatus): string {
     pendiente_aprobacion: '#F59E0B', // amber-500 (brand accent hover)
     programada: '#1f1f1f',        // brand_gray_dark
     en_progreso: '#F59E0B',       // amber-500
-    pendiente_informe: '#D97706', // amber-600
+    pendiente_informe: 'rgb(var(--color-amber-600))', // amber-600
     completada: '#0a0a0a',        // brand_primary
-    cancelada: '#EF4444',         // red-500
+    cancelada: 'rgb(var(--color-red-500))',         // red-500
   };
 
   return colors[status] || colors.borrador;

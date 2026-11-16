@@ -93,10 +93,11 @@ describe('session-ui-helpers', () => {
 
     it('should return correct hex color for cancelada status', () => {
       const color = getStatusColor('cancelada');
-      expect(color).toBe('#EF4444');
+      // Red 500, read from its named value since the redesign's phase 4b.
+      expect(color).toBe('rgb(var(--color-red-500))');
     });
 
-    it('should handle all valid session statuses with valid hex', () => {
+    it('should handle all valid session statuses with a valid hex or named colour', () => {
       const statuses: SessionStatus[] = [
         'borrador',
         'pendiente_aprobacion',
@@ -109,7 +110,7 @@ describe('session-ui-helpers', () => {
 
       statuses.forEach((status) => {
         const color = getStatusColor(status);
-        expect(color).toMatch(/^#[0-9A-Fa-f]{6}$/);
+        expect(color).toMatch(/^(#[0-9A-Fa-f]{6}|rgb\(var\(--color-[a-z0-9-]+\)\))$/);
       });
     });
 

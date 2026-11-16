@@ -285,7 +285,7 @@ export const SUPPORTED_FILE_TYPES: FileTypeConfig[] = [
     extension: '.pdf',
     mime_type: 'application/pdf',
     icon: 'FileText',
-    color: '#ef4044',
+    color: 'rgb(var(--color-legacy-ef4044))',
     max_size: 50 * 1024 * 1024, // 50MB
     preview_supported: true,
     thumbnail_supported: true,
@@ -294,7 +294,7 @@ export const SUPPORTED_FILE_TYPES: FileTypeConfig[] = [
     extension: '.doc',
     mime_type: 'application/msword',
     icon: 'FileText',
-    color: '#2563eb',
+    color: 'rgb(var(--color-blue-600))',
     max_size: 25 * 1024 * 1024, // 25MB
     preview_supported: false,
     thumbnail_supported: false,
@@ -303,7 +303,7 @@ export const SUPPORTED_FILE_TYPES: FileTypeConfig[] = [
     extension: '.docx',
     mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     icon: 'FileText',
-    color: '#2563eb',
+    color: 'rgb(var(--color-blue-600))',
     max_size: 25 * 1024 * 1024, // 25MB
     preview_supported: false,
     thumbnail_supported: false,
@@ -312,7 +312,7 @@ export const SUPPORTED_FILE_TYPES: FileTypeConfig[] = [
     extension: '.xls',
     mime_type: 'application/vnd.ms-excel',
     icon: 'FileSpreadsheet',
-    color: '#16a34a',
+    color: 'rgb(var(--color-green-600))',
     max_size: 25 * 1024 * 1024, // 25MB
     preview_supported: false,
     thumbnail_supported: false,
@@ -321,7 +321,7 @@ export const SUPPORTED_FILE_TYPES: FileTypeConfig[] = [
     extension: '.xlsx',
     mime_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     icon: 'FileSpreadsheet',
-    color: '#16a34a',
+    color: 'rgb(var(--color-green-600))',
     max_size: 25 * 1024 * 1024, // 25MB
     preview_supported: false,
     thumbnail_supported: false,
@@ -330,7 +330,7 @@ export const SUPPORTED_FILE_TYPES: FileTypeConfig[] = [
     extension: '.ppt',
     mime_type: 'application/vnd.ms-powerpoint',
     icon: 'Presentation',
-    color: '#ea580c',
+    color: 'rgb(var(--color-legacy-ea580c))',
     max_size: 50 * 1024 * 1024, // 50MB
     preview_supported: false,
     thumbnail_supported: false,
@@ -339,7 +339,7 @@ export const SUPPORTED_FILE_TYPES: FileTypeConfig[] = [
     extension: '.pptx',
     mime_type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     icon: 'Presentation',
-    color: '#ea580c',
+    color: 'rgb(var(--color-legacy-ea580c))',
     max_size: 50 * 1024 * 1024, // 50MB
     preview_supported: false,
     thumbnail_supported: false,
@@ -348,7 +348,7 @@ export const SUPPORTED_FILE_TYPES: FileTypeConfig[] = [
     extension: '.jpg',
     mime_type: 'image/jpeg',
     icon: 'Image',
-    color: '#8b5cf6',
+    color: 'rgb(var(--color-legacy-8b5cf6))',
     max_size: 10 * 1024 * 1024, // 10MB
     preview_supported: true,
     thumbnail_supported: true,
@@ -357,7 +357,7 @@ export const SUPPORTED_FILE_TYPES: FileTypeConfig[] = [
     extension: '.jpeg',
     mime_type: 'image/jpeg',
     icon: 'Image',
-    color: '#8b5cf6',
+    color: 'rgb(var(--color-legacy-8b5cf6))',
     max_size: 10 * 1024 * 1024, // 10MB
     preview_supported: true,
     thumbnail_supported: true,
@@ -366,7 +366,7 @@ export const SUPPORTED_FILE_TYPES: FileTypeConfig[] = [
     extension: '.png',
     mime_type: 'image/png',
     icon: 'Image',
-    color: '#8b5cf6',
+    color: 'rgb(var(--color-legacy-8b5cf6))',
     max_size: 10 * 1024 * 1024, // 10MB
     preview_supported: true,
     thumbnail_supported: true,
@@ -375,7 +375,7 @@ export const SUPPORTED_FILE_TYPES: FileTypeConfig[] = [
     extension: '.mp4',
     mime_type: 'video/mp4',
     icon: 'Video',
-    color: '#dc2626',
+    color: 'rgb(var(--color-red-600))',
     max_size: 100 * 1024 * 1024, // 100MB
     preview_supported: true,
     thumbnail_supported: true,

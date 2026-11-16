@@ -6,19 +6,19 @@ const ROW_H = 40
 
 const BRAND = {
   bg:       '#ffffff',
-  bgCard:   '#f9fafb',
-  bgHover:  '#f3f4f6',
-  border:   '#e5e7eb',
-  borderMid:'#d1d5db',
+  bgCard:   'rgb(var(--color-gray-50))',
+  bgHover:  'rgb(var(--color-gray-100))',
+  border:   'rgb(var(--color-gray-200))',
+  borderMid:'rgb(var(--color-gray-300))',
   yellow:   '#f59e0b',
-  yellowHi: '#d97706',
+  yellowHi: 'rgb(var(--color-amber-600))',
   yellowLo: '#fcd34d',
   white:    '#0a0a0a',
   grayMid:  '#6b7280',
-  grayDark: '#374151',
-  textBody: '#374151',
-  textMid:  '#9ca3af',
-  textDim:  '#d1d5db',
+  grayDark: 'rgb(var(--color-gray-700))',
+  textBody: 'rgb(var(--color-gray-700))',
+  textMid:  'rgb(var(--color-gray-400))',
+  textDim:  'rgb(var(--color-gray-300))',
 }
 
 const PHASE_COLORS = [
@@ -164,7 +164,7 @@ function Btn({ onClick, label, danger }: { onClick: () => void; label: string; d
       style={{
         background: 'none', border: 'none', cursor: 'pointer',
         padding: '0 4px', lineHeight: 1,
-        color: hov ? (danger ? '#ef4444' : BRAND.grayDark) : BRAND.grayMid,
+        color: hov ? (danger ? 'rgb(var(--color-red-500))' : BRAND.grayDark) : BRAND.grayMid,
         fontSize: label === '×' ? 16 : 13,
         fontFamily: 'inherit', transition: 'color 0.1s',
       }}
@@ -467,11 +467,11 @@ export default function GeneraRoadmap({ initialData, onSave }: GeneraRoadmapProp
                 value={data.alert}
                 onChange={e => update(d => ({ ...d, alert: e.target.value }))}
                 style={{ ...iBase, minHeight: 52, resize: 'vertical', lineHeight: 1.6,
-                  color: '#d97706', background: 'transparent',
+                  color: 'rgb(var(--color-amber-600))', background: 'transparent',
                   border: `1px solid ${BRAND.yellow}20` } as React.CSSProperties}
               />
             ) : (
-              <div style={{ fontSize: 14, color: '#d97706', lineHeight: 1.7 }}>
+              <div style={{ fontSize: 14, color: 'rgb(var(--color-amber-600))', lineHeight: 1.7 }}>
                 {data.alert}
               </div>
             )}
@@ -511,7 +511,7 @@ export default function GeneraRoadmap({ initialData, onSave }: GeneraRoadmapProp
               <div style={{ fontSize: 14, color: BRAND.yellow, fontWeight: 700,
                 letterSpacing: '0.02em', lineHeight: 1.3 }}>
                 Transbank onboarding{' '}
-                <span style={{ fontWeight: 400, color: '#d97706' }}>[externo — iniciar hoy]</span>
+                <span style={{ fontWeight: 400, color: 'rgb(var(--color-amber-600))' }}>[externo — iniciar hoy]</span>
               </div>
             </div>
             <div style={{ width: chartW, position: 'relative', height: '100%', flexShrink: 0 }}>
@@ -666,7 +666,7 @@ export default function GeneraRoadmap({ initialData, onSave }: GeneraRoadmapProp
           padding: '12px 18px', fontSize: 14, lineHeight: 1.7,
         }}>
           <span style={{ color: BRAND.yellow, fontWeight: 700 }}>Hallazgo del audit: </span>
-          <span style={{ color: '#d97706' }}>
+          <span style={{ color: 'rgb(var(--color-amber-600))' }}>
             El sistema de sesiones consultor existente (11 tablas, completamente operacional) se mapea casi directamente a sesiones uno-a-uno del asesor. La Fase 2 es más rápida de lo que parece. Los 9 roles actuales son FNE-internos — agregar asesor/estudiante/familia en Semana 1 debe hacerse sin romper los flujos de colegio/consultor existentes.
           </span>
         </div>

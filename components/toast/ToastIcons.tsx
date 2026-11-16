@@ -9,11 +9,11 @@ import React from 'react';
 const COLORS = {
   navyBlue: '#0a0a0a',
   goldenYellow: '#fbbf24',
-  errorRed: '#ef4044',
+  errorRed: 'rgb(var(--color-legacy-ef4044))',
   white: '#ffffff',
   darkGray: '#1a1a1a',
-  lightGray: '#f3f4f6',
-  successGreen: '#10b981',
+  lightGray: 'rgb(var(--color-gray-100))',
+  successGreen: 'rgb(var(--color-legacy-10b981))',
 };
 
 export const SuccessIcon = () => (

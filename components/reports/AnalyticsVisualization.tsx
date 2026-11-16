@@ -24,6 +24,7 @@ import { toast } from 'react-hot-toast';
 import LoadingSkeleton from '../common/LoadingSkeleton';
 import ExportDropdown from './ExportDropdown';
 import { generateAutomaticInsights } from '../../utils/insightGenerator';
+import { withAlpha } from '../../lib/colorAlpha';
 
 interface AnalyticsVisualizationProps {
   userId: string;
@@ -54,10 +55,10 @@ interface AnalyticsData {
 const FNE_COLORS = {
   primary: '#0a0a0a',
   secondary: '#fbbf24',
-  success: '#10b981',
+  success: 'rgb(var(--color-legacy-10b981))',
   warning: '#f59e0b',
   error: '#ef4444',
-  info: '#3b82f6',
+  info: 'rgb(var(--color-blue-500))',
   gray: '#6b7280'
 };
 
@@ -242,7 +243,7 @@ export default function AnalyticsVisualization({
                   </span>
                 </div>
               </div>
-              <div className="p-3 rounded-full" style={{ backgroundColor: `${kpi.color}20` }}>
+              <div className="p-3 rounded-full" style={{ backgroundColor: withAlpha(kpi.color, '20') }}>
                 <span style={{ color: kpi.color }}>{kpi.icon}</span>
               </div>
             </div>

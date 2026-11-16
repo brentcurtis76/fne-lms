@@ -252,20 +252,30 @@
   --color-legacy-00293f: 0 41 63;      /* #00293f */
   --color-legacy-002a47: 0 42 71;      /* #002a47 */
   --color-legacy-002a4a: 0 42 74;      /* #002a4a */
+  --color-legacy-003a5b: 0 58 91;      /* #003a5b */
   --color-legacy-004080: 0 64 128;     /* #004080 */
   --color-legacy-004170: 0 65 112;     /* #004170 */
   --color-legacy-004a7a: 0 74 122;     /* #004a7a */
   --color-legacy-004a7c: 0 74 124;     /* #004a7c */
+  --color-legacy-0066a4: 0 102 164;    /* #0066a4 */
+  --color-legacy-06b6d4: 6 182 212;    /* #06b6d4 */
+  --color-legacy-10b981: 16 185 129;   /* #10b981 */
+  --color-legacy-6366f1: 99 102 241;   /* #6366f1 */
+  --color-legacy-8b5cf6: 139 92 246;   /* #8b5cf6 */
   --color-legacy-8b6914: 139 105 20;   /* #8b6914 */
   --color-legacy-b8860b: 184 134 11;   /* #b8860b */
+  --color-legacy-e0f0ff: 224 240 255;  /* #e0f0ff */
   --color-legacy-e6a429: 230 164 41;   /* #e6a429 */
   --color-legacy-e6a42d: 230 164 45;   /* #e6a42d */
   --color-legacy-e6a42e: 230 164 46;   /* #e6a42e */
   --color-legacy-e6a530: 230 165 48;   /* #e6a530 */
   --color-legacy-e8e5e2: 232 229 226;  /* #e8e5e2 */
+  --color-legacy-ea580c: 234 88 12;    /* #ea580c */
+  --color-legacy-ec4899: 236 72 153;   /* #ec4899 */
   --color-legacy-ef4044: 239 64 68;    /* #ef4044 */
   --color-legacy-f5a623: 245 166 35;   /* #f5a623 */
   --color-legacy-f5b927: 245 185 39;   /* #f5b927 */
+  --color-legacy-f97316: 249 115 22;   /* #f97316 */
   --color-legacy-fca311: 252 163 17;   /* #fca311 */
 
   /* Font families (`font-sans` is also the page's default face). */

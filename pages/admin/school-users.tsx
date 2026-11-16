@@ -348,7 +348,7 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
       toast.success('Usuario eliminado correctamente', {
         duration: 4000,
         position: 'top-right',
-        style: { background: '#10B981', color: 'white' },
+        style: { background: 'rgb(var(--color-legacy-10b981))', color: 'white' },
         icon: '🗑️',
       });
 
@@ -362,7 +362,7 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
       toast.error(`Error al eliminar usuario: ${error.message}`, {
         duration: 5000,
         position: 'top-right',
-        style: { background: '#EF4444', color: 'white' },
+        style: { background: 'rgb(var(--color-red-500))', color: 'white' },
         icon: '❌',
       });
     }
@@ -375,7 +375,7 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
       toast.error('Email y contraseña son obligatorios', {
         duration: 4000,
         position: 'top-right',
-        style: { background: '#EF4444', color: 'white' },
+        style: { background: 'rgb(var(--color-red-500))', color: 'white' },
         icon: '⚠️',
       });
       return;
@@ -390,7 +390,7 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
       toast.error(passwordError, {
         duration: 5000,
         position: 'top-right',
-        style: { background: '#EF4444', color: 'white' },
+        style: { background: 'rgb(var(--color-red-500))', color: 'white' },
         icon: '⚠️',
       });
       return;
@@ -440,7 +440,7 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
           toast.success('Usuario creado. Puedes agregar otro.', {
             duration: 3000,
             position: 'top-right',
-            style: { background: '#10B981', color: 'white' },
+            style: { background: 'rgb(var(--color-legacy-10b981))', color: 'white' },
             icon: '👤',
           });
           emailInputRef.current?.focus();
@@ -451,7 +451,7 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
             {
               duration: 5000,
               position: 'top-right',
-              style: { background: '#10B981', color: 'white' },
+              style: { background: 'rgb(var(--color-legacy-10b981))', color: 'white' },
               icon: '👤',
             }
           );
@@ -473,7 +473,7 @@ const SchoolUsersPage: React.FC<PageProps> = (props) => {
       toast.error(`Error al crear usuario: ${errorMessage}`, {
         duration: 5000,
         position: 'top-right',
-        style: { background: '#EF4444', color: 'white' },
+        style: { background: 'rgb(var(--color-red-500))', color: 'white' },
         icon: '❌',
       });
     } finally {

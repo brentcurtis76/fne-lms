@@ -175,9 +175,9 @@ describe('FNE brand tokens', () => {
     };
     collect(extend);
 
-    // 8 brand colours, 6 families of 11 steps, the 20 legacy colours of phase 4b,
+    // 8 brand colours, 6 families of 11 steps, the 30 legacy colours of phase 4b,
     // 5 font families, 7 radii, and the three gold tokens the config reads as whole colours.
-    expect(read.size).toBe(8 + 6 * 11 + 20 + 5 + 7 + 3);
+    expect(read.size).toBe(8 + 6 * 11 + 30 + 5 + 7 + 3);
     for (const variable of read) {
       const count = declarations(variable).length;
       expect(count, `${variable} is declared ${count} times in styles/fne-tokens.css`).toBe(1);
@@ -216,7 +216,7 @@ describe('FNE brand tokens', () => {
   it('names each stray colour by its own value, once, and offers it as legacy.<hex>', () => {
     const legacy = colours.legacy as Record<string, string>;
     expect(Object.keys(legacy).sort(), 'the config\'s list and the token file\'s declarations differ').toEqual(LEGACY_DECLARED);
-    expect(LEGACY_DECLARED).toHaveLength(20);
+    expect(LEGACY_DECLARED).toHaveLength(30);
     const named = new Set<string>();
     for (const [, variable] of BRAND) named.add(readToken(variable) as string);
     for (const family of FAMILIES) for (const step of STEPS) named.add(triplet(stockColours[family][step]));

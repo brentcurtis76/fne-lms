@@ -511,7 +511,7 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
                 maxWidth: '500px',
                 padding: '16px',
                 background: 'white',
-                color: '#111827'
+                color: 'rgb(var(--color-gray-900))'
               }
             }
           );

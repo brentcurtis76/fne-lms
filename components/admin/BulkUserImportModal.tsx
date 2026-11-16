@@ -158,8 +158,8 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
       toast(`${result.invalid.length} usuarios con errores no serán importados`, {
         icon: '⚠️',
         style: {
-          background: '#FEF3C7',
-          color: '#92400E',
+          background: 'rgb(var(--color-amber-100))',
+          color: 'rgb(var(--color-amber-800))',
         },
       });
     }
@@ -213,7 +213,7 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
       if (data.audited === false) {
         toast('La importación se registró, pero no se pudo escribir la auditoría.', {
           icon: '⚠️',
-          style: { background: '#FEF3C7', color: '#92400E' },
+          style: { background: 'rgb(var(--color-amber-100))', color: 'rgb(var(--color-amber-800))' },
         });
       }
 
@@ -226,8 +226,8 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
         toast(`${succeeded} usuarios importados, ${failed} fallaron`, {
           icon: '⚠️',
           style: {
-            background: '#FEF3C7',
-            color: '#92400E',
+            background: 'rgb(var(--color-amber-100))',
+            color: 'rgb(var(--color-amber-800))',
           },
         });
       }

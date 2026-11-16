@@ -477,7 +477,7 @@ export default function UserManagement() {
         duration: 3000,
         position: 'top-right',
         style: {
-          background: '#10B981',
+          background: 'rgb(var(--color-legacy-10b981))',
           color: 'white',
         },
         icon: '✅',
@@ -489,7 +489,7 @@ export default function UserManagement() {
         duration: 5000,
         position: 'top-right',
         style: {
-          background: '#EF4444',
+          background: 'rgb(var(--color-red-500))',
           color: 'white',
         },
         icon: '❌',
@@ -590,7 +590,7 @@ export default function UserManagement() {
         duration: 4000,
         position: 'top-right',
         style: {
-          background: '#10B981',
+          background: 'rgb(var(--color-legacy-10b981))',
           color: 'white',
         },
         icon: '🗑️',
@@ -607,7 +607,7 @@ export default function UserManagement() {
         duration: 5000,
         position: 'top-right',
         style: {
-          background: '#EF4444',
+          background: 'rgb(var(--color-red-500))',
           color: 'white',
         },
         icon: '❌',
@@ -626,7 +626,7 @@ export default function UserManagement() {
         duration: 4000,
         position: 'top-right',
         style: {
-          background: '#EF4444',
+          background: 'rgb(var(--color-red-500))',
           color: 'white',
         },
         icon: '⚠️',
@@ -644,7 +644,7 @@ export default function UserManagement() {
         duration: 5000,
         position: 'top-right',
         style: {
-          background: '#EF4444',
+          background: 'rgb(var(--color-red-500))',
           color: 'white',
         },
         icon: '⚠️',
@@ -697,7 +697,7 @@ export default function UserManagement() {
           duration: 5000,
           position: 'top-right',
           style: {
-            background: '#10B981',
+            background: 'rgb(var(--color-legacy-10b981))',
             color: 'white',
           },
           icon: '👤',
@@ -718,7 +718,7 @@ export default function UserManagement() {
         duration: 5000,
         position: 'top-right',
         style: {
-          background: '#EF4444',
+          background: 'rgb(var(--color-red-500))',
           color: 'white',
         },
         icon: '❌',

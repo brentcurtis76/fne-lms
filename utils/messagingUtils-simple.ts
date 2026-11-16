@@ -409,14 +409,22 @@ export async function createThread(
       ? `${userProfile.first_name} ${userProfile.last_name}`
       : userProfile?.email || 'Usuario';
 
-    // Create the thread (without custom_category_name for now)
-    const { data: thread, error: threadError } = await supabase
+    // Create the thread. The id is made here and the row is NOT asked back in
+    // the same request: the read rule messaging_read_boundary looks the thread
+    // up by id and cannot see the row being inserted, so INSERT … RETURNING is
+    // refused for members (EC-S4). The row is read by its id right after.
+    const threadId = crypto.randomUUID();
+    const customCategoryName =
+      threadData.category === 'custom' ? threadData.custom_category_name?.trim() || null : null;
+    const { error: threadError } = await supabase
       .from('message_threads')
       .insert({
+        id: threadId,
         workspace_id: workspaceId,
         thread_title: threadData.thread_title,
         description: threadData.description,
         category: threadData.category,
+        custom_category_name: customCategoryName,
         created_by: userId,
         is_pinned: false,
         is_locked: false,
@@ -424,9 +432,7 @@ export async function createThread(
         last_message_at: new Date().toISOString(),
         message_count: 1,
         participant_count: 1
-      })
-      .select('*')
-      .single();
+      });
 
     if (threadError) {
       console.error('Thread creation error:', threadError);
@@ -444,6 +450,17 @@ export async function createThread(
       } else {
         throw threadError;
       }
+    }
+
+    const { data: thread, error: readError } = await supabase
+      .from('message_threads')
+      .select('*')
+      .eq('id', threadId)
+      .single();
+
+    if (readError || !thread) {
+      console.error('Thread read-back error:', readError);
+      throw readError || new Error('No se pudo leer el hilo creado');
     }
 
     // Create initial message

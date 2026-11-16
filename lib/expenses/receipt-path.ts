@@ -11,29 +11,39 @@ const MAX_NAME_LENGTH = 300;
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
 
+// Not an allow-list on purpose: receipts already stored may carry spaces or
+// accents in the part of the name taken from the uploaded file's extension.
+// `?` and `#` are refused because the signing request would read only the part
+// before them; a leading dot or surrounding white space is never a real receipt.
 function safeName(name: string): string | null {
   if (!name || name.length > MAX_NAME_LENGTH) return null;
   if (name.includes('/') || name.includes('\\') || name.includes('..') || name.includes('%')) return null;
+  if (name.includes('?') || name.includes('#')) return null;
+  if (name.startsWith('.') || /^\s|\s$/.test(name)) return null;
   if (CONTROL_CHARACTER.test(name)) return null;
   return name;
 }
 
+function escapeForPattern(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// The RAW value is matched (no `new URL`: it would normalise `..`, backslashes
+// and encoded forms before the checks). One path segment after the bucket, an
+// optional query, no fragment.
+const STORAGE_URL = new RegExp(
+  '^https?:\\/\\/[^\\/?#\\\\]+\\/storage\\/v1\\/object\\/(?:(?:sign|public)\\/)?' +
+    escapeForPattern(RECEIPTS_BUCKET) +
+    '\\/([^\\/?#\\\\]+)(?:\\?[^#]*)?$',
+  'i'
+);
+
 function nameFromStorageUrl(value: string): string | null {
-  let pathname: string;
-  try {
-    pathname = new URL(value).pathname;
-  } catch {
-    return null;
-  }
-  // /storage/v1/object[/sign|/public]/<bucket>/<name>
-  const parts = pathname.split('/');
-  if (parts[0] !== '' || parts[1] !== 'storage' || parts[2] !== 'v1' || parts[3] !== 'object') return null;
-  let rest = parts.slice(4);
-  if (rest[0] === 'sign' || rest[0] === 'public') rest = rest.slice(1);
-  if (rest.length !== 2 || rest[0] !== RECEIPTS_BUCKET) return null;
+  const match = STORAGE_URL.exec(value);
+  if (!match) return null;
   let decoded: string;
   try {
-    decoded = decodeURIComponent(rest[1]);
+    decoded = decodeURIComponent(match[1]);
   } catch {
     return null;
   }

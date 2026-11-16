@@ -37,6 +37,54 @@ describe('receiptPathFromStored — accepted forms', () => {
   });
 });
 
+describe('receiptPathFromStored — accepted forms (GES-1.5d)', () => {
+  it('odd but real extensions with a space or an accent', () => {
+    expect(receiptPathFromStored('boletas/receipt_1_ab.foto marzo')).toBe('receipt_1_ab.foto marzo');
+    expect(receiptPathFromStored('boletas/receipt_1_ab.año')).toBe('receipt_1_ab.año');
+  });
+
+  it('a legacy signed address with a ?token= query still gives the name', () => {
+    expect(
+      receiptPathFromStored(`${HOST}/storage/v1/object/sign/boletas/receipt_1_ab.pdf?token=invented.a.b&download=1`)
+    ).toBe('receipt_1_ab.pdf');
+  });
+
+  it('an upper-case scheme still works', () => {
+    expect(receiptPathFromStored('HTTPS://example-project.supabase.co/storage/v1/object/sign/boletas/receipt_1_ab.pdf?token=t')).toBe(
+      'receipt_1_ab.pdf'
+    );
+  });
+});
+
+describe('receiptPathFromStored — refusals (GES-1.5d)', () => {
+  it('? or # in a place or a bare name', () => {
+    expect(receiptPathFromStored('boletas/a.pdf#x')).toBeNull();
+    expect(receiptPathFromStored('boletas/a.pdf?x=1')).toBeNull();
+    expect(receiptPathFromStored('a.pdf#x')).toBeNull();
+  });
+
+  it('a name that starts with a dot or with white space', () => {
+    expect(receiptPathFromStored('boletas/.hidden')).toBeNull();
+    expect(receiptPathFromStored('boletas/ a.pdf')).toBeNull();
+    expect(receiptPathFromStored('boletas/a.pdf ')).toBeNull();
+  });
+
+  it('an address with a fragment', () => {
+    expect(receiptPathFromStored(`${HOST}/storage/v1/object/sign/boletas/a.pdf#frag`)).toBeNull();
+  });
+
+  it('an address whose path the URL parser would normalise', () => {
+    expect(receiptPathFromStored(`${HOST}/storage/v1/object/sign/boletas/x/../a.pdf`)).toBeNull();
+    expect(receiptPathFromStored(`${HOST}/storage/v1/object/sign/other/..%2Fboletas/a.pdf`)).toBeNull();
+    expect(receiptPathFromStored(`${HOST}/storage/v1/object/sign\\boletas\\a.pdf`)).toBeNull();
+  });
+
+  it('an encoded # or ? in an address', () => {
+    expect(receiptPathFromStored(`${HOST}/storage/v1/object/sign/boletas/a.pdf%23x`)).toBeNull();
+    expect(receiptPathFromStored(`${HOST}/storage/v1/object/sign/boletas/a.pdf%3Fx`)).toBeNull();
+  });
+});
+
 describe('receiptPathFromStored — refusals', () => {
   it("another store's signed link", () => {
     expect(receiptPathFromStored(`${HOST}/storage/v1/object/sign/resources/receipt_1_x.pdf?token=t`)).toBeNull();

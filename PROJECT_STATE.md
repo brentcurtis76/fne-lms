@@ -1,3 +1,19 @@
+## Registro delivery — urgent late-publication repair (2026-11-16)
+
+Branch `fix/registro-deliver`, based on production `1deb9b782`. An authenticated
+minute cron now delivers missing published Registros to existing eligible course
+teachers and school vía responsables. Stable template identity preserves all
+existing versions, statuses, responses and grants. New templates are delivered;
+republication never replaces existing work. A service-only database function uses
+the assignment locks, a bounded batch and durable cursor to retry gaps safely.
+
+Owner authorized the global catch-up and urgent production release, and accepted
+preserving pending work too. Independent Opus review requested and performed.
+Review, evidence and operational limits:
+`docs/planning/reviews/fase-registro-delivery-review-request.md`.
+This entry records implementation; production completion requires the controlled
+publisher and verification of the affected recipient's new assignment.
+
 ## RD-4c — platform redesign, step 4c: 25 leftover pages retired (2026-11-14, built and proven locally, not pushed)
 
 Branch `feat/rd-retire` on top of RD-4a. Record and reviewer notes: `docs/planning/reviews/fase-rd-4c-review-request.md`.

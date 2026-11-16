@@ -11,7 +11,7 @@
 --   * a pure active equipo_directivo (single role, own school) performs all
 --     three writes on its own school's plan;
 --   * the same directivo cannot INSERT into another school's plan (42501) and
---     UPDATE / DELETE of another school's visible row affect 0 rows;
+--     UPDATE / DELETE of another school's row (not visible to it) affect 0 rows;
 --   * moving its own row to another school fails the UPDATE policy WITH CHECK
 --     (42501); moving another school's row into its own affects 0 rows
 --     (old-row USING).
@@ -496,13 +496,14 @@ SELECT is(
 ) FROM d;
 
 -- ---------------------------------------------------------------------------
--- B2: other school INSERT denied; UPDATE / DELETE of a visible row affect 0
+-- B2: other school's row is not visible (C-11); INSERT denied; UPDATE /
+-- DELETE of that row affect 0
 -- ---------------------------------------------------------------------------
 SELECT is(
   (SELECT row(id, school_id, year_number, grade_id, generation_type)::text
      FROM public.ab_migration_plan WHERE id = -861102),
-  '(-861102,-861002,1,-861011,GT)',
-  'Directivo B2: la fila del colegio ajeno es visible para el directivo'
+  NULL::text,
+  'Directivo B2: la fila del colegio ajeno no es visible para el directivo'
 );
 
 SELECT throws_ok(
@@ -552,7 +553,7 @@ SELECT throws_like(
 );
 
 -- ---------------------------------------------------------------------------
--- B4: moving the other school's visible row into own school affects 0 rows
+-- B4: moving the other school's row (not visible) into own school affects 0 rows
 -- ---------------------------------------------------------------------------
 WITH u AS (
   UPDATE public.ab_migration_plan
@@ -1812,11 +1813,12 @@ SELECT ok(NOT public.auth_is_school_directivo(-866001), 'Grupo G rol inactivo: n
 
 SELECT ok(public.password_change_gate_ok(), 'Grupo G rol inactivo: la compuerta de cambio de contraseña permite el acceso');
 
+-- A consultor whose role is inactive does not read the plan (C-11).
 SELECT is(
   (SELECT array_agg(row(id, school_id, year_number, grade_id, generation_type)::text ORDER BY id)
      FROM public.ab_migration_plan WHERE school_id = -866001),
-  ARRAY['(-866101,-866001,1,-866011,GT)'],
-  'Grupo G rol inactivo: lee el conjunto completo de filas del plan del colegio sintético'
+  NULL::text[],
+  'Grupo G rol inactivo: no ve ninguna fila del plan del colegio sintético'
 );
 
 SELECT throws_ok(
@@ -2074,12 +2076,13 @@ SELECT ok(NOT public.auth_is_school_directivo(-867001), 'Grupo H docente: no es 
 
 SELECT ok(public.password_change_gate_ok(), 'Grupo H docente: la compuerta de cambio de contraseña permite el acceso');
 
+-- A docente does not read the plan (C-11).
 SELECT is(
   (SELECT array_agg(row(id, school_id, year_number, grade_id, generation_type)::text ORDER BY id)
      FROM public.ab_migration_plan
     WHERE school_id = -867001 OR id BETWEEN -867999 AND -867000),
-  ARRAY['(-867101,-867001,1,-867011,GT)'],
-  'Grupo H docente: lee el conjunto completo de filas del plan del colegio sintético'
+  NULL::text[],
+  'Grupo H docente: no ve ninguna fila del plan del colegio sintético'
 );
 
 SELECT throws_ok(
@@ -2136,9 +2139,8 @@ SELECT is(
 -- table and helper grants, so the restrictive write-boundary policies
 -- (TO public) are what deny INSERT / UPDATE / DELETE.
 -- forced_password_change_guard is TO authenticated and does not apply to anon.
--- The unchanged permissive SELECT policy (TO public, USING true) lets anon read
--- the plan row: this records existing database behavior only and does not
--- decide any application anonymous-access policy or enable an API path.
+-- The SELECT policy applies to authenticated only (C-11), so anon reads no
+-- plan row.
 -- Synthetic IDs -868xxx.
 -- ---------------------------------------------------------------------------
 SELECT is(
@@ -2246,8 +2248,8 @@ SELECT is(
   (SELECT array_agg(row(id, school_id, year_number, grade_id, generation_type)::text ORDER BY id)
      FROM public.ab_migration_plan
     WHERE school_id = -868001 OR id BETWEEN -868999 AND -868000),
-  ARRAY['(-868101,-868001,1,-868011,GT)'],
-  'Grupo I anon: lee el conjunto completo de filas del plan del colegio sintético'
+  NULL::text[],
+  'Grupo I anon: no ve ninguna fila del plan del colegio sintético'
 );
 
 SELECT throws_ok(

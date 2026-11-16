@@ -11,6 +11,8 @@
 --           can_edit writes answers only while the registro is pending or
 --           in_progress, may move it pending -> in_progress -> completed and
 --           nothing else; admin unchanged.
+--   [C-11]  ab_migration_plan: readable by an admin, the school's equipo
+--           directivo and active consultores only (not anon, not others).
 --
 -- Personas: anon; docente (assignee of registros A and B, can_edit and
 -- can_submit); docente of school 2 assigned to nothing; equipo_directivo of
@@ -20,7 +22,7 @@
 
 BEGIN;
 
-SELECT plan(63);
+SELECT plan(70);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures (postgres)
@@ -94,6 +96,10 @@ INSERT INTO public.assessment_instance_assignees (id, instance_id, user_id, can_
 INSERT INTO public.assessment_responses (id, instance_id, indicator_id, coverage_value, responded_by) VALUES
   ('11700000-0000-4000-8000-000000000301', '11700000-0000-4000-8000-000000000102',
    '11700000-0000-4000-8000-0000000000c1', true, tests.get_supabase_uid('gc117_docente'));
+
+-- C-11: one migration-plan row for school 1.
+INSERT INTO public.ab_migration_plan (id, school_id, year_number, grade_id, generation_type) VALUES
+  (-117101, -117001, 1, -117011, 'GT');
 
 -- -----------------------------------------------------------------------------
 -- [GC-19] anon reads none of the four tables
@@ -349,6 +355,38 @@ SELECT is((SELECT count(*)::int FROM u), 1, 'GC-18 admin: archiving registro B c
 RESET ROLE;
 
 -- -----------------------------------------------------------------------------
+-- [C-11] migration plan: only admin, the school's directivo and active consultores read it
+-- -----------------------------------------------------------------------------
+SELECT tests.clear_authentication();
+SELECT set_config('role', 'anon', true);
+SELECT is((SELECT count(*)::int FROM public.ab_migration_plan), 0, 'C-11 anon: ab_migration_plan shows 0 rows');
+RESET ROLE;
+
+SELECT tests.authenticate_as('gc117_docente_unrel');
+SELECT is((SELECT count(*)::int FROM public.ab_migration_plan), 0, 'C-11 docente of school 2: ab_migration_plan shows 0 rows');
+RESET ROLE;
+
+SELECT tests.authenticate_as('gc117_dir2');
+SELECT is((SELECT count(*)::int FROM public.ab_migration_plan WHERE id = -117101), 0,
+  'C-11 directivo school 2: does not see the migration plan of school 1');
+RESET ROLE;
+
+SELECT tests.authenticate_as('gc117_dir1');
+SELECT is((SELECT count(*)::int FROM public.ab_migration_plan WHERE id = -117101), 1,
+  'C-11 directivo school 1: reads the migration plan of its school');
+RESET ROLE;
+
+SELECT tests.authenticate_as('gc117_cons');
+SELECT is((SELECT count(*)::int FROM public.ab_migration_plan WHERE id = -117101), 1,
+  'C-11 active consultor: reads the migration plan of school 1');
+RESET ROLE;
+
+SELECT tests.authenticate_as('gc117_admin');
+SELECT is((SELECT count(*)::int FROM public.ab_migration_plan WHERE id = -117101), 1,
+  'C-11 admin: reads the migration plan of school 1');
+RESET ROLE;
+
+-- -----------------------------------------------------------------------------
 -- The rules keep their names and their commands (no rule dropped or created)
 -- -----------------------------------------------------------------------------
 SELECT is(
@@ -386,5 +424,9 @@ SELECT is(
     WHERE schemaname = 'public' AND tablename IN ('assessment_responses', 'assessment_instances')
       AND policyname IN ('assessment_responses_insert', 'assessment_responses_update', 'assessment_instances_update')),
   3, 'the three GC-18 rules still exist under their names');
+SELECT is(
+  (SELECT cmd || ':' || array_to_string(roles, ',') FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'ab_migration_plan' AND policyname = 'ab_migration_plan_select'),
+  'SELECT:authenticated', 'C-11: ab_migration_plan_select keeps its name and command, now for authenticated only');
 SELECT * FROM finish();
 ROLLBACK;

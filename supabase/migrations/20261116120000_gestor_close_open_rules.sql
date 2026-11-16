@@ -8,8 +8,8 @@
 --   GC-18  assessment_responses / assessment_instances: an assignee writes
 --          answers only while the registro is pending or in_progress, and may
 --          move it pending -> in_progress -> completed, nothing else.
---   C-11   (ab_migration_plan reading) is NOT part of this migration: the
---          planned rule contradicts assertions of test 086; left for the lead.
+--   C-11   ab_migration_plan: readable by an admin, the school's equipo directivo
+--          and active consultores only, not by anon or other signed-in people.
 --
 -- This migration only alters existing rules (ALTER POLICY). No rule is created
 -- or removed, no permission or function changes, and row level security stays
@@ -84,3 +84,14 @@ ALTER POLICY "assessment_instances_update" ON public.assessment_instances
                   WHERE aia.instance_id = assessment_instances.id
                     AND aia.user_id = auth.uid() AND aia.can_edit = true)
     ));
+
+-- C-11 ------------------------------------------------------------------------
+ALTER POLICY "ab_migration_plan_select" ON public.ab_migration_plan TO authenticated
+  USING (
+    public.auth_is_assessment_admin()
+    OR public.auth_is_school_directivo(school_id)
+    OR EXISTS (SELECT 1 FROM public.user_roles ur
+               WHERE ur.user_id = auth.uid()
+                 AND ur.role_type = 'consultor'::public.user_role_type
+                 AND ur.is_active IS TRUE)
+  );

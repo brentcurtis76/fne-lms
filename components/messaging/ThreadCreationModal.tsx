@@ -30,6 +30,11 @@ export default function ThreadCreationModal({
   });
   const [submitting, setSubmitting] = useState(false);
   const [showCustomCategory, setShowCustomCategory] = useState(false);
+  // The first message failed after the conversation's row was stored with the
+  // title, description and category first typed: on a retry only the message
+  // can change (send-back 2, B). A new modal (closed and opened) starts afresh.
+  const [threadAlreadyCreated, setThreadAlreadyCreated] = useState(false);
+  const fixedFieldDisabled = submitting || threadAlreadyCreated;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +73,9 @@ export default function ThreadCreationModal({
       // Nothing is cleared and the modal stays open: the person's text is
       // kept for the next press. The page says what happened.
       console.error('Error creating thread:', error);
+      if (typeof (error as { threadId?: unknown } | null)?.threadId === 'string') {
+        setThreadAlreadyCreated(true);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -103,6 +111,11 @@ export default function ThreadCreationModal({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {threadAlreadyCreated && (
+            <p className="text-sm text-gray-700">
+              La conversación ya fue creada. Solo falta enviar el primer mensaje.
+            </p>
+          )}
           {/* Thread Title */}
           <div>
             <label htmlFor="thread_title" className="block text-sm font-medium text-gray-700 mb-1">
@@ -114,7 +127,7 @@ export default function ThreadCreationModal({
               value={formData.thread_title}
               onChange={(e) => setFormData({ ...formData, thread_title: e.target.value })}
               placeholder="Ej: Planificación del próximo semestre"
-              disabled={submitting}
+              disabled={fixedFieldDisabled}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent disabled:opacity-50"
               maxLength={100}
             />
@@ -133,7 +146,7 @@ export default function ThreadCreationModal({
               value={formData.description || ''}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Describe brevemente el propósito de este hilo..."
-              disabled={submitting}
+              disabled={fixedFieldDisabled}
               rows={2}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent resize-none disabled:opacity-50"
               maxLength={300}
@@ -157,7 +170,7 @@ export default function ThreadCreationModal({
                   setFormData({ ...formData, category: value });
                   setShowCustomCategory(value === 'custom');
                 }}
-                disabled={submitting}
+                disabled={fixedFieldDisabled}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent appearance-none disabled:opacity-50"
               >
                 {THREAD_CATEGORIES.map(category => (
@@ -183,7 +196,7 @@ export default function ThreadCreationModal({
                 value={formData.custom_category_name || ''}
                 onChange={(e) => setFormData({ ...formData, custom_category_name: e.target.value })}
                 placeholder="Ej: Actividades Especiales"
-                disabled={submitting}
+                disabled={fixedFieldDisabled}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent disabled:opacity-50"
                 maxLength={50}
               />

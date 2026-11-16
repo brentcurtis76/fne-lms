@@ -157,6 +157,9 @@ function formatDate(dateStr: string): string {
 // createLicitacion
 // ============================================================
 
+export const SIN_CLIENTE_MESSAGE =
+  'Esta escuela no tiene un cliente vinculado. Vincule un cliente antes de crear la licitación.';
+
 /**
  * Creates a new licitacion.
  * Admin-only: must be called with service role client from API route.
@@ -176,6 +179,11 @@ export async function createLicitacion(
 
   if (schoolError || !school) {
     throw new Error('Escuela no encontrada');
+  }
+
+  // Every later step needs the school's client: refuse a tender without one.
+  if (!school.cliente_id) {
+    throw new Error(SIN_CLIENTE_MESSAGE);
   }
 
   // 2. Validate programa exists
@@ -210,7 +218,7 @@ export async function createLicitacion(
       const insertData = {
         numero_licitacion: numeroLicitacion,
         school_id: data.school_id,
-        cliente_id: school.cliente_id ?? null,
+        cliente_id: school.cliente_id,
         programa_id: data.programa_id,
         nombre_licitacion: data.nombre_licitacion,
         year: data.year,

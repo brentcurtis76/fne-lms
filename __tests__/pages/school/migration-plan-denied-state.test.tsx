@@ -13,10 +13,8 @@
  *  - the same holds when the plan GET throws instead of answering (D1)
  *  - a pure assigned consultor with a successful plan response still reads the
  *    plan and has no usable write action on the loaded state (D2)
- *  - an assigned consultor who toggles a cell and presses "Guardar Plan" hits
- *    the route's consultor write refusal (403 with its access-denied copy): the
- *    error is surfaced and no saved state, success toast or successful write
- *    result occurs (D2)
+ *  - an assigned consultor is never offered "Guardar Plan", even after
+ *    toggling a cell, and no write is sent (D2; N8)
  *  - admin and equipo_directivo keep the editable surface and the save control,
  *    which becomes usable after a cell toggle (D3)
  *  - an admin whose first school fails to load recovers in the same mount when
@@ -169,36 +167,26 @@ describe('migration-plan page denied state (PROC-11)', () => {
     expect(await screen.findByText('Matriz de Migración')).toBeInTheDocument();
     expect(screen.getByText('Tercero Básico')).toBeInTheDocument();
     expect(screen.queryByText('Acceso Denegado')).toBeNull();
-    expect(screen.getByRole('button', { name: /Guardar Plan/ })).toBeDisabled();
+    // N8: a consultor reads the plan; «Guardar Plan» is not offered.
+    expect(screen.queryByRole('button', { name: /Guardar Plan/ })).toBeNull();
   });
 
-  it('D2: an assigned consultor who toggles a cell and saves gets the server refusal and no saved state', async () => {
+  it('D2: an assigned consultor who toggles a cell is still offered no save, and nothing is sent', async () => {
     installSupabase(ASSIGNED_CONSULTOR);
-    const fetchMock = installFetch(OK_PLAN, {
-      status: 403,
-      body: { error: 'Solo directivos y administradores pueden acceder al plan de migración' },
-    });
+    const fetchMock = installFetch(OK_PLAN);
 
     render(<MigrationPlanPage />);
 
     expect(await screen.findByText('Matriz de Migración')).toBeInTheDocument();
-    const save = screen.getByRole('button', { name: /Guardar Plan/ });
-    expect(save).toBeDisabled();
-
     fireEvent.click(screen.getAllByRole('button', { name: 'GI' })[0]);
-    await waitFor(() => expect(save).toBeEnabled());
 
-    fireEvent.click(save);
-
-    await waitFor(() =>
-      expect(mockToastError).toHaveBeenCalledWith('Solo directivos y administradores pueden acceder al plan de migración'),
-    );
-    expect(mockToastSuccess).not.toHaveBeenCalled();
-    expect(mockToast).not.toHaveBeenCalled();
-    expect(screen.queryByText('Todos los cambios guardados')).toBeNull();
-    expect(screen.getByText('Tienes cambios sin guardar')).toBeInTheDocument();
+    // N8: the route refuses a consultor's save (its message is pinned in
+    // __tests__/api/school/migration-plan-assignment-auth.test.ts); the page
+    // never offers it.
+    expect(screen.queryByRole('button', { name: /Guardar Plan/ })).toBeNull();
     const puts = fetchMock.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === 'PUT');
-    expect(puts).toHaveLength(1);
+    expect(puts).toHaveLength(0);
+    expect(mockToastSuccess).not.toHaveBeenCalled();
   });
 
   it('D3: an admin keeps the editable plan surface and the save control', async () => {

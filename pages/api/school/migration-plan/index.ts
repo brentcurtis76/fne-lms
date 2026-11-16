@@ -7,6 +7,8 @@ import type { SaveMigrationPlanRequest, GenerationType } from '@/types/assessmen
 const ALWAYS_GT_GRADE_IDS = [1, 2, 3, 4, 5, 6];
 
 const ACCESS_DENIED = 'Solo directivos y administradores pueden acceder al plan de migración';
+// N8: an admitted consultor reads the plan; only the write is refused.
+const CONSULTOR_READ_ONLY = 'Los consultores pueden ver el plan, pero no modificarlo';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Authentication check
@@ -58,7 +60,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // any plan, history or completion-status access; admin and equipo_directivo
   // keep the mutation.
   if (req.method === 'PUT' && via === 'consultor') {
-    return res.status(403).json({ error: ACCESS_DENIED });
+    return res.status(403).json({ error: CONSULTOR_READ_ONLY });
   }
 
   // For non-admin users, we must have a school_id

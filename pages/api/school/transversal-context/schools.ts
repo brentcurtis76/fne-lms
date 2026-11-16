@@ -4,10 +4,16 @@ import { getApiUser, createServiceRoleClient, sendAuthError, handleMethodNotAllo
 /**
  * GET /api/school/transversal-context/schools
  *
- * School picker for the transversal-context and migration-plan pages.
+ * School picker for the transversal-context and migration-plan pages and the
+ * results panel.
  *   active admin or consultor -> every registered school (not narrowed by
  *                                consultant_assignments)
  *   others                    -> 403
+ * With ?scope=assigned (Plan de Migración, Panel de Resultados; N8/GC-7) a
+ * consultor who is not an admin gets only the schools those surfaces let them
+ * open: their ACTIVE consultant_assignments and any school where they are an
+ * active equipo_directivo (the scope of lib/permissions/resultsSchoolScope.ts).
+ * An admin still gets every school.
  * Response shape: { schools: [{ id, name }] } (consumed by
  * pages/school/transversal-context/index.tsx and pages/school/migration-plan/index.tsx).
  */
@@ -28,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: userRoles, error: rolesError } = await serviceClient
       .from('user_roles')
-      .select('role_type')
+      .select('role_type, school_id')
       .eq('user_id', user.id)
       .eq('is_active', true);
 
@@ -45,10 +51,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'Solo administradores y consultores pueden listar escuelas' });
     }
 
-    const { data: schools, error: schoolsError } = await serviceClient
-      .from('schools')
-      .select('id, name')
-      .order('name', { ascending: true });
+    let assignedSchoolIds: number[] | null = null;
+    if (req.query.scope === 'assigned' && !isAdmin) {
+      const { data: assignments, error: assignmentsError } = await serviceClient
+        .from('consultant_assignments')
+        .select('school_id')
+        .eq('consultant_id', user.id)
+        .eq('is_active', true);
+      if (assignmentsError) {
+        console.error('Error fetching consultant assignments:', assignmentsError);
+        return res.status(500).json({ error: 'No se pudieron obtener las escuelas' });
+      }
+      const ids = new Set<number>();
+      for (const a of assignments || []) if (typeof a.school_id === 'number') ids.add(a.school_id);
+      for (const r of userRoles || []) {
+        if (r.role_type === 'equipo_directivo' && typeof r.school_id === 'number') ids.add(r.school_id);
+      }
+      assignedSchoolIds = [...ids];
+      if (assignedSchoolIds.length === 0) {
+        return res.status(200).json({ schools: [] });
+      }
+    }
+
+    let schoolsQuery = serviceClient.from('schools').select('id, name');
+    if (assignedSchoolIds) schoolsQuery = schoolsQuery.in('id', assignedSchoolIds);
+    const { data: schools, error: schoolsError } = await schoolsQuery.order('name', { ascending: true });
 
     if (schoolsError) {
       console.error('Error fetching schools:', schoolsError);

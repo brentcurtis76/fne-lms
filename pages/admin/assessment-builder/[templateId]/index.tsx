@@ -79,6 +79,27 @@ type ObjectiveWithModules = AssessmentObjective & {
   isExpanded?: boolean;
 }
 
+/**
+ * Body for the duplicate route (which requires a name). «Duplicar» on a live
+ * instrument makes a copy: «<name> (copia)». «Editar (Nueva Versión)» on an
+ * archived instrument keeps the name: the route numbers the new draft in the
+ * instrument's own version scope (vía + grade, or vía + name without grade), so
+ * the same name makes it the next version of that instrument. Both keep the
+ * instrument's grade. Names are whitespace-trimmed, as the list page does (the
+ * name column has no length limit).
+ */
+export function buildEditorDuplicateBody(template: {
+  name: string;
+  grade_id?: number | null;
+  is_archived?: boolean | null;
+}): { name: string; grade_id: number | null } {
+  const name = String(template.name ?? '').trim();
+  return {
+    name: template.is_archived === true ? name : `${name} (copia)`,
+    grade_id: template.grade_id ?? null,
+  };
+}
+
 const TemplateEditor: React.FC = () => {
   const router = useRouter();
   const { templateId } = router.query;
@@ -961,6 +982,8 @@ const TemplateEditor: React.FC = () => {
     try {
       const response = await fetch(`/api/admin/assessment-builder/templates/${template.id}/duplicate`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildEditorDuplicateBody(template)),
       });
 
       if (!response.ok) {

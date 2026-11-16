@@ -97,7 +97,14 @@ function installFetch(plan: PlanReply | ((schoolId: number) => PlanReply), putRe
   return fetchMock;
 }
 
-const OK_PLAN = { status: 200, body: { grades: GRADES, entries: [], transformation_year: 2 } } as const;
+// A SAVED plan (GC-6: with nothing saved, every cell is GT — what registros are
+// created with — and «Guardar Plan» is enabled, so "disabled until a change"
+// is only true of a saved plan).
+const SAVED_ENTRIES = [1, 2, 3, 4, 5].flatMap((year) => [
+  { year_number: year, grade_id: 1, generation_type: 'GT' },
+  { year_number: year, grade_id: 7, generation_type: 'GI' },
+]);
+const OK_PLAN = { status: 200, body: { grades: GRADES, entries: SAVED_ENTRIES, transformation_year: 2 } } as const;
 
 function installSupabase(roles: Array<{ role_type: string; school_id: number | null }>) {
   supabaseHolder.current = {

@@ -46,6 +46,7 @@ import {
   type EligibilityTemplateRow,
 } from '@/lib/services/assessment-builder/templateEligibility';
 import { loadViaRules } from '@/lib/services/assessment-builder/viaRules';
+import { effectiveGenerationType } from '@/lib/services/assessment-builder/migrationPlanRule';
 
 export type AutoAssignmentDetailStatus =
   | 'created'            // new instance created and docente linked
@@ -360,7 +361,7 @@ async function resolveCourseAssignmentPlan(
   const isAlwaysGT = gradeData?.is_always_gt ?? true;
 
   // Determine generation_type from Migration Plan (only if grade is not always_gt)
-  let generationType: GenerationType = 'GT';
+  let savedGenerationType: GenerationType | null = null;
 
   if (!isAlwaysGT) {
     const { data: migrationPlanEntry, error: mpError } = await supabaseAdmin
@@ -374,15 +375,16 @@ async function resolveCourseAssignmentPlan(
     if (mpError || !migrationPlanEntry) {
       // No migration plan entry - default to GT and warn (non-blocking, must stay visible)
       plan.warnings.push(
-        `No se encontró plan de migración para el nivel "${gradeLabel(plan)}" (grade_id ${courseGradeId}) ` +
+        `No se encontró plan de migración para el nivel "${gradeLabel(plan)}" ` +
         `en el año ${plan.transformationYear}. Se usará GT por defecto.`
       );
     } else {
-      generationType = migrationPlanEntry.generation_type as GenerationType;
+      savedGenerationType = migrationPlanEntry.generation_type as GenerationType;
     }
   }
 
-  plan.generationType = generationType;
+  // The same rule the Plan de Migración page shows (migrationPlanRule.ts).
+  plan.generationType = effectiveGenerationType(isAlwaysGT, savedGenerationType);
 
   // Eligible templates for the course's grade: status = published AND is_archived = false.
   // `any` on purpose: the typed builder's select-string parser is deep enough to trip

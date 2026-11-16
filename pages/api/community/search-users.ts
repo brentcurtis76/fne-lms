@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
-import { fetchProfileCards, type ProfileCard } from '../../../lib/profile-cards';
+import { createServiceRoleClient } from '../../../lib/api-auth';
 
 /** Lower case without accents, so «nunez» finds «Núñez»; hyphens and dots are kept. */
 function foldForSearch(text: string): string {
@@ -69,20 +69,36 @@ export default async function handler(
       return res.status(200).json([]);
     }
 
-    // Names through the profile cards (EC-S5): other people's profile rows are
-    // not readable with the caller's session. A card carries id, names and
-    // picture only — the answer never includes an e-mail.
-    const cards = await fetchProfileCards(supabaseServerClient, communityUserIds);
+    // Who may be offered is decided here, on the server: co-members whose
+    // profile is approved, as before EC-S5 (send-back 1, 5). Other people's
+    // profile rows are not readable with the caller's session, so the lookup
+    // uses the service client and asks only for the columns returned — never
+    // an e-mail or the approval status.
+    const { data: approved, error: approvedError } = await createServiceRoleClient()
+      .from('profiles')
+      .select('id, first_name, last_name, avatar_url')
+      .in('id', communityUserIds)
+      .eq('approval_status', 'approved');
+
+    if (approvedError) {
+      console.error('Error fetching users');
+      return res.status(500).json({ error: 'Failed to fetch users' });
+    }
+
+    const byId = new Map(
+      ((approved || []) as Array<{ id: string; first_name: string | null; last_name: string | null; avatar_url: string | null }>)
+        .map((person) => [person.id, person])
+    );
     const wanted = foldForSearch(searchQuery);
     const formattedUsers = communityUserIds
-      .map((id) => cards.get(id))
-      .filter((card): card is ProfileCard => Boolean(card))
-      .map((card) => ({
-        id: card.id,
-        first_name: card.first_name,
-        last_name: card.last_name,
-        avatar_url: card.avatar_url,
-        display_name: `${card.first_name || ''} ${card.last_name || ''}`.trim(),
+      .map((id) => byId.get(id))
+      .filter((person): person is NonNullable<typeof person> => Boolean(person))
+      .map((person) => ({
+        id: person.id,
+        first_name: person.first_name,
+        last_name: person.last_name,
+        avatar_url: person.avatar_url,
+        display_name: `${person.first_name || ''} ${person.last_name || ''}`.trim(),
       }))
       .filter((user) => !wanted || foldForSearch(user.display_name).includes(wanted))
       .slice(0, 10);

@@ -346,7 +346,9 @@ describe('triggerAutoAssignment', () => {
 
     expect(result.success).toBe(true);
     expect(result.warnings).toContainEqual(expect.stringContaining('plan de migración'));
-    expect(result.warnings[0]).toContain(`grade_id ${GRADE_ID}`);
+    // GC-6: the warning names the grade, not its number
+    expect(result.warnings[0]).toContain(`"${GRADE_NAME}"`);
+    expect(result.warnings[0]).not.toContain('grade_id');
   });
 
   // ── Idempotent reconciliation (A-02) — outcomes reported by the RPC ──

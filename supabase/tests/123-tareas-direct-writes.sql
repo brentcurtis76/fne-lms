@@ -14,6 +14,10 @@
 --             four summary views (the service role keeps them).
 --   T-WRITES-b: tasks (lesson_assignments) are inserted and changed directly
 --             by admins only; their creators can still delete them.
+--   T-WRITES-c: groups are deleted directly by admins only (a delete cascades
+--             to the members and their saved and graded work).
+--   T-READS-b: a group's work record is read by the group's members only
+--             while the record's own person is still a member of it.
 --
 -- Personas: anon; admin; learners A and C (school 9231, community d1, course 1,
 -- members of group 1 on task block 1); learner B (same school, community and
@@ -27,7 +31,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(138);
+SELECT plan(148);
 
 CREATE OR REPLACE FUNCTION pg_temp.set_anon() RETURNS void AS $$
 BEGIN
@@ -474,6 +478,92 @@ SELECT is(pg_temp.affected($q$UPDATE public.lesson_assignments SET title = 'Synt
   'still works: the admin updates a task');
 SELECT is(pg_temp.affected($q$DELETE FROM public.lesson_assignments WHERE id = '12300000-0000-4000-8000-0000000001b4'$q$), 1,
   'still works: the admin deletes a task');
+RESET ROLE;
+SELECT tests.clear_authentication();
+
+-- ----------------------------------------------------------------------------
+-- 9. T-WRITES-c — a group is deleted directly by admins only; its members and
+--    their saved and graded work no longer go with a non-admin's delete (7)
+-- ----------------------------------------------------------------------------
+-- Four more groups of the community, none with a discussion, each with one
+-- member and one saved, graded work record (inserted as the superuser):
+--   a5: A is its member; a6: C is its member (A is not);
+--   a7: deleted by the admin; a8: deleted by the service role.
+INSERT INTO public.group_assignment_groups (id, assignment_id, community_id, name, school_id) VALUES
+  ('12300000-0000-4000-8000-0000000000a5', 'tar123-del-a5', '12300000-0000-4000-8000-0000000000d1', 'TAR123 group a5', 9231),
+  ('12300000-0000-4000-8000-0000000000a6', 'tar123-del-a6', '12300000-0000-4000-8000-0000000000d1', 'TAR123 group a6', 9231),
+  ('12300000-0000-4000-8000-0000000000a7', 'tar123-del-a7', '12300000-0000-4000-8000-0000000000d1', 'TAR123 group a7', 9231),
+  ('12300000-0000-4000-8000-0000000000a8', 'tar123-del-a8', '12300000-0000-4000-8000-0000000000d1', 'TAR123 group a8', 9231);
+INSERT INTO public.group_assignment_members (group_id, assignment_id, user_id, role) VALUES
+  ('12300000-0000-4000-8000-0000000000a5', 'tar123-del-a5', pg_temp.uid('tar123_lrn_a'), 'member'),
+  ('12300000-0000-4000-8000-0000000000a6', 'tar123-del-a6', pg_temp.uid('tar123_lrn_c'), 'member'),
+  ('12300000-0000-4000-8000-0000000000a7', 'tar123-del-a7', pg_temp.uid('tar123_lrn_c'), 'member'),
+  ('12300000-0000-4000-8000-0000000000a8', 'tar123-del-a8', pg_temp.uid('tar123_lrn_c'), 'member');
+INSERT INTO public.group_assignment_submissions (id, assignment_id, group_id, user_id, content, status, grade, feedback) VALUES
+  ('12300000-0000-4000-8000-0000000005a5', 'tar123-del-a5', '12300000-0000-4000-8000-0000000000a5', pg_temp.uid('tar123_lrn_a'), 'TAR123 a5 work', 'graded', 6, 'TAR123 a5 feedback'),
+  ('12300000-0000-4000-8000-0000000005a6', 'tar123-del-a6', '12300000-0000-4000-8000-0000000000a6', pg_temp.uid('tar123_lrn_c'), 'TAR123 a6 work', 'graded', 6, 'TAR123 a6 feedback'),
+  ('12300000-0000-4000-8000-0000000005a7', 'tar123-del-a7', '12300000-0000-4000-8000-0000000000a7', pg_temp.uid('tar123_lrn_c'), 'TAR123 a7 work', 'graded', 6, 'TAR123 a7 feedback'),
+  ('12300000-0000-4000-8000-0000000005a8', 'tar123-del-a8', '12300000-0000-4000-8000-0000000000a8', pg_temp.uid('tar123_lrn_c'), 'TAR123 a8 work', 'graded', 6, 'TAR123 a8 feedback');
+
+SELECT tests.authenticate_as('tar123_lrn_a');
+SELECT is(pg_temp.affected($q$DELETE FROM public.group_assignment_groups WHERE id = '12300000-0000-4000-8000-0000000000a5'$q$), 0,
+  'T-WRITES-c: learner A cannot delete a group they are a member of (no discussion)');
+SELECT is(pg_temp.affected($q$DELETE FROM public.group_assignment_groups WHERE id = '12300000-0000-4000-8000-0000000000a6'$q$), 0,
+  'T-WRITES-c: learner A cannot delete another group of their community (no discussion)');
+RESET ROLE;
+SELECT tests.clear_authentication();
+SELECT is((SELECT count(*)::int FROM public.group_assignment_groups
+            WHERE id IN ('12300000-0000-4000-8000-0000000000a5', '12300000-0000-4000-8000-0000000000a6')), 2,
+  'T-WRITES-c: groups a5 and a6 are still there');
+SELECT is((SELECT count(*)::int FROM public.group_assignment_members
+            WHERE group_id IN ('12300000-0000-4000-8000-0000000000a5', '12300000-0000-4000-8000-0000000000a6')), 2,
+  'T-WRITES-c: the members of a5 and a6 are still there');
+SELECT is((SELECT count(*)::int FROM public.group_assignment_submissions
+            WHERE id IN ('12300000-0000-4000-8000-0000000005a5', '12300000-0000-4000-8000-0000000005a6')
+              AND status = 'graded' AND grade = 6), 2,
+  'T-WRITES-c: the saved, graded work of a5 and a6 is still there');
+
+SELECT tests.authenticate_as('tar123_admin');
+SELECT is(pg_temp.affected($q$DELETE FROM public.group_assignment_groups WHERE id = '12300000-0000-4000-8000-0000000000a7'$q$), 1,
+  'still works: the admin deletes a group without a discussion');
+RESET ROLE;
+SELECT tests.clear_authentication();
+
+SET LOCAL ROLE service_role;
+SELECT set_config('request.jwt.claims', '{"role":"service_role"}', true);
+SELECT is(pg_temp.affected($q$DELETE FROM public.group_assignment_groups WHERE id = '12300000-0000-4000-8000-0000000000a8'$q$), 1,
+  'still works: the service role deletes a group');
+RESET ROLE;
+
+-- ----------------------------------------------------------------------------
+-- 10. T-READS-b — a group's work is read by its current members only; a
+--     person who leaves keeps reading their own record (3)
+-- ----------------------------------------------------------------------------
+-- C leaves group 1 (C's work record stays).
+DELETE FROM public.group_assignment_members
+ WHERE group_id = '12300000-0000-4000-8000-0000000000a1' AND user_id = pg_temp.uid('tar123_lrn_c');
+-- Group a9: B was its only member and left (B's record stays); learner A is
+-- then added as its member, as add-classmates does for an emptied group.
+INSERT INTO public.group_assignment_groups (id, assignment_id, community_id, name, school_id) VALUES
+  ('12300000-0000-4000-8000-0000000000a9', 'tar123-empty-a9', '12300000-0000-4000-8000-0000000000d1', 'TAR123 group a9', 9231);
+INSERT INTO public.group_assignment_members (group_id, assignment_id, user_id, role) VALUES
+  ('12300000-0000-4000-8000-0000000000a9', 'tar123-empty-a9', pg_temp.uid('tar123_lrn_b'), 'member');
+INSERT INTO public.group_assignment_submissions (id, assignment_id, group_id, user_id, content, status, grade, feedback) VALUES
+  ('12300000-0000-4000-8000-0000000005a9', 'tar123-empty-a9', '12300000-0000-4000-8000-0000000000a9', pg_temp.uid('tar123_lrn_b'), 'TAR123 a9 work by B', 'graded', 5, 'TAR123 a9 feedback for B');
+DELETE FROM public.group_assignment_members
+ WHERE group_id = '12300000-0000-4000-8000-0000000000a9' AND user_id = pg_temp.uid('tar123_lrn_b');
+INSERT INTO public.group_assignment_members (group_id, assignment_id, user_id, role) VALUES
+  ('12300000-0000-4000-8000-0000000000a9', 'tar123-empty-a9', pg_temp.uid('tar123_lrn_a'), 'member');
+
+SELECT tests.authenticate_as('tar123_lrn_a');
+SELECT is((SELECT count(*)::int FROM public.group_assignment_submissions WHERE id = '12300000-0000-4000-8000-0000000005c1'), 0,
+  'T-READS-b: learner A (still in group 1) does not read the record of C, who left group 1');
+SELECT is((SELECT count(*)::int FROM public.group_assignment_submissions WHERE id = '12300000-0000-4000-8000-0000000005a9'), 0,
+  'T-READS-b: learner A, added to an emptied group, does not read the work of B, who left it');
+RESET ROLE;
+SELECT tests.authenticate_as('tar123_lrn_c');
+SELECT is((SELECT count(*)::int FROM public.group_assignment_submissions WHERE id = '12300000-0000-4000-8000-0000000005c1'), 1,
+  'still works: C reads their own group 1 record after leaving the group');
 RESET ROLE;
 SELECT tests.clear_authentication();
 

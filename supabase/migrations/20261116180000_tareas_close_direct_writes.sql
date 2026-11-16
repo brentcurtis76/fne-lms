@@ -12,16 +12,23 @@
 --             application's server routes, which write as the service role;
 --             direct writes to these tables now require an admin.
 --   T-WRITES-b  tasks (lesson_assignments): direct insert / update now admin only; creators keep deleting their own.
+--   T-WRITES-c  any active role of a group's community could delete the group
+--             directly, and with it (by cascade) its members and every
+--             member's saved and graded work: direct group deletes now
+--             require an admin.
 --   T-READS   every active consultor / admin / equipo_directivo /
 --             lider_generacion read every lesson task answer and every answer
 --             share of every school; any active role of a group's community
 --             read every group's work record, grade and feedback; signed-in
 --             people read four summary views that run with their owner's
 --             rights (visitors lost them in 20261006180000).
+--   T-READS-b a person who joined a group read the work, grade and feedback
+--             of the people who had left it: a group's members now read a
+--             record only while its own person is still a member.
 --
 -- Statements: CREATE POLICY ... AS RESTRICTIVE (insert / update / delete,
--- admin only) on eight tables, insert / update on lesson_assignments and an
--- insert one on course_completions; four
+-- admin only) on eight tables, insert / update on lesson_assignments, delete
+-- on group_assignment_groups and an insert one on course_completions; four
 -- ALTER POLICY; one REVOKE on four views. Additive only; RLS stays enabled.
 -- public.auth_is_admin() is executable by anon, authenticated and
 -- service_role (baseline grants), so the new rules carry no role clause.
@@ -63,8 +70,8 @@ CREATE POLICY "assignment_submission_shares_direct_update_admin_only" ON public.
 CREATE POLICY "assignment_submission_shares_direct_delete_admin_only" ON public.assignment_submission_shares
   AS RESTRICTIVE FOR DELETE USING (public.auth_is_admin());
 
--- group_assignment_groups: no delete rule here; the restrictive
--- "discussion_group_delete_boundary" (20261006220000) keeps governing deletes.
+-- group_assignment_groups: no delete rule here; its admin-only delete rule is
+-- added below (T-WRITES-c), next to "discussion_group_delete_boundary".
 CREATE POLICY "group_assignment_groups_direct_insert_admin_only" ON public.group_assignment_groups
   AS RESTRICTIVE FOR INSERT WITH CHECK (public.auth_is_admin());
 CREATE POLICY "group_assignment_groups_direct_update_admin_only" ON public.group_assignment_groups
@@ -100,7 +107,10 @@ ALTER POLICY "Teachers can view course submissions" ON public.lesson_assignment_
 ALTER POLICY "Teachers can view shares" ON public.assignment_submission_shares
   USING (public.auth_is_admin());
 -- First three branches exactly as in the baseline; the last branch ("any
--- active role in the group's community") becomes "a member of this group".
+-- active role in the group's community") becomes "a member of this group,
+-- reading a record whose own person is still a member of it" (T-READS-b).
+-- The EXISTS runs with the caller's rights: "Users can view group members"
+-- lets a member read every membership row of their own group.
 ALTER POLICY "Users can view submissions based on role" ON public.group_assignment_submissions
   USING (
     (EXISTS ( SELECT 1
@@ -111,7 +121,10 @@ ALTER POLICY "Users can view submissions based on role" ON public.group_assignme
        FROM (public.group_assignment_groups gag
          JOIN public.user_roles consultant_role ON (((consultant_role.community_id = gag.community_id) AND (consultant_role.role_type = 'consultor'::public.user_role_type) AND (consultant_role.is_active = true))))
       WHERE ((gag.id = group_assignment_submissions.group_id) AND (consultant_role.user_id = auth.uid()))))
-    OR public.user_is_in_group(group_id, auth.uid())
+    OR ( public.user_is_in_group(group_id, auth.uid())
+         AND EXISTS ( SELECT 1 FROM public.group_assignment_members gm
+                      WHERE gm.group_id = group_assignment_submissions.group_id
+                        AND gm.user_id = group_assignment_submissions.user_id ) )
   );
 
 REVOKE ALL ON public.group_assignments_with_status, public.quiz_statistics,
@@ -124,3 +137,10 @@ CREATE POLICY "lesson_assignments_direct_insert_admin_only" ON public.lesson_ass
   AS RESTRICTIVE FOR INSERT WITH CHECK (public.auth_is_admin());
 CREATE POLICY "lesson_assignments_direct_update_admin_only" ON public.lesson_assignments
   AS RESTRICTIVE FOR UPDATE USING (public.auth_is_admin()) WITH CHECK (public.auth_is_admin());
+
+-- T-WRITES-c: a group is deleted directly by admins only (a delete cascades to
+-- its members and their work records). Adds to the restrictive
+-- "discussion_group_delete_boundary" (20261006220000); both must hold. The
+-- application deletes no group with a person's own session.
+CREATE POLICY "group_assignment_groups_direct_delete_admin_only" ON public.group_assignment_groups
+  AS RESTRICTIVE FOR DELETE USING (public.auth_is_admin());

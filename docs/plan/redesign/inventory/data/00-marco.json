@@ -5,55 +5,62 @@
  "routesOnly": false,
  "frame": true,
  "readFrom": {
-  "commit": "c4375a0850d8e791dac1bf7d350fcf350509a90f",
-  "date": "2026-11-16T11:16:44-03:00"
+  "commit": "d5d93151e513c66866958be3762f238dcb41068f",
+  "date": "2026-11-16T11:54:38-03:00"
  },
  "screens": [
   {
    "file": "pages/_app.tsx",
    "route": null,
-   "lines": 62,
+   "lines": 65,
    "marks": {},
    "frame": "none",
    "server": "none",
    "rows": [
     {
      "kind": "piece",
-     "line": 32,
+     "line": 33,
      "in": "MyApp",
      "text": "",
      "tag": "AuthProvider"
     },
     {
      "kind": "piece",
-     "line": 33,
+     "line": 34,
+     "in": "MyApp",
+     "text": "",
+     "tag": "LookProvider"
+    },
+    {
+     "kind": "piece",
+     "line": 35,
      "in": "MyApp",
      "text": "",
      "tag": "PermissionProvider"
     },
     {
      "kind": "text",
-     "line": 35,
+     "line": 37,
      "in": "MyApp",
      "text": "Genera"
     },
     {
      "kind": "piece",
-     "line": 44,
+     "line": 46,
      "in": "MyApp",
      "text": "",
      "tag": "DynamicFavicon"
     },
     {
      "kind": "piece",
-     "line": 45,
+     "line": 47,
      "in": "MyApp",
      "text": "",
      "tag": "QASessionProvider"
     },
     {
      "kind": "string",
-     "line": 40,
+     "line": 42,
      "in": "MyApp",
      "text": "Hub de Transformación Educativa - Genera"
     }
@@ -3340,6 +3347,27 @@
     }
    ]
   },
+  "contexts/LookContext.tsx": {
+   "usedBy": [
+    "(the frame)"
+   ],
+   "lines": 54,
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 36,
+     "in": "LookProvider",
+     "text": "loading"
+    },
+    {
+     "kind": "value",
+     "line": 47,
+     "in": "LookProvider",
+     "text": "{children}"
+    }
+   ],
+   "db": []
+  },
   "contexts/PermissionContext.tsx": {
    "usedBy": [
     "(the frame)"
@@ -3498,6 +3526,24 @@
       "Carlos Silva Vildósola 10448",
       "La Reina, Santiago",
       "Chile"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "lib/look.ts": {
+   "usedBy": [
+    "(the frame)"
+   ],
+   "lines": 84,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 30,
+     "in": "lookFromPreferences",
+     "text": "lookFromPreferences()",
+     "items": [
+      "nuevo / clasico"
      ]
     }
    ],

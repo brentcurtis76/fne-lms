@@ -2,7 +2,7 @@
 
 What every screen of the platform offers today, so the redesign can prove that nothing is lost (PLAN.md, "The no-loss rules": the inventory is the contract).
 
-Read from commit `c4375a0850d8e791dac1bf7d350fcf350509a90f` (2026-11-16).
+Read from commit `d5d93151e513c66866958be3762f238dcb41068f` (2026-11-16).
 
 ## How to use it
 
@@ -29,7 +29,7 @@ What reading the code cannot see is added by the walk by sight and kept in `anno
 
 | Area | Screens | API files | Pieces | Rows |
 |---|---|---|---|---|
-| [Marco (the frame around every screen)](00-marco.md) | 2 | 1 | 25 | 478 |
+| [Marco (the frame around every screen)](00-marco.md) | 2 | 1 | 27 | 482 |
 | [Acceso (sign-in, sign-up, passwords)](01-acceso.md) | 7 | 13 | 7 | 318 |
 | [Panel (Mi Panel)](02-panel.md) | 1 | 6 | 24 | 338 |
 | [Mi Aprendizaje (the learner's courses, lessons and routes)](03-aprendizaje.md) | 7 | 1 | 23 | 632 |
@@ -45,12 +45,12 @@ What reading the code cannot see is added by the walk by sight and kept in `anno
 | [Reportes](13-reportes.md) | 3 | 10 | 20 | 734 |
 | [Personas (users, schools, networks, roles, profile)](14-personas.md) | 7 | 33 | 24 | 1242 |
 | [Comunicación (news and events)](15-comunicacion.md) | 2 | 4 | 6 | 174 |
-| [Notificaciones](16-notificaciones.md) | 4 | 9 | 7 | 257 |
+| [Notificaciones](16-notificaciones.md) | 5 | 10 | 8 | 285 |
 | [Horas, tarifas y gastos](17-horas-gastos.md) | 4 | 9 | 15 | 441 |
 | [QA (the platform's own test tool)](18-qa.md) | 16 | 21 | 13 | 1237 |
 | [Sistema (configuration, support, roadmap, test and debug pages, scheduled jobs)](19-sistema.md) | 3 | 26 | 6 | 257 |
 | [Sitio público (nuevaeducacion.org pages; not part of the platform redesign)](20-sitio-publico.md) | 8 | 1 | 28 | 825 |
-| **Total** | **152** | **364** | | **17449** |
+| **Total** | **153** | **365** | | **17481** |
 
 The menu has 18 entries at the top level and 61 children (`NAVIGATION_ITEMS` in `components/layout/Sidebar.tsx`).
 

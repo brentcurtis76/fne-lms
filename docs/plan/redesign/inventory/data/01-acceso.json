@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "c4375a0850d8e791dac1bf7d350fcf350509a90f",
-  "date": "2026-11-16T11:16:44-03:00"
+  "commit": "d5d93151e513c66866958be3762f238dcb41068f",
+  "date": "2026-11-16T11:54:38-03:00"
  },
  "screens": [
   {
@@ -740,8 +740,10 @@
      "pages/community/workspace.tsx:336",
      "pages/community/workspace/assignments/[id]/discussion.tsx:33",
      "pages/community/workspace/assignments/[id]/groups.tsx:28",
-     "pages/configuracion/notificaciones.tsx:117",
-     "pages/configuracion/notificaciones.tsx:143",
+     "pages/configuracion/apariencia.tsx:25",
+     "pages/configuracion/apariencia.tsx:41",
+     "pages/configuracion/notificaciones.tsx:121",
+     "pages/configuracion/notificaciones.tsx:148",
      "pages/consultor/sessions/[id].tsx:109",
      "pages/consultor/sessions/[id].tsx:131",
      "pages/consultor/sessions/[id].tsx:159",
@@ -836,6 +838,7 @@
       "tests/e2e/auth-cookie-identity.spec.ts",
       "tests/e2e/auth-lifecycle.spec.ts",
       "tests/e2e/login-resilience.spec.ts",
+      "tests/e2e/look-switch.spec.ts",
       "tests/e2e/notification-preferences-api.spec.ts",
       "tests/e2e/notification-settings.spec.ts",
       "tests/e2e/pasantias-leads-admin.spec.ts",

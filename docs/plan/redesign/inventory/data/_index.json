@@ -1,11 +1,11 @@
 {
  "readFrom": {
-  "commit": "c4375a0850d8e791dac1bf7d350fcf350509a90f",
-  "date": "2026-11-16T11:16:44-03:00"
+  "commit": "d5d93151e513c66866958be3762f238dcb41068f",
+  "date": "2026-11-16T11:54:38-03:00"
  },
  "counts": {
-  "screens": 152,
-  "api": 364
+  "screens": 153,
+  "api": 365
  },
  "menu": {
   "top": 18,
@@ -5316,6 +5316,52 @@
     "encargado_licitacion": {
      "menu": "no",
      "middleware": "sent to /dashboard"
+    }
+   }
+  },
+  {
+   "route": "/configuracion/apariencia",
+   "file": "pages/configuracion/apariencia.tsx",
+   "area": "16-notificaciones",
+   "dynamic": false,
+   "frame": "MainLayout",
+   "marks": [],
+   "roles": {
+    "admin": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "consultor": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "equipo_directivo": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "lider_generacion": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "lider_comunidad": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "supervisor_de_red": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "community_manager": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "docente": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "encargado_licitacion": {
+     "menu": "—",
+     "middleware": "pass"
     }
    }
   },

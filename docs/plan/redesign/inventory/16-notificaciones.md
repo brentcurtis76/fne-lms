@@ -1,22 +1,146 @@
 # Notificaciones
 
 Area `16-notificaciones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `c4375a085` (2026-11-16).
+Read from commit `d5d93151e` (2026-11-16).
 
-4 screen files, 9 API files, 7 pieces.
+5 screen files, 10 API files, 8 pieces.
 
 ## Screens
 
 | Address | File | Lines | Menu | Marks |
 |---|---|---|---|---|
-| `/configuracion` | `pages/configuracion/index.tsx` | 11 | — |  |
-| `/configuracion/notificaciones` | `pages/configuracion/notificaciones.tsx` | 439 | — |  |
+| `/configuracion/apariencia` | `pages/configuracion/apariencia.tsx` | 191 | — |  |
+| `/configuracion` | `pages/configuracion/index.tsx` | 14 | — |  |
+| `/configuracion/notificaciones` | `pages/configuracion/notificaciones.tsx` | 451 | — |  |
 | `/notificaciones/baja` | `pages/notificaciones/baja.tsx` | 192 | — |  |
 | `/notifications` | `pages/notifications.tsx` | 653 | — |  |
 
+## /configuracion/apariencia
+
+File `pages/configuracion/apariencia.tsx` · 191 lines · frame: MainLayout · getServerSideProps
+
+### Who reaches it
+
+- Menu: no entry.
+- Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
+- In the page:
+  - l.41 `server redirect → /login?next=[*]  (when !viewer)`
+- Linked from: `pages/configuracion/notificaciones.tsx:442`
+- Tests: browser tests that CI runs: `tests/e2e/look-switch.spec.ts`; unit tests of the page: `__tests__/pages/apariencia.test.tsx`.
+
+| Role | Sees it in the menu | Middleware |
+|---|---|---|
+| admin | — | pass |
+| consultor | — | pass |
+| equipo_directivo | — | pass |
+| lider_generacion | — | pass |
+| lider_comunidad | — | pass |
+| supervisor_de_red | — | pass |
+| community_manager | — | pass |
+| docente | — | pass |
+| encargado_licitacion | — | pass |
+
+### What the page file itself draws
+
+**Buttons** (1)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «Guardando… / Guardar cambios» (submits the form) |  |  | `{saving \|\| choice === saved}` | `testid=look-save` | AparienciaPage · l.152 |
+
+**Links** (2)
+
+| Text | Goes to | Shown when | Hook | Where |
+|---|---|---|---|---|
+| «Inicia sesión nuevamente» | `{LOGIN_AGAIN}` | `notice?.kind === 'expired'` |  | AparienciaPage · l.169 |
+| «Notificaciones por correo» | `{SETTINGS}` |  | `testid=look-to-notifications` | AparienciaPage · l.183 |
+
+**Fields** (1)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+| «{option.label} {option.detail}» | radio | `look` |  | `each OPTIONS` | `testid=look-option-{option.value} id=look-option-{option.value}` | AparienciaPage · l.127 |
+
+**Forms** (1)
+
+| On submit | Shown when | Where |
+|---|---|---|
+| `{(event) => { event.preventDefault(); void save(); }}` |  | AparienciaPage · l.114 |
+
+**Messages set on the page** (2)
+
+| Text | Set by | When | Where |
+|---|---|---|---|
+| «expired / Tu sesión terminó.» | `setNotice` | `res.status === 401` | save · l.92 |
+| «saved / Tu apariencia se guardó.» | `setNotice` | `!(res.status === 401) && (!(!res.ok \|\| !isLook(body?.look)))` | save · l.99 |
+
+**Moves to another page from code** (3)
+
+| Goes to | How | When | Where |
+|---|---|---|---|
+| `/login?next=[*]` | `server redirect` | `!viewer` | getServerSideProps · l.41 |
+| `{forcedChangeRedirectPath(verdict)}` | `server redirect` | `verdict !== 'allowed'` | getServerSideProps · l.47 |
+| `{SETTINGS}` | `server redirect` | `profile.error \|\| !mayChooseLook(profile.data)` | getServerSideProps · l.57 |
+
+**Draws nothing when** (1)
+
+| Condition | Where |
+|---|---|
+| `saving` | AparienciaPage · l.136 |
+
+**Pieces placed here, with the texts and settings handed to them** (1)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `MainLayout` | pageTitle: Apariencia · breadcrumbs: Configuración / Apariencia |  |  | AparienciaPage · l.109 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (2)
+
+| Name | Texts | Where |
+|---|---|---|
+| `SAVE_ERROR` | «No pudimos guardar tu apariencia. Intenta nuevamente.» | l.26 |
+| `OPTIONS` | «Diseño actual», «La plataforma tal como se ve hoy.», «Diseño nuevo (en construcción)», «El rediseño de la plataforma. Se irá activando por partes; mientras tanto puede verse igual al actual.» | l.28 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (6)
+
+| Kind | What | Where |
+|---|---|---|
+| mark | `testid=look-settings` | AparienciaPage · l.110 |
+| role | `role=status aria-live=polite` | AparienciaPage · l.155 |
+| mark | `testid=look-saved` | AparienciaPage · l.157 |
+| mark | `testid=look-save-error` | AparienciaPage · l.162 |
+| mark | `testid=look-expired` | AparienciaPage · l.167 |
+| mark | `testid=look-unsaved` | AparienciaPage · l.175 |
+
+**Values shown from data** (2)
+
+- `{notice.text}` — AparienciaPage · l.157, when `notice?.kind === 'saved'`
+- `{notice.text}` — AparienciaPage · l.162, when `notice?.kind === 'error'`
+
+**Other texts on screen** (4)
+
+- «Elige cómo se ve la plataforma para tu cuenta. El cambio solo te afecta a ti y puedes volver atrás cuando quieras.» — AparienciaPage · l.112
+- «Diseño de la plataforma» (label) — AparienciaPage · l.121
+- «{option.label} {option.detail}» (label) — AparienciaPage · l.142, when `each OPTIONS`
+- «Tienes cambios sin guardar.» — AparienciaPage · l.176, when `!notice && choice !== saved`
+
+**Reads and writes the database directly:** `table:profiles` (select)
+
+### Pieces it uses (each is listed once, under "Pieces" below)
+
+- `lib/api-auth.ts`
+- `lib/auth/forced-password-change.ts`
+- `lib/look.ts`
+
+### API addresses it calls
+
+| Address | Method | Called from |
+|---|---|---|
+| `/api/user/look` | ? | `pages/configuracion/apariencia.tsx:23` |
+
 ## /configuracion
 
-File `pages/configuracion/index.tsx` · 11 lines · frame: none · getServerSideProps
+File `pages/configuracion/index.tsx` · 14 lines · frame: none · getServerSideProps
 
 ### Who reaches it
 
@@ -24,7 +148,7 @@ File `pages/configuracion/index.tsx` · 11 lines · frame: none · getServerSide
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
 - Linked from: `lib/auth/forced-password-change.ts:135`, `middleware.ts:330`
-- Tests: browser tests that CI runs: `tests/e2e/notification-settings.spec.ts`; unit tests of the page: `__tests__/pages/notification-settings.test.tsx`.
+- Tests: browser tests that CI runs: `tests/e2e/look-switch.spec.ts`, `tests/e2e/notification-settings.spec.ts`; unit tests of the page: `__tests__/pages/notification-settings.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
 |---|---|---|
@@ -44,20 +168,20 @@ File `pages/configuracion/index.tsx` · 11 lines · frame: none · getServerSide
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/configuracion/notificaciones` | `server redirect` |  | getServerSideProps · l.5 |
+| `/configuracion/notificaciones` | `server redirect` |  | getServerSideProps · l.8 |
 
 ## /configuracion/notificaciones
 
-File `pages/configuracion/notificaciones.tsx` · 439 lines · frame: MainLayout · getServerSideProps
+File `pages/configuracion/notificaciones.tsx` · 451 lines · frame: MainLayout · getServerSideProps
 
 ### Who reaches it
 
 - Menu: no entry.
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
-  - l.117 `server redirect → /login?next=[*]  (when !viewer)`
-- Linked from: `components/notifications/ModernNotificationCenter.tsx:465`, `components/notifications/ModernNotificationCenter.tsx:466`, `components/notifications/NotificationDropdown.tsx:187`, `components/notifications/NotificationDropdown.tsx:188`, `lib/email/notifications.ts:30`, `pages/admin/configuration.tsx:396`, `pages/admin/configuration.tsx:397`, `pages/configuracion/index.tsx:5`, `pages/notifications.tsx:381`, `pages/profile.tsx:743`, `pages/profile.tsx:744`
-- Tests: browser tests that CI runs: `tests/e2e/notification-settings.spec.ts`; unit tests of the page: `__tests__/pages/notification-settings.test.tsx`.
+  - l.121 `server redirect → /login?next=[*]  (when !viewer)`
+- Linked from: `components/notifications/ModernNotificationCenter.tsx:465`, `components/notifications/ModernNotificationCenter.tsx:466`, `components/notifications/NotificationDropdown.tsx:187`, `components/notifications/NotificationDropdown.tsx:188`, `lib/email/notifications.ts:30`, `pages/admin/configuration.tsx:396`, `pages/admin/configuration.tsx:397`, `pages/configuracion/apariencia.tsx:24`, `pages/configuracion/index.tsx:8`, `pages/notifications.tsx:381`, `pages/profile.tsx:743`, `pages/profile.tsx:744`
+- Tests: browser tests that CI runs: `tests/e2e/look-switch.spec.ts`, `tests/e2e/notification-settings.spec.ts`; unit tests of the page: `__tests__/pages/notification-settings.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
 |---|---|---|
@@ -77,115 +201,116 @@ File `pages/configuracion/notificaciones.tsx` · 439 lines · frame: MainLayout 
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Recargar» | `{() => window.location.reload()}` | `status === 'session_changed'` |  | `testid=ns-reload` | NotificationSettingsPage · l.272 |
-| «Reintentar» | `{() => (categories ? void load() : window.location.reload())}` | `!(status === 'session_changed') && !(status === 'expired') && status === 'error'` |  | `testid=ns-retry` | NotificationSettingsPage · l.290 |
-| «Guardando… / Guardar cambios» (submits the form) |  | `!(status === 'expired') && !(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0)` | `{saving \|\| changes.length === 0}` | `testid=ns-save` | NotificationSettingsPage · l.409 |
+| «Recargar» | `{() => window.location.reload()}` | `status === 'session_changed'` |  | `testid=ns-reload` | NotificationSettingsPage · l.277 |
+| «Reintentar» | `{() => (categories ? void load() : window.location.reload())}` | `!(status === 'session_changed') && !(status === 'expired') && status === 'error'` |  | `testid=ns-retry` | NotificationSettingsPage · l.295 |
+| «Guardando… / Guardar cambios» (submits the form) |  | `!(status === 'expired') && !(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0)` | `{saving \|\| changes.length === 0}` | `testid=ns-save` | NotificationSettingsPage · l.414 |
 
-**Links** (1)
+**Links** (2)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Inicia sesión nuevamente» | `{LOGIN_AGAIN}` | `!(status === 'session_changed') && status === 'expired'` |  | NotificationSettingsPage · l.281 |
+| «Inicia sesión nuevamente» | `{LOGIN_AGAIN}` | `!(status === 'session_changed') && status === 'expired'` |  | NotificationSettingsPage · l.286 |
+| «Apariencia» | `/configuracion/apariencia` | `canChooseLook` | `testid=ns-to-look` | NotificationSettingsPage · l.442 |
 
 **Fields** (1)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «{saved.label}» | select | disabled: `{saving}` | «{MODE_LABELS.default}», «{MODE_LABELS.immediate}», «{MODE_LABELS.digest}», «{STORED_UNAVAILABLE}», «{MODE_LABELS.off}» | `!(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown` | `testid=ns-mode-{section.category} id=ns-mode-{section.category}` | NotificationSettingsPage · l.355 |
+| «{saved.label}» | select | disabled: `{saving}` | «{MODE_LABELS.default}», «{MODE_LABELS.immediate}», «{MODE_LABELS.digest}», «{STORED_UNAVAILABLE}», «{MODE_LABELS.off}» | `!(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown` | `testid=ns-mode-{section.category} id=ns-mode-{section.category}` | NotificationSettingsPage · l.360 |
 
 **Forms** (1)
 
 | On submit | Shown when | Where |
 |---|---|---|
-| `{(event) => { event.preventDefault(); void save(); }}` | `!(status === 'expired') && !(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0)` | NotificationSettingsPage · l.320 |
+| `{(event) => { event.preventDefault(); void save(); }}` | `!(status === 'expired') && !(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0)` | NotificationSettingsPage · l.325 |
 
 **Messages set on the page** (1)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «saved / Tus preferencias se guardaron.» | `setNotice` |  | save · l.259 |
+| «saved / Tus preferencias se guardaron.» | `setNotice` |  | save · l.264 |
 
 **Moves to another page from code** (2)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login?next=[*]` | `server redirect` | `!viewer` | getServerSideProps · l.117 |
-| `{forcedChangeRedirectPath(verdict)}` | `server redirect` | `verdict !== 'allowed'` | getServerSideProps · l.123 |
+| `/login?next=[*]` | `server redirect` | `!viewer` | getServerSideProps · l.121 |
+| `{forcedChangeRedirectPath(verdict)}` | `server redirect` | `verdict !== 'allowed'` | getServerSideProps · l.127 |
 
 **Draws nothing when** (3)
 
 | Condition | Where |
 |---|---|
-| `id !== request.current` | NotificationSettingsPage · l.207 |
-| `sessionLoading \|\| sessionError \|\| sessionUserId === ownerId` | NotificationSettingsPage · l.224 |
-| `!event` | NotificationSettingsPage · l.390 |
+| `id !== request.current` | NotificationSettingsPage · l.212 |
+| `sessionLoading \|\| sessionError \|\| sessionUserId === ownerId` | NotificationSettingsPage · l.229 |
+| `!event` | NotificationSettingsPage · l.395 |
 
 **Pieces placed here, with the texts and settings handed to them** (1)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` | pageTitle: Notificaciones por correo · breadcrumbs: Configuración / Notificaciones |  |  | NotificationSettingsPage · l.429 |
+| `MainLayout` | pageTitle: Notificaciones por correo · breadcrumbs: Configuración / Notificaciones |  |  | NotificationSettingsPage · l.434 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (7)
 
 | Name | Texts | Where |
 |---|---|---|
-| `PRODUCER_EVENT_LABELS` | «Invitación a un grupo», «Entrega de tarea grupal», «Quiz pendiente de revisión», «Quiz revisado», «Alerta de calidad de datos» | l.85 |
-| `READ_ERROR` | «No pudimos cargar tus preferencias.» | l.144 |
-| `SAVE_ERROR` | «No pudimos guardar tus preferencias. Intenta nuevamente.» | l.145 |
-| `MODE_LABELS` | «Predeterminado», «Inmediato», «Resumen diario», «Desactivado» | l.147 |
-| `STORED_UNAVAILABLE` | «Opción anterior (se envía de inmediato)» | l.155 |
-| `DELIVERY_LABELS` | «Se envía de inmediato», «Va en el resumen diario», «No se envía» | l.157 |
-| `ADDRESS_NOTICES` | «No podemos enviarte correos: tu dirección rechazó mensajes anteriores. Escribe a soporte para revisarla; mientras tanto no recibirás avisos por correo.», «Tu dirección de correo recibe nuestros avisos con normalidad.», «No pudimos comprobar si tu dirección de correo recibe nuestros avisos.» | l.163 |
+| `PRODUCER_EVENT_LABELS` | «Invitación a un grupo», «Entrega de tarea grupal», «Quiz pendiente de revisión», «Quiz revisado», «Alerta de calidad de datos» | l.89 |
+| `READ_ERROR` | «No pudimos cargar tus preferencias.» | l.149 |
+| `SAVE_ERROR` | «No pudimos guardar tus preferencias. Intenta nuevamente.» | l.150 |
+| `MODE_LABELS` | «Predeterminado», «Inmediato», «Resumen diario», «Desactivado» | l.152 |
+| `STORED_UNAVAILABLE` | «Opción anterior (se envía de inmediato)» | l.160 |
+| `DELIVERY_LABELS` | «Se envía de inmediato», «Va en el resumen diario», «No se envía» | l.162 |
+| `ADDRESS_NOTICES` | «No podemos enviarte correos: tu dirección rechazó mensajes anteriores. Escribe a soporte para revisarla; mientras tanto no recibirás avisos por correo.», «Tu dirección de correo recibe nuestros avisos con normalidad.», «No pudimos comprobar si tu dirección de correo recibe nuestros avisos.» | l.168 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (20)
 
 | Kind | What | Where |
 |---|---|---|
-| role | `role=alert` | NotificationSettingsPage · l.270 |
-| mark | `testid=ns-session-changed` | NotificationSettingsPage · l.270 |
-| role | `role=alert` | NotificationSettingsPage · l.279 |
-| mark | `testid=ns-expired` | NotificationSettingsPage · l.279 |
-| role | `role=alert` | NotificationSettingsPage · l.288 |
-| mark | `testid=ns-error` | NotificationSettingsPage · l.288 |
-| role | `role=status` | NotificationSettingsPage · l.302 |
-| mark | `testid=ns-loading` | NotificationSettingsPage · l.302 |
-| mark | `testid=ns-empty` | NotificationSettingsPage · l.308 |
-| mark | `testid=ns-address-{view.address_suppression}` | NotificationSettingsPage · l.326 |
-| mark | `testid=ns-digest-note` | NotificationSettingsPage · l.329 |
-| mark | `testid=ns-mandatory` | NotificationSettingsPage · l.335 |
-| mark | `testid=ns-category-{section.category}` | NotificationSettingsPage · l.350 |
-| mark | `testid=ns-stored-digest-{section.category}` | NotificationSettingsPage · l.378 |
-| mark | `testid=ns-event-{event.event_type}` | NotificationSettingsPage · l.392 |
-| mark | `testid=ns-legacy-{event.event_type}` | NotificationSettingsPage · l.397 |
-| role | `role=status aria-live=polite` | NotificationSettingsPage · l.412 |
-| mark | `testid={notice.kind === 'saved' ? 'ns-saved' : 'ns-save-error'}` | NotificationSettingsPage · l.414 |
-| mark | `testid=ns-unsaved` | NotificationSettingsPage · l.418 |
-| mark | `testid=notification-settings` | NotificationSettingsPage · l.430 |
+| role | `role=alert` | NotificationSettingsPage · l.275 |
+| mark | `testid=ns-session-changed` | NotificationSettingsPage · l.275 |
+| role | `role=alert` | NotificationSettingsPage · l.284 |
+| mark | `testid=ns-expired` | NotificationSettingsPage · l.284 |
+| role | `role=alert` | NotificationSettingsPage · l.293 |
+| mark | `testid=ns-error` | NotificationSettingsPage · l.293 |
+| role | `role=status` | NotificationSettingsPage · l.307 |
+| mark | `testid=ns-loading` | NotificationSettingsPage · l.307 |
+| mark | `testid=ns-empty` | NotificationSettingsPage · l.313 |
+| mark | `testid=ns-address-{view.address_suppression}` | NotificationSettingsPage · l.331 |
+| mark | `testid=ns-digest-note` | NotificationSettingsPage · l.334 |
+| mark | `testid=ns-mandatory` | NotificationSettingsPage · l.340 |
+| mark | `testid=ns-category-{section.category}` | NotificationSettingsPage · l.355 |
+| mark | `testid=ns-stored-digest-{section.category}` | NotificationSettingsPage · l.383 |
+| mark | `testid=ns-event-{event.event_type}` | NotificationSettingsPage · l.397 |
+| mark | `testid=ns-legacy-{event.event_type}` | NotificationSettingsPage · l.402 |
+| role | `role=status aria-live=polite` | NotificationSettingsPage · l.417 |
+| mark | `testid={notice.kind === 'saved' ? 'ns-saved' : 'ns-save-error'}` | NotificationSettingsPage · l.419 |
+| mark | `testid=ns-unsaved` | NotificationSettingsPage · l.423 |
+| mark | `testid=notification-settings` | NotificationSettingsPage · l.435 |
 
 **Values shown from data** (5)
 
-- `{READ_ERROR}` — NotificationSettingsPage · l.289, when `!(status === 'session_changed') && !(status === 'expired') && status === 'error'`
-- `{ADDRESS_NOTICES[view.address_suppre…}` — NotificationSettingsPage · l.326, when `!(status === 'expired') && !(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0)`
-- `{labelOf(e.event_type)}` — NotificationSettingsPage · l.339, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && mandatory.length > 0 && each mandatory`
-- `{applicable.label}` — NotificationSettingsPage · l.393, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown && each section.events`
-- `{notice.text}` — NotificationSettingsPage · l.414, when `!(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0) && notice`
+- `{READ_ERROR}` — NotificationSettingsPage · l.294, when `!(status === 'session_changed') && !(status === 'expired') && status === 'error'`
+- `{ADDRESS_NOTICES[view.address_suppre…}` — NotificationSettingsPage · l.331, when `!(status === 'expired') && !(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0)`
+- `{labelOf(e.event_type)}` — NotificationSettingsPage · l.344, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && mandatory.length > 0 && each mandatory`
+- `{applicable.label}` — NotificationSettingsPage · l.398, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown && each section.events`
+- `{notice.text}` — NotificationSettingsPage · l.419, when `!(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0) && notice`
 
 **Other texts on screen** (13)
 
-- «Tu sesión cambió en otra pestaña. Recarga la página para ver tus preferencias.» — NotificationSettingsPage · l.271, when `status === 'session_changed'`
-- «Tu sesión terminó.» — NotificationSettingsPage · l.280, when `!(status === 'session_changed') && status === 'expired'`
-- «Cargando tus preferencias…» — NotificationSettingsPage · l.303, when `!(status === 'session_changed') && !(status === 'expired') && !(status === 'error') && (status === 'loading' \|\| !view)`
-- «Tu cuenta no tiene avisos por correo que configurar.» — NotificationSettingsPage · l.309, when `!(status === 'expired') && !(status === 'error') && (!(status === 'loading' \|\| !view)) && shown.length === 0`
-- «Resumen diario: los avisos se agrupan en un correo al día. Por ahora no puedes elegir la hora de envío. / El resumen diario todavía no está disponible: los avisos que irían en un resumen se envían de inmediato.» — NotificationSettingsPage · l.329, when `!(status === 'expired') && !(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0)`
-- «Estos avisos se envían siempre, aunque desactives su categoría:» — NotificationSettingsPage · l.336, when `!(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0) && mandatory.length > 0`
-- «{saved.label}» (label) — NotificationSettingsPage · l.352, when `!(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown`
-- «Elegiste Resumen diario antes. Mientras no esté disponible, estos avisos se envían de inmediato.» — NotificationSettingsPage · l.379, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown && !digest && saved.email_mode === 'digest'`
-- «Con Predeterminado se mantienen apagados los avisos que desactivaste antes.» — NotificationSettingsPage · l.384, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown && legacy`
-- «Se envía siempre» — NotificationSettingsPage · l.395, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown && each section.events`
-- «· desactivado por una preferencia anterior» — NotificationSettingsPage · l.397, when `!(shown.length === 0) && each shown && each section.events && event.reason === 'legacy_suppressed'`
-- «Tienes cambios sin guardar.» — NotificationSettingsPage · l.419, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && !(notice) && changes.length > 0`
-- «Elige cómo recibir por correo los avisos de cada tema. Los avisos dentro de la plataforma no cambian.» — NotificationSettingsPage · l.432
+- «Tu sesión cambió en otra pestaña. Recarga la página para ver tus preferencias.» — NotificationSettingsPage · l.276, when `status === 'session_changed'`
+- «Tu sesión terminó.» — NotificationSettingsPage · l.285, when `!(status === 'session_changed') && status === 'expired'`
+- «Cargando tus preferencias…» — NotificationSettingsPage · l.308, when `!(status === 'session_changed') && !(status === 'expired') && !(status === 'error') && (status === 'loading' \|\| !view)`
+- «Tu cuenta no tiene avisos por correo que configurar.» — NotificationSettingsPage · l.314, when `!(status === 'expired') && !(status === 'error') && (!(status === 'loading' \|\| !view)) && shown.length === 0`
+- «Resumen diario: los avisos se agrupan en un correo al día. Por ahora no puedes elegir la hora de envío. / El resumen diario todavía no está disponible: los avisos que irían en un resumen se envían de inmediato.» — NotificationSettingsPage · l.334, when `!(status === 'expired') && !(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0)`
+- «Estos avisos se envían siempre, aunque desactives su categoría:» — NotificationSettingsPage · l.341, when `!(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0) && mandatory.length > 0`
+- «{saved.label}» (label) — NotificationSettingsPage · l.357, when `!(status === 'error') && (!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown`
+- «Elegiste Resumen diario antes. Mientras no esté disponible, estos avisos se envían de inmediato.» — NotificationSettingsPage · l.384, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown && !digest && saved.email_mode === 'digest'`
+- «Con Predeterminado se mantienen apagados los avisos que desactivaste antes.» — NotificationSettingsPage · l.389, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown && legacy`
+- «Se envía siempre» — NotificationSettingsPage · l.400, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && each shown && each section.events`
+- «· desactivado por una preferencia anterior» — NotificationSettingsPage · l.402, when `!(shown.length === 0) && each shown && each section.events && event.reason === 'legacy_suppressed'`
+- «Tienes cambios sin guardar.» — NotificationSettingsPage · l.424, when `(!(status === 'loading' \|\| !view)) && !(shown.length === 0) && !(notice) && changes.length > 0`
+- «Elige cómo recibir por correo los avisos de cada tema. Los avisos dentro de la plataforma no cambian.» — NotificationSettingsPage · l.437
 
 **Reads and writes the database directly:** `table:profiles` (select), `table:user_roles` (select)
 
@@ -200,7 +325,7 @@ File `pages/configuracion/notificaciones.tsx` · 439 lines · frame: MainLayout 
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/user/notification-preferences` | ? | `pages/configuracion/notificaciones.tsx:142` |
+| `/api/user/notification-preferences` | ? | `pages/configuracion/notificaciones.tsx:147` |
 
 ## /notificaciones/baja
 
@@ -492,7 +617,7 @@ Used by: `/notifications`
 
 ### lib/api-auth.ts
 
-Used by: `/configuracion/notificaciones`
+Used by: `/configuracion/apariencia`, `/configuracion/notificaciones`
 
 **Messages set on the page** (2)
 
@@ -505,13 +630,23 @@ Used by: `/configuracion/notificaciones`
 
 ### lib/auth/forced-password-change.ts
 
-Used by: `/configuracion/notificaciones`
+Used by: `/configuracion/apariencia`, `/configuracion/notificaciones`
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
 | `verdictFromProfile()` | «required / allowed» | verdictFromProfile · l.249 |
+
+### lib/look.ts
+
+Used by: `/configuracion/apariencia`
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `lookFromPreferences()` | «nuevo / clasico» | lookFromPreferences · l.30 |
 
 ### lib/notificationEvents.ts
 
@@ -686,6 +821,7 @@ Used by: `/notifications`
 | `/api/notifications/mark-all-read` | `pages/api/notifications/mark-all-read.ts` | POST | `/pending-approval` | `__tests__/components/layout/Header.notification-bell.test.tsx`, `components/notifications/NotificationBell.tsx` |
 | `/api/notifications/mark-read` | `pages/api/notifications/mark-read.ts` | POST | **no screen** |  |
 | `/api/notifications/unsubscribe` | `pages/api/notifications/unsubscribe.ts` | GET, POST | `/notificaciones/baja` | `__tests__/api/notifications/unsubscribe.test.ts`, `__tests__/lib/email/notification-unsubscribe.test.ts`, `__tests__/lib/email/outbox.test.ts`, `lib/email/notification-unsubscribe.ts`, `pages/notificaciones/baja.tsx` +1 |
+| `/api/user/look` | `pages/api/user/look.ts` | PUT | `/configuracion/apariencia` | `__tests__/api/user-look.test.ts`, `__tests__/pages/apariencia.test.tsx`, `pages/configuracion/apariencia.tsx`, `tests/e2e/look-switch.spec.ts` |
 | `/api/user/notification-preferences` | `pages/api/user/notification-preferences.ts` | GET, PUT | `/configuracion/notificaciones` | `__tests__/api/notification-preferences.test.ts`, `__tests__/notifications/entry-points.test.tsx`, `__tests__/pages/notification-settings.test.tsx`, `pages/configuracion/notificaciones.tsx`, `tests/e2e/notification-preferences-api.spec.ts` +1 |
 | `/api/webhooks/resend` | `pages/api/webhooks/resend.ts` | POST | **no screen** | `__tests__/api/webhooks/resend.test.ts`, `tests/e2e/notification-bounce.spec.ts` |
 

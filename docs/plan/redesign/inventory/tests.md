@@ -1,9 +1,9 @@
 # Screens and their tests
 
-Written by `scripts/redesign/inventory.mjs` from commit `c4375a085`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 26 of 67 browser test files (`scripts/ci/e2e-mandatory.mjs`).
+Written by `scripts/redesign/inventory.mjs` from commit `d5d93151e`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 27 of 68 browser test files (`scripts/ci/e2e-mandatory.mjs`).
 
-- 149 screens with an address.
-- 28 are named by a browser test that CI runs.
+- 150 screens with an address.
+- 29 are named by a browser test that CI runs.
 - 50 are named only by tests CI skips, or have only unit tests.
 - 71 have no test at all.
 
@@ -142,9 +142,9 @@ Written by `scripts/redesign/inventory.mjs` from commit `c4375a085`. For phase 3
 
 | Area | Address | Tests |
 |---|---|---|
-| 01-acceso | `/login` | `e2e/auth-cookie-identity.spec.ts`, `e2e/auth-lifecycle.spec.ts`, `e2e/login-resilience.spec.ts`, `e2e/notification-preferences-api.spec.ts`, `e2e/notification-settings.spec.ts`, `e2e/pasantias-leads-admin.spec.ts`, `e2e/smoke.spec.ts` |
+| 01-acceso | `/login` | `e2e/auth-cookie-identity.spec.ts`, `e2e/auth-lifecycle.spec.ts`, `e2e/login-resilience.spec.ts`, `e2e/look-switch.spec.ts`, `e2e/notification-preferences-api.spec.ts`, `e2e/notification-settings.spec.ts`, `e2e/pasantias-leads-admin.spec.ts`, `e2e/smoke.spec.ts` |
 | 01-acceso | `/reset-password` | `e2e/auth-lifecycle.spec.ts` |
-| 02-panel | `/dashboard` | `e2e/auth-lifecycle.spec.ts`, `e2e/ci-fixture.spec.ts`, `e2e/footer-heading-order.spec.ts`, `e2e/notification-settings.spec.ts`, `e2e/pasantias-leads-admin.spec.ts` |
+| 02-panel | `/dashboard` | `e2e/auth-lifecycle.spec.ts`, `e2e/ci-fixture.spec.ts`, `e2e/footer-heading-order.spec.ts`, `e2e/look-switch.spec.ts`, `e2e/notification-settings.spec.ts`, `e2e/pasantias-leads-admin.spec.ts` |
 | 05-tareas | `/community/workspace/assignments/[id]/discussion` | `e2e/finance-messaging-access.spec.ts` |
 | 06-sesiones | `/meet/session/[id]` | `e2e/session-disclosure.spec.ts`, `e2e/session-ical.spec.ts`, `e2e/zoom-join-authz.spec.ts`, `e2e/zoom-managed-join.spec.ts` |
 | 07-espacio-colaborativo | `/community/workspace` | `e2e/auth-lifecycle.spec.ts`, `e2e/community-document-links.spec.ts`, `e2e/meeting-create-and-access.spec.ts` |
@@ -160,8 +160,9 @@ Written by `scripts/redesign/inventory.mjs` from commit `c4375a085`. For phase 3
 | 14-personas | `/admin/tractor-signups` | `e2e/auth-lifecycle.spec.ts` |
 | 14-personas | `/admin/user-management` | `e2e/auth-lifecycle.spec.ts` |
 | 14-personas | `/profile` | `e2e/notification-settings.spec.ts` |
-| 16-notificaciones | `/configuracion` | `e2e/notification-settings.spec.ts` |
-| 16-notificaciones | `/configuracion/notificaciones` | `e2e/notification-settings.spec.ts` |
+| 16-notificaciones | `/configuracion/apariencia` | `e2e/look-switch.spec.ts` |
+| 16-notificaciones | `/configuracion` | `e2e/look-switch.spec.ts`, `e2e/notification-settings.spec.ts` |
+| 16-notificaciones | `/configuracion/notificaciones` | `e2e/look-switch.spec.ts`, `e2e/notification-settings.spec.ts` |
 | 16-notificaciones | `/notifications` | `e2e/notification-settings.spec.ts` |
 | 19-sistema | `/admin/configuration` | `e2e/notification-settings.spec.ts` |
 | 20-sitio-publico | `/equipo` | `e2e/footer-heading-order.spec.ts` |

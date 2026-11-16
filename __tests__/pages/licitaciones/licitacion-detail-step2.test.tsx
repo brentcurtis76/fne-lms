@@ -90,3 +90,29 @@ describe('Step 2 — the publication text carries the real deadline (LIC-A3)', (
     expect(screen.getByText(/hasta el 9 de noviembre de 2026 al/)).toBeInTheDocument();
   });
 });
+
+describe('Step 2 — «Ajustar fechas (admin)» works after a reload (LIC-D9)', () => {
+  it('shows the five date fields filled with the stored dates and sends a change to the route', async () => {
+    h.detail = confirmed();
+    await renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Ajustar fechas (admin)' }));
+    const inputs = Array.from(document.querySelectorAll('input[type="date"]')) as HTMLInputElement[];
+    expect(inputs.map(i => i.value)).toEqual(['2026-11-09', '2026-11-12', '2026-11-13', '2026-11-20', '2026-11-25']);
+    fireEvent.change(inputs[3], { target: { value: '2026-11-27' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar fechas ajustadas' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/licitaciones/lic-1', expect.objectContaining({ method: 'PATCH' })));
+    const call = fetchMock.mock.calls.find(([u, o]) => u === '/api/licitaciones/lic-1' && o?.method === 'PATCH');
+    expect(JSON.parse(call![1].body).timeline).toEqual({
+      fecha_limite_solicitud_bases: '2026-11-09', fecha_limite_consultas: '2026-11-12', fecha_inicio_propuestas: '2026-11-13',
+      fecha_limite_propuestas: '2026-11-27', fecha_limite_evaluacion: '2026-11-25',
+    });
+  });
+
+  it('does not offer a manual adjustment before confirmation, where it would be dropped', async () => {
+    h.detail = pending();
+    await renderPage();
+    fireEvent.change(document.querySelector('input[type="date"]') as HTMLInputElement, { target: { value: '2026-11-02' } });
+    await screen.findByText(/hasta el 9 de noviembre de 2026 al/);
+    expect(screen.queryByRole('button', { name: /Ajustar fechas/ })).not.toBeInTheDocument();
+  });
+});

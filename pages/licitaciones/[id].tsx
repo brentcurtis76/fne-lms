@@ -275,7 +275,6 @@ export default function LicitacionDetailPage() {
 
       if (res.ok) {
         setTimeline(json.data.timeline);
-        setEditedDates(json.data.timeline);
       }
     } catch {
       toast.error('Error al calcular cronograma');
@@ -598,7 +597,19 @@ export default function LicitacionDetailPage() {
                 {isAdmin && (
                   <div>
                     <button
-                      onClick={() => setEditingTimeline(!editingTimeline)}
+                      onClick={() => {
+                        // Start from the stored dates (after a reload nothing else is loaded).
+                        if (!editingTimeline) {
+                          setEditedDates({
+                            fecha_limite_solicitud_bases: licitacion.fecha_limite_solicitud_bases ?? undefined,
+                            fecha_limite_consultas: licitacion.fecha_limite_consultas ?? undefined,
+                            fecha_inicio_propuestas: licitacion.fecha_inicio_propuestas ?? undefined,
+                            fecha_limite_propuestas: licitacion.fecha_limite_propuestas ?? undefined,
+                            fecha_limite_evaluacion: licitacion.fecha_limite_evaluacion ?? undefined,
+                          });
+                        }
+                        setEditingTimeline(!editingTimeline);
+                      }}
                       className="text-sm text-blue-600 hover:text-blue-800 underline"
                     >
                       {editingTimeline ? 'Cancelar ajuste' : 'Ajustar fechas (admin)'}
@@ -668,34 +679,6 @@ export default function LicitacionDetailPage() {
                       <InfoRow label="Limite propuestas (+5 dias habiles)" value={formatDate(displayTimeline.fecha_limite_propuestas)} />
                       <InfoRow label="Limite evaluacion (+3 dias habiles)" value={formatDate(displayTimeline.fecha_limite_evaluacion)} />
                     </div>
-                    {isAdmin && (
-                      <div>
-                        <button
-                          onClick={() => setEditingTimeline(!editingTimeline)}
-                          className="mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
-                        >
-                          {editingTimeline ? 'Usar fechas calculadas' : 'Ajustar fechas manualmente'}
-                        </button>
-
-                        {editingTimeline && displayTimeline && (
-                          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {(Object.keys(displayTimeline) as Array<keyof TimelineDates>).map(key => (
-                              <div key={key}>
-                                <label className="block text-xs font-medium text-gray-600 mb-1">
-                                  {key.replace(/_/g, ' ')}
-                                </label>
-                                <input
-                                  type="date"
-                                  value={(editedDates[key] as string) || (displayTimeline[key] as string) || ''}
-                                  onChange={e => setEditedDates(d => ({ ...d, [key]: e.target.value }))}
-                                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 )}
 

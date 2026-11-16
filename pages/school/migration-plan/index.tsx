@@ -761,7 +761,7 @@ const MigrationPlanPage: React.FC = () => {
                                 : 'bg-brand_primary/10 text-brand_primary border-2 border-dashed border-brand_primary/30'
                               }
                             `}
-                            title={isLocked ? 'Este nivel es siempre GT' : `Clic para cambiar a ${isGT ? 'GI' : 'GT'}`}
+                            title={isLocked ? 'Este nivel es siempre GT' : !canWritePlan ? 'Solo lectura' : `Clic para cambiar a ${isGT ? 'GI' : 'GT'}`}
                           >
                             {genType}
                           </button>

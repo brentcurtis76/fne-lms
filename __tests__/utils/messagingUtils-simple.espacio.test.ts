@@ -10,61 +10,29 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * the local database answers a community member (supabase/tests/127).
  */
 
-type Op = { method: string; args: unknown[] };
-type Request = { kind: 'from' | 'rpc'; target: string; ops: Op[]; args?: unknown };
-type Answer = { data: unknown; error: unknown };
+import { has, opArgs, selects, type RecordedRequest as Request } from '../helpers/recordingSupabase';
 
-const h = vi.hoisted(() => ({
-  requests: [] as Request[],
-  respond: (_req: Request, _terminal: string): Answer => ({ data: null, error: null }),
-  userId: 'user-a1' as string | null,
-}));
+const fake = vi.hoisted(() => ({ ref: null as any }));
 
-vi.mock('../../lib/supabase-wrapper', () => {
-  const chainFor = (req: Request) => {
-    const answer = (terminal: string) => Promise.resolve(h.respond(req, terminal));
-    const chain: any = new Proxy(
-      {},
-      {
-        get(_t, prop: string) {
-          if (prop === 'then') {
-            return (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => answer('await').then(ok, ko);
-          }
-          if (prop === 'single' || prop === 'maybeSingle') {
-            return () => {
-              req.ops.push({ method: prop, args: [] });
-              return answer(prop);
-            };
-          }
-          return (...args: unknown[]) => {
-            req.ops.push({ method: prop, args });
-            return chain;
-          };
-        },
-      }
-    );
-    return chain;
-  };
-  const supabase = {
-    from: (table: string) => {
-      const req: Request = { kind: 'from', target: table, ops: [] };
-      h.requests.push(req);
-      return chainFor(req);
-    },
-    rpc: (name: string, args: unknown) => {
-      const req: Request = { kind: 'rpc', target: name, ops: [], args };
-      h.requests.push(req);
-      return chainFor(req);
-    },
-    auth: {
-      getUser: async () => ({ data: { user: h.userId ? { id: h.userId } : null } }),
-      getSession: async () => ({ data: { session: null } }),
-    },
-  };
-  return { supabase };
+vi.mock('../../lib/supabase-wrapper', async () => {
+  const { createRecordingSupabase } = await import('../helpers/recordingSupabase');
+  fake.ref = createRecordingSupabase();
+  return { supabase: fake.ref.client };
 });
 
-import { createThread } from '../../utils/messagingUtils-simple';
+import {
+  createThread,
+  getWorkspaceThreads,
+  getWorkspaceMessages,
+  subscribeToWorkspaceMessages,
+} from '../../utils/messagingUtils-simple';
+
+const h = fake.ref.state as {
+  requests: Request[];
+  channels: Array<{ name: string; handlers: Array<{ filter: any; handler: (p: any) => unknown }>; unsubscribed: number }>;
+  respond: (req: Request, terminal: string) => { data: unknown; error: unknown };
+  userId: string | null;
+};
 
 const WS = '12700000-0000-4000-8000-0000000000b1';
 const RLS_READ_REFUSAL = {
@@ -74,8 +42,6 @@ const RLS_READ_REFUSAL = {
   hint: null,
 };
 
-const has = (req: Request, method: string) => req.ops.some((op) => op.method === method);
-const opArgs = (req: Request, method: string) => req.ops.find((op) => op.method === method)?.args;
 
 /** The database as a member of the workspace sees it (see 127). */
 function memberDatabase() {
@@ -103,6 +69,7 @@ function memberDatabase() {
 
 beforeEach(() => {
   h.requests.length = 0;
+  h.channels.length = 0;
   h.userId = 'user-a1';
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
 });
@@ -165,5 +132,101 @@ describe('EC-S4 createThread', () => {
       createThread(WS, { thread_title: 'T', category: 'general', initial_message: 'Hola' }, 'user-c')
     ).rejects.toMatchObject({ code: '42501' });
     expect(h.requests.some((r) => r.target === 'community_messages')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// EC-S5: names of other people come from get_profile_cards
+// ---------------------------------------------------------------------------
+
+const SELF = 'user-a1';
+const COMEMBER = 'user-a2';
+const SAME_SCHOOL = 'user-b';
+const CARDS: Record<string, { id: string; first_name: string; last_name: string; avatar_url: string | null }> = {
+  [SELF]: { id: SELF, first_name: 'Ana', last_name: 'Uno', avatar_url: null },
+  [COMEMBER]: { id: COMEMBER, first_name: 'María-José', last_name: 'Núñez', avatar_url: 'https://example.invalid/a2.png' },
+  [SAME_SCHOOL]: { id: SAME_SCHOOL, first_name: 'Bruno', last_name: 'Dos', avatar_url: null },
+};
+
+/** A member's database: `profiles` answers only the caller's own row; cards answer the people they may know. */
+function memberReads(tables: Record<string, unknown[]>) {
+  h.respond = (req, terminal) => {
+    if (req.kind === 'rpc' && req.target === 'get_profile_cards') {
+      const ids = ((req.args as { p_ids: string[] }).p_ids ?? []) as string[];
+      return { data: ids.filter((id) => CARDS[id]).map((id) => CARDS[id]), error: null };
+    }
+    if (req.kind === 'from' && req.target === 'profiles') {
+      const inArgs = opArgs(req, 'in');
+      const eqArgs = opArgs(req, 'eq');
+      const ids = (inArgs?.[1] as string[]) ?? [eqArgs?.[1] as string];
+      const rows = ids.filter((id) => id === SELF).map((id) => ({ ...CARDS[id], email: 'a1@f11.test.local' }));
+      return terminal === 'await' ? { data: rows, error: null } : { data: rows[0] ?? null, error: rows[0] ? null : { code: 'PGRST116' } };
+    }
+    if (req.kind === 'from' && req.target in tables) {
+      const rows = tables[req.target] as Array<Record<string, unknown>>;
+      if (req.target === 'community_messages' && has(req, 'in')) {
+        const ids = opArgs(req, 'in')?.[1] as string[];
+        return { data: rows.filter((r) => ids.includes(String(r.id))), error: null };
+      }
+      return { data: rows, error: null };
+    }
+    return { data: terminal === 'await' ? [] : null, error: null };
+  };
+}
+
+const cardCalls = () => h.requests.filter((r) => r.kind === 'rpc' && r.target === 'get_profile_cards');
+const otherProfileReads = () =>
+  h.requests.filter((r) => r.kind === 'from' && r.target === 'profiles' && !(opArgs(r, 'eq')?.[1] === SELF));
+
+describe('EC-S5 names in conversations', () => {
+  it('the list of conversations shows the creator\'s name to a member', async () => {
+    memberReads({
+      message_threads: [
+        { id: 't1', workspace_id: WS, thread_title: 'Uno', created_by: COMEMBER, category: 'general' },
+        { id: 't2', workspace_id: WS, thread_title: 'Dos', created_by: SAME_SCHOOL, category: 'general' },
+      ],
+    });
+    const threads = await getWorkspaceThreads(WS);
+    expect(threads.map((t) => t.creator_name)).toEqual(['María-José Núñez', 'Bruno Dos']);
+    expect(cardCalls()).toHaveLength(1);
+    expect(otherProfileReads()).toHaveLength(0);
+  });
+
+  it('messages show their authors\' names and pictures, and a reply shows the replied author', async () => {
+    memberReads({
+      community_messages: [
+        { id: 'm1', workspace_id: WS, thread_id: 't1', author_id: COMEMBER, content: 'Hola', reply_to_id: null, created_at: '2026-11-16T12:00:00Z' },
+        { id: 'm2', workspace_id: WS, thread_id: 't1', author_id: SELF, content: 'Respuesta', reply_to_id: 'm3', created_at: '2026-11-16T12:01:00Z' },
+        { id: 'm3', workspace_id: WS, thread_id: 't1', author_id: SAME_SCHOOL, content: 'Antes', reply_to_id: null, created_at: '2026-11-16T11:00:00Z' },
+      ],
+    });
+    const messages = await getWorkspaceMessages(WS, { thread_id: 't1' });
+    const m1 = messages.find((m) => m.id === 'm1')!;
+    const m2 = messages.find((m) => m.id === 'm2')!;
+    expect(m1.author_name).toBe('María-José Núñez');
+    expect(m1.author_avatar).toBe('https://example.invalid/a2.png');
+    expect(m2.author_name).toBe('Ana Uno');
+    expect(m2.reply_to_message?.author_name).toBe('Bruno Dos');
+    expect(otherProfileReads()).toHaveLength(0);
+  });
+
+  it('a message that arrives live shows its author\'s name', async () => {
+    memberReads({});
+    const received: any[] = [];
+    subscribeToWorkspaceMessages(WS, { onMessage: (m) => received.push(m) });
+    const messages = h.channels.find((c) => c.name.startsWith('workspace-messages-'))!;
+    await messages.handlers[0].handler({ new: { id: 'm9', thread_id: 't1', workspace_id: WS, author_id: COMEMBER, content: 'Nuevo' } });
+    expect(received).toHaveLength(1);
+    expect(received[0].author_name).toBe('María-José Núñez');
+    expect(received[0].author_avatar).toBe('https://example.invalid/a2.png');
+
+    const threads = h.channels.find((c) => c.name.startsWith('workspace-threads-'))!;
+    const created: any[] = [];
+    subscribeToWorkspaceMessages(WS, { onThread: (t) => created.push(t) });
+    const threads2 = h.channels.filter((c) => c.name.startsWith('workspace-threads-')).pop()!;
+    await threads2.handlers[0].handler({ new: { id: 't9', workspace_id: WS, thread_title: 'Nuevo', created_by: SAME_SCHOOL, category: 'general' } });
+    expect(threads).toBeDefined();
+    expect(created[0].creator_name).toBe('Bruno Dos');
+    expect(otherProfileReads()).toHaveLength(0);
   });
 });

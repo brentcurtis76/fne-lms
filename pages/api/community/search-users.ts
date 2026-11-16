@@ -1,5 +1,11 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
+import { fetchProfileCards, type ProfileCard } from '../../../lib/profile-cards';
+
+/** Lower case without accents, so «nunez» finds «Núñez»; hyphens and dots are kept. */
+function foldForSearch(text: string): string {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -63,37 +69,23 @@ export default async function handler(
       return res.status(200).json([]);
     }
 
-    // Now get the actual user profiles
-    let usersQuery = supabaseServerClient
-      .from('profiles')
-      .select('id, first_name, last_name, email, avatar_url')
-      .in('id', communityUserIds)
-      .eq('approval_status', 'approved')
-
-    // Apply search filter if query is provided
-    if (searchQuery) {
-      usersQuery = usersQuery.or(
-        `first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`
-      );
-    }
-
-    // Limit results
-    usersQuery = usersQuery.limit(10);
-
-    const { data: users, error: usersError } = await usersQuery;
-
-    if (usersError) {
-      console.error('Error fetching users:', usersError);
-      return res.status(500).json({ error: 'Failed to fetch users' });
-    }
-
-    // Format the response
-    const formattedUsers = (users || []).map(user => ({
-      id: user.id,
-      display_name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
-      avatar_url: user.avatar_url,
-      email: user.email,
-    }));
+    // Names through the profile cards (EC-S5): other people's profile rows are
+    // not readable with the caller's session. A card carries id, names and
+    // picture only — the answer never includes an e-mail.
+    const cards = await fetchProfileCards(supabaseServerClient, communityUserIds);
+    const wanted = foldForSearch(searchQuery);
+    const formattedUsers = communityUserIds
+      .map((id) => cards.get(id))
+      .filter((card): card is ProfileCard => Boolean(card))
+      .map((card) => ({
+        id: card.id,
+        first_name: card.first_name,
+        last_name: card.last_name,
+        avatar_url: card.avatar_url,
+        display_name: `${card.first_name || ''} ${card.last_name || ''}`.trim(),
+      }))
+      .filter((user) => !wanted || foldForSearch(user.display_name).includes(wanted))
+      .slice(0, 10);
 
     return res.status(200).json(formattedUsers);
   } catch (error) {

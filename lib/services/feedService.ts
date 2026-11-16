@@ -2,6 +2,7 @@
 
 import { toast } from 'react-hot-toast';
 import { supabase } from '../supabase-wrapper';
+import { fetchProfileCards, type ProfileCard } from '../profile-cards';
 import type { 
   CommunityPost, 
   CreatePostInput, 
@@ -14,6 +15,11 @@ import type {
 
 const MENTION_NOTIFICATION_FAILED =
   'Tu publicación se guardó, pero no pudimos enviar la notificación de mención.';
+
+/** A profile card in the author shape the feed components read (author.first_name, …). */
+function cardAsAuthor(card: ProfileCard | undefined): PostComment['author'] {
+  return (card ?? null) as PostComment['author'];
+}
 
 export class FeedService {
   /**
@@ -32,7 +38,7 @@ export class FeedService {
     try {
       let query = supabase
         .from('posts_with_engagement')
-        .select('*, author:profiles!author_id(*)', { count: 'exact' })
+        .select('*', { count: 'exact' })
         .eq('workspace_id', workspaceId)
         .eq('is_archived', false)
         .order('created_at', { ascending: false })
@@ -76,7 +82,7 @@ export class FeedService {
           // Get reactions
           const { data: reactions } = await supabase
             .from('post_reactions')
-            .select('*, user:profiles!user_id(first_name, last_name, avatar_url)')
+            .select('*')
             .eq('post_id', post.id);
 
           // Get user's reaction (use maybeSingle to avoid 406 error when no reaction exists)
@@ -112,8 +118,22 @@ export class FeedService {
         })
       );
 
+      // Authors' and reactors' names through the profile cards (EC-S5), in one call
+      const cards = await fetchProfileCards(supabase, enrichedPosts.flatMap((post) => [
+        post.author_id,
+        ...(post.reactions || []).map((reaction) => reaction.user_id),
+      ]));
+      const postsWithNames = enrichedPosts.map((post) => ({
+        ...post,
+        author: (cards.get(post.author_id) ?? null) as CommunityPost['author'],
+        reactions: (post.reactions || []).map((reaction) => ({
+          ...reaction,
+          user: (cards.get(reaction.user_id) ?? undefined) as PostReaction['user'],
+        })),
+      }));
+
       return {
-        posts: enrichedPosts,
+        posts: postsWithNames,
         hasMore: (count || 0) > offset + limit,
         total: count || 0,
       };
@@ -394,12 +414,13 @@ export class FeedService {
           content,
           parent_comment_id: parentCommentId,
         })
-        .select('*, author:profiles!author_id(*)')
+        .select('*')
         .single();
 
       if (error) throw error;
 
-      return comment as PostComment;
+      const cards = await fetchProfileCards(supabase, [comment.author_id]);
+      return { ...comment, author: cardAsAuthor(cards.get(comment.author_id)) } as PostComment;
     } catch (error) {
       console.error('Error adding comment:', error);
       throw error;
@@ -417,7 +438,7 @@ export class FeedService {
     try {
       const { data: comments, error, count } = await supabase
         .from('post_comments')
-        .select('*, author:profiles!author_id(*)', { count: 'exact' })
+        .select('*', { count: 'exact' })
         .eq('post_id', postId)
         .is('parent_comment_id', null) // Get top-level comments only
         .order('created_at', { ascending: true })
@@ -430,7 +451,7 @@ export class FeedService {
         (comments || []).map(async (comment) => {
           const { data: replies } = await supabase
             .from('post_comments')
-            .select('*, author:profiles!author_id(*)')
+            .select('*')
             .eq('parent_comment_id', comment.id)
             .order('created_at', { ascending: true });
 
@@ -441,8 +462,19 @@ export class FeedService {
         })
       );
 
+      // Commenters' names through the profile cards (EC-S5), in one call
+      const cards = await fetchProfileCards(supabase, enrichedComments.flatMap((comment) => [
+        comment.author_id,
+        ...(comment.replies || []).map((reply) => reply.author_id),
+      ]));
+      const commentsWithNames = enrichedComments.map((comment) => ({
+        ...comment,
+        author: cardAsAuthor(cards.get(comment.author_id)),
+        replies: (comment.replies || []).map((reply) => ({ ...reply, author: cardAsAuthor(cards.get(reply.author_id)) })),
+      }));
+
       return {
-        comments: enrichedComments,
+        comments: commentsWithNames,
         hasMore: (count || 0) > offset + limit,
       };
     } catch (error) {

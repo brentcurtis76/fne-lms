@@ -119,7 +119,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Error inesperado';
     const isBizError =
-      message.includes('estado') || message.includes('ganador') || message.includes('ATE');
+      message.includes('estado') || message.includes('ganador') || message.includes('ATE') ||
+      message.includes('Carta');
     return sendAuthError(res, message, isBizError ? 400 : 500);
   }
 }

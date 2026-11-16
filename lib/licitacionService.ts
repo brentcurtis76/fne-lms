@@ -746,7 +746,7 @@ export async function confirmAdjudicacion(
   // 1. Fetch current licitacion
   const { data: existing, error: fetchError } = await supabase
     .from('licitaciones')
-    .select('id, estado, ganador_ate_id')
+    .select('id, estado, ganador_ate_id, carta_adjudicacion_url')
     .eq('id', licitacionId)
     .single();
 
@@ -764,6 +764,12 @@ export async function confirmAdjudicacion(
     throw new Error(
       'Debe seleccionar un ATE ganador antes de confirmar la adjudicacion.'
     );
+  }
+
+  // The contract step needs the generated Carta; an award to the foundation
+  // confirmed without it would leave the tender stuck in contrato_pendiente.
+  if (esFne && !existing.carta_adjudicacion_url) {
+    throw new Error('Genere la Carta de adjudicación antes de confirmar la adjudicación.');
   }
 
   const newEstado: LicitacionEstado = esFne ? 'contrato_pendiente' : 'adjudicada_externo';
@@ -859,7 +865,7 @@ export async function linkContractToLicitacion(
 
   if (!existing.carta_adjudicacion_url) {
     throw new Error(
-      'No se puede generar contrato: falta la carta de adjudicacion firmada.'
+      'No se puede generar contrato: falta la Carta de adjudicación generada (Paso 6 — Adjudicación).'
     );
   }
 

@@ -347,6 +347,26 @@ describe('D9 — every other consultor case is denied before plan data, on GET a
     expectNoPlanDataAccess(ctx);
   });
 
+  it('P2: denies a consultor whose only assignment ended yesterday, as an unassigned one', async () => {
+    const ended = { ...assignmentRow(SCHOOL_ID), ends_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() };
+    const ctx = arrange({ assignments: [ended] });
+    const { status, json } = await get({ school_id: String(SCHOOL_ID) });
+    expect(status).toBe(403);
+    expect(json.error).toBe(DENIED);
+    expectNoPlanDataAccess(ctx);
+    const write = await put(saveBody(SCHOOL_ID));
+    expect(write.status).toBe(403);
+    expect(write.json.error).toBe(DENIED);
+  });
+
+  it('P2: admits a consultor whose assignment ends tomorrow or has no end', async () => {
+    for (const ends_at of [new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), null]) {
+      arrange({ assignments: [{ ...assignmentRow(SCHOOL_ID), ends_at }], planRows: [planRow(SCHOOL_ID, 1, 7)] });
+      const { status } = await get({ school_id: String(SCHOOL_ID) });
+      expect(status).toBe(200);
+    }
+  });
+
   it('denies a consultor when the assignment lookup errors', async () => {
     const ctx = arrange({ assignmentsSpec: { readError: { code: '42501', message: 'permission denied' } } });
     const { status, json } = await get({ school_id: String(SCHOOL_ID) });

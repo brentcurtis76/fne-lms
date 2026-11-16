@@ -18,6 +18,18 @@ export interface DirectivoPermission {
 const DENIED: DirectivoPermission = { hasPermission: false, schoolId: null, isAdmin: false, via: null };
 
 /**
+ * A consultant assignment still counts: its `ends_at` is not in the past. The
+ * same condition as the database's own helper (baseline,
+ * get_reportable_users_enhanced: `ca.ends_at IS NULL OR ca.ends_at > NOW()`,
+ * next to `ca.is_active = true`, which the queries keep). No end → counts; an
+ * unreadable end fails closed.
+ */
+export function isCurrentAssignment(assignment: { ends_at?: string | null }, now: number = Date.now()): boolean {
+  if (assignment.ends_at === null || assignment.ends_at === undefined) return true;
+  return new Date(assignment.ends_at).getTime() > now;
+}
+
+/**
  * Shared permission check for directivo-level endpoints.
  * Grants access to: equipo_directivo (own school), consultor (assigned schools), admin (any school).
  */
@@ -54,11 +66,12 @@ export async function hasDirectivoPermission(
   // Consultor: must validate against consultant_assignments
   const isConsultor = roles.some((r: any) => r.role_type === 'consultor');
   if (isConsultor) {
-    const { data: assignments } = await supabaseClient
+    const { data: assignmentRows } = await supabaseClient
       .from('consultant_assignments')
-      .select('school_id')
+      .select('school_id, ends_at')
       .eq('consultant_id', userId)
       .eq('is_active', true);
+    const assignments = (assignmentRows || []).filter((a: any) => isCurrentAssignment(a));
 
     if (!assignments || assignments.length === 0) {
       return DENIED;
@@ -106,11 +119,11 @@ export async function hasDirectivoPermissionForSchool(
   if (roles.some((r: any) => r.role_type === 'consultor')) {
     const { data: assignments, error: assignmentsError } = await supabaseClient
       .from('consultant_assignments')
-      .select('school_id')
+      .select('school_id, ends_at')
       .eq('consultant_id', userId)
       .eq('is_active', true)
       .eq('school_id', schoolId);
-    if (!assignmentsError && assignments && assignments.length > 0) {
+    if (!assignmentsError && assignments && assignments.some((a: any) => isCurrentAssignment(a))) {
       return { hasPermission: true, schoolId, isAdmin: false, via: 'consultor' };
     }
   }

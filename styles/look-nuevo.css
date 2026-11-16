@@ -318,13 +318,19 @@
   --tw-prose-td-borders: rgb(var(--color-gray-200));
 }
 
-/* Keyboard focus: a black outline, on keyboard focus only. `html` makes the selector one step more
-   specific than the platform's `focus:outline-none` and `focus-visible:outline-none` classes (two
-   steps each), so this outline still shows where they remove the browser's own. The platform's
-   focus rings (box-shadow) stay as they are. */
+/* Keyboard focus: the approved ring, two rings: 2px white inside, then 2px black outside (the white
+   is a box-shadow on the element's edge, the black outline sits 2px out around it), so it shows on
+   light and on dark surfaces alike. `html` makes the selector one step more specific than the
+   platform's `focus:outline-none` and `focus-visible:outline-none` classes (two steps each), so the
+   ring still shows where they remove the browser's own.
+   On purpose, ONE ring for the whole look: while an element has keyboard focus (and a text field
+   whenever it has the focus, since `:focus-visible` matches fields on a click too) this box-shadow
+   REPLACES the element's own: a focus ring of the platform's classes, or a resting shadow, gives way
+   to the look's ring while the element is focused and comes back when it loses the focus. */
 html[data-look="nuevo"] :focus-visible {
   outline: 2px solid rgb(10 10 10);
   outline-offset: 2px;
+  box-shadow: 0 0 0 2px rgb(255 255 255);
 }
 
 /* Titles in Mont. Weights and sizes stay what the classes say. */

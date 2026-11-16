@@ -209,9 +209,17 @@ describe('the new look: the approved values', () => {
     });
   });
 
-  it('the keyboard outline is one step more specific than focus:outline-none', () => {
+  it('the keyboard ring is two rings, white inside and black outside, one step more specific than focus:outline-none', () => {
     // `.focus\:outline-none:focus` is (0,2,0); `html[data-look="nuevo"] :focus-visible` is (0,2,1).
-    expect(LOOK_CSS).toMatch(/html\[data-look="nuevo"\] :focus-visible \{\n {2}outline: 2px solid rgb\(10 10 10\);\n {2}outline-offset: 2px;\n\}/);
+    const focus: Record<string, string> = {};
+    postcss.parse(LOOK_CSS).walkRules((rule: { selector: string; walkDecls: (fn: (d: Decl) => void) => void }) => {
+      if (rule.selector === 'html[data-look="nuevo"] :focus-visible') rule.walkDecls((d) => (focus[d.prop] = d.value));
+    });
+    expect(focus).toEqual({
+      outline: '2px solid rgb(10 10 10)',
+      'outline-offset': '2px',
+      'box-shadow': '0 0 0 2px rgb(255 255 255)',
+    });
   });
 });
 

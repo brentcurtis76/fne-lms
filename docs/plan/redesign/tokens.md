@@ -87,8 +87,13 @@ rule of the file starts with `[data-look="nuevo"]`, so a page without the attrib
   intenso, the chart colours → the kit's tones).
 - **Radii:** 3, 4 and 6 px. **Fonts:** unchanged (Besley is not loaded by the platform's own stylesheets).
 - **The typography plugin** (`prose`) is told its greys in GRIS, on `.prose` itself (it declares them there).
-- **Focus:** a black 2 px outline on keyboard focus only (`:focus-visible`), one step more specific than
-  `focus:outline-none`. The focus rings stay.
+- **Focus:** the approved ring, two rings on `:focus-visible`: 2 px white inside (`box-shadow: 0 0 0 2px`), then
+  2 px black outside (the outline, 2 px out), so it shows on light and on dark surfaces (the black top bar, the
+  dark toolbar of an image preview). One step more specific than `focus:outline-none`. On purpose there is one
+  ring for the whole look: while an element has keyboard focus (and a text field whenever it has the focus, since
+  `:focus-visible` matches fields on a click too) the white ring REPLACES the element's own `box-shadow`, so a
+  focus ring of the platform's classes or a resting shadow gives way to the look's ring while the element is
+  focused, and comes back when it loses the focus.
 - **Titles:** `h1`, `h2`, `h3` in Mont; `h1` in capitals, spaced, with a line-height of 1.25. Headings inside written
   content (`.prose`, `.tiptap-editor`, `.ProseMirror`) keep their own face and case.
 - **Names that exist only under the look**, so that today's look reads a fallback: `--color-serie-1` … `-5` (charts

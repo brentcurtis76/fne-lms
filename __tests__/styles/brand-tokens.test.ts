@@ -220,10 +220,13 @@ describe('FNE brand tokens', () => {
     const stylesDir = join(REPO_ROOT, 'styles');
     expect(readFileSync(join(stylesDir, 'globals.css'), 'utf8')).toMatch(/^@import '\.\/fne-tokens\.css';$/m);
 
-    // No other stylesheet of the platform declares one of the names (it would win or lose by load order).
+    // No other stylesheet of the platform declares one of the names (it would win or lose by load order),
+    // except the new look's own file (phase 5a), and there only inside its one `[data-look="nuevo"]` block,
+    // which applies to nobody without the attribute (`look-nuevo.test.ts` pins the file itself).
     const { readdirSync } = require('node:fs');
     for (const file of (readdirSync(stylesDir) as string[]).filter((name) => name.endsWith('.css') && name !== 'fne-tokens.css')) {
-      postcss.parse(readFileSync(join(stylesDir, file), 'utf8')).walkDecls((decl: { prop: string }) => {
+      postcss.parse(readFileSync(join(stylesDir, file), 'utf8')).walkDecls((decl: { prop: string; parent: { type: string; selector?: string } }) => {
+        if (file === 'look-nuevo.css' && decl.parent.type === 'rule' && decl.parent.selector === '[data-look="nuevo"]') return;
         expect(read.has(decl.prop), `${decl.prop} is declared again in styles/${file}`).toBe(false);
       });
     }

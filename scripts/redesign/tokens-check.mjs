@@ -21,9 +21,11 @@
 //
 // Rules that apply only under a look (every selector of the rule carries `[data-look=…]`) are left out and counted:
 // without --look the answer is about a page with the switch off.
-// --look <name>: resolve the named values as they are under `[data-look="<name>"]` instead of `:root`, and keep the
-// look's other rules in (phase 5: with this option the answer is expected to be DIFFERENT, and the list is what the
-// new look changes).
+// --look <name>: resolve the named values as they are under `[data-look="<name>"]` instead of `:root`, list the
+// look's other rules apart, and summarise every declaration whose value changes, grouped by change (phase 5: with
+// this option the answer is expected to be DIFFERENT, and the list is what the new look changes). Since 5a this
+// resolves every `:root` variable of both files, not only the new names: the look overrides names 4a and 4b
+// already declared.
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
@@ -115,6 +117,63 @@ const leftOut = look ? [] : after.filter(onlyUnderALook);
 const B = after
   .filter((r) => !isNamedDeclaration(r) && (look || !onlyUnderALook(r)))
   .map((r) => ({ ...r, value: sameSpelling(resolve(r.value)) }));
+
+// --look, phase 5a. The new look gives other values to names the first file ALREADY declares (the 4a and 4b
+// names), so "the names the first file does not know" is not enough there. With --look the comparison is
+// instead: both files with every variable of their own `:root` replaced by its value (the second one's taken
+// from the look where the look declares it), the look's own rules set apart and listed, and every remaining
+// declaration compared in order. The answer is a summary of what the look changes, grouped by change.
+if (look) {
+  const rootOf = (rows) => rootVars(rows, ':root');
+  const beforeVars = rootOf(before);
+  const afterVars = new Map([...rootOf(after), ...lookVars]);
+  const resolveWith = (vars) => (value) => {
+    let out = value;
+    for (let i = 0; i < 6; i++) {
+      const next = out.replace(/var\((--[A-Za-z0-9_-]+)\)/g, (whole, name) => (vars.has(name) ? vars.get(name) : whole));
+      if (next === out) break;
+      out = next;
+    }
+    return out;
+  };
+  const isRootVar = (r) => r.where === ':root' && r.prop.startsWith('--');
+  const rA = resolveWith(beforeVars);
+  const rB = resolveWith(afterVars);
+  const LA = before.filter((r) => !isRootVar(r)).map((r) => ({ ...r, value: sameSpelling(rA(r.value)) }));
+  const lookRules = after.filter((r) => onlyUnderALook(r) && !isLookRoot(r));
+  const LB = after
+    .filter((r) => !isRootVar(r) && !onlyUnderALook(r))
+    .map((r) => ({ ...r, value: sameSpelling(rB(r.value)) }));
+  console.log(`Values taken from ${lookSelector}: ${lookVars.size} (of them, names the first file did not know: ${[...lookVars.keys()].filter((name) => !beforeVars.has(name)).length}).`);
+  if (LA.length !== LB.length) {
+    console.log(`DIFFERENT: the files do not line up (${LA.length} and ${LB.length} declarations once the look's own rules are set apart).`);
+    process.exit(1);
+  }
+  const changes = new Map();
+  let changed = 0;
+  for (let i = 0; i < LA.length; i++) {
+    const a = LA[i];
+    const b = LB[i];
+    if (key(a) !== key(b)) {
+      console.log(`DIFFERENT: the files no longer line up at #${i + 1} (${key(a)} / ${key(b)}).`);
+      process.exit(1);
+    }
+    if (a.value === b.value && a.important === b.important) continue;
+    changed++;
+    const what = `${a.prop}: ${a.value}  ->  ${b.value}`;
+    const entry = changes.get(what) ?? { count: 0, example: a.where };
+    entry.count++;
+    changes.set(what, entry);
+  }
+  console.log(`Rules of the look itself (they apply only under ${lookSelector}): ${lookRules.length} declaration(s).`);
+  for (const r of lookRules) console.log(`  ${r.where} { ${r.prop}: ${sameSpelling(rB(r.value))}${r.important ? ' !important' : ''}`);
+  console.log(`Declarations whose value the look changes: ${changed} of ${LA.length}, in ${changes.size} distinct change(s):`);
+  for (const [what, { count, example }] of [...changes].sort((x, y) => y[1].count - x[1].count)) {
+    console.log(`  ${String(count).padStart(4)} x ${what}   (e.g. ${example})`);
+  }
+  console.log(changed === 0 && lookRules.length === 0 ? 'EQUIVALENT' : 'DIFFERENT (expected with --look: the list above is what the look changes).');
+  process.exit(changed === 0 && lookRules.length === 0 ? 0 : 1);
+}
 
 const differences = [];
 const n = Math.max(A.length, B.length);

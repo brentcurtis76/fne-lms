@@ -5381,6 +5381,12 @@ const SQL_DIRECT_HOURS_USES: Record<string, UseClass[]> = {
   'supabase/migrations/20260819120300_recovery_security_ceremonies.sql': [
     'write', 'write', 'write', 'write',
   ],
+  // Installed publisher bootstrap: four dynamic-table aggregate helpers.
+  // The inspection role has no direct app-table SELECT and remains NOLOGIN;
+  // violation_count's expression helper is withheld from that role entirely.
+  'supabase/migrations/20261116164500_pm_publish_infra.sql': [
+    'aggregate', 'aggregate', 'aggregate', 'aggregate',
+  ],
 };
 
 const SQL_LEDGER_OBJECTS: Record<string, string[]> = {
@@ -5416,6 +5422,14 @@ const SQL_LEDGER_OBJECTS: Record<string, string[]> = {
   'supabase/migrations/20260819120200_forced_password_change_data_layer.sql': [
     'apply_forced_password_change_guard:write/potential-dynamic/direct',
   ],
+  // The existing extractor represents a non-public qualified name by its
+  // schema token. Keep its four bodies explicit and identify each helper here.
+  'supabase/migrations/20261116164500_pm_publish_infra.sql': [
+    'pm_inspect:null_count/aggregate/potential-dynamic/direct',
+    'pm_inspect:duplicate_count/aggregate/potential-dynamic/direct',
+    'pm_inspect:row_count/aggregate/potential-dynamic/direct',
+    'pm_inspect:violation_count/publisher-only/potential-dynamic/direct',
+  ],
 };
 
 /** Every unresolved executable SQL target is explicit; none is an allowed omission. */
@@ -5446,6 +5460,12 @@ const SQL_UNSUPPORTED_EXECUTES: Record<string, string[]> = {
     'enforce_operator_ledger_guard:trigger-authority/refuse-only',
     'enforce_operator_ledger_guard:guarded-create/no-ledger-read',
   ],
+  'supabase/migrations/20261116164500_pm_publish_infra.sql': [
+    'pm_inspect.null_count:aggregate/runtime-table-domain',
+    'pm_inspect.duplicate_count:aggregate/runtime-table-domain',
+    'pm_inspect.row_count:aggregate/runtime-table-domain',
+    'pm_inspect.violation_count:publisher-only/runtime-table-and-expression-domain',
+  ],
 };
 
 const SQL_UNSUPPORTED_OBJECTS: Record<string, string[]> = {
@@ -5458,6 +5478,9 @@ const SQL_UNSUPPORTED_OBJECTS: Record<string, string[]> = {
   ],
   'supabase/migrations/20260819120200_forced_password_change_data_layer.sql': [
     'apply_forced_password_change_guard',
+  ],
+  'supabase/migrations/20261116164500_pm_publish_infra.sql': [
+    'pm_inspect', 'pm_inspect', 'pm_inspect', 'pm_inspect',
   ],
 };
 

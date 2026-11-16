@@ -80,6 +80,8 @@ describe('GC-7 results panel school choice', () => {
     expect(await screen.findByText('Colegio Sintético Uno')).toBeInTheDocument();
     expect(screen.queryByText('No hay registros completados')).not.toBeInTheDocument();
     expect(resultCalls()).toEqual([]);
+    // N8: the list is asked for in the assigned scope (a consultor: assigned schools only)
+    expect(urls).toContain('/api/school/transversal-context/schools?scope=assigned');
   });
 
   it('choosing a school sends it to both results APIs', async () => {

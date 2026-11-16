@@ -1,10 +1,11 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 import { Plus, Trash2, Save, Calendar, DollarSign, Upload, X, Eye, FileText } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { convertToCLP, formatCurrency, getAvailableCurrencies } from '../../lib/currency-service';
 import { RECEIPTS_BUCKET } from '../../utils/expenseConfig';
+import { receiptPathFromStored } from '../../lib/expenses/receipt-path';
 
 interface ExpenseCategory {
   id: string;
@@ -65,6 +66,17 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
   const supabase = useSupabaseClient();
   const [loading, setLoading] = useState(false);
   const [uploadingReceipts, setUploadingReceipts] = useState<Set<number>>(new Set());
+  // GES-1.5: a just-chosen receipt is shown from the browser's own copy (an
+  // object URL), keyed by its stored place, until the expense is saved.
+  const localReceiptUrls = useRef<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    const urls = localReceiptUrls.current;
+    return () => {
+      urls.forEach((url) => URL.revokeObjectURL(url));
+      urls.clear();
+    };
+  }, []);
   
   // Form states
   const [reportForm, setReportForm] = useState({
@@ -118,16 +130,6 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
     }
   }, [editingReport]);
 
-  // Debug logging for expense items state
-  useEffect(() => {
-    console.log('🔍 Expense items updated:', expenseItems.map((item, index) => ({
-      index,
-      receipt_url: item.receipt_url,
-      receipt_filename: item.receipt_filename,
-      hasReceipt: !!(item.receipt_url || item.receipt_filename)
-    })));
-  }, [expenseItems]);
-
   const addExpenseItem = () => {
     setExpenseItems([...expenseItems, {
       category_id: '',
@@ -180,47 +182,30 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
     if (!file) return;
 
     setUploadingReceipts(prev => new Set(prev).add(index));
-    console.log('📤 Starting upload for file:', file.name, 'at index:', index);
 
     try {
       // Upload file to Supabase Storage
       const fileExt = file.name.split('.').pop();
       const fileName = `receipt_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
       
-      console.log('📁 Generated filename:', fileName);
-      
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from(RECEIPTS_BUCKET)
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
-      
-      console.log('✅ File uploaded successfully:', uploadData);
 
-      // Get signed URL for private bucket (valid for 1 year)
-      const { data: urlData, error: urlError } = await supabase.storage
-        .from(RECEIPTS_BUCKET)
-        .createSignedUrl(fileName, 365 * 24 * 60 * 60); // 1 year
-
-      let finalUrl = '';
-      if (urlError) {
-        console.warn('⚠️ Error creating signed URL, using basic path:', urlError);
-        finalUrl = `${RECEIPTS_BUCKET}/${fileName}`;
-      } else {
-        console.log('🔗 Signed URL created:', urlData.signedUrl);
-        finalUrl = urlData.signedUrl;
-      }
+      // GES-1.5: store the file's place in the receipts store, never a link.
+      const storedPlace = `${RECEIPTS_BUCKET}/${fileName}`;
+      localReceiptUrls.current.set(storedPlace, URL.createObjectURL(file));
       
       // Update the form state in a single update to avoid race conditions
-      console.log('📝 Updating expense item with URL:', finalUrl);
       const updatedItems = [...expenseItems];
       updatedItems[index] = {
         ...updatedItems[index],
-        receipt_url: finalUrl,
+        receipt_url: storedPlace,
         receipt_filename: file.name
       };
       setExpenseItems(updatedItems);
-      console.log('📝 Updated item at index', index, ':', updatedItems[index]);
       
       toast.success(`✅ Boleta subida exitosamente: ${file.name}`);
       
@@ -241,28 +226,22 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
     if (!item.receipt_url) return;
 
     try {
-      // Extract file name from URL to delete from storage
-      // Handle both signed URLs (with ?token=...) and regular URLs
-      const urlParts = item.receipt_url.split('/');
-      const fileNameWithParams = urlParts[urlParts.length - 1];
+      // The file's place in the receipts store (a stored place or an old link);
+      // a value that names no file there skips the storage removal.
+      const fileName = receiptPathFromStored(item.receipt_url);
 
-      // Remove query parameters if present (e.g., ?token=...)
-      const fileName = fileNameWithParams.split('?')[0];
+      if (fileName) {
+        // Delete from Supabase Storage
+        const { error: deleteError } = await supabase.storage
+          .from(RECEIPTS_BUCKET)
+          .remove([fileName]);
 
-      console.log('🗑️ Attempting to delete file:', fileName);
-
-      // Delete from Supabase Storage
-      const { error: deleteError } = await supabase.storage
-        .from(RECEIPTS_BUCKET)
-        .remove([fileName]);
-
-      if (deleteError) {
-        console.error('❌ Error deleting file from storage:', deleteError);
-        toast.error('Error al eliminar la boleta del servidor: ' + deleteError.message);
-        return;
+        if (deleteError) {
+          console.error('❌ Error deleting file from storage:', deleteError);
+          toast.error('Error al eliminar la boleta del servidor: ' + deleteError.message);
+          return;
+        }
       }
-
-      console.log('✅ File deleted successfully from storage');
 
       // If this is a saved item (has an ID), update the database
       if (item.id) {
@@ -280,15 +259,12 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
           return;
         }
 
-        console.log('✅ Database updated successfully');
-
         // CRITICAL: Update the editingReport prop to prevent stale data
         if (editingReport && editingReport.expense_items) {
           const itemToUpdate = editingReport.expense_items.find((ei: any) => ei.id === item.id);
           if (itemToUpdate) {
             itemToUpdate.receipt_url = null;
             itemToUpdate.receipt_filename = null;
-            console.log('✅ Updated editingReport object to prevent stale data');
           }
         }
       }
@@ -307,7 +283,12 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
         return { ...item }; // Clone other items too to ensure new references
       });
       setExpenseItems(updatedItems);
-      console.log('✅ Form state updated, receipt removed from UI', updatedItems[index]);
+
+      const localUrl = localReceiptUrls.current.get(item.receipt_url);
+      if (localUrl) {
+        URL.revokeObjectURL(localUrl);
+        localReceiptUrls.current.delete(item.receipt_url);
+      }
 
       toast.success('Boleta eliminada');
 
@@ -719,29 +700,16 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                             type="button"
                             onClick={async () => {
                               try {
-                                let url = '';
-                                if (item.receipt_url) {
-                                  url = item.receipt_url;
-                                } else if (item.receipt_filename) {
-                                  // Try to find the file in storage and generate URL
-                                  const { data: files, error: listError } = await supabase.storage
-                                    .from(RECEIPTS_BUCKET)
-                                    .list('', { limit: 50 });
-                                    
-                                  if (!listError && files) {
-                                    const receiptFile = files.find(file => 
-                                      file.name.includes('receipt_') && file.name.endsWith('.pdf')
-                                    ) || files[0];
-                                    
-                                    if (receiptFile) {
-                                      const { data: urlData, error: urlError } = await supabase.storage
-                                        .from(RECEIPTS_BUCKET)
-                                        .createSignedUrl(receiptFile.name, 3600);
-                                        
-                                      if (!urlError && urlData.signedUrl) {
-                                        url = urlData.signedUrl;
-                                      }
-                                    }
+                                // GES-1.5: a just-chosen file opens from the browser's
+                                // copy; a saved expense asks the server route.
+                                let url = item.receipt_url ? localReceiptUrls.current.get(item.receipt_url) || '' : '';
+                                if (!url && item.id) {
+                                  const response = await fetch('/api/expense-reports/receipt-link?itemId=' + item.id, {
+                                    credentials: 'same-origin'
+                                  });
+                                  if (response.ok) {
+                                    const body = await response.json();
+                                    if (typeof body?.url === 'string') url = body.url;
                                   }
                                 }
                                 

@@ -172,8 +172,16 @@ export async function getWorkspaceMessages(
       query = query.eq('message_type', filters.message_type);
     }
 
-    // Apply sorting
-    const sortBy = filters.sort_by || 'created_at';
+    // Apply sorting. Every option the page offers maps to an existing column:
+    // «Relevancia» and «Actividad del hilo» have no column of their own and
+    // keep the default order (EC-M10); ordering by a missing column emptied
+    // the conversation.
+    const MESSAGE_SORT_COLUMNS: Record<NonNullable<MessageFilters['sort_by']>, string> = {
+      created_at: 'created_at',
+      relevance: 'created_at',
+      thread_activity: 'created_at',
+    };
+    const sortBy = MESSAGE_SORT_COLUMNS[filters.sort_by || 'created_at'] || 'created_at';
     const sortOrder = filters.sort_order || 'desc';
     query = query.order(sortBy, { ascending: sortOrder === 'asc' });
 

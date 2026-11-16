@@ -202,6 +202,18 @@ SELECT tests.authenticate_as('f11_c');
 SELECT is((SELECT count(*)::int FROM public.message_reactions WHERE message_id IN ('12700000-0000-4000-8000-000000000401')),
   0, 'EC-M3 outsider: no reactions of community A''s messages');
 
+-- ----------------------------------------------------------------------------
+-- EC-M10: the columns the sort options now map to exist; the old two do not
+-- ----------------------------------------------------------------------------
+RESET ROLE;
+SELECT is((SELECT count(*)::int FROM information_schema.columns WHERE table_schema = 'public'
+            AND ((table_name = 'community_messages' AND column_name = 'created_at')
+              OR (table_name = 'message_threads' AND column_name IN ('last_message_at', 'created_at', 'message_count', 'participant_count', 'thread_title')))),
+  6, 'EC-M10 catalog: every column a sort option maps to exists');
+SELECT is((SELECT count(*)::int FROM information_schema.columns WHERE table_schema = 'public'
+            AND table_name = 'community_messages' AND column_name IN ('relevance', 'thread_activity')),
+  0, 'EC-M10 catalog: community_messages has no relevance or thread_activity column');
+
 RESET ROLE;
 SELECT set_config('role', 'anon', true);
 SELECT set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);

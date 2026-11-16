@@ -133,6 +133,11 @@ const DirectivoDashboard: React.FC = () => {
   const [schoolResults, setSchoolResults] = useState<SchoolResultsData | null>(null);
   const [courseResults, setCourseResults] = useState<CourseResultsData | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'courses'>('overview');
+  // GC-7: admins and consultores choose the school (the results APIs require one
+  // from them); directivos always see their own school.
+  const [choosesSchool, setChoosesSchool] = useState(false);
+  const [selectedSchoolId, setSelectedSchoolId] = useState<number | null>(null);
+  const [schools, setSchools] = useState<Array<{ id: number; name: string }>>([]);
 
   // Check auth and role
   useEffect(() => {
@@ -163,6 +168,22 @@ const DirectivoDashboard: React.FC = () => {
         return;
       }
 
+      const picksSchool = roleTypes.includes('admin') || roleTypes.includes('consultor');
+      setChoosesSchool(picksSchool);
+      if (picksSchool) {
+        const querySchoolId = router.query.school_id;
+        if (typeof querySchoolId === 'string' && /^\d+$/.test(querySchoolId)) {
+          setSelectedSchoolId(Number(querySchoolId));
+        }
+        // Same school list as the Plan de Migración picker.
+        fetch('/api/school/transversal-context/schools')
+          .then((response) => (response.ok ? response.json() : null))
+          .then((data) => {
+            if (data?.schools) setSchools(data.schools);
+          })
+          .catch((err) => console.error('Error fetching schools:', err));
+      }
+
       setUser(session.user);
 
       const { data: profileData } = await supabase
@@ -179,12 +200,14 @@ const DirectivoDashboard: React.FC = () => {
     checkAuth();
   }, [supabase, router]);
 
+  const schoolQuery = choosesSchool && selectedSchoolId ? `?school_id=${selectedSchoolId}` : '';
+
   // Fetch school results
   const fetchSchoolResults = useCallback(async () => {
     if (!user) return;
 
     try {
-      const response = await fetch('/api/directivo/assessments/school-results');
+      const response = await fetch(`/api/directivo/assessments/school-results${schoolQuery}`);
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || 'Error al cargar resultados');
@@ -196,14 +219,14 @@ const DirectivoDashboard: React.FC = () => {
       console.error('Error fetching school results:', error);
       toast.error(error.message || 'Error al cargar resultados de la escuela');
     }
-  }, [user]);
+  }, [user, schoolQuery]);
 
   // Fetch course results
   const fetchCourseResults = useCallback(async () => {
     if (!user) return;
 
     try {
-      const response = await fetch('/api/directivo/assessments/course-results');
+      const response = await fetch(`/api/directivo/assessments/course-results${schoolQuery}`);
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || 'Error al cargar resultados por curso');
@@ -215,14 +238,18 @@ const DirectivoDashboard: React.FC = () => {
       console.error('Error fetching course results:', error);
       // Don't show error toast for this, it's secondary data
     }
-  }, [user]);
+  }, [user, schoolQuery]);
 
   // Fetch all data
   const fetchData = useCallback(async () => {
+    if (choosesSchool && !selectedSchoolId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     await Promise.all([fetchSchoolResults(), fetchCourseResults()]);
     setLoading(false);
-  }, [fetchSchoolResults, fetchCourseResults]);
+  }, [fetchSchoolResults, fetchCourseResults, choosesSchool, selectedSchoolId]);
 
   useEffect(() => {
     if (user) {
@@ -242,12 +269,60 @@ const DirectivoDashboard: React.FC = () => {
     router.push('/login');
   };
 
+  const handleSchoolSelect = (schoolId: number) => {
+    setSchoolResults(null);
+    setCourseResults(null);
+    setSelectedSchoolId(schoolId);
+    router.push(`/directivo/assessments/dashboard?school_id=${schoolId}`, undefined, { shallow: true });
+  };
+
   // Loading state
   if (loading || !user) {
     return (
       <div className="min-h-screen bg-brand_beige flex justify-center items-center">
         <p className="text-xl text-brand_blue">Cargando...</p>
       </div>
+    );
+  }
+
+  // School picker for admins and consultores (as on the Plan de Migración page)
+  if (choosesSchool && !selectedSchoolId) {
+    return (
+      <MainLayout
+        user={user}
+        currentPage="assessments-dashboard"
+        pageTitle=""
+        breadcrumbs={[]}
+        isAdmin={false}
+        onLogout={handleLogout}
+        avatarUrl={avatarUrl}
+      >
+        <ResponsiveFunctionalPageHeader
+          icon={<BarChart3 />}
+          title="Panel de Resultados"
+          subtitle="Selecciona una escuela"
+        />
+
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="bg-white shadow-md rounded-lg p-6 border border-gray-200">
+            <h2 className="text-lg font-semibold text-brand_primary mb-4">Selecciona una Escuela</h2>
+            <p className="text-sm text-brand_primary/70 mb-4" data-testid="results-choose-school">
+              Elige un colegio para ver sus resultados
+            </p>
+            <div className="grid gap-3">
+              {schools.map((school) => (
+                <button
+                  key={school.id}
+                  onClick={() => handleSchoolSelect(school.id)}
+                  className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-brand_accent/10 hover:border-brand_accent transition-colors"
+                >
+                  <span className="font-medium text-brand_primary">{school.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </MainLayout>
     );
   }
 

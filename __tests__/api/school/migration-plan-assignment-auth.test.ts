@@ -58,6 +58,8 @@ const PLAN_DATA_TABLES = [PLAN_TABLE, CONTEXT_TABLE, GRADES_TABLE];
 const SAVE_WRITE_TABLES = [PLAN_TABLE, HISTORY_TABLE, STATUS_TABLE];
 
 const DENIED = 'Solo directivos y administradores pueden acceder al plan de migración';
+// N8: an ADMITTED (assigned) consultor's write is refused with its own message.
+const CONSULTOR_READ_ONLY = 'Los consultores pueden ver el plan, pero no modificarlo';
 
 // ── Recording, predicate-evaluating table mock ─────────────────
 type Call = { method: string; args: unknown[] };
@@ -300,7 +302,7 @@ describe('D8 — active assigned consultor: GET admitted, PUT refused before pla
     const { status, json } = await put(saveBody(SCHOOL_ID));
 
     expect(status).toBe(403);
-    expect(json).toEqual({ error: DENIED });
+    expect(json).toEqual({ error: CONSULTOR_READ_ONLY });
     expectRefusedBeforePlanAccess(ctx);
   });
 
@@ -310,7 +312,7 @@ describe('D8 — active assigned consultor: GET admitted, PUT refused before pla
     const { status, json } = await put({ school_id: SCHOOL_ID, entries: 'not-an-array' });
 
     expect(status).toBe(403);
-    expect(json).toEqual({ error: DENIED });
+    expect(json).toEqual({ error: CONSULTOR_READ_ONLY });
     expectRefusedBeforePlanAccess(ctx);
   });
 

@@ -175,8 +175,8 @@ const DirectivoDashboard: React.FC = () => {
         if (typeof querySchoolId === 'string' && /^\d+$/.test(querySchoolId)) {
           setSelectedSchoolId(Number(querySchoolId));
         }
-        // Same school list as the Plan de Migración picker.
-        fetch('/api/school/transversal-context/schools')
+        // Same school list as the Plan de Migración picker (a consultor: assigned schools only).
+        fetch('/api/school/transversal-context/schools?scope=assigned')
           .then((response) => (response.ok ? response.json() : null))
           .then((data) => {
             if (data?.schools) setSchools(data.schools);

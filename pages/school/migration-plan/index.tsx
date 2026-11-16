@@ -70,6 +70,8 @@ const MigrationPlanPage: React.FC = () => {
   const [schoolId, setSchoolId] = useState<number | null>(null);
   const [schoolName, setSchoolName] = useState<string>('');
   const [isAdmin, setIsAdmin] = useState(false);
+  // N8: a consultor reads the plan and never saves it (the route refuses it).
+  const [canWritePlan, setCanWritePlan] = useState(false);
   const [planLoadFailed, setPlanLoadFailed] = useState(false);
 
   // Data state
@@ -141,6 +143,7 @@ const MigrationPlanPage: React.FC = () => {
 
       setHasPermission(true);
       setIsAdmin(adminRole);
+      setCanWritePlan(roles.some(r => r.role_type === 'admin') || Boolean(directivoRole));
 
       // Get school_id
       let effectiveSchoolId: number | null = null;
@@ -172,7 +175,7 @@ const MigrationPlanPage: React.FC = () => {
         // Fetch schools via API
         setLoadingSchools(true);
         try {
-          const response = await fetch('/api/school/transversal-context/schools');
+          const response = await fetch('/api/school/transversal-context/schools?scope=assigned');
           const data = await response.json();
           if (response.ok && data.schools) {
             setSchools(data.schools);
@@ -508,7 +511,7 @@ const MigrationPlanPage: React.FC = () => {
               setHasChanges(false);
               setLoadingSchools(true);
               try {
-                const response = await fetch('/api/school/transversal-context/schools');
+                const response = await fetch('/api/school/transversal-context/schools?scope=assigned');
                 const data = await response.json();
                 if (response.ok && data.schools) {
                   setSchools(data.schools);
@@ -779,6 +782,7 @@ const MigrationPlanPage: React.FC = () => {
                 <span className="text-brand_primary/60">Todos los cambios guardados</span>
               )}
             </div>
+            {canWritePlan && (
             <button
               data-testid="migration-plan-save"
               onClick={handleSave}
@@ -803,6 +807,7 @@ const MigrationPlanPage: React.FC = () => {
                 </>
               )}
             </button>
+            )}
           </div>
         </div>
         {/* Change History */}

@@ -402,3 +402,58 @@ describe('authorizeStorageDownload', () => {
     expect(likeCalls).toEqual([]);
   });
 });
+
+// EC-S1d: malformed requests are refused with 400, before storage is touched.
+describe('malformed requests → 400 (EC-S1d)', () => {
+  async function rawDownload(query: Record<string, unknown>) {
+    const { req, res } = createMocks({ method: 'GET', headers: { authorization: 'Bearer test-token' }, query: query as any });
+    await downloadHandler(req as any, res as any);
+    return res;
+  }
+  async function rawDownloadUrl(body: Record<string, unknown>) {
+    const { req, res } = createMocks({ method: 'POST', headers: { authorization: 'Bearer test-token' }, body });
+    await downloadUrlHandler(req as any, res as any);
+    return res;
+  }
+
+  it('download: a url whose decoding throws (url=%25 as Next hands it over) → 400', async () => {
+    const res = await rawDownload({ url: '%', filename: 'archivo.pdf' });
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toEqual({ error: 'Ruta de archivo no válida' });
+    expect(storageWasTouched()).toBe(false);
+  });
+
+  it('download: a filename whose decoding throws → 400', async () => {
+    const res = await rawDownload({ url: `${PUBLIC}/resources/downloads/${COURSE_ID}/f.pdf`, filename: '%' });
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toEqual({ error: 'Ruta de archivo no válida' });
+    expect(storageWasTouched()).toBe(false);
+  });
+
+  it('download: url given twice (an array) → 400', async () => {
+    const res = await rawDownload({ url: [`${PUBLIC}/resources/downloads/${COURSE_ID}/f.pdf`, 'x'] });
+    expect(res._getStatusCode()).toBe(400);
+    expect(storageWasTouched()).toBe(false);
+  });
+
+  it.each([
+    ['a number', 123],
+    ['an array', ['a']],
+    ['an object', { a: 1 }],
+  ])('download-url: fileUrl as %s → 400, never signed', async (_label, fileUrl) => {
+    const res = await rawDownloadUrl({ fileUrl });
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toEqual({ error: 'Ruta de archivo no válida' });
+    expect(storageWasTouched()).toBe(false);
+  });
+
+  it.each([
+    ['a number', 7],
+    ['an array', ['resources']],
+  ])('download-url: bucket as %s → 400, never signed', async (_label, bucket) => {
+    const res = await rawDownloadUrl({ fileUrl: `downloads/${COURSE_ID}/f.pdf`, bucket });
+    expect(res._getStatusCode()).toBe(400);
+    expect(res._getJSONData()).toEqual({ error: 'Ruta de archivo no válida' });
+    expect(storageWasTouched()).toBe(false);
+  });
+});

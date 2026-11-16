@@ -28,9 +28,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'File URL is required' });
     }
 
-    // Decode the URL
-    const fileUrl = decodeURIComponent(url);
-    const originalFilename = filename ? decodeURIComponent(filename as string) : 'archivo';
+    // Decode the URL (a value that does not decode is refused, EC-S1d)
+    let fileUrl: string;
+    let originalFilename: string;
+    try {
+      fileUrl = decodeURIComponent(url);
+      originalFilename = filename ? decodeURIComponent(filename as string) : 'archivo';
+    } catch {
+      return res.status(400).json({ error: 'Ruta de archivo no válida' });
+    }
 
     console.log('[Download API] Attempting to download:', fileUrl);
 

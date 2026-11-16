@@ -4,9 +4,10 @@
 --   EC-S2    posts_with_engagement runs with the caller's rights; anon refused
 --   EC-V8    a post keeps its community and author, a comment its post,
 --            parent and author, for every signed-in caller
---   EC-SMALL workspace_activities, post_reactions, post_mentions and
---            message_reactions read (and activity insert) only within the
---            communities the caller can enter
+--   EC-SMALL workspace_activities, post_reactions, post_mentions,
+--            message_reactions and post_hashtags read (and activity insert)
+--            only within the communities the caller can enter; a message
+--            reaction is added only to a message the person can read
 --
 -- Personas: anon; member of community A; member of community B only; a
 -- consultor of the school of both; a signed-in person of another school with
@@ -15,7 +16,7 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(50);
+SELECT plan(61);
 
 CREATE OR REPLACE FUNCTION pg_temp.uid(k text) RETURNS uuid
 LANGUAGE sql STABLE SECURITY DEFINER AS $$ SELECT tests.get_supabase_uid(k) $$;
@@ -77,6 +78,8 @@ INSERT INTO public.community_posts (id, workspace_id, author_id, type, content) 
 INSERT INTO public.post_comments (id, post_id, author_id, content) VALUES
   ('11800000-0000-4000-8000-0000000000d1', '11800000-0000-4000-8000-0000000000a1', pg_temp.uid('f3_a'), 'F3 comment A'),
   ('11800000-0000-4000-8000-0000000000d2', '11800000-0000-4000-8000-0000000000a2', pg_temp.uid('f3_b'), 'F3 comment B');
+INSERT INTO public.post_hashtags (id, post_id, hashtag) VALUES
+  ('11800000-0000-4000-8000-000000000601', '11800000-0000-4000-8000-0000000000a1', 'f3hashtag');
 INSERT INTO public.post_reactions (id, post_id, user_id, reaction_type) VALUES
   ('11800000-0000-4000-8000-0000000000e1', '11800000-0000-4000-8000-0000000000a1', pg_temp.uid('f3_cons'), 'like'),
   ('11800000-0000-4000-8000-0000000000e2', '11800000-0000-4000-8000-0000000000a2', pg_temp.uid('f3_cons'), 'like');
@@ -105,6 +108,8 @@ SELECT is((SELECT count(*)::int FROM public.post_reactions WHERE id IN ('1180000
   0, 'EC-SMALL anon: no post reactions');
 SELECT is((SELECT count(*)::int FROM public.post_mentions WHERE id IN ('11800000-0000-4000-8000-0000000000f1','11800000-0000-4000-8000-0000000000f2')),
   0, 'EC-SMALL anon: no post mentions');
+SELECT is((SELECT count(*)::int FROM public.post_hashtags WHERE id = '11800000-0000-4000-8000-000000000601'),
+  0, 'EC-SMALL anon: no post hashtags');
 RESET ROLE;
 
 -- ----------------------------------------------------------------------------
@@ -125,6 +130,10 @@ SELECT is((SELECT count(*)::int FROM public.message_reactions WHERE id = '118000
   0, 'EC-SMALL member B: A''s message reaction not readable');
 SELECT throws_ok($q$INSERT INTO public.workspace_activities (workspace_id, user_id, activity_type) VALUES ('11800000-0000-4000-8000-0000000000b1', auth.uid(), 'workspace_accessed')$q$,
   '42501', NULL, 'EC-SMALL member B: activity insert into workspace A refused');
+SELECT throws_ok($q$INSERT INTO public.message_reactions (message_id, user_id, reaction_type) VALUES ('11800000-0000-4000-8000-000000000401', auth.uid(), 'thumbs_up')$q$,
+  '42501', NULL, 'EC-SMALL member B: reaction on A''s message refused');
+SELECT is((SELECT count(*)::int FROM public.post_hashtags WHERE id = '11800000-0000-4000-8000-000000000601'),
+  0, 'EC-SMALL member B: A''s post hashtag not readable');
 SELECT is((SELECT count(*)::int FROM public.post_reactions WHERE id = '11800000-0000-4000-8000-0000000000e2'),
   1, 'EC-SMALL member B: own community''s post reaction readable');
 RESET ROLE;
@@ -151,6 +160,8 @@ SELECT is((SELECT count(*)::int FROM public.workspace_activities WHERE id = '118
   1, 'EC-SMALL member A: A''s activity row readable');
 SELECT is((SELECT count(*)::int FROM public.message_reactions WHERE id = '11800000-0000-4000-8000-000000000501'),
   1, 'EC-SMALL member A: A''s message reaction readable');
+SELECT is((SELECT count(*)::int FROM public.post_hashtags WHERE id = '11800000-0000-4000-8000-000000000601'),
+  1, 'EC-SMALL member A: A''s post hashtag readable');
 SELECT lives_ok($q$INSERT INTO public.workspace_activities (workspace_id, user_id, activity_type) VALUES ('11800000-0000-4000-8000-0000000000b1', auth.uid(), 'section_changed')$q$,
   'EC-SMALL member A: activity insert into own workspace');
 SELECT lives_ok($q$INSERT INTO public.post_reactions (post_id, user_id, reaction_type) VALUES ('11800000-0000-4000-8000-0000000000a1', auth.uid(), 'love')$q$,
@@ -189,6 +200,8 @@ SELECT is((SELECT count(*)::int FROM public.workspace_activities WHERE id IN ('1
   2, 'EC-SMALL consultor: both activity rows');
 SELECT is((SELECT count(*)::int FROM public.message_reactions WHERE id = '11800000-0000-4000-8000-000000000501'),
   1, 'EC-SMALL consultor: A''s message reaction');
+SELECT is((SELECT count(*)::int FROM public.post_hashtags WHERE id = '11800000-0000-4000-8000-000000000601'),
+  1, 'EC-SMALL consultor: A''s post hashtag');
 RESET ROLE;
 
 -- ----------------------------------------------------------------------------
@@ -207,6 +220,8 @@ SELECT is((SELECT count(*)::int FROM public.workspace_activities WHERE id IN ('1
   2, 'EC-SMALL admin: both activity rows');
 SELECT is((SELECT count(*)::int FROM public.message_reactions WHERE id = '11800000-0000-4000-8000-000000000501'),
   1, 'EC-SMALL admin: A''s message reaction');
+SELECT is((SELECT count(*)::int FROM public.post_hashtags WHERE id = '11800000-0000-4000-8000-000000000601'),
+  1, 'EC-SMALL admin: A''s post hashtag');
 RESET ROLE;
 
 -- ----------------------------------------------------------------------------
@@ -215,6 +230,9 @@ RESET ROLE;
 -- ----------------------------------------------------------------------------
 INSERT INTO public.user_roles (user_id, role_type, school_id, community_id, is_active) VALUES
   (pg_temp.uid('f3_a'), 'docente', 9181, '11800000-0000-4000-8000-0000000000c2', true);
+-- a second person's comment on post A (added here so the counts above stay 1/1/1)
+INSERT INTO public.post_comments (id, post_id, author_id, content) VALUES
+  ('11800000-0000-4000-8000-0000000000d3', '11800000-0000-4000-8000-0000000000a1', pg_temp.uid('f3_cons'), 'F3 second comment on A');
 SELECT tests.authenticate_as('f3_a');
 SELECT ok(public.can_access_workspace(auth.uid(), '11800000-0000-4000-8000-0000000000b2'),
   'EC-V8 setup: member A can also enter workspace B');
@@ -224,7 +242,17 @@ SELECT throws_ok($q$UPDATE public.community_posts SET author_id = (SELECT pg_tem
   '42501', NULL, 'EC-V8 member A: handing own post to another author refused');
 SELECT throws_ok($q$UPDATE public.post_comments SET post_id = '11800000-0000-4000-8000-0000000000a2' WHERE id = '11800000-0000-4000-8000-0000000000d1'$q$,
   '42501', NULL, 'EC-V8 member A: moving own comment to B''s post refused');
+SELECT throws_ok($q$UPDATE public.post_comments SET author_id = (SELECT pg_temp.uid('f3_b')) WHERE id = '11800000-0000-4000-8000-0000000000d1'$q$,
+  '42501', 'A comment cannot change post, parent or author', 'EC-V8 member A: handing own comment to another author refused (by the trigger)');
+SELECT throws_ok($q$UPDATE public.post_comments SET parent_comment_id = '11800000-0000-4000-8000-0000000000d3' WHERE id = '11800000-0000-4000-8000-0000000000d1'$q$,
+  '42501', 'A comment cannot change post, parent or author', 'EC-V8 member A: giving own comment another comment as parent refused (by the trigger)');
+SELECT is(pg_temp.affected($q$UPDATE public.post_comments SET content = 'F3 comment A edited again' WHERE id = '11800000-0000-4000-8000-0000000000d1'$q$),
+  1, 'EC-V8 member A: edits own comment content on a post with several comments');
+SELECT lives_ok($q$SELECT public.increment_post_view_count('11800000-0000-4000-8000-0000000000a2')$q$,
+  'EC-V8 member A (not the author of post B): increment_post_view_count raises no error');
 RESET ROLE;
+SELECT is((SELECT (author_id = pg_temp.uid('f3_a'))::text || ' ' || coalesce(parent_comment_id::text, 'null') FROM public.post_comments WHERE id = '11800000-0000-4000-8000-0000000000d1'),
+  'true null', 'EC-V8: comment A keeps its author and has no parent');
 SELECT is((SELECT workspace_id::text || ' ' || (author_id = pg_temp.uid('f3_a'))::text FROM public.community_posts WHERE id = '11800000-0000-4000-8000-0000000000a1'),
   '11800000-0000-4000-8000-0000000000b1 true', 'EC-V8: post A still in workspace A with its author');
 SELECT is((SELECT post_id::text FROM public.post_comments WHERE id = '11800000-0000-4000-8000-0000000000d1'),

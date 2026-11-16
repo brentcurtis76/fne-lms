@@ -28,6 +28,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'File URL is required' });
     }
 
+    // Only a non-empty string address and a string store name are used (EC-S1d)
+    if (typeof fileUrl !== 'string' || typeof bucket !== 'string') {
+      return res.status(400).json({ error: 'Ruta de archivo no válida' });
+    }
+
     // Extract the bucket and file path; every branch only sets them, and the
     // single decision below is taken before anything is signed (EC-S1).
     // Public URLs have format: https://xxx.supabase.co/storage/v1/object/public/bucket/path

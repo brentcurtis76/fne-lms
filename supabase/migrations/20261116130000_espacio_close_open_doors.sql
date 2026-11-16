@@ -4,9 +4,10 @@
 --   EC-V8    an author could move their own post or comment into any community:
 --            a post keeps its community and author, a comment its post, parent and author,
 --            for every signed-in caller (backend work without a caller is not restricted).
---   EC-SMALL workspace_activities, post_reactions, post_mentions and message_reactions
---            were readable beyond their community: reads (and the activity insert) are
---            now tied to what the caller can enter or see.
+--   EC-SMALL workspace_activities, post_reactions, post_mentions, message_reactions and
+--            post_hashtags were readable beyond their community: reads (and the activity
+--            insert) are now tied to what the caller can enter or see.
+--            message_reactions: a reaction can be added only to a message the person can read.
 -- Statements: ALTER VIEW, REVOKE, CREATE FUNCTION, CREATE TRIGGER, ALTER POLICY. Additive only.
 
 -- EC-S2
@@ -49,3 +50,7 @@ ALTER POLICY "Users can view mentions" ON public.post_mentions TO authenticated
   USING (EXISTS (SELECT 1 FROM public.community_posts p WHERE p.id = post_mentions.post_id));
 ALTER POLICY "message_reactions_select" ON public.message_reactions
   USING (public.access_message(message_id));
+ALTER POLICY "message_reactions_insert" ON public.message_reactions
+  WITH CHECK (auth.uid() = user_id AND public.access_message(message_id));
+ALTER POLICY "Anyone can view hashtags" ON public.post_hashtags TO authenticated
+  USING (EXISTS (SELECT 1 FROM public.community_posts p WHERE p.id = post_hashtags.post_id));

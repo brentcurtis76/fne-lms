@@ -180,8 +180,8 @@ WITH d AS (DELETE FROM storage.objects WHERE bucket_id = 'facturas' AND name LIK
 SELECT is(count(*)::int, 0, 'anon cannot delete from facturas') FROM d;
 WITH d AS (DELETE FROM storage.objects WHERE bucket_id = 'resources' AND name LIKE 'fneanon105/%' RETURNING 1)
 SELECT is(count(*)::int, 0, 'anon cannot delete from resources') FROM d;
-WITH d AS (DELETE FROM storage.objects WHERE bucket_id = 'fneanon105-other' AND name = 'fneanon105/anon.txt' RETURNING 1)
-SELECT is(count(*)::int, 0, 'anon cannot delete in an unrelated open bucket either (F2b)') FROM d;
+WITH d AS (DELETE FROM storage.objects WHERE bucket_id = 'fneanon105-other' AND name = 'fneanon105/o.txt' RETURNING 1)
+SELECT is(count(*)::int, 0, 'anon cannot delete in an unrelated open bucket either (F2b; the row exists)') FROM d;
 -- F2b: a visitor no longer lists facturas or resources (public addresses are unaffected).
 SELECT is((SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'facturas' AND name = 'fneanon105/f.pdf'), 0,
   'anon no longer reads facturas objects (F2b)');

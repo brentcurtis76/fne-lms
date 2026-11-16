@@ -10,7 +10,7 @@ import {
   Platform
 } from './types';
 import { RECEIPTS_BUCKET } from '../../utils/expenseConfig';
-import { logStageFailure } from './bot-logging';
+import { buildFailureLog, logStageFailure } from './bot-logging';
 import { authorizeUserEmail } from '../email/outbound-policy';
 
 const BUCKET = RECEIPTS_BUCKET;
@@ -316,6 +316,24 @@ export class ExpenseService {
       throw new BotExpenseError(
         error.message?.includes('REPORT_NOT_EDITABLE') ? 'REPORT_NOT_EDITABLE' : 'SAVE_FAILED'
       );
+    }
+
+    // Record whose receipt this is: the file was uploaded with the service key,
+    // so it has no owner in the store, and the store's rule for boletas trusts
+    // only this server-written record (never text a filer can write). A failed
+    // record does not fail the save: the expense is saved and an admin can
+    // still open the receipt.
+    const { error: recordError } = await this.supabase
+      .from('expense_receipt_files')
+      .insert({ object_name: fileName, user_id: input.userId, source: 'assistant' });
+    if (recordError) {
+      // Same whitelisted record as logStageFailure, without `details` (a
+      // duplicate-key detail would carry the file name).
+      console.error('[Bot] save failure', JSON.stringify({
+        ...buildFailureLog('rpc', recordError, { currency: input.currency, itemId: input.itemId }),
+        stage: 'receipt_record',
+        details: null
+      }));
     }
 
     const reportId = data as string;

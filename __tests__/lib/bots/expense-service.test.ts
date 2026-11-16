@@ -41,6 +41,7 @@ function buildClient(resultsByTable: Record<string, TableResult[]>) {
   const indices: Record<string, number> = {};
   const rpcCalls: Array<{ fn: string; args: Record<string, unknown> }> = [];
   const storageCalls: Array<{ op: string; args: unknown[] }> = [];
+  const tableCalls: Array<{ table: string; op: string; args: unknown[] }> = [];
   let uploadResult: { error: unknown } = { error: null };
   const rpcResults: Array<{ data?: unknown; error?: unknown }> = [];
 
@@ -59,7 +60,10 @@ function buildClient(resultsByTable: Record<string, TableResult[]>) {
           if (prop === 'maybeSingle' || prop === 'single') {
             return () => Promise.resolve(resolved);
           }
-          return () => new Proxy({}, handler);
+          return (...args: unknown[]) => {
+            tableCalls.push({ table, op: String(prop), args });
+            return new Proxy({}, handler);
+          };
         }
       };
       return new Proxy({}, handler);
@@ -86,6 +90,7 @@ function buildClient(resultsByTable: Record<string, TableResult[]>) {
     client,
     rpcCalls,
     storageCalls,
+    tableCalls,
     setUploadResult: (r: { error: unknown }) => { uploadResult = r; },
     queueRpcResult: (r: { data?: unknown; error?: unknown }) => { rpcResults.push(r); }
   };
@@ -291,6 +296,76 @@ describe('saveExpenseItem', () => {
     const service = new ExpenseService(fake.client as never);
     await expect(service.saveExpenseItem(saveInput)).rejects.toMatchObject({ code: 'UPLOAD_FAILED' });
     expect(fake.rpcCalls).toHaveLength(0);
+  });
+
+  // F2b send-back 1: the store's rule for boletas trusts only the server's record.
+  const receiptInserts = (fake: ReturnType<typeof buildClient>) =>
+    fake.tableCalls.filter((c) => c.table === 'expense_receipt_files' && c.op === 'insert');
+
+  it('records the uploaded file for the user after a successful save', async () => {
+    const fake = buildClient({
+      expense_reports: [
+        { data: { report_name: 'Gastos junio 2026', total_amount: 12990, expense_items: [{ count: 1 }] } }
+      ]
+    });
+    const service = new ExpenseService(fake.client as never);
+    await service.saveExpenseItem(saveInput);
+
+    const uploadedName = fake.storageCalls[0].args[0] as string;
+    const inserts = receiptInserts(fake);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0].args[0]).toEqual({ object_name: uploadedName, user_id: USER_ID, source: 'assistant' });
+    expect(fake.rpcCalls[0].args.p_receipt_url).toBe(`boletas/${uploadedName}`);
+    // recorded after the RPC: the record's table is touched before the report read-back
+    const order = fake.client.from.mock.calls.map((c) => c[0]);
+    expect(order.indexOf('expense_receipt_files')).toBeLessThan(order.indexOf('expense_reports'));
+  });
+
+  it('does not record the file when the upload fails', async () => {
+    const fake = buildClient({});
+    fake.setUploadResult({ error: { message: 'storage down' } });
+    const service = new ExpenseService(fake.client as never);
+    await expect(service.saveExpenseItem(saveInput)).rejects.toMatchObject({ code: 'UPLOAD_FAILED' });
+    expect(receiptInserts(fake)).toHaveLength(0);
+  });
+
+  it('does not record the file when the RPC fails', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const fake = buildClient({});
+      fake.queueRpcResult({ data: null, error: { message: 'boom' } });
+      const service = new ExpenseService(fake.client as never);
+      await expect(service.saveExpenseItem(saveInput)).rejects.toMatchObject({ code: 'SAVE_FAILED' });
+      expect(receiptInserts(fake)).toHaveLength(0);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('a failing record does not fail the save, and its log carries no file name', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const fake = buildClient({
+        expense_receipt_files: [{ error: { code: '23505', message: 'duplicate key value violates unique constraint', details: 'Key (object_name)=(receipt_x.jpg) already exists.' } }],
+        expense_reports: [
+          { data: { report_name: 'Gastos junio 2026', total_amount: 12990, expense_items: [{ count: 1 }] } }
+        ]
+      });
+      const service = new ExpenseService(fake.client as never);
+      const result = await service.saveExpenseItem(saveInput);
+      expect(result).toMatchObject({ reportId: REPORT_ID, reportName: 'Gastos junio 2026', itemCount: 1 });
+      expect(fake.storageCalls.some((c) => c.op === 'remove')).toBe(false);
+
+      const logged = errorSpy.mock.calls.find((c) => c[0] === '[Bot] save failure');
+      expect(logged).toBeTruthy();
+      const record = JSON.parse(logged![1] as string);
+      expect(record).toMatchObject({ stage: 'receipt_record', code: '23505', details: null, itemId: ITEM_ID });
+      const uploadedName = fake.storageCalls[0].args[0] as string;
+      expect(logged!.join(' ')).not.toContain(uploadedName);
+      expect(logged!.join(' ')).not.toContain('receipt_x.jpg');
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });
 

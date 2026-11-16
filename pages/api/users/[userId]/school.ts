@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { createApiSupabaseClient, requireVerifiedCaller } from '@/lib/api-auth';
+import { hasAdminPrivileges } from '@/utils/roleUtils';
 
 // Service role client to bypass RLS
 const supabaseAdmin = createClient(
@@ -26,6 +27,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { userId } = req.query;
     if (!userId || typeof userId !== 'string') {
       return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    // Only the person themself or an active admin learns a person's school.
+    // Anyone else gets the answer an unknown id gets, before any read of the
+    // person's school (F11 send-back 3, X2).
+    if (caller.user.id !== userId && !(await hasAdminPrivileges(supabaseAdmin, caller.user.id))) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
     // Get user's school from user_roles (authoritative source)

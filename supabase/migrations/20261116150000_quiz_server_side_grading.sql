@@ -80,7 +80,7 @@ BEGIN
     RAISE EXCEPTION 'Quiz does not belong to that lesson' USING ERRCODE = '22023';
   END IF;
 
-  SELECT COALESCE(l.course_id, m.course_id) INTO v_course
+  SELECT COALESCE(m.course_id, l.course_id) INTO v_course
     FROM public.lessons l LEFT JOIN public.modules m ON m.id = l.module_id WHERE l.id = p_lesson_id;
   IF v_course IS NULL OR v_course IS DISTINCT FROM p_course_id THEN
     RAISE EXCEPTION 'Lesson does not belong to that course' USING ERRCODE = '22023';

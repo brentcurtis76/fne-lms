@@ -20,7 +20,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(49);
+SELECT plan(52);
 
 CREATE OR REPLACE FUNCTION pg_temp.set_anon() RETURNS void AS $$
 BEGIN
@@ -140,13 +140,16 @@ INSERT INTO public.lessons (id, module_id, course_id, title, order_number) VALUE
   ('12000000-0000-4000-8000-00000000ee01', '12000000-0000-4000-8000-00000000e001', '12000000-0000-4000-8000-000000000c01', 'Q120 lesson 1', 1),
   ('12000000-0000-4000-8000-00000000ee02', '12000000-0000-4000-8000-00000000e001', '12000000-0000-4000-8000-000000000c01', 'Q120 lesson 2', 2),
   ('12000000-0000-4000-8000-00000000ee03', '12000000-0000-4000-8000-00000000e002', '12000000-0000-4000-8000-000000000c02', 'Q120 course 2 lesson', 1),
-  ('12000000-0000-4000-8000-00000000ee04', NULL,                                   '12000000-0000-4000-8000-000000000c03', 'Q120 simple lesson', 1);
+  ('12000000-0000-4000-8000-00000000ee04', NULL,                                   '12000000-0000-4000-8000-000000000c03', 'Q120 simple lesson', 1),
+  -- CUR-S2c: in course 1's module, but its own course_id disagrees (says course 2).
+  ('12000000-0000-4000-8000-00000000ee05', '12000000-0000-4000-8000-00000000e001', '12000000-0000-4000-8000-000000000c02', 'Q120 mismatched lesson', 3);
 INSERT INTO public.blocks (id, course_id, lesson_id, position, type, payload) VALUES
   ('12000000-0000-4000-8000-0000000000b1', '12000000-0000-4000-8000-000000000c01', '12000000-0000-4000-8000-00000000ee01', 1, 'text', '{"content": "synthetic text"}'),
   ('12000000-0000-4000-8000-0000000000b2', '12000000-0000-4000-8000-000000000c01', '12000000-0000-4000-8000-00000000ee01', 2, 'quiz', pg_temp.quiz1()),
   ('12000000-0000-4000-8000-0000000000b3', '12000000-0000-4000-8000-000000000c01', '12000000-0000-4000-8000-00000000ee02', 1, 'text', '{"content": "lesson 2 text"}'),
   ('12000000-0000-4000-8000-0000000000b4', '12000000-0000-4000-8000-000000000c02', '12000000-0000-4000-8000-00000000ee03', 1, 'text', '{"content": "course 2 text"}'),
-  ('12000000-0000-4000-8000-0000000000b5', '12000000-0000-4000-8000-000000000c03', '12000000-0000-4000-8000-00000000ee04', 1, 'quiz', pg_temp.quiz5());
+  ('12000000-0000-4000-8000-0000000000b5', '12000000-0000-4000-8000-000000000c03', '12000000-0000-4000-8000-00000000ee04', 1, 'quiz', pg_temp.quiz5()),
+  ('12000000-0000-4000-8000-0000000000b6', '12000000-0000-4000-8000-000000000c02', '12000000-0000-4000-8000-00000000ee05', 1, 'quiz', pg_temp.quiz1());
 INSERT INTO public.learning_paths (id, name, description, created_by) VALUES
   ('12000000-0000-4000-8000-00000000000a', 'Q120 path', 'course 1', pg_temp.uid('q120_admin'));
 INSERT INTO public.learning_path_courses (learning_path_id, course_id, sequence_order) VALUES
@@ -400,6 +403,28 @@ RESET ROLE;
 SELECT tests.clear_authentication();
 SELECT is((SELECT manual_graded_score || '/' || review_status FROM public.quiz_submissions WHERE id = '12000000-0000-4000-8000-0000000000aa'),
   '3/pass', 'anon: learner A''s result is as the service role left it');
+
+-- ----------------------------------------------------------------------------
+-- 6. CUR-S2c — the course is resolved as the lesson page does: module first (3)
+--    Lesson ee05 sits in course 1's module but its own course_id says course 2.
+--    The page sends lesson.module.course_id || lesson.course_id = course 1.
+-- ----------------------------------------------------------------------------
+SELECT tests.authenticate_as('q120_lrn_a');
+SELECT is(pg_temp.probe(
+  $s$SELECT public.submit_quiz('12000000-0000-4000-8000-00000000ee05', '12000000-0000-4000-8000-0000000000b6',
+      pg_temp.uid('q120_lrn_a'), '12000000-0000-4000-8000-000000000c02', '{}'::jsonb, pg_temp.quiz1(), NULL)$s$, 'q120_lrn_a'),
+  '22023 Lesson does not belong to that course',
+  'CUR-S2c: naming course 2 for the mismatched lesson is refused (its module is course 1''s), nothing stored');
+SELECT lives_ok(
+  $$SELECT public.submit_quiz('12000000-0000-4000-8000-00000000ee05', '12000000-0000-4000-8000-0000000000b6',
+      pg_temp.uid('q120_lrn_a'), '12000000-0000-4000-8000-000000000c01',
+      '{"q-mc": {"selectedOption": "o2"}, "q-tf": {"selectedOption": "t"}, "q-open": {"text": "synthetic answer"}}'::jsonb,
+      pg_temp.forged(), 25)$$,
+  'CUR-S2c: learner A sends the mismatched lesson''s quiz naming course 1, as the page does (accepted)');
+RESET ROLE;
+SELECT tests.clear_authentication();
+SELECT is(pg_temp.score('q120_lrn_a', '12000000-0000-4000-8000-00000000ee05', '12000000-0000-4000-8000-0000000000b6'),
+  '3/6/3/3/pending_review', 'CUR-S2c: the mismatched lesson''s result is stored and scored from the stored quiz');
 
 SELECT * FROM finish();
 

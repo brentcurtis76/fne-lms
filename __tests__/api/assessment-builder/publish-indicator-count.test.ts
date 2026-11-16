@@ -12,16 +12,26 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
 import { ADMIN_UUID, TEMPLATE_DRAFT_1, MODULE_A, OBJECTIVE_A, IND_COBERTURA_1, buildChainableQuery } from './_helpers';
 
-const { mockGetApiUser, mockCreateApiSupabaseClient, mockHasWritePerm } = vi.hoisted(() => ({
+const { mockGetApiUser, mockCreateApiSupabaseClient, mockHasWritePerm, mockRpc } = vi.hoisted(() => ({
   mockGetApiUser: vi.fn(),
   mockCreateApiSupabaseClient: vi.fn(),
   mockHasWritePerm: vi.fn(),
+  // GC-10 send-back 1: snapshot + flip are one service-role call.
+  mockRpc: vi.fn(async () => ({
+    data: {
+      ok: true,
+      version: '1.1.0',
+      template: { id: 'tpl', name: 'Instrumento Sintético', area: 'evaluacion', status: 'published', version: '1.1.0' },
+      snapshot: { id: 'snap-1', version: '1.1.0', created_at: '2026-01-02T00:00:00Z' },
+    },
+    error: null,
+  })),
 }));
 
 vi.mock('../../../lib/api-auth', () => ({
   getApiUser: mockGetApiUser,
   createApiSupabaseClient: mockCreateApiSupabaseClient,
-  createServiceRoleClient: vi.fn(() => ({ from: vi.fn(() => buildChainableQuery([])) })),
+  createServiceRoleClient: vi.fn(() => ({ rpc: mockRpc })),
   sendAuthError: vi.fn((res: any, msg?: string) => {
     res.status(401).json({ error: msg || 'Authentication required' });
   }),
@@ -93,6 +103,7 @@ describe('GC-2 publish route: indicators', () => {
     expect(r.status).toBe(400);
     expect(r.body.error).toBe(NO_INDICATORS);
     expect(writes).toEqual([]);
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('publishes an instrument that has indicators', async () => {
@@ -102,8 +113,9 @@ describe('GC-2 publish route: indicators', () => {
     const r = await publish(client);
     expect(r.status).toBe(200);
     expect(r.body.success).toBe(true);
-    expect(writes).toContain('assessment_template_snapshots.insert');
-    expect(writes).toContain('assessment_templates.update');
+    // GC-10 send-back 1: the snapshot and the flip are one publication call.
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(writes).toEqual([]);
   });
 });
 

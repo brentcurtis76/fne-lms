@@ -1,8 +1,10 @@
 // @vitest-environment node
 /**
- * GC-10 against a real local database: a publication that fails after its
- * snapshot is written must not leave that snapshot behind, and a retry must
- * not be stopped by a leftover of an earlier failed attempt.
+ * GC-10 against a real local database. Send-back 1: the snapshot and the
+ * flip are written in ONE transaction (public.publish_assessment_template), at
+ * the next free version of the scope, so two copies of one published
+ * instrument both publish, a leftover of an earlier failed attempt is
+ * overwritten in place, and nothing ever deletes a snapshot.
  *
  * Runs only when GESTOR_LOCAL_GROUND names a local ground folder (its ci.env
  * must point at 127.0.0.1); skipped otherwise, so the normal unit run never
@@ -55,6 +57,7 @@ vi.mock('../../../lib/api-auth', async (importOriginal) => {
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import handler from '../../../pages/api/admin/assessment-builder/templates/[templateId]/publish';
+import { publishTemplate } from '../../../lib/services/assessment-builder/publishTemplate';
 
 describe.runIf(Boolean(GROUND))('GC-10 publish retry on the local database', () => {
   let service: SupabaseClient;
@@ -94,10 +97,10 @@ describe.runIf(Boolean(GROUND))('GC-10 publish retry on the local database', () 
     }
   });
 
-  async function draft(area: string, gradeId: number | null, version: string): Promise<string> {
+  async function draft(area: string, gradeId: number | null, version: string, status = 'draft'): Promise<string> {
     const id = randomUUID();
     const t = await service.from('assessment_templates').insert({
-      id, name: `F8 Instrumento Sintético ${major}`, area, grade_id: gradeId, version, status: 'draft',
+      id, name: `F8 Instrumento Sintético ${major}`, area, grade_id: gradeId, version, status,
     });
     if (t.error) throw new Error(`template: ${t.error.message}`);
     created.push(id);
@@ -148,8 +151,27 @@ describe.runIf(Boolean(GROUND))('GC-10 publish retry on the local database', () 
     expect(leftAfterRefusal).toEqual([]); // the refusal wrote no snapshot
   });
 
-  it('a leftover snapshot of an earlier failed attempt (referred to by nothing) is removed and the retry publishes', async () => {
+  it('two copies duplicated from one published instrument both publish, at two versions, each with its own snapshot', async () => {
+    // What «Duplicar» leaves: the published original and two drafts numbered by nextTemplateVersion.
+    const original = await draft('familias', 14, `${major}.1.0`, 'published');
+    const a = await draft('familias', 14, `${major}.1.1`);
+    const b = await draft('familias', 14, `${major}.1.2`);
+
+    const ra = await publish(a);
+    const rb = await publish(b);
+    expect([ra.status, ra.body.error]).toEqual([200, undefined]);
+    expect([rb.status, rb.body.error]).toEqual([200, undefined]);
+    expect(await status(a)).toEqual({ status: 'published', version: `${major}.2.0` });
+    expect(await status(b)).toEqual({ status: 'published', version: `${major}.3.0` });
+    expect(await status(original)).toEqual({ status: 'published', version: `${major}.1.0` });
+    expect((await snapshots(a)).map((s) => s.version)).toEqual([`${major}.2.0`]);
+    expect((await snapshots(b)).map((s) => s.version)).toEqual([`${major}.3.0`]);
+    expect(ra.body.snapshot.id).not.toBe(rb.body.snapshot.id);
+  });
+
+  it('a leftover snapshot of an earlier failed attempt (referred to by nothing) is overwritten in place and the retry publishes', async () => {
     const id = await draft('trabajo_docente', 12, `${major}.0.0`);
+    // What the old code left behind when its flip failed.
     const leftover = await service
       .from('assessment_template_snapshots')
       .insert({ template_id: id, version: `${major}.1.0`, snapshot_data: { leftover: true } })
@@ -160,12 +182,15 @@ describe.runIf(Boolean(GROUND))('GC-10 publish retry on the local database', () 
     const r = await publish(id);
     expect(r.body.error).toBeUndefined();
     expect(r.status).toBe(200);
-    const snaps = await snapshots(id);
+    const { data: snaps } = await service.from('assessment_template_snapshots').select('id, version, snapshot_data').eq('template_id', id);
     expect(snaps).toHaveLength(1);
-    expect(snaps[0].id).not.toBe(leftover.data!.id);
+    expect(snaps![0].id).toBe(leftover.data!.id); // the same row, not deleted
+    expect(snaps![0].snapshot_data.leftover).toBeUndefined();
+    expect(snaps![0].snapshot_data.template.id).toBe(id);
+    expect(await status(id)).toEqual({ status: 'published', version: `${major}.1.0` });
   });
 
-  it('a snapshot that an assessment instance refers to is never removed', async () => {
+  it('a snapshot that an assessment instance refers to is never removed nor overwritten: the publication is refused', async () => {
     const id = await draft('trabajo_docente', 13, `${major}.0.0`);
     const kept = await service
       .from('assessment_template_snapshots')
@@ -181,33 +206,48 @@ describe.runIf(Boolean(GROUND))('GC-10 publish retry on the local database', () 
     expect(inst.error).toBeNull();
 
     const r = await publish(id);
-    expect(r.status).toBe(500);
-    expect(r.body.error).toBe('Error al crear snapshot');
-    expect((await snapshots(id)).map((s) => s.id)).toEqual([kept.data!.id]);
+    expect(r.status).toBe(409);
+    expect(r.body.code).toBe('snapshot_in_use');
+    const { data: snaps } = await service.from('assessment_template_snapshots').select('id, snapshot_data').eq('template_id', id);
+    expect(snaps).toEqual([{ id: kept.data!.id, snapshot_data: { kept: true } }]);
     const still = await service.from('assessment_instances').select('id').eq('id', inst.data!.id);
     expect(still.data).toHaveLength(1);
     expect((await status(id))?.status).toBe('draft');
   });
 
-  it('two drafts of the same vía and level: the second is refused with a message, and publishes once its level is corrected', async () => {
-    const a = await draft('familias', 14, `${major}.0.0`);
-    const b = await draft('familias', 14, `${major}.0.1`); // both would publish to `${major}.1.0`
+  it('the race: another publisher flips the instrument after it was read → refused with a message, nothing written', async () => {
+    const id = await draft('trabajo_docente', 15, `${major}.0.0`);
+    // The other publisher wins between this publication's read and its write.
+    const racing = {
+      rpc: async (fn: string, args: Record<string, unknown>) => {
+        await service.from('assessment_templates').update({ status: 'published', version: `${major}.9.0` }).eq('id', id);
+        return service.rpc(fn, args);
+      },
+    };
+    const r = await publishTemplate(holder.client, id, { id: holder.userId }, { publishClient: racing as any });
+    expect(r).toMatchObject({
+      ok: false,
+      status: 409,
+      error: 'Este instrumento ya fue publicado o cambió mientras se publicaba. Recarga la página.',
+    });
+    expect(await snapshots(id)).toEqual([]);
+    expect(await status(id)).toEqual({ status: 'published', version: `${major}.9.0` });
+  });
 
-    const ra = await publish(a);
-    expect(ra.status).toBe(200);
-
-    const rb = await publish(b);
-    expect(rb.status).toBe(409);
-    expect(rb.body.error).toBe('Ya existe un template con la misma vía, nivel (o nombre, si no lleva nivel) y versión.');
-    const leftAfterRefusal = await snapshots(b);
-
-    // The person corrects the cause: the second draft is for another level.
-    await service.from('assessment_templates').update({ grade_id: 15 }).eq('id', b);
-
-    const rb2 = await publish(b);
-    expect(rb2.body.error).toBeUndefined();
-    expect(rb2.status).toBe(200);
-    expect(await status(b)).toEqual({ status: 'published', version: `${major}.1.0` });
-    expect(leftAfterRefusal).toEqual([]); // the refusal wrote no snapshot
+  it('nobody but the service role can call the publication function', async () => {
+    const id = await draft('trabajo_docente', 16, `${major}.0.0`);
+    const signedIn = await holder.client.rpc('publish_assessment_template', {
+      p_template_id: id, p_expected_version: `${major}.0.0`, p_snapshot_data: {},
+    });
+    expect(signedIn.error?.code).toBe('42501');
+    const visitor = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const anon = await visitor.rpc('publish_assessment_template', {
+      p_template_id: id, p_expected_version: `${major}.0.0`, p_snapshot_data: {},
+    });
+    expect(anon.error?.code).toBe('42501');
+    expect(await snapshots(id)).toEqual([]);
+    expect((await status(id))?.status).toBe('draft');
   });
 });

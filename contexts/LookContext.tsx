@@ -9,7 +9,10 @@
  *   - signed out, no profile, or a profile that is still the previous account's (AuthContext
  *     keeps the old one until the new one has loaded): today's look.
  * `setLook` is for the one screen that saves a choice («Apariencia»): it shows the look at once,
- * without waiting for a reload of the profile.
+ * without waiting for a reload of the profile. Such a choice belongs to the account that made it
+ * and to the facts it was made on: when the session's account, the account's stored look or the
+ * loading state changes, it is forgotten and the profile speaks again. It only ever counts for an
+ * account that is offered the choice.
  *
  * Pages that are not the platform (the sign-in family, the public site, documents for a client,
  * the error pages: `PAGES_WITHOUT_THE_LOOK` in lib/look) always get today's look, whatever the
@@ -17,12 +20,18 @@
  * pathname is asked on every route change, so going from a platform page to the public home page
  * and back drops and restores the attribute without a reload. Who is offered the look and what is
  * saved do not change.
+ *
+ * BY CONSTRUCTION (redesign 5a, send-back 1): the attribute is a pure function of this render's
+ * facts (loading, the session's account, that account's profile, the pathname, a choice just saved
+ * through `setLook` for this account), worked out during the render and put on the page by ONE
+ * effect. No effect writes a state the attribute is read from, so an account and a route that
+ * change in the same render cannot leave the previous account's look behind.
  */
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useSessionContext } from '@supabase/auth-helpers-react';
 import { useAuth } from './AuthContext';
-import { applyLook, lookAppliesTo, lookOfAccount, type Look } from '../lib/look';
+import { applyLook, lookAppliesTo, lookOfAccount, mayChooseLook, type Look } from '../lib/look';
 
 interface LookContextValue {
   look: Look;
@@ -31,45 +40,51 @@ interface LookContextValue {
 
 const LookContext = createContext<LookContextValue>({ look: 'clasico', setLook: () => {} });
 
+/** A choice made through `setLook`, with the facts it was made on. */
+interface SavedChoice {
+  look: Look;
+  account: string | null;
+  accountLook: Look;
+  loading: boolean;
+}
+
+/** What the attribute should be: a look, or "leave" (the page is left as it is). */
+type Target = Look | 'leave';
+
 export function LookProvider({ children }: { children: React.ReactNode }) {
   const { session } = useSessionContext();
   const { user, profile, loading } = useAuth();
   const { pathname } = useRouter();
-  const [chosen, setChosen] = useState<Look>('clasico');
+  const [saved, setSaved] = useState<SavedChoice | null>(null);
 
   const sessionUserId = session?.user?.id ?? null;
   const isThisAccount = Boolean(sessionUserId && user?.id === sessionUserId && profile?.id === sessionUserId);
   const accountLook: Look = isThisAccount ? lookOfAccount(profile) : 'clasico';
   const applies = lookAppliesTo(pathname);
+
+  // A saved choice made on other facts is forgotten here, during the render (not in an effect), so
+  // it can never be read again: not after the account changes, not when it comes back.
+  const savedIsCurrent =
+    saved !== null &&
+    saved.account === sessionUserId &&
+    saved.accountLook === accountLook &&
+    saved.loading === loading;
+  if (saved !== null && !savedIsCurrent) setSaved(null);
+
+  // The account's look for this render: a choice just saved for it, else its profile's.
+  const choice: Look =
+    savedIsCurrent && isThisAccount && mayChooseLook(profile) ? (saved as SavedChoice).look : accountLook;
   // The look of this page: the account's, except on the pages the look never touches.
-  const look: Look = applies ? chosen : 'clasico';
+  const look: Look = applies ? choice : 'clasico';
+  const target: Target = !applies ? 'clasico' : loading ? 'leave' : choice;
 
   useEffect(() => {
-    if (loading) {
-      if (!applies) applyLook('clasico');
-      return;
-    }
-    setChosen(accountLook);
-    applyLook(applies ? accountLook : 'clasico');
-  }, [loading, sessionUserId, accountLook]);
-
-  // A route change: a page outside the look drops the attribute; back on the platform the account's
-  // look returns. Only when the answer changes (the first render is the effect above's). While the
-  // profile loads on a platform page the page is left as it is, as before.
-  const appliedBefore = useRef(applies);
-  useEffect(() => {
-    if (appliedBefore.current === applies) return;
-    appliedBefore.current = applies;
-    if (loading && applies) return;
-    applyLook(applies ? chosen : 'clasico');
-  }, [applies]);
+    if (target !== 'leave') applyLook(target);
+  }, [target]);
 
   const setLook = useCallback(
-    (next: Look) => {
-      setChosen(next);
-      applyLook(applies ? next : 'clasico');
-    },
-    [applies]
+    (next: Look) => setSaved({ look: next, account: sessionUserId, accountLook, loading }),
+    [sessionUserId, accountLook, loading]
   );
 
   const value = useMemo(() => ({ look, setLook }), [look, setLook]);

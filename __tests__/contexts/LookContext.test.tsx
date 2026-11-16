@@ -206,3 +206,269 @@ describe('LookProvider', () => {
     expect(screen.getByTestId('look')).toHaveTextContent('clasico');
   });
 });
+
+describe('LookProvider: the account and the route change in the same render (5a, send-back 1)', () => {
+  const N = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  const nonTester = (id: string) => ({ id, can_run_qa_tests: false, learning_preferences: { ui_look: 'nuevo' } });
+  const attr = () => root().getAttribute('data-look');
+  const shown = () => screen.getByTestId('look').textContent;
+
+  it('tester with the new look on /login, then a non-tester and /dashboard at once: today\'s look', () => {
+    routerState.pathname = '/login';
+    signedIn(A, tester(A, { ui_look: 'nuevo' }));
+    const { rerender } = render(tree());
+    expect(attr()).toBeNull();
+    signedIn(N, nonTester(N));
+    routerState.pathname = '/dashboard';
+    rerender(tree());
+    expect(attr()).toBeNull();
+    expect(shown()).toBe('clasico');
+  });
+
+  it('the same, with the non-tester\'s profile loading in between', () => {
+    routerState.pathname = '/login';
+    signedIn(A, tester(A, { ui_look: 'nuevo' }));
+    const { rerender } = render(tree());
+    // N's session arrives; AuthContext still holds A's user and profile while N's loads.
+    sessionState.session = { user: { id: N } };
+    authState.loading = true;
+    rerender(tree());
+    expect(attr()).toBeNull();
+    // N's profile and the route to /dashboard arrive together.
+    signedIn(N, nonTester(N));
+    routerState.pathname = '/dashboard';
+    rerender(tree());
+    expect(attr()).toBeNull();
+    expect(shown()).toBe('clasico');
+  });
+
+  it('the same, with loading and the route change in one render, then the profile', () => {
+    routerState.pathname = '/login';
+    signedIn(A, tester(A, { ui_look: 'nuevo' }));
+    const { rerender } = render(tree());
+    sessionState.session = { user: { id: N } };
+    authState.loading = true;
+    routerState.pathname = '/dashboard';
+    rerender(tree());
+    expect(attr()).toBeNull();
+    signedIn(N, nonTester(N));
+    rerender(tree());
+    expect(attr()).toBeNull();
+    expect(shown()).toBe('clasico');
+  });
+
+  it('non-tester on /login, then a tester with the new look and /dashboard at once: the new look', () => {
+    routerState.pathname = '/login';
+    signedIn(N, nonTester(N));
+    const { rerender } = render(tree());
+    expect(attr()).toBeNull();
+    signedIn(A, tester(A, { ui_look: 'nuevo' }));
+    routerState.pathname = '/dashboard';
+    rerender(tree());
+    expect(attr()).toBe('nuevo');
+    expect(shown()).toBe('nuevo');
+  });
+
+  it('the same, with the tester\'s profile loading in between', () => {
+    routerState.pathname = '/login';
+    signedIn(N, nonTester(N));
+    const { rerender } = render(tree());
+    sessionState.session = { user: { id: A } };
+    authState.loading = true;
+    rerender(tree());
+    expect(attr()).toBeNull();
+    signedIn(A, tester(A, { ui_look: 'nuevo' }));
+    routerState.pathname = '/dashboard';
+    rerender(tree());
+    expect(attr()).toBe('nuevo');
+    expect(shown()).toBe('nuevo');
+  });
+
+  it('a choice saved through setLook does not outlive its account, not even when it signs in again', () => {
+    routerState.pathname = '/configuracion/apariencia';
+    signedIn(A, tester(A, {}));
+    const { rerender } = render(tree());
+    act(() => screen.getByRole('button', { name: 'nuevo' }).click());
+    expect(attr()).toBe('nuevo');
+    // Another tester with today's look, on an outside page and back at once.
+    signedIn(B, tester(B, {}));
+    routerState.pathname = '/dashboard';
+    rerender(tree());
+    expect(attr()).toBeNull();
+    signedIn(A, tester(A, {}));
+    rerender(tree());
+    expect(attr()).toBeNull();
+    expect(shown()).toBe('clasico');
+  });
+
+  it('a choice saved through setLook never shows for an account that is not offered the choice', () => {
+    signedIn(N, { id: N, can_run_qa_tests: false, learning_preferences: {} });
+    render(tree());
+    act(() => screen.getByRole('button', { name: 'nuevo' }).click());
+    expect(attr()).toBeNull();
+    expect(shown()).toBe('clasico');
+  });
+});
+
+/**
+ * Property-style: generated sequences of steps. After every step the attribute on <html> must be what
+ * `expectedAttribute` (a small pure function of the facts of that moment) says, and the hook must agree
+ * with the attribute whenever nothing is loading.
+ */
+describe('LookProvider: generated sequences (5a, send-back 1)', () => {
+  const ACCOUNTS = {
+    testerNuevo: { id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', can_run_qa_tests: true, learning_preferences: { ui_look: 'nuevo' } },
+    testerClasico: { id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', can_run_qa_tests: true, learning_preferences: {} },
+    nonTester: { id: 'ffffffff-ffff-4fff-8fff-ffffffffffff', can_run_qa_tests: false, learning_preferences: { ui_look: 'nuevo' } },
+  } as const;
+  type Kind = keyof typeof ACCOUNTS;
+  const KINDS = Object.keys(ACCOUNTS) as Kind[];
+  const PLATFORM = ['/dashboard', '/configuracion/apariencia', '/admin/user-management'];
+  const OUTSIDE = ['/login', '/', '/noticias/[slug]', '/404'];
+
+  type Profile = { id: string; can_run_qa_tests: boolean; learning_preferences: Record<string, unknown> };
+  interface Facts {
+    session: string | null;
+    user: string | null;
+    profile: Profile | null;
+    loading: boolean;
+    pathname: string;
+  }
+  interface Saved {
+    look: 'clasico' | 'nuevo';
+    facts: { session: string | null; stored: 'clasico' | 'nuevo'; loading: boolean };
+  }
+
+  const isOutside = (pathname: string) => OUTSIDE.includes(pathname);
+  const storedLook = (f: Facts): 'clasico' | 'nuevo' => {
+    const own = f.session !== null && f.user === f.session && f.profile?.id === f.session;
+    if (!own || !f.profile?.can_run_qa_tests) return 'clasico';
+    return f.profile.learning_preferences.ui_look === 'nuevo' ? 'nuevo' : 'clasico';
+  };
+  const savedCounts = (f: Facts, saved: Saved | null): saved is Saved =>
+    saved !== null &&
+    saved.facts.session === f.session &&
+    saved.facts.stored === storedLook(f) &&
+    saved.facts.loading === f.loading;
+  const accountOffered = (f: Facts) =>
+    f.session !== null && f.user === f.session && f.profile?.id === f.session && f.profile.can_run_qa_tests;
+
+  /** The pure answer: "nuevo", null (absent), or "leave" (whatever was there before). */
+  function expectedAttribute(f: Facts, saved: Saved | null): 'nuevo' | null | 'leave' {
+    if (isOutside(f.pathname)) return null;
+    if (f.loading) return 'leave';
+    const look = savedCounts(f, saved) && accountOffered(f) ? saved.look : storedLook(f);
+    return look === 'nuevo' ? 'nuevo' : null;
+  }
+
+  type Op =
+    | { op: 'signIn'; kind: Kind }
+    | { op: 'signInPending'; kind: Kind }
+    | { op: 'signOut' }
+    | { op: 'go'; pathname: string }
+    | { op: 'loadStart' }
+    | { op: 'loadEnd' };
+  type Step = { ops: Op[] } | { setLook: 'clasico' | 'nuevo' };
+
+  // mulberry32: a small seeded generator, so a failure names a sequence that can be replayed.
+  const generator = (seed: number) => () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  function randomOp(next: () => number): Op {
+    const pick = <T,>(list: readonly T[]) => list[Math.floor(next() * list.length)];
+    switch (pick(['signIn', 'signIn', 'signInPending', 'signOut', 'platform', 'outside', 'loadStart', 'loadEnd'] as const)) {
+      case 'signIn':
+        return { op: 'signIn', kind: pick(KINDS) };
+      case 'signInPending':
+        return { op: 'signInPending', kind: pick(KINDS) };
+      case 'signOut':
+        return { op: 'signOut' };
+      case 'platform':
+        return { op: 'go', pathname: pick(PLATFORM) };
+      case 'outside':
+        return { op: 'go', pathname: pick(OUTSIDE) };
+      case 'loadStart':
+        return { op: 'loadStart' };
+      default:
+        return { op: 'loadEnd' };
+    }
+  }
+  function sequence(seed: number): Step[] {
+    const next = generator(seed);
+    return Array.from({ length: 14 }, () => {
+      if (next() < 0.15) return { setLook: next() < 0.5 ? 'nuevo' : 'clasico' };
+      // One or two changes in the same render: an account and a route together is the case that broke.
+      return { ops: next() < 0.45 ? [randomOp(next), randomOp(next)] : [randomOp(next)] };
+    });
+  }
+
+  function applyOp(f: Facts, o: Op): Facts {
+    switch (o.op) {
+      case 'signIn': {
+        const p = ACCOUNTS[o.kind];
+        return { ...f, session: p.id, user: p.id, profile: { ...p, learning_preferences: { ...p.learning_preferences } }, loading: false };
+      }
+      case 'signInPending':
+        // The session is the new account's; AuthContext still holds the previous user and profile.
+        return { ...f, session: ACCOUNTS[o.kind].id, loading: true };
+      case 'signOut':
+        return { ...f, session: null, user: null, profile: null, loading: false };
+      case 'go':
+        return { ...f, pathname: o.pathname };
+      case 'loadStart':
+        return { ...f, loading: true };
+      case 'loadEnd': {
+        const p = Object.values(ACCOUNTS).find((a) => a.id === f.session);
+        return p
+          ? { ...f, user: p.id, profile: { ...p, learning_preferences: { ...p.learning_preferences } }, loading: false }
+          : { ...f, user: null, profile: null, loading: false };
+      }
+    }
+  }
+  const pushFacts = (f: Facts) => {
+    sessionState.session = f.session ? { user: { id: f.session } } : null;
+    Object.assign(authState, { user: f.user ? { id: f.user } : null, profile: f.profile, loading: f.loading });
+    routerState.pathname = f.pathname;
+  };
+
+  const SEEDS = Array.from({ length: 48 }, (_, i) => 1000 + i * 7919);
+
+  it.each(SEEDS)('sequence %i: the attribute is always the pure answer, the hook agrees with it', (seed) => {
+    let facts: Facts = { session: null, user: null, profile: null, loading: true, pathname: '/dashboard' };
+    let saved: Saved | null = null;
+    pushFacts(facts);
+    const { rerender } = render(tree());
+    let before: string | null = root().getAttribute('data-look');
+    const log: string[] = [];
+
+    const check = () => {
+      // A saved choice made on other facts is forgotten (the provider forgets it at the next render).
+      if (saved && !savedCounts(facts, saved)) saved = null;
+      const expected = expectedAttribute(facts, saved);
+      const actual = root().getAttribute('data-look');
+      const where = `seed ${seed}, after: ${log.join(' | ')}`;
+      expect(actual, where).toBe(expected === 'leave' ? before : expected);
+      if (!facts.loading) expect(screen.getByTestId('look').textContent, where).toBe(actual === 'nuevo' ? 'nuevo' : 'clasico');
+      before = actual;
+    };
+    check();
+
+    for (const step of sequence(seed)) {
+      if ('setLook' in step) {
+        log.push(`setLook ${step.setLook}`);
+        const look = step.setLook;
+        act(() => screen.getByRole('button', { name: look }).click());
+        saved = { look, facts: { session: facts.session, stored: storedLook(facts), loading: facts.loading } };
+      } else {
+        log.push(step.ops.map((o) => JSON.stringify(o)).join(' + '));
+        for (const o of step.ops) facts = applyOp(facts, o);
+        pushFacts(facts);
+        rerender(tree());
+      }
+      check();
+    }
+  });
+});

@@ -1759,6 +1759,17 @@ export default function ProposalConfigPanel({
                                     Link
                                   </button>
                                 )}
+                                {p.estado === 'completada' && p.access_code_plain && (
+                                  <button
+                                    type="button"
+                                    onClick={() => copyToClipboard(p.access_code_plain as string, 'Código')}
+                                    className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-gray-300 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50 transition-colors"
+                                    title="Copiar código de acceso"
+                                  >
+                                    <Copy size={12} />
+                                    Código <span className="font-mono">{p.access_code_plain}</span>
+                                  </button>
+                                )}
                                 {p.estado === 'completada' && (
                                   <button
                                     type="button"

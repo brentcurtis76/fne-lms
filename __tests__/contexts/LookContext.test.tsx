@@ -13,12 +13,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
-const { authState, sessionState } = vi.hoisted(() => ({
+const { authState, sessionState, routerState } = vi.hoisted(() => ({
   authState: { user: null as null | { id: string }, profile: null as null | Record<string, unknown>, loading: true },
   sessionState: { session: null as null | { user: { id: string } } },
+  routerState: { pathname: '/dashboard' },
 }));
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => authState }));
 vi.mock('@supabase/auth-helpers-react', () => ({ useSessionContext: () => sessionState }));
+vi.mock('next/router', () => ({ useRouter: () => routerState }));
 
 import { LookProvider, useLook } from '../../contexts/LookContext';
 
@@ -54,6 +56,7 @@ const tree = () => (
 beforeEach(() => {
   Object.assign(authState, { user: null, profile: null, loading: true });
   sessionState.session = null;
+  routerState.pathname = '/dashboard';
 });
 afterEach(() => {
   root().removeAttribute('data-look');
@@ -141,6 +144,60 @@ describe('LookProvider', () => {
     rerender(tree());
     expect(root().getAttribute('data-look')).toBe('nuevo');
     act(() => screen.getByText('clasico').click());
+    expect(root().hasAttribute('data-look')).toBe(false);
+  });
+
+  it('5a: on /login a tester who chose the new look gets no attribute, and the hook answers today\'s look', () => {
+    routerState.pathname = '/login';
+    signedIn(A, tester(A, { ui_look: 'nuevo' }));
+    render(tree());
+    expect(root().hasAttribute('data-look')).toBe(false);
+    expect(screen.getByTestId('look')).toHaveTextContent('clasico');
+  });
+
+  it('5a: on /dashboard the same tester gets the attribute', () => {
+    routerState.pathname = '/dashboard';
+    signedIn(A, tester(A, { ui_look: 'nuevo' }));
+    render(tree());
+    expect(root().getAttribute('data-look')).toBe('nuevo');
+    expect(screen.getByTestId('look')).toHaveTextContent('nuevo');
+  });
+
+  it('5a: going to the public home page and back drops and restores the attribute without a reload', () => {
+    signedIn(A, tester(A, { ui_look: 'nuevo' }));
+    const { rerender } = render(tree());
+    expect(root().getAttribute('data-look')).toBe('nuevo');
+    routerState.pathname = '/';
+    rerender(tree());
+    expect(root().hasAttribute('data-look')).toBe(false);
+    expect(screen.getByTestId('look')).toHaveTextContent('clasico');
+    routerState.pathname = '/noticias/[slug]';
+    rerender(tree());
+    expect(root().hasAttribute('data-look')).toBe(false);
+    routerState.pathname = '/admin/user-management';
+    rerender(tree());
+    expect(root().getAttribute('data-look')).toBe('nuevo');
+    expect(screen.getByTestId('look')).toHaveTextContent('nuevo');
+  });
+
+  it('5a: a look chosen on «Apariencia» survives a visit to a page outside the look', () => {
+    routerState.pathname = '/configuracion/apariencia';
+    signedIn(A, tester(A, {}));
+    const { rerender } = render(tree());
+    act(() => screen.getByText('nuevo').click());
+    expect(root().getAttribute('data-look')).toBe('nuevo');
+    routerState.pathname = '/login';
+    rerender(tree());
+    expect(root().hasAttribute('data-look')).toBe(false);
+    routerState.pathname = '/configuracion/apariencia';
+    rerender(tree());
+    expect(root().getAttribute('data-look')).toBe('nuevo');
+  });
+
+  it('5a: a page outside the look removes a look left on the page even while the profile loads', () => {
+    root().setAttribute('data-look', 'nuevo');
+    routerState.pathname = '/login';
+    render(tree());
     expect(root().hasAttribute('data-look')).toBe(false);
   });
 

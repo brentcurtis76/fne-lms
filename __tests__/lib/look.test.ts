@@ -6,8 +6,10 @@ import {
   LOOK_ATTRIBUTE,
   LOOK_PREFERENCE_KEY,
   lookFromPreferences,
+  lookAppliesTo,
   lookOfAccount,
   mayChooseLook,
+  PAGES_WITHOUT_THE_LOOK,
   preferencesWithLook,
 } from '../../lib/look';
 
@@ -95,5 +97,52 @@ describe('the look on the page', () => {
     expect(window.localStorage.length).toBe(0);
     expect(window.sessionStorage.length).toBe(0);
     expect(document.cookie).toBe('');
+  });
+});
+
+describe('the pages the look never touches (5a)', () => {
+  it.each(['/login', '/reset-password', '/change-password', '/pending-approval', '/403', '/registro', '/registro-tractor'])(
+    'the sign-in family: %s',
+    (path) => expect(lookAppliesTo(path)).toBe(false)
+  );
+
+  it.each(['/', '/programas', '/nosotros', '/equipo', '/privacidad', '/noticias', '/noticias/[slug]', '/pasantias', '/pasantias/nomina'])(
+    'the public site and the public Pasantías pages: %s',
+    (path) => expect(lookAppliesTo(path)).toBe(false)
+  );
+
+  it.each(['/propuesta/[slug]', '/contract-print/[id]', '/quote/[id]', '/notificaciones/baja', '/404', '/_error'])(
+    'documents for a client, the unsubscribe page and the error pages: %s',
+    (path) => expect(lookAppliesTo(path)).toBe(false)
+  );
+
+  it('a dynamic route matches by its pattern and by a concrete address', () => {
+    expect(lookAppliesTo('/noticias/una-nota-inventada')).toBe(false);
+    expect(lookAppliesTo('/propuesta/abc-123')).toBe(false);
+    expect(lookAppliesTo('/quote/42')).toBe(false);
+    // One segment only: a deeper address is not the pattern.
+    expect(lookAppliesTo('/quote/42/extra')).toBe(true);
+  });
+
+  it('ignores a query, a hash and a trailing slash', () => {
+    expect(lookAppliesTo('/login?next=%2Fdashboard')).toBe(false);
+    expect(lookAppliesTo('/login/')).toBe(false);
+    expect(lookAppliesTo('/noticias#arriba')).toBe(false);
+    expect(lookAppliesTo('/?x=1')).toBe(false);
+  });
+
+  it.each(['/dashboard', '/admin/user-management', '/configuracion/apariencia', '/admin/pasantias', '/consultor/sessions/[id]', '/admin/quotes/[id]/edit', '/meet/diag', '/noticiasx', '/programas/otra'])(
+    'a platform page keeps the look: %s',
+    (path) => expect(lookAppliesTo(path)).toBe(true)
+  );
+
+  it('with no pathname yet the look applies (the provider decides as before)', () => {
+    expect(lookAppliesTo(undefined)).toBe(true);
+    expect(lookAppliesTo('')).toBe(true);
+  });
+
+  it('every entry of the list is a route pattern', () => {
+    for (const entry of PAGES_WITHOUT_THE_LOOK) expect(entry).toMatch(/^\/[\w\-/[\]]*$/);
+    expect(new Set(PAGES_WITHOUT_THE_LOOK).size).toBe(PAGES_WITHOUT_THE_LOOK.length);
   });
 });

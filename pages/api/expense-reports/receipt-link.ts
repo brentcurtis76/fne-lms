@@ -10,12 +10,18 @@
  *
  * The stored value (expense_items.receipt_url) may be the place in the store
  * (`boletas/<name>`) or an old long-lived link; receiptPathFromStored reads
- * both and refuses anything else. Reads and signing use the service client;
- * the checks above, not RLS, gate this route. The path and the link are never
- * logged.
+ * both and refuses anything else. Reads use the service client; the checks
+ * above, not RLS, gate who may ask.
+ *
+ * Signing never lends a non-admin more rights than their own session has
+ * (GES-1.5c): the filer can write receipt_url of their own expense, so the
+ * route signs for an active admin with the service client and for anyone else
+ * (the filer) with the caller's own session client, whose request the file
+ * store's own rules decide. A refusal from the store is "no receipt". The path
+ * and the link are never logged.
  */
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { createServiceRoleClient, requireVerifiedCaller } from '../../../lib/api-auth';
+import { createApiSupabaseClient, createServiceRoleClient, requireVerifiedCaller } from '../../../lib/api-auth';
 import { receiptPathFromStored } from '../../../lib/expenses/receipt-path';
 import { RECEIPTS_BUCKET } from '../../../utils/expenseConfig';
 
@@ -70,18 +76,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json(NOT_FOUND);
     }
 
-    let allowed = report.submitted_by === userId;
-    if (!allowed) {
-      // An active admin role, read with the service client (the way
-      // pages/api/quotes/[id].ts decides it). A failed read is no role.
-      const { data: roles } = await service
-        .from('user_roles')
-        .select('role_type')
-        .eq('user_id', userId)
-        .eq('role_type', 'admin')
-        .eq('is_active', true);
-      allowed = Array.isArray(roles) && roles.some((r: { role_type?: string }) => r.role_type === 'admin');
-    }
+    // An active admin role, read with the service client (the way
+    // pages/api/quotes/[id].ts decides it), in every case, so that a filer who
+    // is also an admin is treated as an admin. A failed read is no role.
+    const { data: roles } = await service
+      .from('user_roles')
+      .select('role_type')
+      .eq('user_id', userId)
+      .eq('role_type', 'admin')
+      .eq('is_active', true);
+    const isAdmin = Array.isArray(roles) && roles.some((r: { role_type?: string }) => r.role_type === 'admin');
+    const allowed = isAdmin || report.submitted_by === userId;
     if (!allowed) {
       return res.status(404).json(NOT_FOUND);
     }
@@ -91,7 +96,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json(NO_RECEIPT);
     }
 
-    const { data: signed, error: signError } = await service.storage
+    // Admins sign with full rights; the filer with their own session's rights.
+    const signer = isAdmin ? service : await createApiSupabaseClient(req, res);
+    const { data: signed, error: signError } = await signer.storage
       .from(RECEIPTS_BUCKET)
       .createSignedUrl(path, LINK_SECONDS);
     if (signError || !signed?.signedUrl) {

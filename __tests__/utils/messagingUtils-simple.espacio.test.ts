@@ -22,6 +22,7 @@ vi.mock('../../lib/supabase-wrapper', async () => {
 
 import {
   createThread,
+  ThreadCreationIncompleteError,
   getWorkspaceThreads,
   getWorkspaceMessages,
   subscribeToWorkspaceMessages,
@@ -132,6 +133,106 @@ describe('EC-S4 createThread', () => {
       createThread(WS, { thread_title: 'T', category: 'general', initial_message: 'Hola' }, 'user-c')
     ).rejects.toMatchObject({ code: '42501' });
     expect(h.requests.some((r) => r.target === 'community_messages')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Send-back 1, item 1: a conversation whose first message fails is not
+// "created", and a retry with the id of the thread row stores only the message
+// ---------------------------------------------------------------------------
+
+describe('send-back 1 (1): createThread when the first message fails', () => {
+  /** The member's database, whose first-message insert fails `failures` times. */
+  function flakyFirstMessage(failures: number) {
+    const threads = memberDatabase();
+    const base = h.respond;
+    const messages: Array<Record<string, unknown>> = [];
+    let left = failures;
+    h.respond = (req, terminal) => {
+      if (req.kind === 'from' && req.target === 'message_threads' && has(req, 'insert')) {
+        const row = opArgs(req, 'insert')?.[0] as Record<string, unknown>;
+        if (threads.has(String(row.id))) {
+          return { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint "message_threads_pkey"' } };
+        }
+      }
+      if (req.kind === 'from' && req.target === 'community_messages' && has(req, 'insert')) {
+        if (left > 0) {
+          left -= 1;
+          return { data: null, error: { code: '08006', message: 'connection failure' } };
+        }
+        messages.push(opArgs(req, 'insert')?.[0] as Record<string, unknown>);
+        return { data: null, error: null };
+      }
+      return base(req, terminal);
+    };
+    return { threads, messages };
+  }
+
+  const DATA = { thread_title: 'Planificación', description: 'd', category: 'general' as const, initial_message: 'Mi texto de planificación' };
+
+  it('fails, carrying the id of the thread row it created, when the first message cannot be stored', async () => {
+    const { threads, messages } = flakyFirstMessage(1);
+    const failure = await createThread(WS, DATA, 'user-a1').then(
+      () => null,
+      (error: unknown) => error
+    );
+    expect(failure).toBeInstanceOf(ThreadCreationIncompleteError);
+    const threadId = (failure as ThreadCreationIncompleteError).threadId;
+    expect(threads.has(threadId)).toBe(true);
+    expect(messages).toHaveLength(0);
+  });
+
+  it('a retry with that id stores only the first message: one thread, one message', async () => {
+    const { threads, messages } = flakyFirstMessage(1);
+    const failure = (await createThread(WS, DATA, 'user-a1').catch((error: unknown) => error)) as ThreadCreationIncompleteError;
+    const thread = await createThread(WS, DATA, 'user-a1', failure.threadId);
+
+    expect(thread.id).toBe(failure.threadId);
+    expect(threads.size).toBe(1);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({ thread_id: failure.threadId, content: 'Mi texto de planificación' });
+    // The retry read the person's own thread first and did not insert it again.
+    const inserts = h.requests.filter((r) => r.target === 'message_threads' && has(r, 'insert'));
+    expect(inserts).toHaveLength(1);
+    const ownCheck = h.requests.find(
+      (r) => r.target === 'message_threads' && !has(r, 'insert') && r.ops.filter((op) => op.method === 'eq').length === 3
+    )!;
+    expect(ownCheck.ops.filter((op) => op.method === 'eq').map((op) => op.args)).toEqual([
+      ['id', failure.threadId],
+      ['workspace_id', WS],
+      ['created_by', 'user-a1'],
+    ]);
+  });
+
+  it('a retry whose read misses the thread treats a duplicate key on the person\'s own thread as already there', async () => {
+    const { threads, messages } = flakyFirstMessage(1);
+    const failure = (await createThread(WS, DATA, 'user-a1').catch((error: unknown) => error)) as ThreadCreationIncompleteError;
+    const base = h.respond;
+    let ownChecks = 0;
+    h.respond = (req, terminal) => {
+      // The first read of the retry is lost; the one after the duplicate key finds it.
+      if (req.target === 'message_threads' && !has(req, 'insert') && req.ops.filter((op) => op.method === 'eq').length === 3) {
+        ownChecks += 1;
+        if (ownChecks === 1) return { data: null, error: { code: '08006', message: 'connection failure' } };
+      }
+      return base(req, terminal);
+    };
+    const thread = await createThread(WS, DATA, 'user-a1', failure.threadId);
+    expect(thread.id).toBe(failure.threadId);
+    expect(threads.size).toBe(1);
+    expect(messages).toHaveLength(1);
+  });
+
+  it('a duplicate key on an id that is not the person\'s own thread is still a failure, and sends no message', async () => {
+    const { threads, messages } = flakyFirstMessage(0);
+    threads.set('someone-elses', { id: 'someone-elses', workspace_id: WS, created_by: 'user-a2' });
+    const base = h.respond;
+    h.respond = (req, terminal) =>
+      req.target === 'message_threads' && !has(req, 'insert') && req.ops.filter((op) => op.method === 'eq').length === 3
+        ? { data: null, error: null }
+        : base(req, terminal);
+    await expect(createThread(WS, DATA, 'user-a1', 'someone-elses')).rejects.toMatchObject({ code: '23505' });
+    expect(messages).toHaveLength(0);
   });
 });
 

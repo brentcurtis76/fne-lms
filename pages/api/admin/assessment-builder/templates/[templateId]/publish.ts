@@ -75,14 +75,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // service so the pilot-provisioning CLI and this route publish through
     // ONE validated code path. The result is mapped to the same HTTP shapes
     // this route always produced.
-    // GC-10: the caller (verified admin above) cannot delete snapshots; a
-    // snapshot left by a failed publication is removed with the service role,
-    // and only when no assessment instance refers to it.
+    // GC-10: the snapshot and the flip are written in ONE database
+    // transaction by public.publish_assessment_template, which only the
+    // service role may run; the caller was verified as an admin above, and
+    // every check a person can correct runs (with the caller's session)
+    // before that call.
     const result = await publishTemplate(
       supabaseClient,
       templateId,
       { id: user.id },
-      { cleanupClient: createServiceRoleClient() }
+      { publishClient: createServiceRoleClient() }
     );
 
     if (result.ok === false) {

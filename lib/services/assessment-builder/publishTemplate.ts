@@ -22,18 +22,19 @@ import { checkTemplateGrade, templateWriteConflict } from './templateGradeRule';
  *      (PR 3 hard gate);
  *   4. GT (and GI for non-always-GT grades) expectations are captured, with
  *      missing ones reported as warnings, never as a block;
- *   5. an immutable snapshot is inserted, then the template is flipped to
- *      published at the incremented minor version; a failed flip rolls the
- *      snapshot back.
+ *   5. an immutable snapshot is written and the template is flipped to
+ *      published at the next free minor version of its scope, in one
+ *      database transaction (see below).
  *
- * GC-10: the refusals a person can correct (the vía's grade rule, a version
- * already taken in the template's scope) are checked before the snapshot is
- * written. A snapshot is removed only through `cleanupClient` (the route's
- * service-role client: snapshots have no DELETE rule for the caller) and only
- * when no assessment instance refers to it (assessment_instances is the only
- * table that refers to a snapshot; its key is ON DELETE RESTRICT). That covers
- * the snapshot of this attempt when the flip still fails, and a leftover of an
- * earlier failed attempt for the same template and version.
+ * GC-10 (send-back 1): the refusals a person can correct (the vía's grade
+ * rule) are checked before anything is written. The snapshot and the flip are
+ * then written by ONE database call, public.publish_assessment_template
+ * (migration 20261116179500), through `publishClient` (the route's service-role
+ * client; the function is service-role only). It locks the template, refuses
+ * unless it is still a draft at the version read here, computes the next free
+ * version of the template's scope, writes the snapshot (overwriting in place
+ * an unreferenced leftover of an earlier failed attempt) and flips the
+ * template, all in one transaction. Nothing here deletes a snapshot.
  *
  * Pure with respect to HTTP: it never touches req/res and never throws for an
  * expected failure — those come back as `{ ok: false, status, error }`.
@@ -77,39 +78,32 @@ export interface PublishTemplateFailure {
 
 export type PublishTemplateResult = PublishTemplateSuccess | PublishTemplateFailure;
 
+/** The client surface the one publication call needs. */
+export type PublishTemplateRpcClient = Pick<SupabaseClient, 'rpc'>;
+
 export interface PublishTemplateOptions {
   /**
-   * Client that removes unreferenced snapshots left by a failed publication.
-   * Defaults to the publishing client (the provisioning CLI publishes with the
-   * service role already); the route passes its service-role client.
+   * Client that runs public.publish_assessment_template (service role only).
+   * Defaults to the publishing client (the provisioning CLI publishes with a
+   * service-role client already); the route passes its service-role client.
    */
-  cleanupClient?: PublishTemplateClient;
+  publishClient?: PublishTemplateRpcClient;
 }
 
-/** Removes a snapshot only when no assessment instance refers to it. Never throws. */
-async function removeSnapshotIfUnreferenced(client: PublishTemplateClient, snapshotId: string): Promise<boolean> {
-  try {
-    const { count, error } = await client
-      .from('assessment_instances')
-      .select('id', { count: 'exact', head: true })
-      .eq('template_snapshot_id', snapshotId);
-    if (error || typeof count !== 'number' || count > 0) return false;
-    // The instances' foreign key (ON DELETE RESTRICT) still refuses this delete
-    // if an instance appears in between.
-    const { error: deleteError } = await client.from('assessment_template_snapshots').delete().eq('id', snapshotId);
-    if (deleteError) {
-      console.error('Error removing unreferenced snapshot:', deleteError);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error('Error removing unreferenced snapshot:', err);
-    return false;
-  }
-}
+/** Shown when the template stopped being the draft that was read (another publication won). */
+export const TEMPLATE_CHANGED_WHILE_PUBLISHING =
+  'Este instrumento ya fue publicado o cambió mientras se publicaba. Recarga la página.';
 
-const VERSION_TAKEN =
-  'Ya existe un template con la misma vía, nivel (o nombre, si no lleva nivel) y versión.';
+const SNAPSHOT_IN_USE = (version: string) =>
+  `Ya existe una versión ${version} de este instrumento con registros que la usan; no se puede publicar sobre ella.`;
+
+interface PublishRpcAnswer {
+  ok: boolean;
+  code?: string;
+  version?: string;
+  template?: { id: string; name: string; area: string; status: string; version: string };
+  snapshot?: { id: string; version: string; created_at: string };
+}
 
 const fail = (
   status: PublishTemplateFailure['status'],
@@ -123,7 +117,8 @@ export async function publishTemplate(
   actor: PublishTemplateActor,
   options: PublishTemplateOptions = {}
 ): Promise<PublishTemplateResult> {
-  const cleanupClient = options.cleanupClient ?? supabaseClient;
+  const publishClient =
+    options.publishClient ?? (supabaseClient as unknown as Partial<PublishTemplateRpcClient>);
   // Get template with current status and grade info
   const { data: template, error: templateError } = await supabaseClient
     .from('assessment_templates')
@@ -428,17 +423,10 @@ export async function publishTemplate(
     published_by: actor.id,
   };
 
-  // Calculate new version (increment from current)
-  const currentVersion = template.version || '1.0.0';
-  const versionParts = currentVersion.split('.').map(Number);
-  // For publishing, increment minor version
-  versionParts[1] = (versionParts[1] || 0) + 1;
-  versionParts[2] = 0; // Reset patch
-  const newVersion = versionParts.join('.');
-
-  // GC-10: refusals a person can correct are answered before the snapshot is
-  // written. The database guard and unique keys stay the final word (a failed
-  // flip below still cleans up); a check that cannot be read is left to them.
+  // GC-10: refusals a person can correct are answered before anything is
+  // written. The database guard and unique keys stay the final word inside
+  // the publication call; a check that cannot be read is left to them. The
+  // version is computed by the publication call (next free one in the scope).
   if (template.is_archived !== true) {
     const gradeCheck = await checkTemplateGrade(supabaseClient, template.area, template.grade_id ?? null);
     if (gradeCheck.kind === 'error' && gradeCheck.status === 400) {
@@ -446,81 +434,49 @@ export async function publishTemplate(
     }
   }
 
-  const { data: sameScopeRows, error: sameScopeError } = await supabaseClient
-    .from('assessment_templates')
-    .select('id, name, grade_id')
-    .eq('area', template.area)
-    .eq('version', newVersion);
-  if (sameScopeError) {
-    console.error('Error checking version scope (left to the database):', sameScopeError);
-  } else if (Array.isArray(sameScopeRows)) {
-    // Graded templates: unique per (area, grade, version); grade-less ones per
-    // (area, trimmed name, version) (templateGradeRule.ts).
-    const name = String(template.name ?? '').trim();
-    const taken = sameScopeRows.some((row: any) => {
-      if (row.id === templateId) return false;
-      if (template.grade_id != null) return row.grade_id === template.grade_id;
-      return row.grade_id == null && String(row.name ?? '').trim() === name;
-    });
-    if (taken) return fail(409, VERSION_TAKEN, { code: 'template_conflict' });
+  if (typeof publishClient.rpc !== 'function') {
+    console.error('publishTemplate: no client can run publish_assessment_template');
+    return fail(500, 'Error al publicar template');
   }
 
-  // A leftover snapshot of an earlier failed attempt (same template and version)
-  // would make the insert collide. This template is a draft, so no such
-  // snapshot is its current published one; it is removed only when nothing
-  // refers to it.
-  const { data: leftovers } = await cleanupClient
-    .from('assessment_template_snapshots')
-    .select('id')
-    .eq('template_id', templateId)
-    .eq('version', newVersion);
-  if (Array.isArray(leftovers)) {
-    for (const leftover of leftovers as Array<{ id: string }>) {
-      await removeSnapshotIfUnreferenced(cleanupClient, leftover.id);
-    }
-  }
+  // Snapshot + flip in one transaction (public.publish_assessment_template).
+  const { data: answer, error: publishError } = await publishClient.rpc('publish_assessment_template', {
+    p_template_id: templateId,
+    p_expected_version: template.version,
+    p_snapshot_data: snapshotData,
+  });
 
-  // Create the snapshot
-  const { data: snapshot, error: snapshotError } = await supabaseClient
-    .from('assessment_template_snapshots')
-    .insert({
-      template_id: templateId,
-      version: newVersion,
-      snapshot_data: snapshotData,
-    })
-    .select()
-    .single();
-
-  if (snapshotError) {
-    console.error('Error creating snapshot:', snapshotError);
-    return fail(500, 'Error al crear snapshot');
-  }
-
-  // Update template status and version
-  const { data: updatedTemplate, error: updateError } = await supabaseClient
-    .from('assessment_templates')
-    .update({
-      status: 'published',
-      version: newVersion,
-    })
-    .eq('id', templateId)
-    .select()
-    .single();
-
-  if (updateError) {
-    console.error('Error updating template:', updateError);
-    // Roll back this attempt's snapshot (the caller's session cannot delete
-    // snapshots; the cleanup client can, and only when nothing refers to it).
-    await removeSnapshotIfUnreferenced(cleanupClient, snapshot.id);
+  if (publishError) {
+    console.error('Error publishing template:', publishError);
     // The database refuses a template that does not fit its vía's rule
     // (assessment_template_via_rule_guard, 20261008120000) and a version that
-    // collides in its scope; both are answered as conflicts, not 500s.
-    const conflict = templateWriteConflict(updateError);
+    // collides in its scope; both are answered as conflicts, not 500s. The
+    // whole call was rolled back: nothing was written.
+    const conflict = templateWriteConflict(publishError);
     if (conflict) {
       return fail(409, conflict, { code: 'template_conflict' });
     }
-    return fail(500, 'Error al actualizar template');
+    return fail(500, 'Error al publicar template');
   }
+
+  const published = (answer ?? null) as PublishRpcAnswer | null;
+  if (!published || published.ok !== true || !published.template || !published.snapshot || !published.version) {
+    switch (published?.code) {
+      case 'template_not_found':
+        return fail(404, 'Template no encontrado');
+      case 'template_not_draft':
+        return fail(409, TEMPLATE_CHANGED_WHILE_PUBLISHING, { code: 'template_changed' });
+      case 'snapshot_in_use':
+        return fail(409, SNAPSHOT_IN_USE(String(published.version ?? '')), { code: 'snapshot_in_use' });
+      default:
+        console.error('Unexpected publish_assessment_template answer:', published);
+        return fail(500, 'Error al publicar template');
+    }
+  }
+
+  const newVersion = published.version;
+  const updatedTemplate = published.template;
+  const snapshot = published.snapshot;
 
   return {
     ok: true,

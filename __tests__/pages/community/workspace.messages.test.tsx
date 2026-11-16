@@ -53,6 +53,8 @@ const h = vi.hoisted(() => ({
   composer: null as null | { onSendMessage: (data: any) => Promise<void> },
   createThread: vi.fn(),
   sendMessage: vi.fn(),
+  /** The delayed read of one live message (send-back 1, 3). */
+  getWorkspaceMessage: vi.fn(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -221,6 +223,7 @@ vi.mock('../../../utils/messagingUtils-simple', () => ({
   getWorkspaceMessages: async (_workspaceId: string, filters: { thread_id?: string }) =>
     h.messages.filter((message) => message.thread_id === filters.thread_id),
   getUserMessagingPermissions: async () => PERMISSIONS,
+  getWorkspaceMessage: (...args: unknown[]) => h.getWorkspaceMessage(...args),
   createThread: (...args: unknown[]) => h.createThread(...args),
   sendMessage: (...args: unknown[]) => h.sendMessage(...args),
   subscribeToWorkspaceMessages: (workspaceId: string, callbacks: any) => {
@@ -351,6 +354,7 @@ beforeEach(() => {
   h.composer = null;
   h.createThread = vi.fn();
   h.sendMessage = vi.fn();
+  h.getWorkspaceMessage = vi.fn(async () => null);
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
   global.fetch = vi.fn(async () => new Response(JSON.stringify({ members: [] }), { status: 200 })) as any;
 });
@@ -548,5 +552,94 @@ describe('send-back 1 (2) the sender\'s own message', () => {
     await deliver(message('m-own', THREAD_A.id, { author_id: 'user-1', attachments: [] }));
     expect(cardIds(utils)).toEqual(['m-own']);
     expect(utils.getByTestId('download-att-own').textContent).toBe('acta.pdf');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Send-back 1, item 3: a live message from someone else gets its attachments
+// (stored a moment after the message) by one delayed read of that message
+// ---------------------------------------------------------------------------
+
+describe('send-back 1 (3) attachments of a live message', () => {
+  const PDF = { id: 'att-live', message_id: 'm-live', file_name: 'informe.pdf', mime_type: 'application/pdf', file_size: 10, storage_path: 'https://example.invalid/informe.pdf' };
+
+  async function renderOpen() {
+    const utils = render(<CommunityWorkspacePage />);
+    await openThread(utils, COMMUNITY_A);
+    return utils;
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('reads the message again with its attachments about 3 seconds later, once, and merges it by id', async () => {
+    const utils = await renderOpen();
+    vi.useFakeTimers();
+    h.getWorkspaceMessage = vi.fn(async () => message('m-live', THREAD_A.id, { attachments: [PDF] }));
+
+    await deliver(message('m-live', THREAD_A.id, { attachments: [] }));
+    await deliver(message('m-live', THREAD_A.id, { attachments: [] }));
+    expect(cardIds(utils)).toEqual(['m-live']);
+    expect(utils.queryByTestId('download-att-live')).toBeNull();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2900);
+    });
+    expect(h.getWorkspaceMessage).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(h.getWorkspaceMessage).toHaveBeenCalledTimes(1);
+    expect(h.getWorkspaceMessage).toHaveBeenCalledWith('ws-A', 'm-live');
+    expect(cardIds(utils)).toEqual(['m-live']);
+    expect(utils.getByTestId('download-att-live').textContent).toBe('informe.pdf');
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10000);
+    });
+    expect(h.getWorkspaceMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('is cancelled when the conversation is left', async () => {
+    const utils = await renderOpen();
+    vi.useFakeTimers();
+    h.getWorkspaceMessage = vi.fn(async () => message('m-live', THREAD_A.id, { attachments: [PDF] }));
+    await deliver(message('m-live', THREAD_A.id, { attachments: [] }));
+
+    // Another community is opened: the open conversation is left.
+    const [current] = utils.getAllByText('Comunidad A');
+    await act(async () => {
+      fireEvent.click(current.closest('button') as HTMLElement);
+    });
+    await act(async () => {
+      fireEvent.click(utils.getByText('Comunidad B').closest('button') as HTMLElement);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(h.getWorkspaceMessage).not.toHaveBeenCalled();
+  });
+
+  it('is cancelled when the page is left', async () => {
+    const utils = await renderOpen();
+    vi.useFakeTimers();
+    await deliver(message('m-live', THREAD_A.id, { attachments: [] }));
+    utils.unmount();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(h.getWorkspaceMessage).not.toHaveBeenCalled();
+  });
+
+  it('a message of another conversation is not read again', async () => {
+    await renderOpen();
+    vi.useFakeTimers();
+    await deliver(message('m-other', 'thread-other'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(h.getWorkspaceMessage).not.toHaveBeenCalled();
   });
 });

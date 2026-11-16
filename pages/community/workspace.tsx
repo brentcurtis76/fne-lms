@@ -98,6 +98,7 @@ import {
 } from '../../types/messaging';
 import {
   getWorkspaceMessages,
+  getWorkspaceMessage,
   getWorkspaceThreads,
   getUserMessagingPermissions,
   createThread,
@@ -1900,6 +1901,29 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
   const openThreadIdRef = useRef<string | null>(null);
   openThreadIdRef.current = selectedThread?.id ?? null;
 
+  // A live message arrives before its attachments are stored: it is read again,
+  // with them, a moment later — one delayed read per message, cancelled when
+  // the conversation or the page is left (send-back 1, 3).
+  const LIVE_MESSAGE_REREAD_MS = 3000;
+  const liveRereadsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const cancelLiveRereads = () => {
+    liveRereadsRef.current.forEach(timer => clearTimeout(timer));
+    liveRereadsRef.current.clear();
+  };
+  const scheduleLiveReread = (workspaceId: string, threadId: string, messageId: string) => {
+    if (liveRereadsRef.current.has(messageId)) return;
+    const timer = setTimeout(async () => {
+      if (openThreadIdRef.current !== threadId) return;
+      const fresh = await getWorkspaceMessage(workspaceId, messageId);
+      // Cancelled while reading (the conversation or the page was left)
+      if (liveRereadsRef.current.get(messageId) !== timer || openThreadIdRef.current !== threadId || !fresh) return;
+      setMessages(prev => prev.map(existing => (existing.id === fresh.id ? { ...existing, ...fresh } : existing)));
+    }, LIVE_MESSAGE_REREAD_MS);
+    liveRereadsRef.current.set(messageId, timer);
+  };
+
+  useEffect(() => cancelLiveRereads, [selectedThread?.id, workspace?.id]);
+
   useEffect(() => {
     let subscription: { unsubscribe: () => void } | undefined;
     if (workspace && user) {
@@ -2087,6 +2111,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
           if (message.thread_id === openThreadIdRef.current) {
             // Once only: the sender's own message is already shown by handleMessageSend
             setMessages(prev => (prev.some(existing => existing.id === message.id) ? prev : [...prev, message]));
+            scheduleLiveReread(workspace.id, message.thread_id, message.id);
           }
           // Update thread last message
           setThreads(prev => prev.map(thread => 

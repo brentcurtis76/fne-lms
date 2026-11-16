@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { isCurrentAssignment } from '@/lib/permissions/directivo';
 
 /**
  * GET /api/school/transversal-context/schools
@@ -11,7 +12,7 @@ import { getApiUser, createServiceRoleClient, sendAuthError, handleMethodNotAllo
  *   others                    -> 403
  * With ?scope=assigned (Plan de Migración, Panel de Resultados; N8/GC-7) a
  * consultor who is not an admin gets only the schools those surfaces let them
- * open: their ACTIVE consultant_assignments and any school where they are an
+ * open: their ACTIVE, not ended consultant_assignments and any school where they are an
  * active equipo_directivo (the scope of lib/permissions/resultsSchoolScope.ts).
  * An admin still gets every school.
  * Response shape: { schools: [{ id, name }] } (consumed by
@@ -55,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.query.scope === 'assigned' && !isAdmin) {
       const { data: assignments, error: assignmentsError } = await serviceClient
         .from('consultant_assignments')
-        .select('school_id')
+        .select('school_id, ends_at')
         .eq('consultant_id', user.id)
         .eq('is_active', true);
       if (assignmentsError) {
@@ -63,7 +64,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'No se pudieron obtener las escuelas' });
       }
       const ids = new Set<number>();
-      for (const a of assignments || []) if (typeof a.school_id === 'number') ids.add(a.school_id);
+      for (const a of assignments || []) {
+        if (typeof a.school_id === 'number' && isCurrentAssignment(a)) ids.add(a.school_id);
+      }
       for (const r of userRoles || []) {
         if (r.role_type === 'equipo_directivo' && typeof r.school_id === 'number') ids.add(r.school_id);
       }

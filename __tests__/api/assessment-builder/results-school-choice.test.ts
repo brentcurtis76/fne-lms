@@ -23,7 +23,7 @@ const OTHER = 703;
 const { db, mockGetApiUser } = vi.hoisted(() => {
   const db = {
     roles: {} as Record<string, Array<{ role_type: string; school_id: number | null }>>,
-    assignments: [] as Array<{ consultant_id: string; school_id: number; is_active: boolean }>,
+    assignments: [] as Array<{ consultant_id: string; school_id: number; is_active: boolean; ends_at?: string | null }>,
     reads: [] as string[],
   };
   return { db, mockGetApiUser: vi.fn() };
@@ -145,5 +145,19 @@ describe.each(routes)('GC-7 %s school choice', (_name, handler, schoolTable) => 
   it('docente is refused', async () => {
     const r = await call(handler, DOCENTE, OWN);
     expect(r.status).toBe(403);
+  });
+
+  it('P2: a consultor whose assignment ended yesterday is refused with 403; ending tomorrow or with no end reads', async () => {
+    const day = 24 * 60 * 60 * 1000;
+    db.assignments = [
+      { consultant_id: CONSULTOR, school_id: OTHER, is_active: true, ends_at: new Date(Date.now() - day).toISOString() },
+      { consultant_id: CONSULTOR, school_id: ASSIGNED, is_active: true, ends_at: new Date(Date.now() + day).toISOString() },
+      { consultant_id: CONSULTOR, school_id: OWN, is_active: true, ends_at: null },
+    ];
+    const ended = await call(handler, CONSULTOR, OTHER);
+    expect(ended.status).toBe(403);
+    expect(db.reads.filter((x) => x.startsWith(schoolTable))).toEqual([]);
+    expect((await call(handler, CONSULTOR, ASSIGNED)).status).toBe(200);
+    expect((await call(handler, CONSULTOR, OWN)).status).toBe(200);
   });
 });

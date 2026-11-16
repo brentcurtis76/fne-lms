@@ -319,6 +319,21 @@ describe('GET /api/school/transversal-context/schools?scope=assigned', () => {
     expect(r.json).toEqual({ schools: [{ id: 1, name: 'Escuela Alfa' }, { id: 3, name: 'Escuela Gamma' }] });
   });
 
+  it('P2: an assignment that ended yesterday no longer counts; one ending tomorrow or with no end does', async () => {
+    const day = 24 * 60 * 60 * 1000;
+    arrange({
+      roles: ['consultor'],
+      assignments: [
+        { consultant_id: USER_ID, school_id: 1, is_active: true, ends_at: new Date(Date.now() - day).toISOString() },
+        { consultant_id: USER_ID, school_id: 3, is_active: true, ends_at: new Date(Date.now() + day).toISOString() },
+        { consultant_id: USER_ID, school_id: 2, is_active: true, ends_at: null },
+      ],
+    });
+    const r = await getAssigned();
+    expect(r.status).toBe(200);
+    expect(r.json).toEqual({ schools: [{ id: 2, name: 'Escuela Beta' }, { id: 3, name: 'Escuela Gamma' }] });
+  });
+
   it('a consultor with no active assignment gets no school', async () => {
     const service = arrange({ roles: ['consultor'], assignments: [ASSIGNMENTS[2], ASSIGNMENTS[3]] });
     const r = await getAssigned();

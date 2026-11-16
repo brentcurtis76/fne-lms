@@ -38,6 +38,7 @@ export default function UserProfileView() {
         }
         
         setCurrentUser(session.user);
+        let viewerIsAdmin = false;
         
         // Get current user's admin status and avatar
         const { data: currentUserProfile } = await supabase
@@ -49,7 +50,8 @@ export default function UserProfileView() {
         if (currentUserProfile) {
           try {
             const userRole = await getUserPrimaryRole(session.user.id);
-            setIsAdmin(userRole === 'admin');
+            viewerIsAdmin = userRole === 'admin';
+            setIsAdmin(viewerIsAdmin);
           } catch (roleError) {
             console.error('Error getting user role:', roleError);
             // Default to non-admin if role check fails
@@ -62,7 +64,7 @@ export default function UserProfileView() {
         }
         
         if (userId && typeof userId === 'string') {
-          await loadUserProfile(userId);
+          await loadUserProfile(userId, session.user.id, viewerIsAdmin);
         }
         
         setLoading(false);
@@ -78,8 +80,24 @@ export default function UserProfileView() {
     }
   }, [router, userId]);
 
-  const loadUserProfile = async (targetUserId: string) => {
+  const loadUserProfile = async (targetUserId: string, viewerId: string, viewerIsAdmin: boolean) => {
     try {
+      if (!viewerIsAdmin && targetUserId !== viewerId) {
+        // A viewer who is neither an admin nor the person gets the person's
+        // card (name, picture) when they may know them, and the page makes no
+        // other request about that person (send-back 1, 6).
+        const card = (await fetchProfileCards(supabase, [targetUserId])).get(targetUserId);
+        if (!card) {
+          console.error('Profile card not available');
+          return;
+        }
+        setCardOnly(true);
+        setProfileData(card);
+        setUserRoles([]);
+        setEnrolledCourses([]);
+        return;
+      }
+
       // Get user profile
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -87,19 +105,12 @@ export default function UserProfileView() {
         .eq('id', targetUserId)
         .single();
 
-      let shownProfile: any = profile;
-      let onlyCard = false;
       if (profileError || !profile) {
-        // Not readable for this viewer: the person's card, when the viewer may know them.
-        const card = (await fetchProfileCards(supabase, [targetUserId])).get(targetUserId);
-        if (!card) {
-          console.error('Error fetching user profile:', profileError);
-          return;
-        }
-        shownProfile = card;
-        onlyCard = true;
+        console.error('Error fetching user profile:', profileError);
+        return;
       }
-      setCardOnly(onlyCard);
+      const shownProfile: any = profile;
+      setCardOnly(false);
 
       // Get school name from API (uses service role to bypass RLS on user_roles)
       let schoolName = null;
@@ -285,7 +296,8 @@ export default function UserProfileView() {
                   )}
                 </div>
 
-                {/* Profile Details */}
+                {/* Profile Details (not for a viewer who only gets the card) */}
+                {!cardOnly && (
                 <div className="flex-1">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Contact Information */}
@@ -326,10 +338,12 @@ export default function UserProfileView() {
                     </div>
                   </div>
                 </div>
+                )}
               </div>
             </div>
 
-            {/* Enrolled Courses */}
+            {/* Enrolled Courses (not for a viewer who only gets the card) */}
+            {!cardOnly && (
             <div className="bg-white rounded-lg shadow-md p-8">
               <h2 className="text-xl font-semibold text-brand_blue mb-6 flex items-center">
                 <Book className="mr-2" size={24} />
@@ -371,6 +385,7 @@ export default function UserProfileView() {
                 </div>
               )}
             </div>
+            )}
       </div>
     </MainLayout>
   );

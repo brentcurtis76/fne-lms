@@ -333,7 +333,10 @@ RESET ROLE;
 SELECT tests.authenticate_as('c2_direct');
 SELECT throws_ok($$UPDATE public.course_enrollments SET access_origin = 'independent' WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c02'$$, '42501', NULL, '5: a learner cannot promote their own learning_path row to independent');
 SELECT throws_ok($$UPDATE public.course_enrollments SET source_path_id = NULL, access_origin = 'unknown' WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01'$$, '42501', NULL, '5: a learner cannot relabel their row as unknown');
-SELECT is(pg_temp.rows_affected($$UPDATE public.course_enrollments SET progress_percentage = 55 WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01'$$), 1, '5: own progress UPDATE still works (own-row policy)');
+-- F4b CUR-S4b (20261116190000): a learner's direct UPDATE of their own enrolment is closed
+-- (restrictive rule, admin only); the progress trigger writes it. 0 rows; progress stays 40.
+SELECT is(pg_temp.rows_affected($$UPDATE public.course_enrollments SET progress_percentage = 55 WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01'$$)
+          || '/' || pg_temp.rows_affected($$SELECT 1 FROM public.course_enrollments WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01' AND progress_percentage = 40$$), '0/1', '5: own progress UPDATE changes 0 rows and the stored progress stays (CUR-S4b: direct updates are admin only)');
 SELECT is(pg_temp.origin('c2_direct', '78000000-0000-4000-8000-000000000c02'), 'learning_path:-', '5: origin unchanged after the refused attempts');
 RESET ROLE;
 SELECT tests.authenticate_as('c2_admin');
@@ -400,10 +403,16 @@ SELECT throws_ok($$UPDATE public.course_enrollments SET access_origin_set_at = n
 SELECT throws_ok($$UPDATE public.course_enrollments SET course_id = '78000000-0000-4000-8000-000000000c04', access_origin = 'independent', progress_percentage = 1 WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01'$$, '42501', NULL, '7c: a multi-field attempt (identity + provenance + progress) is refused as a whole');
 SELECT throws_ok($$UPDATE public.course_enrollments SET user_id = pg_temp.uid('c2_outsider') WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01'$$, '42501', NULL, '7c: the user identity of a row cannot be changed');
 SELECT throws_ok($$UPDATE public.course_enrollments SET id = gen_random_uuid() WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01'$$, '42501', NULL, '7c: the row id cannot be changed');
--- enrolled_by / enrollment_type stay in the column grant (old-app compatibility) but the trigger guards them
-SELECT throws_ok($$UPDATE public.course_enrollments SET enrolled_by = pg_temp.uid('c2_admin'), enrollment_type = 'bulk_assigned' WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01'$$, '42501', 'Enrollment identity, provenance and grant authority are not client-writable', '7c: grant provenance (who / how) cannot be forged — refused by the guard trigger');
-SELECT is(pg_temp.rows_affected($$UPDATE public.course_enrollments SET progress_percentage = 77, lessons_completed = 2, is_completed = false, status = 'paused', total_time_spent_seconds = 120, updated_at = now() WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01'$$), 1, '7c: an ordinary progress / status update by the learner still works');
-SELECT is((SELECT progress_percentage::int FROM public.course_enrollments WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01'), 77, '7c: the progress write landed');
+-- enrolled_by / enrollment_type stay in the column grant (old-app compatibility). Since F4b CUR-S4b
+-- (20261116190000) the restrictive row rule refuses the learner's UPDATE first (0 rows), before the
+-- guard trigger is reached; the trigger itself stays covered by 7d below (a definer writer acting for
+-- the learner, which the row rule does not stop). 0 rows; enrollment_type unchanged.
+SELECT is(pg_temp.rows_affected($$UPDATE public.course_enrollments SET enrolled_by = pg_temp.uid('c2_admin'), enrollment_type = 'bulk_assigned' WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01'$$)
+          || '/' || pg_temp.rows_affected($$SELECT 1 FROM public.course_enrollments WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01' AND enrollment_type IS DISTINCT FROM 'bulk_assigned'$$), '0/1', '7c: grant provenance (who / how) cannot be forged — refused by the row rule (0 rows, values unchanged)');
+-- F4b CUR-S4b: the learner's own direct progress / status update is closed (0 rows, values stay).
+SELECT is(pg_temp.rows_affected($$UPDATE public.course_enrollments SET progress_percentage = 77, lessons_completed = 2, is_completed = false, status = 'paused', total_time_spent_seconds = 120, updated_at = now() WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01'$$)
+          || '/' || pg_temp.rows_affected($$SELECT 1 FROM public.course_enrollments WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01' AND progress_percentage = 40 AND lessons_completed = 1 AND status IS DISTINCT FROM 'paused' AND total_time_spent_seconds IS DISTINCT FROM 120$$), '0/1', '7c: an ordinary progress / status update by the learner changes 0 rows and the stored values stay (CUR-S4b)');
+SELECT is((SELECT progress_percentage::int FROM public.course_enrollments WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01'), 40, '7c: the refused progress write left the stored progress at 40 (CUR-S4b)');
 SELECT is(pg_temp.k4_visible(), 'false/0/0', '7c: K4 stays invisible after every refused attempt');
 RESET ROLE;
 -- 7d. the trigger layer alone: a SECURITY DEFINER writer acting for the learner
@@ -457,7 +466,7 @@ SELECT is(pg_temp.origin('c2_direct', '78000000-0000-4000-8000-000000000c04'), '
 SELECT is((SELECT (r->>'assignments_created')::int || '/' || (r->>'assignments_existing') || '/' || (r->>'enrollments_created') || '/' || (r->>'enrollments_unchanged') || '/' || jsonb_array_length(r->'newly_assigned_user_ids') FROM public.admin_grant_course_access('78000000-0000-4000-8000-000000000c04', ARRAY[pg_temp.uid('c2_direct'), pg_temp.uid('c2_unknown')]) r), '0/2/0/2/0', '8: the retry is idempotent and truthful (0 created, 2 existing, nobody newly assigned)');
 SELECT is((SELECT (r->>'enrollments_promoted')::int FROM public.admin_grant_course_access('78000000-0000-4000-8000-000000000c01', ARRAY[pg_temp.uid('c2_direct')]) r), 1, '8: granting K1 to c2_direct promotes the path-origin row');
 SELECT is(pg_temp.origin('c2_direct', '78000000-0000-4000-8000-000000000c01'), 'independent:-', '8: … to independent with no source path');
-SELECT is((SELECT progress_percentage::int || '/' || lessons_completed || '/' || status FROM public.course_enrollments WHERE user_id = pg_temp.uid('c2_direct') AND course_id = '78000000-0000-4000-8000-000000000c01'), '33/2/active', '8: progress and lessons are preserved by the promotion; status re-activated');
+SELECT is((SELECT progress_percentage::int || '/' || lessons_completed || '/' || status FROM public.course_enrollments WHERE user_id = pg_temp.uid('c2_direct') AND course_id = '78000000-0000-4000-8000-000000000c01'), '33/1/active', '8: progress and lessons are preserved by the promotion; status active (F4b CUR-S4b: the learner''s own 7c write of lessons_completed = 2 / paused no longer lands)');
 SELECT throws_ok($$SELECT public.admin_grant_course_access(gen_random_uuid(), ARRAY[pg_temp.uid('c2_direct')])$$, NULL, 'Course not found', '8: an unknown course is refused');
 SELECT throws_ok($$SELECT public.admin_grant_course_access('78000000-0000-4000-8000-000000000c04', ARRAY[pg_temp.uid('c2_direct'), gen_random_uuid()])$$, NULL, '1 recipient(s) do not exist', '8: an unknown recipient is refused (count only, no identifier) and nothing is written');
 SELECT is((SELECT count(*)::int FROM public.course_assignments WHERE course_id = '78000000-0000-4000-8000-000000000c04'), 2, '8: the refused call wrote nothing (atomic)');

@@ -133,7 +133,8 @@ SELECT is((SELECT progress_percentage FROM public.lesson_completion_summary WHER
   10.00::numeric, 'signed-in docente still reads lesson_completion_summary');
 WITH u AS (UPDATE public.lesson_completion_summary SET progress_percentage = 20
             WHERE id = 'f0a10105-0000-4000-8000-000000000004' RETURNING 1)
-SELECT is(count(*)::int, 1, 'signed-in docente still updates lesson_completion_summary') FROM u;
+-- F4b N56 (20261116190000): direct writes of lesson_completion_summary are admin only.
+SELECT is(count(*)::int, 0, 'signed-in docente no longer updates lesson_completion_summary directly (N56: admin only)') FROM u;
 SELECT lives_ok(format('SELECT count(*) FROM public.%I', relname), 'signed-in user still reads public.' || relname)
   FROM rels WHERE relname NOT IN ('lesson_completion_summary', 'pending_quiz_reviews') ORDER BY relname;
 -- pending_quiz_reviews: signed-in people lost access in 20261116140000 (CUR-S6d).

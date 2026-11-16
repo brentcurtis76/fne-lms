@@ -1,16 +1,19 @@
 -- =============================================================================
--- 124-progress-integrity.sql — F4b (CUR-S4a, CUR-S4c): migration
--- 20261116190000_progress_integrity.sql.
+-- 124-progress-integrity.sql — F4b (CUR-S4a, CUR-S4b, CUR-S4c, CUR-S4d, N56):
+-- migration 20261116190000_progress_integrity.sql.
 --
 --   CUR-S4a: the enrolment's progress is written by the trigger function
 --            update_course_enrollment_progress() with its owner's rights
 --            (SECURITY DEFINER); the numbers it writes are the same as before.
---   (CUR-S4b — closing the learner's own direct UPDATE of course_enrollments —
---   was stopped at build and is not asserted here; the outsider / anon / admin
---   lines of section 6 hold with or without it.)
+--   CUR-S4b: a learner's own direct UPDATE of course_enrollments changes 0 rows
+--            (restrictive rule, admin only); the trigger still writes.
 --   CUR-S4c: a learner's progress mark must name a real block of the lesson
 --            named, of a course the learner has; a quiz block counts only once
 --            the learner has a quiz_submissions row for it.
+--   CUR-S4d: a quiz block with no questions is marked without a submission
+--            (the lesson page's "Continuar" button).
+--   N56:     lesson_completion_summary rows are read by their owner and the
+--            admin only, and written directly by the admin only.
 --
 -- Personas: anon; admin; learners A and C (given course 1 through
 -- batch_assign_courses: assignment + enrolment); an outsider (signed in, given
@@ -22,7 +25,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(54);
+SELECT plan(75);
 
 CREATE OR REPLACE FUNCTION pg_temp.set_anon() RETURNS void AS $$
 BEGIN
@@ -56,6 +59,23 @@ BEGIN
     RAISE EXCEPTION USING ERRCODE = 'P0099', MESSAGE = 'accepted';
   EXCEPTION
     WHEN SQLSTATE 'P0099' THEN RETURN 'accepted';
+    WHEN OTHERS THEN RETURN SQLSTATE;
+  END;
+END;
+$$;
+
+-- Like probe, but an accepted statement answers the number of rows it changed
+-- (as text); always undone.
+CREATE OR REPLACE FUNCTION pg_temp.probe_rows(stmt text) RETURNS text
+LANGUAGE plpgsql AS $$
+DECLARE n int;
+BEGIN
+  BEGIN
+    EXECUTE stmt;
+    GET DIAGNOSTICS n = ROW_COUNT;
+    RAISE EXCEPTION USING ERRCODE = 'P0099', MESSAGE = n::text;
+  EXCEPTION
+    WHEN SQLSTATE 'P0099' THEN RETURN SQLERRM;
     WHEN OTHERS THEN RETURN SQLSTATE;
   END;
 END;
@@ -343,6 +363,94 @@ SELECT is((SELECT count(*)::int FROM pg_policies WHERE schemaname = 'public' AND
 SELECT is((SELECT count(*)::int FROM pg_policies WHERE schemaname = 'public' AND tablename = 'course_enrollments'
             AND policyname = 'Users can update own enrollment progress'), 1,
   'the existing own-row UPDATE rule of course_enrollments is not touched');
+
+-- ----------------------------------------------------------------------------
+-- 8. CUR-S4b — a learner cannot set their own enrolment directly (5)
+--    (real updates, at the end so nothing later depends on them)
+-- ----------------------------------------------------------------------------
+SELECT tests.authenticate_as('p124_lrn_c');
+SELECT is(pg_temp.rows_affected($$UPDATE public.course_enrollments SET progress_percentage = 100, is_completed = true, has_passed = true, overall_score = 100
+                                   WHERE user_id = auth.uid() AND course_id = '12400000-0000-4000-8000-000000000c01'$$), 0,
+  'CUR-S4b: C''s direct UPDATE of their own enrolment (progress, completion, pass, score) changes 0 rows');
+RESET ROLE;
+SELECT ok((SELECT NOT COALESCE(has_passed, false) AND overall_score IS DISTINCT FROM 100
+             FROM public.course_enrollments WHERE user_id = pg_temp.uid('p124_lrn_c') AND course_id = '12400000-0000-4000-8000-000000000c01'),
+  'CUR-S4b: C''s stored pass mark and score stay as they were');
+SELECT tests.authenticate_as('p124_lrn_s');
+SELECT is(pg_temp.rows_affected($$UPDATE public.course_enrollments SET progress_percentage = 0, is_completed = false, lessons_completed = 0
+                                   WHERE user_id = auth.uid() AND course_id = '12400000-0000-4000-8000-000000000c03'$$), 0,
+  'CUR-S4b: S''s direct reset of their own enrolment changes 0 rows');
+RESET ROLE;
+SELECT is(pg_temp.enr('p124_lrn_s', '12400000-0000-4000-8000-000000000c03'), '1/100.00/true/true',
+  'CUR-S4b: S''s enrolment stays what the trigger wrote');
+SELECT ok(EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'course_enrollments'
+                   AND policyname = 'course_enrollments_direct_update_admin_only' AND permissive = 'RESTRICTIVE' AND cmd = 'UPDATE'
+                   AND roles = ARRAY['authenticated']::name[]),
+  'CUR-S4b: the restrictive UPDATE rule of course_enrollments exists');
+
+-- ----------------------------------------------------------------------------
+-- 9. CUR-S4d — a quiz with no questions is marked without a submission (3)
+--    (blocks added to lesson 1 only now, so the progress numbers above hold)
+-- ----------------------------------------------------------------------------
+INSERT INTO public.blocks (id, course_id, lesson_id, position, type, payload) VALUES
+  ('12400000-0000-4000-8000-0000000000b6', '12400000-0000-4000-8000-000000000c01', '12400000-0000-4000-8000-00000000ee01', 3, 'quiz',
+   '{"title": "Synthetic empty quiz 124", "totalPoints": 0, "questions": []}'),
+  ('12400000-0000-4000-8000-0000000000b7', '12400000-0000-4000-8000-000000000c01', '12400000-0000-4000-8000-00000000ee01', 4, 'quiz',
+   '{"title": "Synthetic quiz 124 without a questions key"}');
+SELECT tests.authenticate_as('p124_lrn_c');
+SELECT is(pg_temp.probe(pg_temp.page_upsert('12400000-0000-4000-8000-00000000ee01', '12400000-0000-4000-8000-0000000000b6')),
+  'accepted', 'CUR-S4d: C marks a quiz whose questions are [] without a submission ("Continuar")');
+SELECT is(pg_temp.probe(pg_temp.page_upsert('12400000-0000-4000-8000-00000000ee01', '12400000-0000-4000-8000-0000000000b7')),
+  'accepted', 'CUR-S4d: C marks a quiz with no questions key without a submission');
+RESET ROLE;
+SELECT tests.authenticate_as('p124_outsider');
+SELECT is(pg_temp.probe(pg_temp.page_upsert('12400000-0000-4000-8000-00000000ee01', '12400000-0000-4000-8000-0000000000b6')),
+  '42501', 'CUR-S4d: the outsider still cannot mark the empty quiz (course not given)');
+RESET ROLE;
+
+-- ----------------------------------------------------------------------------
+-- 10. N56 — lesson_completion_summary is private (13)
+-- ----------------------------------------------------------------------------
+INSERT INTO public.lesson_completion_summary (id, user_id, lesson_id, course_id, progress_percentage) VALUES
+  ('12400000-0000-4000-8000-0000000000d1', pg_temp.uid('p124_lrn_a'), '12400000-0000-4000-8000-00000000ee01', '12400000-0000-4000-8000-000000000c01', 10);
+SELECT tests.authenticate_as('p124_lrn_c');
+SELECT is((SELECT count(*)::int FROM public.lesson_completion_summary WHERE user_id = pg_temp.uid('p124_lrn_a')), 0,
+  'N56: C does not see A''s lesson summary');
+SELECT is(pg_temp.probe_rows($$UPDATE public.lesson_completion_summary SET progress_percentage = 99 WHERE id = '12400000-0000-4000-8000-0000000000d1'$$), '0',
+  'N56: C''s UPDATE of A''s summary changes 0 rows');
+SELECT is(pg_temp.probe_rows($$DELETE FROM public.lesson_completion_summary WHERE id = '12400000-0000-4000-8000-0000000000d1'$$), '0',
+  'N56: C''s DELETE of A''s summary changes 0 rows');
+SELECT is(pg_temp.probe($$INSERT INTO public.lesson_completion_summary (user_id, lesson_id, course_id, progress_percentage)
+                          VALUES (pg_temp.uid('p124_lrn_a'), '12400000-0000-4000-8000-00000000ee02', '12400000-0000-4000-8000-000000000c01', 100)$$),
+  '42501', 'N56: C cannot insert a summary in A''s name');
+RESET ROLE;
+SELECT tests.authenticate_as('p124_lrn_a');
+SELECT is((SELECT progress_percentage::int FROM public.lesson_completion_summary WHERE id = '12400000-0000-4000-8000-0000000000d1'), 10,
+  'N56 still works: A reads their own summary');
+SELECT is(pg_temp.probe_rows($$UPDATE public.lesson_completion_summary SET progress_percentage = 100 WHERE id = '12400000-0000-4000-8000-0000000000d1'$$), '0',
+  'N56: A''s own direct UPDATE of their summary changes 0 rows (direct writes are admin only)');
+RESET ROLE;
+SELECT tests.authenticate_as('p124_admin');
+SELECT is((SELECT count(*)::int FROM public.lesson_completion_summary WHERE id = '12400000-0000-4000-8000-0000000000d1'), 1,
+  'N56 admin: reads A''s summary');
+SELECT is(pg_temp.rows_affected($$UPDATE public.lesson_completion_summary SET progress_percentage = 20 WHERE id = '12400000-0000-4000-8000-0000000000d1'$$), 1,
+  'N56 admin: updates A''s summary');
+SELECT lives_ok($$INSERT INTO public.lesson_completion_summary (id, user_id, lesson_id, course_id, progress_percentage)
+                  VALUES ('12400000-0000-4000-8000-0000000000d2', pg_temp.uid('p124_lrn_c'), '12400000-0000-4000-8000-00000000ee02', '12400000-0000-4000-8000-000000000c01', 5)$$,
+  'N56 admin: inserts a summary for any person');
+SELECT is(pg_temp.rows_affected($$DELETE FROM public.lesson_completion_summary WHERE id = '12400000-0000-4000-8000-0000000000d2'$$), 1,
+  'N56 admin: deletes a summary');
+RESET ROLE;
+SELECT is((SELECT count(*)::int FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = 'public' AND p.prosrc ILIKE '%lesson_completion_summary%'), 0,
+  'N56: no function of the public schema reads or writes lesson_completion_summary');
+SELECT is((SELECT count(*)::int FROM pg_trigger WHERE tgrelid = 'public.lesson_completion_summary'::regclass AND NOT tgisinternal), 0,
+  'N56: no trigger on lesson_completion_summary');
+SELECT is((SELECT count(*)::int FROM pg_policies WHERE schemaname = 'public' AND tablename = 'lesson_completion_summary'
+            AND permissive = 'RESTRICTIVE' AND roles = ARRAY['authenticated']::name[]
+            AND policyname IN ('lesson_completion_summary_direct_insert_admin_only', 'lesson_completion_summary_direct_update_admin_only',
+                               'lesson_completion_summary_direct_delete_admin_only')), 3,
+  'N56: the three restrictive admin-only write rules exist');
 
 SELECT * FROM finish();
 ROLLBACK;

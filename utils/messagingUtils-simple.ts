@@ -15,9 +15,23 @@ import {
   ThreadCreationData,
   MessageCompositionData,
   ThreadCategory,
+  ThreadCategoryConfig,
   MessageType,
   THREAD_CATEGORIES,
 } from '../types/messaging';
+
+/**
+ * How a thread's category is shown. A custom category is shown by its stored
+ * name, with the look of the default category (no new colour or icon); it was
+ * stored but shown as «General» (send-back 1, 7).
+ */
+function categoryConfigFor(thread: { category?: string | null; custom_category_name?: string | null }): ThreadCategoryConfig {
+  const customName = thread.custom_category_name?.trim();
+  if (customName) {
+    return { ...THREAD_CATEGORIES[0], type: 'custom', label: customName, description: customName };
+  }
+  return THREAD_CATEGORIES.find(cat => cat.type === thread.category) || THREAD_CATEGORIES[0];
+}
 
 // =============================================================================
 // SIMPLIFIED THREAD FUNCTIONS
@@ -88,13 +102,8 @@ export async function getWorkspaceThreads(
     return (data || []).map(thread => {
       const creatorName = cardName(creators.get(thread.created_by));
       
-      // Handle custom category
-      let categoryConfig = THREAD_CATEGORIES.find(cat => cat.type === thread.category);
-      // For now, skip custom category handling until column is added
-      if (!categoryConfig) {
-        categoryConfig = THREAD_CATEGORIES[0]; // Default to general
-      }
-        
+      const categoryConfig = categoryConfigFor(thread);
+
       return {
         ...thread,
         creator_name: creatorName,
@@ -508,12 +517,7 @@ export async function createThread(
       throw new ThreadCreationIncompleteError(threadId, messageError);
     }
 
-    // Handle custom category
-    let categoryConfig = THREAD_CATEGORIES.find(cat => cat.type === thread.category);
-    // For now, skip custom category handling until column is added
-    if (!categoryConfig) {
-      categoryConfig = THREAD_CATEGORIES[0]; // Default to general
-    }
+    const categoryConfig = categoryConfigFor(thread);
 
     return {
       ...thread,
@@ -798,7 +802,7 @@ export function subscribeToWorkspaceMessages(
               latest_message: null,
               participants: [],
               unread_count: 0,
-              category_config: THREAD_CATEGORIES.find(cat => cat.type === payload.new.category) || THREAD_CATEGORIES[0]
+              category_config: categoryConfigFor(payload.new)
             } as ThreadWithDetails;
             callbacks.onThread(thread);
           }

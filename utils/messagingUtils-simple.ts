@@ -9,6 +9,7 @@ import { fetchProfileCards, cardName } from '../lib/profile-cards';
 import {
   ThreadWithDetails,
   MessageWithDetails,
+  MessageAttachment,
   MessageFilters,
   ThreadFilters,
   MessagingPermissions,
@@ -223,26 +224,29 @@ export async function getWorkspaceMessages(
 }
 
 /**
- * One message of a workspace with its attachments, reactions, reply and names,
- * or null when it is not readable (or was deleted). Used to fill in a live
- * message whose attachments are stored a moment after it (send-back 1, 3).
+ * The active attachment records of messages, with the query and client the
+ * conversation's loading uses (so the same read rules apply). Null when the
+ * read fails.
  */
-export async function getWorkspaceMessage(
-  workspaceId: string,
-  messageId: string
-): Promise<MessageWithDetails | null> {
+async function readMessageAttachments(messageIds: string[]): Promise<any[] | null> {
+  const { data: attachments, error } = await supabase
+    .from('message_attachments')
+    .select('*')
+    .in('message_id', messageIds)
+    .eq('is_active', true);
+  return error ? null : attachments ?? [];
+}
+
+/**
+ * The attachment records of one message, or null when they cannot be read.
+ * Used to fill in a live message whose attachments are stored after it: only
+ * its attachments are read, never the message again (send-back 2, A).
+ */
+export async function getMessageAttachments(messageId: string): Promise<MessageAttachment[] | null> {
   try {
-    const { data, error } = await supabase
-      .from('community_messages')
-      .select('*')
-      .eq('workspace_id', workspaceId)
-      .eq('id', messageId)
-      .eq('is_deleted', false);
-    if (error || !data || data.length === 0) return null;
-    const [message] = await withMessageDetails(data);
-    return message ?? null;
+    return await readMessageAttachments([messageId]);
   } catch {
-    console.error('Error in getWorkspaceMessage');
+    console.error('Error in getMessageAttachments');
     return null;
   }
 }
@@ -254,11 +258,7 @@ async function withMessageDetails(data: any[]): Promise<MessageWithDetails[]> {
   let attachmentsByMessage: Record<string, any[]> = {};
 
   if (messageIds.length > 0) {
-    const { data: attachments } = await supabase
-      .from('message_attachments')
-      .select('*')
-      .in('message_id', messageIds)
-      .eq('is_active', true);
+    const attachments = await readMessageAttachments(messageIds);
 
     if (attachments) {
       attachmentsByMessage = attachments.reduce((acc, att) => {

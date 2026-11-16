@@ -12,41 +12,7 @@ import Step7Contrato from '@/components/licitaciones/Step7Contrato';
 import DocumentCenter from '@/components/licitaciones/DocumentCenter';
 import ProposalConfigPanel from '@/components/licitaciones/ProposalConfigPanel';
 import ArchiveView from '@/components/licitaciones/ArchiveView';
-
-// Pure client-side helper — no server imports needed
-function generatePublicacionText(
-  licitacion: LicitacionDetail,
-  schoolName: string,
-  comuna: string
-): string {
-  const fechaLimite = licitacion.fecha_limite_solicitud_bases
-    ? formatDateInline(licitacion.fecha_limite_solicitud_bases)
-    : '[fecha pendiente]';
-
-  return (
-    `Con el objetivo de asesorar al equipo directivo y lideres del establecimiento ` +
-    `en el cambio de cultura organizacional centrada en la innovacion educativa y ` +
-    `en el Modelo Relacional es que el ${schoolName}, de la comuna de ${comuna}, ` +
-    `llamamos a concurso publico para la contratacion de servicios ATE con el ` +
-    `siguiente requerimiento: asesoria al equipo directivo para liderar a la escuela ` +
-    `hacia una cultura colaborativa, de aprendizaje profundo, con metodologias de ` +
-    `vanguardia y con la base en un enfoque en lo relacional.\n\n` +
-    `Bases de la licitacion se pueden solicitar hasta el ${fechaLimite} al ` +
-    `correo ${licitacion.email_licitacion}`
-  );
-}
-
-function formatDateInline(dateStr: string): string {
-  const parts = dateStr.split('-');
-  if (parts.length !== 3) return dateStr;
-  const months = [
-    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
-  ];
-  const day = parseInt(parts[2], 10);
-  const month = months[parseInt(parts[1], 10) - 1] || '';
-  return `${day} de ${month} de ${parts[0]}`;
-}
+import { buildPublicacionText } from '@/lib/licitaciones/publicacionText';
 
 // ============================================================
 // STEPPER DEFINITION
@@ -154,7 +120,6 @@ export default function LicitacionDetailPage() {
   const [loading, setLoading] = useState(true);
 
   // Step 2 state
-  const [publicacionText, setPublicacionText] = useState('');
   const [copied, setCopied] = useState(false);
   const [fechaPublicacion, setFechaPublicacion] = useState('');
   const [timeline, setTimeline] = useState<TimelineDates | null>(null);
@@ -283,13 +248,6 @@ export default function LicitacionDetailPage() {
       if (lic.fecha_publicacion) {
         setFechaPublicacion(lic.fecha_publicacion);
       }
-
-      // Generate publicacion text
-      if (lic.school && lic.cliente) {
-        const schoolName = lic.cliente.nombre_fantasia || lic.school.name;
-        const comuna = lic.cliente.comuna || '';
-        setPublicacionText(generatePublicacionText(lic, schoolName, comuna));
-      }
     } catch {
       toast.error('Error al cargar licitacion');
       router.push('/licitaciones');
@@ -307,6 +265,7 @@ export default function LicitacionDetailPage() {
 
   const handleFechaChange = useCallback(async (fecha: string) => {
     setFechaPublicacion(fecha);
+    if (!fecha) setTimeline(null); // a cleared date leaves no deadline to print
     if (!fecha || !id) return;
 
     setTimelineLoading(true);
@@ -463,6 +422,26 @@ export default function LicitacionDetailPage() {
     );
   }
 
+  // Built from the date typed (its computed timeline) and, once confirmed, from the stored dates.
+  const publicacionText = buildPublicacionText(licitacion, timeline);
+
+  const publicacionTextBlock = (
+    <div>
+      <p className="text-sm font-medium text-gray-700 mb-2">Texto de publicacion</p>
+      <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-800 whitespace-pre-wrap mb-2">
+        {publicacionText || 'Seleccione una escuela con cliente vinculado para generar el texto.'}
+      </div>
+      <button
+        onClick={handleCopyText}
+        disabled={!publicacionText}
+        className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+      >
+        {copied ? <Check size={16} className="mr-2 text-green-600" aria-hidden="true" /> : <Copy size={16} className="mr-2" aria-hidden="true" />}
+        <span aria-live="polite">{copied ? 'Copiado!' : 'Copiar texto'}</span>
+      </button>
+    </div>
+  );
+
   const activeStep = getActiveStep(licitacion.estado);
   const step1Done = activeStep > 1;
   const step2Active = activeStep === 2;
@@ -601,6 +580,7 @@ export default function LicitacionDetailPage() {
             {step2Done ? (
               // Completed state — read-only
               <div className="space-y-4">
+                {publicacionTextBlock}
                 <div>
                   <p className="text-sm font-medium text-gray-700 mb-1">Fecha de publicacion</p>
                   <p className="text-sm text-gray-900">{formatDate(licitacion.fecha_publicacion)}</p>
@@ -654,21 +634,7 @@ export default function LicitacionDetailPage() {
             ) : step2Active ? (
               // Active state — editable
               <div className="space-y-6">
-                {/* Publicacion text */}
-                <div>
-                  <p className="text-sm font-medium text-gray-700 mb-2">Texto de publicacion</p>
-                  <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-800 whitespace-pre-wrap mb-2">
-                    {publicacionText || 'Seleccione una escuela con cliente vinculado para generar el texto.'}
-                  </div>
-                  <button
-                    onClick={handleCopyText}
-                    disabled={!publicacionText}
-                    className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                  >
-                    {copied ? <Check size={16} className="mr-2 text-green-600" aria-hidden="true" /> : <Copy size={16} className="mr-2" aria-hidden="true" />}
-                    <span aria-live="polite">{copied ? 'Copiado!' : 'Copiar texto'}</span>
-                  </button>
-                </div>
+                {publicacionTextBlock}
 
                 {/* Fecha publicacion */}
                 <div>

@@ -32,14 +32,44 @@ modifiers (`bg-brand_primary/40`) working. Outside a class: `rgb(var(--color-gra
 - **`rounded-none` and `rounded-full`:** not values of a look.
 - **Tailwind's typography plugin (`prose`)** takes its greys from Tailwind's palette directly, not from the theme. A
   look that changes the greys must also set the plugin's `--tw-prose-*` variables.
-- **Colours typed by hand** (`bg-[#0a0a0a]`, `style={{ color: '#fbbf24' }}`, chart colours): phase 4b names only the
-  ones that are not the brand kit's.
+- **The brand kit's own colours typed by hand** (`bg-[#0a0a0a]`, `style={{ color: '#fbbf24' }}`): they stay literal
+  on purpose (the new look keeps the kit's black and yellow). Since phase 4b every OTHER hand-typed colour that a
+  platform screen draws reads a name: see "The stray colours" below.
+- **Hand-typed colours left on purpose** (pinned one by one, with the reason, in
+  `__tests__/styles/stray-colours.test.ts`): colours that are saved to the database or compared as text (the
+  roadmap's colour picker and its data, the message categories), colours no screen draws, the course screens
+  being rebuilt elsewhere, the public site, documents and e-mails, and the area being deleted. A look does not
+  reach them.
 - **The older hex tokens** of the first `:root` block (`--fne-black`, `--fne-yellow`, `--fne-gray-200`, …): whole
   colours. The config reads the three gold ones (`bg-gold-gradient`, used on `/pasantias`); the others are read only
   by the semantic aliases of that block (`--surface-page`, `--text-title`, …), which no screen uses yet. Each brand one is pinned to its triplet by the test. A
   look that changes a brand colour must override both names.
-- **The other stylesheets** `pages/_app.tsx` loads (`sitio.css`, `notifications.css`, `propuesta-web.css`) and
-  `tiptap.css`, `tour.css`: plain CSS with their own colours.
+- **The other stylesheets** `pages/_app.tsx` loads (`sitio.css`, `propuesta-web.css`) and `tiptap.css`: plain CSS
+  with their own colours. (`notifications.css` and `tour.css` read names since 4b.)
+
+## The stray colours (phase 4b)
+
+A stray is a hand-typed colour that is not one of the brand kit's seven values (`#0a0a0a`, `#fbbf24`, `#ffffff`,
+`#f59e0b`, `#fcd34d`, `#1f1f1f`, `#6b7280`). On the platform's screens each now reads a named value that holds
+exactly what was typed:
+
+- a stray that equals a value 4a had named reads that name (`#ef4444` is `--color-red-500`);
+- any other has a name of its own that says its value: `--color-legacy-<six hex digits>`, declared once in
+  `styles/fne-tokens.css` (30 of them) and offered to Tailwind from one list in `tailwind.config.js` as
+  `legacy.<hex>` (class `hover:bg-legacy-002844`). No stray was pointed at "the nearest" brand colour: that would
+  have been a guess. A new look decides what each becomes.
+
+How they are written in code: a class (`text-red-500`, `bg-legacy-002844/50`), or, where a colour is a string the
+browser draws (an inline style, a chart's `fill`, a toast), `'rgb(var(--color-…))'`. Where code used to glue two
+hex characters onto a colour to make it see-through (`${color}20`), it now calls `withAlpha(color, '20')` from
+`lib/colorAlpha.ts`, which writes `rgb(var(--name) / 0.1255)` for a named colour and leaves a hex colour exactly
+as the gluing did.
+
+Two tests keep it true: `__tests__/styles/brand-tokens.test.ts` (every legacy name is declared once, holds the
+triplet of its own hex, is offered by the config, and is used) and `__tests__/styles/stray-colours.test.ts` (no
+stray in the platform's files outside an explicit list of exceptions; the changed colour lists pinned value by
+value). **Typing a new hex colour in a platform file fails the second test:** use a name, or add the exception
+with its reason.
 
 ## Rules
 

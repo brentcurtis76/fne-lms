@@ -1,3 +1,12 @@
+## RD-4b — platform redesign, step 4b: the stray colours get names (2026-11-16, built and proven locally, not pushed)
+
+Branch `feat/rd-strays` on top of RD-4d. Record and reviewer notes: `docs/planning/reviews/fase-rd-4b-review-request.md`; the rule: `docs/plan/redesign/tokens.md`, "The stray colours".
+
+- **What changed:** 181 hand-typed colours on platform screens that are not the brand kit's now read a named value holding exactly the old value: an existing name where the value matches (`#ef4444` is `--color-red-500`), else `--color-legacy-<hex>` (30 names; class `…-legacy-<hex>`; in code `'rgb(var(--color-…))'`). Where code glued an opacity onto a colour it calls `withAlpha` (`lib/colorAlpha.ts`). Nothing visible changes.
+- **Rule that holds from now on:** a new hex colour typed in a platform file fails `__tests__/styles/stray-colours.test.ts` unless it is one of the brand kit's seven values or an exception listed there with its reason.
+- **Left hand-typed on purpose:** colours saved to the database or compared as text (the roadmap's, the message categories), the course screens being rebuilt, the public site, documents and e-mails.
+- **Proof:** pictures before and after identical (3,020 of 3,020); a blind test by another model family found every computed colour the same; a test by sight found no difference.
+
 ## RD-4d — platform redesign, step 4d: the look switch (2026-11-14, built and proven locally, not pushed)
 
 Branch `feat/rd-switch` on top of RD-4c. Record and reviewer notes: `docs/planning/reviews/fase-rd-4d-review-request.md`.

@@ -22,6 +22,9 @@ import { buildProposalSnapshot, type BuildSnapshotInput } from '@/lib/propuestas
 
 export const config = { maxDuration: 60 };
 
+/** A generation still running this long after it started is treated as interrupted. */
+const STALE_GENERATION_MS = 15 * 60_000;
+
 const GenerateSchema = z.object({
   plantilla_id: z.string().uuid(),
   config: z.object({
@@ -214,18 +217,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
-  // Step 4b: Guard against concurrent generation for the same licitacion
-  const { data: inProgress } = await serviceClient
+  // Step 4b: Guard against concurrent generation for the same licitacion.
+  // A generation still «generando» STALE_GENERATION_MS after it started
+  // (created_at) was interrupted: mark it failed and let the new one start.
+  const { data: runningRows } = await serviceClient
     .from('propuesta_generadas')
-    .select('id')
+    .select('id, created_at')
     .eq('licitacion_id', licitacionId)
-    .eq('estado', 'generando')
-    .maybeSingle();
+    .eq('estado', 'generando');
 
-  if (inProgress) {
+  const now = Date.now();
+  for (const running of (runningRows ?? []) as Array<{ id: string; created_at: string | null }>) {
+    const startedAt = running.created_at ? Date.parse(running.created_at) : NaN;
+    const age = now - startedAt;
+    if (Number.isFinite(age) && age >= STALE_GENERATION_MS) {
+      await serviceClient
+        .from('propuesta_generadas')
+        .update({ estado: 'error', error_message: 'Generación interrumpida' })
+        .eq('id', running.id)
+        .eq('estado', 'generando');
+      continue;
+    }
+    const minutesLeft = Number.isFinite(age)
+      ? Math.max(1, Math.ceil((STALE_GENERATION_MS - age) / 60_000))
+      : Math.ceil(STALE_GENERATION_MS / 60_000);
     return sendAuthError(
       res,
-      'Ya hay una generación en curso para esta licitación. Espere a que finalice antes de generar una nueva propuesta.',
+      `Ya hay una generación en curso para esta licitación. Espere a que finalice antes de generar una nueva propuesta. Podrá intentarlo de nuevo en ${minutesLeft} ${minutesLeft === 1 ? 'minuto' : 'minutos'}.`,
       409
     );
   }

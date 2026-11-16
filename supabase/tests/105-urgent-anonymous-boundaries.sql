@@ -24,7 +24,7 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(85);
+SELECT plan(86);
 
 -- ---------------------------------------------------------------------------
 -- 1. Catalog
@@ -165,41 +165,48 @@ SELECT throws_ok($$INSERT INTO storage.objects (bucket_id, name) VALUES ('factur
   '42501', NULL, 'anon cannot upload to facturas');
 SELECT throws_ok($$INSERT INTO storage.objects (bucket_id, name) VALUES ('resources', 'fneanon105/anon.png')$$,
   '42501', NULL, 'anon cannot upload to resources');
-SELECT lives_ok($$INSERT INTO storage.objects (bucket_id, name) VALUES ('fneanon105-other', 'fneanon105/anon.txt')$$,
-  'anon can still upload to an unrelated open bucket');
+-- F2b (20261116178000): a visitor never writes to any bucket.
+SELECT throws_ok($$INSERT INTO storage.objects (bucket_id, name) VALUES ('fneanon105-other', 'fneanon105/anon.txt')$$,
+  '42501', NULL, 'anon cannot upload to an unrelated open bucket either (F2b)');
 WITH u AS (UPDATE storage.objects SET name = 'fneanon105/renamed.pdf' WHERE bucket_id = 'facturas' AND name = 'fneanon105/f.pdf' RETURNING 1)
 SELECT is(count(*)::int, 0, 'anon cannot update/move a facturas object') FROM u;
 WITH u AS (UPDATE storage.objects SET name = 'fneanon105/renamed.png' WHERE bucket_id = 'resources' AND name = 'fneanon105/r.png' RETURNING 1)
 SELECT is(count(*)::int, 0, 'anon cannot update/move a resources object') FROM u;
 WITH u AS (UPDATE storage.objects SET name = 'fneanon105/o2.txt' WHERE bucket_id = 'fneanon105-other' AND name = 'fneanon105/o.txt' RETURNING 1)
-SELECT is(count(*)::int, 1, 'anon can still update in an unrelated open bucket') FROM u;
-SELECT throws_ok($$UPDATE storage.objects SET bucket_id = 'resources' WHERE bucket_id = 'fneanon105-other' AND name = 'fneanon105/mover.txt'$$,
-  '42501', NULL, 'anon cannot move an object into resources');
+SELECT is(count(*)::int, 0, 'anon cannot update in an unrelated open bucket either (F2b)') FROM u;
+WITH u AS (UPDATE storage.objects SET bucket_id = 'resources' WHERE bucket_id = 'fneanon105-other' AND name = 'fneanon105/mover.txt' RETURNING 1)
+SELECT is(count(*)::int, 0, 'anon cannot move an object into resources (F2b: no row is updatable by anon)') FROM u;
 WITH d AS (DELETE FROM storage.objects WHERE bucket_id = 'facturas' AND name LIKE 'fneanon105/%' RETURNING 1)
 SELECT is(count(*)::int, 0, 'anon cannot delete from facturas') FROM d;
 WITH d AS (DELETE FROM storage.objects WHERE bucket_id = 'resources' AND name LIKE 'fneanon105/%' RETURNING 1)
 SELECT is(count(*)::int, 0, 'anon cannot delete from resources') FROM d;
 WITH d AS (DELETE FROM storage.objects WHERE bucket_id = 'fneanon105-other' AND name = 'fneanon105/anon.txt' RETURNING 1)
-SELECT is(count(*)::int, 1, 'anon can still delete in an unrelated open bucket') FROM d;
-SELECT is((SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'facturas' AND name = 'fneanon105/f.pdf'), 1,
-  'anon still reads facturas objects');
-SELECT is((SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'resources' AND name = 'fneanon105/r.png'), 1,
-  'anon still reads resources objects');
+SELECT is(count(*)::int, 0, 'anon cannot delete in an unrelated open bucket either (F2b)') FROM d;
+-- F2b: a visitor no longer lists facturas or resources (public addresses are unaffected).
+SELECT is((SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'facturas' AND name = 'fneanon105/f.pdf'), 0,
+  'anon no longer reads facturas objects (F2b)');
+SELECT is((SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'resources' AND name = 'fneanon105/r.png'), 0,
+  'anon no longer reads resources objects (F2b)');
+SELECT is((SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'fneanon105-other' AND name = 'fneanon105/o.txt'), 1,
+  'anon still reads an unrelated open bucket');
 RESET ROLE;
 
+-- F2b (20261116178000): a signed-in non-admin (this docente has no admin role)
+-- no longer writes facturas, nor resources outside documents/<workspace>/ and
+-- news-images/; test 126 covers who still may.
 SELECT tests.authenticate_as('fneanon105_docente');
-SELECT lives_ok($$INSERT INTO storage.objects (bucket_id, name) VALUES ('facturas', 'fneanon105/auth.pdf')$$,
-  'signed-in user still uploads to facturas');
-SELECT lives_ok($$INSERT INTO storage.objects (bucket_id, name) VALUES ('resources', 'fneanon105/auth.png')$$,
-  'signed-in user still uploads to resources');
-WITH u AS (UPDATE storage.objects SET name = 'fneanon105/auth2.pdf' WHERE bucket_id = 'facturas' AND name = 'fneanon105/auth.pdf' RETURNING 1)
-SELECT is(count(*)::int, 1, 'signed-in user still updates in facturas') FROM u;
-WITH u AS (UPDATE storage.objects SET name = 'fneanon105/auth2.png' WHERE bucket_id = 'resources' AND name = 'fneanon105/auth.png' RETURNING 1)
-SELECT is(count(*)::int, 1, 'signed-in user still updates in resources') FROM u;
-WITH d AS (DELETE FROM storage.objects WHERE bucket_id = 'facturas' AND name = 'fneanon105/auth2.pdf' RETURNING 1)
-SELECT is(count(*)::int, 1, 'signed-in user still deletes from facturas') FROM d;
-WITH d AS (DELETE FROM storage.objects WHERE bucket_id = 'resources' AND name = 'fneanon105/auth2.png' RETURNING 1)
-SELECT is(count(*)::int, 1, 'signed-in user still deletes from resources') FROM d;
+SELECT throws_ok($$INSERT INTO storage.objects (bucket_id, name) VALUES ('facturas', 'fneanon105/auth.pdf')$$,
+  '42501', NULL, 'signed-in non-admin no longer uploads to facturas (F2b)');
+SELECT throws_ok($$INSERT INTO storage.objects (bucket_id, name) VALUES ('resources', 'fneanon105/auth.png')$$,
+  '42501', NULL, 'signed-in non-admin no longer uploads to resources outside its open folders (F2b)');
+WITH u AS (UPDATE storage.objects SET name = 'fneanon105/auth2.pdf' WHERE bucket_id = 'facturas' AND name = 'fneanon105/f.pdf' RETURNING 1)
+SELECT is(count(*)::int, 0, 'signed-in non-admin no longer updates in facturas (F2b)') FROM u;
+WITH u AS (UPDATE storage.objects SET name = 'fneanon105/auth2.png' WHERE bucket_id = 'resources' AND name = 'fneanon105/r.png' RETURNING 1)
+SELECT is(count(*)::int, 0, 'signed-in non-admin no longer updates in resources (F2b)') FROM u;
+WITH d AS (DELETE FROM storage.objects WHERE bucket_id = 'facturas' AND name = 'fneanon105/f.pdf' RETURNING 1)
+SELECT is(count(*)::int, 0, 'signed-in non-admin no longer deletes from facturas (F2b)') FROM d;
+WITH d AS (DELETE FROM storage.objects WHERE bucket_id = 'resources' AND name = 'fneanon105/r.png' RETURNING 1)
+SELECT is(count(*)::int, 0, 'signed-in non-admin no longer deletes from resources (F2b)') FROM d;
 RESET ROLE;
 SELECT tests.clear_authentication();
 

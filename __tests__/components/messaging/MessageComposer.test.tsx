@@ -121,3 +121,52 @@ describe('EC-M2 Enter in the message box', () => {
     expect(onSendMessage).not.toHaveBeenCalled();
   });
 });
+
+describe('send-back 1 (8) a mention needs a boundary before the @', () => {
+  const EQUIPO = { id: 'user-eq', display_name: 'equipo.cl', avatar_url: null };
+  const MJ = { id: 'user-mj', display_name: 'María-José.Núñez', avatar_url: null };
+  const ANA = { id: 'user-ana', display_name: 'ana', avatar_url: null };
+
+  async function sendNow(container: HTMLElement, onSendMessage: ReturnType<typeof vi.fn>) {
+    fireEvent.click(container.querySelector('button.absolute.bottom-3') as HTMLButtonElement);
+    await waitFor(() => expect(onSendMessage).toHaveBeenCalledTimes(1));
+    return onSendMessage.mock.calls[0][0] as { content: string; mentions: string[] };
+  }
+
+  it('«contacto@equipo.cl» mentions nobody, even after the member was chosen and the mention replaced', async () => {
+    const { textarea, type, onSendMessage, container } = setup({ mentionSuggestions: [EQUIPO] });
+    type('Escribe a @equ');
+    fireEvent.click(screen.getByText('equipo.cl'));
+    expect(textarea.value).toBe('Escribe a @equipo.cl ');
+    type('Escribe a contacto@equipo.cl');
+    const sent = await sendNow(container, onSendMessage);
+    expect(sent.content).toBe('Escribe a contacto@equipo.cl');
+    expect(sent.mentions).toEqual([]);
+  });
+
+  it('«hola @María-José.Núñez, …» mentions her', async () => {
+    const { textarea, type, onSendMessage, container } = setup({ mentionSuggestions: [MJ] });
+    type('hola @Mar');
+    fireEvent.click(screen.getByText('María-José.Núñez'));
+    expect(textarea.value).toBe('hola @María-José.Núñez ');
+    type('hola @María-José.Núñez, ¿vienes?');
+    expect((await sendNow(container, onSendMessage)).mentions).toEqual(['user-mj']);
+  });
+
+  it('«(@ana)» mentions ana', async () => {
+    const { textarea, type, onSendMessage, container } = setup({ mentionSuggestions: [ANA] });
+    type('(@an');
+    fireEvent.click(screen.getByText('ana'));
+    expect(textarea.value).toBe('(@ana ');
+    type('(@ana)');
+    expect((await sendNow(container, onSendMessage)).mentions).toEqual(['user-ana']);
+  });
+
+  it('typing an address does not open the mention list', () => {
+    const { type, onRequestMentions } = setup({ mentionSuggestions: [EQUIPO] });
+    type('contacto@equ');
+    expect(onRequestMentions).not.toHaveBeenCalled();
+    type('contacto @equ');
+    expect(onRequestMentions).toHaveBeenLastCalledWith('equ');
+  });
+});

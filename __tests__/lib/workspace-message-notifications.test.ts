@@ -353,3 +353,58 @@ describe('EC-S5 · names with accents, hyphens and dots (GENERA fixes F11)', () 
     ]);
   });
 });
+
+describe('send-back 1 (8) · a mention needs a boundary before the @ (GENERA fixes F11)', () => {
+  // Members without names get the composer's fallback handle: their e-mail's local part.
+  const EQUIPO = UNMENTIONED;
+  beforeEach(() => {
+    db.profiles[EQUIPO] = { first_name: null, last_name: null, email: 'equipo.cl@qa.local.test' };
+    db.members.add(EQUIPO);
+  });
+
+  it('«contacto@equipo.cl» mentions nobody', async () => {
+    db.messages[MESSAGE].content = `${BODY} escribe a contacto@equipo.cl por favor`;
+    db.messages[MESSAGE].reply_to_id = null;
+    expect(await notify([EQUIPO])).toEqual({ status: 200, body: { success: true, notified: 0 } });
+    expect(db.mentions).toEqual([]);
+  });
+
+  it('«hola @María-José.Núñez, …» mentions her', async () => {
+    db.profiles[MEMBER] = { first_name: null, last_name: null, email: 'María-José.Núñez@qa.local.test' };
+    db.messages[MESSAGE].content = `${BODY} hola @María-José.Núñez, ¿vienes?`;
+    db.messages[MESSAGE].reply_to_id = null;
+    await notify([MEMBER]);
+    expect(db.mentions.map((m) => [m.mentioned_user_id, m.mention_text])).toEqual([[MEMBER, '@María-José.Núñez']]);
+  });
+
+  it('«(@ana)» mentions ana', async () => {
+    db.profiles[MEMBER] = { first_name: null, last_name: null, email: 'ana@qa.local.test' };
+    db.messages[MESSAGE].content = `${BODY} (@ana)`;
+    db.messages[MESSAGE].reply_to_id = null;
+    await notify([MEMBER]);
+    expect(db.mentions.map((m) => m.mentioned_user_id)).toEqual([MEMBER]);
+  });
+
+  it('a handle glued to a letter, digit, dot, hyphen or underscore before the @ mentions nobody', async () => {
+    db.profiles[MEMBER] = { first_name: null, last_name: null, email: 'ana@qa.local.test' };
+    db.messages[MESSAGE].reply_to_id = null;
+    for (const glued of ['x@ana', '1@ana', '.@ana', '-@ana', '_@ana']) {
+      db.mentions = [];
+      db.messages[MESSAGE].content = `${BODY} ${glued} hola`;
+      await notify([MEMBER]);
+      expect(db.mentions).toEqual([]);
+    }
+  });
+
+  it('after an opening mark ( [ { « " \' ¿ ¡ the mention counts; a handle ends at a closing mark', async () => {
+    db.profiles[MEMBER] = { first_name: null, last_name: null, email: 'ana@qa.local.test' };
+    db.messages[MESSAGE].reply_to_id = null;
+    for (const text of ['[@ana]', '{@ana}', '«@ana»', '"@ana"', "'@ana'", '¿@ana?', '¡@ana!', '@ana;', '@ana:']) {
+      db.mentions = [];
+      db.bells = [];
+      db.messages[MESSAGE].content = `${BODY} ${text}`;
+      await notify([MEMBER]);
+      expect(db.mentions.map((m) => m.mentioned_user_id)).toEqual([MEMBER]);
+    }
+  });
+});

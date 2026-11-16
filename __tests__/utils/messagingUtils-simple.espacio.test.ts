@@ -205,6 +205,17 @@ describe('send-back 1 (1): createThread when the first message fails', () => {
     ]);
   });
 
+  it('send-back 2 (B): a retry with a changed message stores the changed message in the existing thread', async () => {
+    const { threads, messages } = flakyFirstMessage(1);
+    const failure = (await createThread(WS, DATA, 'user-a1').catch((error: unknown) => error)) as ThreadCreationIncompleteError;
+    const thread = await createThread(WS, { ...DATA, initial_message: 'Texto cambiado' }, 'user-a1', failure.threadId);
+
+    expect(thread.id).toBe(failure.threadId);
+    expect(thread.thread_title).toBe('Planificación');
+    expect(threads.size).toBe(1);
+    expect(messages).toEqual([expect.objectContaining({ thread_id: failure.threadId, content: 'Texto cambiado' })]);
+  });
+
   it('a retry whose read misses the thread treats a duplicate key on the person\'s own thread as already there', async () => {
     const { threads, messages } = flakyFirstMessage(1);
     const failure = (await createThread(WS, DATA, 'user-a1').catch((error: unknown) => error)) as ThreadCreationIncompleteError;

@@ -25,7 +25,7 @@ import {
   ThreadCreationIncompleteError,
   getWorkspaceThreads,
   getWorkspaceMessages,
-  getWorkspaceMessage,
+  getMessageAttachments,
   subscribeToWorkspaceMessages,
 } from '../../utils/messagingUtils-simple';
 
@@ -427,31 +427,32 @@ describe('EC-M10 sorting a conversation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Send-back 1, item 3: one message read again with its attachments
+// Send-back 2, A: a live message's attachments are read alone (the message
+// itself is not read again), with the query the conversation's loading uses
 // ---------------------------------------------------------------------------
 
-describe('send-back 1 (3) getWorkspaceMessage', () => {
-  it('reads that one message with its attachments and its author\'s name', async () => {
+describe('send-back 2 (A) getMessageAttachments', () => {
+  it('reads only the attachment records of that message, the way the conversation loads them', async () => {
     memberReads({
       community_messages: [
         { id: 'm-live', workspace_id: WS, thread_id: 't1', author_id: COMEMBER, content: 'Informe', reply_to_id: null, created_at: '2026-11-16T12:00:00Z' },
       ],
       message_attachments: [{ id: 'att-1', message_id: 'm-live', file_name: 'informe.pdf', is_active: true }],
     });
-    const message = await getWorkspaceMessage(WS, 'm-live');
-    const read = h.requests.find((r) => r.target === 'community_messages')!;
-    expect(read.ops.filter((op) => op.method === 'eq').map((op) => op.args)).toEqual([
-      ['workspace_id', WS],
-      ['id', 'm-live'],
-      ['is_deleted', false],
+    const attachments = await getMessageAttachments('m-live');
+    expect(h.requests.map((r) => `${r.kind}:${r.target}`)).toEqual(['from:message_attachments']);
+    const [read] = h.requests;
+    expect(read.ops.map((op) => [op.method, op.args])).toEqual([
+      ['select', ['*']],
+      ['in', ['message_id', ['m-live']]],
+      ['eq', ['is_active', true]],
     ]);
-    expect(message?.attachments.map((a) => a.file_name)).toEqual(['informe.pdf']);
-    expect(message?.author_name).toBe('María-José Núñez');
+    expect(attachments?.map((a) => a.file_name)).toEqual(['informe.pdf']);
   });
 
-  it('is null when the message is not readable', async () => {
-    memberReads({ community_messages: [] });
-    expect(await getWorkspaceMessage(WS, 'm-gone')).toBeNull();
+  it('is null when the read fails (the entry is then left as it is)', async () => {
+    h.respond = () => ({ data: null, error: { code: '42501', message: 'denied' } });
+    expect(await getMessageAttachments('m-live')).toBeNull();
   });
 });
 

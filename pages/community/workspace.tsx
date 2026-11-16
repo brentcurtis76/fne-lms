@@ -98,7 +98,7 @@ import {
 } from '../../types/messaging';
 import {
   getWorkspaceMessages,
-  getWorkspaceMessage,
+  getMessageAttachments,
   getWorkspaceThreads,
   getUserMessagingPermissions,
   createThread,
@@ -1901,28 +1901,43 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
   const openThreadIdRef = useRef<string | null>(null);
   openThreadIdRef.current = selectedThread?.id ?? null;
 
-  // A live message arrives before its attachments are stored: it is read again,
-  // with them, a moment later — one delayed read per message, cancelled when
-  // the conversation or the page is left (send-back 1, 3).
-  const LIVE_MESSAGE_REREAD_MS = 3000;
-  const liveRereadsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  // A live message of another person arrives before its attachments are
+  // stored: only its ATTACHMENT records are read again, about 3, 10 and 30 s
+  // after the event, and only the `attachments` field of that entry is
+  // replaced — content, edits, reactions and replies the person changed
+  // meanwhile are never touched. Cancelled when the conversation (the «Hilos»
+  // view included) or the page is left (send-back 2, A).
+  const LIVE_ATTACHMENT_READS_MS = [3000, 10000, 30000];
+  const openViewRef = useRef(activeView);
+  openViewRef.current = activeView;
+  const liveRereadsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   const cancelLiveRereads = () => {
     liveRereadsRef.current.forEach(timer => clearTimeout(timer));
     liveRereadsRef.current.clear();
   };
-  const scheduleLiveReread = (workspaceId: string, threadId: string, messageId: string) => {
-    if (liveRereadsRef.current.has(messageId)) return;
-    const timer = setTimeout(async () => {
-      if (openThreadIdRef.current !== threadId) return;
-      const fresh = await getWorkspaceMessage(workspaceId, messageId);
-      // Cancelled while reading (the conversation or the page was left)
-      if (liveRereadsRef.current.get(messageId) !== timer || openThreadIdRef.current !== threadId || !fresh) return;
-      setMessages(prev => prev.map(existing => (existing.id === fresh.id ? { ...existing, ...fresh } : existing)));
-    }, LIVE_MESSAGE_REREAD_MS);
-    liveRereadsRef.current.set(messageId, timer);
+  const scheduleLiveAttachmentReads = (threadId: string, messageId: string) => {
+    LIVE_ATTACHMENT_READS_MS.forEach(delay => {
+      const timer = setTimeout(async () => {
+        if (!liveRereadsRef.current.has(timer) || openThreadIdRef.current !== threadId) return;
+        const records = await getMessageAttachments(messageId);
+        // Cancelled while reading (the conversation or the page was left)
+        const stillOpen = liveRereadsRef.current.delete(timer) && openThreadIdRef.current === threadId;
+        if (!stillOpen || !records) return;
+        const byId = new Map(records.map(record => [record.id, record]));
+        // A message no longer in the list is not added back: map only.
+        setMessages(prev => prev.map(existing => (
+          existing.id === messageId ? { ...existing, attachments: Array.from(byId.values()) } : existing
+        )));
+      }, delay);
+      liveRereadsRef.current.add(timer);
+    });
   };
+  const scheduledLiveMessagesRef = useRef<Set<string>>(new Set());
 
-  useEffect(() => cancelLiveRereads, [selectedThread?.id, workspace?.id]);
+  useEffect(() => () => {
+    cancelLiveRereads();
+    scheduledLiveMessagesRef.current.clear();
+  }, [selectedThread?.id, workspace?.id, activeView]);
 
   useEffect(() => {
     let subscription: { unsubscribe: () => void } | undefined;
@@ -2111,7 +2126,16 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
           if (message.thread_id === openThreadIdRef.current) {
             // Once only: the sender's own message is already shown by handleMessageSend
             setMessages(prev => (prev.some(existing => existing.id === message.id) ? prev : [...prev, message]));
-            scheduleLiveReread(workspace.id, message.thread_id, message.id);
+            // Another person's message, in the conversation on screen, once:
+            // the person's own send already carries its attachments.
+            if (
+              message.author_id !== user?.id &&
+              openViewRef.current === 'messages' &&
+              !scheduledLiveMessagesRef.current.has(message.id)
+            ) {
+              scheduledLiveMessagesRef.current.add(message.id);
+              scheduleLiveAttachmentReads(message.thread_id, message.id);
+            }
           }
           // Update thread last message
           setThreads(prev => prev.map(thread => 

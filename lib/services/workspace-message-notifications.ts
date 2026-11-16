@@ -25,14 +25,18 @@ export const REPLY_COPY = 'Respondieron a tu mensaje en el espacio de trabajo';
 
 // A handle is `@` + the member's name with spaces as `_`: letters with
 // accents, digits, `_`, `-` and `.` (EC-S5: «@María-José_Núñez», «@J._Pérez»).
-const HANDLE = /@([\p{L}\p{M}\p{N}_.-]+)/gu;
+// The @ starts the text or follows whitespace or an opening mark
+// ( ( [ { « " ' ¿ ¡ ), never a letter, digit, dot, hyphen or underscore, and the
+// handle ends at whitespace, a closing mark or the end: «contacto@equipo.cl»
+// mentions nobody (send-back 1, 8). Same pattern as components/messaging/MessageComposer.
+const HANDLE = /(^|[\s(\[{«"'¿¡])@([\p{L}\p{M}\p{N}_.-]+)(?=$|[\s)\]}»"',;:!?…])/gu;
 
 /** The handles a text names; a sentence's closing `.` or `-` is also tried without. */
 function handlesIn(text: string): Set<string> {
   const handles = new Set<string>();
   for (const match of text.matchAll(HANDLE)) {
-    handles.add(match[1]);
-    handles.add(match[1].replace(/[.-]+$/, ''));
+    handles.add(match[2]);
+    handles.add(match[2].replace(/[.-]+$/, ''));
   }
   return handles;
 }

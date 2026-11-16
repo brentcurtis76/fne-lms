@@ -1,5 +1,11 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import {
+  getApiUser,
+  createApiSupabaseClient,
+  createServiceRoleClient,
+  sendAuthError,
+  handleMethodNotAllowed,
+} from '@/lib/api-auth';
 import { hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 import { publishTemplate } from '@/lib/services/assessment-builder/publishTemplate';
 
@@ -69,7 +75,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // service so the pilot-provisioning CLI and this route publish through
     // ONE validated code path. The result is mapped to the same HTTP shapes
     // this route always produced.
-    const result = await publishTemplate(supabaseClient, templateId, { id: user.id });
+    // GC-10: the caller (verified admin above) cannot delete snapshots; a
+    // snapshot left by a failed publication is removed with the service role,
+    // and only when no assessment instance refers to it.
+    const result = await publishTemplate(
+      supabaseClient,
+      templateId,
+      { id: user.id },
+      { cleanupClient: createServiceRoleClient() }
+    );
 
     if (result.ok === false) {
       return res.status(result.status).json({

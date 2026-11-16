@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { categoryScopedColumns } from './indicatorCategoryColumns';
 import { describeExpectationConflict, frequencyExpectationConflicts, validateFrequencyConfig } from './frequencyConfig';
-import { templateWriteConflict } from './templateGradeRule';
+import { checkTemplateGrade, templateWriteConflict } from './templateGradeRule';
 
 /**
  * The validated template publication service.
@@ -25,6 +25,15 @@ import { templateWriteConflict } from './templateGradeRule';
  *   5. an immutable snapshot is inserted, then the template is flipped to
  *      published at the incremented minor version; a failed flip rolls the
  *      snapshot back.
+ *
+ * GC-10: the refusals a person can correct (the vía's grade rule, a version
+ * already taken in the template's scope) are checked before the snapshot is
+ * written. A snapshot is removed only through `cleanupClient` (the route's
+ * service-role client: snapshots have no DELETE rule for the caller) and only
+ * when no assessment instance refers to it (assessment_instances is the only
+ * table that refers to a snapshot; its key is ON DELETE RESTRICT). That covers
+ * the snapshot of this attempt when the flip still fails, and a leftover of an
+ * earlier failed attempt for the same template and version.
  *
  * Pure with respect to HTTP: it never touches req/res and never throws for an
  * expected failure — those come back as `{ ok: false, status, error }`.
@@ -68,6 +77,40 @@ export interface PublishTemplateFailure {
 
 export type PublishTemplateResult = PublishTemplateSuccess | PublishTemplateFailure;
 
+export interface PublishTemplateOptions {
+  /**
+   * Client that removes unreferenced snapshots left by a failed publication.
+   * Defaults to the publishing client (the provisioning CLI publishes with the
+   * service role already); the route passes its service-role client.
+   */
+  cleanupClient?: PublishTemplateClient;
+}
+
+/** Removes a snapshot only when no assessment instance refers to it. Never throws. */
+async function removeSnapshotIfUnreferenced(client: PublishTemplateClient, snapshotId: string): Promise<boolean> {
+  try {
+    const { count, error } = await client
+      .from('assessment_instances')
+      .select('id', { count: 'exact', head: true })
+      .eq('template_snapshot_id', snapshotId);
+    if (error || typeof count !== 'number' || count > 0) return false;
+    // The instances' foreign key (ON DELETE RESTRICT) still refuses this delete
+    // if an instance appears in between.
+    const { error: deleteError } = await client.from('assessment_template_snapshots').delete().eq('id', snapshotId);
+    if (deleteError) {
+      console.error('Error removing unreferenced snapshot:', deleteError);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Error removing unreferenced snapshot:', err);
+    return false;
+  }
+}
+
+const VERSION_TAKEN =
+  'Ya existe un template con la misma vía, nivel (o nombre, si no lleva nivel) y versión.';
+
 const fail = (
   status: PublishTemplateFailure['status'],
   error: string,
@@ -77,8 +120,10 @@ const fail = (
 export async function publishTemplate(
   supabaseClient: PublishTemplateClient,
   templateId: string,
-  actor: PublishTemplateActor
+  actor: PublishTemplateActor,
+  options: PublishTemplateOptions = {}
 ): Promise<PublishTemplateResult> {
+  const cleanupClient = options.cleanupClient ?? supabaseClient;
   // Get template with current status and grade info
   const { data: template, error: templateError } = await supabaseClient
     .from('assessment_templates')
@@ -391,6 +436,50 @@ export async function publishTemplate(
   versionParts[2] = 0; // Reset patch
   const newVersion = versionParts.join('.');
 
+  // GC-10: refusals a person can correct are answered before the snapshot is
+  // written. The database guard and unique keys stay the final word (a failed
+  // flip below still cleans up); a check that cannot be read is left to them.
+  if (template.is_archived !== true) {
+    const gradeCheck = await checkTemplateGrade(supabaseClient, template.area, template.grade_id ?? null);
+    if (gradeCheck.kind === 'error' && gradeCheck.status === 400) {
+      return fail(409, gradeCheck.message, { code: 'template_conflict' });
+    }
+  }
+
+  const { data: sameScopeRows, error: sameScopeError } = await supabaseClient
+    .from('assessment_templates')
+    .select('id, name, grade_id')
+    .eq('area', template.area)
+    .eq('version', newVersion);
+  if (sameScopeError) {
+    console.error('Error checking version scope (left to the database):', sameScopeError);
+  } else if (Array.isArray(sameScopeRows)) {
+    // Graded templates: unique per (area, grade, version); grade-less ones per
+    // (area, trimmed name, version) (templateGradeRule.ts).
+    const name = String(template.name ?? '').trim();
+    const taken = sameScopeRows.some((row: any) => {
+      if (row.id === templateId) return false;
+      if (template.grade_id != null) return row.grade_id === template.grade_id;
+      return row.grade_id == null && String(row.name ?? '').trim() === name;
+    });
+    if (taken) return fail(409, VERSION_TAKEN, { code: 'template_conflict' });
+  }
+
+  // A leftover snapshot of an earlier failed attempt (same template and version)
+  // would make the insert collide. This template is a draft, so no such
+  // snapshot is its current published one; it is removed only when nothing
+  // refers to it.
+  const { data: leftovers } = await cleanupClient
+    .from('assessment_template_snapshots')
+    .select('id')
+    .eq('template_id', templateId)
+    .eq('version', newVersion);
+  if (Array.isArray(leftovers)) {
+    for (const leftover of leftovers as Array<{ id: string }>) {
+      await removeSnapshotIfUnreferenced(cleanupClient, leftover.id);
+    }
+  }
+
   // Create the snapshot
   const { data: snapshot, error: snapshotError } = await supabaseClient
     .from('assessment_template_snapshots')
@@ -420,8 +509,9 @@ export async function publishTemplate(
 
   if (updateError) {
     console.error('Error updating template:', updateError);
-    // Try to rollback snapshot
-    await supabaseClient.from('assessment_template_snapshots').delete().eq('id', snapshot.id);
+    // Roll back this attempt's snapshot (the caller's session cannot delete
+    // snapshots; the cleanup client can, and only when nothing refers to it).
+    await removeSnapshotIfUnreferenced(cleanupClient, snapshot.id);
     // The database refuses a template that does not fit its vía's rule
     // (assessment_template_via_rule_guard, 20261008120000) and a version that
     // collides in its scope; both are answered as conflicts, not 500s.

@@ -18,16 +18,19 @@ const {
   mockCreateApiSupabaseClient,
   mockHasReadPerm,
   mockHasWritePerm,
+  mockCreateServiceRoleClient,
 } = vi.hoisted(() => ({
   mockGetApiUser: vi.fn(),
   mockCreateApiSupabaseClient: vi.fn(),
   mockHasReadPerm: vi.fn(),
   mockHasWritePerm: vi.fn(),
+  mockCreateServiceRoleClient: vi.fn(),
 }));
 
 vi.mock('../../../lib/api-auth', () => ({
   getApiUser: mockGetApiUser,
   createApiSupabaseClient: mockCreateApiSupabaseClient,
+  createServiceRoleClient: mockCreateServiceRoleClient,
   sendAuthError: vi.fn((res: any, msg?: string) => {
     res.status(401).json({ error: msg || 'Authentication required' });
   }),
@@ -536,6 +539,19 @@ describe('vía rule guard on publish (20261008120000)', () => {
         return buildChainableQuery([]);
       }),
     };
+    const serviceDeletes: string[] = [];
+    mockCreateServiceRoleClient.mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === 'assessment_instances') return buildChainableQuery(null, null, 0);
+        if (table === 'assessment_template_snapshots') {
+          return {
+            select: () => buildChainableQuery([]),
+            delete: () => ({ eq: (_c: string, id: string) => (serviceDeletes.push(id), buildChainableQuery(null)) }),
+          };
+        }
+        return buildChainableQuery([]);
+      }),
+    });
     mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
     mockCreateApiSupabaseClient.mockResolvedValue(mockClient);
     mockHasReadPerm.mockResolvedValue(true);
@@ -547,7 +563,9 @@ describe('vía rule guard on publish (20261008120000)', () => {
     expect(res._getStatusCode()).toBe(409);
     expect(res._getData()).toContain('no lleva nivel');
     expect(res._getData()).not.toContain('template_grade_not_allowed');
-    // one call inserts the snapshot, a second one rolls it back
-    expect(mockClient.from.mock.calls.filter(([t]) => t === 'assessment_template_snapshots')).toHaveLength(2);
+    // GC-10: the caller only inserts the snapshot; the roll-back goes through
+    // the service-role client, after checking no instance refers to it.
+    expect(mockClient.from.mock.calls.filter(([t]) => t === 'assessment_template_snapshots')).toHaveLength(1);
+    expect(serviceDeletes).toEqual(['snap1']);
   });
 });

@@ -96,7 +96,7 @@ export default function AparienciaPage({ storedLook }: AparienciaProps) {
         setSaved(body.look);
         setChoice(body.look);
         setLook(body.look);
-        setNotice({ kind: 'saved', text: 'Tu apariencia se guardó.' });
+        setNotice({ kind: 'saved', text: 'Tu preferencia se guardó.' });
       }
     } catch {
       setNotice({ kind: 'error', text: SAVE_ERROR });

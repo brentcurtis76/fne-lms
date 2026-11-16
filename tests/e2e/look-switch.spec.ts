@@ -189,7 +189,7 @@ test.describe('the look switch (redesign 4d)', () => {
     await page.getByLabel(/Diseño nuevo \(en construcción\)/).check();
     await expect(page.getByTestId('look-unsaved')).toBeVisible();
     await save.click();
-    await expect(page.getByTestId('look-saved')).toHaveText('Tu apariencia se guardó.');
+    await expect(page.getByTestId('look-saved')).toHaveText('Tu preferencia se guardó.');
     expect(await lookOf(page)).toBe('nuevo');
     expect(await keptInBrowser(page)).toEqual([]);
     expect(await preferences(users.a)).toEqual({ ritmo: 'sintetico', ui_look: 'nuevo' });

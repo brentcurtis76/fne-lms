@@ -148,7 +148,7 @@ describe('the page', () => {
     await user.click(option('nuevo'));
     expect(screen.getByTestId('look-unsaved')).toBeInTheDocument();
     await user.click(save());
-    await waitFor(() => expect(screen.getByTestId('look-saved')).toHaveTextContent('Tu apariencia se guardó.'));
+    await waitFor(() => expect(screen.getByTestId('look-saved')).toHaveTextContent('Tu preferencia se guardó.'));
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe('/api/user/look');

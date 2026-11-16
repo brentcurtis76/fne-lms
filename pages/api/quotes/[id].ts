@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
-import { createApiSupabaseClient, requireVerifiedCaller } from '../../../lib/api-auth';
+import { createApiSupabaseClient, createServiceRoleClient, getApiUser, requireVerifiedCaller } from '../../../lib/api-auth';
 
 const EDITABLE_QUOTE_FIELDS = [
   'client_name', 'client_email', 'client_phone', 'client_institution',
@@ -32,10 +32,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-async function handleGet(supabase: any, id: string, req: NextApiRequest, res: NextApiResponse) {
+// What the public quote page (pages/quote/[id].tsx, QuotePublicView) shows of
+// a quote. Everyone without full view (a visitor, or a signed-in person who is
+// not an admin nor the quote's own consultor / community manager) gets only
+// these fields; internal notes, attribution and cost internals stay out.
+const PUBLIC_QUOTE_FIELDS = [
+  'id', 'quote_number', 'status', 'created_at', 'valid_until',
+  'client_name', 'client_email', 'client_phone', 'client_institution',
+  'arrival_date', 'departure_date', 'nights', 'num_pasantes', 'room_type',
+  'flight_price', 'flight_notes', 'accommodation_total', 'total_per_person', 'grand_total',
+  'apply_early_bird_discount', 'discount_amount', 'viaticos_type', 'viaticos_display_amount', 'notes',
+] as const;
+
+const PUBLIC_PROGRAM_FIELDS = ['id', 'name', 'description', 'price', 'pdf_url'] as const;
+
+function pick(row: Record<string, unknown>, fields: readonly string[]) {
+  const out: Record<string, unknown> = {};
+  for (const field of fields) out[field] = row[field];
+  return out;
+}
+
+async function handleGet(_supabase: any, id: string, req: NextApiRequest, res: NextApiResponse) {
   try {
+    // The quote tables are closed to visitors (migration
+    // 20261116170000): the route reads with full rights and decides itself
+    // what each caller gets.
+    const serviceSupabase = createServiceRoleClient();
+
     // Get the quote with program details
-    const { data: quote, error } = await supabase
+    const { data: quote, error } = await serviceSupabase
       .from('pasantias_quotes')
       .select(`
         *,
@@ -53,10 +78,29 @@ async function handleGet(supabase: any, id: string, req: NextApiRequest, res: Ne
       return res.status(404).json({ error: 'Cotización no encontrada' });
     }
 
+    // Who is asking: staff with full view are an active admin, or an active
+    // consultor / community manager who made the quote (the PUT rule).
+    // A visitor simply has no user.
+    let fullView = false;
+    const { user } = await getApiUser(req, res);
+    if (user) {
+      const { data: userRoles } = await serviceSupabase
+        .from('user_roles')
+        .select('role_type')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .in('role_type', ['admin', 'consultor', 'community_manager']);
+
+      if (userRoles && userRoles.length > 0) {
+        const isAdmin = userRoles.some((r: any) => r.role_type === 'admin');
+        fullView = isAdmin || quote.created_by?.id === user.id;
+      }
+    }
+
     // Get program details for selected programs
-    let programs = [];
+    let programs: any[] = [];
     if (quote.selected_programs && quote.selected_programs.length > 0) {
-      const { data: programData } = await supabase
+      const { data: programData } = await serviceSupabase
         .from('pasantias_programs')
         .select('*')
         .in('id', quote.selected_programs)
@@ -66,27 +110,38 @@ async function handleGet(supabase: any, id: string, req: NextApiRequest, res: Ne
       programs = programData || [];
     }
 
-    // Get travel groups if using groups system
-    let groups = [];
-    if (quote.use_groups) {
-      const { data: groupsData } = await supabase
-        .from('pasantias_quote_groups')
-        .select('*')
-        .eq('quote_id', id)
-        .order('arrival_date', { ascending: true });
-      
-      groups = groupsData || [];
-    }
-
-    // Mark as viewed if it's the first time (for public views)
-    if (quote.status === 'sent' && !quote.viewed_at) {
-      await supabase
+    // Mark as viewed the first time someone other than staff opens it (the
+    // school's public view); staff opening the editor do not mark it.
+    if (!fullView && quote.status === 'sent' && !quote.viewed_at) {
+      await serviceSupabase
         .from('pasantias_quotes')
         .update({ 
           viewed_at: new Date().toISOString(),
           status: 'viewed'
         })
         .eq('id', id);
+    }
+
+    if (!fullView) {
+      return res.status(200).json({
+        quote: {
+          ...pick(quote, PUBLIC_QUOTE_FIELDS),
+          programs: programs.map((program) => pick(program, PUBLIC_PROGRAM_FIELDS)),
+          groups: []
+        }
+      });
+    }
+
+    // Get travel groups if using groups system
+    let groups = [];
+    if (quote.use_groups) {
+      const { data: groupsData } = await serviceSupabase
+        .from('pasantias_quote_groups')
+        .select('*')
+        .eq('quote_id', id)
+        .order('arrival_date', { ascending: true });
+      
+      groups = groupsData || [];
     }
 
     return res.status(200).json({ 

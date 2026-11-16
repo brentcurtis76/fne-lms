@@ -11,6 +11,7 @@ import { getFlattenedSections as getFlatPersonalizacion } from '@/utils/parsePer
 import { getFlattenedSections as getFlatAprendizaje } from '@/utils/parseAprendizajeQuestions';
 import { getFlattenedSections as getFlatEvaluacion } from '@/utils/parseEvaluacionQuestions';
 import { getPersonalizacionMarkdown, getAprendizajeMarkdown, getEvaluacionMarkdown } from '@/lib/transformation/rubricData';
+import { requireVerifiedCaller } from '@/lib/api-auth';
 
 const VALID_AREAS = ['personalizacion', 'aprendizaje', 'evaluacion'] as const;
 type ValidArea = typeof VALID_AREAS[number];
@@ -45,6 +46,13 @@ export default async function handler(
 ) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Método no permitido' });
+  }
+
+  // Identity comes from the auth server; the cookie's stored `user` is
+  // client-controlled (SM-B015).
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) {
+    return res.status(caller.status).json(caller.body);
   }
 
   try {

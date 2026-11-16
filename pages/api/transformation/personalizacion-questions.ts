@@ -6,6 +6,7 @@
  */
 
 import { NextApiRequest, NextApiResponse } from 'next';
+import { requireVerifiedCaller } from '@/lib/api-auth';
 
 export default async function handler(
   req: NextApiRequest,
@@ -13,6 +14,13 @@ export default async function handler(
 ) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Método no permitido' });
+  }
+
+  // Identity comes from the auth server; the cookie's stored `user` is
+  // client-controlled (SM-B015).
+  const caller = await requireVerifiedCaller(req, res);
+  if (!caller.user) {
+    return res.status(caller.status).json(caller.body);
   }
 
   // Redirect to new dynamic endpoint

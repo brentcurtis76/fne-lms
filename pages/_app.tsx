@@ -51,8 +51,10 @@ export default function MyApp({ Component, pageProps }: AppProps) {
             reverseOrder={false}
             toastOptions={toasterConfig}
             containerStyle={{
-              bottom: 24,
-              right: 24,
+              // 24 px today; the new look's values (above the feedback button) are declared only
+              // under [data-look="nuevo"] in styles/look-nuevo.css (redesign 5a).
+              bottom: 'var(--toast-stack-bottom, 24px)',
+              right: 'var(--toast-stack-right, 24px)',
             }}
           />
         </QASessionProvider>

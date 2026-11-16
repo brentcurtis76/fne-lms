@@ -531,7 +531,9 @@ describe('stray colours: each list keeps the name that replaced its colour', () 
     expect(toastStyles.error.iconTheme.primary).toBe(errorRed);
     expect(toastStyles.success.iconTheme.primary).toBe(successGreen);
     // Brand kit, unchanged.
-    expect(toastStyles.success.style.borderLeft).toBe('4px solid #fbbf24');
+    // Since 5a the success edge reads a name of the new look, with today's colour as the fallback
+    // (__tests__/constants/toastStyles.test.ts).
+    expect(toastStyles.success.style.borderLeft).toBe('4px solid var(--toast-edge-success, #fbbf24)');
     expect(toastStyles.info.iconTheme.primary).toBe('#0a0a0a');
   });
 

@@ -3,7 +3,8 @@
 -- rules that were left open. Proves, per persona, the behaviour of migration
 -- 20261116120000_gestor_close_open_rules.sql:
 --   [GC-17] assessment_objectives: only an admin inserts, updates, deletes;
---           every signed-in persona still reads.
+--           only an active admin or consultor reads (not anon, not docentes
+--           or directivos).
 --   [GC-19] assessment_template_snapshots, assessment_year_expectations,
 --           assessment_context_questions, assessment_sub_questions: readable by
 --           signed-in people only (anon sees nothing).
@@ -14,15 +15,17 @@
 --   [C-11]  ab_migration_plan: readable by an admin, the school's equipo
 --           directivo and active consultores only (not anon, not others).
 --
--- Personas: anon; docente (assignee of registros A and B, can_edit and
+-- Personas: anon; docente (assignee of registros A, B and C, can_edit and
 -- can_submit); docente of school 2 assigned to nothing; equipo_directivo of
--- school 1; equipo_directivo of school 2; active consultor; admin.
+-- school 1; equipo_directivo of school 2; active consultor; admin; second
+-- docente (assignee of B and C, can_edit); docente assigned to C without edit
+-- rights (can_edit false).
 -- Synthetic fixtures (schools -1170xx, uuids 11700000-…); everything rolls back.
 -- =============================================================================
 
 BEGIN;
 
-SELECT plan(70);
+SELECT plan(84);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures (postgres)
@@ -33,11 +36,13 @@ SELECT tests.create_supabase_user('gc117_dir1');
 SELECT tests.create_supabase_user('gc117_dir2');
 SELECT tests.create_supabase_user('gc117_cons');
 SELECT tests.create_supabase_user('gc117_admin');
+SELECT tests.create_supabase_user('gc117_docente2');
+SELECT tests.create_supabase_user('gc117_viewer');
 
 INSERT INTO public.profiles (id, email, name, approval_status, must_change_password)
 SELECT tests.get_supabase_uid(x.ident), x.ident || '@test.local', x.ident, 'approved', false
 FROM (VALUES ('gc117_docente'), ('gc117_docente_unrel'), ('gc117_dir1'), ('gc117_dir2'),
-             ('gc117_cons'), ('gc117_admin')) AS x(ident);
+             ('gc117_cons'), ('gc117_admin'), ('gc117_docente2'), ('gc117_viewer')) AS x(ident);
 
 INSERT INTO public.schools (id, name) VALUES
   (-117001, 'GC117 Synthetic School 1'),
@@ -49,7 +54,9 @@ INSERT INTO public.user_roles (user_id, role_type, school_id, is_active) VALUES
   (tests.get_supabase_uid('gc117_dir1'),          'equipo_directivo', -117001, true),
   (tests.get_supabase_uid('gc117_dir2'),          'equipo_directivo', -117002, true),
   (tests.get_supabase_uid('gc117_cons'),          'consultor',        NULL,    true),
-  (tests.get_supabase_uid('gc117_admin'),         'admin',            NULL,    true);
+  (tests.get_supabase_uid('gc117_admin'),         'admin',            NULL,    true),
+  (tests.get_supabase_uid('gc117_docente2'),      'docente',          -117001, true),
+  (tests.get_supabase_uid('gc117_viewer'),        'docente',          -117001, true);
 
 INSERT INTO public.ab_grades (id, name, sort_order) VALUES (-117011, 'GC117 Grade', 117011);
 
@@ -85,16 +92,24 @@ INSERT INTO public.assessment_sub_questions (id, indicator_id, question_text, qu
   ('11700000-0000-4000-8000-0000000000d3', '11700000-0000-4000-8000-0000000000c1', 'GC117 Subpregunta', 'text', '{}', 1);
 
 -- Registro A: pending. Registro B: completed (already sent), with one answer.
+-- Registro C: in_progress, with one answer by the docente (GC-18t).
 INSERT INTO public.assessment_instances (id, template_snapshot_id, school_id, transformation_year, status, completed_at) VALUES
   ('11700000-0000-4000-8000-000000000101', '11700000-0000-4000-8000-0000000000f1', -117001, 1, 'pending', NULL),
-  ('11700000-0000-4000-8000-000000000102', '11700000-0000-4000-8000-0000000000f1', -117001, 1, 'completed', now());
+  ('11700000-0000-4000-8000-000000000102', '11700000-0000-4000-8000-0000000000f1', -117001, 1, 'completed', now()),
+  ('11700000-0000-4000-8000-000000000103', '11700000-0000-4000-8000-0000000000f1', -117001, 1, 'in_progress', NULL);
 
 INSERT INTO public.assessment_instance_assignees (id, instance_id, user_id, can_edit, can_submit) VALUES
   ('11700000-0000-4000-8000-000000000201', '11700000-0000-4000-8000-000000000101', tests.get_supabase_uid('gc117_docente'), true, true),
-  ('11700000-0000-4000-8000-000000000202', '11700000-0000-4000-8000-000000000102', tests.get_supabase_uid('gc117_docente'), true, true);
+  ('11700000-0000-4000-8000-000000000202', '11700000-0000-4000-8000-000000000102', tests.get_supabase_uid('gc117_docente'), true, true),
+  ('11700000-0000-4000-8000-000000000203', '11700000-0000-4000-8000-000000000103', tests.get_supabase_uid('gc117_docente'), true, true),
+  ('11700000-0000-4000-8000-000000000204', '11700000-0000-4000-8000-000000000103', tests.get_supabase_uid('gc117_docente2'), true, false),
+  ('11700000-0000-4000-8000-000000000205', '11700000-0000-4000-8000-000000000102', tests.get_supabase_uid('gc117_docente2'), true, false),
+  ('11700000-0000-4000-8000-000000000206', '11700000-0000-4000-8000-000000000103', tests.get_supabase_uid('gc117_viewer'), false, false);
 
 INSERT INTO public.assessment_responses (id, instance_id, indicator_id, coverage_value, responded_by) VALUES
   ('11700000-0000-4000-8000-000000000301', '11700000-0000-4000-8000-000000000102',
+   '11700000-0000-4000-8000-0000000000c1', true, tests.get_supabase_uid('gc117_docente')),
+  ('11700000-0000-4000-8000-000000000306', '11700000-0000-4000-8000-000000000103',
    '11700000-0000-4000-8000-0000000000c1', true, tests.get_supabase_uid('gc117_docente'));
 
 -- C-11: one migration-plan row for school 1.
@@ -143,7 +158,7 @@ SELECT is(pg_temp.gc19_counts(), ARRAY[1,1,1,1], 'GC-19 admin: reads the four fi
 RESET ROLE;
 
 -- -----------------------------------------------------------------------------
--- [GC-17] procesos generativos: non-admins cannot write, everyone reads
+-- [GC-17] procesos generativos: non-admins cannot write; only admin and consultor read
 -- -----------------------------------------------------------------------------
 -- Broken-first persona: the unrelated docente.
 SELECT tests.authenticate_as('gc117_docente_unrel');
@@ -158,7 +173,7 @@ WITH d AS (DELETE FROM public.assessment_objectives
            WHERE id = '11700000-0000-4000-8000-0000000000a3' RETURNING 1)
 SELECT is((SELECT count(*)::int FROM d), 0, 'GC-17 docente of school 2: DELETE of a proceso changes 0 rows');
 SELECT is((SELECT count(*)::int FROM public.assessment_objectives WHERE id = '11700000-0000-4000-8000-0000000000a1'),
-  1, 'GC-17 docente of school 2: still reads the proceso');
+  0, 'GC-17 docente of school 2: does not read the proceso (0 rows)');
 RESET ROLE;
 
 SELECT tests.authenticate_as('gc117_docente');
@@ -173,7 +188,7 @@ WITH d AS (DELETE FROM public.assessment_objectives
            WHERE id = '11700000-0000-4000-8000-0000000000a3' RETURNING 1)
 SELECT is((SELECT count(*)::int FROM d), 0, 'GC-17 docente: DELETE of a proceso changes 0 rows');
 SELECT is((SELECT count(*)::int FROM public.assessment_objectives WHERE id = '11700000-0000-4000-8000-0000000000a1'),
-  1, 'GC-17 docente: still reads the proceso');
+  0, 'GC-17 docente: does not read the proceso (0 rows)');
 RESET ROLE;
 
 SELECT tests.authenticate_as('gc117_dir1');
@@ -188,7 +203,7 @@ WITH d AS (DELETE FROM public.assessment_objectives
            WHERE id = '11700000-0000-4000-8000-0000000000a3' RETURNING 1)
 SELECT is((SELECT count(*)::int FROM d), 0, 'GC-17 directivo: DELETE of a proceso changes 0 rows');
 SELECT is((SELECT count(*)::int FROM public.assessment_objectives WHERE id = '11700000-0000-4000-8000-0000000000a1'),
-  1, 'GC-17 directivo: still reads the proceso');
+  0, 'GC-17 directivo: does not read the proceso (0 rows)');
 RESET ROLE;
 
 SELECT tests.authenticate_as('gc117_cons');
@@ -214,6 +229,12 @@ SELECT is(
   'GC-17: after the non-admin attempts the template still holds exactly its two procesos, unrenamed');
 
 SELECT tests.authenticate_as('gc117_admin');
+SELECT is((SELECT count(*)::int FROM public.assessment_objectives WHERE id = '11700000-0000-4000-8000-0000000000a1'),
+  1, 'GC-17 admin: reads the proceso');
+WITH i AS (INSERT INTO public.assessment_objectives (id, template_id, name, display_order)
+           VALUES ('11700000-0000-4000-8000-0000000000a9', '11700000-0000-4000-8000-0000000000e1', 'GC117 Proceso admin devuelto', 5)
+           RETURNING id)
+SELECT is((SELECT count(*)::int FROM i), 1, 'GC-17 admin: INSERT ... RETURNING of a proceso gives the row back (builder create route)');
 SELECT lives_ok($$
   INSERT INTO public.assessment_objectives (id, template_id, name, display_order)
   VALUES ('11700000-0000-4000-8000-0000000000a4', '11700000-0000-4000-8000-0000000000e1', 'GC117 Proceso admin', 4)
@@ -336,6 +357,60 @@ SELECT is(
   ARRAY['11700000-0000-4000-8000-000000000303:true', '11700000-0000-4000-8000-000000000304:true'],
   'GC-18: as postgres, registro A answers hold the last value saved before sending');
 
+-- [GC-18t a] The save route's upsert, as the docente, on an indicator that
+-- already has an answer: works on in_progress registro C, refused on completed B.
+SELECT tests.authenticate_as('gc117_docente');
+SELECT lives_ok($$
+  INSERT INTO public.assessment_responses (id, instance_id, indicator_id, coverage_value, responded_by)
+  VALUES ('11700000-0000-4000-8000-00000000030a', '11700000-0000-4000-8000-000000000103',
+          '11700000-0000-4000-8000-0000000000c1', false, auth.uid())
+  ON CONFLICT (instance_id, indicator_id) DO UPDATE SET coverage_value = EXCLUDED.coverage_value
+$$, 'GC-18 docente: upsert of an existing answer on an in_progress registro works');
+SELECT throws_ok($$
+  INSERT INTO public.assessment_responses (id, instance_id, indicator_id, coverage_value, responded_by)
+  VALUES ('11700000-0000-4000-8000-00000000030b', '11700000-0000-4000-8000-000000000102',
+          '11700000-0000-4000-8000-0000000000c1', false, auth.uid())
+  ON CONFLICT (instance_id, indicator_id) DO UPDATE SET coverage_value = EXCLUDED.coverage_value
+$$, '42501', NULL, 'GC-18 docente: upsert of an existing answer on a completed registro is refused (42501)');
+RESET ROLE;
+SELECT is((SELECT coverage_value FROM public.assessment_responses WHERE id = '11700000-0000-4000-8000-000000000306'),
+  false, 'GC-18: as postgres, the upsert changed the stored answer of registro C (true -> false)');
+SELECT is((SELECT coverage_value FROM public.assessment_responses WHERE id = '11700000-0000-4000-8000-000000000301'),
+  true, 'GC-18: as postgres, the refused upsert left the stored answer of registro B unchanged (true)');
+
+-- [GC-18t b] A second assignee with can_edit edits the first docente's answer
+-- on in_progress registro C, but not on completed registro B.
+SELECT tests.authenticate_as('gc117_docente2');
+WITH u AS (UPDATE public.assessment_responses SET coverage_value = true
+           WHERE id = '11700000-0000-4000-8000-000000000306' RETURNING 1)
+SELECT is((SELECT count(*)::int FROM u), 1, 'GC-18 second docente: UPDATE of the first docente''s answer on an in_progress registro changes 1 row');
+WITH u AS (UPDATE public.assessment_responses SET coverage_value = false
+           WHERE id = '11700000-0000-4000-8000-000000000301' RETURNING 1)
+SELECT is((SELECT count(*)::int FROM u), 0, 'GC-18 second docente: UPDATE of an answer on a completed registro changes 0 rows');
+RESET ROLE;
+
+-- [GC-18t c] An assignee without edit rights (can_edit false) on in_progress
+-- registro C: no writes, but still reads the registro and its answers.
+SELECT tests.authenticate_as('gc117_viewer');
+WITH u AS (UPDATE public.assessment_responses SET coverage_value = false
+           WHERE id = '11700000-0000-4000-8000-000000000306' RETURNING 1)
+SELECT is((SELECT count(*)::int FROM u), 0, 'GC-18 assignee without edit rights: UPDATE of an answer changes 0 rows');
+SELECT throws_ok($$
+  INSERT INTO public.assessment_responses (id, instance_id, indicator_id, coverage_value, responded_by)
+  VALUES ('11700000-0000-4000-8000-00000000030c', '11700000-0000-4000-8000-000000000103',
+          '11700000-0000-4000-8000-0000000000c2', true, auth.uid())
+$$, '42501', NULL, 'GC-18 assignee without edit rights: INSERT of an answer is refused (42501)');
+WITH u AS (UPDATE public.assessment_instances SET status = 'completed', completed_at = now()
+           WHERE id = '11700000-0000-4000-8000-000000000103' RETURNING 1)
+SELECT is((SELECT count(*)::int FROM u), 0, 'GC-18 assignee without edit rights: status UPDATE changes 0 rows');
+SELECT is((SELECT status FROM public.assessment_instances WHERE id = '11700000-0000-4000-8000-000000000103'),
+  'in_progress', 'GC-18 assignee without edit rights: still reads the registro (status in_progress)');
+SELECT is((SELECT count(*)::int FROM public.assessment_responses WHERE instance_id = '11700000-0000-4000-8000-000000000103'),
+  1, 'GC-18 assignee without edit rights: still reads the answer of the registro');
+RESET ROLE;
+SELECT is((SELECT coverage_value FROM public.assessment_responses WHERE id = '11700000-0000-4000-8000-000000000306'),
+  true, 'GC-18: as postgres, registro C answer holds the second docente''s value after the read-only assignee attempts');
+
 -- Admin keeps full rights on a completed registro.
 SELECT tests.authenticate_as('gc117_admin');
 WITH u AS (UPDATE public.assessment_responses SET coverage_value = false, evidence_notes = 'GC117 admin'
@@ -400,10 +475,11 @@ SELECT is(
         'forced_password_change_guard:ALL:authenticated'],
   'assessment_objectives keeps its four rules (plus the forced-password guard), all for authenticated'
 );
-SELECT is(
-  (SELECT qual FROM pg_policies WHERE schemaname = 'public' AND tablename = 'assessment_objectives'
+SELECT ok(
+  (SELECT qual LIKE '%user_roles%' AND qual LIKE '%admin%' AND qual LIKE '%consultor%' AND qual LIKE '%is_active%'
+     FROM pg_policies WHERE schemaname = 'public' AND tablename = 'assessment_objectives'
       AND policyname = 'assessment_objectives_select_authenticated'),
-  'true', 'assessment_objectives select rule is untouched (USING true)');
+  'assessment_objectives select rule now requires an active admin or consultor role (no longer USING true)');
 SELECT is(
   (SELECT array_agg(tablename || '.' || policyname || ':' || array_to_string(roles, ',') || ':' || qual ORDER BY tablename)
      FROM pg_policies

@@ -2,7 +2,8 @@
 -- 20261116120000_gestor_close_open_rules.sql — GENERA fixes F1 (Gestor de Cambio)
 --
 -- Closes database rules that were left open:
---   GC-17  assessment_objectives: insert / update / delete become admin-only.
+--   GC-17  assessment_objectives: insert / update / delete become admin-only;
+--          reading becomes admin and consultor only.
 --   GC-19  instrument snapshots, expected levels, context questions and
 --          sub-questions: readable by signed-in people only, not by anon.
 --   GC-18  assessment_responses / assessment_instances: an assignee writes
@@ -25,6 +26,12 @@ ALTER POLICY "assessment_objectives_update_authenticated" ON public.assessment_o
 
 ALTER POLICY "assessment_objectives_delete_authenticated" ON public.assessment_objectives
   USING (public.auth_is_assessment_admin());
+
+ALTER POLICY "assessment_objectives_select_authenticated" ON public.assessment_objectives
+  USING (EXISTS (SELECT 1 FROM public.user_roles ur
+                 WHERE ur.user_id = auth.uid()
+                   AND ur.role_type = ANY (ARRAY['admin'::public.user_role_type, 'consultor'::public.user_role_type])
+                   AND ur.is_active = true));
 
 -- GC-19 -----------------------------------------------------------------------
 ALTER POLICY "assessment_template_snapshots_select" ON public.assessment_template_snapshots TO authenticated;

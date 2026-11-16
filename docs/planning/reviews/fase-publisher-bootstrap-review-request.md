@@ -1,6 +1,6 @@
 # Publisher bootstrap prerequisite
 
-Branch: `fix/pub-setup`. Base: `1deb9b782cfa8d2ce6e5baad9502e4340f027df7` (remote production main verified 2026-11-16). One bootstrap commit; no application changes.
+Branch: `fix/pub-setup`. Base: `1deb9b782cfa8d2ce6e5baad9502e4340f027df7` (remote production main verified 2026-11-16). Bootstrap plus a test-inventory correction; no application changes.
 
 The authorized urgent Registro-delivery release reached publisher rehearsal successfully, but publication cannot proceed because production lacks `pm_publish.pending`. This prerequisite installs the publisher's exact existing infrastructure through its supported bootstrap path. It does not deliver Registros or change application records.
 
@@ -8,6 +8,7 @@ The authorized urgent Registro-delivery release reached publisher rehearsal succ
 
 - `supabase/migrations/20261116164500_pm_publish_infra.sql`: byte-for-byte copy of the installed `/usr/local/lib/pm-publisher/lib/pmw/sql/d67_infra.sql`. Adds protected publisher reservation metadata, a non-login inspection role, and aggregate-only inspection functions. This is the only migration in this change.
 - `PROJECT_STATE.md` and this review request: local evidence and release scope.
+- `__tests__/lib/services/ledger-hours-reader-inventory.test.ts`: explicitly registers the four installed aggregate helpers in the existing SQL dependency/dynamic-execution census. The scanner and all assertions remain unchanged; the exact migration bytes remain unchanged.
 
 Both source and migration SHA-256: `815e151651fa9ee7179dab3aa3c1acae09721b6838885f4dbea38de33efa1f65`.
 
@@ -17,6 +18,7 @@ Both source and migration SHA-256: `815e151651fa9ee7179dab3aa3c1acae09721b683888
 - Applied the SQL twice successfully inside a rolled-back transaction in the owned local `registro_lock_probe2` database (localhost port 57622).
 - Twelve assertions passed: pending-table RLS; blocked anon/authenticated/service-role access; no inspection-role SELECT on application profiles; expression helper withheld from the inspection role; inspection helper withheld from the application service role; migration version column readable; inspection role remains non-login and non-privileged; row/null/duplicate helpers return the correct synthetic counts.
 - Validation log: `/tmp/genera-pub-setup-validation.log` (local evidence, not committed).
+- Bootstrap CI exposed the new dynamic SQL helpers as unregistered ledger dependencies. Reproduced locally, then registered each of the four helpers explicitly. Both affected inventory assertions pass (SQL function dependency census and raw SQL/dynamic execution census); no detector was weakened. The existing extractor represents non-public qualified routine names by their schema token, so each of its four `pm_inspect` bodies is counted and individually identified in the explanatory registry labels.
 - Application build/unit/browser checks are unchanged by this infrastructure-only prerequisite; remote release CI remains required. No production action performed by this agent.
 
 ## Reviewer focus

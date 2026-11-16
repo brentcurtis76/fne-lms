@@ -12,7 +12,8 @@
 --     lib/permissions/resultsSchoolScope.ts reads them, that have not ended:
 --     ends_at null or in the future, the condition of the baseline helper
 --     get_reportable_users_enhanced).
--- At most the first 200 ids of a call are looked at. An id the caller may not
+-- At most the first 200 distinct ids of a call are looked at, whatever the
+-- shape of the array. An id the caller may not
 -- know gives no row. Add-only: no rule, table or existing function changes.
 
 CREATE FUNCTION public.get_profile_cards(p_ids uuid[])
@@ -21,7 +22,14 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
   WITH caller AS (
     SELECT auth.uid() AS uid, public.auth_is_admin() AS is_admin
   ), wanted AS (
-    SELECT DISTINCT w.pid FROM unnest((p_ids)[1:200]) AS w(pid) WHERE w.pid IS NOT NULL
+    -- unnest flattens an array of any shape (a uuid[] may have two or more
+    -- dimensions), so at most 200 distinct ids are looked at whatever the
+    -- shape; the first 200 in the order given (send-back 1, 9).
+    SELECT w.pid FROM unnest(p_ids) WITH ORDINALITY AS w(pid, ord)
+     WHERE w.pid IS NOT NULL
+     GROUP BY w.pid
+     ORDER BY min(w.ord)
+     LIMIT 200
   )
   SELECT p.id, p.first_name, p.last_name, p.avatar_url
     FROM wanted w

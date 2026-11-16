@@ -456,10 +456,10 @@ SELECT is(pg_temp.affected($q$UPDATE public.group_assignment_members SET assignm
 SELECT is(pg_temp.affected($q$DELETE FROM public.group_assignment_groups WHERE id='10100000-0000-4000-8000-000000000031'$q$),0,'group deletion cannot expose legacy thread');
 RESET ROLE;
 SELECT tests.authenticate_as('ac101_peer');
--- Since 20261116180000 (F4c) members are added by the server routes as the service role only.
+-- Since 20261116176000 (F4c) members are added by the server routes as the service role only.
 SELECT throws_ok($q$INSERT INTO public.group_assignment_members(group_id,assignment_id,user_id,role) VALUES('10100000-0000-4000-8000-000000000073','10100000-0000-4000-8000-000000000071',auth.uid(),'member')$q$,'42501',NULL,'enrolled community user cannot self-join unmanaged group directly');
 SELECT throws_ok($q$INSERT INTO public.group_assignment_members(group_id,assignment_id,user_id,role) VALUES('10100000-0000-4000-8000-000000000074','10100000-0000-4000-8000-000000000072',auth.uid(),'member')$q$,'42501',NULL,'enrolled community user cannot self-join managed group');
--- Since 20261116180000 (F4c) the admin-only update rule stops the row before the identity trigger.
+-- Since 20261116176000 (F4c) the admin-only update rule stops the row before the identity trigger.
 SELECT is(pg_temp.affected($q$UPDATE public.group_assignment_groups SET is_consultant_managed=false WHERE id='10100000-0000-4000-8000-000000000074'$q$),0,'ordinary user cannot unmanage group to enroll');
 RESET ROLE;
 -- The membership the leave assertion needs, added as the server routes do (service role side).
@@ -530,7 +530,7 @@ UPDATE public.user_roles SET school_id=9101,community_id='10100000-0000-4000-800
 -- Community groups must preserve their authoritative school on new writes.
 SELECT tests.authenticate_as('ac101_member');
 SELECT throws_ok($q$INSERT INTO public.group_assignment_groups(assignment_id,community_id,name,school_id) VALUES('synthetic-forged-school','10100000-0000-4000-8000-000000000001','Synthetic invalid school',9102)$q$,'23514','Group community school mismatch','own community cannot create group assigned to unrelated school consultor');
--- Since 20261116180000 (F4c) groups are created by the server route as the service role only.
+-- Since 20261116176000 (F4c) groups are created by the server route as the service role only.
 SELECT throws_ok($q$INSERT INTO public.group_assignment_groups(assignment_id,community_id,name,school_id) VALUES('synthetic-valid-school','10100000-0000-4000-8000-000000000001','Synthetic valid school',9101)$q$,'42501',NULL,'community member cannot insert a group directly');
 RESET ROLE;
 UPDATE public.user_roles SET community_id='10100000-0000-4000-8000-000000000001' WHERE user_id=pg_temp.uid('ac101_outsider') AND role_type='docente';

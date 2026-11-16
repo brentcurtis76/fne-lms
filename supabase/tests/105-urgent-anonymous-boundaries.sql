@@ -65,8 +65,8 @@ SELECT is((SELECT count(*)::int FROM pg_class c, aclexplode(c.relacl) a
             WHERE c.oid = format('public.%I', r.relname)::regclass AND a.grantee = 0), 0,
           'PUBLIC holds no privilege on public.' || r.relname)
   FROM rels r ORDER BY r.relname;
--- pending_quiz_reviews: authenticated lost its privileges in 20261116140000 (CUR-S6d);
--- the four summary views lost theirs in 20261116180000 (F4c T-READS).
+-- pending_quiz_reviews: authenticated lost its privileges in 20261116172000 (CUR-S6d);
+-- the four summary views lost theirs in 20261116176000 (F4c T-READS).
 SELECT is(pg_temp.privs('authenticated', relname),
           CASE WHEN relname IN ('pending_quiz_reviews', 'group_assignments_with_status', 'quiz_statistics',
                                 'community_progress_report', 'school_progress_report') THEN ''
@@ -137,16 +137,16 @@ SELECT is((SELECT progress_percentage FROM public.lesson_completion_summary WHER
   10.00::numeric, 'signed-in docente still reads lesson_completion_summary');
 WITH u AS (UPDATE public.lesson_completion_summary SET progress_percentage = 20
             WHERE id = 'f0a10105-0000-4000-8000-000000000004' RETURNING 1)
--- F4b N56 (20261116190000): direct writes of lesson_completion_summary are admin only.
+-- F4b N56 (20261116177000): direct writes of lesson_completion_summary are admin only.
 SELECT is(count(*)::int, 0, 'signed-in docente no longer updates lesson_completion_summary directly (N56: admin only)') FROM u;
 SELECT lives_ok(format('SELECT count(*) FROM public.%I', relname), 'signed-in user still reads public.' || relname)
   FROM rels WHERE relname NOT IN ('lesson_completion_summary', 'pending_quiz_reviews', 'group_assignments_with_status',
                                   'quiz_statistics', 'community_progress_report', 'school_progress_report') ORDER BY relname;
--- The four summary views: signed-in people lost access in 20261116180000 (F4c T-READS).
+-- The four summary views: signed-in people lost access in 20261116176000 (F4c T-READS).
 SELECT throws_ok(format('SELECT count(*) FROM public.%I', relname), '42501', NULL, 'signed-in user cannot read public.' || relname)
   FROM rels WHERE relname IN ('group_assignments_with_status', 'quiz_statistics', 'community_progress_report', 'school_progress_report')
  ORDER BY relname;
--- pending_quiz_reviews: signed-in people lost access in 20261116140000 (CUR-S6d).
+-- pending_quiz_reviews: signed-in people lost access in 20261116172000 (CUR-S6d).
 SELECT throws_ok($$SELECT count(*) FROM public.pending_quiz_reviews$$,
   '42501', NULL, 'signed-in user cannot read public.pending_quiz_reviews');
 RESET ROLE;

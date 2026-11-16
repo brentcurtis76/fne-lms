@@ -55,7 +55,7 @@ function pick(row: Record<string, unknown>, fields: readonly string[]) {
 async function handleGet(_supabase: any, id: string, req: NextApiRequest, res: NextApiResponse) {
   try {
     // The quote tables are closed to visitors (migration
-    // 20261116170000): the route reads with full rights and decides itself
+    // 20261116175000): the route reads with full rights and decides itself
     // what each caller gets.
     const serviceSupabase = createServiceRoleClient();
 

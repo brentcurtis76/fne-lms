@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 118-espacio-open-doors.sql — F3 (16 Nov 2026), migration
--- 20261116130000_espacio_close_open_doors.sql:
+-- 20261116171000_espacio_close_open_doors.sql:
 --   EC-S2    posts_with_engagement runs with the caller's rights; anon refused
 --   EC-V8    a post keeps its community and author, a comment its post,
 --            parent and author, for every signed-in caller

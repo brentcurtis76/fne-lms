@@ -333,7 +333,7 @@ RESET ROLE;
 SELECT tests.authenticate_as('c2_direct');
 SELECT throws_ok($$UPDATE public.course_enrollments SET access_origin = 'independent' WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c02'$$, '42501', NULL, '5: a learner cannot promote their own learning_path row to independent');
 SELECT throws_ok($$UPDATE public.course_enrollments SET source_path_id = NULL, access_origin = 'unknown' WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01'$$, '42501', NULL, '5: a learner cannot relabel their row as unknown');
--- F4b CUR-S4b (20261116190000): a learner's direct UPDATE of their own enrolment is closed
+-- F4b CUR-S4b (20261116177000): a learner's direct UPDATE of their own enrolment is closed
 -- (restrictive rule, admin only); the progress trigger writes it. 0 rows; progress stays 40.
 SELECT is(pg_temp.rows_affected($$UPDATE public.course_enrollments SET progress_percentage = 55 WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01'$$)
           || '/' || pg_temp.rows_affected($$SELECT 1 FROM public.course_enrollments WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01' AND progress_percentage = 40$$), '0/1', '5: own progress UPDATE changes 0 rows and the stored progress stays (CUR-S4b: direct updates are admin only)');
@@ -404,7 +404,7 @@ SELECT throws_ok($$UPDATE public.course_enrollments SET course_id = '78000000-00
 SELECT throws_ok($$UPDATE public.course_enrollments SET user_id = pg_temp.uid('c2_outsider') WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01'$$, '42501', NULL, '7c: the user identity of a row cannot be changed');
 SELECT throws_ok($$UPDATE public.course_enrollments SET id = gen_random_uuid() WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01'$$, '42501', NULL, '7c: the row id cannot be changed');
 -- enrolled_by / enrollment_type stay in the column grant (old-app compatibility). Since F4b CUR-S4b
--- (20261116190000) the restrictive row rule refuses the learner's UPDATE first (0 rows), before the
+-- (20261116177000) the restrictive row rule refuses the learner's UPDATE first (0 rows), before the
 -- guard trigger is reached; the trigger itself stays covered by 7d below (a definer writer acting for
 -- the learner, which the row rule does not stop). 0 rows; enrollment_type unchanged.
 SELECT is(pg_temp.rows_affected($$UPDATE public.course_enrollments SET enrolled_by = pg_temp.uid('c2_admin'), enrollment_type = 'bulk_assigned' WHERE user_id = auth.uid() AND course_id = '78000000-0000-4000-8000-000000000c01'$$)

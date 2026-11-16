@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 124-progress-integrity.sql — F4b (CUR-S4a, CUR-S4b, CUR-S4c, CUR-S4d, N56):
--- migration 20261116190000_progress_integrity.sql.
+-- migration 20261116177000_progress_integrity.sql.
 --
 --   CUR-S4a: the enrolment's progress is written by the trigger function
 --            update_course_enrollment_progress() with its owner's rights

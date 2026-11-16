@@ -1,5 +1,5 @@
 -- =============================================================================
--- 20261116190000_progress_integrity.sql — F4b (CUR-S4): a learner's progress
+-- 20261116177000_progress_integrity.sql — F4b (CUR-S4): a learner's progress
 -- follows real content; the enrolment's progress is written by the database only.
 --
 -- Closes:

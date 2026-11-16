@@ -1,7 +1,7 @@
 -- F7 (GES-1.2, GES-1.1a, N20): the programme catalogue, the Pasantías quotes,
 -- the stored role summary and the support-ticket counters are closed to
 -- visitors; quotes are the admin's or their own consultor's.
--- Migration 20261116170000_gestion_close_visitor_access.sql. Synthetic-only, rollback.
+-- Migration 20261116175000_gestion_close_visitor_access.sql. Synthetic-only, rollback.
 BEGIN;
 SELECT plan(88);
 CREATE FUNCTION pg_temp.uid(k text) RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER AS $$ SELECT tests.get_supabase_uid(k) $$;

@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 123-tareas-direct-writes.sql — F4c (T-WRITES, T-READS): migration
--- 20261116180000_tareas_close_direct_writes.sql.
+-- 20261116176000_tareas_close_direct_writes.sql.
 --
 --   T-WRITES: task and group-work records are written directly by admins only
 --             (every person's writes go through the application's server

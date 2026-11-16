@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 120-quiz-server-grading.sql — F5 (CUR-S2a, CUR-S2b): migration
--- 20261116150000_quiz_server_side_grading.sql.
+-- 20261116173000_quiz_server_side_grading.sql.
 --
 --   CUR-S2a: submit_quiz scores from the quiz stored in the lesson's block, not
 --            from the copy the browser sends; it accepts only a real quiz block

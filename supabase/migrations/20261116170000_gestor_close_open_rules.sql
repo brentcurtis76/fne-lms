@@ -1,5 +1,5 @@
 -- =============================================================================
--- 20261116120000_gestor_close_open_rules.sql — GENERA fixes F1 (Gestor de Cambio)
+-- 20261116170000_gestor_close_open_rules.sql — GENERA fixes F1 (Gestor de Cambio)
 --
 -- Closes database rules that were left open:
 --   GC-17  assessment_objectives: insert / update / delete become admin-only;
@@ -14,7 +14,7 @@
 --
 -- This migration only alters existing rules (ALTER POLICY). No rule is created
 -- or removed, no permission or function changes, and row level security stays
--- on for every table. Tested by supabase/tests/117-gestor-open-rules.sql.
+-- on for every table. Tested by supabase/tests/125-gestor-open-rules.sql.
 -- =============================================================================
 
 -- GC-17 -----------------------------------------------------------------------

@@ -1,7 +1,7 @@
 -- =============================================================================
--- 117-gestor-open-rules.sql — GENERA fixes F1 (Gestor de Cambio): database
+-- 125-gestor-open-rules.sql — GENERA fixes F1 (Gestor de Cambio): database
 -- rules that were left open. Proves, per persona, the behaviour of migration
--- 20261116120000_gestor_close_open_rules.sql:
+-- 20261116170000_gestor_close_open_rules.sql:
 --   [GC-17] assessment_objectives: only an admin inserts, updates, deletes;
 --           only an active admin or consultor reads (not anon, not docentes
 --           or directivos).

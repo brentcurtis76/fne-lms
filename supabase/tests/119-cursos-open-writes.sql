@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 119-cursos-open-writes.sql — F4 (CUR-S5, CUR-S1): migration
--- 20261116140000_cursos_close_open_writes.sql.
+-- 20261116172000_cursos_close_open_writes.sql.
 --
 --   CUR-S5: a learner given a course (course_assignments.teacher_id = learner)
 --           is no longer its "course teacher": no writes on the course's

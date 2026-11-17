@@ -477,8 +477,11 @@ SELECT is(pg_temp.k4_visible(), 'true/1/1', '8: the granted learner now reads K4
 SELECT ok(public.auth_is_course_student('78000000-0000-4000-8000-000000000c01'), '8: K1 access is durable again (independent) although its paths are gone');
 RESET ROLE;
 -- batch_assign_courses (admin OR consultor): declares provenance, keeps grant provenance on conflict
+-- F7c N40: a consultor gives courses only to people their current assignments cover; this
+-- scenario's consultor is assigned to the outsider's school
+INSERT INTO public.consultant_assignments (consultant_id, school_id, is_active, assignment_data) VALUES (pg_temp.uid('c2_consultor'), 9781, true, '{"assignment_scope":"school"}');
 SELECT tests.authenticate_as('c2_consultor');
-SELECT is((public.batch_assign_courses('78000000-0000-4000-8000-000000000c04', ARRAY[pg_temp.uid('c2_outsider')]) ->> 'enrollments_created')::int, 1, '8: a consultor assigns K4 to the outsider through batch_assign_courses');
+SELECT is((public.batch_assign_courses('78000000-0000-4000-8000-000000000c04', ARRAY[pg_temp.uid('c2_outsider')]) ->> 'enrollments_created')::int, 1, '8: a consultor assigned to the outsider''s school assigns K4 to the outsider through batch_assign_courses');
 SELECT is(pg_temp.origin('c2_outsider', '78000000-0000-4000-8000-000000000c04'), 'independent:-', '8: the row it created declares independent provenance');
 RESET ROLE;
 SELECT set_config('request.jwt.claims', '', true);  -- postgres, no claims, no role = trusted backend for the fixture rewrite

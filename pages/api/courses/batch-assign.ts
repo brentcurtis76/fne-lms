@@ -81,6 +81,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         p_user_ids: userIds
       });
 
+    // F7c N40: the database refuses recipients outside the caller's assignments
+    if (dbError?.code === '42501' && dbError.message === "Recipient not covered by the caller's assignments") {
+      return res.status(403).json({
+        error: 'Solo puede asignar cursos a personas de sus colegios, generaciones o comunidades asignadas'
+      });
+    }
+
     if (dbError || result?.success !== true) {
       console.error('Database function error:', dbError);
       throw new Error(dbError?.message || 'Error al asignar curso');

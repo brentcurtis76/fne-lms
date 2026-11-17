@@ -208,9 +208,9 @@ $$;
 -- 2b. batch_unassign_courses: current body (00000000000000_baseline.sql) plus the
 --     coverage rule, before the DELETE.
 -- -----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION "public"."batch_unassign_courses"("p_course_id" "uuid", "p_user_ids" "uuid"[]) RETURNS "json"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public'
+CREATE OR REPLACE FUNCTION public.batch_unassign_courses(p_course_id uuid, p_user_ids uuid[]) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
     AS $$
 DECLARE
     v_caller_id UUID;

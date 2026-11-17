@@ -7,12 +7,18 @@
  * compared: the same top-level entries (by test id) in the same order, and under each the same
  * children (label and address) in the same order. Any difference fails.
  *
+ * Send-back 1 adds, in both frames and for every combination: each entry's label (expanded: the
+ * label drawn; collapsed: the new frame's accessible name and today's tooltip), each equal to the
+ * entry's label in NAVIGATION_ITEMS; what one click on each entry gives `router.push` (its own
+ * address for an entry without children, nothing for a group); and all of it once more with the
+ * sidebar collapsed, the children read from each group's floating list opened by resting on it.
+ *
  * The superadmin feature flag is ON in this file (in the existing Sidebar tests it is off, which
  * makes the superadmin gate unreachable): with it on, «Roles y Permisos» depends on the superadmin
  * check, so that gate is compared too. The accounts are invented.
  */
 import React from 'react';
-import { act, fireEvent, render } from '@testing-library/react';
+import { act, fireEvent, render, within } from '@testing-library/react';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 type Permissions = 'loading' | 'granted' | 'refused';
@@ -130,11 +136,39 @@ function firstText(element: Element): string {
   return '';
 }
 
-type Menu = Array<{ id: string; children: Array<[string, string]> }>;
+/**
+ * A button's accessible name, for the simple buttons of the menu: its `aria-label`, else its text
+ * outside `aria-hidden` parts, else its `title` (the order of the accessible-name computation for
+ * these elements). One test below checks it against Testing Library's own `getByRole` name.
+ */
+function nameOf(button: Element): string {
+  const label = button.getAttribute('aria-label')?.trim();
+  if (label) return label;
+  let text = '';
+  const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (!node.parentElement?.closest('[aria-hidden="true"]')) text += node.textContent ?? '';
+  }
+  text = text.replace(/\s+/g, ' ').trim();
+  return text || (button.getAttribute('title') ?? '').trim();
+}
+
+interface Entry {
+  id: string;
+  /** Expanded: the label drawn. Collapsed: the new frame's accessible name; today's tooltip. */
+  label: string;
+  /** What `router.push` received from one click on the entry. */
+  pushed: unknown[];
+  children: Array<[string, string]>;
+}
+type Menu = Entry[];
+
+const read = (links: NodeListOf<HTMLAnchorElement>) =>
+  Array.from(links).map((a) => [firstText(a), a.getAttribute('href') ?? ''] as [string, string]);
 
 let userCounter = 0;
 
-async function menuIn(look: 'clasico' | 'nuevo', combo: Combo): Promise<Menu> {
+async function menuIn(look: 'clasico' | 'nuevo', combo: Combo, collapsed = false): Promise<Menu> {
   mocks.look = look;
   mocks.combo = combo;
   window.sessionStorage.clear();
@@ -144,7 +178,7 @@ async function menuIn(look: 'clasico' | 'nuevo', combo: Combo): Promise<Menu> {
       user={{ id: `synthetic-adult-${userCounter}` } as any}
       currentPage="dashboard"
       isDesktop
-      isDesktopCollapsed={false}
+      isDesktopCollapsed={collapsed}
       isMobileOpen={false}
       isAdmin={combo.isAdmin}
       userRole={combo.roles[0]}
@@ -156,15 +190,68 @@ async function menuIn(look: 'clasico' | 'nuevo', combo: Combo): Promise<Menu> {
   );
   for (let i = 0; i < 4; i += 1) await act(async () => {});
   const buttons = Array.from(view.container.querySelectorAll('[data-testid^="sidebar-item-"]'));
-  for (const button of buttons) fireEvent.click(button);
-  const menu: Menu = Array.from(view.container.querySelectorAll('[data-testid^="sidebar-item-"]')).map((button) => ({
-    id: button.getAttribute('data-testid')!,
-    children: Array.from(button.parentElement!.querySelectorAll('a')).map(
-      (a) => [firstText(a), a.getAttribute('href') ?? ''] as [string, string]
-    ),
-  }));
+  const pushes = new Map<Element, unknown[]>();
+  const clickOnce = (button: Element) => {
+    mocks.router.push.mockClear();
+    fireEvent.click(button);
+    pushes.set(button, mocks.router.push.mock.calls.map((call: unknown[]) => call[0]));
+  };
+
+  let menu: Menu;
+  if (!collapsed) {
+    // One click on each entry: a group opens (and must navigate nowhere), an entry pushes its address.
+    for (const button of buttons) clickOnce(button);
+    menu = buttons.map((button) => ({
+      id: button.getAttribute('data-testid')!,
+      label: firstText(button),
+      pushed: pushes.get(button)!,
+      children: read(button.parentElement!.querySelectorAll('a')),
+    }));
+  } else {
+    // Collapsed: each group's floating list is opened the way a pointer does (resting on the entry
+    // for 150 ms) and read, then closed by leaving; then one click on each entry.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      menu = buttons.map((button) => {
+        const wrapper = button.parentElement!;
+        fireEvent.mouseEnter(wrapper);
+        act(() => {
+          vi.advanceTimersByTime(150);
+        });
+        const children = read(wrapper.querySelectorAll('a'));
+        fireEvent.mouseLeave(wrapper);
+        clickOnce(button);
+        // A click on a group opens its floating list: a second click closes it again.
+        if (wrapper.querySelector('a')) fireEvent.click(button);
+        return {
+          id: button.getAttribute('data-testid')!,
+          label: look === 'nuevo' ? nameOf(button) : (button.getAttribute('title') ?? ''),
+          pushed: pushes.get(button)!,
+          children,
+        };
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  }
   view.unmount();
   return menu;
+}
+
+const LABEL = new Map(NAVIGATION_ITEMS.map((item) => [`sidebar-item-${item.id}`, item.label]));
+const HREF = new Map(NAVIGATION_ITEMS.map((item) => [`sidebar-item-${item.id}`, item.href]));
+
+/** Each entry is named by its label, an entry without children pushes its own address, a group nothing. */
+function expectEntriesRight(menu: Menu, where: string) {
+  for (const entry of menu) {
+    expect(entry.label, `${where} ${entry.id}: label`).toBe(LABEL.get(entry.id));
+    if (entry.children.length === 0) {
+      expect(HREF.get(entry.id), `${where} ${entry.id}: an entry without children has an address`).toBeTruthy();
+      expect(entry.pushed, `${where} ${entry.id}: a click goes to its address`).toEqual([HREF.get(entry.id)]);
+    } else {
+      expect(entry.pushed, `${where} ${entry.id}: a click on a group navigates nowhere`).toEqual([]);
+    }
+  }
 }
 
 beforeAll(() => {
@@ -181,19 +268,53 @@ let compared = 0;
 
 describe('the same menu in both frames', () => {
   for (const account of ACCOUNTS) {
-    it(`${account.name}: every gate combination draws the same entries and children`, async () => {
+    it(`${account.name}: every gate combination draws the same entries, labels, clicks and children, expanded and collapsed`, async () => {
       for (const combo of combosFor(account)) {
-        const clasico = await menuIn('clasico', combo);
-        const nuevo = await menuIn('nuevo', combo);
-        expect(clasico.length, `${account.name} ${JSON.stringify(combo)}: an empty menu proves nothing`).toBeGreaterThan(0);
-        expect(nuevo, `${account.name} ${JSON.stringify(combo)}`).toEqual(clasico);
-        compared += 1;
+        for (const collapsed of [false, true]) {
+          const where = `${account.name} ${collapsed ? 'collapsed' : 'expanded'} ${JSON.stringify(combo)}`;
+          const clasico = await menuIn('clasico', combo, collapsed);
+          const nuevo = await menuIn('nuevo', combo, collapsed);
+          expect(clasico.length, `${where}: an empty menu proves nothing`).toBeGreaterThan(0);
+          expect(nuevo, where).toEqual(clasico);
+          expectEntriesRight(nuevo, `${where} nuevo`);
+          expectEntriesRight(clasico, `${where} clasico`);
+          compared += 1;
+        }
       }
-    }, 120_000);
+    }, 600_000);
   }
 
-  it('compared every combination (11 accounts; 96 for the admin, 48 for each other account)', () => {
-    expect(compared).toBe(96 + 48 * 10);
+  it('compared every combination twice, expanded and collapsed (11 accounts; 96 for the admin, 48 for each other account)', () => {
+    expect(compared).toBe(2 * (96 + 48 * 10));
+  });
+
+  it('the collapsed menu\'s names read here are the names Testing Library computes', async () => {
+    mocks.look = 'nuevo';
+    mocks.combo = {
+      roles: ['admin'], isAdmin: true, community: true, qa: true, assessments: true, pasantia: true, superadmin: true, permissions: 'granted',
+    };
+    const view = render(
+      <Sidebar
+        user={{ id: 'synthetic-adult-names' } as any}
+        currentPage="dashboard"
+        isDesktop
+        isDesktopCollapsed
+        isMobileOpen={false}
+        isAdmin
+        userRole="admin"
+        userRoles={['admin']}
+        onDesktopToggle={() => {}}
+        onMobileClose={() => {}}
+        onLogout={() => {}}
+      />
+    );
+    for (let i = 0; i < 4; i += 1) await act(async () => {});
+    const buttons = Array.from(view.container.querySelectorAll('[data-testid^="sidebar-item-"]'));
+    expect(buttons.length).toBeGreaterThan(5);
+    for (const button of buttons) {
+      expect(within(view.container).getByRole('button', { name: nameOf(button) })).toBe(button);
+    }
+    view.unmount();
   });
 
   it('the comparison reads real children: an admin with everything granted sees every group\'s children', async () => {

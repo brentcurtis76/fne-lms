@@ -1,0 +1,12 @@
+{
+  "B1. loading: the header, three placeholders": "f4508c3cc8461681abf5ebccdfe244324d9e831b6ffcaccfc833f1fcdf2f70ef",
+  "B10. the user id changes: asked again, the new list drawn": "2d8e42918a9e2785dc6ab8d5513750564a5b14c43077a2d41f6c265f57a5921c",
+  "B2. no badges: nothing drawn": "7154a0e58372e92e132095f5356f833ff965e9d775228b5e21a35abacab06b44",
+  "B3. one badge without points (the singular line), course from metadata": "e4298def044a6fab73c64d3491c72e951fe875df82d5de71d5237c550b3d97dd",
+  "B4. several with points and colours, one without a course, one with a date that is not a date": "80a4acaf77973d53da17dfd2938d7d7ca91ee1f04a834af565fa91cd4ad65369",
+  "B5. more than maxDisplay: four shown and the «+2 más» tile": "ae6a79537b2c3c1d61cff1fb1618e1823efb031b8231bafeca37225877ea44a6",
+  "B6. more than maxDisplay with showViewAll off: no «Ver todos», no tile": "c841faf105aa6e81da4cddd44404080aafaadd46c41f9744dae611e864994d8d",
+  "B7. the defaults (maxDisplay 6, showViewAll on) with seven badges": "2a2fd90572c702fab470b48d31e03b923e28bab245e931fda7c1db15bde70e56",
+  "B8. the service failing: nothing drawn, the error written to the console": "5ea926daef08d58b0a09c84d3f55a16b38d992e8eae09850b10015d0f4197599",
+  "B9. no user id: no call, the loading state stays": "3111683840ddcc8d2c02745f2dc61e771bdcaf424f4c28fab131156310773211"
+}

@@ -50,7 +50,8 @@ describe('Table', () => {
     const table = screen.getByRole('table', { name: 'Usuarios de ejemplo' });
     expect(within(table).getAllByRole('columnheader')).toHaveLength(2);
     expect(within(table).getAllByRole('row')).toHaveLength(3);
-    expect(within(table).getByRole('cell', { name: 'Escuela Ejemplo Sur' })).toBeInTheDocument();
+    // jsdom applies no stylesheet, so the phone's column name (not drawn at desktop width) is part of the name here.
+    expect(within(table).getByRole('cell', { name: /Escuela Ejemplo Sur$/ })).toBeInTheDocument();
   });
 
   it('a sortable header says its order with aria-sort and asks for another with a button', async () => {
@@ -82,6 +83,63 @@ describe('Table', () => {
   it('every cell carries its column name for the phone cards', () => {
     render(<Sample />);
     for (const cell of screen.getAllByRole('cell')) expect(cell.getAttribute('data-label')).toMatch(/^(Nombre|Colegio)$/);
+  });
+
+  // 5c send-back 1, defect 1: under 760 px the parts become block and flex boxes; an explicit role on
+  // each keeps them a table for the browser and the screen reader.
+  it('every part carries its explicit role, so the phone cards stay a table', () => {
+    render(<Sample />);
+    const table = screen.getByRole('table', { name: 'Usuarios de ejemplo' });
+    expect(table).toHaveAttribute('role', 'table');
+    const groups = table.querySelectorAll('thead, tbody');
+    expect(groups).toHaveLength(2);
+    for (const group of Array.from(groups)) expect(group).toHaveAttribute('role', 'rowgroup');
+    for (const row of Array.from(table.querySelectorAll('tr'))) expect(row).toHaveAttribute('role', 'row');
+    for (const header of Array.from(table.querySelectorAll('th'))) expect(header).toHaveAttribute('role', 'columnheader');
+    for (const cell of Array.from(table.querySelectorAll('td'))) expect(cell).toHaveAttribute('role', 'cell');
+  });
+
+  it('a header cell for a row is a row header', () => {
+    render(
+      <Table aria-label="Filas con nombre">
+        <TableBody>
+          <TableRow>
+            <TableHeaderCell scope="row">Docente Uno</TableHeaderCell>
+            <TableCell>Colegio Ejemplo Norte</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    );
+    expect(screen.getByRole('rowheader', { name: 'Docente Uno' })).toHaveAttribute('role', 'rowheader');
+  });
+
+  it('a stacked cell names its column in real text, not in generated content, and only on a phone', () => {
+    render(<Sample />);
+    const school = screen.getByRole('cell', { name: /Escuela Ejemplo Sur/ });
+    const name = school.querySelector('[data-kit="cell-label"]');
+    expect(name).not.toBeNull();
+    expect(name).toHaveTextContent(/^Colegio$/);
+    // Not drawn and not read at desktop width (the column header does that work there); shown on a phone.
+    const classes = (name as HTMLElement).className.split(/\s+/);
+    expect(classes).toContain('hidden');
+    expect(classes).toContain('max-[760px]:inline');
+    // No generated text left behind.
+    expect(school.className).not.toMatch(/content-\[attr\(data-label\)\]/);
+    // The card's title shows no name.
+    expect(screen.getByRole('cell', { name: 'Docente Dos' }).querySelector('[data-kit="cell-label"]')).toBeNull();
+  });
+
+  it('a table that does not stack has no column names in its cells', () => {
+    render(
+      <Table aria-label="Sin tarjetas">
+        <TableBody>
+          <TableRow>
+            <TableCell label="Colegio">Colegio Ejemplo Norte</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    );
+    expect(screen.getByRole('cell', { name: 'Colegio Ejemplo Norte' }).querySelector('[data-kit="cell-label"]')).toBeNull();
   });
 });
 

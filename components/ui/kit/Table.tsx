@@ -8,6 +8,12 @@ import { cx } from './cx';
  * `aria-sort`); a row can be selected (`selected`, drawn as `aria-selected`). With `stackOnPhone`, under
  * 760 px each row becomes a small card and each cell shows its column's name from its `label` prop
  * (a cell with `primary` is the card's title and shows no name). `Pagination` goes under the table.
+ *
+ * Every part carries its role explicitly (`table`, `rowgroup`, `row`, `columnheader`/`rowheader`, `cell`):
+ * the phone's cards make them block and flex boxes, and some browsers then stop telling screen readers
+ * that they are a table. The column's name in a card is real text inside the cell, not generated
+ * content; it is not displayed at desktop width (so it is not read there either: the column header
+ * names the cell), and on a phone it is what is drawn and read.
  */
 
 const StackContext = React.createContext(false);
@@ -40,6 +46,7 @@ export const Table = React.forwardRef<HTMLTableElement, TableProps>(function Tab
         <div className="overflow-x-auto">
           <table
             ref={ref}
+            role="table"
             className={cx(
               'min-w-full divide-y divide-gray-200',
               'nuevo:w-full nuevo:border-collapse nuevo:divide-y-0 nuevo:text-[0.8125rem]',
@@ -62,7 +69,7 @@ export const TableHead = React.forwardRef<HTMLTableSectionElement, React.HTMLAtt
   ref
 ) {
   const stack = React.useContext(StackContext);
-  return <thead ref={ref} className={cx('bg-gray-50 nuevo:bg-gray-100', stack && 'max-[760px]:sr-only', className)} {...rest} />;
+  return <thead ref={ref} role="rowgroup" className={cx('bg-gray-50 nuevo:bg-gray-100', stack && 'max-[760px]:sr-only', className)} {...rest} />;
 });
 
 export const TableBody = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(function TableBody(
@@ -73,6 +80,7 @@ export const TableBody = React.forwardRef<HTMLTableSectionElement, React.HTMLAtt
   return (
     <tbody
       ref={ref}
+      role="rowgroup"
       className={cx('divide-y divide-gray-200 bg-white', 'nuevo:divide-y-0', stack && 'max-[760px]:block max-[760px]:w-full', className)}
       {...rest}
     />
@@ -89,6 +97,7 @@ export const TableRow = React.forwardRef<HTMLTableRowElement, TableRowProps>(fun
   return (
     <tr
       ref={ref}
+      role="row"
       aria-selected={selected}
       className={cx(
         'transition-colors hover:bg-gray-50 motion-reduce:transition-none',
@@ -129,6 +138,7 @@ export const TableHeaderCell = React.forwardRef<HTMLTableCellElement, TableHeade
   return (
     <th
       ref={ref}
+      role={scope === 'row' || scope === 'rowgroup' ? 'rowheader' : 'columnheader'}
       scope={scope}
       aria-sort={sortable ? sort ?? 'none' : undefined}
       className={cx(HEAD_TEXT, align === 'right' ? 'text-right' : 'text-left', className)}
@@ -162,14 +172,23 @@ export interface TableCellProps extends React.TdHTMLAttributes<HTMLTableCellElem
   align?: 'left' | 'right';
 }
 
+// The column's name in a phone card: not displayed (nor read) at desktop width, drawn and read on a phone.
+// Gray 600 in both looks: on a selected row's grey, today's gray 500 would measure under 4.5:1.
+const CELL_LABEL = cx(
+  'hidden flex-none text-left text-xs font-medium uppercase tracking-wider text-gray-600 max-[760px]:inline',
+  'nuevo:font-mont nuevo:text-[0.625rem] nuevo:font-bold nuevo:tracking-[0.14em]'
+);
+
 export const TableCell = React.forwardRef<HTMLTableCellElement, TableCellProps>(function TableCell(
-  { label, primary = false, align = 'left', className, ...rest },
+  { label, primary = false, align = 'left', className, children, ...rest },
   ref
 ) {
   const stack = React.useContext(StackContext);
+  const named = stack && !primary && Boolean(label);
   return (
     <td
       ref={ref}
+      role="cell"
       data-label={label}
       className={cx(
         'whitespace-nowrap px-6 py-4 text-sm text-gray-900',
@@ -184,16 +203,19 @@ export const TableCell = React.forwardRef<HTMLTableCellElement, TableCellProps>(
             : cx(
                 'max-[760px]:flex max-[760px]:w-full max-[760px]:items-center max-[760px]:justify-between max-[760px]:gap-[10px]',
                 'max-[760px]:whitespace-normal max-[760px]:px-0 max-[760px]:py-[3px] max-[760px]:text-right',
-                'nuevo:max-[760px]:border-0 nuevo:max-[760px]:px-0 nuevo:max-[760px]:py-[3px]',
-                'max-[760px]:before:flex-none max-[760px]:before:text-left max-[760px]:before:text-xs max-[760px]:before:font-medium',
-                'max-[760px]:before:uppercase max-[760px]:before:tracking-wider max-[760px]:before:text-gray-500 max-[760px]:before:content-[attr(data-label)]',
-                'nuevo:max-[760px]:before:font-mont nuevo:max-[760px]:before:text-[0.625rem] nuevo:max-[760px]:before:font-bold',
-                'nuevo:max-[760px]:before:tracking-[0.14em] nuevo:max-[760px]:before:text-gray-600'
+                'nuevo:max-[760px]:border-0 nuevo:max-[760px]:px-0 nuevo:max-[760px]:py-[3px]'
               )),
         className
       )}
       {...rest}
-    />
+    >
+      {named && (
+        <span data-kit="cell-label" className={CELL_LABEL}>
+          {label}
+        </span>
+      )}
+      {children}
+    </td>
   );
 });
 

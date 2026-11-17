@@ -11,15 +11,17 @@ SELECT tests.create_supabase_user('dop_norole');
 SELECT tests.create_supabase_user('dop_dir');
 SELECT tests.create_supabase_user('dop_dir_norole');
 SELECT tests.create_supabase_user('dop_dir_noctx');
+SELECT tests.create_supabase_user('dop_doc3');
 SELECT tests.get_supabase_uid('dop_doc1') AS doc1 \gset
 SELECT tests.get_supabase_uid('dop_doc2') AS doc2 \gset
 SELECT tests.get_supabase_uid('dop_norole') AS norole \gset
 SELECT tests.get_supabase_uid('dop_dir') AS dir \gset
 SELECT tests.get_supabase_uid('dop_dir_norole') AS dirnorole \gset
 SELECT tests.get_supabase_uid('dop_dir_noctx') AS dirnoctx \gset
+SELECT tests.get_supabase_uid('dop_doc3') AS doc3 \gset
 INSERT INTO public.profiles(id,email,name,approval_status)
 SELECT tests.get_supabase_uid(n), n || '@test.local', n, 'approved'
-FROM (VALUES ('dop_doc1'),('dop_doc2'),('dop_norole'),('dop_dir'),('dop_dir_norole'),('dop_dir_noctx')) x(n) ON CONFLICT(id) DO NOTHING;
+FROM (VALUES ('dop_doc1'),('dop_doc2'),('dop_norole'),('dop_dir'),('dop_dir_norole'),('dop_dir_noctx'),('dop_doc3')) x(n) ON CONFLICT(id) DO NOTHING;
 
 -- Schools: A (9310, year 2), B (9311, year 3), C (9312, NO context), D (9313, year 1).
 INSERT INTO public.schools(id,name) VALUES (9310,'DOP School A'),(9311,'DOP School B'),(9312,'DOP School C'),(9313,'DOP School D');
@@ -28,7 +30,8 @@ INSERT INTO public.user_roles(user_id,role_type,school_id,is_active) VALUES
 (:'norole','docente',9310,false),
 (:'dir','equipo_directivo',9310,true),(:'dir','equipo_directivo',9311,true),(:'dir','admin',NULL,true),
 (:'dirnorole','docente',9313,true),
-(:'dirnoctx','equipo_directivo',9312,true);
+(:'dirnoctx','equipo_directivo',9312,true),
+(:'doc3','docente',9312,true);
 INSERT INTO public.school_transversal_context(id,school_id,total_students,grade_levels,courses_per_level,implementation_year_2026,period_system) VALUES
 ('13100000-0000-4000-8000-00000000c00a',9310,100,ARRAY['1_basico'],'{"1_basico":5}',2,'semestral'),
 ('13100000-0000-4000-8000-00000000c00b',9311,100,ARRAY['1_basico'],'{"1_basico":1}',3,'semestral'),
@@ -46,6 +49,11 @@ INSERT INTO public.ab_migration_plan(school_id,year_number,grade_id,generation_t
 --   11-15 A grade 1 doc1 active, existing T1 work in every status -> untouched
 --   21    A grade 3 norole active    -> T3 fails recipient_not_eligible
 --   22    B grade 3 doc2 active      -> receives T3 despite 21
+--   23    C grade 3 doc3 active      -> T3 fails context_missing (school C has no
+--         context row; the course hangs off school A's context because
+--         context_id is NOT NULL, delivery reads the year by the course's school)
+-- A course with two active teacher assignments cannot be built: the partial
+-- unique index school_course_docente_assignments_one_active_key forbids it.
 CREATE TEMP TABLE dop_courses(n text, school integer, ctx uuid, grade integer, teacher uuid, active boolean);
 INSERT INTO dop_courses VALUES
 ('01',9310,'13100000-0000-4000-8000-00000000c00a',93101,:'doc1',true),
@@ -60,7 +68,8 @@ INSERT INTO dop_courses VALUES
 ('14',9310,'13100000-0000-4000-8000-00000000c00a',93101,:'doc1',true),
 ('15',9310,'13100000-0000-4000-8000-00000000c00a',93101,:'doc1',true),
 ('21',9310,'13100000-0000-4000-8000-00000000c00a',93103,:'norole',true),
-('22',9311,'13100000-0000-4000-8000-00000000c00b',93103,:'doc2',true);
+('22',9311,'13100000-0000-4000-8000-00000000c00b',93103,:'doc2',true),
+('23',9312,'13100000-0000-4000-8000-00000000c00a',93103,:'doc3',true);
 INSERT INTO public.school_course_structure(id,school_id,context_id,grade_level,course_name,grade_id)
 SELECT ('13100000-0000-4000-8000-0000000000' || n)::uuid,school,ctx,'1_basico','DOP ' || n,grade FROM dop_courses;
 INSERT INTO public.school_course_docente_assignments(course_structure_id,docente_id,assigned_by,is_active)
@@ -218,14 +227,18 @@ SELECT results_eq(
 -- Failures are listed and do not stop the other pairs.
 SET LOCAL ROLE service_role;
 SELECT public.preview_template_delivery('13100000-0000-4000-8000-0000000000e3') AS prev3 \gset
+SELECT public.preview_template_delivery('13100000-0000-4000-8000-0000000000e4') AS prev4 \gset
 SELECT public.deliver_published_template('13100000-0000-4000-8000-0000000000e3') AS del3 \gset
 SELECT public.deliver_published_template('13100000-0000-4000-8000-0000000000e4') AS del4 \gset
 RESET ROLE;
-SELECT is(:'prev3'::jsonb,'{"target":"course_docente","courses":2,"schools":2}'::jsonb,'preview counts the sweep candidates (an ineligible recipient included)');
-SELECT is(:'del3'::jsonb,'{"created":1,"skipped":0,"failed":1,"has_more":false,"failures":[{"course_id":"13100000-0000-4000-8000-000000000021","code":"recipient_not_eligible"}]}'::jsonb,
-  'recipient without an active role is listed as failed; the other course still receives');
+SELECT is(:'prev3'::jsonb,'{"target":"course_docente","courses":1,"schools":1}'::jsonb,'preview counts only the courses that will receive (not the ineligible recipient, not the school without context year)');
+SELECT is((:'prev3'::jsonb->>'courses')::integer,(:'del3'::jsonb->>'created')::integer,'course preview equals what delivery creates');
+SELECT is(:'del3'::jsonb,'{"created":1,"skipped":0,"failed":2,"has_more":false,"failures":[{"course_id":"13100000-0000-4000-8000-000000000021","code":"recipient_not_eligible"},{"course_id":"13100000-0000-4000-8000-000000000023","code":"context_missing"}]}'::jsonb,
+  'recipient without an active role and course in a school without context year are listed as failed; the other course still receives');
 SELECT is((SELECT count(*)::integer FROM public.assessment_instances WHERE course_structure_id='13100000-0000-4000-8000-000000000021'),0,'recipient without an active role receives nothing');
 SELECT is((SELECT count(*)::integer FROM public.assessment_instances WHERE course_structure_id='13100000-0000-4000-8000-000000000022'),1,'eligible course after a failed one receives');
+SELECT is(:'prev4'::jsonb,'{"target":"school_responsible","courses":0,"schools":1}'::jsonb,'school preview counts only the schools that will receive (not the one without context year, not the responsable without role)');
+SELECT is((:'prev4'::jsonb->>'schools')::integer,(:'del4'::jsonb->>'created')::integer,'school preview equals what delivery creates');
 SELECT is(:'del4'::jsonb,'{"created":1,"skipped":0,"failed":2,"has_more":false,"failures":[{"school_id":9312,"code":"context_missing"},{"school_id":9313,"code":"recipient_not_eligible"}]}'::jsonb,
   'school without context year and responsable without role are listed; school A still receives');
 SELECT is((SELECT array_agg(school_id ORDER BY school_id) FROM public.school_via_instance_links WHERE template_id='13100000-0000-4000-8000-0000000000e4'),ARRAY[9310],'only the eligible school got the school registro');

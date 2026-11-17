@@ -5,8 +5,10 @@
 -- attach locks course then template while publish locks the template first):
 --
 --   preview_template_delivery(template)   how many courses / schools a
---                                          publication would reach (read only,
---                                          works on a draft)
+--                                          publication would actually deliver
+--                                          to: the sweep's candidates that also
+--                                          pass delivery's per-pair checks
+--                                          (read only, no lock, works on a draft)
 --   deliver_published_template(template)  delivers exactly the pairs the
 --                                          every-minute sweep would deliver for
 --                                          this one template
@@ -35,9 +37,11 @@ BEGIN
     JOIN public.ab_via_assignment_rules r ON r.area = t.area
    WHERE t.id = p_template_id;
 
+  -- Counts only the pairs deliver_published_template would create: its
+  -- candidate query (without requiring status = 'published': the editor asks
+  -- while it is a draft) plus, read-only and without any lock, the same
+  -- conditions its per-pair block checks. Keep equal to that block.
   IF v_target = 'course_docente' THEN
-    -- Sweep candidate query (course part) for this template, without
-    -- requiring status = 'published': the editor asks while it is a draft.
     SELECT count(*)::integer, count(DISTINCT x.school_id)::integer
       INTO v_courses, v_schools
       FROM (
@@ -52,6 +56,22 @@ BEGIN
              JOIN public.assessment_template_snapshots s ON s.id = i.template_snapshot_id
              WHERE i.course_structure_id = c.id AND s.template_id = t.id
            )
+           -- exactly one active teacher assignment
+           AND (SELECT count(*) FROM public.school_course_docente_assignments a1
+                 WHERE a1.course_structure_id = c.id AND a1.is_active) = 1
+           -- that teacher holds an active role delivery accepts at the course's school
+           AND EXISTS (
+             SELECT 1 FROM public.user_roles ur
+              WHERE ur.user_id = a.docente_id AND ur.school_id = c.school_id AND ur.is_active
+                AND ur.role_type IN ('docente', 'admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad')
+           )
+           -- the school's newest context has a usable year
+           AND (SELECT sc.implementation_year_2026 FROM public.school_transversal_context sc
+                 WHERE sc.school_id = c.school_id ORDER BY sc.created_at DESC LIMIT 1) BETWEEN 1 AND 5
+           -- a snapshot exists, or the template is still a draft (none yet)
+           AND (t.status = 'draft' OR EXISTS (
+             SELECT 1 FROM public.assessment_template_snapshots s2 WHERE s2.template_id = t.id
+           ))
       ) x;
   ELSIF v_target = 'school_responsible' THEN
     SELECT count(DISTINCT a.school_id)::integer INTO v_schools
@@ -65,7 +85,20 @@ BEGIN
          SELECT 1 FROM public.assessment_instances i
          JOIN public.assessment_template_snapshots s ON s.id = i.template_snapshot_id
          WHERE i.school_id = a.school_id AND i.course_structure_id IS NULL AND s.template_id = t.id
-       );
+       )
+       -- the active responsable holds an active equipo_directivo role at that school
+       AND EXISTS (
+         SELECT 1 FROM public.user_roles ur
+          WHERE ur.user_id = a.user_id AND ur.school_id = a.school_id AND ur.is_active
+            AND ur.role_type = 'equipo_directivo'
+       )
+       -- the school's newest context has a usable year
+       AND (SELECT sc.implementation_year_2026 FROM public.school_transversal_context sc
+             WHERE sc.school_id = a.school_id ORDER BY sc.created_at DESC LIMIT 1) BETWEEN 1 AND 5
+       -- a snapshot exists, or the template is still a draft (none yet)
+       AND (t.status = 'draft' OR EXISTS (
+         SELECT 1 FROM public.assessment_template_snapshots s2 WHERE s2.template_id = t.id
+       ));
   ELSE
     v_target := NULL;
   END IF;
@@ -76,7 +109,7 @@ $$;
 REVOKE ALL ON FUNCTION public.preview_template_delivery(uuid) FROM public, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.preview_template_delivery(uuid) TO service_role;
 COMMENT ON FUNCTION public.preview_template_delivery(uuid) IS
-  'Read-only count of the courses (course_docente) or schools (school_responsible) that publishing this template would deliver to: the candidate query of reconcile_published_assessment_deliveries for one template, without requiring published status (works on a draft); archived templates count zero. Writes nothing, takes no lock. Service role only.';
+  'Read-only count of the courses (course_docente) or schools (school_responsible) that would actually be delivered to if this template were published now: the candidate query of deliver_published_template / reconcile_published_assessment_deliveries for one template, without requiring published status (works on a draft), restricted to the pairs that also pass delivery''s per-pair checks (exactly one active teacher with an accepted active role at the school, or an active responsable with an active equipo_directivo role there; a usable context year; a snapshot unless still a draft). Archived templates count zero. Writes nothing, takes no lock. Service role only.';
 
 CREATE FUNCTION public.deliver_published_template(p_template_id uuid, p_limit integer DEFAULT 500)
 RETURNS jsonb

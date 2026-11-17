@@ -83,6 +83,10 @@ function reportRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
+// GES-1.3 (F7d send-back 2): the submitter of a new report must still hold an
+// active filing role; the route reads the caller's active role rows.
+const FILER_ROLES: TableResult[] = [{ data: [{ role_type: 'consultor' }] }];
+
 let tracker: Tracker;
 
 function stubTables(tables: Record<string, TableResult[]>) {
@@ -155,7 +159,7 @@ describe('method and input guards', () => {
     const ip = nextIp();
     const codes: number[] = [];
     for (let i = 0; i < 7; i += 1) {
-      stubTables({ expense_reports: [{ data: reportRow() }] });
+      stubTables({ expense_reports: [{ data: reportRow() }], user_roles: FILER_ROLES });
       const res = await callHandler({ ip });
       codes.push(res._getStatusCode());
     }
@@ -167,7 +171,7 @@ describe('method and input guards', () => {
 describe('submission notification', () => {
   it('sends to the configured approver with facts read from the report', async () => {
     asUser(OWNER_ID, OWNER_EMAIL);
-    stubTables({ expense_reports: [{ data: reportRow() }] });
+    stubTables({ expense_reports: [{ data: reportRow() }], user_roles: FILER_ROLES });
 
     // Anything the browser tries to dictate is ignored — the body is not read.
     const res = await callHandler({
@@ -197,7 +201,7 @@ describe('submission notification', () => {
 
   it('reads the report by its id (no client-supplied recipient lookup)', async () => {
     asUser(OWNER_ID, OWNER_EMAIL);
-    stubTables({ expense_reports: [{ data: reportRow() }] });
+    stubTables({ expense_reports: [{ data: reportRow() }], user_roles: FILER_ROLES });
     await callHandler();
 
     const call = tracker.fromCalls.find((c) => c.table === 'expense_reports');
@@ -217,7 +221,7 @@ describe('submission notification', () => {
   it('stays 200 when sending soft-fails without a Resend key', async () => {
     asUser(OWNER_ID, OWNER_EMAIL);
     mockSendSubmission.mockResolvedValue({ sent: false, skipped: true });
-    stubTables({ expense_reports: [{ data: reportRow() }] });
+    stubTables({ expense_reports: [{ data: reportRow() }], user_roles: FILER_ROLES });
 
     const res = await callHandler();
     expect(res._getStatusCode()).toBe(200);
@@ -233,7 +237,7 @@ describe('submission notification', () => {
       skipped: true,
       status: 'suppressed_qa',
     });
-    stubTables({ expense_reports: [{ data: reportRow() }] });
+    stubTables({ expense_reports: [{ data: reportRow() }], user_roles: FILER_ROLES });
 
     const res = await callHandler();
     expect(res._getStatusCode()).toBe(200);
@@ -245,6 +249,64 @@ describe('submission notification', () => {
         status: 'suppressed_qa',
       },
     });
+  });
+
+  // F7d send-back 2 (GES-1.3): owning the report is not enough; the owner must
+  // still hold an ACTIVE filing role (admin, consultor, community_manager).
+  it('reads the caller\'s own ACTIVE role rows to decide', async () => {
+    asUser(OWNER_ID, OWNER_EMAIL);
+    stubTables({ expense_reports: [{ data: reportRow() }], user_roles: FILER_ROLES });
+    const res = await callHandler();
+    expect(res._getStatusCode()).toBe(200);
+
+    // the filing-role read (the e-mail policy's own user_roles read selects school_id)
+    const rolesCall = tracker.fromCalls.find((c) => c.table === 'user_roles' && c.selects.includes('role_type'));
+    expect(rolesCall).toBeDefined();
+    expect(rolesCall?.eqs).toEqual(
+      expect.arrayContaining([
+        { col: 'user_id', val: OWNER_ID },
+        { col: 'is_active', val: true },
+      ])
+    );
+  });
+
+  it('refuses the owner whose only role is an inactive consultor role', async () => {
+    asUser(OWNER_ID, OWNER_EMAIL);
+    // the route asks for active rows only, so the inactive role is not returned
+    stubTables({ expense_reports: [{ data: reportRow() }], user_roles: [{ data: [] }] });
+
+    const res = await callHandler();
+    expect(res._getStatusCode()).toBe(403);
+    expect(mockSendSubmission).not.toHaveBeenCalled();
+  });
+
+  it('refuses the owner whose only role is docente', async () => {
+    asUser(OWNER_ID, OWNER_EMAIL);
+    stubTables({ expense_reports: [{ data: reportRow() }], user_roles: [{ data: [{ role_type: 'docente' }] }] });
+
+    const res = await callHandler();
+    expect(res._getStatusCode()).toBe(403);
+    expect(mockSendSubmission).not.toHaveBeenCalled();
+  });
+
+  it('accepts a community manager and an admin who own the report', async () => {
+    for (const role of ['community_manager', 'admin']) {
+      mockSendSubmission.mockClear();
+      asUser(OWNER_ID, OWNER_EMAIL);
+      stubTables({ expense_reports: [{ data: reportRow() }], user_roles: [{ data: [{ role_type: role }] }] });
+      const res = await callHandler();
+      expect(res._getStatusCode()).toBe(200);
+      expect(mockSendSubmission).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('sends nothing when the role lookup fails', async () => {
+    asUser(OWNER_ID, OWNER_EMAIL);
+    stubTables({ expense_reports: [{ data: reportRow() }], user_roles: [{ error: { message: 'boom' } }] });
+
+    const res = await callHandler();
+    expect(res._getStatusCode()).toBe(500);
+    expect(mockSendSubmission).not.toHaveBeenCalled();
   });
 });
 

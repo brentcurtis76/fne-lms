@@ -90,7 +90,7 @@ const PAIRS: Pair[] = [
   { what: 'Field: label', today: ['gray-700', 'white'], nuevo: ['brand_primary', 'white'] },
   { what: 'Field: help', today: ['gray-500', 'white'], nuevo: ['gray-600', 'white'] },
   { what: 'Field: error', today: ['red-600', 'white'], nuevo: ['red-600', 'white'] },
-  { what: 'Field: required mark', today: ['red-500', 'white'], nuevo: ['red-600', 'white'] },
+  { what: 'Field: required mark', today: ['red-600', 'white'], nuevo: ['red-600', 'white'] },
   { what: 'Field: the text typed', today: ['gray-900', 'white'], nuevo: ['brand_primary', 'white'] },
   { what: 'Field: placeholder', kind: 'placeholder', today: ['gray-500', 'white'], nuevo: ['gray-600', 'white'] },
   { what: 'Checkbox, Radio, Switch: words', today: ['gray-700', 'white'], nuevo: ['brand_primary', 'white'] },

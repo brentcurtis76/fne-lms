@@ -133,6 +133,7 @@ vi.mock('../../components/contracts/ContractPDFImporter', () => ({ default: () =
 vi.mock('../../components/contracts/HourAllocationPanel', () => ({ default: () => null }));
 
 import ContractsPage from '../../pages/contracts';
+import { invoiceObjectName } from '../../lib/contracts/invoice-path';
 
 const makeContrato = (facturaUrl: string | null): Row => ({
   id: 'c1',
@@ -237,6 +238,21 @@ describe('Contracts page — invoices stored by name, removal reads both forms',
       factura_uploaded_at: expect.any(String),
     });
     expect(client.__storage.some((c: Row) => c.op === 'getPublicUrl')).toBe(false);
+  });
+
+  it('send-back 1: a file with a 250-letter extension gets a stored name the link route accepts', async () => {
+    const { client } = await renderAndOpen(null);
+    const input = document.querySelector('input[type="file"][accept=".pdf,.jpg,.jpeg,.png"]') as HTMLInputElement;
+    const file = new File(['%PDF-1.4'], 'a.' + 'x'.repeat(250), { type: 'application/pdf' });
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    fireEvent.change(input);
+
+    await waitFor(() => expect(client.__updates.filter((u: Row) => u.table === 'cuotas')).toHaveLength(1));
+    const uploaded = client.__storage.find((c: Row) => c.op === 'upload');
+    expect(uploaded.arg).toMatch(new RegExp(`^invoice_${CUOTA}_\\d+\\.xxxxxxxxxx$`));
+    expect(invoiceObjectName(uploaded.arg)).toBe(uploaded.arg);
+    const update = client.__updates.find((u: Row) => u.table === 'cuotas');
+    expect(update.payload.factura_url).toBe(uploaded.arg);
   });
 
   it.each([

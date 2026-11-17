@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Calendar, DollarSign, TrendingUp, AlertCircle, CheckCircle, Upload, Check, X, Filter } from 'lucide-react';
 import UFService from '../../lib/uf-service';
 import { toast } from 'react-hot-toast';
-import { invoiceUploadColumns } from '../../lib/contracts/invoice-path';
+import { invoiceUploadColumns, invoiceUploadObjectName } from '../../lib/contracts/invoice-path';
 import { openInvoiceInNewTab } from '../../lib/contracts/open-invoice';
 
 interface Cuota {
@@ -371,8 +371,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
       setUploadingInvoice(cuotaId);
       
       // Upload file to Supabase Storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `cuota_${cuotaId}_${Date.now()}.${fileExt}`;
+      const fileName = invoiceUploadObjectName('cuota', cuotaId, file.name, Date.now());
       
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('facturas')

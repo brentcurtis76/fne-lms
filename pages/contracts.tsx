@@ -19,7 +19,7 @@ import { getUserPrimaryRole } from '../utils/roleUtils';
 import { contractMatchesSearch } from '../lib/utils/contract-search';
 import { resolveContractPdfTarget } from '../lib/utils/contract-pdf-target';
 import { isFirmaPendiente } from '../lib/utils/contract-status';
-import { INVOICES_BUCKET, invoiceObjectName, invoiceUploadColumns } from '../lib/contracts/invoice-path';
+import { INVOICES_BUCKET, invoiceObjectName, invoiceUploadColumns, invoiceUploadObjectName } from '../lib/contracts/invoice-path';
 
 interface Programa {
   id: string;
@@ -502,8 +502,7 @@ export default function ContractsPage() {
       }
       
       // Upload file to Supabase Storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `invoice_${cuotaId}_${Date.now()}.${fileExt}`;
+      const fileName = invoiceUploadObjectName('invoice', cuotaId, file.name, Date.now());
       
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('facturas')

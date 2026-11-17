@@ -78,3 +78,29 @@ export function invoiceUploadColumns(
     factura_uploaded_at: uploadedAt ?? new Date().toISOString(),
   };
 }
+
+// GES-1.4 (F2c, send-back 1): the stored name of a new invoice upload,
+// `<prefix>_<cuotaId>_<timestamp>.<ext>`. The extension is the part after the
+// last dot of the uploaded file's name, reduced to ASCII letters and digits in
+// lower case, at most 10 of them; `bin` when nothing is left (or no dot) — as
+// lib/expenses/receipt-path.ts bounds a receipt's. So the name is always one
+// that invoiceObjectName accepts, and the invoice can be opened and removed.
+const MAX_EXTENSION_LENGTH = 10;
+
+export function invoiceUploadObjectName(
+  prefix: string,
+  cuotaId: string,
+  fileName: string,
+  timestamp: number
+): string {
+  const dot = fileName.lastIndexOf('.');
+  const ext =
+    dot === -1
+      ? ''
+      : fileName
+          .slice(dot + 1)
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, '')
+          .slice(0, MAX_EXTENSION_LENGTH);
+  return `${prefix}_${cuotaId}_${timestamp}.${ext || 'bin'}`;
+}

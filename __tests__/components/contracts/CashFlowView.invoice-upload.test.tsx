@@ -55,6 +55,7 @@ vi.mock('../../../lib/uf-service', () => ({
 }));
 
 import CashFlowView from '../../../components/contracts/CashFlowView';
+import { invoiceObjectName } from '../../../lib/contracts/invoice-path';
 
 const CUOTA = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 
@@ -114,5 +115,22 @@ describe('CashFlowView — an uploaded invoice is stored by name', () => {
     expect(uploaded.arg).toMatch(new RegExp(`^cuota_${CUOTA}_\\d+\\.pdf$`));
     expect(calls.updates[0]).toEqual({ table: 'cuotas', id: CUOTA, payload: { factura_url: uploaded.arg } });
     expect(calls.storage.some((c) => c.op === 'getPublicUrl')).toBe(false);
+  });
+
+  it('send-back 1: a file with a 250-letter extension gets a stored name the link route accepts', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<CashFlowView contratos={contratos as any} />);
+    await user.click(screen.getByText('Vista Detallada'));
+    await waitFor(() => expect(container.querySelector('input[type="file"]')).not.toBeNull());
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(['%PDF-1.4'], 'a.' + 'x'.repeat(250), { type: 'application/pdf' });
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    fireEvent.change(input);
+
+    await waitFor(() => expect(calls.updates.filter((u) => u.table === 'cuotas')).toHaveLength(1));
+    const uploaded = calls.storage.find((c) => c.op === 'upload')!;
+    expect(uploaded.arg).toMatch(new RegExp(`^cuota_${CUOTA}_\\d+\\.xxxxxxxxxx$`));
+    expect(invoiceObjectName(uploaded.arg)).toBe(uploaded.arg);
+    expect(calls.updates[0].payload).toEqual({ factura_url: uploaded.arg });
   });
 });

@@ -232,11 +232,19 @@ export default function LicitacionDetailPage() {
     }
   };
 
+  // Latest request wins: each reload of the tender gets a number one higher than
+  // the last; an answer (or failure) is applied only if no later reload has been
+  // started since. The loader ends with the latest request's answer.
+  const detailRequestRef = useRef(0);
+
   const fetchLicitacion = async (licitacionId: string) => {
+    const requestNo = ++detailRequestRef.current;
+    const isLatest = () => requestNo === detailRequestRef.current;
     setLoading(true);
     try {
       const res = await fetch(`/api/licitaciones/${licitacionId}`);
       const json = await res.json();
+      if (!isLatest()) return; // an older picture of the tender: dropped
 
       if (!res.ok) {
         toast.error(json.error || 'Error al cargar licitacion');
@@ -252,10 +260,11 @@ export default function LicitacionDetailPage() {
         setFechaPublicacion(lic.fecha_publicacion);
       }
     } catch {
+      if (!isLatest()) return;
       toast.error('Error al cargar licitacion');
       router.push('/licitaciones');
     } finally {
-      setLoading(false);
+      if (isLatest()) setLoading(false);
     }
   };
 

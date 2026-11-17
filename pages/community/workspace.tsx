@@ -2105,7 +2105,10 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
           ));
         },
         onThread: (thread) => {
-          setThreads(prev => [thread, ...prev]);
+          // By id: the person's own new thread may already be listed by handleThreadCreate.
+          setThreads(prev => (prev.some(existing => existing.id === thread.id)
+            ? prev.map(existing => (existing.id === thread.id ? thread : existing))
+            : [thread, ...prev]));
         },
         onReaction: (reaction) => {
           // Update message reactions

@@ -603,3 +603,70 @@ describe('send-back 3 (X1) a live message schedules nothing and reads nothing', 
     expect(utils.container.innerHTML).toBe(shown);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Level 2 tester finding: a new conversation was listed twice («Hilos») until
+// a reload — once from the create call's answer and once from the live event
+// of the same thread row. The list holds each conversation once, whatever the
+// order in which the two arrive.
+// ---------------------------------------------------------------------------
+
+describe('a new conversation shows once in the list', () => {
+  const DATA = { thread_title: 'Planificación', category: 'general', initial_message: 'Mi texto de planificación' };
+  const NEW_THREAD = { ...THREAD_A, id: 'thread-new', thread_title: 'Planificación', latest_message: null, unread_count: 0 };
+
+  async function openModal(utils: RenderResult) {
+    await utils.findByText(THREAD_A.thread_title);
+    await act(async () => {
+      fireEvent.click(utils.getByText('Nuevo Hilo'));
+    });
+    await utils.findByTestId('thread-modal');
+  }
+
+  async function liveThread(thread: Record<string, unknown>) {
+    const live = h.subscriptions[h.subscriptions.length - 1];
+    await act(async () => {
+      live.callbacks.onThread?.(thread);
+    });
+  }
+
+  async function backToList() {
+    await act(async () => {
+      h.filters!.onViewChange('threads');
+    });
+  }
+
+  it('create answer first, then the live event: one card', async () => {
+    h.createThread = vi.fn().mockResolvedValue(NEW_THREAD);
+    const utils = render(<CommunityWorkspacePage />);
+    await openModal(utils);
+    await act(async () => {
+      await h.modal!.onCreateThread(DATA);
+    });
+    await liveThread({ ...NEW_THREAD });
+    await backToList();
+
+    expect(utils.getAllByText('Planificación')).toHaveLength(1);
+    expect(utils.getAllByText(THREAD_A.thread_title)).toHaveLength(1);
+  });
+
+  it('live event first, then the create answer: one card', async () => {
+    let finishCreate: (value: unknown) => void = () => undefined;
+    h.createThread = vi.fn(() => new Promise((resolve) => { finishCreate = resolve; }));
+    const utils = render(<CommunityWorkspacePage />);
+    await openModal(utils);
+    let creating: Promise<void> = Promise.resolve();
+    await act(async () => {
+      creating = h.modal!.onCreateThread(DATA);
+    });
+    await liveThread({ ...NEW_THREAD });
+    await act(async () => {
+      finishCreate(NEW_THREAD);
+      await creating;
+    });
+    await backToList();
+
+    expect(utils.getAllByText('Planificación')).toHaveLength(1);
+    expect(utils.getAllByText(THREAD_A.thread_title)).toHaveLength(1);
+  });
+});

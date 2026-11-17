@@ -109,11 +109,13 @@ function jsonResponse(body: unknown, status = 200) {
   return { ok: status < 300, status, json: async () => body } as unknown as Response;
 }
 
-function installFetch(log: FetchCall[]) {
+function installFetch(log: FetchCall[], preview?: () => Promise<Response>) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input.toString();
     log.push({ url, init });
     const method = (init?.method ?? 'GET').toUpperCase();
+
+    if (url.endsWith('/delivery-preview') && method === 'GET' && preview) return preview();
 
     if (url.endsWith(`/templates/${TEMPLATE_ID}`) && method === 'GET') return jsonResponse({ template });
     if (url.endsWith('/objectives') && method === 'GET') return jsonResponse({ objectives: [objective] });
@@ -203,5 +205,72 @@ describe('Template editor — publish confirmation (PROC-CONTAIN-01 A-01)', () =
     await waitFor(() => expect(screen.queryByText('¿Publicar este template?')).toBeNull());
     expect(fetchLog.some(c => c.url.endsWith('/publish'))).toBe(false);
     expect(screen.queryByText(UPGRADE_PROMPT)).toBeNull();
+  });
+
+  // GC-3c: the confirmation says how many courses will receive the registro.
+  describe('delivery preview in the confirmation (GC-3c)', () => {
+    it('requests the preview when the confirmation opens and shows the course count', async () => {
+      installFetch(fetchLog, async () => jsonResponse({ target: 'course_docente', courses: 4, schools: 2 }));
+      render(<TemplateEditor />);
+      fireEvent.click(await screen.findByTestId('publish-btn'));
+
+      expect(screen.getByText('¿Publicar este template?')).toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.getByTestId('publish-delivery-preview')).toHaveTextContent(
+          'Al publicar, 4 curso(s) con docente asignado recibirán este registro.'
+        )
+      );
+      const previewCalls = fetchLog.filter(c => c.url.endsWith(`/templates/${TEMPLATE_ID}/delivery-preview`));
+      expect(previewCalls).toHaveLength(1);
+      expect((previewCalls[0].init?.method ?? 'GET').toUpperCase()).toBe('GET');
+    });
+
+    it('shows the school count for a school template', async () => {
+      installFetch(fetchLog, async () => jsonResponse({ target: 'school_responsible', courses: 0, schools: 3 }));
+      render(<TemplateEditor />);
+      fireEvent.click(await screen.findByTestId('publish-btn'));
+      await waitFor(() =>
+        expect(screen.getByTestId('publish-delivery-preview')).toHaveTextContent(
+          'Al publicar, 3 escuela(s) con responsable asignado recibirán este registro.'
+        )
+      );
+    });
+
+    it('while loading the line says so and «Sí, publicar» still publishes', async () => {
+      installFetch(fetchLog, () => new Promise<Response>(() => {}));
+      render(<TemplateEditor />);
+      fireEvent.click(await screen.findByTestId('publish-btn'));
+
+      expect(await screen.findByTestId('publish-delivery-preview')).toHaveTextContent('Calculando cuántos cursos lo recibirán…');
+      const confirmBtn = screen.getByTestId('publish-confirm-btn');
+      expect(confirmBtn).not.toBeDisabled();
+      fireEvent.click(confirmBtn);
+      await waitFor(() =>
+        expect(fetchLog.filter(c => c.url.endsWith('/publish') && c.init?.method === 'POST')).toHaveLength(1)
+      );
+    });
+
+    it('a failed preview says publishing is still possible', async () => {
+      installFetch(fetchLog, async () => jsonResponse({ error: 'No se pudo calcular el envío' }, 500));
+      render(<TemplateEditor />);
+      fireEvent.click(await screen.findByTestId('publish-btn'));
+      await waitFor(() =>
+        expect(screen.getByTestId('publish-delivery-preview')).toHaveTextContent(
+          'No se pudo calcular cuántos cursos lo recibirán. Puede publicar igualmente.'
+        )
+      );
+      expect(screen.getByTestId('publish-confirm-btn')).not.toBeDisabled();
+    });
+
+    it('nothing to deliver says when it will arrive', async () => {
+      installFetch(fetchLog, async () => jsonResponse({ target: 'course_docente', courses: 0, schools: 0 }));
+      render(<TemplateEditor />);
+      fireEvent.click(await screen.findByTestId('publish-btn'));
+      await waitFor(() =>
+        expect(screen.getByTestId('publish-delivery-preview')).toHaveTextContent(
+          'Por ahora ningún curso recibirá este registro; llegará cuando se asigne un docente o responsable.'
+        )
+      );
+    });
   });
 });

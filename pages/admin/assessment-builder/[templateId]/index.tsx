@@ -95,6 +95,25 @@ export function publishIndicatorBlocker(
   return total === 0 ? 'El template debe tener al menos un indicador para ser publicado' : null;
 }
 
+/** GC-3c: state of the delivery preview shown in the publish confirmation. */
+export type PublishDeliveryPreview =
+  | { status: 'loading' }
+  | { status: 'error' }
+  | { status: 'ready'; target: 'course_docente' | 'school_responsible' | null; courses: number; schools: number };
+
+/** GC-3c: the one line under «¿Publicar este template?». */
+export function publishDeliveryPreviewText(preview: PublishDeliveryPreview): string {
+  if (preview.status === 'loading') return 'Calculando cuántos cursos lo recibirán…';
+  if (preview.status === 'error') return 'No se pudo calcular cuántos cursos lo recibirán. Puede publicar igualmente.';
+  if (preview.target === 'course_docente' && preview.courses > 0) {
+    return `Al publicar, ${preview.courses} curso(s) con docente asignado recibirán este registro.`;
+  }
+  if (preview.target === 'school_responsible' && preview.schools > 0) {
+    return `Al publicar, ${preview.schools} escuela(s) con responsable asignado recibirán este registro.`;
+  }
+  return 'Por ahora ningún curso recibirá este registro; llegará cuando se asigne un docente o responsable.';
+}
+
 /**
  * Body for the duplicate route (which requires a name). «Duplicar» on a live
  * instrument makes a copy: «<name> (copia)». «Editar (Nueva Versión)» on an
@@ -272,6 +291,9 @@ const TemplateEditor: React.FC = () => {
   // to a grade-blind upgrade path and was removed (PROC-CONTAIN-01 A-01); the
   // publish API now rejects that flag with HTTP 409.
   const [publishStep, setPublishStep] = useState<null | 'confirm'>(null);
+  // GC-3c: how many courses will receive it; a newer request wins.
+  const [deliveryPreview, setDeliveryPreview] = useState<PublishDeliveryPreview>({ status: 'loading' });
+  const deliveryPreviewRequest = useRef(0);
 
   const requestConfirm = (key: string, onConfirm: () => void) => {
     setPendingConfirm({ key, onConfirm });
@@ -952,7 +974,29 @@ const TemplateEditor: React.FC = () => {
 
     // Open inline publish confirmation (step 1)
     setPublishStep('confirm');
+    void loadDeliveryPreview(template.id);
     return;
+  };
+
+  // GC-3c: never blocks «Sí, publicar»; only fills the line under the question.
+  const loadDeliveryPreview = async (templateId: string) => {
+    const requestId = ++deliveryPreviewRequest.current;
+    setDeliveryPreview({ status: 'loading' });
+    try {
+      const response = await fetch(`/api/admin/assessment-builder/templates/${templateId}/delivery-preview`);
+      if (!response.ok) throw new Error('preview failed');
+      const data = await response.json();
+      if (requestId !== deliveryPreviewRequest.current) return;
+      setDeliveryPreview({
+        status: 'ready',
+        target: data?.target === 'course_docente' || data?.target === 'school_responsible' ? data.target : null,
+        courses: Number(data?.courses) || 0,
+        schools: Number(data?.schools) || 0,
+      });
+    } catch {
+      if (requestId !== deliveryPreviewRequest.current) return;
+      setDeliveryPreview({ status: 'error' });
+    }
   };
 
   const executePublish = async () => {
@@ -1605,7 +1649,12 @@ const TemplateEditor: React.FC = () => {
                   {isAdmin && (
                     publishStep === 'confirm' ? (
                       <span className="flex items-center gap-2">
-                        <span className="text-xs text-gray-600">¿Publicar este template?</span>
+                        <span className="flex flex-col">
+                          <span className="text-xs text-gray-600">¿Publicar este template?</span>
+                          <span data-testid="publish-delivery-preview" className="text-xs text-gray-500">
+                            {publishDeliveryPreviewText(deliveryPreview)}
+                          </span>
+                        </span>
                         <button
                           data-testid="publish-confirm-btn"
                           onClick={() => executePublish()}

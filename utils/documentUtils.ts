@@ -86,7 +86,17 @@ export async function getWorkspaceDocuments(
     }
 
     // Apply sorting
-    const sortBy = filters.sort_by || 'created_at';
+    const SORT_COLUMNS: Record<string, string> = {
+      created_at: 'created_at',
+      name: 'title',
+      size: 'file_size',
+      downloads: 'download_count',
+      views: 'view_count',
+    };
+    const sortBy =
+      filters.sort_by && Object.prototype.hasOwnProperty.call(SORT_COLUMNS, filters.sort_by)
+        ? SORT_COLUMNS[filters.sort_by]
+        : 'created_at';
     const sortOrder = filters.sort_order || 'desc';
     documentsQuery = documentsQuery.order(sortBy, { ascending: sortOrder === 'asc' });
 

@@ -6,6 +6,8 @@ import { Dialog } from './Dialog';
  * ConfirmDialog: a question with two answers, the replacement of the browser's `confirm()`. The focus
  * starts on the CANCEL button, so an Enter pressed by habit does not confirm. Escape, the veil and the X
  * answer «cancel». While `loading` the window cannot be dismissed and the confirm button shows a spinner.
+ * The confirm button is the Button's `confirm` variant (black today, the yellow main action in the new
+ * look), or red with `tone="danger"` in both looks.
  *
  * `useConfirm()` turns it into a promise, for call sites that today read `if (!confirm(q)) return;`:
  *
@@ -31,6 +33,11 @@ export interface ConfirmDialogProps {
   onConfirm: () => void;
   onCancel: () => void;
   loading?: boolean;
+  /**
+   * Change it to ask another question in a window that stays open: the focus goes back to the cancel
+   * button, so an Enter meant for the old question does not confirm the new one. `useConfirm` sets it.
+   */
+  questionKey?: React.Key;
   'data-testid'?: string;
 }
 
@@ -45,9 +52,18 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
   loading = false,
+  questionKey,
   'data-testid': testId,
 }: ConfirmDialogProps) {
   const cancelRef = React.useRef<HTMLButtonElement>(null);
+  // On opening, the window itself puts the focus on cancel (`initialFocusRef`); a new question in a window
+  // that was already open is moved there here.
+  const asked = React.useRef<{ open: boolean; key: React.Key | undefined }>({ open: false, key: undefined });
+  React.useEffect(() => {
+    const before = asked.current;
+    asked.current = { open, key: questionKey };
+    if (open && before.open && before.key !== questionKey) cancelRef.current?.focus();
+  }, [open, questionKey]);
   return (
     <Dialog
       open={open}
@@ -71,7 +87,7 @@ export function ConfirmDialog({
             {cancelLabel}
           </Button>
           <Button
-            variant={tone === 'danger' ? 'danger' : 'primary'}
+            variant={tone === 'danger' ? 'danger' : 'confirm'}
             onClick={onConfirm}
             loading={loading}
             data-testid={testId ? `${testId}-confirm` : undefined}
@@ -98,12 +114,14 @@ export interface ConfirmOptions {
 /** The title used when `confirm` is given only a question, as `window.confirm(question)` is. */
 export const DEFAULT_CONFIRM_TITLE = 'Confirmar acción';
 
-type Pending = { options: ConfirmOptions; resolve: (answer: boolean) => void };
+type Pending = { options: ConfirmOptions; resolve: (answer: boolean) => void; key: number };
 
 /**
  * `confirm(question)` or `confirm({ title, message, tone, … })` opens a ConfirmDialog and resolves `true`
  * for confirm, `false` for every other way out (cancel, Escape, veil, X, a second `confirm` while one is
- * open, the component going away). Render `confirmDialog` once.
+ * open, the component going away). A `confirm` called after the component went away (an async handler
+ * that finishes after a navigation) resolves `false` at once. Every question starts with the focus on
+ * the cancel button, also one that replaces an open question. Render `confirmDialog` once.
  */
 export function useConfirm(testId?: string): {
   confirm: (question: string | ConfirmOptions) => Promise<boolean>;
@@ -111,6 +129,10 @@ export function useConfirm(testId?: string): {
 } {
   const [pending, setPending] = React.useState<Pending | null>(null);
   const pendingRef = React.useRef<Pending | null>(null);
+  const asked = React.useRef(0);
+  // Set when the component goes away, cleared when it (re)appears (React's strict mode mounts twice).
+  // Not "mounted" set in the effect: a child's effect runs before this one and may already ask.
+  const gone = React.useRef(false);
 
   const settle = React.useCallback((answer: boolean) => {
     const current = pendingRef.current;
@@ -119,13 +141,23 @@ export function useConfirm(testId?: string): {
     current?.resolve(answer);
   }, []);
 
-  React.useEffect(() => () => pendingRef.current?.resolve(false), []);
+  React.useEffect(() => {
+    gone.current = false;
+    return () => {
+      gone.current = true;
+      const current = pendingRef.current;
+      pendingRef.current = null;
+      current?.resolve(false);
+    };
+  }, []);
 
   const confirm = React.useCallback((question: string | ConfirmOptions) => {
+    if (gone.current) return Promise.resolve(false);
     const options: ConfirmOptions = typeof question === 'string' ? { title: DEFAULT_CONFIRM_TITLE, message: question } : question;
     return new Promise<boolean>((resolve) => {
       pendingRef.current?.resolve(false);
-      const next = { options, resolve };
+      asked.current += 1;
+      const next = { options, resolve, key: asked.current };
       pendingRef.current = next;
       setPending(next);
     });
@@ -142,6 +174,7 @@ export function useConfirm(testId?: string): {
       eyebrow={pending?.options.eyebrow}
       onConfirm={() => settle(true)}
       onCancel={() => settle(false)}
+      questionKey={pending?.key}
       data-testid={testId}
     />
   );

@@ -13,7 +13,7 @@ import { SpinnerMark } from './Loading';
  * keeps the focus (the button is not disabled).
  */
 
-export type ButtonVariant = 'primary' | 'default' | 'outline' | 'quiet' | 'danger' | 'danger-outline';
+export type ButtonVariant = 'primary' | 'default' | 'outline' | 'quiet' | 'danger' | 'danger-outline' | 'confirm';
 export type ButtonSize = 'md' | 'sm';
 
 const BASE = cx(
@@ -45,6 +45,13 @@ const VARIANT: Record<ButtonVariant, string> = {
   'danger-outline': cx(
     'border border-red-300 bg-white text-red-600 hover:bg-red-50',
     'nuevo:border-red-600/55 nuevo:bg-transparent nuevo:font-bold nuevo:text-red-600 nuevo:hover:bg-red-100'
+  ),
+  // The answer «yes» of a confirmation: black with white text in today's look (as the platform's own
+  // confirmation window), the yellow main action in the new look (as the approved sample sheet).
+  confirm: cx(
+    'bg-brand_primary text-white hover:bg-brand_gray_dark',
+    'nuevo:border-transparent nuevo:bg-brand_accent nuevo:bg-[linear-gradient(100deg,#fbbf24_30%,#f59e0b)] nuevo:font-extrabold nuevo:text-brand_primary',
+    'nuevo:hover:bg-brand_accent nuevo:hover:bg-none'
   ),
 };
 

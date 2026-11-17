@@ -30,13 +30,50 @@ export interface DialogProps {
   size?: DialogSize;
   /** `false`: Escape and the veil do not close it, and there is no X. Default `true`. */
   dismissable?: boolean;
-  /** The element that gets the focus on opening. Default: the first field or button of the body, then of the footer. */
+  /**
+   * The element that gets the focus on opening. Default: the first field or button of the body, then of
+   * the footer, that can take it (hidden, undisplayed, disabled and `tabindex="-1"` ones are skipped), then
+   * the X; if none takes it, the window itself.
+   */
   initialFocusRef?: React.RefObject<HTMLElement>;
   className?: string;
   'data-testid'?: string;
 }
 
-const FOCUSABLE = 'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE = [
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  'button:not([disabled])',
+  'a[href]',
+  '[contenteditable="true"]',
+  '[tabindex]',
+]
+  .map((selector) => `${selector}:not([tabindex="-1"])`)
+  .join(', ');
+
+/**
+ * Whether `element` can really take the focus: not a hidden input, not hidden or undisplayed (itself or a
+ * box around it, up to `within`), not disabled, not inert. `tabindex="-1"` is left to the caller: the
+ * automatic search skips it (FOCUSABLE), an `initialFocusRef` may point at it on purpose.
+ */
+function canTakeFocus(element: HTMLElement | null | undefined, within: HTMLElement | null): element is HTMLElement {
+  if (!element || !element.isConnected) return false;
+  if (element.matches(':disabled') || element.closest('[hidden], [inert]')) return false;
+  if (element instanceof HTMLInputElement && element.type === 'hidden') return false;
+  for (let node: HTMLElement | null = element; node; node = node.parentElement) {
+    const style = window.getComputedStyle(node);
+    if (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse') return false;
+    if (node === within) break;
+  }
+  return true;
+}
+
+/** The first element of `box` that can really take the focus. */
+function firstFocusable(box: HTMLElement | null, within: HTMLElement | null): HTMLElement | null {
+  if (!box) return null;
+  return Array.from(box.querySelectorAll<HTMLElement>(FOCUSABLE)).find((element) => canTakeFocus(element, within)) ?? null;
+}
 
 const VEIL = cx(
   'fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4',
@@ -100,13 +137,21 @@ export function Dialog({
               // Radix gives the focus back only to its own Trigger, which this piece does not use: the
               // element that had the focus when the window opened is remembered here instead.
               returnTo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-              const target =
-                initialFocusRef?.current ??
-                bodyRef.current?.querySelector<HTMLElement>(FOCUSABLE) ??
-                footerRef.current?.querySelector<HTMLElement>(FOCUSABLE) ??
-                closeRef.current ??
-                contentRef.current;
-              target?.focus();
+              const box = contentRef.current;
+              const wanted = initialFocusRef?.current;
+              const candidates = [
+                canTakeFocus(wanted, box) ? wanted : null,
+                firstFocusable(bodyRef.current, box),
+                firstFocusable(footerRef.current, box),
+                canTakeFocus(closeRef.current, box) ? closeRef.current : null,
+              ];
+              // The first that really takes it; else the window itself, never the page behind the veil.
+              const landed = candidates.some((candidate) => {
+                if (!candidate) return false;
+                candidate.focus();
+                return Boolean(box?.contains(document.activeElement));
+              });
+              if (!landed) box?.focus();
             }}
             onCloseAutoFocus={(event) => {
               event.preventDefault();

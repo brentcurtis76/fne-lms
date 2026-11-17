@@ -133,6 +133,11 @@ export const MANDATORY_SPECS = [
   // follow the arrow keys, the pagination changes the rows, the table stacks on a phone; a docente who
   // is not a tester is sent away.
   'tests/e2e/look-kit.spec.ts',
+  // REDESIGN 6B — the new «Mi Panel»: a tester gets the new panel with today's section titles, a
+  // course card opens with «Detalles» and its action goes to the course, a row's arrow moves it, the
+  // community bar opens, «Mi Perfil» shows on a phone, «Diseño actual» brings today's panel back; no
+  // footer link meets the feedback button at 1,024 px and 390 px.
+  'tests/e2e/look-panel.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

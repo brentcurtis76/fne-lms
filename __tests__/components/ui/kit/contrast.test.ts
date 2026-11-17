@@ -135,6 +135,22 @@ const PAIRS: Pair[] = [
   { what: 'Card: title', today: ['gray-900', 'white'], nuevo: ['brand_primary', 'white'] },
   { what: 'Spinner: label', today: ['gray-600', 'white'], nuevo: ['gray-600', 'white'] },
   { what: 'LoadingBlock: words', today: ['gray-500', 'white'], nuevo: ['gray-600', 'white'] },
+  // Redesign 6B: the new «Mi Panel» (components/panel/*Nuevo.tsx), drawn only in the new look. Its
+  // page background is the frame's gray-50. Text written at 80% white on the dark bands (the welcome
+  // band's lines, the numbers' eyebrow) is laid over its band, not over white: measured by hand in
+  // the 6B report (about 10.9:1 on brand_gray_dark and 12.6:1 on brand_primary); the full white is measured here.
+  { what: 'Panel 6B: section title on the page', nuevo: ['brand_primary', 'gray-50'] },
+  { what: 'Panel 6B: section line on the page', nuevo: ['gray-600', 'gray-50'] },
+  { what: 'Panel 6B: a card\'s secondary text', nuevo: ['gray-600', 'white'] },
+  { what: 'Panel 6B: a card\'s title', nuevo: ['brand_primary', 'white'] },
+  { what: 'Panel 6B: instructor, partner school, «Tú» (amber text)', nuevo: ['brand_accent_text', 'white'] },
+  { what: 'Panel 6B: welcome band, greeting and «Mi Perfil»', nuevo: ['white', 'brand_gray_dark'] },
+  { what: 'Panel 6B: «Educadores Activos» card', nuevo: ['white', 'brand_primary'] },
+  { what: 'Panel 6B: «Solicita ayuda con diseño instruccional»', nuevo: ['amber-700', 'amber-100'] },
+  { what: 'Panel 6B: a member\'s initial', nuevo: ['white', 'brand_primary'] },
+  { what: 'Panel 6B: the viewer\'s initial (yellow)', nuevo: ['brand_primary', 'brand_accent'] },
+  { what: 'Panel 6B: «+{n}» members', nuevo: ['gray-600', 'gray-100'] },
+  { what: 'Panel 6B: a row under the pointer', nuevo: ['brand_primary', 'gray-50'] },
 ];
 
 /** Icons and marks that carry meaning on their own: 3:1 (WCAG 1.4.11). */

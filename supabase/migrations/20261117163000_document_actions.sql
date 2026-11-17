@@ -12,7 +12,7 @@
 -- never with get_user_workspace_role, which picks one row when a person holds
 -- two roles in the same community.
 --
--- Add-only: five new functions.
+-- Add-only: five new functions; N139 narrows the two UPDATE rules (below).
 
 -- ---------------------------------------------------------------------------
 -- a. May the caller manage every document of this workspace?
@@ -239,3 +239,22 @@ GRANT EXECUTE ON FUNCTION public.hide_community_document(uuid) TO authenticated;
 
 COMMENT ON FUNCTION public.hide_community_document(uuid) IS
   'F12b EC-D2a: hides one active document the caller may manage (can_manage_community_document): sets is_active = false and updated_at, and adds one document_access_log row (document, caller, workspace, the access-log action for a removal). The row and the stored file stay. A missing, already hidden or not-manageable document raises not_allowed (42501).';
+
+-- ---------------------------------------------------------------------------
+-- N139: the two UPDATE rules of community_documents let the uploader or a
+-- leader change ANY column of the row by a direct request (point it at another
+-- stored file, change the uploader, move it to another workspace). Renaming,
+-- moving and hiding now go through the functions above, and the view and
+-- download counters through increment_document_counter (a definer function),
+-- so a direct update is narrowed to admins. Nothing else about the table's
+-- rules changes.
+-- ---------------------------------------------------------------------------
+ALTER POLICY "Users can update their own documents or leaders can update any"
+  ON public.community_documents
+  USING (public.auth_is_admin())
+  WITH CHECK (public.auth_is_admin());
+
+ALTER POLICY "Users can delete their own documents or leaders can delete any"
+  ON public.community_documents
+  USING (public.auth_is_admin())
+  WITH CHECK (public.auth_is_admin());

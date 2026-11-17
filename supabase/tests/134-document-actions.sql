@@ -18,13 +18,18 @@
 --      exists, one access-log row 'delete', a second hide is refused
 --   5. invalid title and folder refused, row unchanged; a folder of another
 --      workspace refused; NULL folder means "no folder"
+--   6. N139: a direct update of the table by the uploader, the leader or a
+--      member changes nothing, whatever the column; an admin's still works;
+--      the view counter (increment_document_counter) and an upload by a
+--      member still work. (Section 3 runs with the narrowed rules in place,
+--      so it also proves the functions still work for uploader and leader.)
 --
 -- Synthetic/local state only. Rolls back. DO NOT run against production.
 -- =============================================================================
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(118);
+SELECT plan(142);
 
 CREATE TEMP TABLE ids (p text PRIMARY KEY, id uuid) ON COMMIT DROP;
 GRANT SELECT ON ids TO anon, authenticated;
@@ -321,6 +326,47 @@ SELECT is(pg_temp.call_as('up1', format('SELECT public.move_community_document(%
 SELECT is(pg_temp.call_as('up1', format('SELECT public.rename_community_document(%L, %L)', (SELECT id FROM docs WHERE k = 'inv'), repeat('y', 200))) ||
           '|' || length(pg_temp.row_json((SELECT id FROM docs WHERE k = 'inv'))->>'title'),
           'ok|200', 'rename: a 200-character title is accepted');
+
+-- ---------------------------------------------------------------------------
+-- 6. N139: direct updates (7 columns × 3 people + 3 = 24)
+-- ---------------------------------------------------------------------------
+-- 'unchanged' when the row is byte-identical after the statement (refused or
+-- zero rows), 'changed' otherwise.
+CREATE OR REPLACE FUNCTION pg_temp.direct(p text, d uuid, set_clause text) RETURNS text AS $$
+DECLARE
+  b jsonb := pg_temp.row_json(d);
+  r text;
+BEGIN
+  r := pg_temp.call_as(p, format('UPDATE public.community_documents SET %s WHERE id = %L', set_clause, d));
+  RETURN CASE WHEN pg_temp.row_json(d) IS DISTINCT FROM b THEN 'changed' ELSE 'unchanged' END;
+END;
+$$ LANGUAGE plpgsql;
+INSERT INTO docs SELECT 'n139', pg_temp.new_doc('A', 'up1');
+CREATE TEMP TABLE cols (n int, set_clause text, label text) ON COMMIT DROP;
+INSERT INTO cols VALUES
+  (1, 'storage_path = ''documents/otro/archivo.pdf''',                    'storage_path (another stored file)'),
+  (2, format('uploaded_by = %L', pg_temp.uid('nobody')),                   'uploaded_by (another uploader)'),
+  (3, format('workspace_id = %L', pg_temp.ws('B')),                        'workspace_id (another workspace)'),
+  (4, 'title = ''Cambiado directo''',                                       'title'),
+  (5, format('folder_id = %L', pg_temp.folder('FA2')),                     'folder_id'),
+  (6, 'is_active = false',                                                  'is_active'),
+  (7, 'view_count = 999',                                                   'view_count');
+-- A fresh document of up1 for every statement, so no earlier statement has
+-- already written the value.
+SELECT is(pg_temp.direct(w.p, pg_temp.new_doc('A', 'up1'), c.set_clause), 'unchanged',
+          format('N139: a direct update of %s by %s changes nothing', c.label, w.who))
+  FROM (VALUES (1, 'up1', 'the uploader'), (2, 'leader', 'the community''s leader'), (3, 'up2', 'a member')) w(m, p, who)
+  CROSS JOIN cols c
+ ORDER BY w.m, c.n;
+SELECT is(pg_temp.direct('admin', (SELECT d.id FROM docs d WHERE d.k = 'n139'), 'title = ''Corregido por admin'''), 'changed',
+          'N139: an admin''s direct update still works');
+INSERT INTO docs SELECT 'n139c', pg_temp.new_doc('A', 'up1');
+SELECT is(pg_temp.call_as('up2', format('SELECT public.increment_document_counter(%L, ''view'', NULL)', (SELECT d.id FROM docs d WHERE d.k = 'n139c')))
+          || '|' || (pg_temp.row_json((SELECT d.id FROM docs d WHERE d.k = 'n139c'))->>'view_count'),
+          'ok|1', 'N139: increment_document_counter still counts a view by a plain member (0 → 1)');
+SELECT is(pg_temp.call_as('up2', format(
+            'INSERT INTO public.community_documents (workspace_id, title, file_name, file_size, mime_type, storage_path, uploaded_by) VALUES (%L, ''Subido'', ''subido.pdf'', 5, ''application/pdf'', ''documents/x/root/subido.pdf'', auth.uid())',
+            pg_temp.ws('A'))), 'ok', 'N139: an upload (INSERT) by a member still works');
 
 SELECT * FROM finish();
 ROLLBACK;

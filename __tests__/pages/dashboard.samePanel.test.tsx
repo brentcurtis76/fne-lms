@@ -20,7 +20,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   fakes, client, describeProps, settle, resetFakes, fakeFetch, NOW,
   admin, consultor, docente, fullDocente, withCommunity, twoCommunities, sessionFor, profile, MEMBERS,
-  STATS_BARE, STATS_NULLS, FULL_FETCH, badge, type Scenario,
+  STATS_BARE, STATS_NULLS, FULL_FETCH, badge, lessonDocente, type Scenario,
 } from '../helpers/panelFakes';
 import { installMatchMedia } from '../helpers/motionFake';
 
@@ -102,6 +102,12 @@ async function waitOpen() {
 
 type Course = { title: string; action: string; goesTo: string | undefined };
 
+/** The new view's course cards of a section (not their parts, whose test ids extend the card's). */
+const newCourseCards = (section: Element) =>
+  [...section.querySelectorAll('[data-testid^="panel-course-"]')].filter(
+    (el) => !/-(picture|action|details|details-toggle|difficulty|lessons)$/.test(el.getAttribute('data-testid') ?? '')
+  );
+
 async function courseRow(look: 'clasico' | 'nuevo', title: string, testId: string): Promise<Course[] | '«absent»'> {
   if (look === 'clasico') {
     const section = headingSection(title);
@@ -124,7 +130,7 @@ async function courseRow(look: 'clasico' | 'nuevo', title: string, testId: strin
   }
   const section = document.querySelector(`[data-testid="${testId}"]`);
   if (!section) return '«absent»';
-  const cards = [...section.querySelectorAll(`[data-testid^="panel-course-"]:not([data-testid*="-details"]):not([data-testid$="-action"]):not([data-testid$="-picture"])`)];
+  const cards = newCourseCards(section);
   const out: Course[] = [];
   for (const card of cards) {
     const button = card.querySelector('[data-testid$="-action"]') as HTMLElement;
@@ -135,6 +141,128 @@ async function courseRow(look: 'clasico' | 'nuevo', title: string, testId: strin
     out.push({ title: card.querySelector('h3')!.textContent!.trim(), action: button.textContent!.trim(), goesTo });
   }
   return out;
+}
+
+// ── An opened card, read as texts (6B, send-back 2) ──
+
+/**
+ * The texts of an element in reading order, consecutive text nodes of one element read as ONE text
+ * (`{x} de {n} lecciones` is four text nodes in today's markup and one in the new view's), each
+ * trimmed, the empty ones left out, the markers' insides skipped. `skip` leaves out a node.
+ */
+function texts(element: Element | null, skip: (node: Text) => boolean = () => false): string[] {
+  if (!element) return [];
+  const out: string[] = [];
+  let last: Text | null = null;
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+    if (node.parentElement?.closest('[data-marker]:not([data-marker="MainLayout"])') || skip(node)) {
+      last = null;
+      continue;
+    }
+    if (last && last.nextSibling === node) out[out.length - 1] += node.textContent ?? '';
+    else out.push(node.textContent ?? '');
+    last = node;
+  }
+  return out.map((text) => text.replace(/\s+/g, ' ').trim()).filter(Boolean);
+}
+
+/** Inside `container`: the text node is in it. */
+const inside = (container: Element | null) => (node: Text) => Boolean(container?.contains(node));
+
+/**
+ * THE ONE NAMED EXCEPTION of the opened course card: today's card prints a stray «0» for a course
+ * with zero lessons (`showsLessons` answers the number 0, which React prints). It is a text node «0»
+ * standing alone, the direct child of a `div` (the pills' row, and the card's body where the lesson
+ * line would be); every number today's card means to print sits in a `span` or a `p`. Exactly such a
+ * node is stripped from today's card, and nothing else.
+ */
+const isStrayZero = (node: Text) =>
+  node.textContent === '0' &&
+  node.parentElement?.tagName === 'DIV' &&
+  node.previousSibling?.nodeType !== Node.TEXT_NODE &&
+  node.nextSibling?.nodeType !== Node.TEXT_NODE;
+
+type OpenedCourse = {
+  title: string;
+  /** The course's picture: its images (`src`, `alt`) and the texts drawn on it (the generated thumbnail's, the state's). */
+  picture: { images: Array<[string | null, string | null]>; texts: string[] };
+  /** The thin bar's width, or null without a bar. */
+  bar: string | null;
+  /** Every other text of the opened card, sorted (the order inside a card is the new design's). */
+  texts: string[];
+};
+
+const imagesOf = (element: Element | null) =>
+  [...(element?.querySelectorAll('img') ?? [])].map((img): [string | null, string | null] => [img.getAttribute('src'), img.getAttribute('alt')]);
+
+/**
+ * Each course card of a row, OPENED: today's under the pointer (its 300 ms delay, waited for), the
+ * new one after «Detalles». What the new card adds by design is left out of its side and named:
+ * the word «Detalles»; the difficulty pill on its picture (the approved mock-up has it there and again
+ * among the opened pills); and the percentage it prints beside its bar when today's card shows no
+ * lesson line (the mock-up has the figure with the bar; the bar itself is compared by its width).
+ */
+async function openedCourses(look: 'clasico' | 'nuevo', title: string, testId: string): Promise<OpenedCourse[] | '«absent»'> {
+  if (look === 'clasico') {
+    const section = headingSection(title);
+    if (!section) return '«absent»';
+    const cards = [...section.querySelector('.overflow-x-auto')!.children].map((wrapper) => wrapper.firstElementChild as HTMLElement);
+    cards.forEach((card) => fireEvent.mouseEnter(card));
+    await waitOpen();
+    const out = cards.map(readTodayCourse);
+    cards.forEach((card) => fireEvent.mouseLeave(card));
+    return out;
+  }
+  const section = document.querySelector(`[data-testid="${testId}"]`);
+  if (!section) return '«absent»';
+  const cards = newCourseCards(section);
+  for (const card of cards) await openNewCard(card);
+  return cards.map(readNewCourse);
+}
+
+/** Opens a new card's «Detalles» (when it is closed). */
+async function openNewCard(card: Element) {
+  const toggle = card.querySelector('[data-testid$="-details-toggle"]') as HTMLElement | null;
+  if (!toggle || toggle.getAttribute('aria-expanded') === 'true') return;
+  await act(async () => {
+    fireEvent.click(toggle);
+  });
+}
+
+/** Today's course card (the root of `NetflixCourseCard`), read once opened. */
+function readTodayCourse(card: Element): OpenedCourse {
+  const picture = card.firstElementChild!.firstElementChild!;
+  const bar = picture.querySelector<HTMLElement>('[style*="width"]');
+  return {
+    title: card.querySelector('h3')!.textContent!.trim(),
+    picture: { images: imagesOf(picture), texts: texts(picture).sort() },
+    bar: bar ? bar.style.width : null,
+    texts: texts(card, (node) => inside(picture)(node) || isStrayZero(node)).sort(),
+  };
+}
+
+/** The new course card (the root of `CourseCardNuevo`), read once «Detalles» is open. */
+function readNewCourse(card: Element): OpenedCourse {
+  const picture = card.querySelector('[data-testid$="-picture"]')!;
+  const pill = picture.querySelector('[data-testid$="-difficulty"]');
+  const progressbar = card.querySelector('[role="progressbar"]');
+  const bar = progressbar?.querySelector<HTMLElement>('[style*="width"]') ?? null;
+  const barBlock = progressbar?.parentElement ?? null;
+  const barHasLessonLine = texts(barBlock).some((text) => text.includes('lecciones'));
+  const toggle = card.querySelector('[data-testid$="-details-toggle"]');
+  return {
+    title: card.querySelector('h3')!.textContent!.trim(),
+    picture: { images: imagesOf(picture), texts: texts(picture, inside(pill)).sort() },
+    bar: bar ? bar.style.width : null,
+    texts: texts(
+      card,
+      (node) =>
+        inside(picture)(node) ||
+        inside(toggle)(node) ||
+        (!barHasLessonLine && inside(barBlock)(node) && /^\d+%?$|^%$/.test(node.textContent ?? ''))
+    ).sort(),
+  };
 }
 
 async function routes(look: 'clasico' | 'nuevo') {
@@ -412,6 +540,34 @@ describe('the same panel in both views (6B)', () => {
       expect(nuevo).toEqual(today);
     });
   }
+
+  it('the opened course cards: the lesson line and its percentage under today\'s condition (send-back 2)', async () => {
+    const read = async (look: 'clasico' | 'nuevo') => {
+      resetFakes();
+      fakes.scenario = lessonDocente();
+      fakes.look = look;
+      const view = render(<Dashboard />);
+      await settle();
+      const got = {
+        continue: await openedCourses(look, 'Continuar Aprendiendo', 'panel-section-continue'),
+        open: await openedCourses(look, 'Mis Cursos Abiertos', 'panel-section-open'),
+      };
+      view.unmount();
+      return got;
+    };
+    const today = await read('clasico');
+    const nuevo = await read('nuevo');
+    expect(nuevo).toEqual(today);
+    // The comparison sees the two cases: lessons without progress, progress without lessons.
+    const byTitle = (rows: typeof today) =>
+      Object.fromEntries([...(rows.continue as OpenedCourse[]), ...(rows.open as OpenedCourse[])].map((c) => [c.title, c]));
+    const cards = byTitle(today);
+    expect(cards['Curso con Lecciones sin Avance'].texts).toEqual(expect.arrayContaining(['0 de 10 lecciones', '0%', '10 lecciones']));
+    expect(cards['Curso con Lecciones sin Avance'].bar).toBeNull();
+    expect(cards['Curso sin Lecciones con Avance'].bar).toBe('70%');
+    expect(cards['Curso sin Lecciones con Avance'].texts.some((t) => t.includes('lecciones'))).toBe(false);
+    expect(cards['Curso Abierto con Lecciones'].texts).toEqual(expect.arrayContaining(['0 de 4 lecciones', '0%']));
+  });
 
   it('the comparison reads something: an account with everything has every part', async () => {
     const today = await whatAPersonGets(() => admin(), 'clasico');

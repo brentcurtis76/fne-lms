@@ -483,6 +483,48 @@ export function fullDocente(over: Partial<Scenario> = {}): Scenario {
   });
 }
 
+/**
+ * A docente whose courses exercise the opened course card's conditions (6B, send-back 2): lessons
+ * with and without progress, progress without lessons, five objectives and two, a duration under an
+ * hour, a course without a relator (the hook names it «Sin instructor»), no description. The lesson
+ * counts ride on the course rows the fake hands back (the page spreads them into its courses).
+ */
+export const LESSON_ASSIGNMENTS = [
+  assigned('course-l1', 'Curso con Lecciones sin Avance', {
+    total_lessons: 10,
+    lessons_completed: 0,
+    estimated_duration_hours: 6,
+    difficulty_level: 'beginner',
+    learning_objectives: ['Uno', 'Dos', 'Tres', 'Cuatro', 'Cinco'],
+  }),
+  assigned('course-l2', 'Curso sin Lecciones con Avance', { total_lessons: 0, instructors: null, description: null }),
+  assigned('course-l3', 'Curso con Lecciones y Avance', {
+    total_lessons: 10,
+    lessons_completed: 7,
+    estimated_duration_hours: 0.5,
+    difficulty_level: 'advanced',
+    learning_objectives: ['Uno', 'Dos'],
+  }),
+  assigned('course-l4', 'Curso Abierto con Lecciones', { total_lessons: 4, difficulty_level: 'intermediate' }),
+  assigned('course-l5', 'Curso Abierto sin Lecciones', { total_lessons: 0, thumbnail_url: 'default-thumbnail.png' }),
+];
+export const LESSON_ENROLMENTS = [
+  { course_id: 'course-l1', progress_percentage: 0, is_completed: false, enrolled_at: '2026-10-05T10:00:00Z' },
+  { course_id: 'course-l2', progress_percentage: 70, is_completed: false, enrolled_at: '2026-10-02T10:00:00Z' },
+  { course_id: 'course-l3', progress_percentage: 70, is_completed: false, enrolled_at: '2026-10-03T10:00:00Z' },
+];
+
+export function lessonDocente(over: Partial<Scenario> = {}): Scenario {
+  return docente({
+    tables: {
+      profiles: [{ data: profile(), error: null }],
+      course_assignments: [{ data: LESSON_ASSIGNMENTS, error: null }],
+      course_enrollments: [{ data: LESSON_ENROLMENTS, error: null }],
+    },
+    ...over,
+  });
+}
+
 export function consultor(over: Partial<Scenario> = {}): Scenario {
   return docente({
     session: sessionFor('user-consultor', {}),

@@ -75,7 +75,7 @@ export function CourseCardNuevo({
           />
         )}
         {difficulty && (
-          <Badge tone="neutral" plain className="absolute left-2.5 top-2.5">
+          <Badge tone="neutral" plain className="absolute left-2.5 top-2.5" data-testid={`${testId}-difficulty`}>
             {difficulty}
           </Badge>
         )}
@@ -117,6 +117,7 @@ export function CourseCardNuevo({
               />
             </div>
             <p className="flex justify-between text-[0.8125rem] text-gray-600">
+              {/* The lesson line on the card's face, beside the bar, when today's card shows it */}
               <span>{lessons && `${enrollment?.lessons_completed || 0} de ${enrollment?.total_lessons} lecciones`}</span>
               <span>{percent}%</span>
             </p>
@@ -169,6 +170,14 @@ export function CourseCardNuevo({
                   </span>
                 )}
               </div>
+            )}
+            {/* Today's card shows the lesson line and its percentage under `showsLessons` alone; with no
+                bar on the face (no progress), they are here, once the card is opened. */}
+            {lessons && !progress && (
+              <p className="flex justify-between text-[0.8125rem] text-gray-600" data-testid={`${testId}-lessons`}>
+                <span>{`${enrollment?.lessons_completed || 0} de ${enrollment?.total_lessons} lecciones`}</span>
+                <span>{percent}%</span>
+              </p>
             )}
             {Boolean(showsAssignments(enrollment)) && (
               <p className="flex items-center gap-1 text-xs text-gray-600">

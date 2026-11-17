@@ -19,6 +19,13 @@
  * name (or `all`): the text is written the same way and the digests file is rewritten for that
  * case. Nothing is ever accepted without that variable.
  *
+ * The pin does not depend on the machine (send-back 1): the time zone is fixed to UTC below before
+ * any date is made or drawn, and every number the page writes with `toLocaleString()` in a digested
+ * case stays below 1,000 (the thousands case is checked apart, against what `toLocaleString()` gives
+ * on the machine that runs it). PANEL_CLASICO_PAGE, when set, names another copy of the page to
+ * render instead of `pages/dashboard.tsx` (a module id such as `@/pages/dashboard.before`): it is
+ * how a new digest is shown to be produced by the page as it was before 6A too.
+ *
  * Every person, school, community and address below is invented. Components the page only places
  * are replaced by markers that print the props the page gives them, so their own data calls stay
  * out while what the page hands them is pinned.
@@ -34,12 +41,19 @@ import { getSerializers } from '@vitest/snapshot';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+// The machine's time zone must not reach the digests: fixed before anything else runs. Node reads
+// a change of `process.env.TZ` at run time; the pin's own runs under five zones and languages show
+// it holds here (see the send-back 1 report).
+vi.hoisted(() => {
+  process.env.TZ = 'UTC';
+});
+
 // ── The pin: Vitest's own snapshot serialisation, kept as one digest per case. ──
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DIGESTS_FILE = join(HERE, 'dashboard.clasico.digests.json');
 const DIGESTS: Record<string, string> = JSON.parse(readFileSync(DIGESTS_FILE, 'utf8'));
-const CASES = 36;
+const CASES = 37;
 
 // The pretty-format copy that Vitest's snapshot package itself uses (not the project's older one).
 const fromSnapshotPackage = createRequire(createRequire(import.meta.url).resolve('@vitest/snapshot/package.json'));
@@ -156,8 +170,9 @@ function log(entry: unknown) {
 }
 const S = (): Scenario => mocks.scenario as Scenario;
 
-mocks.router.push = vi.fn((url: unknown) => {
-  log({ 'router.push': url });
+// Every argument after the address is written down too (today the page passes none).
+mocks.router.push = vi.fn((url: unknown, ...rest: unknown[]) => {
+  log(rest.length === 0 ? { 'router.push': url } : { 'router.push': url, rest });
   return Promise.resolve(true);
 });
 mocks.router.replace = vi.fn((url: unknown) => {
@@ -194,27 +209,35 @@ function query(table: string): any {
   return q;
 }
 
+/**
+ * An auth call is written as its bare name when it is given no argument (as today), and with every
+ * argument it was given otherwise, so an argument added to the call changes the log.
+ */
+function logAuth(name: string, args: unknown[]) {
+  log(args.length === 0 ? name : { [name]: args });
+}
+
 // One client object for the whole file: the page's effects list it as a dependency, as in the app.
 const client: any = {
   auth: {
-    getSession: vi.fn(() => {
-      log('auth.getSession');
+    getSession: vi.fn((...args: unknown[]) => {
+      logAuth('auth.getSession', args);
       return Promise.resolve({ data: { session: S().session }, error: null });
     }),
-    getUser: vi.fn(() => {
-      log('auth.getUser');
+    getUser: vi.fn((...args: unknown[]) => {
+      logAuth('auth.getUser', args);
       const how = S().getUser;
       if (how === 'pending') return new Promise(() => {});
       if (how === 'throw') return Promise.reject(new Error('Synthetic loader failure'));
       if (how && typeof how === 'object') return Promise.resolve({ data: { user: null }, error: how.error });
       return Promise.resolve({ data: { user: S().session?.user ?? null }, error: null });
     }),
-    refreshSession: vi.fn(() => {
-      log('auth.refreshSession');
+    refreshSession: vi.fn((...args: unknown[]) => {
+      logAuth('auth.refreshSession', args);
       return Promise.resolve(S().refresh ?? { data: { session: null }, error: { message: 'no refresh' } });
     }),
-    signOut: vi.fn(() => {
-      log('auth.signOut');
+    signOut: vi.fn((...args: unknown[]) => {
+      logAuth('auth.signOut', args);
       return Promise.resolve({ error: null });
     }),
   },
@@ -338,7 +361,8 @@ vi.mock('@/components/badges', () => ({ BadgesSection: marker('BadgesSection') }
 vi.mock('@/components/community/WorkspaceSettingsModal', () => ({ default: marker('WorkspaceSettingsModal') }));
 vi.mock('@/components/community/MemberProfileModal', () => ({ MemberProfileModal: marker('MemberProfileModal') }));
 
-import Dashboard from '@/pages/dashboard';
+const PAGE = process.env.PANEL_CLASICO_PAGE || '@/pages/dashboard';
+const { default: Dashboard } = (await import(/* @vite-ignore */ PAGE)) as { default: React.ComponentType };
 import { getExternalSchoolLabel } from '@/constants/externalSchools';
 import { canEditWorkspaceWithRoles } from '@/lib/services/communityWorkspace';
 import { metadataHasRole } from '@/utils/roleUtils';
@@ -353,8 +377,18 @@ const EMPTY: Record<string, unknown> = {
   '/api/learning-paths/my-paths': [],
 };
 
-function fakeFetch(url: string, init?: { headers?: unknown }) {
-  log({ fetch: url, headers: init?.headers ?? '«none»' });
+/**
+ * Each call is written with its address and headers, as today; and with its WHOLE second argument
+ * (and any further one) as soon as that holds anything but `headers` alone (a `method`, a `body`,
+ * `credentials`, `cache`, an empty object), so an option added to a call changes the log.
+ */
+function fakeFetch(url: string, ...args: unknown[]) {
+  const init = args[0] as Record<string, unknown> | undefined;
+  const entry: Record<string, unknown> = { fetch: url, headers: init?.headers ?? '«none»' };
+  const headersOnly = init !== undefined && Object.keys(init).length === 1 && 'headers' in init;
+  if (args.length > 0 && !headersOnly) entry.init = describeProps(init as any);
+  if (args.length > 1) entry.more = describeProps({ args: args.slice(1) });
+  log(entry);
   const answer: Answer = S().fetch?.[url] ?? { status: 200, body: EMPTY[url] };
   if (answer === 'reject') return Promise.reject(new TypeError('Synthetic network failure'));
   if (answer === 'pending') return new Promise(() => {});
@@ -524,8 +558,9 @@ const VIDEOS = {
   ],
 };
 
+// Below 1,000 so that `toLocaleString()` writes it the same in every language (send-back 1).
 const STATS_FULL = {
-  totalUsers: 1234,
+  totalUsers: 987,
   statsLabel: 'Estadísticas de tu Colegio',
   mostCompletedCourse: {
     id: 'course-d1',
@@ -1028,6 +1063,28 @@ describe("today's panel: behaviour", () => {
     await settle();
   });
 
+  it('19c. the arrival toast: not at 99 ms, at 100 ms (fake timers)', async () => {
+    // The clock of `beforeEach` fakes `Date` only; it is put back and installed again with timers.
+    vi.useRealTimers();
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    vi.setSystemTime(NOW);
+    window.sessionStorage.setItem('fne-password-change-success', 'true');
+    mocks.scenario = docente({ getUser: 'pending' });
+    await act(async () => {
+      render(<Dashboard />);
+    });
+    const toasts = () => mocks.log.filter((e: any) => e?.toastSuccess);
+    expect(toasts()).toEqual([]);
+    await act(async () => {
+      vi.advanceTimersByTime(99);
+    });
+    expect(toasts()).toEqual([]);
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(toasts()).toEqual([{ toastSuccess: 'Contraseña actualizada exitosamente' }]);
+  });
+
   it('19b. no arrival toast without the key', async () => {
     window.sessionStorage.setItem('fne-password-change-success', 'false');
     mocks.scenario = docente();
@@ -1070,6 +1127,33 @@ describe("today's panel: behaviour", () => {
       { 'router.push': '/student/course/abc' },
       { 'router.push': '/mi-aprendizaje/ruta/path-2' },
     ]);
+  });
+
+  it('4c. a number in the thousands is written as this machine writes it (not digested)', async () => {
+    await draw(fullDocente({ fetch: { ...FULL_FETCH, '/api/dashboard/stats': { body: { ...STATS_FULL, totalUsers: 1234 } } } }));
+    const card = screen.getByText('Educadores Activos').parentElement!;
+    expect(card.querySelector('p.text-5xl')!.textContent).toBe((1234).toLocaleString());
+  });
+
+  pinned('23. the session changes after the first load: the loader runs again for the new person', async () => {
+    await draw(docente());
+    const first = markup();
+    mocks.scenario = docente({
+      session: sessionFor('user-docente-dos', { roles: ['docente'] }),
+      tables: {
+        profiles: [{ data: profile({ first_name: 'Rosa', last_name: 'Segunda' }), error: null }],
+        course_assignments: [{ data: [], error: null }],
+      },
+      roles: [role({ id: 'role-dos', user_id: 'user-docente-dos' })],
+    });
+    await act(async () => {
+      view.rerender(<Dashboard />);
+    });
+    await settle();
+    expect(client.auth.getUser).toHaveBeenCalledTimes(2);
+    expect(mocks.log).toContainEqual({ supabase: 'profiles', ops: expect.arrayContaining([['eq', 'id', 'user-docente-dos']]) });
+    expect(screen.getByText(/¡Hola, Rosa!/)).toBeTruthy();
+    return [first, markup(), theLog()];
   });
 
   pinned('22a. the order of everything asked on load: admin', async () => {

@@ -4,6 +4,7 @@ import { Calendar, DollarSign, TrendingUp, AlertCircle, CheckCircle, Upload, Che
 import UFService from '../../lib/uf-service';
 import { toast } from 'react-hot-toast';
 import { invoiceUploadColumns } from '../../lib/contracts/invoice-path';
+import { openInvoiceInNewTab } from '../../lib/contracts/open-invoice';
 
 interface Cuota {
   id: string;
@@ -357,23 +358,8 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
     if (openingInvoice) return;
     setOpeningInvoice(cuotaId);
     try {
-      let url: string | null = null;
-      try {
-        const response = await fetch('/api/contracts/invoice-link?cuotaId=' + encodeURIComponent(cuotaId), {
-          credentials: 'same-origin'
-        });
-        if (response.ok) {
-          const body = await response.json();
-          if (typeof body?.url === 'string' && body.url) url = body.url;
-        }
-      } catch (error) {
-        console.error('Error requesting invoice link:', error instanceof Error ? error.message : 'unknown');
-      }
-      if (url) {
-        window.open(url, '_blank');
-      } else {
-        toast.error('No se pudo abrir la factura');
-      }
+      // Reserves the tab during the click (lib/contracts/open-invoice.ts).
+      await openInvoiceInNewTab(cuotaId, toast.error);
     } finally {
       setOpeningInvoice(null);
     }

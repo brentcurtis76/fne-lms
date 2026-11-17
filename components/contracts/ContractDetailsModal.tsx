@@ -3,6 +3,7 @@ import { X, FileText, Calendar, DollarSign, MapPin, User, Building, CreditCard, 
 import HourAllocationPanel from './HourAllocationPanel';
 import { isFirmaPendiente } from '../../lib/utils/contract-status';
 import { toast } from 'react-hot-toast';
+import { openInvoiceInNewTab } from '../../lib/contracts/open-invoice';
 
 interface Programa {
   id: string;
@@ -335,22 +336,23 @@ export default function ContractDetailsModal({
     if (openingInvoice) return;
     setOpeningInvoice(key);
     try {
+      if (mode === 'view') {
+        // Reserves the tab during the click (lib/contracts/open-invoice.ts).
+        await openInvoiceInNewTab(cuota.id, toast.error);
+        return;
+      }
       const url = await getInvoiceLink(cuota.id);
       if (!url) {
         toast.error('No se pudo abrir la factura');
         return;
       }
-      if (mode === 'view') {
-        window.open(url, '_blank');
-      } else {
-        // The receipts' download behaviour (ExpenseReportDetails), in a new tab.
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = cuota.factura_filename || 'factura';
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.click();
-      }
+      // The receipts' download behaviour (ExpenseReportDetails), in a new tab.
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = cuota.factura_filename || 'factura';
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.click();
     } finally {
       setOpeningInvoice(null);
     }

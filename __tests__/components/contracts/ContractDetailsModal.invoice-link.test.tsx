@@ -96,12 +96,14 @@ const okResponse = () => ({ ok: true, json: async () => ({ url: SIGNED, expiresI
 
 let fetchMock: ReturnType<typeof vi.fn>;
 let openMock: ReturnType<typeof vi.fn>;
+let reservedTab: { opener: unknown; location: { href: string }; close: ReturnType<typeof vi.fn> };
 
 beforeEach(() => {
   vi.clearAllMocks();
   fetchMock = vi.fn(async () => okResponse());
   vi.stubGlobal('fetch', fetchMock);
-  openMock = vi.fn();
+  reservedTab = { opener: {}, location: { href: '' }, close: vi.fn() };
+  openMock = vi.fn(() => reservedTab);
   vi.stubGlobal('open', openMock);
   window.open = openMock as any;
 });
@@ -124,11 +126,11 @@ describe('ContractDetailsModal — invoices open through the link route', () => 
     const user = userEvent.setup();
     renderModal();
     await user.click(screen.getByTitle('Ver factura'));
-    await waitFor(() => expect(openMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(reservedTab.location.href).toBe(SIGNED));
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toBe(`/api/contracts/invoice-link?cuotaId=${CUOTA}`);
-    expect(openMock.mock.calls[0][0]).toBe(SIGNED);
-    expect(openMock.mock.calls[0][1]).toBe('_blank');
+    expect(openMock).toHaveBeenCalledTimes(1);
+    expect(openMock).toHaveBeenCalledWith('', '_blank');
     expect(mockToastError).not.toHaveBeenCalled();
   });
 
@@ -158,13 +160,13 @@ describe('ContractDetailsModal — invoices open through the link route', () => 
     await waitFor(() => expect(screen.getByTestId(`invoice-view-${CUOTA}`)).toBeDisabled());
     answer(okResponse());
     await waitFor(() => expect(screen.getByTestId(`invoice-view-${CUOTA}`)).not.toBeDisabled());
-    expect(openMock).toHaveBeenCalledWith(SIGNED, '_blank');
+    expect(reservedTab.location.href).toBe(SIGNED);
   });
 
   it.each([
     ['a refused request', () => ({ ok: false, json: async () => ({ error: 'Factura no encontrada' }) })],
     ['a network failure', () => Promise.reject(new Error('offline'))],
-  ])('%s → toast «No se pudo abrir la factura», nothing opened', async (_l, answer) => {
+  ])('%s → toast «No se pudo abrir la factura», the reserved tab is closed, nothing opened', async (_l, answer) => {
     const user = userEvent.setup();
     fetchMock.mockImplementation(answer as any);
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
@@ -173,7 +175,40 @@ describe('ContractDetailsModal — invoices open through the link route', () => 
     await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('No se pudo abrir la factura'));
     await user.click(screen.getByTitle('Descargar factura'));
     await waitFor(() => expect(mockToastError).toHaveBeenCalledTimes(2));
-    expect(openMock).not.toHaveBeenCalled();
+    expect(reservedTab.close).toHaveBeenCalledTimes(1);
+    expect(reservedTab.location.href).toBe('');
     expect(clickSpy).not.toHaveBeenCalled();
+  });
+});
+
+// GES-1.4 (F2c, send-back 1): the new tab is reserved DURING the click, so a
+// slow link request cannot leave the browser blocking a late window.open.
+describe('ContractDetailsModal — «Ver factura» reserves the tab during the click', () => {
+  const BLOCKED = 'El navegador bloqueó la ventana. Permite las ventanas emergentes para ver la factura.';
+
+  it('a late window.open is blocked: the reserved tab is sent to the answered link', async () => {
+    const user = userEvent.setup();
+    const tab = { opener: {} as unknown, location: { href: '' }, close: vi.fn() };
+    let resolved = false;
+    fetchMock.mockImplementation(async () => {
+      resolved = true;
+      return okResponse();
+    });
+    openMock.mockImplementation((url?: string) => (!url && !resolved ? tab : null));
+    renderModal();
+    await user.click(screen.getByTitle('Ver factura'));
+    await waitFor(() => expect(tab.location.href).toBe(SIGNED));
+    expect(tab.opener).toBeNull();
+    expect(tab.close).not.toHaveBeenCalled();
+    expect(mockToastError).not.toHaveBeenCalled();
+  });
+
+  it('pop-ups blocked outright: the person is told, and no request is made', async () => {
+    const user = userEvent.setup();
+    openMock.mockImplementation(() => null);
+    renderModal();
+    await user.click(screen.getByTitle('Ver factura'));
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith(BLOCKED));
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

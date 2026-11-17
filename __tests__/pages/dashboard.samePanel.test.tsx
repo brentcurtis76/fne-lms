@@ -23,6 +23,9 @@ import {
   STATS_BARE, STATS_NULLS, FULL_FETCH, badge, lessonDocente, type Scenario,
 } from '../helpers/panelFakes';
 import { installMatchMedia } from '../helpers/motionFake';
+import { NetflixCourseCard } from '@/components/courses/NetflixCourseCard';
+import { CourseCardNuevo } from '@/components/panel/CourseCardNuevo';
+import type { CourseWithEnrollment, NetflixCourseCardProps } from '@/types/courses';
 
 vi.hoisted(() => {
   process.env.TZ = 'UTC';
@@ -94,7 +97,9 @@ async function lastPushOf(click: () => void): Promise<string | undefined> {
   return after.length > before ? after[after.length - 1] : undefined;
 }
 
-async function waitOpen() {
+/** Waits out today's cards' 300 ms opening delay (nothing to wait for when no card was hovered). */
+async function waitOpen(hovered = 1) {
+  if (hovered === 0) return;
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 320));
   });
@@ -115,7 +120,7 @@ async function courseRow(look: 'clasico' | 'nuevo', title: string, testId: strin
     const scroller = section.querySelector('.overflow-x-auto')!;
     const cards = [...scroller.children].map((wrapper) => wrapper.firstElementChild as HTMLElement);
     cards.forEach((card) => fireEvent.mouseEnter(card));
-    await waitOpen();
+    await waitOpen(cards.length);
     const out: Course[] = [];
     for (const card of cards) {
       const button = card.querySelector('button')!;
@@ -209,7 +214,7 @@ async function openedCourses(look: 'clasico' | 'nuevo', title: string, testId: s
     if (!section) return '«absent»';
     const cards = [...section.querySelector('.overflow-x-auto')!.children].map((wrapper) => wrapper.firstElementChild as HTMLElement);
     cards.forEach((card) => fireEvent.mouseEnter(card));
-    await waitOpen();
+    await waitOpen(cards.length);
     const out = cards.map(readTodayCourse);
     cards.forEach((card) => fireEvent.mouseLeave(card));
     return out;
@@ -263,6 +268,97 @@ function readNewCourse(card: Element): OpenedCourse {
         (!barHasLessonLine && inside(barBlock)(node) && /^\d+%?$|^%$/.test(node.textContent ?? ''))
     ).sort(),
   };
+}
+
+// ── Opened upcoming cards, the pictures, the links and buttons (6B, send-back 2, point 4) ──
+
+/**
+ * Each upcoming card OPENED: today's under the pointer, the new one after «Detalles». Left out of the
+ * new side, by design: «Detalles», and the month (or «Fecha por confirmar») the new card keeps on its
+ * face beside «Disponible en …» (as the approved mock-up shows).
+ */
+async function openedUpcoming(look: 'clasico' | 'nuevo') {
+  if (look === 'clasico') {
+    const section = headingSection('Próximos Cursos');
+    if (!section) return '«absent»';
+    const cards = [...section.querySelector('.overflow-x-auto')!.children].map((wrapper) => wrapper.firstElementChild as HTMLElement);
+    cards.forEach((card) => fireEvent.mouseEnter(card));
+    await waitOpen(cards.length);
+    const out = cards.map((card) => ({ images: imagesOf(card), texts: texts(card).sort() }));
+    cards.forEach((card) => fireEvent.mouseLeave(card));
+    return out;
+  }
+  const section = document.querySelector('[data-testid="panel-section-upcoming"]');
+  if (!section) return '«absent»';
+  const cards = [...section.querySelectorAll('[data-testid^="panel-upcoming-"]')].filter(
+    (el) => !/-(details|details-toggle|date)$/.test(el.getAttribute('data-testid') ?? '')
+  );
+  for (const card of cards) await openNewCard(card);
+  return cards.map((card) => {
+    const toggle = card.querySelector('[data-testid$="-details-toggle"]');
+    const date = card.querySelector('[data-testid$="-date"]');
+    return { images: imagesOf(card), texts: texts(card, (node) => inside(toggle)(node) || inside(date)(node)).sort() };
+  });
+}
+
+/** Every picture of the page at rest (nothing opened), as «src | alt», sorted. */
+const pictures = () =>
+  [...document.querySelectorAll('img')]
+    .filter((img) => !img.closest('[data-marker]:not([data-marker="MainLayout"])'))
+    .map((img) => `${img.getAttribute('src')} | ${img.getAttribute('alt')}`)
+    .sort();
+
+/** What the signed-in person's avatar is drawn from (its frame is each design's own). */
+function avatarProps() {
+  const { className: _className, ...rest } = fakes.props.Avatar ?? {};
+  void _className;
+  return describeProps(rest);
+}
+
+/** An element's accessible name, as a person hears it: its label, else its texts, else its title. */
+const nameOf = (el: Element) => el.getAttribute('aria-label') || texts(el).join(' ') || el.getAttribute('title') || '';
+
+/**
+ * THE LINKS AND BUTTONS of a view, with everything opened (today's cards under the pointer, the new
+ * ones after «Detalles», the community bar as `communityOf` left it): each `a` and `button` by kind,
+ * accessible name, address and new tab, sorted. Left out, and only these (the brief's list): the new
+ * view's «Detalles» buttons, the course pictures' links (approved change 4) and the route cards'
+ * links (approved change 6; today's route card is a clickable box, compared by `routes`), and the
+ * row arrows «Desplazar izquierda» / «Desplazar derecha» on both sides (today's course rows have
+ * them too; the new view shows them only when a row holds more than fits, which jsdom never
+ * measures). «Mi Perfil» is the brief's last exception: it is present in both markups here (today's
+ * hides it from sight under 640 px by a class), so it is compared, not left out.
+ */
+async function controls(look: 'clasico' | 'nuevo') {
+  if (look === 'clasico') {
+    const cards = [...document.querySelectorAll('.overflow-x-auto > div > :first-child')];
+    cards.forEach((card) => fireEvent.mouseEnter(card));
+    await waitOpen(cards.length);
+  } else {
+    for (const toggle of [...document.querySelectorAll('[data-testid$="-details-toggle"]')]) {
+      await openNewCard(toggle.closest('[data-testid^="panel-course-"], [data-testid^="panel-upcoming-"]')!);
+    }
+  }
+  const isException = (el: Element) => {
+    const id = el.getAttribute('data-testid') ?? '';
+    const name = el.getAttribute('aria-label') ?? '';
+    if (name === 'Desplazar izquierda' || name === 'Desplazar derecha') return true;
+    if (look === 'clasico') return false;
+    return /-details-toggle$/.test(id) || /^panel-course-.*-picture$/.test(id) || (el.tagName === 'A' && /^panel-route-/.test(id));
+  };
+  return [...document.querySelectorAll('a, button')]
+    .filter((el) => !el.closest('[data-marker]:not([data-marker="MainLayout"])') && !isException(el))
+    .map((el) => [el.tagName.toLowerCase(), nameOf(el), el.getAttribute('href') ?? '', el.getAttribute('target') ?? ''].join(' | '))
+    .sort();
+}
+
+/** The loading placeholders of the news and of the videos. */
+function placeholders(look: 'clasico' | 'nuevo', title: string, testId: string, newTestId: string) {
+  const section = look === 'clasico' ? headingSection(title) : document.querySelector(`[data-testid="${testId}"]`);
+  if (!section) return '«absent»';
+  return look === 'clasico'
+    ? section.querySelectorAll('.animate-pulse').length
+    : section.querySelectorAll(`[data-testid="${newTestId}"]`).length;
 }
 
 async function routes(look: 'clasico' | 'nuevo') {
@@ -372,6 +468,8 @@ async function communityOf(look: 'clasico' | 'nuevo') {
     gear: root.querySelectorAll('[title="Configuración"]').length,
     workspaceLink: [...root.querySelectorAll('a')].map((a) => [a.getAttribute('href'), leaves(a)]),
     members: tiles.map((tile) => leaves(tile)),
+    // The pictures of the opened block: the workspace's, the bar's small avatars, the members' photos.
+    images: imagesOf(root),
   };
   // A member tile: the same props reach the pop-up.
   let memberPopUp = '«no tiles»';
@@ -393,21 +491,27 @@ async function communityOf(look: 'clasico' | 'nuevo') {
     });
     await settle(1);
     const now = look === 'clasico' ? root : document.querySelector('[data-testid="panel-community"]')!;
-    second = leaves(now.querySelector('button'));
+    second = `${leaves(now.querySelector('button'))} ${JSON.stringify(imagesOf(now.querySelector('button')))}`;
   }
   return { ...opened, memberPopUp, second };
 }
+
+/** A card holds a loading placeholder (today's pulsing shape, or the kit's Skeleton). */
+const isLoading = (card: Element | null) => Boolean(card?.querySelector('.animate-pulse, [data-kit="skeleton"]'));
 
 function stats(look: 'clasico' | 'nuevo') {
   if (look === 'clasico') {
     const h2 = document.querySelector('section > h2.mb-6');
     const cards = [...h2!.parentElement!.querySelector('.grid')!.children];
-    return { heading: h2!.textContent, cards: cards.map((card) => leaves(card)) };
+    return { heading: h2!.textContent, cards: cards.map((card) => leaves(card)), loading: cards.map(isLoading), images: imagesOf(h2!.parentElement) };
   }
   const section = document.querySelector('[data-testid="panel-section-stats"]')!;
+  const cards = ['users', 'course', 'learner'].map((id) => section.querySelector(`[data-testid="panel-stats-${id}"]`));
   return {
     heading: section.querySelector('h2')!.textContent,
-    cards: ['users', 'course', 'learner'].map((id) => leaves(section.querySelector(`[data-testid="panel-stats-${id}"]`))),
+    cards: cards.map((card) => leaves(card)),
+    loading: cards.map(isLoading),
+    images: imagesOf(section),
   };
 }
 
@@ -442,6 +546,9 @@ async function whatAPersonGets(scenario: () => Scenario, look: 'clasico' | 'nuev
   await settle();
   const profileLink = [...document.querySelectorAll('a')].find((a) => a.textContent?.includes('Mi Perfil'));
   const got = {
+    // Every picture at rest, and what the avatar is drawn from (before anything is opened)
+    pictures: pictures(),
+    avatar: avatarProps(),
     sections: [...document.querySelectorAll('h2')].map((h) => h.textContent!.trim()).sort(),
     h1s: [...document.querySelectorAll('h1')].map((h) => h.textContent),
     // The greeting, the line under it and the consultor's line, as they read
@@ -452,8 +559,11 @@ async function whatAPersonGets(scenario: () => Scenario, look: 'clasico' | 'nuev
     memberPopUpAtRest: describeProps(fakes.props.MemberProfileModal ?? {}),
     continue: await courseRow(look, 'Continuar Aprendiendo', 'panel-section-continue'),
     open: await courseRow(look, 'Mis Cursos Abiertos', 'panel-section-open'),
+    continueOpened: await openedCourses(look, 'Continuar Aprendiendo', 'panel-section-continue'),
+    openOpened: await openedCourses(look, 'Mis Cursos Abiertos', 'panel-section-open'),
     routes: await routes(look),
     upcoming: upcoming(look),
+    upcomingOpened: await openedUpcoming(look),
     proposals: proposals(look),
     badges: badges(look),
     stats: stats(look),
@@ -461,7 +571,11 @@ async function whatAPersonGets(scenario: () => Scenario, look: 'clasico' | 'nuev
     newsEmpty: emptyLines(look, 'Últimas Noticias', 'panel-section-news'),
     videos: links(look, 'Videos Recientes', 'panel-section-videos'),
     videosEmpty: emptyLines(look, 'Videos Recientes', 'panel-section-videos'),
+    newsLoading: placeholders(look, 'Últimas Noticias', 'panel-section-news', 'panel-news-placeholder'),
+    videosLoading: placeholders(look, 'Videos Recientes', 'panel-section-videos', 'panel-video-placeholder'),
     community: await communityOf(look),
+    // Last, with everything opened: every link and button by name, address and new tab
+    controls: await controls(look),
   };
   view.unmount();
   return got;
@@ -484,6 +598,7 @@ const ACCOUNTS: Array<[string, () => Scenario]> = [
   ['consultor whose proposals fail', () => consultor({ fetch: { '/api/course-proposals': { status: 403, body: { error: 'Solo administradores y consultores pueden ver propuestas' } } } })],
   ['consultor whose proposals still load', () => consultor({ fetch: { '/api/course-proposals': 'pending' } })],
   ['docente with everything', () => fullDocente()],
+  ['docente whose courses exercise the opened card (lessons 0 and 10, progress 0 and 70, objectives)', () => lessonDocente({ fetch: FULL_FETCH })],
   ['docente, bare numbers', () => fullDocente({ fetch: { ...FULL_FETCH, '/api/dashboard/stats': { body: STATS_BARE } } })],
   ['docente, the numbers still loading', () => fullDocente({ fetch: { ...FULL_FETCH, '/api/dashboard/stats': 'pending' } })],
   ['docente, news and videos still loading', () => fullDocente({ fetch: { ...FULL_FETCH, '/api/news?limit=3': 'pending', '/api/youtube/latest?limit=2': 'pending' } })],
@@ -538,7 +653,7 @@ describe('the same panel in both views (6B)', () => {
       const today = await whatAPersonGets(scenario, 'clasico');
       const nuevo = await whatAPersonGets(scenario, 'nuevo');
       expect(nuevo).toEqual(today);
-    });
+    }, 30_000);
   }
 
   it('the opened course cards: the lesson line and its percentage under today\'s condition (send-back 2)', async () => {
@@ -594,5 +709,255 @@ describe('the same panel in both views (6B)', () => {
     expect((docenteToday.upcoming as any).cards[0]).toBe('Próximamente Próximo Curso Inventado Uno Relatora Ficticia marzo de 2027');
     expect(docenteToday.stats.cards[0]).toBe('Educadores Activos 987 en tu alcance');
     expect(client.from).toHaveBeenCalled();
+
+    // Send-back 2: the opened cards, the pictures, the loading states and the controls are read.
+    expect((docenteToday.continueOpened as OpenedCourse[]).map((c) => c.texts.length).every((n) => n > 3)).toBe(true);
+    expect((docenteToday.upcomingOpened as Array<{ texts: string[] }>)[0].texts).toEqual(
+      expect.arrayContaining(['Disponible en marzo de 2027', 'Pronto', 'Relatora Ficticia'])
+    );
+    expect((docenteToday.upcomingOpened as Array<{ texts: string[] }>)[1].texts).toContain('Fecha por confirmar');
+    expect(docenteToday.pictures).toEqual(
+      expect.arrayContaining([
+        'https://img.example.invalid/news-1.png | Noticia Inventada de Hoy',
+        'https://img.example.invalid/video-1.jpg | Video Inventado de Hace Semanas',
+        'https://img.example.invalid/up-2.png | Próximo Curso Inventado Dos',
+        'https://img.example.invalid/learner-1.png | ',
+      ])
+    );
+    expect(JSON.parse(docenteToday.avatar)).toMatchObject({ size: 'lg' });
+    expect(docenteToday.controls).toEqual(
+      expect.arrayContaining([
+        'a | Mi Perfil | /profile | ',
+        'a | Ver canal | https://www.youtube.com/@NuevaEducacionFundacion | _blank',
+        'a | Ver todas | /noticias | ',
+        'a | Ver todas | /mi-aprendizaje | ',
+        'a | Ver todos | /mi-aprendizaje/logros | ',
+        'button | Continuar |  | ',
+        'button | Comenzar |  | ',
+      ])
+    );
+    expect(docenteToday.controls.some((c) => c.startsWith('a | ') && c.includes('/noticias/noticia-inventada-de-hoy | _blank'))).toBe(true);
+    const loading = await whatAPersonGets(() => fullDocente({ fetch: { ...FULL_FETCH, '/api/news?limit=3': 'pending', '/api/youtube/latest?limit=2': 'pending', '/api/dashboard/stats': 'pending' } }), 'clasico');
+    expect([loading.newsLoading, loading.videosLoading]).toEqual([3, 2]);
+    expect(loading.stats.loading).toEqual([true, true, true]);
+    expect((community.community as any).images).toEqual(expect.arrayContaining([['https://img.example.invalid/m1.png', '']]));
+  }, 60_000);
+});
+
+// ── The handlers, USED in both views (6B, send-back 2, point 4) ──
+
+/** Draws the page in one look, runs `use`, and answers what it read. */
+async function usedIn<T>(scenario: () => Scenario, look: 'clasico' | 'nuevo', use: (look: 'clasico' | 'nuevo') => Promise<T>): Promise<T> {
+  resetFakes();
+  fakes.scenario = scenario();
+  fakes.look = look;
+  const view = render(<Dashboard />);
+  await settle();
+  const got = await use(look);
+  view.unmount();
+  return got;
+}
+
+/** The requests made while `run` runs (address and, when given, its method and body). */
+async function requestsDuring(run: () => Promise<void> | void) {
+  const before = fakes.log.length;
+  await act(async () => {
+    await run();
   });
+  await settle(2);
+  return fakes.log.slice(before).filter((e: any) => e && typeof e === 'object' && 'fetch' in e);
+}
+
+const buttonNamed = (name: string) => [...document.querySelectorAll('button')].find((b) => nameOf(b) === name) as HTMLButtonElement | undefined;
+
+const communityBar = (look: 'clasico' | 'nuevo') =>
+  (look === 'clasico'
+    ? [...document.querySelectorAll('h2')].find((h) => h.textContent?.includes('Mi Comunidad de Crecimiento'))?.closest('button')
+    : document.querySelector('[data-testid="panel-community-bar"]')) as HTMLButtonElement | null;
+
+describe('the handlers, used in both views (6B, send-back 2)', () => {
+  // Already used by the comparison above, in both views: a course's action (the push it makes), a
+  // route card (today's click's push against the new link's address), a member's tile (the profile
+  // pop-up's props) and a community pill (the community then drawn).
+
+  it('«Reintentar» after a failed load of the proposals asks again, the same request', async () => {
+    const scenario = () =>
+      consultor({ fetch: { '/api/course-proposals': { status: 403, body: { error: 'Solo administradores y consultores pueden ver propuestas' } } } });
+    const use = async () => {
+      const retry = buttonNamed('Reintentar');
+      if (!retry) return '«no Reintentar»';
+      return requestsDuring(() => fireEvent.click(retry));
+    };
+    const today = await usedIn(scenario, 'clasico', use);
+    expect(await usedIn(scenario, 'nuevo', use)).toEqual(today);
+    expect(today).toEqual([{ fetch: '/api/course-proposals' }]);
+  });
+
+  it('the pencil opens the form in edit mode with that proposal', async () => {
+    const use = async () => {
+      const pencil = document.querySelector('[title="Editar propuesta"]') as HTMLElement | null;
+      if (!pencil) return '«no pencil»';
+      await act(async () => {
+        fireEvent.click(pencil);
+      });
+      return describeProps(fakes.props.CourseProposalModal);
+    };
+    const today = await usedIn(() => admin(), 'clasico', use);
+    expect(await usedIn(() => admin(), 'nuevo', use)).toEqual(today);
+    expect(JSON.parse(today).isOpen).toBe(true);
+    expect(JSON.parse(today).editingProposal.id).toBe('prop-1');
+  });
+
+  it('the bin, then «Eliminar»: the same confirmation, the same request, the card gone', async () => {
+    const use = async () => {
+      const bin = document.querySelector('[title="Eliminar propuesta"]') as HTMLElement | null;
+      if (!bin) return '«no bin»';
+      await act(async () => {
+        fireEvent.click(bin);
+      });
+      const asked = describeProps(fakes.props.ConfirmDialog);
+      const requests = await requestsDuring(() => fakes.props.ConfirmDialog.onConfirm());
+      return {
+        asked,
+        requests,
+        after: describeProps(fakes.props.ConfirmDialog),
+        bins: document.querySelectorAll('[title="Eliminar propuesta"]').length,
+      };
+    };
+    const today = await usedIn(() => admin(), 'clasico', use);
+    expect(await usedIn(() => admin(), 'nuevo', use)).toEqual(today);
+    expect((today as any).requests).toEqual([{ fetch: '/api/course-proposals/prop-1', init: expect.stringContaining('"method":"DELETE"') }]);
+    expect((today as any).bins).toBe(0);
+  });
+
+  it('«Nueva Propuesta» and «Crear Propuesta» open the form in create mode', async () => {
+    const open = (name: string) => async () => {
+      const button = buttonNamed(name);
+      if (!button) return `«no ${name}»`;
+      await act(async () => {
+        fireEvent.click(button);
+      });
+      return describeProps(fakes.props.CourseProposalModal);
+    };
+    const newToday = await usedIn(() => admin(), 'clasico', open('Nueva Propuesta'));
+    expect(await usedIn(() => admin(), 'nuevo', open('Nueva Propuesta'))).toEqual(newToday);
+    expect(JSON.parse(newToday)).toMatchObject({ isOpen: true, editingProposal: null });
+    const empty = () =>
+      consultor({ session: sessionFor('user-consultor', { roles: ['consultor'] }), roles: [], fetch: { '/api/course-proposals': { body: { data: [] } } } });
+    const createToday = await usedIn(empty, 'clasico', open('Crear Propuesta'));
+    expect(await usedIn(empty, 'nuevo', open('Crear Propuesta'))).toEqual(createToday);
+    expect(JSON.parse(createToday)).toMatchObject({ isOpen: true, editingProposal: null });
+  });
+
+  it('the gear gives the settings pop-up the same props', async () => {
+    const scenario = () =>
+      withCommunity(
+        { workspaces: { 'com-n': { id: 'ws-n', community_id: 'com-n', name: 'Espacio Norte', custom_name: 'Nuestro Espacio', image_url: 'https://img.example.invalid/ws.png' } } },
+        { role_type: 'community_manager' }
+      );
+    const use = async (look: 'clasico' | 'nuevo') => {
+      const bar = communityBar(look);
+      if (!bar) return '«no bar»';
+      await act(async () => {
+        fireEvent.click(bar);
+      });
+      const gear = document.querySelector('[title="Configuración"]') as HTMLElement | null;
+      if (!gear) return '«no gear»';
+      const before = describeProps(fakes.props.WorkspaceSettingsModal);
+      await act(async () => {
+        fireEvent.click(gear);
+      });
+      return { before, after: describeProps(fakes.props.WorkspaceSettingsModal) };
+    };
+    const today = await usedIn(scenario, 'clasico', use);
+    expect(await usedIn(scenario, 'nuevo', use)).toEqual(today);
+    expect(JSON.parse((today as any).after).isOpen).toBe(true);
+  });
+});
+
+// ── One course card, today's and the new, fed the same inputs (6B, send-back 2, points 3 and 4) ──
+
+type CardCase = { name: string; course: NetflixCourseCardProps['course']; enrollment: NetflixCourseCardProps['enrollment'] };
+
+const CARD_CASES: CardCase[] = [
+  {
+    name: 'not enrolled, without a relator, five objectives, a duration over an hour',
+    course: {
+      id: 'card-1', title: 'Curso Inventado Uno', description: 'Una descripción', thumbnail_url: 'https://img.example.invalid/card-1.png',
+      estimated_duration_hours: 1.5, difficulty_level: 'intermediate', learning_objectives: ['A', 'B', 'C', 'D', 'E'], instructor: null,
+    },
+    enrollment: null,
+  },
+  {
+    name: 'approved, with its assignments, a relator with a photo, lessons all done',
+    course: {
+      id: 'card-2', title: 'Curso Inventado Dos', description: null, thumbnail_url: null,
+      estimated_duration_hours: 0.5, difficulty_level: 'advanced', learning_objectives: ['Solo uno'],
+      instructor: { full_name: 'Relatora Ficticia', photo_url: 'https://img.example.invalid/relatora.png' },
+    },
+    enrollment: { progress_percentage: 100, is_completed: true, lessons_completed: 10, total_lessons: 10, completion_status: 'aprobado', assignments_submitted: 3, assignments_total: 3 },
+  },
+  {
+    name: 'completed with assignments pending, no lessons, 70% progress (today\'s stray «0»)',
+    course: {
+      id: 'card-3', title: 'Curso Inventado Tres', description: 'Tres', thumbnail_url: null,
+      estimated_duration_hours: null, difficulty_level: null, learning_objectives: null,
+      instructor: { full_name: 'Relator Imaginario', photo_url: null },
+    },
+    enrollment: { progress_percentage: 70, is_completed: false, lessons_completed: 0, total_lessons: 0, completion_status: 'completado', assignments_total: 2 },
+  },
+  {
+    name: 'lessons and no progress',
+    course: {
+      id: 'card-4', title: 'Curso Inventado Cuatro', description: 'Cuatro', thumbnail_url: 'https://img.example.invalid/card-4.png',
+      estimated_duration_hours: 2, difficulty_level: 'beginner', learning_objectives: [], instructor: { full_name: 'Relatora Ficticia', photo_url: null },
+    },
+    enrollment: { progress_percentage: 0, is_completed: false, lessons_completed: 0, total_lessons: 10, completion_status: 'in_progress' },
+  },
+  {
+    name: 'lessons and progress, an unknown difficulty',
+    course: {
+      id: 'card-5', title: 'Curso Inventado Cinco', description: 'Cinco', thumbnail_url: null,
+      estimated_duration_hours: 3, difficulty_level: 'experto', learning_objectives: ['Uno', 'Dos', 'Tres', 'Cuatro'], instructor: null,
+    },
+    enrollment: { progress_percentage: 70, is_completed: false, lessons_completed: 7, total_lessons: 10 },
+  },
+];
+
+describe('one course card, today\'s and the new, fed the same course (6B, send-back 2)', () => {
+  for (const { name, course, enrollment } of CARD_CASES) {
+    it(name, async () => {
+      const chosenToday = vi.fn();
+      const today = render(<NetflixCourseCard course={course} enrollment={enrollment} onSelect={chosenToday} />);
+      const todayCard = today.container.firstElementChild!;
+      fireEvent.mouseEnter(todayCard);
+      await waitOpen();
+      const todayRead = readTodayCourse(todayCard);
+      await act(async () => {
+        fireEvent.click(todayCard.querySelector('button')!);
+      });
+      today.unmount();
+
+      const chosenNew = vi.fn();
+      const nuevo = render(
+        <CourseCardNuevo
+          course={{ ...course, instructor: course.instructor ? { id: 'relator', ...course.instructor } : null, enrollment } as unknown as CourseWithEnrollment}
+          href={`/student/course/${course.id}`}
+          onOpen={chosenNew}
+          testId="panel-course-case"
+        />
+      );
+      const newCard = nuevo.getByTestId('panel-course-case');
+      await openNewCard(newCard);
+      const newRead = readNewCourse(newCard);
+      await act(async () => {
+        fireEvent.click(nuevo.getByTestId('panel-course-case-action'));
+      });
+      nuevo.unmount();
+
+      expect(newRead).toEqual(todayRead);
+      expect(chosenNew.mock.calls).toEqual(chosenToday.mock.calls);
+      expect(chosenToday.mock.calls).toEqual([[course.id]]);
+    });
+  }
 });

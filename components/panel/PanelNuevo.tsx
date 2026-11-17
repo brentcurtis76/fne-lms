@@ -291,7 +291,7 @@ export default function PanelNuevo({ panel, decisions }: { panel: Panel; decisio
             <Card className="divide-y divide-brand_primary/[0.12] overflow-hidden">
               {loadingNews ? (
                 [1, 2, 3].map((i) => (
-                  <div key={i} className="flex gap-3 px-4 py-3">
+                  <div key={i} className="flex gap-3 px-4 py-3" data-testid="panel-news-placeholder">
                     <Skeleton className="flex-none" width={72} height={72} />
                     <div className="grid flex-1 content-start gap-2">
                       <Skeleton width="30%" height={10} />
@@ -346,7 +346,7 @@ export default function PanelNuevo({ panel, decisions }: { panel: Panel; decisio
             {loadingVideos ? (
               <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-2">
                 {[1, 2].map((i) => (
-                  <Card key={i} className="grid gap-2 p-2.5">
+                  <Card key={i} className="grid gap-2 p-2.5" data-testid="panel-video-placeholder">
                     <Skeleton className="aspect-video" width="100%" height="auto" />
                     <Skeleton width="75%" height={14} />
                   </Card>

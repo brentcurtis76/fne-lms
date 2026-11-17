@@ -36,12 +36,22 @@ export function serialise(value: unknown): string {
 const sha256 = (text: string) => createHash('sha256').update(text, 'utf8').digest('hex');
 
 export function makePin(digestsFile: string, prefix: string) {
+  // A missing or unreadable digests file is a failure, never an empty pin: without its digests a
+  // pinned case has nothing to compare with. Only `<PREFIX>_ACCEPT` (writing the digests on
+  // purpose) may start from a missing file.
   let digests: Record<string, string> = {};
+  let unreadable: string | null = null;
   try {
-    digests = JSON.parse(readFileSync(digestsFile, 'utf8'));
-  } catch {
-    digests = {};
+    const parsed: unknown = JSON.parse(readFileSync(digestsFile, 'utf8'));
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      unreadable = 'it does not hold an object of case names and digests';
+    } else {
+      digests = parsed as Record<string, string>;
+    }
+  } catch (err) {
+    unreadable = err instanceof Error ? err.message : String(err);
   }
+  const accepting = () => Boolean(process.env[`${prefix}_ACCEPT`]);
   const chosen = (variable: string, name: string) => {
     const value = process.env[`${prefix}_${variable}`];
     return value === 'all' || value === name;
@@ -70,6 +80,26 @@ export function makePin(digestsFile: string, prefix: string) {
       console.warn(`${prefix}: «${name}» ACCEPTED on purpose; ${digestsFile} rewritten`);
       return;
     }
+    if (unreadable !== null) {
+      throw new Error(
+        [
+          `The digests file of the pinned case «${name}» cannot be read: ${digestsFile}`,
+          `  reason: ${unreadable}`,
+          'The digests are part of the repository, committed beside the test (the repository ignores',
+          '*.json, so they are added with git add -f). Restore the file; produce it anew only on purpose,',
+          `with ${prefix}_ACCEPT set, from the code as it was before the change being pinned.`,
+        ].join('\n')
+      );
+    }
+    if (!Object.prototype.hasOwnProperty.call(digests, name)) {
+      throw new Error(
+        [
+          `The digests file holds no digest for the pinned case «${name}»: ${digestsFile}`,
+          'A pinned case without its digest proves nothing. Commit the digest produced by the code as it',
+          `was before the change (with ${prefix}_ACCEPT set to the case's name), or restore the file.`,
+        ].join('\n')
+      );
+    }
     if (digest !== digests[name]) {
       throw new Error(
         [
@@ -94,7 +124,8 @@ export function makePin(digestsFile: string, prefix: string) {
   /** The digests file holds exactly the cases that ran, and the expected number of them. */
   function digestsFileHolds(count: number) {
     it(`the digests file holds exactly the ${count} pinned cases, and every one of them ran`, () => {
-      if (process.env[`${prefix}_ACCEPT`]) return;
+      if (accepting()) return;
+      if (unreadable !== null) throw new Error(`The digests file cannot be read: ${digestsFile} (${unreadable})`);
       expect(Object.keys(digests).sort()).toEqual([...ran].sort());
       expect(ran.size).toBe(count);
     });

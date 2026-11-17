@@ -195,6 +195,10 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   // after the first save returns the authoritative DB value.
   const [meetingVersion, setMeetingVersion] = useState<number>(0);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  // Status of the meeting as stored when it was loaded (edit mode); null for
+  // a new meeting. «Completada» is offered in the status select only when the
+  // stored meeting already is completada (it is reached through «Finalizar»).
+  const [loadedStatus, setLoadedStatus] = useState<MeetingStatus | null>(null);
   const [savingIndicator, setSavingIndicator] = useState<'idle' | 'saving' | 'error'>('idle');
   const [savedTick, setSavedTick] = useState(0);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -228,7 +232,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       summary_doc: emptyDoc(),
       notes: '',
       notes_doc: emptyDoc(),
-      status: 'completada'
+      status: 'borrador'
     },
     agreements: [],
     commitments: [],
@@ -498,6 +502,8 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
           setExistingAttachments(attachments as ExistingAttachment[]);
         }
 
+        setLoadedStatus(meetingDetails.status);
+
         // Capture the authoritative version so optimistic-concurrency
         // autosaves start from the right baseline.
         setMeetingVersion((meetingDetails as any).version ?? 0);
@@ -705,7 +711,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         summary_doc: emptyDoc(),
         notes: '',
         notes_doc: emptyDoc(),
-        status: 'completada'
+        status: 'borrador'
       },
       agreements: [],
       commitments: [],
@@ -727,6 +733,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     setWorkSessionId(null);
     setMeetingVersion(0);
     setLastSavedAt(null);
+    setLoadedStatus(null);
     setSavingIndicator('idle');
     setWorkSessions([]);
     if (autosaveTimerRef.current) {
@@ -1057,7 +1064,11 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       }
     }
     if (saved && mountedRef.current) {
-      toast.success(mode === 'edit' ? 'Reunión actualizada correctamente' : 'Reunión documentada correctamente');
+      toast.success(
+        mode === 'edit'
+          ? 'Reunión actualizada correctamente'
+          : 'Reunión guardada como borrador. Ábrela y pulsa «Finalizar reunión» para enviar el resumen.'
+      );
       onSuccess();
       onClose();
     }
@@ -1615,9 +1626,11 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                     onChange={(e) => updateSummaryInfo('status', e.target.value as MeetingStatus)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   >
-                    {Object.entries(meetingStatusLabels).map(([status, label]) => (
-                      <option key={status} value={status}>{label}</option>
-                    ))}
+                    {Object.entries(meetingStatusLabels)
+                      .filter(([status]) => status !== MEETING_STATUS.COMPLETADA || loadedStatus === MEETING_STATUS.COMPLETADA)
+                      .map(([status, label]) => (
+                        <option key={status} value={status}>{label}</option>
+                      ))}
                   </select>
                 </div>
 

@@ -556,7 +556,7 @@ describe('MeetingDocumentationModal — a failed child save is never reported as
     await createToStep3(utils);
     await addCompleteItems(utils);
     await click(utils.getByRole('button', { name: /Crear Reunión/i }));
-    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Reunión documentada correctamente'));
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Reunión guardada como borrador. Ábrela y pulsa «Finalizar reunión» para enviar el resumen.'));
     expect(defaultProps.onSuccess).toHaveBeenCalledTimes(1);
     expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
     expect(toastError).not.toHaveBeenCalled();

@@ -6,7 +6,7 @@
  * Synthetic data only.
  */
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { h } = vi.hoisted(() => ({ h: { detail: {} as Record<string, unknown>, timeline: {} as Record<string, string>, role: 'admin' } }));
@@ -114,5 +114,53 @@ describe('Step 2 — «Ajustar fechas (admin)» works after a reload (LIC-D9)', 
     fireEvent.change(document.querySelector('input[type="date"]') as HTMLInputElement, { target: { value: '2026-11-02' } });
     await screen.findByText(/hasta el 9 de noviembre de 2026 al/);
     expect(screen.queryByRole('button', { name: /Ajustar fechas/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('Step 2 — two date choices in quick succession (send-back 1, S2)', () => {
+  const timelineFor = (bases: string) => ({
+    fecha_limite_solicitud_bases: bases, fecha_limite_consultas: '2026-11-13', fecha_inicio_propuestas: '2026-11-16',
+    fecha_limite_propuestas: '2026-11-23', fecha_limite_evaluacion: '2026-11-26',
+  });
+
+  it('keeps the deadline of the date finally chosen when the answers arrive in reversed order', async () => {
+    h.detail = pending();
+    const releases: Record<string, () => void> = {};
+    const base = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((url: string, opts?: unknown) => {
+      const m = /timeline\?fecha_publicacion=(\d{4}-\d{2}-\d{2})/.exec(url);
+      if (!m) return base(url, opts);
+      const fecha = m[1];
+      const bases = fecha === '2026-11-02' ? '2026-11-09' : '2026-11-10';
+      return new Promise(resolve => {
+        releases[fecha] = () => resolve({ ok: true, json: async () => ({ data: { timeline: timelineFor(bases) } }) });
+      });
+    });
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+
+    await renderPage();
+    const input = document.querySelector('input[type="date"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '2026-11-02' } });
+    fireEvent.change(input, { target: { value: '2026-11-03' } });
+    await waitFor(() => expect(Object.keys(releases)).toHaveLength(2));
+
+    // Neither answer has arrived: placeholder, and nothing to copy.
+    expect(screen.getByText(/hasta el \[fecha pendiente\]/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Copiar texto/ })).toBeDisabled();
+
+    await act(async () => { releases['2026-11-03'](); await Promise.resolve(); });
+    await waitFor(() => expect(screen.getByText(/hasta el 10 de noviembre de 2026 al/)).toBeInTheDocument());
+    await act(async () => { releases['2026-11-02'](); await Promise.resolve(); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(screen.getByText(/hasta el 10 de noviembre de 2026 al/)).toBeInTheDocument();
+    expect(screen.queryByText(/9 de noviembre de 2026/)).not.toBeInTheDocument();
+    const copy = screen.getByRole('button', { name: /Copiar texto/ });
+    expect(copy).toBeEnabled();
+    fireEvent.click(copy);
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText.mock.calls[0][0]).toContain('hasta el 10 de noviembre de 2026 al');
+    expect(writeText.mock.calls[0][0]).not.toContain('9 de noviembre');
   });
 });

@@ -1,7 +1,7 @@
 # GENERA fixes, level 2 (first part): places where a normal task stops
 
-Branch: `fix/l2`. Base: `3063aa5cc` (main, 16 Nov 2026 22:56, pull request 189: level 1 of the same fixes).
-53 commits in a straight line on main, no merge commits: three fix phases (Gestor de Cambio, Espacio Colaborativo, Licitaciones), one small follow-up to level 1, one test-harness repair, this request.
+Branch: `fix/l2`. Base: `84eb3bccd` (main, 17 Nov 2026 07:45, pull request 190: the redesign's step 5a; level 1 of these fixes went live as pull request 189).
+55 commits in a straight line on main, no merge commits: three fix phases (Gestor de Cambio, Espacio Colaborativo, Licitaciones), one small follow-up to level 1, one test-harness repair, this request.
 
 ## Approved scope
 
@@ -50,12 +50,13 @@ Four migrations, all additive (two new functions and one replaced, one `ALTER PO
 - Encargados: the publication text is back; confirming an award now needs the Carta first.
 - Admins: a tender for a school without a client is refused at creation.
 
-## Validation (on this branch)
+## Validation (on this branch, after it was replayed on `84eb3bccd`)
 
 - Database tests (pgTAP): 93 files, 9,378 pass.
-- Unit tests: 599 files, 18,883 pass, 18 skipped. Type check and lint pass.
+- Unit tests: 602 files, 19,067 pass, 18 skipped. Type check and lint pass.
 - CI's mandatory browser tests, run locally with the CI script: 28 files, 339 pass, no skips, no second tries.
 - Each phase was tested blind by a second model from scenario lists (real requests against a local database built from these migrations), read by a third model until approved, and used by sight in a browser.
+- The whole release was then used by sight by the second model on 17 Nov (28 items: 25 pass, 1 not finishable by its tool). It found one defect, fixed in the last code commit: a newly created conversation was shown twice in the list until reload.
 
 ## Review focus
 

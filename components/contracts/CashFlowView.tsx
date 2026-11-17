@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Calendar, DollarSign, TrendingUp, AlertCircle, CheckCircle, Upload, Check, X, Filter } from 'lucide-react';
 import UFService from '../../lib/uf-service';
 import { toast } from 'react-hot-toast';
+import { invoiceUploadColumns } from '../../lib/contracts/invoice-path';
 
 interface Cuota {
   id: string;
@@ -393,17 +394,10 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('facturas')
-        .getPublicUrl(fileName);
-
-      // Update cuota with invoice URL
+      // GES-1.4: store the file's NAME (opened through /api/contracts/invoice-link)
       const { error: updateError } = await supabase
         .from('cuotas')
-        .update({ 
-          factura_url: publicUrl
-        })
+        .update(invoiceUploadColumns(fileName))
         .eq('id', cuotaId);
 
       if (updateError) throw updateError;

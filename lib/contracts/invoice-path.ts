@@ -50,3 +50,31 @@ export function invoiceObjectName(stored: string | null): string | null {
   if (/^https?:\/\//i.test(stored)) return nameFromStorageUrl(stored);
   return safeName(stored);
 }
+
+// GES-1.4 (F2c): what an upload writes to the instalment. The uploaded file's
+// NAME goes into factura_url (the link route signs it on demand; the store is
+// never asked for a public address). The contract screen passes the file and
+// time and also writes the four metadata columns, as before; the cash-flow
+// screen writes factura_url only, as before.
+export interface InvoiceUploadColumns {
+  factura_url: string;
+  factura_filename?: string;
+  factura_size?: number;
+  factura_type?: string;
+  factura_uploaded_at?: string;
+}
+
+export function invoiceUploadColumns(
+  objectName: string,
+  file?: { name: string; size: number; type: string },
+  uploadedAt?: string
+): InvoiceUploadColumns {
+  if (!file) return { factura_url: objectName };
+  return {
+    factura_url: objectName,
+    factura_filename: file.name,
+    factura_size: file.size,
+    factura_type: file.type,
+    factura_uploaded_at: uploadedAt ?? new Date().toISOString(),
+  };
+}

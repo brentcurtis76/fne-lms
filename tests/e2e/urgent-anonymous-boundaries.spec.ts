@@ -237,10 +237,18 @@ test.describe.serial('FNE-ANON-01 signed-in and public journeys', () => {
     await page.locator('input[type="file"][accept=".pdf,.jpg,.jpeg,.png"]').first().setInputFiles(PDF);
     await expect(page.getByText(`Factura subida exitosamente: ${PDF.name}`)).toBeVisible();
     note('1a', 'admin uploaded invoice in contract modal');
-    const view = page.locator('a[title="Ver factura"]').first();
+    const view = page.locator('button[title="Ver factura"]').first();
     await expect(view).toBeVisible();
-    const href = (await view.getAttribute('href')) || '';
-    expect(href).toContain('/storage/v1/object/public/facturas/');
+    const key = (await query<{ factura_url: string }>('SELECT factura_url FROM public.cuotas WHERE id = $1', [IDS.cuotaModal]))[0].factura_url;
+    expect(key).toMatch(/^invoice_[^/]+$/);
+    const [answer] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes(`/api/contracts/invoice-link?cuotaId=${IDS.cuotaModal}`)),
+      view.click(),
+    ]);
+    expect(answer.status()).toBe(200);
+    const { url: href, expiresIn } = await answer.json();
+    expect(expiresIn).toBe(300);
+    expect(href).toContain('/storage/v1/object/sign/facturas/');
     const opened = await page.request.get(href);
     expect(opened.status()).toBe(200);
     expect(Buffer.from(await opened.body()).equals(PDF.buffer)).toBe(true);
@@ -253,7 +261,6 @@ test.describe.serial('FNE-ANON-01 signed-in and public journeys', () => {
     await page.getByRole('button', { name: 'Eliminar Factura', exact: true }).click();
     await expect(page.getByText('Factura eliminada exitosamente')).toBeVisible();
     await shot(page, '1a-invoice-deleted');
-    const key = decodeURIComponent(href.split('/storage/v1/object/public/facturas/')[1]);
     expect(await query(`SELECT 1 FROM storage.objects WHERE bucket_id = 'facturas' AND name = $1`, [key])).toHaveLength(0);
     expect((await query<{ factura_url: string | null }>('SELECT factura_url FROM public.cuotas WHERE id = $1', [IDS.cuotaModal]))[0].factura_url).toBeNull();
     note('1a', 'invoice deleted: storage object and cuota link removed');
@@ -268,16 +275,23 @@ test.describe.serial('FNE-ANON-01 signed-in and public journeys', () => {
     await expect(page.getByText(CONTRACT).first()).toBeVisible();
     await page.locator('tr', { hasText: CONTRACT }).locator('input[type="file"]').first().setInputFiles(PDF);
     await expect.poll(async () =>
-      (await query<{ n: number }>(`SELECT count(*)::int n FROM public.cuotas WHERE contrato_id = $1 AND factura_url LIKE '%/facturas/cuota_%'`, [IDS.contrato]))[0].n,
+      (await query<{ n: number }>(`SELECT count(*)::int n FROM public.cuotas WHERE contrato_id = $1 AND factura_url LIKE 'cuota_%'`, [IDS.contrato]))[0].n,
     { timeout: 20_000 }).toBe(1);
-    const url = (await query<{ factura_url: string }>(`SELECT factura_url FROM public.cuotas WHERE contrato_id = $1 AND factura_url IS NOT NULL`, [IDS.contrato]))[0].factura_url;
-    const served = await page.request.get(url);
-    expect(served.status()).toBe(200);
+    const row = (await query<{ id: string; factura_url: string }>(`SELECT id, factura_url FROM public.cuotas WHERE contrato_id = $1 AND factura_url IS NOT NULL`, [IDS.contrato]))[0];
+    expect(row.factura_url).toMatch(/^cuota_[^/]+$/);
     note('1b', 'Cash Flow upload stored in facturas and linked; public URL 200');
     await page.reload();
     await page.getByRole('button', { name: /Flujo de Caja/ }).click();
     await page.getByRole('button', { name: /Vista Detallada/ }).click();
-    await expect(page.locator('tr', { hasText: CONTRACT }).getByRole('link', { name: /Ver/ }).first()).toBeVisible();
+    const ver = page.locator('tr', { hasText: CONTRACT }).getByRole('button', { name: 'Ver', exact: true }).first();
+    await expect(ver).toBeVisible();
+    const [answer] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes(`/api/contracts/invoice-link?cuotaId=${row.id}`)),
+      ver.click(),
+    ]);
+    expect(answer.status()).toBe(200);
+    const served = await page.request.get((await answer.json()).url);
+    expect(served.status()).toBe(200);
     await shot(page, '1b-cashflow-invoice');
     note('1b', 'after reload the Cash Flow row links the invoice');
     await context.close();

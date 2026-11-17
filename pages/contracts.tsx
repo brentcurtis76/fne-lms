@@ -19,6 +19,7 @@ import { getUserPrimaryRole } from '../utils/roleUtils';
 import { contractMatchesSearch } from '../lib/utils/contract-search';
 import { resolveContractPdfTarget } from '../lib/utils/contract-pdf-target';
 import { isFirmaPendiente } from '../lib/utils/contract-status';
+import { INVOICES_BUCKET, invoiceObjectName, invoiceUploadColumns } from '../lib/contracts/invoice-path';
 
 interface Programa {
   id: string;
@@ -510,21 +511,11 @@ export default function ContractsPage() {
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('facturas')
-        .getPublicUrl(fileName);
-
-      // Update cuota with invoice URL and metadata
+      // GES-1.4: store the file's NAME (opened through /api/contracts/invoice-link),
+      // with the invoice metadata.
       const { error: updateError } = await supabase
         .from('cuotas')
-        .update({ 
-          factura_url: publicUrl,
-          factura_filename: file.name,
-          factura_size: file.size,
-          factura_type: file.type,
-          factura_uploaded_at: new Date().toISOString()
-        })
+        .update(invoiceUploadColumns(fileName, file, new Date().toISOString()))
         .eq('id', cuotaId);
 
       if (updateError) throw updateError;
@@ -580,35 +571,19 @@ export default function ContractsPage() {
         return;
       }
 
-      // Extract the file name from the URL more robustly
-      let fileName: string;
-      try {
-        const url = new URL(cuota.factura_url);
-        const pathParts = url.pathname.split('/');
-        // Find the index of 'facturas' bucket and get the file name after it
-        const bucketIndex = pathParts.indexOf('facturas');
-        if (bucketIndex !== -1 && bucketIndex < pathParts.length - 1) {
-          fileName = pathParts.slice(bucketIndex + 1).join('/');
-        } else {
-          // Fallback to the last part of the path
-          fileName = pathParts[pathParts.length - 1];
-        }
-        
-        if (!fileName) {
-          throw new Error('No file name found in URL');
-        }
-      } catch (error) {
-        console.error('Error parsing invoice URL:', error);
-        toast.error('Error al obtener el nombre del archivo');
-        return;
+      // GES-1.4: the file name from either stored form (old full address or
+      // bare name). A value the helper refuses names no file of this store:
+      // the columns are still cleared below and no file is removed.
+      const fileName = invoiceObjectName(cuota.factura_url);
+
+      if (fileName) {
+        // Delete the file from storage
+        const { error: deleteError } = await supabase.storage
+          .from(INVOICES_BUCKET)
+          .remove([fileName]);
+
+        if (deleteError) throw deleteError;
       }
-
-      // Delete the file from storage
-      const { error: deleteError } = await supabase.storage
-        .from('facturas')
-        .remove([fileName]);
-
-      if (deleteError) throw deleteError;
 
       // Update the cuota to remove the invoice URL and metadata
       const { error: updateError } = await supabase

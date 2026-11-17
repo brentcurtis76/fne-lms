@@ -358,3 +358,13 @@ describe('«Nueva Propuesta» and «Mi Perfil»', () => {
     expect(link.className).not.toMatch(/(^|\s)hidden(\s|$)/);
   });
 });
+
+describe('the headings of the new view', () => {
+  it('badge names are third-level headings, like every other card title; no fourth level anywhere', async () => {
+    await draw(admin());
+    const section = screen.getByTestId('panel-section-badges');
+    const names = [...section.querySelectorAll('[data-testid^="panel-badge-"]')].map((card) => card.querySelector('h3')?.textContent);
+    expect(names).toEqual(['Insignia Inventada 1', 'Insignia Inventada 2', 'Insignia Inventada 3', 'Insignia Inventada 4']);
+    expect(screen.getByTestId('panel-nuevo').querySelectorAll('h4, h5, h6')).toHaveLength(0);
+  });
+});

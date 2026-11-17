@@ -23,7 +23,8 @@ function BadgeCardNuevo({ badge }: { badge: UserBadgeWithDetails }) {
         <GeneraBadgeIcon size={44} colorPrimary={colours.primary} colorSecondary={colours.secondary} />
       </span>
       <div className="grid min-w-0 gap-0.5">
-        <h4 className="truncate text-[0.8125rem] font-semibold text-brand_primary">{badge.badge_name}</h4>
+        {/* A third-level heading, as every card title of the new view (today's card keeps its own) */}
+        <h3 className="truncate text-[0.8125rem] font-semibold text-brand_primary">{badge.badge_name}</h3>
         {courseName && <span className="truncate text-[0.8125rem] text-gray-600">{courseName}</span>}
         <span className="text-xs text-gray-600">{formatEarnedAt(badge.earned_at)}</span>
         {showsBadgePoints(badge, 'md') && (

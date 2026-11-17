@@ -1,9 +1,7 @@
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useState, useEffect } from 'react';
 import { X, Calendar, DollarSign, Receipt, Eye, Download, Edit, Trash2, FileText, FileSpreadsheet } from 'lucide-react';
 
 import { formatCurrency as formatCurrencyWithSymbol } from '../../lib/currency-service';
-import { RECEIPTS_BUCKET } from '../../utils/expenseConfig';
 import { ExpenseReportExporter } from '../../lib/expenseReportExport';
 import { toast } from 'react-hot-toast';
 
@@ -76,7 +74,6 @@ export default function ExpenseReportDetails({
   currentUser,
   isAdmin = false
 }: ExpenseReportDetailsProps) {
-  const supabase = useSupabaseClient();
   if (!isOpen || !report) return null;
 
   const formatDate = (dateString: string) => {
@@ -107,67 +104,28 @@ export default function ExpenseReportDetails({
     }
   };
 
-  const getReceiptUrl = async (receiptUrl: string): Promise<string> => {
-    // If it's already a full URL (signed URL), return as is
-    if (receiptUrl.startsWith('http')) {
-      return receiptUrl;
-    }
-    
-    // If it's a file path, generate a signed URL
+  // GES-1.5: a receipt opens only through the server route, which checks who
+  // is asking and answers a five-minute link. No direct storage call here.
+  const getReceiptUrl = async (item: ExpenseItem): Promise<string | null> => {
     try {
-      const filePath = receiptUrl.startsWith(`${RECEIPTS_BUCKET}/`)
-        ? receiptUrl.substring(RECEIPTS_BUCKET.length + 1)
-        : receiptUrl;
-      const { data, error } = await supabase.storage
-        .from(RECEIPTS_BUCKET)
-        .createSignedUrl(filePath, 3600); // 1 hour
-      
-      if (error) throw error;
-      return data.signedUrl;
+      const response = await fetch('/api/expense-reports/receipt-link?itemId=' + item.id, {
+        credentials: 'same-origin'
+      });
+      if (!response.ok) return null;
+      const body = await response.json();
+      return typeof body?.url === 'string' && body.url ? body.url : null;
     } catch (error) {
-      console.error('Error generating receipt URL:', error);
-      return receiptUrl; // Fallback to original
+      console.error('Error requesting receipt link:', error instanceof Error ? error.message : 'unknown');
+      return null;
     }
   };
 
   const handleReceiptClick = async (item: ExpenseItem) => {
-    try {
-      let url = '';
-      
-      if (item.receipt_url) {
-        url = await getReceiptUrl(item.receipt_url);
-      } else if (item.receipt_filename) {
-        // Try to find the file in storage and generate URL
-        // For now, we'll try common receipt file patterns
-        const { data: files, error: listError } = await supabase.storage
-          .from(RECEIPTS_BUCKET)
-          .list('', { limit: 50 });
-          
-        if (!listError && files) {
-          // Find a PDF file (most receipts are PDFs)
-          const receiptFile = files.find(file => 
-            file.name.includes('receipt_') && file.name.endsWith('.pdf')
-          ) || files[0]; // Fallback to first file
-          
-          if (receiptFile) {
-            const { data: urlData, error: urlError } = await supabase.storage
-              .from(RECEIPTS_BUCKET)
-              .createSignedUrl(receiptFile.name, 3600);
-              
-            if (!urlError && urlData.signedUrl) {
-              url = urlData.signedUrl;
-            }
-          }
-        }
-      }
-      
-      if (url) {
-        window.open(url, '_blank');
-      } else {
-        console.warn('No receipt URL could be generated');
-      }
-    } catch (error) {
-      console.error('Error opening receipt:', error);
+    const url = await getReceiptUrl(item);
+    if (url) {
+      window.open(url, '_blank');
+    } else {
+      toast.error('No se pudo abrir la boleta');
     }
   };
 
@@ -188,41 +146,14 @@ export default function ExpenseReportDetails({
           </button>
           <button
             onClick={async () => {
-              try {
-                let url = '';
-                if (item.receipt_url) {
-                  url = await getReceiptUrl(item.receipt_url);
-                } else if (item.receipt_filename) {
-                  // Try to get any available file for download
-                  const { data: files, error: listError } = await supabase.storage
-                    .from(RECEIPTS_BUCKET)
-                    .list('', { limit: 10 });
-                  
-                  if (!listError && files && files.length > 0) {
-                    const receiptFile = files.find(file => 
-                      file.name.includes('receipt_') && file.name.endsWith('.pdf')
-                    ) || files[0];
-                    
-                    if (receiptFile) {
-                      const { data: urlData, error: urlError } = await supabase.storage
-                        .from(RECEIPTS_BUCKET)
-                        .createSignedUrl(receiptFile.name, 3600);
-                      
-                      if (!urlError && urlData.signedUrl) {
-                        url = urlData.signedUrl;
-                      }
-                    }
-                  }
-                }
-                
-                if (url) {
-                  const link = document.createElement('a');
-                  link.href = url;
-                  link.download = item.receipt_filename || 'receipt.pdf';
-                  link.click();
-                }
-              } catch (error) {
-                console.error('Error downloading receipt:', error);
+              const url = await getReceiptUrl(item);
+              if (url) {
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = item.receipt_filename || 'receipt.pdf';
+                link.click();
+              } else {
+                toast.error('No se pudo abrir la boleta');
               }
             }}
             className="flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"

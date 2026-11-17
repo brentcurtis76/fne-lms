@@ -82,6 +82,16 @@ INSERT INTO public.modules (id, course_id, title, order_number)
 VALUES ('72000000-0000-4000-8000-00000000e001', '72000000-0000-4000-8000-000000000c01', 'DRLS module', 1);
 INSERT INTO public.lessons (id, module_id, title)
 VALUES ('72000000-0000-4000-8000-00000000ee01', '72000000-0000-4000-8000-00000000e001', 'DRLS lesson');
+-- F5 (CUR-S2a): submit_quiz scores the quiz stored in the lesson's block and
+-- requires the caller to have the course, so the fixture holds a real quiz
+-- block and drls_user is given the course (assignment + enrolment).
+INSERT INTO public.blocks (id, course_id, lesson_id, position, type, payload)
+VALUES ('72000000-0000-4000-8000-0000000000b1', '72000000-0000-4000-8000-000000000c01', '72000000-0000-4000-8000-00000000ee01', 1, 'quiz',
+        '{"questions": [{"id": "q1", "type": "multiple-choice", "points": 1, "options": [{"id": "a", "isCorrect": true}]}]}');
+SELECT tests.authenticate_as('drls_admin');
+SELECT public.batch_assign_courses('72000000-0000-4000-8000-000000000c01', ARRAY[pg_temp.uid('drls_user')]);
+RESET ROLE;
+SELECT tests.clear_authentication();
 INSERT INTO public.growth_communities (id, school_id, name)
 VALUES ('72000000-0000-4000-8000-00000000c001', 9721, 'DRLS community');
 INSERT INTO public.growth_community_transformation_access (growth_community_id, is_active)
@@ -113,12 +123,12 @@ SELECT throws_ok($$SELECT public.cleanup_propuesta_rate_limits()$$, '42501', NUL
   'authenticated: cleanup_propuesta_rate_limits is not executable');
 -- submit_quiz actor boundary (D-RLS-02)
 SELECT isnt(
-  public.submit_quiz('72000000-0000-4000-8000-00000000ee01', 'block-1', pg_temp.uid('drls_user'), '72000000-0000-4000-8000-000000000c01',
+  public.submit_quiz('72000000-0000-4000-8000-00000000ee01', '72000000-0000-4000-8000-0000000000b1', pg_temp.uid('drls_user'), '72000000-0000-4000-8000-000000000c01',
                      '{"q1": {"selectedOption": "a"}}'::jsonb,
                      '{"questions": [{"id": "q1", "type": "multiple-choice", "points": 1, "options": [{"id": "a", "isCorrect": true}]}]}'::jsonb, 10),
   NULL, 'authenticated: submit_quiz as THEMSELVES succeeds and returns a submission id');
-SELECT is((SELECT auto_graded_score FROM public.quiz_submissions WHERE student_id = pg_temp.uid('drls_user') AND block_id = 'block-1'), 1,
-  'authenticated: the own submission was scored (body semantics preserved)');
+SELECT is((SELECT auto_graded_score FROM public.quiz_submissions WHERE student_id = pg_temp.uid('drls_user') AND block_id = '72000000-0000-4000-8000-0000000000b1'), 1,
+  'authenticated: the own submission was scored from the stored quiz block');
 SELECT throws_ok(
   $$SELECT public.submit_quiz('72000000-0000-4000-8000-00000000ee01', 'block-2', pg_temp.uid('drls_other'), '72000000-0000-4000-8000-000000000c01',
                               '{}'::jsonb, '{"questions": []}'::jsonb, NULL)$$,
@@ -142,7 +152,7 @@ SELECT set_config('role', 'service_role', true);
 SELECT set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
 SELECT ok(public.auth_is_backend_caller(), 'service_role: auth_is_backend_caller() is TRUE');
 SELECT isnt(
-  public.submit_quiz('72000000-0000-4000-8000-00000000ee01', 'block-3', pg_temp.uid('drls_other'), '72000000-0000-4000-8000-000000000c01',
+  public.submit_quiz('72000000-0000-4000-8000-00000000ee01', '72000000-0000-4000-8000-0000000000b1', pg_temp.uid('drls_other'), '72000000-0000-4000-8000-000000000c01',
                      '{}'::jsonb, '{"questions": []}'::jsonb, NULL),
   NULL, 'service_role: submit_quiz for a named student (seed path) still succeeds');
 SELECT ok(public.has_global_workspace_access(pg_temp.uid('drls_other')),

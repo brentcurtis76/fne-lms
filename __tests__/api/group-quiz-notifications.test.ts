@@ -452,6 +452,9 @@ describe('D4 · retries, duplicates, self and partial failure', () => {
   });
 
   it('a reviewer reviewing their own submission gets no bell', async () => {
+    // In scope for this case only (CUR-S6b): a directivo role in the reviewer's own school.
+    // seed() rebuilds the tables before the next case.
+    db.tables.user_roles.push({ user_id: REVIEWER_INDIV, role_type: 'equipo_directivo', is_active: true, school_id: SCHOOL, community_id: null, generation_id: null });
     const res = await review(REVIEWER_INDIV, { submissionId: SUB_OWN_REVIEW, reviewStatus: 'pass' });
     expect(res.body).toEqual({ success: true, notificationsDelivered: true });
     expect(bells()).toEqual([]);
@@ -805,6 +808,28 @@ describe('R1-F2 · every changed quiz review is its own occurrence, whatever the
 
   it('D4/R1-F2: of two overlapping different reviews in one millisecond, one is saved and notified and the other gets 409', async () => {
     await reviewAt('pass');
+    // The overlap made explicit (CUR-S6b): each request's read of the submission that feeds
+    // the compare-and-set waits until both requests have reached it, then both go on.
+    // Reviewers take different numbers of scope lookups before that read. Undone by restoreAllMocks.
+    let arrived = 0;
+    let releaseReads!: () => void;
+    const bothArrived = new Promise<void>((resolve) => (releaseReads = resolve));
+    const from = fakeClient.from;
+    vi.spyOn(fakeClient, 'from').mockImplementation((table: string) => {
+      const b = from.call(fakeClient, table);
+      if (table !== 'quiz_submissions') return b;
+      const { select, single } = b;
+      let feedsCompareAndSet = false;
+      b.select = (c?: string, opts?: { head?: boolean }) => ((feedsCompareAndSet = !!c?.includes('graded_at')), select(c, opts));
+      b.single = async () => {
+        if (feedsCompareAndSet) {
+          if (++arrived === 2) releaseReads();
+          await bothArrived;
+        }
+        return single();
+      };
+      return b;
+    });
     const [a, b] = await Promise.all([reviewAt('needs_review'), review(REVIEWER_SCHOOL, { submissionId: SUB_PENDING, reviewStatus: 'pass' })]);
     expect([a.status, b.status].sort()).toEqual([200, 409]);
     expect(saved().graded_by).toBe(a.status === 200 ? REVIEWER_INDIV : REVIEWER_SCHOOL);
@@ -1116,18 +1141,11 @@ describe('R4-F1/F2/F3 · the group and quiz journey’s auth and sibling routes 
         '[API assignments] Allowed students: 0',
         '[API pending] Role: consultor',
         '[API pending] All reviews count: 1',
-        '[API pending] Assignments found: 1',
-        '[API pending] Processing scope: school',
-        '[API pending] Users in school: 5',
-        '[API pending] Allowed student IDs: 5',
         '[API pending] Filtered reviews: 1',
         '[API pending] Role: admin',
         '[API pending] All reviews count: 1',
         '[API pending] Role: consultor',
         '[API pending] All reviews count: 1',
-        '[API pending] Assignments found: 1',
-        '[API pending] Processing scope: individual',
-        '[API pending] Allowed student IDs: 0',
         '[API pending] Filtered reviews: 0',
       ]);
     });
@@ -1210,9 +1228,6 @@ describe('R4-F1/F2/F3 · the group and quiz journey’s auth and sibling routes 
         expect(logs).toEqual([
           '[API pending] Role: consultor',
           '[API pending] All reviews count: 1',
-          '[API pending] Assignments found: 1',
-          '[API pending] Processing scope: unknown',
-          '[API pending] Allowed student IDs: 0',
           '[API pending] Filtered reviews: 0',
         ]);
         expect(logs.join('\n')).not.toMatch(/School|nombre/);
@@ -1225,10 +1240,6 @@ describe('R4-F1/F2/F3 · the group and quiz journey’s auth and sibling routes 
         expect(logs).toEqual([
           '[API pending] Role: consultor',
           '[API pending] All reviews count: 1',
-          '[API pending] Assignments found: 2',
-          '[API pending] Processing scope: unknown',
-          '[API pending] Processing scope: individual',
-          '[API pending] Allowed student IDs: 1',
           '[API pending] Filtered reviews: 1',
         ]);
       });

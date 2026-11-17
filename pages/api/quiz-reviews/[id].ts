@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { loggableError } from '@/lib/api-auth';
+import { canReviewSubmission } from '@/lib/quiz-reviews/review-scope';
 
 // Use service role to bypass RLS
 const supabaseService = createClient(
@@ -89,60 +90,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'Quiz submission not found' });
     }
 
-    // For consultors, verify they have access to this student
-    if (userRole === 'consultor') {
-      const { data: assignments, error: assignmentsError } = await supabaseService
-        .from('consultant_assignments')
-        .select('student_id, school_id, generation_id, community_id, assignment_data')
-        .eq('consultant_id', user.id)
-        .eq('is_active', true);
-
-      if (assignmentsError) {
-        console.error('Error fetching consultant assignments:', loggableError(assignmentsError));
-        return res.status(500).json({ error: 'Failed to verify access' });
-      }
-
-      // Build list of allowed student IDs
-      const allowedStudentIds = new Set<string>();
-
-      for (const assignment of (assignments || [])) {
-        const scope = assignment.assignment_data?.assignment_scope || 'individual';
-
-        if (scope === 'individual' && assignment.student_id) {
-          allowedStudentIds.add(assignment.student_id);
-        } else if (scope === 'school' && assignment.school_id) {
-          const { data: schoolUsers } = await supabaseService
-            .from('user_roles')
-            .select('user_id')
-            .eq('school_id', assignment.school_id)
-            .eq('is_active', true);
-          if (schoolUsers) {
-            schoolUsers.forEach(u => allowedStudentIds.add(u.user_id));
-          }
-        } else if (scope === 'generation' && assignment.generation_id) {
-          const { data: genUsers } = await supabaseService
-            .from('user_roles')
-            .select('user_id')
-            .eq('generation_id', assignment.generation_id)
-            .eq('is_active', true);
-          if (genUsers) {
-            genUsers.forEach(u => allowedStudentIds.add(u.user_id));
-          }
-        } else if (scope === 'community' && assignment.community_id) {
-          const { data: communityUsers } = await supabaseService
-            .from('user_roles')
-            .select('user_id')
-            .eq('community_id', assignment.community_id)
-            .eq('is_active', true);
-          if (communityUsers) {
-            communityUsers.forEach(u => allowedStudentIds.add(u.user_id));
-          }
-        }
-      }
-
-      if (!allowedStudentIds.has(submission.student_id)) {
-        return res.status(403).json({ error: 'No tienes acceso a este quiz' });
-      }
+    // An admin, a consultor whose active assignments cover the learner, or a
+    // directivo of a school the learner belongs to (lib/quiz-reviews/review-scope.ts).
+    let canReview: boolean;
+    try {
+      canReview = await canReviewSubmission(
+        supabaseService,
+        user.id,
+        (userRoles || []).map(r => r.role_type),
+        submission.student_id
+      );
+    } catch {
+      return res.status(500).json({ error: 'Failed to verify access' });
+    }
+    if (!canReview) {
+      return res.status(403).json({ error: 'No tienes acceso a este quiz' });
     }
 
     // Set the graded_by to current user

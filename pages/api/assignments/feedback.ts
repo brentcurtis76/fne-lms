@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import { requireVerifiedRole } from '../../../lib/api-auth';
 import NotificationService from '../../../lib/notificationService';
 import { awardBadgeAndPost } from '../../../lib/services/badgeAndPost';
 import { checkAprobadoEligibility } from '../../../lib/utils/aprobadoCheck';
@@ -30,34 +31,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    // Get auth header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Missing or invalid authorization header' });
-    }
-
-    // Verify the user is authenticated
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      return res.status(401).json({ error: 'Invalid authentication token' });
-    }
-
-    // Check if user has permission to provide feedback
-    // (any teaching-eligible role: docente or inheriting leadership roles)
-    const { data: teachingRole } = await supabaseAdmin
-      .from('user_roles')
-      .select('id')
-      .eq('user_id', user.id)
-      .in('role_type', TEACHING_ELIGIBLE_ROLES)
-      .eq('is_active', true)
-      .limit(1)
-      .maybeSingle();
-
-    if (!teachingRole) {
-      return res.status(403).json({ error: 'Insufficient permissions to provide feedback' });
-    }
+    const caller = await requireVerifiedRole(req, res, ['admin']);
+    if (!caller.user) return res.status(caller.status!).json(caller.body);
+    const user = caller.user;
 
     const { assignment_id, student_id, feedback_text, grade, status } = req.body;
     

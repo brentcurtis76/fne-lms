@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext, type Browser } from '@playwright/test';
+import { test, expect, type APIRequestContext, type APIResponse, type Browser } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseEnv } from 'dotenv';
@@ -130,6 +130,20 @@ async function removeContent() {
 
 function rest(token: string) {
   return { apikey: ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Prefer: 'return=representation' };
+}
+
+/**
+ * A non-admin's direct PATCH of course_enrollments (F4b: no direct enrolment UPDATE by non-admins):
+ * refused (401/403), or matched no row (200 with `[]` under `return=representation`, or 204).
+ * Callers prove with a `service` read that nothing was stored.
+ */
+async function expectRefusedOrNoop(res: APIResponse, message: string) {
+  const status = res.status();
+  if (status === 200) {
+    expect(await res.json(), `${message} (a 200 must return no row)`).toEqual([]);
+    return;
+  }
+  expect([401, 403, 204], `${message}: ${await res.text()}`).toContain(status);
 }
 
 /** GoTrue password grant for a seeded persona — the token a browser client would hold. */
@@ -940,7 +954,9 @@ test.describe('learning-path governance (W-B2c-01)', () => {
     expect(kept, 'the enrolment row and its progress are preserved').toMatchObject({ progress_percentage: 42, access_origin: 'learning_path' });
     // A learner cannot promote their own row.
     const promote = await request.patch(`${SUPABASE_URL}/rest/v1/course_enrollments?user_id=eq.${cmId}&course_id=eq.${COURSE_ID}`, { headers: rest(cmToken), data: { access_origin: 'independent' } });
-    expect([401, 403]).toContain(promote.status());
+    await expectRefusedOrNoop(promote, 'self-promotion refused or changes nothing');
+    const { data: notPromoted } = await service.from('course_enrollments').select('progress_percentage, access_origin').eq('user_id', cmId).eq('course_id', COURSE_ID).maybeSingle();
+    expect(notPromoted, 'self-promotion stored nothing').toMatchObject({ progress_percentage: 42, access_origin: 'learning_path' });
 
     // Reassignment restores access without duplicating the row; a repeated unassign reports 0.
     const again = await admin.post('/api/learning-paths/assign', { data: { pathId, groupId: WORKSPACE_ID } });
@@ -1157,7 +1173,7 @@ test.describe('learning-path governance (W-B2c-01)', () => {
   // findings, exercised with real tokens, the real API and the real browser.
   // ------------------------------------------------------------------------
 
-  test('C-R1-01. a learner cannot move an enrolment to another course nor forge its provenance through PostgREST; own progress still writes; the target stays unreadable', async ({ request }) => {
+  test('C-R1-01. a learner cannot move an enrolment to another course nor forge its provenance nor write its own progress directly through PostgREST; the target stays unreadable', async ({ request }) => {
     test.skip(!pathId, 'template was not created');
     const { token: cmToken, userId: cmId } = await accessTokenFor(request, 'communityManager');
     const { userId: adminId } = await accessTokenFor(request, 'admin');
@@ -1167,23 +1183,35 @@ test.describe('learning-path governance (W-B2c-01)', () => {
     const before = await request.get(`${SUPABASE_URL}/rest/v1/lessons?select=id&id=eq.${LESSON_ID}`, { headers: rest(cmToken) });
     expect(await before.json(), 'the template lesson is not readable before the attack (group source removed in C2)').toEqual([]);
 
+    const enrolmentColumns = 'id, course_id, access_origin, source_path_id, enrolled_by, enrollment_type, progress_percentage';
+    const snapshot = async () => {
+      const { data, error } = await service.from('course_enrollments').select(enrolmentColumns).eq('user_id', cmId).in('course_id', [COURSE_ID, OTHER_COURSE_ID]).order('course_id');
+      expect(error).toBeNull();
+      return data;
+    };
+    const beforeRows = await snapshot();
+    expect(beforeRows, 'both enrolment rows exist before the attacks').toHaveLength(2);
+
     const patch = (filter: string, body: unknown) =>
       request.patch(`${SUPABASE_URL}/rest/v1/course_enrollments?user_id=eq.${cmId}&${filter}`, { headers: rest(cmToken), data: body });
     const move = await patch(`course_id=eq.${OTHER_COURSE_ID}`, { course_id: COURSE_ID });
-    expect([401, 403], `re-association refused: ${await move.text()}`).toContain(move.status());
+    await expectRefusedOrNoop(move, 're-association refused or changes nothing');
     const forgeOrigin = await patch(`course_id=eq.${COURSE_ID}`, { access_origin: 'independent', source_path_id: null });
-    expect([401, 403]).toContain(forgeOrigin.status());
+    await expectRefusedOrNoop(forgeOrigin, 'origin forgery refused or changes nothing');
     const forgeGrant = await patch(`course_id=eq.${COURSE_ID}`, { enrolled_by: adminId, enrollment_type: 'bulk_assigned' });
-    expect([401, 403], 'grant provenance (who / how) is refused by the guard trigger').toContain(forgeGrant.status());
+    await expectRefusedOrNoop(forgeGrant, 'grant provenance (who / how) refused or changes nothing');
     const multi = await patch(`course_id=eq.${OTHER_COURSE_ID}`, { course_id: COURSE_ID, access_origin: 'independent', progress_percentage: 1 });
-    expect([401, 403]).toContain(multi.status());
+    await expectRefusedOrNoop(multi, 'multi-field forgery refused or changes nothing');
+    // F4b: a learner's own progress is written only by the database (lesson marks), admins and the service key.
     const progress = await patch(`course_id=eq.${OTHER_COURSE_ID}`, { progress_percentage: 61 });
-    expect([200, 204], `own progress write still works: ${await progress.text()}`).toContain(progress.status());
+    await expectRefusedOrNoop(progress, 'direct own-progress write refused or changes nothing');
 
     const after = await request.get(`${SUPABASE_URL}/rest/v1/lessons?select=id&id=eq.${LESSON_ID}`, { headers: rest(cmToken) });
     expect(await after.json(), 'the target lesson is still unreadable after every refused attempt').toEqual([]);
     const { data: kept } = await service.from('course_enrollments').select('course_id, access_origin, progress_percentage, enrollment_type').eq('user_id', cmId).eq('course_id', OTHER_COURSE_ID).maybeSingle();
-    expect(kept).toMatchObject({ course_id: OTHER_COURSE_ID, access_origin: 'independent', progress_percentage: 61, enrollment_type: 'assigned' });
+    const otherBefore = beforeRows!.find((r) => r.course_id === OTHER_COURSE_ID)!;
+    expect(kept).toMatchObject({ course_id: OTHER_COURSE_ID, access_origin: 'independent', progress_percentage: otherBefore.progress_percentage, enrollment_type: 'assigned' });
+    expect(await snapshot(), 'every field the attacks tried to set keeps its earlier value, on both rows').toEqual(beforeRows);
   });
 
   test('C-R1-03. an independent grant needs the authoritative admin role: a self-edited metadata role is refused, the admin grant is atomic and idempotent', async ({ request }) => {
@@ -1219,8 +1247,9 @@ test.describe('learning-path governance (W-B2c-01)', () => {
     expect(enrolment).toMatchObject({ access_origin: 'independent', source_path_id: null, enrollment_type: 'assigned' });
     const lesson = await request.get(`${SUPABASE_URL}/rest/v1/lessons?select=id&id=eq.${OTHER_LESSON_ID}`, { headers: rest(docenteToken) });
     expect((await lesson.json()) as unknown[], 'the recipient reads the granted course content').toHaveLength(1);
-    // progress written by the learner survives a repeated grant
-    await request.patch(`${SUPABASE_URL}/rest/v1/course_enrollments?user_id=eq.${docenteId}&course_id=eq.${OTHER_COURSE_ID}`, { headers: rest(docenteToken), data: { progress_percentage: 35 } });
+    // progress already stored survives a repeated grant
+    const { error: seedProgressError } = await service.from('course_enrollments').update({ progress_percentage: 35 }).eq('user_id', docenteId).eq('course_id', OTHER_COURSE_ID);
+    expect(seedProgressError).toBeNull();
     const retry = await request.post('/api/admin/course-assignments', { headers: { Authorization: `Bearer ${adminToken}` }, data: { courseId: OTHER_COURSE_ID, teacherIds: [docenteId] } });
     expect(retry.status(), await retry.text()).toBe(200);
     expect(((await retry.json()) as { grant: Record<string, unknown> }).grant).toMatchObject({ assignments_created: 0, assignments_existing: 1, enrollments_created: 0, enrollments_unchanged: 1 });

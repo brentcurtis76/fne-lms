@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import { requireVerifiedRole } from '../../../lib/api-auth';
 
 // Create admin client with service role key for elevated permissions
 const supabaseAdmin = createClient(
@@ -36,19 +37,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    // Get auth header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Missing or invalid authorization header' });
-    }
-
-    // Verify the user is authenticated
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return res.status(401).json({ error: 'Invalid authentication token' });
-    }
+    const caller = await requireVerifiedRole(req, res, ['admin']);
+    if (!caller.user) return res.status(caller.status!).json(caller.body);
+    const user = caller.user;
 
     const { course_id, course_name } = req.body;
 

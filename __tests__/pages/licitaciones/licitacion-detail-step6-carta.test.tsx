@@ -33,6 +33,10 @@ const state = {
   firstDetailServed: false,
   autoResolveDetails: false,
   pendingDetails: [] as Array<() => void>,
+  // Send-back 2: refreshes answered with the picture of the database taken when
+  // they were ASKED, released by the test in whatever order it chooses.
+  snapshotAtRequest: false,
+  heldDetails: [] as Array<() => void>,
   releaseGeneration: null as null | (() => void),
 };
 
@@ -53,6 +57,8 @@ beforeEach(() => {
   state.firstDetailServed = false;
   state.autoResolveDetails = false;
   state.pendingDetails = [];
+  state.snapshotAtRequest = false;
+  state.heldDetails = [];
   state.releaseGeneration = null;
   vi.stubGlobal('fetch', fetchMock);
   vi.stubGlobal('open', vi.fn());
@@ -62,6 +68,12 @@ beforeEach(() => {
       if (!state.firstDetailServed || state.autoResolveDetails) {
         state.firstDetailServed = true;
         return Promise.resolve(ok({ data: { licitacion: detail() } }));
+      }
+      if (state.snapshotAtRequest) {
+        const snapshot = detail(); // what the database holds when this refresh is read
+        return new Promise<Resp>(resolve => {
+          state.heldDetails.push(() => resolve(ok({ data: { licitacion: snapshot } })));
+        });
       }
       // A refresh: answered when the test releases it, with the database as it is then.
       return new Promise<Resp>(resolve => {
@@ -123,5 +135,49 @@ describe('Step 6 inside the detail page — «Generar Carta» unlocks the FNE co
     await startGeneration();
     await releaseGeneration();
     await finish();
+  });
+});
+
+describe('Step 6 inside the detail page — overlapping refreshes keep the newest picture of the tender (send-back 2)', () => {
+  const loaderShown = (container: HTMLElement) => container.querySelector('.animate-spin.h-12') !== null;
+
+  // Refresh A (a save during the generation) reads the tender WITHOUT the Carta;
+  // the generation then stores it and refresh B reads it WITH the Carta.
+  async function twoOverlappingRefreshes() {
+    state.snapshotAtRequest = true;
+    const view = render(<LicitacionDetailPage />);
+    const fne = await screen.findByRole('button', { name: /Proveedor FNE/ });
+    expect(fne).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: /Generar Carta de Adjudicacion/ }));
+    await waitFor(() => expect(state.releaseGeneration).not.toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: /Guardar Adjudicacion/ }));
+    await waitFor(() => expect(state.heldDetails).toHaveLength(1)); // A asked, Carta not stored
+    await releaseGeneration();
+    await waitFor(() => expect(state.heldDetails).toHaveLength(2)); // B asked, Carta stored
+    const [answerA, answerB] = state.heldDetails;
+    return { container: view.container, answerA, answerB };
+  }
+
+  async function expectAvailableAndNoLoader(container: HTMLElement) {
+    await waitFor(() => expect(screen.getByRole('button', { name: /Proveedor FNE/ })).toBeEnabled());
+    // Stays so: let any late answer and re-render land, then look again.
+    await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+    expect(screen.getByRole('button', { name: /Proveedor FNE/ })).toBeEnabled();
+    expect(screen.queryByText('Genere la Carta de adjudicación antes de confirmar la adjudicación.')).not.toBeInTheDocument();
+    expect(loaderShown(container)).toBe(false);
+  }
+
+  it('B (with the Carta) answers first, then the older A (without it)', async () => {
+    const { container, answerA, answerB } = await twoOverlappingRefreshes();
+    await act(async () => { answerB(); await Promise.resolve(); });
+    await act(async () => { answerA(); await Promise.resolve(); });
+    await expectAvailableAndNoLoader(container);
+  });
+
+  it('A answers first, then B (plain order)', async () => {
+    const { container, answerA, answerB } = await twoOverlappingRefreshes();
+    await act(async () => { answerA(); await Promise.resolve(); });
+    await act(async () => { answerB(); await Promise.resolve(); });
+    await expectAvailableAndNoLoader(container);
   });
 });

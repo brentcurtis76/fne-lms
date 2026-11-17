@@ -19,10 +19,15 @@
  * name (or `all`): the text is written the same way and the digests file is rewritten for that
  * case. Nothing is ever accepted without that variable.
  *
- * The pin does not depend on the machine (send-back 1): the time zone is fixed to UTC below before
- * any date is made or drawn, and every number the page writes with `toLocaleString()` in a digested
- * case stays below 1,000 (the thousands case is checked apart, against what `toLocaleString()` gives
- * on the machine that runs it). PANEL_CLASICO_PAGE, when set, names another copy of the page to
+ * The pin does not depend on the machine: the time zone is fixed to UTC below before any date is
+ * made or drawn (send-back 1; the first test of the file fails by name if the zone did not take),
+ * and for the length of each test `Number.prototype.toLocaleString` called WITHOUT a language
+ * writes as `'en-US'` does (send-back 2), so the process's default language never reaches a digest
+ * (in some languages even `987` is written with other digits). That the page calls it without a
+ * language is asserted apart. The thousands case is checked apart too, with the stand-in off,
+ * against what the real `toLocaleString()` gives on the machine that runs it. The page writes no
+ * date through a locale function (it builds its dates from `getDate()`, `getMonth()` and
+ * `getFullYear()`), so none of those is replaced. PANEL_CLASICO_PAGE, when set, names another copy of the page to
  * render instead of `pages/dashboard.tsx` (a module id such as `@/pages/dashboard.before`): it is
  * how a new digest is shown to be produced by the page as it was before 6A too.
  *
@@ -43,7 +48,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The machine's time zone must not reach the digests: fixed before anything else runs. Node reads
 // a change of `process.env.TZ` at run time; the pin's own runs under five zones and languages show
-// it holds here (see the send-back 1 report).
+// it holds here (see the send-back 1 report). It holds only while Vitest runs this file in a child
+// process (`threads: false`): the first test of the file checks that it took.
 vi.hoisted(() => {
   process.env.TZ = 'UTC';
 });
@@ -217,6 +223,14 @@ function logAuth(name: string, args: unknown[]) {
   log(args.length === 0 ? name : { [name]: args });
 }
 
+/**
+ * A helper's entry as today when it was given only the arguments it expects, and with the extra
+ * ones written out otherwise (named as in `describeProps`), so an argument added changes the log.
+ */
+function withRest(entry: Record<string, unknown>, rest: unknown[]): Record<string, unknown> {
+  return rest.length === 0 ? entry : { ...entry, rest: describeProps({ args: rest }) };
+}
+
 // One client object for the whole file: the page's effects list it as a dependency, as in the app.
 const client: any = {
   auth: {
@@ -284,25 +298,26 @@ vi.mock('@/utils/roleUtils', async (importOriginal) => {
     ...real,
     // The real rule, watched: it must not run while the loading mark shows (send-back 1).
     metadataHasRole: vi.fn(real.metadataHasRole),
-    getUserRoles: vi.fn((given: unknown, userId: string) => {
-      log({ getUserRoles: userId, client: given === client });
+    // Every argument after the expected ones is written down too (send-back 2; today none is passed).
+    getUserRoles: vi.fn((given: unknown, userId: string, ...rest: unknown[]) => {
+      log(withRest({ getUserRoles: userId, client: given === client }, rest));
       if (S().rolesPending) return new Promise(() => {});
       return Promise.resolve(S().roles ?? []);
     }),
-    getCommunityMembers: vi.fn((given: unknown, communityId: string) => {
-      log({ getCommunityMembers: communityId, client: given === client });
+    getCommunityMembers: vi.fn((given: unknown, communityId: string, ...rest: unknown[]) => {
+      log(withRest({ getCommunityMembers: communityId, client: given === client }, rest));
       if (S().membersPending) return new Promise(() => {});
       return Promise.resolve(S().members?.[communityId] ?? []);
     }),
-    getEffectiveRoleAndStatus: vi.fn((given: unknown, userId: string) => {
-      log({ getEffectiveRoleAndStatus: userId, client: given === client });
+    getEffectiveRoleAndStatus: vi.fn((given: unknown, userId: string, ...rest: unknown[]) => {
+      log(withRest({ getEffectiveRoleAndStatus: userId, client: given === client }, rest));
       return Promise.resolve(S().effective ?? { effectiveRole: 'docente', isAdmin: false });
     }),
   };
 });
 vi.mock('@/utils/workspaceUtils', () => ({
-  getOrCreateWorkspace: vi.fn((communityId: string) => {
-    log({ getOrCreateWorkspace: communityId });
+  getOrCreateWorkspace: vi.fn((communityId: string, ...rest: unknown[]) => {
+    log(withRest({ getOrCreateWorkspace: communityId }, rest));
     const ws = S().workspaces?.[communityId];
     return Promise.resolve(ws === undefined ? null : ws);
   }),
@@ -558,7 +573,8 @@ const VIDEOS = {
   ],
 };
 
-// Below 1,000 so that `toLocaleString()` writes it the same in every language (send-back 1).
+// Below 1,000 (send-back 1), and written through the 'en-US' stand-in (send-back 2): the same in
+// every language of the process, including those that write digits of their own.
 const STATS_FULL = {
   totalUsers: 987,
   statsLabel: 'Estadísticas de tu Colegio',
@@ -720,8 +736,34 @@ async function call(fn: () => unknown) {
 }
 const communityBar = () => screen.getByText('Mi Comunidad de Crecimiento').closest('button');
 
+// The process's default language must not reach the digests (send-back 2). For the length of each
+// test, `toLocaleString` on a number called WITHOUT a language (or with `undefined` for it) writes
+// as the real one does for 'en-US'; a call that names a language passes through unchanged. Every
+// call is kept in `localeCalls` (not in the digested log), so a test can assert that the page names
+// no language. `realToLocaleString` is the real function, for the thousands case.
+const realToLocaleString = Number.prototype.toLocaleString;
+const localeCalls: { value: number; args: unknown[] }[] = [];
+let localeStandIn: { mockRestore: () => void } | null = null;
+function installLocaleStandIn() {
+  localeStandIn = vi
+    .spyOn(Number.prototype, 'toLocaleString')
+    .mockImplementation(function standIn(this: number, ...args: any[]) {
+      localeCalls.push({ value: Number(this), args });
+      if (args.length === 0 || args[0] === undefined) {
+        return realToLocaleString.call(this, 'en-US', ...args.slice(1));
+      }
+      return realToLocaleString.apply(this, args as []);
+    });
+}
+function removeLocaleStandIn() {
+  localeStandIn?.mockRestore();
+  localeStandIn = null;
+}
+
 let consoleError: { mockRestore: () => void } | null = null;
 beforeEach(() => {
+  localeCalls.length = 0;
+  installLocaleStandIn();
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(NOW);
   window.localStorage.clear();
@@ -743,6 +785,41 @@ afterEach(() => {
   vi.unstubAllGlobals();
   consoleError?.mockRestore();
   consoleError = null;
+  removeLocaleStandIn();
+  if (Number.prototype.toLocaleString !== realToLocaleString) {
+    throw new Error('the stand-in of Number.prototype.toLocaleString was not put back after the test');
+  }
+});
+
+// ── The machine does not reach the pin (send-back 2). ──
+
+describe('the machine does not reach the pin', () => {
+  it('the time zone fixed at the top of this file took (UTC): otherwise every dated digest fails', () => {
+    const day = new Date('2026-09-01T23:30:00Z').getDate();
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (day !== 1 || zone !== 'UTC') {
+      throw new Error(
+        [
+          `The time zone of this test process is not UTC (2026-09-01T23:30:00Z falls on day ${day}; the zone is ${zone}).`,
+          'This file sets process.env.TZ in vi.hoisted, which Node reads again only in a child process:',
+          "it holds while this repository's Vitest runs files in child processes (threads: false).",
+          'If the configuration now runs files in worker threads, the dates of the panel follow the',
+          "machine's zone and the digests below fail for that reason, not because the panel changed.",
+        ].join('\n')
+      );
+    }
+  });
+
+  it("the page writes the numbers with toLocaleString() and names no language (the stand-in's premise)", async () => {
+    await draw(fullDocente());
+    const card = screen.getByText('Educadores Activos').parentElement!;
+    expect(card.querySelector('p.text-5xl')!.textContent).toBe('987');
+    const ofTheCard = localeCalls.filter((c) => c.value === 987);
+    expect(ofTheCard.length).toBeGreaterThan(0);
+    // A product edit that adds a language (or options) to the call fails here, even where that
+    // language happens to write 987 the same.
+    expect(ofTheCard.map((c) => c.args)).toEqual(ofTheCard.map(() => []));
+  });
 });
 
 // ── The cases. ──
@@ -1130,9 +1207,13 @@ describe("today's panel: behaviour", () => {
   });
 
   it('4c. a number in the thousands is written as this machine writes it (not digested)', async () => {
+    // This case is about the machine's own language: the stand-in is off, and the page is compared
+    // with the real function (send-back 2).
+    removeLocaleStandIn();
     await draw(fullDocente({ fetch: { ...FULL_FETCH, '/api/dashboard/stats': { body: { ...STATS_FULL, totalUsers: 1234 } } } }));
     const card = screen.getByText('Educadores Activos').parentElement!;
-    expect(card.querySelector('p.text-5xl')!.textContent).toBe((1234).toLocaleString());
+    expect(Number.prototype.toLocaleString).toBe(realToLocaleString);
+    expect(card.querySelector('p.text-5xl')!.textContent).toBe(realToLocaleString.call(1234));
   });
 
   pinned('23. the session changes after the first load: the loader runs again for the new person', async () => {

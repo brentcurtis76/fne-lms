@@ -35,8 +35,13 @@ const postcss = require('postcss');
 const argv = process.argv.slice(2);
 const lookAt = argv.indexOf('--look');
 const look = lookAt >= 0 ? argv.splice(lookAt, 2)[1] : null;
+// --new-rules: a release that only ADDS classes (new pieces with new utility classes) puts new rules between the old
+// ones. With this option a rule whose selector (and at-rules) the first file does not hold at all is set apart and
+// listed by selector; everything else must still be the same, in the same order.
+const newRulesAt = argv.indexOf('--new-rules');
+const allowNewRules = newRulesAt >= 0 ? Boolean(argv.splice(newRulesAt, 1)) : false;
 if (argv.length !== 2) {
-  console.error('usage: tokens-check.mjs <before.css> <after.css> [--look <name>]');
+  console.error('usage: tokens-check.mjs <before.css> <after.css> [--look <name>] [--new-rules]');
   process.exit(2);
 }
 
@@ -112,11 +117,26 @@ const onlyUnderALook = (r) => !innermost(r).startsWith('@') && innermost(r).spli
 const isLookRoot = (r) => Boolean(lookSelector) && innermost(r).trim().replace(/^(html|:root)/, '') === lookSelector;
 const isNamedDeclaration = (r) => named.has(r.prop) && (r.where === ':root' || isLookRoot(r));
 const key = (r) => `${r.where} { ${r.prop}`;
-const A = before.map((r) => ({ ...r, value: sameSpelling(r.value) }));
+// Without --look, rules that apply only under a look are left out of BOTH files (since phase 5a the first file can
+// hold a look too): the comparison is the page with the switch off.
+const leftOutBefore = look ? [] : before.filter(onlyUnderALook);
+const A = before
+  .filter((r) => look || !onlyUnderALook(r))
+  .map((r) => ({ ...r, value: sameSpelling(r.value) }));
 const leftOut = look ? [] : after.filter(onlyUnderALook);
-const B = after
+let B = after
   .filter((r) => !isNamedDeclaration(r) && (look || !onlyUnderALook(r)))
   .map((r) => ({ ...r, value: sameSpelling(resolve(r.value)) }));
+// --new-rules: set apart the rules whose place (at-rules and selector) the first file does not know.
+const newRules = new Map(); // place -> number of declarations
+if (allowNewRules && !look) {
+  const places = new Set(A.map((r) => r.where));
+  B = B.filter((r) => {
+    if (places.has(r.where)) return true;
+    newRules.set(r.where, (newRules.get(r.where) || 0) + 1);
+    return false;
+  });
+}
 
 // --look, phase 5a. The new look gives other values to names the first file ALREADY declares (the 4a and 4b
 // names), so "the names the first file does not know" is not enough there. With --look the comparison is
@@ -194,7 +214,11 @@ const unused = [...named.keys()].filter((name) => !used.has(name));
 console.log(`Named values in the second file: ${named.size} (read at least once: ${used.size}; declared and not read by any rule: ${unused.length}).`);
 if (unused.length) console.log(`  not read: ${unused.join(', ')}`);
 if (look) console.log(`Values taken from ${lookSelector}: ${lookVars.size}.`);
-if (leftOut.length) console.log(`Left out: ${leftOut.length} declaration(s) in rules that apply only under a look (\`[data-look=…]\`); with the switch off they apply to nobody.`);
+if (leftOut.length || leftOutBefore.length) console.log(`Left out: ${leftOut.length} declaration(s) of the second file${leftOutBefore.length ? ` and ${leftOutBefore.length} of the first` : ''} in rules that apply only under a look (\`[data-look=…]\`); with the switch off they apply to nobody.`);
+if (newRules.size) {
+  console.log(`Set apart: ${[...newRules.values()].reduce((a, b) => a + b, 0)} declaration(s) in ${newRules.size} rule(s) the first file does not hold (new classes); every rule the first file holds is compared below.`);
+  for (const place of newRules.keys()) console.log(`  new: ${place}`);
+}
 if (differences.length === 0) {
   console.log(`EQUIVALENT: ${A.length} declarations, the same in both files once each named value is replaced by what it holds.`);
   process.exit(0);

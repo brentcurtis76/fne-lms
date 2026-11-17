@@ -127,5 +127,11 @@ module.exports = {
   },
   plugins: [
     require('@tailwindcss/typography'),
+    // Redesign 5c: the one variant the shared pieces (components/ui/kit/) use to know the look. A class written
+    // with it applies only under `<html data-look="nuevo">` (lib/look.ts); it is one attribute more specific
+    // than the same class without it, so the new look's value wins there. Nothing else in the platform uses it.
+    function lookVariant({ addVariant }) {
+      addVariant('nuevo', '[data-look="nuevo"] &');
+    },
   ],
 }

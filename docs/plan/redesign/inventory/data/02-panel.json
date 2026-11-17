@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "9b113df429f5036bf72f1c71c6636b3bb0f47139",
-  "date": "2026-11-17T12:24:40-03:00"
+  "commit": "0853a5567a422544cbc6cb8b7dafde403d965cdc",
+  "date": "2026-11-17T12:53:45-03:00"
  },
  "screens": [
   {
@@ -118,6 +118,7 @@
      "components/notifications/ModernNotificationCenter.tsx:328",
      "components/notifications/NotificationDropdown.tsx:132",
      "components/notifications/NotificationDropdown.tsx:157",
+     "components/ui/kit/Button.typecheck.tsx:24",
      "components/workspace/WorkspaceSidebar.tsx:172",
      "lib/auth/forced-password-change.ts:142",
      "lib/frontend-auth-utils.ts:155",

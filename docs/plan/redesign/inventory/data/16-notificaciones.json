@@ -4,14 +4,14 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "9b113df429f5036bf72f1c71c6636b3bb0f47139",
-  "date": "2026-11-17T12:24:40-03:00"
+  "commit": "0853a5567a422544cbc6cb8b7dafde403d965cdc",
+  "date": "2026-11-17T12:53:45-03:00"
  },
  "screens": [
   {
    "file": "pages/configuracion/apariencia.tsx",
    "route": "/configuracion/apariencia",
-   "lines": 191,
+   "lines": 196,
    "marks": {},
    "frame": "MainLayout",
    "server": "getServerSideProps",
@@ -67,12 +67,15 @@
      }
     ],
     "linkedFrom": [
-     "pages/configuracion/notificaciones.tsx:442"
+     "pages/configuracion/notificaciones.tsx:442",
+     "pages/configuracion/piezas.tsx:225",
+     "pages/configuracion/piezas.tsx:398"
     ],
     "qaScenarios": {},
     "tests": {
      "e2eCi": [
       "tests/e2e/look-frame.spec.ts",
+      "tests/e2e/look-kit.spec.ts",
       "tests/e2e/look-switch.spec.ts"
      ],
      "e2e": [],
@@ -296,6 +299,16 @@
      "hook": {
       "testid": "look-to-notifications"
      }
+    },
+    {
+     "kind": "link",
+     "line": 188,
+     "in": "AparienciaPage",
+     "text": "Piezas de la interfaz",
+     "target": "/configuracion/piezas",
+     "hook": {
+      "testid": "look-to-kit"
+     }
     }
    ],
    "db": [
@@ -472,6 +485,8 @@
      "pages/admin/configuration.tsx:397",
      "pages/configuracion/apariencia.tsx:24",
      "pages/configuracion/index.tsx:8",
+     "pages/configuracion/piezas.tsx:397",
+     "pages/configuracion/piezas.tsx:55",
      "pages/notifications.tsx:381",
      "pages/profile.tsx:743",
      "pages/profile.tsx:744"
@@ -479,6 +494,7 @@
     "qaScenarios": {},
     "tests": {
      "e2eCi": [
+      "tests/e2e/look-kit.spec.ts",
       "tests/e2e/look-switch.spec.ts",
       "tests/e2e/notification-settings.spec.ts"
      ],
@@ -1022,6 +1038,1582 @@
      ]
     }
    ]
+  },
+  {
+   "file": "pages/configuracion/piezas.tsx",
+   "route": "/configuracion/piezas",
+   "lines": 555,
+   "marks": {},
+   "frame": "MainLayout",
+   "server": "getServerSideProps",
+   "reach": {
+    "menu": [],
+    "middleware": {
+     "rule": "no role rule",
+     "signedOut": "not stopped by the middleware",
+     "passwordChangeHold": true
+    },
+    "roles": {
+     "admin": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "consultor": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "equipo_directivo": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_generacion": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "lider_comunidad": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "supervisor_de_red": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "community_manager": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "docente": {
+      "menu": "—",
+      "middleware": "pass"
+     },
+     "encargado_licitacion": {
+      "menu": "—",
+      "middleware": "pass"
+     }
+    },
+    "inPage": [
+     {
+      "line": 61,
+      "text": "server redirect → /login?next=[*]  (when !viewer)"
+     }
+    ],
+    "linkedFrom": [
+     "pages/configuracion/apariencia.tsx:188"
+    ],
+    "qaScenarios": {},
+    "tests": {
+     "e2eCi": [
+      "tests/e2e/look-kit.spec.ts"
+     ],
+     "e2e": [],
+     "unit": [
+      "__tests__/pages/piezas.test.tsx"
+     ]
+    }
+   },
+   "rows": [
+    {
+     "kind": "nav",
+     "line": 61,
+     "in": "getServerSideProps",
+     "when": "!viewer",
+     "text": "/login?next=[*]",
+     "via": "server redirect"
+    },
+    {
+     "kind": "nav",
+     "line": 67,
+     "in": "getServerSideProps",
+     "when": "verdict !== 'allowed'",
+     "text": "{forcedChangeRedirectPath(verdict)}",
+     "via": "server redirect"
+    },
+    {
+     "kind": "nav",
+     "line": 77,
+     "in": "getServerSideProps",
+     "when": "profile.error || !mayChooseLook(profile.data)",
+     "text": "{SETTINGS}",
+     "via": "server redirect"
+    },
+    {
+     "kind": "list",
+     "line": 91,
+     "text": "SCHOOLS",
+     "items": [
+      "Colegio Ejemplo Norte",
+      "Escuela Ejemplo Sur",
+      "Liceo Ejemplo Centro"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 92,
+     "text": "ROLES",
+     "items": [
+      "Docente",
+      "Equipo directivo",
+      "Consultor"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 93,
+     "text": "STATES",
+     "items": [
+      "Activo",
+      "Pendiente",
+      "Rechazado"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 111,
+     "text": "BADGES",
+     "items": [
+      "Borrador",
+      "Completada",
+      "Pendiente",
+      "Cancelada",
+      "En progreso",
+      "Nuevo"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 121,
+     "text": "TAB_TEXT",
+     "items": [
+      "Contenido de «Detalles»: fecha, lugar y objetivos de la sesión.",
+      "Contenido de «Materiales»: tres documentos de ejemplo.",
+      "Contenido de «Informe»: el resumen que se escribe al terminar.",
+      "Contenido de «Actividad»: los cambios recientes."
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 130,
+     "in": "Section",
+     "text": "testid=kit-section-{id}",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "heading",
+     "line": 131,
+     "in": "Section",
+     "text": "{title}",
+     "level": 2,
+     "hook": {
+      "id": "kit-h-{id}"
+     }
+    },
+    {
+     "kind": "confirm",
+     "line": 158,
+     "in": "ask",
+     "text": "¿Eliminar este curso? / Esta acción no se puede deshacer. Es solo una muestra: nada se elimina. / danger / Eliminar / ¿Enviar el registro? / Una vez enviado no podrás modificar tus respuestas. Es solo una muestra: nada se envía. / Sí, enviar / Confirmar"
+    },
+    {
+     "kind": "piece",
+     "line": 177,
+     "in": "PiezasPage",
+     "text": "pageTitle: Piezas de la interfaz · breadcrumbs: Configuración / Piezas de la interfaz",
+     "tag": "MainLayout"
+    },
+    {
+     "kind": "hook",
+     "line": 178,
+     "in": "PiezasPage",
+     "text": "testid=kit-page",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 179,
+     "in": "PiezasPage",
+     "text": "Muestras de las piezas del diseño. Nada de lo que hagas aquí se guarda."
+    },
+    {
+     "kind": "piece",
+     "line": 181,
+     "in": "PiezasPage",
+     "text": "title: Botones",
+     "tag": "Section",
+     "hook": {
+      "id": "buttons"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 183,
+     "in": "PiezasPage",
+     "text": "Continuar lección",
+     "hook": {
+      "testid": "kit-btn-primary"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 184,
+     "in": "PiezasPage",
+     "text": "aria-hidden: true",
+     "tag": "ArrowRight"
+    },
+    {
+     "kind": "button",
+     "line": 186,
+     "in": "PiezasPage",
+     "text": "Nuevo usuario",
+     "hook": {
+      "testid": "kit-btn-default"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 187,
+     "in": "PiezasPage",
+     "text": "aria-hidden: true",
+     "tag": "Plus"
+    },
+    {
+     "kind": "button",
+     "line": 190,
+     "in": "PiezasPage",
+     "text": "Cancelar",
+     "hook": {
+      "testid": "kit-btn-outline"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 193,
+     "in": "PiezasPage",
+     "text": "Exportar",
+     "hook": {
+      "testid": "kit-btn-quiet"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 194,
+     "in": "PiezasPage",
+     "text": "aria-hidden: true",
+     "tag": "Download"
+    },
+    {
+     "kind": "button",
+     "line": 197,
+     "in": "PiezasPage",
+     "text": "Eliminar",
+     "hook": {
+      "testid": "kit-btn-danger"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 198,
+     "in": "PiezasPage",
+     "text": "aria-hidden: true",
+     "tag": "Trash2"
+    },
+    {
+     "kind": "button",
+     "line": 201,
+     "in": "PiezasPage",
+     "text": "Rechazar",
+     "hook": {
+      "testid": "kit-btn-danger-outline"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 206,
+     "in": "PiezasPage",
+     "text": "Deshabilitado",
+     "disabled": "true",
+     "hook": {
+      "testid": "kit-btn-primary-disabled"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 209,
+     "in": "PiezasPage",
+     "text": "Deshabilitado",
+     "disabled": "true",
+     "hook": {
+      "testid": "kit-btn-disabled"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 212,
+     "in": "PiezasPage",
+     "text": "Guardando…",
+     "hook": {
+      "testid": "kit-btn-loading"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 215,
+     "in": "PiezasPage",
+     "text": "Pequeño",
+     "hook": {
+      "testid": "kit-btn-small"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 218,
+     "in": "PiezasPage",
+     "text": "Editar",
+     "hook": {
+      "testid": "kit-btn-small-outline"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 219,
+     "in": "PiezasPage",
+     "text": "aria-hidden: true",
+     "tag": "Pencil"
+    },
+    {
+     "kind": "button",
+     "line": 222,
+     "in": "PiezasPage",
+     "text": "[icon MoreHorizontal]",
+     "aria": "Más acciones",
+     "hook": {
+      "testid": "kit-btn-icon"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 223,
+     "in": "PiezasPage",
+     "text": "aria-hidden: true",
+     "tag": "MoreHorizontal"
+    },
+    {
+     "kind": "button",
+     "line": 225,
+     "in": "PiezasPage",
+     "text": "Ir a Apariencia",
+     "hook": {
+      "testid": "kit-btn-link"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 231,
+     "in": "PiezasPage",
+     "text": "title: Campos",
+     "tag": "Section",
+     "hook": {
+      "id": "fields"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 233,
+     "in": "PiezasPage",
+     "text": "label: Nombre · help: Así la verán los docentes en su calendario.",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 234,
+     "in": "PiezasPage",
+     "text": "Nombre de la sesión",
+     "type": "text",
+     "placeholder": "Nombre de la sesión",
+     "hook": {
+      "testid": "kit-field-name"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 236,
+     "in": "PiezasPage",
+     "text": "label: Correo electrónico · error: Ingresa un correo válido.",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 237,
+     "in": "PiezasPage",
+     "text": "",
+     "type": "email",
+     "hook": {
+      "testid": "kit-field-email"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 239,
+     "in": "PiezasPage",
+     "text": "label: Colegio",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 240,
+     "in": "PiezasPage",
+     "text": "",
+     "type": "select",
+     "hook": {
+      "testid": "kit-field-school"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 249,
+     "in": "PiezasPage",
+     "text": "label: Buscar",
+     "tag": "Field"
+    },
+    {
+     "kind": "piece",
+     "line": 250,
+     "in": "PiezasPage",
+     "text": "placeholder: Buscar por nombre o correo...",
+     "tag": "SearchInput",
+     "hook": {
+      "testid": "kit-field-search"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 257,
+     "in": "PiezasPage",
+     "text": "label: Campo bloqueado",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 258,
+     "in": "PiezasPage",
+     "text": "",
+     "type": "text",
+     "hook": {
+      "testid": "kit-field-disabled"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 260,
+     "in": "PiezasPage",
+     "text": "label: Descripción · help: Un texto largo, en varias líneas.",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 261,
+     "in": "PiezasPage",
+     "text": "",
+     "type": "textarea",
+     "hook": {
+      "testid": "kit-field-description"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 266,
+     "in": "PiezasPage",
+     "text": "label: Modalidad",
+     "tag": "Field"
+    },
+    {
+     "kind": "piece",
+     "line": 267,
+     "in": "PiezasPage",
+     "text": "label: Presencial",
+     "tag": "Radio",
+     "hook": {
+      "testid": "kit-field-radio-presencial"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 268,
+     "in": "PiezasPage",
+     "text": "label: En línea",
+     "tag": "Radio",
+     "hook": {
+      "testid": "kit-field-radio-en-linea"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 270,
+     "in": "PiezasPage",
+     "text": "label: Opciones",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 271,
+     "in": "PiezasPage",
+     "text": "",
+     "type": "checkbox",
+     "hook": {
+      "testid": "kit-field-checkbox"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 272,
+     "in": "PiezasPage",
+     "text": "",
+     "type": "switch",
+     "hook": {
+      "testid": "kit-field-switch"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 277,
+     "in": "PiezasPage",
+     "text": "title: Ventana y confirmación",
+     "tag": "Section",
+     "hook": {
+      "id": "dialogs"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 279,
+     "in": "PiezasPage",
+     "text": "Abrir ventana",
+     "action": "{() => setDialogOpen(true)}",
+     "hook": {
+      "testid": "kit-open-dialog"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 282,
+     "in": "PiezasPage",
+     "text": "Abrir confirmación",
+     "action": "{() => void ask(false)}",
+     "hook": {
+      "testid": "kit-open-confirm"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 285,
+     "in": "PiezasPage",
+     "text": "Confirmación de eliminar",
+     "action": "{() => void ask(true)}",
+     "hook": {
+      "testid": "kit-open-confirm-danger"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 288,
+     "in": "PiezasPage",
+     "text": "role=status aria-live=polite",
+     "type": "role",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 291,
+     "in": "PiezasPage",
+     "when": "answer",
+     "text": "Respuesta:"
+    },
+    {
+     "kind": "hook",
+     "line": 291,
+     "in": "PiezasPage",
+     "when": "answer",
+     "text": "testid=kit-confirm-result",
+     "type": "mark",
+     "tag": "strong"
+    },
+    {
+     "kind": "value",
+     "line": 291,
+     "in": "PiezasPage",
+     "when": "answer",
+     "text": "{answer}"
+    },
+    {
+     "kind": "piece",
+     "line": 298,
+     "in": "PiezasPage",
+     "text": "title: Tabla",
+     "tag": "Section",
+     "hook": {
+      "id": "table"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 299,
+     "in": "PiezasPage",
+     "text": "aria-label: Participantes de ejemplo",
+     "tag": "Table",
+     "hook": {
+      "testid": "kit-table"
+     },
+     "aria": "Participantes de ejemplo"
+    },
+    {
+     "kind": "piece",
+     "line": 304,
+     "in": "PiezasPage",
+     "text": "noun: participantes",
+     "tag": "Pagination",
+     "hook": {
+      "testid": "kit-pagination"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 314,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "TableHead"
+    },
+    {
+     "kind": "piece",
+     "line": 315,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "TableRow"
+    },
+    {
+     "kind": "piece",
+     "line": 316,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 317,
+     "in": "PiezasPage",
+     "screen": "sr-only",
+     "text": "Seleccionar"
+    },
+    {
+     "kind": "piece",
+     "line": 319,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 319,
+     "in": "PiezasPage",
+     "text": "Participante"
+    },
+    {
+     "kind": "piece",
+     "line": 320,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 320,
+     "in": "PiezasPage",
+     "text": "Colegio"
+    },
+    {
+     "kind": "piece",
+     "line": 321,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 321,
+     "in": "PiezasPage",
+     "text": "Rol"
+    },
+    {
+     "kind": "piece",
+     "line": 322,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "TableHeaderCell"
+    },
+    {
+     "kind": "text",
+     "line": 322,
+     "in": "PiezasPage",
+     "text": "Estado"
+    },
+    {
+     "kind": "piece",
+     "line": 323,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "TableHeaderCell",
+     "hook": {
+      "testid": "kit-sort-progress"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 332,
+     "in": "PiezasPage",
+     "text": "Avance"
+    },
+    {
+     "kind": "piece",
+     "line": 336,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "TableBody"
+    },
+    {
+     "kind": "piece",
+     "line": 338,
+     "in": "PiezasPage",
+     "when": "each shown",
+     "text": "",
+     "tag": "TableRow",
+     "hook": {
+      "testid": "kit-row-{row.id}"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 339,
+     "in": "PiezasPage",
+     "when": "each shown",
+     "text": "label: Seleccionar",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "piece",
+     "line": 340,
+     "in": "PiezasPage",
+     "when": "each shown",
+     "text": "",
+     "tag": "Radio",
+     "hook": {
+      "testid": "kit-select-{row.id}"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 345,
+     "in": "PiezasPage",
+     "when": "each shown",
+     "screen": "sr-only",
+     "text": "Seleccionar a {row.name}"
+    },
+    {
+     "kind": "piece",
+     "line": 349,
+     "in": "PiezasPage",
+     "when": "each shown",
+     "text": "label: Participante",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "value",
+     "line": 349,
+     "in": "PiezasPage",
+     "when": "each shown",
+     "text": "{row.name}"
+    },
+    {
+     "kind": "piece",
+     "line": 352,
+     "in": "PiezasPage",
+     "when": "each shown",
+     "text": "label: Colegio",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "value",
+     "line": 352,
+     "in": "PiezasPage",
+     "when": "each shown",
+     "text": "{row.school}"
+    },
+    {
+     "kind": "piece",
+     "line": 353,
+     "in": "PiezasPage",
+     "when": "each shown",
+     "text": "label: Rol",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "value",
+     "line": 353,
+     "in": "PiezasPage",
+     "when": "each shown",
+     "text": "{row.role}"
+    },
+    {
+     "kind": "piece",
+     "line": 354,
+     "in": "PiezasPage",
+     "when": "each shown",
+     "text": "label: Estado",
+     "tag": "TableCell"
+    },
+    {
+     "kind": "piece",
+     "line": 355,
+     "in": "PiezasPage",
+     "when": "each shown",
+     "text": "",
+     "tag": "Badge"
+    },
+    {
+     "kind": "value",
+     "line": 355,
+     "in": "PiezasPage",
+     "when": "each shown",
+     "text": "{row.state.word}"
+    },
+    {
+     "kind": "piece",
+     "line": 357,
+     "in": "PiezasPage",
+     "when": "each shown",
+     "text": "label: Avance",
+     "tag": "TableCell",
+     "hook": {
+      "testid": "kit-progress-{row.id}"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 357,
+     "in": "PiezasPage",
+     "when": "each shown",
+     "text": "{row.progress}%"
+    },
+    {
+     "kind": "text",
+     "line": 364,
+     "in": "PiezasPage",
+     "text": "En un teléfono cada fila se vuelve una ficha. Angosta la ventana para verlo."
+    },
+    {
+     "kind": "piece",
+     "line": 367,
+     "in": "PiezasPage",
+     "text": "title: Pestañas",
+     "tag": "Section",
+     "hook": {
+      "id": "tabs"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 368,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 369,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "Tabs"
+    },
+    {
+     "kind": "piece",
+     "line": 371,
+     "in": "PiezasPage",
+     "text": "label: Secciones de la sesión",
+     "tag": "TabList",
+     "hook": {
+      "testid": "kit-tabs"
+     }
+    },
+    {
+     "kind": "tab",
+     "line": 372,
+     "in": "PiezasPage",
+     "text": "Detalles",
+     "hook": {
+      "testid": "kit-tab-detalles"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 373,
+     "in": "PiezasPage",
+     "text": "Detalles"
+    },
+    {
+     "kind": "tab",
+     "line": 375,
+     "in": "PiezasPage",
+     "text": "Materiales",
+     "hook": {
+      "testid": "kit-tab-materiales"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 376,
+     "in": "PiezasPage",
+     "text": "Materiales"
+    },
+    {
+     "kind": "piece",
+     "line": 376,
+     "in": "PiezasPage",
+     "text": "label: 3 materiales",
+     "tag": "Count"
+    },
+    {
+     "kind": "tab",
+     "line": 378,
+     "in": "PiezasPage",
+     "text": "Informe",
+     "hook": {
+      "testid": "kit-tab-informe"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 379,
+     "in": "PiezasPage",
+     "text": "Informe"
+    },
+    {
+     "kind": "tab",
+     "line": 381,
+     "in": "PiezasPage",
+     "text": "Actividad",
+     "hook": {
+      "testid": "kit-tab-actividad"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 382,
+     "in": "PiezasPage",
+     "text": "Actividad"
+    },
+    {
+     "kind": "piece",
+     "line": 387,
+     "in": "PiezasPage",
+     "when": "each (Object.keys(TAB_TEXT) as TabValue[])",
+     "text": "",
+     "tag": "TabPanel",
+     "hook": {
+      "testid": "kit-tabpanel-{value}"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 388,
+     "in": "PiezasPage",
+     "when": "each (Object.keys(TAB_TEXT) as TabValue[])",
+     "text": "{TAB_TEXT[value]}"
+    },
+    {
+     "kind": "piece",
+     "line": 393,
+     "in": "PiezasPage",
+     "text": "label: Páginas de configuración · items: Notificaciones / Apariencia / Piezas de la interfaz",
+     "tag": "TabLinks",
+     "hook": {
+      "testid": "kit-tablinks"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 404,
+     "in": "PiezasPage",
+     "text": "title: Insignias",
+     "tag": "Section",
+     "hook": {
+      "id": "badges"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 407,
+     "in": "PiezasPage",
+     "when": "each BADGES",
+     "text": "",
+     "tag": "Badge",
+     "hook": {
+      "testid": "kit-badge-{badge.tone}"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 407,
+     "in": "PiezasPage",
+     "when": "each BADGES",
+     "text": "{badge.word}"
+    },
+    {
+     "kind": "piece",
+     "line": 411,
+     "in": "PiezasPage",
+     "text": "tone: neutral",
+     "tag": "Badge",
+     "hook": {
+      "testid": "kit-badge-plain"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 412,
+     "in": "PiezasPage",
+     "text": "Docente"
+    },
+    {
+     "kind": "piece",
+     "line": 414,
+     "in": "PiezasPage",
+     "text": "label: 7 notificaciones sin leer",
+     "tag": "Count",
+     "hook": {
+      "testid": "kit-count"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 418,
+     "in": "PiezasPage",
+     "text": "title: Tarjetas",
+     "tag": "Section",
+     "hook": {
+      "id": "cards"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 420,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "Card",
+     "hook": {
+      "testid": "kit-card-plain"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 421,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "CardBody"
+    },
+    {
+     "kind": "text",
+     "line": 422,
+     "in": "PiezasPage",
+     "text": "Educadores activos"
+    },
+    {
+     "kind": "text",
+     "line": 424,
+     "in": "PiezasPage",
+     "text": "En la escuela de ejemplo, últimos 30 días"
+    },
+    {
+     "kind": "clickable",
+     "line": 428,
+     "in": "PiezasPage",
+     "text": "En progreso Aprendizaje basado en proyectos 8 lecciones · 62% completado",
+     "tag": "Card",
+     "action": "{() => setCardClicks((n) => n + 1)}",
+     "hook": {
+      "testid": "kit-card-interactive"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 428,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "Card",
+     "hook": {
+      "testid": "kit-card-interactive"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 429,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "CardBody"
+    },
+    {
+     "kind": "piece",
+     "line": 430,
+     "in": "PiezasPage",
+     "text": "tone: info",
+     "tag": "Badge"
+    },
+    {
+     "kind": "text",
+     "line": 430,
+     "in": "PiezasPage",
+     "text": "En progreso"
+    },
+    {
+     "kind": "piece",
+     "line": 431,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "CardTitle"
+    },
+    {
+     "kind": "text",
+     "line": 431,
+     "in": "PiezasPage",
+     "text": "Aprendizaje basado en proyectos"
+    },
+    {
+     "kind": "text",
+     "line": 432,
+     "in": "PiezasPage",
+     "text": "8 lecciones · 62% completado"
+    },
+    {
+     "kind": "hook",
+     "line": 435,
+     "in": "PiezasPage",
+     "text": "role=status aria-live=polite",
+     "type": "role",
+     "tag": "p"
+    },
+    {
+     "kind": "hook",
+     "line": 435,
+     "in": "PiezasPage",
+     "text": "testid=kit-card-clicks",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "text",
+     "line": 435,
+     "in": "PiezasPage",
+     "text": "Tarjeta pulsada {cardClicks} {cardClicks === 1 ? 'vez' : …}."
+    },
+    {
+     "kind": "piece",
+     "line": 439,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "Card",
+     "hook": {
+      "testid": "kit-card-leading"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 440,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "CardHeader"
+    },
+    {
+     "kind": "piece",
+     "line": 441,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "CardTitle"
+    },
+    {
+     "kind": "text",
+     "line": 441,
+     "in": "PiezasPage",
+     "text": "Próxima sesión"
+    },
+    {
+     "kind": "piece",
+     "line": 442,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "Badge"
+    },
+    {
+     "kind": "text",
+     "line": 442,
+     "in": "PiezasPage",
+     "text": "Programada"
+    },
+    {
+     "kind": "piece",
+     "line": 444,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "CardBody"
+    },
+    {
+     "kind": "text",
+     "line": 445,
+     "in": "PiezasPage",
+     "text": "Jueves 19 de noviembre, 15:30 · Comunidad de ejemplo"
+    },
+    {
+     "kind": "piece",
+     "line": 447,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "CardFooter"
+    },
+    {
+     "kind": "button",
+     "line": 448,
+     "in": "PiezasPage",
+     "text": "Ver sesión",
+     "hook": {
+      "testid": "kit-card-leading-action"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 456,
+     "in": "PiezasPage",
+     "text": "title: Avisos",
+     "tag": "Section",
+     "hook": {
+      "id": "notices"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 458,
+     "in": "PiezasPage",
+     "text": "title: Borrador guardado.",
+     "tag": "Notice",
+     "hook": {
+      "testid": "kit-notice-neutral"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 459,
+     "in": "PiezasPage",
+     "text": "Puedes seguir más tarde desde donde quedaste."
+    },
+    {
+     "kind": "piece",
+     "line": 461,
+     "in": "PiezasPage",
+     "text": "tone: success · title: Registro enviado.",
+     "tag": "Notice",
+     "hook": {
+      "testid": "kit-notice-success"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 462,
+     "in": "PiezasPage",
+     "text": "Tus respuestas ya están disponibles para el equipo directivo."
+    },
+    {
+     "kind": "piece",
+     "line": 464,
+     "in": "PiezasPage",
+     "text": "tone: warning · title: Solo lectura.",
+     "tag": "Notice",
+     "hook": {
+      "testid": "kit-notice-warning"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 465,
+     "in": "PiezasPage",
+     "text": "Esta sesión ya fue completada y no admite cambios."
+    },
+    {
+     "kind": "piece",
+     "line": 467,
+     "in": "PiezasPage",
+     "text": "tone: error · title: No se pudo cargar.",
+     "tag": "Notice",
+     "hook": {
+      "testid": "kit-notice-error"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 468,
+     "in": "PiezasPage",
+     "text": "Revisa tu conexión e intenta de nuevo."
+    },
+    {
+     "kind": "piece",
+     "line": 473,
+     "in": "PiezasPage",
+     "text": "title: Vacío y carga",
+     "tag": "Section",
+     "hook": {
+      "id": "states"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 475,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 476,
+     "in": "PiezasPage",
+     "text": "title: Sin notificaciones · description: Te avisaremos cuando tengas algo nuevo.",
+     "tag": "EmptyState",
+     "hook": {
+      "testid": "kit-empty"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 481,
+     "in": "PiezasPage",
+     "text": "Ver todas",
+     "hook": {
+      "testid": "kit-empty-action"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 487,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 488,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "CardBody",
+     "hook": {
+      "testid": "kit-skeleton"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 489,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 490,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 491,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 492,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 493,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 496,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 497,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "LoadingBlock",
+     "hook": {
+      "testid": "kit-loading"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 502,
+     "in": "PiezasPage",
+     "text": "title: Cabecera de página",
+     "tag": "Section",
+     "hook": {
+      "id": "header"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 503,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 504,
+     "in": "PiezasPage",
+     "text": "",
+     "tag": "CardBody"
+    },
+    {
+     "kind": "piece",
+     "line": 505,
+     "in": "PiezasPage",
+     "text": "eyebrow: Usuarios · title: Encabezado de ejemplo · description: Una línea que dice para qué sirve la página. · secondaryAction: Exportar · primaryAction: Nuevo usuario",
+     "tag": "PageHeader",
+     "hook": {
+      "testid": "kit-page-header"
+     }
+    },
+    {
+     "kind": "popup",
+     "line": 518,
+     "in": "PiezasPage",
+     "text": "Dialog",
+     "how": "component",
+     "open": "{dialogOpen}",
+     "props": "eyebrow: Usuarios · title: Gestión de roles · description: Participante A · participante.a@example.com",
+     "hook": {
+      "testid": "kit-dialog"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 527,
+     "in": "PiezasPage",
+     "text": "Cancelar",
+     "action": "{() => setDialogOpen(false)}",
+     "hook": {
+      "testid": "kit-dialog-cancel"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 530,
+     "in": "PiezasPage",
+     "text": "Asignar rol",
+     "action": "{() => setDialogOpen(false)}",
+     "hook": {
+      "testid": "kit-dialog-save"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 536,
+     "in": "PiezasPage",
+     "text": "label: Rol",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 537,
+     "in": "PiezasPage",
+     "text": "",
+     "type": "select",
+     "hook": {
+      "testid": "kit-dialog-role"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 543,
+     "in": "PiezasPage",
+     "text": "label: Colegio",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 544,
+     "in": "PiezasPage",
+     "text": "",
+     "type": "select",
+     "hook": {
+      "testid": "kit-dialog-school"
+     }
+    },
+    {
+     "kind": "string",
+     "line": 173,
+     "in": "PiezasPage",
+     "text": "Confirmado"
+    },
+    {
+     "kind": "string",
+     "line": 173,
+     "in": "PiezasPage",
+     "text": "Cancelado"
+    },
+    {
+     "kind": "string",
+     "line": 271,
+     "in": "PiezasPage",
+     "text": "Enviar recordatorio por correo"
+    },
+    {
+     "kind": "string",
+     "line": 272,
+     "in": "PiezasPage",
+     "text": "Notificaciones activas"
+    }
+   ],
+   "db": [
+    {
+     "what": "table:profiles",
+     "ops": [
+      "select"
+     ]
+    }
+   ],
+   "pieces": [
+    "components/ui/kit/Badge.tsx",
+    "components/ui/kit/Button.tsx",
+    "components/ui/kit/Card.tsx",
+    "components/ui/kit/ConfirmDialog.tsx",
+    "components/ui/kit/Dialog.tsx",
+    "components/ui/kit/EmptyState.tsx",
+    "components/ui/kit/Field.tsx",
+    "components/ui/kit/Loading.tsx",
+    "components/ui/kit/Notice.tsx",
+    "components/ui/kit/PageHeader.tsx",
+    "components/ui/kit/Table.tsx",
+    "components/ui/kit/Tabs.tsx",
+    "lib/api-auth.ts",
+    "lib/auth/forced-password-change.ts"
+   ],
+   "api": []
   },
   {
    "file": "pages/notificaciones/baja.tsx",
@@ -1901,10 +3493,836 @@
    ],
    "db": []
   },
+  "components/ui/kit/Badge.tsx": {
+   "usedBy": [
+    "/configuracion/piezas"
+   ],
+   "lines": 77,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 68,
+     "when": "label",
+     "text": "{value}"
+    },
+    {
+     "kind": "value",
+     "line": 69,
+     "when": "label",
+     "screen": "sr-only",
+     "text": "{label}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Button.tsx": {
+   "usedBy": [
+    "/configuracion/piezas"
+   ],
+   "lines": 178,
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 120,
+     "when": "loading",
+     "text": "",
+     "tag": "SpinnerMark"
+    },
+    {
+     "kind": "link",
+     "line": 131,
+     "when": "typeof rest.href === 'string' && inert",
+     "text": "{content}",
+     "target": ""
+    },
+    {
+     "kind": "link",
+     "line": 145,
+     "when": "typeof rest.href === 'string' && href.startsWith('/')",
+     "text": "{content}",
+     "target": "{href}",
+     "action": "{onClick}"
+    },
+    {
+     "kind": "link",
+     "line": 151,
+     "when": "typeof rest.href === 'string'",
+     "text": "{content}",
+     "target": "{href}",
+     "action": "{onClick}"
+    },
+    {
+     "kind": "button",
+     "line": 159,
+     "text": "{content}",
+     "action": "{(event) => { if (loading) { // Not clickable while it works; also keeps a submi…}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Card.tsx": {
+   "usedBy": [
+    "/configuracion/piezas"
+   ],
+   "lines": 123,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 50,
+     "when": "!rest.interactive",
+     "text": "{children}"
+    },
+    {
+     "kind": "link",
+     "line": 60,
+     "when": "typeof rest.href === 'string'",
+     "text": "{children}",
+     "target": "{href}"
+    },
+    {
+     "kind": "button",
+     "line": 68,
+     "text": "{children}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/ConfirmDialog.tsx": {
+   "usedBy": [
+    "/configuracion/piezas"
+   ],
+   "lines": 184,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 65,
+     "in": "ConfirmDialog",
+     "when": "open && before.open && before.key !== questionKey",
+     "text": "cancelRef.current.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "popup",
+     "line": 68,
+     "in": "ConfirmDialog",
+     "text": "Dialog",
+     "how": "component",
+     "open": "{open}",
+     "hook": {
+      "testid": "{testId}"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 80,
+     "in": "ConfirmDialog",
+     "text": "{cancelLabel}",
+     "action": "{onCancel}",
+     "disabled": "{loading}",
+     "hook": {
+      "testid": "{testId ? `${testId}-cancel` : undefined}"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 89,
+     "in": "ConfirmDialog",
+     "text": "{confirmLabel}",
+     "action": "{onConfirm}",
+     "hook": {
+      "testid": "{testId ? `${testId}-confirm` : undefined}"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 100,
+     "in": "ConfirmDialog",
+     "when": "message && typeof message === 'string'",
+     "text": "{message}"
+    },
+    {
+     "kind": "list",
+     "line": 115,
+     "text": "DEFAULT_CONFIRM_TITLE",
+     "items": [
+      "Confirmar acción"
+     ]
+    },
+    {
+     "kind": "popup",
+     "line": 167,
+     "in": "useConfirm",
+     "text": "ConfirmDialog",
+     "how": "component",
+     "open": "{pending !== null}",
+     "hook": {
+      "testid": "{testId}"
+     }
+    },
+    {
+     "kind": "string",
+     "line": 49,
+     "in": "ConfirmDialog",
+     "text": "Cancelar"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Dialog.tsx": {
+   "usedBy": [
+    "/configuracion/piezas"
+   ],
+   "lines": 235,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 75,
+     "in": "firstFocusable",
+     "text": "querySelectorAll({FOCUSABLE})",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 130,
+     "in": "Dialog",
+     "text": "testid={testId}",
+     "type": "mark",
+     "tag": "RadixDialog.Content"
+    },
+    {
+     "kind": "hook",
+     "line": 151,
+     "in": "Dialog",
+     "text": "candidate.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 154,
+     "in": "Dialog",
+     "when": "!landed",
+     "text": "box.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 160,
+     "in": "Dialog",
+     "when": "target?.isConnected",
+     "text": "target.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "value",
+     "line": 179,
+     "in": "Dialog",
+     "when": "eyebrow",
+     "text": "{eyebrow}"
+    },
+    {
+     "kind": "value",
+     "line": 180,
+     "in": "Dialog",
+     "text": "{title}"
+    },
+    {
+     "kind": "value",
+     "line": 189,
+     "in": "Dialog",
+     "when": "description",
+     "text": "{description}"
+    },
+    {
+     "kind": "piece",
+     "line": 193,
+     "in": "Dialog",
+     "when": "dismissable",
+     "text": "aria-label: Cerrar",
+     "tag": "RadixDialog.Close",
+     "hook": {
+      "testid": "{testId ? `${testId}-close` : undefined}"
+     },
+     "aria": "Cerrar"
+    },
+    {
+     "kind": "piece",
+     "line": 204,
+     "in": "Dialog",
+     "when": "dismissable",
+     "text": "aria-hidden: true",
+     "tag": "X"
+    },
+    {
+     "kind": "value",
+     "line": 208,
+     "in": "Dialog",
+     "text": "{children}"
+    },
+    {
+     "kind": "value",
+     "line": 218,
+     "in": "Dialog",
+     "when": "footer",
+     "text": "{footer}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/EmptyState.tsx": {
+   "usedBy": [
+    "/configuracion/piezas"
+   ],
+   "lines": 58,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 43,
+     "text": "{title}"
+    },
+    {
+     "kind": "value",
+     "line": 52,
+     "when": "description",
+     "text": "{description}"
+    },
+    {
+     "kind": "value",
+     "line": 54,
+     "when": "action",
+     "text": "{action}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Field.tsx": {
+   "usedBy": [
+    "/configuracion/piezas"
+   ],
+   "lines": 396,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 127,
+     "in": "Field",
+     "when": "help",
+     "text": "{help}"
+    },
+    {
+     "kind": "piece",
+     "line": 133,
+     "in": "Field",
+     "when": "error",
+     "text": "aria-hidden: true",
+     "tag": "AlertCircle"
+    },
+    {
+     "kind": "label",
+     "line": 152,
+     "in": "Field",
+     "when": "group",
+     "text": "{label} {mark}"
+    },
+    {
+     "kind": "value",
+     "line": 157,
+     "in": "Field",
+     "when": "group",
+     "text": "{children}"
+    },
+    {
+     "kind": "label",
+     "line": 166,
+     "in": "Field",
+     "text": "{label} {mark}",
+     "for": "{id}"
+    },
+    {
+     "kind": "value",
+     "line": 170,
+     "in": "Field",
+     "text": "{children}"
+    },
+    {
+     "kind": "list",
+     "line": 181,
+     "text": "AT_LEAST_ONE",
+     "items": [
+      "Marca al menos una opción."
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 194,
+     "in": "boxes",
+     "text": "querySelectorAll(input[type=\"checkbox\"])",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 203,
+     "in": "useAtLeastOneTicked",
+     "text": "group.addEventListener('change')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 204,
+     "in": "useAtLeastOneTicked",
+     "text": "form.addEventListener('reset')",
+     "type": "listener"
+    },
+    {
+     "kind": "field",
+     "line": 229,
+     "text": "",
+     "type": "{type}"
+    },
+    {
+     "kind": "field",
+     "line": 237,
+     "text": "",
+     "type": "textarea",
+     "limits": ""
+    },
+    {
+     "kind": "field",
+     "line": 248,
+     "text": "",
+     "type": "select"
+    },
+    {
+     "kind": "piece",
+     "line": 251,
+     "screen": "hidden",
+     "text": "aria-hidden: true",
+     "tag": "ChevronDown"
+    },
+    {
+     "kind": "piece",
+     "line": 264,
+     "text": "aria-hidden: true",
+     "tag": "Search"
+    },
+    {
+     "kind": "field",
+     "line": 268,
+     "text": "",
+     "type": "{type}"
+    },
+    {
+     "kind": "label",
+     "line": 302,
+     "in": "Choice",
+     "text": "{label}",
+     "for": "{inputId}"
+    },
+    {
+     "kind": "field",
+     "line": 304,
+     "in": "Choice",
+     "text": "{label}",
+     "type": "{kind}",
+     "required": "{isRequired}"
+    },
+    {
+     "kind": "piece",
+     "line": 314,
+     "in": "Choice",
+     "when": "kind === 'checkbox'",
+     "screen": "hidden",
+     "text": "aria-hidden: true",
+     "tag": "Check"
+    },
+    {
+     "kind": "value",
+     "line": 330,
+     "in": "Choice",
+     "when": "help",
+     "text": "{help}"
+    },
+    {
+     "kind": "label",
+     "line": 358,
+     "text": "{label}",
+     "for": "{inputId}"
+    },
+    {
+     "kind": "field",
+     "line": 363,
+     "text": "{label}",
+     "type": "checkbox"
+    },
+    {
+     "kind": "value",
+     "line": 389,
+     "when": "help",
+     "text": "{help}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Loading.tsx": {
+   "usedBy": [
+    "/configuracion/piezas"
+   ],
+   "lines": 109,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 94,
+     "text": "role=status",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "value",
+     "line": 105,
+     "text": "{label}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Notice.tsx": {
+   "usedBy": [
+    "/configuracion/piezas"
+   ],
+   "lines": 76,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 68,
+     "when": "title",
+     "text": "{title}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/PageHeader.tsx": {
+   "usedBy": [
+    "/configuracion/piezas"
+   ],
+   "lines": 128,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 78,
+     "when": "eyebrow",
+     "text": "{eyebrow}"
+    },
+    {
+     "kind": "value",
+     "line": 88,
+     "when": "icon",
+     "text": "{icon}"
+    },
+    {
+     "kind": "heading",
+     "line": 93,
+     "text": "{title}",
+     "level": 1
+    },
+    {
+     "kind": "value",
+     "line": 94,
+     "when": "description",
+     "text": "{description}"
+    },
+    {
+     "kind": "piece",
+     "line": 100,
+     "when": "hasActions && onSearchChange",
+     "text": "",
+     "tag": "SearchInput",
+     "aria": "{searchLabel}"
+    },
+    {
+     "kind": "button",
+     "line": 110,
+     "when": "hasActions && secondaryAction",
+     "text": "{secondaryAction.icon} {secondaryAction.label}",
+     "action": "{secondaryAction.onClick}",
+     "hook": {
+      "testid": "{secondaryAction['data-testid']}"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 116,
+     "when": "hasActions && primaryAction",
+     "text": "{primaryAction.icon} {primaryAction.label}",
+     "action": "{primaryAction.onClick}",
+     "hook": {
+      "testid": "{primaryAction['data-testid']}"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 124,
+     "when": "children",
+     "text": "{children}"
+    },
+    {
+     "kind": "string",
+     "line": 59,
+     "in": "PageHeader",
+     "text": "Buscar..."
+    },
+    {
+     "kind": "string",
+     "line": 60,
+     "in": "PageHeader",
+     "text": "Buscar"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Table.tsx": {
+   "usedBy": [
+    "/configuracion/piezas"
+   ],
+   "lines": 276,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 47,
+     "text": "role=table",
+     "type": "role",
+     "tag": "table"
+    },
+    {
+     "kind": "value",
+     "line": 47,
+     "text": "{children}"
+    },
+    {
+     "kind": "hook",
+     "line": 72,
+     "text": "role=rowgroup",
+     "type": "role",
+     "tag": "thead"
+    },
+    {
+     "kind": "hook",
+     "line": 81,
+     "text": "role=rowgroup",
+     "type": "role",
+     "tag": "tbody"
+    },
+    {
+     "kind": "hook",
+     "line": 98,
+     "text": "role=row",
+     "type": "role",
+     "tag": "tr"
+    },
+    {
+     "kind": "column",
+     "line": 139,
+     "text": "{children} / {children}"
+    },
+    {
+     "kind": "button",
+     "line": 148,
+     "when": "sortable",
+     "text": "{children}",
+     "action": "{onSort}"
+    },
+    {
+     "kind": "piece",
+     "line": 158,
+     "when": "sortable",
+     "text": "aria-hidden: true",
+     "tag": "Icon"
+    },
+    {
+     "kind": "hook",
+     "line": 189,
+     "text": "role=cell",
+     "type": "role",
+     "tag": "td"
+    },
+    {
+     "kind": "value",
+     "line": 213,
+     "when": "named",
+     "text": "{label}"
+    },
+    {
+     "kind": "list",
+     "line": 238,
+     "in": "Pagination",
+     "text": "shown",
+     "items": [
+      "Mostrando 0 de 0 / Mostrando {from}–{to} de {total}"
+     ]
+    },
+    {
+     "kind": "text",
+     "line": 240,
+     "in": "Pagination",
+     "text": "Paginación",
+     "attr": "aria-label"
+    },
+    {
+     "kind": "hook",
+     "line": 240,
+     "in": "Pagination",
+     "text": "testid={testId}",
+     "type": "mark",
+     "tag": "nav",
+     "aria": "Paginación"
+    },
+    {
+     "kind": "hook",
+     "line": 250,
+     "in": "Pagination",
+     "text": "testid={testId ? `${testId}-range` : undefined}",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "value",
+     "line": 250,
+     "in": "Pagination",
+     "text": "{shown} {noun} / {shown}"
+    },
+    {
+     "kind": "button",
+     "line": 254,
+     "in": "Pagination",
+     "text": "Anterior",
+     "action": "{() => onPageChange(current - 1)}",
+     "disabled": "{current <= 1}",
+     "hook": {
+      "testid": "{testId ? `${testId}-previous` : undefined}"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 263,
+     "in": "Pagination",
+     "text": "Siguiente",
+     "action": "{() => onPageChange(current + 1)}",
+     "disabled": "{current >= pages}",
+     "hook": {
+      "testid": "{testId ? `${testId}-next` : undefined}"
+     }
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Tabs.tsx": {
+   "usedBy": [
+    "/configuracion/piezas"
+   ],
+   "lines": 219,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 60,
+     "in": "Tabs",
+     "text": "{children}"
+    },
+    {
+     "kind": "hook",
+     "line": 96,
+     "in": "TabList",
+     "text": "querySelectorAll([role=\"tab\"])",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 104,
+     "in": "TabList",
+     "text": "role=tablist",
+     "type": "role",
+     "tag": "div",
+     "aria": "{label}",
+     "also": "onKeyDown={(event) => { onKeyDown?.(event); if (event.defaultPrevented) return; const tabs…}"
+    },
+    {
+     "kind": "value",
+     "line": 104,
+     "in": "TabList",
+     "text": "{children}"
+    },
+    {
+     "kind": "gate",
+     "line": 112,
+     "in": "TabList",
+     "text": "event.defaultPrevented"
+    },
+    {
+     "kind": "hook",
+     "line": 113,
+     "in": "TabList",
+     "text": "querySelectorAll([role=\"tab\"]:not([disabled]))",
+     "type": "lookup"
+    },
+    {
+     "kind": "gate",
+     "line": 115,
+     "in": "TabList",
+     "text": "at < 0 || tabs.length === 0"
+    },
+    {
+     "kind": "gate",
+     "line": 126,
+     "in": "TabList",
+     "text": "to < 0"
+    },
+    {
+     "kind": "hook",
+     "line": 128,
+     "in": "TabList",
+     "text": "tabs[to].focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "tab",
+     "line": 150,
+     "text": "",
+     "action": "{(event) => { onClick?.(event); if (!event.defaultPrevented) select(value); }}"
+    },
+    {
+     "kind": "gate",
+     "line": 175,
+     "in": "TabPanel",
+     "text": "current !== value"
+    },
+    {
+     "kind": "hook",
+     "line": 177,
+     "in": "TabPanel",
+     "text": "role=tabpanel",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "link",
+     "line": 206,
+     "in": "TabLinks",
+     "when": "each items",
+     "text": "{item.label}",
+     "target": "{item.href}",
+     "hook": {
+      "testid": "{item['data-testid']}"
+     }
+    },
+    {
+     "kind": "string",
+     "line": 144,
+     "in": "Tab",
+     "text": "Tab"
+    }
+   ],
+   "db": []
+  },
   "lib/api-auth.ts": {
    "usedBy": [
     "/configuracion/apariencia",
-    "/configuracion/notificaciones"
+    "/configuracion/notificaciones",
+    "/configuracion/piezas"
    ],
    "lines": 551,
    "rows": [
@@ -1936,7 +4354,8 @@
   "lib/auth/forced-password-change.ts": {
    "usedBy": [
     "/configuracion/apariencia",
-    "/configuracion/notificaciones"
+    "/configuracion/notificaciones",
+    "/configuracion/piezas"
    ],
    "lines": 279,
    "rows": [

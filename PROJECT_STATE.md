@@ -1,3 +1,12 @@
+## RD-5c — platform redesign, step 5c: the shared pieces, behind the switch (2026-11-17, built and proven locally, not pushed)
+
+Branch `feat/rd-pieces` on main (RD-5b). Record and reviewer notes: `docs/planning/reviews/fase-rd-5c-review-request.md`.
+
+- **What changed:** a kit of shared interface pieces in `components/ui/kit/` (buttons, fields, window and confirmation, table, tabs, badges, cards, notices, empty state, loading, page header), each right in both looks. No existing screen uses one yet. A sample sheet, `/configuracion/piezas` («Piezas de la interfaz»), shows them to «Tester QA» accounts only, linked from «Apariencia».
+- **One Tailwind variant, `nuevo:`** (`tailwind.config.js`): a class that applies only under `<html data-look="nuevo">`. Only the kit uses it.
+- **Rules that hold from now on:** a screen that is rebuilt takes its buttons, fields, windows, tables and the rest from the kit and does not copy their class lists (`components/ui/kit/README.md`); a new piece or kind is added to the kit with its tests and its sample on the sheet; `__tests__/components/ui/kit/contrast.test.ts` fails if any text and background pair the kit uses falls under 4.5:1 in either look.
+- **Proof:** stylesheet equivalent with the switch off; pictures of every screen for every role identical to 5b's; an independent code read; a test by sight in a real browser in both looks; CI's browser list run locally with the kit's own browser test.
+
 ## RD-5b — platform redesign, step 5b: the new frame, behind the switch (2026-11-17, built and proven locally, not pushed)
 
 Branch `feat/rd-frame` on main (RD-5a). Record and reviewer notes: `docs/planning/reviews/fase-rd-5b-review-request.md`.

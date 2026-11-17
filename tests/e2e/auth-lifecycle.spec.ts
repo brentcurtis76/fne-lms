@@ -1265,6 +1265,21 @@ test.describe('middleware verified identity (W-B10c-01b)', () => {
 
       const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
       const page = await context.newPage();
+      // What the page is still waiting on, and when it last did anything. Not
+      // Playwright's `networkidle`: that counts a request as in flight until its
+      // body is consumed, and the sidebar's /api/pasantias/mine check
+      // (components/layout/Sidebar.tsx) never reads the body of a non-ok answer.
+      // When the revoke lands between that request leaving and the server
+      // verifying it, the 401's unread body keeps `networkidle` from ever firing
+      // on a page that is in fact quiet, and the test hung to its 5-minute
+      // timeout (N132). Here a request stops counting once its answer has
+      // arrived — after that the page cannot act on it any more.
+      const awaitingAnswer = new Set<object>();
+      let lastActivity = Date.now();
+      page.on('request', (request) => { awaitingAnswer.add(request); lastActivity = Date.now(); });
+      page.on('response', (response) => { awaitingAnswer.delete(response.request()); });
+      page.on('requestfinished', (request) => { awaitingAnswer.delete(request); });
+      page.on('requestfailed', (request) => { awaitingAnswer.delete(request); });
       await page.goto('/login');
       await page.getByPlaceholder('tu@email.com').fill(account.email);
       await page.locator('input[type="password"]').fill(account.password);
@@ -1286,8 +1301,23 @@ test.describe('middleware verified identity (W-B10c-01b)', () => {
       await page.evaluate(() => (window as any).next.router.push('/community/workspace'));
       await expect(page).toHaveURL(/\/login/, { timeout: 60_000 });
       await expect(page.getByPlaceholder('tu@email.com')).toBeVisible({ timeout: 30_000 });
-      // It stays: no bounce back out of /login while the page settles.
-      await page.waitForLoadState('networkidle');
+      // It stays: no bounce back out of /login while the page settles. Every
+      // main-frame navigation from here on is recorded, so a leave-and-return
+      // (a loop that happens to end on /login) fails too.
+      const urlsAfterLanding: string[] = [];
+      page.on('framenavigated', (frame) => {
+        if (frame === page.mainFrame()) { urlsAfterLanding.push(frame.url()); lastActivity = Date.now(); }
+      });
+      // Settled = no answer outstanding and nothing new started or navigated for
+      // 500 ms, the same quiet window `networkidle` uses. A redirect loop never
+      // settles, so it fails here.
+      await expect
+        .poll(() => awaitingAnswer.size === 0 && Date.now() - lastActivity >= 500, {
+          message: 'the sign-in page settles (no answer outstanding, nothing new for 500 ms)',
+          timeout: 30_000,
+        })
+        .toBe(true);
+      expect(urlsAfterLanding.filter((url) => new URL(url).pathname !== '/login'), 'navigations away from /login').toEqual([]);
       await expect(page).toHaveURL(/\/login/);
       await expect(page.getByPlaceholder('tu@email.com')).toBeVisible();
       await context.close();

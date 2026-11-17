@@ -9,9 +9,10 @@ export const INVOICE_OPEN_FAILED = 'No se pudo abrir la factura';
 export const INVOICE_POPUP_BLOCKED =
   'El navegador bloqueó la ventana. Permite las ventanas emergentes para ver la factura.';
 
-async function requestInvoiceLink(cuotaId: string): Promise<string | null> {
+async function requestInvoiceLink(cuotaId: string, download = false): Promise<string | null> {
   try {
-    const response = await fetch('/api/contracts/invoice-link?cuotaId=' + encodeURIComponent(cuotaId), {
+    const query = 'cuotaId=' + encodeURIComponent(cuotaId) + (download ? '&download=1' : '');
+    const response = await fetch('/api/contracts/invoice-link?' + query, {
       credentials: 'same-origin',
     });
     if (!response.ok) return null;
@@ -40,4 +41,17 @@ export async function openInvoiceInNewTab(
     return;
   }
   tab.location.href = url;
+}
+
+// GES-1.4 (F2c, send-back 2): «Descargar factura». The route signs a link the
+// store answers with "save this file", and the CURRENT window is sent to it:
+// the browser saves the file and the page stays where it is. No new tab, so
+// nothing for a pop-up blocker to stop after the request's wait.
+export async function downloadInvoice(cuotaId: string, showError: (message: string) => void): Promise<void> {
+  const url = await requestInvoiceLink(cuotaId, true);
+  if (!url) {
+    showError(INVOICE_OPEN_FAILED);
+    return;
+  }
+  window.location.assign(url);
 }

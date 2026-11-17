@@ -3,7 +3,7 @@ import { X, FileText, Calendar, DollarSign, MapPin, User, Building, CreditCard, 
 import HourAllocationPanel from './HourAllocationPanel';
 import { isFirmaPendiente } from '../../lib/utils/contract-status';
 import { toast } from 'react-hot-toast';
-import { openInvoiceInNewTab } from '../../lib/contracts/open-invoice';
+import { downloadInvoice, openInvoiceInNewTab } from '../../lib/contracts/open-invoice';
 
 interface Programa {
   id: string;
@@ -317,20 +317,6 @@ export default function ContractDetailsModal({
   // GES-1.4: an invoice opens only through the server route, which checks who
   // is asking and answers a five-minute link. The stored value is never used
   // as an address here.
-  const getInvoiceLink = async (cuotaId: string): Promise<string | null> => {
-    try {
-      const response = await fetch('/api/contracts/invoice-link?cuotaId=' + encodeURIComponent(cuotaId), {
-        credentials: 'same-origin'
-      });
-      if (!response.ok) return null;
-      const body = await response.json();
-      return typeof body?.url === 'string' && body.url ? body.url : null;
-    } catch (error) {
-      console.error('Error requesting invoice link:', error instanceof Error ? error.message : 'unknown');
-      return null;
-    }
-  };
-
   const openInvoice = async (cuota: Cuota, mode: 'view' | 'download') => {
     const key = `${mode}-${cuota.id}`;
     if (openingInvoice) return;
@@ -341,18 +327,8 @@ export default function ContractDetailsModal({
         await openInvoiceInNewTab(cuota.id, toast.error);
         return;
       }
-      const url = await getInvoiceLink(cuota.id);
-      if (!url) {
-        toast.error('No se pudo abrir la factura');
-        return;
-      }
-      // The receipts' download behaviour (ExpenseReportDetails), in a new tab.
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = cuota.factura_filename || 'factura';
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      link.click();
+      // Saves the file in the current window (lib/contracts/open-invoice.ts).
+      await downloadInvoice(cuota.id, toast.error);
     } finally {
       setOpeningInvoice(null);
     }

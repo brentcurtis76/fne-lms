@@ -104,3 +104,22 @@ export function invoiceUploadObjectName(
           .slice(0, MAX_EXTENSION_LENGTH);
   return `${prefix}_${cuotaId}_${timestamp}.${ext || 'bin'}`;
 }
+
+// GES-1.4 (F2c, send-back 2): the name «Descargar factura» saves the file as —
+// the instalment's stored file name (cuotas.factura_filename) reduced to its
+// last path segment, without control characters, quotes, slashes or
+// backslashes, at most 150 characters; when nothing usable is left, the
+// object's own name in the store.
+const MAX_DOWNLOAD_NAME_LENGTH = 150;
+// eslint-disable-next-line no-control-regex
+const DOWNLOAD_NAME_REMOVED = /[\u0000-\u001f\u007f"']/g;
+
+export function invoiceDownloadName(storedFilename: string | null | undefined, objectName: string): string {
+  if (typeof storedFilename !== 'string') return objectName;
+  const lastSegment = storedFilename.split(/[\\/]/).pop() ?? '';
+  const cleaned = Array.from(lastSegment.replace(DOWNLOAD_NAME_REMOVED, '').trim())
+    .slice(0, MAX_DOWNLOAD_NAME_LENGTH)
+    .join('')
+    .trim();
+  return cleaned || objectName;
+}

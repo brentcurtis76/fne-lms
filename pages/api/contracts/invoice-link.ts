@@ -13,10 +13,15 @@
  * refuses anything else. Reads and signing use the service client; the admin
  * check above, not RLS, gates who may ask. The stored value and the link are
  * never logged. Built on pages/api/expense-reports/receipt-link.ts.
+ *
+ * `download=1` (send-back 2, «Descargar factura»): the link is signed with the
+ * storage client's download option, so the store answers "save this file"
+ * under the instalment's file name (invoiceDownloadName). Any other value of
+ * `download` is ignored.
  */
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createServiceRoleClient, requireVerifiedCaller } from '../../../lib/api-auth';
-import { INVOICES_BUCKET, invoiceObjectName } from '../../../lib/contracts/invoice-path';
+import { INVOICES_BUCKET, invoiceDownloadName, invoiceObjectName } from '../../../lib/contracts/invoice-path';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LINK_SECONDS = 300;
@@ -35,6 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const userId = caller.user.id;
 
   const { cuotaId } = req.query;
+  const download = req.query.download === '1';
   if (typeof cuotaId !== 'string' || !UUID_PATTERN.test(cuotaId)) {
     return res.status(400).json({ error: 'ID inválido' });
   }
@@ -57,7 +63,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: cuota, error: cuotaError } = await service
       .from('cuotas')
-      .select('id, factura_url')
+      .select('id, factura_url, factura_filename')
       .eq('id', cuotaId)
       .maybeSingle();
     if (cuotaError) {
@@ -73,9 +79,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json(NOT_FOUND);
     }
 
-    const { data: signed, error: signError } = await service.storage
-      .from(INVOICES_BUCKET)
-      .createSignedUrl(name, LINK_SECONDS);
+    const bucket = service.storage.from(INVOICES_BUCKET);
+    const { data: signed, error: signError } = download
+      ? await bucket.createSignedUrl(name, LINK_SECONDS, {
+          download: invoiceDownloadName(
+            typeof cuota.factura_filename === 'string' ? cuota.factura_filename : null,
+            name
+          ),
+        })
+      : await bucket.createSignedUrl(name, LINK_SECONDS);
     if (signError || !signed?.signedUrl) {
       if (signError) console.error('[invoice-link] signing failed:', signError.message);
       return res.status(404).json(NOT_FOUND);

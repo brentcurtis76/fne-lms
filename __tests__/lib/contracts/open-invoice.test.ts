@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
+  downloadInvoice,
   openInvoiceInNewTab,
   INVOICE_OPEN_FAILED,
   INVOICE_POPUP_BLOCKED,
@@ -80,6 +81,42 @@ describe('openInvoiceInNewTab', () => {
     await openInvoiceInNewTab(CUOTA, showError);
     expect(tab.close).toHaveBeenCalledTimes(1);
     expect(tab.location.href).toBe('');
+    expect(showError).toHaveBeenCalledWith(INVOICE_OPEN_FAILED);
+  });
+});
+
+// GES-1.4 (F2c, send-back 2): «Descargar factura» asks for a download link
+// and sends the CURRENT window to it; the store answers "save this file", so
+// the page stays where it is and no new tab is opened.
+describe('downloadInvoice', () => {
+  let assign: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    assign = vi.fn();
+    vi.stubGlobal('location', { ...window.location, assign });
+  });
+
+  it('asks the route with download=1 and sends the current window to the answered link', async () => {
+    const createSpy = vi.spyOn(document, 'createElement');
+    await downloadInvoice(CUOTA, showError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe(`/api/contracts/invoice-link?cuotaId=${CUOTA}&download=1`);
+    expect(assign).toHaveBeenCalledTimes(1);
+    expect(assign).toHaveBeenCalledWith(SIGNED);
+    expect(openMock).not.toHaveBeenCalled();
+    expect(createSpy).not.toHaveBeenCalledWith('a');
+    expect(showError).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['a refused request', () => ({ ok: false, json: async () => ({ error: 'Factura no encontrada' }) })],
+    ['an answer with no url', () => ({ ok: true, json: async () => ({}) })],
+    ['an answer that is not JSON', () => ({ ok: true, json: async () => { throw new Error('bad json'); } })],
+    ['a network failure', () => Promise.reject(new Error('offline'))],
+  ])('%s: «No se pudo abrir la factura» shows and the window goes nowhere', async (_l, answer) => {
+    fetchMock.mockImplementation(answer as any);
+    await downloadInvoice(CUOTA, showError);
+    expect(assign).not.toHaveBeenCalled();
+    expect(openMock).not.toHaveBeenCalled();
     expect(showError).toHaveBeenCalledWith(INVOICE_OPEN_FAILED);
   });
 });

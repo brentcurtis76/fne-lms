@@ -20,6 +20,10 @@ const CUOTA_NONE = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const CUOTA_OTHER_STORE = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const CUOTA_DOTS = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const CUOTA_ENCODED_SLASH = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+const CUOTA_NULL_FILENAME = '77777777-7777-4777-8777-777777777777';
+const CUOTA_ODD_FILENAME = '88888888-8888-4888-8888-888888888888';
+const CUOTA_LONG_FILENAME = '12121212-1212-4212-8212-121212121212';
+const CUOTA_EMPTY_CLEAN = '13131313-1313-4313-8313-131313131313';
 const UNKNOWN = '99999999-9999-4999-8999-999999999999';
 const HOST = 'https://example-project.supabase.co';
 const NOT_FOUND = { error: 'Factura no encontrada' };
@@ -66,8 +70,11 @@ function signedIn(userId: string) {
   mockRequireVerifiedCaller.mockResolvedValue({ user: { id: userId }, status: null, body: null });
 }
 
-async function call(cuotaId: unknown, method: 'GET' | 'POST' | 'DELETE' = 'GET') {
-  const { req, res } = createMocks({ method, query: cuotaId === undefined ? {} : ({ cuotaId } as any) });
+async function call(cuotaId: unknown, method: 'GET' | 'POST' | 'DELETE' = 'GET', extra: Record<string, unknown> = {}) {
+  const { req, res } = createMocks({
+    method,
+    query: { ...(cuotaId === undefined ? {} : { cuotaId }), ...extra } as any,
+  });
   await handler(req as any, res as any);
   return { status: res._getStatusCode(), body: res._getData() ? JSON.parse(res._getData()) : null, res };
 }
@@ -76,8 +83,24 @@ beforeEach(() => {
   vi.clearAllMocks();
   db.tables = {
     cuotas: [
-      { id: CUOTA_ADDRESS, factura_url: `${HOST}/storage/v1/object/public/facturas/invoice_${CUOTA_ADDRESS}_1700000000000.pdf` },
-      { id: CUOTA_NAME, factura_url: `cuota_${CUOTA_NAME}_1700000000001.png` },
+      {
+        id: CUOTA_ADDRESS,
+        factura_url: `${HOST}/storage/v1/object/public/facturas/invoice_${CUOTA_ADDRESS}_1700000000000.pdf`,
+        factura_filename: 'Factura marzo 2026.pdf',
+      },
+      { id: CUOTA_NAME, factura_url: `cuota_${CUOTA_NAME}_1700000000001.png`, factura_filename: '' },
+      { id: CUOTA_NULL_FILENAME, factura_url: `cuota_${CUOTA_NULL_FILENAME}_1700000000002.pdf`, factura_filename: null },
+      {
+        id: CUOTA_ODD_FILENAME,
+        factura_url: `invoice_${CUOTA_ODD_FILENAME}_1700000000003.pdf`,
+        factura_filename: 'C:\\Users\\x\\sub/"Fact\'ura"\u0007\n.pdf',
+      },
+      {
+        id: CUOTA_LONG_FILENAME,
+        factura_url: `invoice_${CUOTA_LONG_FILENAME}_1700000000004.pdf`,
+        factura_filename: 'f'.repeat(200) + '.pdf',
+      },
+      { id: CUOTA_EMPTY_CLEAN, factura_url: `invoice_${CUOTA_EMPTY_CLEAN}_1700000000005.pdf`, factura_filename: 'docs/"\'\u0001' },
       { id: CUOTA_NONE, factura_url: null },
       { id: CUOTA_OTHER_STORE, factura_url: `${HOST}/storage/v1/object/public/resources/someone-elses.pdf` },
       { id: CUOTA_DOTS, factura_url: `${HOST}/storage/v1/object/public/facturas/../boletas/x.pdf` },
@@ -209,5 +232,71 @@ describe('GET /api/contracts/invoice-link', () => {
     expect(printed).not.toContain('token');
     log.mockRestore();
     error.mockRestore();
+  });
+
+  // GES-1.4 (F2c, send-back 2): «Descargar factura» asks with download=1 and
+  // the link is signed with the storage client's download option, so the store
+  // answers "save this file" under the instalment's own file name.
+  describe('download=1', () => {
+    it('an admin → signed with the download option set to the stored file name', async () => {
+      signedIn(ADMIN);
+      const { status, body, res } = await call(CUOTA_ADDRESS, 'GET', { download: '1' });
+      expect(status).toBe(200);
+      expect(body.expiresIn).toBe(300);
+      expect(mockStorageFrom).toHaveBeenCalledWith('facturas');
+      expect(mockCreateSignedUrl).toHaveBeenCalledTimes(1);
+      expect(mockCreateSignedUrl).toHaveBeenCalledWith(`invoice_${CUOTA_ADDRESS}_1700000000000.pdf`, 300, {
+        download: 'Factura marzo 2026.pdf',
+      });
+      expect(res.getHeader('Cache-Control')).toBe('no-store');
+    });
+
+    it.each([
+      ['an empty file name', CUOTA_NAME, `cuota_${CUOTA_NAME}_1700000000001.png`],
+      ['no file name', CUOTA_NULL_FILENAME, `cuota_${CUOTA_NULL_FILENAME}_1700000000002.pdf`],
+      ['a file name with nothing usable left', CUOTA_EMPTY_CLEAN, `invoice_${CUOTA_EMPTY_CLEAN}_1700000000005.pdf`],
+    ])('%s → the download option is the object\'s own name', async (_l, cuota, objectName) => {
+      signedIn(ADMIN);
+      const { status } = await call(cuota, 'GET', { download: '1' });
+      expect(status).toBe(200);
+      expect(mockCreateSignedUrl).toHaveBeenCalledWith(objectName, 300, { download: objectName });
+    });
+
+    it('a file name with a path, quotes and control characters → its last segment, cleaned', async () => {
+      signedIn(ADMIN);
+      await call(CUOTA_ODD_FILENAME, 'GET', { download: '1' });
+      expect(mockCreateSignedUrl).toHaveBeenCalledWith(`invoice_${CUOTA_ODD_FILENAME}_1700000000003.pdf`, 300, {
+        download: 'Factura.pdf',
+      });
+    });
+
+    it('a very long file name → at most 150 characters', async () => {
+      signedIn(ADMIN);
+      await call(CUOTA_LONG_FILENAME, 'GET', { download: '1' });
+      const options = mockCreateSignedUrl.mock.calls[0][2];
+      expect(options.download).toBe('f'.repeat(150));
+    });
+
+    it.each([
+      ['no download value', {}],
+      ['download=0', { download: '0' }],
+      ['download=true', { download: 'true' }],
+      ['an empty download', { download: '' }],
+      ['download given twice', { download: ['1', '1'] }],
+    ])('%s → signed exactly as without it', async (_l, extra) => {
+      signedIn(ADMIN);
+      const { status } = await call(CUOTA_ADDRESS, 'GET', extra);
+      expect(status).toBe(200);
+      expect(mockCreateSignedUrl).toHaveBeenCalledTimes(1);
+      expect(mockCreateSignedUrl.mock.calls[0]).toEqual([`invoice_${CUOTA_ADDRESS}_1700000000000.pdf`, 300]);
+    });
+
+    it('a non-admin with download=1 → 404, never signed', async () => {
+      signedIn(CONSULTOR);
+      const { status, body } = await call(CUOTA_ADDRESS, 'GET', { download: '1' });
+      expect(status).toBe(404);
+      expect(body).toEqual(NOT_FOUND);
+      neverSigned();
+    });
   });
 });

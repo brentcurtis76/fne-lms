@@ -134,21 +134,35 @@ describe('ContractDetailsModal — invoices open through the link route', () => 
     expect(mockToastError).not.toHaveBeenCalled();
   });
 
-  it('«Descargar factura» asks the route and opens the answered link as a download in a new tab', async () => {
+  it('«Descargar factura» asks the route with download=1 and sends the current window to the answered link', async () => {
     const user = userEvent.setup();
-    const clicked: HTMLAnchorElement[] = [];
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
-      clicked.push(this);
-    });
+    const assign = vi.fn();
+    vi.stubGlobal('location', { ...window.location, assign });
+    const createSpy = vi.spyOn(document, 'createElement');
     renderModal();
+    createSpy.mockClear();
     await user.click(screen.getByTitle('Descargar factura'));
-    await waitFor(() => expect(clicked).toHaveLength(1));
+    await waitFor(() => expect(assign).toHaveBeenCalledTimes(1));
+    expect(assign).toHaveBeenCalledWith(SIGNED);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toBe(`/api/contracts/invoice-link?cuotaId=${CUOTA}`);
-    expect(clicked[0].href).toBe(SIGNED);
-    expect(clicked[0].getAttribute('download')).toBe('factura-marzo.pdf');
-    expect(clicked[0].target).toBe('_blank');
+    expect(fetchMock.mock.calls[0][0]).toBe(`/api/contracts/invoice-link?cuotaId=${CUOTA}&download=1`);
+    expect(openMock).not.toHaveBeenCalled();
+    expect(createSpy).not.toHaveBeenCalledWith('a');
     expect(mockToastError).not.toHaveBeenCalled();
+  });
+
+  it('«Descargar factura» is disabled while its request is in flight', async () => {
+    const user = userEvent.setup();
+    const assign = vi.fn();
+    vi.stubGlobal('location', { ...window.location, assign });
+    let answer: (v: unknown) => void = () => {};
+    fetchMock.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+    renderModal();
+    await user.click(screen.getByTestId(`invoice-download-${CUOTA}`));
+    await waitFor(() => expect(screen.getByTestId(`invoice-download-${CUOTA}`)).toBeDisabled());
+    answer(okResponse());
+    await waitFor(() => expect(screen.getByTestId(`invoice-download-${CUOTA}`)).not.toBeDisabled());
+    expect(assign).toHaveBeenCalledWith(SIGNED);
   });
 
   it('the control is disabled while the request is in flight', async () => {
@@ -170,6 +184,8 @@ describe('ContractDetailsModal — invoices open through the link route', () => 
     const user = userEvent.setup();
     fetchMock.mockImplementation(answer as any);
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const assign = vi.fn();
+    vi.stubGlobal('location', { ...window.location, assign });
     renderModal();
     await user.click(screen.getByTitle('Ver factura'));
     await waitFor(() => expect(mockToastError).toHaveBeenCalledWith('No se pudo abrir la factura'));
@@ -178,6 +194,7 @@ describe('ContractDetailsModal — invoices open through the link route', () => 
     expect(reservedTab.close).toHaveBeenCalledTimes(1);
     expect(reservedTab.location.href).toBe('');
     expect(clickSpy).not.toHaveBeenCalled();
+    expect(assign).not.toHaveBeenCalled();
   });
 });
 

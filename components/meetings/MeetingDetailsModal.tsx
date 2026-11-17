@@ -399,11 +399,8 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                               <p className="text-sm font-medium text-gray-900">
                                 {attendee.user_profile
                                   ? profileName(attendee.user_profile, 'Usuario sin nombre')
-                                  : 'Usuario no encontrado'}
+                                  : 'Participante'}
                               </p>
-                              {attendee.user_profile && attendee.user_profile.email && (
-                                <p className="text-xs text-gray-500">{attendee.user_profile.email}</p>
-                              )}
                               {attendee.role && attendee.role !== 'participant' && (
                                 <span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
                                   {attendee.role === 'facilitator' ? 'Facilitador' : attendee.role === 'secretary' ? 'Secretario' : attendee.role}

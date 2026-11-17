@@ -118,10 +118,9 @@ export interface MeetingCommitment {
   // Related data
   assigned_to_profile?: {
     id: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-    avatar_url?: string;
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url?: string | null;
   };
   meeting?: {
     id: string;
@@ -154,10 +153,9 @@ export interface MeetingTask {
   // Related data
   assigned_to_profile?: {
     id: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-    avatar_url?: string;
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url?: string | null;
   };
   meeting?: {
     id: string;
@@ -185,10 +183,9 @@ export interface MeetingAttendee {
   // Related data
   user_profile?: {
     id: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-    avatar_url?: string;
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url?: string | null;
   };
 }
 

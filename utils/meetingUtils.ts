@@ -13,6 +13,7 @@ import {
   MeetingTask,
   MeetingCommitment,
   MeetingAgreement,
+  MeetingAttendee,
   OverdueItem,
   MeetingStats,
   MeetingFilters,
@@ -23,6 +24,8 @@ import {
 import { logWorkspaceActivity } from './workspaceUtils';
 import { daysUntilDueDate } from '../lib/meetings/meeting-time';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { fetchProfileCards } from '../lib/profile-cards';
+import type { ProfileCard } from '../lib/profile-cards';
 import type { SaveProblem } from '../lib/meetings/meeting-save';
 import {
   applyMeetingDiffs,
@@ -203,19 +206,35 @@ export async function getMeetingDetails(meetingId: string): Promise<MeetingWithD
     // Get attendees
     const { data: attendees } = await supabase
       .from('meeting_attendees')
-      .select(`
-        *,
-        user:profiles(id, first_name, last_name, email, avatar_url)
-      `)
+      .select('*')
       .eq('meeting_id', meetingId);
+
+    // Names of participants and of the people in charge come from profile
+    // cards (other people's `profiles` rows are not readable): one call for
+    // everyone. A person without a card gets no profile.
+    const cards = await fetchProfileCards(supabase, [
+      ...(attendees || []).map((attendee: { user_id?: string | null }) => attendee.user_id),
+      ...(tasks || []).map((task: { assigned_to?: string | null }) => task.assigned_to),
+      ...(commitments || []).map((commitment: { assigned_to?: string | null }) => commitment.assigned_to),
+    ]);
+    const cardFor = (id: string | null | undefined): ProfileCard | undefined => (id ? cards.get(id) : undefined);
 
     // Combine all data
     const meetingWithDetails: MeetingWithDetails = {
       ...meeting,
       agreements: agreements || [],
-      commitments: commitments || [],
-      tasks: tasks || [],
-      attendees: attendees || []
+      commitments: (commitments || []).map((commitment: MeetingCommitment) => ({
+        ...commitment,
+        assigned_to_profile: cardFor(commitment.assigned_to),
+      })),
+      tasks: (tasks || []).map((task: MeetingTask) => ({
+        ...task,
+        assigned_to_profile: cardFor(task.assigned_to),
+      })),
+      attendees: (attendees || []).map((attendee: MeetingAttendee) => ({
+        ...attendee,
+        user_profile: cardFor(attendee.user_id),
+      })),
     };
 
     return meetingWithDetails;

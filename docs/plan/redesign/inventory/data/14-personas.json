@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "675d11e3132fb053cb7f635b0a90a86faf570f4d",
-  "date": "2026-11-17T07:45:47-03:00"
+  "commit": "9b113df429f5036bf72f1c71c6636b3bb0f47139",
+  "date": "2026-11-17T12:24:40-03:00"
  },
  "screens": [
   {
@@ -6091,9 +6091,9 @@
      "lib/frontend-auth-utils.ts:143",
      "lib/notifications/catalog.ts:359",
      "middleware.ts:351",
-     "pages/dashboard.tsx:320",
-     "pages/dashboard.tsx:519",
+     "pages/dashboard.tsx:321",
      "pages/dashboard.tsx:520",
+     "pages/dashboard.tsx:521",
      "pages/login.tsx:137"
     ],
     "qaScenarios": {
@@ -12138,12 +12138,16 @@
    "methods": [
     "GET"
    ],
-   "guards": [],
+   "guards": [
+    "hasAdminPrivileges"
+   ],
    "calledBy": [
     "/user/[userId]"
    ],
    "referencedIn": [
     "__tests__/api/forged-session-sweep.test.ts",
+    "__tests__/api/users/school.test.ts",
+    "__tests__/pages/user-profile-view.test.tsx",
     "pages/user/[userId].tsx"
    ]
   }

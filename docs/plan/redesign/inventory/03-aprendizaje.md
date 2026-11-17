@@ -1,7 +1,7 @@
 # Mi Aprendizaje (the learner's courses, lessons and routes)
 
 Area `03-aprendizaje`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `675d11e31` (2026-11-17).
+Read from commit `9b113df42` (2026-11-17).
 
 Course system: the Course Review session owns this area's structure and its own checklist (docs/planning/courses/inventory.md, not yet on main). This file is the redesign's list of what is on screen today.
 
@@ -206,7 +206,7 @@ File `pages/mi-aprendizaje/ruta/[id].tsx` · 549 lines · frame: MainLayout · g
   - l.506 `server redirect → /auth/signin  (when !user)`
   - l.521 `server redirect → /auth/signin  (when !profileData)`
   - l.538 `isAdmin = userRoles?.some(role => role.role_type === 'admin') \|\| false`
-- Linked from: `pages/api/qa/seed-codebase-index.ts:268`, `pages/dashboard.tsx:1039`, `pages/mi-aprendizaje.tsx:498`
+- Linked from: `pages/api/qa/seed-codebase-index.ts:268`, `pages/dashboard.tsx:1043`, `pages/mi-aprendizaje.tsx:498`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/panel-pin.spec.ts`; unit tests of the page: `__tests__/lib/api-auth.server-side-user.test.ts`.
 
 | Role | Sees it in the menu | Middleware |

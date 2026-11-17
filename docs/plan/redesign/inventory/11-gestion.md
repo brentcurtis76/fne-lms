@@ -1,7 +1,7 @@
 # Gestión (clients, contracts, quotes)
 
 Area `11-gestion`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `675d11e31` (2026-11-17).
+Read from commit `9b113df42` (2026-11-17).
 
 7 screen files, 14 API files, 20 pieces.
 
@@ -674,7 +674,7 @@ File `pages/contracts.tsx` · 1123 lines · frame: MainLayout
   - l.171 `router.push → /dashboard  (when !profile \|\| userRole !== 'admin')`
   - l.240 `router.push → /login`
   - l.315 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:39`, `components/layout/Sidebar.tsx:559`, `components/licitaciones/Step7Contrato.tsx:165`, `components/licitaciones/Step7Contrato.tsx:220`, `components/licitaciones/Step7Contrato.tsx:221`, `components/licitaciones/Step7Contrato.tsx:377`, `components/licitaciones/Step7Contrato.tsx:378`, `lib/auth/forced-password-change.ts:138`, `middleware.ts:333`, `pages/admin/schools.tsx:591`
+- Linked from: `components/DynamicFavicon.tsx:39`, `components/layout/Sidebar.tsx:559`, `components/licitaciones/Step7Contrato.tsx:206`, `components/licitaciones/Step7Contrato.tsx:261`, `components/licitaciones/Step7Contrato.tsx:262`, `components/licitaciones/Step7Contrato.tsx:418`, `components/licitaciones/Step7Contrato.tsx:419`, `lib/auth/forced-password-change.ts:138`, `middleware.ts:333`, `pages/admin/schools.tsx:591`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`; unit tests of the page: `__tests__/pages/contracts-activation.test.tsx`.
 - QA scenarios that name this address: admin 3, consultor 1, equipo_directivo 1, lider_comunidad 1.
 

@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "675d11e3132fb053cb7f635b0a90a86faf570f4d",
-  "date": "2026-11-17T07:45:47-03:00"
+  "commit": "9b113df429f5036bf72f1c71c6636b3bb0f47139",
+  "date": "2026-11-17T12:24:40-03:00"
  },
  "screens": [
   {
@@ -2247,11 +2247,11 @@
     "linkedFrom": [
      "components/DynamicFavicon.tsx:39",
      "components/layout/Sidebar.tsx:559",
-     "components/licitaciones/Step7Contrato.tsx:165",
-     "components/licitaciones/Step7Contrato.tsx:220",
-     "components/licitaciones/Step7Contrato.tsx:221",
-     "components/licitaciones/Step7Contrato.tsx:377",
-     "components/licitaciones/Step7Contrato.tsx:378",
+     "components/licitaciones/Step7Contrato.tsx:206",
+     "components/licitaciones/Step7Contrato.tsx:261",
+     "components/licitaciones/Step7Contrato.tsx:262",
+     "components/licitaciones/Step7Contrato.tsx:418",
+     "components/licitaciones/Step7Contrato.tsx:419",
      "lib/auth/forced-password-change.ts:138",
      "middleware.ts:333",
      "pages/admin/schools.tsx:591"

@@ -1,7 +1,7 @@
 # Panel (Mi Panel)
 
 Area `02-panel`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `675d11e31` (2026-11-17).
+Read from commit `9b113df42` (2026-11-17).
 
 1 screen files, 6 API files, 24 pieces.
 
@@ -9,26 +9,26 @@ Read from commit `675d11e31` (2026-11-17).
 
 | Address | File | Lines | Menu | Marks |
 |---|---|---|---|---|
-| `/dashboard` | `pages/dashboard.tsx` | 1094 | Mi Panel |  |
+| `/dashboard` | `pages/dashboard.tsx` | 1098 | Mi Panel |  |
 
 ## /dashboard
 
-File `pages/dashboard.tsx` · 1094 lines · frame: MainLayout
+File `pages/dashboard.tsx` · 1098 lines · frame: MainLayout
 
 ### Who reaches it
 
 - Menu: «Mi Panel» → `/dashboard` — everyone signed in (`Sidebar.tsx` l.117)
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
-  - l.276 `router.push → /login  (when !session?.user)`
-  - l.285 `adminRole = metadataHasRole(userData.user.user_metadata, 'admin')`
-  - l.325 `router.push → /change-password  (when !userError && userData?.user && profileData.must_change_password === true)`
-  - l.331 `{ effectiveRole, isAdmin: isAdminUser } = await getEffectiveRoleAndStatus(supabase, userData.user.id)`
-  - l.345 `roles = await getUserRoles(supabase, userData.user.id)`
-  - l.446 `router.push → /login`
-  - l.457 `router.push → /login`
-  - l.990 `metadataHasRole(session?.user?.user_metadata, 'admin') \|\| metadataHasRole(session?.user?.user_metadata, 'consultor')`
-  - l.991 `metadataHasRole(session?.user?.user_metadata, 'admin') \|\| metadataHasRole(session?.user?.user_metadata, 'consultor')`
+  - l.277 `router.push → /login  (when !session?.user)`
+  - l.286 `adminRole = metadataHasRole(userData.user.user_metadata, 'admin')`
+  - l.326 `router.push → /change-password  (when !userError && userData?.user && profileData.must_change_password === true)`
+  - l.332 `{ effectiveRole, isAdmin: isAdminUser } = await getEffectiveRoleAndStatus(supabase, userData.user.id)`
+  - l.346 `roles = await getUserRoles(supabase, userData.user.id)`
+  - l.447 `router.push → /login`
+  - l.458 `router.push → /login`
+  - l.994 `metadataHasRole(session?.user?.user_metadata, 'admin') \|\| metadataHasRole(session?.user?.user_metadata, 'consultor')`
+  - l.995 `metadataHasRole(session?.user?.user_metadata, 'admin') \|\| metadataHasRole(session?.user?.user_metadata, 'consultor')`
 - Linked from: `components/DynamicFavicon.tsx:17`, `components/LessonBreadcrumb.tsx:112`, `components/auth/AuthWrapper.tsx:54`, `components/auth/AuthWrapper.tsx:67`, `components/auth/ProtectedRoute.tsx:43`, `components/layout/Sidebar.tsx:120`, `components/notifications/ModernNotificationCenter.tsx:303`, `components/notifications/ModernNotificationCenter.tsx:328`, `components/notifications/NotificationDropdown.tsx:132`, `components/notifications/NotificationDropdown.tsx:157`, `components/workspace/WorkspaceSidebar.tsx:172`, `lib/auth/forced-password-change.ts:142` and 120 more
 - Tests: browser tests that CI runs: `tests/e2e/auth-lifecycle.spec.ts`, `tests/e2e/ci-fixture.spec.ts`, `tests/e2e/footer-heading-order.spec.ts`, `tests/e2e/look-frame.spec.ts`, `tests/e2e/look-switch.spec.ts`, `tests/e2e/notification-settings.spec.ts`, `tests/e2e/pasantias-leads-admin.spec.ts`; browser tests CI skips: `tests/e2e/notification-bounce.spec.ts`, `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/notification-insert-boundary.spec.ts`, `tests/e2e/panel-pin.spec.ts`, `tests/qa/auth-redirects.spec.ts`.
 - QA scenarios that name this address: admin 1, community_manager 2.
@@ -69,165 +69,165 @@ File `pages/dashboard.tsx` · 1094 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «¡Hola, {profileName?.split(' ')[0]} / Usuario !» | h1 |  | Dashboard · l.505 |
-| «Mi Comunidad de Crecimiento» | h2 | `userRoles.some(role => role.community_id)` | Dashboard · l.569 |
-| «{selectedRole.school?.name} / {selectedRole.community!.name}» | h3 | `userRoles.some(role => role.community_id) && communityExpanded` | Dashboard · l.639 |
-| «Últimas Noticias» | h2 |  | Dashboard · l.723 |
-| «{article.title}» | h3 | `!(loadingNews) && newsArticles.length > 0 && each newsArticles` | Dashboard · l.768 |
-| «Videos Recientes» | h2 |  | Dashboard · l.792 |
-| «{video.title}» | h3 | `!(loadingVideos) && youtubeVideos.length > 0 && each youtubeVideos` | Dashboard · l.836 |
-| «{dashboardStats?.statsLabel} / Estadísticas de la Plataforma» | h2 |  | Dashboard · l.855 |
-| «{dashboardStats.mostCompletedCourse.…}» | h3 | `!(loadingStats) && dashboardStats?.mostCompletedCourse` | Dashboard · l.881 |
-| «{dashboardStats.topLearner.name}» | h3 | `!(loadingStats) && dashboardStats?.topLearner` | Dashboard · l.931 |
-| «Próximos Cursos» | h2 | `!loadingUpcoming && upcomingCourses.length > 0` | Dashboard · l.968 |
-| «Mis Rutas de Aprendizaje» | h2 | `learningPaths.length > 0` | Dashboard · l.1015 |
+| «¡Hola, {profileName?.split(' ')[0]} / Usuario !» | h1 |  | Dashboard · l.506 |
+| «Mi Comunidad de Crecimiento» | h2 | `userRoles.some(role => role.community_id)` | Dashboard · l.570 |
+| «{selectedRole.school?.name} / {selectedRole.community!.name}» | h3 | `userRoles.some(role => role.community_id) && communityExpanded` | Dashboard · l.640 |
+| «Últimas Noticias» | h2 |  | Dashboard · l.727 |
+| «{article.title}» | h3 | `!(loadingNews) && newsArticles.length > 0 && each newsArticles` | Dashboard · l.772 |
+| «Videos Recientes» | h2 |  | Dashboard · l.796 |
+| «{video.title}» | h3 | `!(loadingVideos) && youtubeVideos.length > 0 && each youtubeVideos` | Dashboard · l.840 |
+| «{dashboardStats?.statsLabel} / Estadísticas de la Plataforma» | h2 |  | Dashboard · l.859 |
+| «{dashboardStats.mostCompletedCourse.…}» | h3 | `!(loadingStats) && dashboardStats?.mostCompletedCourse` | Dashboard · l.885 |
+| «{dashboardStats.topLearner.name}» | h3 | `!(loadingStats) && dashboardStats?.topLearner` | Dashboard · l.935 |
+| «Próximos Cursos» | h2 | `!loadingUpcoming && upcomingCourses.length > 0` | Dashboard · l.972 |
+| «Mis Rutas de Aprendizaje» | h2 | `learningPaths.length > 0` | Dashboard · l.1019 |
 
 **Buttons** (4)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Mi Comunidad de Crecimiento {selectedRole.school?.name} / {selectedRole.community!.name} • {members.length} miembros {member.first_name?.charAt(0)} / U [+ {members.length - 4}]» | `{() => setCommunityExpanded(!communityExpanded)}` | `userRoles.some(role => role.community_id)` |  |  | Dashboard · l.552 |
-| «{comm.school?.name} / {comm.community?.name}» | `{(e) => { e.stopPropagation(); setSelectedCommunityId(comm.community_id!); }}` | `userRoles.some(role => role.community_id) && communityExpanded && userCommunities.length > 1 && each userCommunities` |  |  | Dashboard · l.619 |
-| «[icon Settings]» · tooltip «Configuración» | `{(e) => { e.stopPropagation(); setSelectedWorkspace(workspace); setShowWorkspace…}` | `userRoles.some(role => role.community_id) && communityExpanded` |  |  | Dashboard · l.643 |
-| «{member.first_name?.charAt(0)} / U {[member.first_name, member.last_nam…} / {(member as any).name} / Usuario [{roleLabel}] [{getExternalSchoolLabel(member.exter…}] [Tú]» | `{() => { setSelectedMember(member); setShowMemberProfile(true); }}` | `userRoles.some(role => role.community_id) && communityExpanded && each members` |  |  | Dashboard · l.668 |
+| «Mi Comunidad de Crecimiento {selectedRole.school?.name} / {selectedRole.community!.name} • {members.length} miembros {member.first_name?.charAt(0)} / U [+ {members.length - 4}]» | `{() => setCommunityExpanded(!communityExpanded)}` | `userRoles.some(role => role.community_id)` |  |  | Dashboard · l.553 |
+| «{comm.school?.name} / {comm.community?.name}» | `{(e) => { e.stopPropagation(); setSelectedCommunityId(comm.community_id!); }}` | `userRoles.some(role => role.community_id) && communityExpanded && userCommunities.length > 1 && each userCommunities` |  |  | Dashboard · l.620 |
+| «[icon Settings]» · tooltip «Configuración» | `{(e) => { e.stopPropagation(); setSelectedWorkspace(workspace); setShowWorkspace…}` | `userRoles.some(role => role.community_id) && communityExpanded && canEditWorkspaceWithRoles(userRoles, selectedRole.community_id)` |  |  | Dashboard · l.646 |
+| «{member.first_name?.charAt(0)} / U {[member.first_name, member.last_nam…} / {(member as any).name} / Usuario [{roleLabel}] [{getExternalSchoolLabel(member.exter…}] [Tú]» | `{() => { setSelectedMember(member); setShowMemberProfile(true); }}` | `userRoles.some(role => role.community_id) && communityExpanded && each members` |  |  | Dashboard · l.672 |
 
 **Links** (7)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Mi Perfil» | `/profile` | screen size: `hidden sm:flex` |  | Dashboard · l.519 |
-| «Ver Espacio Completo →» | `/community/workspace` | `userRoles.some(role => role.community_id) && communityExpanded` |  | Dashboard · l.654 |
-| «Ver todas» | `/noticias` |  |  | Dashboard · l.725 |
-| «{formatTimeAgo(article.display_date …} {article.title} {getExcerpt(article.content_html)}» | `/noticias/[*]` (new tab) | `!(loadingNews) && newsArticles.length > 0 && each newsArticles` |  | Dashboard · l.746 |
-| «Ver canal» | `https://www.youtube.com/@NuevaEducacionFundacion` (new tab) |  |  | Dashboard · l.794 |
-| «{video.title} {formatTimeAgo(video.publishedAt)}» | `https://www.youtube.com/watch?v=[*]` (new tab) | `!(loadingVideos) && youtubeVideos.length > 0 && each youtubeVideos` |  | Dashboard · l.816 |
-| «Ver todas» | `/mi-aprendizaje` | `learningPaths.length > 0` |  | Dashboard · l.1016 |
+| «Mi Perfil» | `/profile` | screen size: `hidden sm:flex` |  | Dashboard · l.520 |
+| «Ver Espacio Completo →» | `/community/workspace` | `userRoles.some(role => role.community_id) && communityExpanded` |  | Dashboard · l.658 |
+| «Ver todas» | `/noticias` |  |  | Dashboard · l.729 |
+| «{formatTimeAgo(article.display_date …} {article.title} {getExcerpt(article.content_html)}» | `/noticias/[*]` (new tab) | `!(loadingNews) && newsArticles.length > 0 && each newsArticles` |  | Dashboard · l.750 |
+| «Ver canal» | `https://www.youtube.com/@NuevaEducacionFundacion` (new tab) |  |  | Dashboard · l.798 |
+| «{video.title} {formatTimeAgo(video.publishedAt)}» | `https://www.youtube.com/watch?v=[*]` (new tab) | `!(loadingVideos) && youtubeVideos.length > 0 && each youtubeVideos` |  | Dashboard · l.820 |
+| «Ver todas» | `/mi-aprendizaje` | `learningPaths.length > 0` |  | Dashboard · l.1020 |
 
 **Other things that react to a click** (1)
 
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
-| `LearningPathCard` |  | `{() => router.push('/mi-aprendizaje/ruta/${path.id}')}` | `learningPaths.length > 0 && each learningPaths.slice(0, 3)` | Dashboard · l.1026 |
+| `LearningPathCard` |  | `{() => router.push('/mi-aprendizaje/ruta/${path.id}')}` | `learningPaths.length > 0 && each learningPaths.slice(0, 3)` | Dashboard · l.1030 |
 
 **Embedded media** (6)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| img · alt {workspace.custom_name \|\| selectedRole.community!.name} · {workspace.image_url} | `userRoles.some(role => role.community_id) && workspace?.image_url` |  | Dashboard · l.558 |
-| img · {member.avatar_url} | `userRoles.some(role => role.community_id) && each members.slice(0, 4) && member.avatar_url` |  | Dashboard · l.582 |
-| img · {member.avatar_url} | `userRoles.some(role => role.community_id) && communityExpanded && each members && member.avatar_url` |  | Dashboard · l.677 |
-| img · alt {article.title} · {article.featured_image} | `!(loadingNews) && newsArticles.length > 0 && each newsArticles && article.featured_image` |  | Dashboard · l.757 |
-| img · alt {video.title} · {video.thumbnail} | `!(loadingVideos) && youtubeVideos.length > 0 && each youtubeVideos` |  | Dashboard · l.824 |
-| img · {dashboardStats.topLearner.avatar_url} | `!(loadingStats) && dashboardStats?.topLearner && dashboardStats.topLearner.avatar_url` |  | Dashboard · l.918 |
+| img · alt {workspace.custom_name \|\| selectedRole.community!.name} · {workspace.image_url} | `userRoles.some(role => role.community_id) && workspace?.image_url` |  | Dashboard · l.559 |
+| img · {member.avatar_url} | `userRoles.some(role => role.community_id) && each members.slice(0, 4) && member.avatar_url` |  | Dashboard · l.583 |
+| img · {member.avatar_url} | `userRoles.some(role => role.community_id) && communityExpanded && each members && member.avatar_url` |  | Dashboard · l.681 |
+| img · alt {article.title} · {article.featured_image} | `!(loadingNews) && newsArticles.length > 0 && each newsArticles && article.featured_image` |  | Dashboard · l.761 |
+| img · alt {video.title} · {video.thumbnail} | `!(loadingVideos) && youtubeVideos.length > 0 && each youtubeVideos` |  | Dashboard · l.828 |
+| img · {dashboardStats.topLearner.avatar_url} | `!(loadingStats) && dashboardStats?.topLearner && dashboardStats.topLearner.avatar_url` |  | Dashboard · l.922 |
 
 **Pop-ups** (2)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| `WorkspaceSettingsModal` | component | `{showWorkspaceSettings}` |  | Dashboard · l.1060 |
-| `MemberProfileModal` | component | `{showMemberProfile}` |  | Dashboard · l.1082 |
+| `WorkspaceSettingsModal` | component | `{showWorkspaceSettings}` |  | Dashboard · l.1064 |
+| `MemberProfileModal` | component | `{showMemberProfile}` |  | Dashboard · l.1086 |
 
 **Toasts** (1)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| success | «Contraseña actualizada exitosamente» | `passwordChangeSuccess === 'true'` | Dashboard · l.187 |
+| success | «Contraseña actualizada exitosamente» | `passwordChangeSuccess === 'true'` | Dashboard · l.188 |
 
 **Moves to another page from code** (8)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login` | `router.push` | `!session?.user` | checkSession · l.276 |
-| `/profile?from=dashboard&error=profile-fetch-failed` | `router.push` | `!userError && userData?.user && !profileData` | checkSession · l.320 |
-| `/change-password` | `router.push` | `!userError && userData?.user && profileData.must_change_password === true` | checkSession · l.325 |
-| `/login` | `router.push` |  | checkSession · l.446 |
-| `/login` | `router.push` |  | handleLogout · l.457 |
-| `/student/course/[*]` | `router.push` | `inProgressCourses.length > 0` | Dashboard · l.1007 |
-| `/mi-aprendizaje/ruta/[*]` | `router.push` | `learningPaths.length > 0 && each learningPaths.slice(0, 3)` | Dashboard · l.1039 |
-| `/student/course/[*]` | `router.push` | `openCourses.length > 0` | Dashboard · l.1052 |
+| `/login` | `router.push` | `!session?.user` | checkSession · l.277 |
+| `/profile?from=dashboard&error=profile-fetch-failed` | `router.push` | `!userError && userData?.user && !profileData` | checkSession · l.321 |
+| `/change-password` | `router.push` | `!userError && userData?.user && profileData.must_change_password === true` | checkSession · l.326 |
+| `/login` | `router.push` |  | checkSession · l.447 |
+| `/login` | `router.push` |  | handleLogout · l.458 |
+| `/student/course/[*]` | `router.push` | `inProgressCourses.length > 0` | Dashboard · l.1011 |
+| `/mi-aprendizaje/ruta/[*]` | `router.push` | `learningPaths.length > 0 && each learningPaths.slice(0, 3)` | Dashboard · l.1043 |
+| `/student/course/[*]` | `router.push` | `openCourses.length > 0` | Dashboard · l.1056 |
 
 **Access checks in the code** (5)
 
 | Line of code | Where |
 |---|---|
-| `adminRole = metadataHasRole(userData.user.user_metadata, 'admin')` | checkSession · l.285 |
-| `{ effectiveRole, isAdmin: isAdminUser } = await getEffectiveRoleAndStatus(supabase, userData.user.id)` | checkSession · l.331 |
-| `roles = await getUserRoles(supabase, userData.user.id)` | checkSession · l.345 |
-| `metadataHasRole(session?.user?.user_metadata, 'admin') \|\| metadataHasRole(session?.user?.user_metadata, 'consultor')` | Dashboard · l.990 |
-| `metadataHasRole(session?.user?.user_metadata, 'admin') \|\| metadataHasRole(session?.user?.user_metadata, 'consultor')` | Dashboard · l.991 |
+| `adminRole = metadataHasRole(userData.user.user_metadata, 'admin')` | checkSession · l.286 |
+| `{ effectiveRole, isAdmin: isAdminUser } = await getEffectiveRoleAndStatus(supabase, userData.user.id)` | checkSession · l.332 |
+| `roles = await getUserRoles(supabase, userData.user.id)` | checkSession · l.346 |
+| `metadataHasRole(session?.user?.user_metadata, 'admin') \|\| metadataHasRole(session?.user?.user_metadata, 'consultor')` | Dashboard · l.994 |
+| `metadataHasRole(session?.user?.user_metadata, 'admin') \|\| metadataHasRole(session?.user?.user_metadata, 'consultor')` | Dashboard · l.995 |
 
 **Draws nothing when** (1)
 
 | Condition | Where |
 |---|---|
-| `!selectedRole \|\| !selectedRole.community` | Dashboard · l.543 |
+| `!selectedRole \|\| !selectedRole.community` | Dashboard · l.544 |
 
 **Pieces placed here, with the texts and settings handed to them** (9)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` |  | `loading` |  | Dashboard · l.462 |
-| `MainLayout` |  |  |  | Dashboard · l.483 |
-| `Avatar` |  |  |  | Dashboard · l.498 |
-| `UpcomingCourseCard` |  | `!loadingUpcoming && upcomingCourses.length > 0 && each upcomingCourses` |  | Dashboard · l.981 |
-| `CourseProposalSection` |  | `(metadataHasRole(session?.user?.user_metadata, 'admin') \|\| metadataHasRole(session?.user?.user_metadata, 'consultor') \|\| userRoles.some(r => r.role_type === 'admin' \|\| r…` |  | Dashboard · l.993 |
-| `BadgesSection` |  | `user?.id` |  | Dashboard · l.998 |
-| `NetflixCourseRow` | title: Continuar Aprendiendo · emptyMessage: No tienes cursos en progreso | `inProgressCourses.length > 0` |  | Dashboard · l.1003 |
-| `LearningPathCard` |  | `learningPaths.length > 0 && each learningPaths.slice(0, 3)` |  | Dashboard · l.1026 |
-| `NetflixCourseRow` | title: Mis Cursos Abiertos · emptyMessage: No tienes cursos asignados | `openCourses.length > 0` |  | Dashboard · l.1048 |
+| `MainLayout` |  | `loading` |  | Dashboard · l.463 |
+| `MainLayout` |  |  |  | Dashboard · l.484 |
+| `Avatar` |  |  |  | Dashboard · l.499 |
+| `UpcomingCourseCard` |  | `!loadingUpcoming && upcomingCourses.length > 0 && each upcomingCourses` |  | Dashboard · l.985 |
+| `CourseProposalSection` |  | `(metadataHasRole(session?.user?.user_metadata, 'admin') \|\| metadataHasRole(session?.user?.user_metadata, 'consultor') \|\| userRoles.some(r => r.role_type === 'admin' \|\| r…` |  | Dashboard · l.997 |
+| `BadgesSection` |  | `user?.id` |  | Dashboard · l.1002 |
+| `NetflixCourseRow` | title: Continuar Aprendiendo · emptyMessage: No tienes cursos en progreso | `inProgressCourses.length > 0` |  | Dashboard · l.1007 |
+| `LearningPathCard` |  | `learningPaths.length > 0 && each learningPaths.slice(0, 3)` |  | Dashboard · l.1030 |
+| `NetflixCourseRow` | title: Mis Cursos Abiertos · emptyMessage: No tienes cursos asignados | `openCourses.length > 0` |  | Dashboard · l.1052 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
-| `formatTimeAgo()` | «Hoy», «Ayer», «Hace {diffDays} días», «Hace {Math.floor(diffDays / 7)} semanas» | formatTimeAgo · l.88 |
+| `formatTimeAgo()` | «Hoy», «Ayer», «Hace {diffDays} días», «Hace {Math.floor(diffDays / 7)} semanas» | formatTimeAgo · l.89 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (6)
 
 | Text | Where |
 |---|---|
-| «Hoy» | formatTimeAgo · l.88 |
-| «Ayer» | formatTimeAgo · l.89 |
-| «Hace {diffDays} días» | formatTimeAgo · l.90 |
-| «Hace {Math.floor(diffDays / 7)} semanas» | formatTimeAgo · l.91 |
-| «Bearer {statsSession.access_token}» | Dashboard · l.237 |
-| «Sin instructor» | Dashboard · l.378 |
+| «Hoy» | formatTimeAgo · l.89 |
+| «Ayer» | formatTimeAgo · l.90 |
+| «Hace {diffDays} días» | formatTimeAgo · l.91 |
+| «Hace {Math.floor(diffDays / 7)} semanas» | formatTimeAgo · l.92 |
+| «Bearer {statsSession.access_token}» | Dashboard · l.238 |
+| «Sin instructor» | Dashboard · l.379 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (4)
 
 | Kind | What | Where |
 |---|---|---|
-| storage | `sessionStorage: fne-password-change-success` | Dashboard · l.184 |
-| storage | `sessionStorage: fne-avatar-cache` | checkSession · l.290 |
-| storage | `localStorage: rememberMe` | handleLogout · l.455 |
-| storage | `sessionStorage: sessionOnly` | handleLogout · l.456 |
+| storage | `sessionStorage: fne-password-change-success` | Dashboard · l.185 |
+| storage | `sessionStorage: fne-avatar-cache` | checkSession · l.291 |
+| storage | `localStorage: rememberMe` | handleLogout · l.456 |
+| storage | `sessionStorage: sessionOnly` | handleLogout · l.457 |
 
 **Values shown from data** (6)
 
-- `{getExternalSchoolLabel(profileData.…}` — Dashboard · l.514, when `userRole === 'consultor' && profileData?.external_school_affiliation`
-- `{dashboardStats.mostCompletedCourse.…}` — Dashboard · l.890, when `!(loadingStats) && dashboardStats?.mostCompletedCourse`
-- `{dashboardStats.topLearner.name.char…}` — Dashboard · l.925, when `!(loadingStats) && dashboardStats?.topLearner && !(dashboardStats.topLearner.avatar_url)`
-- `{dashboardStats.topLearner.role}` — Dashboard · l.935, when `!(loadingStats) && dashboardStats?.topLearner && dashboardStats.topLearner.role`
-- `{dashboardStats.topLearner.school_na…}` — Dashboard · l.940, when `!(loadingStats) && dashboardStats?.topLearner && dashboardStats.topLearner.school_name`
-- `{dashboardStats.topLearner.completed…}` — Dashboard · l.945, when `!(loadingStats) && dashboardStats?.topLearner`
+- `{getExternalSchoolLabel(profileData.…}` — Dashboard · l.515, when `userRole === 'consultor' && profileData?.external_school_affiliation`
+- `{dashboardStats.mostCompletedCourse.…}` — Dashboard · l.894, when `!(loadingStats) && dashboardStats?.mostCompletedCourse`
+- `{dashboardStats.topLearner.name.char…}` — Dashboard · l.929, when `!(loadingStats) && dashboardStats?.topLearner && !(dashboardStats.topLearner.avatar_url)`
+- `{dashboardStats.topLearner.role}` — Dashboard · l.939, when `!(loadingStats) && dashboardStats?.topLearner && dashboardStats.topLearner.role`
+- `{dashboardStats.topLearner.school_na…}` — Dashboard · l.944, when `!(loadingStats) && dashboardStats?.topLearner && dashboardStats.topLearner.school_name`
+- `{dashboardStats.topLearner.completed…}` — Dashboard · l.949, when `!(loadingStats) && dashboardStats?.topLearner`
 
 **Other texts on screen** (15)
 
-- «Cargando...» — Dashboard · l.475, when `loading`
-- «Bienvenido de vuelta al hub de transformación de tu colegio» — Dashboard · l.509
-- «Seleccionar comunidad:» — Dashboard · l.616, when `userRoles.some(role => role.community_id) && communityExpanded && userCommunities.length > 1`
-- «No hay noticias disponibles» — Dashboard · l.780, when `!(loadingNews) && !(newsArticles.length > 0)`
-- «No hay videos disponibles» — Dashboard · l.848, when `!(loadingVideos) && !(youtubeVideos.length > 0)`
-- «Educadores Activos» — Dashboard · l.860
-- «en tu alcance» — Dashboard · l.868
-- «Curso Más Completado» — Dashboard · l.873
-- «Relator: {dashboardStats.mostCompletedCourse.…}» — Dashboard · l.885, when `!(loadingStats) && dashboardStats?.mostCompletedCourse && dashboardStats.mostCompletedCourse.instructor_name`
-- «completaciones» — Dashboard · l.893, when `!(loadingStats) && dashboardStats?.mostCompletedCourse`
-- «Sin datos disponibles» — Dashboard · l.897, when `!(loadingStats) && !(dashboardStats?.mostCompletedCourse)`
-- «Usuario Destacado» — Dashboard · l.903
-- «cursos completados» — Dashboard · l.948, when `!(loadingStats) && dashboardStats?.topLearner`
-- «Sin datos disponibles» — Dashboard · l.954, when `!(loadingStats) && !(dashboardStats?.topLearner)`
-- «Cursos que podrás tomar próximamente» — Dashboard · l.969, when `!loadingUpcoming && upcomingCourses.length > 0`
+- «Cargando...» — Dashboard · l.476, when `loading`
+- «Bienvenido de vuelta al hub de transformación de tu colegio» — Dashboard · l.510
+- «Seleccionar comunidad:» — Dashboard · l.617, when `userRoles.some(role => role.community_id) && communityExpanded && userCommunities.length > 1`
+- «No hay noticias disponibles» — Dashboard · l.784, when `!(loadingNews) && !(newsArticles.length > 0)`
+- «No hay videos disponibles» — Dashboard · l.852, when `!(loadingVideos) && !(youtubeVideos.length > 0)`
+- «Educadores Activos» — Dashboard · l.864
+- «en tu alcance» — Dashboard · l.872
+- «Curso Más Completado» — Dashboard · l.877
+- «Relator: {dashboardStats.mostCompletedCourse.…}» — Dashboard · l.889, when `!(loadingStats) && dashboardStats?.mostCompletedCourse && dashboardStats.mostCompletedCourse.instructor_name`
+- «completaciones» — Dashboard · l.897, when `!(loadingStats) && dashboardStats?.mostCompletedCourse`
+- «Sin datos disponibles» — Dashboard · l.901, when `!(loadingStats) && !(dashboardStats?.mostCompletedCourse)`
+- «Usuario Destacado» — Dashboard · l.907
+- «cursos completados» — Dashboard · l.952, when `!(loadingStats) && dashboardStats?.topLearner`
+- «Sin datos disponibles» — Dashboard · l.958, when `!(loadingStats) && !(dashboardStats?.topLearner)`
+- «Cursos que podrás tomar próximamente» — Dashboard · l.973, when `!loadingUpcoming && upcomingCourses.length > 0`
 
 **Reads and writes the database directly:** `table:course_assignments` (select), `table:course_enrollments` (select), `table:courses` (select), `table:profiles` (select)
 
@@ -266,11 +266,11 @@ File `pages/dashboard.tsx` · 1094 lines · frame: MainLayout
 | `/api/community/members` | GET | `utils/roleUtils.ts:1015` |
 | `/api/course-proposals` | GET, POST | `components/course-proposals/CourseProposalSection.tsx:27`, `components/course-proposals/CourseProposalSection.tsx:72` |
 | `/api/course-proposals/[id]` | DELETE, PUT | `components/course-proposals/CourseProposalSection.tsx:108`, `components/course-proposals/CourseProposalSection.tsx:50` |
-| `/api/dashboard/stats` | GET | `pages/dashboard.tsx:239` |
-| `/api/learning-paths/my-paths` | GET | `pages/dashboard.tsx:432` |
-| `/api/news` | GET | `pages/dashboard.tsx:198` |
-| `/api/upcoming-courses` | GET | `pages/dashboard.tsx:257` |
-| `/api/youtube/latest` | GET | `pages/dashboard.tsx:216` |
+| `/api/dashboard/stats` | GET | `pages/dashboard.tsx:240` |
+| `/api/learning-paths/my-paths` | GET | `pages/dashboard.tsx:433` |
+| `/api/news` | GET | `pages/dashboard.tsx:199` |
+| `/api/upcoming-courses` | GET | `pages/dashboard.tsx:258` |
+| `/api/youtube/latest` | GET | `pages/dashboard.tsx:217` |
 
 ## Pieces
 
@@ -1046,21 +1046,21 @@ Used by: `/dashboard`
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «No se proporcionó ningún archivo» | `throw (shown by whoever catches it)` | `!file` | uploadCommunityImage · l.36 |
-| «El archivo debe ser menor a 5MB» | `throw (shown by whoever catches it)` | `file.size > maxSize` | uploadCommunityImage · l.42 |
-| «Solo se permiten imágenes (JPEG, PNG, WebP)» | `throw (shown by whoever catches it)` | `!allowedTypes.includes(file.type)` | uploadCommunityImage · l.48 |
+| «No se proporcionó ningún archivo» | `throw (shown by whoever catches it)` | `!file` | uploadCommunityImage · l.54 |
+| «El archivo debe ser menor a 5MB» | `throw (shown by whoever catches it)` | `file.size > maxSize` | uploadCommunityImage · l.60 |
+| «Solo se permiten imágenes (JPEG, PNG, WebP)» | `throw (shown by whoever catches it)` | `!allowedTypes.includes(file.type)` | uploadCommunityImage · l.66 |
 
 **Access checks in the code** (1)
 
 | Line of code | Where |
 |---|---|
-| `canEdit = roles.some(role => role.role_type === 'admin' \|\| role.community_id === workspace.community_id )` | canEditWorkspace · l.155 |
+| `canEdit = canEditWorkspaceWithRoles(roles, workspace.community_id)` | canEditWorkspace · l.173 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
-| `communityWorkspaceService` | «No se proporcionó ningún archivo», «El archivo debe ser menor a 5MB», «Solo se permiten imágenes (JPEG, PNG, WebP)», «Error al subir la imagen» | l.3 |
+| `communityWorkspaceService` | «No se proporcionó ningún archivo», «El archivo debe ser menor a 5MB», «Solo se permiten imágenes (JPEG, PNG, WebP)», «Error al subir la imagen» | l.21 |
 
 **Reads and writes the database directly:** `bucket:community-images` (getPublicUrl, remove, upload), `table:community_workspaces` (select, update), `table:user_roles` (select)
 

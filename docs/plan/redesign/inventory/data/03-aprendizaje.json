@@ -4,8 +4,8 @@
  "note": "Course system: the Course Review session owns this area's structure and its own checklist (docs/planning/courses/inventory.md, not yet on main). This file is the redesign's list of what is on screen today.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "675d11e3132fb053cb7f635b0a90a86faf570f4d",
-  "date": "2026-11-17T07:45:47-03:00"
+  "commit": "9b113df429f5036bf72f1c71c6636b3bb0f47139",
+  "date": "2026-11-17T12:24:40-03:00"
  },
  "screens": [
   {
@@ -202,8 +202,8 @@
      "middleware.ts:347",
      "pages/api/qa/seed-codebase-index.ts:231",
      "pages/course-manager.tsx:10",
-     "pages/dashboard.tsx:1016",
-     "pages/dashboard.tsx:1017",
+     "pages/dashboard.tsx:1020",
+     "pages/dashboard.tsx:1021",
      "pages/mi-aprendizaje/ruta/[id].tsx:253",
      "pages/my-paths.tsx:10",
      "pages/notifications.tsx:267",
@@ -628,7 +628,7 @@
     ],
     "linkedFrom": [
      "pages/api/qa/seed-codebase-index.ts:268",
-     "pages/dashboard.tsx:1039",
+     "pages/dashboard.tsx:1043",
      "pages/mi-aprendizaje.tsx:498"
     ],
     "qaScenarios": {},
@@ -1707,8 +1707,8 @@
      "pages/admin/course-builder/index.tsx:614",
      "pages/api/qa/seed-codebase-index.ts:251",
      "pages/api/qa/seed-codebase-index.ts:283",
-     "pages/dashboard.tsx:1007",
-     "pages/dashboard.tsx:1052",
+     "pages/dashboard.tsx:1011",
+     "pages/dashboard.tsx:1056",
      "pages/mi-aprendizaje.tsx:516",
      "pages/student/lesson/[lessonId].tsx:860"
     ],

@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "675d11e3132fb053cb7f635b0a90a86faf570f4d",
-  "date": "2026-11-17T07:45:47-03:00"
+  "commit": "9b113df429f5036bf72f1c71c6636b3bb0f47139",
+  "date": "2026-11-17T12:24:40-03:00"
  },
  "screens": [
   {
@@ -3570,7 +3570,7 @@
   {
    "file": "pages/licitaciones/[id].tsx",
    "route": "/licitaciones/[id]",
-   "lines": 990,
+   "lines": 964,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -3621,15 +3621,15 @@
     },
     "inPage": [
      {
-      "line": 241,
+      "line": 209,
       "text": "router.push → /login  (when !user)"
      },
      {
-      "line": 253,
+      "line": 221,
       "text": "router.push → /dashboard  (when !adminAccess && !encargadoAccess)"
      },
      {
-      "line": 263,
+      "line": 231,
       "text": "router.push → /login"
      }
     ],
@@ -3646,7 +3646,7 @@
      "pages/licitaciones/index.tsx:611",
      "pages/licitaciones/index.tsx:612",
      "pages/licitaciones/index.tsx:614",
-     "pages/licitaciones/nueva.tsx:262"
+     "pages/licitaciones/nueva.tsx:270"
     ],
     "qaScenarios": {},
     "tests": {
@@ -3657,22 +3657,16 @@
       "tests/e2e/flows/proposal-config.spec.ts",
       "tests/e2e/flows/proposal-versioning.spec.ts"
      ],
-     "unit": []
+     "unit": [
+      "__tests__/pages/licitaciones/licitacion-detail-step2.test.tsx",
+      "__tests__/pages/licitaciones/licitacion-detail-step6-carta.test.tsx"
+     ]
     }
    },
    "rows": [
     {
      "kind": "list",
-     "line": 22,
-     "in": "generatePublicacionText",
-     "text": "fechaLimite",
-     "items": [
-      "[fecha pendiente]"
-     ]
-    },
-    {
-     "kind": "list",
-     "line": 55,
+     "line": 21,
      "text": "STEPS",
      "items": [
       "Creacion",
@@ -3686,50 +3680,50 @@
     },
     {
      "kind": "value",
-     "line": 106,
+     "line": 72,
      "in": "Stepper",
      "when": "each STEPS",
      "text": "{step.label}"
     },
     {
      "kind": "value",
-     "line": 123,
+     "line": 89,
      "in": "InfoRow",
      "text": "{label}"
     },
     {
      "kind": "value",
-     "line": 124,
+     "line": 90,
      "in": "InfoRow",
      "text": "{value} / -"
     },
     {
      "kind": "value",
-     "line": 132,
+     "line": 98,
      "in": "EstadoBadge",
      "text": "{info.label}"
     },
     {
      "kind": "gate",
-     "line": 194,
+     "line": 162,
      "in": "LicitacionDetailPage",
      "text": "!authReady"
     },
     {
      "kind": "gate",
-     "line": 204,
+     "line": 172,
      "in": "LicitacionDetailPage",
      "text": "!licitacion"
     },
     {
      "kind": "gate",
-     "line": 205,
+     "line": 173,
      "in": "LicitacionDetailPage",
      "text": "licitacion.estado !== 'cerrada'"
     },
     {
      "kind": "nav",
-     "line": 241,
+     "line": 209,
      "in": "checkAuth",
      "when": "!user",
      "text": "/login",
@@ -3737,7 +3731,7 @@
     },
     {
      "kind": "toast",
-     "line": 252,
+     "line": 220,
      "in": "checkAuth",
      "when": "!adminAccess && !encargadoAccess",
      "text": "No tiene permisos para acceder a licitaciones",
@@ -3745,7 +3739,7 @@
     },
     {
      "kind": "nav",
-     "line": 253,
+     "line": 221,
      "in": "checkAuth",
      "when": "!adminAccess && !encargadoAccess",
      "text": "/dashboard",
@@ -3753,14 +3747,14 @@
     },
     {
      "kind": "nav",
-     "line": 263,
+     "line": 231,
      "in": "checkAuth",
      "text": "/login",
      "via": "router.push"
     },
     {
      "kind": "toast",
-     "line": 274,
+     "line": 250,
      "in": "fetchLicitacion",
      "when": "!res.ok",
      "text": "Error al cargar licitacion",
@@ -3768,7 +3762,7 @@
     },
     {
      "kind": "nav",
-     "line": 275,
+     "line": 251,
      "in": "fetchLicitacion",
      "when": "!res.ok",
      "text": "/licitaciones",
@@ -3776,41 +3770,42 @@
     },
     {
      "kind": "toast",
-     "line": 294,
+     "line": 264,
      "in": "fetchLicitacion",
      "text": "Error al cargar licitacion",
      "variant": "error"
     },
     {
      "kind": "nav",
-     "line": 295,
+     "line": 265,
      "in": "fetchLicitacion",
      "text": "/licitaciones",
      "via": "router.push"
     },
     {
      "kind": "hook",
-     "line": 304,
+     "line": 274,
      "in": "handleCopyText",
      "text": "setTimeout(…, 2000)",
      "type": "timer"
     },
     {
      "kind": "gate",
-     "line": 310,
+     "line": 293,
      "in": "LicitacionDetailPage",
-     "text": "!fecha || !id"
+     "text": "latestFechaRef.current !== fecha"
     },
     {
      "kind": "toast",
-     "line": 322,
+     "line": 298,
      "in": "LicitacionDetailPage",
+     "when": "latestFechaRef.current === fecha",
      "text": "Error al calcular cronograma",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 345,
+     "line": 321,
      "in": "handleUploadImage",
      "when": "!res.ok",
      "text": "Error al subir imagen",
@@ -3818,21 +3813,21 @@
     },
     {
      "kind": "toast",
-     "line": 349,
+     "line": 325,
      "in": "handleUploadImage",
      "text": "Imagen subida exitosamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 353,
+     "line": 329,
      "in": "handleUploadImage",
      "text": "Error al subir imagen",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 361,
+     "line": 337,
      "in": "handleConfirmPublicacion",
      "when": "!fechaPublicacion || !id",
      "text": "Ingrese la fecha de publicacion",
@@ -3840,7 +3835,7 @@
     },
     {
      "kind": "toast",
-     "line": 381,
+     "line": 357,
      "in": "handleConfirmPublicacion",
      "when": "!res.ok",
      "text": "Error al confirmar publicacion",
@@ -3848,21 +3843,21 @@
     },
     {
      "kind": "toast",
-     "line": 385,
+     "line": 361,
      "in": "handleConfirmPublicacion",
      "text": "Publicacion confirmada exitosamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 388,
+     "line": 364,
      "in": "handleConfirmPublicacion",
      "text": "Error al confirmar publicacion",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 407,
+     "line": 383,
      "in": "handleSaveDates",
      "when": "!res.ok",
      "text": "Error al guardar fechas",
@@ -3870,21 +3865,21 @@
     },
     {
      "kind": "toast",
-     "line": 411,
+     "line": 387,
      "in": "handleSaveDates",
      "text": "Fechas actualizadas correctamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 415,
+     "line": 391,
      "in": "handleSaveDates",
      "text": "Error al guardar fechas",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 428,
+     "line": 404,
      "in": "handleDeleteLicitacion",
      "when": "!res.ok",
      "text": "Error al eliminar licitacion",
@@ -3892,76 +3887,112 @@
     },
     {
      "kind": "toast",
-     "line": 431,
+     "line": 407,
      "in": "handleDeleteLicitacion",
      "text": "Licitacion eliminada exitosamente",
      "variant": "success"
     },
     {
      "kind": "nav",
-     "line": 432,
+     "line": 408,
      "in": "handleDeleteLicitacion",
      "text": "/licitaciones",
      "via": "router.push"
     },
     {
      "kind": "toast",
-     "line": 434,
+     "line": 410,
      "in": "handleDeleteLicitacion",
      "text": "Error al eliminar licitacion",
      "variant": "error"
     },
     {
      "kind": "piece",
-     "line": 452,
+     "line": 428,
      "in": "LicitacionDetailPage",
      "when": "loading || !licitacion",
      "text": "pageTitle: Licitacion",
      "tag": "MainLayout"
     },
     {
+     "kind": "text",
+     "line": 454,
+     "in": "LicitacionDetailPage",
+     "text": "Texto de publicacion"
+    },
+    {
+     "kind": "text",
+     "line": 455,
+     "in": "LicitacionDetailPage",
+     "text": "{publicacionText} / Seleccione una escuela con cliente vinculado para generar el texto."
+    },
+    {
+     "kind": "button",
+     "line": 458,
+     "in": "LicitacionDetailPage",
+     "text": "Copiado! / Copiar texto",
+     "action": "{handleCopyText}",
+     "disabled": "{!publicacionText || timelinePendingForChosenDate}"
+    },
+    {
      "kind": "piece",
-     "line": 485,
+     "line": 463,
+     "in": "LicitacionDetailPage",
+     "when": "copied",
+     "text": "aria-hidden: true",
+     "tag": "Check"
+    },
+    {
+     "kind": "piece",
+     "line": 463,
+     "in": "LicitacionDetailPage",
+     "when": "!(copied)",
+     "text": "aria-hidden: true",
+     "tag": "Copy"
+    },
+    {
+     "kind": "piece",
+     "line": 488,
      "in": "LicitacionDetailPage",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "button",
-     "line": 494,
+     "line": 497,
      "in": "LicitacionDetailPage",
      "text": "Volver a Licitaciones",
      "action": "{() => router.push('/licitaciones')}"
     },
     {
      "kind": "nav",
-     "line": 495,
+     "line": 498,
      "in": "LicitacionDetailPage",
      "text": "/licitaciones",
      "via": "router.push"
     },
     {
      "kind": "value",
-     "line": 505,
+     "line": 508,
      "in": "LicitacionDetailPage",
      "text": "{licitacion.numero_licitacion}"
     },
     {
      "kind": "heading",
-     "line": 506,
+     "line": 509,
      "in": "LicitacionDetailPage",
      "text": "{licitacion.nombre_licitacion}",
      "level": 1
     },
     {
      "kind": "value",
-     "line": 507,
+     "line": 510,
      "in": "LicitacionDetailPage",
      "text": "{licitacion.school?.name} — {licitacion.year}"
     },
     {
      "kind": "button",
-     "line": 514,
+     "line": 517,
      "in": "LicitacionDetailPage",
      "when": "isAdmin",
      "text": "Eliminando... / Eliminar",
@@ -3970,14 +4001,14 @@
     },
     {
      "kind": "confirm",
-     "line": 516,
+     "line": 519,
      "in": "LicitacionDetailPage",
      "when": "isAdmin",
      "text": "¿Eliminar la licitacion \"{licitacion.numero_licitacion}\"? / Se eliminaran permanentemente todos los datos asociados: ATEs, documentos, evaluaciones, historial, etc. / Esta accion no se puede deshacer."
     },
     {
      "kind": "text",
-     "line": 536,
+     "line": 539,
      "in": "LicitacionDetailPage",
      "when": "historicalView === 'pending'",
      "text": "Cargando",
@@ -3985,7 +4016,7 @@
     },
     {
      "kind": "piece",
-     "line": 539,
+     "line": 542,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && historicalView === 'archive'",
      "text": "",
@@ -3993,7 +4024,7 @@
     },
     {
      "kind": "heading",
-     "line": 552,
+     "line": 555,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "1 Creacion de Licitacion [(Completado)]",
@@ -4001,7 +4032,7 @@
     },
     {
      "kind": "heading",
-     "line": 561,
+     "line": 564,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "Informacion General",
@@ -4009,7 +4040,7 @@
     },
     {
      "kind": "piece",
-     "line": 562,
+     "line": 565,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "label: Numero",
@@ -4017,7 +4048,7 @@
     },
     {
      "kind": "piece",
-     "line": 563,
+     "line": 566,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "label: Programa",
@@ -4025,7 +4056,7 @@
     },
     {
      "kind": "piece",
-     "line": 564,
+     "line": 567,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "label: Ano",
@@ -4033,7 +4064,7 @@
     },
     {
      "kind": "piece",
-     "line": 565,
+     "line": 568,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "label: Correo licitacion",
@@ -4041,7 +4072,7 @@
     },
     {
      "kind": "heading",
-     "line": 568,
+     "line": 571,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "Presupuesto y Plazos",
@@ -4049,7 +4080,7 @@
     },
     {
      "kind": "piece",
-     "line": 569,
+     "line": 572,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "label: Monto minimo",
@@ -4057,7 +4088,7 @@
     },
     {
      "kind": "piece",
-     "line": 570,
+     "line": 573,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "label: Monto maximo",
@@ -4065,7 +4096,7 @@
     },
     {
      "kind": "piece",
-     "line": 571,
+     "line": 574,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "label: Duracion minima",
@@ -4073,7 +4104,7 @@
     },
     {
      "kind": "piece",
-     "line": 572,
+     "line": 575,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "label: Duracion maxima",
@@ -4081,7 +4112,7 @@
     },
     {
      "kind": "piece",
-     "line": 573,
+     "line": 576,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "label: Peso tecnico",
@@ -4089,7 +4120,7 @@
     },
     {
      "kind": "piece",
-     "line": 574,
+     "line": 577,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "label: Peso economico",
@@ -4097,7 +4128,7 @@
     },
     {
      "kind": "heading",
-     "line": 578,
+     "line": 581,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente",
      "text": "Cliente",
@@ -4105,7 +4136,7 @@
     },
     {
      "kind": "piece",
-     "line": 579,
+     "line": 582,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente",
      "text": "label: Nombre legal",
@@ -4113,7 +4144,7 @@
     },
     {
      "kind": "piece",
-     "line": 580,
+     "line": 583,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente",
      "text": "label: RUT",
@@ -4121,7 +4152,7 @@
     },
     {
      "kind": "piece",
-     "line": 581,
+     "line": 584,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente",
      "text": "label: Representante",
@@ -4129,7 +4160,7 @@
     },
     {
      "kind": "piece",
-     "line": 582,
+     "line": 585,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && licitacion.cliente",
      "text": "label: Comuna",
@@ -4137,7 +4168,7 @@
     },
     {
      "kind": "heading",
-     "line": 592,
+     "line": 595,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "2 Publicacion [(Completado)]",
@@ -4145,28 +4176,28 @@
     },
     {
      "kind": "text",
-     "line": 605,
+     "line": 609,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done",
      "text": "Fecha de publicacion"
     },
     {
      "kind": "value",
-     "line": 606,
+     "line": 610,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done",
      "text": "{formatDate(licitacion.fecha_publica…}"
     },
     {
      "kind": "text",
-     "line": 609,
+     "line": 613,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done",
      "text": "Cronograma calculado"
     },
     {
      "kind": "piece",
-     "line": 611,
+     "line": 615,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done",
      "text": "label: Limite solicitud de bases",
@@ -4174,7 +4205,7 @@
     },
     {
      "kind": "piece",
-     "line": 612,
+     "line": 616,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done",
      "text": "label: Limite consultas",
@@ -4182,7 +4213,7 @@
     },
     {
      "kind": "piece",
-     "line": 613,
+     "line": 617,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done",
      "text": "label: Inicio propuestas",
@@ -4190,7 +4221,7 @@
     },
     {
      "kind": "piece",
-     "line": 614,
+     "line": 618,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done",
      "text": "label: Limite propuestas",
@@ -4198,7 +4229,7 @@
     },
     {
      "kind": "piece",
-     "line": 615,
+     "line": 619,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done",
      "text": "label: Limite evaluacion",
@@ -4206,22 +4237,22 @@
     },
     {
      "kind": "button",
-     "line": 620,
+     "line": 624,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && step2Done && isAdmin",
      "text": "Cancelar ajuste / Ajustar fechas (admin)",
-     "action": "{() => setEditingTimeline(!editingTimeline)}"
+     "action": "{() => { // Start from the stored dates (after a reload nothing else is loaded).…}"
     },
     {
      "kind": "label",
-     "line": 631,
+     "line": 647,
      "in": "LicitacionDetailPage",
      "when": "step2Done && isAdmin && editingTimeline && each (Object.keys(editedDates) as Array<keyof Timeline…",
      "text": "{key.replace(/_/g, ' ')}"
     },
     {
      "kind": "field",
-     "line": 634,
+     "line": 650,
      "in": "LicitacionDetailPage",
      "when": "step2Done && isAdmin && editingTimeline && each (Object.keys(editedDates) as Array<keyof Timeline…",
      "text": "{key.replace(/_/g, ' ')}",
@@ -4230,7 +4261,7 @@
     },
     {
      "kind": "button",
-     "line": 642,
+     "line": 658,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && step2Done && isAdmin && editingTimeline",
      "text": "Guardando... / Guardar fechas ajustadas",
@@ -4238,54 +4269,15 @@
      "disabled": "{savingDates}"
     },
     {
-     "kind": "text",
-     "line": 659,
-     "in": "LicitacionDetailPage",
-     "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && step2Active",
-     "text": "Texto de publicacion"
-    },
-    {
-     "kind": "text",
-     "line": 660,
-     "in": "LicitacionDetailPage",
-     "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && step2Active",
-     "text": "{publicacionText} / Seleccione una escuela con cliente vinculado para generar el texto."
-    },
-    {
-     "kind": "button",
-     "line": 663,
-     "in": "LicitacionDetailPage",
-     "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && step2Active",
-     "text": "Copiado! / Copiar texto",
-     "action": "{handleCopyText}",
-     "disabled": "{!publicacionText}"
-    },
-    {
-     "kind": "piece",
-     "line": 668,
-     "in": "LicitacionDetailPage",
-     "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && copied",
-     "text": "aria-hidden: true",
-     "tag": "Check"
-    },
-    {
-     "kind": "piece",
-     "line": 668,
-     "in": "LicitacionDetailPage",
-     "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && !(copied)",
-     "text": "aria-hidden: true",
-     "tag": "Copy"
-    },
-    {
      "kind": "label",
-     "line": 675,
+     "line": 677,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && step2Active",
      "text": "Fecha de publicacion *"
     },
     {
      "kind": "field",
-     "line": 679,
+     "line": 681,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && step2Active",
      "text": "Fecha de publicacion *",
@@ -4294,21 +4286,21 @@
     },
     {
      "kind": "text",
-     "line": 686,
+     "line": 688,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && timelineLoading",
      "text": "Calculando cronograma..."
     },
     {
      "kind": "text",
-     "line": 696,
+     "line": 698,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases",
      "text": "Cronograma calculado (dias habiles, sin feriados chilenos)"
     },
     {
      "kind": "piece",
-     "line": 699,
+     "line": 701,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases",
      "text": "label: Limite solicitud de bases (+5 dias habiles)",
@@ -4316,7 +4308,7 @@
     },
     {
      "kind": "piece",
-     "line": 700,
+     "line": 702,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases",
      "text": "label: Limite consultas (+3 dias habiles)",
@@ -4324,7 +4316,7 @@
     },
     {
      "kind": "piece",
-     "line": 701,
+     "line": 703,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases",
      "text": "label: Inicio recepcion propuestas (+1 dia habil)",
@@ -4332,7 +4324,7 @@
     },
     {
      "kind": "piece",
-     "line": 702,
+     "line": 704,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases",
      "text": "label: Limite propuestas (+5 dias habiles)",
@@ -4340,46 +4332,22 @@
     },
     {
      "kind": "piece",
-     "line": 703,
+     "line": 705,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases",
      "text": "label: Limite evaluacion (+3 dias habiles)",
      "tag": "InfoRow"
     },
     {
-     "kind": "button",
-     "line": 707,
-     "in": "LicitacionDetailPage",
-     "when": "!(step2Done) && step2Active && displayTimeline.fecha_limite_solicitud_bases && isAdmin",
-     "text": "Usar fechas calculadas / Ajustar fechas manualmente",
-     "action": "{() => setEditingTimeline(!editingTimeline)}"
-    },
-    {
      "kind": "label",
-     "line": 718,
-     "in": "LicitacionDetailPage",
-     "when": "displayTimeline.fecha_limite_solicitud_bases && isAdmin && editingTimeline && displayTimeline && each (Object.keys(displayTimeline) as Array<keyof Time…",
-     "text": "{key.replace(/_/g, ' ')}"
-    },
-    {
-     "kind": "field",
-     "line": 721,
-     "in": "LicitacionDetailPage",
-     "when": "displayTimeline.fecha_limite_solicitud_bases && isAdmin && editingTimeline && displayTimeline && each (Object.keys(displayTimeline) as Array<keyof Time…",
-     "text": "{key.replace(/_/g, ' ')}",
-     "type": "date",
-     "action": "{e => setEditedDates(d => ({ ...d, [key]: e.target.value }))}"
-    },
-    {
-     "kind": "label",
-     "line": 739,
+     "line": 713,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion",
      "text": "Imagen de publicacion (opcional)"
     },
     {
      "kind": "field",
-     "line": 743,
+     "line": 717,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion",
      "text": "Imagen de publicacion (opcional)",
@@ -4389,7 +4357,7 @@
     },
     {
      "kind": "button",
-     "line": 750,
+     "line": 724,
      "in": "LicitacionDetailPage",
      "when": "!(step2Done) && step2Active && canConfirmPublicacion && imageFile",
      "text": "Subiendo... / Subir",
@@ -4398,14 +4366,14 @@
     },
     {
      "kind": "text",
-     "line": 762,
+     "line": 736,
      "in": "LicitacionDetailPage",
      "when": "!(step2Done) && step2Active && canConfirmPublicacion && uploadedImageUrl",
      "text": "Imagen subida"
     },
     {
      "kind": "button",
-     "line": 772,
+     "line": 746,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion",
      "text": "Confirmando... / Confirmar Publicacion",
@@ -4414,28 +4382,28 @@
     },
     {
      "kind": "confirm",
-     "line": 774,
+     "line": 748,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion",
      "text": "Esta acción no se puede deshacer. ¿Confirmar la publicación?"
     },
     {
      "kind": "text",
-     "line": 784,
+     "line": 758,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'archive') && !(step2Done) && step2Active && canConfirmPublicacion",
      "text": "Al confirmar, el estado cambiara a &ldquo;Recepcion de Bases&rdquo; y el cronograma quedara registrado."
     },
     {
      "kind": "text",
-     "line": 792,
+     "line": 766,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !(step2Done) && !(step2Active)",
      "text": "Este paso estara disponible cuando la licitacion avance al estado &ldquo;Publicacion Pendiente&rdquo;."
     },
     {
      "kind": "heading",
-     "line": 806,
+     "line": 780,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "Bases [(Completado)] [(Disponible cuando la publicacion este confirmada)]",
@@ -4443,7 +4411,7 @@
     },
     {
      "kind": "piece",
-     "line": 817,
+     "line": 791,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep3Locked",
      "text": "",
@@ -4451,7 +4419,7 @@
     },
     {
      "kind": "heading",
-     "line": 837,
+     "line": 811,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "Propuestas [(Completado)] [(Disponible en Paso 3)]",
@@ -4459,7 +4427,7 @@
     },
     {
      "kind": "piece",
-     "line": 848,
+     "line": 822,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep4Locked",
      "text": "",
@@ -4467,7 +4435,7 @@
     },
     {
      "kind": "heading",
-     "line": 868,
+     "line": 842,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "Evaluacion [(Completado)] [(Disponible en Paso 4)]",
@@ -4475,14 +4443,14 @@
     },
     {
      "kind": "text",
-     "line": 882,
+     "line": 856,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && isStep5Active",
      "text": "Complete la evaluacion de propuestas de cada ATE usando la pagina de evaluacion."
     },
     {
      "kind": "button",
-     "line": 884,
+     "line": 858,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && isStep5Active",
      "text": "Ir a Evaluacion de Propuestas →",
@@ -4490,7 +4458,7 @@
     },
     {
      "kind": "nav",
-     "line": 885,
+     "line": 859,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && isStep5Active",
      "text": "/licitaciones/[*]/evaluacion",
@@ -4498,14 +4466,14 @@
     },
     {
      "kind": "text",
-     "line": 893,
+     "line": 867,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && !(isStep5Active)",
      "text": "La evaluacion fue completada. El Acta de Reunion fue firmada y subida."
     },
     {
      "kind": "button",
-     "line": 894,
+     "line": 868,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && !(isStep5Active)",
      "text": "Ver resumen de evaluacion",
@@ -4513,7 +4481,7 @@
     },
     {
      "kind": "nav",
-     "line": 895,
+     "line": 869,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep5Locked && !(isStep5Active)",
      "text": "/licitaciones/[*]/evaluacion",
@@ -4521,7 +4489,7 @@
     },
     {
      "kind": "heading",
-     "line": 916,
+     "line": 890,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "Adjudicacion [(Completado)] [(Disponible en Paso 5)]",
@@ -4529,7 +4497,7 @@
     },
     {
      "kind": "piece",
-     "line": 927,
+     "line": 901,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep6Locked",
      "text": "",
@@ -4537,7 +4505,7 @@
     },
     {
      "kind": "heading",
-     "line": 946,
+     "line": 920,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive')",
      "text": "Contrato [(Completado)] [(Disponible en Paso 6)]",
@@ -4545,7 +4513,7 @@
     },
     {
      "kind": "piece",
-     "line": 957,
+     "line": 931,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && !isStep7Locked",
      "text": "",
@@ -4553,7 +4521,7 @@
     },
     {
      "kind": "piece",
-     "line": 970,
+     "line": 944,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && isAdmin",
      "text": "",
@@ -4561,7 +4529,7 @@
     },
     {
      "kind": "piece",
-     "line": 978,
+     "line": 952,
      "in": "LicitacionDetailPage",
      "when": "!(historicalView === 'pending') && !(historicalView === 'archive') && activeStep >= 2",
      "text": "",
@@ -4569,25 +4537,7 @@
     },
     {
      "kind": "string",
-     "line": 27,
-     "in": "generatePublicacionText",
-     "text": "Con el objetivo de asesorar al equipo directivo y lideres del establecimiento"
-    },
-    {
-     "kind": "string",
-     "line": 29,
-     "in": "generatePublicacionText",
-     "text": "en el Modelo Relacional es que el {schoolName}, de la comuna de {comuna},"
-    },
-    {
-     "kind": "string",
-     "line": 34,
-     "in": "generatePublicacionText",
-     "text": "Bases de la licitacion se pueden solicitar hasta el {fechaLimite} al"
-    },
-    {
-     "kind": "string",
-     "line": 336,
+     "line": 312,
      "in": "LicitacionDetailPage",
      "text": "Imagen publicacion - {licitacion?.numero_licitaci…}"
     },
@@ -4611,6 +4561,7 @@
     "components/licitaciones/Step6Adjudicacion.tsx",
     "components/licitaciones/Step7Contrato.tsx",
     "lib/licitaciones/documentPreview.ts",
+    "lib/licitaciones/publicacionText.ts",
     "lib/propuestas-web/constants.ts",
     "lib/propuestas-web/pdf-generator.ts",
     "lib/propuestas/types/hours.ts",
@@ -4625,7 +4576,7 @@
       "GET"
      ],
      "from": [
-      "pages/licitaciones/[id].tsx:245"
+      "pages/licitaciones/[id].tsx:213"
      ]
     },
     {
@@ -4637,9 +4588,9 @@
       "PATCH"
      ],
      "from": [
-      "pages/licitaciones/[id].tsx:270",
-      "pages/licitaciones/[id].tsx:399",
-      "pages/licitaciones/[id].tsx:425"
+      "pages/licitaciones/[id].tsx:245",
+      "pages/licitaciones/[id].tsx:375",
+      "pages/licitaciones/[id].tsx:401"
      ]
     },
     {
@@ -4649,7 +4600,7 @@
       "POST"
      ],
      "from": [
-      "components/licitaciones/Step6Adjudicacion.tsx:127"
+      "components/licitaciones/Step6Adjudicacion.tsx:129"
      ]
     },
     {
@@ -4659,7 +4610,7 @@
       "POST"
      ],
      "from": [
-      "components/licitaciones/Step6Adjudicacion.tsx:230"
+      "components/licitaciones/Step6Adjudicacion.tsx:240"
      ]
     },
     {
@@ -4701,7 +4652,7 @@
       "POST"
      ],
      "from": [
-      "components/licitaciones/Step7Contrato.tsx:102"
+      "components/licitaciones/Step7Contrato.tsx:128"
      ]
     },
     {
@@ -4760,7 +4711,7 @@
       "GET"
      ],
      "from": [
-      "pages/licitaciones/[id].tsx:210"
+      "pages/licitaciones/[id].tsx:178"
      ]
     },
     {
@@ -4780,7 +4731,8 @@
       "GET"
      ],
      "from": [
-      "components/licitaciones/Step6Adjudicacion.tsx:163"
+      "components/licitaciones/Step6Adjudicacion.tsx:171",
+      "components/licitaciones/Step7Contrato.tsx:103"
      ]
     },
     {
@@ -4811,7 +4763,7 @@
       "POST"
      ],
      "from": [
-      "pages/licitaciones/[id].tsx:372"
+      "pages/licitaciones/[id].tsx:348"
      ]
     },
     {
@@ -4821,7 +4773,7 @@
       "GET"
      ],
      "from": [
-      "pages/licitaciones/[id].tsx:314"
+      "pages/licitaciones/[id].tsx:289"
      ]
     },
     {
@@ -4832,9 +4784,9 @@
      ],
      "from": [
       "components/licitaciones/ArchiveView.tsx:111",
-      "components/licitaciones/Step6Adjudicacion.tsx:196",
-      "components/licitaciones/Step7Contrato.tsx:67",
-      "pages/licitaciones/[id].tsx:338"
+      "components/licitaciones/Step6Adjudicacion.tsx:206",
+      "components/licitaciones/Step7Contrato.tsx:68",
+      "pages/licitaciones/[id].tsx:314"
      ]
     },
     {
@@ -4844,7 +4796,7 @@
       "POST"
      ],
      "from": [
-      "pages/licitaciones/[id].tsx:195"
+      "pages/licitaciones/[id].tsx:163"
      ]
     },
     {
@@ -4966,8 +4918,8 @@
      }
     ],
     "linkedFrom": [
-     "pages/licitaciones/[id].tsx:885",
-     "pages/licitaciones/[id].tsx:895"
+     "pages/licitaciones/[id].tsx:859",
+     "pages/licitaciones/[id].tsx:869"
     ],
     "qaScenarios": {},
     "tests": {
@@ -6338,16 +6290,16 @@
      "middleware.ts:345",
      "pages/admin/licitaciones/feriados.tsx:311",
      "pages/admin/licitaciones/templates.tsx:428",
-     "pages/licitaciones/[id].tsx:275",
-     "pages/licitaciones/[id].tsx:295",
-     "pages/licitaciones/[id].tsx:432",
-     "pages/licitaciones/[id].tsx:495",
+     "pages/licitaciones/[id].tsx:251",
+     "pages/licitaciones/[id].tsx:265",
+     "pages/licitaciones/[id].tsx:408",
+     "pages/licitaciones/[id].tsx:498",
      "pages/licitaciones/importar.tsx:103",
      "pages/licitaciones/importar.tsx:239",
      "pages/licitaciones/importar.tsx:342",
-     "pages/licitaciones/nueva.tsx:127",
-     "pages/licitaciones/nueva.tsx:302",
-     "pages/licitaciones/nueva.tsx:568",
+     "pages/licitaciones/nueva.tsx:130",
+     "pages/licitaciones/nueva.tsx:310",
+     "pages/licitaciones/nueva.tsx:579",
      "utils/notificationPermissions.ts:36",
      "utils/notificationPermissions.ts:77"
     ],
@@ -7028,7 +6980,7 @@
   {
    "file": "pages/licitaciones/nueva.tsx",
    "route": "/licitaciones/nueva",
-   "lines": 586,
+   "lines": 598,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -7079,11 +7031,11 @@
     },
     "inPage": [
      {
-      "line": 117,
+      "line": 120,
       "text": "router.push → /login  (when !user)"
      },
      {
-      "line": 138,
+      "line": 141,
       "text": "router.push → /login"
      }
     ],
@@ -7098,7 +7050,9 @@
     "tests": {
      "e2eCi": [],
      "e2e": [],
-     "unit": []
+     "unit": [
+      "__tests__/pages/licitaciones/nueva-requires-cliente.test.tsx"
+     ]
     }
    },
    "rows": [
@@ -7118,7 +7072,15 @@
     },
     {
      "kind": "list",
-     "line": 74,
+     "line": 73,
+     "text": "SIN_CLIENTE",
+     "items": [
+      "Esta escuela no tiene un cliente vinculado. Vincule un cliente antes de crear la licitación."
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 77,
      "text": "DEFAULT_FORM",
      "items": [
       "UF"
@@ -7126,7 +7088,7 @@
     },
     {
      "kind": "nav",
-     "line": 117,
+     "line": 120,
      "in": "checkAuth",
      "when": "!user",
      "text": "/login",
@@ -7134,7 +7096,7 @@
     },
     {
      "kind": "toast",
-     "line": 126,
+     "line": 129,
      "in": "checkAuth",
      "when": "!roles.includes('admin')",
      "text": "Solo administradores pueden crear licitaciones",
@@ -7142,7 +7104,7 @@
     },
     {
      "kind": "nav",
-     "line": 127,
+     "line": 130,
      "in": "checkAuth",
      "when": "!roles.includes('admin')",
      "text": "/licitaciones",
@@ -7150,14 +7112,14 @@
     },
     {
      "kind": "nav",
-     "line": 138,
+     "line": 141,
      "in": "checkAuth",
      "text": "/login",
      "via": "router.push"
     },
     {
      "kind": "toast",
-     "line": 180,
+     "line": 183,
      "in": "handleSchoolChange",
      "when": "error || !data",
      "text": "No se pudo cargar el cliente vinculado",
@@ -7165,7 +7127,7 @@
     },
     {
      "kind": "toast",
-     "line": 257,
+     "line": 265,
      "in": "handleSubmit",
      "when": "!res.ok",
      "text": "Error al crear licitacion",
@@ -7173,28 +7135,28 @@
     },
     {
      "kind": "toast",
-     "line": 261,
+     "line": 269,
      "in": "handleSubmit",
      "text": "Licitacion creada exitosamente",
      "variant": "success"
     },
     {
      "kind": "nav",
-     "line": 262,
+     "line": 270,
      "in": "handleSubmit",
      "text": "/licitaciones/[*]",
      "via": "router.push"
     },
     {
      "kind": "toast",
-     "line": 264,
+     "line": 272,
      "in": "handleSubmit",
      "text": "Error inesperado al crear licitacion",
      "variant": "error"
     },
     {
      "kind": "piece",
-     "line": 274,
+     "line": 282,
      "in": "NuevaLicitacionPage",
      "when": "authLoading",
      "text": "pageTitle: Nueva Licitacion",
@@ -7202,61 +7164,61 @@
     },
     {
      "kind": "piece",
-     "line": 292,
+     "line": 300,
      "in": "NuevaLicitacionPage",
      "text": "pageTitle: Nueva Licitacion",
      "tag": "MainLayout"
     },
     {
      "kind": "button",
-     "line": 301,
+     "line": 309,
      "in": "NuevaLicitacionPage",
      "text": "Volver a Licitaciones",
      "action": "{() => router.push('/licitaciones')}"
     },
     {
      "kind": "nav",
-     "line": 302,
+     "line": 310,
      "in": "NuevaLicitacionPage",
      "text": "/licitaciones",
      "via": "router.push"
     },
     {
      "kind": "heading",
-     "line": 309,
+     "line": 317,
      "in": "NuevaLicitacionPage",
      "text": "Nueva Licitacion",
      "level": 1
     },
     {
      "kind": "text",
-     "line": 310,
+     "line": 318,
      "in": "NuevaLicitacionPage",
      "text": "Complete los campos para crear un nuevo proceso de licitacion"
     },
     {
      "kind": "form",
-     "line": 312,
+     "line": 320,
      "in": "NuevaLicitacionPage",
      "text": "{handleSubmit}"
     },
     {
      "kind": "heading",
-     "line": 315,
+     "line": 323,
      "in": "NuevaLicitacionPage",
      "text": "Escuela",
      "level": 2
     },
     {
      "kind": "piece",
-     "line": 320,
+     "line": 328,
      "in": "NuevaLicitacionPage",
      "text": "label: Escuela",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 321,
+     "line": 329,
      "in": "NuevaLicitacionPage",
      "text": "",
      "type": "select",
@@ -7271,14 +7233,14 @@
     },
     {
      "kind": "piece",
-     "line": 336,
+     "line": 344,
      "in": "NuevaLicitacionPage",
      "text": "label: Ano de Licitacion",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 337,
+     "line": 345,
      "in": "NuevaLicitacionPage",
      "text": "",
      "type": "select",
@@ -7292,63 +7254,63 @@
     },
     {
      "kind": "text",
-     "line": 353,
+     "line": 361,
      "in": "NuevaLicitacionPage",
      "when": "loadingCliente",
      "text": "Cargando informacion del cliente..."
     },
     {
      "kind": "text",
-     "line": 360,
+     "line": 368,
      "in": "NuevaLicitacionPage",
      "when": "selectedCliente && !loadingCliente",
      "text": "Cliente vinculado"
     },
     {
      "kind": "text",
-     "line": 364,
+     "line": 372,
      "in": "NuevaLicitacionPage",
      "when": "selectedCliente && !loadingCliente",
      "text": "Nombre legal:"
     },
     {
      "kind": "text",
-     "line": 367,
+     "line": 375,
      "in": "NuevaLicitacionPage",
      "when": "selectedCliente && !loadingCliente",
      "text": "RUT:"
     },
     {
      "kind": "text",
-     "line": 370,
+     "line": 378,
      "in": "NuevaLicitacionPage",
      "when": "selectedCliente && !loadingCliente",
      "text": "Representante:"
     },
     {
      "kind": "text",
-     "line": 373,
+     "line": 381,
      "in": "NuevaLicitacionPage",
      "when": "selectedCliente && !loadingCliente",
      "text": "Comuna:"
     },
     {
      "kind": "heading",
-     "line": 382,
+     "line": 390,
      "in": "NuevaLicitacionPage",
      "text": "Programa",
      "level": 2
     },
     {
      "kind": "piece",
-     "line": 383,
+     "line": 391,
      "in": "NuevaLicitacionPage",
      "text": "label: Programa FNE",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 384,
+     "line": 392,
      "in": "NuevaLicitacionPage",
      "text": "",
      "type": "select",
@@ -7363,21 +7325,21 @@
     },
     {
      "kind": "heading",
-     "line": 400,
+     "line": 408,
      "in": "NuevaLicitacionPage",
      "text": "Datos de la Licitacion",
      "level": 2
     },
     {
      "kind": "piece",
-     "line": 402,
+     "line": 410,
      "in": "NuevaLicitacionPage",
      "text": "label: Nombre de la Licitacion",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 403,
+     "line": 411,
      "in": "NuevaLicitacionPage",
      "text": "Ej: Asesoria integral para transformacion educativa 2026",
      "type": "text",
@@ -7390,14 +7352,14 @@
     },
     {
      "kind": "piece",
-     "line": 414,
+     "line": 422,
      "in": "NuevaLicitacionPage",
      "text": "label: Correo electronico de contacto para la licitacion",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 415,
+     "line": 423,
      "in": "NuevaLicitacionPage",
      "text": "licitaciones@escuela.cl",
      "type": "email",
@@ -7409,14 +7371,14 @@
     },
     {
      "kind": "piece",
-     "line": 426,
+     "line": 434,
      "in": "NuevaLicitacionPage",
      "text": "label: Moneda",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 427,
+     "line": 435,
      "in": "NuevaLicitacionPage",
      "text": "",
      "type": "select",
@@ -7431,14 +7393,14 @@
     },
     {
      "kind": "piece",
-     "line": 438,
+     "line": 446,
      "in": "NuevaLicitacionPage",
      "text": "label: Monto minimo ({form.tipo_moneda})",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 439,
+     "line": 447,
      "in": "NuevaLicitacionPage",
      "text": "0",
      "type": "number",
@@ -7451,14 +7413,14 @@
     },
     {
      "kind": "piece",
-     "line": 451,
+     "line": 459,
      "in": "NuevaLicitacionPage",
      "text": "label: Monto maximo ({form.tipo_moneda})",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 452,
+     "line": 460,
      "in": "NuevaLicitacionPage",
      "text": "0",
      "type": "number",
@@ -7471,14 +7433,14 @@
     },
     {
      "kind": "piece",
-     "line": 466,
+     "line": 474,
      "in": "NuevaLicitacionPage",
      "text": "label: Duracion minima del servicio",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 467,
+     "line": 475,
      "in": "NuevaLicitacionPage",
      "text": "Ej: 6 meses",
      "type": "text",
@@ -7490,14 +7452,14 @@
     },
     {
      "kind": "piece",
-     "line": 477,
+     "line": 485,
      "in": "NuevaLicitacionPage",
      "text": "label: Duracion maxima del servicio",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 478,
+     "line": 486,
      "in": "NuevaLicitacionPage",
      "text": "Ej: 12 meses",
      "type": "text",
@@ -7509,14 +7471,14 @@
     },
     {
      "kind": "label",
-     "line": 491,
+     "line": 499,
      "in": "NuevaLicitacionPage",
      "text": "Peso Evaluacion Tecnica *",
      "for": "field-peso_evaluacion_tecnica"
     },
     {
      "kind": "field",
-     "line": 496,
+     "line": 504,
      "in": "NuevaLicitacionPage",
      "text": "Peso Evaluacion Tecnica *",
      "type": "range",
@@ -7529,40 +7491,40 @@
     },
     {
      "kind": "text",
-     "line": 507,
+     "line": 515,
      "in": "NuevaLicitacionPage",
      "text": "Tecnica: {pesoTecnico} %"
     },
     {
      "kind": "text",
-     "line": 508,
+     "line": 516,
      "in": "NuevaLicitacionPage",
      "text": "Economica: {pesoEconomico} %"
     },
     {
      "kind": "value",
-     "line": 512,
+     "line": 520,
      "in": "NuevaLicitacionPage",
      "when": "errors.peso_evaluacion_tecnica",
      "text": "{errors.peso_evaluacion_tecnica}"
     },
     {
      "kind": "heading",
-     "line": 520,
+     "line": 528,
      "in": "NuevaLicitacionPage",
      "text": "Campos Opcionales",
      "level": 2
     },
     {
      "kind": "piece",
-     "line": 522,
+     "line": 530,
      "in": "NuevaLicitacionPage",
      "text": "label: Participantes estimados",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 523,
+     "line": 531,
      "in": "NuevaLicitacionPage",
      "text": "Ej: 30",
      "type": "number",
@@ -7575,14 +7537,14 @@
     },
     {
      "kind": "piece",
-     "line": 534,
+     "line": 542,
      "in": "NuevaLicitacionPage",
      "text": "label: Modalidad preferida",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 535,
+     "line": 543,
      "in": "NuevaLicitacionPage",
      "text": "",
      "type": "select",
@@ -7599,14 +7561,14 @@
     },
     {
      "kind": "piece",
-     "line": 549,
+     "line": 557,
      "in": "NuevaLicitacionPage",
      "text": "label: Notas adicionales",
      "tag": "Field"
     },
     {
      "kind": "field",
-     "line": 550,
+     "line": 558,
      "in": "NuevaLicitacionPage",
      "text": "Observaciones o contexto adicional...",
      "type": "textarea",
@@ -7618,48 +7580,50 @@
      }
     },
     {
+     "kind": "value",
+     "line": 574,
+     "in": "NuevaLicitacionPage",
+     "when": "schoolSinCliente",
+     "text": "{SIN_CLIENTE}"
+    },
+    {
      "kind": "button",
-     "line": 566,
+     "line": 577,
      "in": "NuevaLicitacionPage",
      "text": "Cancelar",
      "action": "{() => router.push('/licitaciones')}"
     },
     {
      "kind": "nav",
-     "line": 568,
+     "line": 579,
      "in": "NuevaLicitacionPage",
      "text": "/licitaciones",
      "via": "router.push"
     },
     {
      "kind": "button",
-     "line": 573,
+     "line": 584,
      "in": "NuevaLicitacionPage",
      "text": "Creando... / Crear Licitacion",
      "submit": true,
-     "disabled": "{submitting}"
+     "disabled": "{submitting || schoolSinCliente}",
+     "title": "{schoolSinCliente ? SIN_CLIENTE : undefined}"
     },
     {
      "kind": "string",
-     "line": 166,
-     "in": "NuevaLicitacionPage",
-     "text": "Esta escuela no tiene un cliente vinculado"
-    },
-    {
-     "kind": "string",
-     "line": 190,
+     "line": 193,
      "in": "NuevaLicitacionPage",
      "text": "El cliente no tiene toda la informacion legal requerida. Edite el cliente en la seccion de Escuelas."
     },
     {
      "kind": "string",
-     "line": 205,
+     "line": 213,
      "in": "NuevaLicitacionPage",
      "text": "Ingrese el monto minimo"
     },
     {
      "kind": "string",
-     "line": 206,
+     "line": 214,
      "in": "NuevaLicitacionPage",
      "text": "Ingrese el monto maximo"
     }
@@ -7693,7 +7657,7 @@
       "GET"
      ],
      "from": [
-      "pages/licitaciones/nueva.tsx:121"
+      "pages/licitaciones/nueva.tsx:124"
      ]
     },
     {
@@ -7703,7 +7667,7 @@
       "POST"
      ],
      "from": [
-      "pages/licitaciones/nueva.tsx:248"
+      "pages/licitaciones/nueva.tsx:256"
      ]
     }
    ]
@@ -8915,7 +8879,7 @@
    "usedBy": [
     "/licitaciones/[id]"
    ],
-   "lines": 1834,
+   "lines": 1845,
    "rows": [
     {
      "kind": "list",
@@ -10067,6 +10031,15 @@
      "kind": "button",
      "line": 1763,
      "in": "ProposalConfigPanel",
+     "when": "secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.access_code_plain",
+     "text": "Código {p.access_code_plain}",
+     "action": "{() => copyToClipboard(p.access_code_plain as string, 'Código')}",
+     "title": "Copiar código de acceso"
+    },
+    {
+     "kind": "button",
+     "line": 1774,
+     "in": "ProposalConfigPanel",
      "when": "secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada'",
      "text": "Regenerar Código",
      "disabled": "true",
@@ -10074,7 +10047,7 @@
     },
     {
      "kind": "link",
-     "line": 1773,
+     "line": 1784,
      "in": "ProposalConfigPanel",
      "when": "secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'completada' && p.download_url",
      "text": "PDF",
@@ -10083,14 +10056,14 @@
     },
     {
      "kind": "value",
-     "line": 1786,
+     "line": 1797,
      "in": "ProposalConfigPanel",
      "when": "secHistorial && !(propuestas.length === 0) && each propuestas && p.estado === 'error' && p.error_message",
      "text": "{p.error_message}"
     },
     {
      "kind": "list",
-     "line": 1820,
+     "line": 1831,
      "in": "ValidationRow",
      "text": "color",
      "items": [
@@ -10099,13 +10072,13 @@
     },
     {
      "kind": "value",
-     "line": 1826,
+     "line": 1837,
      "in": "ValidationRow",
      "text": "{label} :"
     },
     {
      "kind": "value",
-     "line": 1829,
+     "line": 1840,
      "in": "ValidationRow",
      "text": "{detail}"
     },
@@ -11497,7 +11470,7 @@
    "usedBy": [
     "/licitaciones/[id]"
    ],
-   "lines": 540,
+   "lines": 559,
    "rows": [
     {
      "kind": "toast",
@@ -11508,37 +11481,37 @@
     },
     {
      "kind": "toast",
-     "line": 111,
-     "in": "handleSave",
+     "line": 113,
+     "in": "saveAdjudicacion",
      "when": "!selectedAteId",
      "text": "Debe seleccionar un ATE ganador",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 135,
-     "in": "handleSave",
+     "line": 137,
+     "in": "saveAdjudicacion",
      "when": "!res.ok",
      "text": "Error al guardar adjudicacion",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 139,
-     "in": "handleSave",
+     "line": 141,
+     "in": "saveAdjudicacion",
      "text": "Datos de adjudicacion guardados",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 142,
-     "in": "handleSave",
+     "line": 144,
+     "in": "saveAdjudicacion",
      "text": "Error al guardar adjudicacion",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 154,
+     "line": 161,
      "in": "handleGenerateCarta",
      "when": "!selectedAteId",
      "text": "Guarde primero los datos de adjudicacion",
@@ -11546,7 +11519,7 @@
     },
     {
      "kind": "toast",
-     "line": 167,
+     "line": 175,
      "in": "handleGenerateCarta",
      "when": "!res.ok",
      "text": "Error al generar la Carta",
@@ -11554,14 +11527,14 @@
     },
     {
      "kind": "toast",
-     "line": 172,
+     "line": 180,
      "in": "handleGenerateCarta",
      "text": "Carta de Adjudicacion generada exitosamente",
      "variant": "success"
     },
     {
      "kind": "nav",
-     "line": 175,
+     "line": 183,
      "in": "handleGenerateCarta",
      "when": "json.data.url",
      "text": "{json.data.url}",
@@ -11569,14 +11542,14 @@
     },
     {
      "kind": "toast",
-     "line": 178,
+     "line": 186,
      "in": "handleGenerateCarta",
      "text": "Error al generar la Carta",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 203,
+     "line": 213,
      "in": "handleUploadCarta",
      "when": "!res.ok",
      "text": "Error al subir la Carta",
@@ -11584,21 +11557,21 @@
     },
     {
      "kind": "toast",
-     "line": 208,
+     "line": 218,
      "in": "handleUploadCarta",
      "text": "Carta firmada subida exitosamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 211,
+     "line": 221,
      "in": "handleUploadCarta",
      "text": "Error al subir la Carta",
      "variant": "error"
     },
     {
      "kind": "list",
-     "line": 222,
+     "line": 232,
      "in": "handleConfirm",
      "text": "msg",
      "items": [
@@ -11607,13 +11580,13 @@
     },
     {
      "kind": "confirm",
-     "line": 226,
+     "line": 236,
      "in": "handleConfirm",
      "text": "{msg}"
     },
     {
      "kind": "toast",
-     "line": 238,
+     "line": 248,
      "in": "handleConfirm",
      "when": "!res.ok",
      "text": "Error al confirmar adjudicacion",
@@ -11621,77 +11594,77 @@
     },
     {
      "kind": "toast",
-     "line": 242,
+     "line": 252,
      "in": "handleConfirm",
      "text": "Adjudicacion confirmada. Estado: Contrato Pendiente / Adjudicacion externa confirmada",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 249,
+     "line": 259,
      "in": "handleConfirm",
      "text": "Error al confirmar adjudicacion",
      "variant": "error"
     },
     {
      "kind": "text",
-     "line": 265,
+     "line": 275,
      "in": "Step6Adjudicacion",
      "when": "!isEditable",
      "text": "Adjudicacion completada"
     },
     {
      "kind": "text",
-     "line": 269,
+     "line": 279,
      "in": "Step6Adjudicacion",
      "when": "!isEditable && winner",
      "text": "ATE Ganador"
     },
     {
      "kind": "value",
-     "line": 270,
+     "line": 280,
      "in": "Step6Adjudicacion",
      "when": "!isEditable && winner",
      "text": "{winner.nombre_ate}"
     },
     {
      "kind": "text",
-     "line": 272,
+     "line": 282,
      "in": "Step6Adjudicacion",
      "when": "!isEditable && winner && winner.monto_propuesto",
      "text": "Monto: $ {Number(winner.monto_propuesto).toLo…} CLP"
     },
     {
      "kind": "text",
-     "line": 280,
+     "line": 290,
      "in": "Step6Adjudicacion",
      "when": "!isEditable && licitacion.condiciones_pago",
      "text": "Condiciones de pago"
     },
     {
      "kind": "value",
-     "line": 281,
+     "line": 291,
      "in": "Step6Adjudicacion",
      "when": "!isEditable && licitacion.condiciones_pago",
      "text": "{licitacion.condiciones_pago}"
     },
     {
      "kind": "heading",
-     "line": 304,
+     "line": 318,
      "in": "Step6Adjudicacion",
      "text": "1. Seleccion del Ganador",
      "level": 3
     },
     {
      "kind": "label",
-     "line": 309,
+     "line": 323,
      "in": "Step6Adjudicacion",
      "when": "each sortedAtes",
      "text": "{ate.nombre_ate} [Mayor puntaje] [Puntaje total: {Number(ate.puntaje_total).toFixed(1)}]"
     },
     {
      "kind": "field",
-     "line": 317,
+     "line": 331,
      "in": "Step6Adjudicacion",
      "when": "each sortedAtes",
      "text": "{ate.nombre_ate} [Mayor puntaje] [Puntaje total: {Number(ate.puntaje_total).toFixed(1)}]",
@@ -11701,28 +11674,28 @@
     },
     {
      "kind": "text",
-     "line": 344,
+     "line": 358,
      "in": "Step6Adjudicacion",
      "when": "ates.length === 0",
      "text": "No hay ATEs evaluadas. Complete el Paso 5 primero."
     },
     {
      "kind": "heading",
-     "line": 352,
+     "line": 366,
      "in": "Step6Adjudicacion",
      "text": "2. Datos de la Adjudicacion",
      "level": 3
     },
     {
      "kind": "label",
-     "line": 357,
+     "line": 371,
      "in": "Step6Adjudicacion",
      "text": "Monto adjudicado (UF)",
      "for": "monto-uf"
     },
     {
      "kind": "field",
-     "line": 360,
+     "line": 374,
      "in": "Step6Adjudicacion",
      "text": "Monto adjudicado (UF)",
      "type": "number",
@@ -11736,14 +11709,14 @@
     },
     {
      "kind": "label",
-     "line": 372,
+     "line": 386,
      "in": "Step6Adjudicacion",
      "text": "Fecha de la oferta ganadora",
      "for": "fecha-oferta"
     },
     {
      "kind": "field",
-     "line": 375,
+     "line": 389,
      "in": "Step6Adjudicacion",
      "text": "Fecha de la oferta ganadora",
      "type": "date",
@@ -11755,14 +11728,14 @@
     },
     {
      "kind": "label",
-     "line": 384,
+     "line": 398,
      "in": "Step6Adjudicacion",
      "text": "Condiciones de pago",
      "for": "condiciones"
     },
     {
      "kind": "field",
-     "line": 387,
+     "line": 401,
      "in": "Step6Adjudicacion",
      "text": "Condiciones de pago",
      "type": "textarea",
@@ -11776,14 +11749,14 @@
     },
     {
      "kind": "label",
-     "line": 397,
+     "line": 411,
      "in": "Step6Adjudicacion",
      "text": "Nombre coordinacion",
      "for": "contacto-nombre"
     },
     {
      "kind": "field",
-     "line": 400,
+     "line": 414,
      "in": "Step6Adjudicacion",
      "text": "Nombre coordinacion",
      "type": "text",
@@ -11796,14 +11769,14 @@
     },
     {
      "kind": "label",
-     "line": 410,
+     "line": 424,
      "in": "Step6Adjudicacion",
      "text": "Correo coordinacion",
      "for": "contacto-email"
     },
     {
      "kind": "field",
-     "line": 413,
+     "line": 427,
      "in": "Step6Adjudicacion",
      "text": "Correo coordinacion",
      "type": "email",
@@ -11816,14 +11789,14 @@
     },
     {
      "kind": "label",
-     "line": 423,
+     "line": 437,
      "in": "Step6Adjudicacion",
      "text": "Telefono coordinacion",
      "for": "contacto-telefono"
     },
     {
      "kind": "field",
-     "line": 426,
+     "line": 440,
      "in": "Step6Adjudicacion",
      "text": "Telefono coordinacion",
      "type": "text",
@@ -11836,14 +11809,14 @@
     },
     {
      "kind": "heading",
-     "line": 440,
+     "line": 454,
      "in": "Step6Adjudicacion",
      "text": "3. Documentos",
      "level": 3
     },
     {
      "kind": "button",
-     "line": 442,
+     "line": 456,
      "in": "Step6Adjudicacion",
      "text": "Guardando... / Guardar Adjudicacion",
      "action": "{handleSave}",
@@ -11851,7 +11824,7 @@
     },
     {
      "kind": "button",
-     "line": 453,
+     "line": 467,
      "in": "Step6Adjudicacion",
      "text": "Generando... / Generar Carta de Adjudicacion",
      "action": "{handleGenerateCarta}",
@@ -11859,7 +11832,7 @@
     },
     {
      "kind": "link",
-     "line": 468,
+     "line": 482,
      "in": "Step6Adjudicacion",
      "when": "cartaUrl",
      "text": "Carta generada — descargar",
@@ -11868,20 +11841,20 @@
     },
     {
      "kind": "text",
-     "line": 477,
+     "line": 491,
      "in": "Step6Adjudicacion",
      "text": "Suba la Carta de Adjudicacion firmada (PDF o imagen)."
     },
     {
      "kind": "text",
-     "line": 482,
+     "line": 496,
      "in": "Step6Adjudicacion",
      "when": "cartaSigned",
      "text": "Carta firmada subida"
     },
     {
      "kind": "field",
-     "line": 486,
+     "line": 500,
      "in": "Step6Adjudicacion",
      "when": "!(cartaSigned)",
      "screen": "hidden",
@@ -11895,7 +11868,7 @@
     },
     {
      "kind": "button",
-     "line": 497,
+     "line": 511,
      "in": "Step6Adjudicacion",
      "when": "!(cartaSigned)",
      "text": "Subiendo... / Subir Carta Firmada",
@@ -11904,36 +11877,43 @@
     },
     {
      "kind": "heading",
-     "line": 514,
+     "line": 528,
      "in": "Step6Adjudicacion",
      "text": "4. Confirmacion FNE",
      "level": 3
     },
     {
      "kind": "text",
-     "line": 518,
+     "line": 532,
      "in": "Step6Adjudicacion",
      "text": "¿El ATE adjudicado es proveedor registrado en FNE?"
     },
     {
      "kind": "button",
-     "line": 521,
+     "line": 535,
      "in": "Step6Adjudicacion",
      "text": "Procesando... / Si — Proveedor FNE (genera Contrato)",
      "action": "{() => handleConfirm(true)}",
-     "disabled": "{confirming || !selectedAteId}"
+     "disabled": "{confirming || !selectedAteId || !cartaReady}"
     },
     {
      "kind": "button",
-     "line": 528,
+     "line": 542,
      "in": "Step6Adjudicacion",
      "text": "Procesando... / No — Proveedor Externo (cerrar proceso)",
      "action": "{() => handleConfirm(false)}",
      "disabled": "{confirming || !selectedAteId}"
     },
     {
+     "kind": "text",
+     "line": 552,
+     "in": "Step6Adjudicacion",
+     "when": "!cartaReady",
+     "text": "Genere la Carta de adjudicación antes de confirmar la adjudicación."
+    },
+    {
      "kind": "string",
-     "line": 194,
+     "line": 204,
      "in": "Step6Adjudicacion",
      "text": "Carta firmada — {licitacion.numero_licitacion}"
     }
@@ -11944,11 +11924,11 @@
    "usedBy": [
     "/licitaciones/[id]"
    ],
-   "lines": 402,
+   "lines": 443,
    "rows": [
     {
      "kind": "message",
-     "line": 74,
+     "line": 75,
      "in": "handleUploadDocument",
      "when": "!res.ok",
      "text": "Error al subir documento",
@@ -11956,21 +11936,51 @@
     },
     {
      "kind": "toast",
-     "line": 77,
+     "line": 78,
      "in": "handleUploadDocument",
      "text": "Documento subido exitosamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 80,
+     "line": 81,
      "in": "handleUploadDocument",
      "text": "Error al subir documento",
      "variant": "error"
     },
     {
+     "kind": "toast",
+     "line": 106,
+     "in": "handleGenerateCarta",
+     "when": "!res.ok",
+     "text": "Error al generar la Carta",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 109,
+     "in": "handleGenerateCarta",
+     "text": "Carta de Adjudicacion generada exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "nav",
+     "line": 111,
+     "in": "handleGenerateCarta",
+     "when": "json.data?.url",
+     "text": "{json.data.url}",
+     "via": "window.open"
+    },
+    {
+     "kind": "toast",
+     "line": 115,
+     "in": "handleGenerateCarta",
+     "text": "Error al generar la Carta",
+     "variant": "error"
+    },
+    {
      "kind": "message",
-     "line": 110,
+     "line": 136,
      "in": "handleClose",
      "when": "!res.ok",
      "text": "Error al cerrar licitacion",
@@ -11978,42 +11988,58 @@
     },
     {
      "kind": "toast",
-     "line": 113,
+     "line": 139,
      "in": "handleClose",
      "text": "Licitacion cerrada exitosamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 117,
+     "line": 143,
      "in": "handleClose",
      "text": "Error al cerrar licitacion",
      "variant": "error"
     },
     {
      "kind": "text",
-     "line": 140,
+     "line": 166,
      "in": "Step7Contrato",
      "when": "estado === 'contrato_pendiente' && ganador_es_fne",
      "text": "Contrato Pendiente — ATE FNE"
     },
     {
      "kind": "text",
-     "line": 144,
+     "line": 170,
      "in": "Step7Contrato",
      "when": "estado === 'contrato_pendiente' && ganador_es_fne",
      "text": "La licitacion fue adjudicada a un ATE de FNE. El siguiente paso es generar el contrato en el modulo de contratos."
     },
     {
      "kind": "text",
-     "line": 154,
+     "line": 181,
      "in": "Step7Contrato",
      "when": "estado === 'contrato_pendiente' && ganador_es_fne && !carta_adjudicacion_url",
-     "text": "Debe subir la carta de adjudicacion firmada antes de generar el contrato. Vuelva al Paso 6 — Adjudicacion para subirla."
+     "text": "Falta la Carta de adjudicación generada. Debe generarse antes de generar el contrato."
     },
     {
      "kind": "button",
-     "line": 163,
+     "line": 184,
+     "in": "Step7Contrato",
+     "when": "estado === 'contrato_pendiente' && ganador_es_fne && !carta_adjudicacion_url && isAdmin",
+     "text": "Generando... / Generar Carta de adjudicación",
+     "action": "{handleGenerateCarta}",
+     "disabled": "{generatingCarta}"
+    },
+    {
+     "kind": "text",
+     "line": 194,
+     "in": "Step7Contrato",
+     "when": "estado === 'contrato_pendiente' && ganador_es_fne && !carta_adjudicacion_url && !(isAdmin)",
+     "text": "Un administrador debe generar la Carta de adjudicación para continuar."
+    },
+    {
+     "kind": "button",
+     "line": 204,
      "in": "Step7Contrato",
      "when": "estado === 'contrato_pendiente' && ganador_es_fne && isAdmin",
      "text": "Generar Contrato",
@@ -12022,7 +12048,7 @@
     },
     {
      "kind": "nav",
-     "line": 165,
+     "line": 206,
      "in": "Step7Contrato",
      "when": "estado === 'contrato_pendiente' && ganador_es_fne && isAdmin",
      "text": "/contracts?tab=nuevo&licitacion_id=[*]",
@@ -12030,14 +12056,14 @@
     },
     {
      "kind": "text",
-     "line": 175,
+     "line": 216,
      "in": "Step7Contrato",
      "when": "estado === 'contrato_pendiente' && ganador_es_fne && isAdmin && !carta_adjudicacion_url",
-     "text": "(Suba la carta de adjudicacion firmada para habilitar)"
+     "text": "(Genere la Carta de adjudicación para habilitar)"
     },
     {
      "kind": "text",
-     "line": 183,
+     "line": 224,
      "in": "Step7Contrato",
      "when": "estado === 'contrato_pendiente' && ganador_es_fne && !isAdmin",
      "text": "Solo los administradores pueden generar contratos desde esta vista.",
@@ -12045,35 +12071,35 @@
     },
     {
      "kind": "text",
-     "line": 202,
+     "line": 243,
      "in": "Step7Contrato",
      "when": "estado === 'contrato_generado'",
      "text": "Contrato Generado"
     },
     {
      "kind": "text",
-     "line": 206,
+     "line": 247,
      "in": "Step7Contrato",
      "when": "estado === 'contrato_generado'",
      "text": "El contrato ha sido generado y vinculado a esta licitacion."
     },
     {
      "kind": "text",
-     "line": 216,
+     "line": 257,
      "in": "Step7Contrato",
      "when": "estado === 'contrato_generado' && contrato_id",
      "text": "Contrato Vinculado"
     },
     {
      "kind": "text",
-     "line": 217,
+     "line": 258,
      "in": "Step7Contrato",
      "when": "estado === 'contrato_generado' && contrato_id",
      "text": "Ver detalles del contrato en el modulo de contratos"
     },
     {
      "kind": "link",
-     "line": 220,
+     "line": 261,
      "in": "Step7Contrato",
      "when": "estado === 'contrato_generado' && contrato_id",
      "text": "Ver Contrato",
@@ -12081,63 +12107,63 @@
     },
     {
      "kind": "text",
-     "line": 234,
+     "line": 275,
      "in": "Step7Contrato",
      "when": "estado === 'contrato_generado' && licitacion.fecha_adjudicacion",
      "text": "Fecha adjudicacion:"
     },
     {
      "kind": "value",
-     "line": 235,
+     "line": 276,
      "in": "Step7Contrato",
      "when": "estado === 'contrato_generado' && licitacion.fecha_adjudicacion",
      "text": "{new Date(licitacion.fecha_adjudicac…}"
     },
     {
      "kind": "text",
-     "line": 242,
+     "line": 283,
      "in": "Step7Contrato",
      "when": "estado === 'contrato_generado' && licitacion.monto_adjudicado_uf",
      "text": "Monto adjudicado:"
     },
     {
      "kind": "value",
-     "line": 243,
+     "line": 284,
      "in": "Step7Contrato",
      "when": "estado === 'contrato_generado' && licitacion.monto_adjudicado_uf",
      "text": "{licitacion.tipo_moneda} {licitacion.monto_adjudicado_uf.toLo…}"
     },
     {
      "kind": "text",
-     "line": 265,
+     "line": 306,
      "in": "Step7Contrato",
      "when": "estado === 'adjudicada_externo'",
      "text": "Adjudicada a Proveedor Externo"
     },
     {
      "kind": "text",
-     "line": 269,
+     "line": 310,
      "in": "Step7Contrato",
      "when": "estado === 'adjudicada_externo'",
      "text": "La licitacion fue adjudicada a un proveedor externo a FNE. Suba los documentos finales y luego cierre la licitacion."
     },
     {
      "kind": "text",
-     "line": 278,
+     "line": 319,
      "in": "Step7Contrato",
      "when": "estado === 'adjudicada_externo'",
      "text": "Suba documentos finales (contrato externo, resoluciones, etc.)"
     },
     {
      "kind": "text",
-     "line": 280,
+     "line": 321,
      "in": "Step7Contrato",
      "when": "estado === 'adjudicada_externo'",
      "text": "PDF, Word o imagen — max 25 MB"
     },
     {
      "kind": "button",
-     "line": 281,
+     "line": 322,
      "in": "Step7Contrato",
      "when": "estado === 'adjudicada_externo'",
      "text": "Subiendo... / Seleccionar Archivo",
@@ -12146,7 +12172,7 @@
     },
     {
      "kind": "field",
-     "line": 288,
+     "line": 329,
      "in": "Step7Contrato",
      "when": "estado === 'adjudicada_externo'",
      "screen": "hidden",
@@ -12157,7 +12183,7 @@
     },
     {
      "kind": "button",
-     "line": 300,
+     "line": 341,
      "in": "Step7Contrato",
      "when": "estado === 'adjudicada_externo' && !showCloseConfirm",
      "text": "Cerrar Licitacion",
@@ -12165,21 +12191,21 @@
     },
     {
      "kind": "text",
-     "line": 309,
+     "line": 350,
      "in": "Step7Contrato",
      "when": "estado === 'adjudicada_externo' && !(!showCloseConfirm)",
      "text": "¿Confirmar cierre de la licitacion?"
     },
     {
      "kind": "text",
-     "line": 312,
+     "line": 353,
      "in": "Step7Contrato",
      "when": "estado === 'adjudicada_externo' && !(!showCloseConfirm)",
      "text": "Esta accion es irreversible. La licitacion quedara en estado &quot;Cerrada&quot;."
     },
     {
      "kind": "button",
-     "line": 315,
+     "line": 356,
      "in": "Step7Contrato",
      "when": "estado === 'adjudicada_externo' && !(!showCloseConfirm)",
      "text": "Cerrando... / Confirmar Cierre",
@@ -12188,7 +12214,7 @@
     },
     {
      "kind": "button",
-     "line": 322,
+     "line": 363,
      "in": "Step7Contrato",
      "when": "estado === 'adjudicada_externo' && !(!showCloseConfirm)",
      "text": "Cancelar",
@@ -12197,49 +12223,49 @@
     },
     {
      "kind": "text",
-     "line": 349,
+     "line": 390,
      "in": "Step7Contrato",
      "when": "estado === 'cerrada'",
      "text": "Licitacion Cerrada"
     },
     {
      "kind": "text",
-     "line": 353,
+     "line": 394,
      "in": "Step7Contrato",
      "when": "estado === 'cerrada'",
      "text": "Esta licitacion ha sido cerrada. No se pueden realizar mas acciones."
     },
     {
      "kind": "text",
-     "line": 361,
+     "line": 402,
      "in": "Step7Contrato",
      "when": "estado === 'cerrada' && licitacion.fecha_adjudicacion",
      "text": "Fecha adjudicacion:"
     },
     {
      "kind": "value",
-     "line": 362,
+     "line": 403,
      "in": "Step7Contrato",
      "when": "estado === 'cerrada' && licitacion.fecha_adjudicacion",
      "text": "{new Date(licitacion.fecha_adjudicac…}"
     },
     {
      "kind": "text",
-     "line": 369,
+     "line": 410,
      "in": "Step7Contrato",
      "when": "estado === 'cerrada' && licitacion.monto_adjudicado_uf",
      "text": "Monto adjudicado:"
     },
     {
      "kind": "value",
-     "line": 370,
+     "line": 411,
      "in": "Step7Contrato",
      "when": "estado === 'cerrada' && licitacion.monto_adjudicado_uf",
      "text": "{licitacion.tipo_moneda} {licitacion.monto_adjudicado_uf.toLo…}"
     },
     {
      "kind": "link",
-     "line": 377,
+     "line": 418,
      "in": "Step7Contrato",
      "when": "estado === 'cerrada' && contrato_id",
      "text": "Ver Contrato Vinculado",
@@ -12247,7 +12273,7 @@
     },
     {
      "kind": "text",
-     "line": 398,
+     "line": 439,
      "in": "Step7Contrato",
      "text": "Este paso estara disponible cuando la licitacion sea adjudicada."
     }
@@ -13689,6 +13715,41 @@
    ],
    "db": []
   },
+  "lib/licitaciones/publicacionText.ts": {
+   "usedBy": [
+    "/licitaciones/[id]"
+   ],
+   "lines": 63,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 10,
+     "text": "FECHA_PENDIENTE",
+     "items": [
+      "[fecha pendiente]"
+     ]
+    },
+    {
+     "kind": "string",
+     "line": 52,
+     "in": "buildPublicacionText",
+     "text": "Con el objetivo de asesorar al equipo directivo y lideres del establecimiento"
+    },
+    {
+     "kind": "string",
+     "line": 54,
+     "in": "buildPublicacionText",
+     "text": "en el Modelo Relacional es que el {schoolName}, de la comuna de {comuna},"
+    },
+    {
+     "kind": "string",
+     "line": 59,
+     "in": "buildPublicacionText",
+     "text": "Bases de la licitacion se pueden solicitar hasta el {fechaLimite} al"
+    }
+   ],
+   "db": []
+  },
   "lib/licitacionesExport.ts": {
    "usedBy": [
     "/licitaciones"
@@ -14563,10 +14624,15 @@
     "/licitaciones/[id]/evaluacion"
    ],
    "referencedIn": [
+    "__tests__/api/licitaciones/create-requires-cliente.test.ts",
+    "__tests__/api/licitaciones/detail-encargado-cliente.test.ts",
     "__tests__/api/licitaciones/licitaciones-historico.test.ts",
     "__tests__/api/licitaciones/licitaciones-index.test.ts",
     "__tests__/api/licitaciones/patch-encargado-school.test.ts",
+    "__tests__/api/licitaciones/patch-timeline.test.ts",
     "__tests__/api/licitaciones/publicacion.test.ts",
+    "__tests__/pages/licitaciones/licitacion-detail-step2.test.tsx",
+    "__tests__/pages/licitaciones/licitacion-detail-step6-carta.test.tsx",
     "pages/contracts.tsx",
     "pages/licitaciones/[id].tsx",
     "pages/licitaciones/[id]/evaluacion.tsx"
@@ -14587,6 +14653,7 @@
     "/licitaciones/[id]"
    ],
    "referencedIn": [
+    "__tests__/api/licitaciones/carta-stuck-tender.test.ts",
     "components/licitaciones/Step6Adjudicacion.tsx"
    ]
   },
@@ -14826,8 +14893,11 @@
     "/licitaciones/[id]"
    ],
    "referencedIn": [
+    "__tests__/api/licitaciones/carta-stuck-tender.test.ts",
     "__tests__/api/licitaciones/client-document-access.test.ts",
-    "components/licitaciones/Step6Adjudicacion.tsx"
+    "__tests__/components/licitaciones/carta-before-award.test.tsx",
+    "components/licitaciones/Step6Adjudicacion.tsx",
+    "components/licitaciones/Step7Contrato.tsx"
    ]
   },
   {
@@ -14865,6 +14935,7 @@
     "/licitaciones/[id]"
    ],
    "referencedIn": [
+    "__tests__/api/licitaciones/generate-propuesta-stale.test.ts",
     "components/licitaciones/ProposalConfigPanel.tsx"
    ]
   },
@@ -14883,6 +14954,8 @@
     "/licitaciones/[id]"
    ],
    "referencedIn": [
+    "__tests__/api/licitaciones/propuesta-access-code.test.ts",
+    "__tests__/components/licitaciones/proposal-access-code.test.tsx",
     "components/licitaciones/ProposalConfigPanel.tsx"
    ]
   },
@@ -14920,6 +14993,7 @@
     "/licitaciones/[id]"
    ],
    "referencedIn": [
+    "__tests__/pages/licitaciones/licitacion-detail-step2.test.tsx",
     "pages/licitaciones/[id].tsx"
    ]
   },
@@ -14985,8 +15059,10 @@
     "/licitaciones/nueva"
    ],
    "referencedIn": [
+    "__tests__/api/licitaciones/create-requires-cliente.test.ts",
     "__tests__/api/licitaciones/licitaciones-historico.test.ts",
     "__tests__/api/licitaciones/licitaciones-index.test.ts",
+    "__tests__/pages/licitaciones/nueva-requires-cliente.test.tsx",
     "pages/licitaciones/importar.tsx",
     "pages/licitaciones/index.tsx",
     "pages/licitaciones/nueva.tsx"
@@ -15291,6 +15367,7 @@
     "/propuesta/[slug]"
    ],
    "referencedIn": [
+    "__tests__/api/licitaciones/propuesta-access-code.test.ts",
     "__tests__/api/propuestas/access-code-reservation.test.ts",
     "components/propuestas-web/ProposalUnlockScreen.tsx",
     "pages/propuesta/[slug].tsx"

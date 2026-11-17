@@ -1,7 +1,7 @@
 # Personas (users, schools, networks, roles, profile)
 
 Area `14-personas`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `675d11e31` (2026-11-17).
+Read from commit `9b113df42` (2026-11-17).
 
 7 screen files, 33 API files, 24 pieces.
 
@@ -1358,7 +1358,7 @@ File `pages/profile.tsx` · 816 lines · frame: MainLayout
   - l.92 `adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin')`
   - l.460 `router.push → /pending-approval  (when !(updateError) && isNewUser)`
   - l.472 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:18`, `components/layout/MainLayout.tsx:391`, `components/layout/Sidebar.tsx:127`, `components/layout/Sidebar.tsx:1309`, `components/layout/TopBarNuevo.tsx:109`, `lib/auth/forced-password-change.ts:156`, `lib/frontend-auth-utils.ts:143`, `lib/notifications/catalog.ts:359`, `middleware.ts:351`, `pages/dashboard.tsx:320`, `pages/dashboard.tsx:519`, `pages/dashboard.tsx:520` and 1 more
+- Linked from: `components/DynamicFavicon.tsx:18`, `components/layout/MainLayout.tsx:391`, `components/layout/Sidebar.tsx:127`, `components/layout/Sidebar.tsx:1309`, `components/layout/TopBarNuevo.tsx:109`, `lib/auth/forced-password-change.ts:156`, `lib/frontend-auth-utils.ts:143`, `lib/notifications/catalog.ts:359`, `middleware.ts:351`, `pages/dashboard.tsx:321`, `pages/dashboard.tsx:520`, `pages/dashboard.tsx:521` and 1 more
 - Tests: browser tests that CI runs: `tests/e2e/look-frame.spec.ts`, `tests/e2e/notification-settings.spec.ts`; browser tests CI skips: `tests/e2e/panel-pin.spec.ts`, `tests/qa/auth-redirects.spec.ts`; unit tests of the page: `__tests__/notifications/entry-points.test.tsx`.
 - QA scenarios that name this address: admin 1, community_manager 2.
 
@@ -2797,5 +2797,5 @@ Used by: `/admin/school-users`, `/admin/user-management`, `/profile`
 | `/api/admin/users` | `pages/api/admin/users.ts` | GET | `/admin/assignment-matrix`, `/admin/school-users`, `/admin/user-management` | `__tests__/api/admin/users-list.test.ts`, `__tests__/middleware.forced-password-change.test.ts`, `__tests__/middleware.test.ts`, `__tests__/pages/admin/school-users.test.tsx`, `components/admin/assignment-matrix/hooks/useAssignmentMatrix.ts` +5 |
 | `/api/admin/users/search` | `pages/api/admin/users/search.ts` | GET | `/admin/assessment-builder/[templateId]` | `pages/admin/assessment-builder/[templateId]/index.tsx` |
 | `/api/user/onboarding-state` | `pages/api/user/onboarding-state.ts` | GET, PUT | `/admin/qa`, `/admin/qa/coverage`, `/admin/qa/feature-checklist`, `/admin/qa/lighthouse`, `/admin/qa/load-tests` | `hooks/useOnboarding.ts` |
-| `/api/users/[userId]/school` | `pages/api/users/[userId]/school.ts` | GET | `/user/[userId]` | `__tests__/api/forged-session-sweep.test.ts`, `pages/user/[userId].tsx` |
+| `/api/users/[userId]/school` | `pages/api/users/[userId]/school.ts` | GET | `/user/[userId]` | `__tests__/api/forged-session-sweep.test.ts`, `__tests__/api/users/school.test.ts`, `__tests__/pages/user-profile-view.test.tsx`, `pages/user/[userId].tsx` |
 

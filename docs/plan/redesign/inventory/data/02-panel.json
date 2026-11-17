@@ -4,14 +4,14 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "675d11e3132fb053cb7f635b0a90a86faf570f4d",
-  "date": "2026-11-17T07:45:47-03:00"
+  "commit": "9b113df429f5036bf72f1c71c6636b3bb0f47139",
+  "date": "2026-11-17T12:24:40-03:00"
  },
  "screens": [
   {
    "file": "pages/dashboard.tsx",
    "route": "/dashboard",
-   "lines": 1094,
+   "lines": 1098,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -71,39 +71,39 @@
     },
     "inPage": [
      {
-      "line": 276,
+      "line": 277,
       "text": "router.push → /login  (when !session?.user)"
      },
      {
-      "line": 285,
+      "line": 286,
       "text": "adminRole = metadataHasRole(userData.user.user_metadata, 'admin')"
      },
      {
-      "line": 325,
+      "line": 326,
       "text": "router.push → /change-password  (when !userError && userData?.user && profileData.must_change_password === true)"
      },
      {
-      "line": 331,
+      "line": 332,
       "text": "{ effectiveRole, isAdmin: isAdminUser } = await getEffectiveRoleAndStatus(supabase, userData.user.id)"
      },
      {
-      "line": 345,
+      "line": 346,
       "text": "roles = await getUserRoles(supabase, userData.user.id)"
      },
      {
-      "line": 446,
+      "line": 447,
       "text": "router.push → /login"
      },
      {
-      "line": 457,
+      "line": 458,
       "text": "router.push → /login"
      },
      {
-      "line": 990,
+      "line": 994,
       "text": "metadataHasRole(session?.user?.user_metadata, 'admin') || metadataHasRole(session?.user?.user_metadata, 'consultor')"
      },
      {
-      "line": 991,
+      "line": 995,
       "text": "metadataHasRole(session?.user?.user_metadata, 'admin') || metadataHasRole(session?.user?.user_metadata, 'consultor')"
      }
     ],
@@ -129,7 +129,7 @@
      "middleware.ts:299",
      "middleware.ts:337",
      "pages/admin/assessment-builder/[templateId]/expectations.tsx:1002",
-     "pages/admin/assessment-builder/[templateId]/index.tsx:1354",
+     "pages/admin/assessment-builder/[templateId]/index.tsx:1386",
      "pages/admin/assessment-builder/create.tsx:259",
      "pages/admin/assessment-builder/index.tsx:376",
      "pages/admin/assignment-matrix.tsx:41",
@@ -199,7 +199,7 @@
      "pages/detailed-reports.tsx:172",
      "pages/detailed-reports.tsx:178",
      "pages/expense-reports.tsx:148",
-     "pages/licitaciones/[id].tsx:253",
+     "pages/licitaciones/[id].tsx:221",
      "pages/licitaciones/[id]/evaluacion.tsx:253",
      "pages/licitaciones/index.tsx:185",
      "pages/licitaciones/index.tsx:198",
@@ -224,18 +224,18 @@
      "pages/reporte-horas.tsx:106",
      "pages/reporte-horas.tsx:76",
      "pages/reports.tsx:186",
-     "pages/school/migration-plan/index.tsx:379",
-     "pages/school/migration-plan/index.tsx:444",
+     "pages/school/migration-plan/index.tsx:397",
+     "pages/school/migration-plan/index.tsx:462",
      "pages/school/transversal-context/edit.tsx:950",
-     "pages/school/transversal-context/index.tsx:221",
-     "pages/school/transversal-context/index.tsx:678",
+     "pages/school/transversal-context/index.tsx:236",
+     "pages/school/transversal-context/index.tsx:700",
      "pages/student/lesson/[lessonId].tsx:838",
      "pages/student/lesson/[lessonId].tsx:862",
      "pages/student/lesson/[lessonId].tsx:872",
-     "pages/user/[userId].tsx:204",
-     "pages/user/[userId].tsx:205",
-     "pages/user/[userId].tsx:239",
-     "pages/user/[userId].tsx:240",
+     "pages/user/[userId].tsx:228",
+     "pages/user/[userId].tsx:229",
+     "pages/user/[userId].tsx:263",
+     "pages/user/[userId].tsx:264",
      "utils/notificationPermissions.ts:117",
      "utils/notificationPermissions.ts:165",
      "utils/notificationPermissions.ts:169",
@@ -273,14 +273,14 @@
    "rows": [
     {
      "kind": "hook",
-     "line": 184,
+     "line": 185,
      "in": "Dashboard",
      "text": "sessionStorage: fne-password-change-success",
      "type": "storage"
     },
     {
      "kind": "toast",
-     "line": 187,
+     "line": 188,
      "in": "Dashboard",
      "when": "passwordChangeSuccess === 'true'",
      "text": "Contraseña actualizada exitosamente",
@@ -288,7 +288,7 @@
     },
     {
      "kind": "nav",
-     "line": 276,
+     "line": 277,
      "in": "checkSession",
      "when": "!session?.user",
      "text": "/login",
@@ -296,7 +296,7 @@
     },
     {
      "kind": "access",
-     "line": 285,
+     "line": 286,
      "in": "checkSession",
      "when": "!userError && userData?.user",
      "text": "adminRole = metadataHasRole(userData.user.user_metadata, 'admin')",
@@ -304,7 +304,7 @@
     },
     {
      "kind": "hook",
-     "line": 290,
+     "line": 291,
      "in": "checkSession",
      "when": "!userError && userData?.user",
      "text": "sessionStorage: fne-avatar-cache",
@@ -312,7 +312,7 @@
     },
     {
      "kind": "nav",
-     "line": 320,
+     "line": 321,
      "in": "checkSession",
      "when": "!userError && userData?.user && !profileData",
      "text": "/profile?from=dashboard&error=profile-fetch-failed",
@@ -320,7 +320,7 @@
     },
     {
      "kind": "nav",
-     "line": 325,
+     "line": 326,
      "in": "checkSession",
      "when": "!userError && userData?.user && profileData.must_change_password === true",
      "text": "/change-password",
@@ -328,7 +328,7 @@
     },
     {
      "kind": "access",
-     "line": 331,
+     "line": 332,
      "in": "checkSession",
      "when": "!userError && userData?.user",
      "text": "{ effectiveRole, isAdmin: isAdminUser } = await getEffectiveRoleAndStatus(supabase, userData.user.id)",
@@ -336,7 +336,7 @@
     },
     {
      "kind": "access",
-     "line": 345,
+     "line": 346,
      "in": "checkSession",
      "when": "!userError && userData?.user",
      "text": "roles = await getUserRoles(supabase, userData.user.id)",
@@ -344,35 +344,35 @@
     },
     {
      "kind": "nav",
-     "line": 446,
+     "line": 447,
      "in": "checkSession",
      "text": "/login",
      "via": "router.push"
     },
     {
      "kind": "hook",
-     "line": 455,
+     "line": 456,
      "in": "handleLogout",
      "text": "localStorage: rememberMe",
      "type": "storage"
     },
     {
      "kind": "hook",
-     "line": 456,
+     "line": 457,
      "in": "handleLogout",
      "text": "sessionStorage: sessionOnly",
      "type": "storage"
     },
     {
      "kind": "nav",
-     "line": 457,
+     "line": 458,
      "in": "handleLogout",
      "text": "/login",
      "via": "router.push"
     },
     {
      "kind": "piece",
-     "line": 462,
+     "line": 463,
      "in": "Dashboard",
      "when": "loading",
      "text": "",
@@ -380,48 +380,48 @@
     },
     {
      "kind": "text",
-     "line": 475,
+     "line": 476,
      "in": "Dashboard",
      "when": "loading",
      "text": "Cargando..."
     },
     {
      "kind": "piece",
-     "line": 483,
+     "line": 484,
      "in": "Dashboard",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "piece",
-     "line": 498,
+     "line": 499,
      "in": "Dashboard",
      "text": "",
      "tag": "Avatar"
     },
     {
      "kind": "heading",
-     "line": 505,
+     "line": 506,
      "in": "Dashboard",
      "text": "¡Hola, {profileName?.split(' ')[0]} / Usuario !",
      "level": 1
     },
     {
      "kind": "text",
-     "line": 509,
+     "line": 510,
      "in": "Dashboard",
      "text": "Bienvenido de vuelta al hub de transformación de tu colegio"
     },
     {
      "kind": "value",
-     "line": 514,
+     "line": 515,
      "in": "Dashboard",
      "when": "userRole === 'consultor' && profileData?.external_school_affiliation",
      "text": "{getExternalSchoolLabel(profileData.…}"
     },
     {
      "kind": "link",
-     "line": 519,
+     "line": 520,
      "in": "Dashboard",
      "screen": "hidden sm:flex",
      "text": "Mi Perfil",
@@ -429,14 +429,14 @@
     },
     {
      "kind": "gate",
-     "line": 543,
+     "line": 544,
      "in": "Dashboard",
      "when": "userRoles.some(role => role.community_id)",
      "text": "!selectedRole || !selectedRole.community"
     },
     {
      "kind": "button",
-     "line": 552,
+     "line": 553,
      "in": "Dashboard",
      "when": "userRoles.some(role => role.community_id)",
      "text": "Mi Comunidad de Crecimiento {selectedRole.school?.name} / {selectedRole.community!.name} • {members.length} miembros {member.first_name?.charAt(0)} / U [+ {members.length - 4}]",
@@ -444,14 +444,14 @@
     },
     {
      "kind": "media",
-     "line": 558,
+     "line": 559,
      "in": "Dashboard",
      "when": "userRoles.some(role => role.community_id) && workspace?.image_url",
      "text": "img · alt {workspace.custom_name || selectedRole.community!.name} · {workspace.image_url}"
     },
     {
      "kind": "heading",
-     "line": 569,
+     "line": 570,
      "in": "Dashboard",
      "when": "userRoles.some(role => role.community_id)",
      "text": "Mi Comunidad de Crecimiento",
@@ -459,21 +459,21 @@
     },
     {
      "kind": "media",
-     "line": 582,
+     "line": 583,
      "in": "Dashboard",
      "when": "userRoles.some(role => role.community_id) && each members.slice(0, 4) && member.avatar_url",
      "text": "img · {member.avatar_url}"
     },
     {
      "kind": "text",
-     "line": 616,
+     "line": 617,
      "in": "Dashboard",
      "when": "userRoles.some(role => role.community_id) && communityExpanded && userCommunities.length > 1",
      "text": "Seleccionar comunidad:"
     },
     {
      "kind": "button",
-     "line": 619,
+     "line": 620,
      "in": "Dashboard",
      "when": "userRoles.some(role => role.community_id) && communityExpanded && userCommunities.length > 1 && each userCommunities",
      "text": "{comm.school?.name} / {comm.community?.name}",
@@ -481,7 +481,7 @@
     },
     {
      "kind": "heading",
-     "line": 639,
+     "line": 640,
      "in": "Dashboard",
      "when": "userRoles.some(role => role.community_id) && communityExpanded",
      "text": "{selectedRole.school?.name} / {selectedRole.community!.name}",
@@ -489,16 +489,16 @@
     },
     {
      "kind": "button",
-     "line": 643,
+     "line": 646,
      "in": "Dashboard",
-     "when": "userRoles.some(role => role.community_id) && communityExpanded",
+     "when": "userRoles.some(role => role.community_id) && communityExpanded && canEditWorkspaceWithRoles(userRoles, selectedRole.community_id)",
      "text": "[icon Settings]",
      "action": "{(e) => { e.stopPropagation(); setSelectedWorkspace(workspace); setShowWorkspace…}",
      "title": "Configuración"
     },
     {
      "kind": "link",
-     "line": 654,
+     "line": 658,
      "in": "Dashboard",
      "when": "userRoles.some(role => role.community_id) && communityExpanded",
      "text": "Ver Espacio Completo →",
@@ -506,7 +506,7 @@
     },
     {
      "kind": "button",
-     "line": 668,
+     "line": 672,
      "in": "Dashboard",
      "when": "userRoles.some(role => role.community_id) && communityExpanded && each members",
      "text": "{member.first_name?.charAt(0)} / U {[member.first_name, member.last_nam…} / {(member as any).name} / Usuario [{roleLabel}] [{getExternalSchoolLabel(member.exter…}] [Tú]",
@@ -514,28 +514,28 @@
     },
     {
      "kind": "media",
-     "line": 677,
+     "line": 681,
      "in": "Dashboard",
      "when": "userRoles.some(role => role.community_id) && communityExpanded && each members && member.avatar_url",
      "text": "img · {member.avatar_url}"
     },
     {
      "kind": "heading",
-     "line": 723,
+     "line": 727,
      "in": "Dashboard",
      "text": "Últimas Noticias",
      "level": 2
     },
     {
      "kind": "link",
-     "line": 725,
+     "line": 729,
      "in": "Dashboard",
      "text": "Ver todas",
      "target": "/noticias"
     },
     {
      "kind": "link",
-     "line": 746,
+     "line": 750,
      "in": "Dashboard",
      "when": "!(loadingNews) && newsArticles.length > 0 && each newsArticles",
      "text": "{formatTimeAgo(article.display_date …} {article.title} {getExcerpt(article.content_html)}",
@@ -544,14 +544,14 @@
     },
     {
      "kind": "media",
-     "line": 757,
+     "line": 761,
      "in": "Dashboard",
      "when": "!(loadingNews) && newsArticles.length > 0 && each newsArticles && article.featured_image",
      "text": "img · alt {article.title} · {article.featured_image}"
     },
     {
      "kind": "heading",
-     "line": 768,
+     "line": 772,
      "in": "Dashboard",
      "when": "!(loadingNews) && newsArticles.length > 0 && each newsArticles",
      "text": "{article.title}",
@@ -559,21 +559,21 @@
     },
     {
      "kind": "text",
-     "line": 780,
+     "line": 784,
      "in": "Dashboard",
      "when": "!(loadingNews) && !(newsArticles.length > 0)",
      "text": "No hay noticias disponibles"
     },
     {
      "kind": "heading",
-     "line": 792,
+     "line": 796,
      "in": "Dashboard",
      "text": "Videos Recientes",
      "level": 2
     },
     {
      "kind": "link",
-     "line": 794,
+     "line": 798,
      "in": "Dashboard",
      "text": "Ver canal",
      "target": "https://www.youtube.com/@NuevaEducacionFundacion",
@@ -581,7 +581,7 @@
     },
     {
      "kind": "link",
-     "line": 816,
+     "line": 820,
      "in": "Dashboard",
      "when": "!(loadingVideos) && youtubeVideos.length > 0 && each youtubeVideos",
      "text": "{video.title} {formatTimeAgo(video.publishedAt)}",
@@ -590,14 +590,14 @@
     },
     {
      "kind": "media",
-     "line": 824,
+     "line": 828,
      "in": "Dashboard",
      "when": "!(loadingVideos) && youtubeVideos.length > 0 && each youtubeVideos",
      "text": "img · alt {video.title} · {video.thumbnail}"
     },
     {
      "kind": "heading",
-     "line": 836,
+     "line": 840,
      "in": "Dashboard",
      "when": "!(loadingVideos) && youtubeVideos.length > 0 && each youtubeVideos",
      "text": "{video.title}",
@@ -605,39 +605,39 @@
     },
     {
      "kind": "text",
-     "line": 848,
+     "line": 852,
      "in": "Dashboard",
      "when": "!(loadingVideos) && !(youtubeVideos.length > 0)",
      "text": "No hay videos disponibles"
     },
     {
      "kind": "heading",
-     "line": 855,
+     "line": 859,
      "in": "Dashboard",
      "text": "{dashboardStats?.statsLabel} / Estadísticas de la Plataforma",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 860,
+     "line": 864,
      "in": "Dashboard",
      "text": "Educadores Activos"
     },
     {
      "kind": "text",
-     "line": 868,
+     "line": 872,
      "in": "Dashboard",
      "text": "en tu alcance"
     },
     {
      "kind": "text",
-     "line": 873,
+     "line": 877,
      "in": "Dashboard",
      "text": "Curso Más Completado"
     },
     {
      "kind": "heading",
-     "line": 881,
+     "line": 885,
      "in": "Dashboard",
      "when": "!(loadingStats) && dashboardStats?.mostCompletedCourse",
      "text": "{dashboardStats.mostCompletedCourse.…}",
@@ -645,55 +645,55 @@
     },
     {
      "kind": "text",
-     "line": 885,
+     "line": 889,
      "in": "Dashboard",
      "when": "!(loadingStats) && dashboardStats?.mostCompletedCourse && dashboardStats.mostCompletedCourse.instructor_name",
      "text": "Relator: {dashboardStats.mostCompletedCourse.…}"
     },
     {
      "kind": "value",
-     "line": 890,
+     "line": 894,
      "in": "Dashboard",
      "when": "!(loadingStats) && dashboardStats?.mostCompletedCourse",
      "text": "{dashboardStats.mostCompletedCourse.…}"
     },
     {
      "kind": "text",
-     "line": 893,
+     "line": 897,
      "in": "Dashboard",
      "when": "!(loadingStats) && dashboardStats?.mostCompletedCourse",
      "text": "completaciones"
     },
     {
      "kind": "text",
-     "line": 897,
+     "line": 901,
      "in": "Dashboard",
      "when": "!(loadingStats) && !(dashboardStats?.mostCompletedCourse)",
      "text": "Sin datos disponibles"
     },
     {
      "kind": "text",
-     "line": 903,
+     "line": 907,
      "in": "Dashboard",
      "text": "Usuario Destacado"
     },
     {
      "kind": "media",
-     "line": 918,
+     "line": 922,
      "in": "Dashboard",
      "when": "!(loadingStats) && dashboardStats?.topLearner && dashboardStats.topLearner.avatar_url",
      "text": "img · {dashboardStats.topLearner.avatar_url}"
     },
     {
      "kind": "value",
-     "line": 925,
+     "line": 929,
      "in": "Dashboard",
      "when": "!(loadingStats) && dashboardStats?.topLearner && !(dashboardStats.topLearner.avatar_url)",
      "text": "{dashboardStats.topLearner.name.char…}"
     },
     {
      "kind": "heading",
-     "line": 931,
+     "line": 935,
      "in": "Dashboard",
      "when": "!(loadingStats) && dashboardStats?.topLearner",
      "text": "{dashboardStats.topLearner.name}",
@@ -701,42 +701,42 @@
     },
     {
      "kind": "value",
-     "line": 935,
+     "line": 939,
      "in": "Dashboard",
      "when": "!(loadingStats) && dashboardStats?.topLearner && dashboardStats.topLearner.role",
      "text": "{dashboardStats.topLearner.role}"
     },
     {
      "kind": "value",
-     "line": 940,
+     "line": 944,
      "in": "Dashboard",
      "when": "!(loadingStats) && dashboardStats?.topLearner && dashboardStats.topLearner.school_name",
      "text": "{dashboardStats.topLearner.school_na…}"
     },
     {
      "kind": "value",
-     "line": 945,
+     "line": 949,
      "in": "Dashboard",
      "when": "!(loadingStats) && dashboardStats?.topLearner",
      "text": "{dashboardStats.topLearner.completed…}"
     },
     {
      "kind": "text",
-     "line": 948,
+     "line": 952,
      "in": "Dashboard",
      "when": "!(loadingStats) && dashboardStats?.topLearner",
      "text": "cursos completados"
     },
     {
      "kind": "text",
-     "line": 954,
+     "line": 958,
      "in": "Dashboard",
      "when": "!(loadingStats) && !(dashboardStats?.topLearner)",
      "text": "Sin datos disponibles"
     },
     {
      "kind": "heading",
-     "line": 968,
+     "line": 972,
      "in": "Dashboard",
      "when": "!loadingUpcoming && upcomingCourses.length > 0",
      "text": "Próximos Cursos",
@@ -744,14 +744,14 @@
     },
     {
      "kind": "text",
-     "line": 969,
+     "line": 973,
      "in": "Dashboard",
      "when": "!loadingUpcoming && upcomingCourses.length > 0",
      "text": "Cursos que podrás tomar próximamente"
     },
     {
      "kind": "piece",
-     "line": 981,
+     "line": 985,
      "in": "Dashboard",
      "when": "!loadingUpcoming && upcomingCourses.length > 0 && each upcomingCourses",
      "text": "",
@@ -759,21 +759,21 @@
     },
     {
      "kind": "access",
-     "line": 990,
+     "line": 994,
      "in": "Dashboard",
      "text": "metadataHasRole(session?.user?.user_metadata, 'admin') || metadataHasRole(session?.user?.user_metadata, 'consultor')",
      "via": "metadataHasRole"
     },
     {
      "kind": "access",
-     "line": 991,
+     "line": 995,
      "in": "Dashboard",
      "text": "metadataHasRole(session?.user?.user_metadata, 'admin') || metadataHasRole(session?.user?.user_metadata, 'consultor')",
      "via": "metadataHasRole"
     },
     {
      "kind": "piece",
-     "line": 993,
+     "line": 997,
      "in": "Dashboard",
      "when": "(metadataHasRole(session?.user?.user_metadata, 'admin') || metadataHasRole(session?.user?.user_metadata, 'consultor') || userRoles.some(r => r.role_type === 'admin' || r…",
      "text": "",
@@ -781,7 +781,7 @@
     },
     {
      "kind": "piece",
-     "line": 998,
+     "line": 1002,
      "in": "Dashboard",
      "when": "user?.id",
      "text": "",
@@ -789,7 +789,7 @@
     },
     {
      "kind": "piece",
-     "line": 1003,
+     "line": 1007,
      "in": "Dashboard",
      "when": "inProgressCourses.length > 0",
      "text": "title: Continuar Aprendiendo · emptyMessage: No tienes cursos en progreso",
@@ -797,7 +797,7 @@
     },
     {
      "kind": "nav",
-     "line": 1007,
+     "line": 1011,
      "in": "Dashboard",
      "when": "inProgressCourses.length > 0",
      "text": "/student/course/[*]",
@@ -805,7 +805,7 @@
     },
     {
      "kind": "heading",
-     "line": 1015,
+     "line": 1019,
      "in": "Dashboard",
      "when": "learningPaths.length > 0",
      "text": "Mis Rutas de Aprendizaje",
@@ -813,7 +813,7 @@
     },
     {
      "kind": "link",
-     "line": 1016,
+     "line": 1020,
      "in": "Dashboard",
      "when": "learningPaths.length > 0",
      "text": "Ver todas",
@@ -821,7 +821,7 @@
     },
     {
      "kind": "clickable",
-     "line": 1026,
+     "line": 1030,
      "in": "Dashboard",
      "when": "learningPaths.length > 0 && each learningPaths.slice(0, 3)",
      "text": "",
@@ -830,7 +830,7 @@
     },
     {
      "kind": "piece",
-     "line": 1026,
+     "line": 1030,
      "in": "Dashboard",
      "when": "learningPaths.length > 0 && each learningPaths.slice(0, 3)",
      "text": "",
@@ -838,7 +838,7 @@
     },
     {
      "kind": "nav",
-     "line": 1039,
+     "line": 1043,
      "in": "Dashboard",
      "when": "learningPaths.length > 0 && each learningPaths.slice(0, 3)",
      "text": "/mi-aprendizaje/ruta/[*]",
@@ -846,7 +846,7 @@
     },
     {
      "kind": "piece",
-     "line": 1048,
+     "line": 1052,
      "in": "Dashboard",
      "when": "openCourses.length > 0",
      "text": "title: Mis Cursos Abiertos · emptyMessage: No tienes cursos asignados",
@@ -854,7 +854,7 @@
     },
     {
      "kind": "nav",
-     "line": 1052,
+     "line": 1056,
      "in": "Dashboard",
      "when": "openCourses.length > 0",
      "text": "/student/course/[*]",
@@ -862,7 +862,7 @@
     },
     {
      "kind": "popup",
-     "line": 1060,
+     "line": 1064,
      "in": "Dashboard",
      "when": "selectedWorkspace",
      "text": "WorkspaceSettingsModal",
@@ -871,7 +871,7 @@
     },
     {
      "kind": "popup",
-     "line": 1082,
+     "line": 1086,
      "in": "Dashboard",
      "text": "MemberProfileModal",
      "how": "component",
@@ -879,43 +879,43 @@
     },
     {
      "kind": "string",
-     "line": 88,
+     "line": 89,
      "in": "formatTimeAgo",
      "text": "Hoy"
     },
     {
      "kind": "string",
-     "line": 89,
+     "line": 90,
      "in": "formatTimeAgo",
      "text": "Ayer"
     },
     {
      "kind": "string",
-     "line": 90,
+     "line": 91,
      "in": "formatTimeAgo",
      "text": "Hace {diffDays} días"
     },
     {
      "kind": "string",
-     "line": 91,
+     "line": 92,
      "in": "formatTimeAgo",
      "text": "Hace {Math.floor(diffDays / 7)} semanas"
     },
     {
      "kind": "string",
-     "line": 237,
+     "line": 238,
      "in": "Dashboard",
      "text": "Bearer {statsSession.access_token}"
     },
     {
      "kind": "string",
-     "line": 378,
+     "line": 379,
      "in": "Dashboard",
      "text": "Sin instructor"
     },
     {
      "kind": "list",
-     "line": 88,
+     "line": 89,
      "in": "formatTimeAgo",
      "text": "formatTimeAgo()",
      "items": [
@@ -1030,7 +1030,7 @@
       "GET"
      ],
      "from": [
-      "pages/dashboard.tsx:239"
+      "pages/dashboard.tsx:240"
      ]
     },
     {
@@ -1040,7 +1040,7 @@
       "GET"
      ],
      "from": [
-      "pages/dashboard.tsx:432"
+      "pages/dashboard.tsx:433"
      ]
     },
     {
@@ -1050,7 +1050,7 @@
       "GET"
      ],
      "from": [
-      "pages/dashboard.tsx:198"
+      "pages/dashboard.tsx:199"
      ]
     },
     {
@@ -1060,7 +1060,7 @@
       "GET"
      ],
      "from": [
-      "pages/dashboard.tsx:257"
+      "pages/dashboard.tsx:258"
      ]
     },
     {
@@ -1070,7 +1070,7 @@
       "GET"
      ],
      "from": [
-      "pages/dashboard.tsx:216"
+      "pages/dashboard.tsx:217"
      ]
     }
    ]
@@ -2973,11 +2973,11 @@
    "usedBy": [
     "/dashboard"
    ],
-   "lines": 166,
+   "lines": 181,
    "rows": [
     {
      "kind": "list",
-     "line": 3,
+     "line": 21,
      "text": "communityWorkspaceService",
      "items": [
       "No se proporcionó ningún archivo",
@@ -2988,7 +2988,7 @@
     },
     {
      "kind": "message",
-     "line": 36,
+     "line": 54,
      "in": "uploadCommunityImage",
      "when": "!file",
      "text": "No se proporcionó ningún archivo",
@@ -2996,7 +2996,7 @@
     },
     {
      "kind": "message",
-     "line": 42,
+     "line": 60,
      "in": "uploadCommunityImage",
      "when": "file.size > maxSize",
      "text": "El archivo debe ser menor a 5MB",
@@ -3004,7 +3004,7 @@
     },
     {
      "kind": "message",
-     "line": 48,
+     "line": 66,
      "in": "uploadCommunityImage",
      "when": "!allowedTypes.includes(file.type)",
      "text": "Solo se permiten imágenes (JPEG, PNG, WebP)",
@@ -3012,9 +3012,9 @@
     },
     {
      "kind": "access",
-     "line": 155,
+     "line": 173,
      "in": "canEditWorkspace",
-     "text": "canEdit = roles.some(role => role.role_type === 'admin' || role.community_id === workspace.community_id )",
+     "text": "canEdit = canEditWorkspaceWithRoles(roles, workspace.community_id)",
      "via": "declaration"
     }
    ],

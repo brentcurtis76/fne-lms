@@ -1,7 +1,7 @@
 # GENERA fixes, level 2 (first part): places where a normal task stops
 
 Branch: `fix/l2`. Base: `84eb3bccd` (main, 17 Nov 2026 07:45, pull request 190: the redesign's step 5a; level 1 of these fixes went live as pull request 189).
-55 commits in a straight line on main, no merge commits: three fix phases (Gestor de Cambio, Espacio Colaborativo, Licitaciones), one small follow-up to level 1, one test-harness repair, this request.
+57 commits in a straight line on main, no merge commits: three fix phases (Gestor de Cambio, Espacio Colaborativo, Licitaciones), one small follow-up to level 1, one test-harness repair, this request.
 
 ## Approved scope
 
@@ -9,7 +9,7 @@ The owner approved the fix plan on 13 Nov 2026; its second level is "dead ends i
 
 ## What changes
 
-Four migrations, all additive (two new functions and one replaced, one `ALTER POLICY`, one partial unique index; no `DROP`, no `TRUNCATE`, no row deletion, no function that deletes rows).
+Four migrations, all additive (two new functions and one replaced, one `ALTER POLICY`, one exclusion constraint; no `DROP`, no `TRUNCATE`, no row deletion, no function that deletes rows).
 
 **Gestor de Cambio** (`20261116179500`)
 - «Duplicar» and «Editar (Nueva Versión)» inside the editor create the draft (they always failed for want of a name); a copy now keeps its indicators' visibility conditions, re-pointed to the copy; a copy that cannot be completed is not reported as made.
@@ -30,7 +30,7 @@ Four migrations, all additive (two new functions and one replaced, one `ALTER PO
 - The award cannot be confirmed (when the foundation wins) before the Carta de adjudicación has been generated, which used to lock the tender for good; a tender already locked can have its Carta generated.
 - The Encargado gets the publication text again (the tender route returns five client fields — legal name, trade name, RUT, representative's name, commune — after its access check; the rule on `clientes` is unchanged), with the real deadline dates, also after confirming.
 - A live tender cannot be created for a school without a linked client (every later step refused it); recording a past, closed tender is unchanged, on purpose.
-- «Ajustar fechas» works after a reload; the proposal's access code is shown again to admins; a proposal generation interrupted more than 15 minutes ago no longer blocks a new one, and one running generation per tender is a unique index.
+- «Ajustar fechas» works after a reload; the proposal's access code is shown again to admins; a proposal generation interrupted more than 15 minutes ago no longer blocks a new one, and one running generation per tender is an exclusion constraint (with the publisher's count check in `.pm-publish/solo-preflight.json`: no generation may be running at the moment it is added).
 
 **Follow-up to level 1** (`20261116179800`): a visitor lists no file store. Level 1 closed listing in four stores; a check of the live system on 16 Nov showed `course-materials` still listable. The live function is replaced by the same body plus one rule. Public addresses are unaffected.
 

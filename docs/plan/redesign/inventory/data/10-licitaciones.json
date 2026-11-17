@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
-  "date": "2026-11-17T05:46:26-03:00"
+  "commit": "675d11e3132fb053cb7f635b0a90a86faf570f4d",
+  "date": "2026-11-17T07:45:47-03:00"
  },
  "screens": [
   {
@@ -2170,7 +2170,7 @@
       "href": "/admin/licitaciones/feriados",
       "gates": "admin only",
       "groupGates": "roles: admin, community_manager, encargado_licitacion",
-      "line": 614
+      "line": 613
      }
     ],
     "middleware": {
@@ -2231,7 +2231,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:616"
+     "components/layout/Sidebar.tsx:615"
     ],
     "qaScenarios": {
      "admin": [
@@ -2748,7 +2748,7 @@
       "href": "/admin/licitaciones/templates",
       "gates": "admin only",
       "groupGates": "roles: admin, community_manager, encargado_licitacion",
-      "line": 606
+      "line": 605
      }
     ],
     "middleware": {
@@ -2809,7 +2809,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:608",
+     "components/layout/Sidebar.tsx:607",
      "pages/admin/licitaciones/criterios.tsx:337"
     ],
     "qaScenarios": {
@@ -6252,7 +6252,7 @@
       "href": "/licitaciones",
       "gates": "roles: admin, encargado_licitacion",
       "groupGates": "roles: admin, community_manager, encargado_licitacion",
-      "line": 598
+      "line": 597
      }
     ],
     "middleware": {
@@ -6317,7 +6317,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:600",
+     "components/layout/Sidebar.tsx:599",
      "lib/auth/forced-password-change.ts:150",
      "lib/notificationEvents.ts:627",
      "lib/notificationEvents.ts:639",

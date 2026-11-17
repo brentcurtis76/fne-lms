@@ -1,7 +1,7 @@
 # Mi Aprendizaje (the learner's courses, lessons and routes)
 
 Area `03-aprendizaje`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3ff6aa13f` (2026-11-17).
+Read from commit `675d11e31` (2026-11-17).
 
 Course system: the Course Review session owns this area's structure and its own checklist (docs/planning/courses/inventory.md, not yet on main). This file is the redesign's list of what is on screen today.
 
@@ -63,15 +63,15 @@ File `pages/mi-aprendizaje.tsx` · 526 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: «Mi Aprendizaje» → `/mi-aprendizaje` — everyone signed in (`Sidebar.tsx` l.141)
-- Menu: Mi Aprendizaje › «Mis Cursos» → `/mi-aprendizaje?tab=cursos` — everyone signed in; the group: everyone signed in (`Sidebar.tsx` l.148)
+- Menu: «Mi Aprendizaje» → `/mi-aprendizaje` — everyone signed in (`Sidebar.tsx` l.140)
+- Menu: Mi Aprendizaje › «Mis Cursos» → `/mi-aprendizaje?tab=cursos` — everyone signed in; the group: everyone signed in (`Sidebar.tsx` l.147)
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
   - l.278 `router.push → /login  (when !session?.user)`
   - l.292 `role = await getUserPrimaryRole(session.user.id)`
   - l.347 `router.push → /login`
   - l.377 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:31`, `components/layout/Sidebar.tsx:144`, `components/layout/Sidebar.tsx:150`, `components/notifications/ModernNotificationCenter.tsx:299`, `components/notifications/ModernNotificationCenter.tsx:309`, `lib/auth/forced-password-change.ts:152`, `lib/notificationEvents.ts:248`, `lib/notificationEvents.ts:262`, `lib/notificationEvents.ts:275`, `lib/notificationEvents.ts:293`, `lib/notifications/catalog.ts:283`, `lib/notifications/catalog.ts:284` and 12 more
+- Linked from: `components/DynamicFavicon.tsx:31`, `components/layout/Sidebar.tsx:143`, `components/layout/Sidebar.tsx:149`, `components/notifications/ModernNotificationCenter.tsx:309`, `components/notifications/ModernNotificationCenter.tsx:319`, `lib/auth/forced-password-change.ts:152`, `lib/notificationEvents.ts:248`, `lib/notificationEvents.ts:262`, `lib/notificationEvents.ts:275`, `lib/notificationEvents.ts:293`, `lib/notifications/catalog.ts:283`, `lib/notifications/catalog.ts:284` and 12 more
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/notification-dispatch.spec.ts`, `tests/e2e/notification-mail-mirror.spec.ts`, `tests/e2e/panel-pin.spec.ts`.
 - QA scenarios that name this address: admin 4, community_manager 2, consultor 1, equipo_directivo 1, lider_comunidad 1, lider_generacion 1, supervisor_de_red 1.
 
@@ -339,11 +339,11 @@ File `pages/mi-aprendizaje/tareas.tsx` · 612 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Mi Aprendizaje › «Mis Tareas» → `/mi-aprendizaje/tareas` — everyone signed in; the group: everyone signed in (`Sidebar.tsx` l.155)
+- Menu: Mi Aprendizaje › «Mis Tareas» → `/mi-aprendizaje/tareas` — everyone signed in; the group: everyone signed in (`Sidebar.tsx` l.154)
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `components/layout/Sidebar.tsx:157`, `lib/notifications/catalog.ts:296`, `pages/api/assignments/collaborative-submit.ts:126`, `pages/community/workspace.tsx:268`, `pages/community/workspace/assignments/[id]/discussion.tsx:150`, `pages/community/workspace/assignments/[id]/discussion.tsx:279`, `pages/community/workspace/assignments/[id]/discussion.tsx:289`, `pages/community/workspace/assignments/[id]/groups.tsx:154`, `pages/community/workspace/assignments/[id]/groups.tsx:164`
-- Tests: no browser test that CI runs.
+- Linked from: `components/layout/Sidebar.tsx:156`, `lib/notifications/catalog.ts:296`, `pages/api/assignments/collaborative-submit.ts:126`, `pages/community/workspace.tsx:268`, `pages/community/workspace/assignments/[id]/discussion.tsx:150`, `pages/community/workspace/assignments/[id]/discussion.tsx:279`, `pages/community/workspace/assignments/[id]/discussion.tsx:289`, `pages/community/workspace/assignments/[id]/groups.tsx:154`, `pages/community/workspace/assignments/[id]/groups.tsx:164`
+- Tests: browser tests that CI runs: `tests/e2e/look-frame.spec.ts`.
 - QA scenarios that name this address: admin 1.
 
 | Role | Sees it in the menu | Middleware |

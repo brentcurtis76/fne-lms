@@ -5,8 +5,8 @@
  "routesOnly": false,
  "frame": true,
  "readFrom": {
-  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
-  "date": "2026-11-17T05:46:26-03:00"
+  "commit": "675d11e3132fb053cb7f635b0a90a86faf570f4d",
+  "date": "2026-11-17T07:45:47-03:00"
  },
  "screens": [
   {
@@ -1478,22 +1478,102 @@
     }
    ]
   },
+  "components/layout/FooterNuevo.tsx": {
+   "usedBy": [
+    "(the frame)"
+   ],
+   "lines": 53,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 14,
+     "text": "FOOTER_NUEVO_LINKS",
+     "items": [
+      "Pasantías",
+      "Programas",
+      "Noticias y Eventos",
+      "Nosotros",
+      "Equipo",
+      "Contacto"
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 31,
+     "in": "FooterNuevo",
+     "text": "testid=footer-nuevo",
+     "type": "mark",
+     "tag": "footer"
+    },
+    {
+     "kind": "link",
+     "line": 34,
+     "in": "FooterNuevo",
+     "when": "each FOOTER_NUEVO_LINKS",
+     "text": "{link.label}",
+     "target": "{link.href}"
+    },
+    {
+     "kind": "button",
+     "line": 38,
+     "in": "FooterNuevo",
+     "text": "Política de Privacidad",
+     "action": "{() => setShowPrivacyPolicy(true)}"
+    },
+    {
+     "kind": "button",
+     "line": 41,
+     "in": "FooterNuevo",
+     "text": "Términos de Uso",
+     "action": "{() => setShowTermsOfUse(true)}"
+    },
+    {
+     "kind": "text",
+     "line": 44,
+     "in": "FooterNuevo",
+     "text": "ATE certificada por RPA Mineduc"
+    },
+    {
+     "kind": "text",
+     "line": 45,
+     "in": "FooterNuevo",
+     "text": "Santiago, Chile"
+    },
+    {
+     "kind": "popup",
+     "line": 48,
+     "in": "FooterNuevo",
+     "text": "PrivacyPolicyModal",
+     "how": "component",
+     "open": "{showPrivacyPolicy}"
+    },
+    {
+     "kind": "popup",
+     "line": 49,
+     "in": "FooterNuevo",
+     "text": "TermsOfUseModal",
+     "how": "component",
+     "open": "{showTermsOfUse}"
+    }
+   ],
+   "db": []
+  },
   "components/layout/MainLayout.tsx": {
    "usedBy": [
     "(every screen that uses the frame)"
    ],
-   "lines": 451,
+   "lines": 495,
    "rows": [
     {
      "kind": "access",
-     "line": 65,
+     "line": 69,
      "in": "MainLayout",
      "text": "highestRole = getHighestRole(auth.userRoles)",
      "via": "getHighestRole"
     },
     {
      "kind": "hook",
-     "line": 158,
+     "line": 162,
      "in": "MainLayout",
      "when": "!avatarUrl && user?.id",
      "text": "sessionStorage: fne-avatar-cache",
@@ -1501,34 +1581,34 @@
     },
     {
      "kind": "hook",
-     "line": 223,
+     "line": 227,
      "in": "MainLayout",
      "text": "localStorage: fne-sidebar-collapsed",
      "type": "storage"
     },
     {
      "kind": "hook",
-     "line": 240,
+     "line": 244,
      "in": "MainLayout",
      "text": "window.addEventListener('resize')",
      "type": "listener"
     },
     {
      "kind": "gate",
-     "line": 253,
+     "line": 257,
      "in": "MainLayout",
      "text": "isDesktop || !mobileSidebarOpen"
     },
     {
      "kind": "hook",
-     "line": 264,
+     "line": 268,
      "in": "MainLayout",
      "text": "window.addEventListener('keydown')",
      "type": "listener"
     },
     {
      "kind": "nav",
-     "line": 294,
+     "line": 298,
      "in": "MainLayout",
      "when": "!(onLogout)",
      "text": "/login",
@@ -1536,21 +1616,30 @@
     },
     {
      "kind": "value",
-     "line": 306,
+     "line": 317,
      "in": "MainLayout",
      "text": "{fullTitle}"
     },
     {
      "kind": "piece",
-     "line": 314,
+     "line": 325,
      "in": "MainLayout",
      "text": "",
      "tag": "Sidebar"
     },
     {
-     "kind": "button",
-     "line": 338,
+     "kind": "piece",
+     "line": 356,
      "in": "MainLayout",
+     "when": "isNuevo",
+     "text": "",
+     "tag": "TopBarNuevo"
+    },
+    {
+     "kind": "button",
+     "line": 369,
+     "in": "MainLayout",
+     "when": "!(isNuevo)",
      "screen": "lg:hidden",
      "text": "[icon Bars3Icon]",
      "action": "{handleMobileSidebarOpen}",
@@ -1561,63 +1650,71 @@
     },
     {
      "kind": "value",
-     "line": 354,
+     "line": 385,
      "in": "MainLayout",
-     "when": "user && schoolName",
+     "when": "!(isNuevo) && user && schoolName",
      "screen": "hidden md:block",
      "text": "{schoolName}"
     },
     {
      "kind": "link",
-     "line": 360,
+     "line": 391,
      "in": "MainLayout",
-     "when": "user",
+     "when": "!(isNuevo) && user",
      "text": "[icon Avatar]",
      "target": "/profile"
     },
     {
      "kind": "link",
-     "line": 361,
+     "line": 392,
      "in": "MainLayout",
-     "when": "user",
+     "when": "!(isNuevo) && user",
      "text": "[icon Avatar]",
      "target": ""
     },
     {
      "kind": "piece",
-     "line": 362,
+     "line": 393,
      "in": "MainLayout",
-     "when": "user",
+     "when": "!(isNuevo) && user",
      "text": "",
      "tag": "Avatar"
     },
     {
      "kind": "button",
-     "line": 372,
+     "line": 403,
      "in": "MainLayout",
-     "when": "user",
+     "when": "!(isNuevo) && user",
      "text": "Salir",
      "action": "{handleLogout}"
     },
     {
      "kind": "popup",
-     "line": 386,
+     "line": 418,
      "in": "MainLayout",
      "text": "SimulationEnvironmentBanner",
      "how": "component",
      "open": "{showQaSimulationBanner}"
     },
     {
-     "kind": "text",
-     "line": 396,
+     "kind": "heading",
+     "line": 429,
      "in": "MainLayout",
-     "when": "((pageTitle || breadcrumbs.length > 0)) && breadcrumbs.length > 0",
+     "when": "isNuevo && pageTitle",
+     "text": "{pageTitle}",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 440,
+     "in": "MainLayout",
+     "when": "!(isNuevo) && ((pageTitle || breadcrumbs.length > 0)) && breadcrumbs.length > 0",
      "text": "Breadcrumb",
      "attr": "aria-label"
     },
     {
      "kind": "link",
-     "line": 406,
+     "line": 450,
      "in": "MainLayout",
      "when": "((pageTitle || breadcrumbs.length > 0)) && breadcrumbs.length > 0 && each breadcrumbs && crumb.href",
      "text": "{crumb.label}",
@@ -1625,60 +1722,69 @@
     },
     {
      "kind": "value",
-     "line": 413,
+     "line": 457,
      "in": "MainLayout",
      "when": "((pageTitle || breadcrumbs.length > 0)) && breadcrumbs.length > 0 && each breadcrumbs && !(crumb.href)",
      "text": "{crumb.label}"
     },
     {
      "kind": "heading",
-     "line": 425,
+     "line": 469,
      "in": "MainLayout",
-     "when": "((pageTitle || breadcrumbs.length > 0)) && pageTitle",
+     "when": "!(isNuevo) && ((pageTitle || breadcrumbs.length > 0)) && pageTitle",
      "text": "{pageTitle}",
      "level": 1
     },
     {
      "kind": "value",
-     "line": 434,
+     "line": 478,
      "in": "MainLayout",
      "text": "{children}"
     },
     {
      "kind": "piece",
-     "line": 439,
+     "line": 483,
      "in": "MainLayout",
+     "when": "isNuevo",
+     "text": "",
+     "tag": "FooterNuevo"
+    },
+    {
+     "kind": "piece",
+     "line": 483,
+     "in": "MainLayout",
+     "when": "!(isNuevo)",
      "text": "",
      "tag": "Footer"
     },
     {
      "kind": "piece",
-     "line": 445,
+     "line": 489,
      "in": "MainLayout",
      "text": "",
      "tag": "FeedbackButtonWithPermissions"
     },
     {
      "kind": "string",
-     "line": 113,
+     "line": 117,
      "in": "MainLayout",
      "text": "Sin colegio"
     },
     {
      "kind": "string",
-     "line": 300,
+     "line": 311,
      "in": "MainLayout",
      "text": "{pageTitle} - Genera"
     },
     {
      "kind": "string",
-     "line": 301,
+     "line": 312,
      "in": "MainLayout",
      "text": "Genera - Hub de Transformación"
     },
     {
      "kind": "string",
-     "line": 307,
+     "line": 318,
      "in": "MainLayout",
      "text": "Hub de Transformación Educativa - Genera"
     },
@@ -1720,11 +1826,11 @@
    "usedBy": [
     "(the frame)"
    ],
-   "lines": 1598,
+   "lines": 1551,
    "rows": [
     {
      "kind": "list",
-     "line": 116,
+     "line": 115,
      "text": "NAVIGATION_ITEMS",
      "items": [
       "Mi Panel",
@@ -1810,28 +1916,14 @@
      ]
     },
     {
-     "kind": "hook",
-     "line": 818,
-     "when": "showCollapsedMenu",
-     "text": "document.addEventListener('mousedown')",
-     "type": "listener"
-    },
-    {
-     "kind": "nav",
-     "line": 865,
-     "when": "!(isCollapsed && hasChildren) && !(hasChildren) && item.href",
-     "text": "{item.href}",
-     "via": "router.push"
-    },
-    {
      "kind": "gesture",
-     "line": 878,
-     "text": "onMouseEnter={() => { if (isCollapsed) { hoverTimeoutRef.current = setTimeout(() => { setIsHo…} · onMouseLeave={() => { if (hoverTimeoutRef.current) { clearTimeout(hoverTimeoutRef.current); }…}",
+     "line": 806,
+     "text": "onMouseEnter={handleMouseEnter} · onMouseLeave={handleMouseLeave}",
      "tag": "div"
     },
     {
      "kind": "button",
-     "line": 898,
+     "line": 811,
      "text": "[{item.label} [{newFeedbackCount}] [{item.description}]] [{filteredChildren.length}]",
      "action": "{handleClick}",
      "title": "{isCollapsed ? item.label : undefined}",
@@ -1841,20 +1933,20 @@
     },
     {
      "kind": "heading",
-     "line": 976,
+     "line": 889,
      "when": "isCollapsed && hasChildren && showCollapsedMenu",
      "text": "{item.label}",
      "level": 3
     },
     {
      "kind": "value",
-     "line": 978,
+     "line": 891,
      "when": "isCollapsed && hasChildren && showCollapsedMenu && item.description",
      "text": "{item.description}"
     },
     {
      "kind": "link",
-     "line": 983,
+     "line": 896,
      "when": "isCollapsed && hasChildren && showCollapsedMenu && each filteredChildren",
      "text": "{child.label} [{newFeedbackCount}] [{child.description}]",
      "target": "{child.href}",
@@ -1862,55 +1954,62 @@
     },
     {
      "kind": "link",
-     "line": 1029,
+     "line": 942,
      "when": "!isCollapsed && hasChildren && isExpanded && each filteredChildren",
      "text": "{child.label} [{newFeedbackCount}] [{child.description}]",
      "target": "{child.href}"
     },
     {
      "kind": "hook",
-     "line": 1254,
+     "line": 1167,
      "in": "readCache",
      "text": "sessionStorage: {cacheKey}",
      "type": "storage"
     },
     {
      "kind": "hook",
-     "line": 1322,
+     "line": 1235,
      "text": "window.addEventListener('focus')",
      "type": "listener"
     },
     {
      "kind": "hook",
-     "line": 1337,
+     "line": 1250,
      "when": "isAdmin",
      "text": "setInterval(…, 30000)",
      "type": "timer"
     },
     {
      "kind": "access",
-     "line": 1468,
+     "line": 1381,
      "when": "item.permission && !isAdmin && !consultorBypassesPermission && Array.isArray(item.permission) && item.requireAllPermissions",
      "text": "if (!hasAllPermissions(item.permission)) return false;",
      "via": "hasAllPermissions"
     },
     {
      "kind": "access",
-     "line": 1470,
+     "line": 1383,
      "when": "item.permission && !isAdmin && !consultorBypassesPermission && Array.isArray(item.permission) && !(item.requireAllPermissions)",
      "text": "if (!hasAnyPermission(item.permission)) return false;",
      "via": "hasAnyPermission"
     },
     {
      "kind": "access",
-     "line": 1473,
+     "line": 1386,
      "when": "item.permission && !isAdmin && !consultorBypassesPermission && !(Array.isArray(item.permission))",
      "text": "if (!hasPermission(item.permission)) return false;",
      "via": "hasPermission"
     },
     {
+     "kind": "piece",
+     "line": 1399,
+     "when": "look === 'nuevo'",
+     "text": "",
+     "tag": "SidebarNuevo"
+    },
+    {
      "kind": "clickable",
-     "line": 1485,
+     "line": 1438,
      "when": "!isDesktop && isMobileOpen",
      "screen": "lg:hidden",
      "text": "",
@@ -1922,52 +2021,52 @@
     },
     {
      "kind": "hook",
-     "line": 1493,
+     "line": 1446,
      "text": "testid=global-sidebar",
      "type": "mark",
      "tag": "div"
     },
     {
      "kind": "media",
-     "line": 1509,
+     "line": 1462,
      "when": "!isCollapsed",
      "text": "img · alt Genera · /genera/icon-transparent.svg"
     },
     {
      "kind": "heading",
-     "line": 1515,
+     "line": 1468,
      "when": "!isCollapsed",
      "text": "GENERA",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 1519,
+     "line": 1472,
      "when": "!isCollapsed",
      "text": "Hub de Transformación"
     },
     {
      "kind": "text",
-     "line": 1522,
+     "line": 1475,
      "when": "!isCollapsed",
      "text": "by FNE"
     },
     {
      "kind": "media",
-     "line": 1528,
+     "line": 1481,
      "when": "!(!isCollapsed)",
      "text": "img · alt Genera · /genera/icon-transparent.svg"
     },
     {
      "kind": "piece",
-     "line": 1538,
+     "line": 1491,
      "when": "!isCollapsed && user",
      "text": "",
      "tag": "ModernNotificationCenter"
     },
     {
      "kind": "button",
-     "line": 1541,
+     "line": 1494,
      "text": "[icon Bars3Icon]",
      "action": "{isDesktop ? onDesktopToggle : onMobileClose}",
      "aria": "{isDesktop ? (isCollapsed ? 'Expandir sidebar' : 'Contraer sidebar') : 'Cerrar m…}",
@@ -1975,415 +2074,415 @@
     },
     {
      "kind": "string",
-     "line": 438,
+     "line": 437,
      "in": "NAVIGATION_ITEMS",
      "text": "Panel de pasantías"
     },
     {
      "kind": "string",
-     "line": 441,
+     "line": 440,
      "in": "NAVIGATION_ITEMS",
      "text": "Seguimiento, documentos y cartas de la cohorte"
     },
     {
      "kind": "string",
-     "line": 446,
+     "line": 445,
      "in": "NAVIGATION_ITEMS",
      "text": "Escuelas"
     },
     {
      "kind": "string",
-     "line": 449,
+     "line": 448,
      "in": "NAVIGATION_ITEMS",
      "text": "Gestión de escuelas y generaciones"
     },
     {
      "kind": "string",
-     "line": 454,
+     "line": 453,
      "in": "NAVIGATION_ITEMS",
      "text": "Redes de Colegios"
     },
     {
      "kind": "string",
-     "line": 457,
+     "line": 456,
      "in": "NAVIGATION_ITEMS",
      "text": "Gestión de redes y supervisores"
     },
     {
      "kind": "string",
-     "line": 462,
+     "line": 461,
      "in": "NAVIGATION_ITEMS",
      "text": "Matriz de Asignaciones"
     },
     {
      "kind": "string",
-     "line": 465,
+     "line": 464,
      "in": "NAVIGATION_ITEMS",
      "text": "Asignaciones por usuario"
     },
     {
      "kind": "string",
-     "line": 472,
+     "line": 471,
      "in": "NAVIGATION_ITEMS",
      "text": "Consultorías"
     },
     {
      "kind": "string",
-     "line": 474,
+     "line": 473,
      "in": "NAVIGATION_ITEMS",
      "text": "Gestión de consultorías"
     },
     {
      "kind": "string",
-     "line": 479,
+     "line": 478,
      "in": "NAVIGATION_ITEMS",
      "text": "Asignación de Consultores"
     },
     {
      "kind": "string",
-     "line": 481,
+     "line": 480,
      "in": "NAVIGATION_ITEMS",
      "text": "Gestionar asignaciones"
     },
     {
      "kind": "string",
-     "line": 487,
+     "line": 486,
      "in": "NAVIGATION_ITEMS",
      "text": "Vista de Tareas"
     },
     {
      "kind": "string",
-     "line": 489,
+     "line": 488,
      "in": "NAVIGATION_ITEMS",
      "text": "Monitoreo de tareas grupales"
     },
     {
      "kind": "string",
-     "line": 496,
+     "line": 495,
      "in": "NAVIGATION_ITEMS",
      "text": "Gestión de sesiones de consultoría"
     },
     {
      "kind": "string",
-     "line": 502,
+     "line": 501,
      "in": "NAVIGATION_ITEMS",
      "text": "Aprobaciones"
     },
     {
      "kind": "string",
-     "line": 504,
+     "line": 503,
      "in": "NAVIGATION_ITEMS",
      "text": "Solicitudes de cambio pendientes"
     },
     {
      "kind": "string",
-     "line": 512,
+     "line": 511,
      "in": "NAVIGATION_ITEMS",
      "text": "Estadísticas de sesiones de consultoría"
     },
     {
      "kind": "string",
-     "line": 518,
+     "line": 517,
      "in": "NAVIGATION_ITEMS",
      "text": "Tarifas"
     },
     {
      "kind": "string",
-     "line": 520,
+     "line": 519,
      "in": "NAVIGATION_ITEMS",
      "text": "Gestionar tarifas de consultores"
     },
     {
      "kind": "string",
-     "line": 526,
+     "line": 525,
      "in": "NAVIGATION_ITEMS",
      "text": "Ganancias"
     },
     {
      "kind": "string",
-     "line": 528,
+     "line": 527,
      "in": "NAVIGATION_ITEMS",
      "text": "Ver ganancias de consultores"
     },
     {
      "kind": "string",
-     "line": 534,
+     "line": 533,
      "in": "NAVIGATION_ITEMS",
      "text": "Clasificar Sesiones"
     },
     {
      "kind": "string",
-     "line": 536,
+     "line": 535,
      "in": "NAVIGATION_ITEMS",
      "text": "Asignar tipo de hora a sesiones históricas sin clasificar"
     },
     {
      "kind": "string",
-     "line": 546,
+     "line": 545,
      "in": "NAVIGATION_ITEMS",
      "text": "Gestión empresarial"
     },
     {
      "kind": "string",
-     "line": 551,
+     "line": 550,
      "in": "NAVIGATION_ITEMS",
      "text": "Clientes"
     },
     {
      "kind": "string",
-     "line": 553,
+     "line": 552,
      "in": "NAVIGATION_ITEMS",
      "text": "Gestión de clientes"
     },
     {
      "kind": "string",
-     "line": 559,
+     "line": 558,
      "in": "NAVIGATION_ITEMS",
      "text": "Contratos"
     },
     {
      "kind": "string",
-     "line": 561,
+     "line": 560,
      "in": "NAVIGATION_ITEMS",
      "text": "Gestión de contratos"
     },
     {
      "kind": "string",
-     "line": 567,
+     "line": 566,
      "in": "NAVIGATION_ITEMS",
      "text": "Propuestas Pasantías"
     },
     {
      "kind": "string",
-     "line": 569,
+     "line": 568,
      "in": "NAVIGATION_ITEMS",
      "text": "Cotizaciones Barcelona"
     },
     {
      "kind": "string",
-     "line": 579,
+     "line": 578,
      "in": "NAVIGATION_ITEMS",
      "text": "Rendición de Gastos"
     },
     {
      "kind": "string",
-     "line": 581,
+     "line": 580,
      "in": "NAVIGATION_ITEMS",
      "text": "Reportes de gastos"
     },
     {
      "kind": "string",
-     "line": 591,
+     "line": 590,
      "in": "NAVIGATION_ITEMS",
      "text": "Soporte Técnico"
     },
     {
      "kind": "string",
-     "line": 593,
+     "line": 592,
      "in": "NAVIGATION_ITEMS",
      "text": "Gestión de errores y solicitudes"
     },
     {
      "kind": "string",
-     "line": 599,
+     "line": 598,
      "in": "NAVIGATION_ITEMS",
      "text": "Procesos"
     },
     {
      "kind": "string",
-     "line": 601,
+     "line": 600,
      "in": "NAVIGATION_ITEMS",
      "text": "Listado de licitaciones"
     },
     {
      "kind": "string",
-     "line": 607,
+     "line": 606,
      "in": "NAVIGATION_ITEMS",
      "text": "Plantillas de Bases"
     },
     {
      "kind": "string",
-     "line": 609,
+     "line": 608,
      "in": "NAVIGATION_ITEMS",
      "text": "Gestion de plantillas de Bases"
     },
     {
      "kind": "string",
-     "line": 615,
+     "line": 614,
      "in": "NAVIGATION_ITEMS",
      "text": "Feriados"
     },
     {
      "kind": "string",
-     "line": 617,
+     "line": 616,
      "in": "NAVIGATION_ITEMS",
      "text": "Gestion de feriados nacionales"
     },
     {
      "kind": "string",
-     "line": 627,
+     "line": 626,
      "in": "NAVIGATION_ITEMS",
      "text": "Análisis y reportes"
     },
     {
      "kind": "string",
-     "line": 645,
+     "line": 644,
      "in": "NAVIGATION_ITEMS",
      "text": "Avance y alertas de rutas"
     },
     {
      "kind": "string",
-     "line": 651,
+     "line": 650,
      "in": "NAVIGATION_ITEMS",
      "text": "Panel de Resultados"
     },
     {
      "kind": "string",
-     "line": 653,
+     "line": 652,
      "in": "NAVIGATION_ITEMS",
      "text": "Resultados de evaluaciones de la escuela"
     },
     {
      "kind": "string",
-     "line": 659,
+     "line": 658,
      "in": "NAVIGATION_ITEMS",
      "text": "Reporte de Horas"
     },
     {
      "kind": "string",
-     "line": 662,
+     "line": 661,
      "in": "NAVIGATION_ITEMS",
      "text": "Reporte de horas de la escuela"
     },
     {
      "kind": "string",
-     "line": 669,
+     "line": 668,
      "in": "NAVIGATION_ITEMS",
      "text": "QA Testing"
     },
     {
      "kind": "string",
-     "line": 671,
+     "line": 670,
      "in": "NAVIGATION_ITEMS",
      "text": "Pruebas de calidad"
     },
     {
      "kind": "string",
-     "line": 676,
+     "line": 675,
      "in": "NAVIGATION_ITEMS",
      "text": "Ejecutar Pruebas"
     },
     {
      "kind": "string",
-     "line": 678,
+     "line": 677,
      "in": "NAVIGATION_ITEMS",
      "text": "Ejecutar escenarios de prueba"
     },
     {
      "kind": "string",
-     "line": 683,
+     "line": 682,
      "in": "NAVIGATION_ITEMS",
      "text": "Panel de QA"
     },
     {
      "kind": "string",
-     "line": 685,
+     "line": 684,
      "in": "NAVIGATION_ITEMS",
      "text": "Dashboard y gestión"
     },
     {
      "kind": "string",
-     "line": 690,
+     "line": 689,
      "in": "NAVIGATION_ITEMS",
      "text": "Escenarios"
     },
     {
      "kind": "string",
-     "line": 692,
+     "line": 691,
      "in": "NAVIGATION_ITEMS",
      "text": "Gestionar escenarios"
     },
     {
      "kind": "string",
-     "line": 697,
+     "line": 696,
      "in": "NAVIGATION_ITEMS",
      "text": "Importar"
     },
     {
      "kind": "string",
-     "line": 699,
+     "line": 698,
      "in": "NAVIGATION_ITEMS",
      "text": "Importar escenarios"
     },
     {
      "kind": "string",
-     "line": 704,
+     "line": 703,
      "in": "NAVIGATION_ITEMS",
      "text": "Registro de Horas"
     },
     {
      "kind": "string",
-     "line": 706,
+     "line": 705,
      "in": "NAVIGATION_ITEMS",
      "text": "Tiempo activo para facturación"
     },
     {
      "kind": "string",
-     "line": 711,
+     "line": 710,
      "in": "NAVIGATION_ITEMS",
      "text": "Generador"
     },
     {
      "kind": "string",
-     "line": 713,
+     "line": 712,
      "in": "NAVIGATION_ITEMS",
      "text": "Generar escenarios con IA"
     },
     {
      "kind": "string",
-     "line": 720,
+     "line": 719,
      "in": "NAVIGATION_ITEMS",
      "text": "Sistema"
     },
     {
      "kind": "string",
-     "line": 722,
+     "line": 721,
      "in": "NAVIGATION_ITEMS",
      "text": "Configuración del sistema"
     },
     {
      "kind": "string",
-     "line": 734,
+     "line": 733,
      "in": "NAVIGATION_ITEMS",
      "text": "Roadmap MVP"
     },
     {
      "kind": "string",
-     "line": 737,
+     "line": 736,
      "in": "NAVIGATION_ITEMS",
      "text": "Progreso del desarrollo GENERA"
     },
     {
      "kind": "string",
-     "line": 742,
+     "line": 741,
      "in": "NAVIGATION_ITEMS",
      "text": "Roles y Permisos"
     },
     {
      "kind": "string",
-     "line": 745,
+     "line": 744,
      "in": "NAVIGATION_ITEMS",
      "text": "Gestión de roles y permisos"
     },
     {
      "kind": "string",
-     "line": 1544,
+     "line": 1497,
      "in": "Sidebar",
      "text": "Cerrar menú"
     },
     {
      "kind": "string",
-     "line": 1595,
+     "line": 1548,
      "text": "Sidebar"
     },
     {
@@ -2426,33 +2525,338 @@
     }
    ]
   },
+  "components/layout/SidebarNuevo.tsx": {
+   "usedBy": [
+    "(the frame)"
+   ],
+   "lines": 284,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 49,
+     "in": "Count",
+     "text": "{value}"
+    },
+    {
+     "kind": "gesture",
+     "line": 97,
+     "text": "onMouseEnter={handleMouseEnter} · onMouseLeave={handleMouseLeave}",
+     "tag": "div"
+    },
+    {
+     "kind": "button",
+     "line": 98,
+     "text": "[{item.label}]",
+     "action": "{handleClick}",
+     "aria": "{item.label}",
+     "title": "{title}",
+     "hook": {
+      "testid": "sidebar-item-{item.id}"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 123,
+     "when": "!isCollapsed && hasChildren",
+     "text": "aria-hidden: true",
+     "tag": "ChevronDownIcon"
+    },
+    {
+     "kind": "heading",
+     "line": 135,
+     "when": "isCollapsed && hasChildren && showCollapsedMenu",
+     "text": "{item.label}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 136,
+     "when": "isCollapsed && hasChildren && showCollapsedMenu && item.description",
+     "text": "{item.description}"
+    },
+    {
+     "kind": "link",
+     "line": 142,
+     "when": "isCollapsed && hasChildren && showCollapsedMenu && each filteredChildren",
+     "text": "{child.label} [{child.description}]",
+     "target": "{child.href}",
+     "action": "{() => setShowCollapsedMenu(false)}"
+    },
+    {
+     "kind": "link",
+     "line": 173,
+     "when": "!isCollapsed && hasChildren && isExpanded && each filteredChildren",
+     "text": "{child.label}",
+     "target": "{child.href}"
+    },
+    {
+     "kind": "list",
+     "line": 217,
+     "in": "SidebarNuevo",
+     "text": "toggleLabel",
+     "items": [
+      "Expandir sidebar / Contraer sidebar / Cerrar menú"
+     ]
+    },
+    {
+     "kind": "clickable",
+     "line": 224,
+     "in": "SidebarNuevo",
+     "when": "!isDesktop && isMobileOpen",
+     "screen": "lg:hidden",
+     "text": "",
+     "tag": "div",
+     "action": "{onMobileClose}",
+     "hook": {
+      "testid": "mobile-sidebar-overlay"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 232,
+     "in": "SidebarNuevo",
+     "text": "testid=global-sidebar",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "media",
+     "line": 245,
+     "in": "SidebarNuevo",
+     "when": "!isCollapsed",
+     "text": "img · alt Genera · /genera/icon-transparent.svg"
+    },
+    {
+     "kind": "text",
+     "line": 247,
+     "in": "SidebarNuevo",
+     "when": "!isCollapsed",
+     "text": "Genera"
+    },
+    {
+     "kind": "text",
+     "line": 250,
+     "in": "SidebarNuevo",
+     "when": "!isCollapsed",
+     "text": "Hub de Transformación"
+    },
+    {
+     "kind": "text",
+     "line": 251,
+     "in": "SidebarNuevo",
+     "when": "!isCollapsed",
+     "text": "by FNE"
+    },
+    {
+     "kind": "button",
+     "line": 256,
+     "in": "SidebarNuevo",
+     "text": "[icon ToggleIcon]",
+     "action": "{isDesktop ? onDesktopToggle : onMobileClose}",
+     "aria": "{toggleLabel}",
+     "title": "{toggleLabel}"
+    },
+    {
+     "kind": "piece",
+     "line": 263,
+     "in": "SidebarNuevo",
+     "text": "aria-hidden: true",
+     "tag": "ToggleIcon"
+    },
+    {
+     "kind": "text",
+     "line": 277,
+     "in": "SidebarNuevo",
+     "when": "!isCollapsed",
+     "text": "Fundación Nueva Educación"
+    }
+   ],
+   "db": []
+  },
+  "components/layout/TopBarNuevo.tsx": {
+   "usedBy": [
+    "(the frame)"
+   ],
+   "lines": 136,
+   "rows": [
+    {
+     "kind": "button",
+     "line": 50,
+     "in": "TopBarNuevo",
+     "screen": "lg:hidden",
+     "text": "[icon Bars3Icon]",
+     "action": "{onMobileSidebarOpen}",
+     "aria": "Abrir menú de navegación",
+     "hook": {
+      "testid": "mobile-sidebar-trigger"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 62,
+     "in": "TopBarNuevo",
+     "when": "breadcrumbs.length > 0",
+     "screen": "hidden lg:flex",
+     "text": "Breadcrumb",
+     "attr": "aria-label"
+    },
+    {
+     "kind": "piece",
+     "line": 68,
+     "in": "TopBarNuevo",
+     "when": "breadcrumbs.length > 0 && each breadcrumbs && index > 0",
+     "screen": "hidden lg:flex",
+     "text": "aria-hidden: true",
+     "tag": "ChevronRightIcon"
+    },
+    {
+     "kind": "link",
+     "line": 70,
+     "in": "TopBarNuevo",
+     "when": "breadcrumbs.length > 0 && each breadcrumbs && crumb.href",
+     "screen": "hidden lg:flex",
+     "text": "{crumb.label}",
+     "target": "{crumb.href}"
+    },
+    {
+     "kind": "value",
+     "line": 79,
+     "in": "TopBarNuevo",
+     "when": "breadcrumbs.length > 0 && each breadcrumbs && !(crumb.href)",
+     "screen": "hidden lg:flex",
+     "text": "{crumb.label}"
+    },
+    {
+     "kind": "hook",
+     "line": 92,
+     "in": "TopBarNuevo",
+     "when": "currentName",
+     "screen": "lg:hidden",
+     "text": "testid=topbar-current-page",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "value",
+     "line": 92,
+     "in": "TopBarNuevo",
+     "when": "currentName",
+     "screen": "lg:hidden",
+     "text": "{currentName}"
+    },
+    {
+     "kind": "value",
+     "line": 102,
+     "in": "TopBarNuevo",
+     "when": "user && schoolName",
+     "screen": "hidden lg:block",
+     "text": "{schoolName}"
+    },
+    {
+     "kind": "piece",
+     "line": 107,
+     "in": "TopBarNuevo",
+     "when": "user",
+     "text": "panelAlign: right",
+     "tag": "ModernNotificationCenter"
+    },
+    {
+     "kind": "link",
+     "line": 109,
+     "in": "TopBarNuevo",
+     "when": "user",
+     "text": "[icon Avatar]",
+     "target": "/profile"
+    },
+    {
+     "kind": "link",
+     "line": 110,
+     "in": "TopBarNuevo",
+     "when": "user",
+     "text": "[icon Avatar]",
+     "target": "",
+     "title": "Mi Perfil"
+    },
+    {
+     "kind": "piece",
+     "line": 111,
+     "in": "TopBarNuevo",
+     "when": "user",
+     "text": "",
+     "tag": "Avatar"
+    },
+    {
+     "kind": "button",
+     "line": 120,
+     "in": "TopBarNuevo",
+     "when": "user",
+     "text": "Salir",
+     "action": "{onLogout}",
+     "aria": "Salir"
+    },
+    {
+     "kind": "piece",
+     "line": 126,
+     "in": "TopBarNuevo",
+     "when": "user",
+     "text": "aria-hidden: true",
+     "tag": "LogOut"
+    }
+   ],
+   "db": []
+  },
+  "components/layout/useSidebarItem.ts": {
+   "usedBy": [
+    "(the frame)"
+   ],
+   "lines": 153,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 62,
+     "in": "useSidebarItem",
+     "when": "showCollapsedMenu",
+     "text": "document.addEventListener('mousedown')",
+     "type": "listener"
+    },
+    {
+     "kind": "nav",
+     "line": 109,
+     "in": "useSidebarItem",
+     "when": "!(isCollapsed && hasChildren) && !(hasChildren) && item.href",
+     "text": "{item.href}",
+     "via": "router.push"
+    }
+   ],
+   "db": []
+  },
   "components/notifications/ModernNotificationCenter.tsx": {
    "usedBy": [
     "(the frame)"
    ],
-   "lines": 610,
+   "lines": 620,
    "rows": [
     {
      "kind": "gate",
-     "line": 55,
+     "line": 65,
      "in": "ModernNotificationCenter",
      "text": "now - lastFetchRef.current < 1000"
     },
     {
      "kind": "gate",
-     "line": 60,
+     "line": 70,
      "in": "ModernNotificationCenter",
      "text": "isFetchingRef.current"
     },
     {
      "kind": "gate",
-     "line": 72,
+     "line": 82,
      "in": "ModernNotificationCenter",
      "text": "!session?.user"
     },
     {
      "kind": "message",
-     "line": 94,
+     "line": 104,
      "in": "ModernNotificationCenter",
      "when": "notifError",
      "text": "Failed to fetch notifications",
@@ -2460,21 +2864,21 @@
     },
     {
      "kind": "message",
-     "line": 123,
+     "line": 133,
      "in": "ModernNotificationCenter",
      "text": "Failed to load notifications",
      "via": "setError"
     },
     {
      "kind": "hook",
-     "line": 148,
+     "line": 158,
      "in": "ModernNotificationCenter",
      "text": "setInterval(…, REFRESH_INTERVAL)",
      "type": "timer"
     },
     {
      "kind": "nav",
-     "line": 290,
+     "line": 300,
      "in": "handleNotificationClick",
      "when": "url && !url.includes('{')",
      "text": "{url}",
@@ -2482,7 +2886,7 @@
     },
     {
      "kind": "nav",
-     "line": 323,
+     "line": 333,
      "in": "handleNotificationClick",
      "when": "!(url && !url.includes('{'))",
      "text": "{fallbackUrl}",
@@ -2490,7 +2894,7 @@
     },
     {
      "kind": "message",
-     "line": 344,
+     "line": 354,
      "in": "handleMarkAllAsRead",
      "when": "!session?.user",
      "text": "No session",
@@ -2498,7 +2902,7 @@
     },
     {
      "kind": "hook",
-     "line": 382,
+     "line": 392,
      "in": "ModernNotificationCenter",
      "when": "isOpen",
      "text": "document.addEventListener('mousedown')",
@@ -2506,7 +2910,7 @@
     },
     {
      "kind": "button",
-     "line": 393,
+     "line": 403,
      "in": "ModernNotificationCenter",
      "text": "[99+ / {unreadCount}]",
      "action": "{() => setIsOpen(!isOpen)}",
@@ -2514,7 +2918,7 @@
     },
     {
      "kind": "heading",
-     "line": 438,
+     "line": 448,
      "in": "ModernNotificationCenter",
      "when": "isOpen",
      "text": "Notificaciones",
@@ -2522,14 +2926,14 @@
     },
     {
      "kind": "text",
-     "line": 439,
+     "line": 449,
      "in": "ModernNotificationCenter",
      "when": "isOpen",
      "text": "{unreadCount} notificación{unreadCount !== 1 ? 'es' : …} sin leer / Todas las notificaciones leídas"
     },
     {
      "kind": "button",
-     "line": 450,
+     "line": 460,
      "in": "ModernNotificationCenter",
      "when": "isOpen && unreadCount > 0",
      "text": "Marcar todas",
@@ -2538,7 +2942,7 @@
     },
     {
      "kind": "link",
-     "line": 465,
+     "line": 475,
      "in": "ModernNotificationCenter",
      "when": "isOpen",
      "text": "[icon CogIcon]",
@@ -2551,7 +2955,7 @@
     },
     {
      "kind": "piece",
-     "line": 473,
+     "line": 483,
      "in": "ModernNotificationCenter",
      "when": "isOpen",
      "text": "aria-hidden: true",
@@ -2559,7 +2963,7 @@
     },
     {
      "kind": "heading",
-     "line": 487,
+     "line": 497,
      "in": "ModernNotificationCenter",
      "when": "isOpen && error && !loading",
      "text": "Error al cargar",
@@ -2567,14 +2971,14 @@
     },
     {
      "kind": "value",
-     "line": 488,
+     "line": 498,
      "in": "ModernNotificationCenter",
      "when": "isOpen && error && !loading",
      "text": "{error}"
     },
     {
      "kind": "button",
-     "line": 489,
+     "line": 499,
      "in": "ModernNotificationCenter",
      "when": "isOpen && error && !loading",
      "text": "Reintentar",
@@ -2582,14 +2986,14 @@
     },
     {
      "kind": "text",
-     "line": 503,
+     "line": 513,
      "in": "ModernNotificationCenter",
      "when": "isOpen && loading",
      "text": "Cargando notificaciones..."
     },
     {
      "kind": "heading",
-     "line": 512,
+     "line": 522,
      "in": "ModernNotificationCenter",
      "when": "isOpen && !(loading) && notifications.length === 0",
      "text": "Sin notificaciones",
@@ -2597,14 +3001,14 @@
     },
     {
      "kind": "text",
-     "line": 513,
+     "line": 523,
      "in": "ModernNotificationCenter",
      "when": "isOpen && !(loading) && notifications.length === 0",
      "text": "Te notificaremos cuando tengas algo nuevo"
     },
     {
      "kind": "clickable",
-     "line": 523,
+     "line": 533,
      "in": "ModernNotificationCenter",
      "when": "isOpen && !(loading) && !(notifications.length === 0) && each notifications",
      "text": "{notification.title.substrin…}... / {notification.title} [{notification.description.su…}... / {notification.description…",
@@ -2613,7 +3017,7 @@
     },
     {
      "kind": "heading",
-     "line": 547,
+     "line": 557,
      "in": "ModernNotificationCenter",
      "when": "isOpen && !(loading) && !(notifications.length === 0) && each notifications",
      "text": "{notification.title.substrin…}... / {notification.title}",
@@ -2621,21 +3025,21 @@
     },
     {
      "kind": "value",
-     "line": 558,
+     "line": 568,
      "in": "ModernNotificationCenter",
      "when": "!(loading) && !(notifications.length === 0) && each notifications && notification.description",
      "text": "{notification.description.su…}... / {notification.description}"
     },
     {
      "kind": "value",
-     "line": 571,
+     "line": 581,
      "in": "ModernNotificationCenter",
      "when": "isOpen && !(loading) && !(notifications.length === 0) && each notifications",
      "text": "{getRelativeTime(notification.create…}"
     },
     {
      "kind": "button",
-     "line": 591,
+     "line": 601,
      "in": "ModernNotificationCenter",
      "when": "isOpen && notifications.length > 0",
      "text": "Ver todas las notificaciones",
@@ -2643,7 +3047,7 @@
     },
     {
      "kind": "nav",
-     "line": 594,
+     "line": 604,
      "in": "ModernNotificationCenter",
      "when": "isOpen && notifications.length > 0",
      "text": "/notifications",

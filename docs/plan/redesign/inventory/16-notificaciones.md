@@ -1,7 +1,7 @@
 # Notificaciones
 
 Area `16-notificaciones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3ff6aa13f` (2026-11-17).
+Read from commit `675d11e31` (2026-11-17).
 
 5 screen files, 10 API files, 8 pieces.
 
@@ -26,7 +26,7 @@ File `pages/configuracion/apariencia.tsx` · 191 lines · frame: MainLayout · g
 - In the page:
   - l.41 `server redirect → /login?next=[*]  (when !viewer)`
 - Linked from: `pages/configuracion/notificaciones.tsx:442`
-- Tests: browser tests that CI runs: `tests/e2e/look-switch.spec.ts`; unit tests of the page: `__tests__/pages/apariencia.test.tsx`.
+- Tests: browser tests that CI runs: `tests/e2e/look-frame.spec.ts`, `tests/e2e/look-switch.spec.ts`; unit tests of the page: `__tests__/pages/apariencia.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
 |---|---|---|
@@ -180,7 +180,7 @@ File `pages/configuracion/notificaciones.tsx` · 451 lines · frame: MainLayout 
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
   - l.121 `server redirect → /login?next=[*]  (when !viewer)`
-- Linked from: `components/notifications/ModernNotificationCenter.tsx:465`, `components/notifications/ModernNotificationCenter.tsx:466`, `components/notifications/NotificationDropdown.tsx:187`, `components/notifications/NotificationDropdown.tsx:188`, `lib/email/notifications.ts:30`, `pages/admin/configuration.tsx:396`, `pages/admin/configuration.tsx:397`, `pages/configuracion/apariencia.tsx:24`, `pages/configuracion/index.tsx:8`, `pages/notifications.tsx:381`, `pages/profile.tsx:743`, `pages/profile.tsx:744`
+- Linked from: `components/notifications/ModernNotificationCenter.tsx:475`, `components/notifications/ModernNotificationCenter.tsx:476`, `components/notifications/NotificationDropdown.tsx:187`, `components/notifications/NotificationDropdown.tsx:188`, `lib/email/notifications.ts:30`, `pages/admin/configuration.tsx:396`, `pages/admin/configuration.tsx:397`, `pages/configuracion/apariencia.tsx:24`, `pages/configuracion/index.tsx:8`, `pages/notifications.tsx:381`, `pages/profile.tsx:743`, `pages/profile.tsx:744`
 - Tests: browser tests that CI runs: `tests/e2e/look-switch.spec.ts`, `tests/e2e/notification-settings.spec.ts`; unit tests of the page: `__tests__/pages/notification-settings.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -428,7 +428,7 @@ File `pages/notifications.tsx` · 653 lines · frame: MainLayout
   - l.112 `userRole = await getUserPrimaryRole(session.user.id)`
   - l.129 `router.push → /login  (when !(session) && session === null)`
   - l.257 `router.push → /dashboard  (when notification.related_url)`
-- Linked from: `components/DynamicFavicon.tsx:28`, `components/notifications/ModernNotificationCenter.tsx:594`, `components/notifications/NotificationDropdown.tsx:174`, `lib/auth/forced-password-change.ts:155`, `lib/email/notifications.ts:27`, `middleware.ts:350`
+- Linked from: `components/DynamicFavicon.tsx:28`, `components/notifications/ModernNotificationCenter.tsx:604`, `components/notifications/NotificationDropdown.tsx:174`, `lib/auth/forced-password-change.ts:155`, `lib/email/notifications.ts:27`, `middleware.ts:350`
 - Tests: browser tests that CI runs: `tests/e2e/notification-settings.spec.ts`; browser tests CI skips: `tests/e2e/messaging-notifications.spec.ts`; unit tests of the page: `__tests__/notifications/entry-points.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |

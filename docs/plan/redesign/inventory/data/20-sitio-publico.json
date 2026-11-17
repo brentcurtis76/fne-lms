@@ -4,8 +4,8 @@
  "note": "Redesigned separately and live since 12 Nov 2026. Listed so that every file under pages/ has a place.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
-  "date": "2026-11-17T05:46:26-03:00"
+  "commit": "675d11e3132fb053cb7f635b0a90a86faf570f4d",
+  "date": "2026-11-17T07:45:47-03:00"
  },
  "screens": [
   {
@@ -64,6 +64,7 @@
     "linkedFrom": [
      "components/DynamicFavicon.tsx:38",
      "components/Footer.tsx:95",
+     "components/layout/FooterNuevo.tsx:19",
      "components/site/SiteLayout.tsx:176",
      "lib/auth/forced-password-change.ts:148",
      "lib/look.ts:105",
@@ -1173,6 +1174,7 @@
     "inPage": [],
     "linkedFrom": [
      "components/Footer.tsx:94",
+     "components/layout/FooterNuevo.tsx:18",
      "components/site/SiteLayout.tsx:175",
      "components/site/SiteLayout.tsx:26",
      "lib/look.ts:104",
@@ -1439,6 +1441,7 @@
     "inPage": [],
     "linkedFrom": [
      "components/Footer.tsx:93",
+     "components/layout/FooterNuevo.tsx:17",
      "components/site/Novedades.tsx:35",
      "components/site/SiteLayout.tsx:174",
      "components/site/SiteLayout.tsx:25",
@@ -2142,6 +2145,7 @@
     "inPage": [],
     "linkedFrom": [
      "components/Footer.tsx:91",
+     "components/layout/FooterNuevo.tsx:15",
      "components/site/SiteLayout.tsx:172",
      "components/site/SiteLayout.tsx:23",
      "lib/look.ts:109",
@@ -3591,6 +3595,7 @@
     "inPage": [],
     "linkedFrom": [
      "components/Footer.tsx:92",
+     "components/layout/FooterNuevo.tsx:16",
      "components/site/Puertas.tsx:30",
      "components/site/Puertas.tsx:33",
      "components/site/SiteLayout.tsx:173",

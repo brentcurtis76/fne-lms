@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
-  "date": "2026-11-17T05:46:26-03:00"
+  "commit": "675d11e3132fb053cb7f635b0a90a86faf570f4d",
+  "date": "2026-11-17T07:45:47-03:00"
  },
  "screens": [
   {
@@ -571,7 +571,7 @@
      "components/auth/AuthWrapper.tsx:19",
      "components/auth/ProtectedRoute.tsx:31",
      "components/layout/Header.tsx:96",
-     "components/layout/MainLayout.tsx:294",
+     "components/layout/MainLayout.tsx:298",
      "components/qa/QAFloatingWidget.tsx:137",
      "components/qa/QAFloatingWidget.tsx:832",
      "components/sessions/JoinMeetingButton.tsx:377",
@@ -840,6 +840,7 @@
       "tests/e2e/auth-cookie-identity.spec.ts",
       "tests/e2e/auth-lifecycle.spec.ts",
       "tests/e2e/login-resilience.spec.ts",
+      "tests/e2e/look-frame.spec.ts",
       "tests/e2e/look-switch.spec.ts",
       "tests/e2e/notification-preferences-api.spec.ts",
       "tests/e2e/notification-settings.spec.ts",

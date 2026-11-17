@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
-  "date": "2026-11-17T05:46:26-03:00"
+  "commit": "675d11e3132fb053cb7f635b0a90a86faf570f4d",
+  "date": "2026-11-17T07:45:47-03:00"
  },
  "screens": [
   {
@@ -24,7 +24,7 @@
       "href": "/admin/bulk-tag-sessions",
       "gates": "admin only",
       "groupGates": "admin or consultor",
-      "line": 533
+      "line": 532
      }
     ],
     "middleware": {
@@ -93,7 +93,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:535"
+     "components/layout/Sidebar.tsx:534"
     ],
     "qaScenarios": {
      "admin": [
@@ -550,7 +550,7 @@
       "href": "/admin/consultant-assignments",
       "gates": "admin only; permission: assign_consultants_all",
       "groupGates": "admin or consultor",
-      "line": 478
+      "line": 477
      }
     ],
     "middleware": {
@@ -619,7 +619,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:480",
+     "components/layout/Sidebar.tsx:479",
      "middleware.ts:223"
     ],
     "qaScenarios": {
@@ -2534,7 +2534,7 @@
       "href": "/admin/sessions/approvals",
       "gates": "admin only",
       "groupGates": "admin or consultor",
-      "line": 501
+      "line": 500
      }
     ],
     "middleware": {
@@ -2603,7 +2603,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:503",
+     "components/layout/Sidebar.tsx:502",
      "lib/notificationEvents.ts:552",
      "lib/notifications/catalog.ts:354"
     ],
@@ -4305,7 +4305,7 @@
       "href": "/admin/sessions",
       "gates": "admin only",
       "groupGates": "admin or consultor",
-      "line": 493
+      "line": 492
      }
     ],
     "middleware": {
@@ -4374,7 +4374,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:495",
+     "components/layout/Sidebar.tsx:494",
      "pages/admin/sessions/create.tsx:601",
      "pages/admin/sessions/create.tsx:698"
     ],
@@ -7057,7 +7057,7 @@
       "href": "/consultor/sessions",
       "gates": "admin or consultor",
       "groupGates": "admin or consultor",
-      "line": 179
+      "line": 178
      }
     ],
     "middleware": {
@@ -7127,7 +7127,7 @@
     ],
     "linkedFrom": [
      "components/dashboard/unified/UpcomingSessionsCard.tsx:81",
-     "components/layout/Sidebar.tsx:181",
+     "components/layout/Sidebar.tsx:180",
      "lib/notificationEvents.ts:480",
      "lib/notificationEvents.ts:517",
      "lib/notificationEvents.ts:535",
@@ -7665,7 +7665,7 @@
       "href": "/consultor/sessions/reports",
       "gates": "admin or consultor",
       "groupGates": "admin or consultor",
-      "line": 187
+      "line": 186
      },
      {
       "id": "session-reports",
@@ -7674,7 +7674,7 @@
       "href": "/consultor/sessions/reports",
       "gates": "admin only",
       "groupGates": "admin or consultor",
-      "line": 509
+      "line": 508
      }
     ],
     "middleware": {
@@ -7743,8 +7743,8 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:189",
-     "components/layout/Sidebar.tsx:511",
+     "components/layout/Sidebar.tsx:188",
+     "components/layout/Sidebar.tsx:510",
      "lib/notifications/catalog.ts:182"
     ],
     "qaScenarios": {

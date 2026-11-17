@@ -4,8 +4,8 @@
  "note": "Course system: the Course Review session owns this area's structure and its own checklist (docs/planning/courses/inventory.md, not yet on main). This file is the redesign's list of what is on screen today.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
-  "date": "2026-11-17T05:46:26-03:00"
+  "commit": "675d11e3132fb053cb7f635b0a90a86faf570f4d",
+  "date": "2026-11-17T07:45:47-03:00"
  },
  "screens": [
   {
@@ -110,7 +110,7 @@
       "group": null,
       "href": "/mi-aprendizaje",
       "gates": "everyone signed in",
-      "line": 141
+      "line": 140
      },
      {
       "id": "my-courses",
@@ -119,7 +119,7 @@
       "href": "/mi-aprendizaje?tab=cursos",
       "gates": "everyone signed in",
       "groupGates": "everyone signed in",
-      "line": 148
+      "line": 147
      }
     ],
     "middleware": {
@@ -185,10 +185,10 @@
     ],
     "linkedFrom": [
      "components/DynamicFavicon.tsx:31",
-     "components/layout/Sidebar.tsx:144",
-     "components/layout/Sidebar.tsx:150",
-     "components/notifications/ModernNotificationCenter.tsx:299",
+     "components/layout/Sidebar.tsx:143",
+     "components/layout/Sidebar.tsx:149",
      "components/notifications/ModernNotificationCenter.tsx:309",
+     "components/notifications/ModernNotificationCenter.tsx:319",
      "lib/auth/forced-password-change.ts:152",
      "lib/notificationEvents.ts:248",
      "lib/notificationEvents.ts:262",
@@ -1022,7 +1022,7 @@
       "href": "/mi-aprendizaje/tareas",
       "gates": "everyone signed in",
       "groupGates": "everyone signed in",
-      "line": 155
+      "line": 154
      }
     ],
     "middleware": {
@@ -1070,7 +1070,7 @@
     },
     "inPage": [],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:157",
+     "components/layout/Sidebar.tsx:156",
      "lib/notifications/catalog.ts:296",
      "pages/api/assignments/collaborative-submit.ts:126",
      "pages/community/workspace.tsx:268",
@@ -1086,7 +1086,9 @@
      ]
     },
     "tests": {
-     "e2eCi": [],
+     "e2eCi": [
+      "tests/e2e/look-frame.spec.ts"
+     ],
      "e2e": [],
      "unit": []
     }

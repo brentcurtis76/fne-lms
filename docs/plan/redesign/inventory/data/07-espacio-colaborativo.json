@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
-  "date": "2026-11-17T05:46:26-03:00"
+  "commit": "675d11e3132fb053cb7f635b0a90a86faf570f4d",
+  "date": "2026-11-17T07:45:47-03:00"
  },
  "screens": [
   {
@@ -1125,7 +1125,7 @@
       "group": null,
       "href": "/admin/growth-communities",
       "gates": "roles: admin, equipo_directivo",
-      "line": 382
+      "line": 381
      }
     ],
     "middleware": {
@@ -1194,7 +1194,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:385",
+     "components/layout/Sidebar.tsx:384",
      "middleware.ts:237",
      "pages/admin/growth-communities/[id]/members.tsx:509"
     ],
@@ -2144,7 +2144,7 @@
       "href": "/community/workspace?section=overview",
       "gates": "everyone signed in",
       "groupGates": "needs a community (admin and consultor pass)",
-      "line": 220
+      "line": 219
      },
      {
       "id": "workspace-sessions",
@@ -2153,7 +2153,7 @@
       "href": "/community/workspace?section=sessions",
       "gates": "everyone signed in",
       "groupGates": "needs a community (admin and consultor pass)",
-      "line": 226
+      "line": 225
      },
      {
       "id": "workspace-communities",
@@ -2162,7 +2162,7 @@
       "href": "/community/workspace?section=communities",
       "gates": "permission: manage_communities_all",
       "groupGates": "needs a community (admin and consultor pass)",
-      "line": 231
+      "line": 230
      }
     ],
     "middleware": {
@@ -2227,10 +2227,10 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:1373",
-     "components/layout/Sidebar.tsx:222",
-     "components/layout/Sidebar.tsx:228",
-     "components/layout/Sidebar.tsx:233",
+     "components/layout/Sidebar.tsx:1286",
+     "components/layout/Sidebar.tsx:221",
+     "components/layout/Sidebar.tsx:227",
+     "components/layout/Sidebar.tsx:232",
      "lib/auth/forced-password-change.ts:175",
      "lib/notifications/catalog.ts:170",
      "lib/notifications/catalog.ts:325",

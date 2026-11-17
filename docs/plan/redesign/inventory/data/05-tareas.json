@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
-  "date": "2026-11-17T05:46:26-03:00"
+  "commit": "675d11e3132fb053cb7f635b0a90a86faf570f4d",
+  "date": "2026-11-17T07:45:47-03:00"
  },
  "screens": [
   {
@@ -24,7 +24,7 @@
       "href": "/admin/assignment-overview",
       "gates": "everyone signed in",
       "groupGates": "admin or consultor",
-      "line": 486
+      "line": 485
      }
     ],
     "middleware": {
@@ -93,7 +93,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:488",
+     "components/layout/Sidebar.tsx:487",
      "lib/notifications/catalog.ts:304",
      "middleware.ts:223",
      "pages/admin/assignment-review/[id].tsx:348"
@@ -1105,8 +1105,8 @@
     ],
     "linkedFrom": [
      "components/DynamicFavicon.tsx:35",
-     "components/notifications/ModernNotificationCenter.tsx:301",
-     "components/notifications/ModernNotificationCenter.tsx:312",
+     "components/notifications/ModernNotificationCenter.tsx:311",
+     "components/notifications/ModernNotificationCenter.tsx:322",
      "components/notifications/NotificationDropdown.tsx:140",
      "components/notifications/NotificationDropdown.tsx:151",
      "lib/auth/forced-password-change.ts:133",
@@ -3074,7 +3074,7 @@
       "href": "/quiz-reviews",
       "gates": "admin or consultor",
       "groupGates": "admin or consultor",
-      "line": 203
+      "line": 202
      }
     ],
     "middleware": {
@@ -3148,7 +3148,7 @@
     ],
     "linkedFrom": [
      "components/DynamicFavicon.tsx:34",
-     "components/layout/Sidebar.tsx:205",
+     "components/layout/Sidebar.tsx:204",
      "lib/auth/forced-password-change.ts:158",
      "lib/notifications/catalog.ts:310",
      "middleware.ts:353",

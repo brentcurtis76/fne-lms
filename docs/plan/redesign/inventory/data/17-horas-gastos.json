@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
-  "date": "2026-11-17T05:46:26-03:00"
+  "commit": "675d11e3132fb053cb7f635b0a90a86faf570f4d",
+  "date": "2026-11-17T07:45:47-03:00"
  },
  "screens": [
   {
@@ -24,7 +24,7 @@
       "href": "/admin/consultant-earnings",
       "gates": "admin only",
       "groupGates": "admin or consultor",
-      "line": 525
+      "line": 524
      }
     ],
     "middleware": {
@@ -89,7 +89,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:527"
+     "components/layout/Sidebar.tsx:526"
     ],
     "qaScenarios": {
      "admin": [
@@ -273,7 +273,7 @@
       "href": "/admin/consultant-rates",
       "gates": "admin only",
       "groupGates": "admin or consultor",
-      "line": 517
+      "line": 516
      }
     ],
     "middleware": {
@@ -338,7 +338,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:519"
+     "components/layout/Sidebar.tsx:518"
     ],
     "qaScenarios": {
      "admin": [
@@ -520,7 +520,7 @@
       "href": "/expense-reports",
       "gates": "permission: view_expense_reports_all or view_expense_reports_school or view_expense_reports_own",
       "groupGates": "roles: admin, community_manager, encargado_licitacion",
-      "line": 578
+      "line": 577
      }
     ],
     "middleware": {
@@ -594,7 +594,7 @@
     ],
     "linkedFrom": [
      "components/DynamicFavicon.tsx:40",
-     "components/layout/Sidebar.tsx:580",
+     "components/layout/Sidebar.tsx:579",
      "lib/auth/forced-password-change.ts:149",
      "middleware.ts:344"
     ],
@@ -1296,7 +1296,7 @@
       "href": "/mis-horas",
       "gates": "admin or consultor",
       "groupGates": "admin or consultor",
-      "line": 195
+      "line": 194
      }
     ],
     "middleware": {
@@ -1361,7 +1361,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:197",
+     "components/layout/Sidebar.tsx:196",
      "lib/auth/forced-password-change.ts:153",
      "middleware.ts:348"
     ],

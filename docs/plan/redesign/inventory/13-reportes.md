@@ -1,7 +1,7 @@
 # Reportes
 
 Area `13-reportes`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3ff6aa13f` (2026-11-17).
+Read from commit `675d11e31` (2026-11-17).
 
 3 screen files, 10 API files, 21 pieces.
 
@@ -19,7 +19,7 @@ File `pages/detailed-reports.tsx` · 816 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Reportes › «Reportes» → `/detailed-reports` — roles: admin, consultor, equipo_directivo, lider_generacion, lider_comunidad, supervisor_de_red; the group: everyone signed in (`Sidebar.tsx` l.630)
+- Menu: Reportes › «Reportes» → `/detailed-reports` — roles: admin, consultor, equipo_directivo, lider_generacion, lider_comunidad, supervisor_de_red; the group: everyone signed in (`Sidebar.tsx` l.629)
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
   - l.148 `router.push → /login  (when !session?.user)`
@@ -29,7 +29,7 @@ File `pages/detailed-reports.tsx` · 816 lines · frame: MainLayout
   - l.178 `router.push → /dashboard  (when highestRole && !hasReportingAccess(effectiveRole))`
   - l.200 `router.push → /login`
   - l.262 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:37`, `components/layout/Sidebar.tsx:632`, `lib/auth/forced-password-change.ts:145`, `middleware.ts:340`, `pages/api/qa/seed-codebase-index.ts:299`
+- Linked from: `components/DynamicFavicon.tsx:37`, `components/layout/Sidebar.tsx:631`, `lib/auth/forced-password-change.ts:145`, `middleware.ts:340`, `pages/api/qa/seed-codebase-index.ts:299`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 5, community_manager 1, consultor 4, equipo_directivo 6, lider_comunidad 1, lider_generacion 4, supervisor_de_red 6.
 
@@ -232,7 +232,7 @@ File `pages/reporte-horas.tsx` · 196 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Reportes › «Reporte de Horas» → `/reporte-horas` — roles: admin, equipo_directivo; the group: everyone signed in (`Sidebar.tsx` l.658)
+- Menu: Reportes › «Reporte de Horas» → `/reporte-horas` — roles: admin, equipo_directivo; the group: everyone signed in (`Sidebar.tsx` l.657)
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
   - l.53 `router.push → /login  (when !session?.user)`
@@ -240,7 +240,7 @@ File `pages/reporte-horas.tsx` · 196 lines · frame: MainLayout
   - l.76 `router.push → /dashboard  (when !isAdminUser && userRole !== 'equipo_directivo')`
   - l.106 `router.push → /dashboard  (when !(isAdminUser) && !(roleData && roleData.length > 0))`
   - l.111 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:660`, `lib/auth/forced-password-change.ts:159`, `middleware.ts:354`
+- Linked from: `components/layout/Sidebar.tsx:659`, `lib/auth/forced-password-change.ts:159`, `middleware.ts:354`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 1, equipo_directivo 6.
 
@@ -329,7 +329,7 @@ File `pages/reports.tsx` · 900 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Reportes › «Rutas de Aprendizaje» → `/reports?tab=learning-paths` — roles: admin, consultor, equipo_directivo; the group: everyone signed in (`Sidebar.tsx` l.641)
+- Menu: Reportes › «Rutas de Aprendizaje» → `/reports?tab=learning-paths` — roles: admin, consultor, equipo_directivo; the group: everyone signed in (`Sidebar.tsx` l.640)
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
   - l.157 `router.push → /login  (when !session?.user)`
@@ -337,7 +337,7 @@ File `pages/reports.tsx` · 900 lines · frame: MainLayout
   - l.186 `router.push → /dashboard  (when profileData && !reportingRoles.includes(role))`
   - l.211 `router.push → /login`
   - l.221 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:36`, `components/layout/Sidebar.tsx:643`, `lib/auth/forced-password-change.ts:160`, `middleware.ts:355`, `pages/api/qa/seed-codebase-index.ts:335`
+- Linked from: `components/DynamicFavicon.tsx:36`, `components/layout/Sidebar.tsx:642`, `lib/auth/forced-password-change.ts:160`, `middleware.ts:355`, `pages/api/qa/seed-codebase-index.ts:335`
 - Tests: browser tests that CI runs: `tests/e2e/learning-path-governance.spec.ts`; browser tests CI skips: `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`, `tests/qa/auth-redirects.spec.ts`.
 - QA scenarios that name this address: admin 3, community_manager 1, equipo_directivo 1.
 

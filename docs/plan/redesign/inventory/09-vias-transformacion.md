@@ -1,7 +1,7 @@
 # Vías de Transformación (to be deleted)
 
 Area `09-vias-transformacion`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3ff6aa13f` (2026-11-17).
+Read from commit `675d11e31` (2026-11-17).
 
 Brent, 13 Nov 2026: Vías de Transformación is going to be deleted from the platform. Its screens are listed with their address and who reaches them, and nothing else. Which files go is confirmed with him on the leftover list.
 
@@ -58,12 +58,12 @@ File `pages/admin/transformation/assessments.tsx` · 550 lines · frame: MainLay
 
 ### Who reaches it
 
-- Menu: Vías de Transformación › «Todas las Evaluaciones» → `/admin/transformation/assessments` — admin only; the group: admin only (`Sidebar.tsx` l.349)
+- Menu: Vías de Transformación › «Todas las Evaluaciones» → `/admin/transformation/assessments` — admin only; the group: admin only (`Sidebar.tsx` l.348)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.102 `router.push → /login  (when !session)`
   - l.118 `router.push → /  (when !hasAdminRole)`
-- Linked from: `components/layout/Sidebar.tsx:351`
+- Linked from: `components/layout/Sidebar.tsx:350`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 1.
 
@@ -334,14 +334,14 @@ File `pages/vias-transformacion/index.tsx` · 532 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: «Vías de Transformación» → `/vias-transformacion` — admin only (`Sidebar.tsx` l.328)
-- Menu: Vías de Transformación › «Mis Evaluaciones» → `/vias-transformacion` — everyone signed in; the group: admin only (`Sidebar.tsx` l.336)
+- Menu: «Vías de Transformación» → `/vias-transformacion` — admin only (`Sidebar.tsx` l.327)
+- Menu: Vías de Transformación › «Mis Evaluaciones» → `/vias-transformacion` — everyone signed in; the group: admin only (`Sidebar.tsx` l.335)
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page:
   - l.27 `ALLOWED_ROLES = ['admin']`
   - l.244 `Solo administradores pueden acceder a las Vías de Transformación.`
   - l.247 `router.push → /  (when hasPermission === false)`
-- Linked from: `components/DynamicFavicon.tsx:42`, `components/layout/Sidebar.tsx:331`, `components/layout/Sidebar.tsx:338`, `pages/vias-transformacion/[id].tsx:594`, `pages/vias-transformacion/[id].tsx:626`
+- Linked from: `components/DynamicFavicon.tsx:42`, `components/layout/Sidebar.tsx:330`, `components/layout/Sidebar.tsx:337`, `pages/vias-transformacion/[id].tsx:594`, `pages/vias-transformacion/[id].tsx:626`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 5, community_manager 1, equipo_directivo 2.
 

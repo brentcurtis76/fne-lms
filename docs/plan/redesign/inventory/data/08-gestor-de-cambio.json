@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
-  "date": "2026-11-17T05:46:26-03:00"
+  "commit": "675d11e3132fb053cb7f635b0a90a86faf570f4d",
+  "date": "2026-11-17T07:45:47-03:00"
  },
  "screens": [
   {
@@ -5211,7 +5211,7 @@
       "href": "/admin/assessment-builder",
       "gates": "admin or consultor",
       "groupGates": "everyone signed in",
-      "line": 277
+      "line": 276
      }
     ],
     "middleware": {
@@ -5272,7 +5272,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:279",
+     "components/layout/Sidebar.tsx:278",
      "middleware.ts:223",
      "pages/admin/assessment-builder/[templateId]/expectations.tsx:1027",
      "pages/admin/assessment-builder/[templateId]/expectations.tsx:469",
@@ -6164,7 +6164,7 @@
       "href": "/admin/context-questions",
       "gates": "admin only",
       "groupGates": "everyone signed in",
-      "line": 293
+      "line": 292
      }
     ],
     "middleware": {
@@ -6229,7 +6229,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:295",
+     "components/layout/Sidebar.tsx:294",
      "pages/admin/context-questions/overview.tsx:340",
      "pages/admin/context-questions/overview.tsx:341"
     ],
@@ -6823,7 +6823,7 @@
       "href": "/admin/context-questions/overview",
       "gates": "admin only",
       "groupGates": "everyone signed in",
-      "line": 301
+      "line": 300
      }
     ],
     "middleware": {
@@ -6892,7 +6892,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:303"
+     "components/layout/Sidebar.tsx:302"
     ],
     "qaScenarios": {},
     "tests": {
@@ -8124,7 +8124,7 @@
       "href": "/directivo/assessments/dashboard",
       "gates": "roles: admin, equipo_directivo",
       "groupGates": "everyone signed in",
-      "line": 650
+      "line": 649
      }
     ],
     "middleware": {
@@ -8185,7 +8185,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:652"
+     "components/layout/Sidebar.tsx:651"
     ],
     "qaScenarios": {
      "admin": [
@@ -9945,7 +9945,7 @@
       "href": "/docente/assessments",
       "gates": "roles: admin, consultor",
       "groupGates": "everyone signed in",
-      "line": 162
+      "line": 161
      },
      {
       "id": "docente-mis-evaluaciones",
@@ -9954,7 +9954,7 @@
       "href": "/docente/assessments",
       "gates": "only with a registro assigned",
       "groupGates": "everyone signed in",
-      "line": 317
+      "line": 316
      }
     ],
     "middleware": {
@@ -10011,8 +10011,8 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:164",
-     "components/layout/Sidebar.tsx:319",
+     "components/layout/Sidebar.tsx:163",
+     "components/layout/Sidebar.tsx:318",
      "pages/docente/assessments/[instanceId]/index.tsx:43",
      "pages/docente/assessments/[instanceId]/results.tsx:146",
      "pages/docente/assessments/[instanceId]/results.tsx:78"
@@ -10364,7 +10364,7 @@
       "href": "/school/migration-plan",
       "gates": "roles: admin, consultor, equipo_directivo",
       "groupGates": "everyone signed in",
-      "line": 309
+      "line": 308
      }
     ],
     "middleware": {
@@ -10425,7 +10425,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:311",
+     "components/layout/Sidebar.tsx:310",
      "pages/school/transversal-context/index.tsx:913",
      "pages/school/transversal-context/index.tsx:914"
     ],
@@ -12010,7 +12010,7 @@
       "href": "/school/transversal-context",
       "gates": "roles: admin, consultor, equipo_directivo",
       "groupGates": "everyone signed in",
-      "line": 285
+      "line": 284
      },
      {
       "id": "vias-contexto-transversal",
@@ -12019,7 +12019,7 @@
       "href": "/school/transversal-context",
       "gates": "everyone signed in",
       "groupGates": "admin only",
-      "line": 342
+      "line": 341
      }
     ],
     "middleware": {
@@ -12084,8 +12084,8 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:287",
-     "components/layout/Sidebar.tsx:344",
+     "components/layout/Sidebar.tsx:286",
+     "components/layout/Sidebar.tsx:343",
      "middleware.ts:272",
      "pages/admin/context-questions/overview.tsx:414",
      "pages/admin/context-questions/overview.tsx:415",

@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
-  "date": "2026-11-17T05:46:26-03:00"
+  "commit": "675d11e3132fb053cb7f635b0a90a86faf570f4d",
+  "date": "2026-11-17T07:45:47-03:00"
  },
  "screens": [
   {
@@ -23,7 +23,7 @@
       "group": null,
       "href": "/dashboard",
       "gates": "everyone signed in",
-      "line": 118
+      "line": 117
      }
     ],
     "middleware": {
@@ -113,9 +113,9 @@
      "components/auth/AuthWrapper.tsx:54",
      "components/auth/AuthWrapper.tsx:67",
      "components/auth/ProtectedRoute.tsx:43",
-     "components/layout/Sidebar.tsx:121",
-     "components/notifications/ModernNotificationCenter.tsx:293",
-     "components/notifications/ModernNotificationCenter.tsx:318",
+     "components/layout/Sidebar.tsx:120",
+     "components/notifications/ModernNotificationCenter.tsx:303",
+     "components/notifications/ModernNotificationCenter.tsx:328",
      "components/notifications/NotificationDropdown.tsx:132",
      "components/notifications/NotificationDropdown.tsx:157",
      "components/workspace/WorkspaceSidebar.tsx:172",
@@ -255,6 +255,7 @@
       "tests/e2e/auth-lifecycle.spec.ts",
       "tests/e2e/ci-fixture.spec.ts",
       "tests/e2e/footer-heading-order.spec.ts",
+      "tests/e2e/look-frame.spec.ts",
       "tests/e2e/look-switch.spec.ts",
       "tests/e2e/notification-settings.spec.ts",
       "tests/e2e/pasantias-leads-admin.spec.ts"

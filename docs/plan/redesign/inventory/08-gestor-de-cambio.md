@@ -1,7 +1,7 @@
 # Gestor de Cambio (registros, context, migration plan, results)
 
 Area `08-gestor-de-cambio`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3ff6aa13f` (2026-11-17).
+Read from commit `675d11e31` (2026-11-17).
 
 16 screen files, 40 API files, 30 pieces.
 
@@ -991,13 +991,13 @@ File `pages/admin/assessment-builder/index.tsx` · 804 lines · frame: MainLayou
 
 ### Who reaches it
 
-- Menu: Gestor de Cambio › «Constructor de Registros» → `/admin/assessment-builder` — admin or consultor; the group: everyone signed in (`Sidebar.tsx` l.277)
+- Menu: Gestor de Cambio › «Constructor de Registros» → `/admin/assessment-builder` — admin or consultor; the group: everyone signed in (`Sidebar.tsx` l.276)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.64 `router.push → /login  (when !session?.user)`
   - l.348 `router.push → /login`
   - l.375 `No tienes permiso para acceder al Constructor de Registros.`
-- Linked from: `components/layout/Sidebar.tsx:279`, `middleware.ts:223`, `pages/admin/assessment-builder/[templateId]/expectations.tsx:1027`, `pages/admin/assessment-builder/[templateId]/expectations.tsx:469`, `pages/admin/assessment-builder/[templateId]/index.tsx:1017`, `pages/admin/assessment-builder/[templateId]/index.tsx:1090`, `pages/admin/assessment-builder/[templateId]/index.tsx:1119`, `pages/admin/assessment-builder/[templateId]/index.tsx:1379`, `pages/admin/assessment-builder/[templateId]/index.tsx:1414`, `pages/admin/assessment-builder/[templateId]/index.tsx:345`, `pages/admin/assessment-builder/create.tsx:288`, `pages/admin/assessment-builder/create.tsx:428` and 2 more
+- Linked from: `components/layout/Sidebar.tsx:278`, `middleware.ts:223`, `pages/admin/assessment-builder/[templateId]/expectations.tsx:1027`, `pages/admin/assessment-builder/[templateId]/expectations.tsx:469`, `pages/admin/assessment-builder/[templateId]/index.tsx:1017`, `pages/admin/assessment-builder/[templateId]/index.tsx:1090`, `pages/admin/assessment-builder/[templateId]/index.tsx:1119`, `pages/admin/assessment-builder/[templateId]/index.tsx:1379`, `pages/admin/assessment-builder/[templateId]/index.tsx:1414`, `pages/admin/assessment-builder/[templateId]/index.tsx:345`, `pages/admin/assessment-builder/create.tsx:288`, `pages/admin/assessment-builder/create.tsx:428` and 2 more
 - Tests: no browser test that CI runs.
 
 | Role | Sees it in the menu | Middleware |
@@ -1213,14 +1213,14 @@ File `pages/admin/context-questions/index.tsx` · 741 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Gestor de Cambio › «Preguntas de Contexto» → `/admin/context-questions` — admin only; the group: everyone signed in (`Sidebar.tsx` l.293)
+- Menu: Gestor de Cambio › «Preguntas de Contexto» → `/admin/context-questions` — admin only; the group: everyone signed in (`Sidebar.tsx` l.292)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.110 `router.push → /login  (when !session)`
   - l.113 `if (!metadataHasRole(session.user.user_metadata, 'admin')) { router.push('/dashboard'); return; }`
   - l.114 `router.push → /dashboard  (when !metadataHasRole(session.user.user_metadata, 'admin'))`
   - l.158 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:295`, `pages/admin/context-questions/overview.tsx:340`, `pages/admin/context-questions/overview.tsx:341`
+- Linked from: `components/layout/Sidebar.tsx:294`, `pages/admin/context-questions/overview.tsx:340`, `pages/admin/context-questions/overview.tsx:341`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/context-questions/admin-ui.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -1383,7 +1383,7 @@ File `pages/admin/context-questions/overview.tsx` · 489 lines · frame: MainLay
 
 ### Who reaches it
 
-- Menu: Gestor de Cambio › «Resumen Respuestas» → `/admin/context-questions/overview` — admin only; the group: everyone signed in (`Sidebar.tsx` l.301)
+- Menu: Gestor de Cambio › «Resumen Respuestas» → `/admin/context-questions/overview` — admin only; the group: everyone signed in (`Sidebar.tsx` l.300)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.156 `router.push → /login  (when !session?.user)`
@@ -1391,7 +1391,7 @@ File `pages/admin/context-questions/overview.tsx` · 489 lines · frame: MainLay
   - l.189 `router.push → /dashboard  (when !adminFromMetadata && !hasAdminRoleInDB)`
   - l.196 `router.push → /login`
   - l.206 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:303`
+- Linked from: `components/layout/Sidebar.tsx:302`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/context-questions/admin-ui.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -1873,13 +1873,13 @@ File `pages/directivo/assessments/dashboard.tsx` · 714 lines · frame: MainLayo
 
 ### Who reaches it
 
-- Menu: Reportes › «Panel de Resultados» → `/directivo/assessments/dashboard` — roles: admin, equipo_directivo; the group: everyone signed in (`Sidebar.tsx` l.650)
+- Menu: Reportes › «Panel de Resultados» → `/directivo/assessments/dashboard` — roles: admin, equipo_directivo; the group: everyone signed in (`Sidebar.tsx` l.649)
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
   - l.144 `router.push → /login  (when !session?.user)`
   - l.162 `router.push → /  (when !hasPermission)`
   - l.242 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:652`
+- Linked from: `components/layout/Sidebar.tsx:651`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/proc-pilot-journey.spec.ts`; unit tests of the page: `__tests__/pages/directivo-dashboard-unavailable.test.tsx`.
 - QA scenarios that name this address: admin 1.
 
@@ -2415,13 +2415,13 @@ File `pages/docente/assessments/index.tsx` · 407 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Mi Aprendizaje › «Feedback» → `/docente/assessments` — roles: admin, consultor; the group: everyone signed in (`Sidebar.tsx` l.162)
-- Menu: Gestor de Cambio › «Mis Registros» → `/docente/assessments` — only with a registro assigned; the group: everyone signed in (`Sidebar.tsx` l.317)
+- Menu: Mi Aprendizaje › «Feedback» → `/docente/assessments` — roles: admin, consultor; the group: everyone signed in (`Sidebar.tsx` l.161)
+- Menu: Gestor de Cambio › «Mis Registros» → `/docente/assessments` — only with a registro assigned; the group: everyone signed in (`Sidebar.tsx` l.316)
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
   - l.91 `router.push → /login  (when !session?.user)`
   - l.143 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:164`, `components/layout/Sidebar.tsx:319`, `pages/docente/assessments/[instanceId]/index.tsx:43`, `pages/docente/assessments/[instanceId]/results.tsx:146`, `pages/docente/assessments/[instanceId]/results.tsx:78`
+- Linked from: `components/layout/Sidebar.tsx:163`, `components/layout/Sidebar.tsx:318`, `pages/docente/assessments/[instanceId]/index.tsx:43`, `pages/docente/assessments/[instanceId]/results.tsx:146`, `pages/docente/assessments/[instanceId]/results.tsx:78`
 - Tests: browser tests that CI runs: `tests/e2e/assessment-delivery.spec.ts`; browser tests CI skips: `tests/e2e/proc-pilot-journey.spec.ts`; unit tests of the page: `__tests__/pages/docente/assessments-list-cards.test.tsx`.
 - QA scenarios that name this address: admin 1, consultor 1, lider_generacion 1.
 
@@ -2555,13 +2555,13 @@ File `pages/school/migration-plan/index.tsx` · 814 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Gestor de Cambio › «Plan de Migración» → `/school/migration-plan` — roles: admin, consultor, equipo_directivo; the group: everyone signed in (`Sidebar.tsx` l.309)
+- Menu: Gestor de Cambio › «Plan de Migración» → `/school/migration-plan` — roles: admin, consultor, equipo_directivo; the group: everyone signed in (`Sidebar.tsx` l.308)
 - Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.75 `router.push → /login  (when !session?.user)`
   - l.343 `router.push → /login`
   - l.378 `No tienes permiso para acceder al Plan de Migración.`
-- Linked from: `components/layout/Sidebar.tsx:311`, `pages/school/transversal-context/index.tsx:913`, `pages/school/transversal-context/index.tsx:914`
+- Linked from: `components/layout/Sidebar.tsx:310`, `pages/school/transversal-context/index.tsx:913`, `pages/school/transversal-context/index.tsx:914`
 - Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/school/migration-plan-denied-state.test.tsx`.
 - QA scenarios that name this address: admin 2, consultor 1, equipo_directivo 1.
 
@@ -2961,15 +2961,15 @@ File `pages/school/transversal-context/index.tsx` · 1611 lines · frame: MainLa
 
 ### Who reaches it
 
-- Menu: Gestor de Cambio › «Contexto Transversal» → `/school/transversal-context` — roles: admin, consultor, equipo_directivo; the group: everyone signed in (`Sidebar.tsx` l.285)
-- Menu: Vías de Transformación › «Contexto Transversal» → `/school/transversal-context` — everyone signed in; the group: admin only (`Sidebar.tsx` l.342)
+- Menu: Gestor de Cambio › «Contexto Transversal» → `/school/transversal-context` — roles: admin, consultor, equipo_directivo; the group: everyone signed in (`Sidebar.tsx` l.284)
+- Menu: Vías de Transformación › «Contexto Transversal» → `/school/transversal-context` — everyone signed in; the group: admin only (`Sidebar.tsx` l.341)
 - Middleware: signed-in only; with ?school_id= an equipo directivo only passes for its own school. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.164 `router.push → /login  (when !session?.user)`
   - l.194 `isAdmin = roles.some(r => r.role_type === 'admin')`
   - l.221 `router.push → /dashboard  (when (!(isAdmin \|\| isConsultor)) && directivoRole?.school_id && parsedQuerySchoolId !== null && parsedQuerySchoolId !== effectiveSchoolId)`
   - l.406 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:287`, `components/layout/Sidebar.tsx:344`, `middleware.ts:272`, `pages/admin/context-questions/overview.tsx:414`, `pages/admin/context-questions/overview.tsx:415`, `pages/school/migration-plan/index.tsx:515`, `pages/school/migration-plan/index.tsx:621`, `pages/school/migration-plan/index.tsx:622`, `pages/school/transversal-context/edit.tsx:1031`, `pages/school/transversal-context/edit.tsx:1032`, `pages/school/transversal-context/edit.tsx:396`, `pages/school/transversal-context/edit.tsx:979` and 1 more
+- Linked from: `components/layout/Sidebar.tsx:286`, `components/layout/Sidebar.tsx:343`, `middleware.ts:272`, `pages/admin/context-questions/overview.tsx:414`, `pages/admin/context-questions/overview.tsx:415`, `pages/school/migration-plan/index.tsx:515`, `pages/school/migration-plan/index.tsx:621`, `pages/school/migration-plan/index.tsx:622`, `pages/school/transversal-context/edit.tsx:1031`, `pages/school/transversal-context/edit.tsx:1032`, `pages/school/transversal-context/edit.tsx:396`, `pages/school/transversal-context/edit.tsx:979` and 1 more
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/proc-pilot-journey.spec.ts`; unit tests of the page: `__tests__/pages/school/transversal-context-assign.test.tsx`, `__tests__/pages/school/transversal-context-replace.test.tsx`.
 - QA scenarios that name this address: admin 3, community_manager 1, consultor 2, equipo_directivo 2.
 

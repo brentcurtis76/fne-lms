@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
-  "date": "2026-11-17T05:46:26-03:00"
+  "commit": "675d11e3132fb053cb7f635b0a90a86faf570f4d",
+  "date": "2026-11-17T07:45:47-03:00"
  },
  "screens": [
   {
@@ -24,7 +24,7 @@
       "href": "/admin/configuration",
       "gates": "permission: manage_system_settings",
       "groupGates": "everyone signed in",
-      "line": 725
+      "line": 724
      }
     ],
     "middleware": {
@@ -97,7 +97,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:727",
+     "components/layout/Sidebar.tsx:726",
      "pages/admin/context-questions/index.tsx:341"
     ],
     "qaScenarios": {
@@ -601,7 +601,7 @@
       "href": "/admin/feedback",
       "gates": "permission: manage_system_settings",
       "groupGates": "roles: admin, community_manager, encargado_licitacion",
-      "line": 590
+      "line": 589
      }
     ],
     "middleware": {
@@ -668,9 +668,9 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:592",
-     "components/notifications/ModernNotificationCenter.tsx:297",
-     "components/notifications/ModernNotificationCenter.tsx:315",
+     "components/layout/Sidebar.tsx:591",
+     "components/notifications/ModernNotificationCenter.tsx:307",
+     "components/notifications/ModernNotificationCenter.tsx:325",
      "components/notifications/NotificationDropdown.tsx:136",
      "components/notifications/NotificationDropdown.tsx:154",
      "lib/notificationEvents.ts:397",
@@ -1043,7 +1043,7 @@
       "href": "/admin/roadmap",
       "gates": "admin only",
       "groupGates": "everyone signed in",
-      "line": 733
+      "line": 732
      }
     ],
     "middleware": {
@@ -1108,7 +1108,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:735"
+     "components/layout/Sidebar.tsx:734"
     ],
     "qaScenarios": {},
     "tests": {

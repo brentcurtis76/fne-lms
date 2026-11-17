@@ -1,11 +1,11 @@
 # Marco (the frame around every screen)
 
 Area `00-marco`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3ff6aa13f` (2026-11-17).
+Read from commit `675d11e31` (2026-11-17).
 
 The app shell, the menu, the top bar, the bell, the footer and the feedback button. Its pieces are listed here once and not repeated under each screen.
 
-2 screen files, 1 API files, 27 pieces.
+2 screen files, 1 API files, 31 pieces.
 
 ## Approved changes (decided by Brent with the mock-ups; not losses)
 
@@ -527,95 +527,139 @@ Used by: `(the frame)`
 
 **Reads and writes the database directly:** `bucket:feedback-screenshots` (getPublicUrl, upload), `table:platform_feedback` (insert, select)
 
-### components/layout/MainLayout.tsx
+### components/layout/FooterNuevo.tsx
 
-Used by: `(every screen that uses the frame)`
-
-**Titles** (1)
-
-| Text | Level | Shown when | Where |
-|---|---|---|---|
-| «{pageTitle}» | h1 | `((pageTitle \|\| breadcrumbs.length > 0)) && pageTitle` | MainLayout · l.425 |
+Used by: `(the frame)`
 
 **Buttons** (2)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «[icon Bars3Icon]» · aria «Abrir menú de navegación» | `{handleMobileSidebarOpen}` | screen size: `lg:hidden` |  | `testid=mobile-sidebar-trigger` | MainLayout · l.338 |
-| «Salir» | `{handleLogout}` | `user` |  |  | MainLayout · l.372 |
+| «Política de Privacidad» | `{() => setShowPrivacyPolicy(true)}` |  |  |  | FooterNuevo · l.38 |
+| «Términos de Uso» | `{() => setShowTermsOfUse(true)}` |  |  |  | FooterNuevo · l.41 |
+
+**Links** (1)
+
+| Text | Goes to | Shown when | Hook | Where |
+|---|---|---|---|---|
+| «{link.label}» | `{link.href}` | `each FOOTER_NUEVO_LINKS` |  | FooterNuevo · l.34 |
+
+**Pop-ups** (2)
+
+| Name or title | How | Opens when | Texts passed to it | Where |
+|---|---|---|---|---|
+| `PrivacyPolicyModal` | component | `{showPrivacyPolicy}` |  | FooterNuevo · l.48 |
+| `TermsOfUseModal` | component | `{showTermsOfUse}` |  | FooterNuevo · l.49 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `FOOTER_NUEVO_LINKS` | «Pasantías», «Programas», «Noticias y Eventos», «Nosotros», «Equipo», «Contacto» | l.14 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
+
+| Kind | What | Where |
+|---|---|---|
+| mark | `testid=footer-nuevo` | FooterNuevo · l.31 |
+
+**Other texts on screen** (2)
+
+- «ATE certificada por RPA Mineduc» — FooterNuevo · l.44
+- «Santiago, Chile» — FooterNuevo · l.45
+
+### components/layout/MainLayout.tsx
+
+Used by: `(every screen that uses the frame)`
+
+**Titles** (2)
+
+| Text | Level | Shown when | Where |
+|---|---|---|---|
+| «{pageTitle}» | h1 | `isNuevo && pageTitle` | MainLayout · l.429 |
+| «{pageTitle}» | h1 | `!(isNuevo) && ((pageTitle \|\| breadcrumbs.length > 0)) && pageTitle` | MainLayout · l.469 |
+
+**Buttons** (2)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «[icon Bars3Icon]» · aria «Abrir menú de navegación» | `{handleMobileSidebarOpen}` | `!(isNuevo)` · screen size: `lg:hidden` |  | `testid=mobile-sidebar-trigger` | MainLayout · l.369 |
+| «Salir» | `{handleLogout}` | `!(isNuevo) && user` |  |  | MainLayout · l.403 |
 
 **Links** (3)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «[icon Avatar]» | `/profile` | `user` |  | MainLayout · l.360 |
-| «[icon Avatar]» |  | `user` |  | MainLayout · l.361 |
-| «{crumb.label}» | `{crumb.href}` | `((pageTitle \|\| breadcrumbs.length > 0)) && breadcrumbs.length > 0 && each breadcrumbs && crumb.href` |  | MainLayout · l.406 |
+| «[icon Avatar]» | `/profile` | `!(isNuevo) && user` |  | MainLayout · l.391 |
+| «[icon Avatar]» |  | `!(isNuevo) && user` |  | MainLayout · l.392 |
+| «{crumb.label}» | `{crumb.href}` | `((pageTitle \|\| breadcrumbs.length > 0)) && breadcrumbs.length > 0 && each breadcrumbs && crumb.href` |  | MainLayout · l.450 |
 
 **Pop-ups** (1)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| `SimulationEnvironmentBanner` | component | `{showQaSimulationBanner}` |  | MainLayout · l.386 |
+| `SimulationEnvironmentBanner` | component | `{showQaSimulationBanner}` |  | MainLayout · l.418 |
 
 **Moves to another page from code** (1)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login` | `router.push` | `!(onLogout)` | MainLayout · l.294 |
+| `/login` | `router.push` | `!(onLogout)` | MainLayout · l.298 |
 
 **Access checks in the code** (1)
 
 | Line of code | Where |
 |---|---|
-| `highestRole = getHighestRole(auth.userRoles)` | MainLayout · l.65 |
+| `highestRole = getHighestRole(auth.userRoles)` | MainLayout · l.69 |
 
 **Draws nothing when** (1)
 
 | Condition | Where |
 |---|---|
-| `isDesktop \|\| !mobileSidebarOpen` | MainLayout · l.253 |
+| `isDesktop \|\| !mobileSidebarOpen` | MainLayout · l.257 |
 
-**Pieces placed here, with the texts and settings handed to them** (4)
+**Pieces placed here, with the texts and settings handed to them** (6)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `Sidebar` |  |  |  | MainLayout · l.314 |
-| `Avatar` |  | `user` |  | MainLayout · l.362 |
-| `Footer` |  |  |  | MainLayout · l.439 |
-| `FeedbackButtonWithPermissions` |  |  |  | MainLayout · l.445 |
+| `Sidebar` |  |  |  | MainLayout · l.325 |
+| `TopBarNuevo` |  | `isNuevo` |  | MainLayout · l.356 |
+| `Avatar` |  | `!(isNuevo) && user` |  | MainLayout · l.393 |
+| `FooterNuevo` |  | `isNuevo` |  | MainLayout · l.483 |
+| `Footer` |  | `!(isNuevo)` |  | MainLayout · l.483 |
+| `FeedbackButtonWithPermissions` |  |  |  | MainLayout · l.489 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (4)
 
 | Text | Where |
 |---|---|
-| «Sin colegio» | MainLayout · l.113 |
-| «{pageTitle} - Genera» | MainLayout · l.300 |
-| «Genera - Hub de Transformación» | MainLayout · l.301 |
-| «Hub de Transformación Educativa - Genera» | MainLayout · l.307 |
+| «Sin colegio» | MainLayout · l.117 |
+| «{pageTitle} - Genera» | MainLayout · l.311 |
+| «Genera - Hub de Transformación» | MainLayout · l.312 |
+| «Hub de Transformación Educativa - Genera» | MainLayout · l.318 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (7)
 
 | Kind | What | Where |
 |---|---|---|
-| storage | `sessionStorage: fne-avatar-cache` | MainLayout · l.158 |
-| storage | `localStorage: fne-sidebar-collapsed` | MainLayout · l.223 |
-| listener | `window.addEventListener('resize')` | MainLayout · l.240 |
-| listener | `window.addEventListener('keydown')` | MainLayout · l.264 |
+| storage | `sessionStorage: fne-avatar-cache` | MainLayout · l.162 |
+| storage | `localStorage: fne-sidebar-collapsed` | MainLayout · l.227 |
+| listener | `window.addEventListener('resize')` | MainLayout · l.244 |
+| listener | `window.addEventListener('keydown')` | MainLayout · l.268 |
 | address value | `?colegio_id` | l.1 |
 | address value | `?schoolId` | l.1 |
 | address value | `?school_id` | l.1 |
 
 **Values shown from data** (4)
 
-- `{fullTitle}` — MainLayout · l.306
-- `{schoolName}` — MainLayout · l.354, when `user && schoolName`, screen size: `hidden md:block`
-- `{crumb.label}` — MainLayout · l.413, when `((pageTitle \|\| breadcrumbs.length > 0)) && breadcrumbs.length > 0 && each breadcrumbs && !(crumb.href)`
-- `{children}` — MainLayout · l.434
+- `{fullTitle}` — MainLayout · l.317
+- `{schoolName}` — MainLayout · l.385, when `!(isNuevo) && user && schoolName`, screen size: `hidden md:block`
+- `{crumb.label}` — MainLayout · l.457, when `((pageTitle \|\| breadcrumbs.length > 0)) && breadcrumbs.length > 0 && each breadcrumbs && !(crumb.href)`
+- `{children}` — MainLayout · l.478
 
 **Other texts on screen** (1)
 
-- «Breadcrumb» (aria-label) — MainLayout · l.396, when `((pageTitle \|\| breadcrumbs.length > 0)) && breadcrumbs.length > 0`
+- «Breadcrumb» (aria-label) — MainLayout · l.440, when `!(isNuevo) && ((pageTitle \|\| breadcrumbs.length > 0)) && breadcrumbs.length > 0`
 
 **Reads and writes the database directly:** `table:profiles` (select), `table:user_roles` (select)
 
@@ -627,163 +671,290 @@ Used by: `(the frame)`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «{item.label}» | h3 | `isCollapsed && hasChildren && showCollapsedMenu` | l.976 |
-| «GENERA» | h2 | `!isCollapsed` | l.1515 |
+| «{item.label}» | h3 | `isCollapsed && hasChildren && showCollapsedMenu` | l.889 |
+| «GENERA» | h2 | `!isCollapsed` | l.1468 |
 
 **Buttons** (2)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «[{item.label} [{newFeedbackCount}] [{item.description}]] [{filteredChildren.length}]» · tooltip «{isCollapsed ? item.label : undefined}» | `{handleClick}` |  |  | `testid=sidebar-item-{item.id}` | l.898 |
-| «[icon Bars3Icon]» · tooltip «{isDesktop ? (isCollapsed ? 'Expandir sidebar' : 'Contraer sidebar') : 'Cerrar m…}» · aria «{isDesktop ? (isCollapsed ? 'Expandir sidebar' : 'Contraer sidebar') : 'Cerrar m…}» | `{isDesktop ? onDesktopToggle : onMobileClose}` |  |  |  | l.1541 |
+| «[{item.label} [{newFeedbackCount}] [{item.description}]] [{filteredChildren.length}]» · tooltip «{isCollapsed ? item.label : undefined}» | `{handleClick}` |  |  | `testid=sidebar-item-{item.id}` | l.811 |
+| «[icon Bars3Icon]» · tooltip «{isDesktop ? (isCollapsed ? 'Expandir sidebar' : 'Contraer sidebar') : 'Cerrar m…}» · aria «{isDesktop ? (isCollapsed ? 'Expandir sidebar' : 'Contraer sidebar') : 'Cerrar m…}» | `{isDesktop ? onDesktopToggle : onMobileClose}` |  |  |  | l.1494 |
 
 **Links** (2)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «{child.label} [{newFeedbackCount}] [{child.description}]» | `{child.href}` | `isCollapsed && hasChildren && showCollapsedMenu && each filteredChildren` |  | l.983 |
-| «{child.label} [{newFeedbackCount}] [{child.description}]» | `{child.href}` | `!isCollapsed && hasChildren && isExpanded && each filteredChildren` |  | l.1029 |
+| «{child.label} [{newFeedbackCount}] [{child.description}]» | `{child.href}` | `isCollapsed && hasChildren && showCollapsedMenu && each filteredChildren` |  | l.896 |
+| «{child.label} [{newFeedbackCount}] [{child.description}]» | `{child.href}` | `!isCollapsed && hasChildren && isExpanded && each filteredChildren` |  | l.942 |
 
 **Other things that react to a click** (1)
 
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
-| `div` |  | `{onMobileClose}` | `!isDesktop && isMobileOpen` · screen size: `lg:hidden` | l.1485 |
+| `div` |  | `{onMobileClose}` | `!isDesktop && isMobileOpen` · screen size: `lg:hidden` | l.1438 |
 
 **Other gestures (keys, hover, drag, blur)** (1)
 
 | Element | Reacts to | Shown when | Where |
 |---|---|---|---|
-| `div` | `onMouseEnter={() => { if (isCollapsed) { hoverTimeoutRef.current = setTimeout(() => { setIsHo…} · onMouseLeave={() => { if (hoverTimeoutRef.current) { clearTimeout(hoverTimeoutRef.current); }…}` |  | l.878 |
+| `div` | `onMouseEnter={handleMouseEnter} · onMouseLeave={handleMouseLeave}` |  | l.806 |
 
 **Embedded media** (2)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| img · alt Genera · /genera/icon-transparent.svg | `!isCollapsed` |  | l.1509 |
-| img · alt Genera · /genera/icon-transparent.svg | `!(!isCollapsed)` |  | l.1528 |
-
-**Moves to another page from code** (1)
-
-| Goes to | How | When | Where |
-|---|---|---|---|
-| `{item.href}` | `router.push` | `!(isCollapsed && hasChildren) && !(hasChildren) && item.href` | l.865 |
+| img · alt Genera · /genera/icon-transparent.svg | `!isCollapsed` |  | l.1462 |
+| img · alt Genera · /genera/icon-transparent.svg | `!(!isCollapsed)` |  | l.1481 |
 
 **Access checks in the code** (3)
 
 | Line of code | Where |
 |---|---|
-| `if (!hasAllPermissions(item.permission)) return false;` | l.1468 |
-| `if (!hasAnyPermission(item.permission)) return false;` | l.1470 |
-| `if (!hasPermission(item.permission)) return false;` | l.1473 |
+| `if (!hasAllPermissions(item.permission)) return false;` | l.1381 |
+| `if (!hasAnyPermission(item.permission)) return false;` | l.1383 |
+| `if (!hasPermission(item.permission)) return false;` | l.1386 |
 
-**Pieces placed here, with the texts and settings handed to them** (1)
+**Pieces placed here, with the texts and settings handed to them** (2)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `ModernNotificationCenter` |  | `!isCollapsed && user` |  | l.1538 |
+| `SidebarNuevo` |  | `look === 'nuevo'` |  | l.1399 |
+| `ModernNotificationCenter` |  | `!isCollapsed && user` |  | l.1491 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
-| `NAVIGATION_ITEMS` | «Mi Panel», «Panel principal», «Mi Perfil», «Información personal», «Mi pasantía», «Tu viaje a Barcelona, enero 2027», «Mi Aprendizaje», «Rutas y cursos asignados», «Mis Cursos», «Cursos en los que estoy inscrito», «Mis Tareas», «Tareas de todas mis comunidades», «Feedback», «Evaluaciones de tareas asignadas», «Mi Trabajo», «Sesiones, reportes y horas», «Mis Sesiones», «Sesiones de consultoría asignadas», «Mis Reportes», «Estadísticas de mis sesiones», «Mis Horas», «Ver mis ganancias y horas», «Revisión de Quizzes», «Calificar preguntas abiertas», «Espacio Colaborativo», «Comunidades de crecimiento», «Vista General», «Resumen del espacio», «Sesiones», «Gestión Comunidades», «Administrar comunidades», «Cursos», «Gestión de cursos», «Constructor de Cursos», «Crear y editar cursos», «Próximos Cursos», «Cursos próximamente disponibles», «Rutas de Aprendizaje», «Gestión de rutas de aprendizaje», «Gestor de Cambio», «Constructor de registros y rúbricas», «Constructor de Registros», «Crear registros y rúbricas», «Contexto Transversal», «Configuración de contexto por escuela», «Preguntas de Contexto», «Gestionar preguntas de contexto transversal», «Resumen Respuestas», «Ver respuestas de todas las escuelas», «Plan de Migración», «Definir generaciones GT/GI por año», «Mis Registros», «Registros que tengo asignados», «Vías de Transformación», «Evaluaciones de transformación escolar», «Mis Evaluaciones», «Ver mis evaluaciones», «Configuración de contexto escolar», «Todas las Evaluaciones», «Ver evaluaciones por escuela», «Comunicación», «Noticias y eventos», «Noticias», «Gestión de noticias y artículos», «Eventos», «Gestión de eventos y línea de tiempo», «Comunidades», «Gestionar miembros de comunidades», «Usuarios del Colegio», «Gestionar usuarios de su colegio», «Personas», «Usuarios, escuelas y redes», «Usuarios», «Administrar usuarios», «Registros», «Registros públicos de acceso», «Pasantías», «Interesados en Pasantías INSPIRA», «Nóminas de pasantes», «Pasantes inscritos por colegio» | l.116 |
+| `NAVIGATION_ITEMS` | «Mi Panel», «Panel principal», «Mi Perfil», «Información personal», «Mi pasantía», «Tu viaje a Barcelona, enero 2027», «Mi Aprendizaje», «Rutas y cursos asignados», «Mis Cursos», «Cursos en los que estoy inscrito», «Mis Tareas», «Tareas de todas mis comunidades», «Feedback», «Evaluaciones de tareas asignadas», «Mi Trabajo», «Sesiones, reportes y horas», «Mis Sesiones», «Sesiones de consultoría asignadas», «Mis Reportes», «Estadísticas de mis sesiones», «Mis Horas», «Ver mis ganancias y horas», «Revisión de Quizzes», «Calificar preguntas abiertas», «Espacio Colaborativo», «Comunidades de crecimiento», «Vista General», «Resumen del espacio», «Sesiones», «Gestión Comunidades», «Administrar comunidades», «Cursos», «Gestión de cursos», «Constructor de Cursos», «Crear y editar cursos», «Próximos Cursos», «Cursos próximamente disponibles», «Rutas de Aprendizaje», «Gestión de rutas de aprendizaje», «Gestor de Cambio», «Constructor de registros y rúbricas», «Constructor de Registros», «Crear registros y rúbricas», «Contexto Transversal», «Configuración de contexto por escuela», «Preguntas de Contexto», «Gestionar preguntas de contexto transversal», «Resumen Respuestas», «Ver respuestas de todas las escuelas», «Plan de Migración», «Definir generaciones GT/GI por año», «Mis Registros», «Registros que tengo asignados», «Vías de Transformación», «Evaluaciones de transformación escolar», «Mis Evaluaciones», «Ver mis evaluaciones», «Configuración de contexto escolar», «Todas las Evaluaciones», «Ver evaluaciones por escuela», «Comunicación», «Noticias y eventos», «Noticias», «Gestión de noticias y artículos», «Eventos», «Gestión de eventos y línea de tiempo», «Comunidades», «Gestionar miembros de comunidades», «Usuarios del Colegio», «Gestionar usuarios de su colegio», «Personas», «Usuarios, escuelas y redes», «Usuarios», «Administrar usuarios», «Registros», «Registros públicos de acceso», «Pasantías», «Interesados en Pasantías INSPIRA», «Nóminas de pasantes», «Pasantes inscritos por colegio» | l.115 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (69)
 
 | Text | Where |
 |---|---|
-| «Panel de pasantías» | NAVIGATION_ITEMS · l.438 |
-| «Seguimiento, documentos y cartas de la cohorte» | NAVIGATION_ITEMS · l.441 |
-| «Escuelas» | NAVIGATION_ITEMS · l.446 |
-| «Gestión de escuelas y generaciones» | NAVIGATION_ITEMS · l.449 |
-| «Redes de Colegios» | NAVIGATION_ITEMS · l.454 |
-| «Gestión de redes y supervisores» | NAVIGATION_ITEMS · l.457 |
-| «Matriz de Asignaciones» | NAVIGATION_ITEMS · l.462 |
-| «Asignaciones por usuario» | NAVIGATION_ITEMS · l.465 |
-| «Consultorías» | NAVIGATION_ITEMS · l.472 |
-| «Gestión de consultorías» | NAVIGATION_ITEMS · l.474 |
-| «Asignación de Consultores» | NAVIGATION_ITEMS · l.479 |
-| «Gestionar asignaciones» | NAVIGATION_ITEMS · l.481 |
-| «Vista de Tareas» | NAVIGATION_ITEMS · l.487 |
-| «Monitoreo de tareas grupales» | NAVIGATION_ITEMS · l.489 |
-| «Gestión de sesiones de consultoría» | NAVIGATION_ITEMS · l.496 |
-| «Aprobaciones» | NAVIGATION_ITEMS · l.502 |
-| «Solicitudes de cambio pendientes» | NAVIGATION_ITEMS · l.504 |
-| «Estadísticas de sesiones de consultoría» | NAVIGATION_ITEMS · l.512 |
-| «Tarifas» | NAVIGATION_ITEMS · l.518 |
-| «Gestionar tarifas de consultores» | NAVIGATION_ITEMS · l.520 |
-| «Ganancias» | NAVIGATION_ITEMS · l.526 |
-| «Ver ganancias de consultores» | NAVIGATION_ITEMS · l.528 |
-| «Clasificar Sesiones» | NAVIGATION_ITEMS · l.534 |
-| «Asignar tipo de hora a sesiones históricas sin clasificar» | NAVIGATION_ITEMS · l.536 |
-| «Gestión empresarial» | NAVIGATION_ITEMS · l.546 |
-| «Clientes» | NAVIGATION_ITEMS · l.551 |
-| «Gestión de clientes» | NAVIGATION_ITEMS · l.553 |
-| «Contratos» | NAVIGATION_ITEMS · l.559 |
-| «Gestión de contratos» | NAVIGATION_ITEMS · l.561 |
-| «Propuestas Pasantías» | NAVIGATION_ITEMS · l.567 |
-| «Cotizaciones Barcelona» | NAVIGATION_ITEMS · l.569 |
-| «Rendición de Gastos» | NAVIGATION_ITEMS · l.579 |
-| «Reportes de gastos» | NAVIGATION_ITEMS · l.581 |
-| «Soporte Técnico» | NAVIGATION_ITEMS · l.591 |
-| «Gestión de errores y solicitudes» | NAVIGATION_ITEMS · l.593 |
-| «Procesos» | NAVIGATION_ITEMS · l.599 |
-| «Listado de licitaciones» | NAVIGATION_ITEMS · l.601 |
-| «Plantillas de Bases» | NAVIGATION_ITEMS · l.607 |
-| «Gestion de plantillas de Bases» | NAVIGATION_ITEMS · l.609 |
-| «Feriados» | NAVIGATION_ITEMS · l.615 |
-| «Gestion de feriados nacionales» | NAVIGATION_ITEMS · l.617 |
-| «Análisis y reportes» | NAVIGATION_ITEMS · l.627 |
-| «Avance y alertas de rutas» | NAVIGATION_ITEMS · l.645 |
-| «Panel de Resultados» | NAVIGATION_ITEMS · l.651 |
-| «Resultados de evaluaciones de la escuela» | NAVIGATION_ITEMS · l.653 |
-| «Reporte de Horas» | NAVIGATION_ITEMS · l.659 |
-| «Reporte de horas de la escuela» | NAVIGATION_ITEMS · l.662 |
-| «QA Testing» | NAVIGATION_ITEMS · l.669 |
-| «Pruebas de calidad» | NAVIGATION_ITEMS · l.671 |
-| «Ejecutar Pruebas» | NAVIGATION_ITEMS · l.676 |
-| «Ejecutar escenarios de prueba» | NAVIGATION_ITEMS · l.678 |
-| «Panel de QA» | NAVIGATION_ITEMS · l.683 |
-| «Dashboard y gestión» | NAVIGATION_ITEMS · l.685 |
-| «Escenarios» | NAVIGATION_ITEMS · l.690 |
-| «Gestionar escenarios» | NAVIGATION_ITEMS · l.692 |
-| «Importar» | NAVIGATION_ITEMS · l.697 |
-| «Importar escenarios» | NAVIGATION_ITEMS · l.699 |
-| «Registro de Horas» | NAVIGATION_ITEMS · l.704 |
-| «Tiempo activo para facturación» | NAVIGATION_ITEMS · l.706 |
-| «Generador» | NAVIGATION_ITEMS · l.711 |
-| «Generar escenarios con IA» | NAVIGATION_ITEMS · l.713 |
-| «Sistema» | NAVIGATION_ITEMS · l.720 |
-| «Configuración del sistema» | NAVIGATION_ITEMS · l.722 |
-| «Roadmap MVP» | NAVIGATION_ITEMS · l.734 |
-| «Progreso del desarrollo GENERA» | NAVIGATION_ITEMS · l.737 |
-| «Roles y Permisos» | NAVIGATION_ITEMS · l.742 |
-| «Gestión de roles y permisos» | NAVIGATION_ITEMS · l.745 |
-| «Cerrar menú» | Sidebar · l.1544 |
-| «Sidebar» | l.1595 |
+| «Panel de pasantías» | NAVIGATION_ITEMS · l.437 |
+| «Seguimiento, documentos y cartas de la cohorte» | NAVIGATION_ITEMS · l.440 |
+| «Escuelas» | NAVIGATION_ITEMS · l.445 |
+| «Gestión de escuelas y generaciones» | NAVIGATION_ITEMS · l.448 |
+| «Redes de Colegios» | NAVIGATION_ITEMS · l.453 |
+| «Gestión de redes y supervisores» | NAVIGATION_ITEMS · l.456 |
+| «Matriz de Asignaciones» | NAVIGATION_ITEMS · l.461 |
+| «Asignaciones por usuario» | NAVIGATION_ITEMS · l.464 |
+| «Consultorías» | NAVIGATION_ITEMS · l.471 |
+| «Gestión de consultorías» | NAVIGATION_ITEMS · l.473 |
+| «Asignación de Consultores» | NAVIGATION_ITEMS · l.478 |
+| «Gestionar asignaciones» | NAVIGATION_ITEMS · l.480 |
+| «Vista de Tareas» | NAVIGATION_ITEMS · l.486 |
+| «Monitoreo de tareas grupales» | NAVIGATION_ITEMS · l.488 |
+| «Gestión de sesiones de consultoría» | NAVIGATION_ITEMS · l.495 |
+| «Aprobaciones» | NAVIGATION_ITEMS · l.501 |
+| «Solicitudes de cambio pendientes» | NAVIGATION_ITEMS · l.503 |
+| «Estadísticas de sesiones de consultoría» | NAVIGATION_ITEMS · l.511 |
+| «Tarifas» | NAVIGATION_ITEMS · l.517 |
+| «Gestionar tarifas de consultores» | NAVIGATION_ITEMS · l.519 |
+| «Ganancias» | NAVIGATION_ITEMS · l.525 |
+| «Ver ganancias de consultores» | NAVIGATION_ITEMS · l.527 |
+| «Clasificar Sesiones» | NAVIGATION_ITEMS · l.533 |
+| «Asignar tipo de hora a sesiones históricas sin clasificar» | NAVIGATION_ITEMS · l.535 |
+| «Gestión empresarial» | NAVIGATION_ITEMS · l.545 |
+| «Clientes» | NAVIGATION_ITEMS · l.550 |
+| «Gestión de clientes» | NAVIGATION_ITEMS · l.552 |
+| «Contratos» | NAVIGATION_ITEMS · l.558 |
+| «Gestión de contratos» | NAVIGATION_ITEMS · l.560 |
+| «Propuestas Pasantías» | NAVIGATION_ITEMS · l.566 |
+| «Cotizaciones Barcelona» | NAVIGATION_ITEMS · l.568 |
+| «Rendición de Gastos» | NAVIGATION_ITEMS · l.578 |
+| «Reportes de gastos» | NAVIGATION_ITEMS · l.580 |
+| «Soporte Técnico» | NAVIGATION_ITEMS · l.590 |
+| «Gestión de errores y solicitudes» | NAVIGATION_ITEMS · l.592 |
+| «Procesos» | NAVIGATION_ITEMS · l.598 |
+| «Listado de licitaciones» | NAVIGATION_ITEMS · l.600 |
+| «Plantillas de Bases» | NAVIGATION_ITEMS · l.606 |
+| «Gestion de plantillas de Bases» | NAVIGATION_ITEMS · l.608 |
+| «Feriados» | NAVIGATION_ITEMS · l.614 |
+| «Gestion de feriados nacionales» | NAVIGATION_ITEMS · l.616 |
+| «Análisis y reportes» | NAVIGATION_ITEMS · l.626 |
+| «Avance y alertas de rutas» | NAVIGATION_ITEMS · l.644 |
+| «Panel de Resultados» | NAVIGATION_ITEMS · l.650 |
+| «Resultados de evaluaciones de la escuela» | NAVIGATION_ITEMS · l.652 |
+| «Reporte de Horas» | NAVIGATION_ITEMS · l.658 |
+| «Reporte de horas de la escuela» | NAVIGATION_ITEMS · l.661 |
+| «QA Testing» | NAVIGATION_ITEMS · l.668 |
+| «Pruebas de calidad» | NAVIGATION_ITEMS · l.670 |
+| «Ejecutar Pruebas» | NAVIGATION_ITEMS · l.675 |
+| «Ejecutar escenarios de prueba» | NAVIGATION_ITEMS · l.677 |
+| «Panel de QA» | NAVIGATION_ITEMS · l.682 |
+| «Dashboard y gestión» | NAVIGATION_ITEMS · l.684 |
+| «Escenarios» | NAVIGATION_ITEMS · l.689 |
+| «Gestionar escenarios» | NAVIGATION_ITEMS · l.691 |
+| «Importar» | NAVIGATION_ITEMS · l.696 |
+| «Importar escenarios» | NAVIGATION_ITEMS · l.698 |
+| «Registro de Horas» | NAVIGATION_ITEMS · l.703 |
+| «Tiempo activo para facturación» | NAVIGATION_ITEMS · l.705 |
+| «Generador» | NAVIGATION_ITEMS · l.710 |
+| «Generar escenarios con IA» | NAVIGATION_ITEMS · l.712 |
+| «Sistema» | NAVIGATION_ITEMS · l.719 |
+| «Configuración del sistema» | NAVIGATION_ITEMS · l.721 |
+| «Roadmap MVP» | NAVIGATION_ITEMS · l.733 |
+| «Progreso del desarrollo GENERA» | NAVIGATION_ITEMS · l.736 |
+| «Roles y Permisos» | NAVIGATION_ITEMS · l.741 |
+| «Gestión de roles y permisos» | NAVIGATION_ITEMS · l.744 |
+| «Cerrar menú» | Sidebar · l.1497 |
+| «Sidebar» | l.1548 |
 
-**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (6)
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (5)
 
 | Kind | What | Where |
 |---|---|---|
-| listener | `document.addEventListener('mousedown')` | l.818 |
-| storage | `sessionStorage: {cacheKey}` | readCache · l.1254 |
-| listener | `window.addEventListener('focus')` | l.1322 |
-| timer | `setInterval(…, 30000)` | l.1337 |
-| mark | `testid=global-sidebar` | l.1493 |
+| storage | `sessionStorage: {cacheKey}` | readCache · l.1167 |
+| listener | `window.addEventListener('focus')` | l.1235 |
+| timer | `setInterval(…, 30000)` | l.1250 |
+| mark | `testid=global-sidebar` | l.1446 |
 | address value | `?section` | l.1 |
 
 **Values shown from data** (1)
 
-- `{item.description}` — l.978, when `isCollapsed && hasChildren && showCollapsedMenu && item.description`
+- `{item.description}` — l.891, when `isCollapsed && hasChildren && showCollapsedMenu && item.description`
 
 **Other texts on screen** (2)
 
-- «Hub de Transformación» — l.1519, when `!isCollapsed`
-- «by FNE» — l.1522, when `!isCollapsed`
+- «Hub de Transformación» — l.1472, when `!isCollapsed`
+- «by FNE» — l.1475, when `!isCollapsed`
 
 **Reads and writes the database directly:** `table:assessment_instance_assignees` (select), `table:platform_feedback` (select), `table:profiles` (select), `table:superadmins` (select), `table:user_roles` (select)
+
+### components/layout/SidebarNuevo.tsx
+
+Used by: `(the frame)`
+
+**Titles** (1)
+
+| Text | Level | Shown when | Where |
+|---|---|---|---|
+| «{item.label}» | h3 | `isCollapsed && hasChildren && showCollapsedMenu` | l.135 |
+
+**Buttons** (2)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «[{item.label}]» · tooltip «{title}» · aria «{item.label}» | `{handleClick}` |  |  | `testid=sidebar-item-{item.id}` | l.98 |
+| «[icon ToggleIcon]» · tooltip «{toggleLabel}» · aria «{toggleLabel}» | `{isDesktop ? onDesktopToggle : onMobileClose}` |  |  |  | SidebarNuevo · l.256 |
+
+**Links** (2)
+
+| Text | Goes to | Shown when | Hook | Where |
+|---|---|---|---|---|
+| «{child.label} [{child.description}]» | `{child.href}` | `isCollapsed && hasChildren && showCollapsedMenu && each filteredChildren` |  | l.142 |
+| «{child.label}» | `{child.href}` | `!isCollapsed && hasChildren && isExpanded && each filteredChildren` |  | l.173 |
+
+**Other things that react to a click** (1)
+
+| Element | Text | Does | Shown when | Where |
+|---|---|---|---|---|
+| `div` |  | `{onMobileClose}` | `!isDesktop && isMobileOpen` · screen size: `lg:hidden` | SidebarNuevo · l.224 |
+
+**Other gestures (keys, hover, drag, blur)** (1)
+
+| Element | Reacts to | Shown when | Where |
+|---|---|---|---|
+| `div` | `onMouseEnter={handleMouseEnter} · onMouseLeave={handleMouseLeave}` |  | l.97 |
+
+**Embedded media** (1)
+
+| What | Shown when | Hook | Where |
+|---|---|---|---|
+| img · alt Genera · /genera/icon-transparent.svg | `!isCollapsed` |  | SidebarNuevo · l.245 |
+
+**Pieces placed here, with the texts and settings handed to them** (2)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `ChevronDownIcon` | aria-hidden: true | `!isCollapsed && hasChildren` |  | l.123 |
+| `ToggleIcon` | aria-hidden: true |  |  | SidebarNuevo · l.263 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `toggleLabel` | «Expandir sidebar / Contraer sidebar / Cerrar menú» | SidebarNuevo · l.217 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
+
+| Kind | What | Where |
+|---|---|---|
+| mark | `testid=global-sidebar` | SidebarNuevo · l.232 |
+
+**Values shown from data** (2)
+
+- `{value}` — Count · l.49
+- `{item.description}` — l.136, when `isCollapsed && hasChildren && showCollapsedMenu && item.description`
+
+**Other texts on screen** (4)
+
+- «Genera» — SidebarNuevo · l.247, when `!isCollapsed`
+- «Hub de Transformación» — SidebarNuevo · l.250, when `!isCollapsed`
+- «by FNE» — SidebarNuevo · l.251, when `!isCollapsed`
+- «Fundación Nueva Educación» — SidebarNuevo · l.277, when `!isCollapsed`
+
+### components/layout/TopBarNuevo.tsx
+
+Used by: `(the frame)`
+
+**Buttons** (2)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «[icon Bars3Icon]» · aria «Abrir menú de navegación» | `{onMobileSidebarOpen}` | screen size: `lg:hidden` |  | `testid=mobile-sidebar-trigger` | TopBarNuevo · l.50 |
+| «Salir» | `{onLogout}` | `user` |  |  | TopBarNuevo · l.120 |
+
+**Links** (3)
+
+| Text | Goes to | Shown when | Hook | Where |
+|---|---|---|---|---|
+| «{crumb.label}» | `{crumb.href}` | `breadcrumbs.length > 0 && each breadcrumbs && crumb.href` · screen size: `hidden lg:flex` |  | TopBarNuevo · l.70 |
+| «[icon Avatar]» | `/profile` | `user` |  | TopBarNuevo · l.109 |
+| «[icon Avatar]» · tooltip «Mi Perfil» |  | `user` |  | TopBarNuevo · l.110 |
+
+**Pieces placed here, with the texts and settings handed to them** (4)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `ChevronRightIcon` | aria-hidden: true | `breadcrumbs.length > 0 && each breadcrumbs && index > 0` · screen size: `hidden lg:flex` |  | TopBarNuevo · l.68 |
+| `ModernNotificationCenter` | panelAlign: right | `user` |  | TopBarNuevo · l.107 |
+| `Avatar` |  | `user` |  | TopBarNuevo · l.111 |
+| `LogOut` | aria-hidden: true | `user` |  | TopBarNuevo · l.126 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
+
+| Kind | What | Where |
+|---|---|---|
+| mark | `testid=topbar-current-page` | TopBarNuevo · l.92 |
+
+**Values shown from data** (3)
+
+- `{crumb.label}` — TopBarNuevo · l.79, when `breadcrumbs.length > 0 && each breadcrumbs && !(crumb.href)`, screen size: `hidden lg:flex`
+- `{currentName}` — TopBarNuevo · l.92, when `currentName`, screen size: `lg:hidden`
+- `{schoolName}` — TopBarNuevo · l.102, when `user && schoolName`, screen size: `hidden lg:block`
+
+**Other texts on screen** (1)
+
+- «Breadcrumb» (aria-label) — TopBarNuevo · l.62, when `breadcrumbs.length > 0`, screen size: `hidden lg:flex`
+
+### components/layout/useSidebarItem.ts
+
+Used by: `(the frame)`
+
+**Moves to another page from code** (1)
+
+| Goes to | How | When | Where |
+|---|---|---|---|
+| `{item.href}` | `router.push` | `!(isCollapsed && hasChildren) && !(hasChildren) && item.href` | useSidebarItem · l.109 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
+
+| Kind | What | Where |
+|---|---|---|
+| listener | `document.addEventListener('mousedown')` | useSidebarItem · l.62 |
 
 ### components/notifications/ModernNotificationCenter.tsx
 
@@ -793,80 +964,80 @@ Used by: `(the frame)`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Notificaciones» | h3 | `isOpen` | ModernNotificationCenter · l.438 |
-| «Error al cargar» | h4 | `isOpen && error && !loading` | ModernNotificationCenter · l.487 |
-| «Sin notificaciones» | h4 | `isOpen && !(loading) && notifications.length === 0` | ModernNotificationCenter · l.512 |
-| «{notification.title.substrin…}... / {notification.title}» | h4 | `isOpen && !(loading) && !(notifications.length === 0) && each notifications` | ModernNotificationCenter · l.547 |
+| «Notificaciones» | h3 | `isOpen` | ModernNotificationCenter · l.448 |
+| «Error al cargar» | h4 | `isOpen && error && !loading` | ModernNotificationCenter · l.497 |
+| «Sin notificaciones» | h4 | `isOpen && !(loading) && notifications.length === 0` | ModernNotificationCenter · l.522 |
+| «{notification.title.substrin…}... / {notification.title}» | h4 | `isOpen && !(loading) && !(notifications.length === 0) && each notifications` | ModernNotificationCenter · l.557 |
 
 **Buttons** (4)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «[99+ / {unreadCount}]» · aria «{`Notificaciones${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ''}`}» | `{() => setIsOpen(!isOpen)}` |  |  |  | ModernNotificationCenter · l.393 |
-| «Marcar todas» | `{handleMarkAllAsRead}` | `isOpen && unreadCount > 0` | `{markingAllRead}` |  | ModernNotificationCenter · l.450 |
-| «Reintentar» | `{() => fetchNotifications(true)}` | `isOpen && error && !loading` |  |  | ModernNotificationCenter · l.489 |
-| «Ver todas las notificaciones» | `{() => { setIsOpen(false); router.push('/notifications'); }}` | `isOpen && notifications.length > 0` |  |  | ModernNotificationCenter · l.591 |
+| «[99+ / {unreadCount}]» · aria «{`Notificaciones${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ''}`}» | `{() => setIsOpen(!isOpen)}` |  |  |  | ModernNotificationCenter · l.403 |
+| «Marcar todas» | `{handleMarkAllAsRead}` | `isOpen && unreadCount > 0` | `{markingAllRead}` |  | ModernNotificationCenter · l.460 |
+| «Reintentar» | `{() => fetchNotifications(true)}` | `isOpen && error && !loading` |  |  | ModernNotificationCenter · l.499 |
+| «Ver todas las notificaciones» | `{() => { setIsOpen(false); router.push('/notifications'); }}` | `isOpen && notifications.length > 0` |  |  | ModernNotificationCenter · l.601 |
 
 **Links** (1)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «[icon CogIcon]» · aria «Configuración de notificaciones» | `/configuracion/notificaciones` | `isOpen` | `testid=notification-center-settings` | ModernNotificationCenter · l.465 |
+| «[icon CogIcon]» · aria «Configuración de notificaciones» | `/configuracion/notificaciones` | `isOpen` | `testid=notification-center-settings` | ModernNotificationCenter · l.475 |
 
 **Other things that react to a click** (1)
 
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
-| `div` | «{notification.title.substrin…}... / {notification.title} [{notification.description.su…}... / {notification.description…» | `{() => handleNotificationClick(notification)}` | `isOpen && !(loading) && !(notifications.length === 0) && each notifications` | ModernNotificationCenter · l.523 |
+| `div` | «{notification.title.substrin…}... / {notification.title} [{notification.description.su…}... / {notification.description…» | `{() => handleNotificationClick(notification)}` | `isOpen && !(loading) && !(notifications.length === 0) && each notifications` | ModernNotificationCenter · l.533 |
 
 **Messages set on the page** (3)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Failed to fetch notifications» | `throw (shown by whoever catches it)` | `notifError` | ModernNotificationCenter · l.94 |
-| «Failed to load notifications» | `setError` |  | ModernNotificationCenter · l.123 |
-| «No session» | `throw (shown by whoever catches it)` | `!session?.user` | handleMarkAllAsRead · l.344 |
+| «Failed to fetch notifications» | `throw (shown by whoever catches it)` | `notifError` | ModernNotificationCenter · l.104 |
+| «Failed to load notifications» | `setError` |  | ModernNotificationCenter · l.133 |
+| «No session» | `throw (shown by whoever catches it)` | `!session?.user` | handleMarkAllAsRead · l.354 |
 
 **Moves to another page from code** (3)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `{url}` | `router.push` | `url && !url.includes('{')` | handleNotificationClick · l.290 |
-| `{fallbackUrl}` | `router.push` | `!(url && !url.includes('{'))` | handleNotificationClick · l.323 |
-| `/notifications` | `router.push` | `isOpen && notifications.length > 0` | ModernNotificationCenter · l.594 |
+| `{url}` | `router.push` | `url && !url.includes('{')` | handleNotificationClick · l.300 |
+| `{fallbackUrl}` | `router.push` | `!(url && !url.includes('{'))` | handleNotificationClick · l.333 |
+| `/notifications` | `router.push` | `isOpen && notifications.length > 0` | ModernNotificationCenter · l.604 |
 
 **Draws nothing when** (3)
 
 | Condition | Where |
 |---|---|
-| `now - lastFetchRef.current < 1000` | ModernNotificationCenter · l.55 |
-| `isFetchingRef.current` | ModernNotificationCenter · l.60 |
-| `!session?.user` | ModernNotificationCenter · l.72 |
+| `now - lastFetchRef.current < 1000` | ModernNotificationCenter · l.65 |
+| `isFetchingRef.current` | ModernNotificationCenter · l.70 |
+| `!session?.user` | ModernNotificationCenter · l.82 |
 
 **Pieces placed here, with the texts and settings handed to them** (1)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `CogIcon` | aria-hidden: true | `isOpen` |  | ModernNotificationCenter · l.473 |
+| `CogIcon` | aria-hidden: true | `isOpen` |  | ModernNotificationCenter · l.483 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (2)
 
 | Kind | What | Where |
 |---|---|---|
-| timer | `setInterval(…, REFRESH_INTERVAL)` | ModernNotificationCenter · l.148 |
-| listener | `document.addEventListener('mousedown')` | ModernNotificationCenter · l.382 |
+| timer | `setInterval(…, REFRESH_INTERVAL)` | ModernNotificationCenter · l.158 |
+| listener | `document.addEventListener('mousedown')` | ModernNotificationCenter · l.392 |
 
 **Values shown from data** (3)
 
-- `{error}` — ModernNotificationCenter · l.488, when `isOpen && error && !loading`
-- `{notification.description.su…}... / {notification.description}` — ModernNotificationCenter · l.558, when `!(loading) && !(notifications.length === 0) && each notifications && notification.description`
-- `{getRelativeTime(notification.create…}` — ModernNotificationCenter · l.571, when `isOpen && !(loading) && !(notifications.length === 0) && each notifications`
+- `{error}` — ModernNotificationCenter · l.498, when `isOpen && error && !loading`
+- `{notification.description.su…}... / {notification.description}` — ModernNotificationCenter · l.568, when `!(loading) && !(notifications.length === 0) && each notifications && notification.description`
+- `{getRelativeTime(notification.create…}` — ModernNotificationCenter · l.581, when `isOpen && !(loading) && !(notifications.length === 0) && each notifications`
 
 **Other texts on screen** (3)
 
-- «{unreadCount} notificación{unreadCount !== 1 ? 'es' : …} sin leer / Todas las notificaciones leídas» — ModernNotificationCenter · l.439, when `isOpen`
-- «Cargando notificaciones...» — ModernNotificationCenter · l.503, when `isOpen && loading`
-- «Te notificaremos cuando tengas algo nuevo» — ModernNotificationCenter · l.513, when `isOpen && !(loading) && notifications.length === 0`
+- «{unreadCount} notificación{unreadCount !== 1 ? 'es' : …} sin leer / Todas las notificaciones leídas» — ModernNotificationCenter · l.449, when `isOpen`
+- «Cargando notificaciones...» — ModernNotificationCenter · l.513, when `isOpen && loading`
+- «Te notificaremos cuando tengas algo nuevo» — ModernNotificationCenter · l.523, when `isOpen && !(loading) && notifications.length === 0`
 
 **Reads and writes the database directly:** `table:user_notifications` (select, update)
 

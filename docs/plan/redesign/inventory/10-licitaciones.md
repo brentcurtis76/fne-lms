@@ -1,7 +1,7 @@
 # Licitaciones (processes, templates, proposals)
 
 Area `10-licitaciones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3ff6aa13f` (2026-11-17).
+Read from commit `675d11e31` (2026-11-17).
 
 11 screen files, 42 API files, 28 pieces.
 
@@ -532,13 +532,13 @@ File `pages/admin/licitaciones/feriados.tsx` · 535 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Gestión › «Feriados» → `/admin/licitaciones/feriados` — admin only; the group: roles: admin, community_manager, encargado_licitacion (`Sidebar.tsx` l.614)
+- Menu: Gestión › «Feriados» → `/admin/licitaciones/feriados` — admin only; the group: roles: admin, community_manager, encargado_licitacion (`Sidebar.tsx` l.613)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.97 `router.push → /login  (when !user)`
   - l.111 `router.push → /dashboard  (when !roles.includes('admin'))`
   - l.119 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:616`
+- Linked from: `components/layout/Sidebar.tsx:615`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 2, encargado_licitacion 1.
 
@@ -675,13 +675,13 @@ File `pages/admin/licitaciones/templates.tsx` · 753 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Gestión › «Plantillas de Bases» → `/admin/licitaciones/templates` — admin only; the group: roles: admin, community_manager, encargado_licitacion (`Sidebar.tsx` l.606)
+- Menu: Gestión › «Plantillas de Bases» → `/admin/licitaciones/templates` — admin only; the group: roles: admin, community_manager, encargado_licitacion (`Sidebar.tsx` l.605)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.237 `router.push → /login  (when !user)`
   - l.248 `router.push → /dashboard  (when !adminAccess)`
   - l.257 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:608`, `pages/admin/licitaciones/criterios.tsx:337`
+- Linked from: `components/layout/Sidebar.tsx:607`, `pages/admin/licitaciones/criterios.tsx:337`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 1, encargado_licitacion 1.
 
@@ -1435,14 +1435,14 @@ File `pages/licitaciones/index.tsx` · 689 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Gestión › «Procesos» → `/licitaciones` — roles: admin, encargado_licitacion; the group: roles: admin, community_manager, encargado_licitacion (`Sidebar.tsx` l.598)
+- Menu: Gestión › «Procesos» → `/licitaciones` — roles: admin, encargado_licitacion; the group: roles: admin, community_manager, encargado_licitacion (`Sidebar.tsx` l.597)
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
   - l.176 `router.push → /login  (when !user)`
   - l.185 `router.push → /dashboard  (when !response.ok)`
   - l.198 `router.push → /dashboard  (when !adminAccess && !encargadoAccess)`
   - l.222 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:600`, `lib/auth/forced-password-change.ts:150`, `lib/notificationEvents.ts:627`, `lib/notificationEvents.ts:639`, `lib/notificationEvents.ts:651`, `lib/notificationEvents.ts:663`, `lib/notificationEvents.ts:675`, `lib/notificationEvents.ts:687`, `lib/notificationEvents.ts:699`, `lib/notificationEvents.ts:711`, `lib/notificationEvents.ts:723`, `lib/notificationEvents.ts:735` and 21 more
+- Linked from: `components/layout/Sidebar.tsx:599`, `lib/auth/forced-password-change.ts:150`, `lib/notificationEvents.ts:627`, `lib/notificationEvents.ts:639`, `lib/notificationEvents.ts:651`, `lib/notificationEvents.ts:663`, `lib/notificationEvents.ts:675`, `lib/notificationEvents.ts:687`, `lib/notificationEvents.ts:699`, `lib/notificationEvents.ts:711`, `lib/notificationEvents.ts:723`, `lib/notificationEvents.ts:735` and 21 more
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 4, community_manager 2, consultor 3, equipo_directivo 2, docente 1, lider_comunidad 1.
 

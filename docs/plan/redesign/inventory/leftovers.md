@@ -1,13 +1,13 @@
 # Leftover pages — for Brent to decide
 
-Written by `scripts/redesign/inventory.mjs` from commit `3ff6aa13f`. The marks are in `areas.json`. Brent's answers are recorded in the redesign ledger and, once given, in the column "Decision".
+Written by `scripts/redesign/inventory.mjs` from commit `675d11e31`. The marks are in `areas.json`. Brent's answers are recorded in the redesign ledger and, once given, in the column "Decision".
 
 ## Vías de Transformación (to be deleted)
 
 | Address | File | What it does | Who can open it | Linked from | Tests that visit it | Decision |
 |---|---|---|---|---|---|---|
 | `/admin/transformation` | `pages/admin/transformation.tsx` | Part of Vías de Transformación. | the /admin rule; signed-out: sent to /login; the page has its own check | nothing | none | Goes with Vías (Brent, 13 Nov 2026) |
-| `/admin/transformation/assessments` | `pages/admin/transformation/assessments.tsx` | Part of Vías de Transformación. | the /admin rule; signed-out: sent to /login; the page has its own check | `components/layout/Sidebar.tsx:351`, the menu | none | Goes with Vías (Brent, 13 Nov 2026) |
+| `/admin/transformation/assessments` | `pages/admin/transformation/assessments.tsx` | Part of Vías de Transformación. | the /admin rule; signed-out: sent to /login; the page has its own check | `components/layout/Sidebar.tsx:350`, the menu | none | Goes with Vías (Brent, 13 Nov 2026) |
 | `/admin/transformation/metrics` | `pages/admin/transformation/metrics.tsx` | Part of Vías de Transformación. | the /admin rule; signed-out: sent to /login; the page has its own check | `pages/community/workspace/transformation/evaluate.tsx:481`, `pages/community/workspace/transformation/evaluate.tsx:482` | `__tests__/lib/api-auth.server-side-user.test.ts` | Goes with Vías (Brent, 13 Nov 2026) |
 | `/community/transformation/assessment` | `pages/community/transformation/assessment.tsx` | Part of Vías de Transformación. | no role rule; signed-out: not stopped by the middleware; the page has its own check | `pages/community/transformation/report.tsx:145`, `pages/community/transformation/report.tsx:62`, `pages/community/transformation/results/[assessmentId].tsx:166` | none | Goes with Vías (Brent, 13 Nov 2026) |
 | `/community/transformation/report` | `pages/community/transformation/report.tsx` | Part of Vías de Transformación. | no role rule; signed-out: not stopped by the middleware | nothing | none | Goes with Vías (Brent, 13 Nov 2026) |
@@ -15,7 +15,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `3ff6aa13f`. The marks a
 | `/community/workspace/transformation/evaluate` | `pages/community/workspace/transformation/evaluate.tsx` | Part of Vías de Transformación. | the workspace rule; signed-out: sent to /login; the page has its own check | `pages/admin/transformation/metrics.tsx:157` | `__tests__/lib/api-auth.server-side-user.test.ts` | Goes with Vías (Brent, 13 Nov 2026) |
 | `/test/sequential-questions` | `pages/test/sequential-questions.tsx` | A test page for the Vías question flow. | not covered; signed-out: not stopped by the middleware | nothing | none | Goes with Vías (Brent, 13 Nov 2026) |
 | `/vias-transformacion/[id]` | `pages/vias-transformacion/[id].tsx` | Part of Vías de Transformación. | not covered; signed-out: not stopped by the middleware; the page has its own check | `pages/admin/transformation/assessments.tsx:409`, `pages/admin/transformation/assessments.tsx:436`, `pages/vias-transformacion/index.tsx:168` | none | Goes with Vías (Brent, 13 Nov 2026) |
-| `/vias-transformacion` | `pages/vias-transformacion/index.tsx` | Part of Vías de Transformación. | not covered; signed-out: not stopped by the middleware; the page has its own check | `components/DynamicFavicon.tsx:42`, `components/layout/Sidebar.tsx:331`, `components/layout/Sidebar.tsx:338`, the menu | none | Goes with Vías (Brent, 13 Nov 2026) |
+| `/vias-transformacion` | `pages/vias-transformacion/index.tsx` | Part of Vías de Transformación. | not covered; signed-out: not stopped by the middleware; the page has its own check | `components/DynamicFavicon.tsx:42`, `components/layout/Sidebar.tsx:330`, `components/layout/Sidebar.tsx:337`, the menu | none | Goes with Vías (Brent, 13 Nov 2026) |
 
 ## Look like leftovers but are in use (stay)
 

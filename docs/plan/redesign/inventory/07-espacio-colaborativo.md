@@ -1,7 +1,7 @@
 # Espacio Colaborativo y comunidades
 
 Area `07-espacio-colaborativo`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3ff6aa13f` (2026-11-17).
+Read from commit `675d11e31` (2026-11-17).
 
 4 screen files, 18 API files, 67 pieces.
 
@@ -260,7 +260,7 @@ File `pages/admin/growth-communities/index.tsx` · 1071 lines · frame: MainLayo
 
 ### Who reaches it
 
-- Menu: «Comunidades» → `/admin/growth-communities` — roles: admin, equipo_directivo (`Sidebar.tsx` l.382)
+- Menu: «Comunidades» → `/admin/growth-communities` — roles: admin, equipo_directivo (`Sidebar.tsx` l.381)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.67 `server redirect → /login  (when !user)`
@@ -268,7 +268,7 @@ File `pages/admin/growth-communities/index.tsx` · 1071 lines · frame: MainLayo
   - l.93 `server redirect → /dashboard  (when !edRow \|\| edRow.school_id === null \|\| edRow.school_id === undefined)`
   - l.99 `server redirect → /dashboard  (when !Number.isFinite(schoolId))`
   - l.256 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:385`, `middleware.ts:237`, `pages/admin/growth-communities/[id]/members.tsx:509`
+- Linked from: `components/layout/Sidebar.tsx:384`, `middleware.ts:237`, `pages/admin/growth-communities/[id]/members.tsx:509`
 - Tests: no browser test that CI runs; unit tests of the page: `__tests__/components/GrowthCommunitiesIndexPage.crud.test.tsx`, `__tests__/lib/api-auth.server-side-user.test.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -477,16 +477,16 @@ File `pages/community/workspace.tsx` · 2684 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Espacio Colaborativo › «Vista General» → `/community/workspace?section=overview` — everyone signed in; the group: needs a community (admin and consultor pass) (`Sidebar.tsx` l.220)
-- Menu: Espacio Colaborativo › «Sesiones» → `/community/workspace?section=sessions` — everyone signed in; the group: needs a community (admin and consultor pass) (`Sidebar.tsx` l.226)
-- Menu: Espacio Colaborativo › «Gestión Comunidades» → `/community/workspace?section=communities` — permission: manage_communities_all; the group: needs a community (admin and consultor pass) (`Sidebar.tsx` l.231)
+- Menu: Espacio Colaborativo › «Vista General» → `/community/workspace?section=overview` — everyone signed in; the group: needs a community (admin and consultor pass) (`Sidebar.tsx` l.219)
+- Menu: Espacio Colaborativo › «Sesiones» → `/community/workspace?section=sessions` — everyone signed in; the group: needs a community (admin and consultor pass) (`Sidebar.tsx` l.225)
+- Menu: Espacio Colaborativo › «Gestión Comunidades» → `/community/workspace?section=communities` — permission: manage_communities_all; the group: needs a community (admin and consultor pass) (`Sidebar.tsx` l.230)
 - Middleware: the workspace rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.332 `router.push → /login  (when !(!authLoading && user) && !authLoading && !user)`
   - l.336 `location.href → /login  (when !(!authLoading && user) && !authLoading && !user)`
   - l.865 `router.push → /dashboard  (when error)`
   - l.2442 `No tienes permisos para ver los mensajes de esta comunidad.`
-- Linked from: `components/layout/Sidebar.tsx:1373`, `components/layout/Sidebar.tsx:222`, `components/layout/Sidebar.tsx:228`, `components/layout/Sidebar.tsx:233`, `lib/auth/forced-password-change.ts:175`, `lib/notifications/catalog.ts:170`, `lib/notifications/catalog.ts:325`, `lib/notifications/catalog.ts:331`, `lib/notifications/catalog.ts:336`, `middleware.ts:247`, `pages/api/qa/seed-codebase-index.ts:431`, `pages/community/transformation/assessment.tsx:366` and 16 more
+- Linked from: `components/layout/Sidebar.tsx:1286`, `components/layout/Sidebar.tsx:221`, `components/layout/Sidebar.tsx:227`, `components/layout/Sidebar.tsx:232`, `lib/auth/forced-password-change.ts:175`, `lib/notifications/catalog.ts:170`, `lib/notifications/catalog.ts:325`, `lib/notifications/catalog.ts:331`, `lib/notifications/catalog.ts:336`, `middleware.ts:247`, `pages/api/qa/seed-codebase-index.ts:431`, `pages/community/transformation/assessment.tsx:366` and 16 more
 - Tests: browser tests that CI runs: `tests/e2e/auth-lifecycle.spec.ts`, `tests/e2e/community-document-links.spec.ts`, `tests/e2e/meeting-create-and-access.spec.ts`; browser tests CI skips: `tests/e2e/meeting-agreements-tasks.spec.ts`, `tests/e2e/meeting-finalize-email-outcome.spec.ts`, `tests/e2e/messaging-notifications.spec.ts`, `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/panel-pin.spec.ts`, `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`; unit tests of the page: `__tests__/pages/community/workspace.mention-scope.test.tsx`, `components/__tests__/GroupAssignmentsContent.test.skip.tsx`, `components/__tests__/GroupAssignmentsContent.test.tsx`.
 - QA scenarios that name this address: admin 7, consultor 2, lider_comunidad 5.
 

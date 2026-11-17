@@ -65,6 +65,8 @@ const SidebarItemNuevo: React.FC<SidebarItemProps> = React.memo((props) => {
   const isCurrent = isActive && !hasChildren;
   const showsCount = filteredChildren.some(c => c.id === 'feedback') && newFeedbackCount > 0;
   const title = isCollapsed ? (hasChildren ? undefined : item.label) : item.description;
+  // The button's name is the entry's label in every state (5b, send-back 1): collapsed, the label is
+  // not drawn and the icon is hidden from screen readers, so without it a group's button has no name.
 
   return (
     <div className="relative" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
@@ -75,6 +77,7 @@ const SidebarItemNuevo: React.FC<SidebarItemProps> = React.memo((props) => {
         data-testid={`sidebar-item-${item.id}`}
         aria-expanded={hasChildren ? (isCollapsed ? showCollapsedMenu : isExpanded) : undefined}
         aria-current={isCurrent ? 'page' : undefined}
+        aria-label={item.label}
         title={title}
         className={`group relative flex items-center w-full gap-3 rounded-sm py-2.5 text-left font-mont text-[11px] font-semibold uppercase tracking-[0.08em] ${MOTION} ${
           isCollapsed ? 'justify-center px-0' : 'px-3'

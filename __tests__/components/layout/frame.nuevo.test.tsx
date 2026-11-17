@@ -288,6 +288,33 @@ describe('the new frame: the sidebar on a desktop', () => {
     expect(within(support).getByText('4').className).toContain('bg-[#fbbf24]');
   });
 
+  describe('every top-level button is named by its entry\'s label (5b, send-back 1)', () => {
+    const named = (testId: string, label: string) => {
+      const button = screen.getByTestId(testId);
+      expect(within(sidebar()).getByRole('button', { name: label })).toBe(button);
+      expect(button).toHaveAttribute('aria-label', label);
+    };
+
+    it('expanded: a group, a plain entry, and a group showing a count', async () => {
+      go('/admin/feedback');
+      await draw({}, ADMIN);
+      named('sidebar-item-mi-aprendizaje', 'Mi Aprendizaje');
+      named('sidebar-item-dashboard', 'Mi Panel');
+      named('sidebar-item-gestion', 'Gestión');
+      // What is drawn expanded does not change.
+      expect(screen.getByTestId('sidebar-item-gestion')).toHaveTextContent(/^Gestión4$/);
+      expect(screen.getByTestId('sidebar-item-dashboard')).toHaveTextContent(/^Mi Panel$/);
+    });
+
+    it('collapsed: a group and a plain entry', async () => {
+      window.localStorage.setItem('fne-sidebar-collapsed', 'true');
+      await draw();
+      named('sidebar-item-mi-aprendizaje', 'Mi Aprendizaje');
+      named('sidebar-item-dashboard', 'Mi Panel');
+      expect(screen.getByTestId('sidebar-item-mi-aprendizaje')).toHaveTextContent(/^$/);
+    });
+  });
+
   it('a group without visible children and without an address is not drawn', async () => {
     await draw();
     // A docente sees none of «Comunicación»'s children.

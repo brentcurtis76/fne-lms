@@ -20,6 +20,10 @@
 --   e. the receipts store `boletas`: public.file_store_allows (boletas branch
 --      only) and four permissive storage rules for filers (placed before the
 --      trigger of part d; part e is written before part d for that reason)
+--   f. (send-back 2) the guard public.expense_reports_guard() and its trigger:
+--      a sent report is closed to its author, an admin author included,
+--      except for deciding it; only an admin decides and writes the review
+--      fields; a report starts as draft or submitted without review fields
 --
 -- Additive only: no rule is dropped; existing rules are changed with ALTER
 -- POLICY. Row level security stays on everywhere.
@@ -79,7 +83,7 @@ CREATE POLICY "expense_reports_delete_states" ON public.expense_reports
   AS RESTRICTIVE FOR DELETE
   USING (
     (submitted_by = auth.uid() AND status IN ('draft', 'rejected'))
-    OR (public.auth_is_admin() AND NOT (status = 'approved' AND submitted_by = auth.uid()))
+    OR (public.auth_is_admin() AND NOT (status IN ('submitted', 'approved') AND submitted_by = auth.uid()))
   );
 
 CREATE POLICY "expense_reports_insert_states" ON public.expense_reports
@@ -148,7 +152,7 @@ CREATE POLICY "expense_items_insert_states" ON public.expense_items
               FROM public.expense_reports er
              WHERE er.id = expense_items.report_id
                AND ((er.submitted_by = auth.uid() AND er.status IN ('draft', 'rejected'))
-                    OR (public.auth_is_admin() AND NOT (er.status = 'approved' AND er.submitted_by = auth.uid()))))
+                    OR (public.auth_is_admin() AND NOT (er.status IN ('submitted', 'approved') AND er.submitted_by = auth.uid()))))
   );
 
 CREATE POLICY "expense_items_update_states" ON public.expense_items
@@ -158,14 +162,14 @@ CREATE POLICY "expense_items_update_states" ON public.expense_items
               FROM public.expense_reports er
              WHERE er.id = expense_items.report_id
                AND ((er.submitted_by = auth.uid() AND er.status IN ('draft', 'rejected'))
-                    OR (public.auth_is_admin() AND NOT (er.status = 'approved' AND er.submitted_by = auth.uid()))))
+                    OR (public.auth_is_admin() AND NOT (er.status IN ('submitted', 'approved') AND er.submitted_by = auth.uid()))))
   )
   WITH CHECK (
     EXISTS (SELECT 1
               FROM public.expense_reports er
              WHERE er.id = expense_items.report_id
                AND ((er.submitted_by = auth.uid() AND er.status IN ('draft', 'rejected'))
-                    OR (public.auth_is_admin() AND NOT (er.status = 'approved' AND er.submitted_by = auth.uid()))))
+                    OR (public.auth_is_admin() AND NOT (er.status IN ('submitted', 'approved') AND er.submitted_by = auth.uid()))))
   );
 
 CREATE POLICY "expense_items_delete_states" ON public.expense_items
@@ -175,7 +179,7 @@ CREATE POLICY "expense_items_delete_states" ON public.expense_items
               FROM public.expense_reports er
              WHERE er.id = expense_items.report_id
                AND ((er.submitted_by = auth.uid() AND er.status IN ('draft', 'rejected'))
-                    OR (public.auth_is_admin() AND NOT (er.status = 'approved' AND er.submitted_by = auth.uid()))))
+                    OR (public.auth_is_admin() AND NOT (er.status IN ('submitted', 'approved') AND er.submitted_by = auth.uid()))))
   );
 
 -- -----------------------------------------------------------------------------
@@ -410,7 +414,8 @@ BEGIN
       v_comment := NEW.review_comments;
     ELSIF NEW.status = 'approved' THEN
       v_event := 'approved';
-    ELSIF NEW.status = 'draft' AND OLD.status IN ('approved', 'submitted') THEN
+    ELSIF NEW.status = 'draft' THEN
+      -- from any other status (send-back 2: rejected -> draft too)
       v_event := 'reopened';
     END IF;
   END IF;
@@ -432,3 +437,85 @@ REVOKE ALL ON FUNCTION public.expense_report_record_event() FROM anon, authentic
 CREATE TRIGGER expense_reports_history
   AFTER INSERT OR UPDATE OF status ON public.expense_reports
   FOR EACH ROW EXECUTE FUNCTION public.expense_report_record_event();
+
+-- -----------------------------------------------------------------------------
+-- f. The guard (send-back 2). Decided by the lead, 17 Nov 2026: a report's
+-- author, whatever their role, changes its content and deletes it only while
+-- it is draft or rejected; once sent, an admin author may only decide it
+-- (approve or reject); only an admin decides and writes reviewed_by,
+-- reviewed_at and review_comments; a non-admin author's moves of status are
+-- draft -> submitted and rejected -> submitted (and saving either as it is);
+-- a report is created as draft or submitted, without review fields; an admin
+-- who is not the author keeps full authority. The server acting with the
+-- service key (no auth.uid(), e.g. the Telegram assistant) is not stopped.
+-- Not SECURITY DEFINER: it must see the caller. Deletion and the items are
+-- governed by the restrictive rules of parts b and c.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.expense_reports_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_uid  uuid := auth.uid();
+  c_decision constant text[] := ARRAY['status', 'reviewed_by', 'reviewed_at', 'review_comments', 'updated_at'];
+  v_move boolean;
+  v_review_kept boolean;
+BEGIN
+  IF v_uid IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.status IS NULL OR NEW.status NOT IN ('draft', 'submitted')
+       OR NEW.reviewed_by IS NOT NULL OR NEW.reviewed_at IS NOT NULL OR NEW.review_comments IS NOT NULL THEN
+      RAISE EXCEPTION 'expense_report_invalid_start' USING ERRCODE = '42501';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  -- the moves of status an author may make
+  v_move := coalesce((OLD.status::text, NEW.status::text) IN (('draft', 'draft'), ('draft', 'submitted'),
+                                                              ('rejected', 'rejected'), ('rejected', 'submitted')), false);
+  v_review_kept := NEW.reviewed_by IS NOT DISTINCT FROM OLD.reviewed_by
+               AND NEW.reviewed_at IS NOT DISTINCT FROM OLD.reviewed_at
+               AND NEW.review_comments IS NOT DISTINCT FROM OLD.review_comments;
+
+  IF NOT public.auth_is_admin() THEN
+    IF NEW.submitted_by IS DISTINCT FROM OLD.submitted_by OR NOT v_review_kept OR NOT v_move THEN
+      RAISE EXCEPTION 'expense_report_change_not_allowed' USING ERRCODE = '42501';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF OLD.submitted_by = v_uid THEN
+    IF OLD.status IN ('draft', 'rejected') THEN
+      IF NOT v_review_kept OR NOT v_move THEN
+        RAISE EXCEPTION 'expense_report_change_not_allowed' USING ERRCODE = '42501';
+      END IF;
+    ELSIF OLD.status = 'submitted' THEN
+      IF NEW.status IS NULL OR NEW.status NOT IN ('approved', 'rejected')
+         OR (to_jsonb(NEW) - c_decision) IS DISTINCT FROM (to_jsonb(OLD) - c_decision) THEN
+        RAISE EXCEPTION 'expense_report_change_not_allowed' USING ERRCODE = '42501';
+      END IF;
+    ELSE
+      -- approved (or no status): closed to its author
+      RAISE EXCEPTION 'expense_report_change_not_allowed' USING ERRCODE = '42501';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  -- an admin who is not the author
+  RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION public.expense_reports_guard() IS
+  'Trigger function of expense_reports_guard (BEFORE INSERT OR UPDATE on public.expense_reports), for signed-in callers only: a report starts as draft or submitted without review fields; a non-admin never changes submitted_by or the review fields and moves only draft/rejected -> submitted; an admin author follows the same rules on their draft or rejected report, may only decide (approve or reject, with the review fields) their own sent report and changes nothing of their own approved one; an admin who is not the author is not limited. Errors expense_report_invalid_start / expense_report_change_not_allowed (42501). F7d send-back 2, 17 Nov 2026.';
+
+REVOKE ALL ON FUNCTION public.expense_reports_guard() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.expense_reports_guard() FROM anon, authenticated;
+
+CREATE TRIGGER expense_reports_guard
+  BEFORE INSERT OR UPDATE ON public.expense_reports
+  FOR EACH ROW EXECUTE FUNCTION public.expense_reports_guard();

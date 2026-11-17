@@ -29,7 +29,7 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(172);
+SELECT plan(220);
 
 -- ---------------------------------------------------------------------------
 -- 1. Catalog
@@ -395,8 +395,12 @@ SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_repor
   '1 rows, changed', 'admin approves their own sent report');
 SELECT is(pg_temp.attempt('f7d137_admin2', format($q$UPDATE public.expense_reports SET status = 'rejected', review_comments = 'F7d 137 revisar' WHERE id = %L$q$, pg_temp.r('01')), pg_temp.r('01')),
   '1 rows, changed', 'another admin rejects an admin''s sent report');
+-- Send-back 2 restates this assertion (it asserted a move now forbidden). Was:
+--   '1 rows, changed', 'an admin may act on their own rejected report like any author'
+-- An admin author on their own rejected report is an author like any other:
+-- content yes, the review fields never.
 SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET status = 'rejected', review_comments = 'F7d 137 otra vez' WHERE id = %L$q$, pg_temp.r('01')), pg_temp.r('01')),
-  '1 rows, changed', 'an admin may act on their own rejected report like any author');
+  '42501, unchanged', 'an admin author cannot rewrite the review comment of their own rejected report');
 
 -- ---------------------------------------------------------------------------
 -- 12. An admin's OWN approved report is closed to them; another admin corrects it
@@ -690,6 +694,187 @@ SELECT ok(pg_temp.st('anon', pg_temp.repl('f7d137_cons1_old.pdf')) IN ('0 rows',
           AND pg_temp.st('anon', pg_temp.del('f7d137_cons1_old.pdf')) IN ('0 rows', '42501')
           AND pg_temp.bol('f7d137_cons1_old.pdf') = 1,
   'boletas: visitor cannot replace or delete a receipt');
+
+-- ---------------------------------------------------------------------------
+-- 17. Send-back 2 (guard public.expense_reports_guard): a sent report is closed
+--     to its author, an admin author included, except for deciding it; only an
+--     admin decides and writes reviewed_by / reviewed_at / review_comments; a
+--     non-admin author moves only draft -> submitted and rejected -> submitted;
+--     a report starts as draft or submitted without review fields; every real
+--     change of status leaves a history line; the server key is not stopped.
+--     Reproductions 1 to 5 of evidence/F7d/SOL-1.md, then what must still work.
+-- ---------------------------------------------------------------------------
+INSERT INTO public.expense_reports (id, report_name, start_date, end_date, submitted_by, status, reviewed_by, reviewed_at, review_comments) VALUES
+  (pg_temp.r('20'), 'F7d 137 admin1 sent B',    '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_admin1'), 'submitted', NULL, NULL, NULL),
+  (pg_temp.r('21'), 'F7d 137 cons1 rejected B', '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'),  'rejected',
+     pg_temp.uid('f7d137_admin2'), '2027-03-03 10:00+00', 'F7d 137 falta la boleta'),
+  (pg_temp.r('22'), 'F7d 137 cons1 draft C',    '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'),  'draft', NULL, NULL, NULL),
+  (pg_temp.r('23'), 'F7d 137 cons2 sent B',     '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons2'),  'submitted', NULL, NULL, NULL),
+  (pg_temp.r('24'), 'F7d 137 cm sent B',        '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cm'),     'submitted', NULL, NULL, NULL),
+  (pg_temp.r('25'), 'F7d 137 cons2 sent C',     '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons2'),  'submitted', NULL, NULL, NULL),
+  (pg_temp.r('26'), 'F7d 137 cons1 rejected C', '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'),  'rejected',
+     pg_temp.uid('f7d137_admin2'), '2027-03-03 10:00+00', 'F7d 137 revisar fechas'),
+  (pg_temp.r('27'), 'F7d 137 cons2 sent D',     '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons2'),  'submitted', NULL, NULL, NULL),
+  (pg_temp.r('28'), 'F7d 137 admin1 draft',     '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_admin1'), 'draft', NULL, NULL, NULL),
+  (pg_temp.r('2b'), 'F7d 137 admin1 rejected',  '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_admin1'), 'rejected',
+     pg_temp.uid('f7d137_admin2'), '2027-03-03 10:00+00', 'F7d 137 motivo admin'),
+  (pg_temp.r('31'), 'F7d 137 admin1 sent C',    '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_admin1'), 'submitted', NULL, NULL, NULL),
+  (pg_temp.r('32'), 'F7d 137 admin1 sent D',    '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_admin1'), 'submitted', NULL, NULL, NULL),
+  (pg_temp.r('33'), 'F7d 137 cons1 rejected D', '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'),  'rejected',
+     pg_temp.uid('f7d137_admin2'), '2027-03-03 10:00+00', 'F7d 137 falta la boleta'),
+  (pg_temp.r('34'), 'F7d 137 admin1 sent E',    '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_admin1'), 'submitted', NULL, NULL, NULL),
+  (pg_temp.r('35'), 'F7d 137 cons1 draft D',    '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'),  'draft', NULL, NULL, NULL),
+  (pg_temp.r('36'), 'F7d 137 cons1 rejected E', '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'),  'rejected',
+     pg_temp.uid('f7d137_admin2'), '2027-03-03 10:00+00', 'F7d 137 falta la boleta'),
+  (pg_temp.r('37'), 'F7d 137 admin1 sent F',    '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_admin1'), 'submitted', NULL, NULL, NULL),
+  (pg_temp.r('38'), 'F7d 137 admin1 sent G',    '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_admin1'), 'submitted', NULL, NULL, NULL),
+  (pg_temp.r('39'), 'F7d 137 cons1 rejected F', '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'),  'rejected',
+     pg_temp.uid('f7d137_admin2'), '2027-03-03 10:00+00', 'F7d 137 falta la boleta'),
+  (pg_temp.r('3a'), 'F7d 137 cons1 rejected G', '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'),  'rejected',
+     pg_temp.uid('f7d137_admin2'), '2027-03-03 10:00+00', 'F7d 137 falta la boleta');
+-- one report per reproduction, so that a reproduction that succeeds before the
+-- fix does not move the next one's report
+INSERT INTO public.expense_items (id, report_id, description, amount, expense_date) VALUES
+  (pg_temp.i('20'), pg_temp.r('32'), 'F7d 137 vuelo', 9000, '2027-03-01'),
+  (pg_temp.i('21'), pg_temp.r('33'), 'F7d 137 taxi B', 2100, '2027-03-01');
+
+SELECT ok(coalesce((SELECT NOT p.prosecdef
+                           AND p.prolang = (SELECT oid FROM pg_language WHERE lanname = 'plpgsql')
+                           AND p.prorettype = 'trigger'::regtype
+                           AND p.proconfig = ARRAY['search_path=public, pg_temp']
+                           AND NOT has_function_privilege('anon', p.oid, 'EXECUTE')
+                           AND NOT has_function_privilege('authenticated', p.oid, 'EXECUTE')
+                           AND (SELECT count(*) FROM aclexplode(p.proacl) a WHERE a.grantee = 0) = 0
+                      FROM pg_proc p WHERE p.oid = to_regprocedure('public.expense_reports_guard()')), false),
+  'expense_reports_guard(): plpgsql trigger function, NOT security definer, search_path pinned, no EXECUTE for PUBLIC, anon, authenticated');
+SELECT ok(EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid = 'public.expense_reports'::regclass
+                   AND t.tgname = 'expense_reports_guard' AND NOT t.tgisinternal
+                   AND t.tgfoid = to_regprocedure('public.expense_reports_guard()')
+                   AND (t.tgtype & 31) = 23),
+  'trigger expense_reports_guard: BEFORE INSERT OR UPDATE, FOR EACH ROW, on expense_reports');
+
+-- Reproduction 1: an admin author of a SENT report changes nothing of it but the decision
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET total_amount = 1 WHERE id = %L$q$, pg_temp.r('20')), pg_temp.r('20')),
+  '42501, unchanged', 'SOL-1 #1: own sent (admin author): cannot change the report');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET status = 'draft' WHERE id = %L$q$, pg_temp.r('37')), pg_temp.r('37')),
+  '42501, unchanged', 'SOL-1 #1: own sent (admin author): cannot take it back to draft');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET status = 'approved', reviewed_by = auth.uid(), reviewed_at = now(), total_amount = 1 WHERE id = %L$q$, pg_temp.r('38')), pg_temp.r('38')),
+  '42501, unchanged', 'SOL-1 #1: own sent (admin author): a decision cannot carry a change of content');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_items SET amount = 1 WHERE id = %L$q$, pg_temp.i('20')), pg_temp.r('32')),
+  '0 rows, unchanged', 'SOL-1 #1: own sent (admin author): cannot change an item');
+SELECT is(pg_temp.attempt('f7d137_admin1', pg_temp.new_item(pg_temp.i('2a'), pg_temp.r('32')), pg_temp.r('32')),
+  '42501, unchanged', 'SOL-1 #1: own sent (admin author): cannot add an item');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$DELETE FROM public.expense_items WHERE id = %L$q$, pg_temp.i('20')), pg_temp.r('32')),
+  '0 rows, unchanged', 'SOL-1 #1: own sent (admin author): cannot delete an item');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$DELETE FROM public.expense_reports WHERE id = %L$q$, pg_temp.r('32')), pg_temp.r('32')),
+  '0 rows, unchanged', 'SOL-1 #1: own sent (admin author): cannot delete the report');
+
+-- Reproduction 2: a non-admin author never writes the review fields
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET reviewed_by = %L, reviewed_at = now(), review_comments = 'Reembolso autorizado por administración' WHERE id = %L$q$, pg_temp.uid('f7d137_admin1'), pg_temp.r('21')), pg_temp.r('21')),
+  '42501, unchanged', 'SOL-1 #2: own rejected: author cannot forge the reviewer, the time and the comment');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET review_comments = NULL WHERE id = %L$q$, pg_temp.r('39')), pg_temp.r('39')),
+  '42501, unchanged', 'SOL-1 #2: own rejected: author cannot erase the reason');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'submitted', reviewed_by = auth.uid() WHERE id = %L$q$, pg_temp.r('3a')), pg_temp.r('3a')),
+  '42501, unchanged', 'SOL-1 #2: own rejected: sending it again cannot also write the reviewer');
+
+-- Reproduction 3: only an admin rejects
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'rejected', review_comments = 'Rechazado por administración' WHERE id = %L$q$, pg_temp.r('22')), pg_temp.r('22')),
+  '42501, unchanged', 'SOL-1 #3: own draft: author cannot set it rejected with a comment');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'rejected' WHERE id = %L$q$, pg_temp.r('35')), pg_temp.r('35')),
+  '42501, unchanged', 'SOL-1 #3: own draft: author cannot set it rejected');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET status = 'rejected' WHERE id = %L$q$, pg_temp.r('28')), pg_temp.r('28')),
+  '42501, unchanged', 'SOL-1 #3: own draft (admin author): cannot set it rejected (an author''s moves only)');
+
+-- Reproduction 4: an author does not take a rejected report back to draft
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'draft' WHERE id = %L$q$, pg_temp.r('36')), pg_temp.r('36')),
+  '42501, unchanged', 'SOL-1 #4: own rejected: author cannot take it back to draft');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET status = 'draft' WHERE id = %L$q$, pg_temp.r('2b')), pg_temp.r('2b')),
+  '42501, unchanged', 'SOL-1 #4: own rejected (admin author): cannot take it back to draft');
+
+-- Reproduction 5: a report starts as draft or submitted, without review fields
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$INSERT INTO public.expense_reports (id, report_name, start_date, end_date, submitted_by, status, reviewed_by, reviewed_at)
+                                                     VALUES (%L, 'Synthetic review', current_date, current_date, auth.uid(), 'approved', auth.uid(), now())$q$, pg_temp.r('2c')), pg_temp.r('2c')),
+  '42501, unchanged', 'SOL-1 #5: an admin cannot create a report already approved');
+SELECT is(pg_temp.attempt('f7d137_admin1', pg_temp.new_report(pg_temp.r('2d'), 'rejected'), pg_temp.r('2d')),
+  '42501, unchanged', 'SOL-1 #5: an admin cannot create a report already rejected');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$INSERT INTO public.expense_reports (id, report_name, start_date, end_date, submitted_by, status, review_comments)
+                                                     VALUES (%L, 'F7d 137 nuevo', '2027-03-05', '2027-03-06', auth.uid(), 'draft', 'F7d 137 aprobado de antemano')$q$, pg_temp.r('2e')), pg_temp.r('2e')),
+  '42501, unchanged', 'SOL-1 #5: an admin cannot create a draft with a review comment');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$INSERT INTO public.expense_reports (id, report_name, start_date, end_date, submitted_by, status, reviewed_by, reviewed_at)
+                                                    VALUES (%L, 'F7d 137 nuevo', '2027-03-05', '2027-03-06', auth.uid(), 'submitted', %L, now())$q$, pg_temp.r('30'), pg_temp.uid('f7d137_admin1')), pg_temp.r('30')),
+  '42501, unchanged', 'SOL-1 #5: a consultor cannot create a sent report with a reviewer');
+
+-- Must still work: a consultor's draft, from creation to sending
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_report(pg_temp.r('29'), 'draft'), pg_temp.r('29')), '1 rows, changed', 'still: consultor creates a draft');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET report_name = 'F7d 137 draft editado', total_amount = 1234, updated_at = now() WHERE id = %L$q$, pg_temp.r('29')), pg_temp.r('29')),
+  '1 rows, changed', 'still: consultor edits it');
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_item(pg_temp.i('22'), pg_temp.r('29')), pg_temp.r('29')), '1 rows, changed', 'still: consultor adds an item');
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_item(pg_temp.i('23'), pg_temp.r('29')), pg_temp.r('29')), '1 rows, changed', 'still: consultor adds another item');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$DELETE FROM public.expense_items WHERE id = %L$q$, pg_temp.i('23')), pg_temp.r('29')),
+  '1 rows, changed', 'still: consultor removes an item');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'submitted', submitted_at = now() WHERE id = %L$q$, pg_temp.r('29')), pg_temp.r('29')),
+  '1 rows, changed', 'still: consultor sends it');
+SELECT ok(pg_temp.ev_count(pg_temp.r('29')) = 1 AND pg_temp.ev_has(pg_temp.r('29'), 'submitted', pg_temp.uid('f7d137_cons1'), NULL),
+  'still: its history line: submitted, by the consultor');
+
+-- Must still work: a consultor corrects their rejected report and sends it again
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET description = 'F7d 137 con boleta', updated_at = now() WHERE id = %L$q$, pg_temp.r('33')), pg_temp.r('33')),
+  '1 rows, changed', 'still: consultor edits their rejected report');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_items SET amount = 2200 WHERE id = %L$q$, pg_temp.i('21')), pg_temp.r('33')),
+  '1 rows, changed', 'still: consultor changes an item of it');
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_item(pg_temp.i('24'), pg_temp.r('33')), pg_temp.r('33')), '1 rows, changed', 'still: consultor adds an item to it');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'submitted', submitted_at = now() WHERE id = %L$q$, pg_temp.r('33')), pg_temp.r('33')),
+  '1 rows, changed', 'still: consultor sends it again');
+SELECT ok(pg_temp.ev_count(pg_temp.r('33')) = 1 AND pg_temp.ev_has(pg_temp.r('33'), 'resubmitted', pg_temp.uid('f7d137_cons1'), NULL),
+  'still: its history line: resubmitted, by the consultor');
+
+-- Must still work: an admin decides another person's sent report, with the review fields
+SELECT is(pg_temp.attempt('f7d137_admin2', format($q$UPDATE public.expense_reports SET status = 'approved', reviewed_by = auth.uid(), reviewed_at = now(), review_comments = 'F7d 137 conforme' WHERE id = %L$q$, pg_temp.r('23')), pg_temp.r('23')),
+  '1 rows, changed', 'still: an admin approves another person''s sent report with reviewer, time and comment');
+SELECT ok(coalesce((SELECT status = 'approved' AND reviewed_by = pg_temp.uid('f7d137_admin2') AND reviewed_at IS NOT NULL AND review_comments = 'F7d 137 conforme'
+                      FROM public.expense_reports WHERE id = pg_temp.r('23')), false)
+          AND pg_temp.ev_has(pg_temp.r('23'), 'approved', pg_temp.uid('f7d137_admin2'), NULL),
+  'still: ... stored as written, and an approved line by that admin');
+SELECT is(pg_temp.attempt('f7d137_admin2', format($q$UPDATE public.expense_reports SET status = 'rejected', reviewed_by = auth.uid(), reviewed_at = now(), review_comments = 'F7d 137 falta la factura' WHERE id = %L$q$, pg_temp.r('24')), pg_temp.r('24')),
+  '1 rows, changed', 'still: an admin rejects another person''s sent report with reviewer, time and comment');
+SELECT ok(coalesce((SELECT status = 'rejected' AND reviewed_by = pg_temp.uid('f7d137_admin2') AND reviewed_at IS NOT NULL
+                      FROM public.expense_reports WHERE id = pg_temp.r('24')), false)
+          AND pg_temp.ev_has(pg_temp.r('24'), 'rejected', pg_temp.uid('f7d137_admin2'), 'F7d 137 falta la factura'),
+  'still: ... stored as written, and a rejected line with the reason');
+
+-- Must still work: an admin decides their OWN sent report
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET status = 'approved', reviewed_by = auth.uid(), reviewed_at = now(), review_comments = 'F7d 137 propio' WHERE id = %L$q$, pg_temp.r('34')), pg_temp.r('34')),
+  '1 rows, changed', 'still: an admin approves their own sent report');
+SELECT ok(pg_temp.ev_count(pg_temp.r('34')) = 2 AND pg_temp.ev_has(pg_temp.r('34'), 'approved', pg_temp.uid('f7d137_admin1'), NULL),
+  'still: ... with its approved line (after the fixture''s own submitted line)');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET status = 'rejected', reviewed_by = auth.uid(), reviewed_at = now(), review_comments = 'F7d 137 me equivoque' WHERE id = %L$q$, pg_temp.r('31')), pg_temp.r('31')),
+  '1 rows, changed', 'still: an admin rejects their own sent report');
+
+-- Must still work: an admin who is not the author keeps full authority
+SELECT is(pg_temp.attempt('f7d137_admin2', format($q$UPDATE public.expense_reports SET total_amount = 4321 WHERE id = %L$q$, pg_temp.r('25')), pg_temp.r('25')),
+  '1 rows, changed', 'still: an admin (not the author) corrects a field of a sent report');
+SELECT is(pg_temp.attempt('f7d137_admin2', format($q$UPDATE public.expense_reports SET description = 'F7d 137 corregido' WHERE id = %L$q$, pg_temp.r('13')), pg_temp.r('13')),
+  '1 rows, changed', 'still: an admin (not the author) corrects a field of an approved report');
+SELECT is(pg_temp.attempt('f7d137_admin2', format($q$UPDATE public.expense_reports SET status = 'draft' WHERE id = %L$q$, pg_temp.r('26')), pg_temp.r('26')),
+  '1 rows, changed', 'still: an admin (not the author) reopens a rejected report to draft');
+SELECT ok(pg_temp.ev_count(pg_temp.r('26')) = 1 AND pg_temp.ev_has(pg_temp.r('26'), 'reopened', pg_temp.uid('f7d137_admin2'), NULL),
+  'history: rejected -> draft writes a reopened line');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$DELETE FROM public.expense_reports WHERE id = %L$q$, pg_temp.r('27')), pg_temp.r('27')),
+  '1 rows, changed', 'still: an admin (not the author) deletes a report');
+
+-- Must still work: the server key (the Telegram assistant) is not stopped by the guard
+SELECT set_config('f7d137.svc_ins', format($q$INSERT INTO public.expense_reports (id, report_name, start_date, end_date, submitted_by, status, reviewed_by, reviewed_at, review_comments)
+                          VALUES (%L, 'F7d 137 servidor', '2027-03-01', '2027-03-02', %L, 'approved', %L, now(), 'F7d 137 servidor')$q$,
+                        pg_temp.r('2a'), pg_temp.uid('f7d137_cons2'), pg_temp.uid('f7d137_admin1')), true);
+SELECT set_config('f7d137.svc_upd', format($q$UPDATE public.expense_reports SET status = 'draft', review_comments = NULL WHERE id = %L$q$, pg_temp.r('2a')), true);
+SELECT tests.clear_authentication();
+SET LOCAL ROLE service_role;
+SELECT lives_ok(current_setting('f7d137.svc_ins'), 'still: the service key writes a row the guard would refuse a signed-in person');
+SELECT lives_ok(current_setting('f7d137.svc_upd'), 'still: the service key changes it freely');
+RESET ROLE;
+SELECT ok(coalesce((SELECT status = 'draft' AND review_comments IS NULL FROM public.expense_reports WHERE id = pg_temp.r('2a')), false)
+          AND pg_temp.ev_count(pg_temp.r('2a')) = 1 AND pg_temp.ev_has(pg_temp.r('2a'), 'reopened', NULL, NULL),
+  'still: ... stored, with a reopened line without an actor');
 
 SELECT * FROM finish();
 ROLLBACK;

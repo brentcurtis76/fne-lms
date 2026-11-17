@@ -8,6 +8,8 @@
  * mounted while the look changes under it. The accounts are invented.
  */
 import React from 'react';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as LookModule from '@/contexts/LookContext';
@@ -447,6 +449,66 @@ describe('the new frame: the top bar', () => {
     await settle();
     fireEvent.click(screen.getByRole('button', { name: /Salir/ }));
     expect(mocks.logout).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the new frame: its layers (5b, send-back 1)', () => {
+  const layer = (element: Element | null) => {
+    const found = (element?.getAttribute('class') ?? '').split(/\s+/).filter((c) => /^z-/.test(c));
+    expect(found, `one layer on ${element?.outerHTML.slice(0, 80)}`).toHaveLength(1);
+    const match = /^z-\[?(\d+)\]?$/.exec(found[0]);
+    expect(match, found[0]).not.toBeNull();
+    return Number(match![1]);
+  };
+  const SOURCE = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
+
+  it('the feedback button and its tooltip are at 40 and dialogs at 50, as the numbers below assume', () => {
+    const feedback = SOURCE('components/feedback/FeedbackButtonWithPermissions.tsx');
+    expect(feedback).toContain('fixed bottom-6 right-6 z-40');
+    expect(feedback).toContain('fixed bottom-24 right-6 z-40');
+    expect(SOURCE('components/ui/dialog.tsx')).toContain('fixed inset-0 z-50');
+  });
+
+  it('desktop: the page < the feedback button < the top bar (and the bell\'s panel in it) < the sidebar < 50', async () => {
+    await draw();
+    const bar = layer(topBar());
+    const side = layer(sidebar());
+    expect(topBar()).toContainElement(document.querySelector('[data-marker="notification-center"]') as HTMLElement);
+    expect(bar).toBe(45);
+    expect(side).toBe(46);
+    expect(bar).toBeGreaterThan(40);
+    expect(side).toBeGreaterThan(bar);
+    expect(side).toBeLessThan(50);
+  });
+
+  it('phone: the top bar < the veil < the open drawer < 50', async () => {
+    setWidth(390);
+    await draw();
+    fireEvent.click(screen.getByTestId('mobile-sidebar-trigger'));
+    await settle();
+    const bar = layer(topBar());
+    const veil = layer(screen.getByTestId('mobile-sidebar-overlay'));
+    const drawer = layer(sidebar());
+    expect([bar, veil, drawer]).toEqual([45, 48, 49]);
+    expect(veil).toBeGreaterThan(bar);
+    expect(drawer).toBeGreaterThan(veil);
+    expect(drawer).toBeLessThan(50);
+  });
+
+  it('today\'s frame keeps its numbers: bar 20, sidebar 30, veil 40, phone drawer 50', async () => {
+    mocks.account = DOCENTE;
+    const desktop = render(frame('clasico'));
+    await settle();
+    expect(document.querySelector('.sticky')!.className).toContain('z-20');
+    expect(sidebar().className).toContain('lg:z-30');
+    desktop.unmount();
+    setWidth(390);
+    render(frame('clasico'));
+    await settle();
+    fireEvent.click(screen.getByTestId('mobile-sidebar-trigger'));
+    await settle();
+    expect(screen.getByTestId('mobile-sidebar-overlay').className).toContain('z-40');
+    expect(sidebar().className).toContain('z-50 lg:z-30');
   });
 });
 

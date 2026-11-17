@@ -22,6 +22,7 @@ import SimulationEnvironmentBanner from '../SimulationEnvironmentBanner';
 import { shouldShowQaSimulationBanner } from '../../lib/simulation/route-context';
 import { useLook } from '../../contexts/LookContext';
 import TopBarNuevo from './TopBarNuevo';
+import { FRAME_LAYERS } from './SidebarNuevo';
 import FooterNuevo from './FooterNuevo';
 
 interface Breadcrumb {
@@ -347,7 +348,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           {/* Top Header Bar - Minimal Design (h-20 to align with Sidebar) */}
           <div
             className={isNuevo
-              ? 'bg-white sticky top-0 z-20 h-14 flex items-center border-b border-gray-200'
+              ? `bg-white sticky top-0 ${FRAME_LAYERS.topBar} h-14 flex items-center border-b border-gray-200`
               : 'bg-[#0a0a0a] sticky top-0 z-20 h-20 flex items-center'}
             data-frame={isNuevo ? 'topbar' : undefined}
           >

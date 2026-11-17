@@ -18,6 +18,31 @@ const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffec
 
 const MOTION = 'transition-colors duration-150 motion-reduce:transition-none';
 
+/**
+ * The new frame's layers (5b, send-back 1), the one place their numbers live. Top to bottom:
+ *   - toasts (react-hot-toast, 9999) and dialogs (Radix, 50, put at the end of <body>, so above
+ *     anything of the frame at 50 too): unchanged, and every number below stays under 50;
+ *   - the phone's open drawer, 49, and its veil, 48: above everything of the frame, so the veil
+ *     still dims the top bar and the bell's panel and covers the feedback button;
+ *   - the desktop sidebar, 46: above the top bar so the collapsed sidebar's floating list (trapped
+ *     in the sidebar's layer) is never cut by the bar; the two never overlap otherwise;
+ *   - the top bar, 45, and with it the bell's panel. The bar is sticky, so it is its own stacking
+ *     context and the panel's own 50 only counts inside it: the panel sits exactly as high as the
+ *     bar. To be above the round feedback button (40, a shared component, unchanged), the bar must
+ *     be above it too. The bar is 56 px high at the top and the button is at the bottom right, so
+ *     the two never meet on any real window; lifting the panel alone out of the bar would mean
+ *     changing the bell's component;
+ *   - the feedback button and its tooltip, 40 (their own);
+ *   - the page.
+ * Today's frame keeps its own numbers (bar 20, sidebar 30, veil 40, phone drawer 50).
+ */
+export const FRAME_LAYERS = {
+  drawer: 'z-[49]',
+  veil: 'z-[48]',
+  sidebar: 'z-[46]',
+  topBar: 'z-[45]',
+} as const;
+
 /** The small yellow count of new support reports. */
 function Count({ value }: { value: number }) {
   return (
@@ -197,7 +222,7 @@ export default function SidebarNuevo({
       {/* Mobile Overlay */}
       {!isDesktop && isMobileOpen && (
         <div
-          className="fixed inset-0 bg-black/60 z-40 lg:hidden"
+          className={`fixed inset-0 bg-black/60 ${FRAME_LAYERS.veil} lg:hidden`}
           onClick={onMobileClose}
           data-testid="mobile-sidebar-overlay"
         />
@@ -207,8 +232,8 @@ export default function SidebarNuevo({
       <div
         className={`fixed left-0 top-0 h-full flex flex-col bg-[#0a0a0a] text-white ${
           isDesktop
-            ? `z-30 transition-[width] duration-150 motion-reduce:transition-none ${isCollapsed ? 'w-[68px]' : 'w-[264px]'}`
-            : `z-50 w-[min(300px,86vw)] shadow-xl ${isMobileOpen ? 'translate-x-0' : '-translate-x-full invisible'}`
+            ? `${FRAME_LAYERS.sidebar} transition-[width] duration-150 motion-reduce:transition-none ${isCollapsed ? 'w-[68px]' : 'w-[264px]'}`
+            : `${FRAME_LAYERS.drawer} w-[min(300px,86vw)] shadow-xl ${isMobileOpen ? 'translate-x-0' : '-translate-x-full invisible'}`
         } ${className}`}
         data-testid="global-sidebar"
         data-frame="sidebar"

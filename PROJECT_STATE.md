@@ -960,3 +960,10 @@ A14-4-F05 under W-BL-A14-4 now explicitly labels truncated session detail on scr
 - Branch `fix/l1` (a straight line of commits) on main `091ec1685`. Ten fix phases from the owner-approved plan of 13 Nov: Gestor, Espacio, Cursos (content writes, quiz grading, progress, tasks), Licitaciones, Gestión, receipts, file stores. Nine additive migrations (`20261116170000` to `20261116178000`), no destructive statement.
 - Validation on `465493f43`: pgTAP 89 files / 9,226; unit 566 files / 18,658 (12 skipped); type check and lint; CI's mandatory browser tests 28 files / 339, no skips. Migrations compared statement by statement with a read of Production taken 16 Nov with the owner's read-only query.
 - Review request: `docs/planning/reviews/fase-fixes-l1-review-request.md`. Not merged, not published; release is the owner's, through Publish.
+
+
+## GENERA fixes, level 2, first part (dead ends) — ready for release review, 2026-11-17
+
+- Branch `fix/l2` (a straight line of commits) on main `3063aa5cc`. Three fix phases: Gestor de Cambio (editor and panels), Espacio Colaborativo (conversations and names), Licitaciones (places where a tender stops); one follow-up to level 1 (a visitor lists no file store); one test-harness repair. Four additive migrations (`20261116179000`, `179500`, `179700`, `179800`), no destructive statement.
+- Validation: pgTAP 93 files / 9,378; unit 599 files / 18,883 (18 skipped); type check and lint; CI's mandatory browser tests 28 files / 339, no skips.
+- Review request: `docs/planning/reviews/fase-fixes-l2a-review-request.md`. Not merged, not published; release is the owner's, through Publish.

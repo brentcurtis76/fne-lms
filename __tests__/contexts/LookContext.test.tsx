@@ -336,29 +336,34 @@ describe('LookProvider: generated sequences (5a, send-back 1)', () => {
   }
   interface Saved {
     look: 'clasico' | 'nuevo';
-    facts: { session: string | null; stored: 'clasico' | 'nuevo'; loading: boolean };
+    // The session's account when it was saved, and the stored look of the first profile of that
+    // account met (null until one has arrived). The loading state is not one of its facts (send-back 3).
+    facts: { session: string; stored: 'clasico' | 'nuevo' | null };
   }
 
   const isOutside = (pathname: string) => OUTSIDE.includes(pathname);
+  const own = (f: Facts) => f.session !== null && f.user === f.session && f.profile?.id === f.session;
   const storedLook = (f: Facts): 'clasico' | 'nuevo' => {
-    const own = f.session !== null && f.user === f.session && f.profile?.id === f.session;
-    if (!own || !f.profile?.can_run_qa_tests) return 'clasico';
+    if (!own(f) || !f.profile?.can_run_qa_tests) return 'clasico';
     return f.profile.learning_preferences.ui_look === 'nuevo' ? 'nuevo' : 'clasico';
   };
+  /** The saved choice after this moment's facts: kept, completed with the first own profile, or forgotten. */
+  const savedAfter = (f: Facts, saved: Saved | null): Saved | null => {
+    if (saved === null || saved.facts.session !== f.session) return null;
+    if (!own(f)) return saved;
+    if (saved.facts.stored === null) return { ...saved, facts: { ...saved.facts, stored: storedLook(f) } };
+    return saved.facts.stored === storedLook(f) ? saved : null;
+  };
+  /** It counts while its account's own profile is offered the choice, or, before that profile, while loading. */
   const savedCounts = (f: Facts, saved: Saved | null): saved is Saved =>
-    saved !== null &&
-    saved.facts.session === f.session &&
-    saved.facts.stored === storedLook(f) &&
-    saved.facts.loading === f.loading;
-  const accountOffered = (f: Facts) =>
-    f.session !== null && f.user === f.session && f.profile?.id === f.session && f.profile.can_run_qa_tests;
+    saved !== null && (own(f) ? f.profile?.can_run_qa_tests === true : f.loading);
 
   /** The pure answer: "nuevo", null (absent), or "leave" (whatever was there before). */
   function expectedAttribute(f: Facts, saved: Saved | null): 'nuevo' | null | 'leave' {
     if (isOutside(f.pathname)) return null;
+    if (savedCounts(f, saved)) return saved.look === 'nuevo' ? 'nuevo' : null;
     if (f.loading) return 'leave';
-    const look = savedCounts(f, saved) && accountOffered(f) ? saved.look : storedLook(f);
-    return look === 'nuevo' ? 'nuevo' : null;
+    return storedLook(f) === 'nuevo' ? 'nuevo' : null;
   }
 
   type Op =
@@ -445,8 +450,8 @@ describe('LookProvider: generated sequences (5a, send-back 1)', () => {
     const log: string[] = [];
 
     const check = () => {
-      // A saved choice made on other facts is forgotten (the provider forgets it at the next render).
-      if (saved && !savedCounts(facts, saved)) saved = null;
+      // The provider works the saved choice out at every render, the same way.
+      saved = savedAfter(facts, saved);
       const expected = expectedAttribute(facts, saved);
       const actual = root().getAttribute('data-look');
       const where = `seed ${seed}, after: ${log.join(' | ')}`;
@@ -461,7 +466,8 @@ describe('LookProvider: generated sequences (5a, send-back 1)', () => {
         log.push(`setLook ${step.setLook}`);
         const look = step.setLook;
         act(() => screen.getByRole('button', { name: look }).click());
-        saved = { look, facts: { session: facts.session, stored: storedLook(facts), loading: facts.loading } };
+        // With no session account nothing is stored.
+        if (facts.session !== null) saved = { look, facts: { session: facts.session, stored: own(facts) ? storedLook(facts) : null } };
       } else {
         log.push(step.ops.map((o) => JSON.stringify(o)).join(' + '));
         for (const o of step.ops) facts = applyOp(facts, o);
@@ -512,5 +518,263 @@ describe('LookProvider: the attribute arrives in the same commit as the look', (
       { look: 'nuevo', attribute: 'nuevo' },
       { look: 'clasico', attribute: null },
     ]);
+  });
+});
+
+/**
+ * Send-back 3: «Apariencia» is drawn by the server, so it can save before the browser has loaded the
+ * account. The page calls the `setLook` of the render in which the button was clicked, together with
+ * its own state change («Tu preferencia se guardó.»). `Caller` does the same: it keeps the `setLook`
+ * of its FIRST render and, when told, calls it and sets its own message in one handler; a passive
+ * effect on the message records the attribute at the commit where the message first shows.
+ */
+describe('LookProvider: a choice saved while the account loads (5a, send-back 3)', () => {
+  const attr = () => root().getAttribute('data-look');
+  const shown = () => screen.getByTestId('look').textContent;
+  let finish: (look: 'clasico' | 'nuevo') => void = () => {};
+  let seenAtMessage: Array<string | null> = [];
+
+  function Caller() {
+    const { setLook } = useLook();
+    const [captured] = React.useState(() => setLook);
+    const [message, setMessage] = React.useState('');
+    finish = (look) => {
+      captured(look);
+      setMessage(`guardado ${look}`);
+    };
+    React.useEffect(() => {
+      if (message) seenAtMessage.push(attr());
+    }, [message]);
+    return null;
+  }
+  const page = () => (
+    <LookProvider>
+      <Probe />
+      <Caller />
+    </LookProvider>
+  );
+  const loadingAs = (id: string) => {
+    sessionState.session = { user: { id } };
+    Object.assign(authState, { loading: true, user: null, profile: null });
+  };
+
+  beforeEach(() => {
+    seenAtMessage = [];
+    routerState.pathname = '/configuracion/apariencia';
+  });
+
+  it('timeline 1: the account loaded before the click; the choice shows with the message', () => {
+    signedIn(A, tester(A, { ui_look: 'nuevo' }));
+    const { rerender } = render(page());
+    expect(attr()).toBe('nuevo');
+    act(() => finish('clasico'));
+    expect(seenAtMessage).toEqual([null]);
+    rerender(page());
+    expect(attr()).toBeNull();
+    expect(shown()).toBe('clasico');
+  });
+
+  it('timeline 2: the account loads between the click and the answer; the captured setLook still shows the choice', () => {
+    loadingAs(A);
+    const { rerender } = render(page());
+    // The account loads while the PUT is on its way.
+    signedIn(A, tester(A, { ui_look: 'nuevo' }));
+    rerender(page());
+    expect(attr()).toBe('nuevo');
+    // The answer: the function captured while loading is called now.
+    act(() => finish('clasico'));
+    expect(seenAtMessage).toEqual([null]);
+    expect(attr()).toBeNull();
+    expect(shown()).toBe('clasico');
+    rerender(page());
+    expect(attr()).toBeNull();
+  });
+
+  it('timeline 3: the answer comes before the account loads; it shows at once and keeps showing when an old profile arrives', () => {
+    loadingAs(A);
+    const { rerender } = render(page());
+    act(() => finish('nuevo'));
+    expect(seenAtMessage).toEqual(['nuevo']);
+    expect(attr()).toBe('nuevo');
+    expect(shown()).toBe('nuevo');
+    // The profile arrives, read before the save was written: it still holds today's look.
+    signedIn(A, tester(A, {}));
+    rerender(page());
+    expect(attr()).toBe('nuevo');
+    expect(shown()).toBe('nuevo');
+  });
+
+  it('timeline 3: the same, with a profile that already holds the new look', () => {
+    loadingAs(A);
+    const { rerender } = render(page());
+    act(() => finish('nuevo'));
+    expect(attr()).toBe('nuevo');
+    signedIn(A, tester(A, { ui_look: 'nuevo' }));
+    rerender(page());
+    expect(attr()).toBe('nuevo');
+    expect(shown()).toBe('nuevo');
+  });
+
+  it('timeline 3, going back: a look left on the page is removed at once, and the old profile does not bring it back', () => {
+    root().setAttribute('data-look', 'nuevo');
+    loadingAs(A);
+    const { rerender } = render(page());
+    expect(attr()).toBe('nuevo');
+    act(() => finish('clasico'));
+    expect(seenAtMessage).toEqual([null]);
+    signedIn(A, tester(A, { ui_look: 'nuevo' }));
+    rerender(page());
+    expect(attr()).toBeNull();
+    expect(shown()).toBe('clasico');
+  });
+
+  it('(b) setLook with no session account stores nothing', () => {
+    Object.assign(authState, { loading: false });
+    const { rerender } = render(page());
+    act(() => finish('nuevo'));
+    expect(attr()).toBeNull();
+    signedIn(A, tester(A, {}));
+    rerender(page());
+    expect(attr()).toBeNull();
+    expect(shown()).toBe('clasico');
+  });
+
+  it('(b) a choice saved while loading belongs to that account: A, then B, then A does not bring it back', () => {
+    loadingAs(A);
+    const { rerender } = render(page());
+    act(() => finish('nuevo'));
+    expect(attr()).toBe('nuevo');
+    loadingAs(B);
+    rerender(page());
+    expect(attr()).toBe('nuevo'); // B still loading: the page is left as it is
+    signedIn(B, tester(B, {}));
+    rerender(page());
+    expect(attr()).toBeNull();
+    signedIn(A, tester(A, {}));
+    rerender(page());
+    expect(attr()).toBeNull();
+    expect(shown()).toBe('clasico');
+  });
+
+  it('(b) signing out while loading forgets a choice saved while loading', () => {
+    loadingAs(A);
+    const { rerender } = render(page());
+    act(() => finish('nuevo'));
+    sessionState.session = null;
+    Object.assign(authState, { loading: false, user: null, profile: null });
+    rerender(page());
+    expect(attr()).toBeNull();
+    signedIn(A, tester(A, {}));
+    rerender(page());
+    expect(attr()).toBeNull();
+  });
+
+  it('(c) a choice saved while loading never counts once the loaded profile is not offered the choice', () => {
+    loadingAs(A);
+    const { rerender } = render(page());
+    act(() => finish('nuevo'));
+    expect(attr()).toBe('nuevo');
+    signedIn(A, { id: A, can_run_qa_tests: false, learning_preferences: { ui_look: 'nuevo' } });
+    rerender(page());
+    expect(attr()).toBeNull();
+    expect(shown()).toBe('clasico');
+  });
+
+  it('(c) a withdrawn «Tester QA» mark after a choice made on a loaded profile returns today\'s look', () => {
+    signedIn(A, tester(A, {}));
+    const { rerender } = render(page());
+    act(() => finish('nuevo'));
+    expect(attr()).toBe('nuevo');
+    Object.assign(authState, { profile: { id: A, can_run_qa_tests: false, learning_preferences: {} } });
+    rerender(page());
+    expect(attr()).toBeNull();
+  });
+
+  it('(d) a new load of the same profile with the same stored look keeps the choice', () => {
+    signedIn(A, tester(A, {}));
+    const { rerender } = render(page());
+    act(() => finish('nuevo'));
+    authState.loading = true;
+    rerender(page());
+    expect(attr()).toBe('nuevo');
+    signedIn(A, tester(A, {}));
+    rerender(page());
+    expect(attr()).toBe('nuevo');
+    expect(shown()).toBe('nuevo');
+  });
+
+  it('(d) a later profile of the same account with another stored look forgets the choice (a newer truth)', () => {
+    // Saved while loading; the first profile to arrive holds today's look and becomes what it was made on.
+    loadingAs(A);
+    const { rerender } = render(page());
+    act(() => finish('clasico'));
+    signedIn(A, tester(A, {}));
+    rerender(page());
+    expect(attr()).toBeNull();
+    // A later load holds the new look: the profile speaks again.
+    signedIn(A, tester(A, { ui_look: 'nuevo' }));
+    rerender(page());
+    expect(attr()).toBe('nuevo');
+    expect(shown()).toBe('nuevo');
+    // And the forgotten choice does not come back with an older-looking profile.
+    signedIn(A, tester(A, {}));
+    rerender(page());
+    expect(attr()).toBeNull();
+  });
+
+  it('(e) setLook keeps one identity through loading, the account and the route; the value changes only with look', () => {
+    const identities = new Set<unknown>();
+    let reads = 0;
+    const Reader = React.memo(function Reader() {
+      const { setLook } = useLook();
+      identities.add(setLook);
+      reads += 1;
+      return null;
+    });
+    const withReader = () => (
+      <LookProvider>
+        <Reader />
+      </LookProvider>
+    );
+    loadingAs(A);
+    const { rerender } = render(withReader());
+    signedIn(A, tester(A, {}));
+    rerender(withReader());
+    loadingAs(B);
+    rerender(withReader());
+    signedIn(B, tester(B, {}));
+    routerState.pathname = '/dashboard';
+    rerender(withReader());
+    expect(identities.size).toBe(1);
+    // The look stayed today's all along, so the memoised reader was drawn only once.
+    expect(reads).toBe(1);
+  });
+
+  it('(f) a choice saved while loading: an outside page shows today\'s look, coming back shows the choice again', () => {
+    loadingAs(A);
+    const { rerender } = render(page());
+    act(() => finish('nuevo'));
+    signedIn(A, tester(A, {}));
+    routerState.pathname = '/';
+    rerender(page());
+    expect(attr()).toBeNull();
+    expect(shown()).toBe('clasico');
+    routerState.pathname = '/dashboard';
+    rerender(page());
+    expect(attr()).toBe('nuevo');
+    expect(shown()).toBe('nuevo');
+  });
+
+  it('(g) the account and the route change in the same render after a choice saved while loading: no look left behind', () => {
+    routerState.pathname = '/login';
+    loadingAs(A);
+    const { rerender } = render(page());
+    act(() => finish('nuevo'));
+    expect(attr()).toBeNull();
+    signedIn(B, { id: B, can_run_qa_tests: false, learning_preferences: {} });
+    routerState.pathname = '/dashboard';
+    rerender(page());
+    expect(attr()).toBeNull();
+    expect(shown()).toBe('clasico');
   });
 });

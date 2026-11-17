@@ -6,7 +6,6 @@
  */
 import type { NetflixCourseCardProps } from '@/types/courses';
 
-type Course = NetflixCourseCardProps['course'];
 type Enrollment = NetflixCourseCardProps['enrollment'];
 
 // Get CTA text based on enrollment status
@@ -49,7 +48,18 @@ export type CoursePicture =
   | { kind: 'thumbnail'; src: string; alt: string }
   | { kind: 'generated' };
 
-export const getCoursePicture = (course: Pick<Course, 'title' | 'thumbnail_url' | 'instructor'>): CoursePicture => {
+/**
+ * The fields `getCoursePicture` reads, each as loose as its loosest caller has it: today's card
+ * hands it `NetflixCourseCardProps['course']` (`thumbnail_url` present, possibly null), the new
+ * look's card hands it `CourseWithEnrollment` (`thumbnail_url` and `instructor` optional).
+ */
+export interface CoursePictureSource {
+  title: string;
+  thumbnail_url?: string | null;
+  instructor?: { full_name: string; photo_url?: string | null } | null;
+}
+
+export const getCoursePicture = (course: CoursePictureSource): CoursePicture => {
   if (course.instructor?.photo_url) {
     return { kind: 'instructor', src: course.instructor.photo_url, alt: course.instructor.full_name };
   }

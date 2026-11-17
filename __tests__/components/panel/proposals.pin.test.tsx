@@ -6,7 +6,8 @@
  * confirmation (`course-proposals/ConfirmDialog`) are not edited by 6B: they are replaced by markers
  * that print the props the section gives them, and the cases call those props as the pop-ups would.
  * Each case keeps one digest of the markup and of every request (method, address, body), every
- * `alert` and every error line (`proposals.pin.digests.json`; see `__tests__/helpers/pin.ts`).
+ * `alert` (since 6C: every error toast) and every error line (`proposals.pin.digests.json`; see
+ * `__tests__/helpers/pin.ts`).
  * Every person and proposal is invented.
  */
 import React from 'react';
@@ -39,6 +40,11 @@ vi.mock('@/components/course-proposals/CourseProposalModal', () => ({
     fake.props.CourseProposalModal = props;
     return <div data-marker="CourseProposalModal" data-props={describeProps(props)} />;
   },
+}));
+// Redesign 6C: a failed deletion says so in an error toast (it was the browser's alert).
+vi.mock('@/utils/toastUtils', () => ({
+  toastSuccess: (message: unknown) => fake.log.push({ toastSuccess: message }),
+  toastError: (message: unknown) => fake.log.push({ toastError: message }),
 }));
 vi.mock('@/components/course-proposals/ConfirmDialog', () => ({
   ConfirmDialog: (props: any) => {
@@ -245,7 +251,10 @@ describe("today's «Propuestas de Cursos» (CourseProposalSection)", () => {
     return [asking, markup(), theLog()];
   });
 
-  pinned('P12. a failed deletion: the browser\'s alert with the message (and without), the question stays', async () => {
+  // Changed on purpose by 6C (approved by Brent with the mock-up, 13 Nov): the browser's alert became
+  // an error toast. The case was «P12. a failed deletion: the browser's alert with the message (and
+  // without), the question stays»; its old digest fails on the new code.
+  pinned('P12. a failed deletion: an error toast with the message (and without), no browser alert, the question stays', async () => {
     fake.answers = [{ body: { data: FILLED } }];
     await draw();
     await click(screen.getAllByTitle('Eliminar propuesta')[0]);
@@ -253,6 +262,12 @@ describe("today's «Propuestas de Cursos» (CourseProposalSection)", () => {
     await call(() => fake.props.ConfirmDialog.onConfirm());
     await call(() => fake.props.ConfirmDialog.onConfirm());
     await call(() => fake.props.ConfirmDialog.onConfirm());
+    expect(fake.log.filter((entry: any) => 'alert' in entry)).toEqual([]);
+    expect(fake.log.filter((entry: any) => 'toastError' in entry)).toEqual([
+      { toastError: 'No puedes eliminar esta propuesta' },
+      { toastError: 'Error al eliminar propuesta' },
+      { toastError: 'Synthetic network failure' },
+    ]);
     return [markup(), theLog()];
   });
 

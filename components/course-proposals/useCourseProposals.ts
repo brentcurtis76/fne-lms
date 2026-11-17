@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { CourseProposal, CreateCourseProposalInput } from '../../types/course-proposals';
+import { toastError } from '../../utils/toastUtils';
 
 /**
  * «Propuestas de Cursos»'s state, its requests and its handlers, one copy for both looks (redesign
  * 6B). Moved word for word out of `CourseProposalSection.tsx` (the same states in the same order,
  * the same callback and effect with the same dependency lists, the same handlers); the section and
  * the new look's section both call it. `openCreate` is the handler the two create buttons wrote
- * inline. The browser `alert` after a failed deletion stays (a later release replaces it).
+ * inline. Since 6C a failed deletion says so in an error toast, not in the browser's `alert`.
  */
 export function useCourseProposals() {
   const [proposals, setProposals] = useState<CourseProposal[]>([]);
@@ -118,7 +119,7 @@ export function useCourseProposals() {
       setProposalToDelete(null);
     } catch (err: any) {
       console.error('[CourseProposalSection] Error deleting:', err);
-      alert(err.message || 'Error al eliminar propuesta');
+      toastError(err.message || 'Error al eliminar propuesta');
     } finally {
       setIsDeleting(false);
     }

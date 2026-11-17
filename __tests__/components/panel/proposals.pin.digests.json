@@ -2,7 +2,7 @@
   "P1. loading": "f2341229ef374e735bb063f72a3bcd8437bae0e88566961b8f1af2672636f509",
   "P10. the pencil: edit mode with the card's values, submit (PUT), refusals, close": "f09d4c08a3b3c3cf145e1850ae19c81e1efc86cd9c59aff08e319655a68a198f",
   "P11. the bin, the confirmation, DELETE, the card gone": "dae6dc30ed085827e15c6e1cb44abe359c0e7df8addd378fae8709abb71ee06e",
-  "P12. a failed deletion: the browser's alert with the message (and without), the question stays": "a4c9be475899ff49372a70393b18b2bb6d2439b0bbd56d2f82907a5512e84d04",
+  "P12. a failed deletion: an error toast with the message (and without), no browser alert, the question stays": "465b6d20e41c27a8adaa20661e7b68c590c7c7f1c4f4c6480d0080801dcc5a33",
   "P13. cancel: the question closes and a later confirm asks nothing": "36a430f514abe33f99ed5eb6ce5d175431986517f4d0f331282d604ba7ed5b04",
   "P14. a deletion still waiting: the confirmation is loading": "b8cfd3a135e1beda7cd5e55061b8b0b4bdff6b911860c1469f6fea8c20004c78",
   "P2. the error banner and «Reintentar» (asks again, then the list)": "c5c2eea4a55e4e9c12ec5908f4cabaff402636ef9eebd43fc790aca863bc3e65",

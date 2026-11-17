@@ -15,6 +15,7 @@ import {
   Calendar,
   UserPlus,
   UserCog,
+  RefreshCw,
   X,
   Loader2,
   ArrowLeft,
@@ -141,6 +142,8 @@ const TransversalContextDashboard: React.FC = () => {
   const [replaceError, setReplaceError] = useState<{ code: string | null; message: string } | null>(null);
   // Last successful replacement, visible until dismissed
   const [replacementNotice, setReplacementNotice] = useState<{ courseName: string; message: string } | null>(null);
+  // GC-3d: «Reenviar registros» requests in flight, per course id.
+  const [resendingCourses, setResendingCourses] = useState<Record<string, boolean>>({});
 
   // All context questions (structural + generic, driven from DB)
   const [allQuestions, setAllQuestions] = useState<ContextGeneralQuestion[]>([]);
@@ -564,6 +567,37 @@ const TransversalContextDashboard: React.FC = () => {
 
   const currentDocenteOf = (course: any) =>
     course?.school_course_docente_assignments?.find((a: any) => a.is_active) ?? null;
+
+  // GC-3d: «Reenviar registros» re-posts the course's CURRENT teacher to
+  // /assign-docente, which then writes no assignment and only brings the
+  // course's registros up to date (and refuses whoever may not assign).
+  const resendRegistros = async (courseId: string, docenteId: string) => {
+    setResendingCourses(prev => ({ ...prev, [courseId]: true }));
+    try {
+      const response = await fetch('/api/school/transversal-context/assign-docente', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ course_structure_id: courseId, docente_id: docenteId }),
+      });
+      let data: any = {};
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
+      }
+      if (response.ok && data.success === true) {
+        toast.success(data.message);
+      } else {
+        toast.error(data.error || data.message || 'No se pudieron reenviar los registros', { duration: 8000 });
+      }
+    } catch (error) {
+      console.error('Error resending registros:', error);
+      toast.error('No se pudieron reenviar los registros');
+    } finally {
+      setResendingCourses(prev => ({ ...prev, [courseId]: false }));
+      fetchContext();
+    }
+  };
 
   const openReplaceModal = async (course: any) => {
     setReplaceCourse(course);
@@ -1310,6 +1344,17 @@ const TransversalContextDashboard: React.FC = () => {
                                 >
                                   <UserCog className="w-3.5 h-3.5 mr-1" />
                                   Cambiar docente
+                                </button>
+                              )}
+                              {canReplaceDocente && (
+                                <button
+                                  data-testid={`resend-registros-${course.id}`}
+                                  onClick={() => resendRegistros(course.id, activeAssignments[0].docente_id)}
+                                  disabled={resendingCourses[course.id] === true}
+                                  className="shrink-0 inline-flex items-center px-2 py-1 text-xs font-medium text-brand_primary hover:bg-brand_accent/20 rounded transition-colors"
+                                >
+                                  <RefreshCw className="w-3.5 h-3.5 mr-1" />
+                                  Reenviar registros
                                 </button>
                               )}
                             </div>

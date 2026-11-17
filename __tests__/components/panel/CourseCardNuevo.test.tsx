@@ -79,3 +79,50 @@ describe('the new course card: the lesson line and the percentage under today\'s
     expect(card.textContent).not.toContain('%');
   });
 });
+
+/*
+ * Send-back 3, point 1: the generated picture is shown whole (its own 4:3 area) and carries the only
+ * level pill; a photo or a thumbnail keeps the wide area, covered, with the card's pill.
+ */
+describe('the new course card: the picture\'s area and its level pill', () => {
+  const drawWith = (extra: Record<string, unknown>) => {
+    const value = { ...course({}), ...extra } as unknown as CourseWithEnrollment;
+    render(<CourseCardNuevo course={value} href="/student/course/course-x" onOpen={() => {}} testId="card" />);
+    return screen.getByTestId('card-picture');
+  };
+  const classesOf = (element: Element) => (element.getAttribute('class') ?? '').split(/\s+/);
+
+  it('the generated picture: a 4:3 area, the picture\'s own pill only, the link named by the title', () => {
+    const picture = drawWith({});
+    expect(classesOf(picture)).toContain('aspect-[4/3]');
+    expect(classesOf(picture)).not.toContain('aspect-video');
+    expect(picture.querySelector('img')).toBeNull();
+    expect(within(picture).queryByTestId('card-difficulty')).toBeNull();
+    // The generated picture's own pill, once.
+    expect(within(picture).getAllByText('Principiante')).toHaveLength(1);
+    expect(picture.getAttribute('href')).toBe('/student/course/course-x');
+    expect(picture.getAttribute('aria-label')).toBe('Curso Inventado de Prueba');
+    // The generated picture is not stretched to a height of its own: it keeps its 4:3.
+    expect(classesOf(picture.firstElementChild!)).not.toContain('h-full');
+  });
+
+  it('a thumbnail: the wide area, covered, with the card\'s pill', () => {
+    const picture = drawWith({ thumbnail_url: 'https://example.invalid/miniatura.png' });
+    expect(classesOf(picture)).toContain('aspect-video');
+    expect(classesOf(picture)).not.toContain('aspect-[4/3]');
+    const img = picture.querySelector('img')!;
+    expect(img.getAttribute('src')).toBe('https://example.invalid/miniatura.png');
+    expect(classesOf(img)).toContain('object-cover');
+    expect(within(picture).getByTestId('card-difficulty').textContent).toBe('Principiante');
+    expect(picture.getAttribute('aria-label')).toBe('Curso Inventado de Prueba');
+  });
+
+  it('an instructor\'s photo: the wide area, covered from the top, with the card\'s pill', () => {
+    const picture = drawWith({ instructor: { id: 'i-1', full_name: 'Relatora Ficticia', photo_url: 'https://example.invalid/relatora.png' } });
+    expect(classesOf(picture)).toContain('aspect-video');
+    const img = picture.querySelector('img')!;
+    expect(img.getAttribute('src')).toBe('https://example.invalid/relatora.png');
+    expect(classesOf(img)).toEqual(expect.arrayContaining(['object-cover', 'object-top']));
+    expect(within(picture).getByTestId('card-difficulty')).toBeTruthy();
+  });
+});

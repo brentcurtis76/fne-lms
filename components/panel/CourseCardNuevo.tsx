@@ -58,6 +58,7 @@ export function CourseCardNuevo({
   const objectives = showsObjectives(course) && course.learning_objectives ? objectivesPreview(course.learning_objectives) : null;
   const completion = completionTexts(enrollment);
   const detailsId = `${testId}-details`;
+  const generated = picture.kind === 'generated';
 
   return (
     <Card className="flex h-full flex-col overflow-hidden" data-testid={testId}>
@@ -65,16 +66,16 @@ export function CourseCardNuevo({
         href={href}
         tabIndex={-1}
         aria-label={course.title}
-        className="relative block aspect-video overflow-hidden bg-brand_gray_dark"
+        className={`relative block overflow-hidden ${generated ? GENERATED_AREA : PHOTO_AREA}`}
         data-testid={`${testId}-picture`}
       >
-        {picture.kind === 'generated' ? (
+        {generated ? (
           <CourseThumbnail
             title={course.title}
             instructorName={course.instructor?.full_name}
             instructorPhotoUrl={course.instructor?.photo_url}
             difficultyLevel={course.difficulty_level}
-            className="h-full"
+            className={GENERATED_FIT}
           />
         ) : (
           <img
@@ -83,7 +84,8 @@ export function CourseCardNuevo({
             className={`h-full w-full object-cover ${picture.kind === 'instructor' ? 'object-top' : ''}`}
           />
         )}
-        {difficulty && (
+        {/* The generated picture draws its own level pill; the card's is drawn on a photo only. */}
+        {difficulty && !generated && (
           <Badge tone="neutral" plain className="absolute left-2.5 top-2.5" data-testid={`${testId}-difficulty`}>
             {difficulty}
           </Badge>
@@ -225,6 +227,20 @@ export function CourseCardNuevo({
     </Card>
   );
 }
+
+/** A photo or a thumbnail: a wide area, the image covering it. */
+const PHOTO_AREA = 'aspect-video bg-brand_gray_dark';
+
+/**
+ * The generated picture (`CourseThumbnail`) is drawn for 4:3, as today's card shows it; its area takes
+ * that proportion so nothing of it is cut. The class prop reaches its own elements: its corners square
+ * (the card rounds them); its title smaller and its round of initials a little smaller, so that sixty
+ * characters in Mont, the relator's name and the round fit a card of 248 to 268 px; its text block
+ * (the second child) kept clear of its own level pill at the bottom left.
+ */
+const GENERATED_AREA = 'aspect-[4/3] bg-brand_primary';
+const GENERATED_FIT =
+  '[&]:rounded-none [&_h3]:text-[0.875rem] [&_h3]:leading-[1.3] [&_.ring-2]:h-14 [&_.ring-2]:w-14 [&>div:nth-child(2)]:pb-10';
 
 const PILL =
   'inline-flex items-center gap-[0.4em] whitespace-nowrap rounded-full border border-brand_primary/[0.24] px-[0.7em] py-[0.15em] text-xs text-gray-600 [&>svg]:h-3 [&>svg]:w-3';

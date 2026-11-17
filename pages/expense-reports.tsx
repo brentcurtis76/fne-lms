@@ -77,6 +77,9 @@ export default function ExpenseReportsPage() {
   const [selectedReport, setSelectedReport] = useState<ExpenseReport | null>(null);
   const [editingReport, setEditingReport] = useState<ExpenseReport | null>(null);
   const [deleteModalReport, setDeleteModalReport] = useState<ExpenseReport | null>(null);
+  const [rejectModalReport, setRejectModalReport] = useState<ExpenseReport | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectReasonError, setRejectReasonError] = useState(false);
   const [telegramLink, setTelegramLink] = useState<{ code: string; deepLink: string | null } | null>(null);
   const [generatingTelegramCode, setGeneratingTelegramCode] = useState(false);
 
@@ -319,9 +322,30 @@ export default function ExpenseReportsPage() {
     }
   };
 
-  const handleRejectReport = async (reportId: string) => {
-    const comments = prompt('Comentarios de rechazo (opcional):');
-    
+  const openRejectModal = (report: ExpenseReport) => {
+    setRejectReason('');
+    setRejectReasonError(false);
+    setRejectModalReport(report);
+  };
+
+  const closeRejectModal = () => {
+    setRejectModalReport(null);
+    setRejectReason('');
+    setRejectReasonError(false);
+  };
+
+  const handleConfirmReject = async () => {
+    if (!rejectModalReport) return;
+    const reason = rejectReason.trim();
+    if (!reason) {
+      setRejectReasonError(true);
+      return;
+    }
+    const rejected = await handleRejectReport(rejectModalReport.id, reason);
+    if (rejected) closeRejectModal();
+  };
+
+  const handleRejectReport = async (reportId: string, comments: string): Promise<boolean> => {
     try {
       // The reviewer recorded is the admin who pressed the button
       const { error } = await supabase
@@ -330,7 +354,7 @@ export default function ExpenseReportsPage() {
           status: 'rejected',
           reviewed_by: currentUser.id,
           reviewed_at: new Date().toISOString(),
-          review_comments: comments || undefined
+          review_comments: comments
         })
         .eq('id', reportId);
 
@@ -341,10 +365,11 @@ export default function ExpenseReportsPage() {
 
       await loadExpenseReports();
       toast.success('Reporte rechazado');
-      
+      return true;
     } catch (error) {
       console.error('Error rejecting report:', error);
       toast.error('Error al rechazar el reporte: ' + (error as Error).message);
+      return false;
     }
   };
 
@@ -561,7 +586,7 @@ export default function ExpenseReportsPage() {
                                       <Check size={16} />
                                     </button>
                                     <button
-                                      onClick={() => handleRejectReport(report.id)}
+                                      onClick={() => openRejectModal(report)}
                                       className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
                                       title="Rechazar reporte"
                                     >
@@ -667,6 +692,65 @@ export default function ExpenseReportsPage() {
                         className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                       >
                         Eliminar Reporte
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Reject Reason Modal */}
+            {rejectModalReport && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+                  <div className="p-6">
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                        <X className="text-red-600" size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Rechazar reporte</h3>
+                        <p className="text-sm text-gray-500">{rejectModalReport.report_name}</p>
+                      </div>
+                    </div>
+
+                    <div className="mb-6">
+                      <label className="block">
+                        <span className="block text-sm font-medium text-gray-700 mb-1">Motivo del rechazo</span>
+                        <textarea
+                          data-testid="reject-reason"
+                          value={rejectReason}
+                          maxLength={500}
+                          rows={4}
+                          onChange={(e) => {
+                            setRejectReason(e.target.value);
+                            if (rejectReasonError) setRejectReasonError(false);
+                          }}
+                          className="w-full border border-gray-300 rounded-lg p-2 text-sm text-gray-900"
+                        />
+                      </label>
+                      {rejectReasonError && (
+                        <p className="text-sm text-red-600 mt-1">Escribe el motivo del rechazo.</p>
+                      )}
+                      <p className="text-sm text-gray-600 mt-2">
+                        Escribe el motivo: la persona lo verá y podrá corregir y reenviar el reporte.
+                      </p>
+                    </div>
+
+                    <div className="flex space-x-3 justify-end">
+                      <button
+                        data-testid="reject-cancel"
+                        onClick={closeRejectModal}
+                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        data-testid="reject-confirm"
+                        onClick={handleConfirmReject}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                      >
+                        Rechazar
                       </button>
                     </div>
                   </div>

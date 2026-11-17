@@ -8,6 +8,7 @@ import { opArgs, type RecordedRequest } from '../helpers/recordingSupabase';
  * F7e (GENERA fixes): what a person can do with a report on Rendición de
  * Gastos (/expense-reports), by role and by the report's state.
  *   S2 — any admin approves and rejects, and is recorded as the reviewer.
+ *   S3 — rejecting asks for the reason inside the page; «Cancelar» cancels.
  * Synthetic people only.
  */
 
@@ -161,5 +162,76 @@ describe('F7e S2 any admin approves and rejects, and is recorded as the reviewer
       expect(within(row(id)).queryByTitle('Aprobar reporte')).toBeNull();
       expect(within(row(id)).queryByTitle('Rechazar reporte')).toBeNull();
     }
+  });
+});
+
+describe('F7e S3 rejecting asks for the reason inside the page, and «Cancelar» cancels', () => {
+  let promptSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    // A browser pop-up that is cancelled answers null
+    promptSpy = vi.spyOn(window, 'prompt').mockReturnValue(null);
+  });
+
+  async function openReject() {
+    reports = [report('s-other', OTHER, 'submitted')];
+    await mount('admin');
+    fireEvent.click(within(row('s-other')).getByTitle('Rechazar reporte'));
+  }
+
+  it('pressing «Rechazar reporte» opens a window in the page, not a browser pop-up', async () => {
+    await openReject();
+    expect(promptSpy).not.toHaveBeenCalled();
+    expect(await screen.findByRole('heading', { name: 'Rechazar reporte' })).toBeTruthy();
+    const reason = screen.getByTestId('reject-reason') as HTMLTextAreaElement;
+    expect(reason.tagName).toBe('TEXTAREA');
+    expect(reason.maxLength).toBe(500);
+    expect(screen.getByLabelText('Motivo del rechazo')).toBe(reason);
+    expect(screen.getByText('Escribe el motivo: la persona lo verá y podrá corregir y reenviar el reporte.')).toBeTruthy();
+    expect(screen.getByTestId('reject-confirm').textContent).toBe('Rechazar');
+    expect(screen.getByTestId('reject-cancel').textContent).toBe('Cancelar');
+  });
+
+  it('pressing «Rechazar reporte» alone never rejects (a cancelled pop-up used to)', async () => {
+    await openReject();
+    // either the window opened or an update went out: then nothing may have been sent
+    await waitFor(() => expect(screen.queryByTestId('reject-reason') ?? (updates().length || null)).toBeTruthy());
+    expect(updates()).toHaveLength(0);
+    expect(notifyCalls()).toEqual([]);
+  });
+
+  it('«Cancelar» closes the window with no change and no notification', async () => {
+    await openReject();
+    fireEvent.click(await screen.findByTestId('reject-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('reject-reason')).toBeNull());
+    expect(updates()).toHaveLength(0);
+    expect(notifyCalls()).toEqual([]);
+  });
+
+  it('«Rechazar» with an empty or blank reason sends nothing and asks for the reason', async () => {
+    await openReject();
+    fireEvent.click(await screen.findByTestId('reject-confirm'));
+    expect(await screen.findByText('Escribe el motivo del rechazo.')).toBeTruthy();
+    fireEvent.change(screen.getByTestId('reject-reason'), { target: { value: '   ' } });
+    fireEvent.click(screen.getByTestId('reject-confirm'));
+    expect(screen.getByText('Escribe el motivo del rechazo.')).toBeTruthy();
+    expect(screen.getByTestId('reject-reason')).toBeTruthy();
+    expect(updates()).toHaveLength(0);
+    expect(notifyCalls()).toEqual([]);
+  });
+
+  it('«Rechazar» with a reason rejects, records the admin and the reason, and asks for the notification', async () => {
+    await openReject();
+    fireEvent.change(await screen.findByTestId('reject-reason'), { target: { value: 'Falta la boleta del taxi' } });
+    fireEvent.click(screen.getByTestId('reject-confirm'));
+    await waitFor(() => expect(updates()).toHaveLength(1));
+    const payload = opArgs(updates()[0], 'update')?.[0] as Record<string, unknown>;
+    expect(payload.status).toBe('rejected');
+    expect(payload.reviewed_by).toBe(ME);
+    expect(typeof payload.reviewed_at).toBe('string');
+    expect(payload.review_comments).toBe('Falta la boleta del taxi');
+    expect(opArgs(updates()[0], 'eq')).toEqual(['id', 's-other']);
+    await waitFor(() => expect(notifyCalls()).toEqual(['/api/expense-reports/s-other/notify']));
+    await waitFor(() => expect(screen.queryByTestId('reject-reason')).toBeNull());
+    expect(promptSpy).not.toHaveBeenCalled();
   });
 });

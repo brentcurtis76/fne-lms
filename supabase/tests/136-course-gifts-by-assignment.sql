@@ -2,8 +2,8 @@
 -- 136-course-gifts-by-assignment.sql — GENERA fixes F7c, item N40.
 -- Proves migration 20261117165000_course_gifts_by_assignment.sql:
 --   * public.auth_consultor_covers_user(uuid): true only when the caller holds
---     an active consultor role and a current (is_active, ends_at null or in the
---     future) consultant_assignments row whose scope covers the person — the
+--     an active consultor role and a current (is_active, started — starts_at null
+--     or not in the future — and ends_at null or in the future) consultant_assignments row whose scope covers the person — the
 --     four scopes of lib/quiz-reviews/review-scope.ts (individual → student_id;
 --     school / generation / community → the person has an active user_roles row
 --     there); not executable by anon;
@@ -39,13 +39,15 @@ LANGUAGE sql SECURITY DEFINER AS $$
 -- -----------------------------------------------------------------------------
 SELECT tests.create_supabase_user(k) FROM unnest(ARRAY[
   'n40_admin', 'n40_admin_cons', 'n40_cons_school', 'n40_cons_ind', 'n40_cons_gen', 'n40_cons_com',
-  'n40_cons_inact', 'n40_cons_ended', 'n40_cons_none', 'n40_docente', 'n40_directivo',
+  'n40_cons_inact', 'n40_cons_ended', 'n40_cons_none', 'n40_cons_future', 'n40_cons_recent',
+  'n40_docente', 'n40_directivo',
   'n40_p_a1', 'n40_p_a2', 'n40_p_b1']) k;
 INSERT INTO public.profiles (id, email, name, approval_status)
 SELECT pg_temp.uid(k), k || '@test.local', k, 'approved'
   FROM unnest(ARRAY[
   'n40_admin', 'n40_admin_cons', 'n40_cons_school', 'n40_cons_ind', 'n40_cons_gen', 'n40_cons_com',
-  'n40_cons_inact', 'n40_cons_ended', 'n40_cons_none', 'n40_docente', 'n40_directivo',
+  'n40_cons_inact', 'n40_cons_ended', 'n40_cons_none', 'n40_cons_future', 'n40_cons_recent',
+  'n40_docente', 'n40_directivo',
   'n40_p_a1', 'n40_p_a2', 'n40_p_b1']) k
 ON CONFLICT (id) DO NOTHING;
 
@@ -71,6 +73,8 @@ INSERT INTO public.user_roles (user_id, role_type, school_id, generation_id, com
   (pg_temp.uid('n40_cons_inact'),  'consultor',       13601, NULL, NULL, true),
   (pg_temp.uid('n40_cons_ended'),  'consultor',       13601, NULL, NULL, true),
   (pg_temp.uid('n40_cons_none'),   'consultor',       13601, NULL, NULL, true),
+  (pg_temp.uid('n40_cons_future'), 'consultor',       13601, NULL, NULL, true),
+  (pg_temp.uid('n40_cons_recent'), 'consultor',       13601, NULL, NULL, true),
   (pg_temp.uid('n40_docente'),     'docente',         13601, NULL, NULL, true),
   (pg_temp.uid('n40_directivo'),   'equipo_directivo', 13601, NULL, NULL, true),
   (pg_temp.uid('n40_p_a1'),        'docente',         13601, '13600000-0000-4000-8000-0000000000a1', '13600000-0000-4000-8000-00000000c0a1', true),
@@ -86,7 +90,10 @@ INSERT INTO public.consultant_assignments
   (pg_temp.uid('n40_cons_gen'),    NULL, 13601, '13600000-0000-4000-8000-0000000000a1', NULL, true, now() - interval '10 days', NULL, 'monitoring', '{"assignment_scope":"generation"}'),
   (pg_temp.uid('n40_cons_com'),    NULL, 13601, NULL, '13600000-0000-4000-8000-00000000c0a1', true, now() - interval '10 days', NULL, 'monitoring', '{"assignment_scope":"community"}'),
   (pg_temp.uid('n40_cons_inact'),  NULL, 13601, NULL, NULL, false, now() - interval '10 days', NULL, 'monitoring', '{"assignment_scope":"school"}'),
-  (pg_temp.uid('n40_cons_ended'),  NULL, 13601, NULL, NULL, true, now() - interval '10 days', now() - interval '1 day', 'monitoring', '{"assignment_scope":"school"}');
+  (pg_temp.uid('n40_cons_ended'),  NULL, 13601, NULL, NULL, true, now() - interval '10 days', now() - interval '1 day', 'monitoring', '{"assignment_scope":"school"}'),
+  -- send-back 1: an assignment that has not started yet (year 2099), and one that started a minute ago
+  (pg_temp.uid('n40_cons_future'), NULL, 13601, NULL, NULL, true, '2099-01-01 00:00:00+00', NULL, 'monitoring', '{"assignment_scope":"school"}'),
+  (pg_temp.uid('n40_cons_recent'), NULL, 13601, NULL, NULL, true, now() - interval '1 minute', NULL, 'monitoring', '{"assignment_scope":"school"}');
 
 INSERT INTO public.instructors (id, full_name) VALUES ('13600000-0000-4000-8000-00000000f001', 'N40 instructor');
 INSERT INTO public.courses (id, title, description, instructor_id) VALUES
@@ -188,6 +195,23 @@ SELECT throws_ok($$SELECT public.batch_assign_courses('13600000-0000-4000-8000-0
   '42501', 'Recipient not covered by the caller''s assignments', 'consultor with no assignment: refused (assign)');
 SELECT throws_ok($$SELECT public.batch_unassign_courses('13600000-0000-4000-8000-000000000c01', ARRAY[pg_temp.uid('n40_p_a2')])$$,
   '42501', 'Recipient not covered by the caller''s assignments', 'consultor with no assignment: refused (unassign)');
+RESET ROLE;
+-- send-back 1: an assignment that has not started does not count yet
+SELECT tests.authenticate_as('n40_cons_future');
+SELECT throws_ok($$SELECT public.batch_assign_courses('13600000-0000-4000-8000-000000000c01', ARRAY[pg_temp.uid('n40_p_a1')])$$,
+  '42501', 'Recipient not covered by the caller''s assignments', 'consultor whose only assignment starts in the future: refused (assign)');
+SELECT throws_ok($$SELECT public.batch_unassign_courses('13600000-0000-4000-8000-000000000c01', ARRAY[pg_temp.uid('n40_p_a2')])$$,
+  '42501', 'Recipient not covered by the caller''s assignments', 'consultor whose only assignment starts in the future: refused (unassign)');
+RESET ROLE;
+SELECT is(pg_temp.ca('n40_p_a1') || '/' || pg_temp.ca('n40_p_a2'), '0/1',
+  'consultor with a future assignment: nothing written, nothing removed');
+-- an assignment that started a minute ago counts
+SELECT tests.authenticate_as('n40_cons_recent');
+SELECT is(public.auth_consultor_covers_user(pg_temp.uid('n40_p_a1')), true, 'helper: an assignment that started a minute ago counts');
+SELECT lives_ok($$SELECT public.batch_assign_courses('13600000-0000-4000-8000-000000000c01', ARRAY[pg_temp.uid('n40_p_a1')])$$,
+  'consultor whose assignment started a minute ago: covered person assigned');
+SELECT is((public.batch_unassign_courses('13600000-0000-4000-8000-000000000c01', ARRAY[pg_temp.uid('n40_p_a1')]) ->> 'unassigned_count')::int, 1,
+  'consultor whose assignment started a minute ago: course taken from the covered person');
 RESET ROLE;
 SELECT is(pg_temp.ca('n40_p_a1') || '/' || pg_temp.ca('n40_p_a2'), '0/1', 'refused consultors wrote and removed nothing');
 

@@ -4,9 +4,9 @@
 -- Owner's decision (17 Nov 2026, N40): a consultor gives courses only to people
 -- of the schools (generations, communities, people) they are assigned to — the
 -- rule used for quiz reviews (lib/quiz-reviews/review-scope.ts) — counted only
--- while the assignment is current (is_active, ends_at null or in the future, as
--- public.auth_is_assigned_consultor decides it). Taking a course away follows
--- the same rule. Admins are unchanged.
+-- while the assignment is current: is_active, started (starts_at null or not in
+-- the future) and not ended (ends_at null or in the future). Taking a course
+-- away follows the same rule. Admins are unchanged.
 --
 --   1. public.auth_consultor_covers_user(uuid): yes/no about the caller only.
 --   2. public.batch_assign_courses and public.batch_unassign_courses: their
@@ -41,6 +41,7 @@ AS $$
            SELECT 1 FROM public.consultant_assignments ca
             WHERE ca.consultant_id = auth.uid()
               AND ca.is_active IS TRUE
+              AND (ca.starts_at IS NULL OR ca.starts_at <= now())
               AND (ca.ends_at IS NULL OR ca.ends_at > now())
               AND CASE COALESCE(NULLIF(ca.assignment_data->>'assignment_scope', ''), 'individual')
                     WHEN 'individual' THEN ca.student_id IS NOT NULL AND ca.student_id = p_user_id
@@ -62,7 +63,7 @@ $$;
 
 COMMENT ON FUNCTION public.auth_consultor_covers_user(uuid) IS
   'F7c N40 (17 Nov 2026): true when the caller holds an active consultor role and a current '
-  '(is_active, ends_at null or future) consultant_assignments row covering that person: scope '
+  '(is_active, started: starts_at null or not future, not ended: ends_at null or future) consultant_assignments row covering that person: scope '
   'individual (assignment_data.assignment_scope absent or empty) -> student_id; school / generation / '
   'community -> the person has an active user_roles row there (the four scopes of '
   'lib/quiz-reviews/review-scope.ts). Answers only about the caller.';

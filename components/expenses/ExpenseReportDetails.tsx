@@ -1,9 +1,11 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useState, useEffect } from 'react';
 import { X, Calendar, DollarSign, Receipt, Eye, Download, Edit, Trash2, FileText, FileSpreadsheet } from 'lucide-react';
 
 import { formatCurrency as formatCurrencyWithSymbol } from '../../lib/currency-service';
 import { ExpenseReportExporter } from '../../lib/expenseReportExport';
 import { toast } from 'react-hot-toast';
+import { fetchProfileCards, cardName } from '../../lib/profile-cards';
 
 interface ExpenseCategory {
   id: string;
@@ -55,6 +57,33 @@ interface ExpenseReport {
   expense_items?: ExpenseItem[];
 }
 
+interface ExpenseReportEvent {
+  id: string;
+  report_id: string;
+  event: 'submitted' | 'resubmitted' | 'rejected' | 'approved' | 'reopened';
+  actor_id: string | null;
+  comment: string | null;
+  created_at: string;
+}
+
+interface HistoryLine {
+  id: string;
+  text: string;
+}
+
+const HISTORY_FALLBACK_NAME = 'Equipo GENERA';
+
+const historyEventText = (event: ExpenseReportEvent): string => {
+  switch (event.event) {
+    case 'submitted': return 'Enviado';
+    case 'resubmitted': return 'Reenviado';
+    case 'rejected': return event.comment ? `Rechazado: ${event.comment}` : 'Rechazado';
+    case 'approved': return 'Aprobado';
+    case 'reopened': return 'Reabierto';
+    default: return String(event.event);
+  }
+};
+
 interface ExpenseReportDetailsProps {
   report: ExpenseReport | null;
   isOpen: boolean;
@@ -74,6 +103,42 @@ export default function ExpenseReportDetails({
   currentUser,
   isAdmin = false
 }: ExpenseReportDetailsProps) {
+  const supabase = useSupabaseClient();
+  const [history, setHistory] = useState<HistoryLine[]>([]);
+  const reportId = isOpen && report ? report.id : null;
+
+  // The report's history (F7e): written by the database, read with the
+  // person's own session; names through get_profile_cards.
+  useEffect(() => {
+    setHistory([]);
+    if (!reportId) return;
+    let cancelled = false;
+    const loadHistory = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('expense_report_events')
+          .select('id, report_id, event, actor_id, comment, created_at')
+          .eq('report_id', reportId)
+          .order('created_at', { ascending: true });
+        if (error) throw error;
+        const events = (data || []) as ExpenseReportEvent[];
+        if (events.length === 0) return;
+        const cards = await fetchProfileCards(supabase, events.map((e) => e.actor_id));
+        if (cancelled) return;
+        setHistory(events.map((e) => ({
+          id: e.id,
+          text: `${historyEventText(e)} — ${cardName(e.actor_id ? cards.get(e.actor_id) : null, HISTORY_FALLBACK_NAME)}, ${new Date(e.created_at).toLocaleDateString('es-CL')}`,
+        })));
+      } catch (error) {
+        console.error('Error loading expense report history:', error);
+      }
+    };
+    loadHistory();
+    return () => {
+      cancelled = true;
+    };
+  }, [reportId, supabase]);
+
   if (!isOpen || !report) return null;
 
   const formatDate = (dateString: string) => {
@@ -455,6 +520,18 @@ export default function ExpenseReportDetails({
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* History */}
+          {history.length > 0 && (
+            <div className="space-y-4" data-testid="expense-history">
+              <h3 className="text-lg font-semibold text-brand_primary border-b pb-2">Historial</h3>
+              <ul className="space-y-2">
+                {history.map((line) => (
+                  <li key={line.id} className="text-sm text-gray-900">{line.text}</li>
+                ))}
+              </ul>
             </div>
           )}
         </div>

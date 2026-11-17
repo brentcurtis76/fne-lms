@@ -9,6 +9,7 @@ import { opArgs, type RecordedRequest } from '../helpers/recordingSupabase';
  * Gastos (/expense-reports), by role and by the report's state.
  *   S2 — any admin approves and rejects, and is recorded as the reviewer.
  *   S3 — rejecting asks for the reason inside the page; «Cancelar» cancels.
+ *   S4 — a rejected report can be corrected and sent again by its author.
  * Synthetic people only.
  */
 
@@ -233,5 +234,64 @@ describe('F7e S3 rejecting asks for the reason inside the page, and «Cancelar»
     await waitFor(() => expect(notifyCalls()).toEqual(['/api/expense-reports/s-other/notify']));
     await waitFor(() => expect(screen.queryByTestId('reject-reason')).toBeNull());
     expect(promptSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('F7e S4 a rejected report can be corrected and sent again', () => {
+  const rejected = () => report('x-own', ME, 'rejected', {
+    review_comments: 'Falta la boleta del taxi', reviewed_by: 'f7e-admin-9', reviewed_at: '2026-11-12T10:00:00Z',
+  });
+
+  it('the author sees the reason in the list row', async () => {
+    reports = [rejected()];
+    await mount('consultor');
+    expect(within(row('x-own')).getByTestId('reject-reason-shown-x-own').textContent).toBe('Motivo del rechazo: Falta la boleta del taxi');
+  });
+
+  it('the author is offered «Editar reporte», «Enviar para revisión» and «Eliminar reporte», as for a draft', async () => {
+    reports = [rejected(), report('d-own', ME, 'draft')];
+    await mount('consultor');
+    for (const id of ['x-own', 'd-own']) {
+      expect(within(row(id)).getByTitle('Ver detalles')).toBeTruthy();
+      expect(within(row(id)).getByTitle('Editar reporte')).toBeTruthy();
+      expect(within(row(id)).getByTitle('Enviar para revisión')).toBeTruthy();
+      expect(within(row(id)).getByTitle('Eliminar reporte')).toBeTruthy();
+    }
+  });
+
+  it('«Editar reporte» opens the rejected report in the form', async () => {
+    reports = [rejected()];
+    await mount('consultor');
+    fireEvent.click(within(row('x-own')).getByTitle('Editar reporte'));
+    expect((await screen.findByTestId('form-stub')).textContent).toBe('editing x-own');
+  });
+
+  it('«Enviar para revisión» sends the rejected report again (status submitted) and asks for the notification', async () => {
+    reports = [rejected()];
+    await mount('consultor');
+    fireEvent.click(within(row('x-own')).getByTitle('Enviar para revisión'));
+    await waitFor(() => expect(updates()).toHaveLength(1));
+    const payload = opArgs(updates()[0], 'update')?.[0] as Record<string, unknown>;
+    expect(payload.status).toBe('submitted');
+    expect(typeof payload.submitted_at).toBe('string');
+    expect(opArgs(updates()[0], 'eq')).toEqual(['id', 'x-own']);
+    await waitFor(() => expect(notifyCalls()).toEqual(['/api/expense-reports/x-own/notify']));
+  });
+
+  it('a sent or approved report offers its author nothing but «Ver detalles»', async () => {
+    reports = [report('s-own', ME, 'submitted'), report('a-own', ME, 'approved')];
+    await mount('consultor');
+    for (const id of ['s-own', 'a-own']) {
+      const buttons = within(row(id)).getAllByRole('button').map((b) => b.getAttribute('title'));
+      expect(buttons).toEqual(['Ver detalles']);
+    }
+  });
+
+  it('someone else\'s rejected report offers an admin no edit or send (delete as today)', async () => {
+    reports = [report('x-other', OTHER, 'rejected', { review_comments: 'Sin boleta' })];
+    await mount('admin');
+    expect(within(row('x-other')).queryByTitle('Editar reporte')).toBeNull();
+    expect(within(row('x-other')).queryByTitle('Enviar para revisión')).toBeNull();
+    expect(within(row('x-other')).getByTitle('Eliminar reporte')).toBeTruthy();
   });
 });

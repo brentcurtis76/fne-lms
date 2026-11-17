@@ -522,6 +522,14 @@ export default function ExpenseReportsPage() {
                                 {report.description && (
                                   <div className="text-xs text-gray-500 mt-0.5">{report.description}</div>
                                 )}
+                                {report.status === 'rejected' && report.review_comments && (
+                                  <div
+                                    className="text-xs text-red-700 mt-0.5"
+                                    data-testid={`reject-reason-shown-${report.id}`}
+                                  >
+                                    Motivo del rechazo: {report.review_comments}
+                                  </div>
+                                )}
                               </div>
                             </td>
                             <td className="py-3 px-4">
@@ -554,7 +562,7 @@ export default function ExpenseReportsPage() {
                                   <Eye size={16} />
                                 </button>
                                 
-                                {report.status === 'draft' && report.submitted_by === currentUser.id && (
+                                {(report.status === 'draft' || report.status === 'rejected') && report.submitted_by === currentUser.id && (
                                   <>
                                     <button
                                       onClick={() => {
@@ -595,7 +603,7 @@ export default function ExpenseReportsPage() {
                                   </>
                                 )}
 
-                                {((report.submitted_by === currentUser.id && report.status === 'draft') || isAdmin) && (
+                                {((report.submitted_by === currentUser.id && (report.status === 'draft' || report.status === 'rejected')) || isAdmin) && (
                                   <button
                                     onClick={() => setDeleteModalReport(report)}
                                     className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"

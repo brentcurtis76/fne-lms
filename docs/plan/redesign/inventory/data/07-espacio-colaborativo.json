@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "0853a5567a422544cbc6cb8b7dafde403d965cdc",
-  "date": "2026-11-17T12:53:45-03:00"
+  "commit": "45d07ead51e5a3eec09ca6796bd72980883bc2d6",
+  "date": "2026-11-17T19:02:40-03:00"
  },
  "screens": [
   {
@@ -2231,6 +2231,8 @@
      "components/layout/Sidebar.tsx:221",
      "components/layout/Sidebar.tsx:227",
      "components/layout/Sidebar.tsx:232",
+     "components/panel/PanelClasico.tsx:206",
+     "components/panel/PanelClasico.tsx:207",
      "lib/auth/forced-password-change.ts:175",
      "lib/notifications/catalog.ts:170",
      "lib/notifications/catalog.ts:325",
@@ -2249,8 +2251,6 @@
      "pages/community/workspace/transformation/evaluate.tsx:210",
      "pages/community/workspace/transformation/evaluate.tsx:487",
      "pages/community/workspace/transformation/evaluate.tsx:488",
-     "pages/dashboard.tsx:658",
-     "pages/dashboard.tsx:659",
      "utils/activityUtils.ts:765",
      "utils/activityUtils.ts:767",
      "utils/activityUtils.ts:769",

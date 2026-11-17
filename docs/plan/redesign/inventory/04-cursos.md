@@ -1,7 +1,7 @@
 # Cursos (course builder, upcoming courses, learning paths, assignment matrix)
 
 Area `04-cursos`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `0853a5567` (2026-11-17).
+Read from commit `45d07ead5` (2026-11-17).
 
 Course system: see the note on 03-aprendizaje.
 
@@ -4453,7 +4453,7 @@ Used by: `/admin/course-builder/[courseId]/[moduleId]/[lessonId]`, `/admin/cours
 | `/api/learning-paths/assignments/[id]` | `pages/api/learning-paths/assignments/[id].ts` | DELETE, GET | **no screen** | `__tests__/api/learning-paths/management-routes-boundary.test.ts` |
 | `/api/learning-paths/batch-assign` | `pages/api/learning-paths/batch-assign.ts` | POST | `/admin/assignment-matrix`, `/admin/learning-paths/[id]/assign` | `__tests__/api/learning-paths/management-routes-boundary.test.ts`, `components/admin/assignment-matrix/BatchAssignModal.tsx`, `components/admin/assignment-matrix/hooks/useAssignmentMatrix.ts`, `pages/admin/learning-paths/[id]/assign.tsx` |
 | `/api/learning-paths` | `pages/api/learning-paths/index.ts` | GET, POST | `/admin/learning-paths`, `/admin/learning-paths/new` | `__tests__/api/learning-paths/governance-boundary.test.ts`, `pages/admin/learning-paths.tsx`, `pages/admin/learning-paths/new.tsx`, `scripts/check-ledger.mjs`, `supabase/migrations/20260908180000_learning_path_governance.sql` +1 |
-| `/api/learning-paths/my-paths` | `pages/api/learning-paths/my-paths.ts` | GET | `/dashboard`, `/mi-aprendizaje` | `pages/dashboard.tsx`, `pages/mi-aprendizaje.tsx`, `tests/e2e/learning-path-governance.spec.ts`, `tests/e2e/login-resilience.spec.ts`, `tests/e2e/meeting-finalize-email-outcome.spec.ts` +1 |
+| `/api/learning-paths/my-paths` | `pages/api/learning-paths/my-paths.ts` | GET | `/dashboard`, `/mi-aprendizaje` | `__tests__/pages/dashboard.clasico.test.tsx`, `hooks/usePanel.ts`, `pages/mi-aprendizaje.tsx`, `tests/e2e/learning-path-governance.spec.ts`, `tests/e2e/login-resilience.spec.ts` +2 |
 | `/api/learning-paths/search-assignees` | `pages/api/learning-paths/search-assignees.ts` | POST | `/admin/assignment-matrix`, `/admin/learning-paths/[id]/assign` | `__tests__/api/learning-paths/management-routes-boundary.test.ts`, `components/admin/assignment-matrix/BatchAssignModal.tsx`, `pages/admin/learning-paths/[id]/assign.tsx` |
 | `/api/learning-paths/session/activity` | `pages/api/learning-paths/session/activity.ts` | POST | **no screen** | `__tests__/api/learning-paths/session-activity.test.ts`, `tests/e2e/learning-path-governance.spec.ts` |
 | `/api/learning-paths/session/end` | `pages/api/learning-paths/session/end.ts` | POST | **no screen** | `tests/e2e/learning-path-governance.spec.ts` |
@@ -4463,5 +4463,5 @@ Used by: `/admin/course-builder/[courseId]/[moduleId]/[lessonId]`, `/admin/cours
 | `/api/learning-paths/user/[userId]` | `pages/api/learning-paths/user/[userId].ts` | GET | **no screen** | `__tests__/api/learning-paths/governance-boundary.test.ts`, `tests/e2e/learning-path-governance.spec.ts` |
 | `/api/upcoming-courses/[id]` | `pages/api/upcoming-courses/[id].ts` | DELETE, GET, PUT | `/admin/upcoming-courses` | `__tests__/api/upcoming-courses/metadata-authority.test.ts`, `pages/admin/upcoming-courses/index.tsx` |
 | `/api/upcoming-courses/admin` | `pages/api/upcoming-courses/admin.ts` | GET | `/admin/upcoming-courses` | `__tests__/api/upcoming-courses/metadata-authority.test.ts`, `pages/admin/upcoming-courses/index.tsx` |
-| `/api/upcoming-courses` | `pages/api/upcoming-courses/index.ts` | GET, POST | `/admin/upcoming-courses`, `/dashboard` | `__tests__/api/upcoming-courses/metadata-authority.test.ts`, `pages/admin/upcoming-courses/index.tsx`, `pages/dashboard.tsx`, `tests/e2e/meeting-finalize-email-outcome.spec.ts`, `tests/e2e/panel-pin.spec.ts` |
+| `/api/upcoming-courses` | `pages/api/upcoming-courses/index.ts` | GET, POST | `/admin/upcoming-courses`, `/dashboard` | `__tests__/api/upcoming-courses/metadata-authority.test.ts`, `__tests__/pages/dashboard.clasico.test.tsx`, `hooks/usePanel.ts`, `pages/admin/upcoming-courses/index.tsx`, `tests/e2e/meeting-finalize-email-outcome.spec.ts` +1 |
 

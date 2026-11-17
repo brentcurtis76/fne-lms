@@ -1,7 +1,7 @@
 # Acceso (sign-in, sign-up, passwords)
 
 Area `01-acceso`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `0853a5567` (2026-11-17).
+Read from commit `45d07ead5` (2026-11-17).
 
 7 screen files, 13 API files, 7 pieces.
 
@@ -79,7 +79,7 @@ File `pages/change-password.tsx` · 385 lines · frame: none
   - l.120 `router.push → /login`
   - l.192 `router.push → /login`
   - l.236 `router.replace → /dashboard  (when verificationUnavailable)`
-- Linked from: `components/DynamicFavicon.tsx:16`, `lib/auth/forced-password-change.ts:34`, `lib/look.ts:96`, `pages/dashboard.tsx:326`, `pages/login.tsx:127`
+- Linked from: `components/DynamicFavicon.tsx:16`, `hooks/usePanel.ts:253`, `lib/auth/forced-password-change.ts:34`, `lib/look.ts:96`, `pages/login.tsx:127`
 - Tests: no browser test that CI runs; unit tests of the page: `__tests__/components/ChangePasswordPage.forcedCompletion.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |

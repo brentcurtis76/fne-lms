@@ -1,7 +1,7 @@
 # Gestión (clients, contracts, quotes)
 
 Area `11-gestion`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `0853a5567` (2026-11-17).
+Read from commit `45d07ead5` (2026-11-17).
 
 7 screen files, 14 API files, 20 pieces.
 
@@ -330,7 +330,7 @@ File `pages/admin/quotes/index.tsx` · 438 lines · frame: MainLayout
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
 - Linked from: `components/layout/Sidebar.tsx:567`, `pages/admin/quotes/[id]/edit.tsx:134`, `pages/admin/quotes/[id]/edit.tsx:135`, `pages/admin/quotes/[id]/edit.tsx:156`, `pages/admin/quotes/[id]/edit.tsx:157`, `pages/admin/quotes/[id]/edit.tsx:32`, `pages/admin/quotes/[id]/edit.tsx:37`, `pages/admin/quotes/[id]/edit.tsx:96`, `pages/admin/quotes/new.tsx:68`, `pages/admin/quotes/new.tsx:91`, `pages/admin/quotes/new.tsx:92`
-- Tests: no browser test that CI runs.
+- Tests: no browser test that CI runs; unit tests of the page: `__tests__/components/permissions/PermissionGuard.fullLoad.test.tsx`.
 - QA scenarios that name this address: admin 1.
 
 | Role | Sees it in the menu | Middleware |
@@ -418,7 +418,7 @@ File `pages/admin/quotes/index.tsx` · 438 lines · frame: MainLayout
 | `MainLayout` |  | `loading` |  | QuotesManagementPageContent · l.145 |
 | `MainLayout` |  |  |  | QuotesManagementPageContent · l.154 |
 | `HasPermission` | permission: create_internship_proposals_all |  |  | QuotesManagementPageContent · l.173 |
-| `PermissionGuard` | permission: view_internship_proposals_all · redirectTo: /admin |  |  | QuotesManagementPage · l.431 |
+| `PermissionGuard` | permission: view_internship_proposals_all · redirectTo: /dashboard |  |  | QuotesManagementPage · l.431 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 

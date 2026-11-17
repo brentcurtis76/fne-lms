@@ -1,7 +1,7 @@
 # Pasantías (leads, travellers, panel, my trip)
 
 Area `12-pasantias`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `0853a5567` (2026-11-17).
+Read from commit `45d07ead5` (2026-11-17).
 
 5 screen files, 21 API files, 25 pieces.
 
@@ -2037,7 +2037,7 @@ Used by: `/admin/pasantia-leads`, `/admin/pasantia-participants`, `/admin/pasant
 | `/api/pasantias/ficha` | `pages/api/pasantias/ficha.ts` |  | `/pasantias` | `__tests__/api/pasantias-lead.test.ts`, `__tests__/api/pasantias-pdf.test.ts`, `__tests__/components/PasantiasLeadForm.test.tsx`, `__tests__/lib/pasantias-emails.test.ts`, `__tests__/pages/pasantias.test.tsx` +6 |
 | `/api/pasantias/lead` | `pages/api/pasantias/lead.ts` | POST | `/pasantias` | `__tests__/api/pasantias-lead.test.ts`, `__tests__/components/PasantiasLeadForm.test.tsx`, `components/pasantias/LeadForm.tsx`, `tests/e2e/pasantias-flow.spec.ts`, `tests/e2e/pasantias-form.spec.ts` |
 | `/api/pasantias/mine/documents/[docId]` | `pages/api/pasantias/mine/documents/[docId].ts` | GET | `/profile/pasantia` | `__tests__/api/pasantias-panel-jobs.test.ts`, `__tests__/pages/profile-pasantia.test.tsx`, `pages/profile/pasantia.tsx`, `tests/e2e/pasantias-panel.spec.ts` |
-| `/api/pasantias/mine` | `pages/api/pasantias/mine/index.ts` | GET | **no screen** | `__tests__/api/pasantias-panel-jobs.test.ts`, `__tests__/components/layout/Sidebar.miPasantia.nuevo.test.tsx`, `__tests__/components/layout/Sidebar.miPasantia.test.tsx`, `components/layout/Sidebar.tsx`, `tests/e2e/panel-pin.spec.ts` +1 |
+| `/api/pasantias/mine` | `pages/api/pasantias/mine/index.ts` | GET | **no screen** | `__tests__/api/pasantias-panel-jobs.test.ts`, `__tests__/components/layout/Sidebar.miPasantia.nuevo.test.tsx`, `__tests__/components/layout/Sidebar.miPasantia.test.tsx`, `components/layout/Sidebar.tsx`, `tests/e2e/auth-lifecycle.spec.ts` +2 |
 | `/api/pasantias/participants/[id]` | `pages/api/pasantias/participants/[id].ts` |  | **no screen** | `__tests__/api/pasantias-participants.test.ts`, `__tests__/lib/pasantias/participants/school-funding.test.ts`, `__tests__/pages/pasantias-nomina.test.tsx` |
 | `/api/pasantias/participants/finalize` | `pages/api/pasantias/participants/finalize.ts` |  | **no screen** | `__tests__/api/pasantias-participants.test.ts` |
 | `/api/pasantias/participants` | `pages/api/pasantias/participants/index.ts` | GET | `/pasantias/nomina` | `__tests__/api/pasantias-participants.test.ts`, `__tests__/lib/pasantias/participants/school-funding.test.ts`, `__tests__/pages/pasantias-nomina.test.tsx`, `pages/pasantias/nomina.tsx`, `tests/e2e/pasantias-panel.spec.ts` +1 |

@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "0853a5567a422544cbc6cb8b7dafde403d965cdc",
-  "date": "2026-11-17T12:53:45-03:00"
+  "commit": "45d07ead51e5a3eec09ca6796bd72980883bc2d6",
+  "date": "2026-11-17T19:02:40-03:00"
  },
  "screens": [
   {
@@ -1293,7 +1293,9 @@
     "tests": {
      "e2eCi": [],
      "e2e": [],
-     "unit": []
+     "unit": [
+      "__tests__/components/permissions/PermissionGuard.fullLoad.test.tsx"
+     ]
     }
    },
    "rows": [
@@ -1696,7 +1698,7 @@
      "kind": "piece",
      "line": 431,
      "in": "QuotesManagementPage",
-     "text": "permission: view_internship_proposals_all · redirectTo: /admin",
+     "text": "permission: view_internship_proposals_all · redirectTo: /dashboard",
      "tag": "PermissionGuard"
     },
     {

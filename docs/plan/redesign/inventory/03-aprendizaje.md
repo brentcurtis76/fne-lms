@@ -1,7 +1,7 @@
 # Mi Aprendizaje (the learner's courses, lessons and routes)
 
 Area `03-aprendizaje`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `0853a5567` (2026-11-17).
+Read from commit `45d07ead5` (2026-11-17).
 
 Course system: the Course Review session owns this area's structure and its own checklist (docs/planning/courses/inventory.md, not yet on main). This file is the redesign's list of what is on screen today.
 
@@ -71,7 +71,7 @@ File `pages/mi-aprendizaje.tsx` · 526 lines · frame: MainLayout
   - l.292 `role = await getUserPrimaryRole(session.user.id)`
   - l.347 `router.push → /login`
   - l.377 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:31`, `components/layout/Sidebar.tsx:143`, `components/layout/Sidebar.tsx:149`, `components/notifications/ModernNotificationCenter.tsx:309`, `components/notifications/ModernNotificationCenter.tsx:319`, `lib/auth/forced-password-change.ts:152`, `lib/notificationEvents.ts:248`, `lib/notificationEvents.ts:262`, `lib/notificationEvents.ts:275`, `lib/notificationEvents.ts:293`, `lib/notifications/catalog.ts:283`, `lib/notifications/catalog.ts:284` and 12 more
+- Linked from: `components/DynamicFavicon.tsx:31`, `components/layout/Sidebar.tsx:143`, `components/layout/Sidebar.tsx:149`, `components/notifications/ModernNotificationCenter.tsx:309`, `components/notifications/ModernNotificationCenter.tsx:319`, `components/panel/PanelClasico.tsx:563`, `components/panel/PanelClasico.tsx:564`, `lib/auth/forced-password-change.ts:152`, `lib/notificationEvents.ts:248`, `lib/notificationEvents.ts:262`, `lib/notificationEvents.ts:275`, `lib/notificationEvents.ts:293` and 12 more
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/notification-dispatch.spec.ts`, `tests/e2e/notification-mail-mirror.spec.ts`, `tests/e2e/panel-pin.spec.ts`.
 - QA scenarios that name this address: admin 4, community_manager 2, consultor 1, equipo_directivo 1, lider_comunidad 1, lider_generacion 1, supervisor_de_red 1.
 
@@ -206,7 +206,7 @@ File `pages/mi-aprendizaje/ruta/[id].tsx` · 549 lines · frame: MainLayout · g
   - l.506 `server redirect → /auth/signin  (when !user)`
   - l.521 `server redirect → /auth/signin  (when !profileData)`
   - l.538 `isAdmin = userRoles?.some(role => role.role_type === 'admin') \|\| false`
-- Linked from: `pages/api/qa/seed-codebase-index.ts:268`, `pages/dashboard.tsx:1043`, `pages/mi-aprendizaje.tsx:498`
+- Linked from: `hooks/usePanel.ts:421`, `pages/api/qa/seed-codebase-index.ts:268`, `pages/mi-aprendizaje.tsx:498`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/panel-pin.spec.ts`; unit tests of the page: `__tests__/lib/api-auth.server-side-user.test.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -531,7 +531,7 @@ File `pages/student/course/[courseId].tsx` · 708 lines · frame: MainLayout
   - l.83 `adminInMetadata = metadataHasRole(session.user?.user_metadata, 'admin')`
   - l.94 `userRole = await getUserPrimaryRole(session.user.id)`
   - l.391 `router.push → /login`
-- Linked from: `components/student/LessonSidebar.tsx:138`, `components/student/LessonSidebar.tsx:139`, `lib/services/learningPathsService.ts:705`, `lib/services/learningPathsService.ts:771`, `lib/services/learningPathsService.ts:777`, `lib/services/learningPathsService.ts:784`, `lib/services/learningPathsService.ts:796`, `lib/services/learningPathsService.ts:801`, `lib/services/learningPathsService.ts:806`, `pages/admin/course-builder/index.tsx:614`, `pages/api/qa/seed-codebase-index.ts:251`, `pages/api/qa/seed-codebase-index.ts:283` and 4 more
+- Linked from: `components/student/LessonSidebar.tsx:138`, `components/student/LessonSidebar.tsx:139`, `hooks/usePanel.ts:420`, `lib/services/learningPathsService.ts:705`, `lib/services/learningPathsService.ts:771`, `lib/services/learningPathsService.ts:777`, `lib/services/learningPathsService.ts:784`, `lib/services/learningPathsService.ts:796`, `lib/services/learningPathsService.ts:801`, `lib/services/learningPathsService.ts:806`, `pages/admin/course-builder/index.tsx:614`, `pages/api/qa/seed-codebase-index.ts:251` and 3 more
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/panel-pin.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |

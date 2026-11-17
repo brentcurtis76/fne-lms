@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "0853a5567a422544cbc6cb8b7dafde403d965cdc",
-  "date": "2026-11-17T12:53:45-03:00"
+  "commit": "45d07ead51e5a3eec09ca6796bd72980883bc2d6",
+  "date": "2026-11-17T19:02:40-03:00"
  },
  "screens": [
   {
@@ -210,9 +210,9 @@
     ],
     "linkedFrom": [
      "components/DynamicFavicon.tsx:16",
+     "hooks/usePanel.ts:253",
      "lib/auth/forced-password-change.ts:34",
      "lib/look.ts:96",
-     "pages/dashboard.tsx:326",
      "pages/login.tsx:127"
     ],
     "qaScenarios": {},
@@ -581,6 +581,9 @@
      "components/site/SiteLayout.tsx:186",
      "contexts/AuthContext.tsx:241",
      "hooks/useAuthEnhanced.ts:408",
+     "hooks/usePanel.ts:204",
+     "hooks/usePanel.ts:374",
+     "hooks/usePanel.ts:385",
      "lib/auth/forced-password-change.ts:109",
      "lib/frontend-auth-utils.ts:100",
      "lib/frontend-auth-utils.ts:401",
@@ -759,9 +762,6 @@
      "pages/contracts.tsx:156",
      "pages/contracts.tsx:240",
      "pages/contracts.tsx:315",
-     "pages/dashboard.tsx:277",
-     "pages/dashboard.tsx:447",
-     "pages/dashboard.tsx:458",
      "pages/demo/assessments/[templateId]/index.tsx:232",
      "pages/demo/assessments/[templateId]/index.tsx:57",
      "pages/demo/assessments/[templateId]/results.tsx:152",

@@ -1,11 +1,11 @@
 # Screens and their tests
 
-Written by `scripts/redesign/inventory.mjs` from commit `0853a5567`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 30 of 71 browser test files (`scripts/ci/e2e-mandatory.mjs`).
+Written by `scripts/redesign/inventory.mjs` from commit `45d07ead5`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 30 of 71 browser test files (`scripts/ci/e2e-mandatory.mjs`).
 
 - 151 screens with an address.
 - 32 are named by a browser test that CI runs.
-- 50 are named only by tests CI skips, or have only unit tests.
-- 69 have no test at all.
+- 51 are named only by tests CI skips, or have only unit tests.
+- 68 have no test at all.
 
 ## No test at all
 
@@ -56,7 +56,6 @@ Written by `scripts/redesign/inventory.mjs` from commit `0853a5567`. For phase 3
 | 10-licitaciones | `/licitaciones` | `pages/licitaciones/index.tsx` |
 | 11-gestion | `/admin/clients` | `pages/admin/clients.tsx` |
 | 11-gestion | `/admin/quotes/[id]/edit` | `pages/admin/quotes/[id]/edit.tsx` |
-| 11-gestion | `/admin/quotes` | `pages/admin/quotes/index.tsx` |
 | 11-gestion | `/admin/quotes/new` | `pages/admin/quotes/new.tsx` |
 | 11-gestion | `/contract-print/[id]` | `pages/contract-print/[id].tsx` |
 | 11-gestion | `/quote/[id]` | `pages/quote/[id].tsx` |
@@ -123,6 +122,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `0853a5567`. For phase 3
 | 10-licitaciones | `/licitaciones/[id]` | `e2e/flows/proposal-admin-visibility.spec.ts`, `e2e/flows/proposal-buckets.spec.ts`, `e2e/flows/proposal-config.spec.ts`, `e2e/flows/proposal-versioning.spec.ts` | 2 |
 | 10-licitaciones | `/licitaciones/nueva` | — | 1 |
 | 10-licitaciones | `/propuesta/[slug]` | `e2e/flows/proposal-buckets.spec.ts`, `e2e/flows/proposal-web-view.spec.ts` | — |
+| 11-gestion | `/admin/quotes` | — | 1 |
 | 11-gestion | `/contracts` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | 1 |
 | 14-personas | `/admin/school-users` | — | 1 |
 | 15-comunicacion | `/admin/news` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | — |

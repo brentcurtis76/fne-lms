@@ -4,8 +4,8 @@
  "note": "Redesigned separately and live since 12 Nov 2026. Listed so that every file under pages/ has a place.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "0853a5567a422544cbc6cb8b7dafde403d965cdc",
-  "date": "2026-11-17T12:53:45-03:00"
+  "commit": "45d07ead51e5a3eec09ca6796bd72980883bc2d6",
+  "date": "2026-11-17T19:02:40-03:00"
  },
  "screens": [
   {
@@ -1442,12 +1442,12 @@
     "linkedFrom": [
      "components/Footer.tsx:93",
      "components/layout/FooterNuevo.tsx:17",
+     "components/panel/PanelClasico.tsx:274",
+     "components/panel/PanelClasico.tsx:275",
      "components/site/Novedades.tsx:35",
      "components/site/SiteLayout.tsx:174",
      "components/site/SiteLayout.tsx:25",
      "lib/look.ts:107",
-     "pages/dashboard.tsx:729",
-     "pages/dashboard.tsx:730",
      "pages/noticias/[slug].tsx:103",
      "pages/noticias/[slug].tsx:126",
      "pages/noticias/[slug].tsx:76"
@@ -1842,11 +1842,11 @@
      "components/NewsSlider.tsx:194",
      "components/NewsSlider.tsx:213",
      "components/NewsSlider.tsx:214",
+     "components/panel/PanelClasico.tsx:295",
+     "components/panel/PanelClasico.tsx:297",
      "components/site/NewsCard.tsx:15",
      "components/site/NewsCard.tsx:17",
      "lib/look.ts:108",
-     "pages/dashboard.tsx:750",
-     "pages/dashboard.tsx:752",
      "pages/noticias.tsx:196"
     ],
     "qaScenarios": {},

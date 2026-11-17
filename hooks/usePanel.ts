@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import type { MouseEvent } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient, useSession } from '@supabase/auth-helpers-react';
 import { toastSuccess } from '../utils/toastUtils';
@@ -6,14 +7,17 @@ import { getUserRoles, getCommunityMembers, getEffectiveRoleAndStatus, metadataH
 import { UserRole, UserProfile } from '../types/roles';
 import { updateAvatarCache } from './useAvatar';
 import { getOrCreateWorkspace } from '../utils/workspaceUtils';
+import { canEditWorkspaceWithRoles } from '../lib/services/communityWorkspace';
+import { getExternalSchoolLabel } from '../constants/externalSchools';
 import { CourseWithEnrollment } from '../types/courses';
 import type { UpcomingCourse } from '../components/courses/UpcomingCourseCard';
 import type { NewsArticle, YouTubeVideo, DashboardStats } from '../components/panel/types';
 
 /**
- * Everything «Mi Panel» knows: its state, its data calls, its redirects, the arrival toast, the two
- * course lists and sign-out. Moved out of `pages/dashboard.tsx` unchanged (redesign 6A): the same
- * hooks in the same order, the same effects with the same dependency lists.
+ * Everything «Mi Panel» knows and decides: its state, its data calls, its redirects, the arrival
+ * toast, the two course lists, sign-out, and one named copy of each decision its markup makes.
+ * Moved out of `pages/dashboard.tsx` unchanged (redesign 6A): the same hooks in the same order, the
+ * same effects with the same dependency lists, each condition the same expression as before.
  */
 export function usePanel() {
   const router = useRouter();
@@ -380,9 +384,110 @@ export function usePanel() {
     router.push('/login');
   };
 
+  // ── The decisions the markup makes, one copy each, from today's expressions as they were. ──
+
+  // Welcome band
+  const greetingName = profileName?.split(' ')[0] || 'Usuario';
+  const showConsultorAffiliation = userRole === 'consultor' && profileData?.external_school_affiliation;
+  const consultorAffiliationLabel = showConsultorAffiliation
+    ? getExternalSchoolLabel(profileData.external_school_affiliation)
+    : null;
+
+  // Growth community block: null when it is not drawn
+  const community = userRoles.some(role => role.community_id) ? (() => {
+    // Get all communities user belongs to
+    const userCommunities = userRoles.filter(role => role.community_id && role.community);
+
+    // Initialize selectedCommunityId if not set
+    const effectiveCommunityId = selectedCommunityId || userCommunities[0]?.community_id;
+
+    // Find the selected community role
+    const selectedRole = userCommunities.find(r => r.community_id === effectiveCommunityId) || userCommunities[0];
+
+    if (!selectedRole || !selectedRole.community) return null;
+
+    const members = communityMembers[selectedRole.community_id!] || [];
+    const workspace = communityWorkspaces[selectedRole.community_id!];
+
+    return {
+      userCommunities,
+      effectiveCommunityId,
+      selectedRole,
+      members,
+      workspace,
+      // Community Selector - Only show if user has multiple communities
+      showCommunityPicker: userCommunities.length > 1,
+      // Only for those who can save the settings: admin or this community's manager (N87)
+      canEditWorkspace: canEditWorkspaceWithRoles(userRoles, selectedRole.community_id),
+    };
+  })() : null;
+
+  // Sections
+  const showUpcomingCourses = !loadingUpcoming && upcomingCourses.length > 0;
+  // Course Proposals Section - Admin/Consultor only
+  const showCourseProposals = (metadataHasRole(session?.user?.user_metadata, 'admin') ||
+    metadataHasRole(session?.user?.user_metadata, 'consultor') ||
+    userRoles.some(r => r.role_type === 'admin' || r.role_type === 'consultor'));
+  const showBadges = user?.id;
+  const showInProgressCourses = inProgressCourses.length > 0;
+  const showLearningPaths = learningPaths.length > 0;
+  const showOpenCourses = openCourses.length > 0;
+
+  // Handlers the markup wrote inline
+  const toggleCommunity = () => setCommunityExpanded(!communityExpanded);
+  const chooseCommunity = (e: MouseEvent, communityId: string) => {
+    e.stopPropagation();
+    setSelectedCommunityId(communityId);
+  };
+  const openWorkspaceSettings = (e: MouseEvent, workspace: any) => {
+    e.stopPropagation();
+    setSelectedWorkspace(workspace);
+    setShowWorkspaceSettings(true);
+  };
+  const closeWorkspaceSettings = () => {
+    setShowWorkspaceSettings(false);
+    setSelectedWorkspace(null);
+  };
+  const updateWorkspace = async (updates: { customName?: string; imageUrl?: string }) => {
+    const updatedWorkspaces = { ...communityWorkspaces };
+    updatedWorkspaces[selectedWorkspace.community_id] = {
+      ...selectedWorkspace,
+      custom_name: updates.customName,
+      image_url: updates.imageUrl
+    };
+    setCommunityWorkspaces(updatedWorkspaces);
+  };
+  const openMember = (member: UserProfile) => {
+    setSelectedMember(member);
+    setShowMemberProfile(true);
+  };
+  const closeMemberProfile = () => {
+    setShowMemberProfile(false);
+    setSelectedMember(null);
+  };
+  const selectedMemberIsCurrentUser = selectedMember?.id === user?.id;
+  const openCourse = (courseId: string) => router.push(`/student/course/${courseId}`);
+  const openLearningPath = (pathId: string) => router.push(`/mi-aprendizaje/ruta/${pathId}`);
+
+  // The route cards drawn (at most three), with the props each receives. Computed on every
+  // render, as the markup did: `new Date()` stands in for a missing date at that moment.
+  const learningPathCards = learningPaths.slice(0, 3).map(path => ({
+    id: path.id,
+    name: path.name,
+    description: path.description,
+    assigned_at: path.assigned_at || new Date().toISOString(),
+    progress: path.progress ? {
+      path_id: path.id,
+      total_courses: path.progress.total_courses || 0,
+      completed_courses: path.progress.completed_courses || 0,
+      progress_percentage: path.progress.progress_percentage || 0,
+      last_accessed: path.progress.last_accessed || new Date().toISOString()
+    } : undefined,
+    onClick: () => openLearningPath(path.id),
+  }));
+
   return {
-    router,
-    session,
+    // State the views read
     loading,
     user,
     profileName,
@@ -394,19 +499,12 @@ export function usePanel() {
     userRoles,
     communityMembers,
     communityWorkspaces,
-    setCommunityWorkspaces,
     communityExpanded,
-    setCommunityExpanded,
     showWorkspaceSettings,
-    setShowWorkspaceSettings,
     selectedWorkspace,
-    setSelectedWorkspace,
     selectedCommunityId,
-    setSelectedCommunityId,
     selectedMember,
-    setSelectedMember,
     showMemberProfile,
-    setShowMemberProfile,
     newsArticles,
     youtubeVideos,
     dashboardStats,
@@ -417,7 +515,30 @@ export function usePanel() {
     loadingUpcoming,
     inProgressCourses,
     openCourses,
+    // Decisions
+    greetingName,
+    showConsultorAffiliation,
+    consultorAffiliationLabel,
+    community,
+    showUpcomingCourses,
+    showCourseProposals,
+    showBadges,
+    showInProgressCourses,
+    showLearningPaths,
+    learningPathCards,
+    showOpenCourses,
+    selectedMemberIsCurrentUser,
+    // Actions
     handleLogout,
+    toggleCommunity,
+    chooseCommunity,
+    openWorkspaceSettings,
+    closeWorkspaceSettings,
+    updateWorkspace,
+    openMember,
+    closeMemberProfile,
+    openCourse,
+    openLearningPath,
   };
 }
 

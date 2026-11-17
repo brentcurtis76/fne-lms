@@ -15,16 +15,14 @@ export default function Dashboard() {
     avatarUrl,
     isAdmin,
     userRole,
-    communityWorkspaces,
-    setCommunityWorkspaces,
     showWorkspaceSettings,
-    setShowWorkspaceSettings,
     selectedWorkspace,
-    setSelectedWorkspace,
+    closeWorkspaceSettings,
+    updateWorkspace,
     selectedMember,
-    setSelectedMember,
     showMemberProfile,
-    setShowMemberProfile,
+    closeMemberProfile,
+    selectedMemberIsCurrentUser,
     handleLogout,
   } = panel;
 
@@ -67,34 +65,20 @@ export default function Dashboard() {
       {selectedWorkspace && (
         <WorkspaceSettingsModal
           isOpen={showWorkspaceSettings}
-          onClose={() => {
-            setShowWorkspaceSettings(false);
-            setSelectedWorkspace(null);
-          }}
+          onClose={closeWorkspaceSettings}
           workspaceId={selectedWorkspace.id}
           currentName={selectedWorkspace.custom_name || selectedWorkspace.name}
           currentImageUrl={selectedWorkspace.image_url}
-          onUpdate={async (updates) => {
-            const updatedWorkspaces = { ...communityWorkspaces };
-            updatedWorkspaces[selectedWorkspace.community_id] = {
-              ...selectedWorkspace,
-              custom_name: updates.customName,
-              image_url: updates.imageUrl
-            };
-            setCommunityWorkspaces(updatedWorkspaces);
-          }}
+          onUpdate={updateWorkspace}
         />
       )}
 
       {/* Member Profile Modal */}
       <MemberProfileModal
         isOpen={showMemberProfile}
-        onClose={() => {
-          setShowMemberProfile(false);
-          setSelectedMember(null);
-        }}
+        onClose={closeMemberProfile}
         member={selectedMember}
-        isCurrentUser={selectedMember?.id === user?.id}
+        isCurrentUser={selectedMemberIsCurrentUser}
       />
     </MainLayout>
   );

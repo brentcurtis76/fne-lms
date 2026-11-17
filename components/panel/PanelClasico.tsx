@@ -1,7 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
 import Avatar from '../common/Avatar';
-import { metadataHasRole } from '../../utils/roleUtils';
 import { ROLE_NAMES, UserRoleType } from '../../types/roles';
 import {
   Settings, Users, ChevronDown, ChevronUp, Newspaper, Play,
@@ -10,7 +9,6 @@ import {
 import { getExternalSchoolLabel } from '../../constants/externalSchools';
 import { LearningPathCard } from '../learning-paths';
 import { NetflixCourseRow } from '../courses';
-import { canEditWorkspaceWithRoles } from '../../lib/services/communityWorkspace';
 import { UpcomingCourseCard } from '../courses/UpcomingCourseCard';
 import { CourseProposalSection } from '../course-proposals';
 import { BadgesSection } from '../badges';
@@ -19,30 +17,23 @@ import type { Panel } from '../../hooks/usePanel';
 
 /**
  * Today's «Mi Panel», the classic view: the page's body moved out of `pages/dashboard.tsx`
- * unchanged (redesign 6A). It draws only what `usePanel()` gives it; the frame (`MainLayout`),
- * the loading mark and the two pop-ups stay in the page.
+ * unchanged (redesign 6A). It draws only what `usePanel()` gives it, decisions included (each
+ * condition has one copy, in the hook); the frame (`MainLayout`), the loading mark and the two
+ * pop-ups stay in the page.
  */
 export default function PanelClasico({ panel }: { panel: Panel }) {
   const {
-    router,
-    session,
     user,
-    profileName,
     avatarUrl,
-    profileData,
-    userRole,
-    learningPaths,
-    userRoles,
-    communityMembers,
-    communityWorkspaces,
+    greetingName,
+    showConsultorAffiliation,
+    consultorAffiliationLabel,
+    community,
     communityExpanded,
-    setCommunityExpanded,
-    selectedCommunityId,
-    setSelectedCommunityId,
-    setSelectedWorkspace,
-    setShowWorkspaceSettings,
-    setSelectedMember,
-    setShowMemberProfile,
+    toggleCommunity,
+    chooseCommunity,
+    openWorkspaceSettings,
+    openMember,
     newsArticles,
     youtubeVideos,
     dashboardStats,
@@ -50,9 +41,16 @@ export default function PanelClasico({ panel }: { panel: Panel }) {
     loadingVideos,
     loadingStats,
     upcomingCourses,
-    loadingUpcoming,
+    showUpcomingCourses,
+    showCourseProposals,
+    showBadges,
     inProgressCourses,
+    showInProgressCourses,
+    showLearningPaths,
+    learningPathCards,
     openCourses,
+    showOpenCourses,
+    openCourse,
   } = panel;
 
   return (
@@ -70,15 +68,15 @@ export default function PanelClasico({ panel }: { panel: Panel }) {
               />
               <div>
                 <h1 className="text-2xl font-bold text-brand_primary">
-                  ¡Hola, {profileName?.split(' ')[0] || 'Usuario'}!
+                  ¡Hola, {greetingName}!
                 </h1>
                 <p className="text-gray-600 mt-1">
                   Bienvenido de vuelta al hub de transformación de tu colegio
                 </p>
-                {userRole === 'consultor' && profileData?.external_school_affiliation && (
+                {showConsultorAffiliation && (
                   <div className="flex items-center gap-2 mt-2 text-sm text-gray-600">
                     <Briefcase className="w-4 h-4 text-brand_accent" />
-                    <span>{getExternalSchoolLabel(profileData.external_school_affiliation)}</span>
+                    <span>{consultorAffiliationLabel}</span>
                   </div>
                 )}
               </div>
@@ -97,27 +95,15 @@ export default function PanelClasico({ panel }: { panel: Panel }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
         {/* Growth Community Section - Collapsible */}
-        {userRoles.some(role => role.community_id) && (() => {
-          // Get all communities user belongs to
-          const userCommunities = userRoles.filter(role => role.community_id && role.community);
-
-          // Initialize selectedCommunityId if not set
-          const effectiveCommunityId = selectedCommunityId || userCommunities[0]?.community_id;
-
-          // Find the selected community role
-          const selectedRole = userCommunities.find(r => r.community_id === effectiveCommunityId) || userCommunities[0];
-
-          if (!selectedRole || !selectedRole.community) return null;
-
-          const members = communityMembers[selectedRole.community_id!] || [];
-          const workspace = communityWorkspaces[selectedRole.community_id!];
+        {community && (() => {
+          const { userCommunities, effectiveCommunityId, selectedRole, members, workspace, showCommunityPicker, canEditWorkspace } = community;
 
           return (
           <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 <div key={selectedRole.id}>
                   {/* Header - Always Visible */}
                   <button
-                    onClick={() => setCommunityExpanded(!communityExpanded)}
+                    onClick={toggleCommunity}
                     className="w-full px-6 py-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
                   >
                     <div className="flex items-center gap-4">
@@ -178,17 +164,14 @@ export default function PanelClasico({ panel }: { panel: Panel }) {
                   {communityExpanded && (
                     <div className="px-6 pb-6 border-t border-gray-100">
                       {/* Community Selector - Only show if user has multiple communities */}
-                      {userCommunities.length > 1 && (
+                      {showCommunityPicker && (
                         <div className="pt-4 pb-3 border-b border-gray-100 mb-4">
                           <p className="text-xs text-gray-500 mb-2">Seleccionar comunidad:</p>
                           <div className="flex flex-wrap gap-2">
                             {userCommunities.map(comm => (
                               <button
                                 key={comm.community_id}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedCommunityId(comm.community_id!);
-                                }}
+                                onClick={(e) => chooseCommunity(e, comm.community_id!)}
                                 className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                                   comm.community_id === effectiveCommunityId
                                     ? 'bg-brand_accent text-brand_primary'
@@ -208,13 +191,9 @@ export default function PanelClasico({ panel }: { panel: Panel }) {
                         </h3>
                         <div className="flex gap-2">
                           {/* Only for those who can save the settings: admin or this community's manager (N87) */}
-                          {canEditWorkspaceWithRoles(userRoles, selectedRole.community_id) && (
+                          {canEditWorkspace && (
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedWorkspace(workspace);
-                              setShowWorkspaceSettings(true);
-                            }}
+                            onClick={(e) => openWorkspaceSettings(e, workspace)}
                             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                             title="Configuración"
                           >
@@ -237,10 +216,7 @@ export default function PanelClasico({ panel }: { panel: Panel }) {
                           return (
                             <button
                               key={member.id}
-                              onClick={() => {
-                                setSelectedMember(member);
-                                setShowMemberProfile(true);
-                              }}
+                              onClick={() => openMember(member)}
                               className="flex flex-col items-center p-3 bg-gray-50 rounded-xl hover:bg-brand_accent/10 hover:shadow-sm transition-all group cursor-pointer"
                             >
                               {member.avatar_url ? (
@@ -528,7 +504,7 @@ export default function PanelClasico({ panel }: { panel: Panel }) {
         </section>
 
         {/* Upcoming Courses Section */}
-        {!loadingUpcoming && upcomingCourses.length > 0 && (
+        {showUpcomingCourses && (
           <section>
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 bg-brand_accent/10 rounded-lg">
@@ -557,29 +533,27 @@ export default function PanelClasico({ panel }: { panel: Panel }) {
         )}
 
         {/* Course Proposals Section - Admin/Consultor only */}
-        {(metadataHasRole(session?.user?.user_metadata, 'admin') ||
-          metadataHasRole(session?.user?.user_metadata, 'consultor') ||
-          userRoles.some(r => r.role_type === 'admin' || r.role_type === 'consultor')) && (
+        {showCourseProposals && (
           <CourseProposalSection userId={user?.id} />
         )}
 
         {/* Badges/Achievements Section - Mis Logros */}
-        {user?.id && (
+        {showBadges && (
           <BadgesSection userId={user.id} maxDisplay={4} showViewAll={true} />
         )}
 
         {/* Continue Learning Section - Netflix Style */}
-        {inProgressCourses.length > 0 && (
+        {showInProgressCourses && (
           <NetflixCourseRow
             title="Continuar Aprendiendo"
             courses={inProgressCourses}
             emptyMessage="No tienes cursos en progreso"
-            onCourseSelect={(courseId) => router.push(`/student/course/${courseId}`)}
+            onCourseSelect={openCourse}
           />
         )}
 
         {/* Learning Paths Section */}
-        {learningPaths.length > 0 && (
+        {showLearningPaths && (
           <section>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-brand_primary">Mis Rutas de Aprendizaje</h2>
@@ -592,21 +566,15 @@ export default function PanelClasico({ panel }: { panel: Panel }) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {learningPaths.slice(0, 3).map(path => (
+              {learningPathCards.map(path => (
                 <LearningPathCard
                   key={path.id}
                   id={path.id}
                   name={path.name}
                   description={path.description}
-                  assigned_at={path.assigned_at || new Date().toISOString()}
-                  progress={path.progress ? {
-                    path_id: path.id,
-                    total_courses: path.progress.total_courses || 0,
-                    completed_courses: path.progress.completed_courses || 0,
-                    progress_percentage: path.progress.progress_percentage || 0,
-                    last_accessed: path.progress.last_accessed || new Date().toISOString()
-                  } : undefined}
-                  onClick={() => router.push(`/mi-aprendizaje/ruta/${path.id}`)}
+                  assigned_at={path.assigned_at}
+                  progress={path.progress}
+                  onClick={path.onClick}
                 />
               ))}
             </div>
@@ -614,12 +582,12 @@ export default function PanelClasico({ panel }: { panel: Panel }) {
         )}
 
         {/* Open Courses Section - Netflix Style */}
-        {openCourses.length > 0 && (
+        {showOpenCourses && (
           <NetflixCourseRow
             title="Mis Cursos Abiertos"
             courses={openCourses}
             emptyMessage="No tienes cursos asignados"
-            onCourseSelect={(courseId) => router.push(`/student/course/${courseId}`)}
+            onCourseSelect={openCourse}
           />
         )}
 

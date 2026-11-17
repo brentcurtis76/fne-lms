@@ -24,14 +24,19 @@
  * BY CONSTRUCTION (redesign 5a, send-back 1): the attribute is a pure function of this render's
  * facts (loading, the session's account, that account's profile, the pathname, a choice just saved
  * through `setLook` for this account), worked out during the render and put on the page by ONE
- * effect. No effect writes a state the attribute is read from, so an account and a route that
+ * layout effect (send-back 2), so it is there before the browser paints that commit. No effect writes a state the attribute is read from, so an account and a route that
  * change in the same render cannot leave the previous account's look behind.
  */
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useSessionContext } from '@supabase/auth-helpers-react';
 import { useAuth } from './AuthContext';
 import { applyLook, lookAppliesTo, lookOfAccount, mayChooseLook, type Look } from '../lib/look';
+
+// A layout effect puts the attribute on the page in the same commit as everything that changed
+// with it, before the browser paints. On the server (where useLayoutEffect warns) a plain effect
+// stands in; it never runs there anyway.
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 interface LookContextValue {
   look: Look;
@@ -78,7 +83,7 @@ export function LookProvider({ children }: { children: React.ReactNode }) {
   const look: Look = applies ? choice : 'clasico';
   const target: Target = !applies ? 'clasico' : loading ? 'leave' : choice;
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (target !== 'leave') applyLook(target);
   }, [target]);
 

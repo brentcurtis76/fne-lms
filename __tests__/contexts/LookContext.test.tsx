@@ -472,3 +472,45 @@ describe('LookProvider: generated sequences (5a, send-back 1)', () => {
     }
   });
 });
+
+describe('LookProvider: the attribute arrives in the same commit as the look', () => {
+  /**
+   * A child's passive effect runs after every layout effect of its commit (and, among passive
+   * effects, before its parent's). It records the attribute at the commit where `look` first reads
+   * each new value: if the provider wrote the attribute in a passive effect, the child would still
+   * see the look being left; written in a layout effect, it is already there.
+   */
+  it('setLook: at the commit where look changes, data-look already agrees with it, both ways', () => {
+    signedIn(A, tester(A, {}));
+    const seen: Array<{ look: string; attribute: string | null }> = [];
+
+    function Recorder() {
+      const { look } = useLook();
+      const last = React.useRef<string | null>(null);
+      React.useEffect(() => {
+        if (look !== last.current) {
+          last.current = look;
+          seen.push({ look, attribute: root().getAttribute('data-look') });
+        }
+      }, [look]);
+      return null;
+    }
+
+    render(
+      <LookProvider>
+        <Probe />
+        <Recorder />
+      </LookProvider>
+    );
+    expect(root().hasAttribute('data-look')).toBe(false);
+
+    act(() => screen.getByRole('button', { name: 'nuevo' }).click());
+    act(() => screen.getByRole('button', { name: 'clasico' }).click());
+
+    expect(seen).toEqual([
+      { look: 'clasico', attribute: null },
+      { look: 'nuevo', attribute: 'nuevo' },
+      { look: 'clasico', attribute: null },
+    ]);
+  });
+});

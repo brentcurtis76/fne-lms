@@ -2,19 +2,114 @@
 /**
  * Redesign 5b, step 0: today's frame (MainLayout + Sidebar) pinned BEFORE the new frame is built.
  *
- * The snapshots in `__snapshots__/frame.clasico.test.tsx.snap` were written by the code as it was
- * before 5b. With the look `clasico` the frame must stay exactly that: the same elements, classes,
- * attributes, texts and order. If a later change makes one of these snapshots fail, it changed
- * today's frame. Never update the snapshot file to make it pass.
+ * Each case is serialised exactly as Vitest serialises a snapshot (the same pretty-format, plugins
+ * and options), and the SHA-256 of that text is compared with the one kept for the case in
+ * `frame.clasico.digests.json`. The digests are those of the snapshots written by the code as it
+ * was before 5b (send-back 1 replaced the 1.7 MB snapshot file by them; the report of that
+ * send-back shows they are the same). With the look `clasico` the frame must stay exactly that: the
+ * same elements, classes, attributes, texts and order. If a case fails, that change altered
+ * today's frame.
+ *
+ * To see a case's markup, set FRAME_CLASICO_SHOW to the case's name (or `all`): it is written to a
+ * scratch folder (FRAME_CLASICO_OUT, else the system's temporary folder), and the case is still
+ * compared. Run it once on the code before the change and once after, into two folders, and diff.
+ * To accept a change of today's frame ON PURPOSE, set FRAME_CLASICO_ACCEPT to the case's name (or
+ * `all`): the markup is written the same way and the digests file is rewritten for that case.
+ * Nothing is ever accepted without that variable.
  *
  * The accounts are invented. Components the frame only places (the bell, the avatar, the feedback
  * button) are replaced by markers that carry the props the frame gives them, so their own data
  * calls stay out of the picture while their place in the frame is pinned.
  */
 import React from 'react';
+import { createHash } from 'node:crypto';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { getSerializers } from '@vitest/snapshot';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QA_SIMULATION_SCHOOL_IDS } from '@/lib/simulation/constants';
+
+// ── The pin: Vitest's own snapshot serialisation, kept as one digest per case. ──
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const DIGESTS_FILE = join(HERE, 'frame.clasico.digests.json');
+const DIGESTS: Record<string, string> = JSON.parse(readFileSync(DIGESTS_FILE, 'utf8'));
+const CASES = 44;
+
+// The pretty-format copy that Vitest's snapshot package itself uses (not the project's older one).
+const fromSnapshotPackage = createRequire(createRequire(import.meta.url).resolve('@vitest/snapshot/package.json'));
+const { format } = fromSnapshotPackage('pretty-format') as {
+  format: (value: unknown, options: Record<string, unknown>) => string;
+};
+
+/** What `toMatchSnapshot()` stores for a value (@vitest/snapshot 0.34: serialize + addExtraLineBreaks). */
+function serialise(value: unknown): string {
+  const text = format(value, {
+    escapeRegex: true,
+    indent: 2,
+    plugins: getSerializers(),
+    printFunctionName: false,
+    printBasicPrototype: false,
+  }).replace(/\r\n|\r/g, '\n');
+  return text.includes('\n') ? `\n${text}\n` : text;
+}
+
+const sha256 = (text: string) => createHash('sha256').update(text, 'utf8').digest('hex');
+const chosen = (variable: string, name: string) => {
+  const value = process.env[variable];
+  return value === 'all' || value === name;
+};
+const OUT = process.env.FRAME_CLASICO_OUT || join(tmpdir(), 'frame-clasico');
+
+function writeMarkup(name: string, text: string): string {
+  mkdirSync(OUT, { recursive: true });
+  const file = join(OUT, `${name.replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '')}.txt`);
+  writeFileSync(file, text, 'utf8');
+  return file;
+}
+
+/** Compares the case's markup with its pinned digest; writes or accepts it only when asked. */
+function expectPinned(name: string, fragment: DocumentFragment) {
+  const text = serialise(fragment);
+  const digest = sha256(text);
+  if (chosen('FRAME_CLASICO_SHOW', name) || chosen('FRAME_CLASICO_ACCEPT', name)) {
+    const file = writeMarkup(name, text);
+    console.info(`frame.clasico: the markup of «${name}» is in ${file}`);
+  }
+  if (chosen('FRAME_CLASICO_ACCEPT', name)) {
+    const current: Record<string, string> = JSON.parse(readFileSync(DIGESTS_FILE, 'utf8'));
+    current[name] = digest;
+    const sorted = Object.fromEntries(Object.keys(current).sort().map((key) => [key, current[key]]));
+    writeFileSync(DIGESTS_FILE, `${JSON.stringify(sorted, null, 2)}\n`, 'utf8');
+    console.warn(`frame.clasico: «${name}» ACCEPTED on purpose; ${DIGESTS_FILE} rewritten`);
+    return;
+  }
+  if (digest !== DIGESTS[name]) {
+    throw new Error(
+      [
+        `Today's frame changed in the case «${name}».`,
+        `  pinned digest: ${DIGESTS[name] ?? '(none)'}`,
+        `  digest now:    ${digest}`,
+        'To see the difference: run this file with FRAME_CLASICO_SHOW set to the case\'s name (or all)',
+        'and FRAME_CLASICO_OUT set to a scratch folder, once on the code before the change and once',
+        'after, into two folders, and diff the two files. Only if the change of today\'s frame is meant:',
+        'run it with FRAME_CLASICO_ACCEPT set to the case\'s name, which rewrites frame.clasico.digests.json.',
+      ].join('\n')
+    );
+  }
+}
+
+const ran = new Set<string>();
+function pinned(name: string, body: () => Promise<DocumentFragment>) {
+  it(name, async () => {
+    ran.add(name);
+    expectPinned(name, await body());
+  });
+}
 
 type Result = { data?: unknown; error: unknown; count?: number | null };
 
@@ -229,47 +324,56 @@ afterEach(() => {
 describe("today's frame, look clasico (pinned before 5b)", () => {
   for (const accountName of Object.keys(ACCOUNTS)) {
     for (const state of STATES) {
-      it(`${accountName}, ${state}, with a title and breadcrumbs`, async () => {
+      pinned(`${accountName}, ${state}, with a title and breadcrumbs`, async () => {
         const { asFragment } = await draw(accountName, state, true);
-        expect(asFragment()).toMatchSnapshot();
+        return asFragment();
       });
     }
   }
 
   for (const accountName of ['admin', 'docente']) {
     for (const state of STATES) {
-      it(`${accountName}, ${state}, without a title or breadcrumbs`, async () => {
+      pinned(`${accountName}, ${state}, without a title or breadcrumbs`, async () => {
         const { asFragment } = await draw(accountName, state, false);
-        expect(asFragment()).toMatchSnapshot();
+        return asFragment();
       });
     }
   }
 
   for (const accountName of Object.keys(ACCOUNTS)) {
-    it(`${accountName}, desktop expanded, every group opened`, async () => {
+    pinned(`${accountName}, desktop expanded, every group opened`, async () => {
       const { asFragment } = await draw(accountName, 'desktop expanded', true);
       for (const button of screen.queryAllByTestId(/^sidebar-item-/)) {
         if (button.getAttribute('data-testid') === 'sidebar-item-mi-aprendizaje') continue; // already open
         fireEvent.click(button);
       }
       await settle();
-      expect(asFragment()).toMatchSnapshot();
+      return asFragment();
     });
   }
 
-  it('admin on its own panel (an active entry without children), desktop expanded', async () => {
+  pinned('admin on its own panel (an active entry without children), desktop expanded', async () => {
     mocks.router.asPath = '/dashboard';
     mocks.router.pathname = '/dashboard';
     const { asFragment } = await draw('admin', 'desktop expanded', false);
-    expect(asFragment()).toMatchSnapshot();
+    return asFragment();
   });
 
-  it('admin, desktop collapsed, the floating list of «Gestión» opened by a click', async () => {
+  pinned('admin, desktop collapsed, the floating list of «Gestión» opened by a click', async () => {
     mocks.router.asPath = '/admin/feedback';
     mocks.router.pathname = '/admin/feedback';
     const { asFragment } = await draw('admin', 'desktop collapsed', true);
     fireEvent.click(screen.getByTestId('sidebar-item-gestion'));
     await settle();
-    expect(asFragment()).toMatchSnapshot();
+    return asFragment();
+  });
+});
+
+describe('the digests file', () => {
+  it(`holds exactly the ${CASES} cases above, and every one of them ran`, () => {
+    if (process.env.FRAME_CLASICO_ACCEPT) return; // being rewritten on purpose
+    expect(Object.keys(DIGESTS).sort()).toEqual([...ran].sort());
+    expect(ran.size).toBe(CASES);
+    for (const digest of Object.values(DIGESTS)) expect(digest).toMatch(/^[0-9a-f]{64}$/);
   });
 });

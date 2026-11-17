@@ -117,6 +117,70 @@ describe('Button', () => {
     expect(screen.getByRole('button', { name: 'Más acciones' })).toBeInTheDocument();
   });
 
+  it('icon only: a button carries a title equal to its aria-label, for the pointer', () => {
+    render(
+      <Button iconOnly aria-label="Más acciones" variant="quiet">
+        <svg aria-hidden="true" />
+      </Button>
+    );
+    const button = screen.getByRole('button', { name: 'Más acciones' });
+    expect(button).toHaveAttribute('title', 'Más acciones');
+    expect(button).toHaveAttribute('aria-label', 'Más acciones');
+  });
+
+  it('icon only: a link carries a title equal to its aria-label (inside, outside, disabled)', () => {
+    render(
+      <>
+        <Button iconOnly href="/dashboard" aria-label="Ir al panel">
+          <svg aria-hidden="true" />
+        </Button>
+        <Button iconOnly href="https://example.com/ayuda" aria-label="Abrir la ayuda">
+          <svg aria-hidden="true" />
+        </Button>
+        <Button iconOnly href="/dashboard" disabled aria-label="Panel no disponible">
+          <svg aria-hidden="true" />
+        </Button>
+      </>
+    );
+    for (const name of ['Ir al panel', 'Abrir la ayuda', 'Panel no disponible']) {
+      expect(screen.getByRole('link', { name })).toHaveAttribute('title', name);
+    }
+  });
+
+  it('icon only: a title the caller gives wins over the aria-label; without one the aria-label is used', () => {
+    render(
+      <>
+        <Button iconOnly aria-label="Cerrar" title="Cerrar la ventana">
+          <svg aria-hidden="true" />
+        </Button>
+        <Button iconOnly href="/dashboard" aria-label="Panel" title="Volver al panel">
+          <svg aria-hidden="true" />
+        </Button>
+        <Button iconOnly aria-label="Editar">
+          <svg aria-hidden="true" />
+        </Button>
+      </>
+    );
+    expect(screen.getByRole('button', { name: 'Cerrar' })).toHaveAttribute('title', 'Cerrar la ventana');
+    expect(screen.getByRole('link', { name: 'Panel' })).toHaveAttribute('title', 'Volver al panel');
+    expect(screen.getByRole('button', { name: 'Editar' })).toHaveAttribute('title', 'Editar');
+  });
+
+  it('a button or link with visible words gets no title it was not given (an icon-only one beside it does)', () => {
+    render(
+      <>
+        <Button aria-label="Guardar el registro">Guardar</Button>
+        <Button href="/dashboard">Panel</Button>
+        <Button iconOnly aria-label="Borrar">
+          <svg aria-hidden="true" />
+        </Button>
+      </>
+    );
+    expect(screen.getByRole('button', { name: 'Guardar el registro' })).not.toHaveAttribute('title');
+    expect(screen.getByRole('link', { name: 'Panel' })).not.toHaveAttribute('title');
+    expect(screen.getByRole('button', { name: 'Borrar' })).toHaveAttribute('title', 'Borrar');
+  });
+
   it('every variant and size renders a button with its words', () => {
     const variants = ['primary', 'default', 'outline', 'quiet', 'danger', 'danger-outline'] as const;
     render(

@@ -9,7 +9,7 @@ import { SpinnerMark } from './Loading';
  *
  * With `href` it renders a link (Next's `Link` for an address inside the platform, a plain `<a>` for any
  * other), looking the same. `type="button"` by default. `iconOnly` needs an `aria-label` (a type error
- * without one). `loading` keeps the label for screen readers, sets `aria-busy` and ignores clicks, but
+ * without one) and gets it as its `title` too, unless a `title` is given. `loading` keeps the label for screen readers, sets `aria-busy` and ignores clicks, but
  * keeps the focus (the button is not disabled).
  */
 
@@ -109,7 +109,11 @@ export function buttonClasses({
 }
 
 export const Button = React.forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonProps>(function Button(props, ref) {
-  const { variant = 'default', size = 'md', loading = false, iconOnly = false, className, children, ...rest } = props;
+  const { variant = 'default', size = 'md', loading = false, iconOnly = false, className, children, ...given } = props;
+  // An icon-only button shows its name to the pointer too: the browser's own tooltip, from a `title`
+  // equal to the `aria-label`, unless the caller gave a `title` of their own.
+  const rest =
+    iconOnly && given.title === undefined ? { ...given, title: (given as { 'aria-label'?: string })['aria-label'] } : given;
   const classes = cx(buttonClasses({ variant, size, iconOnly }), className);
   const content = (
     <>

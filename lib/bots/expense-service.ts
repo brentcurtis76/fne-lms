@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { convertToCLP } from '../currency-service';
-import { hasAdminPrivileges } from '../../utils/roleUtils';
+import { canFileExpenses } from '../expenses/access';
 import { sendExpenseSubmissionNotification } from '../email/expenseNotifications';
 import {
   BotActor,
@@ -99,7 +99,7 @@ export class ExpenseService {
 
   /**
    * Resolves the acting LMS user behind a platform identity, including the
-   * expense-module permission. The bot runs on the service role, so this is
+   * expense-module permission (by role: lib/expenses/access.ts). The bot runs on the service role, so this is
    * the authorization gate that RLS would otherwise provide.
    */
   async resolveActor(platform: Platform, platformUserId: string): Promise<BotActor | null> {
@@ -120,17 +120,16 @@ export class ExpenseService {
       .maybeSingle();
     if (profileError) throw profileError;
 
-    const { data: access, error: accessError } = await this.supabase
-      .from('expense_report_access')
-      .select('can_submit')
+    const { data: roles, error: rolesError } = await this.supabase
+      .from('user_roles')
+      .select('role_type')
       .eq('user_id', userId)
-      .maybeSingle();
-    if (accessError) throw accessError;
+      .eq('is_active', true);
+    if (rolesError) throw rolesError;
 
-    let canSubmit = !!(access as { can_submit: boolean } | null)?.can_submit;
-    if (!canSubmit) {
-      canSubmit = await hasAdminPrivileges(this.supabase, userId);
-    }
+    const canSubmit = canFileExpenses(
+      ((roles as Array<{ role_type: string }> | null) ?? []).map((r) => r.role_type)
+    );
 
     const fullName = (profile as { name?: string } | null)?.name || '';
     const firstName = (profile as { first_name?: string } | null)?.first_name || fullName.split(' ')[0] || 'Hola';

@@ -102,11 +102,12 @@ export function CommunityCardNuevo({
               </div>
             )}
 
-            <div className="flex items-center justify-between gap-2 pt-3">
-              <h3 className="font-mont text-[0.6875rem] font-medium uppercase leading-[1.6] tracking-[0.26em] text-gray-600">
+            {/* The place's name on a row of its own; under it, one row with the gear and the link. */}
+            <div className="grid gap-1 pt-3">
+              <h3 className="break-words font-mont text-[0.6875rem] font-medium uppercase leading-[1.6] tracking-[0.26em] text-gray-600">
                 {placeName}
               </h3>
-              <span className="inline-flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 {canEditWorkspace() && (
                   <Button
                     variant="quiet"
@@ -122,7 +123,7 @@ export function CommunityCardNuevo({
                 <Button variant="quiet" size="sm" href="/community/workspace">
                   Ver Espacio Completo →
                 </Button>
-              </span>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-1 min-[380px]:grid-cols-3">
@@ -133,7 +134,7 @@ export function CommunityCardNuevo({
                     key={member.id}
                     type="button"
                     onClick={() => openMember(member)}
-                    className="grid justify-items-center gap-1 rounded px-1.5 py-2.5 text-center transition-colors duration-150 hover:bg-gray-50 motion-reduce:transition-none"
+                    className="grid content-start justify-items-center gap-1 rounded px-1.5 py-2.5 text-center transition-colors duration-150 hover:bg-gray-50 motion-reduce:transition-none"
                     data-testid={`panel-member-${member.id}`}
                   >
                     {member.avatar_url ? (
@@ -147,10 +148,11 @@ export function CommunityCardNuevo({
                         {memberInitial(member)}
                       </span>
                     )}
-                    <span className="w-full truncate text-xs font-semibold leading-tight text-brand_primary">{fullName}</span>
-                    {roleLabel && <span className="w-full truncate text-[0.6875rem] leading-tight text-gray-600">{roleLabel}</span>}
+                    {/* Names, roles and schools wrap in full (no cut): a tile grows as its texts need. */}
+                    <span className="w-full break-words text-xs font-semibold leading-tight text-brand_primary">{fullName}</span>
+                    {roleLabel && <span className="w-full break-words text-[0.6875rem] leading-tight text-gray-600">{roleLabel}</span>}
                     {showsExternalSchool && (
-                      <span className="w-full truncate text-[0.6875rem] leading-tight text-brand_accent_text">{externalSchoolLabel}</span>
+                      <span className="w-full break-words text-[0.6875rem] leading-tight text-brand_accent_text">{externalSchoolLabel}</span>
                     )}
                     {isViewer && <span className="text-[0.6875rem] font-bold text-brand_accent_text">Tú</span>}
                   </button>

@@ -293,3 +293,83 @@ describe('GET /api/school/transversal-context/schools', () => {
     expect(r.json).toEqual({ error: 'Error interno del servidor' });
   });
 });
+
+// N8 / GC-7: the Plan de Migración and Panel de Resultados pickers ask with
+// ?scope=assigned; a consultor then lists only the schools those surfaces let
+// them open (active assignments, or a school they direct). Without the
+// parameter the policy above is unchanged (Contexto Transversal).
+describe('GET /api/school/transversal-context/schools?scope=assigned', () => {
+  async function getAssigned() {
+    const { req, res } = createMocks({ method: 'GET', query: { scope: 'assigned' } });
+    await handler(req as any, res as any);
+    return { status: res._getStatusCode(), json: JSON.parse(res._getData()) };
+  }
+
+  const ASSIGNMENTS: Row[] = [
+    { consultant_id: USER_ID, school_id: 1, is_active: true },
+    { consultant_id: USER_ID, school_id: 3, is_active: true },
+    { consultant_id: USER_ID, school_id: 2, is_active: false },
+    { consultant_id: OTHER_USER_ID, school_id: 4, is_active: true },
+  ];
+
+  it('a consultor gets only their active assigned schools', async () => {
+    arrange({ roles: ['consultor'], assignments: ASSIGNMENTS });
+    const r = await getAssigned();
+    expect(r.status).toBe(200);
+    expect(r.json).toEqual({ schools: [{ id: 1, name: 'Escuela Alfa' }, { id: 3, name: 'Escuela Gamma' }] });
+  });
+
+  it('P2: an assignment that ended yesterday no longer counts; one ending tomorrow or with no end does', async () => {
+    const day = 24 * 60 * 60 * 1000;
+    arrange({
+      roles: ['consultor'],
+      assignments: [
+        { consultant_id: USER_ID, school_id: 1, is_active: true, ends_at: new Date(Date.now() - day).toISOString() },
+        { consultant_id: USER_ID, school_id: 3, is_active: true, ends_at: new Date(Date.now() + day).toISOString() },
+        { consultant_id: USER_ID, school_id: 2, is_active: true, ends_at: null },
+      ],
+    });
+    const r = await getAssigned();
+    expect(r.status).toBe(200);
+    expect(r.json).toEqual({ schools: [{ id: 2, name: 'Escuela Beta' }, { id: 3, name: 'Escuela Gamma' }] });
+  });
+
+  it('a consultor with no active assignment gets no school', async () => {
+    const service = arrange({ roles: ['consultor'], assignments: [ASSIGNMENTS[2], ASSIGNMENTS[3]] });
+    const r = await getAssigned();
+    expect(r.status).toBe(200);
+    expect(r.json).toEqual({ schools: [] });
+    expect(service.from).not.toHaveBeenCalledWith('schools');
+  });
+
+  it('a consultor who also directs a school also gets that school', async () => {
+    arrange({
+      roleRows: [
+        { user_id: USER_ID, role_type: 'consultor', is_active: true, school_id: null },
+        { user_id: USER_ID, role_type: 'equipo_directivo', is_active: true, school_id: 4 },
+      ],
+      assignments: [ASSIGNMENTS[0]],
+    });
+    const r = await getAssigned();
+    expect(r.json).toEqual({ schools: [{ id: 1, name: 'Escuela Alfa' }, { id: 4, name: 'Escuela Delta' }] });
+  });
+
+  it('an admin (also when a consultor) still gets every school', async () => {
+    const service = arrange({ roles: ['consultor', 'admin'], assignments: [ASSIGNMENTS[0]] });
+    const r = await getAssigned();
+    expectEverySchoolListed(service, r);
+    expect(service.from).not.toHaveBeenCalledWith('consultant_assignments');
+  });
+
+  it('500 when the assignments read fails', async () => {
+    arrange({ roles: ['consultor'], assignmentsError: { code: 'XX000' } });
+    const r = await getAssigned();
+    expect(r.status).toBe(500);
+    expect(r.json).toEqual({ error: 'No se pudieron obtener las escuelas' });
+  });
+
+  it('anyone else is still refused', async () => {
+    arrange({ roles: ['equipo_directivo'] });
+    expect((await getAssigned()).status).toBe(403);
+  });
+});

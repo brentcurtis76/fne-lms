@@ -33,6 +33,13 @@ import {
 import { formatFileSize } from '../../lib/utils/file-format';
 import MentionPicker from './MentionPicker';
 
+// Mentions (send-back 1, 8): the @ starts the text or follows whitespace or an
+// opening mark ( ( [ { « " ' ¿ ¡ ), never a letter, digit, dot, hyphen or
+// underscore; the handle (letters with accents, digits, _ . -) ends at
+// whitespace, a closing mark or the end. No lookbehind: older school browsers.
+const MENTION_IN_TEXT = /(^|[\s(\[{«"'¿¡])@([\p{L}\p{M}\p{N}_.-]+)(?=$|[\s)\]}»"',;:!?…])/gu;
+const MENTION_BEING_TYPED = /(?:^|[\s(\[{«"'¿¡])@([\p{L}\p{M}\p{N}._-]*)$/u;
+
 interface MessageComposerProps {
   threadId: string;
   workspaceId: string | null;
@@ -129,11 +136,13 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
     if (allowMentions && onRequestMentions) {
       const cursorPosition = e.target.selectionStart;
       const textBeforeCursor = newContent.substring(0, cursorPosition);
-      const mentionMatch = textBeforeCursor.match(/@([a-zA-Z0-9._-]*)$/);
+      // A mention starts at the beginning, after a space or an opening mark —
+      // never inside a word or an address (send-back 1, 8).
+      const mentionMatch = textBeforeCursor.match(MENTION_BEING_TYPED);
       
       if (mentionMatch) {
         const query = mentionMatch[1];
-        const start = cursorPosition - mentionMatch[0].length;
+        const start = cursorPosition - query.length - 1;
         const end = cursorPosition;
         
         setMentionQuery(query);
@@ -147,32 +156,6 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
       }
     }
   }, [threadId, attachments, allowMentions, onRequestMentions]);
-
-  // Handle key press
-  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
-    if (showMentionPicker) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedMentionIndex(prev => Math.min(prev + 1, mentionSuggestions.length - 1));
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedMentionIndex(prev => Math.max(prev - 1, 0));
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        if (mentionSuggestions[selectedMentionIndex]) {
-          insertMention(mentionSuggestions[selectedMentionIndex]);
-        }
-      } else if (e.key === 'Escape') {
-        setShowMentionPicker(false);
-      }
-      return;
-    }
-
-    if (e.key === 'Enter' && !e.shiftKey && !disabled) {
-      e.preventDefault();
-      handleSubmit();
-    }
-  }, [showMentionPicker, selectedMentionIndex, mentionSuggestions, disabled]);
 
   // Insert mention
   const insertMention = useCallback((mention: MentionSuggestion) => {
@@ -260,11 +243,15 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
 
     // Extract mentioned user IDs from content (handles @First_Last format with underscores)
     const mentionedUserIds: string[] = [];
-    const mentionRegex = /@([a-zA-Z0-9_]+)/g;
+    // Names may carry accents, hyphens and dots («@María-José_Núñez», «@J._Pérez»);
+    // a sentence's closing `.` or `-` after a handle is tried without (EC-S5).
+    // The @ must start the text or follow a space or an opening mark, so
+    // «contacto@equipo.cl» mentions nobody (send-back 1, 8).
+    const mentionRegex = new RegExp(MENTION_IN_TEXT.source, MENTION_IN_TEXT.flags);
     let match;
     while ((match = mentionRegex.exec(content)) !== null) {
-      const mentionHandle = match[1]; // This will be "Bob_Dylan" format
-      const userId = mentionedUsers.get(mentionHandle);
+      const mentionHandle = match[2]; // This will be "Bob_Dylan" format
+      const userId = mentionedUsers.get(mentionHandle) ?? mentionedUsers.get(mentionHandle.replace(/[.-]+$/, ''));
       if (userId) {
         mentionedUserIds.push(userId);
       }
@@ -307,6 +294,35 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
       setIsSubmitting(false);
     }
   }, [content, attachments, threadId, replyToMessage, editingMessage, isSubmitting, disabled, onSendMessage, onSaveEdit, onCancelReply, onCancelEdit, mentionedUsers]);
+
+  // Handle key press. Defined after handleSubmit and depending on it: the
+  // earlier version kept the first render's handleSubmit (empty content), so
+  // Enter never sent (EC-M2). The mention keys apply only while the list is
+  // actually shown.
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
+    if (showMentionPicker && mentionSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedMentionIndex(prev => Math.min(prev + 1, mentionSuggestions.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedMentionIndex(prev => Math.max(prev - 1, 0));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (mentionSuggestions[selectedMentionIndex]) {
+          insertMention(mentionSuggestions[selectedMentionIndex]);
+        }
+      } else if (e.key === 'Escape') {
+        setShowMentionPicker(false);
+      }
+      return;
+    }
+
+    if (e.key === 'Enter' && !e.shiftKey && !disabled) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  }, [showMentionPicker, selectedMentionIndex, mentionSuggestions, disabled, handleSubmit, insertMention]);
 
   // Update textarea height when content changes
   useEffect(() => {

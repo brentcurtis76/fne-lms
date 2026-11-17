@@ -9,9 +9,12 @@
  * - consultor (not admin): `school_id` required, and it must be one of the
  *   consultor's ACTIVE consultant_assignments, or a school where the same
  *   person is an active equipo_directivo;
+ *   (an assignment whose ends_at is past no longer counts: isCurrentAssignment);
  * - equipo_directivo only: their own school (unchanged).
  * Fails closed on a read error.
  */
+
+import { isCurrentAssignment } from './directivo';
 
 export type ResultsSchoolScope =
   | { kind: 'ok'; schoolId: number }
@@ -55,11 +58,11 @@ export async function resolveResultsSchoolId(
 
   const { data, error } = await adminClient
     .from('consultant_assignments')
-    .select('school_id')
+    .select('school_id, ends_at')
     .eq('consultant_id', userId)
     .eq('is_active', true)
     .eq('school_id', schoolId);
-  if (error || !data || data.length === 0) {
+  if (error || !data || !data.some((a: { ends_at?: string | null }) => isCurrentAssignment(a))) {
     return { kind: 'error', status: 403, message: 'No tienes acceso a los resultados de esta escuela' };
   }
   return { kind: 'ok', schoolId };

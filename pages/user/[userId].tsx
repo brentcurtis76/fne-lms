@@ -10,6 +10,7 @@ import { ResponsiveFunctionalPageHeader } from '../../components/layout/Function
 import { getUserRoles, getUserPrimaryRole } from '../../utils/roleUtils';
 import { UserRole, UserProfile } from '../../types/roles';
 import { ArrowLeft, Book, Calendar, User as UserIcon } from 'lucide-react';
+import { fetchProfileCards } from '../../lib/profile-cards';
 
 export default function UserProfileView() {
   const supabase = useSupabaseClient();
@@ -20,6 +21,9 @@ export default function UserProfileView() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState('');
   const [profileData, setProfileData] = useState<any>(null);
+  // True when only the person's card (name, picture) is readable: the viewer is
+  // neither an admin nor the person, so the full profile row is not (EC-S5).
+  const [cardOnly, setCardOnly] = useState(false);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [enrolledCourses, setEnrolledCourses] = useState<any[]>([]);
 
@@ -34,6 +38,7 @@ export default function UserProfileView() {
         }
         
         setCurrentUser(session.user);
+        let viewerIsAdmin = false;
         
         // Get current user's admin status and avatar
         const { data: currentUserProfile } = await supabase
@@ -45,7 +50,8 @@ export default function UserProfileView() {
         if (currentUserProfile) {
           try {
             const userRole = await getUserPrimaryRole(session.user.id);
-            setIsAdmin(userRole === 'admin');
+            viewerIsAdmin = userRole === 'admin';
+            setIsAdmin(viewerIsAdmin);
           } catch (roleError) {
             console.error('Error getting user role:', roleError);
             // Default to non-admin if role check fails
@@ -58,7 +64,7 @@ export default function UserProfileView() {
         }
         
         if (userId && typeof userId === 'string') {
-          await loadUserProfile(userId);
+          await loadUserProfile(userId, session.user.id, viewerIsAdmin);
         }
         
         setLoading(false);
@@ -74,8 +80,24 @@ export default function UserProfileView() {
     }
   }, [router, userId]);
 
-  const loadUserProfile = async (targetUserId: string) => {
+  const loadUserProfile = async (targetUserId: string, viewerId: string, viewerIsAdmin: boolean) => {
     try {
+      if (!viewerIsAdmin && targetUserId !== viewerId) {
+        // A viewer who is neither an admin nor the person gets the person's
+        // card (name, picture) when they may know them, and the page makes no
+        // other request about that person (send-back 1, 6).
+        const card = (await fetchProfileCards(supabase, [targetUserId])).get(targetUserId);
+        if (!card) {
+          console.error('Profile card not available');
+          return;
+        }
+        setCardOnly(true);
+        setProfileData(card);
+        setUserRoles([]);
+        setEnrolledCourses([]);
+        return;
+      }
+
       // Get user profile
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -83,10 +105,12 @@ export default function UserProfileView() {
         .eq('id', targetUserId)
         .single();
 
-      if (profileError) {
+      if (profileError || !profile) {
         console.error('Error fetching user profile:', profileError);
         return;
       }
+      const shownProfile: any = profile;
+      setCardOnly(false);
 
       // Get school name from API (uses service role to bypass RLS on user_roles)
       let schoolName = null;
@@ -101,7 +125,7 @@ export default function UserProfileView() {
       }
 
       // Override profiles.school with the authoritative school name from user_roles
-      setProfileData({ ...profile, school: schoolName || profile.school });
+      setProfileData({ ...shownProfile, school: schoolName || shownProfile.school });
 
       // Get user roles with error handling
       try {
@@ -267,17 +291,22 @@ export default function UserProfileView() {
                   <h1 className="text-2xl font-bold text-brand_blue text-center md:text-left">
                     {profileData.first_name} {profileData.last_name}
                   </h1>
-                  <p className="text-gray-600 text-center md:text-left">{profileData.email}</p>
+                  {!cardOnly && (
+                    <p className="text-gray-600 text-center md:text-left">{profileData.email}</p>
+                  )}
                 </div>
 
-                {/* Profile Details */}
+                {/* Profile Details (not for a viewer who only gets the card) */}
+                {!cardOnly && (
                 <div className="flex-1">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Contact Information */}
                     <div>
                       <h3 className="text-lg font-semibold text-brand_blue mb-3">Información de Contacto</h3>
                       <div className="space-y-2">
-                        <p><span className="font-medium">Email:</span> {profileData.email}</p>
+                        {!cardOnly && (
+                          <p><span className="font-medium">Email:</span> {profileData.email}</p>
+                        )}
                         {profileData.school && (
                           <p><span className="font-medium">Institución:</span> {String(profileData.school)}</p>
                         )}
@@ -309,10 +338,12 @@ export default function UserProfileView() {
                     </div>
                   </div>
                 </div>
+                )}
               </div>
             </div>
 
-            {/* Enrolled Courses */}
+            {/* Enrolled Courses (not for a viewer who only gets the card) */}
+            {!cardOnly && (
             <div className="bg-white rounded-lg shadow-md p-8">
               <h2 className="text-xl font-semibold text-brand_blue mb-6 flex items-center">
                 <Book className="mr-2" size={24} />
@@ -354,6 +385,7 @@ export default function UserProfileView() {
                 </div>
               )}
             </div>
+            )}
       </div>
     </MainLayout>
   );

@@ -1,5 +1,11 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import {
+  getApiUser,
+  createApiSupabaseClient,
+  createServiceRoleClient,
+  sendAuthError,
+  handleMethodNotAllowed,
+} from '@/lib/api-auth';
 import { hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 import { publishTemplate } from '@/lib/services/assessment-builder/publishTemplate';
 
@@ -69,7 +75,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // service so the pilot-provisioning CLI and this route publish through
     // ONE validated code path. The result is mapped to the same HTTP shapes
     // this route always produced.
-    const result = await publishTemplate(supabaseClient, templateId, { id: user.id });
+    // GC-10: the snapshot and the flip are written in ONE database
+    // transaction by public.publish_assessment_template, which only the
+    // service role may run; the caller was verified as an admin above, and
+    // every check a person can correct runs (with the caller's session)
+    // before that call.
+    const result = await publishTemplate(
+      supabaseClient,
+      templateId,
+      { id: user.id },
+      { publishClient: createServiceRoleClient() }
+    );
 
     if (result.ok === false) {
       return res.status(result.status).json({

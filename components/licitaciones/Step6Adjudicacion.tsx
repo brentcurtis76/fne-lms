@@ -106,10 +106,12 @@ export default function Step6Adjudicacion({
   // Save adjudicacion data
   // ============================================================
 
-  const handleSave = async () => {
+  // Saves the award data; true when stored. It does not refresh the parent:
+  // the callers decide when (a refresh unmounts this step while the page reloads).
+  const saveAdjudicacion = async (): Promise<boolean> => {
     if (!selectedAteId) {
       toast.error('Debe seleccionar un ATE ganador');
-      return;
+      return false;
     }
 
     setSaving(true);
@@ -133,16 +135,21 @@ export default function Step6Adjudicacion({
       const json = await res.json();
       if (!res.ok) {
         toast.error(json.error || 'Error al guardar adjudicacion');
-        return;
+        return false;
       }
 
       toast.success('Datos de adjudicacion guardados');
-      onRefresh();
+      return true;
     } catch {
       toast.error('Error al guardar adjudicacion');
+      return false;
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSave = async () => {
+    if (await saveAdjudicacion()) onRefresh();
   };
 
   // ============================================================
@@ -155,8 +162,9 @@ export default function Step6Adjudicacion({
       return;
     }
 
-    // Auto-save first to ensure ganador_ate_id is persisted
-    await handleSave();
+    // Auto-save first to ensure ganador_ate_id is persisted. No refresh yet: the
+    // parent refreshes once, after the generation has answered (see finally).
+    await saveAdjudicacion();
 
     setGeneratingCarta(true);
     try {
@@ -178,6 +186,8 @@ export default function Step6Adjudicacion({
       toast.error('Error al generar la Carta');
     } finally {
       setGeneratingCarta(false);
+      // The tender reloaded now carries the generated Carta (or the saved data).
+      onRefresh();
     }
   };
 
@@ -292,6 +302,10 @@ export default function Step6Adjudicacion({
       </div>
     );
   }
+
+  // An award to the foundation needs the generated Carta (the contract step checks it).
+  // Read from the tender as loaded, which the refresh after the generation brings.
+  const cartaReady = !!licitacion.carta_adjudicacion_url;
 
   const sortedAtes = [...ates].sort(
     (a, b) => (Number(b.puntaje_total) || 0) - (Number(a.puntaje_total) || 0)
@@ -520,7 +534,7 @@ export default function Step6Adjudicacion({
         <div className="flex flex-wrap gap-3">
           <button
             onClick={() => handleConfirm(true)}
-            disabled={confirming || !selectedAteId}
+            disabled={confirming || !selectedAteId || !cartaReady}
             className="px-5 py-3 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {confirming ? 'Procesando...' : 'Si — Proveedor FNE (genera Contrato)'}
@@ -533,6 +547,11 @@ export default function Step6Adjudicacion({
             {confirming ? 'Procesando...' : 'No — Proveedor Externo (cerrar proceso)'}
           </button>
         </div>
+        {!cartaReady && (
+          <p className="text-xs text-gray-500 mt-2">
+            Genere la Carta de adjudicación antes de confirmar la adjudicación.
+          </p>
+        )}
       </div>
     </div>
   );

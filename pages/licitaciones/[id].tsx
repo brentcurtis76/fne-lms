@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import MainLayout from '@/components/layout/MainLayout';
@@ -12,41 +12,7 @@ import Step7Contrato from '@/components/licitaciones/Step7Contrato';
 import DocumentCenter from '@/components/licitaciones/DocumentCenter';
 import ProposalConfigPanel from '@/components/licitaciones/ProposalConfigPanel';
 import ArchiveView from '@/components/licitaciones/ArchiveView';
-
-// Pure client-side helper — no server imports needed
-function generatePublicacionText(
-  licitacion: LicitacionDetail,
-  schoolName: string,
-  comuna: string
-): string {
-  const fechaLimite = licitacion.fecha_limite_solicitud_bases
-    ? formatDateInline(licitacion.fecha_limite_solicitud_bases)
-    : '[fecha pendiente]';
-
-  return (
-    `Con el objetivo de asesorar al equipo directivo y lideres del establecimiento ` +
-    `en el cambio de cultura organizacional centrada en la innovacion educativa y ` +
-    `en el Modelo Relacional es que el ${schoolName}, de la comuna de ${comuna}, ` +
-    `llamamos a concurso publico para la contratacion de servicios ATE con el ` +
-    `siguiente requerimiento: asesoria al equipo directivo para liderar a la escuela ` +
-    `hacia una cultura colaborativa, de aprendizaje profundo, con metodologias de ` +
-    `vanguardia y con la base en un enfoque en lo relacional.\n\n` +
-    `Bases de la licitacion se pueden solicitar hasta el ${fechaLimite} al ` +
-    `correo ${licitacion.email_licitacion}`
-  );
-}
-
-function formatDateInline(dateStr: string): string {
-  const parts = dateStr.split('-');
-  if (parts.length !== 3) return dateStr;
-  const months = [
-    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
-  ];
-  const day = parseInt(parts[2], 10);
-  const month = months[parseInt(parts[1], 10) - 1] || '';
-  return `${day} de ${month} de ${parts[0]}`;
-}
+import { buildPublicacionText, isPublicacionConfirmada } from '@/lib/licitaciones/publicacionText';
 
 // ============================================================
 // STEPPER DEFINITION
@@ -154,11 +120,13 @@ export default function LicitacionDetailPage() {
   const [loading, setLoading] = useState(true);
 
   // Step 2 state
-  const [publicacionText, setPublicacionText] = useState('');
   const [copied, setCopied] = useState(false);
   const [fechaPublicacion, setFechaPublicacion] = useState('');
-  const [timeline, setTimeline] = useState<TimelineDates | null>(null);
+  // Each computed timeline is kept with the publication date it was asked for;
+  // only the one for the date currently chosen is used (see effectiveTimeline).
+  const [timelineFor, setTimelineFor] = useState<{ fecha: string; timeline: TimelineDates } | null>(null);
   const [timelineLoading, setTimelineLoading] = useState(false);
+  const latestFechaRef = useRef('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -264,11 +232,19 @@ export default function LicitacionDetailPage() {
     }
   };
 
+  // Latest request wins: each reload of the tender gets a number one higher than
+  // the last; an answer (or failure) is applied only if no later reload has been
+  // started since. The loader ends with the latest request's answer.
+  const detailRequestRef = useRef(0);
+
   const fetchLicitacion = async (licitacionId: string) => {
+    const requestNo = ++detailRequestRef.current;
+    const isLatest = () => requestNo === detailRequestRef.current;
     setLoading(true);
     try {
       const res = await fetch(`/api/licitaciones/${licitacionId}`);
       const json = await res.json();
+      if (!isLatest()) return; // an older picture of the tender: dropped
 
       if (!res.ok) {
         toast.error(json.error || 'Error al cargar licitacion');
@@ -283,18 +259,12 @@ export default function LicitacionDetailPage() {
       if (lic.fecha_publicacion) {
         setFechaPublicacion(lic.fecha_publicacion);
       }
-
-      // Generate publicacion text
-      if (lic.school && lic.cliente) {
-        const schoolName = lic.cliente.nombre_fantasia || lic.school.name;
-        const comuna = lic.cliente.comuna || '';
-        setPublicacionText(generatePublicacionText(lic, schoolName, comuna));
-      }
     } catch {
+      if (!isLatest()) return;
       toast.error('Error al cargar licitacion');
       router.push('/licitaciones');
     } finally {
-      setLoading(false);
+      if (isLatest()) setLoading(false);
     }
   };
 
@@ -307,21 +277,27 @@ export default function LicitacionDetailPage() {
 
   const handleFechaChange = useCallback(async (fecha: string) => {
     setFechaPublicacion(fecha);
-    if (!fecha || !id) return;
+    latestFechaRef.current = fecha;
+    setTimelineFor(null); // the previous date's deadlines are no longer the chosen ones
+    if (!fecha || !id) {
+      setTimelineLoading(false);
+      return;
+    }
 
     setTimelineLoading(true);
     try {
       const res = await fetch(`/api/licitaciones/${id}/timeline?fecha_publicacion=${fecha}`);
       const json = await res.json();
 
+      // An answer for a date that is no longer the chosen one is discarded.
+      if (latestFechaRef.current !== fecha) return;
       if (res.ok) {
-        setTimeline(json.data.timeline);
-        setEditedDates(json.data.timeline);
+        setTimelineFor({ fecha, timeline: json.data.timeline });
       }
     } catch {
-      toast.error('Error al calcular cronograma');
+      if (latestFechaRef.current === fecha) toast.error('Error al calcular cronograma');
     } finally {
-      setTimelineLoading(false);
+      if (latestFechaRef.current === fecha) setTimelineLoading(false);
     }
   }, [id]);
 
@@ -463,6 +439,33 @@ export default function LicitacionDetailPage() {
     );
   }
 
+  // The computed timeline counts only for the date currently chosen.
+  const timeline: TimelineDates | null =
+    timelineFor && timelineFor.fecha === fechaPublicacion ? timelineFor.timeline : null;
+
+  // Built from the date typed (its computed timeline) and, once confirmed, from the stored dates.
+  const publicacionText = buildPublicacionText(licitacion, timeline);
+  // A date is chosen but its deadlines have not arrived: nothing to copy yet.
+  const timelinePendingForChosenDate =
+    !isPublicacionConfirmada(licitacion) && !!fechaPublicacion && !timeline;
+
+  const publicacionTextBlock = (
+    <div>
+      <p className="text-sm font-medium text-gray-700 mb-2">Texto de publicacion</p>
+      <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-800 whitespace-pre-wrap mb-2">
+        {publicacionText || 'Seleccione una escuela con cliente vinculado para generar el texto.'}
+      </div>
+      <button
+        onClick={handleCopyText}
+        disabled={!publicacionText || timelinePendingForChosenDate}
+        className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+      >
+        {copied ? <Check size={16} className="mr-2 text-green-600" aria-hidden="true" /> : <Copy size={16} className="mr-2" aria-hidden="true" />}
+        <span aria-live="polite">{copied ? 'Copiado!' : 'Copiar texto'}</span>
+      </button>
+    </div>
+  );
+
   const activeStep = getActiveStep(licitacion.estado);
   const step1Done = activeStep > 1;
   const step2Active = activeStep === 2;
@@ -601,6 +604,7 @@ export default function LicitacionDetailPage() {
             {step2Done ? (
               // Completed state — read-only
               <div className="space-y-4">
+                {publicacionTextBlock}
                 <div>
                   <p className="text-sm font-medium text-gray-700 mb-1">Fecha de publicacion</p>
                   <p className="text-sm text-gray-900">{formatDate(licitacion.fecha_publicacion)}</p>
@@ -618,7 +622,19 @@ export default function LicitacionDetailPage() {
                 {isAdmin && (
                   <div>
                     <button
-                      onClick={() => setEditingTimeline(!editingTimeline)}
+                      onClick={() => {
+                        // Start from the stored dates (after a reload nothing else is loaded).
+                        if (!editingTimeline) {
+                          setEditedDates({
+                            fecha_limite_solicitud_bases: licitacion.fecha_limite_solicitud_bases ?? undefined,
+                            fecha_limite_consultas: licitacion.fecha_limite_consultas ?? undefined,
+                            fecha_inicio_propuestas: licitacion.fecha_inicio_propuestas ?? undefined,
+                            fecha_limite_propuestas: licitacion.fecha_limite_propuestas ?? undefined,
+                            fecha_limite_evaluacion: licitacion.fecha_limite_evaluacion ?? undefined,
+                          });
+                        }
+                        setEditingTimeline(!editingTimeline);
+                      }}
                       className="text-sm text-blue-600 hover:text-blue-800 underline"
                     >
                       {editingTimeline ? 'Cancelar ajuste' : 'Ajustar fechas (admin)'}
@@ -654,21 +670,7 @@ export default function LicitacionDetailPage() {
             ) : step2Active ? (
               // Active state — editable
               <div className="space-y-6">
-                {/* Publicacion text */}
-                <div>
-                  <p className="text-sm font-medium text-gray-700 mb-2">Texto de publicacion</p>
-                  <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-800 whitespace-pre-wrap mb-2">
-                    {publicacionText || 'Seleccione una escuela con cliente vinculado para generar el texto.'}
-                  </div>
-                  <button
-                    onClick={handleCopyText}
-                    disabled={!publicacionText}
-                    className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                  >
-                    {copied ? <Check size={16} className="mr-2 text-green-600" aria-hidden="true" /> : <Copy size={16} className="mr-2" aria-hidden="true" />}
-                    <span aria-live="polite">{copied ? 'Copiado!' : 'Copiar texto'}</span>
-                  </button>
-                </div>
+                {publicacionTextBlock}
 
                 {/* Fecha publicacion */}
                 <div>
@@ -702,34 +704,6 @@ export default function LicitacionDetailPage() {
                       <InfoRow label="Limite propuestas (+5 dias habiles)" value={formatDate(displayTimeline.fecha_limite_propuestas)} />
                       <InfoRow label="Limite evaluacion (+3 dias habiles)" value={formatDate(displayTimeline.fecha_limite_evaluacion)} />
                     </div>
-                    {isAdmin && (
-                      <div>
-                        <button
-                          onClick={() => setEditingTimeline(!editingTimeline)}
-                          className="mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
-                        >
-                          {editingTimeline ? 'Usar fechas calculadas' : 'Ajustar fechas manualmente'}
-                        </button>
-
-                        {editingTimeline && displayTimeline && (
-                          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {(Object.keys(displayTimeline) as Array<keyof TimelineDates>).map(key => (
-                              <div key={key}>
-                                <label className="block text-xs font-medium text-gray-600 mb-1">
-                                  {key.replace(/_/g, ' ')}
-                                </label>
-                                <input
-                                  type="date"
-                                  value={(editedDates[key] as string) || (displayTimeline[key] as string) || ''}
-                                  onChange={e => setEditedDates(d => ({ ...d, [key]: e.target.value }))}
-                                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 )}
 

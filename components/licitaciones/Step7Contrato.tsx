@@ -46,6 +46,7 @@ export default function Step7Contrato({
   const [uploading, setUploading] = useState(false);
   const [closing, setClosing] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [generatingCarta, setGeneratingCarta] = useState(false);
 
   const { estado, ganador_es_fne, contrato_id, carta_adjudicacion_url } = licitacion;
 
@@ -90,6 +91,31 @@ export default function Step7Contrato({
     await handleUploadDocument(file, 'otro');
     // Reset input so same file can be re-uploaded if needed
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // ============================================================
+  // Generate the missing Carta (tender confirmed before it existed)
+  // ============================================================
+
+  const handleGenerateCarta = async () => {
+    setGeneratingCarta(true);
+    try {
+      const res = await fetch(`/api/licitaciones/${licitacion.id}/generate-carta`);
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || 'Error al generar la Carta');
+        return;
+      }
+      toast.success('Carta de Adjudicacion generada exitosamente');
+      if (json.data?.url) {
+        window.open(json.data.url, '_blank');
+      }
+      onRefresh();
+    } catch {
+      toast.error('Error al generar la Carta');
+    } finally {
+      setGeneratingCarta(false);
+    }
   };
 
   // ============================================================
@@ -150,10 +176,25 @@ export default function Step7Contrato({
         {!carta_adjudicacion_url && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-2">
             <AlertTriangle size={16} className="text-yellow-600 mt-0.5 shrink-0" />
-            <p className="text-yellow-800 text-sm">
-              Debe subir la carta de adjudicacion firmada antes de generar el contrato.
-              Vuelva al Paso 6 — Adjudicacion para subirla.
-            </p>
+            <div className="space-y-3">
+              <p className="text-yellow-800 text-sm">
+                Falta la Carta de adjudicación generada. Debe generarse antes de generar el contrato.
+              </p>
+              {isAdmin ? (
+                <button
+                  onClick={handleGenerateCarta}
+                  disabled={generatingCarta}
+                  className={BTN_SECONDARY}
+                >
+                  <FileText size={16} className="inline mr-2" />
+                  {generatingCarta ? 'Generando...' : 'Generar Carta de adjudicación'}
+                </button>
+              ) : (
+                <p className="text-yellow-800 text-sm">
+                  Un administrador debe generar la Carta de adjudicación para continuar.
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -172,7 +213,7 @@ export default function Step7Contrato({
             </button>
             {!carta_adjudicacion_url && (
               <span className="text-xs text-gray-500">
-                (Suba la carta de adjudicacion firmada para habilitar)
+                (Genere la Carta de adjudicación para habilitar)
               </span>
             )}
           </div>

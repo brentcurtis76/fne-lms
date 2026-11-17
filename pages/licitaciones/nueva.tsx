@@ -70,6 +70,9 @@ const Field = ({
   </div>
 );
 
+const SIN_CLIENTE =
+  'Esta escuela no tiene un cliente vinculado. Vincule un cliente antes de crear la licitación.';
+
 const currentYear = new Date().getFullYear();
 const DEFAULT_FORM: FormData = {
   school_id: '',
@@ -163,7 +166,7 @@ export default function NuevaLicitacionPage() {
 
     const school = schools.find(s => String(s.id) === schoolId);
     if (!school?.cliente_id) {
-      setErrors(e => ({ ...e, school_id: 'Esta escuela no tiene un cliente vinculado' }));
+      setErrors(e => ({ ...e, school_id: SIN_CLIENTE }));
       return;
     }
     setErrors(e => { const { school_id: _, ...rest } = e; return rest; });
@@ -195,10 +198,15 @@ export default function NuevaLicitacionPage() {
     }
   };
 
+  // A tender needs the school's client for every later step.
+  const schoolSinCliente =
+    !!form.school_id && !schools.find(s => String(s.id) === form.school_id)?.cliente_id;
+
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
 
     if (!form.school_id) newErrors.school_id = 'Seleccione una escuela';
+    else if (schoolSinCliente) newErrors.school_id = SIN_CLIENTE;
     if (!form.programa_id) newErrors.programa_id = 'Seleccione un programa';
     if (!form.nombre_licitacion.trim()) newErrors.nombre_licitacion = 'El nombre es requerido';
     if (!form.email_licitacion.trim()) newErrors.email_licitacion = 'El correo es requerido';
@@ -562,6 +570,9 @@ export default function NuevaLicitacionPage() {
           </div>
 
           {/* Actions */}
+          {schoolSinCliente && (
+            <p className="text-sm text-red-600 text-right mb-2">{SIN_CLIENTE}</p>
+          )}
           <div className="flex justify-end space-x-4">
             <button
               type="button"
@@ -572,7 +583,8 @@ export default function NuevaLicitacionPage() {
             </button>
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || schoolSinCliente}
+              title={schoolSinCliente ? SIN_CLIENTE : undefined}
               className="px-6 py-2 bg-yellow-400 text-black rounded-lg hover:bg-yellow-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {submitting ? 'Creando...' : 'Crear Licitacion'}

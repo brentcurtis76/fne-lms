@@ -187,8 +187,9 @@ SELECT is((SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'facturas
   'anon no longer reads facturas objects (F2b)');
 SELECT is((SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'resources' AND name = 'fneanon105/r.png'), 0,
   'anon no longer reads resources objects (F2b)');
-SELECT is((SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'fneanon105-other' AND name = 'fneanon105/o.txt'), 1,
-  'anon still reads an unrelated open bucket');
+-- N124 (20261116179800): a visitor lists no store, an unrelated open one included (was 1 under F2b alone).
+SELECT is((SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'fneanon105-other' AND name = 'fneanon105/o.txt'), 0,
+  'anon no longer reads an unrelated open bucket (N124)');
 RESET ROLE;
 
 -- F2b (20261116178000): a signed-in non-admin (this docente has no admin role)

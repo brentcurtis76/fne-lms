@@ -20,6 +20,13 @@ export const FOOTER_NUEVO_LINKS: ReadonlyArray<{ label: string; href: string }> 
   { label: 'Contacto', href: '/#contacto' },
 ];
 
+/**
+ * The footer's sides (6B fix): the right side keeps every item clear of the round feedback button
+ * (`components/feedback/FeedbackButtonWithPermissions.tsx`: fixed 24 px from the right edge, 56 px
+ * wide, 110% under the pointer, so it reaches about 83 px in from the edge). 96 px, at every width.
+ */
+export const FOOTER_SIDES = 'pl-4 sm:pl-6 lg:pl-8 pr-24';
+
 const LINK = 'text-gray-600 hover:text-gray-900 hover:underline transition-colors duration-150 motion-reduce:transition-none';
 
 export default function FooterNuevo() {
@@ -28,7 +35,7 @@ export default function FooterNuevo() {
 
   return (
     <>
-      <footer className="border-t border-gray-200 px-4 sm:px-6 lg:px-8 py-4 text-xs text-gray-600" data-testid="footer-nuevo">
+      <footer className={`border-t border-gray-200 ${FOOTER_SIDES} py-4 text-xs text-gray-600`} data-testid="footer-nuevo">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           {FOOTER_NUEVO_LINKS.map((link) => (
             <Link key={link.href} href={link.href} className={LINK}>

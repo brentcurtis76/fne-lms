@@ -15,7 +15,8 @@ import type { NewsArticle, YouTubeVideo, DashboardStats } from '../components/pa
 
 /**
  * Everything «Mi Panel» knows and decides: its state, its data calls, its redirects, the arrival
- * toast, the two course lists, sign-out, and one named copy of each decision its markup makes.
+ * toast, the two course lists, sign-out, and one named copy of each decision its markup makes
+ * (worked out by `decide()`, only when the panel's body is drawn).
  * Moved out of `pages/dashboard.tsx` unchanged (redesign 6A): the same hooks in the same order, the
  * same effects with the same dependency lists, each condition the same expression as before.
  */
@@ -384,55 +385,6 @@ export function usePanel() {
     router.push('/login');
   };
 
-  // ── The decisions the markup makes, one copy each, from today's expressions as they were. ──
-
-  // Welcome band
-  const greetingName = profileName?.split(' ')[0] || 'Usuario';
-  const showConsultorAffiliation = userRole === 'consultor' && profileData?.external_school_affiliation;
-  const consultorAffiliationLabel = showConsultorAffiliation
-    ? getExternalSchoolLabel(profileData.external_school_affiliation)
-    : null;
-
-  // Growth community block: null when it is not drawn
-  const community = userRoles.some(role => role.community_id) ? (() => {
-    // Get all communities user belongs to
-    const userCommunities = userRoles.filter(role => role.community_id && role.community);
-
-    // Initialize selectedCommunityId if not set
-    const effectiveCommunityId = selectedCommunityId || userCommunities[0]?.community_id;
-
-    // Find the selected community role
-    const selectedRole = userCommunities.find(r => r.community_id === effectiveCommunityId) || userCommunities[0];
-
-    if (!selectedRole || !selectedRole.community) return null;
-
-    const members = communityMembers[selectedRole.community_id!] || [];
-    const workspace = communityWorkspaces[selectedRole.community_id!];
-
-    return {
-      userCommunities,
-      effectiveCommunityId,
-      selectedRole,
-      members,
-      workspace,
-      // Community Selector - Only show if user has multiple communities
-      showCommunityPicker: userCommunities.length > 1,
-      // Only for those who can save the settings: admin or this community's manager (N87)
-      canEditWorkspace: canEditWorkspaceWithRoles(userRoles, selectedRole.community_id),
-    };
-  })() : null;
-
-  // Sections
-  const showUpcomingCourses = !loadingUpcoming && upcomingCourses.length > 0;
-  // Course Proposals Section - Admin/Consultor only
-  const showCourseProposals = (metadataHasRole(session?.user?.user_metadata, 'admin') ||
-    metadataHasRole(session?.user?.user_metadata, 'consultor') ||
-    userRoles.some(r => r.role_type === 'admin' || r.role_type === 'consultor'));
-  const showBadges = user?.id;
-  const showInProgressCourses = inProgressCourses.length > 0;
-  const showLearningPaths = learningPaths.length > 0;
-  const showOpenCourses = openCourses.length > 0;
-
   // Handlers the markup wrote inline
   const toggleCommunity = () => setCommunityExpanded(!communityExpanded);
   const chooseCommunity = (e: MouseEvent, communityId: string) => {
@@ -465,26 +417,103 @@ export function usePanel() {
     setShowMemberProfile(false);
     setSelectedMember(null);
   };
-  const selectedMemberIsCurrentUser = selectedMember?.id === user?.id;
   const openCourse = (courseId: string) => router.push(`/student/course/${courseId}`);
   const openLearningPath = (pathId: string) => router.push(`/mi-aprendizaje/ruta/${pathId}`);
 
-  // The route cards drawn (at most three), with the props each receives. Computed on every
-  // render, as the markup did: `new Date()` stands in for a missing date at that moment.
-  const learningPathCards = learningPaths.slice(0, 3).map(path => ({
-    id: path.id,
-    name: path.name,
-    description: path.description,
-    assigned_at: path.assigned_at || new Date().toISOString(),
-    progress: path.progress ? {
-      path_id: path.id,
-      total_courses: path.progress.total_courses || 0,
-      completed_courses: path.progress.completed_courses || 0,
-      progress_percentage: path.progress.progress_percentage || 0,
-      last_accessed: path.progress.last_accessed || new Date().toISOString()
-    } : undefined,
-    onClick: () => openLearningPath(path.id),
-  }));
+  /**
+   * The decisions the markup makes, one copy each, from today's expressions as they were. Worked
+   * out only when the panel's body is about to be drawn: the page calls this AFTER its loading
+   * return, where the body began before 6A, so nothing of it runs while the loading mark shows.
+   * Inside, today's order: the greeting, the consultor's line, the community block, the sections.
+   * Two decisions keep the guard they had in the markup and are functions the view calls at that
+   * place: the gear (only inside the opened community block) and the route cards (only inside
+   * «Mis Rutas de Aprendizaje»); whether the member pop-up shows the viewer is asked where the
+   * pop-up's props are built.
+   */
+  const decide = () => {
+    // Welcome band
+    const greetingName = profileName?.split(' ')[0] || 'Usuario';
+    const showConsultorAffiliation = userRole === 'consultor' && profileData?.external_school_affiliation;
+    const consultorAffiliationLabel = showConsultorAffiliation
+      ? getExternalSchoolLabel(profileData.external_school_affiliation)
+      : null;
+
+    // Growth community block: null when it is not drawn
+    const community = userRoles.some(role => role.community_id) ? (() => {
+      // Get all communities user belongs to
+      const userCommunities = userRoles.filter(role => role.community_id && role.community);
+
+      // Initialize selectedCommunityId if not set
+      const effectiveCommunityId = selectedCommunityId || userCommunities[0]?.community_id;
+
+      // Find the selected community role
+      const selectedRole = userCommunities.find(r => r.community_id === effectiveCommunityId) || userCommunities[0];
+
+      if (!selectedRole || !selectedRole.community) return null;
+
+      const members = communityMembers[selectedRole.community_id!] || [];
+      const workspace = communityWorkspaces[selectedRole.community_id!];
+
+      return {
+        userCommunities,
+        effectiveCommunityId,
+        selectedRole,
+        members,
+        workspace,
+        // Community Selector - Only show if user has multiple communities
+        showCommunityPicker: userCommunities.length > 1,
+        // Only for those who can save the settings: admin or this community's manager (N87).
+        // Asked by the view inside the opened block only, where the markup asked it.
+        canEditWorkspace: () => canEditWorkspaceWithRoles(userRoles, selectedRole.community_id),
+      };
+    })() : null;
+
+    // Sections
+    const showUpcomingCourses = !loadingUpcoming && upcomingCourses.length > 0;
+    // Course Proposals Section - Admin/Consultor only
+    const showCourseProposals = (metadataHasRole(session?.user?.user_metadata, 'admin') ||
+      metadataHasRole(session?.user?.user_metadata, 'consultor') ||
+      userRoles.some(r => r.role_type === 'admin' || r.role_type === 'consultor'));
+    const showBadges = user?.id;
+    const showInProgressCourses = inProgressCourses.length > 0;
+    const showLearningPaths = learningPaths.length > 0;
+    // The route cards drawn (at most three), with the props each receives. Called by the view
+    // inside the routes block, on every render of it, as the markup did: `new Date()` stands in
+    // for a missing date at that moment.
+    const learningPathCards = () => learningPaths.slice(0, 3).map(path => ({
+      id: path.id,
+      name: path.name,
+      description: path.description,
+      assigned_at: path.assigned_at || new Date().toISOString(),
+      progress: path.progress ? {
+        path_id: path.id,
+        total_courses: path.progress.total_courses || 0,
+        completed_courses: path.progress.completed_courses || 0,
+        progress_percentage: path.progress.progress_percentage || 0,
+        last_accessed: path.progress.last_accessed || new Date().toISOString()
+      } : undefined,
+      onClick: () => openLearningPath(path.id),
+    }));
+    const showOpenCourses = openCourses.length > 0;
+
+    // Member pop-up: asked where its props are built
+    const isSelectedMemberCurrentUser = () => selectedMember?.id === user?.id;
+
+    return {
+      greetingName,
+      showConsultorAffiliation,
+      consultorAffiliationLabel,
+      community,
+      showUpcomingCourses,
+      showCourseProposals,
+      showBadges,
+      showInProgressCourses,
+      showLearningPaths,
+      learningPathCards,
+      showOpenCourses,
+      isSelectedMemberCurrentUser,
+    };
+  };
 
   return {
     // State the views read
@@ -515,19 +544,8 @@ export function usePanel() {
     loadingUpcoming,
     inProgressCourses,
     openCourses,
-    // Decisions
-    greetingName,
-    showConsultorAffiliation,
-    consultorAffiliationLabel,
-    community,
-    showUpcomingCourses,
-    showCourseProposals,
-    showBadges,
-    showInProgressCourses,
-    showLearningPaths,
-    learningPathCards,
-    showOpenCourses,
-    selectedMemberIsCurrentUser,
+    // The decisions, worked out only when called (after the loading return)
+    decide,
     // Actions
     handleLogout,
     toggleCommunity,
@@ -543,3 +561,4 @@ export function usePanel() {
 }
 
 export type Panel = ReturnType<typeof usePanel>;
+export type PanelDecisions = ReturnType<Panel['decide']>;

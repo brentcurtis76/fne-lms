@@ -13,22 +13,19 @@ import { UpcomingCourseCard } from '../courses/UpcomingCourseCard';
 import { CourseProposalSection } from '../course-proposals';
 import { BadgesSection } from '../badges';
 import { formatTimeAgo, getExcerpt } from './format';
-import type { Panel } from '../../hooks/usePanel';
+import type { Panel, PanelDecisions } from '../../hooks/usePanel';
 
 /**
  * Today's «Mi Panel», the classic view: the page's body moved out of `pages/dashboard.tsx`
- * unchanged (redesign 6A). It draws only what `usePanel()` gives it, decisions included (each
- * condition has one copy, in the hook); the frame (`MainLayout`), the loading mark and the two
- * pop-ups stay in the page.
+ * unchanged (redesign 6A). It draws only what `usePanel()` gives it and the decisions the page
+ * worked out with `panel.decide()` after its loading return (each condition has one copy, in the
+ * hook; the gear and the route cards are asked here, at the place the markup asked them); the
+ * frame (`MainLayout`), the loading mark and the two pop-ups stay in the page.
  */
-export default function PanelClasico({ panel }: { panel: Panel }) {
+export default function PanelClasico({ panel, decisions }: { panel: Panel; decisions: PanelDecisions }) {
   const {
     user,
     avatarUrl,
-    greetingName,
-    showConsultorAffiliation,
-    consultorAffiliationLabel,
-    community,
     communityExpanded,
     toggleCommunity,
     chooseCommunity,
@@ -41,17 +38,23 @@ export default function PanelClasico({ panel }: { panel: Panel }) {
     loadingVideos,
     loadingStats,
     upcomingCourses,
+    inProgressCourses,
+    openCourses,
+    openCourse,
+  } = panel;
+  const {
+    greetingName,
+    showConsultorAffiliation,
+    consultorAffiliationLabel,
+    community,
     showUpcomingCourses,
     showCourseProposals,
     showBadges,
-    inProgressCourses,
     showInProgressCourses,
     showLearningPaths,
     learningPathCards,
-    openCourses,
     showOpenCourses,
-    openCourse,
-  } = panel;
+  } = decisions;
 
   return (
     <>
@@ -191,7 +194,7 @@ export default function PanelClasico({ panel }: { panel: Panel }) {
                         </h3>
                         <div className="flex gap-2">
                           {/* Only for those who can save the settings: admin or this community's manager (N87) */}
-                          {canEditWorkspace && (
+                          {canEditWorkspace() && (
                           <button
                             onClick={(e) => openWorkspaceSettings(e, workspace)}
                             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
@@ -566,7 +569,7 @@ export default function PanelClasico({ panel }: { panel: Panel }) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {learningPathCards.map(path => (
+              {learningPathCards().map(path => (
                 <LearningPathCard
                   key={path.id}
                   id={path.id}

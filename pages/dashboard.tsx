@@ -22,7 +22,6 @@ export default function Dashboard() {
     selectedMember,
     showMemberProfile,
     closeMemberProfile,
-    selectedMemberIsCurrentUser,
     handleLogout,
   } = panel;
 
@@ -48,6 +47,9 @@ export default function Dashboard() {
     );
   }
 
+  // Where the body began before 6A: the decisions are worked out from here on, never while loading.
+  const decisions = panel.decide();
+
   return (
     <MainLayout
       user={user}
@@ -59,7 +61,7 @@ export default function Dashboard() {
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >
-      <PanelClasico panel={panel} />
+      <PanelClasico panel={panel} decisions={decisions} />
 
       {/* Workspace Settings Modal */}
       {selectedWorkspace && (
@@ -78,7 +80,7 @@ export default function Dashboard() {
         isOpen={showMemberProfile}
         onClose={closeMemberProfile}
         member={selectedMember}
-        isCurrentUser={selectedMemberIsCurrentUser}
+        isCurrentUser={decisions.isSelectedMemberCurrentUser()}
       />
     </MainLayout>
   );

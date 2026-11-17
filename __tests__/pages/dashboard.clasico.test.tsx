@@ -130,6 +130,10 @@ interface Scenario {
   /** `null` = `getOrCreateWorkspace` answers nothing for that community. */
   workspaces?: Record<string, any>;
   fetch?: Record<string, Answer>;
+  /** The loader waits for ever on `getUserRoles` (send-back 1: decisions while loading). */
+  rolesPending?: boolean;
+  /** The loader waits for ever on `getCommunityMembers` (send-back 1: decisions while loading). */
+  membersPending?: boolean;
 }
 
 const mocks = vi.hoisted(() => ({
@@ -255,12 +259,16 @@ vi.mock('@/utils/roleUtils', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/utils/roleUtils')>();
   return {
     ...real,
+    // The real rule, watched: it must not run while the loading mark shows (send-back 1).
+    metadataHasRole: vi.fn(real.metadataHasRole),
     getUserRoles: vi.fn((given: unknown, userId: string) => {
       log({ getUserRoles: userId, client: given === client });
+      if (S().rolesPending) return new Promise(() => {});
       return Promise.resolve(S().roles ?? []);
     }),
     getCommunityMembers: vi.fn((given: unknown, communityId: string) => {
       log({ getCommunityMembers: communityId, client: given === client });
+      if (S().membersPending) return new Promise(() => {});
       return Promise.resolve(S().members?.[communityId] ?? []);
     }),
     getEffectiveRoleAndStatus: vi.fn((given: unknown, userId: string) => {
@@ -284,6 +292,42 @@ vi.mock('@/utils/toastUtils', () => ({
   toastSuccess: vi.fn((message: string) => log({ toastSuccess: message })),
   toastError: vi.fn((message: string) => log({ toastError: message })),
 }));
+// The real helpers, watched (send-back 1): they must run only where today's markup ran them.
+vi.mock('@/constants/externalSchools', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/constants/externalSchools')>();
+  return { ...real, getExternalSchoolLabel: vi.fn(real.getExternalSchoolLabel) };
+});
+vi.mock('@/lib/services/communityWorkspace', async (importOriginal) => {
+  const real = await importOriginal<any>();
+  return { ...real, canEditWorkspaceWithRoles: vi.fn(real.canEditWorkspaceWithRoles) };
+});
+// The hook, untouched unless `watch.on` is set: then its `decide()` and the route cards it hands
+// out are counted. Only the send-back 1 tests set it; the pinned cases see the hook as it is.
+const watch = vi.hoisted(() => ({ on: false, decide: 0, routeCards: 0 }));
+vi.mock('@/hooks/usePanel', async (importOriginal) => {
+  const real = await importOriginal<any>();
+  return {
+    ...real,
+    usePanel: () => {
+      const panel = real.usePanel();
+      if (!watch.on || typeof panel.decide !== 'function') return panel;
+      return {
+        ...panel,
+        decide: () => {
+          watch.decide += 1;
+          const decisions = panel.decide();
+          return {
+            ...decisions,
+            learningPathCards: () => {
+              watch.routeCards += 1;
+              return decisions.learningPathCards();
+            },
+          };
+        },
+      };
+    },
+  };
+});
 vi.mock('@/components/layout/MainLayout', () => ({ default: marker('MainLayout', undefined, true) }));
 vi.mock('@/components/common/Avatar', () => ({ default: marker('Avatar') }));
 vi.mock('@/components/courses', () => ({ NetflixCourseRow: marker('NetflixCourseRow', (p) => p.title) }));
@@ -295,6 +339,9 @@ vi.mock('@/components/community/WorkspaceSettingsModal', () => ({ default: marke
 vi.mock('@/components/community/MemberProfileModal', () => ({ MemberProfileModal: marker('MemberProfileModal') }));
 
 import Dashboard from '@/pages/dashboard';
+import { getExternalSchoolLabel } from '@/constants/externalSchools';
+import { canEditWorkspaceWithRoles } from '@/lib/services/communityWorkspace';
+import { metadataHasRole } from '@/utils/roleUtils';
 
 // ── The fetch fake: answers by address, can fail or stay pending, writes each call down. ──
 
@@ -1038,6 +1085,76 @@ describe("today's panel: behaviour", () => {
   pinned('22c. the order of everything asked on load: two communities', async () => {
     await draw(twoCommunities());
     return [theLog()];
+  });
+});
+
+describe('the decisions run only where the markup ran them (send-back 1)', () => {
+  const label = vi.mocked(getExternalSchoolLabel);
+  const canEdit = vi.mocked(canEditWorkspaceWithRoles);
+  const hasRole = vi.mocked(metadataHasRole);
+  beforeEach(() => {
+    label.mockClear();
+    canEdit.mockClear();
+    hasRole.mockClear();
+    watch.on = true;
+    watch.decide = 0;
+    watch.routeCards = 0;
+  });
+  afterEach(() => {
+    watch.on = false;
+  });
+
+  it('with the main loader pending, none of the decisions has been worked out', async () => {
+    await draw(docente({ getUser: 'pending', fetch: FULL_FETCH }));
+    expect(screen.getByText('Cargando...')).toBeTruthy();
+    expect(label).not.toHaveBeenCalled();
+    expect(canEdit).not.toHaveBeenCalled();
+    // Before 6A the loader had not reached its own `metadataHasRole` yet, and nothing else asked it.
+    expect(hasRole).not.toHaveBeenCalled();
+    expect(watch.decide).toBe(0);
+  });
+
+  it('a consultor whose loader waits on the roles: no affiliation label while the loading mark shows', async () => {
+    await draw(
+      docente({
+        session: sessionFor('user-consultor', { roles: ['consultor'] }),
+        tables: {
+          profiles: [{ data: profile({ external_school_affiliation: 'colegio_inventado_sur' }), error: null }],
+        },
+        effective: { effectiveRole: 'consultor', isAdmin: false },
+        rolesPending: true,
+      })
+    );
+    expect(screen.getByText('Cargando...')).toBeTruthy();
+    expect(label).not.toHaveBeenCalled();
+    // Only the loader's own call (`adminRole`), as before 6A.
+    expect(hasRole).toHaveBeenCalledTimes(1);
+    expect(watch.decide).toBe(0);
+  });
+
+  it('a community manager whose loader waits on the members: the gear rule is not asked while loading', async () => {
+    await draw(withCommunity({ membersPending: true }, { role_type: 'community_manager' }));
+    expect(screen.getByText('Cargando...')).toBeTruthy();
+    expect(canEdit).not.toHaveBeenCalled();
+    expect(watch.decide).toBe(0);
+  });
+
+  it('a community whose bar is closed: the gear rule is asked only once the bar is opened', async () => {
+    await draw(withCommunity({}, { role_type: 'community_manager' }));
+    expect(watch.decide).toBeGreaterThan(0);
+    expect(canEdit).not.toHaveBeenCalled();
+    await click(communityBar());
+    expect(canEdit).toHaveBeenCalled();
+    expect(canEdit.mock.calls.every(([, communityId]) => communityId === 'com-n')).toBe(true);
+  });
+
+  it('the route cards are worked out only for an account with routes', async () => {
+    await draw(docente());
+    expect(watch.decide).toBeGreaterThan(0);
+    expect(watch.routeCards).toBe(0);
+    view.unmount();
+    await draw(fullDocente());
+    expect(watch.routeCards).toBeGreaterThan(0);
   });
 });
 

@@ -128,9 +128,13 @@ async function signedIn(browser: Browser, viewport: typeof DESKTOP, user: User) 
   return { context, page, problems };
 }
 
-/** Puts the harness on the current app page (same origin, same cookies), optionally with ?user_id in the hash. */
+/**
+ * Puts the harness on a page of the app's own origin (same cookies), optionally with ?user_id in the hash.
+ * The page is the static /favicon.png (served from public/, outside the middleware matcher), so no
+ * application script is left running under the harness to rewrite the document's head after setContent.
+ */
 async function harness(page: Page, queryUser = '') {
-  await page.goto(`/dashboard${queryUser ? `#${queryUser}` : ''}`);
+  await page.goto(`/favicon.png${queryUser ? `#${queryUser}` : ''}`);
   await page.setContent(HARNESS);
   expect(new URL(page.url()).origin).toBe(APP_ORIGIN);
   await expect(page.getByRole('heading', { name: /Arnés de prueba/ })).toBeVisible();

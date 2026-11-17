@@ -7,6 +7,7 @@ import {
   handleMethodNotAllowed,
 } from '@/lib/api-auth';
 import { hasAssessmentWritePermission } from '@/lib/assessment-permissions';
+import { uuidSchema } from '@/lib/validation/schemas';
 
 /**
  * GET /api/admin/assessment-builder/templates/[templateId]/delivery-preview
@@ -36,6 +37,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { templateId } = req.query;
   if (!templateId || typeof templateId !== 'string') {
     return res.status(400).json({ error: 'templateId es requerido' });
+  }
+  if (!uuidSchema.safeParse(templateId).success) {
+    return res.status(400).json({ error: 'templateId no es válido' });
   }
 
   try {

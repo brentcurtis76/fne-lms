@@ -86,6 +86,30 @@ describe('GET /api/admin/assessment-builder/templates/[templateId]/delivery-prev
     expect(r.body.error).toBe('templateId es requerido');
   });
 
+  it('answers 400 to an admin whose template id is not a uuid, without asking the database', async () => {
+    session(ADMIN_UUID, true);
+    const r = await call('GET', 'bad-id');
+    expect(r.status).toBe(400);
+    expect(r.body.error).toBe('templateId no es válido');
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('still answers 401 and 403 before looking at a malformed template id', async () => {
+    mockGetApiUser.mockResolvedValue({ user: null, error: 'No session' });
+    expect((await call('GET', 'bad-id')).status).toBe(401);
+    session(DOCENTE_UUID, false);
+    expect((await call('GET', 'bad-id')).status).toBe(403);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('answers 200 with zeros for a well-formed id of an instrument that does not exist', async () => {
+    session(ADMIN_UUID, true);
+    mockRpc.mockResolvedValueOnce({ data: { target: null, courses: 0, schools: 0 }, error: null });
+    const r = await call('GET', '13100000-0000-4000-8000-00000000ffff');
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ target: null, courses: 0, schools: 0 });
+  });
+
   it('answers 200 to an admin with the function numbers', async () => {
     session(ADMIN_UUID, true);
     mockRpc.mockResolvedValueOnce({ data: { target: 'course_docente', courses: 7, schools: 2 }, error: null });

@@ -1,7 +1,7 @@
 # Espacio Colaborativo y comunidades
 
 Area `07-espacio-colaborativo`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `007807e90` (2026-11-16).
+Read from commit `3ff6aa13f` (2026-11-17).
 
 4 screen files, 18 API files, 67 pieces.
 
@@ -3408,13 +3408,13 @@ Used by: `/community/workspace`
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «withAlpha expects two hex characters, got "{hh}"» | `throw (shown by whoever catches it)` | `!TWO_HEX.test(hh)` | alphaFromHex · l.15 |
+| «withAlpha expects two hex characters, got "{hh}"» | `throw (shown by whoever catches it)` | `!TWO_HEX.test(hh)` | alphaFromHex · l.19 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
-| `withAlpha()` | «rgb(var({named[1]}) / {alpha})» | withAlpha · l.22 |
+| `withAlpha()` | «rgb({named[1]} / {alpha})» | withAlpha · l.26 |
 
 ### lib/community/fetchCommunityMembers.ts
 
@@ -3920,6 +3920,6 @@ Used by: `/community/workspace`
 | `/api/meetings/delete` | `pages/api/meetings/delete.ts` | POST | `/community/workspace` | `__tests__/api/meetings/delete.test.ts`, `tests/e2e/meeting-create-and-access.spec.ts`, `utils/meetingDeletion.ts` |
 | `/api/messaging/mention` | `pages/api/messaging/mention.ts` | POST | `/community/workspace` | `__tests__/api/messaging/mention.test.ts`, `__tests__/lib/notificationService.producer-contract.test.ts`, `lib/services/feedService.ts`, `tests/e2e/messaging-notifications.spec.ts` |
 | `/api/messaging/send` | `pages/api/messaging/send.ts` | POST | **no screen** | `__tests__/api/messaging/send.test.ts`, `__tests__/lib/notificationService.producer-contract.test.ts`, `__tests__/lib/notificationService.source-context.test.ts`, `tests/e2e/messaging-notifications.spec.ts` |
-| `/api/storage/download-url` | `pages/api/storage/download-url.ts` | POST | **no screen** |  |
-| `/api/storage/download` | `pages/api/storage/download.ts` | GET | `/community/workspace`, `/student/lesson/[lessonId]` | `components/student/StudentBlockRenderer.tsx`, `pages/community/workspace.tsx`, `scripts/seed-qa-phase2-final.js`, `scripts/seed-qa-phase2-retest.js`, `scripts/seed-qa-phase2.js` +2 |
+| `/api/storage/download-url` | `pages/api/storage/download-url.ts` | POST | **no screen** | `__tests__/api/storage/download-authorization.test.ts` |
+| `/api/storage/download` | `pages/api/storage/download.ts` | GET | `/community/workspace`, `/student/lesson/[lessonId]` | `__tests__/api/storage/download-authorization.test.ts`, `components/student/StudentBlockRenderer.tsx`, `pages/community/workspace.tsx`, `scripts/seed-qa-phase2-final.js`, `scripts/seed-qa-phase2-retest.js` +3 |
 

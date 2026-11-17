@@ -1,7 +1,7 @@
 # Vías de Transformación (to be deleted)
 
 Area `09-vias-transformacion`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `007807e90` (2026-11-16).
+Read from commit `3ff6aa13f` (2026-11-17).
 
 Brent, 13 Nov 2026: Vías de Transformación is going to be deleted from the platform. Its screens are listed with their address and who reaches them, and nothing else. Which files go is confirmed with him on the leftover list.
 
@@ -371,7 +371,7 @@ File `pages/vias-transformacion/index.tsx` · 532 lines · frame: MainLayout
 | `/api/admin/transformation-assessments` | `pages/api/admin/transformation-assessments.ts` | GET | `/admin/transformation/assessments` | `__tests__/api/admin/transformation-assessments.test.ts`, `__tests__/api/forged-session-sweep.test.ts`, `pages/admin/transformation/assessments.tsx` |
 | `/api/admin/transformation/assign-access` | `pages/api/admin/transformation/assign-access.ts` | POST | **no screen** | `__tests__/api/forged-session-sweep.test.ts` |
 | `/api/admin/transformation/revoke-access` | `pages/api/admin/transformation/revoke-access.ts` | POST | **no screen** | `__tests__/api/forged-session-sweep.test.ts` |
-| `/api/transformation/area-questions` | `pages/api/transformation/area-questions.ts` | GET | `/community/transformation/assessment`, `/test/sequential-questions`, `/vias-transformacion/[id]` | `components/transformation/SequentialQuestions.tsx`, `pages/api/transformation/personalizacion-questions.ts` |
+| `/api/transformation/area-questions` | `pages/api/transformation/area-questions.ts` | GET | `/community/transformation/assessment`, `/test/sequential-questions`, `/vias-transformacion/[id]` | `__tests__/api/transformation/area-questions-auth.test.ts`, `components/transformation/SequentialQuestions.tsx`, `pages/api/transformation/personalizacion-questions.ts` |
 | `/api/transformation/assessments` | `pages/api/transformation/assessments.ts` | POST | `/admin/transformation/metrics`, `/community/transformation/assessment` | `__tests__/api/forged-session-sweep.test.ts`, `pages/admin/transformation/metrics.tsx`, `pages/community/transformation/assessment.tsx` |
 | `/api/transformation/assessments/[id]` | `pages/api/transformation/assessments/[id].ts` | PATCH | `/community/transformation/assessment`, `/test/sequential-questions`, `/vias-transformacion/[id]` | `__tests__/api/forged-session-sweep.test.ts`, `components/transformation/SequentialQuestions.tsx`, `pages/community/transformation/assessment.tsx`, `supabase/migrations/20261009120000_transformation_school_scope.sql` |
 | `/api/transformation/assessments/[id]/evaluate-objective` | `pages/api/transformation/assessments/[id]/evaluate-objective.ts` | POST | `/community/transformation/assessment`, `/test/sequential-questions`, `/vias-transformacion/[id]` | `__tests__/api/transformation/assessment-verified-identity.test.ts`, `components/transformation/SequentialQuestions.tsx` |
@@ -380,7 +380,7 @@ File `pages/vias-transformacion/index.tsx` · 532 lines · frame: MainLayout
 | `/api/transformation/assessments/[id]/responses` | `pages/api/transformation/assessments/[id]/responses.ts` | GET, PUT | **no screen** | `__tests__/api/forged-session-sweep.test.ts` |
 | `/api/transformation/chat` | `pages/api/transformation/chat.ts` | POST | `/community/workspace/transformation/evaluate` | `__tests__/api/transformation/forged-session.test.ts`, `hooks/useTransformationChat.ts` |
 | `/api/transformation/history` | `pages/api/transformation/history.ts` | GET | `/community/workspace/transformation/evaluate` | `__tests__/api/forged-session-sweep.test.ts`, `pages/community/workspace/transformation/evaluate.tsx` |
-| `/api/transformation/personalizacion-questions` | `pages/api/transformation/personalizacion-questions.ts` | GET | **no screen** |  |
+| `/api/transformation/personalizacion-questions` | `pages/api/transformation/personalizacion-questions.ts` | GET | **no screen** | `__tests__/api/transformation/area-questions-auth.test.ts` |
 | `/api/vias-transformacion/[id]/collaborators` | `pages/api/vias-transformacion/[id]/collaborators.ts` | DELETE, GET, POST | `/vias-transformacion/[id]` | `__tests__/api/transformation/forged-session.test.ts`, `pages/vias-transformacion/[id].tsx` |
 | `/api/vias-transformacion/[id]` | `pages/api/vias-transformacion/[id]/index.ts` | GET, PATCH | `/vias-transformacion/[id]` | `__tests__/api/transformation/forged-session.test.ts`, `pages/vias-transformacion/[id].tsx` |
 | `/api/vias-transformacion/eligible-collaborators` | `pages/api/vias-transformacion/eligible-collaborators.ts` | GET | `/vias-transformacion`, `/vias-transformacion/[id]` | `__tests__/api/transformation/forged-session.test.ts`, `components/transformation/CollaboratorSelector.tsx` |

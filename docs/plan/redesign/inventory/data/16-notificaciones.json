@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "007807e90467f7aa64736d0a234ad0d7009cfc83",
-  "date": "2026-11-16T16:10:07-03:00"
+  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
+  "date": "2026-11-17T05:46:26-03:00"
  },
  "screens": [
   {
@@ -1076,7 +1076,8 @@
     },
     "inPage": [],
     "linkedFrom": [
-     "lib/email/notification-unsubscribe.ts:30"
+     "lib/email/notification-unsubscribe.ts:30",
+     "lib/look.ts:117"
     ],
     "qaScenarios": {},
     "tests": {
@@ -1954,7 +1955,7 @@
    "usedBy": [
     "/configuracion/apariencia"
    ],
-   "lines": 84,
+   "lines": 146,
    "rows": [
     {
      "kind": "list",

@@ -1,7 +1,7 @@
 # Sistema (configuration, support, roadmap, test and debug pages, scheduled jobs)
 
 Area `19-sistema`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `007807e90` (2026-11-16).
+Read from commit `3ff6aa13f` (2026-11-17).
 
 3 screen files, 27 API files, 6 pieces.
 
@@ -779,7 +779,7 @@ Used by: `/admin/feedback`, `/admin/roadmap`
 | `/api/cron/update-learning-path-summaries` | `pages/api/cron/update-learning-path-summaries.ts` | POST | **no screen** | `__tests__/api/cron/update-learning-path-summaries.test.ts`, `tests/e2e/learning-path-governance.spec.ts` |
 | `/api/cron/zoom-reconcile` | `pages/api/cron/zoom-reconcile.ts` |  | **no screen** | `__tests__/api/cron/session-reminders.test.ts`, `__tests__/api/cron/zoom-reconcile.test.ts`, `__tests__/lib/notificationService.dispatch.test.ts`, `tests/e2e/zoom-mock-mode.spec.ts`, `vercel.json` |
 | `/api/cron/zoom-ticker` | `pages/api/cron/zoom-ticker.ts` |  | **no screen** | `__tests__/api/cron/session-reminders.test.ts`, `__tests__/api/cron/zoom-ticker.test.ts`, `__tests__/lib/notificationService.dispatch.test.ts`, `tests/e2e/zoom-mock-mode.spec.ts`, `vercel.json` |
-| `/api/debug/check-course-images` | `pages/api/debug/check-course-images.ts` | GET | **no screen** |  |
+| `/api/debug/check-course-images` | `pages/api/debug/check-course-images.ts` | GET | **no screen** | `__tests__/api/cursos-admin-only-routes.test.ts` |
 | `/api/monitoring/run-checks` | `pages/api/monitoring/run-checks.ts` | POST | **no screen** |  |
 | `/api/test-bucket` | `pages/api/test-bucket.js` |  | **no screen** |  |
 | `/api/test/notification-triggers` | `pages/api/test/notification-triggers.ts` |  | **no screen** |  |

@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "007807e90467f7aa64736d0a234ad0d7009cfc83",
-  "date": "2026-11-16T16:10:07-03:00"
+  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
+  "date": "2026-11-17T05:46:26-03:00"
  },
  "screens": [
   {
@@ -2111,6 +2111,30 @@
    "rows": [
     {
      "kind": "list",
+     "line": 35,
+     "text": "COLOR_CONSUMED",
+     "items": [
+      "rgb(var(--color-serie-1, var(--color-legacy-003a5b)))"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 36,
+     "text": "COLOR_RESERVED",
+     "items": [
+      "rgb(var(--color-serie-2, var(--color-legacy-0066a4)))"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 37,
+     "text": "COLOR_AVAILABLE",
+     "items": [
+      "rgb(var(--color-serie-5, var(--color-legacy-e0f0ff)))"
+     ]
+    },
+    {
+     "kind": "list",
      "line": 50,
      "text": "STATUS_BADGE",
      "items": [
@@ -3376,14 +3400,14 @@
        "tag": "Line",
        "dataKey": "lessons_completed",
        "name": "Lecciones Completadas",
-       "fill": "{FNE_COLORS.primary}",
+       "fill": "rgb(var(--color-serie-1, 10 10 10))",
        "mapped": false
       },
       {
        "tag": "Line",
        "dataKey": "unique_users",
        "name": "Usuarios Activos",
-       "fill": "{FNE_COLORS.secondary}",
+       "fill": "rgb(var(--color-serie-2, 251 191 36))",
        "mapped": false
       }
      ]
@@ -3419,14 +3443,14 @@
        "tag": "Area",
        "dataKey": "total_time_hours",
        "name": "Total Horas",
-       "fill": "{withAlpha(FNE_COLORS.success, '30')}",
+       "fill": "{withAlpha('rgb(var(--color-serie-1, var(--color-legacy-10b981)))', '30')}",
        "mapped": false
       },
       {
        "tag": "Area",
        "dataKey": "avg_time_per_user",
        "name": "Promedio por Usuario",
-       "fill": "{withAlpha(FNE_COLORS.info, '30')}",
+       "fill": "{withAlpha('rgb(var(--color-serie-2, var(--color-blue-500)))', '30')}",
        "mapped": false
       }
      ]
@@ -3607,14 +3631,14 @@
        "tag": "Line",
        "dataKey": "completedLessons",
        "name": "Lecciones Completadas",
-       "fill": "{FNE_COLORS.primary}",
+       "fill": "rgb(var(--color-serie-1, 10 10 10))",
        "mapped": false
       },
       {
        "tag": "Line",
        "dataKey": "activeUsers",
        "name": "Usuarios Activos",
-       "fill": "{FNE_COLORS.secondary}",
+       "fill": "rgb(var(--color-serie-2, 251 191 36))",
        "mapped": false
       }
      ]
@@ -3729,7 +3753,7 @@
        "tag": "Area",
        "dataKey": "totalHours",
        "name": "Total Horas",
-       "fill": "{`${FNE_COLORS.primary}80`}",
+       "fill": "{withAlpha('rgb(var(--color-serie-1, 10 10 10))', '80')}",
        "stackId": "1",
        "mapped": false
       },
@@ -3737,7 +3761,7 @@
        "tag": "Area",
        "dataKey": "avgHoursPerUser",
        "name": "Promedio por Usuario",
-       "fill": "{`${FNE_COLORS.secondary}80`}",
+       "fill": "{withAlpha('rgb(var(--color-serie-2, 251 191 36))', '80')}",
        "stackId": "2",
        "mapped": false
       }
@@ -4555,14 +4579,14 @@
        "tag": "Line",
        "dataKey": "completions",
        "name": "Completaciones de curso",
-       "fill": "rgb(var(--color-blue-500))",
+       "fill": "rgb(var(--color-serie-1, var(--color-blue-500)))",
        "mapped": false
       },
       {
        "tag": "Line",
        "dataKey": "enrollments",
        "name": "Nuevas asignaciones",
-       "fill": "rgb(var(--color-legacy-10b981))",
+       "fill": "rgb(var(--color-serie-2, var(--color-legacy-10b981)))",
        "mapped": false
       }
      ]
@@ -5685,11 +5709,11 @@
     "/detailed-reports",
     "/reports"
    ],
-   "lines": 25,
+   "lines": 29,
    "rows": [
     {
      "kind": "message",
-     "line": 15,
+     "line": 19,
      "in": "alphaFromHex",
      "when": "!TWO_HEX.test(hh)",
      "text": "withAlpha expects two hex characters, got \"{hh}\"",
@@ -5697,11 +5721,11 @@
     },
     {
      "kind": "list",
-     "line": 22,
+     "line": 26,
      "in": "withAlpha",
      "text": "withAlpha()",
      "items": [
-      "rgb(var({named[1]}) / {alpha})"
+      "rgb({named[1]} / {alpha})"
      ]
     }
    ],

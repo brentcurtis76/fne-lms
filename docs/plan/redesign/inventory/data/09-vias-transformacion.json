@@ -4,8 +4,8 @@
  "note": "Brent, 13 Nov 2026: Vías de Transformación is going to be deleted from the platform. Its screens are listed with their address and who reaches them, and nothing else. Which files go is confirmed with him on the leftover list.",
  "routesOnly": true,
  "readFrom": {
-  "commit": "007807e90467f7aa64736d0a234ad0d7009cfc83",
-  "date": "2026-11-16T16:10:07-03:00"
+  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
+  "date": "2026-11-17T05:46:26-03:00"
  },
  "screens": [
   {
@@ -1125,6 +1125,7 @@
     "/vias-transformacion/[id]"
    ],
    "referencedIn": [
+    "__tests__/api/transformation/area-questions-auth.test.ts",
     "components/transformation/SequentialQuestions.tsx",
     "pages/api/transformation/personalizacion-questions.ts"
    ]
@@ -1275,7 +1276,9 @@
    ],
    "guards": [],
    "calledBy": [],
-   "referencedIn": []
+   "referencedIn": [
+    "__tests__/api/transformation/area-questions-auth.test.ts"
+   ]
   },
   {
    "file": "pages/api/vias-transformacion/[id]/collaborators.ts",

@@ -1,7 +1,7 @@
 # Panel (Mi Panel)
 
 Area `02-panel`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `007807e90` (2026-11-16).
+Read from commit `3ff6aa13f` (2026-11-17).
 
 1 screen files, 6 API files, 24 pieces.
 
@@ -1021,7 +1021,7 @@ Used by: `/dashboard`
 
 | Name | Texts | Where |
 |---|---|---|
-| `baseStyle` | «0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08)», «Inter, system-ui, -apple-system, sans-serif» | l.20 |
+| `baseStyle` | «Inter, system-ui, -apple-system, sans-serif» | l.29 |
 
 ### lib/services/badgeService.ts
 
@@ -1121,7 +1121,7 @@ Used by: `/dashboard`
 
 | Address | File | Methods | Screens that call it | Also named in |
 |---|---|---|---|---|
-| `/api/badges/award-and-announce` | `pages/api/badges/award-and-announce.ts` | POST | **no screen** |  |
+| `/api/badges/award-and-announce` | `pages/api/badges/award-and-announce.ts` | POST | **no screen** | `__tests__/api/cursos-admin-only-routes.test.ts` |
 | `/api/course-proposals/[id]` | `pages/api/course-proposals/[id].ts` | DELETE, PUT | `/dashboard` | `__tests__/api/upcoming-courses/metadata-authority.test.ts`, `components/course-proposals/CourseProposalSection.tsx` |
 | `/api/course-proposals` | `pages/api/course-proposals/index.ts` | GET, POST | `/dashboard` | `__tests__/api/upcoming-courses/metadata-authority.test.ts`, `components/course-proposals/CourseProposalSection.tsx`, `tests/e2e/panel-pin.spec.ts` |
 | `/api/dashboard/stats` | `pages/api/dashboard/stats.ts` | GET | `/dashboard` | `pages/dashboard.tsx`, `tests/e2e/meeting-finalize-email-outcome.spec.ts`, `tests/e2e/panel-pin.spec.ts` |

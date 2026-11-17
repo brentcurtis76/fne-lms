@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "007807e90467f7aa64736d0a234ad0d7009cfc83",
-  "date": "2026-11-16T16:10:07-03:00"
+  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
+  "date": "2026-11-17T05:46:26-03:00"
  },
  "screens": [
   {
@@ -5908,11 +5908,11 @@
    "methods": [
     "POST"
    ],
-   "guards": [
-    "auth.getUser"
-   ],
+   "guards": [],
    "calledBy": [],
-   "referencedIn": []
+   "referencedIn": [
+    "__tests__/api/assignments/feedback-admin-only.test.ts"
+   ]
   },
   {
    "file": "pages/api/assignments/group-members.ts",
@@ -5992,6 +5992,7 @@
    ],
    "referencedIn": [
     "__tests__/api/group-quiz-notifications.test.ts",
+    "__tests__/api/quiz-review-scope.test.ts",
     "pages/quiz-reviews/[id].tsx"
    ]
   },
@@ -6010,6 +6011,7 @@
    ],
    "referencedIn": [
     "__tests__/api/group-quiz-notifications.test.ts",
+    "__tests__/api/quiz-review-scope.test.ts",
     "__tests__/lib/notificationService.dispatch.test.ts",
     "__tests__/lib/notificationService.source-context.test.ts",
     "lib/services/quizSubmissions.js"
@@ -6029,6 +6031,7 @@
    ],
    "referencedIn": [
     "__tests__/api/group-quiz-notifications.test.ts",
+    "__tests__/api/quiz-review-scope.test.ts",
     "pages/quiz-reviews.tsx"
    ]
   },
@@ -6047,6 +6050,7 @@
    ],
    "referencedIn": [
     "__tests__/api/group-quiz-notifications.test.ts",
+    "__tests__/api/quiz-review-scope.test.ts",
     "components/quiz/QuizReviewPanel.tsx"
    ]
   }

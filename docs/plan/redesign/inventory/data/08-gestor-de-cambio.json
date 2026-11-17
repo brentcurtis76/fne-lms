@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "007807e90467f7aa64736d0a234ad0d7009cfc83",
-  "date": "2026-11-16T16:10:07-03:00"
+  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
+  "date": "2026-11-17T05:46:26-03:00"
  },
  "screens": [
   {
@@ -8203,6 +8203,20 @@
     }
    },
    "rows": [
+    {
+     "kind": "list",
+     "line": 115,
+     "text": "AREA_COLORS",
+     "items": [
+      "rgb(var(--color-serie-1, var(--color-blue-500)))",
+      "rgb(var(--color-serie-2, var(--color-legacy-10b981)))",
+      "rgb(var(--color-serie-3, 245 158 11))",
+      "rgb(var(--color-serie-4, var(--color-legacy-8b5cf6)))",
+      "rgb(var(--color-serie-5, var(--color-legacy-ec4899)))",
+      "rgb(var(--color-serie-1, var(--color-legacy-06b6d4)))",
+      "rgb(var(--color-serie-2, var(--color-legacy-f97316)))"
+     ]
+    },
     {
      "kind": "nav",
      "line": 144,

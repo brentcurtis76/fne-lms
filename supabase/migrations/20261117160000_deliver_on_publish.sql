@@ -38,8 +38,9 @@ BEGIN
    WHERE t.id = p_template_id;
 
   -- Counts only the pairs deliver_published_template would create: its
-  -- candidate query (without requiring status = 'published': the editor asks
-  -- while it is a draft) plus, read-only and without any lock, the same
+  -- candidate query (accepting status 'draft' as well as 'published': the
+  -- editor asks while it is a draft; any other status, such as 'archived',
+  -- counts zero, as delivery refuses it) plus, read-only and without any lock, the same
   -- conditions its per-pair block checks. Keep equal to that block.
   IF v_target = 'course_docente' THEN
     SELECT count(*)::integer, count(DISTINCT x.school_id)::integer
@@ -49,6 +50,7 @@ BEGIN
           FROM public.school_course_structure c
           JOIN public.school_course_docente_assignments a ON a.course_structure_id = c.id AND a.is_active
           JOIN public.assessment_templates t ON t.grade_id = c.grade_id AND NOT t.is_archived
+                                            AND t.status IN ('draft', 'published')
           JOIN public.ab_via_assignment_rules r ON r.area = t.area AND r.target = 'course_docente'
          WHERE t.id = p_template_id
            AND NOT EXISTS (
@@ -77,6 +79,7 @@ BEGIN
     SELECT count(DISTINCT a.school_id)::integer INTO v_schools
       FROM public.school_via_responsibles a
       JOIN public.assessment_templates t ON t.area = a.area AND NOT t.is_archived AND t.grade_id IS NULL
+                                        AND t.status IN ('draft', 'published')
       JOIN public.ab_via_assignment_rules r ON r.area = t.area AND r.target = 'school_responsible'
      WHERE t.id = p_template_id
        AND a.is_active
@@ -109,7 +112,7 @@ $$;
 REVOKE ALL ON FUNCTION public.preview_template_delivery(uuid) FROM public, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.preview_template_delivery(uuid) TO service_role;
 COMMENT ON FUNCTION public.preview_template_delivery(uuid) IS
-  'Read-only count of the courses (course_docente) or schools (school_responsible) that would actually be delivered to if this template were published now: the candidate query of deliver_published_template / reconcile_published_assessment_deliveries for one template, without requiring published status (works on a draft), restricted to the pairs that also pass delivery''s per-pair checks (exactly one active teacher with an accepted active role at the school, or an active responsable with an active equipo_directivo role there; a usable context year; a snapshot unless still a draft). Archived templates count zero. Writes nothing, takes no lock. Service role only.';
+  'Read-only count of the courses (course_docente) or schools (school_responsible) that would actually be delivered to if this template were published now: the candidate query of deliver_published_template / reconcile_published_assessment_deliveries for one template, accepting status draft or published only (works on a draft; any other status counts zero), restricted to the pairs that also pass delivery''s per-pair checks (exactly one active teacher with an accepted active role at the school, or an active responsable with an active equipo_directivo role there; a usable context year; a snapshot unless still a draft). Archived templates (by flag or by status) count zero. Writes nothing, takes no lock. Service role only.';
 
 CREATE FUNCTION public.deliver_published_template(p_template_id uuid, p_limit integer DEFAULT 500)
 RETURNS jsonb

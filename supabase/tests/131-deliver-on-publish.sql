@@ -171,6 +171,28 @@ SELECT is(:'prev1'::jsonb,'{"target":"course_docente","courses":3,"schools":2}':
 SELECT is(:'prev2'::jsonb,'{"target":"school_responsible","courses":0,"schools":2}'::jsonb,'draft school template: two schools with an active responsable');
 SELECT is((:'prev6'::jsonb->>'courses')::integer + (:'prev6'::jsonb->>'schools')::integer,0,'archived template previews zero');
 SELECT is(:'prevx'::jsonb,'{"target":null,"courses":0,"schools":0}'::jsonb,'unknown template previews null target and zeros');
+
+-- Archived by its status only (status 'archived', flag off), with a snapshot:
+-- ea course template of grade 1 (courses 01-03 would otherwise receive it),
+-- eb school template of liderazgo (schools A and B would otherwise receive it).
+INSERT INTO public.assessment_templates(id,area,version,name,status,is_archived,grade_id) VALUES
+('13100000-0000-4000-8000-0000000000ea','familias','3.0','DOP Status Archived Course','archived',false,93101),
+('13100000-0000-4000-8000-0000000000eb','liderazgo','3.0','DOP Status Archived School','archived',false,NULL);
+INSERT INTO public.assessment_template_snapshots(id,template_id,version,snapshot_data,created_at) VALUES
+('13100000-0000-4000-8000-0000000000fa','13100000-0000-4000-8000-0000000000ea','3.0','{"modules":[]}','2026-01-01'),
+('13100000-0000-4000-8000-0000000000fb','13100000-0000-4000-8000-0000000000eb','3.0','{"modules":[]}','2026-01-01');
+SET LOCAL ROLE service_role;
+SELECT public.preview_template_delivery('13100000-0000-4000-8000-0000000000ea') AS prevsa \gset
+SELECT public.preview_template_delivery('13100000-0000-4000-8000-0000000000eb') AS prevsb \gset
+SELECT public.deliver_published_template('13100000-0000-4000-8000-0000000000ea') AS delsa \gset
+SELECT public.deliver_published_template('13100000-0000-4000-8000-0000000000eb') AS delsb \gset
+RESET ROLE;
+SELECT is(:'prevsa'::jsonb,'{"target":"course_docente","courses":0,"schools":0}'::jsonb,'course template archived by status previews zero courses');
+SELECT is(:'prevsb'::jsonb,'{"target":"school_responsible","courses":0,"schools":0}'::jsonb,'school template archived by status previews zero schools');
+SELECT is(:'delsa'::jsonb->>'reason','template_not_published','course template archived by status is not delivered');
+SELECT is(:'delsb'::jsonb->>'reason','template_not_published','school template archived by status is not delivered');
+SELECT is((SELECT count(*)::integer FROM public.assessment_instances i JOIN public.assessment_template_snapshots s ON s.id=i.template_snapshot_id
+           WHERE s.template_id IN ('13100000-0000-4000-8000-0000000000ea','13100000-0000-4000-8000-0000000000eb')),0,'templates archived by status wrote no instance');
 SELECT is(:'del5'::jsonb->>'reason','template_not_published','draft template is not delivered');
 SELECT is((:'del5'::jsonb->>'created')::integer,0,'draft template creates nothing');
 SELECT is(:'del6'::jsonb->>'reason','template_not_published','archived template is not delivered');

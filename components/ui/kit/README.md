@@ -28,15 +28,15 @@ version of that thing; the new look (`<html data-look="nuevo">`, `lib/look.ts`) 
 
 | Piece | For | Props (besides every native attribute and a forwarded ref) |
 |---|---|---|
-| `Button` | Every action. `primary` = the ONE main action of a screen | `variant` `primary` `default` `outline` `quiet` `danger` `danger-outline`; `size` `md` (40 px new look) `sm` (32 px); `iconOnly` (needs `aria-label`, a type error without); `loading` (spinner, `aria-busy`, ignores clicks, keeps focus); `disabled`; `href` (a link; `/…` through Next `Link`). `type="button"` by default. `buttonClasses()` gives the classes for an element that is not a Button |
-| `Field` + `Input` `Textarea` `Select` `SearchInput` | One labelled control | `label`, `help`, `error` (marks it `aria-invalid`), `required` (sets `required` + `aria-required`), `disabled`, `controlId` (else `useId`), `group` (a fieldset with legend, for radios/tick boxes) |
+| `Button` | Every action. `primary` = the ONE main action of a screen | `variant` `primary` `default` `outline` `quiet` `danger` `danger-outline` `confirm` (the «yes» of a confirmation: black today, the yellow main action in the new look); `size` `md` (40 px new look) `sm` (32 px); `iconOnly` (needs `aria-label`, a type error without); `loading` (spinner, `aria-busy`, ignores clicks, keeps focus); `disabled`; `href` (a link; `/…` through Next `Link`). `type="button"` by default. `buttonClasses()` gives the classes for an element that is not a Button |
+| `Field` + `Input` `Textarea` `Select` `SearchInput` | One labelled control | `label`, `help`, `error` (marks it `aria-invalid`), `required` (sets `required` + `aria-required`), `disabled`, `controlId` (a control's own `id` wins; else `useId`), `group` (a fieldset with legend, for radios/tick boxes; see «Required groups» below) |
 | `Checkbox` `Radio` `Switch` | Choices; carry their own words | `label`, `help`; `Switch` is a checkbox with `role="switch"` |
 | `Dialog` | A pop-up window | `open`, `onClose`, `title` (required, names it), `eyebrow`, `description`, `footer` (buttons, right-aligned), `size` `md`/`wide`, `dismissable` (default true; false = no X, Escape and veil do nothing), `initialFocusRef` (default: first field of the body, then first footer button). Focus trapped and returned, page scroll locked, a bottom sheet under 560 px in the new look |
-| `ConfirmDialog` | A question with two answers | `open`, `title`, `message`, `confirmLabel` («Confirmar»), `cancelLabel` («Cancelar»), `tone` `default`/`danger`, `onConfirm`, `onCancel`, `loading`, `eyebrow`. Focus starts on cancel |
-| `useConfirm()` | The promise form of `ConfirmDialog` | returns `{ confirm, confirmDialog }`; `confirm(question \| options)` resolves `true` only for confirm |
-| `Table` `TableHead` `TableBody` `TableRow` `TableHeaderCell` `TableCell` | Data in rows | `Table`: `stackOnPhone` (under 760 px rows become cards), `footer`, `boxClassName`. `TableRow`: `selected` (`aria-selected`). `TableHeaderCell`: `sort` + `onSort` (a button, `aria-sort`), `align`. `TableCell`: `label` (its column's name on a phone), `primary` (the card's title), `align` |
+| `ConfirmDialog` | A question with two answers | `open`, `title`, `message`, `confirmLabel` («Confirmar»), `cancelLabel` («Cancelar»), `tone` `default`/`danger`, `onConfirm`, `onCancel`, `loading`, `eyebrow`, `questionKey` (a new question in an open window: the focus goes back to cancel). Focus starts on cancel. The «yes» is the `confirm` Button (red with `danger`) |
+| `useConfirm()` | The promise form of `ConfirmDialog` | returns `{ confirm, confirmDialog }`; `confirm(question \| options)` resolves `true` only for confirm; `false` at once when called after the component went away |
+| `Table` `TableHead` `TableBody` `TableRow` `TableHeaderCell` `TableCell` | Data in rows | Every part carries its table role. `Table`: `stackOnPhone` (under 760 px rows become cards; each cell's column name is real text, shown and read only on a phone), `footer`, `boxClassName`. `TableRow`: `selected` (`aria-selected`). `TableHeaderCell`: `sort` + `onSort` (a button, `aria-sort`), `align`. `TableCell`: `label` (its column's name on a phone), `primary` (the card's title), `align` |
 | `Pagination` | Under a table | `page` (from 1), `pageSize`, `total`, `onPageChange`, `noun`: «Mostrando x–y de n …», «Anterior», «Siguiente» |
-| `Tabs` `TabList` `Tab` `TabPanel` | Views of one thing | `Tabs`: `value`+`onValueChange` or `defaultValue`; `TabList`: `label` (required); `Tab`/`TabPanel`: `value`. Arrows, Home, End; roving tab order |
+| `Tabs` `TabList` `Tab` `TabPanel` | Views of one thing | `Tabs`: `value`+`onValueChange` or `defaultValue`; `TabList`: `label` (required); `Tab`/`TabPanel`: `value` (any text). Arrows, Home, End; roving tab order (with no enabled tab selected, the first enabled one is the tab stop) |
 | `TabLinks` | Tabs that are addresses | `label`, `items` `{ href, label, current }` (`aria-current="page"`) |
 | `Badge`, `Count` | A state word; a small number | `tone` `neutral` `success` `warning` `error` `info` `accent`, `plain` (no dot); `Count`: `value`, `label` (what it counts, for screen readers) |
 | `Card` `CardHeader` `CardBody` `CardFooter` `CardTitle` | A panel | `interactive` with `href` (one link) or `onClick` (one button); `leading` (yellow top edge, new look only). `CardTitle`: `as` |
@@ -44,6 +44,17 @@ version of that thing; the new look (`<html data-look="nuevo">`, `lib/look.ts`) 
 | `EmptyState` | Nothing to show | `title`, `description`, `icon`, `action`, `headingLevel` |
 | `Skeleton` `Spinner` `LoadingBlock` | Loading | `Skeleton`: `width`, `height` (hidden from screen readers). `Spinner`: `size`, `label` (else a hidden «Cargando…»). `LoadingBlock`: `label` («Cargando…»), `role="status"` |
 | `PageHeader` | The head of a screen | `eyebrow`, `title` (the `h1`), `description`, `actions`, `primaryAction`, `secondaryAction`, `icon`, `leftAddon`, `searchValue`/`onSearchChange`/`searchPlaceholder`/`searchLabel`, `children` (under the title row) |
+
+## Required groups
+
+`<Field group required>` shows the required mark only because something backs it:
+
+- **Radios:** every `Radio` inside is `required`, the browser's own rule for a radio group (one of the
+  same `name` must be chosen). No `aria-required` on the fieldset: it means nothing on a group.
+- **Tick boxes:** "required" means **at least one ticked**. While none is, the first box carries the
+  custom validity message «Marca al menos una opción.», so the form's own validation stops the sending
+  (`checkValidity()`, the browser's bubble). The boxes themselves are not `required` (that would ask for
+  every one). A screen with its own validation still shows its own `error` on the `Field`.
 
 ## Swapping a `confirm()` call
 

@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
-  "date": "2026-11-17T05:46:26-03:00"
+  "commit": "9b113df429f5036bf72f1c71c6636b3bb0f47139",
+  "date": "2026-11-17T12:24:40-03:00"
  },
  "screens": [
   {
@@ -24,7 +24,7 @@
       "href": "/detailed-reports",
       "gates": "roles: admin, consultor, equipo_directivo, lider_generacion, lider_comunidad, supervisor_de_red",
       "groupGates": "everyone signed in",
-      "line": 630
+      "line": 629
      }
     ],
     "middleware": {
@@ -102,7 +102,7 @@
     ],
     "linkedFrom": [
      "components/DynamicFavicon.tsx:37",
-     "components/layout/Sidebar.tsx:632",
+     "components/layout/Sidebar.tsx:631",
      "lib/auth/forced-password-change.ts:145",
      "middleware.ts:340",
      "pages/api/qa/seed-codebase-index.ts:299"
@@ -874,7 +874,7 @@
       "href": "/reporte-horas",
       "gates": "roles: admin, equipo_directivo",
       "groupGates": "everyone signed in",
-      "line": 658
+      "line": 657
      }
     ],
     "middleware": {
@@ -943,7 +943,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:660",
+     "components/layout/Sidebar.tsx:659",
      "lib/auth/forced-password-change.ts:159",
      "middleware.ts:354"
     ],
@@ -1148,7 +1148,7 @@
       "href": "/reports?tab=learning-paths",
       "gates": "roles: admin, consultor, equipo_directivo",
       "groupGates": "everyone signed in",
-      "line": 641
+      "line": 640
      }
     ],
     "middleware": {
@@ -1218,7 +1218,7 @@
     ],
     "linkedFrom": [
      "components/DynamicFavicon.tsx:36",
-     "components/layout/Sidebar.tsx:643",
+     "components/layout/Sidebar.tsx:642",
      "lib/auth/forced-password-change.ts:160",
      "middleware.ts:355",
      "pages/api/qa/seed-codebase-index.ts:335"

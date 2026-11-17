@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
-  "date": "2026-11-17T05:46:26-03:00"
+  "commit": "9b113df429f5036bf72f1c71c6636b3bb0f47139",
+  "date": "2026-11-17T12:24:40-03:00"
  },
  "screens": [
   {
@@ -24,7 +24,7 @@
       "href": "/admin/assignment-overview",
       "gates": "everyone signed in",
       "groupGates": "admin or consultor",
-      "line": 486
+      "line": 485
      }
     ],
     "middleware": {
@@ -93,7 +93,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:488",
+     "components/layout/Sidebar.tsx:487",
      "lib/notifications/catalog.ts:304",
      "middleware.ts:223",
      "pages/admin/assignment-review/[id].tsx:348"
@@ -1105,8 +1105,8 @@
     ],
     "linkedFrom": [
      "components/DynamicFavicon.tsx:35",
-     "components/notifications/ModernNotificationCenter.tsx:301",
-     "components/notifications/ModernNotificationCenter.tsx:312",
+     "components/notifications/ModernNotificationCenter.tsx:311",
+     "components/notifications/ModernNotificationCenter.tsx:322",
      "components/notifications/NotificationDropdown.tsx:140",
      "components/notifications/NotificationDropdown.tsx:151",
      "lib/auth/forced-password-change.ts:133",
@@ -2715,6 +2715,7 @@
     "components/messaging/MentionPicker.tsx",
     "components/messaging/MessageCard.tsx",
     "components/messaging/MessageComposer.tsx",
+    "lib/profile-cards.ts",
     "lib/services/groupAssignments.js",
     "lib/services/groupAssignmentsV2.js",
     "lib/utils/file-format.ts",
@@ -2741,7 +2742,7 @@
       "POST"
      ],
      "from": [
-      "utils/messagingUtils-simple.ts:816"
+      "utils/messagingUtils-simple.ts:829"
      ]
     }
    ]
@@ -3074,7 +3075,7 @@
       "href": "/quiz-reviews",
       "gates": "admin or consultor",
       "groupGates": "admin or consultor",
-      "line": 203
+      "line": 202
      }
     ],
     "middleware": {
@@ -3148,7 +3149,7 @@
     ],
     "linkedFrom": [
      "components/DynamicFavicon.tsx:34",
-     "components/layout/Sidebar.tsx:205",
+     "components/layout/Sidebar.tsx:204",
      "lib/auth/forced-password-change.ts:158",
      "lib/notifications/catalog.ts:310",
      "middleware.ts:353",
@@ -4612,11 +4613,11 @@
    "usedBy": [
     "/community/workspace/assignments/[id]/discussion"
    ],
-   "lines": 591,
+   "lines": 607,
    "rows": [
     {
      "kind": "hook",
-     "line": 105,
+     "line": 112,
      "in": "MessageComposer",
      "when": "editingMessage && textareaRef.current",
      "text": "textareaRef.current.focus()",
@@ -4624,13 +4625,13 @@
     },
     {
      "kind": "gate",
-     "line": 179,
+     "line": 162,
      "in": "MessageComposer",
      "text": "!mentionPosition"
     },
     {
      "kind": "hook",
-     "line": 202,
+     "line": 185,
      "in": "MessageComposer",
      "when": "textareaRef.current",
      "text": "textareaRef.current.focus()",
@@ -4638,81 +4639,81 @@
     },
     {
      "kind": "alert",
-     "line": 214,
+     "line": 197,
      "in": "MessageComposer",
      "when": "!isValidAttachment(file)",
      "text": "Archivo no válido: {file.name}"
     },
     {
      "kind": "alert",
-     "line": 221,
+     "line": 204,
      "in": "MessageComposer",
      "when": "attachments.length + validFiles.length > DEFAULT_MESSAGING_CONFIG.max_attachments_per_message",
      "text": "No se pueden adjuntar más de {DEFAULT_MESSAGING_CONFIG.ma…} archivos"
     },
     {
      "kind": "gate",
-     "line": 258,
+     "line": 241,
      "in": "MessageComposer",
      "text": "!content.trim() && attachments.length === 0"
     },
     {
      "kind": "gate",
-     "line": 259,
+     "line": 242,
      "in": "MessageComposer",
      "text": "isSubmitting || disabled"
     },
     {
      "kind": "alert",
-     "line": 283,
+     "line": 270,
      "in": "MessageComposer",
      "when": "!validationResult.is_valid",
      "text": "{validationResult.errors.join('\\n')}"
     },
     {
      "kind": "alert",
-     "line": 305,
+     "line": 292,
      "in": "MessageComposer",
      "text": "Error al enviar el mensaje. Inténtalo de nuevo."
     },
     {
      "kind": "hook",
-     "line": 327,
+     "line": 343,
      "in": "MessageComposer",
      "text": "document.addEventListener('mousedown')",
      "type": "listener"
     },
     {
      "kind": "text",
-     "line": 343,
+     "line": 359,
      "in": "MessageComposer",
      "when": "((replyToMessage || editingMessage)) && replyToMessage",
      "text": "Respondiendo a"
     },
     {
      "kind": "value",
-     "line": 343,
+     "line": 359,
      "in": "MessageComposer",
      "when": "((replyToMessage || editingMessage)) && replyToMessage",
      "text": "{replyToMessage.author_name}"
     },
     {
      "kind": "value",
-     "line": 344,
+     "line": 360,
      "in": "MessageComposer",
      "when": "((replyToMessage || editingMessage)) && replyToMessage",
      "text": "{replyToMessage.content.substring(0,…} ..."
     },
     {
      "kind": "text",
-     "line": 352,
+     "line": 368,
      "in": "MessageComposer",
      "when": "((replyToMessage || editingMessage)) && editingMessage",
      "text": "Editando mensaje"
     },
     {
      "kind": "button",
-     "line": 356,
+     "line": 372,
      "in": "MessageComposer",
      "when": "(replyToMessage || editingMessage)",
      "text": "[icon X]",
@@ -4720,14 +4721,14 @@
     },
     {
      "kind": "gesture",
-     "line": 366,
+     "line": 382,
      "in": "MessageComposer",
      "text": "onDrop={handleDrop} · onDragOver={handleDragOver}",
      "tag": "div"
     },
     {
      "kind": "field",
-     "line": 372,
+     "line": 388,
      "in": "MessageComposer",
      "text": "{placeholder}",
      "type": "textarea",
@@ -4739,13 +4740,13 @@
     },
     {
      "kind": "value",
-     "line": 385,
+     "line": 401,
      "in": "MessageComposer",
      "text": "{content.length} / {maxLength}"
     },
     {
      "kind": "button",
-     "line": 390,
+     "line": 406,
      "in": "MessageComposer",
      "text": "[icon Loader2]",
      "action": "{handleSubmit}",
@@ -4753,7 +4754,7 @@
     },
     {
      "kind": "popup",
-     "line": 409,
+     "line": 425,
      "in": "MessageComposer",
      "when": "showMentionPicker && mentionSuggestions.length > 0",
      "text": "MentionPicker",
@@ -4763,28 +4764,28 @@
     },
     {
      "kind": "media",
-     "line": 445,
+     "line": 461,
      "in": "MessageComposer",
      "when": "attachments.length > 0 && each attachments && file.type.startsWith('image/')",
      "text": "Image"
     },
     {
      "kind": "value",
-     "line": 449,
+     "line": 465,
      "in": "MessageComposer",
      "when": "attachments.length > 0 && each attachments",
      "text": "{file.name}"
     },
     {
      "kind": "value",
-     "line": 450,
+     "line": 466,
      "in": "MessageComposer",
      "when": "attachments.length > 0 && each attachments",
      "text": "( {formatFileSize(file.size)} )"
     },
     {
      "kind": "button",
-     "line": 452,
+     "line": 468,
      "in": "MessageComposer",
      "when": "attachments.length > 0 && each attachments",
      "text": "[icon X]",
@@ -4792,14 +4793,14 @@
     },
     {
      "kind": "value",
-     "line": 470,
+     "line": 486,
      "in": "MessageComposer",
      "when": "validation && !validation.is_valid && each validation.errors",
      "text": "{error}"
     },
     {
      "kind": "button",
-     "line": 483,
+     "line": 499,
      "in": "MessageComposer",
      "when": "allowAttachments",
      "text": "[icon Paperclip]",
@@ -4809,7 +4810,7 @@
     },
     {
      "kind": "field",
-     "line": 491,
+     "line": 507,
      "in": "MessageComposer",
      "when": "allowAttachments",
      "screen": "hidden",
@@ -4821,7 +4822,7 @@
     },
     {
      "kind": "button",
-     "line": 504,
+     "line": 520,
      "in": "MessageComposer",
      "text": "[icon Smile]",
      "action": "{() => setShowEmojiPicker(!showEmojiPicker)}",
@@ -4830,7 +4831,7 @@
     },
     {
      "kind": "button",
-     "line": 520,
+     "line": 536,
      "in": "MessageComposer",
      "when": "showEmojiPicker && each quickEmojis",
      "text": "{emoji}",
@@ -4838,7 +4839,7 @@
     },
     {
      "kind": "button",
-     "line": 537,
+     "line": 553,
      "in": "MessageComposer",
      "when": "allowMentions",
      "text": "[icon AtSign]",
@@ -4848,7 +4849,7 @@
     },
     {
      "kind": "hook",
-     "line": 543,
+     "line": 559,
      "in": "MessageComposer",
      "when": "allowMentions && textareaRef.current",
      "text": "textareaRef.current.focus()",
@@ -4856,7 +4857,7 @@
     },
     {
      "kind": "button",
-     "line": 561,
+     "line": 577,
      "in": "MessageComposer",
      "when": "(replyToMessage || editingMessage)",
      "text": "Cancelar",
@@ -4865,7 +4866,7 @@
     },
     {
      "kind": "button",
-     "line": 569,
+     "line": 585,
      "in": "MessageComposer",
      "text": "Enviando... / Guardar cambios / Enviar mensaje",
      "action": "{handleSubmit}",
@@ -4873,7 +4874,7 @@
     },
     {
      "kind": "string",
-     "line": 63,
+     "line": 70,
      "in": "MessageComposer",
      "text": "Escribe un mensaje..."
     }
@@ -5174,6 +5175,26 @@
      "ops": [
       "select"
      ]
+    }
+   ]
+  },
+  "lib/profile-cards.ts": {
+   "usedBy": [
+    "/community/workspace/assignments/[id]/discussion"
+   ],
+   "lines": 62,
+   "rows": [
+    {
+     "kind": "string",
+     "line": 59,
+     "in": "cardName",
+     "text": "Usuario"
+    }
+   ],
+   "db": [
+    {
+     "what": "rpc:get_profile_cards",
+     "ops": []
     }
    ]
   },
@@ -5682,11 +5703,11 @@
    "usedBy": [
     "/community/workspace/assignments/[id]/discussion"
    ],
-   "lines": 831,
+   "lines": 844,
    "rows": [
     {
      "kind": "message",
-     "line": 529,
+     "line": 563,
      "in": "sendMessage",
      "when": "error && (error?.code === '42P01' || error?.message?.includes('does not exist'))",
      "text": "Messaging feature not yet implemented",
@@ -5694,7 +5715,7 @@
     },
     {
      "kind": "string",
-     "line": 820,
+     "line": 833,
      "in": "requestMessageNotifications",
      "text": "Bearer {session.access_token}"
     }

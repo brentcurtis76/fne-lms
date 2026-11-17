@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
-  "date": "2026-11-17T05:46:26-03:00"
+  "commit": "9b113df429f5036bf72f1c71c6636b3bb0f47139",
+  "date": "2026-11-17T12:24:40-03:00"
  },
  "screens": [
   {
@@ -1125,7 +1125,7 @@
       "group": null,
       "href": "/admin/growth-communities",
       "gates": "roles: admin, equipo_directivo",
-      "line": 382
+      "line": 381
      }
     ],
     "middleware": {
@@ -1194,7 +1194,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:385",
+     "components/layout/Sidebar.tsx:384",
      "middleware.ts:237",
      "pages/admin/growth-communities/[id]/members.tsx:509"
     ],
@@ -2131,7 +2131,7 @@
   {
    "file": "pages/community/workspace.tsx",
    "route": "/community/workspace",
-   "lines": 2684,
+   "lines": 2726,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -2144,7 +2144,7 @@
       "href": "/community/workspace?section=overview",
       "gates": "everyone signed in",
       "groupGates": "needs a community (admin and consultor pass)",
-      "line": 220
+      "line": 219
      },
      {
       "id": "workspace-sessions",
@@ -2153,7 +2153,7 @@
       "href": "/community/workspace?section=sessions",
       "gates": "everyone signed in",
       "groupGates": "needs a community (admin and consultor pass)",
-      "line": 226
+      "line": 225
      },
      {
       "id": "workspace-communities",
@@ -2162,7 +2162,7 @@
       "href": "/community/workspace?section=communities",
       "gates": "permission: manage_communities_all",
       "groupGates": "needs a community (admin and consultor pass)",
-      "line": 231
+      "line": 230
      }
     ],
     "middleware": {
@@ -2222,15 +2222,15 @@
       "text": "router.push → /dashboard  (when error)"
      },
      {
-      "line": 2442,
+      "line": 2483,
       "text": "No tienes permisos para ver los mensajes de esta comunidad."
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:1373",
-     "components/layout/Sidebar.tsx:222",
-     "components/layout/Sidebar.tsx:228",
-     "components/layout/Sidebar.tsx:233",
+     "components/layout/Sidebar.tsx:1286",
+     "components/layout/Sidebar.tsx:221",
+     "components/layout/Sidebar.tsx:227",
+     "components/layout/Sidebar.tsx:232",
      "lib/auth/forced-password-change.ts:175",
      "lib/notifications/catalog.ts:170",
      "lib/notifications/catalog.ts:325",
@@ -2249,8 +2249,8 @@
      "pages/community/workspace/transformation/evaluate.tsx:210",
      "pages/community/workspace/transformation/evaluate.tsx:487",
      "pages/community/workspace/transformation/evaluate.tsx:488",
-     "pages/dashboard.tsx:654",
-     "pages/dashboard.tsx:655",
+     "pages/dashboard.tsx:658",
+     "pages/dashboard.tsx:659",
      "utils/activityUtils.ts:765",
      "utils/activityUtils.ts:767",
      "utils/activityUtils.ts:769",
@@ -2295,6 +2295,7 @@
      ],
      "unit": [
       "__tests__/pages/community/workspace.mention-scope.test.tsx",
+      "__tests__/pages/community/workspace.messages.test.tsx",
       "components/__tests__/GroupAssignmentsContent.test.skip.tsx",
       "components/__tests__/GroupAssignmentsContent.test.tsx"
      ]
@@ -3175,55 +3176,64 @@
     },
     {
      "kind": "gate",
-     "line": 1937,
+     "line": 1945,
      "in": "MessagingTabContent",
      "text": "!targetThreadId || !workspace || loading"
     },
     {
      "kind": "toast",
-     "line": 1970,
+     "line": 1978,
      "in": "loadThreads",
      "text": "Error al cargar los hilos de conversación",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 1987,
+     "line": 1995,
      "in": "loadThreadMessages",
      "text": "Error al cargar los mensajes",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 2135,
+     "line": 2162,
      "in": "handleThreadCreate",
      "text": "Hilo de conversación creado exitosamente",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 2139,
+     "line": 2168,
      "in": "handleThreadCreate",
-     "text": "Error al crear el hilo: {error.message || 'Error des…}",
+     "when": "typeof error?.threadId === 'string'",
+     "text": "No se pudo crear la conversación. Tu texto sigue aquí; inténtalo de nuevo.",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 2166,
+     "line": 2170,
+     "in": "handleThreadCreate",
+     "when": "!(typeof error?.threadId === 'string')",
+     "text": "Error al crear el hilo: {error?.message || 'Error de…}",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 2207,
      "in": "handleMessageSend",
      "text": "Mensaje enviado",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 2169,
+     "line": 2210,
      "in": "handleMessageSend",
      "text": "Error al enviar el mensaje",
      "variant": "error"
     },
     {
      "kind": "nav",
-     "line": 2185,
+     "line": 2226,
      "in": "handleAttachmentDownload",
      "when": "attachment.storage_path && !session?.access_token",
      "text": "{attachment.storage_path}",
@@ -3231,7 +3241,7 @@
     },
     {
      "kind": "toast",
-     "line": 2189,
+     "line": 2230,
      "in": "handleAttachmentDownload",
      "when": "attachment.storage_path",
      "text": "Preparando descarga...",
@@ -3239,7 +3249,7 @@
     },
     {
      "kind": "nav",
-     "line": 2201,
+     "line": 2242,
      "in": "handleAttachmentDownload",
      "when": "attachment.storage_path && !response.ok",
      "text": "{attachment.storage_path}",
@@ -3247,7 +3257,7 @@
     },
     {
      "kind": "download",
-     "line": 2206,
+     "line": 2247,
      "in": "handleAttachmentDownload",
      "when": "attachment.storage_path",
      "text": "window.URL.createObjectURL()",
@@ -3255,7 +3265,7 @@
     },
     {
      "kind": "download",
-     "line": 2210,
+     "line": 2251,
      "in": "handleAttachmentDownload",
      "when": "attachment.storage_path",
      "text": "archivo: {attachment.file_name}",
@@ -3263,7 +3273,7 @@
     },
     {
      "kind": "toast",
-     "line": 2217,
+     "line": 2258,
      "in": "handleAttachmentDownload",
      "when": "attachment.storage_path",
      "text": "Descarga completada",
@@ -3271,7 +3281,7 @@
     },
     {
      "kind": "nav",
-     "line": 2221,
+     "line": 2262,
      "in": "handleAttachmentDownload",
      "when": "attachment.storage_path",
      "text": "{attachment.storage_path}",
@@ -3279,7 +3289,7 @@
     },
     {
      "kind": "toast",
-     "line": 2259,
+     "line": 2300,
      "in": "handleSaveEdit",
      "when": "error",
      "text": "Error al editar el mensaje",
@@ -3287,21 +3297,21 @@
     },
     {
      "kind": "toast",
-     "line": 2270,
+     "line": 2311,
      "in": "handleSaveEdit",
      "text": "Mensaje editado",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 2273,
+     "line": 2314,
      "in": "handleSaveEdit",
      "text": "Error al editar el mensaje",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 2305,
+     "line": 2346,
      "in": "handleReaction",
      "when": "existingReaction && deleteError",
      "text": "Error al quitar la reacción",
@@ -3309,7 +3319,7 @@
     },
     {
      "kind": "toast",
-     "line": 2335,
+     "line": 2376,
      "in": "handleReaction",
      "when": "!(existingReaction) && insertError",
      "text": "Error al agregar la reacción",
@@ -3317,14 +3327,14 @@
     },
     {
      "kind": "toast",
-     "line": 2380,
+     "line": 2421,
      "in": "handleReaction",
      "text": "Error al procesar la reacción",
      "variant": "error"
     },
     {
      "kind": "toast",
-     "line": 2404,
+     "line": 2445,
      "in": "confirmDeleteMessage",
      "when": "error",
      "text": "Error al eliminar el mensaje",
@@ -3332,21 +3342,21 @@
     },
     {
      "kind": "toast",
-     "line": 2410,
+     "line": 2451,
      "in": "confirmDeleteMessage",
      "text": "Mensaje eliminado",
      "variant": "success"
     },
     {
      "kind": "toast",
-     "line": 2413,
+     "line": 2454,
      "in": "confirmDeleteMessage",
      "text": "Error al eliminar el mensaje",
      "variant": "error"
     },
     {
      "kind": "heading",
-     "line": 2424,
+     "line": 2465,
      "in": "MessagingTabContent",
      "when": "!workspace",
      "text": "No hay espacio de trabajo seleccionado",
@@ -3354,14 +3364,14 @@
     },
     {
      "kind": "text",
-     "line": 2428,
+     "line": 2469,
      "in": "MessagingTabContent",
      "when": "!workspace",
      "text": "Selecciona una comunidad para acceder a la mensajería."
     },
     {
      "kind": "heading",
-     "line": 2438,
+     "line": 2479,
      "in": "MessagingTabContent",
      "when": "!permissions.can_view_messages",
      "text": "Sin permisos de acceso",
@@ -3369,7 +3379,7 @@
     },
     {
      "kind": "text",
-     "line": 2442,
+     "line": 2483,
      "in": "MessagingTabContent",
      "when": "!permissions.can_view_messages",
      "text": "No tienes permisos para ver los mensajes de esta comunidad.",
@@ -3377,20 +3387,20 @@
     },
     {
      "kind": "heading",
-     "line": 2453,
+     "line": 2494,
      "in": "MessagingTabContent",
      "text": "Mensajería de {workspace.community?.name}",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 2457,
+     "line": 2498,
      "in": "MessagingTabContent",
      "text": "Comunicación en tiempo real con los miembros de la comunidad"
     },
     {
      "kind": "button",
-     "line": 2462,
+     "line": 2503,
      "in": "MessagingTabContent",
      "when": "permissions.can_create_threads",
      "text": "Nuevo Hilo",
@@ -3398,14 +3408,14 @@
     },
     {
      "kind": "piece",
-     "line": 2473,
+     "line": 2514,
      "in": "MessagingTabContent",
      "text": "",
      "tag": "MessageFilters"
     },
     {
      "kind": "clickable",
-     "line": 2505,
+     "line": 2546,
      "in": "MessagingTabContent",
      "when": "(activeView === 'threads' || !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)",
      "text": "{thread.thread_title} {thread.category_config.label} [{thread.description}] Por {thread.creator_name} {thread.message_c…",
@@ -3414,7 +3424,7 @@
     },
     {
      "kind": "heading",
-     "line": 2511,
+     "line": 2552,
      "in": "MessagingTabContent",
      "when": "(activeView === 'threads' || !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)",
      "text": "{thread.thread_title}",
@@ -3422,63 +3432,63 @@
     },
     {
      "kind": "value",
-     "line": 2512,
+     "line": 2553,
      "in": "MessagingTabContent",
      "when": "(activeView === 'threads' || !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)",
      "text": "{thread.category_config.label}"
     },
     {
      "kind": "value",
-     "line": 2524,
+     "line": 2565,
      "in": "MessagingTabContent",
      "when": "!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.description",
      "text": "{thread.description}"
     },
     {
      "kind": "text",
-     "line": 2528,
+     "line": 2569,
      "in": "MessagingTabContent",
      "when": "(activeView === 'threads' || !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)",
      "text": "Por {thread.creator_name}"
     },
     {
      "kind": "text",
-     "line": 2530,
+     "line": 2571,
      "in": "MessagingTabContent",
      "when": "(activeView === 'threads' || !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)",
      "text": "{thread.message_count} mensaje(s)"
     },
     {
      "kind": "text",
-     "line": 2531,
+     "line": 2572,
      "in": "MessagingTabContent",
      "when": "(activeView === 'threads' || !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)",
      "text": "{thread.participant_count} participante(s)"
     },
     {
      "kind": "text",
-     "line": 2533,
+     "line": 2574,
      "in": "MessagingTabContent",
      "when": "!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.latest_message",
      "text": "Último: {new Date(thread.latest_message.crea…}"
     },
     {
      "kind": "value",
-     "line": 2540,
+     "line": 2581,
      "in": "MessagingTabContent",
      "when": "!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.latest_message",
      "text": "{thread.latest_message.author_name} :"
     },
     {
      "kind": "value",
-     "line": 2541,
+     "line": 2582,
      "in": "MessagingTabContent",
      "when": "!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.latest_message",
      "text": "{thread.latest_message.content.slice…} ..."
     },
     {
      "kind": "heading",
-     "line": 2550,
+     "line": 2591,
      "in": "MessagingTabContent",
      "when": "(activeView === 'threads' || !selectedThread) && !(loading) && !(threads.length > 0)",
      "text": "No hay hilos de conversación",
@@ -3486,14 +3496,14 @@
     },
     {
      "kind": "text",
-     "line": 2553,
+     "line": 2594,
      "in": "MessagingTabContent",
      "when": "(activeView === 'threads' || !selectedThread) && !(loading) && !(threads.length > 0)",
      "text": "Comienza creando el primer hilo de conversación. / No se han creado hilos de conversación en esta comunidad."
     },
     {
      "kind": "button",
-     "line": 2559,
+     "line": 2600,
      "in": "MessagingTabContent",
      "when": "(activeView === 'threads' || !selectedThread) && !(loading) && !(threads.length > 0) && permissions.can_create_threads",
      "text": "Crear Primer Hilo",
@@ -3501,7 +3511,7 @@
     },
     {
      "kind": "heading",
-     "line": 2577,
+     "line": 2618,
      "in": "MessagingTabContent",
      "when": "!(activeView === 'threads' || !selectedThread)",
      "text": "{selectedThread.thread_title}",
@@ -3509,14 +3519,14 @@
     },
     {
      "kind": "text",
-     "line": 2578,
+     "line": 2619,
      "in": "MessagingTabContent",
      "when": "!(activeView === 'threads' || !selectedThread)",
      "text": "{selectedThread.message_count} mensaje(s)"
     },
     {
      "kind": "button",
-     "line": 2580,
+     "line": 2621,
      "in": "MessagingTabContent",
      "when": "!(activeView === 'threads' || !selectedThread)",
      "text": "[icon X]",
@@ -3524,7 +3534,7 @@
     },
     {
      "kind": "piece",
-     "line": 2596,
+     "line": 2637,
      "in": "MessagingTabContent",
      "when": "(!(activeView === 'threads' || !selectedThread)) && messages.length > 0 && each messages",
      "text": "",
@@ -3532,14 +3542,14 @@
     },
     {
      "kind": "text",
-     "line": 2611,
+     "line": 2653,
      "in": "MessagingTabContent",
      "when": "(!(activeView === 'threads' || !selectedThread)) && !(messages.length > 0)",
      "text": "No hay mensajes en este hilo"
     },
     {
      "kind": "piece",
-     "line": 2619,
+     "line": 2661,
      "in": "MessagingTabContent",
      "when": "(!(activeView === 'threads' || !selectedThread)) && permissions.can_send_messages",
      "text": "",
@@ -3547,7 +3557,7 @@
     },
     {
      "kind": "popup",
-     "line": 2640,
+     "line": 2682,
      "in": "MessagingTabContent",
      "when": "showAttachmentPreview && previewAttachment",
      "text": "AttachmentPreview",
@@ -3556,7 +3566,7 @@
     },
     {
      "kind": "popup",
-     "line": 2657,
+     "line": 2699,
      "in": "MessagingTabContent",
      "when": "showThreadCreationModal",
      "text": "ThreadCreationModal",
@@ -3565,7 +3575,7 @@
     },
     {
      "kind": "popup",
-     "line": 2666,
+     "line": 2708,
      "in": "MessagingTabContent",
      "text": "ConfirmModal",
      "how": "component",
@@ -3652,7 +3662,7 @@
     },
     {
      "kind": "string",
-     "line": 2139,
+     "line": 2170,
      "in": "MessagingTabContent",
      "text": "Error desconocido"
     },
@@ -3759,6 +3769,7 @@
     "lib/meetings/constants.ts",
     "lib/meetings/meeting-documents.ts",
     "lib/meetings/meeting-save.ts",
+    "lib/profile-cards.ts",
     "lib/services/communityWorkspace.js",
     "lib/services/feedService.ts",
     "lib/tutorials/content.ts",
@@ -3819,7 +3830,7 @@
       "POST"
      ],
      "from": [
-      "utils/messagingUtils-simple.ts:816"
+      "utils/messagingUtils-simple.ts:829"
      ]
     },
     {
@@ -3887,7 +3898,7 @@
       "POST"
      ],
      "from": [
-      "lib/services/feedService.ts:239"
+      "lib/services/feedService.ts:259"
      ]
     },
     {
@@ -3906,7 +3917,7 @@
      "methods": [],
      "from": [
       "pages/community/workspace.tsx:1594",
-      "pages/community/workspace.tsx:2191"
+      "pages/community/workspace.tsx:2232"
      ]
     }
    ]
@@ -3914,7 +3925,7 @@
   {
    "file": "pages/user/[userId].tsx",
    "route": "/user/[userId]",
-   "lines": 360,
+   "lines": 392,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -3965,27 +3976,27 @@
     },
     "inPage": [
      {
-      "line": 32,
+      "line": 36,
       "text": "router.push → /login  (when !session?.user)"
      },
      {
-      "line": 47,
+      "line": 52,
       "text": "userRole = await getUserPrimaryRole(session.user.id)"
      },
      {
-      "line": 68,
+      "line": 74,
       "text": "router.push → /login"
      },
      {
-      "line": 108,
+      "line": 132,
       "text": "roles = await getUserRoles(supabase, targetUserId)"
      },
      {
-      "line": 165,
+      "line": 189,
       "text": "router.push → /login"
      },
      {
-      "line": 203,
+      "line": 227,
       "text": "El perfil que buscas no existe o no tienes permisos para verlo."
      }
     ],
@@ -4002,13 +4013,15 @@
      "e2e": [
       "tests/e2e/sentry-replay-disabled.spec.ts"
      ],
-     "unit": []
+     "unit": [
+      "__tests__/pages/user-profile-view.test.tsx"
+     ]
     }
    },
    "rows": [
     {
      "kind": "nav",
-     "line": 32,
+     "line": 36,
      "in": "checkSession",
      "when": "!session?.user",
      "text": "/login",
@@ -4016,7 +4029,7 @@
     },
     {
      "kind": "access",
-     "line": 47,
+     "line": 52,
      "in": "checkSession",
      "when": "currentUserProfile",
      "text": "userRole = await getUserPrimaryRole(session.user.id)",
@@ -4024,42 +4037,42 @@
     },
     {
      "kind": "nav",
-     "line": 68,
+     "line": 74,
      "in": "checkSession",
      "text": "/login",
      "via": "router.push"
     },
     {
      "kind": "access",
-     "line": 108,
+     "line": 132,
      "in": "loadUserProfile",
      "text": "roles = await getUserRoles(supabase, targetUserId)",
      "via": "getUserRoles"
     },
     {
      "kind": "hook",
-     "line": 163,
+     "line": 187,
      "in": "handleLogout",
      "text": "localStorage: rememberMe",
      "type": "storage"
     },
     {
      "kind": "hook",
-     "line": 164,
+     "line": 188,
      "in": "handleLogout",
      "text": "sessionStorage: sessionOnly",
      "type": "storage"
     },
     {
      "kind": "nav",
-     "line": 165,
+     "line": 189,
      "in": "handleLogout",
      "text": "/login",
      "via": "router.push"
     },
     {
      "kind": "piece",
-     "line": 170,
+     "line": 194,
      "in": "UserProfileView",
      "when": "loading",
      "text": "",
@@ -4067,14 +4080,14 @@
     },
     {
      "kind": "text",
-     "line": 182,
+     "line": 206,
      "in": "UserProfileView",
      "when": "loading",
      "text": "Cargando..."
     },
     {
      "kind": "piece",
-     "line": 191,
+     "line": 215,
      "in": "UserProfileView",
      "when": "!profileData",
      "text": "",
@@ -4082,7 +4095,7 @@
     },
     {
      "kind": "heading",
-     "line": 202,
+     "line": 226,
      "in": "UserProfileView",
      "when": "!profileData",
      "text": "Usuario no encontrado",
@@ -4090,7 +4103,7 @@
     },
     {
      "kind": "text",
-     "line": 203,
+     "line": 227,
      "in": "UserProfileView",
      "when": "!profileData",
      "text": "El perfil que buscas no existe o no tienes permisos para verlo.",
@@ -4098,7 +4111,7 @@
     },
     {
      "kind": "link",
-     "line": 204,
+     "line": 228,
      "in": "UserProfileView",
      "when": "!profileData",
      "text": "Volver al Panel",
@@ -4106,152 +4119,157 @@
     },
     {
      "kind": "piece",
-     "line": 218,
+     "line": 242,
      "in": "UserProfileView",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "text",
-     "line": 228,
+     "line": 252,
      "in": "UserProfileView",
      "text": "{profileData.first_name} {profileData.last_name} - Genera"
     },
     {
      "kind": "piece",
-     "line": 231,
+     "line": 255,
      "in": "UserProfileView",
      "text": "title: {profileData.first_name} {profileData.last_name} · subtitle: Perfil de usuario",
      "tag": "ResponsiveFunctionalPageHeader"
     },
     {
      "kind": "link",
-     "line": 239,
+     "line": 263,
      "in": "UserProfileView",
      "text": "Volver al Panel",
      "target": "/dashboard"
     },
     {
      "kind": "media",
-     "line": 254,
+     "line": 278,
      "in": "UserProfileView",
      "when": "profileData.avatar_url",
      "text": "img · alt {`${profileData.first_name} ${profileData.last_name}`} · {profileData.avatar_url}"
     },
     {
      "kind": "value",
-     "line": 261,
+     "line": 285,
      "in": "UserProfileView",
      "when": "!(profileData.avatar_url)",
      "text": "{profileData.first_name?.charAt(0)} {profileData.last_name?.charAt(0)}"
     },
     {
      "kind": "heading",
-     "line": 267,
+     "line": 291,
      "in": "UserProfileView",
      "text": "{profileData.first_name} {profileData.last_name}",
      "level": 1
     },
     {
      "kind": "value",
-     "line": 270,
+     "line": 295,
      "in": "UserProfileView",
+     "when": "!cardOnly",
      "text": "{profileData.email}"
     },
     {
      "kind": "heading",
-     "line": 278,
+     "line": 305,
      "in": "UserProfileView",
+     "when": "!cardOnly",
      "text": "Información de Contacto",
      "level": 3
     },
     {
      "kind": "text",
-     "line": 280,
+     "line": 308,
      "in": "UserProfileView",
+     "when": "!cardOnly && !cardOnly",
      "text": "Email:"
     },
     {
      "kind": "text",
-     "line": 282,
+     "line": 311,
      "in": "UserProfileView",
-     "when": "profileData.school",
+     "when": "!cardOnly && profileData.school",
      "text": "Institución:"
     },
     {
      "kind": "text",
-     "line": 285,
+     "line": 314,
      "in": "UserProfileView",
-     "when": "profileData.description",
+     "when": "!cardOnly && profileData.description",
      "text": "Descripción:"
     },
     {
      "kind": "heading",
-     "line": 292,
+     "line": 321,
      "in": "UserProfileView",
+     "when": "!cardOnly",
      "text": "Roles",
      "level": 3
     },
     {
      "kind": "text",
-     "line": 296,
+     "line": 325,
      "in": "UserProfileView",
-     "when": "userRoles.length > 0 && each userRoles",
+     "when": "!cardOnly && userRoles.length > 0 && each userRoles",
      "text": "[Administrador Global] [Consultor FNE] [Equipo Directivo] [Líder de Generación] [Líder de Comunidad] [Docente]"
     },
     {
      "kind": "text",
-     "line": 307,
+     "line": 336,
      "in": "UserProfileView",
-     "when": "!(userRoles.length > 0)",
+     "when": "!cardOnly && !(userRoles.length > 0)",
      "text": "Sin roles asignados"
     },
     {
      "kind": "heading",
-     "line": 317,
+     "line": 348,
      "in": "UserProfileView",
+     "when": "!cardOnly",
      "text": "Cursos Asignados ( {enrolledCourses.length} )",
      "level": 2
     },
     {
      "kind": "media",
-     "line": 327,
+     "line": 358,
      "in": "UserProfileView",
-     "when": "enrolledCourses.length > 0 && each enrolledCourses && course.thumbnail_url",
+     "when": "!cardOnly && enrolledCourses.length > 0 && each enrolledCourses && course.thumbnail_url",
      "text": "img · alt {course.title} · {course.thumbnail_url}"
     },
     {
      "kind": "heading",
-     "line": 338,
+     "line": 369,
      "in": "UserProfileView",
-     "when": "enrolledCourses.length > 0 && each enrolledCourses",
+     "when": "!cardOnly && enrolledCourses.length > 0 && each enrolledCourses",
      "text": "{course.title}",
      "level": 3
     },
     {
      "kind": "value",
-     "line": 339,
+     "line": 370,
      "in": "UserProfileView",
-     "when": "enrolledCourses.length > 0 && each enrolledCourses",
+     "when": "!cardOnly && enrolledCourses.length > 0 && each enrolledCourses",
      "text": "{course.description}"
     },
     {
      "kind": "text",
-     "line": 341,
+     "line": 372,
      "in": "UserProfileView",
-     "when": "enrolledCourses.length > 0 && each enrolledCourses",
+     "when": "!cardOnly && enrolledCourses.length > 0 && each enrolledCourses",
      "text": "Instructor:"
     },
     {
      "kind": "text",
-     "line": 353,
+     "line": 384,
      "in": "UserProfileView",
-     "when": "!(enrolledCourses.length > 0)",
+     "when": "!cardOnly && !(enrolledCourses.length > 0)",
      "text": "Este usuario no tiene cursos asignados actualmente."
     },
     {
      "kind": "string",
-     "line": 143,
+     "line": 167,
      "in": "UserProfileView",
      "text": "Sin instructor"
     },
@@ -4278,6 +4296,7 @@
    ],
    "pieces": [
     "components/layout/FunctionalPageHeader.tsx",
+    "lib/profile-cards.ts",
     "types/roles.ts",
     "utils/roleUtils.ts"
    ],
@@ -4289,7 +4308,7 @@
       "GET"
      ],
      "from": [
-      "pages/user/[userId].tsx:94"
+      "pages/user/[userId].tsx:118"
      ]
     }
    ]
@@ -11167,11 +11186,11 @@
    "usedBy": [
     "/community/workspace"
    ],
-   "lines": 591,
+   "lines": 607,
    "rows": [
     {
      "kind": "hook",
-     "line": 105,
+     "line": 112,
      "in": "MessageComposer",
      "when": "editingMessage && textareaRef.current",
      "text": "textareaRef.current.focus()",
@@ -11179,13 +11198,13 @@
     },
     {
      "kind": "gate",
-     "line": 179,
+     "line": 162,
      "in": "MessageComposer",
      "text": "!mentionPosition"
     },
     {
      "kind": "hook",
-     "line": 202,
+     "line": 185,
      "in": "MessageComposer",
      "when": "textareaRef.current",
      "text": "textareaRef.current.focus()",
@@ -11193,81 +11212,81 @@
     },
     {
      "kind": "alert",
-     "line": 214,
+     "line": 197,
      "in": "MessageComposer",
      "when": "!isValidAttachment(file)",
      "text": "Archivo no válido: {file.name}"
     },
     {
      "kind": "alert",
-     "line": 221,
+     "line": 204,
      "in": "MessageComposer",
      "when": "attachments.length + validFiles.length > DEFAULT_MESSAGING_CONFIG.max_attachments_per_message",
      "text": "No se pueden adjuntar más de {DEFAULT_MESSAGING_CONFIG.ma…} archivos"
     },
     {
      "kind": "gate",
-     "line": 258,
+     "line": 241,
      "in": "MessageComposer",
      "text": "!content.trim() && attachments.length === 0"
     },
     {
      "kind": "gate",
-     "line": 259,
+     "line": 242,
      "in": "MessageComposer",
      "text": "isSubmitting || disabled"
     },
     {
      "kind": "alert",
-     "line": 283,
+     "line": 270,
      "in": "MessageComposer",
      "when": "!validationResult.is_valid",
      "text": "{validationResult.errors.join('\\n')}"
     },
     {
      "kind": "alert",
-     "line": 305,
+     "line": 292,
      "in": "MessageComposer",
      "text": "Error al enviar el mensaje. Inténtalo de nuevo."
     },
     {
      "kind": "hook",
-     "line": 327,
+     "line": 343,
      "in": "MessageComposer",
      "text": "document.addEventListener('mousedown')",
      "type": "listener"
     },
     {
      "kind": "text",
-     "line": 343,
+     "line": 359,
      "in": "MessageComposer",
      "when": "((replyToMessage || editingMessage)) && replyToMessage",
      "text": "Respondiendo a"
     },
     {
      "kind": "value",
-     "line": 343,
+     "line": 359,
      "in": "MessageComposer",
      "when": "((replyToMessage || editingMessage)) && replyToMessage",
      "text": "{replyToMessage.author_name}"
     },
     {
      "kind": "value",
-     "line": 344,
+     "line": 360,
      "in": "MessageComposer",
      "when": "((replyToMessage || editingMessage)) && replyToMessage",
      "text": "{replyToMessage.content.substring(0,…} ..."
     },
     {
      "kind": "text",
-     "line": 352,
+     "line": 368,
      "in": "MessageComposer",
      "when": "((replyToMessage || editingMessage)) && editingMessage",
      "text": "Editando mensaje"
     },
     {
      "kind": "button",
-     "line": 356,
+     "line": 372,
      "in": "MessageComposer",
      "when": "(replyToMessage || editingMessage)",
      "text": "[icon X]",
@@ -11275,14 +11294,14 @@
     },
     {
      "kind": "gesture",
-     "line": 366,
+     "line": 382,
      "in": "MessageComposer",
      "text": "onDrop={handleDrop} · onDragOver={handleDragOver}",
      "tag": "div"
     },
     {
      "kind": "field",
-     "line": 372,
+     "line": 388,
      "in": "MessageComposer",
      "text": "{placeholder}",
      "type": "textarea",
@@ -11294,13 +11313,13 @@
     },
     {
      "kind": "value",
-     "line": 385,
+     "line": 401,
      "in": "MessageComposer",
      "text": "{content.length} / {maxLength}"
     },
     {
      "kind": "button",
-     "line": 390,
+     "line": 406,
      "in": "MessageComposer",
      "text": "[icon Loader2]",
      "action": "{handleSubmit}",
@@ -11308,7 +11327,7 @@
     },
     {
      "kind": "popup",
-     "line": 409,
+     "line": 425,
      "in": "MessageComposer",
      "when": "showMentionPicker && mentionSuggestions.length > 0",
      "text": "MentionPicker",
@@ -11318,28 +11337,28 @@
     },
     {
      "kind": "media",
-     "line": 445,
+     "line": 461,
      "in": "MessageComposer",
      "when": "attachments.length > 0 && each attachments && file.type.startsWith('image/')",
      "text": "Image"
     },
     {
      "kind": "value",
-     "line": 449,
+     "line": 465,
      "in": "MessageComposer",
      "when": "attachments.length > 0 && each attachments",
      "text": "{file.name}"
     },
     {
      "kind": "value",
-     "line": 450,
+     "line": 466,
      "in": "MessageComposer",
      "when": "attachments.length > 0 && each attachments",
      "text": "( {formatFileSize(file.size)} )"
     },
     {
      "kind": "button",
-     "line": 452,
+     "line": 468,
      "in": "MessageComposer",
      "when": "attachments.length > 0 && each attachments",
      "text": "[icon X]",
@@ -11347,14 +11366,14 @@
     },
     {
      "kind": "value",
-     "line": 470,
+     "line": 486,
      "in": "MessageComposer",
      "when": "validation && !validation.is_valid && each validation.errors",
      "text": "{error}"
     },
     {
      "kind": "button",
-     "line": 483,
+     "line": 499,
      "in": "MessageComposer",
      "when": "allowAttachments",
      "text": "[icon Paperclip]",
@@ -11364,7 +11383,7 @@
     },
     {
      "kind": "field",
-     "line": 491,
+     "line": 507,
      "in": "MessageComposer",
      "when": "allowAttachments",
      "screen": "hidden",
@@ -11376,7 +11395,7 @@
     },
     {
      "kind": "button",
-     "line": 504,
+     "line": 520,
      "in": "MessageComposer",
      "text": "[icon Smile]",
      "action": "{() => setShowEmojiPicker(!showEmojiPicker)}",
@@ -11385,7 +11404,7 @@
     },
     {
      "kind": "button",
-     "line": 520,
+     "line": 536,
      "in": "MessageComposer",
      "when": "showEmojiPicker && each quickEmojis",
      "text": "{emoji}",
@@ -11393,7 +11412,7 @@
     },
     {
      "kind": "button",
-     "line": 537,
+     "line": 553,
      "in": "MessageComposer",
      "when": "allowMentions",
      "text": "[icon AtSign]",
@@ -11403,7 +11422,7 @@
     },
     {
      "kind": "hook",
-     "line": 543,
+     "line": 559,
      "in": "MessageComposer",
      "when": "allowMentions && textareaRef.current",
      "text": "textareaRef.current.focus()",
@@ -11411,7 +11430,7 @@
     },
     {
      "kind": "button",
-     "line": 561,
+     "line": 577,
      "in": "MessageComposer",
      "when": "(replyToMessage || editingMessage)",
      "text": "Cancelar",
@@ -11420,7 +11439,7 @@
     },
     {
      "kind": "button",
-     "line": 569,
+     "line": 585,
      "in": "MessageComposer",
      "text": "Enviando... / Guardar cambios / Enviar mensaje",
      "action": "{handleSubmit}",
@@ -11428,7 +11447,7 @@
     },
     {
      "kind": "string",
-     "line": 63,
+     "line": 70,
      "in": "MessageComposer",
      "text": "Escribe un mensaje..."
     }
@@ -11884,11 +11903,11 @@
    "usedBy": [
     "/community/workspace"
    ],
-   "lines": 247,
+   "lines": 261,
    "rows": [
     {
      "kind": "toast",
-     "line": 39,
+     "line": 44,
      "in": "handleSubmit",
      "when": "!formData.thread_title.trim()",
      "text": "Por favor ingresa un título para el hilo",
@@ -11896,7 +11915,7 @@
     },
     {
      "kind": "toast",
-     "line": 44,
+     "line": 49,
      "in": "handleSubmit",
      "when": "!formData.initial_message.trim()",
      "text": "Por favor ingresa un mensaje inicial",
@@ -11904,42 +11923,35 @@
     },
     {
      "kind": "toast",
-     "line": 49,
+     "line": 54,
      "in": "handleSubmit",
      "when": "formData.category === 'custom' && !formData.custom_category_name?.trim()",
      "text": "Por favor ingresa un nombre para la categoría personalizada",
      "variant": "error"
     },
     {
-     "kind": "toast",
-     "line": 69,
-     "in": "handleSubmit",
-     "text": "Error al crear el hilo de conversación",
-     "variant": "error"
-    },
-    {
      "kind": "gate",
-     "line": 81,
+     "line": 90,
      "in": "ThreadCreationModal",
      "text": "!isOpen"
     },
     {
      "kind": "popup",
-     "line": 84,
+     "line": 93,
      "in": "ThreadCreationModal",
      "text": "Crear Nuevo Hilo de Conversación",
      "how": "written in this file"
     },
     {
      "kind": "heading",
-     "line": 90,
+     "line": 99,
      "in": "ThreadCreationModal",
      "text": "Crear Nuevo Hilo de Conversación",
      "level": 2
     },
     {
      "kind": "button",
-     "line": 94,
+     "line": 103,
      "in": "ThreadCreationModal",
      "text": "[icon X]",
      "action": "{handleClose}",
@@ -11947,25 +11959,32 @@
     },
     {
      "kind": "form",
-     "line": 104,
+     "line": 113,
      "in": "ThreadCreationModal",
      "text": "{handleSubmit}"
     },
     {
+     "kind": "text",
+     "line": 116,
+     "in": "ThreadCreationModal",
+     "when": "threadAlreadyCreated",
+     "text": "La conversación ya fue creada. Solo falta enviar el primer mensaje."
+    },
+    {
      "kind": "label",
-     "line": 107,
+     "line": 121,
      "in": "ThreadCreationModal",
      "text": "Título del Hilo *",
      "for": "thread_title"
     },
     {
      "kind": "field",
-     "line": 110,
+     "line": 124,
      "in": "ThreadCreationModal",
      "text": "Título del Hilo *",
      "type": "text",
      "placeholder": "Ej: Planificación del próximo semestre",
-     "disabled": "{submitting}",
+     "disabled": "{fixedFieldDisabled}",
      "limits": "maxLength={100}",
      "action": "{(e) => setFormData({ ...formData, thread_title: e.target.value })}",
      "hook": {
@@ -11975,25 +11994,25 @@
     },
     {
      "kind": "text",
-     "line": 120,
+     "line": 134,
      "in": "ThreadCreationModal",
      "text": "{formData.thread_title.length} /100 caracteres"
     },
     {
      "kind": "label",
-     "line": 127,
+     "line": 141,
      "in": "ThreadCreationModal",
      "text": "Descripción (opcional)",
      "for": "description"
     },
     {
      "kind": "field",
-     "line": 130,
+     "line": 144,
      "in": "ThreadCreationModal",
      "text": "Descripción (opcional)",
      "type": "textarea",
      "placeholder": "Describe brevemente el propósito de este hilo...",
-     "disabled": "{submitting}",
+     "disabled": "{fixedFieldDisabled}",
      "limits": "maxLength={300}",
      "action": "{(e) => setFormData({ ...formData, description: e.target.value })}",
      "hook": {
@@ -12003,24 +12022,24 @@
     },
     {
      "kind": "text",
-     "line": 140,
+     "line": 154,
      "in": "ThreadCreationModal",
      "text": "{(formData.description || '').length} /300 caracteres"
     },
     {
      "kind": "label",
-     "line": 147,
+     "line": 161,
      "in": "ThreadCreationModal",
      "text": "Categoría *",
      "for": "category"
     },
     {
      "kind": "field",
-     "line": 151,
+     "line": 165,
      "in": "ThreadCreationModal",
      "text": "Categoría *",
      "type": "select",
-     "disabled": "{submitting}",
+     "disabled": "{fixedFieldDisabled}",
      "action": "{(e) => { const value = e.target.value as ThreadCategory; setFormData({ ...formD…}",
      "options": [
       "(lista) {category.label}",
@@ -12033,7 +12052,7 @@
     },
     {
      "kind": "label",
-     "line": 176,
+     "line": 190,
      "in": "ThreadCreationModal",
      "when": "showCustomCategory",
      "text": "Nombre de la categoría personalizada *",
@@ -12041,13 +12060,13 @@
     },
     {
      "kind": "field",
-     "line": 179,
+     "line": 193,
      "in": "ThreadCreationModal",
      "when": "showCustomCategory",
      "text": "Nombre de la categoría personalizada *",
      "type": "text",
      "placeholder": "Ej: Actividades Especiales",
-     "disabled": "{submitting}",
+     "disabled": "{fixedFieldDisabled}",
      "limits": "maxLength={50}",
      "action": "{(e) => setFormData({ ...formData, custom_category_name: e.target.value })}",
      "hook": {
@@ -12057,21 +12076,21 @@
     },
     {
      "kind": "text",
-     "line": 189,
+     "line": 203,
      "in": "ThreadCreationModal",
      "when": "showCustomCategory",
      "text": "{(formData.custom_category_name || '…} /50 caracteres"
     },
     {
      "kind": "label",
-     "line": 197,
+     "line": 211,
      "in": "ThreadCreationModal",
      "text": "Mensaje Inicial *",
      "for": "initial_message"
     },
     {
      "kind": "field",
-     "line": 200,
+     "line": 214,
      "in": "ThreadCreationModal",
      "text": "Mensaje Inicial *",
      "type": "textarea",
@@ -12086,13 +12105,13 @@
     },
     {
      "kind": "text",
-     "line": 210,
+     "line": 224,
      "in": "ThreadCreationModal",
      "text": "{formData.initial_message.length} /2000 caracteres"
     },
     {
      "kind": "button",
-     "line": 217,
+     "line": 231,
      "in": "ThreadCreationModal",
      "text": "Cancelar",
      "action": "{handleClose}",
@@ -12100,7 +12119,7 @@
     },
     {
      "kind": "button",
-     "line": 225,
+     "line": 239,
      "in": "ThreadCreationModal",
      "text": "Creando... / Crear Hilo",
      "submit": true,
@@ -12887,15 +12906,36 @@
    ],
    "db": []
   },
+  "lib/profile-cards.ts": {
+   "usedBy": [
+    "/community/workspace",
+    "/user/[userId]"
+   ],
+   "lines": 62,
+   "rows": [
+    {
+     "kind": "string",
+     "line": 59,
+     "in": "cardName",
+     "text": "Usuario"
+    }
+   ],
+   "db": [
+    {
+     "what": "rpc:get_profile_cards",
+     "ops": []
+    }
+   ]
+  },
   "lib/services/communityWorkspace.js": {
    "usedBy": [
     "/community/workspace"
    ],
-   "lines": 166,
+   "lines": 181,
    "rows": [
     {
      "kind": "list",
-     "line": 3,
+     "line": 21,
      "text": "communityWorkspaceService",
      "items": [
       "No se proporcionó ningún archivo",
@@ -12906,7 +12946,7 @@
     },
     {
      "kind": "message",
-     "line": 36,
+     "line": 54,
      "in": "uploadCommunityImage",
      "when": "!file",
      "text": "No se proporcionó ningún archivo",
@@ -12914,7 +12954,7 @@
     },
     {
      "kind": "message",
-     "line": 42,
+     "line": 60,
      "in": "uploadCommunityImage",
      "when": "file.size > maxSize",
      "text": "El archivo debe ser menor a 5MB",
@@ -12922,7 +12962,7 @@
     },
     {
      "kind": "message",
-     "line": 48,
+     "line": 66,
      "in": "uploadCommunityImage",
      "when": "!allowedTypes.includes(file.type)",
      "text": "Solo se permiten imágenes (JPEG, PNG, WebP)",
@@ -12930,9 +12970,9 @@
     },
     {
      "kind": "access",
-     "line": 155,
+     "line": 173,
      "in": "canEditWorkspace",
-     "text": "canEdit = roles.some(role => role.role_type === 'admin' || role.community_id === workspace.community_id )",
+     "text": "canEdit = canEditWorkspaceWithRoles(roles, workspace.community_id)",
      "via": "declaration"
     }
    ],
@@ -12964,11 +13004,11 @@
    "usedBy": [
     "/community/workspace"
    ],
-   "lines": 501,
+   "lines": 533,
    "rows": [
     {
      "kind": "list",
-     "line": 15,
+     "line": 16,
      "text": "MENTION_NOTIFICATION_FAILED",
      "items": [
       "Tu publicación se guardó, pero no pudimos enviar la notificación de mención."
@@ -12976,7 +13016,7 @@
     },
     {
      "kind": "message",
-     "line": 135,
+     "line": 155,
      "in": "createPost",
      "when": "!user",
      "text": "Usuario no autenticado",
@@ -12984,14 +13024,14 @@
     },
     {
      "kind": "access",
-     "line": 138,
+     "line": 158,
      "in": "createPost",
      "text": "canAccess = await supabase.rpc('can_access_workspace', { p_user_id: user.id, p_workspace_id: workspaceId })",
      "via": "declaration"
     },
     {
      "kind": "message",
-     "line": 144,
+     "line": 164,
      "in": "createPost",
      "when": "!canAccess.data",
      "text": "No tienes permisos para publicar en esta comunidad. Verifica que estés asignado a la comunidad.",
@@ -12999,7 +13039,7 @@
     },
     {
      "kind": "message",
-     "line": 163,
+     "line": 183,
      "in": "createPost",
      "when": "postError && postError.message.includes('relation \"community_posts\" does not exist')",
      "text": "Las tablas del feed no están configuradas. Por favor, contacta al administrador.",
@@ -13007,7 +13047,7 @@
     },
     {
      "kind": "message",
-     "line": 211,
+     "line": 231,
      "in": "createPost",
      "when": "input.media && input.media.length > 0 && mediaError",
      "text": "Error al subir archivos: {mediaError.message}",
@@ -13015,7 +13055,7 @@
     },
     {
      "kind": "toast",
-     "line": 269,
+     "line": 289,
      "in": "createPost",
      "when": "input.mentions && input.mentions.length > 0 && mentionNotificationFailed",
      "text": "{MENTION_NOTIFICATION_FAILED}",
@@ -13023,7 +13063,7 @@
     },
     {
      "kind": "message",
-     "line": 343,
+     "line": 363,
      "in": "toggleReaction",
      "when": "!user",
      "text": "Usuario no autenticado",
@@ -13031,7 +13071,7 @@
     },
     {
      "kind": "message",
-     "line": 387,
+     "line": 407,
      "in": "addComment",
      "when": "!user",
      "text": "Usuario no autenticado",
@@ -13039,7 +13079,7 @@
     },
     {
      "kind": "message",
-     "line": 460,
+     "line": 492,
      "in": "toggleSavePost",
      "when": "!user",
      "text": "Usuario no autenticado",
@@ -13047,7 +13087,7 @@
     },
     {
      "kind": "string",
-     "line": 243,
+     "line": 263,
      "in": "FeedService",
      "text": "Bearer {session.access_token}"
     }
@@ -14004,11 +14044,11 @@
    "usedBy": [
     "/community/workspace"
    ],
-   "lines": 831,
+   "lines": 844,
    "rows": [
     {
      "kind": "message",
-     "line": 443,
+     "line": 469,
      "in": "createThread",
      "when": "threadError && (threadError?.code === '42P01' || threadError?.message?.includes('does not exist'))",
      "text": "Messaging feature not yet implemented",
@@ -14016,7 +14056,7 @@
     },
     {
      "kind": "message",
-     "line": 529,
+     "line": 563,
      "in": "sendMessage",
      "when": "error && (error?.code === '42P01' || error?.message?.includes('does not exist'))",
      "text": "Messaging feature not yet implemented",
@@ -14024,13 +14064,19 @@
     },
     {
      "kind": "string",
-     "line": 105,
-     "in": "getWorkspaceThreads",
+     "line": 301,
+     "in": "withMessageDetails",
      "text": "Usuario"
     },
     {
      "kind": "string",
-     "line": 820,
+     "line": 379,
+     "in": "ThreadCreationIncompleteError",
+     "text": "No se pudo crear la conversación"
+    },
+    {
+     "kind": "string",
+     "line": 833,
      "in": "requestMessageNotifications",
      "text": "Bearer {session.access_token}"
     }
@@ -14382,12 +14428,14 @@
     "GET"
    ],
    "guards": [
-    "auth.getUser"
+    "auth.getUser",
+    "createServiceRoleClient"
    ],
    "calledBy": [
     "/community/workspace"
    ],
    "referencedIn": [
+    "__tests__/api/community/search-users.test.ts",
     "components/feed/CreatePostModal.tsx",
     "tests/e2e/messaging-notifications.spec.ts"
    ]
@@ -14587,6 +14635,7 @@
    ],
    "referencedIn": [
     "__tests__/api/storage/download-authorization.test.ts",
+    "__tests__/pages/community/workspace.messages.test.tsx",
     "components/student/StudentBlockRenderer.tsx",
     "pages/community/workspace.tsx",
     "scripts/seed-qa-phase2-final.js",

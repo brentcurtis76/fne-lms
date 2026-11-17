@@ -28,9 +28,19 @@ interface NotificationItem {
 
 interface ModernNotificationCenterProps {
   className?: string;
+  /**
+   * Where the panel opens. `'sidebar'` (the default, today's): beside the sidebar, from the left.
+   * `'right'`: from the screen's right edge, for a bell at the right of a top bar (redesign 5b).
+   */
+  panelAlign?: 'sidebar' | 'right';
 }
 
-const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ className = '' }) => {
+const PANEL_POSITION: Record<NonNullable<ModernNotificationCenterProps['panelAlign']>, string> = {
+  sidebar: 'fixed top-16 left-80 w-[420px] max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden transform transition-all duration-300 ease-out animate-in slide-in-from-top-2 sm:w-[420px] sm:left-80 max-sm:left-4 max-sm:right-4 max-sm:w-auto',
+  right: 'fixed top-16 right-4 w-[420px] max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden transform transition-all duration-300 ease-out animate-in slide-in-from-top-2 max-sm:left-4 max-sm:right-4 max-sm:w-auto',
+};
+
+const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ className = '', panelAlign = 'sidebar' }) => {
   const router = useRouter();
   const supabase = useSupabaseClient();
   const [isOpen, setIsOpen] = useState(false);
@@ -426,7 +436,7 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
       {isOpen && (
         <div 
           ref={dropdownRef}
-          className="fixed top-16 left-80 w-[420px] max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden transform transition-all duration-300 ease-out animate-in slide-in-from-top-2 sm:w-[420px] sm:left-80 max-sm:left-4 max-sm:right-4 max-sm:w-auto"
+          className={PANEL_POSITION[panelAlign]}
           style={{
             boxShadow: '0 10px 40px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.05)'
           }}

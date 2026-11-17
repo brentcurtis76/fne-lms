@@ -4,8 +4,8 @@
  "note": "Gets the new values only, no individual redesign work (PLAN.md, phase 6). Its tours hang on data-tour marks.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
-  "date": "2026-11-17T05:46:26-03:00"
+  "commit": "9b113df429f5036bf72f1c71c6636b3bb0f47139",
+  "date": "2026-11-17T12:24:40-03:00"
  },
  "screens": [
   {
@@ -2681,7 +2681,7 @@
       "href": "/admin/qa/generate",
       "gates": "admin only",
       "groupGates": "QA testers and admin",
-      "line": 710
+      "line": 709
      }
     ],
     "middleware": {
@@ -2754,7 +2754,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:712",
+     "components/layout/Sidebar.tsx:711",
      "pages/admin/qa/scenarios.tsx:509",
      "pages/admin/qa/scenarios.tsx:510",
      "pages/admin/qa/scenarios.tsx:538",
@@ -4105,7 +4105,7 @@
       "href": "/admin/qa/import",
       "gates": "admin only",
       "groupGates": "QA testers and admin",
-      "line": 696
+      "line": 695
      }
     ],
     "middleware": {
@@ -4166,7 +4166,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:698",
+     "components/layout/Sidebar.tsx:697",
      "pages/admin/qa/index.tsx:561",
      "pages/admin/qa/index.tsx:562"
     ],
@@ -4593,7 +4593,7 @@
       "href": "/admin/qa",
       "gates": "admin only",
       "groupGates": "QA testers and admin",
-      "line": 682
+      "line": 681
      }
     ],
     "middleware": {
@@ -4658,7 +4658,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:684",
+     "components/layout/Sidebar.tsx:683",
      "lib/notificationEvents.ts:430",
      "lib/notifications/catalog.ts:378",
      "pages/admin/qa/assignments.tsx:429",
@@ -8438,7 +8438,7 @@
       "href": "/admin/qa/scenarios",
       "gates": "admin only",
       "groupGates": "QA testers and admin",
-      "line": 689
+      "line": 688
      }
     ],
     "middleware": {
@@ -8495,7 +8495,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:691",
+     "components/layout/Sidebar.tsx:690",
      "pages/admin/qa/confirm.tsx:367",
      "pages/admin/qa/confirm.tsx:368",
      "pages/admin/qa/generate.tsx:413",
@@ -9170,7 +9170,7 @@
       "href": "/admin/qa/time-tracking",
       "gates": "admin only",
       "groupGates": "QA testers and admin",
-      "line": 703
+      "line": 702
      }
     ],
     "middleware": {
@@ -9235,7 +9235,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:705"
+     "components/layout/Sidebar.tsx:704"
     ],
     "qaScenarios": {
      "admin": [
@@ -9688,7 +9688,7 @@
       "href": "/qa",
       "gates": "everyone signed in",
       "groupGates": "QA testers and admin",
-      "line": 675
+      "line": 674
      }
     ],
     "middleware": {
@@ -9745,7 +9745,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:677",
+     "components/layout/Sidebar.tsx:676",
      "components/qa/QAFloatingWidget.tsx:749",
      "lib/auth/forced-password-change.ts:157",
      "lib/notificationEvents.ts:454",

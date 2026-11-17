@@ -1,9 +1,9 @@
 # Tareas y quizzes (assignments, group work, quiz review)
 
 Area `05-tareas`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3ff6aa13f` (2026-11-17).
+Read from commit `9b113df42` (2026-11-17).
 
-9 screen files, 14 API files, 18 pieces.
+9 screen files, 14 API files, 19 pieces.
 
 ## Screens
 
@@ -25,7 +25,7 @@ File `pages/admin/assignment-overview.tsx` · 619 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Consultorías › «Vista de Tareas» → `/admin/assignment-overview` — everyone signed in; the group: admin or consultor (`Sidebar.tsx` l.486)
+- Menu: Consultorías › «Vista de Tareas» → `/admin/assignment-overview` — everyone signed in; the group: admin or consultor (`Sidebar.tsx` l.485)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.113 `router.push → /login  (when !authUser)`
@@ -33,7 +33,7 @@ File `pages/admin/assignment-overview.tsx` · 619 lines · frame: MainLayout
   - l.132 `router.push → /dashboard  (when role !== 'admin' && role !== 'consultor')`
   - l.148 `router.push → /login`
   - l.283 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:488`, `lib/notifications/catalog.ts:304`, `middleware.ts:223`, `pages/admin/assignment-review/[id].tsx:348`
+- Linked from: `components/layout/Sidebar.tsx:487`, `lib/notifications/catalog.ts:304`, `middleware.ts:223`, `pages/admin/assignment-review/[id].tsx:348`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 3, consultor 1.
 
@@ -346,7 +346,7 @@ File `pages/assignments.tsx` · 360 lines · frame: MainLayout
   - l.97 `role = await getUserPrimaryRole(session.user.id)`
   - l.115 `router.push → /login  (when !(session) && session === null)`
   - l.138 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:35`, `components/notifications/ModernNotificationCenter.tsx:301`, `components/notifications/ModernNotificationCenter.tsx:312`, `components/notifications/NotificationDropdown.tsx:140`, `components/notifications/NotificationDropdown.tsx:151`, `lib/auth/forced-password-change.ts:133`, `lib/notificationEvents.ts:314`, `lib/notificationEvents.ts:328`, `lib/notificationEvents.ts:345`, `lib/notifications/catalog.ts:279`, `lib/notifications/catalog.ts:288`, `lib/notifications/catalog.ts:290` and 15 more
+- Linked from: `components/DynamicFavicon.tsx:35`, `components/notifications/ModernNotificationCenter.tsx:311`, `components/notifications/ModernNotificationCenter.tsx:322`, `components/notifications/NotificationDropdown.tsx:140`, `components/notifications/NotificationDropdown.tsx:151`, `lib/auth/forced-password-change.ts:133`, `lib/notificationEvents.ts:314`, `lib/notificationEvents.ts:328`, `lib/notificationEvents.ts:345`, `lib/notifications/catalog.ts:279`, `lib/notifications/catalog.ts:288`, `lib/notifications/catalog.ts:290` and 15 more
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/notification-catalog-links.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -886,6 +886,7 @@ File `pages/community/workspace/assignments/[id]/discussion.tsx` · 405 lines ·
 - `components/messaging/MentionPicker.tsx`
 - `components/messaging/MessageCard.tsx`
 - `components/messaging/MessageComposer.tsx`
+- `lib/profile-cards.ts`
 - `lib/services/groupAssignments.js`
 - `lib/services/groupAssignmentsV2.js`
 - `lib/utils/file-format.ts`
@@ -899,7 +900,7 @@ File `pages/community/workspace/assignments/[id]/discussion.tsx` · 405 lines ·
 | Address | Method | Called from |
 |---|---|---|
 | `/api/assignments/submit-group` | POST | `lib/services/groupAssignmentsV2.js:429` |
-| `/api/community/workspace-message-notifications` | POST | `utils/messagingUtils-simple.ts:816` |
+| `/api/community/workspace-message-notifications` | POST | `utils/messagingUtils-simple.ts:829` |
 
 ## /community/workspace/assignments/[id]/groups
 
@@ -1024,7 +1025,7 @@ File `pages/quiz-reviews.tsx` · 239 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Mi Trabajo › «Revisión de Quizzes» → `/quiz-reviews` — admin or consultor; the group: admin or consultor (`Sidebar.tsx` l.203)
+- Menu: Mi Trabajo › «Revisión de Quizzes» → `/quiz-reviews` — admin or consultor; the group: admin or consultor (`Sidebar.tsx` l.202)
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
   - l.23 `router.push → /login  (when !user)`
@@ -1033,7 +1034,7 @@ File `pages/quiz-reviews.tsx` · 239 lines · frame: MainLayout
   - l.28 `if (!hasRole('admin') && !hasRole('consultor') && !hasRole('equipo_directivo')) { toast.error('No tienes permisos para acceder a esta página'); route…`
   - l.30 `router.push → /dashboard  (when !hasRole('admin') && !hasRole('consultor') && !hasRole('equipo_directivo'))`
   - l.111 `getHighestRole(userRoles) \|\| ''`
-- Linked from: `components/DynamicFavicon.tsx:34`, `components/layout/Sidebar.tsx:205`, `lib/auth/forced-password-change.ts:158`, `lib/notifications/catalog.ts:310`, `middleware.ts:353`, `pages/quiz-reviews/[id].tsx:59`, `pages/quiz-reviews/[id].tsx:73`, `pages/quiz-reviews/[id].tsx:81`, `pages/quiz-reviews/[id].tsx:97`
+- Linked from: `components/DynamicFavicon.tsx:34`, `components/layout/Sidebar.tsx:204`, `lib/auth/forced-password-change.ts:158`, `lib/notifications/catalog.ts:310`, `middleware.ts:353`, `pages/quiz-reviews/[id].tsx:59`, `pages/quiz-reviews/[id].tsx:73`, `pages/quiz-reviews/[id].tsx:81`, `pages/quiz-reviews/[id].tsx:97`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`.
 - QA scenarios that name this address: admin 3, community_manager 1, consultor 2, equipo_directivo 4, lider_comunidad 1, lider_generacion 1, supervisor_de_red 1.
 
@@ -1532,86 +1533,86 @@ Used by: `/community/workspace/assignments/[id]/discussion`
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «[icon X]» | `{editingMessage ? onCancelEdit : onCancelReply}` | `(replyToMessage \|\| editingMessage)` |  |  | MessageComposer · l.356 |
-| «[icon Loader2]» | `{handleSubmit}` |  | `{(!content.trim() && attachments.length === 0) \|\| isSubmitting \|\| disabled}` |  | MessageComposer · l.390 |
-| «[icon X]» | `{() => removeAttachment(index)}` | `attachments.length > 0 && each attachments` |  |  | MessageComposer · l.452 |
-| «[icon Paperclip]» · tooltip «Adjuntar archivo» | `{() => fileInputRef.current?.click()}` | `allowAttachments` | `{disabled \|\| isSubmitting}` |  | MessageComposer · l.483 |
-| «[icon Smile]» · tooltip «Agregar emoji» | `{() => setShowEmojiPicker(!showEmojiPicker)}` |  | `{disabled \|\| isSubmitting}` |  | MessageComposer · l.504 |
-| «{emoji}» | `{() => { setContent(prev => prev + emoji); setShowEmojiPicker(false); }}` | `showEmojiPicker && each quickEmojis` |  |  | MessageComposer · l.520 |
-| «[icon AtSign]» · tooltip «Mencionar usuario» | `{() => { if (textareaRef.current) { const cursorPosition = textareaRef.current.s…}` | `allowMentions` | `{disabled \|\| isSubmitting}` |  | MessageComposer · l.537 |
-| «Cancelar» | `{editingMessage ? onCancelEdit : onCancelReply}` | `(replyToMessage \|\| editingMessage)` | `{isSubmitting}` |  | MessageComposer · l.561 |
-| «Enviando... / Guardar cambios / Enviar mensaje» | `{handleSubmit}` |  | `{(!content.trim() && attachments.length === 0) \|\| isSubmitting \|\| disabled}` |  | MessageComposer · l.569 |
+| «[icon X]» | `{editingMessage ? onCancelEdit : onCancelReply}` | `(replyToMessage \|\| editingMessage)` |  |  | MessageComposer · l.372 |
+| «[icon Loader2]» | `{handleSubmit}` |  | `{(!content.trim() && attachments.length === 0) \|\| isSubmitting \|\| disabled}` |  | MessageComposer · l.406 |
+| «[icon X]» | `{() => removeAttachment(index)}` | `attachments.length > 0 && each attachments` |  |  | MessageComposer · l.468 |
+| «[icon Paperclip]» · tooltip «Adjuntar archivo» | `{() => fileInputRef.current?.click()}` | `allowAttachments` | `{disabled \|\| isSubmitting}` |  | MessageComposer · l.499 |
+| «[icon Smile]» · tooltip «Agregar emoji» | `{() => setShowEmojiPicker(!showEmojiPicker)}` |  | `{disabled \|\| isSubmitting}` |  | MessageComposer · l.520 |
+| «{emoji}» | `{() => { setContent(prev => prev + emoji); setShowEmojiPicker(false); }}` | `showEmojiPicker && each quickEmojis` |  |  | MessageComposer · l.536 |
+| «[icon AtSign]» · tooltip «Mencionar usuario» | `{() => { if (textareaRef.current) { const cursorPosition = textareaRef.current.s…}` | `allowMentions` | `{disabled \|\| isSubmitting}` |  | MessageComposer · l.553 |
+| «Cancelar» | `{editingMessage ? onCancelEdit : onCancelReply}` | `(replyToMessage \|\| editingMessage)` | `{isSubmitting}` |  | MessageComposer · l.577 |
+| «Enviando... / Guardar cambios / Enviar mensaje» | `{handleSubmit}` |  | `{(!content.trim() && attachments.length === 0) \|\| isSubmitting \|\| disabled}` |  | MessageComposer · l.585 |
 
 **Fields** (2)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «{placeholder}» | textarea | «{placeholder}» · disabled: `{disabled \|\| isSubmitting}` · `maxLength={maxLength}` · also `onKeyDown={handleKeyPress}` |  |  |  | MessageComposer · l.372 |
-|  | file | accepts `{DEFAULT_MESSAGING_CONFIG.allowed_attachment_types.join(',')}` · `multiple=true` |  | `allowAttachments` · hidden by its class (`hidden`); another control opens it or it is for screen readers |  | MessageComposer · l.491 |
+| «{placeholder}» | textarea | «{placeholder}» · disabled: `{disabled \|\| isSubmitting}` · `maxLength={maxLength}` · also `onKeyDown={handleKeyPress}` |  |  |  | MessageComposer · l.388 |
+|  | file | accepts `{DEFAULT_MESSAGING_CONFIG.allowed_attachment_types.join(',')}` · `multiple=true` |  | `allowAttachments` · hidden by its class (`hidden`); another control opens it or it is for screen readers |  | MessageComposer · l.507 |
 
 **Other gestures (keys, hover, drag, blur)** (1)
 
 | Element | Reacts to | Shown when | Where |
 |---|---|---|---|
-| `div` | `onDrop={handleDrop} · onDragOver={handleDragOver}` |  | MessageComposer · l.366 |
+| `div` | `onDrop={handleDrop} · onDragOver={handleDragOver}` |  | MessageComposer · l.382 |
 
 **Embedded media** (1)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| Image | `attachments.length > 0 && each attachments && file.type.startsWith('image/')` |  | MessageComposer · l.445 |
+| Image | `attachments.length > 0 && each attachments && file.type.startsWith('image/')` |  | MessageComposer · l.461 |
 
 **Pop-ups** (1)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| `MentionPicker` | component | `{showMentionPicker}` |  | MessageComposer · l.409 |
+| `MentionPicker` | component | `{showMentionPicker}` |  | MessageComposer · l.425 |
 
 **Browser alert()** (4)
 
 | Text | When | Where |
 |---|---|---|
-| «Archivo no válido: {file.name}» | `!isValidAttachment(file)` | MessageComposer · l.214 |
-| «No se pueden adjuntar más de {DEFAULT_MESSAGING_CONFIG.ma…} archivos» | `attachments.length + validFiles.length > DEFAULT_MESSAGING_CONFIG.max_attachments_per_message` | MessageComposer · l.221 |
-| «{validationResult.errors.join('\n')}» | `!validationResult.is_valid` | MessageComposer · l.283 |
-| «Error al enviar el mensaje. Inténtalo de nuevo.» |  | MessageComposer · l.305 |
+| «Archivo no válido: {file.name}» | `!isValidAttachment(file)` | MessageComposer · l.197 |
+| «No se pueden adjuntar más de {DEFAULT_MESSAGING_CONFIG.ma…} archivos» | `attachments.length + validFiles.length > DEFAULT_MESSAGING_CONFIG.max_attachments_per_message` | MessageComposer · l.204 |
+| «{validationResult.errors.join('\n')}» | `!validationResult.is_valid` | MessageComposer · l.270 |
+| «Error al enviar el mensaje. Inténtalo de nuevo.» |  | MessageComposer · l.292 |
 
 **Draws nothing when** (3)
 
 | Condition | Where |
 |---|---|
-| `!mentionPosition` | MessageComposer · l.179 |
-| `!content.trim() && attachments.length === 0` | MessageComposer · l.258 |
-| `isSubmitting \|\| disabled` | MessageComposer · l.259 |
+| `!mentionPosition` | MessageComposer · l.162 |
+| `!content.trim() && attachments.length === 0` | MessageComposer · l.241 |
+| `isSubmitting \|\| disabled` | MessageComposer · l.242 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
 |---|---|
-| «Escribe un mensaje...» | MessageComposer · l.63 |
+| «Escribe un mensaje...» | MessageComposer · l.70 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (4)
 
 | Kind | What | Where |
 |---|---|---|
-| focus | `textareaRef.current.focus()` | MessageComposer · l.105 |
-| focus | `textareaRef.current.focus()` | MessageComposer · l.202 |
-| listener | `document.addEventListener('mousedown')` | MessageComposer · l.327 |
-| focus | `textareaRef.current.focus()` | MessageComposer · l.543 |
+| focus | `textareaRef.current.focus()` | MessageComposer · l.112 |
+| focus | `textareaRef.current.focus()` | MessageComposer · l.185 |
+| listener | `document.addEventListener('mousedown')` | MessageComposer · l.343 |
+| focus | `textareaRef.current.focus()` | MessageComposer · l.559 |
 
 **Values shown from data** (6)
 
-- `{replyToMessage.author_name}` — MessageComposer · l.343, when `((replyToMessage \|\| editingMessage)) && replyToMessage`
-- `{replyToMessage.content.substring(0,…} ...` — MessageComposer · l.344, when `((replyToMessage \|\| editingMessage)) && replyToMessage`
-- `{content.length} / {maxLength}` — MessageComposer · l.385
-- `{file.name}` — MessageComposer · l.449, when `attachments.length > 0 && each attachments`
-- `( {formatFileSize(file.size)} )` — MessageComposer · l.450, when `attachments.length > 0 && each attachments`
-- `{error}` — MessageComposer · l.470, when `validation && !validation.is_valid && each validation.errors`
+- `{replyToMessage.author_name}` — MessageComposer · l.359, when `((replyToMessage \|\| editingMessage)) && replyToMessage`
+- `{replyToMessage.content.substring(0,…} ...` — MessageComposer · l.360, when `((replyToMessage \|\| editingMessage)) && replyToMessage`
+- `{content.length} / {maxLength}` — MessageComposer · l.401
+- `{file.name}` — MessageComposer · l.465, when `attachments.length > 0 && each attachments`
+- `( {formatFileSize(file.size)} )` — MessageComposer · l.466, when `attachments.length > 0 && each attachments`
+- `{error}` — MessageComposer · l.486, when `validation && !validation.is_valid && each validation.errors`
 
 **Other texts on screen** (2)
 
-- «Respondiendo a» — MessageComposer · l.343, when `((replyToMessage \|\| editingMessage)) && replyToMessage`
-- «Editando mensaje» — MessageComposer · l.352, when `((replyToMessage \|\| editingMessage)) && editingMessage`
+- «Respondiendo a» — MessageComposer · l.359, when `((replyToMessage \|\| editingMessage)) && replyToMessage`
+- «Editando mensaje» — MessageComposer · l.368, when `((replyToMessage \|\| editingMessage)) && editingMessage`
 
 ### components/quiz/QuizReviewPanel.tsx
 
@@ -1697,6 +1698,18 @@ Used by: `/quiz-reviews/[id]`
 Used by: `/assignments`, `/quiz-reviews/[id]`
 
 **Reads and writes the database directly:** `table:profiles` (select)
+
+### lib/profile-cards.ts
+
+Used by: `/community/workspace/assignments/[id]/discussion`
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (1)
+
+| Text | Where |
+|---|---|
+| «Usuario» | cardName · l.59 |
+
+**Reads and writes the database directly:** `rpc:get_profile_cards`
 
 ### lib/services/assignments.js
 
@@ -1828,13 +1841,13 @@ Used by: `/community/workspace/assignments/[id]/discussion`
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Messaging feature not yet implemented» | `throw (shown by whoever catches it)` | `error && (error?.code === '42P01' \|\| error?.message?.includes('does not exist'))` | sendMessage · l.529 |
+| «Messaging feature not yet implemented» | `throw (shown by whoever catches it)` | `error && (error?.code === '42P01' \|\| error?.message?.includes('does not exist'))` | sendMessage · l.563 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
 |---|---|
-| «Bearer {session.access_token}» | requestMessageNotifications · l.820 |
+| «Bearer {session.access_token}» | requestMessageNotifications · l.833 |
 
 **Reads and writes the database directly:** `bucket:message-attachments` (getPublicUrl, upload), `table:community_messages` (insert, select), `table:message_attachments` (insert, select), `table:message_threads` (update), `table:profiles` (select)
 

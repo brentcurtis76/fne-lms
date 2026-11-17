@@ -3,7 +3,7 @@
  * Provides consistent navigation across all authenticated pages
  */
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { User } from '@supabase/supabase-js';
@@ -41,13 +41,12 @@ import {
 import { CalendarIcon } from '@heroicons/react/solid';
 import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
 import { navigationManager } from '../../utils/navigationManager';
-import { isFeatureEnabled } from '../../lib/featureFlags';
-import { isChildVisible } from '../../lib/sidebar/childVisibility';
 import { usePermissions } from '../../contexts/PermissionContext';
-
-// Backed by a stable NEXT_PUBLIC_* env var; read once at module scope rather
-// than as a reactive dependency since its value cannot change at runtime.
-const FEATURE_SUPERADMIN_RBAC_ENABLED = isFeatureEnabled('FEATURE_SUPERADMIN_RBAC');
+import { useLook } from '../../contexts/LookContext';
+// The entry's own logic (children shown, click, floating list) and the superadmin flag: one copy,
+// used by today's entry below and by the new look's entry (redesign 5b).
+import { useSidebarItem, FEATURE_SUPERADMIN_RBAC_ENABLED } from './useSidebarItem';
+import SidebarNuevo from './SidebarNuevo';
 
 interface SidebarProps {
   user: User | null;
@@ -76,7 +75,7 @@ interface SidebarProps {
   className?: string;
 }
 
-interface NavigationItem {
+export interface NavigationItem {
   id: string;
   label: string;
   icon: React.ComponentType<any>;
@@ -96,7 +95,7 @@ interface NavigationItem {
   isExpanded?: boolean;
 }
 
-interface NavigationChild {
+export interface NavigationChild {
   id: string;
   label: string;
   href: string;
@@ -750,7 +749,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   }
 ];
 
-interface SidebarItemProps {
+export interface SidebarItemProps {
   item: NavigationItem;
   isCollapsed: boolean;
   expandedItems: Set<string>;
@@ -775,125 +774,39 @@ interface SidebarItemProps {
   routerAsPath: string;
 }
 
-const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
-  item,
-  isCollapsed,
-  expandedItems,
-  isAdmin,
-  userRole,
-  userRoles,
-  hasPermission,
-  hasAnyPermission,
-  hasAllPermissions,
-  permissionsLoading,
-  isSuperadmin,
-  superadminCheckDone,
-  hasCommunity,
-  communityCheckDone,
-  canRunQATests,
-  qaCheckDone,
-  hasAssessments,
-  assessmentsCheckDone,
-  newFeedbackCount,
-  isItemActive,
-  toggleExpanded,
-  routerAsPath
-}) => {
-  const router = useRouter();
-  const [showCollapsedMenu, setShowCollapsedMenu] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const isExpanded = expandedItems.has(item.id);
-
-  // Close floating menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowCollapsedMenu(false);
-      }
-    };
-
-    if (showCollapsedMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [showCollapsedMenu]);
-
-  // Cleanup hover timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Filter children based on admin status and permissions
-  const filteredChildren = useMemo(() => {
-    const ctx = {
-      isAdmin,
-      userRole,
-      userRoles,
-      isSuperadmin,
-      superadminCheckDone,
-      hasCommunity,
-      communityCheckDone,
-      canRunQATests,
-      qaCheckDone,
-      hasAssessments,
-      assessmentsCheckDone,
-      featureSuperadminRbac: FEATURE_SUPERADMIN_RBAC_ENABLED,
-      permissionsLoading,
-      hasPermission,
-      hasAnyPermission,
-      hasAllPermissions,
-    };
-    return item.children?.filter(child => isChildVisible(child, ctx)) || [];
-  }, [item.children, isAdmin, userRole, userRoles, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone, hasAssessments, assessmentsCheckDone]);
-
-  const hasChildren = filteredChildren.length > 0;
-  const isActive = item.href ? isItemActive(item.href, routerAsPath) : false;
-
-  const handleClick = useCallback(async () => {
-    if (isCollapsed && hasChildren) {
-      setShowCollapsedMenu(prev => !prev);
-    } else if (hasChildren) {
-      toggleExpanded(item.id);
-    } else if (item.href) {
-      try {
-        router.push(item.href);
-      } catch (err) {
-        console.error('Navigation error in sidebar:', err);
-      }
-    }
-  }, [isCollapsed, hasChildren, item.id, item.href, toggleExpanded, router]);
+const SidebarItem: React.FC<SidebarItemProps> = React.memo((props) => {
+  const {
+    item,
+    isCollapsed,
+    newFeedbackCount,
+    isItemActive,
+    routerAsPath
+  } = props;
+  const {
+    showCollapsedMenu,
+    setShowCollapsedMenu,
+    isHovered,
+    menuRef,
+    isExpanded,
+    filteredChildren,
+    hasChildren,
+    isActive,
+    handleClick,
+    isHidden,
+    handleMouseEnter,
+    handleMouseLeave,
+  } = useSidebarItem(props);
 
   // Don't render parent items that have children but all children are filtered out
-  if (item.children && !hasChildren && !item.href) {
+  if (isHidden) {
     return null;
   }
 
   return (
     <div
       className="relative"
-      onMouseEnter={() => {
-        if (isCollapsed) {
-          hoverTimeoutRef.current = setTimeout(() => {
-            setIsHovered(true);
-            if (hasChildren) setShowCollapsedMenu(true);
-          }, 150);
-        }
-      }}
-      onMouseLeave={() => {
-        if (hoverTimeoutRef.current) {
-          clearTimeout(hoverTimeoutRef.current);
-        }
-        setIsHovered(false);
-        if (hasChildren) {
-          setShowCollapsedMenu(false);
-        }
-      }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <button
         onClick={handleClick}
@@ -1477,6 +1390,46 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
       return true;
     });
   }, [isAdmin, userRoles, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone, hasAssessments, assessmentsCheckDone, hasPasantia]);
+
+  // The new look (redesign 5b) draws the same filtered list, with the same values each entry gets
+  // below, in its own markup. Everything above runs once whichever frame is drawn.
+  const { look } = useLook();
+  if (look === 'nuevo') {
+    return (
+      <SidebarNuevo
+        items={filteredNavigationItems}
+        itemProps={{
+          isCollapsed,
+          expandedItems,
+          isAdmin,
+          userRole,
+          userRoles,
+          hasPermission,
+          hasAnyPermission,
+          hasAllPermissions,
+          permissionsLoading,
+          isSuperadmin,
+          superadminCheckDone,
+          hasCommunity,
+          communityCheckDone,
+          canRunQATests,
+          qaCheckDone,
+          hasAssessments,
+          assessmentsCheckDone,
+          newFeedbackCount,
+          isItemActive,
+          toggleExpanded,
+          routerAsPath: router.asPath,
+        }}
+        isDesktop={isDesktop}
+        isCollapsed={isCollapsed}
+        isMobileOpen={isMobileOpen}
+        onDesktopToggle={onDesktopToggle}
+        onMobileClose={onMobileClose}
+        className={className}
+      />
+    );
+  }
 
   return (
     <>

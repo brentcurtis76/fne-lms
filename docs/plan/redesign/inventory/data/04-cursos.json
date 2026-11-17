@@ -4,8 +4,8 @@
  "note": "Course system: see the note on 03-aprendizaje.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
-  "date": "2026-11-17T05:46:26-03:00"
+  "commit": "9b113df429f5036bf72f1c71c6636b3bb0f47139",
+  "date": "2026-11-17T12:24:40-03:00"
  },
  "screens": [
   {
@@ -24,7 +24,7 @@
       "href": "/admin/assignment-matrix",
       "gates": "admin only",
       "groupGates": "admin only",
-      "line": 461
+      "line": 460
      }
     ],
     "middleware": {
@@ -93,7 +93,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:463"
+     "components/layout/Sidebar.tsx:462"
     ],
     "qaScenarios": {
      "admin": [
@@ -3328,7 +3328,7 @@
       "href": "/admin/course-builder",
       "gates": "everyone signed in",
       "groupGates": "admin only",
-      "line": 247
+      "line": 246
      }
     ],
     "middleware": {
@@ -3397,7 +3397,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:249",
+     "components/layout/Sidebar.tsx:248",
      "lib/notifications/catalog.ts:380",
      "pages/admin/course-builder/[courseId]/edit.tsx:427",
      "pages/admin/course-builder/[courseId]/edit.tsx:443",
@@ -5027,7 +5027,7 @@
       "href": "/admin/learning-paths",
       "gates": "admin only",
       "groupGates": "admin only",
-      "line": 261
+      "line": 260
      }
     ],
     "middleware": {
@@ -5100,7 +5100,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:263",
+     "components/layout/Sidebar.tsx:262",
      "pages/admin/learning-paths/[id]/assign.tsx:192",
      "pages/admin/learning-paths/[id]/assign.tsx:461",
      "pages/admin/learning-paths/[id]/assign.tsx:479",
@@ -7100,7 +7100,7 @@
       "href": "/admin/upcoming-courses",
       "gates": "admin only",
       "groupGates": "admin only",
-      "line": 254
+      "line": 253
      }
     ],
     "middleware": {
@@ -7148,7 +7148,7 @@
     },
     "inPage": [],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:256"
+     "components/layout/Sidebar.tsx:255"
     ],
     "qaScenarios": {
      "admin": [

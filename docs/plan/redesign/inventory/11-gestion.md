@@ -1,7 +1,7 @@
 # Gestión (clients, contracts, quotes)
 
 Area `11-gestion`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3ff6aa13f` (2026-11-17).
+Read from commit `9b113df42` (2026-11-17).
 
 7 screen files, 14 API files, 20 pieces.
 
@@ -23,7 +23,7 @@ File `pages/admin/clients.tsx` · 846 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Gestión › «Clientes» → `/admin/clients` — permission: view_contracts_all or view_contracts_school; the group: roles: admin, community_manager, encargado_licitacion (`Sidebar.tsx` l.550)
+- Menu: Gestión › «Clientes» → `/admin/clients` — permission: view_contracts_all or view_contracts_school; the group: roles: admin, community_manager, encargado_licitacion (`Sidebar.tsx` l.549)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.99 `router.push → /login  (when !user)`
@@ -31,7 +31,7 @@ File `pages/admin/clients.tsx` · 846 lines · frame: MainLayout
   - l.115 `userRole = await getUserPrimaryRole(user.id)`
   - l.118 `router.push → /dashboard  (when userRole !== 'admin')`
   - l.126 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:552`
+- Linked from: `components/layout/Sidebar.tsx:551`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 1.
 
@@ -326,10 +326,10 @@ File `pages/admin/quotes/index.tsx` · 438 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Gestión › «Propuestas Pasantías» → `/admin/quotes` — permission: view_internship_proposals_all or view_internship_proposals_school or view_internship_proposals_own; the group: roles: admin, community_manager, encargado_licitacion (`Sidebar.tsx` l.566)
+- Menu: Gestión › «Propuestas Pasantías» → `/admin/quotes` — permission: view_internship_proposals_all or view_internship_proposals_school or view_internship_proposals_own; the group: roles: admin, community_manager, encargado_licitacion (`Sidebar.tsx` l.565)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `components/layout/Sidebar.tsx:568`, `pages/admin/quotes/[id]/edit.tsx:134`, `pages/admin/quotes/[id]/edit.tsx:135`, `pages/admin/quotes/[id]/edit.tsx:156`, `pages/admin/quotes/[id]/edit.tsx:157`, `pages/admin/quotes/[id]/edit.tsx:32`, `pages/admin/quotes/[id]/edit.tsx:37`, `pages/admin/quotes/[id]/edit.tsx:96`, `pages/admin/quotes/new.tsx:68`, `pages/admin/quotes/new.tsx:91`, `pages/admin/quotes/new.tsx:92`
+- Linked from: `components/layout/Sidebar.tsx:567`, `pages/admin/quotes/[id]/edit.tsx:134`, `pages/admin/quotes/[id]/edit.tsx:135`, `pages/admin/quotes/[id]/edit.tsx:156`, `pages/admin/quotes/[id]/edit.tsx:157`, `pages/admin/quotes/[id]/edit.tsx:32`, `pages/admin/quotes/[id]/edit.tsx:37`, `pages/admin/quotes/[id]/edit.tsx:96`, `pages/admin/quotes/new.tsx:68`, `pages/admin/quotes/new.tsx:91`, `pages/admin/quotes/new.tsx:92`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 1.
 
@@ -666,7 +666,7 @@ File `pages/contracts.tsx` · 1123 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Gestión › «Contratos» → `/contracts` — permission: view_contracts_all or view_contracts_school or view_contracts_own; the group: roles: admin, community_manager, encargado_licitacion (`Sidebar.tsx` l.558)
+- Menu: Gestión › «Contratos» → `/contracts` — permission: view_contracts_all or view_contracts_school or view_contracts_own; the group: roles: admin, community_manager, encargado_licitacion (`Sidebar.tsx` l.557)
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
   - l.156 `router.push → /login  (when !session?.user)`
@@ -674,7 +674,7 @@ File `pages/contracts.tsx` · 1123 lines · frame: MainLayout
   - l.171 `router.push → /dashboard  (when !profile \|\| userRole !== 'admin')`
   - l.240 `router.push → /login`
   - l.315 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:39`, `components/layout/Sidebar.tsx:560`, `components/licitaciones/Step7Contrato.tsx:165`, `components/licitaciones/Step7Contrato.tsx:220`, `components/licitaciones/Step7Contrato.tsx:221`, `components/licitaciones/Step7Contrato.tsx:377`, `components/licitaciones/Step7Contrato.tsx:378`, `lib/auth/forced-password-change.ts:138`, `middleware.ts:333`, `pages/admin/schools.tsx:591`
+- Linked from: `components/DynamicFavicon.tsx:39`, `components/layout/Sidebar.tsx:559`, `components/licitaciones/Step7Contrato.tsx:206`, `components/licitaciones/Step7Contrato.tsx:261`, `components/licitaciones/Step7Contrato.tsx:262`, `components/licitaciones/Step7Contrato.tsx:418`, `components/licitaciones/Step7Contrato.tsx:419`, `lib/auth/forced-password-change.ts:138`, `middleware.ts:333`, `pages/admin/schools.tsx:591`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`; unit tests of the page: `__tests__/pages/contracts-activation.test.tsx`.
 - QA scenarios that name this address: admin 3, consultor 1, equipo_directivo 1, lider_comunidad 1.
 

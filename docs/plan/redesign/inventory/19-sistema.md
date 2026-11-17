@@ -1,7 +1,7 @@
 # Sistema (configuration, support, roadmap, test and debug pages, scheduled jobs)
 
 Area `19-sistema`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3ff6aa13f` (2026-11-17).
+Read from commit `9b113df42` (2026-11-17).
 
 3 screen files, 27 API files, 6 pieces.
 
@@ -19,14 +19,14 @@ File `pages/admin/configuration.tsx` · 531 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Sistema › «Configuración» → `/admin/configuration` — permission: manage_system_settings; the group: everyone signed in (`Sidebar.tsx` l.725)
+- Menu: Sistema › «Configuración» → `/admin/configuration` — permission: manage_system_settings; the group: everyone signed in (`Sidebar.tsx` l.724)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.66 `router.push → /login  (when !session?.user)`
   - l.81 `adminFromMetadata = metadataHasRole(userData?.user?.user_metadata, 'admin')`
   - l.94 `router.push → /dashboard  (when !hasAdminRoleInDB && !adminFromMetadata)`
   - l.109 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:727`, `pages/admin/context-questions/index.tsx:341`
+- Linked from: `components/layout/Sidebar.tsx:726`, `pages/admin/context-questions/index.tsx:341`
 - Tests: browser tests that CI runs: `tests/e2e/notification-settings.spec.ts`; unit tests of the page: `__tests__/notifications/entry-points.test.tsx`.
 - QA scenarios that name this address: admin 2, consultor 1, equipo_directivo 1, lider_comunidad 1, supervisor_de_red 1.
 
@@ -178,14 +178,14 @@ File `pages/admin/feedback.tsx` · 557 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Gestión › «Soporte Técnico» → `/admin/feedback` — permission: manage_system_settings; the group: roles: admin, community_manager, encargado_licitacion (`Sidebar.tsx` l.590)
+- Menu: Gestión › «Soporte Técnico» → `/admin/feedback` — permission: manage_system_settings; the group: roles: admin, community_manager, encargado_licitacion (`Sidebar.tsx` l.589)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.89 `router.push → /login  (when !session?.user)`
   - l.96 `{ effectiveRole, isAdmin: isAdminUser } = await getEffectiveRoleAndStatus(supabase, session.user.id)`
   - l.103 `router.push → /dashboard  (when !isAdminUser)`
   - l.320 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:592`, `components/notifications/ModernNotificationCenter.tsx:297`, `components/notifications/ModernNotificationCenter.tsx:315`, `components/notifications/NotificationDropdown.tsx:136`, `components/notifications/NotificationDropdown.tsx:154`, `lib/notificationEvents.ts:397`, `lib/notifications/catalog.ts:377`, `pages/notifications.tsx:265`, `pages/notifications.tsx:283`, `utils/notificationPermissions.ts:121`, `utils/notificationPermissions.ts:164`
+- Linked from: `components/layout/Sidebar.tsx:591`, `components/notifications/ModernNotificationCenter.tsx:307`, `components/notifications/ModernNotificationCenter.tsx:325`, `components/notifications/NotificationDropdown.tsx:136`, `components/notifications/NotificationDropdown.tsx:154`, `lib/notificationEvents.ts:397`, `lib/notifications/catalog.ts:377`, `pages/notifications.tsx:265`, `pages/notifications.tsx:283`, `utils/notificationPermissions.ts:121`, `utils/notificationPermissions.ts:164`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/feedback-notify-admins.spec.ts`.
 - QA scenarios that name this address: admin 1.
 
@@ -312,14 +312,14 @@ File `pages/admin/roadmap.tsx` · 149 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Sistema › «Roadmap MVP» → `/admin/roadmap` — admin only; the group: everyone signed in (`Sidebar.tsx` l.733)
+- Menu: Sistema › «Roadmap MVP» → `/admin/roadmap` — admin only; the group: everyone signed in (`Sidebar.tsx` l.732)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.33 `router.push → /login  (when !session?.user)`
   - l.49 `userRole = await getUserPrimaryRole(session.user.id)`
   - l.54 `router.push → /dashboard  (when !isAdminUser)`
   - l.61 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:735`
+- Linked from: `components/layout/Sidebar.tsx:734`
 - Tests: no browser test that CI runs.
 
 | Role | Sees it in the menu | Middleware |

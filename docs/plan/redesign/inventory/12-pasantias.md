@@ -1,7 +1,7 @@
 # Pasantías (leads, travellers, panel, my trip)
 
 Area `12-pasantias`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3ff6aa13f` (2026-11-17).
+Read from commit `9b113df42` (2026-11-17).
 
 5 screen files, 21 API files, 25 pieces.
 
@@ -21,14 +21,14 @@ File `pages/admin/pasantia-leads.tsx` · 672 lines · frame: MainLayout · getSe
 
 ### Who reaches it
 
-- Menu: Personas › «Pasantías» → `/admin/pasantia-leads` — admin only; the group: admin only (`Sidebar.tsx` l.421)
+- Menu: Personas › «Pasantías» → `/admin/pasantia-leads` — admin only; the group: admin only (`Sidebar.tsx` l.420)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.85 `server redirect → /login  (when !user)`
   - l.89 `isAdmin = await isGlobalAdmin(service, user.id)`
   - l.89 `isAdmin = await isGlobalAdmin(service, user.id)`
   - l.91 `server redirect → /dashboard  (when !isAdmin)`
-- Linked from: `components/layout/Sidebar.tsx:423`
+- Linked from: `components/layout/Sidebar.tsx:422`
 - Tests: browser tests that CI runs: `tests/e2e/ci-fixture.spec.ts`, `tests/e2e/pasantias-flow.spec.ts`, `tests/e2e/pasantias-leads-admin.spec.ts`; unit tests of the page: `__tests__/lib/api-auth.server-side-user.test.ts`, `__tests__/pages/admin/pasantia-leads.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -224,14 +224,14 @@ File `pages/admin/pasantia-participants.tsx` · 481 lines · frame: MainLayout �
 
 ### Who reaches it
 
-- Menu: Personas › «Nóminas de pasantes» → `/admin/pasantia-participants` — admin only; the group: admin only (`Sidebar.tsx` l.429)
+- Menu: Personas › «Nóminas de pasantes» → `/admin/pasantia-participants` — admin only; the group: admin only (`Sidebar.tsx` l.428)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.48 `server redirect → /login  (when !user)`
   - l.51 `isAdmin = await isGlobalAdmin(service, user.id)`
   - l.51 `isAdmin = await isGlobalAdmin(service, user.id)`
   - l.53 `server redirect → /dashboard  (when !isAdmin)`
-- Linked from: `components/layout/Sidebar.tsx:431`
+- Linked from: `components/layout/Sidebar.tsx:430`
 - Tests: browser tests that CI runs: `tests/e2e/pasantias-participant-intake.spec.ts`; unit tests of the page: `__tests__/pages/admin/pasantia-participants.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -411,14 +411,14 @@ File `pages/admin/pasantias-panel.tsx` · 448 lines · frame: MainLayout · getS
 
 ### Who reaches it
 
-- Menu: Personas › «Panel de pasantías» → `/admin/pasantias-panel` — admin only; the group: admin only (`Sidebar.tsx` l.437)
+- Menu: Personas › «Panel de pasantías» → `/admin/pasantias-panel` — admin only; the group: admin only (`Sidebar.tsx` l.436)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.59 `server redirect → /login  (when !user)`
   - l.62 `isAdmin = await isGlobalAdmin(service, user.id)`
   - l.62 `isAdmin = await isGlobalAdmin(service, user.id)`
   - l.64 `server redirect → /dashboard  (when !isAdmin)`
-- Linked from: `components/layout/Sidebar.tsx:439`
+- Linked from: `components/layout/Sidebar.tsx:438`
 - Tests: browser tests that CI runs: `tests/e2e/pasantias-panel.spec.ts`; unit tests of the page: `__tests__/pages/admin/pasantias-panel.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -768,11 +768,11 @@ File `pages/profile/pasantia.tsx` · 191 lines · frame: MainLayout · getServer
 
 ### Who reaches it
 
-- Menu: «Mi pasantía» → `/profile/pasantia` — only pasantía travellers (`Sidebar.tsx` l.132)
+- Menu: «Mi pasantía» → `/profile/pasantia` — only pasantía travellers (`Sidebar.tsx` l.131)
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
   - l.29 `server redirect → /login?next=%2Fprofile%2Fpasantia  (when !user)`
-- Linked from: `components/layout/Sidebar.tsx:135`, `components/layout/Sidebar.tsx:1396`
+- Linked from: `components/layout/Sidebar.tsx:1309`, `components/layout/Sidebar.tsx:134`
 - Tests: browser tests that CI runs: `tests/e2e/pasantias-panel.spec.ts`; unit tests of the page: `__tests__/pages/profile-pasantia.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -2037,7 +2037,7 @@ Used by: `/admin/pasantia-leads`, `/admin/pasantia-participants`, `/admin/pasant
 | `/api/pasantias/ficha` | `pages/api/pasantias/ficha.ts` |  | `/pasantias` | `__tests__/api/pasantias-lead.test.ts`, `__tests__/api/pasantias-pdf.test.ts`, `__tests__/components/PasantiasLeadForm.test.tsx`, `__tests__/lib/pasantias-emails.test.ts`, `__tests__/pages/pasantias.test.tsx` +6 |
 | `/api/pasantias/lead` | `pages/api/pasantias/lead.ts` | POST | `/pasantias` | `__tests__/api/pasantias-lead.test.ts`, `__tests__/components/PasantiasLeadForm.test.tsx`, `components/pasantias/LeadForm.tsx`, `tests/e2e/pasantias-flow.spec.ts`, `tests/e2e/pasantias-form.spec.ts` |
 | `/api/pasantias/mine/documents/[docId]` | `pages/api/pasantias/mine/documents/[docId].ts` | GET | `/profile/pasantia` | `__tests__/api/pasantias-panel-jobs.test.ts`, `__tests__/pages/profile-pasantia.test.tsx`, `pages/profile/pasantia.tsx`, `tests/e2e/pasantias-panel.spec.ts` |
-| `/api/pasantias/mine` | `pages/api/pasantias/mine/index.ts` | GET | **no screen** | `__tests__/api/pasantias-panel-jobs.test.ts`, `__tests__/components/layout/Sidebar.miPasantia.test.tsx`, `components/layout/Sidebar.tsx`, `tests/e2e/panel-pin.spec.ts`, `tests/e2e/pasantias-panel.spec.ts` |
+| `/api/pasantias/mine` | `pages/api/pasantias/mine/index.ts` | GET | **no screen** | `__tests__/api/pasantias-panel-jobs.test.ts`, `__tests__/components/layout/Sidebar.miPasantia.nuevo.test.tsx`, `__tests__/components/layout/Sidebar.miPasantia.test.tsx`, `components/layout/Sidebar.tsx`, `tests/e2e/panel-pin.spec.ts` +1 |
 | `/api/pasantias/participants/[id]` | `pages/api/pasantias/participants/[id].ts` |  | **no screen** | `__tests__/api/pasantias-participants.test.ts`, `__tests__/lib/pasantias/participants/school-funding.test.ts`, `__tests__/pages/pasantias-nomina.test.tsx` |
 | `/api/pasantias/participants/finalize` | `pages/api/pasantias/participants/finalize.ts` |  | **no screen** | `__tests__/api/pasantias-participants.test.ts` |
 | `/api/pasantias/participants` | `pages/api/pasantias/participants/index.ts` | GET | `/pasantias/nomina` | `__tests__/api/pasantias-participants.test.ts`, `__tests__/lib/pasantias/participants/school-funding.test.ts`, `__tests__/pages/pasantias-nomina.test.tsx`, `pages/pasantias/nomina.tsx`, `tests/e2e/pasantias-panel.spec.ts` +1 |

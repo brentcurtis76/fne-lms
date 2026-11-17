@@ -1,7 +1,7 @@
 # Horas, tarifas y gastos
 
 Area `17-horas-gastos`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3ff6aa13f` (2026-11-17).
+Read from commit `9b113df42` (2026-11-17).
 
 4 screen files, 10 API files, 15 pieces.
 
@@ -20,14 +20,14 @@ File `pages/admin/consultant-earnings.tsx` · 169 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Consultorías › «Ganancias» → `/admin/consultant-earnings` — admin only; the group: admin or consultor (`Sidebar.tsx` l.525)
+- Menu: Consultorías › «Ganancias» → `/admin/consultant-earnings` — admin only; the group: admin or consultor (`Sidebar.tsx` l.524)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.41 `router.push → /login  (when !session?.user)`
   - l.57 `userRole = await getUserPrimaryRole(session.user.id)`
   - l.62 `router.push → /dashboard  (when !isAdminUser)`
   - l.69 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:527`
+- Linked from: `components/layout/Sidebar.tsx:526`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 1, consultor 1, equipo_directivo 1.
 
@@ -115,14 +115,14 @@ File `pages/admin/consultant-rates.tsx` · 102 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Consultorías › «Tarifas» → `/admin/consultant-rates` — admin only; the group: admin or consultor (`Sidebar.tsx` l.517)
+- Menu: Consultorías › «Tarifas» → `/admin/consultant-rates` — admin only; the group: admin or consultor (`Sidebar.tsx` l.516)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.31 `router.push → /login  (when !session?.user)`
   - l.47 `userRole = await getUserPrimaryRole(session.user.id)`
   - l.52 `router.push → /dashboard  (when !isAdminUser)`
   - l.56 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:519`
+- Linked from: `components/layout/Sidebar.tsx:518`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 1, consultor 1, equipo_directivo 2.
 
@@ -203,7 +203,7 @@ File `pages/expense-reports.tsx` · 778 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Gestión › «Rendición de Gastos» → `/expense-reports` — permission: view_expense_reports_all or view_expense_reports_school or view_expense_reports_own; the group: roles: admin, community_manager, encargado_licitacion (`Sidebar.tsx` l.578)
+- Menu: Gestión › «Rendición de Gastos» → `/expense-reports` — permission: view_expense_reports_all or view_expense_reports_school or view_expense_reports_own; the group: roles: admin, community_manager, encargado_licitacion (`Sidebar.tsx` l.577)
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
   - l.110 `router.push → /login  (when !session?.user)`
@@ -212,7 +212,7 @@ File `pages/expense-reports.tsx` · 778 lines · frame: MainLayout
   - l.148 `router.push → /dashboard  (when !hasAccess)`
   - l.161 `router.push → /login`
   - l.210 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:40`, `components/layout/Sidebar.tsx:580`, `lib/auth/forced-password-change.ts:149`, `middleware.ts:344`
+- Linked from: `components/DynamicFavicon.tsx:40`, `components/layout/Sidebar.tsx:579`, `lib/auth/forced-password-change.ts:149`, `middleware.ts:344`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 1, community_manager 1.
 
@@ -411,14 +411,14 @@ File `pages/mis-horas.tsx` · 113 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Mi Trabajo › «Mis Horas» → `/mis-horas` — admin or consultor; the group: admin or consultor (`Sidebar.tsx` l.195)
+- Menu: Mi Trabajo › «Mis Horas» → `/mis-horas` — admin or consultor; the group: admin or consultor (`Sidebar.tsx` l.194)
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
   - l.33 `router.push → /login  (when !session?.user)`
   - l.52 `userRole = await getUserPrimaryRole(session.user.id)`
   - l.59 `router.push → /dashboard  (when !isAdminUser && !isConsultor)`
   - l.63 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:197`, `lib/auth/forced-password-change.ts:153`, `middleware.ts:348`
+- Linked from: `components/layout/Sidebar.tsx:196`, `lib/auth/forced-password-change.ts:153`, `middleware.ts:348`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: consultor 5.
 

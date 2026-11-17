@@ -1,7 +1,7 @@
 # Sitio público (nuevaeducacion.org pages; not part of the platform redesign)
 
 Area `20-sitio-publico`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3ff6aa13f` (2026-11-17).
+Read from commit `9b113df42` (2026-11-17).
 
 Redesigned separately and live since 12 Nov 2026. Listed so that every file under pages/ has a place.
 
@@ -29,7 +29,7 @@ File `pages/equipo.tsx` · 36 lines · frame: none
 - Menu: no entry.
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `components/DynamicFavicon.tsx:38`, `components/Footer.tsx:95`, `components/site/SiteLayout.tsx:176`, `lib/auth/forced-password-change.ts:148`, `lib/look.ts:105`, `middleware.ts:343`
+- Linked from: `components/DynamicFavicon.tsx:38`, `components/Footer.tsx:95`, `components/layout/FooterNuevo.tsx:19`, `components/site/SiteLayout.tsx:176`, `lib/auth/forced-password-change.ts:148`, `lib/look.ts:105`, `middleware.ts:343`
 - Tests: browser tests that CI runs: `tests/e2e/footer-heading-order.spec.ts`; browser tests CI skips: `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -90,7 +90,7 @@ File `pages/index.tsx` · 479 lines · frame: none
 - Menu: no entry.
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page: no access check found by the script.
-- Linked from: `components/Footer.tsx:96`, `components/layout/Header.tsx:62`, `components/site/SiteLayout.tsx:47`, `pages/403.tsx:21`, `pages/admin/course-builder/new.tsx:49`, `pages/admin/news.tsx:312`, `pages/admin/transformation.tsx:60`, `pages/admin/transformation/assessments.tsx:118`, `pages/directivo/assessments/dashboard.tsx:162`, `pages/login.tsx:371`, `pages/login.tsx:390`, `pages/login.tsx:612` and 11 more
+- Linked from: `components/Footer.tsx:96`, `components/layout/Header.tsx:62`, `components/site/SiteLayout.tsx:47`, `pages/403.tsx:21`, `pages/admin/course-builder/new.tsx:49`, `pages/admin/news.tsx:312`, `pages/admin/transformation.tsx:60`, `pages/admin/transformation/assessments.tsx:118`, `pages/directivo/assessments/dashboard.tsx:167`, `pages/login.tsx:371`, `pages/login.tsx:390`, `pages/login.tsx:612` and 11 more
 - Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/home-contact-form.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -322,7 +322,7 @@ File `pages/nosotros.tsx` · 115 lines · frame: none
 - Menu: no entry.
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page: no access check found by the script.
-- Linked from: `components/Footer.tsx:94`, `components/site/SiteLayout.tsx:175`, `components/site/SiteLayout.tsx:26`, `lib/look.ts:104`, `pages/equipo.tsx:27`
+- Linked from: `components/Footer.tsx:94`, `components/layout/FooterNuevo.tsx:18`, `components/site/SiteLayout.tsx:175`, `components/site/SiteLayout.tsx:26`, `lib/look.ts:104`, `pages/equipo.tsx:27`
 - Tests: browser tests that CI runs: `tests/e2e/footer-heading-order.spec.ts`; browser tests CI skips: `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -420,7 +420,7 @@ File `pages/noticias.tsx` · 254 lines · frame: none
 - Menu: no entry.
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page: no access check found by the script.
-- Linked from: `components/Footer.tsx:93`, `components/site/Novedades.tsx:35`, `components/site/SiteLayout.tsx:174`, `components/site/SiteLayout.tsx:25`, `lib/look.ts:107`, `pages/dashboard.tsx:725`, `pages/dashboard.tsx:726`, `pages/noticias/[slug].tsx:103`, `pages/noticias/[slug].tsx:126`, `pages/noticias/[slug].tsx:76`
+- Linked from: `components/Footer.tsx:93`, `components/layout/FooterNuevo.tsx:17`, `components/site/Novedades.tsx:35`, `components/site/SiteLayout.tsx:174`, `components/site/SiteLayout.tsx:25`, `lib/look.ts:107`, `pages/dashboard.tsx:729`, `pages/dashboard.tsx:730`, `pages/noticias/[slug].tsx:103`, `pages/noticias/[slug].tsx:126`, `pages/noticias/[slug].tsx:76`
 - Tests: browser tests that CI runs: `tests/e2e/footer-heading-order.spec.ts`; browser tests CI skips: `tests/e2e/panel-pin.spec.ts`, `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -544,7 +544,7 @@ File `pages/noticias/[slug].tsx` · 157 lines · frame: none
 - Menu: no entry.
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page: no access check found by the script.
-- Linked from: `components/NewsSlider.tsx:169`, `components/NewsSlider.tsx:194`, `components/NewsSlider.tsx:213`, `components/NewsSlider.tsx:214`, `components/site/NewsCard.tsx:15`, `components/site/NewsCard.tsx:17`, `lib/look.ts:108`, `pages/dashboard.tsx:746`, `pages/dashboard.tsx:748`, `pages/noticias.tsx:196`
+- Linked from: `components/NewsSlider.tsx:169`, `components/NewsSlider.tsx:194`, `components/NewsSlider.tsx:213`, `components/NewsSlider.tsx:214`, `components/site/NewsCard.tsx:15`, `components/site/NewsCard.tsx:17`, `lib/look.ts:108`, `pages/dashboard.tsx:750`, `pages/dashboard.tsx:752`, `pages/noticias.tsx:196`
 - Tests: browser tests that CI runs: `tests/e2e/footer-heading-order.spec.ts`; browser tests CI skips: `tests/e2e/panel-pin.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -666,7 +666,7 @@ File `pages/pasantias.tsx` · 1350 lines · frame: none · getServerSideProps
 - Menu: no entry.
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page: no access check found by the script.
-- Linked from: `components/Footer.tsx:91`, `components/site/SiteLayout.tsx:172`, `components/site/SiteLayout.tsx:23`, `lib/look.ts:109`, `lib/pasantias/pdf/contact.ts:22`, `pages/index.tsx:337`, `pages/programas.tsx:163`
+- Linked from: `components/Footer.tsx:91`, `components/layout/FooterNuevo.tsx:15`, `components/site/SiteLayout.tsx:172`, `components/site/SiteLayout.tsx:23`, `lib/look.ts:109`, `lib/pasantias/pdf/contact.ts:22`, `pages/index.tsx:337`, `pages/programas.tsx:163`
 - Tests: browser tests that CI runs: `tests/e2e/footer-heading-order.spec.ts`, `tests/e2e/pasantias-flow.spec.ts`, `tests/e2e/pasantias-form.spec.ts`, `tests/e2e/pasantias-page.spec.ts`; unit tests of the page: `__tests__/pages/pasantias-hardcoded-cohort.test.ts`, `__tests__/pages/pasantias.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -981,7 +981,7 @@ File `pages/programas.tsx` · 208 lines · frame: none
 - Menu: no entry.
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page: no access check found by the script.
-- Linked from: `components/Footer.tsx:92`, `components/site/Puertas.tsx:30`, `components/site/Puertas.tsx:33`, `components/site/SiteLayout.tsx:173`, `components/site/SiteLayout.tsx:24`, `lib/look.ts:103`, `pages/index.tsx:123`, `pages/nosotros.tsx:106`
+- Linked from: `components/Footer.tsx:92`, `components/layout/FooterNuevo.tsx:16`, `components/site/Puertas.tsx:30`, `components/site/Puertas.tsx:33`, `components/site/SiteLayout.tsx:173`, `components/site/SiteLayout.tsx:24`, `lib/look.ts:103`, `pages/index.tsx:123`, `pages/nosotros.tsx:106`
 - Tests: browser tests that CI runs: `tests/e2e/footer-heading-order.spec.ts`, `tests/e2e/pasantias-page.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |

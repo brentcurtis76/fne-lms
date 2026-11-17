@@ -1,7 +1,7 @@
 # Cursos (course builder, upcoming courses, learning paths, assignment matrix)
 
 Area `04-cursos`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3ff6aa13f` (2026-11-17).
+Read from commit `9b113df42` (2026-11-17).
 
 Course system: see the note on 03-aprendizaje.
 
@@ -33,7 +33,7 @@ File `pages/admin/assignment-matrix.tsx` · 117 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Personas › «Matriz de Asignaciones» → `/admin/assignment-matrix` — admin only; the group: admin only (`Sidebar.tsx` l.461)
+- Menu: Personas › «Matriz de Asignaciones» → `/admin/assignment-matrix` — admin only; the group: admin only (`Sidebar.tsx` l.460)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.30 `router.push → /login  (when !session?.user)`
@@ -41,7 +41,7 @@ File `pages/admin/assignment-matrix.tsx` · 117 lines · frame: MainLayout
   - l.38 `allowedRoles = ['admin', 'consultor']`
   - l.41 `router.push → /dashboard  (when !userRole \|\| !allowedRoles.includes(userRole))`
   - l.61 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:463`
+- Linked from: `components/layout/Sidebar.tsx:462`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 1, community_manager 1.
 
@@ -999,7 +999,7 @@ File `pages/admin/course-builder/index.tsx` · 637 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Cursos › «Constructor de Cursos» → `/admin/course-builder` — everyone signed in; the group: admin only (`Sidebar.tsx` l.247)
+- Menu: Cursos › «Constructor de Cursos» → `/admin/course-builder` — everyone signed in; the group: admin only (`Sidebar.tsx` l.246)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.75 `router.push → /login  (when !session?.user)`
@@ -1007,7 +1007,7 @@ File `pages/admin/course-builder/index.tsx` · 637 lines · frame: MainLayout
   - l.109 `isAdmin = adminInMetadata \|\| hasAdminRoleInDB`
   - l.420 `router.push → /login`
   - l.452 `No tienes permiso para acceder a esta página.`
-- Linked from: `components/layout/Sidebar.tsx:249`, `lib/notifications/catalog.ts:380`, `pages/admin/course-builder/[courseId]/edit.tsx:427`, `pages/admin/course-builder/[courseId]/edit.tsx:443`, `pages/admin/course-builder/[courseId]/index.tsx:435`, `pages/admin/course-builder/[courseId]/index.tsx:487`, `pages/admin/course-builder/[courseId]/lesson/[lessonId].tsx:569`, `pages/admin/course-builder/new.tsx:205`, `pages/admin/course-builder/new.tsx:243`, `pages/admin/courses/[id]/assign.tsx:199`, `pages/admin/courses/[id]/assign.tsx:509`, `pages/admin/courses/[id]/assign.tsx:527` and 2 more
+- Linked from: `components/layout/Sidebar.tsx:248`, `lib/notifications/catalog.ts:380`, `pages/admin/course-builder/[courseId]/edit.tsx:427`, `pages/admin/course-builder/[courseId]/edit.tsx:443`, `pages/admin/course-builder/[courseId]/index.tsx:435`, `pages/admin/course-builder/[courseId]/index.tsx:487`, `pages/admin/course-builder/[courseId]/lesson/[lessonId].tsx:569`, `pages/admin/course-builder/new.tsx:205`, `pages/admin/course-builder/new.tsx:243`, `pages/admin/courses/[id]/assign.tsx:199`, `pages/admin/courses/[id]/assign.tsx:509`, `pages/admin/courses/[id]/assign.tsx:527` and 2 more
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 1.
 
@@ -1493,7 +1493,7 @@ File `pages/admin/learning-paths.tsx` · 306 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Cursos › «Rutas de Aprendizaje» → `/admin/learning-paths` — admin only; the group: admin only (`Sidebar.tsx` l.261)
+- Menu: Cursos › «Rutas de Aprendizaje» → `/admin/learning-paths` — admin only; the group: admin only (`Sidebar.tsx` l.260)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.44 `router.push → /login  (when !session?.user)`
@@ -1502,7 +1502,7 @@ File `pages/admin/learning-paths.tsx` · 306 lines · frame: MainLayout
   - l.62 `router.push → /dashboard  (when !hasAccess)`
   - l.77 `router.push → /login`
   - l.139 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:263`, `pages/admin/learning-paths/[id]/assign.tsx:192`, `pages/admin/learning-paths/[id]/assign.tsx:461`, `pages/admin/learning-paths/[id]/assign.tsx:479`, `pages/admin/learning-paths/[id]/assign.tsx:845`, `pages/admin/learning-paths/[id]/edit.tsx:115`, `pages/admin/learning-paths/[id]/edit.tsx:133`, `pages/admin/learning-paths/[id]/edit.tsx:227`, `pages/admin/learning-paths/[id]/edit.tsx:260`, `pages/admin/learning-paths/[id]/edit.tsx:275`, `pages/admin/learning-paths/[id]/edit.tsx:460`, `pages/admin/learning-paths/new.tsx:112` and 4 more
+- Linked from: `components/layout/Sidebar.tsx:262`, `pages/admin/learning-paths/[id]/assign.tsx:192`, `pages/admin/learning-paths/[id]/assign.tsx:461`, `pages/admin/learning-paths/[id]/assign.tsx:479`, `pages/admin/learning-paths/[id]/assign.tsx:845`, `pages/admin/learning-paths/[id]/edit.tsx:115`, `pages/admin/learning-paths/[id]/edit.tsx:133`, `pages/admin/learning-paths/[id]/edit.tsx:227`, `pages/admin/learning-paths/[id]/edit.tsx:260`, `pages/admin/learning-paths/[id]/edit.tsx:275`, `pages/admin/learning-paths/[id]/edit.tsx:460`, `pages/admin/learning-paths/new.tsx:112` and 4 more
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 3, community_manager 1, equipo_directivo 1.
 
@@ -2117,10 +2117,10 @@ File `pages/admin/upcoming-courses/index.tsx` · 588 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Cursos › «Próximos Cursos» → `/admin/upcoming-courses` — admin only; the group: admin only (`Sidebar.tsx` l.254)
+- Menu: Cursos › «Próximos Cursos» → `/admin/upcoming-courses` — admin only; the group: admin only (`Sidebar.tsx` l.253)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `components/layout/Sidebar.tsx:256`
+- Linked from: `components/layout/Sidebar.tsx:255`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 1.
 

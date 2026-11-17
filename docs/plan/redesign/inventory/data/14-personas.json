@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
-  "date": "2026-11-17T05:46:26-03:00"
+  "commit": "9b113df429f5036bf72f1c71c6636b3bb0f47139",
+  "date": "2026-11-17T12:24:40-03:00"
  },
  "screens": [
   {
@@ -24,7 +24,7 @@
       "href": "/admin/network-management",
       "gates": "admin only",
       "groupGates": "admin only",
-      "line": 453
+      "line": 452
      }
     ],
     "middleware": {
@@ -93,7 +93,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:455"
+     "components/layout/Sidebar.tsx:454"
     ],
     "qaScenarios": {
      "admin": [
@@ -1255,7 +1255,7 @@
       "href": "/admin/role-management",
       "gates": "superadmin only; permission: manage_permissions",
       "groupGates": "everyone signed in",
-      "line": 741
+      "line": 740
      }
     ],
     "middleware": {
@@ -1332,7 +1332,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:743"
+     "components/layout/Sidebar.tsx:742"
     ],
     "qaScenarios": {
      "admin": [
@@ -1839,7 +1839,7 @@
       "group": null,
       "href": "/admin/school-users",
       "gates": "roles: equipo_directivo",
-      "line": 390
+      "line": 389
      }
     ],
     "middleware": {
@@ -1904,7 +1904,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:393",
+     "components/layout/Sidebar.tsx:392",
      "middleware.ts:234"
     ],
     "qaScenarios": {},
@@ -2525,7 +2525,7 @@
       "href": "/admin/schools",
       "gates": "admin only",
       "groupGates": "admin only",
-      "line": 445
+      "line": 444
      }
     ],
     "middleware": {
@@ -2594,7 +2594,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:447",
+     "components/layout/Sidebar.tsx:446",
      "pages/api/qa/seed-codebase-index.ts:133"
     ],
     "qaScenarios": {
@@ -4049,7 +4049,7 @@
       "href": "/admin/tractor-signups",
       "gates": "admin only",
       "groupGates": "admin only",
-      "line": 413
+      "line": 412
      }
     ],
     "middleware": {
@@ -4114,7 +4114,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:415"
+     "components/layout/Sidebar.tsx:414"
     ],
     "qaScenarios": {},
     "tests": {
@@ -5096,7 +5096,7 @@
       "href": "/admin/user-management",
       "gates": "admin only",
       "groupGates": "admin only",
-      "line": 405
+      "line": 404
      }
     ],
     "middleware": {
@@ -5169,8 +5169,8 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:407",
-     "components/notifications/ModernNotificationCenter.tsx:306",
+     "components/layout/Sidebar.tsx:406",
+     "components/notifications/ModernNotificationCenter.tsx:316",
      "components/notifications/NotificationDropdown.tsx:145",
      "pages/admin/qa/index.tsx:875",
      "pages/admin/qa/index.tsx:876",
@@ -6017,7 +6017,7 @@
       "group": null,
       "href": "/profile",
       "gates": "everyone signed in",
-      "line": 125
+      "line": 124
      }
     ],
     "middleware": {
@@ -6083,16 +6083,17 @@
     ],
     "linkedFrom": [
      "components/DynamicFavicon.tsx:18",
-     "components/layout/MainLayout.tsx:360",
-     "components/layout/Sidebar.tsx:128",
-     "components/layout/Sidebar.tsx:1396",
+     "components/layout/MainLayout.tsx:391",
+     "components/layout/Sidebar.tsx:127",
+     "components/layout/Sidebar.tsx:1309",
+     "components/layout/TopBarNuevo.tsx:109",
      "lib/auth/forced-password-change.ts:156",
      "lib/frontend-auth-utils.ts:143",
      "lib/notifications/catalog.ts:359",
      "middleware.ts:351",
-     "pages/dashboard.tsx:320",
-     "pages/dashboard.tsx:519",
+     "pages/dashboard.tsx:321",
      "pages/dashboard.tsx:520",
+     "pages/dashboard.tsx:521",
      "pages/login.tsx:137"
     ],
     "qaScenarios": {
@@ -6106,6 +6107,7 @@
     },
     "tests": {
      "e2eCi": [
+      "tests/e2e/look-frame.spec.ts",
       "tests/e2e/notification-settings.spec.ts"
      ],
      "e2e": [
@@ -12136,12 +12138,16 @@
    "methods": [
     "GET"
    ],
-   "guards": [],
+   "guards": [
+    "hasAdminPrivileges"
+   ],
    "calledBy": [
     "/user/[userId]"
    ],
    "referencedIn": [
     "__tests__/api/forged-session-sweep.test.ts",
+    "__tests__/api/users/school.test.ts",
+    "__tests__/pages/user-profile-view.test.tsx",
     "pages/user/[userId].tsx"
    ]
   }

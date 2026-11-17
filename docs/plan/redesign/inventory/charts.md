@@ -1,6 +1,6 @@
 # Charts on the platform
 
-Written by `scripts/redesign/inventory.mjs` from commit `3ff6aa13f`. For the later proposal of chart colours: the approved look fixes colours for one series only (DESIGN.md section 6).
+Written by `scripts/redesign/inventory.mjs` from commit `9b113df42`. For the later proposal of chart colours: the approved look fixes colours for one series only (DESIGN.md section 6).
 
 A series is one set of bars, one line, one area or one shape. A pie has one series and several slices.
 
@@ -20,10 +20,10 @@ A series is one set of bars, one line, one area or one shape. A pie has one seri
 | /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.687 | AreaChart | Area `avg_attendance_rate` «Asistencia (%)» | 1 | `{FNE_COLORS.brand_accent_light}` |  |
 | /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.708 | BarChart | Bar `total` «Total»; Bar `completed` «Completadas» | 2 | `rgb(var(--color-serie-1, var(--color-blue-500)))`, `rgb(var(--color-serie-2, var(--color-legacy-10b981)))` | `isAdmin && analyticsData.sessions_by_school.length > 0` |
 | /consultor/sessions/reports | `pages/consultor/sessions/reports.tsx` l.735 | BarChart | Bar `sessions_led` «Sesiones dirigidas» | 1 | `{FNE_COLORS.brand_accent}` | `isAdmin && analyticsData.top_consultants && analyticsData.top_consultants.length > 0` |
-| /directivo/assessments/dashboard | `pages/directivo/assessments/dashboard.tsx` l.453 | BarChart | Bar `score` (slices: one colour per data row) | 1 | per slice | `!(!hasResults) && activeTab === 'overview'` |
-| /directivo/assessments/dashboard | `pages/directivo/assessments/dashboard.tsx` l.484 | RadarChart | Radar `score` «Promedio» | 1 | `rgb(var(--color-blue-600))` | `!(!hasResults) && activeTab === 'overview' && radarData.length >= 3` |
-| /directivo/assessments/dashboard | `pages/directivo/assessments/dashboard.tsx` l.547 | PieChart | Pie `value` (slices: one colour per data row) | 1 | per slice | `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0` |
-| /school/migration-plan | `pages/school/migration-plan/index.tsx` l.546 | PieChart | Pie `value` (slices: 2) | 1 | `none` | `grades.length > 0 && each [1, 2, 3, 4, 5]` |
+| /directivo/assessments/dashboard | `pages/directivo/assessments/dashboard.tsx` l.553 | BarChart | Bar `score` (slices: one colour per data row) | 1 | per slice | `!(!hasResults) && activeTab === 'overview'` |
+| /directivo/assessments/dashboard | `pages/directivo/assessments/dashboard.tsx` l.584 | RadarChart | Radar `score` «Promedio» | 1 | `rgb(var(--color-blue-600))` | `!(!hasResults) && activeTab === 'overview' && radarData.length >= 3` |
+| /directivo/assessments/dashboard | `pages/directivo/assessments/dashboard.tsx` l.647 | PieChart | Pie `value` (slices: one colour per data row) | 1 | per slice | `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0` |
+| /school/migration-plan | `pages/school/migration-plan/index.tsx` l.564 | PieChart | Pie `value` (slices: 2) | 1 | `none` | `grades.length > 0 && each [1, 2, 3, 4, 5]` |
 | /demo/assessments/[templateId]/results, /docente/assessments/[instanceId]/results | `components/assessment/results/ResultsCharts.tsx` l.44 | BarChart | Bar `score` | 1 | `#fbbf24` |  |
 | /demo/assessments/[templateId]/results, /docente/assessments/[instanceId]/results | `components/assessment/results/ResultsCharts.tsx` l.67 | RadarChart | Radar `score` «Puntuación» | 1 | `#fbbf24` | `moduleScores.length >= 3` |
 | /reporte-horas | `components/hours/SchoolHoursReport.tsx` l.91 | PieChart | Pie `value` (slices: one colour per data row) | 1 | per slice |  |

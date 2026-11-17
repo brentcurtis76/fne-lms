@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
-  "date": "2026-11-17T05:46:26-03:00"
+  "commit": "9b113df429f5036bf72f1c71c6636b3bb0f47139",
+  "date": "2026-11-17T12:24:40-03:00"
  },
  "screens": [
   {
@@ -24,7 +24,7 @@
       "href": "/admin/clients",
       "gates": "permission: view_contracts_all or view_contracts_school",
       "groupGates": "roles: admin, community_manager, encargado_licitacion",
-      "line": 550
+      "line": 549
      }
     ],
     "middleware": {
@@ -95,7 +95,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:552"
+     "components/layout/Sidebar.tsx:551"
     ],
     "qaScenarios": {
      "admin": [
@@ -1223,7 +1223,7 @@
       "href": "/admin/quotes",
       "gates": "permission: view_internship_proposals_all or view_internship_proposals_school or view_internship_proposals_own",
       "groupGates": "roles: admin, community_manager, encargado_licitacion",
-      "line": 566
+      "line": 565
      }
     ],
     "middleware": {
@@ -1273,7 +1273,7 @@
     },
     "inPage": [],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:568",
+     "components/layout/Sidebar.tsx:567",
      "pages/admin/quotes/[id]/edit.tsx:134",
      "pages/admin/quotes/[id]/edit.tsx:135",
      "pages/admin/quotes/[id]/edit.tsx:156",
@@ -2176,7 +2176,7 @@
       "href": "/contracts",
       "gates": "permission: view_contracts_all or view_contracts_school or view_contracts_own",
       "groupGates": "roles: admin, community_manager, encargado_licitacion",
-      "line": 558
+      "line": 557
      }
     ],
     "middleware": {
@@ -2246,12 +2246,12 @@
     ],
     "linkedFrom": [
      "components/DynamicFavicon.tsx:39",
-     "components/layout/Sidebar.tsx:560",
-     "components/licitaciones/Step7Contrato.tsx:165",
-     "components/licitaciones/Step7Contrato.tsx:220",
-     "components/licitaciones/Step7Contrato.tsx:221",
-     "components/licitaciones/Step7Contrato.tsx:377",
-     "components/licitaciones/Step7Contrato.tsx:378",
+     "components/layout/Sidebar.tsx:559",
+     "components/licitaciones/Step7Contrato.tsx:206",
+     "components/licitaciones/Step7Contrato.tsx:261",
+     "components/licitaciones/Step7Contrato.tsx:262",
+     "components/licitaciones/Step7Contrato.tsx:418",
+     "components/licitaciones/Step7Contrato.tsx:419",
      "lib/auth/forced-password-change.ts:138",
      "middleware.ts:333",
      "pages/admin/schools.tsx:591"

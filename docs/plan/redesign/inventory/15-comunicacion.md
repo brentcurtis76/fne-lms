@@ -1,7 +1,7 @@
 # Comunicación (news and events)
 
 Area `15-comunicacion`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3ff6aa13f` (2026-11-17).
+Read from commit `9b113df42` (2026-11-17).
 
 2 screen files, 4 API files, 6 pieces.
 
@@ -18,13 +18,13 @@ File `pages/admin/events.tsx` · 580 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Comunicación › «Eventos» → `/admin/events` — roles: admin, community_manager; the group: everyone signed in (`Sidebar.tsx` l.372)
+- Menu: Comunicación › «Eventos» → `/admin/events` — roles: admin, community_manager; the group: everyone signed in (`Sidebar.tsx` l.371)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.61 `router.push → /login  (when !user)`
   - l.65 `primaryRole = await getUserPrimaryRole(user.id)`
   - l.67 `router.push → /dashboard  (when !['admin', 'community_manager'].includes(primaryRole))`
-- Linked from: `components/layout/Sidebar.tsx:374`, `middleware.ts:217`
+- Linked from: `components/layout/Sidebar.tsx:373`, `middleware.ts:217`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 2, community_manager 5, consultor 1, equipo_directivo 1, lider_comunidad 1, supervisor_de_red 1.
 
@@ -175,13 +175,13 @@ File `pages/admin/news.tsx` · 655 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Comunicación › «Noticias» → `/admin/news` — roles: admin, community_manager; the group: everyone signed in (`Sidebar.tsx` l.364)
+- Menu: Comunicación › «Noticias» → `/admin/news` — roles: admin, community_manager; the group: everyone signed in (`Sidebar.tsx` l.363)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.12 `ALLOWED_ROLES = ['admin', 'community_manager']`
   - l.309 `Solo administradores y community managers pueden acceder a la gestión de noticias.`
   - l.312 `router.push → /  (when hasPermission === false)`
-- Linked from: `components/layout/Sidebar.tsx:366`, `middleware.ts:217`
+- Linked from: `components/layout/Sidebar.tsx:365`, `middleware.ts:217`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`.
 - QA scenarios that name this address: admin 2, community_manager 9, consultor 1, equipo_directivo 1, lider_comunidad 1, supervisor_de_red 1.
 

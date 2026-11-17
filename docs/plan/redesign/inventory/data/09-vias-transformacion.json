@@ -4,8 +4,8 @@
  "note": "Brent, 13 Nov 2026: Vías de Transformación is going to be deleted from the platform. Its screens are listed with their address and who reaches them, and nothing else. Which files go is confirmed with him on the leftover list.",
  "routesOnly": true,
  "readFrom": {
-  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
-  "date": "2026-11-17T05:46:26-03:00"
+  "commit": "9b113df429f5036bf72f1c71c6636b3bb0f47139",
+  "date": "2026-11-17T12:24:40-03:00"
  },
  "screens": [
   {
@@ -102,7 +102,7 @@
       "href": "/admin/transformation/assessments",
       "gates": "admin only",
       "groupGates": "admin only",
-      "line": 349
+      "line": 348
      }
     ],
     "middleware": {
@@ -159,7 +159,7 @@
      }
     ],
     "linkedFrom": [
-     "components/layout/Sidebar.tsx:351"
+     "components/layout/Sidebar.tsx:350"
     ],
     "qaScenarios": {
      "admin": [
@@ -948,7 +948,7 @@
       "group": null,
       "href": "/vias-transformacion",
       "gates": "admin only",
-      "line": 328
+      "line": 327
      },
      {
       "id": "vias-mis-evaluaciones",
@@ -957,7 +957,7 @@
       "href": "/vias-transformacion",
       "gates": "everyone signed in",
       "groupGates": "admin only",
-      "line": 336
+      "line": 335
      }
     ],
     "middleware": {
@@ -1019,8 +1019,8 @@
     ],
     "linkedFrom": [
      "components/DynamicFavicon.tsx:42",
-     "components/layout/Sidebar.tsx:331",
-     "components/layout/Sidebar.tsx:338",
+     "components/layout/Sidebar.tsx:330",
+     "components/layout/Sidebar.tsx:337",
      "pages/vias-transformacion/[id].tsx:594",
      "pages/vias-transformacion/[id].tsx:626"
     ],

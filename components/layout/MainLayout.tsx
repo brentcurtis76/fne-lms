@@ -20,6 +20,10 @@ import { MenuIcon as Bars3Icon } from '@heroicons/react/outline';
 import FeedbackButtonWithPermissions from '../feedback/FeedbackButtonWithPermissions';
 import SimulationEnvironmentBanner from '../SimulationEnvironmentBanner';
 import { shouldShowQaSimulationBanner } from '../../lib/simulation/route-context';
+import { useLook } from '../../contexts/LookContext';
+import TopBarNuevo from './TopBarNuevo';
+import { FRAME_LAYERS } from './SidebarNuevo';
+import FooterNuevo from './FooterNuevo';
 
 interface Breadcrumb {
   label: string;
@@ -295,6 +299,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     }
   }, [onLogout, router]);
   
+  // The new look's frame (redesign 5b). Every hook, effect and data call above is shared by both
+  // frames. The two frames keep the same chain of elements from the root down to <main>, so that a
+  // change of look (it arrives a moment after the first paint) never remounts the page: only class
+  // names and the slots beside that chain change.
+  const { look } = useLook();
+  const isNuevo = look === 'nuevo';
+
   // Generate page title
   const fullTitle = pageTitle
     ? `${pageTitle} - Genera`
@@ -327,11 +338,31 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         />
         
         {/* Main Content Area */}
-        <div className={`min-h-screen transition-all duration-300 ${
+        <div className={isNuevo
+          ? `min-h-screen flex flex-col transition-[margin] duration-150 motion-reduce:transition-none ${
+            desktopSidebarCollapsed ? 'lg:ml-[68px]' : 'lg:ml-[264px]'
+          }`
+          : `min-h-screen transition-all duration-300 ${
           desktopSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-80'
         }`}>
           {/* Top Header Bar - Minimal Design (h-20 to align with Sidebar) */}
-          <div className="bg-[#0a0a0a] sticky top-0 z-20 h-20 flex items-center">
+          <div
+            className={isNuevo
+              ? `bg-white sticky top-0 ${FRAME_LAYERS.topBar} h-14 shrink-0 flex items-center border-b border-gray-200`
+              : 'bg-[#0a0a0a] sticky top-0 z-20 h-20 flex items-center'}
+            data-frame={isNuevo ? 'topbar' : undefined}
+          >
+            {isNuevo ? (
+              <TopBarNuevo
+                user={user}
+                pageTitle={pageTitle}
+                breadcrumbs={breadcrumbs}
+                schoolName={schoolName}
+                avatarUrl={avatarUrl || cachedAvatarUrl || fetchedAvatarUrl}
+                onMobileSidebarOpen={handleMobileSidebarOpen}
+                onLogout={handleLogout}
+              />
+            ) : (
             <div className="px-4 sm:px-6 lg:px-8 w-full">
               <div className="flex items-center justify-between">
                 {/* Mobile Menu Trigger */}
@@ -381,14 +412,27 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                 </div>
               </div>
             </div>
+            )}
           </div>
 
           <SimulationEnvironmentBanner visible={showQaSimulationBanner} />
           
-          {/* Content wrapper */}
-          <div className="min-h-screen w-full">
-            {/* Page Header with Breadcrumbs */}
-            {(pageTitle || breadcrumbs.length > 0) && (
+          {/* Content wrapper. New look (5b, send-back 2): the area above is a column as high as the
+              window at least, and this wrapper takes what the top bar leaves, so <main> grows and a
+              short page's footer sits at the window's bottom; a long page pushes it down. */}
+          <div className={isNuevo ? 'flex-1 flex flex-col w-full' : 'min-h-screen w-full'}>
+            {/* Page Header with Breadcrumbs (new look: the title only; the breadcrumbs are in the top bar) */}
+            {isNuevo ? (
+              pageTitle && (
+                <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-2">
+                  <div className="max-w-7xl mx-auto">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-[#0a0a0a]">
+                      {pageTitle}
+                    </h1>
+                  </div>
+                </div>
+              )
+            ) : (pageTitle || breadcrumbs.length > 0) && (
               <div className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-4">
                 <div className="max-w-7xl mx-auto">
                   {/* Breadcrumbs */}
@@ -436,7 +480,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             </main>
 
             {/* Footer */}
-            <Footer />
+            {isNuevo ? <FooterNuevo /> : <Footer />}
           </div>
         </div>
       </div>

@@ -1,9 +1,9 @@
 # Espacio Colaborativo y comunidades
 
 Area `07-espacio-colaborativo`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3ff6aa13f` (2026-11-17).
+Read from commit `9b113df42` (2026-11-17).
 
-4 screen files, 18 API files, 67 pieces.
+4 screen files, 18 API files, 68 pieces.
 
 ## Screens
 
@@ -11,8 +11,8 @@ Read from commit `3ff6aa13f` (2026-11-17).
 |---|---|---|---|---|
 | `/admin/growth-communities/[id]/members` | `pages/admin/growth-communities/[id]/members.tsx` | 1100 | — |  |
 | `/admin/growth-communities` | `pages/admin/growth-communities/index.tsx` | 1071 | Comunidades |  |
-| `/community/workspace` | `pages/community/workspace.tsx` | 2684 | Espacio Colaborativo › Vista General; Espacio Colaborativo › Sesiones; Espacio Colaborativo › Gestión Comunidades |  |
-| `/user/[userId]` | `pages/user/[userId].tsx` | 360 | — |  |
+| `/community/workspace` | `pages/community/workspace.tsx` | 2726 | Espacio Colaborativo › Vista General; Espacio Colaborativo › Sesiones; Espacio Colaborativo › Gestión Comunidades |  |
+| `/user/[userId]` | `pages/user/[userId].tsx` | 392 | — |  |
 
 ## /admin/growth-communities/[id]/members
 
@@ -260,7 +260,7 @@ File `pages/admin/growth-communities/index.tsx` · 1071 lines · frame: MainLayo
 
 ### Who reaches it
 
-- Menu: «Comunidades» → `/admin/growth-communities` — roles: admin, equipo_directivo (`Sidebar.tsx` l.382)
+- Menu: «Comunidades» → `/admin/growth-communities` — roles: admin, equipo_directivo (`Sidebar.tsx` l.381)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.67 `server redirect → /login  (when !user)`
@@ -268,7 +268,7 @@ File `pages/admin/growth-communities/index.tsx` · 1071 lines · frame: MainLayo
   - l.93 `server redirect → /dashboard  (when !edRow \|\| edRow.school_id === null \|\| edRow.school_id === undefined)`
   - l.99 `server redirect → /dashboard  (when !Number.isFinite(schoolId))`
   - l.256 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:385`, `middleware.ts:237`, `pages/admin/growth-communities/[id]/members.tsx:509`
+- Linked from: `components/layout/Sidebar.tsx:384`, `middleware.ts:237`, `pages/admin/growth-communities/[id]/members.tsx:509`
 - Tests: no browser test that CI runs; unit tests of the page: `__tests__/components/GrowthCommunitiesIndexPage.crud.test.tsx`, `__tests__/lib/api-auth.server-side-user.test.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -473,21 +473,21 @@ File `pages/admin/growth-communities/index.tsx` · 1071 lines · frame: MainLayo
 
 ## /community/workspace
 
-File `pages/community/workspace.tsx` · 2684 lines · frame: MainLayout
+File `pages/community/workspace.tsx` · 2726 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Espacio Colaborativo › «Vista General» → `/community/workspace?section=overview` — everyone signed in; the group: needs a community (admin and consultor pass) (`Sidebar.tsx` l.220)
-- Menu: Espacio Colaborativo › «Sesiones» → `/community/workspace?section=sessions` — everyone signed in; the group: needs a community (admin and consultor pass) (`Sidebar.tsx` l.226)
-- Menu: Espacio Colaborativo › «Gestión Comunidades» → `/community/workspace?section=communities` — permission: manage_communities_all; the group: needs a community (admin and consultor pass) (`Sidebar.tsx` l.231)
+- Menu: Espacio Colaborativo › «Vista General» → `/community/workspace?section=overview` — everyone signed in; the group: needs a community (admin and consultor pass) (`Sidebar.tsx` l.219)
+- Menu: Espacio Colaborativo › «Sesiones» → `/community/workspace?section=sessions` — everyone signed in; the group: needs a community (admin and consultor pass) (`Sidebar.tsx` l.225)
+- Menu: Espacio Colaborativo › «Gestión Comunidades» → `/community/workspace?section=communities` — permission: manage_communities_all; the group: needs a community (admin and consultor pass) (`Sidebar.tsx` l.230)
 - Middleware: the workspace rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.332 `router.push → /login  (when !(!authLoading && user) && !authLoading && !user)`
   - l.336 `location.href → /login  (when !(!authLoading && user) && !authLoading && !user)`
   - l.865 `router.push → /dashboard  (when error)`
-  - l.2442 `No tienes permisos para ver los mensajes de esta comunidad.`
-- Linked from: `components/layout/Sidebar.tsx:1373`, `components/layout/Sidebar.tsx:222`, `components/layout/Sidebar.tsx:228`, `components/layout/Sidebar.tsx:233`, `lib/auth/forced-password-change.ts:175`, `lib/notifications/catalog.ts:170`, `lib/notifications/catalog.ts:325`, `lib/notifications/catalog.ts:331`, `lib/notifications/catalog.ts:336`, `middleware.ts:247`, `pages/api/qa/seed-codebase-index.ts:431`, `pages/community/transformation/assessment.tsx:366` and 16 more
-- Tests: browser tests that CI runs: `tests/e2e/auth-lifecycle.spec.ts`, `tests/e2e/community-document-links.spec.ts`, `tests/e2e/meeting-create-and-access.spec.ts`; browser tests CI skips: `tests/e2e/meeting-agreements-tasks.spec.ts`, `tests/e2e/meeting-finalize-email-outcome.spec.ts`, `tests/e2e/messaging-notifications.spec.ts`, `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/panel-pin.spec.ts`, `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`; unit tests of the page: `__tests__/pages/community/workspace.mention-scope.test.tsx`, `components/__tests__/GroupAssignmentsContent.test.skip.tsx`, `components/__tests__/GroupAssignmentsContent.test.tsx`.
+  - l.2483 `No tienes permisos para ver los mensajes de esta comunidad.`
+- Linked from: `components/layout/Sidebar.tsx:1286`, `components/layout/Sidebar.tsx:221`, `components/layout/Sidebar.tsx:227`, `components/layout/Sidebar.tsx:232`, `lib/auth/forced-password-change.ts:175`, `lib/notifications/catalog.ts:170`, `lib/notifications/catalog.ts:325`, `lib/notifications/catalog.ts:331`, `lib/notifications/catalog.ts:336`, `middleware.ts:247`, `pages/api/qa/seed-codebase-index.ts:431`, `pages/community/transformation/assessment.tsx:366` and 16 more
+- Tests: browser tests that CI runs: `tests/e2e/auth-lifecycle.spec.ts`, `tests/e2e/community-document-links.spec.ts`, `tests/e2e/meeting-create-and-access.spec.ts`; browser tests CI skips: `tests/e2e/meeting-agreements-tasks.spec.ts`, `tests/e2e/meeting-finalize-email-outcome.spec.ts`, `tests/e2e/messaging-notifications.spec.ts`, `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/panel-pin.spec.ts`, `tests/e2e/urgent-anonymous-boundaries.spec.ts`, `tests/e2e/urgent-anonymous-current.spec.ts`; unit tests of the page: `__tests__/pages/community/workspace.mention-scope.test.tsx`, `__tests__/pages/community/workspace.messages.test.tsx`, `components/__tests__/GroupAssignmentsContent.test.skip.tsx`, `components/__tests__/GroupAssignmentsContent.test.tsx`.
 - QA scenarios that name this address: admin 7, consultor 2, lider_comunidad 5.
 
 | Role | Sees it in the menu | Middleware |
@@ -519,12 +519,12 @@ File `pages/community/workspace.tsx` · 2684 lines · frame: MainLayout
 | «No hay reuniones» | h3 | `!(loading) && !(meetings.length > 0)` | MeetingsTabContent · l.1314 |
 | «No hay espacio de trabajo seleccionado» | h3 | `!workspace` | DocumentsTabContent · l.1671 |
 | «Documentos en {currentFolder.folder_name} / Documentos» | h2 |  | DocumentsTabContent · l.1707 |
-| «No hay espacio de trabajo seleccionado» | h3 | `!workspace` | MessagingTabContent · l.2424 |
-| «Sin permisos de acceso» | h3 | `!permissions.can_view_messages` | MessagingTabContent · l.2438 |
-| «Mensajería de {workspace.community?.name}» | h2 |  | MessagingTabContent · l.2453 |
-| «{thread.thread_title}» | h3 | `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)` | MessagingTabContent · l.2511 |
-| «No hay hilos de conversación» | h3 | `(activeView === 'threads' \|\| !selectedThread) && !(loading) && !(threads.length > 0)` | MessagingTabContent · l.2550 |
-| «{selectedThread.thread_title}» | h3 | `!(activeView === 'threads' \|\| !selectedThread)` | MessagingTabContent · l.2577 |
+| «No hay espacio de trabajo seleccionado» | h3 | `!workspace` | MessagingTabContent · l.2465 |
+| «Sin permisos de acceso» | h3 | `!permissions.can_view_messages` | MessagingTabContent · l.2479 |
+| «Mensajería de {workspace.community?.name}» | h2 |  | MessagingTabContent · l.2494 |
+| «{thread.thread_title}» | h3 | `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)` | MessagingTabContent · l.2552 |
+| «No hay hilos de conversación» | h3 | `(activeView === 'threads' \|\| !selectedThread) && !(loading) && !(threads.length > 0)` | MessagingTabContent · l.2591 |
+| «{selectedThread.thread_title}» | h3 | `!(activeView === 'threads' \|\| !selectedThread)` | MessagingTabContent · l.2618 |
 
 **Buttons** (17)
 
@@ -544,9 +544,9 @@ File `pages/community/workspace.tsx` · 2684 lines · frame: MainLayout
 | «Mover» | `{() => toast('Mover documentos próximamente', { icon: 'ℹ️' })}` | `selectedDocuments.length > 0` |  |  | DocumentsTabContent · l.1734 |
 | «Descargar» | `{() => toast('Descargar múltiples próximamente', { icon: 'ℹ️' })}` | `selectedDocuments.length > 0` |  |  | DocumentsTabContent · l.1740 |
 | «Cancelar» | `{() => setSelectedDocuments([])}` | `selectedDocuments.length > 0` |  |  | DocumentsTabContent · l.1746 |
-| «Nuevo Hilo» | `{() => setShowThreadCreationModal(true)}` | `permissions.can_create_threads` |  |  | MessagingTabContent · l.2462 |
-| «Crear Primer Hilo» | `{() => setShowThreadCreationModal(true)}` | `(activeView === 'threads' \|\| !selectedThread) && !(loading) && !(threads.length > 0) && permissions.can_create_threads` |  |  | MessagingTabContent · l.2559 |
-| «[icon X]» | `{() => { setSelectedThread(null); setActiveView('threads'); }}` | `!(activeView === 'threads' \|\| !selectedThread)` |  |  | MessagingTabContent · l.2580 |
+| «Nuevo Hilo» | `{() => setShowThreadCreationModal(true)}` | `permissions.can_create_threads` |  |  | MessagingTabContent · l.2503 |
+| «Crear Primer Hilo» | `{() => setShowThreadCreationModal(true)}` | `(activeView === 'threads' \|\| !selectedThread) && !(loading) && !(threads.length > 0) && permissions.can_create_threads` |  |  | MessagingTabContent · l.2600 |
+| «[icon X]» | `{() => { setSelectedThread(null); setActiveView('threads'); }}` | `!(activeView === 'threads' \|\| !selectedThread)` |  |  | MessagingTabContent · l.2621 |
 
 **Links** (1)
 
@@ -559,7 +559,7 @@ File `pages/community/workspace.tsx` · 2684 lines · frame: MainLayout
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
 | `div` | «Miembros de la Comunidad ( — / {communityMembers.length} ) [Error al cargar]» | `{() => setShowMembers(!showMembers)}` | `!(!currentWorkspace)` | renderMainContent · l.644 |
-| `div` | «{thread.thread_title} {thread.category_config.label} [{thread.description}] Por {thread.creator_name} {thread.message_c…» | `{() => handleThreadSelect(thread)}` | `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)` | MessagingTabContent · l.2505 |
+| `div` | «{thread.thread_title} {thread.category_config.label} [{thread.description}] Por {thread.creator_name} {thread.message_c…» | `{() => handleThreadSelect(thread)}` | `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)` | MessagingTabContent · l.2546 |
 
 **Embedded media** (3)
 
@@ -579,9 +579,9 @@ File `pages/community/workspace.tsx` · 2684 lines · frame: MainLayout
 | `MeetingDeletionModal` | component | `{showDeleteModal}` |  | MeetingsTabContent · l.1371 |
 | `DocumentUploadModal` | component | `{showUploadModal}` |  | DocumentsTabContent · l.1774 |
 | `DocumentPreview` | component | `{showPreviewModal}` |  | DocumentsTabContent · l.1787 |
-| `AttachmentPreview` | component | `{showAttachmentPreview}` |  | MessagingTabContent · l.2640 |
-| `ThreadCreationModal` | component | `{showThreadCreationModal}` |  | MessagingTabContent · l.2657 |
-| `ConfirmModal` | component | `{showDeleteConfirm}` | title: Eliminar mensaje · message: ¿Estás seguro de que deseas eliminar este mensaje? Esta acción no se puede deshacer. · confirmText: Eliminar · cancelText: Cancelar | MessagingTabContent · l.2666 |
+| `AttachmentPreview` | component | `{showAttachmentPreview}` |  | MessagingTabContent · l.2682 |
+| `ThreadCreationModal` | component | `{showThreadCreationModal}` |  | MessagingTabContent · l.2699 |
+| `ConfirmModal` | component | `{showDeleteConfirm}` | title: Eliminar mensaje · message: ¿Estás seguro de que deseas eliminar este mensaje? Esta acción no se puede deshacer. · confirmText: Eliminar · cancelText: Cancelar | MessagingTabContent · l.2708 |
 
 **Browser confirm()** (1)
 
@@ -589,7 +589,7 @@ File `pages/community/workspace.tsx` · 2684 lines · frame: MainLayout
 |---|---|---|
 | «¿Estás seguro de que quieres eliminar este documento?» | `action === 'delete'` | handleDocumentAction · l.1639 |
 
-**Toasts** (36)
+**Toasts** (37)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
@@ -612,23 +612,24 @@ File `pages/community/workspace.tsx` · 2684 lines · frame: MainLayout
 | success | «{uploadedDocuments.length} documento(s) subido(s) exitosamente» |  | handleUploadComplete · l.1660 |
 | plain | «Mover documentos próximamente» | `selectedDocuments.length > 0` | DocumentsTabContent · l.1735 |
 | plain | «Descargar múltiples próximamente» | `selectedDocuments.length > 0` | DocumentsTabContent · l.1741 |
-| error | «Error al cargar los hilos de conversación» |  | loadThreads · l.1970 |
-| error | «Error al cargar los mensajes» |  | loadThreadMessages · l.1987 |
-| success | «Hilo de conversación creado exitosamente» |  | handleThreadCreate · l.2135 |
-| error | «Error al crear el hilo: {error.message \|\| 'Error des…}» |  | handleThreadCreate · l.2139 |
-| success | «Mensaje enviado» |  | handleMessageSend · l.2166 |
-| error | «Error al enviar el mensaje» |  | handleMessageSend · l.2169 |
-| loading | «Preparando descarga...» | `attachment.storage_path` | handleAttachmentDownload · l.2189 |
-| success | «Descarga completada» | `attachment.storage_path` | handleAttachmentDownload · l.2217 |
-| error | «Error al editar el mensaje» | `error` | handleSaveEdit · l.2259 |
-| success | «Mensaje editado» |  | handleSaveEdit · l.2270 |
-| error | «Error al editar el mensaje» |  | handleSaveEdit · l.2273 |
-| error | «Error al quitar la reacción» | `existingReaction && deleteError` | handleReaction · l.2305 |
-| error | «Error al agregar la reacción» | `!(existingReaction) && insertError` | handleReaction · l.2335 |
-| error | «Error al procesar la reacción» |  | handleReaction · l.2380 |
-| error | «Error al eliminar el mensaje» | `error` | confirmDeleteMessage · l.2404 |
-| success | «Mensaje eliminado» |  | confirmDeleteMessage · l.2410 |
-| error | «Error al eliminar el mensaje» |  | confirmDeleteMessage · l.2413 |
+| error | «Error al cargar los hilos de conversación» |  | loadThreads · l.1978 |
+| error | «Error al cargar los mensajes» |  | loadThreadMessages · l.1995 |
+| success | «Hilo de conversación creado exitosamente» |  | handleThreadCreate · l.2162 |
+| error | «No se pudo crear la conversación. Tu texto sigue aquí; inténtalo de nuevo.» | `typeof error?.threadId === 'string'` | handleThreadCreate · l.2168 |
+| error | «Error al crear el hilo: {error?.message \|\| 'Error de…}» | `!(typeof error?.threadId === 'string')` | handleThreadCreate · l.2170 |
+| success | «Mensaje enviado» |  | handleMessageSend · l.2207 |
+| error | «Error al enviar el mensaje» |  | handleMessageSend · l.2210 |
+| loading | «Preparando descarga...» | `attachment.storage_path` | handleAttachmentDownload · l.2230 |
+| success | «Descarga completada» | `attachment.storage_path` | handleAttachmentDownload · l.2258 |
+| error | «Error al editar el mensaje» | `error` | handleSaveEdit · l.2300 |
+| success | «Mensaje editado» |  | handleSaveEdit · l.2311 |
+| error | «Error al editar el mensaje» |  | handleSaveEdit · l.2314 |
+| error | «Error al quitar la reacción» | `existingReaction && deleteError` | handleReaction · l.2346 |
+| error | «Error al agregar la reacción» | `!(existingReaction) && insertError` | handleReaction · l.2376 |
+| error | «Error al procesar la reacción» |  | handleReaction · l.2421 |
+| error | «Error al eliminar el mensaje» | `error` | confirmDeleteMessage · l.2445 |
+| success | «Mensaje eliminado» |  | confirmDeleteMessage · l.2451 |
+| error | «Error al eliminar el mensaje» |  | confirmDeleteMessage · l.2454 |
 
 **Messages set on the page** (4)
 
@@ -645,8 +646,8 @@ File `pages/community/workspace.tsx` · 2684 lines · frame: MainLayout
 |---|---|---|
 | `window.URL.createObjectURL()` | `action === 'download' && document.storage_path` | handleDocumentAction · l.1611 |
 | `archivo: {document.file_name}` | `action === 'download' && document.storage_path` | handleDocumentAction · l.1615 |
-| `window.URL.createObjectURL()` | `attachment.storage_path` | handleAttachmentDownload · l.2206 |
-| `archivo: {attachment.file_name}` | `attachment.storage_path` | handleAttachmentDownload · l.2210 |
+| `window.URL.createObjectURL()` | `attachment.storage_path` | handleAttachmentDownload · l.2247 |
+| `archivo: {attachment.file_name}` | `attachment.storage_path` | handleAttachmentDownload · l.2251 |
 
 **Moves to another page from code** (10)
 
@@ -659,16 +660,16 @@ File `pages/community/workspace.tsx` · 2684 lines · frame: MainLayout
 | `{documentUrl}` | `window.open` | `action === 'download' && document.storage_path && !session?.access_token` | handleDocumentAction · l.1587 |
 | `{documentUrl}` | `window.open` | `action === 'download' && document.storage_path && !response.ok` | handleDocumentAction · l.1605 |
 | `{documentUrl}` | `window.open` | `action === 'download' && document.storage_path` | handleDocumentAction · l.1629 |
-| `{attachment.storage_path}` | `window.open` | `attachment.storage_path && !session?.access_token` | handleAttachmentDownload · l.2185 |
-| `{attachment.storage_path}` | `window.open` | `attachment.storage_path && !response.ok` | handleAttachmentDownload · l.2201 |
-| `{attachment.storage_path}` | `window.open` | `attachment.storage_path` | handleAttachmentDownload · l.2221 |
+| `{attachment.storage_path}` | `window.open` | `attachment.storage_path && !session?.access_token` | handleAttachmentDownload · l.2226 |
+| `{attachment.storage_path}` | `window.open` | `attachment.storage_path && !response.ok` | handleAttachmentDownload · l.2242 |
+| `{attachment.storage_path}` | `window.open` | `attachment.storage_path` | handleAttachmentDownload · l.2262 |
 
 **Draws nothing when** (2)
 
 | Condition | Where |
 |---|---|
 | `!workspaceAccess?.canAccess` | CommunityWorkspacePage · l.295 |
-| `!targetThreadId \|\| !workspace \|\| loading` | MessagingTabContent · l.1937 |
+| `!targetThreadId \|\| !workspace \|\| loading` | MessagingTabContent · l.1945 |
 
 **Pieces placed here, with the texts and settings handed to them** (17)
 
@@ -688,9 +689,9 @@ File `pages/community/workspace.tsx` · 2684 lines · frame: MainLayout
 | `FolderNavigation` |  |  |  | DocumentsTabContent · l.1684 |
 | `DocumentFilters` |  |  |  | DocumentsTabContent · l.1694 |
 | `DocumentGrid` |  |  |  | DocumentsTabContent · l.1758 |
-| `MessageFilters` |  |  |  | MessagingTabContent · l.2473 |
-| `MessageCard` |  | `(!(activeView === 'threads' \|\| !selectedThread)) && messages.length > 0 && each messages` |  | MessagingTabContent · l.2596 |
-| `MessageComposer` |  | `(!(activeView === 'threads' \|\| !selectedThread)) && permissions.can_send_messages` |  | MessagingTabContent · l.2619 |
+| `MessageFilters` |  |  |  | MessagingTabContent · l.2514 |
+| `MessageCard` |  | `(!(activeView === 'threads' \|\| !selectedThread)) && messages.length > 0 && each messages` |  | MessagingTabContent · l.2637 |
+| `MessageComposer` |  | `(!(activeView === 'threads' \|\| !selectedThread)) && permissions.can_send_messages` |  | MessagingTabContent · l.2661 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (4)
 
@@ -718,7 +719,7 @@ File `pages/community/workspace.tsx` · 2684 lines · frame: MainLayout
 | «Creación» | MeetingsTabContent · l.1258 |
 | «Usuario desconocido» | DocumentsTabContent · l.1464 |
 | «Bearer {session.access_token}» | DocumentsTabContent · l.1598 |
-| «Error desconocido» | MessagingTabContent · l.2139 |
+| «Error desconocido» | MessagingTabContent · l.2170 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (6)
 
@@ -739,10 +740,10 @@ File `pages/community/workspace.tsx` · 2684 lines · frame: MainLayout
 - `{renderCommunitySelector()}` — CommunityWorkspacePage · l.969, when `currentWorkspace && workspaceAccess && workspaceAccess.availableCommunities.length > 1`
 - `{currentWorkspace.community?.school?…} - {currentWorkspace.community?.generat…}` — CommunityWorkspacePage · l.1017, when `currentWorkspace && activeSection !== 'overview' && activeSection !== 'communities' && false`
 - `{renderMainContent()}` — CommunityWorkspacePage · l.1040
-- `{thread.category_config.label}` — MessagingTabContent · l.2512, when `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)`
-- `{thread.description}` — MessagingTabContent · l.2524, when `!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.description`
-- `{thread.latest_message.author_name} :` — MessagingTabContent · l.2540, when `!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.latest_message`
-- `{thread.latest_message.content.slice…} ...` — MessagingTabContent · l.2541, when `!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.latest_message`
+- `{thread.category_config.label}` — MessagingTabContent · l.2553, when `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)`
+- `{thread.description}` — MessagingTabContent · l.2565, when `!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.description`
+- `{thread.latest_message.author_name} :` — MessagingTabContent · l.2581, when `!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.latest_message`
+- `{thread.latest_message.content.slice…} ...` — MessagingTabContent · l.2582, when `!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.latest_message`
 
 **Other texts on screen** (27)
 
@@ -763,16 +764,16 @@ File `pages/community/workspace.tsx` · 2684 lines · frame: MainLayout
 - «Selecciona una comunidad para ver sus documentos.» — DocumentsTabContent · l.1675, when `!workspace`
 - «{documents.length} documento(s) • {folders.length} carpeta(s)» — DocumentsTabContent · l.1710
 - «{selectedDocuments.length} documento(s) seleccionados» — DocumentsTabContent · l.1730, when `selectedDocuments.length > 0`
-- «Selecciona una comunidad para acceder a la mensajería.» — MessagingTabContent · l.2428, when `!workspace`
-- «No tienes permisos para ver los mensajes de esta comunidad.» — MessagingTabContent · l.2442, when `!permissions.can_view_messages`
-- «Comunicación en tiempo real con los miembros de la comunidad» — MessagingTabContent · l.2457
-- «Por {thread.creator_name}» — MessagingTabContent · l.2528, when `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)`
-- «{thread.message_count} mensaje(s)» — MessagingTabContent · l.2530, when `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)`
-- «{thread.participant_count} participante(s)» — MessagingTabContent · l.2531, when `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)`
-- «Último: {new Date(thread.latest_message.crea…}» — MessagingTabContent · l.2533, when `!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.latest_message`
-- «Comienza creando el primer hilo de conversación. / No se han creado hilos de conversación en esta comunidad.» — MessagingTabContent · l.2553, when `(activeView === 'threads' \|\| !selectedThread) && !(loading) && !(threads.length > 0)`
-- «{selectedThread.message_count} mensaje(s)» — MessagingTabContent · l.2578, when `!(activeView === 'threads' \|\| !selectedThread)`
-- «No hay mensajes en este hilo» — MessagingTabContent · l.2611, when `(!(activeView === 'threads' \|\| !selectedThread)) && !(messages.length > 0)`
+- «Selecciona una comunidad para acceder a la mensajería.» — MessagingTabContent · l.2469, when `!workspace`
+- «No tienes permisos para ver los mensajes de esta comunidad.» — MessagingTabContent · l.2483, when `!permissions.can_view_messages`
+- «Comunicación en tiempo real con los miembros de la comunidad» — MessagingTabContent · l.2498
+- «Por {thread.creator_name}» — MessagingTabContent · l.2569, when `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)`
+- «{thread.message_count} mensaje(s)» — MessagingTabContent · l.2571, when `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)`
+- «{thread.participant_count} participante(s)» — MessagingTabContent · l.2572, when `(activeView === 'threads' \|\| !selectedThread) && !(loading) && threads.length > 0 && each filterThreadsBySearch(threads)`
+- «Último: {new Date(thread.latest_message.crea…}» — MessagingTabContent · l.2574, when `!(loading) && threads.length > 0 && each filterThreadsBySearch(threads) && thread.latest_message`
+- «Comienza creando el primer hilo de conversación. / No se han creado hilos de conversación en esta comunidad.» — MessagingTabContent · l.2594, when `(activeView === 'threads' \|\| !selectedThread) && !(loading) && !(threads.length > 0)`
+- «{selectedThread.message_count} mensaje(s)» — MessagingTabContent · l.2619, when `!(activeView === 'threads' \|\| !selectedThread)`
+- «No hay mensajes en este hilo» — MessagingTabContent · l.2653, when `(!(activeView === 'threads' \|\| !selectedThread)) && !(messages.length > 0)`
 
 **Reads and writes the database directly:** `table:community_messages` (update), `table:message_reactions` (delete, insert, select), `table:profiles` (select)
 
@@ -823,6 +824,7 @@ File `pages/community/workspace.tsx` · 2684 lines · frame: MainLayout
 - `lib/meetings/constants.ts`
 - `lib/meetings/meeting-documents.ts`
 - `lib/meetings/meeting-save.ts`
+- `lib/profile-cards.ts`
 - `lib/services/communityWorkspace.js`
 - `lib/services/feedService.ts`
 - `lib/tutorials/content.ts`
@@ -851,34 +853,34 @@ File `pages/community/workspace.tsx` · 2684 lines · frame: MainLayout
 | `/api/community/ensure-workspace` | POST | `utils/workspaceUtils.ts:386` |
 | `/api/community/members` | GET | `lib/community/fetchCommunityMembers.ts:45`, `pages/community/workspace.tsx:221` |
 | `/api/community/search-users` | GET | `components/feed/CreatePostModal.tsx:55` |
-| `/api/community/workspace-message-notifications` | POST | `utils/messagingUtils-simple.ts:816` |
+| `/api/community/workspace-message-notifications` | POST | `utils/messagingUtils-simple.ts:829` |
 | `/api/meetings/[id]/autosave` | POST | `components/meetings/MeetingDocumentationModal.tsx:607` |
 | `/api/meetings/[id]/finalize` | POST | `components/meetings/FinalizeMeetingDialog.tsx:131` |
 | `/api/meetings/[id]/recipients` | GET | `components/meetings/FinalizeMeetingDialog.tsx:100` |
 | `/api/meetings/[id]/work-session/[sessionId]/end` | ? | `components/meetings/MeetingDocumentationModal.tsx:361` |
 | `/api/meetings/[id]/work-session/start` | POST | `components/meetings/MeetingDocumentationModal.tsx:568` |
 | `/api/meetings/delete` | POST | `utils/meetingDeletion.ts:52` |
-| `/api/messaging/mention` | POST | `lib/services/feedService.ts:239` |
+| `/api/messaging/mention` | POST | `lib/services/feedService.ts:259` |
 | `/api/sessions` | GET | `components/workspace/WorkspaceSessionsTab.tsx:97` |
-| `/api/storage/download` | ? | `pages/community/workspace.tsx:1594`, `pages/community/workspace.tsx:2191` |
+| `/api/storage/download` | ? | `pages/community/workspace.tsx:1594`, `pages/community/workspace.tsx:2232` |
 
 ## /user/[userId]
 
-File `pages/user/[userId].tsx` · 360 lines · frame: MainLayout
+File `pages/user/[userId].tsx` · 392 lines · frame: MainLayout
 
 ### Who reaches it
 
 - Menu: no entry.
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
-  - l.32 `router.push → /login  (when !session?.user)`
-  - l.47 `userRole = await getUserPrimaryRole(session.user.id)`
-  - l.68 `router.push → /login`
-  - l.108 `roles = await getUserRoles(supabase, targetUserId)`
-  - l.165 `router.push → /login`
-  - l.203 `El perfil que buscas no existe o no tienes permisos para verlo.`
+  - l.36 `router.push → /login  (when !session?.user)`
+  - l.52 `userRole = await getUserPrimaryRole(session.user.id)`
+  - l.74 `router.push → /login`
+  - l.132 `roles = await getUserRoles(supabase, targetUserId)`
+  - l.189 `router.push → /login`
+  - l.227 `El perfil que buscas no existe o no tienes permisos para verlo.`
 - Linked from: `components/community/MemberProfileModal.tsx:163`, `components/community/MemberProfileModal.tsx:164`, `middleware.ts:358`, `pages/community/workspace.tsx:684`, `pages/community/workspace.tsx:686`
-- Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/sentry-replay-disabled.spec.ts`.
+- Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/sentry-replay-disabled.spec.ts`; unit tests of the page: `__tests__/pages/user-profile-view.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
 |---|---|---|
@@ -898,89 +900,90 @@ File `pages/user/[userId].tsx` · 360 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Usuario no encontrado» | h1 | `!profileData` | UserProfileView · l.202 |
-| «{profileData.first_name} {profileData.last_name}» | h1 |  | UserProfileView · l.267 |
-| «Información de Contacto» | h3 |  | UserProfileView · l.278 |
-| «Roles» | h3 |  | UserProfileView · l.292 |
-| «Cursos Asignados ( {enrolledCourses.length} )» | h2 |  | UserProfileView · l.317 |
-| «{course.title}» | h3 | `enrolledCourses.length > 0 && each enrolledCourses` | UserProfileView · l.338 |
+| «Usuario no encontrado» | h1 | `!profileData` | UserProfileView · l.226 |
+| «{profileData.first_name} {profileData.last_name}» | h1 |  | UserProfileView · l.291 |
+| «Información de Contacto» | h3 | `!cardOnly` | UserProfileView · l.305 |
+| «Roles» | h3 | `!cardOnly` | UserProfileView · l.321 |
+| «Cursos Asignados ( {enrolledCourses.length} )» | h2 | `!cardOnly` | UserProfileView · l.348 |
+| «{course.title}» | h3 | `!cardOnly && enrolledCourses.length > 0 && each enrolledCourses` | UserProfileView · l.369 |
 
 **Links** (2)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Volver al Panel» | `/dashboard` | `!profileData` |  | UserProfileView · l.204 |
-| «Volver al Panel» | `/dashboard` |  |  | UserProfileView · l.239 |
+| «Volver al Panel» | `/dashboard` | `!profileData` |  | UserProfileView · l.228 |
+| «Volver al Panel» | `/dashboard` |  |  | UserProfileView · l.263 |
 
 **Embedded media** (2)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| img · alt {`${profileData.first_name} ${profileData.last_name}`} · {profileData.avatar_url} | `profileData.avatar_url` |  | UserProfileView · l.254 |
-| img · alt {course.title} · {course.thumbnail_url} | `enrolledCourses.length > 0 && each enrolledCourses && course.thumbnail_url` |  | UserProfileView · l.327 |
+| img · alt {`${profileData.first_name} ${profileData.last_name}`} · {profileData.avatar_url} | `profileData.avatar_url` |  | UserProfileView · l.278 |
+| img · alt {course.title} · {course.thumbnail_url} | `!cardOnly && enrolledCourses.length > 0 && each enrolledCourses && course.thumbnail_url` |  | UserProfileView · l.358 |
 
 **Moves to another page from code** (3)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login` | `router.push` | `!session?.user` | checkSession · l.32 |
-| `/login` | `router.push` |  | checkSession · l.68 |
-| `/login` | `router.push` |  | handleLogout · l.165 |
+| `/login` | `router.push` | `!session?.user` | checkSession · l.36 |
+| `/login` | `router.push` |  | checkSession · l.74 |
+| `/login` | `router.push` |  | handleLogout · l.189 |
 
 **Access checks in the code** (2)
 
 | Line of code | Where |
 |---|---|
-| `userRole = await getUserPrimaryRole(session.user.id)` | checkSession · l.47 |
-| `roles = await getUserRoles(supabase, targetUserId)` | loadUserProfile · l.108 |
+| `userRole = await getUserPrimaryRole(session.user.id)` | checkSession · l.52 |
+| `roles = await getUserRoles(supabase, targetUserId)` | loadUserProfile · l.132 |
 
 **Pieces placed here, with the texts and settings handed to them** (4)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` |  | `loading` |  | UserProfileView · l.170 |
-| `MainLayout` |  | `!profileData` |  | UserProfileView · l.191 |
-| `MainLayout` |  |  |  | UserProfileView · l.218 |
-| `ResponsiveFunctionalPageHeader` | title: {profileData.first_name} {profileData.last_name} · subtitle: Perfil de usuario |  |  | UserProfileView · l.231 |
+| `MainLayout` |  | `loading` |  | UserProfileView · l.194 |
+| `MainLayout` |  | `!profileData` |  | UserProfileView · l.215 |
+| `MainLayout` |  |  |  | UserProfileView · l.242 |
+| `ResponsiveFunctionalPageHeader` | title: {profileData.first_name} {profileData.last_name} · subtitle: Perfil de usuario |  |  | UserProfileView · l.255 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
 |---|---|
-| «Sin instructor» | UserProfileView · l.143 |
+| «Sin instructor» | UserProfileView · l.167 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (3)
 
 | Kind | What | Where |
 |---|---|---|
-| storage | `localStorage: rememberMe` | handleLogout · l.163 |
-| storage | `sessionStorage: sessionOnly` | handleLogout · l.164 |
+| storage | `localStorage: rememberMe` | handleLogout · l.187 |
+| storage | `sessionStorage: sessionOnly` | handleLogout · l.188 |
 | address value | `[userId] (part of the address)` | l.1 |
 
 **Values shown from data** (3)
 
-- `{profileData.first_name?.charAt(0)} {profileData.last_name?.charAt(0)}` — UserProfileView · l.261, when `!(profileData.avatar_url)`
-- `{profileData.email}` — UserProfileView · l.270
-- `{course.description}` — UserProfileView · l.339, when `enrolledCourses.length > 0 && each enrolledCourses`
+- `{profileData.first_name?.charAt(0)} {profileData.last_name?.charAt(0)}` — UserProfileView · l.285, when `!(profileData.avatar_url)`
+- `{profileData.email}` — UserProfileView · l.295, when `!cardOnly`
+- `{course.description}` — UserProfileView · l.370, when `!cardOnly && enrolledCourses.length > 0 && each enrolledCourses`
 
 **Other texts on screen** (10)
 
-- «Cargando...» — UserProfileView · l.182, when `loading`
-- «El perfil que buscas no existe o no tienes permisos para verlo.» — UserProfileView · l.203, when `!profileData`
-- «{profileData.first_name} {profileData.last_name} - Genera» — UserProfileView · l.228
-- «Email:» — UserProfileView · l.280
-- «Institución:» — UserProfileView · l.282, when `profileData.school`
-- «Descripción:» — UserProfileView · l.285, when `profileData.description`
-- «[Administrador Global] [Consultor FNE] [Equipo Directivo] [Líder de Generación] [Líder de Comunidad] [Docente]» — UserProfileView · l.296, when `userRoles.length > 0 && each userRoles`
-- «Sin roles asignados» — UserProfileView · l.307, when `!(userRoles.length > 0)`
-- «Instructor:» — UserProfileView · l.341, when `enrolledCourses.length > 0 && each enrolledCourses`
-- «Este usuario no tiene cursos asignados actualmente.» — UserProfileView · l.353, when `!(enrolledCourses.length > 0)`
+- «Cargando...» — UserProfileView · l.206, when `loading`
+- «El perfil que buscas no existe o no tienes permisos para verlo.» — UserProfileView · l.227, when `!profileData`
+- «{profileData.first_name} {profileData.last_name} - Genera» — UserProfileView · l.252
+- «Email:» — UserProfileView · l.308, when `!cardOnly && !cardOnly`
+- «Institución:» — UserProfileView · l.311, when `!cardOnly && profileData.school`
+- «Descripción:» — UserProfileView · l.314, when `!cardOnly && profileData.description`
+- «[Administrador Global] [Consultor FNE] [Equipo Directivo] [Líder de Generación] [Líder de Comunidad] [Docente]» — UserProfileView · l.325, when `!cardOnly && userRoles.length > 0 && each userRoles`
+- «Sin roles asignados» — UserProfileView · l.336, when `!cardOnly && !(userRoles.length > 0)`
+- «Instructor:» — UserProfileView · l.372, when `!cardOnly && enrolledCourses.length > 0 && each enrolledCourses`
+- «Este usuario no tiene cursos asignados actualmente.» — UserProfileView · l.384, when `!cardOnly && !(enrolledCourses.length > 0)`
 
 **Reads and writes the database directly:** `table:course_assignments` (select), `table:profiles` (select)
 
 ### Pieces it uses (each is listed once, under "Pieces" below)
 
 - `components/layout/FunctionalPageHeader.tsx`
+- `lib/profile-cards.ts`
 - `types/roles.ts`
 - `utils/roleUtils.ts`
 
@@ -988,7 +991,7 @@ File `pages/user/[userId].tsx` · 360 lines · frame: MainLayout
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/users/[userId]/school` | GET | `pages/user/[userId].tsx:94` |
+| `/api/users/[userId]/school` | GET | `pages/user/[userId].tsx:118` |
 
 ## Pieces
 
@@ -2957,86 +2960,86 @@ Used by: `/community/workspace`
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «[icon X]» | `{editingMessage ? onCancelEdit : onCancelReply}` | `(replyToMessage \|\| editingMessage)` |  |  | MessageComposer · l.356 |
-| «[icon Loader2]» | `{handleSubmit}` |  | `{(!content.trim() && attachments.length === 0) \|\| isSubmitting \|\| disabled}` |  | MessageComposer · l.390 |
-| «[icon X]» | `{() => removeAttachment(index)}` | `attachments.length > 0 && each attachments` |  |  | MessageComposer · l.452 |
-| «[icon Paperclip]» · tooltip «Adjuntar archivo» | `{() => fileInputRef.current?.click()}` | `allowAttachments` | `{disabled \|\| isSubmitting}` |  | MessageComposer · l.483 |
-| «[icon Smile]» · tooltip «Agregar emoji» | `{() => setShowEmojiPicker(!showEmojiPicker)}` |  | `{disabled \|\| isSubmitting}` |  | MessageComposer · l.504 |
-| «{emoji}» | `{() => { setContent(prev => prev + emoji); setShowEmojiPicker(false); }}` | `showEmojiPicker && each quickEmojis` |  |  | MessageComposer · l.520 |
-| «[icon AtSign]» · tooltip «Mencionar usuario» | `{() => { if (textareaRef.current) { const cursorPosition = textareaRef.current.s…}` | `allowMentions` | `{disabled \|\| isSubmitting}` |  | MessageComposer · l.537 |
-| «Cancelar» | `{editingMessage ? onCancelEdit : onCancelReply}` | `(replyToMessage \|\| editingMessage)` | `{isSubmitting}` |  | MessageComposer · l.561 |
-| «Enviando... / Guardar cambios / Enviar mensaje» | `{handleSubmit}` |  | `{(!content.trim() && attachments.length === 0) \|\| isSubmitting \|\| disabled}` |  | MessageComposer · l.569 |
+| «[icon X]» | `{editingMessage ? onCancelEdit : onCancelReply}` | `(replyToMessage \|\| editingMessage)` |  |  | MessageComposer · l.372 |
+| «[icon Loader2]» | `{handleSubmit}` |  | `{(!content.trim() && attachments.length === 0) \|\| isSubmitting \|\| disabled}` |  | MessageComposer · l.406 |
+| «[icon X]» | `{() => removeAttachment(index)}` | `attachments.length > 0 && each attachments` |  |  | MessageComposer · l.468 |
+| «[icon Paperclip]» · tooltip «Adjuntar archivo» | `{() => fileInputRef.current?.click()}` | `allowAttachments` | `{disabled \|\| isSubmitting}` |  | MessageComposer · l.499 |
+| «[icon Smile]» · tooltip «Agregar emoji» | `{() => setShowEmojiPicker(!showEmojiPicker)}` |  | `{disabled \|\| isSubmitting}` |  | MessageComposer · l.520 |
+| «{emoji}» | `{() => { setContent(prev => prev + emoji); setShowEmojiPicker(false); }}` | `showEmojiPicker && each quickEmojis` |  |  | MessageComposer · l.536 |
+| «[icon AtSign]» · tooltip «Mencionar usuario» | `{() => { if (textareaRef.current) { const cursorPosition = textareaRef.current.s…}` | `allowMentions` | `{disabled \|\| isSubmitting}` |  | MessageComposer · l.553 |
+| «Cancelar» | `{editingMessage ? onCancelEdit : onCancelReply}` | `(replyToMessage \|\| editingMessage)` | `{isSubmitting}` |  | MessageComposer · l.577 |
+| «Enviando... / Guardar cambios / Enviar mensaje» | `{handleSubmit}` |  | `{(!content.trim() && attachments.length === 0) \|\| isSubmitting \|\| disabled}` |  | MessageComposer · l.585 |
 
 **Fields** (2)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «{placeholder}» | textarea | «{placeholder}» · disabled: `{disabled \|\| isSubmitting}` · `maxLength={maxLength}` · also `onKeyDown={handleKeyPress}` |  |  |  | MessageComposer · l.372 |
-|  | file | accepts `{DEFAULT_MESSAGING_CONFIG.allowed_attachment_types.join(',')}` · `multiple=true` |  | `allowAttachments` · hidden by its class (`hidden`); another control opens it or it is for screen readers |  | MessageComposer · l.491 |
+| «{placeholder}» | textarea | «{placeholder}» · disabled: `{disabled \|\| isSubmitting}` · `maxLength={maxLength}` · also `onKeyDown={handleKeyPress}` |  |  |  | MessageComposer · l.388 |
+|  | file | accepts `{DEFAULT_MESSAGING_CONFIG.allowed_attachment_types.join(',')}` · `multiple=true` |  | `allowAttachments` · hidden by its class (`hidden`); another control opens it or it is for screen readers |  | MessageComposer · l.507 |
 
 **Other gestures (keys, hover, drag, blur)** (1)
 
 | Element | Reacts to | Shown when | Where |
 |---|---|---|---|
-| `div` | `onDrop={handleDrop} · onDragOver={handleDragOver}` |  | MessageComposer · l.366 |
+| `div` | `onDrop={handleDrop} · onDragOver={handleDragOver}` |  | MessageComposer · l.382 |
 
 **Embedded media** (1)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| Image | `attachments.length > 0 && each attachments && file.type.startsWith('image/')` |  | MessageComposer · l.445 |
+| Image | `attachments.length > 0 && each attachments && file.type.startsWith('image/')` |  | MessageComposer · l.461 |
 
 **Pop-ups** (1)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| `MentionPicker` | component | `{showMentionPicker}` |  | MessageComposer · l.409 |
+| `MentionPicker` | component | `{showMentionPicker}` |  | MessageComposer · l.425 |
 
 **Browser alert()** (4)
 
 | Text | When | Where |
 |---|---|---|
-| «Archivo no válido: {file.name}» | `!isValidAttachment(file)` | MessageComposer · l.214 |
-| «No se pueden adjuntar más de {DEFAULT_MESSAGING_CONFIG.ma…} archivos» | `attachments.length + validFiles.length > DEFAULT_MESSAGING_CONFIG.max_attachments_per_message` | MessageComposer · l.221 |
-| «{validationResult.errors.join('\n')}» | `!validationResult.is_valid` | MessageComposer · l.283 |
-| «Error al enviar el mensaje. Inténtalo de nuevo.» |  | MessageComposer · l.305 |
+| «Archivo no válido: {file.name}» | `!isValidAttachment(file)` | MessageComposer · l.197 |
+| «No se pueden adjuntar más de {DEFAULT_MESSAGING_CONFIG.ma…} archivos» | `attachments.length + validFiles.length > DEFAULT_MESSAGING_CONFIG.max_attachments_per_message` | MessageComposer · l.204 |
+| «{validationResult.errors.join('\n')}» | `!validationResult.is_valid` | MessageComposer · l.270 |
+| «Error al enviar el mensaje. Inténtalo de nuevo.» |  | MessageComposer · l.292 |
 
 **Draws nothing when** (3)
 
 | Condition | Where |
 |---|---|
-| `!mentionPosition` | MessageComposer · l.179 |
-| `!content.trim() && attachments.length === 0` | MessageComposer · l.258 |
-| `isSubmitting \|\| disabled` | MessageComposer · l.259 |
+| `!mentionPosition` | MessageComposer · l.162 |
+| `!content.trim() && attachments.length === 0` | MessageComposer · l.241 |
+| `isSubmitting \|\| disabled` | MessageComposer · l.242 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
 |---|---|
-| «Escribe un mensaje...» | MessageComposer · l.63 |
+| «Escribe un mensaje...» | MessageComposer · l.70 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (4)
 
 | Kind | What | Where |
 |---|---|---|
-| focus | `textareaRef.current.focus()` | MessageComposer · l.105 |
-| focus | `textareaRef.current.focus()` | MessageComposer · l.202 |
-| listener | `document.addEventListener('mousedown')` | MessageComposer · l.327 |
-| focus | `textareaRef.current.focus()` | MessageComposer · l.543 |
+| focus | `textareaRef.current.focus()` | MessageComposer · l.112 |
+| focus | `textareaRef.current.focus()` | MessageComposer · l.185 |
+| listener | `document.addEventListener('mousedown')` | MessageComposer · l.343 |
+| focus | `textareaRef.current.focus()` | MessageComposer · l.559 |
 
 **Values shown from data** (6)
 
-- `{replyToMessage.author_name}` — MessageComposer · l.343, when `((replyToMessage \|\| editingMessage)) && replyToMessage`
-- `{replyToMessage.content.substring(0,…} ...` — MessageComposer · l.344, when `((replyToMessage \|\| editingMessage)) && replyToMessage`
-- `{content.length} / {maxLength}` — MessageComposer · l.385
-- `{file.name}` — MessageComposer · l.449, when `attachments.length > 0 && each attachments`
-- `( {formatFileSize(file.size)} )` — MessageComposer · l.450, when `attachments.length > 0 && each attachments`
-- `{error}` — MessageComposer · l.470, when `validation && !validation.is_valid && each validation.errors`
+- `{replyToMessage.author_name}` — MessageComposer · l.359, when `((replyToMessage \|\| editingMessage)) && replyToMessage`
+- `{replyToMessage.content.substring(0,…} ...` — MessageComposer · l.360, when `((replyToMessage \|\| editingMessage)) && replyToMessage`
+- `{content.length} / {maxLength}` — MessageComposer · l.401
+- `{file.name}` — MessageComposer · l.465, when `attachments.length > 0 && each attachments`
+- `( {formatFileSize(file.size)} )` — MessageComposer · l.466, when `attachments.length > 0 && each attachments`
+- `{error}` — MessageComposer · l.486, when `validation && !validation.is_valid && each validation.errors`
 
 **Other texts on screen** (2)
 
-- «Respondiendo a» — MessageComposer · l.343, when `((replyToMessage \|\| editingMessage)) && replyToMessage`
-- «Editando mensaje» — MessageComposer · l.352, when `((replyToMessage \|\| editingMessage)) && editingMessage`
+- «Respondiendo a» — MessageComposer · l.359, when `((replyToMessage \|\| editingMessage)) && replyToMessage`
+- «Editando mensaje» — MessageComposer · l.368, when `((replyToMessage \|\| editingMessage)) && editingMessage`
 
 ### components/messaging/MessageFilters.tsx
 
@@ -3122,64 +3125,64 @@ Used by: `/community/workspace`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Crear Nuevo Hilo de Conversación» | h2 |  | ThreadCreationModal · l.90 |
+| «Crear Nuevo Hilo de Conversación» | h2 |  | ThreadCreationModal · l.99 |
 
 **Buttons** (3)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «[icon X]» | `{handleClose}` |  | `{submitting}` |  | ThreadCreationModal · l.94 |
-| «Cancelar» | `{handleClose}` |  | `{submitting}` |  | ThreadCreationModal · l.217 |
-| «Creando... / Crear Hilo» (submits the form) |  |  | `{submitting}` |  | ThreadCreationModal · l.225 |
+| «[icon X]» | `{handleClose}` |  | `{submitting}` |  | ThreadCreationModal · l.103 |
+| «Cancelar» | `{handleClose}` |  | `{submitting}` |  | ThreadCreationModal · l.231 |
+| «Creando... / Crear Hilo» (submits the form) |  |  | `{submitting}` |  | ThreadCreationModal · l.239 |
 
 **Fields** (5)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Título del Hilo *» | text | «Ej: Planificación del próximo semestre» · disabled: `{submitting}` · `maxLength={100}` |  |  | `id=thread_title (id used by code)` | ThreadCreationModal · l.110 |
-| «Descripción (opcional)» | textarea | «Describe brevemente el propósito de este hilo...» · disabled: `{submitting}` · `maxLength={300}` |  |  | `id=description (id used by code)` | ThreadCreationModal · l.130 |
-| «Categoría *» | select | disabled: `{submitting}` | «(lista) {category.label}», «Otra categoría...» |  | `id=category (id used by code)` | ThreadCreationModal · l.151 |
-| «Nombre de la categoría personalizada *» | text | «Ej: Actividades Especiales» · disabled: `{submitting}` · `maxLength={50}` |  | `showCustomCategory` | `id=custom_category_name (id used by code)` | ThreadCreationModal · l.179 |
-| «Mensaje Inicial *» | textarea | «Escribe el primer mensaje para iniciar la conversación...» · disabled: `{submitting}` · `maxLength={2000}` |  |  | `id=initial_message (id used by code)` | ThreadCreationModal · l.200 |
+| «Título del Hilo *» | text | «Ej: Planificación del próximo semestre» · disabled: `{fixedFieldDisabled}` · `maxLength={100}` |  |  | `id=thread_title (id used by code)` | ThreadCreationModal · l.124 |
+| «Descripción (opcional)» | textarea | «Describe brevemente el propósito de este hilo...» · disabled: `{fixedFieldDisabled}` · `maxLength={300}` |  |  | `id=description (id used by code)` | ThreadCreationModal · l.144 |
+| «Categoría *» | select | disabled: `{fixedFieldDisabled}` | «(lista) {category.label}», «Otra categoría...» |  | `id=category (id used by code)` | ThreadCreationModal · l.165 |
+| «Nombre de la categoría personalizada *» | text | «Ej: Actividades Especiales» · disabled: `{fixedFieldDisabled}` · `maxLength={50}` |  | `showCustomCategory` | `id=custom_category_name (id used by code)` | ThreadCreationModal · l.193 |
+| «Mensaje Inicial *» | textarea | «Escribe el primer mensaje para iniciar la conversación...» · disabled: `{submitting}` · `maxLength={2000}` |  |  | `id=initial_message (id used by code)` | ThreadCreationModal · l.214 |
 
 **Forms** (1)
 
 | On submit | Shown when | Where |
 |---|---|---|
-| `{handleSubmit}` |  | ThreadCreationModal · l.104 |
+| `{handleSubmit}` |  | ThreadCreationModal · l.113 |
 
 **Pop-ups** (1)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Crear Nuevo Hilo de Conversación» | written in this file |  |  | ThreadCreationModal · l.84 |
+| «Crear Nuevo Hilo de Conversación» | written in this file |  |  | ThreadCreationModal · l.93 |
 
-**Toasts** (4)
+**Toasts** (3)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Por favor ingresa un título para el hilo» | `!formData.thread_title.trim()` | handleSubmit · l.39 |
-| error | «Por favor ingresa un mensaje inicial» | `!formData.initial_message.trim()` | handleSubmit · l.44 |
-| error | «Por favor ingresa un nombre para la categoría personalizada» | `formData.category === 'custom' && !formData.custom_category_name?.trim()` | handleSubmit · l.49 |
-| error | «Error al crear el hilo de conversación» |  | handleSubmit · l.69 |
+| error | «Por favor ingresa un título para el hilo» | `!formData.thread_title.trim()` | handleSubmit · l.44 |
+| error | «Por favor ingresa un mensaje inicial» | `!formData.initial_message.trim()` | handleSubmit · l.49 |
+| error | «Por favor ingresa un nombre para la categoría personalizada» | `formData.category === 'custom' && !formData.custom_category_name?.trim()` | handleSubmit · l.54 |
 
 **Draws nothing when** (1)
 
 | Condition | Where |
 |---|---|
-| `!isOpen` | ThreadCreationModal · l.81 |
+| `!isOpen` | ThreadCreationModal · l.90 |
 
-**Other texts on screen** (9)
+**Other texts on screen** (10)
 
-- «Título del Hilo *» (label) — ThreadCreationModal · l.107
-- «{formData.thread_title.length} /100 caracteres» — ThreadCreationModal · l.120
-- «Descripción (opcional)» (label) — ThreadCreationModal · l.127
-- «{(formData.description \|\| '').length} /300 caracteres» — ThreadCreationModal · l.140
-- «Categoría *» (label) — ThreadCreationModal · l.147
-- «Nombre de la categoría personalizada *» (label) — ThreadCreationModal · l.176, when `showCustomCategory`
-- «{(formData.custom_category_name \|\| '…} /50 caracteres» — ThreadCreationModal · l.189, when `showCustomCategory`
-- «Mensaje Inicial *» (label) — ThreadCreationModal · l.197
-- «{formData.initial_message.length} /2000 caracteres» — ThreadCreationModal · l.210
+- «La conversación ya fue creada. Solo falta enviar el primer mensaje.» — ThreadCreationModal · l.116, when `threadAlreadyCreated`
+- «Título del Hilo *» (label) — ThreadCreationModal · l.121
+- «{formData.thread_title.length} /100 caracteres» — ThreadCreationModal · l.134
+- «Descripción (opcional)» (label) — ThreadCreationModal · l.141
+- «{(formData.description \|\| '').length} /300 caracteres» — ThreadCreationModal · l.154
+- «Categoría *» (label) — ThreadCreationModal · l.161
+- «Nombre de la categoría personalizada *» (label) — ThreadCreationModal · l.190, when `showCustomCategory`
+- «{(formData.custom_category_name \|\| '…} /50 caracteres» — ThreadCreationModal · l.203, when `showCustomCategory`
+- «Mensaje Inicial *» (label) — ThreadCreationModal · l.211
+- «{formData.initial_message.length} /2000 caracteres» — ThreadCreationModal · l.224
 
 ### components/tutorials/HelpButton.tsx
 
@@ -3495,6 +3498,18 @@ Used by: `/community/workspace`
 | «{label}: el texto no puede quedar vacío.» | describeSaveError · l.168 |
 | «{first} (y {problems.length - 1} problema{problems.length - 1 === 1 ?…} más)» | saveFailureSummary · l.188 |
 
+### lib/profile-cards.ts
+
+Used by: `/community/workspace`, `/user/[userId]`
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (1)
+
+| Text | Where |
+|---|---|
+| «Usuario» | cardName · l.59 |
+
+**Reads and writes the database directly:** `rpc:get_profile_cards`
+
 ### lib/services/communityWorkspace.js
 
 Used by: `/community/workspace`
@@ -3503,21 +3518,21 @@ Used by: `/community/workspace`
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «No se proporcionó ningún archivo» | `throw (shown by whoever catches it)` | `!file` | uploadCommunityImage · l.36 |
-| «El archivo debe ser menor a 5MB» | `throw (shown by whoever catches it)` | `file.size > maxSize` | uploadCommunityImage · l.42 |
-| «Solo se permiten imágenes (JPEG, PNG, WebP)» | `throw (shown by whoever catches it)` | `!allowedTypes.includes(file.type)` | uploadCommunityImage · l.48 |
+| «No se proporcionó ningún archivo» | `throw (shown by whoever catches it)` | `!file` | uploadCommunityImage · l.54 |
+| «El archivo debe ser menor a 5MB» | `throw (shown by whoever catches it)` | `file.size > maxSize` | uploadCommunityImage · l.60 |
+| «Solo se permiten imágenes (JPEG, PNG, WebP)» | `throw (shown by whoever catches it)` | `!allowedTypes.includes(file.type)` | uploadCommunityImage · l.66 |
 
 **Access checks in the code** (1)
 
 | Line of code | Where |
 |---|---|
-| `canEdit = roles.some(role => role.role_type === 'admin' \|\| role.community_id === workspace.community_id )` | canEditWorkspace · l.155 |
+| `canEdit = canEditWorkspaceWithRoles(roles, workspace.community_id)` | canEditWorkspace · l.173 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
-| `communityWorkspaceService` | «No se proporcionó ningún archivo», «El archivo debe ser menor a 5MB», «Solo se permiten imágenes (JPEG, PNG, WebP)», «Error al subir la imagen» | l.3 |
+| `communityWorkspaceService` | «No se proporcionó ningún archivo», «El archivo debe ser menor a 5MB», «Solo se permiten imágenes (JPEG, PNG, WebP)», «Error al subir la imagen» | l.21 |
 
 **Reads and writes the database directly:** `bucket:community-images` (getPublicUrl, remove, upload), `table:community_workspaces` (select, update), `table:user_roles` (select)
 
@@ -3529,37 +3544,37 @@ Used by: `/community/workspace`
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «{MENTION_NOTIFICATION_FAILED}» | `input.mentions && input.mentions.length > 0 && mentionNotificationFailed` | createPost · l.269 |
+| error | «{MENTION_NOTIFICATION_FAILED}» | `input.mentions && input.mentions.length > 0 && mentionNotificationFailed` | createPost · l.289 |
 
 **Messages set on the page** (7)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | createPost · l.135 |
-| «No tienes permisos para publicar en esta comunidad. Verifica que estés asignado a la comunidad.» | `throw (shown by whoever catches it)` | `!canAccess.data` | createPost · l.144 |
-| «Las tablas del feed no están configuradas. Por favor, contacta al administrador.» | `throw (shown by whoever catches it)` | `postError && postError.message.includes('relation "community_posts" does not exist')` | createPost · l.163 |
-| «Error al subir archivos: {mediaError.message}» | `throw (shown by whoever catches it)` | `input.media && input.media.length > 0 && mediaError` | createPost · l.211 |
-| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | toggleReaction · l.343 |
-| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | addComment · l.387 |
-| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | toggleSavePost · l.460 |
+| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | createPost · l.155 |
+| «No tienes permisos para publicar en esta comunidad. Verifica que estés asignado a la comunidad.» | `throw (shown by whoever catches it)` | `!canAccess.data` | createPost · l.164 |
+| «Las tablas del feed no están configuradas. Por favor, contacta al administrador.» | `throw (shown by whoever catches it)` | `postError && postError.message.includes('relation "community_posts" does not exist')` | createPost · l.183 |
+| «Error al subir archivos: {mediaError.message}» | `throw (shown by whoever catches it)` | `input.media && input.media.length > 0 && mediaError` | createPost · l.231 |
+| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | toggleReaction · l.363 |
+| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | addComment · l.407 |
+| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!user` | toggleSavePost · l.492 |
 
 **Access checks in the code** (1)
 
 | Line of code | Where |
 |---|---|
-| `canAccess = await supabase.rpc('can_access_workspace', { p_user_id: user.id, p_workspace_id: workspaceId })` | createPost · l.138 |
+| `canAccess = await supabase.rpc('can_access_workspace', { p_user_id: user.id, p_workspace_id: workspaceId })` | createPost · l.158 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
-| `MENTION_NOTIFICATION_FAILED` | «Tu publicación se guardó, pero no pudimos enviar la notificación de mención.» | l.15 |
+| `MENTION_NOTIFICATION_FAILED` | «Tu publicación se guardó, pero no pudimos enviar la notificación de mención.» | l.16 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
 |---|---|
-| «Bearer {session.access_token}» | FeedService · l.243 |
+| «Bearer {session.access_token}» | FeedService · l.263 |
 
 **Reads and writes the database directly:** `bucket:post-media` (getPublicUrl, upload), `rpc:can_access_workspace`, `rpc:increment_post_view_count`, `table:community_posts` (delete, insert, select, update), `table:post_comments` (insert, select), `table:post_hashtags` (insert, select), `table:post_media` (insert, select), `table:post_mentions` (insert), `table:post_reactions` (delete, insert, select), `table:posts_with_engagement` (select), `table:saved_posts` (delete, insert, select)
 
@@ -3824,15 +3839,16 @@ Used by: `/community/workspace`
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Messaging feature not yet implemented» | `throw (shown by whoever catches it)` | `threadError && (threadError?.code === '42P01' \|\| threadError?.message?.includes('does not exist'))` | createThread · l.443 |
-| «Messaging feature not yet implemented» | `throw (shown by whoever catches it)` | `error && (error?.code === '42P01' \|\| error?.message?.includes('does not exist'))` | sendMessage · l.529 |
+| «Messaging feature not yet implemented» | `throw (shown by whoever catches it)` | `threadError && (threadError?.code === '42P01' \|\| threadError?.message?.includes('does not exist'))` | createThread · l.469 |
+| «Messaging feature not yet implemented» | `throw (shown by whoever catches it)` | `error && (error?.code === '42P01' \|\| error?.message?.includes('does not exist'))` | sendMessage · l.563 |
 
-**Other texts written in the code (safety net: not tied to an element by the script)** (2)
+**Other texts written in the code (safety net: not tied to an element by the script)** (3)
 
 | Text | Where |
 |---|---|
-| «Usuario» | getWorkspaceThreads · l.105 |
-| «Bearer {session.access_token}» | requestMessageNotifications · l.820 |
+| «Usuario» | withMessageDetails · l.301 |
+| «No se pudo crear la conversación» | ThreadCreationIncompleteError · l.379 |
+| «Bearer {session.access_token}» | requestMessageNotifications · l.833 |
 
 **Reads and writes the database directly:** `bucket:message-attachments` (getPublicUrl, upload), `table:community_messages` (insert, select), `table:community_workspaces` (select), `table:message_attachments` (insert, select), `table:message_reactions` (select), `table:message_threads` (insert, select, update), `table:profiles` (select)
 
@@ -3910,7 +3926,7 @@ Used by: `/community/workspace`
 | `/api/admin/growth-communities` | `pages/api/admin/growth-communities/index.ts` | GET, POST | `/admin/growth-communities` | `__tests__/components/GrowthCommunitiesIndexPage.crud.test.tsx`, `pages/admin/growth-communities/index.tsx` |
 | `/api/community/ensure-workspace` | `pages/api/community/ensure-workspace.ts` | POST | `/community/workspace`, `/dashboard` | `__tests__/api/group-quiz-notifications.test.ts`, `__tests__/api/reports/forged-session.test.ts`, `tests/e2e/panel-pin.spec.ts`, `utils/workspaceUtils.ts` |
 | `/api/community/members` | `pages/api/community/members.ts` | GET | `/community/workspace`, `/dashboard` | `__tests__/api/community/members.test.ts`, `__tests__/api/reports/forged-session.test.ts`, `__tests__/components/meetings/MeetingDocumentationModal.clear-rich-text.test.tsx`, `__tests__/components/meetings/MeetingDocumentationModal.end-dedup.test.tsx`, `__tests__/components/meetings/MeetingDocumentationModal.members.test.tsx` +11 |
-| `/api/community/search-users` | `pages/api/community/search-users.ts` | GET | `/community/workspace` | `components/feed/CreatePostModal.tsx`, `tests/e2e/messaging-notifications.spec.ts` |
+| `/api/community/search-users` | `pages/api/community/search-users.ts` | GET | `/community/workspace` | `__tests__/api/community/search-users.test.ts`, `components/feed/CreatePostModal.tsx`, `tests/e2e/messaging-notifications.spec.ts` |
 | `/api/community/workspace-message-notifications` | `pages/api/community/workspace-message-notifications.ts` | POST | `/community/workspace`, `/community/workspace/assignments/[id]/discussion` | `__tests__/api/community/workspace-message-notifications.test.ts`, `tests/e2e/messaging-notifications.spec.ts`, `utils/messagingUtils-simple.ts` |
 | `/api/meetings/[id]/autosave` | `pages/api/meetings/[id]/autosave.ts` | POST | `/community/workspace` | `__tests__/api/meetings/autosave.test.ts`, `components/meetings/MeetingDocumentationModal.tsx`, `tests/e2e/meeting-agreements-tasks.spec.ts`, `tests/e2e/meeting-create-and-access.spec.ts`, `tests/e2e/meeting-finalize-email-outcome.spec.ts` |
 | `/api/meetings/[id]/finalize` | `pages/api/meetings/[id]/finalize.ts` | POST | `/community/workspace` | `__tests__/api/meetings/finalize.test.ts`, `__tests__/components/meetings/FinalizeMeetingDialog.test.tsx`, `__tests__/lib/notificationService.producer-contract.test.ts`, `components/meetings/FinalizeMeetingDialog.tsx`, `tests/e2e/messaging-notifications.spec.ts` |
@@ -3921,5 +3937,5 @@ Used by: `/community/workspace`
 | `/api/messaging/mention` | `pages/api/messaging/mention.ts` | POST | `/community/workspace` | `__tests__/api/messaging/mention.test.ts`, `__tests__/lib/notificationService.producer-contract.test.ts`, `lib/services/feedService.ts`, `tests/e2e/messaging-notifications.spec.ts` |
 | `/api/messaging/send` | `pages/api/messaging/send.ts` | POST | **no screen** | `__tests__/api/messaging/send.test.ts`, `__tests__/lib/notificationService.producer-contract.test.ts`, `__tests__/lib/notificationService.source-context.test.ts`, `tests/e2e/messaging-notifications.spec.ts` |
 | `/api/storage/download-url` | `pages/api/storage/download-url.ts` | POST | **no screen** | `__tests__/api/storage/download-authorization.test.ts` |
-| `/api/storage/download` | `pages/api/storage/download.ts` | GET | `/community/workspace`, `/student/lesson/[lessonId]` | `__tests__/api/storage/download-authorization.test.ts`, `components/student/StudentBlockRenderer.tsx`, `pages/community/workspace.tsx`, `scripts/seed-qa-phase2-final.js`, `scripts/seed-qa-phase2-retest.js` +3 |
+| `/api/storage/download` | `pages/api/storage/download.ts` | GET | `/community/workspace`, `/student/lesson/[lessonId]` | `__tests__/api/storage/download-authorization.test.ts`, `__tests__/pages/community/workspace.messages.test.tsx`, `components/student/StudentBlockRenderer.tsx`, `pages/community/workspace.tsx`, `scripts/seed-qa-phase2-final.js` +4 |
 

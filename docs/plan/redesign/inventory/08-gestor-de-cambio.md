@@ -1,16 +1,16 @@
 # Gestor de Cambio (registros, context, migration plan, results)
 
 Area `08-gestor-de-cambio`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3ff6aa13f` (2026-11-17).
+Read from commit `9b113df42` (2026-11-17).
 
-16 screen files, 40 API files, 30 pieces.
+16 screen files, 40 API files, 31 pieces.
 
 ## Screens
 
 | Address | File | Lines | Menu | Marks |
 |---|---|---|---|---|
 | `/admin/assessment-builder/[templateId]/expectations` | `pages/admin/assessment-builder/[templateId]/expectations.tsx` | 1836 | — |  |
-| `/admin/assessment-builder/[templateId]` | `pages/admin/assessment-builder/[templateId]/index.tsx` | 3175 | — |  |
+| `/admin/assessment-builder/[templateId]` | `pages/admin/assessment-builder/[templateId]/index.tsx` | 3207 | — |  |
 | `/admin/assessment-builder/create` | `pages/admin/assessment-builder/create.tsx` | 459 | — |  |
 | `/admin/assessment-builder` | `pages/admin/assessment-builder/index.tsx` | 804 | Gestor de Cambio › Constructor de Registros |  |
 | `/admin/context-questions` | `pages/admin/context-questions/index.tsx` | 741 | Gestor de Cambio › Preguntas de Contexto |  |
@@ -18,13 +18,13 @@ Read from commit `3ff6aa13f` (2026-11-17).
 | `/demo/assessments/[templateId]` | `pages/demo/assessments/[templateId]/index.tsx` | 425 | — | Looks like a leftover but is in use |
 | `/demo/assessments/[templateId]/results` | `pages/demo/assessments/[templateId]/results.tsx` | 395 | — | Looks like a leftover but is in use |
 | `/demo/assessments` | `pages/demo/assessments/index.tsx` | 204 | — | Looks like a leftover but is in use |
-| `/directivo/assessments/dashboard` | `pages/directivo/assessments/dashboard.tsx` | 714 | Reportes › Panel de Resultados |  |
+| `/directivo/assessments/dashboard` | `pages/directivo/assessments/dashboard.tsx` | 814 | Reportes › Panel de Resultados |  |
 | `/docente/assessments/[instanceId]` | `pages/docente/assessments/[instanceId]/index.tsx` | 729 | — |  |
 | `/docente/assessments/[instanceId]/results` | `pages/docente/assessments/[instanceId]/results.tsx` | 207 | — |  |
 | `/docente/assessments` | `pages/docente/assessments/index.tsx` | 407 | Mi Aprendizaje › Feedback; Gestor de Cambio › Mis Registros |  |
-| `/school/migration-plan` | `pages/school/migration-plan/index.tsx` | 814 | Gestor de Cambio › Plan de Migración |  |
+| `/school/migration-plan` | `pages/school/migration-plan/index.tsx` | 837 | Gestor de Cambio › Plan de Migración |  |
 | `/school/transversal-context/edit` | `pages/school/transversal-context/edit.tsx` | 1081 | — |  |
-| `/school/transversal-context` | `pages/school/transversal-context/index.tsx` | 1611 | Gestor de Cambio › Contexto Transversal; Vías de Transformación › Contexto Transversal |  |
+| `/school/transversal-context` | `pages/school/transversal-context/index.tsx` | 1633 | Gestor de Cambio › Contexto Transversal; Vías de Transformación › Contexto Transversal |  |
 
 ## /admin/assessment-builder/[templateId]/expectations
 
@@ -38,7 +38,7 @@ File `pages/admin/assessment-builder/[templateId]/expectations.tsx` · 1836 line
   - l.180 `router.push → /login  (when !session?.user)`
   - l.801 `router.push → /login`
   - l.1001 `No tienes permiso para editar expectativas.`
-- Linked from: `pages/admin/assessment-builder/[templateId]/index.tsx:1567`, `pages/admin/assessment-builder/[templateId]/index.tsx:1704`, `pages/api/qa/seed-codebase-index.ts:200`
+- Linked from: `pages/admin/assessment-builder/[templateId]/index.tsx:1599`, `pages/admin/assessment-builder/[templateId]/index.tsx:1736`, `pages/api/qa/seed-codebase-index.ts:200`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/assessment-builder-expectations-editor.spec.ts`; unit tests of the page: `__tests__/pages/admin/assessment-builder-expectations-editor.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -325,18 +325,18 @@ File `pages/admin/assessment-builder/[templateId]/expectations.tsx` · 1836 line
 
 ## /admin/assessment-builder/[templateId]
 
-File `pages/admin/assessment-builder/[templateId]/index.tsx` · 3175 lines · frame: MainLayout
+File `pages/admin/assessment-builder/[templateId]/index.tsx` · 3207 lines · frame: MainLayout
 
 ### Who reaches it
 
 - Menu: no entry.
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
-  - l.1305 `router.push → /login`
-  - l.1353 `No tienes permiso para editar templates de registro.`
-  - l.1394 `canEdit = !isArchived && isAdmin`
+  - l.1337 `router.push → /login`
+  - l.1385 `No tienes permiso para editar templates de registro.`
+  - l.1426 `canEdit = !isArchived && isAdmin`
 - Linked from: `pages/admin/assessment-builder/[templateId]/expectations.tsx:1060`, `pages/admin/assessment-builder/[templateId]/expectations.tsx:1562`, `pages/admin/assessment-builder/create.tsx:218`, `pages/admin/assessment-builder/index.tsx:335`, `pages/admin/assessment-builder/index.tsx:608`, `pages/api/qa/seed-codebase-index.ts:195`
-- Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/assessment-frequency-validation.spec.ts`; unit tests of the page: `__tests__/pages/admin/assessment-builder-frequency.test.tsx`, `__tests__/pages/admin/assessment-builder-publish.test.tsx`.
+- Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/assessment-frequency-validation.spec.ts`; unit tests of the page: `__tests__/api/assessment-builder/duplicate-from-editor.test.ts`, `__tests__/api/assessment-builder/publish-indicator-count.test.ts`, `__tests__/pages/admin/assessment-builder-frequency.test.tsx`, `__tests__/pages/admin/assessment-builder-publish.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
 |---|---|---|
@@ -356,442 +356,443 @@ File `pages/admin/assessment-builder/[templateId]/index.tsx` · 3175 lines · fr
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Acceso Denegado» | h1 | `hasPermission === false` | TemplateEditor · l.1352 |
-| «Template no encontrado» | h1 | `!template` | TemplateEditor · l.1378 |
-| «Este template tiene registros en uso» | h4 | `!isDraft && usageStats?.hasResponses` | TemplateEditor · l.1431 |
-| «{template.name}» | h2 | `!(isEditingTemplate)` | TemplateEditor · l.1490 |
-| «{ENTITY_LABELS.objectives}» | h3 |  | TemplateEditor · l.1748 |
-| «Sin {ENTITY_LABELS.objectives.toLowerCas…}» | h4 | `objectives.length === 0` | TemplateEditor · l.1766 |
-| «{ENTITY_LABELS.modules} ( {objectiveModules.length} )» | h4 | `!(objectives.length === 0) && each objectives && objective.isExpanded` | TemplateEditor · l.1864 |
-| «{ENTITY_LABELS.indicators} ( {(module.indicators \|\| []).length} )» | h5 | `objective.isExpanded && !(objectiveModules.length === 0) && each objectiveModules && module.isExpanded` | TemplateEditor · l.1971 |
-| «Acceso Demo» | h3 | `template.status === 'published' && !isArchived && isAdmin` | TemplateEditor · l.2105 |
-| «Editar {ENTITY_LABELS.objective} / Nuevo {ENTITY_LABELS.objective}» | h3 | `isObjectiveModalOpen` | TemplateEditor · l.2292 |
-| «Editar {ENTITY_LABELS.module} / Nueva {ENTITY_LABELS.module}» | h3 | `isModuleModalOpen` | TemplateEditor · l.2357 |
-| «Editar {ENTITY_LABELS.indicator} / Nuevo {ENTITY_LABELS.indicator}» | h3 | `isIndicatorModalOpen` | TemplateEditor · l.2441 |
-| «Historial de Versiones» | h3 | `isVersionHistoryOpen` | TemplateEditor · l.2866 |
-| «Vista Previa del Evaluador» | h3 | `isPreviewOpen && previewModule` | TemplateEditor · l.2950 |
-| «{previewModule.name}» | h4 | `isPreviewOpen && previewModule` | TemplateEditor · l.2966 |
-| «{indicator.name}» | h5 | `isPreviewOpen && previewModule && !(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted` | TemplateEditor · l.3014 |
-| «Confirmar Eliminación» | h3 | `showDeleteConfirm && deleteConfirmData` | TemplateEditor · l.3127 |
+| «Acceso Denegado» | h1 | `hasPermission === false` | TemplateEditor · l.1384 |
+| «Template no encontrado» | h1 | `!template` | TemplateEditor · l.1410 |
+| «Este template tiene registros en uso» | h4 | `!isDraft && usageStats?.hasResponses` | TemplateEditor · l.1463 |
+| «{template.name}» | h2 | `!(isEditingTemplate)` | TemplateEditor · l.1522 |
+| «{ENTITY_LABELS.objectives}» | h3 |  | TemplateEditor · l.1780 |
+| «Sin {ENTITY_LABELS.objectives.toLowerCas…}» | h4 | `objectives.length === 0` | TemplateEditor · l.1798 |
+| «{ENTITY_LABELS.modules} ( {objectiveModules.length} )» | h4 | `!(objectives.length === 0) && each objectives && objective.isExpanded` | TemplateEditor · l.1896 |
+| «{ENTITY_LABELS.indicators} ( {(module.indicators \|\| []).length} )» | h5 | `objective.isExpanded && !(objectiveModules.length === 0) && each objectiveModules && module.isExpanded` | TemplateEditor · l.2003 |
+| «Acceso Demo» | h3 | `template.status === 'published' && !isArchived && isAdmin` | TemplateEditor · l.2137 |
+| «Editar {ENTITY_LABELS.objective} / Nuevo {ENTITY_LABELS.objective}» | h3 | `isObjectiveModalOpen` | TemplateEditor · l.2324 |
+| «Editar {ENTITY_LABELS.module} / Nueva {ENTITY_LABELS.module}» | h3 | `isModuleModalOpen` | TemplateEditor · l.2389 |
+| «Editar {ENTITY_LABELS.indicator} / Nuevo {ENTITY_LABELS.indicator}» | h3 | `isIndicatorModalOpen` | TemplateEditor · l.2473 |
+| «Historial de Versiones» | h3 | `isVersionHistoryOpen` | TemplateEditor · l.2898 |
+| «Vista Previa del Evaluador» | h3 | `isPreviewOpen && previewModule` | TemplateEditor · l.2982 |
+| «{previewModule.name}» | h4 | `isPreviewOpen && previewModule` | TemplateEditor · l.2998 |
+| «{indicator.name}» | h5 | `isPreviewOpen && previewModule && !(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted` | TemplateEditor · l.3046 |
+| «Confirmar Eliminación» | h3 | `showDeleteConfirm && deleteConfirmData` | TemplateEditor · l.3159 |
 
 **Buttons** (59)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Guardando... / Guardar» | `{handleUpdateTemplate}` | `isEditingTemplate` | `{isSaving}` |  | TemplateEditor · l.1469 |
-| «Cancelar» | `{() => { setIsEditingTemplate(false); setTemplateForm({ name: template.name, des…}` | `isEditingTemplate` |  |  | TemplateEditor · l.1476 |
-| «[icon Edit2]» · tooltip «Editar información» · aria «Editar información del template» | `{() => setIsEditingTemplate(true)}` | `!isEditingTemplate && canEdit` |  |  | TemplateEditor · l.1508 |
-| «[icon History]» · tooltip «Historial de versiones» · aria «Ver historial de versiones» | `{openVersionHistory}` | `!isEditingTemplate` |  |  | TemplateEditor · l.1517 |
-| «¿Eliminar?» | `{executeConfirm}` | `isDraft && isAdmin && pendingConfirm?.key === 'delete-draft-template'` |  |  | TemplateEditor · l.1542 |
-| «Cancelar» | `{cancelConfirm}` | `isDraft && isAdmin && pendingConfirm?.key === 'delete-draft-template'` |  |  | TemplateEditor · l.1548 |
-| «Eliminando... / Eliminar» · tooltip «Eliminar template» | `{handleDelete}` | `isDraft && isAdmin && !(pendingConfirm?.key === 'delete-draft-template')` | `{isDeleting}` |  | TemplateEditor · l.1556 |
-| «Sí, publicar» | `{() => executePublish()}` | `isDraft && isAdmin && publishStep === 'confirm'` |  | `testid=publish-confirm-btn` | TemplateEditor · l.1577 |
-| «Cancelar» | `{() => setPublishStep(null)}` | `isDraft && isAdmin && publishStep === 'confirm'` |  | `testid=publish-cancel-btn` | TemplateEditor · l.1584 |
-| «Publicando... / Publicar» · tooltip «{modules.length === 0 ? `Agrega ${ENTITY_LABELS.modules.toLowerCase()} e indicad…}» | `{handlePublish}` | `isDraft && isAdmin && !(publishStep === 'confirm')` | `{isPublishing \|\| modules.length === 0}` | `testid=publish-btn` | TemplateEditor · l.1593 |
-| «Eliminando... / Eliminar» · tooltip «Eliminar template» | `{handleDelete}` | `!(isDraft) && isArchived && isAdmin` | `{isDeleting}` |  | TemplateEditor · l.1615 |
-| «Restaurando... / Restaurar» | `{handleRestore}` | `!(isDraft) && isArchived && isAdmin` | `{isArchiving}` |  | TemplateEditor · l.1624 |
-| «¿Confirmar?» | `{executeConfirm}` | `!(isDraft) && isArchived && isAdmin && pendingConfirm?.key === 'duplicate-template'` |  |  | TemplateEditor · l.1634 |
-| «Cancelar» | `{cancelConfirm}` | `!(isDraft) && isArchived && isAdmin && pendingConfirm?.key === 'duplicate-template'` |  |  | TemplateEditor · l.1640 |
-| «Creando borrador... / Editar (Nueva Versión)» | `{confirmDuplicate}` | `!(isDraft) && isArchived && isAdmin && !(pendingConfirm?.key === 'duplicate-template')` | `{isDuplicating}` |  | TemplateEditor · l.1648 |
-| «¿Archivar?» | `{executeConfirm}` | `!(isDraft) && !(isArchived) && isAdmin && pendingConfirm?.key === 'archive-template'` |  |  | TemplateEditor · l.1679 |
-| «Cancelar» | `{cancelConfirm}` | `!(isDraft) && !(isArchived) && isAdmin && pendingConfirm?.key === 'archive-template'` |  |  | TemplateEditor · l.1685 |
-| «Archivando... / Archivar» · tooltip «Archivar template» | `{confirmArchive}` | `!(isDraft) && !(isArchived) && isAdmin && !(pendingConfirm?.key === 'archive-template')` | `{isArchiving}` |  | TemplateEditor · l.1693 |
-| «¿Confirmar?» | `{executeConfirm}` | `!(isDraft) && !(isArchived) && isAdmin && pendingConfirm?.key === 'duplicate-template'` |  |  | TemplateEditor · l.1713 |
-| «Cancelar» | `{cancelConfirm}` | `!(isDraft) && !(isArchived) && isAdmin && pendingConfirm?.key === 'duplicate-template'` |  |  | TemplateEditor · l.1719 |
-| «Duplicando... / Duplicar» · tooltip «Crear copia borrador» | `{confirmDuplicate}` | `!(isDraft) && !(isArchived) && isAdmin && !(pendingConfirm?.key === 'duplicate-template')` | `{isDuplicating}` |  | TemplateEditor · l.1727 |
-| «Agregar {ENTITY_LABELS.objective}» | `{() => openObjectiveModal()}` | `canEdit` |  | `testid=add-objective-btn` | TemplateEditor · l.1752 |
-| «Agregar {ENTITY_LABELS.objective}» | `{() => openObjectiveModal()}` | `objectives.length === 0 && canEdit` |  |  | TemplateEditor · l.1771 |
-| «# {objIndex + 1} {objective.name} {objectiveModules.length} {ENTITY_LABELS.modules.toLowerCase()} / {ENTITY_LABELS.module.toLowerCase()} [{objective.description}]» · aria «{`${objective.isExpanded ? 'Contraer' : 'Expandir'} ${ENTITY_LABELS.objective.to…}» | `{() => setObjectives(prev => prev.map(o => o.id === objective.id ? { ...o, isExp…}` | `!(objectives.length === 0) && each objectives` |  |  | TemplateEditor · l.1794 |
-| «[icon Edit2]» · tooltip «{`Editar ${ENTITY_LABELS.objective.toLowerCase()}`}» · aria «{`Editar ${ENTITY_LABELS.objective.toLowerCase()}: ${objective.name}`}» | `{() => openObjectiveModal(objective)}` | `!(objectives.length === 0) && each objectives && canEdit` |  |  | TemplateEditor · l.1823 |
-| «¿Eliminar?» | `{executeConfirm}` | `!(objectives.length === 0) && each objectives && canEdit && pendingConfirm?.key === 'delete-objective-${objective.id}'` |  |  | TemplateEditor · l.1833 |
-| «Cancelar» | `{cancelConfirm}` | `!(objectives.length === 0) && each objectives && canEdit && pendingConfirm?.key === 'delete-objective-${objective.id}'` |  |  | TemplateEditor · l.1839 |
-| «[icon Trash2]» · tooltip «{`Eliminar ${ENTITY_LABELS.objective.toLowerCase()}`}» · aria «{`Eliminar ${ENTITY_LABELS.objective.toLowerCase()}: ${objective.name}`}» | `{() => confirmDeleteObjective(objective)}` | `!(objectives.length === 0) && each objectives && canEdit && !(pendingConfirm?.key === 'delete-objective-${objective.id}')` |  |  | TemplateEditor · l.1847 |
-| «Agregar {ENTITY_LABELS.module}» | `{() => openModuleModal(objective.id)}` | `!(objectives.length === 0) && each objectives && objective.isExpanded && canEdit` |  | `testid=add-module-btn` | TemplateEditor · l.1868 |
-| «# {modIndex + 1} {module.name} [{module.description}]» | `{() => toggleModuleExpand(module.id)}` | `each objectives && objective.isExpanded && !(objectiveModules.length === 0) && each objectiveModules` |  |  | TemplateEditor · l.1892 |
-| «[icon Eye]» · tooltip «Vista previa del evaluador» · aria «{`Vista previa del evaluador: ${module.name}`}» | `{() => openModulePreview(module)}` | `each objectives && objective.isExpanded && !(objectiveModules.length === 0) && each objectiveModules` |  |  | TemplateEditor · l.1912 |
-| «[icon Edit2]» · tooltip «{`Editar ${ENTITY_LABELS.module.toLowerCase()}`}» · aria «{`Editar ${ENTITY_LABELS.module.toLowerCase()}: ${module.name}`}» | `{() => openModuleModal(objective.id, module)}` | `objective.isExpanded && !(objectiveModules.length === 0) && each objectiveModules && canEdit` |  |  | TemplateEditor · l.1922 |
-| «¿Eliminar?» | `{executeConfirm}` | `!(objectiveModules.length === 0) && each objectiveModules && canEdit && pendingConfirm?.key === 'delete-module-${module.id}'` |  |  | TemplateEditor · l.1932 |
-| «Cancelar» | `{cancelConfirm}` | `!(objectiveModules.length === 0) && each objectiveModules && canEdit && pendingConfirm?.key === 'delete-module-${module.id}'` |  |  | TemplateEditor · l.1938 |
-| «[icon Trash2]» · tooltip «{`Eliminar ${ENTITY_LABELS.module.toLowerCase()}`}» · aria «{`Eliminar ${ENTITY_LABELS.module.toLowerCase()}: ${module.name}`}» | `{() => confirmDeleteModule(module)}` | `!(objectiveModules.length === 0) && each objectiveModules && canEdit && !(pendingConfirm?.key === 'delete-module-${module.id}')` |  |  | TemplateEditor · l.1946 |
-| «Agregar» | `{() => openIndicatorModal(module.id)}` | `!(objectiveModules.length === 0) && each objectiveModules && module.isExpanded && canEdit` |  | `testid=add-indicator-btn` | TemplateEditor · l.1975 |
-| «[icon Edit2]» · tooltip «Editar indicador» · aria «{`Editar indicador: ${indicator.name}`}» | `{() => openIndicatorModal(module.id, indicator)}` | `!(!module.indicatorsLoaded) && (!((module.indicators \|\| []).length === 0)) && (each (module.indicators \|\| [])) && canEdit` |  |  | TemplateEditor · l.2035 |
-| «¿Eliminar?» | `{executeConfirm}` | `(each (module.indicators \|\| [])) && canEdit && !isLockedCobertura && pendingConfirm?.key === 'delete-indicator-${indicator.id}'` |  |  | TemplateEditor · l.2046 |
-| «Cancelar» | `{cancelConfirm}` | `(each (module.indicators \|\| [])) && canEdit && !isLockedCobertura && pendingConfirm?.key === 'delete-indicator-${indicator.id}'` |  |  | TemplateEditor · l.2052 |
-| «[icon Trash2]» · tooltip «Eliminar indicador» · aria «{`Eliminar indicador: ${indicator.name}`}» | `{() => confirmDeleteIndicator(module.id, indicator)}` | `(each (module.indicators \|\| [])) && canEdit && !isLockedCobertura && !(pendingConfirm?.key === 'delete-indicator-${indicator.id}')` |  |  | TemplateEditor · l.2060 |
-| «Acceso Demo {demoUsers.length} usuario s con acceso» | `{handleDemoSectionToggle}` | `template.status === 'published' && !isArchived && isAdmin` |  |  | TemplateEditor · l.2098 |
-| «Copiar enlace demo» | `{copyDemoLink}` | `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen` |  |  | TemplateEditor · l.2122 |
-| «{u.full_name} / {u.email} [{u.email}] [Seleccionado]» | `{() => { if (selectedDemoUsers.includes(u.id)) { setSelectedDemoUsers(prev => pr…}` | `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && demoSearchResults.length > 0 && each demoSearchResults` |  |  | TemplateEditor · l.2158 |
-| «[icon X]» | `{() => setSelectedDemoUsers(prev => prev.filter(id => id !== uid))}` | `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && selectedDemoUsers.length > 0 && each selectedDemoUsers` |  |  | TemplateEditor · l.2199 |
-| «Otorgando... / Otorgar Acceso» | `{handleGrantDemoAccess}` | `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && selectedDemoUsers.length > 0` | `{grantingAccess}` |  | TemplateEditor · l.2208 |
-| «Revocando... / Revocar» | `{() => handleRevokeDemoAccess(du.user_id)}` | `isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0) && each demoUsers` | `{revokingUserId === du.user_id}` |  | TemplateEditor · l.2259 |
-| «Cancelar» | `{() => setIsObjectiveModalOpen(false)}` | `isObjectiveModalOpen` |  |  | TemplateEditor · l.2326 |
-| «Guardando... / Actualizar / Crear» | `{handleSaveObjective}` | `isObjectiveModalOpen` | `{isSaving}` |  | TemplateEditor · l.2332 |
-| «Cancelar» | `{() => setIsModuleModalOpen(false)}` | `isModuleModalOpen` |  |  | TemplateEditor · l.2409 |
-| «Guardando... / Actualizar / Crear» | `{handleSaveModule}` | `isModuleModalOpen` | `{isSaving}` |  | TemplateEditor · l.2415 |
-| «[icon X]» · aria «Eliminar opción» | `{() => { const newOptions = indicatorForm.detalleOptions.filter((_, i) => i !== …}` | `isIndicatorModalOpen && indicatorForm.category === 'detalle' && each indicatorForm.detalleOptions && indicatorForm.detalleOptions.length > 2` |  |  | TemplateEditor · l.2719 |
-| «Agregar opción» | `{() => { setIndicatorForm({ ...indicatorForm, detalleOptions: [...indicatorForm.…}` | `isIndicatorModalOpen && indicatorForm.category === 'detalle' && indicatorForm.detalleOptions.length < 15` |  |  | TemplateEditor · l.2735 |
-| «Cancelar» | `{() => setIsIndicatorModalOpen(false)}` | `isIndicatorModalOpen` |  |  | TemplateEditor · l.2833 |
-| «Guardando... / Actualizar / Crear» | `{handleSaveIndicator}` | `isIndicatorModalOpen` | `{isSaving}` | `testid=indicator-save-btn` | TemplateEditor · l.2839 |
-| «×» | `{() => setIsVersionHistoryOpen(false)}` | `isVersionHistoryOpen` |  |  | TemplateEditor · l.2869 |
-| «Cerrar» | `{() => setIsVersionHistoryOpen(false)}` | `isVersionHistoryOpen` |  |  | TemplateEditor · l.2923 |
-| «[icon X]» · aria «Cerrar vista previa» | `{() => setIsPreviewOpen(false)}` | `isPreviewOpen && previewModule` |  |  | TemplateEditor · l.2953 |
-| «Cancelar» | `{() => { setShowDeleteConfirm(false); setDeleteConfirmData(null); }}` | `showDeleteConfirm && deleteConfirmData` |  |  | TemplateEditor · l.3150 |
-| «Eliminando... / Eliminar Permanentemente» | `{() => executeDelete(true)}` | `showDeleteConfirm && deleteConfirmData` | `{isDeleting}` |  | TemplateEditor · l.3159 |
+| «Guardando... / Guardar» | `{handleUpdateTemplate}` | `isEditingTemplate` | `{isSaving}` |  | TemplateEditor · l.1501 |
+| «Cancelar» | `{() => { setIsEditingTemplate(false); setTemplateForm({ name: template.name, des…}` | `isEditingTemplate` |  |  | TemplateEditor · l.1508 |
+| «[icon Edit2]» · tooltip «Editar información» · aria «Editar información del template» | `{() => setIsEditingTemplate(true)}` | `!isEditingTemplate && canEdit` |  |  | TemplateEditor · l.1540 |
+| «[icon History]» · tooltip «Historial de versiones» · aria «Ver historial de versiones» | `{openVersionHistory}` | `!isEditingTemplate` |  |  | TemplateEditor · l.1549 |
+| «¿Eliminar?» | `{executeConfirm}` | `isDraft && isAdmin && pendingConfirm?.key === 'delete-draft-template'` |  |  | TemplateEditor · l.1574 |
+| «Cancelar» | `{cancelConfirm}` | `isDraft && isAdmin && pendingConfirm?.key === 'delete-draft-template'` |  |  | TemplateEditor · l.1580 |
+| «Eliminando... / Eliminar» · tooltip «Eliminar template» | `{handleDelete}` | `isDraft && isAdmin && !(pendingConfirm?.key === 'delete-draft-template')` | `{isDeleting}` |  | TemplateEditor · l.1588 |
+| «Sí, publicar» | `{() => executePublish()}` | `isDraft && isAdmin && publishStep === 'confirm'` |  | `testid=publish-confirm-btn` | TemplateEditor · l.1609 |
+| «Cancelar» | `{() => setPublishStep(null)}` | `isDraft && isAdmin && publishStep === 'confirm'` |  | `testid=publish-cancel-btn` | TemplateEditor · l.1616 |
+| «Publicando... / Publicar» · tooltip «{modules.length === 0 ? `Agrega ${ENTITY_LABELS.modules.toLowerCase()} e indicad…}» | `{handlePublish}` | `isDraft && isAdmin && !(publishStep === 'confirm')` | `{isPublishing \|\| modules.length === 0}` | `testid=publish-btn` | TemplateEditor · l.1625 |
+| «Eliminando... / Eliminar» · tooltip «Eliminar template» | `{handleDelete}` | `!(isDraft) && isArchived && isAdmin` | `{isDeleting}` |  | TemplateEditor · l.1647 |
+| «Restaurando... / Restaurar» | `{handleRestore}` | `!(isDraft) && isArchived && isAdmin` | `{isArchiving}` |  | TemplateEditor · l.1656 |
+| «¿Confirmar?» | `{executeConfirm}` | `!(isDraft) && isArchived && isAdmin && pendingConfirm?.key === 'duplicate-template'` |  |  | TemplateEditor · l.1666 |
+| «Cancelar» | `{cancelConfirm}` | `!(isDraft) && isArchived && isAdmin && pendingConfirm?.key === 'duplicate-template'` |  |  | TemplateEditor · l.1672 |
+| «Creando borrador... / Editar (Nueva Versión)» | `{confirmDuplicate}` | `!(isDraft) && isArchived && isAdmin && !(pendingConfirm?.key === 'duplicate-template')` | `{isDuplicating}` |  | TemplateEditor · l.1680 |
+| «¿Archivar?» | `{executeConfirm}` | `!(isDraft) && !(isArchived) && isAdmin && pendingConfirm?.key === 'archive-template'` |  |  | TemplateEditor · l.1711 |
+| «Cancelar» | `{cancelConfirm}` | `!(isDraft) && !(isArchived) && isAdmin && pendingConfirm?.key === 'archive-template'` |  |  | TemplateEditor · l.1717 |
+| «Archivando... / Archivar» · tooltip «Archivar template» | `{confirmArchive}` | `!(isDraft) && !(isArchived) && isAdmin && !(pendingConfirm?.key === 'archive-template')` | `{isArchiving}` |  | TemplateEditor · l.1725 |
+| «¿Confirmar?» | `{executeConfirm}` | `!(isDraft) && !(isArchived) && isAdmin && pendingConfirm?.key === 'duplicate-template'` |  |  | TemplateEditor · l.1745 |
+| «Cancelar» | `{cancelConfirm}` | `!(isDraft) && !(isArchived) && isAdmin && pendingConfirm?.key === 'duplicate-template'` |  |  | TemplateEditor · l.1751 |
+| «Duplicando... / Duplicar» · tooltip «Crear copia borrador» | `{confirmDuplicate}` | `!(isDraft) && !(isArchived) && isAdmin && !(pendingConfirm?.key === 'duplicate-template')` | `{isDuplicating}` |  | TemplateEditor · l.1759 |
+| «Agregar {ENTITY_LABELS.objective}» | `{() => openObjectiveModal()}` | `canEdit` |  | `testid=add-objective-btn` | TemplateEditor · l.1784 |
+| «Agregar {ENTITY_LABELS.objective}» | `{() => openObjectiveModal()}` | `objectives.length === 0 && canEdit` |  |  | TemplateEditor · l.1803 |
+| «# {objIndex + 1} {objective.name} {objectiveModules.length} {ENTITY_LABELS.modules.toLowerCase()} / {ENTITY_LABELS.module.toLowerCase()} [{objective.description}]» · aria «{`${objective.isExpanded ? 'Contraer' : 'Expandir'} ${ENTITY_LABELS.objective.to…}» | `{() => setObjectives(prev => prev.map(o => o.id === objective.id ? { ...o, isExp…}` | `!(objectives.length === 0) && each objectives` |  |  | TemplateEditor · l.1826 |
+| «[icon Edit2]» · tooltip «{`Editar ${ENTITY_LABELS.objective.toLowerCase()}`}» · aria «{`Editar ${ENTITY_LABELS.objective.toLowerCase()}: ${objective.name}`}» | `{() => openObjectiveModal(objective)}` | `!(objectives.length === 0) && each objectives && canEdit` |  |  | TemplateEditor · l.1855 |
+| «¿Eliminar?» | `{executeConfirm}` | `!(objectives.length === 0) && each objectives && canEdit && pendingConfirm?.key === 'delete-objective-${objective.id}'` |  |  | TemplateEditor · l.1865 |
+| «Cancelar» | `{cancelConfirm}` | `!(objectives.length === 0) && each objectives && canEdit && pendingConfirm?.key === 'delete-objective-${objective.id}'` |  |  | TemplateEditor · l.1871 |
+| «[icon Trash2]» · tooltip «{`Eliminar ${ENTITY_LABELS.objective.toLowerCase()}`}» · aria «{`Eliminar ${ENTITY_LABELS.objective.toLowerCase()}: ${objective.name}`}» | `{() => confirmDeleteObjective(objective)}` | `!(objectives.length === 0) && each objectives && canEdit && !(pendingConfirm?.key === 'delete-objective-${objective.id}')` |  |  | TemplateEditor · l.1879 |
+| «Agregar {ENTITY_LABELS.module}» | `{() => openModuleModal(objective.id)}` | `!(objectives.length === 0) && each objectives && objective.isExpanded && canEdit` |  | `testid=add-module-btn` | TemplateEditor · l.1900 |
+| «# {modIndex + 1} {module.name} [{module.description}]» | `{() => toggleModuleExpand(module.id)}` | `each objectives && objective.isExpanded && !(objectiveModules.length === 0) && each objectiveModules` |  |  | TemplateEditor · l.1924 |
+| «[icon Eye]» · tooltip «Vista previa del evaluador» · aria «{`Vista previa del evaluador: ${module.name}`}» | `{() => openModulePreview(module)}` | `each objectives && objective.isExpanded && !(objectiveModules.length === 0) && each objectiveModules` |  |  | TemplateEditor · l.1944 |
+| «[icon Edit2]» · tooltip «{`Editar ${ENTITY_LABELS.module.toLowerCase()}`}» · aria «{`Editar ${ENTITY_LABELS.module.toLowerCase()}: ${module.name}`}» | `{() => openModuleModal(objective.id, module)}` | `objective.isExpanded && !(objectiveModules.length === 0) && each objectiveModules && canEdit` |  |  | TemplateEditor · l.1954 |
+| «¿Eliminar?» | `{executeConfirm}` | `!(objectiveModules.length === 0) && each objectiveModules && canEdit && pendingConfirm?.key === 'delete-module-${module.id}'` |  |  | TemplateEditor · l.1964 |
+| «Cancelar» | `{cancelConfirm}` | `!(objectiveModules.length === 0) && each objectiveModules && canEdit && pendingConfirm?.key === 'delete-module-${module.id}'` |  |  | TemplateEditor · l.1970 |
+| «[icon Trash2]» · tooltip «{`Eliminar ${ENTITY_LABELS.module.toLowerCase()}`}» · aria «{`Eliminar ${ENTITY_LABELS.module.toLowerCase()}: ${module.name}`}» | `{() => confirmDeleteModule(module)}` | `!(objectiveModules.length === 0) && each objectiveModules && canEdit && !(pendingConfirm?.key === 'delete-module-${module.id}')` |  |  | TemplateEditor · l.1978 |
+| «Agregar» | `{() => openIndicatorModal(module.id)}` | `!(objectiveModules.length === 0) && each objectiveModules && module.isExpanded && canEdit` |  | `testid=add-indicator-btn` | TemplateEditor · l.2007 |
+| «[icon Edit2]» · tooltip «Editar indicador» · aria «{`Editar indicador: ${indicator.name}`}» | `{() => openIndicatorModal(module.id, indicator)}` | `!(!module.indicatorsLoaded) && (!((module.indicators \|\| []).length === 0)) && (each (module.indicators \|\| [])) && canEdit` |  |  | TemplateEditor · l.2067 |
+| «¿Eliminar?» | `{executeConfirm}` | `(each (module.indicators \|\| [])) && canEdit && !isLockedCobertura && pendingConfirm?.key === 'delete-indicator-${indicator.id}'` |  |  | TemplateEditor · l.2078 |
+| «Cancelar» | `{cancelConfirm}` | `(each (module.indicators \|\| [])) && canEdit && !isLockedCobertura && pendingConfirm?.key === 'delete-indicator-${indicator.id}'` |  |  | TemplateEditor · l.2084 |
+| «[icon Trash2]» · tooltip «Eliminar indicador» · aria «{`Eliminar indicador: ${indicator.name}`}» | `{() => confirmDeleteIndicator(module.id, indicator)}` | `(each (module.indicators \|\| [])) && canEdit && !isLockedCobertura && !(pendingConfirm?.key === 'delete-indicator-${indicator.id}')` |  |  | TemplateEditor · l.2092 |
+| «Acceso Demo {demoUsers.length} usuario s con acceso» | `{handleDemoSectionToggle}` | `template.status === 'published' && !isArchived && isAdmin` |  |  | TemplateEditor · l.2130 |
+| «Copiar enlace demo» | `{copyDemoLink}` | `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen` |  |  | TemplateEditor · l.2154 |
+| «{u.full_name} / {u.email} [{u.email}] [Seleccionado]» | `{() => { if (selectedDemoUsers.includes(u.id)) { setSelectedDemoUsers(prev => pr…}` | `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && demoSearchResults.length > 0 && each demoSearchResults` |  |  | TemplateEditor · l.2190 |
+| «[icon X]» | `{() => setSelectedDemoUsers(prev => prev.filter(id => id !== uid))}` | `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && selectedDemoUsers.length > 0 && each selectedDemoUsers` |  |  | TemplateEditor · l.2231 |
+| «Otorgando... / Otorgar Acceso» | `{handleGrantDemoAccess}` | `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && selectedDemoUsers.length > 0` | `{grantingAccess}` |  | TemplateEditor · l.2240 |
+| «Revocando... / Revocar» | `{() => handleRevokeDemoAccess(du.user_id)}` | `isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0) && each demoUsers` | `{revokingUserId === du.user_id}` |  | TemplateEditor · l.2291 |
+| «Cancelar» | `{() => setIsObjectiveModalOpen(false)}` | `isObjectiveModalOpen` |  |  | TemplateEditor · l.2358 |
+| «Guardando... / Actualizar / Crear» | `{handleSaveObjective}` | `isObjectiveModalOpen` | `{isSaving}` |  | TemplateEditor · l.2364 |
+| «Cancelar» | `{() => setIsModuleModalOpen(false)}` | `isModuleModalOpen` |  |  | TemplateEditor · l.2441 |
+| «Guardando... / Actualizar / Crear» | `{handleSaveModule}` | `isModuleModalOpen` | `{isSaving}` |  | TemplateEditor · l.2447 |
+| «[icon X]» · aria «Eliminar opción» | `{() => { const newOptions = indicatorForm.detalleOptions.filter((_, i) => i !== …}` | `isIndicatorModalOpen && indicatorForm.category === 'detalle' && each indicatorForm.detalleOptions && indicatorForm.detalleOptions.length > 2` |  |  | TemplateEditor · l.2751 |
+| «Agregar opción» | `{() => { setIndicatorForm({ ...indicatorForm, detalleOptions: [...indicatorForm.…}` | `isIndicatorModalOpen && indicatorForm.category === 'detalle' && indicatorForm.detalleOptions.length < 15` |  |  | TemplateEditor · l.2767 |
+| «Cancelar» | `{() => setIsIndicatorModalOpen(false)}` | `isIndicatorModalOpen` |  |  | TemplateEditor · l.2865 |
+| «Guardando... / Actualizar / Crear» | `{handleSaveIndicator}` | `isIndicatorModalOpen` | `{isSaving}` | `testid=indicator-save-btn` | TemplateEditor · l.2871 |
+| «×» | `{() => setIsVersionHistoryOpen(false)}` | `isVersionHistoryOpen` |  |  | TemplateEditor · l.2901 |
+| «Cerrar» | `{() => setIsVersionHistoryOpen(false)}` | `isVersionHistoryOpen` |  |  | TemplateEditor · l.2955 |
+| «[icon X]» · aria «Cerrar vista previa» | `{() => setIsPreviewOpen(false)}` | `isPreviewOpen && previewModule` |  |  | TemplateEditor · l.2985 |
+| «Cancelar» | `{() => { setShowDeleteConfirm(false); setDeleteConfirmData(null); }}` | `showDeleteConfirm && deleteConfirmData` |  |  | TemplateEditor · l.3182 |
+| «Eliminando... / Eliminar Permanentemente» | `{() => executeDelete(true)}` | `showDeleteConfirm && deleteConfirmData` | `{isDeleting}` |  | TemplateEditor · l.3191 |
 
 **Links** (12)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Ir al Panel» | `/dashboard` | `hasPermission === false` |  | TemplateEditor · l.1354 |
-| «Ir al Panel» |  | `hasPermission === false` |  | TemplateEditor · l.1355 |
-| «Volver a la lista» | `/admin/assessment-builder` | `!template` |  | TemplateEditor · l.1379 |
-| «Volver a la lista» |  | `!template` |  | TemplateEditor · l.1380 |
-| «Volver a la lista» | `/admin/assessment-builder` |  |  | TemplateEditor · l.1414 |
-| «Volver a la lista» |  |  |  | TemplateEditor · l.1415 |
-| «Calibración» | `/admin/assessment-builder/[*]/expectations` | `isDraft` |  | TemplateEditor · l.1567 |
-| «Calibración» |  | `isDraft` |  | TemplateEditor · l.1568 |
-| «Probar Demo» | `/demo/assessments/[*]` | `!(isDraft) && !(isArchived)` |  | TemplateEditor · l.1670 |
-| «Probar Demo» |  | `!(isDraft) && !(isArchived)` |  | TemplateEditor · l.1671 |
-| «Calibración» | `/admin/assessment-builder/[*]/expectations` | `!(isDraft) && !(isArchived)` |  | TemplateEditor · l.1704 |
-| «Calibración» |  | `!(isDraft) && !(isArchived)` |  | TemplateEditor · l.1705 |
+| «Ir al Panel» | `/dashboard` | `hasPermission === false` |  | TemplateEditor · l.1386 |
+| «Ir al Panel» |  | `hasPermission === false` |  | TemplateEditor · l.1387 |
+| «Volver a la lista» | `/admin/assessment-builder` | `!template` |  | TemplateEditor · l.1411 |
+| «Volver a la lista» |  | `!template` |  | TemplateEditor · l.1412 |
+| «Volver a la lista» | `/admin/assessment-builder` |  |  | TemplateEditor · l.1446 |
+| «Volver a la lista» |  |  |  | TemplateEditor · l.1447 |
+| «Calibración» | `/admin/assessment-builder/[*]/expectations` | `isDraft` |  | TemplateEditor · l.1599 |
+| «Calibración» |  | `isDraft` |  | TemplateEditor · l.1600 |
+| «Probar Demo» | `/demo/assessments/[*]` | `!(isDraft) && !(isArchived)` |  | TemplateEditor · l.1702 |
+| «Probar Demo» |  | `!(isDraft) && !(isArchived)` |  | TemplateEditor · l.1703 |
+| «Calibración» | `/admin/assessment-builder/[*]/expectations` | `!(isDraft) && !(isArchived)` |  | TemplateEditor · l.1736 |
+| «Calibración» |  | `!(isDraft) && !(isArchived)` |  | TemplateEditor · l.1737 |
 
 **Other things that react to a click** (5)
 
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
-| `div` |  | `{() => setIsObjectiveModalOpen(false)}` | `isObjectiveModalOpen` | TemplateEditor · l.2284 |
-| `div` |  | `{() => setIsModuleModalOpen(false)}` | `isModuleModalOpen` | TemplateEditor · l.2349 |
-| `div` |  | `{() => setIsIndicatorModalOpen(false)}` | `isIndicatorModalOpen` | TemplateEditor · l.2433 |
-| `div` |  | `{() => setIsVersionHistoryOpen(false)}` | `isVersionHistoryOpen` | TemplateEditor · l.2857 |
-| `div` |  | `{() => setIsPreviewOpen(false)}` | `isPreviewOpen && previewModule` | TemplateEditor · l.2939 |
+| `div` |  | `{() => setIsObjectiveModalOpen(false)}` | `isObjectiveModalOpen` | TemplateEditor · l.2316 |
+| `div` |  | `{() => setIsModuleModalOpen(false)}` | `isModuleModalOpen` | TemplateEditor · l.2381 |
+| `div` |  | `{() => setIsIndicatorModalOpen(false)}` | `isIndicatorModalOpen` | TemplateEditor · l.2465 |
+| `div` |  | `{() => setIsVersionHistoryOpen(false)}` | `isVersionHistoryOpen` | TemplateEditor · l.2889 |
+| `div` |  | `{() => setIsPreviewOpen(false)}` | `isPreviewOpen && previewModule` | TemplateEditor · l.2971 |
 
 **Fields** (33)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Nombre» | text |  |  | `isEditingTemplate` |  | TemplateEditor · l.1452 |
-| «Descripción» | textarea |  |  | `isEditingTemplate` |  | TemplateEditor · l.1461 |
-| «Agregar usuarios» | text | «Buscar por nombre o email...» |  | `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen` |  | TemplateEditor · l.2142 |
-| «Nombre *» | text | «{`Ej: ${ENTITY_LABELS.objective} 1`}» |  | `isObjectiveModalOpen` | `id=objective-name (id used by code)` | TemplateEditor · l.2301 |
-| «Descripción» | textarea | «Descripción del objetivo...» |  | `isObjectiveModalOpen` | `id=objective-description (id used by code)` | TemplateEditor · l.2313 |
-| «Nombre *» | text | «Ej: Conocimiento del Estudiante» |  | `isModuleModalOpen` | `id=module-name (id used by code)` | TemplateEditor · l.2366 |
-| «Descripción» | textarea | «Ej: Práctica centrada en conocer el contexto de cada estudiante» |  | `isModuleModalOpen` | `id=module-description (id used by code)` | TemplateEditor · l.2378 |
-| «Instrucciones» | textarea | «Ej: Para evaluar esta práctica, revise los registros de entrevistas individuales y compare con el plan de acompañamiento...» |  | `isModuleModalOpen` | `id=module-instructions (id used by code)` | TemplateEditor · l.2393 |
-| «Nombre *» | text | «Ej: Conocimiento de contextos» |  | `isIndicatorModalOpen` | `id=indicator-name (id used by code)` | TemplateEditor · l.2452 |
-| «Código» | text | «Ej: P1.1» |  | `isIndicatorModalOpen` | `id=indicator-code (id used by code)` | TemplateEditor · l.2463 |
-| «Descripción» | textarea | «Descripción del indicador...» |  | `isIndicatorModalOpen` | `id=indicator-description (id used by code)` | TemplateEditor · l.2476 |
-| «Orientaciones para interpretar el indicador» | textarea | «Instrucciones para el LLM al interpretar este indicador en el informe...» |  | `isIndicatorModalOpen` | `id=indicator-evaluation-guidance (id used by code)` | TemplateEditor · l.2493 |
-| «Categoría *» | select | disabled: `{isFirstIndicatorLocked}` | «Cobertura (Sí/No)», «Frecuencia (Número)», «Profundidad (Niveles 0-4)», «Traspaso (Evidencia + Sugerencias)», «Detalle (Selección múltiple)» | `isIndicatorModalOpen` | `id=indicator-category (id used by code)` | TemplateEditor · l.2511 |
-| «Por {FREQUENCY_UNIT_LABELS[unit]}» | checkbox |  |  | `isIndicatorModalOpen && indicatorForm.category === 'frecuencia' && each FREQUENCY_UNIT_OPTIONS` | `testid=frequency-allowed-unit-{unit}` | TemplateEditor · l.2548 |
-| «Período por defecto *» | select |  | «(lista) Por {FREQUENCY_UNIT_LABELS[unit]}» | `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'` | `testid=frequency-default-unit id=frequency-default-unit (id used by code)` | TemplateEditor · l.2586 |
-| «Valor mínimo» | number |  |  | `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'` | `testid=frequency-min id=frequency-min (id used by code)` | TemplateEditor · l.2613 |
-| «Valor máximo» | number |  |  | `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'` | `testid=frequency-max id=frequency-max (id used by code)` | TemplateEditor · l.2624 |
-| «Paso» | number | `min={0}` |  | `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'` | `testid=frequency-step id=frequency-step (id used by code)` | TemplateEditor · l.2635 |
-| «Enlace de Evidencia (URL)» | text | «https://...» · disabled: `true` |  | `isIndicatorModalOpen && indicatorForm.category === 'traspaso'` |  | TemplateEditor · l.2669 |
-| «Sugerencias de Mejora» | textarea | «Describe las sugerencias de mejora...» · disabled: `true` |  | `isIndicatorModalOpen && indicatorForm.category === 'traspaso'` |  | TemplateEditor · l.2680 |
-| «{`Opción ${idx + 1}`}» | text | «{`Opción ${idx + 1}`}» · `maxLength={200}` |  | `isIndicatorModalOpen && indicatorForm.category === 'detalle' && each indicatorForm.detalleOptions` |  | TemplateEditor · l.2706 |
-| «Nivel 0 - No implementado» | text | «Descriptor para nivel 0...» |  | `isIndicatorModalOpen && indicatorForm.category === 'profundidad'` |  | TemplateEditor · l.2771 |
-| «Nivel 1 - Inicial» | text | «Descriptor para nivel 1...» |  | `isIndicatorModalOpen && indicatorForm.category === 'profundidad'` |  | TemplateEditor · l.2783 |
-| «Nivel 2 - En desarrollo» | text | «Descriptor para nivel 2...» |  | `isIndicatorModalOpen && indicatorForm.category === 'profundidad'` |  | TemplateEditor · l.2795 |
-| «Nivel 3 - Consolidado» | text | «Descriptor para nivel 3...» |  | `isIndicatorModalOpen && indicatorForm.category === 'profundidad'` |  | TemplateEditor · l.2807 |
-| «Nivel 4 - Ejemplar» | text | «Descriptor para nivel 4...» |  | `isIndicatorModalOpen && indicatorForm.category === 'profundidad'` |  | TemplateEditor · l.2819 |
-| «Sí» | radio | `{'preview-${indicator.id}'}` |  | `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'cobertura'` |  | TemplateEditor · l.3024 |
-| «No» | radio | `{'preview-${indicator.id}'}` |  | `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'cobertura'` |  | TemplateEditor · l.3032 |
-| «Valor» | number | «Valor» · disabled: `true` |  | `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'frecuencia'` |  | TemplateEditor · l.3042 |
-| «{level} : {desc}» | radio | `{'preview-prof-${indicator.id}'}` · disabled: `true` |  | `each sorted && indicator.category === 'profundidad' && each ([0, 1, 2, 3, 4] as const) && desc` |  | TemplateEditor · l.3051 |
-| «Adjunte link a carpeta con evidencia de sus respuestas» | url | «https://...» · disabled: `true` |  | `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'traspaso'` |  | TemplateEditor · l.3064 |
-| «Mejoras sugeridas» | textarea | «¿Con la experiencia adquirida, qué mejoras sugieres...?» · disabled: `true` |  | `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'traspaso'` |  | TemplateEditor · l.3071 |
-| «{opt}» | checkbox | disabled: `true` |  | `(!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'detalle' && (each (indicator.detalleOptions \|\| []))` |  | TemplateEditor · l.3080 |
+| «Nombre» | text |  |  | `isEditingTemplate` |  | TemplateEditor · l.1484 |
+| «Descripción» | textarea |  |  | `isEditingTemplate` |  | TemplateEditor · l.1493 |
+| «Agregar usuarios» | text | «Buscar por nombre o email...» |  | `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen` |  | TemplateEditor · l.2174 |
+| «Nombre *» | text | «{`Ej: ${ENTITY_LABELS.objective} 1`}» |  | `isObjectiveModalOpen` | `id=objective-name (id used by code)` | TemplateEditor · l.2333 |
+| «Descripción» | textarea | «Descripción del objetivo...» |  | `isObjectiveModalOpen` | `id=objective-description (id used by code)` | TemplateEditor · l.2345 |
+| «Nombre *» | text | «Ej: Conocimiento del Estudiante» |  | `isModuleModalOpen` | `id=module-name (id used by code)` | TemplateEditor · l.2398 |
+| «Descripción» | textarea | «Ej: Práctica centrada en conocer el contexto de cada estudiante» |  | `isModuleModalOpen` | `id=module-description (id used by code)` | TemplateEditor · l.2410 |
+| «Instrucciones» | textarea | «Ej: Para evaluar esta práctica, revise los registros de entrevistas individuales y compare con el plan de acompañamiento...» |  | `isModuleModalOpen` | `id=module-instructions (id used by code)` | TemplateEditor · l.2425 |
+| «Nombre *» | text | «Ej: Conocimiento de contextos» |  | `isIndicatorModalOpen` | `id=indicator-name (id used by code)` | TemplateEditor · l.2484 |
+| «Código» | text | «Ej: P1.1» |  | `isIndicatorModalOpen` | `id=indicator-code (id used by code)` | TemplateEditor · l.2495 |
+| «Descripción» | textarea | «Descripción del indicador...» |  | `isIndicatorModalOpen` | `id=indicator-description (id used by code)` | TemplateEditor · l.2508 |
+| «Orientaciones para interpretar el indicador» | textarea | «Instrucciones para el LLM al interpretar este indicador en el informe...» |  | `isIndicatorModalOpen` | `id=indicator-evaluation-guidance (id used by code)` | TemplateEditor · l.2525 |
+| «Categoría *» | select | disabled: `{isFirstIndicatorLocked}` | «Cobertura (Sí/No)», «Frecuencia (Número)», «Profundidad (Niveles 0-4)», «Traspaso (Evidencia + Sugerencias)», «Detalle (Selección múltiple)» | `isIndicatorModalOpen` | `id=indicator-category (id used by code)` | TemplateEditor · l.2543 |
+| «Por {FREQUENCY_UNIT_LABELS[unit]}» | checkbox |  |  | `isIndicatorModalOpen && indicatorForm.category === 'frecuencia' && each FREQUENCY_UNIT_OPTIONS` | `testid=frequency-allowed-unit-{unit}` | TemplateEditor · l.2580 |
+| «Período por defecto *» | select |  | «(lista) Por {FREQUENCY_UNIT_LABELS[unit]}» | `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'` | `testid=frequency-default-unit id=frequency-default-unit (id used by code)` | TemplateEditor · l.2618 |
+| «Valor mínimo» | number |  |  | `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'` | `testid=frequency-min id=frequency-min (id used by code)` | TemplateEditor · l.2645 |
+| «Valor máximo» | number |  |  | `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'` | `testid=frequency-max id=frequency-max (id used by code)` | TemplateEditor · l.2656 |
+| «Paso» | number | `min={0}` |  | `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'` | `testid=frequency-step id=frequency-step (id used by code)` | TemplateEditor · l.2667 |
+| «Enlace de Evidencia (URL)» | text | «https://...» · disabled: `true` |  | `isIndicatorModalOpen && indicatorForm.category === 'traspaso'` |  | TemplateEditor · l.2701 |
+| «Sugerencias de Mejora» | textarea | «Describe las sugerencias de mejora...» · disabled: `true` |  | `isIndicatorModalOpen && indicatorForm.category === 'traspaso'` |  | TemplateEditor · l.2712 |
+| «{`Opción ${idx + 1}`}» | text | «{`Opción ${idx + 1}`}» · `maxLength={200}` |  | `isIndicatorModalOpen && indicatorForm.category === 'detalle' && each indicatorForm.detalleOptions` |  | TemplateEditor · l.2738 |
+| «Nivel 0 - No implementado» | text | «Descriptor para nivel 0...» |  | `isIndicatorModalOpen && indicatorForm.category === 'profundidad'` |  | TemplateEditor · l.2803 |
+| «Nivel 1 - Inicial» | text | «Descriptor para nivel 1...» |  | `isIndicatorModalOpen && indicatorForm.category === 'profundidad'` |  | TemplateEditor · l.2815 |
+| «Nivel 2 - En desarrollo» | text | «Descriptor para nivel 2...» |  | `isIndicatorModalOpen && indicatorForm.category === 'profundidad'` |  | TemplateEditor · l.2827 |
+| «Nivel 3 - Consolidado» | text | «Descriptor para nivel 3...» |  | `isIndicatorModalOpen && indicatorForm.category === 'profundidad'` |  | TemplateEditor · l.2839 |
+| «Nivel 4 - Ejemplar» | text | «Descriptor para nivel 4...» |  | `isIndicatorModalOpen && indicatorForm.category === 'profundidad'` |  | TemplateEditor · l.2851 |
+| «Sí» | radio | `{'preview-${indicator.id}'}` |  | `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'cobertura'` |  | TemplateEditor · l.3056 |
+| «No» | radio | `{'preview-${indicator.id}'}` |  | `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'cobertura'` |  | TemplateEditor · l.3064 |
+| «Valor» | number | «Valor» · disabled: `true` |  | `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'frecuencia'` |  | TemplateEditor · l.3074 |
+| «{level} : {desc}» | radio | `{'preview-prof-${indicator.id}'}` · disabled: `true` |  | `each sorted && indicator.category === 'profundidad' && each ([0, 1, 2, 3, 4] as const) && desc` |  | TemplateEditor · l.3083 |
+| «Adjunte link a carpeta con evidencia de sus respuestas» | url | «https://...» · disabled: `true` |  | `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'traspaso'` |  | TemplateEditor · l.3096 |
+| «Mejoras sugeridas» | textarea | «¿Con la experiencia adquirida, qué mejoras sugieres...?» · disabled: `true` |  | `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'traspaso'` |  | TemplateEditor · l.3103 |
+| «{opt}» | checkbox | disabled: `true` |  | `(!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'detalle' && (each (indicator.detalleOptions \|\| []))` |  | TemplateEditor · l.3112 |
 
 **Table columns** (4)
 
 | Text | Shown when | Where |
 |---|---|---|
-| «Nombre» | `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0)` | TemplateEditor · l.2232 |
-| «Email» | `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0)` | TemplateEditor · l.2235 |
-| «Acceso otorgado» | `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0)` | TemplateEditor · l.2238 |
-| «Acción» | `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0)` | TemplateEditor · l.2241 |
+| «Nombre» | `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0)` | TemplateEditor · l.2264 |
+| «Email» | `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0)` | TemplateEditor · l.2267 |
+| «Acceso otorgado» | `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0)` | TemplateEditor · l.2270 |
+| «Acción» | `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0)` | TemplateEditor · l.2273 |
 
 **Pop-ups** (11)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Editar {ENTITY_LABELS.objective} / Nuevo {ENTITY_LABELS.objective}» | written in this file | `isObjectiveModalOpen` |  | TemplateEditor · l.2282 |
-| «Editar {ENTITY_LABELS.objective} / Nuevo {ENTITY_LABELS.objective}» | written in this file | `isObjectiveModalOpen` |  | TemplateEditor · l.2286 |
-| «Editar {ENTITY_LABELS.module} / Nueva {ENTITY_LABELS.module}» | written in this file | `isModuleModalOpen` |  | TemplateEditor · l.2347 |
-| «Editar {ENTITY_LABELS.module} / Nueva {ENTITY_LABELS.module}» | written in this file | `isModuleModalOpen` |  | TemplateEditor · l.2351 |
-| «Editar {ENTITY_LABELS.indicator} / Nuevo {ENTITY_LABELS.indicator}» | written in this file | `isIndicatorModalOpen` |  | TemplateEditor · l.2431 |
-| «Editar {ENTITY_LABELS.indicator} / Nuevo {ENTITY_LABELS.indicator}» | written in this file | `isIndicatorModalOpen` |  | TemplateEditor · l.2435 |
-| «Historial de Versiones» | written in this file | `isVersionHistoryOpen` |  | TemplateEditor · l.2855 |
-| «Historial de Versiones» | written in this file | `isVersionHistoryOpen` |  | TemplateEditor · l.2859 |
-| «Vista Previa del Evaluador» | written in this file | `isPreviewOpen && previewModule` |  | TemplateEditor · l.2937 |
-| «Vista Previa del Evaluador» | written in this file | `isPreviewOpen && previewModule` |  | TemplateEditor · l.2941 |
-| «Confirmar Eliminación» | written in this file | `showDeleteConfirm && deleteConfirmData` |  | TemplateEditor · l.3125 |
+| «Editar {ENTITY_LABELS.objective} / Nuevo {ENTITY_LABELS.objective}» | written in this file | `isObjectiveModalOpen` |  | TemplateEditor · l.2314 |
+| «Editar {ENTITY_LABELS.objective} / Nuevo {ENTITY_LABELS.objective}» | written in this file | `isObjectiveModalOpen` |  | TemplateEditor · l.2318 |
+| «Editar {ENTITY_LABELS.module} / Nueva {ENTITY_LABELS.module}» | written in this file | `isModuleModalOpen` |  | TemplateEditor · l.2379 |
+| «Editar {ENTITY_LABELS.module} / Nueva {ENTITY_LABELS.module}» | written in this file | `isModuleModalOpen` |  | TemplateEditor · l.2383 |
+| «Editar {ENTITY_LABELS.indicator} / Nuevo {ENTITY_LABELS.indicator}» | written in this file | `isIndicatorModalOpen` |  | TemplateEditor · l.2463 |
+| «Editar {ENTITY_LABELS.indicator} / Nuevo {ENTITY_LABELS.indicator}» | written in this file | `isIndicatorModalOpen` |  | TemplateEditor · l.2467 |
+| «Historial de Versiones» | written in this file | `isVersionHistoryOpen` |  | TemplateEditor · l.2887 |
+| «Historial de Versiones» | written in this file | `isVersionHistoryOpen` |  | TemplateEditor · l.2891 |
+| «Vista Previa del Evaluador» | written in this file | `isPreviewOpen && previewModule` |  | TemplateEditor · l.2969 |
+| «Vista Previa del Evaluador» | written in this file | `isPreviewOpen && previewModule` |  | TemplateEditor · l.2973 |
+| «Confirmar Eliminación» | written in this file | `showDeleteConfirm && deleteConfirmData` |  | TemplateEditor · l.3157 |
 
 **Toasts** (49)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error al cargar el template» |  | TemplateEditor · l.344 |
-| success | «Template actualizado» |  | handleUpdateTemplate · l.380 |
-| error | «Error al actualizar el template» |  | handleUpdateTemplate · l.383 |
-| error | «El nombre del objetivo es requerido» | `!objectiveForm.name.trim()` | handleSaveObjective · l.407 |
-| success | «{ENTITY_LABELS.objective} actualizado» | `editingObjective` | handleSaveObjective · l.435 |
-| success | «{ENTITY_LABELS.objective} creado» | `!(editingObjective)` | handleSaveObjective · l.454 |
-| error | «{msg}» |  | handleSaveObjective · l.460 |
-| success | «{ENTITY_LABELS.objective} eliminado» |  | handleDeleteObjective · l.483 |
-| error | «{msg}» |  | handleDeleteObjective · l.486 |
-| error | «El nombre de la {ENTITY_LABELS.module} es requerido» | `!moduleForm.name.trim()` | handleSaveModule · l.510 |
-| success | «{ENTITY_LABELS.module} actualizada» | `editingModule` | handleSaveModule · l.540 |
-| success | «{ENTITY_LABELS.module} creada» | `!(editingModule)` | handleSaveModule · l.562 |
-| error | «Error al guardar la {ENTITY_LABELS.module.toLowe…}» |  | handleSaveModule · l.568 |
-| success | «{ENTITY_LABELS.module} eliminada» |  | handleDeleteModule · l.589 |
-| error | «{msg}» |  | handleDeleteModule · l.592 |
-| error | «El nombre del indicador es requerido» | `!indicatorForm.name.trim()` | handleSaveIndicator · l.717 |
-| error | «{result.error!}» | `indicatorForm.category === 'profundidad' && !result.valid` | handleSaveIndicator · l.731 |
-| error | «Los indicadores de frecuencia requieren al menos un período permitido» | `indicatorForm.category === 'frecuencia' && indicatorForm.frequencyUnitOptions.length === 0` | handleSaveIndicator · l.740 |
-| error | «Configuración de frecuencia incompleta: {check.errors[0]}» | `indicatorForm.category === 'frecuencia' && !check.valid` | handleSaveIndicator · l.745 |
-| error | «Los indicadores de detalle requieren al menos 2 opciones» | `indicatorForm.category === 'detalle' && filledOptions.length < 2` | handleSaveIndicator · l.754 |
-| error | «Las opciones de detalle no pueden repetirse» | `indicatorForm.category === 'detalle' && unique.size !== filledOptions.length` | handleSaveIndicator · l.759 |
-| success | «Indicador actualizado» | `editingIndicator` | handleSaveIndicator · l.826 |
-| plain | «Atención: {data.expectationWarnings.le…} expectativa(s) ya no calzan con las nuevas reglas / y deben corregirse en Expectativas antes de publicar. {data.expectationWarnings.jo…}» | `editingIndicator && Array.isArray(data.expectationWarnings) && data.expectationWarnings.length > 0` | handleSaveIndicator · l.830 |
-| success | «Indicador creado» | `!(editingIndicator)` | handleSaveIndicator · l.860 |
-| error | «{msg}» |  | handleSaveIndicator · l.866 |
-| success | «Indicador eliminado» |  | handleDeleteIndicator · l.893 |
-| plain | «Los códigos de indicadores pueden no coincidir con el orden actual» |  | handleDeleteIndicator · l.894 |
-| error | «{msg}» |  | handleDeleteIndicator · l.897 |
-| error | «El template debe tener al menos una {ENTITY_LABELS.module.toLowe…} para ser publicado» | `modules.length === 0` | handlePublish · l.914 |
-| error | «El template debe tener al menos un indicador para ser publicado» | `totalIndicators === 0` | handlePublish · l.919 |
-| success | «Template publicado correctamente» |  | executePublish · l.949 |
-| error | «Error al publicar template» |  | executePublish · l.952 |
-| success | «Nueva versión borrador creada. Ahora puedes editar.» |  | handleDuplicate · l.972 |
-| error | «Error al duplicar template» |  | handleDuplicate · l.977 |
-| success | «Template archivado correctamente» |  | handleArchive · l.1016 |
-| error | «Error al archivar template» |  | handleArchive · l.1020 |
-| success | «Template restaurado correctamente» |  | handleRestore · l.1041 |
-| error | «Error al restaurar template» |  | handleRestore · l.1046 |
-| error | «Los templates publicados deben ser archivados antes de eliminarse» | `!template.is_archived` | handleDelete · l.1064 |
-| success | «Template eliminado correctamente» |  | handleDelete · l.1089 |
-| error | «Error al eliminar template» |  | handleDelete · l.1093 |
-| success | «Template eliminado correctamente» |  | executeDelete · l.1118 |
-| error | «Error al eliminar template» |  | executeDelete · l.1122 |
-| success | «Acceso demo otorgado» |  | handleGrantDemoAccess · l.1253 |
-| error | «Error al otorgar acceso demo» |  | handleGrantDemoAccess · l.1259 |
-| success | «Acceso demo revocado» |  | handleRevokeDemoAccess · l.1281 |
-| error | «Error al revocar acceso demo» |  | handleRevokeDemoAccess · l.1284 |
-| success | «Enlace copiado al portapapeles» |  | copyDemoLink · l.1295 |
-| error | «No se pudo copiar el enlace» |  | copyDemoLink · l.1297 |
+| error | «Error al cargar el template» |  | TemplateEditor · l.381 |
+| success | «Template actualizado» |  | handleUpdateTemplate · l.417 |
+| error | «Error al actualizar el template» |  | handleUpdateTemplate · l.420 |
+| error | «El nombre del objetivo es requerido» | `!objectiveForm.name.trim()` | handleSaveObjective · l.444 |
+| success | «{ENTITY_LABELS.objective} actualizado» | `editingObjective` | handleSaveObjective · l.472 |
+| success | «{ENTITY_LABELS.objective} creado» | `!(editingObjective)` | handleSaveObjective · l.491 |
+| error | «{msg}» |  | handleSaveObjective · l.497 |
+| success | «{ENTITY_LABELS.objective} eliminado» |  | handleDeleteObjective · l.520 |
+| error | «{msg}» |  | handleDeleteObjective · l.523 |
+| error | «El nombre de la {ENTITY_LABELS.module} es requerido» | `!moduleForm.name.trim()` | handleSaveModule · l.547 |
+| success | «{ENTITY_LABELS.module} actualizada» | `editingModule` | handleSaveModule · l.577 |
+| success | «{ENTITY_LABELS.module} creada» | `!(editingModule)` | handleSaveModule · l.599 |
+| error | «Error al guardar la {ENTITY_LABELS.module.toLowe…}» |  | handleSaveModule · l.605 |
+| success | «{ENTITY_LABELS.module} eliminada» |  | handleDeleteModule · l.626 |
+| error | «{msg}» |  | handleDeleteModule · l.629 |
+| error | «El nombre del indicador es requerido» | `!indicatorForm.name.trim()` | handleSaveIndicator · l.754 |
+| error | «{result.error!}» | `indicatorForm.category === 'profundidad' && !result.valid` | handleSaveIndicator · l.768 |
+| error | «Los indicadores de frecuencia requieren al menos un período permitido» | `indicatorForm.category === 'frecuencia' && indicatorForm.frequencyUnitOptions.length === 0` | handleSaveIndicator · l.777 |
+| error | «Configuración de frecuencia incompleta: {check.errors[0]}» | `indicatorForm.category === 'frecuencia' && !check.valid` | handleSaveIndicator · l.782 |
+| error | «Los indicadores de detalle requieren al menos 2 opciones» | `indicatorForm.category === 'detalle' && filledOptions.length < 2` | handleSaveIndicator · l.791 |
+| error | «Las opciones de detalle no pueden repetirse» | `indicatorForm.category === 'detalle' && unique.size !== filledOptions.length` | handleSaveIndicator · l.796 |
+| success | «Indicador actualizado» | `editingIndicator` | handleSaveIndicator · l.863 |
+| plain | «Atención: {data.expectationWarnings.le…} expectativa(s) ya no calzan con las nuevas reglas / y deben corregirse en Expectativas antes de publicar. {data.expectationWarnings.jo…}» | `editingIndicator && Array.isArray(data.expectationWarnings) && data.expectationWarnings.length > 0` | handleSaveIndicator · l.867 |
+| success | «Indicador creado» | `!(editingIndicator)` | handleSaveIndicator · l.897 |
+| error | «{msg}» |  | handleSaveIndicator · l.903 |
+| success | «Indicador eliminado» |  | handleDeleteIndicator · l.930 |
+| plain | «Los códigos de indicadores pueden no coincidir con el orden actual» |  | handleDeleteIndicator · l.931 |
+| error | «{msg}» |  | handleDeleteIndicator · l.934 |
+| error | «El template debe tener al menos una {ENTITY_LABELS.module.toLowe…} para ser publicado» | `modules.length === 0` | handlePublish · l.943 |
+| error | «{indicatorBlocker}» | `indicatorBlocker` | handlePublish · l.949 |
+| success | «Template publicado correctamente» |  | executePublish · l.979 |
+| error | «Error al publicar template» |  | executePublish · l.982 |
+| success | «Nueva versión borrador creada. Ahora puedes editar.» |  | handleDuplicate · l.1004 |
+| error | «Error al duplicar template» |  | handleDuplicate · l.1009 |
+| success | «Template archivado correctamente» |  | handleArchive · l.1048 |
+| error | «Error al archivar template» |  | handleArchive · l.1052 |
+| success | «Template restaurado correctamente» |  | handleRestore · l.1073 |
+| error | «Error al restaurar template» |  | handleRestore · l.1078 |
+| error | «Los templates publicados deben ser archivados antes de eliminarse» | `!template.is_archived` | handleDelete · l.1096 |
+| success | «Template eliminado correctamente» |  | handleDelete · l.1121 |
+| error | «Error al eliminar template» |  | handleDelete · l.1125 |
+| success | «Template eliminado correctamente» |  | executeDelete · l.1150 |
+| error | «Error al eliminar template» |  | executeDelete · l.1154 |
+| success | «Acceso demo otorgado» |  | handleGrantDemoAccess · l.1285 |
+| error | «Error al otorgar acceso demo» |  | handleGrantDemoAccess · l.1291 |
+| success | «Acceso demo revocado» |  | handleRevokeDemoAccess · l.1313 |
+| error | «Error al revocar acceso demo» |  | handleRevokeDemoAccess · l.1316 |
+| success | «Enlace copiado al portapapeles» |  | copyDemoLink · l.1327 |
+| error | «No se pudo copiar el enlace» |  | copyDemoLink · l.1329 |
 
 **Messages set on the page** (18)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Error al cargar el template» | `throw (shown by whoever catches it)` | `!templateRes.ok` | TemplateEditor · l.316 |
-| «Error al actualizar el template» | `throw (shown by whoever catches it)` | `!response.ok` | handleUpdateTemplate · l.374 |
-| «Error al actualizar el objetivo» | `throw (shown by whoever catches it)` | `editingObjective && !response.ok` | handleSaveObjective · l.428 |
-| «Error al crear el objetivo» | `throw (shown by whoever catches it)` | `!(editingObjective) && !response.ok` | handleSaveObjective · l.449 |
-| «Error al eliminar el objetivo» | `throw (shown by whoever catches it)` | `!response.ok` | handleDeleteObjective · l.477 |
-| «Error al actualizar la {ENTITY_LABELS.module}» | `throw (shown by whoever catches it)` | `editingModule && !response.ok` | handleSaveModule · l.533 |
-| «Error al crear la {ENTITY_LABELS.module}» | `throw (shown by whoever catches it)` | `!(editingModule) && !response.ok` | handleSaveModule · l.557 |
-| «Error al eliminar la {ENTITY_LABELS.module}» | `throw (shown by whoever catches it)` | `!response.ok` | handleDeleteModule · l.585 |
-| «Error al crear el indicador» | `throw (shown by whoever catches it)` | `!(editingIndicator) && !response.ok` | handleSaveIndicator · l.849 |
-| «Error al eliminar el indicador» | `throw (shown by whoever catches it)` | `!response.ok` | handleDeleteIndicator · l.883 |
-| «Error al publicar» | `throw (shown by whoever catches it)` | `!response.ok` | executePublish · l.943 |
-| «Error al duplicar» | `throw (shown by whoever catches it)` | `!response.ok` | handleDuplicate · l.968 |
-| «Error al archivar template» | `throw (shown by whoever catches it)` | `!response.ok` | handleArchive · l.1013 |
-| «Error al restaurar template» | `throw (shown by whoever catches it)` | `!response.ok` | handleRestore · l.1038 |
-| «Error al eliminar template» | `throw (shown by whoever catches it)` | `!response.ok` | handleDelete · l.1086 |
-| «Error al eliminar template» | `throw (shown by whoever catches it)` | `!response.ok` | executeDelete · l.1115 |
-| «Error al otorgar acceso demo» | `throw (shown by whoever catches it)` | `!response.ok` | handleGrantDemoAccess · l.1251 |
-| «Error al revocar acceso demo» | `throw (shown by whoever catches it)` | `!response.ok` | handleRevokeDemoAccess · l.1279 |
+| «Error al cargar el template» | `throw (shown by whoever catches it)` | `!templateRes.ok` | TemplateEditor · l.353 |
+| «Error al actualizar el template» | `throw (shown by whoever catches it)` | `!response.ok` | handleUpdateTemplate · l.411 |
+| «Error al actualizar el objetivo» | `throw (shown by whoever catches it)` | `editingObjective && !response.ok` | handleSaveObjective · l.465 |
+| «Error al crear el objetivo» | `throw (shown by whoever catches it)` | `!(editingObjective) && !response.ok` | handleSaveObjective · l.486 |
+| «Error al eliminar el objetivo» | `throw (shown by whoever catches it)` | `!response.ok` | handleDeleteObjective · l.514 |
+| «Error al actualizar la {ENTITY_LABELS.module}» | `throw (shown by whoever catches it)` | `editingModule && !response.ok` | handleSaveModule · l.570 |
+| «Error al crear la {ENTITY_LABELS.module}» | `throw (shown by whoever catches it)` | `!(editingModule) && !response.ok` | handleSaveModule · l.594 |
+| «Error al eliminar la {ENTITY_LABELS.module}» | `throw (shown by whoever catches it)` | `!response.ok` | handleDeleteModule · l.622 |
+| «Error al crear el indicador» | `throw (shown by whoever catches it)` | `!(editingIndicator) && !response.ok` | handleSaveIndicator · l.886 |
+| «Error al eliminar el indicador» | `throw (shown by whoever catches it)` | `!response.ok` | handleDeleteIndicator · l.920 |
+| «Error al publicar» | `throw (shown by whoever catches it)` | `!response.ok` | executePublish · l.973 |
+| «Error al duplicar» | `throw (shown by whoever catches it)` | `!response.ok` | handleDuplicate · l.1000 |
+| «Error al archivar template» | `throw (shown by whoever catches it)` | `!response.ok` | handleArchive · l.1045 |
+| «Error al restaurar template» | `throw (shown by whoever catches it)` | `!response.ok` | handleRestore · l.1070 |
+| «Error al eliminar template» | `throw (shown by whoever catches it)` | `!response.ok` | handleDelete · l.1118 |
+| «Error al eliminar template» | `throw (shown by whoever catches it)` | `!response.ok` | executeDelete · l.1147 |
+| «Error al otorgar acceso demo» | `throw (shown by whoever catches it)` | `!response.ok` | handleGrantDemoAccess · l.1283 |
+| «Error al revocar acceso demo» | `throw (shown by whoever catches it)` | `!response.ok` | handleRevokeDemoAccess · l.1311 |
 
 **Moves to another page from code** (5)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/admin/assessment-builder/[*]` | `router.push` |  | handleDuplicate · l.974 |
-| `/admin/assessment-builder` | `router.push` |  | handleArchive · l.1017 |
-| `/admin/assessment-builder` | `router.push` |  | handleDelete · l.1090 |
-| `/admin/assessment-builder` | `router.push` |  | executeDelete · l.1119 |
-| `/login` | `router.push` |  | handleLogout · l.1305 |
+| `/admin/assessment-builder/[*]` | `router.push` |  | handleDuplicate · l.1006 |
+| `/admin/assessment-builder` | `router.push` |  | handleArchive · l.1049 |
+| `/admin/assessment-builder` | `router.push` |  | handleDelete · l.1122 |
+| `/admin/assessment-builder` | `router.push` |  | executeDelete · l.1151 |
+| `/login` | `router.push` |  | handleLogout · l.1337 |
 
 **Access checks in the code** (1)
 
 | Line of code | Where |
 |---|---|
-| `canEdit = !isArchived && isAdmin` | TemplateEditor · l.1394 |
+| `canEdit = !isArchived && isAdmin` | TemplateEditor · l.1426 |
 
 **Draws nothing when** (4)
 
 | Condition | Where |
 |---|---|
-| `!templateId \|\| typeof templateId !== 'string' \|\| !userId \|\| hasPermission === false` | TemplateEditor · l.308 |
-| `!template` | TemplateEditor · l.1184 |
-| `previewCoberturaAnswer === null` | TemplateEditor · l.2994 |
-| `previewCoberturaAnswer === false` | TemplateEditor · l.2995 |
+| `!templateId \|\| typeof templateId !== 'string' \|\| !userId \|\| hasPermission === false` | TemplateEditor · l.345 |
+| `!template` | TemplateEditor · l.1216 |
+| `previewCoberturaAnswer === null` | TemplateEditor · l.3026 |
+| `previewCoberturaAnswer === false` | TemplateEditor · l.3027 |
 
 **Pieces placed here, with the texts and settings handed to them** (4)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` |  | `hasPermission === false` |  | TemplateEditor · l.1341 |
-| `MainLayout` |  | `!template` |  | TemplateEditor · l.1367 |
-| `MainLayout` |  |  |  | TemplateEditor · l.1397 |
-| `ResponsiveFunctionalPageHeader` | title: Constructor de Registros |  |  | TemplateEditor · l.1406 |
+| `MainLayout` |  | `hasPermission === false` |  | TemplateEditor · l.1373 |
+| `MainLayout` |  | `!template` |  | TemplateEditor · l.1399 |
+| `MainLayout` |  |  |  | TemplateEditor · l.1429 |
+| `ResponsiveFunctionalPageHeader` | title: Constructor de Registros |  |  | TemplateEditor · l.1438 |
 
-**Texts kept in lists and helpers in the code (labels, options, status names)** (7)
+**Texts kept in lists and helpers in the code (labels, options, status names)** (8)
 
 | Name | Texts | Where |
 |---|---|---|
 | `STATUS_LABELS` | «Borrador», «Publicado», «Archivado» | l.58 |
-| `msg` | «Error al guardar el objetivo» | handleSaveObjective · l.459 |
-| `msg` | «Error al eliminar el objetivo» | handleDeleteObjective · l.485 |
-| `msg` | «Error al eliminar la {ENTITY_LABELS.module}» | handleDeleteModule · l.591 |
-| `msg` | «Error al guardar el indicador» | handleSaveIndicator · l.865 |
-| `msg` | «Error al eliminar el indicador» | handleDeleteIndicator · l.896 |
-| `TemplateEditor()` | «Para publicar: {check.errors[0]}» | TemplateEditor · l.2648 |
+| `msg` | «Error al guardar el objetivo» | handleSaveObjective · l.496 |
+| `msg` | «Error al eliminar el objetivo» | handleDeleteObjective · l.522 |
+| `msg` | «Error al eliminar la {ENTITY_LABELS.module}» | handleDeleteModule · l.628 |
+| `msg` | «Error al guardar el indicador» | handleSaveIndicator · l.902 |
+| `msg` | «Error al eliminar el indicador» | handleDeleteIndicator · l.933 |
+| `publishIndicatorBlocker()` | «El template debe tener al menos un indicador para ser publicado» | publishIndicatorBlocker · l.95 |
+| `TemplateEditor()` | «Para publicar: {check.errors[0]}» | TemplateEditor · l.2680 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (3)
 
 | Text | Where |
 |---|---|
-| «Error al actualizar el indicador» | TemplateEditor · l.810 |
-| «Agrega {ENTITY_LABELS.modules.toLow…} e indicadores antes de publicar» | TemplateEditor · l.1598 |
-| «Publicar template» | TemplateEditor · l.1598 |
+| «Error al actualizar el indicador» | TemplateEditor · l.847 |
+| «Agrega {ENTITY_LABELS.modules.toLow…} e indicadores antes de publicar» | TemplateEditor · l.1630 |
+| «Publicar template» | TemplateEditor · l.1630 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (8)
 
 | Kind | What | Where |
 |---|---|---|
-| listener | `document.addEventListener('keydown')` | TemplateEditor · l.267 |
-| storage | `localStorage: rememberMe` | handleLogout · l.1303 |
-| storage | `sessionStorage: sessionOnly` | handleLogout · l.1304 |
-| mark | `testid=objective-card` | TemplateEditor · l.1787 |
-| mark | `testid=module-card` | TemplateEditor · l.1886 |
-| mark | `testid=indicator-row` | TemplateEditor · l.1997 |
-| mark | `testid=frequency-config-hint` | TemplateEditor · l.2649 |
+| listener | `document.addEventListener('keydown')` | TemplateEditor · l.304 |
+| storage | `localStorage: rememberMe` | handleLogout · l.1335 |
+| storage | `sessionStorage: sessionOnly` | handleLogout · l.1336 |
+| mark | `testid=objective-card` | TemplateEditor · l.1819 |
+| mark | `testid=module-card` | TemplateEditor · l.1918 |
+| mark | `testid=indicator-row` | TemplateEditor · l.2029 |
+| mark | `testid=frequency-config-hint` | TemplateEditor · l.2681 |
 | address value | `[templateId] (part of the address)` | l.1 |
 
 **Values shown from data** (18)
 
-- `{statusStyle.label}` — TemplateEditor · l.1491, when `!(isEditingTemplate)`
-- `{template.description}` — TemplateEditor · l.1496, when `!(isEditingTemplate) && template.description`
-- `{module.instructions}` — TemplateEditor · l.1965, when `!(objectiveModules.length === 0) && each objectiveModules && module.isExpanded && module.instructions`
-- `# {indIndex + 1}` — TemplateEditor · l.2004, when `module.isExpanded && !(!module.indicatorsLoaded) && (!((module.indicators \|\| []).length === 0)) && (each (module.indicators \|\| []))`
-- `{indicator.code}` — TemplateEditor · l.2009, when `!(!module.indicatorsLoaded) && (!((module.indicators \|\| []).length === 0)) && (each (module.indicators \|\| [])) && indicator.code`
-- `{indicator.name}` — TemplateEditor · l.2013, when `module.isExpanded && !(!module.indicatorsLoaded) && (!((module.indicators \|\| []).length === 0)) && (each (module.indicators \|\| []))`
-- `{CATEGORY_LABELS[indicator.category]}` — TemplateEditor · l.2016, when `module.isExpanded && !(!module.indicatorsLoaded) && (!((module.indicators \|\| []).length === 0)) && (each (module.indicators \|\| []))`
-- `{du.full_name} / —` — TemplateEditor · l.2249, when `isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0) && each demoUsers`
-- `{du.email}` — TemplateEditor · l.2252, when `isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0) && each demoUsers`
-- `{new Date(du.granted_at).toLocaleDat…}` — TemplateEditor · l.2255, when `isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0) && each demoUsers`
-- `{new Date(version.createdAt).toLocal…}` — TemplateEditor · l.2902, when `isVersionHistoryOpen && !(loadingVersions) && !(versions.length === 0) && each versions`
-- `{version.stats.modules} {ENTITY_LABELS.modules.toLowerCase()}` — TemplateEditor · l.2914, when `isVersionHistoryOpen && !(loadingVersions) && !(versions.length === 0) && each versions`
-- `{previewModule.description}` — TemplateEditor · l.2968, when `isPreviewOpen && previewModule && previewModule.description`
-- `{previewModule.instructions}` — TemplateEditor · l.2973, when `isPreviewOpen && previewModule && previewModule.instructions`
-- `{CATEGORY_LABELS[indicator.category]}` — TemplateEditor · l.3001, when `isPreviewOpen && previewModule && !(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted`
-- `{indicator.code}` — TemplateEditor · l.3011, when `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.code`
-- `{indicator.description}` — TemplateEditor · l.3016, when `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.description`
-- `• {deleteConfirmData.counts.modules} {ENTITY_LABELS.modules.toLowerCase()}` — TemplateEditor · l.3142, when `showDeleteConfirm && deleteConfirmData && deleteConfirmData.counts`
+- `{statusStyle.label}` — TemplateEditor · l.1523, when `!(isEditingTemplate)`
+- `{template.description}` — TemplateEditor · l.1528, when `!(isEditingTemplate) && template.description`
+- `{module.instructions}` — TemplateEditor · l.1997, when `!(objectiveModules.length === 0) && each objectiveModules && module.isExpanded && module.instructions`
+- `# {indIndex + 1}` — TemplateEditor · l.2036, when `module.isExpanded && !(!module.indicatorsLoaded) && (!((module.indicators \|\| []).length === 0)) && (each (module.indicators \|\| []))`
+- `{indicator.code}` — TemplateEditor · l.2041, when `!(!module.indicatorsLoaded) && (!((module.indicators \|\| []).length === 0)) && (each (module.indicators \|\| [])) && indicator.code`
+- `{indicator.name}` — TemplateEditor · l.2045, when `module.isExpanded && !(!module.indicatorsLoaded) && (!((module.indicators \|\| []).length === 0)) && (each (module.indicators \|\| []))`
+- `{CATEGORY_LABELS[indicator.category]}` — TemplateEditor · l.2048, when `module.isExpanded && !(!module.indicatorsLoaded) && (!((module.indicators \|\| []).length === 0)) && (each (module.indicators \|\| []))`
+- `{du.full_name} / —` — TemplateEditor · l.2281, when `isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0) && each demoUsers`
+- `{du.email}` — TemplateEditor · l.2284, when `isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0) && each demoUsers`
+- `{new Date(du.granted_at).toLocaleDat…}` — TemplateEditor · l.2287, when `isDemoSectionOpen && !(loadingDemoUsers) && !(demoUsers.length === 0) && each demoUsers`
+- `{new Date(version.createdAt).toLocal…}` — TemplateEditor · l.2934, when `isVersionHistoryOpen && !(loadingVersions) && !(versions.length === 0) && each versions`
+- `{version.stats.modules} {ENTITY_LABELS.modules.toLowerCase()}` — TemplateEditor · l.2946, when `isVersionHistoryOpen && !(loadingVersions) && !(versions.length === 0) && each versions`
+- `{previewModule.description}` — TemplateEditor · l.3000, when `isPreviewOpen && previewModule && previewModule.description`
+- `{previewModule.instructions}` — TemplateEditor · l.3005, when `isPreviewOpen && previewModule && previewModule.instructions`
+- `{CATEGORY_LABELS[indicator.category]}` — TemplateEditor · l.3033, when `isPreviewOpen && previewModule && !(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted`
+- `{indicator.code}` — TemplateEditor · l.3043, when `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.code`
+- `{indicator.description}` — TemplateEditor · l.3048, when `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.description`
+- `• {deleteConfirmData.counts.modules} {ENTITY_LABELS.modules.toLowerCase()}` — TemplateEditor · l.3174, when `showDeleteConfirm && deleteConfirmData && deleteConfirmData.counts`
 
 **Other texts on screen** (97)
 
-- «Cargando...» — TemplateEditor · l.1333, when `loading \|\| hasPermission === null`
-- «No tienes permiso para editar templates de registro.» — TemplateEditor · l.1353, when `hasPermission === false`
-- «Hay {usageStats.instanceCount} registro s asignado s con {usageStats.responseCount} respuesta s registrada s . Los cambios que realices afectarán a los nuevos registros. Las respuestas existentes mantendrán su snapshot actual.» — TemplateEditor · l.1434, when `!isDraft && usageStats?.hasResponses`
-- «Nombre» (label) — TemplateEditor · l.1451, when `isEditingTemplate`
-- «Descripción» (label) — TemplateEditor · l.1460, when `isEditingTemplate`
-- «Vía de Evolución: {AREA_LABELS[template.area]}» — TemplateEditor · l.1499, when `!(isEditingTemplate)`
-- «Versión: {template.version}» — TemplateEditor · l.1500, when `!(isEditingTemplate)`
-- «Modo edición - Puedes modificar el template / Modo lectura - Solo visualización» — TemplateEditor · l.1536, when `isDraft`
-- «¿Publicar este template?» — TemplateEditor · l.1576, when `isDraft && isAdmin && publishStep === 'confirm'`
-- «Template archivado v {template.version} - No disponible para nuevos registros» — TemplateEditor · l.1611, when `!(isDraft) && isArchived`
-- «Template publicado v{template.version} - Puedes editar / Template publicado v{template.version} - Solo lectura» — TemplateEditor · l.1664, when `!(isDraft) && !(isArchived)`
-- «(con {usageStats.responseCount} respuestas)» — TemplateEditor · l.1666, when `!(isDraft) && !(isArchived) && usageStats?.hasResponses`
-- «{objectives.length} objetivo s» — TemplateEditor · l.1749
-- «Agrega {ENTITY_LABELS.objectives.toLowerCas…} para organizar las {ENTITY_LABELS.modules.toLowerCase()} e indicadores que componen el registro» — TemplateEditor · l.1767, when `objectives.length === 0`
-- «Sin {ENTITY_LABELS.modules.toLowerCase()} . Agrega {ENTITY_LABELS.modules.toLow…} usando el botón de arriba.» — TemplateEditor · l.1880, when `!(objectives.length === 0) && each objectives && objective.isExpanded && objectiveModules.length === 0`
-- «Instrucciones:» — TemplateEditor · l.1964, when `!(objectiveModules.length === 0) && each objectiveModules && module.isExpanded && module.instructions`
-- «Cargando indicadores...» — TemplateEditor · l.1987, when `!(objectiveModules.length === 0) && each objectiveModules && module.isExpanded && !module.indicatorsLoaded`
-- «Sin indicadores. Agrega indicadores usando el botón de arriba.» — TemplateEditor · l.1989, when `each objectiveModules && module.isExpanded && !(!module.indicatorsLoaded) && ((module.indicators \|\| []).length === 0)`
-- «{ENTITY_LABELS.indicator} de cobertura bloqueado (primer {ENTITY_LABELS.indicator.toL…})» (title) — TemplateEditor · l.2006, when `!(!module.indicatorsLoaded) && (!((module.indicators \|\| []).length === 0)) && (each (module.indicators \|\| [])) && isLockedCobertura`
-- «/demo/assessments/ {template.id}» — TemplateEditor · l.2129, when `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen`
-- «Agregar usuarios» (label) — TemplateEditor · l.2136, when `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen`
-- «Buscando...» — TemplateEditor · l.2150, when `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && demoSearching`
-- «Cargando usuarios...» — TemplateEditor · l.2222, when `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && loadingDemoUsers`
-- «Ningún usuario tiene acceso demo a este template.» — TemplateEditor · l.2225, when `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && !(loadingDemoUsers) && demoUsers.length === 0`
-- «Nombre *» (label) — TemplateEditor · l.2298, when `isObjectiveModalOpen`
-- «Descripción» (label) — TemplateEditor · l.2312, when `isObjectiveModalOpen`
-- «Nombre *» (label) — TemplateEditor · l.2363, when `isModuleModalOpen`
-- «Descripción» (label) — TemplateEditor · l.2377, when `isModuleModalOpen`
-- «Breve resumen de esta práctica. Aparece como subtítulo bajo el nombre — siempre visible para el evaluador. (1-2 oraciones)» — TemplateEditor · l.2387, when `isModuleModalOpen`
-- «Instrucciones» (label) — TemplateEditor · l.2392, when `isModuleModalOpen`
-- «Guía detallada para el evaluador. Aparece en un recuadro azul al expandir la sección. Explica qué evidencia buscar y cómo evaluar los indicadores.» — TemplateEditor · l.2402, when `isModuleModalOpen`
-- «Nombre *» (label) — TemplateEditor · l.2449, when `isIndicatorModalOpen`
-- «Código» (label) — TemplateEditor · l.2462, when `isIndicatorModalOpen`
-- «Descripción» (label) — TemplateEditor · l.2475, when `isIndicatorModalOpen`
-- «Aparece como texto de ayuda junto al indicador cuando el evaluador lo completa. Aclara qué se está midiendo.» — TemplateEditor · l.2485, when `isIndicatorModalOpen`
-- «Orientaciones para interpretar el indicador» (label) — TemplateEditor · l.2490, when `isIndicatorModalOpen`
-- «Instrucciones para la IA al generar el informe a partir de las respuestas del registro. Ejemplo: &quot;Realizar esto más de una vez al año no es necesario — no señalar baja frecuencia como problema.&quot;» — TemplateEditor · l.2502, when `isIndicatorModalOpen`
-- «Categoría *» (label) — TemplateEditor · l.2508, when `isIndicatorModalOpen`
-- «El primer indicador de cada práctica siempre es de tipo Cobertura» — TemplateEditor · l.2528, when `isIndicatorModalOpen && isFirstIndicatorLocked`
-- «Períodos permitidos» — TemplateEditor · l.2537, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'`
-- «(selecciona al menos uno)» — TemplateEditor · l.2539, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'`
-- «El docente podrá elegir entre estas opciones al responder» — TemplateEditor · l.2543, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'`
-- «Por {FREQUENCY_UNIT_LABELS[unit]}» (label) — TemplateEditor · l.2547, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia' && each FREQUENCY_UNIT_OPTIONS`
-- «Debes seleccionar al menos un período» — TemplateEditor · l.2578, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia' && indicatorForm.frequencyUnitOptions.length === 0`
-- «Período por defecto *» (label) — TemplateEditor · l.2583, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'`
-- «Se muestra seleccionado al docente hasta que elija otro período permitido» — TemplateEditor · l.2600, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'`
-- «Rango de puntuación» — TemplateEditor · l.2605, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'`
-- «El puntaje del indicador se normaliza entre el mínimo y el máximo. Requerido para publicar.» — TemplateEditor · l.2608, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'`
-- «Valor mínimo» (label) — TemplateEditor · l.2612, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'`
-- «Valor máximo» (label) — TemplateEditor · l.2623, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'`
-- «Paso» (label) — TemplateEditor · l.2634, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'`
-- «Para publicar: {check.errors[0]}» — TemplateEditor · l.2649, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia' && !(check.valid)`
-- «Vista previa de campos Traspaso» — TemplateEditor · l.2660, when `isIndicatorModalOpen && indicatorForm.category === 'traspaso'`
-- «Los docentes verán estos dos campos al responder este indicador» — TemplateEditor · l.2662, when `isIndicatorModalOpen && indicatorForm.category === 'traspaso'`
-- «Enlace de Evidencia (URL)» (label) — TemplateEditor · l.2666, when `isIndicatorModalOpen && indicatorForm.category === 'traspaso'`
-- «Sugerencias de Mejora» (label) — TemplateEditor · l.2677, when `isIndicatorModalOpen && indicatorForm.category === 'traspaso'`
-- «Opciones de selección» — TemplateEditor · l.2695, when `isIndicatorModalOpen && indicatorForm.category === 'detalle'`
-- «(mínimo 2, máximo 15)» — TemplateEditor · l.2697, when `isIndicatorModalOpen && indicatorForm.category === 'detalle'`
-- «El evaluador podrá marcar todas las que aplican» — TemplateEditor · l.2701, when `isIndicatorModalOpen && indicatorForm.category === 'detalle'`
-- «Debes ingresar al menos 2 opciones» — TemplateEditor · l.2751, when `isIndicatorModalOpen && indicatorForm.category === 'detalle' && indicatorForm.detalleOptions.map(o => o.trim()).filter(o => o.length > 0).length < 2`
-- «Descriptores de nivel» — TemplateEditor · l.2761, when `isIndicatorModalOpen && indicatorForm.category === 'profundidad'`
-- «(al menos uno requerido)» — TemplateEditor · l.2763, when `isIndicatorModalOpen && indicatorForm.category === 'profundidad'`
-- «Nivel 0 - No implementado» (label) — TemplateEditor · l.2768, when `isIndicatorModalOpen && indicatorForm.category === 'profundidad'`
-- «Nivel 1 - Inicial» (label) — TemplateEditor · l.2780, when `isIndicatorModalOpen && indicatorForm.category === 'profundidad'`
-- «Nivel 2 - En desarrollo» (label) — TemplateEditor · l.2792, when `isIndicatorModalOpen && indicatorForm.category === 'profundidad'`
-- «Nivel 3 - Consolidado» (label) — TemplateEditor · l.2804, when `isIndicatorModalOpen && indicatorForm.category === 'profundidad'`
-- «Nivel 4 - Ejemplar» (label) — TemplateEditor · l.2816, when `isIndicatorModalOpen && indicatorForm.category === 'profundidad'`
-- «Cargando versiones...» — TemplateEditor · l.2879, when `isVersionHistoryOpen && loadingVersions`
-- «No hay versiones publicadas aún.» — TemplateEditor · l.2885, when `isVersionHistoryOpen && !(loadingVersions) && versions.length === 0`
-- «Publica el template para crear la primera versión.» — TemplateEditor · l.2888, when `isVersionHistoryOpen && !(loadingVersions) && versions.length === 0`
-- «Versión {version.version}» — TemplateEditor · l.2899, when `isVersionHistoryOpen && !(loadingVersions) && !(versions.length === 0) && each versions`
-- «{version.stats.objectives} objetivos» — TemplateEditor · l.2913, when `!(loadingVersions) && !(versions.length === 0) && each versions && version.stats.objectives > 0`
-- «{version.stats.indicators} indicadores» — TemplateEditor · l.2915, when `isVersionHistoryOpen && !(loadingVersions) && !(versions.length === 0) && each versions`
-- «Así verá esta práctica quien complete el registro» — TemplateEditor · l.2951, when `isPreviewOpen && previewModule`
-- «Cargando indicadores...» — TemplateEditor · l.2981, when `isPreviewOpen && previewModule && !previewModule.indicatorsLoaded`
-- «Esta práctica aún no tiene indicadores.» — TemplateEditor · l.2983, when `isPreviewOpen && previewModule && !(!previewModule.indicatorsLoaded) && ((previewModule.indicators \|\| []).length === 0)`
-- «Sí» (label) — TemplateEditor · l.3023, when `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'cobertura'`
-- «No» (label) — TemplateEditor · l.3031, when `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'cobertura'`
-- «{level} : {desc}» (label) — TemplateEditor · l.3050, when `each sorted && indicator.category === 'profundidad' && each ([0, 1, 2, 3, 4] as const) && desc`
-- «Adjunte link a carpeta con evidencia de sus respuestas» (label) — TemplateEditor · l.3061, when `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'traspaso'`
-- «El archivo enlazado debe ser accesible para cualquier persona con el link» — TemplateEditor · l.3065, when `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'traspaso'`
-- «Mejoras sugeridas» (label) — TemplateEditor · l.3068, when `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'traspaso'`
-- «Selecciona todas las que aplican:» — TemplateEditor · l.3077, when `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'detalle'`
-- «{opt}» (label) — TemplateEditor · l.3079, when `(!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'detalle' && (each (indicator.detalleOptions \|\| []))`
-- «Sin opciones definidas» — TemplateEditor · l.3085, when `(!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'detalle' && ((!indicator.detalleOptions \|\| indicator.detalleOptions.length === 0))`
-- «Seleccione Sí o No para ver cómo se comporta el registro» — TemplateEditor · l.3097, when `isPreviewOpen && previewModule && !(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && previewCoberturaAnswer === null && sorted.length > 1`
-- «Esta práctica no se implementa en este establecimiento» — TemplateEditor · l.3102, when `isPreviewOpen && previewModule && !(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && previewCoberturaAnswer === false`
-- «Los demás indicadores no se mostrarán al evaluador» — TemplateEditor · l.3103, when `isPreviewOpen && previewModule && !(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && previewCoberturaAnswer === false`
-- «Comportamiento real:» — TemplateEditor · l.3114, when `isPreviewOpen && previewModule`
-- «El primer indicador (Cobertura) actúa como filtro. Pruebe seleccionando Sí o No arriba para ver cómo cambia la vista del evaluador.» — TemplateEditor · l.3114, when `isPreviewOpen && previewModule`
-- «¿Estás seguro de eliminar el template» — TemplateEditor · l.3131, when `showDeleteConfirm && deleteConfirmData`
-- «&quot; {template.name} &quot;» — TemplateEditor · l.3131, when `showDeleteConfirm && deleteConfirmData`
-- «⚠️ Este template tiene datos asociados:» — TemplateEditor · l.3136, when `showDeleteConfirm && deleteConfirmData && deleteConfirmData.counts`
-- «• {deleteConfirmData.counts.instances} registros» — TemplateEditor · l.3139, when `showDeleteConfirm && deleteConfirmData && deleteConfirmData.counts`
-- «• {deleteConfirmData.counts.responses} respuestas» — TemplateEditor · l.3140, when `showDeleteConfirm && deleteConfirmData && deleteConfirmData.counts`
-- «• {deleteConfirmData.counts.snapshots} versiones guardadas» — TemplateEditor · l.3141, when `showDeleteConfirm && deleteConfirmData && deleteConfirmData.counts`
-- «Esta acción es permanente y no se puede deshacer.» — TemplateEditor · l.3145, when `showDeleteConfirm && deleteConfirmData && deleteConfirmData.counts`
+- «Cargando...» — TemplateEditor · l.1365, when `loading \|\| hasPermission === null`
+- «No tienes permiso para editar templates de registro.» — TemplateEditor · l.1385, when `hasPermission === false`
+- «Hay {usageStats.instanceCount} registro s asignado s con {usageStats.responseCount} respuesta s registrada s . Los cambios que realices afectarán a los nuevos registros. Las respuestas existentes mantendrán su snapshot actual.» — TemplateEditor · l.1466, when `!isDraft && usageStats?.hasResponses`
+- «Nombre» (label) — TemplateEditor · l.1483, when `isEditingTemplate`
+- «Descripción» (label) — TemplateEditor · l.1492, when `isEditingTemplate`
+- «Vía de Evolución: {AREA_LABELS[template.area]}» — TemplateEditor · l.1531, when `!(isEditingTemplate)`
+- «Versión: {template.version}» — TemplateEditor · l.1532, when `!(isEditingTemplate)`
+- «Modo edición - Puedes modificar el template / Modo lectura - Solo visualización» — TemplateEditor · l.1568, when `isDraft`
+- «¿Publicar este template?» — TemplateEditor · l.1608, when `isDraft && isAdmin && publishStep === 'confirm'`
+- «Template archivado v {template.version} - No disponible para nuevos registros» — TemplateEditor · l.1643, when `!(isDraft) && isArchived`
+- «Template publicado v{template.version} - Puedes editar / Template publicado v{template.version} - Solo lectura» — TemplateEditor · l.1696, when `!(isDraft) && !(isArchived)`
+- «(con {usageStats.responseCount} respuestas)» — TemplateEditor · l.1698, when `!(isDraft) && !(isArchived) && usageStats?.hasResponses`
+- «{objectives.length} objetivo s» — TemplateEditor · l.1781
+- «Agrega {ENTITY_LABELS.objectives.toLowerCas…} para organizar las {ENTITY_LABELS.modules.toLowerCase()} e indicadores que componen el registro» — TemplateEditor · l.1799, when `objectives.length === 0`
+- «Sin {ENTITY_LABELS.modules.toLowerCase()} . Agrega {ENTITY_LABELS.modules.toLow…} usando el botón de arriba.» — TemplateEditor · l.1912, when `!(objectives.length === 0) && each objectives && objective.isExpanded && objectiveModules.length === 0`
+- «Instrucciones:» — TemplateEditor · l.1996, when `!(objectiveModules.length === 0) && each objectiveModules && module.isExpanded && module.instructions`
+- «Cargando indicadores...» — TemplateEditor · l.2019, when `!(objectiveModules.length === 0) && each objectiveModules && module.isExpanded && !module.indicatorsLoaded`
+- «Sin indicadores. Agrega indicadores usando el botón de arriba.» — TemplateEditor · l.2021, when `each objectiveModules && module.isExpanded && !(!module.indicatorsLoaded) && ((module.indicators \|\| []).length === 0)`
+- «{ENTITY_LABELS.indicator} de cobertura bloqueado (primer {ENTITY_LABELS.indicator.toL…})» (title) — TemplateEditor · l.2038, when `!(!module.indicatorsLoaded) && (!((module.indicators \|\| []).length === 0)) && (each (module.indicators \|\| [])) && isLockedCobertura`
+- «/demo/assessments/ {template.id}» — TemplateEditor · l.2161, when `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen`
+- «Agregar usuarios» (label) — TemplateEditor · l.2168, when `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen`
+- «Buscando...» — TemplateEditor · l.2182, when `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && demoSearching`
+- «Cargando usuarios...» — TemplateEditor · l.2254, when `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && loadingDemoUsers`
+- «Ningún usuario tiene acceso demo a este template.» — TemplateEditor · l.2257, when `template.status === 'published' && !isArchived && isAdmin && isDemoSectionOpen && !(loadingDemoUsers) && demoUsers.length === 0`
+- «Nombre *» (label) — TemplateEditor · l.2330, when `isObjectiveModalOpen`
+- «Descripción» (label) — TemplateEditor · l.2344, when `isObjectiveModalOpen`
+- «Nombre *» (label) — TemplateEditor · l.2395, when `isModuleModalOpen`
+- «Descripción» (label) — TemplateEditor · l.2409, when `isModuleModalOpen`
+- «Breve resumen de esta práctica. Aparece como subtítulo bajo el nombre — siempre visible para el evaluador. (1-2 oraciones)» — TemplateEditor · l.2419, when `isModuleModalOpen`
+- «Instrucciones» (label) — TemplateEditor · l.2424, when `isModuleModalOpen`
+- «Guía detallada para el evaluador. Aparece en un recuadro azul al expandir la sección. Explica qué evidencia buscar y cómo evaluar los indicadores.» — TemplateEditor · l.2434, when `isModuleModalOpen`
+- «Nombre *» (label) — TemplateEditor · l.2481, when `isIndicatorModalOpen`
+- «Código» (label) — TemplateEditor · l.2494, when `isIndicatorModalOpen`
+- «Descripción» (label) — TemplateEditor · l.2507, when `isIndicatorModalOpen`
+- «Aparece como texto de ayuda junto al indicador cuando el evaluador lo completa. Aclara qué se está midiendo.» — TemplateEditor · l.2517, when `isIndicatorModalOpen`
+- «Orientaciones para interpretar el indicador» (label) — TemplateEditor · l.2522, when `isIndicatorModalOpen`
+- «Instrucciones para la IA al generar el informe a partir de las respuestas del registro. Ejemplo: &quot;Realizar esto más de una vez al año no es necesario — no señalar baja frecuencia como problema.&quot;» — TemplateEditor · l.2534, when `isIndicatorModalOpen`
+- «Categoría *» (label) — TemplateEditor · l.2540, when `isIndicatorModalOpen`
+- «El primer indicador de cada práctica siempre es de tipo Cobertura» — TemplateEditor · l.2560, when `isIndicatorModalOpen && isFirstIndicatorLocked`
+- «Períodos permitidos» — TemplateEditor · l.2569, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'`
+- «(selecciona al menos uno)» — TemplateEditor · l.2571, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'`
+- «El docente podrá elegir entre estas opciones al responder» — TemplateEditor · l.2575, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'`
+- «Por {FREQUENCY_UNIT_LABELS[unit]}» (label) — TemplateEditor · l.2579, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia' && each FREQUENCY_UNIT_OPTIONS`
+- «Debes seleccionar al menos un período» — TemplateEditor · l.2610, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia' && indicatorForm.frequencyUnitOptions.length === 0`
+- «Período por defecto *» (label) — TemplateEditor · l.2615, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'`
+- «Se muestra seleccionado al docente hasta que elija otro período permitido» — TemplateEditor · l.2632, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'`
+- «Rango de puntuación» — TemplateEditor · l.2637, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'`
+- «El puntaje del indicador se normaliza entre el mínimo y el máximo. Requerido para publicar.» — TemplateEditor · l.2640, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'`
+- «Valor mínimo» (label) — TemplateEditor · l.2644, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'`
+- «Valor máximo» (label) — TemplateEditor · l.2655, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'`
+- «Paso» (label) — TemplateEditor · l.2666, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia'`
+- «Para publicar: {check.errors[0]}» — TemplateEditor · l.2681, when `isIndicatorModalOpen && indicatorForm.category === 'frecuencia' && !(check.valid)`
+- «Vista previa de campos Traspaso» — TemplateEditor · l.2692, when `isIndicatorModalOpen && indicatorForm.category === 'traspaso'`
+- «Los docentes verán estos dos campos al responder este indicador» — TemplateEditor · l.2694, when `isIndicatorModalOpen && indicatorForm.category === 'traspaso'`
+- «Enlace de Evidencia (URL)» (label) — TemplateEditor · l.2698, when `isIndicatorModalOpen && indicatorForm.category === 'traspaso'`
+- «Sugerencias de Mejora» (label) — TemplateEditor · l.2709, when `isIndicatorModalOpen && indicatorForm.category === 'traspaso'`
+- «Opciones de selección» — TemplateEditor · l.2727, when `isIndicatorModalOpen && indicatorForm.category === 'detalle'`
+- «(mínimo 2, máximo 15)» — TemplateEditor · l.2729, when `isIndicatorModalOpen && indicatorForm.category === 'detalle'`
+- «El evaluador podrá marcar todas las que aplican» — TemplateEditor · l.2733, when `isIndicatorModalOpen && indicatorForm.category === 'detalle'`
+- «Debes ingresar al menos 2 opciones» — TemplateEditor · l.2783, when `isIndicatorModalOpen && indicatorForm.category === 'detalle' && indicatorForm.detalleOptions.map(o => o.trim()).filter(o => o.length > 0).length < 2`
+- «Descriptores de nivel» — TemplateEditor · l.2793, when `isIndicatorModalOpen && indicatorForm.category === 'profundidad'`
+- «(al menos uno requerido)» — TemplateEditor · l.2795, when `isIndicatorModalOpen && indicatorForm.category === 'profundidad'`
+- «Nivel 0 - No implementado» (label) — TemplateEditor · l.2800, when `isIndicatorModalOpen && indicatorForm.category === 'profundidad'`
+- «Nivel 1 - Inicial» (label) — TemplateEditor · l.2812, when `isIndicatorModalOpen && indicatorForm.category === 'profundidad'`
+- «Nivel 2 - En desarrollo» (label) — TemplateEditor · l.2824, when `isIndicatorModalOpen && indicatorForm.category === 'profundidad'`
+- «Nivel 3 - Consolidado» (label) — TemplateEditor · l.2836, when `isIndicatorModalOpen && indicatorForm.category === 'profundidad'`
+- «Nivel 4 - Ejemplar» (label) — TemplateEditor · l.2848, when `isIndicatorModalOpen && indicatorForm.category === 'profundidad'`
+- «Cargando versiones...» — TemplateEditor · l.2911, when `isVersionHistoryOpen && loadingVersions`
+- «No hay versiones publicadas aún.» — TemplateEditor · l.2917, when `isVersionHistoryOpen && !(loadingVersions) && versions.length === 0`
+- «Publica el template para crear la primera versión.» — TemplateEditor · l.2920, when `isVersionHistoryOpen && !(loadingVersions) && versions.length === 0`
+- «Versión {version.version}» — TemplateEditor · l.2931, when `isVersionHistoryOpen && !(loadingVersions) && !(versions.length === 0) && each versions`
+- «{version.stats.objectives} objetivos» — TemplateEditor · l.2945, when `!(loadingVersions) && !(versions.length === 0) && each versions && version.stats.objectives > 0`
+- «{version.stats.indicators} indicadores» — TemplateEditor · l.2947, when `isVersionHistoryOpen && !(loadingVersions) && !(versions.length === 0) && each versions`
+- «Así verá esta práctica quien complete el registro» — TemplateEditor · l.2983, when `isPreviewOpen && previewModule`
+- «Cargando indicadores...» — TemplateEditor · l.3013, when `isPreviewOpen && previewModule && !previewModule.indicatorsLoaded`
+- «Esta práctica aún no tiene indicadores.» — TemplateEditor · l.3015, when `isPreviewOpen && previewModule && !(!previewModule.indicatorsLoaded) && ((previewModule.indicators \|\| []).length === 0)`
+- «Sí» (label) — TemplateEditor · l.3055, when `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'cobertura'`
+- «No» (label) — TemplateEditor · l.3063, when `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'cobertura'`
+- «{level} : {desc}» (label) — TemplateEditor · l.3082, when `each sorted && indicator.category === 'profundidad' && each ([0, 1, 2, 3, 4] as const) && desc`
+- «Adjunte link a carpeta con evidencia de sus respuestas» (label) — TemplateEditor · l.3093, when `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'traspaso'`
+- «El archivo enlazado debe ser accesible para cualquier persona con el link» — TemplateEditor · l.3097, when `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'traspaso'`
+- «Mejoras sugeridas» (label) — TemplateEditor · l.3100, when `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'traspaso'`
+- «Selecciona todas las que aplican:» — TemplateEditor · l.3109, when `!(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'detalle'`
+- «{opt}» (label) — TemplateEditor · l.3111, when `(!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'detalle' && (each (indicator.detalleOptions \|\| []))`
+- «Sin opciones definidas» — TemplateEditor · l.3117, when `(!((previewModule.indicators \|\| []).length === 0)) && each sorted && indicator.category === 'detalle' && ((!indicator.detalleOptions \|\| indicator.detalleOptions.length === 0))`
+- «Seleccione Sí o No para ver cómo se comporta el registro» — TemplateEditor · l.3129, when `isPreviewOpen && previewModule && !(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && previewCoberturaAnswer === null && sorted.length > 1`
+- «Esta práctica no se implementa en este establecimiento» — TemplateEditor · l.3134, when `isPreviewOpen && previewModule && !(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && previewCoberturaAnswer === false`
+- «Los demás indicadores no se mostrarán al evaluador» — TemplateEditor · l.3135, when `isPreviewOpen && previewModule && !(!previewModule.indicatorsLoaded) && (!((previewModule.indicators \|\| []).length === 0)) && previewCoberturaAnswer === false`
+- «Comportamiento real:» — TemplateEditor · l.3146, when `isPreviewOpen && previewModule`
+- «El primer indicador (Cobertura) actúa como filtro. Pruebe seleccionando Sí o No arriba para ver cómo cambia la vista del evaluador.» — TemplateEditor · l.3146, when `isPreviewOpen && previewModule`
+- «¿Estás seguro de eliminar el template» — TemplateEditor · l.3163, when `showDeleteConfirm && deleteConfirmData`
+- «&quot; {template.name} &quot;» — TemplateEditor · l.3163, when `showDeleteConfirm && deleteConfirmData`
+- «⚠️ Este template tiene datos asociados:» — TemplateEditor · l.3168, when `showDeleteConfirm && deleteConfirmData && deleteConfirmData.counts`
+- «• {deleteConfirmData.counts.instances} registros» — TemplateEditor · l.3171, when `showDeleteConfirm && deleteConfirmData && deleteConfirmData.counts`
+- «• {deleteConfirmData.counts.responses} respuestas» — TemplateEditor · l.3172, when `showDeleteConfirm && deleteConfirmData && deleteConfirmData.counts`
+- «• {deleteConfirmData.counts.snapshots} versiones guardadas» — TemplateEditor · l.3173, when `showDeleteConfirm && deleteConfirmData && deleteConfirmData.counts`
+- «Esta acción es permanente y no se puede deshacer.» — TemplateEditor · l.3177, when `showDeleteConfirm && deleteConfirmData && deleteConfirmData.counts`
 
 **Reads and writes the database directly:** `table:profiles` (select), `table:user_roles` (select)
 
@@ -806,19 +807,19 @@ File `pages/admin/assessment-builder/[templateId]/index.tsx` · 3175 lines · fr
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/admin/assessment-builder/templates/[templateId]` | DELETE, GET, PUT | `pages/admin/assessment-builder/[templateId]/index.tsx:1071`, `pages/admin/assessment-builder/[templateId]/index.tsx:1105`, `pages/admin/assessment-builder/[templateId]/index.tsx:1106`, `pages/admin/assessment-builder/[templateId]/index.tsx:313` +1 |
-| `/api/admin/assessment-builder/templates/[templateId]/archive` | POST | `pages/admin/assessment-builder/[templateId]/index.tsx:1007`, `pages/admin/assessment-builder/[templateId]/index.tsx:1032` |
-| `/api/admin/assessment-builder/templates/[templateId]/demo-access` | DELETE, GET, POST | `pages/admin/assessment-builder/[templateId]/index.tsx:1188`, `pages/admin/assessment-builder/[templateId]/index.tsx:1242`, `pages/admin/assessment-builder/[templateId]/index.tsx:1270` |
-| `/api/admin/assessment-builder/templates/[templateId]/duplicate` | POST | `pages/admin/assessment-builder/[templateId]/index.tsx:962` |
-| `/api/admin/assessment-builder/templates/[templateId]/modules` | GET, POST | `pages/admin/assessment-builder/[templateId]/index.tsx:337`, `pages/admin/assessment-builder/[templateId]/index.tsx:543` |
-| `/api/admin/assessment-builder/templates/[templateId]/modules/[moduleId]` | DELETE, PUT | `pages/admin/assessment-builder/[templateId]/index.tsx:519`, `pages/admin/assessment-builder/[templateId]/index.tsx:579` |
-| `/api/admin/assessment-builder/templates/[templateId]/modules/[moduleId]/indicators` | GET, POST | `pages/admin/assessment-builder/[templateId]/index.tsx:1137`, `pages/admin/assessment-builder/[templateId]/index.tsx:1166`, `pages/admin/assessment-builder/[templateId]/index.tsx:839` |
-| `/api/admin/assessment-builder/templates/[templateId]/modules/[moduleId]/indicators/[indicatorId]` | DELETE, PUT | `pages/admin/assessment-builder/[templateId]/index.tsx:799`, `pages/admin/assessment-builder/[templateId]/index.tsx:877` |
-| `/api/admin/assessment-builder/templates/[templateId]/objectives` | GET, POST | `pages/admin/assessment-builder/[templateId]/index.tsx:330`, `pages/admin/assessment-builder/[templateId]/index.tsx:437` |
-| `/api/admin/assessment-builder/templates/[templateId]/objectives/[objectiveId]` | DELETE, PUT | `pages/admin/assessment-builder/[templateId]/index.tsx:415`, `pages/admin/assessment-builder/[templateId]/index.tsx:471` |
-| `/api/admin/assessment-builder/templates/[templateId]/publish` | POST | `pages/admin/assessment-builder/[templateId]/index.tsx:935` |
-| `/api/admin/assessment-builder/templates/[templateId]/versions` | GET | `pages/admin/assessment-builder/[templateId]/index.tsx:989` |
-| `/api/admin/users/search` | GET | `pages/admin/assessment-builder/[templateId]/index.tsx:1218` |
+| `/api/admin/assessment-builder/templates/[templateId]` | DELETE, GET, PUT | `pages/admin/assessment-builder/[templateId]/index.tsx:1103`, `pages/admin/assessment-builder/[templateId]/index.tsx:1137`, `pages/admin/assessment-builder/[templateId]/index.tsx:1138`, `pages/admin/assessment-builder/[templateId]/index.tsx:350` +1 |
+| `/api/admin/assessment-builder/templates/[templateId]/archive` | POST | `pages/admin/assessment-builder/[templateId]/index.tsx:1039`, `pages/admin/assessment-builder/[templateId]/index.tsx:1064` |
+| `/api/admin/assessment-builder/templates/[templateId]/demo-access` | DELETE, GET, POST | `pages/admin/assessment-builder/[templateId]/index.tsx:1220`, `pages/admin/assessment-builder/[templateId]/index.tsx:1274`, `pages/admin/assessment-builder/[templateId]/index.tsx:1302` |
+| `/api/admin/assessment-builder/templates/[templateId]/duplicate` | POST | `pages/admin/assessment-builder/[templateId]/index.tsx:992` |
+| `/api/admin/assessment-builder/templates/[templateId]/modules` | GET, POST | `pages/admin/assessment-builder/[templateId]/index.tsx:374`, `pages/admin/assessment-builder/[templateId]/index.tsx:580` |
+| `/api/admin/assessment-builder/templates/[templateId]/modules/[moduleId]` | DELETE, PUT | `pages/admin/assessment-builder/[templateId]/index.tsx:556`, `pages/admin/assessment-builder/[templateId]/index.tsx:616` |
+| `/api/admin/assessment-builder/templates/[templateId]/modules/[moduleId]/indicators` | GET, POST | `pages/admin/assessment-builder/[templateId]/index.tsx:1169`, `pages/admin/assessment-builder/[templateId]/index.tsx:1198`, `pages/admin/assessment-builder/[templateId]/index.tsx:876` |
+| `/api/admin/assessment-builder/templates/[templateId]/modules/[moduleId]/indicators/[indicatorId]` | DELETE, PUT | `pages/admin/assessment-builder/[templateId]/index.tsx:836`, `pages/admin/assessment-builder/[templateId]/index.tsx:914` |
+| `/api/admin/assessment-builder/templates/[templateId]/objectives` | GET, POST | `pages/admin/assessment-builder/[templateId]/index.tsx:367`, `pages/admin/assessment-builder/[templateId]/index.tsx:474` |
+| `/api/admin/assessment-builder/templates/[templateId]/objectives/[objectiveId]` | DELETE, PUT | `pages/admin/assessment-builder/[templateId]/index.tsx:452`, `pages/admin/assessment-builder/[templateId]/index.tsx:508` |
+| `/api/admin/assessment-builder/templates/[templateId]/publish` | POST | `pages/admin/assessment-builder/[templateId]/index.tsx:965` |
+| `/api/admin/assessment-builder/templates/[templateId]/versions` | GET | `pages/admin/assessment-builder/[templateId]/index.tsx:1021` |
+| `/api/admin/users/search` | GET | `pages/admin/assessment-builder/[templateId]/index.tsx:1250` |
 
 ## /admin/assessment-builder/create
 
@@ -991,13 +992,13 @@ File `pages/admin/assessment-builder/index.tsx` · 804 lines · frame: MainLayou
 
 ### Who reaches it
 
-- Menu: Gestor de Cambio › «Constructor de Registros» → `/admin/assessment-builder` — admin or consultor; the group: everyone signed in (`Sidebar.tsx` l.277)
+- Menu: Gestor de Cambio › «Constructor de Registros» → `/admin/assessment-builder` — admin or consultor; the group: everyone signed in (`Sidebar.tsx` l.276)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.64 `router.push → /login  (when !session?.user)`
   - l.348 `router.push → /login`
   - l.375 `No tienes permiso para acceder al Constructor de Registros.`
-- Linked from: `components/layout/Sidebar.tsx:279`, `middleware.ts:223`, `pages/admin/assessment-builder/[templateId]/expectations.tsx:1027`, `pages/admin/assessment-builder/[templateId]/expectations.tsx:469`, `pages/admin/assessment-builder/[templateId]/index.tsx:1017`, `pages/admin/assessment-builder/[templateId]/index.tsx:1090`, `pages/admin/assessment-builder/[templateId]/index.tsx:1119`, `pages/admin/assessment-builder/[templateId]/index.tsx:1379`, `pages/admin/assessment-builder/[templateId]/index.tsx:1414`, `pages/admin/assessment-builder/[templateId]/index.tsx:345`, `pages/admin/assessment-builder/create.tsx:288`, `pages/admin/assessment-builder/create.tsx:428` and 2 more
+- Linked from: `components/layout/Sidebar.tsx:278`, `middleware.ts:223`, `pages/admin/assessment-builder/[templateId]/expectations.tsx:1027`, `pages/admin/assessment-builder/[templateId]/expectations.tsx:469`, `pages/admin/assessment-builder/[templateId]/index.tsx:1049`, `pages/admin/assessment-builder/[templateId]/index.tsx:1122`, `pages/admin/assessment-builder/[templateId]/index.tsx:1151`, `pages/admin/assessment-builder/[templateId]/index.tsx:1411`, `pages/admin/assessment-builder/[templateId]/index.tsx:1446`, `pages/admin/assessment-builder/[templateId]/index.tsx:382`, `pages/admin/assessment-builder/create.tsx:288`, `pages/admin/assessment-builder/create.tsx:428` and 2 more
 - Tests: no browser test that CI runs.
 
 | Role | Sees it in the menu | Middleware |
@@ -1213,14 +1214,14 @@ File `pages/admin/context-questions/index.tsx` · 741 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Gestor de Cambio › «Preguntas de Contexto» → `/admin/context-questions` — admin only; the group: everyone signed in (`Sidebar.tsx` l.293)
+- Menu: Gestor de Cambio › «Preguntas de Contexto» → `/admin/context-questions` — admin only; the group: everyone signed in (`Sidebar.tsx` l.292)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.110 `router.push → /login  (when !session)`
   - l.113 `if (!metadataHasRole(session.user.user_metadata, 'admin')) { router.push('/dashboard'); return; }`
   - l.114 `router.push → /dashboard  (when !metadataHasRole(session.user.user_metadata, 'admin'))`
   - l.158 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:295`, `pages/admin/context-questions/overview.tsx:340`, `pages/admin/context-questions/overview.tsx:341`
+- Linked from: `components/layout/Sidebar.tsx:294`, `pages/admin/context-questions/overview.tsx:340`, `pages/admin/context-questions/overview.tsx:341`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/context-questions/admin-ui.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -1383,7 +1384,7 @@ File `pages/admin/context-questions/overview.tsx` · 489 lines · frame: MainLay
 
 ### Who reaches it
 
-- Menu: Gestor de Cambio › «Resumen Respuestas» → `/admin/context-questions/overview` — admin only; the group: everyone signed in (`Sidebar.tsx` l.301)
+- Menu: Gestor de Cambio › «Resumen Respuestas» → `/admin/context-questions/overview` — admin only; the group: everyone signed in (`Sidebar.tsx` l.300)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.156 `router.push → /login  (when !session?.user)`
@@ -1391,7 +1392,7 @@ File `pages/admin/context-questions/overview.tsx` · 489 lines · frame: MainLay
   - l.189 `router.push → /dashboard  (when !adminFromMetadata && !hasAdminRoleInDB)`
   - l.196 `router.push → /login`
   - l.206 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:303`
+- Linked from: `components/layout/Sidebar.tsx:302`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/context-questions/admin-ui.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -1536,7 +1537,7 @@ File `pages/demo/assessments/[templateId]/index.tsx` · 425 lines · frame: Main
 - In the page:
   - l.57 `router.push → /login  (when !session?.user)`
   - l.232 `router.push → /login`
-- Linked from: `pages/admin/assessment-builder/[templateId]/index.tsx:1670`, `pages/demo/assessments/[templateId]/results.tsx:181`, `pages/demo/assessments/[templateId]/results.tsx:192`, `pages/demo/assessments/[templateId]/results.tsx:240`, `pages/demo/assessments/[templateId]/results.tsx:248`, `pages/demo/assessments/[templateId]/results.tsx:252`, `pages/demo/assessments/index.tsx:192`
+- Linked from: `pages/admin/assessment-builder/[templateId]/index.tsx:1702`, `pages/demo/assessments/[templateId]/results.tsx:181`, `pages/demo/assessments/[templateId]/results.tsx:192`, `pages/demo/assessments/[templateId]/results.tsx:240`, `pages/demo/assessments/[templateId]/results.tsx:248`, `pages/demo/assessments/[templateId]/results.tsx:252`, `pages/demo/assessments/index.tsx:192`
 - Tests: no browser test that CI runs.
 
 | Role | Sees it in the menu | Middleware |
@@ -1869,18 +1870,18 @@ File `pages/demo/assessments/index.tsx` · 204 lines · frame: MainLayout
 
 ## /directivo/assessments/dashboard
 
-File `pages/directivo/assessments/dashboard.tsx` · 714 lines · frame: MainLayout
+File `pages/directivo/assessments/dashboard.tsx` · 814 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Reportes › «Panel de Resultados» → `/directivo/assessments/dashboard` — roles: admin, equipo_directivo; the group: everyone signed in (`Sidebar.tsx` l.650)
+- Menu: Reportes › «Panel de Resultados» → `/directivo/assessments/dashboard` — roles: admin, equipo_directivo; the group: everyone signed in (`Sidebar.tsx` l.649)
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
-  - l.144 `router.push → /login  (when !session?.user)`
-  - l.162 `router.push → /  (when !hasPermission)`
-  - l.242 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:652`
-- Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/proc-pilot-journey.spec.ts`; unit tests of the page: `__tests__/pages/directivo-dashboard-unavailable.test.tsx`.
+  - l.149 `router.push → /login  (when !session?.user)`
+  - l.167 `router.push → /  (when !hasPermission)`
+  - l.282 `router.push → /login`
+- Linked from: `components/layout/Sidebar.tsx:651`
+- Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/proc-pilot-journey.spec.ts`; unit tests of the page: `__tests__/pages/directivo-dashboard-school-choice.test.tsx`, `__tests__/pages/directivo-dashboard-unavailable.test.tsx`.
 - QA scenarios that name this address: admin 1.
 
 | Role | Sees it in the menu | Middleware |
@@ -1916,139 +1917,152 @@ File `pages/directivo/assessments/dashboard.tsx` · 714 lines · frame: MainLayo
 
 ### What the page file itself draws
 
-**Titles** (11)
+**Titles** (12)
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Resultados aún no disponibles» | h3 | `!hasResults && (schoolResults?.unavailableResults ?? 0) > 0` | DirectivoDashboard · l.339 |
-| «No hay registros completados» | h3 | `!hasResults && !((schoolResults?.unavailableResults ?? 0) > 0)` | DirectivoDashboard · l.348 |
-| «Promedio por Vía de Transformación» | h3 | `!(!hasResults) && activeTab === 'overview'` | DirectivoDashboard · l.448 |
-| «Perfil de Transformación» | h3 | `!(!hasResults) && activeTab === 'overview' && radarData.length >= 3` | DirectivoDashboard · l.479 |
-| «Detalle por Área» | h3 | `!(!hasResults) && activeTab === 'overview'` | DirectivoDashboard · l.504 |
-| «{area.label}» | h4 | `!(!hasResults) && activeTab === 'overview' && each Object.values(areas)` | DirectivoDashboard · l.518 |
-| «Cumplimiento de Expectativas» | h3 | `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0` | DirectivoDashboard · l.542 |
-| «Resumen por Curso» | h3 | `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0` | DirectivoDashboard · l.569 |
-| «Detalle por Curso» | h3 | `!(!hasResults) && activeTab === 'courses'` | DirectivoDashboard · l.612 |
-| «{course.courseName}» | h4 | `!(!hasResults) && activeTab === 'courses' && each courses` | DirectivoDashboard · l.627 |
-| «No hay cursos configurados» | h3 | `!(!hasResults) && activeTab === 'courses' && courses.length === 0` | DirectivoDashboard · l.696 |
+| «Selecciona una Escuela» | h2 | `choosesSchool && !selectedSchoolId` | DirectivoDashboard · l.323 |
+| «Resultados aún no disponibles» | h3 | `!hasResults && (schoolResults?.unavailableResults ?? 0) > 0` | DirectivoDashboard · l.439 |
+| «No hay registros completados» | h3 | `!hasResults && !((schoolResults?.unavailableResults ?? 0) > 0)` | DirectivoDashboard · l.448 |
+| «Promedio por Vía de Transformación» | h3 | `!(!hasResults) && activeTab === 'overview'` | DirectivoDashboard · l.548 |
+| «Perfil de Transformación» | h3 | `!(!hasResults) && activeTab === 'overview' && radarData.length >= 3` | DirectivoDashboard · l.579 |
+| «Detalle por Área» | h3 | `!(!hasResults) && activeTab === 'overview'` | DirectivoDashboard · l.604 |
+| «{area.label}» | h4 | `!(!hasResults) && activeTab === 'overview' && each Object.values(areas)` | DirectivoDashboard · l.618 |
+| «Cumplimiento de Expectativas» | h3 | `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0` | DirectivoDashboard · l.642 |
+| «Resumen por Curso» | h3 | `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0` | DirectivoDashboard · l.669 |
+| «Detalle por Curso» | h3 | `!(!hasResults) && activeTab === 'courses'` | DirectivoDashboard · l.712 |
+| «{course.courseName}» | h4 | `!(!hasResults) && activeTab === 'courses' && each courses` | DirectivoDashboard · l.727 |
+| «No hay cursos configurados» | h3 | `!(!hasResults) && activeTab === 'courses' && courses.length === 0` | DirectivoDashboard · l.796 |
 
-**Buttons** (3)
+**Buttons** (5)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Actualizar» | `{handleRefresh}` |  | `{refreshing}` |  | DirectivoDashboard · l.316 |
-| «Vista General» | `{() => setActiveTab('overview')}` | `!(!hasResults)` |  |  | DirectivoDashboard · l.362 |
-| «Por Curso» | `{() => setActiveTab('courses')}` | `!(!hasResults)` |  |  | DirectivoDashboard · l.372 |
+| «{school.name}» | `{() => handleSchoolSelect(school.id)}` | `choosesSchool && !selectedSchoolId && each schools` |  |  | DirectivoDashboard · l.329 |
+| «Cambiar colegio» | `{handleChangeSchool}` | `choosesSchool` |  | `testid=results-change-school` | DirectivoDashboard · l.393 |
+| «Actualizar» | `{handleRefresh}` |  | `{refreshing}` |  | DirectivoDashboard · l.416 |
+| «Vista General» | `{() => setActiveTab('overview')}` | `!(!hasResults)` |  |  | DirectivoDashboard · l.462 |
+| «Por Curso» | `{() => setActiveTab('courses')}` | `!(!hasResults)` |  |  | DirectivoDashboard · l.472 |
 
 **Toasts** (3)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «No tienes permiso para acceder a esta página» | `!hasPermission` | checkAuth · l.161 |
-| error | «Error al cargar resultados de la escuela» |  | DirectivoDashboard · l.197 |
-| success | «Datos actualizados» |  | handleRefresh · l.237 |
+| error | «No tienes permiso para acceder a esta página» | `!hasPermission` | checkAuth · l.166 |
+| error | «Error al cargar resultados de la escuela» |  | DirectivoDashboard · l.232 |
+| success | «Datos actualizados» |  | handleRefresh · l.277 |
 
 **Messages set on the page** (2)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Error al cargar resultados» | `throw (shown by whoever catches it)` | `!response.ok` | DirectivoDashboard · l.190 |
-| «Error al cargar resultados por curso» | `throw (shown by whoever catches it)` | `!response.ok` | DirectivoDashboard · l.209 |
+| «Error al cargar resultados» | `throw (shown by whoever catches it)` | `!response.ok` | DirectivoDashboard · l.224 |
+| «Error al cargar resultados por curso» | `throw (shown by whoever catches it)` | `!response.ok` | DirectivoDashboard · l.244 |
 
 **Charts** (3)
 
 | Chart | Series | Shown when | Where |
 |---|---|---|---|
-| BarChart | Bar `score` (slices: one colour per data row) | `!(!hasResults) && activeTab === 'overview'` | DirectivoDashboard · l.453 |
-| RadarChart | Radar `score` «Promedio» | `!(!hasResults) && activeTab === 'overview' && radarData.length >= 3` | DirectivoDashboard · l.484 |
-| PieChart | Pie `value` (slices: one colour per data row) | `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0` | DirectivoDashboard · l.547 |
+| BarChart | Bar `score` (slices: one colour per data row) | `!(!hasResults) && activeTab === 'overview'` | DirectivoDashboard · l.553 |
+| RadarChart | Radar `score` «Promedio» | `!(!hasResults) && activeTab === 'overview' && radarData.length >= 3` | DirectivoDashboard · l.584 |
+| PieChart | Pie `value` (slices: one colour per data row) | `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0` | DirectivoDashboard · l.647 |
 
-**Moves to another page from code** (3)
+**Moves to another page from code** (5)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login` | `router.push` | `!session?.user` | checkAuth · l.144 |
-| `/` | `router.push` | `!hasPermission` | checkAuth · l.162 |
-| `/login` | `router.push` |  | handleLogout · l.242 |
+| `/login` | `router.push` | `!session?.user` | checkAuth · l.149 |
+| `/` | `router.push` | `!hasPermission` | checkAuth · l.167 |
+| `/login` | `router.push` |  | handleLogout · l.282 |
+| `/directivo/assessments/dashboard?school_id=[*]` | `router.push` |  | handleSchoolSelect · l.287 |
+| `/directivo/assessments/dashboard` | `router.push` |  | handleChangeSchool · l.291 |
 
-**Draws nothing when** (2)
+**Draws nothing when** (5)
 
 | Condition | Where |
 |---|---|
-| `!user` | DirectivoDashboard · l.184 |
-| `!user` | DirectivoDashboard · l.203 |
+| `!choosesSchool` | DirectivoDashboard · l.205 |
+| `!user` | DirectivoDashboard · l.218 |
+| `currentSchoolQuery.current !== schoolQuery` | DirectivoDashboard · l.228 |
+| `!user` | DirectivoDashboard · l.238 |
+| `currentSchoolQuery.current !== schoolQuery` | DirectivoDashboard · l.248 |
 
-**Pieces placed here, with the texts and settings handed to them** (4)
+**Pieces placed here, with the texts and settings handed to them** (6)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` |  |  |  | DirectivoDashboard · l.288 |
-| `ResponsiveFunctionalPageHeader` | title: Panel de Resultados · subtitle: Escuela |  |  | DirectivoDashboard · l.297 |
-| `CartesianGrid` | strokeDasharray: 3 3 | `!(!hasResults) && activeTab === 'overview'` |  | DirectivoDashboard · l.454 |
-| `Pie` | cx: 50% · cy: 50% | `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0` |  | DirectivoDashboard · l.548 |
+| `MainLayout` |  | `choosesSchool && !selectedSchoolId` |  | DirectivoDashboard · l.306 |
+| `ResponsiveFunctionalPageHeader` | title: Panel de Resultados · subtitle: Selecciona una escuela | `choosesSchool && !selectedSchoolId` |  | DirectivoDashboard · l.315 |
+| `MainLayout` |  |  |  | DirectivoDashboard · l.378 |
+| `ResponsiveFunctionalPageHeader` | title: Panel de Resultados · subtitle: Escuela |  |  | DirectivoDashboard · l.387 |
+| `CartesianGrid` | strokeDasharray: 3 3 | `!(!hasResults) && activeTab === 'overview'` |  | DirectivoDashboard · l.554 |
+| `Pie` | cx: 50% · cy: 50% | `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0` |  | DirectivoDashboard · l.648 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (2)
 
 | Name | Texts | Where |
 |---|---|---|
 | `AREA_COLORS` | «rgb(var(--color-serie-1, var(--color-blue-500)))», «rgb(var(--color-serie-2, var(--color-legacy-10b981)))», «rgb(var(--color-serie-3, 245 158 11))», «rgb(var(--color-serie-4, var(--color-legacy-8b5cf6)))», «rgb(var(--color-serie-5, var(--color-legacy-ec4899)))», «rgb(var(--color-serie-1, var(--color-legacy-06b6d4)))», «rgb(var(--color-serie-2, var(--color-legacy-f97316)))» | l.115 |
-| `pieData` | «Cumplen», «En desarrollo» | DirectivoDashboard · l.281 |
+| `pieData` | «Cumplen», «En desarrollo» | DirectivoDashboard · l.371 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
 |---|---|
-| «Puntuación ({props.payload.count} registros)» | DirectivoDashboard · l.460 |
+| «Puntuación ({props.payload.count} registros)» | DirectivoDashboard · l.560 |
 
-**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (2)
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (4)
 
 | Kind | What | Where |
 |---|---|---|
-| mark | `testid=results-unavailable-note` | DirectivoDashboard · l.327 |
-| mark | `testid=course-unavailable-{course.courseId}` | DirectivoDashboard · l.644 |
+| mark | `testid=results-choose-school` | DirectivoDashboard · l.324 |
+| mark | `testid=results-unavailable-note` | DirectivoDashboard · l.427 |
+| mark | `testid=course-unavailable-{course.courseId}` | DirectivoDashboard · l.744 |
+| address value | `?school_id` | l.1 |
 
 **Values shown from data** (17)
 
-- `{schoolResults?.transformationYear}` — DirectivoDashboard · l.308
-- `{Math.round(overall?.avgScore \|\| 0)} %` — DirectivoDashboard · l.395, when `!(!hasResults) && activeTab === 'overview'`
-- `{overall?.totalInstances}` — DirectivoDashboard · l.413, when `!(!hasResults) && activeTab === 'overview'`
-- `{Object.keys(areas).length}` — DirectivoDashboard · l.425, when `!(!hasResults) && activeTab === 'overview'`
-- `{coursesMetExpectations} / {scoredCourses.length}` — DirectivoDashboard · l.437, when `!(!hasResults) && activeTab === 'overview'`
-- `{Math.round(area.avgScore)} %` — DirectivoDashboard · l.521, when `!(!hasResults) && activeTab === 'overview' && each Object.values(areas)`
-- `{levelInfo.label}` — DirectivoDashboard · l.524, when `!(!hasResults) && activeTab === 'overview' && each Object.values(areas)`
-- `{course.courseName}` — DirectivoDashboard · l.579, when `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0 && each scoredCourses`
-- `( {course.gradeLevelLabel} )` — DirectivoDashboard · l.580, when `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0 && each scoredCourses`
-- `{course.generationType}` — DirectivoDashboard · l.583, when `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0 && each scoredCourses`
-- `{Math.round(course.summary.avgScore)} %` — DirectivoDashboard · l.595, when `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0 && each scoredCourses`
-- `{course.generationType}` — DirectivoDashboard · l.630, when `!(!hasResults) && activeTab === 'courses' && each courses`
-- `{course.gradeLevelLabel}` — DirectivoDashboard · l.641, when `!(!hasResults) && activeTab === 'courses' && each courses`
-- `{Math.round(course.summary.avgScore)} %` — DirectivoDashboard · l.649, when `!(!hasResults) && activeTab === 'courses' && each courses && !(isUnavailableOnly(course))`
-- `{levelInfo.label}` — DirectivoDashboard · l.652, when `!(!hasResults) && activeTab === 'courses' && each courses && !(isUnavailableOnly(course))`
-- `{areaResult.label}` — DirectivoDashboard · l.671, when `activeTab === 'courses' && each courses && Object.keys(course.byArea).length > 0 && each Object.values(course.byArea)`
-- `{Math.round(areaResult.totalScore)} %` — DirectivoDashboard · l.672, when `activeTab === 'courses' && each courses && Object.keys(course.byArea).length > 0 && each Object.values(course.byArea)`
+- `{schoolResults?.transformationYear}` — DirectivoDashboard · l.408
+- `{Math.round(overall?.avgScore \|\| 0)} %` — DirectivoDashboard · l.495, when `!(!hasResults) && activeTab === 'overview'`
+- `{overall?.totalInstances}` — DirectivoDashboard · l.513, when `!(!hasResults) && activeTab === 'overview'`
+- `{Object.keys(areas).length}` — DirectivoDashboard · l.525, when `!(!hasResults) && activeTab === 'overview'`
+- `{coursesMetExpectations} / {scoredCourses.length}` — DirectivoDashboard · l.537, when `!(!hasResults) && activeTab === 'overview'`
+- `{Math.round(area.avgScore)} %` — DirectivoDashboard · l.621, when `!(!hasResults) && activeTab === 'overview' && each Object.values(areas)`
+- `{levelInfo.label}` — DirectivoDashboard · l.624, when `!(!hasResults) && activeTab === 'overview' && each Object.values(areas)`
+- `{course.courseName}` — DirectivoDashboard · l.679, when `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0 && each scoredCourses`
+- `( {course.gradeLevelLabel} )` — DirectivoDashboard · l.680, when `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0 && each scoredCourses`
+- `{course.generationType}` — DirectivoDashboard · l.683, when `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0 && each scoredCourses`
+- `{Math.round(course.summary.avgScore)} %` — DirectivoDashboard · l.695, when `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0 && each scoredCourses`
+- `{course.generationType}` — DirectivoDashboard · l.730, when `!(!hasResults) && activeTab === 'courses' && each courses`
+- `{course.gradeLevelLabel}` — DirectivoDashboard · l.741, when `!(!hasResults) && activeTab === 'courses' && each courses`
+- `{Math.round(course.summary.avgScore)} %` — DirectivoDashboard · l.749, when `!(!hasResults) && activeTab === 'courses' && each courses && !(isUnavailableOnly(course))`
+- `{levelInfo.label}` — DirectivoDashboard · l.752, when `!(!hasResults) && activeTab === 'courses' && each courses && !(isUnavailableOnly(course))`
+- `{areaResult.label}` — DirectivoDashboard · l.771, when `activeTab === 'courses' && each courses && Object.keys(course.byArea).length > 0 && each Object.values(course.byArea)`
+- `{Math.round(areaResult.totalScore)} %` — DirectivoDashboard · l.772, when `activeTab === 'courses' && each courses && Object.keys(course.byArea).length > 0 && each Object.values(course.byArea)`
 
-**Other texts on screen** (20)
+**Other texts on screen** (21)
 
-- «Cargando...» — DirectivoDashboard · l.249, when `loading \|\| !user`
-- «Año de transformación:» — DirectivoDashboard · l.308
-- «(Nivel esperado: {schoolResults.expectedLevel.label} )» — DirectivoDashboard · l.310, when `schoolResults?.expectedLevel`
-- «Un registro completado aún no tiene resultado disponible y no se incluye en los promedios. / {schoolResults!.unavailableR…} registros completados aún no tienen resultado disponible y no se incluyen en los promedios.» — DirectivoDashboard · l.327, when `(schoolResults?.unavailableResults ?? 0) > 0`
-- «Hay registros completados, pero sus resultados todavía no están disponibles.» — DirectivoDashboard · l.343, when `!hasResults && (schoolResults?.unavailableResults ?? 0) > 0`
-- «Cuando los docentes completen sus registros, los resultados aparecerán aquí.» — DirectivoDashboard · l.352, when `!hasResults && !((schoolResults?.unavailableResults ?? 0) > 0)`
-- «Promedio General» — DirectivoDashboard · l.392, when `!(!hasResults) && activeTab === 'overview'`
-- «{overall?.levelLabel} / Por Comenzar» — DirectivoDashboard · l.398, when `!(!hasResults) && activeTab === 'overview'`
-- «Registros» — DirectivoDashboard · l.410, when `!(!hasResults) && activeTab === 'overview'`
-- «completados» — DirectivoDashboard · l.416, when `!(!hasResults) && activeTab === 'overview'`
-- «Áreas» — DirectivoDashboard · l.422, when `!(!hasResults) && activeTab === 'overview'`
-- «evaluadas» — DirectivoDashboard · l.428, when `!(!hasResults) && activeTab === 'overview'`
-- «Cumplen Expectativa» — DirectivoDashboard · l.434, when `!(!hasResults) && activeTab === 'overview'`
-- «cursos» — DirectivoDashboard · l.440, when `!(!hasResults) && activeTab === 'overview'`
-- «{area.count} eval.» — DirectivoDashboard · l.519, when `!(!hasResults) && activeTab === 'overview' && each Object.values(areas)`
-- «Generación Tractor / Generación Innova» (title) — DirectivoDashboard · l.583, when `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0 && each scoredCourses`
-- «Generación Tractor / Generación Innova» (title) — DirectivoDashboard · l.630, when `!(!hasResults) && activeTab === 'courses' && each courses`
-- «Resultado no disponible» — DirectivoDashboard · l.645, when `!(!hasResults) && activeTab === 'courses' && each courses && isUnavailableOnly(course)`
-- «{course.summary.unavailableR…} registro{course.summary.unavailableR…} completado{course.summary.unavailableR…} sin resultado disponible / Sin registros completados» — DirectivoDashboard · l.682, when `!(!hasResults) && activeTab === 'courses' && each courses && Object.keys(course.byArea).length === 0`
-- «Configure los cursos en el cuestionario transversal para ver resultados por curso.» — DirectivoDashboard · l.700, when `!(!hasResults) && activeTab === 'courses' && courses.length === 0`
+- «Cargando...» — DirectivoDashboard · l.298, when `loading \|\| !user`
+- «Elige un colegio para ver sus resultados» — DirectivoDashboard · l.325, when `choosesSchool && !selectedSchoolId`
+- «Año de transformación:» — DirectivoDashboard · l.408
+- «(Nivel esperado: {schoolResults.expectedLevel.label} )» — DirectivoDashboard · l.410, when `schoolResults?.expectedLevel`
+- «Un registro completado aún no tiene resultado disponible y no se incluye en los promedios. / {schoolResults!.unavailableR…} registros completados aún no tienen resultado disponible y no se incluyen en los promedios.» — DirectivoDashboard · l.427, when `(schoolResults?.unavailableResults ?? 0) > 0`
+- «Hay registros completados, pero sus resultados todavía no están disponibles.» — DirectivoDashboard · l.443, when `!hasResults && (schoolResults?.unavailableResults ?? 0) > 0`
+- «Cuando los docentes completen sus registros, los resultados aparecerán aquí.» — DirectivoDashboard · l.452, when `!hasResults && !((schoolResults?.unavailableResults ?? 0) > 0)`
+- «Promedio General» — DirectivoDashboard · l.492, when `!(!hasResults) && activeTab === 'overview'`
+- «{overall?.levelLabel} / Por Comenzar» — DirectivoDashboard · l.498, when `!(!hasResults) && activeTab === 'overview'`
+- «Registros» — DirectivoDashboard · l.510, when `!(!hasResults) && activeTab === 'overview'`
+- «completados» — DirectivoDashboard · l.516, when `!(!hasResults) && activeTab === 'overview'`
+- «Áreas» — DirectivoDashboard · l.522, when `!(!hasResults) && activeTab === 'overview'`
+- «evaluadas» — DirectivoDashboard · l.528, when `!(!hasResults) && activeTab === 'overview'`
+- «Cumplen Expectativa» — DirectivoDashboard · l.534, when `!(!hasResults) && activeTab === 'overview'`
+- «cursos» — DirectivoDashboard · l.540, when `!(!hasResults) && activeTab === 'overview'`
+- «{area.count} eval.» — DirectivoDashboard · l.619, when `!(!hasResults) && activeTab === 'overview' && each Object.values(areas)`
+- «Generación Tractor / Generación Innova» (title) — DirectivoDashboard · l.683, when `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0 && each scoredCourses`
+- «Generación Tractor / Generación Innova» (title) — DirectivoDashboard · l.730, when `!(!hasResults) && activeTab === 'courses' && each courses`
+- «Resultado no disponible» — DirectivoDashboard · l.745, when `!(!hasResults) && activeTab === 'courses' && each courses && isUnavailableOnly(course)`
+- «{course.summary.unavailableR…} registro{course.summary.unavailableR…} completado{course.summary.unavailableR…} sin resultado disponible / Sin registros completados» — DirectivoDashboard · l.782, when `!(!hasResults) && activeTab === 'courses' && each courses && Object.keys(course.byArea).length === 0`
+- «Configure los cursos en el cuestionario transversal para ver resultados por curso.» — DirectivoDashboard · l.800, when `!(!hasResults) && activeTab === 'courses' && courses.length === 0`
 
 **Reads and writes the database directly:** `table:profiles` (select), `table:user_roles` (select)
 
@@ -2061,8 +2075,9 @@ File `pages/directivo/assessments/dashboard.tsx` · 714 lines · frame: MainLayo
 
 | Address | Method | Called from |
 |---|---|---|
-| `/api/directivo/assessments/course-results` | GET | `pages/directivo/assessments/dashboard.tsx:206` |
-| `/api/directivo/assessments/school-results` | GET | `pages/directivo/assessments/dashboard.tsx:187` |
+| `/api/directivo/assessments/course-results` | GET | `pages/directivo/assessments/dashboard.tsx:241` |
+| `/api/directivo/assessments/school-results` | GET | `pages/directivo/assessments/dashboard.tsx:221` |
+| `/api/school/transversal-context/schools` | GET | `pages/directivo/assessments/dashboard.tsx:175` |
 
 ## /docente/assessments/[instanceId]
 
@@ -2415,13 +2430,13 @@ File `pages/docente/assessments/index.tsx` · 407 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Mi Aprendizaje › «Feedback» → `/docente/assessments` — roles: admin, consultor; the group: everyone signed in (`Sidebar.tsx` l.162)
-- Menu: Gestor de Cambio › «Mis Registros» → `/docente/assessments` — only with a registro assigned; the group: everyone signed in (`Sidebar.tsx` l.317)
+- Menu: Mi Aprendizaje › «Feedback» → `/docente/assessments` — roles: admin, consultor; the group: everyone signed in (`Sidebar.tsx` l.161)
+- Menu: Gestor de Cambio › «Mis Registros» → `/docente/assessments` — only with a registro assigned; the group: everyone signed in (`Sidebar.tsx` l.316)
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
   - l.91 `router.push → /login  (when !session?.user)`
   - l.143 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:164`, `components/layout/Sidebar.tsx:319`, `pages/docente/assessments/[instanceId]/index.tsx:43`, `pages/docente/assessments/[instanceId]/results.tsx:146`, `pages/docente/assessments/[instanceId]/results.tsx:78`
+- Linked from: `components/layout/Sidebar.tsx:163`, `components/layout/Sidebar.tsx:318`, `pages/docente/assessments/[instanceId]/index.tsx:43`, `pages/docente/assessments/[instanceId]/results.tsx:146`, `pages/docente/assessments/[instanceId]/results.tsx:78`
 - Tests: browser tests that CI runs: `tests/e2e/assessment-delivery.spec.ts`; browser tests CI skips: `tests/e2e/proc-pilot-journey.spec.ts`; unit tests of the page: `__tests__/pages/docente/assessments-list-cards.test.tsx`.
 - QA scenarios that name this address: admin 1, consultor 1, lider_generacion 1.
 
@@ -2551,18 +2566,18 @@ File `pages/docente/assessments/index.tsx` · 407 lines · frame: MainLayout
 
 ## /school/migration-plan
 
-File `pages/school/migration-plan/index.tsx` · 814 lines · frame: MainLayout
+File `pages/school/migration-plan/index.tsx` · 837 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Gestor de Cambio › «Plan de Migración» → `/school/migration-plan` — roles: admin, consultor, equipo_directivo; the group: everyone signed in (`Sidebar.tsx` l.309)
+- Menu: Gestor de Cambio › «Plan de Migración» → `/school/migration-plan` — roles: admin, consultor, equipo_directivo; the group: everyone signed in (`Sidebar.tsx` l.308)
 - Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
-  - l.75 `router.push → /login  (when !session?.user)`
-  - l.343 `router.push → /login`
-  - l.378 `No tienes permiso para acceder al Plan de Migración.`
-- Linked from: `components/layout/Sidebar.tsx:311`, `pages/school/transversal-context/index.tsx:913`, `pages/school/transversal-context/index.tsx:914`
-- Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/school/migration-plan-denied-state.test.tsx`.
+  - l.107 `router.push → /login  (when !session?.user)`
+  - l.361 `router.push → /login`
+  - l.396 `No tienes permiso para acceder al Plan de Migración.`
+- Linked from: `components/layout/Sidebar.tsx:310`, `pages/school/transversal-context/index.tsx:935`, `pages/school/transversal-context/index.tsx:936`
+- Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/school-migration-plan-defaults.test.tsx`, `__tests__/pages/school/migration-plan-denied-state.test.tsx`.
 - QA scenarios that name this address: admin 2, consultor 1, equipo_directivo 1.
 
 | Role | Sees it in the menu | Middleware |
@@ -2583,140 +2598,147 @@ File `pages/school/migration-plan/index.tsx` · 814 lines · frame: MainLayout
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Acceso Denegado» | h1 | `hasPermission === false \|\| planLoadFailed` | MigrationPlanPage · l.377 |
-| «Selecciona una Escuela» | h2 | `isAdmin && !schoolId && schools.length > 0` | MigrationPlanPage · l.410 |
-| «Sin Escuela Asignada» | h1 | `!schoolId` | MigrationPlanPage · l.442 |
-| «Proyección de Transformación» | h3 | `grades.length > 0` | MigrationPlanPage · l.526 |
-| «Planificación de Generaciones» | h3 |  | MigrationPlanPage · l.637 |
-| «Advertencia» | h3 | `hasYear5GI()` | MigrationPlanPage · l.657 |
-| «Matriz de Migración» | h2 |  | MigrationPlanPage · l.669 |
+| «Acceso Denegado» | h1 | `hasPermission === false \|\| planLoadFailed` | MigrationPlanPage · l.395 |
+| «Selecciona una Escuela» | h2 | `isAdmin && !schoolId && schools.length > 0` | MigrationPlanPage · l.428 |
+| «Sin Escuela Asignada» | h1 | `!schoolId` | MigrationPlanPage · l.460 |
+| «Proyección de Transformación» | h3 | `grades.length > 0` | MigrationPlanPage · l.544 |
+| «Planificación de Generaciones» | h3 |  | MigrationPlanPage · l.655 |
+| «Advertencia» | h3 | `hasYear5GI()` | MigrationPlanPage · l.675 |
+| «Matriz de Migración» | h2 |  | MigrationPlanPage · l.687 |
 
 **Buttons** (4)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «{school.name}» | `{() => handleSchoolSelect(school.id)}` | `isAdmin && !schoolId && schools.length > 0 && each schools` |  |  | MigrationPlanPage · l.413 |
-| «Volver a Selección de Escuelas» | `{async () => { setSchoolId(null); setSchoolName(''); setGrades([]); setEntries([…}` | `isAdmin` |  |  | MigrationPlanPage · l.487 |
-| «{genType}» · tooltip «{isLocked ? 'Este nivel es siempre GT' : `Clic para cambiar a ${isGT ? 'GI' : 'G…}» | `{() => toggleCell(year, grade.id, isLocked)}` | `each grades && each [1, 2, 3, 4, 5]` | `{isLocked}` |  | MigrationPlanPage · l.735 |
-| «Guardando... / Guardar Plan» | `{handleSave}` |  | `{saving \|\| !hasChanges}` |  | MigrationPlanPage · l.768 |
+| «{school.name}» | `{() => handleSchoolSelect(school.id)}` | `isAdmin && !schoolId && schools.length > 0 && each schools` |  |  | MigrationPlanPage · l.431 |
+| «Volver a Selección de Escuelas» | `{async () => { setSchoolId(null); setSchoolName(''); setGrades([]); setEntries([…}` | `isAdmin` |  |  | MigrationPlanPage · l.505 |
+| «{genType}» · tooltip «{isLocked ? 'Este nivel es siempre GT' : !canWritePlan ? 'Solo lectura' : `Clic …}» | `{() => toggleCell(year, grade.id, isLocked)}` | `each grades && each [1, 2, 3, 4, 5]` | `{isLocked \|\| !canWritePlan}` |  | MigrationPlanPage · l.753 |
+| «Guardando... / Guardar Plan» | `{handleSave}` | `canWritePlan` | `{!saveEnabled}` | `testid=migration-plan-save` | MigrationPlanPage · l.789 |
 
 **Links** (8)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Ir al Panel» | `/dashboard` | `hasPermission === false \|\| planLoadFailed` |  | MigrationPlanPage · l.379 |
-| «Ir al Panel» |  | `hasPermission === false \|\| planLoadFailed` |  | MigrationPlanPage · l.380 |
-| «Ir al Panel» | `/dashboard` | `!schoolId` |  | MigrationPlanPage · l.444 |
-| «Ir al Panel» |  | `!schoolId` |  | MigrationPlanPage · l.445 |
-| «Volver al Contexto Transversal» | `/school/transversal-context` | `!(isAdmin)` |  | MigrationPlanPage · l.515 |
-| «Volver al Contexto Transversal» |  | `!(isAdmin)` |  | MigrationPlanPage · l.516 |
-| «Ver Contexto Transversal» | `/school/transversal-context[*]` |  |  | MigrationPlanPage · l.621 |
-| «Ver Contexto Transversal» |  |  |  | MigrationPlanPage · l.625 |
+| «Ir al Panel» | `/dashboard` | `hasPermission === false \|\| planLoadFailed` |  | MigrationPlanPage · l.397 |
+| «Ir al Panel» |  | `hasPermission === false \|\| planLoadFailed` |  | MigrationPlanPage · l.398 |
+| «Ir al Panel» | `/dashboard` | `!schoolId` |  | MigrationPlanPage · l.462 |
+| «Ir al Panel» |  | `!schoolId` |  | MigrationPlanPage · l.463 |
+| «Volver al Contexto Transversal» | `/school/transversal-context` | `!(isAdmin)` |  | MigrationPlanPage · l.533 |
+| «Volver al Contexto Transversal» |  | `!(isAdmin)` |  | MigrationPlanPage · l.534 |
+| «Ver Contexto Transversal» | `/school/transversal-context[*]` |  |  | MigrationPlanPage · l.639 |
+| «Ver Contexto Transversal» |  |  |  | MigrationPlanPage · l.643 |
 
 **Fields** (1)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-|  | number | `min=0 max=100` |  | `grades.length > 0 && each [1, 2, 3, 4, 5]` |  | MigrationPlanPage · l.603 |
+|  | number | `min=0 max=100` |  | `grades.length > 0 && each [1, 2, 3, 4, 5]` |  | MigrationPlanPage · l.621 |
 
 **Table columns** (2)
 
 | Text | Shown when | Where |
 |---|---|---|
-| «Nivel» |  | MigrationPlanPage · l.686 |
-| «Año {year} [(Actual)]» | `each [1, 2, 3, 4, 5]` | MigrationPlanPage · l.690 |
+| «Nivel» |  | MigrationPlanPage · l.704 |
+| «Año {year} [(Actual)]» | `each [1, 2, 3, 4, 5]` | MigrationPlanPage · l.708 |
 
 **Toasts** (4)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error al cargar el plan de migración» |  | MigrationPlanPage · l.187 |
-| plain | «{data.warning}» | `data.warning` | handleSave · l.287 |
-| success | «Plan de migración guardado exitosamente» | `!(data.warning)` | handleSave · l.289 |
-| error | «Error al guardar el plan de migración» |  | handleSave · l.293 |
+| error | «Error al cargar el plan de migración» |  | MigrationPlanPage · l.220 |
+| plain | «{data.warning}» | `data.warning` | handleSave · l.303 |
+| success | «Plan de migración guardado exitosamente» | `!(data.warning)` | handleSave · l.305 |
+| error | «Error al guardar el plan de migración» |  | handleSave · l.309 |
 
 **Messages set on the page** (2)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Error al cargar el plan de migración» | `throw (shown by whoever catches it)` | `!response.ok` | MigrationPlanPage · l.175 |
-| «Error al guardar el plan de migración» | `throw (shown by whoever catches it)` | `!response.ok` | handleSave · l.280 |
+| «Error al cargar el plan de migración» | `throw (shown by whoever catches it)` | `!response.ok` | MigrationPlanPage · l.208 |
+| «Error al guardar el plan de migración» | `throw (shown by whoever catches it)` | `!response.ok` | handleSave · l.296 |
 
 **Charts** (1)
 
 | Chart | Series | Shown when | Where |
 |---|---|---|---|
-| PieChart | Pie `value` (slices: 2) | `grades.length > 0 && each [1, 2, 3, 4, 5]` | MigrationPlanPage · l.546 |
+| PieChart | Pie `value` (slices: 2) | `grades.length > 0 && each [1, 2, 3, 4, 5]` | MigrationPlanPage · l.564 |
 
 **Moves to another page from code** (4)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login` | `router.push` | `!session?.user` | checkAuth · l.75 |
-| `/login` | `router.push` |  | handleLogout · l.343 |
-| `/school/migration-plan?school_id=[*]` | `router.push` |  | handleSchoolSelect · l.348 |
-| `/school/migration-plan` | `router.push` | `isAdmin` | MigrationPlanPage · l.507 |
+| `/login` | `router.push` | `!session?.user` | checkAuth · l.107 |
+| `/login` | `router.push` |  | handleLogout · l.361 |
+| `/school/migration-plan?school_id=[*]` | `router.push` |  | handleSchoolSelect · l.366 |
+| `/school/migration-plan` | `router.push` | `isAdmin` | MigrationPlanPage · l.525 |
 
 **Draws nothing when** (1)
 
 | Condition | Where |
 |---|---|
-| `!schoolId` | MigrationPlanPage · l.166 |
+| `!schoolId` | MigrationPlanPage · l.199 |
 
 **Pieces placed here, with the texts and settings handed to them** (9)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` |  | `hasPermission === false \|\| planLoadFailed` |  | MigrationPlanPage · l.366 |
-| `MainLayout` |  | `isAdmin && !schoolId && schools.length > 0` |  | MigrationPlanPage · l.393 |
-| `ResponsiveFunctionalPageHeader` | title: Plan de Migración · subtitle: Selecciona una escuela | `isAdmin && !schoolId && schools.length > 0` |  | MigrationPlanPage · l.402 |
-| `MainLayout` |  | `!schoolId` |  | MigrationPlanPage · l.431 |
-| `MainLayout` |  |  |  | MigrationPlanPage · l.456 |
-| `ResponsiveFunctionalPageHeader` | title: Plan de Migración · subtitle: Definir generaciones por año |  |  | MigrationPlanPage · l.465 |
-| `CompletionStatusBadge` |  | `completionStatus` |  | MigrationPlanPage · l.475 |
-| `Pie` | cx: 50% · cy: 50% · innerRadius: 60% · outerRadius: 100% | `grades.length > 0 && each [1, 2, 3, 4, 5]` |  | MigrationPlanPage · l.547 |
-| `ChangeHistorySection` | feature: migration_plan | `grades.length > 0` |  | MigrationPlanPage · l.795 |
+| `MainLayout` |  | `hasPermission === false \|\| planLoadFailed` |  | MigrationPlanPage · l.384 |
+| `MainLayout` |  | `isAdmin && !schoolId && schools.length > 0` |  | MigrationPlanPage · l.411 |
+| `ResponsiveFunctionalPageHeader` | title: Plan de Migración · subtitle: Selecciona una escuela | `isAdmin && !schoolId && schools.length > 0` |  | MigrationPlanPage · l.420 |
+| `MainLayout` |  | `!schoolId` |  | MigrationPlanPage · l.449 |
+| `MainLayout` |  |  |  | MigrationPlanPage · l.474 |
+| `ResponsiveFunctionalPageHeader` | title: Plan de Migración · subtitle: Definir generaciones por año |  |  | MigrationPlanPage · l.483 |
+| `CompletionStatusBadge` |  | `completionStatus` |  | MigrationPlanPage · l.493 |
+| `Pie` | cx: 50% · cy: 50% · innerRadius: 60% · outerRadius: 100% | `grades.length > 0 && each [1, 2, 3, 4, 5]` |  | MigrationPlanPage · l.565 |
+| `ChangeHistorySection` | feature: migration_plan | `grades.length > 0` |  | MigrationPlanPage · l.818 |
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (1)
+
+| Text | Where |
+|---|---|
+| «Clic para cambiar a {isGT ? 'GI' : 'GT'}» | MigrationPlanPage · l.764 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (3)
 
 | Kind | What | Where |
 |---|---|---|
-| storage | `localStorage: rememberMe` | handleLogout · l.341 |
-| storage | `sessionStorage: sessionOnly` | handleLogout · l.342 |
+| storage | `localStorage: rememberMe` | handleLogout · l.359 |
+| storage | `sessionStorage: sessionOnly` | handleLogout · l.360 |
 | address value | `?school_id` | l.1 |
 
 **Values shown from data** (1)
 
-- `{percentage} %` — MigrationPlanPage · l.569, when `grades.length > 0 && each [1, 2, 3, 4, 5]`
+- `{percentage} %` — MigrationPlanPage · l.587, when `grades.length > 0 && each [1, 2, 3, 4, 5]`
 
-**Other texts on screen** (26)
+**Other texts on screen** (27)
 
-- «Cargando...» — MigrationPlanPage · l.357, when `loading && hasPermission !== false`
-- «No tienes permiso para acceder al Plan de Migración.» — MigrationPlanPage · l.378, when `hasPermission === false \|\| planLoadFailed`
-- «No se encontró una escuela asociada a tu cuenta.» — MigrationPlanPage · l.443, when `!schoolId`
-- «Porcentaje estimado de transformación al final de cada año» — MigrationPlanPage · l.531, when `grades.length > 0`
-- «Año {year}» — MigrationPlanPage · l.575, when `grades.length > 0 && each [1, 2, 3, 4, 5]`
-- «(Actual)» — MigrationPlanPage · l.583, when `grades.length > 0 && each [1, 2, 3, 4, 5] && isCurrentYear`
-- «GT» — MigrationPlanPage · l.594, when `grades.length > 0`
-- «= 100% transformado desde el inicio» — MigrationPlanPage · l.594, when `grades.length > 0`
-- «GI» — MigrationPlanPage · l.598, when `grades.length > 0`
-- «por año:» — MigrationPlanPage · l.598, when `grades.length > 0`
-- «Año {year} :» — MigrationPlanPage · l.602, when `grades.length > 0 && each [1, 2, 3, 4, 5]`
-- «Define qué niveles serán» — MigrationPlanPage · l.639
-- «Generación Tractor (GT)» — MigrationPlanPage · l.639
-- «y cuáles» — MigrationPlanPage · l.639
-- «Generación Innova (GI)» — MigrationPlanPage · l.639
-- «para cada año de transformación. Los niveles de Medio Menor a Segundo Básico son siempre GT y no pueden modificarse.» — MigrationPlanPage · l.639
-- «Año actual de transformación:» — MigrationPlanPage · l.644, when `transformationYear`
-- «Año» — MigrationPlanPage · l.644, when `transformationYear`
-- «El Año 5 tiene niveles marcados como GI. Se recomienda que todos los niveles sean GT en el Año 5.» — MigrationPlanPage · l.659, when `hasYear5GI()`
-- «GT» — MigrationPlanPage · l.672
-- «Generación Tractor» — MigrationPlanPage · l.673
-- «GI» — MigrationPlanPage · l.676
-- «Generación Innova» — MigrationPlanPage · l.677
-- «Siempre GT» (title) — MigrationPlanPage · l.716, when `each grades && grade.is_always_gt`
-- «Tienes cambios sin guardar» — MigrationPlanPage · l.763, when `hasChanges`
-- «Todos los cambios guardados» — MigrationPlanPage · l.765, when `!(hasChanges)`
+- «Cargando...» — MigrationPlanPage · l.375, when `loading && hasPermission !== false`
+- «No tienes permiso para acceder al Plan de Migración.» — MigrationPlanPage · l.396, when `hasPermission === false \|\| planLoadFailed`
+- «No se encontró una escuela asociada a tu cuenta.» — MigrationPlanPage · l.461, when `!schoolId`
+- «Porcentaje estimado de transformación al final de cada año» — MigrationPlanPage · l.549, when `grades.length > 0`
+- «Año {year}» — MigrationPlanPage · l.593, when `grades.length > 0 && each [1, 2, 3, 4, 5]`
+- «(Actual)» — MigrationPlanPage · l.601, when `grades.length > 0 && each [1, 2, 3, 4, 5] && isCurrentYear`
+- «GT» — MigrationPlanPage · l.612, when `grades.length > 0`
+- «= 100% transformado desde el inicio» — MigrationPlanPage · l.612, when `grades.length > 0`
+- «GI» — MigrationPlanPage · l.616, when `grades.length > 0`
+- «por año:» — MigrationPlanPage · l.616, when `grades.length > 0`
+- «Año {year} :» — MigrationPlanPage · l.620, when `grades.length > 0 && each [1, 2, 3, 4, 5]`
+- «Define qué niveles serán» — MigrationPlanPage · l.657
+- «Generación Tractor (GT)» — MigrationPlanPage · l.657
+- «y cuáles» — MigrationPlanPage · l.657
+- «Generación Innova (GI)» — MigrationPlanPage · l.657
+- «para cada año de transformación. Los niveles de Medio Menor a Segundo Básico son siempre GT y no pueden modificarse.» — MigrationPlanPage · l.657
+- «Año actual de transformación:» — MigrationPlanPage · l.662, when `transformationYear`
+- «Año» — MigrationPlanPage · l.662, when `transformationYear`
+- «El Año 5 tiene niveles marcados como GI. Se recomienda que todos los niveles sean GT en el Año 5.» — MigrationPlanPage · l.677, when `hasYear5GI()`
+- «GT» — MigrationPlanPage · l.690
+- «Generación Tractor» — MigrationPlanPage · l.691
+- «GI» — MigrationPlanPage · l.694
+- «Generación Innova» — MigrationPlanPage · l.695
+- «Siempre GT» (title) — MigrationPlanPage · l.734, when `each grades && grade.is_always_gt`
+- «Tienes cambios sin guardar» — MigrationPlanPage · l.781, when `hasChanges`
+- «Plan sin guardar: se muestra lo que el sistema aplica hoy» — MigrationPlanPage · l.783, when `!(hasChanges) && entries.length === 0`
+- «Todos los cambios guardados» — MigrationPlanPage · l.785, when `!(hasChanges) && !(entries.length === 0)`
 
 **Reads and writes the database directly:** `table:profiles` (select), `table:schools` (select), `table:user_roles` (select)
 
@@ -2725,15 +2747,16 @@ File `pages/school/migration-plan/index.tsx` · 814 lines · frame: MainLayout
 - `components/layout/FunctionalPageHeader.tsx`
 - `components/school/ChangeHistorySection.tsx`
 - `components/school/CompletionStatusBadge.tsx`
+- `lib/services/assessment-builder/migrationPlanRule.ts`
 
 ### API addresses it calls
 
 | Address | Method | Called from |
 |---|---|---|
 | `/api/school/change-history` | GET | `components/school/ChangeHistorySection.tsx:87` |
-| `/api/school/completion-status` | GET | `pages/school/migration-plan/index.tsx:197` |
-| `/api/school/migration-plan` | GET, PUT | `pages/school/migration-plan/index.tsx:171`, `pages/school/migration-plan/index.tsx:268` |
-| `/api/school/transversal-context/schools` | GET | `pages/school/migration-plan/index.tsx:145`, `pages/school/migration-plan/index.tsx:497` |
+| `/api/school/completion-status` | GET | `pages/school/migration-plan/index.tsx:230` |
+| `/api/school/migration-plan` | GET, PUT | `pages/school/migration-plan/index.tsx:204`, `pages/school/migration-plan/index.tsx:284` |
+| `/api/school/transversal-context/schools` | GET | `pages/school/migration-plan/index.tsx:178`, `pages/school/migration-plan/index.tsx:515` |
 
 ## /school/transversal-context/edit
 
@@ -2747,7 +2770,7 @@ File `pages/school/transversal-context/edit.tsx` · 1081 lines · frame: MainLay
   - l.84 `router.push → /login  (when !session?.user)`
   - l.113 `isAdmin = roles.some(r => r.role_type === 'admin')`
   - l.408 `router.push → /login`
-- Linked from: `pages/school/transversal-context/index.tsx:1362`, `pages/school/transversal-context/index.tsx:1363`, `pages/school/transversal-context/index.tsx:872`, `pages/school/transversal-context/index.tsx:873`
+- Linked from: `pages/school/transversal-context/index.tsx:1384`, `pages/school/transversal-context/index.tsx:1385`, `pages/school/transversal-context/index.tsx:894`, `pages/school/transversal-context/index.tsx:895`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/proc-pilot-journey.spec.ts`; unit tests of the page: `__tests__/pages/school/transversal-context-edit.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -2957,20 +2980,20 @@ File `pages/school/transversal-context/edit.tsx` · 1081 lines · frame: MainLay
 
 ## /school/transversal-context
 
-File `pages/school/transversal-context/index.tsx` · 1611 lines · frame: MainLayout
+File `pages/school/transversal-context/index.tsx` · 1633 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Gestor de Cambio › «Contexto Transversal» → `/school/transversal-context` — roles: admin, consultor, equipo_directivo; the group: everyone signed in (`Sidebar.tsx` l.285)
-- Menu: Vías de Transformación › «Contexto Transversal» → `/school/transversal-context` — everyone signed in; the group: admin only (`Sidebar.tsx` l.342)
+- Menu: Gestor de Cambio › «Contexto Transversal» → `/school/transversal-context` — roles: admin, consultor, equipo_directivo; the group: everyone signed in (`Sidebar.tsx` l.284)
+- Menu: Vías de Transformación › «Contexto Transversal» → `/school/transversal-context` — everyone signed in; the group: admin only (`Sidebar.tsx` l.341)
 - Middleware: signed-in only; with ?school_id= an equipo directivo only passes for its own school. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
-  - l.164 `router.push → /login  (when !session?.user)`
-  - l.194 `isAdmin = roles.some(r => r.role_type === 'admin')`
-  - l.221 `router.push → /dashboard  (when (!(isAdmin \|\| isConsultor)) && directivoRole?.school_id && parsedQuerySchoolId !== null && parsedQuerySchoolId !== effectiveSchoolId)`
-  - l.406 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:287`, `components/layout/Sidebar.tsx:344`, `middleware.ts:272`, `pages/admin/context-questions/overview.tsx:414`, `pages/admin/context-questions/overview.tsx:415`, `pages/school/migration-plan/index.tsx:515`, `pages/school/migration-plan/index.tsx:621`, `pages/school/migration-plan/index.tsx:622`, `pages/school/transversal-context/edit.tsx:1031`, `pages/school/transversal-context/edit.tsx:1032`, `pages/school/transversal-context/edit.tsx:396`, `pages/school/transversal-context/edit.tsx:979` and 1 more
-- Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/proc-pilot-journey.spec.ts`; unit tests of the page: `__tests__/pages/school/transversal-context-assign.test.tsx`, `__tests__/pages/school/transversal-context-replace.test.tsx`.
+  - l.179 `router.push → /login  (when !session?.user)`
+  - l.209 `isAdmin = roles.some(r => r.role_type === 'admin')`
+  - l.236 `router.push → /dashboard  (when (!(isAdmin \|\| isConsultor)) && directivoRole?.school_id && parsedQuerySchoolId !== null && parsedQuerySchoolId !== effectiveSchoolId)`
+  - l.428 `router.push → /login`
+- Linked from: `components/layout/Sidebar.tsx:286`, `components/layout/Sidebar.tsx:343`, `middleware.ts:272`, `pages/admin/context-questions/overview.tsx:414`, `pages/admin/context-questions/overview.tsx:415`, `pages/school/migration-plan/index.tsx:533`, `pages/school/migration-plan/index.tsx:639`, `pages/school/migration-plan/index.tsx:640`, `pages/school/transversal-context/edit.tsx:1031`, `pages/school/transversal-context/edit.tsx:1032`, `pages/school/transversal-context/edit.tsx:396`, `pages/school/transversal-context/edit.tsx:979` and 1 more
+- Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/proc-pilot-journey.spec.ts`; unit tests of the page: `__tests__/pages/school/transversal-context-assign.test.tsx`, `__tests__/pages/school/transversal-context-late-answer.test.tsx`, `__tests__/pages/school/transversal-context-replace.test.tsx`.
 - QA scenarios that name this address: admin 3, community_manager 1, consultor 2, equipo_directivo 2.
 
 | Role | Sees it in the menu | Middleware |
@@ -2991,129 +3014,129 @@ File `pages/school/transversal-context/index.tsx` · 1611 lines · frame: MainLa
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Acceso Denegado» | h1 | `hasPermission === false` | TransversalContextDashboard · l.672 |
-| «Selecciona una escuela» | h3 | `!schoolId` | TransversalContextDashboard · l.716 |
-| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'total_students'` | TransversalContextDashboard · l.941 |
-| «{q.question_text} ( {sortedGradeLevels.length} seleccionados)» | h3 | `context && each allQuestions && widgetType === 'grade_levels'` | TransversalContextDashboard · l.962 |
-| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'courses_per_level'` | TransversalContextDashboard · l.996 |
-| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'implementation_year'` | TransversalContextDashboard · l.1029 |
-| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'period_system'` | TransversalContextDashboard · l.1057 |
-| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'programa_inicia'` | TransversalContextDashboard · l.1082 |
-| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'generic'` | TransversalContextDashboard · l.1112 |
-| «Estructura de Cursos» | h3 | `courseStructure.length > 0` | TransversalContextDashboard · l.1196 |
-| «{GRADE_LEVEL_LABELS[gradeLevel as Gr…} / {gradeLevel}» | h4 | `courseStructure.length > 0 && each Object.entries(coursesByGrade)` | TransversalContextDashboard · l.1205 |
-| «Escuela sin configurar / Configure su escuela» | h3 | `!context` | TransversalContextDashboard · l.1351 |
-| «Asignar Docente» | h3 | `assignModalOpen` | TransversalContextDashboard · l.1381 |
-| «Cambiar Docente» | h3 | `replaceModalOpen` | TransversalContextDashboard · l.1494 |
+| «Acceso Denegado» | h1 | `hasPermission === false` | TransversalContextDashboard · l.694 |
+| «Selecciona una escuela» | h3 | `!schoolId` | TransversalContextDashboard · l.738 |
+| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'total_students'` | TransversalContextDashboard · l.963 |
+| «{q.question_text} ( {sortedGradeLevels.length} seleccionados)» | h3 | `context && each allQuestions && widgetType === 'grade_levels'` | TransversalContextDashboard · l.984 |
+| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'courses_per_level'` | TransversalContextDashboard · l.1018 |
+| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'implementation_year'` | TransversalContextDashboard · l.1051 |
+| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'period_system'` | TransversalContextDashboard · l.1079 |
+| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'programa_inicia'` | TransversalContextDashboard · l.1104 |
+| «{q.question_text}» | h3 | `context && each allQuestions && widgetType === 'generic'` | TransversalContextDashboard · l.1134 |
+| «Estructura de Cursos» | h3 | `courseStructure.length > 0` | TransversalContextDashboard · l.1218 |
+| «{GRADE_LEVEL_LABELS[gradeLevel as Gr…} / {gradeLevel}» | h4 | `courseStructure.length > 0 && each Object.entries(coursesByGrade)` | TransversalContextDashboard · l.1227 |
+| «Escuela sin configurar / Configure su escuela» | h3 | `!context` | TransversalContextDashboard · l.1373 |
+| «Asignar Docente» | h3 | `assignModalOpen` | TransversalContextDashboard · l.1403 |
+| «Cambiar Docente» | h3 | `replaceModalOpen` | TransversalContextDashboard · l.1516 |
 
 **Buttons** (11)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Volver a Selección de Escuelas» | `{async () => { setSchoolId(null); setSchoolName(''); setContext(null); setCourse…}` | `canSelectSchool` |  |  | TransversalContextDashboard · l.797 |
-| «[icon X]» · tooltip «Cerrar» | `{() => setAssignmentNotice(null)}` | `assignmentNotice` |  | `testid=assign-docente-warnings-dismiss` | TransversalContextDashboard · l.1156 |
-| «[icon X]» · tooltip «Cerrar» | `{() => setReplacementNotice(null)}` | `replacementNotice` |  | `testid=replace-docente-success-dismiss` | TransversalContextDashboard · l.1180 |
-| «Asignar» | `{() => openAssignModal(course)}` | `courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && canOfferAssign` |  | `testid=open-assign-docente-{course.id}` | TransversalContextDashboard · l.1245 |
-| «Cambiar docente» | `{() => openReplaceModal(course)}` | `each Object.entries(coursesByGrade) && each courses && isLocked && canReplaceDocente` |  | `testid=open-replace-docente-{course.id}` | TransversalContextDashboard · l.1284 |
-| «[icon X]» | `{closeAssignModal}` | `assignModalOpen` |  | `testid=assign-docente-close` | TransversalContextDashboard · l.1384 |
-| «Cancelar» | `{closeAssignModal}` | `assignModalOpen` |  | `testid=assign-docente-cancel` | TransversalContextDashboard · l.1459 |
-| «Asignando... / Asignar» | `{handleAssignDocente}` | `assignModalOpen` | `{!selectedDocente \|\| assigning}` | `testid=assign-docente-submit` | TransversalContextDashboard · l.1466 |
-| «[icon X]» | `{closeReplaceModal}` | `replaceModalOpen` |  | `testid=replace-docente-close` | TransversalContextDashboard · l.1497 |
-| «Cancelar» | `{closeReplaceModal}` | `replaceModalOpen` |  | `testid=replace-docente-cancel` | TransversalContextDashboard · l.1577 |
-| «Cambiando... / Cambiar docente» | `{handleReplaceDocente}` | `replaceModalOpen` | `{!selectedReplacement \|\| replacing}` | `testid=replace-docente-submit` | TransversalContextDashboard · l.1584 |
+| «Volver a Selección de Escuelas» | `{async () => { setSchoolId(null); setSchoolName(''); setContext(null); setCourse…}` | `canSelectSchool` |  |  | TransversalContextDashboard · l.819 |
+| «[icon X]» · tooltip «Cerrar» | `{() => setAssignmentNotice(null)}` | `assignmentNotice` |  | `testid=assign-docente-warnings-dismiss` | TransversalContextDashboard · l.1178 |
+| «[icon X]» · tooltip «Cerrar» | `{() => setReplacementNotice(null)}` | `replacementNotice` |  | `testid=replace-docente-success-dismiss` | TransversalContextDashboard · l.1202 |
+| «Asignar» | `{() => openAssignModal(course)}` | `courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && canOfferAssign` |  | `testid=open-assign-docente-{course.id}` | TransversalContextDashboard · l.1267 |
+| «Cambiar docente» | `{() => openReplaceModal(course)}` | `each Object.entries(coursesByGrade) && each courses && isLocked && canReplaceDocente` |  | `testid=open-replace-docente-{course.id}` | TransversalContextDashboard · l.1306 |
+| «[icon X]» | `{closeAssignModal}` | `assignModalOpen` |  | `testid=assign-docente-close` | TransversalContextDashboard · l.1406 |
+| «Cancelar» | `{closeAssignModal}` | `assignModalOpen` |  | `testid=assign-docente-cancel` | TransversalContextDashboard · l.1481 |
+| «Asignando... / Asignar» | `{handleAssignDocente}` | `assignModalOpen` | `{!selectedDocente \|\| assigning}` | `testid=assign-docente-submit` | TransversalContextDashboard · l.1488 |
+| «[icon X]» | `{closeReplaceModal}` | `replaceModalOpen` |  | `testid=replace-docente-close` | TransversalContextDashboard · l.1519 |
+| «Cancelar» | `{closeReplaceModal}` | `replaceModalOpen` |  | `testid=replace-docente-cancel` | TransversalContextDashboard · l.1599 |
+| «Cambiando... / Cambiar docente» | `{handleReplaceDocente}` | `replaceModalOpen` | `{!selectedReplacement \|\| replacing}` | `testid=replace-docente-submit` | TransversalContextDashboard · l.1606 |
 
 **Links** (8)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
-| «Ir al Panel» | `/dashboard` | `hasPermission === false` |  | TransversalContextDashboard · l.678 |
-| «Ir al Panel» |  | `hasPermission === false` |  | TransversalContextDashboard · l.679 |
-| «Editar / Completar» | `/school/transversal-context/edit[*]` | `!isReadOnlyViewer` |  | TransversalContextDashboard · l.872 |
-| «Editar / Completar» |  | `!isReadOnlyViewer` |  | TransversalContextDashboard · l.876 |
-| «Ver Plan de Migración» | `/school/migration-plan[*]` | `context` |  | TransversalContextDashboard · l.913 |
-| «Ver Plan de Migración» |  | `context` |  | TransversalContextDashboard · l.917 |
-| «Completar Cuestionario» | `/school/transversal-context/edit[*]` | `!context && !isReadOnlyViewer` |  | TransversalContextDashboard · l.1362 |
-| «Completar Cuestionario» |  | `!context && !isReadOnlyViewer` |  | TransversalContextDashboard · l.1366 |
+| «Ir al Panel» | `/dashboard` | `hasPermission === false` |  | TransversalContextDashboard · l.700 |
+| «Ir al Panel» |  | `hasPermission === false` |  | TransversalContextDashboard · l.701 |
+| «Editar / Completar» | `/school/transversal-context/edit[*]` | `!isReadOnlyViewer` |  | TransversalContextDashboard · l.894 |
+| «Editar / Completar» |  | `!isReadOnlyViewer` |  | TransversalContextDashboard · l.898 |
+| «Ver Plan de Migración» | `/school/migration-plan[*]` | `context` |  | TransversalContextDashboard · l.935 |
+| «Ver Plan de Migración» |  | `context` |  | TransversalContextDashboard · l.939 |
+| «Completar Cuestionario» | `/school/transversal-context/edit[*]` | `!context && !isReadOnlyViewer` |  | TransversalContextDashboard · l.1384 |
+| «Completar Cuestionario» |  | `!context && !isReadOnlyViewer` |  | TransversalContextDashboard · l.1388 |
 
 **Fields** (3)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-|  | select |  | «-- Seleccionar escuela --», «(lista) {school.name}» | `!schoolId && !(loadingSchools) && schools.length > 0` |  | TransversalContextDashboard · l.731 |
-| «Seleccionar Docente» | select |  | «-- Seleccionar --», «(lista) {displayName} — {roleLabels} / {displayName}» | `assignModalOpen && !(loadingDocentes) && !(availableDocentes.length === 0)` | `testid=assign-docente-select` | TransversalContextDashboard · l.1417 |
-| «Nuevo docente» | select |  | «-- Seleccionar --», «(lista) {displayName} — {roleLabels} / {displayName}» | `replaceModalOpen && !(loadingReplaceCandidates) && !(replaceCandidates.length === 0)` | `testid=replace-docente-select` | TransversalContextDashboard · l.1538 |
+|  | select |  | «-- Seleccionar escuela --», «(lista) {school.name}» | `!schoolId && !(loadingSchools) && schools.length > 0` |  | TransversalContextDashboard · l.753 |
+| «Seleccionar Docente» | select |  | «-- Seleccionar --», «(lista) {displayName} — {roleLabels} / {displayName}» | `assignModalOpen && !(loadingDocentes) && !(availableDocentes.length === 0)` | `testid=assign-docente-select` | TransversalContextDashboard · l.1439 |
+| «Nuevo docente» | select |  | «-- Seleccionar --», «(lista) {displayName} — {roleLabels} / {displayName}» | `replaceModalOpen && !(loadingReplaceCandidates) && !(replaceCandidates.length === 0)` | `testid=replace-docente-select` | TransversalContextDashboard · l.1560 |
 
 **Pop-ups** (2)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «Asignar Docente» | written in this file | `assignModalOpen` |  | TransversalContextDashboard · l.1378 |
-| «Cambiar Docente» | written in this file | `replaceModalOpen` |  | TransversalContextDashboard · l.1491 |
+| «Asignar Docente» | written in this file | `assignModalOpen` |  | TransversalContextDashboard · l.1400 |
+| «Cambiar Docente» | written in this file | `replaceModalOpen` |  | TransversalContextDashboard · l.1513 |
 
 **Toasts** (10)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error al cargar el contexto» |  | TransversalContextDashboard · l.327 |
-| error | «Error al cargar docentes» |  | openAssignModal · l.447 |
-| error | «{message}» | `!response.ok \|\| data.success !== true` | handleAssignDocente · l.505 |
-| plain | «{message} Hay advertencias que revisar.» | `warnings.length > 0` | handleAssignDocente · l.518 |
-| success | «{message}» | `!(warnings.length > 0)` | handleAssignDocente · l.521 |
-| error | «{message}» |  | handleAssignDocente · l.530 |
-| error | «Error al cargar docentes» |  | openReplaceModal · l.572 |
-| error | «{message}» | `!response.ok \|\| data.success !== true` | handleReplaceDocente · l.614 |
-| success | «{message}» |  | handleReplaceDocente · l.623 |
-| error | «{message}» |  | handleReplaceDocente · l.630 |
+| error | «Error al cargar el contexto» |  | TransversalContextDashboard · l.349 |
+| error | «Error al cargar docentes» |  | openAssignModal · l.469 |
+| error | «{message}» | `!response.ok \|\| data.success !== true` | handleAssignDocente · l.527 |
+| plain | «{message} Hay advertencias que revisar.» | `warnings.length > 0` | handleAssignDocente · l.540 |
+| success | «{message}» | `!(warnings.length > 0)` | handleAssignDocente · l.543 |
+| error | «{message}» |  | handleAssignDocente · l.552 |
+| error | «Error al cargar docentes» |  | openReplaceModal · l.594 |
+| error | «{message}» | `!response.ok \|\| data.success !== true` | handleReplaceDocente · l.636 |
+| success | «{message}» |  | handleReplaceDocente · l.645 |
+| error | «{message}» |  | handleReplaceDocente · l.652 |
 
 **Messages set on the page** (3)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Error al cargar el contexto» | `throw (shown by whoever catches it)` | `!response.ok` | TransversalContextDashboard · l.315 |
-| «Error al cargar docentes» | `throw (shown by whoever catches it)` | `!response.ok` | openAssignModal · l.429 |
-| «Error al cargar docentes» | `throw (shown by whoever catches it)` | `!response.ok` | openReplaceModal · l.563 |
+| «Error al cargar el contexto» | `throw (shown by whoever catches it)` | `!response.ok` | TransversalContextDashboard · l.337 |
+| «Error al cargar docentes» | `throw (shown by whoever catches it)` | `!response.ok` | openAssignModal · l.451 |
+| «Error al cargar docentes» | `throw (shown by whoever catches it)` | `!response.ok` | openReplaceModal · l.585 |
 
 **Moves to another page from code** (5)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `/login` | `router.push` | `!session?.user` | checkAuth · l.164 |
-| `/dashboard` | `router.push` | `(!(isAdmin \|\| isConsultor)) && directivoRole?.school_id && parsedQuerySchoolId !== null && parsedQuerySchoolId !== effectiveSchoolId` | checkAuth · l.221 |
-| `/login` | `router.push` |  | handleLogout · l.406 |
-| `/school/transversal-context?school_id=[*]` | `router.push` | `selectedId` | handleSchoolSelect · l.694 |
-| `/school/transversal-context` | `router.push` | `canSelectSchool` | TransversalContextDashboard · l.815 |
+| `/login` | `router.push` | `!session?.user` | checkAuth · l.179 |
+| `/dashboard` | `router.push` | `(!(isAdmin \|\| isConsultor)) && directivoRole?.school_id && parsedQuerySchoolId !== null && parsedQuerySchoolId !== effectiveSchoolId` | checkAuth · l.236 |
+| `/login` | `router.push` |  | handleLogout · l.428 |
+| `/school/transversal-context?school_id=[*]` | `router.push` | `selectedId` | handleSchoolSelect · l.716 |
+| `/school/transversal-context` | `router.push` | `canSelectSchool` | TransversalContextDashboard · l.837 |
 
 **Access checks in the code** (1)
 
 | Line of code | Where |
 |---|---|
-| `isAdmin = roles.some(r => r.role_type === 'admin')` | checkAuth · l.194 |
+| `isAdmin = roles.some(r => r.role_type === 'admin')` | checkAuth · l.209 |
 
 **Draws nothing when** (6)
 
 | Condition | Where |
 |---|---|
-| `selectionGenerationRef.current !== generation` | TransversalContextDashboard · l.321 |
-| `selectionGenerationRef.current !== generation` | TransversalContextDashboard · l.325 |
-| `!schoolId \|\| !hasPermission` | TransversalContextDashboard · l.344 |
-| `previousSchoolId === null \|\| previousSchoolId === schoolId` | TransversalContextDashboard · l.388 |
-| `!context.courses_per_level \|\| Object.keys(context.courses_per_level).length === 0` | TransversalContextDashboard · l.986 |
-| `isReadOnlyViewer` | TransversalContextDashboard · l.1102 |
+| `!isCurrent()` | TransversalContextDashboard · l.343 |
+| `!isCurrent()` | TransversalContextDashboard · l.347 |
+| `!schoolId \|\| !hasPermission` | TransversalContextDashboard · l.366 |
+| `previousSchoolId === null \|\| previousSchoolId === schoolId` | TransversalContextDashboard · l.410 |
+| `!context.courses_per_level \|\| Object.keys(context.courses_per_level).length === 0` | TransversalContextDashboard · l.1008 |
+| `isReadOnlyViewer` | TransversalContextDashboard · l.1124 |
 
 **Pieces placed here, with the texts and settings handed to them** (10)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `MainLayout` |  | `hasPermission === false` |  | TransversalContextDashboard · l.661 |
-| `MainLayout` |  | `!schoolId` |  | TransversalContextDashboard · l.699 |
-| `ResponsiveFunctionalPageHeader` | title: Contexto Transversal · subtitle: Selecciona una escuela | `!schoolId` |  | TransversalContextDashboard · l.708 |
-| `MainLayout` |  |  |  | TransversalContextDashboard · l.779 |
-| `ResponsiveFunctionalPageHeader` | title: Contexto Transversal · subtitle: Mi Escuela |  |  | TransversalContextDashboard · l.788 |
-| `CompletionStatusBadge` |  | `schoolId && Object.keys(completionStatus).length > 0` |  | TransversalContextDashboard · l.889 |
-| `CompletionStatusBadge` |  | `schoolId && Object.keys(completionStatus).length > 0` |  | TransversalContextDashboard · l.899 |
-| `ViaResponsiblesSection` |  | `context && schoolId` |  | TransversalContextDashboard · l.1321 |
-| `ChangeHistorySection` | feature: transversal_context | `context && schoolId && !isReadOnlyViewer` |  | TransversalContextDashboard · l.1328 |
-| `ChangeHistorySection` | feature: context_responses | `context && schoolId && !isReadOnlyViewer` |  | TransversalContextDashboard · l.1334 |
+| `MainLayout` |  | `hasPermission === false` |  | TransversalContextDashboard · l.683 |
+| `MainLayout` |  | `!schoolId` |  | TransversalContextDashboard · l.721 |
+| `ResponsiveFunctionalPageHeader` | title: Contexto Transversal · subtitle: Selecciona una escuela | `!schoolId` |  | TransversalContextDashboard · l.730 |
+| `MainLayout` |  |  |  | TransversalContextDashboard · l.801 |
+| `ResponsiveFunctionalPageHeader` | title: Contexto Transversal · subtitle: Mi Escuela |  |  | TransversalContextDashboard · l.810 |
+| `CompletionStatusBadge` |  | `schoolId && Object.keys(completionStatus).length > 0` |  | TransversalContextDashboard · l.911 |
+| `CompletionStatusBadge` |  | `schoolId && Object.keys(completionStatus).length > 0` |  | TransversalContextDashboard · l.921 |
+| `ViaResponsiblesSection` |  | `context && schoolId` |  | TransversalContextDashboard · l.1343 |
+| `ChangeHistorySection` | feature: transversal_context | `context && schoolId && !isReadOnlyViewer` |  | TransversalContextDashboard · l.1350 |
+| `ChangeHistorySection` | feature: context_responses | `context && schoolId && !isReadOnlyViewer` |  | TransversalContextDashboard · l.1356 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
@@ -3125,97 +3148,97 @@ File `pages/school/transversal-context/index.tsx` · 1611 lines · frame: MainLa
 
 | Text | Where |
 |---|---|
-| «No se pudo completar la asignación del docente» | TransversalContextDashboard · l.502 |
-| «Docente asignado correctamente» | TransversalContextDashboard · l.515 |
-| «Error al asignar docente» | TransversalContextDashboard · l.528 |
-| «Docente cambiado correctamente» | TransversalContextDashboard · l.621 |
-| «Error al cambiar docente» | TransversalContextDashboard · l.628 |
-| «Complete el cuestionario transversal para configurar su escuela» | TransversalContextDashboard · l.865 |
-| «El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. Como administrador puede completarlo ahora.» | TransversalContextDashboard · l.1358 |
-| «Complete el cuestionario transversal para configurar los datos de su escuela y habilitar los registros de transformación.» | TransversalContextDashboard · l.1359 |
+| «No se pudo completar la asignación del docente» | TransversalContextDashboard · l.524 |
+| «Docente asignado correctamente» | TransversalContextDashboard · l.537 |
+| «Error al asignar docente» | TransversalContextDashboard · l.550 |
+| «Docente cambiado correctamente» | TransversalContextDashboard · l.643 |
+| «Error al cambiar docente» | TransversalContextDashboard · l.650 |
+| «Complete el cuestionario transversal para configurar su escuela» | TransversalContextDashboard · l.887 |
+| «El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. Como administrador puede completarlo ahora.» | TransversalContextDashboard · l.1380 |
+| «Complete el cuestionario transversal para configurar los datos de su escuela y habilitar los registros de transformación.» | TransversalContextDashboard · l.1381 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (19)
 
 | Kind | What | Where |
 |---|---|---|
-| mark | `testid=access-denied` | TransversalContextDashboard · l.671 |
-| mark | `testid=school-picker-hint` | TransversalContextDashboard · l.719 |
-| role | `role=status` | TransversalContextDashboard · l.826 |
-| mark | `testid=consultor-read-only-notice` | TransversalContextDashboard · l.826 |
-| role | `role=status` | TransversalContextDashboard · l.1139 |
-| mark | `testid=assign-docente-warnings` | TransversalContextDashboard · l.1139 |
-| role | `role=status` | TransversalContextDashboard · l.1170 |
-| mark | `testid=replace-docente-success` | TransversalContextDashboard · l.1170 |
-| mark | `testid=course-card-{course.id}` | TransversalContextDashboard · l.1226 |
-| mark | `testid=course-active-assignment-{assignment.id}` | TransversalContextDashboard · l.1260 |
-| mark | `testid=course-assignment-locked-{course.id}` | TransversalContextDashboard · l.1275 |
-| role | `role=alert` | TransversalContextDashboard · l.1297 |
-| mark | `testid=course-assignment-integrity-warning-{course.id}` | TransversalContextDashboard · l.1297 |
-| role | `role=alert` | TransversalContextDashboard · l.1440 |
-| mark | `testid=assign-docente-error` | TransversalContextDashboard · l.1440 |
-| mark | `testid=replace-docente-current` | TransversalContextDashboard · l.1510 |
-| role | `role=alert` | TransversalContextDashboard · l.1561 |
-| mark | `testid=replace-docente-error` | TransversalContextDashboard · l.1561 |
+| mark | `testid=access-denied` | TransversalContextDashboard · l.693 |
+| mark | `testid=school-picker-hint` | TransversalContextDashboard · l.741 |
+| role | `role=status` | TransversalContextDashboard · l.848 |
+| mark | `testid=consultor-read-only-notice` | TransversalContextDashboard · l.848 |
+| role | `role=status` | TransversalContextDashboard · l.1161 |
+| mark | `testid=assign-docente-warnings` | TransversalContextDashboard · l.1161 |
+| role | `role=status` | TransversalContextDashboard · l.1192 |
+| mark | `testid=replace-docente-success` | TransversalContextDashboard · l.1192 |
+| mark | `testid=course-card-{course.id}` | TransversalContextDashboard · l.1248 |
+| mark | `testid=course-active-assignment-{assignment.id}` | TransversalContextDashboard · l.1282 |
+| mark | `testid=course-assignment-locked-{course.id}` | TransversalContextDashboard · l.1297 |
+| role | `role=alert` | TransversalContextDashboard · l.1319 |
+| mark | `testid=course-assignment-integrity-warning-{course.id}` | TransversalContextDashboard · l.1319 |
+| role | `role=alert` | TransversalContextDashboard · l.1462 |
+| mark | `testid=assign-docente-error` | TransversalContextDashboard · l.1462 |
+| mark | `testid=replace-docente-current` | TransversalContextDashboard · l.1532 |
+| role | `role=alert` | TransversalContextDashboard · l.1583 |
+| mark | `testid=replace-docente-error` | TransversalContextDashboard · l.1583 |
 | address value | `?school_id` | l.1 |
 
 **Values shown from data** (14)
 
-- `{GRADE_LEVEL_LABELS[level as GradeLe…} / {level}` — TransversalContextDashboard · l.967, when `context && each allQuestions && widgetType === 'grade_levels' && each sortedGradeLevels`
-- `{GRADE_LEVEL_LABELS[level as GradeLe…} / {level}` — TransversalContextDashboard · l.1004, when `context && each allQuestions && widgetType === 'courses_per_level' && each sortedGradeLevels`
-- `{count}` — TransversalContextDashboard · l.1007, when `context && each allQuestions && widgetType === 'courses_per_level' && each sortedGradeLevels`
-- `{assignmentNotice.message}` — TransversalContextDashboard · l.1149, when `assignmentNotice`
-- `{w}` — TransversalContextDashboard · l.1152, when `assignmentNotice && each assignmentNotice.warnings`
-- `{replacementNotice.message}` — TransversalContextDashboard · l.1178, when `replacementNotice`
-- `{course.course_name}` — TransversalContextDashboard · l.1239, when `courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses`
-- `{assignment.profiles?.name} / {assignment.docente_id}` — TransversalContextDashboard · l.1265, when `each Object.entries(coursesByGrade) && each courses && activeCount > 0 && each activeAssignments`
-- `{selectedCourse?.course_name}` — TransversalContextDashboard · l.1395, when `assignModalOpen`
-- `{assignError}` — TransversalContextDashboard · l.1446, when `assignModalOpen && assignError`
-- `{w}` — TransversalContextDashboard · l.1450, when `assignModalOpen && assignError && assignErrorWarnings.length > 0 && each assignErrorWarnings`
-- `{replaceCourse?.course_name}` — TransversalContextDashboard · l.1508, when `replaceModalOpen`
-- `{currentDocenteOf(replaceCourse)?.pr…} / {currentDocenteOf(replaceCourse)?.do…} / —` — TransversalContextDashboard · l.1512, when `replaceModalOpen`
-- `{replaceError.message}` — TransversalContextDashboard · l.1571, when `replaceModalOpen && replaceError`
+- `{GRADE_LEVEL_LABELS[level as GradeLe…} / {level}` — TransversalContextDashboard · l.989, when `context && each allQuestions && widgetType === 'grade_levels' && each sortedGradeLevels`
+- `{GRADE_LEVEL_LABELS[level as GradeLe…} / {level}` — TransversalContextDashboard · l.1026, when `context && each allQuestions && widgetType === 'courses_per_level' && each sortedGradeLevels`
+- `{count}` — TransversalContextDashboard · l.1029, when `context && each allQuestions && widgetType === 'courses_per_level' && each sortedGradeLevels`
+- `{assignmentNotice.message}` — TransversalContextDashboard · l.1171, when `assignmentNotice`
+- `{w}` — TransversalContextDashboard · l.1174, when `assignmentNotice && each assignmentNotice.warnings`
+- `{replacementNotice.message}` — TransversalContextDashboard · l.1200, when `replacementNotice`
+- `{course.course_name}` — TransversalContextDashboard · l.1261, when `courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses`
+- `{assignment.profiles?.name} / {assignment.docente_id}` — TransversalContextDashboard · l.1287, when `each Object.entries(coursesByGrade) && each courses && activeCount > 0 && each activeAssignments`
+- `{selectedCourse?.course_name}` — TransversalContextDashboard · l.1417, when `assignModalOpen`
+- `{assignError}` — TransversalContextDashboard · l.1468, when `assignModalOpen && assignError`
+- `{w}` — TransversalContextDashboard · l.1472, when `assignModalOpen && assignError && assignErrorWarnings.length > 0 && each assignErrorWarnings`
+- `{replaceCourse?.course_name}` — TransversalContextDashboard · l.1530, when `replaceModalOpen`
+- `{currentDocenteOf(replaceCourse)?.pr…} / {currentDocenteOf(replaceCourse)?.do…} / —` — TransversalContextDashboard · l.1534, when `replaceModalOpen`
+- `{replaceError.message}` — TransversalContextDashboard · l.1593, when `replaceModalOpen && replaceError`
 
 **Other texts on screen** (39)
 
-- «Solo directivos, consultores y administradores pueden acceder al contexto transversal.» — TransversalContextDashboard · l.676, when `hasPermission === false`
-- «Como administrador, selecciona una escuela para ver su contexto transversal. / Como consultor, selecciona una escuela para consultar su contexto transversal en modo solo lectura.» — TransversalContextDashboard · l.719, when `!schoolId`
-- «No hay escuelas disponibles» — TransversalContextDashboard · l.745, when `!schoolId && !(loadingSchools) && !(schools.length > 0)`
-- «Vista de solo lectura» — TransversalContextDashboard · l.831, when `isReadOnlyViewer`
-- «Como consultor puede consultar el contexto transversal de cualquier escuela registrada, pero no puede editarlo ni asignar o cambiar docentes.» — TransversalContextDashboard · l.833, when `isReadOnlyViewer`
-- «Contexto Estructural» — TransversalContextDashboard · l.849, when `hasCompleteContext`
-- «Última actualización: {new Date(context.updated_at).toLoca…}» — TransversalContextDashboard · l.850, when `hasCompleteContext`
-- «Cuestionario pendiente» — TransversalContextDashboard · l.859, when `!(hasCompleteContext)`
-- «El equipo directivo de esta escuela aún no ha completado el cuestionario transversal / El equipo directivo debe completar el cuestionario transversal; como administrador también puede completarlo / Complete el cuestionario transversal para…» — TransversalContextDashboard · l.860, when `!(hasCompleteContext)`
-- «Contexto Estructural» — TransversalContextDashboard · l.888, when `schoolId && Object.keys(completionStatus).length > 0`
-- «Preguntas de Contexto» — TransversalContextDashboard · l.898, when `schoolId && Object.keys(completionStatus).length > 0`
-- «{context.total_students?.toLocaleStr…} / No especificado» — TransversalContextDashboard · l.944, when `context && each allQuestions && widgetType === 'total_students'`
-- «No hay niveles seleccionados» — TransversalContextDashboard · l.975, when `context && each allQuestions && widgetType === 'grade_levels' && sortedGradeLevels.length === 0`
-- «Año {context.implementation_year_2026} / No especificado» — TransversalContextDashboard · l.1032, when `context && each allQuestions && widgetType === 'implementation_year'`
-- «[Incipiente - Primer año de transformación] [En Desarrollo - Segundo año de transformación] [Avanzado - Tercer año de transformación] [Consolidando - Cuarto año de transformación] [Consolidado - Quinto año de transformación]» — TransversalContextDashboard · l.1035, when `context && each allQuestions && widgetType === 'implementation_year'`
-- «{context.period_system} / No especificado» — TransversalContextDashboard · l.1060, when `context && each allQuestions && widgetType === 'period_system'`
-- «[2 períodos por año académico] [3 períodos por año académico]» — TransversalContextDashboard · l.1063, when `context && each allQuestions && widgetType === 'period_system'`
-- «Sí / No» — TransversalContextDashboard · l.1085, when `context && each allQuestions && widgetType === 'programa_inicia'`
-- «{context.programa_inicia_hours} horas/año» — TransversalContextDashboard · l.1089, when `context && each allQuestions && widgetType === 'programa_inicia' && context.programa_inicia_completed && context.programa_inicia_hours`
-- «Sí / No» — TransversalContextDashboard · l.1116, when `context && each allQuestions && widgetType === 'generic'`
-- «Sin respuesta» — TransversalContextDashboard · l.1117, when `context && each allQuestions && widgetType === 'generic' && (value === undefined \|\| value === null \|\| value === '')`
-- «Docente asignado con advertencias: {assignmentNotice.courseName}» — TransversalContextDashboard · l.1146, when `assignmentNotice`
-- «Docente cambiado: {replacementNotice.courseName}» — TransversalContextDashboard · l.1177, when `replacementNotice`
-- «{courseStructure.length} cursos configurados» — TransversalContextDashboard · l.1197, when `courseStructure.length > 0`
-- «Este curso ya tiene un docente asignado. Mientras el registro no haya comenzado, el equipo directivo puede cambiar el docente con «Cambiar docente»; si ya comenzó, se requiere una resolución administrativa controlada. No es posible desasignar desde esta página.» — TransversalContextDashboard · l.1279, when `courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && isLocked`
-- «Estado de asignación inválido» — TransversalContextDashboard · l.1302, when `courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && hasIntegrityConflict`
-- «Este curso registra {activeCount} docentes activos y solo debe tener uno. No es posible asignar ni desasignar desde esta página: solicite una resolución administrativa controlada para corregir la asignación de este curso.» — TransversalContextDashboard · l.1303, when `courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && hasIntegrityConflict`
-- «El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. No hay contexto que consultar por ahora. / El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. Como administrador puede…» — TransversalContextDashboard · l.1354, when `!context`
-- «Asignar docente al curso» — TransversalContextDashboard · l.1395, when `assignModalOpen`
-- «No hay docentes disponibles para asignar» — TransversalContextDashboard · l.1406, when `assignModalOpen && !(loadingDocentes) && availableDocentes.length === 0`
-- «Todos los docentes ya están asignados o no hay docentes en esta escuela» — TransversalContextDashboard · l.1409, when `assignModalOpen && !(loadingDocentes) && availableDocentes.length === 0`
-- «Seleccionar Docente» (label) — TransversalContextDashboard · l.1414, when `assignModalOpen && !(loadingDocentes) && !(availableDocentes.length === 0)`
-- «No se pudo completar la asignación» — TransversalContextDashboard · l.1445, when `assignModalOpen && assignError`
-- «Curso» — TransversalContextDashboard · l.1508, when `replaceModalOpen`
-- «Docente actual:» — TransversalContextDashboard · l.1511, when `replaceModalOpen`
-- «El cambio solo es posible mientras el registro del curso no haya comenzado y no registre respuestas. El docente anterior pierde el acceso a los registros pendientes y el nuevo docente los recibe en blanco: las respuestas nunca se transfieren.» — TransversalContextDashboard · l.1517, when `replaceModalOpen`
-- «No hay otros docentes disponibles en esta escuela» — TransversalContextDashboard · l.1530, when `replaceModalOpen && !(loadingReplaceCandidates) && replaceCandidates.length === 0`
-- «Nuevo docente» (label) — TransversalContextDashboard · l.1535, when `replaceModalOpen && !(loadingReplaceCandidates) && !(replaceCandidates.length === 0)`
-- «El registro ya comenzó / No se pudo cambiar el docente» — TransversalContextDashboard · l.1566, when `replaceModalOpen && replaceError`
+- «Solo directivos, consultores y administradores pueden acceder al contexto transversal.» — TransversalContextDashboard · l.698, when `hasPermission === false`
+- «Como administrador, selecciona una escuela para ver su contexto transversal. / Como consultor, selecciona una escuela para consultar su contexto transversal en modo solo lectura.» — TransversalContextDashboard · l.741, when `!schoolId`
+- «No hay escuelas disponibles» — TransversalContextDashboard · l.767, when `!schoolId && !(loadingSchools) && !(schools.length > 0)`
+- «Vista de solo lectura» — TransversalContextDashboard · l.853, when `isReadOnlyViewer`
+- «Como consultor puede consultar el contexto transversal de cualquier escuela registrada, pero no puede editarlo ni asignar o cambiar docentes.» — TransversalContextDashboard · l.855, when `isReadOnlyViewer`
+- «Contexto Estructural» — TransversalContextDashboard · l.871, when `hasCompleteContext`
+- «Última actualización: {new Date(context.updated_at).toLoca…}» — TransversalContextDashboard · l.872, when `hasCompleteContext`
+- «Cuestionario pendiente» — TransversalContextDashboard · l.881, when `!(hasCompleteContext)`
+- «El equipo directivo de esta escuela aún no ha completado el cuestionario transversal / El equipo directivo debe completar el cuestionario transversal; como administrador también puede completarlo / Complete el cuestionario transversal para…» — TransversalContextDashboard · l.882, when `!(hasCompleteContext)`
+- «Contexto Estructural» — TransversalContextDashboard · l.910, when `schoolId && Object.keys(completionStatus).length > 0`
+- «Preguntas de Contexto» — TransversalContextDashboard · l.920, when `schoolId && Object.keys(completionStatus).length > 0`
+- «{context.total_students?.toLocaleStr…} / No especificado» — TransversalContextDashboard · l.966, when `context && each allQuestions && widgetType === 'total_students'`
+- «No hay niveles seleccionados» — TransversalContextDashboard · l.997, when `context && each allQuestions && widgetType === 'grade_levels' && sortedGradeLevels.length === 0`
+- «Año {context.implementation_year_2026} / No especificado» — TransversalContextDashboard · l.1054, when `context && each allQuestions && widgetType === 'implementation_year'`
+- «[Incipiente - Primer año de transformación] [En Desarrollo - Segundo año de transformación] [Avanzado - Tercer año de transformación] [Consolidando - Cuarto año de transformación] [Consolidado - Quinto año de transformación]» — TransversalContextDashboard · l.1057, when `context && each allQuestions && widgetType === 'implementation_year'`
+- «{context.period_system} / No especificado» — TransversalContextDashboard · l.1082, when `context && each allQuestions && widgetType === 'period_system'`
+- «[2 períodos por año académico] [3 períodos por año académico]» — TransversalContextDashboard · l.1085, when `context && each allQuestions && widgetType === 'period_system'`
+- «Sí / No» — TransversalContextDashboard · l.1107, when `context && each allQuestions && widgetType === 'programa_inicia'`
+- «{context.programa_inicia_hours} horas/año» — TransversalContextDashboard · l.1111, when `context && each allQuestions && widgetType === 'programa_inicia' && context.programa_inicia_completed && context.programa_inicia_hours`
+- «Sí / No» — TransversalContextDashboard · l.1138, when `context && each allQuestions && widgetType === 'generic'`
+- «Sin respuesta» — TransversalContextDashboard · l.1139, when `context && each allQuestions && widgetType === 'generic' && (value === undefined \|\| value === null \|\| value === '')`
+- «Docente asignado con advertencias: {assignmentNotice.courseName}» — TransversalContextDashboard · l.1168, when `assignmentNotice`
+- «Docente cambiado: {replacementNotice.courseName}» — TransversalContextDashboard · l.1199, when `replacementNotice`
+- «{courseStructure.length} cursos configurados» — TransversalContextDashboard · l.1219, when `courseStructure.length > 0`
+- «Este curso ya tiene un docente asignado. Mientras el registro no haya comenzado, el equipo directivo puede cambiar el docente con «Cambiar docente»; si ya comenzó, se requiere una resolución administrativa controlada. No es posible desasignar desde esta página.» — TransversalContextDashboard · l.1301, when `courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && isLocked`
+- «Estado de asignación inválido» — TransversalContextDashboard · l.1324, when `courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && hasIntegrityConflict`
+- «Este curso registra {activeCount} docentes activos y solo debe tener uno. No es posible asignar ni desasignar desde esta página: solicite una resolución administrativa controlada para corregir la asignación de este curso.» — TransversalContextDashboard · l.1325, when `courseStructure.length > 0 && each Object.entries(coursesByGrade) && each courses && hasIntegrityConflict`
+- «El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. No hay contexto que consultar por ahora. / El equipo directivo de esta escuela aún no ha completado el cuestionario transversal. Como administrador puede…» — TransversalContextDashboard · l.1376, when `!context`
+- «Asignar docente al curso» — TransversalContextDashboard · l.1417, when `assignModalOpen`
+- «No hay docentes disponibles para asignar» — TransversalContextDashboard · l.1428, when `assignModalOpen && !(loadingDocentes) && availableDocentes.length === 0`
+- «Todos los docentes ya están asignados o no hay docentes en esta escuela» — TransversalContextDashboard · l.1431, when `assignModalOpen && !(loadingDocentes) && availableDocentes.length === 0`
+- «Seleccionar Docente» (label) — TransversalContextDashboard · l.1436, when `assignModalOpen && !(loadingDocentes) && !(availableDocentes.length === 0)`
+- «No se pudo completar la asignación» — TransversalContextDashboard · l.1467, when `assignModalOpen && assignError`
+- «Curso» — TransversalContextDashboard · l.1530, when `replaceModalOpen`
+- «Docente actual:» — TransversalContextDashboard · l.1533, when `replaceModalOpen`
+- «El cambio solo es posible mientras el registro del curso no haya comenzado y no registre respuestas. El docente anterior pierde el acceso a los registros pendientes y el nuevo docente los recibe en blanco: las respuestas nunca se transfieren.» — TransversalContextDashboard · l.1539, when `replaceModalOpen`
+- «No hay otros docentes disponibles en esta escuela» — TransversalContextDashboard · l.1552, when `replaceModalOpen && !(loadingReplaceCandidates) && replaceCandidates.length === 0`
+- «Nuevo docente» (label) — TransversalContextDashboard · l.1557, when `replaceModalOpen && !(loadingReplaceCandidates) && !(replaceCandidates.length === 0)`
+- «El registro ya comenzó / No se pudo cambiar el docente» — TransversalContextDashboard · l.1588, when `replaceModalOpen && replaceError`
 
 **Reads and writes the database directly:** `table:profiles` (select), `table:schools` (select), `table:user_roles` (select)
 
@@ -3233,14 +3256,14 @@ File `pages/school/transversal-context/index.tsx` · 1611 lines · frame: MainLa
 | Address | Method | Called from |
 |---|---|---|
 | `/api/school/change-history` | GET | `components/school/ChangeHistorySection.tsx:87` |
-| `/api/school/completion-status` | GET | `pages/school/transversal-context/index.tsx:360` |
-| `/api/school/transversal-context` | GET | `pages/school/transversal-context/index.tsx:313` |
-| `/api/school/transversal-context/assign-docente` | POST | `pages/school/transversal-context/index.tsx:479` |
-| `/api/school/transversal-context/custom-responses` | GET | `pages/school/transversal-context/index.tsx:359` |
-| `/api/school/transversal-context/docentes` | GET | `pages/school/transversal-context/index.tsx:422`, `pages/school/transversal-context/index.tsx:557` |
-| `/api/school/transversal-context/questions` | GET | `pages/school/transversal-context/index.tsx:349` |
-| `/api/school/transversal-context/replace-docente` | POST | `pages/school/transversal-context/index.tsx:595` |
-| `/api/school/transversal-context/schools` | GET | `pages/school/transversal-context/index.tsx:277`, `pages/school/transversal-context/index.tsx:805` |
+| `/api/school/completion-status` | GET | `pages/school/transversal-context/index.tsx:382` |
+| `/api/school/transversal-context` | GET | `pages/school/transversal-context/index.tsx:335` |
+| `/api/school/transversal-context/assign-docente` | POST | `pages/school/transversal-context/index.tsx:501` |
+| `/api/school/transversal-context/custom-responses` | GET | `pages/school/transversal-context/index.tsx:381` |
+| `/api/school/transversal-context/docentes` | GET | `pages/school/transversal-context/index.tsx:444`, `pages/school/transversal-context/index.tsx:579` |
+| `/api/school/transversal-context/questions` | GET | `pages/school/transversal-context/index.tsx:371` |
+| `/api/school/transversal-context/replace-docente` | POST | `pages/school/transversal-context/index.tsx:617` |
+| `/api/school/transversal-context/schools` | GET | `pages/school/transversal-context/index.tsx:292`, `pages/school/transversal-context/index.tsx:827` |
 | `/api/school/transversal-context/via-responsibles` | GET, POST | `components/school/ViaResponsiblesSection.tsx:111`, `components/school/ViaResponsiblesSection.tsx:84` |
 
 ## Pieces
@@ -3867,6 +3890,16 @@ Used by: `/admin/assessment-builder/[templateId]/expectations`, `/admin/assessme
 | «{value} es menor que el mínimo ({min})» | frequencyExpectationViolation · l.453 |
 | «{value} es mayor que el máximo ({max})» | frequencyExpectationViolation · l.454 |
 
+### lib/services/assessment-builder/migrationPlanRule.ts
+
+Used by: `/school/migration-plan`
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `effectiveGenerationType()` | «GT» | effectiveGenerationType · l.17 |
+
 ### lib/services/assessment-builder/responseDraft.ts
 
 Used by: `/docente/assessments/[instanceId]`
@@ -3985,7 +4018,7 @@ Used by: `/admin/context-questions`, `/admin/context-questions/overview`
 | `/api/admin/assessment-builder/templates/[templateId]` | `pages/api/admin/assessment-builder/templates/[templateId].ts` | DELETE, GET, PUT | `/admin/assessment-builder`, `/admin/assessment-builder/[templateId]` | `__tests__/api/assessment-builder/templates.test.ts`, `pages/admin/assessment-builder/[templateId]/index.tsx`, `pages/admin/assessment-builder/index.tsx`, `tests/e2e/assessment-frequency-validation.spec.ts` |
 | `/api/admin/assessment-builder/templates/[templateId]/archive` | `pages/api/admin/assessment-builder/templates/[templateId]/archive.ts` | POST | `/admin/assessment-builder`, `/admin/assessment-builder/[templateId]` | `__tests__/api/assessment-builder/archive-action.test.ts`, `__tests__/api/assessment-builder/lifecycle.test.ts`, `pages/admin/assessment-builder/[templateId]/index.tsx`, `pages/admin/assessment-builder/index.tsx` |
 | `/api/admin/assessment-builder/templates/[templateId]/demo-access` | `pages/api/admin/assessment-builder/templates/[templateId]/demo-access.ts` | DELETE, GET, POST | `/admin/assessment-builder/[templateId]` | `pages/admin/assessment-builder/[templateId]/index.tsx` |
-| `/api/admin/assessment-builder/templates/[templateId]/duplicate` | `pages/api/admin/assessment-builder/templates/[templateId]/duplicate.ts` | POST | `/admin/assessment-builder`, `/admin/assessment-builder/[templateId]` | `__tests__/api/assessment-builder/lifecycle.test.ts`, `pages/admin/assessment-builder/[templateId]/index.tsx`, `pages/admin/assessment-builder/index.tsx` |
+| `/api/admin/assessment-builder/templates/[templateId]/duplicate` | `pages/api/admin/assessment-builder/templates/[templateId]/duplicate.ts` | POST | `/admin/assessment-builder`, `/admin/assessment-builder/[templateId]` | `__tests__/api/assessment-builder/duplicate-content-columns.test.ts`, `__tests__/api/assessment-builder/duplicate-from-editor.test.ts`, `__tests__/api/assessment-builder/lifecycle.test.ts`, `pages/admin/assessment-builder/[templateId]/index.tsx`, `pages/admin/assessment-builder/index.tsx` |
 | `/api/admin/assessment-builder/templates/[templateId]/expectations/[indicatorId]` | `pages/api/admin/assessment-builder/templates/[templateId]/expectations/[indicatorId].ts` | DELETE, GET, PUT | **no screen** | `__tests__/api/assessment-builder/expectations-concurrent-rules.test.ts`, `__tests__/api/assessment-builder/expectations-level-descriptors.test.ts`, `__tests__/api/assessment-builder/expectations-put-validation.test.ts`, `__tests__/api/assessment-builder/expectations.test.ts`, `__tests__/api/assessment-builder/per-year-weights.test.ts` +1 |
 | `/api/admin/assessment-builder/templates/[templateId]/expectations` | `pages/api/admin/assessment-builder/templates/[templateId]/expectations/index.ts` | GET, PUT | `/admin/assessment-builder/[templateId]/expectations` | `__tests__/api/assessment-builder/per-year-weights.test.ts`, `pages/admin/assessment-builder/[templateId]/expectations.tsx`, `tests/e2e/assessment-builder-expectations-editor.spec.ts` |
 | `/api/admin/assessment-builder/templates/[templateId]/modules/[moduleId]` | `pages/api/admin/assessment-builder/templates/[templateId]/modules/[moduleId].ts` | DELETE, GET, PUT | `/admin/assessment-builder/[templateId]` | `__tests__/api/assessment-builder/modules.test.ts`, `pages/admin/assessment-builder/[templateId]/index.tsx` |
@@ -3994,7 +4027,7 @@ Used by: `/admin/context-questions`, `/admin/context-questions/overview`
 | `/api/admin/assessment-builder/templates/[templateId]/modules` | `pages/api/admin/assessment-builder/templates/[templateId]/modules/index.ts` | GET, POST | `/admin/assessment-builder/[templateId]` | `__tests__/api/assessment-builder/modules.test.ts`, `pages/admin/assessment-builder/[templateId]/index.tsx` |
 | `/api/admin/assessment-builder/templates/[templateId]/objectives/[objectiveId]` | `pages/api/admin/assessment-builder/templates/[templateId]/objectives/[objectiveId].ts` | DELETE, GET, PUT | `/admin/assessment-builder/[templateId]` | `__tests__/api/assessment-builder/objectives.test.ts`, `pages/admin/assessment-builder/[templateId]/index.tsx` |
 | `/api/admin/assessment-builder/templates/[templateId]/objectives` | `pages/api/admin/assessment-builder/templates/[templateId]/objectives/index.ts` | GET, POST | `/admin/assessment-builder/[templateId]` | `__tests__/api/assessment-builder/objectives.test.ts`, `pages/admin/assessment-builder/[templateId]/index.tsx` |
-| `/api/admin/assessment-builder/templates/[templateId]/publish` | `pages/api/admin/assessment-builder/templates/[templateId]/publish.ts` | POST | `/admin/assessment-builder/[templateId]` | `__tests__/api/assessment-builder/publish.test.ts`, `pages/admin/assessment-builder/[templateId]/index.tsx` |
+| `/api/admin/assessment-builder/templates/[templateId]/publish` | `pages/api/admin/assessment-builder/templates/[templateId]/publish.ts` | POST | `/admin/assessment-builder/[templateId]` | `__tests__/api/assessment-builder/publish-indicator-count.test.ts`, `__tests__/api/assessment-builder/publish-snapshot-retry.localdb.test.ts`, `__tests__/api/assessment-builder/publish.test.ts`, `pages/admin/assessment-builder/[templateId]/index.tsx` |
 | `/api/admin/assessment-builder/templates/[templateId]/snapshots/[snapshotId]` | `pages/api/admin/assessment-builder/templates/[templateId]/snapshots/[snapshotId].ts` | GET | **no screen** |  |
 | `/api/admin/assessment-builder/templates/[templateId]/versions` | `pages/api/admin/assessment-builder/templates/[templateId]/versions.ts` | GET | `/admin/assessment-builder/[templateId]` | `pages/admin/assessment-builder/[templateId]/index.tsx` |
 | `/api/admin/assessment-builder/templates` | `pages/api/admin/assessment-builder/templates/index.ts` | GET, POST | `/admin/assessment-builder`, `/admin/assessment-builder/create` | `__tests__/api/assessment-builder/templates.test.ts`, `pages/admin/assessment-builder/create.tsx`, `pages/admin/assessment-builder/index.tsx` |
@@ -4003,22 +4036,22 @@ Used by: `/admin/context-questions`, `/admin/context-questions/overview`
 | `/api/admin/context-questions/overview` | `pages/api/admin/context-questions/overview.ts` | GET | `/admin/context-questions/overview` | `pages/admin/context-questions/overview.tsx`, `tests/e2e/context-questions/api-security.spec.ts` |
 | `/api/demo/assessments/[templateId]` | `pages/api/demo/assessments/[templateId].ts` | GET | `/demo/assessments/[templateId]` | `pages/demo/assessments/[templateId]/index.tsx` |
 | `/api/demo/assessments` | `pages/api/demo/assessments/index.ts` | GET | `/demo/assessments` | `pages/demo/assessments/index.tsx` |
-| `/api/directivo/assessments/course-results` | `pages/api/directivo/assessments/course-results.ts` | GET | `/directivo/assessments/dashboard` | `__tests__/api/assessment-builder/dashboard.test.ts`, `pages/directivo/assessments/dashboard.tsx` |
-| `/api/directivo/assessments/school-results` | `pages/api/directivo/assessments/school-results.ts` | GET | `/directivo/assessments/dashboard` | `__tests__/api/assessment-builder/dashboard.test.ts`, `pages/directivo/assessments/dashboard.tsx` |
+| `/api/directivo/assessments/course-results` | `pages/api/directivo/assessments/course-results.ts` | GET | `/directivo/assessments/dashboard` | `__tests__/api/assessment-builder/dashboard.test.ts`, `__tests__/api/assessment-builder/results-school-choice.test.ts`, `__tests__/pages/directivo-dashboard-school-choice.test.tsx`, `pages/directivo/assessments/dashboard.tsx` |
+| `/api/directivo/assessments/school-results` | `pages/api/directivo/assessments/school-results.ts` | GET | `/directivo/assessments/dashboard` | `__tests__/api/assessment-builder/dashboard.test.ts`, `__tests__/api/assessment-builder/results-school-choice.test.ts`, `__tests__/api/assessment-builder/school-results-same-summary.test.ts`, `__tests__/pages/directivo-dashboard-school-choice.test.tsx`, `pages/directivo/assessments/dashboard.tsx` |
 | `/api/docente/assessments/[instanceId]` | `pages/api/docente/assessments/[instanceId]/index.ts` | GET | `/docente/assessments/[instanceId]` | `__tests__/api/assessment-builder/docente-assessments.test.ts`, `__tests__/api/assessment-builder/response-load-failure.test.ts`, `__tests__/api/docente/assessments/get-progress.test.ts`, `__tests__/pages/docente/assessment-form-autosave.test.tsx`, `__tests__/pages/docente/assessment-frequency.test.tsx` +3 |
 | `/api/docente/assessments/[instanceId]/responses` | `pages/api/docente/assessments/[instanceId]/responses.ts` | PUT | `/docente/assessments/[instanceId]` | `__tests__/api/assessment-builder/traspaso.test.ts`, `__tests__/api/docente/assessments/responses.test.ts`, `__tests__/pages/docente/assessment-form-autosave.test.tsx`, `__tests__/pages/docente/assessment-frequency.test.tsx`, `lib/services/assessment-builder/responseDraft.ts` +1 |
 | `/api/docente/assessments/[instanceId]/results` | `pages/api/docente/assessments/[instanceId]/results.ts` | GET | `/docente/assessments/[instanceId]/results` | `pages/docente/assessments/[instanceId]/results.tsx`, `tests/e2e/assessment-results.spec.ts` |
 | `/api/docente/assessments/[instanceId]/submit` | `pages/api/docente/assessments/[instanceId]/submit.ts` | POST | `/docente/assessments/[instanceId]` | `__tests__/api/docente/assessments/submit.test.ts`, `__tests__/pages/docente/assessment-form-autosave.test.tsx`, `pages/docente/assessments/[instanceId]/index.tsx`, `tests/e2e/assessment-draft.spec.ts` |
 | `/api/docente/assessments` | `pages/api/docente/assessments/index.ts` | GET | `/docente/assessments` | `__tests__/api/assessment-builder/docente-assessments.test.ts`, `__tests__/pages/docente/assessments-list-cards.test.tsx`, `pages/docente/assessments/index.tsx`, `tests/e2e/assessment-delivery.spec.ts` |
 | `/api/school/change-history` | `pages/api/school/change-history/index.ts` | GET | `/school/migration-plan`, `/school/transversal-context`, `/school/transversal-context/edit` | `__tests__/api/school/change-history.test.ts`, `__tests__/pages/school/transversal-context-assign.test.tsx`, `components/school/ChangeHistorySection.tsx` |
-| `/api/school/completion-status` | `pages/api/school/completion-status/index.ts` | GET | `/school/migration-plan`, `/school/transversal-context` | `__tests__/api/school/completion-status.test.ts`, `__tests__/pages/school/migration-plan-denied-state.test.tsx`, `__tests__/pages/school/transversal-context-assign.test.tsx`, `__tests__/pages/school/transversal-context-replace.test.tsx`, `pages/school/migration-plan/index.tsx` +1 |
+| `/api/school/completion-status` | `pages/api/school/completion-status/index.ts` | GET | `/school/migration-plan`, `/school/transversal-context` | `__tests__/api/school/completion-status.test.ts`, `__tests__/pages/school/migration-plan-denied-state.test.tsx`, `__tests__/pages/school/transversal-context-assign.test.tsx`, `__tests__/pages/school/transversal-context-late-answer.test.tsx`, `__tests__/pages/school/transversal-context-replace.test.tsx` +2 |
 | `/api/school/migration-plan` | `pages/api/school/migration-plan/index.ts` | GET, PUT | `/school/migration-plan` | `__tests__/api/school/migration-plan-assignment-auth.test.ts`, `__tests__/pages/school/migration-plan-denied-state.test.tsx`, `pages/school/migration-plan/index.tsx` |
 | `/api/school/transversal-context/assign-docente` | `pages/api/school/transversal-context/assign-docente.ts` | POST | `/school/transversal-context` | `__tests__/api/school/assign-docente.test.ts`, `__tests__/pages/school/transversal-context-assign.test.tsx`, `pages/school/transversal-context/index.tsx` |
-| `/api/school/transversal-context/custom-responses` | `pages/api/school/transversal-context/custom-responses.ts` | GET, POST | `/school/transversal-context`, `/school/transversal-context/edit` | `__tests__/api/school/audit-logging.test.ts`, `__tests__/api/school/custom-responses.test.ts`, `__tests__/pages/school/transversal-context-assign.test.tsx`, `__tests__/pages/school/transversal-context-edit.test.tsx`, `__tests__/pages/school/transversal-context-replace.test.tsx` +3 |
+| `/api/school/transversal-context/custom-responses` | `pages/api/school/transversal-context/custom-responses.ts` | GET, POST | `/school/transversal-context`, `/school/transversal-context/edit` | `__tests__/api/school/audit-logging.test.ts`, `__tests__/api/school/custom-responses.test.ts`, `__tests__/pages/school/transversal-context-assign.test.tsx`, `__tests__/pages/school/transversal-context-edit.test.tsx`, `__tests__/pages/school/transversal-context-late-answer.test.tsx` +4 |
 | `/api/school/transversal-context/docentes` | `pages/api/school/transversal-context/docentes.ts` | GET | `/school/transversal-context` | `__tests__/api/school/transversal-context-docentes.test.ts`, `__tests__/pages/school/transversal-context-assign.test.tsx`, `__tests__/pages/school/transversal-context-replace.test.tsx`, `pages/school/transversal-context/index.tsx` |
-| `/api/school/transversal-context` | `pages/api/school/transversal-context/index.ts` | GET, POST | `/school/transversal-context`, `/school/transversal-context/edit` | `__tests__/api/school/custom-responses.test.ts`, `__tests__/api/school/transversal-context-index.test.ts`, `__tests__/pages/school/transversal-context-assign.test.tsx`, `__tests__/pages/school/transversal-context-edit.test.tsx`, `__tests__/pages/school/transversal-context-replace.test.tsx` +2 |
-| `/api/school/transversal-context/questions` | `pages/api/school/transversal-context/questions.ts` | GET | `/school/transversal-context`, `/school/transversal-context/edit` | `__tests__/pages/school/transversal-context-assign.test.tsx`, `__tests__/pages/school/transversal-context-edit.test.tsx`, `__tests__/pages/school/transversal-context-replace.test.tsx`, `pages/school/transversal-context/edit.tsx`, `pages/school/transversal-context/index.tsx` +1 |
+| `/api/school/transversal-context` | `pages/api/school/transversal-context/index.ts` | GET, POST | `/school/transversal-context`, `/school/transversal-context/edit` | `__tests__/api/school/custom-responses.test.ts`, `__tests__/api/school/transversal-context-index.test.ts`, `__tests__/pages/school/transversal-context-assign.test.tsx`, `__tests__/pages/school/transversal-context-edit.test.tsx`, `__tests__/pages/school/transversal-context-late-answer.test.tsx` +3 |
+| `/api/school/transversal-context/questions` | `pages/api/school/transversal-context/questions.ts` | GET | `/school/transversal-context`, `/school/transversal-context/edit` | `__tests__/pages/school/transversal-context-assign.test.tsx`, `__tests__/pages/school/transversal-context-edit.test.tsx`, `__tests__/pages/school/transversal-context-late-answer.test.tsx`, `__tests__/pages/school/transversal-context-replace.test.tsx`, `pages/school/transversal-context/edit.tsx` +2 |
 | `/api/school/transversal-context/replace-docente` | `pages/api/school/transversal-context/replace-docente.ts` | POST | `/school/transversal-context` | `__tests__/api/school/replace-docente.test.ts`, `__tests__/pages/school/transversal-context-assign.test.tsx`, `__tests__/pages/school/transversal-context-replace.test.tsx`, `pages/school/transversal-context/index.tsx` |
-| `/api/school/transversal-context/schools` | `pages/api/school/transversal-context/schools.ts` | GET | `/school/migration-plan`, `/school/transversal-context` | `__tests__/api/school/transversal-context-schools.test.ts`, `__tests__/pages/school/migration-plan-denied-state.test.tsx`, `__tests__/pages/school/transversal-context-assign.test.tsx`, `pages/school/migration-plan/index.tsx`, `pages/school/transversal-context/index.tsx` |
+| `/api/school/transversal-context/schools` | `pages/api/school/transversal-context/schools.ts` | GET | `/directivo/assessments/dashboard`, `/school/migration-plan`, `/school/transversal-context` | `__tests__/api/school/transversal-context-schools.test.ts`, `__tests__/pages/directivo-dashboard-school-choice.test.tsx`, `__tests__/pages/school/migration-plan-denied-state.test.tsx`, `__tests__/pages/school/transversal-context-assign.test.tsx`, `pages/directivo/assessments/dashboard.tsx` +2 |
 | `/api/school/transversal-context/via-responsibles` | `pages/api/school/transversal-context/via-responsibles.ts` | GET, POST | `/school/transversal-context` | `__tests__/api/school/via-responsibles-sanitize.test.ts`, `__tests__/api/school/via-responsibles.test.ts`, `components/school/ViaResponsiblesSection.tsx` |
 

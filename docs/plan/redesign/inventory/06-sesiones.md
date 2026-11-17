@@ -1,7 +1,7 @@
 # Sesiones y consultorías (sessions, approvals, video meetings)
 
 Area `06-sesiones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `3ff6aa13f` (2026-11-17).
+Read from commit `9b113df42` (2026-11-17).
 
 11 screen files, 34 API files, 31 pieces.
 
@@ -27,7 +27,7 @@ File `pages/admin/bulk-tag-sessions.tsx` · 467 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Consultorías › «Clasificar Sesiones» → `/admin/bulk-tag-sessions` — admin only; the group: admin or consultor (`Sidebar.tsx` l.533)
+- Menu: Consultorías › «Clasificar Sesiones» → `/admin/bulk-tag-sessions` — admin only; the group: admin or consultor (`Sidebar.tsx` l.532)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.104 `router.push → /login  (when !session?.user)`
@@ -35,7 +35,7 @@ File `pages/admin/bulk-tag-sessions.tsx` · 467 lines · frame: MainLayout
   - l.111 `router.push → /dashboard  (when role !== 'admin')`
   - l.116 `router.push → /login`
   - l.157 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:535`
+- Linked from: `components/layout/Sidebar.tsx:534`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 2, consultor 1, equipo_directivo 2.
 
@@ -175,7 +175,7 @@ File `pages/admin/consultant-assignments.tsx` · 605 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Consultorías › «Asignación de Consultores» → `/admin/consultant-assignments` — admin only; permission: assign_consultants_all; the group: admin or consultor (`Sidebar.tsx` l.478)
+- Menu: Consultorías › «Asignación de Consultores» → `/admin/consultant-assignments` — admin only; permission: assign_consultants_all; the group: admin or consultor (`Sidebar.tsx` l.477)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.110 `router.push → /login  (when !session?.user)`
@@ -183,7 +183,7 @@ File `pages/admin/consultant-assignments.tsx` · 605 lines · frame: MainLayout
   - l.127 `router.push → /dashboard  (when profileData && !isAdminUser)`
   - l.137 `router.push → /login`
   - l.147 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:480`, `middleware.ts:223`
+- Linked from: `components/layout/Sidebar.tsx:479`, `middleware.ts:223`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 3, community_manager 2, consultor 2, equipo_directivo 1, lider_generacion 1, supervisor_de_red 1.
 
@@ -653,7 +653,7 @@ File `pages/admin/sessions/approvals.tsx` · 487 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Consultorías › «Aprobaciones» → `/admin/sessions/approvals` — admin only; the group: admin or consultor (`Sidebar.tsx` l.501)
+- Menu: Consultorías › «Aprobaciones» → `/admin/sessions/approvals` — admin only; the group: admin or consultor (`Sidebar.tsx` l.500)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.64 `router.push → /login  (when !session?.user)`
@@ -661,7 +661,7 @@ File `pages/admin/sessions/approvals.tsx` · 487 lines · frame: MainLayout
   - l.74 `router.push → /dashboard  (when !isAdminUser)`
   - l.79 `router.push → /login`
   - l.117 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:503`, `lib/notificationEvents.ts:552`, `lib/notifications/catalog.ts:354`
+- Linked from: `components/layout/Sidebar.tsx:502`, `lib/notificationEvents.ts:552`, `lib/notifications/catalog.ts:354`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 6, consultor 2, lider_comunidad 1, director 1, supervisor 1, docente 1.
 
@@ -1079,7 +1079,7 @@ File `pages/admin/sessions/index.tsx` · 1175 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Consultorías › «Sesiones» → `/admin/sessions` — admin only; the group: admin or consultor (`Sidebar.tsx` l.493)
+- Menu: Consultorías › «Sesiones» → `/admin/sessions` — admin only; the group: admin or consultor (`Sidebar.tsx` l.492)
 - Middleware: the /admin rule. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.162 `router.push → /login  (when !session?.user)`
@@ -1087,7 +1087,7 @@ File `pages/admin/sessions/index.tsx` · 1175 lines · frame: MainLayout
   - l.172 `router.push → /dashboard  (when !isAdminUser)`
   - l.177 `router.push → /login`
   - l.403 `router.push → /login`
-- Linked from: `components/layout/Sidebar.tsx:495`, `pages/admin/sessions/create.tsx:601`, `pages/admin/sessions/create.tsx:698`
+- Linked from: `components/layout/Sidebar.tsx:494`, `pages/admin/sessions/create.tsx:601`, `pages/admin/sessions/create.tsx:698`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 5, consultor 4, lider_comunidad 6, director 1, supervisor 1, docente 1.
 
@@ -1688,7 +1688,7 @@ File `pages/consultor/sessions/index.tsx` · 557 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Mi Trabajo › «Mis Sesiones» → `/consultor/sessions` — admin or consultor; the group: admin or consultor (`Sidebar.tsx` l.179)
+- Menu: Mi Trabajo › «Mis Sesiones» → `/consultor/sessions` — admin or consultor; the group: admin or consultor (`Sidebar.tsx` l.178)
 - Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.137 `router.push → /login  (when !session?.user)`
@@ -1696,7 +1696,7 @@ File `pages/consultor/sessions/index.tsx` · 557 lines · frame: MainLayout
   - l.147 `router.push → /dashboard  (when !allowed)`
   - l.152 `router.push → /login`
   - l.211 `router.push → /login`
-- Linked from: `components/dashboard/unified/UpcomingSessionsCard.tsx:81`, `components/layout/Sidebar.tsx:181`, `lib/notificationEvents.ts:480`, `lib/notificationEvents.ts:517`, `lib/notificationEvents.ts:535`, `lib/notificationEvents.ts:568`, `lib/notificationEvents.ts:582`, `lib/notificationEvents.ts:597`, `lib/notificationEvents.ts:611`, `lib/notifications/catalog.ts:182`, `lib/notifications/catalog.ts:230`
+- Linked from: `components/dashboard/unified/UpcomingSessionsCard.tsx:81`, `components/layout/Sidebar.tsx:180`, `lib/notificationEvents.ts:480`, `lib/notificationEvents.ts:517`, `lib/notificationEvents.ts:535`, `lib/notificationEvents.ts:568`, `lib/notificationEvents.ts:582`, `lib/notificationEvents.ts:597`, `lib/notificationEvents.ts:611`, `lib/notifications/catalog.ts:182`, `lib/notifications/catalog.ts:230`
 - Tests: no browser test that CI runs; unit tests of the page: `__tests__/pages/consultor/sessions/list.test.tsx`.
 - QA scenarios that name this address: consultor 8, lider_comunidad 3, director 1, supervisor 1, docente 1.
 
@@ -1898,8 +1898,8 @@ File `pages/consultor/sessions/reports.tsx` · 890 lines · frame: MainLayout
 
 ### Who reaches it
 
-- Menu: Mi Trabajo › «Mis Reportes» → `/consultor/sessions/reports` — admin or consultor; the group: admin or consultor (`Sidebar.tsx` l.187)
-- Menu: Consultorías › «Reportes» → `/consultor/sessions/reports` — admin only; the group: admin or consultor (`Sidebar.tsx` l.509)
+- Menu: Mi Trabajo › «Mis Reportes» → `/consultor/sessions/reports` — admin or consultor; the group: admin or consultor (`Sidebar.tsx` l.186)
+- Menu: Consultorías › «Reportes» → `/consultor/sessions/reports` — admin only; the group: admin or consultor (`Sidebar.tsx` l.508)
 - Middleware: signed-in only. Signed-out visitor: sent to /login. Forced password change holds this page: yes.
 - In the page:
   - l.273 `router.push → /login  (when !session?.user)`
@@ -1907,7 +1907,7 @@ File `pages/consultor/sessions/reports.tsx` · 890 lines · frame: MainLayout
   - l.279 `router.push → /dashboard  (when !role \|\| !['admin', 'consultor'].includes(role))`
   - l.339 `isAdmin = userRole === 'admin'`
   - l.380 `router.push → /dashboard  (when error)`
-- Linked from: `components/layout/Sidebar.tsx:189`, `components/layout/Sidebar.tsx:511`, `lib/notifications/catalog.ts:182`
+- Linked from: `components/layout/Sidebar.tsx:188`, `components/layout/Sidebar.tsx:510`, `lib/notifications/catalog.ts:182`
 - Tests: no browser test that CI runs.
 - QA scenarios that name this address: admin 5, community_manager 1, consultor 7, equipo_directivo 6, lider_comunidad 2, lider_generacion 3, supervisor_de_red 6.
 

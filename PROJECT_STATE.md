@@ -1,3 +1,12 @@
+## RD-5b — platform redesign, step 5b: the new frame, behind the switch (2026-11-17, built and proven locally, not pushed)
+
+Branch `feat/rd-frame` on main (RD-5a). Record and reviewer notes: `docs/planning/reviews/fase-rd-5b-review-request.md`.
+
+- **What changed:** an account with the new look chosen gets a new frame around every platform screen: a black sidebar, a white top bar with the path of links, the school, the bell and the avatar, the page's title under it, a one-line footer (`components/layout/SidebarNuevo.tsx`, `TopBarNuevo.tsx`, `FooterNuevo.tsx`, chosen in `MainLayout.tsx`). With the switch off the frame is today's, unchanged.
+- **One menu, two frames:** `Sidebar.tsx` is still one component; both frames draw `NAVIGATION_ITEMS` through the same code (`components/layout/useSidebarItem.ts`).
+- **Rules that hold from now on:** a menu entry, its visibility or its target is changed in ONE place and both frames follow (`__tests__/components/layout/Sidebar.sameMenu.test.tsx` fails if they differ); today's frame is pinned by digests (`frame.clasico.test.tsx`): re-accept them only for a change that is meant to reach accounts with the switch off; the new frame's layers are the constant `FRAME_LAYERS`.
+- **Proof:** stylesheet equivalent with the switch off; pictures of every screen for every role identical to 5a's; the two frames show the same landing page, menu, headings and text for every role; an independent code read; a test by sight in a real browser; CI's browser list run locally.
+
 ## RD-5a — platform redesign, step 5a: the new look's values, behind the switch (2026-11-17, built and proven locally, not pushed)
 
 Branch `feat/rd-look` on main. Record and reviewer notes: `docs/planning/reviews/fase-rd-5a-review-request.md`; the values and rules: `docs/plan/redesign/tokens.md`, "The new look's values".

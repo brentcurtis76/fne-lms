@@ -1,7 +1,7 @@
 # Acceso (sign-in, sign-up, passwords)
 
 Area `01-acceso`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `007807e90` (2026-11-16).
+Read from commit `3ff6aa13f` (2026-11-17).
 
 7 screen files, 13 API files, 7 pieces.
 
@@ -79,7 +79,7 @@ File `pages/change-password.tsx` · 385 lines · frame: none
   - l.120 `router.push → /login`
   - l.192 `router.push → /login`
   - l.236 `router.replace → /dashboard  (when verificationUnavailable)`
-- Linked from: `components/DynamicFavicon.tsx:16`, `lib/auth/forced-password-change.ts:34`, `pages/dashboard.tsx:325`, `pages/login.tsx:127`
+- Linked from: `components/DynamicFavicon.tsx:16`, `lib/auth/forced-password-change.ts:34`, `lib/look.ts:96`, `pages/dashboard.tsx:325`, `pages/login.tsx:127`
 - Tests: no browser test that CI runs; unit tests of the page: `__tests__/components/ChangePasswordPage.forcedCompletion.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -189,7 +189,7 @@ File `pages/login.tsx` · 627 lines · frame: none
 - Menu: no entry.
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page: no access check found by the script.
-- Linked from: `components/DynamicFavicon.tsx:13`, `components/Footer.tsx:122`, `components/auth/AuthWrapper.tsx:133`, `components/auth/AuthWrapper.tsx:19`, `components/auth/ProtectedRoute.tsx:31`, `components/layout/Header.tsx:96`, `components/layout/MainLayout.tsx:294`, `components/qa/QAFloatingWidget.tsx:137`, `components/qa/QAFloatingWidget.tsx:832`, `components/sessions/JoinMeetingButton.tsx:377`, `components/site/Puertas.tsx:66`, `components/site/SiteLayout.tsx:129` and 255 more
+- Linked from: `components/DynamicFavicon.tsx:13`, `components/Footer.tsx:122`, `components/auth/AuthWrapper.tsx:133`, `components/auth/AuthWrapper.tsx:19`, `components/auth/ProtectedRoute.tsx:31`, `components/layout/Header.tsx:96`, `components/layout/MainLayout.tsx:294`, `components/qa/QAFloatingWidget.tsx:137`, `components/qa/QAFloatingWidget.tsx:832`, `components/sessions/JoinMeetingButton.tsx:377`, `components/site/Puertas.tsx:66`, `components/site/SiteLayout.tsx:129` and 256 more
 - Tests: browser tests that CI runs: `tests/e2e/auth-cookie-identity.spec.ts`, `tests/e2e/auth-lifecycle.spec.ts`, `tests/e2e/login-resilience.spec.ts`, `tests/e2e/look-switch.spec.ts`, `tests/e2e/notification-preferences-api.spec.ts`, `tests/e2e/notification-settings.spec.ts`, `tests/e2e/pasantias-leads-admin.spec.ts`, `tests/e2e/smoke.spec.ts`; browser tests CI skips: `tests/e2e/assessment-frequency-validation.spec.ts`, `tests/e2e/context-questions/admin-ui.spec.ts`, `tests/e2e/due-reminders.spec.ts`, `tests/e2e/feedback-notify-admins.spec.ts`, `tests/e2e/flows/proposal-admin-visibility.spec.ts`, `tests/e2e/flows/proposal-buckets.spec.ts`, `tests/e2e/flows/proposal-config.spec.ts`, `tests/e2e/flows/proposal-consultant-crud.spec.ts`, `tests/e2e/flows/proposal-document-library.spec.ts`, `tests/e2e/flows/proposal-versioning.spec.ts`, `tests/e2e/meeting-agreements-tasks.spec.ts`, `tests/e2e/meeting-finalize-email-outcome.spec.ts`, `tests/e2e/messaging-notifications.spec.ts`, `tests/e2e/notification-bounce.spec.ts`, `tests/e2e/notification-catalog-links.spec.ts`, `tests/e2e/notification-dispatch.spec.ts`, `tests/e2e/notification-insert-boundary.spec.ts`, `tests/e2e/notification-mail-mirror.spec.ts`, `tests/e2e/notification-occurrence-idempotency.spec.ts`, `tests/e2e/notification-preference-compat.spec.ts`, `tests/e2e/proc-pilot-journey.spec.ts`, `tests/e2e/reservation.spec.ts`, `tests/e2e/sentry-replay-disabled.spec.ts`, `tests/e2e/session-reminders.spec.ts`, `tests/qa/auth-redirects.spec.ts`, `tests/qa/mobile-sidebar.spec.ts`, `tests/qa/qa-system.spec.ts`; unit tests of the page: `__tests__/components/LoginPage.passwordRecovery.test.tsx`, `__tests__/components/LoginPage.sessionProvider.test.tsx`, `__tests__/components/LoginPage.signIn.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -369,7 +369,7 @@ File `pages/pending-approval.tsx` · 172 lines · frame: old Header
   - l.20 `router.push → /login  (when !session?.user)`
   - l.37 `router.push → /dashboard  (when profileData?.approval_status === 'approved')`
   - l.54 `router.push → /login`
-- Linked from: `components/auth/ProtectedRoute.tsx:37`, `lib/frontend-auth-utils.ts:143`, `lib/frontend-auth-utils.ts:149`, `pages/profile.tsx:460`
+- Linked from: `components/auth/ProtectedRoute.tsx:37`, `lib/frontend-auth-utils.ts:143`, `lib/frontend-auth-utils.ts:149`, `lib/look.ts:97`, `pages/profile.tsx:460`
 - Tests: no browser test that CI runs.
 
 | Role | Sees it in the menu | Middleware |
@@ -461,7 +461,7 @@ File `pages/registro-tractor.tsx` · 534 lines · frame: none · getServerSidePr
 - Menu: no entry.
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page: no access check found by the script.
-- Linked from: nothing in the code (reached by typing the address, or from outside)
+- Linked from: `lib/look.ts:100`
 - Tests: no browser test that CI runs.
 
 | Role | Sees it in the menu | Middleware |
@@ -617,7 +617,7 @@ File `pages/registro.tsx` · 627 lines · frame: none · getServerSideProps
 - Menu: no entry.
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page: no access check found by the script.
-- Linked from: nothing in the code (reached by typing the address, or from outside)
+- Linked from: `lib/look.ts:99`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/registro.spec.ts`; unit tests of the page: `__tests__/components/RegistroPage.generation.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
@@ -779,7 +779,7 @@ File `pages/reset-password.tsx` · 735 lines · frame: none
   - l.391 `router.push → /login`
   - l.463 `router.push → /login  (when phase === 'invalid')`
   - l.680 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:15`, `pages/login.tsx:134`
+- Linked from: `components/DynamicFavicon.tsx:15`, `lib/look.ts:95`, `pages/login.tsx:134`
 - Tests: browser tests that CI runs: `tests/e2e/auth-lifecycle.spec.ts`; unit tests of the page: `__tests__/components/ResetPasswordPage.recoveryProof.test.tsx`, `__tests__/security/auth-endpoint-localization.test.ts`.
 
 | Role | Sees it in the menu | Middleware |

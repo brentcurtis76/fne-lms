@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "007807e90467f7aa64736d0a234ad0d7009cfc83",
-  "date": "2026-11-16T16:10:07-03:00"
+  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
+  "date": "2026-11-17T05:46:26-03:00"
  },
  "screens": [
   {
@@ -7801,6 +7801,16 @@
    },
    "rows": [
     {
+     "kind": "list",
+     "line": 133,
+     "text": "MODALITY_COLORS",
+     "items": [
+      "rgb(var(--color-serie-1, var(--color-blue-500)))",
+      "rgb(var(--color-serie-2, var(--color-legacy-10b981)))",
+      "rgb(var(--color-serie-3, 245 158 11))"
+     ]
+    },
+    {
      "kind": "value",
      "line": 158,
      "in": "KPICard",
@@ -8507,14 +8517,14 @@
        "tag": "Bar",
        "dataKey": "total",
        "name": "Total",
-       "fill": "rgb(var(--color-blue-500))",
+       "fill": "rgb(var(--color-serie-1, var(--color-blue-500)))",
        "mapped": false
       },
       {
        "tag": "Bar",
        "dataKey": "completed",
        "name": "Completadas",
-       "fill": "rgb(var(--color-legacy-10b981))",
+       "fill": "rgb(var(--color-serie-2, var(--color-legacy-10b981)))",
        "mapped": false
       }
      ]
@@ -12950,11 +12960,11 @@
    "usedBy": [
     "/consultor/sessions/reports"
    ],
-   "lines": 25,
+   "lines": 29,
    "rows": [
     {
      "kind": "message",
-     "line": 15,
+     "line": 19,
      "in": "alphaFromHex",
      "when": "!TWO_HEX.test(hh)",
      "text": "withAlpha expects two hex characters, got \"{hh}\"",
@@ -12962,11 +12972,11 @@
     },
     {
      "kind": "list",
-     "line": 22,
+     "line": 26,
      "in": "withAlpha",
      "text": "withAlpha()",
      "items": [
-      "rgb(var({named[1]}) / {alpha})"
+      "rgb({named[1]} / {alpha})"
      ]
     }
    ],

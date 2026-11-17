@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "007807e90467f7aa64736d0a234ad0d7009cfc83",
-  "date": "2026-11-16T16:10:07-03:00"
+  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
+  "date": "2026-11-17T05:46:26-03:00"
  },
  "screens": [
   {
@@ -7769,7 +7769,8 @@
     "linkedFrom": [
      "components/licitaciones/ProposalConfigPanel.tsx:1632",
      "components/licitaciones/ProposalConfigPanel.tsx:1652",
-     "components/licitaciones/ProposalConfigPanel.tsx:1653"
+     "components/licitaciones/ProposalConfigPanel.tsx:1653",
+     "lib/look.ts:113"
     ],
     "qaScenarios": {},
     "tests": {
@@ -14564,6 +14565,7 @@
    "referencedIn": [
     "__tests__/api/licitaciones/licitaciones-historico.test.ts",
     "__tests__/api/licitaciones/licitaciones-index.test.ts",
+    "__tests__/api/licitaciones/patch-encargado-school.test.ts",
     "__tests__/api/licitaciones/publicacion.test.ts",
     "pages/contracts.tsx",
     "pages/licitaciones/[id].tsx",

@@ -6,6 +6,8 @@
    this import must stay: without it those classes have no value (pinned by
    __tests__/styles/brand-tokens.test.ts). */
 @import './fne-tokens.css';
+/* The new look's values (redesign 5a): only under `[data-look="nuevo"]`; must come after the tokens. */
+@import './look-nuevo.css';
 
 /* Mont (Fontfabric) — the Genera brand typeface. Full weight range used across the
    brand surfaces (e.g. the Líderes Generación Tractor registration page). */

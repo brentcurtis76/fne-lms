@@ -1,9 +1,9 @@
 # Horas, tarifas y gastos
 
 Area `17-horas-gastos`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `007807e90` (2026-11-16).
+Read from commit `3ff6aa13f` (2026-11-17).
 
-4 screen files, 9 API files, 15 pieces.
+4 screen files, 10 API files, 15 pieces.
 
 ## Screens
 
@@ -403,6 +403,7 @@ File `pages/expense-reports.tsx` · 778 lines · frame: MainLayout
 |---|---|---|
 | `/api/bots/link-code` | POST | `pages/expense-reports.tsx:88` |
 | `/api/expense-reports/[id]/notify` | POST | `pages/expense-reports.tsx:228` |
+| `/api/expense-reports/receipt-link` | ? | `components/expenses/ExpenseReportDetails.tsx:111`, `components/expenses/ExpenseReportForm.tsx:707` |
 
 ## /mis-horas
 
@@ -632,128 +633,128 @@ Used by: `/expense-reports`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «{report.report_name}» | h2 |  | ExpenseReportDetails · l.250 |
-| «Información General» | h3 |  | ExpenseReportDetails · l.339 |
-| «Estado y Fechas» | h3 |  | ExpenseReportDetails · l.368 |
-| «Gastos Detallados ( {report.expense_items.length} )» | h3 | `report.expense_items && report.expense_items.length > 0` | ExpenseReportDetails · l.405 |
-| «Resumen por Categoría» | h3 | `report.expense_items && report.expense_items.length > 0` | ExpenseReportDetails · l.492 |
-| «{category}» | h4 | `report.expense_items && report.expense_items.length > 0 && each Object.entries( report.expense_items.reduce((acc,…` | ExpenseReportDetails · l.516 |
+| «{report.report_name}» | h2 |  | ExpenseReportDetails · l.181 |
+| «Información General» | h3 |  | ExpenseReportDetails · l.270 |
+| «Estado y Fechas» | h3 |  | ExpenseReportDetails · l.299 |
+| «Gastos Detallados ( {report.expense_items.length} )» | h3 | `report.expense_items && report.expense_items.length > 0` | ExpenseReportDetails · l.336 |
+| «Resumen por Categoría» | h3 | `report.expense_items && report.expense_items.length > 0` | ExpenseReportDetails · l.423 |
+| «{category}» | h4 | `report.expense_items && report.expense_items.length > 0 && each Object.entries( report.expense_items.reduce((acc,…` | ExpenseReportDetails · l.447 |
 
 **Buttons** (7)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «[icon Eye]» · tooltip «{`Ver boleta: ${item.receipt_filename \|\| 'archivo'}`}» | `{() => handleReceiptClick(item)}` | `hasReceipt` |  |  | ReceiptCell · l.182 |
-| «[icon Download]» · tooltip «Descargar boleta» | `{async () => { try { let url = ''; if (item.receipt_url) { url = await getReceip…}` | `hasReceipt` |  |  | ReceiptCell · l.189 |
-| «[icon X]» | `{onClose}` |  |  |  | ExpenseReportDetails · l.253 |
-| «PDF» · tooltip «Descargar como PDF» | `{async () => { try { console.log('ExpenseReportExporter:', ExpenseReportExporter…}` |  |  |  | ExpenseReportDetails · l.275 |
-| «Excel» · tooltip «Descargar como Excel» | `{async () => { try { await ExpenseReportExporter.exportToExcel(report); toast.su…}` |  |  |  | ExpenseReportDetails · l.299 |
-| «Editar» · tooltip «{report.status !== 'draft' ? 'Editar como autor del reporte' : 'Editar reporte'}» | `{() => onEdit(report)}` | `(isAdmin \|\| (currentUser && report.submitted_by === currentUser.id) \|\| report.status === 'draft')` |  |  | ExpenseReportDetails · l.317 |
-| «Eliminar» | `{() => onDelete(report)}` |  |  |  | ExpenseReportDetails · l.326 |
+| «[icon Eye]» · tooltip «{`Ver boleta: ${item.receipt_filename \|\| 'archivo'}`}» | `{() => handleReceiptClick(item)}` | `hasReceipt` |  |  | ReceiptCell · l.140 |
+| «[icon Download]» · tooltip «Descargar boleta» | `{async () => { const url = await getReceiptUrl(item); if (url) { const link = do…}` | `hasReceipt` |  |  | ReceiptCell · l.147 |
+| «[icon X]» | `{onClose}` |  |  |  | ExpenseReportDetails · l.184 |
+| «PDF» · tooltip «Descargar como PDF» | `{async () => { try { console.log('ExpenseReportExporter:', ExpenseReportExporter…}` |  |  |  | ExpenseReportDetails · l.206 |
+| «Excel» · tooltip «Descargar como Excel» | `{async () => { try { await ExpenseReportExporter.exportToExcel(report); toast.su…}` |  |  |  | ExpenseReportDetails · l.230 |
+| «Editar» · tooltip «{report.status !== 'draft' ? 'Editar como autor del reporte' : 'Editar reporte'}» | `{() => onEdit(report)}` | `(isAdmin \|\| (currentUser && report.submitted_by === currentUser.id) \|\| report.status === 'draft')` |  |  | ExpenseReportDetails · l.248 |
+| «Eliminar» | `{() => onDelete(report)}` |  |  |  | ExpenseReportDetails · l.257 |
 
 **Table columns** (7)
 
 | Text | Shown when | Where |
 |---|---|---|
-| «Fecha» | `report.expense_items && report.expense_items.length > 0` | ExpenseReportDetails · l.413 |
-| «Categoría» | `report.expense_items && report.expense_items.length > 0` | ExpenseReportDetails · l.414 |
-| «Descripción» | `report.expense_items && report.expense_items.length > 0` | ExpenseReportDetails · l.415 |
-| «Proveedor» | `report.expense_items && report.expense_items.length > 0` | ExpenseReportDetails · l.416 |
-| «N° Factura/Boleta» | `report.expense_items && report.expense_items.length > 0` | ExpenseReportDetails · l.417 |
-| «Monto» | `report.expense_items && report.expense_items.length > 0` | ExpenseReportDetails · l.418 |
-| «Boleta» | `report.expense_items && report.expense_items.length > 0` | ExpenseReportDetails · l.419 |
+| «Fecha» | `report.expense_items && report.expense_items.length > 0` | ExpenseReportDetails · l.344 |
+| «Categoría» | `report.expense_items && report.expense_items.length > 0` | ExpenseReportDetails · l.345 |
+| «Descripción» | `report.expense_items && report.expense_items.length > 0` | ExpenseReportDetails · l.346 |
+| «Proveedor» | `report.expense_items && report.expense_items.length > 0` | ExpenseReportDetails · l.347 |
+| «N° Factura/Boleta» | `report.expense_items && report.expense_items.length > 0` | ExpenseReportDetails · l.348 |
+| «Monto» | `report.expense_items && report.expense_items.length > 0` | ExpenseReportDetails · l.349 |
+| «Boleta» | `report.expense_items && report.expense_items.length > 0` | ExpenseReportDetails · l.350 |
 
 **Pop-ups** (1)
 
 | Name or title | How | Opens when | Texts passed to it | Where |
 |---|---|---|---|---|
-| «{report.report_name}» | written in this file |  |  | ExpenseReportDetails · l.244 |
+| «{report.report_name}» | written in this file |  |  | ExpenseReportDetails · l.175 |
 
-**Toasts** (4)
+**Toasts** (6)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| success | «Reporte exportado como PDF» | `ExpenseReportExporter && typeof ExpenseReportExporter.exportToPDF === 'function'` | ExpenseReportDetails · l.284 |
-| error | «Error al exportar PDF» |  | ExpenseReportDetails · l.289 |
-| success | «Reporte exportado como Excel» |  | ExpenseReportDetails · l.303 |
-| error | «Error al exportar Excel» |  | ExpenseReportDetails · l.305 |
+| error | «No se pudo abrir la boleta» | `!(url)` | handleReceiptClick · l.128 |
+| error | «No se pudo abrir la boleta» | `hasReceipt && !(url)` | ReceiptCell · l.156 |
+| success | «Reporte exportado como PDF» | `ExpenseReportExporter && typeof ExpenseReportExporter.exportToPDF === 'function'` | ExpenseReportDetails · l.215 |
+| error | «Error al exportar PDF» |  | ExpenseReportDetails · l.220 |
+| success | «Reporte exportado como Excel» |  | ExpenseReportDetails · l.234 |
+| error | «Error al exportar Excel» |  | ExpenseReportDetails · l.236 |
 
 **Messages set on the page** (1)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «exportToPDF is not a function» | `throw (shown by whoever catches it)` | `!(ExpenseReportExporter && typeof ExpenseReportExporter.exportToPDF === 'function')` | ExpenseReportDetails · l.286 |
+| «exportToPDF is not a function» | `throw (shown by whoever catches it)` | `!(ExpenseReportExporter && typeof ExpenseReportExporter.exportToPDF === 'function')` | ExpenseReportDetails · l.217 |
 
 **Downloads and printing** (1)
 
 | How | When | Where |
 |---|---|---|
-| `archivo: receipt.pdf` | `hasReceipt && url` | ReceiptCell · l.221 |
+| `archivo: receipt.pdf` | `hasReceipt && url` | ReceiptCell · l.153 |
 
 **Moves to another page from code** (1)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `{url}` | `window.open` | `url` | handleReceiptClick · l.165 |
+| `{url}` | `window.open` | `url` | handleReceiptClick · l.126 |
 
 **Draws nothing when** (1)
 
 | Condition | Where |
 |---|---|
-| `!isOpen \|\| !report` | ExpenseReportDetails · l.80 |
+| `!isOpen \|\| !report` | ExpenseReportDetails · l.77 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
-| `getStatusText()` | «Borrador», «Enviado», «Aprobado», «Rechazado» | getStatusText · l.102 |
+| `getStatusText()` | «Borrador», «Enviado», «Aprobado», «Rechazado» | getStatusText · l.99 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (3)
 
 | Text | Where |
 |---|---|
-| «Borrador» | ExpenseReportDetails · l.102 |
-| «Aprobado» | ExpenseReportDetails · l.104 |
-| «Rechazado» | ExpenseReportDetails · l.105 |
+| «Borrador» | ExpenseReportDetails · l.99 |
+| «Aprobado» | ExpenseReportDetails · l.101 |
+| «Rechazado» | ExpenseReportDetails · l.102 |
 
 **Values shown from data** (16)
 
-- `{getStatusText(report.status)}` — ExpenseReportDetails · l.266
-- `{report.description}` — ExpenseReportDetails · l.353, when `report.description`
-- `{report.profiles?.email}` — ExpenseReportDetails · l.361
-- `{formatDate(report.created_at)}` — ExpenseReportDetails · l.373
-- `{formatDate(report.submitted_at)}` — ExpenseReportDetails · l.379, when `report.submitted_at`
-- `{formatDate(report.reviewed_at)}` — ExpenseReportDetails · l.386, when `report.reviewed_at`
-- `{report.review_comments}` — ExpenseReportDetails · l.393, when `report.review_comments`
-- `{formatDate(item.expense_date)}` — ExpenseReportDetails · l.425, when `report.expense_items && report.expense_items.length > 0 && each report.expense_items`
-- `{item.description}` — ExpenseReportDetails · l.440, when `report.expense_items && report.expense_items.length > 0 && each report.expense_items`
-- `{item.notes}` — ExpenseReportDetails · l.442, when `report.expense_items && report.expense_items.length > 0 && each report.expense_items && item.notes`
-- `{item.vendor} / -` — ExpenseReportDetails · l.445, when `report.expense_items && report.expense_items.length > 0 && each report.expense_items`
-- `{item.expense_number} / -` — ExpenseReportDetails · l.448, when `report.expense_items && report.expense_items.length > 0 && each report.expense_items`
-- `{formatCurrencyWithSymbol(item.origi…}` — ExpenseReportDetails · l.455, when `report.expense_items && report.expense_items.length > 0 && each report.expense_items && item.currency && item.currency !== 'CLP' && item.original_amount`
-- `$ {item.amount.toLocaleString('es-CL')}` — ExpenseReportDetails · l.463, when `report.expense_items && report.expense_items.length > 0 && each report.expense_items && !(item.currency && item.currency !== 'CLP' && item.original_amount)`
-- `{formatCurrency(report.total_amount)}` — ExpenseReportDetails · l.478, when `report.expense_items && report.expense_items.length > 0`
-- `{formatCurrency(data.total)}` — ExpenseReportDetails · l.521, when `report.expense_items && report.expense_items.length > 0 && each Object.entries( report.expense_items.reduce((acc,…`
+- `{getStatusText(report.status)}` — ExpenseReportDetails · l.197
+- `{report.description}` — ExpenseReportDetails · l.284, when `report.description`
+- `{report.profiles?.email}` — ExpenseReportDetails · l.292
+- `{formatDate(report.created_at)}` — ExpenseReportDetails · l.304
+- `{formatDate(report.submitted_at)}` — ExpenseReportDetails · l.310, when `report.submitted_at`
+- `{formatDate(report.reviewed_at)}` — ExpenseReportDetails · l.317, when `report.reviewed_at`
+- `{report.review_comments}` — ExpenseReportDetails · l.324, when `report.review_comments`
+- `{formatDate(item.expense_date)}` — ExpenseReportDetails · l.356, when `report.expense_items && report.expense_items.length > 0 && each report.expense_items`
+- `{item.description}` — ExpenseReportDetails · l.371, when `report.expense_items && report.expense_items.length > 0 && each report.expense_items`
+- `{item.notes}` — ExpenseReportDetails · l.373, when `report.expense_items && report.expense_items.length > 0 && each report.expense_items && item.notes`
+- `{item.vendor} / -` — ExpenseReportDetails · l.376, when `report.expense_items && report.expense_items.length > 0 && each report.expense_items`
+- `{item.expense_number} / -` — ExpenseReportDetails · l.379, when `report.expense_items && report.expense_items.length > 0 && each report.expense_items`
+- `{formatCurrencyWithSymbol(item.origi…}` — ExpenseReportDetails · l.386, when `report.expense_items && report.expense_items.length > 0 && each report.expense_items && item.currency && item.currency !== 'CLP' && item.original_amount`
+- `$ {item.amount.toLocaleString('es-CL')}` — ExpenseReportDetails · l.394, when `report.expense_items && report.expense_items.length > 0 && each report.expense_items && !(item.currency && item.currency !== 'CLP' && item.original_amount)`
+- `{formatCurrency(report.total_amount)}` — ExpenseReportDetails · l.409, when `report.expense_items && report.expense_items.length > 0`
+- `{formatCurrency(data.total)}` — ExpenseReportDetails · l.452, when `report.expense_items && report.expense_items.length > 0 && each Object.entries( report.expense_items.reduce((acc,…`
 
 **Other texts on screen** (15)
 
-- «Boleta disponible» (title) — ReceiptCell · l.233, when `hasReceipt`
-- «Sin boleta» — ReceiptCell · l.240
-- «Detalles del Reporte de Gastos» — ExpenseReportDetails · l.251
-- «Total:» — ExpenseReportDetails · l.270
-- «Período» — ExpenseReportDetails · l.343
-- «Descripción» — ExpenseReportDetails · l.352, when `report.description`
-- «Enviado por» — ExpenseReportDetails · l.358
-- «Creado» — ExpenseReportDetails · l.372
-- «Enviado» — ExpenseReportDetails · l.378, when `report.submitted_at`
-- «Revisado» — ExpenseReportDetails · l.385, when `report.reviewed_at`
-- «Comentarios de Revisión» — ExpenseReportDetails · l.392, when `report.review_comments`
-- «{item.expense_categories?.name} / Sin categoría» — ExpenseReportDetails · l.434, when `report.expense_items && report.expense_items.length > 0 && each report.expense_items`
-- «≈ $ {item.amount.toLocaleString('es-CL')} CLP» — ExpenseReportDetails · l.458, when `report.expense_items && report.expense_items.length > 0 && each report.expense_items && item.currency && item.currency !== 'CLP' && item.original_amount`
-- «Total:» — ExpenseReportDetails · l.476, when `report.expense_items && report.expense_items.length > 0`
-- «{data.count} gasto s» — ExpenseReportDetails · l.518, when `report.expense_items && report.expense_items.length > 0 && each Object.entries( report.expense_items.reduce((acc,…`
-
-**Reads and writes the database directly:** `bucket:{RECEIPTS_BUCKET}` (createSignedUrl, list)
+- «Boleta disponible» (title) — ReceiptCell · l.164, when `hasReceipt`
+- «Sin boleta» — ReceiptCell · l.171
+- «Detalles del Reporte de Gastos» — ExpenseReportDetails · l.182
+- «Total:» — ExpenseReportDetails · l.201
+- «Período» — ExpenseReportDetails · l.274
+- «Descripción» — ExpenseReportDetails · l.283, when `report.description`
+- «Enviado por» — ExpenseReportDetails · l.289
+- «Creado» — ExpenseReportDetails · l.303
+- «Enviado» — ExpenseReportDetails · l.309, when `report.submitted_at`
+- «Revisado» — ExpenseReportDetails · l.316, when `report.reviewed_at`
+- «Comentarios de Revisión» — ExpenseReportDetails · l.323, when `report.review_comments`
+- «{item.expense_categories?.name} / Sin categoría» — ExpenseReportDetails · l.365, when `report.expense_items && report.expense_items.length > 0 && each report.expense_items`
+- «≈ $ {item.amount.toLocaleString('es-CL')} CLP» — ExpenseReportDetails · l.389, when `report.expense_items && report.expense_items.length > 0 && each report.expense_items && item.currency && item.currency !== 'CLP' && item.original_amount`
+- «Total:» — ExpenseReportDetails · l.407, when `report.expense_items && report.expense_items.length > 0`
+- «{data.count} gasto s» — ExpenseReportDetails · l.449, when `report.expense_items && report.expense_items.length > 0 && each Object.entries( report.expense_items.reduce((acc,…`
 
 ### components/expenses/ExpenseReportForm.tsx
 
@@ -763,96 +764,102 @@ Used by: `/expense-reports`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «Editar Reporte de Gastos / Nuevo Reporte de Gastos» | h2 |  | ExpenseReportForm · l.478 |
-| «Información del Reporte» | h3 |  | ExpenseReportForm · l.486 |
-| «Gastos» | h3 |  | ExpenseReportForm · l.545 |
-| «Gasto {index + 1}» | h4 | `each expenseItems` | ExpenseReportForm · l.566 |
+| «Editar Reporte de Gastos / Nuevo Reporte de Gastos» | h2 |  | ExpenseReportForm · l.459 |
+| «Información del Reporte» | h3 |  | ExpenseReportForm · l.467 |
+| «Gastos» | h3 |  | ExpenseReportForm · l.526 |
+| «Gasto {index + 1}» | h4 | `each expenseItems` | ExpenseReportForm · l.547 |
 
 **Buttons** (6)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «Agregar Gasto» | `{addExpenseItem}` |  |  |  | ExpenseReportForm · l.546 |
-| «[icon Trash2]» · tooltip «Eliminar gasto» | `{() => removeExpenseItem(index)}` | `each expenseItems && expenseItems.length > 1` |  |  | ExpenseReportForm · l.568 |
-| «Ver Boleta» · tooltip «Ver boleta» | `{async () => { try { let url = ''; if (item.receipt_url) { url = item.receipt_ur…}` | `each expenseItems && ((item.receipt_url \|\| item.receipt_filename))` |  |  | ExpenseReportForm · l.718 |
-| «Eliminar» · tooltip «Eliminar y reemplazar» | `{() => handleReceiptDelete(index)}` | `each expenseItems && ((item.receipt_url \|\| item.receipt_filename))` |  |  | ExpenseReportForm · l.764 |
-| «Cancelar» | `{onCancel}` |  |  |  | ExpenseReportForm · l.828 |
-| «Guardando... / Actualizar Reporte / Guardar Reporte» | `{handleSaveReport}` |  | `{loading}` |  | ExpenseReportForm · l.836 |
+| «Agregar Gasto» | `{addExpenseItem}` |  |  |  | ExpenseReportForm · l.527 |
+| «[icon Trash2]» · tooltip «Eliminar gasto» | `{() => removeExpenseItem(index)}` | `each expenseItems && expenseItems.length > 1` |  |  | ExpenseReportForm · l.549 |
+| «Ver Boleta» · tooltip «Ver boleta» | `{async () => { try { // GES-1.5: a just-chosen file opens from the browser's // …}` | `each expenseItems && ((item.receipt_url \|\| item.receipt_filename))` |  |  | ExpenseReportForm · l.699 |
+| «Eliminar» · tooltip «Eliminar y reemplazar» | `{() => handleReceiptDelete(index)}` | `each expenseItems && ((item.receipt_url \|\| item.receipt_filename))` |  |  | ExpenseReportForm · l.732 |
+| «Cancelar» | `{onCancel}` |  |  |  | ExpenseReportForm · l.796 |
+| «Guardando... / Actualizar Reporte / Guardar Reporte» | `{handleSaveReport}` |  | `{loading}` |  | ExpenseReportForm · l.804 |
 
 **Fields** (13)
 
 | Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
 |---|---|---|---|---|---|---|
-| «Nombre del Reporte *» | text | «Ej: Gastos Marzo 2025» |  |  |  | ExpenseReportForm · l.493 |
-| «Descripción» | text | «Descripción opcional del reporte» |  |  |  | ExpenseReportForm · l.506 |
-| «Fecha de Inicio *» | date |  |  |  |  | ExpenseReportForm · l.519 |
-| «Fecha de Fin *» | date | `min={reportForm.start_date}` |  |  |  | ExpenseReportForm · l.531 |
-| «Categoría *» | select |  | «Seleccionar categoría», «(lista) {category.name}» | `each expenseItems` |  | ExpenseReportForm · l.584 |
-| «Descripción *» | text | «Descripción del gasto» |  | `each expenseItems` |  | ExpenseReportForm · l.602 |
-| «💰 Moneda *» | select |  | «(lista) {currency.symbol} {currency.code} - {currency.name}» | `each expenseItems` |  | ExpenseReportForm · l.615 |
-| «💵 Monto ( {item.currency} ) *» | number | «0.00» · `min=0 step={(item.currency === 'CLP' \|\| !item.currency) ? '1' : '0.01'}` |  | `each expenseItems` |  | ExpenseReportForm · l.633 |
-| «Fecha del Gasto *» | date |  |  | `each expenseItems` |  | ExpenseReportForm · l.662 |
-| «Proveedor» | text | «Nombre del proveedor» |  | `each expenseItems` |  | ExpenseReportForm · l.674 |
-| «Número de Factura/Boleta» | text | «Ej: 12345, B-001, F-4567» |  | `each expenseItems` |  | ExpenseReportForm · l.687 |
-| «Subiendo archivo... / Hacer clic para subir boleta PDF, JPG, PNG (máx. 50MB)» | file | accepts `.pdf,.jpg,.jpeg,.png,.gif,.webp` |  | `each expenseItems && (!((item.receipt_url \|\| item.receipt_filename)))` · hidden by its class (`hidden`); another control opens it or it is for screen readers |  | ExpenseReportForm · l.777 |
-| «Notas» | textarea | «Notas adicionales sobre este gasto» |  | `each expenseItems` |  | ExpenseReportForm · l.812 |
+| «Nombre del Reporte *» | text | «Ej: Gastos Marzo 2025» |  |  |  | ExpenseReportForm · l.474 |
+| «Descripción» | text | «Descripción opcional del reporte» |  |  |  | ExpenseReportForm · l.487 |
+| «Fecha de Inicio *» | date |  |  |  |  | ExpenseReportForm · l.500 |
+| «Fecha de Fin *» | date | `min={reportForm.start_date}` |  |  |  | ExpenseReportForm · l.512 |
+| «Categoría *» | select |  | «Seleccionar categoría», «(lista) {category.name}» | `each expenseItems` |  | ExpenseReportForm · l.565 |
+| «Descripción *» | text | «Descripción del gasto» |  | `each expenseItems` |  | ExpenseReportForm · l.583 |
+| «💰 Moneda *» | select |  | «(lista) {currency.symbol} {currency.code} - {currency.name}» | `each expenseItems` |  | ExpenseReportForm · l.596 |
+| «💵 Monto ( {item.currency} ) *» | number | «0.00» · `min=0 step={(item.currency === 'CLP' \|\| !item.currency) ? '1' : '0.01'}` |  | `each expenseItems` |  | ExpenseReportForm · l.614 |
+| «Fecha del Gasto *» | date |  |  | `each expenseItems` |  | ExpenseReportForm · l.643 |
+| «Proveedor» | text | «Nombre del proveedor» |  | `each expenseItems` |  | ExpenseReportForm · l.655 |
+| «Número de Factura/Boleta» | text | «Ej: 12345, B-001, F-4567» |  | `each expenseItems` |  | ExpenseReportForm · l.668 |
+| «Subiendo archivo... / Hacer clic para subir boleta PDF, JPG, PNG (máx. 50MB)» | file | accepts `.pdf,.jpg,.jpeg,.png,.gif,.webp` |  | `each expenseItems && (!((item.receipt_url \|\| item.receipt_filename)))` · hidden by its class (`hidden`); another control opens it or it is for screen readers |  | ExpenseReportForm · l.745 |
+| «Notas» | textarea | «Notas adicionales sobre este gasto» |  | `each expenseItems` |  | ExpenseReportForm · l.780 |
 
 **Toasts** (16)
 
 | Kind | Text | When | Where |
 |---|---|---|---|
-| error | «Error al convertir moneda» | `(field === 'currency' \|\| field === 'amount') && sourceAmount > 0 && item.currency` | updateExpenseItem · l.171 |
-| success | «✅ Boleta subida exitosamente: {file.name}» |  | handleReceiptUpload · l.225 |
-| error | «Error al subir la boleta:» |  | handleReceiptUpload · l.229 |
-| error | «Error al eliminar la boleta del servidor:» | `deleteError` | handleReceiptDelete · l.261 |
-| error | «Error al actualizar la base de datos» | `item.id && dbError` | handleReceiptDelete · l.279 |
-| success | «Boleta eliminada» |  | handleReceiptDelete · l.312 |
-| error | «Error al eliminar la boleta» |  | handleReceiptDelete · l.316 |
-| error | «El nombre del reporte es obligatorio» | `!reportForm.report_name.trim()` | handleSaveReport · l.329 |
-| error | «Las fechas de inicio y fin son obligatorias» | `!reportForm.start_date \|\| !reportForm.end_date` | handleSaveReport · l.334 |
-| error | «La fecha de inicio no puede ser posterior a la fecha de fin» | `new Date(reportForm.start_date) > new Date(reportForm.end_date)` | handleSaveReport · l.339 |
-| error | «Debe agregar al menos un gasto válido» | `validItems.length === 0` | handleSaveReport · l.348 |
-| success | «Reporte actualizado exitosamente» | `editingReport` | handleSaveReport · l.409 |
-| success | «Reporte creado exitosamente» | `!(editingReport)` | handleSaveReport · l.463 |
-| error | «Error al guardar el reporte:» |  | handleSaveReport · l.469 |
-| error | «No se pudo abrir la boleta» | `each expenseItems && ((item.receipt_url \|\| item.receipt_filename)) && !(url)` | ExpenseReportForm · l.751 |
-| error | «Error al abrir la boleta» | `each expenseItems && ((item.receipt_url \|\| item.receipt_filename))` | ExpenseReportForm · l.755 |
+| error | «Error al convertir moneda» | `(field === 'currency' \|\| field === 'amount') && sourceAmount > 0 && item.currency` | updateExpenseItem · l.173 |
+| success | «✅ Boleta subida exitosamente: {file.name}» |  | handleReceiptUpload · l.210 |
+| error | «Error al subir la boleta:» |  | handleReceiptUpload · l.214 |
+| error | «Error al eliminar la boleta del servidor:» | `fileName && deleteError` | handleReceiptDelete · l.241 |
+| error | «Error al actualizar la base de datos» | `item.id && dbError` | handleReceiptDelete · l.258 |
+| success | «Boleta eliminada» |  | handleReceiptDelete · l.293 |
+| error | «Error al eliminar la boleta» |  | handleReceiptDelete · l.297 |
+| error | «El nombre del reporte es obligatorio» | `!reportForm.report_name.trim()` | handleSaveReport · l.310 |
+| error | «Las fechas de inicio y fin son obligatorias» | `!reportForm.start_date \|\| !reportForm.end_date` | handleSaveReport · l.315 |
+| error | «La fecha de inicio no puede ser posterior a la fecha de fin» | `new Date(reportForm.start_date) > new Date(reportForm.end_date)` | handleSaveReport · l.320 |
+| error | «Debe agregar al menos un gasto válido» | `validItems.length === 0` | handleSaveReport · l.329 |
+| success | «Reporte actualizado exitosamente» | `editingReport` | handleSaveReport · l.390 |
+| success | «Reporte creado exitosamente» | `!(editingReport)` | handleSaveReport · l.444 |
+| error | «Error al guardar el reporte:» |  | handleSaveReport · l.450 |
+| error | «No se pudo abrir la boleta» | `each expenseItems && ((item.receipt_url \|\| item.receipt_filename)) && !(url)` | ExpenseReportForm · l.719 |
+| error | «Error al abrir la boleta» | `each expenseItems && ((item.receipt_url \|\| item.receipt_filename))` | ExpenseReportForm · l.723 |
 
 **Messages set on the page** (1)
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!(editingReport) && !user` | handleSaveReport · l.414 |
+| «Usuario no autenticado» | `throw (shown by whoever catches it)` | `!(editingReport) && !user` | handleSaveReport · l.395 |
+
+**Downloads and printing** (1)
+
+| How | When | Where |
+|---|---|---|
+| `URL.createObjectURL()` |  | handleReceiptUpload · l.199 |
 
 **Moves to another page from code** (1)
 
 | Goes to | How | When | Where |
 |---|---|---|---|
-| `{url}` | `window.open` | `each expenseItems && ((item.receipt_url \|\| item.receipt_filename)) && url` | ExpenseReportForm · l.749 |
+| `{url}` | `window.open` | `each expenseItems && ((item.receipt_url \|\| item.receipt_filename)) && url` | ExpenseReportForm · l.717 |
 
 **Other texts on screen** (19)
 
-- «Nombre del Reporte *» (label) — ExpenseReportForm · l.490
-- «Descripción» (label) — ExpenseReportForm · l.503
-- «Fecha de Inicio *» (label) — ExpenseReportForm · l.516
-- «Fecha de Fin *» (label) — ExpenseReportForm · l.528
-- «Total del Reporte:» — ExpenseReportForm · l.558
-- «Categoría *» (label) — ExpenseReportForm · l.581, when `each expenseItems`
-- «Descripción *» (label) — ExpenseReportForm · l.599, when `each expenseItems`
-- «💰 Moneda *» (label) — ExpenseReportForm · l.612, when `each expenseItems`
-- «💵 Monto ( {item.currency} ) *» (label) — ExpenseReportForm · l.629, when `each expenseItems`
-- «CLP» — ExpenseReportForm · l.651, when `each expenseItems && item.currency !== 'CLP' && item.conversion_rate && item.original_amount`
-- «Tasa: {item.conversion_rate?.toFixed(2)}» — ExpenseReportForm · l.652, when `each expenseItems && item.currency !== 'CLP' && item.conversion_rate && item.original_amount`
-- «Fecha del Gasto *» (label) — ExpenseReportForm · l.659, when `each expenseItems`
-- «Proveedor» (label) — ExpenseReportForm · l.671, when `each expenseItems`
-- «Número de Factura/Boleta» (label) — ExpenseReportForm · l.684, when `each expenseItems`
-- «📄 Boleta/Recibo» (label) — ExpenseReportForm · l.700, when `each expenseItems`
-- «✅ {item.receipt_filename} / Archivo subido» — ExpenseReportForm · l.709, when `each expenseItems && ((item.receipt_url \|\| item.receipt_filename))`
-- «Boleta subida correctamente» — ExpenseReportForm · l.712, when `each expenseItems && ((item.receipt_url \|\| item.receipt_filename))`
-- «Subiendo archivo... / Hacer clic para subir boleta PDF, JPG, PNG (máx. 50MB)» (label) — ExpenseReportForm · l.776, when `each expenseItems && (!((item.receipt_url \|\| item.receipt_filename)))`
-- «Notas» (label) — ExpenseReportForm · l.809, when `each expenseItems`
+- «Nombre del Reporte *» (label) — ExpenseReportForm · l.471
+- «Descripción» (label) — ExpenseReportForm · l.484
+- «Fecha de Inicio *» (label) — ExpenseReportForm · l.497
+- «Fecha de Fin *» (label) — ExpenseReportForm · l.509
+- «Total del Reporte:» — ExpenseReportForm · l.539
+- «Categoría *» (label) — ExpenseReportForm · l.562, when `each expenseItems`
+- «Descripción *» (label) — ExpenseReportForm · l.580, when `each expenseItems`
+- «💰 Moneda *» (label) — ExpenseReportForm · l.593, when `each expenseItems`
+- «💵 Monto ( {item.currency} ) *» (label) — ExpenseReportForm · l.610, when `each expenseItems`
+- «CLP» — ExpenseReportForm · l.632, when `each expenseItems && item.currency !== 'CLP' && item.conversion_rate && item.original_amount`
+- «Tasa: {item.conversion_rate?.toFixed(2)}» — ExpenseReportForm · l.633, when `each expenseItems && item.currency !== 'CLP' && item.conversion_rate && item.original_amount`
+- «Fecha del Gasto *» (label) — ExpenseReportForm · l.640, when `each expenseItems`
+- «Proveedor» (label) — ExpenseReportForm · l.652, when `each expenseItems`
+- «Número de Factura/Boleta» (label) — ExpenseReportForm · l.665, when `each expenseItems`
+- «📄 Boleta/Recibo» (label) — ExpenseReportForm · l.681, when `each expenseItems`
+- «✅ {item.receipt_filename} / Archivo subido» — ExpenseReportForm · l.690, when `each expenseItems && ((item.receipt_url \|\| item.receipt_filename))`
+- «Boleta subida correctamente» — ExpenseReportForm · l.693, when `each expenseItems && ((item.receipt_url \|\| item.receipt_filename))`
+- «Subiendo archivo... / Hacer clic para subir boleta PDF, JPG, PNG (máx. 50MB)» (label) — ExpenseReportForm · l.744, when `each expenseItems && (!((item.receipt_url \|\| item.receipt_filename)))`
+- «Notas» (label) — ExpenseReportForm · l.777, when `each expenseItems`
 
-**Reads and writes the database directly:** `bucket:{RECEIPTS_BUCKET}` (createSignedUrl, list, remove, upload), `rpc:recompute_expense_report_total`, `table:expense_items` (delete, insert, update), `table:expense_reports` (insert, select, update)
+**Reads and writes the database directly:** `bucket:{RECEIPTS_BUCKET}` (remove, upload), `rpc:recompute_expense_report_total`, `table:expense_items` (delete, insert, update), `table:expense_reports` (insert, select, update)
 
 ### components/hours/ConsultantEarningsDashboard.tsx
 
@@ -1247,6 +1254,7 @@ Used by: `/admin/consultant-earnings`, `/admin/consultant-rates`, `/expense-repo
 | `/api/consultant-earnings/[consultant_id]` | `pages/api/consultant-earnings/[consultant_id].ts` | GET | `/admin/consultant-earnings`, `/mis-horas` | `__tests__/api/hour-tracking/earnings.test.ts`, `__tests__/lib/services/ledger-hours-reader-inventory.test.ts`, `components/hours/ConsultantEarningsDashboard.tsx` |
 | `/api/consultant-earnings/[consultant_id]/pdf` | `pages/api/consultant-earnings/[consultant_id]/pdf.ts` | GET | `/admin/consultant-earnings`, `/mis-horas` | `__tests__/api/hour-tracking/earnings-pdf.test.ts`, `components/hours/ConsultantEarningsDashboard.tsx` |
 | `/api/expense-reports/[id]/notify` | `pages/api/expense-reports/[id]/notify.ts` | POST | `/expense-reports` | `__tests__/api/expense-reports/notify.test.ts`, `pages/expense-reports.tsx` |
+| `/api/expense-reports/receipt-link` | `pages/api/expense-reports/receipt-link.ts` | GET | `/expense-reports` | `__tests__/api/expense-reports/receipt-link.test.ts`, `components/expenses/ExpenseReportDetails.tsx`, `components/expenses/ExpenseReportForm.tsx` |
 | `/api/fx-rates/latest` | `pages/api/fx-rates/latest.ts` | GET | **no screen** | `__tests__/api/hour-tracking/fx-rates.test.ts`, `tests/e2e/fx-rates.spec.ts` |
 | `/api/fx-rates/refresh` | `pages/api/fx-rates/refresh.ts` | POST | **no screen** | `__tests__/api/hour-tracking/fx-rates.test.ts`, `tests/e2e/fx-rates.spec.ts` |
 | `/api/hour-types` | `pages/api/hour-types/index.ts` | GET | `/admin/bulk-tag-sessions`, `/admin/consultant-rates`, `/admin/sessions/create` | `__tests__/pages/admin/sessions/create-timezone.test.tsx`, `__tests__/pages/admin/sessions/create-zoom-managed.test.tsx`, `components/admin/ConsultantRateManager.tsx`, `pages/admin/bulk-tag-sessions.tsx`, `pages/admin/sessions/create.tsx` |

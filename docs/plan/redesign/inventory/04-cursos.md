@@ -1,7 +1,7 @@
 # Cursos (course builder, upcoming courses, learning paths, assignment matrix)
 
 Area `04-cursos`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `007807e90` (2026-11-16).
+Read from commit `3ff6aa13f` (2026-11-17).
 
 Course system: see the note on 03-aprendizaje.
 
@@ -4443,7 +4443,7 @@ Used by: `/admin/course-builder/[courseId]/[moduleId]/[lessonId]`, `/admin/cours
 | `/api/admin/get-instructors` | `pages/api/admin/get-instructors.ts` | GET | `/admin/course-builder`, `/admin/upcoming-courses` | `pages/admin/upcoming-courses/index.tsx`, `src/components/CourseBuilderForm.tsx` |
 | `/api/courses/[id]` | `pages/api/courses/[id].ts` | GET | `/admin/courses/[id]/assign` | `__tests__/api/reports/detailed-rpc-definitions.test.ts`, `pages/admin/courses/[id]/assign.tsx`, `scripts/seed-qa-phase2.js` |
 | `/api/courses/batch-assign` | `pages/api/courses/batch-assign.ts` | POST | `/admin/assignment-matrix`, `/admin/courses/[id]/assign` | `__tests__/api/courses/batch-assign.test.ts`, `components/admin/assignment-matrix/BatchAssignModal.tsx`, `components/admin/assignment-matrix/hooks/useAssignmentMatrix.ts`, `pages/admin/courses/[id]/assign.tsx`, `scripts/populate-qa-scenarios.js` +1 |
-| `/api/courses/complete` | `pages/api/courses/complete.ts` | POST | **no screen** |  |
+| `/api/courses/complete` | `pages/api/courses/complete.ts` | POST | **no screen** | `__tests__/api/cursos-admin-only-routes.test.ts` |
 | `/api/courses/search-assignees` | `pages/api/courses/search-assignees.ts` | POST | `/admin/assignment-matrix`, `/admin/courses/[id]/assign` | `components/admin/assignment-matrix/BatchAssignModal.tsx`, `pages/admin/courses/[id]/assign.tsx` |
 | `/api/courses/unassign` | `pages/api/courses/unassign.ts` | DELETE | `/admin/assignment-matrix`, `/admin/courses/[id]/assign` | `components/admin/assignment-matrix/hooks/useAssignmentMatrix.ts`, `pages/admin/courses/[id]/assign.tsx` |
 | `/api/learning-paths/[id]` | `pages/api/learning-paths/[id].ts` | DELETE, GET, PUT | `/admin/learning-paths`, `/admin/learning-paths/[id]/assign`, `/admin/learning-paths/[id]/edit`, `/mi-aprendizaje/ruta/[id]` | `__tests__/api/learning-paths/governance-boundary.test.ts`, `__tests__/api/learning-paths/management-routes-boundary.test.ts`, `lib/services/learningPathSessionTracker.ts`, `pages/admin/learning-paths.tsx`, `pages/admin/learning-paths/[id]/assign.tsx` +4 |

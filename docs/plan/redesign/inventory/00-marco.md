@@ -1,7 +1,7 @@
 # Marco (the frame around every screen)
 
 Area `00-marco`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `007807e90` (2026-11-16).
+Read from commit `3ff6aa13f` (2026-11-17).
 
 The app shell, the menu, the top bar, the bell, the footer and the feedback button. Its pieces are listed here once and not repeated under each screen.
 
@@ -40,16 +40,16 @@ The app shell, the menu, the top bar, the bell, the footer and the feedback butt
 
 | Address | File | Lines | Menu | Marks |
 |---|---|---|---|---|
-| — | `pages/_app.tsx` | 65 | — |  |
+| — | `pages/_app.tsx` | 67 | — |  |
 | — | `pages/_document.tsx` | 44 | — |  |
 
 ## pages/_app.tsx
 
-File `pages/_app.tsx` · 65 lines · frame: none
+File `pages/_app.tsx` · 67 lines · frame: none
 
 ### What the page file itself draws
 
-**Pieces placed here, with the texts and settings handed to them** (5)
+**Pieces placed here, with the texts and settings handed to them** (6)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
@@ -58,6 +58,7 @@ File `pages/_app.tsx` · 65 lines · frame: none
 | `PermissionProvider` |  |  |  | MyApp · l.35 |
 | `DynamicFavicon` |  |  |  | MyApp · l.46 |
 | `QASessionProvider` |  |  |  | MyApp · l.47 |
+| `Toaster` | containerStyle: var(--toast-stack-bottom, 24px) / var(--toast-stack-right, 24px) |  |  | MyApp · l.49 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
@@ -1029,7 +1030,7 @@ Used by: `(the frame)`
 
 | Name | Texts | Where |
 |---|---|---|
-| `baseStyle` | «0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08)», «Inter, system-ui, -apple-system, sans-serif» | l.20 |
+| `baseStyle` | «Inter, system-ui, -apple-system, sans-serif» | l.29 |
 
 ### contexts/AuthContext.tsx
 
@@ -1078,11 +1079,17 @@ Used by: `(the frame)`
 
 | Condition | Where |
 |---|---|
-| `loading` | LookProvider · l.36 |
+| `account === null` | LookProvider · l.129 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `target` | «clasico / leave» | LookProvider · l.111 |
 
 **Values shown from data** (1)
 
-- `{children}` — LookProvider · l.47
+- `{children}` — LookProvider · l.134
 
 ### contexts/PermissionContext.tsx
 

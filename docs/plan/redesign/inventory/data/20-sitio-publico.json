@@ -4,8 +4,8 @@
  "note": "Redesigned separately and live since 12 Nov 2026. Listed so that every file under pages/ has a place.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "007807e90467f7aa64736d0a234ad0d7009cfc83",
-  "date": "2026-11-16T16:10:07-03:00"
+  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
+  "date": "2026-11-17T05:46:26-03:00"
  },
  "screens": [
   {
@@ -66,6 +66,7 @@
      "components/Footer.tsx:95",
      "components/site/SiteLayout.tsx:176",
      "lib/auth/forced-password-change.ts:148",
+     "lib/look.ts:105",
      "middleware.ts:343"
     ],
     "qaScenarios": {},
@@ -1174,6 +1175,7 @@
      "components/Footer.tsx:94",
      "components/site/SiteLayout.tsx:175",
      "components/site/SiteLayout.tsx:26",
+     "lib/look.ts:104",
      "pages/equipo.tsx:27"
     ],
     "qaScenarios": {},
@@ -1440,6 +1442,7 @@
      "components/site/Novedades.tsx:35",
      "components/site/SiteLayout.tsx:174",
      "components/site/SiteLayout.tsx:25",
+     "lib/look.ts:107",
      "pages/dashboard.tsx:725",
      "pages/dashboard.tsx:726",
      "pages/noticias/[slug].tsx:103",
@@ -1838,6 +1841,7 @@
      "components/NewsSlider.tsx:214",
      "components/site/NewsCard.tsx:15",
      "components/site/NewsCard.tsx:17",
+     "lib/look.ts:108",
      "pages/dashboard.tsx:746",
      "pages/dashboard.tsx:748",
      "pages/noticias.tsx:196"
@@ -2140,6 +2144,7 @@
      "components/Footer.tsx:91",
      "components/site/SiteLayout.tsx:172",
      "components/site/SiteLayout.tsx:23",
+     "lib/look.ts:109",
      "lib/pasantias/pdf/contact.ts:22",
      "pages/index.tsx:337",
      "pages/programas.tsx:163"
@@ -3470,6 +3475,7 @@
     },
     "inPage": [],
     "linkedFrom": [
+     "lib/look.ts:106",
      "lib/pasantias/consent.ts:28",
      "pages/registro-tractor.tsx:400",
      "pages/registro-tractor.tsx:401",
@@ -3589,6 +3595,7 @@
      "components/site/Puertas.tsx:33",
      "components/site/SiteLayout.tsx:173",
      "components/site/SiteLayout.tsx:24",
+     "lib/look.ts:103",
      "pages/index.tsx:123",
      "pages/nosotros.tsx:106"
     ],

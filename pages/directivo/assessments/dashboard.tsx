@@ -113,13 +113,13 @@ interface CourseResultsData {
 }
 
 const AREA_COLORS: Record<string, string> = {
-  personalizacion: 'rgb(var(--color-blue-500))',
-  aprendizaje: 'rgb(var(--color-legacy-10b981))',
-  evaluacion: '#f59e0b',
-  proposito: 'rgb(var(--color-legacy-8b5cf6))',
-  familias: 'rgb(var(--color-legacy-ec4899))',
-  trabajo_docente: 'rgb(var(--color-legacy-06b6d4))',
-  liderazgo: 'rgb(var(--color-legacy-f97316))',
+  personalizacion: 'rgb(var(--color-serie-1, var(--color-blue-500)))',
+  aprendizaje: 'rgb(var(--color-serie-2, var(--color-legacy-10b981)))',
+  evaluacion: 'rgb(var(--color-serie-3, 245 158 11))',
+  proposito: 'rgb(var(--color-serie-4, var(--color-legacy-8b5cf6)))',
+  familias: 'rgb(var(--color-serie-5, var(--color-legacy-ec4899)))',
+  trabajo_docente: 'rgb(var(--color-serie-1, var(--color-legacy-06b6d4)))',
+  liderazgo: 'rgb(var(--color-serie-2, var(--color-legacy-f97316)))',
 };
 
 const DirectivoDashboard: React.FC = () => {

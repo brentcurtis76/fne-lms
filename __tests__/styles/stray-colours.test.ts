@@ -360,6 +360,10 @@ const pin = (hex: string, name: string): string => {
  */
 type TextPin = { lines: string[]; hex: string[]; count: number };
 
+// Phase 5a moved the colours of the charts with several series (the modality and per-school charts
+// of pages/consultor/sessions/reports.tsx, the area colours of pages/directivo/assessments/dashboard.tsx,
+// the ring of components/hours/SchoolHoursReport.tsx) to the new look's serie names, with these names
+// as fallbacks. Those lines are pinned, with the same 4b colours, in chart-series.test.ts.
 // PINS-START (plain data: the scratch check reads it)
 const TEXT_PINS: Record<string, TextPin[]> = {
   'components/toast/ToastIcons.tsx': [
@@ -385,8 +389,6 @@ const TEXT_PINS: Record<string, TextPin[]> = {
   ],
   'pages/consultor/sessions/reports.tsx': [
     { lines: ["brand_accent_light: 'rgb(var(--color-amber-100))',"], hex: ['#fef3c7'], count: 1 },
-    { lines: ["presencial: 'rgb(var(--color-blue-500))',"], hex: ['#3B82F6'], count: 1 },
-    { lines: ["online: 'rgb(var(--color-legacy-10b981))',"], hex: ['#10B981'], count: 1 },
     {
       lines: ['title="Tasa de Completación"', 'value={`${kpis.completion_rate}%`}', 'icon={<CheckCircle className="w-6 h-6" />}', 'color="rgb(var(--color-legacy-10b981))"'],
       hex: ['#10B981'],
@@ -415,23 +417,12 @@ const TEXT_PINS: Record<string, TextPin[]> = {
     { lines: ['<Bar dataKey="completed" stackId="a" fill="rgb(var(--color-legacy-10b981))" name="Completadas" />'], hex: ['#10B981'], count: 1 },
     { lines: ['<Bar dataKey="cancelled" stackId="a" fill="rgb(var(--color-red-500))" name="Canceladas" />'], hex: ['#EF4444'], count: 1 },
     { lines: ['<Bar dataKey="other" stackId="a" fill="rgb(var(--color-gray-400))" name="Otras" />'], hex: ['#9CA3AF'], count: 1 },
-    { lines: ['<Bar dataKey="total" fill="rgb(var(--color-blue-500))" name="Total" />'], hex: ['#3B82F6'], count: 1 },
-    { lines: ['<Bar dataKey="completed" fill="rgb(var(--color-legacy-10b981))" name="Completadas" />'], hex: ['#10B981'], count: 1 },
   ],
   'pages/directivo/assessments/dashboard.tsx': [
-    { lines: ["personalizacion: 'rgb(var(--color-blue-500))',"], hex: ['#3b82f6'], count: 1 },
-    { lines: ["aprendizaje: 'rgb(var(--color-legacy-10b981))',"], hex: ['#10b981'], count: 1 },
-    { lines: ["proposito: 'rgb(var(--color-legacy-8b5cf6))',"], hex: ['#8b5cf6'], count: 1 },
-    { lines: ["familias: 'rgb(var(--color-legacy-ec4899))',"], hex: ['#ec4899'], count: 1 },
-    { lines: ["trabajo_docente: 'rgb(var(--color-legacy-06b6d4))',"], hex: ['#06b6d4'], count: 1 },
-    { lines: ["liderazgo: 'rgb(var(--color-legacy-f97316))',"], hex: ['#f97316'], count: 1 },
     { lines: ["const PIE_COLORS = ['rgb(var(--color-legacy-10b981))', '#f59e0b'];"], hex: ['#10b981'], count: 1 },
     { lines: ['dataKey="score"', 'stroke="rgb(var(--color-blue-600))"', 'fill="rgb(var(--color-blue-600))"'], hex: ['#2563eb', '#2563eb'], count: 1 },
   ],
   'components/hours/SchoolHoursReport.tsx': [
-    { lines: ["const COLOR_CONSUMED = 'rgb(var(--color-legacy-003a5b))';"], hex: ['#003A5B'], count: 1 },
-    { lines: ["const COLOR_RESERVED = 'rgb(var(--color-legacy-0066a4))';"], hex: ['#0066A4'], count: 1 },
-    { lines: ["const COLOR_AVAILABLE = 'rgb(var(--color-legacy-e0f0ff))';"], hex: ['#E0F0FF'], count: 1 },
     { lines: ["const COLOR_AVAILABLE_WARNING = 'rgb(var(--color-amber-100))'; // yellow-100"], hex: ['#FEF3C7'], count: 1 },
     { lines: ["const COLOR_AVAILABLE_EXHAUSTED = 'rgb(var(--color-red-100))'; // red-100"], hex: ['#FEE2E2'], count: 1 },
     { lines: [": [{ name: 'Sin datos', value: 1, color: 'rgb(var(--color-gray-200))' }];"], hex: ['#e5e7eb'], count: 1 },
@@ -531,7 +522,9 @@ describe('stray colours: each list keeps the name that replaced its colour', () 
     expect(toastStyles.error.iconTheme.primary).toBe(errorRed);
     expect(toastStyles.success.iconTheme.primary).toBe(successGreen);
     // Brand kit, unchanged.
-    expect(toastStyles.success.style.borderLeft).toBe('4px solid #fbbf24');
+    // Since 5a the success edge reads a name of the new look, with today's colour as the fallback
+    // (__tests__/constants/toastStyles.test.ts).
+    expect(toastStyles.success.style.borderLeft).toBe('4px solid var(--toast-edge-success, #fbbf24)');
     expect(toastStyles.info.iconTheme.primary).toBe('#0a0a0a');
   });
 

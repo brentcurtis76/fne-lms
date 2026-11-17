@@ -1,7 +1,7 @@
 # Notificaciones
 
 Area `16-notificaciones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `007807e90` (2026-11-16).
+Read from commit `3ff6aa13f` (2026-11-17).
 
 5 screen files, 10 API files, 8 pieces.
 
@@ -336,7 +336,7 @@ File `pages/notificaciones/baja.tsx` · 192 lines · frame: none · getServerSid
 - Menu: no entry.
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page: no access check found by the script.
-- Linked from: `lib/email/notification-unsubscribe.ts:30`
+- Linked from: `lib/email/notification-unsubscribe.ts:30`, `lib/look.ts:117`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/notification-unsubscribe.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |

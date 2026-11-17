@@ -1,7 +1,7 @@
 # Sesiones y consultorías (sessions, approvals, video meetings)
 
 Area `06-sesiones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `007807e90` (2026-11-16).
+Read from commit `3ff6aa13f` (2026-11-17).
 
 11 screen files, 34 API files, 31 pieces.
 
@@ -2083,6 +2083,12 @@ File `pages/consultor/sessions/reports.tsx` · 890 lines · frame: MainLayout
 | `LoadingSkeleton` |  | `dataLoading && each Array.from({ length: 4 })` |  | SessionReportsPage · l.868 |
 | `LoadingSkeleton` |  | `dataLoading && each Array.from({ length: 4 })` |  | SessionReportsPage · l.873 |
 
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `MODALITY_COLORS` | «rgb(var(--color-serie-1, var(--color-blue-500)))», «rgb(var(--color-serie-2, var(--color-legacy-10b981)))», «rgb(var(--color-serie-3, 245 158 11))» | l.133 |
+
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)
 
 | Text | Where |
@@ -3377,13 +3383,13 @@ Used by: `/consultor/sessions/reports`
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «withAlpha expects two hex characters, got "{hh}"» | `throw (shown by whoever catches it)` | `!TWO_HEX.test(hh)` | alphaFromHex · l.15 |
+| «withAlpha expects two hex characters, got "{hh}"» | `throw (shown by whoever catches it)` | `!TWO_HEX.test(hh)` | alphaFromHex · l.19 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
-| `withAlpha()` | «rgb(var({named[1]}) / {alpha})» | withAlpha · l.22 |
+| `withAlpha()` | «rgb({named[1]} / {alpha})» | withAlpha · l.26 |
 
 ### lib/exportUtils.ts
 

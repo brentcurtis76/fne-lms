@@ -223,9 +223,13 @@ async function describe(page) {
     const main = document.querySelector('main') || document.body;
     return {
       title: document.title,
+      // The look the page carries at this moment (phase 5): "nuevo", or null for today's look.
+      look: document.documentElement.getAttribute('data-look'),
       headings: [...main.querySelectorAll('h1,h2,h3')].filter(vis).map(txt).filter(Boolean).slice(0, 40),
       menu: [...document.querySelectorAll('[data-testid="global-sidebar"] [data-testid^="sidebar-item-"]')].map((e) => e.getAttribute('data-testid').replace('sidebar-item-', '')),
       text: ((document.body && document.body.innerText) || '').replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').slice(0, 5000),
+      // The page's own content without the frame around it (phase 5: the frame differs between the two looks, the content must not).
+      mainText: document.querySelector('main') ? (document.querySelector('main').innerText || '').replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').slice(0, 5000) : null,
     };
   }).catch(() => ({}));
 }

@@ -1,7 +1,7 @@
 # Reportes
 
 Area `13-reportes`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `007807e90` (2026-11-16).
+Read from commit `3ff6aa13f` (2026-11-17).
 
 3 screen files, 10 API files, 21 pieces.
 
@@ -636,10 +636,13 @@ Used by: `/reporte-horas`
 | `FileText` | aria-hidden: true | `selectedContract` |  | SchoolHoursReport · l.630 |
 | `Download` | aria-hidden: true | `selectedContract` |  | SchoolHoursReport · l.637 |
 
-**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+**Texts kept in lists and helpers in the code (labels, options, status names)** (4)
 
 | Name | Texts | Where |
 |---|---|---|
+| `COLOR_CONSUMED` | «rgb(var(--color-serie-1, var(--color-legacy-003a5b)))» | l.35 |
+| `COLOR_RESERVED` | «rgb(var(--color-serie-2, var(--color-legacy-0066a4)))» | l.36 |
+| `COLOR_AVAILABLE` | «rgb(var(--color-serie-5, var(--color-legacy-e0f0ff)))» | l.37 |
 | `STATUS_BADGE` | «Consumida», «Reservada», «Penalizada», «Devuelta», «Sin registro de horas» | l.50 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (21)
@@ -1465,13 +1468,13 @@ Used by: `/detailed-reports`, `/reports`
 
 | Text | Set by | When | Where |
 |---|---|---|---|
-| «withAlpha expects two hex characters, got "{hh}"» | `throw (shown by whoever catches it)` | `!TWO_HEX.test(hh)` | alphaFromHex · l.15 |
+| «withAlpha expects two hex characters, got "{hh}"» | `throw (shown by whoever catches it)` | `!TWO_HEX.test(hh)` | alphaFromHex · l.19 |
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 
 | Name | Texts | Where |
 |---|---|---|
-| `withAlpha()` | «rgb(var({named[1]}) / {alpha})» | withAlpha · l.22 |
+| `withAlpha()` | «rgb({named[1]} / {alpha})» | withAlpha · l.26 |
 
 ### lib/exportUtils.ts
 

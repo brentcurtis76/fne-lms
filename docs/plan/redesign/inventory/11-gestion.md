@@ -1,7 +1,7 @@
 # Gestión (clients, contracts, quotes)
 
 Area `11-gestion`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `007807e90` (2026-11-16).
+Read from commit `3ff6aa13f` (2026-11-17).
 
 7 screen files, 14 API files, 20 pieces.
 
@@ -588,7 +588,7 @@ File `pages/contract-print/[id].tsx` · 276 lines · frame: none
 - Menu: no entry.
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page: no access check found by the script.
-- Linked from: `middleware.ts:332`, `pages/contracts.tsx:1077`
+- Linked from: `lib/look.ts:114`, `middleware.ts:332`, `pages/contracts.tsx:1077`
 - Tests: no browser test that CI runs.
 
 | Role | Sees it in the menu | Middleware |
@@ -904,7 +904,7 @@ File `pages/quote/[id].tsx` · 129 lines · frame: none
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page:
   - l.80 `router.push → /  (when error)`
-- Linked from: `pages/admin/quotes/[id]/edit.tsx:176`, `pages/admin/quotes/[id]/edit.tsx:177`, `pages/admin/quotes/index.tsx:354`, `pages/admin/quotes/index.tsx:355`, `pages/api/quotes/create.ts:129`, `pages/api/quotes/createV2.ts:224`
+- Linked from: `lib/look.ts:115`, `pages/admin/quotes/[id]/edit.tsx:176`, `pages/admin/quotes/[id]/edit.tsx:177`, `pages/admin/quotes/index.tsx:354`, `pages/admin/quotes/index.tsx:355`, `pages/api/quotes/create.ts:129`, `pages/api/quotes/createV2.ts:224`
 - Tests: no browser test that CI runs.
 
 | Role | Sees it in the menu | Middleware |
@@ -2599,8 +2599,8 @@ Used by: `/admin/clients`, `/contracts`
 | `/api/contracts/[id]/hours/ledger` | `pages/api/contracts/[id]/hours/ledger/index.ts` | GET, POST | **no screen** | `__tests__/api/hour-tracking/ledger-json.test.ts` |
 | `/api/contracts/[id]/hours/reallocate` | `pages/api/contracts/[id]/hours/reallocate.ts` | PATCH | `/contracts` | `__tests__/api/hour-tracking/reallocation.test.ts`, `components/contracts/ReallocationModal.tsx` |
 | `/api/contracts/extract-pdf` | `pages/api/contracts/extract-pdf.ts` | POST | `/contracts` | `__tests__/api/forged-session-sweep.test.ts`, `components/contracts/ContractPDFImporter.tsx` |
-| `/api/quotes/[id]` | `pages/api/quotes/[id].ts` | DELETE, GET, PUT | `/admin/quotes`, `/admin/quotes/[id]/edit`, `/quote/[id]` | `__tests__/api/admin/assignment-matrix-quotes-forged-session.test.ts`, `pages/admin/quotes/[id]/edit.tsx`, `pages/admin/quotes/index.tsx`, `pages/quote/[id].tsx`, `scripts/redesign/harness/seed/50-gestion-licitaciones.mjs` |
-| `/api/quotes/[id]/groups` | `pages/api/quotes/[id]/groups.ts` | DELETE, GET, POST, PUT | `/admin/quotes/[id]/edit`, `/admin/quotes/new` | `__tests__/api/admin/assignment-matrix-quotes-forged-session.test.ts`, `components/quotes/QuoteFormV2.tsx` |
+| `/api/quotes/[id]` | `pages/api/quotes/[id].ts` | DELETE, GET, PUT | `/admin/quotes`, `/admin/quotes/[id]/edit`, `/quote/[id]` | `__tests__/api/admin/assignment-matrix-quotes-forged-session.test.ts`, `__tests__/api/quotes/public-quote-fields.test.ts`, `pages/admin/quotes/[id]/edit.tsx`, `pages/admin/quotes/index.tsx`, `pages/quote/[id].tsx` +1 |
+| `/api/quotes/[id]/groups` | `pages/api/quotes/[id]/groups.ts` | DELETE, GET, POST, PUT | `/admin/quotes/[id]/edit`, `/admin/quotes/new` | `__tests__/api/admin/assignment-matrix-quotes-forged-session.test.ts`, `__tests__/api/quotes/groups-owner-read.test.ts`, `components/quotes/QuoteFormV2.tsx` |
 | `/api/quotes/create` | `pages/api/quotes/create.ts` | POST | **no screen** | `__tests__/api/admin/assignment-matrix-quotes-forged-session.test.ts` |
 | `/api/quotes/createV2` | `pages/api/quotes/createV2.ts` | POST | `/admin/quotes/new` | `__tests__/api/admin/assignment-matrix-quotes-forged-session.test.ts`, `pages/admin/quotes/new.tsx` |
 | `/api/quotes/list` | `pages/api/quotes/list.ts` | GET | **no screen** | `__tests__/api/forged-session-sweep.test.ts` |

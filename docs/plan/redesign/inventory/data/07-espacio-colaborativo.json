@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "007807e90467f7aa64736d0a234ad0d7009cfc83",
-  "date": "2026-11-16T16:10:07-03:00"
+  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
+  "date": "2026-11-17T05:46:26-03:00"
  },
  "screens": [
   {
@@ -12652,11 +12652,11 @@
    "usedBy": [
     "/community/workspace"
    ],
-   "lines": 25,
+   "lines": 29,
    "rows": [
     {
      "kind": "message",
-     "line": 15,
+     "line": 19,
      "in": "alphaFromHex",
      "when": "!TWO_HEX.test(hh)",
      "text": "withAlpha expects two hex characters, got \"{hh}\"",
@@ -12664,11 +12664,11 @@
     },
     {
      "kind": "list",
-     "line": 22,
+     "line": 26,
      "in": "withAlpha",
      "text": "withAlpha()",
      "items": [
-      "rgb(var({named[1]}) / {alpha})"
+      "rgb({named[1]} / {alpha})"
      ]
     }
    ],
@@ -14568,11 +14568,11 @@
    "methods": [
     "POST"
    ],
-   "guards": [
-    "auth.getUser"
-   ],
+   "guards": [],
    "calledBy": [],
-   "referencedIn": []
+   "referencedIn": [
+    "__tests__/api/storage/download-authorization.test.ts"
+   ]
   },
   {
    "file": "pages/api/storage/download.ts",
@@ -14580,14 +14580,13 @@
    "methods": [
     "GET"
    ],
-   "guards": [
-    "auth.getUser"
-   ],
+   "guards": [],
    "calledBy": [
     "/community/workspace",
     "/student/lesson/[lessonId]"
    ],
    "referencedIn": [
+    "__tests__/api/storage/download-authorization.test.ts",
     "components/student/StudentBlockRenderer.tsx",
     "pages/community/workspace.tsx",
     "scripts/seed-qa-phase2-final.js",

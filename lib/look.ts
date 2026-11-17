@@ -81,3 +81,65 @@ export function lookOfAccount(
 ): Look {
   return mayChooseLook(profile) ? lookFromPreferences(profile?.learning_preferences) : 'clasico';
 }
+
+/**
+ * Pages the new look never touches (redesign 5a). The attribute sits on `<html>` on every page a
+ * signed-in tester opens, also on pages that are not the platform: on these it is absent and
+ * `useLook().look` answers today's look. The test of a page: is it drawn inside the platform's frame
+ * (`MainLayout`) for a signed-in person? If not, it belongs here. Written as Next's route patterns
+ * (the router's `pathname`); a concrete address matches its pattern too (`/noticias/una-nota`).
+ */
+export const PAGES_WITHOUT_THE_LOOK: ReadonlyArray<string> = [
+  // Sign-in family (inventory area 01-acceso): changes at the redesign's launch, not before.
+  '/login',
+  '/reset-password',
+  '/change-password',
+  '/pending-approval',
+  '/403',
+  '/registro',
+  '/registro-tractor',
+  // The public site (inventory area 20-sitio-publico): it has its own design.
+  '/',
+  '/programas',
+  '/nosotros',
+  '/equipo',
+  '/privacidad',
+  '/noticias',
+  '/noticias/[slug]',
+  '/pasantias',
+  // Public Pasantías pages outside the platform: the roster form a school opens from its link.
+  '/pasantias/nomina',
+  // Documents for a client: the proposal's web view, a contract's print view, the public quote.
+  '/propuesta/[slug]',
+  '/contract-print/[id]',
+  '/quote/[id]',
+  // A public page reached from an e-mail: the unsubscribe confirmation.
+  '/notificaciones/baja',
+  // Next's error pages.
+  '/404',
+  '/_error',
+];
+
+const routeMatcher = (pattern: string): RegExp =>
+  new RegExp(
+    `^${pattern
+      .split('/')
+      .map((part) =>
+        /^\[[^\]/]+\]$/.test(part)
+          ? `(?:${part.replace(/[[\]]/g, '\\$&')}|[^/]+)`
+          : part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      )
+      .join('/')}$`
+  );
+const MATCHERS = PAGES_WITHOUT_THE_LOOK.map(routeMatcher);
+
+/**
+ * Does the new look apply to this page? `pathname` is the router's (a route pattern) or an address;
+ * a query, a hash and a trailing slash are ignored. Pure: safe on the server and in tests.
+ */
+export function lookAppliesTo(pathname: string | null | undefined): boolean {
+  if (typeof pathname !== 'string' || pathname === '') return true;
+  let path = pathname.split(/[?#]/)[0] || '/';
+  if (path.length > 1) path = path.replace(/\/+$/, '') || '/';
+  return !MATCHERS.some((matcher) => matcher.test(path));
+}

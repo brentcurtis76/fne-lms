@@ -1,7 +1,7 @@
 # Gestor de Cambio (registros, context, migration plan, results)
 
 Area `08-gestor-de-cambio`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `007807e90` (2026-11-16).
+Read from commit `3ff6aa13f` (2026-11-17).
 
 16 screen files, 40 API files, 30 pieces.
 
@@ -1987,10 +1987,11 @@ File `pages/directivo/assessments/dashboard.tsx` · 714 lines · frame: MainLayo
 | `CartesianGrid` | strokeDasharray: 3 3 | `!(!hasResults) && activeTab === 'overview'` |  | DirectivoDashboard · l.454 |
 | `Pie` | cx: 50% · cy: 50% | `!(!hasResults) && activeTab === 'courses' && scoredCourses.length > 0` |  | DirectivoDashboard · l.548 |
 
-**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+**Texts kept in lists and helpers in the code (labels, options, status names)** (2)
 
 | Name | Texts | Where |
 |---|---|---|
+| `AREA_COLORS` | «rgb(var(--color-serie-1, var(--color-blue-500)))», «rgb(var(--color-serie-2, var(--color-legacy-10b981)))», «rgb(var(--color-serie-3, 245 158 11))», «rgb(var(--color-serie-4, var(--color-legacy-8b5cf6)))», «rgb(var(--color-serie-5, var(--color-legacy-ec4899)))», «rgb(var(--color-serie-1, var(--color-legacy-06b6d4)))», «rgb(var(--color-serie-2, var(--color-legacy-f97316)))» | l.115 |
 | `pieData` | «Cumplen», «En desarrollo» | DirectivoDashboard · l.281 |
 
 **Other texts written in the code (safety net: not tied to an element by the script)** (1)

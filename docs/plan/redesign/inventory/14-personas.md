@@ -1,7 +1,7 @@
 # Personas (users, schools, networks, roles, profile)
 
 Area `14-personas`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `007807e90` (2026-11-16).
+Read from commit `3ff6aa13f` (2026-11-17).
 
 7 screen files, 33 API files, 24 pieces.
 
@@ -2581,7 +2581,7 @@ Used by: `/admin/school-users`, `/admin/user-management`, `/profile`
 
 | Name | Texts | Where |
 |---|---|---|
-| `baseStyle` | «0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08)», «Inter, system-ui, -apple-system, sans-serif» | l.20 |
+| `baseStyle` | «Inter, system-ui, -apple-system, sans-serif» | l.29 |
 
 ### lib/api-auth.ts
 

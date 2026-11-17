@@ -1,6 +1,6 @@
 # API files that no screen calls
 
-Written by `scripts/redesign/inventory.mjs` from commit `007807e90`. An API file is listed here when no screen, and no piece a screen draws, names its address. "Named in" shows where else the address appears (scheduled jobs in `vercel.json`, server code, tests). Nothing here is a verdict: an address can be called from outside the platform (a webhook, a link in an email).
+Written by `scripts/redesign/inventory.mjs` from commit `3ff6aa13f`. An API file is listed here when no screen, and no piece a screen draws, names its address. "Named in" shows where else the address appears (scheduled jobs in `vercel.json`, server code, tests). Nothing here is a verdict: an address can be called from outside the platform (a webhook, a link in an email).
 
 ## Marco (the frame around every screen)
 
@@ -18,14 +18,14 @@ Written by `scripts/redesign/inventory.mjs` from commit `007807e90`. An API file
 
 | Address | File | Methods | Named in |
 |---|---|---|---|
-| `/api/badges/award-and-announce` | `pages/api/badges/award-and-announce.ts` | POST | **nothing** |
+| `/api/badges/award-and-announce` | `pages/api/badges/award-and-announce.ts` | POST | `__tests__/api/cursos-admin-only-routes.test.ts` |
 | `/api/dashboard/unified` | `pages/api/dashboard/unified.ts` | GET | `components/dashboard/unified/UnifiedDashboard.tsx` |
 
 ## Cursos (course builder, upcoming courses, learning paths, assignment matrix)
 
 | Address | File | Methods | Named in |
 |---|---|---|---|
-| `/api/courses/complete` | `pages/api/courses/complete.ts` | POST | **nothing** |
+| `/api/courses/complete` | `pages/api/courses/complete.ts` | POST | `__tests__/api/cursos-admin-only-routes.test.ts` |
 | `/api/learning-paths/assign` | `pages/api/learning-paths/assign.ts` | POST | `__tests__/api/learning-paths/governance-boundary.test.ts`, `tests/e2e/learning-path-governance.spec.ts` |
 | `/api/learning-paths/assignments/[id]` | `pages/api/learning-paths/assignments/[id].ts` | DELETE, GET | `__tests__/api/learning-paths/management-routes-boundary.test.ts` |
 | `/api/learning-paths/session/activity` | `pages/api/learning-paths/session/activity.ts` | POST | `__tests__/api/learning-paths/session-activity.test.ts`, `tests/e2e/learning-path-governance.spec.ts` |
@@ -39,7 +39,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `007807e90`. An API file
 | Address | File | Methods | Named in |
 |---|---|---|---|
 | `/api/assignments/collaborative-submit` | `pages/api/assignments/collaborative-submit.ts` | POST | `__tests__/api/forged-session-sweep.test.ts`, `components/assignments/CollaborativeSubmissionModal.tsx` |
-| `/api/assignments/feedback` | `pages/api/assignments/feedback.ts` | POST | **nothing** |
+| `/api/assignments/feedback` | `pages/api/assignments/feedback.ts` | POST | `__tests__/api/assignments/feedback-admin-only.test.ts` |
 | `/api/assignments/shareable-members` | `pages/api/assignments/shareable-members.ts` | GET | `__tests__/api/assignments/forged-session.test.ts`, `components/assignments/CollaborativeSubmissionModal.tsx` |
 
 ## Sesiones y consultorías (sessions, approvals, video meetings)
@@ -54,7 +54,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `007807e90`. An API file
 | Address | File | Methods | Named in |
 |---|---|---|---|
 | `/api/messaging/send` | `pages/api/messaging/send.ts` | POST | `__tests__/api/messaging/send.test.ts`, `__tests__/lib/notificationService.producer-contract.test.ts`, `__tests__/lib/notificationService.source-context.test.ts`, `tests/e2e/messaging-notifications.spec.ts` |
-| `/api/storage/download-url` | `pages/api/storage/download-url.ts` | POST | **nothing** |
+| `/api/storage/download-url` | `pages/api/storage/download-url.ts` | POST | `__tests__/api/storage/download-authorization.test.ts` |
 
 ## Gestor de Cambio (registros, context, migration plan, results)
 
@@ -70,7 +70,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `007807e90`. An API file
 | `/api/admin/transformation/assign-access` | `pages/api/admin/transformation/assign-access.ts` | POST | `__tests__/api/forged-session-sweep.test.ts` |
 | `/api/admin/transformation/revoke-access` | `pages/api/admin/transformation/revoke-access.ts` | POST | `__tests__/api/forged-session-sweep.test.ts` |
 | `/api/transformation/assessments/[id]/responses` | `pages/api/transformation/assessments/[id]/responses.ts` | GET, PUT | `__tests__/api/forged-session-sweep.test.ts` |
-| `/api/transformation/personalizacion-questions` | `pages/api/transformation/personalizacion-questions.ts` | GET | **nothing** |
+| `/api/transformation/personalizacion-questions` | `pages/api/transformation/personalizacion-questions.ts` | GET | `__tests__/api/transformation/area-questions-auth.test.ts` |
 
 ## Licitaciones (processes, templates, proposals)
 
@@ -174,12 +174,12 @@ Written by `scripts/redesign/inventory.mjs` from commit `007807e90`. An API file
 | `/api/cron/update-learning-path-summaries` | `pages/api/cron/update-learning-path-summaries.ts` | POST | `__tests__/api/cron/update-learning-path-summaries.test.ts`, `tests/e2e/learning-path-governance.spec.ts` |
 | `/api/cron/zoom-reconcile` | `pages/api/cron/zoom-reconcile.ts` |  | `__tests__/api/cron/session-reminders.test.ts`, `__tests__/api/cron/zoom-reconcile.test.ts`, `__tests__/lib/notificationService.dispatch.test.ts`, `tests/e2e/zoom-mock-mode.spec.ts`, `vercel.json` |
 | `/api/cron/zoom-ticker` | `pages/api/cron/zoom-ticker.ts` |  | `__tests__/api/cron/session-reminders.test.ts`, `__tests__/api/cron/zoom-ticker.test.ts`, `__tests__/lib/notificationService.dispatch.test.ts`, `tests/e2e/zoom-mock-mode.spec.ts`, `vercel.json` |
-| `/api/debug/check-course-images` | `pages/api/debug/check-course-images.ts` | GET | **nothing** |
+| `/api/debug/check-course-images` | `pages/api/debug/check-course-images.ts` | GET | `__tests__/api/cursos-admin-only-routes.test.ts` |
 | `/api/monitoring/run-checks` | `pages/api/monitoring/run-checks.ts` | POST | **nothing** |
 | `/api/test-bucket` | `pages/api/test-bucket.js` |  | **nothing** |
 | `/api/test/notification-triggers` | `pages/api/test/notification-triggers.ts` |  | **nothing** |
 
-87 of 366 API files.
+87 of 367 API files.
 
 ## Addresses the code names that have no file
 

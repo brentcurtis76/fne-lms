@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "007807e90467f7aa64736d0a234ad0d7009cfc83",
-  "date": "2026-11-16T16:10:07-03:00"
+  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
+  "date": "2026-11-17T05:46:26-03:00"
  },
  "screens": [
   {
@@ -2020,6 +2020,7 @@
     },
     "inPage": [],
     "linkedFrom": [
+     "lib/look.ts:114",
      "middleware.ts:332",
      "pages/contracts.tsx:1077"
     ],
@@ -3219,6 +3220,7 @@
      }
     ],
     "linkedFrom": [
+     "lib/look.ts:115",
      "pages/admin/quotes/[id]/edit.tsx:176",
      "pages/admin/quotes/[id]/edit.tsx:177",
      "pages/admin/quotes/index.tsx:354",
@@ -10315,7 +10317,10 @@
     "GET",
     "PUT"
    ],
-   "guards": [],
+   "guards": [
+    "createServiceRoleClient",
+    "getApiUser"
+   ],
    "calledBy": [
     "/admin/quotes",
     "/admin/quotes/[id]/edit",
@@ -10323,6 +10328,7 @@
    ],
    "referencedIn": [
     "__tests__/api/admin/assignment-matrix-quotes-forged-session.test.ts",
+    "__tests__/api/quotes/public-quote-fields.test.ts",
     "pages/admin/quotes/[id]/edit.tsx",
     "pages/admin/quotes/index.tsx",
     "pages/quote/[id].tsx",
@@ -10347,6 +10353,7 @@
    ],
    "referencedIn": [
     "__tests__/api/admin/assignment-matrix-quotes-forged-session.test.ts",
+    "__tests__/api/quotes/groups-owner-read.test.ts",
     "components/quotes/QuoteFormV2.tsx"
    ]
   },

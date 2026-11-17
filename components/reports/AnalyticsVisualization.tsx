@@ -279,18 +279,18 @@ export default function AnalyticsVisualization({
               <Line
                 type="monotone"
                 dataKey="completedLessons"
-                stroke={FNE_COLORS.primary}
+                stroke="rgb(var(--color-serie-1, 10 10 10))"
                 strokeWidth={2}
                 name="Lecciones Completadas"
-                dot={{ fill: FNE_COLORS.primary }}
+                dot={{ fill: 'rgb(var(--color-serie-1, 10 10 10))' }}
               />
               <Line
                 type="monotone"
                 dataKey="activeUsers"
-                stroke={FNE_COLORS.secondary}
+                stroke="rgb(var(--color-serie-2, 251 191 36))"
                 strokeWidth={2}
                 name="Usuarios Activos"
-                dot={{ fill: FNE_COLORS.secondary }}
+                dot={{ fill: 'rgb(var(--color-serie-2, 251 191 36))' }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -382,16 +382,16 @@ export default function AnalyticsVisualization({
                 type="monotone"
                 dataKey="totalHours"
                 stackId="1"
-                stroke={FNE_COLORS.primary}
-                fill={`${FNE_COLORS.primary}80`}
+                stroke="rgb(var(--color-serie-1, 10 10 10))"
+                fill={withAlpha('rgb(var(--color-serie-1, 10 10 10))', '80')}
                 name="Total Horas"
               />
               <Area
                 type="monotone"
                 dataKey="avgHoursPerUser"
                 stackId="2"
-                stroke={FNE_COLORS.secondary}
-                fill={`${FNE_COLORS.secondary}80`}
+                stroke="rgb(var(--color-serie-2, 251 191 36))"
+                fill={withAlpha('rgb(var(--color-serie-2, 251 191 36))', '80')}
                 name="Promedio por Usuario"
               />
             </AreaChart>

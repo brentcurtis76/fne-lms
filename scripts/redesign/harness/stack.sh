@@ -12,6 +12,8 @@
 #   stack.sh snapshot N  save the database's contents under the name N
 #   stack.sh restore N [tests|pictures|none]  put the database back to snapshot N and restart the app (none: leave it stopped)
 #   stack.sh fingerprint one checksum per table (to see what a walk changed in the database)
+#   stack.sh look nuevo|clasico   mark every made-up account «Tester QA» and choose that look for it (phase 5:
+#                        take a snapshot afterwards, for example "content-nuevo", and walk that one)
 #   stack.sh psql        open psql on the stack's database (reads stdin)
 #   stack.sh status      what is running
 #   stack.sh down        stop the app and remove the stack (only this one)
@@ -203,6 +205,16 @@ select json_object_agg(n, h) from (
            schemaname, tablename), false, true, '')))[1]::text as h
   from pg_tables where schemaname in ('public', 'auth', 'storage')) x;
 SQL
+    ;;
+  look) # the per-account look switch, for every made-up account at once (local copy only: load() refuses anything else)
+    which="${1:?nuevo or clasico}"; load
+    case "$which" in
+      nuevo)   set_look="coalesce(learning_preferences, '{}'::jsonb) || '{\"ui_look\": \"nuevo\"}'::jsonb" ;;
+      clasico) set_look="coalesce(learning_preferences, '{}'::jsonb) - 'ui_look'" ;;
+      *) die "look: nuevo or clasico" ;;
+    esac
+    emails="$(node -e 'const f=require(process.argv[1]);console.log(Object.values(f.users).map((u)=>"\x27"+u.email+"\x27").join(","))' "$ROOT/scripts/ci/e2e-fixtures.json")"
+    psql_c -At <<< "update public.profiles set can_run_qa_tests = true, learning_preferences = $set_look where email in ($emails) returning email;" | grep -c '@' | sed "s/$/ made-up accounts are «Tester QA» with the look \"$which\"./"
     ;;
   psql) psql_c "$@" ;;
   status)

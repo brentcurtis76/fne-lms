@@ -1,7 +1,7 @@
 # Licitaciones (processes, templates, proposals)
 
 Area `10-licitaciones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `007807e90` (2026-11-16).
+Read from commit `3ff6aa13f` (2026-11-17).
 
 11 screen files, 42 API files, 28 pieces.
 
@@ -1775,7 +1775,7 @@ File `pages/propuesta/[slug].tsx` · 220 lines · frame: none
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page:
   - l.155 `router.push → /  (when error)`
-- Linked from: `components/licitaciones/ProposalConfigPanel.tsx:1632`, `components/licitaciones/ProposalConfigPanel.tsx:1652`, `components/licitaciones/ProposalConfigPanel.tsx:1653`
+- Linked from: `components/licitaciones/ProposalConfigPanel.tsx:1632`, `components/licitaciones/ProposalConfigPanel.tsx:1652`, `components/licitaciones/ProposalConfigPanel.tsx:1653`, `lib/look.ts:113`
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/flows/proposal-buckets.spec.ts`, `tests/e2e/flows/proposal-web-view.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
@@ -3566,7 +3566,7 @@ Used by: `/admin/licitaciones/criterios`, `/admin/licitaciones/feriados`, `/admi
 | `/api/admin/licitaciones/criterios` | `pages/api/admin/licitaciones/criterios.ts` | DELETE, GET, PATCH, POST | `/admin/licitaciones/criterios` | `pages/admin/licitaciones/criterios.tsx` |
 | `/api/admin/licitaciones/feriados` | `pages/api/admin/licitaciones/feriados.ts` | DELETE, GET, POST, PUT | `/admin/licitaciones/feriados` | `__tests__/api/licitaciones/generate-contract.test.ts`, `pages/admin/licitaciones/feriados.tsx` |
 | `/api/admin/licitaciones/templates` | `pages/api/admin/licitaciones/templates.ts` | GET, PATCH, POST | `/admin/licitaciones/criterios`, `/admin/licitaciones/templates` | `pages/admin/licitaciones/criterios.tsx`, `pages/admin/licitaciones/templates.tsx` |
-| `/api/licitaciones/[id]` | `pages/api/licitaciones/[id].ts` | DELETE, GET, PATCH | `/contracts`, `/licitaciones/[id]`, `/licitaciones/[id]/evaluacion` | `__tests__/api/licitaciones/licitaciones-historico.test.ts`, `__tests__/api/licitaciones/licitaciones-index.test.ts`, `__tests__/api/licitaciones/publicacion.test.ts`, `pages/contracts.tsx`, `pages/licitaciones/[id].tsx` +1 |
+| `/api/licitaciones/[id]` | `pages/api/licitaciones/[id].ts` | DELETE, GET, PATCH | `/contracts`, `/licitaciones/[id]`, `/licitaciones/[id]/evaluacion` | `__tests__/api/licitaciones/licitaciones-historico.test.ts`, `__tests__/api/licitaciones/licitaciones-index.test.ts`, `__tests__/api/licitaciones/patch-encargado-school.test.ts`, `__tests__/api/licitaciones/publicacion.test.ts`, `pages/contracts.tsx` +2 |
 | `/api/licitaciones/[id]/adjudicacion-confirmar` | `pages/api/licitaciones/[id]/adjudicacion-confirmar.ts` | POST | `/licitaciones/[id]` | `components/licitaciones/Step6Adjudicacion.tsx` |
 | `/api/licitaciones/[id]/adjudicacion` | `pages/api/licitaciones/[id]/adjudicacion.ts` | POST | `/licitaciones/[id]` | `components/licitaciones/Step6Adjudicacion.tsx` |
 | `/api/licitaciones/[id]/advance` | `pages/api/licitaciones/[id]/advance.ts` | POST | `/licitaciones/[id]`, `/licitaciones/[id]/evaluacion` | `__tests__/api/licitaciones/ates.test.ts`, `components/licitaciones/Step3Bases.tsx`, `components/licitaciones/Step4Propuestas.tsx`, `pages/licitaciones/[id]/evaluacion.tsx` |

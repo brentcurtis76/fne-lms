@@ -1,0 +1,427 @@
+/**
+ * The redesign's new look (phase 5a): the values of the approved look (DESIGN.md), only for a page whose
+ * `<html>` carries `data-look="nuevo"` (lib/look.ts decides who and where).
+ *
+ * HOW IT WORKS. `styles/fne-tokens.css` declares every named value once, on `:root`, with today's value;
+ * this file gives some of the same names other values inside ONE block, `[data-look="nuevo"]`. Since the
+ * attribute sits on `<html>` (the same element as `:root`) and this selector is more specific than `:root`,
+ * its values win there and every element inherits them. Without the attribute nothing in this file
+ * matches anything: every rule below starts with `[data-look="nuevo"]` (pinned by
+ * __tests__/styles/look-nuevo.test.ts, and proved by `scripts/redesign/tokens-check.mjs`), also the
+ * ones inside the one kind of at-rule allowed here, a `@media (min-width: …)` breakpoint.
+ *
+ * Old school hardware: no color-mix, no :has, no nesting, no container queries, no backdrop blur.
+ *
+ * The values are the lead's reading of DESIGN.md, sections 1 to 3 (brief 5a). Five scales:
+ * GRIS for gray and slate; NEUTRO for blue, sky, indigo, purple, pink, cyan and teal (the approved
+ * palette has no blue and no colour per category); EXITO for green and emerald; ERROR for red and rose;
+ * AMBAR for amber, yellow and orange. Triplets as in the token file, the colour in a comment.
+ */
+[data-look="nuevo"] {
+  /* Brand. Only the accent text changes (#92400e, ámbar texto); the other seven keep their values.
+     The older whole-colour token of the same colour changes with it, so both names agree. */
+  --color-brand-accent-text: 146 64 14;     /* #92400e */
+  --fne-amber-text: #92400e;
+
+  /* Gray: GRIS (papel to negro). */
+  --color-gray-50:           245 245 246;   /* #f5f5f6 */
+  --color-gray-100:          231 232 234;   /* #e7e8ea */
+  --color-gray-200:          225 225 227;   /* #e1e1e3 */
+  --color-gray-300:          196 196 198;   /* #c4c4c6 */
+  --color-gray-400:          157 159 164;   /* #9d9fa4 */
+  --color-gray-500:          101 107 120;   /* #656b78, a step darker than the kit's gris medio: muted text on gray 50 */
+  --color-gray-600:          75 85 99;      /* #4b5563 */
+  --color-gray-700:          46 46 46;      /* #2e2e2e */
+  --color-gray-800:          31 31 31;      /* #1f1f1f */
+  --color-gray-900:          10 10 10;      /* #0a0a0a */
+  --color-gray-950:          10 10 10;      /* #0a0a0a */
+
+  /* Slate: GRIS (papel to negro). */
+  --color-slate-50:          245 245 246;   /* #f5f5f6 */
+  --color-slate-100:         231 232 234;   /* #e7e8ea */
+  --color-slate-200:         225 225 227;   /* #e1e1e3 */
+  --color-slate-300:         196 196 198;   /* #c4c4c6 */
+  --color-slate-400:         157 159 164;   /* #9d9fa4 */
+  --color-slate-500:         101 107 120;   /* #656b78, a step darker than the kit's gris medio: muted text on gray 50 */
+  --color-slate-600:         75 85 99;      /* #4b5563 */
+  --color-slate-700:         46 46 46;      /* #2e2e2e */
+  --color-slate-800:         31 31 31;      /* #1f1f1f */
+  --color-slate-900:         10 10 10;      /* #0a0a0a */
+  --color-slate-950:         10 10 10;      /* #0a0a0a */
+
+  /* Blue: NEUTRO (the approved palette has no blue and no colour per category). */
+  --color-blue-50:           236 236 238;   /* #ececee */
+  --color-blue-100:          231 232 234;   /* #e7e8ea */
+  --color-blue-200:          196 196 198;   /* #c4c4c6 */
+  --color-blue-300:          157 159 164;   /* #9d9fa4 */
+  --color-blue-400:          107 114 128;   /* #6b7280 */
+  --color-blue-500:          31 31 31;      /* #1f1f1f */
+  --color-blue-600:          10 10 10;      /* #0a0a0a */
+  --color-blue-700:          31 31 31;      /* #1f1f1f */
+  --color-blue-800:          31 31 31;      /* #1f1f1f */
+  --color-blue-900:          10 10 10;      /* #0a0a0a */
+  --color-blue-950:          10 10 10;      /* #0a0a0a */
+
+  /* Sky: NEUTRO (the approved palette has no blue and no colour per category). */
+  --color-sky-50:            236 236 238;   /* #ececee */
+  --color-sky-100:           231 232 234;   /* #e7e8ea */
+  --color-sky-200:           196 196 198;   /* #c4c4c6 */
+  --color-sky-300:           157 159 164;   /* #9d9fa4 */
+  --color-sky-400:           107 114 128;   /* #6b7280 */
+  --color-sky-500:           31 31 31;      /* #1f1f1f */
+  --color-sky-600:           10 10 10;      /* #0a0a0a */
+  --color-sky-700:           31 31 31;      /* #1f1f1f */
+  --color-sky-800:           31 31 31;      /* #1f1f1f */
+  --color-sky-900:           10 10 10;      /* #0a0a0a */
+  --color-sky-950:           10 10 10;      /* #0a0a0a */
+
+  /* Indigo: NEUTRO (the approved palette has no blue and no colour per category). */
+  --color-indigo-50:         236 236 238;   /* #ececee */
+  --color-indigo-100:        231 232 234;   /* #e7e8ea */
+  --color-indigo-200:        196 196 198;   /* #c4c4c6 */
+  --color-indigo-300:        157 159 164;   /* #9d9fa4 */
+  --color-indigo-400:        107 114 128;   /* #6b7280 */
+  --color-indigo-500:        31 31 31;      /* #1f1f1f */
+  --color-indigo-600:        10 10 10;      /* #0a0a0a */
+  --color-indigo-700:        31 31 31;      /* #1f1f1f */
+  --color-indigo-800:        31 31 31;      /* #1f1f1f */
+  --color-indigo-900:        10 10 10;      /* #0a0a0a */
+  --color-indigo-950:        10 10 10;      /* #0a0a0a */
+
+  /* Purple: NEUTRO (the approved palette has no blue and no colour per category). */
+  --color-purple-50:         236 236 238;   /* #ececee */
+  --color-purple-100:        231 232 234;   /* #e7e8ea */
+  --color-purple-200:        196 196 198;   /* #c4c4c6 */
+  --color-purple-300:        157 159 164;   /* #9d9fa4 */
+  --color-purple-400:        107 114 128;   /* #6b7280 */
+  --color-purple-500:        31 31 31;      /* #1f1f1f */
+  --color-purple-600:        10 10 10;      /* #0a0a0a */
+  --color-purple-700:        31 31 31;      /* #1f1f1f */
+  --color-purple-800:        31 31 31;      /* #1f1f1f */
+  --color-purple-900:        10 10 10;      /* #0a0a0a */
+  --color-purple-950:        10 10 10;      /* #0a0a0a */
+
+  /* Pink: NEUTRO (the approved palette has no blue and no colour per category). */
+  --color-pink-50:           236 236 238;   /* #ececee */
+  --color-pink-100:          231 232 234;   /* #e7e8ea */
+  --color-pink-200:          196 196 198;   /* #c4c4c6 */
+  --color-pink-300:          157 159 164;   /* #9d9fa4 */
+  --color-pink-400:          107 114 128;   /* #6b7280 */
+  --color-pink-500:          31 31 31;      /* #1f1f1f */
+  --color-pink-600:          10 10 10;      /* #0a0a0a */
+  --color-pink-700:          31 31 31;      /* #1f1f1f */
+  --color-pink-800:          31 31 31;      /* #1f1f1f */
+  --color-pink-900:          10 10 10;      /* #0a0a0a */
+  --color-pink-950:          10 10 10;      /* #0a0a0a */
+
+  /* Cyan: NEUTRO (the approved palette has no blue and no colour per category). */
+  --color-cyan-50:           236 236 238;   /* #ececee */
+  --color-cyan-100:          231 232 234;   /* #e7e8ea */
+  --color-cyan-200:          196 196 198;   /* #c4c4c6 */
+  --color-cyan-300:          157 159 164;   /* #9d9fa4 */
+  --color-cyan-400:          107 114 128;   /* #6b7280 */
+  --color-cyan-500:          31 31 31;      /* #1f1f1f */
+  --color-cyan-600:          10 10 10;      /* #0a0a0a */
+  --color-cyan-700:          31 31 31;      /* #1f1f1f */
+  --color-cyan-800:          31 31 31;      /* #1f1f1f */
+  --color-cyan-900:          10 10 10;      /* #0a0a0a */
+  --color-cyan-950:          10 10 10;      /* #0a0a0a */
+
+  /* Teal: NEUTRO (the approved palette has no blue and no colour per category). */
+  --color-teal-50:           236 236 238;   /* #ececee */
+  --color-teal-100:          231 232 234;   /* #e7e8ea */
+  --color-teal-200:          196 196 198;   /* #c4c4c6 */
+  --color-teal-300:          157 159 164;   /* #9d9fa4 */
+  --color-teal-400:          107 114 128;   /* #6b7280 */
+  --color-teal-500:          31 31 31;      /* #1f1f1f */
+  --color-teal-600:          10 10 10;      /* #0a0a0a */
+  --color-teal-700:          31 31 31;      /* #1f1f1f */
+  --color-teal-800:          31 31 31;      /* #1f1f1f */
+  --color-teal-900:          10 10 10;      /* #0a0a0a */
+  --color-teal-950:          10 10 10;      /* #0a0a0a */
+
+  /* Green: EXITO. */
+  --color-green-50:          238 250 242;   /* #eefaf2 */
+  --color-green-100:         226 246 233;   /* #e2f6e9 */
+  --color-green-200:         183 220 200;   /* #b7dcc8 */
+  --color-green-300:         127 191 163;   /* #7fbfa3 */
+  --color-green-400:         63 154 122;    /* #3f9a7a */
+  --color-green-500:         15 125 96;     /* #0f7d60 */
+  --color-green-600:         10 107 82;     /* #0a6b52 */
+  --color-green-700:         8 90 69;       /* #085a45 */
+  --color-green-800:         7 74 57;       /* #074a39 */
+  --color-green-900:         5 58 45;       /* #053a2d */
+  --color-green-950:         3 38 29;       /* #03261d */
+
+  /* Emerald: EXITO. */
+  --color-emerald-50:        238 250 242;   /* #eefaf2 */
+  --color-emerald-100:       226 246 233;   /* #e2f6e9 */
+  --color-emerald-200:       183 220 200;   /* #b7dcc8 */
+  --color-emerald-300:       127 191 163;   /* #7fbfa3 */
+  --color-emerald-400:       63 154 122;    /* #3f9a7a */
+  --color-emerald-500:       15 125 96;     /* #0f7d60 */
+  --color-emerald-600:       10 107 82;     /* #0a6b52 */
+  --color-emerald-700:       8 90 69;       /* #085a45 */
+  --color-emerald-800:       7 74 57;       /* #074a39 */
+  --color-emerald-900:       5 58 45;       /* #053a2d */
+  --color-emerald-950:       3 38 29;       /* #03261d */
+
+  /* Red: ERROR. */
+  --color-red-50:            254 245 245;   /* #fef5f5 */
+  --color-red-100:           253 236 236;   /* #fdecec */
+  --color-red-200:           246 207 204;   /* #f6cfcc */
+  --color-red-300:           235 163 158;   /* #eba39e */
+  --color-red-400:           217 101 93;    /* #d9655d */
+  --color-red-500:           198 58 49;     /* #c63a31 */
+  --color-red-600:           179 38 30;     /* #b3261e */
+  --color-red-700:           143 29 23;     /* #8f1d17 */
+  --color-red-800:           116 24 18;     /* #741812 */
+  --color-red-900:           92 19 15;      /* #5c130f */
+  --color-red-950:           61 12 9;       /* #3d0c09 */
+
+  /* Rose: ERROR. */
+  --color-rose-50:           254 245 245;   /* #fef5f5 */
+  --color-rose-100:          253 236 236;   /* #fdecec */
+  --color-rose-200:          246 207 204;   /* #f6cfcc */
+  --color-rose-300:          235 163 158;   /* #eba39e */
+  --color-rose-400:          217 101 93;    /* #d9655d */
+  --color-rose-500:          198 58 49;     /* #c63a31 */
+  --color-rose-600:          179 38 30;     /* #b3261e */
+  --color-rose-700:          143 29 23;     /* #8f1d17 */
+  --color-rose-800:          116 24 18;     /* #741812 */
+  --color-rose-900:          92 19 15;      /* #5c130f */
+  --color-rose-950:          61 12 9;       /* #3d0c09 */
+
+  /* Amber: AMBAR. */
+  --color-amber-600:         180 83 9;      /* #b45309 */
+  --color-amber-700:         146 64 14;     /* #92400e */
+  --color-amber-800:         120 53 15;     /* #78350f */
+  --color-amber-900:         92 40 10;      /* #5c280a */
+
+  /* Yellow: AMBAR. */
+  --color-yellow-50:         255 251 235;   /* #fffbeb */
+  --color-yellow-100:        254 243 199;   /* #fef3c7 */
+  --color-yellow-200:        253 230 138;   /* #fde68a */
+  --color-yellow-300:        252 211 77;    /* #fcd34d */
+  --color-yellow-400:        251 191 36;    /* #fbbf24 */
+  --color-yellow-500:        245 158 11;    /* #f59e0b */
+  --color-yellow-600:        180 83 9;      /* #b45309 */
+  --color-yellow-700:        146 64 14;     /* #92400e */
+  --color-yellow-800:        120 53 15;     /* #78350f */
+  --color-yellow-900:        92 40 10;      /* #5c280a */
+  --color-yellow-950:        69 26 3;       /* #451a03 */
+
+  /* Orange: AMBAR. */
+  --color-orange-50:         255 251 235;   /* #fffbeb */
+  --color-orange-100:        254 243 199;   /* #fef3c7 */
+  --color-orange-200:        253 230 138;   /* #fde68a */
+  --color-orange-300:        252 211 77;    /* #fcd34d */
+  --color-orange-400:        251 191 36;    /* #fbbf24 */
+  --color-orange-500:        245 158 11;    /* #f59e0b */
+  --color-orange-600:        180 83 9;      /* #b45309 */
+  --color-orange-700:        146 64 14;     /* #92400e */
+  --color-orange-800:        120 53 15;     /* #78350f */
+  --color-orange-900:        92 40 10;      /* #5c280a */
+  --color-orange-950:        69 26 3;       /* #451a03 */
+
+
+  /* The 30 legacy names of phase 4b (each still named by the colour it had). */
+  /* The old navies: hovers of what is now a black button. #1f1f1f, gris oscuro → 31 31 31 */
+  --color-legacy-00243a: 31 31 31;        /* was #00243a */
+  --color-legacy-002844: 31 31 31;        /* was #002844 */
+  --color-legacy-00293f: 31 31 31;        /* was #00293f */
+  --color-legacy-002a47: 31 31 31;        /* was #002a47 */
+  --color-legacy-002a4a: 31 31 31;        /* was #002a4a */
+  --color-legacy-003a5b: 31 31 31;        /* was #003a5b */
+  --color-legacy-004080: 31 31 31;        /* was #004080 */
+  --color-legacy-004170: 31 31 31;        /* was #004170 */
+  --color-legacy-004a7a: 31 31 31;        /* was #004a7a */
+  --color-legacy-004a7c: 31 31 31;        /* was #004a7c */
+  --color-legacy-0066a4: 31 31 31;        /* was #0066a4 */
+  /* Old golds that are hovers of a yellow button. #f59e0b, amarillo intenso → 245 158 11 */
+  --color-legacy-e6a429: 245 158 11;      /* was #e6a429 */
+  --color-legacy-e6a42d: 245 158 11;      /* was #e6a42d */
+  --color-legacy-e6a42e: 245 158 11;      /* was #e6a42e */
+  --color-legacy-e6a530: 245 158 11;      /* was #e6a530 */
+  --color-legacy-f5a623: 245 158 11;      /* was #f5a623 */
+  --color-legacy-f5b927: 245 158 11;      /* was #f5b927 */
+  --color-legacy-fca311: 245 158 11;      /* was #fca311 */
+  /* Old golds used as text. #92400e, ámbar texto → 146 64 14 */
+  --color-legacy-8b6914: 146 64 14;       /* was #8b6914 */
+  --color-legacy-b8860b: 146 64 14;       /* was #b8860b */
+  /* #e7e8ea, gris claro → 231 232 234 */
+  --color-legacy-e8e5e2: 231 232 234;     /* was #e8e5e2 */
+  /* #ececee, the info background → 236 236 238 */
+  --color-legacy-e0f0ff: 236 236 238;     /* was #e0f0ff */
+  /* #0a6b52, éxito → 10 107 82 */
+  --color-legacy-10b981: 10 107 82;       /* was #10b981 */
+  /* #b3261e, error → 179 38 30 */
+  --color-legacy-ef4044: 179 38 30;       /* was #ef4044 */
+  /* Chart and category colour. #0a0a0a → 10 10 10 */
+  --color-legacy-6366f1: 10 10 10;        /* was #6366f1 */
+  /* Chart and category colour. #f59e0b → 245 158 11 */
+  --color-legacy-f97316: 245 158 11;      /* was #f97316 */
+  /* Chart and category colour. #6b7280 → 107 114 128 */
+  --color-legacy-8b5cf6: 107 114 128;     /* was #8b5cf6 */
+  /* Chart and category colours. #92400e → 146 64 14 */
+  --color-legacy-ec4899: 146 64 14;       /* was #ec4899 */
+  --color-legacy-ea580c: 146 64 14;       /* was #ea580c */
+  /* Chart and category colour. #c4c4c6 → 196 196 198 */
+  --color-legacy-06b6d4: 196 196 198;     /* was #06b6d4 */
+
+  /* Corner radii: 3, 4 and 6 px. */
+  --rounded-sm:  0.1875rem;  /* 3px */
+  --rounded:     0.25rem;    /* 4px */
+  --rounded-md:  0.25rem;    /* 4px */
+  --rounded-lg:  0.375rem;   /* 6px */
+  --rounded-xl:  0.375rem;   /* 6px */
+  --rounded-2xl: 0.375rem;   /* 6px */
+  --rounded-3xl: 0.375rem;   /* 6px */
+
+  /* Charts with several series (5a): the kit's tones in this order. Declared ONLY here: with
+     today's look these names do not exist and every chart reads its own fallback, which is the
+     colour it had (pinned by __tests__/styles/chart-series.test.ts). */
+  --color-serie-1: 10 10 10;                /* #0a0a0a, negro */
+  --color-serie-2: 245 158 11;              /* #f59e0b, amarillo intenso */
+  --color-serie-3: 107 114 128;             /* #6b7280, gris medio */
+  --color-serie-4: 146 64 14;               /* #92400e, ámbar texto */
+  --color-serie-5: 196 196 198;             /* #c4c4c6, gris claro fuerte */
+
+  /* Toasts (constants/toastStyles.ts reads each as `var(--toast-…, <today's value>)`). Declared
+     ONLY here: with today's look every toast takes its fallback, which is today's value. */
+  --toast-text: rgb(10 10 10);
+  --toast-font-size: 13px;
+  --toast-radius: 4px;
+  --toast-line: 1px solid rgb(10 10 10 / 0.12);
+  --toast-shadow: 0 1px 2px rgb(10 10 10 / 0.06), 0 10px 24px -14px rgb(10 10 10 / 0.3);
+  --toast-edge-success: rgb(10 107 82);
+  --toast-stack-bottom: 80px;
+  --toast-stack-right: 20px;
+}
+
+/* Tick boxes and radio buttons are the browser's own (no forms plugin), so a ticked one takes the
+   browser's accent colour, blue by default; the approved palette has no blue. `accent-color` is
+   inherited: one declaration on the element that carries the attribute gives every native control the
+   kit's black, unless one of the control's own classes sets an accent colour (that one still wins). */
+[data-look="nuevo"] {
+  accent-color: rgb(var(--color-gray-900));
+}
+
+/* Tailwind's typography plugin (`prose`) declares its greys on the element that carries the class,
+   from Tailwind's own palette, so the names above do not reach it: it is told here, in GRIS. */
+[data-look="nuevo"] .prose,
+[data-look="nuevo"] .prose-gray {
+  --tw-prose-body: rgb(var(--color-gray-600));
+  --tw-prose-headings: rgb(var(--color-gray-900));
+  --tw-prose-links: rgb(var(--color-gray-900));
+  --tw-prose-bold: rgb(var(--color-gray-900));
+  --tw-prose-counters: rgb(var(--color-gray-500));
+  --tw-prose-bullets: rgb(var(--color-gray-500));
+  --tw-prose-hr: rgb(var(--color-gray-200));
+  --tw-prose-quotes: rgb(var(--color-gray-900));
+  --tw-prose-quote-borders: rgb(var(--color-gray-200));
+  --tw-prose-captions: rgb(var(--color-gray-500));
+  --tw-prose-code: rgb(var(--color-gray-900));
+  --tw-prose-pre-bg: rgb(var(--color-gray-800));
+  --tw-prose-th-borders: rgb(var(--color-gray-200));
+  --tw-prose-td-borders: rgb(var(--color-gray-200));
+}
+
+/* Keyboard focus: the approved ring, two rings: 2px white inside, then 2px black outside (the white
+   is a box-shadow on the element's edge, the black outline sits 2px out around it), so it shows on
+   light and on dark surfaces alike. `html` makes the selector one step more specific than the
+   platform's `focus:outline-none` and `focus-visible:outline-none` classes (two steps each), so the
+   ring still shows where they remove the browser's own.
+   On purpose, ONE ring for the whole look: while an element has keyboard focus (and a text field
+   whenever it has the focus, since `:focus-visible` matches fields on a click too) this box-shadow
+   REPLACES the element's own: a focus ring of the platform's classes, or a resting shadow, gives way
+   to the look's ring while the element is focused and comes back when it loses the focus. */
+html[data-look="nuevo"] :focus-visible {
+  outline: 2px solid rgb(10 10 10);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px rgb(255 255 255);
+}
+
+/* Shadows: three of the look's own, on Tailwind's shadow steps. Only the two names those classes
+   read are set (`--tw-shadow`, and `--tw-shadow-colored` for a shadow with a colour class), never
+   box-shadow itself, so the platform's rings keep composing with the shadows. Specificity: a resting
+   rule here (0,2,1) beats the plain class (0,1,0); a hover rule here (0,3,1) beats the resting rules
+   here, as the hover class beats the plain one today. Pinned in __tests__/styles/look-nuevo.test.ts,
+   which also lists the shadow classes left alone (the inner shadow, arbitrary shadows). */
+/* Small: shadow-sm and shadow. */
+html[data-look="nuevo"] .shadow-sm,
+html[data-look="nuevo"] .shadow {
+  --tw-shadow: 0 1px 2px rgb(10 10 10 / 0.08);
+  --tw-shadow-colored: 0 1px 2px var(--tw-shadow-color);
+}
+/* Medium: shadow-md and shadow-lg. */
+html[data-look="nuevo"] .shadow-md,
+html[data-look="nuevo"] .shadow-lg {
+  --tw-shadow: 0 1px 2px rgb(10 10 10 / 0.06), 0 10px 24px -14px rgb(10 10 10 / 0.3);
+  --tw-shadow-colored: 0 1px 2px var(--tw-shadow-color), 0 10px 24px -14px var(--tw-shadow-color);
+}
+/* Large: shadow-xl and shadow-2xl. */
+html[data-look="nuevo"] .shadow-xl,
+html[data-look="nuevo"] .shadow-2xl {
+  --tw-shadow: 0 24px 64px -24px rgb(10 10 10 / 0.55);
+  --tw-shadow-colored: 0 24px 64px -24px var(--tw-shadow-color);
+}
+/* A shadow colour class on the same element (one arbitrary colour in the platform today) points
+   `--tw-shadow` at the coloured shape, as it does without the look; it comes after the steps above,
+   with the same specificity, so it still wins over them exactly as it wins over the plain classes. */
+html[data-look="nuevo"] .shadow-\[\#FFC107\]\/20 {
+  --tw-shadow: var(--tw-shadow-colored);
+}
+/* The same steps on hover. */
+html[data-look="nuevo"] .hover\:shadow-sm:hover {
+  --tw-shadow: 0 1px 2px rgb(10 10 10 / 0.08);
+  --tw-shadow-colored: 0 1px 2px var(--tw-shadow-color);
+}
+html[data-look="nuevo"] .hover\:shadow-md:hover,
+html[data-look="nuevo"] .hover\:shadow-lg:hover {
+  --tw-shadow: 0 1px 2px rgb(10 10 10 / 0.06), 0 10px 24px -14px rgb(10 10 10 / 0.3);
+  --tw-shadow-colored: 0 1px 2px var(--tw-shadow-color), 0 10px 24px -14px var(--tw-shadow-color);
+}
+html[data-look="nuevo"] .hover\:shadow-xl:hover,
+html[data-look="nuevo"] .hover\:shadow-2xl:hover {
+  --tw-shadow: 0 24px 64px -24px rgb(10 10 10 / 0.55);
+  --tw-shadow-colored: 0 24px 64px -24px var(--tw-shadow-color);
+}
+/* "No shadow from the large breakpoint on" must still win over the look's resting steps above, as it
+   wins over the plain classes today: the same rule inside the same breakpoint, after them. */
+@media (min-width: 1024px) {
+  html[data-look="nuevo"] .lg\:shadow-none {
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-colored: 0 0 #0000;
+  }
+}
+
+/* Titles in Mont. Weights and sizes stay what the classes say. */
+[data-look="nuevo"] h1,
+[data-look="nuevo"] h2,
+[data-look="nuevo"] h3 {
+  font-family: var(--font-mont);
+}
+/* A page title in capitals, spaced; capitals with accents need the taller line. */
+[data-look="nuevo"] h1 {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+[data-look="nuevo"] :not(.prose):not(.tiptap-editor):not(.ProseMirror) > h1 {
+  line-height: 1.25;
+}
+/* Written content keeps its own face and case: a heading inside a text takes what it would take
+   without the look (these three properties are inherited ones, so `inherit` is that value). */
+[data-look="nuevo"] .prose h1,
+[data-look="nuevo"] .prose h2,
+[data-look="nuevo"] .prose h3,
+[data-look="nuevo"] .tiptap-editor h1,
+[data-look="nuevo"] .tiptap-editor h2,
+[data-look="nuevo"] .tiptap-editor h3,
+[data-look="nuevo"] .ProseMirror h1,
+[data-look="nuevo"] .ProseMirror h2,
+[data-look="nuevo"] .ProseMirror h3 {
+  font-family: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+}

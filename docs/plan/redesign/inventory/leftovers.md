@@ -1,6 +1,6 @@
 # Leftover pages — for Brent to decide
 
-Written by `scripts/redesign/inventory.mjs` from commit `007807e90`. The marks are in `areas.json`. Brent's answers are recorded in the redesign ledger and, once given, in the column "Decision".
+Written by `scripts/redesign/inventory.mjs` from commit `3ff6aa13f`. The marks are in `areas.json`. Brent's answers are recorded in the redesign ledger and, once given, in the column "Decision".
 
 ## Vías de Transformación (to be deleted)
 
@@ -21,8 +21,8 @@ Written by `scripts/redesign/inventory.mjs` from commit `007807e90`. The marks a
 
 | Address | File | What it does | Who can open it | Linked from | Tests that visit it | Decision |
 |---|---|---|---|---|---|---|
-| `/registro-tractor` | `pages/registro-tractor.tsx` | Sign-up form reached from outside (a link people receive). | not covered; signed-out: not stopped by the middleware | nothing | none |  |
-| `/registro` | `pages/registro.tsx` | Sign-up form reached from outside (a link people receive). The sign-in screen does not link to it. | not covered; signed-out: not stopped by the middleware | nothing | `tests/e2e/registro.spec.ts`, `__tests__/components/RegistroPage.generation.test.tsx` |  |
+| `/registro-tractor` | `pages/registro-tractor.tsx` | Sign-up form reached from outside (a link people receive). | not covered; signed-out: not stopped by the middleware | `lib/look.ts:100` | none |  |
+| `/registro` | `pages/registro.tsx` | Sign-up form reached from outside (a link people receive). The sign-in screen does not link to it. | not covered; signed-out: not stopped by the middleware | `lib/look.ts:99` | `tests/e2e/registro.spec.ts`, `__tests__/components/RegistroPage.generation.test.tsx` |  |
 | `/course-manager` | `pages/course-manager.tsx` | A redirect to /mi-aprendizaje. Old notifications still point at it (components/notifications/NotificationDropdown.tsx). | no role rule; signed-out: not stopped by the middleware | `components/notifications/NotificationDropdown.tsx:138`, `components/notifications/NotificationDropdown.tsx:148`, `lib/auth/forced-password-change.ts:139` | none |  |
 | `/my-paths` | `pages/my-paths.tsx` | A redirect to /mi-aprendizaje. The route page sends people to it. | no role rule; signed-out: not stopped by the middleware | `components/DynamicFavicon.tsx:32`, `lib/auth/forced-password-change.ts:154`, `middleware.ts:349` | none |  |
 | `/meet/diag` | `pages/meet/diag.tsx` | «Diagnóstico del equipo»: camera, microphone and connection test for video sessions. No link inside the platform; it has four unit tests and is given to people as an address. | signed-in only; signed-out: sent to /login; the page has its own check | nothing | `__tests__/lib/api-auth.server-side-user.test.ts`, `__tests__/pages/meet-diag-join-section.test.ts`, `__tests__/pages/meet/diag-join-passcode.test.tsx`, `__tests__/pages/meet/diag-ssr.test.ts` |  |
@@ -30,7 +30,7 @@ Written by `scripts/redesign/inventory.mjs` from commit `007807e90`. The marks a
 | `/demo/assessments/[templateId]/results` | `pages/demo/assessments/[templateId]/results.tsx` | Practice mode of Gestor de Cambio: a live feature. | not covered; signed-out: not stopped by the middleware; the page has its own check | `pages/demo/assessments/[templateId]/index.tsx:224` | `__tests__/pages/demo/results-adapter.test.ts` |  |
 | `/demo/assessments` | `pages/demo/assessments/index.tsx` | Practice mode of Gestor de Cambio: a live feature, opened from the registro template editor. | not covered; signed-out: not stopped by the middleware; the page has its own check | `pages/demo/assessments/[templateId]/index.tsx:273` | none |  |
 | `/admin/licitaciones/criterios` | `pages/admin/licitaciones/criterios.tsx` | «Criterios de Evaluación Técnica»: a working editor of evaluation criteria per template. Nothing links to it (also finding D10 of the Licitaciones review of 13 Nov). Admin only. Brent, 13 Nov 2026: it stays and is redesigned with Licitaciones. | the /admin rule; signed-out: sent to /login; the page has its own check | nothing | none | Stays (Brent, 13 Nov 2026) |
-| `/pasantias/nomina` | `pages/pasantias/nomina.tsx` | The travellers' list form, opened with a personal link generated in Nóminas de pasantes. | not covered; signed-out: not stopped by the middleware | nothing | `tests/e2e/pasantias-participant-intake.spec.ts (CI)`, `__tests__/pages/pasantias-nomina.test.tsx` |  |
+| `/pasantias/nomina` | `pages/pasantias/nomina.tsx` | The travellers' list form, opened with a personal link generated in Nóminas de pasantes. | not covered; signed-out: not stopped by the middleware | `lib/look.ts:111` | `tests/e2e/pasantias-participant-intake.spec.ts (CI)`, `__tests__/pages/pasantias-nomina.test.tsx` |  |
 
 ## Dead files
 

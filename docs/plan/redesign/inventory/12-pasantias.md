@@ -1,7 +1,7 @@
 # Pasantías (leads, travellers, panel, my trip)
 
 Area `12-pasantias`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `007807e90` (2026-11-16).
+Read from commit `3ff6aa13f` (2026-11-17).
 
 5 screen files, 21 API files, 25 pieces.
 
@@ -576,7 +576,7 @@ File `pages/pasantias/nomina.tsx` · 925 lines · frame: none · getServerSidePr
 - Menu: no entry.
 - Middleware: not covered. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: no.
 - In the page: no access check found by the script.
-- Linked from: nothing in the code (reached by typing the address, or from outside)
+- Linked from: `lib/look.ts:111`
 - Tests: browser tests that CI runs: `tests/e2e/pasantias-participant-intake.spec.ts`; unit tests of the page: `__tests__/pages/pasantias-nomina.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |

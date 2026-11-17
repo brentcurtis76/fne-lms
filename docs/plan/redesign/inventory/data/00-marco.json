@@ -5,14 +5,14 @@
  "routesOnly": false,
  "frame": true,
  "readFrom": {
-  "commit": "007807e90467f7aa64736d0a234ad0d7009cfc83",
-  "date": "2026-11-16T16:10:07-03:00"
+  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
+  "date": "2026-11-17T05:46:26-03:00"
  },
  "screens": [
   {
    "file": "pages/_app.tsx",
    "route": null,
-   "lines": 65,
+   "lines": 67,
    "marks": {},
    "frame": "none",
    "server": "none",
@@ -57,6 +57,13 @@
      "in": "MyApp",
      "text": "",
      "tag": "QASessionProvider"
+    },
+    {
+     "kind": "piece",
+     "line": 49,
+     "in": "MyApp",
+     "text": "containerStyle: var(--toast-stack-bottom, 24px) / var(--toast-stack-right, 24px)",
+     "tag": "Toaster"
     },
     {
      "kind": "string",
@@ -3248,14 +3255,13 @@
    "usedBy": [
     "(the frame)"
    ],
-   "lines": 99,
+   "lines": 113,
    "rows": [
     {
      "kind": "list",
-     "line": 20,
+     "line": 29,
      "text": "baseStyle",
      "items": [
-      "0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08)",
       "Inter, system-ui, -apple-system, sans-serif"
      ]
     }
@@ -3351,17 +3357,26 @@
    "usedBy": [
     "(the frame)"
    ],
-   "lines": 54,
+   "lines": 141,
    "rows": [
     {
-     "kind": "gate",
-     "line": 36,
+     "kind": "list",
+     "line": 111,
      "in": "LookProvider",
-     "text": "loading"
+     "text": "target",
+     "items": [
+      "clasico / leave"
+     ]
+    },
+    {
+     "kind": "gate",
+     "line": 129,
+     "in": "LookProvider",
+     "text": "account === null"
     },
     {
      "kind": "value",
-     "line": 47,
+     "line": 134,
      "in": "LookProvider",
      "text": "{children}"
     }
@@ -3535,7 +3550,7 @@
    "usedBy": [
     "(the frame)"
    ],
-   "lines": 84,
+   "lines": 146,
    "rows": [
     {
      "kind": "list",

@@ -1,3 +1,12 @@
+## RD-5a — platform redesign, step 5a: the new look's values, behind the switch (2026-11-17, built and proven locally, not pushed)
+
+Branch `feat/rd-look` on main. Record and reviewer notes: `docs/planning/reviews/fase-rd-5a-review-request.md`; the values and rules: `docs/plan/redesign/tokens.md`, "The new look's values".
+
+- **What changed:** `<html data-look="nuevo">` (the per-account switch of step 4d, offered only to «Tester QA» accounts) now has values: `styles/look-nuevo.css` gives the sixteen named colour families the approved palette's five scales, squarer corners, lighter shadows, a keyboard ring that shows on dark surfaces, titles in Mont, black tick boxes; toasts and charts with several series read names that exist only under the look. Ten more stock colour families were named for this (same values as before).
+- **With the switch off nothing changes:** every value of the look sits under `[data-look="nuevo"]`; toasts and charts fall back to today's exact values.
+- **Rules that hold from now on:** a value of the new look is declared only in `styles/look-nuevo.css`, under the look's selector (`__tests__/styles/look-nuevo.test.ts` fails otherwise); a page that is not the platform is listed in `PAGES_WITHOUT_THE_LOOK` (`lib/look.ts`) and never carries the look; a new text and background pair of the look must measure at least 4.5:1 in that test.
+- **Proof:** stylesheet equivalent with the switch off; pictures of every screen for every role identical to main's; a blind test by another model family found no pixel different with the switch off and nothing missing with it on; an independent code read; CI's browser list run locally.
+
 ## RD-4b — platform redesign, step 4b: the stray colours get names (2026-11-16, built and proven locally, not pushed)
 
 Branch `feat/rd-strays` on top of RD-4d. Record and reviewer notes: `docs/planning/reviews/fase-rd-4b-review-request.md`; the rule: `docs/plan/redesign/tokens.md`, "The stray colours".

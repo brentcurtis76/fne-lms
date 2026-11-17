@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "007807e90467f7aa64736d0a234ad0d7009cfc83",
-  "date": "2026-11-16T16:10:07-03:00"
+  "commit": "3ff6aa13f643130dcd2c546945e41f15ad972405",
+  "date": "2026-11-17T05:46:26-03:00"
  },
  "screens": [
   {
@@ -211,6 +211,7 @@
     "linkedFrom": [
      "components/DynamicFavicon.tsx:16",
      "lib/auth/forced-password-change.ts:34",
+     "lib/look.ts:96",
      "pages/dashboard.tsx:325",
      "pages/login.tsx:127"
     ],
@@ -584,6 +585,7 @@
      "lib/frontend-auth-utils.ts:100",
      "lib/frontend-auth-utils.ts:401",
      "lib/frontend-auth-utils.ts:405",
+     "lib/look.ts:94",
      "middleware.ts:127",
      "pages/admin/assessment-builder/[templateId]/expectations.tsx:180",
      "pages/admin/assessment-builder/[templateId]/expectations.tsx:801",
@@ -1392,6 +1394,7 @@
      "components/auth/ProtectedRoute.tsx:37",
      "lib/frontend-auth-utils.ts:143",
      "lib/frontend-auth-utils.ts:149",
+     "lib/look.ts:97",
      "pages/profile.tsx:460"
     ],
     "qaScenarios": {},
@@ -1652,7 +1655,9 @@
      }
     },
     "inPage": [],
-    "linkedFrom": [],
+    "linkedFrom": [
+     "lib/look.ts:100"
+    ],
     "qaScenarios": {},
     "tests": {
      "e2eCi": [],
@@ -2215,7 +2220,9 @@
      }
     },
     "inPage": [],
-    "linkedFrom": [],
+    "linkedFrom": [
+     "lib/look.ts:99"
+    ],
     "qaScenarios": {},
     "tests": {
      "e2eCi": [],
@@ -2861,6 +2868,7 @@
     ],
     "linkedFrom": [
      "components/DynamicFavicon.tsx:15",
+     "lib/look.ts:95",
      "pages/login.tsx:134"
     ],
     "qaScenarios": {},

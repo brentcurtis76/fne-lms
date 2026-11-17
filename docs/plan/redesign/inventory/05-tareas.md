@@ -1,7 +1,7 @@
 # Tareas y quizzes (assignments, group work, quiz review)
 
 Area `05-tareas`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `007807e90` (2026-11-16).
+Read from commit `3ff6aa13f` (2026-11-17).
 
 9 screen files, 14 API files, 18 pieces.
 
@@ -1876,13 +1876,13 @@ Used by: `/admin/assignment-overview`, `/admin/assignment-review/[id]`, `/assign
 | `/api/assignments/collaborative-submit` | `pages/api/assignments/collaborative-submit.ts` | POST | **no screen** | `__tests__/api/forged-session-sweep.test.ts`, `components/assignments/CollaborativeSubmissionModal.tsx` |
 | `/api/assignments/create-group` | `pages/api/assignments/create-group.ts` | POST | `/mi-aprendizaje/tareas` | `__tests__/api/assignments/forged-session.test.ts`, `__tests__/api/group-quiz-notifications.test.ts`, `components/assignments/GroupSubmissionModalV2.tsx` |
 | `/api/assignments/eligible-classmates` | `pages/api/assignments/eligible-classmates.ts` | GET | `/mi-aprendizaje/tareas` | `__tests__/api/assignments/forged-session.test.ts`, `__tests__/api/group-quiz-notifications.test.ts`, `components/assignments/GroupSubmissionModalV2.tsx` |
-| `/api/assignments/feedback` | `pages/api/assignments/feedback.ts` | POST | **no screen** |  |
+| `/api/assignments/feedback` | `pages/api/assignments/feedback.ts` | POST | **no screen** | `__tests__/api/assignments/feedback-admin-only.test.ts` |
 | `/api/assignments/group-members` | `pages/api/assignments/group-members.ts` | DELETE, GET | `/mi-aprendizaje/tareas` | `__tests__/api/assignments/forged-session.test.ts`, `__tests__/api/group-quiz-notifications.test.ts`, `components/assignments/GroupSubmissionModalV2.tsx` |
 | `/api/assignments/shareable-members` | `pages/api/assignments/shareable-members.ts` | GET | **no screen** | `__tests__/api/assignments/forged-session.test.ts`, `components/assignments/CollaborativeSubmissionModal.tsx` |
 | `/api/assignments/submit-group` | `pages/api/assignments/submit-group.ts` | POST | `/community/workspace/assignments/[id]/discussion`, `/community/workspace/assignments/[id]/groups`, `/mi-aprendizaje/tareas` | `__tests__/api/assignments/forged-session.test.ts`, `__tests__/api/group-quiz-notifications.test.ts`, `lib/services/groupAssignmentsV2.js` |
 | `/api/assignments/user-group` | `pages/api/assignments/user-group.ts` | GET | `/mi-aprendizaje/tareas` | `__tests__/api/assignments/forged-session.test.ts`, `__tests__/api/group-quiz-notifications.test.ts`, `pages/mi-aprendizaje/tareas.tsx` |
-| `/api/quiz-reviews/[id]` | `pages/api/quiz-reviews/[id].ts` | GET | `/quiz-reviews/[id]` | `__tests__/api/group-quiz-notifications.test.ts`, `pages/quiz-reviews/[id].tsx` |
-| `/api/quiz-reviews/notify-pending` | `pages/api/quiz-reviews/notify-pending.ts` | POST | `/student/lesson/[lessonId]` | `__tests__/api/group-quiz-notifications.test.ts`, `__tests__/lib/notificationService.dispatch.test.ts`, `__tests__/lib/notificationService.source-context.test.ts`, `lib/services/quizSubmissions.js` |
-| `/api/quiz-reviews/pending` | `pages/api/quiz-reviews/pending.ts` | GET | `/quiz-reviews` | `__tests__/api/group-quiz-notifications.test.ts`, `pages/quiz-reviews.tsx` |
-| `/api/quiz-reviews/submit-review` | `pages/api/quiz-reviews/submit-review.ts` | POST | `/quiz-reviews/[id]` | `__tests__/api/group-quiz-notifications.test.ts`, `components/quiz/QuizReviewPanel.tsx` |
+| `/api/quiz-reviews/[id]` | `pages/api/quiz-reviews/[id].ts` | GET | `/quiz-reviews/[id]` | `__tests__/api/group-quiz-notifications.test.ts`, `__tests__/api/quiz-review-scope.test.ts`, `pages/quiz-reviews/[id].tsx` |
+| `/api/quiz-reviews/notify-pending` | `pages/api/quiz-reviews/notify-pending.ts` | POST | `/student/lesson/[lessonId]` | `__tests__/api/group-quiz-notifications.test.ts`, `__tests__/api/quiz-review-scope.test.ts`, `__tests__/lib/notificationService.dispatch.test.ts`, `__tests__/lib/notificationService.source-context.test.ts`, `lib/services/quizSubmissions.js` |
+| `/api/quiz-reviews/pending` | `pages/api/quiz-reviews/pending.ts` | GET | `/quiz-reviews` | `__tests__/api/group-quiz-notifications.test.ts`, `__tests__/api/quiz-review-scope.test.ts`, `pages/quiz-reviews.tsx` |
+| `/api/quiz-reviews/submit-review` | `pages/api/quiz-reviews/submit-review.ts` | POST | `/quiz-reviews/[id]` | `__tests__/api/group-quiz-notifications.test.ts`, `__tests__/api/quiz-review-scope.test.ts`, `components/quiz/QuizReviewPanel.tsx` |
 

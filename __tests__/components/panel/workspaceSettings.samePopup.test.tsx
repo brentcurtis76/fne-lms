@@ -2,17 +2,18 @@
 /**
  * Redesign 6C, step 4(b): the community settings pop-up gives a person the same thing in both looks.
  * Each case of the step-0 pin runs once with the look `clasico` and once with `nuevo`, and what a
- * person gets (`personView`: texts, fields, buttons, links, pictures) and everything the pop-up did
- * (service calls with their arguments, toasts, `onUpdate`, `onClose`, error lines) must be equal.
- * Left out on purpose, and tested in `WorkspaceSettingsNuevo.test.tsx`: the new eyebrow, the X (none
- * in today's markup has a name; the kit's is «Cerrar» and leaves while saving), the remove mark's new
- * name, «Subir imagen» being a button instead of a label (its text is compared), Escape and the veil
- * (they close the new window on purpose). Every community and image is invented.
+ * person gets (`personView`: texts with their count, fields, buttons and the X with their state,
+ * links, pictures) and everything the pop-up did (service calls with their arguments, toasts,
+ * `onUpdate`, `onClose`, error lines) must be equal. What may differ is the helper's one list,
+ * `LOOK_EXCEPTIONS` (the eyebrow, the remove mark's new name, «Subir imagen» as a button, the save
+ * button busy instead of disabled while saving). Escape and the veil close the new window on purpose:
+ * tested in `popupsNuevo.test.tsx`. The X while saving differs (W10-X, left failing for the lead).
+ * Every community and image is invented.
  */
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { closeX, fileOfSize, inBothLooks, personView, settle, smallPng } from '../../helpers/popups';
+import { closeX, fileOfSize, inBothLooks, personView, settle, smallPng, xApart } from '../../helpers/popups';
 
 const fake = vi.hoisted(() => ({
   look: 'clasico' as 'clasico' | 'nuevo',
@@ -92,22 +93,9 @@ const fileInput = () => document.getElementById('community-image-upload') as HTM
 const saveButton = () => screen.getByRole('button', { name: /Guardar cambios|Guardando/ }) as HTMLButtonElement;
 const removeMark = () => document.querySelector('img[alt="Vista previa"] + button') as HTMLButtonElement | null;
 
-const got = () => {
-  const person = personView({
-    ignoreTexts: ['Mi Comunidad de Crecimiento'],
-    // the remove mark, «Subir imagen», and today's nameless X
-    ignoreButton: (b) =>
-      b === removeMark() || b.textContent?.trim() === 'Subir imagen' || (!b.textContent?.trim() && !b.getAttribute('aria-label')),
-  });
-  return {
-    ...person,
-    // The hidden file input: today the label «Subir imagen» points at it; in the new look the button
-    // «Subir imagen» opens it. Its id, type and accept are compared, its label is not.
-    fields: person.fields.map((f) => (f.type === 'file' ? { ...f, label: '«hidden input»' } : f)),
-    removeMark: removeMark() !== null,
-    uploadText: Array.from(document.body.querySelectorAll('label, button')).some((e) => e.textContent?.trim() === 'Subir imagen'),
-  };
-};
+// What a person gets; the exceptions (eyebrow, the remove mark's name, «Subir imagen», the save button
+// while saving) are the helper's one list, `LOOK_EXCEPTIONS`.
+const got = () => personView({ popup: 'settings' });
 
 async function choose(file: File) {
   fireEvent.change(fileInput(), { target: { files: [file] } });
@@ -198,17 +186,26 @@ describe('the community settings pop-up in both looks: the same for a person', (
     return states;
   }));
 
-  it('W10. saving: «Guardando...», both buttons unavailable; a second click does nothing', () => same(async () => {
+  // While saving, «Cancelar» is disabled in both looks and «Guardar cambios» reads «Guardando...»,
+  // disabled today and busy in the new look (the one allowed difference of state). The X is compared in
+  // the twin below.
+  async function saving(view: () => unknown) {
     await draw();
     fake.update = ['pending'];
     await click(saveButton());
-    const saving = got();
+    const during = view();
     fireEvent.click(saveButton());
     await settle();
     fake.pending?.resolve({ error: null });
     await settle();
-    return [saving, got()];
-  }));
+    return [during, got()];
+  }
+
+  it('W10. saving: «Guardando...», both buttons unavailable; a second click does nothing', () => same(() => saving(() => xApart(got()))));
+
+  // A REAL DIFFERENCE, left failing for the lead (send-back 1, point 2(c)): while saving, today's X is
+  // drawn and disabled; the kit's window with `dismissable={false}` draws no X at all («absent»).
+  it.fails('W10-X. saving: the X is disabled today; the new look has no X (differs, for the lead)', () => same(() => saving(got)));
 
   it('W11/W12. saved without and with a chosen image', () => same(async () => {
     await draw({ currentImageUrl: IMAGE });

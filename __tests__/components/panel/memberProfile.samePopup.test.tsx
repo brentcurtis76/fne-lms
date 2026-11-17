@@ -2,9 +2,10 @@
 /**
  * Redesign 6C, step 4(b): the member profile pop-up gives a person the same thing in both looks. Each
  * case of the step-0 pin runs with `clasico` and with `nuevo`; what a person gets (`personView`) and
- * every `onClose` must be equal. Left out on purpose: the new eyebrow, the X (today «Close» in hidden
- * text, the kit's «Cerrar»), and the three rows «Colegio», «Generación», «Comunidad» with their values,
- * which the new markup does not draw (approved with the mock-up; the panel never sends them).
+ * every `onClose` must be equal: texts with their count, buttons and the X with their state, links.
+ * What may differ is the helper's one list, `LOOK_EXCEPTIONS`: the new eyebrow, and the three rows
+ * «Colegio», «Generación», «Comunidad» with their values, which the new markup does not draw (approved
+ * with the mock-up; the panel never sends them).
  * Every person is invented; the time zone is fixed.
  */
 import React from 'react';
@@ -35,9 +36,9 @@ const member = (over: Partial<UserProfile> = {}): UserProfile => ({
   ...over,
 });
 
-/** The three rows the new markup leaves out, with the values the case gives them. */
-const NEVER_FILLED = ['Colegio', 'Generación', 'Comunidad', 'Colegio Inventado', 'Generación Inventada', 'Comunidad Inventada'];
-const got = () => personView({ ignoreTexts: ['Mi Comunidad de Crecimiento', 'Close', ...NEVER_FILLED] });
+// What a person gets; the exceptions (eyebrow, the three never-filled rows) are the helper's one list,
+// `LOOK_EXCEPTIONS`.
+const got = () => personView({ popup: 'member' });
 
 let view: ReturnType<typeof render>;
 async function draw(m: UserProfile | null, over: { isOpen?: boolean; isCurrentUser?: boolean } = {}) {

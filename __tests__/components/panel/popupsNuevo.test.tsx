@@ -4,7 +4,8 @@
  * `nuevo` in this file). Escape and the veil close each window, and do not while it saves or sends;
  * the focus starts inside and returns to the opener; the remove-image button has its name; the form
  * shows the hook's messages and not the browser's, and Enter can send it; the delete confirmation's
- * two buttons; the bottom-sheet classes the kit gives under 560 px. The veil is clicked without
+ * two buttons; the bottom-sheet classes the kit gives under 560 px; every help line and message of the
+ * settings window and of the form stands with its control (`helpOf`). The veil is clicked without
  * user-event's pointer-events check (see `__tests__/components/ui/kit/Dialog.test.tsx`).
  * Every person, community and proposal is invented.
  */
@@ -12,7 +13,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { deferred, settle, smallPng } from '../../helpers/popups';
+import { deferred, helpOf, settle, smallPng } from '../../helpers/popups';
 
 const fake = vi.hoisted(() => ({
   log: [] as unknown[],
@@ -394,4 +395,84 @@ describe('the delete confirmation, new look', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(fake.log).toEqual(['onClose', 'onClose', 'onClose']);
   });
+});
+
+describe('every help line and message stands with its control (send-back 1, point 2(b))', () => {
+  // A help line is «associated» when a screen reader gets it with its control: one of the control's
+  // aria-describedby targets, or inside its label. For the image of the settings window the control is
+  // the button «Subir imagen» inside the group «Imagen de la Comunidad», and the help is the group's
+  // description (accepted: the group is the field). Hidden or unassociated fails.
+  it('the settings window: the name\'s help with the name field, the image\'s help with its group; both shown', async () => {
+    const u = user();
+    render(<Opener>{(open, close) => settings(open, close)}</Opener>);
+    await u.click(screen.getByRole('button', { name: 'Abrir' }));
+    const dialog = screen.getByRole('dialog', { name: 'Configuración de la Comunidad' });
+    expect(helpOf(within(dialog).getByLabelText('Nombre de la Comunidad'), 'Cualquier miembro puede cambiar el nombre del grupo')).toEqual({
+      found: true,
+      associated: 'control',
+      hidden: false,
+    });
+    expect(helpOf(within(dialog).getByRole('button', { name: 'Subir imagen' }), 'Máx. 5MB (JPEG, PNG, WebP)')).toEqual({
+      found: true,
+      associated: 'group',
+      hidden: false,
+    });
+  });
+
+  it('the form: the four text fields have no help, and point at nothing missing; the tick box\'s help is with the tick box', async () => {
+    const u = user();
+    render(
+      <Opener>
+        {(open, close) => <CourseProposalModal isOpen={open} onClose={close} onSubmit={() => Promise.resolve()} editingProposal={null} />}
+      </Opener>
+    );
+    await u.click(screen.getByRole('button', { name: 'Abrir' }));
+    for (const id of ['titulo', 'descripcion_corta', 'competencias_desarrollar', 'tiempo_requerido_desarrollo', 'necesita_ayuda_diseno_instruccional']) {
+      const ids = (document.getElementById(id)!.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean);
+      expect(ids.filter((target) => document.getElementById(target) === null)).toEqual([]);
+    }
+    expect(
+      helpOf(document.getElementById('necesita_ayuda_diseno_instruccional')!, 'Marque esta opción si requiere apoyo de nuestro equipo para estructurar el contenido del curso.')
+    ).toEqual({ found: true, associated: 'control', hidden: false });
+  });
+
+  /** The hook's four messages in order, each with the field it names. */
+  const MESSAGES: Array<[id: string, message: string, value: string]> = [
+    ['titulo', 'El título es requerido', 'Título Inventado'],
+    ['descripcion_corta', 'La descripción es requerida', 'Descripción inventada'],
+    ['competencias_desarrollar', 'Las competencias a desarrollar son requeridas', 'Competencias inventadas'],
+    ['tiempo_requerido_desarrollo', 'El tiempo requerido es requerido', '1 mes'],
+  ];
+
+  async function eachMessage(check: (field: HTMLElement, message: string) => void) {
+    const u = user();
+    render(
+      <Opener>
+        {(open, close) => <CourseProposalModal isOpen={open} onClose={close} onSubmit={() => Promise.resolve()} editingProposal={null} />}
+      </Opener>
+    );
+    await u.click(screen.getByRole('button', { name: 'Abrir' }));
+    for (const [id, message, value] of MESSAGES) {
+      await u.click(screen.getByTestId('proposal-form-submit'));
+      check(document.getElementById(id)!, message);
+      fireEvent.change(document.getElementById(id)!, { target: { value } });
+      await settle();
+    }
+  }
+
+  it('the form: each of the hook\'s messages is shown in the form\'s alert, not hidden', () =>
+    eachMessage((_field, message) => {
+      const alert = within(screen.getByTestId('proposal-form')).getByRole('alert');
+      expect(alert).toHaveTextContent(message);
+      expect(helpOf(alert, message)).toMatchObject({ found: true, hidden: false });
+    }));
+
+  // A REAL GAP, left failing for the lead (send-back 1, point 2(b)): the hook's messages are shown in ONE
+  // notice at the top of the form (the 6C brief's design), announced as an alert but tied to no field:
+  // no field's aria-describedby points at it and none is marked invalid. Tying each message to the field
+  // it names needs a change in `CourseProposalFormNuevo.tsx` (not a test change).
+  it.fails('the form: each of the hook\'s messages is associated with the field it names (differs, for the lead)', () =>
+    eachMessage((field, message) => {
+      expect(helpOf(field, message)).toEqual({ found: true, associated: 'control', hidden: false });
+    }));
 });

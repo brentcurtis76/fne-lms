@@ -2,9 +2,10 @@
 /**
  * Redesign 6C, step 4(b): the course proposal form gives a person the same thing in both looks. Each
  * case of the step-0 pin runs with `clasico` and with `nuevo`; what a person gets (`personView`) and
- * every `onSubmit` (with what it received) and `onClose` must be equal. The form is sent by clicking
- * its send button in both looks. Left out on purpose: the new eyebrow and the X (today «Close» in
- * hidden text, the kit's «Cerrar»). Enter in a field is tested apart, in each look, in
+ * every `onSubmit` (with what it received) and `onClose` must be equal: texts with their count, fields,
+ * buttons and the X with their state. The form is sent by clicking its send button in both looks. What
+ * may differ is the helper's one list, `LOOK_EXCEPTIONS`. The X while sending differs (C5-X, left
+ * failing for the lead). Enter in a field is tested apart, in each look, in
  * `CourseProposalFormNuevo.test.tsx`: jsdom's user-event finds the default button only inside the form,
  * and the new one sits in the window's footer, joined by the `form` attribute.
  * Every proposal is invented.
@@ -12,7 +13,7 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { closeX, deferred, inBothLooks, personView, settle } from '../../helpers/popups';
+import { closeX, deferred, inBothLooks, personView, settle, xApart } from '../../helpers/popups';
 
 const fake = vi.hoisted(() => ({
   look: 'clasico' as 'clasico' | 'nuevo',
@@ -39,8 +40,9 @@ const PROPOSAL: CourseProposal = {
   status: 'pending',
 };
 
-const HELP = 'Marque esta opción si requiere apoyo de nuestro equipo para estructurar el contenido del curso.';
-const got = () => personView({ ignoreTexts: ['Propuestas de Cursos', 'Close'], helpTexts: [HELP] });
+// What a person gets; the exceptions (eyebrow, the tick box's help inside today's label, the send button
+// while sending) are the helper's one list, `LOOK_EXCEPTIONS`.
+const got = () => personView({ popup: 'form' });
 
 function onSubmit(data: unknown) {
   fake.log.push({ onSubmit: JSON.parse(JSON.stringify(data)) });
@@ -140,16 +142,26 @@ describe('the course proposal form in both looks: the same for a person', () => 
     return stages;
   }));
 
-  it('C5. a submit: what onSubmit receives, «Guardando...», then closed and reset', () => same(async () => {
+  // While sending, the fields, the tick box and «Cancelar» are disabled in both looks; the send button
+  // reads «Guardando...», disabled today and busy in the new look (the one allowed difference of state).
+  // The X is compared in the twin below.
+  async function sending(view: () => unknown) {
     await draw();
     await fillAll();
     fake.answers = ['pending'];
     await send();
-    const sending = got();
+    const during = view();
     fake.pending?.resolve();
     await settle();
-    return [sending, got()];
-  }));
+    return [during, got()];
+  }
+
+  it('C5. a submit: what onSubmit receives, «Guardando...», then closed and reset', () => same(() => sending(() => xApart(got()))));
+
+  // A REAL DIFFERENCE, left failing for the lead (send-back 1, point 2(c)): while sending, today's X
+  // (the older dialog's) is drawn and enabled (a click on it does nothing, the hook refuses to close);
+  // the kit's window with `dismissable={false}` draws no X at all («absent»).
+  it.fails('C5-X. sending: the X is enabled today; the new look has no X (differs, for the lead)', () => same(() => sending(got)));
 
   it('C6/C8. edit mode: a submit, a refusal with the edit fallback', () => same(async () => {
     await draw({ editingProposal: PROPOSAL });
@@ -185,7 +197,8 @@ describe('the course proposal form in both looks: the same for a person', () => 
     if (x) fireEvent.click(x);
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape', code: 'Escape' });
     await settle();
-    const still = got();
+    // The X while sending: compared in C5-X.
+    const still = xApart(got());
     fake.pending?.reject(new Error('Rechazo inventado'));
     await settle();
     return [still, got()];

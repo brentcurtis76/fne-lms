@@ -964,6 +964,6 @@ A14-4-F05 under W-BL-A14-4 now explicitly labels truncated session detail on scr
 
 ## GENERA fixes, level 2, first part (dead ends) — ready for release review, 2026-11-17
 
-- Branch `fix/l2` (a straight line of commits) on main `3063aa5cc`. Three fix phases: Gestor de Cambio (editor and panels), Espacio Colaborativo (conversations and names), Licitaciones (places where a tender stops); one follow-up to level 1 (a visitor lists no file store); one test-harness repair. Four additive migrations (`20261116179000`, `179500`, `179700`, `179800`), no destructive statement.
-- Validation: pgTAP 93 files / 9,378; unit 599 files / 18,883 (18 skipped); type check and lint; CI's mandatory browser tests 28 files / 339, no skips.
+- Branch `fix/l2` (a straight line of commits) on main `84eb3bccd`. Three fix phases: Gestor de Cambio (editor and panels), Espacio Colaborativo (conversations and names), Licitaciones (places where a tender stops); one follow-up to level 1 (a visitor lists no file store); one test-harness repair. Four additive migrations (`20261116179000`, `179500`, `179700`, `179800`), no destructive statement.
+- Validation: pgTAP 93 files / 9,378; unit 602 files / 19,067 (18 skipped); type check and lint; CI's mandatory browser tests 28 files / 339, no skips.
 - Review request: `docs/planning/reviews/fase-fixes-l2a-review-request.md`. Not merged, not published; release is the owner's, through Publish.

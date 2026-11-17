@@ -326,3 +326,55 @@ describe('F7e send-back 1 the list offers delete only where the rules allow it',
     expect(within(row('a-other')).getByTitle('Eliminar reporte')).toBeTruthy();
   });
 });
+
+describe('F7e send-back 1 a delete that removed nothing says so', () => {
+  const deletes = () =>
+    h.requests.filter((r) => r.target === 'expense_reports' && r.ops.some((o) => o.method === 'delete'));
+
+  async function pressDelete(id: string, answer: { data: unknown; error: unknown }) {
+    const plain = h.respond;
+    h.respond = (req, terminal) =>
+      req.target === 'expense_reports' && req.ops.some((o) => o.method === 'delete') ? answer : plain(req, terminal);
+    fireEvent.click(within(row(id)).getByTitle('Eliminar reporte'));
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar Reporte' }));
+    await waitFor(() => expect(deletes()).toHaveLength(1));
+  }
+
+  it('zero rows deleted and no error: an error toast, the report stays, no success message', async () => {
+    const { toast } = await import('react-hot-toast');
+    (toast.success as any).mockClear();
+    (toast.error as any).mockClear();
+    reports = [report('d-own', ME, 'draft')];
+    await mount('consultor');
+    await pressDelete('d-own', { data: [], error: null });
+    expect(opArgs(deletes()[0], 'eq')).toEqual(['id', 'd-own']);
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('No se pudo eliminar el reporte: en su estado actual ya no puede eliminarse.')
+    );
+    expect(toast.success).not.toHaveBeenCalledWith('Reporte eliminado exitosamente');
+    expect(screen.getAllByText('Reporte d-own').length).toBeGreaterThan(0);
+    expect(opArgs(deletes()[0], 'select')).toEqual(['id']);
+  });
+
+  it('one row deleted: the success message as today', async () => {
+    const { toast } = await import('react-hot-toast');
+    (toast.success as any).mockClear();
+    (toast.error as any).mockClear();
+    reports = [report('d-own', ME, 'draft')];
+    await mount('consultor');
+    await pressDelete('d-own', { data: [{ id: 'd-own' }], error: null });
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Reporte eliminado exitosamente'));
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it('a real error keeps today\'s message', async () => {
+    const { toast } = await import('react-hot-toast');
+    (toast.success as any).mockClear();
+    (toast.error as any).mockClear();
+    reports = [report('d-own', ME, 'draft')];
+    await mount('consultor');
+    await pressDelete('d-own', { data: null, error: { message: 'boom' } });
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Error al eliminar el reporte: boom'));
+    expect(toast.success).not.toHaveBeenCalledWith('Reporte eliminado exitosamente');
+  });
+});

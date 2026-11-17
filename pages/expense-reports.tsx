@@ -256,12 +256,20 @@ export default function ExpenseReportsPage() {
 
   const handleDeleteReport = async (report: ExpenseReport) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('expense_reports')
         .delete()
-        .eq('id', report.id);
+        .eq('id', report.id)
+        .select('id');
 
       if (error) throw error;
+
+      // The database's rules filter out a report that may not be deleted:
+      // no error, and no row back.
+      if (!data || data.length === 0) {
+        toast.error('No se pudo eliminar el reporte: en su estado actual ya no puede eliminarse.');
+        return;
+      }
 
       await loadExpenseReports();
       setDeleteModalReport(null);

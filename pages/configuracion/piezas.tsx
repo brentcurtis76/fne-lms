@@ -257,7 +257,7 @@ export default function PiezasPage() {
             <Field label="Campo bloqueado" disabled>
               <Input defaultValue="No editable" data-testid="kit-field-disabled" />
             </Field>
-            <Field label="Descripción" help="Un texto largo: el campo crece hacia abajo." className="md:col-span-2">
+            <Field label="Descripción" help="Un texto largo, en varias líneas." className="md:col-span-2">
               <Textarea
                 data-testid="kit-field-description"
                 defaultValue="Objetivos de la sesión: revisar cómo planificar la primera semana de un proyecto, acordar con el curso la pregunta que lo guiará y decidir qué evidencias conviene registrar en la bitácora. Este texto es largo a propósito, para ver cómo se comporta el campo con varias líneas."

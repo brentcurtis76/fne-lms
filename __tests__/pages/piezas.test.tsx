@@ -169,6 +169,15 @@ describe('the page', () => {
     expect(screen.getByTestId('kit-row-p-7')).toHaveAttribute('aria-selected', 'true');
   });
 
+  it('the long-text field says what is true in both looks, not that it grows', () => {
+    render(<Page />);
+    expect(screen.getByText('Un texto largo, en varias líneas.')).toBeInTheDocument();
+    // The old sentence is built from parts so that it is never whole in this file.
+    const old = ['Un texto largo:', 'el campo crece', 'hacia abajo.'].join(' ');
+    expect(screen.queryByText(old)).toBeNull();
+    expect(document.body.textContent ?? '').not.toContain('crece hacia abajo');
+  });
+
   it('the window opens from its button and Escape closes it', async () => {
     const user = userEvent.setup();
     render(<Page />);

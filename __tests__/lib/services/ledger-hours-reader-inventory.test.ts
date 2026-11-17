@@ -4727,10 +4727,6 @@ const DYNAMIC_NON_LEDGER_CALLS: Record<string, DynamicAllowance> = {
     allowedValues: ['meeting_attendees', 'session_attendees'],
     justification: 'closed attendance identity-source descriptor',
   },
-  'utils/meetingUtils.ts:from:target:tableName': {
-    allowedValues: ['meeting_commitments', 'meeting_tasks'],
-    justification: 'closed meeting-child selector',
-  },
   'hooks/useUrlState.ts:unknown:callable:method': {
     allowedValues: ['push', 'replace'],
     justification: 'closed Next router method selector, not a database callable',

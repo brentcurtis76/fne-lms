@@ -29,6 +29,48 @@ describe('Field', () => {
     expect(screen.getByLabelText('Correo')).toHaveAttribute('id', 'correo-kit');
   });
 
+  // 5c send-back 1, defect 4: one resolved id for the label and the control.
+  it('a control that brings its own id keeps it, and the label points at it', () => {
+    render(
+      <Field label="Correo">
+        <Input id="correo" />
+      </Field>
+    );
+    const input = screen.getByLabelText('Correo');
+    expect(input).toHaveAttribute('id', 'correo');
+    expect(screen.getByText('Correo').closest('label')).toHaveAttribute('for', 'correo');
+  });
+
+  it('the control\'s own id wins also when it sits deeper inside the field', () => {
+    render(
+      <Field label="Teléfono" help="Con código de área.">
+        <div>
+          <Input id="telefono-kit" />
+        </div>
+      </Field>
+    );
+    const input = screen.getByLabelText('Teléfono');
+    expect(input).toHaveAttribute('id', 'telefono-kit');
+    expect(input).toHaveAccessibleDescription('Con código de área.');
+  });
+
+  it('a select and a textarea with their own ids are named too', () => {
+    render(
+      <>
+        <Field label="Región">
+          <Select id="region-kit" defaultValue="">
+            <option value="">Selecciona</option>
+          </Select>
+        </Field>
+        <Field label="Notas">
+          <Textarea id="notas-kit" />
+        </Field>
+      </>
+    );
+    expect(screen.getByLabelText('Región')).toHaveAttribute('id', 'region-kit');
+    expect(screen.getByLabelText('Notas')).toHaveAttribute('id', 'notas-kit');
+  });
+
   it('aria-describedby holds the help and the error; the error marks it invalid', () => {
     render(
       <Field label="Correo" help="Te escribiremos aquí." error="Ingresa un correo válido.">
@@ -139,6 +181,62 @@ describe('Field', () => {
     expect(group.tagName).toBe('FIELDSET');
     expect(group).toHaveAccessibleDescription('Una sola.');
     expect(screen.getAllByRole('radio')).toHaveLength(2);
+  });
+
+  // 5c send-back 1, defect 5: a required mark that something backs.
+  it('a required group of radios: every radio is required, so one of them must be chosen', async () => {
+    render(
+      <form aria-label="Inscripción">
+        <Field label="Modalidad" group required>
+          <Radio name="modalidad-req" value="presencial" label="Presencial" />
+          <Radio name="modalidad-req" value="en-linea" label="En línea" />
+        </Field>
+      </form>
+    );
+    const form = screen.getByRole('form', { name: 'Inscripción' }) as HTMLFormElement;
+    const radios = screen.getAllByRole('radio') as HTMLInputElement[];
+    for (const radio of radios) expect(radio).toBeRequired();
+    // aria-required means nothing on a fieldset: it is not put there.
+    expect(screen.getByRole('group', { name: 'Modalidad' })).not.toHaveAttribute('aria-required');
+    expect(form.checkValidity()).toBe(false);
+    await userEvent.click(screen.getByRole('radio', { name: 'En línea' }));
+    expect(form.checkValidity()).toBe(true);
+  });
+
+  it('a required group of tick boxes: at least one must be ticked, by the form\'s own validation', async () => {
+    render(
+      <form aria-label="Preferencias">
+        <Field label="Avisos" group required>
+          <Checkbox name="avisos" value="correo" label="Por correo" />
+          <Checkbox name="avisos" value="plataforma" label="En la plataforma" />
+        </Field>
+      </form>
+    );
+    const form = screen.getByRole('form', { name: 'Preferencias' }) as HTMLFormElement;
+    const boxes = screen.getAllByRole('checkbox') as HTMLInputElement[];
+    // Not each box: one ticked is enough.
+    for (const box of boxes) expect(box).not.toBeRequired();
+    expect(form.checkValidity()).toBe(false);
+    expect(boxes[0].validationMessage).toBe('Marca al menos una opción.');
+    await userEvent.click(screen.getByRole('checkbox', { name: 'En la plataforma' }));
+    expect(form.checkValidity()).toBe(true);
+    await userEvent.click(screen.getByRole('checkbox', { name: 'En la plataforma' }));
+    expect(form.checkValidity()).toBe(false);
+  });
+
+  it('a group that is not required asks for nothing', () => {
+    render(
+      <form aria-label="Libre">
+        <Field label="Avisos" group>
+          <Checkbox name="libre" value="a" label="Uno" />
+        </Field>
+        <Field label="Modalidad" group>
+          <Radio name="libre-r" value="a" label="Presencial" />
+        </Field>
+      </form>
+    );
+    expect(screen.getByRole('radio')).not.toBeRequired();
+    expect((screen.getByRole('form', { name: 'Libre' }) as HTMLFormElement).checkValidity()).toBe(true);
   });
 });
 

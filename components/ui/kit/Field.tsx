@@ -16,13 +16,40 @@ interface FieldWiring {
   invalid: boolean;
   required: boolean;
   disabled: boolean;
+  /** A control with its own id tells the field, so the label points at that id. Returns the undo. */
+  claimId: (id: string) => () => void;
 }
 
 const FieldContext = React.createContext<FieldWiring | null>(null);
 
+/** Inside `<Field group>`: what its radios take (a required group of radios makes each radio required). */
+const GroupContext = React.createContext<{ required: boolean } | null>(null);
+
+const useLayoutEffectOnClient = typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect;
+
+/**
+ * The own `id` of a control that is a direct child of the field, read while rendering (so the server's
+ * HTML is right too). Only controls count: a wrapper's id is not the control's.
+ */
+function childId(children: React.ReactNode): string | undefined {
+  let found: string | undefined;
+  React.Children.forEach(children, (child) => {
+    if (found !== undefined || !React.isValidElement(child)) return;
+    const isControl = ['input', 'select', 'textarea'].includes(child.type as string) || CONTROLS.includes(child.type);
+    const id = (child.props as { id?: unknown }).id;
+    if (isControl && typeof id === 'string' && id !== '') found = id;
+  });
+  return found;
+}
+
 /** What a control takes from the `Field` around it; its own props win. */
 function useFieldWiring<P extends { id?: string; disabled?: boolean; required?: boolean }>(props: P) {
   const field = React.useContext(FieldContext);
+  const claimId = field?.claimId;
+  useLayoutEffectOnClient(() => {
+    if (claimId && props.id) return claimId(props.id);
+    return undefined;
+  }, [claimId, props.id]);
   const ownDescribedBy = (props as { 'aria-describedby'?: string })['aria-describedby'];
   const ownInvalid = (props as { 'aria-invalid'?: React.AriaAttributes['aria-invalid'] })['aria-invalid'];
   const describedBy = [field?.describedBy, ownDescribedBy].filter(Boolean).join(' ') || undefined;
@@ -40,14 +67,18 @@ function useFieldWiring<P extends { id?: string; disabled?: boolean; required?: 
 
 export interface FieldProps extends Omit<React.HTMLAttributes<HTMLElement>, 'children'> {
   label: React.ReactNode;
-  /** The control's id. Made with `React.useId` when not given. */
+  /** The control's id. A control's own `id` wins over it; made with `React.useId` when neither is given. */
   controlId?: string;
   help?: React.ReactNode;
   /** A message here marks the control invalid. */
   error?: React.ReactNode;
   required?: boolean;
   disabled?: boolean;
-  /** A set of radios or tick boxes: a fieldset named by its legend. */
+  /**
+   * A set of radios or tick boxes: a fieldset named by its legend. With `required`, radios: each radio
+   * is required (the browser's rule: one of the group must be chosen); tick boxes: at least one must be
+   * ticked, checked by the form's own validation («Marca al menos una opción.» on the first box).
+   */
   group?: boolean;
   children: React.ReactNode;
 }
@@ -72,12 +103,21 @@ export function Field({
   ...rest
 }: FieldProps) {
   const auto = React.useId();
-  const id = controlId ?? `${auto}-control`;
+  // One id for the label and the control: the control's own (a direct child's, or one claimed from
+  // deeper inside), else `controlId`, else a made one.
+  const [claimed, setClaimed] = React.useState<string | undefined>(undefined);
+  const claimId = React.useCallback((own: string) => {
+    setClaimed(own);
+    return () => setClaimed((current) => (current === own ? undefined : current));
+  }, []);
+  const id = childId(children) ?? claimed ?? controlId ?? `${auto}-control`;
   const helpId = help ? `${auto}-help` : undefined;
   const errorId = error ? `${auto}-error` : undefined;
   const describedBy = [helpId, errorId].filter(Boolean).join(' ') || undefined;
+  const groupRef = React.useRef<HTMLFieldSetElement>(null);
+  useAtLeastOneTicked(groupRef, group && required);
   const mark = required ? (
-    <span aria-hidden="true" className="text-red-500 nuevo:ml-[2px] nuevo:text-red-600">
+    <span aria-hidden="true" className="text-red-600 nuevo:ml-[2px]">
       *
     </span>
   ) : null;
@@ -100,19 +140,22 @@ export function Field({
 
   if (group) {
     return (
+      // No aria-required here: it means nothing on a group. The radios carry `required` themselves.
       <fieldset
         {...(rest as React.FieldsetHTMLAttributes<HTMLFieldSetElement>)}
+        ref={groupRef}
         className={cx('border-0 p-0', box)}
         disabled={disabled || undefined}
         aria-describedby={describedBy}
         aria-invalid={error ? true : undefined}
-        aria-required={required || undefined}
       >
         <legend className={cx(LABEL, 'p-0')}>
           {label}
           {mark}
         </legend>
-        <div className="space-y-2 nuevo:space-y-0 nuevo:grid nuevo:gap-3">{children}</div>
+        <GroupContext.Provider value={required ? REQUIRED_GROUP : null}>
+          <div className="space-y-2 nuevo:space-y-0 nuevo:grid nuevo:gap-3">{children}</div>
+        </GroupContext.Provider>
         {notes}
       </fieldset>
     );
@@ -124,7 +167,7 @@ export function Field({
         {label}
         {mark}
       </label>
-      <FieldContext.Provider value={{ id, describedBy, invalid: Boolean(error), required, disabled }}>
+      <FieldContext.Provider value={{ id, describedBy, invalid: Boolean(error), required, disabled, claimId }}>
         {children}
       </FieldContext.Provider>
       {notes}
@@ -132,8 +175,43 @@ export function Field({
   );
 }
 
+const REQUIRED_GROUP = { required: true };
+
+/** The browser's message on the first tick box of a required group with none ticked. */
+const AT_LEAST_ONE = 'Marca al menos una opción.';
+
+/**
+ * A required group of tick boxes: while none is ticked, the first box carries a custom validity
+ * message, so the form's own validation (`checkValidity`, the browser's bubble on sending) stops it.
+ * Measured after every render (a parent that ticks a box by its state renders the field again), on
+ * every change inside the group and after a form reset. A group without tick boxes is left alone.
+ */
+function useAtLeastOneTicked(groupRef: React.RefObject<HTMLFieldSetElement>, active: boolean) {
+  useLayoutEffectOnClient(() => {
+    const group = groupRef.current;
+    if (!group || !active) return undefined;
+    const boxes = () =>
+      Array.from(group.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')).filter((box) => box.closest('fieldset') === group);
+    const update = () => {
+      const all = boxes();
+      const none = !all.some((box) => box.checked);
+      all.forEach((box, at) => box.setCustomValidity(none && at === 0 ? AT_LEAST_ONE : ''));
+    };
+    update();
+    const form = group.form;
+    const afterReset = () => window.setTimeout(update, 0);
+    group.addEventListener('change', update);
+    form?.addEventListener('reset', afterReset);
+    return () => {
+      group.removeEventListener('change', update);
+      form?.removeEventListener('reset', afterReset);
+      for (const box of boxes()) box.setCustomValidity('');
+    };
+  });
+}
+
 const CONTROL = cx(
-  'block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400',
+  'block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-500',
   'focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand_accent',
   'disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500',
   'aria-[invalid=true]:border-red-500',
@@ -192,6 +270,9 @@ export const SearchInput = React.forwardRef<HTMLInputElement, InputProps>(functi
   );
 });
 
+/** The controls a `Field` wires (read by `childId`). */
+const CONTROLS: unknown[] = [Input, Textarea, Select, SearchInput];
+
 interface ChoiceProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {
   /** The words next to the box; clicking them ticks it. */
   label: React.ReactNode;
@@ -207,7 +288,11 @@ const CHOICE_BOX = cx(
   'nuevo:checked:border-brand_primary nuevo:checked:bg-brand_primary nuevo:disabled:bg-gray-100'
 );
 
-function Choice({ kind, label, help, className, id, ...props }: ChoiceProps & { kind: 'checkbox' | 'radio' }, ref: React.ForwardedRef<HTMLInputElement>) {
+function Choice({ kind, label, help, className, id, required, ...props }: ChoiceProps & { kind: 'checkbox' | 'radio' }, ref: React.ForwardedRef<HTMLInputElement>) {
+  const group = React.useContext(GroupContext);
+  // A radio of a required group is required (one of the group must be chosen). A tick box is not: in a
+  // required group one ticked box is enough, which the group checks (`useAtLeastOneTicked`).
+  const isRequired = required ?? (kind === 'radio' && group?.required ? true : undefined);
   const auto = React.useId();
   const inputId = id ?? `${auto}-choice`;
   const helpId = help ? `${auto}-help` : undefined;
@@ -221,6 +306,7 @@ function Choice({ kind, label, help, className, id, ...props }: ChoiceProps & { 
             id={inputId}
             type={kind}
             {...props}
+            required={isRequired}
             aria-describedby={describedBy}
             className={cx(CHOICE_BOX, 'peer', kind === 'checkbox' ? 'rounded nuevo:rounded-sm' : 'rounded-full nuevo:rounded-full')}
           />

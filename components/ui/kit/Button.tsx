@@ -42,8 +42,9 @@ const VARIANT: Record<ButtonVariant, string> = {
     'nuevo:border-transparent nuevo:font-bold nuevo:text-brand_primary nuevo:hover:bg-brand_primary/[0.07]'
   ),
   danger: cx('bg-red-600 text-white hover:bg-red-700', 'nuevo:border-transparent nuevo:font-bold'),
+  // Under the pointer the text darkens: red 600 on red 50 measures 4.42:1, red 700 passes.
   'danger-outline': cx(
-    'border border-red-300 bg-white text-red-600 hover:bg-red-50',
+    'border border-red-300 bg-white text-red-600 hover:bg-red-50 hover:text-red-700',
     'nuevo:border-red-600/55 nuevo:bg-transparent nuevo:font-bold nuevo:text-red-600 nuevo:hover:bg-red-100'
   ),
   // The answer «yes» of a confirmation: black with white text in today's look (as the platform's own

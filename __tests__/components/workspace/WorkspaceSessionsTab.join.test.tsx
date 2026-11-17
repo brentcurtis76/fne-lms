@@ -15,12 +15,19 @@
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 
-const { mockPush, mockGetSession, mockLedgerSelect } = vi.hoisted(() => ({
+const { mockPush, mockGetSession, mockLedgerSelect, mockPrimaryRole } = vi.hoisted(() => ({
   mockPush: vi.fn(),
   mockGetSession: vi.fn(),
   mockLedgerSelect: vi.fn(),
+  mockPrimaryRole: vi.fn(),
+}));
+
+// F12a EC-E1: the card links to the session's details only for the roles the
+// details page admits (pages/consultor/sessions/[id].tsx).
+vi.mock('../../../utils/roleUtils', () => ({
+  getUserPrimaryRole: (...args: unknown[]) => mockPrimaryRole(...args),
 }));
 
 vi.mock('next/router', () => ({
@@ -103,6 +110,7 @@ async function renderTab(sessions: Record<string, unknown>[]) {
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetSession.mockResolvedValue({ data: { session: { access_token: 'synthetic-token' } } });
+  mockPrimaryRole.mockResolvedValue('consultor');
 });
 
 describe('[N5] the workspace Sesiones tab join control', () => {
@@ -166,16 +174,63 @@ describe('[N5] the workspace Sesiones tab join control', () => {
   it('does not swallow the row click — row navigation still works', async () => {
     await renderTab([sessionRow({ id: MANAGED_ID, is_zoom_managed: true })]);
 
-    fireEvent.click(screen.getByLabelText('Ver detalles de Sesión sintética'));
+    fireEvent.click(await screen.findByLabelText('Ver detalles de Sesión sintética'));
 
     expect(mockPush).toHaveBeenCalledWith(`/consultor/sessions/${MANAGED_ID}`);
   });
 
   it('and clicking the control does not ALSO navigate the row', async () => {
     await renderTab([sessionRow({ id: MANAGED_ID, is_zoom_managed: true })]);
+    await screen.findByLabelText('Ver detalles de Sesión sintética');
 
     fireEvent.click(screen.getByTestId('workspace-session-join'));
 
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+});
+
+describe('F12a EC-E1 — the card opens the details page only for the roles that page admits', () => {
+  it.each(['consultor', 'admin', 'lider_comunidad'])('%s: click and Enter on the card open the session details', async (role) => {
+    mockPrimaryRole.mockResolvedValue(role);
+    await renderTab([sessionRow({ id: MANAGED_ID, is_zoom_managed: true })]);
+
+    const card = await screen.findByLabelText('Ver detalles de Sesión sintética');
+    expect(card).toHaveAttribute('role', 'button');
+    expect(card).toHaveAttribute('tabindex', '0');
+    fireEvent.click(card);
+    fireEvent.keyDown(card, { key: 'Enter' });
+
+    expect(mockPush).toHaveBeenCalledTimes(2);
+    expect(mockPush).toHaveBeenNthCalledWith(2, `/consultor/sessions/${MANAGED_ID}`);
+    expect(mockPrimaryRole).toHaveBeenCalledWith('u-1');
+  });
+
+  it('docente: clicking the card or pressing Enter on it does not navigate; the join button stays', async () => {
+    mockPrimaryRole.mockResolvedValue('docente');
+    await renderTab([sessionRow({ id: MANAGED_ID, is_zoom_managed: true })]);
+    // Let the role lookup settle.
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+
+    const card = screen.getByText('Sesión sintética').closest('div.rounded-lg') as HTMLElement;
+    expect(card).not.toBeNull();
+    fireEvent.click(card);
+    fireEvent.keyDown(card, { key: 'Enter' });
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(card).not.toHaveAttribute('role');
+    expect(card).not.toHaveAttribute('tabindex');
+    expect(card.className).not.toContain('cursor-pointer');
+    expect(screen.queryByLabelText('Ver detalles de Sesión sintética')).toBeNull();
+    expect(mockPrimaryRole).toHaveBeenCalledWith('u-1');
+
+    expect(screen.getByTestId('workspace-session-join')).toHaveAttribute('href', `/meet/session/${MANAGED_ID}`);
+  });
+
+  it('while the role is not yet known the card is plain', async () => {
+    mockPrimaryRole.mockReturnValue(new Promise(() => {}));
+    await renderTab([sessionRow({ id: MANAGED_ID, is_zoom_managed: true })]);
+
+    expect(screen.queryByLabelText('Ver detalles de Sesión sintética')).toBeNull();
+    fireEvent.click(screen.getByText('Sesión sintética'));
     expect(mockPush).not.toHaveBeenCalled();
   });
 });

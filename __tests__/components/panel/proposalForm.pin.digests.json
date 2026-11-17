@@ -1,0 +1,14 @@
+{
+  "C1. closed: nothing drawn": "0f7a2b60ccc3a1d60daa69fbc9a37c0c79fa69740e51eb22ad16ccc75d9bd1c9",
+  "C10. «Cancelar», the X and Escape reset the form and the error, and call onClose": "80b45e42045d1b3a0f381e3c655db46ba38ab29b390eb77bcd038301a6a2bc91",
+  "C11. Enter in a text field sends the form (the first message shows)": "e19321998a54b767b56009a24b74d3df99468c3f363933bfe655ddf70c3bea18",
+  "C12. the proposal changing: create → edit → create; the form follows": "5c99ace8d970f95fe2e9da7cd995ab45f16ab9a568dd4eb68e05339ede0356e1",
+  "C2. create mode: title, description line, empty fields, «Enviar Propuesta»": "b05489ea710cf2b86e093c0740a8301da6f3e8bbef7ff93aa90ee31e208da642",
+  "C3. edit mode: the fields filled from the proposal, «Guardar Cambios»": "74b895dc4abddc02c5d8cb00a943354248c9b9ca768a85022fdcb86ba6a71438",
+  "C4. the four validation messages in order, each cleared by a keystroke; only spaces count as empty": "d3e499d17fad746f1a46e95bb089dd824802628fc25fb85f18c9f9b4f4d5da65",
+  "C5. a submit in create mode: what onSubmit receives (not trimmed), the spinner, then closed and reset": "cc2625fb13ef4d34064917ca34ed5728a06622269c9f3a3cd8cdfeecb1d32ae3",
+  "C6. a submit in edit mode: the proposal's values as they were edited": "fe0ab5530afe43d38bcde6e7718ff2acf2548a251ae8acc1347fbb92f7eb6353",
+  "C7. refusals in create mode: the message in the red box, or the fallback; a keystroke clears it": "621dcfdfa156e6b925c272e0d68e4794e074ad4c55044d547029429309687beb",
+  "C8. a refusal in edit mode: the fallback of that mode": "1d5462af5e2539c5943f39e1cc70e630fef68b71c02825e696ea7177dbb2d5d5",
+  "C9. close blocked while sending: «Cancelar», the X and Escape do nothing": "80cc6484fbdaf545af3f771afec968d585db7717a5914a1bc61a8b2cea1c131d"
+}

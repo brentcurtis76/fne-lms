@@ -1,23 +1,24 @@
 # Notificaciones
 
 Area `16-notificaciones`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `9b113df42` (2026-11-17).
+Read from commit `0853a5567` (2026-11-17).
 
-5 screen files, 10 API files, 8 pieces.
+6 screen files, 10 API files, 20 pieces.
 
 ## Screens
 
 | Address | File | Lines | Menu | Marks |
 |---|---|---|---|---|
-| `/configuracion/apariencia` | `pages/configuracion/apariencia.tsx` | 191 | — |  |
+| `/configuracion/apariencia` | `pages/configuracion/apariencia.tsx` | 196 | — |  |
 | `/configuracion` | `pages/configuracion/index.tsx` | 14 | — |  |
 | `/configuracion/notificaciones` | `pages/configuracion/notificaciones.tsx` | 451 | — |  |
+| `/configuracion/piezas` | `pages/configuracion/piezas.tsx` | 555 | — |  |
 | `/notificaciones/baja` | `pages/notificaciones/baja.tsx` | 192 | — |  |
 | `/notifications` | `pages/notifications.tsx` | 653 | — |  |
 
 ## /configuracion/apariencia
 
-File `pages/configuracion/apariencia.tsx` · 191 lines · frame: MainLayout · getServerSideProps
+File `pages/configuracion/apariencia.tsx` · 196 lines · frame: MainLayout · getServerSideProps
 
 ### Who reaches it
 
@@ -25,8 +26,8 @@ File `pages/configuracion/apariencia.tsx` · 191 lines · frame: MainLayout · g
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
   - l.41 `server redirect → /login?next=[*]  (when !viewer)`
-- Linked from: `pages/configuracion/notificaciones.tsx:442`
-- Tests: browser tests that CI runs: `tests/e2e/look-frame.spec.ts`, `tests/e2e/look-switch.spec.ts`; unit tests of the page: `__tests__/pages/apariencia.test.tsx`.
+- Linked from: `pages/configuracion/notificaciones.tsx:442`, `pages/configuracion/piezas.tsx:225`, `pages/configuracion/piezas.tsx:398`
+- Tests: browser tests that CI runs: `tests/e2e/look-frame.spec.ts`, `tests/e2e/look-kit.spec.ts`, `tests/e2e/look-switch.spec.ts`; unit tests of the page: `__tests__/pages/apariencia.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
 |---|---|---|
@@ -48,12 +49,13 @@ File `pages/configuracion/apariencia.tsx` · 191 lines · frame: MainLayout · g
 |---|---|---|---|---|---|
 | «Guardando… / Guardar cambios» (submits the form) |  |  | `{saving \|\| choice === saved}` | `testid=look-save` | AparienciaPage · l.152 |
 
-**Links** (2)
+**Links** (3)
 
 | Text | Goes to | Shown when | Hook | Where |
 |---|---|---|---|---|
 | «Inicia sesión nuevamente» | `{LOGIN_AGAIN}` | `notice?.kind === 'expired'` |  | AparienciaPage · l.169 |
 | «Notificaciones por correo» | `{SETTINGS}` |  | `testid=look-to-notifications` | AparienciaPage · l.183 |
+| «Piezas de la interfaz» | `/configuracion/piezas` |  | `testid=look-to-kit` | AparienciaPage · l.188 |
 
 **Fields** (1)
 
@@ -180,8 +182,8 @@ File `pages/configuracion/notificaciones.tsx` · 451 lines · frame: MainLayout 
 - Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
 - In the page:
   - l.121 `server redirect → /login?next=[*]  (when !viewer)`
-- Linked from: `components/notifications/ModernNotificationCenter.tsx:475`, `components/notifications/ModernNotificationCenter.tsx:476`, `components/notifications/NotificationDropdown.tsx:187`, `components/notifications/NotificationDropdown.tsx:188`, `lib/email/notifications.ts:30`, `pages/admin/configuration.tsx:396`, `pages/admin/configuration.tsx:397`, `pages/configuracion/apariencia.tsx:24`, `pages/configuracion/index.tsx:8`, `pages/notifications.tsx:381`, `pages/profile.tsx:743`, `pages/profile.tsx:744`
-- Tests: browser tests that CI runs: `tests/e2e/look-switch.spec.ts`, `tests/e2e/notification-settings.spec.ts`; unit tests of the page: `__tests__/pages/notification-settings.test.tsx`.
+- Linked from: `components/notifications/ModernNotificationCenter.tsx:475`, `components/notifications/ModernNotificationCenter.tsx:476`, `components/notifications/NotificationDropdown.tsx:187`, `components/notifications/NotificationDropdown.tsx:188`, `lib/email/notifications.ts:30`, `pages/admin/configuration.tsx:396`, `pages/admin/configuration.tsx:397`, `pages/configuracion/apariencia.tsx:24`, `pages/configuracion/index.tsx:8`, `pages/configuracion/piezas.tsx:397`, `pages/configuracion/piezas.tsx:55`, `pages/notifications.tsx:381` and 2 more
+- Tests: browser tests that CI runs: `tests/e2e/look-kit.spec.ts`, `tests/e2e/look-switch.spec.ts`, `tests/e2e/notification-settings.spec.ts`; unit tests of the page: `__tests__/pages/notification-settings.test.tsx`.
 
 | Role | Sees it in the menu | Middleware |
 |---|---|---|
@@ -326,6 +328,298 @@ File `pages/configuracion/notificaciones.tsx` · 451 lines · frame: MainLayout 
 | Address | Method | Called from |
 |---|---|---|
 | `/api/user/notification-preferences` | ? | `pages/configuracion/notificaciones.tsx:147` |
+
+## /configuracion/piezas
+
+File `pages/configuracion/piezas.tsx` · 555 lines · frame: MainLayout · getServerSideProps
+
+### Who reaches it
+
+- Menu: no entry.
+- Middleware: no role rule. Signed-out visitor: not stopped by the middleware. Forced password change holds this page: yes.
+- In the page:
+  - l.61 `server redirect → /login?next=[*]  (when !viewer)`
+- Linked from: `pages/configuracion/apariencia.tsx:188`
+- Tests: browser tests that CI runs: `tests/e2e/look-kit.spec.ts`; unit tests of the page: `__tests__/pages/piezas.test.tsx`.
+
+| Role | Sees it in the menu | Middleware |
+|---|---|---|
+| admin | — | pass |
+| consultor | — | pass |
+| equipo_directivo | — | pass |
+| lider_generacion | — | pass |
+| lider_comunidad | — | pass |
+| supervisor_de_red | — | pass |
+| community_manager | — | pass |
+| docente | — | pass |
+| encargado_licitacion | — | pass |
+
+### What the page file itself draws
+
+**Titles** (1)
+
+| Text | Level | Shown when | Where |
+|---|---|---|---|
+| «{title}» | h2 |  | Section · l.131 |
+
+**Tabs** (4)
+
+| Text | Does | Shown when | Where |
+|---|---|---|---|
+| «Detalles» |  |  | PiezasPage · l.372 |
+| «Materiales» |  |  | PiezasPage · l.375 |
+| «Informe» |  |  | PiezasPage · l.378 |
+| «Actividad» |  |  | PiezasPage · l.381 |
+
+**Buttons** (20)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «Continuar lección» |  |  |  | `testid=kit-btn-primary` | PiezasPage · l.183 |
+| «Nuevo usuario» |  |  |  | `testid=kit-btn-default` | PiezasPage · l.186 |
+| «Cancelar» |  |  |  | `testid=kit-btn-outline` | PiezasPage · l.190 |
+| «Exportar» |  |  |  | `testid=kit-btn-quiet` | PiezasPage · l.193 |
+| «Eliminar» |  |  |  | `testid=kit-btn-danger` | PiezasPage · l.197 |
+| «Rechazar» |  |  |  | `testid=kit-btn-danger-outline` | PiezasPage · l.201 |
+| «Deshabilitado» |  |  | `true` | `testid=kit-btn-primary-disabled` | PiezasPage · l.206 |
+| «Deshabilitado» |  |  | `true` | `testid=kit-btn-disabled` | PiezasPage · l.209 |
+| «Guardando…» |  |  |  | `testid=kit-btn-loading` | PiezasPage · l.212 |
+| «Pequeño» |  |  |  | `testid=kit-btn-small` | PiezasPage · l.215 |
+| «Editar» |  |  |  | `testid=kit-btn-small-outline` | PiezasPage · l.218 |
+| «[icon MoreHorizontal]» · aria «Más acciones» |  |  |  | `testid=kit-btn-icon` | PiezasPage · l.222 |
+| «Ir a Apariencia» |  |  |  | `testid=kit-btn-link` | PiezasPage · l.225 |
+| «Abrir ventana» | `{() => setDialogOpen(true)}` |  |  | `testid=kit-open-dialog` | PiezasPage · l.279 |
+| «Abrir confirmación» | `{() => void ask(false)}` |  |  | `testid=kit-open-confirm` | PiezasPage · l.282 |
+| «Confirmación de eliminar» | `{() => void ask(true)}` |  |  | `testid=kit-open-confirm-danger` | PiezasPage · l.285 |
+| «Ver sesión» |  |  |  | `testid=kit-card-leading-action` | PiezasPage · l.448 |
+| «Ver todas» |  |  |  | `testid=kit-empty-action` | PiezasPage · l.481 |
+| «Cancelar» | `{() => setDialogOpen(false)}` |  |  | `testid=kit-dialog-cancel` | PiezasPage · l.527 |
+| «Asignar rol» | `{() => setDialogOpen(false)}` |  |  | `testid=kit-dialog-save` | PiezasPage · l.530 |
+
+**Other things that react to a click** (1)
+
+| Element | Text | Does | Shown when | Where |
+|---|---|---|---|---|
+| `Card` | «En progreso Aprendizaje basado en proyectos 8 lecciones · 62% completado» | `{() => setCardClicks((n) => n + 1)}` |  | PiezasPage · l.428 |
+
+**Fields** (9)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+| «Nombre de la sesión» | text | «Nombre de la sesión» |  |  | `testid=kit-field-name` | PiezasPage · l.234 |
+|  | email |  |  |  | `testid=kit-field-email` | PiezasPage · l.237 |
+|  | select |  |  |  | `testid=kit-field-school` | PiezasPage · l.240 |
+|  | text |  |  |  | `testid=kit-field-disabled` | PiezasPage · l.258 |
+|  | textarea |  |  |  | `testid=kit-field-description` | PiezasPage · l.261 |
+|  | checkbox |  |  |  | `testid=kit-field-checkbox` | PiezasPage · l.271 |
+|  | switch |  |  |  | `testid=kit-field-switch` | PiezasPage · l.272 |
+|  | select |  |  |  | `testid=kit-dialog-role` | PiezasPage · l.537 |
+|  | select |  |  |  | `testid=kit-dialog-school` | PiezasPage · l.544 |
+
+**Pop-ups** (1)
+
+| Name or title | How | Opens when | Texts passed to it | Where |
+|---|---|---|---|---|
+| `Dialog` | component | `{dialogOpen}` | eyebrow: Usuarios · title: Gestión de roles · description: Participante A · participante.a@example.com | PiezasPage · l.518 |
+
+**Browser confirm()** (1)
+
+| Question | When | Where |
+|---|---|---|
+| «¿Eliminar este curso? / Esta acción no se puede deshacer. Es solo una muestra: nada se elimina. / danger / Eliminar / ¿Enviar el registro? / Una vez enviado no podrás modificar tus respuestas. Es solo una muestra: nada se envía. / Sí, enviar / Confirmar» |  | ask · l.158 |
+
+**Moves to another page from code** (3)
+
+| Goes to | How | When | Where |
+|---|---|---|---|
+| `/login?next=[*]` | `server redirect` | `!viewer` | getServerSideProps · l.61 |
+| `{forcedChangeRedirectPath(verdict)}` | `server redirect` | `verdict !== 'allowed'` | getServerSideProps · l.67 |
+| `{SETTINGS}` | `server redirect` | `profile.error \|\| !mayChooseLook(profile.data)` | getServerSideProps · l.77 |
+
+**Pieces placed here, with the texts and settings handed to them** (89)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `MainLayout` | pageTitle: Piezas de la interfaz · breadcrumbs: Configuración / Piezas de la interfaz |  |  | PiezasPage · l.177 |
+| `Section` | title: Botones |  | `id=buttons` | PiezasPage · l.181 |
+| `ArrowRight` | aria-hidden: true |  |  | PiezasPage · l.184 |
+| `Plus` | aria-hidden: true |  |  | PiezasPage · l.187 |
+| `Download` | aria-hidden: true |  |  | PiezasPage · l.194 |
+| `Trash2` | aria-hidden: true |  |  | PiezasPage · l.198 |
+| `Pencil` | aria-hidden: true |  |  | PiezasPage · l.219 |
+| `MoreHorizontal` | aria-hidden: true |  |  | PiezasPage · l.223 |
+| `Section` | title: Campos |  | `id=fields` | PiezasPage · l.231 |
+| `Field` | label: Nombre · help: Así la verán los docentes en su calendario. |  |  | PiezasPage · l.233 |
+| `Field` | label: Correo electrónico · error: Ingresa un correo válido. |  |  | PiezasPage · l.236 |
+| `Field` | label: Colegio |  |  | PiezasPage · l.239 |
+| `Field` | label: Buscar |  |  | PiezasPage · l.249 |
+| `SearchInput` | placeholder: Buscar por nombre o correo... |  | `testid=kit-field-search` | PiezasPage · l.250 |
+| `Field` | label: Campo bloqueado |  |  | PiezasPage · l.257 |
+| `Field` | label: Descripción · help: Un texto largo, en varias líneas. |  |  | PiezasPage · l.260 |
+| `Field` | label: Modalidad |  |  | PiezasPage · l.266 |
+| `Radio` | label: Presencial |  | `testid=kit-field-radio-presencial` | PiezasPage · l.267 |
+| `Radio` | label: En línea |  | `testid=kit-field-radio-en-linea` | PiezasPage · l.268 |
+| `Field` | label: Opciones |  |  | PiezasPage · l.270 |
+| `Section` | title: Ventana y confirmación |  | `id=dialogs` | PiezasPage · l.277 |
+| `Section` | title: Tabla |  | `id=table` | PiezasPage · l.298 |
+| `Table` | aria-label: Participantes de ejemplo |  | `testid=kit-table` | PiezasPage · l.299 |
+| `Pagination` | noun: participantes |  | `testid=kit-pagination` | PiezasPage · l.304 |
+| `TableHead` |  |  |  | PiezasPage · l.314 |
+| `TableRow` |  |  |  | PiezasPage · l.315 |
+| `TableHeaderCell` |  |  |  | PiezasPage · l.316 |
+| `TableHeaderCell` |  |  |  | PiezasPage · l.319 |
+| `TableHeaderCell` |  |  |  | PiezasPage · l.320 |
+| `TableHeaderCell` |  |  |  | PiezasPage · l.321 |
+| `TableHeaderCell` |  |  |  | PiezasPage · l.322 |
+| `TableHeaderCell` |  |  | `testid=kit-sort-progress` | PiezasPage · l.323 |
+| `TableBody` |  |  |  | PiezasPage · l.336 |
+| `TableRow` |  | `each shown` | `testid=kit-row-{row.id}` | PiezasPage · l.338 |
+| `TableCell` | label: Seleccionar | `each shown` |  | PiezasPage · l.339 |
+| `Radio` |  | `each shown` | `testid=kit-select-{row.id}` | PiezasPage · l.340 |
+| `TableCell` | label: Participante | `each shown` |  | PiezasPage · l.349 |
+| `TableCell` | label: Colegio | `each shown` |  | PiezasPage · l.352 |
+| `TableCell` | label: Rol | `each shown` |  | PiezasPage · l.353 |
+| `TableCell` | label: Estado | `each shown` |  | PiezasPage · l.354 |
+| `Badge` |  | `each shown` |  | PiezasPage · l.355 |
+| `TableCell` | label: Avance | `each shown` | `testid=kit-progress-{row.id}` | PiezasPage · l.357 |
+| `Section` | title: Pestañas |  | `id=tabs` | PiezasPage · l.367 |
+| `Card` |  |  |  | PiezasPage · l.368 |
+| `Tabs` |  |  |  | PiezasPage · l.369 |
+| `TabList` | label: Secciones de la sesión |  | `testid=kit-tabs` | PiezasPage · l.371 |
+| `Count` | label: 3 materiales |  |  | PiezasPage · l.376 |
+| `TabPanel` |  | `each (Object.keys(TAB_TEXT) as TabValue[])` | `testid=kit-tabpanel-{value}` | PiezasPage · l.387 |
+| `TabLinks` | label: Páginas de configuración · items: Notificaciones / Apariencia / Piezas de la interfaz |  | `testid=kit-tablinks` | PiezasPage · l.393 |
+| `Section` | title: Insignias |  | `id=badges` | PiezasPage · l.404 |
+| `Badge` |  | `each BADGES` | `testid=kit-badge-{badge.tone}` | PiezasPage · l.407 |
+| `Badge` | tone: neutral |  | `testid=kit-badge-plain` | PiezasPage · l.411 |
+| `Count` | label: 7 notificaciones sin leer |  | `testid=kit-count` | PiezasPage · l.414 |
+| `Section` | title: Tarjetas |  | `id=cards` | PiezasPage · l.418 |
+| `Card` |  |  | `testid=kit-card-plain` | PiezasPage · l.420 |
+| `CardBody` |  |  |  | PiezasPage · l.421 |
+| `Card` |  |  | `testid=kit-card-interactive` | PiezasPage · l.428 |
+| `CardBody` |  |  |  | PiezasPage · l.429 |
+| `Badge` | tone: info |  |  | PiezasPage · l.430 |
+| `CardTitle` |  |  |  | PiezasPage · l.431 |
+| `Card` |  |  | `testid=kit-card-leading` | PiezasPage · l.439 |
+| `CardHeader` |  |  |  | PiezasPage · l.440 |
+| `CardTitle` |  |  |  | PiezasPage · l.441 |
+| `Badge` |  |  |  | PiezasPage · l.442 |
+| `CardBody` |  |  |  | PiezasPage · l.444 |
+| `CardFooter` |  |  |  | PiezasPage · l.447 |
+| `Section` | title: Avisos |  | `id=notices` | PiezasPage · l.456 |
+| `Notice` | title: Borrador guardado. |  | `testid=kit-notice-neutral` | PiezasPage · l.458 |
+| `Notice` | tone: success · title: Registro enviado. |  | `testid=kit-notice-success` | PiezasPage · l.461 |
+| `Notice` | tone: warning · title: Solo lectura. |  | `testid=kit-notice-warning` | PiezasPage · l.464 |
+| `Notice` | tone: error · title: No se pudo cargar. |  | `testid=kit-notice-error` | PiezasPage · l.467 |
+| `Section` | title: Vacío y carga |  | `id=states` | PiezasPage · l.473 |
+| `Card` |  |  |  | PiezasPage · l.475 |
+| `EmptyState` | title: Sin notificaciones · description: Te avisaremos cuando tengas algo nuevo. |  | `testid=kit-empty` | PiezasPage · l.476 |
+| `Card` |  |  |  | PiezasPage · l.487 |
+| `CardBody` |  |  | `testid=kit-skeleton` | PiezasPage · l.488 |
+| `Skeleton` |  |  |  | PiezasPage · l.489 |
+| `Skeleton` |  |  |  | PiezasPage · l.490 |
+| `Skeleton` |  |  |  | PiezasPage · l.491 |
+| `Skeleton` |  |  |  | PiezasPage · l.492 |
+| `Skeleton` |  |  |  | PiezasPage · l.493 |
+| `Card` |  |  |  | PiezasPage · l.496 |
+| `LoadingBlock` |  |  | `testid=kit-loading` | PiezasPage · l.497 |
+| `Section` | title: Cabecera de página |  | `id=header` | PiezasPage · l.502 |
+| `Card` |  |  |  | PiezasPage · l.503 |
+| `CardBody` |  |  |  | PiezasPage · l.504 |
+| `PageHeader` | eyebrow: Usuarios · title: Encabezado de ejemplo · description: Una línea que dice para qué sirve la página. · secondaryAction: Exportar · primaryAction: Nuevo usuario |  | `testid=kit-page-header` | PiezasPage · l.505 |
+| `Field` | label: Rol |  |  | PiezasPage · l.536 |
+| `Field` | label: Colegio |  |  | PiezasPage · l.543 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (5)
+
+| Name | Texts | Where |
+|---|---|---|
+| `SCHOOLS` | «Colegio Ejemplo Norte», «Escuela Ejemplo Sur», «Liceo Ejemplo Centro» | l.91 |
+| `ROLES` | «Docente», «Equipo directivo», «Consultor» | l.92 |
+| `STATES` | «Activo», «Pendiente», «Rechazado» | l.93 |
+| `BADGES` | «Borrador», «Completada», «Pendiente», «Cancelada», «En progreso», «Nuevo» | l.111 |
+| `TAB_TEXT` | «Contenido de «Detalles»: fecha, lugar y objetivos de la sesión.», «Contenido de «Materiales»: tres documentos de ejemplo.», «Contenido de «Informe»: el resumen que se escribe al terminar.», «Contenido de «Actividad»: los cambios recientes.» | l.121 |
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (4)
+
+| Text | Where |
+|---|---|
+| «Confirmado» | PiezasPage · l.173 |
+| «Cancelado» | PiezasPage · l.173 |
+| «Enviar recordatorio por correo» | PiezasPage · l.271 |
+| «Notificaciones activas» | PiezasPage · l.272 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (6)
+
+| Kind | What | Where |
+|---|---|---|
+| mark | `testid=kit-section-{id}` | Section · l.130 |
+| mark | `testid=kit-page` | PiezasPage · l.178 |
+| role | `role=status aria-live=polite` | PiezasPage · l.288 |
+| mark | `testid=kit-confirm-result` | PiezasPage · l.291 |
+| role | `role=status aria-live=polite` | PiezasPage · l.435 |
+| mark | `testid=kit-card-clicks` | PiezasPage · l.435 |
+
+**Values shown from data** (8)
+
+- `{answer}` — PiezasPage · l.291, when `answer`
+- `{row.name}` — PiezasPage · l.349, when `each shown`
+- `{row.school}` — PiezasPage · l.352, when `each shown`
+- `{row.role}` — PiezasPage · l.353, when `each shown`
+- `{row.state.word}` — PiezasPage · l.355, when `each shown`
+- `{row.progress}%` — PiezasPage · l.357, when `each shown`
+- `{TAB_TEXT[value]}` — PiezasPage · l.388, when `each (Object.keys(TAB_TEXT) as TabValue[])`
+- `{badge.word}` — PiezasPage · l.407, when `each BADGES`
+
+**Other texts on screen** (28)
+
+- «Muestras de las piezas del diseño. Nada de lo que hagas aquí se guarda.» — PiezasPage · l.179
+- «Respuesta:» — PiezasPage · l.291, when `answer`
+- «Seleccionar» — PiezasPage · l.317, hidden by its class (`sr-only`); another control opens it or it is for screen readers
+- «Participante» — PiezasPage · l.319
+- «Colegio» — PiezasPage · l.320
+- «Rol» — PiezasPage · l.321
+- «Estado» — PiezasPage · l.322
+- «Avance» — PiezasPage · l.332
+- «Seleccionar a {row.name}» — PiezasPage · l.345, when `each shown`, hidden by its class (`sr-only`); another control opens it or it is for screen readers
+- «En un teléfono cada fila se vuelve una ficha. Angosta la ventana para verlo.» — PiezasPage · l.364
+- «Detalles» — PiezasPage · l.373
+- «Materiales» — PiezasPage · l.376
+- «Informe» — PiezasPage · l.379
+- «Actividad» — PiezasPage · l.382
+- «Docente» — PiezasPage · l.412
+- «Educadores activos» — PiezasPage · l.422
+- «En la escuela de ejemplo, últimos 30 días» — PiezasPage · l.424
+- «En progreso» — PiezasPage · l.430
+- «Aprendizaje basado en proyectos» — PiezasPage · l.431
+- «8 lecciones · 62% completado» — PiezasPage · l.432
+- «Tarjeta pulsada {cardClicks} {cardClicks === 1 ? 'vez' : …}.» — PiezasPage · l.435
+- «Próxima sesión» — PiezasPage · l.441
+- «Programada» — PiezasPage · l.442
+- «Jueves 19 de noviembre, 15:30 · Comunidad de ejemplo» — PiezasPage · l.445
+- «Puedes seguir más tarde desde donde quedaste.» — PiezasPage · l.459
+- «Tus respuestas ya están disponibles para el equipo directivo.» — PiezasPage · l.462
+- «Esta sesión ya fue completada y no admite cambios.» — PiezasPage · l.465
+- «Revisa tu conexión e intenta de nuevo.» — PiezasPage · l.468
+
+**Reads and writes the database directly:** `table:profiles` (select)
+
+### Pieces it uses (each is listed once, under "Pieces" below)
+
+- `components/ui/kit/Badge.tsx`
+- `components/ui/kit/Button.tsx`
+- `components/ui/kit/Card.tsx`
+- `components/ui/kit/ConfirmDialog.tsx`
+- `components/ui/kit/Dialog.tsx`
+- `components/ui/kit/EmptyState.tsx`
+- `components/ui/kit/Field.tsx`
+- `components/ui/kit/Loading.tsx`
+- `components/ui/kit/Notice.tsx`
+- `components/ui/kit/PageHeader.tsx`
+- `components/ui/kit/Table.tsx`
+- `components/ui/kit/Tabs.tsx`
+- `lib/api-auth.ts`
+- `lib/auth/forced-password-change.ts`
 
 ## /notificaciones/baja
 
@@ -615,9 +909,351 @@ Used by: `/notifications`
 
 - «¿Estás seguro de que deseas eliminar {count} notificación es ? Esta acción no se puede deshacer.» — NotificationDeleteModal · l.44, screen size: `sm:block sm:flex`
 
+### components/ui/kit/Badge.tsx
+
+Used by: `/configuracion/piezas`
+
+**Values shown from data** (2)
+
+- `{value}` — l.68, when `label`
+- `{label}` — l.69, when `label`, hidden by its class (`sr-only`); another control opens it or it is for screen readers
+
+### components/ui/kit/Button.tsx
+
+Used by: `/configuracion/piezas`
+
+**Buttons** (1)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «{content}» | `{(event) => { if (loading) { // Not clickable while it works; also keeps a submi…}` |  |  |  | l.159 |
+
+**Links** (3)
+
+| Text | Goes to | Shown when | Hook | Where |
+|---|---|---|---|---|
+| «{content}» |  | `typeof rest.href === 'string' && inert` |  | l.131 |
+| «{content}» | `{href}` | `typeof rest.href === 'string' && href.startsWith('/')` |  | l.145 |
+| «{content}» | `{href}` | `typeof rest.href === 'string'` |  | l.151 |
+
+**Pieces placed here, with the texts and settings handed to them** (1)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `SpinnerMark` |  | `loading` |  | l.120 |
+
+### components/ui/kit/Card.tsx
+
+Used by: `/configuracion/piezas`
+
+**Buttons** (1)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «{children}» |  |  |  |  | l.68 |
+
+**Links** (1)
+
+| Text | Goes to | Shown when | Hook | Where |
+|---|---|---|---|---|
+| «{children}» | `{href}` | `typeof rest.href === 'string'` |  | l.60 |
+
+**Values shown from data** (1)
+
+- `{children}` — l.50, when `!rest.interactive`
+
+### components/ui/kit/ConfirmDialog.tsx
+
+Used by: `/configuracion/piezas`
+
+**Buttons** (2)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «{cancelLabel}» | `{onCancel}` |  | `{loading}` | `testid={testId ? '${testId}-cancel' : undefined}` | ConfirmDialog · l.80 |
+| «{confirmLabel}» | `{onConfirm}` |  |  | `testid={testId ? '${testId}-confirm' : undefined}` | ConfirmDialog · l.89 |
+
+**Pop-ups** (2)
+
+| Name or title | How | Opens when | Texts passed to it | Where |
+|---|---|---|---|---|
+| `Dialog` | component | `{open}` |  | ConfirmDialog · l.68 |
+| `ConfirmDialog` | component | `{pending !== null}` |  | useConfirm · l.167 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `DEFAULT_CONFIRM_TITLE` | «Confirmar acción» | l.115 |
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (1)
+
+| Text | Where |
+|---|---|
+| «Cancelar» | ConfirmDialog · l.49 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
+
+| Kind | What | Where |
+|---|---|---|
+| focus | `cancelRef.current.focus()` | ConfirmDialog · l.65 |
+
+**Values shown from data** (1)
+
+- `{message}` — ConfirmDialog · l.100, when `message && typeof message === 'string'`
+
+### components/ui/kit/Dialog.tsx
+
+Used by: `/configuracion/piezas`
+
+**Pieces placed here, with the texts and settings handed to them** (2)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `RadixDialog.Close` | aria-label: Cerrar | `dismissable` | `testid={testId ? '${testId}-close' : undefined}` | Dialog · l.193 |
+| `X` | aria-hidden: true | `dismissable` |  | Dialog · l.204 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (5)
+
+| Kind | What | Where |
+|---|---|---|
+| lookup | `querySelectorAll({FOCUSABLE})` | firstFocusable · l.75 |
+| mark | `testid={testId}` | Dialog · l.130 |
+| focus | `candidate.focus()` | Dialog · l.151 |
+| focus | `box.focus()` | Dialog · l.154 |
+| focus | `target.focus()` | Dialog · l.160 |
+
+**Values shown from data** (5)
+
+- `{eyebrow}` — Dialog · l.179, when `eyebrow`
+- `{title}` — Dialog · l.180
+- `{description}` — Dialog · l.189, when `description`
+- `{children}` — Dialog · l.208
+- `{footer}` — Dialog · l.218, when `footer`
+
+### components/ui/kit/EmptyState.tsx
+
+Used by: `/configuracion/piezas`
+
+**Values shown from data** (3)
+
+- `{title}` — l.43
+- `{description}` — l.52, when `description`
+- `{action}` — l.54, when `action`
+
+### components/ui/kit/Field.tsx
+
+Used by: `/configuracion/piezas`
+
+**Fields** (6)
+
+| Label | Kind | Name / placeholder | Choices | Shown when | Hook | Where |
+|---|---|---|---|---|---|---|
+|  | {type} |  |  |  |  | l.229 |
+|  | textarea |  |  |  |  | l.237 |
+|  | select |  |  |  |  | l.248 |
+|  | {type} |  |  |  |  | l.268 |
+| «{label}» | {kind} | required |  |  |  | Choice · l.304 |
+| «{label}» | checkbox |  |  |  |  | l.363 |
+
+**Pieces placed here, with the texts and settings handed to them** (4)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `AlertCircle` | aria-hidden: true | `error` |  | Field · l.133 |
+| `ChevronDown` | aria-hidden: true | hidden by its class (`hidden`); another control opens it or it is for screen readers |  | l.251 |
+| `Search` | aria-hidden: true |  |  | l.264 |
+| `Check` | aria-hidden: true | `kind === 'checkbox'` · hidden by its class (`hidden`); another control opens it or it is for screen readers |  | Choice · l.314 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `AT_LEAST_ONE` | «Marca al menos una opción.» | l.181 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (3)
+
+| Kind | What | Where |
+|---|---|---|
+| lookup | `querySelectorAll(input[type="checkbox"])` | boxes · l.194 |
+| listener | `group.addEventListener('change')` | useAtLeastOneTicked · l.203 |
+| listener | `form.addEventListener('reset')` | useAtLeastOneTicked · l.204 |
+
+**Values shown from data** (5)
+
+- `{help}` — Field · l.127, when `help`
+- `{children}` — Field · l.157, when `group`
+- `{children}` — Field · l.170
+- `{help}` — Choice · l.330, when `help`
+- `{help}` — l.389, when `help`
+
+**Other texts on screen** (4)
+
+- «{label} {mark}» (label) — Field · l.152, when `group`
+- «{label} {mark}» (label) — Field · l.166
+- «{label}» (label) — Choice · l.302
+- «{label}» (label) — l.358
+
+### components/ui/kit/Loading.tsx
+
+Used by: `/configuracion/piezas`
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (1)
+
+| Kind | What | Where |
+|---|---|---|
+| role | `role=status` | l.94 |
+
+**Values shown from data** (1)
+
+- `{label}` — l.105
+
+### components/ui/kit/Notice.tsx
+
+Used by: `/configuracion/piezas`
+
+**Values shown from data** (1)
+
+- `{title}` — l.68, when `title`
+
+### components/ui/kit/PageHeader.tsx
+
+Used by: `/configuracion/piezas`
+
+**Titles** (1)
+
+| Text | Level | Shown when | Where |
+|---|---|---|---|
+| «{title}» | h1 |  | l.93 |
+
+**Buttons** (2)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «{secondaryAction.icon} {secondaryAction.label}» | `{secondaryAction.onClick}` | `hasActions && secondaryAction` |  | `testid={secondaryAction['data-testid']}` | l.110 |
+| «{primaryAction.icon} {primaryAction.label}» | `{primaryAction.onClick}` | `hasActions && primaryAction` |  | `testid={primaryAction['data-testid']}` | l.116 |
+
+**Pieces placed here, with the texts and settings handed to them** (1)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `SearchInput` |  | `hasActions && onSearchChange` |  | l.100 |
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (2)
+
+| Text | Where |
+|---|---|
+| «Buscar...» | PageHeader · l.59 |
+| «Buscar» | PageHeader · l.60 |
+
+**Values shown from data** (4)
+
+- `{eyebrow}` — l.78, when `eyebrow`
+- `{icon}` — l.88, when `icon`
+- `{description}` — l.94, when `description`
+- `{children}` — l.124, when `children`
+
+### components/ui/kit/Table.tsx
+
+Used by: `/configuracion/piezas`
+
+**Buttons** (3)
+
+| Text | Does | Shown when | Disabled when | Hook | Where |
+|---|---|---|---|---|---|
+| «{children}» | `{onSort}` | `sortable` |  |  | l.148 |
+| «Anterior» | `{() => onPageChange(current - 1)}` |  | `{current <= 1}` | `testid={testId ? '${testId}-previous' : undefined}` | Pagination · l.254 |
+| «Siguiente» | `{() => onPageChange(current + 1)}` |  | `{current >= pages}` | `testid={testId ? '${testId}-next' : undefined}` | Pagination · l.263 |
+
+**Table columns** (1)
+
+| Text | Shown when | Where |
+|---|---|---|
+| «{children} / {children}» |  | l.139 |
+
+**Pieces placed here, with the texts and settings handed to them** (1)
+
+| Piece | Texts and settings | Shown when | Hook | Where |
+|---|---|---|---|---|
+| `Icon` | aria-hidden: true | `sortable` |  | l.158 |
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (1)
+
+| Name | Texts | Where |
+|---|---|---|
+| `shown` | «Mostrando 0 de 0 / Mostrando {from}–{to} de {total}» | Pagination · l.238 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (7)
+
+| Kind | What | Where |
+|---|---|---|
+| role | `role=table` | l.47 |
+| role | `role=rowgroup` | l.72 |
+| role | `role=rowgroup` | l.81 |
+| role | `role=row` | l.98 |
+| role | `role=cell` | l.189 |
+| mark | `testid={testId}` | Pagination · l.240 |
+| mark | `testid={testId ? '${testId}-range' : undefined}` | Pagination · l.250 |
+
+**Values shown from data** (3)
+
+- `{children}` — l.47
+- `{label}` — l.213, when `named`
+- `{shown} {noun} / {shown}` — Pagination · l.250
+
+**Other texts on screen** (1)
+
+- «Paginación» (aria-label) — Pagination · l.240
+
+### components/ui/kit/Tabs.tsx
+
+Used by: `/configuracion/piezas`
+
+**Tabs** (1)
+
+| Text | Does | Shown when | Where |
+|---|---|---|---|
+|  | `{(event) => { onClick?.(event); if (!event.defaultPrevented) select(value); }}` |  | l.150 |
+
+**Links** (1)
+
+| Text | Goes to | Shown when | Hook | Where |
+|---|---|---|---|---|
+| «{item.label}» | `{item.href}` | `each items` | `testid={item['data-testid']}` | TabLinks · l.206 |
+
+**Draws nothing when** (4)
+
+| Condition | Where |
+|---|---|
+| `event.defaultPrevented` | TabList · l.112 |
+| `at < 0 \|\| tabs.length === 0` | TabList · l.115 |
+| `to < 0` | TabList · l.126 |
+| `current !== value` | TabPanel · l.175 |
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (1)
+
+| Text | Where |
+|---|---|
+| «Tab» | Tab · l.144 |
+
+**Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (5)
+
+| Kind | What | Where |
+|---|---|---|
+| lookup | `querySelectorAll([role="tab"])` | TabList · l.96 |
+| role | `role=tablist` | TabList · l.104 |
+| lookup | `querySelectorAll([role="tab"]:not([disabled]))` | TabList · l.113 |
+| focus | `tabs[to].focus()` | TabList · l.128 |
+| role | `role=tabpanel` | TabPanel · l.177 |
+
+**Values shown from data** (2)
+
+- `{children}` — Tabs · l.60
+- `{children}` — TabList · l.104
+
 ### lib/api-auth.ts
 
-Used by: `/configuracion/apariencia`, `/configuracion/notificaciones`
+Used by: `/configuracion/apariencia`, `/configuracion/notificaciones`, `/configuracion/piezas`
 
 **Messages set on the page** (2)
 
@@ -630,7 +1266,7 @@ Used by: `/configuracion/apariencia`, `/configuracion/notificaciones`
 
 ### lib/auth/forced-password-change.ts
 
-Used by: `/configuracion/apariencia`, `/configuracion/notificaciones`
+Used by: `/configuracion/apariencia`, `/configuracion/notificaciones`, `/configuracion/piezas`
 
 **Texts kept in lists and helpers in the code (labels, options, status names)** (1)
 

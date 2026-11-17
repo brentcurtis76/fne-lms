@@ -1,10 +1,10 @@
 {
  "readFrom": {
-  "commit": "9b113df429f5036bf72f1c71c6636b3bb0f47139",
-  "date": "2026-11-17T12:24:40-03:00"
+  "commit": "0853a5567a422544cbc6cb8b7dafde403d965cdc",
+  "date": "2026-11-17T12:53:45-03:00"
  },
  "counts": {
-  "screens": 153,
+  "screens": 154,
   "api": 367
  },
  "menu": {
@@ -5414,6 +5414,52 @@
   {
    "route": "/configuracion/notificaciones",
    "file": "pages/configuracion/notificaciones.tsx",
+   "area": "16-notificaciones",
+   "dynamic": false,
+   "frame": "MainLayout",
+   "marks": [],
+   "roles": {
+    "admin": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "consultor": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "equipo_directivo": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "lider_generacion": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "lider_comunidad": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "supervisor_de_red": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "community_manager": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "docente": {
+     "menu": "—",
+     "middleware": "pass"
+    },
+    "encargado_licitacion": {
+     "menu": "—",
+     "middleware": "pass"
+    }
+   }
+  },
+  {
+   "route": "/configuracion/piezas",
+   "file": "pages/configuracion/piezas.tsx",
    "area": "16-notificaciones",
    "dynamic": false,
    "frame": "MainLayout",

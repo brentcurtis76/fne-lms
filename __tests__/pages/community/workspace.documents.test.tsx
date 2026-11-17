@@ -370,6 +370,63 @@ describe('EC-D2b the documents tab renames, moves and removes', () => {
     expect(toast.success).toHaveBeenCalledWith('1 documento(s) movido(s)');
   });
 
+  // Send-back 1: the selection forgets documents that left the reloaded list.
+  const SELECTED = /documento\(s\) seleccionados/;
+
+  it('a selected document moved through its own «Mover» leaves the selection (no blue bar)', async () => {
+    h.moveDocument = vi.fn(async (id: string) => {
+      h.docs = h.docs.filter(d => d.id !== id);
+    });
+    const utils = await ready();
+    act(() => h.grid.onSelectionChange(['d1']));
+    expect(utils.getByText(SELECTED)).toBeTruthy();
+    fireEvent.click(utils.getByTestId('move-d1'));
+    const dialog = utils.getByTestId('document-move-dialog');
+    await waitFor(() => expect(within(dialog).getAllByRole('option')).toHaveLength(3));
+    fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'f-root' } });
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Mover' }));
+    });
+    await waitFor(() => expect(utils.queryByTestId('edit-d1')).toBeNull());
+    expect(h.grid.selectedDocuments).toEqual([]);
+    expect(utils.queryByText(SELECTED)).toBeNull();
+  });
+
+  it('a selected document hidden through its own «Eliminar» leaves the selection (no blue bar)', async () => {
+    h.hideDocument = vi.fn(async (id: string) => {
+      h.docs = h.docs.filter(d => d.id !== id);
+    });
+    const utils = await ready();
+    act(() => h.grid.onSelectionChange(['d1']));
+    expect(utils.getByText(SELECTED)).toBeTruthy();
+    fireEvent.click(utils.getByTestId('delete-d1'));
+    await act(async () => {
+      fireEvent.click(within(utils.getByTestId('document-delete-confirm')).getByRole('button', { name: 'Eliminar' }));
+    });
+    await waitFor(() => expect(utils.queryByTestId('edit-d1')).toBeNull());
+    expect(h.grid.selectedDocuments).toEqual([]);
+    expect(utils.queryByText(SELECTED)).toBeNull();
+  });
+
+  it('after a bulk «Mover» the selection keeps only the documents still in the list', async () => {
+    h.moveDocument = vi.fn(async (id: string) => {
+      if (id === 'd2') throw new Error(NOT_ALLOWED);
+      h.docs = h.docs.filter(d => d.id !== id);
+    });
+    const utils = await ready();
+    fireEvent.click(utils.getByTestId('select-all'));
+    fireEvent.click(await utils.findByText('Mover'));
+    const dialog = utils.getByTestId('document-move-dialog');
+    await waitFor(() => expect(within(dialog).getAllByRole('option')).toHaveLength(3));
+    fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: 'f-root' } });
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Mover' }));
+    });
+    await waitFor(() => expect(utils.queryByTestId('edit-d1')).toBeNull());
+    expect(h.grid.selectedDocuments).toEqual(['d2']);
+    expect(utils.getByText('1 documento(s) seleccionados')).toBeTruthy();
+  });
+
   it('no «… próximamente» message is left for edit, move or delete', async () => {
     const utils = await ready();
     fireEvent.click(utils.getByTestId('edit-d1'));

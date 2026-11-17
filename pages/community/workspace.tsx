@@ -1474,8 +1474,8 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
     };
   }, [workspace?.id, user?.id]);
 
-  const loadDocuments = async () => {
-    if (!workspace) return;
+  const loadDocuments = async (): Promise<DocumentWithDetails[] | null> => {
+    if (!workspace) return null;
 
     try {
       setLoading(true);
@@ -1503,12 +1503,23 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
         loadAllFolders();
       }
       
+      return docs;
     } catch (error) {
       console.error('Error loading documents:', error);
       toast.error('Error al cargar los documentos');
+      return null;
     } finally {
       setLoading(false);
     }
+  };
+
+  // After a rename, move or hide: reload, and keep selected only the
+  // documents that are still in the reloaded list.
+  const reloadDocumentsKeepingSelection = async () => {
+    const docs = await loadDocuments();
+    if (!docs) return;
+    const present = new Set(docs.map(doc => doc.id));
+    setSelectedDocuments(prev => prev.filter(id => present.has(id)));
   };
 
   const loadAllFolders = async () => {
@@ -1703,7 +1714,7 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
       await renameDocument(renameTarget.id, renameTitle);
       setRenameTarget(null);
       toast.success('Nombre actualizado');
-      await loadDocuments();
+      await reloadDocumentsKeepingSelection();
     } catch (error) {
       toast.error((error as Error).message);
     } finally {
@@ -1738,14 +1749,13 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
           }
         }
         setMoveTargets(null);
-        setSelectedDocuments([]);
         if (refused === 0) {
           toast.success(`${moved} documento(s) movido(s)`);
         } else {
           toast.error(`${moved} documento(s) movido(s). ${refused} no se pudieron mover: solo quien los subió o el líder de la comunidad puede moverlos.`);
         }
       }
-      await loadDocuments();
+      await reloadDocumentsKeepingSelection();
     } finally {
       setActionBusy(false);
     }
@@ -1756,7 +1766,7 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
       await hideDocument(target.id);
       setSelectedDocuments(prev => prev.filter(id => id !== target.id));
       toast.success('Documento eliminado');
-      await loadDocuments();
+      await reloadDocumentsKeepingSelection();
     } catch (error) {
       toast.error((error as Error).message);
     }

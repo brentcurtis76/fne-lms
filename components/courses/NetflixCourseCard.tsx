@@ -5,6 +5,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, BarChart2, Target, Play, ChevronRight, User, BookOpen, CheckCircle2, Award, ClipboardCheck } from 'lucide-react';
 import { NetflixCourseCardProps } from '@/types/courses';
 import { CourseThumbnail } from './CourseThumbnail';
+import {
+  getCTAText as ctaTextFor,
+  getDifficultyLabel,
+  formatDuration,
+  getCoursePicture,
+  showsProgress,
+  showsLessons,
+  showsAssignments,
+  objectivesPreview,
+} from './courseCardText';
 
 /**
  * Netflix-style course card with hover expansion
@@ -78,14 +88,8 @@ export function NetflixCourseCard({
     onSelect?.(course.id);
   }, [course.id, onSelect]);
 
-  // Get CTA text based on enrollment status
-  const getCTAText = (): string => {
-    if (!enrollment) return 'Ver Detalles';
-    if (enrollment.completion_status === 'aprobado') return 'Repasar';
-    if (enrollment.completion_status === 'completado') return 'Continuar';
-    if (enrollment.progress_percentage > 0) return 'Continuar';
-    return 'Comenzar';
-  };
+  // Get CTA text based on enrollment status (the rule lives in ./courseCardText, shared with the new look)
+  const getCTAText = (): string => ctaTextFor(enrollment);
 
   // Get difficulty badge color (using brand colors)
   const getDifficultyColor = (level: string | null): string => {
@@ -101,26 +105,10 @@ export function NetflixCourseCard({
     }
   };
 
-  // Get difficulty label in Spanish
-  const getDifficultyLabel = (level: string | null): string => {
-    switch (level?.toLowerCase()) {
-      case 'beginner':
-        return 'Principiante';
-      case 'intermediate':
-        return 'Intermedio';
-      case 'advanced':
-        return 'Avanzado';
-      default:
-        return '';
-    }
-  };
+  // The difficulty label and the duration: ./courseCardText (shared with the new look)
 
-  // Format duration
-  const formatDuration = (hours: number | null): string => {
-    if (!hours) return '';
-    if (hours < 1) return `${Math.round(hours * 60)} min`;
-    return `${hours}h`;
-  };
+  // Which picture the course shows: ./courseCardText (shared with the new look)
+  const picture = getCoursePicture(course);
 
   // Check if user prefers reduced motion
   const prefersReducedMotion = typeof window !== 'undefined'
@@ -170,21 +158,21 @@ export function NetflixCourseCard({
       >
         {/* Thumbnail Section - prioritize instructor photo over course thumbnail */}
         <div className="relative">
-          {course.instructor?.photo_url ? (
+          {picture.kind === 'instructor' ? (
             // Use instructor photo as main thumbnail - 4:3 aspect ratio for better vertical space
             <div className="aspect-[4/3] w-full overflow-hidden">
               <img
-                src={course.instructor.photo_url}
-                alt={course.instructor.full_name}
+                src={picture.src}
+                alt={picture.alt}
                 className="h-full w-full object-cover object-top"
               />
             </div>
-          ) : course.thumbnail_url ? (
+          ) : picture.kind === 'thumbnail' ? (
             // Fallback to course thumbnail if no instructor photo
             <div className="aspect-[4/3] w-full overflow-hidden">
               <img
-                src={course.thumbnail_url}
-                alt={course.title}
+                src={picture.src}
+                alt={picture.alt}
                 className="h-full w-full object-cover"
               />
             </div>
@@ -234,7 +222,7 @@ export function NetflixCourseCard({
           )}
 
           {/* Progress bar (when enrolled) */}
-          {enrollment && enrollment.progress_percentage > 0 && (
+          {showsProgress(enrollment) && (
             <div className="absolute inset-x-0 bottom-0">
               <div className="h-1 w-full bg-gray-700">
                 <div
@@ -309,7 +297,7 @@ export function NetflixCourseCard({
                   )}
 
                   {/* Lessons count */}
-                  {enrollment && enrollment.total_lessons && enrollment.total_lessons > 0 && (
+                  {showsLessons(enrollment) && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-xs text-gray-300">
                       <BookOpen className="h-3 w-3" />
                       {enrollment.total_lessons} lecciones
@@ -318,7 +306,7 @@ export function NetflixCourseCard({
                 </div>
 
                 {/* Progress section */}
-                {enrollment && enrollment.total_lessons && enrollment.total_lessons > 0 && (
+                {showsLessons(enrollment) && (
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-gray-400">
@@ -350,7 +338,7 @@ export function NetflixCourseCard({
                 )}
 
                 {/* Assignments info */}
-                {enrollment && enrollment.assignments_total != null && enrollment.assignments_total > 0 && (
+                {showsAssignments(enrollment) && (
                   <div className="flex items-center gap-1 text-xs text-gray-400">
                     <ClipboardCheck className="h-3 w-3" />
                     <span>Tareas: {enrollment.assignments_submitted ?? 0}/{enrollment.assignments_total}</span>
@@ -392,7 +380,7 @@ export function NetflixCourseCard({
                       <span>Objetivos de aprendizaje</span>
                     </div>
                     <ul className="space-y-1 pl-5">
-                      {course.learning_objectives.slice(0, 4).map((objective, index) => (
+                      {objectivesPreview(course.learning_objectives).shown.map((objective, index) => (
                         <li
                           key={index}
                           className="list-disc text-xs leading-relaxed text-gray-400 marker:text-brand_accent"
@@ -400,9 +388,9 @@ export function NetflixCourseCard({
                           {objective}
                         </li>
                       ))}
-                      {course.learning_objectives.length > 4 && (
+                      {objectivesPreview(course.learning_objectives).more > 0 && (
                         <li className="list-none text-xs text-gray-500">
-                          +{course.learning_objectives.length - 4} más...
+                          +{objectivesPreview(course.learning_objectives).more} más...
                         </li>
                       )}
                     </ul>

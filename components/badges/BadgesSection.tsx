@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Award, ArrowRight, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import { BadgeCard } from './BadgeCard';
 import { GeneraBadgeIcon } from './BadgeIcon';
-import { BadgeService } from '@/lib/services/badgeService';
-import type { UserBadgeWithDetails } from '@/types/badges';
+import { useBadges } from './useBadges';
 
 interface BadgesSectionProps {
   userId: string;
@@ -26,40 +25,14 @@ export const BadgesSection: React.FC<BadgesSectionProps> = ({
   maxDisplay = 6,
   showViewAll = true,
 }) => {
-  const [badges, setBadges] = useState<UserBadgeWithDetails[]>([]);
-  const [totalPoints, setTotalPoints] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchBadges = async () => {
-      if (!userId) return;
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await BadgeService.getUserBadges(userId);
-        setBadges(response.badges);
-        setTotalPoints(response.total_points);
-      } catch (err) {
-        console.error('Error fetching badges:', err);
-        setError('Error al cargar los logros');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchBadges();
-  }, [userId]);
+  // State, data call and decisions: ./useBadges (shared with the new look)
+  const { badges, loading, error, drawn, displayedBadges, hasMore, moreCount, badgeCountWords, pointsSuffix } =
+    useBadges(userId, maxDisplay);
 
   // Don't render if no badges and not loading
-  if (!loading && badges.length === 0) {
+  if (!drawn) {
     return null;
   }
-
-  const displayedBadges = badges.slice(0, maxDisplay);
-  const hasMore = badges.length > maxDisplay;
 
   return (
     <section className="space-y-4">
@@ -72,8 +45,8 @@ export const BadgesSection: React.FC<BadgesSectionProps> = ({
           <div>
             <h2 className="text-xl font-bold text-brand_primary">Mis Logros</h2>
             <p className="text-sm text-gray-500">
-              {badges.length} {badges.length === 1 ? 'insignia obtenida' : 'insignias obtenidas'}
-              {totalPoints > 0 && ` · ${totalPoints} puntos`}
+              {badges.length} {badgeCountWords}
+              {pointsSuffix}
             </p>
           </div>
         </div>
@@ -131,7 +104,7 @@ export const BadgesSection: React.FC<BadgesSectionProps> = ({
                     <Award className="w-6 h-6 text-brand_accent" />
                   </div>
                   <span className="text-sm font-medium text-brand_primary">
-                    +{badges.length - maxDisplay} más
+                    +{moreCount} más
                   </span>
                 </div>
               </Link>

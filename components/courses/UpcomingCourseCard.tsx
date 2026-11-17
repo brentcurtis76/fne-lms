@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, User, Clock } from 'lucide-react';
+import { formatReleaseDate } from './upcomingCardText';
 
 export interface UpcomingCourse {
   id: string;
@@ -81,21 +82,7 @@ export function UpcomingCourseCard({ course }: UpcomingCourseCardProps) {
     setIsExpanded(!isExpanded);
   }, [isMobile, isExpanded]);
 
-  // Format release date in Spanish (e.g., "Marzo 2026")
-  const formatReleaseDate = (dateString: string | null): string | null => {
-    if (!dateString) return null;
-
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('es-CL', {
-        month: 'long',
-        year: 'numeric',
-      });
-    } catch {
-      return null;
-    }
-  };
-
+  // The release date's words: ./upcomingCardText (shared with the new look)
   const formattedDate = formatReleaseDate(course.estimated_release_date);
 
   // Check if user prefers reduced motion

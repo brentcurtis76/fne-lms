@@ -643,7 +643,9 @@ test.describe('panel — desktop', () => {
       await toggle.click();
       await expect(main.getByRole('heading', { level: 3, name: SCHOOL_NAME, exact: true })).toBeVisible();
       await expect(main.getByRole('link', { name: /Ver Espacio Completo/ })).toHaveAttribute('href', '/community/workspace');
-      await expect(main.getByRole('button', { name: 'Configuración', exact: true })).toBeVisible();
+      // Since pull request 193 (N87) the gear «Configuración» is offered only to those who can save
+      // the settings: an admin or that community's manager. A community leader is neither.
+      await expect(main.getByRole('button', { name: 'Configuración', exact: true })).toHaveCount(0);
       // One member (the account itself), with role label and «Tú». No picker with one community.
       const member = main.getByRole('button', { name: /Lider Comunidad Sintetico/ });
       await expect(member).toHaveCount(1);
@@ -677,19 +679,14 @@ test.describe('panel — desktop', () => {
       await expect(page.getByRole('dialog')).toHaveCount(0);
     });
 
-    test('community section: the gear opens the workspace settings pop-up, «Cancelar» closes it', async ({ page }) => {
+    test('community section: the gear is not offered to the community leader', async ({ page }) => {
       await openPanel(page);
       const main = page.getByRole('main');
       await main.getByRole('button', { name: /Mi Comunidad de Crecimiento/ }).click();
-      await main.getByRole('button', { name: 'Configuración', exact: true }).click();
-      const title = page.getByRole('heading', { name: 'Configuración de la Comunidad' });
-      await expect(title).toBeVisible();
-      await expect(page.getByText('Nombre de la Comunidad', { exact: true })).toBeVisible();
-      await expect(page.getByText('Imagen de la Comunidad', { exact: true })).toBeVisible();
-      await expect(page.getByText('Cualquier miembro puede cambiar el nombre del grupo')).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Guardar cambios' })).toBeVisible();
-      await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
-      await expect(title).toHaveCount(0);
+      // The bar is open (its links show) and still no gear: since pull request 193 (N87) only an
+      // admin or that community's manager, who can save the settings, is offered it.
+      await expect(main.getByRole('link', { name: /Ver Espacio Completo/ })).toBeVisible();
+      await expect(main.getByRole('button', { name: 'Configuración', exact: true })).toHaveCount(0);
     });
 
     test('API addresses called on load', async ({ page }) => {
@@ -733,6 +730,24 @@ test.describe('panel — desktop', () => {
       await expect(stats).toContainText(/Educadores Activos\s*1\s*en tu alcance/);
       await expect(stats.getByText('Sin datos disponibles')).toHaveCount(2);
       await expect.poll(() => calls).toContain(`GET /api/community/members?community_id=${COMMUNITY_ROLE}`);
+    });
+
+    test('community section: the gear opens the workspace settings pop-up, «Cancelar» closes it', async ({ page }) => {
+      await openPanel(page);
+      const main = page.getByRole('main');
+      await main.getByRole('button', { name: /Mi Comunidad de Crecimiento/ }).click();
+      // This community's manager can save the settings, so the gear is offered (N87).
+      const gear = main.getByRole('button', { name: 'Configuración', exact: true });
+      await expect(gear).toBeVisible();
+      await gear.click();
+      const title = page.getByRole('heading', { name: 'Configuración de la Comunidad' });
+      await expect(title).toBeVisible();
+      await expect(page.getByText('Nombre de la Comunidad', { exact: true })).toBeVisible();
+      await expect(page.getByText('Imagen de la Comunidad', { exact: true })).toBeVisible();
+      await expect(page.getByText('Cualquier miembro puede cambiar el nombre del grupo')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Guardar cambios' })).toBeVisible();
+      await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+      await expect(title).toHaveCount(0);
     });
   });
 

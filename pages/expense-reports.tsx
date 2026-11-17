@@ -113,36 +113,27 @@ export default function ExpenseReportsPage() {
         
         setCurrentUser(session.user);
         
-        // Check if user is admin or has explicit expense report access
+        // Who files decides who enters: the database answers by role
+        // (admins, consultores, community managers; F7d auth_can_file_expenses)
         const { data: profile } = await supabase
           .from('profiles')
           .select('avatar_url')
           .eq('id', session.user.id)
           .single();
 
-        let hasAccess = false;
-
         if (profile) {
           const userRole = await getUserPrimaryRole(session.user.id);
-          const isAdminRole = userRole === 'admin';
-          setIsAdmin(isAdminRole);
+          setIsAdmin(userRole === 'admin');
           setAvatarUrl(profile.avatar_url || '');
-          hasAccess = isAdminRole;
         }
 
-        if (!hasAccess) {
-          const { data: accessRecord, error: accessError } = await supabase
-            .from('expense_report_access')
-            .select('can_submit')
-            .eq('user_id', session.user.id)
-            .maybeSingle();
+        const { data: canFile, error: canFileError } = await supabase.rpc('auth_can_file_expenses');
 
-          if (accessError) {
-            console.error('Error checking expense report access:', accessError);
-          }
-
-          hasAccess = !!accessRecord?.can_submit;
+        if (canFileError) {
+          console.error('Error checking expense report access:', canFileError);
         }
+
+        const hasAccess = !canFileError && canFile === true;
 
         if (!hasAccess) {
           router.push('/dashboard');

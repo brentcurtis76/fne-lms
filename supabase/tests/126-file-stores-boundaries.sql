@@ -16,7 +16,9 @@
 --   boletas           insert unchanged; select, delete: admin, owner, or (no owner
 --                     and a server record of THIS object id for the caller,
 --                     written only by record_expense_receipt_file); update (and a
---                     move into boletas): admin, or owner with can_submit
+--                     move into boletas): admin, or owner; since F7d
+--                     (20261117166000) every action except an admin's needs a
+--                     filing role (auth_can_file_expenses), not can_submit
 --   course-materials, course-assets, instructor-photos, contracts:
 --                     insert / update / delete admin only; select unchanged
 --   other buckets     unchanged for signed-in people
@@ -223,7 +225,11 @@ INSERT INTO public.user_roles (user_id, role_type, school_id, community_id, is_a
   (pg_temp.uid('f2b126_learner_b'), 'docente',           912601, NULL, true),
   (pg_temp.uid('f2b126_filer'),     'docente',           912601, NULL, true),
   (pg_temp.uid('f2b126_access2'),   'docente',           912601, NULL, true),
-  (pg_temp.uid('f2b126_nosubmit'),  'docente',           912601, NULL, true);
+  (pg_temp.uid('f2b126_nosubmit'),  'docente',           912601, NULL, true),
+  -- F7d (20261117166000): the store follows the role, so the two filers A and B
+  -- also hold an active filing role (consultor)
+  (pg_temp.uid('f2b126_filer'),     'consultor',         912601, NULL, true),
+  (pg_temp.uid('f2b126_access2'),   'consultor',         912601, NULL, true);
 INSERT INTO public.expense_report_access (user_id, can_submit, granted_by, notes) VALUES
   (pg_temp.uid('f2b126_filer'),   true, pg_temp.uid('f2b126_admin'), 'F2b 126 sintetico'),
   (pg_temp.uid('f2b126_access2'), true, pg_temp.uid('f2b126_admin'), 'F2b 126 sintetico'),
@@ -522,9 +528,9 @@ SELECT is(pg_temp.n('boletas', 'f2b126_unlinked.pdf'), 0, 'filer cannot read a r
 SELECT lives_ok($$INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('boletas', 'f2b126_new.pdf', auth.uid())$$,
   'filer uploads a receipt');
 WITH u AS (UPDATE storage.objects SET metadata = '{}'::jsonb WHERE bucket_id = 'boletas' AND name = 'f2b126_new.pdf' RETURNING 1)
-SELECT is(count(*)::int, 1, 'filer (owner, can_submit) updates their own upload') FROM u;
+SELECT is(count(*)::int, 1, 'filer (owner, filing role) updates their own upload') FROM u;
 WITH u AS (UPDATE storage.objects SET name = 'f2b126_new2.pdf' WHERE bucket_id = 'boletas' AND name = 'f2b126_new.pdf' RETURNING 1)
-SELECT is(count(*)::int, 1, 'move: filer with can_submit renames their own receipt within boletas') FROM u;
+SELECT is(count(*)::int, 1, 'move: filer with a filing role renames their own receipt within boletas') FROM u;
 WITH u AS (UPDATE storage.objects SET name = 'f2b126_new.pdf' WHERE bucket_id = 'boletas' AND name = 'f2b126_new2.pdf' RETURNING 1)
 SELECT is(count(*)::int, 1, 'move: and renames it back') FROM u;
 WITH u AS (UPDATE storage.objects SET metadata = '{}'::jsonb WHERE bucket_id = 'boletas' AND name = 'f2b126_svc.pdf' RETURNING 1)
@@ -543,7 +549,7 @@ SELECT lives_ok($$INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('
   'a second person with expense access still uploads their own receipt');
 -- Send-back 1: text a filer can write is never proof. B writes A's exact
 -- receipt names into an expense of B's own (the row rules allow it) ...
-SELECT throws_ok($$INSERT INTO public.expense_items (report_id, description, amount, expense_date, receipt_url) VALUES
+SELECT lives_ok($$INSERT INTO public.expense_items (report_id, description, amount, expense_date, receipt_url) VALUES
   ('12600000-0000-4000-8000-0000000000e2', 'F2b 126 B lugar', 10, '2027-02-01', 'boletas/f2b126_a_secret.pdf'),
   ('12600000-0000-4000-8000-0000000000e2', 'F2b 126 B enlace', 10, '2027-02-01',
    'http://127.0.0.1:54321/storage/v1/object/sign/boletas/f2b126_a_secret2.pdf?token=x'),
@@ -551,7 +557,7 @@ SELECT throws_ok($$INSERT INTO public.expense_items (report_id, description, amo
    'http://127.0.0.1:54321/storage/v1/object/sign/boletas/f2b126_scan.pdf.backup?token=x'),
   ('12600000-0000-4000-8000-0000000000e2', 'F2b 126 B consulta', 10, '2027-02-01',
    'http://127.0.0.1:54321/storage/v1/object/sign/boletas/f2b126_acc.pdf?token=x&ref=/boletas/f2b126_q.pdf')$$,
-  '42501', NULL, 'B (a docente with an old can_submit row, no filing role since F7d 20261117166000) cannot write A''s receipt names into an expense of B''s own');
+  'B writes A''s receipt names into an expense of B''s own with B''s session');
 -- ... and still cannot list, sign or delete A's files.
 SELECT is(pg_temp.n('boletas', 'f2b126_a_secret.pdf'), 0, 'B cannot list A''s receipt named boletas/<name> in B''s expense');
 SELECT is(pg_temp.n('boletas', 'f2b126_a_secret2.pdf'), 0, 'B cannot list A''s receipt named by an old link in B''s expense');
@@ -656,11 +662,12 @@ SELECT is(count(*)::int, 0, 'another person with expense access cannot delete it
 RESET ROLE;
 SELECT tests.clear_authentication();
 
--- can_submit = false: owns a receipt, may read it, may not move or update it.
+-- No filing role (a docente with an access row, can_submit = false): owns a
+-- receipt, may not read, move or update it (F7d: the store follows the role).
 SELECT tests.authenticate_as('f2b126_nosubmit');
-SELECT is(pg_temp.n('boletas', 'f2b126_ns.pdf'), 1, 'owner without can_submit still reads their own receipt');
+SELECT is(pg_temp.n('boletas', 'f2b126_ns.pdf'), 0, 'owner without a filing role no longer reads their own receipt (F7d)');
 WITH u AS (UPDATE storage.objects SET name = 'f2b126_ns2.pdf' WHERE bucket_id = 'boletas' AND name = 'f2b126_ns.pdf' RETURNING 1)
-SELECT is(count(*)::int, 0, 'move: owner whose expense access has can_submit = false cannot rename within boletas') FROM u;
+SELECT is(count(*)::int, 0, 'move: owner without a filing role cannot rename within boletas') FROM u;
 RESET ROLE;
 SELECT tests.clear_authentication();
 SELECT is(pg_temp.n('boletas', 'f2b126_ns.pdf'), 1, 'move: that receipt keeps its name');

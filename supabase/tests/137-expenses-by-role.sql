@@ -14,6 +14,9 @@
 --                  admin's OWN approved report is closed to them, another admin
 --                  can still correct it
 --   history        public.expense_report_events, written only by the trigger
+--   receipts       store `boletas` (section 16, through the model of
+--                  Production's eight boletas rules): only filers and admins;
+--                  among filers, whose file each one is as F2b decided
 --
 -- Every change is made as that person through pg_temp.attempt(person, sql,
 -- report): it runs the statement as that person and compares the report's
@@ -26,7 +29,7 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(135);
+SELECT plan(172);
 
 -- ---------------------------------------------------------------------------
 -- 1. Catalog
@@ -512,6 +515,181 @@ RESET ROLE;
 SELECT is((SELECT count(*)::int FROM public.expense_reports r JOIN public.expense_items i ON i.report_id = r.id
             WHERE r.report_name = 'F7d 137 bot' AND r.submitted_by = pg_temp.uid('f7d137_cons2') AND r.status = 'draft'), 1,
   'its draft and item are there');
+
+-- ---------------------------------------------------------------------------
+-- 16. The receipts store `boletas` follows the role (E1 part e, send-back 1)
+--     Through the model of Production's eight boletas rules, installed the way
+--     126-file-stores-boundaries.sql installs them (verbatim, only when a rule
+--     of that name does not already exist).
+-- ---------------------------------------------------------------------------
+SELECT ok(coalesce((SELECT pg_get_functiondef(p.oid) NOT LIKE '%expense_report_access%'
+                      FROM pg_proc p WHERE p.oid = to_regprocedure('public.file_store_allows(text, text, uuid, text, uuid)')), false),
+  'file_store_allows no longer reads expense_report_access');
+SELECT is((SELECT array_agg(policyname || ':' || permissive || ':' || cmd || ':' || array_to_string(roles, ',') ORDER BY policyname)::text
+             FROM pg_policies
+            WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname LIKE 'boletas_filers_%'
+              AND coalesce(qual, with_check) LIKE '%bucket_id = ''boletas''::text%'
+              AND coalesce(qual, with_check) LIKE '%auth_can_file_expenses()%'
+              AND (cmd NOT IN ('INSERT', 'UPDATE') OR with_check LIKE '%auth_can_file_expenses()%')),
+  '{boletas_filers_delete:PERMISSIVE:DELETE:authenticated,boletas_filers_insert:PERMISSIVE:INSERT:authenticated,boletas_filers_select:PERMISSIVE:SELECT:authenticated,boletas_filers_update:PERMISSIVE:UPDATE:authenticated}',
+  'four permissive boletas_filers_* rules TO authenticated with bucket_id = boletas AND auth_can_file_expenses()');
+
+INSERT INTO storage.buckets (id, name, public) VALUES ('boletas', 'boletas', false) ON CONFLICT (id) DO NOTHING;
+DO $m$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects' AND policyname='Admin can delete from boletas bucket') THEN EXECUTE $p$CREATE POLICY "Admin can delete from boletas bucket" ON storage.objects AS PERMISSIVE FOR DELETE TO public USING (((bucket_id = 'boletas'::text) AND (EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role_type = 'admin'::user_role_type) AND (user_roles.is_active = true))))))$p$; END IF; END $m$;
+DO $m$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects' AND policyname='Admin can read from boletas bucket') THEN EXECUTE $p$CREATE POLICY "Admin can read from boletas bucket" ON storage.objects AS PERMISSIVE FOR SELECT TO public USING (((bucket_id = 'boletas'::text) AND (EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role_type = 'admin'::user_role_type) AND (user_roles.is_active = true))))))$p$; END IF; END $m$;
+DO $m$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects' AND policyname='Admin can update boletas bucket') THEN EXECUTE $p$CREATE POLICY "Admin can update boletas bucket" ON storage.objects AS PERMISSIVE FOR UPDATE TO public USING (((bucket_id = 'boletas'::text) AND (EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role_type = 'admin'::user_role_type) AND (user_roles.is_active = true))))))$p$; END IF; END $m$;
+DO $m$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects' AND policyname='Admin can upload to boletas bucket') THEN EXECUTE $p$CREATE POLICY "Admin can upload to boletas bucket" ON storage.objects AS PERMISSIVE FOR INSERT TO public WITH CHECK (((bucket_id = 'boletas'::text) AND (EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role_type = 'admin'::user_role_type) AND (user_roles.is_active = true))))))$p$; END IF; END $m$;
+DO $m$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects' AND policyname='Allow expense report users to delete receipts') THEN EXECUTE $p$CREATE POLICY "Allow expense report users to delete receipts" ON storage.objects AS PERMISSIVE FOR DELETE TO authenticated USING (((bucket_id = 'boletas'::text) AND ((EXISTS ( SELECT 1
+   FROM expense_report_access
+  WHERE ((expense_report_access.user_id = auth.uid()) AND (expense_report_access.can_submit = true)))) OR (EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role_type = 'admin'::user_role_type) AND (user_roles.is_active = true)))) OR (owner = auth.uid()))))$p$; END IF; END $m$;
+DO $m$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects' AND policyname='Allow expense report users to read receipts') THEN EXECUTE $p$CREATE POLICY "Allow expense report users to read receipts" ON storage.objects AS PERMISSIVE FOR SELECT TO authenticated USING (((bucket_id = 'boletas'::text) AND ((EXISTS ( SELECT 1
+   FROM expense_report_access
+  WHERE (expense_report_access.user_id = auth.uid()))) OR (EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role_type = 'admin'::user_role_type) AND (user_roles.is_active = true)))) OR (owner = auth.uid()))))$p$; END IF; END $m$;
+DO $m$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects' AND policyname='Allow expense report users to update receipts') THEN EXECUTE $p$CREATE POLICY "Allow expense report users to update receipts" ON storage.objects AS PERMISSIVE FOR UPDATE TO authenticated USING (((bucket_id = 'boletas'::text) AND ((EXISTS ( SELECT 1
+   FROM expense_report_access
+  WHERE ((expense_report_access.user_id = auth.uid()) AND (expense_report_access.can_submit = true)))) OR (EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role_type = 'admin'::user_role_type) AND (user_roles.is_active = true)))) OR (owner = auth.uid()))))$p$; END IF; END $m$;
+DO $m$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects' AND policyname='Allow expense report users to upload receipts') THEN EXECUTE $p$CREATE POLICY "Allow expense report users to upload receipts" ON storage.objects AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK (((bucket_id = 'boletas'::text) AND ((EXISTS ( SELECT 1
+   FROM expense_report_access
+  WHERE ((expense_report_access.user_id = auth.uid()) AND (expense_report_access.can_submit = true)))) OR (EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role_type = 'admin'::user_role_type) AND (user_roles.is_active = true)))))))$p$; END IF; END $m$;
+
+-- Receipts already in the store (postgres): the old-switch docente's own earlier
+-- upload, one receipt of each consultor, and two ownerless receipts the server
+-- recorded (through its only writer) for the first consultor and for the
+-- old-switch docente.
+INSERT INTO storage.objects (bucket_id, name, owner) VALUES
+  ('boletas', 'f7d137_oldsw_old.pdf', pg_temp.uid('f7d137_oldsw')),
+  ('boletas', 'f7d137_cons1_old.pdf', pg_temp.uid('f7d137_cons1')),
+  ('boletas', 'f7d137_cons2_old.pdf', pg_temp.uid('f7d137_cons2')),
+  ('boletas', 'f7d137_rec_cons1.pdf', NULL),
+  ('boletas', 'f7d137_rec_oldsw.pdf', NULL);
+SELECT ok(public.record_expense_receipt_file('f7d137_rec_cons1.pdf', pg_temp.uid('f7d137_cons1'))
+          AND public.record_expense_receipt_file('f7d137_rec_oldsw.pdf', pg_temp.uid('f7d137_oldsw')),
+  'fixtures: two ownerless receipts recorded by the server (consultor, old-switch docente)');
+SELECT set_config('storage.allow_delete_query', 'true', true);
+
+-- One storage statement as who: '<n> rows' or the refusal's SQLSTATE.
+CREATE OR REPLACE FUNCTION pg_temp.st(who text, q text) RETURNS text LANGUAGE plpgsql AS $$
+DECLARE v_n int; v_res text;
+BEGIN
+  PERFORM pg_temp.act_as(who);
+  BEGIN
+    EXECUTE q;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    v_res := v_n || ' rows';
+  EXCEPTION WHEN others THEN
+    v_res := SQLSTATE;
+  END;
+  PERFORM set_config('role', 'none', true);
+  PERFORM tests.clear_authentication();
+  RETURN v_res;
+END $$;
+-- Whether a boletas object is there, read as postgres.
+CREATE OR REPLACE FUNCTION pg_temp.bol(nm text) RETURNS int LANGUAGE sql AS
+  $$ SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'boletas' AND name = nm $$;
+-- What who sees of one boletas object (NULL when the read is refused).
+CREATE OR REPLACE FUNCTION pg_temp.sees(who text, nm text) RETURNS int LANGUAGE sql AS
+  $$ SELECT pg_temp.count_as(who, format('SELECT count(*)::int FROM storage.objects WHERE bucket_id = %L AND name = %L', 'boletas', nm)) $$;
+CREATE OR REPLACE FUNCTION pg_temp.up(nm text) RETURNS text LANGUAGE sql AS
+  $$ SELECT format('INSERT INTO storage.objects (bucket_id, name, owner) VALUES (%L, %L, auth.uid())', 'boletas', nm) $$;
+CREATE OR REPLACE FUNCTION pg_temp.repl(nm text) RETURNS text LANGUAGE sql AS
+  $$ SELECT format('UPDATE storage.objects SET metadata = %L::jsonb WHERE bucket_id = %L AND name = %L', '{"f7d137":"replaced"}', 'boletas', nm) $$;
+CREATE OR REPLACE FUNCTION pg_temp.del(nm text) RETURNS text LANGUAGE sql AS
+  $$ SELECT format('DELETE FROM storage.objects WHERE bucket_id = %L AND name = %L', 'boletas', nm) $$;
+CREATE OR REPLACE FUNCTION pg_temp.replaced(nm text) RETURNS boolean LANGUAGE sql AS
+  $$ SELECT coalesce((SELECT metadata ->> 'f7d137' = 'replaced' FROM storage.objects WHERE bucket_id = 'boletas' AND name = nm), false) $$;
+
+-- The old-switch docente (can_submit row, no filing role): nothing.
+SELECT is(pg_temp.st('f7d137_oldsw', pg_temp.up('f7d137_oldsw_new.pdf')), '42501',
+  'boletas: old-switch docente cannot upload a receipt');
+SELECT is(pg_temp.bol('f7d137_oldsw_new.pdf'), 0, 'boletas: ... and nothing was stored');
+SELECT is(coalesce(pg_temp.sees('f7d137_oldsw', 'f7d137_oldsw_old.pdf'), 0), 0,
+  'boletas: old-switch docente cannot read their own earlier upload');
+SELECT is(pg_temp.st('f7d137_oldsw', pg_temp.repl('f7d137_oldsw_old.pdf')), '0 rows',
+  'boletas: old-switch docente cannot replace their own earlier upload');
+SELECT is(pg_temp.st('f7d137_oldsw', pg_temp.del('f7d137_oldsw_old.pdf')), '0 rows',
+  'boletas: old-switch docente cannot delete their own earlier upload');
+SELECT ok(pg_temp.bol('f7d137_oldsw_old.pdf') = 1 AND NOT pg_temp.replaced('f7d137_oldsw_old.pdf'),
+  'boletas: that earlier upload is still there, unchanged');
+SELECT is(coalesce(pg_temp.sees('f7d137_oldsw', 'f7d137_rec_oldsw.pdf'), 0), 0,
+  'boletas: old-switch docente cannot read a receipt the server recorded for them (not a filer)');
+
+-- A consultor with NO access row: their own receipts, in full.
+SELECT is(pg_temp.st('f7d137_cons1', pg_temp.up('f7d137_cons1_new.pdf')), '1 rows',
+  'boletas: consultor with no access row uploads a receipt');
+SELECT is(pg_temp.sees('f7d137_cons1', 'f7d137_cons1_new.pdf'), 1, 'boletas: ... and reads it back');
+SELECT is(pg_temp.st('f7d137_cons1', pg_temp.repl('f7d137_cons1_new.pdf')), '1 rows',
+  'boletas: consultor replaces their own new upload');
+SELECT is(pg_temp.st('f7d137_cons1', pg_temp.repl('f7d137_cons1_old.pdf')), '1 rows',
+  'boletas: consultor replaces their own earlier upload');
+SELECT ok(pg_temp.replaced('f7d137_cons1_new.pdf') AND pg_temp.replaced('f7d137_cons1_old.pdf'),
+  'boletas: both replacements are stored');
+SELECT is(pg_temp.st('f7d137_cons1', pg_temp.del('f7d137_cons1_new.pdf')), '1 rows',
+  'boletas: consultor deletes their own upload');
+SELECT is(pg_temp.bol('f7d137_cons1_new.pdf'), 0, 'boletas: ... and it is gone');
+SELECT is(pg_temp.sees('f7d137_cons1', 'f7d137_rec_cons1.pdf'), 1,
+  'boletas: the filer the server recorded for an ownerless receipt still reads it');
+-- ... but never another filer's receipt
+SELECT is(coalesce(pg_temp.sees('f7d137_cons1', 'f7d137_cons2_old.pdf'), 0), 0,
+  'boletas: consultor cannot read another filer''s receipt');
+SELECT is(pg_temp.st('f7d137_cons1', pg_temp.repl('f7d137_cons2_old.pdf')), '0 rows',
+  'boletas: consultor cannot replace another filer''s receipt');
+SELECT is(pg_temp.st('f7d137_cons1', pg_temp.del('f7d137_cons2_old.pdf')), '0 rows',
+  'boletas: consultor cannot delete another filer''s receipt');
+SELECT is(coalesce(pg_temp.sees('f7d137_cons1', 'f7d137_oldsw_old.pdf'), 0), 0,
+  'boletas: consultor cannot read the old-switch docente''s receipt');
+SELECT ok(pg_temp.bol('f7d137_cons2_old.pdf') = 1 AND NOT pg_temp.replaced('f7d137_cons2_old.pdf'),
+  'boletas: the other filer''s receipt is still there, unchanged');
+SELECT is(coalesce(pg_temp.sees('f7d137_cons2', 'f7d137_rec_cons1.pdf'), 0), 0,
+  'boletas: another consultor cannot read the receipt the server recorded for the first');
+
+-- A community manager with no access row: the same.
+SELECT is(pg_temp.st('f7d137_cm', pg_temp.up('f7d137_cm_new.pdf')), '1 rows',
+  'boletas: community manager with no access row uploads a receipt');
+SELECT is(pg_temp.sees('f7d137_cm', 'f7d137_cm_new.pdf'), 1, 'boletas: ... and reads it back');
+SELECT is(pg_temp.st('f7d137_cm', pg_temp.repl('f7d137_cm_new.pdf')), '1 rows',
+  'boletas: community manager replaces their own upload');
+SELECT ok(pg_temp.replaced('f7d137_cm_new.pdf'), 'boletas: ... the replacement is stored');
+SELECT is(coalesce(pg_temp.sees('f7d137_cm', 'f7d137_cons1_old.pdf'), 0), 0,
+  'boletas: community manager cannot read a consultor''s receipt');
+SELECT is(pg_temp.st('f7d137_cm', pg_temp.del('f7d137_cm_new.pdf')), '1 rows',
+  'boletas: community manager deletes their own upload');
+SELECT is(pg_temp.bol('f7d137_cm_new.pdf'), 0, 'boletas: ... and it is gone');
+
+-- Other people without a filing role.
+SELECT is(pg_temp.st('f7d137_docente', pg_temp.up('f7d137_docente.pdf')), '42501',
+  'boletas: a docente with no access row cannot upload');
+SELECT is(pg_temp.st('f7d137_inactive', pg_temp.up('f7d137_inactive.pdf')), '42501',
+  'boletas: an inactive consultor cannot upload');
+
+-- An admin reads any receipt.
+SELECT is(pg_temp.count_as('f7d137_admin1', $q$SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'boletas' AND name LIKE 'f7d137_%'$q$),
+  (SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'boletas' AND name LIKE 'f7d137_%'),
+  'boletas: an admin reads every receipt (filers'', old-switch, recorded)');
+
+-- A visitor: nothing.
+SELECT is(pg_temp.st('anon', pg_temp.up('f7d137_anon.pdf')), '42501', 'boletas: visitor cannot upload');
+SELECT is(coalesce(pg_temp.count_as('anon', $q$SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'boletas'$q$), 0), 0,
+  'boletas: visitor reads nothing (0 rows or refused)');
+SELECT ok(pg_temp.st('anon', pg_temp.repl('f7d137_cons1_old.pdf')) IN ('0 rows', '42501')
+          AND pg_temp.st('anon', pg_temp.del('f7d137_cons1_old.pdf')) IN ('0 rows', '42501')
+          AND pg_temp.bol('f7d137_cons1_old.pdf') = 1,
+  'boletas: visitor cannot replace or delete a receipt');
 
 SELECT * FROM finish();
 ROLLBACK;

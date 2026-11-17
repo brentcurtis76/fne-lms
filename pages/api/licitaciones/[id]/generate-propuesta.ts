@@ -24,6 +24,14 @@ export const config = { maxDuration: 60 };
 
 /** A generation still running this long after it started is treated as interrupted. */
 const STALE_GENERATION_MS = 15 * 60_000;
+const GENERATION_RUNNING_MESSAGE =
+  'Ya hay una generación en curso para esta licitación. Espere a que finalice antes de generar una nueva propuesta.';
+const ONE_RUNNING_INDEX = 'propuesta_generadas_one_running_per_licitacion';
+
+/** True when a unique violation comes from the one-running-generation index. */
+function isOneRunningViolation(error: { message?: string; details?: string | null }): boolean {
+  return `${error.message ?? ''} ${error.details ?? ''}`.includes(ONE_RUNNING_INDEX);
+}
 
 const GenerateSchema = z.object({
   plantilla_id: z.string().uuid(),
@@ -220,6 +228,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Step 4b: Guard against concurrent generation for the same licitacion.
   // A generation still «generando» STALE_GENERATION_MS after it started
   // (created_at) was interrupted: mark it failed and let the new one start.
+  // "One running generation per tender" is a fact of the database (partial
+  // unique index propuesta_generadas_one_running_per_licitacion): the stale row
+  // is marked failed only if it is still running and still old enough, and the
+  // insert below is what decides who starts — a request that lost the race gets
+  // the index's refusal, whatever its own update changed.
   const { data: runningRows } = await serviceClient
     .from('propuesta_generadas')
     .select('id, created_at')
@@ -227,6 +240,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .eq('estado', 'generando');
 
   const now = Date.now();
+  const staleBefore = new Date(now - STALE_GENERATION_MS).toISOString();
   for (const running of (runningRows ?? []) as Array<{ id: string; created_at: string | null }>) {
     const startedAt = running.created_at ? Date.parse(running.created_at) : NaN;
     const age = now - startedAt;
@@ -235,7 +249,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .from('propuesta_generadas')
         .update({ estado: 'error', error_message: 'Generación interrumpida' })
         .eq('id', running.id)
-        .eq('estado', 'generando');
+        .eq('estado', 'generando')
+        .lt('created_at', staleBefore);
       continue;
     }
     const minutesLeft = Number.isFinite(age)
@@ -243,7 +258,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       : Math.ceil(STALE_GENERATION_MS / 60_000);
     return sendAuthError(
       res,
-      `Ya hay una generación en curso para esta licitación. Espere a que finalice antes de generar una nueva propuesta. Podrá intentarlo de nuevo en ${minutesLeft} ${minutesLeft === 1 ? 'minuto' : 'minutos'}.`,
+      `${GENERATION_RUNNING_MESSAGE} Podrá intentarlo de nuevo en ${minutesLeft} ${minutesLeft === 1 ? 'minuto' : 'minutos'}.`,
       409
     );
   }
@@ -289,6 +304,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .single();
 
   if (insertError || !propuesta) {
+    if (insertError?.code === '23505') {
+      // Another request started a generation first: nothing is started here.
+      // The same version may be refused first by unique_version_per_licitacion;
+      // then a running row of that other request says the same thing.
+      let running = isOneRunningViolation(insertError);
+      if (!running) {
+        const { data: runningNow } = await serviceClient
+          .from('propuesta_generadas')
+          .select('id')
+          .eq('licitacion_id', licitacionId)
+          .eq('estado', 'generando');
+        running = (runningNow ?? []).length > 0;
+      }
+      if (running) return sendAuthError(res, GENERATION_RUNNING_MESSAGE, 409);
+    }
     if (insertError?.code === '23505') {
       return sendAuthError(
         res,

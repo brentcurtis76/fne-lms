@@ -128,14 +128,22 @@ async function signedIn(browser: Browser, viewport: typeof DESKTOP, user: User) 
   return { context, page, problems };
 }
 
+const HARNESS_PATH = '/__notif-harness';
+const harnessRouted = new WeakSet<Page>();
+
 /**
  * Puts the harness on a page of the app's own origin (same cookies), optionally with ?user_id in the hash.
- * The page is the static /favicon.png (served from public/, outside the middleware matcher), so no
- * application script is left running under the harness to rewrite the document's head after setContent.
+ * The browser navigates to HARNESS_PATH, an address the app does not have; the test itself answers it
+ * with the harness markup (a routed request never reaches the server), so no application script runs
+ * under the harness. Only that one path is routed: the harness's own /api/… requests go to the app.
  */
 async function harness(page: Page, queryUser = '') {
-  await page.goto(`/favicon.png${queryUser ? `#${queryUser}` : ''}`);
-  await page.setContent(HARNESS);
+  if (!harnessRouted.has(page)) {
+    await page.route((url) => url.pathname === HARNESS_PATH, (route) =>
+      route.fulfill({ status: 200, contentType: 'text/html', body: HARNESS }));
+    harnessRouted.add(page);
+  }
+  await page.goto(`${HARNESS_PATH}${queryUser ? `#${queryUser}` : ''}`);
   expect(new URL(page.url()).origin).toBe(APP_ORIGIN);
   await expect(page.getByRole('heading', { name: /Arnés de prueba/ })).toBeVisible();
 }

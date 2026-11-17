@@ -29,7 +29,7 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(142);
+SELECT plan(171);
 
 CREATE TEMP TABLE ids (p text PRIMARY KEY, id uuid) ON COMMIT DROP;
 GRANT SELECT ON ids TO anon, authenticated;
@@ -326,6 +326,45 @@ SELECT is(pg_temp.call_as('up1', format('SELECT public.move_community_document(%
 SELECT is(pg_temp.call_as('up1', format('SELECT public.rename_community_document(%L, %L)', (SELECT id FROM docs WHERE k = 'inv'), repeat('y', 200))) ||
           '|' || length(pg_temp.row_json((SELECT id FROM docs WHERE k = 'inv'))->>'title'),
           'ok|200', 'rename: a 200-character title is accepted');
+
+-- ---------------------------------------------------------------------------
+-- 5b. Send-back 1: a name that shows as nothing or holds a control character
+--     is refused, row unchanged; white space at both ends is stripped
+--     (6 + 19 + 4 = 29)
+-- ---------------------------------------------------------------------------
+-- The Unicode spaces and zero-width characters the rename strips at the ends.
+CREATE TEMP TABLE wsc (cp int PRIMARY KEY) ON COMMIT DROP;
+INSERT INTO wsc SELECT unnest(ARRAY[160, 8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, 8202,
+                                    8203, 8204, 8205, 8232, 8233, 8239, 8287, 12288, 65279]);
+INSERT INTO docs SELECT 'blank', pg_temp.new_doc('A', 'up1');
+CREATE TEMP TABLE blank0 ON COMMIT DROP AS SELECT pg_temp.row_json((SELECT id FROM docs WHERE k = 'blank')) AS v;
+CREATE OR REPLACE FUNCTION pg_temp.rename_blank(t text) RETURNS text AS $$
+  SELECT pg_temp.call_as('up1', format('SELECT public.rename_community_document(%L, %L)', (SELECT id FROM docs WHERE k = 'blank'), t))
+         || CASE WHEN pg_temp.row_json((SELECT id FROM docs WHERE k = 'blank')) = (SELECT v FROM blank0) THEN '|unchanged' ELSE '|changed' END;
+$$ LANGUAGE sql;
+SELECT is(pg_temp.rename_blank(t), '22023:invalid_title|unchanged', format('rename: %s refused, row unchanged', label))
+  FROM (VALUES (1, E'\t', 'a tab'),
+               (2, E'\t\r\n', 'tab, carriage return and line feed'),
+               (3, chr(8195), 'an em space (U+2003)'),
+               (4, chr(160), 'a no-break space (U+00A0)'),
+               (5, chr(1), 'the control character U+0001'),
+               (6, 'Acta' || chr(1) || 'final', 'a control character in the middle («Acta» U+0001 «final»)')) v(n, t, label)
+ ORDER BY n;
+SELECT is(pg_temp.rename_blank(chr(cp)), '22023:invalid_title|unchanged', format('rename: U+%s alone refused, row unchanged', lpad(upper(to_hex(cp)), 4, '0')))
+  FROM wsc WHERE cp <> 8195 AND cp <> 160 ORDER BY cp;
+INSERT INTO docs SELECT 'named', pg_temp.new_doc('A', 'up1');
+SELECT is(pg_temp.call_as('up1', format('SELECT public.rename_community_document(%L, %L)', (SELECT id FROM docs WHERE k = 'named'), t))
+          || '|' || (pg_temp.row_json((SELECT id FROM docs WHERE k = 'named'))->>'title'),
+          'ok|' || want, format('rename: %s', label))
+  FROM (VALUES (1, 'Acta de reunión Nº 3: ñandú, Peñalolén (versión final) 2026!', 'Acta de reunión Nº 3: ñandú, Peñalolén (versión final) 2026!',
+                'accents, ñ, digits, punctuation and inner single spaces are kept'),
+               (2, 'Ñ', 'Ñ', 'a one-character name is accepted'),
+               (3, E'  \t' || chr(160) || 'Acta final' || chr(160) || E'\t  ', 'Acta final',
+                'spaces, tabs and no-break spaces at both ends are stripped'),
+               (4, (SELECT E' \t\r\n' || string_agg(chr(cp), '' ORDER BY cp) FROM wsc) || 'Plan anual' ||
+                   (SELECT string_agg(chr(cp), '' ORDER BY cp DESC) || E'\n\r\t ' FROM wsc), 'Plan anual',
+                'every white-space and zero-width character named is stripped at both ends')) v(n, t, want, label)
+ ORDER BY n;
 
 -- ---------------------------------------------------------------------------
 -- 6. N139: direct updates (7 columns × 3 people + 3 = 24)

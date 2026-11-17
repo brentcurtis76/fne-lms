@@ -121,7 +121,12 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_uid uuid := auth.uid();
-  v_title text := btrim(p_title);
+  -- White space, control and format characters stripped at both ends: the
+  -- [[:space:]] and [[:cntrl:]] classes, the no-break space U+00A0, the
+  -- Unicode spaces U+2000..U+200A, the zero-width characters U+200B..U+200D
+  -- and U+FEFF, and U+2028, U+2029, U+202F, U+205F, U+3000.
+  v_strip constant text := '[[:space:][:cntrl:]\u00A0\u2000-\u200D\u2028\u2029\u202F\u205F\u3000\uFEFF]';
+  v_title text := regexp_replace(p_title, '^' || v_strip || '+|' || v_strip || '+$', '', 'g');
 BEGIN
   IF v_uid IS NULL OR NOT public.password_change_gate_ok() THEN
     RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'not_allowed';
@@ -135,7 +140,8 @@ BEGIN
     RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'not_allowed';
   END IF;
 
-  IF v_title IS NULL OR length(v_title) < 1 OR length(v_title) > 200 THEN
+  -- After stripping: 1..200 characters and no control character anywhere.
+  IF v_title IS NULL OR length(v_title) < 1 OR length(v_title) > 200 OR v_title ~ '[[:cntrl:]]' THEN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'invalid_title';
   END IF;
 
@@ -150,7 +156,7 @@ REVOKE ALL ON FUNCTION public.rename_community_document(uuid, text) FROM PUBLIC,
 GRANT EXECUTE ON FUNCTION public.rename_community_document(uuid, text) TO authenticated;
 
 COMMENT ON FUNCTION public.rename_community_document(uuid, text) IS
-  'F12b EC-D2a: sets the title (trimmed, 1..200 characters, else invalid_title 22023) and updated_at of one active document the caller may manage (can_manage_community_document). A missing, hidden or not-manageable document raises not_allowed (42501). Changes no other column.';
+  'F12b EC-D2a: sets the title (stripped at both ends of white space, control and format characters; then 1..200 characters with no control character, else invalid_title 22023) and updated_at of one active document the caller may manage (can_manage_community_document). A missing, hidden or not-manageable document raises not_allowed (42501). Changes no other column.';
 
 -- ---------------------------------------------------------------------------
 -- d. Move: folder only. NULL means "no folder".

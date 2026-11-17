@@ -84,6 +84,81 @@ export const showsLessons = (enrollment: Enrollment) =>
 export const showsAssignments = (enrollment: Enrollment) =>
   enrollment && enrollment.assignments_total != null && enrollment.assignments_total > 0;
 
+/*
+ * The rules below are still written inline in today's card (`NetflixCourseCard.tsx`, which is not
+ * edited again for this): each is copied here word for word, for the new look's card ONLY, with the
+ * lines of today's card it mirrors. `__tests__/pages/dashboard.samePanel.test.tsx` feeds today's card
+ * and the new one the same courses and compares what they show, which holds the two copies together.
+ */
+
+/**
+ * The fields of a course the opened card reads, each as loose as its loosest caller has it (today's
+ * card: `NetflixCourseCardProps['course']`; the new look's: `CourseWithEnrollment`).
+ */
+export interface CourseDetailsSource {
+  description?: string | null;
+  estimated_duration_hours?: number | null;
+  difficulty_level?: string | null;
+  learning_objectives?: string[] | null;
+  instructor?: { full_name: string } | null;
+}
+
+/** The relator's name is drawn. Mirrors `course.instructor &&` (today's card, lines 216 and 260). */
+export const showsInstructor = (course: CourseDetailsSource) => course.instructor;
+
+/**
+ * The duration pill is drawn. Mirrors `course.estimated_duration_hours &&` (line 282), value and all:
+ * a caller that must not print a 0 takes `Boolean(...)` of it.
+ */
+export const showsDuration = (course: CourseDetailsSource) => course.estimated_duration_hours;
+
+/** The difficulty pill is drawn. Mirrors line 290. */
+export const showsDifficulty = (course: CourseDetailsSource) =>
+  course.difficulty_level && getDifficultyLabel(course.difficulty_level);
+
+/** The description is drawn. Mirrors `course.description &&` (line 369). */
+export const showsDescription = (course: CourseDetailsSource) => course.description;
+
+/** «Objetivos de aprendizaje» is drawn. Mirrors line 376. */
+export const showsObjectives = (course: CourseDetailsSource) =>
+  course.learning_objectives && course.learning_objectives.length > 0;
+
+/** The lessons pill «{n} lecciones». Mirrors line 303. */
+export const lessonsPillText = (enrollment: Enrollment) => `${enrollment?.total_lessons} lecciones`;
+
+/** The lesson line «{x} de {n} lecciones». Mirrors line 313. */
+export const lessonLineText = (enrollment: Enrollment) =>
+  `${enrollment?.lessons_completed || 0} de ${enrollment?.total_lessons} lecciones`;
+
+/** «Tareas: {a}/{b}». Mirrors line 344. */
+export const assignmentsText = (enrollment: Enrollment) =>
+  `Tareas: ${enrollment?.assignments_submitted ?? 0}/${enrollment?.assignments_total}`;
+
+/**
+ * The completion state and the words each state shows. Mirrors `enrollment?.completion_status ===
+ * 'aprobado'` / `=== 'completado'` (lines 193, 201, 349 and 362): «Aprobado» on the picture and the
+ * «Curso Aprobado» box when opened; «Completado» on the picture and the hint when opened; nothing for
+ * any other state.
+ */
+export const completionTexts = (enrollment: Enrollment) => {
+  if (enrollment?.completion_status === 'aprobado') {
+    return {
+      state: 'aprobado' as const,
+      badge: 'Aprobado',
+      title: 'Curso Aprobado',
+      line: 'Has completado todas las lecciones y tareas.',
+    };
+  }
+  if (enrollment?.completion_status === 'completado') {
+    return {
+      state: 'completado' as const,
+      badge: 'Completado',
+      line: 'Completa tus tareas pendientes para obtener la insignia.',
+    };
+  }
+  return null;
+};
+
 /** The learning objectives shown (at most four) and how many more there are. */
 export const objectivesPreview = (objectives: string[]) => ({
   shown: objectives.slice(0, 4),

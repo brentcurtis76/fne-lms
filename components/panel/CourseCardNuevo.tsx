@@ -5,23 +5,32 @@ import { Badge, Button, Card } from '../ui/kit';
 import { CourseThumbnail } from '../courses/CourseThumbnail';
 import {
   getCTAText,
-  getDifficultyLabel,
   formatDuration,
   getCoursePicture,
   showsProgress,
   showsLessons,
   showsAssignments,
   objectivesPreview,
+  showsInstructor,
+  showsDuration,
+  showsDifficulty,
+  showsDescription,
+  showsObjectives,
+  lessonsPillText,
+  lessonLineText,
+  assignmentsText,
+  completionTexts,
 } from '../courses/courseCardText';
 import type { CourseWithEnrollment } from '../../types/courses';
 
 /**
  * The new look's course card (redesign 6B), for «Continuar Aprendiendo» and «Mis Cursos Abiertos».
- * Every word and rule is today's card's, through `components/courses/courseCardText`: the picture,
- * the action's word, the difficulty, the duration, when the progress and the lessons show. Approved
- * changes: progress and the action are always visible; the rest opens with «Detalles»; the picture
- * is a link to the course. The stray «0» today's card prints for a course with zero lessons is not
- * drawn here (`Boolean(showsLessons(...))`).
+ * Every rule and word of the course is today's card's, through `components/courses/courseCardText`:
+ * the picture, the action's word, the difficulty, the duration, when the progress, the lessons, the
+ * relator, the description, the objectives and the assignments show, the completion state and its
+ * words, the lesson line's wording. Approved changes: progress and the action are always visible;
+ * the rest opens with «Detalles»; the picture is a link to the course. The stray «0» today's card
+ * prints for a course with zero lessons is not drawn here (`Boolean(...)` of each condition).
  */
 export function CourseCardNuevo({
   course,
@@ -41,13 +50,13 @@ export function CourseCardNuevo({
   const [open, setOpen] = useState(false);
   const enrollment = course.enrollment ?? null;
   const picture = getCoursePicture(course);
-  const difficulty = course.difficulty_level ? getDifficultyLabel(course.difficulty_level) : '';
+  const difficulty = showsDifficulty(course) || '';
+  const duration = Boolean(showsDuration(course));
   const lessons = Boolean(showsLessons(enrollment));
   const progress = Boolean(showsProgress(enrollment));
   const percent = enrollment?.progress_percentage ?? 0;
-  const objectives = course.learning_objectives && course.learning_objectives.length > 0
-    ? objectivesPreview(course.learning_objectives)
-    : null;
+  const objectives = showsObjectives(course) && course.learning_objectives ? objectivesPreview(course.learning_objectives) : null;
+  const completion = completionTexts(enrollment);
   const detailsId = `${testId}-details`;
 
   return (
@@ -79,16 +88,14 @@ export function CourseCardNuevo({
             {difficulty}
           </Badge>
         )}
-        {enrollment?.completion_status === 'aprobado' && (
+        {completion && (
           <Badge tone="success" plain className="absolute right-2.5 top-2.5">
-            <Award aria-hidden="true" className="h-3 w-3" />
-            Aprobado
-          </Badge>
-        )}
-        {enrollment?.completion_status === 'completado' && (
-          <Badge tone="success" plain className="absolute right-2.5 top-2.5">
-            <CheckCircle2 aria-hidden="true" className="h-3 w-3" />
-            Completado
+            {completion.state === 'aprobado' ? (
+              <Award aria-hidden="true" className="h-3 w-3" />
+            ) : (
+              <CheckCircle2 aria-hidden="true" className="h-3 w-3" />
+            )}
+            {completion.badge}
           </Badge>
         )}
       </Link>
@@ -97,8 +104,8 @@ export function CourseCardNuevo({
         <h3 className="line-clamp-2 min-h-[2.6em] font-mont text-[0.8125rem] font-bold uppercase leading-[1.5] tracking-[0.1em] text-brand_primary">
           {course.title}
         </h3>
-        {course.instructor && (
-          <p className="text-[0.8125rem] font-semibold text-brand_accent_text">{course.instructor.full_name}</p>
+        {Boolean(showsInstructor(course)) && (
+          <p className="text-[0.8125rem] font-semibold text-brand_accent_text">{course.instructor?.full_name}</p>
         )}
 
         {progress && (
@@ -118,7 +125,7 @@ export function CourseCardNuevo({
             </div>
             <p className="flex justify-between text-[0.8125rem] text-gray-600">
               {/* The lesson line on the card's face, beside the bar, when today's card shows it */}
-              <span>{lessons && `${enrollment?.lessons_completed || 0} de ${enrollment?.total_lessons} lecciones`}</span>
+              <span>{lessons && lessonLineText(enrollment)}</span>
               <span>{percent}%</span>
             </p>
           </div>
@@ -149,9 +156,9 @@ export function CourseCardNuevo({
 
         {open && (
           <div id={detailsId} className="grid gap-2.5 border-t border-brand_primary/[0.12] pt-2" data-testid={detailsId}>
-            {(Boolean(course.estimated_duration_hours) || Boolean(difficulty) || lessons) && (
+            {(duration || Boolean(difficulty) || lessons) && (
               <div className="flex flex-wrap gap-1.5">
-                {Boolean(course.estimated_duration_hours) && (
+                {duration && (
                   <span className={PILL}>
                     <Clock aria-hidden="true" />
                     {formatDuration(course.estimated_duration_hours ?? null)}
@@ -166,7 +173,7 @@ export function CourseCardNuevo({
                 {lessons && (
                   <span className={PILL}>
                     <BookOpen aria-hidden="true" />
-                    {enrollment?.total_lessons} lecciones
+                    {lessonsPillText(enrollment)}
                   </span>
                 )}
               </div>
@@ -175,29 +182,29 @@ export function CourseCardNuevo({
                 bar on the face (no progress), they are here, once the card is opened. */}
             {lessons && !progress && (
               <p className="flex justify-between text-[0.8125rem] text-gray-600" data-testid={`${testId}-lessons`}>
-                <span>{`${enrollment?.lessons_completed || 0} de ${enrollment?.total_lessons} lecciones`}</span>
+                <span>{lessonLineText(enrollment)}</span>
                 <span>{percent}%</span>
               </p>
             )}
             {Boolean(showsAssignments(enrollment)) && (
               <p className="flex items-center gap-1 text-xs text-gray-600">
                 <ClipboardCheck aria-hidden="true" className="h-3 w-3" />
-                <span>Tareas: {enrollment?.assignments_submitted ?? 0}/{enrollment?.assignments_total}</span>
+                <span>{assignmentsText(enrollment)}</span>
               </p>
             )}
-            {enrollment?.completion_status === 'aprobado' && (
+            {completion?.state === 'aprobado' && (
               <div className="grid gap-0.5 rounded border border-green-600/25 bg-green-100 px-3 py-2 text-xs text-green-600">
                 <span className="inline-flex items-center gap-1.5 font-semibold">
                   <Award aria-hidden="true" className="h-3.5 w-3.5" />
-                  Curso Aprobado
+                  {completion.title}
                 </span>
-                <span>Has completado todas las lecciones y tareas.</span>
+                <span>{completion.line}</span>
               </div>
             )}
-            {enrollment?.completion_status === 'completado' && (
-              <p className="text-xs text-gray-600">Completa tus tareas pendientes para obtener la insignia.</p>
+            {completion?.state === 'completado' && <p className="text-xs text-gray-600">{completion.line}</p>}
+            {Boolean(showsDescription(course)) && (
+              <p className="text-[0.8125rem] leading-relaxed text-gray-600">{course.description}</p>
             )}
-            {course.description && <p className="text-[0.8125rem] leading-relaxed text-gray-600">{course.description}</p>}
             {objectives && (
               <div>
                 <p className="flex items-center gap-1.5 text-[0.8125rem] font-semibold text-brand_primary">

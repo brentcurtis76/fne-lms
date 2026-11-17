@@ -2,7 +2,15 @@ import React from 'react';
 import { ChevronDown, Settings, Users } from 'lucide-react';
 import { Button, Card } from '../ui/kit';
 import type { Panel, PanelDecisions } from '../../hooks/usePanel';
-import { memberInitial, memberTile } from './memberText';
+import {
+  memberInitial,
+  memberTile,
+  communityPlaceName,
+  workspaceImageAlt,
+  memberStack,
+  communityChoiceLabel,
+  isChosenCommunity,
+} from './memberText';
 
 /**
  * The new look's «Mi Comunidad de Crecimiento» card (redesign 6B), drawn when `decisions.community`
@@ -20,7 +28,8 @@ export function CommunityCardNuevo({
 }) {
   const { user, communityExpanded, toggleCommunity, chooseCommunity, openWorkspaceSettings, openMember } = panel;
   const { userCommunities, effectiveCommunityId, selectedRole, members, workspace, showCommunityPicker, canEditWorkspace } = community;
-  const placeName = selectedRole.school?.name || selectedRole.community!.name;
+  const placeName = communityPlaceName(selectedRole);
+  const stack = memberStack(members);
 
   return (
     <Card className="overflow-hidden" data-testid="panel-community">
@@ -35,7 +44,7 @@ export function CommunityCardNuevo({
           {workspace?.image_url ? (
             <img
               src={workspace.image_url}
-              alt={workspace.custom_name || selectedRole.community!.name}
+              alt={workspaceImageAlt(workspace, selectedRole)}
               className="h-14 w-14 flex-none rounded object-cover"
             />
           ) : (
@@ -51,7 +60,7 @@ export function CommunityCardNuevo({
               {placeName} • {members.length} miembros
             </span>
             <span className="mt-1 flex items-center">
-              {members.slice(0, 4).map((member, idx) => (
+              {stack.shown.map((member, idx) => (
                 <span key={member.id} className={idx > 0 ? '-ml-1.5' : undefined}>
                   {member.avatar_url ? (
                     <img src={member.avatar_url} alt="" className="h-[30px] w-[30px] rounded-full border-2 border-white object-cover" />
@@ -62,9 +71,9 @@ export function CommunityCardNuevo({
                   )}
                 </span>
               ))}
-              {members.length > 4 && (
+              {stack.hasMore && (
                 <span className="-ml-1.5 flex h-[30px] w-[30px] items-center justify-center rounded-full border-2 border-white bg-gray-100 text-[0.5625rem] font-bold text-gray-600">
-                  +{members.length - 4}
+                  +{stack.moreCount}
                 </span>
               )}
             </span>
@@ -82,11 +91,11 @@ export function CommunityCardNuevo({
                     <Button
                       key={comm.community_id}
                       size="sm"
-                      variant={comm.community_id === effectiveCommunityId ? 'default' : 'outline'}
-                      aria-pressed={comm.community_id === effectiveCommunityId}
+                      variant={isChosenCommunity(comm, effectiveCommunityId) ? 'default' : 'outline'}
+                      aria-pressed={isChosenCommunity(comm, effectiveCommunityId)}
                       onClick={(e) => chooseCommunity(e, comm.community_id!)}
                     >
-                      {comm.school?.name || comm.community?.name}
+                      {communityChoiceLabel(comm)}
                     </Button>
                   ))}
                 </div>

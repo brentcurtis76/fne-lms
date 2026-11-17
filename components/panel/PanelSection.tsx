@@ -15,7 +15,14 @@ import { Button } from '../ui/kit';
 /** The width of a card in a row (about 268 px; 248 px under 1,024 px, as the mock-up). */
 export const ROW_ITEM = 'flex-none w-[248px] lg:w-[268px] snap-start';
 
-const H2 = 'font-mont text-[1.0625rem] font-extrabold uppercase leading-[1.4] tracking-[0.06em] text-brand_primary';
+/**
+ * The props a text cut to its lines takes (the cut is CSS only; the DOM holds the whole text): its
+ * whole text as `title`, the browser's own tooltip under the pointer. One pattern for every title the
+ * new view cuts: spread it on the element, `{...fullTitle(text)}`. Nothing when there is no text.
+ */
+export const fullTitle = (text: string | null | undefined): { title?: string } => (text ? { title: text } : {});
+
+const H2 ='font-mont text-[1.0625rem] font-extrabold uppercase leading-[1.4] tracking-[0.06em] text-brand_primary';
 
 interface PanelSectionProps {
   title: React.ReactNode;

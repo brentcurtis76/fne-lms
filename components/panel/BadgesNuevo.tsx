@@ -6,7 +6,7 @@ import { GeneraBadgeIcon } from '../badges/BadgeIcon';
 import { useBadges } from '../badges/useBadges';
 import { formatEarnedAt, badgeCourseName, badgeColours, showsBadgePoints } from '../badges/badgeCardText';
 import type { UserBadgeWithDetails } from '../../types/badges';
-import { PanelSection } from './PanelSection';
+import { PanelSection, fullTitle } from './PanelSection';
 
 /**
  * The new look's «Mis Logros» (redesign 6B). It reads `useBadges(userId, maxDisplay)`, the state,
@@ -24,8 +24,8 @@ function BadgeCardNuevo({ badge }: { badge: UserBadgeWithDetails }) {
       </span>
       <div className="grid min-w-0 gap-0.5">
         {/* A third-level heading, as every card title of the new view (today's card keeps its own) */}
-        <h3 className="truncate text-[0.8125rem] font-semibold text-brand_primary">{badge.badge_name}</h3>
-        {courseName && <span className="truncate text-[0.8125rem] text-gray-600">{courseName}</span>}
+        <h3 className="truncate text-[0.8125rem] font-semibold text-brand_primary" {...fullTitle(badge.badge_name)}>{badge.badge_name}</h3>
+        {courseName && <span className="truncate text-[0.8125rem] text-gray-600" {...fullTitle(courseName)}>{courseName}</span>}
         <span className="text-xs text-gray-600">{formatEarnedAt(badge.earned_at)}</span>
         {showsBadgePoints(badge, 'md') && (
           <Badge tone="accent" plain className="justify-self-start">

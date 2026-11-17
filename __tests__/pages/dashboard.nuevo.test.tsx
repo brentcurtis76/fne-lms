@@ -15,6 +15,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   fakes, settle, resetFakes, fakeFetch, NOW, admin, consultor, docente, fullDocente, withCommunity, PATHS, FULL_FETCH,
+  assigned, profile, proposal, badge, NEWS, VIDEOS, STATS_FULL, UPCOMING, DOCENTE_ASSIGNMENTS, DOCENTE_ENROLMENTS,
 } from '../helpers/panelFakes';
 import { installMatchMedia } from '../helpers/motionFake';
 
@@ -366,5 +367,88 @@ describe('the headings of the new view', () => {
     const names = [...section.querySelectorAll('[data-testid^="panel-badge-"]')].map((card) => card.querySelector('h3')?.textContent);
     expect(names).toEqual(['Insignia Inventada 1', 'Insignia Inventada 2', 'Insignia Inventada 3', 'Insignia Inventada 4']);
     expect(screen.getByTestId('panel-nuevo').querySelectorAll('h4, h5, h6')).toHaveLength(0);
+  });
+});
+
+/*
+ * Send-back 3, point 3: a title the new view cuts to its lines (a CSS clamp) carries its whole text as
+ * `title`, the browser's own tooltip under the pointer, and the DOM holds the whole text (the screen
+ * reader's name is not cut). Walked over an account whose every title is long. Invented texts only.
+ */
+describe('a title cut to its lines says the whole of itself on hover', () => {
+  const LONG = (what: string) => `${what} Inventado con un Título Larguísimo que No Cabe en Dos Líneas de la Tarjeta del Panel`;
+  const longTitles = {
+    course: LONG('Curso'),
+    path: LONG('Ruta'),
+    upcoming: LONG('Próximo Curso'),
+    proposal: LONG('Propuesta'),
+    badge: LONG('Logro'),
+    badgeCourse: LONG('Curso del Logro'),
+    news: LONG('Artículo'),
+    video: LONG('Video'),
+    learner: 'Bartolomeo Ficticio de las Mercedes Inventadas y Supuestas',
+    school: LONG('Colegio'),
+  };
+  const longAccount = () =>
+    fullDocente({
+      tables: {
+        profiles: [{ data: profile(), error: null }],
+        course_assignments: [{ data: [assigned('course-long', longTitles.course), ...DOCENTE_ASSIGNMENTS], error: null }],
+        course_enrollments: [
+          { data: [{ course_id: 'course-long', progress_percentage: 40, is_completed: false, enrolled_at: '2026-10-12T10:00:00Z' }, ...DOCENTE_ENROLMENTS], error: null },
+        ],
+      },
+      fetch: {
+        ...FULL_FETCH,
+        '/api/learning-paths/my-paths': { body: [{ ...PATHS[0], name: longTitles.path }, ...PATHS.slice(1)] },
+        '/api/upcoming-courses': { body: [{ ...UPCOMING[0], title: longTitles.upcoming }, ...UPCOMING.slice(1)] },
+        '/api/news?limit=3': { body: { articles: [{ ...NEWS.articles[0], title: longTitles.news }, ...NEWS.articles.slice(1)] } },
+        '/api/youtube/latest?limit=2': { body: { videos: [{ ...VIDEOS.videos[0], title: longTitles.video }, ...VIDEOS.videos.slice(1)] } },
+        '/api/dashboard/stats': { body: { ...STATS_FULL, topLearner: { ...STATS_FULL.topLearner, name: longTitles.learner, school_name: longTitles.school } } },
+      },
+      badges: { badges: [badge(1, { badge_name: longTitles.badge, course_title: longTitles.badgeCourse }), badge(2)], total_points: 10 },
+    });
+
+  const isCut = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/).some((name) => /^(line-clamp-\d+|truncate)$/.test(name));
+
+  it('every cut heading has a `title` equal to its whole text; each long title is whole in the DOM', async () => {
+    await draw(longAccount());
+    const view = screen.getByTestId('panel-nuevo');
+    const cutHeadings = [...view.querySelectorAll('h1, h2, h3, h4, h5, h6')].filter(isCut);
+    // The course, the route, the upcoming course, the badge, the news, the video, the top learner.
+    expect(cutHeadings.length).toBeGreaterThanOrEqual(7);
+    for (const heading of cutHeadings) {
+      expect(heading.getAttribute('title'), heading.outerHTML).toBe(heading.textContent);
+    }
+    const headingTexts = [...view.querySelectorAll('h3')].map((h) => h.textContent);
+    for (const key of ['course', 'path', 'upcoming', 'badge', 'news', 'video', 'learner'] as const) {
+      expect(headingTexts, key).toContain(longTitles[key]);
+      const heading = [...view.querySelectorAll('h3')].find((h) => h.textContent === longTitles[key])!;
+      expect(isCut(heading), key).toBe(true);
+      expect(heading.getAttribute('title'), key).toBe(longTitles[key]);
+    }
+    // The single-line names cut beside a title say themselves whole too: the badge's course, the school.
+    for (const text of [longTitles.badgeCourse, longTitles.school]) {
+      const line = within(view).getByText(text);
+      expect(isCut(line)).toBe(true);
+      expect(line.getAttribute('title')).toBe(text);
+    }
+  });
+
+  it('the proposals (a consultor\'s panel): the cut title and the cut creator\'s name say themselves whole', async () => {
+    const creator = { first_name: 'Persona Inventada de Nombre', last_name: 'Muy Largo y Compuesto Ficticio', email: 'larga@example.invalid' };
+    await draw(
+      consultor({
+        fetch: { '/api/course-proposals': { body: { data: [proposal(1, { titulo: longTitles.proposal, creator, created_by: 'user-consultor' }), proposal(2)] } } },
+      })
+    );
+    const section = screen.getByTestId('panel-section-proposals');
+    const cutHeadings = [...section.querySelectorAll('h3')].filter(isCut);
+    expect(cutHeadings).toHaveLength(2);
+    for (const heading of cutHeadings) expect(heading.getAttribute('title')).toBe(heading.textContent);
+    expect(cutHeadings.map((h) => h.textContent)).toContain(longTitles.proposal);
+    const name = within(section).getByText('Persona Inventada de Nombre Muy Largo y Compuesto Ficticio');
+    expect(isCut(name)).toBe(true);
+    expect(name.getAttribute('title')).toBe(name.textContent);
   });
 });

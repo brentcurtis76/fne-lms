@@ -6,7 +6,7 @@ import { CourseProposalModal } from '../course-proposals/CourseProposalModal';
 import { ConfirmDialog } from '../course-proposals/ConfirmDialog';
 import { formatDate, getStatusBadge, proposalCreatorName, isProposalOwner } from '../course-proposals/proposalCardText';
 import type { CourseProposal } from '../../types/course-proposals';
-import { PanelSection, ROW_ITEM } from './PanelSection';
+import { PanelSection, ROW_ITEM, fullTitle } from './PanelSection';
 
 /**
  * The new look's «Propuestas de Cursos» (redesign 6B). It reads `useCourseProposals()`, the same
@@ -55,7 +55,7 @@ function ProposalCardNuevo({
           </span>
         )}
       </div>
-      <h3 className="line-clamp-2 font-mont text-[0.8125rem] font-bold uppercase leading-[1.5] tracking-[0.1em] text-brand_primary">
+      <h3 className="line-clamp-2 font-mont text-[0.8125rem] font-bold uppercase leading-[1.5] tracking-[0.1em] text-brand_primary" {...fullTitle(proposal.titulo)}>
         {proposal.titulo}
       </h3>
       <p className="line-clamp-3 text-[0.8125rem] text-gray-600">{proposal.descripcion_corta}</p>
@@ -76,7 +76,7 @@ function ProposalCardNuevo({
       <p className="mt-auto flex justify-between gap-2 border-t border-brand_primary/[0.12] pt-2 text-xs text-gray-600">
         <span className="inline-flex min-w-0 items-center gap-1.5">
           <User aria-hidden="true" className="h-3 w-3 flex-none" />
-          <span className="truncate">{proposalCreatorName(proposal)}</span>
+          <span className="truncate" {...fullTitle(proposalCreatorName(proposal))}>{proposalCreatorName(proposal)}</span>
         </span>
         <span className="flex-none">{formatDate(proposal.created_at)}</span>
       </p>

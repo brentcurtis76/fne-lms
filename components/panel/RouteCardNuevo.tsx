@@ -2,6 +2,7 @@ import React, { useId } from 'react';
 import { Award, BookOpen, Clock, TrendingUp } from 'lucide-react';
 import { Badge, Card } from '../ui/kit';
 import { routeState, routeLevel, routePercent, routeActionText, timeSinceAssigned, type RouteProgress } from '../learning-paths/routeCardText';
+import { fullTitle } from './PanelSection';
 
 /**
  * The new look's route card (redesign 6B): ONE link to the route (approved change: today it is a
@@ -40,7 +41,7 @@ export function RouteCardNuevo({
           </Badge>
         )}
       </span>
-      <h3 className="line-clamp-2 font-mont text-[0.8125rem] font-bold uppercase leading-[1.5] tracking-[0.1em] text-brand_primary">
+      <h3 className="line-clamp-2 font-mont text-[0.8125rem] font-bold uppercase leading-[1.5] tracking-[0.1em] text-brand_primary" {...fullTitle(name)}>
         {name}
       </h3>
       {description && <p className="line-clamp-2 text-[0.8125rem] text-gray-600">{description}</p>}

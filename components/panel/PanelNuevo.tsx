@@ -7,7 +7,7 @@ import Avatar from '../common/Avatar';
 import { Button, Card, Skeleton } from '../ui/kit';
 import { formatTimeAgo, getExcerpt } from './format';
 import type { Panel, PanelDecisions } from '../../hooks/usePanel';
-import { PanelSection, ROW_ITEM } from './PanelSection';
+import { PanelSection, ROW_ITEM, fullTitle } from './PanelSection';
 import { CourseCardNuevo } from './CourseCardNuevo';
 import { RouteCardNuevo } from './RouteCardNuevo';
 import { UpcomingCardNuevo } from './UpcomingCardNuevo';
@@ -255,12 +255,12 @@ export default function PanelNuevo({ panel, decisions }: { panel: Panel; decisio
                       </span>
                     )}
                     <div className="grid min-w-0">
-                      <h3 className="truncate text-[0.9375rem] font-semibold text-brand_primary">{dashboardStats.topLearner.name}</h3>
+                      <h3 className="truncate text-[0.9375rem] font-semibold text-brand_primary" {...fullTitle(dashboardStats.topLearner.name)}>{dashboardStats.topLearner.name}</h3>
                       {dashboardStats.topLearner.role && (
                         <span className="text-[0.8125rem] text-gray-600">{dashboardStats.topLearner.role}</span>
                       )}
                       {dashboardStats.topLearner.school_name && (
-                        <span className="truncate text-[0.8125rem] text-gray-600">{dashboardStats.topLearner.school_name}</span>
+                        <span className="truncate text-[0.8125rem] text-gray-600" {...fullTitle(dashboardStats.topLearner.school_name)}>{dashboardStats.topLearner.school_name}</span>
                       )}
                     </div>
                   </div>
@@ -315,7 +315,7 @@ export default function PanelNuevo({ panel, decisions }: { panel: Panel; decisio
                     )}
                     <div className="grid min-w-0 gap-0.5">
                       <span className="text-xs text-gray-600">{formatTimeAgo(article.display_date || article.created_at)}</span>
-                      <h3 className="line-clamp-2 text-[0.8125rem] font-bold leading-snug text-brand_primary">{article.title}</h3>
+                      <h3 className="line-clamp-2 text-[0.8125rem] font-bold leading-snug text-brand_primary" {...fullTitle(article.title)}>{article.title}</h3>
                       <span className="line-clamp-2 text-xs text-gray-600">{getExcerpt(article.content_html)}</span>
                     </div>
                   </a>
@@ -371,7 +371,7 @@ export default function PanelNuevo({ panel, decisions }: { panel: Panel; decisio
                       </span>
                     </span>
                     <div className="grid gap-0.5 p-2.5">
-                      <h3 className="line-clamp-2 text-xs font-bold leading-snug text-brand_primary">{video.title}</h3>
+                      <h3 className="line-clamp-2 text-xs font-bold leading-snug text-brand_primary" {...fullTitle(video.title)}>{video.title}</h3>
                       <span className="text-xs text-gray-600">{formatTimeAgo(video.publishedAt)}</span>
                     </div>
                   </Card>

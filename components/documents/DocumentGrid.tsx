@@ -38,8 +38,6 @@ import {
   getFileTypeIcon,
   getFileTypeColor,
   formatRelativeTime,
-  canUserEditDocument,
-  canUserDeleteDocument,
 } from '../../utils/documentUtils';
 import { formatFileSize } from '../../lib/utils/file-format';
 import { withAlpha } from '../../lib/colorAlpha';
@@ -56,6 +54,8 @@ interface DocumentGridProps {
   permissions: DocumentPermission;
   loading?: boolean;
   userId: string;
+  /** The viewer may manage every document here (the community's leader or an admin). */
+  canManageAll?: boolean;
 }
 
 export default function DocumentGrid({
@@ -70,6 +70,7 @@ export default function DocumentGrid({
   permissions,
   loading = false,
   userId,
+  canManageAll = false,
 }: DocumentGridProps) {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
@@ -115,8 +116,8 @@ export default function DocumentGrid({
 
   // Document actions dropdown
   const DocumentActionsDropdown = ({ document }: { document: DocumentWithDetails }) => {
-    const canEdit = canUserEditDocument(document, userId, permissions);
-    const canDelete = canUserDeleteDocument(document, userId, permissions);
+    // Rename, move and remove: the uploader, or whoever may manage everything here.
+    const canManage = canManageAll || (!!userId && document.uploaded_by === userId);
 
     return (
       <div className="absolute right-0 top-8 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
@@ -155,7 +156,7 @@ export default function DocumentGrid({
           </button>
         )}
 
-        {canEdit && (
+        {canManage && (
           <button
             onClick={() => {
               onDocumentAction('edit', document);
@@ -168,18 +169,20 @@ export default function DocumentGrid({
           </button>
         )}
 
-        <button
-          onClick={() => {
-            onDocumentAction('move', document);
-            setActiveDropdown(null);
-          }}
-          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
-        >
-          <Move className="w-4 h-4" />
-          <span>Mover</span>
-        </button>
+        {canManage && (
+          <button
+            onClick={() => {
+              onDocumentAction('move', document);
+              setActiveDropdown(null);
+            }}
+            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+          >
+            <Move className="w-4 h-4" />
+            <span>Mover</span>
+          </button>
+        )}
 
-        {canDelete && (
+        {canManage && (
           <>
             <div className="border-t border-gray-100 my-1" />
             <button

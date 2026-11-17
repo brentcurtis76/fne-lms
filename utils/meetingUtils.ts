@@ -465,26 +465,16 @@ export async function updateTaskStatus(
   notes?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const tableName = itemType === 'task' ? 'meeting_tasks' : 'meeting_commitments';
-    const updateData: any = {
-      status,
-      progress_percentage: progressPercentage,
-      updated_at: new Date().toISOString()
-    };
-
-    if (notes) {
-      updateData.notes = notes;
-    }
-
-    if (status === 'completado') {
-      updateData.completed_at = new Date().toISOString();
-      updateData.progress_percentage = 100;
-    }
-
-    const { error } = await supabase
-      .from(tableName)
-      .update(updateData)
-      .eq('id', itemId);
+    // One database function (F12a EC-R3/R15): verified editors and the person
+    // in charge may call it; it sets status, progress, completed_at (cleared
+    // when the state is not completado, so «Reabrir» works) and the note.
+    const { error } = await supabase.rpc('update_meeting_item_progress', {
+      p_kind: itemType,
+      p_id: itemId,
+      p_status: status,
+      p_progress: progressPercentage,
+      p_notes: notes ? notes : null,
+    });
 
     if (error) {
       console.error(`Error updating ${itemType} status:`, error);

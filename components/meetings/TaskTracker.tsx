@@ -36,6 +36,12 @@ interface TaskTrackerProps {
   item: MeetingTask | MeetingCommitment;
   itemType: 'task' | 'commitment';
   canEdit: boolean;
+  /**
+   * May change the state, progress and note (F12a R15: also the person the
+   * item is assigned to). Defaults to `canEdit`. Nothing in this component
+   * edits the item's text, date or person in charge.
+   */
+  canUpdateProgress?: boolean;
   onStatusUpdate?: () => void;
   className?: string;
 }
@@ -44,6 +50,7 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
   item,
   itemType,
   canEdit,
+  canUpdateProgress = canEdit,
   onStatusUpdate,
   className = ''
 }) => {
@@ -80,7 +87,7 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
     : undefined;
 
   const handleStatusChange = async (newStatus: TaskStatus) => {
-    if (!canEdit) return;
+    if (!canUpdateProgress) return;
 
     setIsUpdating(true);
     try {
@@ -105,7 +112,7 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
   };
 
   const handleProgressUpdate = async (progressPercentage: number) => {
-    if (!canEdit) return;
+    if (!canUpdateProgress) return;
 
     setIsUpdating(true);
     try {
@@ -133,7 +140,7 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
   };
 
   const saveNotes = async () => {
-    if (!canEdit) return;
+    if (!canUpdateProgress) return;
 
     setIsUpdating(true);
     try {
@@ -281,7 +288,7 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
       </div>
 
       {/* Actions */}
-      {canEdit && (
+      {canUpdateProgress && (
         <div className="space-y-3">
           {/* Status Actions */}
           <div className="flex flex-wrap gap-2">
@@ -381,7 +388,7 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
       )}
 
       {/* Read-only notes display */}
-      {!canEdit && item.notes && (
+      {!canUpdateProgress && item.notes && (
         <div className="border-t border-gray-200 pt-3 mt-3">
           <p className="text-xs text-gray-500 mb-1">Notas:</p>
           <p className="text-sm text-gray-700">{item.notes}</p>

@@ -46,6 +46,8 @@ interface MeetingDetailsModalProps {
   canDelete?: boolean;
   /** SM-H8: false when the viewer may not read agreements/commitments/tasks/documents. */
   canReadContent?: boolean;
+  /** F12a R15: the signed-in person; the person in charge of an item may update its progress. */
+  currentUserId?: string;
 }
 
 const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
@@ -56,7 +58,8 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
   onDelete,
   canEdit = false,
   canDelete = false,
-  canReadContent = true
+  canReadContent = true,
+  currentUserId
 }) => {
   const supabase = useSupabaseClient();
   const [meeting, setMeeting] = useState<MeetingWithDetails | null>(null);
@@ -463,6 +466,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                               item={commitment}
                               itemType="commitment"
                               canEdit={canEdit}
+                              canUpdateProgress={canEdit || (!!currentUserId && commitment.assigned_to === currentUserId)}
                               onStatusUpdate={() => loadMeetingDetails()}
                             />
                           ))}
@@ -484,6 +488,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                               item={task}
                               itemType="task"
                               canEdit={canEdit}
+                              canUpdateProgress={canEdit || (!!currentUserId && task.assigned_to === currentUserId)}
                               onStatusUpdate={() => loadMeetingDetails()}
                             />
                           ))}

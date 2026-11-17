@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 // F12a EC-R4/R5: participants are shown by their card name, «Participante»
 // when there is no card, never «Usuario no encontrado», and no e-mail line.
+// F12a R15: the person in charge of an item may update its progress.
 import React from 'react';
 import { render, waitFor, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -80,5 +81,51 @@ describe('MeetingDetailsModal — participants (EC-R4)', () => {
     expect(utils.getByText('Ana Uno')).toBeDefined();
     expect(utils.getByText('Participante')).toBeDefined();
     expect(utils.queryByText('Usuario no encontrado')).toBeNull();
+  });
+});
+
+describe('MeetingDetailsModal — the person in charge updates progress (F12a R15)', () => {
+  const withItems = (): MeetingWithDetails =>
+    ({
+      ...meeting(),
+      tasks: [
+        { id: 't-own', meeting_id: 'mtg-1', task_title: 'Mía', assigned_to: ANA, status: 'pendiente', progress_percentage: 0 },
+        { id: 't-other', meeting_id: 'mtg-1', task_title: 'Ajena', assigned_to: NOCARD, status: 'pendiente', progress_percentage: 0 },
+      ],
+      commitments: [
+        { id: 'c-own', meeting_id: 'mtg-1', commitment_text: 'Mío', assigned_to: ANA, status: 'pendiente', progress_percentage: 0 },
+      ],
+    } as unknown as MeetingWithDetails);
+
+  const propsFor = (id: string) => taskTrackerProps.filter((p) => p.item.id === id).pop();
+
+  const openTab = async (utils: ReturnType<typeof render>, label: RegExp) => {
+    await waitFor(() => expect(utils.getByText('Reunión de prueba')).toBeDefined());
+    await act(async () => { fireEvent.click(utils.getByText(label)); });
+  };
+
+  it('a non-editor gets canUpdateProgress only on the items assigned to them', async () => {
+    getMeetingDetails.mockResolvedValue(withItems());
+    const utils = render(<MeetingDetailsModal isOpen onClose={vi.fn()} meetingId="mtg-1" canEdit={false} currentUserId={ANA} />);
+    await openTab(utils, /^Tareas/);
+    expect(propsFor('t-own')).toMatchObject({ canEdit: false, canUpdateProgress: true });
+    expect(propsFor('t-other')).toMatchObject({ canEdit: false, canUpdateProgress: false });
+    await openTab(utils, /^Compromisos/);
+    expect(propsFor('c-own')).toMatchObject({ canEdit: false, canUpdateProgress: true });
+  });
+
+  it('an editor gets canUpdateProgress on every item', async () => {
+    getMeetingDetails.mockResolvedValue(withItems());
+    const utils = render(<MeetingDetailsModal isOpen onClose={vi.fn()} meetingId="mtg-1" canEdit currentUserId="someone-else" />);
+    await openTab(utils, /^Tareas/);
+    expect(propsFor('t-own')).toMatchObject({ canEdit: true, canUpdateProgress: true });
+    expect(propsFor('t-other')).toMatchObject({ canEdit: true, canUpdateProgress: true });
+  });
+
+  it('without a signed-in id nobody gets it', async () => {
+    getMeetingDetails.mockResolvedValue(withItems());
+    const utils = render(<MeetingDetailsModal isOpen onClose={vi.fn()} meetingId="mtg-1" canEdit={false} />);
+    await openTab(utils, /^Tareas/);
+    expect(propsFor('t-own')).toMatchObject({ canUpdateProgress: false });
   });
 });

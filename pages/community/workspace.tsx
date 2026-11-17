@@ -1363,6 +1363,7 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
           canEdit={rightsFor(detailsMeetingId).canEdit}
           canDelete={rightsFor(detailsMeetingId).canDelete}
           canReadContent={rightsFor(detailsMeetingId).canReadContent}
+          currentUserId={user?.id}
         />
       )}
 

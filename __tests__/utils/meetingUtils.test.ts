@@ -80,7 +80,7 @@ vi.mock('../../utils/workspaceUtils', () => ({ logWorkspaceActivity: vi.fn() }))
 // test body only drains the queue if that test actually runs; skip or filter it
 // and the queue spills into whichever file the sequencer places next. See
 // tools/eslint-plugin-mock-hygiene/drain-mock-queue.js.
-import { getMeetings, getMyMeetingRights, createMeetingWithDocumentation } from '../../utils/meetingUtils';
+import { getMeetings, getMyMeetingRights, createMeetingWithDocumentation, updateTaskStatus } from '../../utils/meetingUtils';
 import { logWorkspaceActivity } from '../../utils/workspaceUtils';
 import {
   capturedCalls,
@@ -290,5 +290,43 @@ describe('createMeetingWithDocumentation — child writes (SM-23)', () => {
     expect(result.problems.map((p) => p.message)).toEqual([message]);
     expect(result.meetingId).toEqual(expect.any(String));
     expect(logWorkspaceActivity).not.toHaveBeenCalled();
+  });
+});
+
+describe('updateTaskStatus — through update_meeting_item_progress (F12a EC-R3/R15)', () => {
+  const client = fakeSupabase.client as any;
+  const plainFrom = client.from;
+  afterEach(() => {
+    delete client.rpc;
+    client.from = plainFrom;
+  });
+
+  it('calls the database function with the five arguments and writes no table directly', async () => {
+    client.rpc = vi.fn(async () => ({ data: null, error: null }));
+    client.from = vi.fn(() => { throw new Error('no direct table write expected'); });
+    const result = await updateTaskStatus('task', 't-1', 'en_progreso', 100, 'nota');
+    expect(result).toEqual({ success: true });
+    expect(client.rpc).toHaveBeenCalledWith('update_meeting_item_progress', {
+      p_kind: 'task', p_id: 't-1', p_status: 'en_progreso', p_progress: 100, p_notes: 'nota',
+    });
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it('sends a commitment with no note as p_notes null', async () => {
+    client.rpc = vi.fn(async () => ({ data: null, error: null }));
+    await updateTaskStatus('commitment', 'c-1', 'completado', 40);
+    expect(client.rpc).toHaveBeenCalledWith('update_meeting_item_progress', {
+      p_kind: 'commitment', p_id: 'c-1', p_status: 'completado', p_progress: 40, p_notes: null,
+    });
+  });
+
+  it('keeps its two error messages', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    client.rpc = vi.fn(async () => ({ data: null, error: { code: '42501', message: 'not_allowed' } }));
+    expect(await updateTaskStatus('task', 't-1', 'en_progreso', 10)).toEqual({ success: false, error: 'Error al actualizar tarea' });
+    expect(await updateTaskStatus('commitment', 'c-1', 'en_progreso', 10)).toEqual({ success: false, error: 'Error al actualizar compromiso' });
+    client.rpc = vi.fn(async () => { throw new Error('network'); });
+    expect(await updateTaskStatus('task', 't-1', 'en_progreso', 10)).toEqual({ success: false, error: 'Error inesperado al actualizar estado' });
+    consoleError.mockRestore();
   });
 });

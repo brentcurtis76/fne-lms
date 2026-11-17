@@ -209,13 +209,15 @@ test.describe('SM-H8 meetings: create like a person, then who sees what', () => 
     await expect(page.getByTestId('meeting-task-due-0')).toHaveValue('2026-10-16');
 
     await page.getByRole('button', { name: 'Crear Reunión' }).click();
-    await expect(page.getByText('Reunión documentada correctamente')).toBeVisible({ timeout: 30_000 });
+    // EC-R1: «Crear Reunión» saves a draft; only «Finalizar reunión» completes it.
+    await expect(page.getByText('Reunión guardada como borrador. Ábrela y pulsa «Finalizar reunión» para enviar el resumen.')).toBeVisible({ timeout: 30_000 });
 
-    // Database: one meeting, the typed Chile wall time as its instant, every item.
+    // Database: one meeting, a draft, the typed Chile wall time as its instant, every item.
     const meeting = await must('meeting', service.from('community_meetings')
-      .select('id, meeting_date').eq('workspace_id', created.workspace).eq('title', TITLE).single());
-    const { id: meetingId, meeting_date: meetingDate } = meeting as { id: string; meeting_date: string };
+      .select('id, meeting_date, status').eq('workspace_id', created.workspace).eq('title', TITLE).single());
+    const { id: meetingId, meeting_date: meetingDate, status: meetingStatus } = meeting as { id: string; meeting_date: string; status: string };
     created.meetings.push(meetingId);
+    expect(meetingStatus).toBe('borrador');
     expect(new Date(meetingDate).toISOString()).toBe('2026-10-02T19:00:00.000Z');
     const [agreements, commitments, tasks, attendees] = await Promise.all([
       must('agreements', service.from('meeting_agreements').select('agreement_text').eq('meeting_id', meetingId)),
@@ -230,6 +232,7 @@ test.describe('SM-H8 meetings: create like a person, then who sees what', () => 
 
     // The card: same time as typed, acuerdos and compromisos counted apart.
     const meetingCard = card(page);
+    await expect(meetingCard).toContainText('Borrador');
     // es-CL 12-hour format: 16:00 → "04:00 p. m." (it showed 01:00 p. m. before SM-H8).
     await expect(meetingCard).toContainText(/2 de octubre de 2026, 04:00\sp\.\sm\./);
     await expect(meetingCard.getByTestId(`meeting-chip-agreements-${meetingId}`)).toHaveText(/Acuerdos \(1\)/);
@@ -245,6 +248,29 @@ test.describe('SM-H8 meetings: create like a person, then who sees what', () => 
     await expect(details.getByText(COMMITMENT)).toBeVisible();
     await details.getByRole('button', { name: 'Cerrar' }).click();
     await expect(details).toHaveCount(0);
+
+    // The later tests are about a finished meeting: the creator finalises it on
+    // the screen, in the edit form, with the first audience offered.
+    await meetingCard.getByTestId(`meeting-edit-${meetingId}`).click();
+    await expect(page.getByPlaceholder('Ej: Reunión de planificación semanal')).toHaveValue(TITLE, { timeout: 30_000 });
+    await page.getByRole('button', { name: 'Finalizar reunión' }).click();
+    const finalize = page.getByRole('dialog', { name: 'Finalizar reunión' });
+    await expect(finalize).toBeVisible({ timeout: 30_000 });
+    const audiences = finalize.locator('input[name="audience"]');
+    await expect(audiences.first()).toHaveAttribute('value', 'with_access');
+    await audiences.first().check();
+    await finalize.getByRole('button', { name: 'Finalizar y enviar' }).click();
+    // The spec's environment has no mail service (no RESEND_API_KEY, no sender
+    // address): the meeting is finalised and the screen says the e-mail was not sent.
+    await expect(page.getByText('Reunión finalizada, pero no se pudo enviar el resumen por correo.')).toBeVisible({ timeout: 30_000 });
+    await expect(finalize).toHaveCount(0);
+    const finalized = await must('finalized', service.from('community_meetings')
+      .select('status, finalized_at').eq('id', meetingId).single());
+    expect((finalized as { status: string }).status).toBe('completada');
+    expect((finalized as { finalized_at: string | null }).finalized_at).not.toBeNull();
+    await openMeetings(page);
+    await expect(card(page)).toContainText('Completada');
+    await expect(card(page)).not.toContainText('Borrador');
   });
 
   test('the participant reads the content but cannot edit or delete', async ({ page }) => {

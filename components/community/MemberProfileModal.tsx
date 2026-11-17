@@ -9,8 +9,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
-import { ROLE_NAMES, UserRoleType, UserProfile } from '../../types/roles';
+import { UserProfile } from '../../types/roles';
 import { getExternalSchoolLabel } from '../../constants/externalSchools';
+import { formatMemberDate, memberProfileRows, memberProfileText } from './memberProfileText';
 
 interface MemberProfileModalProps {
   isOpen: boolean;
@@ -27,17 +28,10 @@ export function MemberProfileModal({
 }: MemberProfileModalProps) {
   if (!member) return null;
 
-  const memberRole = member.user_roles?.[0]?.role_type as UserRoleType | undefined;
-  const roleLabel = memberRole ? ROLE_NAMES[memberRole] : 'Sin rol asignado';
-  const fullName = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Usuario';
-  const initials = (member.first_name?.charAt(0) || 'U').toUpperCase();
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'No disponible';
-    const date = new Date(dateString);
-    const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-    return `${date.getDate()} de ${months[date.getMonth()]} de ${date.getFullYear()}`;
-  };
+  // The name, initial, role label, date text and which rows show: ./memberProfileText (both looks)
+  const { memberRole, roleLabel, fullName, initials } = memberProfileText(member);
+  const rows = memberProfileRows(member, memberRole);
+  const formatDate = formatMemberDate;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -71,7 +65,7 @@ export function MemberProfileModal({
         {/* Profile details */}
         <div className="p-6 space-y-4">
           {/* Email */}
-          {member.email && (
+          {rows.email && (
             <div className="flex items-center gap-3">
               <div className="p-2 bg-gray-100 rounded-lg">
                 <Mail className="w-4 h-4 text-gray-600" />
@@ -84,20 +78,20 @@ export function MemberProfileModal({
           )}
 
           {/* School */}
-          {member.school && (
+          {rows.school && (
             <div className="flex items-center gap-3">
               <div className="p-2 bg-gray-100 rounded-lg">
                 <Building2 className="w-4 h-4 text-gray-600" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-gray-500">Colegio</p>
-                <p className="text-sm font-medium text-gray-900 truncate">{member.school.name}</p>
+                <p className="text-sm font-medium text-gray-900 truncate">{member.school?.name}</p>
               </div>
             </div>
           )}
 
           {/* External School Affiliation - Only for Consultants */}
-          {memberRole === 'consultor' && member.external_school_affiliation && (
+          {rows.externalSchool && (
             <div className="flex items-center gap-3">
               <div className="p-2 bg-gray-100 rounded-lg">
                 <Briefcase className="w-4 h-4 text-gray-600" />
@@ -112,33 +106,33 @@ export function MemberProfileModal({
           )}
 
           {/* Generation */}
-          {member.generation && (
+          {rows.generation && (
             <div className="flex items-center gap-3">
               <div className="p-2 bg-gray-100 rounded-lg">
                 <Users className="w-4 h-4 text-gray-600" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-gray-500">Generación</p>
-                <p className="text-sm font-medium text-gray-900 truncate">{member.generation.name}</p>
+                <p className="text-sm font-medium text-gray-900 truncate">{member.generation?.name}</p>
               </div>
             </div>
           )}
 
           {/* Community */}
-          {member.community && (
+          {rows.community && (
             <div className="flex items-center gap-3">
               <div className="p-2 bg-gray-100 rounded-lg">
                 <User className="w-4 h-4 text-gray-600" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-gray-500">Comunidad</p>
-                <p className="text-sm font-medium text-gray-900 truncate">{member.community.name}</p>
+                <p className="text-sm font-medium text-gray-900 truncate">{member.community?.name}</p>
               </div>
             </div>
           )}
 
           {/* Member since */}
-          {member.created_at && (
+          {rows.memberSince && (
             <div className="flex items-center gap-3">
               <div className="p-2 bg-gray-100 rounded-lg">
                 <Calendar className="w-4 h-4 text-gray-600" />

@@ -1,7 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
 import { X, Upload, Camera, Loader2 } from 'lucide-react';
-import { toast } from 'react-hot-toast';
-import { communityWorkspaceService } from '../../lib/services/communityWorkspace';
+import { useWorkspaceSettings } from './useWorkspaceSettings';
 
 interface WorkspaceSettingsModalProps {
   isOpen: boolean;
@@ -20,104 +19,18 @@ export default function WorkspaceSettingsModal({
   currentImageUrl,
   onUpdate
 }: WorkspaceSettingsModalProps) {
-  const [customName, setCustomName] = useState('');
-  const [imageUrl, setImageUrl] = useState(currentImageUrl || '');
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setCustomName(currentName || '');
-    setImageUrl(currentImageUrl || '');
-    setImagePreview(currentImageUrl || '');
-  }, [currentName, currentImageUrl]);
-
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file size (5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('La imagen debe ser menor a 5MB');
-      return;
-    }
-
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Solo se permiten imágenes (JPEG, PNG, WebP)');
-      return;
-    }
-
-    setImageFile(file);
-    
-    // Create preview
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleSave = async () => {
-    setIsLoading(true);
-
-    try {
-      let newImageUrl = imageUrl;
-      let newImagePath = undefined;
-
-      // Upload image if a new one was selected
-      if (imageFile) {
-        const uploadResult = await communityWorkspaceService.uploadCommunityImage(
-          workspaceId,
-          imageFile
-        );
-
-        if (uploadResult.error) {
-          throw new Error(uploadResult.error);
-        }
-
-        newImageUrl = uploadResult.url!;
-        newImagePath = uploadResult.path;
-      }
-
-      // Update workspace settings
-      const { error } = await communityWorkspaceService.updateWorkspaceSettings(
-        workspaceId,
-        {
-          customName: customName.trim(),
-          imageUrl: newImageUrl,
-          imageStoragePath: newImagePath
-        }
-      );
-
-      if (error) {
-        throw error;
-      }
-
-      toast.success('Configuración actualizada exitosamente');
-      onUpdate({
-        customName: customName.trim(),
-        imageUrl: newImageUrl
-      });
-      onClose();
-    } catch (error: any) {
-      console.error('Error saving workspace settings:', error);
-      toast.error(error.message || 'Error al guardar la configuración');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRemoveImage = () => {
-    setImageFile(null);
-    setImagePreview('');
-    setImageUrl('');
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
+  // State, effect, handlers and the save rule: ./useWorkspaceSettings (one copy for both looks)
+  const {
+    customName,
+    setCustomName,
+    imagePreview,
+    isLoading,
+    fileInputRef,
+    handleImageSelect,
+    handleSave,
+    handleRemoveImage,
+    saveDisabled,
+  } = useWorkspaceSettings({ onClose, workspaceId, currentName, currentImageUrl, onUpdate });
 
   if (!isOpen) return null;
 
@@ -223,7 +136,7 @@ export default function WorkspaceSettingsModal({
           </button>
           <button
             onClick={handleSave}
-            disabled={isLoading || (!customName.trim() && !imageFile && !imageUrl)}
+            disabled={saveDisabled}
             className="px-4 py-2 text-sm font-medium text-white bg-[#0a0a0a] rounded-md hover:bg-legacy-00293f disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
           >
             {isLoading ? (

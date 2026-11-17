@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, FileText, Calendar, DollarSign, MapPin, User, Building, CreditCard, Download, Upload, TrendingUp, Edit, Trash2, Check, Eye } from 'lucide-react';
 import HourAllocationPanel from './HourAllocationPanel';
 import { isFirmaPendiente } from '../../lib/utils/contract-status';
+import { toast } from 'react-hot-toast';
 
 interface Programa {
   id: string;
@@ -109,6 +110,8 @@ export default function ContractDetailsModal({
   const [deleteInvoiceId, setDeleteInvoiceId] = useState<string | null>(null);
   const [deletingInvoice, setDeletingInvoice] = useState<string | null>(null);
   const [hiddenInvoices, setHiddenInvoices] = useState<Set<string>>(new Set());
+  // GES-1.4: which invoice control is waiting for its link (`view-<id>` / `download-<id>`).
+  const [openingInvoice, setOpeningInvoice] = useState<string | null>(null);
   const [showActivateConfirm, setShowActivateConfirm] = useState(false);
   const [activating, setActivating] = useState(false);
   const cancelActivateRef = useRef<HTMLButtonElement>(null);
@@ -308,6 +311,49 @@ export default function ContractDetailsModal({
 
   const handleInvoiceDelete = async (cuotaId: string) => {
     setDeleteInvoiceId(cuotaId);
+  };
+
+  // GES-1.4: an invoice opens only through the server route, which checks who
+  // is asking and answers a five-minute link. The stored value is never used
+  // as an address here.
+  const getInvoiceLink = async (cuotaId: string): Promise<string | null> => {
+    try {
+      const response = await fetch('/api/contracts/invoice-link?cuotaId=' + encodeURIComponent(cuotaId), {
+        credentials: 'same-origin'
+      });
+      if (!response.ok) return null;
+      const body = await response.json();
+      return typeof body?.url === 'string' && body.url ? body.url : null;
+    } catch (error) {
+      console.error('Error requesting invoice link:', error instanceof Error ? error.message : 'unknown');
+      return null;
+    }
+  };
+
+  const openInvoice = async (cuota: Cuota, mode: 'view' | 'download') => {
+    const key = `${mode}-${cuota.id}`;
+    if (openingInvoice) return;
+    setOpeningInvoice(key);
+    try {
+      const url = await getInvoiceLink(cuota.id);
+      if (!url) {
+        toast.error('No se pudo abrir la factura');
+        return;
+      }
+      if (mode === 'view') {
+        window.open(url, '_blank');
+      } else {
+        // The receipts' download behaviour (ExpenseReportDetails), in a new tab.
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = cuota.factura_filename || 'factura';
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.click();
+      }
+    } finally {
+      setOpeningInvoice(null);
+    }
   };
 
   const confirmInvoiceDelete = async () => {
@@ -734,24 +780,27 @@ export default function ContractDetailsModal({
                                   </div>
                                 </div>
                                 {/* View button */}
-                                <a
-                                  href={cuota.factura_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                <button
+                                  type="button"
+                                  onClick={() => openInvoice(cuota, 'view')}
+                                  disabled={openingInvoice === `view-${cuota.id}`}
+                                  data-testid={`invoice-view-${cuota.id}`}
                                   className="flex items-center justify-center w-7 h-7 bg-brand_beige hover:bg-amber-50 rounded-lg transition-colors"
                                   title="Ver factura"
                                 >
                                   <Eye className="text-brand_primary" size={14} />
-                                </a>
+                                </button>
                                 {/* Download button */}
-                                <a
-                                  href={cuota.factura_url}
-                                  download
+                                <button
+                                  type="button"
+                                  onClick={() => openInvoice(cuota, 'download')}
+                                  disabled={openingInvoice === `download-${cuota.id}`}
+                                  data-testid={`invoice-download-${cuota.id}`}
                                   className="flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"
                                   title="Descargar factura"
                                 >
                                   <Download className="text-brand_accent" size={14} />
-                                </a>
+                                </button>
                                 {/* Delete button */}
                                 <button
                                   onClick={() => handleInvoiceDelete(cuota.id)}

@@ -2,6 +2,7 @@ import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useState, useEffect } from 'react';
 import { Calendar, DollarSign, TrendingUp, AlertCircle, CheckCircle, Upload, Check, X, Filter } from 'lucide-react';
 import UFService from '../../lib/uf-service';
+import { toast } from 'react-hot-toast';
 
 interface Cuota {
   id: string;
@@ -65,6 +66,8 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
   const [currentUFValue, setCurrentUFValue] = useState<number>(0);
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'due_unpaid' | 'due_paid'>('all');
   const [uploadingInvoice, setUploadingInvoice] = useState<string | null>(null);
+  // GES-1.4: the instalment whose invoice link is being asked for.
+  const [openingInvoice, setOpeningInvoice] = useState<string | null>(null);
   const [showAllOverdue, setShowAllOverdue] = useState(false);
 
   useEffect(() => {
@@ -345,6 +348,35 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
   };
 
   const overdueCuotas = getOverdueCuotas();
+
+  // GES-1.4: an invoice opens only through the server route, which checks who
+  // is asking and answers a five-minute link. The stored value is never used
+  // as an address here.
+  const handleInvoiceOpen = async (cuotaId: string) => {
+    if (openingInvoice) return;
+    setOpeningInvoice(cuotaId);
+    try {
+      let url: string | null = null;
+      try {
+        const response = await fetch('/api/contracts/invoice-link?cuotaId=' + encodeURIComponent(cuotaId), {
+          credentials: 'same-origin'
+        });
+        if (response.ok) {
+          const body = await response.json();
+          if (typeof body?.url === 'string' && body.url) url = body.url;
+        }
+      } catch (error) {
+        console.error('Error requesting invoice link:', error instanceof Error ? error.message : 'unknown');
+      }
+      if (url) {
+        window.open(url, '_blank');
+      } else {
+        toast.error('No se pudo abrir la factura');
+      }
+    } finally {
+      setOpeningInvoice(null);
+    }
+  };
 
   // Handle invoice upload
   const handleInvoiceUpload = async (cuotaId: string, file: File) => {
@@ -827,14 +859,15 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
                           <td className="py-3 px-2 md:px-4">
                             <div className="flex items-center justify-center">
                               {cuota.factura_url ? (
-                                <a
-                                  href={cuota.factura_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                <button
+                                  type="button"
+                                  onClick={() => handleInvoiceOpen(cuota.id)}
+                                  disabled={openingInvoice === cuota.id}
+                                  data-testid={`invoice-view-${cuota.id}`}
                                   className="text-brand_primary hover:text-gray-700 underline text-xs"
                                 >
                                   Ver
-                                </a>
+                                </button>
                               ) : (
                                 <label className="cursor-pointer">
                                   <input

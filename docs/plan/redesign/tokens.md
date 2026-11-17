@@ -83,7 +83,9 @@ rule of the file starts with `[data-look="nuevo"]` (also inside the one kind of 
 
 - **Colours: five scales.** GRIS for `gray` and `slate`; NEUTRO for `blue`, `sky`, `indigo`, `purple`, `pink`, `cyan`,
   `teal` (the palette has no blue and no colour per category); ÉXITO for `green` and `emerald`; ERROR for `red` and
-  `rose`; ÁMBAR for `amber`, `yellow` and `orange`. The brand's accent text becomes ámbar texto `#92400e` under both
+  `rose`; ÁMBAR for `amber`, `yellow` and `orange`. GRIS 500 (`gray-500`, `slate-500`) is `#656b78`
+  (`101 107 120`), one step darker than the kit's gris medio `#6b7280`, so muted text on the look's gray 50 measures
+  4.91:1 (today's pair 4.63:1); NEUTRO 400 and the chart series keep `#6b7280`. The brand's accent text becomes ámbar texto `#92400e` under both
   of its names (`--color-brand-accent-text`, `--fne-amber-text`); the other brand names keep their values. Each of
   the 30 legacy names gets the value its use asks for (old navy hovers → gris oscuro, old gold hovers → amarillo
   intenso, the chart colours → the kit's tones).

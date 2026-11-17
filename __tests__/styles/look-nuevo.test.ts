@@ -55,7 +55,9 @@ const underLook = (name: string): string => {
   return value;
 };
 
-const GRIS = ['245 245 246', '231 232 234', '225 225 227', '196 196 198', '157 159 164', '107 114 128', '75 85 99', '46 46 46', '31 31 31', '10 10 10', '10 10 10'];
+// GRIS 500 is #656b78 (send-back 3, the lead's value), one step darker than the kit's gris medio
+// (#6b7280, which NEUTRO 400 and the chart series keep), so muted text reads on gray 50 as well as today.
+const GRIS = ['245 245 246', '231 232 234', '225 225 227', '196 196 198', '157 159 164', '101 107 120', '75 85 99', '46 46 46', '31 31 31', '10 10 10', '10 10 10'];
 const NEUTRO = ['236 236 238', '231 232 234', '196 196 198', '157 159 164', '107 114 128', '31 31 31', '10 10 10', '31 31 31', '31 31 31', '10 10 10', '10 10 10'];
 const EXITO = ['238 250 242', '226 246 233', '183 220 200', '127 191 163', '63 154 122', '15 125 96', '10 107 82', '8 90 69', '7 74 57', '5 58 45', '3 38 29'];
 const ERROR = ['254 245 245', '253 236 236', '246 207 204', '235 163 158', '217 101 93', '198 58 49', '179 38 30', '143 29 23', '116 24 18', '92 19 15', '61 12 9'];
@@ -260,6 +262,9 @@ PAIRS.push(['gray-500 on white', color('gray', 500), WHITE]);
 PAIRS.push(['gray-600 on white', color('gray', 600), WHITE]);
 PAIRS.push(['gray-600 on gray-50', color('gray', 600), color('gray', 50)]);
 PAIRS.push(['gray-600 on gray-100', color('gray', 600), color('gray', 100)]);
+// Send-back 3: table heads, tab labels and help texts are muted grey on the light-grey page background.
+PAIRS.push(['gray-500 on gray-50', color('gray', 500), color('gray', 50)]);
+PAIRS.push(['slate-500 on slate-50', color('slate', 500), color('slate', 50)]);
 
 /**
  * Pairs under 4.5:1 with the brief's values, left for the lead to decide (not changed silently).
@@ -282,7 +287,7 @@ describe('the new look: the usual pairs stay readable', () => {
   });
 
   it('checks a sensible number of pairs', () => {
-    expect(PAIRS.length).toBe(FAMILIES.length * 9 + 5);
+    expect(PAIRS.length).toBe(FAMILIES.length * 9 + 7);
   });
 });
 

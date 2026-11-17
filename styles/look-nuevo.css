@@ -29,7 +29,7 @@
   --color-gray-200:          225 225 227;   /* #e1e1e3 */
   --color-gray-300:          196 196 198;   /* #c4c4c6 */
   --color-gray-400:          157 159 164;   /* #9d9fa4 */
-  --color-gray-500:          107 114 128;   /* #6b7280 */
+  --color-gray-500:          101 107 120;   /* #656b78, a step darker than the kit's gris medio: muted text on gray 50 */
   --color-gray-600:          75 85 99;      /* #4b5563 */
   --color-gray-700:          46 46 46;      /* #2e2e2e */
   --color-gray-800:          31 31 31;      /* #1f1f1f */
@@ -42,7 +42,7 @@
   --color-slate-200:         225 225 227;   /* #e1e1e3 */
   --color-slate-300:         196 196 198;   /* #c4c4c6 */
   --color-slate-400:         157 159 164;   /* #9d9fa4 */
-  --color-slate-500:         107 114 128;   /* #6b7280 */
+  --color-slate-500:         101 107 120;   /* #656b78, a step darker than the kit's gris medio: muted text on gray 50 */
   --color-slate-600:         75 85 99;      /* #4b5563 */
   --color-slate-700:         46 46 46;      /* #2e2e2e */
   --color-slate-800:         31 31 31;      /* #1f1f1f */

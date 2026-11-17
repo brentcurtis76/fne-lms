@@ -28,7 +28,7 @@ const GENERATION_RUNNING_MESSAGE =
   'Ya hay una generación en curso para esta licitación. Espere a que finalice antes de generar una nueva propuesta.';
 const ONE_RUNNING_INDEX = 'propuesta_generadas_one_running_per_licitacion';
 
-/** True when a unique violation comes from the one-running-generation index. */
+/** True when a refusal names the one-running-generation exclusion constraint. */
 function isOneRunningViolation(error: { message?: string; details?: string | null }): boolean {
   return `${error.message ?? ''} ${error.details ?? ''}`.includes(ONE_RUNNING_INDEX);
 }
@@ -228,11 +228,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Step 4b: Guard against concurrent generation for the same licitacion.
   // A generation still «generando» STALE_GENERATION_MS after it started
   // (created_at) was interrupted: mark it failed and let the new one start.
-  // "One running generation per tender" is a fact of the database (partial
-  // unique index propuesta_generadas_one_running_per_licitacion): the stale row
+  // "One running generation per tender" is a fact of the database (exclusion
+  // constraint propuesta_generadas_one_running_per_licitacion): the stale row
   // is marked failed only if it is still running and still old enough, and the
   // insert below is what decides who starts — a request that lost the race gets
-  // the index's refusal, whatever its own update changed.
+  // the constraint's refusal, whatever its own update changed.
   const { data: runningRows } = await serviceClient
     .from('propuesta_generadas')
     .select('id, created_at')
@@ -304,6 +304,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .single();
 
   if (insertError || !propuesta) {
+    // The one-running-generation exclusion constraint refuses a second running
+    // row for this tender with an exclusion violation (23P01): another request
+    // started a generation first, nothing is started here.
+    if (insertError?.code === '23P01' && isOneRunningViolation(insertError)) {
+      return sendAuthError(res, GENERATION_RUNNING_MESSAGE, 409);
+    }
     if (insertError?.code === '23505') {
       // Another request started a generation first: nothing is started here.
       // The same version may be refused first by unique_version_per_licitacion;

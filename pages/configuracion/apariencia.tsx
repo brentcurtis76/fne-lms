@@ -184,6 +184,11 @@ export default function AparienciaPage({ storedLook }: AparienciaProps) {
             Notificaciones por correo
           </Link>
         </p>
+        <p className="mt-3 text-sm">
+          <Link href="/configuracion/piezas" data-testid="look-to-kit" className="font-medium text-gray-700 underline">
+            Piezas de la interfaz
+          </Link>
+        </p>
       </div>
     </MainLayout>
   );

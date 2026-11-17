@@ -138,6 +138,7 @@ describe('the page', () => {
     expect(screen.getByLabelText(/Diseño nuevo \(en construcción\)/)).toBe(option('nuevo'));
     expect(save()).toBeDisabled();
     expect(screen.getByTestId('look-to-notifications')).toHaveAttribute('href', '/configuracion/notificaciones');
+    expect(screen.getByRole('link', { name: 'Piezas de la interfaz' })).toHaveAttribute('href', '/configuracion/piezas');
   });
 
   it('saves a choice through the route, shows it at once and says so', async () => {

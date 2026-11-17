@@ -128,6 +128,11 @@ export const MANDATORY_SPECS = [
   // bar with exactly today's menu entries, a group opens and navigates, the phone drawer opens and
   // closes, and «Diseño actual» brings today's frame back.
   'tests/e2e/look-frame.spec.ts',
+  // REDESIGN 5c — the sample page of the shared pieces: a tester reaches it from «Apariencia»; the
+  // window closes on Escape and gives the focus back, the confirmation answers both ways, the tabs
+  // follow the arrow keys, the pagination changes the rows, the table stacks on a phone; a docente who
+  // is not a tester is sent away.
+  'tests/e2e/look-kit.spec.ts',
 ];
 
 /** The JSON report nests suites; flatten to one entry per spec. */

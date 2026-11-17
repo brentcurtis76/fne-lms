@@ -27,6 +27,9 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
   const userId = user?.id;
   const userRef = useRef(user);
   userRef.current = user;
+  // Running number of the latest permissions request: an answer is applied only if
+  // its request is still the latest and the person is still the one it was made for.
+  const requestSeqRef = useRef(0);
 
   const isAdmin = useMemo(() => {
     return user?.user_metadata?.roles?.includes('admin') ||
@@ -52,6 +55,9 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
 
   const fetchPermissions = useCallback(async () => {
     const currentUser = userRef.current;
+    const seq = ++requestSeqRef.current;
+    const forUserId = currentUser?.id;
+    const isCurrent = () => seq === requestSeqRef.current && userRef.current?.id === forUserId;
     if (!currentUser) {
       setPermissions({});
       setLoading(false);
@@ -73,6 +79,8 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
         .select('role_type')
         .eq('user_id', currentUser.id)
         .eq('is_active', true);
+
+      if (!isCurrent()) return;
 
       if (rolesError) {
         console.error('[PermissionContext] Error fetching user roles:', rolesError);
@@ -96,6 +104,8 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
         .in('role_type', roleTypes)
         .eq('is_test', false)
         .eq('active', true);
+
+      if (!isCurrent()) return;
 
       if (permsError) {
         console.error('[PermissionContext] Error fetching permissions:', permsError);
@@ -121,11 +131,15 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
       }
 
     } catch (error) {
+      if (!isCurrent()) return;
       console.error('Unexpected error fetching permissions:', error);
       setPermissions({});
     } finally {
-      setSettledFor(currentUser.id);
-      setLoading(false);
+      // A late answer (or failure) for an earlier request or another person is dropped whole.
+      if (isCurrent()) {
+        setSettledFor(currentUser.id);
+        setLoading(false);
+      }
     }
   }, [supabase]); // Only depends on supabase client, reads user from ref
 

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
+import { useSessionContext, useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
 
 interface PermissionContextType {
   permissions: Record<string, boolean>;
@@ -15,13 +15,21 @@ const PermissionContext = createContext<PermissionContextType | undefined>(undef
 export function PermissionProvider({ children }: { children: React.ReactNode }) {
   const supabase = useSupabaseClient();
   const user = useUser();
+  // On a full page load the sign-in state arrives after the first render: until then
+  // it is not known who the person is, and "no user" must not be read as "nobody".
+  const { isLoading: sessionLoading } = useSessionContext();
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
+  // The user id for whom the first real answer (or a failure) has arrived.
+  const [settledFor, setSettledFor] = useState<string | null>(null);
 
   // Stable references: extract primitives from user object to avoid re-render cascades
   const userId = user?.id;
   const userRef = useRef(user);
   userRef.current = user;
+  // Running number of the latest permissions request: an answer is applied only if
+  // its request is still the latest and the person is still the one it was made for.
+  const requestSeqRef = useRef(0);
 
   const isAdmin = useMemo(() => {
     return user?.user_metadata?.roles?.includes('admin') ||
@@ -47,6 +55,9 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
 
   const fetchPermissions = useCallback(async () => {
     const currentUser = userRef.current;
+    const seq = ++requestSeqRef.current;
+    const forUserId = currentUser?.id;
+    const isCurrent = () => seq === requestSeqRef.current && userRef.current?.id === forUserId;
     if (!currentUser) {
       setPermissions({});
       setLoading(false);
@@ -68,6 +79,8 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
         .select('role_type')
         .eq('user_id', currentUser.id)
         .eq('is_active', true);
+
+      if (!isCurrent()) return;
 
       if (rolesError) {
         console.error('[PermissionContext] Error fetching user roles:', rolesError);
@@ -91,6 +104,8 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
         .in('role_type', roleTypes)
         .eq('is_test', false)
         .eq('active', true);
+
+      if (!isCurrent()) return;
 
       if (permsError) {
         console.error('[PermissionContext] Error fetching permissions:', permsError);
@@ -116,16 +131,28 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
       }
 
     } catch (error) {
+      if (!isCurrent()) return;
       console.error('Unexpected error fetching permissions:', error);
       setPermissions({});
     } finally {
-      setLoading(false);
+      // A late answer (or failure) for an earlier request or another person is dropped whole.
+      if (isCurrent()) {
+        setSettledFor(currentUser.id);
+        setLoading(false);
+      }
     }
   }, [supabase]); // Only depends on supabase client, reads user from ref
 
   useEffect(() => {
+    // While the sign-in state is still being established, do nothing yet
+    // (in particular, do not treat the person as signed out).
+    if (sessionLoading) return;
     fetchPermissions();
-  }, [userId, fetchPermissions]);
+  }, [userId, sessionLoading, fetchPermissions]);
+
+  // Loading until it is known who the person is; for a known person, until their
+  // permissions are settled, so an empty set is never reported as the final answer.
+  const effectiveLoading = sessionLoading || (userId ? loading || settledFor !== userId : loading);
 
   const hasPermission = useCallback((permission: string): boolean => {
     if (isAdmin) {
@@ -134,14 +161,14 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
 
     const result = permissions[permission] === true;
 
-    if (!result && !loading) {
+    if (!result && !effectiveLoading) {
       if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_DEBUG_PERMISSIONS === 'true') {
         console.warn(`[PermissionContext] Permission denied: ${permission}`);
       }
     }
 
     return result;
-  }, [permissions, loading, isAdmin]);
+  }, [permissions, effectiveLoading, isAdmin]);
 
   const hasAnyPermission = useCallback((perms: string[]): boolean => {
     return perms.some(p => hasPermission(p));
@@ -153,12 +180,12 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
 
   const contextValue = useMemo(() => ({
     permissions,
-    loading,
+    loading: effectiveLoading,
     hasPermission,
     hasAnyPermission,
     hasAllPermissions,
     refetch: fetchPermissions
-  }), [permissions, loading, hasPermission, hasAnyPermission, hasAllPermissions, fetchPermissions]);
+  }), [permissions, effectiveLoading, hasPermission, hasAnyPermission, hasAllPermissions, fetchPermissions]);
 
   return (
     <PermissionContext.Provider value={contextValue}>

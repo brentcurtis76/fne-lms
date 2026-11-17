@@ -430,7 +430,7 @@ export default function QuotesManagementPage() {
   return (
     <PermissionGuard
       permission="view_internship_proposals_all"
-      redirectTo="/admin"
+      redirectTo="/dashboard"
     >
       <QuotesManagementPageContent />
     </PermissionGuard>

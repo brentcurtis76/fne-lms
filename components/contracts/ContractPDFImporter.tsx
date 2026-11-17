@@ -317,6 +317,9 @@ export default function ContractPDFImporter({
                 <p className="text-sm text-gray-500 mb-4">
                   Máximo 10MB • Solo archivos PDF
                 </p>
+                <p className="text-sm text-gray-500 mb-4" data-testid="pdf-import-anthropic-notice">
+                  Al importar, el texto del documento se envía a Anthropic (Claude) para leerlo.
+                </p>
                 <label className="cursor-pointer">
                   <input
                     type="file"

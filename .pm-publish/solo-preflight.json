@@ -5,7 +5,7 @@
     "code": "ADD_CONSTRAINT",
     "fn": "violation_count",
     "table": "public.propuesta_generadas",
-    "predicate": "estado = 'generando'",
-    "label": "Proposal generations running at this moment (must be none when the one-running-per-tender rule is added)"
+    "predicate": "estado IS DISTINCT FROM 'generando'",
+    "label": "Rows of propuesta_generadas that are a generation still running (must be none when the one-running-per-tender rule is added)"
   }
 ]

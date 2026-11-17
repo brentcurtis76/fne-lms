@@ -1,7 +1,7 @@
 # GENERA fixes, level 2 (first part): places where a normal task stops
 
 Branch: `fix/l2`. Base: `84eb3bccd` (main, 17 Nov 2026 07:45, pull request 190: the redesign's step 5a; level 1 of these fixes went live as pull request 189).
-57 commits in a straight line on main, no merge commits: three fix phases (Gestor de Cambio, Espacio Colaborativo, Licitaciones), one small follow-up to level 1, one test-harness repair, this request.
+58 commits in a straight line on main, no merge commits: three fix phases (Gestor de Cambio, Espacio Colaborativo, Licitaciones), one small follow-up to level 1, one test-harness repair, this request.
 
 ## Approved scope
 

@@ -543,7 +543,7 @@ SELECT lives_ok($$INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('
   'a second person with expense access still uploads their own receipt');
 -- Send-back 1: text a filer can write is never proof. B writes A's exact
 -- receipt names into an expense of B's own (the row rules allow it) ...
-SELECT lives_ok($$INSERT INTO public.expense_items (report_id, description, amount, expense_date, receipt_url) VALUES
+SELECT throws_ok($$INSERT INTO public.expense_items (report_id, description, amount, expense_date, receipt_url) VALUES
   ('12600000-0000-4000-8000-0000000000e2', 'F2b 126 B lugar', 10, '2027-02-01', 'boletas/f2b126_a_secret.pdf'),
   ('12600000-0000-4000-8000-0000000000e2', 'F2b 126 B enlace', 10, '2027-02-01',
    'http://127.0.0.1:54321/storage/v1/object/sign/boletas/f2b126_a_secret2.pdf?token=x'),
@@ -551,7 +551,7 @@ SELECT lives_ok($$INSERT INTO public.expense_items (report_id, description, amou
    'http://127.0.0.1:54321/storage/v1/object/sign/boletas/f2b126_scan.pdf.backup?token=x'),
   ('12600000-0000-4000-8000-0000000000e2', 'F2b 126 B consulta', 10, '2027-02-01',
    'http://127.0.0.1:54321/storage/v1/object/sign/boletas/f2b126_acc.pdf?token=x&ref=/boletas/f2b126_q.pdf')$$,
-  'B writes A''s receipt names into an expense of B''s own with B''s session');
+  '42501', NULL, 'B (a docente with an old can_submit row, no filing role since F7d 20261117166000) cannot write A''s receipt names into an expense of B''s own');
 -- ... and still cannot list, sign or delete A's files.
 SELECT is(pg_temp.n('boletas', 'f2b126_a_secret.pdf'), 0, 'B cannot list A''s receipt named boletas/<name> in B''s expense');
 SELECT is(pg_temp.n('boletas', 'f2b126_a_secret2.pdf'), 0, 'B cannot list A''s receipt named by an old link in B''s expense');

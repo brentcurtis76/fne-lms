@@ -41,6 +41,9 @@ BEGIN
   IF p_progress IS NULL OR p_progress < 0 OR p_progress > 100 THEN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'invalid_progress';
   END IF;
+  IF p_status IS NULL THEN
+    RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'invalid_status';
+  END IF;
 
   -- Signed in, and not held by a forced password change.
   IF v_uid IS NULL OR NOT public.password_change_gate_ok() THEN

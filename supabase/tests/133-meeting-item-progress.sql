@@ -19,13 +19,15 @@
 --   5. a verified editor (the community's leader) on any item of the meeting
 --   6. a direct table update by the person in charge still changes nothing
 --   7. invalid kind and progress refused; empty / NULL notes keep the note
+--   8. a NULL state is refused (invalid_status) for the person in charge and
+--      an editor, task and commitment; the rows are unchanged
 --
 -- Synthetic/local state only. Rolls back. DO NOT run against production.
 -- =============================================================================
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(60);
+SELECT plan(66);
 
 CREATE TEMP TABLE ids (p text PRIMARY KEY, id uuid) ON COMMIT DROP;
 GRANT SELECT ON ids TO anon, authenticated;
@@ -289,6 +291,25 @@ SELECT pg_temp.reset_auth();
 SELECT is(pg_temp.progress('task', 'f12a0000-0000-4000-8000-0000000000f1'), 'en_progreso|70|f|mitad hecha', 'an empty note keeps the stored note');
 SELECT is(pg_temp.identity('task', 'f12a0000-0000-4000-8000-0000000000f1'), (SELECT v FROM ident0 WHERE i = 'f12a0000-0000-4000-8000-0000000000f1'), 'identity unchanged at the end');
 SELECT is(pg_temp.identity('commitment', 'f12a0000-0000-4000-8000-0000000000d1'), (SELECT v FROM ident0 WHERE i = 'f12a0000-0000-4000-8000-0000000000d1'), 'commitment identity unchanged at the end');
+
+-- ---------------------------------------------------------------------------
+-- 8. A NULL state is refused; the row is unchanged (send-back 1)
+-- ---------------------------------------------------------------------------
+INSERT INTO before_rows SELECT 'f1-null', pg_temp.row_text('task', 'f12a0000-0000-4000-8000-0000000000f1');
+INSERT INTO before_rows SELECT 'd1-null', pg_temp.row_text('commitment', 'f12a0000-0000-4000-8000-0000000000d1');
+SELECT pg_temp.as_user('assignee');
+SELECT throws_ok($$SELECT public.update_meeting_item_progress('task', 'f12a0000-0000-4000-8000-0000000000f1', NULL, 0, NULL)$$,
+  '22023', 'invalid_status', 'a NULL state from the person in charge is refused (task)');
+SELECT throws_ok($$SELECT public.update_meeting_item_progress('commitment', 'f12a0000-0000-4000-8000-0000000000d1', NULL, 0, NULL)$$,
+  '22023', 'invalid_status', 'a NULL state from the person in charge is refused (commitment)');
+SELECT pg_temp.as_user('leader');
+SELECT throws_ok($$SELECT public.update_meeting_item_progress('task', 'f12a0000-0000-4000-8000-0000000000f1', NULL, 0, NULL)$$,
+  '22023', 'invalid_status', 'a NULL state from an editor is refused (task)');
+SELECT throws_ok($$SELECT public.update_meeting_item_progress('commitment', 'f12a0000-0000-4000-8000-0000000000d1', NULL, 0, NULL)$$,
+  '22023', 'invalid_status', 'a NULL state from an editor is refused (commitment)');
+SELECT pg_temp.reset_auth();
+SELECT is(pg_temp.row_text('task', 'f12a0000-0000-4000-8000-0000000000f1'), (SELECT v FROM before_rows WHERE k = 'f1-null'), 'task T1 unchanged after the NULL-state calls');
+SELECT is(pg_temp.row_text('commitment', 'f12a0000-0000-4000-8000-0000000000d1'), (SELECT v FROM before_rows WHERE k = 'd1-null'), 'commitment C1 unchanged after the NULL-state calls');
 
 SELECT * FROM finish();
 ROLLBACK;

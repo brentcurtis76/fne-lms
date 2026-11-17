@@ -151,6 +151,15 @@ const PAIRS: Pair[] = [
   { what: 'Panel 6B: the viewer\'s initial (yellow)', nuevo: ['brand_primary', 'brand_accent'] },
   { what: 'Panel 6B: «+{n}» members', nuevo: ['gray-600', 'gray-100'] },
   { what: 'Panel 6B: a row under the pointer', nuevo: ['brand_primary', 'gray-50'] },
+  // Redesign 6C: the panel's four pop-ups in the new look (components/community/*Nuevo.tsx,
+  // components/course-proposals/*Nuevo.tsx), on the kit's white window. The rest are the kit's own pairs.
+  { what: 'Pop-ups 6C: the label «Imagen de la Comunidad»', nuevo: ['brand_primary', 'white'] },
+  { what: 'Pop-ups 6C: the image help «Máx. 5MB…»', nuevo: ['gray-600', 'white'] },
+  { what: 'Pop-ups 6C: «(Tú)» in the member\'s title (amber text)', nuevo: ['brand_accent_text', 'white'] },
+  { what: 'Pop-ups 6C: a member\'s initial', nuevo: ['white', 'brand_primary'] },
+  { what: 'Pop-ups 6C: the viewer\'s initial (yellow)', nuevo: ['brand_primary', 'brand_accent'] },
+  { what: 'Pop-ups 6C: a detail\'s label', nuevo: ['gray-600', 'white'] },
+  { what: 'Pop-ups 6C: a detail\'s value', nuevo: ['brand_primary', 'white'] },
 ];
 
 /** Icons and marks that carry meaning on their own: 3:1 (WCAG 1.4.11). */
@@ -159,6 +168,9 @@ const GRAPHICS: Pair[] = [
   { what: 'Dialog: the close X under the pointer', today: ['gray-500', 'white'], nuevo: ['brand_primary', 'brand_primary/[0.08]'] },
   { what: 'Checkbox: a ticked box', today: ['brand_accent', 'white'], nuevo: ['brand_primary', 'white'] },
   { what: 'Switch: on', today: ['brand_primary', 'white'], nuevo: ['brand_primary', 'white'] },
+  { what: 'Pop-ups 6C: the remove-image mark (white X on red)', nuevo: ['white', 'red-600'] },
+  { what: 'Pop-ups 6C: the remove-image mark under the pointer', nuevo: ['white', 'red-700'] },
+  { what: 'Pop-ups 6C: the camera on the empty picture', nuevo: ['gray-600', 'gray-100'] },
 ];
 
 /**

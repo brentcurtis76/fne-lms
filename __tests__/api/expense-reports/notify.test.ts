@@ -251,6 +251,7 @@ describe('submission notification', () => {
 describe('decision notification', () => {
   it('sends the approval to the owner address stored on the report', async () => {
     asUser(APPROVER_ID, EXPENSE_APPROVER_EMAIL);
+    mockHasAdminPrivileges.mockResolvedValue(true); // F7d: the approver acts as an admin
     stubTables({
       expense_reports: [{ data: reportRow({ status: 'approved', reviewed_by: APPROVER_ID }) }],
       profiles: [{ data: { first_name: 'Gonzalo', last_name: 'Naranjo' } }],
@@ -271,6 +272,7 @@ describe('decision notification', () => {
 
   it('takes rejection comments from the report, not from the request', async () => {
     asUser(APPROVER_ID, EXPENSE_APPROVER_EMAIL);
+    mockHasAdminPrivileges.mockResolvedValue(true); // F7d: the approver acts as an admin
     stubTables({
       expense_reports: [
         {
@@ -310,6 +312,33 @@ describe('decision notification', () => {
     expect(mockSendDecision).toHaveBeenCalledTimes(1);
   });
 
+  // F7d (GES-1.3, E3): any active admin notifies a decision; the fixed
+  // approver address no longer grants anything in this route.
+  it('refuses a non-admin whose e-mail is the fixed approver address', async () => {
+    asUser(APPROVER_ID, EXPENSE_APPROVER_EMAIL);
+    mockHasAdminPrivileges.mockResolvedValue(false);
+    stubTables({
+      expense_reports: [{ data: reportRow({ status: 'approved', reviewed_by: APPROVER_ID }) }],
+      profiles: [{ data: { first_name: 'Gonzalo', last_name: 'Naranjo' } }],
+    });
+
+    const res = await callHandler();
+    expect(res._getStatusCode()).toBe(403);
+    expect(mockSendDecision).not.toHaveBeenCalled();
+  });
+
+  it('refuses that non-admin for a rejection too', async () => {
+    asUser(APPROVER_ID, `  ${EXPENSE_APPROVER_EMAIL.toUpperCase()} `);
+    mockHasAdminPrivileges.mockResolvedValue(false);
+    stubTables({
+      expense_reports: [{ data: reportRow({ status: 'rejected', reviewed_by: APPROVER_ID, review_comments: 'x' }) }],
+    });
+
+    const res = await callHandler();
+    expect(res._getStatusCode()).toBe(403);
+    expect(mockSendDecision).not.toHaveBeenCalled();
+  });
+
   it('refuses the report owner — approving is not theirs to announce', async () => {
     asUser(OWNER_ID, OWNER_EMAIL);
     stubTables({
@@ -323,6 +352,7 @@ describe('decision notification', () => {
 
   it('falls back to a generic reviewer name when the lookup finds nobody', async () => {
     asUser(APPROVER_ID, EXPENSE_APPROVER_EMAIL);
+    mockHasAdminPrivileges.mockResolvedValue(true); // F7d: the approver acts as an admin
     stubTables({
       expense_reports: [{ data: reportRow({ status: 'approved', reviewed_by: null }) }],
     });
@@ -336,6 +366,7 @@ describe('decision notification', () => {
 
   it('sends nothing when the report has no owner address', async () => {
     asUser(APPROVER_ID, EXPENSE_APPROVER_EMAIL);
+    mockHasAdminPrivileges.mockResolvedValue(true); // F7d: the approver acts as an admin
     stubTables({
       expense_reports: [
         { data: reportRow({ status: 'approved', profiles: { first_name: 'Ana', last_name: 'P', email: null } }) },
@@ -352,6 +383,7 @@ describe('decision notification', () => {
 
   it('treats a missing submitter as an absent tenant-authorizable recipient', async () => {
     asUser(APPROVER_ID, EXPENSE_APPROVER_EMAIL);
+    mockHasAdminPrivileges.mockResolvedValue(true); // F7d: the approver acts as an admin
     stubTables({
       expense_reports: [{ data: reportRow({ status: 'approved', submitted_by: null }) }],
     });

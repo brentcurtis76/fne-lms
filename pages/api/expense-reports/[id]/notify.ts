@@ -10,7 +10,7 @@
  *
  * Authorization is per notification moment:
  *   submitted            → only the report's own submitter
- *   approved | rejected  → only the designated approver or a global admin
+ *   approved | rejected  → only an active global admin (GES-1.3: the fixed approver address grants nothing here)
  * Any other status (e.g. `draft`) has no notification and returns 409.
  *
  * Reads use the service role because the route must see the owner's profile
@@ -29,7 +29,6 @@ import {
 import { HttpStatus } from '../../../../lib/types/api-auth.types';
 import { RATE_LIMITS, rateLimit } from '../../../../lib/rateLimit';
 import { hasAdminPrivileges } from '../../../../utils/roleUtils';
-import { EXPENSE_APPROVER_EMAIL } from '../../../../utils/expenseConfig';
 import {
   ExpenseEmailResult,
   sendExpenseDecisionNotification,
@@ -179,10 +178,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (report.status === 'approved' || report.status === 'rejected') {
-    const callerEmail = (user.email || '').trim().toLowerCase();
-    const isDesignatedApprover =
-      callerEmail.length > 0 && callerEmail === EXPENSE_APPROVER_EMAIL.trim().toLowerCase();
-    const isAuthorized = isDesignatedApprover || (await hasAdminPrivileges(supabase, user.id));
+    // GES-1.3 (F7d): any active admin decides, so any active admin notifies;
+    // the fixed approver address grants nothing here.
+    const isAuthorized = await hasAdminPrivileges(supabase, user.id);
 
     if (!isAuthorized) {
       return sendAuthError(

@@ -233,6 +233,32 @@ describe('the new look: the approved values', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Native controls (send-back 3): ticked boxes and chosen radio buttons follow the kit's black.
+// ---------------------------------------------------------------------------
+
+describe('the new look: native controls', () => {
+  type AccentDecl = { prop: string; value: string; parent: { type: string; selector?: string; parent?: { type: string } } };
+  const accents = (css: string) => {
+    const found: Array<{ selector: string | undefined; atRoot: boolean; value: string }> = [];
+    postcss.parse(css).walkDecls((decl: AccentDecl) => {
+      if (decl.prop === 'accent-color') {
+        found.push({ selector: decl.parent.selector, atRoot: decl.parent.parent?.type === 'root', value: decl.value.trim() });
+      }
+    });
+    return found;
+  };
+
+  it('gives the element that carries the attribute the gray 900 name as accent colour, once', () => {
+    expect(accents(LOOK_CSS)).toEqual([{ selector: LOOK_ROOT, atRoot: true, value: 'rgb(var(--color-gray-900))' }]);
+  });
+
+  it('sets no accent colour without the look', () => {
+    expect(accents(TOKENS_CSS)).toEqual([]);
+    expect(accents(GLOBALS_CSS)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Contrast (WCAG 2.x relative luminance).
 // ---------------------------------------------------------------------------
 

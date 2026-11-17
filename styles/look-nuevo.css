@@ -299,6 +299,14 @@
   --toast-stack-right: 20px;
 }
 
+/* Tick boxes and radio buttons are the browser's own (no forms plugin), so a ticked one takes the
+   browser's accent colour, blue by default; the approved palette has no blue. `accent-color` is
+   inherited: one declaration on the element that carries the attribute gives every native control the
+   kit's black, unless one of the control's own classes sets an accent colour (that one still wins). */
+[data-look="nuevo"] {
+  accent-color: rgb(var(--color-gray-900));
+}
+
 /* Tailwind's typography plugin (`prose`) declares its greys on the element that carries the class,
    from Tailwind's own palette, so the names above do not reach it: it is told here, in GRIS. */
 [data-look="nuevo"] .prose,

@@ -99,3 +99,29 @@ describe('POST /api/licitaciones — refused for a school with no client', () =>
     expect(inserted(h.requests)).toHaveLength(1);
   });
 });
+
+describe('POST /api/licitaciones — a historical record is not refused for want of a client (send-back 1, S3)', () => {
+  // Deliberate (lead's decision, 16 Nov 2026): an Admin recording a school's
+  // past, already closed tender is not the dead end LIC-D6 closes — a closed
+  // tender has no later step that could refuse for want of a client — and
+  // refusing it would stop the Admin recording past tenders. A LIVE tender for
+  // the same school is still refused.
+  it('accepts a historical closed tender for a school without a client; refuses a live one', async () => {
+    h.schoolClienteId = null;
+    const historico = createMocks({
+      method: 'POST',
+      body: { school_id: 7, programa_id: 'prog-1', nombre_licitacion: 'Licitación histórica inventada', year: 2022, estado: 'cerrada' },
+    });
+    await handler(historico.req, historico.res);
+    expect(historico.res._getStatusCode()).toBe(201);
+    const row = inserted(h.requests)[0]?.ops.find(o => o.method === 'insert')?.args[0] as Record<string, unknown>;
+    expect(row).toMatchObject({ estado: 'cerrada', cliente_id: null });
+
+    h.requests.length = 0;
+    const live = createMocks({ method: 'POST', body: BODY });
+    await handler(live.req, live.res);
+    expect(live.res._getStatusCode()).toBe(400);
+    expect(live.res._getJSONData().error).toBe(MESSAGE);
+    expect(inserted(h.requests)).toHaveLength(0);
+  });
+});

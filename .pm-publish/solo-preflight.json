@@ -1,11 +1,10 @@
-[
-  {
-    "path": "supabase/migrations/20261116179700_one_running_proposal_generation.sql",
-    "line": 12,
-    "code": "ADD_CONSTRAINT",
-    "fn": "violation_count",
-    "table": "public.propuesta_generadas",
-    "predicate": "estado IS DISTINCT FROM 'generando'",
-    "label": "Rows of propuesta_generadas that are a generation still running (must be none when the one-running-per-tender rule is added)"
-  }
-]
+{
+  "checks": [],
+  "functions_that_delete_rows": [
+    {
+      "path": "supabase/migrations/20261117165000_course_gifts_by_assignment.sql",
+      "function": "public.batch_unassign_courses(uuid, uuid[])",
+      "label": "Takes a course away from the people named (deletes their course-assignment rows, as before); adds one check in front"
+    }
+  ]
+}

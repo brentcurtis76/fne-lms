@@ -1,8 +1,9 @@
 -- =============================================================================
 -- 129-one-running-proposal-generation.sql — GENERA fixes F14, send-back 1 (S4).
--- Proves the partial unique index propuesta_generadas_one_running_per_licitacion
+-- Proves the exclusion constraint propuesta_generadas_one_running_per_licitacion
 -- (migration 20261116179700_one_running_proposal_generation.sql):
---   * a second «generando» row for the same tender fails with a unique violation;
+--   * a second «generando» row for the same tender fails with an exclusion
+--     violation (23P01);
 --   * a «generando» row for another tender is fine;
 --   * «error» and «completada» rows do not block a new running one.
 -- Synthetic fixtures (schools 9129x, uuids 12900000-…); everything rolls back.
@@ -12,15 +13,23 @@ BEGIN;
 
 SELECT plan(8);
 
-SELECT has_index('public', 'propuesta_generadas', 'propuesta_generadas_one_running_per_licitacion',
-  'the one-running-generation index exists');
 SELECT ok(
-  (SELECT indisunique FROM pg_index WHERE indexrelid = 'public.propuesta_generadas_one_running_per_licitacion'::regclass),
-  'it is unique');
+  EXISTS (SELECT 1 FROM pg_constraint
+           WHERE conname = 'propuesta_generadas_one_running_per_licitacion'
+             AND conrelid = 'public.propuesta_generadas'::regclass),
+  'the one-running-generation constraint exists on propuesta_generadas');
 SELECT is(
-  (SELECT pg_get_expr(indpred, indrelid) FROM pg_index WHERE indexrelid = 'public.propuesta_generadas_one_running_per_licitacion'::regclass),
-  '(estado = ''generando''::text)',
-  'it applies only to running rows');
+  (SELECT contype::text FROM pg_constraint
+    WHERE conname = 'propuesta_generadas_one_running_per_licitacion'
+      AND conrelid = 'public.propuesta_generadas'::regclass),
+  'x',
+  'it is an exclusion constraint');
+SELECT is(
+  (SELECT pg_get_constraintdef(oid) FROM pg_constraint
+    WHERE conname = 'propuesta_generadas_one_running_per_licitacion'
+      AND conrelid = 'public.propuesta_generadas'::regclass),
+  'EXCLUDE USING btree (licitacion_id WITH =) WHERE ((estado = ''generando''::text))',
+  'it excludes equal tenders, only among running rows');
 
 -- Fixtures (as the test superuser)
 INSERT INTO public.schools(id, name) VALUES (91291, 'LIC129 School'), (91292, 'LIC129 Other School');
@@ -44,8 +53,8 @@ SELECT lives_ok(
 SELECT throws_ok(
   $q$INSERT INTO public.propuesta_generadas(id, licitacion_id, configuracion, estado, version)
      VALUES ('12900000-0000-4000-8000-000000000014', '12900000-0000-4000-8000-000000000001', '{}'::jsonb, 'generando', 4)$q$,
-  '23505', NULL,
-  'a second running row for the same tender fails with a unique violation');
+  '23P01', NULL,
+  'a second running row for the same tender fails with an exclusion violation');
 
 SELECT lives_ok(
   $q$INSERT INTO public.propuesta_generadas(id, licitacion_id, configuracion, estado, version)

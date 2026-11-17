@@ -130,7 +130,7 @@ function statefulTable(rows: Row[], opts: { holdRunningReadsUntil?: number; seco
         return { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint "unique_version_per_licitacion"' } };
       }
       if (values.estado === 'generando' && rows.some(r => r.licitacion_id === values.licitacion_id && r.estado === 'generando')) {
-        return { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint "propuesta_generadas_one_running_per_licitacion"' } };
+        return { data: null, error: { code: '23P01', message: 'conflicting key value violates exclusion constraint "propuesta_generadas_one_running_per_licitacion"' } };
       }
       inserted += 1;
       const row = { ...values, id: `prop-new-${inserted}`, created_at: new Date().toISOString() };
@@ -201,11 +201,11 @@ describe('generate-propuesta — one running generation per tender (send-back 1,
     }
   });
 
-  it('a unique-violation answer from the insert gives the message and starts nothing', async () => {
+  it('an exclusion-violation answer from the insert gives the message and starts nothing', async () => {
     const rows: Row[] = [];
     const table = statefulTable(rows);
     h.table = (req, terminal) => has(req, 'insert')
-      ? { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint "propuesta_generadas_one_running_per_licitacion"', details: `Key (licitacion_id)=(${LIC}) already exists.` } }
+      ? { data: null, error: { code: '23P01', message: 'conflicting key value violates exclusion constraint "propuesta_generadas_one_running_per_licitacion"', details: `Key (licitacion_id)=(${LIC}) conflicts with existing key (licitacion_id)=(${LIC}).` } }
       : table(req, terminal);
     const r = await post();
     expect(r.status).toBe(409);

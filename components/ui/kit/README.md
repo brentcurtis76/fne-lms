@@ -70,6 +70,6 @@ the answers «Confirmar» / «Cancelar». For a deletion pass `{ title, message,
 | `secondaryAction` (declared there, never drawn) | `secondaryAction` (drawn, as an outline Button) |
 | `children` (custom actions on the right) | `actions` (`children` of `PageHeader` go UNDER the title row) |
 
-Differences a screen will see in today's look: the main action's text is black on yellow (it was white, 1.7:1); the
+Differences a screen will see in today's look: the main action's text is black on yellow (it was white); the
 search box is `type="search"` and named; on a phone the actions wrap under the title instead of the mobile variant's
 «+» button.

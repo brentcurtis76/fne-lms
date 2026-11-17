@@ -13,8 +13,17 @@ import { randomBytes, randomUUID } from 'node:crypto';
  * at 390 px; and after «Diseño actual» today's panel is back. An admin (who has the feedback button)
  * checks that no footer link meets the round feedback button at 1,024 px and at 390 px.
  *
+ * Redesign 6C adds the panel's four pop-ups in the new look. A community manager of the same community
+ * opens a member's profile (Escape closes it) and the community settings: Escape closes them; then the
+ * name is changed and saved («Configuración actualizada exitosamente», the window closes), the window
+ * opened again holds the new name, and the old name is put back and saved (no image is uploaded here:
+ * the unit tests hold that). The admin creates, edits and deletes a proposal through the new form and
+ * confirmation (Enter in the title shows the form's own second message). A failed deletion cannot be
+ * reached from here: the unit tests cover it.
+ *
  * Synthetic *@qa.local.test users, school, community, instructor and courses on a local database only,
- * deleted by exact id in afterAll.
+ * deleted by exact id in afterAll (with the admin's proposals and the community's workspace, should a
+ * run stop half-way).
  */
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
@@ -27,6 +36,11 @@ const SCHOOL = 9_600_000 + (parseInt(RUN.slice(0, 4), 16) % 100_000);
 const tester = { id: '', email: `look-panel-${RUN}@qa.local.test` };
 const peer = { id: '', email: `look-panel-peer-${RUN}@qa.local.test` };
 const admin = { id: '', email: `look-panel-admin-${RUN}@qa.local.test` };
+// Redesign 6C: a community manager of the same community (offered the gear of its settings).
+const manager = { id: '', email: `look-panel-manager-${RUN}@qa.local.test` };
+// Redesign 6C: the proposal the admin creates, edits and deletes, and the name the manager saves.
+const PROPOSAL_TITLE = `Propuesta Sintetica Panel ${RUN}`;
+const NEW_COMMUNITY_NAME = `Comunidad Renombrada Panel ${RUN}`;
 const ids = {
   community: '',
   instructor: randomUUID(),
@@ -124,6 +138,13 @@ async function signedIn(browser: Browser, account: { email: string }, viewport =
   return { context, page, problems };
 }
 
+/** 6C: the saved name of this run's community workspace (the row the page created on its first load). */
+async function workspaceName(): Promise<string | null> {
+  const { data, error } = await service.from('community_workspaces').select('custom_name').eq('community_id', ids.community).maybeSingle();
+  if (error) throw new Error(`community_workspaces: ${error.message}`);
+  return (data as { custom_name: string | null } | null)?.custom_name ?? null;
+}
+
 const lookOf = (page: Page) => page.evaluate(() => document.documentElement.getAttribute('data-look'));
 
 async function panel(page: Page) {
@@ -182,6 +203,9 @@ test.describe('the new «Mi Panel» (redesign 6B)', () => {
     await createAccount(tester, 'docente', { school_id: SCHOOL, community_id: ids.community });
     await createAccount(peer, 'docente', { school_id: SCHOOL, community_id: ids.community });
     await createAccount(admin, 'admin');
+    // 6C: an active `community_manager` role row of this community: the panel shows it the community
+    // card and offers it the gear (`canEditWorkspaceWithRoles`). Removed with the account in afterAll.
+    await createAccount(manager, 'community_manager', { school_id: SCHOOL, community_id: ids.community });
 
     must('instructor', await service.from('instructors').insert({ id: ids.instructor, full_name: 'Relatora Sintetica Panel' }));
     for (const [index, id] of ids.courses.entries()) {
@@ -213,6 +237,20 @@ test.describe('the new «Mi Panel» (redesign 6B)', () => {
       path_data: {},
       created_by: admin.id,
     }));
+    // The three not-started courses are in that route: a `course_assignments` row alone does not let a
+    // learner read a course (the SELECT policies of `courses`: an enrolment that grants access, its
+    // creator, admin or consultor, or a course of a route assigned to them). Without these rows the panel
+    // drops the three and draws no «Mis Cursos Abiertos». The started course is read through its enrolment.
+    // They go in BEFORE the route is assigned: a course added to a route that already has an assignee
+    // enrols that person (`learning_path_courses_enroll_assignees`), and an enrolment would move the
+    // course to «Continuar Aprendiendo». Inserting the assignment row enrols no one.
+    for (const [index, id] of ids.courses.slice(1).entries()) {
+      must('learning_path_course', await service.from('learning_path_courses').insert({
+        learning_path_id: ids.path,
+        course_id: id,
+        sequence_order: index + 1,
+      }));
+    }
     must('learning_path_assignment', await service.from('learning_path_assignments').insert({
       path_id: ids.path,
       user_id: tester.id,
@@ -242,11 +280,18 @@ test.describe('the new «Mi Panel» (redesign 6B)', () => {
       ['upcoming_courses', () => service.from('upcoming_courses').delete().eq('id', ids.upcoming)],
       ['learning_path_assignments', () => service.from('learning_path_assignments').delete().eq('path_id', ids.path)],
       ['learning_path_user_progress', () => service.from('learning_path_user_progress').delete().eq('path_id', ids.path)],
+      ['learning_path_courses', () => service.from('learning_path_courses').delete().eq('learning_path_id', ids.path)],
       ['learning_paths', () => service.from('learning_paths').delete().eq('id', ids.path)],
       ['course_assignments', () => service.from('course_assignments').delete().in('course_id', ids.courses)],
       ['course_enrollments', () => service.from('course_enrollments').delete().in('course_id', ids.courses)],
+      // 6C: a proposal left behind by a test that stopped half-way (they are created through the page,
+      // by the admin), removed before the admin's account.
+      ...(admin.id
+        ? ([['course_proposals', () => service.from('course_proposals').delete().eq('created_by', admin.id)]] as Removal[])
+        : []),
       ...accountRemovals(tester),
       ...accountRemovals(peer),
+      ...accountRemovals(manager),
       ...accountRemovals(admin),
       ['courses', () => service.from('courses').delete().in('id', ids.courses)],
       ['instructors', () => service.from('instructors').delete().eq('id', ids.instructor)],
@@ -273,6 +318,12 @@ test.describe('the new «Mi Panel» (redesign 6B)', () => {
       await expect(page.getByRole('heading', { name: 'Continuar Aprendiendo' })).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Mi Comunidad de Crecimiento' })).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Últimas Noticias' })).toBeVisible();
+      // The sections that arrive by their own requests, before the titles are read: the route (fetched
+      // after the courses), the upcoming course, and the statistics' own title (a fallback until they
+      // arrive; for a docente it is another one).
+      await expect(page.getByRole('heading', { name: 'Mis Rutas de Aprendizaje' })).toBeVisible({ timeout: 60_000 });
+      await expect(page.getByRole('heading', { name: 'Próximos Cursos' })).toBeVisible({ timeout: 60_000 });
+      await expect(page.locator('main h2', { hasText: /^Estadísticas/ })).not.toHaveText('Estadísticas de la Plataforma', { timeout: 60_000 });
       const todays = await sectionTitles(page);
       expect(todays.length).toBeGreaterThan(4);
 
@@ -362,6 +413,129 @@ test.describe('the new «Mi Panel» (redesign 6B)', () => {
       await page.setViewportSize({ width: 390, height: 844 });
       await panel(page);
       await footerClearOfFeedback(page);
+
+      await chooseLook(page, /Diseño actual/);
+      expect(problems).toEqual([]);
+    });
+  });
+
+  // ── Redesign 6C: the panel's four pop-ups in the new look ──
+
+  test('6C: a community manager opens a member\'s profile and the community settings, renames the community and puts the name back', async ({ browser }) => {
+    const { context, page, problems } = await signedIn(browser, manager);
+    await withContext(context, async () => {
+      await chooseLook(page, /Diseño nuevo \(en construcción\)/);
+      await panel(page);
+      await expect.poll(() => lookOf(page), { timeout: 60_000 }).toBe('nuevo');
+      const bar = page.getByTestId('panel-community-bar');
+      await expect(bar).toBeVisible({ timeout: 60_000 });
+      await bar.click();
+      await expect(page.getByTestId('panel-community-open')).toBeVisible();
+
+      // A member's profile: named by the member, one row, the link; Escape closes it.
+      const tile = page.getByTestId(`panel-member-${peer.id}`);
+      await expect(tile).toBeVisible({ timeout: 60_000 });
+      await tile.click();
+      const member = page.getByRole('dialog', { name: 'Persona Sintetica' });
+      await expect(member).toBeVisible();
+      await expect(member.getByText('Correo electrónico')).toBeVisible();
+      await expect(member.getByRole('link', { name: 'Ver Perfil Completo' })).toHaveAttribute('href', `/user/${peer.id}`);
+      await page.keyboard.press('Escape');
+      await expect(member).toHaveCount(0);
+      await expect(tile).toBeFocused();
+
+      // The community settings: the field and the upload button; Escape closes them.
+      const gear = page.getByTestId('panel-community-settings');
+      await expect(gear).toBeVisible({ timeout: 60_000 });
+      await gear.click();
+      const settings = page.getByRole('dialog', { name: 'Configuración de la Comunidad' });
+      const name = settings.getByLabel('Nombre de la Comunidad');
+      await expect(settings).toBeVisible();
+      await expect(name).toHaveAttribute('maxlength', '100');
+      await expect(name).toBeFocused();
+      await expect(settings.getByRole('button', { name: 'Subir imagen' })).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(settings).toHaveCount(0);
+      await expect(gear).toBeFocused();
+
+      // A new name, saved: the toast, the window closes, the workspace row holds it.
+      await gear.click();
+      await expect(name).not.toHaveValue('');
+      const oldName = await name.inputValue();
+      await name.fill(NEW_COMMUNITY_NAME);
+      await settings.getByRole('button', { name: 'Guardar cambios' }).click();
+      await expect(page.getByText('Configuración actualizada exitosamente')).toBeVisible({ timeout: 60_000 });
+      await expect(settings).toHaveCount(0, { timeout: 60_000 });
+      await expect.poll(() => workspaceName(), { timeout: 60_000 }).toBe(NEW_COMMUNITY_NAME);
+
+      // Opened again: the field holds the new name. The old one is put back and saved, so the test leaves
+      // the workspace's name as it found it.
+      await gear.click();
+      await expect(settings).toBeVisible();
+      await expect(name).toHaveValue(NEW_COMMUNITY_NAME);
+      await name.fill(oldName);
+      await settings.getByRole('button', { name: 'Guardar cambios' }).click();
+      await expect(settings).toHaveCount(0, { timeout: 60_000 });
+      await expect.poll(() => workspaceName(), { timeout: 60_000 }).toBe(oldName);
+
+      await chooseLook(page, /Diseño actual/);
+      expect(problems).toEqual([]);
+    });
+  });
+
+  test('6C: the admin creates, edits and deletes a proposal through the new pop-ups', async ({ browser }) => {
+    const { context, page, problems } = await signedIn(browser, admin);
+    await withContext(context, async () => {
+      await chooseLook(page, /Diseño nuevo \(en construcción\)/);
+      await panel(page);
+      await expect.poll(() => lookOf(page), { timeout: 60_000 }).toBe('nuevo');
+      const section = page.getByTestId('panel-section-proposals');
+      await expect(section).toBeVisible({ timeout: 60_000 });
+
+      // Opened, the focus in the title; Escape closes it.
+      await page.getByTestId('panel-proposals-new').click();
+      const form = page.getByRole('dialog', { name: 'Nueva Propuesta de Curso' });
+      await expect(form).toBeVisible();
+      await expect(form.getByLabel(/Título del curso/)).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(form).toHaveCount(0);
+
+      // Enter in the title sends the form: the hook's second message, not the browser's bubble.
+      await page.getByTestId('panel-proposals-new').click();
+      await form.getByLabel(/Título del curso/).fill(PROPOSAL_TITLE);
+      await form.getByLabel(/Título del curso/).press('Enter');
+      await expect(form.getByRole('alert')).toHaveText('La descripción es requerida');
+
+      // Created.
+      await form.getByLabel(/Descripción corta/).fill('Descripción sintética de la propuesta');
+      await form.getByLabel(/Competencias a desarrollar/).fill('Competencias sintéticas');
+      await form.getByLabel(/Tiempo requerido/).fill('2 semanas');
+      await form.getByTestId('proposal-form-submit').click();
+      await expect(form).toHaveCount(0, { timeout: 60_000 });
+      const card = section.locator('[data-testid^="panel-proposal-"]').filter({ hasText: PROPOSAL_TITLE });
+      await expect(card).toHaveCount(1, { timeout: 60_000 });
+
+      // Edited.
+      await card.getByRole('button', { name: 'Editar propuesta' }).click();
+      const edit = page.getByRole('dialog', { name: 'Editar Propuesta de Curso' });
+      await expect(edit.getByLabel(/Título del curso/)).toHaveValue(PROPOSAL_TITLE);
+      await edit.getByLabel(/Tiempo requerido/).fill('3 semanas');
+      await edit.getByTestId('proposal-form-submit').click();
+      await expect(edit).toHaveCount(0, { timeout: 60_000 });
+      await expect(card.getByText('3 semanas')).toBeVisible({ timeout: 60_000 });
+
+      // Deleted: Escape first (nothing happens, the focus was on «Cancelar»), then «Eliminar».
+      const confirm = page.getByRole('dialog', { name: 'Eliminar Propuesta' });
+      await card.getByRole('button', { name: 'Eliminar propuesta' }).click();
+      await expect(confirm).toBeVisible();
+      await expect(confirm.getByTestId('proposal-confirm-dialog-cancel')).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(confirm).toHaveCount(0);
+      await expect(card).toHaveCount(1);
+      await card.getByRole('button', { name: 'Eliminar propuesta' }).click();
+      await confirm.getByTestId('proposal-confirm-dialog-confirm').click();
+      await expect(confirm).toHaveCount(0);
+      await expect(card).toHaveCount(0, { timeout: 60_000 });
 
       await chooseLook(page, /Diseño actual/);
       expect(problems).toEqual([]);

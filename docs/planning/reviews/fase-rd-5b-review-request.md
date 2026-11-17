@@ -1,6 +1,6 @@
 # RD-5b — platform redesign, step 5b: the new frame, behind the switch. Review request
 
-- **Branch:** `feat/rd-frame` · **Base:** main at `84eb3bccd` (step 5a, published) · **Commits:** 12 (today's frame pinned; the sidebar item's code lifted into one hook, unchanged; the new frame; its tests; the fixes and tests from the code read; one fix from the test by sight; this record; the inventory rebuilt)
+- **Branch:** `feat/rd-frame` · **Base:** main at `f3e7f6fdd` (step 5a and the fixes' level 2, first part, both published) · **Commits:** 14 (today's frame pinned; the sidebar item's code lifted into one hook, unchanged; the new frame; its tests; the fixes and tests from the code read; one fix from the test by sight; this record; the inventory rebuilt; this record and the inventory once more after the replay on the new main)
 - **Part of the platform redesign** (plan phase 5). The second of three releases of that phase.
 - **Built the new way:** builder agents from written briefs, an independent code read (Sol), a test by sight in a real browser from a list of scenarios written without the code; the lead session wrote no product code.
 
@@ -45,6 +45,7 @@ An account with the new look chosen (`data-look="nuevo"`, offered only to «Test
 - **Independent code read** (Sol): four findings, all fixed here: `setLook` kept no stable identity; top-level buttons of the new sidebar had no name of their own; the bell's panel sat under the feedback button; the same-menu test compared too little (it now compares labels, where a click goes and the collapsed menu). It found the lift word for word and today's markup unchanged.
 - **Test by sight in a real browser** (another agent, from a list written without the code, four tester accounts): with the switch off, 9 of 9 items the same as main; in the new frame the same entries, order and children as today's for each account, and every entry of three roles opened the same page (about 55 pages: none without its frame, none with two). Three things it saw were fixed here: the sidebar's head was cut, one long entry name was cut, the footer floated on a short page.
 - **Gates** (run on `079be7bda`, before the move onto the published 5a, which changed no product file): type-check, lint with no warnings, the whole unit suite: 576 files, 18,992 tests passed, 12 skipped. CI's browser list against a production build: 340 passed, 1 failed, which is `auth-lifecycle.spec.ts` "a session revoked while the page is open" timing out on this machine as it does on main.
+- **Replayed on main `f3e7f6fdd`** (17 Nov, after the fixes' level 2 was published): the twelve commits replayed without conflict and unchanged (`git range-diff`: every commit `=`); the fixes' release touches neither the sidebar nor the top bar. On the replayed line: type-check, lint with no warnings, the whole unit suite: 609 files, 19,219 tests passed, 18 skipped. The pictures, the stylesheet comparison, the code read and the test by sight above were made before the replay; CI's browser list runs on the replayed line in the pull request.
 
 ## Where to look hardest
 

@@ -104,7 +104,7 @@ const SidebarItemNuevo: React.FC<SidebarItemProps> = React.memo((props) => {
         aria-current={isCurrent ? 'page' : undefined}
         aria-label={item.label}
         title={title}
-        className={`group relative flex items-center w-full gap-3 rounded-sm py-2.5 text-left font-mont text-[11px] font-semibold uppercase tracking-[0.08em] ${MOTION} ${
+        className={`group relative flex items-start w-full gap-3 rounded-sm py-2.5 text-left font-mont text-[11px] font-semibold uppercase tracking-[0.08em] ${MOTION} ${
           isCollapsed ? 'justify-center px-0' : 'px-3'
         } ${
           isCurrent || (isCollapsed && showCollapsedMenu)
@@ -117,12 +117,12 @@ const SidebarItemNuevo: React.FC<SidebarItemProps> = React.memo((props) => {
           aria-hidden="true"
           className={`h-5 w-5 shrink-0 ${isCurrent ? 'text-[#fbbf24]' : 'text-white/70 group-hover:text-white'}`}
         />
-        {!isCollapsed && <span className="flex-1 min-w-0 truncate">{item.label}</span>}
+        {!isCollapsed && <span className="flex-1 min-w-0 leading-5 break-words">{item.label}</span>}
         {!isCollapsed && showsCount && <Count value={newFeedbackCount} />}
         {!isCollapsed && hasChildren && (
           <ChevronDownIcon
             aria-hidden="true"
-            className={`h-4 w-4 shrink-0 text-white/50 ${isExpanded ? 'rotate-180' : ''}`}
+            className={`h-4 w-4 mt-0.5 shrink-0 text-white/50 ${isExpanded ? 'rotate-180' : ''}`}
           />
         )}
       </button>
@@ -149,8 +149,8 @@ const SidebarItemNuevo: React.FC<SidebarItemProps> = React.memo((props) => {
                     }`}
                   >
                     {childActive && <CurrentBar />}
-                    <span className="flex items-center gap-2">
-                      <span className="flex-1 min-w-0 truncate">{child.label}</span>
+                    <span className="flex items-start gap-2">
+                      <span className="flex-1 min-w-0 leading-5 break-words">{child.label}</span>
                       {child.id === 'feedback' && newFeedbackCount > 0 && <Count value={newFeedbackCount} />}
                     </span>
                     {child.description && (
@@ -175,12 +175,12 @@ const SidebarItemNuevo: React.FC<SidebarItemProps> = React.memo((props) => {
                 href={child.href}
                 title={child.description}
                 aria-current={childActive ? 'page' : undefined}
-                className={`relative flex items-center gap-2 rounded-sm py-2 pl-11 pr-3 font-sans text-[13px] ${MOTION} ${
+                className={`relative flex items-start gap-2 rounded-sm py-2 pl-11 pr-3 font-sans text-[13px] ${MOTION} ${
                   childActive ? 'bg-white/10 text-white' : 'text-white/70 hover:bg-white/5 hover:text-white'
                 }`}
               >
                 {childActive && <CurrentBar />}
-                <span className="flex-1 min-w-0 truncate">{child.label}</span>
+                <span className="flex-1 min-w-0 leading-5 break-words">{child.label}</span>
                 {child.id === 'feedback' && newFeedbackCount > 0 && <Count value={newFeedbackCount} />}
               </Link>
             );
@@ -245,7 +245,11 @@ export default function SidebarNuevo({
               <img src="/genera/icon-transparent.svg" alt="Genera" className="w-8 h-8 shrink-0" />
               <div className="min-w-0 leading-tight">
                 <div className="font-mont text-sm font-bold">Genera</div>
-                <div className="text-[11px] text-white/60 truncate">Hub de Transformación · by FNE</div>
+                {/* Two lines (5b, send-back 2): on one line the text does not fit at 264 px beside the button. */}
+                <div className="text-[11px] text-white/60">
+                  <span className="block">Hub de Transformación</span>
+                  <span className="block">by FNE</span>
+                </div>
               </div>
             </div>
           )}

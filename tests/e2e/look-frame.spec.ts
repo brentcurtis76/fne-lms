@@ -22,20 +22,49 @@ const PASSWORD = `Frame-${randomBytes(12).toString('base64url')}!a1`;
 const LOCAL_HOSTS = ['127.0.0.1', 'localhost', '::1'];
 const LOOK_PAGE = '/configuracion/apariencia';
 const tester = { id: '', email: `look-frame-${RUN}@qa.local.test` };
+const admin = { id: '', email: `look-frame-admin-${RUN}@qa.local.test` };
 let service: SupabaseClient;
+
+async function createAccount(account: { id: string; email: string }, role: string) {
+  const created = await service.auth.admin.createUser({ email: account.email, password: PASSWORD, email_confirm: true });
+  if (created.error) throw new Error(`createUser: ${created.error.message}`);
+  account.id = created.data.user.id;
+  must('profile', await service.from('profiles').upsert(
+    {
+      id: account.id,
+      email: account.email,
+      name: 'Persona Sintetica',
+      first_name: 'Persona',
+      last_name: 'Sintetica',
+      must_change_password: false,
+      approval_status: 'approved',
+      can_run_qa_tests: true,
+      learning_preferences: {},
+    },
+    { onConflict: 'id' }
+  ));
+  must('roles', await service.from('user_roles').insert({ user_id: account.id, role_type: role, school_id: null, is_active: true }));
+}
+
+async function deleteAccount(account: { id: string }) {
+  if (!account.id) return;
+  await service.from('user_roles').delete().eq('user_id', account.id);
+  await service.from('profiles').delete().eq('id', account.id);
+  await service.auth.admin.deleteUser(account.id);
+}
 
 function must<T>(label: string, result: { data: T; error: { message: string } | null }): T {
   if (result.error) throw new Error(`${label}: ${result.error.message}`);
   return result.data;
 }
 
-async function signedIn(browser: Browser) {
-  const context = await browser.newContext({ viewport: { width: 1366, height: 768 }, storageState: { cookies: [], origins: [] } });
+async function signedIn(browser: Browser, account: { email: string } = tester, viewport = { width: 1366, height: 768 }) {
+  const context = await browser.newContext({ viewport, storageState: { cookies: [], origins: [] } });
   const page = await context.newPage();
   const problems: string[] = [];
   page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
   await page.goto('/login');
-  await page.getByPlaceholder('tu@email.com').fill(tester.email);
+  await page.getByPlaceholder('tu@email.com').fill(account.email);
   await page.locator('input[type="password"]').fill(PASSWORD);
   await page.getByRole('button', { name: /iniciar sesión/i }).click();
   await expect(page).toHaveURL(/\/dashboard(\?|$)/, { timeout: 60_000 });
@@ -82,31 +111,14 @@ test.describe('the new look\'s frame (redesign 5b)', () => {
     if (!process.env.CI && ['54321', '54322'].includes(target.port)) throw new Error('look-frame refuses the shared default stack');
     service = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
-    const created = await service.auth.admin.createUser({ email: tester.email, password: PASSWORD, email_confirm: true });
-    if (created.error) throw new Error(`createUser: ${created.error.message}`);
-    tester.id = created.data.user.id;
-    must('profile', await service.from('profiles').upsert(
-      {
-        id: tester.id,
-        email: tester.email,
-        name: 'Persona Sintetica',
-        first_name: 'Persona',
-        last_name: 'Sintetica',
-        must_change_password: false,
-        approval_status: 'approved',
-        can_run_qa_tests: true,
-        learning_preferences: {},
-      },
-      { onConflict: 'id' }
-    ));
-    must('roles', await service.from('user_roles').insert({ user_id: tester.id, role_type: 'docente', school_id: null, is_active: true }));
+    await createAccount(tester, 'docente');
+    await createAccount(admin, 'admin');
   });
 
   test.afterAll(async () => {
-    if (!service || !tester.id) return;
-    await service.from('user_roles').delete().eq('user_id', tester.id);
-    await service.from('profiles').delete().eq('id', tester.id);
-    await service.auth.admin.deleteUser(tester.id);
+    if (!service) return;
+    await deleteAccount(tester);
+    await deleteAccount(admin);
   });
 
   test('a tester gets the new frame with the same menu, and today\'s frame back after «Diseño actual»', async ({ browser }) => {
@@ -185,6 +197,102 @@ test.describe('the new look\'s frame (redesign 5b)', () => {
     await expect(sidebar.getByRole('button', { name: bell })).toBeVisible();
     await expect(page.locator('[data-frame="topbar"]')).toHaveCount(0);
     await expect.poll(() => menuIds(page), { timeout: 60_000 }).toEqual(todaysMenu);
+
+    expect(problems).toEqual([]);
+    await context.close();
+  });
+
+  // 5b, send-back 2: at 1366 × 900 no name in the sidebar is cut (the head's two lines included),
+  // and the footer sits at the window's bottom on a short page and after the content on a long one.
+  test('an admin in the new frame: nothing in the sidebar is cut; the footer is at the bottom of a short page', async ({ browser }) => {
+    const { context, page, problems } = await signedIn(browser, admin, { width: 1366, height: 900 });
+    const sidebar = page.getByTestId('global-sidebar');
+
+    await chooseLook(page, /Diseño nuevo \(en construcción\)/);
+    await panel(page);
+    await expect.poll(() => lookOf(page), { timeout: 60_000 }).toBe('nuevo');
+    await expect.poll(() => sidebarBackground(page), { timeout: 60_000 }).toBe('rgb(10, 10, 10)');
+    // The admin's longest name; its entry is drawn once the admin's checks have answered.
+    await expect(page.getByTestId('sidebar-item-vias-transformacion')).toBeVisible({ timeout: 60_000 });
+    await expect(sidebar).toHaveJSProperty('offsetWidth', 264);
+
+    /**
+     * Every label in the sidebar (each entry's, each shown child's, the head's lines): the first
+     * element of a row that holds text and no other element. A label is cut when its text is wider
+     * than its box.
+     */
+    const measure = () =>
+      sidebar.evaluate((root) => {
+        const leaf = (row: Element) =>
+          Array.from(row.querySelectorAll('*')).find(
+            (node) => node.children.length === 0 && (node.textContent ?? '').trim() !== ''
+          ) as HTMLElement | undefined;
+        const rows = [
+          ...Array.from(root.querySelectorAll('[data-testid^="sidebar-item-"]')),
+          ...Array.from(root.querySelectorAll('nav a')),
+        ];
+        const labels = rows.map(leaf).filter((node): node is HTMLElement => !!node);
+        const head = Array.from(root.querySelectorAll('*')).filter(
+          (node) => node.children.length === 0 && /Hub de Transformación|by FNE/.test(node.textContent ?? '')
+        ) as HTMLElement[];
+        const all = [...labels, ...head];
+        return {
+          measured: all.length,
+          head: head.map((node) => node.textContent).join(' '),
+          cut: all.filter((node) => node.scrollWidth > node.clientWidth).map((node) => node.textContent),
+        };
+      });
+
+    const top = await measure();
+    expect(top.measured).toBeGreaterThan(5);
+    expect(top.head.split(/[\s·]+/).filter(Boolean)).toEqual(['Hub', 'de', 'Transformación', 'by', 'FNE']);
+    expect(top.cut).toEqual([]);
+
+    // Each group open in turn: its children's names are whole too.
+    const groups = await sidebar
+      .locator('[data-testid^="sidebar-item-"][aria-expanded]')
+      .evaluateAll((elements) => elements.map((element) => element.getAttribute('data-testid')!));
+    expect(groups).toContain('sidebar-item-vias-transformacion');
+    for (const id of groups) {
+      const group = page.getByTestId(id);
+      if ((await group.getAttribute('aria-expanded')) === 'false') await group.click();
+      await expect(group).toHaveAttribute('aria-expanded', 'true');
+      const open = await measure();
+      expect(open.cut, id).toEqual([]);
+    }
+
+    /** Where the footer is, against the window, the document and <main>, read in one go. */
+    const footerPlace = () =>
+      page.evaluate(() => {
+        window.scrollTo(0, 0);
+        const footer = document.querySelector('[data-testid="footer-nuevo"]') as HTMLElement;
+        const main = document.querySelector('main') as HTMLElement;
+        const f = footer.getBoundingClientRect();
+        const m = main.getBoundingClientRect();
+        return {
+          fromWindowBottom: Math.abs(f.bottom - window.innerHeight),
+          scrolls: document.documentElement.scrollHeight > window.innerHeight + 1,
+          position: getComputedStyle(footer).position,
+          afterMain: Math.abs(f.top - m.bottom),
+          belowTheFold: f.top >= window.innerHeight,
+        };
+      });
+
+    // A short page: the footer's bottom edge is the window's, and the page does not scroll.
+    await page.goto(LOOK_PAGE);
+    await expect(page.getByRole('heading', { name: 'Apariencia' })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId('footer-nuevo')).toBeVisible();
+    await expect.poll(async () => (await footerPlace()).fromWindowBottom, { timeout: 30_000 }).toBeLessThanOrEqual(1);
+    expect((await footerPlace()).scrolls).toBe(false);
+    expect((await footerPlace()).position).toBe('static');
+
+    // A long page: the footer comes directly after the content, below the fold, not fixed over it.
+    await panel(page);
+    await expect.poll(async () => (await footerPlace()).scrolls, { timeout: 60_000 }).toBe(true);
+    const long = await footerPlace();
+    expect(long.position).toBe('static');
+    expect(long.afterMain).toBeLessThanOrEqual(1);
+    expect(long.belowTheFold).toBe(true);
 
     expect(problems).toEqual([]);
     await context.close();

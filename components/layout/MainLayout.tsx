@@ -339,7 +339,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         
         {/* Main Content Area */}
         <div className={isNuevo
-          ? `min-h-screen transition-[margin] duration-150 motion-reduce:transition-none ${
+          ? `min-h-screen flex flex-col transition-[margin] duration-150 motion-reduce:transition-none ${
             desktopSidebarCollapsed ? 'lg:ml-[68px]' : 'lg:ml-[264px]'
           }`
           : `min-h-screen transition-all duration-300 ${
@@ -348,7 +348,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           {/* Top Header Bar - Minimal Design (h-20 to align with Sidebar) */}
           <div
             className={isNuevo
-              ? `bg-white sticky top-0 ${FRAME_LAYERS.topBar} h-14 flex items-center border-b border-gray-200`
+              ? `bg-white sticky top-0 ${FRAME_LAYERS.topBar} h-14 shrink-0 flex items-center border-b border-gray-200`
               : 'bg-[#0a0a0a] sticky top-0 z-20 h-20 flex items-center'}
             data-frame={isNuevo ? 'topbar' : undefined}
           >
@@ -417,8 +417,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
           <SimulationEnvironmentBanner visible={showQaSimulationBanner} />
           
-          {/* Content wrapper */}
-          <div className="min-h-screen w-full">
+          {/* Content wrapper. New look (5b, send-back 2): the area above is a column as high as the
+              window at least, and this wrapper takes what the top bar leaves, so <main> grows and a
+              short page's footer sits at the window's bottom; a long page pushes it down. */}
+          <div className={isNuevo ? 'flex-1 flex flex-col w-full' : 'min-h-screen w-full'}>
             {/* Page Header with Breadcrumbs (new look: the title only; the breadcrumbs are in the top bar) */}
             {isNuevo ? (
               pageTitle && (

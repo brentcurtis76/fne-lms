@@ -180,7 +180,8 @@ describe('the new frame: the sidebar on a desktop', () => {
     expect(sidebar().className).toContain('w-[264px]');
     expect(within(sidebar()).getByAltText('Genera')).toHaveAttribute('src', '/genera/icon-transparent.svg');
     expect(within(sidebar()).getByText('Genera')).toBeInTheDocument();
-    expect(within(sidebar()).getByText('Hub de Transformación · by FNE')).toBeInTheDocument();
+    expect(within(sidebar()).getByText('Hub de Transformación')).toBeInTheDocument();
+    expect(within(sidebar()).getByText('by FNE')).toBeInTheDocument();
     expect(within(sidebar()).getByText('Fundación Nueva Educación')).toBeInTheDocument();
     expect(within(sidebar()).getByRole('button', { name: 'Contraer sidebar' })).toHaveAttribute('title', 'Contraer sidebar');
     const content = screen.getByRole('main').parentElement!.parentElement!;
@@ -544,6 +545,151 @@ describe('the new frame: the footer', () => {
   it('keeps the feedback button, as today, in both frames', async () => {
     await draw();
     expect(document.querySelectorAll('[data-marker="feedback-button"]')).toHaveLength(1);
+  });
+});
+
+describe('nothing is cut, and the footer sits at the bottom (5b, send-back 2)', () => {
+  // The classes that cut a text, built from parts so that this file names none of them.
+  const CUTTING = [
+    ['trun', 'cate'],
+    ['text-', 'ellipsis'],
+    ['text-', 'clip'],
+    ['whitespace-', 'nowrap'],
+    ['overflow-', 'hidden'],
+    ['overflow-x-', 'hidden'],
+    ['line-', 'clamp'],
+  ].map((parts) => parts.join(''));
+  const classes = (element: Element) => (element.getAttribute('class') ?? '').split(/\s+/).filter(Boolean);
+  /** The cutting classes on an element and on its ancestors up to `top` (included). */
+  const cutsFrom = (element: Element, top: Element) => {
+    const found: string[] = [];
+    for (let node: Element | null = element; node; node = node.parentElement) {
+      for (const name of classes(node)) {
+        if (CUTTING.some((word) => name === word || name.startsWith(`${word}-`))) found.push(name);
+      }
+      if (node === top) break;
+    }
+    return found;
+  };
+  /** The first element holding text and no other element: an entry's or a child's label. */
+  const label = (row: Element) =>
+    Array.from(row.querySelectorAll('*')).find((node) => node.children.length === 0 && (node.textContent ?? '').trim() !== '');
+
+  function expectWholeLabels(container: HTMLElement) {
+    const entries = Array.from(container.querySelectorAll('[data-testid^="sidebar-item-"]'));
+    expect(entries.length).toBeGreaterThan(0);
+    for (const entry of entries) {
+      const name = entry.getAttribute('aria-label')!;
+      const text = label(entry);
+      expect(text?.textContent, name).toBe(name);
+      expect(cutsFrom(text!, entry), name).toEqual([]);
+    }
+  }
+
+  function expectWholeChildren(container: HTMLElement) {
+    const links = within(container).getAllByRole('link');
+    expect(links.length).toBeGreaterThan(0);
+    for (const link of links) {
+      const text = label(link);
+      expect(text, link.outerHTML.slice(0, 80)).toBeTruthy();
+      expect(cutsFrom(text!, link), text!.textContent!).toEqual([]);
+    }
+  }
+
+  /** Opens every group in turn and checks its children's labels while it is open. */
+  async function everyGroupOpen(check: () => void) {
+    const groups = Array.from(sidebar().querySelectorAll('[data-testid^="sidebar-item-"][aria-expanded]'));
+    expect(groups.length).toBeGreaterThan(1);
+    for (const group of groups) {
+      if (group.getAttribute('aria-expanded') === 'false') fireEvent.click(group);
+      await settle();
+      expect(group).toHaveAttribute('aria-expanded', 'true');
+      check();
+    }
+  }
+
+  it('the head holds the whole «Hub de Transformación · by FNE», and nothing on it cuts text', async () => {
+    await draw();
+    const first = within(sidebar()).getByText('Hub de Transformación');
+    const head = first.parentElement!;
+    expect(Array.from(head.children).map((line) => line.textContent)).toEqual(['Hub de Transformación', 'by FNE']);
+    // The words of today's line, in their order.
+    const words = (text: string) => text.split(/[\s·]+/).filter(Boolean);
+    expect(Array.from(head.children).flatMap((line) => words(line.textContent ?? ''))).toEqual(
+      words('Hub de Transformación · by FNE')
+    );
+    for (const line of Array.from(head.children)) expect(cutsFrom(line, sidebar())).toEqual([]);
+  });
+
+  it('expanded on a desktop: no entry\'s label and no child\'s label carries a class that cuts it', async () => {
+    go('/admin/feedback');
+    await draw({}, ADMIN);
+    expect(within(sidebar()).getByTestId('sidebar-item-vias-transformacion')).toBeInTheDocument();
+    expectWholeLabels(sidebar());
+    await everyGroupOpen(() => expectWholeChildren(sidebar().querySelector('nav')!));
+  });
+
+  it('in the phone\'s drawer: the same', async () => {
+    setWidth(390);
+    await draw({}, ADMIN);
+    fireEvent.click(screen.getByTestId('mobile-sidebar-trigger'));
+    await settle();
+    expect(sidebar().className).toContain('translate-x-0');
+    expectWholeLabels(sidebar());
+    await everyGroupOpen(() => expectWholeChildren(sidebar().querySelector('nav')!));
+  });
+
+  it('collapsed: no label in a group\'s floating list carries a class that cuts it', async () => {
+    window.localStorage.setItem('fne-sidebar-collapsed', 'true');
+    await draw({}, ADMIN);
+    const groups = Array.from(sidebar().querySelectorAll('[data-testid^="sidebar-item-"][aria-expanded]'));
+    expect(groups.length).toBeGreaterThan(1);
+    for (const group of groups) {
+      fireEvent.click(group);
+      const flyout = document.querySelector('[data-frame="flyout"]') as HTMLElement;
+      expect(flyout, group.getAttribute('aria-label')!).not.toBeNull();
+      const heading = within(flyout).getByRole('heading', { level: 3 });
+      expect(heading).toHaveTextContent(group.getAttribute('aria-label')!);
+      expect(cutsFrom(heading, flyout)).toEqual([]);
+      expectWholeChildren(flyout);
+      fireEvent.mouseDown(document.body);
+      expect(document.querySelector('[data-frame="flyout"]')).toBeNull();
+    }
+  });
+
+  it('the new frame: <main>\'s wrapper is a column filling the window under the top bar, <main> grows, the footer follows it', async () => {
+    await draw();
+    const main = screen.getByRole('main');
+    const wrapper = main.parentElement!;
+    const area = wrapper.parentElement!;
+    // The area beside the sidebar is a column at least as high as the window...
+    expect(classes(area)).toEqual(expect.arrayContaining(['min-h-screen', 'flex', 'flex-col']));
+    // ...the top bar keeps its height in it...
+    expect(classes(topBar())).toEqual(expect.arrayContaining(['shrink-0']));
+    expect(topBar().parentElement).toBe(area);
+    // ...the wrapper takes what is left (not a window's height of its own, which would push the
+    // footer a top bar's height below the window) and is a column too...
+    expect(classes(wrapper)).toEqual(expect.arrayContaining(['flex-1', 'flex', 'flex-col']));
+    expect(classes(wrapper)).not.toContain('min-h-screen');
+    // ...in which <main> grows and the footer comes last, directly after it.
+    expect(classes(main)).toEqual(expect.arrayContaining(['flex-1']));
+    expect(main.nextElementSibling).toBe(screen.getByTestId('footer-nuevo'));
+    // The page's light grey is the frame's own: nothing between it and the footer paints white.
+    expect(classes(area).some((name) => name.startsWith('bg-'))).toBe(false);
+    expect(classes(wrapper).some((name) => name.startsWith('bg-'))).toBe(false);
+    expect(classes(main).some((name) => name.startsWith('bg-'))).toBe(false);
+    expect(classes(area.parentElement!)).toContain('bg-gray-50');
+  });
+
+  it('today\'s frame: the same chain to <main>, with today\'s class names', async () => {
+    mocks.account = DOCENTE;
+    render(frame('clasico'));
+    await settle();
+    const main = screen.getByRole('main');
+    expect(main.className).toBe('flex-1');
+    expect(main.parentElement!.className).toBe('min-h-screen w-full');
+    expect(main.parentElement!.parentElement!.className).toBe('min-h-screen transition-all duration-300 lg:ml-80');
+    expect(document.querySelector('.sticky')!.className).toBe('bg-[#0a0a0a] sticky top-0 z-20 h-20 flex items-center');
   });
 });
 

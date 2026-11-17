@@ -14,7 +14,6 @@ import { ExpenseReportExporter } from '../lib/expenseReportExport';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 
 import { getUserPrimaryRole } from '../utils/roleUtils';
-import { EXPENSE_APPROVER_EMAIL } from '../utils/expenseConfig';
 interface ExpenseCategory {
   id: string;
   name: string;
@@ -201,11 +200,6 @@ export default function ExpenseReportsPage() {
     router.push('/login');
   };
 
-  // Check if current user is the designated approver
-  const isDesignatedApprover = () => {
-    return currentUser?.email === EXPENSE_APPROVER_EMAIL;
-  };
-
   /**
    * Ask the server to send the notification that matches the report's current
    * stored state. The browser passes only the id — recipient, subject and body
@@ -301,18 +295,12 @@ export default function ExpenseReportsPage() {
 
   const handleApproveReport = async (reportId: string) => {
     try {
-      // Get the designated approver's ID and name
-      const { data: approverProfile } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name')
-        .eq('email', EXPENSE_APPROVER_EMAIL)
-        .single();
-
+      // The reviewer recorded is the admin who pressed the button
       const { error } = await supabase
         .from('expense_reports')
-        .update({ 
+        .update({
           status: 'approved',
-          reviewed_by: approverProfile?.id || currentUser.id,
+          reviewed_by: currentUser.id,
           reviewed_at: new Date().toISOString()
         })
         .eq('id', reportId);
@@ -335,18 +323,12 @@ export default function ExpenseReportsPage() {
     const comments = prompt('Comentarios de rechazo (opcional):');
     
     try {
-      // Get the designated approver's ID and name
-      const { data: approverProfile } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name')
-        .eq('email', EXPENSE_APPROVER_EMAIL)
-        .single();
-
+      // The reviewer recorded is the admin who pressed the button
       const { error } = await supabase
         .from('expense_reports')
-        .update({ 
+        .update({
           status: 'rejected',
-          reviewed_by: approverProfile?.id || currentUser.id,
+          reviewed_by: currentUser.id,
           reviewed_at: new Date().toISOString(),
           review_comments: comments || undefined
         })
@@ -569,7 +551,7 @@ export default function ExpenseReportsPage() {
                                   </>
                                 )}
 
-                                {isDesignatedApprover() && report.status === 'submitted' && (
+                                {isAdmin && report.status === 'submitted' && (
                                   <>
                                     <button
                                       onClick={() => handleApproveReport(report.id)}

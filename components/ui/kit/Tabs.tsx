@@ -6,7 +6,8 @@ import { cx } from './cx';
  * Tabs: `Tabs` holds the choice (controlled with `value` + `onValueChange`, or uncontrolled with
  * `defaultValue`), `TabList` the row of `Tab`s (`role="tablist"`/`"tab"`), `TabPanel` the content of
  * each (`role="tabpanel"`, named by its tab). Keyboard: Left/Right move to the previous/next tab and
- * select it, Home/End to the first/last; only the selected tab is in the tab order. The row scrolls
+ * select it, Home/End to the first/last; only the selected tab is in the tab order (the first enabled
+ * one while no enabled tab is selected, so the keyboard can always get in). The row scrolls
  * sideways when it does not fit.
  *
  * `TabLinks`: the same row for tabs that are addresses (each a link; the current one `aria-current="page"`).
@@ -26,9 +27,16 @@ function useTabs(part: string): TabsState {
   return state;
 }
 
-const safe = (value: string) => value.replace(/[^A-Za-z0-9_-]/g, '_');
+/**
+ * A value as an id part, one to one: letters, digits and `-` stay; every other character (`_` too)
+ * becomes `_<its code in hex>_`. So `por escuela`, `por/escuela` and `por_escuela` get three ids.
+ */
+const safe = (value: string) => Array.from(value, (char) => (/[A-Za-z0-9-]/.test(char) ? char : `_${char.codePointAt(0)?.toString(16)}_`)).join('');
 const tabId = (base: string, value: string) => `${base}-tab-${safe(value)}`;
 const panelId = (base: string, value: string) => `${base}-panel-${safe(value)}`;
+
+/** The tab that takes the keyboard's Tab when no enabled tab is selected (its id), set by its TabList. */
+const FallbackStopContext = React.createContext<string | null>(null);
 
 export interface TabsProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'defaultValue' | 'onChange'> {
   value?: string;
@@ -77,40 +85,54 @@ export interface TabListProps extends React.HTMLAttributes<HTMLDivElement> {
   label: string;
 }
 
+const useLayoutEffectOnClient = typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect;
+
 export function TabList({ label, className, children, onKeyDown, ...rest }: TabListProps) {
   const rowRef = React.useRef<HTMLDivElement>(null);
+  // With no enabled tab selected (none chosen yet, or the chosen one disabled), the first enabled tab is
+  // the row's tab stop, so the keyboard can always get in. Read from the row after every render.
+  const [fallback, setFallback] = React.useState<string | null>(null);
+  useLayoutEffectOnClient(() => {
+    const tabs = Array.from(rowRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? []);
+    const enabled = tabs.filter((tab) => !tab.disabled);
+    const selectedEnabled = enabled.some((tab) => tab.getAttribute('aria-selected') === 'true');
+    const next = selectedEnabled ? null : enabled[0]?.id ?? null;
+    setFallback((current) => (current === next ? current : next));
+  });
   return (
-    <div
-      ref={rowRef}
-      role="tablist"
-      aria-label={label}
-      aria-orientation="horizontal"
-      className={cx(ROW, className)}
-      onKeyDown={(event) => {
-        onKeyDown?.(event);
-        if (event.defaultPrevented) return;
-        const tabs = Array.from(rowRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]:not([disabled])') ?? []);
-        const at = tabs.indexOf(document.activeElement as HTMLButtonElement);
-        if (at < 0 || tabs.length === 0) return;
-        const to =
-          event.key === 'ArrowRight'
-            ? (at + 1) % tabs.length
-            : event.key === 'ArrowLeft'
-              ? (at - 1 + tabs.length) % tabs.length
-              : event.key === 'Home'
-                ? 0
-                : event.key === 'End'
-                  ? tabs.length - 1
-                  : -1;
-        if (to < 0) return;
-        event.preventDefault();
-        tabs[to].focus();
-        tabs[to].click();
-      }}
-      {...rest}
-    >
-      {children}
-    </div>
+    <FallbackStopContext.Provider value={fallback}>
+      <div
+        ref={rowRef}
+        role="tablist"
+        aria-label={label}
+        aria-orientation="horizontal"
+        className={cx(ROW, className)}
+        onKeyDown={(event) => {
+          onKeyDown?.(event);
+          if (event.defaultPrevented) return;
+          const tabs = Array.from(rowRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]:not([disabled])') ?? []);
+          const at = tabs.indexOf(document.activeElement as HTMLButtonElement);
+          if (at < 0 || tabs.length === 0) return;
+          const to =
+            event.key === 'ArrowRight'
+              ? (at + 1) % tabs.length
+              : event.key === 'ArrowLeft'
+                ? (at - 1 + tabs.length) % tabs.length
+                : event.key === 'Home'
+                  ? 0
+                  : event.key === 'End'
+                    ? tabs.length - 1
+                    : -1;
+          if (to < 0) return;
+          event.preventDefault();
+          tabs[to].focus();
+          tabs[to].click();
+        }}
+        {...rest}
+      >
+        {children}
+      </div>
+    </FallbackStopContext.Provider>
   );
 }
 
@@ -120,16 +142,19 @@ export interface TabProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElem
 
 export const Tab = React.forwardRef<HTMLButtonElement, TabProps>(function Tab({ value, className, onClick, ...rest }, ref) {
   const { baseId, value: current, select } = useTabs('Tab');
+  const fallback = React.useContext(FallbackStopContext);
   const selected = current === value;
+  const id = tabId(baseId, value);
+  const stop = (selected && !rest.disabled) || fallback === id;
   return (
     <button
       ref={ref}
       type="button"
       role="tab"
-      id={tabId(baseId, value)}
+      id={id}
       aria-selected={selected}
       aria-controls={panelId(baseId, value)}
-      tabIndex={selected ? 0 : -1}
+      tabIndex={stop ? 0 : -1}
       onClick={(event) => {
         onClick?.(event);
         if (!event.defaultPrevented) select(value);

@@ -86,6 +86,83 @@ describe('Tabs', () => {
     expect(screen.getByRole('tabpanel')).toHaveFocus();
   });
 
+  // 5c send-back 1, defect 7a: there is always one way in by the keyboard.
+  it('with nothing selected, the first enabled tab is the tab stop', async () => {
+    render(
+      <>
+        <button type="button">Antes</button>
+        <Tabs>
+          <TabList label="Sin elegir">
+            <Tab value="uno" disabled>
+              Uno
+            </Tab>
+            <Tab value="dos">Dos</Tab>
+            <Tab value="tres">Tres</Tab>
+          </TabList>
+        </Tabs>
+      </>
+    );
+    expect(tab('Dos')).toHaveAttribute('tabindex', '0');
+    expect(tab('Tres')).toHaveAttribute('tabindex', '-1');
+    screen.getByRole('button', { name: 'Antes' }).focus();
+    await userEvent.tab();
+    expect(tab('Dos')).toHaveFocus();
+  });
+
+  it('when the selected tab is disabled, the first enabled tab is the tab stop', async () => {
+    function Disabling() {
+      const [off, setOff] = React.useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOff(true)}>
+            Bloquear
+          </button>
+          <Tabs value="dos">
+            <TabList label="Bloqueable">
+              <Tab value="uno">Uno</Tab>
+              <Tab value="dos" disabled={off}>
+                Dos
+              </Tab>
+            </TabList>
+          </Tabs>
+        </>
+      );
+    }
+    render(<Disabling />);
+    expect(tab('Dos')).toHaveAttribute('tabindex', '0');
+    expect(tab('Uno')).toHaveAttribute('tabindex', '-1');
+    await userEvent.click(screen.getByRole('button', { name: 'Bloquear' }));
+    expect(tab('Uno')).toHaveAttribute('tabindex', '0');
+    await userEvent.tab();
+    expect(tab('Uno')).toHaveFocus();
+  });
+
+  // 5c send-back 1, defect 7b.
+  it('values that differ only in signs get different ids, and each panel is named by its own tab', async () => {
+    render(
+      <Tabs defaultValue="por escuela">
+        <TabList label="Vistas">
+          <Tab value="por escuela">Por escuela</Tab>
+          <Tab value="por/escuela">Por red</Tab>
+          <Tab value="por_escuela">Por comuna</Tab>
+        </TabList>
+        <TabPanel value="por escuela">Vista uno</TabPanel>
+        <TabPanel value="por/escuela">Vista dos</TabPanel>
+        <TabPanel value="por_escuela">Vista tres</TabPanel>
+      </Tabs>
+    );
+    const ids = screen.getAllByRole('tab').map((element) => element.id);
+    expect(new Set(ids).size).toBe(3);
+    const controls = screen.getAllByRole('tab').map((element) => element.getAttribute('aria-controls'));
+    expect(new Set(controls).size).toBe(3);
+    expect(screen.getByRole('tabpanel', { name: 'Por escuela' })).toHaveTextContent('Vista uno');
+    await userEvent.click(tab('Por red'));
+    expect(screen.getByRole('tabpanel', { name: 'Por red' })).toHaveTextContent('Vista dos');
+    expect(tab('Por red')).toHaveAttribute('aria-controls', screen.getByRole('tabpanel').id);
+    await userEvent.click(tab('Por comuna'));
+    expect(screen.getByRole('tabpanel', { name: 'Por comuna' })).toHaveTextContent('Vista tres');
+  });
+
   it('controlled: the parent decides', async () => {
     function Controlled() {
       const [value, setValue] = React.useState('materiales');

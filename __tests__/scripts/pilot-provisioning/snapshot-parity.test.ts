@@ -85,7 +85,29 @@ function fakeClient(tables: Record<string, Row[]>) {
     };
     return chain;
   };
-  return { from, tables };
+  // GC-10 send-back 1: public.publish_assessment_template writes the snapshot
+  // and flips the template in one call (the CLI's service-role client runs it).
+  const rpc = async (fn: string, args: { p_template_id: string; p_expected_version: string; p_snapshot_data: Row }) => {
+    if (fn !== 'publish_assessment_template') return { data: null, error: { message: `unknown function ${fn}` } };
+    const template = (tables.assessment_templates ?? []).find((t) => t.id === args.p_template_id);
+    if (!template || template.status !== 'draft' || template.version !== args.p_expected_version) {
+      return { data: { ok: false, code: 'template_not_draft' }, error: null };
+    }
+    const [major, minor] = String(template.version).split('.').map(Number);
+    const version = `${major}.${minor + 1}.0`;
+    const snapshot = { id: `gen-${(serial += 1)}`, created_at: '2026-09-07T12:00:00.000Z', template_id: template.id, version, snapshot_data: args.p_snapshot_data };
+    (tables.assessment_template_snapshots ??= []).push(snapshot);
+    Object.assign(template, { status: 'published', version });
+    return {
+      data: {
+        ok: true, version,
+        template: { id: template.id, name: template.name, area: template.area, status: template.status, version },
+        snapshot: { id: snapshot.id, version, created_at: snapshot.created_at },
+      },
+      error: null,
+    };
+  };
+  return { from, rpc, tables };
 }
 
 function seedTables(templateKey: string) {

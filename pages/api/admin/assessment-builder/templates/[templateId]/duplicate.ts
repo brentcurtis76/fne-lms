@@ -15,6 +15,8 @@ import {
  * 2. Copies all modules (new IDs, same sort_order)
  * 3. Copies all indicators under each module (new IDs)
  * 4. Copies all expectations for each indicator (new IDs, linked to new indicator)
+ *    and each indicator's visibility condition, with references to this
+ *    instrument's indicators pointed at their copies
  *
  * Request body: { name: string, grade_id: number | null }
  * (grade_id is null for a template of a school-level vía; 20261008120000)
@@ -201,7 +203,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Get all indicators from source modules and track ID mapping
-    const indicatorIdMap: Record<string, string> = {};
+    const indicatorIdMap = new Map<string, string>();
 
     if (Object.keys(moduleIdMap).length > 0) {
       const sourceModuleIds = Object.keys(moduleIdMap);
@@ -220,6 +222,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Copy indicators and track ID mapping
+      const withCondition: Array<{ copyId: string; condition: unknown }> = [];
       for (const sourceIndicator of sourceIndicators || []) {
         const newModuleId = moduleIdMap[sourceIndicator.module_id];
         if (!newModuleId) continue;
@@ -243,23 +246,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             weight: sourceIndicator.weight,
             detalle_options: sourceIndicator.detalle_options,
             evaluation_guidance: sourceIndicator.evaluation_guidance,
+            // Written below, once every copied indicator has its id.
+            visibility_condition: null,
           })
           .select('id')
           .single();
 
         if (newIndicatorError || !newIndicator) {
           console.error('Error copying indicator:', newIndicatorError);
-          // Continue - don't fail entire operation for one indicator
-        } else {
-          indicatorIdMap[sourceIndicator.id] = newIndicator.id;
+          // A copy is all or nothing as far as its indicators go: remove the
+          // half-made copy as for a práctica that cannot be copied (indicators
+          // go with their modules by cascade).
+          await supabaseClient.from('assessment_modules').delete().eq('template_id', newTemplate.id);
+          await supabaseClient.from('assessment_objectives').delete().eq('template_id', newTemplate.id);
+          await supabaseClient.from('assessment_templates').delete().eq('id', newTemplate.id);
+          return res.status(500).json({ error: INCOMPLETE_COPY_MESSAGE });
+        }
+        indicatorIdMap.set(sourceIndicator.id, newIndicator.id);
+        if (sourceIndicator.visibility_condition != null) {
+          withCondition.push({ copyId: newIndicator.id, condition: sourceIndicator.visibility_condition });
+        }
+      }
+
+      // Visibility conditions are written once every indicator has its new id:
+      // a condition may name another indicator of this instrument by id
+      // (before or after it, in any práctica), and in the copy that reference
+      // must point at the copy's own indicator.
+      for (const { copyId, condition } of withCondition) {
+        const { error: conditionError } = await supabaseClient
+          .from('assessment_indicators')
+          .update({ visibility_condition: remapIndicatorIds(condition, indicatorIdMap) })
+          .eq('id', copyId);
+
+        if (conditionError) {
+          console.error('Error copying visibility condition:', conditionError);
+          await supabaseClient.from('assessment_modules').delete().eq('template_id', newTemplate.id);
+          await supabaseClient.from('assessment_objectives').delete().eq('template_id', newTemplate.id);
+          await supabaseClient.from('assessment_templates').delete().eq('id', newTemplate.id);
+          return res.status(500).json({ error: INCOMPLETE_COPY_MESSAGE });
         }
       }
     }
 
     // Copy expectations for all indicators
     let expectationCount = 0;
-    if (Object.keys(indicatorIdMap).length > 0) {
-      const sourceIndicatorIds = Object.keys(indicatorIdMap);
+    if (indicatorIdMap.size > 0) {
+      const sourceIndicatorIds = Array.from(indicatorIdMap.keys());
       const { data: sourceExpectations, error: expectationsError } = await supabaseClient
         .from('assessment_year_expectations')
         .select('*')
@@ -270,7 +302,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Don't fail - expectations are optional
       } else if (sourceExpectations && sourceExpectations.length > 0) {
         for (const sourceExpectation of sourceExpectations) {
-          const newIndicatorId = indicatorIdMap[sourceExpectation.indicator_id];
+          const newIndicatorId = indicatorIdMap.get(sourceExpectation.indicator_id);
           if (!newIndicatorId) continue;
 
           const { error: newExpectationError } = await supabaseClient
@@ -321,7 +353,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         } else if (sw.entity_type === 'module') {
           newEntityId = moduleIdMap[sw.entity_id];
         } else if (sw.entity_type === 'indicator') {
-          newEntityId = indicatorIdMap[sw.entity_id];
+          newEntityId = indicatorIdMap.get(sw.entity_id);
         }
         if (!newEntityId) continue;
 
@@ -389,4 +421,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.error('Unexpected error duplicating template:', err);
     return res.status(500).json({ error: err.message || 'Error al duplicar template' });
   }
+}
+
+/** Answer for a copy whose indicators or their conditions could not all be written. */
+const INCOMPLETE_COPY_MESSAGE = 'No se pudo copiar el instrumento completo. Inténtalo de nuevo.';
+
+/**
+ * A copy of a visibility condition with every source indicator id replaced by
+ * the copy's id. Any string is translated wherever it sits, as a value (a
+ * rule's `field`, its `value`, an element of an `in` list) or as an object key,
+ * at any depth (arrays, nested objects); an id inside a longer string is
+ * replaced too: an indicator id is a UUID, so it cannot stand for anything
+ * else. The lookup is a Map, so text such as "constructor" or "__proto__" is
+ * ordinary text and is copied unchanged. Ids of indicators outside this
+ * instrument are left as they are.
+ */
+export function remapIndicatorIds(condition: unknown, idMap: ReadonlyMap<string, string>): unknown {
+  const ids = Array.from(idMap.keys());
+  const translateText = (text: string): string => {
+    const direct = idMap.get(text);
+    if (direct !== undefined) return direct;
+    let out = text;
+    for (const id of ids) if (out.includes(id)) out = out.split(id).join(idMap.get(id) as string);
+    return out;
+  };
+  const translate = (value: unknown): unknown => {
+    if (typeof value === 'string') return translateText(value);
+    if (Array.isArray(value)) return value.map(translate);
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value as Record<string, unknown>).map(([k, v]) => [translateText(k), translate(v)]),
+      );
+    }
+    return value;
+  };
+  return translate(condition);
 }

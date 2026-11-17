@@ -13,10 +13,8 @@
  *  - the same holds when the plan GET throws instead of answering (D1)
  *  - a pure assigned consultor with a successful plan response still reads the
  *    plan and has no usable write action on the loaded state (D2)
- *  - an assigned consultor who toggles a cell and presses "Guardar Plan" hits
- *    the route's consultor write refusal (403 with its access-denied copy): the
- *    error is surfaced and no saved state, success toast or successful write
- *    result occurs (D2)
+ *  - an assigned consultor is never offered "Guardar Plan", even after
+ *    toggling a cell, and no write is sent (D2; N8)
  *  - admin and equipo_directivo keep the editable surface and the save control,
  *    which becomes usable after a cell toggle (D3)
  *  - an admin whose first school fails to load recovers in the same mount when
@@ -97,7 +95,14 @@ function installFetch(plan: PlanReply | ((schoolId: number) => PlanReply), putRe
   return fetchMock;
 }
 
-const OK_PLAN = { status: 200, body: { grades: GRADES, entries: [], transformation_year: 2 } } as const;
+// A SAVED plan (GC-6: with nothing saved, every cell is GT — what registros are
+// created with — and «Guardar Plan» is enabled, so "disabled until a change"
+// is only true of a saved plan).
+const SAVED_ENTRIES = [1, 2, 3, 4, 5].flatMap((year) => [
+  { year_number: year, grade_id: 1, generation_type: 'GT' },
+  { year_number: year, grade_id: 7, generation_type: 'GI' },
+]);
+const OK_PLAN = { status: 200, body: { grades: GRADES, entries: SAVED_ENTRIES, transformation_year: 2 } } as const;
 
 function installSupabase(roles: Array<{ role_type: string; school_id: number | null }>) {
   supabaseHolder.current = {
@@ -162,36 +167,94 @@ describe('migration-plan page denied state (PROC-11)', () => {
     expect(await screen.findByText('Matriz de Migración')).toBeInTheDocument();
     expect(screen.getByText('Tercero Básico')).toBeInTheDocument();
     expect(screen.queryByText('Acceso Denegado')).toBeNull();
-    expect(screen.getByRole('button', { name: /Guardar Plan/ })).toBeDisabled();
+    // N8: a consultor reads the plan; «Guardar Plan» is not offered.
+    expect(screen.queryByRole('button', { name: /Guardar Plan/ })).toBeNull();
   });
 
-  it('D2: an assigned consultor who toggles a cell and saves gets the server refusal and no saved state', async () => {
+  it('D2: an assigned consultor who toggles a cell is still offered no save, and nothing is sent', async () => {
     installSupabase(ASSIGNED_CONSULTOR);
-    const fetchMock = installFetch(OK_PLAN, {
-      status: 403,
-      body: { error: 'Solo directivos y administradores pueden acceder al plan de migración' },
-    });
+    const fetchMock = installFetch(OK_PLAN);
 
     render(<MigrationPlanPage />);
 
     expect(await screen.findByText('Matriz de Migración')).toBeInTheDocument();
-    const save = screen.getByRole('button', { name: /Guardar Plan/ });
-    expect(save).toBeDisabled();
-
     fireEvent.click(screen.getAllByRole('button', { name: 'GI' })[0]);
-    await waitFor(() => expect(save).toBeEnabled());
 
-    fireEvent.click(save);
-
-    await waitFor(() =>
-      expect(mockToastError).toHaveBeenCalledWith('Solo directivos y administradores pueden acceder al plan de migración'),
-    );
-    expect(mockToastSuccess).not.toHaveBeenCalled();
-    expect(mockToast).not.toHaveBeenCalled();
-    expect(screen.queryByText('Todos los cambios guardados')).toBeNull();
-    expect(screen.getByText('Tienes cambios sin guardar')).toBeInTheDocument();
+    // N8: the route refuses a consultor's save (its message is pinned in
+    // __tests__/api/school/migration-plan-assignment-auth.test.ts); the page
+    // never offers it.
+    expect(screen.queryByRole('button', { name: /Guardar Plan/ })).toBeNull();
     const puts = fetchMock.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === 'PUT');
-    expect(puts).toHaveLength(1);
+    expect(puts).toHaveLength(0);
+    expect(mockToastSuccess).not.toHaveBeenCalled();
+  });
+
+  it('P4: an assigned consultor sees the cells read-only, so «Tienes cambios sin guardar» never appears', async () => {
+    installSupabase(ASSIGNED_CONSULTOR);
+    installFetch(OK_PLAN);
+
+    render(<MigrationPlanPage />);
+
+    expect(await screen.findByText('Matriz de Migración')).toBeInTheDocument();
+    const cells = [...screen.getAllByRole('button', { name: 'GI' }), ...screen.getAllByRole('button', { name: 'GT' })];
+    expect(cells.length).toBe(10);
+    for (const cell of cells) expect(cell).toBeDisabled();
+    fireEvent.click(screen.getAllByRole('button', { name: 'GI' })[0]);
+    expect(screen.getAllByRole('button', { name: 'GI' })).toHaveLength(5); // nothing toggled
+    expect(screen.queryByText('Tienes cambios sin guardar')).toBeNull();
+    expect(screen.getByText('Todos los cambios guardados')).toBeInTheDocument();
+  });
+
+  it('T4: an assigned consultor\'s read-only cells say «Solo lectura», never «Clic para cambiar…»', async () => {
+    installSupabase(ASSIGNED_CONSULTOR);
+    installFetch(OK_PLAN);
+
+    render(<MigrationPlanPage />);
+
+    expect(await screen.findByText('Matriz de Migración')).toBeInTheDocument();
+    const cells = [...screen.getAllByRole('button', { name: 'GI' }), ...screen.getAllByRole('button', { name: 'GT' })];
+    for (const cell of cells) expect(cell.getAttribute('title') ?? '').not.toMatch(/Clic para cambiar/);
+    // Grade 7 can change for those who may write; for the consultor it is read-only.
+    for (const cell of screen.getAllByRole('button', { name: 'GI' })) expect(cell).toHaveAttribute('title', 'Solo lectura');
+    // An always-GT grade keeps saying why it is locked.
+    expect(screen.getAllByTitle('Este nivel es siempre GT')).toHaveLength(5);
+  });
+
+  it('T4: a directivo\'s editable cells keep «Clic para cambiar…»', async () => {
+    installSupabase(DIRECTIVO);
+    installFetch(OK_PLAN);
+    setRouter({});
+
+    render(<MigrationPlanPage />);
+
+    expect(await screen.findByText('Matriz de Migración')).toBeInTheDocument();
+    for (const cell of screen.getAllByRole('button', { name: 'GI' })) expect(cell).toHaveAttribute('title', 'Clic para cambiar a GT');
+  });
+
+  it('P4: with no saved plan the footer says the plan is not saved, not «Todos los cambios guardados»', async () => {
+    installSupabase(DIRECTIVO);
+    installFetch({ status: 200, body: { grades: GRADES, entries: [], transformation_year: 2 } });
+    setRouter({});
+
+    render(<MigrationPlanPage />);
+
+    expect(await screen.findByText('Matriz de Migración')).toBeInTheDocument();
+    expect(screen.getByText('Plan sin guardar: se muestra lo que el sistema aplica hoy')).toBeInTheDocument();
+    expect(screen.queryByText('Todos los cambios guardados')).toBeNull();
+    // A directivo can still change cells; then the unsaved-changes line shows.
+    fireEvent.click(screen.getAllByRole('button', { name: 'GT' })[5]);
+    expect(await screen.findByText('Tienes cambios sin guardar')).toBeInTheDocument();
+  });
+
+  it('P4: with a saved plan and no change the footer still says «Todos los cambios guardados»', async () => {
+    installSupabase(DIRECTIVO);
+    installFetch(OK_PLAN);
+    setRouter({});
+
+    render(<MigrationPlanPage />);
+
+    expect(await screen.findByText('Todos los cambios guardados')).toBeInTheDocument();
+    expect(screen.queryByText('Plan sin guardar: se muestra lo que el sistema aplica hoy')).toBeNull();
   });
 
   it('D3: an admin keeps the editable plan surface and the save control', async () => {

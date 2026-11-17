@@ -157,6 +157,9 @@ function formatDate(dateStr: string): string {
 // createLicitacion
 // ============================================================
 
+export const SIN_CLIENTE_MESSAGE =
+  'Esta escuela no tiene un cliente vinculado. Vincule un cliente antes de crear la licitación.';
+
 /**
  * Creates a new licitacion.
  * Admin-only: must be called with service role client from API route.
@@ -176,6 +179,11 @@ export async function createLicitacion(
 
   if (schoolError || !school) {
     throw new Error('Escuela no encontrada');
+  }
+
+  // Every later step needs the school's client: refuse a tender without one.
+  if (!school.cliente_id) {
+    throw new Error(SIN_CLIENTE_MESSAGE);
   }
 
   // 2. Validate programa exists
@@ -210,7 +218,7 @@ export async function createLicitacion(
       const insertData = {
         numero_licitacion: numeroLicitacion,
         school_id: data.school_id,
-        cliente_id: school.cliente_id ?? null,
+        cliente_id: school.cliente_id,
         programa_id: data.programa_id,
         nombre_licitacion: data.nombre_licitacion,
         year: data.year,
@@ -746,7 +754,7 @@ export async function confirmAdjudicacion(
   // 1. Fetch current licitacion
   const { data: existing, error: fetchError } = await supabase
     .from('licitaciones')
-    .select('id, estado, ganador_ate_id')
+    .select('id, estado, ganador_ate_id, carta_adjudicacion_url')
     .eq('id', licitacionId)
     .single();
 
@@ -764,6 +772,12 @@ export async function confirmAdjudicacion(
     throw new Error(
       'Debe seleccionar un ATE ganador antes de confirmar la adjudicacion.'
     );
+  }
+
+  // The contract step needs the generated Carta; an award to the foundation
+  // confirmed without it would leave the tender stuck in contrato_pendiente.
+  if (esFne && !existing.carta_adjudicacion_url) {
+    throw new Error('Genere la Carta de adjudicación antes de confirmar la adjudicación.');
   }
 
   const newEstado: LicitacionEstado = esFne ? 'contrato_pendiente' : 'adjudicada_externo';
@@ -859,7 +873,7 @@ export async function linkContractToLicitacion(
 
   if (!existing.carta_adjudicacion_url) {
     throw new Error(
-      'No se puede generar contrato: falta la carta de adjudicacion firmada.'
+      'No se puede generar contrato: falta la Carta de adjudicación generada (Paso 6 — Adjudicación).'
     );
   }
 

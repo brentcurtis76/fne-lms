@@ -58,6 +58,8 @@ const PLAN_DATA_TABLES = [PLAN_TABLE, CONTEXT_TABLE, GRADES_TABLE];
 const SAVE_WRITE_TABLES = [PLAN_TABLE, HISTORY_TABLE, STATUS_TABLE];
 
 const DENIED = 'Solo directivos y administradores pueden acceder al plan de migración';
+// N8: an ADMITTED (assigned) consultor's write is refused with its own message.
+const CONSULTOR_READ_ONLY = 'Los consultores pueden ver el plan, pero no modificarlo';
 
 // ── Recording, predicate-evaluating table mock ─────────────────
 type Call = { method: string; args: unknown[] };
@@ -300,7 +302,7 @@ describe('D8 — active assigned consultor: GET admitted, PUT refused before pla
     const { status, json } = await put(saveBody(SCHOOL_ID));
 
     expect(status).toBe(403);
-    expect(json).toEqual({ error: DENIED });
+    expect(json).toEqual({ error: CONSULTOR_READ_ONLY });
     expectRefusedBeforePlanAccess(ctx);
   });
 
@@ -310,7 +312,7 @@ describe('D8 — active assigned consultor: GET admitted, PUT refused before pla
     const { status, json } = await put({ school_id: SCHOOL_ID, entries: 'not-an-array' });
 
     expect(status).toBe(403);
-    expect(json).toEqual({ error: DENIED });
+    expect(json).toEqual({ error: CONSULTOR_READ_ONLY });
     expectRefusedBeforePlanAccess(ctx);
   });
 
@@ -343,6 +345,26 @@ describe('D9 — every other consultor case is denied before plan data, on GET a
     expect(status).toBe(403);
     expect(json.error).toBe(DENIED);
     expectNoPlanDataAccess(ctx);
+  });
+
+  it('P2: denies a consultor whose only assignment ended yesterday, as an unassigned one', async () => {
+    const ended = { ...assignmentRow(SCHOOL_ID), ends_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() };
+    const ctx = arrange({ assignments: [ended] });
+    const { status, json } = await get({ school_id: String(SCHOOL_ID) });
+    expect(status).toBe(403);
+    expect(json.error).toBe(DENIED);
+    expectNoPlanDataAccess(ctx);
+    const write = await put(saveBody(SCHOOL_ID));
+    expect(write.status).toBe(403);
+    expect(write.json.error).toBe(DENIED);
+  });
+
+  it('P2: admits a consultor whose assignment ends tomorrow or has no end', async () => {
+    for (const ends_at of [new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), null]) {
+      arrange({ assignments: [{ ...assignmentRow(SCHOOL_ID), ends_at }], planRows: [planRow(SCHOOL_ID, 1, 7)] });
+      const { status } = await get({ school_id: String(SCHOOL_ID) });
+      expect(status).toBe(200);
+    }
   });
 
   it('denies a consultor when the assignment lookup errors', async () => {

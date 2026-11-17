@@ -1894,15 +1894,23 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
   // Available data for filters
   const [availableAuthors, setAvailableAuthors] = useState<Array<{ id: string; name: string }>>([]);
 
+  // The open conversation, read by the live-message handler: the handler is
+  // made once per subscription, so reading `selectedThread` there saw only the
+  // conversation open when it was made (none) and dropped every message (EC-M5).
+  const openThreadIdRef = useRef<string | null>(null);
+  openThreadIdRef.current = selectedThread?.id ?? null;
+
   useEffect(() => {
+    let subscription: { unsubscribe: () => void } | undefined;
     if (workspace && user) {
       loadMessagingData();
       loadPermissions();
-      setupRealtimeSubscription();
+      subscription = setupRealtimeSubscription();
     }
 
     return () => {
-      // Cleanup realtime subscription
+      // Close the live connection when the page or the community is left (EC-M5)
+      subscription?.unsubscribe();
     };
   }, [workspace, user?.id]);
 
@@ -2076,8 +2084,12 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     try {
       const subscription = subscribeToWorkspaceMessages(workspace.id, {
         onMessage: (message) => {
-          if (selectedThread && message.thread_id === selectedThread.id) {
-            setMessages(prev => [...prev, message]);
+          if (message.thread_id === openThreadIdRef.current) {
+            // Once only: the sender's own message is already shown by handleMessageSend
+            setMessages(prev => (prev.some(existing => existing.id === message.id) ? prev : [...prev, message]));
+            // Its attachments are not read again here: a live message of
+            // another person shows them once the conversation is reopened
+            // (send-back 3, X1).
           }
           // Update thread last message
           setThreads(prev => prev.map(thread => 
@@ -2093,7 +2105,10 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
           ));
         },
         onThread: (thread) => {
-          setThreads(prev => [thread, ...prev]);
+          // By id: the person's own new thread may already be listed by handleThreadCreate.
+          setThreads(prev => (prev.some(existing => existing.id === thread.id)
+            ? prev.map(existing => (existing.id === thread.id ? thread : existing))
+            : [thread, ...prev]));
         },
         onReaction: (reaction) => {
           // Update message reactions
@@ -2123,20 +2138,39 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     setActiveView('messages');
   };
 
+  // The thread row of an attempt whose first message failed, passed back on
+  // the next press so the conversation is not inserted twice (send-back 1, 1).
+  const pendingThreadRef = useRef<{ workspaceId: string; threadId: string } | null>(null);
+
+  const closeThreadCreationModal = () => {
+    pendingThreadRef.current = null;
+    setShowThreadCreationModal(false);
+  };
+
   const handleThreadCreate = async (threadData: any) => {
     if (!workspace || !user) return;
 
+    const pending = pendingThreadRef.current?.workspaceId === workspace.id ? pendingThreadRef.current.threadId : undefined;
     try {
-      const newThread = await createThread(workspace.id, threadData, user.id);
-      setThreads(prev => [newThread, ...prev]);
+      const newThread = await createThread(workspace.id, threadData, user.id, pending);
+      pendingThreadRef.current = null;
+      // A retry's thread row may already be listed (its live event came with the first attempt).
+      setThreads(prev => [newThread, ...prev.filter(thread => thread.id !== newThread.id)]);
       setSelectedThread(newThread);
       setActiveView('messages');
       setShowThreadCreationModal(false);
       toast.success('Hilo de conversación creado exitosamente');
     } catch (error: any) {
       console.error('Error creating thread:', error);
-      console.error('Error details:', error.message);
-      toast.error(`Error al crear el hilo: ${error.message || 'Error desconocido'}`);
+      if (typeof error?.threadId === 'string') {
+        // The thread row exists but its first message does not: not created.
+        pendingThreadRef.current = { workspaceId: workspace.id, threadId: error.threadId };
+        toast.error('No se pudo crear la conversación. Tu texto sigue aquí; inténtalo de nuevo.');
+      } else {
+        toast.error(`Error al crear el hilo: ${error?.message || 'Error desconocido'}`);
+      }
+      // Rejecting keeps the modal open with everything the person typed.
+      throw error;
     }
   };
 
@@ -2161,7 +2195,14 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
         }
       } : newMessage;
 
-      setMessages(prev => [...prev, messageWithReply]);
+      // By id: the live event of this same message may have arrived while the
+      // send was still storing attachments. The completed entry (attachments,
+      // reply) replaces it instead of being added a second time.
+      setMessages(prev =>
+        prev.some(existing => existing.id === messageWithReply.id)
+          ? prev.map(existing => (existing.id === messageWithReply.id ? { ...existing, ...messageWithReply } : existing))
+          : [...prev, messageWithReply]
+      );
       setReplyToMessage(null); // Clear reply state after sending
       toast.success('Mensaje enviado');
     } catch (error) {
@@ -2602,6 +2643,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
                     onDelete={handleDeleteMessage}
                     onReaction={handleReaction}
                     onPreviewAttachment={handleAttachmentPreview}
+                    onDownloadAttachment={handleAttachmentDownload}
                     permissions={permissions}
                   />
                 ))
@@ -2656,7 +2698,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
       {showThreadCreationModal && (
         <ThreadCreationModal
           isOpen={showThreadCreationModal}
-          onClose={() => setShowThreadCreationModal(false)}
+          onClose={closeThreadCreationModal}
           onCreateThread={handleThreadCreate}
           loading={loading}
         />

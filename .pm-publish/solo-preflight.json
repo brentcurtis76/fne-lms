@@ -1,0 +1,11 @@
+[
+  {
+    "path": "supabase/migrations/20261116179700_one_running_proposal_generation.sql",
+    "line": 12,
+    "code": "ADD_CONSTRAINT",
+    "fn": "violation_count",
+    "table": "public.propuesta_generadas",
+    "predicate": "estado IS DISTINCT FROM 'generando'",
+    "label": "Rows of propuesta_generadas that are a generation still running (must be none when the one-running-per-tender rule is added)"
+  }
+]

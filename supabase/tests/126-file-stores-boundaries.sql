@@ -300,9 +300,10 @@ SELECT is((SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'facturas
 SELECT is((SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'resources'), 0, 'visitor lists 0 rows in resources');
 SELECT is((SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'assignments'), 0, 'visitor lists 0 rows in assignments');
 SELECT is((SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'boletas'), 0, 'visitor lists 0 rows in boletas');
-SELECT is(pg_temp.n('community-images', 'community-images/12600000-0000-4000-8000-0000000000b1-1.png'), 1, 'visitor still lists community-images (unchanged)');
-SELECT is(pg_temp.n('course-materials', 'bibliography/f2b126/guia.pdf'), 1, 'visitor still lists course-materials (unchanged)');
-SELECT is(pg_temp.n('f2b126-other', 'f2b126/o.txt'), 1, 'visitor still reads an ungoverned bucket');
+-- N124 (20261116179800): a visitor lists no store at all (these three were 1 under F2b alone).
+SELECT is(pg_temp.n('community-images', 'community-images/12600000-0000-4000-8000-0000000000b1-1.png'), 0, 'visitor no longer lists community-images (N124)');
+SELECT is(pg_temp.n('course-materials', 'bibliography/f2b126/guia.pdf'), 0, 'visitor no longer lists course-materials (N124)');
+SELECT is(pg_temp.n('f2b126-other', 'f2b126/o.txt'), 0, 'visitor no longer reads an ungoverned bucket (N124)');
 SELECT throws_ok($$INSERT INTO storage.objects (bucket_id, name) VALUES ('instructor-photos', 'f2b126-v.png')$$,
   '42501', NULL, 'visitor cannot upload instructor photos (Production allowed it)');
 SELECT throws_ok($$INSERT INTO storage.objects (bucket_id, name) VALUES ('f2b126-other', 'f2b126/v.txt')$$,
@@ -311,8 +312,8 @@ WITH u AS (UPDATE storage.objects SET metadata = '{}'::jsonb WHERE bucket_id = '
 SELECT is(count(*)::int, 0, 'visitor cannot update in an ungoverned bucket') FROM u;
 WITH d AS (DELETE FROM storage.objects WHERE bucket_id = 'f2b126-other' RETURNING 1)
 SELECT is(count(*)::int, 0, 'visitor cannot delete in an ungoverned bucket') FROM d;
-SELECT is(public.file_store_allows('community-images', 'community-images/x.png', NULL, 'select', NULL), true,
-  'visitor: community-images select stays TRUE');
+SELECT is(public.file_store_allows('community-images', 'community-images/x.png', NULL, 'select', NULL), false,
+  'visitor: community-images select is FALSE (N124)');
 RESET ROLE;
 
 -- ---------------------------------------------------------------------------

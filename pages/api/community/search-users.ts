@@ -1,5 +1,11 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
+import { createServiceRoleClient } from '../../../lib/api-auth';
+
+/** Lower case without accents, so «nunez» finds «Núñez»; hyphens and dots are kept. */
+function foldForSearch(text: string): string {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -63,37 +69,39 @@ export default async function handler(
       return res.status(200).json([]);
     }
 
-    // Now get the actual user profiles
-    let usersQuery = supabaseServerClient
+    // Who may be offered is decided here, on the server: co-members whose
+    // profile is approved, as before EC-S5 (send-back 1, 5). Other people's
+    // profile rows are not readable with the caller's session, so the lookup
+    // uses the service client and asks only for the columns returned — never
+    // an e-mail or the approval status.
+    const { data: approved, error: approvedError } = await createServiceRoleClient()
       .from('profiles')
-      .select('id, first_name, last_name, email, avatar_url')
+      .select('id, first_name, last_name, avatar_url')
       .in('id', communityUserIds)
-      .eq('approval_status', 'approved')
+      .eq('approval_status', 'approved');
 
-    // Apply search filter if query is provided
-    if (searchQuery) {
-      usersQuery = usersQuery.or(
-        `first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`
-      );
-    }
-
-    // Limit results
-    usersQuery = usersQuery.limit(10);
-
-    const { data: users, error: usersError } = await usersQuery;
-
-    if (usersError) {
-      console.error('Error fetching users:', usersError);
+    if (approvedError) {
+      console.error('Error fetching users');
       return res.status(500).json({ error: 'Failed to fetch users' });
     }
 
-    // Format the response
-    const formattedUsers = (users || []).map(user => ({
-      id: user.id,
-      display_name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
-      avatar_url: user.avatar_url,
-      email: user.email,
-    }));
+    const byId = new Map(
+      ((approved || []) as Array<{ id: string; first_name: string | null; last_name: string | null; avatar_url: string | null }>)
+        .map((person) => [person.id, person])
+    );
+    const wanted = foldForSearch(searchQuery);
+    const formattedUsers = communityUserIds
+      .map((id) => byId.get(id))
+      .filter((person): person is NonNullable<typeof person> => Boolean(person))
+      .map((person) => ({
+        id: person.id,
+        first_name: person.first_name,
+        last_name: person.last_name,
+        avatar_url: person.avatar_url,
+        display_name: `${person.first_name || ''} ${person.last_name || ''}`.trim(),
+      }))
+      .filter((user) => !wanted || foldForSearch(user.display_name).includes(wanted))
+      .slice(0, 10);
 
     return res.status(200).json(formattedUsers);
   } catch (error) {

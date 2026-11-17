@@ -20,6 +20,7 @@ import { LearningPathCard } from '../components/learning-paths';
 import { NetflixCourseRow } from '../components/courses';
 import WorkspaceSettingsModal from '../components/community/WorkspaceSettingsModal';
 import { getOrCreateWorkspace } from '../utils/workspaceUtils';
+import { canEditWorkspaceWithRoles } from '../lib/services/communityWorkspace';
 import { CourseWithEnrollment } from '../types/courses';
 import { UpcomingCourse, UpcomingCourseCard } from '../components/courses/UpcomingCourseCard';
 import { CourseProposalSection } from '../components/course-proposals';
@@ -640,6 +641,8 @@ export default function Dashboard() {
                           {selectedRole.school?.name || selectedRole.community!.name}
                         </h3>
                         <div className="flex gap-2">
+                          {/* Only for those who can save the settings: admin or this community's manager (N87) */}
+                          {canEditWorkspaceWithRoles(userRoles, selectedRole.community_id) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -651,6 +654,7 @@ export default function Dashboard() {
                           >
                             <Settings className="w-4 h-4" />
                           </button>
+                          )}
                           <Link
                             href="/community/workspace"
                             className="px-3 py-1.5 text-sm font-medium text-brand_primary hover:bg-brand_accent/10 rounded-lg transition-colors"

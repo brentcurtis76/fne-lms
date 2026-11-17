@@ -31,8 +31,9 @@
 --   * two active pure consultors (single active consultor role, NULL
 --     school_id): one with no consultant assignment at all, one whose only
 --     assignment (to the fixture school) is inactive with a past starts_at
---     and NULL ends_at. Both can read the plan row under the unchanged SELECT
---     policy but cannot INSERT / UPDATE / DELETE it.
+--     and NULL ends_at. Neither reads the plan row
+--     (owner's decision 16 Nov 2026: a consultor reads the plan of assigned schools only),
+--     and neither can INSERT / UPDATE / DELETE it.
 -- Groups G–I
 --   * inactive/expired consultor variants, docente, and anon exercise the
 --     remaining real-role boundaries.
@@ -1338,9 +1339,9 @@ SELECT is(
 -- ---------------------------------------------------------------------------
 -- Group F: active pure consultor (single consultor role, NULL school_id) with
 -- (1) no consultant assignment at all, and (2) exactly one assignment to the
--- fixture school that is inactive (past starts_at, NULL ends_at). Both read the
--- plan row under the unchanged SELECT policy; INSERT / UPDATE / DELETE are
--- denied. Synthetic IDs -865xxx.
+-- fixture school that is inactive (past starts_at, NULL ends_at). Neither reads
+-- the plan row (owner's decision 16 Nov 2026: a consultor reads the plan of assigned schools only);
+-- INSERT / UPDATE / DELETE are denied. Synthetic IDs -865xxx.
 -- ---------------------------------------------------------------------------
 SELECT is(
   ARRAY[
@@ -1504,11 +1505,13 @@ SELECT ok(NOT public.auth_is_school_directivo(-865001), 'Grupo F sin asignación
 
 SELECT ok(public.password_change_gate_ok(), 'Grupo F sin asignación: la compuerta de cambio de contraseña permite el acceso');
 
+-- A consultor without a current assignment to the school does not read its plan
+-- (owner's decision 16 Nov 2026: a consultor reads the plan of assigned schools only).
 SELECT is(
   (SELECT array_agg(row(id, school_id, year_number, grade_id, generation_type)::text ORDER BY id)
      FROM public.ab_migration_plan WHERE school_id = -865001),
-  ARRAY['(-865101,-865001,1,-865011,GT)'],
-  'Grupo F sin asignación: lee el conjunto completo de filas del plan del colegio sintético'
+  NULL::text[],
+  'Grupo F sin asignación: no ve ninguna fila del plan del colegio sintético'
 );
 
 SELECT throws_ok(
@@ -1578,11 +1581,13 @@ SELECT ok(NOT public.auth_is_school_directivo(-865001), 'Grupo F asignación ina
 
 SELECT ok(public.password_change_gate_ok(), 'Grupo F asignación inactiva: la compuerta de cambio de contraseña permite el acceso');
 
+-- A consultor without a current assignment to the school does not read its plan
+-- (owner's decision 16 Nov 2026: a consultor reads the plan of assigned schools only).
 SELECT is(
   (SELECT array_agg(row(id, school_id, year_number, grade_id, generation_type)::text ORDER BY id)
      FROM public.ab_migration_plan WHERE school_id = -865001),
-  ARRAY['(-865101,-865001,1,-865011,GT)'],
-  'Grupo F asignación inactiva: lee el conjunto completo de filas del plan del colegio sintético'
+  NULL::text[],
+  'Grupo F asignación inactiva: no ve ninguna fila del plan del colegio sintético'
 );
 
 SELECT throws_ok(
@@ -1637,8 +1642,9 @@ SELECT is(
 -- (1) an INACTIVE consultor role but exactly one otherwise live assignment to
 -- the fixture school (active, past starts_at, NULL ends_at), and (2) an active
 -- consultor role whose only assignment to the fixture school is active but
--- EXPIRED (starts_at 2020-01-01, ends_at 2021-01-01). Both read the plan row
--- under the unchanged SELECT policy; INSERT / UPDATE / DELETE are denied.
+-- EXPIRED (starts_at 2020-01-01, ends_at 2021-01-01). Neither reads the plan
+-- row (owner's decision 16 Nov 2026: a consultor reads the plan of assigned schools only);
+-- INSERT / UPDATE / DELETE are denied.
 -- Synthetic IDs -866xxx.
 -- ---------------------------------------------------------------------------
 SELECT is(
@@ -1888,11 +1894,13 @@ SELECT ok(NOT public.auth_is_school_directivo(-866001), 'Grupo G asignación ven
 
 SELECT ok(public.password_change_gate_ok(), 'Grupo G asignación vencida: la compuerta de cambio de contraseña permite el acceso');
 
+-- A consultor without a current assignment to the school does not read its plan
+-- (owner's decision 16 Nov 2026: a consultor reads the plan of assigned schools only).
 SELECT is(
   (SELECT array_agg(row(id, school_id, year_number, grade_id, generation_type)::text ORDER BY id)
      FROM public.ab_migration_plan WHERE school_id = -866001),
-  ARRAY['(-866101,-866001,1,-866011,GT)'],
-  'Grupo G asignación vencida: lee el conjunto completo de filas del plan del colegio sintético'
+  NULL::text[],
+  'Grupo G asignación vencida: no ve ninguna fila del plan del colegio sintético'
 );
 
 SELECT throws_ok(

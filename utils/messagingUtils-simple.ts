@@ -5,6 +5,7 @@
  */
 
 import { supabase } from '../lib/supabase-wrapper';
+import { fetchProfileCards, cardName } from '../lib/profile-cards';
 import {
   ThreadWithDetails,
   MessageWithDetails,
@@ -14,9 +15,23 @@ import {
   ThreadCreationData,
   MessageCompositionData,
   ThreadCategory,
+  ThreadCategoryConfig,
   MessageType,
   THREAD_CATEGORIES,
 } from '../types/messaging';
+
+/**
+ * How a thread's category is shown. A custom category is shown by its stored
+ * name, with the look of the default category (no new colour or icon); it was
+ * stored but shown as «General» (send-back 1, 7).
+ */
+function categoryConfigFor(thread: { category?: string | null; custom_category_name?: string | null }): ThreadCategoryConfig {
+  const customName = thread.custom_category_name?.trim();
+  if (customName) {
+    return { ...THREAD_CATEGORIES[0], type: 'custom', label: customName, description: customName };
+  }
+  return THREAD_CATEGORIES.find(cat => cat.type === thread.category) || THREAD_CATEGORIES[0];
+}
 
 // =============================================================================
 // SIMPLIFIED THREAD FUNCTIONS
@@ -79,42 +94,20 @@ export async function getWorkspaceThreads(
       return [];
     }
 
-    // Get creator information for all threads
-    const creatorIds = Array.from(new Set((data || []).map(thread => thread.created_by)));
-    let creators: Record<string, any> = {};
-    
-    if (creatorIds.length > 0) {
-      const { data: creatorData } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, email')
-        .in('id', creatorIds);
-      
-      if (creatorData) {
-        creators = creatorData.reduce((acc, profile) => {
-          acc[profile.id] = profile;
-          return acc;
-        }, {} as Record<string, any>);
-      }
-    }
+    // Creators' names through the profile cards (EC-S5): other people's
+    // profile rows are not readable by members.
+    const creators = await fetchProfileCards(supabase, (data || []).map(thread => thread.created_by));
 
     // Transform to ThreadWithDetails format
     return (data || []).map(thread => {
-      const creator = creators[thread.created_by] || {};
-      const creatorName = creator.first_name && creator.last_name 
-        ? `${creator.first_name} ${creator.last_name}`
-        : creator.email || 'Usuario';
+      const creatorName = cardName(creators.get(thread.created_by));
       
-      // Handle custom category
-      let categoryConfig = THREAD_CATEGORIES.find(cat => cat.type === thread.category);
-      // For now, skip custom category handling until column is added
-      if (!categoryConfig) {
-        categoryConfig = THREAD_CATEGORIES[0]; // Default to general
-      }
-        
+      const categoryConfig = categoryConfigFor(thread);
+
       return {
         ...thread,
         creator_name: creatorName,
-        creator_email: creator.email || '',
+        creator_email: '',
         latest_message: null, // Will be populated separately if needed
         participants: [],
         unread_count: 0,
@@ -188,8 +181,16 @@ export async function getWorkspaceMessages(
       query = query.eq('message_type', filters.message_type);
     }
 
-    // Apply sorting
-    const sortBy = filters.sort_by || 'created_at';
+    // Apply sorting. Every option the page offers maps to an existing column:
+    // «Relevancia» and «Actividad del hilo» have no column of their own and
+    // keep the default order (EC-M10); ordering by a missing column emptied
+    // the conversation.
+    const MESSAGE_SORT_COLUMNS: Record<NonNullable<MessageFilters['sort_by']>, string> = {
+      created_at: 'created_at',
+      relevance: 'created_at',
+      thread_activity: 'created_at',
+    };
+    const sortBy = MESSAGE_SORT_COLUMNS[filters.sort_by || 'created_at'] || 'created_at';
     const sortOrder = filters.sort_order || 'desc';
     query = query.order(sortBy, { ascending: sortOrder === 'asc' });
 
@@ -213,175 +214,7 @@ export async function getWorkspaceMessages(
       return [];
     }
 
-    // Get author information for all messages
-    const authorIds = Array.from(new Set((data || []).map(message => message.author_id)));
-    let authors: Record<string, any> = {};
-    
-    if (authorIds.length > 0) {
-      const { data: authorData } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, email, avatar_url')
-        .in('id', authorIds);
-      
-      if (authorData) {
-        authors = authorData.reduce((acc, profile) => {
-          acc[profile.id] = profile;
-          return acc;
-        }, {} as Record<string, any>);
-      }
-    }
-
-    // Get attachments for all messages
-    const messageIds = (data || []).map(msg => msg.id);
-    let attachmentsByMessage: Record<string, any[]> = {};
-
-    if (messageIds.length > 0) {
-      const { data: attachments } = await supabase
-        .from('message_attachments')
-        .select('*')
-        .in('message_id', messageIds)
-        .eq('is_active', true);
-
-      if (attachments) {
-        attachmentsByMessage = attachments.reduce((acc, att) => {
-          if (!acc[att.message_id]) {
-            acc[att.message_id] = [];
-          }
-          acc[att.message_id].push(att);
-          return acc;
-        }, {} as Record<string, any[]>);
-      }
-    }
-
-    // Get current user for reaction tracking
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-    const currentUserId = currentUser?.id;
-
-    // Get reactions for all messages with user profile info
-    let reactionsByMessage: Record<string, any[]> = {};
-
-    if (messageIds.length > 0) {
-      const { data: reactions, error: reactionsError } = await supabase
-        .from('message_reactions')
-        .select(`
-          id,
-          message_id,
-          user_id,
-          reaction_type,
-          created_at,
-          profiles:user_id (
-            first_name,
-            last_name
-          )
-        `)
-        .in('message_id', messageIds);
-
-      if (reactionsError) {
-        console.warn('[getWorkspaceMessages] Error fetching reactions:', reactionsError);
-      } else if (reactions) {
-        // Group reactions by message_id and reaction_type
-        reactions.forEach(reaction => {
-          if (!reactionsByMessage[reaction.message_id]) {
-            reactionsByMessage[reaction.message_id] = [];
-          }
-
-          // Find existing reaction type group or create new
-          let reactionGroup = reactionsByMessage[reaction.message_id].find(
-            (r: any) => r.reaction_type === reaction.reaction_type
-          );
-
-          if (!reactionGroup) {
-            reactionGroup = {
-              reaction_type: reaction.reaction_type,
-              count: 0,
-              user_reacted: false,
-              users: []
-            };
-            reactionsByMessage[reaction.message_id].push(reactionGroup);
-          }
-
-          // Add to count and users list
-          reactionGroup.count++;
-          const profile = reaction.profiles as any;
-          const userName = profile?.first_name && profile?.last_name
-            ? `${profile.first_name} ${profile.last_name}`
-            : 'Usuario';
-          reactionGroup.users.push({ user_id: reaction.user_id, user_name: userName });
-
-          // Check if current user reacted
-          if (reaction.user_id === currentUserId) {
-            reactionGroup.user_reacted = true;
-          }
-        });
-      }
-    }
-
-    // Get reply_to messages if any messages have reply_to_id
-    const replyToIds = (data || [])
-      .map(msg => msg.reply_to_id)
-      .filter(id => id != null);
-    let replyToMessages: Record<string, any> = {};
-
-    if (replyToIds.length > 0) {
-      const { data: replyTos } = await supabase
-        .from('community_messages')
-        .select('id, content, author_id, created_at')
-        .in('id', replyToIds);
-
-      if (replyTos) {
-        // Get author info for reply messages
-        const replyAuthorIds = Array.from(new Set(replyTos.map(r => r.author_id)));
-        let replyAuthors: Record<string, any> = {};
-
-        if (replyAuthorIds.length > 0) {
-          const { data: replyAuthorData } = await supabase
-            .from('profiles')
-            .select('id, first_name, last_name')
-            .in('id', replyAuthorIds);
-
-          if (replyAuthorData) {
-            replyAuthors = replyAuthorData.reduce((acc, p) => {
-              acc[p.id] = p;
-              return acc;
-            }, {} as Record<string, any>);
-          }
-        }
-
-        replyTos.forEach(reply => {
-          const replyAuthor = replyAuthors[reply.author_id] || {};
-          const replyAuthorName = replyAuthor.first_name && replyAuthor.last_name
-            ? `${replyAuthor.first_name} ${replyAuthor.last_name}`
-            : 'Usuario';
-          replyToMessages[reply.id] = {
-            id: reply.id,
-            content: reply.content,
-            author_name: replyAuthorName,
-            created_at: reply.created_at
-          };
-        });
-      }
-    }
-
-    // Transform to MessageWithDetails format
-    return (data || []).map(message => {
-      const author = authors[message.author_id] || {};
-      const authorName = author.first_name && author.last_name
-        ? `${author.first_name} ${author.last_name}`
-        : author.email || 'Usuario';
-
-      return {
-        ...message,
-        author_name: authorName,
-        author_email: author.email || '',
-        author_avatar: author.avatar_url || null,
-        reply_to_message: message.reply_to_id ? replyToMessages[message.reply_to_id] || null : null,
-        reactions: reactionsByMessage[message.id] || [],
-        attachments: attachmentsByMessage[message.id] || [],
-        mentions: message.mentions || [],
-        user_reaction: undefined,
-        is_mentioned: false
-      };
-    });
+    return await withMessageDetails(data || []);
 
   } catch (error) {
     console.error('Error in getWorkspaceMessages:', error);
@@ -390,12 +223,190 @@ export async function getWorkspaceMessages(
 }
 
 /**
+ * The active attachment records of messages, with the query and client the
+ * conversation's loading uses (so the same read rules apply). Null when the
+ * read fails.
+ */
+async function readMessageAttachments(messageIds: string[]): Promise<any[] | null> {
+  const { data: attachments, error } = await supabase
+    .from('message_attachments')
+    .select('*')
+    .in('message_id', messageIds)
+    .eq('is_active', true);
+  return error ? null : attachments ?? [];
+}
+
+/** Attachments, reactions, replied messages and names for message rows. */
+async function withMessageDetails(data: any[]): Promise<MessageWithDetails[]> {
+  // Get attachments for all messages
+  const messageIds = (data || []).map(msg => msg.id);
+  let attachmentsByMessage: Record<string, any[]> = {};
+
+  if (messageIds.length > 0) {
+    const attachments = await readMessageAttachments(messageIds);
+
+    if (attachments) {
+      attachmentsByMessage = attachments.reduce((acc, att) => {
+        if (!acc[att.message_id]) {
+          acc[att.message_id] = [];
+        }
+        acc[att.message_id].push(att);
+        return acc;
+      }, {} as Record<string, any[]>);
+    }
+  }
+
+  // Get current user for reaction tracking
+  const { data: { user: currentUser } } = await supabase.auth.getUser();
+  const currentUserId = currentUser?.id;
+
+  // Get reactions for all messages. message_reactions.user_id references
+  // auth.users, not profiles, so a `profiles:user_id` embed fails (PGRST200)
+  // and every reaction vanished on reload (EC-M3); the names of the people
+  // who reacted come from the profile cards below.
+  let reactionsByMessage: Record<string, any[]> = {};
+
+  if (messageIds.length > 0) {
+    const { data: reactions, error: reactionsError } = await supabase
+      .from('message_reactions')
+      .select('id, message_id, user_id, reaction_type, created_at')
+      .in('message_id', messageIds);
+
+    if (reactionsError) {
+      console.warn('[getWorkspaceMessages] Error fetching reactions:', reactionsError);
+    } else if (reactions) {
+      // Group reactions by message_id and reaction_type
+      reactions.forEach(reaction => {
+        if (!reactionsByMessage[reaction.message_id]) {
+          reactionsByMessage[reaction.message_id] = [];
+        }
+
+        // Find existing reaction type group or create new
+        let reactionGroup = reactionsByMessage[reaction.message_id].find(
+          (r: any) => r.reaction_type === reaction.reaction_type
+        );
+
+        if (!reactionGroup) {
+          reactionGroup = {
+            reaction_type: reaction.reaction_type,
+            count: 0,
+            user_reacted: false,
+            users: []
+          };
+          reactionsByMessage[reaction.message_id].push(reactionGroup);
+        }
+
+        // Add to count and users list (names are filled in from the cards)
+        reactionGroup.count++;
+        reactionGroup.users.push({ user_id: reaction.user_id, user_name: 'Usuario' });
+
+        // Check if current user reacted
+        if (reaction.user_id === currentUserId) {
+          reactionGroup.user_reacted = true;
+        }
+      });
+    }
+  }
+
+  // Get reply_to messages if any messages have reply_to_id
+  const replyToIds = (data || [])
+    .map(msg => msg.reply_to_id)
+    .filter(id => id != null);
+  let replyToMessages: Record<string, any> = {};
+
+  if (replyToIds.length > 0) {
+    const { data: replyTos } = await supabase
+      .from('community_messages')
+      .select('id, content, author_id, created_at')
+      .in('id', replyToIds);
+
+    if (replyTos) {
+      replyTos.forEach(reply => {
+        replyToMessages[reply.id] = {
+          id: reply.id,
+          content: reply.content,
+          author_id: reply.author_id,
+          created_at: reply.created_at
+        };
+      });
+    }
+  }
+
+  // Names of authors, replied authors and reactors through the profile cards (EC-S5),
+  // in one call: other people's profile rows are not readable by members.
+  const authors = await fetchProfileCards(supabase, [
+    ...(data || []).map(message => message.author_id),
+    ...Object.values(replyToMessages).map(reply => reply.author_id),
+    ...Object.values(reactionsByMessage).flat().flatMap(group => group.users.map((u: any) => u.user_id)),
+  ]);
+  Object.values(reactionsByMessage).flat().forEach(group => {
+    group.users.forEach((u: any) => { u.user_name = cardName(authors.get(u.user_id)); });
+  });
+  Object.values(replyToMessages).forEach(reply => {
+    reply.author_name = cardName(authors.get(reply.author_id));
+    delete reply.author_id;
+  });
+
+  // Transform to MessageWithDetails format
+  return (data || []).map(message => {
+    const author = authors.get(message.author_id);
+
+    return {
+      ...message,
+      author_name: cardName(author),
+      author_email: '',
+      author_avatar: author?.avatar_url || null,
+      reply_to_message: message.reply_to_id ? replyToMessages[message.reply_to_id] || null : null,
+      reactions: reactionsByMessage[message.id] || [],
+      attachments: attachmentsByMessage[message.id] || [],
+      mentions: message.mentions || [],
+      user_reaction: undefined,
+      is_mentioned: false
+    };
+  });
+}
+
+/**
+ * The thread row was stored but the conversation is not complete (its first
+ * message, or the read-back, failed). `threadId` is the id of that row: pass it
+ * back to createThread to store only the first message. Nothing is deleted.
+ */
+export class ThreadCreationIncompleteError extends Error {
+  readonly threadId: string;
+  readonly reason: unknown;
+
+  constructor(threadId: string, reason: unknown) {
+    super('No se pudo crear la conversación');
+    this.name = 'ThreadCreationIncompleteError';
+    this.threadId = threadId;
+    this.reason = reason;
+  }
+}
+
+/** Whether a thread with this id, created by this person in this workspace, exists. */
+async function ownThreadExists(threadId: string, workspaceId: string, userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('message_threads')
+    .select('id')
+    .eq('id', threadId)
+    .eq('workspace_id', workspaceId)
+    .eq('created_by', userId)
+    .maybeSingle();
+  return !error && Boolean(data);
+}
+
+/**
  * Create a new thread (simplified)
+ *
+ * `existingThreadId`: the id a previous, incomplete attempt returned (see
+ * ThreadCreationIncompleteError). When that person's thread already exists in
+ * this workspace it is not inserted again; only the first message is stored.
  */
 export async function createThread(
   workspaceId: string,
   threadData: ThreadCreationData,
-  userId: string
+  userId: string,
+  existingThreadId?: string
 ): Promise<ThreadWithDetails> {
   try {
     // First get the user's profile to get their name
@@ -409,14 +420,23 @@ export async function createThread(
       ? `${userProfile.first_name} ${userProfile.last_name}`
       : userProfile?.email || 'Usuario';
 
-    // Create the thread (without custom_category_name for now)
-    const { data: thread, error: threadError } = await supabase
+    // Create the thread. The id is made here and the row is NOT asked back in
+    // the same request: the read rule messaging_read_boundary looks the thread
+    // up by id and cannot see the row being inserted, so INSERT … RETURNING is
+    // refused for members (EC-S4). The row is read by its id right after.
+    const threadId = existingThreadId || crypto.randomUUID();
+    const customCategoryName =
+      threadData.category === 'custom' ? threadData.custom_category_name?.trim() || null : null;
+    const alreadyThere = existingThreadId ? await ownThreadExists(threadId, workspaceId, userId) : false;
+    const { error: insertError } = alreadyThere ? { error: null } : await supabase
       .from('message_threads')
       .insert({
+        id: threadId,
         workspace_id: workspaceId,
         thread_title: threadData.thread_title,
         description: threadData.description,
         category: threadData.category,
+        custom_category_name: customCategoryName,
         created_by: userId,
         is_pinned: false,
         is_locked: false,
@@ -424,9 +444,15 @@ export async function createThread(
         last_message_at: new Date().toISOString(),
         message_count: 1,
         participant_count: 1
-      })
-      .select('*')
-      .single();
+      });
+
+    // A retry whose read missed the thread: a duplicate key on the person's own
+    // thread means it is already there.
+    const threadError =
+      insertError && existingThreadId && (insertError as { code?: string }).code === '23505' &&
+      (await ownThreadExists(threadId, workspaceId, userId))
+        ? null
+        : insertError;
 
     if (threadError) {
       console.error('Thread creation error:', threadError);
@@ -446,7 +472,19 @@ export async function createThread(
       }
     }
 
-    // Create initial message
+    const { data: thread, error: readError } = await supabase
+      .from('message_threads')
+      .select('*')
+      .eq('id', threadId)
+      .single();
+
+    if (readError || !thread) {
+      console.error('Thread read-back error:', readError);
+      throw new ThreadCreationIncompleteError(threadId, readError);
+    }
+
+    // Create initial message. If it cannot be stored the conversation is not
+    // created: the caller keeps the text and retries with this thread's id.
     const { error: messageError } = await supabase
       .from('community_messages')
       .insert({
@@ -461,14 +499,10 @@ export async function createThread(
 
     if (messageError) {
       console.error('Error creating initial message:', messageError);
+      throw new ThreadCreationIncompleteError(threadId, messageError);
     }
 
-    // Handle custom category
-    let categoryConfig = THREAD_CATEGORIES.find(cat => cat.type === thread.category);
-    // For now, skip custom category handling until column is added
-    if (!categoryConfig) {
-      categoryConfig = THREAD_CATEGORIES[0]; // Default to general
-    }
+    const categoryConfig = categoryConfigFor(thread);
 
     return {
       ...thread,
@@ -695,23 +729,13 @@ export function subscribeToWorkspaceMessages(
             // Fetch author profile for the new message
             const authorId = payload.new.author_id;
             let authorName = 'Usuario';
-            let authorEmail = '';
+            const authorEmail = '';
             let authorAvatar = null;
 
             if (authorId) {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('first_name, last_name, email, avatar_url')
-                .eq('id', authorId)
-                .single();
-
-              if (profile) {
-                authorName = profile.first_name && profile.last_name
-                  ? `${profile.first_name} ${profile.last_name}`
-                  : profile.email || 'Usuario';
-                authorEmail = profile.email || '';
-                authorAvatar = profile.avatar_url || null;
-              }
+              const card = (await fetchProfileCards(supabase, [authorId])).get(authorId);
+              authorName = cardName(card);
+              authorAvatar = card?.avatar_url || null;
             }
 
             // Transform payload to MessageWithDetails format
@@ -749,21 +773,10 @@ export function subscribeToWorkspaceMessages(
             // Fetch creator profile for the new thread
             const creatorId = payload.new.created_by;
             let creatorName = 'Usuario';
-            let creatorEmail = '';
+            const creatorEmail = '';
 
             if (creatorId) {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('first_name, last_name, email')
-                .eq('id', creatorId)
-                .single();
-
-              if (profile) {
-                creatorName = profile.first_name && profile.last_name
-                  ? `${profile.first_name} ${profile.last_name}`
-                  : profile.email || 'Usuario';
-                creatorEmail = profile.email || '';
-              }
+              creatorName = cardName((await fetchProfileCards(supabase, [creatorId])).get(creatorId));
             }
 
             // Transform payload to ThreadWithDetails format
@@ -774,7 +787,7 @@ export function subscribeToWorkspaceMessages(
               latest_message: null,
               participants: [],
               unread_count: 0,
-              category_config: THREAD_CATEGORIES.find(cat => cat.type === payload.new.category) || THREAD_CATEGORIES[0]
+              category_config: categoryConfigFor(payload.new)
             } as ThreadWithDetails;
             callbacks.onThread(thread);
           }

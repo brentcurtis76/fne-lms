@@ -61,6 +61,21 @@ const WIDGET_ICON_MAP: Record<string, React.FC<{ className?: string }>> = {
   generic: HelpCircle,
 };
 
+/**
+ * GC-8: whether a context answer may still be shown. The sign-in effect also
+ * re-runs (and raises the selection counter) when Next hands out a new router
+ * object for the SAME school; its answer is then still the selected school's
+ * and is kept. An answer for a school the user has left is dropped (D5).
+ */
+export function isCurrentContextAnswer(answer: {
+  answerGeneration: number;
+  currentGeneration: number;
+  requestedSchoolId: number;
+  currentSchoolId: number | null;
+}): boolean {
+  return answer.answerGeneration === answer.currentGeneration || answer.requestedSchoolId === answer.currentSchoolId;
+}
+
 const TransversalContextDashboard: React.FC = () => {
   const router = useRouter();
   const supabase = useSupabaseClient();
@@ -308,6 +323,13 @@ const TransversalContextDashboard: React.FC = () => {
 
     const generation = selectionGenerationRef.current;
     const requestedSchoolId = schoolId;
+    const isCurrent = () =>
+      isCurrentContextAnswer({
+        answerGeneration: generation,
+        currentGeneration: selectionGenerationRef.current,
+        requestedSchoolId,
+        currentSchoolId: previousSchoolIdRef.current,
+      });
 
     try {
       const response = await fetch(`/api/school/transversal-context?school_id=${requestedSchoolId}`);
@@ -318,11 +340,11 @@ const TransversalContextDashboard: React.FC = () => {
       const data = await response.json();
       // D5: a response for a school the user has already navigated away from is
       // dropped rather than rendered under the current school's name.
-      if (selectionGenerationRef.current !== generation) return;
+      if (!isCurrent()) return;
       setContext(data.context);
       setCourseStructure(data.courseStructure || []);
     } catch (error: any) {
-      if (selectionGenerationRef.current !== generation) return;
+      if (!isCurrent()) return;
       console.error('[TransversalContext] Error fetching context:', error);
       toast.error(error.message || 'Error al cargar el contexto');
     } finally {

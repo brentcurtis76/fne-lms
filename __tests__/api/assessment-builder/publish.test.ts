@@ -18,16 +18,34 @@ const {
   mockCreateApiSupabaseClient,
   mockHasReadPerm,
   mockHasWritePerm,
-} = vi.hoisted(() => ({
-  mockGetApiUser: vi.fn(),
-  mockCreateApiSupabaseClient: vi.fn(),
-  mockHasReadPerm: vi.fn(),
-  mockHasWritePerm: vi.fn(),
-}));
+  mockCreateServiceRoleClient,
+  mockRpc,
+} = vi.hoisted(() => {
+  // GC-10 send-back 1: the snapshot + flip are ONE call of
+  // publish_assessment_template on the service-role client.
+  const mockRpc = vi.fn(async (_fn: string, args: { p_template_id: string }) => ({
+    data: {
+      ok: true,
+      version: '1.1.0',
+      template: { id: args.p_template_id, name: 'Test Template', area: 'evaluacion', status: 'published', version: '1.1.0' },
+      snapshot: { id: 'snap1', version: '1.1.0', created_at: '2026-11-16T00:00:00Z' },
+    },
+    error: null as unknown,
+  }));
+  return {
+    mockGetApiUser: vi.fn(),
+    mockCreateApiSupabaseClient: vi.fn(),
+    mockHasReadPerm: vi.fn(),
+    mockHasWritePerm: vi.fn(),
+    mockCreateServiceRoleClient: vi.fn(() => ({ rpc: mockRpc })),
+    mockRpc,
+  };
+});
 
 vi.mock('../../../lib/api-auth', () => ({
   getApiUser: mockGetApiUser,
   createApiSupabaseClient: mockCreateApiSupabaseClient,
+  createServiceRoleClient: mockCreateServiceRoleClient,
   sendAuthError: vi.fn((res: any, msg?: string) => {
     res.status(401).json({ error: msg || 'Authentication required' });
   }),
@@ -122,6 +140,9 @@ describe('POST /api/.../templates/[id]/publish', () => {
     });
     await handler(req as any, res as any);
     expect(res._getStatusCode()).toBe(403);
+    // The non-admin is refused before the publication function is reached.
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('returns 400 when template has no modules', async () => {
@@ -266,6 +287,11 @@ describe('POST /api/.../templates/[id]/publish', () => {
     expect(body.success).toBe(true);
     // The removed upgrade path never reports anything
     expect(body).not.toHaveProperty('upgrade');
+    // The hierarchy travels in the one publication call.
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    const args = mockRpc.mock.calls[0][1] as any;
+    expect(args.p_snapshot_data.objectives).toHaveLength(1);
+    expect(args.p_snapshot_data.objectives[0].modules[0].indicators).toHaveLength(1);
   });
 
   // ── PR 3 item 2: frecuencia indicators must be fully configured ──
@@ -295,6 +321,7 @@ describe('POST /api/.../templates/[id]/publish', () => {
         { indicator: 'F1', errors: expect.arrayContaining(['el valor máximo debe ser un número']) },
       ]);
       expect((mockClient as any).from).not.toHaveBeenCalledWith('assessment_template_snapshots');
+      expect(mockRpc).not.toHaveBeenCalled();
     });
 
     it('lists every offending indicator and ignores non-frecuencia indicators', async () => {
@@ -333,6 +360,7 @@ describe('POST /api/.../templates/[id]/publish', () => {
         },
       ]);
       expect((mockClient as any).from).not.toHaveBeenCalledWith('assessment_template_snapshots');
+      expect(mockRpc).not.toHaveBeenCalled();
     });
 
     it('F1: publishes when every frecuencia expectation is inside the range and on the step grid', async () => {
@@ -417,7 +445,7 @@ describe('POST /api/.../templates/[id]/publish', () => {
       const body = JSON.parse(res._getData());
       expect(body.success).toBe(true);
       expect(body).not.toHaveProperty('upgrade');
-      expect(mockClient.from).toHaveBeenCalledWith('assessment_template_snapshots');
+      expect(mockRpc).toHaveBeenCalledTimes(1);
     });
 
     it('keeps the auth → permission ordering ahead of the 409', async () => {
@@ -470,6 +498,7 @@ describe('POST /api/.../publish — frequency contract parity with the responses
     expect(r.body.code).toBe('invalid_frequency_config');
     expect(r.body.details).toEqual([{ indicator: 'F1', errors: ['el paso no puede ser mayor que el rango (máximo − mínimo)'] }]);
     expect((r.mockClient as any).from).not.toHaveBeenCalledWith('assessment_template_snapshots');
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('publishes the boundary config (step == max − min)', async () => {
@@ -499,6 +528,7 @@ describe('POST /api/.../publish — frequency contract parity with the responses
         expect(r.status).toBe(400);
         expect(r.body.code).toBe('invalid_frequency_config');
         expect((r.mockClient as any).from).not.toHaveBeenCalledWith('assessment_template_snapshots');
+    expect(mockRpc).not.toHaveBeenCalled();
       }
     }
   );
@@ -507,7 +537,7 @@ describe('POST /api/.../publish — frequency contract parity with the responses
 describe('vía rule guard on publish (20261008120000)', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('answers 409 with a builder message and rolls the snapshot back when the database guard refuses', async () => {
+  it('answers 409 with a builder message when the database guard refuses inside the publication call; nothing is deleted', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const template = {
       id: TEMPLATE_DRAFT_1, area: 'liderazgo', status: 'draft', is_archived: false, grade_id: 7, version: '1.0.0',
@@ -518,24 +548,17 @@ describe('vía rule guard on publish (20261008120000)', () => {
     const objective = { id: OBJECTIVE_A, name: 'Objetivo A', display_order: 1, weight: 1.0 };
     const module = { id: MODULE_A, name: 'Módulo A', display_order: 1, weight: 1.0, objective_id: OBJECTIVE_A };
     const indicator = { id: IND_COBERTURA_1, name: 'Ind 1', category: 'cobertura', weight: 1, module_id: MODULE_A, display_order: 1 };
-    const snapshot = { id: 'snap1', version: '1.1.0', created_at: new Date().toISOString() };
-    let templateCalls = 0;
     const mockClient = {
       from: vi.fn((table: string) => {
-        if (table === 'assessment_templates') {
-          templateCalls++;
-          return templateCalls === 1
-            ? buildChainableQuery(template)
-            : buildChainableQuery(null, { message: 'template_grade_not_allowed', code: 'P0001' });
-        }
+        if (table === 'assessment_templates') return buildChainableQuery(template);
         if (table === 'assessment_objectives') return buildChainableQuery([objective]);
         if (table === 'assessment_modules') return buildChainableQuery([module]);
         if (table === 'assessment_indicators') return buildChainableQuery([indicator]);
         if (table === 'assessment_year_expectations') return buildChainableQuery([]);
-        if (table === 'assessment_template_snapshots') return buildChainableQuery(snapshot);
         return buildChainableQuery([]);
       }),
     };
+    mockRpc.mockResolvedValueOnce({ data: null as any, error: { message: 'template_grade_not_allowed', code: 'P0001' } });
     mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
     mockCreateApiSupabaseClient.mockResolvedValue(mockClient);
     mockHasReadPerm.mockResolvedValue(true);
@@ -547,7 +570,11 @@ describe('vía rule guard on publish (20261008120000)', () => {
     expect(res._getStatusCode()).toBe(409);
     expect(res._getData()).toContain('no lleva nivel');
     expect(res._getData()).not.toContain('template_grade_not_allowed');
-    // one call inserts the snapshot, a second one rolls it back
-    expect(mockClient.from.mock.calls.filter(([t]) => t === 'assessment_template_snapshots')).toHaveLength(2);
+    // GC-10 send-back 1: one publication call (rolled back whole by the
+    // database); the caller writes nothing and nobody deletes a snapshot.
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockClient.from).not.toHaveBeenCalledWith('assessment_template_snapshots');
+    const service = mockCreateServiceRoleClient.mock.results[0]?.value as Record<string, unknown>;
+    expect(Object.keys(service)).toEqual(['rpc']); // the service-role client is used for the call only
   });
 });

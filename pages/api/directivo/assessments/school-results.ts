@@ -153,7 +153,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // through the admin client. Results are written at submit; a completed
       // registro without one is reported as unavailable. Only an admin, who
       // reads every response, may still recalculate.
-      let summary = await getInstanceResults(supabaseClient, instance.id);
+      //
+      // The stored result and its snapshot are read with the admin client:
+      // the instance already comes from the school-scoped admin query above,
+      // and the caller was cleared for this school by resolveResultsSchoolId.
+      // With the caller's own session an assigned consultor (not admitted by
+      // "assessment_instances_select") lost the snapshot: the área fell back
+      // to 'personalizacion' and the gap analysis came back empty.
+      let summary = await getInstanceResults(supabaseAdmin, instance.id);
 
       if (!summary && canRecalculate) {
         const { getInstanceResults: _, calculateAndSaveScores } = await import(
@@ -170,7 +177,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         summaries.push(summary);
 
         // Get gap analysis for this instance
-        const gapAnalysis = await fetchInstanceGapAnalysis(supabaseClient, instance.id);
+        const gapAnalysis = await fetchInstanceGapAnalysis(supabaseAdmin, instance.id);
         if (gapAnalysis) {
           gapAnalyses.push(gapAnalysis);
         }

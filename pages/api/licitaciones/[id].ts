@@ -15,6 +15,14 @@ import { UpdateTimelineSchema } from '@/types/licitaciones';
 import { getLicitacionDetail, updateTimelineDates } from '@/lib/licitacionService';
 import { uuidSchema } from '@/lib/validation/schemas';
 
+/**
+ * The client fields a non-admin may see: exactly what the detail page prints
+ * (the publication text and the Cliente block). Only admins read `clientes`
+ * directly; for anyone else the route reads these with the service role, after
+ * the tender itself was read with the caller's own session.
+ */
+const PRINTED_CLIENTE_FIELDS = 'nombre_legal, nombre_fantasia, rut, nombre_representante, comuna';
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'licitaciones-detail');
 
@@ -58,6 +66,22 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, licitacionId
     // Use user-scoped client so RLS filters for encargados
     const supabaseClient = await createApiSupabaseClient(req, res);
     const detail = await getLicitacionDetail(supabaseClient, licitacionId);
+
+    // Reaching here means the caller's own session could read this tender.
+    if (!isAdmin) {
+      let cliente = null;
+      if (detail.cliente_id) {
+        const { data: printed } = await serviceClient
+          .from('clientes')
+          .select(PRINTED_CLIENTE_FIELDS)
+          .eq('id', detail.cliente_id)
+          .single();
+        cliente = printed ?? null;
+      }
+      return sendApiResponse(res, {
+        licitacion: { ...detail, cliente: cliente as unknown as typeof detail.cliente },
+      });
+    }
 
     return sendApiResponse(res, { licitacion: detail });
   } catch (err) {

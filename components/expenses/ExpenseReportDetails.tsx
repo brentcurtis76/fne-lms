@@ -6,6 +6,7 @@ import { formatCurrency as formatCurrencyWithSymbol } from '../../lib/currency-s
 import { ExpenseReportExporter } from '../../lib/expenseReportExport';
 import { toast } from 'react-hot-toast';
 import { fetchProfileCards, cardName } from '../../lib/profile-cards';
+import { expenseReportActions } from '../../lib/expenses/report-actions';
 
 interface ExpenseCategory {
   id: string;
@@ -140,6 +141,8 @@ export default function ExpenseReportDetails({
   }, [reportId, supabase]);
 
   if (!isOpen || !report) return null;
+
+  const actions = expenseReportActions(report, currentUser?.id, isAdmin);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-CL');
@@ -308,8 +311,8 @@ export default function ExpenseReportDetails({
                 <FileSpreadsheet size={14} className="mr-1" />
                 Excel
               </button>
-              {/* Allow editing if: user is admin, user is author, or report is draft */}
-              {(isAdmin || (currentUser && report.submitted_by === currentUser.id) || report.status === 'draft') && (
+              {/* Edit and delete only where the database allows them (lib/expenses/report-actions.ts) */}
+              {actions.canEdit && (
                 <button
                   onClick={() => onEdit(report)}
                   className="flex items-center px-3 py-1 bg-brand_accent text-brand_primary rounded-lg hover:bg-amber-400 transition-colors text-sm font-medium"
@@ -319,13 +322,15 @@ export default function ExpenseReportDetails({
                   Editar
                 </button>
               )}
-              <button
-                onClick={() => onDelete(report)}
-                className="flex items-center px-3 py-1 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium"
-              >
-                <Trash2 size={14} className="mr-1" />
-                Eliminar
-              </button>
+              {actions.canDelete && (
+                <button
+                  onClick={() => onDelete(report)}
+                  className="flex items-center px-3 py-1 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium"
+                >
+                  <Trash2 size={14} className="mr-1" />
+                  Eliminar
+                </button>
+              )}
             </div>
           </div>
 

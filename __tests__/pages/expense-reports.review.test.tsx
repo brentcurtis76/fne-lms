@@ -295,3 +295,34 @@ describe('F7e S4 a rejected report can be corrected and sent again', () => {
     expect(within(row('x-other')).getByTitle('Eliminar reporte')).toBeTruthy();
   });
 });
+
+describe('F7e send-back 1 the list offers delete only where the rules allow it', () => {
+  it('an admin looking at their OWN sent report sees no trash button', async () => {
+    reports = [report('s-own', ME, 'submitted')];
+    await mount('admin');
+    expect(within(row('s-own')).queryByTitle('Eliminar reporte')).toBeNull();
+    expect(within(row('s-own')).queryByTitle('Editar reporte')).toBeNull();
+  });
+
+  it('an admin looking at their OWN approved report sees no trash button', async () => {
+    reports = [report('a-own', ME, 'approved')];
+    await mount('admin');
+    expect(within(row('a-own')).queryByTitle('Eliminar reporte')).toBeNull();
+    expect(within(row('a-own')).queryByTitle('Editar reporte')).toBeNull();
+  });
+
+  it('an admin looking at their own draft sees edit, send and trash', async () => {
+    reports = [report('d-own', ME, 'draft')];
+    await mount('admin');
+    expect(within(row('d-own')).getByTitle('Editar reporte')).toBeTruthy();
+    expect(within(row('d-own')).getByTitle('Enviar para revisión')).toBeTruthy();
+    expect(within(row('d-own')).getByTitle('Eliminar reporte')).toBeTruthy();
+  });
+
+  it('an admin looking at another person\'s sent or approved report sees the trash button', async () => {
+    reports = [report('s-other', OTHER, 'submitted'), report('a-other', OTHER, 'approved')];
+    await mount('admin');
+    expect(within(row('s-other')).getByTitle('Eliminar reporte')).toBeTruthy();
+    expect(within(row('a-other')).getByTitle('Eliminar reporte')).toBeTruthy();
+  });
+});

@@ -14,6 +14,7 @@ import { ExpenseReportExporter } from '../lib/expenseReportExport';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 
 import { getUserPrimaryRole } from '../utils/roleUtils';
+import { expenseReportActions } from '../lib/expenses/report-actions';
 interface ExpenseCategory {
   id: string;
   name: string;
@@ -603,7 +604,7 @@ export default function ExpenseReportsPage() {
                                   </>
                                 )}
 
-                                {((report.submitted_by === currentUser.id && (report.status === 'draft' || report.status === 'rejected')) || isAdmin) && (
+                                {expenseReportActions(report, currentUser.id, isAdmin).canDelete && (
                                   <button
                                     onClick={() => setDeleteModalReport(report)}
                                     className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"

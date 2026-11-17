@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import MainLayout from '@/components/layout/MainLayout';
@@ -12,7 +12,7 @@ import Step7Contrato from '@/components/licitaciones/Step7Contrato';
 import DocumentCenter from '@/components/licitaciones/DocumentCenter';
 import ProposalConfigPanel from '@/components/licitaciones/ProposalConfigPanel';
 import ArchiveView from '@/components/licitaciones/ArchiveView';
-import { buildPublicacionText } from '@/lib/licitaciones/publicacionText';
+import { buildPublicacionText, isPublicacionConfirmada } from '@/lib/licitaciones/publicacionText';
 
 // ============================================================
 // STEPPER DEFINITION
@@ -122,8 +122,11 @@ export default function LicitacionDetailPage() {
   // Step 2 state
   const [copied, setCopied] = useState(false);
   const [fechaPublicacion, setFechaPublicacion] = useState('');
-  const [timeline, setTimeline] = useState<TimelineDates | null>(null);
+  // Each computed timeline is kept with the publication date it was asked for;
+  // only the one for the date currently chosen is used (see effectiveTimeline).
+  const [timelineFor, setTimelineFor] = useState<{ fecha: string; timeline: TimelineDates } | null>(null);
   const [timelineLoading, setTimelineLoading] = useState(false);
+  const latestFechaRef = useRef('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -265,21 +268,27 @@ export default function LicitacionDetailPage() {
 
   const handleFechaChange = useCallback(async (fecha: string) => {
     setFechaPublicacion(fecha);
-    if (!fecha) setTimeline(null); // a cleared date leaves no deadline to print
-    if (!fecha || !id) return;
+    latestFechaRef.current = fecha;
+    setTimelineFor(null); // the previous date's deadlines are no longer the chosen ones
+    if (!fecha || !id) {
+      setTimelineLoading(false);
+      return;
+    }
 
     setTimelineLoading(true);
     try {
       const res = await fetch(`/api/licitaciones/${id}/timeline?fecha_publicacion=${fecha}`);
       const json = await res.json();
 
+      // An answer for a date that is no longer the chosen one is discarded.
+      if (latestFechaRef.current !== fecha) return;
       if (res.ok) {
-        setTimeline(json.data.timeline);
+        setTimelineFor({ fecha, timeline: json.data.timeline });
       }
     } catch {
-      toast.error('Error al calcular cronograma');
+      if (latestFechaRef.current === fecha) toast.error('Error al calcular cronograma');
     } finally {
-      setTimelineLoading(false);
+      if (latestFechaRef.current === fecha) setTimelineLoading(false);
     }
   }, [id]);
 
@@ -421,8 +430,15 @@ export default function LicitacionDetailPage() {
     );
   }
 
+  // The computed timeline counts only for the date currently chosen.
+  const timeline: TimelineDates | null =
+    timelineFor && timelineFor.fecha === fechaPublicacion ? timelineFor.timeline : null;
+
   // Built from the date typed (its computed timeline) and, once confirmed, from the stored dates.
   const publicacionText = buildPublicacionText(licitacion, timeline);
+  // A date is chosen but its deadlines have not arrived: nothing to copy yet.
+  const timelinePendingForChosenDate =
+    !isPublicacionConfirmada(licitacion) && !!fechaPublicacion && !timeline;
 
   const publicacionTextBlock = (
     <div>
@@ -432,7 +448,7 @@ export default function LicitacionDetailPage() {
       </div>
       <button
         onClick={handleCopyText}
-        disabled={!publicacionText}
+        disabled={!publicacionText || timelinePendingForChosenDate}
         className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
       >
         {copied ? <Check size={16} className="mr-2 text-green-600" aria-hidden="true" /> : <Copy size={16} className="mr-2" aria-hidden="true" />}

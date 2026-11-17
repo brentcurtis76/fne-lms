@@ -1,6 +1,8 @@
 import React from 'react';
 import { X, Upload, Camera, Loader2 } from 'lucide-react';
+import { useLook } from '../../contexts/LookContext';
 import { useWorkspaceSettings } from './useWorkspaceSettings';
+import { WorkspaceSettingsNuevo } from './WorkspaceSettingsNuevo';
 
 interface WorkspaceSettingsModalProps {
   isOpen: boolean;
@@ -19,7 +21,10 @@ export default function WorkspaceSettingsModal({
   currentImageUrl,
   onUpdate
 }: WorkspaceSettingsModalProps) {
-  // State, effect, handlers and the save rule: ./useWorkspaceSettings (one copy for both looks)
+  // State, effect, handlers and the save rule: ./useWorkspaceSettings (one copy for both looks),
+  // called above the choice of markup so the state survives a look that arrives late
+  const settings = useWorkspaceSettings({ onClose, workspaceId, currentName, currentImageUrl, onUpdate });
+  const { look } = useLook();
   const {
     customName,
     setCustomName,
@@ -30,7 +35,10 @@ export default function WorkspaceSettingsModal({
     handleSave,
     handleRemoveImage,
     saveDisabled,
-  } = useWorkspaceSettings({ onClose, workspaceId, currentName, currentImageUrl, onUpdate });
+  } = settings;
+
+  // The new look (redesign 6C): the kit's window, the same logic
+  if (look === 'nuevo') return <WorkspaceSettingsNuevo isOpen={isOpen} onClose={onClose} settings={settings} />;
 
   if (!isOpen) return null;
 

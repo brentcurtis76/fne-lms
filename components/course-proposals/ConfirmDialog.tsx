@@ -10,6 +10,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from '../ui/dialog';
+import { useLook } from '../../contexts/LookContext';
+import { ConfirmDialogNuevo } from './ConfirmDialogNuevo';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -34,10 +36,28 @@ export function ConfirmDialog({
   isLoading = false,
   variant = 'danger',
 }: ConfirmDialogProps) {
+  const { look } = useLook();
   const handleConfirm = () => {
     onConfirm();
     onClose();
   };
+
+  // The new look (redesign 6C): the kit's confirmation, the same texts and the same handleConfirm
+  if (look === 'nuevo') {
+    return (
+      <ConfirmDialogNuevo
+        isOpen={isOpen}
+        onClose={onClose}
+        onConfirm={handleConfirm}
+        title={title}
+        description={description}
+        confirmText={confirmText}
+        cancelText={cancelText}
+        isLoading={isLoading}
+        variant={variant}
+      />
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

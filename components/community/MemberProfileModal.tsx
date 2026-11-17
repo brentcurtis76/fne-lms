@@ -11,7 +11,9 @@ import {
 } from '../ui/dialog';
 import { UserProfile } from '../../types/roles';
 import { getExternalSchoolLabel } from '../../constants/externalSchools';
+import { useLook } from '../../contexts/LookContext';
 import { formatMemberDate, memberProfileRows, memberProfileText } from './memberProfileText';
+import { MemberProfileNuevo } from './MemberProfileNuevo';
 
 interface MemberProfileModalProps {
   isOpen: boolean;
@@ -26,7 +28,14 @@ export function MemberProfileModal({
   member,
   isCurrentUser = false,
 }: MemberProfileModalProps) {
+  // Read before today's early return: a hook is called on every render
+  const { look } = useLook();
   if (!member) return null;
+
+  // The new look (redesign 6C): the kit's window, the same pieces
+  if (look === 'nuevo') {
+    return <MemberProfileNuevo isOpen={isOpen} onClose={onClose} member={member} isCurrentUser={isCurrentUser} />;
+  }
 
   // The name, initial, role label, date text and which rows show: ./memberProfileText (both looks)
   const { memberRole, roleLabel, fullName, initials } = memberProfileText(member);

@@ -9,7 +9,9 @@ import {
   DialogDescription,
 } from '../ui/dialog';
 import { CourseProposal, CreateCourseProposalInput } from '../../types/course-proposals';
+import { useLook } from '../../contexts/LookContext';
 import { useCourseProposalForm } from './useCourseProposalForm';
+import { CourseProposalFormNuevo } from './CourseProposalFormNuevo';
 
 interface CourseProposalModalProps {
   isOpen: boolean;
@@ -19,12 +21,18 @@ interface CourseProposalModalProps {
 }
 
 export function CourseProposalModal({ isOpen, onClose, onSubmit, editingProposal }: CourseProposalModalProps) {
-  // Form state, effect, validation, submit and close rules: ./useCourseProposalForm (one copy for both looks)
-  const { isSubmitting, error, formData, isEditing, handleChange, handleSubmit, handleClose } = useCourseProposalForm({
+  // Form state, effect, validation, submit and close rules: ./useCourseProposalForm (one copy for both
+  // looks), called above the choice of markup so the state survives a look that arrives late
+  const form = useCourseProposalForm({
     onClose,
     onSubmit,
     editingProposal,
   });
+  const { look } = useLook();
+  const { isSubmitting, error, formData, isEditing, handleChange, handleSubmit, handleClose } = form;
+
+  // The new look (redesign 6C): the kit's window, the same logic
+  if (look === 'nuevo') return <CourseProposalFormNuevo isOpen={isOpen} form={form} />;
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>

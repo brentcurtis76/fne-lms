@@ -1,3 +1,11 @@
+## RD-6A — platform redesign, phase 6, Mi Panel: the panel's data code in one hook (2026-11-17, built and proven locally, not pushed)
+
+Branch `feat/rd-panel-hook` on main (the fixes' level 2, second part). Record and reviewer notes: `docs/planning/reviews/fase-rd-6a-review-request.md`.
+
+- **What changed:** nothing a person sees. `pages/dashboard.tsx` («Mi Panel») is split into `hooks/usePanel.ts` (its state, data calls, redirects and, through `decide()`, one named copy of every decision its markup makes), `components/panel/PanelClasico.tsx` (today's markup, moved untouched) and a thin page that draws the frame, the loading mark, the view and the two pop-ups. Groundwork for the panel's second view, which the next release adds for accounts with the new look.
+- **Rules that hold from now on:** what a person gets on the panel (which sections, which lists, where a click leads) is decided ONCE, in `usePanel`; a view only draws. Nothing of `decide()` runs while the panel loads. Today's panel is pinned by digests (`__tests__/pages/dashboard.clasico.test.tsx`): re-accept them only for a change that is meant to reach accounts with the switch off.
+- **Proof:** the old page's lines found unchanged in the new files; two independent code reads; the pin's digests written by the page as it was; stylesheet byte-equal; pictures of every screen for every role identical to main's, the panel also in the new look and behind its clicks; the panel's browser pin tests; CI's browser list run locally.
+
 ## RD-5c — platform redesign, step 5c: the shared pieces, behind the switch (2026-11-17, built and proven locally, not pushed)
 
 Branch `feat/rd-pieces` on main (RD-5b). Record and reviewer notes: `docs/planning/reviews/fase-rd-5c-review-request.md`.

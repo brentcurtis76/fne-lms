@@ -133,6 +133,16 @@ DECLARE
   v_skipped integer := 0;
   v_failed integer := 0;
   v_failures jsonb := '[]'::jsonb;
+  v_code text;
+  -- The only messages that may leave this function as a failure code: the
+  -- names raised in the per-pair block below and the names
+  -- attach_course_docente_assessment raises (20261008120000:638-799).
+  c_known_codes constant text[] := ARRAY[
+    'scope_changed', 'assignment_invariant_violation', 'recipient_not_eligible', 'via_changed',
+    'responsible_changed', 'template_changed', 'grade_changed', 'context_missing', 'snapshot_missing',
+    'invalid_arguments', 'course_not_found', 'docente_not_active_on_course', 'snapshot_not_found',
+    'template_not_eligible', 'via_rule_missing', 'via_not_course_level', 'instance_ambiguous',
+    'snapshot_not_current'];
 BEGIN
   IF p_limit IS NULL OR p_limit < 1 OR p_limit > 1000 THEN
     RAISE EXCEPTION 'invalid_limit' USING ERRCODE = '22023';
@@ -276,11 +286,18 @@ BEGIN
       END IF;
     EXCEPTION WHEN OTHERS THEN
       v_failed := v_failed + 1;
-      -- Ids and the stable exception code only: no names, no e-mails.
+      -- Ids and a fixed code only: an application name from c_known_codes,
+      -- 'course_busy' for a row lock not obtained (55P03), otherwise
+      -- 'error_' || SQLSTATE. No database prose, no names, no e-mails.
+      v_code := CASE
+        WHEN SQLERRM = ANY (c_known_codes) THEN SQLERRM
+        WHEN SQLSTATE = '55P03' THEN 'course_busy'
+        ELSE 'error_' || SQLSTATE
+      END;
       v_failures := v_failures || jsonb_build_array(
         CASE WHEN v_candidate.course_id IS NOT NULL
-          THEN jsonb_build_object('course_id', v_candidate.course_id, 'code', left(SQLERRM, 60))
-          ELSE jsonb_build_object('school_id', v_candidate.school_id, 'code', left(SQLERRM, 60))
+          THEN jsonb_build_object('course_id', v_candidate.course_id, 'code', v_code)
+          ELSE jsonb_build_object('school_id', v_candidate.school_id, 'code', v_code)
         END);
     END;
   END LOOP;
@@ -292,4 +309,4 @@ $$;
 REVOKE ALL ON FUNCTION public.deliver_published_template(uuid, integer) FROM public, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.deliver_published_template(uuid, integer) TO service_role;
 COMMENT ON FUNCTION public.deliver_published_template(uuid, integer) IS
-  'Delivery at publication: for one published, non-archived template, delivers exactly the pairs reconcile_published_assessment_deliveries would (same candidate query, same per-pair locks and re-checks, each pair in its own subtransaction; the two must stay equal). Failed pairs are listed with ids and codes only and left to the sweep. Never touches the sweep cursor or its lock, never changes an existing instance, grant or response. Service role only.';
+  'Delivery at publication: for one published, non-archived template, delivers exactly the pairs reconcile_published_assessment_deliveries would (same candidate query, same per-pair locks and re-checks, each pair in its own subtransaction; the two must stay equal). Failed pairs are listed with ids and a fixed code only (an application exception name, course_busy for a lock not obtained, or error_<SQLSTATE>) and left to the sweep. Never touches the sweep cursor or its lock, never changes an existing instance, grant or response. Service role only.';

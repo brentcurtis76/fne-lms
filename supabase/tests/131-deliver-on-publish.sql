@@ -287,6 +287,39 @@ SELECT is((:'lim1'::jsonb->>'created')::integer,1,'limit 1 delivers one pair');
 SELECT is((:'lim1'::jsonb->>'has_more')::boolean,true,'limit reached reports has_more');
 
 -- ---------------------------------------------------------------------------
+-- A pair that fails with a database error (not one of the application's
+-- names) is listed with a fixed code, never PostgreSQL's prose. pgTAP runs in
+-- one session and the fixture is uncommitted, so a second session cannot hold
+-- the course's row lock (55P03 -> course_busy is not exercised here). Instead:
+-- school E's responsable was assigned by a profile that has no auth user, so
+-- delivery's INSERT into assessment_instances (assigned_by -> auth.users)
+-- raises a foreign-key violation, SQLSTATE 23503.
+-- ---------------------------------------------------------------------------
+SELECT tests.create_supabase_user('dop_dir4');
+SELECT tests.get_supabase_uid('dop_dir4') AS dir4 \gset
+INSERT INTO public.profiles(id,email,name,approval_status) VALUES
+(:'dir4','dop_dir4@test.local','dop_dir4','approved'),
+('13100000-0000-4000-8000-0000000000d9','dop_ghost@test.local','dop_ghost','approved') ON CONFLICT(id) DO NOTHING;
+INSERT INTO public.schools(id,name) VALUES (9314,'DOP School E');
+INSERT INTO public.user_roles(user_id,role_type,school_id,is_active) VALUES (:'dir4','equipo_directivo',9314,true);
+INSERT INTO public.school_transversal_context(id,school_id,total_students,grade_levels,courses_per_level,implementation_year_2026,period_system) VALUES
+('13100000-0000-4000-8000-00000000c00e',9314,100,ARRAY['1_basico'],'{"1_basico":1}',1,'semestral');
+INSERT INTO public.school_via_responsibles(school_id,area,user_id,assigned_by) VALUES
+(9314,'liderazgo',:'dir4','13100000-0000-4000-8000-0000000000d9');
+SET LOCAL ROLE service_role;
+SELECT public.deliver_published_template('13100000-0000-4000-8000-0000000000e2') AS delerr \gset
+RESET ROLE;
+SELECT is(:'delerr'::jsonb->'failures'->0->>'code','error_23503','a database error is listed as error_<SQLSTATE>, not as the database message');
+SELECT ok((SELECT bool_and(f->>'code' IN ('scope_changed','assignment_invariant_violation','recipient_not_eligible','via_changed',
+             'responsible_changed','template_changed','grade_changed','context_missing','snapshot_missing',
+             'invalid_arguments','course_not_found','docente_not_active_on_course','snapshot_not_found','template_not_eligible',
+             'via_rule_missing','via_not_course_level','instance_ambiguous','snapshot_not_current','course_busy')
+             OR f->>'code' ~ '^error_[0-9A-Z]{5}$')
+           FROM jsonb_array_elements(:'delerr'::jsonb->'failures') f),'every failure code is a fixed value');
+SELECT is(:'delerr'::jsonb,'{"created":0,"skipped":0,"failed":1,"has_more":false,"failures":[{"school_id":9314,"code":"error_23503"}]}'::jsonb,'the failed school is the only pair, listed by id and code');
+SELECT is((SELECT count(*)::integer FROM public.assessment_instances WHERE school_id=9314),0,'the failed school has nothing written');
+
+-- ---------------------------------------------------------------------------
 -- Existing work byte-identical
 -- ---------------------------------------------------------------------------
 SELECT results_eq('SELECT i.* FROM public.assessment_instances i JOIN dop_original_instances old ON old.id=i.id ORDER BY i.id','SELECT * FROM dop_original_instances ORDER BY id','all existing instance fields preserved across every status');

@@ -378,3 +378,59 @@ describe('send-back 3, EC-V1: a long name does not push the gear off the header'
     expect((listed.parentElement as HTMLElement).className.split(/\s+/)).toContain('min-w-0');
   });
 });
+
+const THREAD_A = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+
+async function chooseB(utils: RenderResult) {
+  await act(async () => {
+    fireEvent.click(utils.getByText('Comunidad A').closest('button') as HTMLButtonElement);
+  });
+  await act(async () => {
+    fireEvent.click(utils.getByText('Comunidad B').closest('button') as HTMLButtonElement);
+  });
+  await loaded(utils, COMMUNITY_B);
+}
+
+describe('send-back 3, EC-V4: choosing another community forgets the old conversation in the address', () => {
+  it('loaded on a conversation of A: choosing B replaces the address without `thread`, keeps the section, and stays on B', async () => {
+    h.baseRouter.query = { section: 'messaging', thread: THREAD_A };
+    h.threadCommunity = { [THREAD_A]: COMMUNITY_A, [THREAD_B]: COMMUNITY_B };
+    window.history.replaceState({}, '', `/community/workspace?section=messaging&thread=${THREAD_A}`);
+    const utils = render(<CommunityWorkspacePage />);
+    await loaded(utils);
+    expect(h.baseRouter.replace).not.toHaveBeenCalled();
+    await chooseB(utils);
+    expect(h.baseRouter.replace).toHaveBeenCalledTimes(1);
+    const [url, as, options] = h.baseRouter.replace.mock.calls[0] as unknown as [string, unknown, { shallow?: boolean }];
+    expect(url).toBe('/community/workspace?section=messaging');
+    expect(as).toBeUndefined();
+    expect(options).toEqual({ shallow: true });
+    // The navigation that replace causes carries no thread: it changes nothing.
+    await act(async () => {
+      h.routeHandlers.forEach((handler) => handler(url));
+    });
+    await flush();
+    expect(utils.getByRole('heading', { level: 1 }).textContent).toBe('Espacio de Comunidad B');
+    expect(h.workspaceCalls.at(-1)).toBe(COMMUNITY_B);
+  });
+
+  it('no conversation in the address: choosing B does not touch the address', async () => {
+    const utils = render(<CommunityWorkspacePage />);
+    await loaded(utils);
+    await chooseB(utils);
+    expect(h.baseRouter.replace).not.toHaveBeenCalled();
+  });
+
+  it('a link to a conversation of B followed while A is open still switches to B and keeps its thread in the address', async () => {
+    h.threadCommunity = { [THREAD_B]: COMMUNITY_B };
+    const utils = render(<CommunityWorkspacePage />);
+    await loaded(utils);
+    window.history.replaceState({}, '', `/community/workspace?section=messaging&thread=${THREAD_B}`);
+    await act(async () => {
+      h.routeHandlers.forEach((handler) => handler(`/community/workspace?section=messaging&thread=${THREAD_B}`));
+    });
+    await loaded(utils, COMMUNITY_B);
+    expect(h.baseRouter.replace).not.toHaveBeenCalled();
+    expect(window.location.search).toBe(`?section=messaging&thread=${THREAD_B}`);
+  });
+});

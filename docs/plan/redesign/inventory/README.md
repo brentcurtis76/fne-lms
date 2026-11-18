@@ -2,7 +2,7 @@
 
 What every screen of the platform offers today, so the redesign can prove that nothing is lost (PLAN.md, "The no-loss rules": the inventory is the contract).
 
-Read from commit `0a7ad8795b419990468bad9197d27dd375a392a3` (2026-11-18).
+Read from commit `d701100d014e948bec5766fb68836675e13355b6` (2026-11-18).
 
 ## How to use it
 
@@ -31,12 +31,12 @@ What reading the code cannot see is added by the walk by sight and kept in `anno
 |---|---|---|---|---|
 | [Marco (the frame around every screen)](00-marco.md) | 2 | 1 | 31 | 533 |
 | [Acceso (sign-in, sign-up, passwords)](01-acceso.md) | 7 | 13 | 7 | 318 |
-| [Panel (Mi Panel)](02-panel.md) | 1 | 6 | 27 | 338 |
-| [Mi Aprendizaje (the learner's courses, lessons and routes)](03-aprendizaje.md) | 7 | 1 | 23 | 632 |
+| [Panel (Mi Panel)](02-panel.md) | 1 | 6 | 56 | 706 |
+| [Mi Aprendizaje (the learner's courses, lessons and routes)](03-aprendizaje.md) | 7 | 1 | 25 | 634 |
 | [Cursos (course builder, upcoming courses, learning paths, assignment matrix)](04-cursos.md) | 15 | 30 | 45 | 1546 |
 | [Tareas y quizzes (assignments, group work, quiz review)](05-tareas.md) | 9 | 14 | 19 | 578 |
 | [Sesiones y consultorías (sessions, approvals, video meetings)](06-sesiones.md) | 11 | 34 | 31 | 1489 |
-| [Espacio Colaborativo y comunidades](07-espacio-colaborativo.md) | 4 | 18 | 68 | 1619 |
+| [Espacio Colaborativo y comunidades](07-espacio-colaborativo.md) | 4 | 18 | 73 | 1668 |
 | [Gestor de Cambio (registros, context, migration plan, results)](08-gestor-de-cambio.md) | 16 | 41 | 31 | 1680 |
 | [Vías de Transformación (to be deleted)](09-vias-transformacion.md) | 10 | 17 | 0 | 0 |
 | [Licitaciones (processes, templates, proposals)](10-licitaciones.md) | 11 | 42 | 29 | 1592 |
@@ -50,7 +50,7 @@ What reading the code cannot see is added by the walk by sight and kept in `anno
 | [QA (the platform's own test tool)](18-qa.md) | 16 | 21 | 13 | 1237 |
 | [Sistema (configuration, support, roadmap, test and debug pages, scheduled jobs)](19-sistema.md) | 3 | 27 | 6 | 258 |
 | [Sitio público (nuevaeducacion.org pages; not part of the platform redesign)](20-sitio-publico.md) | 8 | 1 | 28 | 825 |
-| **Total** | **154** | **369** | | **17915** |
+| **Total** | **154** | **369** | | **18334** |
 
 The menu has 18 entries at the top level and 61 children (`NAVIGATION_ITEMS` in `components/layout/Sidebar.tsx`).
 

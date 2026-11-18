@@ -1,7 +1,7 @@
 # Cursos (course builder, upcoming courses, learning paths, assignment matrix)
 
 Area `04-cursos`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `0a7ad8795` (2026-11-18).
+Read from commit `d701100d0` (2026-11-18).
 
 Course system: see the note on 03-aprendizaje.
 
@@ -4124,50 +4124,50 @@ Used by: `/admin/upcoming-courses`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «{course.title}» | h3 | `!isExpanded` | UpcomingCourseCard · l.181 |
-| «{course.title}» | h3 | `isExpanded` | UpcomingCourseCard · l.210 |
+| «{course.title}» | h3 | `!isExpanded` | UpcomingCourseCard · l.168 |
+| «{course.title}» | h3 | `isExpanded` | UpcomingCourseCard · l.197 |
 
 **Other things that react to a click** (1)
 
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
-| `motion.div` | «Próximamente [{course.title} [{course.instructor.full_name}]] [{course.title} [{course.instructor.full_name}] [{course.…» · also `onMouseEnter={handleMouseEnter} · onMouseLeave={handleMouseLeave}` | `{handleTap}` |  | UpcomingCourseCard · l.132 |
+| `motion.div` | «Próximamente [{course.title} [{course.instructor.full_name}]] [{course.title} [{course.instructor.full_name}] [{course.…» · also `onMouseEnter={handleMouseEnter} · onMouseLeave={handleMouseLeave}` | `{handleTap}` |  | UpcomingCourseCard · l.119 |
 
 **Embedded media** (1)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| img · alt {course.title} · {course.thumbnail_url} | `course.thumbnail_url` |  | UpcomingCourseCard · l.152 |
+| img · alt {course.title} · {course.thumbnail_url} | `course.thumbnail_url` |  | UpcomingCourseCard · l.139 |
 
 **Draws nothing when** (4)
 
 | Condition | Where |
 |---|---|
-| `!isMobile \|\| !isExpanded` | UpcomingCourseCard · l.49 |
-| `isMobile` | UpcomingCourseCard · l.63 |
-| `isMobile` | UpcomingCourseCard · l.71 |
-| `!isMobile` | UpcomingCourseCard · l.80 |
+| `!isMobile \|\| !isExpanded` | UpcomingCourseCard · l.50 |
+| `isMobile` | UpcomingCourseCard · l.64 |
+| `isMobile` | UpcomingCourseCard · l.72 |
+| `!isMobile` | UpcomingCourseCard · l.81 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (2)
 
 | Kind | What | Where |
 |---|---|---|
-| listener | `window.addEventListener('resize')` | UpcomingCourseCard · l.43 |
-| listener | `document.addEventListener('mousedown')` | UpcomingCourseCard · l.57 |
+| listener | `window.addEventListener('resize')` | UpcomingCourseCard · l.44 |
+| listener | `document.addEventListener('mousedown')` | UpcomingCourseCard · l.58 |
 
 **Values shown from data** (4)
 
-- `{course.instructor.full_name}` — UpcomingCourseCard · l.189, when `!isExpanded && course.instructor`
-- `{course.instructor.full_name}` — UpcomingCourseCard · l.220, when `isExpanded && course.instructor`
-- `{course.description}` — UpcomingCourseCard · l.228, when `isExpanded && course.description`
-- `{formattedDate}` — UpcomingCourseCard · l.260, when `!isExpanded && formattedDate`
+- `{course.instructor.full_name}` — UpcomingCourseCard · l.176, when `!isExpanded && course.instructor`
+- `{course.instructor.full_name}` — UpcomingCourseCard · l.207, when `isExpanded && course.instructor`
+- `{course.description}` — UpcomingCourseCard · l.215, when `isExpanded && course.description`
+- `{formattedDate}` — UpcomingCourseCard · l.247, when `!isExpanded && formattedDate`
 
 **Other texts on screen** (4)
 
-- «Próximamente» — UpcomingCourseCard · l.174
-- «Disponible en {formattedDate}» — UpcomingCourseCard · l.237, when `isExpanded && formattedDate`
-- «Fecha por confirmar» — UpcomingCourseCard · l.245, when `isExpanded && !(formattedDate)`
-- «Fecha por confirmar» — UpcomingCourseCard · l.268, when `!isExpanded && !(formattedDate)`
+- «Próximamente» — UpcomingCourseCard · l.161
+- «Disponible en {formattedDate}» — UpcomingCourseCard · l.224, when `isExpanded && formattedDate`
+- «Fecha por confirmar» — UpcomingCourseCard · l.232, when `isExpanded && !(formattedDate)`
+- «Fecha por confirmar» — UpcomingCourseCard · l.255, when `!isExpanded && !(formattedDate)`
 
 ### components/layout/FunctionalPageHeader.tsx
 
@@ -4453,7 +4453,7 @@ Used by: `/admin/course-builder/[courseId]/[moduleId]/[lessonId]`, `/admin/cours
 | `/api/learning-paths/assignments/[id]` | `pages/api/learning-paths/assignments/[id].ts` | DELETE, GET | **no screen** | `__tests__/api/learning-paths/management-routes-boundary.test.ts` |
 | `/api/learning-paths/batch-assign` | `pages/api/learning-paths/batch-assign.ts` | POST | `/admin/assignment-matrix`, `/admin/learning-paths/[id]/assign` | `__tests__/api/learning-paths/management-routes-boundary.test.ts`, `components/admin/assignment-matrix/BatchAssignModal.tsx`, `components/admin/assignment-matrix/hooks/useAssignmentMatrix.ts`, `pages/admin/learning-paths/[id]/assign.tsx` |
 | `/api/learning-paths` | `pages/api/learning-paths/index.ts` | GET, POST | `/admin/learning-paths`, `/admin/learning-paths/new` | `__tests__/api/learning-paths/governance-boundary.test.ts`, `pages/admin/learning-paths.tsx`, `pages/admin/learning-paths/new.tsx`, `scripts/check-ledger.mjs`, `supabase/migrations/20260908180000_learning_path_governance.sql` +1 |
-| `/api/learning-paths/my-paths` | `pages/api/learning-paths/my-paths.ts` | GET | `/dashboard`, `/mi-aprendizaje` | `__tests__/pages/dashboard.clasico.test.tsx`, `hooks/usePanel.ts`, `pages/mi-aprendizaje.tsx`, `tests/e2e/learning-path-governance.spec.ts`, `tests/e2e/login-resilience.spec.ts` +2 |
+| `/api/learning-paths/my-paths` | `pages/api/learning-paths/my-paths.ts` | GET | `/dashboard`, `/mi-aprendizaje` | `__tests__/helpers/panelFakes.tsx`, `__tests__/pages/dashboard.clasico.test.tsx`, `__tests__/pages/dashboard.nuevo.test.tsx`, `__tests__/pages/dashboard.samePanel.test.tsx`, `hooks/usePanel.ts` +5 |
 | `/api/learning-paths/search-assignees` | `pages/api/learning-paths/search-assignees.ts` | POST | `/admin/assignment-matrix`, `/admin/learning-paths/[id]/assign` | `__tests__/api/learning-paths/management-routes-boundary.test.ts`, `components/admin/assignment-matrix/BatchAssignModal.tsx`, `pages/admin/learning-paths/[id]/assign.tsx` |
 | `/api/learning-paths/session/activity` | `pages/api/learning-paths/session/activity.ts` | POST | **no screen** | `__tests__/api/learning-paths/session-activity.test.ts`, `tests/e2e/learning-path-governance.spec.ts` |
 | `/api/learning-paths/session/end` | `pages/api/learning-paths/session/end.ts` | POST | **no screen** | `tests/e2e/learning-path-governance.spec.ts` |
@@ -4463,5 +4463,5 @@ Used by: `/admin/course-builder/[courseId]/[moduleId]/[lessonId]`, `/admin/cours
 | `/api/learning-paths/user/[userId]` | `pages/api/learning-paths/user/[userId].ts` | GET | **no screen** | `__tests__/api/learning-paths/governance-boundary.test.ts`, `tests/e2e/learning-path-governance.spec.ts` |
 | `/api/upcoming-courses/[id]` | `pages/api/upcoming-courses/[id].ts` | DELETE, GET, PUT | `/admin/upcoming-courses` | `__tests__/api/upcoming-courses/metadata-authority.test.ts`, `pages/admin/upcoming-courses/index.tsx` |
 | `/api/upcoming-courses/admin` | `pages/api/upcoming-courses/admin.ts` | GET | `/admin/upcoming-courses` | `__tests__/api/upcoming-courses/metadata-authority.test.ts`, `pages/admin/upcoming-courses/index.tsx` |
-| `/api/upcoming-courses` | `pages/api/upcoming-courses/index.ts` | GET, POST | `/admin/upcoming-courses`, `/dashboard` | `__tests__/api/upcoming-courses/metadata-authority.test.ts`, `__tests__/pages/dashboard.clasico.test.tsx`, `hooks/usePanel.ts`, `pages/admin/upcoming-courses/index.tsx`, `tests/e2e/meeting-finalize-email-outcome.spec.ts` +1 |
+| `/api/upcoming-courses` | `pages/api/upcoming-courses/index.ts` | GET, POST | `/admin/upcoming-courses`, `/dashboard` | `__tests__/api/upcoming-courses/metadata-authority.test.ts`, `__tests__/helpers/panelFakes.tsx`, `__tests__/pages/dashboard.clasico.test.tsx`, `__tests__/pages/dashboard.nuevo.test.tsx`, `__tests__/pages/dashboard.samePanel.test.tsx` +4 |
 

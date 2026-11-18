@@ -1,0 +1,12 @@
+{
+  "M1. closed: no member; a member with the window closed": "8ebafcdacd18b39132c79bc6ca00db0dabcefc6fd5c707bfa8e6d8239ba15926",
+  "M10. «Cerrar», the X and Escape call onClose; «Ver Perfil Completo» goes to /user/{id} and closes": "be321f36e4c45fbd9236a4048ea6cb854f349e8d4133e16d4ed3981cf82d0c54",
+  "M2. a member with a photo, a role, an email and a date": "9c10c3a8cfb4ae2f3c9af546b439bd57dc425e7a7964994a6da193dd4476edd0",
+  "M3. only an initial (a first name in small letters), and no first name: «U»": "1a53d6f74c881ded8b5a3857b5a8a5d4dbcbdde581049ab0d5d793f3a1a66d45",
+  "M4. no name at all: «Usuario»": "4f5c0afd3ce4c213f5534159b1b2e5b442fadbe39e9f60335fa5e3ef33f771fd",
+  "M5. the viewer: «(Tú)»": "6f7449fddced612f214015e8e6ecae452efde107480147bfda88dc4523eb6db8",
+  "M6. without a role («Sin rol asignado») and without an email": "1380c0dda1567040bca8b145b2291ca3fdf4ed4659fb1549eadaada824b08b5a",
+  "M7. a consultor with a partner school («Escuela externa»); an unknown value; without one; a docente with one": "c270f435b75dec8f7d5549fde9ab222b3673719cb9dcc686a22f4ec2b47d6376",
+  "M8. without a date: no «Miembro desde» row (today «No disponible» is never reached)": "fc1f8185036fb12e2ed94cd7fc9b97ec0d6c4d53ec3004810a2ba8d80d4cdedc",
+  "M9. the three rows drawn when the member carries school, generation and community objects": "4b36e77ce423f674d4aefc72d98da93eba555c1efb5c4ef9e95bc5cf39d3f2eb"
+}

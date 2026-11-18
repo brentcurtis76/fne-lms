@@ -3,6 +3,7 @@
 import React from 'react';
 import { Clock, HelpCircle, User, BookOpen, Pencil, Trash2 } from 'lucide-react';
 import { CourseProposal } from '../../types/course-proposals';
+import { formatDate, getStatusBadge, proposalCreatorName, isProposalOwner } from './proposalCardText';
 
 interface CourseProposalCardProps {
   proposal: CourseProposal;
@@ -11,29 +12,13 @@ interface CourseProposalCardProps {
   onDelete?: (proposalId: string) => void;
 }
 
-const formatDate = (dateString: string): string => {
-  const date = new Date(dateString);
-  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
-};
-
-const getStatusBadge = (status: CourseProposal['status']) => {
-  const statusConfig = {
-    pending: { label: 'Pendiente', bg: 'bg-brand_accent', text: 'text-brand_primary' },
-    reviewed: { label: 'En Revisión', bg: 'bg-blue-500', text: 'text-white' },
-    approved: { label: 'Aprobada', bg: 'bg-green-500', text: 'text-white' },
-    rejected: { label: 'Rechazada', bg: 'bg-red-500', text: 'text-white' },
-  };
-  return statusConfig[status] || statusConfig.pending;
-};
+// The card's words (date, state, creator, owner): ./proposalCardText (shared with the new look)
 
 export function CourseProposalCard({ proposal, currentUserId, onEdit, onDelete }: CourseProposalCardProps) {
   const statusBadge = getStatusBadge(proposal.status);
-  const creatorName = proposal.creator
-    ? `${proposal.creator.first_name || ''} ${proposal.creator.last_name || ''}`.trim() || proposal.creator.email
-    : 'Usuario';
+  const creatorName = proposalCreatorName(proposal);
 
-  const isOwner = currentUserId && proposal.created_by === currentUserId;
+  const isOwner = isProposalOwner(proposal, currentUserId);
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();

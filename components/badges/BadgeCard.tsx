@@ -1,8 +1,7 @@
 import React from 'react';
-import { formatDistanceToNow } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { GeneraBadgeIcon } from './BadgeIcon';
 import type { BadgeCardProps } from '@/types/badges';
+import { formatEarnedAt, badgeCourseName, badgeColours, showsBadgePoints } from './badgeCardText';
 
 /**
  * Badge Card Component
@@ -43,19 +42,10 @@ export const BadgeCard: React.FC<BadgeCardProps> = ({
 
   const config = sizeConfig[size];
 
-  const formatDate = (dateString: string) => {
-    try {
-      return formatDistanceToNow(new Date(dateString), {
-        addSuffix: true,
-        locale: es,
-      });
-    } catch {
-      return '';
-    }
-  };
-
-  // Use metadata.course_name if available, otherwise fall back to course_title
-  const courseName = badge.metadata?.course_name || badge.course_title || '';
+  // A badge's texts and colours: ./badgeCardText (shared with the new look)
+  const formatDate = formatEarnedAt;
+  const courseName = badgeCourseName(badge);
+  const colours = badgeColours(badge);
 
   return (
     <div
@@ -73,8 +63,8 @@ export const BadgeCard: React.FC<BadgeCardProps> = ({
         <div className="flex-shrink-0">
           <GeneraBadgeIcon
             size={config.iconSize}
-            colorPrimary={badge.color_primary || '#fbbf24'}
-            colorSecondary={badge.color_secondary || '#0a0a0a'}
+            colorPrimary={colours.primary}
+            colorSecondary={colours.secondary}
           />
         </div>
 
@@ -99,7 +89,7 @@ export const BadgeCard: React.FC<BadgeCardProps> = ({
         </div>
 
         {/* Points Badge */}
-        {badge.points_value > 0 && size !== 'sm' && (
+        {showsBadgePoints(badge, size) && (
           <div className="flex-shrink-0">
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand_accent/10 text-brand_accent">
               +{badge.points_value}

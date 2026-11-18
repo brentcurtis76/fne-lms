@@ -1,10 +1,10 @@
 # Screens and their tests
 
-Written by `scripts/redesign/inventory.mjs` from commit `0a7ad8795`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 30 of 71 browser test files (`scripts/ci/e2e-mandatory.mjs`).
+Written by `scripts/redesign/inventory.mjs` from commit `d701100d0`. For phase 3 (the safety net). A browser test is counted for a screen when the test file names the screen's address; that is weaker than "the test checks the screen". CI runs 31 of 72 browser test files (`scripts/ci/e2e-mandatory.mjs`).
 
 - 151 screens with an address.
-- 32 are named by a browser test that CI runs.
-- 52 are named only by tests CI skips, or have only unit tests.
+- 35 are named by a browser test that CI runs.
+- 49 are named only by tests CI skips, or have only unit tests.
 - 67 have no test at all.
 
 ## No test at all
@@ -87,8 +87,6 @@ Written by `scripts/redesign/inventory.mjs` from commit `0a7ad8795`. For phase 3
 | 01-acceso | `/change-password` | — | 1 |
 | 01-acceso | `/registro` | `e2e/registro.spec.ts` | 1 |
 | 03-aprendizaje | `/mi-aprendizaje` | `e2e/notification-dispatch.spec.ts`, `e2e/notification-mail-mirror.spec.ts`, `e2e/panel-pin.spec.ts` | — |
-| 03-aprendizaje | `/mi-aprendizaje/ruta/[id]` | `e2e/panel-pin.spec.ts` | 1 |
-| 03-aprendizaje | `/student/course/[courseId]` | `e2e/panel-pin.spec.ts` | — |
 | 03-aprendizaje | `/student/lesson/[lessonId]` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | — |
 | 04-cursos | `/admin/course-builder/[courseId]/[moduleId]/[lessonId]` | `e2e/urgent-anonymous-boundaries.spec.ts`, `e2e/urgent-anonymous-current.spec.ts` | — |
 | 05-tareas | `/assignments` | `e2e/notification-catalog-links.spec.ts` | — |
@@ -101,7 +99,6 @@ Written by `scripts/redesign/inventory.mjs` from commit `0a7ad8795`. For phase 3
 | 06-sesiones | `/meet/diag` | — | 4 |
 | 07-espacio-colaborativo | `/admin/growth-communities/[id]/members` | — | 2 |
 | 07-espacio-colaborativo | `/admin/growth-communities` | — | 2 |
-| 07-espacio-colaborativo | `/user/[userId]` | `e2e/sentry-replay-disabled.spec.ts` | 1 |
 | 08-gestor-de-cambio | `/admin/assessment-builder/[templateId]/expectations` | `e2e/assessment-builder-expectations-editor.spec.ts` | 1 |
 | 08-gestor-de-cambio | `/admin/assessment-builder/[templateId]` | `e2e/assessment-frequency-validation.spec.ts` | 5 |
 | 08-gestor-de-cambio | `/admin/assessment-builder/create` | — | 1 |
@@ -140,13 +137,16 @@ Written by `scripts/redesign/inventory.mjs` from commit `0a7ad8795`. For phase 3
 
 | Area | Address | Tests |
 |---|---|---|
-| 01-acceso | `/login` | `e2e/auth-cookie-identity.spec.ts`, `e2e/auth-lifecycle.spec.ts`, `e2e/login-resilience.spec.ts`, `e2e/look-frame.spec.ts`, `e2e/look-kit.spec.ts`, `e2e/look-switch.spec.ts`, `e2e/notification-preferences-api.spec.ts`, `e2e/notification-settings.spec.ts`, `e2e/pasantias-leads-admin.spec.ts`, `e2e/smoke.spec.ts` |
+| 01-acceso | `/login` | `e2e/auth-cookie-identity.spec.ts`, `e2e/auth-lifecycle.spec.ts`, `e2e/login-resilience.spec.ts`, `e2e/look-frame.spec.ts`, `e2e/look-kit.spec.ts`, `e2e/look-panel.spec.ts`, `e2e/look-switch.spec.ts`, `e2e/notification-preferences-api.spec.ts`, `e2e/notification-settings.spec.ts`, `e2e/pasantias-leads-admin.spec.ts`, `e2e/smoke.spec.ts` |
 | 01-acceso | `/reset-password` | `e2e/auth-lifecycle.spec.ts` |
-| 02-panel | `/dashboard` | `e2e/auth-lifecycle.spec.ts`, `e2e/ci-fixture.spec.ts`, `e2e/footer-heading-order.spec.ts`, `e2e/look-frame.spec.ts`, `e2e/look-switch.spec.ts`, `e2e/notification-settings.spec.ts`, `e2e/pasantias-leads-admin.spec.ts` |
+| 02-panel | `/dashboard` | `e2e/auth-lifecycle.spec.ts`, `e2e/ci-fixture.spec.ts`, `e2e/footer-heading-order.spec.ts`, `e2e/look-frame.spec.ts`, `e2e/look-panel.spec.ts`, `e2e/look-switch.spec.ts`, `e2e/notification-settings.spec.ts`, `e2e/pasantias-leads-admin.spec.ts` |
+| 03-aprendizaje | `/mi-aprendizaje/ruta/[id]` | `e2e/look-panel.spec.ts` |
 | 03-aprendizaje | `/mi-aprendizaje/tareas` | `e2e/look-frame.spec.ts` |
+| 03-aprendizaje | `/student/course/[courseId]` | `e2e/look-panel.spec.ts` |
 | 05-tareas | `/community/workspace/assignments/[id]/discussion` | `e2e/finance-messaging-access.spec.ts` |
 | 06-sesiones | `/meet/session/[id]` | `e2e/session-disclosure.spec.ts`, `e2e/session-ical.spec.ts`, `e2e/zoom-join-authz.spec.ts`, `e2e/zoom-managed-join.spec.ts` |
 | 07-espacio-colaborativo | `/community/workspace` | `e2e/auth-lifecycle.spec.ts`, `e2e/community-document-links.spec.ts`, `e2e/meeting-create-and-access.spec.ts` |
+| 07-espacio-colaborativo | `/user/[userId]` | `e2e/look-panel.spec.ts` |
 | 08-gestor-de-cambio | `/docente/assessments/[instanceId]` | `e2e/assessment-draft.spec.ts` |
 | 08-gestor-de-cambio | `/docente/assessments` | `e2e/assessment-delivery.spec.ts` |
 | 12-pasantias | `/admin/pasantia-leads` | `e2e/ci-fixture.spec.ts`, `e2e/pasantias-flow.spec.ts`, `e2e/pasantias-leads-admin.spec.ts` |
@@ -159,8 +159,8 @@ Written by `scripts/redesign/inventory.mjs` from commit `0a7ad8795`. For phase 3
 | 14-personas | `/admin/schools` | `e2e/ci-fixture.spec.ts` |
 | 14-personas | `/admin/tractor-signups` | `e2e/auth-lifecycle.spec.ts` |
 | 14-personas | `/admin/user-management` | `e2e/auth-lifecycle.spec.ts` |
-| 14-personas | `/profile` | `e2e/look-frame.spec.ts`, `e2e/notification-settings.spec.ts` |
-| 16-notificaciones | `/configuracion/apariencia` | `e2e/look-frame.spec.ts`, `e2e/look-kit.spec.ts`, `e2e/look-switch.spec.ts` |
+| 14-personas | `/profile` | `e2e/look-frame.spec.ts`, `e2e/look-panel.spec.ts`, `e2e/notification-settings.spec.ts` |
+| 16-notificaciones | `/configuracion/apariencia` | `e2e/look-frame.spec.ts`, `e2e/look-kit.spec.ts`, `e2e/look-panel.spec.ts`, `e2e/look-switch.spec.ts` |
 | 16-notificaciones | `/configuracion` | `e2e/look-switch.spec.ts`, `e2e/notification-settings.spec.ts` |
 | 16-notificaciones | `/configuracion/notificaciones` | `e2e/look-kit.spec.ts`, `e2e/look-switch.spec.ts`, `e2e/notification-settings.spec.ts` |
 | 16-notificaciones | `/configuracion/piezas` | `e2e/look-kit.spec.ts` |

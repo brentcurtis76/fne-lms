@@ -1,12 +1,11 @@
 import React from 'react';
 import Link from 'next/link';
 import Avatar from '../common/Avatar';
-import { ROLE_NAMES, UserRoleType } from '../../types/roles';
 import {
   Settings, Users, ChevronDown, ChevronUp, Newspaper, Play,
   ArrowRight, Clock, ExternalLink, Briefcase
 } from 'lucide-react';
-import { getExternalSchoolLabel } from '../../constants/externalSchools';
+import { memberInitial, memberTile } from './memberText';
 import { LearningPathCard } from '../learning-paths';
 import { NetflixCourseRow } from '../courses';
 import { UpcomingCourseCard } from '../courses/UpcomingCourseCard';
@@ -143,7 +142,7 @@ export default function PanelClasico({ panel, decisions }: { panel: Panel; decis
                             ) : (
                               <div className="w-8 h-8 rounded-full border-2 border-white bg-brand_accent flex items-center justify-center">
                                 <span className="text-xs font-bold text-brand_primary">
-                                  {member.first_name?.charAt(0) || 'U'}
+                                  {memberInitial(member)}
                                 </span>
                               </div>
                             )}
@@ -214,8 +213,8 @@ export default function PanelClasico({ panel, decisions }: { panel: Panel; decis
 
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                         {members.map(member => {
-                          const memberRole = member.user_roles?.[0]?.role_type as UserRoleType | undefined;
-                          const roleLabel = memberRole ? ROLE_NAMES[memberRole] : null;
+                          // The tile's texts: ./memberText (shared with the new view)
+                          const { roleLabel, fullName, showsExternalSchool, externalSchoolLabel, isViewer } = memberTile(member, user?.id);
                           return (
                             <button
                               key={member.id}
@@ -231,24 +230,24 @@ export default function PanelClasico({ panel, decisions }: { panel: Panel; decis
                               ) : (
                                 <div className="w-12 h-12 rounded-full bg-brand_accent flex items-center justify-center mb-2 group-hover:ring-2 ring-brand_accent/50 transition-all">
                                   <span className="text-lg font-bold text-brand_primary">
-                                    {member.first_name?.charAt(0) || 'U'}
+                                    {memberInitial(member)}
                                   </span>
                                 </div>
                               )}
                               <p className="text-sm font-medium text-gray-900 text-center truncate w-full">
-                                {[member.first_name, member.last_name].filter(Boolean).join(' ') || (member as any).name || 'Usuario'}
+                                {fullName}
                               </p>
                               {roleLabel && (
                                 <span className="text-xs text-gray-500 text-center truncate w-full">
                                   {roleLabel}
                                 </span>
                               )}
-                              {memberRole === 'consultor' && member.external_school_affiliation && (
+                              {showsExternalSchool && (
                                 <span className="text-xs text-brand_accent text-center truncate w-full">
-                                  {getExternalSchoolLabel(member.external_school_affiliation)}
+                                  {externalSchoolLabel}
                                 </span>
                               )}
-                              {member.id === user?.id && (
+                              {isViewer && (
                                 <span className="text-xs text-brand_accent font-medium">Tú</span>
                               )}
                             </button>

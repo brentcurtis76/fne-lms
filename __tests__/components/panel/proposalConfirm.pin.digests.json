@@ -1,0 +1,10 @@
+{
+  "D1. closed: nothing drawn": "0f7a2b60ccc3a1d60daa69fbc9a37c0c79fa69740e51eb22ad16ccc75d9bd1c9",
+  "D2. with the section's texts": "eae0b7333b8ee7a70a7043b3b277061b6c1ba3723eb34ee54c21dbcf380eb935",
+  "D3. with its own defaults; the variant «warning»": "cadcdf76c0a4aaf0038bdcbf6026f94fbc3aa2cd0450263501a9a89c184c2122",
+  "D4. «Cancelar» closes": "eb22336f83551575f795d278309c2e0095e3cd9180edf3514e45268457557e2b",
+  "D5. the X closes": "eb22336f83551575f795d278309c2e0095e3cd9180edf3514e45268457557e2b",
+  "D6. Escape closes": "eb22336f83551575f795d278309c2e0095e3cd9180edf3514e45268457557e2b",
+  "D7. «Eliminar» calls onConfirm and closes at once": "8fbd4ea3467390fc4aec825f0cd1ee3f0facd5f5f8e14ee591ca2de469a574ec",
+  "D8. while loading (never seen on the panel): both buttons disabled, «Eliminando...»": "532d0ed2c227422c00c2893a6a4bcc9ba8f1bb48b70aca3e63d54683f5fa48da"
+}

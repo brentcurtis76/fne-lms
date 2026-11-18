@@ -366,6 +366,9 @@ vi.mock('@/hooks/usePanel', async (importOriginal) => {
     },
   };
 });
+// Redesign 6B: the look this pin runs under, stated: today's ("clasico", what every account without
+// the new design gets). The page reads it since 6B; the new look's view has its own tests.
+vi.mock('@/contexts/LookContext', () => ({ useLook: () => ({ look: 'clasico', setLook: () => {} }) }));
 vi.mock('@/components/layout/MainLayout', () => ({ default: marker('MainLayout', undefined, true) }));
 vi.mock('@/components/common/Avatar', () => ({ default: marker('Avatar') }));
 vi.mock('@/components/courses', () => ({ NetflixCourseRow: marker('NetflixCourseRow', (p) => p.title) }));

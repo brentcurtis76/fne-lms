@@ -1,11 +1,11 @@
 # Mi Aprendizaje (the learner's courses, lessons and routes)
 
 Area `03-aprendizaje`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `0a7ad8795` (2026-11-18).
+Read from commit `d701100d0` (2026-11-18).
 
 Course system: the Course Review session owns this area's structure and its own checklist (docs/planning/courses/inventory.md, not yet on main). This file is the redesign's list of what is on screen today.
 
-7 screen files, 1 API files, 23 pieces.
+7 screen files, 1 API files, 25 pieces.
 
 ## Screens
 
@@ -71,7 +71,7 @@ File `pages/mi-aprendizaje.tsx` · 526 lines · frame: MainLayout
   - l.292 `role = await getUserPrimaryRole(session.user.id)`
   - l.347 `router.push → /login`
   - l.377 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:31`, `components/layout/Sidebar.tsx:143`, `components/layout/Sidebar.tsx:149`, `components/notifications/ModernNotificationCenter.tsx:309`, `components/notifications/ModernNotificationCenter.tsx:319`, `components/panel/PanelClasico.tsx:563`, `components/panel/PanelClasico.tsx:564`, `lib/auth/forced-password-change.ts:152`, `lib/notificationEvents.ts:248`, `lib/notificationEvents.ts:262`, `lib/notificationEvents.ts:275`, `lib/notificationEvents.ts:293` and 12 more
+- Linked from: `components/DynamicFavicon.tsx:31`, `components/layout/Sidebar.tsx:143`, `components/layout/Sidebar.tsx:149`, `components/notifications/ModernNotificationCenter.tsx:309`, `components/notifications/ModernNotificationCenter.tsx:319`, `components/panel/PanelClasico.tsx:562`, `components/panel/PanelClasico.tsx:563`, `components/panel/PanelNuevo.tsx:130`, `lib/auth/forced-password-change.ts:152`, `lib/notificationEvents.ts:248`, `lib/notificationEvents.ts:262`, `lib/notificationEvents.ts:275` and 13 more
 - Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/notification-dispatch.spec.ts`, `tests/e2e/notification-mail-mirror.spec.ts`, `tests/e2e/panel-pin.spec.ts`.
 - QA scenarios that name this address: admin 4, community_manager 2, consultor 1, equipo_directivo 1, lider_comunidad 1, lider_generacion 1, supervisor_de_red 1.
 
@@ -177,8 +177,10 @@ File `pages/mi-aprendizaje.tsx` · 526 lines · frame: MainLayout
 - `components/courses/CourseThumbnail.tsx`
 - `components/courses/NetflixCourseCard.tsx`
 - `components/courses/NetflixCourseRow.tsx`
+- `components/courses/courseCardText.ts`
 - `components/layout/FunctionalPageHeader.tsx`
 - `components/learning-paths/LearningPathCard.tsx`
+- `components/learning-paths/routeCardText.ts`
 - `components/tutorials/HelpButton.tsx`
 - `components/tutorials/HelpDrawer.tsx`
 - `components/tutorials/VimeoEmbed.tsx`
@@ -206,8 +208,8 @@ File `pages/mi-aprendizaje/ruta/[id].tsx` · 549 lines · frame: MainLayout · g
   - l.506 `server redirect → /auth/signin  (when !user)`
   - l.521 `server redirect → /auth/signin  (when !profileData)`
   - l.538 `isAdmin = userRoles?.some(role => role.role_type === 'admin') \|\| false`
-- Linked from: `hooks/usePanel.ts:421`, `pages/api/qa/seed-codebase-index.ts:268`, `pages/mi-aprendizaje.tsx:498`
-- Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/panel-pin.spec.ts`; unit tests of the page: `__tests__/lib/api-auth.server-side-user.test.ts`.
+- Linked from: `hooks/usePanel.ts:421`, `hooks/usePanel.ts:426`, `pages/api/qa/seed-codebase-index.ts:268`, `pages/mi-aprendizaje.tsx:498`
+- Tests: browser tests that CI runs: `tests/e2e/look-panel.spec.ts`; browser tests CI skips: `tests/e2e/panel-pin.spec.ts`; unit tests of the page: `__tests__/lib/api-auth.server-side-user.test.ts`.
 
 | Role | Sees it in the menu | Middleware |
 |---|---|---|
@@ -531,8 +533,8 @@ File `pages/student/course/[courseId].tsx` · 708 lines · frame: MainLayout
   - l.83 `adminInMetadata = metadataHasRole(session.user?.user_metadata, 'admin')`
   - l.94 `userRole = await getUserPrimaryRole(session.user.id)`
   - l.391 `router.push → /login`
-- Linked from: `components/student/LessonSidebar.tsx:138`, `components/student/LessonSidebar.tsx:139`, `hooks/usePanel.ts:420`, `lib/services/learningPathsService.ts:705`, `lib/services/learningPathsService.ts:771`, `lib/services/learningPathsService.ts:777`, `lib/services/learningPathsService.ts:784`, `lib/services/learningPathsService.ts:796`, `lib/services/learningPathsService.ts:801`, `lib/services/learningPathsService.ts:806`, `pages/admin/course-builder/index.tsx:614`, `pages/api/qa/seed-codebase-index.ts:251` and 3 more
-- Tests: no browser test that CI runs; browser tests CI skips: `tests/e2e/panel-pin.spec.ts`.
+- Linked from: `components/student/LessonSidebar.tsx:138`, `components/student/LessonSidebar.tsx:139`, `hooks/usePanel.ts:420`, `hooks/usePanel.ts:425`, `lib/services/learningPathsService.ts:705`, `lib/services/learningPathsService.ts:771`, `lib/services/learningPathsService.ts:777`, `lib/services/learningPathsService.ts:784`, `lib/services/learningPathsService.ts:796`, `lib/services/learningPathsService.ts:801`, `lib/services/learningPathsService.ts:806`, `pages/admin/course-builder/index.tsx:614` and 4 more
+- Tests: browser tests that CI runs: `tests/e2e/look-panel.spec.ts`; browser tests CI skips: `tests/e2e/panel-pin.spec.ts`.
 
 | Role | Sees it in the menu | Middleware |
 |---|---|---|
@@ -1012,90 +1014,71 @@ Used by: `/mi-aprendizaje`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «{course.title}» | h3 | `!isExpanded` | NetflixCourseCard · l.225 |
-| «{course.title}» | h3 | `isExpanded` | NetflixCourseCard · l.267 |
+| «{course.title}» | h3 | `!isExpanded` | NetflixCourseCard · l.213 |
+| «{course.title}» | h3 | `isExpanded` | NetflixCourseCard · l.255 |
 
 **Buttons** (1)
 
 | Text | Does | Shown when | Disabled when | Hook | Where |
 |---|---|---|---|---|---|
-| «{getCTAText()}» | `{handleCTAClick}` | `isExpanded` |  |  | NetflixCourseCard · l.413 |
+| «{getCTAText()}» | `{handleCTAClick}` | `isExpanded` |  |  | NetflixCourseCard · l.401 |
 
 **Other things that react to a click** (1)
 
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
-| `motion.div` | «[Aprobado] [Completado] [{course.title} [{course.instructor.full_name}]] [{course.title} [{course.instructor.full_name}…» · also `onMouseEnter={handleMouseEnter} · onMouseLeave={handleMouseLeave}` | `{handleTap}` |  | NetflixCourseCard · l.156 |
+| `motion.div` | «[Aprobado] [Completado] [{course.title} [{course.instructor.full_name}]] [{course.title} [{course.instructor.full_name}…» · also `onMouseEnter={handleMouseEnter} · onMouseLeave={handleMouseLeave}` | `{handleTap}` |  | NetflixCourseCard · l.144 |
 
 **Embedded media** (3)
 
 | What | Shown when | Hook | Where |
 |---|---|---|---|
-| img · alt {course.instructor.full_name} · {course.instructor.photo_url} | `course.instructor?.photo_url` |  | NetflixCourseCard · l.176 |
-| img · alt {course.title} · {course.thumbnail_url} | `!(course.instructor?.photo_url) && course.thumbnail_url` |  | NetflixCourseCard · l.185 |
-| img · alt {course.instructor.full_name} · {course.instructor.photo_url} | `isExpanded && course.instructor && course.instructor.photo_url` |  | NetflixCourseCard · l.275 |
+| img · alt {picture.alt} · {picture.src} | `picture.kind === 'instructor'` |  | NetflixCourseCard · l.164 |
+| img · alt {picture.alt} · {picture.src} | `!(picture.kind === 'instructor') && picture.kind === 'thumbnail'` |  | NetflixCourseCard · l.173 |
+| img · alt {course.instructor.full_name} · {course.instructor.photo_url} | `isExpanded && course.instructor && course.instructor.photo_url` |  | NetflixCourseCard · l.263 |
 
 **Draws nothing when** (4)
 
 | Condition | Where |
 |---|---|
-| `!isMobile \|\| !isExpanded` | NetflixCourseCard · l.35 |
-| `isMobile` | NetflixCourseCard · l.49 |
-| `isMobile` | NetflixCourseCard · l.57 |
-| `!isMobile` | NetflixCourseCard · l.66 |
+| `!isMobile \|\| !isExpanded` | NetflixCourseCard · l.45 |
+| `isMobile` | NetflixCourseCard · l.59 |
+| `isMobile` | NetflixCourseCard · l.67 |
+| `!isMobile` | NetflixCourseCard · l.76 |
 
 **Pieces placed here, with the texts and settings handed to them** (1)
 
 | Piece | Texts and settings | Shown when | Hook | Where |
 |---|---|---|---|---|
-| `CourseThumbnail` |  | `!(course.instructor?.photo_url) && !(course.thumbnail_url)` |  | NetflixCourseCard · l.193 |
-
-**Texts kept in lists and helpers in the code (labels, options, status names)** (2)
-
-| Name | Texts | Where |
-|---|---|---|
-| `getCTAText()` | «Ver Detalles», «Repasar», «Continuar», «Comenzar» | getCTAText · l.83 |
-| `getDifficultyLabel()` | «Principiante», «Intermedio», «Avanzado» | getDifficultyLabel · l.108 |
-
-**Other texts written in the code (safety net: not tied to an element by the script)** (7)
-
-| Text | Where |
-|---|---|
-| «Ver Detalles» | NetflixCourseCard · l.83 |
-| «Repasar» | NetflixCourseCard · l.84 |
-| «Continuar» | NetflixCourseCard · l.85 |
-| «Comenzar» | NetflixCourseCard · l.87 |
-| «Principiante» | NetflixCourseCard · l.108 |
-| «Intermedio» | NetflixCourseCard · l.110 |
-| «Avanzado» | NetflixCourseCard · l.112 |
+| `CourseThumbnail` |  | `!(picture.kind === 'instructor') && !(picture.kind === 'thumbnail')` |  | NetflixCourseCard · l.181 |
 
 **Fragile hooks (ids, test marks, tour marks, focus, scroll, listeners, timers, saved state, values read from the address)** (2)
 
 | Kind | What | Where |
 |---|---|---|
-| listener | `window.addEventListener('resize')` | NetflixCourseCard · l.29 |
-| listener | `document.addEventListener('mousedown')` | NetflixCourseCard · l.43 |
+| listener | `window.addEventListener('resize')` | NetflixCourseCard · l.39 |
+| listener | `document.addEventListener('mousedown')` | NetflixCourseCard · l.53 |
 
 **Values shown from data** (5)
 
-- `{course.instructor.full_name}` — NetflixCourseCard · l.229, when `!isExpanded && course.instructor`
-- `{course.instructor.full_name}` — NetflixCourseCard · l.285, when `isExpanded && course.instructor`
-- `{enrollment.progress_percentage} %` — NetflixCourseCard · l.327, when `isExpanded && enrollment && enrollment.total_lessons && enrollment.total_lessons > 0`
-- `{course.description}` — NetflixCourseCard · l.382, when `isExpanded && course.description`
-- `{objective}` — NetflixCourseCard · l.396, when `isExpanded && course.learning_objectives && course.learning_objectives.length > 0 && each course.learning_objectives.slice(0, 4)`
+- `{course.instructor.full_name}` — NetflixCourseCard · l.217, when `!isExpanded && course.instructor`
+- `{course.instructor.full_name}` — NetflixCourseCard · l.273, when `isExpanded && course.instructor`
+- `{enrollment.progress_percentage} %` — NetflixCourseCard · l.315, when `isExpanded && showsLessons(enrollment)`
+- `{course.description}` — NetflixCourseCard · l.370, when `isExpanded && course.description`
+- `{objective}` — NetflixCourseCard · l.384, when `isExpanded && course.learning_objectives && course.learning_objectives.length > 0 && each objectivesPreview(course.learning_objectives).sho…`
 
 **Other texts on screen** (10)
 
-- «Aprobado» — NetflixCourseCard · l.209, when `enrollment?.completion_status === 'aprobado'`
-- «Completado» — NetflixCourseCard · l.217, when `enrollment?.completion_status === 'completado'`
-- «lecciones» — NetflixCourseCard · l.315, when `isExpanded && enrollment && enrollment.total_lessons && enrollment.total_lessons > 0`
-- «{enrollment.lessons_completed} de {enrollment.total_lessons} lecciones» — NetflixCourseCard · l.324, when `isExpanded && enrollment && enrollment.total_lessons && enrollment.total_lessons > 0`
-- «Tareas: {enrollment.assignments_submitted} / {enrollment.assignments_total}» — NetflixCourseCard · l.356, when `isExpanded && enrollment && enrollment.assignments_total != null && enrollment.assignments_total > 0`
-- «Curso Aprobado» — NetflixCourseCard · l.365, when `isExpanded && enrollment?.completion_status === 'aprobado'`
-- «Has completado todas las lecciones y tareas.» — NetflixCourseCard · l.368, when `isExpanded && enrollment?.completion_status === 'aprobado'`
-- «Completa tus tareas pendientes para obtener la insignia.» — NetflixCourseCard · l.376, when `isExpanded && enrollment?.completion_status === 'completado'`
-- «Objetivos de aprendizaje» — NetflixCourseCard · l.392, when `isExpanded && course.learning_objectives && course.learning_objectives.length > 0`
-- «+ {course.learning_objectives.length -…} más...» — NetflixCourseCard · l.404, when `isExpanded && course.learning_objectives && course.learning_objectives.length > 0 && course.learning_objectives.length > 4`
+- «Aprobado» — NetflixCourseCard · l.197, when `enrollment?.completion_status === 'aprobado'`
+- «Completado» — NetflixCourseCard · l.205, when `enrollment?.completion_status === 'completado'`
+- «lecciones» — NetflixCourseCard · l.303, when `isExpanded && showsLessons(enrollment)`
+- «{enrollment.lessons_completed} de {enrollment.total_lessons} lecciones» — NetflixCourseCard · l.312, when `isExpanded && showsLessons(enrollment)`
+- «Tareas: {enrollment.assignments_submitted} / {enrollment.assignments_total}» — NetflixCourseCard · l.344, when `isExpanded && showsAssignments(enrollment)`
+- «Curso Aprobado» — NetflixCourseCard · l.353, when `isExpanded && enrollment?.completion_status === 'aprobado'`
+- «Has completado todas las lecciones y tareas.» — NetflixCourseCard · l.356, when `isExpanded && enrollment?.completion_status === 'aprobado'`
+- «Completa tus tareas pendientes para obtener la insignia.» — NetflixCourseCard · l.364, when `isExpanded && enrollment?.completion_status === 'completado'`
+- «Objetivos de aprendizaje» — NetflixCourseCard · l.380, when `isExpanded && course.learning_objectives && course.learning_objectives.length > 0`
+- «+ {objectivesPreview(course.learning_o…} más...» — NetflixCourseCard · l.392, when `isExpanded && course.learning_objectives && course.learning_objectives.length > 0 && objectivesPreview(course.learning_objectives).more > 0`
 
 ### components/courses/NetflixCourseRow.tsx
 
@@ -1145,6 +1128,29 @@ Used by: `/mi-aprendizaje`
 **Values shown from data** (1)
 
 - `{emptyMessage}` — NetflixCourseRow · l.74, when `!courses \|\| courses.length === 0`
+
+### components/courses/courseCardText.ts
+
+Used by: `/mi-aprendizaje`
+
+**Texts kept in lists and helpers in the code (labels, options, status names)** (2)
+
+| Name | Texts | Where |
+|---|---|---|
+| `getCTAText()` | «Ver Detalles», «Repasar», «Continuar», «Comenzar» | getCTAText · l.13 |
+| `getDifficultyLabel()` | «Principiante», «Intermedio», «Avanzado» | getDifficultyLabel · l.24 |
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (7)
+
+| Text | Where |
+|---|---|
+| «Ver Detalles» | getCTAText · l.13 |
+| «Repasar» | getCTAText · l.14 |
+| «Continuar» | getCTAText · l.15 |
+| «Comenzar» | getCTAText · l.17 |
+| «Principiante» | getDifficultyLabel · l.24 |
+| «Intermedio» | getDifficultyLabel · l.26 |
+| «Avanzado» | getDifficultyLabel · l.28 |
 
 ### components/layout/FunctionalPageHeader.tsx
 
@@ -1255,27 +1261,38 @@ Used by: `/mi-aprendizaje`
 
 | Text | Level | Shown when | Where |
 |---|---|---|---|
-| «{name}» | h3 |  | LearningPathCard · l.111 |
+| «{name}» | h3 |  | LearningPathCard · l.101 |
 
 **Other things that react to a click** (1)
 
 | Element | Text | Does | Shown when | Where |
 |---|---|---|---|---|
-| `div` | «Nivel 2 / 1 [Completado] {name} [{description}] Progreso {Math.round(progressPercentage)} % {completedCourses} de {tota…» | `{onClick}` |  | LearningPathCard · l.72 |
+| `div` | «Nivel {routeLevel(totalCourses)} [Completado] {name} [{description}] Progreso {routePercent(progressPercentage)} % {com…» | `{onClick}` |  | LearningPathCard · l.62 |
 
-**Values shown from data** (3)
+**Values shown from data** (4)
 
-- `{description}` — LearningPathCard · l.117, when `description`
-- `{Math.round(progressPercentage)} %` — LearningPathCard · l.133
-- `{formatDistanceToNow(new Date(assign…}` — LearningPathCard · l.165
+- `{description}` — LearningPathCard · l.107, when `description`
+- `{routePercent(progressPercentage)} %` — LearningPathCard · l.123
+- `{timeSinceAssigned(assigned_at)}` — LearningPathCard · l.155
+- `{routeActionText(isStarted)}` — LearningPathCard · l.172, when `!isCompleted`
 
-**Other texts on screen** (5)
+**Other texts on screen** (4)
 
-- «Nivel 2 / 1» — LearningPathCard · l.92
-- «Completado» — LearningPathCard · l.105, when `isCompleted`
-- «Progreso» — LearningPathCard · l.131
-- «{completedCourses} de {totalCourses} cursos» — LearningPathCard · l.161
-- «Continuar aprendiendo / Comenzar ruta» — LearningPathCard · l.185, when `!isCompleted`
+- «Nivel {routeLevel(totalCourses)}» — LearningPathCard · l.82
+- «Completado» — LearningPathCard · l.95, when `isCompleted`
+- «Progreso» — LearningPathCard · l.121
+- «{completedCourses} de {totalCourses} cursos» — LearningPathCard · l.151
+
+### components/learning-paths/routeCardText.ts
+
+Used by: `/mi-aprendizaje`
+
+**Other texts written in the code (safety net: not tied to an element by the script)** (2)
+
+| Text | Where |
+|---|---|
+| «Continuar aprendiendo» | routeActionText · l.34 |
+| «Comenzar ruta» | routeActionText · l.34 |
 
 ### components/quiz/LearningQuizTaker.tsx
 

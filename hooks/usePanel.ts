@@ -419,6 +419,11 @@ export function usePanel() {
   };
   const openCourse = (courseId: string) => router.push(`/student/course/${courseId}`);
   const openLearningPath = (pathId: string) => router.push(`/mi-aprendizaje/ruta/${pathId}`);
+  // Redesign 6B (additions): the two addresses above as text, for the new view's real links (the
+  // course picture, the route card). The same templates as `openCourse` and `openLearningPath`;
+  // `__tests__/components/panel/PanelNuevo.test.tsx` checks that they agree.
+  const courseAddress = (courseId: string) => `/student/course/${courseId}`;
+  const learningPathAddress = (pathId: string) => `/mi-aprendizaje/ruta/${pathId}`;
 
   /**
    * The decisions the markup makes, one copy each, from today's expressions as they were. Worked
@@ -557,6 +562,9 @@ export function usePanel() {
     closeMemberProfile,
     openCourse,
     openLearningPath,
+    // Redesign 6B (additions)
+    courseAddress,
+    learningPathAddress,
   };
 }
 

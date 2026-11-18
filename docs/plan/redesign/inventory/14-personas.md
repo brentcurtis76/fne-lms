@@ -1,7 +1,7 @@
 # Personas (users, schools, networks, roles, profile)
 
 Area `14-personas`. Written by `scripts/redesign/inventory.mjs`; do not edit by hand (hand-written input goes in `annotations.json` and `areas.json`).
-Read from commit `0a7ad8795` (2026-11-18).
+Read from commit `d701100d0` (2026-11-18).
 
 7 screen files, 33 API files, 24 pieces.
 
@@ -1349,8 +1349,8 @@ File `pages/profile.tsx` · 816 lines · frame: MainLayout
   - l.92 `adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin')`
   - l.460 `router.push → /pending-approval  (when !(updateError) && isNewUser)`
   - l.472 `router.push → /login`
-- Linked from: `components/DynamicFavicon.tsx:18`, `components/layout/MainLayout.tsx:391`, `components/layout/Sidebar.tsx:127`, `components/layout/Sidebar.tsx:1309`, `components/layout/TopBarNuevo.tsx:109`, `components/panel/PanelClasico.tsx:87`, `components/panel/PanelClasico.tsx:88`, `hooks/usePanel.ts:248`, `lib/auth/forced-password-change.ts:156`, `lib/frontend-auth-utils.ts:143`, `lib/notifications/catalog.ts:359`, `middleware.ts:351` and 1 more
-- Tests: browser tests that CI runs: `tests/e2e/look-frame.spec.ts`, `tests/e2e/notification-settings.spec.ts`; browser tests CI skips: `tests/e2e/panel-pin.spec.ts`, `tests/qa/auth-redirects.spec.ts`; unit tests of the page: `__tests__/notifications/entry-points.test.tsx`.
+- Linked from: `components/DynamicFavicon.tsx:18`, `components/layout/MainLayout.tsx:391`, `components/layout/Sidebar.tsx:127`, `components/layout/Sidebar.tsx:1309`, `components/layout/TopBarNuevo.tsx:109`, `components/panel/PanelClasico.tsx:86`, `components/panel/PanelClasico.tsx:87`, `components/panel/PanelNuevo.tsx:88`, `components/panel/PanelNuevo.tsx:89`, `hooks/usePanel.ts:248`, `lib/auth/forced-password-change.ts:156`, `lib/frontend-auth-utils.ts:143` and 3 more
+- Tests: browser tests that CI runs: `tests/e2e/look-frame.spec.ts`, `tests/e2e/look-panel.spec.ts`, `tests/e2e/notification-settings.spec.ts`; browser tests CI skips: `tests/e2e/panel-pin.spec.ts`, `tests/qa/auth-redirects.spec.ts`; unit tests of the page: `__tests__/notifications/entry-points.test.tsx`.
 - QA scenarios that name this address: admin 1, community_manager 2.
 
 | Role | Sees it in the menu | Middleware |

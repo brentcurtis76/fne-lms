@@ -4,8 +4,8 @@
  "note": "Course system: the Course Review session owns this area's structure and its own checklist (docs/planning/courses/inventory.md, not yet on main). This file is the redesign's list of what is on screen today.",
  "routesOnly": false,
  "readFrom": {
-  "commit": "0a7ad8795b419990468bad9197d27dd375a392a3",
-  "date": "2026-11-18T14:19:15-03:00"
+  "commit": "d701100d014e948bec5766fb68836675e13355b6",
+  "date": "2026-11-18T15:21:06-03:00"
  },
  "screens": [
   {
@@ -189,8 +189,9 @@
      "components/layout/Sidebar.tsx:149",
      "components/notifications/ModernNotificationCenter.tsx:309",
      "components/notifications/ModernNotificationCenter.tsx:319",
+     "components/panel/PanelClasico.tsx:562",
      "components/panel/PanelClasico.tsx:563",
-     "components/panel/PanelClasico.tsx:564",
+     "components/panel/PanelNuevo.tsx:130",
      "lib/auth/forced-password-change.ts:152",
      "lib/notificationEvents.ts:248",
      "lib/notificationEvents.ts:262",
@@ -526,8 +527,10 @@
     "components/courses/CourseThumbnail.tsx",
     "components/courses/NetflixCourseCard.tsx",
     "components/courses/NetflixCourseRow.tsx",
+    "components/courses/courseCardText.ts",
     "components/layout/FunctionalPageHeader.tsx",
     "components/learning-paths/LearningPathCard.tsx",
+    "components/learning-paths/routeCardText.ts",
     "components/tutorials/HelpButton.tsx",
     "components/tutorials/HelpDrawer.tsx",
     "components/tutorials/VimeoEmbed.tsx",
@@ -628,12 +631,15 @@
     ],
     "linkedFrom": [
      "hooks/usePanel.ts:421",
+     "hooks/usePanel.ts:426",
      "pages/api/qa/seed-codebase-index.ts:268",
      "pages/mi-aprendizaje.tsx:498"
     ],
     "qaScenarios": {},
     "tests": {
-     "e2eCi": [],
+     "e2eCi": [
+      "tests/e2e/look-panel.spec.ts"
+     ],
      "e2e": [
       "tests/e2e/panel-pin.spec.ts"
      ],
@@ -1698,6 +1704,7 @@
      "components/student/LessonSidebar.tsx:138",
      "components/student/LessonSidebar.tsx:139",
      "hooks/usePanel.ts:420",
+     "hooks/usePanel.ts:425",
      "lib/services/learningPathsService.ts:705",
      "lib/services/learningPathsService.ts:771",
      "lib/services/learningPathsService.ts:777",
@@ -1713,7 +1720,9 @@
     ],
     "qaScenarios": {},
     "tests": {
-     "e2eCi": [],
+     "e2eCi": [
+      "tests/e2e/look-panel.spec.ts"
+     ],
      "e2e": [
       "tests/e2e/panel-pin.spec.ts"
      ],
@@ -3345,49 +3354,49 @@
    "usedBy": [
     "/mi-aprendizaje"
    ],
-   "lines": 430,
+   "lines": 418,
    "rows": [
     {
      "kind": "hook",
-     "line": 29,
+     "line": 39,
      "in": "NetflixCourseCard",
      "text": "window.addEventListener('resize')",
      "type": "listener"
     },
     {
      "kind": "gate",
-     "line": 35,
+     "line": 45,
      "in": "NetflixCourseCard",
      "text": "!isMobile || !isExpanded"
     },
     {
      "kind": "hook",
-     "line": 43,
+     "line": 53,
      "in": "NetflixCourseCard",
      "text": "document.addEventListener('mousedown')",
      "type": "listener"
     },
     {
      "kind": "gate",
-     "line": 49,
+     "line": 59,
      "in": "NetflixCourseCard",
      "text": "isMobile"
     },
     {
      "kind": "gate",
-     "line": 57,
+     "line": 67,
      "in": "NetflixCourseCard",
      "text": "isMobile"
     },
     {
      "kind": "gate",
-     "line": 66,
+     "line": 76,
      "in": "NetflixCourseCard",
      "text": "!isMobile"
     },
     {
      "kind": "clickable",
-     "line": 156,
+     "line": 144,
      "in": "NetflixCourseCard",
      "text": "[Aprobado] [Completado] [{course.title} [{course.instructor.full_name}]] [{course.title} [{course.instructor.full_name}…",
      "tag": "motion.div",
@@ -3396,43 +3405,43 @@
     },
     {
      "kind": "media",
-     "line": 176,
+     "line": 164,
      "in": "NetflixCourseCard",
-     "when": "course.instructor?.photo_url",
-     "text": "img · alt {course.instructor.full_name} · {course.instructor.photo_url}"
+     "when": "picture.kind === 'instructor'",
+     "text": "img · alt {picture.alt} · {picture.src}"
     },
     {
      "kind": "media",
-     "line": 185,
+     "line": 173,
      "in": "NetflixCourseCard",
-     "when": "!(course.instructor?.photo_url) && course.thumbnail_url",
-     "text": "img · alt {course.title} · {course.thumbnail_url}"
+     "when": "!(picture.kind === 'instructor') && picture.kind === 'thumbnail'",
+     "text": "img · alt {picture.alt} · {picture.src}"
     },
     {
      "kind": "piece",
-     "line": 193,
+     "line": 181,
      "in": "NetflixCourseCard",
-     "when": "!(course.instructor?.photo_url) && !(course.thumbnail_url)",
+     "when": "!(picture.kind === 'instructor') && !(picture.kind === 'thumbnail')",
      "text": "",
      "tag": "CourseThumbnail"
     },
     {
      "kind": "text",
-     "line": 209,
+     "line": 197,
      "in": "NetflixCourseCard",
      "when": "enrollment?.completion_status === 'aprobado'",
      "text": "Aprobado"
     },
     {
      "kind": "text",
-     "line": 217,
+     "line": 205,
      "in": "NetflixCourseCard",
      "when": "enrollment?.completion_status === 'completado'",
      "text": "Completado"
     },
     {
      "kind": "heading",
-     "line": 225,
+     "line": 213,
      "in": "NetflixCourseCard",
      "when": "!isExpanded",
      "text": "{course.title}",
@@ -3440,14 +3449,14 @@
     },
     {
      "kind": "value",
-     "line": 229,
+     "line": 217,
      "in": "NetflixCourseCard",
      "when": "!isExpanded && course.instructor",
      "text": "{course.instructor.full_name}"
     },
     {
      "kind": "heading",
-     "line": 267,
+     "line": 255,
      "in": "NetflixCourseCard",
      "when": "isExpanded",
      "text": "{course.title}",
@@ -3455,167 +3464,102 @@
     },
     {
      "kind": "media",
-     "line": 275,
+     "line": 263,
      "in": "NetflixCourseCard",
      "when": "isExpanded && course.instructor && course.instructor.photo_url",
      "text": "img · alt {course.instructor.full_name} · {course.instructor.photo_url}"
     },
     {
      "kind": "value",
-     "line": 285,
+     "line": 273,
      "in": "NetflixCourseCard",
      "when": "isExpanded && course.instructor",
      "text": "{course.instructor.full_name}"
     },
     {
      "kind": "text",
-     "line": 315,
+     "line": 303,
      "in": "NetflixCourseCard",
-     "when": "isExpanded && enrollment && enrollment.total_lessons && enrollment.total_lessons > 0",
+     "when": "isExpanded && showsLessons(enrollment)",
      "text": "lecciones"
     },
     {
      "kind": "text",
-     "line": 324,
+     "line": 312,
      "in": "NetflixCourseCard",
-     "when": "isExpanded && enrollment && enrollment.total_lessons && enrollment.total_lessons > 0",
+     "when": "isExpanded && showsLessons(enrollment)",
      "text": "{enrollment.lessons_completed} de {enrollment.total_lessons} lecciones"
     },
     {
      "kind": "value",
-     "line": 327,
+     "line": 315,
      "in": "NetflixCourseCard",
-     "when": "isExpanded && enrollment && enrollment.total_lessons && enrollment.total_lessons > 0",
+     "when": "isExpanded && showsLessons(enrollment)",
      "text": "{enrollment.progress_percentage} %"
     },
     {
      "kind": "text",
-     "line": 356,
+     "line": 344,
      "in": "NetflixCourseCard",
-     "when": "isExpanded && enrollment && enrollment.assignments_total != null && enrollment.assignments_total > 0",
+     "when": "isExpanded && showsAssignments(enrollment)",
      "text": "Tareas: {enrollment.assignments_submitted} / {enrollment.assignments_total}"
     },
     {
      "kind": "text",
-     "line": 365,
+     "line": 353,
      "in": "NetflixCourseCard",
      "when": "isExpanded && enrollment?.completion_status === 'aprobado'",
      "text": "Curso Aprobado"
     },
     {
      "kind": "text",
-     "line": 368,
+     "line": 356,
      "in": "NetflixCourseCard",
      "when": "isExpanded && enrollment?.completion_status === 'aprobado'",
      "text": "Has completado todas las lecciones y tareas."
     },
     {
      "kind": "text",
-     "line": 376,
+     "line": 364,
      "in": "NetflixCourseCard",
      "when": "isExpanded && enrollment?.completion_status === 'completado'",
      "text": "Completa tus tareas pendientes para obtener la insignia."
     },
     {
      "kind": "value",
-     "line": 382,
+     "line": 370,
      "in": "NetflixCourseCard",
      "when": "isExpanded && course.description",
      "text": "{course.description}"
     },
     {
      "kind": "text",
-     "line": 392,
+     "line": 380,
      "in": "NetflixCourseCard",
      "when": "isExpanded && course.learning_objectives && course.learning_objectives.length > 0",
      "text": "Objetivos de aprendizaje"
     },
     {
      "kind": "value",
-     "line": 396,
+     "line": 384,
      "in": "NetflixCourseCard",
-     "when": "isExpanded && course.learning_objectives && course.learning_objectives.length > 0 && each course.learning_objectives.slice(0, 4)",
+     "when": "isExpanded && course.learning_objectives && course.learning_objectives.length > 0 && each objectivesPreview(course.learning_objectives).sho…",
      "text": "{objective}"
     },
     {
      "kind": "text",
-     "line": 404,
+     "line": 392,
      "in": "NetflixCourseCard",
-     "when": "isExpanded && course.learning_objectives && course.learning_objectives.length > 0 && course.learning_objectives.length > 4",
-     "text": "+ {course.learning_objectives.length -…} más..."
+     "when": "isExpanded && course.learning_objectives && course.learning_objectives.length > 0 && objectivesPreview(course.learning_objectives).more > 0",
+     "text": "+ {objectivesPreview(course.learning_o…} más..."
     },
     {
      "kind": "button",
-     "line": 413,
+     "line": 401,
      "in": "NetflixCourseCard",
      "when": "isExpanded",
      "text": "{getCTAText()}",
      "action": "{handleCTAClick}"
-    },
-    {
-     "kind": "string",
-     "line": 83,
-     "in": "NetflixCourseCard",
-     "text": "Ver Detalles"
-    },
-    {
-     "kind": "string",
-     "line": 84,
-     "in": "NetflixCourseCard",
-     "text": "Repasar"
-    },
-    {
-     "kind": "string",
-     "line": 85,
-     "in": "NetflixCourseCard",
-     "text": "Continuar"
-    },
-    {
-     "kind": "string",
-     "line": 87,
-     "in": "NetflixCourseCard",
-     "text": "Comenzar"
-    },
-    {
-     "kind": "string",
-     "line": 108,
-     "in": "NetflixCourseCard",
-     "text": "Principiante"
-    },
-    {
-     "kind": "string",
-     "line": 110,
-     "in": "NetflixCourseCard",
-     "text": "Intermedio"
-    },
-    {
-     "kind": "string",
-     "line": 112,
-     "in": "NetflixCourseCard",
-     "text": "Avanzado"
-    },
-    {
-     "kind": "list",
-     "line": 83,
-     "in": "getCTAText",
-     "text": "getCTAText()",
-     "items": [
-      "Ver Detalles",
-      "Repasar",
-      "Continuar",
-      "Comenzar"
-     ]
-    },
-    {
-     "kind": "list",
-     "line": 108,
-     "in": "getDifficultyLabel",
-     "text": "getDifficultyLabel()",
-     "items": [
-      "Principiante",
-      "Intermedio",
-      "Avanzado"
-     ]
     }
    ],
    "db": []
@@ -3713,6 +3657,80 @@
      "text": "[icon ChevronRight]",
      "action": "{() => handleScroll('right')}",
      "aria": "Desplazar derecha"
+    }
+   ],
+   "db": []
+  },
+  "components/courses/courseCardText.ts": {
+   "usedBy": [
+    "/mi-aprendizaje"
+   ],
+   "lines": 167,
+   "rows": [
+    {
+     "kind": "string",
+     "line": 13,
+     "in": "getCTAText",
+     "text": "Ver Detalles"
+    },
+    {
+     "kind": "string",
+     "line": 14,
+     "in": "getCTAText",
+     "text": "Repasar"
+    },
+    {
+     "kind": "string",
+     "line": 15,
+     "in": "getCTAText",
+     "text": "Continuar"
+    },
+    {
+     "kind": "string",
+     "line": 17,
+     "in": "getCTAText",
+     "text": "Comenzar"
+    },
+    {
+     "kind": "string",
+     "line": 24,
+     "in": "getDifficultyLabel",
+     "text": "Principiante"
+    },
+    {
+     "kind": "string",
+     "line": 26,
+     "in": "getDifficultyLabel",
+     "text": "Intermedio"
+    },
+    {
+     "kind": "string",
+     "line": 28,
+     "in": "getDifficultyLabel",
+     "text": "Avanzado"
+    },
+    {
+     "kind": "list",
+     "line": 13,
+     "in": "getCTAText",
+     "text": "getCTAText()",
+     "items": [
+      "Ver Detalles",
+      "Repasar",
+      "Continuar",
+      "Comenzar"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 24,
+     "in": "getDifficultyLabel",
+     "text": "getDifficultyLabel()",
+     "items": [
+      "Principiante",
+      "Intermedio",
+      "Avanzado"
+     ]
     }
    ],
    "db": []
@@ -4147,73 +4165,94 @@
    "usedBy": [
     "/mi-aprendizaje"
    ],
-   "lines": 196,
+   "lines": 183,
    "rows": [
     {
      "kind": "clickable",
-     "line": 72,
+     "line": 62,
      "in": "LearningPathCard",
-     "text": "Nivel 2 / 1 [Completado] {name} [{description}] Progreso {Math.round(progressPercentage)} % {completedCourses} de {tota…",
+     "text": "Nivel {routeLevel(totalCourses)} [Completado] {name} [{description}] Progreso {routePercent(progressPercentage)} % {com…",
      "tag": "div",
      "action": "{onClick}"
     },
     {
      "kind": "text",
-     "line": 92,
+     "line": 82,
      "in": "LearningPathCard",
-     "text": "Nivel 2 / 1"
+     "text": "Nivel {routeLevel(totalCourses)}"
     },
     {
      "kind": "text",
-     "line": 105,
+     "line": 95,
      "in": "LearningPathCard",
      "when": "isCompleted",
      "text": "Completado"
     },
     {
      "kind": "heading",
-     "line": 111,
+     "line": 101,
      "in": "LearningPathCard",
      "text": "{name}",
      "level": 3
     },
     {
      "kind": "value",
-     "line": 117,
+     "line": 107,
      "in": "LearningPathCard",
      "when": "description",
      "text": "{description}"
     },
     {
      "kind": "text",
-     "line": 131,
+     "line": 121,
      "in": "LearningPathCard",
      "text": "Progreso"
     },
     {
      "kind": "value",
-     "line": 133,
+     "line": 123,
      "in": "LearningPathCard",
-     "text": "{Math.round(progressPercentage)} %"
+     "text": "{routePercent(progressPercentage)} %"
     },
     {
      "kind": "text",
-     "line": 161,
+     "line": 151,
      "in": "LearningPathCard",
      "text": "{completedCourses} de {totalCourses} cursos"
     },
     {
      "kind": "value",
-     "line": 165,
+     "line": 155,
      "in": "LearningPathCard",
-     "text": "{formatDistanceToNow(new Date(assign…}"
+     "text": "{timeSinceAssigned(assigned_at)}"
     },
     {
-     "kind": "text",
-     "line": 185,
+     "kind": "value",
+     "line": 172,
      "in": "LearningPathCard",
      "when": "!isCompleted",
-     "text": "Continuar aprendiendo / Comenzar ruta"
+     "text": "{routeActionText(isStarted)}"
+    }
+   ],
+   "db": []
+  },
+  "components/learning-paths/routeCardText.ts": {
+   "usedBy": [
+    "/mi-aprendizaje"
+   ],
+   "lines": 42,
+   "rows": [
+    {
+     "kind": "string",
+     "line": 34,
+     "in": "routeActionText",
+     "text": "Continuar aprendiendo"
+    },
+    {
+     "kind": "string",
+     "line": 34,
+     "in": "routeActionText",
+     "text": "Comenzar ruta"
     }
    ],
    "db": []

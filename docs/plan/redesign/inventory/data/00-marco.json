@@ -5,8 +5,8 @@
  "routesOnly": false,
  "frame": true,
  "readFrom": {
-  "commit": "0a7ad8795b419990468bad9197d27dd375a392a3",
-  "date": "2026-11-18T14:19:15-03:00"
+  "commit": "d701100d014e948bec5766fb68836675e13355b6",
+  "date": "2026-11-18T15:21:06-03:00"
  },
  "screens": [
   {
@@ -1482,7 +1482,7 @@
    "usedBy": [
     "(the frame)"
    ],
-   "lines": 53,
+   "lines": 60,
    "rows": [
     {
      "kind": "list",
@@ -1499,7 +1499,7 @@
     },
     {
      "kind": "hook",
-     "line": 31,
+     "line": 38,
      "in": "FooterNuevo",
      "text": "testid=footer-nuevo",
      "type": "mark",
@@ -1507,7 +1507,7 @@
     },
     {
      "kind": "link",
-     "line": 34,
+     "line": 41,
      "in": "FooterNuevo",
      "when": "each FOOTER_NUEVO_LINKS",
      "text": "{link.label}",
@@ -1515,33 +1515,33 @@
     },
     {
      "kind": "button",
-     "line": 38,
+     "line": 45,
      "in": "FooterNuevo",
      "text": "Política de Privacidad",
      "action": "{() => setShowPrivacyPolicy(true)}"
     },
     {
      "kind": "button",
-     "line": 41,
+     "line": 48,
      "in": "FooterNuevo",
      "text": "Términos de Uso",
      "action": "{() => setShowTermsOfUse(true)}"
     },
     {
      "kind": "text",
-     "line": 44,
+     "line": 51,
      "in": "FooterNuevo",
      "text": "ATE certificada por RPA Mineduc"
     },
     {
      "kind": "text",
-     "line": 45,
+     "line": 52,
      "in": "FooterNuevo",
      "text": "Santiago, Chile"
     },
     {
      "kind": "popup",
-     "line": 48,
+     "line": 55,
      "in": "FooterNuevo",
      "text": "PrivacyPolicyModal",
      "how": "component",
@@ -1549,7 +1549,7 @@
     },
     {
      "kind": "popup",
-     "line": 49,
+     "line": 56,
      "in": "FooterNuevo",
      "text": "TermsOfUseModal",
      "how": "component",

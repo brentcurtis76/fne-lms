@@ -4,14 +4,14 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "0a7ad8795b419990468bad9197d27dd375a392a3",
-  "date": "2026-11-18T14:19:15-03:00"
+  "commit": "d701100d014e948bec5766fb68836675e13355b6",
+  "date": "2026-11-18T15:21:06-03:00"
  },
  "screens": [
   {
    "file": "pages/dashboard.tsx",
    "route": "/dashboard",
-   "lines": 88,
+   "lines": 100,
    "marks": {},
    "frame": "MainLayout",
    "server": "none",
@@ -221,6 +221,7 @@
       "tests/e2e/ci-fixture.spec.ts",
       "tests/e2e/footer-heading-order.spec.ts",
       "tests/e2e/look-frame.spec.ts",
+      "tests/e2e/look-panel.spec.ts",
       "tests/e2e/look-switch.spec.ts",
       "tests/e2e/notification-settings.spec.ts",
       "tests/e2e/pasantias-leads-admin.spec.ts"
@@ -232,42 +233,70 @@
       "tests/e2e/panel-pin.spec.ts",
       "tests/qa/auth-redirects.spec.ts"
      ],
-     "unit": []
+     "unit": [
+      "__tests__/pages/dashboard.nuevo.test.tsx",
+      "__tests__/pages/dashboard.samePanel.test.tsx"
+     ]
     }
    },
    "rows": [
     {
+     "kind": "list",
+     "line": 14,
+     "text": "BREADCRUMBS_NUEVO",
+     "items": [
+      "Mi Panel"
+     ]
+    },
+    {
      "kind": "piece",
-     "line": 30,
+     "line": 38,
      "in": "Dashboard",
      "when": "loading",
      "text": "",
      "tag": "MainLayout"
     },
     {
-     "kind": "text",
-     "line": 43,
+     "kind": "piece",
+     "line": 49,
      "in": "Dashboard",
-     "when": "loading",
+     "when": "loading && isNuevo",
+     "text": "",
+     "tag": "PanelSkeleton"
+    },
+    {
+     "kind": "text",
+     "line": 54,
+     "in": "Dashboard",
+     "when": "loading && !(isNuevo)",
      "text": "Cargando..."
     },
     {
      "kind": "piece",
-     "line": 54,
+     "line": 66,
      "in": "Dashboard",
      "text": "",
      "tag": "MainLayout"
     },
     {
      "kind": "piece",
-     "line": 64,
+     "line": 76,
      "in": "Dashboard",
+     "when": "isNuevo",
+     "text": "",
+     "tag": "PanelNuevo"
+    },
+    {
+     "kind": "piece",
+     "line": 76,
+     "in": "Dashboard",
+     "when": "!(isNuevo)",
      "text": "",
      "tag": "PanelClasico"
     },
     {
      "kind": "popup",
-     "line": 68,
+     "line": 80,
      "in": "Dashboard",
      "when": "selectedWorkspace",
      "text": "WorkspaceSettingsModal",
@@ -276,7 +305,7 @@
     },
     {
      "kind": "popup",
-     "line": 79,
+     "line": 91,
      "in": "Dashboard",
      "text": "MemberProfileModal",
      "how": "component",
@@ -288,21 +317,50 @@
     "components/badges/BadgeCard.tsx",
     "components/badges/BadgeIcon.tsx",
     "components/badges/BadgesSection.tsx",
+    "components/badges/useBadges.ts",
     "components/common/Avatar.tsx",
     "components/community/MemberProfileModal.tsx",
+    "components/community/MemberProfileNuevo.tsx",
     "components/community/WorkspaceSettingsModal.tsx",
+    "components/community/WorkspaceSettingsNuevo.tsx",
+    "components/community/memberProfileText.ts",
+    "components/community/useWorkspaceSettings.ts",
     "components/course-proposals/ConfirmDialog.tsx",
+    "components/course-proposals/ConfirmDialogNuevo.tsx",
     "components/course-proposals/CourseProposalCard.tsx",
+    "components/course-proposals/CourseProposalFormNuevo.tsx",
     "components/course-proposals/CourseProposalModal.tsx",
     "components/course-proposals/CourseProposalSection.tsx",
+    "components/course-proposals/proposalCardText.ts",
+    "components/course-proposals/useCourseProposalForm.ts",
+    "components/course-proposals/useCourseProposals.ts",
     "components/courses/CourseThumbnail.tsx",
     "components/courses/NetflixCourseCard.tsx",
     "components/courses/NetflixCourseRow.tsx",
     "components/courses/UpcomingCourseCard.tsx",
+    "components/courses/courseCardText.ts",
     "components/learning-paths/LearningPathCard.tsx",
+    "components/learning-paths/routeCardText.ts",
+    "components/panel/BadgesNuevo.tsx",
+    "components/panel/CommunityCardNuevo.tsx",
+    "components/panel/CourseCardNuevo.tsx",
     "components/panel/PanelClasico.tsx",
+    "components/panel/PanelNuevo.tsx",
+    "components/panel/PanelSection.tsx",
+    "components/panel/PanelSkeleton.tsx",
+    "components/panel/ProposalsNuevo.tsx",
+    "components/panel/RouteCardNuevo.tsx",
+    "components/panel/UpcomingCardNuevo.tsx",
     "components/panel/format.ts",
+    "components/panel/memberText.ts",
     "components/ui/dialog.tsx",
+    "components/ui/kit/Button.tsx",
+    "components/ui/kit/Card.tsx",
+    "components/ui/kit/ConfirmDialog.tsx",
+    "components/ui/kit/Dialog.tsx",
+    "components/ui/kit/EmptyState.tsx",
+    "components/ui/kit/Field.tsx",
+    "components/ui/kit/Notice.tsx",
     "constants/externalSchools.ts",
     "constants/toastStyles.ts",
     "hooks/usePanel.ts",
@@ -342,8 +400,8 @@
       "POST"
      ],
      "from": [
-      "components/course-proposals/CourseProposalSection.tsx:27",
-      "components/course-proposals/CourseProposalSection.tsx:72"
+      "components/course-proposals/useCourseProposals.ts:25",
+      "components/course-proposals/useCourseProposals.ts:70"
      ]
     },
     {
@@ -354,8 +412,8 @@
       "PUT"
      ],
      "from": [
-      "components/course-proposals/CourseProposalSection.tsx:108",
-      "components/course-proposals/CourseProposalSection.tsx:50"
+      "components/course-proposals/useCourseProposals.ts:106",
+      "components/course-proposals/useCourseProposals.ts:48"
      ]
     },
     {
@@ -416,11 +474,11 @@
    "usedBy": [
     "/dashboard"
    ],
-   "lines": 115,
+   "lines": 105,
    "rows": [
     {
      "kind": "clickable",
-     "line": 61,
+     "line": 51,
      "in": "BadgeCard",
      "text": "{badge.badge_name} [{courseName}] {formatDate(badge.earned_at)} [+ {badge.points_value}]",
      "tag": "div",
@@ -428,36 +486,36 @@
     },
     {
      "kind": "piece",
-     "line": 74,
+     "line": 64,
      "in": "BadgeCard",
      "text": "",
      "tag": "GeneraBadgeIcon"
     },
     {
      "kind": "heading",
-     "line": 84,
+     "line": 74,
      "in": "BadgeCard",
      "text": "{badge.badge_name}",
      "level": 4
     },
     {
      "kind": "value",
-     "line": 90,
+     "line": 80,
      "in": "BadgeCard",
      "when": "showCourseName && courseName",
      "text": "{courseName}"
     },
     {
      "kind": "value",
-     "line": 96,
+     "line": 86,
      "in": "BadgeCard",
      "text": "{formatDate(badge.earned_at)}"
     },
     {
      "kind": "value",
-     "line": 104,
+     "line": 94,
      "in": "BadgeCard",
-     "when": "badge.points_value > 0 && size !== 'sm'",
+     "when": "showsBadgePoints(badge, size)",
      "text": "+ {badge.points_value}"
     }
    ],
@@ -483,37 +541,30 @@
    "usedBy": [
     "/dashboard"
    ],
-   "lines": 160,
+   "lines": 133,
    "rows": [
     {
-     "kind": "message",
-     "line": 47,
-     "in": "fetchBadges",
-     "text": "Error al cargar los logros",
-     "via": "setError"
-    },
-    {
      "kind": "gate",
-     "line": 57,
+     "line": 33,
      "in": "BadgesSection",
-     "text": "!loading && badges.length === 0"
+     "text": "!drawn"
     },
     {
      "kind": "heading",
-     "line": 73,
+     "line": 46,
      "in": "BadgesSection",
      "text": "Mis Logros",
      "level": 2
     },
     {
-     "kind": "text",
-     "line": 74,
+     "kind": "value",
+     "line": 47,
      "in": "BadgesSection",
-     "text": "{badges.length} insignia obtenida / insignias obtenidas [· {totalPoints} puntos]"
+     "text": "{badges.length} {badgeCountWords} {pointsSuffix}"
     },
     {
      "kind": "link",
-     "line": 82,
+     "line": 55,
      "in": "BadgesSection",
      "when": "showViewAll && badges.length > 0",
      "text": "Ver todos",
@@ -521,14 +572,14 @@
     },
     {
      "kind": "value",
-     "line": 105,
+     "line": 78,
      "in": "BadgesSection",
      "when": "error",
      "text": "{error}"
     },
     {
      "kind": "piece",
-     "line": 119,
+     "line": 92,
      "in": "BadgesSection",
      "when": "!loading && !error && badges.length > 0 && each displayedBadges",
      "text": "",
@@ -536,15 +587,15 @@
     },
     {
      "kind": "link",
-     "line": 125,
+     "line": 98,
      "in": "BadgesSection",
      "when": "!loading && !error && badges.length > 0 && hasMore && showViewAll",
-     "text": "+ {badges.length - maxDisplay} más",
+     "text": "+ {moreCount} más",
      "target": "/mi-aprendizaje/logros"
     },
     {
      "kind": "piece",
-     "line": 146,
+     "line": 119,
      "in": "BadgesSection",
      "when": "!loading && !error && badges.length === 0",
      "text": "",
@@ -552,7 +603,7 @@
     },
     {
      "kind": "heading",
-     "line": 147,
+     "line": 120,
      "in": "BadgesSection",
      "when": "!loading && !error && badges.length === 0",
      "text": "Tus logros aparecerán aquí",
@@ -560,10 +611,35 @@
     },
     {
      "kind": "text",
-     "line": 151,
+     "line": 124,
      "in": "BadgesSection",
      "when": "!loading && !error && badges.length === 0",
      "text": "Completa cursos para ganar insignias y reconocimientos"
+    }
+   ],
+   "db": []
+  },
+  "components/badges/useBadges.ts": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 64,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 30,
+     "in": "fetchBadges",
+     "text": "Error al cargar los logros",
+     "via": "setError"
+    },
+    {
+     "kind": "list",
+     "line": 48,
+     "in": "useBadges",
+     "text": "badgeCountWords",
+     "items": [
+      "insignia obtenida / insignias obtenidas"
+     ]
     }
    ],
    "db": []
@@ -610,26 +686,26 @@
    "usedBy": [
     "/dashboard"
    ],
-   "lines": 179,
+   "lines": 182,
    "rows": [
     {
      "kind": "gate",
-     "line": 28,
+     "line": 33,
      "in": "MemberProfileModal",
      "text": "!member"
     },
     {
-     "kind": "list",
-     "line": 31,
+     "kind": "popup",
+     "line": 37,
      "in": "MemberProfileModal",
-     "text": "roleLabel",
-     "items": [
-      "Sin rol asignado"
-     ]
+     "when": "look === 'nuevo'",
+     "text": "MemberProfileNuevo",
+     "how": "component",
+     "open": "{isOpen}"
     },
     {
      "kind": "popup",
-     "line": 43,
+     "line": 46,
      "in": "MemberProfileModal",
      "text": "Dialog",
      "how": "component",
@@ -637,151 +713,301 @@
     },
     {
      "kind": "piece",
-     "line": 44,
+     "line": 47,
      "in": "MemberProfileModal",
      "text": "",
      "tag": "DialogContent"
     },
     {
      "kind": "media",
-     "line": 48,
+     "line": 51,
      "in": "MemberProfileModal",
      "when": "member.avatar_url",
      "text": "img · alt {fullName} · {member.avatar_url}"
     },
     {
      "kind": "value",
-     "line": 55,
+     "line": 58,
      "in": "MemberProfileModal",
      "when": "!(member.avatar_url)",
      "text": "{initials}"
     },
     {
      "kind": "heading",
-     "line": 60,
+     "line": 63,
      "in": "MemberProfileModal",
      "text": "{fullName} [(Tú)]",
      "level": 2
     },
     {
      "kind": "value",
-     "line": 66,
+     "line": 69,
      "in": "MemberProfileModal",
      "text": "{roleLabel}"
     },
     {
      "kind": "text",
-     "line": 80,
+     "line": 83,
      "in": "MemberProfileModal",
-     "when": "member.email",
+     "when": "rows.email",
      "text": "Correo electrónico"
     },
     {
      "kind": "value",
-     "line": 81,
+     "line": 84,
      "in": "MemberProfileModal",
-     "when": "member.email",
+     "when": "rows.email",
      "text": "{member.email}"
     },
     {
      "kind": "text",
-     "line": 93,
+     "line": 96,
      "in": "MemberProfileModal",
-     "when": "member.school",
+     "when": "rows.school",
      "text": "Colegio"
     },
     {
      "kind": "value",
-     "line": 94,
+     "line": 97,
      "in": "MemberProfileModal",
-     "when": "member.school",
-     "text": "{member.school.name}"
+     "when": "rows.school",
+     "text": "{member.school?.name}"
     },
     {
      "kind": "text",
-     "line": 106,
+     "line": 109,
      "in": "MemberProfileModal",
-     "when": "memberRole === 'consultor' && member.external_school_affiliation",
+     "when": "rows.externalSchool",
      "text": "Escuela externa"
     },
     {
      "kind": "value",
-     "line": 107,
+     "line": 110,
      "in": "MemberProfileModal",
-     "when": "memberRole === 'consultor' && member.external_school_affiliation",
+     "when": "rows.externalSchool",
      "text": "{getExternalSchoolLabel(member.exter…}"
     },
     {
      "kind": "text",
-     "line": 121,
+     "line": 124,
      "in": "MemberProfileModal",
-     "when": "member.generation",
+     "when": "rows.generation",
      "text": "Generación"
     },
     {
      "kind": "value",
-     "line": 122,
+     "line": 125,
      "in": "MemberProfileModal",
-     "when": "member.generation",
-     "text": "{member.generation.name}"
+     "when": "rows.generation",
+     "text": "{member.generation?.name}"
     },
     {
      "kind": "text",
-     "line": 134,
+     "line": 137,
      "in": "MemberProfileModal",
-     "when": "member.community",
+     "when": "rows.community",
      "text": "Comunidad"
     },
     {
      "kind": "value",
-     "line": 135,
+     "line": 138,
      "in": "MemberProfileModal",
-     "when": "member.community",
-     "text": "{member.community.name}"
+     "when": "rows.community",
+     "text": "{member.community?.name}"
     },
     {
      "kind": "text",
-     "line": 147,
+     "line": 150,
      "in": "MemberProfileModal",
-     "when": "member.created_at",
+     "when": "rows.memberSince",
      "text": "Miembro desde"
     },
     {
      "kind": "value",
-     "line": 148,
+     "line": 151,
      "in": "MemberProfileModal",
-     "when": "member.created_at",
+     "when": "rows.memberSince",
      "text": "{formatDate(member.created_at)}"
     },
     {
      "kind": "button",
-     "line": 157,
+     "line": 160,
      "in": "MemberProfileModal",
      "text": "Cerrar",
      "action": "{onClose}"
     },
     {
      "kind": "link",
-     "line": 163,
+     "line": 166,
      "in": "MemberProfileModal",
      "text": "Ver Perfil Completo",
      "target": "/user/[*]",
      "action": "{onClose}"
+    }
+   ],
+   "db": []
+  },
+  "components/community/MemberProfileNuevo.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 115,
+   "rows": [
+    {
+     "kind": "popup",
+     "line": 29,
+     "in": "MemberProfileNuevo",
+     "text": "Dialog",
+     "how": "component",
+     "open": "{isOpen}",
+     "props": "eyebrow: Mi Comunidad de Crecimiento",
+     "hook": {
+      "testid": "member-profile-dialog"
+     }
     },
     {
-     "kind": "string",
-     "line": 32,
-     "in": "MemberProfileModal",
-     "text": "Usuario"
-    },
-    {
-     "kind": "list",
+     "kind": "text",
      "line": 36,
-     "in": "formatDate",
-     "text": "formatDate()",
-     "items": [
-      "No disponible"
-     ]
+     "in": "MemberProfileNuevo",
+     "when": "isCurrentUser",
+     "text": "(Tú)"
+    },
+    {
+     "kind": "button",
+     "line": 42,
+     "in": "MemberProfileNuevo",
+     "text": "Cerrar",
+     "action": "{onClose}",
+     "hook": {
+      "testid": "member-profile-close"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 45,
+     "in": "MemberProfileNuevo",
+     "text": "Ver Perfil Completo",
+     "action": "{onClose}",
+     "hook": {
+      "testid": "member-profile-full"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 47,
+     "in": "MemberProfileNuevo",
+     "text": "aria-hidden: true",
+     "tag": "ExternalLink"
+    },
+    {
+     "kind": "media",
+     "line": 54,
+     "in": "MemberProfileNuevo",
+     "when": "member.avatar_url",
+     "text": "img · alt {fullName} · {member.avatar_url}"
+    },
+    {
+     "kind": "value",
+     "line": 60,
+     "in": "MemberProfileNuevo",
+     "when": "!(member.avatar_url)",
+     "text": "{initials}"
+    },
+    {
+     "kind": "piece",
+     "line": 69,
+     "in": "MemberProfileNuevo",
+     "when": "memberRole",
+     "text": "tone: accent",
+     "tag": "Badge"
+    },
+    {
+     "kind": "value",
+     "line": 69,
+     "in": "MemberProfileNuevo",
+     "when": "memberRole",
+     "text": "{roleLabel}"
+    },
+    {
+     "kind": "piece",
+     "line": 73,
+     "in": "MemberProfileNuevo",
+     "when": "!(memberRole)",
+     "text": "tone: neutral",
+     "tag": "Badge"
+    },
+    {
+     "kind": "value",
+     "line": 73,
+     "in": "MemberProfileNuevo",
+     "when": "!(memberRole)",
+     "text": "{roleLabel}"
+    },
+    {
+     "kind": "piece",
+     "line": 83,
+     "in": "MemberProfileNuevo",
+     "when": "rows.email",
+     "text": "aria-hidden: true",
+     "tag": "Mail"
+    },
+    {
+     "kind": "text",
+     "line": 84,
+     "in": "MemberProfileNuevo",
+     "when": "rows.email",
+     "text": "Correo electrónico"
+    },
+    {
+     "kind": "value",
+     "line": 86,
+     "in": "MemberProfileNuevo",
+     "when": "rows.email",
+     "text": "{member.email}"
+    },
+    {
+     "kind": "piece",
+     "line": 92,
+     "in": "MemberProfileNuevo",
+     "when": "rows.externalSchool",
+     "text": "aria-hidden: true",
+     "tag": "Briefcase"
+    },
+    {
+     "kind": "text",
+     "line": 93,
+     "in": "MemberProfileNuevo",
+     "when": "rows.externalSchool",
+     "text": "Escuela externa"
+    },
+    {
+     "kind": "value",
+     "line": 95,
+     "in": "MemberProfileNuevo",
+     "when": "rows.externalSchool",
+     "text": "{getExternalSchoolLabel(member.exter…}"
+    },
+    {
+     "kind": "piece",
+     "line": 103,
+     "in": "MemberProfileNuevo",
+     "when": "rows.memberSince",
+     "text": "aria-hidden: true",
+     "tag": "Calendar"
+    },
+    {
+     "kind": "text",
+     "line": 104,
+     "in": "MemberProfileNuevo",
+     "when": "rows.memberSince",
+     "text": "Miembro desde"
+    },
+    {
+     "kind": "value",
+     "line": 106,
+     "in": "MemberProfileNuevo",
+     "when": "rows.memberSince",
+     "text": "{formatMemberDate(member.created_at)}"
     }
    ],
    "db": []
@@ -790,61 +1016,40 @@
    "usedBy": [
     "/dashboard"
    ],
-   "lines": 242,
+   "lines": 163,
    "rows": [
     {
-     "kind": "toast",
-     "line": 42,
-     "in": "handleImageSelect",
-     "when": "file.size > 5 * 1024 * 1024",
-     "text": "La imagen debe ser menor a 5MB",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 49,
-     "in": "handleImageSelect",
-     "when": "!allowedTypes.includes(file.type)",
-     "text": "Solo se permiten imágenes (JPEG, PNG, WebP)",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 99,
-     "in": "handleSave",
-     "text": "Configuración actualizada exitosamente",
-     "variant": "success"
-    },
-    {
-     "kind": "toast",
-     "line": 107,
-     "in": "handleSave",
-     "text": "Error al guardar la configuración",
-     "variant": "error"
+     "kind": "popup",
+     "line": 41,
+     "in": "WorkspaceSettingsModal",
+     "when": "look === 'nuevo'",
+     "text": "WorkspaceSettingsNuevo",
+     "how": "component",
+     "open": "{isOpen}"
     },
     {
      "kind": "gate",
-     "line": 122,
+     "line": 43,
      "in": "WorkspaceSettingsModal",
      "text": "!isOpen"
     },
     {
      "kind": "popup",
-     "line": 125,
+     "line": 46,
      "in": "WorkspaceSettingsModal",
      "text": "Configuración de la Comunidad",
      "how": "written in this file"
     },
     {
      "kind": "heading",
-     "line": 128,
+     "line": 49,
      "in": "WorkspaceSettingsModal",
      "text": "Configuración de la Comunidad",
      "level": 3
     },
     {
      "kind": "button",
-     "line": 131,
+     "line": 52,
      "in": "WorkspaceSettingsModal",
      "text": "[icon X]",
      "action": "{onClose}",
@@ -852,13 +1057,13 @@
     },
     {
      "kind": "label",
-     "line": 143,
+     "line": 64,
      "in": "WorkspaceSettingsModal",
      "text": "Nombre de la Comunidad"
     },
     {
      "kind": "field",
-     "line": 146,
+     "line": 67,
      "in": "WorkspaceSettingsModal",
      "text": "Nombre de la Comunidad",
      "type": "text",
@@ -868,26 +1073,26 @@
     },
     {
      "kind": "text",
-     "line": 155,
+     "line": 76,
      "in": "WorkspaceSettingsModal",
      "text": "Cualquier miembro puede cambiar el nombre del grupo"
     },
     {
      "kind": "label",
-     "line": 161,
+     "line": 82,
      "in": "WorkspaceSettingsModal",
      "text": "Imagen de la Comunidad"
     },
     {
      "kind": "media",
-     "line": 170,
+     "line": 91,
      "in": "WorkspaceSettingsModal",
      "when": "imagePreview",
      "text": "img · alt Vista previa · {imagePreview}"
     },
     {
      "kind": "button",
-     "line": 175,
+     "line": 96,
      "in": "WorkspaceSettingsModal",
      "when": "imagePreview",
      "text": "[icon X]",
@@ -895,7 +1100,7 @@
     },
     {
      "kind": "field",
-     "line": 192,
+     "line": 113,
      "in": "WorkspaceSettingsModal",
      "screen": "hidden",
      "text": "Subir imagen",
@@ -909,20 +1114,20 @@
     },
     {
      "kind": "label",
-     "line": 200,
+     "line": 121,
      "in": "WorkspaceSettingsModal",
      "text": "Subir imagen",
      "for": "community-image-upload"
     },
     {
      "kind": "text",
-     "line": 208,
+     "line": 129,
      "in": "WorkspaceSettingsModal",
      "text": "Máx. 5MB (JPEG, PNG, WebP)"
     },
     {
      "kind": "button",
-     "line": 217,
+     "line": 138,
      "in": "WorkspaceSettingsModal",
      "text": "Cancelar",
      "action": "{onClose}",
@@ -930,11 +1135,232 @@
     },
     {
      "kind": "button",
-     "line": 224,
+     "line": 145,
      "in": "WorkspaceSettingsModal",
      "text": "Guardando... / Guardar cambios",
      "action": "{handleSave}",
-     "disabled": "{isLoading || (!customName.trim() && !imageFile && !imageUrl)}"
+     "disabled": "{saveDisabled}"
+    }
+   ],
+   "db": []
+  },
+  "components/community/WorkspaceSettingsNuevo.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 114,
+   "rows": [
+    {
+     "kind": "popup",
+     "line": 37,
+     "in": "WorkspaceSettingsNuevo",
+     "text": "Dialog",
+     "how": "component",
+     "open": "{isOpen}",
+     "props": "eyebrow: Mi Comunidad de Crecimiento · title: Configuración de la Comunidad",
+     "hook": {
+      "testid": "workspace-settings-dialog"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 46,
+     "in": "WorkspaceSettingsNuevo",
+     "text": "Cancelar",
+     "action": "{onClose}",
+     "disabled": "{isLoading}",
+     "hook": {
+      "testid": "workspace-settings-cancel"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 49,
+     "in": "WorkspaceSettingsNuevo",
+     "text": "Guardando... / Guardar cambios",
+     "action": "{handleSave}",
+     "disabled": "{saveDisabled}",
+     "hook": {
+      "testid": "workspace-settings-save"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 55,
+     "in": "WorkspaceSettingsNuevo",
+     "text": "label: Nombre de la Comunidad · help: Cualquier miembro puede cambiar el nombre del grupo",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 56,
+     "in": "WorkspaceSettingsNuevo",
+     "text": "Ingresa un nombre personalizado",
+     "type": "text",
+     "placeholder": "Ingresa un nombre personalizado",
+     "limits": "maxLength={100}",
+     "action": "{(e) => setCustomName(e.target.value)}",
+     "hook": {
+      "testid": "workspace-settings-name"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 66,
+     "in": "WorkspaceSettingsNuevo",
+     "text": "role=group",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 68,
+     "in": "WorkspaceSettingsNuevo",
+     "text": "Imagen de la Comunidad"
+    },
+    {
+     "kind": "media",
+     "line": 73,
+     "in": "WorkspaceSettingsNuevo",
+     "when": "imagePreview",
+     "text": "img · alt Vista previa · {imagePreview}"
+    },
+    {
+     "kind": "button",
+     "line": 74,
+     "in": "WorkspaceSettingsNuevo",
+     "when": "imagePreview",
+     "text": "[icon X]",
+     "action": "{handleRemoveImage}",
+     "aria": "Quitar imagen",
+     "title": "Quitar imagen",
+     "hook": {
+      "testid": "workspace-settings-remove-image"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 82,
+     "in": "WorkspaceSettingsNuevo",
+     "when": "imagePreview",
+     "text": "aria-hidden: true",
+     "tag": "X"
+    },
+    {
+     "kind": "piece",
+     "line": 87,
+     "in": "WorkspaceSettingsNuevo",
+     "when": "!(imagePreview)",
+     "text": "aria-hidden: true",
+     "tag": "Camera"
+    },
+    {
+     "kind": "field",
+     "line": 91,
+     "in": "WorkspaceSettingsNuevo",
+     "screen": "hidden",
+     "text": "",
+     "type": "file",
+     "accept": "image/jpeg,image/jpg,image/png,image/webp",
+     "action": "{handleImageSelect}",
+     "hook": {
+      "id": "community-image-upload"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 99,
+     "in": "WorkspaceSettingsNuevo",
+     "text": "Subir imagen",
+     "action": "{() => fileInputRef.current?.click()}",
+     "hook": {
+      "testid": "workspace-settings-upload"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 100,
+     "in": "WorkspaceSettingsNuevo",
+     "text": "aria-hidden: true",
+     "tag": "Upload"
+    },
+    {
+     "kind": "text",
+     "line": 104,
+     "in": "WorkspaceSettingsNuevo",
+     "text": "Máx. 5MB (JPEG, PNG, WebP)"
+    }
+   ],
+   "db": []
+  },
+  "components/community/memberProfileText.ts": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 39,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 11,
+     "in": "memberProfileText",
+     "text": "roleLabel",
+     "items": [
+      "Sin rol asignado"
+     ]
+    },
+    {
+     "kind": "string",
+     "line": 12,
+     "in": "memberProfileText",
+     "text": "Usuario"
+    },
+    {
+     "kind": "list",
+     "line": 19,
+     "in": "formatMemberDate",
+     "text": "formatMemberDate()",
+     "items": [
+      "No disponible"
+     ]
+    }
+   ],
+   "db": []
+  },
+  "components/community/useWorkspaceSettings.ts": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 142,
+   "rows": [
+    {
+     "kind": "toast",
+     "line": 45,
+     "in": "handleImageSelect",
+     "when": "file.size > 5 * 1024 * 1024",
+     "text": "La imagen debe ser menor a 5MB",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 52,
+     "in": "handleImageSelect",
+     "when": "!allowedTypes.includes(file.type)",
+     "text": "Solo se permiten imágenes (JPEG, PNG, WebP)",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 102,
+     "in": "handleSave",
+     "text": "Configuración actualizada exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 110,
+     "in": "handleSave",
+     "text": "Error al guardar la configuración",
+     "variant": "error"
     }
    ],
    "db": []
@@ -943,11 +1369,20 @@
    "usedBy": [
     "/dashboard"
    ],
-   "lines": 113,
+   "lines": 133,
    "rows": [
     {
      "kind": "popup",
-     "line": 43,
+     "line": 48,
+     "in": "ConfirmDialog",
+     "when": "look === 'nuevo'",
+     "text": "ConfirmDialogNuevo",
+     "how": "component",
+     "open": "{isOpen}"
+    },
+    {
+     "kind": "popup",
+     "line": 63,
      "in": "ConfirmDialog",
      "text": "Dialog",
      "how": "component",
@@ -955,54 +1390,54 @@
     },
     {
      "kind": "piece",
-     "line": 44,
+     "line": 64,
      "in": "ConfirmDialog",
      "text": "",
      "tag": "DialogContent"
     },
     {
      "kind": "piece",
-     "line": 45,
+     "line": 65,
      "in": "ConfirmDialog",
      "text": "",
      "tag": "DialogHeader"
     },
     {
      "kind": "piece",
-     "line": 54,
+     "line": 74,
      "in": "ConfirmDialog",
      "text": "",
      "tag": "DialogTitle"
     },
     {
      "kind": "value",
-     "line": 54,
+     "line": 74,
      "in": "ConfirmDialog",
      "text": "{title}"
     },
     {
      "kind": "piece",
-     "line": 58,
+     "line": 78,
      "in": "ConfirmDialog",
      "text": "",
      "tag": "DialogDescription"
     },
     {
      "kind": "value",
-     "line": 58,
+     "line": 78,
      "in": "ConfirmDialog",
      "text": "{description}"
     },
     {
      "kind": "piece",
-     "line": 63,
+     "line": 83,
      "in": "ConfirmDialog",
      "text": "",
      "tag": "DialogFooter"
     },
     {
      "kind": "button",
-     "line": 64,
+     "line": 84,
      "in": "ConfirmDialog",
      "text": "{cancelText}",
      "action": "{onClose}",
@@ -1010,7 +1445,7 @@
     },
     {
      "kind": "button",
-     "line": 72,
+     "line": 92,
      "in": "ConfirmDialog",
      "text": "Eliminando... / {confirmText}",
      "action": "{handleConfirm}",
@@ -1018,27 +1453,48 @@
     },
     {
      "kind": "string",
-     "line": 30,
+     "line": 32,
      "in": "ConfirmDialog",
      "text": "¿Estás seguro?"
     },
     {
      "kind": "string",
-     "line": 31,
+     "line": 33,
      "in": "ConfirmDialog",
      "text": "Esta acción no se puede deshacer."
     },
     {
      "kind": "string",
-     "line": 32,
+     "line": 34,
      "in": "ConfirmDialog",
      "text": "Confirmar"
     },
     {
      "kind": "string",
-     "line": 33,
+     "line": 35,
      "in": "ConfirmDialog",
      "text": "Cancelar"
+    }
+   ],
+   "db": []
+  },
+  "components/course-proposals/ConfirmDialogNuevo.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 50,
+   "rows": [
+    {
+     "kind": "popup",
+     "line": 33,
+     "in": "ConfirmDialogNuevo",
+     "text": "KitConfirmDialog",
+     "how": "component",
+     "open": "{isOpen}",
+     "props": "eyebrow: Confirmar · confirmLabel: Eliminando...",
+     "hook": {
+      "testid": "proposal-confirm-dialog"
+     }
     }
    ],
    "db": []
@@ -1047,29 +1503,17 @@
    "usedBy": [
     "/dashboard"
    ],
-   "lines": 139,
+   "lines": 124,
    "rows": [
     {
-     "kind": "list",
-     "line": 21,
-     "in": "getStatusBadge",
-     "text": "statusConfig",
-     "items": [
-      "Pendiente",
-      "En Revisión",
-      "Aprobada",
-      "Rechazada"
-     ]
-    },
-    {
      "kind": "value",
-     "line": 55,
+     "line": 40,
      "in": "CourseProposalCard",
      "text": "{statusBadge.label}"
     },
     {
      "kind": "button",
-     "line": 64,
+     "line": 49,
      "in": "CourseProposalCard",
      "when": "isOwner",
      "text": "[icon Pencil]",
@@ -1078,7 +1522,7 @@
     },
     {
      "kind": "button",
-     "line": 71,
+     "line": 56,
      "in": "CourseProposalCard",
      "when": "isOwner",
      "text": "[icon Trash2]",
@@ -1087,53 +1531,243 @@
     },
     {
      "kind": "heading",
-     "line": 81,
+     "line": 66,
      "in": "CourseProposalCard",
      "text": "{proposal.titulo}",
      "level": 3
     },
     {
      "kind": "value",
-     "line": 89,
+     "line": 74,
      "in": "CourseProposalCard",
      "text": "{proposal.descripcion_corta}"
     },
     {
      "kind": "value",
-     "line": 96,
+     "line": 81,
      "in": "CourseProposalCard",
      "text": "{proposal.competencias_desarrollar}"
     },
     {
      "kind": "value",
-     "line": 104,
+     "line": 89,
      "in": "CourseProposalCard",
      "text": "{proposal.tiempo_requerido_desarrollo}"
     },
     {
      "kind": "text",
-     "line": 114,
+     "line": 99,
      "in": "CourseProposalCard",
      "when": "proposal.necesita_ayuda_diseno_instruccional",
      "text": "Solicita ayuda con diseño instruccional"
     },
     {
      "kind": "value",
-     "line": 126,
+     "line": 111,
      "in": "CourseProposalCard",
      "text": "{creatorName}"
     },
     {
      "kind": "value",
-     "line": 130,
+     "line": 115,
      "in": "CourseProposalCard",
      "text": "{formatDate(proposal.created_at)}"
+    }
+   ],
+   "db": []
+  },
+  "components/course-proposals/CourseProposalFormNuevo.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 152,
+   "rows": [
+    {
+     "kind": "gate",
+     "line": 40,
+     "in": "CourseProposalFormNuevo",
+     "text": "submits === 0"
+    },
+    {
+     "kind": "gate",
+     "line": 42,
+     "in": "CourseProposalFormNuevo",
+     "text": "!notice || typeof notice.scrollIntoView !== 'function'"
+    },
+    {
+     "kind": "hook",
+     "line": 49,
+     "in": "CourseProposalFormNuevo",
+     "text": "notice.scrollIntoView()",
+     "type": "scroll"
+    },
+    {
+     "kind": "popup",
+     "line": 53,
+     "in": "CourseProposalFormNuevo",
+     "text": "Dialog",
+     "how": "component",
+     "open": "{isOpen}",
+     "props": "eyebrow: Propuestas de Cursos · title: Editar Propuesta de Curso / Nueva Propuesta de Curso · description: Modifica los detalles de tu propuesta de curso. / Comparte tu idea para un nuevo curso que beneficiaría a la plataforma.",
+     "hook": {
+      "testid": "proposal-form-dialog"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 67,
+     "in": "CourseProposalFormNuevo",
+     "text": "Cancelar",
+     "action": "{handleClose}",
+     "disabled": "{isSubmitting}",
+     "hook": {
+      "testid": "proposal-form-cancel"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 70,
+     "in": "CourseProposalFormNuevo",
+     "text": "Guardando... / Guardar Cambios / Enviar Propuesta",
+     "submit": true,
+     "hook": {
+      "testid": "proposal-form-submit"
+     }
+    },
+    {
+     "kind": "form",
+     "line": 81,
+     "in": "CourseProposalFormNuevo",
+     "text": "{onSubmit}",
+     "hook": {
+      "testid": "proposal-form"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 84,
+     "in": "CourseProposalFormNuevo",
+     "when": "error",
+     "text": "tone: error",
+     "tag": "Notice"
+    },
+    {
+     "kind": "value",
+     "line": 84,
+     "in": "CourseProposalFormNuevo",
+     "when": "error",
+     "text": "{error}"
+    },
+    {
+     "kind": "piece",
+     "line": 89,
+     "in": "CourseProposalFormNuevo",
+     "text": "label: Título del curso",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 90,
+     "in": "CourseProposalFormNuevo",
+     "text": "Ej: Estrategias de Aprendizaje Colaborativo",
+     "type": "text",
+     "name": "titulo",
+     "placeholder": "Ej: Estrategias de Aprendizaje Colaborativo",
+     "disabled": "{isSubmitting}",
+     "action": "{handleChange}",
+     "hook": {
+      "id": "titulo"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 101,
+     "in": "CourseProposalFormNuevo",
+     "text": "label: Descripción corta",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 102,
+     "in": "CourseProposalFormNuevo",
+     "text": "Describe brevemente de qué se trataría el curso...",
+     "type": "textarea",
+     "name": "descripcion_corta",
+     "placeholder": "Describe brevemente de qué se trataría el curso...",
+     "disabled": "{isSubmitting}",
+     "limits": "",
+     "action": "{handleChange}",
+     "hook": {
+      "id": "descripcion_corta"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 113,
+     "in": "CourseProposalFormNuevo",
+     "text": "label: Competencias a desarrollar",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 114,
+     "in": "CourseProposalFormNuevo",
+     "text": "¿Qué habilidades o competencias desarrollarían los participantes?",
+     "type": "textarea",
+     "name": "competencias_desarrollar",
+     "placeholder": "¿Qué habilidades o competencias desarrollarían los participantes?",
+     "disabled": "{isSubmitting}",
+     "limits": "",
+     "action": "{handleChange}",
+     "hook": {
+      "id": "competencias_desarrollar"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 125,
+     "in": "CourseProposalFormNuevo",
+     "text": "label: Tiempo requerido para desarrollar el contenido",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 126,
+     "in": "CourseProposalFormNuevo",
+     "text": "Ej: 2 semanas, 1 mes, 3 meses",
+     "type": "text",
+     "name": "tiempo_requerido_desarrollo",
+     "placeholder": "Ej: 2 semanas, 1 mes, 3 meses",
+     "disabled": "{isSubmitting}",
+     "action": "{handleChange}",
+     "hook": {
+      "id": "tiempo_requerido_desarrollo"
+     }
+    },
+    {
+     "kind": "field",
+     "line": 137,
+     "in": "CourseProposalFormNuevo",
+     "text": "necesita_ayuda_diseno_instruccional",
+     "type": "checkbox",
+     "name": "necesita_ayuda_diseno_instruccional",
+     "disabled": "{isSubmitting}",
+     "action": "{handleChange}",
+     "hook": {
+      "id": "necesita_ayuda_diseno_instruccional"
+     }
     },
     {
      "kind": "string",
-     "line": 34,
-     "in": "CourseProposalCard",
-     "text": "Usuario"
+     "line": 143,
+     "in": "CourseProposalFormNuevo",
+     "text": "¿Necesita ayuda con el diseño instruccional?"
+    },
+    {
+     "kind": "string",
+     "line": 144,
+     "in": "CourseProposalFormNuevo",
+     "text": "Marque esta opción si requiere apoyo de nuestro equipo para estructurar el contenido del curso."
     }
    ],
    "db": []
@@ -1142,50 +1776,20 @@
    "usedBy": [
     "/dashboard"
    ],
-   "lines": 275,
+   "lines": 208,
    "rows": [
     {
-     "kind": "message",
-     "line": 67,
-     "in": "handleSubmit",
-     "when": "!formData.titulo.trim()",
-     "text": "El título es requerido",
-     "via": "setError"
-    },
-    {
-     "kind": "message",
-     "line": 71,
-     "in": "handleSubmit",
-     "when": "!formData.descripcion_corta.trim()",
-     "text": "La descripción es requerida",
-     "via": "setError"
-    },
-    {
-     "kind": "message",
-     "line": 75,
-     "in": "handleSubmit",
-     "when": "!formData.competencias_desarrollar.trim()",
-     "text": "Las competencias a desarrollar son requeridas",
-     "via": "setError"
-    },
-    {
-     "kind": "message",
-     "line": 79,
-     "in": "handleSubmit",
-     "when": "!formData.tiempo_requerido_desarrollo.trim()",
-     "text": "El tiempo requerido es requerido",
-     "via": "setError"
-    },
-    {
-     "kind": "message",
-     "line": 90,
-     "in": "handleSubmit",
-     "text": "Error al actualizar la propuesta / Error al crear la propuesta",
-     "via": "setError"
+     "kind": "popup",
+     "line": 35,
+     "in": "CourseProposalModal",
+     "when": "look === 'nuevo'",
+     "text": "CourseProposalFormNuevo",
+     "how": "component",
+     "open": "{isOpen}"
     },
     {
      "kind": "popup",
-     "line": 105,
+     "line": 38,
      "in": "CourseProposalModal",
      "text": "Dialog",
      "how": "component",
@@ -1193,67 +1797,67 @@
     },
     {
      "kind": "piece",
-     "line": 106,
+     "line": 39,
      "in": "CourseProposalModal",
      "text": "",
      "tag": "DialogContent"
     },
     {
      "kind": "piece",
-     "line": 107,
+     "line": 40,
      "in": "CourseProposalModal",
      "text": "",
      "tag": "DialogHeader"
     },
     {
      "kind": "piece",
-     "line": 108,
+     "line": 41,
      "in": "CourseProposalModal",
      "text": "",
      "tag": "DialogTitle"
     },
     {
      "kind": "text",
-     "line": 108,
+     "line": 41,
      "in": "CourseProposalModal",
      "text": "Editar Propuesta de Curso / Nueva Propuesta de Curso"
     },
     {
      "kind": "piece",
-     "line": 111,
+     "line": 44,
      "in": "CourseProposalModal",
      "text": "",
      "tag": "DialogDescription"
     },
     {
      "kind": "text",
-     "line": 111,
+     "line": 44,
      "in": "CourseProposalModal",
      "text": "Modifica los detalles de tu propuesta de curso. / Comparte tu idea para un nuevo curso que beneficiaría a la plataforma."
     },
     {
      "kind": "form",
-     "line": 118,
+     "line": 51,
      "in": "CourseProposalModal",
      "text": "{handleSubmit}"
     },
     {
      "kind": "value",
-     "line": 121,
+     "line": 54,
      "in": "CourseProposalModal",
      "when": "error",
      "text": "{error}"
     },
     {
      "kind": "label",
-     "line": 128,
+     "line": 61,
      "in": "CourseProposalModal",
      "text": "Título del curso *",
      "for": "titulo"
     },
     {
      "kind": "field",
-     "line": 134,
+     "line": 67,
      "in": "CourseProposalModal",
      "text": "Título del curso *",
      "type": "text",
@@ -1268,14 +1872,14 @@
     },
     {
      "kind": "label",
-     "line": 148,
+     "line": 81,
      "in": "CourseProposalModal",
      "text": "Descripción corta *",
      "for": "descripcion_corta"
     },
     {
      "kind": "field",
-     "line": 154,
+     "line": 87,
      "in": "CourseProposalModal",
      "text": "Descripción corta *",
      "type": "textarea",
@@ -1291,14 +1895,14 @@
     },
     {
      "kind": "label",
-     "line": 168,
+     "line": 101,
      "in": "CourseProposalModal",
      "text": "Competencias a desarrollar *",
      "for": "competencias_desarrollar"
     },
     {
      "kind": "field",
-     "line": 174,
+     "line": 107,
      "in": "CourseProposalModal",
      "text": "Competencias a desarrollar *",
      "type": "textarea",
@@ -1314,14 +1918,14 @@
     },
     {
      "kind": "label",
-     "line": 188,
+     "line": 121,
      "in": "CourseProposalModal",
      "text": "Tiempo requerido para desarrollar el contenido *",
      "for": "tiempo_requerido_desarrollo"
     },
     {
      "kind": "field",
-     "line": 194,
+     "line": 127,
      "in": "CourseProposalModal",
      "text": "Tiempo requerido para desarrollar el contenido *",
      "type": "text",
@@ -1336,7 +1940,7 @@
     },
     {
      "kind": "field",
-     "line": 208,
+     "line": 141,
      "in": "CourseProposalModal",
      "text": "¿Necesita ayuda con el diseño instruccional? Marque esta opción si requiere apoyo de nuestro equipo para estructurar el contenido del curso.",
      "type": "checkbox",
@@ -1350,14 +1954,14 @@
     },
     {
      "kind": "label",
-     "line": 217,
+     "line": 150,
      "in": "CourseProposalModal",
      "text": "¿Necesita ayuda con el diseño instruccional? Marque esta opción si requiere apoyo de nuestro equipo para estructurar el contenido del curso.",
      "for": "necesita_ayuda_diseno_instruccional"
     },
     {
      "kind": "button",
-     "line": 230,
+     "line": 163,
      "in": "CourseProposalModal",
      "text": "Cancelar",
      "action": "{handleClose}",
@@ -1365,7 +1969,7 @@
     },
     {
      "kind": "button",
-     "line": 238,
+     "line": 171,
      "in": "CourseProposalModal",
      "text": "Guardando... / Guardar Cambios / Enviar Propuesta",
      "submit": true,
@@ -1378,56 +1982,11 @@
    "usedBy": [
     "/dashboard"
    ],
-   "lines": 289,
+   "lines": 177,
    "rows": [
     {
-     "kind": "message",
-     "line": 31,
-     "in": "CourseProposalSection",
-     "when": "!response.ok",
-     "text": "Error al cargar propuestas",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "message",
-     "line": 37,
-     "in": "CourseProposalSection",
-     "text": "Error al cargar propuestas",
-     "via": "setError"
-    },
-    {
-     "kind": "message",
-     "line": 61,
-     "in": "handleSubmitProposal",
-     "when": "editingProposal && !response.ok",
-     "text": "Error al actualizar propuesta",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "message",
-     "line": 83,
-     "in": "handleSubmitProposal",
-     "when": "!(editingProposal) && !response.ok",
-     "text": "Error al crear propuesta",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "message",
-     "line": 115,
-     "in": "handleConfirmDelete",
-     "when": "!response.ok",
-     "text": "Error al eliminar propuesta",
-     "via": "throw (shown by whoever catches it)"
-    },
-    {
-     "kind": "alert",
-     "line": 124,
-     "in": "handleConfirmDelete",
-     "text": "Error al eliminar propuesta"
-    },
-    {
      "kind": "heading",
-     "line": 150,
+     "line": 44,
      "in": "CourseProposalSection",
      "when": "loading",
      "text": "Propuestas de Cursos",
@@ -1435,14 +1994,14 @@
     },
     {
      "kind": "text",
-     "line": 151,
+     "line": 45,
      "in": "CourseProposalSection",
      "when": "loading",
      "text": "Me gustaría realizar un curso en la plataforma"
     },
     {
      "kind": "heading",
-     "line": 177,
+     "line": 71,
      "in": "CourseProposalSection",
      "when": "error",
      "text": "Propuestas de Cursos",
@@ -1450,21 +2009,21 @@
     },
     {
      "kind": "text",
-     "line": 178,
+     "line": 72,
      "in": "CourseProposalSection",
      "when": "error",
      "text": "Me gustaría realizar un curso en la plataforma"
     },
     {
      "kind": "value",
-     "line": 184,
+     "line": 78,
      "in": "CourseProposalSection",
      "when": "error",
      "text": "{error}"
     },
     {
      "kind": "button",
-     "line": 185,
+     "line": 79,
      "in": "CourseProposalSection",
      "when": "error",
      "text": "Reintentar",
@@ -1472,27 +2031,27 @@
     },
     {
      "kind": "heading",
-     "line": 205,
+     "line": 99,
      "in": "CourseProposalSection",
      "text": "Propuestas de Cursos",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 206,
+     "line": 100,
      "in": "CourseProposalSection",
      "text": "Me gustaría realizar un curso en la plataforma"
     },
     {
      "kind": "button",
-     "line": 211,
+     "line": 105,
      "in": "CourseProposalSection",
      "text": "Nueva Propuesta",
-     "action": "{() => { setEditingProposal(null); setIsModalOpen(true); }}"
+     "action": "{openCreate}"
     },
     {
      "kind": "piece",
-     "line": 232,
+     "line": 123,
      "in": "CourseProposalSection",
      "when": "proposals.length > 0 && each proposals",
      "text": "",
@@ -1500,7 +2059,7 @@
     },
     {
      "kind": "heading",
-     "line": 245,
+     "line": 136,
      "in": "CourseProposalSection",
      "when": "!(proposals.length > 0)",
      "text": "Sin propuestas aún",
@@ -1508,22 +2067,22 @@
     },
     {
      "kind": "text",
-     "line": 249,
+     "line": 140,
      "in": "CourseProposalSection",
      "when": "!(proposals.length > 0)",
      "text": "Sé el primero en proponer un nuevo curso"
     },
     {
      "kind": "button",
-     "line": 251,
+     "line": 142,
      "in": "CourseProposalSection",
      "when": "!(proposals.length > 0)",
      "text": "Crear Propuesta",
-     "action": "{() => { setEditingProposal(null); setIsModalOpen(true); }}"
+     "action": "{openCreate}"
     },
     {
      "kind": "popup",
-     "line": 265,
+     "line": 153,
      "in": "CourseProposalSection",
      "text": "CourseProposalModal",
      "how": "component",
@@ -1531,12 +2090,142 @@
     },
     {
      "kind": "popup",
-     "line": 273,
+     "line": 161,
      "in": "CourseProposalSection",
      "text": "ConfirmDialog",
      "how": "component",
      "open": "{deleteConfirmOpen}",
      "props": "title: Eliminar Propuesta · description: ¿Estás seguro de que deseas eliminar esta propuesta? Esta acción no se puede deshacer. · confirmText: Eliminar · cancelText: Cancelar"
+    }
+   ],
+   "db": []
+  },
+  "components/course-proposals/proposalCardText.ts": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 33,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 15,
+     "in": "getStatusBadge",
+     "text": "statusConfig",
+     "items": [
+      "Pendiente",
+      "En Revisión",
+      "Aprobada",
+      "Rechazada"
+     ]
+    },
+    {
+     "kind": "string",
+     "line": 28,
+     "in": "proposalCreatorName",
+     "text": "Usuario"
+    }
+   ],
+   "db": []
+  },
+  "components/course-proposals/useCourseProposalForm.ts": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 110,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 63,
+     "in": "handleSubmit",
+     "when": "!formData.titulo.trim()",
+     "text": "El título es requerido",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 67,
+     "in": "handleSubmit",
+     "when": "!formData.descripcion_corta.trim()",
+     "text": "La descripción es requerida",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 71,
+     "in": "handleSubmit",
+     "when": "!formData.competencias_desarrollar.trim()",
+     "text": "Las competencias a desarrollar son requeridas",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 75,
+     "in": "handleSubmit",
+     "when": "!formData.tiempo_requerido_desarrollo.trim()",
+     "text": "El tiempo requerido es requerido",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 86,
+     "in": "handleSubmit",
+     "text": "Error al actualizar la propuesta / Error al crear la propuesta",
+     "via": "setError"
+    }
+   ],
+   "db": []
+  },
+  "components/course-proposals/useCourseProposals.ts": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 163,
+   "rows": [
+    {
+     "kind": "message",
+     "line": 29,
+     "in": "useCourseProposals",
+     "when": "!response.ok",
+     "text": "Error al cargar propuestas",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 35,
+     "in": "useCourseProposals",
+     "text": "Error al cargar propuestas",
+     "via": "setError"
+    },
+    {
+     "kind": "message",
+     "line": 59,
+     "in": "handleSubmitProposal",
+     "when": "editingProposal && !response.ok",
+     "text": "Error al actualizar propuesta",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 81,
+     "in": "handleSubmitProposal",
+     "when": "!(editingProposal) && !response.ok",
+     "text": "Error al crear propuesta",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "message",
+     "line": 113,
+     "in": "handleConfirmDelete",
+     "when": "!response.ok",
+     "text": "Error al eliminar propuesta",
+     "via": "throw (shown by whoever catches it)"
+    },
+    {
+     "kind": "toast",
+     "line": 122,
+     "in": "handleConfirmDelete",
+     "text": "Error al eliminar propuesta",
+     "variant": "error"
     }
    ],
    "db": []
@@ -1618,49 +2307,49 @@
    "usedBy": [
     "/dashboard"
    ],
-   "lines": 430,
+   "lines": 418,
    "rows": [
     {
      "kind": "hook",
-     "line": 29,
+     "line": 39,
      "in": "NetflixCourseCard",
      "text": "window.addEventListener('resize')",
      "type": "listener"
     },
     {
      "kind": "gate",
-     "line": 35,
+     "line": 45,
      "in": "NetflixCourseCard",
      "text": "!isMobile || !isExpanded"
     },
     {
      "kind": "hook",
-     "line": 43,
+     "line": 53,
      "in": "NetflixCourseCard",
      "text": "document.addEventListener('mousedown')",
      "type": "listener"
     },
     {
      "kind": "gate",
-     "line": 49,
+     "line": 59,
      "in": "NetflixCourseCard",
      "text": "isMobile"
     },
     {
      "kind": "gate",
-     "line": 57,
+     "line": 67,
      "in": "NetflixCourseCard",
      "text": "isMobile"
     },
     {
      "kind": "gate",
-     "line": 66,
+     "line": 76,
      "in": "NetflixCourseCard",
      "text": "!isMobile"
     },
     {
      "kind": "clickable",
-     "line": 156,
+     "line": 144,
      "in": "NetflixCourseCard",
      "text": "[Aprobado] [Completado] [{course.title} [{course.instructor.full_name}]] [{course.title} [{course.instructor.full_name}…",
      "tag": "motion.div",
@@ -1669,43 +2358,43 @@
     },
     {
      "kind": "media",
-     "line": 176,
+     "line": 164,
      "in": "NetflixCourseCard",
-     "when": "course.instructor?.photo_url",
-     "text": "img · alt {course.instructor.full_name} · {course.instructor.photo_url}"
+     "when": "picture.kind === 'instructor'",
+     "text": "img · alt {picture.alt} · {picture.src}"
     },
     {
      "kind": "media",
-     "line": 185,
+     "line": 173,
      "in": "NetflixCourseCard",
-     "when": "!(course.instructor?.photo_url) && course.thumbnail_url",
-     "text": "img · alt {course.title} · {course.thumbnail_url}"
+     "when": "!(picture.kind === 'instructor') && picture.kind === 'thumbnail'",
+     "text": "img · alt {picture.alt} · {picture.src}"
     },
     {
      "kind": "piece",
-     "line": 193,
+     "line": 181,
      "in": "NetflixCourseCard",
-     "when": "!(course.instructor?.photo_url) && !(course.thumbnail_url)",
+     "when": "!(picture.kind === 'instructor') && !(picture.kind === 'thumbnail')",
      "text": "",
      "tag": "CourseThumbnail"
     },
     {
      "kind": "text",
-     "line": 209,
+     "line": 197,
      "in": "NetflixCourseCard",
      "when": "enrollment?.completion_status === 'aprobado'",
      "text": "Aprobado"
     },
     {
      "kind": "text",
-     "line": 217,
+     "line": 205,
      "in": "NetflixCourseCard",
      "when": "enrollment?.completion_status === 'completado'",
      "text": "Completado"
     },
     {
      "kind": "heading",
-     "line": 225,
+     "line": 213,
      "in": "NetflixCourseCard",
      "when": "!isExpanded",
      "text": "{course.title}",
@@ -1713,14 +2402,14 @@
     },
     {
      "kind": "value",
-     "line": 229,
+     "line": 217,
      "in": "NetflixCourseCard",
      "when": "!isExpanded && course.instructor",
      "text": "{course.instructor.full_name}"
     },
     {
      "kind": "heading",
-     "line": 267,
+     "line": 255,
      "in": "NetflixCourseCard",
      "when": "isExpanded",
      "text": "{course.title}",
@@ -1728,167 +2417,102 @@
     },
     {
      "kind": "media",
-     "line": 275,
+     "line": 263,
      "in": "NetflixCourseCard",
      "when": "isExpanded && course.instructor && course.instructor.photo_url",
      "text": "img · alt {course.instructor.full_name} · {course.instructor.photo_url}"
     },
     {
      "kind": "value",
-     "line": 285,
+     "line": 273,
      "in": "NetflixCourseCard",
      "when": "isExpanded && course.instructor",
      "text": "{course.instructor.full_name}"
     },
     {
      "kind": "text",
-     "line": 315,
+     "line": 303,
      "in": "NetflixCourseCard",
-     "when": "isExpanded && enrollment && enrollment.total_lessons && enrollment.total_lessons > 0",
+     "when": "isExpanded && showsLessons(enrollment)",
      "text": "lecciones"
     },
     {
      "kind": "text",
-     "line": 324,
+     "line": 312,
      "in": "NetflixCourseCard",
-     "when": "isExpanded && enrollment && enrollment.total_lessons && enrollment.total_lessons > 0",
+     "when": "isExpanded && showsLessons(enrollment)",
      "text": "{enrollment.lessons_completed} de {enrollment.total_lessons} lecciones"
     },
     {
      "kind": "value",
-     "line": 327,
+     "line": 315,
      "in": "NetflixCourseCard",
-     "when": "isExpanded && enrollment && enrollment.total_lessons && enrollment.total_lessons > 0",
+     "when": "isExpanded && showsLessons(enrollment)",
      "text": "{enrollment.progress_percentage} %"
     },
     {
      "kind": "text",
-     "line": 356,
+     "line": 344,
      "in": "NetflixCourseCard",
-     "when": "isExpanded && enrollment && enrollment.assignments_total != null && enrollment.assignments_total > 0",
+     "when": "isExpanded && showsAssignments(enrollment)",
      "text": "Tareas: {enrollment.assignments_submitted} / {enrollment.assignments_total}"
     },
     {
      "kind": "text",
-     "line": 365,
+     "line": 353,
      "in": "NetflixCourseCard",
      "when": "isExpanded && enrollment?.completion_status === 'aprobado'",
      "text": "Curso Aprobado"
     },
     {
      "kind": "text",
-     "line": 368,
+     "line": 356,
      "in": "NetflixCourseCard",
      "when": "isExpanded && enrollment?.completion_status === 'aprobado'",
      "text": "Has completado todas las lecciones y tareas."
     },
     {
      "kind": "text",
-     "line": 376,
+     "line": 364,
      "in": "NetflixCourseCard",
      "when": "isExpanded && enrollment?.completion_status === 'completado'",
      "text": "Completa tus tareas pendientes para obtener la insignia."
     },
     {
      "kind": "value",
-     "line": 382,
+     "line": 370,
      "in": "NetflixCourseCard",
      "when": "isExpanded && course.description",
      "text": "{course.description}"
     },
     {
      "kind": "text",
-     "line": 392,
+     "line": 380,
      "in": "NetflixCourseCard",
      "when": "isExpanded && course.learning_objectives && course.learning_objectives.length > 0",
      "text": "Objetivos de aprendizaje"
     },
     {
      "kind": "value",
-     "line": 396,
+     "line": 384,
      "in": "NetflixCourseCard",
-     "when": "isExpanded && course.learning_objectives && course.learning_objectives.length > 0 && each course.learning_objectives.slice(0, 4)",
+     "when": "isExpanded && course.learning_objectives && course.learning_objectives.length > 0 && each objectivesPreview(course.learning_objectives).sho…",
      "text": "{objective}"
     },
     {
      "kind": "text",
-     "line": 404,
+     "line": 392,
      "in": "NetflixCourseCard",
-     "when": "isExpanded && course.learning_objectives && course.learning_objectives.length > 0 && course.learning_objectives.length > 4",
-     "text": "+ {course.learning_objectives.length -…} más..."
+     "when": "isExpanded && course.learning_objectives && course.learning_objectives.length > 0 && objectivesPreview(course.learning_objectives).more > 0",
+     "text": "+ {objectivesPreview(course.learning_o…} más..."
     },
     {
      "kind": "button",
-     "line": 413,
+     "line": 401,
      "in": "NetflixCourseCard",
      "when": "isExpanded",
      "text": "{getCTAText()}",
      "action": "{handleCTAClick}"
-    },
-    {
-     "kind": "string",
-     "line": 83,
-     "in": "NetflixCourseCard",
-     "text": "Ver Detalles"
-    },
-    {
-     "kind": "string",
-     "line": 84,
-     "in": "NetflixCourseCard",
-     "text": "Repasar"
-    },
-    {
-     "kind": "string",
-     "line": 85,
-     "in": "NetflixCourseCard",
-     "text": "Continuar"
-    },
-    {
-     "kind": "string",
-     "line": 87,
-     "in": "NetflixCourseCard",
-     "text": "Comenzar"
-    },
-    {
-     "kind": "string",
-     "line": 108,
-     "in": "NetflixCourseCard",
-     "text": "Principiante"
-    },
-    {
-     "kind": "string",
-     "line": 110,
-     "in": "NetflixCourseCard",
-     "text": "Intermedio"
-    },
-    {
-     "kind": "string",
-     "line": 112,
-     "in": "NetflixCourseCard",
-     "text": "Avanzado"
-    },
-    {
-     "kind": "list",
-     "line": 83,
-     "in": "getCTAText",
-     "text": "getCTAText()",
-     "items": [
-      "Ver Detalles",
-      "Repasar",
-      "Continuar",
-      "Comenzar"
-     ]
-    },
-    {
-     "kind": "list",
-     "line": 108,
-     "in": "getDifficultyLabel",
-     "text": "getDifficultyLabel()",
-     "items": [
-      "Principiante",
-      "Intermedio",
-      "Avanzado"
-     ]
     }
    ],
    "db": []
@@ -1994,49 +2618,49 @@
    "usedBy": [
     "/dashboard"
    ],
-   "lines": 280,
+   "lines": 267,
    "rows": [
     {
      "kind": "hook",
-     "line": 43,
+     "line": 44,
      "in": "UpcomingCourseCard",
      "text": "window.addEventListener('resize')",
      "type": "listener"
     },
     {
      "kind": "gate",
-     "line": 49,
+     "line": 50,
      "in": "UpcomingCourseCard",
      "text": "!isMobile || !isExpanded"
     },
     {
      "kind": "hook",
-     "line": 57,
+     "line": 58,
      "in": "UpcomingCourseCard",
      "text": "document.addEventListener('mousedown')",
      "type": "listener"
     },
     {
      "kind": "gate",
-     "line": 63,
+     "line": 64,
      "in": "UpcomingCourseCard",
      "text": "isMobile"
     },
     {
      "kind": "gate",
-     "line": 71,
+     "line": 72,
      "in": "UpcomingCourseCard",
      "text": "isMobile"
     },
     {
      "kind": "gate",
-     "line": 80,
+     "line": 81,
      "in": "UpcomingCourseCard",
      "text": "!isMobile"
     },
     {
      "kind": "clickable",
-     "line": 132,
+     "line": 119,
      "in": "UpcomingCourseCard",
      "text": "Próximamente [{course.title} [{course.instructor.full_name}]] [{course.title} [{course.instructor.full_name}] [{course.…",
      "tag": "motion.div",
@@ -2045,20 +2669,20 @@
     },
     {
      "kind": "media",
-     "line": 152,
+     "line": 139,
      "in": "UpcomingCourseCard",
      "when": "course.thumbnail_url",
      "text": "img · alt {course.title} · {course.thumbnail_url}"
     },
     {
      "kind": "text",
-     "line": 174,
+     "line": 161,
      "in": "UpcomingCourseCard",
      "text": "Próximamente"
     },
     {
      "kind": "heading",
-     "line": 181,
+     "line": 168,
      "in": "UpcomingCourseCard",
      "when": "!isExpanded",
      "text": "{course.title}",
@@ -2066,14 +2690,14 @@
     },
     {
      "kind": "value",
-     "line": 189,
+     "line": 176,
      "in": "UpcomingCourseCard",
      "when": "!isExpanded && course.instructor",
      "text": "{course.instructor.full_name}"
     },
     {
      "kind": "heading",
-     "line": 210,
+     "line": 197,
      "in": "UpcomingCourseCard",
      "when": "isExpanded",
      "text": "{course.title}",
@@ -2081,45 +2705,155 @@
     },
     {
      "kind": "value",
-     "line": 220,
+     "line": 207,
      "in": "UpcomingCourseCard",
      "when": "isExpanded && course.instructor",
      "text": "{course.instructor.full_name}"
     },
     {
      "kind": "value",
-     "line": 228,
+     "line": 215,
      "in": "UpcomingCourseCard",
      "when": "isExpanded && course.description",
      "text": "{course.description}"
     },
     {
      "kind": "text",
-     "line": 237,
+     "line": 224,
      "in": "UpcomingCourseCard",
      "when": "isExpanded && formattedDate",
      "text": "Disponible en {formattedDate}"
     },
     {
      "kind": "text",
-     "line": 245,
+     "line": 232,
      "in": "UpcomingCourseCard",
      "when": "isExpanded && !(formattedDate)",
      "text": "Fecha por confirmar"
     },
     {
      "kind": "value",
-     "line": 260,
+     "line": 247,
      "in": "UpcomingCourseCard",
      "when": "!isExpanded && formattedDate",
      "text": "{formattedDate}"
     },
     {
      "kind": "text",
-     "line": 268,
+     "line": 255,
      "in": "UpcomingCourseCard",
      "when": "!isExpanded && !(formattedDate)",
      "text": "Fecha por confirmar"
+    }
+   ],
+   "db": []
+  },
+  "components/courses/courseCardText.ts": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 167,
+   "rows": [
+    {
+     "kind": "string",
+     "line": 13,
+     "in": "getCTAText",
+     "text": "Ver Detalles"
+    },
+    {
+     "kind": "string",
+     "line": 14,
+     "in": "getCTAText",
+     "text": "Repasar"
+    },
+    {
+     "kind": "string",
+     "line": 15,
+     "in": "getCTAText",
+     "text": "Continuar"
+    },
+    {
+     "kind": "string",
+     "line": 17,
+     "in": "getCTAText",
+     "text": "Comenzar"
+    },
+    {
+     "kind": "string",
+     "line": 24,
+     "in": "getDifficultyLabel",
+     "text": "Principiante"
+    },
+    {
+     "kind": "string",
+     "line": 26,
+     "in": "getDifficultyLabel",
+     "text": "Intermedio"
+    },
+    {
+     "kind": "string",
+     "line": 28,
+     "in": "getDifficultyLabel",
+     "text": "Avanzado"
+    },
+    {
+     "kind": "string",
+     "line": 135,
+     "in": "assignmentsText",
+     "text": "Tareas: {enrollment?.assignments_sub…}/{enrollment?.assignments_tot…}"
+    },
+    {
+     "kind": "string",
+     "line": 147,
+     "in": "completionTexts",
+     "text": "Aprobado"
+    },
+    {
+     "kind": "string",
+     "line": 148,
+     "in": "completionTexts",
+     "text": "Curso Aprobado"
+    },
+    {
+     "kind": "string",
+     "line": 149,
+     "in": "completionTexts",
+     "text": "Has completado todas las lecciones y tareas."
+    },
+    {
+     "kind": "string",
+     "line": 155,
+     "in": "completionTexts",
+     "text": "Completado"
+    },
+    {
+     "kind": "string",
+     "line": 156,
+     "in": "completionTexts",
+     "text": "Completa tus tareas pendientes para obtener la insignia."
+    },
+    {
+     "kind": "list",
+     "line": 13,
+     "in": "getCTAText",
+     "text": "getCTAText()",
+     "items": [
+      "Ver Detalles",
+      "Repasar",
+      "Continuar",
+      "Comenzar"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 24,
+     "in": "getDifficultyLabel",
+     "text": "getDifficultyLabel()",
+     "items": [
+      "Principiante",
+      "Intermedio",
+      "Avanzado"
+     ]
     }
    ],
    "db": []
@@ -2128,73 +2862,668 @@
    "usedBy": [
     "/dashboard"
    ],
-   "lines": 196,
+   "lines": 183,
    "rows": [
     {
      "kind": "clickable",
-     "line": 72,
+     "line": 62,
      "in": "LearningPathCard",
-     "text": "Nivel 2 / 1 [Completado] {name} [{description}] Progreso {Math.round(progressPercentage)} % {completedCourses} de {tota…",
+     "text": "Nivel {routeLevel(totalCourses)} [Completado] {name} [{description}] Progreso {routePercent(progressPercentage)} % {com…",
      "tag": "div",
      "action": "{onClick}"
     },
     {
      "kind": "text",
-     "line": 92,
+     "line": 82,
      "in": "LearningPathCard",
-     "text": "Nivel 2 / 1"
+     "text": "Nivel {routeLevel(totalCourses)}"
     },
     {
      "kind": "text",
-     "line": 105,
+     "line": 95,
      "in": "LearningPathCard",
      "when": "isCompleted",
      "text": "Completado"
     },
     {
      "kind": "heading",
-     "line": 111,
+     "line": 101,
      "in": "LearningPathCard",
      "text": "{name}",
      "level": 3
     },
     {
      "kind": "value",
-     "line": 117,
+     "line": 107,
      "in": "LearningPathCard",
      "when": "description",
      "text": "{description}"
     },
     {
      "kind": "text",
-     "line": 131,
+     "line": 121,
      "in": "LearningPathCard",
      "text": "Progreso"
     },
     {
      "kind": "value",
-     "line": 133,
+     "line": 123,
      "in": "LearningPathCard",
-     "text": "{Math.round(progressPercentage)} %"
+     "text": "{routePercent(progressPercentage)} %"
     },
     {
      "kind": "text",
-     "line": 161,
+     "line": 151,
      "in": "LearningPathCard",
      "text": "{completedCourses} de {totalCourses} cursos"
     },
     {
      "kind": "value",
-     "line": 165,
+     "line": 155,
      "in": "LearningPathCard",
-     "text": "{formatDistanceToNow(new Date(assign…}"
+     "text": "{timeSinceAssigned(assigned_at)}"
+    },
+    {
+     "kind": "value",
+     "line": 172,
+     "in": "LearningPathCard",
+     "when": "!isCompleted",
+     "text": "{routeActionText(isStarted)}"
+    }
+   ],
+   "db": []
+  },
+  "components/learning-paths/routeCardText.ts": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 42,
+   "rows": [
+    {
+     "kind": "string",
+     "line": 34,
+     "in": "routeActionText",
+     "text": "Continuar aprendiendo"
+    },
+    {
+     "kind": "string",
+     "line": 34,
+     "in": "routeActionText",
+     "text": "Comenzar ruta"
+    }
+   ],
+   "db": []
+  },
+  "components/panel/BadgesNuevo.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 109,
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 21,
+     "in": "BadgeCardNuevo",
+     "text": "",
+     "tag": "Card",
+     "hook": {
+      "testid": "panel-badge-{badge.id}"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 23,
+     "in": "BadgeCardNuevo",
+     "text": "",
+     "tag": "GeneraBadgeIcon"
+    },
+    {
+     "kind": "heading",
+     "line": 27,
+     "in": "BadgeCardNuevo",
+     "text": "{badge.badge_name}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 28,
+     "in": "BadgeCardNuevo",
+     "when": "courseName",
+     "text": "{courseName}"
+    },
+    {
+     "kind": "value",
+     "line": 29,
+     "in": "BadgeCardNuevo",
+     "text": "{formatEarnedAt(badge.earned_at)}"
+    },
+    {
+     "kind": "piece",
+     "line": 31,
+     "in": "BadgeCardNuevo",
+     "when": "showsBadgePoints(badge, 'md')",
+     "text": "tone: accent",
+     "tag": "Badge"
+    },
+    {
+     "kind": "value",
+     "line": 31,
+     "in": "BadgeCardNuevo",
+     "when": "showsBadgePoints(badge, 'md')",
+     "text": "+ {badge.points_value}"
+    },
+    {
+     "kind": "gate",
+     "line": 52,
+     "in": "BadgesNuevo",
+     "text": "!drawn"
+    },
+    {
+     "kind": "piece",
+     "line": 57,
+     "in": "BadgesNuevo",
+     "text": "title: Mis Logros",
+     "tag": "PanelSection",
+     "hook": {
+      "testid": "panel-section-badges"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 68,
+     "in": "BadgesNuevo",
+     "when": "showViewAll && badges.length > 0",
+     "text": "Ver todos"
+    },
+    {
+     "kind": "piece",
+     "line": 69,
+     "in": "BadgesNuevo",
+     "when": "showViewAll && badges.length > 0",
+     "text": "aria-hidden: true",
+     "tag": "ArrowRight"
+    },
+    {
+     "kind": "piece",
+     "line": 80,
+     "in": "BadgesNuevo",
+     "when": "loading && each [1, 2, 3]",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 84,
+     "in": "BadgesNuevo",
+     "when": "error",
+     "text": "tone: error",
+     "tag": "Notice"
+    },
+    {
+     "kind": "value",
+     "line": 84,
+     "in": "BadgesNuevo",
+     "when": "error",
+     "text": "{error}"
+    },
+    {
+     "kind": "link",
+     "line": 93,
+     "in": "BadgesNuevo",
+     "when": "showsRow && hasMore && showViewAll",
+     "text": "+ {moreCount} más",
+     "target": "/mi-aprendizaje/logros",
+     "hook": {
+      "testid": "panel-badges-more"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 98,
+     "in": "BadgesNuevo",
+     "when": "showsRow && hasMore && showViewAll",
+     "text": "aria-hidden: true",
+     "tag": "Award"
+    }
+   ],
+   "db": []
+  },
+  "components/panel/CommunityCardNuevo.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 172,
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 36,
+     "in": "CommunityCardNuevo",
+     "text": "",
+     "tag": "Card",
+     "hook": {
+      "testid": "panel-community"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 38,
+     "in": "CommunityCardNuevo",
+     "text": "Mi Comunidad de Crecimiento {placeName} • {members.length} miembros {memberInitial(member)} [+ {stack.moreCount}]",
+     "action": "{toggleCommunity}",
+     "hook": {
+      "testid": "panel-community-bar"
+     }
+    },
+    {
+     "kind": "media",
+     "line": 46,
+     "in": "CommunityCardNuevo",
+     "when": "workspace?.image_url",
+     "text": "img · alt {workspaceImageAlt(workspace, selectedRole)} · {workspace.image_url}"
+    },
+    {
+     "kind": "piece",
+     "line": 53,
+     "in": "CommunityCardNuevo",
+     "when": "!(workspace?.image_url)",
+     "text": "aria-hidden: true",
+     "tag": "Users"
+    },
+    {
+     "kind": "heading",
+     "line": 57,
+     "in": "CommunityCardNuevo",
+     "text": "Mi Comunidad de Crecimiento",
+     "level": 2
+    },
+    {
+     "kind": "hook",
+     "line": 60,
+     "in": "CommunityCardNuevo",
+     "text": "testid=panel-community-line",
+     "type": "mark",
+     "tag": "span"
+    },
+    {
+     "kind": "media",
+     "line": 68,
+     "in": "CommunityCardNuevo",
+     "when": "each stack.shown && member.avatar_url",
+     "text": "img · {member.avatar_url}"
+    },
+    {
+     "kind": "piece",
+     "line": 83,
+     "in": "CommunityCardNuevo",
+     "text": "aria-hidden: true",
+     "tag": "ChevronDown"
+    },
+    {
+     "kind": "hook",
+     "line": 87,
+     "in": "CommunityCardNuevo",
+     "when": "communityExpanded",
+     "text": "testid=panel-community-open",
+     "type": "mark",
+     "tag": "div"
     },
     {
      "kind": "text",
-     "line": 185,
-     "in": "LearningPathCard",
-     "when": "!isCompleted",
-     "text": "Continuar aprendiendo / Comenzar ruta"
+     "line": 90,
+     "in": "CommunityCardNuevo",
+     "when": "communityExpanded && showCommunityPicker",
+     "text": "Seleccionar comunidad:"
+    },
+    {
+     "kind": "button",
+     "line": 93,
+     "in": "CommunityCardNuevo",
+     "when": "communityExpanded && showCommunityPicker && each userCommunities",
+     "text": "{communityChoiceLabel(comm)}",
+     "action": "{(e) => chooseCommunity(e, comm.community_id!)}"
+    },
+    {
+     "kind": "heading",
+     "line": 109,
+     "in": "CommunityCardNuevo",
+     "when": "communityExpanded",
+     "text": "{placeName}",
+     "level": 3
+    },
+    {
+     "kind": "button",
+     "line": 114,
+     "in": "CommunityCardNuevo",
+     "when": "communityExpanded && canEditWorkspace()",
+     "text": "[icon Settings]",
+     "action": "{(e) => openWorkspaceSettings(e, workspace)}",
+     "aria": "Configuración",
+     "title": "Configuración",
+     "hook": {
+      "testid": "panel-community-settings"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 122,
+     "in": "CommunityCardNuevo",
+     "when": "communityExpanded && canEditWorkspace()",
+     "text": "aria-hidden: true",
+     "tag": "Settings"
+    },
+    {
+     "kind": "button",
+     "line": 125,
+     "in": "CommunityCardNuevo",
+     "when": "communityExpanded",
+     "text": "Ver Espacio Completo →"
+    },
+    {
+     "kind": "button",
+     "line": 135,
+     "in": "CommunityCardNuevo",
+     "when": "communityExpanded && each members",
+     "text": "{memberInitial(member)} {fullName} [{roleLabel}] [{externalSchoolLabel}] [Tú]",
+     "action": "{() => openMember(member)}",
+     "hook": {
+      "testid": "panel-member-{member.id}"
+     }
+    },
+    {
+     "kind": "media",
+     "line": 143,
+     "in": "CommunityCardNuevo",
+     "when": "communityExpanded && each members && member.avatar_url",
+     "text": "img · {member.avatar_url}"
+    }
+   ],
+   "db": []
+  },
+  "components/panel/CourseCardNuevo.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 250,
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 65,
+     "in": "CourseCardNuevo",
+     "text": "",
+     "tag": "Card",
+     "hook": {
+      "testid": "{testId}"
+     }
+    },
+    {
+     "kind": "link",
+     "line": 66,
+     "in": "CourseCardNuevo",
+     "text": "[{difficulty}] [{completion.badge}]",
+     "target": "{href}",
+     "hook": {
+      "testid": "{testId}-picture"
+     },
+     "aria": "{course.title}"
+    },
+    {
+     "kind": "piece",
+     "line": 74,
+     "in": "CourseCardNuevo",
+     "when": "generated",
+     "text": "",
+     "tag": "CourseThumbnail"
+    },
+    {
+     "kind": "media",
+     "line": 82,
+     "in": "CourseCardNuevo",
+     "when": "!(generated)",
+     "text": "img · alt {picture.alt} · {picture.src}"
+    },
+    {
+     "kind": "piece",
+     "line": 90,
+     "in": "CourseCardNuevo",
+     "when": "difficulty && !generated",
+     "text": "tone: neutral",
+     "tag": "Badge",
+     "hook": {
+      "testid": "{testId}-difficulty"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 95,
+     "in": "CourseCardNuevo",
+     "when": "completion",
+     "text": "tone: success",
+     "tag": "Badge"
+    },
+    {
+     "kind": "piece",
+     "line": 97,
+     "in": "CourseCardNuevo",
+     "when": "completion && completion.state === 'aprobado'",
+     "text": "aria-hidden: true",
+     "tag": "Award"
+    },
+    {
+     "kind": "piece",
+     "line": 99,
+     "in": "CourseCardNuevo",
+     "when": "completion && !(completion.state === 'aprobado')",
+     "text": "aria-hidden: true",
+     "tag": "CheckCircle2"
+    },
+    {
+     "kind": "heading",
+     "line": 107,
+     "in": "CourseCardNuevo",
+     "text": "{course.title}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 111,
+     "in": "CourseCardNuevo",
+     "when": "Boolean(showsInstructor(course))",
+     "text": "{course.instructor?.full_name}"
+    },
+    {
+     "kind": "hook",
+     "line": 116,
+     "in": "CourseCardNuevo",
+     "when": "progress",
+     "text": "role=progressbar",
+     "type": "role",
+     "tag": "div",
+     "aria": "{`Avance: ${percent}%`}"
+    },
+    {
+     "kind": "value",
+     "line": 131,
+     "in": "CourseCardNuevo",
+     "when": "progress",
+     "text": "[{lessonLineText(enrollment)}]"
+    },
+    {
+     "kind": "value",
+     "line": 132,
+     "in": "CourseCardNuevo",
+     "when": "progress",
+     "text": "{percent} %"
+    },
+    {
+     "kind": "button",
+     "line": 138,
+     "in": "CourseCardNuevo",
+     "text": "Detalles",
+     "action": "{() => setOpen((now) => !now)}",
+     "hook": {
+      "testid": "{testId}-details-toggle"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 147,
+     "in": "CourseCardNuevo",
+     "text": "aria-hidden: true",
+     "tag": "ChevronDown"
+    },
+    {
+     "kind": "button",
+     "line": 149,
+     "in": "CourseCardNuevo",
+     "text": "{getCTAText(enrollment)}",
+     "action": "{() => onOpen(course.id)}",
+     "hook": {
+      "testid": "{testId}-action"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 155,
+     "in": "CourseCardNuevo",
+     "text": "aria-hidden: true",
+     "tag": "Play"
+    },
+    {
+     "kind": "hook",
+     "line": 161,
+     "in": "CourseCardNuevo",
+     "when": "open",
+     "text": "testid={testId}-details id={testId}-details",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 166,
+     "in": "CourseCardNuevo",
+     "when": "open && ((duration || Boolean(difficulty) || lessons)) && duration",
+     "text": "aria-hidden: true",
+     "tag": "Clock"
+    },
+    {
+     "kind": "piece",
+     "line": 172,
+     "in": "CourseCardNuevo",
+     "when": "open && ((duration || Boolean(difficulty) || lessons)) && difficulty",
+     "text": "aria-hidden: true",
+     "tag": "BarChart2"
+    },
+    {
+     "kind": "piece",
+     "line": 178,
+     "in": "CourseCardNuevo",
+     "when": "open && ((duration || Boolean(difficulty) || lessons)) && lessons",
+     "text": "aria-hidden: true",
+     "tag": "BookOpen"
+    },
+    {
+     "kind": "hook",
+     "line": 187,
+     "in": "CourseCardNuevo",
+     "when": "open && lessons && !progress",
+     "text": "testid={testId}-lessons",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "value",
+     "line": 188,
+     "in": "CourseCardNuevo",
+     "when": "open && lessons && !progress",
+     "text": "{lessonLineText(enrollment)}"
+    },
+    {
+     "kind": "value",
+     "line": 189,
+     "in": "CourseCardNuevo",
+     "when": "open && lessons && !progress",
+     "text": "{percent} %"
+    },
+    {
+     "kind": "piece",
+     "line": 194,
+     "in": "CourseCardNuevo",
+     "when": "open && Boolean(showsAssignments(enrollment))",
+     "text": "aria-hidden: true",
+     "tag": "ClipboardCheck"
+    },
+    {
+     "kind": "value",
+     "line": 195,
+     "in": "CourseCardNuevo",
+     "when": "open && Boolean(showsAssignments(enrollment))",
+     "text": "{assignmentsText(enrollment)}"
+    },
+    {
+     "kind": "piece",
+     "line": 201,
+     "in": "CourseCardNuevo",
+     "when": "open && completion?.state === 'aprobado'",
+     "text": "aria-hidden: true",
+     "tag": "Award"
+    },
+    {
+     "kind": "value",
+     "line": 204,
+     "in": "CourseCardNuevo",
+     "when": "open && completion?.state === 'aprobado'",
+     "text": "{completion.line}"
+    },
+    {
+     "kind": "value",
+     "line": 207,
+     "in": "CourseCardNuevo",
+     "when": "open && completion?.state === 'completado'",
+     "text": "{completion.line}"
+    },
+    {
+     "kind": "value",
+     "line": 209,
+     "in": "CourseCardNuevo",
+     "when": "open && Boolean(showsDescription(course))",
+     "text": "{course.description}"
+    },
+    {
+     "kind": "piece",
+     "line": 214,
+     "in": "CourseCardNuevo",
+     "when": "open && objectives",
+     "text": "aria-hidden: true",
+     "tag": "Target"
+    },
+    {
+     "kind": "text",
+     "line": 215,
+     "in": "CourseCardNuevo",
+     "when": "open && objectives",
+     "text": "Objetivos de aprendizaje"
+    },
+    {
+     "kind": "value",
+     "line": 219,
+     "in": "CourseCardNuevo",
+     "when": "open && objectives && each objectives.shown",
+     "text": "{objective}"
+    },
+    {
+     "kind": "text",
+     "line": 221,
+     "in": "CourseCardNuevo",
+     "when": "open && objectives && objectives.more > 0",
+     "text": "+ {objectives.more} más..."
+    },
+    {
+     "kind": "list",
+     "line": 243,
+     "text": "GENERATED_FIT",
+     "items": [
+      "[&]:rounded-none [&_h3]:text-[0.875rem] [&_h3]:leading-[1.3] [&_.ring-2]:h-14 [&_.ring-2]:w-14 [&>div:nth-child(2)]:pb-10"
+     ]
     }
    ],
    "db": []
@@ -2203,38 +3532,38 @@
    "usedBy": [
     "/dashboard"
    ],
-   "lines": 601,
+   "lines": 600,
    "rows": [
     {
      "kind": "piece",
-     "line": 66,
+     "line": 65,
      "in": "PanelClasico",
      "text": "",
      "tag": "Avatar"
     },
     {
      "kind": "heading",
-     "line": 73,
+     "line": 72,
      "in": "PanelClasico",
      "text": "¡Hola, {greetingName} !",
      "level": 1
     },
     {
      "kind": "text",
-     "line": 77,
+     "line": 76,
      "in": "PanelClasico",
      "text": "Bienvenido de vuelta al hub de transformación de tu colegio"
     },
     {
      "kind": "value",
-     "line": 82,
+     "line": 81,
      "in": "PanelClasico",
      "when": "showConsultorAffiliation",
      "text": "{consultorAffiliationLabel}"
     },
     {
      "kind": "link",
-     "line": 87,
+     "line": 86,
      "in": "PanelClasico",
      "screen": "hidden sm:flex",
      "text": "Mi Perfil",
@@ -2242,22 +3571,22 @@
     },
     {
      "kind": "button",
-     "line": 108,
+     "line": 107,
      "in": "PanelClasico",
      "when": "community",
-     "text": "Mi Comunidad de Crecimiento {selectedRole.school?.name} / {selectedRole.community!.name} • {members.length} miembros {member.first_name?.charAt(0)} / U [+ {members.length - 4}]",
+     "text": "Mi Comunidad de Crecimiento {selectedRole.school?.name} / {selectedRole.community!.name} • {members.length} miembros {memberInitial(member)} [+ {members.length - 4}]",
      "action": "{toggleCommunity}"
     },
     {
      "kind": "media",
-     "line": 114,
+     "line": 113,
      "in": "PanelClasico",
      "when": "community && workspace?.image_url",
      "text": "img · alt {workspace.custom_name || selectedRole.community!.name} · {workspace.image_url}"
     },
     {
      "kind": "heading",
-     "line": 125,
+     "line": 124,
      "in": "PanelClasico",
      "when": "community",
      "text": "Mi Comunidad de Crecimiento",
@@ -2265,21 +3594,21 @@
     },
     {
      "kind": "media",
-     "line": 138,
+     "line": 137,
      "in": "PanelClasico",
      "when": "community && each members.slice(0, 4) && member.avatar_url",
      "text": "img · {member.avatar_url}"
     },
     {
      "kind": "text",
-     "line": 172,
+     "line": 171,
      "in": "PanelClasico",
      "when": "community && communityExpanded && showCommunityPicker",
      "text": "Seleccionar comunidad:"
     },
     {
      "kind": "button",
-     "line": 175,
+     "line": 174,
      "in": "PanelClasico",
      "when": "community && communityExpanded && showCommunityPicker && each userCommunities",
      "text": "{comm.school?.name} / {comm.community?.name}",
@@ -2287,7 +3616,7 @@
     },
     {
      "kind": "heading",
-     "line": 192,
+     "line": 191,
      "in": "PanelClasico",
      "when": "community && communityExpanded",
      "text": "{selectedRole.school?.name} / {selectedRole.community!.name}",
@@ -2295,7 +3624,7 @@
     },
     {
      "kind": "button",
-     "line": 198,
+     "line": 197,
      "in": "PanelClasico",
      "when": "community && communityExpanded && canEditWorkspace()",
      "text": "[icon Settings]",
@@ -2304,7 +3633,7 @@
     },
     {
      "kind": "link",
-     "line": 206,
+     "line": 205,
      "in": "PanelClasico",
      "when": "community && communityExpanded",
      "text": "Ver Espacio Completo →",
@@ -2312,36 +3641,36 @@
     },
     {
      "kind": "button",
-     "line": 220,
+     "line": 219,
      "in": "PanelClasico",
      "when": "community && communityExpanded && each members",
-     "text": "{member.first_name?.charAt(0)} / U {[member.first_name, member.last_nam…} / {(member as any).name} / Usuario [{roleLabel}] [{getExternalSchoolLabel(member.exter…}] [Tú]",
+     "text": "{memberInitial(member)} {fullName} [{roleLabel}] [{externalSchoolLabel}] [Tú]",
      "action": "{() => openMember(member)}"
     },
     {
      "kind": "media",
-     "line": 226,
+     "line": 225,
      "in": "PanelClasico",
      "when": "community && communityExpanded && each members && member.avatar_url",
      "text": "img · {member.avatar_url}"
     },
     {
      "kind": "heading",
-     "line": 272,
+     "line": 271,
      "in": "PanelClasico",
      "text": "Últimas Noticias",
      "level": 2
     },
     {
      "kind": "link",
-     "line": 274,
+     "line": 273,
      "in": "PanelClasico",
      "text": "Ver todas",
      "target": "/noticias"
     },
     {
      "kind": "link",
-     "line": 295,
+     "line": 294,
      "in": "PanelClasico",
      "when": "!(loadingNews) && newsArticles.length > 0 && each newsArticles",
      "text": "{formatTimeAgo(article.display_date …} {article.title} {getExcerpt(article.content_html)}",
@@ -2350,14 +3679,14 @@
     },
     {
      "kind": "media",
-     "line": 306,
+     "line": 305,
      "in": "PanelClasico",
      "when": "!(loadingNews) && newsArticles.length > 0 && each newsArticles && article.featured_image",
      "text": "img · alt {article.title} · {article.featured_image}"
     },
     {
      "kind": "heading",
-     "line": 317,
+     "line": 316,
      "in": "PanelClasico",
      "when": "!(loadingNews) && newsArticles.length > 0 && each newsArticles",
      "text": "{article.title}",
@@ -2365,21 +3694,21 @@
     },
     {
      "kind": "text",
-     "line": 329,
+     "line": 328,
      "in": "PanelClasico",
      "when": "!(loadingNews) && !(newsArticles.length > 0)",
      "text": "No hay noticias disponibles"
     },
     {
      "kind": "heading",
-     "line": 341,
+     "line": 340,
      "in": "PanelClasico",
      "text": "Videos Recientes",
      "level": 2
     },
     {
      "kind": "link",
-     "line": 343,
+     "line": 342,
      "in": "PanelClasico",
      "text": "Ver canal",
      "target": "https://www.youtube.com/@NuevaEducacionFundacion",
@@ -2387,7 +3716,7 @@
     },
     {
      "kind": "link",
-     "line": 365,
+     "line": 364,
      "in": "PanelClasico",
      "when": "!(loadingVideos) && youtubeVideos.length > 0 && each youtubeVideos",
      "text": "{video.title} {formatTimeAgo(video.publishedAt)}",
@@ -2396,14 +3725,14 @@
     },
     {
      "kind": "media",
-     "line": 373,
+     "line": 372,
      "in": "PanelClasico",
      "when": "!(loadingVideos) && youtubeVideos.length > 0 && each youtubeVideos",
      "text": "img · alt {video.title} · {video.thumbnail}"
     },
     {
      "kind": "heading",
-     "line": 385,
+     "line": 384,
      "in": "PanelClasico",
      "when": "!(loadingVideos) && youtubeVideos.length > 0 && each youtubeVideos",
      "text": "{video.title}",
@@ -2411,39 +3740,39 @@
     },
     {
      "kind": "text",
-     "line": 397,
+     "line": 396,
      "in": "PanelClasico",
      "when": "!(loadingVideos) && !(youtubeVideos.length > 0)",
      "text": "No hay videos disponibles"
     },
     {
      "kind": "heading",
-     "line": 404,
+     "line": 403,
      "in": "PanelClasico",
      "text": "{dashboardStats?.statsLabel} / Estadísticas de la Plataforma",
      "level": 2
     },
     {
      "kind": "text",
-     "line": 409,
+     "line": 408,
      "in": "PanelClasico",
      "text": "Educadores Activos"
     },
     {
      "kind": "text",
-     "line": 417,
+     "line": 416,
      "in": "PanelClasico",
      "text": "en tu alcance"
     },
     {
      "kind": "text",
-     "line": 422,
+     "line": 421,
      "in": "PanelClasico",
      "text": "Curso Más Completado"
     },
     {
      "kind": "heading",
-     "line": 430,
+     "line": 429,
      "in": "PanelClasico",
      "when": "!(loadingStats) && dashboardStats?.mostCompletedCourse",
      "text": "{dashboardStats.mostCompletedCourse.…}",
@@ -2451,55 +3780,55 @@
     },
     {
      "kind": "text",
-     "line": 434,
+     "line": 433,
      "in": "PanelClasico",
      "when": "!(loadingStats) && dashboardStats?.mostCompletedCourse && dashboardStats.mostCompletedCourse.instructor_name",
      "text": "Relator: {dashboardStats.mostCompletedCourse.…}"
     },
     {
      "kind": "value",
-     "line": 439,
+     "line": 438,
      "in": "PanelClasico",
      "when": "!(loadingStats) && dashboardStats?.mostCompletedCourse",
      "text": "{dashboardStats.mostCompletedCourse.…}"
     },
     {
      "kind": "text",
-     "line": 442,
+     "line": 441,
      "in": "PanelClasico",
      "when": "!(loadingStats) && dashboardStats?.mostCompletedCourse",
      "text": "completaciones"
     },
     {
      "kind": "text",
-     "line": 446,
+     "line": 445,
      "in": "PanelClasico",
      "when": "!(loadingStats) && !(dashboardStats?.mostCompletedCourse)",
      "text": "Sin datos disponibles"
     },
     {
      "kind": "text",
-     "line": 452,
+     "line": 451,
      "in": "PanelClasico",
      "text": "Usuario Destacado"
     },
     {
      "kind": "media",
-     "line": 467,
+     "line": 466,
      "in": "PanelClasico",
      "when": "!(loadingStats) && dashboardStats?.topLearner && dashboardStats.topLearner.avatar_url",
      "text": "img · {dashboardStats.topLearner.avatar_url}"
     },
     {
      "kind": "value",
-     "line": 474,
+     "line": 473,
      "in": "PanelClasico",
      "when": "!(loadingStats) && dashboardStats?.topLearner && !(dashboardStats.topLearner.avatar_url)",
      "text": "{dashboardStats.topLearner.name.char…}"
     },
     {
      "kind": "heading",
-     "line": 480,
+     "line": 479,
      "in": "PanelClasico",
      "when": "!(loadingStats) && dashboardStats?.topLearner",
      "text": "{dashboardStats.topLearner.name}",
@@ -2507,42 +3836,42 @@
     },
     {
      "kind": "value",
-     "line": 484,
+     "line": 483,
      "in": "PanelClasico",
      "when": "!(loadingStats) && dashboardStats?.topLearner && dashboardStats.topLearner.role",
      "text": "{dashboardStats.topLearner.role}"
     },
     {
      "kind": "value",
-     "line": 489,
+     "line": 488,
      "in": "PanelClasico",
      "when": "!(loadingStats) && dashboardStats?.topLearner && dashboardStats.topLearner.school_name",
      "text": "{dashboardStats.topLearner.school_na…}"
     },
     {
      "kind": "value",
-     "line": 494,
+     "line": 493,
      "in": "PanelClasico",
      "when": "!(loadingStats) && dashboardStats?.topLearner",
      "text": "{dashboardStats.topLearner.completed…}"
     },
     {
      "kind": "text",
-     "line": 497,
+     "line": 496,
      "in": "PanelClasico",
      "when": "!(loadingStats) && dashboardStats?.topLearner",
      "text": "cursos completados"
     },
     {
      "kind": "text",
-     "line": 503,
+     "line": 502,
      "in": "PanelClasico",
      "when": "!(loadingStats) && !(dashboardStats?.topLearner)",
      "text": "Sin datos disponibles"
     },
     {
      "kind": "heading",
-     "line": 517,
+     "line": 516,
      "in": "PanelClasico",
      "when": "showUpcomingCourses",
      "text": "Próximos Cursos",
@@ -2550,14 +3879,14 @@
     },
     {
      "kind": "text",
-     "line": 518,
+     "line": 517,
      "in": "PanelClasico",
      "when": "showUpcomingCourses",
      "text": "Cursos que podrás tomar próximamente"
     },
     {
      "kind": "piece",
-     "line": 530,
+     "line": 529,
      "in": "PanelClasico",
      "when": "showUpcomingCourses && each upcomingCourses",
      "text": "",
@@ -2565,7 +3894,7 @@
     },
     {
      "kind": "piece",
-     "line": 540,
+     "line": 539,
      "in": "PanelClasico",
      "when": "showCourseProposals",
      "text": "",
@@ -2573,7 +3902,7 @@
     },
     {
      "kind": "piece",
-     "line": 545,
+     "line": 544,
      "in": "PanelClasico",
      "when": "showBadges",
      "text": "",
@@ -2581,7 +3910,7 @@
     },
     {
      "kind": "piece",
-     "line": 550,
+     "line": 549,
      "in": "PanelClasico",
      "when": "showInProgressCourses",
      "text": "title: Continuar Aprendiendo · emptyMessage: No tienes cursos en progreso",
@@ -2589,7 +3918,7 @@
     },
     {
      "kind": "heading",
-     "line": 562,
+     "line": 561,
      "in": "PanelClasico",
      "when": "showLearningPaths",
      "text": "Mis Rutas de Aprendizaje",
@@ -2597,7 +3926,7 @@
     },
     {
      "kind": "link",
-     "line": 563,
+     "line": 562,
      "in": "PanelClasico",
      "when": "showLearningPaths",
      "text": "Ver todas",
@@ -2605,7 +3934,7 @@
     },
     {
      "kind": "clickable",
-     "line": 573,
+     "line": 572,
      "in": "PanelClasico",
      "when": "showLearningPaths && each learningPathCards()",
      "text": "",
@@ -2614,7 +3943,7 @@
     },
     {
      "kind": "piece",
-     "line": 573,
+     "line": 572,
      "in": "PanelClasico",
      "when": "showLearningPaths && each learningPathCards()",
      "text": "",
@@ -2622,11 +3951,1436 @@
     },
     {
      "kind": "piece",
-     "line": 589,
+     "line": 588,
      "in": "PanelClasico",
      "when": "showOpenCourses",
      "text": "title: Mis Cursos Abiertos · emptyMessage: No tienes cursos asignados",
      "tag": "NetflixCourseRow"
+    }
+   ],
+   "db": []
+  },
+  "components/panel/PanelNuevo.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 394,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 65,
+     "in": "PanelNuevo",
+     "text": "testid=panel-nuevo",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "hook",
+     "line": 71,
+     "in": "PanelNuevo",
+     "text": "testid=panel-nuevo-welcome",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 73,
+     "in": "PanelNuevo",
+     "text": "",
+     "tag": "Avatar"
+    },
+    {
+     "kind": "heading",
+     "line": 75,
+     "in": "PanelNuevo",
+     "text": "¡Hola, {greetingName} !",
+     "level": 1
+    },
+    {
+     "kind": "text",
+     "line": 79,
+     "in": "PanelNuevo",
+     "text": "Bienvenido de vuelta al hub de transformación de tu colegio"
+    },
+    {
+     "kind": "piece",
+     "line": 82,
+     "in": "PanelNuevo",
+     "when": "showConsultorAffiliation",
+     "text": "aria-hidden: true",
+     "tag": "Briefcase"
+    },
+    {
+     "kind": "value",
+     "line": 83,
+     "in": "PanelNuevo",
+     "when": "showConsultorAffiliation",
+     "text": "{consultorAffiliationLabel}"
+    },
+    {
+     "kind": "link",
+     "line": 88,
+     "in": "PanelNuevo",
+     "text": "Mi Perfil",
+     "target": "/profile",
+     "hook": {
+      "testid": "panel-nuevo-profile"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 93,
+     "in": "PanelNuevo",
+     "text": "aria-hidden: true",
+     "tag": "Settings"
+    },
+    {
+     "kind": "hook",
+     "line": 101,
+     "in": "PanelNuevo",
+     "text": "testid=panel-nuevo-main",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 103,
+     "in": "PanelNuevo",
+     "when": "showInProgressCourses",
+     "text": "title: Continuar Aprendiendo",
+     "tag": "PanelSection",
+     "hook": {
+      "testid": "panel-section-continue"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 112,
+     "in": "PanelNuevo",
+     "when": "showInProgressCourses && each inProgressCourses",
+     "text": "",
+     "tag": "CourseCardNuevo"
+    },
+    {
+     "kind": "piece",
+     "line": 125,
+     "in": "PanelNuevo",
+     "when": "showLearningPaths",
+     "text": "title: Mis Rutas de Aprendizaje",
+     "tag": "PanelSection",
+     "hook": {
+      "testid": "panel-section-routes"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 130,
+     "in": "PanelNuevo",
+     "when": "showLearningPaths",
+     "text": "Ver todas"
+    },
+    {
+     "kind": "piece",
+     "line": 131,
+     "in": "PanelNuevo",
+     "when": "showLearningPaths",
+     "text": "aria-hidden: true",
+     "tag": "ArrowRight"
+    },
+    {
+     "kind": "piece",
+     "line": 137,
+     "in": "PanelNuevo",
+     "when": "showLearningPaths && each learningPathCards()",
+     "text": "",
+     "tag": "RouteCardNuevo"
+    },
+    {
+     "kind": "piece",
+     "line": 152,
+     "in": "PanelNuevo",
+     "when": "showOpenCourses",
+     "text": "title: Mis Cursos Abiertos",
+     "tag": "PanelSection",
+     "hook": {
+      "testid": "panel-section-open"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 161,
+     "in": "PanelNuevo",
+     "when": "showOpenCourses && each openCourses",
+     "text": "",
+     "tag": "CourseCardNuevo"
+    },
+    {
+     "kind": "piece",
+     "line": 173,
+     "in": "PanelNuevo",
+     "when": "showUpcomingCourses",
+     "text": "title: Próximos Cursos · sub: Cursos que podrás tomar próximamente",
+     "tag": "PanelSection",
+     "hook": {
+      "testid": "panel-section-upcoming"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 183,
+     "in": "PanelNuevo",
+     "when": "showUpcomingCourses && each upcomingCourses",
+     "text": "",
+     "tag": "UpcomingCardNuevo"
+    },
+    {
+     "kind": "piece",
+     "line": 189,
+     "in": "PanelNuevo",
+     "when": "showCourseProposals",
+     "text": "",
+     "tag": "ProposalsNuevo"
+    },
+    {
+     "kind": "piece",
+     "line": 191,
+     "in": "PanelNuevo",
+     "when": "showBadges",
+     "text": "",
+     "tag": "BadgesNuevo"
+    },
+    {
+     "kind": "hook",
+     "line": 195,
+     "in": "PanelNuevo",
+     "text": "testid=panel-nuevo-side",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 196,
+     "in": "PanelNuevo",
+     "when": "community",
+     "text": "",
+     "tag": "CommunityCardNuevo"
+    },
+    {
+     "kind": "hook",
+     "line": 199,
+     "in": "PanelNuevo",
+     "text": "testid=panel-section-stats",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "heading",
+     "line": 200,
+     "in": "PanelNuevo",
+     "text": "{dashboardStats?.statsLabel} / Estadísticas de la Plataforma",
+     "level": 2
+    },
+    {
+     "kind": "hook",
+     "line": 201,
+     "in": "PanelNuevo",
+     "text": "testid=panel-stats-users",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 202,
+     "in": "PanelNuevo",
+     "text": "Educadores Activos"
+    },
+    {
+     "kind": "text",
+     "line": 211,
+     "in": "PanelNuevo",
+     "text": "en tu alcance"
+    },
+    {
+     "kind": "piece",
+     "line": 214,
+     "in": "PanelNuevo",
+     "text": "",
+     "tag": "Card",
+     "hook": {
+      "testid": "panel-stats-course"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 215,
+     "in": "PanelNuevo",
+     "text": "Curso Más Completado"
+    },
+    {
+     "kind": "piece",
+     "line": 218,
+     "in": "PanelNuevo",
+     "when": "loadingStats",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 219,
+     "in": "PanelNuevo",
+     "when": "loadingStats",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "heading",
+     "line": 223,
+     "in": "PanelNuevo",
+     "when": "!(loadingStats) && dashboardStats?.mostCompletedCourse",
+     "text": "{dashboardStats.mostCompletedCourse.…}",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 227,
+     "in": "PanelNuevo",
+     "when": "!(loadingStats) && dashboardStats?.mostCompletedCourse && dashboardStats.mostCompletedCourse.instructor_name",
+     "text": "Relator: {dashboardStats.mostCompletedCourse.…}"
+    },
+    {
+     "kind": "value",
+     "line": 230,
+     "in": "PanelNuevo",
+     "when": "!(loadingStats) && dashboardStats?.mostCompletedCourse",
+     "text": "{dashboardStats.mostCompletedCourse.…}"
+    },
+    {
+     "kind": "text",
+     "line": 233,
+     "in": "PanelNuevo",
+     "when": "!(loadingStats) && dashboardStats?.mostCompletedCourse",
+     "text": "completaciones"
+    },
+    {
+     "kind": "text",
+     "line": 237,
+     "in": "PanelNuevo",
+     "when": "!(loadingStats) && !(dashboardStats?.mostCompletedCourse)",
+     "text": "Sin datos disponibles"
+    },
+    {
+     "kind": "piece",
+     "line": 241,
+     "in": "PanelNuevo",
+     "text": "",
+     "tag": "Card",
+     "hook": {
+      "testid": "panel-stats-learner"
+     }
+    },
+    {
+     "kind": "text",
+     "line": 242,
+     "in": "PanelNuevo",
+     "text": "Usuario Destacado"
+    },
+    {
+     "kind": "piece",
+     "line": 245,
+     "in": "PanelNuevo",
+     "when": "loadingStats",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 247,
+     "in": "PanelNuevo",
+     "when": "loadingStats",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 248,
+     "in": "PanelNuevo",
+     "when": "loadingStats",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "media",
+     "line": 255,
+     "in": "PanelNuevo",
+     "when": "!(loadingStats) && dashboardStats?.topLearner && dashboardStats.topLearner.avatar_url",
+     "text": "img · {dashboardStats.topLearner.avatar_url}"
+    },
+    {
+     "kind": "value",
+     "line": 257,
+     "in": "PanelNuevo",
+     "when": "!(loadingStats) && dashboardStats?.topLearner && !(dashboardStats.topLearner.avatar_url)",
+     "text": "{dashboardStats.topLearner.name.char…}"
+    },
+    {
+     "kind": "heading",
+     "line": 262,
+     "in": "PanelNuevo",
+     "when": "!(loadingStats) && dashboardStats?.topLearner",
+     "text": "{dashboardStats.topLearner.name}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 264,
+     "in": "PanelNuevo",
+     "when": "!(loadingStats) && dashboardStats?.topLearner && dashboardStats.topLearner.role",
+     "text": "{dashboardStats.topLearner.role}"
+    },
+    {
+     "kind": "value",
+     "line": 267,
+     "in": "PanelNuevo",
+     "when": "!(loadingStats) && dashboardStats?.topLearner && dashboardStats.topLearner.school_name",
+     "text": "{dashboardStats.topLearner.school_na…}"
+    },
+    {
+     "kind": "value",
+     "line": 272,
+     "in": "PanelNuevo",
+     "when": "!(loadingStats) && dashboardStats?.topLearner",
+     "text": "{dashboardStats.topLearner.completed…}"
+    },
+    {
+     "kind": "text",
+     "line": 275,
+     "in": "PanelNuevo",
+     "when": "!(loadingStats) && dashboardStats?.topLearner",
+     "text": "cursos completados"
+    },
+    {
+     "kind": "text",
+     "line": 279,
+     "in": "PanelNuevo",
+     "when": "!(loadingStats) && !(dashboardStats?.topLearner)",
+     "text": "Sin datos disponibles"
+    },
+    {
+     "kind": "piece",
+     "line": 285,
+     "in": "PanelNuevo",
+     "text": "title: Últimas Noticias",
+     "tag": "PanelSection",
+     "hook": {
+      "testid": "panel-section-news"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 290,
+     "in": "PanelNuevo",
+     "text": "Ver todas"
+    },
+    {
+     "kind": "piece",
+     "line": 291,
+     "in": "PanelNuevo",
+     "text": "aria-hidden: true",
+     "tag": "ArrowRight"
+    },
+    {
+     "kind": "piece",
+     "line": 295,
+     "in": "PanelNuevo",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "hook",
+     "line": 298,
+     "in": "PanelNuevo",
+     "when": "loadingNews && each [1, 2, 3]",
+     "text": "testid=panel-news-placeholder",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "piece",
+     "line": 299,
+     "in": "PanelNuevo",
+     "when": "loadingNews && each [1, 2, 3]",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 301,
+     "in": "PanelNuevo",
+     "when": "loadingNews && each [1, 2, 3]",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 302,
+     "in": "PanelNuevo",
+     "when": "loadingNews && each [1, 2, 3]",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 303,
+     "in": "PanelNuevo",
+     "when": "loadingNews && each [1, 2, 3]",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "link",
+     "line": 309,
+     "in": "PanelNuevo",
+     "when": "!(loadingNews) && newsArticles.length > 0 && each newsArticles",
+     "text": "{formatTimeAgo(article.display_date …} {article.title} {getExcerpt(article.content_html)}",
+     "target": "/noticias/[*]",
+     "newTab": true,
+     "hook": {
+      "testid": "panel-news-{article.id}"
+     }
+    },
+    {
+     "kind": "media",
+     "line": 318,
+     "in": "PanelNuevo",
+     "when": "!(loadingNews) && newsArticles.length > 0 && each newsArticles && article.featured_image",
+     "text": "img · alt {article.title} · {article.featured_image}"
+    },
+    {
+     "kind": "heading",
+     "line": 323,
+     "in": "PanelNuevo",
+     "when": "!(loadingNews) && newsArticles.length > 0 && each newsArticles",
+     "text": "{article.title}",
+     "level": 3
+    },
+    {
+     "kind": "text",
+     "line": 329,
+     "in": "PanelNuevo",
+     "when": "!(loadingNews) && !(newsArticles.length > 0)",
+     "text": "No hay noticias disponibles"
+    },
+    {
+     "kind": "piece",
+     "line": 335,
+     "in": "PanelNuevo",
+     "text": "title: Videos Recientes",
+     "tag": "PanelSection",
+     "hook": {
+      "testid": "panel-section-videos"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 340,
+     "in": "PanelNuevo",
+     "text": "Ver canal"
+    },
+    {
+     "kind": "piece",
+     "line": 347,
+     "in": "PanelNuevo",
+     "text": "aria-hidden: true",
+     "tag": "ExternalLink"
+    },
+    {
+     "kind": "piece",
+     "line": 354,
+     "in": "PanelNuevo",
+     "when": "loadingVideos && each [1, 2]",
+     "text": "",
+     "tag": "Card",
+     "hook": {
+      "testid": "panel-video-placeholder"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 355,
+     "in": "PanelNuevo",
+     "when": "loadingVideos && each [1, 2]",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 356,
+     "in": "PanelNuevo",
+     "when": "loadingVideos && each [1, 2]",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 363,
+     "in": "PanelNuevo",
+     "when": "!(loadingVideos) && youtubeVideos.length > 0 && each youtubeVideos",
+     "text": "",
+     "tag": "Card",
+     "hook": {
+      "testid": "panel-video-{video.id}"
+     }
+    },
+    {
+     "kind": "media",
+     "line": 373,
+     "in": "PanelNuevo",
+     "when": "!(loadingVideos) && youtubeVideos.length > 0 && each youtubeVideos",
+     "text": "img · alt {video.title} · {video.thumbnail}"
+    },
+    {
+     "kind": "piece",
+     "line": 375,
+     "in": "PanelNuevo",
+     "when": "!(loadingVideos) && youtubeVideos.length > 0 && each youtubeVideos",
+     "text": "aria-hidden: true",
+     "tag": "Play"
+    },
+    {
+     "kind": "heading",
+     "line": 379,
+     "in": "PanelNuevo",
+     "when": "!(loadingVideos) && youtubeVideos.length > 0 && each youtubeVideos",
+     "text": "{video.title}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 380,
+     "in": "PanelNuevo",
+     "when": "!(loadingVideos) && youtubeVideos.length > 0 && each youtubeVideos",
+     "text": "{formatTimeAgo(video.publishedAt)}"
+    },
+    {
+     "kind": "piece",
+     "line": 386,
+     "in": "PanelNuevo",
+     "when": "!(loadingVideos) && !(youtubeVideos.length > 0)",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "text",
+     "line": 386,
+     "in": "PanelNuevo",
+     "when": "!(loadingVideos) && !(youtubeVideos.length > 0)",
+     "text": "No hay videos disponibles"
+    }
+   ],
+   "db": []
+  },
+  "components/panel/PanelSection.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 202,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 33,
+     "text": "CARD_TITLE",
+     "items": [
+      "line-clamp-3 {CARD_TITLE_STYLE}"
+     ]
+    },
+    {
+     "kind": "gate",
+     "line": 82,
+     "in": "PanelSection",
+     "text": "!el"
+    },
+    {
+     "kind": "hook",
+     "line": 96,
+     "in": "PanelSection",
+     "text": "window.addEventListener('resize')",
+     "type": "listener"
+    },
+    {
+     "kind": "gate",
+     "line": 112,
+     "in": "PanelSection",
+     "text": "startSeen.current === startKey"
+    },
+    {
+     "kind": "gate",
+     "line": 115,
+     "in": "PanelSection",
+     "text": "first"
+    },
+    {
+     "kind": "gate",
+     "line": 117,
+     "in": "PanelSection",
+     "text": "!row || !el"
+    },
+    {
+     "kind": "hook",
+     "line": 119,
+     "in": "PanelSection",
+     "when": "typeof el.scrollTo === 'function'",
+     "text": "el.scrollTo()",
+     "type": "scroll"
+    },
+    {
+     "kind": "hook",
+     "line": 130,
+     "in": "move",
+     "when": "typeof el.scrollBy === 'function'",
+     "text": "el.scrollBy()",
+     "type": "scroll"
+    },
+    {
+     "kind": "hook",
+     "line": 137,
+     "in": "PanelSection",
+     "text": "testid={testId}",
+     "type": "mark",
+     "tag": "section"
+    },
+    {
+     "kind": "value",
+     "line": 142,
+     "in": "PanelSection",
+     "when": "icon",
+     "text": "{icon}"
+    },
+    {
+     "kind": "heading",
+     "line": 146,
+     "in": "PanelSection",
+     "text": "{title}",
+     "level": 2
+    },
+    {
+     "kind": "value",
+     "line": 148,
+     "in": "PanelSection",
+     "when": "sub",
+     "text": "{sub}"
+    },
+    {
+     "kind": "button",
+     "line": 155,
+     "in": "PanelSection",
+     "when": "((action || (row && more.any))) && row && more.any",
+     "text": "[icon ChevronLeft]",
+     "action": "{() => move(-1)}",
+     "disabled": "{!more.left}",
+     "aria": "Desplazar izquierda",
+     "hook": {
+      "testid": "{testId ? `${testId}-left` : undefined}"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 163,
+     "in": "PanelSection",
+     "when": "((action || (row && more.any))) && row && more.any",
+     "text": "aria-hidden: true",
+     "tag": "ChevronLeft"
+    },
+    {
+     "kind": "button",
+     "line": 165,
+     "in": "PanelSection",
+     "when": "((action || (row && more.any))) && row && more.any",
+     "text": "[icon ChevronRight]",
+     "action": "{() => move(1)}",
+     "disabled": "{!more.right}",
+     "aria": "Desplazar derecha",
+     "hook": {
+      "testid": "{testId ? `${testId}-right` : undefined}"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 173,
+     "in": "PanelSection",
+     "when": "((action || (row && more.any))) && row && more.any",
+     "text": "aria-hidden: true",
+     "tag": "ChevronRight"
+    },
+    {
+     "kind": "hook",
+     "line": 186,
+     "in": "PanelSection",
+     "when": "row",
+     "text": "testid={testId ? `${testId}-row` : undefined}",
+     "type": "mark",
+     "tag": "div",
+     "also": "onScroll={measure}"
+    },
+    {
+     "kind": "value",
+     "line": 186,
+     "in": "PanelSection",
+     "when": "row",
+     "text": "{children}"
+    }
+   ],
+   "db": []
+  },
+  "components/panel/PanelSkeleton.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 46,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 11,
+     "in": "PanelSkeleton",
+     "text": "role=status",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "hook",
+     "line": 11,
+     "in": "PanelSkeleton",
+     "text": "testid=panel-nuevo-loading",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 12,
+     "in": "PanelSkeleton",
+     "screen": "sr-only",
+     "text": "Cargando..."
+    },
+    {
+     "kind": "piece",
+     "line": 15,
+     "in": "PanelSkeleton",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 17,
+     "in": "PanelSkeleton",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 18,
+     "in": "PanelSkeleton",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 26,
+     "in": "PanelSkeleton",
+     "when": "each [1, 2]",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 29,
+     "in": "PanelSkeleton",
+     "when": "each [1, 2] && each [1, 2, 3]",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 36,
+     "in": "PanelSkeleton",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 37,
+     "in": "PanelSkeleton",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 38,
+     "in": "PanelSkeleton",
+     "text": "",
+     "tag": "Skeleton"
+    }
+   ],
+   "db": []
+  },
+  "components/panel/ProposalsNuevo.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 218,
+   "rows": [
+    {
+     "kind": "list",
+     "line": 18,
+     "text": "TITLE",
+     "items": [
+      "Propuestas de Cursos"
+     ]
+    },
+    {
+     "kind": "list",
+     "line": 19,
+     "text": "SUB",
+     "items": [
+      "Me gustaría realizar un curso en la plataforma"
+     ]
+    },
+    {
+     "kind": "piece",
+     "line": 44,
+     "in": "ProposalCardNuevo",
+     "text": "",
+     "tag": "Card",
+     "hook": {
+      "testid": "panel-proposal-{proposal.id}"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 48,
+     "in": "ProposalCardNuevo",
+     "text": "",
+     "tag": "Badge"
+    },
+    {
+     "kind": "value",
+     "line": 48,
+     "in": "ProposalCardNuevo",
+     "text": "{status.label}"
+    },
+    {
+     "kind": "button",
+     "line": 51,
+     "in": "ProposalCardNuevo",
+     "when": "isOwner",
+     "text": "[icon Pencil]",
+     "action": "{() => onEdit(proposal)}",
+     "aria": "Editar propuesta"
+    },
+    {
+     "kind": "piece",
+     "line": 52,
+     "in": "ProposalCardNuevo",
+     "when": "isOwner",
+     "text": "aria-hidden: true",
+     "tag": "Pencil"
+    },
+    {
+     "kind": "button",
+     "line": 54,
+     "in": "ProposalCardNuevo",
+     "when": "isOwner",
+     "text": "[icon Trash2]",
+     "action": "{() => onDelete(proposal.id)}",
+     "aria": "Eliminar propuesta"
+    },
+    {
+     "kind": "piece",
+     "line": 55,
+     "in": "ProposalCardNuevo",
+     "when": "isOwner",
+     "text": "aria-hidden: true",
+     "tag": "Trash2"
+    },
+    {
+     "kind": "heading",
+     "line": 60,
+     "in": "ProposalCardNuevo",
+     "text": "{proposal.titulo}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 63,
+     "in": "ProposalCardNuevo",
+     "text": "{proposal.descripcion_corta}"
+    },
+    {
+     "kind": "piece",
+     "line": 65,
+     "in": "ProposalCardNuevo",
+     "text": "aria-hidden: true",
+     "tag": "BookOpen"
+    },
+    {
+     "kind": "value",
+     "line": 66,
+     "in": "ProposalCardNuevo",
+     "text": "{proposal.competencias_desarrollar}"
+    },
+    {
+     "kind": "piece",
+     "line": 69,
+     "in": "ProposalCardNuevo",
+     "text": "aria-hidden: true",
+     "tag": "Clock"
+    },
+    {
+     "kind": "piece",
+     "line": 74,
+     "in": "ProposalCardNuevo",
+     "when": "proposal.necesita_ayuda_diseno_instruccional",
+     "text": "aria-hidden: true",
+     "tag": "HelpCircle"
+    },
+    {
+     "kind": "text",
+     "line": 75,
+     "in": "ProposalCardNuevo",
+     "when": "proposal.necesita_ayuda_diseno_instruccional",
+     "text": "Solicita ayuda con diseño instruccional"
+    },
+    {
+     "kind": "piece",
+     "line": 80,
+     "in": "ProposalCardNuevo",
+     "text": "aria-hidden: true",
+     "tag": "User"
+    },
+    {
+     "kind": "value",
+     "line": 81,
+     "in": "ProposalCardNuevo",
+     "text": "{proposalCreatorName(proposal)}"
+    },
+    {
+     "kind": "value",
+     "line": 83,
+     "in": "ProposalCardNuevo",
+     "text": "{formatDate(proposal.created_at)}"
+    },
+    {
+     "kind": "piece",
+     "line": 125,
+     "in": "ProposalsNuevo",
+     "when": "loading",
+     "text": "",
+     "tag": "PanelSection",
+     "hook": {
+      "testid": "panel-section-proposals"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 128,
+     "in": "ProposalsNuevo",
+     "when": "loading && each [1, 2, 3]",
+     "text": "",
+     "tag": "Skeleton"
+    },
+    {
+     "kind": "piece",
+     "line": 137,
+     "in": "ProposalsNuevo",
+     "when": "error",
+     "text": "",
+     "tag": "PanelSection",
+     "hook": {
+      "testid": "panel-section-proposals"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 138,
+     "in": "ProposalsNuevo",
+     "when": "error",
+     "text": "tone: error",
+     "tag": "Notice"
+    },
+    {
+     "kind": "value",
+     "line": 140,
+     "in": "ProposalsNuevo",
+     "when": "error",
+     "text": "{error}"
+    },
+    {
+     "kind": "button",
+     "line": 141,
+     "in": "ProposalsNuevo",
+     "when": "error",
+     "text": "Reintentar",
+     "action": "{fetchProposals}"
+    },
+    {
+     "kind": "piece",
+     "line": 152,
+     "in": "ProposalsNuevo",
+     "text": "",
+     "tag": "PanelSection",
+     "hook": {
+      "testid": "panel-section-proposals"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 161,
+     "in": "ProposalsNuevo",
+     "text": "Nueva Propuesta",
+     "action": "{openCreate}",
+     "hook": {
+      "testid": "panel-proposals-new"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 162,
+     "in": "ProposalsNuevo",
+     "text": "aria-hidden: true",
+     "tag": "Plus"
+    },
+    {
+     "kind": "piece",
+     "line": 179,
+     "in": "ProposalsNuevo",
+     "when": "!(proposals.length > 0)",
+     "text": "",
+     "tag": "Card"
+    },
+    {
+     "kind": "piece",
+     "line": 180,
+     "in": "ProposalsNuevo",
+     "when": "!(proposals.length > 0)",
+     "text": "title: Sin propuestas aún · description: Sé el primero en proponer un nuevo curso",
+     "tag": "EmptyState"
+    },
+    {
+     "kind": "button",
+     "line": 185,
+     "in": "ProposalsNuevo",
+     "when": "!(proposals.length > 0)",
+     "text": "Crear Propuesta",
+     "action": "{openCreate}"
+    },
+    {
+     "kind": "piece",
+     "line": 186,
+     "in": "ProposalsNuevo",
+     "when": "!(proposals.length > 0)",
+     "text": "aria-hidden: true",
+     "tag": "Plus"
+    },
+    {
+     "kind": "popup",
+     "line": 196,
+     "in": "ProposalsNuevo",
+     "text": "CourseProposalModal",
+     "how": "component",
+     "open": "{isModalOpen}"
+    },
+    {
+     "kind": "popup",
+     "line": 202,
+     "in": "ProposalsNuevo",
+     "text": "ConfirmDialog",
+     "how": "component",
+     "open": "{deleteConfirmOpen}",
+     "props": "title: Eliminar Propuesta · description: ¿Estás seguro de que deseas eliminar esta propuesta? Esta acción no se puede deshacer. · confirmText: Eliminar · cancelText: Cancelar"
+    }
+   ],
+   "db": []
+  },
+  "components/panel/RouteCardNuevo.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 86,
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 32,
+     "in": "RouteCardNuevo",
+     "text": "",
+     "tag": "Card",
+     "hook": {
+      "testid": "{testId}"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 34,
+     "in": "RouteCardNuevo",
+     "text": "tone: neutral",
+     "tag": "Badge"
+    },
+    {
+     "kind": "text",
+     "line": 34,
+     "in": "RouteCardNuevo",
+     "text": "Nivel {routeLevel(totalCourses)}"
+    },
+    {
+     "kind": "piece",
+     "line": 38,
+     "in": "RouteCardNuevo",
+     "when": "isCompleted",
+     "text": "tone: success",
+     "tag": "Badge"
+    },
+    {
+     "kind": "piece",
+     "line": 39,
+     "in": "RouteCardNuevo",
+     "when": "isCompleted",
+     "text": "aria-hidden: true",
+     "tag": "Award"
+    },
+    {
+     "kind": "text",
+     "line": 40,
+     "in": "RouteCardNuevo",
+     "when": "isCompleted",
+     "text": "Completado"
+    },
+    {
+     "kind": "heading",
+     "line": 44,
+     "in": "RouteCardNuevo",
+     "text": "{name}",
+     "level": 3
+    },
+    {
+     "kind": "value",
+     "line": 47,
+     "in": "RouteCardNuevo",
+     "when": "description",
+     "text": "{description}"
+    },
+    {
+     "kind": "text",
+     "line": 49,
+     "in": "RouteCardNuevo",
+     "text": "Progreso"
+    },
+    {
+     "kind": "value",
+     "line": 50,
+     "in": "RouteCardNuevo",
+     "text": "{percent} %"
+    },
+    {
+     "kind": "hook",
+     "line": 52,
+     "in": "RouteCardNuevo",
+     "text": "role=progressbar",
+     "type": "role",
+     "tag": "span"
+    },
+    {
+     "kind": "piece",
+     "line": 67,
+     "in": "RouteCardNuevo",
+     "text": "aria-hidden: true",
+     "tag": "BookOpen"
+    },
+    {
+     "kind": "text",
+     "line": 68,
+     "in": "RouteCardNuevo",
+     "text": "de"
+    },
+    {
+     "kind": "text",
+     "line": 68,
+     "in": "RouteCardNuevo",
+     "text": "cursos"
+    },
+    {
+     "kind": "piece",
+     "line": 71,
+     "in": "RouteCardNuevo",
+     "text": "aria-hidden: true",
+     "tag": "Clock"
+    },
+    {
+     "kind": "piece",
+     "line": 77,
+     "in": "RouteCardNuevo",
+     "when": "!isCompleted",
+     "text": "aria-hidden: true",
+     "tag": "TrendingUp"
+    }
+   ],
+   "db": []
+  },
+  "components/panel/UpcomingCardNuevo.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 88,
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 19,
+     "in": "UpcomingCardNuevo",
+     "text": "",
+     "tag": "Card",
+     "hook": {
+      "testid": "{testId}"
+     }
+    },
+    {
+     "kind": "media",
+     "line": 22,
+     "in": "UpcomingCardNuevo",
+     "when": "course.thumbnail_url",
+     "text": "img · alt {course.title} · {course.thumbnail_url}"
+    },
+    {
+     "kind": "piece",
+     "line": 25,
+     "in": "UpcomingCardNuevo",
+     "when": "!(course.thumbnail_url)",
+     "text": "aria-hidden: true",
+     "tag": "Clock"
+    },
+    {
+     "kind": "piece",
+     "line": 28,
+     "in": "UpcomingCardNuevo",
+     "text": "tone: accent",
+     "tag": "Badge"
+    },
+    {
+     "kind": "piece",
+     "line": 29,
+     "in": "UpcomingCardNuevo",
+     "text": "aria-hidden: true",
+     "tag": "Clock"
+    },
+    {
+     "kind": "text",
+     "line": 30,
+     "in": "UpcomingCardNuevo",
+     "text": "Próximamente"
+    },
+    {
+     "kind": "heading",
+     "line": 34,
+     "in": "UpcomingCardNuevo",
+     "text": "{course.title}",
+     "level": 3
+    },
+    {
+     "kind": "piece",
+     "line": 39,
+     "in": "UpcomingCardNuevo",
+     "when": "course.instructor",
+     "text": "aria-hidden: true",
+     "tag": "User"
+    },
+    {
+     "kind": "hook",
+     "line": 43,
+     "in": "UpcomingCardNuevo",
+     "text": "testid={testId}-date",
+     "type": "mark",
+     "tag": "p"
+    },
+    {
+     "kind": "piece",
+     "line": 46,
+     "in": "UpcomingCardNuevo",
+     "when": "formattedDate",
+     "text": "aria-hidden: true",
+     "tag": "Calendar"
+    },
+    {
+     "kind": "piece",
+     "line": 51,
+     "in": "UpcomingCardNuevo",
+     "when": "!(formattedDate)",
+     "text": "aria-hidden: true",
+     "tag": "Clock"
+    },
+    {
+     "kind": "text",
+     "line": 52,
+     "in": "UpcomingCardNuevo",
+     "when": "!(formattedDate)",
+     "text": "Fecha por confirmar"
+    },
+    {
+     "kind": "button",
+     "line": 56,
+     "in": "UpcomingCardNuevo",
+     "text": "Detalles",
+     "action": "{() => setOpen((now) => !now)}",
+     "hook": {
+      "testid": "{testId}-details-toggle"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 66,
+     "in": "UpcomingCardNuevo",
+     "text": "aria-hidden: true",
+     "tag": "ChevronDown"
+    },
+    {
+     "kind": "hook",
+     "line": 69,
+     "in": "UpcomingCardNuevo",
+     "when": "open",
+     "text": "testid={testId}-details id={testId}-details",
+     "type": "mark",
+     "tag": "div"
+    },
+    {
+     "kind": "value",
+     "line": 70,
+     "in": "UpcomingCardNuevo",
+     "when": "open && course.description",
+     "text": "{course.description}"
+    },
+    {
+     "kind": "piece",
+     "line": 72,
+     "in": "UpcomingCardNuevo",
+     "when": "open && formattedDate",
+     "text": "tone: warning",
+     "tag": "Badge"
+    },
+    {
+     "kind": "text",
+     "line": 72,
+     "in": "UpcomingCardNuevo",
+     "when": "open && formattedDate",
+     "text": "Disponible en {formattedDate}"
+    },
+    {
+     "kind": "piece",
+     "line": 76,
+     "in": "UpcomingCardNuevo",
+     "when": "open && !(formattedDate)",
+     "text": "tone: neutral",
+     "tag": "Badge"
+    },
+    {
+     "kind": "text",
+     "line": 77,
+     "in": "UpcomingCardNuevo",
+     "when": "open && !(formattedDate)",
+     "text": "Fecha por confirmar"
     }
    ],
    "db": []
@@ -2676,6 +5430,21 @@
    ],
    "db": []
   },
+  "components/panel/memberText.ts": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 52,
+   "rows": [
+    {
+     "kind": "string",
+     "line": 46,
+     "in": "memberTile",
+     "text": "Usuario"
+    }
+   ],
+   "db": []
+  },
   "components/ui/dialog.tsx": {
    "usedBy": [
     "/dashboard"
@@ -2687,6 +5456,430 @@
      "line": 47,
      "screen": "sr-only",
      "text": "Close"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Button.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 178,
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 120,
+     "when": "loading",
+     "text": "",
+     "tag": "SpinnerMark"
+    },
+    {
+     "kind": "link",
+     "line": 131,
+     "when": "typeof rest.href === 'string' && inert",
+     "text": "{content}",
+     "target": ""
+    },
+    {
+     "kind": "link",
+     "line": 145,
+     "when": "typeof rest.href === 'string' && href.startsWith('/')",
+     "text": "{content}",
+     "target": "{href}",
+     "action": "{onClick}"
+    },
+    {
+     "kind": "link",
+     "line": 151,
+     "when": "typeof rest.href === 'string'",
+     "text": "{content}",
+     "target": "{href}",
+     "action": "{onClick}"
+    },
+    {
+     "kind": "button",
+     "line": 159,
+     "text": "{content}",
+     "action": "{(event) => { if (loading) { // Not clickable while it works; also keeps a submi…}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Card.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 123,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 50,
+     "when": "!rest.interactive",
+     "text": "{children}"
+    },
+    {
+     "kind": "link",
+     "line": 60,
+     "when": "typeof rest.href === 'string'",
+     "text": "{children}",
+     "target": "{href}"
+    },
+    {
+     "kind": "button",
+     "line": 68,
+     "text": "{children}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/ConfirmDialog.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 184,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 65,
+     "in": "ConfirmDialog",
+     "when": "open && before.open && before.key !== questionKey",
+     "text": "cancelRef.current.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "popup",
+     "line": 68,
+     "in": "ConfirmDialog",
+     "text": "Dialog",
+     "how": "component",
+     "open": "{open}",
+     "hook": {
+      "testid": "{testId}"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 80,
+     "in": "ConfirmDialog",
+     "text": "{cancelLabel}",
+     "action": "{onCancel}",
+     "disabled": "{loading}",
+     "hook": {
+      "testid": "{testId ? `${testId}-cancel` : undefined}"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 89,
+     "in": "ConfirmDialog",
+     "text": "{confirmLabel}",
+     "action": "{onConfirm}",
+     "hook": {
+      "testid": "{testId ? `${testId}-confirm` : undefined}"
+     }
+    },
+    {
+     "kind": "value",
+     "line": 100,
+     "in": "ConfirmDialog",
+     "when": "message && typeof message === 'string'",
+     "text": "{message}"
+    },
+    {
+     "kind": "string",
+     "line": 49,
+     "in": "ConfirmDialog",
+     "text": "Cancelar"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Dialog.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 235,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 75,
+     "in": "firstFocusable",
+     "text": "querySelectorAll({FOCUSABLE})",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 130,
+     "in": "Dialog",
+     "text": "testid={testId}",
+     "type": "mark",
+     "tag": "RadixDialog.Content"
+    },
+    {
+     "kind": "hook",
+     "line": 151,
+     "in": "Dialog",
+     "text": "candidate.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 154,
+     "in": "Dialog",
+     "when": "!landed",
+     "text": "box.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 160,
+     "in": "Dialog",
+     "when": "target?.isConnected",
+     "text": "target.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "value",
+     "line": 179,
+     "in": "Dialog",
+     "when": "eyebrow",
+     "text": "{eyebrow}"
+    },
+    {
+     "kind": "value",
+     "line": 180,
+     "in": "Dialog",
+     "text": "{title}"
+    },
+    {
+     "kind": "value",
+     "line": 189,
+     "in": "Dialog",
+     "when": "description",
+     "text": "{description}"
+    },
+    {
+     "kind": "piece",
+     "line": 193,
+     "in": "Dialog",
+     "when": "dismissable",
+     "text": "aria-label: Cerrar",
+     "tag": "RadixDialog.Close",
+     "hook": {
+      "testid": "{testId ? `${testId}-close` : undefined}"
+     },
+     "aria": "Cerrar"
+    },
+    {
+     "kind": "piece",
+     "line": 204,
+     "in": "Dialog",
+     "when": "dismissable",
+     "text": "aria-hidden: true",
+     "tag": "X"
+    },
+    {
+     "kind": "value",
+     "line": 208,
+     "in": "Dialog",
+     "text": "{children}"
+    },
+    {
+     "kind": "value",
+     "line": 218,
+     "in": "Dialog",
+     "when": "footer",
+     "text": "{footer}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/EmptyState.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 58,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 43,
+     "text": "{title}"
+    },
+    {
+     "kind": "value",
+     "line": 52,
+     "when": "description",
+     "text": "{description}"
+    },
+    {
+     "kind": "value",
+     "line": 54,
+     "when": "action",
+     "text": "{action}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Field.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 396,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 127,
+     "in": "Field",
+     "when": "help",
+     "text": "{help}"
+    },
+    {
+     "kind": "piece",
+     "line": 133,
+     "in": "Field",
+     "when": "error",
+     "text": "aria-hidden: true",
+     "tag": "AlertCircle"
+    },
+    {
+     "kind": "label",
+     "line": 152,
+     "in": "Field",
+     "when": "group",
+     "text": "{label} {mark}"
+    },
+    {
+     "kind": "value",
+     "line": 157,
+     "in": "Field",
+     "when": "group",
+     "text": "{children}"
+    },
+    {
+     "kind": "label",
+     "line": 166,
+     "in": "Field",
+     "text": "{label} {mark}",
+     "for": "{id}"
+    },
+    {
+     "kind": "value",
+     "line": 170,
+     "in": "Field",
+     "text": "{children}"
+    },
+    {
+     "kind": "list",
+     "line": 181,
+     "text": "AT_LEAST_ONE",
+     "items": [
+      "Marca al menos una opción."
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 194,
+     "in": "boxes",
+     "text": "querySelectorAll(input[type=\"checkbox\"])",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 203,
+     "in": "useAtLeastOneTicked",
+     "text": "group.addEventListener('change')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 204,
+     "in": "useAtLeastOneTicked",
+     "text": "form.addEventListener('reset')",
+     "type": "listener"
+    },
+    {
+     "kind": "field",
+     "line": 229,
+     "text": "",
+     "type": "{type}"
+    },
+    {
+     "kind": "field",
+     "line": 237,
+     "text": "",
+     "type": "textarea",
+     "limits": ""
+    },
+    {
+     "kind": "field",
+     "line": 248,
+     "text": "",
+     "type": "select"
+    },
+    {
+     "kind": "piece",
+     "line": 251,
+     "screen": "hidden",
+     "text": "aria-hidden: true",
+     "tag": "ChevronDown"
+    },
+    {
+     "kind": "piece",
+     "line": 264,
+     "text": "aria-hidden: true",
+     "tag": "Search"
+    },
+    {
+     "kind": "field",
+     "line": 268,
+     "text": "",
+     "type": "{type}"
+    },
+    {
+     "kind": "label",
+     "line": 302,
+     "in": "Choice",
+     "text": "{label}",
+     "for": "{inputId}"
+    },
+    {
+     "kind": "field",
+     "line": 304,
+     "in": "Choice",
+     "text": "{label}",
+     "type": "{kind}",
+     "required": "{isRequired}"
+    },
+    {
+     "kind": "piece",
+     "line": 314,
+     "in": "Choice",
+     "when": "kind === 'checkbox'",
+     "screen": "hidden",
+     "text": "aria-hidden: true",
+     "tag": "Check"
+    },
+    {
+     "kind": "value",
+     "line": 330,
+     "in": "Choice",
+     "when": "help",
+     "text": "{help}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Notice.tsx": {
+   "usedBy": [
+    "/dashboard"
+   ],
+   "lines": 76,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 68,
+     "when": "title",
+     "text": "{title}"
     }
    ],
    "db": []
@@ -2735,7 +5928,7 @@
    "usedBy": [
     "/dashboard"
    ],
-   "lines": 565,
+   "lines": 573,
    "rows": [
     {
      "kind": "hook",
@@ -2852,14 +6045,14 @@
     },
     {
      "kind": "access",
-     "line": 474,
+     "line": 479,
      "in": "decide",
      "text": "showCourseProposals = (metadataHasRole(session?.user?.user_metadata, 'admin') || metadataHasRole(session?.user?.user_metadata, 'consultor') || userRo…",
      "via": "metadataHasRole"
     },
     {
      "kind": "access",
-     "line": 475,
+     "line": 480,
      "in": "decide",
      "text": "showCourseProposals = (metadataHasRole(session?.user?.user_metadata, 'admin') || metadataHasRole(session?.user?.user_metadata, 'consultor') || userRo…",
      "via": "metadataHasRole"
@@ -2878,7 +6071,7 @@
     },
     {
      "kind": "string",
-     "line": 435,
+     "line": 440,
      "in": "usePanel",
      "text": "Usuario"
     }
@@ -3205,6 +6398,13 @@
      "in": "toastSuccess",
      "text": "{message}",
      "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 50,
+     "in": "toastError",
+     "text": "{message}",
+     "variant": "error"
     }
    ],
    "db": []
@@ -3251,7 +6451,8 @@
    ],
    "referencedIn": [
     "__tests__/api/upcoming-courses/metadata-authority.test.ts",
-    "components/course-proposals/CourseProposalSection.tsx"
+    "__tests__/pages/dashboard.samePanel.test.tsx",
+    "components/course-proposals/useCourseProposals.ts"
    ]
   },
   {
@@ -3267,7 +6468,11 @@
    ],
    "referencedIn": [
     "__tests__/api/upcoming-courses/metadata-authority.test.ts",
-    "components/course-proposals/CourseProposalSection.tsx",
+    "__tests__/components/panel/proposals.pin.test.tsx",
+    "__tests__/helpers/panelFakes.tsx",
+    "__tests__/pages/dashboard.nuevo.test.tsx",
+    "__tests__/pages/dashboard.samePanel.test.tsx",
+    "components/course-proposals/useCourseProposals.ts",
     "tests/e2e/panel-pin.spec.ts"
    ]
   },
@@ -3284,7 +6489,10 @@
     "/dashboard"
    ],
    "referencedIn": [
+    "__tests__/helpers/panelFakes.tsx",
     "__tests__/pages/dashboard.clasico.test.tsx",
+    "__tests__/pages/dashboard.nuevo.test.tsx",
+    "__tests__/pages/dashboard.samePanel.test.tsx",
     "hooks/usePanel.ts",
     "tests/e2e/meeting-finalize-email-outcome.spec.ts",
     "tests/e2e/panel-pin.spec.ts"
@@ -3315,7 +6523,10 @@
     "/dashboard"
    ],
    "referencedIn": [
+    "__tests__/helpers/panelFakes.tsx",
     "__tests__/pages/dashboard.clasico.test.tsx",
+    "__tests__/pages/dashboard.nuevo.test.tsx",
+    "__tests__/pages/dashboard.samePanel.test.tsx",
     "hooks/usePanel.ts",
     "tests/e2e/meeting-finalize-email-outcome.spec.ts",
     "tests/e2e/panel-pin.spec.ts"

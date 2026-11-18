@@ -4,8 +4,8 @@
  "note": "",
  "routesOnly": false,
  "readFrom": {
-  "commit": "0a7ad8795b419990468bad9197d27dd375a392a3",
-  "date": "2026-11-18T14:19:15-03:00"
+  "commit": "d701100d014e948bec5766fb68836675e13355b6",
+  "date": "2026-11-18T15:21:06-03:00"
  },
  "screens": [
   {
@@ -2231,8 +2231,9 @@
      "components/layout/Sidebar.tsx:221",
      "components/layout/Sidebar.tsx:227",
      "components/layout/Sidebar.tsx:232",
+     "components/panel/CommunityCardNuevo.tsx:125",
+     "components/panel/PanelClasico.tsx:205",
      "components/panel/PanelClasico.tsx:206",
-     "components/panel/PanelClasico.tsx:207",
      "lib/auth/forced-password-change.ts:175",
      "lib/notifications/catalog.ts:170",
      "lib/notifications/catalog.ts:325",
@@ -3929,6 +3930,8 @@
    "pieces": [
     "components/common/ConfirmModal.tsx",
     "components/community/WorkspaceSettingsModal.tsx",
+    "components/community/WorkspaceSettingsNuevo.tsx",
+    "components/community/useWorkspaceSettings.ts",
     "components/documents/DocumentFilters.tsx",
     "components/documents/DocumentGrid.tsx",
     "components/documents/DocumentPreview.tsx",
@@ -3964,6 +3967,9 @@
     "components/tutorials/HelpDrawer.tsx",
     "components/tutorials/VimeoEmbed.tsx",
     "components/ui/dialog.tsx",
+    "components/ui/kit/Button.tsx",
+    "components/ui/kit/Dialog.tsx",
+    "components/ui/kit/Field.tsx",
     "components/workspace/WorkspaceSessionsTab.tsx",
     "components/workspace/WorkspaceTabNavigation.tsx",
     "lib/colorAlpha.ts",
@@ -4205,15 +4211,18 @@
      }
     ],
     "linkedFrom": [
-     "components/community/MemberProfileModal.tsx:163",
-     "components/community/MemberProfileModal.tsx:164",
+     "components/community/MemberProfileModal.tsx:166",
+     "components/community/MemberProfileModal.tsx:167",
+     "components/community/MemberProfileNuevo.tsx:45",
      "middleware.ts:358",
      "pages/community/workspace.tsx:689",
      "pages/community/workspace.tsx:691"
     ],
     "qaScenarios": {},
     "tests": {
-     "e2eCi": [],
+     "e2eCi": [
+      "tests/e2e/look-panel.spec.ts"
+     ],
      "e2e": [
       "tests/e2e/sentry-replay-disabled.spec.ts"
      ],
@@ -4605,61 +4614,40 @@
    "usedBy": [
     "/community/workspace"
    ],
-   "lines": 242,
+   "lines": 163,
    "rows": [
     {
-     "kind": "toast",
-     "line": 42,
-     "in": "handleImageSelect",
-     "when": "file.size > 5 * 1024 * 1024",
-     "text": "La imagen debe ser menor a 5MB",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 49,
-     "in": "handleImageSelect",
-     "when": "!allowedTypes.includes(file.type)",
-     "text": "Solo se permiten imágenes (JPEG, PNG, WebP)",
-     "variant": "error"
-    },
-    {
-     "kind": "toast",
-     "line": 99,
-     "in": "handleSave",
-     "text": "Configuración actualizada exitosamente",
-     "variant": "success"
-    },
-    {
-     "kind": "toast",
-     "line": 107,
-     "in": "handleSave",
-     "text": "Error al guardar la configuración",
-     "variant": "error"
+     "kind": "popup",
+     "line": 41,
+     "in": "WorkspaceSettingsModal",
+     "when": "look === 'nuevo'",
+     "text": "WorkspaceSettingsNuevo",
+     "how": "component",
+     "open": "{isOpen}"
     },
     {
      "kind": "gate",
-     "line": 122,
+     "line": 43,
      "in": "WorkspaceSettingsModal",
      "text": "!isOpen"
     },
     {
      "kind": "popup",
-     "line": 125,
+     "line": 46,
      "in": "WorkspaceSettingsModal",
      "text": "Configuración de la Comunidad",
      "how": "written in this file"
     },
     {
      "kind": "heading",
-     "line": 128,
+     "line": 49,
      "in": "WorkspaceSettingsModal",
      "text": "Configuración de la Comunidad",
      "level": 3
     },
     {
      "kind": "button",
-     "line": 131,
+     "line": 52,
      "in": "WorkspaceSettingsModal",
      "text": "[icon X]",
      "action": "{onClose}",
@@ -4667,13 +4655,13 @@
     },
     {
      "kind": "label",
-     "line": 143,
+     "line": 64,
      "in": "WorkspaceSettingsModal",
      "text": "Nombre de la Comunidad"
     },
     {
      "kind": "field",
-     "line": 146,
+     "line": 67,
      "in": "WorkspaceSettingsModal",
      "text": "Nombre de la Comunidad",
      "type": "text",
@@ -4683,26 +4671,26 @@
     },
     {
      "kind": "text",
-     "line": 155,
+     "line": 76,
      "in": "WorkspaceSettingsModal",
      "text": "Cualquier miembro puede cambiar el nombre del grupo"
     },
     {
      "kind": "label",
-     "line": 161,
+     "line": 82,
      "in": "WorkspaceSettingsModal",
      "text": "Imagen de la Comunidad"
     },
     {
      "kind": "media",
-     "line": 170,
+     "line": 91,
      "in": "WorkspaceSettingsModal",
      "when": "imagePreview",
      "text": "img · alt Vista previa · {imagePreview}"
     },
     {
      "kind": "button",
-     "line": 175,
+     "line": 96,
      "in": "WorkspaceSettingsModal",
      "when": "imagePreview",
      "text": "[icon X]",
@@ -4710,7 +4698,7 @@
     },
     {
      "kind": "field",
-     "line": 192,
+     "line": 113,
      "in": "WorkspaceSettingsModal",
      "screen": "hidden",
      "text": "Subir imagen",
@@ -4724,20 +4712,20 @@
     },
     {
      "kind": "label",
-     "line": 200,
+     "line": 121,
      "in": "WorkspaceSettingsModal",
      "text": "Subir imagen",
      "for": "community-image-upload"
     },
     {
      "kind": "text",
-     "line": 208,
+     "line": 129,
      "in": "WorkspaceSettingsModal",
      "text": "Máx. 5MB (JPEG, PNG, WebP)"
     },
     {
      "kind": "button",
-     "line": 217,
+     "line": 138,
      "in": "WorkspaceSettingsModal",
      "text": "Cancelar",
      "action": "{onClose}",
@@ -4745,11 +4733,199 @@
     },
     {
      "kind": "button",
-     "line": 224,
+     "line": 145,
      "in": "WorkspaceSettingsModal",
      "text": "Guardando... / Guardar cambios",
      "action": "{handleSave}",
-     "disabled": "{isLoading || (!customName.trim() && !imageFile && !imageUrl)}"
+     "disabled": "{saveDisabled}"
+    }
+   ],
+   "db": []
+  },
+  "components/community/WorkspaceSettingsNuevo.tsx": {
+   "usedBy": [
+    "/community/workspace"
+   ],
+   "lines": 114,
+   "rows": [
+    {
+     "kind": "popup",
+     "line": 37,
+     "in": "WorkspaceSettingsNuevo",
+     "text": "Dialog",
+     "how": "component",
+     "open": "{isOpen}",
+     "props": "eyebrow: Mi Comunidad de Crecimiento · title: Configuración de la Comunidad",
+     "hook": {
+      "testid": "workspace-settings-dialog"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 46,
+     "in": "WorkspaceSettingsNuevo",
+     "text": "Cancelar",
+     "action": "{onClose}",
+     "disabled": "{isLoading}",
+     "hook": {
+      "testid": "workspace-settings-cancel"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 49,
+     "in": "WorkspaceSettingsNuevo",
+     "text": "Guardando... / Guardar cambios",
+     "action": "{handleSave}",
+     "disabled": "{saveDisabled}",
+     "hook": {
+      "testid": "workspace-settings-save"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 55,
+     "in": "WorkspaceSettingsNuevo",
+     "text": "label: Nombre de la Comunidad · help: Cualquier miembro puede cambiar el nombre del grupo",
+     "tag": "Field"
+    },
+    {
+     "kind": "field",
+     "line": 56,
+     "in": "WorkspaceSettingsNuevo",
+     "text": "Ingresa un nombre personalizado",
+     "type": "text",
+     "placeholder": "Ingresa un nombre personalizado",
+     "limits": "maxLength={100}",
+     "action": "{(e) => setCustomName(e.target.value)}",
+     "hook": {
+      "testid": "workspace-settings-name"
+     }
+    },
+    {
+     "kind": "hook",
+     "line": 66,
+     "in": "WorkspaceSettingsNuevo",
+     "text": "role=group",
+     "type": "role",
+     "tag": "div"
+    },
+    {
+     "kind": "text",
+     "line": 68,
+     "in": "WorkspaceSettingsNuevo",
+     "text": "Imagen de la Comunidad"
+    },
+    {
+     "kind": "media",
+     "line": 73,
+     "in": "WorkspaceSettingsNuevo",
+     "when": "imagePreview",
+     "text": "img · alt Vista previa · {imagePreview}"
+    },
+    {
+     "kind": "button",
+     "line": 74,
+     "in": "WorkspaceSettingsNuevo",
+     "when": "imagePreview",
+     "text": "[icon X]",
+     "action": "{handleRemoveImage}",
+     "aria": "Quitar imagen",
+     "title": "Quitar imagen",
+     "hook": {
+      "testid": "workspace-settings-remove-image"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 82,
+     "in": "WorkspaceSettingsNuevo",
+     "when": "imagePreview",
+     "text": "aria-hidden: true",
+     "tag": "X"
+    },
+    {
+     "kind": "piece",
+     "line": 87,
+     "in": "WorkspaceSettingsNuevo",
+     "when": "!(imagePreview)",
+     "text": "aria-hidden: true",
+     "tag": "Camera"
+    },
+    {
+     "kind": "field",
+     "line": 91,
+     "in": "WorkspaceSettingsNuevo",
+     "screen": "hidden",
+     "text": "",
+     "type": "file",
+     "accept": "image/jpeg,image/jpg,image/png,image/webp",
+     "action": "{handleImageSelect}",
+     "hook": {
+      "id": "community-image-upload"
+     }
+    },
+    {
+     "kind": "button",
+     "line": 99,
+     "in": "WorkspaceSettingsNuevo",
+     "text": "Subir imagen",
+     "action": "{() => fileInputRef.current?.click()}",
+     "hook": {
+      "testid": "workspace-settings-upload"
+     }
+    },
+    {
+     "kind": "piece",
+     "line": 100,
+     "in": "WorkspaceSettingsNuevo",
+     "text": "aria-hidden: true",
+     "tag": "Upload"
+    },
+    {
+     "kind": "text",
+     "line": 104,
+     "in": "WorkspaceSettingsNuevo",
+     "text": "Máx. 5MB (JPEG, PNG, WebP)"
+    }
+   ],
+   "db": []
+  },
+  "components/community/useWorkspaceSettings.ts": {
+   "usedBy": [
+    "/community/workspace"
+   ],
+   "lines": 142,
+   "rows": [
+    {
+     "kind": "toast",
+     "line": 45,
+     "in": "handleImageSelect",
+     "when": "file.size > 5 * 1024 * 1024",
+     "text": "La imagen debe ser menor a 5MB",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 52,
+     "in": "handleImageSelect",
+     "when": "!allowedTypes.includes(file.type)",
+     "text": "Solo se permiten imágenes (JPEG, PNG, WebP)",
+     "variant": "error"
+    },
+    {
+     "kind": "toast",
+     "line": 102,
+     "in": "handleSave",
+     "text": "Configuración actualizada exitosamente",
+     "variant": "success"
+    },
+    {
+     "kind": "toast",
+     "line": 110,
+     "in": "handleSave",
+     "text": "Error al guardar la configuración",
+     "variant": "error"
     }
    ],
    "db": []
@@ -12497,6 +12673,269 @@
      "line": 47,
      "screen": "sr-only",
      "text": "Close"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Button.tsx": {
+   "usedBy": [
+    "/community/workspace"
+   ],
+   "lines": 178,
+   "rows": [
+    {
+     "kind": "piece",
+     "line": 120,
+     "when": "loading",
+     "text": "",
+     "tag": "SpinnerMark"
+    },
+    {
+     "kind": "link",
+     "line": 131,
+     "when": "typeof rest.href === 'string' && inert",
+     "text": "{content}",
+     "target": ""
+    },
+    {
+     "kind": "link",
+     "line": 145,
+     "when": "typeof rest.href === 'string' && href.startsWith('/')",
+     "text": "{content}",
+     "target": "{href}",
+     "action": "{onClick}"
+    },
+    {
+     "kind": "link",
+     "line": 151,
+     "when": "typeof rest.href === 'string'",
+     "text": "{content}",
+     "target": "{href}",
+     "action": "{onClick}"
+    },
+    {
+     "kind": "button",
+     "line": 159,
+     "text": "{content}",
+     "action": "{(event) => { if (loading) { // Not clickable while it works; also keeps a submi…}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Dialog.tsx": {
+   "usedBy": [
+    "/community/workspace"
+   ],
+   "lines": 235,
+   "rows": [
+    {
+     "kind": "hook",
+     "line": 75,
+     "in": "firstFocusable",
+     "text": "querySelectorAll({FOCUSABLE})",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 130,
+     "in": "Dialog",
+     "text": "testid={testId}",
+     "type": "mark",
+     "tag": "RadixDialog.Content"
+    },
+    {
+     "kind": "hook",
+     "line": 151,
+     "in": "Dialog",
+     "text": "candidate.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 154,
+     "in": "Dialog",
+     "when": "!landed",
+     "text": "box.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "hook",
+     "line": 160,
+     "in": "Dialog",
+     "when": "target?.isConnected",
+     "text": "target.focus()",
+     "type": "focus"
+    },
+    {
+     "kind": "value",
+     "line": 179,
+     "in": "Dialog",
+     "when": "eyebrow",
+     "text": "{eyebrow}"
+    },
+    {
+     "kind": "value",
+     "line": 180,
+     "in": "Dialog",
+     "text": "{title}"
+    },
+    {
+     "kind": "value",
+     "line": 189,
+     "in": "Dialog",
+     "when": "description",
+     "text": "{description}"
+    },
+    {
+     "kind": "piece",
+     "line": 193,
+     "in": "Dialog",
+     "when": "dismissable",
+     "text": "aria-label: Cerrar",
+     "tag": "RadixDialog.Close",
+     "hook": {
+      "testid": "{testId ? `${testId}-close` : undefined}"
+     },
+     "aria": "Cerrar"
+    },
+    {
+     "kind": "piece",
+     "line": 204,
+     "in": "Dialog",
+     "when": "dismissable",
+     "text": "aria-hidden: true",
+     "tag": "X"
+    },
+    {
+     "kind": "value",
+     "line": 208,
+     "in": "Dialog",
+     "text": "{children}"
+    },
+    {
+     "kind": "value",
+     "line": 218,
+     "in": "Dialog",
+     "when": "footer",
+     "text": "{footer}"
+    }
+   ],
+   "db": []
+  },
+  "components/ui/kit/Field.tsx": {
+   "usedBy": [
+    "/community/workspace"
+   ],
+   "lines": 396,
+   "rows": [
+    {
+     "kind": "value",
+     "line": 127,
+     "in": "Field",
+     "when": "help",
+     "text": "{help}"
+    },
+    {
+     "kind": "piece",
+     "line": 133,
+     "in": "Field",
+     "when": "error",
+     "text": "aria-hidden: true",
+     "tag": "AlertCircle"
+    },
+    {
+     "kind": "label",
+     "line": 152,
+     "in": "Field",
+     "when": "group",
+     "text": "{label} {mark}"
+    },
+    {
+     "kind": "value",
+     "line": 157,
+     "in": "Field",
+     "when": "group",
+     "text": "{children}"
+    },
+    {
+     "kind": "label",
+     "line": 166,
+     "in": "Field",
+     "text": "{label} {mark}",
+     "for": "{id}"
+    },
+    {
+     "kind": "value",
+     "line": 170,
+     "in": "Field",
+     "text": "{children}"
+    },
+    {
+     "kind": "list",
+     "line": 181,
+     "text": "AT_LEAST_ONE",
+     "items": [
+      "Marca al menos una opción."
+     ]
+    },
+    {
+     "kind": "hook",
+     "line": 194,
+     "in": "boxes",
+     "text": "querySelectorAll(input[type=\"checkbox\"])",
+     "type": "lookup"
+    },
+    {
+     "kind": "hook",
+     "line": 203,
+     "in": "useAtLeastOneTicked",
+     "text": "group.addEventListener('change')",
+     "type": "listener"
+    },
+    {
+     "kind": "hook",
+     "line": 204,
+     "in": "useAtLeastOneTicked",
+     "text": "form.addEventListener('reset')",
+     "type": "listener"
+    },
+    {
+     "kind": "field",
+     "line": 229,
+     "text": "",
+     "type": "{type}"
+    },
+    {
+     "kind": "field",
+     "line": 237,
+     "text": "",
+     "type": "textarea",
+     "limits": ""
+    },
+    {
+     "kind": "field",
+     "line": 248,
+     "text": "",
+     "type": "select"
+    },
+    {
+     "kind": "piece",
+     "line": 251,
+     "screen": "hidden",
+     "text": "aria-hidden: true",
+     "tag": "ChevronDown"
+    },
+    {
+     "kind": "piece",
+     "line": 264,
+     "text": "aria-hidden: true",
+     "tag": "Search"
+    },
+    {
+     "kind": "field",
+     "line": 268,
+     "text": "",
+     "type": "{type}"
     }
    ],
    "db": []

@@ -1,0 +1,16 @@
+{
+  "P1. loading": "f2341229ef374e735bb063f72a3bcd8437bae0e88566961b8f1af2672636f509",
+  "P10. the pencil: edit mode with the card's values, submit (PUT), refusals, close": "f09d4c08a3b3c3cf145e1850ae19c81e1efc86cd9c59aff08e319655a68a198f",
+  "P11. the bin, the confirmation, DELETE, the card gone": "dae6dc30ed085827e15c6e1cb44abe359c0e7df8addd378fae8709abb71ee06e",
+  "P12. a failed deletion: an error toast with the message (and without), no browser alert, the question stays": "465b6d20e41c27a8adaa20661e7b68c590c7c7f1c4f4c6480d0080801dcc5a33",
+  "P13. cancel: the question closes and a later confirm asks nothing": "36a430f514abe33f99ed5eb6ce5d175431986517f4d0f331282d604ba7ed5b04",
+  "P14. a deletion still waiting: the confirmation is loading": "b8cfd3a135e1beda7cd5e55061b8b0b4bdff6b911860c1469f6fea8c20004c78",
+  "P2. the error banner and «Reintentar» (asks again, then the list)": "c5c2eea4a55e4e9c12ec5908f4cabaff402636ef9eebd43fc790aca863bc3e65",
+  "P3. errors without a message: a refusal without text, a network failure": "be60e894e5f884ed6597ca5eedede6eddfb7f7992c1a97cc29fd34f8d2140b91",
+  "P4. empty: «Sin propuestas aún»; «Crear Propuesta» opens the form in create mode": "79ebbd5fb824bd4f9a574ea402c83c437a639aff62fec3df19ebe72617e70fa7",
+  "P5. an answer without data: the empty state": "225084de3669a8b52a9cfd06e9471dd4b4f888df381231eb24d31e0af63c8209",
+  "P6. filled: own and others' cards, the four states and an unknown one, the creator fallbacks": "36a430f514abe33f99ed5eb6ce5d175431986517f4d0f331282d604ba7ed5b04",
+  "P7. without a viewer: no card is the viewer's own": "712c75e3b1ec6a9f8b4d62f6b4e37558e33402eaedf4b78a4dbe441fd31dd253",
+  "P8. «Nueva Propuesta», submit in create mode (POST), the list after it, close": "dd39db64943169bf040a6514a5d68e386f2224d4805baedcd345b12efa0974ab",
+  "P9. create refused (thrown to the form, with and without a message); an answer without data": "75cb9433fbb0fe69fce172ee9703c9b03f874374dba72eb4491a335be03d9cf9"
+}

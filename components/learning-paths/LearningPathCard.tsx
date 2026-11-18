@@ -1,15 +1,8 @@
 import React from 'react';
 import { BookOpen, Clock, Award, TrendingUp } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { routeState, routeLevel, routePercent, routeActionText, timeSinceAssigned, type RouteProgress } from './routeCardText';
 
-interface LearningPathProgress {
-  path_id: string;
-  total_courses: number;
-  completed_courses: number;
-  progress_percentage: number;
-  last_accessed: string;
-}
+type LearningPathProgress = RouteProgress;
 
 interface LearningPathCardProps {
   id: string;
@@ -34,11 +27,8 @@ export const LearningPathCard: React.FC<LearningPathCardProps> = ({
   progress,
   onClick,
 }) => {
-  const progressPercentage = progress?.progress_percentage || 0;
-  const completedCourses = progress?.completed_courses || 0;
-  const totalCourses = progress?.total_courses || 0;
-  const isCompleted = progressPercentage === 100;
-  const isStarted = progressPercentage > 0 && progressPercentage < 100;
+  // The numbers, states and words: ./routeCardText (shared with the new look)
+  const { progressPercentage, completedCourses, totalCourses, isCompleted, isStarted } = routeState(progress);
 
   // Calculate gradient based on progress
   const getGradientClass = () => {
@@ -96,7 +86,7 @@ export const LearningPathCard: React.FC<LearningPathCardProps> = ({
               : 'bg-white/20 text-white backdrop-blur-sm'
             }
           `}>
-            Nivel {totalCourses > 3 ? '2' : '1'}
+            Nivel {routeLevel(totalCourses)}
           </div>
 
           {isCompleted && (
@@ -131,7 +121,7 @@ export const LearningPathCard: React.FC<LearningPathCardProps> = ({
                 Progreso
               </span>
               <span className={`text-2xl font-bold ${getTextColorClass()}`}>
-                {Math.round(progressPercentage)}%
+                {routePercent(progressPercentage)}%
               </span>
             </div>
 
@@ -163,10 +153,7 @@ export const LearningPathCard: React.FC<LearningPathCardProps> = ({
             <div className="flex items-center gap-1.5">
               <Clock className="w-4 h-4" />
               <span>
-                {formatDistanceToNow(new Date(assigned_at), {
-                  addSuffix: false,
-                  locale: es,
-                })}
+                {timeSinceAssigned(assigned_at)}
               </span>
             </div>
           </div>
@@ -183,7 +170,7 @@ export const LearningPathCard: React.FC<LearningPathCardProps> = ({
           `}>
             <TrendingUp className={`w-4 h-4 ${getTextColorClass()}`} />
             <span className={`text-sm font-medium ${getTextColorClass()}`}>
-              {isStarted ? 'Continuar aprendiendo' : 'Comenzar ruta'}
+              {routeActionText(isStarted)}
             </span>
           </div>
         )}

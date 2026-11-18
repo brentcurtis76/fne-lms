@@ -1,0 +1,18 @@
+{
+  "N1. no enrollment: «Ver Detalles», instructor photo, beginner, 30 min, five objectives": "8eed8f947ff4173676e8a145be422d941ecc17816a893409c31dd884c190769d",
+  "N2. approved: «Repasar», thumbnail only, intermediate, 6h, lessons and tasks": "e5ecbc4d08e1072e764282d63a2c9c781f9e2ab1dac758cca870b9d8b273e4ac",
+  "N3. completed: «Continuar», generated picture, advanced, 1.5h, zero lessons (the stray 0)": "5152b1ab51282bdf4395c4d105eaa887599b5f80b4b20c769c6f3a4cbf02ff95",
+  "N4. in progress: «Continuar», an unknown difficulty (no label), no duration, lessons without a count done": "08cb14bd7283a1e92b08b9a4f67a19764665fd50071c211bc646b817934886de",
+  "N5. not started: «Comenzar», nothing optional": "5293b39db2a20efa19c9ffde322658d80f26cdc3c8ef8b3ecaf0c8cd63cba906",
+  "N6. on a phone: the first tap opens, the second navigates; the action navigates once": "b840865cd19ea7a1824d7c6cd3adc9f51d2395a7d3bbdc80df386a822b380c6e",
+  "N7. on a desktop: closes when the pointer leaves; the action navigates; a tap does nothing": "cfe0a0577a3f1465236d094408d175e3d5c9f0a38433c9580b6ab352c7e80d0e",
+  "N8. a pointer that leaves before 300 ms: never opens": "a3d83f1b325617034139e3b03869eb27a949d531beb261104ceb0190b474825f",
+  "R1. completed, three courses («Nivel 1», «Completado», no action)": "1607f0eb2d808fd6edb65384642c64c471e68474361072d707dc72e11514a5c8",
+  "R2. started, four courses («Nivel 2», a rounded percentage, «Continuar aprendiendo»)": "2ac8ec1bf763ca024babc29f2c5180ac22766b7a7762db59f880d36cfb133b17",
+  "R3. no progress at all («0 de 0 cursos», «Comenzar ruta»), no description": "4859c77dcded3972e4146af0dec95d09b0afad58fe6e83dc81ee0f2b2658f5c5",
+  "R4. not started, five courses": "9fbb81a9f2a5c7c350622340321824bfe36a54aa2dd83ecc0f79d36e625cf04d",
+  "U1. a release date, a thumbnail and an instructor": "12c2705097a1693c529c8ba67226829c75ee111ddf4e208663e072ed36a5b5bf",
+  "U2. no date, no thumbnail, no instructor, no description": "ff0c5b00cbcb3f4b35620aafa2d2e43a35c1397b2bfa71b9597aaa391bf5890a",
+  "U3. a date that is not a date": "f860f9c71330f3fe8bf623f8b7789303c225f53286af6bfb0de2015a3bd2e6c6",
+  "U4. on a phone: a tap opens, another closes": "73dd5ef5d1d8979abb83ef82e966b49aa12eee34fdcde1b8bcc0993612d4bb91"
+}

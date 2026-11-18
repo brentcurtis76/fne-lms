@@ -3,8 +3,12 @@
 --
 -- A community's documents become private files, opened only through links the
 -- application signs for five minutes for a person who may read the document's
--- record. Decided (owner 17 Nov 2026, lead 18 Nov 2026): new uploads go to the
--- private store `community-documents` (same path shape
+-- record. Nobody reads the private store with their own session (send-back 3,
+-- lead 18 Nov 2026): a file is read only through the application (the link
+-- route signs with the server's client after reading the record with the
+-- caller's session; the older download routes read with the server's client
+-- after their check). Decided (owner 17 Nov 2026, lead 18 Nov 2026): new
+-- uploads go to the private store `community-documents` (same path shape
 -- documents/<workspace id>/<folder-<id>|root>/<timestamp>-<name>); each record
 -- says where its file is; nothing is moved by this migration (the old files
 -- stay in `resources` and are read from there).
@@ -16,23 +20,24 @@
 --      text, no default, only NULL / 'resources' / 'community-documents';
 --      empty means the old store `resources`
 --   c. public.file_store_allows: its current body (20261117166000), character
---      for character, plus ONE branch `WHEN 'community-documents'`: select and
---      insert for a person who passes public.can_access_workspace for the
---      workspace of documents/<uuid>/...; any other action never; no sign-in
---      never; any other path shape (no workspace, `.`/`..` or empty segments)
---      never
---   d. two permissive rules on storage.objects for the store (select and
---      insert, authenticated), modelled on boletas_filers_*: the store had
---      none, so without them nothing passes; none for any other action. They
---      ask can_access_workspace for the workspace of documents/<uuid>/...
---      themselves (not through file_store_allows, which only the four
---      restrictive file_stores_boundary_* rules call); those restrictive rules
---      (part c) still decide too, with the full path checks.
+--      for character, plus ONE branch `WHEN 'community-documents'`: insert
+--      (upload) for a person who passes public.can_access_workspace for the
+--      workspace of documents/<uuid>/...; any other action (select, update,
+--      delete) never; no sign-in never; any other path shape (no workspace,
+--      `.`/`..` or empty segments) never
+--   d. one permissive rule on storage.objects for the store (insert,
+--      authenticated), modelled on boletas_filers_*: the store had none, so
+--      without it nothing passes; none for select, update or delete, so no
+--      LIST, GET, signing by the store or copy with a person's own session.
+--      It asks can_access_workspace for the workspace of documents/<uuid>/...
+--      itself (not through file_store_allows, which only the four restrictive
+--      file_stores_boundary_* rules call); those restrictive rules (part c)
+--      still decide too, with the full path checks.
 --   e. public.increment_document_counter: its current body (20260908180300)
 --      plus: nothing is counted for a document that is not active
 --
 -- Additive only: no rule, store, table or row is changed or removed; row
--- level security stays on everywhere. The storage rules of part d come before
+-- level security stays on everywhere. The storage rule of part d comes before
 -- any trigger (this file creates none).
 -- =============================================================================
 
@@ -180,14 +185,15 @@ BEGIN
          AND f.user_id = v_uid);
 
   WHEN 'community-documents' THEN
-    -- F12d: a community's documents, private. Read and upload by a person who
-    -- may enter the workspace named in documents/<workspace uuid>/<...>;
-    -- nobody changes or removes a stored file (a document the screen removes
-    -- is a hidden record; the file stays)
+    -- F12d: a community's documents, private. Upload by a person who may
+    -- enter the workspace named in documents/<workspace uuid>/<...>; nobody
+    -- reads a stored file with their own session (send-back 3: files open
+    -- only through the application), nobody changes or removes one (a
+    -- document the screen removes is a hidden record; the file stays)
     IF v_uid IS NULL THEN
       RETURN false;
     END IF;
-    IF p_action NOT IN ('select', 'insert') THEN
+    IF p_action <> 'insert' THEN
       RETURN false;
     END IF;
     -- send-back 1: a name ending in a slash (an empty last segment) is refused
@@ -219,15 +225,9 @@ REVOKE ALL ON FUNCTION public.file_store_allows(text, text, uuid, text, uuid) FR
 GRANT EXECUTE ON FUNCTION public.file_store_allows(text, text, uuid, text, uuid) TO anon, authenticated, service_role;
 
 -- -----------------------------------------------------------------------------
--- d. The store's permissive rules: read and upload, nothing else
+-- d. The store's permissive rule: upload only (send-back 3: no read rule;
+--    files are read only through the application with the server's client)
 -- -----------------------------------------------------------------------------
-CREATE POLICY "community_documents_members_select" ON storage.objects
-  AS PERMISSIVE FOR SELECT TO authenticated
-  USING (bucket_id = 'community-documents'
-         AND split_part(name, '/', 1) = 'documents'
-         AND coalesce(public.can_access_workspace(auth.uid(),
-               CASE WHEN split_part(name, '/', 2) ~ '^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$'
-                    THEN split_part(name, '/', 2)::uuid END), false));
 CREATE POLICY "community_documents_members_insert" ON storage.objects
   AS PERMISSIVE FOR INSERT TO authenticated
   WITH CHECK (bucket_id = 'community-documents'

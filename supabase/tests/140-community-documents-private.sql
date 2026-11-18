@@ -10,16 +10,21 @@
 --
 --   1. catalog: the two columns (nullable text, no default, a comment), the
 --      store exists and is private, public.file_store_allows and
---      public.increment_document_counter keep their shape and grants, the two
---      new permissive rules (select and insert for authenticated) and no rule
---      that lets anyone update or delete in the store
+--      public.increment_document_counter keep their shape and grants, the one
+--      new permissive rule (insert for authenticated) and no rule that lets
+--      anyone read, update or delete in the store
 --   2. the store, as each person, with real statements on storage.objects:
---      a member of Comunidad A inserts and reads back in A's path; a member of
+--      a member of Comunidad A inserts in A's path but does not read it back
+--      (send-back 3: nobody reads the store with their own session; files
+--      open only through the application's link route); a member of
 --      B reads, inserts into A's path, updates, deletes -> refused; the
 --      uploader's own update and delete -> refused; a visitor -> nothing; a
 --      path without a workspace id, of another shape, with `..` -> refused; an
---      admin reads and inserts, never updates or deletes; a consultor of the
---      school -> as can_access_workspace answers today (by role school)
+--      admin inserts, never reads, updates or deletes; a consultor of the
+--      school inserts as can_access_workspace answers today (by role school).
+--      Send-back 3: the object of a hidden document and of an active one is
+--      read by nobody's own session (member, uploader, leader, consultor,
+--      admin); no LIST, no copy inside the store
 --   3. resources and another store: unchanged (some of 126's assertions again)
 --   4. the counters: a hidden document is not counted (view and download, no
 --      access-log line); an active one still is; one hidden after it was
@@ -39,7 +44,7 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(74);
+SELECT plan(83);
 
 CREATE TEMP TABLE ids (p text PRIMARY KEY, id uuid) ON COMMIT DROP;
 GRANT SELECT ON ids TO anon, authenticated;
@@ -152,12 +157,13 @@ CREATE POLICY "f12d140 model other" ON storage.objects
 
 --   memberA   docente of Comunidad A (the uploader of A's file)
 --   memberA2  lider_comunidad of Comunidad A
+--   memberA3  docente of Comunidad A (another member, not the uploader)
 --   memberB   docente of Comunidad B
 --   admin     admin
 --   consultor consultor whose ROLE names school 14001 (no community)
 --   nobody    signed in, no role
 INSERT INTO ids SELECT p, tests.create_supabase_user('f12d_' || p, 'f12d-' || p || '@example.test')
-FROM unnest(ARRAY['memberA','memberA2','memberB','admin','consultor','nobody']) p;
+FROM unnest(ARRAY['memberA','memberA2','memberA3','memberB','admin','consultor','nobody']) p;
 INSERT INTO public.profiles (id) SELECT id FROM ids ON CONFLICT (id) DO NOTHING;
 INSERT INTO public.schools (id, name) VALUES
   (14001, 'F12D colegio sintético (pgTAP 140)'), (14002, 'F12D otro colegio sintético (pgTAP 140)')
@@ -171,6 +177,7 @@ INSERT INTO public.community_workspaces (id, community_id, name) VALUES
 INSERT INTO public.user_roles (user_id, role_type, school_id, community_id, is_active) VALUES
   (pg_temp.uid('memberA'),  'docente',         14001, 'f12d0000-0000-4000-8000-0000000000c1', true),
   (pg_temp.uid('memberA2'), 'lider_comunidad', 14001, 'f12d0000-0000-4000-8000-0000000000c1', true),
+  (pg_temp.uid('memberA3'), 'docente',         14001, 'f12d0000-0000-4000-8000-0000000000c1', true),
   (pg_temp.uid('memberB'),  'docente',         14002, 'f12d0000-0000-4000-8000-0000000000c2', true),
   (pg_temp.uid('consultor'), 'consultor',      14001, NULL, true),
   (pg_temp.uid('admin'),    'admin',           NULL,  NULL, true);
@@ -178,6 +185,7 @@ INSERT INTO public.user_roles (user_id, role_type, school_id, community_id, is_a
 INSERT INTO storage.objects (bucket_id, name, owner) VALUES
   ('community-documents', 'documents/' || pg_temp.ws('A') || '/root/acta.pdf', pg_temp.uid('memberA')),
   ('community-documents', 'documents/' || pg_temp.ws('B') || '/root/acta-b.pdf', pg_temp.uid('memberB')),
+  ('community-documents', 'documents/' || pg_temp.ws('A') || '/root/oculto.pdf', pg_temp.uid('memberA')),
   ('resources', 'documents/' || pg_temp.ws('A') || '/root/antiguo.pdf', pg_temp.uid('memberA')),
   ('resources', 'images/f12d140.png', NULL),
   ('f12d140-other', 'f12d140/o.txt', NULL);
@@ -188,9 +196,16 @@ INSERT INTO k VALUES
   ('a_file',  'documents/' || pg_temp.ws('A') || '/root/acta.pdf'),
   ('b_file',  'documents/' || pg_temp.ws('B') || '/root/acta-b.pdf'),
   ('a_new',   'documents/' || pg_temp.ws('A') || '/root/x.pdf'),
-  ('a_old',   'documents/' || pg_temp.ws('A') || '/root/antiguo.pdf');
+  ('a_old',   'documents/' || pg_temp.ws('A') || '/root/antiguo.pdf'),
+  ('a_hidden','documents/' || pg_temp.ws('A') || '/root/oculto.pdf');
 CREATE OR REPLACE FUNCTION pg_temp.k(n text) RETURNS text AS $$ SELECT v FROM k WHERE k.n = $1 $$ LANGUAGE sql;
 GRANT SELECT ON k TO anon, authenticated;
+
+-- send-back 3: two document records of A whose files are in the store: one
+-- active (acta.pdf), one hidden ("deleted" on the screen: oculto.pdf)
+INSERT INTO public.community_documents (workspace_id, title, file_name, file_size, mime_type, storage_path, storage_bucket, uploaded_by, is_active) VALUES
+  (pg_temp.ws('A')::uuid, 'Acta sintética activa', 'acta.pdf', 10, 'application/pdf', pg_temp.k('a_file'), 'community-documents', pg_temp.uid('memberA'), true),
+  (pg_temp.ws('A')::uuid, 'Acta sintética oculta', 'oculto.pdf', 10, 'application/pdf', pg_temp.k('a_hidden'), 'community-documents', pg_temp.uid('memberA'), false);
 
 -- ---------------------------------------------------------------------------
 -- 1. Catalog (17)
@@ -225,10 +240,10 @@ SELECT ok((SELECT prosecdef AND proconfig = ARRAY['search_path=public, pg_temp']
 SELECT ok(has_function_privilege('authenticated', 'public.increment_document_counter(uuid, text, uuid)', 'EXECUTE')
           AND NOT has_function_privilege('anon', 'public.increment_document_counter(uuid, text, uuid)', 'EXECUTE'),
   'increment_document_counter: authenticated executes, anon does not (unchanged)');
-SELECT ok(EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects'
-                   AND policyname = 'community_documents_members_select' AND permissive = 'PERMISSIVE'
-                   AND roles = ARRAY['authenticated']::name[] AND cmd = 'SELECT' AND qual LIKE '%community-documents%'),
-  'community_documents_members_select: PERMISSIVE, TO authenticated, FOR SELECT, on the store');
+SELECT is((SELECT count(*)::int FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects'
+             AND permissive = 'PERMISSIVE' AND cmd IN ('SELECT', 'ALL')
+             AND (coalesce(qual, '') || coalesce(with_check, '')) LIKE '%community-documents%'), 0,
+  'send-back 3: no permissive rule lets anyone read community-documents with their own session');
 SELECT ok(EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects'
                    AND policyname = 'community_documents_members_insert' AND permissive = 'PERMISSIVE'
                    AND roles = ARRAY['authenticated']::name[] AND cmd = 'INSERT' AND with_check LIKE '%community-documents%'),
@@ -248,14 +263,14 @@ SELECT is(public.file_store_allows('community-documents', 'documents/' || pg_tem
   'unknown action: FALSE');
 
 -- ---------------------------------------------------------------------------
--- 2. The store as each person (37)
+-- 2. The store as each person (46)
 -- ---------------------------------------------------------------------------
 -- member of A
 SELECT is(pg_temp.act('memberA', pg_temp.ins('community-documents', pg_temp.k('a_new'))), 'rows:1',
   'a member of Comunidad A uploads documents/<A>/root/x.pdf into community-documents');
-SELECT is(pg_temp.sees('memberA', 'community-documents', pg_temp.k('a_new')), '1', 'the member reads it back');
-SELECT is(pg_temp.sees('memberA', 'community-documents', pg_temp.k('a_file')), '1', 'the member reads A''s existing file');
-SELECT is(pg_temp.sees('memberA2', 'community-documents', pg_temp.k('a_file')), '1', 'the community''s leader reads A''s file');
+SELECT is(pg_temp.sees('memberA', 'community-documents', pg_temp.k('a_new')), '0', 'send-back 3: the uploader does not read it back with their own session');
+SELECT is(pg_temp.sees('memberA', 'community-documents', pg_temp.k('a_file')), '0', 'send-back 3: the member does not read A''s existing file with their own session');
+SELECT is(pg_temp.sees('memberA2', 'community-documents', pg_temp.k('a_file')), '0', 'send-back 3: the community''s leader does not read A''s file with their own session');
 SELECT is(pg_temp.sees('memberA', 'community-documents', pg_temp.k('b_file')), '0', 'a member of A does not read B''s file');
 -- the uploader's own file: no update, no delete
 SELECT is(pg_temp.act('memberA', pg_temp.upd('community-documents', pg_temp.k('a_file'))) || '|' || pg_temp.state('community-documents', pg_temp.k('a_file')),
@@ -317,7 +332,7 @@ SELECT is(pg_temp.act('anon', pg_temp.upd('community-documents', pg_temp.k('a_fi
 SELECT is(pg_temp.act('anon', pg_temp.del('community-documents', pg_temp.k('a_file'))) || '|' || pg_temp.state('community-documents', pg_temp.k('a_file')),
   'rows:0|kept', 'a visitor cannot delete');
 -- admin
-SELECT is(pg_temp.sees('admin', 'community-documents', pg_temp.k('b_file')), '1', 'an admin reads any community''s file');
+SELECT is(pg_temp.sees('admin', 'community-documents', pg_temp.k('b_file')), '0', 'send-back 3: an admin does not read a community''s file with their own session');
 SELECT is(pg_temp.act('admin', pg_temp.ins('community-documents', 'documents/' || pg_temp.ws('B') || '/root/admin.pdf')), 'rows:1',
   'an admin uploads into a community''s path');
 SELECT is(pg_temp.act('admin', pg_temp.upd('community-documents', pg_temp.k('b_file'))) || '|' || pg_temp.state('community-documents', pg_temp.k('b_file')),
@@ -330,10 +345,33 @@ SELECT is(pg_temp.ask('consultor', format('SELECT public.can_access_workspace(au
   'true|false', 'pin: can_access_workspace (asked as the consultor) answers true for their role school, false for another school');
 SELECT is(pg_temp.sees('consultor', 'community-documents', pg_temp.k('a_file')) || '|'
           || pg_temp.act('consultor', pg_temp.ins('community-documents', 'documents/' || pg_temp.ws('A') || '/root/c.pdf')),
-  '1|rows:1', 'a consultor of A''s school reads and uploads in A''s path (as can_access_workspace answers)');
+  '0|rows:1', 'a consultor of A''s school uploads in A''s path (as can_access_workspace answers) but does not read it with their own session (send-back 3)');
 SELECT is(pg_temp.sees('consultor', 'community-documents', pg_temp.k('b_file')) || '|'
           || pg_temp.act('consultor', pg_temp.ins('community-documents', 'documents/' || pg_temp.ws('B') || '/root/c.pdf')),
   '0|42501', 'the consultor reads and uploads nothing in B''s path (another school)');
+
+-- send-back 3: a hidden document's object and an active one's are read by
+-- nobody's own session (the tester's finding: LIST, GET, sign and copy all
+-- start with a SELECT on storage.objects)
+SELECT is(pg_temp.sees('memberA', 'community-documents', pg_temp.k('a_hidden')) || '|' || pg_temp.sees('memberA', 'community-documents', pg_temp.k('a_file')),
+  '0|0', 'send-back 3: the uploader reads neither the hidden document''s object nor the active one''s');
+SELECT is(pg_temp.sees('memberA3', 'community-documents', pg_temp.k('a_hidden')) || '|' || pg_temp.sees('memberA3', 'community-documents', pg_temp.k('a_file')),
+  '0|0', 'send-back 3: another member of the community reads neither');
+SELECT is(pg_temp.sees('memberA2', 'community-documents', pg_temp.k('a_hidden')) || '|' || pg_temp.sees('memberA2', 'community-documents', pg_temp.k('a_file')),
+  '0|0', 'send-back 3: the community''s leader reads neither');
+SELECT is(pg_temp.sees('consultor', 'community-documents', pg_temp.k('a_hidden')) || '|' || pg_temp.sees('consultor', 'community-documents', pg_temp.k('a_file')),
+  '0|0', 'send-back 3: the consultor of the school reads neither');
+SELECT is(pg_temp.sees('admin', 'community-documents', pg_temp.k('a_hidden')) || '|' || pg_temp.sees('admin', 'community-documents', pg_temp.k('a_file')),
+  '0|0', 'send-back 3: the admin reads neither');
+SELECT is(pg_temp.act('memberA3', 'SELECT name FROM storage.objects WHERE bucket_id = ''community-documents'' AND name LIKE ''documents/' || pg_temp.ws('A') || '/%'''), 'rows:0',
+  'send-back 3: a member lists nothing of their own community''s folder');
+SELECT is(pg_temp.act('memberA', format('INSERT INTO storage.objects (bucket_id, name, owner) SELECT bucket_id, name || %L, auth.uid() FROM storage.objects WHERE bucket_id = %L AND name = %L',
+                                        '.copia', 'community-documents', pg_temp.k('a_hidden'))) || '|' || pg_temp.state('community-documents', pg_temp.k('a_hidden') || '.copia'),
+  'rows:0|gone', 'send-back 3: the uploader cannot copy the hidden document''s object inside the store');
+SELECT is(pg_temp.ask('memberA', format('SELECT public.file_store_allows(%L, %L, NULL, %L, NULL)::text', 'community-documents', pg_temp.k('a_file'), 'select')), 'false',
+  'send-back 3: file_store_allows answers FALSE for select on the store, even for a member of the path''s workspace');
+SELECT is(pg_temp.ask('memberA', format('SELECT public.file_store_allows(%L, %L, NULL, %L, NULL)::text', 'community-documents', pg_temp.k('a_new'), 'insert')), 'true',
+  'send-back 3: file_store_allows still answers TRUE for insert by a member of the path''s workspace');
 
 -- ---------------------------------------------------------------------------
 -- 3. resources and an ungoverned store: unchanged (7)

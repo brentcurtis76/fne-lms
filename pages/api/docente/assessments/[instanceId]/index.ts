@@ -1,6 +1,12 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import { resolveCoberturaGate } from '@/lib/services/assessment-builder/coberturaGatePolicy';
+import {
+  assertInstanceAssignee,
+  loadSnapshotForInstance,
+  loadActiveIndicatorIds,
+  stripExpectations,
+} from '@/lib/services/assessment-builder/registroAccess';
 
 /**
  * GET /api/docente/assessments/[instanceId]
@@ -27,21 +33,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const supabaseClient = await createApiSupabaseClient(req, res);
 
   try {
-    // First, verify the user is assigned to this instance
-    const { data: assignee, error: assigneeError } = await supabaseClient
-      .from('assessment_instance_assignees')
-      .select('*')
-      .eq('instance_id', instanceId)
-      .eq('user_id', user.id)
-      .single();
+    // First, verify the user is assigned to this instance (caller's own session)
+    const assignee = await assertInstanceAssignee(supabaseClient, instanceId, user.id);
 
-    if (assigneeError || !assignee) {
+    if (!assignee) {
       return res.status(403).json({
         error: 'No tienes permiso para acceder a este registro'
       });
     }
 
-    // Get the instance with full snapshot data (R11: also fetch generation_type)
+    // Get the instance (R11: also fetch generation_type). The stored version is
+    // read below with the service client, after the assignee gate (N1).
     const { data: instance, error: instanceError } = await supabaseClient
       .from('assessment_instances')
       .select(`
@@ -58,13 +60,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         completed_at,
         created_at,
         updated_at,
-        assessment_template_snapshots:template_snapshot_id (
-          id,
-          template_id,
-          version,
-          snapshot_data,
-          created_at
-        ),
         school_course_structure:course_structure_id (
           id,
           grade_level,
@@ -79,32 +74,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'Registro no encontrado' });
     }
 
-    // R11: Fetch year expectations for the instance's transformation year and generation_type
-    // to build the isActiveThisYear flag per indicator.
-    const snapshot = instance.assessment_template_snapshots as any;
+    // N1: the stored version and the expected levels are read with the
+    // service client, only after the gate above. A failed read of the stored
+    // version answers as the joined read did before (404).
+    const serviceClient = createServiceRoleClient();
+    const { snapshot, error: snapshotError } = await loadSnapshotForInstance(serviceClient, instance as any);
+    if (snapshotError) {
+      console.error('Error fetching instance snapshot:', snapshotError);
+      return res.status(404).json({ error: 'Registro no encontrado' });
+    }
+
+    // R11: which indicators have an expected level for the instance's
+    // transformation year and generation_type (isActiveThisYear per indicator).
+    // As before, a failed read or no rows means every indicator is active.
     const templateId = snapshot?.template_id;
     const transformationYear = instance.transformation_year;
     const generationType = (instance as any).generation_type || 'GT';
 
-    let activeExpectationsMap: Map<string, boolean> | null = null;
-
-    if (templateId && transformationYear) {
-      const yearKey = `year_${transformationYear}_expected`;
-      const { data: expData, error: expError } = await supabaseClient
-        .from('assessment_year_expectations')
-        .select('*')
-        .eq('template_id', templateId)
-        .eq('generation_type', generationType);
-
-      if (!expError && expData && expData.length > 0) {
-        activeExpectationsMap = new Map<string, boolean>();
-        for (const row of expData) {
-          // An indicator is active if it has a non-null expected value for this year
-          const expectedValue = row[yearKey];
-          activeExpectationsMap.set(row.indicator_id, expectedValue !== null && expectedValue !== undefined);
-        }
-      }
-    }
+    const { ids: activeIndicatorIds } = await loadActiveIndicatorIds(serviceClient, {
+      templateId,
+      transformationYear,
+      generationType,
+    });
 
     // Get existing responses for this instance
     const { data: responses, error: responsesError } = await supabaseClient
@@ -134,8 +125,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
     });
 
-    // Extract snapshot data for easier frontend access (snapshot already defined above for template_id lookup)
-    const snapshotData = snapshot?.snapshot_data || {};
+    // Extract snapshot data for easier frontend access (snapshot already defined above for template_id lookup).
+    // N1: until the registro is sent (status completed) no expected level leaves the server.
+    const rawSnapshotData = snapshot?.snapshot_data || {};
+    const snapshotData = instance.status === 'completed' ? rawSnapshotData : stripExpectations(rawSnapshotData);
 
     // Helper to count indicator progress
     const countProgress = (indicator: any) => {
@@ -169,8 +162,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     modulesToCount.forEach((module: any) => {
       // R11: filter by year-active status BEFORE ordering/gate resolution.
       const activeIndicators = (module.indicators || []).filter((indicator: any) =>
-        activeExpectationsMap !== null
-          ? (activeExpectationsMap.get(indicator.id) ?? false)
+        activeIndicatorIds !== null
+          ? activeIndicatorIds.has(indicator.id)
           : true
       );
 
@@ -217,11 +210,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         displayOrder: indicator.display_order,
         weight: indicator.weight,
         subQuestions: indicator.sub_questions || [],
+        // N1: absent (stripped above) while the registro is not completed.
         expectations: indicator.expectations,
         // R11: isActiveThisYear — true if indicator has an expectation for this year.
         // When no expectations data exists (legacy instances), all indicators are active (true).
-        isActiveThisYear: activeExpectationsMap !== null
-          ? (activeExpectationsMap.get(indicator.id) ?? false)
+        isActiveThisYear: activeIndicatorIds !== null
+          ? activeIndicatorIds.has(indicator.id)
           : true,
       })),
     });

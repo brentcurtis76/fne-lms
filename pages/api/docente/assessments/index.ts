@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { loadSnapshotsForInstances } from '@/lib/services/assessment-builder/registroAccess';
 
 /**
  * GET /api/docente/assessments
@@ -24,7 +25,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Query parameters for filtering
     const statusFilter = req.query.status as string | undefined;
 
-    // Get all instances where this user is an assignee
+    // Get all instances where this user is an assignee (caller's own session:
+    // these rows are the gate). The stored versions are read below with the
+    // service client, only for the instances these rows name (N1).
     let query = supabaseClient
       .from('assessment_instance_assignees')
       .select(`
@@ -46,12 +49,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           started_at,
           completed_at,
           created_at,
-          assessment_template_snapshots:template_snapshot_id (
-            id,
-            template_id,
-            version,
-            snapshot_data
-          ),
           school_course_structure:course_structure_id (
             grade_level,
             course_name
@@ -67,13 +64,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al obtener los registros' });
     }
 
+    const { snapshots, error: snapshotsError } = await loadSnapshotsForInstances(
+      createServiceRoleClient(),
+      (assignees || []).map((assignee: any) => assignee.assessment_instances).filter(Boolean)
+    );
+
+    if (snapshotsError) {
+      console.error('Error fetching assessments:', snapshotsError);
+      return res.status(500).json({ error: 'Error al obtener los registros' });
+    }
+
     // Transform data for frontend consumption
     const assessments = (assignees || [])
       .map((assignee: any) => {
         const instance = assignee.assessment_instances;
         if (!instance) return null;
 
-        const snapshot = instance.assessment_template_snapshots;
+        const snapshot = instance.template_snapshot_id ? snapshots.get(instance.template_snapshot_id) : undefined;
         const snapshotData = snapshot?.snapshot_data;
         const templateInfo = snapshotData?.template || {};
 

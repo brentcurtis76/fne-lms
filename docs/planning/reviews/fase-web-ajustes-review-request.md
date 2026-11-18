@@ -1,6 +1,6 @@
 # WEB-AJUSTES — public site: the foundation's adjustments of 17 November: review request
 
-- **Branch:** `feat/web-ajustes` · **Base:** `7f6ee8729` (origin/main, 2026-11-18) · **Commits:** 2 (the change + this record)
+- **Branch:** `feat/web-ajustes` · **Base:** `724b445b5` (origin/main, 2026-11-18, after RD-6B) · **Commits:** 3 (the change, three team titles, this record)
 - **Requested by Brent in conversation, 2026-11-18,** from the written review Fundación Nueva Educación sent on 2026-11-17 and from what he saw while trying the result. Not an itinerary phase; this file follows the phase format so a reviewer has one place to start. It follows `fase-web-redesign-review-request.md`.
 
 ## Objective and scope
@@ -21,6 +21,7 @@ Apply the foundation's review of the redesigned public site and Brent's own rema
 - `components/site/programsData.ts` — the foundation's wording (director o directora; escuelas, educadores y educadoras; formación y acompañamiento; claridad de propósito), two Inspira lines moved from objectives to activities, and one stage label per program (Preparación, Despegue, Cambio en el aula, Cambio en todo el colegio) in place of two families that repeated. `stage` is now free text.
 - `pages/programas.tsx` — the sheet shows the same label as the timeline; the closing question no longer assumes a male reader.
 - `pages/nosotros.tsx`, `pages/equipo.tsx`, `components/site/TeamSection.tsx`, `components/site/teamData.ts`, `components/site/ViasEje.tsx` — the same inclusive wording, role nouns only.
+- `components/site/teamData.ts` — three titles Brent corrected on 2026-11-18, with the first sentence of each biography brought into line: Abraham de la Fuente is Director of Institut Angeleta Ferrer; Maite Pino and Enrique Vergara are Directora Adjunta and Director Adjunto of Escola Virolai.
 - `components/site/Puertas.tsx` — the two boxes under the doors (directors' brochure, platform) are removed. The brochure stays on every program sheet; the platform stays in the nav.
 
 **Lower — look**

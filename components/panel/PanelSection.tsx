@@ -23,6 +23,19 @@ export const ROW_ITEM = 'flex-none w-[248px] lg:w-[268px] snap-start';
 export const fullTitle = (text: string | null | undefined): { title?: string } => (text ? { title: text } : {});
 
 /**
+ * ONE rule for the title of every card of the new view written in the card-title style (the course
+ * card, the upcoming card, the route card, the proposal card): Mont capitals, widely spaced; closed,
+ * up to three lines before it is cut (with `fullTitle` beside it, so its whole text is its tooltip);
+ * while the card's «Detalles» is open, written whole, with no cut at all. No line is reserved: the
+ * cards of a row take the row's height and push their last row to their bottom instead.
+ */
+const CARD_TITLE_STYLE = 'font-mont text-[0.8125rem] font-bold uppercase leading-[1.5] tracking-[0.1em] text-brand_primary';
+export const CARD_TITLE = `line-clamp-3 ${CARD_TITLE_STYLE}`;
+export const CARD_TITLE_OPEN = CARD_TITLE_STYLE;
+/** The title's classes for a card closed (the default) or opened. */
+export const cardTitleClass = (open = false): string => (open ? CARD_TITLE_OPEN : CARD_TITLE);
+
+/**
  * The keyboard ring drawn INSIDE an element (the look's ring sits 2 px outside it, 2 px wide): for an
  * element that fills a card which clips what overflows it (a bar, a row of a list), where the look's
  * ring would be cut away entirely. The `nuevo:` variant makes it one step more specific than the
@@ -168,10 +181,12 @@ export function PanelSection({ title, icon, sub, action, row = false, itemsKey, 
         // The track keeps 4 px of room around its cards (taken back by a negative margin): the room the
         // look's keyboard ring takes outside an element, so the scrolling track does not cut it. The
         // browser does not anchor the track's scroll: a card added in front is not pushed out of view.
+        // Its cards are stretched to the row's height (a card fills its slot), so the last rows of the
+        // cards of one row line up whatever the length of their titles.
         <div
           ref={rowRef}
           onScroll={measure}
-          className="-m-1 flex snap-x snap-proximity items-start gap-[14px] overflow-x-auto p-1 pb-2 scrollbar-hide [overflow-anchor:none]"
+          className="-m-1 flex snap-x snap-proximity items-stretch gap-[14px] overflow-x-auto p-1 pb-2 scrollbar-hide [overflow-anchor:none]"
           data-testid={testId ? `${testId}-row` : undefined}
         >
           {children}

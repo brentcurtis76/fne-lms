@@ -18,6 +18,7 @@ import {
   assigned, profile, proposal, badge, NEWS, VIDEOS, STATS_FULL, UPCOMING, DOCENTE_ASSIGNMENTS, DOCENTE_ENROLMENTS,
 } from '../helpers/panelFakes';
 import { installMatchMedia } from '../helpers/motionFake';
+import { CARD_TITLE, CARD_TITLE_OPEN, cardTitleClass } from '../../components/panel/PanelSection';
 
 vi.hoisted(() => {
   process.env.TZ = 'UTC';
@@ -606,5 +607,94 @@ describe('the welcome band never lays its button over its text', () => {
     expect(row.children).toHaveLength(3);
     expect(within(column).getByText('Bienvenido de vuelta al hub de transformación de tu colegio')).toBeTruthy();
     expect(column.children).toHaveLength(3);
+  });
+});
+
+/*
+ * Blind-test send-back, point 2: ONE rule for every card title of the new view (the course, upcoming,
+ * route and proposal cards), written once in `PanelSection`: closed, three lines before the cut;
+ * while «Detalles» is open, the whole title. The cards of a row take the row's height, so their last
+ * rows line up without a reserved line.
+ */
+describe('one rule for the card titles', () => {
+  const clamps = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/).filter((c) => /^(line-clamp-\d+|truncate)$/.test(c));
+  const CARD_SECTIONS = ['panel-section-continue', 'panel-section-open', 'panel-section-upcoming', 'panel-section-routes', 'panel-section-proposals'];
+  const cardTitles = () =>
+    CARD_SECTIONS.flatMap((id) => {
+      const section = screen.queryByTestId(id);
+      // The generated course picture (today's `CourseThumbnail`, inside the picture's link) draws a title
+      // of its own: not a card title.
+      return section
+        ? [...section.querySelectorAll('h3')].filter((h) => !h.closest('[data-testid$="-picture"]')).map((h) => ({ id, h }))
+        : [];
+    });
+
+  it('the rule: closed, three lines; opened, no cut at all', () => {
+    expect(cardTitleClass()).toBe(CARD_TITLE);
+    expect(cardTitleClass(false)).toBe(CARD_TITLE);
+    expect(cardTitleClass(true)).toBe(CARD_TITLE_OPEN);
+    expect(clamps({ getAttribute: () => CARD_TITLE } as unknown as Element)).toEqual(['line-clamp-3']);
+    expect(clamps({ getAttribute: () => CARD_TITLE_OPEN } as unknown as Element)).toEqual([]);
+    // The same style, with and without the cut.
+    expect(CARD_TITLE.replace('line-clamp-3', '').trim()).toBe(CARD_TITLE_OPEN);
+  });
+
+  it('every closed card title of the new view uses it (courses, routes, upcoming; then proposals)', async () => {
+    const view = await draw(fullDocente());
+    let titles = cardTitles();
+    const sections = new Set(titles.map((t) => t.id));
+    for (const id of ['panel-section-continue', 'panel-section-upcoming', 'panel-section-routes']) expect(sections, id).toContain(id);
+    for (const { id, h } of titles) {
+      expect(h.className, `${id}: ${h.textContent}`).toBe(CARD_TITLE);
+      expect(h.getAttribute('title')).toBe(h.textContent);
+    }
+    view.unmount();
+    await draw(consultor());
+    titles = cardTitles().filter((t) => t.id === 'panel-section-proposals');
+    expect(titles.length).toBeGreaterThan(0);
+    for (const { h } of titles) expect(h.className).toBe(CARD_TITLE);
+  });
+
+  it('an opened course card and an opened upcoming card write their title whole; closed again, cut at three', async () => {
+    await draw(fullDocente());
+    const course = screen.getByTestId('panel-section-continue').querySelector('[data-testid$="-details-toggle"]')!;
+    const upcoming = screen.getByTestId('panel-section-upcoming').querySelector('[data-testid$="-details-toggle"]')!;
+    for (const toggle of [course, upcoming]) {
+      const card = screen.getByTestId(toggle.getAttribute('data-testid')!.replace(/-details-toggle$/, ''));
+      const title = [...card.querySelectorAll('h3')].find((h) => !h.closest('[data-testid$="-picture"]'))!;
+      expect(clamps(title)).toEqual(['line-clamp-3']);
+      fireEvent.click(toggle);
+      expect(toggle.getAttribute('aria-expanded')).toBe('true');
+      expect(title.className).toBe(CARD_TITLE_OPEN);
+      expect(clamps(title)).toEqual([]);
+      expect(title.getAttribute('title')).toBe(title.textContent);
+      fireEvent.click(toggle);
+      expect(title.className).toBe(CARD_TITLE);
+    }
+  });
+
+  it('the cards of a row fill the row\'s height, and their last row sits at their bottom', async () => {
+    const view = await draw(fullDocente());
+    const check = (sectionId: string) => {
+      const track = screen.getByTestId(`${sectionId}-row`);
+      expect(track.className.split(/\s+/)).toContain('items-stretch');
+      expect(track.className.split(/\s+/)).not.toContain('items-start');
+      for (const slot of [...track.children]) {
+        const card = slot.firstElementChild!;
+        expect(card.className.split(/\s+/), sectionId).toEqual(expect.arrayContaining(['flex', 'h-full', 'flex-col']));
+        // The last row is pushed down: the course card's foot, the upcoming card's «Detalles», the proposal's foot.
+        expect(card.querySelector('.mt-auto'), sectionId).not.toBeNull();
+      }
+    };
+    check('panel-section-continue');
+    check('panel-section-upcoming');
+    // The routes are a grid (its cells stretch by default); each card fills its cell.
+    for (const card of [...screen.getByTestId('panel-section-routes').querySelectorAll('[data-testid^="panel-route-"]')]) {
+      expect(card.className.split(/\s+/)).toEqual(expect.arrayContaining(['flex', 'h-full', 'flex-col']));
+      expect(card.querySelector('.mt-auto')).not.toBeNull();
+    }
+    view.unmount();
+    await draw(consultor());
+    check('panel-section-proposals');
   });
 });

@@ -6,7 +6,7 @@ import { CourseProposalModal } from '../course-proposals/CourseProposalModal';
 import { ConfirmDialog } from '../course-proposals/ConfirmDialog';
 import { formatDate, getStatusBadge, proposalCreatorName, isProposalOwner } from '../course-proposals/proposalCardText';
 import type { CourseProposal } from '../../types/course-proposals';
-import { PanelSection, ROW_ITEM, fullTitle } from './PanelSection';
+import { PanelSection, ROW_ITEM, CARD_TITLE, fullTitle } from './PanelSection';
 
 /**
  * The new look's «Propuestas de Cursos» (redesign 6B). It reads `useCourseProposals()`, the same
@@ -57,7 +57,7 @@ function ProposalCardNuevo({
           </span>
         )}
       </div>
-      <h3 className="line-clamp-2 font-mont text-[0.8125rem] font-bold uppercase leading-[1.5] tracking-[0.1em] text-brand_primary" {...fullTitle(proposal.titulo)}>
+      <h3 className={CARD_TITLE} {...fullTitle(proposal.titulo)}>
         {proposal.titulo}
       </h3>
       <p className="line-clamp-3 text-[0.8125rem] text-gray-600">{proposal.descripcion_corta}</p>

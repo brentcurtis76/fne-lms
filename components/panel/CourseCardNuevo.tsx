@@ -22,7 +22,7 @@ import {
   completionTexts,
 } from '../courses/courseCardText';
 import type { CourseWithEnrollment } from '../../types/courses';
-import { fullTitle } from './PanelSection';
+import { cardTitleClass, fullTitle } from './PanelSection';
 
 /**
  * The new look's course card (redesign 6B), for «Continuar Aprendiendo» and «Mis Cursos Abiertos».
@@ -104,7 +104,7 @@ export function CourseCardNuevo({
       </Link>
 
       <div className="flex flex-1 flex-col gap-2 p-3.5">
-        <h3 className="line-clamp-2 min-h-[2.6em] font-mont text-[0.8125rem] font-bold uppercase leading-[1.5] tracking-[0.1em] text-brand_primary" {...fullTitle(course.title)}>
+        <h3 className={cardTitleClass(open)} {...fullTitle(course.title)}>
           {course.title}
         </h3>
         {Boolean(showsInstructor(course)) && (

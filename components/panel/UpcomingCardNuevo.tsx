@@ -3,7 +3,7 @@ import { Calendar, ChevronDown, Clock, User } from 'lucide-react';
 import { Badge, Button, Card } from '../ui/kit';
 import { formatReleaseDate } from '../courses/upcomingCardText';
 import type { UpcomingCourse } from '../courses/UpcomingCourseCard';
-import { fullTitle } from './PanelSection';
+import { cardTitleClass, fullTitle } from './PanelSection';
 
 /**
  * The new look's upcoming course card (redesign 6B). No link, as today. The month and year come
@@ -31,7 +31,7 @@ export function UpcomingCardNuevo({ course, testId }: { course: UpcomingCourse; 
         </Badge>
       </div>
       <div className="flex flex-1 flex-col gap-2 p-3.5">
-        <h3 className="line-clamp-2 font-mont text-[0.8125rem] font-bold uppercase leading-[1.5] tracking-[0.1em] text-brand_primary" {...fullTitle(course.title)}>
+        <h3 className={cardTitleClass(open)} {...fullTitle(course.title)}>
           {course.title}
         </h3>
         {course.instructor && (

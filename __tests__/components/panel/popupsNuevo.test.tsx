@@ -19,6 +19,8 @@ const fake = vi.hoisted(() => ({
   log: [] as unknown[],
   update: [] as Array<{ error: unknown } | 'pending'>,
   pending: null as null | { resolve: (value: unknown) => void },
+  // The GENERA fixes (EC-V1b, send-back 1): after its writes the window reads the workspace row back.
+  stored: { custom_name: null, image_url: null } as { custom_name: string | null; image_url: string | null },
 }));
 
 vi.mock('next/link', async () => ({ default: (await import('../../helpers/popups')).LinkFake }));
@@ -36,8 +38,13 @@ vi.mock('@/lib/services/communityWorkspace', () => ({
     updateWorkspaceSettings: (...args: unknown[]) => {
       fake.log.push({ updateWorkspaceSettings: args });
       const answer = fake.update.shift() ?? { error: null };
+      if (answer === 'pending' || !answer.error) fake.stored.image_url = (args[1] as { imageUrl?: string }).imageUrl || null;
       if (answer === 'pending') return new Promise((resolve) => (fake.pending = { resolve }));
       return Promise.resolve(answer);
+    },
+    getWorkspaceSettings: (...args: unknown[]) => {
+      fake.log.push({ getWorkspaceSettings: args });
+      return Promise.resolve({ data: { ...fake.stored }, error: null });
     },
   },
 }));
@@ -55,6 +62,7 @@ const veil = () => document.querySelector('[data-kit="dialog-veil"]') as HTMLEle
 beforeEach(() => {
   fake.log = [];
   fake.update = [];
+  fake.stored = { custom_name: 'Comunidad Inventada', image_url: null };
   fake.pending = null;
 });
 
@@ -149,6 +157,7 @@ describe('community settings, new look', () => {
     expect(fake.log).toEqual([
       { updateWorkspaceSettings: ['ws-inventado', { imageUrl: 'https://example.invalid/subida.png', imageStoragePath: 'p' }] },
       { 'toast.success': 'Configuración actualizada exitosamente' },
+      { getWorkspaceSettings: ['ws-inventado'] },
       { onUpdate: { customName: 'Comunidad Inventada', imageUrl: 'https://example.invalid/subida.png' } },
       'onClose',
     ]);

@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import Router from 'next/router';
 import { COHORT_HEADLINE, COHORT_PROGRAMS } from '../lib/pasantias/cohort-public';
 import SiteLayout from '../components/site/SiteLayout';
 import RedAliada from '../components/site/RedAliada';
@@ -8,13 +9,9 @@ import Sociograma from '../components/site/Sociograma';
 import ViasEje from '../components/site/ViasEje';
 import Puertas from '../components/site/Puertas';
 import MapaChile from '../components/site/MapaChile';
-import FlipbookDialog from '../components/site/FlipbookDialog';
 
-// Below the fold and fed by the news API: loaded in the browser only.
+// Far below the fold and fed by the news API: loaded in the browser only.
 const Novedades = dynamic(() => import('../components/site/Novedades'), { ssr: false });
-
-const DIRECTIVOS_FLIPBOOK = 'https://heyzine.com/flip-book/d87d80f309.html';
-const DIRECTIVOS_FLIPBOOK_TAB = 'https://heyzine.com/flip-book/92bf9eb5ee.html';
 
 const HERO_WORDS: Array<Array<{ text: string; gold?: boolean }>> = [
   [{ text: 'La' }, { text: 'escuela' }, { text: 'se' }, { text: 'transforma' }],
@@ -22,7 +19,6 @@ const HERO_WORDS: Array<Array<{ text: string; gold?: boolean }>> = [
 ];
 
 export default function HomePage() {
-  const [showDirectivesFlipbook, setShowDirectivesFlipbook] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitMessage, setSubmitMessage] = React.useState('');
   const [submitError, setSubmitError] = React.useState('');
@@ -32,6 +28,49 @@ export default function HomePage() {
 
   useEffect(() => {
     contactFormReadyAt.current = Date.now();
+  }, []);
+
+  // A link to /#contacto arrives before the news band has loaded; the band then
+  // grows above the form and pushes it out of view (1,158 px on a desktop).
+  // So the target of the address's hash is held in place while the page
+  // settles, and let go the moment the visitor moves the page themselves.
+  useEffect(() => {
+    if (!('ResizeObserver' in window)) return;
+    let release = () => {};
+
+    const hold = (behavior: ScrollBehavior) => {
+      release();
+      const id = decodeURIComponent(window.location.hash.slice(1));
+      const target = id ? document.getElementById(id) : null;
+      if (!target) return;
+
+      const listeners = new AbortController();
+      const observer = new ResizeObserver(() => {
+        if (Math.abs(target.getBoundingClientRect().top) > 2) target.scrollIntoView({ behavior, block: 'start' });
+      });
+      const timer = window.setTimeout(() => release(), 8000);
+      release = () => {
+        observer.disconnect();
+        listeners.abort();
+        window.clearTimeout(timer);
+        release = () => {};
+      };
+      ['wheel', 'touchstart', 'keydown', 'pointerdown'].forEach((type) =>
+        window.addEventListener(type, () => release(), { passive: true, signal: listeners.signal })
+      );
+      observer.observe(document.body);
+    };
+
+    // On arrival the jump is immediate; a link clicked inside the page glides.
+    hold('instant' as ScrollBehavior);
+    const onHash = () => hold('smooth');
+    Router.events.on('hashChangeComplete', onHash);
+    window.addEventListener('hashchange', onHash);
+    return () => {
+      release();
+      Router.events.off('hashChangeComplete', onHash);
+      window.removeEventListener('hashchange', onHash);
+    };
   }, []);
 
   const handleContactSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -242,7 +281,7 @@ export default function HomePage() {
             <div className="celdas">
               <div className="rv" style={{ ['--d' as string]: 0 }}>
                 <h3>Motivación compartida</h3>
-                <p>Estudiantes y profesores altamente motivados trabajando juntos.</p>
+                <p>Estudiantes y docentes altamente motivados trabajando juntos.</p>
               </div>
               <div className="rv" style={{ ['--d' as string]: 1 }}>
                 <h3>Convivencia como motor</h3>
@@ -263,7 +302,7 @@ export default function HomePage() {
 
       <ViasEje />
 
-      <Puertas onOpenDirectivos={() => setShowDirectivesFlipbook(true)} />
+      <Puertas />
 
       {/* ───────── pasantías ─────────
           The copy of this teaser is the ratified January contract's; only its look changed. */}
@@ -360,9 +399,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      <Novedades />
-
       <MapaChile />
+
+      {/* The latest news close the page's story: the last band before the contact form. */}
+      <Novedades />
 
       {/* ───────── contacto ───────── */}
       <section className="contacto" id="contacto">
@@ -374,7 +414,7 @@ export default function HomePage() {
               <span className="l">Empecemos por</span> una conversación.
             </h2>
             <p className="rv">
-              ¿Listo para transformar tu institución educativa? Conversemos sobre cómo podemos acompañar tu
+              ¿Quieres transformar tu institución educativa? Conversemos sobre cómo podemos acompañar tu
               proceso de transformación.
             </p>
             <div className="dir rv">
@@ -465,14 +505,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      <FlipbookDialog
-        open={showDirectivesFlipbook}
-        onClose={() => setShowDirectivesFlipbook(false)}
-        title="Programa Estratégico Para Directivos"
-        src={DIRECTIVOS_FLIPBOOK}
-        externalHref={DIRECTIVOS_FLIPBOOK_TAB}
-      />
     </SiteLayout>
   );
 }

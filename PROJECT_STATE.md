@@ -105,6 +105,14 @@ Branch `chore/rd-net` from `58b8d169f`. First release of the platform redesign B
 - **Rule that came out of it:** the repository is public, so notes on where the platform is weak are kept outside it; the redesign's scripts refuse them here.
 - **Proof:** before/after pictures on one local stack, 3,499 of 3,500 the same (the one difference is a clock with seconds on a leftover page); two runs of the same build identical.
 
+## WEB-AJUSTES — public site: the foundation's adjustments (2026-11-18, built and checked locally, not pushed)
+
+Branch `feat/web-ajustes` on main `724b445b5` (RD-6B). Follow-up to WEB-REDESIGN below. Record and reviewer notes: `docs/planning/reviews/fase-web-ajustes-review-request.md`.
+
+- **What changed:** the foundation's wording on `/programas` and the same inclusive wording on the other public pages; one stage label per program (Preparación, Despegue, Cambio en el aula, Cambio en todo el colegio); links to `/#contacto` land on the form; on the home page the news is the last band before the contact form and the two boxes under the program doors are gone; the wipe-in photographs arrive before their wipe; the inner pages' heroes and four spots of `/pasantias` lose their line illustrations.
+- **Rules that hold from now on:** the directors' brochure is offered from the program sheets of `/programas` only (`__tests__/pages/pasantias-site-links.test.ts` pins it there); an inner page's hero is `components/site/PageHero.tsx`; a photograph that wipes in must stay a direct `img` child of its `.clip` frame, because the shared effects fetch it ahead and start the wipe on its `load`.
+- **Open:** the brochure itself is still the April–May 2026 edition; the foundation has to supply the next one.
+
 ## WEB-REDESIGN — public site redesign: built and checked locally, not pushed (2026-11-12)
 
 Branch `feat/web-redesign` from `631771416`. Brent asked for it in conversation; no itinerary phase. Record and reviewer notes: `docs/planning/reviews/fase-web-redesign-review-request.md`.

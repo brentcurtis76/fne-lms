@@ -2,13 +2,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { JOURNEY } from './programsData';
 
-interface PuertasProps {
-  /** Opens the "Programa Estratégico para Directivos" brochure. */
-  onOpenDirectivos: () => void;
-}
-
 /** The four programs as doors that open on hover, in the suggested order of the journey. */
-export default function Puertas({ onOpenDirectivos }: PuertasProps) {
+export default function Puertas() {
   const [open, setOpen] = useState(0);
 
   return (
@@ -53,24 +48,6 @@ export default function Puertas({ onOpenDirectivos }: PuertasProps) {
             </div>
           </Link>
         ))}
-      </div>
-      <div className="wrap mini rv">
-        <button type="button" onClick={onOpenDirectivos} data-testid="directivos-flipbook-cta">
-          <i className="mark" />
-          <div>
-            <h3>Programa Estratégico para Directivos</h3>
-            <p>Hojea el programa completo.</p>
-          </div>
-          <span className="arr">→</span>
-        </button>
-        <Link href="/login" data-testid="puertas-hub">
-          <i className="mark line" />
-          <div>
-            <h3>Hub de Transformación</h3>
-            <p>La plataforma donde cada escuela conduce su proceso de cambio.</p>
-          </div>
-          <span className="arr">→</span>
-        </Link>
       </div>
     </section>
   );

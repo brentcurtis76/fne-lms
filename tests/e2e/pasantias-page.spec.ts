@@ -1086,7 +1086,9 @@ test.describe('the marketing site links to /pasantias', () => {
    * this goes red, the count-0 assertion above has stopped meaning anything.
    */
   test('the Directivos CTA still opens its flipbook', async ({ page }) => {
-    await page.goto('/');
+    // On /programas since 18 November 2026: the homepage no longer offers this
+    // brochure, every program sheet still does.
+    await page.goto('/programas');
 
     await page.getByRole('button', { name: 'Programa Estratégico para Directivos' }).click();
     await expect(page.locator(FLIPBOOK_IFRAME)).toHaveCount(1);

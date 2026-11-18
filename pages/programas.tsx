@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import SiteLayout from '../components/site/SiteLayout';
+import PageHero from '../components/site/PageHero';
 import FlipbookDialog from '../components/site/FlipbookDialog';
 import { JOURNEY, ProgramId, programById } from '../components/site/programsData';
 
@@ -60,22 +61,16 @@ export default function ProgramasPage() {
       title="Programas · Fundación Nueva Educación"
       description="Inicia, Inspira, Aula Generativa y Evoluciona: cuatro programas que se combinan para acompañar a cada comunidad educativa en su viaje hacia una educación de vanguardia."
     >
-      <section className="phero">
-        <div className="iso" aria-hidden="true">
-          <i className="mark line spin" style={{ background: '#fff' }} />
-        </div>
-        <i className="art" aria-hidden="true" style={{ ['--m' as string]: 'url(/sitio/linea-hanging-bridge.png)' }} />
-        <div className="wrap">
-          <div className="eyebrow rv">Programas</div>
-          <h1 className="rv">
-            <span className="l">Programas de</span> evolución educativa
-          </h1>
-          <p className="lead rv">
-            Descubre nuestros programas, diseñados para acompañar a las comunidades educativas en su viaje hacia
-            una educación de vanguardia.
-          </p>
-        </div>
-      </section>
+      <PageHero>
+        <div className="eyebrow rv">Programas</div>
+        <h1 className="rv">
+          <span className="l">Programas de</span> evolución educativa
+        </h1>
+        <p className="lead rv">
+          Descubre nuestros programas, diseñados para acompañar a las comunidades educativas en su viaje hacia
+          una educación de vanguardia.
+        </p>
+      </PageHero>
 
       <section className="cita-b">
         <div className="wrap cols">
@@ -128,8 +123,7 @@ export default function ProgramasPage() {
             <div className="lam" style={{ ['--g' as string]: step.gradient }}>
               <i className="art" style={{ ['--m' as string]: `url(${step.art})` }} />
               <span className="k">
-                Programas de {step.stage.toLowerCase()}
-                {program.duration ? ` · ${program.duration}` : ''}
+                {step.stage} · {step.detail}
               </span>
               <h3>{step.name}</h3>
               <p>{program.subtitle}</p>
@@ -182,7 +176,7 @@ export default function ProgramasPage() {
         <div className="wrap">
           <div className="eyebrow rv" style={{ justifyContent: 'center' }}>El primer paso</div>
           <h2 className="rv">
-            <span className="l">¿Listo para iniciar</span> este viaje de evolución?
+            <span className="l">¿Comenzamos</span> este viaje de evolución?
           </h2>
           <p className="rv">Comienza hoy el camino hacia una educación de vanguardia para tu institución.</p>
           <div className="cta rv">

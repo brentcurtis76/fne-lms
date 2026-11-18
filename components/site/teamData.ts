@@ -122,9 +122,9 @@ export const TEAM_MEMBERS: Record<string, TeamMember> = {
   // Asesores Técnicos que necesitamos mantener
   'abraham-de-la-fuente': {
     name: 'Abraham de la Fuente',
-    role: 'Director Adjunto Institut Angeleta Ferrer',
+    role: 'Director Institut Angeleta Ferrer',
     image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Abraham%20De%20la%20Fuente.jpeg',
-    description: 'Doctor en Didáctica de las Matemáticas e investigador sobre la formación del profesorado. Es director adjunto de investigación educativa en el Institut Angeleta Ferrer, donde impulsa líneas de innovación pedagógica y evaluación formativa. Profesor asociado en la UAB desde 2014, forma a futuros docentes en el Grado de Educación Primaria y el Máster de Formación del Profesorado. Con más de 15 años de experiencia como profesor de matemáticas en secundaria y bachillerato, ha trabajado en centros de referencia como Saint Paul\'s School y Oak House School. Es miembro del equipo impulsor de los Betacamps y Edcamps en Catalunya, promoviendo espacios de formación docente colaborativa y horizontal.'
+    description: 'Doctor en Didáctica de las Matemáticas e investigador sobre la formación del profesorado. Es director del Institut Angeleta Ferrer, donde impulsa líneas de innovación pedagógica y evaluación formativa. Profesor asociado en la UAB desde 2014, forma a futuros docentes en el Grado de Educación Primaria y el Máster de Formación del Profesorado. Con más de 15 años de experiencia como profesor de matemáticas en secundaria y bachillerato, ha trabajado en centros de referencia como Saint Paul\'s School y Oak House School. Es miembro del equipo impulsor de los Betacamps y Edcamps en Catalunya, promoviendo espacios de formación docente colaborativa y horizontal.'
   },
   'ana-vicalvaro': {
     name: 'Ana Vicálvaro',
@@ -164,9 +164,9 @@ export const TEAM_MEMBERS: Record<string, TeamMember> = {
   },
   'maite-pino': {
     name: 'Maite Pino',
-    role: 'Coordinadora Escola Virolai Reina Elisenda',
+    role: 'Directora Adjunta Escola Virolai',
     image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Maite%20Pino.jpg',
-    description: 'Es coordinadora de la Escola Virolai Reina Elisenda y maestra. Se formó como Maestra de Educación Infantil en la UAB y ha trabajado en distintos centros públicos y concertados, asumiendo tutorías en varios cursos y etapas. Ha sido educadora de apoyo en secundaria, coordinadora de comedor y monitora de acogida, y durante seis años fue cap d\'agrupament en los Minyons Escoltes i Guies. Tiene formación en inglés por la EOI Drassanes y en dirección de actividades de ocio por la Fundació Pere Tarrés. Actualmente impulsa el uso pedagógico de herramientas digitales en su centro.'
+    description: 'Es directora adjunta de la Escola Virolai y maestra. Se formó como Maestra de Educación Infantil en la UAB y ha trabajado en distintos centros públicos y concertados, asumiendo tutorías en varios cursos y etapas. Ha sido educadora de apoyo en secundaria, coordinadora de comedor y monitora de acogida, y durante seis años fue cap d\'agrupament en los Minyons Escoltes i Guies. Tiene formación en inglés por la EOI Drassanes y en dirección de actividades de ocio por la Fundació Pere Tarrés. Actualmente impulsa el uso pedagógico de herramientas digitales en su centro.'
   },
   'claudia-lopez': {
     name: 'Claudia López de Lamadrid',
@@ -176,9 +176,9 @@ export const TEAM_MEMBERS: Record<string, TeamMember> = {
   },
   'enrique-vergara': {
     name: 'Enrique Vergara',
-    role: 'Coordinador Pedagógico Escola Virolai',
+    role: 'Director Adjunto Escola Virolai',
     image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Enrique%20Vergara%20.jpg',
-    description: 'Es educador y coordinador pedagógico en la Escola Virolai, donde forma parte del equipo desde 2018. Licenciado en Ciencias Ambientales por la UAB, ha combinado su trayectoria educativa con experiencia en el ámbito ambiental y de inspección técnica. Actualmente es profesor en el Grado de Educación Infantil y en el Máster de Profesorado de Secundaria (especialidad Biología y Geología) en la Universitat de Barcelona. También ha sido director académico de programas de medio ambiente en IUSC. Su recorrido profesional refleja un fuerte compromiso con la sostenibilidad, la innovación educativa y el acompañamiento a jóvenes y docentes.'
+    description: 'Es educador y director adjunto de la Escola Virolai, donde forma parte del equipo desde 2018. Licenciado en Ciencias Ambientales por la UAB, ha combinado su trayectoria educativa con experiencia en el ámbito ambiental y de inspección técnica. Actualmente es profesor en el Grado de Educación Infantil y en el Máster de Profesorado de Secundaria (especialidad Biología y Geología) en la Universitat de Barcelona. También ha sido director académico de programas de medio ambiente en IUSC. Su recorrido profesional refleja un fuerte compromiso con la sostenibilidad, la innovación educativa y el acompañamiento a jóvenes y docentes.'
   },
   'laia-garces': {
     name: 'Laia Garcés',
@@ -258,5 +258,5 @@ export interface TeamGroup {
 export const TEAM_GROUPS: TeamGroup[] = [
   { id: 'comite', title: 'Comité Internacional', members: ['joan-quintana', 'arnoldo-cisternas', 'coral-regi', 'pepe-menendez', 'jordi-mussons', 'sandra-entrena', 'anna-comas', 'marcelo-ruiz'] },
   { id: 'equipo-fne', title: 'Equipo FNE', members: ['gabriela-naranjo', 'mora-del-fresno', 'ignacio-pavez', 'brent-curtis', 'marcela-molina', 'andres-bustamante', 'joaquin-aguirre'] },
-  { id: 'asesores', title: 'Asesores Internacionales', members: ['sergi-del-moral', 'abraham-de-la-fuente', 'ana-vicalvaro', 'raul-martinez', 'maite-pino', 'enrique-vergara', 'betlem-cuesta', 'carlo-de-britos', 'begonya-folch', 'laura-carmona', 'jorge-parra', 'juan-jose-flores', 'marta-cardenas', 'claudia-lopez', 'laia-garces', 'marta-ortega', 'cristina-montes', 'estefania-del-ramon', 'gemma-pariente', 'maria-latre', 'andreu-basoli', 'neus-colomer', 'cristina-romanos'] },
+  { id: 'asesores', title: 'Asesores y Asesoras Internacionales', members: ['sergi-del-moral', 'abraham-de-la-fuente', 'ana-vicalvaro', 'raul-martinez', 'maite-pino', 'enrique-vergara', 'betlem-cuesta', 'carlo-de-britos', 'begonya-folch', 'laura-carmona', 'jorge-parra', 'juan-jose-flores', 'marta-cardenas', 'claudia-lopez', 'laia-garces', 'marta-ortega', 'cristina-montes', 'estefania-del-ramon', 'gemma-pariente', 'maria-latre', 'andreu-basoli', 'neus-colomer', 'cristina-romanos'] },
 ];

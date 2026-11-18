@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import SiteLayout from '../components/site/SiteLayout';
+import PageHero from '../components/site/PageHero';
 import TeamSection from '../components/site/TeamSection';
 
 const VERBS = [
@@ -28,23 +29,17 @@ export default function NosotrosPage() {
       title="Nosotros · Fundación Nueva Educación"
       description="Somos una red que reflexiona y crea soluciones para la educación del siglo XXI: un equipo multidisciplinario experto en procesos de cambio cultural en el mundo de la educación."
     >
-      <section className="phero">
-        <div className="iso" aria-hidden="true">
-          <i className="mark line spin" style={{ background: '#fff' }} />
-        </div>
-        <i className="art" aria-hidden="true" style={{ ['--m' as string]: 'url(/sitio/linea-castellier.png)' }} />
-        <div className="wrap">
-          <div className="eyebrow rv">Nosotros</div>
-          <h1 className="rv" style={{ maxWidth: '24ch' }}>
-            <span className="l">Somos una red que reflexiona y crea</span> soluciones para la educación del siglo XXI
-          </h1>
-          <p className="lead rv">
-            Un equipo multidisciplinario de expertos en facilitar procesos de Cambio Cultural en el mundo de la
-            educación, pioneros en la aplicación de los principios de la Nueva Educación en programas de formación
-            para estudiantes y programas de cambio en equipos directivos y docentes.
-          </p>
-        </div>
-      </section>
+      <PageHero>
+        <div className="eyebrow rv">Nosotros</div>
+        <h1 className="rv" style={{ maxWidth: '24ch' }}>
+          <span className="l">Somos una red que reflexiona y crea</span> soluciones para la educación del siglo XXI
+        </h1>
+        <p className="lead rv">
+          Un equipo multidisciplinario experto en facilitar procesos de Cambio Cultural en el mundo de la
+          educación, pionero en la aplicación de los principios de la Nueva Educación en programas de formación
+          para estudiantes y programas de cambio en equipos directivos y docentes.
+        </p>
+      </PageHero>
 
       <section className="verbos" id="que-hacemos">
         <div className="wrap">

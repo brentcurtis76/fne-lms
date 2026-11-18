@@ -185,6 +185,37 @@ describe('AnnexForm — contract list of step 2 (GES-2.5)', () => {
     expect(screen.getByText('Programa de Prueba')).toBeInTheDocument();
   });
 
+  async function createAnnexOf(numeroContrato: string) {
+    const { container } = await goToStep2();
+    fireEvent.click(await screen.findByText(numeroContrato));
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    const [participantes, precio] = screen.getAllByRole('spinbutton');
+    fireEvent.change(participantes, { target: { value: '4' } });
+    fireEvent.change(precio, { target: { value: '30' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    fireEvent.change(container.querySelector('input[type="date"]')!, { target: { value: '2026-12-01' } });
+    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '30' } });
+    fireEvent.click(screen.getByRole('button', { name: /Crear Anexo/ }));
+    await waitFor(() => expect(writes).toHaveLength(2));
+    return writes[0].payload[0];
+  }
+
+  // Send-back 1, item 1: the annex of a manual contract is itself stored as
+  // manual, carrying the parent's description, so the list and the details
+  // window show that description instead of the client's trade name.
+  it('the annex of a manual contract is stored as manual with the parent\'s description', async () => {
+    const payload = await createAnnexOf('C-200');
+    expect(payload.es_manual).toBe(true);
+    expect(payload.descripcion_manual).toBe('Asesoría acordada a mano');
+  });
+
+  it('the annex of a programme contract is stored as today (not manual, no description)', async () => {
+    const payload = await createAnnexOf('C-100');
+    expect(payload.programa_id).toBe('prog-1');
+    expect(payload.es_manual).not.toBe(true);
+    expect(payload.descripcion_manual).toBeUndefined();
+  });
+
   it('creates the annex of a manual contract as today, numbered the highest plus one', async () => {
     const { container } = await goToStep2();
     fireEvent.click(await screen.findByText('C-200'));

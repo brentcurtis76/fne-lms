@@ -352,7 +352,12 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
             numero_participantes: annexForm.numero_participantes,
             nombre_ciclo: annexForm.nombre_ciclo,
             estado: 'pendiente',
-            incluir_en_flujo: true
+            incluir_en_flujo: true,
+            // The annex of a manual contract is itself manual and carries the
+            // parent's description (shown by the list and the details window).
+            ...(selectedContrato.es_manual === true
+              ? { es_manual: true, descripcion_manual: selectedContrato.descripcion_manual ?? null }
+              : {})
           }])
           .select()
           .single();

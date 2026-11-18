@@ -11,14 +11,17 @@ import {
 const {
   mockGetApiUser,
   mockCreateApiSupabaseClient,
+  mockCreateServiceRoleClient,
 } = vi.hoisted(() => ({
   mockGetApiUser: vi.fn(),
   mockCreateApiSupabaseClient: vi.fn(),
+  mockCreateServiceRoleClient: vi.fn(),
 }));
 
 vi.mock('../../../lib/api-auth', () => ({
   getApiUser: mockGetApiUser,
   createApiSupabaseClient: mockCreateApiSupabaseClient,
+  createServiceRoleClient: mockCreateServiceRoleClient,
   sendAuthError: vi.fn((res: any, msg?: string) => {
     res.status(401).json({ error: msg || 'Authentication required' });
   }),
@@ -67,6 +70,8 @@ describe('GET /api/docente/assessments', () => {
 
     mockGetApiUser.mockResolvedValue({ user: { id: DOCENTE_UUID }, error: null });
     mockCreateApiSupabaseClient.mockResolvedValue(mockClient);
+    // N1 part 1: the stored versions are read with the service client.
+    mockCreateServiceRoleClient.mockReturnValue({ from: vi.fn(() => buildChainableQuery([])) });
 
     const { req, res } = createMocks({ method: 'GET' });
     await handler(req as any, res as any);

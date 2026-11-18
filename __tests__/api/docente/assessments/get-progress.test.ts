@@ -16,14 +16,17 @@ const IND_INACTIVE = 'ind-inactive';
 const {
   mockGetApiUser,
   mockCreateApiSupabaseClient,
+  mockCreateServiceRoleClient,
 } = vi.hoisted(() => ({
   mockGetApiUser: vi.fn(),
   mockCreateApiSupabaseClient: vi.fn(),
+  mockCreateServiceRoleClient: vi.fn(),
 }));
 
 vi.mock('@/lib/api-auth', () => ({
   getApiUser: mockGetApiUser,
   createApiSupabaseClient: mockCreateApiSupabaseClient,
+  createServiceRoleClient: mockCreateServiceRoleClient,
   sendAuthError: vi.fn((res: any, msg?: string) => {
     res.status(401).json({ error: msg || 'Autenticación requerida' });
   }),
@@ -33,6 +36,13 @@ vi.mock('@/lib/api-auth', () => ({
 }));
 
 import getHandler from '@/pages/api/docente/assessments/[instanceId]/index';
+
+// N1 part 1: the stored version and the expected levels are read with the
+// service client after the assignee gate; here both clients see the same data.
+function useClient(client: unknown) {
+  mockCreateApiSupabaseClient.mockResolvedValue(client);
+  mockCreateServiceRoleClient.mockReturnValue(client);
+}
 
 const SNAPSHOT_DATA = {
   template: { name: 'Test', area: 'evaluacion' },
@@ -96,6 +106,15 @@ function buildGetClient(options: {
           school_course_structure: null,
         });
       }
+      if (table === 'assessment_template_snapshots') {
+        return buildChainableQuery({
+          id: 'snap-1',
+          template_id: TEMPLATE_ID,
+          version: '1',
+          snapshot_data: SNAPSHOT_DATA,
+          created_at: '2026-01-01',
+        });
+      }
       if (table === 'assessment_year_expectations') {
         return buildChainableQuery(yearExp ?? []);
       }
@@ -116,7 +135,7 @@ describe('GET /api/docente/assessments/[instanceId] — progress (B-01)', () => 
   it('year-active filtering runs before the gate: an inactive nominal-first indicator never becomes the gate, and never counts', async () => {
     // IND_INACTIVE has display_order 0 (would sort first) but no active expectation
     // for year 1 — it must be excluded before gate/order resolution.
-    mockCreateApiSupabaseClient.mockResolvedValue(
+    useClient(
       buildGetClient({
         yearExpData: [
           { indicator_id: IND_COB, year_1_expected: 1 },
@@ -141,7 +160,7 @@ describe('GET /api/docente/assessments/[instanceId] — progress (B-01)', () => 
   });
 
   it('cobertura gate open (Sí): active downstream indicator counts toward total', async () => {
-    mockCreateApiSupabaseClient.mockResolvedValue(
+    useClient(
       buildGetClient({
         yearExpData: [
           { indicator_id: IND_COB, year_1_expected: 1 },
@@ -166,7 +185,7 @@ describe('GET /api/docente/assessments/[instanceId] — progress (B-01)', () => 
     // display_order 0 for IND_INACTIVE puts it first once every indicator is
     // treated as active (legacy mode) — its category (profundidad) means no
     // gate applies at all, so nothing is excluded from the denominator.
-    mockCreateApiSupabaseClient.mockResolvedValue(
+    useClient(
       buildGetClient({
         yearExpData: [],
         responsesData: [
@@ -185,7 +204,27 @@ describe('GET /api/docente/assessments/[instanceId] — progress (B-01)', () => 
   });
 
   it('legacy (no expectations data), cobertura genuinely first: gate still resolves and restricts the denominator', async () => {
-    mockCreateApiSupabaseClient.mockResolvedValue({
+    const legacySnapshot = {
+      id: 'snap-1',
+      template_id: TEMPLATE_ID,
+      version: '1',
+      snapshot_data: {
+        template: { name: 'Test', area: 'evaluacion' },
+        modules: [
+          {
+            id: 'mod-1',
+            display_order: 1,
+            weight: 1,
+            indicators: [
+              { id: IND_COB, name: 'Cobertura', category: 'cobertura', display_order: 1, weight: 1 },
+              { id: IND_FREC, name: 'Frecuencia', category: 'frecuencia', display_order: 2, weight: 1 },
+            ],
+          },
+        ],
+      },
+      created_at: '2026-01-01',
+    };
+    useClient({
       from: vi.fn((table: string) => {
         if (table === 'assessment_instance_assignees') {
           return buildChainableQuery({ can_edit: true, can_submit: true, has_started: false, has_submitted: false });
@@ -197,29 +236,11 @@ describe('GET /api/docente/assessments/[instanceId] — progress (B-01)', () => 
             transformation_year: 1,
             generation_type: 'GT',
             status: 'in_progress',
-            assessment_template_snapshots: {
-              id: 'snap-1',
-              template_id: TEMPLATE_ID,
-              version: '1',
-              snapshot_data: {
-                template: { name: 'Test', area: 'evaluacion' },
-                modules: [
-                  {
-                    id: 'mod-1',
-                    display_order: 1,
-                    weight: 1,
-                    indicators: [
-                      { id: IND_COB, name: 'Cobertura', category: 'cobertura', display_order: 1, weight: 1 },
-                      { id: IND_FREC, name: 'Frecuencia', category: 'frecuencia', display_order: 2, weight: 1 },
-                    ],
-                  },
-                ],
-              },
-              created_at: '2026-01-01',
-            },
+            assessment_template_snapshots: legacySnapshot,
             school_course_structure: null,
           });
         }
+        if (table === 'assessment_template_snapshots') return buildChainableQuery(legacySnapshot);
         if (table === 'assessment_year_expectations') return buildChainableQuery([]);
         if (table === 'assessment_responses') {
           return buildChainableQuery([{ indicator_id: IND_COB, coverage_value: false }]);

@@ -181,7 +181,7 @@ describe('EC-V1 send-back 1: after a save the window reports what is stored', ()
     expect(onUpdate).toHaveBeenCalledWith({ customName: undefined, imageUrl: undefined });
   });
 
-  it('read-back fails after a picture-only save: the saved picture, and no name', async () => {
+  it('read-back fails twice after a picture-only save: the saved picture, and the name the window was opened with', async () => {
     h.getWorkspaceSettings = vi.fn(async () => ({ data: null, error: new Error('offline') }));
     const { container, save, onUpdate, onClose } = open();
     await choosePicture(container);
@@ -189,7 +189,8 @@ describe('EC-V1 send-back 1: after a save the window reports what is stored', ()
       fireEvent.click(save);
     });
     await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
-    expect(onUpdate).toHaveBeenCalledWith({ customName: undefined, imageUrl: 'https://example.test/nueva.png' });
+    // Send-back 2, item 2: the name not saved is reported as the window was opened with it.
+    expect(onUpdate).toHaveBeenCalledWith({ customName: DEFAULT_NAME, imageUrl: 'https://example.test/nueva.png' });
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -202,6 +203,48 @@ describe('EC-V1 send-back 1: after a save the window reports what is stored', ()
     });
     await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
     expect(onUpdate).toHaveBeenCalledWith({ customName: 'Comunidad Lectora', imageUrl: PICTURE });
+  });
+
+  it('send-back 2: a picture-only save whose read-back fails keeps the existing custom name on the screen', async () => {
+    h.getWorkspaceSettings = vi.fn(async () => ({ data: null, error: new Error('offline') }));
+    const { container, save, onUpdate } = open({ currentName: 'Comunidad Lectora' });
+    await choosePicture(container);
+    await act(async () => {
+      fireEvent.click(save);
+    });
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(onUpdate).toHaveBeenCalledWith({ customName: 'Comunidad Lectora', imageUrl: 'https://example.test/nueva.png' });
+    expect(h.getWorkspaceSettings).toHaveBeenCalledTimes(2);
+  });
+
+  it('send-back 2: a name-only save of «  Nueva  » whose read-back fails reports «Nueva» (trimmed)', async () => {
+    h.getWorkspaceSettings = vi.fn(async () => ({ data: null, error: new Error('offline') }));
+    const { nameField, save, onUpdate } = open({ currentName: 'Comunidad Lectora' });
+    fireEvent.change(nameField, { target: { value: '  Nueva  ' } });
+    await act(async () => {
+      fireEvent.click(save);
+    });
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(h.renameWorkspace).toHaveBeenCalledWith(WS, 'Nueva');
+    expect(onUpdate).toHaveBeenCalledWith({ customName: 'Nueva', imageUrl: PICTURE });
+    expect(h.getWorkspaceSettings).toHaveBeenCalledTimes(2);
+  });
+
+  it('send-back 2: a read-back that fails once is tried again, and the stored values are reported', async () => {
+    stored.custom_name = 'Comunidad Lectora';
+    let calls = 0;
+    h.getWorkspaceSettings = vi.fn(async () => {
+      calls += 1;
+      return calls === 1 ? { data: null, error: new Error('offline') } : { data: { ...stored }, error: null };
+    });
+    const { container, save, onUpdate } = open({ currentName: 'Comunidad Lectora' });
+    await choosePicture(container);
+    await act(async () => {
+      fireEvent.click(save);
+    });
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(h.getWorkspaceSettings).toHaveBeenCalledTimes(2);
+    expect(onUpdate).toHaveBeenCalledWith({ customName: 'Comunidad Lectora', imageUrl: 'https://example.test/nueva.png' });
   });
 
   it('picture saved, rename refused: the window stays open with the message and reports the stored values', async () => {

@@ -219,6 +219,7 @@ export default function ContractPrintPage() {
                   parentContract: contrato.parent_contract ? {
                     numero_contrato: contrato.parent_contract.numero_contrato,
                     fecha_contrato: contrato.parent_contract.fecha_contrato,
+                    descripcion_manual: contrato.parent_contract.descripcion_manual,
                     cliente: {
                       nombre_legal: contrato.parent_contract.clientes.nombre_legal,
                       nombre_fantasia: contrato.parent_contract.clientes.nombre_fantasia,

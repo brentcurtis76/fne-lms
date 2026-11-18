@@ -89,6 +89,8 @@ interface ContractFormState {
   horas_contratadas: string; // text of the «Horas contratadas» field; '' = no value (GES-2.2)
 }
 
+const DUPLICATE_DRAFT_NUMBER_MESSAGE = 'Ya existe un contrato con este número. Por favor use un número diferente.';
+
 // «Horas contratadas»: optional, 0 to 999999.99, at most two decimals (GES-2.2)
 const HORAS_CONTRATADAS_PATTERN = /^\d{1,6}(\.\d{1,2})?$/;
 
@@ -661,20 +663,22 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         return;
       }
       
+      // Check the schedule before ANY write: a draft is saved whole or not at all (GES-2.6)
+      for (const cuota of cuotas) {
+        if (!cuota.fecha_vencimiento) {
+          toast.error(`La cuota ${cuota.numero_cuota} necesita una fecha de vencimiento para guardar el borrador.`);
+          return;
+        }
+        if (!(cuota.monto > 0)) {
+          toast.error(`La cuota ${cuota.numero_cuota} necesita un monto mayor que cero para guardar el borrador.`);
+          return;
+        }
+      }
+      
       // Get or create clienteId
       let clienteId = selectedClienteId || contractForm.cliente_id;
       
       if (!clienteId && (clienteForm.rut || clienteForm.nombre_legal)) {
-        // Create minimal client if we have some data
-        const clientData: any = {};
-        if (clienteForm.rut) clientData.rut = clienteForm.rut;
-        if (clienteForm.nombre_legal) clientData.nombre_legal = clienteForm.nombre_legal || 'Cliente Pendiente';
-        if (clienteForm.direccion) clientData.direccion = clienteForm.direccion;
-        if (clienteForm.comuna) clientData.comuna = clienteForm.comuna;
-        if (clienteForm.ciudad) clientData.ciudad = clienteForm.ciudad;
-        if (clienteForm.email_encargado_proyecto) clientData.email_encargado_proyecto = clienteForm.email_encargado_proyecto;
-        if (clienteForm.email_contacto_administrativo) clientData.email_contacto_administrativo = clienteForm.email_contacto_administrativo;
-        
         // Check if client exists
         if (clienteForm.rut) {
           const { data: existingCliente } = await supabase
@@ -688,18 +692,21 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           }
         }
         
-        if (!clienteId && Object.keys(clientData).length > 0) {
+        if (!clienteId) {
+          // The same complete row as the full save (buildClientRow + defaults)
           const { data: newCliente, error: clienteError } = await supabase
             .from('clientes')
-            .insert([clientData])
+            .insert([newClientRow()])
             .select()
             .single();
             
           if (clienteError) {
+            // Stop here: without its client nothing of the draft is written
             console.error('Error creating client for draft:', clienteError);
-          } else {
-            clienteId = newCliente.id;
+            toast.error('No se pudo guardar el cliente del borrador. Revise sus datos e inténtelo de nuevo.');
+            return;
           }
+          clienteId = newCliente.id;
         }
       }
       
@@ -765,7 +772,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
             
           if (error) {
             if (error.message.includes('duplicate key')) {
-              throw new Error('Ya existe un contrato con este número. Por favor use un número diferente.');
+              throw new Error(DUPLICATE_DRAFT_NUMBER_MESSAGE);
             }
             throw error;
           }
@@ -813,7 +820,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       onSuccess(contractId);
     } catch (error: any) {
       console.error('Error saving draft:', error);
-      alert(error.message || 'Error al guardar el borrador. Por favor intente nuevamente.');
+      toast.error(
+        error?.message === DUPLICATE_DRAFT_NUMBER_MESSAGE
+          ? DUPLICATE_DRAFT_NUMBER_MESSAGE
+          : 'No se pudo guardar el borrador. Inténtelo de nuevo.'
+      );
     } finally {
       setSavingAsDraft(false);
     }

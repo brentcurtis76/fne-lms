@@ -52,12 +52,7 @@ export async function getMeetings(
   try {
     let query = supabase
       .from('community_meetings')
-      .select(`
-        *,
-        facilitator:profiles!community_meetings_facilitator_id_fkey(id, first_name, last_name),
-        secretary:profiles!community_meetings_secretary_id_fkey(id, first_name, last_name),
-        created_by_profile:profiles!community_meetings_created_by_fkey(id, first_name, last_name, email)
-      `)
+      .select('*')
       .eq('workspace_id', workspaceId)
       .eq('is_active', true);
 
@@ -113,12 +108,41 @@ export async function getMeetings(
       throw error;
     }
 
-    return data || [];
+    const meetings = (data || []) as CommunityMeeting[];
+    if (meetings.length === 0) return [];
+
+    // Names of the author, facilitator and secretary come from profile cards
+    // (other people's `profiles` rows are not readable; N154): one call for
+    // the whole page, more than 200 people in several calls.
+    const cards = await fetchProfileCards(
+      supabase,
+      meetings.flatMap((meeting) => [meeting.created_by, meeting.facilitator_id, meeting.secretary_id])
+    );
+    return meetings.map((meeting) => ({
+      ...meeting,
+      created_by_profile: personFromCard(cards, meeting.created_by),
+      facilitator: personFromCard(cards, meeting.facilitator_id),
+      secretary: personFromCard(cards, meeting.secretary_id),
+    }));
 
   } catch (error) {
     console.error('Error in getMeetings:', error);
     return [];
   }
+}
+
+/**
+ * A person named on a meeting, from profile cards (N154): id and names only,
+ * never an e-mail address. Empty names when the person has no card (the
+ * screen shows «Usuario»); undefined when nobody is set.
+ */
+function personFromCard(
+  cards: Map<string, ProfileCard>,
+  id: string | null | undefined
+): { id: string; first_name: string; last_name: string } | undefined {
+  if (!id) return undefined;
+  const card = cards.get(id);
+  return { id, first_name: card?.first_name ?? '', last_name: card?.last_name ?? '' };
 }
 
 export interface MeetingRights {
@@ -163,13 +187,7 @@ export async function getMeetingDetails(meetingId: string): Promise<MeetingWithD
     // Get the meeting with joins
     const { data: meeting, error } = await supabase
       .from('community_meetings')
-      .select(`
-        *,
-        facilitator:profiles!community_meetings_facilitator_id_fkey(id, first_name, last_name),
-        secretary:profiles!community_meetings_secretary_id_fkey(id, first_name, last_name),
-        created_by_profile:profiles!community_meetings_created_by_fkey(id, first_name, last_name, email),
-        finalized_by_profile:profiles!community_meetings_finalized_by_fkey(id, first_name, last_name)
-      `)
+      .select('*')
       .eq('id', meetingId)
       .single();
 
@@ -209,19 +227,28 @@ export async function getMeetingDetails(meetingId: string): Promise<MeetingWithD
       .select('*')
       .eq('meeting_id', meetingId);
 
-    // Names of participants and of the people in charge come from profile
+    // Names of participants, of the people in charge, and of the meeting's
+    // author, facilitator, secretary and finaliser (N154) come from profile
     // cards (other people's `profiles` rows are not readable): one call for
-    // everyone. A person without a card gets no profile.
+    // everyone. A participant without a card gets no profile.
     const cards = await fetchProfileCards(supabase, [
       ...(attendees || []).map((attendee: { user_id?: string | null }) => attendee.user_id),
       ...(tasks || []).map((task: { assigned_to?: string | null }) => task.assigned_to),
       ...(commitments || []).map((commitment: { assigned_to?: string | null }) => commitment.assigned_to),
+      meeting.created_by,
+      meeting.facilitator_id,
+      meeting.secretary_id,
+      meeting.finalized_by,
     ]);
     const cardFor = (id: string | null | undefined): ProfileCard | undefined => (id ? cards.get(id) : undefined);
 
     // Combine all data
     const meetingWithDetails: MeetingWithDetails = {
       ...meeting,
+      created_by_profile: personFromCard(cards, meeting.created_by),
+      facilitator: personFromCard(cards, meeting.facilitator_id),
+      secretary: personFromCard(cards, meeting.secretary_id),
+      finalized_by_profile: personFromCard(cards, meeting.finalized_by) ?? null,
       agreements: agreements || [],
       commitments: (commitments || []).map((commitment: MeetingCommitment) => ({
         ...commitment,

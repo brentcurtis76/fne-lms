@@ -1,7 +1,7 @@
 # GENERA fixes, second release of 18 Nov: the workspace itself, a consultor's entry, and Contratos
 
 Branch: `fix/l2i`. Base: `4821ab01c` (main, 18 Nov 2026 17:04, pull request 200: the public website's adjustments; before it pull request 199, the redesign's release 6B, 15:52, and pull request 198, its release 6A; the six fix phases of 17 Nov went live as pull request 197).
-42 commits in a straight line on main, no merge commits: 4 for F12e, 15 for F12c, 5 for F10a, 15 for F10b, 2 that steady two end-to-end tests, and this request.
+44 commits in a straight line on main, no merge commits: 4 for F12e, 15 for F12c, 5 for F10a, 15 for F10b, 2 that steady two end-to-end tests, this request, one that gives CI's unit job 30 minutes, and a note of it in this request.
 
 ## Approved scope
 
@@ -59,6 +59,10 @@ The line was proven on the commit that pull request 200 then published (`6fa0d89
 - Each phase: read by a second model (Sol), tested blind with real requests by another (Astra), and used by sight in a browser; the defects found were sent back and re-checked. The reports are in the fix run's own folder, outside this repository.
 - The two test-only commits: `tests/e2e/finance-messaging-access.spec.ts` and `tests/e2e/urgent-anonymous-current.spec.ts` reloaded the page before a save had left the browser (the first took the text in the message box for the sent message); each now waits for the save. Five runs in a row of each file alone, without second tries, pass.
 
+## CI: the unit job's time limit (added after the first preparation)
+
+The first preparation of this release (pull request 201, commit `8a138d8a8`) failed for one reason: «Gate 2 — Unit (Vitest)» was cancelled at its 20-minute limit after 20 min 17 s with no failing test; every other finished job passed. The same had happened to pull request 200 earlier that day. The suite (20,227 tests with this release) takes 14 minutes locally and 17 to 20 on the runner. `.github/workflows/ci.yml`: the job `unit` now has `timeout-minutes: 30`, as the browser-test job already had; no job name, step or other limit changes (the owner's choice, 18 Nov: "Raise the limit"). No product file differs from the proven tree.
+
 ## Review focus
 
 1. `20261118101000_consultor_workspace_entry.sql`: the additional read rule — exactly the workspace's own row, exactly for a currently assigned consultor; nothing inside the workspace changes.
@@ -73,7 +77,6 @@ The line was proven on the commit that pull request 200 then published (`6fa0d89
 - A consultor WITHOUT a current assignment still reads a workspace's own row (name, picture) by a direct request through the older rule that follows the school on the role row, and what a consultor reads inside a workspace still follows that school: the phase "the assignment decides everywhere" narrows these together.
 - A very long workspace name without spaces still widens the page's title strip (`components/layout/FunctionalPageHeader.tsx`, the redesign's).
 - The redesign's pin case W10 keeps its title although it no longer shows the saving state (see the port above): for the redesign's session to rename or re-stage. The settings gear's hidden label says «Editar nombre e imagen de la comunidad» also for a member who can change only the name.
-- CI's unit job runs close to its 20-minute limit (14 to 18 minutes on pull requests 197 to 199; cancelled at the limit on pull request 200); this release adds about 280 tests. If it is cancelled at the limit, it is a re-run, not a defect.
 - A person who manages one community and belongs to another is offered only the first; a person with both a consultor and a member role gets no gear although the database lets them rename.
 - On a contract made from a licitación, a typed number of hours can be put back to the programme's if the page reloads its lists while the form is open (`pages/contracts.tsx` reloads on navigation); the draft's three writes are not one transaction; the database itself does not check a contract's numbers against an admin's direct request.
 - The client's legal fields stay obligatory in the database and amounts of 100 million pesos or more cannot be stored: both need a column change that migrations may not make (waiting for the owner's decision).

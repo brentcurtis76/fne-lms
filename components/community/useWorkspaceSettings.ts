@@ -75,10 +75,29 @@ export function useWorkspaceSettings({
   const nameChanged = trimmedName !== initialName;
   const pictureChanged = canChangePicture && (imageFile !== null || imageUrl !== (currentImageUrl || ''));
 
+  // After the writes, report to the caller what is really stored (send-back 1):
+  // the stored custom_name (undefined when empty, so the caller falls back to the
+  // community's own name) and the stored picture (undefined when none). If the
+  // read-back fails: what was just saved, undefined for a name not saved, and
+  // the picture the window was opened with when the picture was not saved.
+  const reportStored = async (saved: { name?: string; imageUrl?: string; pictureSaved: boolean }) => {
+    const { data, error } = await communityWorkspaceService.getWorkspaceSettings(workspaceId);
+    if (!error && data) {
+      onUpdate({
+        customName: data.custom_name || undefined,
+        imageUrl: data.image_url || undefined
+      });
+      return;
+    }
+    onUpdate({
+      customName: saved.name || undefined,
+      imageUrl: (saved.pictureSaved ? saved.imageUrl : currentImageUrl) || undefined
+    });
+  };
+
   const handleSave = async () => {
     setIsLoading(true);
-    // What the screen shows after the save: the values saved, or the ones the window was opened with.
-    let savedImageUrl = currentImageUrl || '';
+    let savedImageUrl = '';
     let pictureSaved = false;
 
     try {
@@ -122,17 +141,14 @@ export function useWorkspaceSettings({
         if (renameError) {
           toast.error(renameError);
           if (pictureSaved) {
-            onUpdate({ customName: initialName, imageUrl: savedImageUrl });
+            await reportStored({ imageUrl: savedImageUrl, pictureSaved });
           }
           return;
         }
       }
 
       toast.success('Configuración actualizada exitosamente');
-      onUpdate({
-        customName: nameChanged ? trimmedName : initialName,
-        imageUrl: savedImageUrl
-      });
+      await reportStored({ name: nameChanged ? trimmedName : undefined, imageUrl: savedImageUrl, pictureSaved });
       onClose();
     } catch (error: any) {
       console.error('Error saving workspace settings:', error);

@@ -1,9 +1,9 @@
 {
   "W1. closed: nothing drawn": "0f7a2b60ccc3a1d60daa69fbc9a37c0c79fa69740e51eb22ad16ccc75d9bd1c9",
   "W10. saving: the spinner, «Guardando...», both buttons and the X disabled": "8066909a7483223b4594708089551da9942390b3782ae8437f80f47f9d49946c",
-  "W11. saved without a new image: update only (name trimmed), the toast, onUpdate, onClose": "7ac8e5ced3c65fbac2f45f864ff727f9159b2bdc4ea5c9ad970f062f370fe3bf",
-  "W12. saved with a chosen image: the upload, then the update with its address and path": "71373f506dc71a97e9daf37b430c31c6458552828f4306d05311d20b03801776",
-  "W13. saved after the image was removed: an empty address": "5d74b456b05a27c5e0e39a714edae07521080b25967d02b633e3f62c35e9cb79",
+  "W11. saved without a new image: update only (name trimmed), the toast, onUpdate, onClose": "bbc773b4e38cf14bbe051899c8aa941cb1b869da2a5eec19865299fe6ef08138",
+  "W12. saved with a chosen image: the upload, then the update with its address and path": "75fd29836a1bcb4ef8c59f87989867bb98d927ab0cfbbdc8b305d3861b3be33d",
+  "W13. saved after the image was removed: an empty address": "d2f4089833db69585ae51bae97a372f13130f6b4eaed4818b69015696fd3e91e",
   "W14. failed saves: the service's message or the fallback, the window stays": "67ba1d4baa9164ecdf0a105575ab47d87a5969338f9ab60496261b4f93667673",
   "W15. currentName and currentImageUrl changing while open: copied, over an edit": "5756fa5c656ddda63113071bad9a3591b2fdd57f0347baec1c3e34b3791a20fd",
   "W16. Escape and a click on the veil do NOT close it; the X and «Cancelar» call onClose": "3cfe1d002a3eefdd774fd42c91893c6c572ecfb4197db991aebb40a57967ff19",
@@ -14,6 +14,6 @@
   "W5. a small PNG chosen: the preview shows it": "1bd6c6422cf2b8d75caad429d21e25f983945e102238c8e06723ac25863482bd",
   "W6. a file over 5 MB: the toast and nothing kept (saving uploads nothing)": "2dbb5e3da0d204b85cf2158a0f9937d534cbc9297531efa67d2846190b2e2cd7",
   "W7. a wrong type: the toast and nothing kept; exactly 5 MB is accepted": "8d7af76ae1bc94b86c87aab6a2d71d67c06f12f4ed5197cacf2993e1ab6e8ec9",
-  "W8. the image removed (the current one, then a chosen one)": "f2728a9a8af84c9d600ffaf405e487872babfdffaef8f5ce3de974ad91e973c0",
+  "W8. the image removed (the current one, then a chosen one)": "ecbec8ef5d7e21f32d5e94187f1264bb76ee8251b979315f1b3b4d331a405908",
   "W9. «Guardar cambios» disabled when the name is blank and there is no image": "4250fd1fe9d62e2e496fe88099eae42c086003c211595241cde20ed43c784730"
 }

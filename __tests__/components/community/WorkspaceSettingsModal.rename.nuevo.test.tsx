@@ -19,6 +19,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const h = vi.hoisted(() => ({
   renameWorkspace: vi.fn(),
   updateWorkspaceSettings: vi.fn(),
+  getWorkspaceSettings: vi.fn(),
   uploadCommunityImage: vi.fn(),
   toast: { success: vi.fn(), error: vi.fn() },
 }));
@@ -30,6 +31,7 @@ vi.mock('../../../lib/services/communityWorkspace', () => ({
   communityWorkspaceService: {
     renameWorkspace: (...args: unknown[]) => h.renameWorkspace(...args),
     updateWorkspaceSettings: (...args: unknown[]) => h.updateWorkspaceSettings(...args),
+    getWorkspaceSettings: (...args: unknown[]) => h.getWorkspaceSettings(...args),
     uploadCommunityImage: (...args: unknown[]) => h.uploadCommunityImage(...args),
   },
 }));
@@ -77,9 +79,21 @@ async function choosePicture(container: HTMLElement) {
   return file;
 }
 
+let stored: { custom_name: string | null; image_url: string | null };
+
 beforeEach(() => {
-  h.renameWorkspace = vi.fn(async () => ({ error: null }));
   h.updateWorkspaceSettings = vi.fn(async () => ({ data: { id: WS }, error: null }));
+  // What the database holds after the writes (a workspace never renamed, until a test says otherwise).
+  stored = { custom_name: null, image_url: PICTURE };
+  h.getWorkspaceSettings = vi.fn(async () => ({ data: { ...stored }, error: null }));
+  h.renameWorkspace = vi.fn(async (_ws: string, name: string) => {
+    stored.custom_name = name;
+    return { error: null };
+  });
+  h.updateWorkspaceSettings = vi.fn(async (_ws: string, updates: { imageUrl?: string }) => {
+    stored.image_url = updates.imageUrl || null;
+    return { data: { id: WS }, error: null };
+  });
   h.uploadCommunityImage = vi.fn(async () => ({ url: 'https://example.test/nueva.png', path: 'community-images/nueva.png', error: null }));
   h.toast.success.mockClear();
   h.toast.error.mockClear();
@@ -99,7 +113,9 @@ describe('new look: N92 a save with only a new picture sends no name', () => {
     expect(updates).not.toHaveProperty('customName');
     expect(updates).toMatchObject({ imageUrl: 'https://example.test/nueva.png', imageStoragePath: 'community-images/nueva.png' });
     expect(h.renameWorkspace).not.toHaveBeenCalled();
-    expect(onUpdate).toHaveBeenCalledWith({ customName: DEFAULT_NAME, imageUrl: 'https://example.test/nueva.png' });
+    // The stored custom_name is empty: no name is reported (send-back 1, item 3), never «Espacio de …».
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+    expect(onUpdate).toHaveBeenCalledWith({ customName: undefined, imageUrl: 'https://example.test/nueva.png' });
   });
 
   it('removing the picture saves only the picture', async () => {
@@ -116,6 +132,97 @@ describe('new look: N92 a save with only a new picture sends no name', () => {
     expect(updates).not.toHaveProperty('customName');
     expect(updates.imageUrl).toBe('');
     expect(h.renameWorkspace).not.toHaveBeenCalled();
+  });
+});
+
+describe('new look: EC-V1 send-back 1: after a save the window reports what is stored', () => {
+  it('a picture-only save in a workspace never renamed reports NO name and the stored picture', async () => {
+    const { container, save, onUpdate } = open();
+    await choosePicture(container);
+    await act(async () => {
+      fireEvent.click(save);
+    });
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(h.getWorkspaceSettings).toHaveBeenCalledWith(WS);
+    const [reported] = onUpdate.mock.calls[0] as [Record<string, unknown>];
+    expect(reported.customName).toBeUndefined();
+    expect(reported.imageUrl).toBe('https://example.test/nueva.png');
+  });
+
+  it('a picture-only save in a renamed workspace reports the stored custom name', async () => {
+    stored.custom_name = 'Comunidad Lectora';
+    const { container, save, onUpdate } = open({ currentName: 'Comunidad Lectora' });
+    await choosePicture(container);
+    await act(async () => {
+      fireEvent.click(save);
+    });
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(onUpdate).toHaveBeenCalledWith({ customName: 'Comunidad Lectora', imageUrl: 'https://example.test/nueva.png' });
+  });
+
+  it('the stored values win over what the window holds (the database stored a different form)', async () => {
+    h.renameWorkspace = vi.fn(async () => {
+      stored.custom_name = 'Nombre guardado';
+      return { error: null };
+    });
+    const { nameField, save, onUpdate } = open();
+    fireEvent.change(nameField, { target: { value: 'Nombre escrito' } });
+    await act(async () => {
+      fireEvent.click(save);
+    });
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(onUpdate).toHaveBeenCalledWith({ customName: 'Nombre guardado', imageUrl: PICTURE });
+  });
+
+  it('a removed picture is reported as none (undefined)', async () => {
+    const { container, save, onUpdate } = open();
+    const remove = container.querySelector('img[alt="Vista previa"] + button') as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(remove);
+    });
+    await act(async () => {
+      fireEvent.click(save);
+    });
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(onUpdate).toHaveBeenCalledWith({ customName: undefined, imageUrl: undefined });
+  });
+
+  it('read-back fails after a picture-only save: the saved picture, and no name', async () => {
+    h.getWorkspaceSettings = vi.fn(async () => ({ data: null, error: new Error('offline') }));
+    const { container, save, onUpdate, onClose } = open();
+    await choosePicture(container);
+    await act(async () => {
+      fireEvent.click(save);
+    });
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(onUpdate).toHaveBeenCalledWith({ customName: undefined, imageUrl: 'https://example.test/nueva.png' });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('read-back fails after a name-only save: the saved name, and the picture the window was opened with', async () => {
+    h.getWorkspaceSettings = vi.fn(async () => ({ data: null, error: new Error('offline') }));
+    const { nameField, save, onUpdate } = open();
+    fireEvent.change(nameField, { target: { value: 'Comunidad Lectora' } });
+    await act(async () => {
+      fireEvent.click(save);
+    });
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(onUpdate).toHaveBeenCalledWith({ customName: 'Comunidad Lectora', imageUrl: PICTURE });
+  });
+
+  it('picture saved, rename refused: the window stays open with the message and reports the stored values', async () => {
+    h.renameWorkspace = vi.fn(async () => ({ error: 'El nombre debe tener entre 1 y 100 caracteres, con al menos una letra o un número, sin caracteres invisibles.' }));
+    const { container, nameField, save, onUpdate, onClose } = open();
+    fireEvent.change(nameField, { target: { value: 'Otro' } });
+    await choosePicture(container);
+    await act(async () => {
+      fireEvent.click(save);
+    });
+    await waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+    expect(h.toast.error).toHaveBeenCalledWith('El nombre debe tener entre 1 y 100 caracteres, con al menos una letra o un número, sin caracteres invisibles.');
+    expect(onUpdate).toHaveBeenCalledWith({ customName: undefined, imageUrl: 'https://example.test/nueva.png' });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(h.toast.success).not.toHaveBeenCalled();
   });
 });
 

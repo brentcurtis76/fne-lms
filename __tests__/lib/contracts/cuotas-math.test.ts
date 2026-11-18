@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { splitEvenly, sumsMatch, difference, decimalsFor } from '../../../lib/contracts/cuotas-math';
+import { splitEvenly, sumsMatch, difference, decimalsFor, hasCurrencyPrecision } from '../../../lib/contracts/cuotas-math';
 
 /**
  * F10b (GES-2.7): «Calcular Automático» splits a contract total into cuotas
@@ -82,5 +82,32 @@ describe('decimalsFor', () => {
   it('UF has two decimals, CLP none', () => {
     expect(decimalsFor('UF')).toBe(2);
     expect(decimalsFor('CLP')).toBe(0);
+  });
+});
+
+/**
+ * F10b send-back 1 (item 1): the amounts that are checked are the amounts
+ * that are saved — an amount with more decimals than its currency carries is
+ * refused instead of being rounded only for the check.
+ */
+describe('hasCurrencyPrecision', () => {
+  it('UF: up to two decimals', () => {
+    expect(hasCurrencyPrecision(50, 2)).toBe(true);
+    expect(hasCurrencyPrecision(50.4, 2)).toBe(true);
+    expect(hasCurrencyPrecision(33.33, 2)).toBe(true);
+    expect(hasCurrencyPrecision(33.333, 2)).toBe(false);
+  });
+
+  it('CLP: whole pesos only', () => {
+    expect(hasCurrencyPrecision(50, 0)).toBe(true);
+    expect(hasCurrencyPrecision(1000000, 0)).toBe(true);
+    expect(hasCurrencyPrecision(50.49, 0)).toBe(false);
+    expect(hasCurrencyPrecision(0.5, 0)).toBe(false);
+  });
+
+  it('tolerates floating-point noise', () => {
+    expect(hasCurrencyPrecision(0.1 + 0.2, 2)).toBe(true);
+    expect(hasCurrencyPrecision(1.005, 2)).toBe(false);
+    expect(hasCurrencyPrecision(100.01 * 3, 2)).toBe(true);
   });
 });

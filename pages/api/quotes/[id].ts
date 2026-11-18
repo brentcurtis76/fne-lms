@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { createApiSupabaseClient, createServiceRoleClient, getApiUser, getForcedPasswordChangeVerdict, requireVerifiedCaller } from '../../../lib/api-auth';
+import { cleanQuoteDate, defaultValidUntil } from '../../../lib/quotes/valid-until';
 
 const EDITABLE_QUOTE_FIELDS = [
   'client_name', 'client_email', 'client_phone', 'client_institution',
@@ -210,7 +211,7 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
     // Check if the quote exists and user can access it using service role
     const { data: existingQuote, error: checkError } = await serviceSupabase
       .from('pasantias_quotes')
-      .select('id, created_by, status')
+      .select('id, created_by, status, valid_until')
       .eq('id', id)
       .single();
     
@@ -259,6 +260,23 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
       if (req.body && Object.prototype.hasOwnProperty.call(req.body, field)) {
         updateData[field] = req.body[field];
       }
+    }
+    // The two dates are a real date or nothing; a quote that is sent after
+    // this save and has no «válido hasta» is valid for 30 days from today in
+    // Chile.
+    for (const field of ['valid_until', 'early_bird_payment_date'] as const) {
+      if (Object.prototype.hasOwnProperty.call(updateData, field)) {
+        updateData[field] = cleanQuoteDate(updateData[field]);
+      }
+    }
+    const statusAfter = Object.prototype.hasOwnProperty.call(updateData, 'status')
+      ? updateData.status
+      : existingQuote.status;
+    const validUntilAfter = Object.prototype.hasOwnProperty.call(updateData, 'valid_until')
+      ? updateData.valid_until
+      : existingQuote.valid_until;
+    if (statusAfter === 'sent' && (validUntilAfter === null || validUntilAfter === undefined)) {
+      updateData.valid_until = defaultValidUntil(new Date());
     }
     updateData.updated_by = userId;
     updateData.updated_at = new Date().toISOString();

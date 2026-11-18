@@ -148,3 +148,27 @@ describe('a proposal just sent is brought into view', () => {
     expect(rowMoves()).toEqual([]);
   });
 });
+
+/*
+ * Send-back «by sight», point 5: a card's first row (the state at the left, the pencil and the bin at
+ * the right when offered) has the same height with or without the two buttons: at least the icon
+ * button's 36 px, so the titles of one row start on one line. jsdom lays nothing out: the classes are
+ * read (the kit's icon-only button is h-9, 36 px, in both looks).
+ */
+describe('proposal cards line up with or without their two buttons', () => {
+  it('the first row is 36 px tall at least, with and without the buttons', async () => {
+    render(<ProposalsNuevo userId={OWNER} />);
+    await settle();
+    const own = screen.getByTestId('panel-proposal-prop-1').firstElementChild as HTMLElement;
+    const other = screen.getByTestId('panel-proposal-prop-3').firstElementChild as HTMLElement;
+    expect(own.querySelectorAll('button')).toHaveLength(2);
+    expect(other.querySelectorAll('button')).toHaveLength(0);
+    for (const head of [own, other]) {
+      expect(head.className.split(/\s+/)).toContain('min-h-[36px]');
+      expect(head.nextElementSibling!.tagName).toBe('H3');
+    }
+    for (const button of own.querySelectorAll('button')) {
+      expect(button.className.split(/\s+/)).toContain('h-9');
+    }
+  });
+});

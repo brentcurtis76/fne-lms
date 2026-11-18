@@ -42,7 +42,9 @@ function ProposalCardNuevo({
 
   return (
     <Card className="flex h-full flex-col gap-2 p-3.5" data-testid={`panel-proposal-${proposal.id}`}>
-      <div className="flex items-center justify-between gap-2">
+      {/* The first row is as tall as the two icon buttons (36 px) whether they are offered or not, so
+          the titles of one row of cards start on one line. */}
+      <div className="flex min-h-[36px] items-center justify-between gap-2">
         <Badge tone={TONE[status.label] ?? 'warning'}>{status.label}</Badge>
         {isOwner && (
           <span className="inline-flex">

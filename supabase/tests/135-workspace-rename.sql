@@ -12,7 +12,9 @@
 --      authenticated may execute, a comment
 --   2. allowed callers rename, and only custom_name and updated_at change
 --   3. refused callers and an unknown workspace: not_allowed, row unchanged
---   4. invalid names refused, row unchanged; trimming; 100 characters accepted
+--   4. invalid names refused, row unchanged (also nothing to read, controls,
+--      separators, direction and zero-width characters anywhere); ordinary
+--      names accepted; trimming; 100 characters accepted
 --   5. a member's direct update of the table changes nothing; the community
 --      manager's and an admin's direct picture update still work
 --
@@ -21,7 +23,7 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(34);
+SELECT plan(61);
 
 CREATE TEMP TABLE ids (p text PRIMARY KEY, id uuid) ON COMMIT DROP;
 GRANT SELECT ON ids TO anon, authenticated;
@@ -209,13 +211,47 @@ SELECT is(pg_temp.call_as(p, format('SELECT public.rename_community_workspace(%L
  ORDER BY n;
 
 -- ---------------------------------------------------------------------------
--- 4. Names (6)
+-- 4. Names (33)
 -- ---------------------------------------------------------------------------
 SELECT is(pg_temp.rename('doc', 'A', t), '22023:invalid_name|unchanged', format('rename: %s → invalid_name, row unchanged', label))
   FROM (VALUES (1, '', 'an empty name'),
                (2, '     ', 'spaces only'),
                (3, repeat('a', 101), '101 characters'),
                (4, NULL, 'NULL')) v(n, t, label)
+ ORDER BY n;
+-- Nothing to read, or characters that play tricks (anywhere in the name):
+-- invalid_name, row unchanged. (U+0000 cannot be stored in text at all.)
+SELECT is(pg_temp.rename('doc', 'A', t), '22023:invalid_name|unchanged', format('rename: %s → invalid_name, row unchanged', label))
+  FROM (VALUES (1,  E'\u2060',                    'only a word joiner U+2060'),
+               (2,  E'\u200E\u200E\u200E',        'only left-to-right marks U+200E'),
+               (3,  E'\u200F\u200E',              'only direction marks U+200F U+200E'),
+               (4,  E'\u0301\u0301\u0301',        'only combining marks U+0301 ×3'),
+               (5,  E'A\u202Eb',                   '«Ab» with a right-to-left override U+202E in the middle'),
+               (6,  E'A\nb',                       '«Ab» with a line break in the middle'),
+               (7,  E'A\tb',                       '«Ab» with a tab in the middle'),
+               (8,  E'A\u0001b',                   '«Ab» with control character U+0001 in the middle'),
+               (9,  E'A\u001Fb',                   '«Ab» with control character U+001F in the middle'),
+               (10, E'A\u007Fb',                   '«Ab» with DEL U+007F in the middle'),
+               (11, E'A\u0085b',                   '«Ab» with next-line U+0085 in the middle'),
+               (12, E'A\u2028b',                   '«Ab» with a line separator U+2028 in the middle'),
+               (13, E'A\u2029b',                   '«Ab» with a paragraph separator U+2029 in the middle'),
+               (14, E'A\u202Ab',                   '«Ab» with an embedding U+202A in the middle'),
+               (15, E'A\u2066b',                   '«Ab» with an isolate U+2066 in the middle'),
+               (16, E'A\u2069b',                   '«Ab» with a pop isolate U+2069 in the middle'),
+               (17, E'A\u200Bb',                   '«Ab» with a zero-width space U+200B in the middle'),
+               (18, E'A\u200Db',                   '«Ab» with a zero-width joiner U+200D in the middle'),
+               (19, E'A\u2060b',                   '«Ab» with a word joiner U+2060 in the middle'),
+               (20, E'A\uFEFFb',                   '«Ab» with U+FEFF in the middle'),
+               (21, E'\U0001F680',                 'an emoji alone (no letter or digit)'),
+               (22, E'Equipo \U0001F468\u200D\U0001F469', 'an emoji sequence joined by U+200D (accepted cost)')) v(n, t, label)
+ ORDER BY n;
+-- Ordinary names keep working.
+SELECT is(pg_temp.rename('doc', 'A', t), 'ok|' || t, format('rename: %s is accepted', label))
+  FROM (VALUES (1, 'Comunidad Ñandú 2º básico', '«Comunidad Ñandú 2º básico»'),
+               (2, 'Equipo A/B – ciclo 1',      '«Equipo A/B – ciclo 1»'),
+               (3, E'Equipo \U0001F680',        'an emoji with letters «Equipo 🚀»'),
+               (4, '日本語チーム',                 'a name in non-Latin letters'),
+               (5, '2026',                       'digits only')) v(n, t, label)
  ORDER BY n;
 SELECT is(pg_temp.rename('doc', 'A', ' x '), 'ok|x', 'rename: « x » is stored as «x»');
 SELECT is(pg_temp.rename('doc', 'A', repeat('ñ', 100)), 'ok|' || repeat('ñ', 100), 'rename: exactly 100 characters is accepted');

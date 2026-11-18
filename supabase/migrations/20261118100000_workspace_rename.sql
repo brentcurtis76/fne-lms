@@ -58,6 +58,20 @@ BEGIN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'invalid_name';
   END IF;
 
+  -- Something to read, nothing that plays tricks. Refused anywhere in the
+  -- name: control characters ([[:cntrl:]]: tab, line break, U+0001..U+001F,
+  -- U+007F..U+009F), the line and paragraph separators U+2028 U+2029, the
+  -- direction marks, overrides and isolates U+200E U+200F U+202A..U+202E
+  -- U+2066..U+2069, and the zero-width and joiner characters U+200B..U+200D
+  -- U+2060 U+FEFF. (A zero-width joiner inside an emoji sequence is thereby
+  -- refused too: accepted cost.) And a name needs at least one letter or
+  -- digit ([[:alnum:]], true for accented and non-Latin letters on a UTF-8
+  -- database): an emoji alone, or combining marks alone, are refused.
+  IF v_name ~ '[[:cntrl:]\u2028\u2029\u200E\u200F\u202A-\u202E\u2066-\u2069\u200B-\u200D\u2060\uFEFF]'
+     OR v_name !~ '[[:alnum:]]' THEN
+    RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'invalid_name';
+  END IF;
+
   UPDATE public.community_workspaces
      SET custom_name = v_name,
          updated_at = now()
@@ -69,4 +83,4 @@ REVOKE ALL ON FUNCTION public.rename_community_workspace(uuid, text) FROM PUBLIC
 GRANT EXECUTE ON FUNCTION public.rename_community_workspace(uuid, text) TO authenticated;
 
 COMMENT ON FUNCTION public.rename_community_workspace(uuid, text) IS
-  'F12c EC-V1a: sets custom_name (stripped at both ends of white space, control and format characters; then 1..100 characters, else invalid_name 22023) and updated_at of one community workspace. Allowed: an admin (auth_is_admin) or a caller with an active user_roles row in the workspace''s community whose role_type is not consultor (a consultor does not rename, even through a consultor row naming the community; one who also holds another active role row there renames through that row). A missing workspace or a caller not allowed raises not_allowed (42501); so does no sign-in or a pending forced password change. Changes no other column.';
+  'F12c EC-V1a: sets custom_name (stripped at both ends of white space, control and format characters; then 1..100 characters, with at least one letter or digit, and no control character, line or paragraph separator, direction mark, override or isolate, or zero-width or joiner character anywhere, else invalid_name 22023; so an emoji alone is refused, and so is an emoji sequence joined by U+200D, an accepted cost) and updated_at of one community workspace. Allowed: an admin (auth_is_admin) or a caller with an active user_roles row in the workspace''s community whose role_type is not consultor (a consultor does not rename, even through a consultor row naming the community; one who also holds another active role row there renames through that row). A missing workspace or a caller not allowed raises not_allowed (42501); so does no sign-in or a pending forced password change. Changes no other column.';

@@ -190,6 +190,74 @@ describe('ContractForm — «Guardar Borrador»', () => {
     ]);
   });
 
+  // Send-back 1, item 3: a draft found by its number does not lose hours already distributed.
+  it('saving over a found draft that has allocations: the update carries no horas_contratadas', async () => {
+    currentClient = createFakeSupabase({
+      existingDraft: { id: 'borrador-1' },
+      existingCuotas: [
+        { id: 'cuota-a', numero_cuota: 1 },
+        { id: 'cuota-b', numero_cuota: 2 },
+      ],
+      allocations: [{ id: 'alloc-1' }],
+    });
+    const onSuccess = vi.fn();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} preSelectedClientId="cliente-1" onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    toStep3(container, false);
+    fillBothCuotas(container);
+    clickButton(/Guardar Borrador/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith('borrador-1'));
+    const update = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'update');
+    expect(update.filters.id).toBe('borrador-1');
+    expect(update.payload).not.toHaveProperty('horas_contratadas');
+    expect(currentClient.__reads).toContainEqual({ table: 'contract_hour_allocations', filters: { contrato_id: 'borrador-1' } });
+  });
+
+  it('saving over a found draft whose allocation read fails: the update carries no horas_contratadas', async () => {
+    currentClient = createFakeSupabase({
+      existingDraft: { id: 'borrador-1' },
+      existingCuotas: [
+        { id: 'cuota-a', numero_cuota: 1 },
+        { id: 'cuota-b', numero_cuota: 2 },
+      ],
+      allocationsError: { message: 'read failed' },
+    });
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const onSuccess = vi.fn();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} preSelectedClientId="cliente-1" onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    toStep3(container, false);
+    fillBothCuotas(container);
+    clickButton(/Guardar Borrador/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith('borrador-1'));
+    const update = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'update');
+    expect(update.payload).not.toHaveProperty('horas_contratadas');
+    errorSpy.mockRestore();
+  });
+
+  it('saving over a found draft without allocations still sends horas_contratadas', async () => {
+    currentClient = createFakeSupabase({
+      existingDraft: { id: 'borrador-1' },
+      existingCuotas: [
+        { id: 'cuota-a', numero_cuota: 1 },
+        { id: 'cuota-b', numero_cuota: 2 },
+      ],
+      allocations: [],
+    });
+    const onSuccess = vi.fn();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} preSelectedClientId="cliente-1" onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    toStep3(container, false);
+    fillBothCuotas(container);
+    clickButton(/Guardar Borrador/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith('borrador-1'));
+    const update = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'update');
+    expect(update.payload).toHaveProperty('horas_contratadas', 120);
+  });
+
   it('a duplicate contract number still gives its own message', async () => {
     currentClient = createFakeSupabase({ contratoInsertError: { message: 'duplicate key value violates unique constraint' } });
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});

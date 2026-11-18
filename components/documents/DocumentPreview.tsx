@@ -120,6 +120,76 @@ export default function DocumentPreview({
     };
   }, [isOpen, documentId, previewable]);
 
+  // Send-back 1: while the preview stays open, a fresh link is asked for
+  // every four minutes and swapped in, so the shown link never dies (a video
+  // still loads what it has not buffered). A failed renewal keeps the link
+  // in place; a load error then gets its own retry below. The timer stops
+  // when the preview closes or the document changes.
+  useEffect(() => {
+    if (!isOpen || !documentId || !previewable) return;
+    let cancelled = false;
+    const timer = setInterval(() => {
+      requestLink(documentId)
+        .then(url => {
+          if (!cancelled) setLinkUrl(url);
+        })
+        .catch(() => {});
+    }, LINK_MAX_AGE_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [isOpen, documentId, previewable]);
+
+  // A video whose link is swapped keeps its place: before reloading the
+  // element with the new source, its position and playing state are read;
+  // once the new source's metadata arrives, the position is set back and
+  // playback resumed if it was playing.
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const shownLink = useRef<string | null>(null);
+  useEffect(() => {
+    const previous = shownLink.current;
+    shownLink.current = linkUrl;
+    const video = videoRef.current;
+    if (!video || !linkUrl || !previous || previous === linkUrl) return;
+    const position = video.currentTime;
+    const playing = !video.paused && !video.ended;
+    const resume = () => {
+      video.removeEventListener('loadedmetadata', resume);
+      if (position > 0) video.currentTime = position;
+      if (playing) void video.play()?.catch(() => {});
+    };
+    video.addEventListener('loadedmetadata', resume);
+    video.load();
+  }, [linkUrl]);
+
+  // On a load error of the image, the PDF frame or the video: ONE retry with
+  // a fresh link, then the existing error panel. A successful load allows a
+  // retry again later; a new document starts with one.
+  const retried = useRef(false);
+  const currentDocumentId = useRef(documentId);
+  currentDocumentId.current = documentId;
+  useEffect(() => {
+    retried.current = false;
+  }, [documentId]);
+  const handleLoadError = (message: string) => {
+    if (retried.current || !documentId) {
+      setPreviewError(message);
+      return;
+    }
+    retried.current = true;
+    const id = documentId;
+    requestLink(id)
+      .then(url => {
+        if (currentDocumentId.current === id) setLinkUrl(url);
+      })
+      .catch(() => setPreviewError(message));
+  };
+  const handleLoaded = () => {
+    retried.current = false;
+    setLoading(false);
+  };
+
   if (!isOpen || !document) return null;
 
   const fileIcon = getFileTypeIcon(document.mime_type);
@@ -253,8 +323,8 @@ export default function DocumentPreview({
               style={{
                 transform: `scale(${imageZoom / 100}) rotate(${imageRotation}deg)`,
               }}
-              onLoad={() => setLoading(false)}
-              onError={() => setPreviewError('Error al cargar la imagen')}
+              onLoad={handleLoaded}
+              onError={() => handleLoadError('Error al cargar la imagen')}
             />
           </div>
         </div>
@@ -269,8 +339,8 @@ export default function DocumentPreview({
             src={`${documentUrl}#view=FitH`}
             className="w-full h-full border-0"
             title={document.title}
-            onLoad={() => setLoading(false)}
-            onError={() => setPreviewError('Error al cargar el PDF')}
+            onLoad={handleLoaded}
+            onError={() => handleLoadError('Error al cargar el PDF')}
           />
         </div>
       );
@@ -281,10 +351,11 @@ export default function DocumentPreview({
       return (
         <div className="flex-1 flex items-center justify-center bg-black">
           <video
+            ref={videoRef}
             controls
             className="max-w-full max-h-full"
-            onLoadedData={() => setLoading(false)}
-            onError={() => setPreviewError('Error al cargar el video')}
+            onLoadedData={handleLoaded}
+            onError={() => handleLoadError('Error al cargar el video')}
           >
             <source src={documentUrl || undefined} type={document.mime_type} />
             Tu navegador no soporta la reproducción de videos.

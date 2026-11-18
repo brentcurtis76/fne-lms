@@ -462,11 +462,17 @@ describe('quote status and travel groups on PUT', () => {
     expect(update).toMatchObject({ status });
   });
 
-  it('a save carrying travel groups is refused instead of silently dropping them', async () => {
+  it('a save carrying travel groups saves them (F15c GES-2.12): a group without id is added to this quote before the quote update', async () => {
     verifiedUser = { id: CONSULTOR };
     const res = await call(quoteById, 'PUT', { id: 'q-consultor' }, { client_name: 'X', use_groups: true, groups: [{ name: 'g' }] });
-    expect(res.statusCode).toBe(400);
-    expect(writes()).toEqual([]);
+    expect(res.statusCode).toBe(200);
+    expect(writes().map(([t, o]) => `${t}.${o}`)).toEqual([
+      'pasantias_quote_groups.insert',
+      'pasantias_quotes.update',
+      'activity_logs.insert',
+    ]);
+    const insert = writes().find(([t, o]) => t === 'pasantias_quote_groups' && o === 'insert')?.[2];
+    expect(insert).toEqual([{ quote_id: 'q-consultor' }]);
   });
 });
 

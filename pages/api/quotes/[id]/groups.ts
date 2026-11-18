@@ -1,14 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createApiSupabaseClient, requireVerifiedCaller, createServiceRoleClient } from '../../../../lib/api-auth';
-
-// Columns a caller may set on a travel group. quote_id comes from the URL;
-// id, nights and the timestamps are the database's.
-const EDITABLE_GROUP_FIELDS = [
-  'group_name', 'num_participants', 'arrival_date', 'departure_date',
-  'flight_price', 'room_type', 'room_price_per_night', 'accommodation_total',
-  'flight_total', 'viaticos_type', 'viaticos_amount', 'viaticos_total',
-  'viaticos_display_amount',
-] as const;
+import { EDITABLE_GROUP_FIELDS } from '../../../../lib/quotes/group-fields';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const supabase = await createApiSupabaseClient(req, res);

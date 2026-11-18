@@ -1,7 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
-import { createApiSupabaseClient, createServiceRoleClient, getApiUser, getForcedPasswordChangeVerdict, requireVerifiedCaller } from '../../../lib/api-auth';
+import { createApiSupabaseClient, createServiceRoleClient, getApiUser, getForcedPasswordChangeVerdict, loggableError, requireVerifiedCaller } from '../../../lib/api-auth';
 import { cleanQuoteDate, defaultValidUntil } from '../../../lib/quotes/valid-until';
+import { EDITABLE_GROUP_FIELDS } from '../../../lib/quotes/group-fields';
 
 const EDITABLE_QUOTE_FIELDS = [
   'client_name', 'client_email', 'client_phone', 'client_institution',
@@ -211,7 +212,7 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
     // Check if the quote exists and user can access it using service role
     const { data: existingQuote, error: checkError } = await serviceSupabase
       .from('pasantias_quotes')
-      .select('id, created_by, status, valid_until')
+      .select('id, created_by, status, valid_until, use_groups')
       .eq('id', id)
       .single();
     
@@ -228,15 +229,6 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
       console.error('[UPDATE] User does not own quote and is not admin');
       return res.status(403).json({ 
         error: 'Solo puedes editar tus propias cotizaciones'
-      });
-    }
-
-    // Travel groups live in pasantias_quote_groups and are not saved by this
-    // route. Saying so beats reporting success while dropping the edit (before
-    // the field allowlist, such a save failed on the unknown column).
-    if (Array.isArray(req.body?.groups)) {
-      return res.status(400).json({
-        error: 'Por ahora no se pueden editar cotizaciones con grupos de viaje'
       });
     }
 
@@ -280,6 +272,71 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
     }
     updateData.updated_by = userId;
     updateData.updated_at = new Date().toISOString();
+
+    // A group-mode quote's travel groups are saved from the whole list the
+    // editor sends (update listed, add new, remove unlisted) before the quote.
+    const useGroupsAfter = Object.prototype.hasOwnProperty.call(updateData, 'use_groups')
+      ? updateData.use_groups
+      : existingQuote.use_groups;
+    if (Array.isArray(req.body?.groups) && useGroupsAfter === true) {
+      const listed: unknown[] = req.body.groups;
+      if (listed.length === 0) {
+        return res.status(400).json({ error: 'Debe incluir al menos un grupo de viaje' });
+      }
+
+      const { data: storedGroups, error: storedError } = await serviceSupabase
+        .from('pasantias_quote_groups')
+        .select('id')
+        .eq('quote_id', id);
+      if (storedError) {
+        console.error('[UPDATE] Error reading groups:', loggableError(storedError));
+        return res.status(500).json({ error: 'Error al guardar los grupos de viaje' });
+      }
+      const storedIds = new Set<string>((storedGroups || []).map((g: { id: string }) => g.id));
+
+      const toUpdate: Array<{ gid: string; fields: Record<string, unknown> }> = [];
+      const toInsert: Record<string, unknown>[] = [];
+      for (const group of listed) {
+        const gid = group && typeof group === 'object' ? (group as { id?: unknown }).id : undefined;
+        const fields = pickGroupFields(group);
+        if (gid === undefined || gid === null || gid === '') {
+          toInsert.push({ ...fields, quote_id: id });
+        } else if (typeof gid === 'string' && storedIds.has(gid)) {
+          toUpdate.push({ gid, fields });
+        } else {
+          return res.status(400).json({ error: 'Un grupo de viaje no pertenece a esta cotización' });
+        }
+      }
+      const listedIds = new Set(toUpdate.map((u) => u.gid));
+      const missing = Array.from(storedIds).filter((gid) => !listedIds.has(gid));
+
+      const groupWriteFailed = (groupError: unknown) => {
+        console.error('[UPDATE] Error saving groups:', loggableError(groupError));
+        return res.status(500).json({ error: 'Error al guardar los grupos de viaje' });
+      };
+      for (const { gid, fields } of toUpdate) {
+        const { error: groupError } = await serviceSupabase
+          .from('pasantias_quote_groups')
+          .update(fields)
+          .eq('id', gid)
+          .eq('quote_id', id);
+        if (groupError) return groupWriteFailed(groupError);
+      }
+      if (toInsert.length > 0) {
+        const { error: groupError } = await serviceSupabase
+          .from('pasantias_quote_groups')
+          .insert(toInsert);
+        if (groupError) return groupWriteFailed(groupError);
+      }
+      if (missing.length > 0) {
+        const { error: groupError } = await serviceSupabase
+          .from('pasantias_quote_groups')
+          .delete()
+          .in('id', missing)
+          .eq('quote_id', id);
+        if (groupError) return groupWriteFailed(groupError);
+      }
+    }
 
     console.log('[UPDATE] Updating with data keys:', Object.keys(updateData));
     
@@ -339,6 +396,18 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
+}
+
+function pickGroupFields(group: unknown): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (group && typeof group === 'object') {
+    for (const field of EDITABLE_GROUP_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(group, field)) {
+        out[field] = (group as Record<string, unknown>)[field];
+      }
+    }
+  }
+  return out;
 }
 
 async function handleDelete(supabase: any, id: string, req: NextApiRequest, res: NextApiResponse) {

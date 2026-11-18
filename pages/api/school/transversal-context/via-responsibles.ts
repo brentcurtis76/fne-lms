@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getApiUser, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import { hasDirectivoPermissionForSchool, isFullDirectivoScope } from '@/lib/permissions/directivo';
 import {
   getSchoolViaOverview,
@@ -52,13 +52,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (overview.kind === 'error') {
       return res.status(500).json({ error: overview.message });
     }
+    let vias = overview.vias;
+    if (permission.via === 'consultor') {
+      // N1: a consultor sees only the instruments the database lets them read
+      // (admins and the school's Equipo Directivo manage delivery and keep
+      // seeing every eligible instrument). Asked with the consultor's own
+      // session; an unreadable answer fails closed.
+      const sessionClient = await createApiSupabaseClient(req, res);
+      const { data: readableRows, error: readableError } = await sessionClient.rpc('auth_readable_template_ids');
+      if (readableError) {
+        console.error('[via-responsibles] readable instruments read failed:', readableError.message);
+        return res.status(500).json({ error: 'No se pudo leer el estado de los registros del equipo directivo.' });
+      }
+      const readable = new Set<string>(
+        (Array.isArray(readableRows) ? readableRows : []).map((row: any) =>
+          typeof row === 'string' ? row : row?.auth_readable_template_ids
+        )
+      );
+      vias = vias.map((via) => ({
+        ...via,
+        templates: via.templates.filter((t) => readable.has(t.id)),
+        pendingTemplates: via.pendingTemplates.filter((t) => readable.has(t.id)),
+      }));
+    }
     let candidates: { id: string; name: string; email: string | null }[] = [];
     if (canWrite) {
       const list = await listResponsibleCandidates(schoolId);
       if (list.kind === 'error') return res.status(500).json({ error: list.message });
       candidates = list.people;
     }
-    return res.status(200).json({ vias: overview.vias, candidates, canWrite });
+    return res.status(200).json({ vias, candidates, canWrite });
   }
 
   if (!canWrite) {

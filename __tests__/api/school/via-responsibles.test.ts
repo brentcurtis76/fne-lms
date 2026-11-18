@@ -12,6 +12,7 @@ import { createMocks } from 'node-mocks-http';
 
 const {
   mockGetApiUser,
+  mockCreateApiSupabaseClient,
   mockCreateServiceRoleClient,
   mockSendAuthError,
   mockHandleMethodNotAllowed,
@@ -21,6 +22,7 @@ const {
   mockWriteSchoolViaResponsible,
 } = vi.hoisted(() => ({
   mockGetApiUser: vi.fn(),
+  mockCreateApiSupabaseClient: vi.fn(),
   mockCreateServiceRoleClient: vi.fn(),
   mockSendAuthError: vi.fn(),
   mockHandleMethodNotAllowed: vi.fn(),
@@ -32,6 +34,7 @@ const {
 
 vi.mock('../../../lib/api-auth', () => ({
   getApiUser: mockGetApiUser,
+  createApiSupabaseClient: mockCreateApiSupabaseClient,
   createServiceRoleClient: mockCreateServiceRoleClient,
   sendAuthError: mockSendAuthError,
   handleMethodNotAllowed: mockHandleMethodNotAllowed,
@@ -68,9 +71,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockGetApiUser.mockResolvedValue({ user: { id: USER_ID }, error: null });
   mockCreateServiceRoleClient.mockReturnValue({});
+  // A consultor's overview is filtered by the instruments they may read (N1).
+  mockCreateApiSupabaseClient.mockResolvedValue({ rpc: vi.fn(async () => ({ data: [], error: null })) });
   mockHandleMethodNotAllowed.mockImplementation((res: any) => res.status(405).json({ error: 'Method not allowed' }));
   mockSendAuthError.mockImplementation((res: any) => res.status(401).json({ error: 'auth' }));
-  mockGetSchoolViaOverview.mockResolvedValue({ kind: 'ok', vias: [{ area: 'liderazgo' }] });
+  mockGetSchoolViaOverview.mockResolvedValue({ kind: 'ok', vias: [{ area: 'liderazgo', templates: [], pendingTemplates: [] }] });
   mockListResponsibleCandidates.mockResolvedValue({ kind: 'ok', people: [{ id: PICKED_ID, name: 'Directiva', email: null }] });
   mockWriteSchoolViaResponsible.mockResolvedValue({ kind: 'ok', mode: 'assigned', details: [] });
 });

@@ -249,6 +249,8 @@ describe('ContractForm — «Horas contratadas»', () => {
     clickButton('Siguiente');
     await screen.findByText('No se puede cambiar: el contrato ya tiene una distribución de horas.');
     expect(hours().readOnly).toBe(true);
+    // Send-back 2, item 3: only the lock note shows, not the "you can change them" hint
+    expect(screen.queryByText('Se completa con las horas del programa; puede cambiarlas antes de guardar.')).toBeNull();
     typeInto(hours(), '99');
     expect(hours().value).toBe('40');
     clickButton('Siguiente');

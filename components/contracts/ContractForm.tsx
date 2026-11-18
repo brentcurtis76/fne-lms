@@ -7,7 +7,7 @@ import { toast } from 'react-hot-toast';
 import { generateContractFromTemplate } from '@/lib/contract-template';
 import { reconcileCuotas, attachExistingCuotaIds } from '@/lib/utils/reconcileCuotas';
 import { buildClientRow } from '@/lib/contracts/client-row';
-import { splitEvenly, sumsMatch, difference, decimalsFor } from '@/lib/contracts/cuotas-math';
+import { splitEvenly, sumsMatch, difference, decimalsFor, hasCurrencyPrecision, precisionMessage } from '@/lib/contracts/cuotas-math';
 
 interface Programa {
   id: string;
@@ -674,6 +674,10 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           return;
         }
       }
+      if (amountPrecisionError) {
+        toast.error(amountPrecisionError);
+        return;
+      }
       
       // Get or create clienteId
       let clienteId = selectedClienteId || contractForm.cliente_id;
@@ -1116,6 +1120,14 @@ export default function ContractForm({ programas, clientes, editingContract, pre
   const moneyDecimals = decimalsFor(contractForm.tipo_moneda);
   const cuotaAmounts = cuotas.map(c => c.monto);
   const cuotasMatchTotal = sumsMatch(contractForm.precio_total_uf, cuotaAmounts, moneyDecimals);
+  // The amounts that are checked are the amounts that are saved: a total or a cuota
+  // with more decimals than its currency is refused, never rounded (send-back 1).
+  const badPrecisionCuota = cuotas.find(c => !hasCurrencyPrecision(c.monto, moneyDecimals));
+  const amountPrecisionError = !hasCurrencyPrecision(contractForm.precio_total_uf, moneyDecimals)
+    ? precisionMessage('total')
+    : badPrecisionCuota
+      ? precisionMessage({ cuota: badPrecisionCuota.numero_cuota })
+      : null;
 
   // Validation
   const isStepValid = () => {
@@ -1141,7 +1153,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                horasValid;
       case 'cuotas':
         return cuotas.every(c => c.fecha_vencimiento && c.monto > 0) &&
-               cuotasMatchTotal;
+               cuotasMatchTotal && !amountPrecisionError;
       default:
         return false;
     }
@@ -1966,6 +1978,12 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   ⚠️ La suma de las cuotas no coincide con el total del contrato. 
                   Diferencia: {contractForm.tipo_moneda} {difference(contractForm.precio_total_uf, cuotaAmounts, moneyDecimals).toLocaleString('es-CL', { minimumFractionDigits: moneyDecimals, maximumFractionDigits: moneyDecimals })}
                 </p>
+              </div>
+            )}
+
+            {amountPrecisionError && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-yellow-800 text-sm">{amountPrecisionError}</p>
               </div>
             )}
           </div>

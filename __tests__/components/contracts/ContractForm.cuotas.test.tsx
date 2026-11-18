@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 
 (globalThis as any).React = React;
@@ -122,5 +122,99 @@ describe('ContractForm — «Calcular Automático»', () => {
     }
     expect(container.querySelectorAll('input[type="number"]')).toHaveLength(12);
     expect(screen.getByRole('button', { name: /Agregar Cuota/ })).toBeDisabled();
+  });
+
+  // Send-back 1, item 1: the amounts that are checked are the amounts that are saved.
+  it('CLP 100 in two cuotas of 50.49: the step is not valid and the message names the cuota', () => {
+    currentClient = createFakeSupabase();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[]} onSuccess={vi.fn()} onCancel={vi.fn()} />,
+    );
+    goToCuotas(container, 100, 'CLP');
+    clickButton(/Agregar Cuota/);
+    container.querySelectorAll('input[type="number"]').forEach((el) => typeInto(el, '50.49'));
+    fillCuotaDates(container);
+
+    expect(
+      screen.getByText('Los montos en CLP no llevan decimales; en UF, hasta dos. Corrija la cuota 1.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Guardar Contrato/ })).toBeDisabled();
+
+    // corrected to whole pesos: accepted
+    container.querySelectorAll('input[type="number"]').forEach((el) => typeInto(el, '50'));
+    expect(screen.queryByText(/no llevan decimales/)).toBeNull();
+    expect(screen.getByRole('button', { name: /Guardar Contrato/ })).toBeEnabled();
+  });
+
+  it('UF with a cuota of three decimals: refused, the message names that cuota', () => {
+    currentClient = createFakeSupabase();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[]} onSuccess={vi.fn()} onCancel={vi.fn()} />,
+    );
+    goToCuotas(container, 100);
+    clickButton(/Agregar Cuota/);
+    const inputs = container.querySelectorAll('input[type="number"]');
+    typeInto(inputs[0], '50');
+    typeInto(inputs[1], '49.995');
+    fillCuotaDates(container);
+    expect(
+      screen.getByText('Los montos en CLP no llevan decimales; en UF, hasta dos. Corrija la cuota 2.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Guardar Contrato/ })).toBeDisabled();
+  });
+
+  it('a total with more decimals than its currency: refused, the message names the total', () => {
+    currentClient = createFakeSupabase();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[]} onSuccess={vi.fn()} onCancel={vi.fn()} />,
+    );
+    goToCuotas(container, 100.5, 'CLP');
+    typeInto(container.querySelector('input[type="number"]') as Element, '100');
+    fillCuotaDates(container);
+    expect(
+      screen.getByText('Los montos en CLP no llevan decimales; en UF, hasta dos. Corrija el precio total.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Guardar Contrato/ })).toBeDisabled();
+  });
+
+  it('changing the currency after typing amounts re-runs the check', () => {
+    currentClient = createFakeSupabase();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[]} onSuccess={vi.fn()} onCancel={vi.fn()} />,
+    );
+    goToCuotas(container, 100);
+    clickButton(/Agregar Cuota/);
+    const inputs = container.querySelectorAll('input[type="number"]');
+    typeInto(inputs[0], '49.75');
+    typeInto(inputs[1], '50.25');
+    fillCuotaDates(container);
+    expect(screen.queryByText(/no llevan decimales/)).toBeNull();
+    expect(screen.getByRole('button', { name: /Guardar Contrato/ })).toBeEnabled();
+
+    // back to step 2, switch to CLP, forward again: the same amounts are now refused
+    clickButton('Anterior');
+    fireEvent.click(container.querySelector('input[value="CLP"]') as Element);
+    clickButton('Siguiente');
+    expect(
+      screen.getByText('Los montos en CLP no llevan decimales; en UF, hasta dos. Corrija la cuota 1.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Guardar Contrato/ })).toBeDisabled();
+  });
+
+  it('after «Calcular Automático» on 100 UF in three, the save writes exactly 33.33, 33.33, 33.34', async () => {
+    currentClient = createFakeSupabase({ clienteByRut: null });
+    const onSuccess = vi.fn();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[]} onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    goToCuotas(container, 100);
+    clickButton(/Agregar Cuota/);
+    clickButton(/Agregar Cuota/);
+    clickButton('Calcular Automático');
+    fillCuotaDates(container);
+    clickButton(/Guardar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const cuotasInsert = currentClient.__writes.find((w: any) => w.table === 'cuotas' && w.op === 'insert');
+    expect(cuotasInsert.payload.map((c: any) => c.monto_uf)).toEqual([33.33, 33.33, 33.34]);
   });
 });

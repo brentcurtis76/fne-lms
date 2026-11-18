@@ -43,3 +43,20 @@ export function sumsMatch(total: number, amounts: number[], decimals: number): b
 export function difference(total: number, amounts: number[], decimals: number): number {
   return fromUnits(toUnits(total, decimals) - sumUnits(amounts, decimals), decimals);
 }
+
+/**
+ * True when `amount` carries no more decimals than the currency allows (0 for
+ * CLP, 2 for UF), tolerating floating-point noise such as 0.1 + 0.2. The form
+ * refuses such amounts instead of rounding them, so the amounts that are
+ * checked are the amounts that are saved (GES-2.7, send-back 1).
+ */
+export function hasCurrencyPrecision(amount: number, decimals: number): boolean {
+  const scaled = (Number(amount) || 0) * 10 ** decimals;
+  return Math.abs(scaled - Math.round(scaled)) < 1e-6;
+}
+
+/** The message for an amount with more decimals than its currency carries. */
+export function precisionMessage(target: { cuota: number } | 'total'): string {
+  const subject = target === 'total' ? 'el precio total' : `la cuota ${target.cuota}`;
+  return `Los montos en CLP no llevan decimales; en UF, hasta dos. Corrija ${subject}.`;
+}

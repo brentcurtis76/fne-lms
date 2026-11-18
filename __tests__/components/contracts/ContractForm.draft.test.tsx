@@ -149,6 +149,24 @@ describe('ContractForm — «Guardar Borrador»', () => {
     expect(alertSpy).not.toHaveBeenCalled();
   });
 
+  it('a cuota with more decimals than its currency: nothing is written and the toast names the cuota (send-back 1)', async () => {
+    currentClient = createFakeSupabase();
+    const onSuccess = vi.fn();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} preSelectedClientId="cliente-1" onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    toStep3(container, false);
+    dateInputs(container).forEach((el) => typeInto(el, '2099-06-30'));
+    typeInto(amountInputs(container)[0], '50');
+    typeInto(amountInputs(container)[1], '49.995');
+    clickButton(/Guardar Borrador/);
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Los montos en CLP no llevan decimales; en UF, hasta dos. Corrija la cuota 2.'),
+    );
+    expect(currentClient.__writes).toHaveLength(0);
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
   it('saving over an existing draft keeps one draft and updates its cuotas in place', async () => {
     currentClient = createFakeSupabase({
       existingDraft: { id: 'borrador-1' },

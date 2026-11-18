@@ -1844,11 +1844,14 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   }}
                   className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${horasReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
-                <p className="text-sm text-gray-500 mt-1">
-                  {esManual
-                    ? 'Horas de la bolsa de este contrato (opcional).'
-                    : 'Se completa con las horas del programa; puede cambiarlas antes de guardar.'}
-                </p>
+                {/* Locked by a distribution: only the lock note shows (send-back 2) */}
+                {hourAllocationState !== 'has' && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    {esManual
+                      ? 'Horas de la bolsa de este contrato (opcional).'
+                      : 'Se completa con las horas del programa; puede cambiarlas antes de guardar.'}
+                  </p>
+                )}
                 {hourAllocationState === 'has' && (
                   <p className="text-xs text-gray-500 mt-1">
                     No se puede cambiar: el contrato ya tiene una distribución de horas.

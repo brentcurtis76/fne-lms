@@ -98,6 +98,24 @@ describe('ContractForm — «Guardar Borrador»', () => {
     expect(writes[2].payload).toHaveLength(2);
   });
 
+  // Send-back 2, item 5: the success message is the page's toast, not a browser pop-up.
+  it('a successful draft save calls no window.alert and shows the success toast', async () => {
+    vi.mocked(toast.success).mockClear();
+    currentClient = createFakeSupabase();
+    const onSuccess = vi.fn();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} preSelectedClientId="cliente-1" onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    toStep3(container, false);
+    fillBothCuotas(container);
+    clickButton(/Guardar Borrador/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(alertSpy).not.toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith(
+      '✅ Contrato guardado como borrador. Puede continuar editándolo más tarde desde la lista de contratos.',
+    );
+  });
+
   it('if the client insert fails, nothing else is written and a readable message is shown', async () => {
     currentClient = createFakeSupabase({ clienteByRut: null, clienteInsertError: { message: 'null value in column', code: '23502' } });
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});

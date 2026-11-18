@@ -672,7 +672,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       
       // Validate minimum required fields for draft
       if (!contractForm.numero_contrato) {
-        alert('Por favor ingrese un número de contrato antes de guardar como borrador.');
+        toast.error('Por favor ingrese un número de contrato antes de guardar como borrador.');
         setSavingAsDraft(false);
         return;
       }
@@ -838,7 +838,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         );
       }
       
-      alert('✅ Contrato guardado como borrador. Puede continuar editándolo más tarde desde la lista de contratos.');
+      toast.success('✅ Contrato guardado como borrador. Puede continuar editándolo más tarde desde la lista de contratos.');
       onSuccess(contractId);
     } catch (error: any) {
       console.error('Error saving draft:', error);

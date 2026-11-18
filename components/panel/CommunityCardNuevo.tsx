@@ -11,6 +11,7 @@ import {
   communityChoiceLabel,
   isChosenCommunity,
 } from './memberText';
+import { INSET_RING } from './PanelSection';
 
 /**
  * The new look's «Mi Comunidad de Crecimiento» card (redesign 6B), drawn when `decisions.community`
@@ -38,7 +39,7 @@ export function CommunityCardNuevo({
           type="button"
           onClick={toggleCommunity}
           aria-expanded={communityExpanded}
-          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-gray-50 motion-reduce:transition-none"
+          className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-gray-50 motion-reduce:transition-none ${INSET_RING}`}
           data-testid="panel-community-bar"
         >
           {workspace?.image_url ? (

@@ -14,7 +14,7 @@ import React from 'react';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  fakes, settle, resetFakes, fakeFetch, NOW, admin, consultor, docente, fullDocente, withCommunity, PATHS, FULL_FETCH,
+  fakes, settle, resetFakes, fakeFetch, NOW, admin, consultor, docente, fullDocente, withCommunity, twoCommunities, PATHS, FULL_FETCH,
   assigned, profile, proposal, badge, NEWS, VIDEOS, STATS_FULL, UPCOMING, DOCENTE_ASSIGNMENTS, DOCENTE_ENROLMENTS,
 } from '../helpers/panelFakes';
 import { installMatchMedia } from '../helpers/motionFake';
@@ -300,6 +300,98 @@ describe('every interactive element is a real button or link', () => {
       expect(button.getAttribute('type')).toBe('button');
       expect((button.textContent ?? '').trim() || button.getAttribute('aria-label')).toBeTruthy();
     }
+  });
+});
+
+/*
+ * Send-back «by sight», point 1: the keyboard ring is never suppressed nor clipped in the new view.
+ * The look draws its ring with an outline 2 px outside the element (`styles/look-nuevo.css`, one step
+ * more specific than the kit's `focus:outline-none`, pinned in `__tests__/styles/look-nuevo.test.ts`).
+ * jsdom lays nothing out, so this reads classes: (a) no element that takes the focus carries an
+ * outline class other than the kit's overridden one and the panel's inset ring; (b) an element inside
+ * an ancestor that clips (a card or a row with an overflow class) either draws its ring inside
+ * (`INSET_RING`) or has at least 4 px of padding between itself and the clipping edge, given by the
+ * clipping ancestor or an element between them.
+ */
+describe('the keyboard ring shows on every stop of the new view', () => {
+  const INSET = 'nuevo:focus-visible:[outline-offset:-4px]';
+  const classes = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean);
+  const CLIPS = /^(overflow-hidden|overflow-auto|overflow-x-auto|overflow-y-auto|overflow-clip)$/;
+  // An element gives room when its padding classes (unprefixed: p-, px-, py-, pt-, pr-, pb-, pl-, on
+  // Tailwind's scale or in px) leave at least 4 px on each of its four sides.
+  const PADDING = /^p([xytrbl]?)-(\d+(?:\.\d+)?|\[(\d+(?:\.\d+)?)px\])$/;
+  const SIDES: Record<string, Array<'t' | 'r' | 'b' | 'l'>> = { '': ['t', 'r', 'b', 'l'], x: ['l', 'r'], y: ['t', 'b'], t: ['t'], r: ['r'], b: ['b'], l: ['l'] };
+  const roomy = (el: Element) => {
+    const side = { t: 0, r: 0, b: 0, l: 0 };
+    for (const name of classes(el)) {
+      const m = PADDING.exec(name);
+      if (!m) continue;
+      const px = m[3] !== undefined ? Number(m[3]) : Number(m[2]) * 4;
+      for (const s of SIDES[m[1]]) side[s] = px;
+    }
+    return side.t >= 4 && side.r >= 4 && side.b >= 4 && side.l >= 4;
+  };
+
+  const focusables = (root: Element) =>
+    [...root.querySelectorAll('a[href], button, input, select, textarea, [tabindex]')].filter((el) => el.getAttribute('tabindex') !== '-1');
+
+  function offenders(root: Element) {
+    const found: string[] = [];
+    for (const element of focusables(root)) {
+      const name = element.getAttribute('data-testid') ?? element.getAttribute('aria-label') ?? (element.textContent ?? '').trim().slice(0, 40);
+      const outline = classes(element).filter((c) => /outline/.test(c) && c !== 'focus:outline-none' && c !== INSET);
+      if (outline.length) found.push(`${name}: removes or changes the ring (${outline.join(' ')})`);
+      if (classes(element).includes(INSET)) continue;
+      let room = false;
+      for (let up = element.parentElement; up && up !== root.parentElement; up = up.parentElement) {
+        if (roomy(up)) room = true;
+        if (classes(up).some((c) => CLIPS.test(c))) {
+          if (!room) found.push(`${name}: its ring is clipped by ${up.tagName}.${classes(up).join('.')}`);
+          break;
+        }
+      }
+    }
+    return found;
+  }
+
+  async function openEverything() {
+    if (screen.queryByTestId('panel-community-bar')) fireEvent.click(screen.getByTestId('panel-community-bar'));
+    for (const toggle of screen.queryAllByText('Detalles')) fireEvent.click(toggle.closest('button')!);
+  }
+
+  it('the community bar draws its ring inside the card that clips it, and the news rows too', async () => {
+    await draw(withCommunity({ fetch: FULL_FETCH }, { role_type: 'community_manager' }));
+    const bar = screen.getByTestId('panel-community-bar');
+    expect(bar.tagName).toBe('BUTTON');
+    expect(classes(bar)).toContain(INSET);
+    expect(classes(bar).filter((c) => /outline/.test(c))).toEqual([INSET]);
+    expect(classes(bar.closest('[data-testid="panel-community"]')!)).toContain('overflow-hidden');
+    for (const row of screen.getAllByTestId(/^panel-news-(?!placeholder)/)) expect(classes(row)).toContain(INSET);
+  });
+
+  it('no stop suppresses or clips the ring: community (bar, gear, tiles), courses, routes, upcoming, news, videos', async () => {
+    const community = withCommunity({}, { role_type: 'community_manager' });
+    await draw(fullDocente({ roles: community.roles, members: community.members, workspaces: community.workspaces }));
+    await openEverything();
+    const root = screen.getByTestId('panel-nuevo');
+    expect(screen.getByTestId('panel-community-settings')).toBeTruthy();
+    expect(focusables(root).length).toBeGreaterThan(20);
+    expect(offenders(root)).toEqual([]);
+  });
+
+  it('no stop suppresses or clips the ring: the picker\'s pills', async () => {
+    await draw(twoCommunities());
+    await openEverything();
+    expect(screen.getByText('Seleccionar comunidad:')).toBeTruthy();
+    expect(offenders(screen.getByTestId('panel-nuevo'))).toEqual([]);
+  });
+
+  it('no stop suppresses or clips the ring: proposals (pencil, bin), badges and the tile «+n más»', async () => {
+    await draw(admin());
+    await openEverything();
+    expect(screen.getByTestId('panel-badges-more')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Eliminar propuesta' }).length).toBeGreaterThan(0);
+    expect(offenders(screen.getByTestId('panel-nuevo'))).toEqual([]);
   });
 });
 

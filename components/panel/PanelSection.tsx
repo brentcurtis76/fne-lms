@@ -22,6 +22,14 @@ export const ROW_ITEM = 'flex-none w-[248px] lg:w-[268px] snap-start';
  */
 export const fullTitle = (text: string | null | undefined): { title?: string } => (text ? { title: text } : {});
 
+/**
+ * The keyboard ring drawn INSIDE an element (the look's ring sits 2 px outside it, 2 px wide): for an
+ * element that fills a card which clips what overflows it (a bar, a row of a list), where the look's
+ * ring would be cut away entirely. The `nuevo:` variant makes it one step more specific than the
+ * look's own ring rule, so only the offset changes; the ring's colour and width stay the look's.
+ */
+export const INSET_RING = 'nuevo:focus-visible:[outline-offset:-4px]';
+
 const H2 ='font-mont text-[1.0625rem] font-extrabold uppercase leading-[1.4] tracking-[0.06em] text-brand_primary';
 
 interface PanelSectionProps {
@@ -133,10 +141,12 @@ export function PanelSection({ title, icon, sub, action, row = false, itemsKey, 
         )}
       </div>
       {row ? (
+        // The track keeps 4 px of room around its cards (taken back by a negative margin): the room the
+        // look's keyboard ring takes outside an element, so the scrolling track does not cut it.
         <div
           ref={rowRef}
           onScroll={measure}
-          className="-m-0.5 flex snap-x snap-proximity items-start gap-[14px] overflow-x-auto p-0.5 pb-1.5 scrollbar-hide"
+          className="-m-1 flex snap-x snap-proximity items-start gap-[14px] overflow-x-auto p-1 pb-2 scrollbar-hide"
           data-testid={testId ? `${testId}-row` : undefined}
         >
           {children}

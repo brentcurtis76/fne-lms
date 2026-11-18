@@ -7,7 +7,7 @@ import Avatar from '../common/Avatar';
 import { Button, Card, Skeleton } from '../ui/kit';
 import { formatTimeAgo, getExcerpt } from './format';
 import type { Panel, PanelDecisions } from '../../hooks/usePanel';
-import { PanelSection, ROW_ITEM, fullTitle } from './PanelSection';
+import { PanelSection, ROW_ITEM, INSET_RING, fullTitle } from './PanelSection';
 import { CourseCardNuevo } from './CourseCardNuevo';
 import { RouteCardNuevo } from './RouteCardNuevo';
 import { UpcomingCardNuevo } from './UpcomingCardNuevo';
@@ -307,7 +307,7 @@ export default function PanelNuevo({ panel, decisions }: { panel: Panel; decisio
                     href={`/noticias/${article.slug}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-start gap-3 px-4 py-3 no-underline transition-colors duration-150 hover:bg-gray-50 motion-reduce:transition-none"
+                    className={`flex items-start gap-3 px-4 py-3 no-underline transition-colors duration-150 hover:bg-gray-50 motion-reduce:transition-none ${INSET_RING}`}
                     data-testid={`panel-news-${article.id}`}
                   >
                     {article.featured_image && (

@@ -77,11 +77,16 @@ export function useWorkspaceSettings({
 
   // After the writes, report to the caller what is really stored (send-back 1):
   // the stored custom_name (undefined when empty, so the caller falls back to the
-  // community's own name) and the stored picture (undefined when none). If the
-  // read-back fails: what was just saved, undefined for a name not saved, and
-  // the picture the window was opened with when the picture was not saved.
+  // community's own name) and the stored picture (undefined when none). A failed
+  // read-back is tried once more (send-back 2). If it still fails: the name sent
+  // (trimmed) when the name was saved, else the name the window was opened with
+  // (so the existing name does not vanish from the screen); the picture just
+  // saved, else the one the window was opened with.
   const reportStored = async (saved: { name?: string; imageUrl?: string; pictureSaved: boolean }) => {
-    const { data, error } = await communityWorkspaceService.getWorkspaceSettings(workspaceId);
+    let { data, error } = await communityWorkspaceService.getWorkspaceSettings(workspaceId);
+    if (error || !data) {
+      ({ data, error } = await communityWorkspaceService.getWorkspaceSettings(workspaceId));
+    }
     if (!error && data) {
       onUpdate({
         customName: data.custom_name || undefined,
@@ -90,7 +95,7 @@ export function useWorkspaceSettings({
       return;
     }
     onUpdate({
-      customName: saved.name || undefined,
+      customName: (saved.name !== undefined ? saved.name.trim() : currentName) || undefined,
       imageUrl: (saved.pictureSaved ? saved.imageUrl : currentImageUrl) || undefined
     });
   };

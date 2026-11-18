@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { XIcon, PhotographIcon, DocumentIcon, LinkIcon, HashtagIcon, AtSymbolIcon } from '@heroicons/react/outline';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -14,6 +14,8 @@ interface CreatePostModalProps {
   onSubmit: (post: CreatePostInput) => Promise<void>;
   authorName: string;
   authorAvatar?: string;
+  /** F12e N97: the workspace the post is written in; the @mention search is scoped to it. */
+  workspaceId: string;
 }
 
 export default function CreatePostModal({ 
@@ -21,7 +23,8 @@ export default function CreatePostModal({
   onClose, 
   onSubmit, 
   authorName, 
-  authorAvatar 
+  authorAvatar,
+  workspaceId
 }: CreatePostModalProps) {
   const [postType, setPostType] = useState<PostType>('text');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -29,17 +32,10 @@ export default function CreatePostModal({
   const [linkUrl, setLinkUrl] = useState('');
   const [fileInputType, setFileInputType] = useState<'image' | 'document'>('image');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [workspaceId, setWorkspaceId] = useState<string>('');
-
-  // Get workspace ID from URL
-  useEffect(() => {
-    const path = window.location.pathname;
-    const match = path.match(/\/community\/workspace/);
-    if (match) {
-      // Get workspace ID from somewhere - we'll need to pass this as a prop
-      // For now, we'll need to update this
-    }
-  }, []);
+  // The editor (and its mention search) is built once; the ref keeps the
+  // search on the workspace currently shown.
+  const workspaceIdRef = useRef(workspaceId);
+  workspaceIdRef.current = workspaceId;
 
   const editor = useEditor({
     extensions: [
@@ -52,7 +48,7 @@ export default function CreatePostModal({
           items: async ({ query }) => {
             // Fetch users from API
             try {
-              const response = await fetch(`/api/community/search-users?q=${encodeURIComponent(query)}`, {
+              const response = await fetch(`/api/community/search-users?q=${encodeURIComponent(query)}&workspace_id=${encodeURIComponent(workspaceIdRef.current)}`, {
                 credentials: 'include',
                 headers: {
                   'Content-Type': 'application/json',

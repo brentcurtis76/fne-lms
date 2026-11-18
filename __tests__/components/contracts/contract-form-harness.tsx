@@ -25,6 +25,8 @@ export interface FakeOptions {
   clienteByRut?: Row | null;
   /** Error returned by an insert into clientes. */
   clienteInsertError?: { message: string; code?: string } | null;
+  /** Error returned by an insert into contratos. */
+  contratoInsertError?: { message: string; code?: string } | null;
   /** Row returned by the draft lookup `contratos … eq('estado','borrador').single()`. */
   existingDraft?: Row | null;
   /** Rows returned by `cuotas … select('id, numero_cuota') / select('id')`. */
@@ -54,6 +56,9 @@ export function createFakeSupabase(options: FakeOptions = {}) {
           return { data: null, error: options.clienteInsertError };
         }
         writes.push({ table, op: 'insert', payload: ctx.payload, filters: { ...ctx.filters } });
+        if (table === 'contratos' && options.contratoInsertError) {
+          return { data: null, error: options.contratoInsertError };
+        }
         const first = Array.isArray(ctx.payload) ? ctx.payload[0] : ctx.payload;
         if (table === 'clientes') return { data: { id: 'cliente-nuevo', ...first }, error: null };
         if (table === 'contratos') return { data: { id: 'contrato-nuevo', ...first }, error: null };

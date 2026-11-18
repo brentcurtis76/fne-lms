@@ -275,9 +275,17 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
         return;
       }
 
-      const validCuotas = cuotas.filter(cuota => 
-        cuota.fecha_vencimiento && cuota.monto > 0
+      // Refuse an incomplete cuota instead of dropping it: when editing, a
+      // dropped cuota would be deleted from the database by reconcileCuotas.
+      const incompleteCuota = cuotas.find(cuota =>
+        !cuota.fecha_vencimiento || !(cuota.monto > 0)
       );
+      if (incompleteCuota) {
+        toast.error(`La cuota ${incompleteCuota.numero_cuota} necesita fecha y un monto mayor que cero.`);
+        return;
+      }
+
+      const validCuotas = cuotas;
 
       if (validCuotas.length === 0) {
         toast.error('Debe agregar al menos una cuota válida');
@@ -729,7 +737,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
             >
               Cancelar
             </button>
-            {step !== 'cliente' && (
+            {step !== 'cliente' && !(editingAnnex && step === 'anexo') && (
               <button
                 type="button"
                 onClick={prevStep}

@@ -7,6 +7,7 @@ import { loginViaUi, E2E_USERS } from './helpers/auth';
 
 const api = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const db = process.env.SUPABASE_DB_URL!;
 if (![api, db].every(url => ['localhost', '127.0.0.1'].includes(new URL(url).hostname))) throw new Error('Local synthetic stack only');
 mkdirSync('.doclinks/screens', { recursive: true });
@@ -108,6 +109,44 @@ for (const role of ['gcLeader', 'consultorAssigned'] as const) {
       await page.getByRole('button', { name: 'Descargar', exact: true }).click();
       expect(readFileSync((await (await legacyDownload).path())!).equals(buffer)).toBe(true);
       await rows('UPDATE community_documents SET storage_path=$1, storage_bucket=$2 WHERE id=$3', [record.storage_path, 'community-documents', record.id]);
+      // F12d send-back 3: nobody reads the private store with their own
+      // session; the file opened above only through the application's link.
+      // The uploader's own session, straight to the store: no GET of the
+      // object and no link signed by the store, before and after they hide
+      // the document.
+      const signIn = await fetch(`${api}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: { apikey: anonKey, 'content-type': 'application/json' },
+        body: JSON.stringify({ email: E2E_USERS[role].email, password: E2E_USERS[role].password }),
+      });
+      expect(signIn.status).toBe(200);
+      const own = { apikey: anonKey, Authorization: `Bearer ${((await signIn.json()) as { access_token: string }).access_token}` };
+      const objectAddress = `${api}/storage/v1/object/authenticated/community-documents/${record.storage_path}`;
+      const signAddress = `${api}/storage/v1/object/sign/community-documents/${record.storage_path}`;
+      const refusedRead = async () => {
+        const direct = await fetch(objectAddress, { headers: own });
+        expect(direct.ok).toBe(false);
+        expect(Buffer.from(await direct.arrayBuffer()).equals(buffer)).toBe(false);
+        const storeSigned = await fetch(signAddress, {
+          method: 'POST',
+          headers: { ...own, 'content-type': 'application/json' },
+          body: JSON.stringify({ expiresIn: 3600 }),
+        });
+        expect(storeSigned.ok).toBe(false);
+        expect(((await storeSigned.json()) as { signedURL?: string }).signedURL).toBeUndefined();
+      };
+      await refusedRead();
+      const hidden = await fetch(`${api}/rest/v1/rpc/hide_community_document`, {
+        method: 'POST',
+        headers: { ...own, 'content-type': 'application/json' },
+        body: JSON.stringify({ p_document_id: record.id }),
+      });
+      expect(hidden.status).toBe(204);
+      expect(await rows('SELECT is_active FROM community_documents WHERE id=$1', [record.id])).toEqual([{ is_active: false }]);
+      await refusedRead();
+      // the application refuses the hidden document too; its file stays in the store
+      expect((await context.request.get(`/api/community/documents/${record.id}/link`)).status()).toBe(404);
+      expect(await rows(`SELECT 1 FROM storage.objects WHERE bucket_id='community-documents' AND name=$1`, [record.storage_path])).toHaveLength(1);
       await context.close();
     });
   }

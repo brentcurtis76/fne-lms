@@ -6,7 +6,9 @@ import { communityWorkspaceService } from '../../lib/services/communityWorkspace
  * The community settings pop-up's state, effect, handlers and the rule that disables «Guardar cambios»,
  * one copy for both looks (redesign 6C). Moved word for word out of `WorkspaceSettingsModal.tsx` (the
  * same states in the same order, the same effect with the same dependency list, the same handlers);
- * today's markup and the new look's markup both read it.
+ * today's markup and the new look's markup both read it. The GENERA fixes (EC-V1b, ported onto this
+ * hook) then changed the save: a changed name goes through `renameWorkspace`, the picture only when one
+ * was chosen or removed, and «Guardar cambios» waits for a change.
  */
 export interface WorkspaceSettingsInput {
   onClose: () => void;
@@ -14,6 +16,8 @@ export interface WorkspaceSettingsInput {
   currentName: string;
   currentImageUrl?: string;
   onUpdate: (updates: { customName?: string; imageUrl?: string }) => void;
+  /** Whether the picture section is shown (admins and the community's manager). Default true. */
+  canChangePicture?: boolean;
 }
 
 export function useWorkspaceSettings({
@@ -21,9 +25,12 @@ export function useWorkspaceSettings({
   workspaceId,
   currentName,
   currentImageUrl,
-  onUpdate
+  onUpdate,
+  canChangePicture = true
 }: WorkspaceSettingsInput) {
   const [customName, setCustomName] = useState('');
+  // The name the window was opened with: a save renames only when the field differs from it (N92).
+  const [initialName, setInitialName] = useState('');
   const [imageUrl, setImageUrl] = useState(currentImageUrl || '');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
@@ -32,6 +39,7 @@ export function useWorkspaceSettings({
 
   useEffect(() => {
     setCustomName(currentName || '');
+    setInitialName(currentName || '');
     setImageUrl(currentImageUrl || '');
     setImagePreview(currentImageUrl || '');
   }, [currentName, currentImageUrl]);
@@ -63,47 +71,89 @@ export function useWorkspaceSettings({
     reader.readAsDataURL(file);
   };
 
+  const trimmedName = customName.trim();
+  const nameChanged = trimmedName !== initialName;
+  const pictureChanged = canChangePicture && (imageFile !== null || imageUrl !== (currentImageUrl || ''));
+
+  // After the writes, report to the caller what is really stored (send-back 1):
+  // the stored custom_name (undefined when empty, so the caller falls back to the
+  // community's own name) and the stored picture (undefined when none). A failed
+  // read-back is tried once more (send-back 2). If it still fails: the name sent
+  // (trimmed) when the name was saved, else the name the window was opened with
+  // (so the existing name does not vanish from the screen); the picture just
+  // saved, else the one the window was opened with.
+  const reportStored = async (saved: { name?: string; imageUrl?: string; pictureSaved: boolean }) => {
+    let { data, error } = await communityWorkspaceService.getWorkspaceSettings(workspaceId);
+    if (error || !data) {
+      ({ data, error } = await communityWorkspaceService.getWorkspaceSettings(workspaceId));
+    }
+    if (!error && data) {
+      onUpdate({
+        customName: data.custom_name || undefined,
+        imageUrl: data.image_url || undefined
+      });
+      return;
+    }
+    onUpdate({
+      customName: (saved.name !== undefined ? saved.name.trim() : currentName) || undefined,
+      imageUrl: (saved.pictureSaved ? saved.imageUrl : currentImageUrl) || undefined
+    });
+  };
+
   const handleSave = async () => {
     setIsLoading(true);
+    let savedImageUrl = '';
+    let pictureSaved = false;
 
     try {
-      let newImageUrl = imageUrl;
-      let newImagePath = undefined;
+      if (pictureChanged) {
+        let newImageUrl = imageUrl;
+        let newImagePath = undefined;
 
-      // Upload image if a new one was selected
-      if (imageFile) {
-        const uploadResult = await communityWorkspaceService.uploadCommunityImage(
+        // Upload image if a new one was selected
+        if (imageFile) {
+          const uploadResult = await communityWorkspaceService.uploadCommunityImage(
+            workspaceId,
+            imageFile
+          );
+
+          if (uploadResult.error) {
+            throw new Error(uploadResult.error);
+          }
+
+          newImageUrl = uploadResult.url!;
+          newImagePath = uploadResult.path;
+        }
+
+        // The picture keeps its direct update; it never carries the name (N92)
+        const { error } = await communityWorkspaceService.updateWorkspaceSettings(
           workspaceId,
-          imageFile
+          {
+            imageUrl: newImageUrl,
+            imageStoragePath: newImagePath
+          }
         );
 
-        if (uploadResult.error) {
-          throw new Error(uploadResult.error);
+        if (error) {
+          throw error;
         }
-
-        newImageUrl = uploadResult.url!;
-        newImagePath = uploadResult.path;
+        savedImageUrl = newImageUrl;
+        pictureSaved = true;
       }
 
-      // Update workspace settings
-      const { error } = await communityWorkspaceService.updateWorkspaceSettings(
-        workspaceId,
-        {
-          customName: customName.trim(),
-          imageUrl: newImageUrl,
-          imageStoragePath: newImagePath
+      if (nameChanged) {
+        const { error: renameError } = await communityWorkspaceService.renameWorkspace(workspaceId, trimmedName);
+        if (renameError) {
+          toast.error(renameError);
+          if (pictureSaved) {
+            await reportStored({ imageUrl: savedImageUrl, pictureSaved });
+          }
+          return;
         }
-      );
-
-      if (error) {
-        throw error;
       }
 
       toast.success('Configuración actualizada exitosamente');
-      onUpdate({
-        customName: customName.trim(),
-        imageUrl: newImageUrl
-      });
+      await reportStored({ name: nameChanged ? trimmedName : undefined, imageUrl: savedImageUrl, pictureSaved });
       onClose();
     } catch (error: any) {
       console.error('Error saving workspace settings:', error);
@@ -122,8 +172,9 @@ export function useWorkspaceSettings({
     }
   };
 
-  // «Guardar cambios» is disabled while saving, and when the name is blank and there is no image
-  const saveDisabled = isLoading || (!customName.trim() && !imageFile && !imageUrl);
+  // «Guardar cambios» is disabled while saving, when the name is blank, and when neither the name nor
+  // the picture changed (EC-V1b)
+  const saveDisabled = isLoading || !trimmedName || (!nameChanged && !pictureChanged);
 
   return {
     customName,
@@ -137,5 +188,6 @@ export function useWorkspaceSettings({
     handleSave,
     handleRemoveImage,
     saveDisabled,
+    canChangePicture,
   };
 }

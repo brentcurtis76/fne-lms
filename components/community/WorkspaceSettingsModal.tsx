@@ -11,6 +11,8 @@ interface WorkspaceSettingsModalProps {
   currentName: string;
   currentImageUrl?: string;
   onUpdate: (updates: { customName?: string; imageUrl?: string }) => void;
+  /** Whether the picture section is shown (admins and the community's manager). Default true. */
+  canChangePicture?: boolean;
 }
 
 export default function WorkspaceSettingsModal({
@@ -19,11 +21,12 @@ export default function WorkspaceSettingsModal({
   workspaceId,
   currentName,
   currentImageUrl,
-  onUpdate
+  onUpdate,
+  canChangePicture = true
 }: WorkspaceSettingsModalProps) {
   // State, effect, handlers and the save rule: ./useWorkspaceSettings (one copy for both looks),
   // called above the choice of markup so the state survives a look that arrives late
-  const settings = useWorkspaceSettings({ onClose, workspaceId, currentName, currentImageUrl, onUpdate });
+  const settings = useWorkspaceSettings({ onClose, workspaceId, currentName, currentImageUrl, onUpdate, canChangePicture });
   const { look } = useLook();
   const {
     customName,
@@ -78,6 +81,7 @@ export default function WorkspaceSettingsModal({
           </div>
 
           {/* Community Image */}
+          {canChangePicture && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Imagen de la Comunidad
@@ -130,7 +134,11 @@ export default function WorkspaceSettingsModal({
                 </p>
               </div>
             </div>
+            <p className="mt-1 text-xs text-gray-500">
+              La imagen la cambian los administradores y el gestor de la comunidad.
+            </p>
           </div>
+          )}
         </div>
 
         {/* Actions */}

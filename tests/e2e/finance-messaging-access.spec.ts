@@ -134,9 +134,15 @@ test.describe.serial('finance and messaging access boundaries', () => {
       await expect(page.getByRole('heading', { name: `Discusión: Synthetic access ${scope}` })).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Miembros del grupo (1)', exact: true })).toBeVisible();
       const body = `Synthetic private ${scope} message`;
-      await page.getByPlaceholder('Escribe un mensaje...').fill(body);
+      const composer = page.getByPlaceholder('Escribe un mensaje...');
+      await composer.fill(body);
+      // The composer keeps the typed text until the save returns, so seeing the text proves nothing:
+      // wait for the insert's 201, the emptied composer and the text in the message list (not the textarea).
+      const saved = page.waitForResponse(r => r.url().includes('/rest/v1/community_messages') && r.request().method() === 'POST' && r.status() === 201);
       await page.getByRole('button', { name: /Enviar/, exact: false }).click();
-      await expect(page.getByText(body, { exact: true })).toBeVisible();
+      await saved;
+      await expect(composer).toHaveValue('');
+      await expect(page.getByText(body, { exact: true }).and(page.locator(':not(textarea)'))).toBeVisible();
       await page.reload();
       await expect(page.getByText(body, { exact: true })).toBeVisible();
       const [mapping] = await sql('SELECT thread_id FROM group_assignment_discussions WHERE group_id=$1', [group]);

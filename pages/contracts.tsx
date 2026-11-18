@@ -1027,8 +1027,15 @@ export default function ContractsPage() {
               isOpen={!!selectedContrato}
               onClose={() => setSelectedContrato(null)}
               onEdit={(contrato) => {
-                setEditingContrato(contrato);
                 setSelectedContrato(null);
+                // The details window's own type omits is_anexo; the row is the page's.
+                const row: Contrato = contrato;
+                if (row.is_anexo) {
+                  setEditingAnexo(row);
+                  setActiveTab('editar-anexo');
+                  return;
+                }
+                setEditingContrato(contrato);
                 setActiveTab('editar');
               }}
               onDelete={(contrato) => {

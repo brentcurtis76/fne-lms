@@ -4,7 +4,11 @@ import { toast } from 'react-hot-toast';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
-import { extractionErrorMessage } from '../../lib/contracts/extractionError';
+import { extractionErrorMessage, TOO_LARGE_MESSAGE } from '../../lib/contracts/extractionError';
+
+// GES-2.3: the file travels as base64 inside JSON (a third larger) and the
+// route accepts a 4 MB body, so the screen allows 2,9 MB.
+const MAX_PDF_BYTES = 2.9 * 1024 * 1024;
 
 // Set worker for react-pdf
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
@@ -97,9 +101,8 @@ export default function ContractPDFImporter({
       return;
     }
 
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSize) {
-      toast.error('El archivo es demasiado grande (máximo 10MB)');
+    if (file.size > MAX_PDF_BYTES) {
+      toast.error(TOO_LARGE_MESSAGE);
       return;
     }
 
@@ -315,7 +318,7 @@ export default function ContractPDFImporter({
                   Arrastra un PDF aquí o haz clic para seleccionar
                 </p>
                 <p className="text-sm text-gray-500 mb-4">
-                  Máximo 10MB • Solo archivos PDF
+                  Máximo {String(MAX_PDF_BYTES / (1024 * 1024)).replace('.', ',')} MB • Solo archivos PDF
                 </p>
                 <p className="text-sm text-gray-500 mb-4" data-testid="pdf-import-anthropic-notice">
                   Al importar, el texto del documento se envía a Anthropic (Claude) para leerlo.

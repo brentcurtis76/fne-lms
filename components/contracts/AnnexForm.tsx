@@ -41,11 +41,13 @@ interface Contrato {
   numero_contrato: string;
   fecha_contrato: string;
   cliente_id: string;
-  programa_id: string;
+  programa_id: string | null;
   precio_total_uf: number;
   tipo_moneda?: 'UF' | 'CLP';
+  es_manual?: boolean | null;
+  descripcion_manual?: string | null;
   clientes: Cliente;
-  programas: Programa;
+  programas: Programa | null;
 }
 
 interface CuotaForm {
@@ -273,9 +275,17 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
         return;
       }
 
-      const validCuotas = cuotas.filter(cuota => 
-        cuota.fecha_vencimiento && cuota.monto > 0
+      // Refuse an incomplete cuota instead of dropping it: when editing, a
+      // dropped cuota would be deleted from the database by reconcileCuotas.
+      const incompleteCuota = cuotas.find(cuota =>
+        !cuota.fecha_vencimiento || !(cuota.monto > 0)
       );
+      if (incompleteCuota) {
+        toast.error(`La cuota ${incompleteCuota.numero_cuota} necesita fecha y un monto mayor que cero.`);
+        return;
+      }
+
+      const validCuotas = cuotas;
 
       if (validCuotas.length === 0) {
         toast.error('Debe agregar al menos una cuota válida');
@@ -342,7 +352,12 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
             numero_participantes: annexForm.numero_participantes,
             nombre_ciclo: annexForm.nombre_ciclo,
             estado: 'pendiente',
-            incluir_en_flujo: true
+            incluir_en_flujo: true,
+            // The annex of a manual contract is itself manual and carries the
+            // parent's description (shown by the list and the details window).
+            ...(selectedContrato.es_manual === true
+              ? { es_manual: true, descripcion_manual: selectedContrato.descripcion_manual ?? null }
+              : {})
           }])
           .select()
           .single();
@@ -541,7 +556,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
                   }`}
                 >
                   <div className="font-semibold text-brand_primary">{contrato.numero_contrato}</div>
-                  <div className="text-sm text-gray-600">{contrato.programas.nombre}</div>
+                  <div className="text-sm text-gray-600">{contrato.programas?.nombre || contrato.descripcion_manual || 'Contrato manual'}</div>
                   <div className="text-sm text-gray-500">
                     Fecha: {(() => {
                       const parts = contrato.fecha_contrato.split('T')[0].split('-');
@@ -727,7 +742,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
             >
               Cancelar
             </button>
-            {step !== 'cliente' && (
+            {step !== 'cliente' && !(editingAnnex && step === 'anexo') && (
               <button
                 type="button"
                 onClick={prevStep}

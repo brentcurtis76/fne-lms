@@ -186,6 +186,9 @@ Return ONLY valid JSON, no additional text or explanation.`;
   }
 }
 
+// GES-2.3: a 2,9 MB PDF sent as base64 inside JSON stays under 4 MB.
+export const config = { api: { bodyParser: { sizeLimit: '4mb' } } };
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse

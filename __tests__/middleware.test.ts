@@ -490,3 +490,101 @@ describe('middleware verified identity (W-B10c-01b)', () => {
     expect(supabase.from).not.toHaveBeenCalled();
   });
 });
+
+describe('middleware /community/workspace: consultor entry by current assignment (F12e V5b, N28)', () => {
+  const ASSIGNED_RPC = 'auth_consultor_assigned_school_ids';
+
+  /** The password-gate probe answers "not flagged"; the assignment lookup answers `schools`. */
+  function withAssignedSchools(supabase: ReturnType<typeof buildSupabase>, schools: unknown) {
+    supabase.rpc.mockImplementation(((fn: string) =>
+      Promise.resolve(
+        fn === ASSIGNED_RPC ? { data: schools, error: null } : { data: false, error: null }
+      )) as never);
+    return supabase;
+  }
+
+  function assignedLookups(supabase: ReturnType<typeof buildSupabase>): number {
+    return supabase.rpc.mock.calls.filter((call: unknown[]) => call[0] === ASSIGNED_RPC).length;
+  }
+
+  async function visit(supabase: ReturnType<typeof buildSupabase>, path = '/community/workspace') {
+    createMiddlewareClient.mockReturnValue(supabase);
+    const { middleware } = await import('../middleware');
+    return middleware(new NextRequest(`http://localhost${path}`));
+  }
+
+  it('lets a consultor with a currently assigned school through (one lookup)', async () => {
+    const supabase = withAssignedSchools(
+      buildSupabase({ session: SESSION, roles: [{ role_type: 'consultor', community_id: null }] }),
+      [13801]
+    );
+    const res = await visit(supabase);
+    expect(isRedirect(res)).toBe(false);
+    expect(assignedLookups(supabase)).toBe(1);
+  });
+
+  it('also on a nested workspace path', async () => {
+    const supabase = withAssignedSchools(
+      buildSupabase({ session: SESSION, roles: [{ role_type: 'consultor', community_id: null }] }),
+      [13801]
+    );
+    const res = await visit(supabase, '/community/workspace/tareas');
+    expect(isRedirect(res)).toBe(false);
+  });
+
+  it('redirects a consultor with no current assignment to /dashboard', async () => {
+    const supabase = withAssignedSchools(
+      buildSupabase({ session: SESSION, roles: [{ role_type: 'consultor', community_id: null }] }),
+      []
+    );
+    const res = await visit(supabase);
+    expect(isRedirect(res)).toBe(true);
+    expect(res.headers.get('location')).toBe('http://localhost/dashboard');
+    expect(assignedLookups(supabase)).toBe(1);
+  });
+
+  it('redirects a consultor when the lookup fails (fail closed)', async () => {
+    const supabase = buildSupabase({ session: SESSION, roles: [{ role_type: 'consultor', community_id: null }] });
+    supabase.rpc.mockImplementation(((fn: string) =>
+      Promise.resolve(
+        fn === ASSIGNED_RPC ? { data: null, error: { code: '42501' } } : { data: false, error: null }
+      )) as never);
+    const res = await visit(supabase);
+    expect(isRedirect(res)).toBe(true);
+    expect(res.headers.get('location')).toBe('http://localhost/dashboard');
+  });
+
+  it('makes no lookup for an admin', async () => {
+    const supabase = withAssignedSchools(
+      buildSupabase({ session: SESSION, roles: [{ role_type: 'admin' }, { role_type: 'consultor' }] }),
+      [13801]
+    );
+    const res = await visit(supabase);
+    expect(isRedirect(res)).toBe(false);
+    expect(assignedLookups(supabase)).toBe(0);
+  });
+
+  it('makes no lookup for a person with a community (also a consultor who is a member)', async () => {
+    const supabase = withAssignedSchools(
+      buildSupabase({
+        session: SESSION,
+        roles: [{ role_type: 'consultor', community_id: null }, { role_type: 'docente', community_id: 'c-1' }],
+      }),
+      []
+    );
+    const res = await visit(supabase);
+    expect(isRedirect(res)).toBe(false);
+    expect(assignedLookups(supabase)).toBe(0);
+  });
+
+  it('still redirects a teacher with no community, with no lookup', async () => {
+    const supabase = withAssignedSchools(
+      buildSupabase({ session: SESSION, roles: [{ role_type: 'docente', community_id: null }] }),
+      [13801]
+    );
+    const res = await visit(supabase);
+    expect(isRedirect(res)).toBe(true);
+    expect(res.headers.get('location')).toBe('http://localhost/dashboard');
+    expect(assignedLookups(supabase)).toBe(0);
+  });
+});

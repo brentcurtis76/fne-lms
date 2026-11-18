@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
-import { loggableError, requireVerifiedCaller } from '../../../lib/api-auth';
+import { createApiSupabaseClient, loggableError, requireVerifiedCaller } from '../../../lib/api-auth';
+import { fetchAssignedSchoolIds } from '../../../lib/consultor-assigned-schools';
 
 const serviceClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -47,8 +48,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .limit(1)
     .maybeSingle();
 
+  // F12e V5b (N28): or a consultor currently assigned to the community's
+  // school. The assignment is asked with the caller's own session (the helper
+  // answers only about the caller); the community's school with the service client.
   if (!membership) {
-    return res.status(403).json({ error: 'No access to this community' });
+    let isAssignedConsultor = false;
+    try {
+      const { data: communitySchool } = await serviceClient
+        .from('growth_communities')
+        .select('school_id')
+        .eq('id', communityId)
+        .maybeSingle();
+      const schoolId = communitySchool?.school_id;
+      if (schoolId !== null && schoolId !== undefined) {
+        const assigned = await fetchAssignedSchoolIds(await createApiSupabaseClient(req, res));
+        isAssignedConsultor = assigned.includes(Number(schoolId));
+      }
+    } catch (error) {
+      console.error('[ensure-workspace] Assignment check failed:', loggableError(error));
+    }
+    if (!isAssignedConsultor) {
+      return res.status(403).json({ error: 'No access to this community' });
+    }
   }
 
   // Check if workspace already exists

@@ -13,6 +13,7 @@ import {
   requiresSessionPresence,
   verdictFromProfile,
 } from './lib/auth/forced-password-change';
+import { fetchAssignedSchoolIds } from './lib/consultor-assigned-schools';
 
 /** W-B10c-01b: what a gated API answers when the auth server rejects the cookie's token. */
 const INVALID_SESSION_API_BODY = {
@@ -259,9 +260,14 @@ export async function middleware(req: NextRequest) {
       return res;
     }
 
-    // Everyone else needs a community_id
+    // Everyone else needs a community_id — or (F12e V5b, N28) an active
+    // consultor role and a current assignment to at least one school.
     if (!hasCommunity) {
-      return NextResponse.redirect(new URL('/dashboard', req.url));
+      const isAssignedConsultor =
+        roles.includes('consultor') && (await fetchAssignedSchoolIds(supabase)).length > 0;
+      if (!isAssignedConsultor) {
+        return NextResponse.redirect(new URL('/dashboard', req.url));
+      }
     }
   }
 

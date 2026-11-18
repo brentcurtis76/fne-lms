@@ -337,6 +337,10 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       
       // Set selected client
       setSelectedClienteId(editingContract.cliente_id || '');
+      // Keep the client's school link on save (GES-3.1)
+      setSelectedSchoolId(editingContract.clientes?.school_id ?? '');
+      // A manual or imported contract opens as manual (GES-2.8)
+      setEsManual(!!editingContract.es_manual);
       
       // Populate installments
       if (editingContract.cuotas && editingContract.cuotas.length > 0) {
@@ -1158,6 +1162,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                     type="checkbox"
                     checked={esManual}
                     onChange={(e) => setEsManual(e.target.checked)}
+                    // An existing contract's nature is not flipped by accident (GES-2.8)
+                    disabled={!!editingContract}
                     className="mr-3 h-4 w-4 text-brand_primary focus:ring-brand_accent border-gray-300 rounded"
                   />
                   <div>

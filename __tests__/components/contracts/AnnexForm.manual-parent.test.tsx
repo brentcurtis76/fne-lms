@@ -101,6 +101,18 @@ vi.mock('@supabase/auth-helpers-react', () => ({
 vi.mock('react-hot-toast', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
+// «Vista Previa» opens a window; capture the HTML it would render instead.
+const previewHtml: string[] = [];
+vi.mock('@/lib/contract-document', async (importOriginal) => {
+  const actual: any = await importOriginal();
+  return {
+    ...actual,
+    openDocumentPreview: () => ({ close: () => {} }),
+    renderDocumentPreview: async (_w: any, html: string) => {
+      previewHtml.push(html);
+    },
+  };
+});
 
 import AnnexForm from '../../../components/contracts/AnnexForm';
 
@@ -214,6 +226,30 @@ describe('AnnexForm — contract list of step 2 (GES-2.5)', () => {
     expect(payload.programa_id).toBe('prog-1');
     expect(payload.es_manual).not.toBe(true);
     expect(payload.descripcion_manual).toBeUndefined();
+  });
+
+  async function previewClauseOne(numeroContrato: string): Promise<string> {
+    previewHtml.length = 0;
+    await goToStep2();
+    fireEvent.click(await screen.findByText(numeroContrato));
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    const [participantes, precio] = screen.getAllByRole('spinbutton');
+    fireEvent.change(participantes, { target: { value: '4' } });
+    fireEvent.change(precio, { target: { value: '30' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    fireEvent.click(screen.getByRole('button', { name: /Vista Previa/ }));
+    await waitFor(() => expect(previewHtml).toHaveLength(1));
+    const node = document.createElement('div');
+    node.innerHTML = previewHtml[0];
+    return node.querySelectorAll('section.annex-clause')[0]?.querySelector('p')?.textContent ?? '';
+  }
+
+  it('«Vista Previa» of the annex of a manual contract names it by its description', async () => {
+    expect(await previewClauseOne('C-200')).toContain('al programa de asesoría "Asesoría acordada a mano".');
+  });
+
+  it('«Vista Previa» of the annex of a programme contract names its programme, as before', async () => {
+    expect(await previewClauseOne('C-100')).toContain('al programa de asesoría "Programa de Prueba".');
   });
 
   it('creates the annex of a manual contract as today, numbered the highest plus one', async () => {

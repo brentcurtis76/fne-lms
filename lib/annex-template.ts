@@ -79,7 +79,8 @@ export function generateAnnexFromTemplate(annexData: any): string {
     '{{CLIENTE_COMUNA_NOTARIA}}': parentContract.cliente?.comuna_notaria || '',
 
     // Program data (from parent contract)
-    '{{PROGRAMA_NOMBRE}}': parentContract.programa?.nombre || '',
+    // A manual parent has no programme: it is named by its manual description.
+    '{{PROGRAMA_NOMBRE}}': parentContract.programa?.nombre || parentContract.descripcion_manual || '',
     '{{PROGRAMA_DESCRIPCION}}': parentContract.programa?.descripcion || '',
     '{{PROGRAMA_HORAS}}': parentContract.programa?.horas_totales?.toString() || '',
     '{{PROGRAMA_MODALIDAD}}': parentContract.programa?.modalidad || '',

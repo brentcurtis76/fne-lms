@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react';
+import { useSessionContext, useSupabaseClient } from '@supabase/auth-helpers-react';
 import { supabase } from '../lib/supabase';
 import MainLayout from '../components/layout/MainLayout';
 import {
@@ -42,7 +42,7 @@ interface NotificationFilters {
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const session = useSession();
+  const { session, isLoading } = useSessionContext();
   const supabase = useSupabaseClient();
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -123,12 +123,15 @@ export default function NotificationsPage() {
   }, [session, supabase, loadNotifications]);
 
   useEffect(() => {
+    // Decide nothing until the session has finished loading: a reload or a
+    // typed address starts with no session yet (F15b, RD-a).
+    if (isLoading) return;
     if (session) {
       loadInitialData();
     } else if (session === null) {
-      router.push('/login');
+      router.push(`/login?next=${encodeURIComponent('/notifications')}`);
     }
-  }, [session, router, loadInitialData]);
+  }, [session, isLoading, router, loadInitialData]);
 
   const applyFilters = useCallback(() => {
     let tempNotifications = [...notifications];

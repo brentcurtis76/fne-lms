@@ -779,6 +779,10 @@ const CommunityWorkspacePage: React.FC = () => {
         {/* Workspace-specific sections */}
         <div style={{ display: activeSection === 'meetings' ? 'block' : 'none' }}>
           <MeetingsTabContent
+            // A new identity per workspace, as the messages tab: open windows
+            // and selections (a meeting's details, its edit form, its removal)
+            // belong to one community and must not carry over to the next.
+            key={currentWorkspace?.id ?? 'no-workspace'}
             workspace={currentWorkspace}
             workspaceAccess={workspaceAccess}
             user={user}
@@ -797,6 +801,11 @@ const CommunityWorkspacePage: React.FC = () => {
 
         <div style={{ display: activeSection === 'documents' ? 'block' : 'none' }}>
           <DocumentsTabContent 
+            // A new identity per workspace, as the messages tab: the open
+            // folder, breadcrumb, selection, folder list and filters belong to
+            // one community; without this the next community's documents were
+            // asked with the previous community's folder id.
+            key={currentWorkspace?.id ?? 'no-workspace'}
             workspace={currentWorkspace} 
             workspaceAccess={workspaceAccess} 
             user={user} 

@@ -600,8 +600,8 @@ const CommunityWorkspacePage: React.FC = () => {
               >
                 <div className="flex items-center space-x-3">
                   <AcademicCapIcon className="h-4 w-4 text-[#0a0a0a] flex-shrink-0" />
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-gray-900 break-words">
                       {community.display_name || community.name}
                     </div>
                     <div className="text-xs text-gray-500">
@@ -969,20 +969,20 @@ const CommunityWorkspacePage: React.FC = () => {
           <div className="mb-6">
             <div className="bg-gradient-to-r from-brand_primary to-brand_primary/80 rounded-lg shadow-lg p-6">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-4 min-w-0">
                   {currentWorkspace.image_url ? (
                     <img 
                       src={currentWorkspace.image_url} 
                       alt={currentWorkspace.custom_name || currentWorkspace.name}
-                      className="w-20 h-20 rounded-lg object-cover border-2 border-white/20"
+                      className="w-20 h-20 rounded-lg object-cover border-2 border-white/20 flex-shrink-0"
                     />
                   ) : (
-                    <div className="w-20 h-20 bg-white/10 rounded-lg flex items-center justify-center border-2 border-white/20">
+                    <div className="w-20 h-20 bg-white/10 rounded-lg flex items-center justify-center border-2 border-white/20 flex-shrink-0">
                       <Users className="w-10 h-10 text-white" />
                     </div>
                   )}
-                  <div>
-                    <h1 className="text-2xl font-bold text-white">
+                  <div className="min-w-0">
+                    <h1 className="text-2xl font-bold text-white break-words">
                       {currentWorkspace.custom_name || currentWorkspace.name}
                     </h1>
                     <p className="text-white/80 mt-1">
@@ -1000,7 +1000,7 @@ const CommunityWorkspacePage: React.FC = () => {
                   workspaceAccess?.accessType === 'admin') && (
                   <button
                     onClick={() => setShowWorkspaceSettings(true)}
-                    className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                    className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex-shrink-0"
                     title="Editar nombre e imagen de la comunidad"
                   >
                     <Settings className="w-6 h-6 text-white" />

@@ -21,7 +21,7 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(32);
+SELECT plan(34);
 
 CREATE TEMP TABLE ids (p text PRIMARY KEY, id uuid) ON COMMIT DROP;
 GRANT SELECT ON ids TO anon, authenticated;
@@ -122,9 +122,11 @@ $$ LANGUAGE plpgsql;
 --   gone       docente of A whose role was deactivated
 --   gated      docente of A held by a forced password change
 --   nobody     no role at all
+--   cons_a     consultor whose (only) consultor role row names community A
+--   cons_doc   consultor role row in A AND a docente role row in A
 -- ---------------------------------------------------------------------------
 INSERT INTO ids SELECT p, tests.create_supabase_user('f12c_' || p, 'f12c-' || p || '@example.test')
-FROM unnest(ARRAY['doc','leader','manager','dual','admin','outsider','consultor','gone','gated','nobody']) p;
+FROM unnest(ARRAY['doc','leader','manager','dual','admin','outsider','consultor','gone','gated','nobody','cons_a','cons_doc']) p;
 INSERT INTO public.profiles (id) SELECT id FROM ids ON CONFLICT (id) DO NOTHING;
 UPDATE public.profiles SET must_change_password = true WHERE id = pg_temp.uid('gated');
 INSERT INTO public.schools (id, name) VALUES (13501, 'F12C colegio sintético (pgTAP 135)') ON CONFLICT (id) DO NOTHING;
@@ -144,7 +146,10 @@ SELECT pg_temp.uid(p), r::user_role_type, 13501, c::uuid, true FROM (VALUES
   (5, 'dual',     'lider_comunidad',   'f12c0000-0000-4000-8000-0000000000c1'),
   (6, 'outsider', 'docente',           'f12c0000-0000-4000-8000-0000000000c2'),
   (7, 'gone',     'docente',           'f12c0000-0000-4000-8000-0000000000c1'),
-  (8, 'gated',    'docente',           'f12c0000-0000-4000-8000-0000000000c1')) v(n, p, r, c)
+  (8, 'gated',    'docente',           'f12c0000-0000-4000-8000-0000000000c1'),
+  (9, 'cons_a',   'consultor',         'f12c0000-0000-4000-8000-0000000000c1'),
+  (10, 'cons_doc', 'consultor',        'f12c0000-0000-4000-8000-0000000000c1'),
+  (11, 'cons_doc', 'docente',          'f12c0000-0000-4000-8000-0000000000c1')) v(n, p, r, c)
 ORDER BY n;
 INSERT INTO public.user_roles (user_id, role_type, school_id, is_active) VALUES
   (pg_temp.uid('consultor'), 'consultor', 13501, true);
@@ -173,18 +178,19 @@ SELECT ok(obj_description(to_regprocedure('public.rename_community_workspace(uui
           'rename_community_workspace has a comment');
 
 -- ---------------------------------------------------------------------------
--- 2. Allowed callers (5): renamed, only custom_name and updated_at changed
+-- 2. Allowed callers (6): renamed, only custom_name and updated_at changed
 -- ---------------------------------------------------------------------------
 SELECT is(pg_temp.rename(p, 'A', 'Nombre de ' || p), 'ok|Nombre de ' || p, format('rename: %s → renamed, nothing else changed', label))
   FROM (VALUES (1, 'doc',     'a docente member'),
                (2, 'leader',  'the community''s leader'),
                (3, 'manager', 'the community''s manager'),
                (4, 'dual',    'a person with two role rows in the community'),
-               (5, 'admin',   'an admin')) v(n, p, label)
+               (5, 'admin',   'an admin'),
+               (6, 'cons_doc', 'a consultor who also holds a docente row in the community')) v(n, p, label)
  ORDER BY n;
 
 -- ---------------------------------------------------------------------------
--- 3. Refused callers (7) and an unknown workspace (2): row unchanged
+-- 3. Refused callers (8) and an unknown workspace (2): row unchanged
 -- ---------------------------------------------------------------------------
 SELECT is(pg_temp.rename(p, 'A', 'Intruso'), want || '|unchanged', format('rename: %s → %s, row unchanged', label, want))
   FROM (VALUES (1, 'outsider',  '42501:not_allowed',       'a member of another community'),
@@ -192,7 +198,8 @@ SELECT is(pg_temp.rename(p, 'A', 'Intruso'), want || '|unchanged', format('renam
                (3, 'gone',      '42501:not_allowed',       'a member whose role was deactivated'),
                (4, 'gated',     '42501:not_allowed',       'a member held by a forced password change'),
                (5, 'nobody',    '42501:not_allowed',       'a person with no role'),
-               (6, 'anon',      '42501:permission_denied', 'anon')) v(n, p, want, label)
+               (6, 'anon',      '42501:permission_denied', 'anon'),
+               (7, 'cons_a',    '42501:not_allowed',       'a consultor whose consultor role row names the community')) v(n, p, want, label)
  ORDER BY n;
 SELECT is(pg_temp.rename('leader', 'B', 'Intruso'), '42501:not_allowed|unchanged',
           'rename: a leader of A on the workspace of B → not_allowed, row unchanged');

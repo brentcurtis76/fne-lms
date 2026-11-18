@@ -256,22 +256,26 @@ describe('the stored value must name a file inside the document\'s own workspace
 });
 
 describe('download=1 and version=', () => {
-  it('download=1 → signed for a download under the document\'s file name (encoded once for the store)', async () => {
+  // Send-back 1: the store is asked to sign the object only; the route adds
+  // the download value to the signed link itself, encoded exactly once, so
+  // the value read back from the final link is the file name as it is.
+  it('download=1 → the final link carries download=<the document\'s own file name>, 300 s', async () => {
     signedIn(MEMBER_A);
     const { status, body } = await call(DOC_NEW, { download: '1' });
     expect(status).toBe(200);
     expect(body.expiresIn).toBe(300);
-    expect(mockCreateSignedUrl).toHaveBeenCalledWith('community-documents', `documents/${WS_A}/root/1700000000000-acta.pdf`, 300, {
-      download: encodeURIComponent('Acta de reunión.pdf'),
-    });
+    expect(mockCreateSignedUrl).toHaveBeenCalledWith('community-documents', `documents/${WS_A}/root/1700000000000-acta.pdf`, 300);
+    const url = new URL(body.url);
+    expect(url.searchParams.get('download')).toBe('Acta de reunión.pdf');
+    expect(url.searchParams.get('token')).toBe('fresh-300');
   });
 
   it('download=1 with &, ?, = and # in the file name → they stay inside the download value', async () => {
     signedIn(MEMBER_A);
-    await call(DOC_STRANGE_NAME, { download: '1' });
-    const option = mockCreateSignedUrl.mock.calls[0][3] as { download: string };
-    expect(option.download).toBe(encodeURIComponent('Pago&download=otro?x=1 #2.pdf'));
-    expect(option.download).not.toMatch(/[&?#= ]/);
+    const { body } = await call(DOC_STRANGE_NAME, { download: '1' });
+    const url = new URL(body.url);
+    expect(url.searchParams.getAll('download')).toEqual(['Pago&download=otro?x=1 #2.pdf']);
+    expect(url.hash).toBe('');
   });
 
   it.each([['download=0', { download: '0' }], ['download=true', { download: 'true' }], ['download twice', { download: ['1', '1'] }]])(
@@ -346,5 +350,65 @@ describe('failures', () => {
     expect(printed).not.toContain('token');
     log.mockRestore();
     error.mockRestore();
+  });
+});
+
+// Send-back 1 (EC-S3): the download name through the REAL storage-js link
+// builder (@supabase/storage-js 2.91.1; only its network call is replaced).
+// Before, the route handed storage-js an already encoded name and storage-js
+// encoded it again: «Acta de reunión.pdf» came out as
+// «Acta%20de%20reuni%C3%B3n.pdf».
+describe('download=1 through the real storage-js link builder', () => {
+  async function realStore() {
+    const { StorageClient } = await import('@supabase/storage-js');
+    const fakeFetch = vi.fn(async (input: any) => {
+      const path = String(input).split('/object/sign/')[1];
+      return new Response(JSON.stringify({ signedURL: `/object/sign/${path}?token=t-real` }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    mockStorageFrom.mockImplementation((bucket: string) =>
+      new StorageClient(`${HOST}/storage/v1`, {}, fakeFetch as any).from(bucket)
+    );
+  }
+
+  it.each([
+    ['accents and spaces', 'Acta de reunión.pdf'],
+    ['#, ?, &, + and a quote', 'Pago #1? a&b + c "final" d\'e.pdf'],
+    ['a percent sign and =', 'Avance 100% = listo.pdf'],
+  ])('%s → the parsed download value is the file name exactly', async (_l, fileName) => {
+    await realStore();
+    (db.tables.community_documents[0] as Record<string, unknown>).file_name = fileName;
+    signedIn(MEMBER_A);
+    const { status, body } = await call(DOC_NEW, { download: '1' });
+    expect(status).toBe(200);
+    const url = new URL(body.url);
+    expect(url.pathname).toBe(`/storage/v1/object/sign/community-documents/documents/${WS_A}/root/1700000000000-acta.pdf`);
+    expect(url.searchParams.get('token')).toBe('t-real');
+    expect(url.searchParams.getAll('download')).toEqual([fileName]);
+  });
+
+  it('line breaks and control characters are removed from the name first (unsafe in a header)', async () => {
+    await realStore();
+    (db.tables.community_documents[0] as Record<string, unknown>).file_name = 'Acta\r\nSet-Cookie: x\u0000\u0007\u007f\u0085.pdf';
+    signedIn(MEMBER_A);
+    const { body } = await call(DOC_NEW, { download: '1' });
+    expect(new URL(body.url).searchParams.get('download')).toBe('ActaSet-Cookie: x.pdf');
+  });
+
+  it('a name that is only control characters → a download without a name', async () => {
+    await realStore();
+    (db.tables.community_documents[0] as Record<string, unknown>).file_name = '\r\n\t';
+    signedIn(MEMBER_A);
+    const { body } = await call(DOC_NEW, { download: '1' });
+    expect(new URL(body.url).searchParams.getAll('download')).toEqual(['']);
+  });
+
+  it('without download=1 → the signed link exactly as storage-js built it, no download value', async () => {
+    await realStore();
+    signedIn(MEMBER_A);
+    const { body } = await call(DOC_NEW);
+    expect(body.url).toBe(`${HOST}/storage/v1/object/sign/community-documents/documents/${WS_A}/root/1700000000000-acta.pdf?token=t-real`);
   });
 });

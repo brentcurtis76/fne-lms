@@ -95,21 +95,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json(NOT_FOUND);
     }
 
-    // storage-js puts the download value into the link as it is: the name is
-    // encoded once here so that &, ?, = and # stay inside it.
-    const fileName = typeof document.file_name === 'string' && document.file_name ? document.file_name : null;
     const store = createServiceRoleClient().storage.from(bucket);
-    const { data: signed, error: signError } = download
-      ? await store.createSignedUrl(name, DOCUMENT_LINK_SECONDS, {
-          download: fileName ? encodeURIComponent(fileName) : true,
-        })
-      : await store.createSignedUrl(name, DOCUMENT_LINK_SECONDS);
+    const { data: signed, error: signError } = await store.createSignedUrl(name, DOCUMENT_LINK_SECONDS);
     if (signError || !signed?.signedUrl) {
       if (signError) console.error('[document-link] signing failed');
       return res.status(404).json(NOT_FOUND);
     }
 
-    return res.status(200).json({ url: signed.signedUrl, expiresIn: DOCUMENT_LINK_SECONDS });
+    // Send-back 1: the download value is added here, to the link storage-js
+    // signed, with URLSearchParams (encoded exactly once): storage-js would
+    // encode an encoded name a second time, and a raw one not enough (& and #
+    // would end it). The store sends the name in a header, so line breaks and
+    // other control characters (C0, DEL, C1) are removed first.
+    let url = signed.signedUrl;
+    if (download) {
+      const raw = typeof document.file_name === 'string' ? document.file_name : '';
+      const fileName = raw.replace(/[\u0000-\u001f\u007f-\u009f]/g, '');
+      const link = new URL(signed.signedUrl);
+      link.searchParams.set('download', fileName);
+      url = link.toString();
+    }
+
+    return res.status(200).json({ url, expiresIn: DOCUMENT_LINK_SECONDS });
   } catch (error) {
     console.error('[document-link] unexpected error:', error instanceof Error ? error.name : 'unknown');
     return res.status(500).json(SERVER_ERROR);

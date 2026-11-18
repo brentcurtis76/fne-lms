@@ -16,6 +16,11 @@ const scrollBy = vi.fn(function (this: HTMLElement, options: ScrollToOptions) {
   geo.scrollLeft = Math.max(0, Math.min(geo.scrollWidth - geo.clientWidth, geo.scrollLeft + (options.left ?? 0)));
   this.dispatchEvent(new Event('scroll'));
 });
+const scrolledToBy: HTMLElement[] = [];
+const scrollTo = vi.fn(function (this: HTMLElement, options: ScrollToOptions) {
+  scrolledToBy.push(this);
+  if (isRow(this)) geo.scrollLeft = options.left ?? geo.scrollLeft;
+});
 const saved: Record<string, PropertyDescriptor | undefined> = {};
 
 beforeAll(() => {
@@ -39,15 +44,19 @@ beforeAll(() => {
     },
   });
   (HTMLElement.prototype as any).scrollBy = scrollBy;
+  (HTMLElement.prototype as any).scrollTo = scrollTo;
 });
 afterAll(() => {
   for (const name of ['scrollWidth', 'clientWidth', 'scrollLeft']) {
     delete (HTMLElement.prototype as any)[name];
   }
   delete (HTMLElement.prototype as any).scrollBy;
+  delete (HTMLElement.prototype as any).scrollTo;
 });
 beforeEach(() => {
   scrollBy.mockClear();
+  scrollTo.mockClear();
+  scrolledToBy.length = 0;
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,
     writable: true,
@@ -134,5 +143,73 @@ describe('the arrows of a row', () => {
     expect(left()).toBeNull();
     expect(screen.getByText('Una línea')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Ver todas' }).getAttribute('href')).toBe('/mi-aprendizaje');
+  });
+});
+
+/*
+ * Send-back «by sight», point 3: when `startKey` changes the row goes back to its start (smoothly, as
+ * the arrows move it; at once under reduced motion); never on the first draw nor on another re-render.
+ * The track does not let the browser anchor its scroll.
+ */
+describe('the row back to its start when `startKey` changes', () => {
+  function keyed(startKey: number, n = 5, itemsKey = 'a') {
+    return (
+      <PanelSection title="Propuestas de Cursos" row itemsKey={itemsKey} startKey={startKey} data-testid="panel-section-x">
+        {cards(n)}
+      </PanelSection>
+    );
+  }
+
+  it('the first draw does not move the row, whatever the key', () => {
+    Object.assign(geo, { scrollWidth: 1000, clientWidth: 400, scrollLeft: 300 });
+    render(keyed(3));
+    expect(scrollTo).not.toHaveBeenCalled();
+    expect(geo.scrollLeft).toBe(300);
+  });
+
+  it('a key first given after draws without one (a loading state before): no movement', () => {
+    Object.assign(geo, { scrollWidth: 1000, clientWidth: 400, scrollLeft: 300 });
+    const view = render(
+      <PanelSection title="Propuestas de Cursos" row itemsKey="a" data-testid="panel-section-x">
+        {cards(5)}
+      </PanelSection>
+    );
+    view.rerender(keyed(0, 5, 'b'));
+    expect(scrollTo).not.toHaveBeenCalled();
+    view.rerender(keyed(1, 6, 'c'));
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+  });
+
+  it('a new key: the track goes to 0, as the arrows move it', () => {
+    Object.assign(geo, { scrollWidth: 1000, clientWidth: 400, scrollLeft: 300 });
+    const view = render(keyed(0));
+    view.rerender(keyed(1, 6, 'b'));
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollTo).toHaveBeenLastCalledWith({ left: 0, behavior: 'smooth' });
+    expect(scrolledToBy[0]).toBe(screen.getByTestId('panel-section-x-row'));
+    expect(geo.scrollLeft).toBe(0);
+  });
+
+  it('under reduced motion it goes at once', () => {
+    reduce.on = true;
+    Object.assign(geo, { scrollWidth: 1000, clientWidth: 400, scrollLeft: 300 });
+    const view = render(keyed(0));
+    view.rerender(keyed(1, 6, 'b'));
+    expect(scrollTo).toHaveBeenLastCalledWith({ left: 0, behavior: 'auto' });
+  });
+
+  it('the same key on a re-render, with other cards (edited, deleted): no movement', () => {
+    Object.assign(geo, { scrollWidth: 1000, clientWidth: 400, scrollLeft: 300 });
+    const view = render(keyed(2));
+    view.rerender(keyed(2, 4, 'b'));
+    view.rerender(keyed(2, 4, 'c'));
+    expect(scrollTo).not.toHaveBeenCalled();
+    expect(geo.scrollLeft).toBe(300);
+  });
+
+  it('the track does not anchor its scroll', () => {
+    Object.assign(geo, { scrollWidth: 1000, clientWidth: 400, scrollLeft: 0 });
+    render(keyed(0));
+    expect(screen.getByTestId('panel-section-x-row').className.split(/\s+/)).toContain('[overflow-anchor:none]');
   });
 });

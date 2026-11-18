@@ -42,6 +42,13 @@ interface PanelSectionProps {
   row?: boolean;
   /** Changes when the row's cards change: the arrows are measured again. */
   itemsKey?: string;
+  /**
+   * When this value CHANGES from one given value to another (never on the first draw, nor when it is
+   * first given after draws without it), the row goes back to its start, so that a card
+   * just added in front is seen. The caller decides when it changes (for example, a counter of cards
+   * added at the front).
+   */
+  startKey?: string | number;
   'data-testid'?: string;
   children?: React.ReactNode;
 }
@@ -52,7 +59,7 @@ function prefersReducedMotion() {
     : false;
 }
 
-export function PanelSection({ title, icon, sub, action, row = false, itemsKey, children, ...rest }: PanelSectionProps) {
+export function PanelSection({ title, icon, sub, action, row = false, itemsKey, startKey, children, ...rest }: PanelSectionProps) {
   const testId = rest['data-testid'];
   const rowRef = useRef<HTMLDivElement>(null);
   const [more, setMore] = useState({ any: false, left: false, right: false });
@@ -84,6 +91,23 @@ export function PanelSection({ title, icon, sub, action, row = false, itemsKey, 
       observer?.disconnect();
     };
   }, [row, measure, count, itemsKey]);
+
+  // Back to the start when `startKey` changes from one given value to another; the first value given
+  // is only remembered (the same section may first be drawn without a key, as a loading state).
+  const startSeen = useRef(startKey);
+  useEffect(() => {
+    if (startSeen.current === startKey) return;
+    const first = startSeen.current === undefined || startKey === undefined;
+    startSeen.current = startKey;
+    if (first) return;
+    const el = rowRef.current;
+    if (!row || !el) return;
+    if (typeof el.scrollTo === 'function') {
+      el.scrollTo({ left: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+    } else {
+      el.scrollLeft = 0;
+    }
+  }, [row, startKey]);
 
   const move = (direction: -1 | 1) => {
     const el = rowRef.current;
@@ -142,11 +166,12 @@ export function PanelSection({ title, icon, sub, action, row = false, itemsKey, 
       </div>
       {row ? (
         // The track keeps 4 px of room around its cards (taken back by a negative margin): the room the
-        // look's keyboard ring takes outside an element, so the scrolling track does not cut it.
+        // look's keyboard ring takes outside an element, so the scrolling track does not cut it. The
+        // browser does not anchor the track's scroll: a card added in front is not pushed out of view.
         <div
           ref={rowRef}
           onScroll={measure}
-          className="-m-1 flex snap-x snap-proximity items-start gap-[14px] overflow-x-auto p-1 pb-2 scrollbar-hide"
+          className="-m-1 flex snap-x snap-proximity items-start gap-[14px] overflow-x-auto p-1 pb-2 scrollbar-hide [overflow-anchor:none]"
           data-testid={testId ? `${testId}-row` : undefined}
         >
           {children}

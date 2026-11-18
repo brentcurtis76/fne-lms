@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BookOpen, Clock, HelpCircle, Lightbulb, Pencil, Plus, Trash2, User } from 'lucide-react';
 import { Badge, Button, Card, EmptyState, Notice, Skeleton, type BadgeTone } from '../ui/kit';
 import { useCourseProposals } from '../course-proposals/useCourseProposals';
@@ -103,6 +103,21 @@ export function ProposalsNuevo({ userId }: { userId?: string }) {
     openCreate,
   } = useCourseProposals();
 
+  // A card ADDED at the front (the list grew and its first card is another one) sends the row to its
+  // start, so the proposal just sent is seen. Not on the first load (the list was empty before), nor
+  // when a card is edited or deleted, nor on any other draw.
+  const idsKey = proposals.map((p) => p.id).join(' ');
+  const seenIds = useRef(idsKey);
+  const [addedAtFront, setAddedAtFront] = useState(0);
+  useEffect(() => {
+    const before = seenIds.current ? seenIds.current.split(' ') : [];
+    const now = idsKey ? idsKey.split(' ') : [];
+    seenIds.current = idsKey;
+    if (before.length > 0 && now.length > before.length && now[0] !== before[0]) {
+      setAddedAtFront((n) => n + 1);
+    }
+  }, [idsKey]);
+
   if (loading) {
     return (
       <PanelSection title={TITLE} icon={<Lightbulb />} sub={SUB} data-testid="panel-section-proposals">
@@ -137,7 +152,8 @@ export function ProposalsNuevo({ userId }: { userId?: string }) {
         icon={<Lightbulb />}
         sub={SUB}
         row={proposals.length > 0}
-        itemsKey={proposals.map((p) => p.id).join(' ')}
+        itemsKey={idsKey}
+        startKey={addedAtFront}
         data-testid="panel-section-proposals"
         action={
           <Button size="sm" onClick={openCreate} data-testid="panel-proposals-new">

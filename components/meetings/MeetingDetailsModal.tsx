@@ -36,6 +36,11 @@ import { profileName } from '../../lib/utils/profile-name';
 import { formatFileSize, getFileIcon } from '../../lib/utils/file-format';
 import { meetingDocumentUrl, MEETING_CONTENT_HIDDEN_TEXT } from '../../lib/meetings/meeting-documents';
 
+// N154: the meeting's people are shown by name or as «Usuario», never by an
+// e-mail address (the shared profileName falls back to one when given it).
+const nameOnly = (person: { first_name?: string | null; last_name?: string | null } | null | undefined) =>
+  person ? { first_name: person.first_name, last_name: person.last_name } : null;
+
 interface MeetingDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -211,7 +216,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                         <p className="font-medium">
                           Finalizada el {formatDate(meeting.finalized_at, { withWeekday: false })}
                           {meeting.finalized_by_profile && (
-                            <> por {profileName(meeting.finalized_by_profile, 'un usuario')}</>
+                            <> por {profileName(nameOnly(meeting.finalized_by_profile), 'Usuario')}</>
                           )}
                         </p>
                         {meeting.finalize_audience && (
@@ -246,7 +251,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                     <div className="flex items-center gap-2">
                       <UserIcon className="h-5 w-5 text-gray-400" />
                       <span className="text-gray-700">
-                        Facilitador: {profileName(meeting.facilitator, 'Sin asignar')}
+                        Facilitador: {profileName(nameOnly(meeting.facilitator), 'Usuario')}
                       </span>
                     </div>
                   )}
@@ -254,7 +259,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                     <div className="flex items-center gap-2">
                       <UserIcon className="h-5 w-5 text-gray-400" />
                       <span className="text-gray-700">
-                        Creado por: {profileName(meeting.created_by_profile, 'Sin nombre')}
+                        Creado por: {profileName(nameOnly(meeting.created_by_profile), 'Usuario')}
                       </span>
                     </div>
                   )}

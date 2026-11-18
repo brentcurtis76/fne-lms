@@ -62,11 +62,11 @@ export interface CommunityMeeting {
       generation?: { name: string };
     };
   };
+  /** From profile cards (N154): names only, no e-mail. */
   created_by_profile?: {
     id: string;
     first_name: string;
     last_name: string;
-    email: string;
   };
   facilitator?: {
     id: string;

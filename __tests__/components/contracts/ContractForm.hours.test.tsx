@@ -258,14 +258,46 @@ describe('ContractForm — «Horas contratadas»', () => {
     expect(update.payload).not.toHaveProperty('horas_contratadas');
   });
 
-  it('an edit of a contract without stored hours is filled from its programme (no stored value was loaded)', async () => {
+  // Send-back 1, item 2 (the lead's decision): a contract made earlier without hours
+  // stays empty on edit until the admin types a number or chooses another programme.
+  it('an edit of a contract without stored hours leaves the field empty; correcting only an e-mail sends null', async () => {
     currentClient = createFakeSupabase({ allocations: [] });
+    const onSuccess = vi.fn();
     render(
-      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} editingContract={editingContract({ horas_contratadas: null })} onSuccess={vi.fn()} onCancel={vi.fn()} />,
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} editingContract={editingContract({ horas_contratadas: null })} onSuccess={onSuccess} onCancel={vi.fn()} />,
+    );
+    typeInto(screen.getByDisplayValue('contacto@ejemplo.test'), 'contacto.nuevo@ejemplo.test');
+    clickButton('Siguiente');
+    await waitFor(() => expect(hours().readOnly).toBe(false));
+    expect(hours().value).toBe('');
+    expect(screen.getByText('Se completa con las horas del programa; puede cambiarlas antes de guardar.')).toBeInTheDocument();
+    clickButton('Siguiente');
+    clickButton(/Actualizar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const update = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'update');
+    expect(update.payload).toHaveProperty('horas_contratadas', null);
+    const clientUpdate = currentClient.__writes.find((w: any) => w.table === 'clientes' && w.op === 'update');
+    expect(clientUpdate.payload.email_contacto_administrativo).toBe('contacto.nuevo@ejemplo.test');
+  });
+
+  it('an edit without stored hours: choosing another programme fills the field; a typed 60 is sent', async () => {
+    currentClient = createFakeSupabase({ allocations: [] });
+    const onSuccess = vi.fn();
+    const { container } = render(
+      <ContractForm programas={PROGRAMAS} clientes={[CLIENTE as any]} editingContract={editingContract({ horas_contratadas: null })} onSuccess={onSuccess} onCancel={vi.fn()} />,
     );
     clickButton('Siguiente');
     await waitFor(() => expect(hours().readOnly).toBe(false));
-    expect(hours().value).toBe('120');
+    expect(hours().value).toBe('');
+    fireEvent.change(programmeSelect(container), { target: { value: 'prog-b' } });
+    expect(hours().value).toBe('80');
+    typeInto(hours(), '60');
+    clickButton('Siguiente');
+    clickButton(/Actualizar Contrato/);
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const update = currentClient.__writes.find((w: any) => w.table === 'contratos' && w.op === 'update');
+    expect(update.payload).toHaveProperty('horas_contratadas', 60);
+    expect(update.payload.programa_id).toBe('prog-b');
   });
 
   it('when the allocation read fails, the field stays read-only and the update does not send the column', async () => {

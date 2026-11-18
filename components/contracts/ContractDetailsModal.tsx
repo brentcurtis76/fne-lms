@@ -646,6 +646,12 @@ export default function ContractDetailsModal({
                   <p className="text-sm text-gray-600">Tipo de Contrato</p>
                   <p className="font-medium">Contrato Manual</p>
                 </div>
+                {contrato.horas_contratadas != null && (
+                  <div className="mt-4" data-testid="contract-details-hours">
+                    <p className="text-sm text-gray-600">Horas contratadas</p>
+                    <p className="font-medium">{contrato.horas_contratadas} horas</p>
+                  </div>
+                )}
                 {contrato.descripcion_manual && (
                   <div className="mt-4">
                     <p className="text-sm text-gray-600">Descripción</p>
@@ -672,9 +678,15 @@ export default function ContractDetailsModal({
                     <p className="font-medium">{contrato.programas.modalidad}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Horas Totales</p>
+                    <p className="text-sm text-gray-600">Horas del programa</p>
                     <p className="font-medium">{contrato.programas.horas_totales} horas</p>
                   </div>
+                  {contrato.horas_contratadas != null && (
+                    <div data-testid="contract-details-hours">
+                      <p className="text-sm text-gray-600">Horas contratadas</p>
+                      <p className="font-medium">{contrato.horas_contratadas} horas</p>
+                    </div>
+                  )}
                 </div>
                 {contrato.programas.descripcion && (
                   <div className="mt-4">

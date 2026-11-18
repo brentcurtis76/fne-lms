@@ -86,7 +86,11 @@ interface ContractFormState {
   descripcion_manual?: string;
   cliente_id?: string;
   contrato_url?: string;
+  horas_contratadas: string; // text of the «Horas contratadas» field; '' = no value (GES-2.2)
 }
+
+// «Horas contratadas»: optional, 0 to 999999.99, at most two decimals (GES-2.2)
+const HORAS_CONTRATADAS_PATTERN = /^\d{1,6}(\.\d{1,2})?$/;
 
 interface LicitacionFormData {
   cliente_id: string;
@@ -161,8 +165,16 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     tipo_moneda: 'UF',
     descripcion_manual: '',
     cliente_id: '',
-    contrato_url: ''
+    contrato_url: '',
+    horas_contratadas: ''
   });
+  // The admin typed in «Horas contratadas»: the programme no longer fills it (GES-2.2)
+  const [horasEdited, setHorasEdited] = useState(false);
+  // Whether the edited contract already has a distribution of hours; the field is
+  // locked unless the read answered 'none' (GES-2.2)
+  const [hourAllocationState, setHourAllocationState] = useState<'none' | 'checking' | 'has' | 'error'>(
+    editingContract ? 'checking' : 'none'
+  );
   
   // Installments form
   const [cuotas, setCuotas] = useState<CuotaForm[]>([
@@ -233,7 +245,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         precio_total_uf: extractedData.financial?.precio_total || 0,
         tipo_moneda: extractedData.financial?.moneda || 'UF',
         descripcion_manual: `Contrato importado desde PDF - ${extractedData.contract?.numero_contrato || 'Sin número'}`,
-        contrato_url: extractedData.contrato_url || ''
+        contrato_url: extractedData.contrato_url || '',
+        horas_contratadas: ''
       });
       
       // Populate client form
@@ -332,7 +345,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         tipo_moneda: editingContract.tipo_moneda || 'UF',
         descripcion_manual: editingContract.descripcion_manual || '',
         cliente_id: editingContract.cliente_id || '',
-        contrato_url: editingContract.contrato_url || ''
+        contrato_url: editingContract.contrato_url || '',
+        horas_contratadas: editingContract.horas_contratadas != null ? String(editingContract.horas_contratadas) : ''
       });
       
       // Set selected client
@@ -413,6 +427,46 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       }
     }
   }, [licitacionData, clientes, editingContract]);
+
+  // Fill «Horas contratadas» from the chosen programme, unless the admin typed in the
+  // field or an edit loaded a stored value (GES-2.2). An effect, not the select's
+  // onChange: the licitación effect sets programa_id directly.
+  const horasStored = editingContract?.horas_contratadas != null;
+  useEffect(() => {
+    if (horasEdited || horasStored || esManual) return;
+    const programa = programas.find(p => p.id === contractForm.programa_id);
+    const horas = programa && programa.horas_totales != null ? String(programa.horas_totales) : '';
+    setContractForm(prev => (prev.horas_contratadas === horas ? prev : { ...prev, horas_contratadas: horas }));
+  }, [contractForm.programa_id, programas, horasEdited, horasStored, esManual]);
+
+  // In edit mode, read once whether the contract already has a distribution of
+  // hours: its total must equal horas_contratadas, so the field is then locked.
+  useEffect(() => {
+    const contratoId = editingContract?.id;
+    if (!contratoId) {
+      setHourAllocationState('none');
+      return;
+    }
+    let cancelled = false;
+    setHourAllocationState('checking');
+    (async () => {
+      const { data, error } = await supabase
+        .from('contract_hour_allocations')
+        .select('id')
+        .eq('contrato_id', contratoId)
+        .limit(1);
+      if (cancelled) return;
+      if (error) {
+        console.error('Error reading contract hour allocations:', error);
+        setHourAllocationState('error');
+        return;
+      }
+      setHourAllocationState(data && data.length > 0 ? 'has' : 'none');
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editingContract?.id]);
 
   // Generate contract number automatically
   useEffect(() => {
@@ -567,6 +621,12 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     }
   };
 
+  // «Horas contratadas»: validity, locked state and the value to save (GES-2.2)
+  const horasText = contractForm.horas_contratadas.trim();
+  const horasValid = horasText === '' || HORAS_CONTRATADAS_PATTERN.test(horasText);
+  const horasReadOnly = hourAllocationState !== 'none';
+  const horasToSave = horasText === '' || !horasValid ? null : Number(horasText);
+
   // Row for a brand-new client: only clientes columns (buildClientRow, GES-2.1),
   // with the defaults the database still needs for its obligatory legal columns.
   const newClientRow = () => {
@@ -659,6 +719,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       if (contractForm.tipo_moneda) contractData.tipo_moneda = contractForm.tipo_moneda;
       if (esManual && contractForm.descripcion_manual) contractData.descripcion_manual = contractForm.descripcion_manual;
       if (contractForm.contrato_url) contractData.contrato_url = contractForm.contrato_url;
+      if (!horasReadOnly) contractData.horas_contratadas = horasToSave;
       
       let contractId;
       
@@ -802,6 +863,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
             tipo_moneda: contractForm.tipo_moneda,
             es_manual: esManual,
             descripcion_manual: esManual ? contractForm.descripcion_manual : null,
+            // Not sent once the contract has a distribution of hours (GES-2.2)
+            ...(horasReadOnly ? {} : { horas_contratadas: horasToSave }),
             // Preserve/refresh the imported source PDF URL without nulling it on edit.
             ...(contractForm.contrato_url ? { contrato_url: contractForm.contrato_url } : {}),
             // A full save runs only on a validated form (isStepValid), so it
@@ -920,6 +983,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           tipo_moneda: contractForm.tipo_moneda,
           es_manual: esManual,
           descripcion_manual: esManual ? contractForm.descripcion_manual : null,
+          horas_contratadas: horasToSave,
         };
         // Phase 5: include licitacion_id if creating from licitacion
         if (licitacionId) {
@@ -1058,10 +1122,12 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         // For manual contracts, validate description instead of program
         if (esManual) {
           return contractForm.numero_contrato && contractForm.fecha_contrato && 
-                 contractForm.fecha_fin && contractForm.descripcion_manual && contractForm.precio_total_uf > 0;
+                 contractForm.fecha_fin && contractForm.descripcion_manual && contractForm.precio_total_uf > 0 &&
+                 horasValid;
         }
         return contractForm.numero_contrato && contractForm.fecha_contrato && 
-               contractForm.fecha_fin && contractForm.programa_id && contractForm.precio_total_uf > 0;
+               contractForm.fecha_fin && contractForm.programa_id && contractForm.precio_total_uf > 0 &&
+               horasValid;
       case 'cuotas':
         return cuotas.every(c => c.fecha_vencimiento && c.monto > 0) &&
                cuotasMatchTotal;
@@ -1703,6 +1769,43 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   )}
                 </div>
               )}
+
+              {/* Contracted hours (GES-2.2): filled from the programme, editable */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Horas contratadas
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="999999.99"
+                  data-testid="contract-hours-input"
+                  value={contractForm.horas_contratadas}
+                  readOnly={horasReadOnly}
+                  onChange={(e) => {
+                    if (horasReadOnly) return;
+                    setHorasEdited(true);
+                    setContractForm({ ...contractForm, horas_contratadas: e.target.value });
+                  }}
+                  className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${horasReadOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  {esManual
+                    ? 'Horas de la bolsa de este contrato (opcional).'
+                    : 'Se completa con las horas del programa; puede cambiarlas antes de guardar.'}
+                </p>
+                {hourAllocationState === 'has' && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    No se puede cambiar: el contrato ya tiene una distribución de horas.
+                  </p>
+                )}
+                {!horasValid && (
+                  <p className="text-sm text-red-600 mt-1">
+                    Las horas contratadas deben ser un número entre 0 y 999999,99 con hasta dos decimales.
+                  </p>
+                )}
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">

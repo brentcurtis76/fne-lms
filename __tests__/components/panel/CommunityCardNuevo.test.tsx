@@ -101,3 +101,36 @@ describe('the opened community card: its label and its members\' texts have room
     }
   });
 });
+
+/*
+ * Send-back «by sight», point 4: the bar's line keeps «{n} miembros» together (CSS only: the text is
+ * exactly today's, no other character), and the place's label in the opened card is the size and
+ * colour of the view's other small labels, letter-spacing no wider than 0.08em. Its colour on the
+ * card's white is the pair «a card's secondary text» of the contrast test (gray 600 on white).
+ */
+describe('the community card\'s line and label read easily', () => {
+  it('the bar\'s line: «{n} miembros» on one line, the text unchanged', () => {
+    draw(true);
+    const line = screen.getByTestId('panel-community-line');
+    expect(line.textContent).toBe(`${PLACE} • 3 miembros`);
+    expect(line.textContent).not.toMatch(/[  ⁠]/);
+    const together = [...line.querySelectorAll('span')].find((el) => el.textContent === '3 miembros');
+    expect(together).toBeTruthy();
+    expect(together!.getAttribute('class')).toBe('whitespace-nowrap');
+    // The place's name itself may wrap.
+    expect(line.getAttribute('class')).not.toContain('whitespace-nowrap');
+  });
+
+  it('the place\'s label: a third-level heading, small type, gray 600, bold, tracking at most 0.08em', () => {
+    const open = draw(true);
+    const label = within(open).getByRole('heading', { level: 3, name: PLACE });
+    const names = (label.getAttribute('class') ?? '').split(/\s+/);
+    expect(names).toEqual(expect.arrayContaining(['text-xs', 'text-gray-600', 'font-bold', 'uppercase']));
+    expect(names.filter((n) => /^font-(thin|extralight|light|normal|medium)$/.test(n))).toEqual([]);
+    const tracking = names.filter((n) => n.startsWith('tracking-'));
+    expect(tracking).toHaveLength(1);
+    const em = /^tracking-\[(\d*\.?\d+)em\]$/.exec(tracking[0]);
+    expect(em).not.toBeNull();
+    expect(Number(em![1])).toBeLessThanOrEqual(0.08);
+  });
+});

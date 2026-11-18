@@ -58,7 +58,8 @@ export function CommunityCardNuevo({
               Mi Comunidad de Crecimiento
             </h2>
             <span className="text-[0.8125rem] text-gray-600" data-testid="panel-community-line">
-              {placeName} • {members.length} miembros
+              {/* «{n} miembros» kept together on one line; the text stays exactly today's. */}
+              {placeName} • <span className="whitespace-nowrap">{members.length} miembros</span>
             </span>
             <span className="mt-1 flex items-center">
               {stack.shown.map((member, idx) => (
@@ -105,7 +106,7 @@ export function CommunityCardNuevo({
 
             {/* The place's name on a row of its own; under it, one row with the gear and the link. */}
             <div className="grid gap-1 pt-3">
-              <h3 className="break-words font-mont text-[0.6875rem] font-medium uppercase leading-[1.6] tracking-[0.26em] text-gray-600">
+              <h3 className="break-words font-mont text-xs font-bold uppercase leading-[1.5] tracking-[0.08em] text-gray-600">
                 {placeName}
               </h3>
               <div className="flex flex-wrap items-center justify-end gap-2">

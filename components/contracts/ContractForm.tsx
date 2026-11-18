@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 import { generateContractFromTemplate } from '@/lib/contract-template';
 import { reconcileCuotas, attachExistingCuotaIds } from '@/lib/utils/reconcileCuotas';
 import { buildClientRow } from '@/lib/contracts/client-row';
+import { splitEvenly, sumsMatch, difference, decimalsFor } from '@/lib/contracts/cuotas-math';
 
 interface Programa {
   id: string;
@@ -460,10 +461,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     const numCuotas = cuotas.length;
     
     if (totalAmount > 0 && numCuotas > 0) {
-      const amountPerCuota = totalAmount / numCuotas;
+      // Whole hundredths (UF) or whole pesos (CLP); the last cuota takes the remainder (GES-2.7).
+      const amounts = splitEvenly(totalAmount, numCuotas, decimalsFor(contractForm.tipo_moneda));
       const updatedCuotas = cuotas.map((cuota, index) => ({
         ...cuota,
-        monto: parseFloat(amountPerCuota.toFixed(2))
+        monto: amounts[index]
       }));
       setCuotas(updatedCuotas);
     }
@@ -1031,6 +1033,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     return renderDocumentPreview(openDocumentPreview(), htmlContent, `Contrato ${contractForm.numero_contrato}`);
   };
 
+  // Cuotas against the contract total, in whole units of the currency (GES-2.7)
+  const moneyDecimals = decimalsFor(contractForm.tipo_moneda);
+  const cuotaAmounts = cuotas.map(c => c.monto);
+  const cuotasMatchTotal = sumsMatch(contractForm.precio_total_uf, cuotaAmounts, moneyDecimals);
+
   // Validation
   const isStepValid = () => {
     switch (step) {
@@ -1053,7 +1060,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                contractForm.fecha_fin && contractForm.programa_id && contractForm.precio_total_uf > 0;
       case 'cuotas':
         return cuotas.every(c => c.fecha_vencimiento && c.monto > 0) &&
-               Math.abs(cuotas.reduce((sum, c) => sum + c.monto, 0) - contractForm.precio_total_uf) <= 0.01;
+               cuotasMatchTotal;
       default:
         return false;
     }
@@ -1833,11 +1840,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
               ))}
             </div>
 
-            {Math.abs(cuotas.reduce((sum, c) => sum + c.monto, 0) - contractForm.precio_total_uf) > 0.01 && (
+            {!cuotasMatchTotal && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <p className="text-yellow-800 text-sm">
                   ⚠️ La suma de las cuotas no coincide con el total del contrato. 
-                  Diferencia: {contractForm.tipo_moneda} {(contractForm.precio_total_uf - cuotas.reduce((sum, c) => sum + c.monto, 0)).toLocaleString('es-CL', { minimumFractionDigits: 2 })}
+                  Diferencia: {contractForm.tipo_moneda} {difference(contractForm.precio_total_uf, cuotaAmounts, moneyDecimals).toLocaleString('es-CL', { minimumFractionDigits: moneyDecimals, maximumFractionDigits: moneyDecimals })}
                 </p>
               </div>
             )}

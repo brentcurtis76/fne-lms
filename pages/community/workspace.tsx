@@ -547,8 +547,8 @@ const CommunityWorkspacePage: React.FC = () => {
   };
 
   const renderCommunitySelector = () => {
-    if (!workspaceAccess || workspaceAccess.accessType === 'community_member') {
-      return null; // Community members are auto-directed to their workspace
+    if (!workspaceAccess) {
+      return null;
     }
 
     const selectedCommunity = workspaceAccess.availableCommunities.find(

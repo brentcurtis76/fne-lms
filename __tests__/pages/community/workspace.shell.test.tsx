@@ -312,3 +312,44 @@ describe('EC-V1b the gear is offered to every member and to an admin, never to a
     expect(utils.getByRole('heading', { level: 1 }).textContent).toBe('Comunidad Lectora');
   });
 });
+
+describe('EC-V4 a person in two communities can choose between them', () => {
+  it('a community member with two communities gets the chooser and switches the workspace', async () => {
+    h.access = access('community_member', [COMMUNITY_A, COMMUNITY_B]);
+    const utils = render(<CommunityWorkspacePage />);
+    await loaded(utils);
+    const chooser = utils.getByText('Comunidad A').closest('button') as HTMLButtonElement;
+    expect(chooser).not.toBeNull();
+    await act(async () => {
+      fireEvent.click(chooser);
+    });
+    await act(async () => {
+      fireEvent.click(utils.getByText('Comunidad B').closest('button') as HTMLButtonElement);
+    });
+    await loaded(utils, COMMUNITY_B);
+    expect(h.workspaceCalls).toEqual([COMMUNITY_A, COMMUNITY_B]);
+    expect(utils.queryByText('Espacio de Comunidad A')).toBeNull();
+  });
+
+  it('a member with one community sees no chooser', async () => {
+    const utils = render(<CommunityWorkspacePage />);
+    await loaded(utils);
+    expect(utils.queryByText('Comunidad A')).toBeNull();
+  });
+
+  it('the admin\'s chooser is still there', async () => {
+    h.auth.isAdmin = true;
+    h.access = access('admin', [COMMUNITY_A, COMMUNITY_B]);
+    const utils = render(<CommunityWorkspacePage />);
+    await loaded(utils);
+    expect(utils.getByText('Comunidad A').closest('button')).not.toBeNull();
+  });
+
+  it('the consultant\'s chooser is still there', async () => {
+    h.access = access('consultant', [COMMUNITY_A, COMMUNITY_B]);
+    const utils = render(<CommunityWorkspacePage />);
+    await loaded(utils);
+    expect(utils.getByText('Comunidad A').closest('button')).not.toBeNull();
+  });
+});
+

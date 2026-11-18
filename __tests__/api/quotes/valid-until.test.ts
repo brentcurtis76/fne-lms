@@ -249,3 +249,46 @@ describe('quotes/[id] PUT: «válido hasta»', () => {
     expect(columns).toContain('valid_until');
   });
 });
+
+describe('createV2: early-payment discount and viáticos (CREATE-FIELDS)', () => {
+  const SIX = {
+    apply_early_bird_discount: true,
+    early_bird_payment_date: '2027-05-31',
+    viaticos_type: 'daily',
+    viaticos_amount: 25000,
+    viaticos_total: 500000,
+    viaticos_display_amount: 250000,
+  };
+  const SIX_KEYS = Object.keys(SIX);
+
+  it('a create carrying the six fields inserts them', async () => {
+    const res = await call(createQuote, 'POST', {}, { ...CREATE_BODY, ...SIX });
+    expect(res.statusCode).toBe(200);
+    expect(inserted()).toMatchObject(SIX);
+  });
+
+  it("early_bird_payment_date '' is inserted with null", async () => {
+    const res = await call(createQuote, 'POST', {}, { ...CREATE_BODY, ...SIX, early_bird_payment_date: '' });
+    expect(res.statusCode).toBe(200);
+    expect(inserted()).toHaveProperty('early_bird_payment_date', null);
+  });
+
+  it('a create without them does not name them (the table defaults apply)', async () => {
+    const res = await call(createQuote, 'POST', {}, CREATE_BODY);
+    expect(res.statusCode).toBe(200);
+    for (const k of SIX_KEYS) expect(inserted()).not.toHaveProperty(k);
+  });
+
+  it('a group-mode create carries them too, and attribution stays the caller', async () => {
+    const res = await call(createQuote, 'POST', {}, {
+      client_name: 'Colegio Sintético',
+      use_groups: true,
+      groups: [{ group_name: 'G', num_participants: 2, arrival_date: '2027-01-10', departure_date: '2027-01-12', room_type: 'double', room_price_per_night: 1 }],
+      created_by: ADMIN,
+      updated_by: ADMIN,
+      ...SIX,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(inserted()).toMatchObject({ ...SIX, use_groups: true, created_by: CONSULTOR, updated_by: CONSULTOR });
+  });
+});

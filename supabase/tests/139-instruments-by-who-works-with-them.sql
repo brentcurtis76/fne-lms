@@ -24,13 +24,18 @@
 -- registro; a person with only a demo-access row; anon.
 -- Instruments: T1 published, delivered to S1; T2 published, delivered to S2
 -- only; T3 a draft (with a leftover stored version, delivered nowhere).
+-- Sub-questions (send-back 1): each instrument also has a child sub-question
+-- under its root sub-question and a grandchild under that child (both with
+-- indicator_id NULL, as the table's has_single_parent constraint requires);
+-- T1 also has two parent-only rows that point at each other (a cycle that
+-- reaches no indicator): read by admins only.
 -- Synthetic fixtures (schools -139001/-139002, grade -139011, uuids
 -- 13900000-…); everything rolls back.
 -- =============================================================================
 
 BEGIN;
 
-SELECT plan(70);
+SELECT plan(97);
 
 -- -----------------------------------------------------------------------------
 -- Fixtures (postgres)
@@ -105,6 +110,25 @@ SELECT ('13900000-0000-4000-8000-0000000002d' || n)::uuid, ('13900000-0000-4000-
        'N1B Subpregunta ' || n, 'text', '{}', 1
 FROM generate_series(1, 3) AS n;
 
+-- Nested sub-questions: child (…3dN) under the root (…2dN), grandchild (…4dN)
+-- under the child.
+INSERT INTO public.assessment_sub_questions (id, parent_question_id, question_text, question_type, trigger_condition, display_order)
+SELECT ('13900000-0000-4000-8000-0000000003d' || n)::uuid, ('13900000-0000-4000-8000-0000000002d' || n)::uuid,
+       'N1B Subpregunta hija ' || n, 'text', '{}', 1
+FROM generate_series(1, 3) AS n;
+INSERT INTO public.assessment_sub_questions (id, parent_question_id, question_text, question_type, trigger_condition, display_order)
+SELECT ('13900000-0000-4000-8000-0000000004d' || n)::uuid, ('13900000-0000-4000-8000-0000000003d' || n)::uuid,
+       'N1B Subpregunta nieta ' || n, 'text', '{}', 1
+FROM generate_series(1, 3) AS n;
+-- A parent-only cycle: …5d1 and …6d1 point at each other (first hung under
+-- T1's root so the parent key exists, then re-pointed).
+INSERT INTO public.assessment_sub_questions (id, parent_question_id, question_text, question_type, trigger_condition, display_order) VALUES
+  ('13900000-0000-4000-8000-0000000005d1', '13900000-0000-4000-8000-0000000002d1', 'N1B Ciclo A', 'text', '{}', 1);
+INSERT INTO public.assessment_sub_questions (id, parent_question_id, question_text, question_type, trigger_condition, display_order) VALUES
+  ('13900000-0000-4000-8000-0000000006d1', '13900000-0000-4000-8000-0000000005d1', 'N1B Ciclo B', 'text', '{}', 1);
+UPDATE public.assessment_sub_questions SET parent_question_id = '13900000-0000-4000-8000-0000000006d1'
+ WHERE id = '13900000-0000-4000-8000-0000000005d1';
+
 -- Stored versions: T1 and T2 published; T3 keeps a leftover version that no
 -- registro refers to.
 INSERT INTO public.assessment_template_snapshots (id, template_id, version, snapshot_data)
@@ -138,6 +162,21 @@ CREATE FUNCTION pg_temp.n1b_reads(n int) RETURNS int[] LANGUAGE sql AS $$
     (SELECT count(*)::int FROM public.assessment_sub_questions     WHERE id = ('13900000-0000-4000-8000-0000000002d' || n)::uuid),
     (SELECT count(*)::int FROM public.assessment_year_expectations WHERE id = ('13900000-0000-4000-8000-0000000000d' || n)::uuid),
     (SELECT count(*)::int FROM public.assessment_template_snapshots WHERE id = ('13900000-0000-4000-8000-0000000000f' || n)::uuid)]
+$$;
+
+-- The nested sub-questions the caller reads, in this order:
+-- {T1 child, T1 grandchild, T2 child, T2 grandchild, T3 child, T3 grandchild,
+--  T1 cycle A, T1 cycle B}.
+CREATE FUNCTION pg_temp.n1b_nested() RETURNS int[] LANGUAGE sql AS $$
+  SELECT ARRAY[
+    (SELECT count(*)::int FROM public.assessment_sub_questions WHERE id = '13900000-0000-4000-8000-0000000003d1'),
+    (SELECT count(*)::int FROM public.assessment_sub_questions WHERE id = '13900000-0000-4000-8000-0000000004d1'),
+    (SELECT count(*)::int FROM public.assessment_sub_questions WHERE id = '13900000-0000-4000-8000-0000000003d2'),
+    (SELECT count(*)::int FROM public.assessment_sub_questions WHERE id = '13900000-0000-4000-8000-0000000004d2'),
+    (SELECT count(*)::int FROM public.assessment_sub_questions WHERE id = '13900000-0000-4000-8000-0000000003d3'),
+    (SELECT count(*)::int FROM public.assessment_sub_questions WHERE id = '13900000-0000-4000-8000-0000000004d3'),
+    (SELECT count(*)::int FROM public.assessment_sub_questions WHERE id = '13900000-0000-4000-8000-0000000005d1'),
+    (SELECT count(*)::int FROM public.assessment_sub_questions WHERE id = '13900000-0000-4000-8000-0000000006d1')]
 $$;
 
 -- -----------------------------------------------------------------------------
@@ -212,6 +251,58 @@ SELECT is(pg_temp.n1b_reads(1), ARRAY[0,0,0,0,0,0,0,0], 'anon: reads nothing of 
 SELECT is(pg_temp.n1b_reads(2), ARRAY[0,0,0,0,0,0,0,0], 'anon: reads nothing of T2');
 SELECT is(pg_temp.n1b_reads(3), ARRAY[0,0,0,0,0,0,0,0], 'anon: reads nothing of T3');
 RESET ROLE;
+
+-- -----------------------------------------------------------------------------
+-- Nested sub-questions (send-back 1): read by the same people as their
+-- instrument, through the parent chain up to the root's indicator; a chain
+-- that reaches no indicator (the cycle) is read by admins only.
+-- -----------------------------------------------------------------------------
+SELECT tests.authenticate_as('n1b_admin');
+SELECT is(pg_temp.n1b_nested(), ARRAY[1,1,1,1,1,1,1,1], 'nested sub-questions, admin: all, the cycle included');
+RESET ROLE;
+SELECT tests.authenticate_as('n1b_cons1');
+SELECT is(pg_temp.n1b_nested(), ARRAY[1,1,0,0,0,0,0,0], 'nested sub-questions, consultor of S1: T1''s child and grandchild only');
+RESET ROLE;
+SELECT tests.authenticate_as('n1b_cons2');
+SELECT is(pg_temp.n1b_nested(), ARRAY[0,0,1,1,0,0,0,0], 'nested sub-questions, consultor of S2: T2''s only, none of T1');
+RESET ROLE;
+SELECT tests.authenticate_as('n1b_cons_ended');
+SELECT is(pg_temp.n1b_nested(), ARRAY[0,0,0,0,0,0,0,0], 'nested sub-questions, consultor whose assignment ended: none');
+RESET ROLE;
+SELECT tests.authenticate_as('n1b_dir1');
+SELECT is(pg_temp.n1b_nested(), ARRAY[1,1,0,0,0,0,0,0], 'nested sub-questions, directivo of S1: T1''s child and grandchild only');
+RESET ROLE;
+SELECT tests.authenticate_as('n1b_dir2');
+SELECT is(pg_temp.n1b_nested(), ARRAY[0,0,1,1,0,0,0,0], 'nested sub-questions, directivo of S2: T2''s only, none of T1');
+RESET ROLE;
+SELECT tests.authenticate_as('n1b_teacher');
+SELECT is(pg_temp.n1b_nested(), ARRAY[1,1,0,0,0,0,0,0], 'nested sub-questions, teacher with an unsent registro of T1: T1''s child and grandchild');
+RESET ROLE;
+SELECT tests.authenticate_as('n1b_coteacher');
+SELECT is(pg_temp.n1b_nested(), ARRAY[1,1,0,0,0,0,0,0], 'nested sub-questions, co-assignee of the unsent registro: T1''s child and grandchild');
+RESET ROLE;
+SELECT tests.authenticate_as('n1b_teacher_none');
+SELECT is(pg_temp.n1b_nested(), ARRAY[0,0,0,0,0,0,0,0], 'nested sub-questions, teacher with no registro: none');
+RESET ROLE;
+SELECT tests.authenticate_as('n1b_demo');
+SELECT is(pg_temp.n1b_nested(), ARRAY[0,0,0,0,0,0,0,0], 'nested sub-questions, person with only a demo-access row: none');
+RESET ROLE;
+SELECT tests.clear_authentication();
+SELECT set_config('role', 'anon', true);
+SELECT is(pg_temp.n1b_nested(), ARRAY[0,0,0,0,0,0,0,0], 'nested sub-questions, anon: none');
+RESET ROLE;
+-- A whole-table read as the teacher: T1's three sub-questions, nothing else.
+SELECT tests.authenticate_as('n1b_teacher');
+SELECT is(
+  (SELECT array_agg(id::text ORDER BY id) FROM public.assessment_sub_questions WHERE id::text LIKE '13900000-%'),
+  ARRAY['13900000-0000-4000-8000-0000000002d1', '13900000-0000-4000-8000-0000000003d1', '13900000-0000-4000-8000-0000000004d1'],
+  'teacher with an unsent registro of T1: the whole table gives T1''s root, child and grandchild only');
+RESET ROLE;
+-- The table's own rule: a row has an indicator or a parent, never neither.
+SELECT throws_ok(
+  $q$INSERT INTO public.assessment_sub_questions (id, question_text, question_type, trigger_condition, display_order)
+     VALUES ('13900000-0000-4000-8000-0000000007d1', 'N1B Sin padre', 'text', '{}', 1)$q$,
+  '23514', NULL, 'a sub-question with no indicator and no parent cannot exist (has_single_parent)');
 
 -- The teacher sends the registro (the route's own update, with the teacher's
 -- session: in_progress -> completed, the same thing submit.ts does before it
@@ -307,6 +398,28 @@ SELECT ok(
   (SELECT obj_description(p.oid, 'pg_proc') IS NOT NULL FROM pg_proc p
     WHERE p.pronamespace = 'public'::regnamespace AND p.proname = 'auth_readable_template_level_ids'),
   'auth_readable_template_level_ids() has a COMMENT');
+SELECT has_function('public', 'auth_readable_nested_sub_question_ids', ARRAY[]::name[], 'auth_readable_nested_sub_question_ids() exists');
+SELECT is_definer('public', 'auth_readable_nested_sub_question_ids', ARRAY[]::name[], 'auth_readable_nested_sub_question_ids() is SECURITY DEFINER');
+SELECT volatility_is('public', 'auth_readable_nested_sub_question_ids', ARRAY[]::name[], 'stable', 'auth_readable_nested_sub_question_ids() is STABLE');
+SELECT ok(
+  EXISTS (SELECT 1 FROM pg_proc p, unnest(p.proconfig) AS cfg
+           WHERE p.pronamespace = 'public'::regnamespace AND p.proname = 'auth_readable_nested_sub_question_ids'
+             AND cfg = 'search_path=public, pg_temp'),
+  'auth_readable_nested_sub_question_ids() pins search_path = public, pg_temp');
+SELECT function_privs_are('public', 'auth_readable_nested_sub_question_ids', ARRAY[]::name[], 'anon', ARRAY[]::name[],
+  'anon cannot execute auth_readable_nested_sub_question_ids()');
+SELECT function_privs_are('public', 'auth_readable_nested_sub_question_ids', ARRAY[]::name[], 'authenticated', ARRAY['EXECUTE']::name[],
+  'authenticated can execute auth_readable_nested_sub_question_ids()');
+SELECT function_privs_are('public', 'auth_readable_nested_sub_question_ids', ARRAY[]::name[], 'service_role', ARRAY['EXECUTE']::name[],
+  'service_role can execute auth_readable_nested_sub_question_ids()');
+SELECT ok(
+  (SELECT obj_description(p.oid, 'pg_proc') IS NOT NULL FROM pg_proc p
+    WHERE p.pronamespace = 'public'::regnamespace AND p.proname = 'auth_readable_nested_sub_question_ids'),
+  'auth_readable_nested_sub_question_ids() has a COMMENT');
+SELECT ok(
+  (SELECT qual LIKE '%id IN ( SELECT auth_readable_nested_sub_question_ids()%' FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'assessment_sub_questions' AND policyname = 'assessment_sub_questions_select'),
+  'the sub-questions read rule also admits nested rows through auth_readable_nested_sub_question_ids()');
 
 -- -----------------------------------------------------------------------------
 -- The eight read rules keep their names and commands, apply to authenticated
@@ -370,10 +483,32 @@ SELECT is((SELECT count(*)::int FROM public.auth_readable_template_ids()), (SELE
 SELECT is((SELECT count(*)::int FROM public.auth_readable_template_level_ids()), (SELECT count(*)::int FROM public.assessment_templates),
   'auth_readable_template_level_ids() as admin: every instrument');
 RESET ROLE;
+-- A direct call of the sub-question helper answers only about the caller:
+-- the nested sub-questions they may read, nothing else.
+SELECT tests.clear_authentication();
+SELECT is((SELECT count(*)::int FROM public.auth_readable_nested_sub_question_ids()), 0,
+  'auth_readable_nested_sub_question_ids(): no sign-in, nothing');
+SELECT tests.authenticate_as('n1b_teacher_none');
+SELECT is((SELECT count(*)::int FROM public.auth_readable_nested_sub_question_ids() AS q(id) WHERE q.id::text LIKE '13900000-%'), 0,
+  'auth_readable_nested_sub_question_ids() as a teacher with no registro: none of the fixtures');
+RESET ROLE;
+SELECT tests.authenticate_as('n1b_cons1');
+SELECT is((SELECT array_agg(q.id::text ORDER BY q.id) FROM public.auth_readable_nested_sub_question_ids() AS q(id) WHERE q.id::text LIKE '13900000-%'),
+  ARRAY['13900000-0000-4000-8000-0000000003d1', '13900000-0000-4000-8000-0000000004d1'],
+  'auth_readable_nested_sub_question_ids() as consultor of S1: T1''s child and grandchild only (no draft, no other school, no cycle)');
+RESET ROLE;
+SELECT tests.authenticate_as('n1b_admin');
+SELECT is((SELECT array_agg(q.id::text ORDER BY q.id) FROM public.auth_readable_nested_sub_question_ids() AS q(id) WHERE q.id::text LIKE '13900000-%'),
+  ARRAY['13900000-0000-4000-8000-0000000003d1', '13900000-0000-4000-8000-0000000003d2', '13900000-0000-4000-8000-0000000003d3',
+        '13900000-0000-4000-8000-0000000004d1', '13900000-0000-4000-8000-0000000004d2', '13900000-0000-4000-8000-0000000004d3'],
+  'auth_readable_nested_sub_question_ids() as admin: every nested row that reaches an indicator (the cycle reaches none; admins read it through the writing rule)');
+RESET ROLE;
 SELECT tests.clear_authentication();
 SELECT set_config('role', 'anon', true);
 SELECT throws_ok('SELECT count(*) FROM public.auth_readable_template_ids()', '42501', NULL,
   'anon: calling auth_readable_template_ids() is refused (42501)');
+SELECT throws_ok('SELECT count(*) FROM public.auth_readable_nested_sub_question_ids()', '42501', NULL,
+  'anon: calling auth_readable_nested_sub_question_ids() is refused (42501)');
 RESET ROLE;
 
 SELECT * FROM finish();

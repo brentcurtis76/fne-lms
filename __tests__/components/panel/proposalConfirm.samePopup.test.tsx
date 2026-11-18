@@ -5,12 +5,13 @@
  * (`personView`: texts with their count, buttons and the X with their state) and every `onConfirm` /
  * `onClose`, in order, must be equal. What may differ is the helper's one list, `LOOK_EXCEPTIONS`: the
  * new eyebrow «Confirmar» (taken out by where it stands, so the default confirm word «Confirmar» is
- * still counted). While loading the confirm button and the X differ (D8-X, left failing for the lead).
+ * still counted), and while loading «Eliminando...» busy instead of disabled and no X: decided
+ * differences, asserted as they are in each look by D8-X.
  */
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { closeX, inBothLooks, personView, settle, xApart } from '../../helpers/popups';
+import { closeX, inBothLooks, LOOK_EXCEPTIONS, personView, settle, stateOf } from '../../helpers/popups';
 
 const fake = vi.hoisted(() => ({ look: 'clasico' as 'clasico' | 'nuevo', log: [] as unknown[] }));
 
@@ -50,8 +51,13 @@ async function draw(element: React.ReactElement) {
   view = render(element);
   await settle();
 }
+/** The same scenario in each look, nothing compared. */
+function both<T>(scenario: () => Promise<T>) {
+  return inBothLooks((look) => (fake.look = look), () => (fake.log = []), scenario, () => fake.log);
+}
+
 async function same(scenario: () => Promise<unknown[]>) {
-  const results = await inBothLooks((look) => (fake.look = look), () => (fake.log = []), scenario, () => fake.log);
+  const results = await both(scenario);
   expect(results.nuevo).toEqual(results.clasico);
 }
 
@@ -98,22 +104,29 @@ describe('the confirmation «Eliminar Propuesta» in both looks: the same for a 
     return [got()];
   }));
 
-  // While loading, «Cancelar» is disabled in both looks. «Eliminando...» and the X are compared in the
-  // twin below: «Eliminar» is not a save or send button, so the one allowed difference of state does not
-  // cover it. (The section closes this window on «Eliminar» before `isLoading` is set, so the panel never
-  // shows this state.)
+  // While loading, «Cancelar» is disabled in both looks; «Eliminando...» and the X are the decided
+  // differences of D8-X (`LOOK_EXCEPTIONS.working` and `noXWhileWorking`). (The section closes this
+  // window on «Eliminar» before `isLoading` is set, so the panel never shows this state.)
   it('D8. while loading: «Cancelar» disabled, «Eliminando...»', () => same(async () => {
     await draw(<Holder {...SECTION} isLoading />);
-    const view = xApart(got());
-    return [{ ...view, buttons: view.buttons.map((b) => (b.name === 'Eliminando...' ? { ...b, state: '«compared in D8-X»' } : b)) }];
+    return [got()];
   }));
 
-  // REAL DIFFERENCES, left failing for the lead (send-back 1, point 2(c)): while loading, today's
-  // «Eliminando...» is disabled and the new one is busy (not disabled); today's X (the older dialog's)
-  // is drawn and enabled, and the kit's window with `dismissable={false}` draws none («absent»).
-  it.fails('D8-X. while loading: «Eliminando...» disabled today, busy in the new look; the X enabled today, none in the new look (differs, for the lead)', () =>
-    same(async () => {
+  // DECIDED DIFFERENCES (send-back 2): while loading, today's «Eliminando...» is disabled and the new
+  // one is busy (the kit's Button with `loading`); today's X (the older dialog's) is drawn and enabled,
+  // and the kit's window with `dismissable={false}` draws none.
+  it('D8-X. while loading: «Eliminando...» disabled today, busy in the new look; the X enabled today, none in the new look', async () => {
+    const results = await both(async () => {
       await draw(<Holder {...SECTION} isLoading />);
-      return [got()];
-    }));
+      const deleting = Array.from(document.body.querySelectorAll('button')).find((b) => (b.textContent ?? '').trim() === 'Eliminando...');
+      return { deleting: stateOf(deleting), x: stateOf(closeX()) };
+    });
+    expect(results.clasico.got).toEqual({ deleting: 'disabled', x: 'enabled' });
+    expect(['busy', 'disabled, busy']).toContain(results.nuevo.got.deleting);
+    expect(results.nuevo.got.x).toBe('absent');
+    expect(LOOK_EXCEPTIONS.working.names.confirm).toBe('Eliminando...');
+    expect(LOOK_EXCEPTIONS.noXWhileWorking.today.confirm).toBe(results.clasico.got.x);
+    expect(LOOK_EXCEPTIONS.noXWhileWorking.nuevo).toBe(results.nuevo.got.x);
+    expect(results.nuevo.log).toEqual(results.clasico.log);
+  });
 });

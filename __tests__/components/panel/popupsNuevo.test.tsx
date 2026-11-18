@@ -467,12 +467,6 @@ describe('every help line and message stands with its control (send-back 1, poin
       expect(helpOf(alert, message)).toMatchObject({ found: true, hidden: false });
     }));
 
-  // A REAL GAP, left failing for the lead (send-back 1, point 2(b)): the hook's messages are shown in ONE
-  // notice at the top of the form (the 6C brief's design), announced as an alert but tied to no field:
-  // no field's aria-describedby points at it and none is marked invalid. Tying each message to the field
-  // it names needs a change in `CourseProposalFormNuevo.tsx` (not a test change).
-  it.fails('the form: each of the hook\'s messages is associated with the field it names (differs, for the lead)', () =>
-    eachMessage((field, message) => {
-      expect(helpOf(field, message)).toEqual({ found: true, associated: 'control', hidden: false });
-    }));
+  // Tied to no single field, on purpose: a decided difference of the new look (send-back 2,
+  // `LOOK_EXCEPTIONS.messageAtTop`), asserted in both looks by C4-M in `proposalForm.samePopup.test.tsx`.
 });

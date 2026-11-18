@@ -6,14 +6,15 @@
  * links, pictures) and everything the pop-up did (service calls with their arguments, toasts,
  * `onUpdate`, `onClose`, error lines) must be equal. What may differ is the helper's one list,
  * `LOOK_EXCEPTIONS` (the eyebrow, the remove mark's new name, «Subir imagen» as a button, the save
- * button busy instead of disabled while saving). Escape and the veil close the new window on purpose:
- * tested in `popupsNuevo.test.tsx`. The X while saving differs (W10-X, left failing for the lead).
+ * button busy instead of disabled while saving, no X while saving). Escape and the veil close the new
+ * window on purpose: tested in `popupsNuevo.test.tsx`. The X while saving is a decided difference
+ * (W10-X asserts it as it is, in each look).
  * Every community and image is invented.
  */
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { closeX, fileOfSize, inBothLooks, personView, settle, smallPng, xApart } from '../../helpers/popups';
+import { closeX, fileOfSize, inBothLooks, LOOK_EXCEPTIONS, personView, settle, smallPng, stateOf } from '../../helpers/popups';
 
 const fake = vi.hoisted(() => ({
   look: 'clasico' as 'clasico' | 'nuevo',
@@ -111,8 +112,9 @@ async function click(element: Element | null) {
   await settle();
 }
 
-async function same(scenario: () => Promise<unknown[]>) {
-  const results = await inBothLooks(
+/** The same scenario in each look, nothing compared. */
+function both<T>(scenario: () => Promise<T>) {
+  return inBothLooks(
     (look) => (fake.look = look),
     () => {
       fake.log = [];
@@ -123,6 +125,10 @@ async function same(scenario: () => Promise<unknown[]>) {
     scenario,
     () => fake.log
   );
+}
+
+async function same(scenario: () => Promise<unknown[]>) {
+  const results = await both(scenario);
   expect(results.nuevo).toEqual(results.clasico);
   return results;
 }
@@ -188,7 +194,7 @@ describe('the community settings pop-up in both looks: the same for a person', (
 
   // While saving, «Cancelar» is disabled in both looks and «Guardar cambios» reads «Guardando...»,
   // disabled today and busy in the new look (the one allowed difference of state). The X is compared in
-  // the twin below.
+  // W10-X.
   async function saving(view: () => unknown) {
     await draw();
     fake.update = ['pending'];
@@ -201,11 +207,19 @@ describe('the community settings pop-up in both looks: the same for a person', (
     return [during, got()];
   }
 
-  it('W10. saving: «Guardando...», both buttons unavailable; a second click does nothing', () => same(() => saving(() => xApart(got()))));
+  it('W10. saving: «Guardando...», both buttons unavailable; a second click does nothing', () => same(() => saving(got)));
 
-  // A REAL DIFFERENCE, left failing for the lead (send-back 1, point 2(c)): while saving, today's X is
-  // drawn and disabled; the kit's window with `dismissable={false}` draws no X at all («absent»).
-  it.fails('W10-X. saving: the X is disabled today; the new look has no X (differs, for the lead)', () => same(() => saving(got)));
+  // A DECIDED DIFFERENCE (send-back 2, `LOOK_EXCEPTIONS.noXWhileWorking`): while saving, today's X is
+  // drawn and disabled; the kit's window with `dismissable={false}` draws no X at all.
+  it('W10-X. saving: today the X is drawn and disabled; the new look draws no X', async () => {
+    const results = await both(() => saving(() => stateOf(closeX())));
+    expect(results.clasico.got[0]).toBe('disabled');
+    expect(results.nuevo.got[0]).toBe('absent');
+    expect(LOOK_EXCEPTIONS.noXWhileWorking.today.settings).toBe(results.clasico.got[0]);
+    expect(LOOK_EXCEPTIONS.noXWhileWorking.nuevo).toBe(results.nuevo.got[0]);
+    // Once saved, both looks give a person the same again (as W10).
+    expect(results.clasico.got[1]).toEqual(results.nuevo.got[1]);
+  });
 
   it('W11/W12. saved without and with a chosen image', () => same(async () => {
     await draw({ currentImageUrl: IMAGE });

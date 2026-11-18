@@ -123,7 +123,8 @@ export type Popup = 'settings' | 'member' | 'form' | 'confirm';
 
 /**
  * THE ONE LIST of what the comparison of a pop-up in both looks lets differ, each with its reason. Each
- * is applied by `personView` (below) and nowhere else, and only in the look it names: what a look must
+ * (but `messageAtTop`, which says why) is applied by `personView` (below) and nowhere else, and only in
+ * the look it names: what a look must
  * show under an exception is asserted (a view reports «as allowed» or what it found instead), so an
  * exception never hides a change of its own kind.
  */
@@ -166,13 +167,35 @@ export const LOOK_EXCEPTIONS = {
   } as { reason: string } & Partial<Record<Popup, string[]>>,
   working: {
     reason:
-      'While saving or sending, today\'s save and send buttons are DISABLED; the kit\'s Button with `loading` is BUSY (aria-busy, ' +
-      'clicks ignored; the kit\'s rule). The ONE allowed difference of state: only for the save and send buttons while they read ' +
-      '«Guardando...», only in the settings window and the proposal form; today must be disabled (not busy), the new look busy.',
-    name: 'Guardando...',
-    popups: ['settings', 'form'] as Popup[],
+      'While saving, sending or loading, today\'s save, send and delete buttons are DISABLED; the kit\'s Button with `loading` is ' +
+      'BUSY (aria-busy, clicks ignored; the kit\'s rule). The ONE allowed difference of state of a button: only for the save and ' +
+      'send buttons while they read «Guardando...» (the settings window, the proposal form) and the delete button while it reads ' +
+      '«Eliminando...» (the confirmation; accepted by the lead with D8-X, send-back 2); today must be disabled (not busy), the new ' +
+      'look busy.',
+    names: { settings: 'Guardando...', form: 'Guardando...', confirm: 'Eliminando...' } as Partial<Record<Popup, string>>,
+  },
+  noXWhileWorking: {
+    reason:
+      'While a window cannot be closed (saving, sending, loading) the new look draws no X, where today\'s draws one that is disabled ' +
+      'or does nothing: the kit\'s rule for a window that cannot be dismissed (`Dialog`, `dismissable={false}`). Decided by the lead ' +
+      '(send-back 2: W10-X, C5-X, D8-X). Applied only while the window shows its working word (`working.names`): today\'s X must ' +
+      'be in the state named here for its pop-up, the new look must draw none.',
+    today: { settings: 'disabled', form: 'enabled', confirm: 'enabled' } as Partial<Record<Popup, ControlState>>,
+    nuevo: 'absent' as ControlState,
+  },
+  messageAtTop: {
+    reason:
+      'The form\'s validation message is ONE notice at the top of the form (`role="alert"`), tied to no single field: as today\'s one ' +
+      'red box at the top, and as the approved mock-up. Decided by the lead (send-back 2). `personView` compares no ties, so this ' +
+      'one is not applied there: it is asserted, in both looks, by C4-M in `proposalForm.samePopup.test.tsx`.',
+    today: { place: 'first in the form', role: 'none', tiedToAField: false },
+    nuevo: { place: 'first in the form', role: 'alert', tiedToAField: false },
   },
 } as const;
+
+/** How the X stands while a window works, as `noXWhileWorking` names it (one word for both looks). */
+export const noXWhileWorkingWord = (popup: Popup) =>
+  `«working: the X ${LOOK_EXCEPTIONS.noXWhileWorking.today[popup] ?? '?'} today, none in the new look»`;
 
 /** The look a view is being taken in (set by `inBothLooks`); `null` outside it (no exception applies). */
 let activeLook: Look | null = null;
@@ -326,7 +349,8 @@ export function personView(options: PersonViewOptions) {
     upload = uploadButton ? stateOf(uploadButton) : uploadLabel ? stateOf(document.getElementById(uploadInputId)) : 'absent';
   }
 
-  const working = LOOK_EXCEPTIONS.working;
+  const workingWord = LOOK_EXCEPTIONS.working.names[popup];
+  let isWorking = false;
   const buttons = Array.from(document.body.querySelectorAll<HTMLButtonElement>('button'))
     .filter((b) => b !== x && b !== uploadButton)
     .map((b) => {
@@ -336,12 +360,23 @@ export function personView(options: PersonViewOptions) {
         const removeName = LOOK_EXCEPTIONS.removeImageName.name;
         if ((look === 'nuevo' && name === removeName) || (look === 'clasico' && name === '')) name = '«remove mark»';
       }
-      if (working.popups.includes(popup) && name === working.name && look !== null) {
-        const allowed = look === 'clasico' ? state === 'disabled' : state === 'busy' || state === 'disabled, busy';
-        if (allowed) state = '«working: disabled today, busy in the new look»';
+      if (workingWord !== undefined && name === workingWord) {
+        isWorking = true;
+        if (look !== null) {
+          const allowed = look === 'clasico' ? state === 'disabled' : state === 'busy' || state === 'disabled, busy';
+          if (allowed) state = '«working: disabled today, busy in the new look»';
+        }
       }
       return { name, state };
     });
+
+  // The X while the window works: today's in the state named for its pop-up, none in the new look.
+  let xState: string = stateOf(x);
+  if (isWorking && look !== null) {
+    const noX = LOOK_EXCEPTIONS.noXWhileWorking;
+    const allowed = look === 'clasico' ? xState === noX.today[popup] : xState === noX.nuevo;
+    if (allowed) xState = noXWhileWorkingWord(popup);
+  }
 
   const links = Array.from(document.body.querySelectorAll<HTMLAnchorElement>('a')).map((a) => ({
     name: clean(a.textContent),
@@ -355,17 +390,12 @@ export function personView(options: PersonViewOptions) {
     texts: texts.sort(),
     fields,
     buttons,
-    x: stateOf(x),
+    x: xState,
     ...(upload === null ? {} : { upload }),
     links,
     images,
     exceptions,
   };
-}
-
-/** A view whose X is compared apart, in an `it.fails` twin that names the difference. */
-export function xApart<T extends { x: ControlState }>(view: T): Omit<T, 'x'> & { x: '«compared in the it.fails twin»' } {
-  return { ...view, x: '«compared in the it.fails twin»' };
 }
 
 /**

@@ -4,8 +4,9 @@
  * case of the step-0 pin runs with `clasico` and with `nuevo`; what a person gets (`personView`) and
  * every `onSubmit` (with what it received) and `onClose` must be equal: texts with their count, fields,
  * buttons and the X with their state. The form is sent by clicking its send button in both looks. What
- * may differ is the helper's one list, `LOOK_EXCEPTIONS`. The X while sending differs (C5-X, left
- * failing for the lead). Enter in a field is tested apart, in each look, in
+ * may differ is the helper's one list, `LOOK_EXCEPTIONS`. Two decided differences are asserted as they
+ * are, in each look: the X while sending (C5-X) and the validation message as one notice at the top
+ * of the form, tied to no field (C4-M). Enter in a field is tested apart, in each look, in
  * `CourseProposalFormNuevo.test.tsx`: jsdom's user-event finds the default button only inside the form,
  * and the new one sits in the window's footer, joined by the `form` attribute.
  * Every proposal is invented.
@@ -13,7 +14,7 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { closeX, deferred, inBothLooks, personView, settle, xApart } from '../../helpers/popups';
+import { closeX, deferred, helpOf, inBothLooks, LOOK_EXCEPTIONS, personView, settle, stateOf } from '../../helpers/popups';
 
 const fake = vi.hoisted(() => ({
   look: 'clasico' as 'clasico' | 'nuevo',
@@ -93,8 +94,9 @@ async function fillAll() {
   await settle();
 }
 
-async function same(scenario: () => Promise<unknown[]>) {
-  const results = await inBothLooks(
+/** The same scenario in each look, nothing compared. */
+function both<T>(scenario: () => Promise<T>) {
+  return inBothLooks(
     (look) => (fake.look = look),
     () => {
       fake.log = [];
@@ -104,6 +106,10 @@ async function same(scenario: () => Promise<unknown[]>) {
     scenario,
     () => fake.log
   );
+}
+
+async function same(scenario: () => Promise<unknown[]>) {
+  const results = await both(scenario);
   expect(results.nuevo).toEqual(results.clasico);
 }
 
@@ -144,7 +150,7 @@ describe('the course proposal form in both looks: the same for a person', () => 
 
   // While sending, the fields, the tick box and «Cancelar» are disabled in both looks; the send button
   // reads «Guardando...», disabled today and busy in the new look (the one allowed difference of state).
-  // The X is compared in the twin below.
+  // C5-X.
   async function sending(view: () => unknown) {
     await draw();
     await fillAll();
@@ -156,12 +162,20 @@ describe('the course proposal form in both looks: the same for a person', () => 
     return [during, got()];
   }
 
-  it('C5. a submit: what onSubmit receives, «Guardando...», then closed and reset', () => same(() => sending(() => xApart(got()))));
+  it('C5. a submit: what onSubmit receives, «Guardando...», then closed and reset', () => same(() => sending(got)));
 
-  // A REAL DIFFERENCE, left failing for the lead (send-back 1, point 2(c)): while sending, today's X
-  // (the older dialog's) is drawn and enabled (a click on it does nothing, the hook refuses to close);
-  // the kit's window with `dismissable={false}` draws no X at all («absent»).
-  it.fails('C5-X. sending: the X is enabled today; the new look has no X (differs, for the lead)', () => same(() => sending(got)));
+  // A DECIDED DIFFERENCE (send-back 2, `LOOK_EXCEPTIONS.noXWhileWorking`): while sending, today's X
+  // (the older dialog's) is drawn and enabled, and a click on it does nothing (the hook refuses to
+  // close: C9); the kit's window with `dismissable={false}` draws no X at all.
+  it('C5-X. sending: today the X is drawn and enabled (it does nothing); the new look draws no X', async () => {
+    const results = await both(() => sending(() => stateOf(closeX())));
+    expect(results.clasico.got[0]).toBe('enabled');
+    expect(results.nuevo.got[0]).toBe('absent');
+    expect(LOOK_EXCEPTIONS.noXWhileWorking.today.form).toBe(results.clasico.got[0]);
+    expect(LOOK_EXCEPTIONS.noXWhileWorking.nuevo).toBe(results.nuevo.got[0]);
+    // Once sent, both looks give a person the same again (as C5).
+    expect(results.clasico.got[1]).toEqual(results.nuevo.got[1]);
+  });
 
   it('C6/C8. edit mode: a submit, a refusal with the edit fallback', () => same(async () => {
     await draw({ editingProposal: PROPOSAL });
@@ -197,8 +211,8 @@ describe('the course proposal form in both looks: the same for a person', () => 
     if (x) fireEvent.click(x);
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape', code: 'Escape' });
     await settle();
-    // The X while sending: compared in C5-X.
-    const still = xApart(got());
+    // The X while sending: the decided difference of C5-X (`LOOK_EXCEPTIONS.noXWhileWorking`).
+    const still = got();
     fake.pending?.reject(new Error('Rechazo inventado'));
     await settle();
     return [still, got()];
@@ -222,6 +236,49 @@ describe('the course proposal form in both looks: the same for a person', () => 
     await settle();
     return [before, afterCancel, afterX, got()];
   }));
+
+  // A DECIDED DIFFERENCE (send-back 2, `LOOK_EXCEPTIONS.messageAtTop`): each of the hook's messages is
+  // ONE notice at the top of the form, tied to no single field. Today: one red box, first in the form,
+  // with no role; the new look: one notice, first in the form, `role="alert"`. In neither look does a
+  // field point at it (`aria-describedby`) or say it is invalid (`aria-invalid`).
+  it('C4-M. the hook\'s messages: one notice at the top of the form, tied to no field (today a box, the new look an alert)', async () => {
+    const MESSAGES: Array<[id: string, message: string, value: string]> = [
+      ['titulo', 'El título es requerido', 'Título Inventado'],
+      ['descripcion_corta', 'La descripción es requerida', 'Descripción inventada'],
+      ['competencias_desarrollar', 'Las competencias a desarrollar son requeridas', 'Competencias inventadas'],
+      ['tiempo_requerido_desarrollo', 'El tiempo requerido es requerido', '1 mes'],
+    ];
+    const FIELDS = MESSAGES.map(([id]) => id);
+    const results = await both(async () => {
+      await draw();
+      const seen: unknown[] = [];
+      for (const [id, message, value] of MESSAGES) {
+        await send();
+        const form = document.body.querySelector('form')!;
+        const first = form.firstElementChild as HTMLElement;
+        const carriers = Array.from(form.querySelectorAll<HTMLElement>('*')).filter(
+          (e) => (e.textContent ?? '').trim() === message && !Array.from(e.children).some((c) => (c.textContent ?? '').trim() === message)
+        );
+        seen.push({
+          message,
+          shown: carriers.length,
+          place: first.contains(carriers[0] ?? null) ? 'first in the form' : 'elsewhere',
+          role: first.getAttribute('role') ?? 'none',
+          tiedToAField: FIELDS.some((f) => helpOf(field(f), message).associated !== false || field(f).getAttribute('aria-invalid') === 'true'),
+        });
+        await type(id, value);
+      }
+      return seen;
+    });
+    for (const [look, named] of [
+      ['clasico', LOOK_EXCEPTIONS.messageAtTop.today],
+      ['nuevo', LOOK_EXCEPTIONS.messageAtTop.nuevo],
+    ] as const) {
+      expect(results[look].got).toEqual(MESSAGES.map(([, message]) => ({ message, shown: 1, ...named })));
+    }
+    expect(results.clasico.got.map((s) => (s as { role: string }).role)).toEqual(['none', 'none', 'none', 'none']);
+    expect(results.nuevo.got.map((s) => (s as { role: string }).role)).toEqual(['alert', 'alert', 'alert', 'alert']);
+  });
 
   it('C12. the proposal changing: create → edit → create', () => same(async () => {
     await draw({ editingProposal: null });

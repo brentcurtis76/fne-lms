@@ -260,6 +260,10 @@ describe('AnnexForm — editing an annex (GES-2.9)', () => {
       'cuotas:update:q2',
     ]);
     expect(writes[2].payload).toEqual({ numero_cuota: 2, fecha_vencimiento: '2027-02-01', monto_uf: 10 });
+    // Send-back 1, item 1: an edit (here of an annex of a manual parent) does
+    // not rewrite the annex's manual flag or description.
+    expect(writes[0].payload).not.toHaveProperty('es_manual');
+    expect(writes[0].payload).not.toHaveProperty('descripcion_manual');
   });
 
   it('a new annex with an incomplete cuota is refused too and nothing is written', async () => {

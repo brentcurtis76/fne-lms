@@ -328,20 +328,29 @@ const CommunityWorkspacePage: React.FC = () => {
   const [activitySubscription, setActivitySubscription] = useState<ActivitySubscription | null>(null);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
 
+  // Start-up runs once per signed-in user id (EC-V6): Next.js hands a new
+  // router object on every navigation, which must not restart the page.
+  const startedForUserRef = useRef<string | null>(null);
+  const routerRef = useRef(router);
+  routerRef.current = router;
+
   useEffect(() => {
     if (!authLoading && user) {
+      if (startedForUserRef.current === user.id) return;
+      startedForUserRef.current = user.id;
       initializeWorkspace();
     } else if (!authLoading && !user) {
+      startedForUserRef.current = null;
       // Use navigation manager to prevent concurrent navigation
       navigationManager.navigate(async () => {
-        await router.push('/login');
+        await routerRef.current.push('/login');
       }).catch((error) => {
         console.warn('Navigation to login failed:', error);
         // Fallback - try redirecting via window.location
         window.location.href = '/login';
       });
     }
-  }, [user?.id, authLoading, router, isAdmin]);
+  }, [user?.id, authLoading]);
 
   useEffect(() => {
     if (selectedCommunityId && workspaceAccess) {

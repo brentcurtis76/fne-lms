@@ -14,6 +14,7 @@ const FORBIDDEN: DownloadDecision = { allowed: false, status: 403, error: 'No ti
 const BUCKET_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
 const COMMUNITY_DOCUMENT_PATTERN =
   /^documents\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\//;
+const COMMUNITY_DOCUMENTS_BUCKET = 'community-documents';
 const MESSAGE_ATTACHMENTS_BUCKET = 'message-attachments';
 const MESSAGE_ATTACHMENT_PATH_PATTERN =
   /^[^\/]+\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/[^\/]+$/;
@@ -42,6 +43,54 @@ export function isSafeStoragePath(bucket: string, path: string): boolean {
   }
 }
 
+/**
+ * F12d (EC-S3, N162): a document path is served only for a document record
+ * the caller may read, asked WITH THE CALLER'S SESSION so the table's read
+ * rule decides (hidden, another community's and missing documents are all "no
+ * row"), and only from the store that record names (storage_bucket; empty =
+ * the old store `resources`). The record may hold the key or, in older rows,
+ * the store's full public address of the file. can_access_workspace is still
+ * asked first, as before.
+ */
+async function authorizeCommunityDocument(
+  userClient: SupabaseClient,
+  userId: string,
+  bucket: string,
+  workspaceId: string,
+  path: string,
+  originalUrl?: string
+): Promise<DownloadDecision> {
+  const { data, error } = await userClient.rpc('can_access_workspace', {
+    p_user_id: userId,
+    p_workspace_id: workspaceId,
+  });
+  if (data !== true || error) return FORBIDDEN;
+
+  const base =
+    (process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/+$/, '') + '/storage/v1/object/public/' + bucket + '/';
+  const candidates = Array.from(
+    new Set([
+      path,
+      base + path,
+      base + encodeURI(path),
+      base + path.split('/').map(encodeURIComponent).join('/'),
+      ...(originalUrl !== undefined ? [originalUrl] : []),
+    ])
+  );
+  const { data: rows, error: rowsError } = await userClient
+    .from('community_documents')
+    .select('id, storage_bucket')
+    .eq('workspace_id', workspaceId)
+    .eq('is_active', true)
+    .in('storage_path', candidates)
+    .limit(10);
+  if (rowsError || !Array.isArray(rows)) return FORBIDDEN;
+  const inThisStore = rows.some(
+    (row: { storage_bucket?: string | null }) => (row.storage_bucket || 'resources') === bucket
+  );
+  return inThisStore ? { allowed: true } : FORBIDDEN;
+}
+
 export async function authorizeStorageDownload(
   userClient: SupabaseClient,
   userId: string,
@@ -54,14 +103,17 @@ export async function authorizeStorageDownload(
   if (bucket === (process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'resources')) {
     const match = COMMUNITY_DOCUMENT_PATTERN.exec(path);
     if (match) {
-      const { data, error } = await userClient.rpc('can_access_workspace', {
-        p_user_id: userId,
-        p_workspace_id: match[1],
-      });
-      return data === true && !error ? { allowed: true } : FORBIDDEN;
+      return authorizeCommunityDocument(userClient, userId, bucket, match[1], path, originalUrl);
     }
     if (path.toLowerCase().startsWith('documents/')) return FORBIDDEN;
     return { allowed: true };
+  }
+
+  if (bucket === COMMUNITY_DOCUMENTS_BUCKET) {
+    // the private documents store serves document paths only
+    const match = COMMUNITY_DOCUMENT_PATTERN.exec(path);
+    if (!match) return FORBIDDEN;
+    return authorizeCommunityDocument(userClient, userId, bucket, match[1], path, originalUrl);
   }
 
   if (bucket === MESSAGE_ATTACHMENTS_BUCKET) {

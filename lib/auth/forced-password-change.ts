@@ -169,6 +169,8 @@ export const GATED_PAGE_PREFIXES: readonly string[] = [
  * matcher for the gate keeps whatever it did before for anonymous visitors,
  * which is how this change can broaden the matcher without changing what a
  * logged-out person sees anywhere.
+ * '/student', '/mi-aprendizaje' and '/quiz-reviews' were added on 18 Nov 2026
+ * because their screens sent a visitor to a missing page or showed a spinner for ever.
  */
 export const SESSION_REQUIRED_PAGE_PREFIXES: readonly string[] = [
   '/admin',
@@ -176,6 +178,9 @@ export const SESSION_REQUIRED_PAGE_PREFIXES: readonly string[] = [
   '/school',
   '/meet',
   '/consultor',
+  '/student',
+  '/mi-aprendizaje',
+  '/quiz-reviews',
 ];
 
 function matchesPrefix(pathname: string, prefixes: readonly string[]): boolean {

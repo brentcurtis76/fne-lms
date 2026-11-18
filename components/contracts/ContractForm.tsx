@@ -446,6 +446,22 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     setContractForm(prev => (prev.horas_contratadas === horas ? prev : { ...prev, horas_contratadas: horas }));
   }, [contractForm.programa_id, programas, horasEdited, horasStored, esManual, editingContract, programaChangedInEdit]);
 
+  // Whether a contract already has a distribution of hours: its total must equal
+  // horas_contratadas, so the column is then not written. Used by edit mode and by
+  // the draft path when it updates a draft found by its number (send-back 1).
+  const readHourAllocationState = async (contratoId: string): Promise<'none' | 'has' | 'error'> => {
+    const { data, error } = await supabase
+      .from('contract_hour_allocations')
+      .select('id')
+      .eq('contrato_id', contratoId)
+      .limit(1);
+    if (error) {
+      console.error('Error reading contract hour allocations:', error);
+      return 'error';
+    }
+    return data && data.length > 0 ? 'has' : 'none';
+  };
+
   // In edit mode, read once whether the contract already has a distribution of
   // hours: its total must equal horas_contratadas, so the field is then locked.
   useEffect(() => {
@@ -457,18 +473,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     let cancelled = false;
     setHourAllocationState('checking');
     (async () => {
-      const { data, error } = await supabase
-        .from('contract_hour_allocations')
-        .select('id')
-        .eq('contrato_id', contratoId)
-        .limit(1);
+      const state = await readHourAllocationState(contratoId);
       if (cancelled) return;
-      if (error) {
-        console.error('Error reading contract hour allocations:', error);
-        setHourAllocationState('error');
-        return;
-      }
-      setHourAllocationState(data && data.length > 0 ? 'has' : 'none');
+      setHourAllocationState(state);
     })();
     return () => {
       cancelled = true;
@@ -761,7 +768,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           .single();
           
         if (existingDraft) {
-          // Update existing draft
+          // Update existing draft. Do not overwrite hours already distributed: if
+          // the row has allocations, or the read fails, the column is not sent.
+          if ((await readHourAllocationState(existingDraft.id)) !== 'none') {
+            delete contractData.horas_contratadas;
+          }
           const { data: updatedContract, error } = await supabase
             .from('contratos')
             .update(contractData)

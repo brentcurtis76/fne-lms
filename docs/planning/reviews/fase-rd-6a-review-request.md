@@ -1,6 +1,6 @@
 # RD-6A — platform redesign, phase 6, Mi Panel, step A: the panel's data code in one hook. Review request
 
-- **Branch:** `feat/rd-panel-hook` · **Base:** main at `5e08e8aed` (the fixes' level 2, second part, published) · **Commits:** 10 (the pin of today's panel; the hook; the classic view; the decisions; three commits answering the first code read and the lead's runs; one answering the second code read; this record; the inventory rebuilt)
+- **Branch:** `feat/rd-panel-hook` · **Base:** main after the fixes' release of 18 Nov 2026 (registros at publication, invoice links, meetings and documents of Espacio, expenses by role, four doors). Built and proven on 17 Nov on main at `5e08e8aed`, then replayed on that release on 18 Nov (see "Replayed" below) · **Commits:** 12 (the pin of today's panel; the hook; the classic view; the decisions; three commits answering the first code read and the lead's runs; one answering the second code read; this record; the inventory rebuilt; the record of the replay; the inventory rebuilt on the new base)
 - **Part of the platform redesign** (plan phase 6, "area by area"; first area: Mi Panel). The first of the area's releases.
 - **Built the new way:** builder agents from written briefs, two independent code reads (Sol), the lead's own runs of every check; the lead session wrote no product code.
 
@@ -42,6 +42,18 @@ Groundwork that nobody sees. «Mi Panel» (`pages/dashboard.tsx`) is a key scree
 - **Behind a click or the pointer** (41 states of the panel: nine accounts on arrival at both widths; an opened course card, an opened upcoming card, a row's arrows, the proposal form and its first error, the community bar open, a member's window, the settings window; a visitor not signed in), pictures and texts, main against this branch: **IDENTICAL**, 41 of 41, in today's look and in the new look (main compared with itself first: identical).
 - **Gates:** type-check, lint with no warnings, the whole unit suite: 620 files passed and 1 skipped, 19,395 tests passed, 18 skipped.
 - **CI's browser list** against a production build on a fresh local stack made from main: 344 passed, none failed.
+
+## Replayed on the fixes' release (18 Nov 2026)
+
+The fixes' release went out before this one, so the branch was moved onto it (`git rebase --onto`, no conflict; `git range-diff` shows the ten commits unchanged). That release shares one file with this branch, `PROJECT_STATE.md`; it touches no file of the panel. A fresh local stack was made from the new base (its five migrations applied) and the base was photographed again.
+
+- **Gates:** type-check, lint with no warnings, the whole unit suite: 653 files passed and 1 skipped, 19,733 tests passed, 18 skipped.
+- **Stylesheet:** byte for byte the base's.
+- **The panel in the new look and for tester accounts with today's look** (every role, two widths): **IDENTICAL** to the base's, 20 of 20 each.
+- **Behind a click or the pointer** (41 states), pictures and texts, base against this branch: **IDENTICAL** in today's look, 41 of 41. In the new look 40 of 41, and one state (the admin's proposal form with its first error, phone width) differs in 16 pixels of one hairline by two steps of a shade, with the same text: the base photographed three times gives three different pictures of that state, one of them this branch's; this branch gives the same picture three times. A difference of the run, not of the build.
+- **The panel's browser pin tests:** 35 passed (on the base: 32 of 34; the two out-of-date ones, which this branch brings in line).
+- **CI's browser list** against a production build: 342 passed, 1 failed, 1 did not run. The one that failed is a test of the group discussion page, which this branch does not touch; the same file run alone fails by chance on the base without this branch (1 of 2 runs) as on this branch, and passed in every run on the main before the fixes' release. Not this release's.
+- **Pictures of every screen with the switch off:** on the new base the full comparison is made once, on the branch that sits on top of this one and holds every line of it (the next release, RD-6B); its figures are in that release's record. This branch alone was compared in full on 17 Nov (above).
 
 ## Where to look hardest
 

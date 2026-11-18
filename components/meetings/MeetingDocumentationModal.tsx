@@ -2060,7 +2060,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
           onOpenChange={setFinalizeOpen}
           meetingId={meetingId!}
           meetingTitle={formData.meeting_info.title}
-          onFinalized={() => { handleClose(); }}
+          onFinalized={() => { onSuccess(); handleClose(); }}
         />
       )}
     </div>

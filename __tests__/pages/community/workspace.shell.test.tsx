@@ -353,3 +353,97 @@ describe('EC-V4 a person in two communities can choose between them', () => {
   });
 });
 
+
+describe('EC-V6 moving inside the app does not restart the page', () => {
+  it('a re-render with a NEW router object neither runs the start-up again nor shows the skeleton', async () => {
+    h.freshRouter = true;
+    h.access = access('community_member', [COMMUNITY_A, COMMUNITY_B]);
+    const utils = render(<CommunityWorkspacePage />);
+    await loaded(utils);
+    // The member chose community B; a navigation must not put A back.
+    await act(async () => {
+      fireEvent.click(utils.getByText('Comunidad A').closest('button') as HTMLButtonElement);
+    });
+    await act(async () => {
+      fireEvent.click(utils.getByText('Comunidad B').closest('button') as HTMLButtonElement);
+    });
+    await loaded(utils, COMMUNITY_B);
+    const skeletons = h.skeletonRenders;
+    expect(h.accessCalls).toEqual(['user-1']);
+
+    utils.rerender(<CommunityWorkspacePage />);
+    await flush();
+    utils.rerender(<CommunityWorkspacePage />);
+    await flush();
+
+    expect(h.accessCalls).toEqual(['user-1']);
+    expect(h.skeletonRenders).toBe(skeletons);
+    expect(utils.queryByTestId('loading-skeleton')).toBeNull();
+    expect(utils.getByText('Espacio de Comunidad B')).toBeTruthy();
+  });
+
+  it('first load runs the start-up once', async () => {
+    h.freshRouter = true;
+    const utils = render(<CommunityWorkspacePage />);
+    await loaded(utils);
+    expect(h.accessCalls).toEqual(['user-1']);
+    expect(h.workspaceCalls).toEqual([COMMUNITY_A]);
+  });
+
+  it('a different user signing in afterwards gets their own start-up', async () => {
+    h.freshRouter = true;
+    const utils = render(<CommunityWorkspacePage />);
+    await loaded(utils);
+    h.auth.user = { id: 'user-2', email: 'otra@example.test', name: 'Otra' };
+    h.access = access('community_member', [COMMUNITY_B]);
+    utils.rerender(<CommunityWorkspacePage />);
+    await loaded(utils, COMMUNITY_B);
+    expect(h.accessCalls).toEqual(['user-1', 'user-2']);
+  });
+
+  it('signing out sends to /login', async () => {
+    h.freshRouter = true;
+    const utils = render(<CommunityWorkspacePage />);
+    await loaded(utils);
+    h.auth.user = null;
+    utils.rerender(<CommunityWorkspacePage />);
+    await flush();
+    expect(h.baseRouter.push).toHaveBeenCalledWith('/login');
+  });
+
+  it('a load with ?thread= opens the community that owns the thread', async () => {
+    h.freshRouter = true;
+    h.access = access('community_member', [COMMUNITY_A, COMMUNITY_B]);
+    h.threadCommunity = { [THREAD_B]: COMMUNITY_B };
+    window.history.replaceState({}, '', `/community/workspace?section=messaging&thread=${THREAD_B}`);
+    const utils = render(<CommunityWorkspacePage />);
+    await loaded(utils, COMMUNITY_B);
+    expect(h.accessCalls).toEqual(['user-1']);
+  });
+
+  it('a conversation link of another community followed while the page is open switches to it, without a restart', async () => {
+    h.freshRouter = true;
+    h.access = access('community_member', [COMMUNITY_A, COMMUNITY_B]);
+    h.threadCommunity = { [THREAD_B]: COMMUNITY_B };
+    const utils = render(<CommunityWorkspacePage />);
+    await loaded(utils);
+    await act(async () => {
+      h.routeHandlers.forEach((handler) => handler(`/community/workspace?section=messaging&thread=${THREAD_B}`));
+    });
+    utils.rerender(<CommunityWorkspacePage />);
+    await loaded(utils, COMMUNITY_B);
+    expect(h.accessCalls).toEqual(['user-1']);
+  });
+
+  it('the return from an assessment opens the community kept in sessionStorage', async () => {
+    h.freshRouter = true;
+    h.access = access('community_member', [COMMUNITY_A, COMMUNITY_B]);
+    sessionStorage.setItem('workspace_return_community', COMMUNITY_B);
+    const utils = render(<CommunityWorkspacePage />);
+    await loaded(utils, COMMUNITY_B);
+    expect(sessionStorage.getItem('workspace_return_community')).toBeNull();
+    utils.rerender(<CommunityWorkspacePage />);
+    await flush();
+    expect(utils.getByText('Espacio de Comunidad B')).toBeTruthy();
+  });
+});

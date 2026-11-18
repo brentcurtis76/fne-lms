@@ -5,6 +5,7 @@
 
 import { supabase } from '../lib/supabase-wrapper';
 import { UserRole, GrowthCommunity } from '../types/roles';
+import { fetchAssignedSchoolIds } from '../lib/consultor-assigned-schools';
 
 export interface WorkspaceAccess {
   canAccess: boolean;
@@ -98,16 +99,20 @@ export async function getUserWorkspaceAccess(userId: string, isAdminOverride?: b
       };
     }
 
-    // Check if user is consultant
+    // Check if user is consultant. F12e V5b (N28): the communities of the
+    // schools the consultor is CURRENTLY ASSIGNED to; with none, fall through
+    // (a consultor who is also a community member enters as that member).
     const consultantRoles = userRoles.filter(role => role.role_type === 'consultor');
     if (consultantRoles.length > 0) {
-      const consultantCommunities = await getCommunitiesForConsultant(consultantRoles);
-      return {
-        canAccess: consultantCommunities.length > 0,
-        accessType: 'consultant',
-        availableCommunities: consultantCommunities,
-        defaultCommunityId: consultantCommunities.length > 0 ? consultantCommunities[0].id : undefined
-      };
+      const consultantCommunities = await getCommunitiesForConsultant();
+      if (consultantCommunities.length > 0) {
+        return {
+          canAccess: true,
+          accessType: 'consultant',
+          availableCommunities: consultantCommunities,
+          defaultCommunityId: consultantCommunities[0].id
+        };
+      }
     }
 
     // Check if user is community_manager (access to their assigned communities only)
@@ -215,13 +220,12 @@ async function getAllCommunitiesForAdmin(): Promise<CommunityInfo[]> {
 }
 
 /**
- * Get communities accessible to consultants
+ * Get communities accessible to consultants: those of the schools the caller
+ * is currently assigned to (F12e V5b; asked through the caller's own client).
  */
-async function getCommunitiesForConsultant(consultantRoles: UserRole[]): Promise<CommunityInfo[]> {
+async function getCommunitiesForConsultant(): Promise<CommunityInfo[]> {
   try {
-    const schoolIds = consultantRoles
-      .map(role => role.school_id)
-      .filter((id): id is string => id !== null && id !== undefined);
+    const schoolIds = await fetchAssignedSchoolIds(supabase);
 
     if (schoolIds.length === 0) {
       return [];

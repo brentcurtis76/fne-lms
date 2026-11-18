@@ -63,11 +63,15 @@ export default function PanelNuevo({ panel, decisions }: { panel: Panel; decisio
 
   return (
     <div data-testid="panel-nuevo">
-      {/* Welcome band */}
+      {/* Welcome band. Its three parts sit in one row that wraps: the text's column starts from a width
+          of its own (160 px, never from nothing), so when the avatar, that width and «Mi Perfil» no
+          longer fit side by side, the button goes to a row of its own under the text, at the left,
+          instead of squeezing the text under itself. A word wider than its column (a long first name)
+          breaks inside the column rather than running under anything. */}
       <div className="bg-brand_gray_dark text-white" data-testid="panel-nuevo-welcome">
         <div className="mx-auto flex max-w-[1360px] flex-wrap items-center gap-4 px-4 py-[18px] lg:px-7 lg:py-[22px]">
           <Avatar user={user} avatarUrl={avatarUrl} size="lg" className="ring-2 ring-brand_accent" />
-          <div className="grid min-w-0 flex-1 gap-1">
+          <div className="grid min-w-0 grow basis-[10rem] gap-1 [overflow-wrap:anywhere]">
             <h1 className="text-[1.375rem] font-extrabold text-white lg:text-[1.625rem]">
               <span className="font-light">¡Hola, </span>
               {greetingName}!

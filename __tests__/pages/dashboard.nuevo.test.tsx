@@ -572,3 +572,39 @@ describe('a title cut to its lines says the whole of itself on hover', () => {
     expect(name.getAttribute('title')).toBe(name.textContent);
   });
 });
+
+/*
+ * Blind-test send-back, point 1: at 320 px «Mi Perfil» lay over the welcome sentence. The cause: the
+ * text's column started from a width of nothing (it grew into whatever room was left), so the row
+ * never wrapped and the column shrank under the button's fixed width until its words ran out of it.
+ * The band's structure now lets the button go to a row of its own; no layout here, so the classes and
+ * the structure are what is checked (the widths themselves are the browser's to measure).
+ */
+describe('the welcome band never lays its button over its text', () => {
+  const classes = (el: Element) => (el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean);
+
+  it('one wrapping row; the text column starts from a width of its own and breaks long words; nothing positioned', async () => {
+    await draw(consultor());
+    const band = screen.getByTestId('panel-nuevo-welcome');
+    const row = band.firstElementChild!;
+    expect(classes(row)).toContain('flex');
+    expect(classes(row)).toContain('flex-wrap');
+    const heading = within(band).getByRole('heading', { level: 1 });
+    const column = heading.parentElement!;
+    expect(column.parentElement).toBe(row);
+    expect(classes(column)).toEqual(expect.arrayContaining(['min-w-0', 'grow', 'basis-[10rem]', '[overflow-wrap:anywhere]']));
+    expect(classes(column)).not.toContain('flex-1');
+    const link = screen.getByTestId('panel-nuevo-profile');
+    expect(link.parentElement).toBe(row);
+    expect(link.getAttribute('href')).toBe('/profile');
+    expect(link.textContent).toBe('Mi Perfil');
+    // Nothing of the band is lifted out of the flow.
+    for (const el of [band, ...band.querySelectorAll('*')]) {
+      expect(classes(el).filter((c) => /^(absolute|fixed|sticky)$/.test(c)), el.outerHTML.slice(0, 120)).toEqual([]);
+    }
+    // Every part stays: the avatar, the greeting, the sentence, the consultor's line, the button.
+    expect(row.children).toHaveLength(3);
+    expect(within(column).getByText('Bienvenido de vuelta al hub de transformación de tu colegio')).toBeTruthy();
+    expect(column.children).toHaveLength(3);
+  });
+});

@@ -42,6 +42,9 @@ const h = vi.hoisted(() => ({
   renameDocument: vi.fn(),
   moveDocument: vi.fn(),
   hideDocument: vi.fn(),
+  session: { access_token: 'synthetic-token', user: { id: 'user-1' } } as null | Record<string, unknown>,
+  getDocumentLink: vi.fn(),
+  incrementDocumentCounter: vi.fn(),
 }));
 
 const COMMUNITY_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -74,7 +77,7 @@ function emptyClient() {
   };
   return {
     from: () => chain,
-    auth: { getSession: async () => ({ data: { session: { access_token: 'synthetic-token', user: { id: 'user-1' } } } }) },
+    auth: { getSession: async () => ({ data: { session: h.session } }) },
     storage: { from: () => ({ remove: async () => ({ data: null, error: null }) }) },
   };
 }
@@ -115,7 +118,8 @@ vi.mock('../../../utils/documentUtils', () => ({
   }),
   uploadDocument: vi.fn(),
   createFolder: vi.fn(),
-  incrementDocumentCounter: vi.fn(async () => undefined),
+  incrementDocumentCounter: (...args: unknown[]) => h.incrementDocumentCounter(...args),
+  getDocumentLink: (...args: unknown[]) => h.getDocumentLink(...args),
   getFolderBreadcrumb: async () => [],
   extractUniqueTags: () => [],
   canManageWorkspaceDocuments: async (workspaceId: string) => {
@@ -169,7 +173,7 @@ vi.mock('../../../components/documents/DocumentGrid', () => ({
       <div data-testid="grid" data-can-manage-all={props.canManageAll ? 'yes' : 'no'}>
         {props.documents.map((d: any) => (
           <span key={d.id}>
-            {['edit', 'move', 'delete'].map(action => (
+            {['edit', 'move', 'delete', 'download'].map(action => (
               <button key={action} type="button" data-testid={`${action}-${d.id}`} onClick={() => props.onDocumentAction(action, d)}>
                 {action}
               </button>
@@ -204,6 +208,9 @@ vi.mock('../../../components/workspace/WorkspaceSessionsTab', () => ({ default: 
 import CommunityWorkspacePage from '../../../pages/community/workspace';
 
 const NOT_ALLOWED = 'Solo quien subió el documento o el líder de la comunidad puede hacerlo.';
+const SIGNED_DOWNLOAD = 'http://127.0.0.1:54321/storage/v1/object/sign/community-documents/documents/ws-A/root/d1.pdf?token=t&download=d1.pdf';
+const SESSION_EXPIRED = 'Tu sesión expiró. Vuelve a iniciar sesión para descargar el documento.';
+const LINK_FAILED = 'No se pudo abrir el documento. Inténtalo de nuevo.';
 
 async function ready(): Promise<RenderResult> {
   const utils = render(<CommunityWorkspacePage />);
@@ -224,6 +231,9 @@ beforeEach(() => {
   h.renameDocument = vi.fn(async () => undefined);
   h.moveDocument = vi.fn(async () => undefined);
   h.hideDocument = vi.fn(async () => undefined);
+  h.session = { access_token: 'synthetic-token', user: { id: 'user-1' } };
+  h.getDocumentLink = vi.fn(async () => SIGNED_DOWNLOAD);
+  h.incrementDocumentCounter = vi.fn(async () => undefined);
   vi.mocked(toast).mockClear();
   vi.mocked(toast.success).mockClear();
   vi.mocked(toast.error).mockClear();
@@ -434,5 +444,71 @@ describe('EC-D2b the documents tab renames, moves and removes', () => {
     fireEvent.click(utils.getByTestId('delete-d1'));
     const texts = vi.mocked(toast).mock.calls.map(c => String(c[0]));
     expect(texts.filter(t => t.includes('próximamente'))).toEqual([]);
+  });
+});
+
+// F12d (EC-S3): «Descargar» asks the link route for a download link and sends
+// the window to it; it never opens a store address of its own (N147).
+describe('F12d the documents tab downloads through the link route', () => {
+  let assign: ReturnType<typeof vi.fn>;
+  let open: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    assign = vi.fn();
+    open = vi.fn();
+    vi.stubGlobal('location', { ...window.location, assign });
+    window.open = open as any;
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('asks the link route with download=1 for that document, counts the download, and sends the window to the link', async () => {
+    const utils = await ready();
+    await act(async () => {
+      fireEvent.click(utils.getByTestId('download-d1'));
+    });
+    await waitFor(() => expect(assign).toHaveBeenCalledWith(SIGNED_DOWNLOAD));
+    expect(h.getDocumentLink).toHaveBeenCalledWith('d1', { download: true });
+    expect(h.incrementDocumentCounter).toHaveBeenCalledWith('d1', 'download', 'user-1');
+    expect(open).not.toHaveBeenCalled();
+    const asked = (global.fetch as any).mock.calls.map((c: unknown[]) => String(c[0]));
+    expect(asked.some((u: string) => u.includes('/api/storage/download'))).toBe(false);
+  });
+
+  it('no session → no address is opened, the session message is shown (N147)', async () => {
+    h.session = null;
+    const utils = await ready();
+    await act(async () => {
+      fireEvent.click(utils.getByTestId('download-d1'));
+    });
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(SESSION_EXPIRED));
+    expect(open).not.toHaveBeenCalled();
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it('the link route refuses → no address is opened, «No se pudo abrir el documento. Inténtalo de nuevo.»', async () => {
+    h.getDocumentLink = vi.fn(async () => {
+      throw Object.assign(new Error('failed'), { reason: 'failed' });
+    });
+    const utils = await ready();
+    await act(async () => {
+      fireEvent.click(utils.getByTestId('download-d1'));
+    });
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(LINK_FAILED));
+    expect(open).not.toHaveBeenCalled();
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it('the link route says the session is gone → the session message, nothing opened', async () => {
+    h.getDocumentLink = vi.fn(async () => {
+      throw Object.assign(new Error('session'), { reason: 'session' });
+    });
+    const utils = await ready();
+    await act(async () => {
+      fireEvent.click(utils.getByTestId('download-d1'));
+    });
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(SESSION_EXPIRED));
+    expect(open).not.toHaveBeenCalled();
+    expect(assign).not.toHaveBeenCalled();
   });
 });

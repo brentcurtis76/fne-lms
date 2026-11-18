@@ -335,7 +335,8 @@ describe('download-url.ts still signs allowed files, with the decoded path', () 
   it('a member\'s community document → 200', async () => {
     const res = await callDownloadUrl(`${PUBLIC}/resources/documents/${WS_MEMBER}/plan.pdf`);
     expect(res._getStatusCode()).toBe(200);
-    expect(mockCreateSignedUrl).toHaveBeenCalledWith(`documents/${WS_MEMBER}/plan.pdf`, 3600);
+    // send-back 1: a document is signed for five minutes, like the link route
+    expect(mockCreateSignedUrl).toHaveBeenCalledWith(`documents/${WS_MEMBER}/plan.pdf`, 300);
   });
 
   it('a readable message attachment → 200 in its own store', async () => {
@@ -571,7 +572,7 @@ describe('document paths follow the document record (F12d, N162)', () => {
     expect(res._getStatusCode()).toBe(200);
     expect(mockStorageFrom).toHaveBeenCalledWith('community-documents');
     if (route === 'download') expect(mockDownload).toHaveBeenCalledWith(`documents/${WS_MEMBER}/root/1-acta.pdf`);
-    else expect(mockCreateSignedUrl).toHaveBeenCalledWith(`documents/${WS_MEMBER}/root/1-acta.pdf`, 3600);
+    else expect(mockCreateSignedUrl).toHaveBeenCalledWith(`documents/${WS_MEMBER}/root/1-acta.pdf`, 300); // send-back 1: five minutes
   });
 
   it.each(['download', 'download-url'])('%s: a hidden document in community-documents → 403', async (route) => {

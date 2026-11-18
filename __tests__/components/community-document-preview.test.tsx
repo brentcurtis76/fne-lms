@@ -149,3 +149,93 @@ describe('a link is not kept longer than four minutes', () => {
     expect(h.getDocumentLink).toHaveBeenCalledTimes(2);
   });
 });
+
+// Send-back 1 (EC-S3): a preview that stays OPEN must not keep a link that
+// dies after five minutes. While it is open a fresh link is asked for every
+// four minutes and swapped in (a video keeps its position and playing
+// state); on a media or frame load error ONE fresh link is tried before the
+// error panel is shown. Only setInterval/clearInterval/Date are faked, so
+// waitFor keeps its real timeouts.
+describe('an open preview renews its link', () => {
+  const FOUR_MIN = 4 * 60_000;
+  const SIGNED_3 = SIGNED.replace('t1', 't3');
+
+  it('after four minutes open: a new link is asked for and the image source changes to it', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    h.getDocumentLink.mockResolvedValueOnce(SIGNED).mockResolvedValueOnce(SIGNED_2);
+    show('documents/ws/root/a.png');
+    await waitFor(() => expect(screen.getByAltText('Synthetic preview')).toHaveAttribute('src', SIGNED));
+    expect(h.getDocumentLink).toHaveBeenCalledTimes(1);
+    await act(async () => { vi.advanceTimersByTime(FOUR_MIN); });
+    await waitFor(() => expect(screen.getByAltText('Synthetic preview')).toHaveAttribute('src', SIGNED_2));
+    expect(h.getDocumentLink).toHaveBeenCalledTimes(2);
+    expect(h.getDocumentLink).toHaveBeenLastCalledWith('doc-1');
+  });
+
+  it('a video keeps its position and keeps playing across the swap', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    const load = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve());
+    h.getDocumentLink.mockResolvedValueOnce(SIGNED).mockResolvedValueOnce(SIGNED_2);
+    const { container } = show('documents/ws/root/clip.mp4', 'video/mp4');
+    await waitFor(() => expect(container.querySelector('video source')).toHaveAttribute('src', SIGNED));
+    const video = container.querySelector('video') as HTMLVideoElement;
+    let position = 0;
+    Object.defineProperty(video, 'currentTime', { configurable: true, get: () => position, set: (v: number) => { position = v; } });
+    Object.defineProperty(video, 'paused', { configurable: true, get: () => false });
+    position = 312.5;
+    await act(async () => { vi.advanceTimersByTime(FOUR_MIN); });
+    await waitFor(() => expect(container.querySelector('video source')).toHaveAttribute('src', SIGNED_2));
+    expect(container.querySelector('video')).toBe(video);
+    expect(load).toHaveBeenCalledTimes(1);
+    position = 0; // load() starts the element from the beginning
+    fireEvent(video, new Event('loadedmetadata'));
+    expect(position).toBe(312.5);
+    expect(play).toHaveBeenCalledTimes(1);
+  });
+
+  it('the timer stops when the preview closes', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    const document = documentOf('doc-1', 'documents/ws/root/a.png');
+    const { rerender } = render(<DocumentPreview isOpen onClose={() => {}} document={document} onDownload={() => {}} />);
+    await waitFor(() => expect(screen.getByAltText('Synthetic preview')).toHaveAttribute('src', SIGNED));
+    rerender(<DocumentPreview isOpen={false} onClose={() => {}} document={document} onDownload={() => {}} />);
+    await act(async () => { vi.advanceTimersByTime(3 * FOUR_MIN); });
+    expect(h.getDocumentLink).toHaveBeenCalledTimes(1);
+  });
+
+  it('a video load error: ONE new link is asked for and the source retried before the error panel', async () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
+    h.getDocumentLink.mockResolvedValueOnce(SIGNED).mockResolvedValueOnce(SIGNED_2).mockResolvedValueOnce(SIGNED_3);
+    const { container } = show('documents/ws/root/clip.mp4', 'video/mp4');
+    await waitFor(() => expect(container.querySelector('video source')).toHaveAttribute('src', SIGNED));
+    fireEvent.error(container.querySelector('video') as HTMLVideoElement);
+    await waitFor(() => expect(container.querySelector('video source')).toHaveAttribute('src', SIGNED_2));
+    expect(h.getDocumentLink).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText('Error al cargar el video')).toBeNull();
+    fireEvent.error(container.querySelector('video') as HTMLVideoElement);
+    await waitFor(() => expect(screen.getByText('Error al cargar el video')).toBeInTheDocument());
+    expect(h.getDocumentLink).toHaveBeenCalledTimes(2);
+  });
+
+  // A frame has no load-error event React passes on (nor does a browser fire
+  // one when the store answers an error inside a frame), so the PDF frame is
+  // kept alive by the four-minute renewal only.
+  it('a PDF frame left open: after four minutes its source is the new link', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    h.getDocumentLink.mockResolvedValueOnce(SIGNED).mockResolvedValueOnce(SIGNED_2);
+    show('documents/ws/root/a.pdf', 'application/pdf');
+    await waitFor(() => expect(screen.getByTitle('Synthetic preview')).toHaveAttribute('src', `${SIGNED}#view=FitH`));
+    await act(async () => { vi.advanceTimersByTime(FOUR_MIN); });
+    await waitFor(() => expect(screen.getByTitle('Synthetic preview')).toHaveAttribute('src', `${SIGNED_2}#view=FitH`));
+  });
+
+  it('the retry link is refused too → the existing error panel', async () => {
+    h.getDocumentLink.mockResolvedValueOnce(SIGNED).mockRejectedValueOnce(new Error('expired'));
+    show('documents/ws/root/a.png');
+    await waitFor(() => expect(screen.getByAltText('Synthetic preview')).toHaveAttribute('src', SIGNED));
+    fireEvent.error(screen.getByAltText('Synthetic preview'));
+    await waitFor(() => expect(screen.getByText('Error al cargar la imagen')).toBeInTheDocument());
+    expect(h.getDocumentLink).toHaveBeenCalledTimes(2);
+  });
+});

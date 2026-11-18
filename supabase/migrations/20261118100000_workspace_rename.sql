@@ -5,7 +5,7 @@
 -- 17 Nov 2026: "Any member"); admins may too. The table's own write rules
 -- (admins_modify_all_workspaces, community_managers_modify_their_workspace)
 -- stay exactly as they are: the picture keeps its present path, and the name
--- goes through this function for every person.
+-- goes through this function for every person. A consultor does not rename.
 --
 -- Additive only: one new function, its grants and its comment. No existing
 -- rule, grant or function is changed.
@@ -45,6 +45,10 @@ BEGIN
           WHERE ur.user_id = v_uid
             AND ur.is_active = true
             AND ur.community_id = v_community_id
+            -- A consultor does not rename (lead's decision, 17-18 Nov), even
+            -- when the consultor role row names this community; a person who
+            -- also holds another active role row here renames through it.
+            AND ur.role_type <> 'consultor'
        )
      ) THEN
     RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'not_allowed';
@@ -65,4 +69,4 @@ REVOKE ALL ON FUNCTION public.rename_community_workspace(uuid, text) FROM PUBLIC
 GRANT EXECUTE ON FUNCTION public.rename_community_workspace(uuid, text) TO authenticated;
 
 COMMENT ON FUNCTION public.rename_community_workspace(uuid, text) IS
-  'F12c EC-V1a: sets custom_name (stripped at both ends of white space, control and format characters; then 1..100 characters, else invalid_name 22023) and updated_at of one community workspace. Allowed: an admin (auth_is_admin) or a caller with an active user_roles row in the workspace''s community, any role type. A missing workspace or a caller not allowed raises not_allowed (42501); so does no sign-in or a pending forced password change. Changes no other column.';
+  'F12c EC-V1a: sets custom_name (stripped at both ends of white space, control and format characters; then 1..100 characters, else invalid_name 22023) and updated_at of one community workspace. Allowed: an admin (auth_is_admin) or a caller with an active user_roles row in the workspace''s community whose role_type is not consultor (a consultor does not rename, even through a consultor row naming the community; one who also holds another active role row there renames through that row). A missing workspace or a caller not allowed raises not_allowed (42501); so does no sign-in or a pending forced password change. Changes no other column.';

@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import { AREA_LABELS, TransformationArea } from '@/types/assessment-builder';
 
 /**
@@ -31,8 +31,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const isAdmin = (rolesData || []).some((r: any) => r.role_type === 'admin');
 
     if (isAdmin) {
-      // Admin: return all published (non-archived) templates
-      const { data: templates, error: tplError } = await supabaseClient
+      // Admin: return all published (non-archived) templates.
+      // N1: read with the service client, after the admin check above.
+      const { data: templates, error: tplError } = await createServiceRoleClient()
         .from('assessment_templates')
         .select('id, name, area, version, description, created_at')
         .eq('status', 'published')
@@ -69,7 +70,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const templateIds = accessRows.map((r: any) => r.template_id);
     const grantedAtMap = new Map(accessRows.map((r: any) => [r.template_id, r.granted_at]));
 
-    const { data: templates, error: tplError } = await supabaseClient
+    // N1: the templates named by the caller's own demo-access rows are read
+    // with the service client.
+    const { data: templates, error: tplError } = await createServiceRoleClient()
       .from('assessment_templates')
       .select('id, name, area, version, description')
       .in('id', templateIds)

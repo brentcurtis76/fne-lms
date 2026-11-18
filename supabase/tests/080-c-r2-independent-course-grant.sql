@@ -83,6 +83,11 @@ INSERT INTO public.course_enrollments (user_id, course_id, enrollment_type, stat
 SELECT tests.create_supabase_user('c2_consultor');
 INSERT INTO public.profiles(id,email,name) VALUES(pg_temp.uid('c2_consultor'),'c2_consultor@test.local','C2 consultor');
 INSERT INTO public.user_roles(user_id,role_type,is_active) VALUES(pg_temp.uid('c2_consultor'),'consultor',true);
+-- F7c N40: a consultor gives courses only to people their current assignments cover; this
+-- scenario's consultor covers school 9781 and, individually, c2_late (who has no role yet)
+INSERT INTO public.consultant_assignments(consultant_id,student_id,school_id,is_active,assignment_data) VALUES
+ (pg_temp.uid('c2_consultor'),NULL,9781,true,'{"assignment_scope":"school"}'),
+ (pg_temp.uid('c2_consultor'),pg_temp.uid('c2_late'),NULL,true,'{"assignment_scope":"individual"}');
 CREATE FUNCTION pg_temp.access_result() RETURNS text LANGUAGE sql AS $$
  SELECT public.auth_is_course_student('78000000-0000-4000-8000-000000000c01')::text || '/' ||
  (SELECT count(*) FROM public.auth_accessible_course_ids() c WHERE c='78000000-0000-4000-8000-000000000c01') || '/' ||

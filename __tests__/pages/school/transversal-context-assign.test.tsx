@@ -306,7 +306,8 @@ describe('Transversal context — docente assignment (PROC-CONTAIN-01 A-02 · PR
       // The only control on a locked card is the deliberate replacement (modal stays closed until clicked)
       const card = screen.getByTestId(`course-card-${COURSE_ID}`);
       expect(within(card).getByTestId(`open-replace-docente-${COURSE_ID}`)).toHaveTextContent('Cambiar docente');
-      expect(within(card).queryAllByRole('button')).toHaveLength(1);
+      expect(within(card).getByTestId(`resend-registros-${COURSE_ID}`)).toHaveTextContent('Reenviar registros'); // GC-3d
+      expect(within(card).queryAllByRole('button')).toHaveLength(2);
       expectNoUnassignControl();
     });
 
@@ -417,7 +418,8 @@ describe('Transversal context — docente assignment (PROC-CONTAIN-01 A-02 · PR
       if (viewer.offersReplace) {
         const card = screen.getByTestId(`course-card-${COURSE_ID}`);
         expect(within(card).getByTestId(`open-replace-docente-${COURSE_ID}`)).toHaveTextContent('Cambiar docente');
-        expect(within(card).queryAllByRole('button')).toHaveLength(1);
+        expect(within(card).getByTestId(`resend-registros-${COURSE_ID}`)).toHaveTextContent('Reenviar registros'); // GC-3d
+        expect(within(card).queryAllByRole('button')).toHaveLength(2);
         expect(screen.queryByTestId(`open-assign-docente-${COURSE_ID}`)).toBeNull();
         expectNoUnassignControl();
       } else {

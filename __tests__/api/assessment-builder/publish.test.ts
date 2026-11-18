@@ -288,7 +288,8 @@ describe('POST /api/.../templates/[id]/publish', () => {
     // The removed upgrade path never reports anything
     expect(body).not.toHaveProperty('upgrade');
     // The hierarchy travels in the one publication call.
-    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockRpc).toHaveBeenCalledTimes(2); // GC-3b: publication, then delivery
+    expect(mockRpc.mock.calls[0][0]).toBe('publish_assessment_template');
     const args = mockRpc.mock.calls[0][1] as any;
     expect(args.p_snapshot_data.objectives).toHaveLength(1);
     expect(args.p_snapshot_data.objectives[0].modules[0].indicators).toHaveLength(1);
@@ -445,7 +446,7 @@ describe('POST /api/.../templates/[id]/publish', () => {
       const body = JSON.parse(res._getData());
       expect(body.success).toBe(true);
       expect(body).not.toHaveProperty('upgrade');
-      expect(mockRpc).toHaveBeenCalledTimes(1);
+      expect(mockRpc).toHaveBeenCalledTimes(2); // GC-3b: publication, then delivery
     });
 
     it('keeps the auth → permission ordering ahead of the 409', async () => {
@@ -576,5 +577,121 @@ describe('vía rule guard on publish (20261008120000)', () => {
     expect(mockClient.from).not.toHaveBeenCalledWith('assessment_template_snapshots');
     const service = mockCreateServiceRoleClient.mock.results[0]?.value as Record<string, unknown>;
     expect(Object.keys(service)).toEqual(['rpc']); // the service-role client is used for the call only
+  });
+});
+
+// GC-3b: after a successful publication the route asks the database to
+// deliver the registro to every course that already has its teacher.
+describe('delivery after publication (GC-3b)', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const PUBLISH_ANSWER = {
+    data: {
+      ok: true,
+      version: '1.1.0',
+      template: { id: TEMPLATE_DRAFT_1, name: 'Test Template', area: 'evaluacion', status: 'published', version: '1.1.0' },
+      snapshot: { id: 'snap1', version: '1.1.0', created_at: '2026-11-16T00:00:00Z' },
+    },
+    error: null as unknown,
+  };
+
+  async function publishWith(deliveryAnswer: () => Promise<{ data: unknown; error: unknown }>) {
+    mockRpc.mockImplementation((async (fn: string) =>
+      fn === 'deliver_published_template' ? deliveryAnswer() : PUBLISH_ANSWER) as any);
+    const { mockClient } = publishableFixture();
+    adminSession(mockClient);
+    const { req, res } = createMocks({ method: 'POST', query: { templateId: TEMPLATE_DRAFT_1 } });
+    await handler(req as any, res as any);
+    return { status: res._getStatusCode(), body: JSON.parse(res._getData()) };
+  }
+
+  function deliveryCalls() {
+    return mockRpc.mock.calls.filter((c) => c[0] === 'deliver_published_template');
+  }
+
+  it('asks the service client once for deliver_published_template with the template id and reports the count', async () => {
+    const r = await publishWith(async () => ({
+      data: { created: 4, skipped: 1, failed: 0, has_more: false, failures: [] },
+      error: null,
+    }));
+    expect(r.status).toBe(200);
+    expect(deliveryCalls()).toHaveLength(1);
+    expect(deliveryCalls()[0][1]).toEqual({ p_template_id: TEMPLATE_DRAFT_1 });
+    // Publication first, delivery second.
+    expect(mockRpc.mock.calls.map((c) => c[0])).toEqual(['publish_assessment_template', 'deliver_published_template']);
+    expect(r.body.delivery).toEqual({ created: 4, skipped: 1, failed: 0, hasMore: false });
+    expect(r.body.message).toBe('Template publicado como versión 1.1.0. Registros enviados: 4.');
+  });
+
+  it('says some deliveries are pending when pairs failed, and logs ids and codes only', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const r = await publishWith(async () => ({
+      data: { created: 2, skipped: 0, failed: 1, has_more: false, failures: [{ course_id: 'c-1', code: 'recipient_not_eligible' }] },
+      error: null,
+    }));
+    expect(r.status).toBe(200);
+    expect(r.body.delivery).toEqual({ created: 2, skipped: 0, failed: 1, hasMore: false });
+    expect(r.body.message).toBe(
+      'Template publicado como versión 1.1.0. Registros enviados: 2. Quedaron envíos pendientes; se reintentarán automáticamente.'
+    );
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0].join(' '))).toContain('recipient_not_eligible');
+    warn.mockRestore();
+  });
+
+  it('says some deliveries are pending when the limit was reached', async () => {
+    const r = await publishWith(async () => ({
+      data: { created: 500, skipped: 0, failed: 0, has_more: true, failures: [] },
+      error: null,
+    }));
+    expect(r.body.delivery).toEqual({ created: 500, skipped: 0, failed: 0, hasMore: true });
+    expect(r.body.message).toBe(
+      'Template publicado como versión 1.1.0. Registros enviados: 500. Quedaron envíos pendientes; se reintentarán automáticamente.'
+    );
+  });
+
+  it('still answers 200 when the delivery call returns an error', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const r = await publishWith(async () => ({ data: null, error: { message: 'canceling statement due to lock timeout' } }));
+    expect(r.status).toBe(200);
+    expect(r.body.success).toBe(true);
+    expect(r.body.delivery).toBeNull();
+    expect(r.body.message).toBe(
+      'Template publicado como versión 1.1.0. El envío de registros quedó pendiente y se hará automáticamente en unos minutos.'
+    );
+    expect(err).toHaveBeenCalledWith(expect.any(String), TEMPLATE_DRAFT_1, 'canceling statement due to lock timeout');
+    err.mockRestore();
+  });
+
+  it('still answers 200 when the delivery call throws', async () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const r = await publishWith(async () => {
+      throw new Error('network down');
+    });
+    expect(r.status).toBe(200);
+    expect(r.body.success).toBe(true);
+    expect(r.body.delivery).toBeNull();
+    expect(r.body.message).toContain('quedó pendiente');
+    err.mockRestore();
+  });
+
+  it('never asks for delivery after a refused publication', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockRpc.mockImplementation((async () => ({ data: null, error: { message: 'template_grade_not_allowed', code: 'P0001' } })) as any);
+    const { mockClient } = publishableFixture();
+    adminSession(mockClient);
+    const { req, res } = createMocks({ method: 'POST', query: { templateId: TEMPLATE_DRAFT_1 } });
+    await handler(req as any, res as any);
+    expect(res._getStatusCode()).not.toBe(200);
+    expect(deliveryCalls()).toHaveLength(0);
+  });
+
+  it('never asks for delivery when the 409 upgrade refusal answers', async () => {
+    const { mockClient } = publishableFixture();
+    adminSession(mockClient);
+    const { req, res } = createMocks({ method: 'POST', query: { templateId: TEMPLATE_DRAFT_1 }, body: { upgradeExisting: true } });
+    await handler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(409);
+    expect(deliveryCalls()).toHaveLength(0);
   });
 });

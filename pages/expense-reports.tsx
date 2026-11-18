@@ -14,7 +14,7 @@ import { ExpenseReportExporter } from '../lib/expenseReportExport';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 
 import { getUserPrimaryRole } from '../utils/roleUtils';
-import { EXPENSE_APPROVER_EMAIL } from '../utils/expenseConfig';
+import { expenseReportActions } from '../lib/expenses/report-actions';
 interface ExpenseCategory {
   id: string;
   name: string;
@@ -78,6 +78,9 @@ export default function ExpenseReportsPage() {
   const [selectedReport, setSelectedReport] = useState<ExpenseReport | null>(null);
   const [editingReport, setEditingReport] = useState<ExpenseReport | null>(null);
   const [deleteModalReport, setDeleteModalReport] = useState<ExpenseReport | null>(null);
+  const [rejectModalReport, setRejectModalReport] = useState<ExpenseReport | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectReasonError, setRejectReasonError] = useState(false);
   const [telegramLink, setTelegramLink] = useState<{ code: string; deepLink: string | null } | null>(null);
   const [generatingTelegramCode, setGeneratingTelegramCode] = useState(false);
 
@@ -113,36 +116,27 @@ export default function ExpenseReportsPage() {
         
         setCurrentUser(session.user);
         
-        // Check if user is admin or has explicit expense report access
+        // Who files decides who enters: the database answers by role
+        // (admins, consultores, community managers; F7d auth_can_file_expenses)
         const { data: profile } = await supabase
           .from('profiles')
           .select('avatar_url')
           .eq('id', session.user.id)
           .single();
 
-        let hasAccess = false;
-
         if (profile) {
           const userRole = await getUserPrimaryRole(session.user.id);
-          const isAdminRole = userRole === 'admin';
-          setIsAdmin(isAdminRole);
+          setIsAdmin(userRole === 'admin');
           setAvatarUrl(profile.avatar_url || '');
-          hasAccess = isAdminRole;
         }
 
-        if (!hasAccess) {
-          const { data: accessRecord, error: accessError } = await supabase
-            .from('expense_report_access')
-            .select('can_submit')
-            .eq('user_id', session.user.id)
-            .maybeSingle();
+        const { data: canFile, error: canFileError } = await supabase.rpc('auth_can_file_expenses');
 
-          if (accessError) {
-            console.error('Error checking expense report access:', accessError);
-          }
-
-          hasAccess = !!accessRecord?.can_submit;
+        if (canFileError) {
+          console.error('Error checking expense report access:', canFileError);
         }
+
+        const hasAccess = !canFileError && canFile === true;
 
         if (!hasAccess) {
           router.push('/dashboard');
@@ -210,11 +204,6 @@ export default function ExpenseReportsPage() {
     router.push('/login');
   };
 
-  // Check if current user is the designated approver
-  const isDesignatedApprover = () => {
-    return currentUser?.email === EXPENSE_APPROVER_EMAIL;
-  };
-
   /**
    * Ask the server to send the notification that matches the report's current
    * stored state. The browser passes only the id — recipient, subject and body
@@ -267,12 +256,20 @@ export default function ExpenseReportsPage() {
 
   const handleDeleteReport = async (report: ExpenseReport) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('expense_reports')
         .delete()
-        .eq('id', report.id);
+        .eq('id', report.id)
+        .select('id');
 
       if (error) throw error;
+
+      // The database's rules filter out a report that may not be deleted:
+      // no error, and no row back.
+      if (!data || data.length === 0) {
+        toast.error('No se pudo eliminar el reporte: en su estado actual ya no puede eliminarse.');
+        return;
+      }
 
       await loadExpenseReports();
       setDeleteModalReport(null);
@@ -310,18 +307,12 @@ export default function ExpenseReportsPage() {
 
   const handleApproveReport = async (reportId: string) => {
     try {
-      // Get the designated approver's ID and name
-      const { data: approverProfile } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name')
-        .eq('email', EXPENSE_APPROVER_EMAIL)
-        .single();
-
+      // The reviewer recorded is the admin who pressed the button
       const { error } = await supabase
         .from('expense_reports')
-        .update({ 
+        .update({
           status: 'approved',
-          reviewed_by: approverProfile?.id || currentUser.id,
+          reviewed_by: currentUser.id,
           reviewed_at: new Date().toISOString()
         })
         .eq('id', reportId);
@@ -340,24 +331,39 @@ export default function ExpenseReportsPage() {
     }
   };
 
-  const handleRejectReport = async (reportId: string) => {
-    const comments = prompt('Comentarios de rechazo (opcional):');
-    
-    try {
-      // Get the designated approver's ID and name
-      const { data: approverProfile } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name')
-        .eq('email', EXPENSE_APPROVER_EMAIL)
-        .single();
+  const openRejectModal = (report: ExpenseReport) => {
+    setRejectReason('');
+    setRejectReasonError(false);
+    setRejectModalReport(report);
+  };
 
+  const closeRejectModal = () => {
+    setRejectModalReport(null);
+    setRejectReason('');
+    setRejectReasonError(false);
+  };
+
+  const handleConfirmReject = async () => {
+    if (!rejectModalReport) return;
+    const reason = rejectReason.trim();
+    if (!reason) {
+      setRejectReasonError(true);
+      return;
+    }
+    const rejected = await handleRejectReport(rejectModalReport.id, reason);
+    if (rejected) closeRejectModal();
+  };
+
+  const handleRejectReport = async (reportId: string, comments: string): Promise<boolean> => {
+    try {
+      // The reviewer recorded is the admin who pressed the button
       const { error } = await supabase
         .from('expense_reports')
-        .update({ 
+        .update({
           status: 'rejected',
-          reviewed_by: approverProfile?.id || currentUser.id,
+          reviewed_by: currentUser.id,
           reviewed_at: new Date().toISOString(),
-          review_comments: comments || undefined
+          review_comments: comments
         })
         .eq('id', reportId);
 
@@ -368,10 +374,11 @@ export default function ExpenseReportsPage() {
 
       await loadExpenseReports();
       toast.success('Reporte rechazado');
-      
+      return true;
     } catch (error) {
       console.error('Error rejecting report:', error);
       toast.error('Error al rechazar el reporte: ' + (error as Error).message);
+      return false;
     }
   };
 
@@ -524,6 +531,14 @@ export default function ExpenseReportsPage() {
                                 {report.description && (
                                   <div className="text-xs text-gray-500 mt-0.5">{report.description}</div>
                                 )}
+                                {report.status === 'rejected' && report.review_comments && (
+                                  <div
+                                    className="text-xs text-red-700 mt-0.5"
+                                    data-testid={`reject-reason-shown-${report.id}`}
+                                  >
+                                    Motivo del rechazo: {report.review_comments}
+                                  </div>
+                                )}
                               </div>
                             </td>
                             <td className="py-3 px-4">
@@ -556,7 +571,7 @@ export default function ExpenseReportsPage() {
                                   <Eye size={16} />
                                 </button>
                                 
-                                {report.status === 'draft' && report.submitted_by === currentUser.id && (
+                                {(report.status === 'draft' || report.status === 'rejected') && report.submitted_by === currentUser.id && (
                                   <>
                                     <button
                                       onClick={() => {
@@ -578,7 +593,7 @@ export default function ExpenseReportsPage() {
                                   </>
                                 )}
 
-                                {isDesignatedApprover() && report.status === 'submitted' && (
+                                {isAdmin && report.status === 'submitted' && (
                                   <>
                                     <button
                                       onClick={() => handleApproveReport(report.id)}
@@ -588,7 +603,7 @@ export default function ExpenseReportsPage() {
                                       <Check size={16} />
                                     </button>
                                     <button
-                                      onClick={() => handleRejectReport(report.id)}
+                                      onClick={() => openRejectModal(report)}
                                       className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
                                       title="Rechazar reporte"
                                     >
@@ -597,7 +612,7 @@ export default function ExpenseReportsPage() {
                                   </>
                                 )}
 
-                                {((report.submitted_by === currentUser.id && report.status === 'draft') || isAdmin) && (
+                                {expenseReportActions(report, currentUser.id, isAdmin).canDelete && (
                                   <button
                                     onClick={() => setDeleteModalReport(report)}
                                     className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
@@ -694,6 +709,65 @@ export default function ExpenseReportsPage() {
                         className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                       >
                         Eliminar Reporte
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Reject Reason Modal */}
+            {rejectModalReport && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+                  <div className="p-6">
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                        <X className="text-red-600" size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Rechazar reporte</h3>
+                        <p className="text-sm text-gray-500">{rejectModalReport.report_name}</p>
+                      </div>
+                    </div>
+
+                    <div className="mb-6">
+                      <label className="block">
+                        <span className="block text-sm font-medium text-gray-700 mb-1">Motivo del rechazo</span>
+                        <textarea
+                          data-testid="reject-reason"
+                          value={rejectReason}
+                          maxLength={500}
+                          rows={4}
+                          onChange={(e) => {
+                            setRejectReason(e.target.value);
+                            if (rejectReasonError) setRejectReasonError(false);
+                          }}
+                          className="w-full border border-gray-300 rounded-lg p-2 text-sm text-gray-900"
+                        />
+                      </label>
+                      {rejectReasonError && (
+                        <p className="text-sm text-red-600 mt-1">Escribe el motivo del rechazo.</p>
+                      )}
+                      <p className="text-sm text-gray-600 mt-2">
+                        Escribe el motivo: la persona lo verá y podrá corregir y reenviar el reporte.
+                      </p>
+                    </div>
+
+                    <div className="flex space-x-3 justify-end">
+                      <button
+                        data-testid="reject-cancel"
+                        onClick={closeRejectModal}
+                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        data-testid="reject-confirm"
+                        onClick={handleConfirmReject}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                      >
+                        Rechazar
                       </button>
                     </div>
                   </div>

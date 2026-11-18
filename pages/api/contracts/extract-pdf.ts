@@ -220,12 +220,18 @@ export default async function handler(
       return res.status(403).json({ error: 'Acceso denegado - Se requiere rol de administrador' });
     }
 
+    // F7c (GES-1.7): the server never fetches a web address a request names;
+    // the document is uploaded.
+    if (req.body && typeof req.body === 'object' && 'pdfUrl' in req.body) {
+      return res.status(400).json({ error: 'pdfUrl no está permitido: suba el documento' });
+    }
+
     // Get PDF data from request (support both pdfBase64 and pdfData for compatibility)
-    const { pdfBase64, pdfData, pdfUrl, fileName } = req.body;
+    const { pdfBase64, pdfData, fileName } = req.body;
     const pdfContent = pdfBase64 || pdfData;
 
-    if (!pdfContent && !pdfUrl) {
-      return res.status(400).json({ error: 'Se requiere pdfBase64 o pdfUrl' });
+    if (!pdfContent) {
+      return res.status(400).json({ error: 'Se requiere pdfBase64' });
     }
 
     // Check if API key is configured
@@ -241,19 +247,8 @@ export default async function handler(
       apiKey: process.env.ANTHROPIC_API_KEY
     });
 
-    // Get PDF buffer
-    let buffer: Buffer;
-    if (pdfUrl) {
-      // Fetch PDF from URL (e.g., from Supabase Storage)
-      const response = await fetch(pdfUrl);
-      if (!response.ok) {
-        throw new Error('Failed to fetch PDF from URL');
-      }
-      buffer = Buffer.from(await response.arrayBuffer());
-    } else {
-      // Decode base64 PDF data
-      buffer = Buffer.from(pdfContent, 'base64');
-    }
+    // Decode base64 PDF data
+    const buffer: Buffer = Buffer.from(pdfContent, 'base64');
 
     // Extract text from PDF
     const pdfText = await pdfParse(buffer);

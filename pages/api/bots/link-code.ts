@@ -1,10 +1,10 @@
 // Generates a one-time code so a logged-in user can link their Telegram
-// account to the expense bot. Same access rule as the bot itself:
-// expense_report_access.can_submit OR active admin.
+// account to the expense bot. Same access rule as the bot itself: an active
+// admin, consultor or community_manager (lib/expenses/access.ts).
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createServiceRoleClient, getApiUser, sendAuthError } from '../../../lib/api-auth';
-import { hasAdminPrivileges } from '../../../utils/roleUtils';
+import { canFileExpenses } from '../../../lib/expenses/access';
 import { BotStore } from '../../../lib/bots/store';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -21,17 +21,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const supabase = createServiceRoleClient();
 
-    const { data: access, error: accessError } = await supabase
-      .from('expense_report_access')
-      .select('can_submit')
+    const { data: roles, error: rolesError } = await supabase
+      .from('user_roles')
+      .select('role_type')
       .eq('user_id', user.id)
-      .maybeSingle();
-    if (accessError) throw accessError;
+      .eq('is_active', true);
+    if (rolesError) throw rolesError;
 
-    let allowed = !!(access as { can_submit: boolean } | null)?.can_submit;
-    if (!allowed) {
-      allowed = await hasAdminPrivileges(supabase, user.id);
-    }
+    const allowed = canFileExpenses(
+      ((roles as Array<{ role_type: string }> | null) ?? []).map((r) => r.role_type)
+    );
     if (!allowed) {
       return sendAuthError(res, 'No tienes acceso a rendición de gastos', 403);
     }

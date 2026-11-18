@@ -64,6 +64,15 @@ describe('batch independent grant response and authority', () => {
     expect(mocks.notify).not.toHaveBeenCalled();
     expect(mocks.audit).not.toHaveBeenCalled();
   });
+  it('F7c N40: a recipient outside the caller\'s assignments (42501) is answered 403 with the coverage message', async () => {
+    roles = { data: [{ role_type: 'consultor' }] };
+    mocks.rpc.mockResolvedValue({ data: null, error: { code: '42501', message: "Recipient not covered by the caller's assignments" } });
+    const res = await post();
+    expect(res._getStatusCode()).toBe(403);
+    expect(res._getJSONData()).toEqual({ error: 'Solo puede asignar cursos a personas de sus colegios, generaciones o comunidades asignadas' });
+    expect(mocks.notify).not.toHaveBeenCalled();
+    expect(mocks.audit).not.toHaveBeenCalled();
+  });
   it('keeps compatibility with the old database response shape', async () => {
     mocks.rpc.mockResolvedValue({ data: { success: true, assignments_created: 0, assignments_skipped: 2, enrollments_created: 0, assignment_ids: [], message: 'existing' } });
     expect((await post())._getJSONData()).toMatchObject({ enrollments_promoted: 0, enrollments_unchanged: 0 });

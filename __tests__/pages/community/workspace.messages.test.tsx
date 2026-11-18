@@ -218,6 +218,11 @@ vi.mock('../../../utils/documentUtils', () => ({
   incrementDocumentCounter: vi.fn(),
   getFolderBreadcrumb: async () => [],
   extractUniqueTags: () => [],
+  canManageWorkspaceDocuments: async () => false,
+  renameDocument: vi.fn(),
+  moveDocument: vi.fn(),
+  hideDocument: vi.fn(),
+  getWorkspaceFolders: async () => [],
 }));
 vi.mock('../../../utils/messagingUtils-simple', () => ({
   getWorkspaceThreads: async (workspaceId: string) => {

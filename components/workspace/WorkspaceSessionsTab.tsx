@@ -13,6 +13,14 @@ import {
   sessionOffersPlatformJoin,
 } from '../../lib/utils/session-disclosure';
 import { joinIsClosedBySource } from '../../lib/utils/meeting-join-policy';
+import { getUserPrimaryRole } from '../../utils/roleUtils';
+
+/**
+ * F12a EC-E1: the session details page (pages/consultor/sessions/[id].tsx)
+ * admits only these primary roles and sends everyone else to /dashboard, so
+ * the card links there only for them. Everyone else uses the join button.
+ */
+const SESSION_DETAILS_ROLES = new Set(['consultor', 'admin', 'lider_comunidad']);
 
 /**
  * §15 names the join control on the detail pages AND on this tab; only the
@@ -70,6 +78,8 @@ const WorkspaceSessionsTab: React.FC<WorkspaceSessionsTabProps> = ({
   user,
 }) => {
   const router = useRouter();
+  // Whether the card opens the session's details; false until the role is known.
+  const [canOpenDetails, setCanOpenDetails] = useState(false);
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +87,23 @@ const WorkspaceSessionsTab: React.FC<WorkspaceSessionsTabProps> = ({
   const [cancellationMap, setCancellationMap] = useState<
     Map<string, { status: 'penalizada' | 'devuelta'; admin_override: boolean }>
   >(new Map());
+
+  const userId = user?.id ?? null;
+  useEffect(() => {
+    let cancelled = false;
+    setCanOpenDetails(false);
+    if (!userId) return;
+    getUserPrimaryRole(userId)
+      .then((role) => {
+        if (!cancelled) setCanOpenDetails(SESSION_DETAILS_ROLES.has(role));
+      })
+      .catch(() => {
+        if (!cancelled) setCanOpenDetails(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   const fetchSessions = useCallback(async () => {
     if (!workspace || !user) {
@@ -232,12 +259,22 @@ const WorkspaceSessionsTab: React.FC<WorkspaceSessionsTabProps> = ({
 
     return (
       <div
-        onClick={() => router.push(`/consultor/sessions/${session.id}`)}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') router.push(`/consultor/sessions/${session.id}`); }}
-        aria-label={`Ver detalles de ${session.title}`}
-        className="bg-white border border-gray-200 rounded-lg p-4 hover:border-brand_accent hover:shadow-sm transition-all cursor-pointer"
+        {...(canOpenDetails
+          ? {
+              onClick: () => router.push(`/consultor/sessions/${session.id}`),
+              role: 'button',
+              tabIndex: 0,
+              onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
+                if (e.key === 'Enter' || e.key === ' ') router.push(`/consultor/sessions/${session.id}`);
+              },
+              'aria-label': `Ver detalles de ${session.title}`,
+            }
+          : {})}
+        className={
+          canOpenDetails
+            ? 'bg-white border border-gray-200 rounded-lg p-4 hover:border-brand_accent hover:shadow-sm transition-all cursor-pointer'
+            : 'bg-white border border-gray-200 rounded-lg p-4'
+        }
       >
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1 min-w-0">

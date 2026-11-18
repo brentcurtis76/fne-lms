@@ -13,6 +13,7 @@ import {
   MeetingTask,
   MeetingCommitment,
   MeetingAgreement,
+  MeetingAttendee,
   OverdueItem,
   MeetingStats,
   MeetingFilters,
@@ -23,6 +24,8 @@ import {
 import { logWorkspaceActivity } from './workspaceUtils';
 import { daysUntilDueDate } from '../lib/meetings/meeting-time';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { fetchProfileCards } from '../lib/profile-cards';
+import type { ProfileCard } from '../lib/profile-cards';
 import type { SaveProblem } from '../lib/meetings/meeting-save';
 import {
   applyMeetingDiffs,
@@ -203,19 +206,35 @@ export async function getMeetingDetails(meetingId: string): Promise<MeetingWithD
     // Get attendees
     const { data: attendees } = await supabase
       .from('meeting_attendees')
-      .select(`
-        *,
-        user:profiles(id, first_name, last_name, email, avatar_url)
-      `)
+      .select('*')
       .eq('meeting_id', meetingId);
+
+    // Names of participants and of the people in charge come from profile
+    // cards (other people's `profiles` rows are not readable): one call for
+    // everyone. A person without a card gets no profile.
+    const cards = await fetchProfileCards(supabase, [
+      ...(attendees || []).map((attendee: { user_id?: string | null }) => attendee.user_id),
+      ...(tasks || []).map((task: { assigned_to?: string | null }) => task.assigned_to),
+      ...(commitments || []).map((commitment: { assigned_to?: string | null }) => commitment.assigned_to),
+    ]);
+    const cardFor = (id: string | null | undefined): ProfileCard | undefined => (id ? cards.get(id) : undefined);
 
     // Combine all data
     const meetingWithDetails: MeetingWithDetails = {
       ...meeting,
       agreements: agreements || [],
-      commitments: commitments || [],
-      tasks: tasks || [],
-      attendees: attendees || []
+      commitments: (commitments || []).map((commitment: MeetingCommitment) => ({
+        ...commitment,
+        assigned_to_profile: cardFor(commitment.assigned_to),
+      })),
+      tasks: (tasks || []).map((task: MeetingTask) => ({
+        ...task,
+        assigned_to_profile: cardFor(task.assigned_to),
+      })),
+      attendees: (attendees || []).map((attendee: MeetingAttendee) => ({
+        ...attendee,
+        user_profile: cardFor(attendee.user_id),
+      })),
     };
 
     return meetingWithDetails;
@@ -446,26 +465,16 @@ export async function updateTaskStatus(
   notes?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const tableName = itemType === 'task' ? 'meeting_tasks' : 'meeting_commitments';
-    const updateData: any = {
-      status,
-      progress_percentage: progressPercentage,
-      updated_at: new Date().toISOString()
-    };
-
-    if (notes) {
-      updateData.notes = notes;
-    }
-
-    if (status === 'completado') {
-      updateData.completed_at = new Date().toISOString();
-      updateData.progress_percentage = 100;
-    }
-
-    const { error } = await supabase
-      .from(tableName)
-      .update(updateData)
-      .eq('id', itemId);
+    // One database function (F12a EC-R3/R15): verified editors and the person
+    // in charge may call it; it sets status, progress, completed_at (cleared
+    // when the state is not completado, so «Reabrir» works) and the note.
+    const { error } = await supabase.rpc('update_meeting_item_progress', {
+      p_kind: itemType,
+      p_id: itemId,
+      p_status: status,
+      p_progress: progressPercentage,
+      p_notes: notes ? notes : null,
+    });
 
     if (error) {
       console.error(`Error updating ${itemType} status:`, error);

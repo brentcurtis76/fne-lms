@@ -46,6 +46,8 @@ interface MeetingDetailsModalProps {
   canDelete?: boolean;
   /** SM-H8: false when the viewer may not read agreements/commitments/tasks/documents. */
   canReadContent?: boolean;
+  /** F12a R15: the signed-in person; the person in charge of an item may update its progress. */
+  currentUserId?: string;
 }
 
 const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
@@ -56,7 +58,8 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
   onDelete,
   canEdit = false,
   canDelete = false,
-  canReadContent = true
+  canReadContent = true,
+  currentUserId
 }) => {
   const supabase = useSupabaseClient();
   const [meeting, setMeeting] = useState<MeetingWithDetails | null>(null);
@@ -399,11 +402,8 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                               <p className="text-sm font-medium text-gray-900">
                                 {attendee.user_profile
                                   ? profileName(attendee.user_profile, 'Usuario sin nombre')
-                                  : 'Usuario no encontrado'}
+                                  : 'Participante'}
                               </p>
-                              {attendee.user_profile && attendee.user_profile.email && (
-                                <p className="text-xs text-gray-500">{attendee.user_profile.email}</p>
-                              )}
                               {attendee.role && attendee.role !== 'participant' && (
                                 <span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
                                   {attendee.role === 'facilitator' ? 'Facilitador' : attendee.role === 'secretary' ? 'Secretario' : attendee.role}
@@ -466,6 +466,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                               item={commitment}
                               itemType="commitment"
                               canEdit={canEdit}
+                              canUpdateProgress={canEdit || (!!currentUserId && commitment.assigned_to === currentUserId)}
                               onStatusUpdate={() => loadMeetingDetails()}
                             />
                           ))}
@@ -487,6 +488,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                               item={task}
                               itemType="task"
                               canEdit={canEdit}
+                              canUpdateProgress={canEdit || (!!currentUserId && task.assigned_to === currentUserId)}
                               onStatusUpdate={() => loadMeetingDetails()}
                             />
                           ))}

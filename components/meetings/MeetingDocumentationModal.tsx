@@ -195,6 +195,14 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   // after the first save returns the authoritative DB value.
   const [meetingVersion, setMeetingVersion] = useState<number>(0);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  // Status of the meeting as stored when it was loaded (edit mode); null for
+  // a new meeting. «Completada» is offered in the status select only when the
+  // stored meeting already is completada (it is reached through «Finalizar»).
+  const [loadedStatus, setLoadedStatus] = useState<MeetingStatus | null>(null);
+  // Status of the meeting as it is stored right now (not the form's select,
+  // which the person can change). Background saving runs only while this is
+  // borrador: the autosave route accepts drafts only.
+  const storedStatusRef = useRef<MeetingStatus | null>(null);
   const [savingIndicator, setSavingIndicator] = useState<'idle' | 'saving' | 'error'>('idle');
   const [savedTick, setSavedTick] = useState(0);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -228,7 +236,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       summary_doc: emptyDoc(),
       notes: '',
       notes_doc: emptyDoc(),
-      status: 'completada'
+      status: 'borrador'
     },
     agreements: [],
     commitments: [],
@@ -498,6 +506,9 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
           setExistingAttachments(attachments as ExistingAttachment[]);
         }
 
+        setLoadedStatus(meetingDetails.status);
+        storedStatusRef.current = meetingDetails.status;
+
         // Capture the authoritative version so optimistic-concurrency
         // autosaves start from the right baseline.
         setMeetingVersion((meetingDetails as any).version ?? 0);
@@ -601,6 +612,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   const runAutosave = useCallback(async () => {
     const id = currentMeetingId;
     if (!id || autosaveInFlightRef.current) return;
+    if (storedStatusRef.current !== MEETING_STATUS.BORRADOR) return;
     autosaveInFlightRef.current = true;
     setSavingIndicator('saving');
     try {
@@ -675,6 +687,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
 
   const scheduleAutosave = useCallback(() => {
     if (!currentMeetingId) return;
+    if (storedStatusRef.current !== MEETING_STATUS.BORRADOR) return;
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     autosaveTimerRef.current = setTimeout(() => {
       void runAutosave();
@@ -705,7 +718,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         summary_doc: emptyDoc(),
         notes: '',
         notes_doc: emptyDoc(),
-        status: 'completada'
+        status: 'borrador'
       },
       agreements: [],
       commitments: [],
@@ -727,6 +740,8 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     setWorkSessionId(null);
     setMeetingVersion(0);
     setLastSavedAt(null);
+    setLoadedStatus(null);
+    storedStatusRef.current = null;
     setSavingIndicator('idle');
     setWorkSessions([]);
     if (autosaveTimerRef.current) {
@@ -804,6 +819,8 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       });
       if (!updateResult.success) {
         problems.push(describeSaveError(updateResult.error, 'meeting'));
+      } else {
+        storedStatusRef.current = effectiveStatus;
       }
     } else {
       const row = await insertMeetingRow(supabase, {
@@ -822,6 +839,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       if (row.meetingId) {
         // From here on a retry UPDATES this meeting; it never creates a second one.
         targetMeetingId = row.meetingId;
+        storedStatusRef.current = effectiveStatus;
         createdVersion = row.version ?? 0;
         setCurrentMeetingId(row.meetingId);
         setMeetingVersion(createdVersion);
@@ -1057,7 +1075,11 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       }
     }
     if (saved && mountedRef.current) {
-      toast.success(mode === 'edit' ? 'Reunión actualizada correctamente' : 'Reunión documentada correctamente');
+      toast.success(
+        mode === 'edit'
+          ? 'Reunión actualizada correctamente'
+          : 'Reunión guardada como borrador. Ábrela y pulsa «Finalizar reunión» para enviar el resumen.'
+      );
       onSuccess();
       onClose();
     }
@@ -1350,8 +1372,8 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
               </p>
             </div>
             <div className="flex items-center space-x-3">
-              {/* Save status indicator — only meaningful once a meetingId exists */}
-              {currentMeetingId && (
+              {/* Save status indicator — only meaningful once a draft is stored */}
+              {currentMeetingId && storedStatusRef.current === MEETING_STATUS.BORRADOR && (
                 <div className="text-xs text-gray-500" aria-live="polite" data-tick={savedTick}>
                   {savingIndicator === 'saving' && <span>Guardando…</span>}
                   {savingIndicator === 'error' && (
@@ -1615,9 +1637,11 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                     onChange={(e) => updateSummaryInfo('status', e.target.value as MeetingStatus)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   >
-                    {Object.entries(meetingStatusLabels).map(([status, label]) => (
-                      <option key={status} value={status}>{label}</option>
-                    ))}
+                    {Object.entries(meetingStatusLabels)
+                      .filter(([status]) => status !== MEETING_STATUS.COMPLETADA || loadedStatus === MEETING_STATUS.COMPLETADA)
+                      .map(([status, label]) => (
+                        <option key={status} value={status}>{label}</option>
+                      ))}
                   </select>
                 </div>
 

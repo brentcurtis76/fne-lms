@@ -2,6 +2,9 @@ import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useState, useEffect } from 'react';
 import { Calendar, DollarSign, TrendingUp, AlertCircle, CheckCircle, Upload, Check, X, Filter } from 'lucide-react';
 import UFService from '../../lib/uf-service';
+import { toast } from 'react-hot-toast';
+import { invoiceUploadColumns, invoiceUploadObjectName } from '../../lib/contracts/invoice-path';
+import { openInvoiceInNewTab } from '../../lib/contracts/open-invoice';
 
 interface Cuota {
   id: string;
@@ -65,6 +68,8 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
   const [currentUFValue, setCurrentUFValue] = useState<number>(0);
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'due_unpaid' | 'due_paid'>('all');
   const [uploadingInvoice, setUploadingInvoice] = useState<string | null>(null);
+  // GES-1.4: the instalment whose invoice link is being asked for.
+  const [openingInvoice, setOpeningInvoice] = useState<string | null>(null);
   const [showAllOverdue, setShowAllOverdue] = useState(false);
 
   useEffect(() => {
@@ -346,14 +351,27 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
 
   const overdueCuotas = getOverdueCuotas();
 
+  // GES-1.4: an invoice opens only through the server route, which checks who
+  // is asking and answers a five-minute link. The stored value is never used
+  // as an address here.
+  const handleInvoiceOpen = async (cuotaId: string) => {
+    if (openingInvoice) return;
+    setOpeningInvoice(cuotaId);
+    try {
+      // Reserves the tab during the click (lib/contracts/open-invoice.ts).
+      await openInvoiceInNewTab(cuotaId, toast.error);
+    } finally {
+      setOpeningInvoice(null);
+    }
+  };
+
   // Handle invoice upload
   const handleInvoiceUpload = async (cuotaId: string, file: File) => {
     try {
       setUploadingInvoice(cuotaId);
       
       // Upload file to Supabase Storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `cuota_${cuotaId}_${Date.now()}.${fileExt}`;
+      const fileName = invoiceUploadObjectName('cuota', cuotaId, file.name, Date.now());
       
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('facturas')
@@ -361,17 +379,10 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('facturas')
-        .getPublicUrl(fileName);
-
-      // Update cuota with invoice URL
+      // GES-1.4: store the file's NAME (opened through /api/contracts/invoice-link)
       const { error: updateError } = await supabase
         .from('cuotas')
-        .update({ 
-          factura_url: publicUrl
-        })
+        .update(invoiceUploadColumns(fileName))
         .eq('id', cuotaId);
 
       if (updateError) throw updateError;
@@ -827,14 +838,15 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
                           <td className="py-3 px-2 md:px-4">
                             <div className="flex items-center justify-center">
                               {cuota.factura_url ? (
-                                <a
-                                  href={cuota.factura_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                <button
+                                  type="button"
+                                  onClick={() => handleInvoiceOpen(cuota.id)}
+                                  disabled={openingInvoice === cuota.id}
+                                  data-testid={`invoice-view-${cuota.id}`}
                                   className="text-brand_primary hover:text-gray-700 underline text-xs"
                                 >
                                   Ver
-                                </a>
+                                </button>
                               ) : (
                                 <label className="cursor-pointer">
                                   <input

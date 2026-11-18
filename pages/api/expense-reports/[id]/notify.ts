@@ -9,8 +9,10 @@
  * `/api/send-email` relay.
  *
  * Authorization is per notification moment:
- *   submitted            → only the report's own submitter
- *   approved | rejected  → only the designated approver or a global admin
+ *   submitted            → only the report's own submitter, while they hold an
+ *                          active filing role (GES-1.3: admin, consultor,
+ *                          community_manager — lib/expenses/access.ts)
+ *   approved | rejected  → only an active global admin (GES-1.3: the fixed approver address grants nothing here)
  * Any other status (e.g. `draft`) has no notification and returns 409.
  *
  * Reads use the service role because the route must see the owner's profile
@@ -29,13 +31,13 @@ import {
 import { HttpStatus } from '../../../../lib/types/api-auth.types';
 import { RATE_LIMITS, rateLimit } from '../../../../lib/rateLimit';
 import { hasAdminPrivileges } from '../../../../utils/roleUtils';
-import { EXPENSE_APPROVER_EMAIL } from '../../../../utils/expenseConfig';
 import {
   ExpenseEmailResult,
   sendExpenseDecisionNotification,
   sendExpenseSubmissionNotification
 } from '../../../../lib/email/expenseNotifications';
 import { authorizeUserEmail } from '../../../../lib/email/outbound-policy';
+import { canFileExpenses } from '../../../../lib/expenses/access';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -166,6 +168,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
     }
 
+    // GES-1.3 (F7d send-back 2): owning the report is not enough; the owner
+    // must still hold an ACTIVE filing role.
+    const { data: roles, error: rolesError } = await supabase
+      .from('user_roles')
+      .select('role_type')
+      .eq('user_id', user.id)
+      .eq('is_active', true);
+    if (rolesError) {
+      console.error('[expense-report notify] role lookup failed:', rolesError.message);
+      return sendApiError(res, 'Error al verificar tus permisos.', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+    const mayFile = canFileExpenses(
+      ((roles as Array<{ role_type: string }> | null) ?? []).map((r) => r.role_type)
+    );
+    if (!mayFile) {
+      return sendAuthError(res, 'No tienes acceso a rendición de gastos.', HttpStatus.FORBIDDEN);
+    }
+
     const result = await sendExpenseSubmissionNotification({
       reportName: report.report_name,
       submitterName: fullName(owner) || 'Usuario',
@@ -179,10 +199,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (report.status === 'approved' || report.status === 'rejected') {
-    const callerEmail = (user.email || '').trim().toLowerCase();
-    const isDesignatedApprover =
-      callerEmail.length > 0 && callerEmail === EXPENSE_APPROVER_EMAIL.trim().toLowerCase();
-    const isAuthorized = isDesignatedApprover || (await hasAdminPrivileges(supabase, user.id));
+    // GES-1.3 (F7d): any active admin decides, so any active admin notifies;
+    // the fixed approver address grants nothing here.
+    const isAuthorized = await hasAdminPrivileges(supabase, user.id);
 
     if (!isAuthorized) {
       return sendAuthError(

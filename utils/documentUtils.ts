@@ -86,7 +86,17 @@ export async function getWorkspaceDocuments(
     }
 
     // Apply sorting
-    const sortBy = filters.sort_by || 'created_at';
+    const SORT_COLUMNS: Record<string, string> = {
+      created_at: 'created_at',
+      name: 'title',
+      size: 'file_size',
+      downloads: 'download_count',
+      views: 'view_count',
+    };
+    const sortBy =
+      filters.sort_by && Object.prototype.hasOwnProperty.call(SORT_COLUMNS, filters.sort_by)
+        ? SORT_COLUMNS[filters.sort_by]
+        : 'created_at';
     const sortOrder = filters.sort_order || 'desc';
     documentsQuery = documentsQuery.order(sortBy, { ascending: sortOrder === 'asc' });
 
@@ -332,75 +342,95 @@ export async function createFolder(
 // DOCUMENT MANAGEMENT FUNCTIONS
 // =============================================================================
 
-/**
- * Update document metadata
- */
-export async function updateDocument(
-  documentId: string,
-  updates: Partial<CommunityDocument>
-): Promise<CommunityDocument> {
-  try {
-    const { data, error } = await supabase
-      .from('community_documents')
-      .update(updates)
-      .eq('id', documentId)
-      .select()
-      .single();
+// Rename, move and hide go through database functions that decide who may act
+// (the community's leader, the uploader while still in the community, or an
+// admin) and change only the named column. A refusal arrives as one of the
+// functions' own messages and is turned into the screen's text here.
+export const DOCUMENT_ACTION_MESSAGES = {
+  not_allowed: 'Solo quien subió el documento o el líder de la comunidad puede hacerlo.',
+  invalid_title: 'El nombre debe tener entre 1 y 200 caracteres.',
+  invalid_folder: 'La carpeta ya no existe en este espacio.',
+  other: 'No se pudo completar la acción. Inténtalo de nuevo.',
+} as const;
 
-    if (error) throw error;
-    return data;
+function documentActionMessage(error: unknown): string {
+  const message = (error as { message?: unknown } | null)?.message;
+  if (message === 'not_allowed') return DOCUMENT_ACTION_MESSAGES.not_allowed;
+  if (message === 'invalid_title') return DOCUMENT_ACTION_MESSAGES.invalid_title;
+  if (message === 'invalid_folder') return DOCUMENT_ACTION_MESSAGES.invalid_folder;
+  return DOCUMENT_ACTION_MESSAGES.other;
+}
+
+function documentActionFailed(name: string, error: unknown): never {
+  console.error(`Error in ${name}:`, error);
+  throw new Error(documentActionMessage(error));
+}
+
+/**
+ * Rename a document (title only)
+ */
+export async function renameDocument(documentId: string, title: string): Promise<void> {
+  let result: { error: unknown };
+  try {
+    result = await supabase.rpc('rename_community_document', { p_document_id: documentId, p_title: title });
   } catch (error) {
-    console.error('Error updating document:', error);
-    throw error;
+    return documentActionFailed('rename_community_document', error);
+  }
+  if (result.error) documentActionFailed('rename_community_document', result.error);
+}
+
+/**
+ * Move a document to a folder of its workspace, or out of any folder (null)
+ */
+export async function moveDocument(documentId: string, folderId: string | null): Promise<void> {
+  let result: { error: unknown };
+  try {
+    result = await supabase.rpc('move_community_document', { p_document_id: documentId, p_folder_id: folderId });
+  } catch (error) {
+    return documentActionFailed('move_community_document', error);
+  }
+  if (result.error) documentActionFailed('move_community_document', result.error);
+}
+
+/**
+ * Hide a document (the screen's «Eliminar»); the record and the file stay
+ */
+export async function hideDocument(documentId: string): Promise<void> {
+  let result: { error: unknown };
+  try {
+    result = await supabase.rpc('hide_community_document', { p_document_id: documentId });
+  } catch (error) {
+    return documentActionFailed('hide_community_document', error);
+  }
+  if (result.error) documentActionFailed('hide_community_document', result.error);
+}
+
+/**
+ * May the signed-in person manage every document of this workspace
+ * (the community's leader or an admin)? False on any error.
+ */
+export async function canManageWorkspaceDocuments(workspaceId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.rpc('can_manage_workspace_documents', { p_workspace_id: workspaceId });
+    if (error) throw error;
+    return data === true;
+  } catch (error) {
+    console.error('Error checking document management rights:', error);
+    return false;
   }
 }
 
 /**
- * Soft delete a document
+ * Every folder of a workspace (for the «Mover documento» window)
  */
-export async function deleteDocument(documentId: string, userId: string): Promise<void> {
-  try {
-    const { error } = await supabase
-      .from('community_documents')
-      .update({ is_active: false })
-      .eq('id', documentId);
-
-    if (error) throw error;
-
-    // Log deletion activity
-    const document = await getDocumentById(documentId);
-    if (document) {
-      await supabase.from('document_access_log').insert({
-        document_id: documentId,
-        user_id: userId,
-        workspace_id: document.workspace_id,
-        action_type: 'delete',
-      });
-    }
-  } catch (error) {
-    console.error('Error deleting document:', error);
-    throw error;
-  }
-}
-
-/**
- * Move documents to a different folder
- */
-export async function moveDocuments(
-  documentIds: string[],
-  targetFolderId: string | null
-): Promise<void> {
-  try {
-    const { error } = await supabase
-      .from('community_documents')
-      .update({ folder_id: targetFolderId })
-      .in('id', documentIds);
-
-    if (error) throw error;
-  } catch (error) {
-    console.error('Error moving documents:', error);
-    throw error;
-  }
+export async function getWorkspaceFolders(workspaceId: string): Promise<DocumentFolder[]> {
+  const { data, error } = await supabase
+    .from('document_folders')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .order('folder_name', { ascending: true });
+  if (error) throw error;
+  return data || [];
 }
 
 /**
@@ -450,11 +480,13 @@ export async function getUserDocumentPermissions(
         };
 
       case 'community_member':
+        // Editing and removing are per document: the uploader, the community's
+        // leader or an admin (can_manage_community_document in the database).
         return {
           can_view: true,
           can_download: true,
-          can_edit: true,
-          can_delete: true,
+          can_edit: false,
+          can_delete: false,
           can_share: true,
           can_create_folder: true,
           can_manage_folders: true,

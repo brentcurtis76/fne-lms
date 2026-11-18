@@ -141,33 +141,73 @@ describe('resolveActor', () => {
     expect(await service.resolveActor('telegram', '555')).toBeNull();
   });
 
-  it('grants canSubmit via expense_report_access', async () => {
+  // F7d (GES-1.3, E2): who may send expenses is decided by role (active admin,
+  // consultor or community_manager); expense_report_access no longer counts.
+  it('lets a consultor with no expense_report_access row send expenses', async () => {
     const { client } = buildClient({
       bot_identities: [{ data: { user_id: USER_ID } }],
       profiles: [{ data: { first_name: 'Bren', name: 'Bren Curtis', email: 'b@test.cl' } }],
-      expense_report_access: [{ data: { can_submit: true } }]
+      user_roles: [{ data: [{ role_type: 'consultor' }] }],
+      expense_report_access: [{ data: null }]
     });
     const service = new ExpenseService(client as never);
     const actor = await service.resolveActor('telegram', '555');
     expect(actor).toMatchObject({ userId: USER_ID, canSubmit: true, firstName: 'Bren' });
-    expect(mockHasAdminPrivileges).not.toHaveBeenCalled();
   });
 
-  it('falls back to the admin check when access is missing', async () => {
-    mockHasAdminPrivileges.mockResolvedValue(true);
+  it('lets a community manager send expenses', async () => {
     const { client } = buildClient({
       bot_identities: [{ data: { user_id: USER_ID } }],
-      profiles: [{ data: { first_name: 'Adm', name: 'Adm In', email: 'a@test.cl' } }],
+      profiles: [{ data: { first_name: 'Cm', name: 'Cm Uno', email: 'c@test.cl' } }],
+      user_roles: [{ data: [{ role_type: 'docente' }, { role_type: 'community_manager' }] }],
       expense_report_access: [{ data: null }]
     });
     const service = new ExpenseService(client as never);
     expect((await service.resolveActor('telegram', '555'))?.canSubmit).toBe(true);
   });
 
-  it('denies users without access or admin role', async () => {
+  it('does not let a docente WITH an expense_report_access row send expenses', async () => {
+    const { client, tableCalls } = buildClient({
+      bot_identities: [{ data: { user_id: USER_ID } }],
+      profiles: [{ data: { first_name: 'Doc', name: 'Doc Ente', email: 'd@test.cl' } }],
+      user_roles: [{ data: [{ role_type: 'docente' }] }],
+      expense_report_access: [{ data: { can_submit: true } }]
+    });
+    const service = new ExpenseService(client as never);
+    expect((await service.resolveActor('telegram', '555'))?.canSubmit).toBe(false);
+    expect(tableCalls.some((c) => c.table === 'expense_report_access')).toBe(false);
+  });
+
+  it('reads only ACTIVE role rows of that person', async () => {
+    const { client, tableCalls } = buildClient({
+      bot_identities: [{ data: { user_id: USER_ID } }],
+      profiles: [{ data: { first_name: 'Adm', name: 'Adm In', email: 'a@test.cl' } }],
+      user_roles: [{ data: [{ role_type: 'admin' }] }]
+    });
+    const service = new ExpenseService(client as never);
+    await service.resolveActor('telegram', '555');
+    const roleCalls = tableCalls.filter((c) => c.table === 'user_roles');
+    expect(roleCalls).toContainEqual({ table: 'user_roles', op: 'eq', args: ['user_id', USER_ID] });
+    expect(roleCalls).toContainEqual({ table: 'user_roles', op: 'eq', args: ['is_active', true] });
+  });
+
+  it('lets an admin send expenses, as before', async () => {
+    mockHasAdminPrivileges.mockResolvedValue(true);
+    const { client } = buildClient({
+      bot_identities: [{ data: { user_id: USER_ID } }],
+      profiles: [{ data: { first_name: 'Adm', name: 'Adm In', email: 'a@test.cl' } }],
+      user_roles: [{ data: [{ role_type: 'admin' }] }],
+      expense_report_access: [{ data: null }]
+    });
+    const service = new ExpenseService(client as never);
+    expect((await service.resolveActor('telegram', '555'))?.canSubmit).toBe(true);
+  });
+
+  it('denies users without a filing role', async () => {
     const { client } = buildClient({
       bot_identities: [{ data: { user_id: USER_ID } }],
       profiles: [{ data: { first_name: 'Sin', name: 'Sin Acceso', email: 's@test.cl' } }],
+      user_roles: [{ data: [] }],
       expense_report_access: [{ data: null }]
     });
     const service = new ExpenseService(client as never);

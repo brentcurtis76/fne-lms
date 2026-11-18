@@ -1,0 +1,880 @@
+-- =============================================================================
+-- 137-expenses-by-role.sql — GENERA fixes F7d (GES-1.3, E1):
+-- migration 20261117166000_expenses_by_role.sql.
+--
+-- Rendición de Gastos by role:
+--   who files      active admin, consultor, community_manager (and past the
+--                  forced-password gate); nobody else sees or opens anything,
+--                  an old expense_report_access.can_submit row grants nothing
+--   who reads      a non-admin only their own reports; admins all
+--   author         own draft or rejected: change, add / change / delete items,
+--                  send (again), delete the report; own sent or approved:
+--                  nothing; never sets approved (nor creates it approved)
+--   admin          approves / rejects anyone's report, their own included; an
+--                  admin's OWN approved report is closed to them, another admin
+--                  can still correct it
+--   history        public.expense_report_events, written only by the trigger
+--   receipts       store `boletas` (section 16, through the model of
+--                  Production's eight boletas rules): only filers and admins;
+--                  among filers, whose file each one is as F2b decided
+--
+-- Every change is made as that person through pg_temp.attempt(person, sql,
+-- report): it runs the statement as that person and compares the report's
+-- whole state (report row, its items, its history lines) before and after,
+-- read as postgres. Its answer is '<n> rows' or the SQLSTATE of the refusal,
+-- then ', unchanged' or ', changed'.
+--
+-- Invented people and data only. Rolls back. DO NOT run against production.
+-- =============================================================================
+
+BEGIN;
+CREATE EXTENSION IF NOT EXISTS pgtap;
+SELECT plan(220);
+
+-- ---------------------------------------------------------------------------
+-- 1. Catalog
+-- ---------------------------------------------------------------------------
+SELECT ok(coalesce((SELECT p.prosecdef AND p.provolatile = 's'
+                           AND p.prolang = (SELECT oid FROM pg_language WHERE lanname = 'sql')
+                           AND p.prorettype = 'boolean'::regtype
+                           AND p.proconfig = ARRAY['search_path=public, pg_temp']
+                      FROM pg_proc p WHERE p.oid = to_regprocedure('public.auth_can_file_expenses()')), false),
+  'auth_can_file_expenses(): boolean, sql, STABLE, SECURITY DEFINER, search_path = public, pg_temp');
+SELECT ok(to_regprocedure('public.auth_can_file_expenses()') IS NOT NULL
+          AND NOT has_function_privilege('anon', to_regprocedure('public.auth_can_file_expenses()'), 'EXECUTE')
+          AND has_function_privilege('authenticated', to_regprocedure('public.auth_can_file_expenses()'), 'EXECUTE')
+          AND has_function_privilege('service_role', to_regprocedure('public.auth_can_file_expenses()'), 'EXECUTE')
+          AND (SELECT count(*) FROM pg_proc p, aclexplode(p.proacl) a
+                WHERE p.oid = to_regprocedure('public.auth_can_file_expenses()') AND a.grantee = 0) = 0,
+  'auth_can_file_expenses(): EXECUTE for authenticated and service_role, not PUBLIC, not anon');
+SELECT is((SELECT array_agg(policyname::text ORDER BY policyname) FROM pg_policies
+            WHERE schemaname = 'public' AND tablename IN ('expense_reports', 'expense_items') AND permissive = 'RESTRICTIVE'
+              AND policyname <> 'forced_password_change_guard'),
+  ARRAY['expense_items_delete_states', 'expense_items_filers_only', 'expense_items_insert_states', 'expense_items_update_states',
+        'expense_reports_delete_states', 'expense_reports_filers_only', 'expense_reports_insert_states', 'expense_reports_update_states'],
+  'the eight new restrictive rules on expense_reports and expense_items');
+SELECT is((SELECT count(*)::int FROM pg_policies
+            WHERE schemaname = 'public' AND tablename IN ('expense_reports', 'expense_items')
+              AND (coalesce(qual, '') LIKE '%expense_report_access%' OR coalesce(with_check, '') LIKE '%expense_report_access%')),
+  0, 'no rule on expense_reports or expense_items reads expense_report_access any more');
+SELECT ok(coalesce((SELECT relrowsecurity FROM pg_class WHERE oid = to_regclass('public.expense_report_events')), false),
+  'public.expense_report_events exists with row security enabled');
+SELECT ok(to_regclass('public.expense_report_events') IS NOT NULL
+          AND has_table_privilege('authenticated', 'public.expense_report_events', 'SELECT')
+          AND NOT has_table_privilege('authenticated', 'public.expense_report_events', 'INSERT, UPDATE, DELETE, TRUNCATE')
+          AND NOT has_table_privilege('anon', 'public.expense_report_events', 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE'),
+  'expense_report_events: authenticated may only SELECT; anon holds nothing');
+SELECT is((SELECT array_agg(policyname::text ORDER BY policyname) FROM pg_policies
+            WHERE schemaname = 'public' AND tablename = 'expense_report_events'),
+  ARRAY['expense_report_events_read', 'expense_report_events_service_read', 'forced_password_change_guard'],
+  'expense_report_events rules: read (authenticated), service read, forced-password guard');
+SELECT ok(EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid = 'public.expense_reports'::regclass
+                   AND t.tgname = 'expense_reports_history' AND NOT t.tgisinternal
+                   AND t.tgfoid = to_regprocedure('public.expense_report_record_event()')),
+  'trigger expense_reports_history on expense_reports');
+SELECT ok(coalesce((SELECT prosecdef AND proconfig = ARRAY['search_path=public, pg_temp']
+                      FROM pg_proc WHERE oid = to_regprocedure('public.expense_report_record_event()')), false),
+  'expense_report_record_event(): SECURITY DEFINER, search_path pinned');
+
+-- ---------------------------------------------------------------------------
+-- Fixtures (postgres, synthetic)
+-- ---------------------------------------------------------------------------
+SELECT tests.create_supabase_user('f7d137_admin1');
+SELECT tests.create_supabase_user('f7d137_admin2');
+SELECT tests.create_supabase_user('f7d137_cons1');
+SELECT tests.create_supabase_user('f7d137_cons2');
+SELECT tests.create_supabase_user('f7d137_cm');
+SELECT tests.create_supabase_user('f7d137_docente');
+SELECT tests.create_supabase_user('f7d137_directivo');
+SELECT tests.create_supabase_user('f7d137_oldsw');
+SELECT tests.create_supabase_user('f7d137_inactive');
+SELECT tests.create_supabase_user('f7d137_mustpw');
+CREATE OR REPLACE FUNCTION pg_temp.uid(k text) RETURNS uuid LANGUAGE sql AS $$ SELECT tests.get_supabase_uid(k) $$;
+CREATE OR REPLACE FUNCTION pg_temp.r(n text) RETURNS uuid LANGUAGE sql AS $$ SELECT ('13700000-0000-4000-8000-0000000000' || n)::uuid $$;
+CREATE OR REPLACE FUNCTION pg_temp.i(n text) RETURNS uuid LANGUAGE sql AS $$ SELECT ('13700000-0000-4000-8000-0000000001' || n)::uuid $$;
+
+INSERT INTO public.profiles (id, email, name, approval_status, must_change_password)
+SELECT pg_temp.uid(k), k || '@f7d137.test.local', k, 'approved', (k = 'f7d137_mustpw')
+  FROM unnest(ARRAY['f7d137_admin1','f7d137_admin2','f7d137_cons1','f7d137_cons2','f7d137_cm','f7d137_docente',
+                    'f7d137_directivo','f7d137_oldsw','f7d137_inactive','f7d137_mustpw']) k
+ON CONFLICT (id) DO UPDATE SET must_change_password = EXCLUDED.must_change_password;
+
+INSERT INTO public.schools (id, name) VALUES (913701, 'F7d school (pgTAP 137)') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.growth_communities (id, school_id, name) VALUES
+  ('13700000-0000-4000-8000-0000000002c1', 913701, 'F7d community (pgTAP 137)');
+INSERT INTO public.user_roles (user_id, role_type, school_id, community_id, is_active) VALUES
+  (pg_temp.uid('f7d137_admin1'),    'admin',             NULL,   NULL, true),
+  (pg_temp.uid('f7d137_admin2'),    'admin',             NULL,   NULL, true),
+  (pg_temp.uid('f7d137_cons1'),     'consultor',         913701, NULL, true),
+  (pg_temp.uid('f7d137_cons2'),     'consultor',         913701, NULL, true),
+  (pg_temp.uid('f7d137_cm'),        'community_manager', 913701, '13700000-0000-4000-8000-0000000002c1', true),
+  (pg_temp.uid('f7d137_docente'),   'docente',           913701, NULL, true),
+  (pg_temp.uid('f7d137_directivo'), 'equipo_directivo',  913701, NULL, true),
+  (pg_temp.uid('f7d137_oldsw'),     'docente',           913701, NULL, true),
+  (pg_temp.uid('f7d137_inactive'),  'consultor',         913701, NULL, false),
+  (pg_temp.uid('f7d137_mustpw'),    'consultor',         913701, NULL, true);
+-- the retired one-by-one switch: a person switched on, without a filing role
+INSERT INTO public.expense_report_access (user_id, can_submit, granted_by, notes) VALUES
+  (pg_temp.uid('f7d137_oldsw'), true, pg_temp.uid('f7d137_admin1'), 'F7d 137 sintetico')
+ON CONFLICT (user_id) DO UPDATE SET can_submit = EXCLUDED.can_submit;
+
+INSERT INTO public.expense_reports (id, report_name, start_date, end_date, submitted_by, status) VALUES
+  (pg_temp.r('10'), 'F7d 137 old switch draft', '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_oldsw'), 'draft'),
+  (pg_temp.r('11'), 'F7d 137 cons2 draft',      '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons2'), 'draft'),
+  (pg_temp.r('12'), 'F7d 137 cons1 sent',       '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'), 'submitted'),
+  (pg_temp.r('13'), 'F7d 137 cons1 approved',   '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'), 'approved'),
+  (pg_temp.r('14'), 'F7d 137 admin1 sent',      '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_admin1'), 'submitted'),
+  (pg_temp.r('15'), 'F7d 137 admin1 approved',  '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_admin1'), 'approved'),
+  (pg_temp.r('16'), 'F7d 137 cons1 draft',      '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'), 'draft'),
+  (pg_temp.r('17'), 'F7d 137 cons1 rejected',   '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'), 'rejected'),
+  (pg_temp.r('18'), 'F7d 137 cons1 draft B',    '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'), 'draft');
+INSERT INTO public.expense_items (id, report_id, description, amount, expense_date) VALUES
+  (pg_temp.i('10'), pg_temp.r('10'), 'F7d 137 taxi', 1000, '2027-03-01'),
+  (pg_temp.i('11'), pg_temp.r('11'), 'F7d 137 almuerzo', 2000, '2027-03-01'),
+  (pg_temp.i('12'), pg_temp.r('12'), 'F7d 137 bus', 3000, '2027-03-01'),
+  (pg_temp.i('13'), pg_temp.r('13'), 'F7d 137 hotel', 4000, '2027-03-01'),
+  (pg_temp.i('15'), pg_temp.r('15'), 'F7d 137 peaje', 5000, '2027-03-01'),
+  (pg_temp.i('6a'), pg_temp.r('16'), 'F7d 137 cafe', 600, '2027-03-01'),
+  (pg_temp.i('6b'), pg_temp.r('16'), 'F7d 137 metro', 700, '2027-03-02'),
+  (pg_temp.i('17'), pg_temp.r('17'), 'F7d 137 cena', 1700, '2027-03-01');
+
+-- The whole state of one report, read as postgres: its row, its items, its history.
+CREATE OR REPLACE FUNCTION pg_temp.state(rid uuid) RETURNS jsonb LANGUAGE plpgsql AS $$
+DECLARE v_ev jsonb;
+BEGIN
+  IF to_regclass('public.expense_report_events') IS NOT NULL THEN
+    EXECUTE 'SELECT jsonb_agg(to_jsonb(e) ORDER BY e.id) FROM public.expense_report_events e WHERE e.report_id = $1'
+      INTO v_ev USING rid;
+  END IF;
+  RETURN jsonb_build_object(
+    'report', (SELECT to_jsonb(r) FROM public.expense_reports r WHERE r.id = rid),
+    'items',  (SELECT jsonb_agg(to_jsonb(i) ORDER BY i.id) FROM public.expense_items i WHERE i.report_id = rid),
+    'events', v_ev);
+END $$;
+
+CREATE OR REPLACE FUNCTION pg_temp.act_as(who text) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  IF who = 'anon' THEN
+    PERFORM set_config('request.jwt.claims', NULL, true);
+    PERFORM set_config('role', 'anon', true);
+  ELSE
+    PERFORM tests.authenticate_as(who);
+  END IF;
+END $$;
+
+-- Runs q as who; '<n> rows' or the refusal's SQLSTATE, then whether the report's
+-- whole state changed.
+CREATE OR REPLACE FUNCTION pg_temp.attempt(who text, q text, rid uuid) RETURNS text LANGUAGE plpgsql AS $$
+DECLARE v_before jsonb; v_after jsonb; v_n int; v_res text;
+BEGIN
+  v_before := pg_temp.state(rid);
+  PERFORM pg_temp.act_as(who);
+  BEGIN
+    EXECUTE q;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    v_res := v_n || ' rows';
+  EXCEPTION WHEN others THEN
+    v_res := SQLSTATE;
+  END;
+  PERFORM set_config('role', 'none', true);
+  PERFORM tests.clear_authentication();
+  v_after := pg_temp.state(rid);
+  RETURN v_res || CASE WHEN v_after IS NOT DISTINCT FROM v_before THEN ', unchanged' ELSE ', changed' END;
+END $$;
+
+-- One integer read as who; NULL when the read is refused.
+CREATE OR REPLACE FUNCTION pg_temp.count_as(who text, q text) RETURNS int LANGUAGE plpgsql AS $$
+DECLARE v int;
+BEGIN
+  PERFORM pg_temp.act_as(who);
+  BEGIN
+    EXECUTE q INTO v;
+  EXCEPTION WHEN others THEN
+    v := NULL;
+  END;
+  PERFORM set_config('role', 'none', true);
+  PERFORM tests.clear_authentication();
+  RETURN v;
+END $$;
+
+CREATE OR REPLACE FUNCTION pg_temp.new_report(id uuid, status text) RETURNS text LANGUAGE sql AS $$
+  SELECT format($q$INSERT INTO public.expense_reports (id, report_name, start_date, end_date, submitted_by, status)
+                   VALUES (%L, 'F7d 137 nuevo', '2027-03-05', '2027-03-06', auth.uid(), %L)$q$, id, status)
+$$;
+CREATE OR REPLACE FUNCTION pg_temp.new_item(id uuid, rid uuid) RETURNS text LANGUAGE sql AS $$
+  SELECT format($q$INSERT INTO public.expense_items (id, report_id, description, amount, expense_date)
+                   VALUES (%L, %L, 'F7d 137 gasto nuevo', 1234, '2027-03-05')$q$, id, rid)
+$$;
+CREATE OR REPLACE FUNCTION pg_temp.ev_count(rid uuid) RETURNS int LANGUAGE plpgsql AS $$
+DECLARE v int;
+BEGIN
+  IF to_regclass('public.expense_report_events') IS NULL THEN RETURN NULL; END IF;
+  EXECUTE 'SELECT count(*)::int FROM public.expense_report_events WHERE report_id = $1' INTO v USING rid;
+  RETURN v;
+END $$;
+CREATE OR REPLACE FUNCTION pg_temp.ev_has(rid uuid, ev text, actor uuid, cmt text) RETURNS boolean LANGUAGE plpgsql AS $$
+DECLARE v boolean;
+BEGIN
+  IF to_regclass('public.expense_report_events') IS NULL THEN RETURN false; END IF;
+  EXECUTE 'SELECT EXISTS (SELECT 1 FROM public.expense_report_events
+                           WHERE report_id = $1 AND event = $2 AND actor_id IS NOT DISTINCT FROM $3
+                             AND comment IS NOT DISTINCT FROM $4)' INTO v USING rid, ev, actor, cmt;
+  RETURN v;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- 2. Who files: admin, consultor, a second consultor, community manager
+--    create, add an item, send
+-- ---------------------------------------------------------------------------
+SELECT is(pg_temp.attempt('f7d137_admin1', pg_temp.new_report(pg_temp.r('01'), 'draft'), pg_temp.r('01')), '1 rows, changed', 'admin creates a report');
+SELECT is(pg_temp.attempt('f7d137_admin1', pg_temp.new_item(pg_temp.i('01'), pg_temp.r('01')), pg_temp.r('01')), '1 rows, changed', 'admin adds an item');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET status = 'submitted', submitted_at = now() WHERE id = %L$q$, pg_temp.r('01')), pg_temp.r('01')),
+  '1 rows, changed', 'admin sends it');
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_report(pg_temp.r('02'), 'draft'), pg_temp.r('02')), '1 rows, changed', 'consultor creates a report');
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_item(pg_temp.i('02'), pg_temp.r('02')), pg_temp.r('02')), '1 rows, changed', 'consultor adds an item');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'submitted', submitted_at = now() WHERE id = %L$q$, pg_temp.r('02')), pg_temp.r('02')),
+  '1 rows, changed', 'consultor sends it');
+SELECT is(pg_temp.attempt('f7d137_cons2', pg_temp.new_report(pg_temp.r('03'), 'draft'), pg_temp.r('03')), '1 rows, changed', 'second consultor creates a report');
+SELECT is(pg_temp.attempt('f7d137_cons2', pg_temp.new_item(pg_temp.i('03'), pg_temp.r('03')), pg_temp.r('03')), '1 rows, changed', 'second consultor adds an item');
+SELECT is(pg_temp.attempt('f7d137_cons2', format($q$UPDATE public.expense_reports SET status = 'submitted', submitted_at = now() WHERE id = %L$q$, pg_temp.r('03')), pg_temp.r('03')),
+  '1 rows, changed', 'second consultor sends it');
+SELECT is(pg_temp.attempt('f7d137_cm', pg_temp.new_report(pg_temp.r('04'), 'draft'), pg_temp.r('04')), '1 rows, changed', 'community manager creates a report');
+SELECT is(pg_temp.attempt('f7d137_cm', pg_temp.new_item(pg_temp.i('04'), pg_temp.r('04')), pg_temp.r('04')), '1 rows, changed', 'community manager adds an item');
+SELECT is(pg_temp.attempt('f7d137_cm', format($q$UPDATE public.expense_reports SET status = 'submitted', submitted_at = now() WHERE id = %L$q$, pg_temp.r('04')), pg_temp.r('04')),
+  '1 rows, changed', 'community manager sends it');
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_report(pg_temp.r('05'), 'submitted'), pg_temp.r('05')), '1 rows, changed',
+  'consultor creates a report already sent');
+
+-- ---------------------------------------------------------------------------
+-- 3. Who does not: docente, directivo, old switch without a filing role,
+--    inactive consultor, consultor held by the forced-password gate, anon
+-- ---------------------------------------------------------------------------
+SELECT is(pg_temp.attempt('f7d137_docente',   pg_temp.new_report(pg_temp.r('06'), 'draft'), pg_temp.r('06')), '42501, unchanged', 'docente with no access row cannot create a report');
+SELECT is(pg_temp.attempt('f7d137_directivo', pg_temp.new_report(pg_temp.r('07'), 'draft'), pg_temp.r('07')), '42501, unchanged', 'directivo cannot create a report');
+SELECT is(pg_temp.attempt('f7d137_oldsw',     pg_temp.new_report(pg_temp.r('08'), 'draft'), pg_temp.r('08')), '42501, unchanged', 'old can_submit row without a filing role: cannot create a report');
+SELECT is(pg_temp.attempt('f7d137_inactive',  pg_temp.new_report(pg_temp.r('09'), 'draft'), pg_temp.r('09')), '42501, unchanged', 'inactive consultor cannot create a report');
+SELECT is(pg_temp.attempt('f7d137_mustpw',    pg_temp.new_report(pg_temp.r('0a'), 'draft'), pg_temp.r('0a')), '42501, unchanged', 'consultor who must change the password cannot create a report');
+SELECT is(pg_temp.attempt('anon',             pg_temp.new_report(pg_temp.r('0b'), 'draft'), pg_temp.r('0b')), '42501, unchanged', 'visitor cannot create a report');
+SELECT is(pg_temp.attempt('f7d137_oldsw', pg_temp.new_item(pg_temp.i('0c'), pg_temp.r('10')), pg_temp.r('10')), '42501, unchanged',
+  'old switch: cannot add an item to their own old draft');
+SELECT is(pg_temp.attempt('f7d137_oldsw', format($q$UPDATE public.expense_reports SET report_name = 'x' WHERE id = %L$q$, pg_temp.r('10')), pg_temp.r('10')), '0 rows, unchanged',
+  'old switch: cannot change their own old draft');
+SELECT is(pg_temp.attempt('f7d137_oldsw', format($q$DELETE FROM public.expense_reports WHERE id = %L$q$, pg_temp.r('10')), pg_temp.r('10')), '0 rows, unchanged',
+  'old switch: cannot delete their own old draft');
+SELECT is(pg_temp.count_as('f7d137_oldsw', 'SELECT count(*)::int FROM public.expense_reports'), 0, 'old switch: no longer reads their own reports');
+SELECT is(pg_temp.count_as('f7d137_oldsw', 'SELECT count(*)::int FROM public.expense_items'), 0, 'old switch: no longer reads their own items');
+SELECT is(pg_temp.count_as('f7d137_docente', 'SELECT count(*)::int FROM public.expense_reports'), 0, 'docente reads no report');
+SELECT is(pg_temp.count_as('f7d137_directivo', 'SELECT count(*)::int FROM public.expense_items'), 0, 'directivo reads no item');
+SELECT is(pg_temp.count_as('f7d137_inactive', 'SELECT count(*)::int FROM public.expense_reports'), 0, 'inactive consultor reads no report');
+SELECT is(coalesce(pg_temp.count_as('anon', 'SELECT count(*)::int FROM public.expense_reports'), 0), 0, 'visitor reads no report (0 rows or refused)');
+SELECT is(coalesce(pg_temp.count_as('anon', 'SELECT count(*)::int FROM public.expense_items'), 0), 0, 'visitor reads no item (0 rows or refused)');
+
+-- ---------------------------------------------------------------------------
+-- 4. Who reads what: a non-admin only their own, admins all
+-- ---------------------------------------------------------------------------
+SELECT set_config('f7d137.all', (SELECT count(*) FROM public.expense_reports WHERE report_name LIKE 'F7d 137%')::text, true);
+SELECT set_config('f7d137.cons1', (SELECT count(*) FROM public.expense_reports WHERE submitted_by = pg_temp.uid('f7d137_cons1'))::text, true);
+SELECT set_config('f7d137.cons1_uid', pg_temp.uid('f7d137_cons1')::text, true);
+SELECT set_config('f7d137.cm_uid', pg_temp.uid('f7d137_cm')::text, true);
+SELECT set_config('f7d137.cons2_uid', pg_temp.uid('f7d137_cons2')::text, true);
+SELECT is(pg_temp.count_as('f7d137_cons1', $$SELECT count(*)::int FROM public.expense_reports WHERE submitted_by <> current_setting('f7d137.cons1_uid')::uuid$$), 0,
+  'consultor reads no one else''s report');
+SELECT is(pg_temp.count_as('f7d137_cons1', 'SELECT count(*)::int FROM public.expense_reports'), current_setting('f7d137.cons1')::int,
+  'consultor reads every report of their own');
+SELECT is(pg_temp.count_as('f7d137_cons1', format('SELECT count(*)::int FROM public.expense_items WHERE report_id = %L', pg_temp.r('11'))), 0,
+  'consultor reads no item of another filer''s report');
+SELECT is(pg_temp.count_as('f7d137_cm', $$SELECT count(*)::int FROM public.expense_reports WHERE submitted_by <> current_setting('f7d137.cm_uid')::uuid$$), 0,
+  'community manager reads no one else''s report');
+SELECT is(pg_temp.count_as('f7d137_admin2', $$SELECT count(*)::int FROM public.expense_reports WHERE report_name LIKE 'F7d 137%'$$), current_setting('f7d137.all')::int,
+  'admin reads every report');
+SELECT is(pg_temp.count_as('f7d137_admin2', format('SELECT count(*)::int FROM public.expense_items WHERE report_id IN (%L, %L, %L)', pg_temp.r('10'), pg_temp.r('11'), pg_temp.r('13'))), 3,
+  'admin reads the items of others'' reports');
+
+-- ---------------------------------------------------------------------------
+-- 5. The author on their own DRAFT: allowed
+-- ---------------------------------------------------------------------------
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET report_name = 'F7d 137 cons1 draft renamed' WHERE id = %L$q$, pg_temp.r('16')), pg_temp.r('16')),
+  '1 rows, changed', 'own draft: author changes the report');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_items SET amount = 650 WHERE id = %L$q$, pg_temp.i('6a')), pg_temp.r('16')),
+  '1 rows, changed', 'own draft: author changes an item');
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_item(pg_temp.i('6c'), pg_temp.r('16')), pg_temp.r('16')), '1 rows, changed', 'own draft: author adds an item');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$DELETE FROM public.expense_items WHERE id = %L$q$, pg_temp.i('6b')), pg_temp.r('16')),
+  '1 rows, changed', 'own draft: author deletes an item');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET submitted_by = %L WHERE id = %L$q$, pg_temp.uid('f7d137_cons2'), pg_temp.r('16')), pg_temp.r('16')),
+  '42501, unchanged', 'own draft: author cannot hand it to another person');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$DELETE FROM public.expense_reports WHERE id = %L$q$, pg_temp.r('16')), pg_temp.r('16')),
+  '1 rows, changed', 'own draft: author deletes the report');
+
+-- ---------------------------------------------------------------------------
+-- 6. The author on their own SENT report: everything refused
+-- ---------------------------------------------------------------------------
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET report_name = 'x' WHERE id = %L$q$, pg_temp.r('12')), pg_temp.r('12')),
+  '0 rows, unchanged', 'own sent: author cannot change the report');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'draft' WHERE id = %L$q$, pg_temp.r('12')), pg_temp.r('12')),
+  '0 rows, unchanged', 'own sent: author cannot take it back to draft');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'approved' WHERE id = %L$q$, pg_temp.r('12')), pg_temp.r('12')),
+  '0 rows, unchanged', 'own sent: author cannot approve it');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_items SET amount = 1 WHERE id = %L$q$, pg_temp.i('12')), pg_temp.r('12')),
+  '0 rows, unchanged', 'own sent: author cannot change an item');
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_item(pg_temp.i('2f'), pg_temp.r('12')), pg_temp.r('12')), '42501, unchanged', 'own sent: author cannot add an item');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$DELETE FROM public.expense_items WHERE id = %L$q$, pg_temp.i('12')), pg_temp.r('12')),
+  '0 rows, unchanged', 'own sent: author cannot delete an item');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$DELETE FROM public.expense_reports WHERE id = %L$q$, pg_temp.r('12')), pg_temp.r('12')),
+  '0 rows, unchanged', 'own sent: author cannot delete the report');
+
+-- ---------------------------------------------------------------------------
+-- 7. The author on their own APPROVED report: everything refused
+-- ---------------------------------------------------------------------------
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET report_name = 'x' WHERE id = %L$q$, pg_temp.r('13')), pg_temp.r('13')),
+  '0 rows, unchanged', 'own approved: author cannot change the report');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'draft' WHERE id = %L$q$, pg_temp.r('13')), pg_temp.r('13')),
+  '0 rows, unchanged', 'own approved: author cannot take it back to draft');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_items SET amount = 1 WHERE id = %L$q$, pg_temp.i('13')), pg_temp.r('13')),
+  '0 rows, unchanged', 'own approved: author cannot change an item');
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_item(pg_temp.i('3f'), pg_temp.r('13')), pg_temp.r('13')), '42501, unchanged', 'own approved: author cannot add an item');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$DELETE FROM public.expense_items WHERE id = %L$q$, pg_temp.i('13')), pg_temp.r('13')),
+  '0 rows, unchanged', 'own approved: author cannot delete an item');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$DELETE FROM public.expense_reports WHERE id = %L$q$, pg_temp.r('13')), pg_temp.r('13')),
+  '0 rows, unchanged', 'own approved: author cannot delete the report');
+
+-- ---------------------------------------------------------------------------
+-- 8. The author never approves their own report
+-- ---------------------------------------------------------------------------
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'approved' WHERE id = %L$q$, pg_temp.r('18')), pg_temp.r('18')),
+  '42501, unchanged', 'own draft: author cannot set it approved');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'approved' WHERE id = %L$q$, pg_temp.r('17')), pg_temp.r('17')),
+  '42501, unchanged', 'own rejected: author cannot set it approved');
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_report(pg_temp.r('0d'), 'approved'), pg_temp.r('0d')), '42501, unchanged',
+  'author cannot create a report already approved');
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_report(pg_temp.r('0e'), 'rejected'), pg_temp.r('0e')), '42501, unchanged',
+  'author cannot create a report already rejected');
+
+-- ---------------------------------------------------------------------------
+-- 9. The author on their own REJECTED report: correct and resend, or delete
+-- ---------------------------------------------------------------------------
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_items SET amount = 1750 WHERE id = %L$q$, pg_temp.i('17')), pg_temp.r('17')),
+  '1 rows, changed', 'own rejected: author changes an item');
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_item(pg_temp.i('7f'), pg_temp.r('17')), pg_temp.r('17')), '1 rows, changed', 'own rejected: author adds an item');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$DELETE FROM public.expense_items WHERE id = %L$q$, pg_temp.i('7f')), pg_temp.r('17')),
+  '1 rows, changed', 'own rejected: author deletes an item');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$DELETE FROM public.expense_reports WHERE id = %L$q$, pg_temp.r('17')), pg_temp.r('17')),
+  '1 rows, changed', 'own rejected: author deletes the report');
+
+-- ---------------------------------------------------------------------------
+-- 10. Another filer's report: nothing
+-- ---------------------------------------------------------------------------
+SELECT is(pg_temp.count_as('f7d137_cons1', format('SELECT count(*)::int FROM public.expense_reports WHERE id = %L', pg_temp.r('11'))), 0,
+  'other filer''s draft: not visible');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET report_name = 'x' WHERE id = %L$q$, pg_temp.r('11')), pg_temp.r('11')),
+  '0 rows, unchanged', 'other filer''s draft: cannot change it');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'submitted' WHERE id = %L$q$, pg_temp.r('11')), pg_temp.r('11')),
+  '0 rows, unchanged', 'other filer''s draft: cannot send it');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$DELETE FROM public.expense_reports WHERE id = %L$q$, pg_temp.r('11')), pg_temp.r('11')),
+  '0 rows, unchanged', 'other filer''s draft: cannot delete it');
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_item(pg_temp.i('1f'), pg_temp.r('11')), pg_temp.r('11')), '42501, unchanged',
+  'other filer''s draft: cannot add an item');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_items SET amount = 1 WHERE id = %L$q$, pg_temp.i('11')), pg_temp.r('11')),
+  '0 rows, unchanged', 'other filer''s draft: cannot change an item');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$DELETE FROM public.expense_items WHERE id = %L$q$, pg_temp.i('11')), pg_temp.r('11')),
+  '0 rows, unchanged', 'other filer''s draft: cannot delete an item');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_items SET report_id = %L WHERE id = %L$q$, pg_temp.r('11'), pg_temp.i('02')), pg_temp.r('11')),
+  '0 rows, unchanged', 'cannot move an item of an own SENT report anywhere');
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_item(pg_temp.i('8a'), pg_temp.r('18')), pg_temp.r('18')), '1 rows, changed',
+  'fixture: an item on the author''s own draft B');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_items SET report_id = %L WHERE id = %L$q$, pg_temp.r('11'), pg_temp.i('8a')), pg_temp.r('11')),
+  '42501, unchanged', 'cannot move an item of an own draft into another filer''s report');
+
+-- ---------------------------------------------------------------------------
+-- 11. Admins decide: anyone's sent report, their own included
+-- ---------------------------------------------------------------------------
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET status = 'approved', reviewed_by = auth.uid(), reviewed_at = now() WHERE id = %L$q$, pg_temp.r('12')), pg_temp.r('12')),
+  '1 rows, changed', 'admin approves a consultor''s sent report');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET status = 'rejected', reviewed_by = auth.uid(), reviewed_at = now(), review_comments = 'F7d 137 falta detalle' WHERE id = %L$q$, pg_temp.r('04')), pg_temp.r('04')),
+  '1 rows, changed', 'admin rejects a community manager''s sent report');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET status = 'approved', reviewed_by = auth.uid(), reviewed_at = now() WHERE id = %L$q$, pg_temp.r('14')), pg_temp.r('14')),
+  '1 rows, changed', 'admin approves their own sent report');
+SELECT is(pg_temp.attempt('f7d137_admin2', format($q$UPDATE public.expense_reports SET status = 'rejected', review_comments = 'F7d 137 revisar' WHERE id = %L$q$, pg_temp.r('01')), pg_temp.r('01')),
+  '1 rows, changed', 'another admin rejects an admin''s sent report');
+-- Send-back 2 restates this assertion (it asserted a move now forbidden). Was:
+--   '1 rows, changed', 'an admin may act on their own rejected report like any author'
+-- An admin author on their own rejected report is an author like any other:
+-- content yes, the review fields never.
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET status = 'rejected', review_comments = 'F7d 137 otra vez' WHERE id = %L$q$, pg_temp.r('01')), pg_temp.r('01')),
+  '42501, unchanged', 'an admin author cannot rewrite the review comment of their own rejected report');
+
+-- ---------------------------------------------------------------------------
+-- 12. An admin's OWN approved report is closed to them; another admin corrects it
+-- ---------------------------------------------------------------------------
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET report_name = 'x' WHERE id = %L$q$, pg_temp.r('15')), pg_temp.r('15')),
+  '0 rows, unchanged', 'own approved (admin author): cannot change the report');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET status = 'draft' WHERE id = %L$q$, pg_temp.r('15')), pg_temp.r('15')),
+  '0 rows, unchanged', 'own approved (admin author): cannot reopen it');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_items SET amount = 1 WHERE id = %L$q$, pg_temp.i('15')), pg_temp.r('15')),
+  '0 rows, unchanged', 'own approved (admin author): cannot change an item');
+SELECT is(pg_temp.attempt('f7d137_admin1', pg_temp.new_item(pg_temp.i('5f'), pg_temp.r('15')), pg_temp.r('15')), '42501, unchanged',
+  'own approved (admin author): cannot add an item');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$DELETE FROM public.expense_items WHERE id = %L$q$, pg_temp.i('15')), pg_temp.r('15')),
+  '0 rows, unchanged', 'own approved (admin author): cannot delete an item');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$DELETE FROM public.expense_reports WHERE id = %L$q$, pg_temp.r('15')), pg_temp.r('15')),
+  '0 rows, unchanged', 'own approved (admin author): cannot delete the report');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET report_name = 'x' WHERE id = %L$q$, pg_temp.r('14')), pg_temp.r('14')),
+  '0 rows, unchanged', 'the admin''s own report they just approved is closed to them too');
+SELECT is(pg_temp.attempt('f7d137_admin2', format($q$UPDATE public.expense_reports SET report_name = 'F7d 137 admin1 approved (corregido)' WHERE id = %L$q$, pg_temp.r('15')), pg_temp.r('15')),
+  '1 rows, changed', 'another admin corrects that approved report');
+SELECT is(pg_temp.attempt('f7d137_admin2', format($q$UPDATE public.expense_items SET amount = 5100 WHERE id = %L$q$, pg_temp.i('15')), pg_temp.r('15')),
+  '1 rows, changed', 'another admin corrects one of its items');
+SELECT is(pg_temp.attempt('f7d137_admin2', format($q$UPDATE public.expense_items SET amount = 4100 WHERE id = %L$q$, pg_temp.i('13')), pg_temp.r('13')),
+  '1 rows, changed', 'an admin corrects an item of a consultor''s approved report');
+
+-- ---------------------------------------------------------------------------
+-- 13. The history: sent -> rejected -> sent again -> approved
+-- ---------------------------------------------------------------------------
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_report(pg_temp.r('19'), 'draft'), pg_temp.r('19')), '1 rows, changed', 'history: consultor creates a draft');
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_item(pg_temp.i('19'), pg_temp.r('19')), pg_temp.r('19')), '1 rows, changed', 'history: adds an item');
+SELECT is(pg_temp.ev_count(pg_temp.r('19')), 0, 'history: a draft has no line');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET report_name = 'F7d 137 historia' WHERE id = %L$q$, pg_temp.r('19')), pg_temp.r('19')),
+  '1 rows, changed', 'history: a change that keeps the status ...');
+SELECT is(pg_temp.ev_count(pg_temp.r('19')), 0, '... writes no line');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'submitted', submitted_at = now() WHERE id = %L$q$, pg_temp.r('19')), pg_temp.r('19')),
+  '1 rows, changed', 'history: consultor sends it');
+SELECT ok(pg_temp.ev_count(pg_temp.r('19')) = 1 AND pg_temp.ev_has(pg_temp.r('19'), 'submitted', pg_temp.uid('f7d137_cons1'), NULL),
+  'history line 1: submitted, by the consultor');
+SELECT is(pg_temp.attempt('f7d137_admin2', format($q$UPDATE public.expense_reports SET status = 'rejected', reviewed_by = auth.uid(), reviewed_at = now(), review_comments = 'F7d 137 falta la boleta del taxi' WHERE id = %L$q$, pg_temp.r('19')), pg_temp.r('19')),
+  '1 rows, changed', 'history: admin rejects it with a reason');
+SELECT ok(pg_temp.ev_count(pg_temp.r('19')) = 2 AND pg_temp.ev_has(pg_temp.r('19'), 'rejected', pg_temp.uid('f7d137_admin2'), 'F7d 137 falta la boleta del taxi'),
+  'history line 2: rejected, by the admin, with the reason');
+SELECT is(pg_temp.count_as('f7d137_cons1', format($q$SELECT count(*)::int FROM public.expense_reports WHERE id = %L AND review_comments = 'F7d 137 falta la boleta del taxi'$q$, pg_temp.r('19'))), 1,
+  'history: the author sees the reason');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_items SET amount = 2500, receipt_url = 'boletas/f7d137_taxi.pdf' WHERE id = %L$q$, pg_temp.i('19')), pg_temp.r('19')),
+  '1 rows, changed', 'history: author corrects the item and its receipt');
+SELECT is(pg_temp.ev_count(pg_temp.r('19')), 2, 'history: correcting items writes no line');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'submitted', submitted_at = now() WHERE id = %L$q$, pg_temp.r('19')), pg_temp.r('19')),
+  '1 rows, changed', 'history: author sends it again');
+SELECT ok(pg_temp.ev_count(pg_temp.r('19')) = 3 AND pg_temp.ev_has(pg_temp.r('19'), 'resubmitted', pg_temp.uid('f7d137_cons1'), NULL),
+  'history line 3: resubmitted, by the consultor');
+SELECT is(pg_temp.attempt('f7d137_admin2', format($q$UPDATE public.expense_reports SET status = 'approved', reviewed_by = auth.uid(), reviewed_at = now() WHERE id = %L$q$, pg_temp.r('19')), pg_temp.r('19')),
+  '1 rows, changed', 'history: admin approves it');
+SELECT ok(pg_temp.ev_count(pg_temp.r('19')) = 4 AND pg_temp.ev_has(pg_temp.r('19'), 'approved', pg_temp.uid('f7d137_admin2'), NULL),
+  'history line 4: approved, by the admin');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET status = 'draft' WHERE id = %L$q$, pg_temp.r('19')), pg_temp.r('19')),
+  '1 rows, changed', 'history: an admin reopens the approved report');
+SELECT ok(pg_temp.ev_count(pg_temp.r('19')) = 5 AND pg_temp.ev_has(pg_temp.r('19'), 'reopened', pg_temp.uid('f7d137_admin1'), NULL),
+  'history line 5: reopened, by that admin');
+SELECT ok(pg_temp.ev_count(pg_temp.r('04')) = 2 AND pg_temp.ev_has(pg_temp.r('04'), 'submitted', pg_temp.uid('f7d137_cm'), NULL)
+          AND pg_temp.ev_has(pg_temp.r('04'), 'rejected', pg_temp.uid('f7d137_admin1'), 'F7d 137 falta detalle'),
+  'history of the community manager''s report: submitted, rejected (one line each)');
+SELECT ok(pg_temp.ev_count(pg_temp.r('05')) = 1 AND pg_temp.ev_has(pg_temp.r('05'), 'submitted', pg_temp.uid('f7d137_cons1'), NULL),
+  'history: a report created already sent has its submitted line');
+SELECT ok(pg_temp.ev_count(pg_temp.r('01')) = 2 AND pg_temp.ev_has(pg_temp.r('01'), 'rejected', pg_temp.uid('f7d137_admin2'), 'F7d 137 revisar')
+          AND NOT pg_temp.ev_has(pg_temp.r('01'), 'reopened', pg_temp.uid('f7d137_admin2'), NULL),
+  'history: a rejection of a sent report is one rejected line, not also reopened; rejected -> rejected writes nothing');
+SELECT is(pg_temp.count_as('f7d137_cons1', format('SELECT count(*)::int FROM public.expense_report_events WHERE report_id = %L', pg_temp.r('19'))), 5,
+  'history: the author reads the history of their report');
+SELECT is(pg_temp.count_as('f7d137_cons2', format('SELECT count(*)::int FROM public.expense_report_events WHERE report_id = %L', pg_temp.r('19'))), 0,
+  'history: another filer reads none of it');
+SELECT is(pg_temp.count_as('f7d137_oldsw', 'SELECT count(*)::int FROM public.expense_report_events'), 0,
+  'history: the old switch person reads nothing');
+SELECT is(pg_temp.count_as('f7d137_admin1', format('SELECT count(*)::int FROM public.expense_report_events WHERE report_id = %L', pg_temp.r('19'))), 5,
+  'history: an admin reads it');
+
+-- ---------------------------------------------------------------------------
+-- 14. Nobody writes the history directly
+-- ---------------------------------------------------------------------------
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$INSERT INTO public.expense_report_events (report_id, event, actor_id) VALUES (%L, 'approved', auth.uid())$q$, pg_temp.r('19')), pg_temp.r('19')),
+  '42501, unchanged', 'author cannot insert a history line');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_report_events SET comment = 'x' WHERE report_id = %L$q$, pg_temp.r('19')), pg_temp.r('19')),
+  '42501, unchanged', 'author cannot change a history line');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$DELETE FROM public.expense_report_events WHERE report_id = %L$q$, pg_temp.r('19')), pg_temp.r('19')),
+  '42501, unchanged', 'author cannot delete a history line');
+SELECT is(pg_temp.attempt('f7d137_admin2', format($q$INSERT INTO public.expense_report_events (report_id, event, actor_id) VALUES (%L, 'approved', auth.uid())$q$, pg_temp.r('19')), pg_temp.r('19')),
+  '42501, unchanged', 'admin cannot insert a history line');
+SELECT is(pg_temp.attempt('f7d137_admin2', format($q$UPDATE public.expense_report_events SET comment = 'x' WHERE report_id = %L$q$, pg_temp.r('19')), pg_temp.r('19')),
+  '42501, unchanged', 'admin cannot change a history line');
+SELECT is(pg_temp.attempt('f7d137_admin2', format($q$DELETE FROM public.expense_report_events WHERE report_id = %L$q$, pg_temp.r('19')), pg_temp.r('19')),
+  '42501, unchanged', 'admin cannot delete a history line');
+SELECT is(pg_temp.attempt('anon', format($q$INSERT INTO public.expense_report_events (report_id, event) VALUES (%L, 'approved')$q$, pg_temp.r('19')), pg_temp.r('19')),
+  '42501, unchanged', 'visitor cannot insert a history line');
+SELECT is(coalesce(pg_temp.count_as('anon', 'SELECT count(*)::int FROM public.expense_report_events'), 0), 0,
+  'visitor reads no history (0 rows or refused)');
+
+-- ---------------------------------------------------------------------------
+-- 15. A deleted draft leaves its history; the server's assistant still saves
+-- ---------------------------------------------------------------------------
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_report(pg_temp.r('1a'), 'submitted'), pg_temp.r('1a')), '1 rows, changed', 'a report sent at creation ...');
+SELECT is(pg_temp.attempt('f7d137_admin2', format($q$UPDATE public.expense_reports SET status = 'rejected', review_comments = 'F7d 137 no corresponde' WHERE id = %L$q$, pg_temp.r('1a')), pg_temp.r('1a')),
+  '1 rows, changed', '... rejected ...');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$DELETE FROM public.expense_reports WHERE id = %L$q$, pg_temp.r('1a')), pg_temp.r('1a')),
+  '1 rows, changed', '... and deleted by its author');
+SELECT is(pg_temp.ev_count(pg_temp.r('1a')), 2, 'its two history lines stay (no foreign key)');
+
+SET LOCAL ROLE service_role;
+SELECT lives_ok(format($q$SELECT public.bot_save_expense_item(
+    p_user_id => %L, p_report_id => NULL, p_report_name => 'F7d 137 bot', p_start => '2027-03-01', p_end => '2027-03-01',
+    p_category_id => NULL, p_description => 'F7d 137 gasto bot', p_amount => 990, p_currency => 'CLP',
+    p_original_amount => NULL, p_conversion_rate => NULL, p_conversion_date => NULL, p_expense_date => '2027-03-01',
+    p_vendor => NULL, p_expense_number => NULL, p_receipt_url => NULL, p_receipt_filename => NULL, p_notes => NULL)$q$,
+    current_setting('f7d137.cons2_uid')),
+  'the assistant (service key) still saves an expense for a consultor');
+RESET ROLE;
+SELECT is((SELECT count(*)::int FROM public.expense_reports r JOIN public.expense_items i ON i.report_id = r.id
+            WHERE r.report_name = 'F7d 137 bot' AND r.submitted_by = pg_temp.uid('f7d137_cons2') AND r.status = 'draft'), 1,
+  'its draft and item are there');
+
+-- ---------------------------------------------------------------------------
+-- 16. The receipts store `boletas` follows the role (E1 part e, send-back 1)
+--     Through the model of Production's eight boletas rules, installed the way
+--     126-file-stores-boundaries.sql installs them (verbatim, only when a rule
+--     of that name does not already exist).
+-- ---------------------------------------------------------------------------
+SELECT ok(coalesce((SELECT pg_get_functiondef(p.oid) NOT LIKE '%expense_report_access%'
+                      FROM pg_proc p WHERE p.oid = to_regprocedure('public.file_store_allows(text, text, uuid, text, uuid)')), false),
+  'file_store_allows no longer reads expense_report_access');
+SELECT is((SELECT array_agg(policyname || ':' || permissive || ':' || cmd || ':' || array_to_string(roles, ',') ORDER BY policyname)::text
+             FROM pg_policies
+            WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname LIKE 'boletas_filers_%'
+              AND coalesce(qual, with_check) LIKE '%bucket_id = ''boletas''::text%'
+              AND coalesce(qual, with_check) LIKE '%auth_can_file_expenses()%'
+              AND (cmd NOT IN ('INSERT', 'UPDATE') OR with_check LIKE '%auth_can_file_expenses()%')),
+  '{boletas_filers_delete:PERMISSIVE:DELETE:authenticated,boletas_filers_insert:PERMISSIVE:INSERT:authenticated,boletas_filers_select:PERMISSIVE:SELECT:authenticated,boletas_filers_update:PERMISSIVE:UPDATE:authenticated}',
+  'four permissive boletas_filers_* rules TO authenticated with bucket_id = boletas AND auth_can_file_expenses()');
+
+INSERT INTO storage.buckets (id, name, public) VALUES ('boletas', 'boletas', false) ON CONFLICT (id) DO NOTHING;
+DO $m$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects' AND policyname='Admin can delete from boletas bucket') THEN EXECUTE $p$CREATE POLICY "Admin can delete from boletas bucket" ON storage.objects AS PERMISSIVE FOR DELETE TO public USING (((bucket_id = 'boletas'::text) AND (EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role_type = 'admin'::user_role_type) AND (user_roles.is_active = true))))))$p$; END IF; END $m$;
+DO $m$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects' AND policyname='Admin can read from boletas bucket') THEN EXECUTE $p$CREATE POLICY "Admin can read from boletas bucket" ON storage.objects AS PERMISSIVE FOR SELECT TO public USING (((bucket_id = 'boletas'::text) AND (EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role_type = 'admin'::user_role_type) AND (user_roles.is_active = true))))))$p$; END IF; END $m$;
+DO $m$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects' AND policyname='Admin can update boletas bucket') THEN EXECUTE $p$CREATE POLICY "Admin can update boletas bucket" ON storage.objects AS PERMISSIVE FOR UPDATE TO public USING (((bucket_id = 'boletas'::text) AND (EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role_type = 'admin'::user_role_type) AND (user_roles.is_active = true))))))$p$; END IF; END $m$;
+DO $m$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects' AND policyname='Admin can upload to boletas bucket') THEN EXECUTE $p$CREATE POLICY "Admin can upload to boletas bucket" ON storage.objects AS PERMISSIVE FOR INSERT TO public WITH CHECK (((bucket_id = 'boletas'::text) AND (EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role_type = 'admin'::user_role_type) AND (user_roles.is_active = true))))))$p$; END IF; END $m$;
+DO $m$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects' AND policyname='Allow expense report users to delete receipts') THEN EXECUTE $p$CREATE POLICY "Allow expense report users to delete receipts" ON storage.objects AS PERMISSIVE FOR DELETE TO authenticated USING (((bucket_id = 'boletas'::text) AND ((EXISTS ( SELECT 1
+   FROM expense_report_access
+  WHERE ((expense_report_access.user_id = auth.uid()) AND (expense_report_access.can_submit = true)))) OR (EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role_type = 'admin'::user_role_type) AND (user_roles.is_active = true)))) OR (owner = auth.uid()))))$p$; END IF; END $m$;
+DO $m$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects' AND policyname='Allow expense report users to read receipts') THEN EXECUTE $p$CREATE POLICY "Allow expense report users to read receipts" ON storage.objects AS PERMISSIVE FOR SELECT TO authenticated USING (((bucket_id = 'boletas'::text) AND ((EXISTS ( SELECT 1
+   FROM expense_report_access
+  WHERE (expense_report_access.user_id = auth.uid()))) OR (EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role_type = 'admin'::user_role_type) AND (user_roles.is_active = true)))) OR (owner = auth.uid()))))$p$; END IF; END $m$;
+DO $m$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects' AND policyname='Allow expense report users to update receipts') THEN EXECUTE $p$CREATE POLICY "Allow expense report users to update receipts" ON storage.objects AS PERMISSIVE FOR UPDATE TO authenticated USING (((bucket_id = 'boletas'::text) AND ((EXISTS ( SELECT 1
+   FROM expense_report_access
+  WHERE ((expense_report_access.user_id = auth.uid()) AND (expense_report_access.can_submit = true)))) OR (EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role_type = 'admin'::user_role_type) AND (user_roles.is_active = true)))) OR (owner = auth.uid()))))$p$; END IF; END $m$;
+DO $m$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects' AND policyname='Allow expense report users to upload receipts') THEN EXECUTE $p$CREATE POLICY "Allow expense report users to upload receipts" ON storage.objects AS PERMISSIVE FOR INSERT TO authenticated WITH CHECK (((bucket_id = 'boletas'::text) AND ((EXISTS ( SELECT 1
+   FROM expense_report_access
+  WHERE ((expense_report_access.user_id = auth.uid()) AND (expense_report_access.can_submit = true)))) OR (EXISTS ( SELECT 1
+   FROM user_roles
+  WHERE ((user_roles.user_id = auth.uid()) AND (user_roles.role_type = 'admin'::user_role_type) AND (user_roles.is_active = true)))))))$p$; END IF; END $m$;
+
+-- Receipts already in the store (postgres): the old-switch docente's own earlier
+-- upload, one receipt of each consultor, and two ownerless receipts the server
+-- recorded (through its only writer) for the first consultor and for the
+-- old-switch docente.
+INSERT INTO storage.objects (bucket_id, name, owner) VALUES
+  ('boletas', 'f7d137_oldsw_old.pdf', pg_temp.uid('f7d137_oldsw')),
+  ('boletas', 'f7d137_cons1_old.pdf', pg_temp.uid('f7d137_cons1')),
+  ('boletas', 'f7d137_cons2_old.pdf', pg_temp.uid('f7d137_cons2')),
+  ('boletas', 'f7d137_rec_cons1.pdf', NULL),
+  ('boletas', 'f7d137_rec_oldsw.pdf', NULL);
+SELECT ok(public.record_expense_receipt_file('f7d137_rec_cons1.pdf', pg_temp.uid('f7d137_cons1'))
+          AND public.record_expense_receipt_file('f7d137_rec_oldsw.pdf', pg_temp.uid('f7d137_oldsw')),
+  'fixtures: two ownerless receipts recorded by the server (consultor, old-switch docente)');
+SELECT set_config('storage.allow_delete_query', 'true', true);
+
+-- One storage statement as who: '<n> rows' or the refusal's SQLSTATE.
+CREATE OR REPLACE FUNCTION pg_temp.st(who text, q text) RETURNS text LANGUAGE plpgsql AS $$
+DECLARE v_n int; v_res text;
+BEGIN
+  PERFORM pg_temp.act_as(who);
+  BEGIN
+    EXECUTE q;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    v_res := v_n || ' rows';
+  EXCEPTION WHEN others THEN
+    v_res := SQLSTATE;
+  END;
+  PERFORM set_config('role', 'none', true);
+  PERFORM tests.clear_authentication();
+  RETURN v_res;
+END $$;
+-- Whether a boletas object is there, read as postgres.
+CREATE OR REPLACE FUNCTION pg_temp.bol(nm text) RETURNS int LANGUAGE sql AS
+  $$ SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'boletas' AND name = nm $$;
+-- What who sees of one boletas object (NULL when the read is refused).
+CREATE OR REPLACE FUNCTION pg_temp.sees(who text, nm text) RETURNS int LANGUAGE sql AS
+  $$ SELECT pg_temp.count_as(who, format('SELECT count(*)::int FROM storage.objects WHERE bucket_id = %L AND name = %L', 'boletas', nm)) $$;
+CREATE OR REPLACE FUNCTION pg_temp.up(nm text) RETURNS text LANGUAGE sql AS
+  $$ SELECT format('INSERT INTO storage.objects (bucket_id, name, owner) VALUES (%L, %L, auth.uid())', 'boletas', nm) $$;
+CREATE OR REPLACE FUNCTION pg_temp.repl(nm text) RETURNS text LANGUAGE sql AS
+  $$ SELECT format('UPDATE storage.objects SET metadata = %L::jsonb WHERE bucket_id = %L AND name = %L', '{"f7d137":"replaced"}', 'boletas', nm) $$;
+CREATE OR REPLACE FUNCTION pg_temp.del(nm text) RETURNS text LANGUAGE sql AS
+  $$ SELECT format('DELETE FROM storage.objects WHERE bucket_id = %L AND name = %L', 'boletas', nm) $$;
+CREATE OR REPLACE FUNCTION pg_temp.replaced(nm text) RETURNS boolean LANGUAGE sql AS
+  $$ SELECT coalesce((SELECT metadata ->> 'f7d137' = 'replaced' FROM storage.objects WHERE bucket_id = 'boletas' AND name = nm), false) $$;
+
+-- The old-switch docente (can_submit row, no filing role): nothing.
+SELECT is(pg_temp.st('f7d137_oldsw', pg_temp.up('f7d137_oldsw_new.pdf')), '42501',
+  'boletas: old-switch docente cannot upload a receipt');
+SELECT is(pg_temp.bol('f7d137_oldsw_new.pdf'), 0, 'boletas: ... and nothing was stored');
+SELECT is(coalesce(pg_temp.sees('f7d137_oldsw', 'f7d137_oldsw_old.pdf'), 0), 0,
+  'boletas: old-switch docente cannot read their own earlier upload');
+SELECT is(pg_temp.st('f7d137_oldsw', pg_temp.repl('f7d137_oldsw_old.pdf')), '0 rows',
+  'boletas: old-switch docente cannot replace their own earlier upload');
+SELECT is(pg_temp.st('f7d137_oldsw', pg_temp.del('f7d137_oldsw_old.pdf')), '0 rows',
+  'boletas: old-switch docente cannot delete their own earlier upload');
+SELECT ok(pg_temp.bol('f7d137_oldsw_old.pdf') = 1 AND NOT pg_temp.replaced('f7d137_oldsw_old.pdf'),
+  'boletas: that earlier upload is still there, unchanged');
+SELECT is(coalesce(pg_temp.sees('f7d137_oldsw', 'f7d137_rec_oldsw.pdf'), 0), 0,
+  'boletas: old-switch docente cannot read a receipt the server recorded for them (not a filer)');
+
+-- A consultor with NO access row: their own receipts, in full.
+SELECT is(pg_temp.st('f7d137_cons1', pg_temp.up('f7d137_cons1_new.pdf')), '1 rows',
+  'boletas: consultor with no access row uploads a receipt');
+SELECT is(pg_temp.sees('f7d137_cons1', 'f7d137_cons1_new.pdf'), 1, 'boletas: ... and reads it back');
+SELECT is(pg_temp.st('f7d137_cons1', pg_temp.repl('f7d137_cons1_new.pdf')), '1 rows',
+  'boletas: consultor replaces their own new upload');
+SELECT is(pg_temp.st('f7d137_cons1', pg_temp.repl('f7d137_cons1_old.pdf')), '1 rows',
+  'boletas: consultor replaces their own earlier upload');
+SELECT ok(pg_temp.replaced('f7d137_cons1_new.pdf') AND pg_temp.replaced('f7d137_cons1_old.pdf'),
+  'boletas: both replacements are stored');
+SELECT is(pg_temp.st('f7d137_cons1', pg_temp.del('f7d137_cons1_new.pdf')), '1 rows',
+  'boletas: consultor deletes their own upload');
+SELECT is(pg_temp.bol('f7d137_cons1_new.pdf'), 0, 'boletas: ... and it is gone');
+SELECT is(pg_temp.sees('f7d137_cons1', 'f7d137_rec_cons1.pdf'), 1,
+  'boletas: the filer the server recorded for an ownerless receipt still reads it');
+-- ... but never another filer's receipt
+SELECT is(coalesce(pg_temp.sees('f7d137_cons1', 'f7d137_cons2_old.pdf'), 0), 0,
+  'boletas: consultor cannot read another filer''s receipt');
+SELECT is(pg_temp.st('f7d137_cons1', pg_temp.repl('f7d137_cons2_old.pdf')), '0 rows',
+  'boletas: consultor cannot replace another filer''s receipt');
+SELECT is(pg_temp.st('f7d137_cons1', pg_temp.del('f7d137_cons2_old.pdf')), '0 rows',
+  'boletas: consultor cannot delete another filer''s receipt');
+SELECT is(coalesce(pg_temp.sees('f7d137_cons1', 'f7d137_oldsw_old.pdf'), 0), 0,
+  'boletas: consultor cannot read the old-switch docente''s receipt');
+SELECT ok(pg_temp.bol('f7d137_cons2_old.pdf') = 1 AND NOT pg_temp.replaced('f7d137_cons2_old.pdf'),
+  'boletas: the other filer''s receipt is still there, unchanged');
+SELECT is(coalesce(pg_temp.sees('f7d137_cons2', 'f7d137_rec_cons1.pdf'), 0), 0,
+  'boletas: another consultor cannot read the receipt the server recorded for the first');
+
+-- A community manager with no access row: the same.
+SELECT is(pg_temp.st('f7d137_cm', pg_temp.up('f7d137_cm_new.pdf')), '1 rows',
+  'boletas: community manager with no access row uploads a receipt');
+SELECT is(pg_temp.sees('f7d137_cm', 'f7d137_cm_new.pdf'), 1, 'boletas: ... and reads it back');
+SELECT is(pg_temp.st('f7d137_cm', pg_temp.repl('f7d137_cm_new.pdf')), '1 rows',
+  'boletas: community manager replaces their own upload');
+SELECT ok(pg_temp.replaced('f7d137_cm_new.pdf'), 'boletas: ... the replacement is stored');
+SELECT is(coalesce(pg_temp.sees('f7d137_cm', 'f7d137_cons1_old.pdf'), 0), 0,
+  'boletas: community manager cannot read a consultor''s receipt');
+SELECT is(pg_temp.st('f7d137_cm', pg_temp.del('f7d137_cm_new.pdf')), '1 rows',
+  'boletas: community manager deletes their own upload');
+SELECT is(pg_temp.bol('f7d137_cm_new.pdf'), 0, 'boletas: ... and it is gone');
+
+-- Other people without a filing role.
+SELECT is(pg_temp.st('f7d137_docente', pg_temp.up('f7d137_docente.pdf')), '42501',
+  'boletas: a docente with no access row cannot upload');
+SELECT is(pg_temp.st('f7d137_inactive', pg_temp.up('f7d137_inactive.pdf')), '42501',
+  'boletas: an inactive consultor cannot upload');
+
+-- An admin reads any receipt.
+SELECT is(pg_temp.count_as('f7d137_admin1', $q$SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'boletas' AND name LIKE 'f7d137_%'$q$),
+  (SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'boletas' AND name LIKE 'f7d137_%'),
+  'boletas: an admin reads every receipt (filers'', old-switch, recorded)');
+
+-- A visitor: nothing.
+SELECT is(pg_temp.st('anon', pg_temp.up('f7d137_anon.pdf')), '42501', 'boletas: visitor cannot upload');
+SELECT is(coalesce(pg_temp.count_as('anon', $q$SELECT count(*)::int FROM storage.objects WHERE bucket_id = 'boletas'$q$), 0), 0,
+  'boletas: visitor reads nothing (0 rows or refused)');
+SELECT ok(pg_temp.st('anon', pg_temp.repl('f7d137_cons1_old.pdf')) IN ('0 rows', '42501')
+          AND pg_temp.st('anon', pg_temp.del('f7d137_cons1_old.pdf')) IN ('0 rows', '42501')
+          AND pg_temp.bol('f7d137_cons1_old.pdf') = 1,
+  'boletas: visitor cannot replace or delete a receipt');
+
+-- ---------------------------------------------------------------------------
+-- 17. Send-back 2 (guard public.expense_reports_guard): a sent report is closed
+--     to its author, an admin author included, except for deciding it; only an
+--     admin decides and writes reviewed_by / reviewed_at / review_comments; a
+--     non-admin author moves only draft -> submitted and rejected -> submitted;
+--     a report starts as draft or submitted without review fields; every real
+--     change of status leaves a history line; the server key is not stopped.
+--     Reproductions 1 to 5 of evidence/F7d/SOL-1.md, then what must still work.
+-- ---------------------------------------------------------------------------
+INSERT INTO public.expense_reports (id, report_name, start_date, end_date, submitted_by, status, reviewed_by, reviewed_at, review_comments) VALUES
+  (pg_temp.r('20'), 'F7d 137 admin1 sent B',    '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_admin1'), 'submitted', NULL, NULL, NULL),
+  (pg_temp.r('21'), 'F7d 137 cons1 rejected B', '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'),  'rejected',
+     pg_temp.uid('f7d137_admin2'), '2027-03-03 10:00+00', 'F7d 137 falta la boleta'),
+  (pg_temp.r('22'), 'F7d 137 cons1 draft C',    '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'),  'draft', NULL, NULL, NULL),
+  (pg_temp.r('23'), 'F7d 137 cons2 sent B',     '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons2'),  'submitted', NULL, NULL, NULL),
+  (pg_temp.r('24'), 'F7d 137 cm sent B',        '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cm'),     'submitted', NULL, NULL, NULL),
+  (pg_temp.r('25'), 'F7d 137 cons2 sent C',     '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons2'),  'submitted', NULL, NULL, NULL),
+  (pg_temp.r('26'), 'F7d 137 cons1 rejected C', '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'),  'rejected',
+     pg_temp.uid('f7d137_admin2'), '2027-03-03 10:00+00', 'F7d 137 revisar fechas'),
+  (pg_temp.r('27'), 'F7d 137 cons2 sent D',     '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons2'),  'submitted', NULL, NULL, NULL),
+  (pg_temp.r('28'), 'F7d 137 admin1 draft',     '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_admin1'), 'draft', NULL, NULL, NULL),
+  (pg_temp.r('2b'), 'F7d 137 admin1 rejected',  '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_admin1'), 'rejected',
+     pg_temp.uid('f7d137_admin2'), '2027-03-03 10:00+00', 'F7d 137 motivo admin'),
+  (pg_temp.r('31'), 'F7d 137 admin1 sent C',    '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_admin1'), 'submitted', NULL, NULL, NULL),
+  (pg_temp.r('32'), 'F7d 137 admin1 sent D',    '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_admin1'), 'submitted', NULL, NULL, NULL),
+  (pg_temp.r('33'), 'F7d 137 cons1 rejected D', '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'),  'rejected',
+     pg_temp.uid('f7d137_admin2'), '2027-03-03 10:00+00', 'F7d 137 falta la boleta'),
+  (pg_temp.r('34'), 'F7d 137 admin1 sent E',    '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_admin1'), 'submitted', NULL, NULL, NULL),
+  (pg_temp.r('35'), 'F7d 137 cons1 draft D',    '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'),  'draft', NULL, NULL, NULL),
+  (pg_temp.r('36'), 'F7d 137 cons1 rejected E', '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'),  'rejected',
+     pg_temp.uid('f7d137_admin2'), '2027-03-03 10:00+00', 'F7d 137 falta la boleta'),
+  (pg_temp.r('37'), 'F7d 137 admin1 sent F',    '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_admin1'), 'submitted', NULL, NULL, NULL),
+  (pg_temp.r('38'), 'F7d 137 admin1 sent G',    '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_admin1'), 'submitted', NULL, NULL, NULL),
+  (pg_temp.r('39'), 'F7d 137 cons1 rejected F', '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'),  'rejected',
+     pg_temp.uid('f7d137_admin2'), '2027-03-03 10:00+00', 'F7d 137 falta la boleta'),
+  (pg_temp.r('3a'), 'F7d 137 cons1 rejected G', '2027-03-01', '2027-03-02', pg_temp.uid('f7d137_cons1'),  'rejected',
+     pg_temp.uid('f7d137_admin2'), '2027-03-03 10:00+00', 'F7d 137 falta la boleta');
+-- one report per reproduction, so that a reproduction that succeeds before the
+-- fix does not move the next one's report
+INSERT INTO public.expense_items (id, report_id, description, amount, expense_date) VALUES
+  (pg_temp.i('20'), pg_temp.r('32'), 'F7d 137 vuelo', 9000, '2027-03-01'),
+  (pg_temp.i('21'), pg_temp.r('33'), 'F7d 137 taxi B', 2100, '2027-03-01');
+
+SELECT ok(coalesce((SELECT NOT p.prosecdef
+                           AND p.prolang = (SELECT oid FROM pg_language WHERE lanname = 'plpgsql')
+                           AND p.prorettype = 'trigger'::regtype
+                           AND p.proconfig = ARRAY['search_path=public, pg_temp']
+                           AND NOT has_function_privilege('anon', p.oid, 'EXECUTE')
+                           AND NOT has_function_privilege('authenticated', p.oid, 'EXECUTE')
+                           AND (SELECT count(*) FROM aclexplode(p.proacl) a WHERE a.grantee = 0) = 0
+                      FROM pg_proc p WHERE p.oid = to_regprocedure('public.expense_reports_guard()')), false),
+  'expense_reports_guard(): plpgsql trigger function, NOT security definer, search_path pinned, no EXECUTE for PUBLIC, anon, authenticated');
+SELECT ok(EXISTS (SELECT 1 FROM pg_trigger t WHERE t.tgrelid = 'public.expense_reports'::regclass
+                   AND t.tgname = 'expense_reports_guard' AND NOT t.tgisinternal
+                   AND t.tgfoid = to_regprocedure('public.expense_reports_guard()')
+                   AND (t.tgtype & 31) = 23),
+  'trigger expense_reports_guard: BEFORE INSERT OR UPDATE, FOR EACH ROW, on expense_reports');
+
+-- Reproduction 1: an admin author of a SENT report changes nothing of it but the decision
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET total_amount = 1 WHERE id = %L$q$, pg_temp.r('20')), pg_temp.r('20')),
+  '42501, unchanged', 'SOL-1 #1: own sent (admin author): cannot change the report');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET status = 'draft' WHERE id = %L$q$, pg_temp.r('37')), pg_temp.r('37')),
+  '42501, unchanged', 'SOL-1 #1: own sent (admin author): cannot take it back to draft');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET status = 'approved', reviewed_by = auth.uid(), reviewed_at = now(), total_amount = 1 WHERE id = %L$q$, pg_temp.r('38')), pg_temp.r('38')),
+  '42501, unchanged', 'SOL-1 #1: own sent (admin author): a decision cannot carry a change of content');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_items SET amount = 1 WHERE id = %L$q$, pg_temp.i('20')), pg_temp.r('32')),
+  '0 rows, unchanged', 'SOL-1 #1: own sent (admin author): cannot change an item');
+SELECT is(pg_temp.attempt('f7d137_admin1', pg_temp.new_item(pg_temp.i('2a'), pg_temp.r('32')), pg_temp.r('32')),
+  '42501, unchanged', 'SOL-1 #1: own sent (admin author): cannot add an item');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$DELETE FROM public.expense_items WHERE id = %L$q$, pg_temp.i('20')), pg_temp.r('32')),
+  '0 rows, unchanged', 'SOL-1 #1: own sent (admin author): cannot delete an item');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$DELETE FROM public.expense_reports WHERE id = %L$q$, pg_temp.r('32')), pg_temp.r('32')),
+  '0 rows, unchanged', 'SOL-1 #1: own sent (admin author): cannot delete the report');
+
+-- Reproduction 2: a non-admin author never writes the review fields
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET reviewed_by = %L, reviewed_at = now(), review_comments = 'Reembolso autorizado por administración' WHERE id = %L$q$, pg_temp.uid('f7d137_admin1'), pg_temp.r('21')), pg_temp.r('21')),
+  '42501, unchanged', 'SOL-1 #2: own rejected: author cannot forge the reviewer, the time and the comment');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET review_comments = NULL WHERE id = %L$q$, pg_temp.r('39')), pg_temp.r('39')),
+  '42501, unchanged', 'SOL-1 #2: own rejected: author cannot erase the reason');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'submitted', reviewed_by = auth.uid() WHERE id = %L$q$, pg_temp.r('3a')), pg_temp.r('3a')),
+  '42501, unchanged', 'SOL-1 #2: own rejected: sending it again cannot also write the reviewer');
+
+-- Reproduction 3: only an admin rejects
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'rejected', review_comments = 'Rechazado por administración' WHERE id = %L$q$, pg_temp.r('22')), pg_temp.r('22')),
+  '42501, unchanged', 'SOL-1 #3: own draft: author cannot set it rejected with a comment');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'rejected' WHERE id = %L$q$, pg_temp.r('35')), pg_temp.r('35')),
+  '42501, unchanged', 'SOL-1 #3: own draft: author cannot set it rejected');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET status = 'rejected' WHERE id = %L$q$, pg_temp.r('28')), pg_temp.r('28')),
+  '42501, unchanged', 'SOL-1 #3: own draft (admin author): cannot set it rejected (an author''s moves only)');
+
+-- Reproduction 4: an author does not take a rejected report back to draft
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'draft' WHERE id = %L$q$, pg_temp.r('36')), pg_temp.r('36')),
+  '42501, unchanged', 'SOL-1 #4: own rejected: author cannot take it back to draft');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET status = 'draft' WHERE id = %L$q$, pg_temp.r('2b')), pg_temp.r('2b')),
+  '42501, unchanged', 'SOL-1 #4: own rejected (admin author): cannot take it back to draft');
+
+-- Reproduction 5: a report starts as draft or submitted, without review fields
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$INSERT INTO public.expense_reports (id, report_name, start_date, end_date, submitted_by, status, reviewed_by, reviewed_at)
+                                                     VALUES (%L, 'Synthetic review', current_date, current_date, auth.uid(), 'approved', auth.uid(), now())$q$, pg_temp.r('2c')), pg_temp.r('2c')),
+  '42501, unchanged', 'SOL-1 #5: an admin cannot create a report already approved');
+SELECT is(pg_temp.attempt('f7d137_admin1', pg_temp.new_report(pg_temp.r('2d'), 'rejected'), pg_temp.r('2d')),
+  '42501, unchanged', 'SOL-1 #5: an admin cannot create a report already rejected');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$INSERT INTO public.expense_reports (id, report_name, start_date, end_date, submitted_by, status, review_comments)
+                                                     VALUES (%L, 'F7d 137 nuevo', '2027-03-05', '2027-03-06', auth.uid(), 'draft', 'F7d 137 aprobado de antemano')$q$, pg_temp.r('2e')), pg_temp.r('2e')),
+  '42501, unchanged', 'SOL-1 #5: an admin cannot create a draft with a review comment');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$INSERT INTO public.expense_reports (id, report_name, start_date, end_date, submitted_by, status, reviewed_by, reviewed_at)
+                                                    VALUES (%L, 'F7d 137 nuevo', '2027-03-05', '2027-03-06', auth.uid(), 'submitted', %L, now())$q$, pg_temp.r('30'), pg_temp.uid('f7d137_admin1')), pg_temp.r('30')),
+  '42501, unchanged', 'SOL-1 #5: a consultor cannot create a sent report with a reviewer');
+
+-- Must still work: a consultor's draft, from creation to sending
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_report(pg_temp.r('29'), 'draft'), pg_temp.r('29')), '1 rows, changed', 'still: consultor creates a draft');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET report_name = 'F7d 137 draft editado', total_amount = 1234, updated_at = now() WHERE id = %L$q$, pg_temp.r('29')), pg_temp.r('29')),
+  '1 rows, changed', 'still: consultor edits it');
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_item(pg_temp.i('22'), pg_temp.r('29')), pg_temp.r('29')), '1 rows, changed', 'still: consultor adds an item');
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_item(pg_temp.i('23'), pg_temp.r('29')), pg_temp.r('29')), '1 rows, changed', 'still: consultor adds another item');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$DELETE FROM public.expense_items WHERE id = %L$q$, pg_temp.i('23')), pg_temp.r('29')),
+  '1 rows, changed', 'still: consultor removes an item');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'submitted', submitted_at = now() WHERE id = %L$q$, pg_temp.r('29')), pg_temp.r('29')),
+  '1 rows, changed', 'still: consultor sends it');
+SELECT ok(pg_temp.ev_count(pg_temp.r('29')) = 1 AND pg_temp.ev_has(pg_temp.r('29'), 'submitted', pg_temp.uid('f7d137_cons1'), NULL),
+  'still: its history line: submitted, by the consultor');
+
+-- Must still work: a consultor corrects their rejected report and sends it again
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET description = 'F7d 137 con boleta', updated_at = now() WHERE id = %L$q$, pg_temp.r('33')), pg_temp.r('33')),
+  '1 rows, changed', 'still: consultor edits their rejected report');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_items SET amount = 2200 WHERE id = %L$q$, pg_temp.i('21')), pg_temp.r('33')),
+  '1 rows, changed', 'still: consultor changes an item of it');
+SELECT is(pg_temp.attempt('f7d137_cons1', pg_temp.new_item(pg_temp.i('24'), pg_temp.r('33')), pg_temp.r('33')), '1 rows, changed', 'still: consultor adds an item to it');
+SELECT is(pg_temp.attempt('f7d137_cons1', format($q$UPDATE public.expense_reports SET status = 'submitted', submitted_at = now() WHERE id = %L$q$, pg_temp.r('33')), pg_temp.r('33')),
+  '1 rows, changed', 'still: consultor sends it again');
+SELECT ok(pg_temp.ev_count(pg_temp.r('33')) = 1 AND pg_temp.ev_has(pg_temp.r('33'), 'resubmitted', pg_temp.uid('f7d137_cons1'), NULL),
+  'still: its history line: resubmitted, by the consultor');
+
+-- Must still work: an admin decides another person's sent report, with the review fields
+SELECT is(pg_temp.attempt('f7d137_admin2', format($q$UPDATE public.expense_reports SET status = 'approved', reviewed_by = auth.uid(), reviewed_at = now(), review_comments = 'F7d 137 conforme' WHERE id = %L$q$, pg_temp.r('23')), pg_temp.r('23')),
+  '1 rows, changed', 'still: an admin approves another person''s sent report with reviewer, time and comment');
+SELECT ok(coalesce((SELECT status = 'approved' AND reviewed_by = pg_temp.uid('f7d137_admin2') AND reviewed_at IS NOT NULL AND review_comments = 'F7d 137 conforme'
+                      FROM public.expense_reports WHERE id = pg_temp.r('23')), false)
+          AND pg_temp.ev_has(pg_temp.r('23'), 'approved', pg_temp.uid('f7d137_admin2'), NULL),
+  'still: ... stored as written, and an approved line by that admin');
+SELECT is(pg_temp.attempt('f7d137_admin2', format($q$UPDATE public.expense_reports SET status = 'rejected', reviewed_by = auth.uid(), reviewed_at = now(), review_comments = 'F7d 137 falta la factura' WHERE id = %L$q$, pg_temp.r('24')), pg_temp.r('24')),
+  '1 rows, changed', 'still: an admin rejects another person''s sent report with reviewer, time and comment');
+SELECT ok(coalesce((SELECT status = 'rejected' AND reviewed_by = pg_temp.uid('f7d137_admin2') AND reviewed_at IS NOT NULL
+                      FROM public.expense_reports WHERE id = pg_temp.r('24')), false)
+          AND pg_temp.ev_has(pg_temp.r('24'), 'rejected', pg_temp.uid('f7d137_admin2'), 'F7d 137 falta la factura'),
+  'still: ... stored as written, and a rejected line with the reason');
+
+-- Must still work: an admin decides their OWN sent report
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET status = 'approved', reviewed_by = auth.uid(), reviewed_at = now(), review_comments = 'F7d 137 propio' WHERE id = %L$q$, pg_temp.r('34')), pg_temp.r('34')),
+  '1 rows, changed', 'still: an admin approves their own sent report');
+SELECT ok(pg_temp.ev_count(pg_temp.r('34')) = 2 AND pg_temp.ev_has(pg_temp.r('34'), 'approved', pg_temp.uid('f7d137_admin1'), NULL),
+  'still: ... with its approved line (after the fixture''s own submitted line)');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$UPDATE public.expense_reports SET status = 'rejected', reviewed_by = auth.uid(), reviewed_at = now(), review_comments = 'F7d 137 me equivoque' WHERE id = %L$q$, pg_temp.r('31')), pg_temp.r('31')),
+  '1 rows, changed', 'still: an admin rejects their own sent report');
+
+-- Must still work: an admin who is not the author keeps full authority
+SELECT is(pg_temp.attempt('f7d137_admin2', format($q$UPDATE public.expense_reports SET total_amount = 4321 WHERE id = %L$q$, pg_temp.r('25')), pg_temp.r('25')),
+  '1 rows, changed', 'still: an admin (not the author) corrects a field of a sent report');
+SELECT is(pg_temp.attempt('f7d137_admin2', format($q$UPDATE public.expense_reports SET description = 'F7d 137 corregido' WHERE id = %L$q$, pg_temp.r('13')), pg_temp.r('13')),
+  '1 rows, changed', 'still: an admin (not the author) corrects a field of an approved report');
+SELECT is(pg_temp.attempt('f7d137_admin2', format($q$UPDATE public.expense_reports SET status = 'draft' WHERE id = %L$q$, pg_temp.r('26')), pg_temp.r('26')),
+  '1 rows, changed', 'still: an admin (not the author) reopens a rejected report to draft');
+SELECT ok(pg_temp.ev_count(pg_temp.r('26')) = 1 AND pg_temp.ev_has(pg_temp.r('26'), 'reopened', pg_temp.uid('f7d137_admin2'), NULL),
+  'history: rejected -> draft writes a reopened line');
+SELECT is(pg_temp.attempt('f7d137_admin1', format($q$DELETE FROM public.expense_reports WHERE id = %L$q$, pg_temp.r('27')), pg_temp.r('27')),
+  '1 rows, changed', 'still: an admin (not the author) deletes a report');
+
+-- Must still work: the server key (the Telegram assistant) is not stopped by the guard
+SELECT set_config('f7d137.svc_ins', format($q$INSERT INTO public.expense_reports (id, report_name, start_date, end_date, submitted_by, status, reviewed_by, reviewed_at, review_comments)
+                          VALUES (%L, 'F7d 137 servidor', '2027-03-01', '2027-03-02', %L, 'approved', %L, now(), 'F7d 137 servidor')$q$,
+                        pg_temp.r('2a'), pg_temp.uid('f7d137_cons2'), pg_temp.uid('f7d137_admin1')), true);
+SELECT set_config('f7d137.svc_upd', format($q$UPDATE public.expense_reports SET status = 'draft', review_comments = NULL WHERE id = %L$q$, pg_temp.r('2a')), true);
+SELECT tests.clear_authentication();
+SET LOCAL ROLE service_role;
+SELECT lives_ok(current_setting('f7d137.svc_ins'), 'still: the service key writes a row the guard would refuse a signed-in person');
+SELECT lives_ok(current_setting('f7d137.svc_upd'), 'still: the service key changes it freely');
+RESET ROLE;
+SELECT ok(coalesce((SELECT status = 'draft' AND review_comments IS NULL FROM public.expense_reports WHERE id = pg_temp.r('2a')), false)
+          AND pg_temp.ev_count(pg_temp.r('2a')) = 1 AND pg_temp.ev_has(pg_temp.r('2a'), 'reopened', NULL, NULL),
+  'still: ... stored, with a reopened line without an actor');
+
+SELECT * FROM finish();
+ROLLBACK;

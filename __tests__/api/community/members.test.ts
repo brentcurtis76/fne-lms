@@ -131,9 +131,9 @@ const roleRows = [
 ];
 
 const profiles = [
-  { id: U1, email: 'ana@x.cl', first_name: 'Ana', last_name: 'Uno', avatar_url: null, school_id: 7, generation_id: null, community_id: null, created_at: '2026-01-01', external_school_affiliation: null },
-  { id: U2, email: 'bruno@x.cl', first_name: 'Bruno', last_name: 'Dos', avatar_url: null, school_id: 7, generation_id: null, community_id: null, created_at: '2026-01-02', external_school_affiliation: null },
-  { id: U3, email: 'carla@x.cl', first_name: 'Carla', last_name: 'Tres', avatar_url: 'http://x/c.png', school_id: 7, generation_id: null, community_id: null, created_at: '2026-01-03', external_school_affiliation: null },
+  { id: U1, email: 'ana@x.cl', first_name: 'Ana', last_name: 'Uno', avatar_url: null, school_id: 7, generation_id: null, community_id: null, created_at: '2026-01-01', external_school_affiliation: null, approval_status: 'approved' },
+  { id: U2, email: 'bruno@x.cl', first_name: 'Bruno', last_name: 'Dos', avatar_url: null, school_id: 7, generation_id: null, community_id: null, created_at: '2026-01-02', external_school_affiliation: null, approval_status: 'approved' },
+  { id: U3, email: 'carla@x.cl', first_name: 'Carla', last_name: 'Tres', avatar_url: 'http://x/c.png', school_id: 7, generation_id: null, community_id: null, created_at: '2026-01-03', external_school_affiliation: null, approval_status: 'approved' },
 ];
 
 function setMemberRequester(communityId: string) {
@@ -255,7 +255,8 @@ describe('GET /api/community/members', () => {
       expect(m).toHaveProperty('avatar_url');
     }
     const ana = members.find((m: any) => m.id === U1);
-    expect(ana.email).toBe('ana@x.cl');
+    // F7c (N99): a plain member sees name and photo only; the e-mail is ''.
+    expect(ana.email).toBe('');
     expect(ana.first_name).toBe('Ana');
     expect(ana.last_name).toBe('Uno');
   });
@@ -278,6 +279,72 @@ describe('GET /api/community/members', () => {
       'lider_comunidad',
       'docente',
     ]);
+  });
+
+  // F7c (member e-mails, N99): e-mail addresses only for admins, the community
+  // manager of this community and its leader; unapproved people only for admins.
+  describe('e-mails and approval (F7c, N99)', () => {
+    const U4 = '66666666-6666-4666-8666-666666666666'; // profile not approved
+    const rowsWithPending = [
+      ...roleRows,
+      { id: 'r5', user_id: U4, role_type: 'docente', community_id: COMMUNITY_ID, school_id: 7, generation_id: null, is_active: true, assigned_at: '2026-01-05', created_at: '2026-01-05' },
+    ];
+    const profilesWithPending = [
+      ...profiles,
+      { id: U4, email: 'diego@x.cl', first_name: 'Diego', last_name: 'Cuatro', avatar_url: null, school_id: 7, generation_id: null, community_id: null, created_at: '2026-01-05', external_school_affiliation: null, approval_status: 'pending' },
+    ];
+    function setRequester(requesterRoles: Array<{ role_type: string; community_id: string | null }>) {
+      setService({
+        user_roles: [
+          { data: requesterRoles.map(r => ({ ...r, is_active: true })) },
+          { data: rowsWithPending },
+        ],
+        profiles: [{ data: profilesWithPending }],
+      });
+    }
+    async function membersFor(requesterRoles: Array<{ role_type: string; community_id: string | null }>) {
+      setSession(MEMBER_ID);
+      setRequester(requesterRoles);
+      const res = await invoke({ community_id: COMMUNITY_ID });
+      expect(res._getStatusCode()).toBe(200);
+      return JSON.parse(res._getData()).members as any[];
+    }
+    const emailsOf = (members: any[]) => Object.fromEntries(members.map(m => [m.id, m.email]));
+
+    it('a plain member (docente) gets empty e-mails and only approved people', async () => {
+      const members = await membersFor([{ role_type: 'docente', community_id: COMMUNITY_ID }]);
+      expect(members.map(m => m.id)).toEqual([U1, U2, U3]);
+      expect(emailsOf(members)).toEqual({ [U1]: '', [U2]: '', [U3]: '' });
+      for (const m of members) {
+        expect(m.first_name).toBeTruthy();
+        expect(m).toHaveProperty('avatar_url');
+        expect(m.user_roles.length).toBeGreaterThan(0);
+        expect(m).not.toHaveProperty('approval_status');
+      }
+    });
+
+    it('the leader of this community (lider_comunidad) gets e-mails; still only approved people', async () => {
+      const members = await membersFor([{ role_type: 'lider_comunidad', community_id: COMMUNITY_ID }]);
+      expect(emailsOf(members)).toEqual({ [U1]: 'ana@x.cl', [U2]: 'bruno@x.cl', [U3]: 'carla@x.cl' });
+    });
+
+    it('the community manager of this community gets e-mails; still only approved people', async () => {
+      const members = await membersFor([{ role_type: 'community_manager', community_id: COMMUNITY_ID }]);
+      expect(emailsOf(members)).toEqual({ [U1]: 'ana@x.cl', [U2]: 'bruno@x.cl', [U3]: 'carla@x.cl' });
+    });
+
+    it('a community manager of ANOTHER community who is a docente here gets empty e-mails', async () => {
+      const members = await membersFor([
+        { role_type: 'community_manager', community_id: OTHER_COMMUNITY_ID },
+        { role_type: 'docente', community_id: COMMUNITY_ID },
+      ]);
+      expect(emailsOf(members)).toEqual({ [U1]: '', [U2]: '', [U3]: '' });
+    });
+
+    it('an admin gets e-mails and unapproved people too', async () => {
+      const members = await membersFor([{ role_type: 'admin', community_id: null }]);
+      expect(emailsOf(members)).toEqual({ [U1]: 'ana@x.cl', [U2]: 'bruno@x.cl', [U3]: 'carla@x.cl', [U4]: 'diego@x.cl' });
+    });
   });
 
   it('requires authentication (401)', async () => {

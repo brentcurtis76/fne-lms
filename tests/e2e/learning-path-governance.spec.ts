@@ -1441,6 +1441,30 @@ test.describe('learning-path governance (W-B2c-01)', () => {
       expect(mine.status()).toBe(200);
       expect(((await mine.json()) as Array<{ id: string }>).map(c => c.id)).toContain(COURSE_ID);
     };
+    // N40: a consultor gives a course only to people their current assignments
+    // cover. Without one, the grant is refused and nothing is written.
+    await clear();
+    const uncovered = await request.post('/api/courses/batch-assign', { headers: { Authorization: `Bearer ${consultorActor.token}` }, data: { courseId: COURSE_ID, userIds: [learner.userId] } });
+    expect(uncovered.status(), 'consultor without an assignment covering the learner').toBe(403);
+    expect(await uncovered.json()).toMatchObject({ error: 'Solo puede asignar cursos a personas de sus colegios, generaciones o comunidades asignadas' });
+    for (const table of ['course_assignments', 'course_enrollments']) {
+      const { data: written, error } = await service.from(table).select('id').eq('course_id', COURSE_ID).eq(table === 'course_assignments' ? 'teacher_id' : 'user_id', learner.userId);
+      expect(error).toBeNull();
+      expect(written, `${table}: nothing written by the refused grant`).toHaveLength(0);
+    }
+    // A current, individual assignment of the learner to the consultor (synthetic, removed below).
+    const { data: coverage, error: coverageError } = await service.from('consultant_assignments').insert({
+      consultant_id: consultorActor.userId,
+      student_id: learner.userId,
+      is_active: true,
+      starts_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+      ends_at: null,
+      assignment_type: 'monitoring',
+      assignment_data: {},
+      assigned_by: adminActor.userId,
+    }).select('id').single();
+    expect(coverageError).toBeNull();
+    try {
     for (const actor of ['admin', 'consultor'] as const) {
       for (const pathFirst of [true, false]) {
         await clear();
@@ -1491,6 +1515,10 @@ test.describe('learning-path governance (W-B2c-01)', () => {
       }
     }
     await clear();
+    } finally {
+      const { error: removeCoverageError } = await service.from('consultant_assignments').delete().eq('id', coverage!.id);
+      expect(removeCoverageError).toBeNull();
+    }
   });
 
 });

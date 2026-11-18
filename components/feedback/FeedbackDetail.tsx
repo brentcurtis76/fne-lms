@@ -18,6 +18,22 @@ import {
 
 import { toast } from 'react-hot-toast';
 
+/**
+ * F7c (GES-1.6): a ticket's page address is shown as a link only when, trimmed,
+ * it parses as an http: or https: URL. Anyone signed in can file a ticket with
+ * any value, so javascript:, data:, protocol-relative and relative values are
+ * shown as plain text.
+ */
+export function isHttpPageUrl(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  try {
+    const { protocol } = new URL(value.trim());
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 interface FeedbackDetailProps {
   feedback: any;
   isOpen: boolean;
@@ -311,6 +327,7 @@ ${feedback.resolution_notes ? `\nResolution Notes: ${feedback.resolution_notes}`
                   <div className="space-y-2 text-sm text-gray-600">
                     <div className="flex items-center gap-2">
                       <ExternalLink className="w-4 h-4" />
+                      {isHttpPageUrl(feedback.page_url) ? (
                       <a 
                         href={feedback.page_url} 
                         target="_blank" 
@@ -319,6 +336,9 @@ ${feedback.resolution_notes ? `\nResolution Notes: ${feedback.resolution_notes}`
                       >
                         {feedback.page_url}
                       </a>
+                      ) : (
+                        <span className="truncate">{feedback.page_url}</span>
+                      )}
                     </div>
                     {feedback.browser_info && (
                       <details className="cursor-pointer">

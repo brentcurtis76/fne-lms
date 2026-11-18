@@ -73,6 +73,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'Forbidden' });
     }
 
+    // F7c (N99): members see each other's name and photo; e-mail addresses only
+    // for admins, the community manager of this community and its leader.
+    const canSeeEmails = Boolean(requesterRoles?.some(r =>
+      r.role_type === 'admin' ||
+      ((r.role_type === 'community_manager' || r.role_type === 'lider_comunidad') && r.community_id === communityId)
+    ));
+
     // Load all user_roles for this community (service client bypasses RLS)
     const { data: roleRows, error: rolesError } = await serviceClient
       .from('user_roles')
@@ -94,7 +101,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Fetch profiles for users
     const { data: profiles, error: profilesError } = await serviceClient
       .from('profiles')
-      .select('id, email, first_name, last_name, avatar_url, school_id, generation_id, community_id, created_at, external_school_affiliation')
+      .select('id, email, first_name, last_name, avatar_url, school_id, generation_id, community_id, created_at, external_school_affiliation, approval_status')
       .in('id', userIds);
 
     if (profilesError) {
@@ -128,9 +135,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const p = profiles?.find(pr => pr.id === rr.user_id);
+      // F7c (N99): people whose profile is not approved are listed for admins only
+      // (the same "approved" test as search-users.ts).
+      if (!isAdmin && p?.approval_status !== 'approved') continue;
       byUser.set(rr.user_id, {
         id: rr.user_id,
-        email: p?.email,
+        email: canSeeEmails ? p?.email : '',
         first_name: p?.first_name,
         last_name: p?.last_name,
         avatar_url: p?.avatar_url ?? null,

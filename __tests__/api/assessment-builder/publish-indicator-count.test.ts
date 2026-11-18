@@ -114,7 +114,7 @@ describe('GC-2 publish route: indicators', () => {
     expect(r.status).toBe(200);
     expect(r.body.success).toBe(true);
     // GC-10 send-back 1: the snapshot and the flip are one publication call.
-    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockRpc).toHaveBeenCalledTimes(2); // GC-3b: publication, then delivery
     expect(writes).toEqual([]);
   });
 });

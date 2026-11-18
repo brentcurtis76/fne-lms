@@ -66,6 +66,11 @@ import {
   incrementDocumentCounter,
   getFolderBreadcrumb,
   extractUniqueTags,
+  renameDocument,
+  moveDocument,
+  hideDocument,
+  canManageWorkspaceDocuments,
+  getWorkspaceFolders,
 } from '../../utils/documentUtils';
 import { formatFileSize } from '../../lib/utils/file-format';
 import { fetchCommunityMembers, CommunityMember } from '../../lib/community/fetchCommunityMembers';
@@ -1363,6 +1368,7 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
           canEdit={rightsFor(detailsMeetingId).canEdit}
           canDelete={rightsFor(detailsMeetingId).canDelete}
           canReadContent={rightsFor(detailsMeetingId).canReadContent}
+          currentUserId={user?.id}
         />
       )}
 
@@ -1435,6 +1441,18 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [availableUploaders, setAvailableUploaders] = useState<Array<{ id: string; name: string }>>([]);
 
+  // Rename, move and remove (the database decides who may: the uploader, the
+  // community's leader or an admin)
+  const [canManageAll, setCanManageAll] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<DocumentWithDetails | null>(null);
+  const [renameTitle, setRenameTitle] = useState('');
+  const [moveTargets, setMoveTargets] = useState<DocumentWithDetails[] | null>(null);
+  const [moveBulk, setMoveBulk] = useState(false);
+  const [moveFolderId, setMoveFolderId] = useState('');
+  const [moveFolders, setMoveFolders] = useState<DocumentFolder[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<DocumentWithDetails | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+
   useEffect(() => {
     if (workspace && user) {
       loadDocuments();
@@ -1442,8 +1460,22 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
     }
   }, [workspace, user?.id, currentFolder, filters]);
 
-  const loadDocuments = async () => {
-    if (!workspace) return;
+  // Asked once per workspace (and signed-in person).
+  useEffect(() => {
+    let cancelled = false;
+    setCanManageAll(false);
+    if (workspace?.id && user?.id) {
+      canManageWorkspaceDocuments(workspace.id).then(allowed => {
+        if (!cancelled) setCanManageAll(allowed);
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [workspace?.id, user?.id]);
+
+  const loadDocuments = async (): Promise<DocumentWithDetails[] | null> => {
+    if (!workspace) return null;
 
     try {
       setLoading(true);
@@ -1471,12 +1503,23 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
         loadAllFolders();
       }
       
+      return docs;
     } catch (error) {
       console.error('Error loading documents:', error);
       toast.error('Error al cargar los documentos');
+      return null;
     } finally {
       setLoading(false);
     }
+  };
+
+  // After a rename, move or hide: reload, and keep selected only the
+  // documents that are still in the reloaded list.
+  const reloadDocumentsKeepingSelection = async () => {
+    const docs = await loadDocuments();
+    if (!docs) return;
+    const present = new Set(docs.map(doc => doc.id));
+    setSelectedDocuments(prev => prev.filter(id => present.has(id)));
   };
 
   const loadAllFolders = async () => {
@@ -1632,17 +1675,16 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
         break;
         
       case 'edit':
-        toast('Edición de documentos próximamente', { icon: 'ℹ️' });
+        setRenameTitle(document.title);
+        setRenameTarget(document);
         break;
         
       case 'delete':
-        if (window.confirm('¿Estás seguro de que quieres eliminar este documento?')) {
-          toast('Eliminación de documentos próximamente', { icon: 'ℹ️' });
-        }
+        setDeleteTarget(document);
         break;
         
       case 'move':
-        toast('Mover documentos próximamente', { icon: 'ℹ️' });
+        openMoveDialog([document]);
         break;
         
       case 'share':
@@ -1651,6 +1693,82 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
         
       default:
         console.warn('Unknown document action:', action);
+    }
+  };
+
+  const openMoveDialog = (targets: DocumentWithDetails[], bulk = false) => {
+    if (!workspace || targets.length === 0) return;
+    setMoveBulk(bulk);
+    setMoveFolderId(!bulk ? targets[0].folder_id || '' : '');
+    setMoveFolders(allFolders);
+    setMoveTargets(targets);
+    getWorkspaceFolders(workspace.id)
+      .then(setMoveFolders)
+      .catch(error => console.error('Error loading folders:', error));
+  };
+
+  const handleRenameSave = async () => {
+    if (!renameTarget) return;
+    setActionBusy(true);
+    try {
+      await renameDocument(renameTarget.id, renameTitle);
+      setRenameTarget(null);
+      toast.success('Nombre actualizado');
+      await reloadDocumentsKeepingSelection();
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const handleMoveSave = async () => {
+    if (!moveTargets) return;
+    const folderId = moveFolderId || null;
+    setActionBusy(true);
+    try {
+      if (!moveBulk) {
+        try {
+          await moveDocument(moveTargets[0].id, folderId);
+          setMoveTargets(null);
+          toast.success('Documento movido');
+        } catch (error) {
+          toast.error((error as Error).message);
+          return;
+        }
+      } else {
+        // The bulk bar: one by one; each is decided on its own.
+        let moved = 0;
+        let refused = 0;
+        for (const target of moveTargets) {
+          try {
+            await moveDocument(target.id, folderId);
+            moved += 1;
+          } catch {
+            refused += 1;
+          }
+        }
+        setMoveTargets(null);
+        if (refused === 0) {
+          toast.success(`${moved} documento(s) movido(s)`);
+        } else {
+          toast.error(`${moved} documento(s) movido(s). ${refused} no se pudieron mover: solo quien los subió o el líder de la comunidad puede moverlos.`);
+        }
+      }
+      await reloadDocumentsKeepingSelection();
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const handleHideConfirm = async (target: DocumentWithDetails) => {
+    try {
+      await hideDocument(target.id);
+      setSelectedDocuments(prev => prev.filter(id => id !== target.id));
+      toast.success('Documento eliminado');
+      await reloadDocumentsKeepingSelection();
+    } catch (error) {
+      toast.error((error as Error).message);
     }
   };
 
@@ -1732,7 +1850,7 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
             </span>
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => toast('Mover documentos próximamente', { icon: 'ℹ️' })}
+                onClick={() => openMoveDialog(documents.filter(doc => selectedDocuments.includes(doc.id)), true)}
                 className="text-sm bg-white border border-blue-300 text-blue-700 px-3 py-1 rounded hover:bg-blue-50 transition-colors"
               >
                 Mover
@@ -1767,6 +1885,7 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
         permissions={permissions}
         loading={loading}
         userId={user?.id || ''}
+        canManageAll={canManageAll}
       />
 
       {/* Document Upload Modal */}
@@ -1794,6 +1913,156 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
           onDownload={handleDownload}
           canEdit={permissions.can_edit}
         />
+      )}
+
+      {/* Rename window (same markup as ConfirmModal) */}
+      {renameTarget && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+          onClick={() => !actionBusy && setRenameTarget(null)}
+        >
+          <div
+            data-testid="document-rename-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="document-rename-title"
+            className="bg-white rounded-lg shadow-xl max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 id="document-rename-title" className="text-lg font-semibold text-gray-900">
+                Cambiar nombre del documento
+              </h3>
+              <button
+                onClick={() => setRenameTarget(null)}
+                disabled={actionBusy}
+                className="text-gray-400 hover:text-gray-500 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void handleRenameSave();
+              }}
+            >
+              <div className="p-6">
+                <input
+                  type="text"
+                  value={renameTitle}
+                  onChange={(e) => setRenameTitle(e.target.value)}
+                  maxLength={200}
+                  aria-label="Nombre del documento"
+                  data-testid="document-rename-input"
+                  autoFocus
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]"
+                />
+              </div>
+              <div className="flex justify-end space-x-3 p-6 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setRenameTarget(null)}
+                  disabled={actionBusy}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a] transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionBusy}
+                  data-testid="document-rename-save"
+                  className="px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors bg-[#0a0a0a] hover:bg-[#0a0a0a]/90 focus:ring-[#0a0a0a]"
+                >
+                  Guardar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Move window (same markup as ConfirmModal) */}
+      {moveTargets && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+          onClick={() => !actionBusy && setMoveTargets(null)}
+        >
+          <div
+            data-testid="document-move-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="document-move-title"
+            className="bg-white rounded-lg shadow-xl max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 id="document-move-title" className="text-lg font-semibold text-gray-900">
+                Mover documento
+              </h3>
+              <button
+                onClick={() => setMoveTargets(null)}
+                disabled={actionBusy}
+                className="text-gray-400 hover:text-gray-500 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <select
+                value={moveFolderId}
+                onChange={(e) => setMoveFolderId(e.target.value)}
+                aria-label="Carpeta de destino"
+                data-testid="document-move-folder"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]"
+              >
+                <option value="">Sin carpeta</option>
+                {moveFolders.map(folder => (
+                  <option key={folder.id} value={folder.id}>
+                    {folder.folder_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-end space-x-3 p-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => setMoveTargets(null)}
+                disabled={actionBusy}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a] transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleMoveSave()}
+                disabled={actionBusy}
+                data-testid="document-move-save"
+                className="px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors bg-[#0a0a0a] hover:bg-[#0a0a0a]/90 focus:ring-[#0a0a0a]"
+              >
+                Mover
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove (hide) confirmation */}
+      {deleteTarget && (
+        <div data-testid="document-delete-confirm">
+          <ConfirmModal
+            isOpen={true}
+            onClose={() => setDeleteTarget(null)}
+            onConfirm={() => {
+              void handleHideConfirm(deleteTarget);
+            }}
+            title="Eliminar documento"
+            message={`El documento «${deleteTarget.title}» dejará de verse en este espacio. ¿Continuar?`}
+            confirmText="Eliminar"
+            cancelText="Cancelar"
+            isDangerous={true}
+          />
+        </div>
       )}
     </div>
   );

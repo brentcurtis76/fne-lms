@@ -123,6 +123,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       updated_by: caller.user.id
     };
 
+    // The early-payment discount and the viáticos, when the editor sends
+    // them; otherwise the table's defaults apply.
+    for (const field of [
+      'apply_early_bird_discount', 'early_bird_payment_date', 'viaticos_type',
+      'viaticos_amount', 'viaticos_total', 'viaticos_display_amount',
+    ] as const) {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+        quoteData[field] = field === 'early_bird_payment_date'
+          ? cleanQuoteDate(req.body[field])
+          : req.body[field];
+      }
+    }
+
     // If not using groups, include legacy fields
     if (!use_groups) {
       quoteData.arrival_date = arrival_date;
